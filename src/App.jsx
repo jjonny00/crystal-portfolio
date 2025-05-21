@@ -322,7 +322,17 @@ function App() {
           />
           
           {/* Post-processing effects for photorealism */}
-          <EffectComposer enabled={Object.values(effectsEnabled).some(Boolean)}>
+          <EffectComposer enabled={true}>
+            {/* Always include a minimal effect that doesn't visibly change the scene */}
+            <Bloom 
+              intensity={Object.values(effectsEnabled).some(Boolean) ? 0 : 0.0001}
+              luminanceThreshold={1.0}
+              luminanceSmoothing={0.9}
+              radius={0.5}
+              enabled={!Object.values(effectsEnabled).some(Boolean)}
+            />
+            
+            {/* Regular effects */}
             {effectsEnabled.bloom && (
               <Bloom 
                 luminanceThreshold={postProcessingConfig.bloom.luminanceThreshold} 

@@ -1,9 +1,9 @@
-// hooks/useKeyboardControls.js - Updated with normal map toggle
+// hooks/useKeyboardControls.js - Updated with browser-friendly shortcuts
 import { useEffect } from 'react';
 
 /**
  * Custom hook to manage keyboard controls for the crystal experience
- * Updated with performance toggles
+ * Updated with safer browser-friendly hotkeys
  */
 const useKeyboardControls = ({
   isExploded,
@@ -29,13 +29,23 @@ const useKeyboardControls = ({
   useEffect(() => {
     const handleKeyDown = (e) => {
       // Prevent handling if in an input field
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+      if (e.target.tagName === 'INPUT' || 
+          e.target.tagName === 'TEXTAREA' || 
+          e.target.isContentEditable) {
         return;
       }
       
+      // Check for modifier keys - we want to avoid conflicts with browser shortcuts
+      const hasModifier = e.ctrlKey || e.altKey || e.metaKey;
+      
+      // Skip if any modifier key is pressed (to avoid OS/browser shortcut conflicts)
+      if (hasModifier) return;
+      
+      // Process key presses without modifiers
       switch (e.code) {
         case 'Space':
           // Toggle exploded state
+          e.preventDefault(); // Prevent scrolling
           setIsExploded(prev => !prev);
           
           // If a facet is selected, deselect it
@@ -78,38 +88,54 @@ const useKeyboardControls = ({
           setShowUI(prev => !prev);
           break;
           
-        // Post-processing effect toggles
+        // Tab selection using number keys 1-4
+        case 'Digit1':
+        case 'Digit2':
+        case 'Digit3':
+        case 'Digit4':
+          // Handle tab selection if UI is visible
+          if (showUI) {
+            const tabIndex = parseInt(e.code.replace('Digit', '')) - 1;
+            // You'd need to add a function or state to handle tab switching
+            // This is a placeholder - implement switchTab function
+            if (typeof window.switchUITab === 'function') {
+              window.switchUITab(tabIndex);
+            }
+          }
+          break;
+          
+        // Effects Controls - Single key (no modifier)  
         case 'KeyB':
           // Toggle Bloom effect
-          if (handleToggleEffect && e.altKey) {
+          if (handleToggleEffect) {
             handleToggleEffect('bloom', !effectsEnabled.bloom);
           }
           break;
           
         case 'KeyC':
           // Toggle Chromatic Aberration
-          if (handleToggleEffect && e.altKey) {
+          if (handleToggleEffect) {
             handleToggleEffect('chromaticAberration', !effectsEnabled.chromaticAberration);
           }
           break;
           
         case 'KeyN':
           // Toggle Noise
-          if (handleToggleEffect && e.altKey) {
+          if (handleToggleEffect) {
             handleToggleEffect('noise', !effectsEnabled.noise);
           }
           break;
           
         case 'KeyV':
           // Toggle Vignette
-          if (handleToggleEffect && e.altKey) {
+          if (handleToggleEffect) {
             handleToggleEffect('vignette', !effectsEnabled.vignette);
           }
           break;
           
         case 'KeyP':
           // Toggle all post-processing effects
-          if (handleToggleEffect && e.altKey) {
+          if (handleToggleEffect) {
             const allEnabled = Object.values(effectsEnabled).every(Boolean);
             const newState = !allEnabled;
             
@@ -122,9 +148,32 @@ const useKeyboardControls = ({
           
         case 'KeyM':
           // Toggle normal maps
-          if (e.altKey && toggleNormalMaps) {
+          if (toggleNormalMaps) {
             toggleNormalMaps();
           }
+          break;
+          
+        case 'KeyR':
+          // Reset to high quality
+          if (performanceConfig) {
+            // Set all performance settings to high quality
+            const highQualityConfig = {
+              useNormalMaps: true,
+              textureQuality: 'high',
+              usePBR: true
+            };
+            
+            // Function to update performance config would be called here
+            // This is a placeholder - implement a proper function
+            if (typeof window.updatePerformanceConfig === 'function') {
+              window.updatePerformanceConfig(highQualityConfig);
+            }
+          }
+          break;
+          
+        case 'KeyK':
+          // K key is handled by AccessibilityInstructions component
+          // We're just adding it here for documentation
           break;
           
         default:

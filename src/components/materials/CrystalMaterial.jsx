@@ -1,10 +1,10 @@
-// CrystalMaterial.jsx - Updated for Three.js compatibility
+// CrystalMaterial.jsx - Fixed normal map toggling issue
 import React, { useEffect } from 'react';
 import * as THREE from 'three';
 
 /**
  * Component to create and apply the base crystal material
- * Updated for Three.js compatibility
+ * Updated for Three.js compatibility with fixed normal map toggling
  */
 const CrystalMaterial = ({ 
   config, 
@@ -83,31 +83,10 @@ const CrystalMaterial = ({
       // Create the material
       const material = new THREE.MeshPhysicalMaterial(baseConfig);
       
-      // Add a normal map if available
-      if (config.assets.textures.normalMap && useNormalMaps) {
-        const textureLoader = new THREE.TextureLoader();
-        textureLoader.load(config.assets.textures.normalMap, (texture) => {
-          texture.wrapS = config.materials.textures.normalMap.wrapS;
-          texture.wrapT = config.materials.textures.normalMap.wrapT;
-          texture.repeat.set(...config.materials.textures.normalMap.repeat);
-          
-          // Set texture quality based on performance settings
-          const mipmapEnabled = textureQuality !== 'low';
-          const anisotropy = textureQuality === 'high' ? 4 : (textureQuality === 'medium' ? 2 : 1);
-          
-          texture.minFilter = mipmapEnabled ? THREE.LinearMipmapLinearFilter : THREE.LinearFilter;
-          texture.generateMipmaps = mipmapEnabled;
-          texture.anisotropy = anisotropy;
-          texture.colorSpace = THREE.SRGBColorSpace; // Updated from encoding
-          
-          material.normalMap = texture;
-          material.normalScale = new THREE.Vector2(0.3, 0.3);
-          material.needsUpdate = true;
-        });
-      }
-      
       // Store the material
       materialRef.current = material;
+      
+      // We'll load the normal map in a separate effect
     };
     
     // Update existing material with new properties
@@ -223,14 +202,6 @@ const CrystalMaterial = ({
           }
           break;
       }
-      
-      // Remove normal map if disabled in performance settings
-      if (!useNormalMaps && materialRef.current.normalMap) {
-        materialRef.current.normalMap = null;
-        materialRef.current.normalScale.set(0, 0);
-      }
-      
-      materialRef.current.needsUpdate = true;
     };
 
     // If material already exists, just update it
@@ -242,8 +213,54 @@ const CrystalMaterial = ({
     // Otherwise create new material
     createMaterial();
     
-  }, [config.materials.crystal, variant, config.assets.textures.normalMap, 
-      config.materials.textures.normalMap, materialRef, useNormalMaps, usePBR, textureQuality]);
+  }, [config.materials.crystal, variant, materialRef, usePBR]);
+  
+  // Separate effect for handling normal maps - this ensures they reload when useNormalMaps changes
+  useEffect(() => {
+    if (!materialRef.current) return;
+    
+    if (useNormalMaps && config.assets.textures.normalMap) {
+      console.log('Loading normal map for crystal material:', config.assets.textures.normalMap);
+      
+      // Load normal map
+      const textureLoader = new THREE.TextureLoader();
+      textureLoader.load(config.assets.textures.normalMap, (texture) => {
+        texture.wrapS = config.materials.textures.normalMap.wrapS;
+        texture.wrapT = config.materials.textures.normalMap.wrapT;
+        texture.repeat.set(...config.materials.textures.normalMap.repeat);
+        
+        // Set texture quality based on performance settings
+        const mipmapEnabled = textureQuality !== 'low';
+        const anisotropy = textureQuality === 'high' ? 4 : (textureQuality === 'medium' ? 2 : 1);
+        
+        texture.minFilter = mipmapEnabled ? THREE.LinearMipmapLinearFilter : THREE.LinearFilter;
+        texture.generateMipmaps = mipmapEnabled;
+        texture.anisotropy = anisotropy;
+        texture.colorSpace = THREE.SRGBColorSpace;
+        
+        // Apply the normal map to the material
+        materialRef.current.normalMap = texture;
+        materialRef.current.normalScale = new THREE.Vector2(0.3, 0.3);
+        materialRef.current.needsUpdate = true;
+        
+        console.log('Normal map applied to crystal material');
+      });
+    } else {
+      // Remove normal map if disabled
+      if (materialRef.current.normalMap) {
+        console.log('Removing normal map from crystal material');
+        materialRef.current.normalMap = null;
+        materialRef.current.normalScale.set(0, 0);
+        materialRef.current.needsUpdate = true;
+      }
+    }
+  }, [
+    useNormalMaps, 
+    config.assets.textures.normalMap, 
+    config.materials.textures.normalMap, 
+    textureQuality,
+    materialRef.current // This ensures the effect runs when the material is created or changed
+  ]);
   
   return null; // This component doesn't render anything
 };

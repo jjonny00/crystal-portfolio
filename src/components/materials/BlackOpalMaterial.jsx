@@ -1,5 +1,5 @@
-// BlackOpalMaterial.jsx - Updated for Three.js compatibility
-import { useEffect } from 'react';
+// BlackOpalMaterial.jsx - Fixed normal map toggling issue
+import { useEffect, useState } from 'react';
 import * as THREE from 'three';
 import { useTexture } from '@react-three/drei';
 
@@ -20,127 +20,239 @@ const BlackOpalMaterial = ({ config, materialRef, performanceConfig = {} }) => {
     usePBR = true
   } = performanceConfig;
   
-  // Load textures conditionally based on performance settings
-  const textureUrls = [
-    '/assets/textures/blackOpal-base.png',
-    useNormalMaps ? '/assets/textures/blackOpal-normal.png' : null,
-    usePBR ? '/assets/textures/blackOpal-roughness.png' : null,
-    usePBR ? '/assets/textures/blackOpal-emissive.png' : null
-  ].filter(Boolean); // Filter out null values
+  // Keep track of loaded textures
+  const [textures, setTextures] = useState({
+    baseMap: null,
+    normalMap: null,
+    roughnessMap: null,
+    emissiveMap: null
+  });
   
-  // Load all textures
-  const textures = useTexture(textureUrls);
+  // Load base texture - this will always be needed
+  const baseTexture = useTexture('/assets/textures/blackOpal-base.png');
   
-  // Assign textures to variables - handle case when some textures are not loaded
-  const baseMap = textures[0];
-  const normalMap = useNormalMaps ? textures[1] : null;
-  const roughnessMap = usePBR ? (useNormalMaps ? textures[2] : textures[1]) : null;
-  const emissiveMap = usePBR ? (textures[textures.length - 1]) : null;
-  
-  // Set up proper texture parameters - optimized for performance
+  // Set up base texture parameters
   useEffect(() => {
-    console.log('Configuring Black Opal textures for better performance');
+    if (!baseTexture) return;
     
-    // Configure texture settings to ensure proper alignment and scale
+    console.log('Configuring Black Opal base texture');
+    
+    // Configure texture settings
     const configureTexture = (texture) => {
-      if (!texture) return;
-
       // Quality settings based on performance config
       const mipmapEnabled = textureQuality !== 'low';
       const anisotropy = textureQuality === 'high' ? 4 : (textureQuality === 'medium' ? 2 : 1);
       
-      // Ensure all textures have the same wrapping mode
       texture.wrapS = THREE.RepeatWrapping;
       texture.wrapT = THREE.RepeatWrapping;
-      
-      // Set the same repeat and offset for all textures to ensure alignment
       texture.repeat.set(1, 1);
       texture.offset.set(0, 0);
-      
-      // Use optimized filtering settings for performance
       texture.minFilter = mipmapEnabled ? THREE.LinearMipmapLinearFilter : THREE.LinearFilter;
       texture.magFilter = THREE.LinearFilter;
-      
-      // Use optimized anisotropy setting based on performance config
       texture.anisotropy = anisotropy;
-      
-      // Generate mipmaps based on performance config
       texture.generateMipmaps = mipmapEnabled;
-      
-      // Force texture update
+      texture.colorSpace = THREE.SRGBColorSpace;
       texture.needsUpdate = true;
     };
     
-    // Apply settings to all textures
-    [baseMap, normalMap, roughnessMap, emissiveMap].forEach(texture => {
-      if (texture) configureTexture(texture);
-    });
+    configureTexture(baseTexture);
     
-    // Ensure the baseMap uses SRGB color space (for correct color display)
-    if (baseMap) {
-      baseMap.colorSpace = THREE.SRGBColorSpace; // Updated from encoding to colorSpace
+    // Store the configured texture
+    setTextures(prev => ({
+      ...prev,
+      baseMap: baseTexture
+    }));
+    
+  }, [baseTexture, textureQuality]);
+  
+  // Load normal map if enabled
+  useEffect(() => {
+    if (!useNormalMaps) {
+      // If normal maps are disabled, clear the normal map
+      setTextures(prev => ({
+        ...prev,
+        normalMap: null
+      }));
+      return;
     }
     
-    console.log('All Black Opal textures configured with matching settings');
-  }, [baseMap, normalMap, roughnessMap, emissiveMap, textureQuality]);
+    console.log('Loading Black Opal normal map');
+    
+    // Load normal map
+    const textureLoader = new THREE.TextureLoader();
+    textureLoader.load('/assets/textures/blackOpal-normal.png', (texture) => {
+      // Configure texture
+      const mipmapEnabled = textureQuality !== 'low';
+      const anisotropy = textureQuality === 'high' ? 4 : (textureQuality === 'medium' ? 2 : 1);
+      
+      texture.wrapS = THREE.RepeatWrapping;
+      texture.wrapT = THREE.RepeatWrapping;
+      texture.repeat.set(1, 1);
+      texture.offset.set(0, 0);
+      texture.minFilter = mipmapEnabled ? THREE.LinearMipmapLinearFilter : THREE.LinearFilter;
+      texture.magFilter = THREE.LinearFilter;
+      texture.anisotropy = anisotropy;
+      texture.generateMipmaps = mipmapEnabled;
+      texture.needsUpdate = true;
+      
+      // Store the configured texture
+      setTextures(prev => ({
+        ...prev,
+        normalMap: texture
+      }));
+    });
+  }, [useNormalMaps, textureQuality]);
   
-  // Create or update the material when textures are loaded
+  // Load roughness and emissive maps if PBR is enabled
   useEffect(() => {
-    if (!baseMap) return;
+    if (!usePBR) {
+      // If PBR is disabled, clear the roughness and emissive maps
+      setTextures(prev => ({
+        ...prev,
+        roughnessMap: null,
+        emissiveMap: null
+      }));
+      return;
+    }
     
-    console.log('Creating Black Opal material with textures');
+    console.log('Loading Black Opal roughness and emissive maps');
     
-    // Create a physical material with opal-like properties - optimized for performance
-    const material = new THREE.MeshPhysicalMaterial({
-      // Base color from texture
-      map: baseMap,
+    // Load roughness map
+    const textureLoader = new THREE.TextureLoader();
+    textureLoader.load('/assets/textures/blackOpal-roughness.png', (texture) => {
+      // Configure texture
+      const mipmapEnabled = textureQuality !== 'low';
+      const anisotropy = textureQuality === 'high' ? 4 : (textureQuality === 'medium' ? 2 : 1);
       
-      // Normal map for surface detail - reduced strength for performance
-      normalMap: normalMap,
-      normalScale: new THREE.Vector2(
-        (config?.normalScale || 0.8) * 0.5, 
-        (config?.normalScale || 0.8) * 0.5
-      ),
+      texture.wrapS = THREE.RepeatWrapping;
+      texture.wrapT = THREE.RepeatWrapping;
+      texture.repeat.set(1, 1);
+      texture.offset.set(0, 0);
+      texture.minFilter = mipmapEnabled ? THREE.LinearMipmapLinearFilter : THREE.LinearFilter;
+      texture.magFilter = THREE.LinearFilter;
+      texture.anisotropy = anisotropy;
+      texture.generateMipmaps = mipmapEnabled;
+      texture.needsUpdate = true;
       
-      // Roughness map for varied reflection
-      roughnessMap: roughnessMap,
-      roughness: config?.roughness || 0.4,
-      
-      // Emissive map for glow
-      emissive: new THREE.Color(0x331188),
-      emissiveMap: emissiveMap,
-      emissiveIntensity: (config?.emissiveIntensity || 0.5) * 0.7, // Reduced for performance
-      
-      // Opal-like properties - simplified for performance
-      metalness: config?.metalness || 0.1,
-      clearcoat: (config?.clearcoat || 0.6) * 0.7, // Reduced for performance
-      clearcoatRoughness: 0.3, // Increased for performance
-      transmission: (config?.transmission || 0.2) * 0.7, // Reduced for performance
-      ior: 1.6, // Slightly reduced for performance
-      
-      // Iridescence properties (color shifting) - reduced for performance
-      iridescence: (config?.iridescence || 0.9) * 0.6, // Reduced for performance
-      iridescenceIOR: 1.3, // Reduced for performance
-      iridescenceThicknessRange: [100, 300], // Narrower range for performance
-      
-      // Make sure material reacts to lighting well, but reduced for performance
-      envMapIntensity: 1.5, // Reduced from 2.0 for performance
-      
-      // Alpha settings if needed
-      transparent: true,
-      alphaTest: 0.01
+      // Store the configured texture
+      setTextures(prev => ({
+        ...prev,
+        roughnessMap: texture
+      }));
     });
     
-    // Store the material in the provided ref
-    materialRef.current = material;
+    // Load emissive map
+    textureLoader.load('/assets/textures/blackOpal-emissive.png', (texture) => {
+      // Configure texture
+      const mipmapEnabled = textureQuality !== 'low';
+      const anisotropy = textureQuality === 'high' ? 4 : (textureQuality === 'medium' ? 2 : 1);
+      
+      texture.wrapS = THREE.RepeatWrapping;
+      texture.wrapT = THREE.RepeatWrapping;
+      texture.repeat.set(1, 1);
+      texture.offset.set(0, 0);
+      texture.minFilter = mipmapEnabled ? THREE.LinearMipmapLinearFilter : THREE.LinearFilter;
+      texture.magFilter = THREE.LinearFilter;
+      texture.anisotropy = anisotropy;
+      texture.generateMipmaps = mipmapEnabled;
+      texture.needsUpdate = true;
+      
+      // Store the configured texture
+      setTextures(prev => ({
+        ...prev,
+        emissiveMap: texture
+      }));
+    });
+  }, [usePBR, textureQuality]);
+  
+  // Create or update the material when textures change
+  useEffect(() => {
+    // Ensure we at least have the base map
+    if (!textures.baseMap) return;
     
-    // Cleanup function
-    return () => {
-      if (materialRef.current) {
-        materialRef.current.dispose();
+    console.log('Creating or updating Black Opal material with textures:', textures);
+    
+    // If material doesn't exist yet, create it
+    if (!materialRef.current) {
+      console.log('Creating new Black Opal material');
+      
+      // Create a physical material with opal-like properties
+      const material = new THREE.MeshPhysicalMaterial({
+        // Base color from texture
+        map: textures.baseMap,
+        
+        // Normal map for surface detail - only if provided
+        normalMap: textures.normalMap,
+        normalScale: textures.normalMap ? new THREE.Vector2(
+          (config?.normalScale || 0.8) * 0.5, 
+          (config?.normalScale || 0.8) * 0.5
+        ) : undefined,
+        
+        // Roughness map for varied reflection - only if provided
+        roughnessMap: textures.roughnessMap,
+        roughness: config?.roughness || 0.4,
+        
+        // Emissive map for glow - only if provided
+        emissive: new THREE.Color(0x331188),
+        emissiveMap: textures.emissiveMap,
+        emissiveIntensity: (config?.emissiveIntensity || 0.5) * 0.7,
+        
+        // Opal-like properties - simplified when PBR is disabled
+        metalness: config?.metalness || 0.1,
+        clearcoat: usePBR ? ((config?.clearcoat || 0.6) * 0.7) : 0,
+        clearcoatRoughness: usePBR ? 0.3 : 0,
+        transmission: usePBR ? ((config?.transmission || 0.2) * 0.7) : 0.1,
+        ior: usePBR ? 1.6 : 1.4,
+        
+        // Iridescence properties - only if PBR is enabled
+        iridescence: usePBR ? ((config?.iridescence || 0.9) * 0.6) : 0,
+        iridescenceIOR: usePBR ? 1.3 : 0,
+        iridescenceThicknessRange: usePBR ? [100, 300] : [0, 0],
+        
+        // Environment settings
+        envMapIntensity: usePBR ? 1.5 : 0.8,
+        
+        // Alpha settings
+        transparent: true,
+        alphaTest: 0.01
+      });
+      
+      // Store the material in the provided ref
+      materialRef.current = material;
+    } else {
+      // Update existing material
+      console.log('Updating existing Black Opal material');
+      
+      // Update textures
+      materialRef.current.map = textures.baseMap;
+      materialRef.current.normalMap = textures.normalMap;
+      materialRef.current.roughnessMap = textures.roughnessMap;
+      materialRef.current.emissiveMap = textures.emissiveMap;
+      
+      // Update normal scale if normal map exists
+      if (textures.normalMap) {
+        materialRef.current.normalScale.set(
+          (config?.normalScale || 0.8) * 0.5, 
+          (config?.normalScale || 0.8) * 0.5
+        );
+      } else {
+        materialRef.current.normalScale.set(0, 0);
       }
-    };
-  }, [baseMap, normalMap, roughnessMap, emissiveMap, materialRef, config]);
+      
+      // Update PBR properties
+      materialRef.current.clearcoat = usePBR ? ((config?.clearcoat || 0.6) * 0.7) : 0;
+      materialRef.current.clearcoatRoughness = usePBR ? 0.3 : 0;
+      materialRef.current.transmission = usePBR ? ((config?.transmission || 0.2) * 0.7) : 0.1;
+      materialRef.current.ior = usePBR ? 1.6 : 1.4;
+      materialRef.current.iridescence = usePBR ? ((config?.iridescence || 0.9) * 0.6) : 0;
+      materialRef.current.iridescenceIOR = usePBR ? 1.3 : 0;
+      materialRef.current.iridescenceThicknessRange = usePBR ? [100, 300] : [0, 0];
+      materialRef.current.envMapIntensity = usePBR ? 1.5 : 0.8;
+      
+      // Mark material for update
+      materialRef.current.needsUpdate = true;
+    }
+  }, [textures, materialRef, config, usePBR]);
   
   // Update material properties from config if provided
   useEffect(() => {
@@ -162,21 +274,21 @@ const BlackOpalMaterial = ({ config, materialRef, performanceConfig = {} }) => {
       
       // Update clearcoat if defined
       if (config.clearcoat !== undefined) {
-        materialRef.current.clearcoat = config.clearcoat * 0.7;
+        materialRef.current.clearcoat = usePBR ? (config.clearcoat * 0.7) : 0;
       }
       
       // Update transmission if defined
       if (config.transmission !== undefined) {
-        materialRef.current.transmission = config.transmission * 0.7;
+        materialRef.current.transmission = usePBR ? (config.transmission * 0.7) : 0.1;
       }
       
       // Update iridescence if defined
       if (config.iridescence !== undefined) {
-        materialRef.current.iridescence = config.iridescence * 0.6;
+        materialRef.current.iridescence = usePBR ? (config.iridescence * 0.6) : 0;
       }
       
-      // Update normal scale if defined
-      if (config.normalScale !== undefined) {
+      // Update normal scale if defined and normal map exists
+      if (config.normalScale !== undefined && textures.normalMap) {
         materialRef.current.normalScale.set(
           config.normalScale * 0.5, 
           config.normalScale * 0.5
@@ -186,7 +298,16 @@ const BlackOpalMaterial = ({ config, materialRef, performanceConfig = {} }) => {
       // Mark material for update
       materialRef.current.needsUpdate = true;
     }
-  }, [config, materialRef]);
+  }, [config, materialRef, usePBR, textures.normalMap]);
+  
+  // Cleanup function when component unmounts
+  useEffect(() => {
+    return () => {
+      if (materialRef.current) {
+        materialRef.current.dispose();
+      }
+    };
+  }, []);
 
   // This component doesn't render anything directly
   return null;
