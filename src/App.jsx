@@ -1,4 +1,4 @@
-// Updated App.jsx - Improved Reform Button handling
+// App.jsx - Complete file with Performance Controls and Tabbed UI
 import { useState, useCallback, useEffect } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { Environment, OrbitControls } from '@react-three/drei'
@@ -19,6 +19,9 @@ import IceOpalControls from './components/ui/IceOpalControls'
 import ControlsToggle from './components/ui/ControlsToggle'
 import FacetDetailCard from './components/ui/FacetDetailCard'
 import AccessibilityInstructions from './components/ui/AccessibilityInstructions'
+import PostProcessingControls from './components/ui/PostProcessingControls'
+import PerformanceControls from './components/ui/PerformanceControls'
+import TabbedControlPanel from './components/ui/TabbedControlPanel'
 import useKeyboardControls from './hooks/useKeyboardControls'
 
 function App() {
@@ -69,22 +72,22 @@ function App() {
     emissiveIntensity: 0.4
   });
   
-  // Set up keyboard controls
-  useKeyboardControls({
-    isExploded,
-    setIsExploded,
-    hoveredFacet,
-    setHoveredFacet,
-    selectedFacet,
-    setSelectedFacet,
-    showUI,
-    setShowUI,
-    showDetailCard,
-    setShowDetailCard,
-    setOrbitControlsEnabled,
-    config,
-    isTransitioning,
-    setIsTransitioning
+  // Post-processing effects state
+  const [effectsEnabled, setEffectsEnabled] = useState({
+    bloom: true,
+    chromaticAberration: true,
+    noise: true,
+    vignette: true
+  });
+  
+  // Post-processing config state
+  const [postProcessingConfig, setPostProcessingConfig] = useState(config.postProcessing);
+  
+  // Performance settings state
+  const [performanceConfig, setPerformanceConfig] = useState({
+    useNormalMaps: true,
+    textureQuality: 'high',
+    usePBR: true
   });
   
   // Handler for updating configuration from the control panel
@@ -108,6 +111,32 @@ function App() {
   const handleIceOpalConfigUpdate = useCallback((newConfig) => {
     console.log("Updating Ice Opal config:", newConfig);
     setIceOpalConfig(newConfig);
+  }, []);
+  
+  // Post-processing toggle handler
+  const handleToggleEffect = useCallback((effect, enabled, params = null) => {
+    // Update the enabled state
+    setEffectsEnabled(prev => ({
+      ...prev,
+      [effect]: enabled
+    }));
+    
+    // If additional parameters are provided, update the configuration
+    if (params) {
+      setPostProcessingConfig(prev => ({
+        ...prev,
+        [effect]: {
+          ...prev[effect],
+          ...params
+        }
+      }));
+    }
+  }, []);
+  
+  // Performance config update handler
+  const handlePerformanceConfigUpdate = useCallback((newConfig) => {
+    console.log("Updating performance config:", newConfig);
+    setPerformanceConfig(newConfig);
   }, []);
 
   // Toggle UI visibility
@@ -195,6 +224,36 @@ function App() {
     }
   }, [isExploded, selectedFacet, config.timing.camera, isTransitioning]);
 
+  // Keyboard shortcut for toggling normal maps
+  const toggleNormalMaps = useCallback(() => {
+    setPerformanceConfig(prev => ({
+      ...prev,
+      useNormalMaps: !prev.useNormalMaps
+    }));
+  }, []);
+
+  // IMPORTANT: Set up keyboard controls AFTER defining all callbacks
+  useKeyboardControls({
+    isExploded,
+    setIsExploded,
+    hoveredFacet,
+    setHoveredFacet,
+    selectedFacet,
+    setSelectedFacet,
+    showUI,
+    setShowUI,
+    showDetailCard,
+    setShowDetailCard,
+    setOrbitControlsEnabled,
+    config,
+    isTransitioning,
+    setIsTransitioning,
+    effectsEnabled,
+    handleToggleEffect,
+    performanceConfig,
+    toggleNormalMaps
+  });
+
   return (
     <>
       {/* Canvas for 3D content */}
@@ -252,6 +311,7 @@ function App() {
             onFacetSelect={handleFacetSelect}
             onFacetHover={handleFacetHover}
             isTransitioning={isTransitioning}
+            performanceConfig={performanceConfig}
           />
           
           {/* Environment map for realistic reflections */}
@@ -262,27 +322,35 @@ function App() {
           />
           
           {/* Post-processing effects for photorealism */}
-          <EffectComposer>
-            <Bloom 
-              luminanceThreshold={config.postProcessing.bloom.luminanceThreshold} 
-              luminanceSmoothing={config.postProcessing.bloom.luminanceSmoothing} 
-              intensity={config.postProcessing.bloom.intensity} 
-              radius={config.postProcessing.bloom.radius} 
-            />
-            <ChromaticAberration 
-              offset={config.postProcessing.chromaticAberration.offset} 
-              radialModulation={config.postProcessing.chromaticAberration.radialModulation} 
-              modulationOffset={config.postProcessing.chromaticAberration.modulationOffset} 
-            />
-            <Noise 
-              opacity={config.postProcessing.noise.opacity} 
-              blendFunction={BlendFunction.OVERLAY} 
-            />
-            <Vignette 
-              eskil={config.postProcessing.vignette.eskil} 
-              offset={config.postProcessing.vignette.offset} 
-              darkness={config.postProcessing.vignette.darkness} 
-            />
+          <EffectComposer enabled={Object.values(effectsEnabled).some(Boolean)}>
+            {effectsEnabled.bloom && (
+              <Bloom 
+                luminanceThreshold={postProcessingConfig.bloom.luminanceThreshold} 
+                luminanceSmoothing={postProcessingConfig.bloom.luminanceSmoothing} 
+                intensity={postProcessingConfig.bloom.intensity} 
+                radius={postProcessingConfig.bloom.radius} 
+              />
+            )}
+            {effectsEnabled.chromaticAberration && (
+              <ChromaticAberration 
+                offset={postProcessingConfig.chromaticAberration.offset} 
+                radialModulation={postProcessingConfig.chromaticAberration.radialModulation} 
+                modulationOffset={postProcessingConfig.chromaticAberration.modulationOffset} 
+              />
+            )}
+            {effectsEnabled.noise && (
+              <Noise 
+                opacity={postProcessingConfig.noise.opacity} 
+                blendFunction={BlendFunction.OVERLAY} 
+              />
+            )}
+            {effectsEnabled.vignette && (
+              <Vignette 
+                eskil={postProcessingConfig.vignette.eskil} 
+                offset={postProcessingConfig.vignette.offset} 
+                darkness={postProcessingConfig.vignette.darkness} 
+              />
+            )}
           </EffectComposer>
           
           {/* Camera controls - disabled when a facet is selected */}
@@ -305,29 +373,58 @@ function App() {
         disabled={isTransitioning}
       />
       
-      {/* Crystal Controls Panel - Only shown when UI is visible */}
-      {showUI && <CrystalControls onUpdate={handleConfigUpdate} />}
-      
-      {/* Material Selector - Only shown when UI is visible */}
-      {showUI && <MaterialSelector currentVariant={materialVariant} onChange={handleMaterialChange} />}
-      
-      {/* Black Opal Controls - Only show when Black Opal material is selected and UI is visible */}
-      {showUI && materialVariant === 'blackOpal' && 
-        <BlackOpalControls 
-          visible={true} 
-          onConfigUpdate={handleBlackOpalConfigUpdate}
-          currentConfig={blackOpalConfig}
-        />
-      }
-      
-      {/* Ice Opal Controls - Only show when Ice Opal material is selected and UI is visible */}
-      {showUI && materialVariant === 'iceOpal' && 
-        <IceOpalControls 
-          visible={true} 
-          onConfigUpdate={handleIceOpalConfigUpdate}
-          currentConfig={iceOpalConfig}
-        />
-      }
+      {/* Tabbed UI Controls - Only shown when UI is visible */}
+      {showUI && (
+        <TabbedControlPanel 
+          visible={true}
+          tabs={[
+            { label: 'Crystal', icon: '💎' },
+            { label: 'Materials', icon: '✨' },
+            { label: 'Effects', icon: '🔮' },
+            { label: 'Performance', icon: '⚡' }
+          ]}
+        >
+          {/* Tab 1: Crystal Controls */}
+          <CrystalControls onUpdate={handleConfigUpdate} />
+          
+          {/* Tab 2: Materials Controls */}
+          <div>
+            <MaterialSelector currentVariant={materialVariant} onChange={handleMaterialChange} />
+            
+            {/* Conditional Material Controls - Only show when relevant material is selected */}
+            {materialVariant === 'blackOpal' && (
+              <BlackOpalControls 
+                visible={true} 
+                onConfigUpdate={handleBlackOpalConfigUpdate}
+                currentConfig={blackOpalConfig}
+              />
+            )}
+            
+            {materialVariant === 'iceOpal' && (
+              <IceOpalControls 
+                visible={true} 
+                onConfigUpdate={handleIceOpalConfigUpdate}
+                currentConfig={iceOpalConfig}
+              />
+            )}
+          </div>
+          
+          {/* Tab 3: Post-Processing Effects */}
+          <PostProcessingControls 
+            effectsEnabled={effectsEnabled}
+            onToggleEffect={handleToggleEffect}
+            visible={true} 
+            config={config}
+          />
+          
+          {/* Tab 4: Performance Settings */}
+          <PerformanceControls
+            performanceConfig={performanceConfig}
+            onConfigUpdate={handlePerformanceConfigUpdate}
+            visible={true}
+          />
+        </TabbedControlPanel>
+      )}
       
       {/* Facet Detail UI Card - Shown when a facet is selected */}
       {selectedFacet && 
@@ -353,7 +450,7 @@ function App() {
         />
       }
       
-      {/* Accessibility Instructions */}
+      {/* Keyboard Shortcuts Information */}
       <AccessibilityInstructions visible={true} />
       
       {/* UI Overlay for Explode/Reform Button */}
@@ -386,7 +483,7 @@ function App() {
         </div>
       </div>
     </>
-  )
+  );
 }
 
-export default App
+export default App;

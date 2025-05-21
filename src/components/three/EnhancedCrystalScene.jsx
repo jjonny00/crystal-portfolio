@@ -1,4 +1,4 @@
-// EnhancedCrystalScene.jsx - Modified to use anchor points for label positioning
+// EnhancedCrystalScene.jsx - Updated with performance options
 import { useRef, useState, useEffect } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useGLTF } from '@react-three/drei'
@@ -28,7 +28,9 @@ const EnhancedCrystalScene = ({
   selectedFacet = null,
   hoveredFacet = null,
   onFacetSelect,
-  onFacetHover
+  onFacetHover,
+  isTransitioning,
+  performanceConfig = { useNormalMaps: true, textureQuality: 'high', usePBR: true }
 }) => {
   // Component state
   const facetRefs = useRef(Array(6).fill(null));
@@ -496,6 +498,7 @@ const EnhancedCrystalScene = ({
         iceOpalConfig={iceOpalConfig}
         config={config}
         materialRef={crystalMaterialRef}
+        performanceConfig={performanceConfig}
       />
       
       {/* Camera Controller for animations */}

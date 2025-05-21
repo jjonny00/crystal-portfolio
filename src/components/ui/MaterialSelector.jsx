@@ -1,8 +1,8 @@
-// MaterialSelector.jsx - UI component for selecting crystal material variants
+// Updated MaterialSelector.jsx - Modified for tabbed interface
 import { useState } from 'react';
 
 const MaterialSelector = ({ currentVariant, onChange }) => {
-  const [expanded, setExpanded] = useState(true);
+  // Remove expanded state as it's no longer needed with the tabbed UI
   
   // Available material variants
   const materialVariants = [
@@ -16,43 +16,7 @@ const MaterialSelector = ({ currentVariant, onChange }) => {
     { id: 'blackOpalSolidEmissive', name: 'Opal - Solid Emissive', description: 'Diagnostic: Black Opal with solid emissive' }
   ];
   
-  // Panel styles
-  const panelStyle = {
-    position: 'fixed',
-    left: expanded ? '0' : '-240px',
-    top: '20px',
-    width: '240px',
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    backdropFilter: 'blur(10px)',
-    color: 'white',
-    padding: '15px',
-    borderTopRightRadius: '8px',
-    borderBottomRightRadius: '8px',
-    boxShadow: '0 0 20px rgba(0, 0, 0, 0.5)',
-    transition: 'left 0.3s ease',
-    zIndex: 1000,
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif',
-    maxHeight: '90vh',
-    overflowY: 'auto'
-  };
-
-  const toggleStyle = {
-    position: 'absolute',
-    right: '-40px',
-    top: '0',
-    width: '40px',
-    height: '40px',
-    background: 'rgba(0, 0, 0, 0.7)',
-    borderTopRightRadius: '8px',
-    borderBottomRightRadius: '8px',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    cursor: 'pointer',
-    color: 'white',
-    fontSize: '20px'
-  };
-  
+  // Updated styles that work better in the tabbed context
   const materialItemStyle = (isSelected) => ({
     padding: '12px',
     margin: '8px 0',
@@ -73,6 +37,13 @@ const MaterialSelector = ({ currentVariant, onChange }) => {
     fontSize: '12px',
     color: 'rgba(255, 255, 255, 0.7)'
   };
+  
+  const titleStyle = {
+    margin: '0 0 15px 0', 
+    fontSize: '16px', 
+    display: 'flex', 
+    alignItems: 'center'
+  };
 
   const handleMaterialSelect = (variant) => {
     console.log(`Selected material variant: ${variant}`);
@@ -80,15 +51,8 @@ const MaterialSelector = ({ currentVariant, onChange }) => {
   };
 
   return (
-    <div style={panelStyle}>
-      <div 
-        style={toggleStyle}
-        onClick={() => setExpanded(!expanded)}
-      >
-        {expanded ? '❮' : '❯'}
-      </div>
-      
-      <h2 style={{ margin: '0 0 15px 0', fontSize: '16px', display: 'flex', alignItems: 'center' }}>
+    <div>
+      <h2 style={titleStyle}>
         <span role="img" aria-label="Material" style={{ marginRight: '8px' }}>✨</span>
         Material Selector
       </h2>

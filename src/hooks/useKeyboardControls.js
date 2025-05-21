@@ -1,8 +1,9 @@
-// hooks/useKeyboardControls.js
+// hooks/useKeyboardControls.js - Updated with normal map toggle
 import { useEffect } from 'react';
 
 /**
  * Custom hook to manage keyboard controls for the crystal experience
+ * Updated with performance toggles
  */
 const useKeyboardControls = ({
   isExploded,
@@ -16,7 +17,13 @@ const useKeyboardControls = ({
   showDetailCard,
   setShowDetailCard,
   setOrbitControlsEnabled,
-  config
+  config,
+  isTransitioning,
+  setIsTransitioning,
+  effectsEnabled,
+  handleToggleEffect,
+  performanceConfig,
+  toggleNormalMaps
 }) => {
   // Set up keyboard event listeners
   useEffect(() => {
@@ -69,6 +76,55 @@ const useKeyboardControls = ({
         case 'KeyH':
           // Toggle UI controls visibility
           setShowUI(prev => !prev);
+          break;
+          
+        // Post-processing effect toggles
+        case 'KeyB':
+          // Toggle Bloom effect
+          if (handleToggleEffect && e.altKey) {
+            handleToggleEffect('bloom', !effectsEnabled.bloom);
+          }
+          break;
+          
+        case 'KeyC':
+          // Toggle Chromatic Aberration
+          if (handleToggleEffect && e.altKey) {
+            handleToggleEffect('chromaticAberration', !effectsEnabled.chromaticAberration);
+          }
+          break;
+          
+        case 'KeyN':
+          // Toggle Noise
+          if (handleToggleEffect && e.altKey) {
+            handleToggleEffect('noise', !effectsEnabled.noise);
+          }
+          break;
+          
+        case 'KeyV':
+          // Toggle Vignette
+          if (handleToggleEffect && e.altKey) {
+            handleToggleEffect('vignette', !effectsEnabled.vignette);
+          }
+          break;
+          
+        case 'KeyP':
+          // Toggle all post-processing effects
+          if (handleToggleEffect && e.altKey) {
+            const allEnabled = Object.values(effectsEnabled).every(Boolean);
+            const newState = !allEnabled;
+            
+            handleToggleEffect('bloom', newState);
+            handleToggleEffect('chromaticAberration', newState);
+            handleToggleEffect('noise', newState);
+            handleToggleEffect('vignette', newState);
+          }
+          break;
+          
+        case 'KeyM':
+          // Toggle normal maps
+          if (e.altKey && toggleNormalMaps) {
+            toggleNormalMaps();
+          }
           break;
           
         default:
@@ -217,7 +273,12 @@ const useKeyboardControls = ({
     setShowUI,
     setShowDetailCard,
     setOrbitControlsEnabled,
-    config
+    config,
+    isTransitioning,
+    effectsEnabled,
+    handleToggleEffect,
+    performanceConfig,
+    toggleNormalMaps
   ]);
 };
 

@@ -1,4 +1,4 @@
-// CrystalMaterial.jsx - Ensure emissive properties are applied correctly
+// CrystalMaterial.jsx - Fix for updateMaterial reference error
 import React, { useEffect } from 'react';
 import * as THREE from 'three';
 
@@ -8,13 +8,7 @@ import * as THREE from 'three';
 const CrystalMaterial = ({ config, materialRef, variant = 'default' }) => {
   // Create and update the material
   useEffect(() => {
-    // If material already exists, just update it
-    if (materialRef.current) {
-      updateMaterial();
-      return;
-    }
-    
-    // Create new material and store it in the ref
+    // Create functions INSIDE useEffect to avoid reference errors
     const createMaterial = () => {
       const baseConfig = { ...config.materials.crystal };
       
@@ -175,7 +169,14 @@ const CrystalMaterial = ({ config, materialRef, variant = 'default' }) => {
       
       materialRef.current.needsUpdate = true;
     };
+
+    // If material already exists, just update it
+    if (materialRef.current) {
+      updateMaterial();
+      return;
+    }
     
+    // Otherwise create new material
     createMaterial();
     
   }, [config.materials.crystal, variant, config.assets.textures.normalMap, config.materials.textures.normalMap]);

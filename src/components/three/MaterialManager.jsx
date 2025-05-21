@@ -12,7 +12,8 @@ const MaterialManager = ({
   blackOpalConfig, 
   iceOpalConfig, 
   config, 
-  materialRef 
+  materialRef,
+  performanceConfig // Add this prop
 }) => {
   // Return the appropriate material component based on the variant
   switch (materialVariant) {
@@ -20,7 +21,8 @@ const MaterialManager = ({
       return (
         <BlackOpalMaterial 
           config={blackOpalConfig} 
-          materialRef={materialRef} 
+          materialRef={materialRef}
+          performanceConfig={performanceConfig}
         />
       );
     
@@ -29,6 +31,7 @@ const MaterialManager = ({
         <BlackOpalSolidBase
           config={blackOpalConfig}
           materialRef={materialRef}
+          performanceConfig={performanceConfig}
         />
       );
     
@@ -37,6 +40,7 @@ const MaterialManager = ({
         <BlackOpalSolidEmissive
           config={blackOpalConfig}
           materialRef={materialRef}
+          performanceConfig={performanceConfig}
         />
       );
     
@@ -45,6 +49,7 @@ const MaterialManager = ({
         <IceOpalMaterial
           config={iceOpalConfig}
           materialRef={materialRef}
+          performanceConfig={performanceConfig}
         />
       );
     
@@ -53,7 +58,8 @@ const MaterialManager = ({
         <CrystalMaterial 
           config={config} 
           materialRef={materialRef} 
-          variant={materialVariant} 
+          variant={materialVariant}
+          performanceConfig={performanceConfig}
         />
       );
   }

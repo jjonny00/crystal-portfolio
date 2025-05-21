@@ -1,9 +1,8 @@
-// CrystalControls.jsx
+// CrystalControls.jsx - Updated for tabbed interface
 import { useState } from 'react';
 import * as crystalConfig from '../../crystalConfig';
 
 const CrystalControls = ({ onUpdate }) => {
-  const [expanded, setExpanded] = useState(true);
   const [activeTab, setActiveTab] = useState('timing');
   
   // Timing state
@@ -201,41 +200,9 @@ const CrystalControls = ({ onUpdate }) => {
     onUpdate(crystalConfig);
   };
 
-  // Panel styles
-  const panelStyle = {
-    position: 'fixed',
-    right: expanded ? '0' : '-320px',
-    top: '20px',
-    width: '320px',
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    backdropFilter: 'blur(10px)',
-    color: 'white',
-    padding: '15px',
-    borderTopLeftRadius: '8px',
-    borderBottomLeftRadius: '8px',
-    boxShadow: '0 0 20px rgba(0, 0, 0, 0.5)',
-    transition: 'right 0.3s ease',
-    zIndex: 1000,
+  // Container style - no fixed positioning since parent handles that
+  const containerStyle = {
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif',
-    maxHeight: '90vh',
-    overflowY: 'auto'
-  };
-
-  const toggleStyle = {
-    position: 'absolute',
-    left: '-40px',
-    top: '0',
-    width: '40px',
-    height: '40px',
-    background: 'rgba(0, 0, 0, 0.7)',
-    borderTopLeftRadius: '8px',
-    borderBottomLeftRadius: '8px',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    cursor: 'pointer',
-    color: 'white',
-    fontSize: '20px'
   };
 
   const tabStyle = {
@@ -642,15 +609,9 @@ const CrystalControls = ({ onUpdate }) => {
     </div>
   );
 
+  // Updated return statement for tabbed interface
   return (
-    <div style={panelStyle}>
-      <div 
-        style={toggleStyle}
-        onClick={() => setExpanded(!expanded)}
-      >
-        {expanded ? '❯' : '❮'}
-      </div>
-      
+    <div style={containerStyle}>
       <h2 style={{ margin: '0 0 15px 0', fontSize: '16px', display: 'flex', alignItems: 'center' }}>
         <span role="img" aria-label="Crystal" style={{ marginRight: '8px' }}>💎</span>
         Crystal Controls
