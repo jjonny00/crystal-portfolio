@@ -325,7 +325,7 @@ export const assets = {
     facetExploration: '/assets/models/FacetExploration.glb'
   },
   textures: {
-    normalMap: '/assets/textures/quartz-normal07.png'
+    // normalMap: '/assets/textures/quartz-normal07.png'
   }
 }
 
