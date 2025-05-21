@@ -1,0 +1,1134 @@
+Crystal reference:
+
+https://www.unearthedgemstones.com/posts/most-beautiful-gemstones
+https://astrogallery.com/collections/minerals-over-1000
+https://www.fossilera.com/pages/most-popular-crystals
+
+First Messages:
+
+Project Hub
+This chat will be the Project Hub for my Crystal Portfolio project. Your role is to coordinate the overall project and track progress across all workstreams. Please acknowledge this role but don't start any work yet. I'll provide full project context in my next message.
+
+Core Experience
+This chat will focus on the Core Experience aspect of my Crystal Portfolio project. Your role covers the 3D implementation, camera system, animation, and interaction model. Please acknowledge this role but don't start any work yet. I'll provide full project context in my next message.
+
+Content System
+This chat will focus on the Content System for my Crystal Portfolio project. Your role covers typography, content presentation, facet information display, and bio/resume integration. Please acknowledge this role but don't start any work yet. I'll provide full project context in my next message.
+
+Technical Optimizations
+This chat will focus on Technical Optimizations for my Crystal Portfolio project. Your role covers performance optimization, responsive design, accessibility features, and loading states. Please acknowledge this role but don't start any work yet. I'll provide full project context in my next message.
+
+
+First Tasks:
+
+Project Hub
+Now that you understand the project context, please create a project roadmap with clear milestones and dependencies for all four workstreams (Core Experience, Content System, Technical Optimizations, and overall integration). Include approximate timeframes and identify critical path items.
+
+Core Experience
+Now that you understand the project context, please start by designing an improved state management system using reducers. Focus on creating a predictable state flow for the crystal's different states (whole, exploding, exploded, focusing on a facet, reforming).
+
+Content System
+Now that you understand the project context, please design the content presentation system for displaying information about each facet. Focus on typography, layout, and transitions for showing the facet's name, description, and associated skills/technologies.
+
+Technical Optimizations
+Now that you understand the project context, please design an asset loading system with proper preloading, Suspense integration, and loading indicators. Focus on creating a smooth loading experience that maintains visual quality.
+
+
+
+!!OLD Handoff Doc:
+# CRYSTAL PORTFOLIO - PROJECT CONTEXT DOCUMENT
+
+## IMPORTANT: READ THESE INSTRUCTIONS FIRST
+When you receive this document, please:
+1. Acknowledge that you've received it
+2. Confirm that you understand the role of this specific chat (which I'll tell you separately)
+3. DO NOT begin any implementation or coding work yet
+4. Wait for my explicit instructions on what to do next
+
+This document is purely for context and background information. I will tell you exactly what to work on after you've reviewed this document.
+
+## PROJECT OVERVIEW
+The Crystal Portfolio project is a placeholder site showcasing Jon's design philosophy through an interactive 3D crystal experience. The crystal represents his growth as a designer, with six facets highlighting different aspects of his approach. The site targets design leaders at companies like Apple, Meta, and Airbnb.
+
+## PROJECT STRUCTURE
+This project is managed across four separate chats, each with a specific focus:
+
+1. **Project Hub Chat**
+   - Central coordination and project management
+   - Tracking dependencies between work streams
+   - Documenting decisions and reference materials
+
+2. **Core Experience Chat**
+   - 3D implementation and camera system
+   - Animation and interaction model
+   - State management for experience flow
+
+3. **Content System Chat**
+   - Typography and content presentation
+   - Facet information display
+   - Bio and resume integration
+
+4. **Technical Optimizations Chat**
+   - Performance optimization
+   - Responsive design implementation
+   - Accessibility features
+
+## CONCEPT AND VISION
+
+### The Crystal Metaphor
+The crystal represents Jon's growth as a designer over his career. Each facet represents a different strength in his approach. When the crystal explodes, it reveals these individual facets - not destroying the crystal, but allowing exploration of each component while emphasizing that all are essential parts of a cohesive whole.
+
+### The Six Facets
+- **Empathy** - Understanding user needs and designing with care
+- **Narrative** - Using storytelling to guide teams and align stakeholders
+- **Craft** - Attention to detail and precision in execution
+- **System** - Scaling design through systematic thinking
+- **Leadership** - Empowering teams with context and humility
+- **Exploration** - Driven by curiosity and finding opportunity in ambiguity
+
+### Tone & Presentation Style
+- **Humble Confidence**: Assured in skill without arrogance
+- **Team Orientation**: Emphasizing collaboration and shared success
+- **Thoughtful Elegance**: Polished without being flashy
+- **Cinematic Quality**: Directed with intention like a film
+
+## USER EXPERIENCE FLOW
+
+1. **Introduction**
+   - User arrives at minimal landing page with Jon's name/title
+   - Crystal appears with subtle animation and camera movement
+   - Brief text introduction sets the context
+   - Clear CTA invites interaction
+
+2. **Crystal Explosion**
+   - User triggers crystal explosion through primary CTA
+   - Cinematic camera movement enhances the explosion effect
+   - Crystal separates into six facets with Matrix bullet-time style slowdown
+   - Facets settle into position with subtle ambient movement
+
+3. **Facet Exploration**
+   - User can select individual facets
+   - Camera moves to focus on selected facet
+   - Content panel appears with philosophy and relevant skills
+   - Simple navigation between facets and return to overview
+
+4. **Supporting Elements**
+   - Minimal navigation provides access to bio and resume
+   - Bio presents professional background and expertise
+   - Resume available for download
+
+## TECHNICAL SPECIFICATIONS
+
+### Tech Stack
+- React 18.3.0
+- React DOM 18.3.0
+- @react-three/fiber 8.17.10
+- @react-three/drei 9.114.3
+- @react-three/postprocessing 2.16.3
+- @react-spring/three 9.7.5
+- @react-spring/web 9.7.5
+- Vite as the build tool
+
+### Assets
+- Whole crystal model (CrystalWhole.glb)
+- Six facet models (FacetEmpathy.glb, etc.)
+- HDR environment maps for lighting
+- Texture maps for material details
+
+### Current Code Status
+The existing implementation includes:
+- Basic React/Vite project structure
+- Three.js scene with model loading
+- Initial explosion animation
+- Material setup for the crystal
+- Post-processing effects
+
+## CODE IMPROVEMENT PLAN
+
+### 1. State Management
+- Replace multiple useState calls with reducer pattern
+- Create predictable state transitions
+- Separate UI state from animation state
+
+### 2. Component Organization
+- Separate concerns into focused components
+- Create reusable hooks for common functionality
+- Improve code maintainability
+
+### 3. Camera System
+- Implement cinematic camera controller
+- Create smooth transitions between states
+- Add directorial camera positioning
+
+### 4. Content Presentation
+- Design system for displaying facet information
+- Create transitions for content appearance
+- Implement bio and resume sections
+
+### 5. Performance Optimization
+- Add proper asset preloading
+- Implement loading states with Suspense
+- Create device capability detection
+
+### 6. Accessibility & Responsiveness
+- Add keyboard navigation support
+- Implement ARIA attributes
+- Create responsive adaptations for different devices
+
+## DEVELOPMENT PRIORITIES
+- Focus on quality over quantity
+- Build core functionality first, then layer in polish
+- Maintain high standards for visual and interaction design
+- Balance sophistication with appropriate scope for a placeholder site
+
+REMEMBER: Please wait for my specific instructions before beginning any implementation work.
+
+-------
+
+
+
+
+Handoff Doc:
+# CRYSTAL PORTFOLIO - PROJECT CONTEXT DOCUMENT
+
+## IMPORTANT: READ THESE INSTRUCTIONS FIRST
+When you receive this document, please:
+1. Acknowledge that you've received it
+2. Confirm that you understand the role of this specific chat (which I'll tell you separately)
+3. DO NOT begin any implementation or coding work yet
+4. Wait for my explicit instructions on what to do next
+
+This document is purely for context and background information. I will tell you exactly what to work on after you've reviewed this document.
+
+## PROJECT OVERVIEW
+The Crystal Portfolio project is a placeholder site showcasing Jon's design philosophy through an interactive 3D crystal experience. The crystal represents his growth as a designer, with six facets highlighting different aspects of his approach. The site targets design leaders at companies like Apple, Meta, and Airbnb.
+
+## CONCEPT AND VISION
+
+### The Crystal Metaphor
+The crystal represents Jon's growth as a designer over his career. Each facet represents a different strength in his approach. When the crystal explodes, it reveals these individual facets - not destroying the crystal, but allowing exploration of each component while emphasizing that all are essential parts of a cohesive whole.
+
+### The Six Facets
+- **Empathy** - Understanding user needs and designing with care
+- **Narrative** - Using storytelling to guide teams and align stakeholders
+- **Craft** - Attention to detail and precision in execution
+- **System** - Scaling design through systematic thinking
+- **Leadership** - Empowering teams with context and humility
+- **Exploration** - Driven by curiosity and finding opportunity in ambiguity
+
+### Tone & Presentation Style
+- **Humble Confidence**: Assured in skill without arrogance
+- **Team Orientation**: Emphasizing collaboration and shared success
+- **Thoughtful Elegance**: Polished without being flashy
+- **Cinematic Quality**: Directed with intention like a film
+
+## USER EXPERIENCE FLOW
+
+1. **Introduction**
+   - User arrives at minimal landing page with Jon's name/title
+   - Crystal appears with subtle animation and camera movement
+   - Brief text introduction sets the context
+   - Clear CTA invites interaction
+
+2. **Crystal Explosion**
+   - User triggers crystal explosion through primary CTA
+   - Cinematic camera movement enhances the explosion effect
+   - Crystal separates into six facets with Matrix bullet-time style slowdown
+   - Facets settle into position with subtle ambient movement
+
+3. **Facet Exploration**
+   - User can select individual facets
+   - Camera moves to focus on selected facet
+   - Content panel appears with philosophy and relevant skills
+   - Simple navigation between facets and return to overview
+
+4. **Supporting Elements**
+   - Minimal navigation provides access to bio and resume
+   - Bio presents professional background and expertise
+   - Resume available for download
+
+## TECHNICAL SPECIFICATIONS
+
+### Tech Stack
+- React 18.3.0
+- React DOM 18.3.0
+- @react-three/fiber 8.17.10
+- @react-three/drei 9.114.3
+- @react-three/postprocessing 2.16.3
+- @react-spring/three 9.7.5
+- @react-spring/web 9.7.5
+- Vite as the build tool
+
+### Assets
+- Whole crystal model (CrystalWhole.glb)
+- Six facet models (FacetEmpathy.glb, etc.)
+- HDR environment maps for lighting
+- Texture maps for material details
+
+### Current Code Status
+The existing implementation includes:
+- Basic React/Vite project structure
+- Three.js scene with model loading
+- Initial explosion animation
+- Material setup for the crystal
+- Post-processing effects
+
+## CODE IMPROVEMENT PLAN
+
+### 1. State Management
+- Replace multiple useState calls with reducer pattern
+- Create predictable state transitions
+- Separate UI state from animation state
+
+### 2. Component Organization
+- Separate concerns into focused components
+- Create reusable hooks for common functionality
+- Improve code maintainability
+
+### 3. Camera System
+- Implement cinematic camera controller
+- Create smooth transitions between states
+- Add directorial camera positioning
+
+### 4. Content Presentation
+- Design system for displaying facet information
+- Create transitions for content appearance
+- Implement bio and resume sections
+
+### 5. Performance Optimization
+- Add proper asset preloading
+- Implement loading states with Suspense
+- Create device capability detection
+
+### 6. Accessibility & Responsiveness
+- Add keyboard navigation support
+- Implement ARIA attributes
+- Create responsive adaptations for different devices
+
+## DEVELOPMENT PRIORITIES
+- Focus on quality over quantity
+- Build core functionality first, then layer in polish
+- Maintain high standards for visual and interaction design
+- Balance sophistication with appropriate scope for a placeholder site
+
+REMEMBER: Please wait for my specific instructions before beginning any implementation work.
+
+-------
+
+
+
+Failed App.jsx
+import { Canvas } from '@react-three/fiber'
+import { Environment, ContactShadows } from '@react-three/drei'
+import { EffectComposer, Bloom, ChromaticAberration, Noise, Vignette } from '@react-three/postprocessing'
+import { BlendFunction } from 'postprocessing'
+import CrystalScene from './components/three/CrystalScene'
+import { CRYSTAL_STATES, useCrystalState, explodeCrystal, reformCrystal } from './state/crystalReducer'
+import './App.css'
+
+function App() {
+  const [state, dispatch] = useCrystalState();
+  
+  // Determine if the crystal is in an exploded state
+  const isExploded = state.crystalState !== CRYSTAL_STATES.WHOLE && 
+                     state.crystalState !== CRYSTAL_STATES.REFORMING;
+  
+  // Toggle between exploded and reformed states
+  const toggleExploded = () => {
+    if (isExploded) {
+      dispatch(reformCrystal());
+    } else {
+      dispatch(explodeCrystal());
+    }
+  };
+  
+  // Get appropriate button text based on current state
+  const getButtonText = () => {
+    switch (state.crystalState) {
+      case CRYSTAL_STATES.WHOLE:
+        return 'Reveal Facets';
+      case CRYSTAL_STATES.EXPLODING:
+        return 'Exploding...';
+      case CRYSTAL_STATES.EXPLODED:
+        return 'Reform Crystal';
+      case CRYSTAL_STATES.FOCUSED:
+        return 'Reform Crystal';
+      case CRYSTAL_STATES.FOCUSING:
+        return 'Focusing...';
+      case CRYSTAL_STATES.UNFOCUSING:
+        return 'Unfocusing...';
+      case CRYSTAL_STATES.REFORMING:
+        return 'Reforming...';
+      default:
+        return 'Reveal Facets';
+    }
+  };
+  
+  // Determine if button should be disabled during transitions
+  const isButtonDisabled = 
+    state.crystalState === CRYSTAL_STATES.EXPLODING ||
+    state.crystalState === CRYSTAL_STATES.REFORMING ||
+    state.crystalState === CRYSTAL_STATES.FOCUSING ||
+    state.crystalState === CRYSTAL_STATES.UNFOCUSING;
+  
+  return (
+    <div style={{ width: '100vw', height: '100vh', position: 'fixed', top: 0, left: 0 }}>
+      <Canvas shadows camera={{ position: [0, 0, 5], fov: 45 }} dpr={[1, 2]}>
+        {/* Dark background for contrast */}
+        <color attach="background" args={['#050505']} />
+        
+        {/* Three-point lighting for realistic crystal */}
+        <ambientLight intensity={0.2} />
+        
+        {/* Key light - main light source */}
+        <directionalLight 
+          position={[10, 8, 5]} 
+          intensity={1.8} 
+          color="#FFFFFF" 
+          castShadow
+          shadow-mapSize-width={2048}
+          shadow-mapSize-height={2048}
+        />
+        
+        {/* Fill light - softer, from opposite side */}
+        <pointLight position={[-5, 3, -5]} intensity={0.8} color="#CCE8FF" />
+        
+        {/* Rim light - edge definition */}
+        <pointLight position={[0, -8, -10]} intensity={0.6} color="#FFFFFF" />
+        
+        {/* Additional front light to enhance transparency */}
+        <spotLight 
+          position={[0, 0, 10]} 
+          intensity={1.0} 
+          angle={Math.PI / 4}
+          penumbra={0.2}
+          color="#FFFFFF"
+        />
+        
+        {/* Enhanced crystal scene with state management */}
+        <CrystalScene isExploded={isExploded} />
+        
+        {/* Soft contact shadow for realism */}
+        <ContactShadows
+          position={[0, -1.5, 0]}
+          opacity={0.5}
+          scale={15}
+          blur={2.5}
+          far={2}
+          color="#000000"
+        />
+        
+        {/* Environment map for realistic reflections */}
+        <Environment files="/assets/textures/CrystalCave03.hdr" background={true} />
+        
+        {/* Post-processing effects for photorealism */}
+        <EffectComposer>
+          {/* Bloom for that golden glow */}
+          <Bloom 
+            luminanceThreshold={0.05}
+            luminanceSmoothing={0.9}
+            intensity={1.0}
+            radius={0.9}
+          />
+          
+          {/* Chromatic aberration for realistic light dispersion */}
+          <ChromaticAberration 
+            offset={[0.002, 0.002]}
+            radialModulation={true}
+            modulationOffset={0.5}
+          />
+          
+          {/* Subtle noise for perceived detail */}
+          <Noise 
+            opacity={0.015}
+            blendFunction={BlendFunction.OVERLAY}
+          />
+          
+          {/* Vignette for focus and depth */}
+          <Vignette 
+            eskil={false} 
+            offset={0.1} 
+            darkness={1.1}
+          />
+        </EffectComposer>
+      </Canvas>
+      
+      {/* Primary action button with enhanced states */}
+      <button 
+        onClick={toggleExploded}
+        disabled={isButtonDisabled}
+        style={{
+          position: 'fixed',
+          bottom: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          padding: '12px 24px',
+          fontSize: '16px',
+          fontWeight: '500',
+          cursor: isButtonDisabled ? 'default' : 'pointer',
+          zIndex: 9999,
+          color: 'white',
+          background: isButtonDisabled ? 'rgba(30, 30, 30, 0.5)' : 'rgba(0, 0, 0, 0.5)',
+          border: '1px solid rgba(255, 255, 255, 0.3)',
+          borderRadius: '8px',
+          backdropFilter: 'blur(10px)',
+          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+          pointerEvents: 'auto',
+          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif',
+          transition: 'all 0.3s ease',
+          opacity: isButtonDisabled ? 0.7 : 1,
+          minWidth: '180px', // Consistent button width
+        }}
+        onMouseEnter={(e) => {
+          if (!isButtonDisabled) {
+            e.currentTarget.style.background = 'rgba(40, 40, 40, 0.7)';
+            e.currentTarget.style.transform = 'translateX(-50%) translateY(-2px)';
+          }
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = isButtonDisabled ? 'rgba(30, 30, 30, 0.5)' : 'rgba(0, 0, 0, 0.5)';
+          e.currentTarget.style.transform = 'translateX(-50%)';
+        }}
+      >
+        {getButtonText()}
+      </button>
+      
+      {/* Info text that appears during focused state */}
+      {state.crystalState === CRYSTAL_STATES.FOCUSED && (
+        <div style={{
+          position: 'fixed',
+          top: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: 'rgba(0, 0, 0, 0.5)',
+          color: 'white',
+          padding: '10px 20px',
+          borderRadius: '8px',
+          backdropFilter: 'blur(10px)',
+          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif',
+          fontSize: '14px',
+          maxWidth: '80%',
+          textAlign: 'center',
+          zIndex: 9999,
+          animation: 'fadeIn 0.5s ease-out',
+        }}>
+          <div style={{ marginBottom: '6px', fontWeight: '600' }}>
+            {facetLabels.find(l => l.key === state.selectedFacet)?.text || 'FACET'}
+          </div>
+          <div style={{ fontSize: '12px', opacity: 0.9 }}>
+            {facetLabels.find(l => l.key === state.selectedFacet)?.description || ''}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Define facet labels (copy from CrystalScene for consistency)
+const facetLabels = [
+  { 
+    key: 'empathy', 
+    text: 'EMPATHY', 
+    description: 'Understanding user needs and designing with care',
+    color: '#64ffda' 
+  },
+  { 
+    key: 'narrative', 
+    text: 'NARRATIVE', 
+    description: 'Using storytelling to guide teams and align stakeholders',
+    color: '#bb86fc' 
+  },
+  { 
+    key: 'craft', 
+    text: 'CRAFT', 
+    description: 'Precision in execution and attention to detail',
+    color: '#03dac6' 
+  },
+  { 
+    key: 'system', 
+    text: 'SYSTEM', 
+    description: 'Scaling design through systematic thinking',
+    color: '#cf6679' 
+  },
+  { 
+    key: 'leadership', 
+    text: 'LEADERSHIP', 
+    description: 'Empowering teams with context and humility',
+    color: '#ffd600' 
+  },
+  { 
+    key: 'exploration', 
+    text: 'EXPLORATION', 
+    description: 'Finding opportunity in ambiguity',
+    color: '#ff7043' 
+  }
+]
+
+// Add a fade-in animation for the info text
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px) translateX(-50%); }
+    to { opacity: 1; transform: translateY(0) translateX(-50%); }
+  }
+`;
+document.head.appendChild(style);
+
+export default App
+
+-------
+
+
+
+
+Failed CrystalScene.jsx
+import { useRef, useState, useEffect } from 'react'
+import { useFrame } from '@react-three/fiber'
+import { useGLTF, Html, useTexture } from '@react-three/drei'
+import { a, useSpring } from '@react-spring/three'
+import * as THREE from 'three'
+
+import { 
+  CRYSTAL_STATES, 
+  useCrystalState, 
+  calculatePositions,
+  calculateCamera,
+  selectFacet,
+  deselectFacet
+} from '../../state/crystalReducer'
+import CameraController from './CameraController'
+import GlowEffect from './GlowEffect'
+import InteractionController from './InteractionController'
+
+// Define the facet information
+const facetLabels = [
+  { 
+    key: 'empathy', 
+    text: 'EMPATHY', 
+    description: 'Understanding user needs and designing with care',
+    color: '#64ffda' 
+  },
+  { 
+    key: 'narrative', 
+    text: 'NARRATIVE', 
+    description: 'Using storytelling to guide teams and align stakeholders',
+    color: '#bb86fc' 
+  },
+  { 
+    key: 'craft', 
+    text: 'CRAFT', 
+    description: 'Precision in execution and attention to detail',
+    color: '#03dac6' 
+  },
+  { 
+    key: 'system', 
+    text: 'SYSTEM', 
+    description: 'Scaling design through systematic thinking',
+    color: '#cf6679' 
+  },
+  { 
+    key: 'leadership', 
+    text: 'LEADERSHIP', 
+    description: 'Empowering teams with context and humility',
+    color: '#ffd600' 
+  },
+  { 
+    key: 'exploration', 
+    text: 'EXPLORATION', 
+    description: 'Finding opportunity in ambiguity',
+    color: '#ff7043' 
+  }
+]
+
+// Enhanced label component with interactive capabilities
+const FacetLabel = ({ facet, position, visible, isSelected, onSelect }) => {
+  const labelRef = useRef()
+  const [hovered, setHovered] = useState(false)
+  
+  // Main label animation (opacity and scale)
+  const springProps = useSpring({
+    opacity: visible ? 1 : 0,
+    scale: visible ? (hovered ? 1.05 : 1) : 0.5,
+    config: { tension: 280, friction: 12 }
+  })
+  
+  // Description animation
+  const descriptionSpring = useSpring({
+    opacity: hovered || isSelected ? 1 : 0,
+    height: hovered || isSelected ? 'auto' : '0px',
+    config: { tension: 280, friction: 20 }
+  })
+  
+  // Selection indicator animation
+  const selectionSpring = useSpring({
+    width: isSelected ? '100%' : '0%',
+    config: { tension: 300, friction: 18 }
+  })
+  
+  // Handle click
+  const handleClick = () => {
+    onSelect(facet.key);
+  }
+  
+  return (
+    <group position={position || [0, 0, 0]}>
+      <Html
+        center
+        transform
+        distanceFactor={3}
+        sprite
+        ref={labelRef}
+        onPointerEnter={() => setHovered(true)}
+        onPointerLeave={() => setHovered(false)}
+        onClick={handleClick}
+        style={{ zIndex: 10 }}
+      >
+        <a.div 
+          style={{
+            opacity: springProps.opacity,
+            transform: springProps.scale.to(s => `scale(${s})`),
+            pointerEvents: visible ? 'auto' : 'none',
+            userSelect: 'none',
+            cursor: 'pointer',
+            background: isSelected ? 'rgba(0,0,0,0.4)' : 'transparent',
+            padding: isSelected ? '12px' : '0',
+            borderRadius: '8px',
+            backdropFilter: isSelected ? 'blur(5px)' : 'none',
+            transition: 'background 0.3s, padding 0.3s, border-radius 0.3s',
+            border: isSelected ? `1px solid ${facet.color}40` : 'none',
+            maxWidth: '220px',
+          }}
+        >
+          {/* Main label */}
+          <div style={{
+            color: 'white',
+            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif',
+            fontSize: '16px',
+            fontWeight: '600',
+            letterSpacing: '1px',
+            textAlign: 'center',
+            textShadow: '0 0 8px rgba(0,0,0,0.8), 0 2px 4px rgba(0,0,0,0.5)',
+            textTransform: 'uppercase',
+            marginBottom: '4px',
+            lineHeight: '1',
+            position: 'relative',
+          }}>
+            {facet.text}
+            
+            {/* Selection indicator */}
+            <a.div style={{
+              position: 'absolute',
+              bottom: '-2px',
+              left: '0',
+              height: '1px',
+              width: selectionSpring.width,
+              background: facet.color,
+              opacity: 0.8,
+            }} />
+          </div>
+          
+          {/* Premium accent line */}
+          <div style={{
+            width: '60px',
+            height: '1px',
+            background: `linear-gradient(90deg, transparent, ${facet.color}, transparent)`,
+            margin: '0 auto 8px',
+            opacity: 0.7,
+          }} />
+          
+          {/* Description with spring animation */}
+          <a.div style={{
+            opacity: descriptionSpring.opacity,
+            height: descriptionSpring.height,
+            overflow: 'hidden',
+          }}>
+            <div style={{
+              color: 'rgba(255,255,255,0.9)',
+              fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif',
+              fontSize: '13px',
+              fontWeight: '400',
+              textAlign: 'center',
+              textShadow: '0 1px 2px rgba(0,0,0,0.5)',
+              lineHeight: '1.4',
+              padding: '8px 4px 4px',
+            }}>
+              {facet.description}
+            </div>
+          </a.div>
+        </a.div>
+      </Html>
+    </group>
+  )
+}
+
+function CrystalScene({ isExploded }) {
+  const facetRefs = useRef([])
+  const [state, dispatch] = useCrystalState();
+  const [labelPositions, setLabelPositions] = useState(Array(6).fill([0, 0, 0]))
+  
+  // Effect for handling the explode/reform button clicks
+  useEffect(() => {
+    if (isExploded && state.crystalState === CRYSTAL_STATES.WHOLE) {
+      dispatch({ type: 'EXPLODE' });
+    } else if (!isExploded && 
+              (state.crystalState === CRYSTAL_STATES.EXPLODED || 
+               state.crystalState === CRYSTAL_STATES.FOCUSED)) {
+      dispatch({ type: 'REFORM' });
+    }
+  }, [isExploded, state.crystalState]);
+  
+  // Load textures
+  const normalMap = useTexture('/assets/textures/scratches02.jpg')
+  
+  // Create photorealistic golden crystal material
+  const crystalMaterial = new THREE.MeshPhysicalMaterial({
+    // Base color - pure gold color
+    color: new THREE.Color('#FFD700'),
+    
+    // Transmission properties
+    transmission: 0.9,         // High transmission for transparency
+    ior: 1.8,                  // High IOR for stronger refraction
+    thickness: 3.0,            // Increased thickness to enhance color
+    
+    // Surface properties
+    metalness: 0.0,            // No metalness for crystal
+    roughness: 0.01,           // Ultra-smooth for clear reflections
+    
+    // Clarity/cloudiness
+    attenuationColor: new THREE.Color('#FFCC00'), // Rich amber color
+    attenuationDistance: 1.0,  // Medium attenuation distance
+    
+    // Surface properties
+    clearcoat: 0.5,            // High clearcoat for surface shininess
+    clearcoatRoughness: 0.01,  // Ultra-smooth clearcoat
+    
+    // Environment reflection
+    envMapIntensity: 1.0,      // Standard environment map intensity
+    
+    // Surface details - much finer scratches
+    normalMap: normalMap,
+    normalScale: new THREE.Vector2(0.003, 0.003), // Very subtle normal effect
+    
+    // Light response
+    reflectivity: 1.0,
+    specularIntensity: 1.0,
+    specularColor: new THREE.Color('#FFFFFF'),
+  })
+  
+  // Apply crystal material to all models
+  const updateMaterial = (scene) => {
+    scene.traverse((child) => {
+      if (child.isMesh) {
+        child.material = crystalMaterial
+        
+        // Enable shadows for realism
+        child.castShadow = true
+        child.receiveShadow = true
+      }
+    })
+  }
+  
+  // Load all the models
+  const crystalWhole = useGLTF('/assets/models/CrystalWhole.glb')
+  const facetEmpathy = useGLTF('/assets/models/FacetEmpathy.glb')
+  const facetNarrative = useGLTF('/assets/models/FacetNarrative.glb')
+  const facetCraft = useGLTF('/assets/models/FacetCraft.glb')
+  const facetSystem = useGLTF('/assets/models/FacetSystem.glb')
+  const facetLeadership = useGLTF('/assets/models/FacetLeadership.glb')
+  const facetExploration = useGLTF('/assets/models/FacetExploration.glb')
+  
+  // Update materials
+  updateMaterial(crystalWhole.scene)
+  updateMaterial(facetEmpathy.scene)
+  updateMaterial(facetNarrative.scene)
+  updateMaterial(facetCraft.scene)
+  updateMaterial(facetSystem.scene)
+  updateMaterial(facetLeadership.scene)
+  updateMaterial(facetExploration.scene)
+  
+  // Create array of models for easier access
+  const facetModels = [
+    { key: 'empathy', model: facetEmpathy },
+    { key: 'narrative', model: facetNarrative },
+    { key: 'craft', model: facetCraft },
+    { key: 'system', model: facetSystem },
+    { key: 'leadership', model: facetLeadership },
+    { key: 'exploration', model: facetExploration }
+  ]
+  
+  // Handle facet selection
+  const handleFacetSelect = (facetKey) => {
+    if (state.crystalState === CRYSTAL_STATES.EXPLODED) {
+      dispatch(selectFacet(facetKey));
+    } else if (state.crystalState === CRYSTAL_STATES.FOCUSED && state.selectedFacet === facetKey) {
+      dispatch(deselectFacet());
+    }
+  }
+  
+  // Calculate current facet positions based on state
+  const facetPositions = calculatePositions(state);
+  
+  // Update label positions and apply subtle floating animation
+  useFrame((state) => {
+    if (
+      (state.crystalState === CRYSTAL_STATES.EXPLODED || 
+       state.crystalState === CRYSTAL_STATES.FOCUSED) && 
+      facetRefs.current
+    ) {
+      const newPositions = [...labelPositions];
+      
+      facetRefs.current.forEach((ref, index) => {
+        if (ref) {
+          const facetKey = facetLabels[index].key;
+          const [x, y, z] = facetPositions[facetKey] || [0, 0, 0];
+          
+          // Apply base position from state management
+          ref.position.set(x, y, z);
+          
+          // Add float animation for visual interest
+          const time = state.clock.getElapsedTime();
+          const floatOffset = Math.sin(time * 0.8 + index) * 0.02;
+          ref.position.y += floatOffset;
+          
+          // Add subtle rotation animation
+          ref.rotation.x = Math.sin(time * 0.6 + index) * 0.01;
+          ref.rotation.y = Math.sin(time * 0.5 + index * 0.5) * 0.01;
+          
+          // Add subtle pulse effect to the focused facet
+          if (state.selectedFacet === facetKey) {
+            const pulseScale = 1 + Math.sin(time * 2) * 0.02;
+            ref.scale.set(pulseScale, pulseScale, pulseScale);
+          } else {
+            ref.scale.set(1, 1, 1);
+          }
+          
+          // Update label position (offset below the facet)
+          newPositions[index] = [
+            ref.position.x, 
+            ref.position.y - 0.7, 
+            ref.position.z
+          ];
+        }
+      });
+      
+      setLabelPositions(newPositions);
+    }
+  });
+  
+  return (
+    <group>
+      {/* Camera controller */}
+      <CameraController 
+        crystalState={state.crystalState} 
+        transitionProgress={state.transitionProgress}
+        selectedFacet={state.selectedFacet}
+        calculateCamera={calculateCamera}
+      />
+      
+      {/* Glow effect for enhanced visuals */}
+      <GlowEffect
+        crystalState={state.crystalState}
+        selectedFacet={state.selectedFacet}
+        transitionProgress={state.transitionProgress}
+      />
+      
+      {/* Interaction controller for handling user input */}
+      <InteractionController
+        crystalState={state.crystalState}
+        selectedFacet={state.selectedFacet}
+        handleFacetSelect={handleFacetSelect}
+        facetRefs={facetRefs}
+        facetPositions={facetPositions}
+      />
+      
+      {/* Whole crystal */}
+      {state.showCrystal && (
+        <primitive object={crystalWhole.scene} />
+      )}
+      
+      {/* Individual facets */}
+      {state.showFacets && (
+        <group>
+          {facetModels.map((facet, index) => (
+            <group 
+              key={facet.key}
+              ref={(el) => (facetRefs.current[index] = el)}
+              // Initial position even before animation starts
+              position={[
+                facetPositions[facet.key][0],
+                facetPositions[facet.key][1],
+                facetPositions[facet.key][2]
+              ]}
+            >
+              {/* The actual model */}
+              <primitive object={facet.model.scene} />
+              
+              {/* Optional: Interactive hitbox when exploded for better interactivity */}
+              {state.crystalState === CRYSTAL_STATES.EXPLODED && (
+                <mesh
+                  scale={[1.2, 1.2, 1.2]}
+                  visible={false}
+                  onClick={() => handleFacetSelect(facet.key)}
+                >
+                  <sphereGeometry args={[0.4, 16, 16]} />
+                  <meshBasicMaterial transparent opacity={0} />
+                </mesh>
+              )}
+            </group>
+          ))}
+        </group>
+      )}
+      
+      {/* Facet labels with enhanced visual treatment */}
+      {facetLabels.map((label, index) => (
+        <FacetLabel
+          key={label.key}
+          facet={label}
+          position={labelPositions[index]}
+          visible={state.showLabels}
+          isSelected={state.selectedFacet === label.key}
+          onSelect={handleFacetSelect}
+        />
+      ))}
+      
+      {/* Special visual effects based on state */}
+      {state.crystalState === CRYSTAL_STATES.FOCUSING && (
+        <>
+          {/* Add focus rays or highlight for the selected facet */}
+          <spotLight
+            position={[0, 5, 0]}
+            intensity={2}
+            angle={0.2}
+            penumbra={1}
+            distance={10}
+            color="#ffffff"
+            target={facetRefs.current[facetLabels.findIndex(l => l.key === state.selectedFacet)]}
+          />
+          
+          {/* Add particles flowing toward the selected facet */}
+          <ParticleFlow 
+            target={facetRefs.current[facetLabels.findIndex(l => l.key === state.selectedFacet)]}
+            color={getFacetColor(state.selectedFacet)}
+            intensity={state.transitionProgress}
+          />
+        </>
+      )}
+    </group>
+  )
+}
+
+// Utility function to get facet color
+function getFacetColor(facetKey) {
+  const facetColors = {
+    empathy: '#64ffda',
+    narrative: '#bb86fc',
+    craft: '#03dac6',
+    system: '#cf6679',
+    leadership: '#ffd600',
+    exploration: '#ff7043'
+  }
+  
+  return facetColors[facetKey] || '#ffffff'
+}
+
+// Particle flow effect component
+const ParticleFlow = ({ target, color, intensity = 1 }) => {
+  const particlesRef = useRef()
+  const particleCount = 50
+  const particles = useRef(Array(particleCount).fill().map(() => ({
+    position: new THREE.Vector3(
+      (Math.random() - 0.5) * 10,
+      (Math.random() - 0.5) * 10,
+      (Math.random() - 0.5) * 10
+    ),
+    velocity: new THREE.Vector3(),
+    size: Math.random() * 0.03 + 0.01
+  })))
+  
+  // Update particles in animation frame
+  useFrame(() => {
+    if (!particlesRef.current || !target) return
+    
+    const targetPosition = new THREE.Vector3()
+    target.getWorldPosition(targetPosition)
+    
+    // Update each particle
+    const positions = particlesRef.current.geometry.attributes.position
+    const sizes = particlesRef.current.geometry.attributes.size
+    
+    particles.current.forEach((particle, i) => {
+      // Direction to target
+      const direction = new THREE.Vector3().subVectors(targetPosition, particle.position).normalize()
+      
+      // Update velocity (accelerate toward target)
+      particle.velocity.add(direction.multiplyScalar(0.01))
+      
+      // Limit velocity
+      const maxSpeed = 0.1
+      if (particle.velocity.length() > maxSpeed) {
+        particle.velocity.normalize().multiplyScalar(maxSpeed)
+      }
+      
+      // Update position
+      particle.position.add(particle.velocity)
+      
+      // Reset if too close to target
+      const distanceToTarget = particle.position.distanceTo(targetPosition)
+      if (distanceToTarget < 0.2) {
+        // Reset to a new random position far from the target
+        particle.position.set(
+          (Math.random() - 0.5) * 10,
+          (Math.random() - 0.5) * 10,
+          (Math.random() - 0.5) * 10
+        )
+        particle.velocity.set(0, 0, 0)
+      }
+      
+      // Update the instanced geometry
+      positions.setXYZ(i, particle.position.x, particle.position.y, particle.position.z)
+      
+      // Particle size varies with distance to target
+      const sizeScale = THREE.MathUtils.mapLinear(
+        distanceToTarget, 
+        0.2, 5, 
+        particle.size * 3, 
+        particle.size * 0.5
+      )
+      sizes.setX(i, sizeScale * intensity)
+    })
+    
+    positions.needsUpdate = true
+    sizes.needsUpdate = true
+  })
+  
+  return (
+    <points ref={particlesRef}>
+      <bufferGeometry>
+        <bufferAttribute
+          attach="attributes-position"
+          count={particleCount}
+          array={new Float32Array(particleCount * 3)}
+          itemSize={3}
+        />
+        <bufferAttribute
+          attach="attributes-size"
+          count={particleCount}
+          array={new Float32Array(particleCount)}
+          itemSize={1}
+        />
+      </bufferGeometry>
+      <pointsMaterial
+        size={0.03}
+        sizeAttenuation={true}
+        color={color}
+        transparent={true}
+        opacity={0.8 * intensity}
+        depthWrite={false}
+        blending={THREE.AdditiveBlending}
+      />
+    </points>
+  )
+}
+
+export default CrystalScene
+
