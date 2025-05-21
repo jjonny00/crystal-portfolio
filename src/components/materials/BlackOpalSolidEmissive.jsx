@@ -1,4 +1,4 @@
-// BlackOpalSolidEmissive.jsx
+// BlackOpalSolidEmissive.jsx - Updated for Three.js compatibility
 import { useEffect } from 'react';
 import * as THREE from 'three';
 import { useTexture } from '@react-three/drei';
@@ -10,15 +10,31 @@ import { useTexture } from '@react-three/drei';
  * @param {Object} props Component props
  * @param {Object} props.config Material configuration
  * @param {Object} props.materialRef React ref to store the created material
+ * @param {Object} props.performanceConfig Performance configuration
  * @returns null - this is a utility component that updates the provided ref
  */
-const BlackOpalSolidEmissive = ({ config, materialRef }) => {
+const BlackOpalSolidEmissive = ({ config, materialRef, performanceConfig = {} }) => {
+  // Set default performance settings if not provided
+  const {
+    useNormalMaps = true,
+    textureQuality = 'high',
+    usePBR = true
+  } = performanceConfig;
+  
   // Only load the base, normal and roughness maps (no emissive map)
-  const [baseMap, normalMap, roughnessMap] = useTexture([
+  const textureUrls = [
     '/assets/textures/blackOpal-base.png',
-    '/assets/textures/blackOpal-normal.png',
-    '/assets/textures/blackOpal-roughness.png'
-  ]);
+    useNormalMaps ? '/assets/textures/blackOpal-normal.png' : null,
+    usePBR ? '/assets/textures/blackOpal-roughness.png' : null
+  ].filter(Boolean);
+  
+  // Load all textures
+  const textures = useTexture(textureUrls);
+  
+  // Assign textures to variables
+  const baseMap = textures[0];
+  const normalMap = useNormalMaps ? textures[1] : null;
+  const roughnessMap = usePBR ? (useNormalMaps ? textures[2] : textures[1]) : null;
   
   // Set up texture parameters
   useEffect(() => {
@@ -28,14 +44,19 @@ const BlackOpalSolidEmissive = ({ config, materialRef }) => {
     const configureTexture = (texture) => {
       if (!texture) return;
 
+      // Quality settings based on performance config
+      const mipmapEnabled = textureQuality !== 'low';
+      const anisotropy = textureQuality === 'high' ? 4 : (textureQuality === 'medium' ? 2 : 1);
+
       // Basic texture settings
       texture.wrapS = THREE.RepeatWrapping;
       texture.wrapT = THREE.RepeatWrapping;
       texture.repeat.set(1, 1);
       texture.offset.set(0, 0);
-      texture.minFilter = THREE.LinearFilter;
+      texture.minFilter = mipmapEnabled ? THREE.LinearMipmapLinearFilter : THREE.LinearFilter;
       texture.magFilter = THREE.LinearFilter;
-      texture.generateMipmaps = true;
+      texture.anisotropy = anisotropy;
+      texture.generateMipmaps = mipmapEnabled;
       texture.needsUpdate = true;
     };
     
@@ -44,17 +65,17 @@ const BlackOpalSolidEmissive = ({ config, materialRef }) => {
       if (texture) configureTexture(texture);
     });
     
-    // Ensure the baseMap uses sRGB encoding
+    // Ensure the baseMap uses SRGBColorSpace
     if (baseMap) {
-      baseMap.encoding = THREE.sRGBEncoding;
+      baseMap.colorSpace = THREE.SRGBColorSpace; // Updated from encoding
     }
     
     console.log('All textures configured');
-  }, [baseMap, normalMap, roughnessMap]);
+  }, [baseMap, normalMap, roughnessMap, textureQuality]);
   
   // Create or update the material when textures are loaded
   useEffect(() => {
-    if (!baseMap || !normalMap || !roughnessMap) return;
+    if (!baseMap || (!normalMap && useNormalMaps) || (!roughnessMap && usePBR)) return;
     
     console.log('Creating Black Opal material with solid emissive');
     
@@ -65,10 +86,10 @@ const BlackOpalSolidEmissive = ({ config, materialRef }) => {
       
       // Normal map for surface detail
       normalMap: normalMap,
-      normalScale: new THREE.Vector2(
+      normalScale: normalMap ? new THREE.Vector2(
         config?.normalScale || 0.8, 
         config?.normalScale || 0.8
-      ),
+      ) : undefined,
       
       // Roughness map for varied reflection
       roughnessMap: roughnessMap,
@@ -80,16 +101,16 @@ const BlackOpalSolidEmissive = ({ config, materialRef }) => {
       
       // Keep other properties for complete effect
       metalness: config?.metalness || 0.1,
-      clearcoat: config?.clearcoat || 0.6,
-      clearcoatRoughness: 0.2,
-      transmission: config?.transmission || 0.2,
-      ior: 1.8,
-      iridescence: config?.iridescence || 0.9,
-      iridescenceIOR: 1.5,
-      iridescenceThicknessRange: [100, 400],
+      clearcoat: usePBR ? (config?.clearcoat || 0.6) : 0,
+      clearcoatRoughness: usePBR ? 0.2 : 0,
+      transmission: usePBR ? (config?.transmission || 0.2) : 0.1,
+      ior: usePBR ? 1.8 : 1.4,
+      iridescence: usePBR ? (config?.iridescence || 0.9) : 0,
+      iridescenceIOR: usePBR ? 1.5 : 0,
+      iridescenceThicknessRange: usePBR ? [100, 400] : [0, 0],
       
       // Environment settings
-      envMapIntensity: 2.0,
+      envMapIntensity: usePBR ? 2.0 : 1.0,
       
       // Alpha settings 
       transparent: true,
@@ -105,7 +126,7 @@ const BlackOpalSolidEmissive = ({ config, materialRef }) => {
         materialRef.current.dispose();
       }
     };
-  }, [baseMap, normalMap, roughnessMap, materialRef, config]);
+  }, [baseMap, normalMap, roughnessMap, materialRef, config, useNormalMaps, usePBR]);
   
   // Update material properties from config
   useEffect(() => {
@@ -120,28 +141,28 @@ const BlackOpalSolidEmissive = ({ config, materialRef }) => {
       }
       
       if (config.metalness !== undefined) {
-        materialRef.current.metalness = config.metalness;
+        materialRef.current.metalness = usePBR ? config.metalness : 0.05;
       }
       
-      if (config.clearcoat !== undefined) {
+      if (config.clearcoat !== undefined && usePBR) {
         materialRef.current.clearcoat = config.clearcoat;
       }
       
       if (config.transmission !== undefined) {
-        materialRef.current.transmission = config.transmission;
+        materialRef.current.transmission = usePBR ? config.transmission : 0.1;
       }
       
-      if (config.iridescence !== undefined) {
+      if (config.iridescence !== undefined && usePBR) {
         materialRef.current.iridescence = config.iridescence;
       }
       
-      if (config.normalScale !== undefined) {
+      if (config.normalScale !== undefined && normalMap) {
         materialRef.current.normalScale.set(config.normalScale, config.normalScale);
       }
       
       materialRef.current.needsUpdate = true;
     }
-  }, [config, materialRef]);
+  }, [config, materialRef, usePBR, normalMap]);
 
   // This component doesn't render anything directly
   return null;

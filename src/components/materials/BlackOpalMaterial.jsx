@@ -1,4 +1,4 @@
-// BlackOpalMaterial.jsx
+// BlackOpalMaterial.jsx - Updated for Three.js compatibility
 import { useEffect } from 'react';
 import * as THREE from 'three';
 import { useTexture } from '@react-three/drei';
@@ -9,16 +9,33 @@ import { useTexture } from '@react-three/drei';
  * @param {Object} props Component props
  * @param {Object} props.config Material configuration
  * @param {Object} props.materialRef React ref to store the created material
+ * @param {Object} props.performanceConfig Performance configuration
  * @returns null - this is a utility component that updates the provided ref
  */
-const BlackOpalMaterial = ({ config, materialRef }) => {
-  // Load all textures
-  const [baseMap, normalMap, roughnessMap, emissiveMap] = useTexture([
+const BlackOpalMaterial = ({ config, materialRef, performanceConfig = {} }) => {
+  // Set default performance settings if not provided
+  const {
+    useNormalMaps = true,
+    textureQuality = 'high',
+    usePBR = true
+  } = performanceConfig;
+  
+  // Load textures conditionally based on performance settings
+  const textureUrls = [
     '/assets/textures/blackOpal-base.png',
-    '/assets/textures/blackOpal-normal.png',
-    '/assets/textures/blackOpal-roughness.png',
-    '/assets/textures/blackOpal-emissive.png'
-  ]);
+    useNormalMaps ? '/assets/textures/blackOpal-normal.png' : null,
+    usePBR ? '/assets/textures/blackOpal-roughness.png' : null,
+    usePBR ? '/assets/textures/blackOpal-emissive.png' : null
+  ].filter(Boolean); // Filter out null values
+  
+  // Load all textures
+  const textures = useTexture(textureUrls);
+  
+  // Assign textures to variables - handle case when some textures are not loaded
+  const baseMap = textures[0];
+  const normalMap = useNormalMaps ? textures[1] : null;
+  const roughnessMap = usePBR ? (useNormalMaps ? textures[2] : textures[1]) : null;
+  const emissiveMap = usePBR ? (textures[textures.length - 1]) : null;
   
   // Set up proper texture parameters - optimized for performance
   useEffect(() => {
@@ -28,6 +45,10 @@ const BlackOpalMaterial = ({ config, materialRef }) => {
     const configureTexture = (texture) => {
       if (!texture) return;
 
+      // Quality settings based on performance config
+      const mipmapEnabled = textureQuality !== 'low';
+      const anisotropy = textureQuality === 'high' ? 4 : (textureQuality === 'medium' ? 2 : 1);
+      
       // Ensure all textures have the same wrapping mode
       texture.wrapS = THREE.RepeatWrapping;
       texture.wrapT = THREE.RepeatWrapping;
@@ -37,14 +58,14 @@ const BlackOpalMaterial = ({ config, materialRef }) => {
       texture.offset.set(0, 0);
       
       // Use optimized filtering settings for performance
-      texture.minFilter = THREE.LinearFilter; // Changed from LinearMipMapLinearFilter for performance
+      texture.minFilter = mipmapEnabled ? THREE.LinearMipmapLinearFilter : THREE.LinearFilter;
       texture.magFilter = THREE.LinearFilter;
       
-      // Use a more moderate anisotropy setting for performance
-      texture.anisotropy = 4; // Reduced from 16 for better performance
+      // Use optimized anisotropy setting based on performance config
+      texture.anisotropy = anisotropy;
       
-      // Generate mipmaps for better quality at a distance
-      texture.generateMipmaps = true;
+      // Generate mipmaps based on performance config
+      texture.generateMipmaps = mipmapEnabled;
       
       // Force texture update
       texture.needsUpdate = true;
@@ -55,22 +76,17 @@ const BlackOpalMaterial = ({ config, materialRef }) => {
       if (texture) configureTexture(texture);
     });
     
-    // Ensure the baseMap uses sRGB encoding (for correct color display)
+    // Ensure the baseMap uses SRGB color space (for correct color display)
     if (baseMap) {
-      baseMap.encoding = THREE.sRGBEncoding;
+      baseMap.colorSpace = THREE.SRGBColorSpace; // Updated from encoding to colorSpace
     }
     
-    // Remove the HalfFloatType for better performance
-    // if (normalMap) {
-    //   normalMap.type = THREE.HalfFloatType;
-    // }
-    
     console.log('All Black Opal textures configured with matching settings');
-  }, [baseMap, normalMap, roughnessMap, emissiveMap]);
+  }, [baseMap, normalMap, roughnessMap, emissiveMap, textureQuality]);
   
   // Create or update the material when textures are loaded
   useEffect(() => {
-    if (!baseMap || !normalMap || !roughnessMap || !emissiveMap) return;
+    if (!baseMap) return;
     
     console.log('Creating Black Opal material with textures');
     
@@ -144,22 +160,22 @@ const BlackOpalMaterial = ({ config, materialRef }) => {
         materialRef.current.metalness = config.metalness;
       }
       
-      // Update clearcoat if defined - scaled down for performance
+      // Update clearcoat if defined
       if (config.clearcoat !== undefined) {
         materialRef.current.clearcoat = config.clearcoat * 0.7;
       }
       
-      // Update transmission if defined - scaled down for performance
+      // Update transmission if defined
       if (config.transmission !== undefined) {
         materialRef.current.transmission = config.transmission * 0.7;
       }
       
-      // Update iridescence if defined - scaled down for performance
+      // Update iridescence if defined
       if (config.iridescence !== undefined) {
         materialRef.current.iridescence = config.iridescence * 0.6;
       }
       
-      // Update normal scale if defined - scaled down for performance
+      // Update normal scale if defined
       if (config.normalScale !== undefined) {
         materialRef.current.normalScale.set(
           config.normalScale * 0.5, 

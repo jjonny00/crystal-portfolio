@@ -1,4 +1,4 @@
-// IceOpalMaterial.jsx
+// IceOpalMaterial.jsx - Updated for Three.js compatibility
 import { useEffect } from 'react';
 import * as THREE from 'three';
 import { useTexture } from '@react-three/drei';
@@ -9,58 +9,82 @@ import { useTexture } from '@react-three/drei';
  * @param {Object} props Component props
  * @param {Object} props.config Material configuration
  * @param {Object} props.materialRef React ref to store the created material
+ * @param {Object} props.performanceConfig Performance configuration
  * @returns null - this is a utility component that updates the provided ref
  */
-const IceOpalMaterial = ({ config, materialRef }) => {
-  // Load all textures
-  const [baseMap, normalMap, roughnessMap, emissiveMap] = useTexture([
+const IceOpalMaterial = ({ config, materialRef, performanceConfig = {} }) => {
+  // Set default performance settings if not provided
+  const {
+    useNormalMaps = true,
+    textureQuality = 'high',
+    usePBR = true
+  } = performanceConfig;
+  
+  // Load textures conditionally based on performance settings
+  const textureUrls = [
     '/assets/textures/iceOpal-base.png',
-    '/assets/textures/iceOpal-normal.png',
-    '/assets/textures/iceOpal-roughness.png',
-    '/assets/textures/iceOpal-emissive.png'
-  ]);
+    useNormalMaps ? '/assets/textures/iceOpal-normal.png' : null,
+    usePBR ? '/assets/textures/iceOpal-roughness.png' : null,
+    usePBR ? '/assets/textures/iceOpal-emissive.png' : null
+  ].filter(Boolean); // Filter out null values
+  
+  // Load all textures
+  const textures = useTexture(textureUrls);
+  
+  // Assign textures to variables - handle case when some textures are not loaded
+  const baseMap = textures[0];
+  const normalMap = useNormalMaps ? textures[1] : null;
+  const roughnessMap = usePBR ? (useNormalMaps ? textures[2] : textures[1]) : null;
+  const emissiveMap = usePBR ? (textures[textures.length - 1]) : null;
   
   // Set up proper texture parameters
   useEffect(() => {
     // Configure texture settings to ensure proper alignment and scale
     const configureTexture = (texture) => {
       if (!texture) return;
+      
+      // Quality settings based on performance config
+      const mipmapEnabled = textureQuality !== 'low';
+      const anisotropy = textureQuality === 'high' ? 4 : (textureQuality === 'medium' ? 2 : 1);
 
       // Ensure all textures have the same wrapping mode
       texture.wrapS = THREE.RepeatWrapping;
       texture.wrapT = THREE.RepeatWrapping;
       
-      // Set the same repeat for all textures to ensure alignment
+      // Set the same repeat and offset for all textures to ensure alignment
       texture.repeat.set(1, 1);
       texture.offset.set(0, 0);
       
-      // Ensure textures use the same filtering
-      texture.minFilter = THREE.LinearFilter; // For better performance
+      // Use optimized filtering settings based on performance config
+      texture.minFilter = mipmapEnabled ? THREE.LinearMipmapLinearFilter : THREE.LinearFilter;
       texture.magFilter = THREE.LinearFilter;
       
-      // Moderate anisotropy for better texture quality without too much performance cost
-      texture.anisotropy = 4; 
+      // Use optimized anisotropy setting based on performance config
+      texture.anisotropy = anisotropy;
+      
+      // Generate mipmaps based on performance config
+      texture.generateMipmaps = mipmapEnabled;
       
       // Force texture update
       texture.needsUpdate = true;
     };
     
-    // Apply settings to all textures
+    // Apply settings to all loaded textures
     [baseMap, normalMap, roughnessMap, emissiveMap].forEach(texture => {
       if (texture) configureTexture(texture);
     });
     
-    // Ensure the baseMap uses sRGB encoding (for correct color display)
+    // Ensure the baseMap uses SRGB color space (for correct color display)
     if (baseMap) {
-      baseMap.encoding = THREE.sRGBEncoding;
+      baseMap.colorSpace = THREE.SRGBColorSpace; // Updated from encoding to colorSpace
     }
     
     console.log('All Ice Opal textures configured with matching settings');
-  }, [baseMap, normalMap, roughnessMap, emissiveMap]);
+  }, [baseMap, normalMap, roughnessMap, emissiveMap, textureQuality]);
   
   // Create or update the material when textures are loaded
   useEffect(() => {
-    if (!baseMap || !normalMap || !roughnessMap || !emissiveMap) return;
+    if (!baseMap) return;
     
     console.log('Creating Ice Opal material with textures');
     
@@ -69,18 +93,18 @@ const IceOpalMaterial = ({ config, materialRef }) => {
       // Base color from texture
       map: baseMap,
       
-      // Normal map for surface detail
+      // Normal map for surface detail - only if enabled in performance settings
       normalMap: normalMap,
-      normalScale: new THREE.Vector2(
-        config?.normalScale || 0.6, 
-        config?.normalScale || 0.6
-      ),
+      normalScale: normalMap ? new THREE.Vector2(
+        (config?.normalScale || 0.6), 
+        (config?.normalScale || 0.6)
+      ) : undefined,
       
-      // Roughness map for varied reflection
+      // Roughness map for varied reflection - only if PBR is enabled
       roughnessMap: roughnessMap,
       roughness: config?.roughness || 0.3,
       
-      // Emissive map for glow
+      // Emissive map for glow - only if PBR is enabled
       emissive: new THREE.Color(0x8899ff), // Blue-tinged emissive color
       emissiveMap: emissiveMap,
       emissiveIntensity: config?.emissiveIntensity || 0.4,

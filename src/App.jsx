@@ -265,7 +265,7 @@ function App() {
           gl={{ 
             toneMapping: THREE.ACESFilmicToneMapping,
             toneMappingExposure: 0.2,
-            outputEncoding: THREE.sRGBEncoding
+            outputColorSpace: THREE.SRGBColorSpace // Updated from outputEncoding
           }}>
           
           {/* Dark background for contrast */}
@@ -378,10 +378,10 @@ function App() {
         <TabbedControlPanel 
           visible={true}
           tabs={[
-            { label: 'Crystal', icon: '💎' },
-            { label: 'Materials', icon: '✨' },
-            { label: 'Effects', icon: '🔮' },
-            { label: 'Performance', icon: '⚡' }
+            { label: 'Crystal' },
+            { label: 'Materials' },
+            { label: 'Effects' },
+            { label: 'Performance' }
           ]}
         >
           {/* Tab 1: Crystal Controls */}

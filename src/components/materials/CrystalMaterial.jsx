@@ -1,11 +1,24 @@
-// CrystalMaterial.jsx - Fix for updateMaterial reference error
+// CrystalMaterial.jsx - Updated for Three.js compatibility
 import React, { useEffect } from 'react';
 import * as THREE from 'three';
 
 /**
  * Component to create and apply the base crystal material
+ * Updated for Three.js compatibility
  */
-const CrystalMaterial = ({ config, materialRef, variant = 'default' }) => {
+const CrystalMaterial = ({ 
+  config, 
+  materialRef, 
+  variant = 'default',
+  performanceConfig = {}
+}) => {
+  // Set default performance settings if not provided
+  const {
+    useNormalMaps = true,
+    textureQuality = 'high',
+    usePBR = true
+  } = performanceConfig;
+  
   // Create and update the material
   useEffect(() => {
     // Create functions INSIDE useEffect to avoid reference errors
@@ -71,12 +84,21 @@ const CrystalMaterial = ({ config, materialRef, variant = 'default' }) => {
       const material = new THREE.MeshPhysicalMaterial(baseConfig);
       
       // Add a normal map if available
-      if (config.assets.textures.normalMap) {
+      if (config.assets.textures.normalMap && useNormalMaps) {
         const textureLoader = new THREE.TextureLoader();
         textureLoader.load(config.assets.textures.normalMap, (texture) => {
           texture.wrapS = config.materials.textures.normalMap.wrapS;
           texture.wrapT = config.materials.textures.normalMap.wrapT;
           texture.repeat.set(...config.materials.textures.normalMap.repeat);
+          
+          // Set texture quality based on performance settings
+          const mipmapEnabled = textureQuality !== 'low';
+          const anisotropy = textureQuality === 'high' ? 4 : (textureQuality === 'medium' ? 2 : 1);
+          
+          texture.minFilter = mipmapEnabled ? THREE.LinearMipmapLinearFilter : THREE.LinearFilter;
+          texture.generateMipmaps = mipmapEnabled;
+          texture.anisotropy = anisotropy;
+          texture.colorSpace = THREE.SRGBColorSpace; // Updated from encoding
           
           material.normalMap = texture;
           material.normalScale = new THREE.Vector2(0.3, 0.3);
@@ -102,6 +124,31 @@ const CrystalMaterial = ({ config, materialRef, variant = 'default' }) => {
           return;
         }
         
+        // Skip PBR-specific properties if PBR is disabled
+        if (!usePBR && (
+          key === 'clearcoat' || 
+          key === 'clearcoatRoughness' || 
+          key === 'iridescence' || 
+          key === 'iridescenceIOR' || 
+          key === 'iridescenceThicknessRange'
+        )) {
+          if (key === 'clearcoat' || key === 'iridescence') {
+            materialRef.current[key] = 0;
+          }
+          return;
+        }
+        
+        // Adjust transmission and IOR for non-PBR mode
+        if (!usePBR && key === 'transmission') {
+          materialRef.current[key] = value * 0.7;
+          return;
+        }
+        
+        if (!usePBR && key === 'ior') {
+          materialRef.current[key] = Math.min(value, 1.5);
+          return;
+        }
+        
         // Assign the rest
         materialRef.current[key] = value;
       });
@@ -110,7 +157,10 @@ const CrystalMaterial = ({ config, materialRef, variant = 'default' }) => {
       materialRef.current.color.copy(config.materials.crystal.color);
       materialRef.current.emissive.copy(config.materials.crystal.emissive);
       materialRef.current.attenuationColor.copy(config.materials.crystal.attenuationColor);
-      materialRef.current.specularColor.copy(config.materials.crystal.specularColor);
+      
+      if (materialRef.current.specularColor) {
+        materialRef.current.specularColor.copy(config.materials.crystal.specularColor);
+      }
       
       // Restore emissive intensity
       materialRef.current.emissiveIntensity = emissiveIntensity;
@@ -163,8 +213,21 @@ const CrystalMaterial = ({ config, materialRef, variant = 'default' }) => {
           break;
           
         default:
-          // Keep settings from config
+          // Apply performance adjustments to default settings
+          if (!usePBR) {
+            materialRef.current.transmission *= 0.7;
+            materialRef.current.ior = Math.min(materialRef.current.ior, 1.5);
+            materialRef.current.clearcoat = 0;
+            materialRef.current.iridescence = 0;
+            materialRef.current.attenuationDistance *= 0.5;
+          }
           break;
+      }
+      
+      // Remove normal map if disabled in performance settings
+      if (!useNormalMaps && materialRef.current.normalMap) {
+        materialRef.current.normalMap = null;
+        materialRef.current.normalScale.set(0, 0);
       }
       
       materialRef.current.needsUpdate = true;
@@ -179,7 +242,8 @@ const CrystalMaterial = ({ config, materialRef, variant = 'default' }) => {
     // Otherwise create new material
     createMaterial();
     
-  }, [config.materials.crystal, variant, config.assets.textures.normalMap, config.materials.textures.normalMap]);
+  }, [config.materials.crystal, variant, config.assets.textures.normalMap, 
+      config.materials.textures.normalMap, materialRef, useNormalMaps, usePBR, textureQuality]);
   
   return null; // This component doesn't render anything
 };

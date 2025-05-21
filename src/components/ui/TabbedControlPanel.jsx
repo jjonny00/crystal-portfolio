@@ -1,15 +1,75 @@
-// src/components/ui/TabbedControlPanel.jsx
-import React, { useState } from 'react';
+// src/components/ui/TabbedControlPanel.jsx - Updated for better space handling
+import React, { useState, useRef, useEffect } from 'react';
 
 /**
- * A tabbed control panel component that houses different control panels
- * and allows switching between them
+ * A tabbed control panel component with improved space handling
+ * - Removes icons to save space
+ * - Supports horizontal scrolling for tabs if needed
  */
 const TabbedControlPanel = ({ visible = false, children, tabs }) => {
   const [activeTab, setActiveTab] = useState(0);
+  const tabsContainerRef = useRef(null);
+  const [showScrollButtons, setShowScrollButtons] = useState(false);
   
   // Only show the currently active panel
   const visiblePanel = React.Children.toArray(children)[activeTab];
+  
+  // Check if scrolling is needed for tabs
+  useEffect(() => {
+    const checkScrollNeeded = () => {
+      if (!tabsContainerRef.current) return;
+      
+      const containerWidth = tabsContainerRef.current.clientWidth;
+      const scrollWidth = tabsContainerRef.current.scrollWidth;
+      
+      // Show scroll buttons if tabs overflow the container
+      setShowScrollButtons(scrollWidth > containerWidth);
+    };
+    
+    // Check initially and on window resize
+    checkScrollNeeded();
+    window.addEventListener('resize', checkScrollNeeded);
+    
+    return () => {
+      window.removeEventListener('resize', checkScrollNeeded);
+    };
+  }, [tabs]);
+  
+  // Scroll to active tab
+  useEffect(() => {
+    if (!tabsContainerRef.current) return;
+    
+    const container = tabsContainerRef.current;
+    const activeTabEl = container.children[activeTab];
+    
+    if (activeTabEl) {
+      // Calculate scroll position to center the active tab
+      const containerWidth = container.clientWidth;
+      const tabWidth = activeTabEl.clientWidth;
+      const tabLeft = activeTabEl.offsetLeft;
+      
+      const scrollPosition = tabLeft - (containerWidth / 2) + (tabWidth / 2);
+      
+      // Smoothly scroll to the active tab
+      container.scrollTo({
+        left: Math.max(0, scrollPosition),
+        behavior: 'smooth'
+      });
+    }
+  }, [activeTab]);
+  
+  // Handle scrolling tabs left/right
+  const scrollTabs = (direction) => {
+    if (!tabsContainerRef.current) return;
+    
+    const container = tabsContainerRef.current;
+    const scrollAmount = container.clientWidth * 0.7; // Scroll by 70% of visible width
+    
+    container.scrollBy({
+      left: direction === 'left' ? -scrollAmount : scrollAmount,
+      behavior: 'smooth'
+    });
+  };
   
   // Panel styles
   const panelStyle = {
@@ -32,30 +92,73 @@ const TabbedControlPanel = ({ visible = false, children, tabs }) => {
     flexDirection: 'column'
   };
   
+  const tabsOuterContainerStyle = {
+    position: 'relative', // For positioning scroll buttons
+    display: 'flex',
+    alignItems: 'center'
+  };
+  
   const tabsContainerStyle = {
     display: 'flex',
     backgroundColor: 'rgba(0, 0, 0, 0.2)',
     borderRadius: '6px 6px 0 0',
-    overflow: 'hidden',
-    marginBottom: '10px'
+    overflowX: 'auto',
+    overflowY: 'hidden',
+    marginBottom: '10px',
+    scrollbarWidth: 'none', // Hide scrollbar in Firefox
+    msOverflowStyle: 'none', // Hide scrollbar in IE/Edge
+    WebkitOverflowScrolling: 'touch', // Smooth scrolling on iOS
+    scrollBehavior: 'smooth',
+    flexGrow: 1
+  };
+  
+  // Hide scrollbar in WebKit/Blink browsers
+  const hideScrollbarCSS = {
+    '&::-webkit-scrollbar': {
+      display: 'none'
+    }
   };
   
   const tabStyle = (isActive) => ({
-    padding: '10px 15px',
+    padding: '10px 8px', // Reduced horizontal padding to fit more tabs
+    textAlign: 'center',
     backgroundColor: isActive ? 'rgba(100, 255, 218, 0.1)' : 'transparent',
     color: isActive ? '#64ffda' : 'white',
     border: 'none',
     borderBottom: isActive ? '2px solid #64ffda' : '2px solid transparent',
     cursor: 'pointer',
-    flex: 1,
-    fontSize: '13px',
+    fontSize: '12px', // Smaller font size
     fontWeight: isActive ? '600' : '400',
-    transition: 'all 0.2s ease'
+    transition: 'all 0.2s ease',
+    whiteSpace: 'nowrap', // Prevent text wrapping
+    flexShrink: 0, // Prevent tabs from shrinking
+    minWidth: '64px' // Minimum tab width
+  });
+  
+  const scrollButtonStyle = (direction) => ({
+    position: 'absolute',
+    top: '0',
+    [direction]: '0',
+    height: '100%',
+    width: '20px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    border: 'none',
+    borderRadius: direction === 'left' ? '6px 0 0 0' : '0 6px 0 0',
+    color: 'white',
+    cursor: 'pointer',
+    zIndex: 1,
+    opacity: 0.7,
+    transition: 'opacity 0.2s ease',
+    padding: 0,
+    fontSize: '12px'
   });
   
   const contentStyle = {
     overflowY: 'auto', // Add scrollbar to content
-    maxHeight: 'calc(90vh - 60px)', // Leave room for tabs
+    maxHeight: 'calc(70vh - 60px)', // Leave room for tabs
     padding: '5px 10px'
   };
 
@@ -64,22 +167,51 @@ const TabbedControlPanel = ({ visible = false, children, tabs }) => {
 
   return (
     <div style={panelStyle}>
-      {/* Tab Buttons */}
-      <div style={tabsContainerStyle}>
-        {tabs.map((tab, index) => (
+      {/* Tab Buttons with Scroll */}
+      <div style={tabsOuterContainerStyle}>
+        {/* Left scroll button */}
+        {showScrollButtons && (
           <button
-            key={index}
-            style={tabStyle(activeTab === index)}
-            onClick={() => setActiveTab(index)}
+            style={scrollButtonStyle('left')}
+            onClick={() => scrollTabs('left')}
+            aria-label="Scroll tabs left"
           >
-            {tab.icon && (
-              <span role="img" aria-label={tab.label} style={{ marginRight: '8px' }}>
-                {tab.icon}
-              </span>
-            )}
-            {tab.label}
+            ◀
           </button>
-        ))}
+        )}
+        
+        {/* Scrollable Tabs Container */}
+        <div 
+          ref={tabsContainerRef} 
+          style={{
+            ...tabsContainerStyle,
+            // Apply scrollbar hiding in inline style as equivalent to the CSS
+            msOverflowStyle: 'none',
+            scrollbarWidth: 'none',
+            WebkitOverflowScrolling: 'touch'
+          }}
+        >
+          {tabs.map((tab, index) => (
+            <button
+              key={index}
+              style={tabStyle(activeTab === index)}
+              onClick={() => setActiveTab(index)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        
+        {/* Right scroll button */}
+        {showScrollButtons && (
+          <button
+            style={scrollButtonStyle('right')}
+            onClick={() => scrollTabs('right')}
+            aria-label="Scroll tabs right"
+          >
+            ▶
+          </button>
+        )}
       </div>
       
       {/* Content Area */}
