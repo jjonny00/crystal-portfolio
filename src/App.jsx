@@ -1,4 +1,5 @@
-// App.jsx - Complete file with Performance Controls and Tabbed UI
+// App.jsx - Integration example showing how to add the performance system
+
 import { useState, useCallback, useEffect } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { Environment, OrbitControls } from '@react-three/drei'
@@ -7,10 +8,8 @@ import { BlendFunction } from 'postprocessing'
 import * as THREE from 'three'
 import './App.css'
 
-// Import initial configuration
+// Import your existing components
 import * as defaultConfig from './crystalConfig'
-
-// Import modular components
 import EnhancedCrystalScene from './components/three/EnhancedCrystalScene'
 import CrystalControls from './components/ui/CrystalControls'
 import MaterialSelector from './components/ui/MaterialSelector'
@@ -24,34 +23,48 @@ import PerformanceControls from './components/ui/PerformanceControls'
 import TabbedControlPanel from './components/ui/TabbedControlPanel'
 import useKeyboardControls from './hooks/useKeyboardControls'
 
+// Import new performance system
+import { useDeviceProfile } from './hooks/useDeviceProfile'
+import FpsDisplay, { FPSCounter, PerformanceAlert } from './components/ui/FpsDisplay'
+
 function App() {
-  // Core state
+  // ADD THIS: Device profile detection
+  const { 
+    performanceProfile: devicePerformanceProfile, 
+    deviceProfile, 
+    getOptimalCanvasProps,
+    getOptimalEnvironmentProps,
+    updateExternalPerformanceConfig,
+    isDetecting 
+  } = useDeviceProfile({ 
+    enableDebugLogging: false,  // Turn off constant logging
+    enableOrientationLock: true 
+  });
+
+  // Your existing state
   const [isExploded, setIsExploded] = useState(false)
   const [config, setConfig] = useState({
     ...defaultConfig,
-    // Add facet zoom timing if not present
     timing: {
       ...defaultConfig.timing,
       camera: {
         ...defaultConfig.timing.camera,
-        facetZoomDuration: 1000, // ms - customize if needed
-        facetReturnDuration: 1200 // ms - slightly longer for smoother return
+        facetZoomDuration: 1000,
+        facetReturnDuration: 1200
       }
     }
   })
   const [materialVariant, setMaterialVariant] = useState('default')
-  const [showUI, setShowUI] = useState(false) // Default to hidden
+  const [showUI, setShowUI] = useState(false)
   
-  // Facet selection state
+  // ... rest of your existing state ...
   const [selectedFacet, setSelectedFacet] = useState(null)
   const [hoveredFacet, setHoveredFacet] = useState(null)
   const [showDetailCard, setShowDetailCard] = useState(false)
   const [orbitControlsEnabled, setOrbitControlsEnabled] = useState(true)
-  
-  // Transition state
   const [isTransitioning, setIsTransitioning] = useState(false)
   
-  // Material configuration state
+  // Material configs
   const [blackOpalConfig, setBlackOpalConfig] = useState({
     roughness: 0.4,
     metalness: 0.1,
@@ -72,7 +85,7 @@ function App() {
     emissiveIntensity: 0.4
   });
   
-  // Post-processing effects state
+  // Effects and performance state
   const [effectsEnabled, setEffectsEnabled] = useState({
     bloom: true,
     chromaticAberration: true,
@@ -80,16 +93,70 @@ function App() {
     vignette: true
   });
   
-  // Post-processing config state
   const [postProcessingConfig, setPostProcessingConfig] = useState(config.postProcessing);
   
-  // Performance settings state
-  const [performanceConfig, setPerformanceConfig] = useState({
-    useNormalMaps: true,
-    textureQuality: 'high',
-    usePBR: true
+  // MODIFY THIS: Use device profile for initial performance config
+  const [performanceConfig, setPerformanceConfig] = useState(() => {
+    // If device profile is available, use it; otherwise use defaults
+    return devicePerformanceProfile || {
+      useNormalMaps: true,
+      textureQuality: 'high',
+      usePBR: true
+    };
   });
+
+  // ADD THIS: Update performance config when device profile loads (with proper change detection)
+  const [lastAppliedProfile, setLastAppliedProfile] = useState(null);
   
+  useEffect(() => {
+    if (devicePerformanceProfile && !isDetecting) {
+      // Only apply if the profile actually changed
+      const profileKey = JSON.stringify({
+        useNormalMaps: devicePerformanceProfile.useNormalMaps,
+        textureQuality: devicePerformanceProfile.textureQuality,
+        usePBR: devicePerformanceProfile.usePBR,
+        renderScale: devicePerformanceProfile.renderScale
+      });
+      
+      if (lastAppliedProfile !== profileKey) {
+        console.log('🎮 Applying device-optimized performance settings:', devicePerformanceProfile);
+        
+        const newConfig = {
+          useNormalMaps: devicePerformanceProfile.useNormalMaps,
+          textureQuality: devicePerformanceProfile.textureQuality,
+          usePBR: devicePerformanceProfile.usePBR,
+          renderScale: devicePerformanceProfile.renderScale
+        };
+        
+        setPerformanceConfig(newConfig);
+        setLastAppliedProfile(profileKey);
+        
+        // Also update effects based on device profile (with null checking)
+        if (devicePerformanceProfile.postProcessing) {
+          setEffectsEnabled({
+            bloom: devicePerformanceProfile.postProcessing.bloom || false,
+            chromaticAberration: devicePerformanceProfile.postProcessing.chromaticAberration || false,
+            noise: devicePerformanceProfile.postProcessing.noise || true,
+            vignette: devicePerformanceProfile.postProcessing.vignette || false
+          });
+        }
+      }
+    }
+  }, [devicePerformanceProfile, isDetecting, lastAppliedProfile]);
+
+  // ADD THIS: Update device profile system when performance config changes (but prevent loops)
+  const [hasInitialized, setHasInitialized] = useState(false);
+  
+  useEffect(() => {
+    // Only update external config after initial device profile load
+    if (updateExternalPerformanceConfig && hasInitialized) {
+      updateExternalPerformanceConfig(performanceConfig);
+    } else if (devicePerformanceProfile && !hasInitialized) {
+      // Mark as initialized after first device profile load
+      setHasInitialized(true);
+    }
+  }, [performanceConfig, updateExternalPerformanceConfig, hasInitialized, devicePerformanceProfile]);
+
   // Handler for updating configuration from the control panel
   const handleConfigUpdate = useCallback((newConfig) => {
     setConfig(newConfig);
@@ -224,54 +291,50 @@ function App() {
     }
   }, [isExploded, selectedFacet, config.timing.camera, isTransitioning]);
 
-  // Keyboard shortcut for toggling normal maps
-  const toggleNormalMaps = useCallback(() => {
-    setPerformanceConfig(prev => ({
-      ...prev,
-      useNormalMaps: !prev.useNormalMaps
-    }));
-  }, []);
-
-  // IMPORTANT: Set up keyboard controls AFTER defining all callbacks
-  useKeyboardControls({
-    isExploded,
-    setIsExploded,
-    hoveredFacet,
-    setHoveredFacet,
-    selectedFacet,
-    setSelectedFacet,
-    showUI,
-    setShowUI,
-    showDetailCard,
-    setShowDetailCard,
-    setOrbitControlsEnabled,
-    config,
-    isTransitioning,
-    setIsTransitioning,
-    effectsEnabled,
-    handleToggleEffect,
-    performanceConfig,
-    toggleNormalMaps
-  });
+  // ADD THIS: Get optimal canvas and environment props
+  const canvasProps = getOptimalCanvasProps();
+  const environmentProps = getOptimalEnvironmentProps();
 
   return (
     <>
-      {/* Canvas for 3D content */}
+      {/* ADD THIS: FPS Display - only show on non-mobile devices by default */}
+      {deviceProfile && !deviceProfile.isMobile && (
+        <FpsDisplay 
+          visible={true}
+          position="top-right"
+          showDetails={false}
+        />
+      )}
+      
+      {/* ADD THIS: Performance alerts for all devices */}
+      <PerformanceAlert 
+        visible={true}
+        threshold={deviceProfile?.isMobile ? 25 : 30}
+        onPerformanceIssue={(data) => {
+          console.warn('Performance issue:', data);
+        }}
+      />
+
+      {/* MODIFY THIS: Canvas with optimized props */}
       <div style={{ width: '100vw', height: '100vh', position: 'fixed', top: 0, left: 0 }}>
         <Canvas 
           shadows 
           camera={{ position: config.camera.startingPosition, fov: config.camera.fov }} 
-          dpr={[1, 2]}
+          {...canvasProps} // ADD THIS: Apply optimal canvas settings
           gl={{ 
             toneMapping: THREE.ACESFilmicToneMapping,
             toneMappingExposure: 0.2,
-            outputColorSpace: THREE.SRGBColorSpace // Updated from outputEncoding
+            outputColorSpace: THREE.SRGBColorSpace,
+            // ADD THIS: Apply device-optimized GL settings
+            ...canvasProps.gl
           }}>
           
-          {/* Dark background for contrast */}
+          {/* ADD THIS: FPS Counter inside Canvas */}
+          <FPSCounter />
+          
           <color attach="background" args={['#050505']} />
           
-          {/* Three-point lighting for realistic crystal */}
+          {/* Your existing lighting */}
           <ambientLight intensity={config.lighting.ambient.intensity} />
           <directionalLight 
             position={config.lighting.directional.position} 
@@ -280,7 +343,6 @@ function App() {
             castShadow={config.lighting.directional.castShadow} 
           />
           
-          {/* Add point lights from configuration */}
           {config.lighting.pointLights.map((light, index) => (
             <pointLight 
               key={index}
@@ -290,7 +352,6 @@ function App() {
             />
           ))}
           
-          {/* Spot light */}
           <spotLight 
             position={config.lighting.spotLight.position} 
             intensity={config.lighting.spotLight.intensity} 
@@ -299,7 +360,7 @@ function App() {
             color={config.lighting.spotLight.color} 
           />
           
-          {/* Enhanced Crystal Scene Component */}
+          {/* Your existing crystal scene */}
           <EnhancedCrystalScene 
             isExploded={isExploded} 
             config={config} 
@@ -314,16 +375,16 @@ function App() {
             performanceConfig={performanceConfig}
           />
           
-          {/* Environment map for realistic reflections */}
+          {/* MODIFY THIS: Environment with optimized settings and key for reloading */}
           <Environment 
-            files={config.environment.hdri} 
+            key={environmentProps.files} // Force reload when HDRI path changes
+            files={environmentProps.files || config.environment.hdri} 
             background={config.environment.showBackground} 
             rotation={config.environment.rotation}
           />
           
-          {/* Post-processing effects for photorealism */}
+          {/* Your existing post-processing */}
           <EffectComposer enabled={true}>
-            {/* Always include a minimal effect that doesn't visibly change the scene */}
             <Bloom 
               intensity={Object.values(effectsEnabled).some(Boolean) ? 0 : 0.0001}
               luminanceThreshold={1.0}
@@ -332,7 +393,6 @@ function App() {
               enabled={!Object.values(effectsEnabled).some(Boolean)}
             />
             
-            {/* Regular effects */}
             {effectsEnabled.bloom && (
               <Bloom 
                 luminanceThreshold={postProcessingConfig.bloom.luminanceThreshold} 
@@ -363,7 +423,7 @@ function App() {
             )}
           </EffectComposer>
           
-          {/* Camera controls - disabled when a facet is selected */}
+          {/* Your existing orbit controls */}
           <OrbitControls 
             makeDefault
             enabled={orbitControlsEnabled}
@@ -376,14 +436,13 @@ function App() {
         </Canvas>
       </div>
       
-      {/* UI Toggle Button (positioned at bottom left) */}
+      {/* All your existing UI components stay the same */}
       <ControlsToggle 
         showUI={showUI} 
         toggleUI={toggleUI} 
         disabled={isTransitioning}
       />
       
-      {/* Tabbed UI Controls - Only shown when UI is visible */}
       {showUI && (
         <TabbedControlPanel 
           visible={true}
@@ -394,14 +453,11 @@ function App() {
             { label: 'Performance' }
           ]}
         >
-          {/* Tab 1: Crystal Controls */}
           <CrystalControls onUpdate={handleConfigUpdate} />
           
-          {/* Tab 2: Materials Controls */}
           <div>
             <MaterialSelector currentVariant={materialVariant} onChange={handleMaterialChange} />
             
-            {/* Conditional Material Controls - Only show when relevant material is selected */}
             {materialVariant === 'blackOpal' && (
               <BlackOpalControls 
                 visible={true} 
@@ -419,7 +475,6 @@ function App() {
             )}
           </div>
           
-          {/* Tab 3: Post-Processing Effects */}
           <PostProcessingControls 
             effectsEnabled={effectsEnabled}
             onToggleEffect={handleToggleEffect}
@@ -427,7 +482,6 @@ function App() {
             config={config}
           />
           
-          {/* Tab 4: Performance Settings */}
           <PerformanceControls
             performanceConfig={performanceConfig}
             onConfigUpdate={handlePerformanceConfigUpdate}
@@ -436,13 +490,13 @@ function App() {
         </TabbedControlPanel>
       )}
       
-      {/* Facet Detail UI Card - Shown when a facet is selected */}
+      {/* Rest of your existing UI */}
       {selectedFacet && 
         <FacetDetailCard 
           facet={config.facetLabels.find(f => f.key === selectedFacet)}
           visible={showDetailCard}
           onClose={() => {
-            if (isTransitioning) return; // Prevent interaction during transitions
+            if (isTransitioning) return;
             
             setIsTransitioning(true);
             setShowDetailCard(false);
@@ -450,7 +504,6 @@ function App() {
             setTimeout(() => {
               setSelectedFacet(null);
               
-              // Wait for camera transition to complete before enabling orbit controls
               setTimeout(() => {
                 setOrbitControlsEnabled(true);
                 setIsTransitioning(false);
@@ -460,10 +513,8 @@ function App() {
         />
       }
       
-      {/* Keyboard Shortcuts Information */}
       <AccessibilityInstructions visible={true} />
       
-      {/* UI Overlay for Explode/Reform Button */}
       <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 9999 }}>
         <div style={{ position: 'absolute', bottom: '20px', left: 0, width: '100%', display: 'flex', justifyContent: 'center', pointerEvents: 'none' }}>
           <button 
