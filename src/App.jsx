@@ -107,6 +107,7 @@ function App() {
 
   // ADD THIS: Update performance config when device profile loads (with proper change detection)
   const [lastAppliedProfile, setLastAppliedProfile] = useState(null);
+  const [initialProfileApplied, setInitialProfileApplied] = useState(false);
   
   useEffect(() => {
     if (devicePerformanceProfile && !isDetecting) {
@@ -130,6 +131,7 @@ function App() {
         
         setPerformanceConfig(newConfig);
         setLastAppliedProfile(profileKey);
+        setInitialProfileApplied(true);
         
         // Also update effects based on device profile (with null checking)
         if (devicePerformanceProfile.postProcessing) {
@@ -140,6 +142,12 @@ function App() {
             vignette: devicePerformanceProfile.postProcessing.vignette || false
           });
         }
+        
+        // Force material refresh by toggling a dummy state
+        setTimeout(() => {
+          console.log('🔄 Forcing material refresh...');
+          setPerformanceConfig(prev => ({ ...prev, _forceRefresh: Date.now() }));
+        }, 100);
       }
     }
   }, [devicePerformanceProfile, isDetecting, lastAppliedProfile]);
@@ -149,13 +157,13 @@ function App() {
   
   useEffect(() => {
     // Only update external config after initial device profile load
-    if (updateExternalPerformanceConfig && hasInitialized) {
+    if (updateExternalPerformanceConfig && hasInitialized && initialProfileApplied) {
       updateExternalPerformanceConfig(performanceConfig);
     } else if (devicePerformanceProfile && !hasInitialized) {
       // Mark as initialized after first device profile load
       setHasInitialized(true);
     }
-  }, [performanceConfig, updateExternalPerformanceConfig, hasInitialized, devicePerformanceProfile]);
+  }, [performanceConfig, updateExternalPerformanceConfig, hasInitialized, devicePerformanceProfile, initialProfileApplied]);
 
   // Handler for updating configuration from the control panel
   const handleConfigUpdate = useCallback((newConfig) => {

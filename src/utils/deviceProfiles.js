@@ -39,13 +39,13 @@ const basePerformanceSettings = {
 /**
  * Mobile Phone Profile
  * Target: 30fps stable
- * Strategy: Aggressive optimization for small screens
+ * Strategy: Aggressive optimization for small screens (with better resolution now that PBR is properly off)
  */
 export const mobileProfile = {
   ...basePerformanceSettings,
   
-  // Render at 50% resolution for major performance boost
-  renderScale: 0.5,  // Even more aggressive
+  // Bump up render scale since PBR off gives major performance boost
+  renderScale: 0.7,  // Increased from 0.5
   
   // Disable expensive material features
   useNormalMaps: false,
@@ -77,41 +77,81 @@ export const mobileProfile = {
 };
 
 /**
- * Tablet Profile  
- * Target: 30-60fps depending on device
- * Strategy: Aggressive optimization for tablets (especially iPad Pro)
+ * Tablet Profile (for non-iPad tablets)
+ * Target: 30fps stable
+ * Strategy: Aggressive optimization for Android tablets
  */
 export const tabletProfile = {
   ...basePerformanceSettings,
   
-  // Much more aggressive render scaling for tablets
-  renderScale: 0.5,  // Even more aggressive - same as mobile
+  // Aggressive render scaling for tablets
+  renderScale: 0.6,
   
-  // Disable normal maps on tablets too
-  useNormalMaps: false,  // Turn off normal maps
-  usePBR: false,         // Keep PBR off
-  textureQuality: 'low', // Use lowest texture quality
+  // Disable expensive features
+  useNormalMaps: false,
+  usePBR: false,
+  textureQuality: 'low',
   
   // Minimal post-processing
   postProcessing: {
     bloom: false,
     chromaticAberration: false,
-    noise: true,           // Keep only noise
-    vignette: false        // Disable vignette too
+    noise: true,
+    vignette: true
   },
   
-  // Reduce lighting even more
-  maxLights: 2,            // Same as mobile
-  shadowQuality: 'off',    // No shadows
+  // Reduced lighting
+  maxLights: 2,
+  shadowQuality: 'off',
   
-  // Lowest environment quality
-  hdriQuality: 'low',      // Use low quality HDRI
+  // Low environment quality
+  hdriQuality: 'low',
   
-  // Disable all expensive features
+  // Disable expensive features
   antialiasing: false,
   anisotropicFiltering: 1,
   
-  // Additional mobile-like optimizations
+  // Tablet optimizations
+  reducedParticles: true,
+  simplifiedAnimations: false
+};
+
+/**
+ * iPad-specific profile
+ * Target: 30-60fps on iPad Pro
+ * Strategy: Optimized specifically for iPad hardware
+ */
+export const iPadProfile = {
+  ...basePerformanceSettings,
+  
+  // Better resolution for iPad Pro since it's more powerful than phones
+  renderScale: 0.8,  // Higher than mobile but still optimized
+  
+  // Keep normal maps off but allow slightly better settings
+  useNormalMaps: false,
+  usePBR: false,           // Keep PBR off for performance
+  textureQuality: 'medium', // iPad can handle medium textures
+  
+  // Minimal post-processing but slightly better than mobile
+  postProcessing: {
+    bloom: false,
+    chromaticAberration: false,
+    noise: true,
+    vignette: true
+  },
+  
+  // Slightly better lighting than mobile
+  maxLights: 2,
+  shadowQuality: 'off',
+  
+  // Medium environment quality
+  hdriQuality: 'medium',
+  
+  // Keep expensive features off
+  antialiasing: false,
+  anisotropicFiltering: 1,
+  
+  // iPad-specific optimizations
   reducedParticles: true,
   simplifiedAnimations: false
 };
@@ -267,6 +307,11 @@ export const uiProfiles = {
  * Get performance profile based on device detection
  */
 export const getPerformanceProfile = (deviceProfile) => {
+  // Special handling for iPad
+  if (deviceProfile.isIPad) {
+    return iPadProfile;
+  }
+  
   switch (deviceProfile.performanceTier) {
     case 'high':
       return deviceProfile.category === 'desktop-xl' ? desktopXLProfile : desktopProfile;
