@@ -15,6 +15,10 @@ const detectDeviceCapabilities = () => {
     isIOS: /iPad|iPhone|iPod/.test(navigator.userAgent),
     isAndroid: /Android/i.test(navigator.userAgent),
     
+    // Specific iPad detection
+    isIPad: /iPad/.test(navigator.userAgent) || 
+             (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1), // Detect iPad Pro in desktop mode
+    
     // Screen information
     screenWidth: window.screen.width,
     screenHeight: window.screen.height,
@@ -78,6 +82,12 @@ const getGPUInfo = () => {
  */
 const classifyDevicePerformance = (capabilities, gpuInfo) => {
   let score = 0;
+  
+  // IMPORTANT: Force iPad detection
+  if (capabilities.isIPad) {
+    console.log("🍎 iPad detected - forcing tablet performance tier");
+    return 'medium'; // Force iPads to medium tier regardless of other factors
+  }
   
   // Base device type scoring - be more aggressive for mobile
   if (capabilities.isMobile && !capabilities.isTablet) {
@@ -153,6 +163,11 @@ const classifyDevicePerformance = (capabilities, gpuInfo) => {
  * Get device category for UI responsive design
  */
 const getDeviceCategory = (capabilities) => {
+  // Force iPad detection
+  if (capabilities.isIPad) {
+    return 'tablet';
+  }
+  
   if (capabilities.isMobile && !capabilities.isTablet) {
     return 'mobile';
   } else if (capabilities.isTablet) {
