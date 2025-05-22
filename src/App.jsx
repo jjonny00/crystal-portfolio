@@ -209,11 +209,12 @@ function App() {
     }
   }, []);
   
-  // Performance config update handler
+  // Performance config update handler with debugging
   const handlePerformanceConfigUpdate = useCallback((newConfig) => {
-    console.log("Updating performance config:", newConfig);
+    console.log("🔧 Manual performance config update:", newConfig);
+    console.log("🔧 Previous config:", performanceConfig);
     setPerformanceConfig(newConfig);
-  }, []);
+  }, [performanceConfig]);
 
   // Toggle UI visibility
   const toggleUI = useCallback(() => {
@@ -367,7 +368,7 @@ function App() {
             color={config.lighting.spotLight.color} 
           />
           
-          {/* Your existing crystal scene with performance config passed early */}
+          {/* Your existing crystal scene - remove key prop that was causing camera issues */}
           <EnhancedCrystalScene 
             isExploded={isExploded} 
             config={config} 
@@ -380,7 +381,6 @@ function App() {
             onFacetHover={handleFacetHover}
             isTransitioning={isTransitioning}
             performanceConfig={performanceConfig}
-            key={`${performanceConfig.usePBR}-${performanceConfig.useNormalMaps}-${performanceConfig.textureQuality}`} // Force remount when performance changes
           />
           
           {/* MODIFY THIS: Environment with optimized settings and key for reloading */}

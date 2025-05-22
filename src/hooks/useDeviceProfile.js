@@ -199,22 +199,17 @@ export const useDeviceProfile = (options = {}) => {
     };
   }, [effectivePerformanceConfig]);
   
-  // Separate logging effect to prevent repeated calls
+  // ADD THIS: Debug logging for performance config changes
   useEffect(() => {
     if (effectivePerformanceConfig) {
-      const textureQuality = effectivePerformanceConfig.textureQuality || 'high';
-      const hdriPath = getHDRIPath(textureQuality);
-      
-      // Always log performance settings for debugging
-      console.log(`🎯 Performance Settings:`, {
-        renderScale: effectivePerformanceConfig.renderScale,
+      console.log(`🎯 Performance Config Updated:`, {
         usePBR: effectivePerformanceConfig.usePBR,
         useNormalMaps: effectivePerformanceConfig.useNormalMaps,
         textureQuality: effectivePerformanceConfig.textureQuality,
-        hdriPath: hdriPath
+        renderScale: effectivePerformanceConfig.renderScale
       });
     }
-  }, [effectivePerformanceConfig?.textureQuality, effectivePerformanceConfig?.usePBR, effectivePerformanceConfig?.renderScale]);
+  }, [effectivePerformanceConfig?.usePBR, effectivePerformanceConfig?.useNormalMaps, effectivePerformanceConfig?.textureQuality, effectivePerformanceConfig?.renderScale]);
   
   const shouldShowEffect = useCallback((effectName) => {
     if (!effectivePerformanceConfig) return false;
