@@ -95,13 +95,14 @@ function App() {
   
   const [postProcessingConfig, setPostProcessingConfig] = useState(config.postProcessing);
   
-  // MODIFY THIS: Use device profile for initial performance config
+  // MODIFY THIS: Use device profile for initial performance config with proper defaults
   const [performanceConfig, setPerformanceConfig] = useState(() => {
-    // If device profile is available, use it; otherwise use defaults
-    return devicePerformanceProfile || {
-      useNormalMaps: true,
-      textureQuality: 'high',
-      usePBR: true
+    // Start with safe defaults that will be overridden
+    return {
+      useNormalMaps: false,  // Default to OFF
+      textureQuality: 'low', // Default to LOW
+      usePBR: false,         // Default to OFF
+      renderScale: 0.7
     };
   });
 
@@ -305,14 +306,12 @@ function App() {
 
   return (
     <>
-      {/* ADD THIS: FPS Display - only show on non-mobile devices by default */}
-      {deviceProfile && !deviceProfile.isMobile && (
-        <FpsDisplay 
-          visible={true}
-          position="top-right"
-          showDetails={false}
-        />
-      )}
+      {/* ADD THIS: FPS Display - show on all devices during development */}
+      <FpsDisplay 
+        visible={true}
+        position="top-right"
+        showDetails={false}
+      />
       
       {/* ADD THIS: Performance alerts for all devices */}
       <PerformanceAlert 
@@ -368,7 +367,7 @@ function App() {
             color={config.lighting.spotLight.color} 
           />
           
-          {/* Your existing crystal scene */}
+          {/* Your existing crystal scene with performance config passed early */}
           <EnhancedCrystalScene 
             isExploded={isExploded} 
             config={config} 
@@ -381,6 +380,7 @@ function App() {
             onFacetHover={handleFacetHover}
             isTransitioning={isTransitioning}
             performanceConfig={performanceConfig}
+            key={`${performanceConfig.usePBR}-${performanceConfig.useNormalMaps}-${performanceConfig.textureQuality}`} // Force remount when performance changes
           />
           
           {/* MODIFY THIS: Environment with optimized settings and key for reloading */}
