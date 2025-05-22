@@ -164,12 +164,23 @@ export const useDeviceProfile = (options = {}) => {
   const getOptimalCanvasProps = useCallback(() => {
     if (!currentDeviceProfile || !effectivePerformanceConfig) return {};
     
+    // Calculate DPR based on render scale and device capabilities
+    const baseDPR = getCanvasDPR(currentDeviceProfile, effectivePerformanceConfig);
+    const renderScale = effectivePerformanceConfig.renderScale || 1.0;
+    
+    // Apply render scale to DPR for performance
+    const scaledDPR = baseDPR.map(dpr => dpr * renderScale);
+    
+    console.log(`🎮 Canvas - Render Scale: ${renderScale}, DPR: [${scaledDPR.join(', ')}]`);
+    
     return {
-      dpr: getCanvasDPR(currentDeviceProfile, effectivePerformanceConfig),
+      dpr: scaledDPR,
       gl: {
-        antialias: effectivePerformanceConfig.antialiasing,
+        antialias: effectivePerformanceConfig.antialiasing || false,
         alpha: false, // Opaque background for better performance
-        powerPreference: currentDeviceProfile.performanceTier === 'high' ? 'high-performance' : 'default'
+        powerPreference: currentDeviceProfile.performanceTier === 'high' ? 'high-performance' : 'low-power',
+        // Force lower precision on mobile
+        precision: currentDeviceProfile.isMobile ? 'mediump' : 'highp'
       }
     };
   }, [currentDeviceProfile, effectivePerformanceConfig]);
@@ -194,13 +205,16 @@ export const useDeviceProfile = (options = {}) => {
       const textureQuality = effectivePerformanceConfig.textureQuality || 'high';
       const hdriPath = getHDRIPath(textureQuality);
       
-      // Only log when quality actually changes
-      if (getOptimalEnvironmentProps.lastLoggedPath !== hdriPath) {
-        console.log(`🌍 Environment - Texture Quality: ${textureQuality}, HDRI Path: ${hdriPath}`);
-        getOptimalEnvironmentProps.lastLoggedPath = hdriPath;
-      }
+      // Always log performance settings for debugging
+      console.log(`🎯 Performance Settings:`, {
+        renderScale: effectivePerformanceConfig.renderScale,
+        usePBR: effectivePerformanceConfig.usePBR,
+        useNormalMaps: effectivePerformanceConfig.useNormalMaps,
+        textureQuality: effectivePerformanceConfig.textureQuality,
+        hdriPath: hdriPath
+      });
     }
-  }, [effectivePerformanceConfig?.textureQuality]);
+  }, [effectivePerformanceConfig?.textureQuality, effectivePerformanceConfig?.usePBR, effectivePerformanceConfig?.renderScale]);
   
   const shouldShowEffect = useCallback((effectName) => {
     if (!effectivePerformanceConfig) return false;

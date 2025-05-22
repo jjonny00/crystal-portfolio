@@ -44,8 +44,8 @@ const basePerformanceSettings = {
 export const mobileProfile = {
   ...basePerformanceSettings,
   
-  // Render at 60% resolution for major performance boost
-  renderScale: 0.6,
+  // Render at 50% resolution for major performance boost
+  renderScale: 0.5,  // Even more aggressive
   
   // Disable expensive material features
   useNormalMaps: false,
@@ -84,8 +84,8 @@ export const mobileProfile = {
 export const tabletProfile = {
   ...basePerformanceSettings,
   
-  // Render at 80% resolution - good balance
-  renderScale: 0.8,
+  // Render at 70% resolution - more aggressive for tablets
+  renderScale: 0.7,
   
   // Keep normal maps, skip PBR
   useNormalMaps: true,
@@ -94,7 +94,7 @@ export const tabletProfile = {
   
   // Selective post-processing
   postProcessing: {
-    bloom: true,           // One nice effect
+    bloom: false,          // Disable bloom on tablets too
     chromaticAberration: false,
     noise: true,
     vignette: true
@@ -108,8 +108,8 @@ export const tabletProfile = {
   hdriQuality: 'medium',
   
   // Moderate AA
-  antialiasing: true,
-  anisotropicFiltering: 2
+  antialiasing: false,     // Disable AA on tablets
+  anisotropicFiltering: 1  // Reduce filtering
 };
 
 /**
