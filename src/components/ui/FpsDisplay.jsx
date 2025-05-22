@@ -274,64 +274,72 @@ export const PerformanceAlert = ({
   threshold = 25,
   onPerformanceIssue
 }) => {
-  const { fps, avgFps } = useFPSMonitorDOM(); // Use DOM version
+  const { fps, avgFps } = useFPSMonitorDOM();
   const [showAlert, setShowAlert] = useState(false);
   const [alertCount, setAlertCount] = useState(0);
+  const [dismissed, setDismissed] = useState(false);
+  const lastAlertTime = useRef(0);
   
   useEffect(() => {
-    if (fps > 0 && avgFps < threshold) {
+    // Don't show alerts if already dismissed
+    if (dismissed) return;
+    
+    // Only check every few seconds to avoid spam
+    const now = Date.now();
+    if (now - lastAlertTime.current < 5000) return; // 5 second cooldown
+    
+    if (fps > 0 && avgFps < threshold && avgFps > 0) {
+      lastAlertTime.current = now;
       setShowAlert(true);
       setAlertCount(prev => prev + 1);
       
       if (onPerformanceIssue) {
         onPerformanceIssue({ fps, avgFps, alertCount });
       }
-      
-      // Auto-hide after 5 seconds
-      const timer = setTimeout(() => {
-        setShowAlert(false);
-      }, 5000);
-      
-      return () => clearTimeout(timer);
     }
-  }, [fps, avgFps, threshold, onPerformanceIssue, alertCount]);
+  }, [fps, avgFps, threshold, onPerformanceIssue, alertCount, dismissed]);
   
-  if (!visible || !showAlert) return null;
+  const handleDismiss = () => {
+    setShowAlert(false);
+    setDismissed(true); // Permanently dismiss
+  };
+  
+  if (!visible || !showAlert || dismissed) return null;
   
   return (
     <div style={{
       position: 'fixed',
-      top: '50%',
+      top: '20px', // Move to top instead of center
       left: '50%',
-      transform: 'translate(-50%, -50%)',
-      backgroundColor: 'rgba(244, 67, 54, 0.9)',
+      transform: 'translateX(-50%)',
+      backgroundColor: 'rgba(244, 67, 54, 0.95)',
       color: 'white',
-      padding: '16px 24px',
+      padding: '12px 20px',
       borderRadius: '8px',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-      fontSize: '14px',
+      fontSize: '13px',
       zIndex: 10001,
       textAlign: 'center',
       boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
-      backdropFilter: 'blur(10px)'
+      backdropFilter: 'blur(10px)',
+      maxWidth: '300px'
     }}>
-      <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>
-        ⚠️ Performance Issue Detected
+      <div style={{ fontWeight: 'bold', marginBottom: '6px' }}>
+        ⚠️ Low Performance: {avgFps}fps
       </div>
-      <div style={{ fontSize: '12px', opacity: 0.9 }}>
-        Frame rate dropped to {avgFps}fps. Consider reducing quality settings.
+      <div style={{ fontSize: '11px', opacity: 0.9, marginBottom: '8px' }}>
+        Try reducing quality settings
       </div>
       <button
-        onClick={() => setShowAlert(false)}
+        onClick={handleDismiss}
         style={{
-          marginTop: '12px',
-          padding: '6px 12px',
           backgroundColor: 'rgba(255, 255, 255, 0.2)',
           border: '1px solid rgba(255, 255, 255, 0.3)',
           borderRadius: '4px',
           color: 'white',
           cursor: 'pointer',
-          fontSize: '12px'
+          fontSize: '11px',
+          padding: '4px 8px'
         }}
       >
         Dismiss

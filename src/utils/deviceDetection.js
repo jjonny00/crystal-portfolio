@@ -79,11 +79,11 @@ const getGPUInfo = () => {
 const classifyDevicePerformance = (capabilities, gpuInfo) => {
   let score = 0;
   
-  // Base device type scoring
+  // Base device type scoring - be more aggressive for mobile
   if (capabilities.isMobile && !capabilities.isTablet) {
-    score += 1; // Mobile phones start low
+    score += 0; // Mobile phones start at 0 (force low tier)
   } else if (capabilities.isTablet) {
-    score += 2; // Tablets are middle tier
+    score += 1; // Tablets start low-medium
   } else {
     score += 3; // Desktop starts high
   }
@@ -111,7 +111,7 @@ const classifyDevicePerformance = (capabilities, gpuInfo) => {
     } else if (renderer.includes('radeon rx') || renderer.includes('vega')) {
       score += 2; // AMD gaming cards
     } else if (renderer.includes('apple m1') || renderer.includes('apple m2')) {
-      score += 2; // Apple Silicon
+      score += 1; // Apple Silicon - good but not desktop level for 3D
     }
   }
   
@@ -123,24 +123,29 @@ const classifyDevicePerformance = (capabilities, gpuInfo) => {
   // Screen resolution penalty for very high DPI
   const totalPixels = capabilities.screenWidth * capabilities.screenHeight * capabilities.devicePixelRatio;
   if (totalPixels > 8000000) { // 4K+ screens
-    score -= 1; // Higher resolution = more work
+    score -= 2; // Higher resolution = much more work
   }
   
   // Device-specific overrides for known devices
   const userAgent = navigator.userAgent;
   
-  // High-end mobile devices
+  // Force mobile devices to lower performance tiers
+  if (capabilities.isMobile) {
+    score = Math.min(score, 2); // Cap mobile devices at medium
+  }
+  
+  // High-end mobile devices get small boost
   if (/iPhone1[4-9]|iPhone[2-9][0-9]/.test(userAgent)) {
-    score += 1; // iPhone 14+ series
+    score += 0.5; // iPhone 14+ series - small boost
   }
   
   if (/iPad.*OS 1[5-9]/.test(userAgent)) {
-    score += 1; // Recent iPads
+    score += 0.5; // Recent iPads - small boost
   }
   
-  // Classification
-  if (score >= 6) return 'high';
-  if (score >= 3) return 'medium';
+  // Classification - more conservative
+  if (score >= 5) return 'high';
+  if (score >= 2.5) return 'medium';
   return 'low';
 };
 
