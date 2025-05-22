@@ -83,10 +83,10 @@ const getGPUInfo = () => {
 const classifyDevicePerformance = (capabilities, gpuInfo) => {
   let score = 0;
   
-  // IMPORTANT: Force iPad detection
+  // IMPORTANT: Force iPad detection with even more aggressive settings
   if (capabilities.isIPad) {
-    console.log("🍎 iPad detected - forcing tablet performance tier");
-    return 'medium'; // Force iPads to medium tier regardless of other factors
+    console.log("🍎 iPad detected - forcing LOW performance tier for better FPS");
+    return 'low'; // Force iPads to LOW tier for maximum performance
   }
   
   // Base device type scoring - be more aggressive for mobile

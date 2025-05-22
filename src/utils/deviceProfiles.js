@@ -79,37 +79,41 @@ export const mobileProfile = {
 /**
  * Tablet Profile  
  * Target: 30-60fps depending on device
- * Strategy: Balanced quality and performance
+ * Strategy: Aggressive optimization for tablets (especially iPad Pro)
  */
 export const tabletProfile = {
   ...basePerformanceSettings,
   
-  // Render at 70% resolution - more aggressive for tablets
-  renderScale: 0.7,
+  // Much more aggressive render scaling for tablets
+  renderScale: 0.5,  // Even more aggressive - same as mobile
   
-  // Keep normal maps, skip PBR
-  useNormalMaps: true,
-  usePBR: false,           // Still skip PBR for performance
-  textureQuality: 'medium',
+  // Disable normal maps on tablets too
+  useNormalMaps: false,  // Turn off normal maps
+  usePBR: false,         // Keep PBR off
+  textureQuality: 'low', // Use lowest texture quality
   
-  // Selective post-processing
+  // Minimal post-processing
   postProcessing: {
-    bloom: false,          // Disable bloom on tablets too
+    bloom: false,
     chromaticAberration: false,
-    noise: true,
-    vignette: true
+    noise: true,           // Keep only noise
+    vignette: false        // Disable vignette too
   },
   
-  // Moderate lighting
-  maxLights: 3,
-  shadowQuality: 'low',
+  // Reduce lighting even more
+  maxLights: 2,            // Same as mobile
+  shadowQuality: 'off',    // No shadows
   
-  // Medium environment
-  hdriQuality: 'medium',
+  // Lowest environment quality
+  hdriQuality: 'low',      // Use low quality HDRI
   
-  // Moderate AA
-  antialiasing: false,     // Disable AA on tablets
-  anisotropicFiltering: 1  // Reduce filtering
+  // Disable all expensive features
+  antialiasing: false,
+  anisotropicFiltering: 1,
+  
+  // Additional mobile-like optimizations
+  reducedParticles: true,
+  simplifiedAnimations: false
 };
 
 /**
@@ -317,13 +321,22 @@ export const getTextureScale = (quality) => {
  * Get recommended canvas DPR based on performance tier
  */
 export const getCanvasDPR = (deviceProfile, performanceProfile) => {
+  // Be very conservative with DPR for mobile devices
+  if (deviceProfile.isIPad || deviceProfile.isTablet) {
+    return [1, 1]; // Force 1x DPR on all tablets including iPad Pro
+  }
+  
+  if (deviceProfile.isMobile) {
+    return [1, 1]; // Force 1x DPR on mobile
+  }
+  
   const maxDPR = Math.min(window.devicePixelRatio || 1, 2); // Cap at 2x
   
   switch (deviceProfile.performanceTier) {
     case 'high':
       return [1, maxDPR];
     case 'medium':
-      return [1, Math.min(maxDPR, 1.5)];
+      return [1, 1]; // Even medium tier gets 1x DPR
     case 'low':
     default:
       return [1, 1]; // No high DPR on low-end devices
