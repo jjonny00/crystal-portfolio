@@ -1,11 +1,18 @@
-// Further improved CameraController.jsx with proper zoom-out animation
+// src/components/three/CameraController.jsx
+// Updated with state machine integration
 import { useRef, useEffect } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
-// Component to handle camera animations and transitions
+// Import state machine constants
+import { CRYSTAL_STATES } from '../../machines/crystalStateMachine';
+
+/**
+ * Component to handle camera animations and transitions based on crystal state
+ */
 const CameraController = ({ 
   isExploded,
+  crystalState, // New prop for state machine integration
   selectedFacet = null,
   facetRefs = { current: [] },
   config,
@@ -26,6 +33,7 @@ const CameraController = ({
   
   // Keep track of the previous selected facet
   const prevSelectedFacet = useRef(null);
+  const prevCrystalState = useRef(CRYSTAL_STATES.WHOLE);
   
   // Store key camera positions
   const initialPosition = useRef(null);
@@ -45,7 +53,8 @@ const CameraController = ({
   
   // Store exploded position when transitioning to exploded view
   useEffect(() => {
-    if (isExploded && !selectedFacet && !cameraAnimation.current.active) {
+    if ((crystalState === CRYSTAL_STATES.EXPLODED || crystalState === CRYSTAL_STATES.EXPLODING) && 
+        !selectedFacet && !cameraAnimation.current.active) {
       // Wait a moment to ensure the camera has finished animating to exploded view
       const timer = setTimeout(() => {
         explodedPosition.current = camera.position.clone();
@@ -54,31 +63,69 @@ const CameraController = ({
       
       return () => clearTimeout(timer);
     }
-  }, [isExploded, selectedFacet, config.timing.camera.explodeDuration]);
+  }, [crystalState, selectedFacet, config.timing.camera.explodeDuration]);
   
-  // Set up camera animation when explosion state or selected facet changes
+  // Handle state transitions
   useEffect(() => {
-    if (DEBUG) console.log("State change - isExploded:", isExploded, "selectedFacet:", selectedFacet);
+    if (DEBUG) console.log(`Crystal state changed: ${prevCrystalState.current} -> ${crystalState}`);
     
-    // Handle facet deselection - transitioning from selected facet view back to exploded view
-    if (prevSelectedFacet.current && !selectedFacet && isExploded) {
-      if (DEBUG) console.log("Deselecting facet - animating back to exploded view");
-      animateToExplodedView();
-    }
-    // Handle new facet selection
-    else if (selectedFacet && selectedFacet !== prevSelectedFacet.current) {
-      if (DEBUG) console.log("Selecting facet:", selectedFacet);
-      animateToFacet(selectedFacet);
-    }
-    // Handle explosion/reform state change
-    else if (prevSelectedFacet.current === selectedFacet) {
-      if (DEBUG) console.log("Animating explosion state change to:", isExploded ? "exploded" : "reformed");
-      animateExplosionState(isExploded);
+    // Handle state machine transitions for camera
+    switch(crystalState) {
+      case CRYSTAL_STATES.WHOLE:
+        // Camera is at initial position
+        break;
+        
+      case CRYSTAL_STATES.FRACTURING:
+        // No camera movement during fracturing phase
+        break;
+        
+      case CRYSTAL_STATES.EXPLODING:
+        // Animate camera to explosion view
+        animateExplosionState(true);
+        break;
+        
+      case CRYSTAL_STATES.EXPLODED:
+        // If we were in PROJECT_SELECTED state and now in EXPLODED, animate back
+        if (prevCrystalState.current === CRYSTAL_STATES.PROJECT_SELECTED) {
+          animateToExplodedView();
+        }
+        break;
+        
+      case CRYSTAL_STATES.PROJECT_SELECTED:
+        // If we were in EXPLODED state and now in PROJECT_SELECTED, animate to project
+        if (prevCrystalState.current === CRYSTAL_STATES.EXPLODED && selectedFacet) {
+          animateToFacet(selectedFacet);
+        }
+        break;
+        
+      case CRYSTAL_STATES.REFORMING:
+        // Animate camera back to whole crystal view
+        animateExplosionState(false);
+        break;
     }
     
-    // Update previous selected facet reference
-    prevSelectedFacet.current = selectedFacet;
-  }, [isExploded, selectedFacet]);
+    // Update previous state
+    prevCrystalState.current = crystalState;
+  }, [crystalState, selectedFacet]);
+  
+  // Set up camera animation when selected facet changes
+  useEffect(() => {
+    if (DEBUG) console.log("Selected facet changed:", selectedFacet);
+    
+    // Handle facet selection changes
+    if (prevSelectedFacet.current !== selectedFacet) {
+      if (selectedFacet) {
+        // Animate to selected facet
+        animateToFacet(selectedFacet);
+      } else if (prevSelectedFacet.current && crystalState === CRYSTAL_STATES.EXPLODED) {
+        // Animate back to exploded view
+        animateToExplodedView();
+      }
+      
+      // Update previous selected facet
+      prevSelectedFacet.current = selectedFacet;
+    }
+  }, [selectedFacet, crystalState]);
   
   // Animate camera back to exploded view position
   const animateToExplodedView = () => {
@@ -224,22 +271,23 @@ const CameraController = ({
       
       // Get appropriate easing function
       let easedProgress;
-      if (selectedFacet) {
-        // Zooming to facet - use facet zoom easing
+      
+      // Select easing based on the current animation type
+      if (crystalState === CRYSTAL_STATES.PROJECT_SELECTED || 
+          (prevCrystalState.current === CRYSTAL_STATES.PROJECT_SELECTED && crystalState === CRYSTAL_STATES.EXPLODED)) {
+        // Facet transitions - zoom or return
         easedProgress = config.easings.facetZoomEase 
           ? config.easings.facetZoomEase(progress) 
           : config.easings.explosionEase(progress);
-      } else if (prevSelectedFacet.current && !selectedFacet) {
-        // Returning from facet - use facet return easing (smoother)
-        easedProgress = config.easings.facetZoomEase 
-          ? config.easings.facetZoomEase(progress) 
-          : config.easings.reformEase(progress);
-      } else if (isExploded) {
-        // Exploding - use explosion easing
+      } else if (crystalState === CRYSTAL_STATES.EXPLODING) {
+        // Exploding animation
         easedProgress = config.easings.explosionEase(progress);
-      } else {
-        // Reforming - use reform easing
+      } else if (crystalState === CRYSTAL_STATES.REFORMING) {
+        // Reforming animation
         easedProgress = config.easings.reformEase(progress);
+      } else {
+        // Default easing
+        easedProgress = progress;
       }
       
       // Apply position interpolation
@@ -274,7 +322,7 @@ const CameraController = ({
         if (DEBUG) console.log("Camera animation complete - final position:", camera.position.clone());
         
         // If we're in exploded state with no facet selected, update our stored exploded position
-        if (isExploded && !selectedFacet) {
+        if (crystalState === CRYSTAL_STATES.EXPLODED && !selectedFacet) {
           explodedPosition.current = camera.position.clone();
           if (DEBUG) console.log("Updated exploded position:", explodedPosition.current);
         }

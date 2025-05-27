@@ -1,12 +1,16 @@
-// App.jsx - Integration example showing how to add the performance system
+// App.jsx - Complete updated version with state machine integration
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { Environment, OrbitControls } from '@react-three/drei'
 import { EffectComposer, Bloom, ChromaticAberration, Noise, Vignette } from '@react-three/postprocessing'
 import { BlendFunction } from 'postprocessing'
 import * as THREE from 'three'
 import './App.css'
+
+// Import state machine and project data
+import { CRYSTAL_STATES, CRYSTAL_EVENTS, getNextState } from './machines/crystalStateMachine'
+import { projects, getProjectByFacetKey } from './data/projects'
 
 // Import your existing components
 import * as defaultConfig from './crystalConfig'
@@ -16,19 +20,19 @@ import MaterialSelector from './components/ui/MaterialSelector'
 import BlackOpalControls from './components/ui/BlackOpalControls'
 import IceOpalControls from './components/ui/IceOpalControls'
 import ControlsToggle from './components/ui/ControlsToggle'
-import FacetDetailCard from './components/ui/FacetDetailCard'
+import ProjectDetailCard from './components/ui/ProjectDetailCard'
 import AccessibilityInstructions from './components/ui/AccessibilityInstructions'
 import PostProcessingControls from './components/ui/PostProcessingControls'
 import PerformanceControls from './components/ui/PerformanceControls'
 import TabbedControlPanel from './components/ui/TabbedControlPanel'
 import useKeyboardControls from './hooks/useKeyboardControls'
 
-// Import new performance system
+// Import performance system
 import { useDeviceProfile } from './hooks/useDeviceProfile'
 import FpsDisplay, { FPSCounter, PerformanceAlert } from './components/ui/FpsDisplay'
 
 function App() {
-  // ADD THIS: Device profile detection
+  // Device profile detection
   const { 
     performanceProfile: devicePerformanceProfile, 
     deviceProfile, 
@@ -37,12 +41,20 @@ function App() {
     updateExternalPerformanceConfig,
     isDetecting 
   } = useDeviceProfile({ 
-    enableDebugLogging: false,  // Turn off constant logging
+    enableDebugLogging: false,
     enableOrientationLock: true 
   });
 
+  // State machine state
+  const [crystalState, setCrystalState] = useState(CRYSTAL_STATES.WHOLE)
+  const [isTransitioning, setIsTransitioning] = useState(false)
+  
+  // Project selection state
+  const [selectedProject, setSelectedProject] = useState(null)
+  const [hoveredFacet, setHoveredFacet] = useState(null)
+  const [showDetailCard, setShowDetailCard] = useState(false)
+  
   // Your existing state
-  const [isExploded, setIsExploded] = useState(false)
   const [config, setConfig] = useState({
     ...defaultConfig,
     timing: {
@@ -58,11 +70,7 @@ function App() {
   const [showUI, setShowUI] = useState(false)
   
   // ... rest of your existing state ...
-  const [selectedFacet, setSelectedFacet] = useState(null)
-  const [hoveredFacet, setHoveredFacet] = useState(null)
-  const [showDetailCard, setShowDetailCard] = useState(false)
   const [orbitControlsEnabled, setOrbitControlsEnabled] = useState(true)
-  const [isTransitioning, setIsTransitioning] = useState(false)
   
   // Material configs
   const [blackOpalConfig, setBlackOpalConfig] = useState({
@@ -95,7 +103,7 @@ function App() {
   
   const [postProcessingConfig, setPostProcessingConfig] = useState(config.postProcessing);
   
-  // MODIFY THIS: Use device profile for initial performance config with proper defaults
+  // Performance configuration
   const [performanceConfig, setPerformanceConfig] = useState(() => {
     // Start with safe defaults that will be overridden
     return {
@@ -106,7 +114,151 @@ function App() {
     };
   });
 
-  // ADD THIS: Update performance config when device profile loads (with proper change detection)
+  // Helper to dispatch state machine events
+  const dispatchEvent = useCallback((event) => {
+    const nextState = getNextState(crystalState, event);
+    if (nextState !== crystalState) {
+      console.log(`Crystal state transition: ${crystalState} -> ${nextState} (${event})`);
+      setCrystalState(nextState);
+    }
+  }, [crystalState]);
+
+  // Effect to handle state transitions and animations
+  useEffect(() => {
+    switch (crystalState) {
+      case CRYSTAL_STATES.WHOLE:
+        // Crystal is whole, nothing special to do
+        setIsTransitioning(false);
+        break;
+        
+      case CRYSTAL_STATES.FRACTURING:
+        // Start fracturing animation
+        setIsTransitioning(true);
+        
+        // After fracturing animation completes, move to exploding
+        const fractureTimer = setTimeout(() => {
+          dispatchEvent(CRYSTAL_EVENTS.FRACTURE_COMPLETE);
+        }, config.timing.fracture.duration);
+        
+        return () => clearTimeout(fractureTimer);
+        
+      case CRYSTAL_STATES.EXPLODING:
+        // Continue with explosion animation
+        setIsTransitioning(true);
+        
+        // After explosion animation completes
+        const explosionTimer = setTimeout(() => {
+          dispatchEvent(CRYSTAL_EVENTS.EXPLOSION_COMPLETE);
+        }, config.timing.camera.explodeDuration);
+        
+        return () => clearTimeout(explosionTimer);
+        
+      case CRYSTAL_STATES.EXPLODED:
+        // Crystal is fully exploded
+        setIsTransitioning(false);
+        break;
+        
+      case CRYSTAL_STATES.PROJECT_SELECTED:
+        // Project is selected, nothing special to do
+        setIsTransitioning(false);
+        break;
+        
+      case CRYSTAL_STATES.REFORMING:
+        // Start reforming animation
+        setIsTransitioning(true);
+        
+        // After reforming animation completes
+        const reformTimer = setTimeout(() => {
+          dispatchEvent(CRYSTAL_EVENTS.REFORM_COMPLETE);
+        }, config.timing.camera.reformDuration);
+        
+        return () => clearTimeout(reformTimer);
+    }
+  }, [crystalState, dispatchEvent, config.timing]);
+
+  // Calculate if crystal is in exploded state for compatibility with existing components
+  const isExploded = crystalState !== CRYSTAL_STATES.WHOLE && 
+                     crystalState !== CRYSTAL_STATES.REFORMING;
+
+  // Handle facet selection - now with project mapping
+  const handleFacetSelect = useCallback((facetKey) => {
+    if (isTransitioning) return; // Prevent interaction during transitions
+    
+    // Find project associated with this facet
+    const project = getProjectByFacetKey(facetKey);
+    
+    // If the same facet is selected, deselect it
+    if (selectedProject && selectedProject.facetKey === facetKey) {
+      setIsTransitioning(true);
+      setShowDetailCard(false);
+      
+      // Wait for card to animate out before transitioning state
+      setTimeout(() => {
+        setSelectedProject(null);
+        dispatchEvent(CRYSTAL_EVENTS.DESELECT_PROJECT);
+        
+        // Enable orbit controls after transition
+        setTimeout(() => {
+          setOrbitControlsEnabled(true);
+          setIsTransitioning(false);
+        }, config.timing.camera.facetReturnDuration || 1200);
+      }, 300);
+    } else {
+      // Select new project
+      setSelectedProject(project);
+      setOrbitControlsEnabled(false);
+      dispatchEvent(CRYSTAL_EVENTS.SELECT_PROJECT);
+      
+      // Show detail card after camera animation completes
+      setTimeout(() => {
+        setShowDetailCard(true);
+        setIsTransitioning(false);
+      }, config.timing.camera.facetZoomDuration + 100);
+    }
+  }, [selectedProject, isTransitioning, dispatchEvent, config.timing.camera]);
+  
+  // Handle facet hover
+  const handleFacetHover = useCallback((facetKey) => {
+    if (!isTransitioning) {
+      setHoveredFacet(facetKey);
+    }
+  }, [isTransitioning]);
+
+  // Handle explosion toggle with proper state machine events
+  const handleExplodeToggle = useCallback(() => {
+    if (isTransitioning) return; // Prevent interaction during transitions
+    
+    if (crystalState === CRYSTAL_STATES.WHOLE) {
+      // Start explosion sequence
+      dispatchEvent(CRYSTAL_EVENTS.EXPLODE);
+    } else if (crystalState === CRYSTAL_STATES.EXPLODED || crystalState === CRYSTAL_STATES.PROJECT_SELECTED) {
+      // Start reform sequence
+      if (selectedProject) {
+        // If a project is selected, need special handling
+        setIsTransitioning(true);
+        setShowDetailCard(false);
+        
+        setTimeout(() => {
+          setSelectedProject(null);
+          dispatchEvent(CRYSTAL_EVENTS.REFORM);
+          
+          // Enable orbit controls after reform completes
+          setTimeout(() => {
+            setOrbitControlsEnabled(true);
+            setIsTransitioning(false);
+          }, config.timing.camera.reformDuration || 900);
+        }, 300);
+      } else {
+        // Normal reform if no project is selected
+        dispatchEvent(CRYSTAL_EVENTS.REFORM);
+      }
+    }
+  }, [crystalState, selectedProject, isTransitioning, dispatchEvent, config.timing.camera]);
+
+  // Get the selected facet key for compatibility with existing components
+  const selectedFacet = selectedProject?.facetKey || null;
+
+  // Update device profile when it changes
   const [lastAppliedProfile, setLastAppliedProfile] = useState(null);
   const [initialProfileApplied, setInitialProfileApplied] = useState(false);
   
@@ -153,7 +305,7 @@ function App() {
     }
   }, [devicePerformanceProfile, isDetecting, lastAppliedProfile]);
 
-  // ADD THIS: Update device profile system when performance config changes (but prevent loops)
+  // Update device profile system when performance config changes
   const [hasInitialized, setHasInitialized] = useState(false);
   
   useEffect(() => {
@@ -220,101 +372,44 @@ function App() {
   const toggleUI = useCallback(() => {
     setShowUI(!showUI);
   }, [showUI]);
-  
-  // Handle facet selection with improved camera transitions
-  const handleFacetSelect = useCallback((facetKey) => {
-    if (isTransitioning) return; // Prevent interaction during transitions
-    
-    setIsTransitioning(true);
-    
-    if (selectedFacet === facetKey) {
-      // Deselect if already selected - hide card first, then transition camera, then reset selection
-      setShowDetailCard(false);
-      
-      // Wait for card to animate out before starting camera transition
-      setTimeout(() => {
-        setSelectedFacet(null);
-        
-        // Wait for camera transition to complete before enabling orbit controls
-        setTimeout(() => {
-          setOrbitControlsEnabled(true);
-          setIsTransitioning(false);
-        }, config.timing.camera.facetReturnDuration || 1200);
-      }, 300);
-    } else {
-      // Select new facet - first set selection, disable controls, then animate card in after camera transition
-      setSelectedFacet(facetKey);
-      setOrbitControlsEnabled(false);
-      
-      // Show detail card after camera animation completes
-      setTimeout(() => {
-        setShowDetailCard(true);
-        setIsTransitioning(false);
-      }, config.timing.camera.facetZoomDuration + 100);
-    }
-  }, [selectedFacet, config.timing.camera, isTransitioning]);
-  
-  // Handle facet hover
-  const handleFacetHover = useCallback((facetKey) => {
-    if (!isTransitioning) {
-      setHoveredFacet(facetKey);
-    }
-  }, [isTransitioning]);
 
-  // Handle explosion state toggle with proper transition handling
-  const handleExplodeToggle = useCallback(() => {
-    if (isTransitioning) return; // Prevent interaction during transitions
-    
-    setIsTransitioning(true);
-    
-    if (selectedFacet) {
-      // If a facet is selected and we're reforming, need special handling
-      // First close detail card
-      setShowDetailCard(false);
-      
-      setTimeout(() => {
-        // Then deselect facet to trigger camera transition back to exploded view
-        setSelectedFacet(null);
-        
-        // Wait for that transition to complete
-        setTimeout(() => {
-          // Now toggle exploded state
-          setIsExploded(false);
-          
-          // Finally, enable orbit controls after reform completes
-          setTimeout(() => {
-            setOrbitControlsEnabled(true);
-            setIsTransitioning(false);
-          }, config.timing.camera.reformDuration || 900);
-        }, config.timing.camera.facetReturnDuration || 1200);
-      }, 300);
-    } else {
-      // Normal toggle without facet selected
-      setIsExploded(!isExploded);
-      
-      // Enable controls after animation completes
-      setTimeout(() => {
-        setIsTransitioning(false);
-      }, isExploded ? 
-        config.timing.camera.reformDuration || 900 : 
-        config.timing.camera.explodeDuration || 1600);
-    }
-  }, [isExploded, selectedFacet, config.timing.camera, isTransitioning]);
+  // Set up keyboard controls
+  useKeyboardControls({
+    crystalState,
+    dispatchEvent,
+    selectedProject,
+    setSelectedProject,
+    hoveredFacet,
+    setHoveredFacet,
+    showDetailCard,
+    setShowDetailCard,
+    orbitControlsEnabled,
+    setOrbitControlsEnabled,
+    config,
+    isTransitioning,
+    setIsTransitioning,
+    effectsEnabled,
+    handleToggleEffect,
+    performanceConfig,
+    handlePerformanceConfigUpdate,
+    showUI,
+    setShowUI
+  });
 
-  // ADD THIS: Get optimal canvas and environment props
+  // Get optimal canvas and environment props
   const canvasProps = getOptimalCanvasProps();
   const environmentProps = getOptimalEnvironmentProps();
 
   return (
     <>
-      {/* ADD THIS: FPS Display - show on all devices during development */}
+      {/* FPS Display - show on all devices during development */}
       <FpsDisplay 
         visible={true}
         position="top-right"
         showDetails={false}
       />
       
-      {/* ADD THIS: Performance alerts for all devices */}
+      {/* Performance alerts for all devices */}
       <PerformanceAlert 
         visible={true}
         threshold={deviceProfile?.isMobile ? 25 : 30}
@@ -323,21 +418,21 @@ function App() {
         }}
       />
 
-      {/* MODIFY THIS: Canvas with optimized props */}
+      {/* Canvas with optimized props */}
       <div style={{ width: '100vw', height: '100vh', position: 'fixed', top: 0, left: 0 }}>
         <Canvas 
           shadows 
           camera={{ position: config.camera.startingPosition, fov: config.camera.fov }} 
-          {...canvasProps} // ADD THIS: Apply optimal canvas settings
+          {...canvasProps} // Apply optimal canvas settings
           gl={{ 
             toneMapping: THREE.ACESFilmicToneMapping,
             toneMappingExposure: 0.2,
             outputColorSpace: THREE.SRGBColorSpace,
-            // ADD THIS: Apply device-optimized GL settings
+            // Apply device-optimized GL settings
             ...canvasProps.gl
           }}>
           
-          {/* ADD THIS: FPS Counter inside Canvas */}
+          {/* FPS Counter inside Canvas */}
           <FPSCounter />
           
           <color attach="background" args={['#050505']} />
@@ -368,9 +463,10 @@ function App() {
             color={config.lighting.spotLight.color} 
           />
           
-          {/* Your existing crystal scene - remove key prop that was causing camera issues */}
+          {/* Updated crystal scene with state machine props */}
           <EnhancedCrystalScene 
             isExploded={isExploded} 
+            crystalState={crystalState}
             config={config} 
             materialVariant={materialVariant}
             blackOpalConfig={blackOpalConfig}
@@ -383,7 +479,7 @@ function App() {
             performanceConfig={performanceConfig}
           />
           
-          {/* MODIFY THIS: Environment with optimized settings and key for reloading */}
+          {/* Environment with optimized settings */}
           <Environment 
             key={environmentProps.files} // Force reload when HDRI path changes
             files={environmentProps.files || config.environment.hdri} 
@@ -444,7 +540,7 @@ function App() {
         </Canvas>
       </div>
       
-      {/* All your existing UI components stay the same */}
+      {/* All your existing UI components */}
       <ControlsToggle 
         showUI={showUI} 
         toggleUI={toggleUI} 
@@ -498,10 +594,10 @@ function App() {
         </TabbedControlPanel>
       )}
       
-      {/* Rest of your existing UI */}
-      {selectedFacet && 
-        <FacetDetailCard 
-          facet={config.facetLabels.find(f => f.key === selectedFacet)}
+      {/* ProjectDetailCard replacing FacetDetailCard */}
+      {selectedProject && 
+        <ProjectDetailCard 
+          project={selectedProject}
           visible={showDetailCard}
           onClose={() => {
             if (isTransitioning) return;
@@ -510,7 +606,8 @@ function App() {
             setShowDetailCard(false);
             
             setTimeout(() => {
-              setSelectedFacet(null);
+              setSelectedProject(null);
+              dispatchEvent(CRYSTAL_EVENTS.DESELECT_PROJECT);
               
               setTimeout(() => {
                 setOrbitControlsEnabled(true);
@@ -547,7 +644,7 @@ function App() {
               });
             }}
           >
-            {isExploded ? 'Reform Crystal' : 'Reveal Facets'}
+            {crystalState === CRYSTAL_STATES.WHOLE ? 'View Projects' : 'Close Projects'}
           </button>
         </div>
       </div>
