@@ -1,6 +1,6 @@
-// App.jsx - Updated with Navigation Integration
+// App.jsx - Updated for Scroll-Driven Experience
 
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { Environment, OrbitControls } from '@react-three/drei'
 import { EffectComposer, Bloom, ChromaticAberration, Noise, Vignette } from '@react-three/postprocessing'
@@ -12,27 +12,30 @@ import './App.css'
 import { CRYSTAL_STATES, CRYSTAL_EVENTS, getNextState } from './machines/crystalStateMachine'
 import { projects, getProjectByFacetKey } from './data/projects'
 
-// Import your existing components
+// Import scroll system
+import { useScrollCrystal } from './hooks/useScrollCrystal'
+import useScrollKeyboardControls from './hooks/useScrollKeyboardControls'
+
+// Import existing components
 import * as defaultConfig from './crystalConfig'
-import EnhancedCrystalScene from './components/three/EnhancedCrystalScene'
+import ScrollCrystalScene from './components/three/ScrollCrystalScene'
 import CrystalControls from './components/ui/CrystalControls'
 import MaterialSelector from './components/ui/MaterialSelector'
 import BlackOpalControls from './components/ui/BlackOpalControls'
 import IceOpalControls from './components/ui/IceOpalControls'
 import ControlsToggle from './components/ui/ControlsToggle'
 import ProjectDetailCard from './components/ui/ProjectDetailCard'
-import AccessibilityInstructions from './components/ui/AccessibilityInstructions'
+import ScrollProgress from './components/ui/ScrollProgress'
+import ScrollHint from './components/ui/ScrollHint'
+import ScrollAccessibilityInstructions from './components/ui/ScrollAccessibilityInstructions'
 import PostProcessingControls from './components/ui/PostProcessingControls'
 import PerformanceControls from './components/ui/PerformanceControls'
 import TabbedControlPanel from './components/ui/TabbedControlPanel'
-import useKeyboardControls from './hooks/useKeyboardControls'
+import Navigation from './components/ui/Navigation'
 
 // Import performance system
 import { useDeviceProfile } from './hooks/useDeviceProfile'
 import FpsDisplay, { FPSCounter, PerformanceAlert } from './components/ui/FpsDisplay'
-
-// Import the new Navigation component (you'll need to create this file)
-import Navigation from './components/ui/Navigation'
 
 function App() {
   // Device profile detection
@@ -48,16 +51,7 @@ function App() {
     enableOrientationLock: true 
   });
 
-  // State machine state
-  const [crystalState, setCrystalState] = useState(CRYSTAL_STATES.WHOLE)
-  const [isTransitioning, setIsTransitioning] = useState(false)
-  
-  // Project selection state
-  const [selectedProject, setSelectedProject] = useState(null)
-  const [hoveredFacet, setHoveredFacet] = useState(null)
-  const [showDetailCard, setShowDetailCard] = useState(false)
-  
-  // Your existing state
+  // Configuration and material settings
   const [config, setConfig] = useState({
     ...defaultConfig,
     timing: {
@@ -68,13 +62,31 @@ function App() {
         facetReturnDuration: 1200
       }
     }
-  })
-  const [materialVariant, setMaterialVariant] = useState('default')
-  const [showUI, setShowUI] = useState(false)
-  const [orbitControlsEnabled, setOrbitControlsEnabled] = useState(true)
+  });
   
-  // Add tab state management - THIS IS THE FIX
-  const [activeTab, setActiveTab] = useState(0)
+  const [materialVariant, setMaterialVariant] = useState('default');
+  const [showUI, setShowUI] = useState(false);
+  const [activeTab, setActiveTab] = useState(0);
+  
+  // Current project state
+  const [currentProject, setCurrentProject] = useState(null);
+  const [showProjectDetail, setShowProjectDetail] = useState(false);
+  
+  // Scroll-driven crystal system
+  const scrollCrystalData = useScrollCrystal({
+    onStateChange: (newState) => {
+      console.log('Crystal state changed to:', newState);
+    },
+    onProjectChange: (project) => {
+      console.log('Project changed to:', project?.title);
+      setCurrentProject(project);
+      setShowProjectDetail(!!project);
+    },
+    config
+  });
+  
+  // Add keyboard controls for scroll navigation
+  useScrollKeyboardControls({ scrollCrystalData });
   
   // Material configs
   const [blackOpalConfig, setBlackOpalConfig] = useState({
@@ -116,174 +128,6 @@ function App() {
       renderScale: 0.7
     };
   });
-
-  // Helper to dispatch state machine events
-  const dispatchEvent = useCallback((event) => {
-    const nextState = getNextState(crystalState, event);
-    if (nextState !== crystalState) {
-      console.log(`Crystal state transition: ${crystalState} -> ${nextState} (${event})`);
-      setCrystalState(nextState);
-    }
-  }, [crystalState]);
-
-  // Navigation handlers
-  const handleWorkClick = useCallback(() => {
-    console.log('Work section clicked');
-    
-    // If crystal is whole, explode it to show projects
-    if (crystalState === CRYSTAL_STATES.WHOLE) {
-      dispatchEvent(CRYSTAL_EVENTS.EXPLODE);
-    }
-    
-    // Could add smooth scrolling to a projects section here
-    // or trigger a special animation state
-  }, [crystalState, dispatchEvent]);
-
-  const handleAboutClick = useCallback(() => {
-    console.log('About section clicked');
-    
-    // Could navigate to an about section or show about overlay
-    // For now, let's show the crystal if it's exploded
-    if (crystalState !== CRYSTAL_STATES.WHOLE && crystalState !== CRYSTAL_STATES.REFORMING) {
-      dispatchEvent(CRYSTAL_EVENTS.REFORM);
-    }
-  }, [crystalState, dispatchEvent]);
-
-  const handleProcessClick = useCallback(() => {
-    console.log('Process section clicked');
-    
-    // Could show different material variants to demonstrate process
-    // or navigate to a process documentation section
-    setMaterialVariant(prev => {
-      const variants = ['default', 'glass', 'gem', 'holographic', 'blackOpal', 'iceOpal'];
-      const currentIndex = variants.indexOf(prev);
-      const nextIndex = (currentIndex + 1) % variants.length;
-      return variants[nextIndex];
-    });
-  }, []);
-
-  const handleContactClick = useCallback(() => {
-    console.log('Contact section clicked');
-    
-    // Could open a contact form or scroll to contact section
-    // For now, let's show the UI controls as a demonstration
-    setShowUI(true);
-  }, []);
-
-  // Effect to handle state transitions and animations
-  useEffect(() => {
-    switch (crystalState) {
-      case CRYSTAL_STATES.WHOLE:
-        setIsTransitioning(false);
-        break;
-        
-      case CRYSTAL_STATES.FRACTURING:
-        setIsTransitioning(true);
-        
-        const fractureTimer = setTimeout(() => {
-          dispatchEvent(CRYSTAL_EVENTS.FRACTURE_COMPLETE);
-        }, config.timing.fracture.duration);
-        
-        return () => clearTimeout(fractureTimer);
-        
-      case CRYSTAL_STATES.EXPLODING:
-        setIsTransitioning(true);
-        
-        const explosionTimer = setTimeout(() => {
-          dispatchEvent(CRYSTAL_EVENTS.EXPLOSION_COMPLETE);
-        }, config.timing.camera.explodeDuration);
-        
-        return () => clearTimeout(explosionTimer);
-        
-      case CRYSTAL_STATES.EXPLODED:
-        setIsTransitioning(false);
-        break;
-        
-      case CRYSTAL_STATES.PROJECT_SELECTED:
-        setIsTransitioning(false);
-        break;
-        
-      case CRYSTAL_STATES.REFORMING:
-        setIsTransitioning(true);
-        
-        const reformTimer = setTimeout(() => {
-          dispatchEvent(CRYSTAL_EVENTS.REFORM_COMPLETE);
-        }, config.timing.camera.reformDuration);
-        
-        return () => clearTimeout(reformTimer);
-    }
-  }, [crystalState, dispatchEvent, config.timing]);
-
-  // Calculate if crystal is in exploded state for compatibility with existing components
-  const isExploded = crystalState !== CRYSTAL_STATES.WHOLE && 
-                     crystalState !== CRYSTAL_STATES.REFORMING;
-
-  // Handle facet selection - now with project mapping
-  const handleFacetSelect = useCallback((facetKey) => {
-    if (isTransitioning) return;
-    
-    const project = getProjectByFacetKey(facetKey);
-    
-    if (selectedProject && selectedProject.facetKey === facetKey) {
-      setIsTransitioning(true);
-      setShowDetailCard(false);
-      
-      setTimeout(() => {
-        setSelectedProject(null);
-        dispatchEvent(CRYSTAL_EVENTS.DESELECT_PROJECT);
-        
-        setTimeout(() => {
-          setOrbitControlsEnabled(true);
-          setIsTransitioning(false);
-        }, config.timing.camera.facetReturnDuration || 1200);
-      }, 300);
-    } else {
-      setSelectedProject(project);
-      setOrbitControlsEnabled(false);
-      dispatchEvent(CRYSTAL_EVENTS.SELECT_PROJECT);
-      
-      setTimeout(() => {
-        setShowDetailCard(true);
-        setIsTransitioning(false);
-      }, config.timing.camera.facetZoomDuration + 100);
-    }
-  }, [selectedProject, isTransitioning, dispatchEvent, config.timing.camera]);
-  
-  // Handle facet hover
-  const handleFacetHover = useCallback((facetKey) => {
-    if (!isTransitioning) {
-      setHoveredFacet(facetKey);
-    }
-  }, [isTransitioning]);
-
-  // Handle explosion toggle with proper state machine events
-  const handleExplodeToggle = useCallback(() => {
-    if (isTransitioning) return;
-    
-    if (crystalState === CRYSTAL_STATES.WHOLE) {
-      dispatchEvent(CRYSTAL_EVENTS.EXPLODE);
-    } else if (crystalState === CRYSTAL_STATES.EXPLODED || crystalState === CRYSTAL_STATES.PROJECT_SELECTED) {
-      if (selectedProject) {
-        setIsTransitioning(true);
-        setShowDetailCard(false);
-        
-        setTimeout(() => {
-          setSelectedProject(null);
-          dispatchEvent(CRYSTAL_EVENTS.REFORM);
-          
-          setTimeout(() => {
-            setOrbitControlsEnabled(true);
-            setIsTransitioning(false);
-          }, config.timing.camera.reformDuration || 900);
-        }, 300);
-      } else {
-        dispatchEvent(CRYSTAL_EVENTS.REFORM);
-      }
-    }
-  }, [crystalState, selectedProject, isTransitioning, dispatchEvent, config.timing.camera]);
-
-  // Get the selected facet key for compatibility with existing components
-  const selectedFacet = selectedProject?.facetKey || null;
 
   // Update device profile when it changes
   const [lastAppliedProfile, setLastAppliedProfile] = useState(null);
@@ -340,6 +184,32 @@ function App() {
     }
   }, [performanceConfig, updateExternalPerformanceConfig, hasInitialized, devicePerformanceProfile, initialProfileApplied]);
 
+  // Navigation handlers (updated for scroll experience)
+  const handleWorkClick = useCallback(() => {
+    console.log('Work section clicked - scrolling to projects');
+    scrollCrystalData.goToSection('explosion');
+  }, [scrollCrystalData]);
+
+  const handleAboutClick = useCallback(() => {
+    console.log('About section clicked - scrolling to intro');
+    scrollCrystalData.goToSection('intro');
+  }, [scrollCrystalData]);
+
+  const handleProcessClick = useCallback(() => {
+    console.log('Process section clicked - cycling material');
+    setMaterialVariant(prev => {
+      const variants = ['default', 'glass', 'gem', 'holographic', 'blackOpal', 'iceOpal'];
+      const currentIndex = variants.indexOf(prev);
+      const nextIndex = (currentIndex + 1) % variants.length;
+      return variants[nextIndex];
+    });
+  }, []);
+
+  const handleContactClick = useCallback(() => {
+    console.log('Contact section clicked - scrolling to end');
+    scrollCrystalData.goToSection('reform');
+  }, [scrollCrystalData]);
+
   // Handler for updating configuration from the control panel
   const handleConfigUpdate = useCallback((newConfig) => {
     setConfig(newConfig);
@@ -393,86 +263,32 @@ function App() {
     setShowUI(!showUI);
   }, [showUI]);
 
-  // Set up keyboard controls
-  useKeyboardControls({
-    isExploded: crystalState !== CRYSTAL_STATES.WHOLE && crystalState !== CRYSTAL_STATES.REFORMING,
-    setIsExploded: (exploded) => {
-      if (isTransitioning) return;
-      
-      if (exploded) {
-        if (crystalState === CRYSTAL_STATES.WHOLE) {
-          dispatchEvent(CRYSTAL_EVENTS.EXPLODE);
-        }
-      } else {
-        if (crystalState === CRYSTAL_STATES.EXPLODED || crystalState === CRYSTAL_STATES.PROJECT_SELECTED) {
-          if (selectedProject) {
-            setIsTransitioning(true);
-            setShowDetailCard(false);
-            
-            setTimeout(() => {
-              setSelectedProject(null);
-              dispatchEvent(CRYSTAL_EVENTS.REFORM);
-              
-              setTimeout(() => {
-                setOrbitControlsEnabled(true);
-                setIsTransitioning(false);
-              }, config.timing.camera.reformDuration || 900);
-            }, 300);
-          } else {
-            dispatchEvent(CRYSTAL_EVENTS.REFORM);
-          }
-        }
-      }
-    },
-    hoveredFacet,
-    setHoveredFacet,
-    selectedFacet: selectedProject?.facetKey || null,
-    setSelectedFacet: (facetKey) => {
-      if (facetKey && handleFacetSelect) {
-        handleFacetSelect(facetKey);
-      } else if (!facetKey && selectedProject) {
-        setShowDetailCard(false);
-        setTimeout(() => {
-          setSelectedProject(null);
-          dispatchEvent(CRYSTAL_EVENTS.DESELECT_PROJECT);
-          setOrbitControlsEnabled(true);
-        }, 300);
-      }
-    },
-    onFacetSelect: handleFacetSelect,
-    showUI,
-    setShowUI,
-    showDetailCard,
-    setShowDetailCard,
-    setOrbitControlsEnabled,
-    config,
-    isTransitioning,
-    setIsTransitioning,
-    effectsEnabled,
-    handleToggleEffect,
-    performanceConfig,
-    toggleNormalMaps: () => {
-      handlePerformanceConfigUpdate({
-        ...performanceConfig,
-        useNormalMaps: !performanceConfig.useNormalMaps
-      });
-    }
-  });
-
   // Get optimal canvas and environment props
   const canvasProps = getOptimalCanvasProps();
   const environmentProps = getOptimalEnvironmentProps();
 
   return (
     <>
-      {/* Navigation Bar - NEW! */}
+      {/* Navigation Bar */}
       <Navigation
         onWorkClick={handleWorkClick}
         onAboutClick={handleAboutClick}
         onProcessClick={handleProcessClick}
         onContactClick={handleContactClick}
-        isTransitioning={isTransitioning}
-        crystalState={crystalState}
+        isTransitioning={scrollCrystalData.isTransitioning}
+        crystalState={scrollCrystalData.crystalState}
+      />
+
+      {/* Scroll Progress Indicator */}
+      <ScrollProgress 
+        scrollCrystalData={scrollCrystalData}
+        visible={true}
+      />
+
+      {/* Scroll Hint */}
+      <ScrollHint 
+        scrollCrystalData={scrollCrystalData}
+        visible={true}
       />
 
       {/* FPS Display */}
@@ -492,7 +308,14 @@ function App() {
       />
 
       {/* Canvas with optimized props */}
-      <div style={{ width: '100vw', height: '100vh', position: 'fixed', top: 0, left: 0 }}>
+      <div style={{ 
+        width: '100vw', 
+        height: '100vh', 
+        position: 'fixed', 
+        top: 0, 
+        left: 0,
+        zIndex: 0 // Behind scroll content
+      }}>
         <Canvas 
           shadows 
           camera={{ position: config.camera.startingPosition, fov: config.camera.fov }} 
@@ -534,19 +357,13 @@ function App() {
             color={config.lighting.spotLight.color} 
           />
           
-          {/* Crystal scene */}
-          <EnhancedCrystalScene 
-            isExploded={isExploded} 
-            crystalState={crystalState}
+          {/* Scroll-driven Crystal Scene */}
+          <ScrollCrystalScene 
+            scrollCrystalData={scrollCrystalData}
             config={config} 
             materialVariant={materialVariant}
             blackOpalConfig={blackOpalConfig}
             iceOpalConfig={iceOpalConfig}
-            selectedFacet={selectedFacet}
-            hoveredFacet={hoveredFacet}
-            onFacetSelect={handleFacetSelect}
-            onFacetHover={handleFacetHover}
-            isTransitioning={isTransitioning}
             performanceConfig={performanceConfig}
           />
           
@@ -570,52 +387,50 @@ function App() {
             
             {effectsEnabled.bloom && (
               <Bloom 
-                luminanceThreshold={postProcessingConfig.bloom.luminanceThreshold} 
-                luminanceSmoothing={postProcessingConfig.bloom.luminanceSmoothing} 
-                intensity={postProcessingConfig.bloom.intensity} 
-                radius={postProcessingConfig.bloom.radius} 
+                luminanceThreshold={config.postProcessing.bloom.luminanceThreshold} 
+                luminanceSmoothing={config.postProcessing.bloom.luminanceSmoothing} 
+                intensity={config.postProcessing.bloom.intensity} 
+                radius={config.postProcessing.bloom.radius} 
               />
             )}
             {effectsEnabled.chromaticAberration && (
               <ChromaticAberration 
-                offset={postProcessingConfig.chromaticAberration.offset} 
-                radialModulation={postProcessingConfig.chromaticAberration.radialModulation} 
-                modulationOffset={postProcessingConfig.chromaticAberration.modulationOffset} 
+                offset={config.postProcessing.chromaticAberration.offset} 
+                radialModulation={config.postProcessing.chromaticAberration.radialModulation} 
+                modulationOffset={config.postProcessing.chromaticAberration.modulationOffset} 
               />
             )}
             {effectsEnabled.noise && (
               <Noise 
-                opacity={postProcessingConfig.noise.opacity} 
+                opacity={config.postProcessing.noise.opacity} 
                 blendFunction={BlendFunction.OVERLAY} 
               />
             )}
             {effectsEnabled.vignette && (
               <Vignette 
-                eskil={postProcessingConfig.vignette.eskil} 
-                offset={postProcessingConfig.vignette.offset} 
-                darkness={postProcessingConfig.vignette.darkness} 
+                eskil={config.postProcessing.vignette.eskil} 
+                offset={config.postProcessing.vignette.offset} 
+                darkness={config.postProcessing.vignette.darkness} 
               />
             )}
           </EffectComposer>
           
-          {/* Orbit controls */}
+          {/* Orbit controls - disabled for scroll experience */}
           <OrbitControls 
             makeDefault
-            enabled={orbitControlsEnabled}
-            enableZoom={config.camera.orbitControls.enableZoom && orbitControlsEnabled}
-            enablePan={config.camera.orbitControls.enablePan && orbitControlsEnabled}
-            rotateSpeed={config.camera.orbitControls.rotateSpeed}
-            minPolarAngle={config.camera.orbitControls.minPolarAngle}
-            maxPolarAngle={config.camera.orbitControls.maxPolarAngle}
+            enabled={false} // Disabled for scroll experience
+            enableZoom={false}
+            enablePan={false}
+            enableRotate={false}
           />
         </Canvas>
       </div>
       
-      {/* Existing UI components */}
+      {/* Existing UI components - kept for optional manual control */}
       <ControlsToggle 
         showUI={showUI} 
         toggleUI={toggleUI} 
-        disabled={isTransitioning}
+        disabled={scrollCrystalData.isTransitioning}
       />
       
       {showUI && (
@@ -667,60 +482,44 @@ function App() {
         </TabbedControlPanel>
       )}
       
-      {/* Project detail card */}
-      {selectedProject && 
+      {/* Project Detail Card */}
+      {currentProject && (
         <ProjectDetailCard 
-          project={selectedProject}
-          visible={showDetailCard}
+          project={currentProject}
+          visible={showProjectDetail && scrollCrystalData.isInProjects}
           onClose={() => {
-            if (isTransitioning) return;
-            
-            setIsTransitioning(true);
-            setShowDetailCard(false);
-            
-            setTimeout(() => {
-              setSelectedProject(null);
-              dispatchEvent(CRYSTAL_EVENTS.DESELECT_PROJECT);
-              
-              setTimeout(() => {
-                setOrbitControlsEnabled(true);
-                setIsTransitioning(false);
-              }, config.timing.camera.facetReturnDuration || 1200);
-            }, 300);
+            // In scroll mode, closing navigates to next project or reform
+            if (scrollCrystalData.currentProjectIndex < scrollCrystalData.projectCount - 1) {
+              scrollCrystalData.goToNextProject();
+            } else {
+              scrollCrystalData.goToSection('reform');
+            }
           }}
         />
-      }
+      )}
       
-      <AccessibilityInstructions visible={true} />
+      {/* Updated Accessibility Instructions for scroll experience */}
+      <ScrollAccessibilityInstructions 
+        visible={true} 
+        scrollCrystalData={scrollCrystalData}
+      />
       
-      {/* Main interaction button */}
-      <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 9999 }}>
-        <div style={{ position: 'absolute', bottom: '20px', left: 0, width: '100%', display: 'flex', justifyContent: 'center', pointerEvents: 'none' }}>
-          <button 
-            onClick={handleExplodeToggle}
-            disabled={isTransitioning}
-            style={{
-              ...config.ui.button.styles,
-              pointerEvents: 'auto',
-              opacity: isTransitioning ? 0.6 : 1,
-              cursor: isTransitioning ? 'not-allowed' : 'pointer'
-            }}
-            onMouseEnter={(e) => {
-              if (!isTransitioning) {
-                Object.entries(config.ui.button.hoverStyles).forEach(([key, value]) => {
-                  e.currentTarget.style[key] = value;
-                });
-              }
-            }}
-            onMouseLeave={(e) => {
-              Object.entries(config.ui.button.defaultStyles).forEach(([key, value]) => {
-                e.currentTarget.style[key] = value;
-              });
-            }}
-          >
-            {crystalState === CRYSTAL_STATES.WHOLE ? 'View Projects' : 'Close Projects'}
-          </button>
-        </div>
+      {/* Invisible scroll content for proper document height */}
+      <div style={{ 
+        position: 'relative', 
+        zIndex: -1, 
+        pointerEvents: 'none',
+        opacity: 0
+      }}>
+        {/* This content ensures proper document height for scrolling */}
+        <div style={{ height: '100vh' }}>Intro</div>
+        <div style={{ height: '100vh' }}>Explosion</div>
+        {scrollCrystalData.projectCount > 0 && 
+          Array.from({ length: scrollCrystalData.projectCount }).map((_, i) => (
+            <div key={i} style={{ height: '100vh' }}>Project {i + 1}</div>
+          ))
+        }
+        <div style={{ height: '100vh' }}>Reform</div>
       </div>
     </>
   );
