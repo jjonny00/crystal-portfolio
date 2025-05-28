@@ -91,9 +91,9 @@ const Navigation = ({
         right: 0,
         zIndex: 10000, // Above the 3D scene
         transition: 'all 0.3s ease',
-        backgroundColor: isScrolled 
-          ? 'rgba(5, 5, 5, 0.9)' 
-          : 'transparent',
+        // FIXED: Always transparent background
+        backgroundColor: 'transparent',
+        // Only apply blur and border on scroll
         backdropFilter: isScrolled ? 'blur(20px)' : 'none',
         borderBottom: isScrolled 
           ? '1px solid rgba(100, 255, 218, 0.1)' 
@@ -207,7 +207,7 @@ const Navigation = ({
         </button>
       </div>
 
-      {/* Mobile Navigation Menu */}
+      {/* Mobile Navigation Menu - Keep existing blur for dropdown */}
       <div 
         style={{
           display: window.innerWidth < 1024 ? 'block' : 'none',
