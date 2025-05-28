@@ -439,7 +439,7 @@ function App() {
             materialVariant={materialVariant}
             blackOpalConfig={blackOpalConfig}
             iceOpalConfig={iceOpalConfig}
-            selectedFacet={selectedFacet}
+            selectedFacet={scrollCrystalData.selectedProject}
             hoveredFacet={hoveredProject}
             onFacetSelect={handleFacetSelect}
             onFacetHover={handleFacetHover}
@@ -498,7 +498,7 @@ function App() {
           {/* Orbit controls */}
           <OrbitControls 
             makeDefault
-            enabled={orbitControlsEnabled}
+            enabled={!scrollCrystalData.isInProjectSection() && orbitControlsEnabled}
             enableZoom={config.camera.orbitControls.enableZoom && orbitControlsEnabled}
             enablePan={config.camera.orbitControls.enablePan && orbitControlsEnabled}
             rotateSpeed={config.camera.orbitControls.rotateSpeed}
@@ -579,11 +579,11 @@ function App() {
       )}
       
       {/* Project detail card - FIXED: Close returns to intro */}
-      {selectedProject && (
+      {scrollCrystalData.getCurrentProject() && (
         <ProjectDetailCard 
-          project={selectedProject}
-          visible={!!selectedProject}
-          onClose={handleProjectClose} // FIXED: This now returns to intro
+          project={getProjectByFacetKey(scrollCrystalData.selectedProject)}
+          visible={!!scrollCrystalData.getCurrentProject()}
+          onClose={handleProjectClose}
         />
       )}
       

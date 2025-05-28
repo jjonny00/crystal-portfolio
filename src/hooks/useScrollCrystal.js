@@ -15,40 +15,112 @@ const SCROLL_SECTIONS = {
     crystalState: CRYSTAL_STATES.WHOLE,
     cameraState: 'INTRO',
     threshold: 0, // 0% scroll
-    duration: 0.25, // 25% of viewport height
+    duration: 0.2, // 20% of viewport height
     title: 'Multifaceted Designer',
     subtitle: 'Jon Shaw'
   },
   
-  PROJECTS: {
-    key: 'projects', 
+  PROJECTS_OVERVIEW: {
+    key: 'projects-overview', 
     index: 1,
     crystalState: CRYSTAL_STATES.EXPLODED,
     cameraState: 'EXPLOSION',
-    threshold: 0.25, // 25% scroll
-    duration: 0.5, // 50% of viewport height (25% to 75%)
+    threshold: 0.2, // 20% scroll
+    duration: 0.05, // 5% of viewport height (20% to 25%)
     title: 'Featured Projects',
     subtitle: 'Explore my work across six design facets'
   },
   
+  PROJECT_EMPATHY: {
+    key: 'project-empathy',
+    index: 2,
+    crystalState: CRYSTAL_STATES.PROJECT_SELECTED,
+    cameraState: 'PROJECT_EMPATHY',
+    threshold: 0.25, // 25% scroll
+    duration: 0.08, // 8% of viewport height
+    title: 'Empathy',
+    subtitle: 'Understanding user needs and pain points',
+    projectKey: 'empathy'
+  },
+  
+  PROJECT_NARRATIVE: {
+    key: 'project-narrative',
+    index: 3,
+    crystalState: CRYSTAL_STATES.PROJECT_SELECTED,
+    cameraState: 'PROJECT_NARRATIVE',
+    threshold: 0.33, // 33% scroll
+    duration: 0.08, // 8% of viewport height
+    title: 'Narrative',
+    subtitle: 'Guiding teams through compelling stories',
+    projectKey: 'narrative'
+  },
+  
+  PROJECT_CRAFT: {
+    key: 'project-craft',
+    index: 4,
+    crystalState: CRYSTAL_STATES.PROJECT_SELECTED,
+    cameraState: 'PROJECT_CRAFT',
+    threshold: 0.41, // 41% scroll
+    duration: 0.08, // 8% of viewport height
+    title: 'Craft',
+    subtitle: 'Precision in every design detail',
+    projectKey: 'craft'
+  },
+  
+  PROJECT_SYSTEM: {
+    key: 'project-system',
+    index: 5,
+    crystalState: CRYSTAL_STATES.PROJECT_SELECTED,
+    cameraState: 'PROJECT_SYSTEM',
+    threshold: 0.49, // 49% scroll
+    duration: 0.08, // 8% of viewport height
+    title: 'System',
+    subtitle: 'Building scalable design systems',
+    projectKey: 'system'
+  },
+  
+  PROJECT_LEADERSHIP: {
+    key: 'project-leadership',
+    index: 6,
+    crystalState: CRYSTAL_STATES.PROJECT_SELECTED,
+    cameraState: 'PROJECT_LEADERSHIP',
+    threshold: 0.57, // 57% scroll
+    duration: 0.08, // 8% of viewport height
+    title: 'Leadership',
+    subtitle: 'Empowering teams to do their best work',
+    projectKey: 'leadership'
+  },
+  
+  PROJECT_EXPLORATION: {
+    key: 'project-exploration',
+    index: 7,
+    crystalState: CRYSTAL_STATES.PROJECT_SELECTED,
+    cameraState: 'PROJECT_EXPLORATION',
+    threshold: 0.65, // 65% scroll
+    duration: 0.08, // 8% of viewport height
+    title: 'Exploration',
+    subtitle: 'Finding opportunities in ambiguity',
+    projectKey: 'exploration'
+  },
+  
   ABOUT: {
     key: 'about',
-    index: 2, 
+    index: 8, 
     crystalState: CRYSTAL_STATES.WHOLE,
     cameraState: 'ABOUT',
-    threshold: 0.75, // 75% scroll
-    duration: 0.15, // 15% of viewport height (75% to 90%)
+    threshold: 0.73, // 73% scroll
+    duration: 0.12, // 12% of viewport height (73% to 85%)
     title: 'About Me',
     subtitle: 'The story behind the facets'
   },
   
   FOOTER: {
     key: 'footer',
-    index: 3,
+    index: 9,
     crystalState: CRYSTAL_STATES.WHOLE, 
     cameraState: 'FOOTER',
-    threshold: 0.9, // 90% scroll
-    duration: 0.1, // 10% of viewport height (90% to 100%)
+    threshold: 0.85, // 85% scroll
+    duration: 0.15, // 15% of viewport height (85% to 100%)
     title: 'Let\'s Connect',
     subtitle: 'Ready to create something beautiful together?'
   }
@@ -86,7 +158,13 @@ export const useScrollCrystal = (options = {}) => {
   // Section visibility state
   const [visibleSections, setVisibleSections] = useState({
     intro: true,
-    projects: false,
+    'projects-overview': false,
+    'project-empathy': false,
+    'project-narrative': false,
+    'project-craft': false,
+    'project-system': false,
+    'project-leadership': false,
+    'project-exploration': false,
     about: false,
     footer: false
   });
@@ -114,29 +192,33 @@ export const useScrollCrystal = (options = {}) => {
   }, []);
   
   /**
-   * Handle scroll events with throttling
+   * Update section visibility for UI components
    */
-  const handleScroll = useCallback(() => {
-    if (!enableScrollControl || scrollTicking.current) return;
+  const updateSectionVisibility = useCallback((newSection) => {
+    // Reset all to false first
+    const newVisibility = {
+      intro: false,
+      'projects-overview': false,
+      'project-empathy': false,
+      'project-narrative': false,
+      'project-craft': false,
+      'project-system': false,
+      'project-leadership': false,
+      'project-exploration': false,
+      about: false,
+      footer: false
+    };
     
-    scrollTicking.current = true;
+    // Set current section to true
+    newVisibility[newSection.key] = true;
     
-    requestAnimationFrame(() => {
-      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-      const docHeight = document.documentElement.scrollHeight - window.innerHeight;
-      const scrollPercent = docHeight > 0 ? scrollTop / docHeight : 0;
-      
-      setScrollProgress(scrollPercent);
-      
-      const newSection = calculateCurrentSection(scrollPercent);
-      
-      if (newSection.key !== currentSection.key && !isTransitioning) {
-        handleSectionTransition(newSection);
-      }
-      
-      scrollTicking.current = false;
-    });
-  }, [enableScrollControl, currentSection.key, isTransitioning, calculateCurrentSection]);
+    // Also show projects overview when in any project section
+    if (newSection.key.startsWith('project-')) {
+      newVisibility['projects-overview'] = true;
+    }
+    
+    setVisibleSections(newVisibility);
+  }, []);
   
   /**
    * Handle crystal state transitions based on section
@@ -144,9 +226,21 @@ export const useScrollCrystal = (options = {}) => {
   const handleCrystalStateTransition = useCallback((newSection) => {
     const targetState = newSection.crystalState;
     
+    // If we're moving to a project section, set the selected project
+    if (newSection.projectKey) {
+      setSelectedProject(newSection.projectKey);
+    } else if (newSection.key === 'projects-overview') {
+      setSelectedProject(null); // Clear selection for overview
+    } else if (!newSection.key.startsWith('project-')) {
+      setSelectedProject(null); // Clear selection when leaving projects entirely
+    }
+    
     if (targetState !== crystalState) {
       if (debugMode) {
         console.log(`💎 Crystal state transition needed: ${crystalState} → ${targetState}`);
+        if (newSection.projectKey) {
+          console.log(`🎨 Project focus: ${newSection.projectKey}`);
+        }
       }
       
       // Clear any existing timeout
@@ -182,9 +276,21 @@ export const useScrollCrystal = (options = {}) => {
           stateTransitionRef.current.pendingState = null;
         }, 3000);
         
-      } else if (crystalState === CRYSTAL_STATES.EXPLODED && targetState === CRYSTAL_STATES.WHOLE) {
+      } else if (crystalState === CRYSTAL_STATES.EXPLODED && targetState === CRYSTAL_STATES.PROJECT_SELECTED) {
+        // Direct transition to project selected
+        console.log('💎 Transitioning to project selected');
+        setCrystalState(CRYSTAL_STATES.PROJECT_SELECTED);
+        stateTransitionRef.current.pendingState = null;
+        
+      } else if (crystalState === CRYSTAL_STATES.PROJECT_SELECTED && targetState === CRYSTAL_STATES.EXPLODED) {
+        // Return to exploded view
+        console.log('💎 Returning to exploded view');
+        setCrystalState(CRYSTAL_STATES.EXPLODED);
+        stateTransitionRef.current.pendingState = null;
+        
+      } else if ((crystalState === CRYSTAL_STATES.EXPLODED || crystalState === CRYSTAL_STATES.PROJECT_SELECTED) && targetState === CRYSTAL_STATES.WHOLE) {
         // Start the reform sequence
-        console.log('💎 Starting reform sequence: EXPLODED → REFORMING');
+        console.log('💎 Starting reform sequence → REFORMING');
         setCrystalState(CRYSTAL_STATES.REFORMING);
         stateTransitionRef.current.lastTransition = Date.now();
         stateTransitionRef.current.pendingState = CRYSTAL_STATES.WHOLE;
@@ -204,27 +310,10 @@ export const useScrollCrystal = (options = {}) => {
         }, 2000);
         
       } else if (targetState === CRYSTAL_STATES.PROJECT_SELECTED) {
-        console.log('💎 Selecting project');
+        // Direct transition to any project
+        console.log('💎 Direct transition to project selected');
         setCrystalState(CRYSTAL_STATES.PROJECT_SELECTED);
         stateTransitionRef.current.pendingState = null;
-        
-      } else if (crystalState === CRYSTAL_STATES.PROJECT_SELECTED && targetState === CRYSTAL_STATES.EXPLODED) {
-        console.log('💎 Deselecting project');
-        setCrystalState(CRYSTAL_STATES.EXPLODED);
-        stateTransitionRef.current.pendingState = null;
-        
-      } else if (crystalState === CRYSTAL_STATES.PROJECT_SELECTED && targetState === CRYSTAL_STATES.WHOLE) {
-        // Go from project selected back to whole (via reform)
-        console.log('💎 Project to intro: PROJECT_SELECTED → REFORMING');
-        setCrystalState(CRYSTAL_STATES.REFORMING);
-        stateTransitionRef.current.lastTransition = Date.now();
-        stateTransitionRef.current.pendingState = CRYSTAL_STATES.WHOLE;
-        
-        setTimeout(() => {
-          console.log('💎 Completing return to intro: REFORMING → WHOLE');
-          setCrystalState(CRYSTAL_STATES.WHOLE);
-          stateTransitionRef.current.pendingState = null;
-        }, 900);
         
       } else {
         // Handle any other direct transitions
@@ -240,6 +329,36 @@ export const useScrollCrystal = (options = {}) => {
   }, [crystalState, debugMode]);
   
   /**
+   * Handle scroll events with throttling
+   */
+  const handleScroll = useCallback(() => {
+    if (!enableScrollControl || scrollTicking.current) return;
+    
+    scrollTicking.current = true;
+    
+    requestAnimationFrame(() => {
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+      const scrollPercent = docHeight > 0 ? scrollTop / docHeight : 0;
+      
+      setScrollProgress(scrollPercent);
+      
+      const newSection = calculateCurrentSection(scrollPercent);
+      
+      // Allow section transitions even during crystal state transitions
+      // but prevent rapid fire transitions
+      if (newSection.key !== currentSection.key) {
+        if (debugMode) {
+          console.log(`🔄 Scroll detected section change: ${currentSection.key} → ${newSection.key} (${Math.round(scrollPercent * 100)}%)`);
+        }
+        handleSectionTransition(newSection);
+      }
+      
+      scrollTicking.current = false;
+    });
+  }, [enableScrollControl, currentSection.key, calculateCurrentSection, debugMode]);
+  
+  /**
    * Handle section transitions
    */
   const handleSectionTransition = useCallback((newSection) => {
@@ -248,6 +367,7 @@ export const useScrollCrystal = (options = {}) => {
       console.log(`🔄 Crystal state before: ${crystalState}`);
     }
     
+    // Don't prevent transitions - let them happen even during crystal animations
     setIsTransitioning(true);
     
     // Clear any existing timeout
@@ -255,13 +375,13 @@ export const useScrollCrystal = (options = {}) => {
       clearTimeout(transitionTimeoutRef.current);
     }
     
-    // Update section
+    // Update section immediately
     setCurrentSection(newSection);
     
     // Handle crystal state transitions
     handleCrystalStateTransition(newSection);
     
-    // Update section visibility
+    // Update section visibility immediately
     updateSectionVisibility(newSection);
     
     // Notify parent component
@@ -269,7 +389,7 @@ export const useScrollCrystal = (options = {}) => {
       onSectionChange(newSection, currentSection);
     }
     
-    // Reset transition state after animation
+    // Reset transition state after a shorter delay to allow continuous scrolling
     transitionTimeoutRef.current = setTimeout(() => {
       setIsTransitioning(false);
       lastSectionRef.current = newSection;
@@ -278,21 +398,9 @@ export const useScrollCrystal = (options = {}) => {
         console.log(`🔄 Section transition complete: ${newSection.key}`);
         console.log(`🔄 Final crystal state: ${crystalState}`);
       }
-    }, smoothTransitions ? 2000 : 100); // Longer timeout to account for crystal animations
+    }, 500); // Reduced from 2000 to allow faster transitions
     
-  }, [currentSection, debugMode, onSectionChange, smoothTransitions, crystalState, handleCrystalStateTransition]);
-  
-  /**
-   * Update section visibility for UI components
-   */
-  const updateSectionVisibility = useCallback((newSection) => {
-    setVisibleSections({
-      intro: newSection.key === 'intro',
-      projects: newSection.key === 'projects', 
-      about: newSection.key === 'about',
-      footer: newSection.key === 'footer'
-    });
-  }, []);
+  }, [currentSection, debugMode, onSectionChange, crystalState, handleCrystalStateTransition, updateSectionVisibility]);
   
   /**
    * Programmatically go to a specific section
@@ -324,39 +432,51 @@ export const useScrollCrystal = (options = {}) => {
    * Handle project selection within projects section
    */
   const selectProject = useCallback((projectKey) => {
-    if (currentSection.key !== 'projects') {
-      // First navigate to projects section
-      goToSection('projects');
-      
-      // Then select the project after a delay
-      setTimeout(() => {
-        setSelectedProject(projectKey);
-        setCrystalState(CRYSTAL_STATES.PROJECT_SELECTED);
-      }, 1000);
-    } else {
-      setSelectedProject(projectKey);
-      setCrystalState(CRYSTAL_STATES.PROJECT_SELECTED);
+    // Find the corresponding project section
+    const projectSectionKey = `project-${projectKey}`;
+    const projectSection = Object.values(SCROLL_SECTIONS).find(s => s.key === projectSectionKey);
+    
+    if (projectSection) {
+      goToSection(projectSectionKey);
     }
     
     if (debugMode) {
       console.log(`🎨 Project selected: ${projectKey}`);
     }
-  }, [currentSection.key, goToSection, debugMode]);
+  }, [goToSection, debugMode]);
+  
+  /**
+   * Get current project based on current section
+   */
+  const getCurrentProject = useCallback(() => {
+    if (currentSection.projectKey) {
+      return {
+        facetKey: currentSection.projectKey,
+        title: currentSection.title,
+        subtitle: currentSection.subtitle
+      };
+    }
+    return null;
+  }, [currentSection]);
+  
+  /**
+   * Check if we're in any project section
+   */
+  const isInProjectSection = useCallback(() => {
+    return currentSection.key.startsWith('project-');
+  }, [currentSection.key]);
   
   /**
    * Deselect current project
    */
   const deselectProject = useCallback(() => {
-    setSelectedProject(null);
-    
-    if (currentSection.key === 'projects') {
-      setCrystalState(CRYSTAL_STATES.EXPLODED);
-    }
+    // Go back to projects overview
+    goToSection('projects-overview');
     
     if (debugMode) {
-      console.log('🎨 Project deselected');
+      console.log('🎨 Project deselected, returning to overview');
     }
-  }, [currentSection.key, debugMode]);
+  }, [goToSection, debugMode]);
   
   /**
    * Handle project detail card close - FIXED to return to intro
@@ -454,7 +574,6 @@ export const useScrollCrystal = (options = {}) => {
     }
   }, [currentSection.key, crystalState, scrollProgress, isTransitioning, debugMode, selectedProject]);
   
-
   // Cleanup effect for timeouts
   useEffect(() => {
     return () => {
@@ -490,36 +609,9 @@ export const useScrollCrystal = (options = {}) => {
     handleProjectClose, // FIXED: Returns to intro
     handleLoopBack,
     
-    // Section data
-    sections: SCROLL_SECTIONS,
-    
-    // Debug helpers
-    debug: debugMode ? {
-      sections: Object.values(SCROLL_SECTIONS),
-      currentIndex: Object.values(SCROLL_SECTIONS).findIndex(s => s.key === currentSection.key)
-    } : null
-  };
-};
-    // Current state
-    currentSection,
-    crystalState,
-    isTransitioning,
-    scrollProgress,
-    
-    // Project state
-    selectedProject,
-    hoveredProject,
-    setHoveredProject,
-    
-    // Section visibility
-    visibleSections,
-    
-    // Navigation methods
-    goToSection,
-    selectProject,
-    deselectProject,
-    handleProjectClose, // FIXED: Returns to intro
-    handleLoopBack,
+    // New project helpers
+    getCurrentProject,
+    isInProjectSection,
     
     // Section data
     sections: SCROLL_SECTIONS,
@@ -527,7 +619,8 @@ export const useScrollCrystal = (options = {}) => {
     // Debug helpers
     debug: debugMode ? {
       sections: Object.values(SCROLL_SECTIONS),
-      currentIndex: Object.values(SCROLL_SECTIONS).findIndex(s => s.key === currentSection.key)
+      currentIndex: Object.values(SCROLL_SECTIONS).findIndex(s => s.key === currentSection.key),
+      currentProject: getCurrentProject()
     } : null
   };
 };
