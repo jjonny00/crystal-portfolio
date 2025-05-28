@@ -23,7 +23,8 @@ const useKeyboardControls = ({
   effectsEnabled,
   handleToggleEffect,
   performanceConfig,
-  toggleNormalMaps
+  toggleNormalMaps,
+  onFacetSelect
 }) => {
   // Set up keyboard event listeners
   useEffect(() => {
@@ -46,7 +47,8 @@ const useKeyboardControls = ({
         case 'Space':
           // Toggle exploded state
           e.preventDefault(); // Prevent scrolling
-          setIsExploded(prev => !prev);
+          console.log('Space pressed - current isExploded:', isExploded);
+          setIsExploded(!isExploded);
           
           // If a facet is selected, deselect it
           if (selectedFacet) {
@@ -58,8 +60,9 @@ const useKeyboardControls = ({
           
         case 'Enter':
           // Select currently hovered facet
-          if (hoveredFacet && isExploded) {
-            handleFacetSelection(hoveredFacet);
+          if (hoveredFacet && isExploded && onFacetSelect) {
+            console.log('Enter pressed - selecting facet:', hoveredFacet);
+            onFacetSelect(hoveredFacet);
           }
           break;
           
@@ -86,22 +89,6 @@ const useKeyboardControls = ({
         case 'KeyH':
           // Toggle UI controls visibility
           setShowUI(prev => !prev);
-          break;
-          
-        // Tab selection using number keys 1-4
-        case 'Digit1':
-        case 'Digit2':
-        case 'Digit3':
-        case 'Digit4':
-          // Handle tab selection if UI is visible
-          if (showUI) {
-            const tabIndex = parseInt(e.code.replace('Digit', '')) - 1;
-            // You'd need to add a function or state to handle tab switching
-            // This is a placeholder - implement switchTab function
-            if (typeof window.switchUITab === 'function') {
-              window.switchUITab(tabIndex);
-            }
-          }
           break;
           
         // Effects Controls - Single key (no modifier)  
@@ -327,7 +314,8 @@ const useKeyboardControls = ({
     effectsEnabled,
     handleToggleEffect,
     performanceConfig,
-    toggleNormalMaps
+    toggleNormalMaps,
+    onFacetSelect
   ]);
 };
 

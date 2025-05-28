@@ -375,25 +375,86 @@ function App() {
 
   // Set up keyboard controls
   useKeyboardControls({
-    crystalState,
-    dispatchEvent,
-    selectedProject,
-    setSelectedProject,
+    // Crystal state controls
+    isExploded: crystalState !== CRYSTAL_STATES.WHOLE && crystalState !== CRYSTAL_STATES.REFORMING,
+    setIsExploded: (exploded) => {
+      if (isTransitioning) return; // Prevent interaction during transitions
+      
+      if (exploded) {
+        // Only explode if currently whole
+        if (crystalState === CRYSTAL_STATES.WHOLE) {
+          dispatchEvent(CRYSTAL_EVENTS.EXPLODE);
+        }
+      } else {
+        // Reform from any exploded state
+        if (crystalState === CRYSTAL_STATES.EXPLODED || crystalState === CRYSTAL_STATES.PROJECT_SELECTED) {
+          // If a project is selected, handle it specially
+          if (selectedProject) {
+            setIsTransitioning(true);
+            setShowDetailCard(false);
+            
+            setTimeout(() => {
+              setSelectedProject(null);
+              dispatchEvent(CRYSTAL_EVENTS.REFORM);
+              
+              setTimeout(() => {
+                setOrbitControlsEnabled(true);
+                setIsTransitioning(false);
+              }, config.timing.camera.reformDuration || 900);
+            }, 300);
+          } else {
+            // Normal reform if no project is selected
+            dispatchEvent(CRYSTAL_EVENTS.REFORM);
+          }
+        }
+      }
+    },
+    
+    // Facet selection
     hoveredFacet,
     setHoveredFacet,
+    selectedFacet: selectedProject?.facetKey || null,
+    setSelectedFacet: (facetKey) => {
+      if (facetKey && handleFacetSelect) {
+        handleFacetSelect(facetKey);
+      } else if (!facetKey && selectedProject) {
+        // Deselect current project
+        setShowDetailCard(false);
+        setTimeout(() => {
+          setSelectedProject(null);
+          dispatchEvent(CRYSTAL_EVENTS.DESELECT_PROJECT);
+          setOrbitControlsEnabled(true);
+        }, 300);
+      }
+    },
+    
+    // Add the facet selection handler
+    onFacetSelect: handleFacetSelect,
+    
+    // UI controls
+    showUI,
+    setShowUI,
     showDetailCard,
     setShowDetailCard,
-    orbitControlsEnabled,
     setOrbitControlsEnabled,
+    
+    // Configuration and state
     config,
     isTransitioning,
     setIsTransitioning,
+    
+    // Effects controls
     effectsEnabled,
     handleToggleEffect,
+    
+    // Performance controls
     performanceConfig,
-    handlePerformanceConfigUpdate,
-    showUI,
-    setShowUI
+    toggleNormalMaps: () => {
+      handlePerformanceConfigUpdate({
+        ...performanceConfig,
+        useNormalMaps: !performanceConfig.useNormalMaps
+      });
+    }
   });
 
   // Get optimal canvas and environment props

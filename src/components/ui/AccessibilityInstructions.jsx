@@ -186,7 +186,6 @@ const AccessibilityInstructions = ({ visible = true }) => {
             <div><strong>ENTER</strong>: Select Facet</div>
             <div><strong>ESC</strong>: Back/Deselect</div>
             <div><strong>H</strong>: Toggle UI Controls</div>
-            <div><strong>1-4</strong>: Switch UI Control Tabs</div> {/* Added numeric tab switching */}
           </div>
           
           {expanded && (
