@@ -240,7 +240,7 @@ export const materials = {
 // === CAMERA SETTINGS ===
 export const camera = {
   zoomAmount: 4,     // How far camera moves during transitions
-  startingPosition: [0, 0, 9],
+  startingPosition: [0, 0, 4.5],
   fov: 45,
   orbitControls: {
     rotateSpeed: 0.5,

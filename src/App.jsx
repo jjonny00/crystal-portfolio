@@ -1,4 +1,4 @@
-// App.jsx - Complete updated version with state machine integration
+// App.jsx - Updated with Navigation Integration
 
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { Canvas } from '@react-three/fiber'
@@ -30,6 +30,9 @@ import useKeyboardControls from './hooks/useKeyboardControls'
 // Import performance system
 import { useDeviceProfile } from './hooks/useDeviceProfile'
 import FpsDisplay, { FPSCounter, PerformanceAlert } from './components/ui/FpsDisplay'
+
+// Import the new Navigation component (you'll need to create this file)
+import Navigation from './components/ui/Navigation'
 
 function App() {
   // Device profile detection
@@ -68,9 +71,10 @@ function App() {
   })
   const [materialVariant, setMaterialVariant] = useState('default')
   const [showUI, setShowUI] = useState(false)
-  
-  // ... rest of your existing state ...
   const [orbitControlsEnabled, setOrbitControlsEnabled] = useState(true)
+  
+  // Add tab state management - THIS IS THE FIX
+  const [activeTab, setActiveTab] = useState(0)
   
   // Material configs
   const [blackOpalConfig, setBlackOpalConfig] = useState({
@@ -105,11 +109,10 @@ function App() {
   
   // Performance configuration
   const [performanceConfig, setPerformanceConfig] = useState(() => {
-    // Start with safe defaults that will be overridden
     return {
-      useNormalMaps: false,  // Default to OFF
-      textureQuality: 'low', // Default to LOW
-      usePBR: false,         // Default to OFF
+      useNormalMaps: false,
+      textureQuality: 'low',
+      usePBR: false,
       renderScale: 0.7
     };
   });
@@ -123,19 +126,60 @@ function App() {
     }
   }, [crystalState]);
 
+  // Navigation handlers
+  const handleWorkClick = useCallback(() => {
+    console.log('Work section clicked');
+    
+    // If crystal is whole, explode it to show projects
+    if (crystalState === CRYSTAL_STATES.WHOLE) {
+      dispatchEvent(CRYSTAL_EVENTS.EXPLODE);
+    }
+    
+    // Could add smooth scrolling to a projects section here
+    // or trigger a special animation state
+  }, [crystalState, dispatchEvent]);
+
+  const handleAboutClick = useCallback(() => {
+    console.log('About section clicked');
+    
+    // Could navigate to an about section or show about overlay
+    // For now, let's show the crystal if it's exploded
+    if (crystalState !== CRYSTAL_STATES.WHOLE && crystalState !== CRYSTAL_STATES.REFORMING) {
+      dispatchEvent(CRYSTAL_EVENTS.REFORM);
+    }
+  }, [crystalState, dispatchEvent]);
+
+  const handleProcessClick = useCallback(() => {
+    console.log('Process section clicked');
+    
+    // Could show different material variants to demonstrate process
+    // or navigate to a process documentation section
+    setMaterialVariant(prev => {
+      const variants = ['default', 'glass', 'gem', 'holographic', 'blackOpal', 'iceOpal'];
+      const currentIndex = variants.indexOf(prev);
+      const nextIndex = (currentIndex + 1) % variants.length;
+      return variants[nextIndex];
+    });
+  }, []);
+
+  const handleContactClick = useCallback(() => {
+    console.log('Contact section clicked');
+    
+    // Could open a contact form or scroll to contact section
+    // For now, let's show the UI controls as a demonstration
+    setShowUI(true);
+  }, []);
+
   // Effect to handle state transitions and animations
   useEffect(() => {
     switch (crystalState) {
       case CRYSTAL_STATES.WHOLE:
-        // Crystal is whole, nothing special to do
         setIsTransitioning(false);
         break;
         
       case CRYSTAL_STATES.FRACTURING:
-        // Start fracturing animation
         setIsTransitioning(true);
         
-        // After fracturing animation completes, move to exploding
         const fractureTimer = setTimeout(() => {
           dispatchEvent(CRYSTAL_EVENTS.FRACTURE_COMPLETE);
         }, config.timing.fracture.duration);
@@ -143,10 +187,8 @@ function App() {
         return () => clearTimeout(fractureTimer);
         
       case CRYSTAL_STATES.EXPLODING:
-        // Continue with explosion animation
         setIsTransitioning(true);
         
-        // After explosion animation completes
         const explosionTimer = setTimeout(() => {
           dispatchEvent(CRYSTAL_EVENTS.EXPLOSION_COMPLETE);
         }, config.timing.camera.explodeDuration);
@@ -154,20 +196,16 @@ function App() {
         return () => clearTimeout(explosionTimer);
         
       case CRYSTAL_STATES.EXPLODED:
-        // Crystal is fully exploded
         setIsTransitioning(false);
         break;
         
       case CRYSTAL_STATES.PROJECT_SELECTED:
-        // Project is selected, nothing special to do
         setIsTransitioning(false);
         break;
         
       case CRYSTAL_STATES.REFORMING:
-        // Start reforming animation
         setIsTransitioning(true);
         
-        // After reforming animation completes
         const reformTimer = setTimeout(() => {
           dispatchEvent(CRYSTAL_EVENTS.REFORM_COMPLETE);
         }, config.timing.camera.reformDuration);
@@ -182,34 +220,28 @@ function App() {
 
   // Handle facet selection - now with project mapping
   const handleFacetSelect = useCallback((facetKey) => {
-    if (isTransitioning) return; // Prevent interaction during transitions
+    if (isTransitioning) return;
     
-    // Find project associated with this facet
     const project = getProjectByFacetKey(facetKey);
     
-    // If the same facet is selected, deselect it
     if (selectedProject && selectedProject.facetKey === facetKey) {
       setIsTransitioning(true);
       setShowDetailCard(false);
       
-      // Wait for card to animate out before transitioning state
       setTimeout(() => {
         setSelectedProject(null);
         dispatchEvent(CRYSTAL_EVENTS.DESELECT_PROJECT);
         
-        // Enable orbit controls after transition
         setTimeout(() => {
           setOrbitControlsEnabled(true);
           setIsTransitioning(false);
         }, config.timing.camera.facetReturnDuration || 1200);
       }, 300);
     } else {
-      // Select new project
       setSelectedProject(project);
       setOrbitControlsEnabled(false);
       dispatchEvent(CRYSTAL_EVENTS.SELECT_PROJECT);
       
-      // Show detail card after camera animation completes
       setTimeout(() => {
         setShowDetailCard(true);
         setIsTransitioning(false);
@@ -226,15 +258,12 @@ function App() {
 
   // Handle explosion toggle with proper state machine events
   const handleExplodeToggle = useCallback(() => {
-    if (isTransitioning) return; // Prevent interaction during transitions
+    if (isTransitioning) return;
     
     if (crystalState === CRYSTAL_STATES.WHOLE) {
-      // Start explosion sequence
       dispatchEvent(CRYSTAL_EVENTS.EXPLODE);
     } else if (crystalState === CRYSTAL_STATES.EXPLODED || crystalState === CRYSTAL_STATES.PROJECT_SELECTED) {
-      // Start reform sequence
       if (selectedProject) {
-        // If a project is selected, need special handling
         setIsTransitioning(true);
         setShowDetailCard(false);
         
@@ -242,14 +271,12 @@ function App() {
           setSelectedProject(null);
           dispatchEvent(CRYSTAL_EVENTS.REFORM);
           
-          // Enable orbit controls after reform completes
           setTimeout(() => {
             setOrbitControlsEnabled(true);
             setIsTransitioning(false);
           }, config.timing.camera.reformDuration || 900);
         }, 300);
       } else {
-        // Normal reform if no project is selected
         dispatchEvent(CRYSTAL_EVENTS.REFORM);
       }
     }
@@ -264,7 +291,6 @@ function App() {
   
   useEffect(() => {
     if (devicePerformanceProfile && !isDetecting) {
-      // Only apply if the profile actually changed
       const profileKey = JSON.stringify({
         useNormalMaps: devicePerformanceProfile.useNormalMaps,
         textureQuality: devicePerformanceProfile.textureQuality,
@@ -286,7 +312,6 @@ function App() {
         setLastAppliedProfile(profileKey);
         setInitialProfileApplied(true);
         
-        // Also update effects based on device profile (with null checking)
         if (devicePerformanceProfile.postProcessing) {
           setEffectsEnabled({
             bloom: devicePerformanceProfile.postProcessing.bloom || false,
@@ -296,7 +321,6 @@ function App() {
           });
         }
         
-        // Force material refresh by toggling a dummy state
         setTimeout(() => {
           console.log('🔄 Forcing material refresh...');
           setPerformanceConfig(prev => ({ ...prev, _forceRefresh: Date.now() }));
@@ -309,11 +333,9 @@ function App() {
   const [hasInitialized, setHasInitialized] = useState(false);
   
   useEffect(() => {
-    // Only update external config after initial device profile load
     if (updateExternalPerformanceConfig && hasInitialized && initialProfileApplied) {
       updateExternalPerformanceConfig(performanceConfig);
     } else if (devicePerformanceProfile && !hasInitialized) {
-      // Mark as initialized after first device profile load
       setHasInitialized(true);
     }
   }, [performanceConfig, updateExternalPerformanceConfig, hasInitialized, devicePerformanceProfile, initialProfileApplied]);
@@ -343,13 +365,11 @@ function App() {
   
   // Post-processing toggle handler
   const handleToggleEffect = useCallback((effect, enabled, params = null) => {
-    // Update the enabled state
     setEffectsEnabled(prev => ({
       ...prev,
       [effect]: enabled
     }));
     
-    // If additional parameters are provided, update the configuration
     if (params) {
       setPostProcessingConfig(prev => ({
         ...prev,
@@ -375,20 +395,16 @@ function App() {
 
   // Set up keyboard controls
   useKeyboardControls({
-    // Crystal state controls
     isExploded: crystalState !== CRYSTAL_STATES.WHOLE && crystalState !== CRYSTAL_STATES.REFORMING,
     setIsExploded: (exploded) => {
-      if (isTransitioning) return; // Prevent interaction during transitions
+      if (isTransitioning) return;
       
       if (exploded) {
-        // Only explode if currently whole
         if (crystalState === CRYSTAL_STATES.WHOLE) {
           dispatchEvent(CRYSTAL_EVENTS.EXPLODE);
         }
       } else {
-        // Reform from any exploded state
         if (crystalState === CRYSTAL_STATES.EXPLODED || crystalState === CRYSTAL_STATES.PROJECT_SELECTED) {
-          // If a project is selected, handle it specially
           if (selectedProject) {
             setIsTransitioning(true);
             setShowDetailCard(false);
@@ -403,14 +419,11 @@ function App() {
               }, config.timing.camera.reformDuration || 900);
             }, 300);
           } else {
-            // Normal reform if no project is selected
             dispatchEvent(CRYSTAL_EVENTS.REFORM);
           }
         }
       }
     },
-    
-    // Facet selection
     hoveredFacet,
     setHoveredFacet,
     selectedFacet: selectedProject?.facetKey || null,
@@ -418,7 +431,6 @@ function App() {
       if (facetKey && handleFacetSelect) {
         handleFacetSelect(facetKey);
       } else if (!facetKey && selectedProject) {
-        // Deselect current project
         setShowDetailCard(false);
         setTimeout(() => {
           setSelectedProject(null);
@@ -427,27 +439,17 @@ function App() {
         }, 300);
       }
     },
-    
-    // Add the facet selection handler
     onFacetSelect: handleFacetSelect,
-    
-    // UI controls
     showUI,
     setShowUI,
     showDetailCard,
     setShowDetailCard,
     setOrbitControlsEnabled,
-    
-    // Configuration and state
     config,
     isTransitioning,
     setIsTransitioning,
-    
-    // Effects controls
     effectsEnabled,
     handleToggleEffect,
-    
-    // Performance controls
     performanceConfig,
     toggleNormalMaps: () => {
       handlePerformanceConfigUpdate({
@@ -463,14 +465,24 @@ function App() {
 
   return (
     <>
-      {/* FPS Display - show on all devices during development */}
+      {/* Navigation Bar - NEW! */}
+      <Navigation
+        onWorkClick={handleWorkClick}
+        onAboutClick={handleAboutClick}
+        onProcessClick={handleProcessClick}
+        onContactClick={handleContactClick}
+        isTransitioning={isTransitioning}
+        crystalState={crystalState}
+      />
+
+      {/* FPS Display */}
       <FpsDisplay 
         visible={true}
         position="top-right"
         showDetails={false}
       />
       
-      {/* Performance alerts for all devices */}
+      {/* Performance alerts */}
       <PerformanceAlert 
         visible={true}
         threshold={deviceProfile?.isMobile ? 25 : 30}
@@ -484,21 +496,19 @@ function App() {
         <Canvas 
           shadows 
           camera={{ position: config.camera.startingPosition, fov: config.camera.fov }} 
-          {...canvasProps} // Apply optimal canvas settings
+          {...canvasProps}
           gl={{ 
             toneMapping: THREE.ACESFilmicToneMapping,
             toneMappingExposure: 0.2,
             outputColorSpace: THREE.SRGBColorSpace,
-            // Apply device-optimized GL settings
             ...canvasProps.gl
           }}>
           
-          {/* FPS Counter inside Canvas */}
           <FPSCounter />
           
           <color attach="background" args={['#050505']} />
           
-          {/* Your existing lighting */}
+          {/* Lighting */}
           <ambientLight intensity={config.lighting.ambient.intensity} />
           <directionalLight 
             position={config.lighting.directional.position} 
@@ -524,7 +534,7 @@ function App() {
             color={config.lighting.spotLight.color} 
           />
           
-          {/* Updated crystal scene with state machine props */}
+          {/* Crystal scene */}
           <EnhancedCrystalScene 
             isExploded={isExploded} 
             crystalState={crystalState}
@@ -540,15 +550,15 @@ function App() {
             performanceConfig={performanceConfig}
           />
           
-          {/* Environment with optimized settings */}
+          {/* Environment */}
           <Environment 
-            key={environmentProps.files} // Force reload when HDRI path changes
+            key={environmentProps.files}
             files={environmentProps.files || config.environment.hdri} 
             background={config.environment.showBackground} 
             rotation={config.environment.rotation}
           />
           
-          {/* Your existing post-processing */}
+          {/* Post-processing */}
           <EffectComposer enabled={true}>
             <Bloom 
               intensity={Object.values(effectsEnabled).some(Boolean) ? 0 : 0.0001}
@@ -588,7 +598,7 @@ function App() {
             )}
           </EffectComposer>
           
-          {/* Your existing orbit controls */}
+          {/* Orbit controls */}
           <OrbitControls 
             makeDefault
             enabled={orbitControlsEnabled}
@@ -601,7 +611,7 @@ function App() {
         </Canvas>
       </div>
       
-      {/* All your existing UI components */}
+      {/* Existing UI components */}
       <ControlsToggle 
         showUI={showUI} 
         toggleUI={toggleUI} 
@@ -611,6 +621,8 @@ function App() {
       {showUI && (
         <TabbedControlPanel 
           visible={true}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
           tabs={[
             { label: 'Crystal' },
             { label: 'Materials' },
@@ -655,7 +667,7 @@ function App() {
         </TabbedControlPanel>
       )}
       
-      {/* ProjectDetailCard replacing FacetDetailCard */}
+      {/* Project detail card */}
       {selectedProject && 
         <ProjectDetailCard 
           project={selectedProject}
@@ -681,6 +693,7 @@ function App() {
       
       <AccessibilityInstructions visible={true} />
       
+      {/* Main interaction button */}
       <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 9999 }}>
         <div style={{ position: 'absolute', bottom: '20px', left: 0, width: '100%', display: 'flex', justifyContent: 'center', pointerEvents: 'none' }}>
           <button 
