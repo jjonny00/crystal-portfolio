@@ -11,9 +11,9 @@ export const useMobileScrolling = (options = {}) => {
   const {
     enableTouchScrolling = true,
     preventOrbitOnMobile = true,
-    smoothScrollFactor = 0.25, // REDUCED: Much slower scrolling (was 0.8)
-    momentumMultiplier = 0.3,   // NEW: Reduces momentum strength
-    minSwipeDistance = 15,      // NEW: Minimum distance before scrolling starts
+    smoothScrollFactor = 0.10, // REDUCED: Much slower scrolling (was 0.8)
+    momentumMultiplier = 0.2,   // NEW: Reduces momentum strength
+    minSwipeDistance = 25,      // NEW: Minimum distance before scrolling starts
     debugMode = false
   } = options;
 
