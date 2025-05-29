@@ -1,12 +1,13 @@
-// src/hooks/useScrollCrystal.js - Enhanced with smooth animations and proper state transitions
-// Fixed fracture/explosion animations and added smooth easing
+// src/hooks/useScrollCrystal.js - Fixed with mobile-optimized scroll sections
+// Enhanced with smooth animations, proper state transitions, and mobile optimization
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { CRYSTAL_STATES, CRYSTAL_EVENTS, getNextState } from '../machines/crystalStateMachine';
 import { getProjectByFacetKey } from '../data/projects';
 
 /**
- * Enhanced scroll sections with proper animation states
+ * Mobile-optimized scroll sections with much better spacing
+ * Each section gets more space to prevent fast scrolling through content
  */
 const SCROLL_SECTIONS = {
   INTRO_CLOSE: {
@@ -15,7 +16,7 @@ const SCROLL_SECTIONS = {
     crystalState: CRYSTAL_STATES.WHOLE,
     cameraState: 'INTRO_CLOSE',
     threshold: 0,
-    duration: 0.06, // Slightly longer intro-close section
+    duration: 0.12, // DOUBLED: Much longer intro-close section
     title: 'Multifaceted Designer',
     subtitle: 'Jon Shaw',
     enableScrollTransition: true
@@ -26,34 +27,34 @@ const SCROLL_SECTIONS = {
     index: 1,
     crystalState: CRYSTAL_STATES.WHOLE,
     cameraState: 'INTRO',
-    threshold: 0.06,
-    duration: 0.09, // Much longer intro section for slower transition
+    threshold: 0.12,
+    duration: 0.15, // INCREASED: Much longer intro section for slower transition
     title: 'Multifaceted Designer',
     subtitle: 'Scroll to explore',
     enableScrollTransition: true
   },
   
-  // NEW: Fracture transition state - moved much later for slower intro
+  // Fracture transition state - moved much later with more space
   FRACTURING: {
     key: 'fracturing',
     index: 2,
     crystalState: CRYSTAL_STATES.FRACTURING,
     cameraState: 'INTRO',
-    threshold: 0.15, // Same position, but intro section is now longer
-    duration: 0.03,
+    threshold: 0.27, // Much later threshold
+    duration: 0.06, // Longer duration for fracture
     title: 'Breaking Apart',
     subtitle: 'Revealing the facets',
     isTransition: true
   },
   
-  // NEW: Explosion transition state  
+  // Explosion transition state with more space
   EXPLODING: {
     key: 'exploding',
     index: 3,
     crystalState: CRYSTAL_STATES.EXPLODING,
     cameraState: 'EXPLOSION',
-    threshold: 0.18,
-    duration: 0.04,
+    threshold: 0.33,
+    duration: 0.08, // Longer explosion duration
     title: 'Expanding',
     subtitle: 'Exploring the possibilities',
     isTransition: true
@@ -64,19 +65,20 @@ const SCROLL_SECTIONS = {
     index: 4,
     crystalState: CRYSTAL_STATES.EXPLODED,
     cameraState: 'EXPLOSION',
-    threshold: 0.22,
-    duration: 0.03,
+    threshold: 0.41,
+    duration: 0.06, // More space for overview
     title: 'Featured Projects',
     subtitle: 'Explore my work across six design facets'
   },
   
+  // Each project gets more space - 6% each instead of 8%
   PROJECT_EMPATHY: {
     key: 'project-empathy',
     index: 5,
     crystalState: CRYSTAL_STATES.PROJECT_SELECTED,
     cameraState: 'PROJECT_EMPATHY',
-    threshold: 0.25,
-    duration: 0.08,
+    threshold: 0.47,
+    duration: 0.06, // Slightly smaller per project but more total space
     title: 'Empathy',
     subtitle: 'Understanding user needs and pain points',
     projectKey: 'empathy'
@@ -87,8 +89,8 @@ const SCROLL_SECTIONS = {
     index: 6,
     crystalState: CRYSTAL_STATES.PROJECT_SELECTED,
     cameraState: 'PROJECT_NARRATIVE',
-    threshold: 0.33,
-    duration: 0.08,
+    threshold: 0.53,
+    duration: 0.06,
     title: 'Narrative',
     subtitle: 'Guiding teams through compelling stories',
     projectKey: 'narrative'
@@ -99,8 +101,8 @@ const SCROLL_SECTIONS = {
     index: 7,
     crystalState: CRYSTAL_STATES.PROJECT_SELECTED,
     cameraState: 'PROJECT_CRAFT',
-    threshold: 0.41,
-    duration: 0.08,
+    threshold: 0.59,
+    duration: 0.06,
     title: 'Craft',
     subtitle: 'Precision in every design detail',
     projectKey: 'craft'
@@ -111,8 +113,8 @@ const SCROLL_SECTIONS = {
     index: 8,
     crystalState: CRYSTAL_STATES.PROJECT_SELECTED,
     cameraState: 'PROJECT_SYSTEM',
-    threshold: 0.49,
-    duration: 0.08,
+    threshold: 0.65,
+    duration: 0.06,
     title: 'System',
     subtitle: 'Building scalable design systems',
     projectKey: 'system'
@@ -123,8 +125,8 @@ const SCROLL_SECTIONS = {
     index: 9,
     crystalState: CRYSTAL_STATES.PROJECT_SELECTED,
     cameraState: 'PROJECT_LEADERSHIP',
-    threshold: 0.57,
-    duration: 0.08,
+    threshold: 0.71,
+    duration: 0.06,
     title: 'Leadership',
     subtitle: 'Empowering teams to do their best work',
     projectKey: 'leadership'
@@ -135,21 +137,21 @@ const SCROLL_SECTIONS = {
     index: 10,
     crystalState: CRYSTAL_STATES.PROJECT_SELECTED,
     cameraState: 'PROJECT_EXPLORATION',
-    threshold: 0.65,
-    duration: 0.08,
+    threshold: 0.77,
+    duration: 0.06,
     title: 'Exploration',
     subtitle: 'Finding opportunities in ambiguity',
     projectKey: 'exploration'
   },
   
-  // NEW: Reforming transition state before about
+  // Reforming transition with more space
   REFORMING: {
     key: 'reforming',
     index: 11,
     crystalState: CRYSTAL_STATES.REFORMING,
     cameraState: 'INTRO',
-    threshold: 0.73,
-    duration: 0.05,
+    threshold: 0.83,
+    duration: 0.08, // More space for reform
     title: 'Returning Home',
     subtitle: 'Bringing it all together',
     isTransition: true
@@ -159,9 +161,9 @@ const SCROLL_SECTIONS = {
     key: 'about',
     index: 12,
     crystalState: CRYSTAL_STATES.WHOLE,
-    cameraState: 'INTRO', // Use INTRO instead of ABOUT since we don't have that state
-    threshold: 0.78,
-    duration: 0.12,
+    cameraState: 'INTRO',
+    threshold: 0.91,
+    duration: 0.06,
     title: 'About Me',
     subtitle: 'The story behind the facets'
   },
@@ -170,9 +172,9 @@ const SCROLL_SECTIONS = {
     key: 'footer',
     index: 13,
     crystalState: CRYSTAL_STATES.WHOLE,
-    cameraState: 'INTRO', // Use INTRO instead of FOOTER since we don't have that state
-    threshold: 0.90,
-    duration: 0.10,
+    cameraState: 'INTRO',
+    threshold: 0.97,
+    duration: 0.03,
     title: 'Let\'s Connect',
     subtitle: 'Ready to create something beautiful together?'
   }
@@ -182,29 +184,32 @@ const SCROLL_SECTIONS = {
 const SECTIONS_ARRAY = Object.values(SCROLL_SECTIONS);
 
 /**
- * Enhanced easing functions for ultra-smooth scroll animations
+ * Mobile-optimized easing functions with slower transitions
  */
 const easingFunctions = {
-  // Ultra-smooth ease out for natural scroll stopping
-  easeOut: (t) => 1 - Math.pow(1 - t, 4), // More pronounced ease out
+  // Much slower ease out for natural mobile scroll stopping
+  easeOut: (t) => 1 - Math.pow(1 - t, 6), // Even more pronounced ease out
   
-  // Silky smooth ease in out for transitions  
-  easeInOut: (t) => t < 0.5 ? 8 * t * t * t * t : 1 - Math.pow(-2 * t + 2, 4) / 2,
+  // Ultra-smooth ease in out for mobile transitions  
+  easeInOut: (t) => t < 0.5 ? 16 * t * t * t * t * t : 1 - Math.pow(-2 * t + 2, 5) / 2,
   
-  // Extra gentle ease for continuous scrolling - perfect for intro camera movement
-  gentle: (t) => t * t * t * (t * (t * 6 - 15) + 10), // Smoothstep polynomial
+  // Extra gentle ease for continuous mobile scrolling
+  gentle: (t) => {
+    // Ultra-smooth polynomial for mobile
+    const x = Math.max(0, Math.min(1, t));
+    return x * x * x * x * (x * (x * 6 - 15) + 10);
+  },
   
-  // NEW: Ultra-smooth intro easing - specifically for camera movement
+  // Ultra-smooth intro easing for mobile camera movement
   introSmooth: (t) => {
-    // Custom bezier-like curve for silky smooth intro movement
-    if (t < 0.1) return 0; // Stay still at the beginning
-    const adjusted = (t - 0.1) / 0.9; // Remap to 0-1 range
-    return adjusted * adjusted * adjusted * (adjusted * (adjusted * 6 - 15) + 10);
+    if (t < 0.15) return 0; // Stay still longer at the beginning
+    const adjusted = (t - 0.15) / 0.85; // Remap to 0-1 range
+    return adjusted * adjusted * adjusted * adjusted * (adjusted * (adjusted * 6 - 15) + 10);
   }
 };
 
 /**
- * Enhanced scroll crystal hook with smooth animations
+ * Enhanced scroll crystal hook with mobile optimizations
  */
 export const useScrollCrystal = (options = {}) => {
   const {
@@ -212,7 +217,7 @@ export const useScrollCrystal = (options = {}) => {
     debugMode = false,
     smoothTransitions = true,
     onSectionChange = null,
-    easingDuration = 1200, // Increased from 800ms for more luxurious feel
+    easingDuration = 1200, // Can be overridden for mobile
     easingFunction = easingFunctions.gentle // Use gentle easing by default
   } = options;
 
@@ -492,11 +497,11 @@ export const useScrollCrystal = (options = {}) => {
     return currentSection.key.startsWith('project-') && currentSection.key !== 'projects-overview';
   }, [currentSection.key]);
 
-    // State checks - Updated to include reforming transition
-    const isInIntro = currentSection.key === 'intro-close' || currentSection.key === 'intro';
-    const isInExplosion = currentSection.key === 'projects-overview';
-    const isInProjects = currentSection.key.startsWith('project-') && currentSection.key !== 'projects-overview';
-    const isInReform = currentSection.key === 'reforming' || currentSection.key === 'about' || currentSection.key === 'footer';
+  // State checks - Updated to include reforming transition
+  const isInIntro = currentSection.key === 'intro-close' || currentSection.key === 'intro';
+  const isInExplosion = currentSection.key === 'projects-overview';
+  const isInProjects = currentSection.key.startsWith('project-') && currentSection.key !== 'projects-overview';
+  const isInReform = currentSection.key === 'reforming' || currentSection.key === 'about' || currentSection.key === 'footer';
 
   // Get project count for navigation
   const projectSections = SECTIONS_ARRAY.filter(s => s.projectKey);
