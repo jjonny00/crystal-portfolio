@@ -1,4 +1,5 @@
-// App.jsx - Updated with scroll-based crystal system and new sections
+// src/App.jsx - Integration of enhanced scroll system
+// Key changes: Pass scrollCrystalData to EnhancedCrystalScene
 
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { Canvas } from '@react-three/fiber'
@@ -17,7 +18,7 @@ import { useScrollCrystal } from './hooks/useScrollCrystal'
 
 // Import existing components
 import * as defaultConfig from './crystalConfig'
-import EnhancedCrystalScene from './components/three/EnhancedCrystalScene'
+import EnhancedCrystalScene from './components/three/EnhancedCrystalScene' // Updated component
 import CrystalControls from './components/ui/CrystalControls'
 import MaterialSelector from './components/ui/MaterialSelector'
 import BlackOpalControls from './components/ui/BlackOpalControls'
@@ -53,14 +54,19 @@ function App() {
     enableOrientationLock: true 
   });
 
-  // Scroll-based crystal control system
+  // Enhanced scroll-based crystal control system
   const scrollCrystalData = useScrollCrystal({
     enableScrollControl: true,
-    debugMode: true, // Enable debug mode to troubleshoot
+    debugMode: true, // Keep enabled to monitor the new intro behavior
     smoothTransitions: true,
     onSectionChange: (newSection, oldSection) => {
       console.log(`🔄 App: Section changed: ${oldSection.key} → ${newSection.key}`);
       console.log(`🔄 App: Crystal state: ${crystalState}`);
+      
+      // NEW: Log intro transitions specifically
+      if (newSection.key === 'intro-close' || newSection.key === 'intro') {
+        console.log(`📹 App: Intro transition - camera should be responding to scroll`);
+      }
     }
   });
   
@@ -99,7 +105,7 @@ function App() {
   // Tab state management
   const [activeTab, setActiveTab] = useState(0)
   
-  // Material configs
+  // Material configs (existing logic)
   const [blackOpalConfig, setBlackOpalConfig] = useState({
     roughness: 0.4,
     metalness: 0.1,
@@ -120,7 +126,7 @@ function App() {
     emissiveIntensity: 0.4
   });
   
-  // Effects and performance state
+  // Effects and performance state (existing logic)
   const [effectsEnabled, setEffectsEnabled] = useState({
     bloom: true,
     chromaticAberration: true,
@@ -130,7 +136,7 @@ function App() {
   
   const [postProcessingConfig, setPostProcessingConfig] = useState(config.postProcessing);
   
-  // Performance configuration
+  // Performance configuration (existing logic)
   const [performanceConfig, setPerformanceConfig] = useState(() => {
     return {
       useNormalMaps: false,
@@ -140,10 +146,10 @@ function App() {
     };
   });
 
-  // Navigation handlers that integrate with scroll system
+  // Navigation handlers that integrate with scroll system (existing logic)
   const handleWorkClick = useCallback(() => {
     console.log('Work section clicked');
-    goToSection('projects');
+    goToSection('projects-overview'); // Updated section name
   }, [goToSection]);
 
   const handleAboutClick = useCallback(() => {
@@ -153,7 +159,6 @@ function App() {
 
   const handleProcessClick = useCallback(() => {
     console.log('Process section clicked');
-    // Could show different material variants to demonstrate process
     setMaterialVariant(prev => {
       const variants = ['default', 'glass', 'gem', 'holographic', 'blackOpal', 'iceOpal'];
       const currentIndex = variants.indexOf(prev);
@@ -167,36 +172,34 @@ function App() {
     goToSection('footer');
   }, [goToSection]);
 
-  // Handle facet selection with project mapping
+  // Handle facet selection with project mapping (existing logic)
   const handleFacetSelect = useCallback((facetKey) => {
     if (isTransitioning) return;
     
     const project = getProjectByFacetKey(facetKey);
     
     if (selectedProject && selectedProject.facetKey === facetKey) {
-      // Deselect current project and return to intro
       handleProjectClose();
     } else {
-      // Select new project
       selectProject(facetKey);
       setOrbitControlsEnabled(false);
     }
   }, [selectedProject, isTransitioning, selectProject, handleProjectClose]);
   
-  // Handle facet hover
+  // Handle facet hover (existing logic)
   const handleFacetHover = useCallback((facetKey) => {
     if (!isTransitioning) {
       setHoveredProject(facetKey);
     }
   }, [isTransitioning, setHoveredProject]);
 
-  // Handle explosion toggle - integrated with scroll system
+  // Handle explosion toggle - integrated with scroll system (existing logic)
   const handleExplodeToggle = useCallback(() => {
     if (isTransitioning) return;
     
-    if (currentSection.key === 'intro') {
-      goToSection('projects');
-    } else if (currentSection.key === 'projects') {
+    if (currentSection.key === 'intro' || currentSection.key === 'intro-close') {
+      goToSection('projects-overview');
+    } else if (currentSection.key === 'projects-overview') {
       if (selectedProject) {
         handleProjectClose();
       } else {
@@ -208,7 +211,7 @@ function App() {
   // Get the selected facet key for compatibility with existing components
   const selectedFacet = selectedProject?.facetKey || null;
 
-  // Update device profile when it changes
+  // Device profile and performance management (existing logic - keeping all of it)
   const [lastAppliedProfile, setLastAppliedProfile] = useState(null);
   const [initialProfileApplied, setInitialProfileApplied] = useState(false);
   
@@ -222,8 +225,6 @@ function App() {
       });
       
       if (lastAppliedProfile !== profileKey) {
-        console.log('🎮 Applying device-optimized performance settings:', devicePerformanceProfile);
-        
         const newConfig = {
           useNormalMaps: devicePerformanceProfile.useNormalMaps,
           textureQuality: devicePerformanceProfile.textureQuality,
@@ -245,14 +246,13 @@ function App() {
         }
         
         setTimeout(() => {
-          console.log('🔄 Forcing material refresh...');
           setPerformanceConfig(prev => ({ ...prev, _forceRefresh: Date.now() }));
         }, 100);
       }
     }
   }, [devicePerformanceProfile, isDetecting, lastAppliedProfile]);
 
-  // Update device profile system when performance config changes
+  // All existing handler functions (keeping them all unchanged)
   const [hasInitialized, setHasInitialized] = useState(false);
   
   useEffect(() => {
@@ -263,30 +263,25 @@ function App() {
     }
   }, [performanceConfig, updateExternalPerformanceConfig, hasInitialized, devicePerformanceProfile, initialProfileApplied]);
 
-  // Handler for updating configuration from the control panel
   const handleConfigUpdate = useCallback((newConfig) => {
     setConfig(newConfig);
   }, []);
 
-  // Handler for material variant changes
   const handleMaterialChange = useCallback((variant) => {
     console.log("Changing material variant to:", variant);
     setMaterialVariant(variant);
   }, []);
   
-  // Handler for Black Opal config updates
   const handleBlackOpalConfigUpdate = useCallback((newConfig) => {
     console.log("Updating Black Opal config:", newConfig);
     setBlackOpalConfig(newConfig);
   }, []);
   
-  // Handler for Ice Opal config updates
   const handleIceOpalConfigUpdate = useCallback((newConfig) => {
     console.log("Updating Ice Opal config:", newConfig);
     setIceOpalConfig(newConfig);
   }, []);
   
-  // Post-processing toggle handler
   const handleToggleEffect = useCallback((effect, enabled, params = null) => {
     setEffectsEnabled(prev => ({
       ...prev,
@@ -304,24 +299,21 @@ function App() {
     }
   }, []);
   
-  // Performance config update handler with debugging
   const handlePerformanceConfigUpdate = useCallback((newConfig) => {
     console.log("🔧 Manual performance config update:", newConfig);
-    console.log("🔧 Previous config:", performanceConfig);
     setPerformanceConfig(newConfig);
-  }, [performanceConfig]);
+  }, []);
 
-  // Toggle UI visibility
   const toggleUI = useCallback(() => {
     setShowUI(!showUI);
   }, [showUI]);
 
-  // Set up keyboard controls with scroll integration
+  // Keyboard controls (existing logic)
   useKeyboardControls({
     isExploded: crystalState === CRYSTAL_STATES.EXPLODED || crystalState === CRYSTAL_STATES.EXPLODING || crystalState === CRYSTAL_STATES.PROJECT_SELECTED,
     setIsExploded: (exploded) => {
       if (exploded) {
-        goToSection('projects');
+        goToSection('projects-overview');
       } else {
         goToSection('intro');
       }
@@ -340,11 +332,11 @@ function App() {
     showUI,
     setShowUI,
     showDetailCard: !!selectedProject,
-    setShowDetailCard: () => {}, // Handled by project selection
+    setShowDetailCard: () => {},
     setOrbitControlsEnabled,
     config,
     isTransitioning,
-    setIsTransitioning: () => {}, // Handled by scroll system
+    setIsTransitioning: () => {},
     effectsEnabled,
     handleToggleEffect,
     performanceConfig,
@@ -431,7 +423,7 @@ function App() {
             color={config.lighting.spotLight.color} 
           />
           
-          {/* Enhanced Crystal scene with scroll integration */}
+          {/* ENHANCED: Crystal scene with scroll data */}
           <EnhancedCrystalScene 
             isExploded={crystalState === CRYSTAL_STATES.EXPLODED || crystalState === CRYSTAL_STATES.EXPLODING || crystalState === CRYSTAL_STATES.PROJECT_SELECTED} 
             crystalState={crystalState}
@@ -445,6 +437,7 @@ function App() {
             onFacetHover={handleFacetHover}
             isTransitioning={isTransitioning}
             performanceConfig={performanceConfig}
+            scrollCrystalData={scrollCrystalData} // NEW: Pass scroll data to enable intro animations
           />
           
           {/* Environment */}
@@ -455,7 +448,7 @@ function App() {
             rotation={config.environment.rotation}
           />
           
-          {/* Post-processing */}
+          {/* Post-processing (existing logic) */}
           <EffectComposer enabled={true}>
             <Bloom 
               intensity={Object.values(effectsEnabled).some(Boolean) ? 0 : 0.0001}
@@ -508,21 +501,17 @@ function App() {
         </Canvas>
       </div>
       
-      {/* Scroll-based content sections */}
-      
-      {/* About Section */}
+      {/* All existing UI components remain unchanged */}
       <AboutSection 
         visible={visibleSections.about}
         onClose={() => goToSection('intro')}
       />
       
-      {/* Footer Section */}
       <FooterSection 
         visible={visibleSections.footer}
         onLoopBack={handleLoopBack}
       />
       
-      {/* Development/Debug UI Controls */}
       <ControlsToggle 
         showUI={showUI} 
         toggleUI={toggleUI} 
@@ -578,7 +567,6 @@ function App() {
         </TabbedControlPanel>
       )}
       
-      {/* Project detail card - FIXED: Close returns to intro */}
       {scrollCrystalData.getCurrentProject() && (
         <ProjectDetailCard 
           project={getProjectByFacetKey(scrollCrystalData.selectedProject)}
@@ -614,9 +602,9 @@ function App() {
               });
             }}
           >
-            {currentSection.key === 'intro' ? 'View Projects' : 
-             currentSection.key === 'projects' && selectedProject ? 'Close Project' :
-             currentSection.key === 'projects' ? 'Back to Intro' : 
+            {(currentSection.key === 'intro' || currentSection.key === 'intro-close') ? 'View Projects' : 
+             currentSection.key === 'projects-overview' && selectedProject ? 'Close Project' :
+             currentSection.key === 'projects-overview' ? 'Back to Intro' : 
              'Navigate'}
           </button>
         </div>

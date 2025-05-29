@@ -1,4 +1,5 @@
-// Enhanced version with state machine integration
+// src/components/three/EnhancedCrystalScene.jsx - Complete version with floating crystal
+// Enhanced version with state machine integration and floating intro animation
 
 import { useRef, useState, useEffect } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
@@ -20,12 +21,12 @@ import CameraController from './CameraController'
 import { LabelConnector } from './LabelConnector'
 
 /**
- * Enhanced crystal scene with project selection functionality
- * and state machine integration
+ * Enhanced crystal scene with project selection functionality,
+ * state machine integration, and floating intro animation
  */
 const EnhancedCrystalScene = ({ 
   isExploded, 
-  crystalState, // New prop for state machine integration
+  crystalState,
   config = defaultConfig, 
   materialVariant = 'default',
   blackOpalConfig,
@@ -35,7 +36,8 @@ const EnhancedCrystalScene = ({
   onFacetSelect,
   onFacetHover,
   isTransitioning,
-  performanceConfig = { useNormalMaps: true, textureQuality: 'high', usePBR: true }
+  performanceConfig = { useNormalMaps: true, textureQuality: 'high', usePBR: true },
+  scrollCrystalData = null
 }) => {
   // Component state
   const facetRefs = useRef(Array(6).fill(null));
@@ -49,7 +51,9 @@ const EnhancedCrystalScene = ({
   // Map crystal state to explosion phase for backward compatibility
   const [explosionPhase, setExplosionPhase] = useState('initial');
   const [fractureGlowComplete, setFractureGlowComplete] = useState(false);
-  const [showConnectors, setShowConnectors] = useState(true); // Toggle for connectors
+  
+  // Floating animation ref for intro crystal
+  const crystalFloatingRef = useRef();
   
   // Update explosion phase based on state machine
   useEffect(() => {
@@ -102,49 +106,6 @@ const EnhancedCrystalScene = ({
   const facetLeadership = useGLTF(config.assets.models.facetLeadership);
   const facetExploration = useGLTF(config.assets.models.facetExploration);
   
-  // Find anchor points in loaded models
-  useEffect(() => {
-    // Function to find anchor in a model
-    const findAnchor = (model, anchorName) => {
-      let anchor = null;
-      model.scene.traverse((child) => {
-        if (child.name === anchorName) {
-          anchor = child;
-          console.log(`Found anchor: ${anchorName}`);
-        }
-      });
-      return anchor;
-    };
-    
-    // Find anchors in each model
-    const empathyAnchor = findAnchor(facetEmpathy, 'anchor_empathy');
-    if (empathyAnchor) anchorRefs.current['empathy'] = empathyAnchor;
-    
-    const narrativeAnchor = findAnchor(facetNarrative, 'anchor_narrative');
-    if (narrativeAnchor) anchorRefs.current['narrative'] = narrativeAnchor;
-    
-    const craftAnchor = findAnchor(facetCraft, 'anchor_craft');
-    if (craftAnchor) anchorRefs.current['craft'] = craftAnchor;
-    
-    const systemAnchor = findAnchor(facetSystem, 'anchor_system');
-    if (systemAnchor) anchorRefs.current['system'] = systemAnchor;
-    
-    const leadershipAnchor = findAnchor(facetLeadership, 'anchor_leadership');
-    if (leadershipAnchor) anchorRefs.current['leadership'] = leadershipAnchor;
-    
-    const explorationAnchor = findAnchor(facetExploration, 'anchor_exploration');
-    if (explorationAnchor) anchorRefs.current['exploration'] = explorationAnchor;
-    
-    console.log('Found anchors:', Object.keys(anchorRefs.current));
-  }, [
-    facetEmpathy, 
-    facetNarrative, 
-    facetCraft, 
-    facetSystem, 
-    facetLeadership, 
-    facetExploration
-  ]);
-  
   // Apply shared material to all models
   useEffect(() => {
     if (!crystalMaterialRef.current) return;
@@ -183,7 +144,6 @@ const EnhancedCrystalScene = ({
         fractureStartTime.current = clock.getElapsedTime();
         setShowFacets(true);
         
-        // Hide crystal after a small delay to ensure overlap
         const crystalTimer = setTimeout(() => {
           setShowCrystal(false);
         }, config.timing.crystal.disappearDelay);
@@ -200,7 +160,6 @@ const EnhancedCrystalScene = ({
         setShowFacets(true);
         setShowCrystal(false);
         
-        // Show labels after explosion animation completes
         const labelTimer = setTimeout(() => {
           setShowLabels(true);
         }, config.timing.labels.appearDelay);
@@ -216,12 +175,10 @@ const EnhancedCrystalScene = ({
       case CRYSTAL_STATES.REFORMING:
         setShowLabels(false);
         
-        // Schedule showing the whole crystal near the end of animation
         const crystalAppearTimer = setTimeout(() => {
           setShowCrystal(true);
         }, config.timing.reform.crystalAppearTime);
         
-        // Hide facets after animation completes
         const facetsTimer = setTimeout(() => {
           setShowFacets(false);
         }, config.timing.reform.facetsDisappearTime);
@@ -233,8 +190,36 @@ const EnhancedCrystalScene = ({
     }
   }, [crystalState, clock, config.timing]);
 
-  // Handle fracture effects, idle animations, and update label positions
+  // Floating animation for the whole crystal during intro + all other frame effects
   useFrame((state) => {
+    // NEW: Floating animation for intro crystal
+    if (crystalFloatingRef.current && scrollCrystalData) {
+      const isIntroState = scrollCrystalData.currentSection.key === 'intro-close' || 
+                          scrollCrystalData.currentSection.key === 'intro';
+      
+      if (isIntroState) {
+        const time = state.clock.getElapsedTime();
+        
+        // Subtle floating motion
+        const baseAmplitude = 0.008;
+        
+        const floatY = Math.sin(time * 0.9) * baseAmplitude + 
+                       Math.sin(time * 1.1) * baseAmplitude * 0.4;
+        
+        const floatX = Math.sin(time * 0.7) * baseAmplitude * 0.3;
+        const floatZ = Math.sin(time * 0.6) * baseAmplitude * 0.25;
+        
+        const rotateY = Math.sin(time * 0.4) * 0.015;
+        const rotateX = Math.sin(time * 0.35) * 0.008;
+        
+        crystalFloatingRef.current.position.set(floatX, floatY, floatZ);
+        crystalFloatingRef.current.rotation.set(rotateX, rotateY, 0);
+      } else {
+        crystalFloatingRef.current.position.set(0, 0, 0);
+        crystalFloatingRef.current.rotation.set(0, 0, 0);
+      }
+    }
+
     // Handle fracture effects
     if (explosionPhase === 'fractured') {
       const timeSinceFracture = state.clock.getElapsedTime() - fractureStartTime.current;
@@ -319,7 +304,6 @@ const EnhancedCrystalScene = ({
       const time = state.clock.getElapsedTime();
       const elapsedSinceExplosion = time - explosionStartTime.current;
       
-      // Transition parameters
       const transitionStart = config.timing.idle.transitionStartTime;
       const transitionEnd = config.timing.idle.transitionEndTime;
       let transitionProgress = 0;
@@ -334,29 +318,22 @@ const EnhancedCrystalScene = ({
         transitionProgress = Math.sin(normalizedProgress * Math.PI / 2);
       }
       
-      // Animation parameters
       const settlingDuration = config.timing.idle.settlingDuration || 5.0;
       const settlingFactor = Math.min(1, elapsedSinceExplosion / settlingDuration);
       const dampingFactor = Math.pow(1 - settlingFactor, 2);
       
-      // Create a new array to hold updated positions
       const newLabelPositions = [...labelPositions];
       
-      // Update facet positions with idle animation and update label positions based on anchors
       config.facetLabels.forEach((label, index) => {
         const facetRef = facetRefs.current[index];
         const facetKey = label.key;
         const isSelectedFacet = facetKey === selectedFacet;
-        const anchor = anchorRefs.current[facetKey];
         
-        // Only animate facet if not selected
         if (facetRef && !isSelectedFacet) {
           const targetPos = config.explodedPositions[facetKey];
           
-          // Get current spring position
           const springPos = facetSprings[index].position.get();
           
-          // Calculate floating offsets
           const floatPhase = index * 0.5;
           const floatAmplitude = config.effects.idle.float.baseAmplitude * (1 + dampingFactor);
           
@@ -366,36 +343,19 @@ const EnhancedCrystalScene = ({
           const floatOffsetZ = Math.sin(time * config.effects.idle.float.zFrequency + floatPhase * 0.3) * 
                              floatAmplitude * config.effects.idle.float.zMultiplier;
           
-          // Apply floating offsets to target position
           const floatingPos = [
             targetPos[0] + floatOffsetX,
             targetPos[1] + floatOffsetY,
             targetPos[2] + floatOffsetZ
           ];
           
-          // Blend between spring position and floating position
           facetRef.position.x = springPos[0] * (1 - transitionProgress) + 
                               floatingPos[0] * transitionProgress;
           facetRef.position.y = springPos[1] * (1 - transitionProgress) + 
                               floatingPos[1] * transitionProgress;
           facetRef.position.z = springPos[2] * (1 - transitionProgress) + 
                               floatingPos[2] * transitionProgress;
-        }
-        
-        // Update label position based on anchor if available
-        if (facetRef && anchor) {
-          // Create a temporary vector to store world position
-          const worldPos = new THREE.Vector3();
           
-          // Get anchor's world position based on facet's transform
-          // Need to update the world matrix first to ensure accurate position
-          anchor.updateWorldMatrix(true, false);
-          worldPos.setFromMatrixPosition(anchor.matrixWorld);
-          
-          // Update label position with anchor's world position
-          newLabelPositions[index] = [worldPos.x, worldPos.y, worldPos.z];
-        } else if (facetRef) {
-          // Fallback to facet position if anchor is not available
           newLabelPositions[index] = [
             facetRef.position.x, 
             facetRef.position.y, 
@@ -404,12 +364,10 @@ const EnhancedCrystalScene = ({
         }
       });
       
-      // Update label positions state if they've changed
       if (JSON.stringify(newLabelPositions) !== JSON.stringify(labelPositions)) {
         setLabelPositions(newLabelPositions);
       }
       
-      // Handle pulsing glow
       if (crystalMaterialRef.current) {
         const pulseBase = config.effects.idle.glow.pulseBase || 0.1;
         const pulseStrength = config.effects.idle.glow.pulseStrength || 0.1;
@@ -427,22 +385,6 @@ const EnhancedCrystalScene = ({
           pulseValue = lastGlowValue.current * (1 - blendFactor) + currentPulse * blendFactor;
         }
         
-        // Add extra glow for selected or hovered facets
-        config.facetLabels.forEach((label, index) => {
-          const facetKey = label.key;
-          const isSelected = facetKey === selectedFacet;
-          const isHovered = facetKey === hoveredFacet && !isSelected;
-          
-          if ((isSelected || isHovered) && facetRefs.current[index]) {
-            const facetMesh = getFacetMesh(facetRefs.current[index]);
-            if (facetMesh && facetMesh.material) {
-              facetMesh.material.emissiveIntensity = pulseValue + (isSelected ? 1.2 : 0.6);
-              facetMesh.material.needsUpdate = true;
-            }
-          }
-        });
-        
-        // Update base material glow
         if (materialVariant !== 'blackOpal' && materialVariant !== 'iceOpal') {
           crystalMaterialRef.current.emissiveIntensity = pulseValue;
           crystalMaterialRef.current.needsUpdate = true;
@@ -534,19 +476,23 @@ const EnhancedCrystalScene = ({
         performanceConfig={performanceConfig}
       />
       
-      {/* Camera Controller for animations */}
+      {/* Enhanced Camera Controller with scroll data */}
       <CameraController
         isExploded={isExploded}
-        crystalState={crystalState} // Pass the state machine state
+        crystalState={crystalState}
         selectedFacet={selectedFacet}
         facetRefs={facetRefs}
         config={config}
         facetLabels={config.facetLabels}
+        debugMode={true}
+        scrollCrystalData={scrollCrystalData}
       />
       
-      {/* Show the whole crystal */}
+      {/* Show the whole crystal with floating animation */}
       {showCrystal && (
-        <primitive object={crystalWhole.scene} />
+        <group ref={crystalFloatingRef}>
+          <primitive object={crystalWhole.scene} />
+        </group>
       )}
       
       {/* Show the facets during explosion/collapse */}
@@ -581,4 +527,4 @@ const EnhancedCrystalScene = ({
   );
 };
 
-export default EnhancedCrystalScene; 
+export default EnhancedCrystalScene;
