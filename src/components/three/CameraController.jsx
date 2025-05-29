@@ -1,18 +1,18 @@
-// src/components/three/CameraController.jsx - Enhanced for smooth scroll-driven transitions
-// Updated camera controller with interpolated intro transitions
+// src/components/three/CameraController.jsx - Enhanced with raised intro position and smooth transitions
+// Updated camera controller with higher intro close position and smooth scroll-driven transitions
 
 import { useRef, useEffect, useState } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
-// We'll define camera states inline for now since the config file doesn't exist yet
+// Enhanced camera states with raised intro close position
 const CAMERA_STATES = {
   INTRO_CLOSE: {
-    position: [0, 1.2, 2.8],
+    position: [0, 2.5, 2.8], // RAISED: Increased Y from 1.2 to 2.5 for higher viewpoint
     target: [0, 0.3, 0],
     rotation: [0, 0, 0],
     fov: 35,
-    description: 'Close intimate view of crystal with bottom out of frame'
+    description: 'High intimate view of crystal - elevated perspective'
   },
   INTRO: {
     position: [0, 0, 4.5],
@@ -100,7 +100,6 @@ const CameraController = ({
   config,
   facetLabels = [],
   debugMode = false,
-  // NEW: Scroll data for smooth intro transitions
   scrollCrystalData = null
 }) => {
   const { camera, clock } = useThree();
@@ -119,7 +118,7 @@ const CameraController = ({
     easingFunction: null
   });
   
-  // NEW: Scroll-based interpolation state for intro
+  // Enhanced scroll-based interpolation state for intro
   const scrollInterpolation = useRef({
     active: false,
     fromState: null,
@@ -138,7 +137,7 @@ const CameraController = ({
   const prevCrystalState = useRef(CRYSTAL_STATES.WHOLE);
   const prevSelectedFacet = useRef(null);
 
-  // Initialize camera to close intro position
+  // Initialize camera to raised intro position
   useEffect(() => {
     const introCloseState = getCameraState('INTRO_CLOSE');
     if (introCloseState && !cameraAnimation.current.active) {
@@ -149,21 +148,41 @@ const CameraController = ({
       setCurrentCameraState('INTRO_CLOSE');
       
       if (debugMode) {
-        console.log('📹 Camera initialized to INTRO_CLOSE state');
+        console.log('📹 Camera initialized to raised INTRO_CLOSE state:', introCloseState.position);
       }
     }
   }, [camera, debugMode]);
 
-  // NEW: Handle scroll-based intro transitions
+  // Enhanced scroll-based intro transitions with ultra-smooth camera movement
   useEffect(() => {
     if (!scrollCrystalData) return;
     
     const currentSection = scrollCrystalData.currentSection;
     
-    // Check if we're in the intro scroll transition zone
-    if (currentSection.key === 'intro' && currentSection.enableScrollTransition) {
-      const scrollInSection = (scrollCrystalData.scrollProgress - currentSection.threshold) / currentSection.duration;
-      const clampedProgress = Math.max(0, Math.min(1, scrollInSection));
+    // Handle silky smooth intro transitions (intro-close to intro)
+    if ((currentSection.key === 'intro-close' || currentSection.key === 'intro') && 
+        currentSection.enableScrollTransition) {
+      
+      // Calculate progress within the ENTIRE intro transition zone (both sections)
+      let transitionProgress = 0;
+      
+      const introCloseSection = Object.values(scrollCrystalData.sections).find(s => s.key === 'intro-close');
+      const introSection = Object.values(scrollCrystalData.sections).find(s => s.key === 'intro');
+      
+      if (introCloseSection && introSection) {
+        // Total intro zone spans from intro-close start to intro end
+        const totalIntroStart = introCloseSection.threshold;
+        const totalIntroEnd = introSection.threshold + introSection.duration;
+        const totalIntroDuration = totalIntroEnd - totalIntroStart;
+        
+        // Calculate progress across the entire intro zone
+        const rawProgress = (scrollCrystalData.scrollProgress - totalIntroStart) / totalIntroDuration;
+        transitionProgress = Math.max(0, Math.min(1, rawProgress));
+        
+        if (debugMode && Math.random() < 0.03) {
+          console.log(`📹 Intro transition progress: ${Math.round(transitionProgress * 100)}% (scroll: ${Math.round(scrollCrystalData.scrollProgress * 100)}%)`);
+        }
+      }
       
       // Set up smooth interpolation between INTRO_CLOSE and INTRO
       if (!scrollInterpolation.current.active) {
@@ -184,14 +203,15 @@ const CameraController = ({
           };
           
           if (debugMode) {
-            console.log('📹 Started scroll interpolation: INTRO_CLOSE → INTRO');
+            console.log('📹 Started ultra-smooth intro interpolation: INTRO_CLOSE → INTRO');
           }
         }
       }
       
-      // Apply smooth interpolation based on scroll progress
+      // Apply silky smooth interpolation based on scroll progress
       if (scrollInterpolation.current.active) {
-        const easedProgress = easeInOutCubic(clampedProgress);
+        // Use ultra-smooth easing for intro camera movement
+        const easedProgress = introSmoothEasing(transitionProgress);
         
         // Interpolate camera position
         const newPosition = new THREE.Vector3().lerpVectors(
@@ -219,10 +239,6 @@ const CameraController = ({
         camera.lookAt(newTarget);
         camera.fov = newFOV;
         camera.updateProjectionMatrix();
-        
-        if (debugMode && Math.random() < 0.1) { // Log occasionally to avoid spam
-          console.log(`📹 Scroll interpolation: ${Math.round(clampedProgress * 100)}%`);
-        }
       }
     } else {
       // Clear scroll interpolation when not in intro transition
@@ -232,8 +248,30 @@ const CameraController = ({
           console.log('📹 Ended scroll interpolation');
         }
       }
+      
+      // IMPORTANT: Handle project camera states directly for immediate response
+      if (currentSection.projectKey) {
+        const projectCameraState = `PROJECT_${currentSection.projectKey.toUpperCase()}`;
+        const targetState = getCameraState(projectCameraState);
+        
+        if (targetState && currentCameraState !== projectCameraState) {
+          if (debugMode) {
+            console.log(`📹 Direct project camera transition: ${currentCameraState} → ${projectCameraState}`);
+          }
+          
+          // Immediate transition to project camera
+          transitionToState(projectCameraState, currentCameraState);
+          setCurrentCameraState(projectCameraState);
+        }
+      }
     }
-  }, [scrollCrystalData?.scrollProgress, scrollCrystalData?.currentSection, camera, debugMode]);
+  }, [
+    scrollCrystalData?.scrollProgress, 
+    scrollCrystalData?.currentSection, 
+    camera, 
+    debugMode,
+    currentCameraState
+  ]);
 
   // Handle crystal state changes (keep existing logic for non-intro states)
   useEffect(() => {
@@ -255,7 +293,7 @@ const CameraController = ({
     prevCrystalState.current = crystalState;
   }, [crystalState, selectedFacet, currentCameraState]);
 
-  // Existing camera transition logic (unchanged)
+  // Existing camera transition logic - FIXED to handle all project states
   const mapCrystalStateToCameraState = (crystalState, selectedFacet) => {
     switch (crystalState) {
       case CRYSTAL_STATES.WHOLE:
@@ -366,7 +404,20 @@ const CameraController = ({
   return null;
 };
 
-// Smooth easing function for scroll interpolation
+// Ultra-smooth easing function specifically for intro camera movement
+const introSmoothEasing = (t) => {
+  // Custom bezier-like curve for silky smooth intro movement
+  if (t < 0.05) return 0; // Stay completely still at the very beginning
+  if (t > 0.95) return 1; // Complete the movement at the end
+  
+  // Remap the middle 90% with ultra-smooth curve
+  const adjusted = (t - 0.05) / 0.9;
+  
+  // Use smoothstep polynomial for silk-like movement
+  return adjusted * adjusted * adjusted * (adjusted * (adjusted * 6 - 15) + 10);
+};
+
+// Smooth easing function for scroll interpolation (kept for compatibility)
 const easeInOutCubic = (t) => {
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 };

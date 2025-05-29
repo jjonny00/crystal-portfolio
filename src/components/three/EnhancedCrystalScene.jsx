@@ -1,5 +1,5 @@
-// src/components/three/EnhancedCrystalScene.jsx - Complete version with floating crystal
-// Enhanced version with state machine integration and floating intro animation
+// src/components/three/EnhancedCrystalScene.jsx - Enhanced with slow rotation and better state handling
+// Added very slow rotation to crystal and improved fracture/explosion state management
 
 import { useRef, useState, useEffect } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
@@ -22,7 +22,7 @@ import { LabelConnector } from './LabelConnector'
 
 /**
  * Enhanced crystal scene with project selection functionality,
- * state machine integration, and floating intro animation
+ * state machine integration, slow rotation, and better state transitions
  */
 const EnhancedCrystalScene = ({ 
   isExploded, 
@@ -52,30 +52,40 @@ const EnhancedCrystalScene = ({
   const [explosionPhase, setExplosionPhase] = useState('initial');
   const [fractureGlowComplete, setFractureGlowComplete] = useState(false);
   
-  // Floating animation ref for intro crystal
+  // Floating animation ref for intro crystal with rotation
   const crystalFloatingRef = useRef();
+  const crystalRotationRef = useRef();
   
   // Update explosion phase based on state machine
   useEffect(() => {
+    let newPhase = 'initial';
+    
     switch(crystalState) {
       case CRYSTAL_STATES.WHOLE:
-        setExplosionPhase('initial');
+        newPhase = 'initial';
         break;
       case CRYSTAL_STATES.FRACTURING:
-        setExplosionPhase('fractured');
+        newPhase = 'fractured';
         break;
       case CRYSTAL_STATES.EXPLODING:
+        newPhase = 'exploded'; // Skip intermediate phase for smoother transition
+        break;
       case CRYSTAL_STATES.EXPLODED:
       case CRYSTAL_STATES.PROJECT_SELECTED:
-        setExplosionPhase('exploded');
+        newPhase = 'exploded';
         break;
       case CRYSTAL_STATES.REFORMING:
-        setExplosionPhase('initial');
+        newPhase = 'initial';
         break;
       default:
-        setExplosionPhase('initial');
+        newPhase = 'initial';
     }
-  }, [crystalState]);
+    
+    if (newPhase !== explosionPhase) {
+      console.log(`💎 Explosion phase: ${explosionPhase} → ${newPhase}`);
+      setExplosionPhase(newPhase);
+    }
+  }, [crystalState, explosionPhase]);
   
   // Store references to anchor objects
   const anchorRefs = useRef({});
@@ -130,8 +140,10 @@ const EnhancedCrystalScene = ({
     
   }, [crystalWhole, facetEmpathy, facetNarrative, facetCraft, facetSystem, facetLeadership, facetExploration, crystalMaterialRef.current]);
   
-  // Manage visibility transitions based on crystal state
+  // Enhanced visibility transitions based on crystal state with proper timing
   useEffect(() => {
+    console.log(`🎭 Crystal state changed to: ${crystalState}`);
+    
     switch(crystalState) {
       case CRYSTAL_STATES.WHOLE:
         setShowCrystal(true);
@@ -141,28 +153,35 @@ const EnhancedCrystalScene = ({
         break;
         
       case CRYSTAL_STATES.FRACTURING:
+        console.log('💥 Starting fracture sequence');
         fractureStartTime.current = clock.getElapsedTime();
         setShowFacets(true);
         
+        // Brief delay before hiding crystal to show fracture effect
         const crystalTimer = setTimeout(() => {
           setShowCrystal(false);
-        }, config.timing.crystal.disappearDelay);
+          console.log('💎 Crystal hidden for fracture');
+        }, 200); // Shorter delay for more responsive feel
         
         return () => clearTimeout(crystalTimer);
         
       case CRYSTAL_STATES.EXPLODING:
+        console.log('🚀 Starting explosion sequence');
         explosionStartTime.current = clock.getElapsedTime();
         setShowFacets(true);
         setShowCrystal(false);
         break;
         
       case CRYSTAL_STATES.EXPLODED:
+        console.log('✨ Crystal fully exploded');
         setShowFacets(true);
         setShowCrystal(false);
         
+        // Show labels after a brief delay
         const labelTimer = setTimeout(() => {
           setShowLabels(true);
-        }, config.timing.labels.appearDelay);
+          console.log('🏷️ Labels shown');
+        }, 600); // Reduced delay for better responsiveness
         
         return () => clearTimeout(labelTimer);
         
@@ -173,56 +192,66 @@ const EnhancedCrystalScene = ({
         break;
         
       case CRYSTAL_STATES.REFORMING:
+        console.log('🔄 Starting reform sequence');
         setShowLabels(false);
         
         const crystalAppearTimer = setTimeout(() => {
           setShowCrystal(true);
-        }, config.timing.reform.crystalAppearTime);
+          console.log('💎 Crystal reappeared');
+        }, 400); // Faster reform for better UX
         
         const facetsTimer = setTimeout(() => {
           setShowFacets(false);
-        }, config.timing.reform.facetsDisappearTime);
+          console.log('✨ Facets hidden');
+        }, 600);
         
         return () => {
           clearTimeout(crystalAppearTimer);
           clearTimeout(facetsTimer);
         };
     }
-  }, [crystalState, clock, config.timing]);
+  }, [crystalState, clock]);
 
-  // Floating animation for the whole crystal during intro + all other frame effects
+  // Enhanced animation frame with slow rotation and all effects
   useFrame((state) => {
-    // NEW: Floating animation for intro crystal
+    const time = state.clock.getElapsedTime();
+    
+    // NEW: Very slow crystal rotation - only when whole crystal is visible
+    if (crystalRotationRef.current && showCrystal) {
+      // Very slow rotation - complete rotation every ~60 seconds
+      const rotationSpeed = 0.0003; // Radians per frame at 60fps
+      crystalRotationRef.current.rotation.y += rotationSpeed;
+      
+      // Optional: Add very subtle rotation on other axes for more organic feel
+      crystalRotationRef.current.rotation.x = Math.sin(time * 0.0001) * 0.02;
+      crystalRotationRef.current.rotation.z = Math.cos(time * 0.00015) * 0.01;
+    }
+    
+    // Enhanced floating animation for intro crystal
     if (crystalFloatingRef.current && scrollCrystalData) {
       const isIntroState = scrollCrystalData.currentSection.key === 'intro-close' || 
                           scrollCrystalData.currentSection.key === 'intro';
       
-      if (isIntroState) {
-        const time = state.clock.getElapsedTime();
+      if (isIntroState && showCrystal) {
+        // Subtle floating motion - more pronounced than facet floating
+        const baseAmplitude = 0.012; // Slightly larger amplitude
         
-        // Subtle floating motion
-        const baseAmplitude = 0.008;
-        
-        const floatY = Math.sin(time * 0.9) * baseAmplitude + 
+        const floatY = Math.sin(time * 0.8) * baseAmplitude + 
                        Math.sin(time * 1.1) * baseAmplitude * 0.4;
         
         const floatX = Math.sin(time * 0.7) * baseAmplitude * 0.3;
         const floatZ = Math.sin(time * 0.6) * baseAmplitude * 0.25;
         
-        const rotateY = Math.sin(time * 0.4) * 0.015;
-        const rotateX = Math.sin(time * 0.35) * 0.008;
-        
+        // Apply floating motion to the floating ref (separate from rotation)
         crystalFloatingRef.current.position.set(floatX, floatY, floatZ);
-        crystalFloatingRef.current.rotation.set(rotateX, rotateY, 0);
       } else {
         crystalFloatingRef.current.position.set(0, 0, 0);
-        crystalFloatingRef.current.rotation.set(0, 0, 0);
       }
     }
 
-    // Handle fracture effects
+    // Enhanced fracture effects with better timing
     if (explosionPhase === 'fractured') {
-      const timeSinceFracture = state.clock.getElapsedTime() - fractureStartTime.current;
+      const timeSinceFracture = time - fractureStartTime.current;
       const pulseDuration = (config.timing.fracture.pulseDuration || 100) / 1000;
       const glowFadeDuration = (config.timing.fracture.glowFadeDuration || 200) / 1000;
       
@@ -301,7 +330,6 @@ const EnhancedCrystalScene = ({
     
     // Handle idle floating animation and update label positions
     if (explosionPhase === 'exploded' && showFacets && facetRefs.current) {
-      const time = state.clock.getElapsedTime();
       const elapsedSinceExplosion = time - explosionStartTime.current;
       
       const transitionStart = config.timing.idle.transitionStartTime;
@@ -368,6 +396,7 @@ const EnhancedCrystalScene = ({
         setLabelPositions(newLabelPositions);
       }
       
+      // Glow effects for idle state
       if (crystalMaterialRef.current) {
         const pulseBase = config.effects.idle.glow.pulseBase || 0.1;
         const pulseStrength = config.effects.idle.glow.pulseStrength || 0.1;
@@ -488,10 +517,12 @@ const EnhancedCrystalScene = ({
         scrollCrystalData={scrollCrystalData}
       />
       
-      {/* Show the whole crystal with floating animation */}
+      {/* Show the whole crystal with floating animation AND slow rotation */}
       {showCrystal && (
         <group ref={crystalFloatingRef}>
-          <primitive object={crystalWhole.scene} />
+          <group ref={crystalRotationRef}>
+            <primitive object={crystalWhole.scene} />
+          </group>
         </group>
       )}
       
