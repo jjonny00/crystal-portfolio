@@ -39,9 +39,15 @@ import FooterSection from './components/ui/FooterSection'
 // Import performance system
 import { useDeviceProfile } from './hooks/useDeviceProfile'
 import FpsDisplay, { FPSCounter, PerformanceAlert } from './components/ui/FpsDisplay'
+import { useMobileScrolling } from './hooks/useMobileScrolling';
 
 function App() {
   // Device profile detection
+  const { isMobileDevice } = useMobileScrolling({
+    enableTouchScrolling: true,
+    preventOrbitOnMobile: true,
+    debugMode: false
+  });
   const { 
     performanceProfile: devicePerformanceProfile, 
     deviceProfile, 
@@ -438,6 +444,7 @@ function App() {
             isTransitioning={isTransitioning}
             performanceConfig={performanceConfig}
             scrollCrystalData={scrollCrystalData} // NEW: Pass scroll data to enable intro animations
+            isMobileDevice={isMobileDevice}
           />
           
           {/* Environment */}
@@ -488,12 +495,12 @@ function App() {
             )}
           </EffectComposer>
           
-          {/* Orbit controls */}
+          {/* Orbit controls - DISABLED ON MOBILE */}
           <OrbitControls 
             makeDefault
-            enabled={!scrollCrystalData.isInProjectSection() && orbitControlsEnabled}
-            enableZoom={config.camera.orbitControls.enableZoom && orbitControlsEnabled}
-            enablePan={config.camera.orbitControls.enablePan && orbitControlsEnabled}
+            enabled={!isMobileDevice && !scrollCrystalData.isInProjectSection() && orbitControlsEnabled}
+            enableZoom={!isMobileDevice && config.camera.orbitControls.enableZoom && orbitControlsEnabled}
+            enablePan={!isMobileDevice && config.camera.orbitControls.enablePan && orbitControlsEnabled}
             rotateSpeed={config.camera.orbitControls.rotateSpeed}
             minPolarAngle={config.camera.orbitControls.minPolarAngle}
             maxPolarAngle={config.camera.orbitControls.maxPolarAngle}

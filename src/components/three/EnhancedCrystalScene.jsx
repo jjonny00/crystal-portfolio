@@ -1,5 +1,5 @@
-// src/components/three/EnhancedCrystalScene.jsx - Enhanced with slow rotation and better state handling
-// Added very slow rotation to crystal and improved fracture/explosion state management
+// src/components/three/EnhancedCrystalScene.jsx - Enhanced with mobile touch optimization
+// Added mobile touch handling and conditional orbit controls
 
 import { useRef, useState, useEffect } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
@@ -20,6 +20,9 @@ import SelectablePremiumLabel from './SelectablePremiumLabel'
 import CameraController from './CameraController'
 import { LabelConnector } from './LabelConnector'
 
+// Create the hook file first
+import { useMobileScrolling } from '../../hooks/useMobileScrolling'
+
 /**
  * Enhanced crystal scene with project selection functionality,
  * state machine integration, slow rotation, and better state transitions
@@ -39,6 +42,13 @@ const EnhancedCrystalScene = ({
   performanceConfig = { useNormalMaps: true, textureQuality: 'high', usePBR: true },
   scrollCrystalData = null
 }) => {
+  // Mobile touch handling
+  const { isMobileDevice, preventOrbitOnMobile } = useMobileScrolling({
+    enableTouchScrolling: true,
+    preventOrbitOnMobile: true,
+    debugMode: false
+  });
+
   // Component state
   const facetRefs = useRef(Array(6).fill(null));
   const [showFacets, setShowFacets] = useState(false);
@@ -535,12 +545,12 @@ const EnhancedCrystalScene = ({
           facetRefs={facetRefs}
           selectedFacet={selectedFacet}
           hoveredFacet={hoveredFacet}
-          onFacetSelect={onFacetSelect}
-          onFacetHover={onFacetHover}
+          onFacetSelect={isMobileDevice ? null : onFacetSelect} // Disable facet selection on mobile
+          onFacetHover={isMobileDevice ? null : onFacetHover}   // Disable facet hover on mobile
         />
       )}
       
-      {/* Labels with spring animations */}
+      {/* Labels with spring animations - simplified interaction on mobile */}
       {config.facetLabels.map((label, index) => (
         <SelectablePremiumLabel
           key={label.key}
@@ -550,8 +560,8 @@ const EnhancedCrystalScene = ({
           visible={showFacets && showLabels}
           config={config}
           isSelected={label.key === selectedFacet}
-          isHovered={label.key === hoveredFacet && label.key !== selectedFacet}
-          onSelect={onFacetSelect}
+          isHovered={!isMobileDevice && label.key === hoveredFacet && label.key !== selectedFacet}
+          onSelect={isMobileDevice ? null : onFacetSelect} // Disable label selection on mobile
         />
       ))}
     </group>
