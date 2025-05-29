@@ -1,5 +1,5 @@
-// src/App.jsx - Updated with mobile scroll optimizations and bug fixes
-// Key changes: Fixed scroll height calculation, improved mobile scrolling, better canvas positioning
+// src/App.jsx - EMERGENCY FIX for mobile scrolling
+// Key fix: Remove blocking touch events and ensure scroll is always enabled
 
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { Canvas } from '@react-three/fiber'
@@ -39,7 +39,12 @@ import FooterSection from './components/ui/FooterSection'
 // Import performance system
 import { useDeviceProfile } from './hooks/useDeviceProfile'
 import FpsDisplay, { FPSCounter, PerformanceAlert } from './components/ui/FpsDisplay'
-import { useMobileScrolling } from './hooks/useMobileScrolling';
+
+// SIMPLE mobile detection without the problematic useMobileScrolling hook
+const isMobileDevice = () => {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+         (navigator.maxTouchPoints && navigator.maxTouchPoints > 2);
+};
 
 // Mobile scroll hint component
 const MobileScrollHint = ({ visible, isMobile, scrollProgress }) => {
@@ -62,15 +67,15 @@ const MobileScrollHint = ({ visible, isMobile, scrollProgress }) => {
       borderRadius: '20px',
       backdropFilter: 'blur(10px)'
     }}>
-      <div>Scroll slowly to explore</div>
+      <div>Scroll to explore</div>
       <div style={{ fontSize: '10px', marginTop: '4px', opacity: 0.8 }}>
-        Each section needs deliberate scrolling
+        Try scrolling up and down
       </div>
     </div>
   );
 };
 
-// Debug components for mobile scroll testing
+// Debug component to check scroll status
 const ScrollDebugger = ({ scrollData, isMobile }) => {
   if (!scrollData.debugMode) return null;
   
@@ -79,59 +84,33 @@ const ScrollDebugger = ({ scrollData, isMobile }) => {
       position: 'fixed',
       top: '10px',
       left: '10px',
-      background: 'rgba(0, 0, 0, 0.8)',
+      background: 'rgba(0, 0, 0, 0.9)',
       color: 'white',
       padding: '10px',
       borderRadius: '8px',
-      fontSize: '12px',
+      fontSize: '11px',
       fontFamily: 'monospace',
       zIndex: 10000,
-      pointerEvents: 'none'
+      pointerEvents: 'none',
+      maxWidth: '200px'
     }}>
       <div>Mobile: {isMobile ? 'YES' : 'NO'}</div>
+      <div>Touch Points: {navigator.maxTouchPoints || 0}</div>
       <div>Section: {scrollData.currentSection.key}</div>
       <div>Progress: {Math.round(scrollData.scrollProgress * 100)}%</div>
       <div>Raw Progress: {Math.round(scrollData.rawScrollProgress * 100)}%</div>
       <div>Crystal State: {scrollData.crystalState}</div>
       <div>Is Scrolling: {scrollData.isScrolling ? 'YES' : 'NO'}</div>
-      <div>Window Height: {window.innerHeight}px</div>
+      <div>Window: {window.innerWidth}x{window.innerHeight}</div>
       <div>Body Height: {document.body.scrollHeight}px</div>
+      <div>Scroll Top: {Math.round(window.pageYOffset)}px</div>
     </div>
   );
 };
 
-const TestScrollButton = ({ onScroll }) => (
-  <button 
-    onClick={() => {
-      window.scrollTo({ top: window.innerHeight, behavior: 'smooth' });
-      console.log('📱 Test scroll triggered');
-    }}
-    style={{
-      position: 'fixed',
-      top: '100px',
-      right: '20px',
-      zIndex: 10001,
-      background: 'red',
-      color: 'white',
-      padding: '10px',
-      border: 'none',
-      borderRadius: '4px'
-    }}
-  >
-    Test Scroll
-  </button>
-);
-
 function App() {
-  // Device profile detection with mobile-optimized settings
-  const { isMobileDevice } = useMobileScrolling({
-    enableTouchScrolling: true,
-    preventOrbitOnMobile: true,
-    smoothScrollFactor: 0.03,     // HEAVILY REDUCED: Much slower (was 0.2)
-    momentumMultiplier: 0.08,     // HEAVILY REDUCED: Much less momentum (was 0.25)
-    minSwipeDistance: 40,         // INCREASED: More deliberate swipes (was 20)
-    debugMode: false              // Set to true to see scroll values in console
-  });
+  // SIMPLIFIED mobile detection
+  const isMobile = isMobileDevice();
 
   const { 
     performanceProfile: devicePerformanceProfile, 
@@ -142,35 +121,26 @@ function App() {
     isDetecting 
   } = useDeviceProfile({ 
     enableDebugLogging: false,
-    enableOrientationLock: true 
+    enableOrientationLock: false // DISABLE orientation lock for now
   });
 
-  // Enhanced scroll-based crystal control system with mobile optimizations
+  // Enhanced scroll-based crystal control system
   const scrollCrystalData = useScrollCrystal({
     enableScrollControl: true,
-    debugMode: true,
-    smoothTransitions: true,
+    debugMode: true, // Keep debug on for now
+    smoothTransitions: !isMobile, // Disable smooth transitions on mobile for now
     onSectionChange: (newSection, oldSection) => {
-      console.log(`🔄 App: Section changed: ${oldSection.key} → ${newSection.key}`);
-      console.log(`🔄 App: Crystal state: ${crystalState}`);
-      
-      // Enhanced logging for mobile debugging
-      if (isMobileDevice) {
-        console.log(`📱 Mobile: Scroll progress: ${Math.round(scrollCrystalData.scrollProgress * 100)}%`);
-      }
-      
-      if (newSection.key === 'intro-close' || newSection.key === 'intro') {
-        console.log(`📹 App: Intro transition - camera should be responding to scroll`);
+      console.log(`🔄 Section: ${oldSection.key} → ${newSection.key}`);
+      if (isMobile) {
+        console.log(`📱 Mobile scroll: ${Math.round(scrollCrystalData.scrollProgress * 100)}%`);
       }
     },
-    // Mobile-optimized easing
-    easingDuration: isMobileDevice ? 800 : 1200,  // Faster easing on mobile
-    easingFunction: isMobileDevice ? 
-      (t) => t * t * t * (t * (t * 6 - 15) + 10) :  // Gentle mobile easing
-      (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2  // Default easing
+    // Simplified easing for mobile
+    easingDuration: isMobile ? 300 : 1200,
+    easingFunction: (t) => t // Linear for mobile, no fancy easing
   });
   
-  // Extract scroll state for easier access
+  // Extract scroll state
   const {
     currentSection,
     crystalState,
@@ -201,11 +171,9 @@ function App() {
   const [materialVariant, setMaterialVariant] = useState('default')
   const [showUI, setShowUI] = useState(false)
   const [orbitControlsEnabled, setOrbitControlsEnabled] = useState(true)
-  
-  // Tab state management
   const [activeTab, setActiveTab] = useState(0)
   
-  // Material configs (existing logic)
+  // Material configs
   const [blackOpalConfig, setBlackOpalConfig] = useState({
     roughness: 0.4,
     metalness: 0.1,
@@ -226,7 +194,7 @@ function App() {
     emissiveIntensity: 0.4
   });
   
-  // Effects and performance state (existing logic)
+  // Effects state
   const [effectsEnabled, setEffectsEnabled] = useState({
     bloom: true,
     chromaticAberration: true,
@@ -236,7 +204,7 @@ function App() {
   
   const [postProcessingConfig, setPostProcessingConfig] = useState(config.postProcessing);
   
-  // Performance configuration (existing logic)
+  // Performance config
   const [performanceConfig, setPerformanceConfig] = useState(() => {
     return {
       useNormalMaps: false,
@@ -246,64 +214,37 @@ function App() {
     };
   });
 
-  // FIXED: Set body height for mobile scrolling - better control of scroll space
+  // CRITICAL FIX: Set scroll height but don't prevent scrolling
   useEffect(() => {
-    const mobileMultiplier = isMobileDevice ? 5 : 4; // Reduced from 6 to 5 for mobile
+    const mobileMultiplier = isMobile ? 5 : 4;
     const totalHeight = `${mobileMultiplier * 100}vh`;
     
-    // Set document height, not just body height
-    document.documentElement.style.height = totalHeight;
+    // Set the scroll height
     document.body.style.height = totalHeight;
     
-    // Prevent scrolling beyond the content
-    document.body.style.overflowX = 'hidden';
+    // CRITICAL: Ensure scrolling is always enabled
     document.body.style.overflowY = 'auto';
+    document.body.style.overflowX = 'hidden';
     
-    if (isMobileDevice) {
-      console.log(`📱 Mobile: Set document height to ${totalHeight} for controlled scrolling`);
+    // Enable touch scrolling on mobile
+    if (isMobile) {
+      document.body.style.webkitOverflowScrolling = 'touch';
+      document.body.style.overscrollBehavior = 'auto'; // Allow normal scroll behavior
+      console.log(`📱 Mobile: Set scroll height to ${totalHeight}`);
+      console.log(`📱 Mobile: Overflow Y = ${document.body.style.overflowY}`);
+      console.log(`📱 Mobile: Touch scrolling enabled`);
     }
     
     return () => {
-      document.documentElement.style.height = '';
       document.body.style.height = '';
-      document.body.style.overflowX = '';
       document.body.style.overflowY = '';
+      document.body.style.overflowX = '';
+      document.body.style.webkitOverflowScrolling = '';
+      document.body.style.overscrollBehavior = '';
     };
-  }, [isMobileDevice]);
+  }, [isMobile]);
 
-  // Mobile touch scrolling debug
-  useEffect(() => {
-    if (isMobileDevice) {
-      const handleTouchStart = (e) => {
-        console.log('📱 Touch start detected:', e.touches[0].clientY);
-      };
-      
-      const handleScroll = () => {
-        const scrollTop = window.pageYOffset;
-        const scrollHeight = document.documentElement.scrollHeight;
-        const clientHeight = window.innerHeight;
-        const maxScroll = scrollHeight - clientHeight;
-        const progress = scrollTop / maxScroll;
-        
-        console.log('📱 Scroll debug:', {
-          scrollTop: Math.round(scrollTop),
-          scrollHeight: Math.round(scrollHeight),
-          maxScroll: Math.round(maxScroll),
-          progress: Math.round(progress * 100) + '%'
-        });
-      };
-      
-      document.addEventListener('touchstart', handleTouchStart, { passive: true });
-      window.addEventListener('scroll', handleScroll, { passive: true });
-      
-      return () => {
-        document.removeEventListener('touchstart', handleTouchStart);
-        window.removeEventListener('scroll', handleScroll);
-      };
-    }
-  }, [isMobileDevice]);
-
-  // Navigation handlers that integrate with scroll system (existing logic)
+  // Navigation handlers
   const handleWorkClick = useCallback(() => {
     console.log('Work section clicked');
     goToSection('projects-overview');
@@ -329,7 +270,7 @@ function App() {
     goToSection('footer');
   }, [goToSection]);
 
-  // Handle facet selection with project mapping (existing logic)
+  // Handle facet selection
   const handleFacetSelect = useCallback((facetKey) => {
     if (isTransitioning) return;
     
@@ -343,14 +284,14 @@ function App() {
     }
   }, [selectedProject, isTransitioning, selectProject, handleProjectClose]);
   
-  // Handle facet hover (existing logic)
+  // Handle facet hover
   const handleFacetHover = useCallback((facetKey) => {
     if (!isTransitioning) {
       setHoveredProject(facetKey);
     }
   }, [isTransitioning, setHoveredProject]);
 
-  // Handle explosion toggle - integrated with scroll system (existing logic)
+  // Handle explosion toggle
   const handleExplodeToggle = useCallback(() => {
     if (isTransitioning) return;
     
@@ -365,10 +306,9 @@ function App() {
     }
   }, [currentSection.key, selectedProject, isTransitioning, goToSection, handleProjectClose]);
 
-  // Get the selected facet key for compatibility with existing components
   const selectedFacet = selectedProject?.facetKey || null;
 
-  // Device profile and performance management (existing logic - keeping all of it)
+  // Performance management (simplified)
   const [lastAppliedProfile, setLastAppliedProfile] = useState(null);
   const [initialProfileApplied, setInitialProfileApplied] = useState(false);
   
@@ -401,15 +341,11 @@ function App() {
             vignette: devicePerformanceProfile.postProcessing.vignette || false
           });
         }
-        
-        setTimeout(() => {
-          setPerformanceConfig(prev => ({ ...prev, _forceRefresh: Date.now() }));
-        }, 100);
       }
     }
   }, [devicePerformanceProfile, isDetecting, lastAppliedProfile]);
 
-  // All existing handler functions (keeping them all unchanged)
+  // Handler functions
   const [hasInitialized, setHasInitialized] = useState(false);
   
   useEffect(() => {
@@ -465,7 +401,7 @@ function App() {
     setShowUI(!showUI);
   }, [showUI]);
 
-  // Keyboard controls (existing logic)
+  // Keyboard controls (simplified for mobile)
   useKeyboardControls({
     isExploded: crystalState === CRYSTAL_STATES.EXPLODED || crystalState === CRYSTAL_STATES.EXPLODING || crystalState === CRYSTAL_STATES.PROJECT_SELECTED,
     setIsExploded: (exploded) => {
@@ -505,7 +441,7 @@ function App() {
     }
   });
 
-  // Get optimal canvas and environment props
+  // Get optimal props
   const canvasProps = getOptimalCanvasProps();
   const environmentProps = getOptimalEnvironmentProps();
 
@@ -540,25 +476,22 @@ function App() {
       {/* Mobile Scroll Hint */}
       <MobileScrollHint 
         visible={scrollCrystalData.isInIntro} 
-        isMobile={isMobileDevice}
+        isMobile={isMobile}
         scrollProgress={scrollCrystalData.scrollProgress}
       />
 
-      {/* Debug components (only in debug mode) */}
-      <ScrollDebugger scrollData={scrollCrystalData} isMobile={isMobileDevice} />
-      <TestScrollButton />
+      {/* Debug component */}
+      <ScrollDebugger scrollData={scrollCrystalData} isMobile={isMobile} />
 
-      {/* FIXED: Main 3D Canvas - Fixed positioning and overflow handling */}
+      {/* FIXED: Main 3D Canvas - simplified positioning */}
       <div 
-        className="canvas-container" 
         style={{ 
           position: 'fixed', 
           top: 0, 
           left: 0, 
           width: '100vw', 
           height: '100vh',
-          zIndex: 1,
-          overflow: 'hidden' // Prevent any overflow
+          zIndex: 1
         }}
       >
         <Canvas 
@@ -573,8 +506,7 @@ function App() {
           }}
           style={{ 
             width: '100%', 
-            height: '100%',
-            display: 'block' // Ensure no extra spacing
+            height: '100%'
           }}
         >
           
@@ -608,7 +540,7 @@ function App() {
             color={config.lighting.spotLight.color} 
           />
           
-          {/* ENHANCED: Crystal scene with scroll data */}
+          {/* Crystal scene */}
           <EnhancedCrystalScene 
             isExploded={crystalState === CRYSTAL_STATES.EXPLODED || crystalState === CRYSTAL_STATES.EXPLODING || crystalState === CRYSTAL_STATES.PROJECT_SELECTED} 
             crystalState={crystalState}
@@ -618,12 +550,12 @@ function App() {
             iceOpalConfig={iceOpalConfig}
             selectedFacet={scrollCrystalData.selectedProject}
             hoveredFacet={hoveredProject}
-            onFacetSelect={handleFacetSelect}
-            onFacetHover={handleFacetHover}
+            onFacetSelect={isMobile ? null : handleFacetSelect} // Disable on mobile for now
+            onFacetHover={isMobile ? null : handleFacetHover}   // Disable on mobile for now
             isTransitioning={isTransitioning}
             performanceConfig={performanceConfig}
             scrollCrystalData={scrollCrystalData}
-            isMobileDevice={isMobileDevice}
+            isMobileDevice={isMobile}
           />
           
           {/* Environment */}
@@ -634,7 +566,7 @@ function App() {
             rotation={config.environment.rotation}
           />
           
-          {/* Post-processing (existing logic) */}
+          {/* Post-processing */}
           <EffectComposer enabled={true}>
             <Bloom 
               intensity={Object.values(effectsEnabled).some(Boolean) ? 0 : 0.0001}
@@ -677,9 +609,9 @@ function App() {
           {/* Orbit controls - DISABLED ON MOBILE */}
           <OrbitControls 
             makeDefault
-            enabled={!isMobileDevice && !scrollCrystalData.isInProjectSection() && orbitControlsEnabled}
-            enableZoom={!isMobileDevice && config.camera.orbitControls.enableZoom && orbitControlsEnabled}
-            enablePan={!isMobileDevice && config.camera.orbitControls.enablePan && orbitControlsEnabled}
+            enabled={!isMobile && !scrollCrystalData.isInProjectSection() && orbitControlsEnabled}
+            enableZoom={!isMobile && config.camera.orbitControls.enableZoom && orbitControlsEnabled}
+            enablePan={!isMobile && config.camera.orbitControls.enablePan && orbitControlsEnabled}
             rotateSpeed={config.camera.orbitControls.rotateSpeed}
             minPolarAngle={config.camera.orbitControls.minPolarAngle}
             maxPolarAngle={config.camera.orbitControls.maxPolarAngle}
@@ -687,7 +619,7 @@ function App() {
         </Canvas>
       </div>
       
-      {/* All existing UI components remain unchanged */}
+      {/* UI components */}
       <AboutSection 
         visible={visibleSections.about}
         onClose={() => goToSection('intro')}
@@ -753,19 +685,19 @@ function App() {
         </TabbedControlPanel>
       )}
       
-      {/* Mobile-optimized Project Detail Card */}
+      {/* Project Detail Card */}
       {scrollCrystalData.getCurrentProject() && (
         <ProjectDetailCard 
           project={getProjectByFacetKey(scrollCrystalData.selectedProject)}
           visible={!!scrollCrystalData.getCurrentProject()}
           onClose={handleProjectClose}
-          isMobile={isMobileDevice}  // ADDED: Mobile detection
+          isMobile={isMobile}
         />
       )}
       
       <AccessibilityInstructions visible={true} />
       
-      {/* Main interaction button - updated for scroll system */}
+      {/* Main interaction button */}
       <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 9999 }}>
         <div style={{ position: 'absolute', bottom: '20px', left: 0, width: '100%', display: 'flex', justifyContent: 'center', pointerEvents: 'none' }}>
           <button 
@@ -777,7 +709,7 @@ function App() {
               opacity: isTransitioning ? 0.6 : 1,
               cursor: isTransitioning ? 'not-allowed' : 'pointer',
               // Mobile-specific adjustments
-              ...(isMobileDevice && {
+              ...(isMobile && {
                 padding: '12px 24px',
                 fontSize: '18px',
                 minHeight: '48px'
@@ -804,16 +736,15 @@ function App() {
         </div>
       </div>
       
-      {/* FIXED: Spacer for scroll content - REDUCED to prevent excess scrolling */}
+      {/* Spacer for scroll content */}
       <div style={{ 
-        height: isMobileDevice ? '400vh' : '300vh', // REDUCED: Less excess space
+        height: isMobile ? '400vh' : '300vh',
         position: 'absolute',
         top: '100vh',
         left: 0,
         width: '100%',
         pointerEvents: 'none',
-        zIndex: -1,
-        background: 'transparent' // Debug: see if this div is causing issues
+        zIndex: -1
       }} />
     </>
   );
