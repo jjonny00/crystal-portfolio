@@ -5,13 +5,15 @@ import { useEffect, useCallback, useRef } from 'react';
 
 /**
  * Custom hook for mobile touch scrolling optimization
- * Disables orbit controls on mobile and ensures smooth scroll behavior
+ * Enhanced with much slower, more controlled scrolling on mobile
  */
 export const useMobileScrolling = (options = {}) => {
   const {
     enableTouchScrolling = true,
     preventOrbitOnMobile = true,
-    smoothScrollFactor = 0.8, // Damping factor for smooth scrolling
+    smoothScrollFactor = 0.25, // REDUCED: Much slower scrolling (was 0.8)
+    momentumMultiplier = 0.3,   // NEW: Reduces momentum strength
+    minSwipeDistance = 15,      // NEW: Minimum distance before scrolling starts
     debugMode = false
   } = options;
 
@@ -60,7 +62,7 @@ export const useMobileScrolling = (options = {}) => {
     }
   }, [enableTouchScrolling, isMobileDevice, debugMode]);
 
-  // Enhanced touch move handler with momentum
+  // Enhanced touch move handler with much slower, controlled scrolling
   const handleTouchMove = useCallback((e) => {
     if (!enableTouchScrolling || !isMobileDevice() || !touchStartRef.current) return;
 
@@ -69,45 +71,57 @@ export const useMobileScrolling = (options = {}) => {
     const deltaX = Math.abs(touchStartRef.current.x - touch.clientX);
     const timeDelta = Date.now() - touchStartRef.current.timestamp;
 
+    // Only start scrolling after minimum swipe distance
+    if (Math.abs(deltaY) < minSwipeDistance) return;
+
     // Determine if this is a vertical scroll gesture
-    if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > 10) {
+    if (Math.abs(deltaY) > Math.abs(deltaX)) {
       isScrollingRef.current = true;
       
-      // Calculate velocity for momentum
-      const velocity = deltaY / timeDelta;
+      // Calculate velocity for momentum (much more controlled)
+      const velocity = (deltaY / timeDelta) * momentumMultiplier;
       lastVelocityRef.current = velocity;
 
-      // Smooth scroll implementation
-      const newScrollTop = touchStartRef.current.scrollTop + deltaY * smoothScrollFactor;
+      // MUCH slower scroll implementation with additional damping
+      const scrollMultiplier = smoothScrollFactor * 0.6; // Extra damping for mobile
+      const newScrollTop = touchStartRef.current.scrollTop + (deltaY * scrollMultiplier);
       const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
       const clampedScroll = Math.max(0, Math.min(newScrollTop, maxScroll));
 
       // Use requestAnimationFrame for smooth scrolling
-      window.scrollTo({
-        top: clampedScroll,
-        behavior: 'auto' // Don't use 'smooth' as we're handling it manually
+      requestAnimationFrame(() => {
+        window.scrollTo({
+          top: clampedScroll,
+          behavior: 'auto'
+        });
       });
 
-      // Update touch start for next calculation
-      touchStartRef.current.y = touch.clientY;
-      touchStartRef.current.timestamp = Date.now();
-      touchStartRef.current.scrollTop = clampedScroll;
+      // Update touch start for next calculation (less frequently for smoother feel)
+      if (Math.abs(deltaY) > 20) { // Only update after significant movement
+        touchStartRef.current.y = touch.clientY;
+        touchStartRef.current.timestamp = Date.now();
+        touchStartRef.current.scrollTop = clampedScroll;
+      }
 
       if (debugMode && Math.random() < 0.1) {
-        console.log('📱 Touch scroll:', { deltaY, velocity, newScrollTop: clampedScroll });
+        console.log('📱 Touch scroll (slow):', { 
+          deltaY: Math.round(deltaY), 
+          velocity: Math.round(velocity * 100) / 100, 
+          scrollProgress: Math.round((clampedScroll / maxScroll) * 100) + '%'
+        });
       }
     }
-  }, [enableTouchScrolling, isMobileDevice, smoothScrollFactor, debugMode]);
+  }, [enableTouchScrolling, isMobileDevice, smoothScrollFactor, momentumMultiplier, minSwipeDistance, debugMode]);
 
-  // Touch end handler with momentum scrolling
+  // Touch end handler with controlled momentum scrolling
   const handleTouchEnd = useCallback((e) => {
     if (!enableTouchScrolling || !isMobileDevice() || !touchStartRef.current) return;
 
-    // Add momentum scrolling if there was significant velocity
-    if (isScrollingRef.current && Math.abs(lastVelocityRef.current) > 0.5) {
-      let currentVelocity = lastVelocityRef.current;
-      const friction = 0.95; // Momentum decay factor
-      const minVelocity = 0.1;
+    // Add much more controlled momentum scrolling
+    if (isScrollingRef.current && Math.abs(lastVelocityRef.current) > 0.2) { // Higher threshold
+      let currentVelocity = lastVelocityRef.current * 0.5; // Start with reduced velocity
+      const friction = 0.92; // Stronger friction (was 0.95)
+      const minVelocity = 0.05; // Higher minimum to stop sooner
 
       const momentumScroll = () => {
         if (Math.abs(currentVelocity) < minVelocity) {
@@ -115,18 +129,21 @@ export const useMobileScrolling = (options = {}) => {
           return;
         }
 
-        const deltaY = currentVelocity * 16; // Assume 60fps (16ms per frame)
+        // Much smaller momentum steps
+        const deltaY = currentVelocity * 8; // Reduced from 16
         const currentScroll = window.pageYOffset;
         const newScrollTop = currentScroll + deltaY;
         const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
         const clampedScroll = Math.max(0, Math.min(newScrollTop, maxScroll));
 
-        window.scrollTo({
-          top: clampedScroll,
-          behavior: 'auto'
+        requestAnimationFrame(() => {
+          window.scrollTo({
+            top: clampedScroll,
+            behavior: 'auto'
+          });
         });
 
-        // Apply friction
+        // Apply stronger friction
         currentVelocity *= friction;
 
         // Continue momentum
@@ -136,7 +153,7 @@ export const useMobileScrolling = (options = {}) => {
       momentumAnimationRef.current = requestAnimationFrame(momentumScroll);
 
       if (debugMode) {
-        console.log('📱 Starting momentum scroll with velocity:', lastVelocityRef.current);
+        console.log('📱 Starting controlled momentum:', Math.round(lastVelocityRef.current * 100) / 100);
       }
     }
 

@@ -42,11 +42,14 @@ const EnhancedCrystalScene = ({
   performanceConfig = { useNormalMaps: true, textureQuality: 'high', usePBR: true },
   scrollCrystalData = null
 }) => {
-  // Mobile touch handling
+  // Mobile touch handling with slower scroll settings
   const { isMobileDevice, preventOrbitOnMobile } = useMobileScrolling({
     enableTouchScrolling: true,
     preventOrbitOnMobile: true,
-    debugMode: false
+    smoothScrollFactor: 0.2,    // Very slow scrolling
+    momentumMultiplier: 0.25,   // Reduced momentum  
+    minSwipeDistance: 20,       // Require more deliberate swipes
+    debugMode: false            // Set to true to see scroll values
   });
 
   // Component state
