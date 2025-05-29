@@ -1,5 +1,5 @@
-// src/App.jsx - Updated with mobile scroll optimizations
-// Key changes: Slower mobile scrolling, mobile-optimized project cards, better spacing
+// src/App.jsx - Updated with mobile scroll optimizations and bug fixes
+// Key changes: Fixed scroll height calculation, improved mobile scrolling, better canvas positioning
 
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { Canvas } from '@react-three/fiber'
@@ -69,6 +69,58 @@ const MobileScrollHint = ({ visible, isMobile, scrollProgress }) => {
     </div>
   );
 };
+
+// Debug components for mobile scroll testing
+const ScrollDebugger = ({ scrollData, isMobile }) => {
+  if (!scrollData.debugMode) return null;
+  
+  return (
+    <div style={{
+      position: 'fixed',
+      top: '10px',
+      left: '10px',
+      background: 'rgba(0, 0, 0, 0.8)',
+      color: 'white',
+      padding: '10px',
+      borderRadius: '8px',
+      fontSize: '12px',
+      fontFamily: 'monospace',
+      zIndex: 10000,
+      pointerEvents: 'none'
+    }}>
+      <div>Mobile: {isMobile ? 'YES' : 'NO'}</div>
+      <div>Section: {scrollData.currentSection.key}</div>
+      <div>Progress: {Math.round(scrollData.scrollProgress * 100)}%</div>
+      <div>Raw Progress: {Math.round(scrollData.rawScrollProgress * 100)}%</div>
+      <div>Crystal State: {scrollData.crystalState}</div>
+      <div>Is Scrolling: {scrollData.isScrolling ? 'YES' : 'NO'}</div>
+      <div>Window Height: {window.innerHeight}px</div>
+      <div>Body Height: {document.body.scrollHeight}px</div>
+    </div>
+  );
+};
+
+const TestScrollButton = ({ onScroll }) => (
+  <button 
+    onClick={() => {
+      window.scrollTo({ top: window.innerHeight, behavior: 'smooth' });
+      console.log('📱 Test scroll triggered');
+    }}
+    style={{
+      position: 'fixed',
+      top: '100px',
+      right: '20px',
+      zIndex: 10001,
+      background: 'red',
+      color: 'white',
+      padding: '10px',
+      border: 'none',
+      borderRadius: '4px'
+    }}
+  >
+    Test Scroll
+  </button>
+);
 
 function App() {
   // Device profile detection with mobile-optimized settings
@@ -194,18 +246,61 @@ function App() {
     };
   });
 
-  // Set body height for mobile scrolling - mobile needs much more space
+  // FIXED: Set body height for mobile scrolling - better control of scroll space
   useEffect(() => {
-    const mobileMultiplier = isMobileDevice ? 6 : 4; // More space for mobile
-    document.body.style.height = `${mobileMultiplier * 100}vh`;
+    const mobileMultiplier = isMobileDevice ? 5 : 4; // Reduced from 6 to 5 for mobile
+    const totalHeight = `${mobileMultiplier * 100}vh`;
+    
+    // Set document height, not just body height
+    document.documentElement.style.height = totalHeight;
+    document.body.style.height = totalHeight;
+    
+    // Prevent scrolling beyond the content
+    document.body.style.overflowX = 'hidden';
+    document.body.style.overflowY = 'auto';
     
     if (isMobileDevice) {
-      console.log(`📱 Mobile: Set body height to ${mobileMultiplier * 100}vh for slower scrolling`);
+      console.log(`📱 Mobile: Set document height to ${totalHeight} for controlled scrolling`);
     }
     
     return () => {
-      document.body.style.height = 'auto';
+      document.documentElement.style.height = '';
+      document.body.style.height = '';
+      document.body.style.overflowX = '';
+      document.body.style.overflowY = '';
     };
+  }, [isMobileDevice]);
+
+  // Mobile touch scrolling debug
+  useEffect(() => {
+    if (isMobileDevice) {
+      const handleTouchStart = (e) => {
+        console.log('📱 Touch start detected:', e.touches[0].clientY);
+      };
+      
+      const handleScroll = () => {
+        const scrollTop = window.pageYOffset;
+        const scrollHeight = document.documentElement.scrollHeight;
+        const clientHeight = window.innerHeight;
+        const maxScroll = scrollHeight - clientHeight;
+        const progress = scrollTop / maxScroll;
+        
+        console.log('📱 Scroll debug:', {
+          scrollTop: Math.round(scrollTop),
+          scrollHeight: Math.round(scrollHeight),
+          maxScroll: Math.round(maxScroll),
+          progress: Math.round(progress * 100) + '%'
+        });
+      };
+      
+      document.addEventListener('touchstart', handleTouchStart, { passive: true });
+      window.addEventListener('scroll', handleScroll, { passive: true });
+      
+      return () => {
+        document.removeEventListener('touchstart', handleTouchStart);
+        window.removeEventListener('scroll', handleScroll);
+      };
+    }
   }, [isMobileDevice]);
 
   // Navigation handlers that integrate with scroll system (existing logic)
@@ -449,8 +544,23 @@ function App() {
         scrollProgress={scrollCrystalData.scrollProgress}
       />
 
-      {/* Main 3D Canvas */}
-      <div style={{ width: '100vw', height: '100vh', position: 'fixed', top: 0, left: 0 }}>
+      {/* Debug components (only in debug mode) */}
+      <ScrollDebugger scrollData={scrollCrystalData} isMobile={isMobileDevice} />
+      <TestScrollButton />
+
+      {/* FIXED: Main 3D Canvas - Fixed positioning and overflow handling */}
+      <div 
+        className="canvas-container" 
+        style={{ 
+          position: 'fixed', 
+          top: 0, 
+          left: 0, 
+          width: '100vw', 
+          height: '100vh',
+          zIndex: 1,
+          overflow: 'hidden' // Prevent any overflow
+        }}
+      >
         <Canvas 
           shadows 
           camera={{ position: config.camera.startingPosition, fov: config.camera.fov }} 
@@ -460,7 +570,13 @@ function App() {
             toneMappingExposure: 0.2,
             outputColorSpace: THREE.SRGBColorSpace,
             ...canvasProps.gl
-          }}>
+          }}
+          style={{ 
+            width: '100%', 
+            height: '100%',
+            display: 'block' // Ensure no extra spacing
+          }}
+        >
           
           <FPSCounter />
           
@@ -688,15 +804,16 @@ function App() {
         </div>
       </div>
       
-      {/* Spacer div to enable scrolling - INCREASED for mobile */}
+      {/* FIXED: Spacer for scroll content - REDUCED to prevent excess scrolling */}
       <div style={{ 
-        height: isMobileDevice ? '600vh' : '400vh', // MORE height for mobile
+        height: isMobileDevice ? '400vh' : '300vh', // REDUCED: Less excess space
         position: 'absolute',
         top: '100vh',
         left: 0,
         width: '100%',
         pointerEvents: 'none',
-        zIndex: -1
+        zIndex: -1,
+        background: 'transparent' // Debug: see if this div is causing issues
       }} />
     </>
   );

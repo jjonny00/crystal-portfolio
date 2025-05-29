@@ -1,9 +1,15 @@
-/* index.css - Updated for scroll-driven experience */
+/* index.css - Updated for scroll-driven experience with mobile fixes */
 
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+}
+
+/* FIXED: Better mobile scroll control */
+html, body {
+  overflow-x: hidden;
+  /* Don't set max-height: 100vh as it prevents scrolling */
 }
 
 html {
@@ -36,13 +42,23 @@ body {
   /* Remove fixed height to allow scrolling */
   min-height: 100vh;
   
+  /* FIXED: Prevent overflow issues */
+  position: relative;
+  overflow: hidden;
+  
   /* Prevent horizontal scrolling */
   overflow-x: hidden;
 }
 
-/* Smooth scrolling for all browsers */
-html {
-  scroll-behavior: smooth;
+/* FIXED: Canvas container positioning */
+.canvas-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  z-index: 1;
 }
 
 /* Custom scrollbar styling */
@@ -84,22 +100,72 @@ html {
   backface-visibility: hidden;
 }
 
-/* Mobile optimizations */
+/* Enhanced mobile optimizations for scroll fixes */
 @media (max-width: 768px) {
   /* Improve scroll performance on mobile */
   body {
     -webkit-overflow-scrolling: touch;
-  }
-  
-  /* Prevent zoom on double-tap */
-  * {
+    /* FIXED: Prevent bounce/rubber-band effect */
+    overscroll-behavior-y: contain;
+    /* FIXED: Only allow vertical scrolling */
     touch-action: pan-y;
   }
   
-  /* Optimize text rendering on mobile */
+  /* FIXED: Prevent accidental zooming and gestures */
+  * {
+    touch-action: pan-y;
+    -webkit-touch-callout: none; /* Disable callout on iOS */
+    -webkit-user-select: none;   /* Disable text selection */
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+  
+  /* Allow text selection only where needed */
+  p, span, div[contenteditable], input, textarea {
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+    user-select: text;
+  }
+  
+  /* FIXED: Optimize rendering on mobile */
+  canvas {
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    -webkit-perspective: 1000;
+    perspective: 1000;
+  }
+  
+  /* FIXED: Improve scroll momentum on iOS */
+  body {
+    -webkit-overflow-scrolling: touch;
+    -webkit-transform: translate3d(0,0,0); /* Enable hardware acceleration */
+  }
+  
+  /* FIXED: Prevent horizontal scrolling completely on mobile */
+  html, body {
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+  
+  /* FIXED: Optimize text rendering on mobile */
   body {
     text-rendering: optimizeSpeed;
     -webkit-font-smoothing: subpixel-antialiased;
+  }
+}
+
+/* Tablet optimizations */
+@media (min-width: 769px) and (max-width: 1024px) {
+  body {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+  }
+  
+  /* Allow both touch and mouse interactions on tablets */
+  * {
+    touch-action: manipulation; /* Disable double-tap zoom but allow other gestures */
   }
 }
 
@@ -107,6 +173,24 @@ html {
 @media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
   body {
     -webkit-font-smoothing: antialiased;
+  }
+}
+
+/* High DPI mobile displays */
+@media (max-width: 768px) and (-webkit-min-device-pixel-ratio: 2) {
+  /* Optimize font rendering on high-DPI mobile screens */
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* Landscape mobile optimization */
+@media (max-width: 768px) and (orientation: landscape) {
+  /* Ensure proper scrolling in landscape mode */
+  body {
+    height: 100vh;
+    overflow-y: auto;
   }
 }
 
@@ -167,84 +251,5 @@ a:focus:not(:focus-visible) {
   
   .no-print {
     display: none !important;
-  }
-}
-
-/* Enhanced mobile touch scrolling */
-@media (max-width: 768px) {
-  body {
-    /* Optimize scroll performance on mobile */
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior-y: contain; /* Prevent bounce/rubber-band effect */
-    touch-action: pan-y; /* Only allow vertical scrolling */
-  }
-  
-  /* Prevent accidental zooming on mobile */
-  * {
-    touch-action: pan-y;
-    -webkit-touch-callout: none; /* Disable callout on iOS */
-    -webkit-user-select: none;   /* Disable text selection */
-    -moz-user-select: none;
-    -ms-user-select: none;
-    user-select: none;
-  }
-  
-  /* Allow text selection only where needed */
-  p, span, div[contenteditable], input, textarea {
-    -webkit-user-select: text;
-    -moz-user-select: text;
-    -ms-user-select: text;
-    user-select: text;
-  }
-  
-  /* Optimize rendering on mobile */
-  canvas {
-    -webkit-backface-visibility: hidden;
-    backface-visibility: hidden;
-    -webkit-perspective: 1000;
-    perspective: 1000;
-  }
-  
-  /* Improve scroll momentum on iOS */
-  body {
-    -webkit-overflow-scrolling: touch;
-    -webkit-transform: translate3d(0,0,0); /* Enable hardware acceleration */
-  }
-  
-  /* Prevent horizontal scrolling completely on mobile */
-  html, body {
-    overflow-x: hidden;
-    max-width: 100vw;
-  }
-}
-
-/* Tablet optimizations */
-@media (min-width: 769px) and (max-width: 1024px) {
-  body {
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior-y: contain;
-  }
-  
-  /* Allow both touch and mouse interactions on tablets */
-  * {
-    touch-action: manipulation; /* Disable double-tap zoom but allow other gestures */
-  }
-}
-
-/* High DPI mobile displays */
-@media (max-width: 768px) and (-webkit-min-device-pixel-ratio: 2) {
-  /* Optimize font rendering on high-DPI mobile screens */
-  body {
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
-}
-
-/* Landscape mobile optimization */
-@media (max-width: 768px) and (orientation: landscape) {
-  /* Ensure proper scrolling in landscape mode */
-  body {
-    height: 100vh;
-    overflow-y: auto;
   }
 }
