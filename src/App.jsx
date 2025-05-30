@@ -1,5 +1,6 @@
 // src/App.jsx - Phase 1: Foundation Setup
 // Clean native-scrolling implementation with fixed 3D canvas
+// UPDATED: Removed ProjectDetailCard and old AboutSection functionality
 
 import React, { useState, useCallback, useEffect } from 'react';
 import './App.css';
@@ -14,7 +15,6 @@ import { useCrystalScrollObserver } from './hooks/useScrollObserver';
 
 // Import existing components we still need
 import Navigation from './components/ui/Navigation';
-import AboutSection from './components/ui/AboutSection';
 import FooterSection from './components/ui/FooterSection';
 import ControlsToggle from './components/ui/ControlsToggle';
 import TabbedControlPanel from './components/ui/TabbedControlPanel';
@@ -24,14 +24,17 @@ import BlackOpalControls from './components/ui/BlackOpalControls';
 import IceOpalControls from './components/ui/IceOpalControls';
 import PostProcessingControls from './components/ui/PostProcessingControls';
 import PerformanceControls from './components/ui/PerformanceControls';
-import ProjectDetailCard from './components/ui/ProjectDetailCard';
 import AccessibilityInstructions from './components/ui/AccessibilityInstructions';
 import FpsDisplay, { PerformanceAlert } from './components/ui/FpsDisplay';
+
+// REMOVED IMPORTS:
+// import ProjectDetailCard from './components/ui/ProjectDetailCard';
+// import AboutSection from './components/ui/AboutSection';
 
 // Import configuration and utilities
 import * as defaultConfig from './crystalConfig';
 import { useDeviceProfile } from './hooks/useDeviceProfile';
-import { projects, getProjectByFacetKey } from './data/projects';
+// REMOVED: import { projects, getProjectByFacetKey } from './data/projects';
 
 // Simple mobile detection
 const isMobileDevice = () => {
@@ -248,8 +251,8 @@ function App() {
   const canvasProps = getOptimalCanvasProps();
   const environmentProps = getOptimalEnvironmentProps();
 
-  // Get current project
-  const currentProject = selectedFacet ? getProjectByFacetKey(selectedFacet) : null;
+  // REMOVED: Get current project logic
+  // const currentProject = selectedFacet ? getProjectByFacetKey(selectedFacet) : null;
 
   return (
     <>
@@ -364,7 +367,7 @@ function App() {
         </TabbedControlPanel>
       )}
       
-      {/* Project Detail Card - only show when project is selected */}
+      {/* REMOVED: Project Detail Card - no longer needed
       {currentProject && (
         <ProjectDetailCard 
           project={currentProject}
@@ -373,6 +376,7 @@ function App() {
           isMobile={isMobile}
         />
       )}
+      */}
       
       <AccessibilityInstructions visible={true} />
 

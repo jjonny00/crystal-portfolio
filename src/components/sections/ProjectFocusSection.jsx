@@ -1,6 +1,6 @@
 // src/components/sections/ProjectFocusSection.jsx
 // Phase 2.3: Individual Project Focus Areas
-// Crystal State: Camera focused on specific facet, other facets dimmed
+// UPDATED: Removed "View Full Project" button and modal functionality
 
 import React, { useState, useEffect } from 'react';
 import { animated, useSpring } from '@react-spring/web';
@@ -9,12 +9,13 @@ import { animated, useSpring } from '@react-spring/web';
  * ProjectFocusSection Component
  * Individual full-viewport sections for each project
  * Maps directly to crystal facets with focused camera view
+ * UPDATED: Removed modal functionality
  */
 const ProjectFocusSection = ({ 
   project,
   visible = true,
   scrollProgress = 0,
-  onViewProject = null,
+  // REMOVED: onViewProject prop since we're not using modals
   isMobile = false
 }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
@@ -52,12 +53,7 @@ const ProjectFocusSection = ({
     config: { tension: 280, friction: 26 }
   });
 
-  const ctaSpring = useSpring({
-    opacity: visible ? 1 : 0,
-    transform: visible ? 'translateY(0px)' : 'translateY(20px)',
-    delay: visible ? 400 : 0,
-    config: { tension: 300, friction: 20 }
-  });
+  // REMOVED: ctaSpring since we're not showing the button anymore
 
   const imageSpring = useSpring({
     opacity: visible && imageLoaded ? 1 : 0,
@@ -66,12 +62,7 @@ const ProjectFocusSection = ({
     config: { tension: 200, friction: 25 }
   });
 
-  // Handle view project action
-  const handleViewProject = () => {
-    if (onViewProject) {
-      onViewProject(project);
-    }
-  };
+  // REMOVED: handleViewProject since we're not using modals
 
   // Generate project stats based on project data
   const getProjectStats = () => {
@@ -110,11 +101,11 @@ const ProjectFocusSection = ({
         height: '100vh',
         scrollSnapAlign: 'start',
         scrollSnapStop: 'normal',
-        position: 'relative',
+        padding: isMobile ? '2rem 1rem' : '4rem 2rem',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: isMobile ? '2rem 1rem' : '4rem 2rem',
+        position: 'relative',
         backgroundColor: 'transparent',
         overflow: 'hidden'
       }}
@@ -315,45 +306,54 @@ const ProjectFocusSection = ({
                 </div>
               </div>
             </div>
+
+            {/* OPTIONAL: External links if available */}
+            {(project.demoUrl || project.githubUrl) && (
+              <div style={{
+                display: 'flex',
+                gap: '1rem',
+                justifyContent: isMobile ? 'center' : 'flex-start',
+                flexWrap: 'wrap'
+              }}>
+                {project.demoUrl && (
+                  <a
+                    href={project.demoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      padding: '10px 20px',
+                      background: 'rgba(255, 255, 255, 0.1)',
+                      color: 'white',
+                      textDecoration: 'none',
+                      borderRadius: '8px',
+                      fontSize: '0.875rem',
+                      fontWeight: '500',
+                      border: '1px solid rgba(255, 255, 255, 0.2)',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = `${project.color}20`;
+                      e.currentTarget.style.borderColor = `${project.color}40`;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                      e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+                    }}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M12 2C6.48 2 2 6.48 2 12C2 16.42 4.87 20.17 8.84 21.5C9.34 21.58 9.5 21.27 9.5 21C9.5 20.77 9.5 20.14 9.5 19.31C6.73 19.91 6.14 17.97 6.14 17.97C5.68 16.81 5.03 16.5 5.03 16.5C4.12 15.88 5.1 15.9 5.1 15.9C6.1 15.97 6.63 16.93 6.63 16.93C7.5 18.45 8.97 18 9.54 17.76C9.63 17.11 9.89 16.67 10.17 16.42C7.95 16.17 5.62 15.31 5.62 11.5C5.62 10.39 6 9.5 6.65 8.79C6.55 8.54 6.2 7.5 6.75 6.15C6.75 6.15 7.59 5.88 9.5 7.17C10.29 6.95 11.15 6.84 12 6.84C12.85 6.84 13.71 6.95 14.5 7.17C16.41 5.88 17.25 6.15 17.25 6.15C17.8 7.5 17.45 8.54 17.35 8.79C18 9.5 18.38 10.39 18.38 11.5C18.38 15.32 16.04 16.16 13.81 16.41C14.17 16.72 14.5 17.33 14.5 18.26C14.5 19.6 14.5 20.68 14.5 21C14.5 21.27 14.66 21.59 15.17 21.5C19.14 20.16 22 16.42 22 12C22 6.48 17.52 2 12 2Z" fill="currentColor" />
+                    </svg>
+                    View Code
+                  </a>
+                )}
+              </div>
+            )}
           </animated.div>
 
-          {/* Call to Action */}
-          <animated.div style={ctaSpring}>
-            <button
-              onClick={handleViewProject}
-              style={{
-                background: project.color,
-                color: '#000',
-                border: 'none',
-                padding: isMobile ? '16px 32px' : '18px 36px',
-                borderRadius: '12px',
-                fontSize: isMobile ? '1rem' : '1.125rem',
-                fontWeight: '700',
-                cursor: 'pointer',
-                transition: 'all 0.3s ease',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.75rem',
-                boxShadow: `0 8px 32px ${project.color}40`,
-                textTransform: 'none',
-                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif',
-                minHeight: isMobile ? '48px' : 'auto' // Touch target
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-3px)';
-                e.currentTarget.style.boxShadow = `0 12px 40px ${project.color}60`;
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = `0 8px 32px ${project.color}40`;
-              }}
-            >
-              <span>View Full Project</span>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M19 19H5V5H12V3H5C3.89 3 3 3.9 3 5V19C3 20.1 3.89 21 5 21H19C20.1 21 21 20.1 21 19V12H19V19ZM14 3V5H17.59L7.76 14.83L9.17 16.24L19 6.41V10H21V3H14Z" fill="currentColor" />
-              </svg>
-            </button>
-          </animated.div>
+          {/* REMOVED: Call to Action button section */}
         </div>
 
         {/* Project Visual/Preview */}
