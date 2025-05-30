@@ -1,117 +1,47 @@
-// src/App.jsx - EMERGENCY FIX for mobile scrolling
-// Key fix: Remove blocking touch events and ensure scroll is always enabled
+// src/App.jsx - Phase 1: Foundation Setup
+// Clean native-scrolling implementation with fixed 3D canvas
 
-import { useState, useCallback, useEffect, useRef } from 'react'
-import { Canvas } from '@react-three/fiber'
-import { Environment, OrbitControls } from '@react-three/drei'
-import { EffectComposer, Bloom, ChromaticAberration, Noise, Vignette } from '@react-three/postprocessing'
-import { BlendFunction } from 'postprocessing'
-import * as THREE from 'three'
-import './App.css'
+import React, { useState, useCallback, useEffect } from 'react';
+import './App.css';
 
-// Import state machine and project data
-import { CRYSTAL_STATES, CRYSTAL_EVENTS, getNextState } from './machines/crystalStateMachine'
-import { projects, getProjectByFacetKey } from './data/projects'
+// Import new layout components
+import ScrollablePortfolio from './components/layout/ScrollablePortfolio';
+import Fixed3DCanvas from './components/layout/Fixed3DCanvas';
 
-// Import scroll system
-import { useScrollCrystal } from './hooks/useScrollCrystal'
+// Import scroll observer
+import { useCrystalScrollObserver } from './hooks/useScrollObserver';
 
-// Import existing components
-import * as defaultConfig from './crystalConfig'
-import EnhancedCrystalScene from './components/three/EnhancedCrystalScene'
-import CrystalControls from './components/ui/CrystalControls'
-import MaterialSelector from './components/ui/MaterialSelector'
-import BlackOpalControls from './components/ui/BlackOpalControls'
-import IceOpalControls from './components/ui/IceOpalControls'
-import ControlsToggle from './components/ui/ControlsToggle'
-import ProjectDetailCard from './components/ui/ProjectDetailCard'
-import AccessibilityInstructions from './components/ui/AccessibilityInstructions'
-import PostProcessingControls from './components/ui/PostProcessingControls'
-import PerformanceControls from './components/ui/PerformanceControls'
-import TabbedControlPanel from './components/ui/TabbedControlPanel'
-import useKeyboardControls from './hooks/useKeyboardControls'
+// Import existing components we still need
+import Navigation from './components/ui/Navigation';
+import AboutSection from './components/ui/AboutSection';
+import FooterSection from './components/ui/FooterSection';
+import ControlsToggle from './components/ui/ControlsToggle';
+import TabbedControlPanel from './components/ui/TabbedControlPanel';
+import CrystalControls from './components/ui/CrystalControls';
+import MaterialSelector from './components/ui/MaterialSelector';
+import BlackOpalControls from './components/ui/BlackOpalControls';
+import IceOpalControls from './components/ui/IceOpalControls';
+import PostProcessingControls from './components/ui/PostProcessingControls';
+import PerformanceControls from './components/ui/PerformanceControls';
+import ProjectDetailCard from './components/ui/ProjectDetailCard';
+import AccessibilityInstructions from './components/ui/AccessibilityInstructions';
+import FpsDisplay, { PerformanceAlert } from './components/ui/FpsDisplay';
 
-// Import new components
-import Navigation from './components/ui/Navigation'
-import AboutSection from './components/ui/AboutSection'
-import FooterSection from './components/ui/FooterSection'
+// Import configuration and utilities
+import * as defaultConfig from './crystalConfig';
+import { useDeviceProfile } from './hooks/useDeviceProfile';
+import { projects, getProjectByFacetKey } from './data/projects';
 
-// Import performance system
-import { useDeviceProfile } from './hooks/useDeviceProfile'
-import FpsDisplay, { FPSCounter, PerformanceAlert } from './components/ui/FpsDisplay'
-
-// SIMPLE mobile detection without the problematic useMobileScrolling hook
+// Simple mobile detection
 const isMobileDevice = () => {
   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
          (navigator.maxTouchPoints && navigator.maxTouchPoints > 2);
 };
 
-// Mobile scroll hint component
-const MobileScrollHint = ({ visible, isMobile, scrollProgress }) => {
-  if (!isMobile || !visible || scrollProgress > 0.05) return null;
-  
-  return (
-    <div style={{
-      position: 'fixed',
-      bottom: '60px',
-      left: '50%',
-      transform: 'translateX(-50%)',
-      zIndex: 1000,
-      color: 'white',
-      fontSize: '12px',
-      opacity: 0.7,
-      textAlign: 'center',
-      pointerEvents: 'none',
-      background: 'rgba(0, 0, 0, 0.3)',
-      padding: '8px 16px',
-      borderRadius: '20px',
-      backdropFilter: 'blur(10px)'
-    }}>
-      <div>Scroll to explore</div>
-      <div style={{ fontSize: '10px', marginTop: '4px', opacity: 0.8 }}>
-        Try scrolling up and down
-      </div>
-    </div>
-  );
-};
-
-// Debug component to check scroll status
-const ScrollDebugger = ({ scrollData, isMobile }) => {
-  if (!scrollData.debugMode) return null;
-  
-  return (
-    <div style={{
-      position: 'fixed',
-      top: '10px',
-      left: '10px',
-      background: 'rgba(0, 0, 0, 0.9)',
-      color: 'white',
-      padding: '10px',
-      borderRadius: '8px',
-      fontSize: '11px',
-      fontFamily: 'monospace',
-      zIndex: 10000,
-      pointerEvents: 'none',
-      maxWidth: '200px'
-    }}>
-      <div>Mobile: {isMobile ? 'YES' : 'NO'}</div>
-      <div>Touch Points: {navigator.maxTouchPoints || 0}</div>
-      <div>Section: {scrollData.currentSection.key}</div>
-      <div>Progress: {Math.round(scrollData.scrollProgress * 100)}%</div>
-      <div>Raw Progress: {Math.round(scrollData.rawScrollProgress * 100)}%</div>
-      <div>Crystal State: {scrollData.crystalState}</div>
-      <div>Is Scrolling: {scrollData.isScrolling ? 'YES' : 'NO'}</div>
-      <div>Window: {window.innerWidth}x{window.innerHeight}</div>
-      <div>Body Height: {document.body.scrollHeight}px</div>
-      <div>Scroll Top: {Math.round(window.pageYOffset)}px</div>
-    </div>
-  );
-};
-
 function App() {
-  // SIMPLIFIED mobile detection
   const isMobile = isMobileDevice();
 
+  // Device profile for performance optimization
   const { 
     performanceProfile: devicePerformanceProfile, 
     deviceProfile, 
@@ -121,41 +51,25 @@ function App() {
     isDetecting 
   } = useDeviceProfile({ 
     enableDebugLogging: false,
-    enableOrientationLock: false // DISABLE orientation lock for now
+    enableOrientationLock: false
   });
 
-  // Enhanced scroll-based crystal control system
-  const scrollCrystalData = useScrollCrystal({
-    enableScrollControl: true,
-    debugMode: true, // Keep debug on for now
-    smoothTransitions: !isMobile, // Disable smooth transitions on mobile for now
-    onSectionChange: (newSection, oldSection) => {
-      console.log(`🔄 Section: ${oldSection.key} → ${newSection.key}`);
-      if (isMobile) {
-        console.log(`📱 Mobile scroll: ${Math.round(scrollCrystalData.scrollProgress * 100)}%`);
-      }
-    },
-    // Simplified easing for mobile
-    easingDuration: isMobile ? 300 : 1200,
-    easingFunction: (t) => t // Linear for mobile, no fancy easing
-  });
-  
-  // Extract scroll state
+  // Scroll observer for crystal state management
   const {
     currentSection,
     crystalState,
-    isTransitioning,
-    selectedProject,
-    hoveredProject,
-    setHoveredProject,
-    visibleSections,
-    goToSection,
-    selectProject,
-    deselectProject,
-    handleProjectClose,
-    handleLoopBack
-  } = scrollCrystalData;
-  
+    selectedFacet,
+    scrollProgress,
+    scrollToSection,
+    isSectionVisible,
+    debugInfo
+  } = useCrystalScrollObserver({
+    onCrystalStateChange: (data) => {
+      console.log(`🔄 Crystal state: ${data.crystalState}, Facet: ${data.selectedFacet || 'none'}`);
+    },
+    isMobile
+  });
+
   // UI state
   const [config, setConfig] = useState({
     ...defaultConfig,
@@ -167,11 +81,11 @@ function App() {
         facetReturnDuration: 1200
       }
     }
-  })
-  const [materialVariant, setMaterialVariant] = useState('default')
-  const [showUI, setShowUI] = useState(false)
-  const [orbitControlsEnabled, setOrbitControlsEnabled] = useState(true)
-  const [activeTab, setActiveTab] = useState(0)
+  });
+  
+  const [materialVariant, setMaterialVariant] = useState('default');
+  const [showUI, setShowUI] = useState(false);
+  const [activeTab, setActiveTab] = useState(0);
   
   // Material configs
   const [blackOpalConfig, setBlackOpalConfig] = useState({
@@ -214,101 +128,7 @@ function App() {
     };
   });
 
-  // CRITICAL FIX: Set scroll height but don't prevent scrolling
-  useEffect(() => {
-    const mobileMultiplier = isMobile ? 5 : 4;
-    const totalHeight = `${mobileMultiplier * 100}vh`;
-    
-    // Set the scroll height
-    document.body.style.height = totalHeight;
-    
-    // CRITICAL: Ensure scrolling is always enabled
-    document.body.style.overflowY = 'auto';
-    document.body.style.overflowX = 'hidden';
-    
-    // Enable touch scrolling on mobile
-    if (isMobile) {
-      document.body.style.webkitOverflowScrolling = 'touch';
-      document.body.style.overscrollBehavior = 'auto'; // Allow normal scroll behavior
-      console.log(`📱 Mobile: Set scroll height to ${totalHeight}`);
-      console.log(`📱 Mobile: Overflow Y = ${document.body.style.overflowY}`);
-      console.log(`📱 Mobile: Touch scrolling enabled`);
-    }
-    
-    return () => {
-      document.body.style.height = '';
-      document.body.style.overflowY = '';
-      document.body.style.overflowX = '';
-      document.body.style.webkitOverflowScrolling = '';
-      document.body.style.overscrollBehavior = '';
-    };
-  }, [isMobile]);
-
-  // Navigation handlers
-  const handleWorkClick = useCallback(() => {
-    console.log('Work section clicked');
-    goToSection('projects-overview');
-  }, [goToSection]);
-
-  const handleAboutClick = useCallback(() => {
-    console.log('About section clicked');
-    goToSection('about');
-  }, [goToSection]);
-
-  const handleProcessClick = useCallback(() => {
-    console.log('Process section clicked');
-    setMaterialVariant(prev => {
-      const variants = ['default', 'glass', 'gem', 'holographic', 'blackOpal', 'iceOpal'];
-      const currentIndex = variants.indexOf(prev);
-      const nextIndex = (currentIndex + 1) % variants.length;
-      return variants[nextIndex];
-    });
-  }, []);
-
-  const handleContactClick = useCallback(() => {
-    console.log('Contact section clicked');
-    goToSection('footer');
-  }, [goToSection]);
-
-  // Handle facet selection
-  const handleFacetSelect = useCallback((facetKey) => {
-    if (isTransitioning) return;
-    
-    const project = getProjectByFacetKey(facetKey);
-    
-    if (selectedProject && selectedProject.facetKey === facetKey) {
-      handleProjectClose();
-    } else {
-      selectProject(facetKey);
-      setOrbitControlsEnabled(false);
-    }
-  }, [selectedProject, isTransitioning, selectProject, handleProjectClose]);
-  
-  // Handle facet hover
-  const handleFacetHover = useCallback((facetKey) => {
-    if (!isTransitioning) {
-      setHoveredProject(facetKey);
-    }
-  }, [isTransitioning, setHoveredProject]);
-
-  // Handle explosion toggle
-  const handleExplodeToggle = useCallback(() => {
-    if (isTransitioning) return;
-    
-    if (currentSection.key === 'intro' || currentSection.key === 'intro-close') {
-      goToSection('projects-overview');
-    } else if (currentSection.key === 'projects-overview') {
-      if (selectedProject) {
-        handleProjectClose();
-      } else {
-        goToSection('intro');
-      }
-    }
-  }, [currentSection.key, selectedProject, isTransitioning, goToSection, handleProjectClose]);
-
-  const selectedFacet = selectedProject?.facetKey || null;
-
-  // Performance management (simplified)
+  // Performance management
   const [lastAppliedProfile, setLastAppliedProfile] = useState(null);
   const [initialProfileApplied, setInitialProfileApplied] = useState(false);
   
@@ -345,7 +165,6 @@ function App() {
     }
   }, [devicePerformanceProfile, isDetecting, lastAppliedProfile]);
 
-  // Handler functions
   const [hasInitialized, setHasInitialized] = useState(false);
   
   useEffect(() => {
@@ -356,6 +175,29 @@ function App() {
     }
   }, [performanceConfig, updateExternalPerformanceConfig, hasInitialized, devicePerformanceProfile, initialProfileApplied]);
 
+  // Navigation handlers - now use scroll observer
+  const handleWorkClick = useCallback(() => {
+    scrollToSection('projects-overview');
+  }, [scrollToSection]);
+
+  const handleAboutClick = useCallback(() => {
+    scrollToSection('about');
+  }, [scrollToSection]);
+
+  const handleProcessClick = useCallback(() => {
+    setMaterialVariant(prev => {
+      const variants = ['default', 'glass', 'gem', 'holographic', 'blackOpal', 'iceOpal'];
+      const currentIndex = variants.indexOf(prev);
+      const nextIndex = (currentIndex + 1) % variants.length;
+      return variants[nextIndex];
+    });
+  }, []);
+
+  const handleContactClick = useCallback(() => {
+    scrollToSection('footer'); // Navigate to footer instead of about
+  }, [scrollToSection]);
+
+  // Handler functions
   const handleConfigUpdate = useCallback((newConfig) => {
     setConfig(newConfig);
   }, []);
@@ -401,49 +243,12 @@ function App() {
     setShowUI(!showUI);
   }, [showUI]);
 
-  // Keyboard controls (simplified for mobile)
-  useKeyboardControls({
-    isExploded: crystalState === CRYSTAL_STATES.EXPLODED || crystalState === CRYSTAL_STATES.EXPLODING || crystalState === CRYSTAL_STATES.PROJECT_SELECTED,
-    setIsExploded: (exploded) => {
-      if (exploded) {
-        goToSection('projects-overview');
-      } else {
-        goToSection('intro');
-      }
-    },
-    hoveredFacet: hoveredProject,
-    setHoveredFacet: setHoveredProject,
-    selectedFacet: selectedFacet,
-    setSelectedFacet: (facetKey) => {
-      if (facetKey && handleFacetSelect) {
-        handleFacetSelect(facetKey);
-      } else if (!facetKey && selectedProject) {
-        handleProjectClose();
-      }
-    },
-    onFacetSelect: handleFacetSelect,
-    showUI,
-    setShowUI,
-    showDetailCard: !!selectedProject,
-    setShowDetailCard: () => {},
-    setOrbitControlsEnabled,
-    config,
-    isTransitioning,
-    setIsTransitioning: () => {},
-    effectsEnabled,
-    handleToggleEffect,
-    performanceConfig,
-    toggleNormalMaps: () => {
-      handlePerformanceConfigUpdate({
-        ...performanceConfig,
-        useNormalMaps: !performanceConfig.useNormalMaps
-      });
-    }
-  });
-
-  // Get optimal props
+  // Get optimal props for 3D canvas
   const canvasProps = getOptimalCanvasProps();
   const environmentProps = getOptimalEnvironmentProps();
+
+  // Get current project
+  const currentProject = selectedFacet ? getProjectByFacetKey(selectedFacet) : null;
 
   return (
     <>
@@ -453,7 +258,7 @@ function App() {
         onAboutClick={handleAboutClick}
         onProcessClick={handleProcessClick}
         onContactClick={handleContactClick}
-        isTransitioning={isTransitioning}
+        isTransitioning={false}
         crystalState={crystalState}
       />
 
@@ -473,167 +278,40 @@ function App() {
         }}
       />
 
-      {/* Mobile Scroll Hint */}
-      <MobileScrollHint 
-        visible={scrollCrystalData.isInIntro} 
+      {/* Fixed 3D Canvas - behind everything */}
+      <Fixed3DCanvas
+        crystalState={crystalState}
+        selectedFacet={selectedFacet}
+        hoveredFacet={null} // No hover in scroll mode
+        onFacetSelect={null} // Disabled in scroll mode
+        onFacetHover={null} // Disabled in scroll mode
+        materialVariant={materialVariant}
+        blackOpalConfig={blackOpalConfig}
+        iceOpalConfig={iceOpalConfig}
+        effectsEnabled={effectsEnabled}
+        postProcessingConfig={postProcessingConfig}
+        performanceConfig={performanceConfig}
+        config={config}
+        canvasProps={canvasProps}
+        environmentProps={environmentProps}
         isMobile={isMobile}
-        scrollProgress={scrollCrystalData.scrollProgress}
       />
 
-      {/* Debug component */}
-      <ScrollDebugger scrollData={scrollCrystalData} isMobile={isMobile} />
+      {/* Scrollable Content - on top of 3D canvas */}
+      <ScrollablePortfolio />
 
-      {/* FIXED: Main 3D Canvas - simplified positioning */}
-      <div 
-        style={{ 
-          position: 'fixed', 
-          top: 0, 
-          left: 0, 
-          width: '100vw', 
-          height: '100vh',
-          zIndex: 1
-        }}
-      >
-        <Canvas 
-          shadows 
-          camera={{ position: config.camera.startingPosition, fov: config.camera.fov }} 
-          {...canvasProps}
-          gl={{ 
-            toneMapping: THREE.ACESFilmicToneMapping,
-            toneMappingExposure: 0.2,
-            outputColorSpace: THREE.SRGBColorSpace,
-            ...canvasProps.gl
-          }}
-          style={{ 
-            width: '100%', 
-            height: '100%'
-          }}
-        >
-          
-          <FPSCounter />
-          
-          <color attach="background" args={['#050505']} />
-          
-          {/* Lighting */}
-          <ambientLight intensity={config.lighting.ambient.intensity} />
-          <directionalLight 
-            position={config.lighting.directional.position} 
-            intensity={config.lighting.directional.intensity} 
-            color={config.lighting.directional.color} 
-            castShadow={config.lighting.directional.castShadow} 
-          />
-          
-          {config.lighting.pointLights.map((light, index) => (
-            <pointLight 
-              key={index}
-              position={light.position} 
-              intensity={light.intensity} 
-              color={light.color} 
-            />
-          ))}
-          
-          <spotLight 
-            position={config.lighting.spotLight.position} 
-            intensity={config.lighting.spotLight.intensity} 
-            angle={config.lighting.spotLight.angle} 
-            penumbra={config.lighting.spotLight.penumbra} 
-            color={config.lighting.spotLight.color} 
-          />
-          
-          {/* Crystal scene */}
-          <EnhancedCrystalScene 
-            isExploded={crystalState === CRYSTAL_STATES.EXPLODED || crystalState === CRYSTAL_STATES.EXPLODING || crystalState === CRYSTAL_STATES.PROJECT_SELECTED} 
-            crystalState={crystalState}
-            config={config} 
-            materialVariant={materialVariant}
-            blackOpalConfig={blackOpalConfig}
-            iceOpalConfig={iceOpalConfig}
-            selectedFacet={scrollCrystalData.selectedProject}
-            hoveredFacet={hoveredProject}
-            onFacetSelect={isMobile ? null : handleFacetSelect} // Disable on mobile for now
-            onFacetHover={isMobile ? null : handleFacetHover}   // Disable on mobile for now
-            isTransitioning={isTransitioning}
-            performanceConfig={performanceConfig}
-            scrollCrystalData={scrollCrystalData}
-            isMobileDevice={isMobile}
-          />
-          
-          {/* Environment */}
-          <Environment 
-            key={environmentProps.files}
-            files={environmentProps.files || config.environment.hdri} 
-            background={config.environment.showBackground} 
-            rotation={config.environment.rotation}
-          />
-          
-          {/* Post-processing */}
-          <EffectComposer enabled={true}>
-            <Bloom 
-              intensity={Object.values(effectsEnabled).some(Boolean) ? 0 : 0.0001}
-              luminanceThreshold={1.0}
-              luminanceSmoothing={0.9}
-              radius={0.5}
-              enabled={!Object.values(effectsEnabled).some(Boolean)}
-            />
-            
-            {effectsEnabled.bloom && (
-              <Bloom 
-                luminanceThreshold={postProcessingConfig.bloom.luminanceThreshold} 
-                luminanceSmoothing={postProcessingConfig.bloom.luminanceSmoothing} 
-                intensity={postProcessingConfig.bloom.intensity} 
-                radius={postProcessingConfig.bloom.radius} 
-              />
-            )}
-            {effectsEnabled.chromaticAberration && (
-              <ChromaticAberration 
-                offset={postProcessingConfig.chromaticAberration.offset} 
-                radialModulation={postProcessingConfig.chromaticAberration.radialModulation} 
-                modulationOffset={postProcessingConfig.chromaticAberration.modulationOffset} 
-              />
-            )}
-            {effectsEnabled.noise && (
-              <Noise 
-                opacity={postProcessingConfig.noise.opacity} 
-                blendFunction={BlendFunction.OVERLAY} 
-              />
-            )}
-            {effectsEnabled.vignette && (
-              <Vignette 
-                eskil={postProcessingConfig.vignette.eskil} 
-                offset={postProcessingConfig.vignette.offset} 
-                darkness={postProcessingConfig.vignette.darkness} 
-              />
-            )}
-          </EffectComposer>
-          
-          {/* Orbit controls - DISABLED ON MOBILE */}
-          <OrbitControls 
-            makeDefault
-            enabled={!isMobile && !scrollCrystalData.isInProjectSection() && orbitControlsEnabled}
-            enableZoom={!isMobile && config.camera.orbitControls.enableZoom && orbitControlsEnabled}
-            enablePan={!isMobile && config.camera.orbitControls.enablePan && orbitControlsEnabled}
-            rotateSpeed={config.camera.orbitControls.rotateSpeed}
-            minPolarAngle={config.camera.orbitControls.minPolarAngle}
-            maxPolarAngle={config.camera.orbitControls.maxPolarAngle}
-          />
-        </Canvas>
-      </div>
+      {/* REMOVED: AboutSection overlay - now it's inline in ScrollablePortfolio */}
       
-      {/* UI components */}
-      <AboutSection 
-        visible={visibleSections.about}
-        onClose={() => goToSection('intro')}
-      />
-      
+      {/* FooterSection - keep this for any special footer interactions */}
       <FooterSection 
-        visible={visibleSections.footer}
-        onLoopBack={handleLoopBack}
+        visible={isSectionVisible('footer')}
+        onLoopBack={() => scrollToSection('hero')}
       />
       
       <ControlsToggle 
         showUI={showUI} 
         toggleUI={toggleUI} 
-        disabled={isTransitioning}
+        disabled={false}
       />
       
       {showUI && (
@@ -685,67 +363,40 @@ function App() {
         </TabbedControlPanel>
       )}
       
-      {/* Project Detail Card */}
-      {scrollCrystalData.getCurrentProject() && (
+      {/* Project Detail Card - only show when project is selected */}
+      {currentProject && (
         <ProjectDetailCard 
-          project={getProjectByFacetKey(scrollCrystalData.selectedProject)}
-          visible={!!scrollCrystalData.getCurrentProject()}
-          onClose={handleProjectClose}
+          project={currentProject}
+          visible={!!currentProject}
+          onClose={() => scrollToSection('projects-overview')}
           isMobile={isMobile}
         />
       )}
       
       <AccessibilityInstructions visible={true} />
-      
-      {/* Main interaction button */}
-      <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 9999 }}>
-        <div style={{ position: 'absolute', bottom: '20px', left: 0, width: '100%', display: 'flex', justifyContent: 'center', pointerEvents: 'none' }}>
-          <button 
-            onClick={handleExplodeToggle}
-            disabled={isTransitioning}
-            style={{
-              ...config.ui.button.styles,
-              pointerEvents: 'auto',
-              opacity: isTransitioning ? 0.6 : 1,
-              cursor: isTransitioning ? 'not-allowed' : 'pointer',
-              // Mobile-specific adjustments
-              ...(isMobile && {
-                padding: '12px 24px',
-                fontSize: '18px',
-                minHeight: '48px'
-              })
-            }}
-            onMouseEnter={(e) => {
-              if (!isTransitioning) {
-                Object.entries(config.ui.button.hoverStyles).forEach(([key, value]) => {
-                  e.currentTarget.style[key] = value;
-                });
-              }
-            }}
-            onMouseLeave={(e) => {
-              Object.entries(config.ui.button.defaultStyles).forEach(([key, value]) => {
-                e.currentTarget.style[key] = value;
-              });
-            }}
-          >
-            {(currentSection.key === 'intro' || currentSection.key === 'intro-close') ? 'View Projects' : 
-             currentSection.key === 'projects-overview' && selectedProject ? 'Close Project' :
-             currentSection.key === 'projects-overview' ? 'Back to Intro' : 
-             'Navigate'}
-          </button>
+
+      {/* Debug Info - only in development */}
+      {process.env.NODE_ENV === 'development' && (
+        <div style={{
+          position: 'fixed',
+          top: '100px',
+          left: '10px',
+          background: 'rgba(0, 0, 0, 0.8)',
+          color: 'white',
+          padding: '10px',
+          borderRadius: '4px',
+          fontSize: '12px',
+          fontFamily: 'monospace',
+          zIndex: 10000,
+          pointerEvents: 'none'
+        }}>
+          <div>Section: {currentSection?.id || 'none'}</div>
+          <div>Crystal: {crystalState}</div>
+          <div>Facet: {selectedFacet || 'none'}</div>
+          <div>Progress: {Math.round(scrollProgress * 100)}%</div>
+          <div>Mobile: {isMobile ? 'Yes' : 'No'}</div>
         </div>
-      </div>
-      
-      {/* Spacer for scroll content */}
-      <div style={{ 
-        height: isMobile ? '400vh' : '300vh',
-        position: 'absolute',
-        top: '100vh',
-        left: 0,
-        width: '100%',
-        pointerEvents: 'none',
-        zIndex: -1
-      }} />
+      )}
     </>
   );
 }

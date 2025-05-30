@@ -1,0 +1,137 @@
+/* src/styles/scroll-snap.css */
+/* CSS enhancements for native scrolling experience */
+
+/* FIXED: Apply scroll behavior to document, not container */
+html {
+  scroll-behavior: smooth;
+  scroll-snap-type: y proximity;
+}
+
+/* REMOVED: No scroll container needed - use document scrolling */
+/* Main scroll container styles moved to body */
+body {
+  /* Ensure smooth scrolling */
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  
+  /* Only hide horizontal scroll */
+  overflow-x: hidden;
+  /* DO NOT set overflow-y - let it be auto/visible */
+}
+
+/* Individual scroll sections - simplified */
+.scroll-section {
+  scroll-snap-align: start;
+  scroll-snap-stop: normal;
+  position: relative;
+  /* Remove any height constraints that could cause conflicts */
+}
+
+/* Enhanced scroll behavior for mobile */
+@media (max-width: 768px) {
+  html {
+    /* Mandatory snap on mobile for better UX */
+    scroll-snap-type: y mandatory;
+  }
+  
+  body {
+    /* Improved touch scrolling */
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: auto; /* Allow normal pull-to-refresh */
+  }
+  
+  .scroll-section {
+    /* Stronger snap alignment on mobile */
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+    
+    /* Minimum height for proper snapping */
+    min-height: 100vh;
+  }
+}
+
+/* Tablet optimizations */
+@media (min-width: 769px) and (max-width: 1024px) {
+  html {
+    scroll-snap-type: y proximity;
+  }
+}
+
+/* REMOVED: Custom scrollbar styling for containers */
+/* Apply to document scrollbar instead */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(100, 255, 218, 0.3);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 255, 218, 0.5);
+}
+
+/* Firefox scrollbar */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(100, 255, 218, 0.3) rgba(0, 0, 0, 0.1);
+}
+
+/* Reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+    scroll-snap-type: none;
+  }
+  
+  /* Disable all animations for reduced motion users */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Focus management for keyboard navigation */
+.scroll-section:focus {
+  outline: 2px solid #64ffda;
+  outline-offset: -2px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .scroll-container::-webkit-scrollbar-thumb {
+    background: #64ffda;
+  }
+  
+  .scroll-section {
+    border: 1px solid currentColor;
+  }
+}
+
+/* Print styles */
+@media print {
+  html {
+    scroll-behavior: auto !important;
+    scroll-snap-type: none !important;
+  }
+  
+  body {
+    height: auto !important;
+    overflow: visible !important;
+  }
+  
+  .scroll-section {
+    scroll-snap-align: none !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+}
