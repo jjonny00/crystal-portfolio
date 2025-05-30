@@ -29,12 +29,12 @@ import { useMobileScrolling } from '../../hooks/useMobileScrolling'
  */
 const EnhancedCrystalScene = ({ 
   isExploded, 
-  crystalState,
+  crystalState,        // Now comes from crystal controller
   config = defaultConfig, 
   materialVariant = 'default',
   blackOpalConfig,
   iceOpalConfig,
-  selectedFacet = null,
+  selectedFacet = null,  // Now comes from crystal controller
   hoveredFacet = null,
   onFacetSelect,
   onFacetHover,
@@ -61,44 +61,9 @@ const EnhancedCrystalScene = ({
     config.facetLabels.map(label => config.explodedPositions[label.key] || [0, 0, 0])
   );
   
-  // Map crystal state to explosion phase for backward compatibility
-  const [explosionPhase, setExplosionPhase] = useState('initial');
-  const [fractureGlowComplete, setFractureGlowComplete] = useState(false);
-  
   // Floating animation ref for intro crystal with rotation
   const crystalFloatingRef = useRef();
   const crystalRotationRef = useRef();
-  
-  // Update explosion phase based on state machine
-  useEffect(() => {
-    let newPhase = 'initial';
-    
-    switch(crystalState) {
-      case CRYSTAL_STATES.WHOLE:
-        newPhase = 'initial';
-        break;
-      case CRYSTAL_STATES.FRACTURING:
-        newPhase = 'fractured';
-        break;
-      case CRYSTAL_STATES.EXPLODING:
-        newPhase = 'exploded'; // Skip intermediate phase for smoother transition
-        break;
-      case CRYSTAL_STATES.EXPLODED:
-      case CRYSTAL_STATES.PROJECT_SELECTED:
-        newPhase = 'exploded';
-        break;
-      case CRYSTAL_STATES.REFORMING:
-        newPhase = 'initial';
-        break;
-      default:
-        newPhase = 'initial';
-    }
-    
-    if (newPhase !== explosionPhase) {
-      console.log(`💎 Explosion phase: ${explosionPhase} → ${newPhase}`);
-      setExplosionPhase(newPhase);
-    }
-  }, [crystalState, explosionPhase]);
   
   // Store references to anchor objects
   const anchorRefs = useRef({});
@@ -153,49 +118,22 @@ const EnhancedCrystalScene = ({
     
   }, [crystalWhole, facetEmpathy, facetNarrative, facetCraft, facetSystem, facetLeadership, facetExploration, crystalMaterialRef.current]);
   
-  // Enhanced visibility transitions based on crystal state with proper timing
+  // Simplified visibility transitions - crystal controller manages state
   useEffect(() => {
-    console.log(`🎭 Crystal state changed to: ${crystalState}`);
+    console.log(`🎭 Crystal scene: ${crystalState}`);
     
     switch(crystalState) {
       case CRYSTAL_STATES.WHOLE:
         setShowCrystal(true);
         setShowFacets(false);
         setShowLabels(false);
-        setFractureGlowComplete(false);
-        break;
-        
-      case CRYSTAL_STATES.FRACTURING:
-        console.log('💥 Starting fracture sequence');
-        fractureStartTime.current = clock.getElapsedTime();
-        setShowFacets(true);
-        
-        // Brief delay before hiding crystal to show fracture effect
-        const crystalTimer = setTimeout(() => {
-          setShowCrystal(false);
-          console.log('💎 Crystal hidden for fracture');
-        }, 200); // Shorter delay for more responsive feel
-        
-        return () => clearTimeout(crystalTimer);
-        
-      case CRYSTAL_STATES.EXPLODING:
-        console.log('🚀 Starting explosion sequence');
-        explosionStartTime.current = clock.getElapsedTime();
-        setShowFacets(true);
-        setShowCrystal(false);
         break;
         
       case CRYSTAL_STATES.EXPLODED:
-        console.log('✨ Crystal fully exploded');
         setShowFacets(true);
         setShowCrystal(false);
-        
-        // Show labels after a brief delay
-        const labelTimer = setTimeout(() => {
-          setShowLabels(true);
-          console.log('🏷️ Labels shown');
-        }, 600); // Reduced delay for better responsiveness
-        
+        // Show labels after brief delay
+        const labelTimer = setTimeout(() => setShowLabels(true), 300);
         return () => clearTimeout(labelTimer);
         
       case CRYSTAL_STATES.PROJECT_SELECTED:
@@ -204,26 +142,12 @@ const EnhancedCrystalScene = ({
         setShowLabels(true);
         break;
         
-      case CRYSTAL_STATES.REFORMING:
-        console.log('🔄 Starting reform sequence');
+      default:
+        setShowCrystal(true);
+        setShowFacets(false);
         setShowLabels(false);
-        
-        const crystalAppearTimer = setTimeout(() => {
-          setShowCrystal(true);
-          console.log('💎 Crystal reappeared');
-        }, 400); // Faster reform for better UX
-        
-        const facetsTimer = setTimeout(() => {
-          setShowFacets(false);
-          console.log('✨ Facets hidden');
-        }, 600);
-        
-        return () => {
-          clearTimeout(crystalAppearTimer);
-          clearTimeout(facetsTimer);
-        };
     }
-  }, [crystalState, clock]);
+  }, [crystalState]);
 
   // Enhanced animation frame with slow rotation and all effects
   useFrame((state) => {
@@ -261,88 +185,9 @@ const EnhancedCrystalScene = ({
         crystalFloatingRef.current.position.set(0, 0, 0);
       }
     }
-
-    // Enhanced fracture effects with better timing
-    if (explosionPhase === 'fractured') {
-      const timeSinceFracture = time - fractureStartTime.current;
-      const pulseDuration = (config.timing.fracture.pulseDuration || 100) / 1000;
-      const glowFadeDuration = (config.timing.fracture.glowFadeDuration || 200) / 1000;
-      
-      if (timeSinceFracture < pulseDuration) {
-        setFractureGlowComplete(false);
-        
-        facetRefs.current.forEach((ref) => {
-          if (ref) {
-            const scaleFactor = 1 + config.effects.fracture.maxScaleFactor * 
-                               Math.sin(timeSinceFracture * Math.PI * 10);
-            ref.scale.set(scaleFactor, scaleFactor, scaleFactor);
-          }
-        });
-        
-        if (crystalMaterialRef.current) {
-          const initialGlow = config.effects.fracture.initialGlow || 0.8;
-          
-          if (materialVariant !== 'blackOpal' && materialVariant !== 'iceOpal') {
-            crystalMaterialRef.current.emissiveIntensity = initialGlow;
-            lastGlowValue.current = initialGlow;
-            crystalMaterialRef.current.needsUpdate = true;
-          } else {
-            setBlackOpalConfig({
-              ...blackOpalConfigState,
-              emissiveIntensity: initialGlow
-            });
-            lastGlowValue.current = initialGlow;
-          }
-        }
-      } else if (timeSinceFracture < (pulseDuration + glowFadeDuration)) {
-        facetRefs.current.forEach((ref) => {
-          if (ref) {
-            ref.scale.set(1, 1, 1);
-          }
-        });
-        
-        if (crystalMaterialRef.current) {
-          const fadeProgress = (timeSinceFracture - pulseDuration) / glowFadeDuration;
-          const initialGlow = config.effects.fracture.initialGlow || 0.8;
-          const secondaryGlow = config.effects.fracture.secondaryGlow || 0.3;
-          
-          const currentGlow = initialGlow + (secondaryGlow - initialGlow) * fadeProgress;
-          
-          if (materialVariant !== 'blackOpal' && materialVariant !== 'iceOpal') {
-            crystalMaterialRef.current.emissiveIntensity = currentGlow;
-            lastGlowValue.current = currentGlow;
-            crystalMaterialRef.current.needsUpdate = true;
-          } else {
-            setBlackOpalConfig({
-              ...blackOpalConfigState,
-              emissiveIntensity: currentGlow
-            });
-            lastGlowValue.current = currentGlow;
-          }
-        }
-      } else if (!fractureGlowComplete) {
-        if (crystalMaterialRef.current) {
-          const secondaryGlow = config.effects.fracture.secondaryGlow || 0.3;
-          
-          if (materialVariant !== 'blackOpal' && materialVariant !== 'iceOpal') {
-            crystalMaterialRef.current.emissiveIntensity = secondaryGlow;
-            lastGlowValue.current = secondaryGlow;
-            crystalMaterialRef.current.needsUpdate = true;
-          } else {
-            setBlackOpalConfig({
-              ...blackOpalConfigState,
-              emissiveIntensity: secondaryGlow
-            });
-            lastGlowValue.current = secondaryGlow;
-          }
-          
-          setFractureGlowComplete(true);
-        }
-      }
-    }
     
     // Handle idle floating animation and update label positions
-    if (explosionPhase === 'exploded' && showFacets && facetRefs.current) {
+    if (crystalState === CRYSTAL_STATES.EXPLODED && showFacets && facetRefs.current) {
       const elapsedSinceExplosion = time - explosionStartTime.current;
       
       const transitionStart = config.timing.idle.transitionStartTime;
@@ -488,11 +333,10 @@ const EnhancedCrystalScene = ({
       from: { position: config.startingPositions[label.key] },
       to: { 
         position: 
-          explosionPhase === 'initial' ? config.startingPositions[label.key] : 
-          explosionPhase === 'fractured' ? config.fracturePositions[label.key] : 
+          crystalState === CRYSTAL_STATES.WHOLE ? config.startingPositions[label.key] : 
           config.explodedPositions[label.key] 
       },
-      config: createSpringConfig(explosionPhase, isExploded)
+      config: createSpringConfig('exploded', crystalState !== CRYSTAL_STATES.WHOLE)
     });
   });
   

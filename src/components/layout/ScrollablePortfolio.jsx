@@ -555,13 +555,13 @@
 // export default ScrollablePortfolio;
 
 // src/components/layout/ScrollablePortfolio.jsx
-// Updated to include the new About Section (Phase 2.4)
+// Phase 3.1: Updated with crystal controller section IDs
 
 import React from 'react';
 import HeroSection from '../sections/HeroSection';
 import ProjectsSection from '../sections/ProjectsSection';
 import ProjectFocusSection from '../sections/ProjectFocusSection';
-import AboutSection from '../sections/AboutSection'; // NEW IMPORT for Phase 2.4
+import AboutSection from '../sections/AboutSection';
 import { projects } from '../../data/projects';
 
 const ScrollablePortfolio = () => {
@@ -571,32 +571,42 @@ const ScrollablePortfolio = () => {
       style={{
         position: 'relative',
         zIndex: 10,
-        minHeight: '600vh', // INCREASED: Now includes About section
+        minHeight: '600vh',
         backgroundColor: 'transparent',
         pointerEvents: 'auto',
       }}
     >
-      {/* Phase 2.1: Hero Section */}
-      <HeroSection />
+      {/* Hero Section - maps to WHOLE crystal state */}
+      <section id="hero" className="scroll-section">
+        <HeroSection />
+      </section>
       
-      {/* Phase 2.2: Projects Grid Section */}
-      <ProjectsSection />
+      {/* Projects Grid - maps to EXPLODED crystal state */}
+      <section id="projects-overview" className="scroll-section">
+        <ProjectsSection />
+      </section>
       
-      {/* Phase 2.3: Individual Project Focus Sections */}
-      {projects.map((project, index) => (
-        <ProjectFocusSection
+      {/* Individual Project Sections - map to PROJECT_SELECTED states */}
+      {projects.map((project) => (
+        <section 
           key={project.id}
-          project={project}
-          visible={true} // Will be controlled by scroll observer
-          onViewProject={(project) => {
-            // This will trigger the modal system in Phase 4
-            console.log('View project:', project);
-          }}
-        />
+          id={`project-${project.facetKey}`} // CRITICAL: Must match facet keys
+          className="scroll-section"
+        >
+          <ProjectFocusSection
+            project={project}
+            visible={true}
+            onViewProject={(project) => {
+              console.log('View project:', project);
+            }}
+          />
+        </section>
       ))}
 
-      {/* Phase 2.4: About Section - NEW ADDITION */}
-      <AboutSection />
+      {/* About Section - maps to WHOLE crystal state (reformed) */}
+      <section id="about" className="scroll-section">
+        <AboutSection />
+      </section>
     </div>
   );
 };

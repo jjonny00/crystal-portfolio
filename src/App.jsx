@@ -13,6 +13,9 @@ import Fixed3DCanvas from './components/layout/Fixed3DCanvas';
 // Import scroll observer
 import { useCrystalScrollObserver } from './hooks/useScrollObserver';
 
+// Import new crystal scroll controller
+import { useCrystalController } from './hooks/useCrystalController';
+
 // Import existing components we still need
 import Navigation from './components/ui/Navigation';
 import FooterSection from './components/ui/FooterSection';
@@ -58,14 +61,29 @@ function App() {
     enableOrientationLock: false
   });
 
-  // Scroll observer for crystal state management
+  // // Scroll observer for crystal state management
+  // const {
+  //   currentSection,
+  //   crystalState,
+  //   selectedFacet,
+  //   scrollProgress,
+  //   scrollToSection,
+  //   isSectionVisible,
+  //   debugInfo
+  // } = useCrystalScrollObserver({
+  //   onCrystalStateChange: (data) => {
+  //     console.log(`🔄 Crystal state: ${data.crystalState}, Facet: ${data.selectedFacet || 'none'}`);
+  //   },
+  //   isMobile
+  // });
+
+  // Enhanced scroll observer with crystal controller
   const {
     currentSection,
-    crystalState,
-    selectedFacet,
     scrollProgress,
     scrollToSection,
     isSectionVisible,
+    visibleSections,
     debugInfo
   } = useCrystalScrollObserver({
     onCrystalStateChange: (data) => {
@@ -73,6 +91,34 @@ function App() {
     },
     isMobile
   });
+
+  // NEW: Crystal controller integration
+  const {
+    crystalState,
+    selectedFacet,
+    isTransitioning,
+    scrollDirection,
+    isFastScrolling,
+    overrideCrystalState,
+    debugInfo: crystalDebugInfo
+  } = useCrystalController({
+    scrollObserver: { currentSection, visibleSections, getVisibleSectionIds: () => Array.from(visibleSections.keys()) },
+    onStateChange: (newState, prevState) => {
+      console.log(`💎 Crystal: ${prevState} → ${newState}`);
+    },
+    onFacetChange: (newFacet, prevFacet) => {
+      console.log(`🎯 Facet: ${prevFacet || 'none'} → ${newFacet || 'none'}`);
+    },
+    debugMode: process.env.NODE_ENV === 'development'
+  });
+
+  // Pass crystal state to 3D canvas
+  <Fixed3DCanvas
+    crystalState={crystalState}
+    selectedFacet={selectedFacet}
+    hoveredFacet={null}
+    // ... other props
+  />
 
   // UI state
   const [config, setConfig] = useState({

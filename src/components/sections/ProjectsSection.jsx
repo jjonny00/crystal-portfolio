@@ -163,11 +163,7 @@ const ProjectsSection = ({
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
           gap: '2rem',
-          marginTop: '2rem',
-          '@media (max-width: 768px)': {
-            gridTemplateColumns: '1fr',
-            gap: '1.5rem'
-          }
+          marginTop: '2rem'
         }}>
           {projects.map((project, index) => {
             const isHovered = hoveredProject === project.key;
