@@ -305,7 +305,6 @@ export const useCrystalScrollObserver = (options = {}) => {
     if (sectionId === 'projects-overview') return 'EXPLODED';
     if (sectionId.startsWith('project-')) return 'PROJECT_SELECTED';
     if (sectionId === 'about') return 'WHOLE';
-    if (sectionId === 'footer') return 'WHOLE';
     
     return 'WHOLE'; // Default fallback
   }, []);

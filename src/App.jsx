@@ -3,6 +3,7 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
 import './App.css';
+import './styles/scroll-snap.css';
 
 // Import new layout components
 import ScrollablePortfolio from './components/layout/ScrollablePortfolio';
@@ -177,11 +178,11 @@ function App() {
 
   // Navigation handlers - now use scroll observer
   const handleWorkClick = useCallback(() => {
-    scrollToSection('projects-overview');
+    scrollToSection('projects-overview'); // Match your ProjectsSection id
   }, [scrollToSection]);
 
   const handleAboutClick = useCallback(() => {
-    scrollToSection('about');
+    scrollToSection('about'); // Match your AboutSection id  
   }, [scrollToSection]);
 
   const handleProcessClick = useCallback(() => {
