@@ -14,7 +14,7 @@ import { FPSCounter } from '../ui/FpsDisplay';
 
 /**
  * Fixed3DCanvas - The 3D scene that remains fixed behind scrollable content
- * This replaces the positioning logic in App.jsx
+ * Fixed layering to ensure content appears above the canvas
  */
 const Fixed3DCanvas = ({ 
   crystalState,
@@ -40,8 +40,8 @@ const Fixed3DCanvas = ({
       left: 0,
       width: '100vw',
       height: '100vh',
-      zIndex: 1, // Behind scrollable content but above background
-      pointerEvents: 'none', // Allow scroll events to pass through
+      zIndex: 1, // IMPORTANT: Behind scrollable content (which is z-index 10)
+      pointerEvents: 'none', // IMPORTANT: Don't block scrolling
     }}>
       <Canvas 
         shadows 
@@ -59,7 +59,8 @@ const Fixed3DCanvas = ({
         style={{ 
           width: '100%', 
           height: '100%',
-          pointerEvents: 'auto', // Re-enable for 3D interactions only
+          // IMPORTANT: Allow pointer events only for 3D interactions
+          pointerEvents: isMobile ? 'none' : 'auto',
         }}
       >
         
