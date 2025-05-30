@@ -303,16 +303,20 @@ export const useCrystalScrollObserver = (options = {}) => {
 
     if (sectionId === 'hero') return 'WHOLE';
     if (sectionId === 'projects-overview') return 'EXPLODED';
+    
+    // NEW: Individual project sections
     if (sectionId.startsWith('project-')) return 'PROJECT_SELECTED';
+    
     if (sectionId === 'about') return 'WHOLE';
     
-    return 'WHOLE'; // Default fallback
+    return 'WHOLE';
   }, []);
 
   // Get selected facet from project section
   const getSelectedFacet = useCallback((sectionId) => {
     if (!sectionId || !sectionId.startsWith('project-')) return null;
     
+    // Extract facet key from section ID (e.g., 'project-empathy' -> 'empathy')
     return sectionId.replace('project-', '');
   }, []);
 

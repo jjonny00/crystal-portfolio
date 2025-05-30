@@ -558,6 +558,8 @@
 import React from 'react';
 import HeroSection from '../sections/HeroSection';
 import ProjectsSection from '../sections/ProjectsSection';
+import ProjectFocusSection from '../sections/ProjectFocusSection'; // NEW IMPORT
+import { projects } from '../../data/projects'; // NEW IMPORT
 
 const ScrollablePortfolio = () => {
   return (
@@ -565,16 +567,27 @@ const ScrollablePortfolio = () => {
       className="scroll-container"
       style={{
         position: 'relative',
-        zIndex: 10, // Above the 3D canvas
-        minHeight: '500vh', // Ensure scrollable content
+        zIndex: 10,
+        minHeight: '500vh', // INCREASE: Now need more scroll height
         backgroundColor: 'transparent',
         pointerEvents: 'auto',
       }}
     >
-      {/* Use your new components */}
       <HeroSection />
       <ProjectsSection />
       
+      {/* NEW: Individual Project Focus Sections */}
+      {projects.map((project, index) => (
+        <ProjectFocusSection
+          key={project.id}
+          project={project}
+          visible={true} // Will be controlled by scroll observer later
+          onViewProject={(project) => {
+            // This will trigger the modal system in Phase 4
+            console.log('View project:', project);
+          }}
+        />
+      ))}
     </div>
   );
 };

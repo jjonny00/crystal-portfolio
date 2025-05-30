@@ -70,6 +70,7 @@ html {
     /* DO NOT use overscroll-behavior: contain - it can break scroll */
     /* DO NOT use touch-action: pan-y only - be more permissive */
     touch-action: manipulation; /* Allow zoom but prevent double-tap delay */
+    
   }
   
   /* CRITICAL: Don't prevent all user selection - only on specific elements */

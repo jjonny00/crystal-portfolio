@@ -15,7 +15,11 @@ export const projects = [
     color: "#64ffda", // Match the facet color
     imageUrl: "/assets/projects/user-dashboard.jpg",
     demoUrl: "https://demo-url.com/dashboard",
-    githubUrl: "https://github.com/yourusername/user-dashboard"
+    githubUrl: "https://github.com/yourusername/user-dashboard",
+    role: "Lead UX Designer",
+    timeline: "4 months",
+    teamSize: "5 people",
+    platform: "Web Dashboard"
   },
   {
     id: "project2",
@@ -26,7 +30,11 @@ export const projects = [
     color: "#bb86fc", // Match the facet color
     imageUrl: "/assets/projects/storytelling-platform.jpg",
     demoUrl: "https://demo-url.com/storytelling",
-    githubUrl: "https://github.com/yourusername/storytelling-platform"
+    githubUrl: "https://github.com/yourusername/storytelling-platform",
+    role: "Lead UX Designer",
+    timeline: "4 months",
+    teamSize: "5 people",
+    platform: "Web Dashboard"
   },
   {
     id: "project3",
@@ -37,7 +45,11 @@ export const projects = [
     color: "#03dac6", // Match the facet color
     imageUrl: "/assets/projects/design-system.jpg",
     demoUrl: "https://demo-url.com/design-system",
-    githubUrl: "https://github.com/yourusername/design-system"
+    githubUrl: "https://github.com/yourusername/design-system",
+    role: "Lead UX Designer",
+    timeline: "4 months",
+    teamSize: "5 people",
+    platform: "Web Dashboard"
   },
   {
     id: "project4",
@@ -48,7 +60,11 @@ export const projects = [
     color: "#cf6679", // Match the facet color
     imageUrl: "/assets/projects/component-architecture.jpg",
     demoUrl: "https://demo-url.com/components",
-    githubUrl: "https://github.com/yourusername/component-architecture"
+    githubUrl: "https://github.com/yourusername/component-architecture",
+    role: "Lead UX Designer",
+    timeline: "4 months",
+    teamSize: "5 people",
+    platform: "Web Dashboard"
   },
   {
     id: "project5",
@@ -59,7 +75,11 @@ export const projects = [
     color: "#ffd600", // Match the facet color
     imageUrl: "/assets/projects/collaboration-platform.jpg",
     demoUrl: "https://demo-url.com/collaboration",
-    githubUrl: "https://github.com/yourusername/collaboration-platform"
+    githubUrl: "https://github.com/yourusername/collaboration-platform",
+    role: "Lead UX Designer",
+    timeline: "4 months",
+    teamSize: "5 people",
+    platform: "Web Dashboard"
   },
   {
     id: "project6",
@@ -70,7 +90,11 @@ export const projects = [
     color: "#ff7043", // Match the facet color
     imageUrl: "/assets/projects/experimental-interactions.jpg",
     demoUrl: "https://demo-url.com/experiments",
-    githubUrl: "https://github.com/yourusername/experimental-interactions"
+    githubUrl: "https://github.com/yourusername/experimental-interactions",
+    role: "Lead UX Designer",
+    timeline: "4 months",
+    teamSize: "5 people",
+    platform: "Web Dashboard"
   }
 ];
 
