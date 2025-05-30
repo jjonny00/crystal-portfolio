@@ -22,6 +22,7 @@ const Fixed3DCanvas = ({
   hoveredFacet,
   onFacetSelect,
   onFacetHover,
+  isFastScrolling = false,
   materialVariant = 'default',
   blackOpalConfig,
   iceOpalConfig,
@@ -106,6 +107,7 @@ const Fixed3DCanvas = ({
           hoveredFacet={hoveredFacet}
           onFacetSelect={isMobile ? null : onFacetSelect} // Disable on mobile
           onFacetHover={isMobile ? null : onFacetHover}   // Disable on mobile
+          isFastScrolling={isFastScrolling}
           isTransitioning={false} // Will be managed by scroll observer
           performanceConfig={performanceConfig}
           isMobileDevice={isMobile}

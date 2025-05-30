@@ -117,7 +117,7 @@ function App() {
     crystalState={crystalState}
     selectedFacet={selectedFacet}
     hoveredFacet={null}
-    // ... other props
+    isFastScrolling={isFastScrolling}
   />
 
   // UI state

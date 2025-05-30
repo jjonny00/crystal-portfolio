@@ -1,5 +1,5 @@
-// src/components/three/EnhancedCrystalScene.jsx - Enhanced with mobile touch optimization
-// Added mobile touch handling and conditional orbit controls
+// src/components/three/EnhancedCrystalScene.jsx - Phase 3.2 Complete Updates
+// Replace the existing CameraController import and usage with ScrollCameraController
 
 import { useRef, useState, useEffect } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
@@ -10,46 +10,53 @@ import { a, useSpring } from '@react-spring/three'
 // Import state machine constants
 import { CRYSTAL_STATES } from '../../machines/crystalStateMachine'
 
-// Import default configuration (will be overridden by props)
+// Import default configuration
 import * as defaultConfig from '../../crystalConfig'
 
 // Import sub-components
 import MaterialManager from './MaterialManager'
 import SelectableFacetGroup from './SelectableFacetGroup'
 import SelectablePremiumLabel from './SelectablePremiumLabel'
-import CameraController from './CameraController'
+
+// PHASE 3.2: Replace CameraController with ScrollCameraController
+import ScrollCameraController from './ScrollCameraController'
+
 import { LabelConnector } from './LabelConnector'
 
-// Create the hook file first
+// Mobile scrolling hook
 import { useMobileScrolling } from '../../hooks/useMobileScrolling'
 
 /**
- * Enhanced crystal scene with project selection functionality,
- * state machine integration, slow rotation, and better state transitions
+ * Enhanced crystal scene with Phase 3.2 updates
+ * - Replaced CameraController with ScrollCameraController
+ * - Removed all scroll event listeners from camera system
+ * - Enhanced mobile touch handling
+ * - Added isFastScrolling prop support
  */
 const EnhancedCrystalScene = ({ 
   isExploded, 
-  crystalState,        // Now comes from crystal controller
+  crystalState,        // From crystal controller
   config = defaultConfig, 
   materialVariant = 'default',
   blackOpalConfig,
   iceOpalConfig,
-  selectedFacet = null,  // Now comes from crystal controller
+  selectedFacet = null,  // From crystal controller
   hoveredFacet = null,
   onFacetSelect,
   onFacetHover,
   isTransitioning,
   performanceConfig = { useNormalMaps: true, textureQuality: 'high', usePBR: true },
-  scrollCrystalData = null
+  scrollCrystalData = null, // For scroll data
+  isFastScrolling = false   // PHASE 3.2: New prop for fast scroll detection
 }) => {
-  // Mobile touch handling with slower scroll settings
+  // Mobile touch handling with enhanced settings
   const { isMobileDevice, preventOrbitOnMobile } = useMobileScrolling({
     enableTouchScrolling: true,
     preventOrbitOnMobile: true,
-    smoothScrollFactor: 0.2,    // Very slow scrolling
-    momentumMultiplier: 0.25,   // Reduced momentum  
-    minSwipeDistance: 20,       // Require more deliberate swipes
-    debugMode: false            // Set to true to see scroll values
+    smoothScrollFactor: 0.15,
+    momentumMultiplier: 0.2,
+    minSwipeDistance: 25,
+    debugMode: false
   });
 
   // Component state
@@ -61,14 +68,14 @@ const EnhancedCrystalScene = ({
     config.facetLabels.map(label => config.explodedPositions[label.key] || [0, 0, 0])
   );
   
-  // Floating animation ref for intro crystal with rotation
+  // Floating animation refs
   const crystalFloatingRef = useRef();
   const crystalRotationRef = useRef();
   
   // Store references to anchor objects
   const anchorRefs = useRef({});
   
-  // Local state for material configs
+  // Material state
   const [blackOpalConfigState, setBlackOpalConfig] = useState({
     emissiveIntensity: 0.5,
     roughness: 0.4,
@@ -118,7 +125,7 @@ const EnhancedCrystalScene = ({
     
   }, [crystalWhole, facetEmpathy, facetNarrative, facetCraft, facetSystem, facetLeadership, facetExploration, crystalMaterialRef.current]);
   
-  // Simplified visibility transitions - crystal controller manages state
+  // Visibility transitions - crystal controller manages state
   useEffect(() => {
     console.log(`🎭 Crystal scene: ${crystalState}`);
     
@@ -153,7 +160,7 @@ const EnhancedCrystalScene = ({
   useFrame((state) => {
     const time = state.clock.getElapsedTime();
     
-    // NEW: Very slow crystal rotation - only when whole crystal is visible
+    // Very slow crystal rotation - only when whole crystal is visible
     if (crystalRotationRef.current && showCrystal) {
       // Very slow rotation - complete rotation every ~60 seconds
       const rotationSpeed = 0.0003; // Radians per frame at 60fps
@@ -166,8 +173,8 @@ const EnhancedCrystalScene = ({
     
     // Enhanced floating animation for intro crystal
     if (crystalFloatingRef.current && scrollCrystalData) {
-      const isIntroState = scrollCrystalData.currentSection.key === 'intro-close' || 
-                          scrollCrystalData.currentSection.key === 'intro';
+      const isIntroState = scrollCrystalData.currentSection?.key === 'intro-close' || 
+                          scrollCrystalData.currentSection?.key === 'intro';
       
       if (isIntroState && showCrystal) {
         // Subtle floating motion - more pronounced than facet floating
@@ -362,16 +369,14 @@ const EnhancedCrystalScene = ({
         performanceConfig={performanceConfig}
       />
       
-      {/* Enhanced Camera Controller with scroll data */}
-      <CameraController
-        isExploded={isExploded}
+      {/* PHASE 3.2: Enhanced Camera Controller with Animation Queue */}
+      <ScrollCameraController
         crystalState={crystalState}
         selectedFacet={selectedFacet}
-        facetRefs={facetRefs}
+        isFastScrolling={isFastScrolling}
+        isTransitioning={isTransitioning}
         config={config}
-        facetLabels={config.facetLabels}
-        debugMode={true}
-        scrollCrystalData={scrollCrystalData}
+        debugMode={process.env.NODE_ENV === 'development'}
       />
       
       {/* Show the whole crystal with floating animation AND slow rotation */}
