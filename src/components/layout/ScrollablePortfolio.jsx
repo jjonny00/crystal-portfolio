@@ -555,11 +555,14 @@
 // export default ScrollablePortfolio;
 
 // src/components/layout/ScrollablePortfolio.jsx
+// Updated to include the new About Section (Phase 2.4)
+
 import React from 'react';
 import HeroSection from '../sections/HeroSection';
 import ProjectsSection from '../sections/ProjectsSection';
-import ProjectFocusSection from '../sections/ProjectFocusSection'; // NEW IMPORT
-import { projects } from '../../data/projects'; // NEW IMPORT
+import ProjectFocusSection from '../sections/ProjectFocusSection';
+import AboutSection from '../sections/AboutSection'; // NEW IMPORT for Phase 2.4
+import { projects } from '../../data/projects';
 
 const ScrollablePortfolio = () => {
   return (
@@ -568,26 +571,32 @@ const ScrollablePortfolio = () => {
       style={{
         position: 'relative',
         zIndex: 10,
-        minHeight: '500vh', // INCREASE: Now need more scroll height
+        minHeight: '600vh', // INCREASED: Now includes About section
         backgroundColor: 'transparent',
         pointerEvents: 'auto',
       }}
     >
+      {/* Phase 2.1: Hero Section */}
       <HeroSection />
+      
+      {/* Phase 2.2: Projects Grid Section */}
       <ProjectsSection />
       
-      {/* NEW: Individual Project Focus Sections */}
+      {/* Phase 2.3: Individual Project Focus Sections */}
       {projects.map((project, index) => (
         <ProjectFocusSection
           key={project.id}
           project={project}
-          visible={true} // Will be controlled by scroll observer later
+          visible={true} // Will be controlled by scroll observer
           onViewProject={(project) => {
             // This will trigger the modal system in Phase 4
             console.log('View project:', project);
           }}
         />
       ))}
+
+      {/* Phase 2.4: About Section - NEW ADDITION */}
+      <AboutSection />
     </div>
   );
 };
