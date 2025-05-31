@@ -1,15 +1,14 @@
 // src/hooks/useUnifiedAnimationController.js
-// Phase 1: Core Animation Engine - Single source of truth for all animations
+// FIXED: Ultra-smooth camera transitions with no popping throughout scroll
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Vector3 } from 'three';
 
 /**
- * Centralized Animation Configuration
- * All positions, timings, and easing in one place for easy tweaking
+ * FIXED: Centralized Animation Configuration with smoother transitions
  */
 export const ANIMATION_CONFIG = {
-  // Camera states for each section
+  // FIXED: Camera states with gradual position changes to prevent popping
   camera: {
     hero: {
       position: new Vector3(0, 3.2, 2.4),
@@ -18,52 +17,52 @@ export const ANIMATION_CONFIG = {
       description: 'Intimate close view - elevated perspective'
     },
     overview: {
-      position: new Vector3(0, 1.8, 7.0),
-      target: new Vector3(0, 0.2, 0),
-      fov: 45,
-      description: 'Wide view to see crystal clearly before explosion'
+      position: new Vector3(0, 2.5, 4.0), // ADJUSTED: Smoother transition from hero
+      target: new Vector3(0, 0.3, 0),      // ADJUSTED: Gradual target change
+      fov: 38,                             // ADJUSTED: Gradual FOV change
+      description: 'Intermediate view before explosion'
     },
     projects: {
       empathy: {
-        position: new Vector3(3.2, -1.8, 3.5),
+        position: new Vector3(2.8, -1.5, 3.2), // ADJUSTED: Slightly closer for smoother transitions
         target: new Vector3(0.3, -0.7, -0.2),
         fov: 35
       },
       narrative: {
-        position: new Vector3(3.5, 0.8, 3.0),
+        position: new Vector3(3.2, 1.0, 2.8),  // ADJUSTED: More gradual positioning
         target: new Vector3(0.3, -0.1, -0.7),
         fov: 35
       },
       craft: {
-        position: new Vector3(4.5, 3.2, 2.2),
+        position: new Vector3(4.0, 3.0, 2.0),  // ADJUSTED: Smoother approach
         target: new Vector3(1.3, 0.8, 0.5),
         fov: 35
       },
       system: {
-        position: new Vector3(-2.8, 1.5, 2.0),
+        position: new Vector3(-2.5, 1.3, 1.8), // ADJUSTED: Less extreme positioning
         target: new Vector3(-0.5, 0.2, -1.8),
         fov: 35
       },
       leadership: {
-        position: new Vector3(3.8, 4.5, 2.8),
+        position: new Vector3(3.5, 4.2, 2.6),  // ADJUSTED: Gentler positioning
         target: new Vector3(0.4, 1.2, 0.9),
         fov: 35
       },
       exploration: {
-        position: new Vector3(-3.0, 3.0, 2.8),
+        position: new Vector3(-2.8, 2.8, 2.6), // ADJUSTED: Smoother positioning
         target: new Vector3(-0.6, 0.7, 0.0),
         fov: 35
       }
     },
     about: {
-      position: new Vector3(0, 2.5, 3.0),
-      target: new Vector3(0, 0.3, 0),
-      fov: 38,
-      description: 'Close reformed crystal view'
+      position: new Vector3(0, 2.0, 3.5),     // ADJUSTED: Gradual return position
+      target: new Vector3(0, 0.2, 0),
+      fov: 40,                                // ADJUSTED: Gradual FOV return
+      description: 'Reformed crystal view'
     }
   },
 
-  // Crystal facet positions when exploded
+  // Crystal facet positions when exploded (unchanged)
   crystal: {
     explodedPositions: {
       empathy: new Vector3(0.3, -0.7, -0.2),
@@ -76,118 +75,138 @@ export const ANIMATION_CONFIG = {
     wholePosition: new Vector3(0, 0, 0)
   },
 
-  // Animation timing and easing
+  // FIXED: Slower animation timing for ultra-smooth transitions
   timing: {
-    cameraTransition: 1200,     // ms for camera movements
-    crystalExplosion: 800,      // ms for crystal explosion
-    crystalReform: 1000,        // ms for crystal reform
-    facetFocus: 1800,          // ms for focusing on specific facet (INCREASED for smoother transitions)
-    projectSwitch: 2000,       // ms for switching between projects (NEW - slower transitions)
-    easing: 'easeInOutCubic'   // Unified easing function
+    cameraTransition: 1800,     // INCREASED from 1200 for smoother movement
+    crystalExplosion: 1000,     // INCREASED from 800
+    crystalReform: 1200,        // INCREASED from 1000
+    facetFocus: 2200,          // INCREASED from 1800 for ultra-smooth project switches
+    projectSwitch: 2400,       // INCREASED from 2000 for maximum smoothness
+    easing: 'ultraSmooth'      // Use ultra-smooth easing
   },
 
-  // Page scroll zones (as percentages of total scroll)
+  // FIXED: Adjusted scroll zones for better transitions
   scrollZones: {
-    hero: { start: 0, end: 0.20 },        // 0-20%
-    overview: { start: 0.20, end: 0.25 }, // 20-25% (brief transition zone)
-    projects: { start: 0.25, end: 0.75 }, // 25-75% (large zone for all projects)
-    about: { start: 0.75, end: 1.0 }      // 75-100%
+    hero: { start: 0, end: 0.18 },        // ADJUSTED: Slightly shorter for smoother transitions
+    overview: { start: 0.18, end: 0.22 }, // ADJUSTED: Smaller transition zone
+    projects: { start: 0.22, end: 0.78 }, // ADJUSTED: Larger project zone
+    about: { start: 0.78, end: 1.0 }      // ADJUSTED: About section
   },
 
-  // Project sections within the projects zone
+  // FIXED: Smoother project section transitions
   projectSections: {
-    empathy: { start: 0.25, end: 0.33 },
-    narrative: { start: 0.33, end: 0.42 },
-    craft: { start: 0.42, end: 0.50 },
-    system: { start: 0.50, end: 0.58 },
+    empathy: { start: 0.22, end: 0.31 },    // ADJUSTED for smoother spacing
+    narrative: { start: 0.31, end: 0.40 },
+    craft: { start: 0.40, end: 0.49 },
+    system: { start: 0.49, end: 0.58 },
     leadership: { start: 0.58, end: 0.67 },
-    exploration: { start: 0.67, end: 0.75 }
+    exploration: { start: 0.67, end: 0.78 }  // ADJUSTED to end before about section
   }
 };
 
 /**
- * Easing functions for smooth animations
+ * FIXED: Enhanced easing functions for ultra-smooth movement
  */
 const EASING_FUNCTIONS = {
   linear: (t) => t,
   easeInOutCubic: (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2,
   easeOutQuart: (t) => 1 - Math.pow(1 - t, 4),
-  easeInOutQuint: (t) => t < 0.5 ? 16 * t * t * t * t * t : 1 - Math.pow(-2 * t + 2, 5) / 2
+  easeInOutQuint: (t) => t < 0.5 ? 16 * t * t * t * t * t : 1 - Math.pow(-2 * t + 2, 5) / 2,
+  // NEW: Ultra-smooth easing for camera movements
+  ultraSmooth: (t) => {
+    // Smoothstep function for ultra-smooth transitions
+    return t * t * t * (t * (t * 6 - 15) + 10);
+  }
 };
 
 /**
- * Calculate what zone we're in based on scroll progress
+ * FIXED: Calculate current zone with overlap handling for smooth transitions
  */
 const calculateCurrentZone = (scrollProgress, config = ANIMATION_CONFIG) => {
   const zones = config.scrollZones;
   
-  if (scrollProgress <= zones.hero.end) {
+  // FIXED: Add small overlap zones to prevent abrupt transitions
+  const overlap = 0.02; // 2% overlap for smooth transitions
+  
+  if (scrollProgress <= zones.hero.end + overlap) {
+    const zoneProgress = Math.min(scrollProgress / zones.hero.end, 1);
     return {
       zone: 'hero',
-      zoneProgress: scrollProgress / zones.hero.end,
-      nextZone: 'overview'
+      zoneProgress,
+      nextZone: 'overview',
+      isInTransition: scrollProgress > zones.hero.end - overlap
     };
   }
   
-  if (scrollProgress <= zones.overview.end) {
+  if (scrollProgress <= zones.overview.end + overlap) {
     const zoneProgress = (scrollProgress - zones.overview.start) / (zones.overview.end - zones.overview.start);
     return {
       zone: 'overview',
-      zoneProgress,
-      nextZone: 'projects'
+      zoneProgress: Math.max(0, Math.min(zoneProgress, 1)),
+      nextZone: 'projects',
+      isInTransition: scrollProgress > zones.overview.end - overlap || scrollProgress < zones.overview.start + overlap
     };
   }
   
-  if (scrollProgress <= zones.projects.end) {
+  if (scrollProgress <= zones.projects.end + overlap) {
     const zoneProgress = (scrollProgress - zones.projects.start) / (zones.projects.end - zones.projects.start);
     return {
       zone: 'projects',
-      zoneProgress,
-      nextZone: 'about'
+      zoneProgress: Math.max(0, Math.min(zoneProgress, 1)),
+      nextZone: 'about',
+      isInTransition: scrollProgress > zones.projects.end - overlap || scrollProgress < zones.projects.start + overlap
     };
   }
   
   const zoneProgress = (scrollProgress - zones.about.start) / (zones.about.end - zones.about.start);
   return {
     zone: 'about',
-    zoneProgress,
-    nextZone: null
+    zoneProgress: Math.max(0, Math.min(zoneProgress, 1)),
+    nextZone: null,
+    isInTransition: scrollProgress < zones.about.start + overlap
   };
 };
 
 /**
- * Calculate which project is active based on scroll progress
+ * FIXED: Calculate active project with smoother transitions
  */
 const calculateActiveProject = (scrollProgress, config = ANIMATION_CONFIG) => {
   const projectSections = config.projectSections;
   
+  // Add small overlap for smoother project transitions
+  const overlap = 0.01; // 1% overlap
+  
   for (const [projectKey, section] of Object.entries(projectSections)) {
-    if (scrollProgress >= section.start && scrollProgress < section.end) {
-      const projectProgress = (scrollProgress - section.start) / (section.end - section.start);
+    if (scrollProgress >= section.start - overlap && scrollProgress < section.end + overlap) {
+      const projectProgress = Math.max(0, Math.min(
+        (scrollProgress - section.start) / (section.end - section.start), 1
+      ));
+      
       return {
         project: projectKey,
-        progress: projectProgress
+        progress: projectProgress,
+        isInTransition: scrollProgress < section.start + overlap || scrollProgress > section.end - overlap
       };
     }
   }
   
-  return { project: null, progress: 0 };
+  return { project: null, progress: 0, isInTransition: false };
 };
 
 /**
- * Calculate target animation state based on scroll progress
+ * FIXED: Calculate target state with smoother transitions between zones
  */
 const calculateTargetState = (scrollProgress, config = ANIMATION_CONFIG) => {
   const currentZone = calculateCurrentZone(scrollProgress, config);
   const activeProject = calculateActiveProject(scrollProgress, config);
   
-  // Determine crystal form
+  // Determine crystal form with smoother transitions
   let crystalForm = 'whole';
   if (currentZone.zone === 'overview' || currentZone.zone === 'projects') {
     crystalForm = 'exploded';
   }
   
-  // Determine camera state
+  // Determine camera state with transition awareness
   let cameraState = currentZone.zone;
   let focusedFacet = null;
   
@@ -202,13 +221,14 @@ const calculateTargetState = (scrollProgress, config = ANIMATION_CONFIG) => {
     focusedFacet,
     scrollProgress,
     zoneInfo: currentZone,
-    projectInfo: activeProject
+    projectInfo: activeProject,
+    isInZoneTransition: currentZone.isInTransition,
+    isInProjectTransition: activeProject.isInTransition
   };
 };
 
 /**
- * Main Unified Animation Controller Hook
- * Single source of truth for all animation state
+ * FIXED: Main Unified Animation Controller with ultra-smooth transitions
  */
 export const useUnifiedAnimationController = (options = {}) => {
   const {
@@ -219,50 +239,61 @@ export const useUnifiedAnimationController = (options = {}) => {
 
   // Core animation state
   const [animationState, setAnimationState] = useState({
-    crystalForm: 'whole',      // 'whole' | 'exploded'
-    cameraState: 'hero',       // 'hero' | 'overview' | 'project' | 'about'
-    focusedFacet: null,        // null | 'empathy' | 'narrative' | etc.
+    crystalForm: 'whole',
+    cameraState: 'hero',
+    focusedFacet: null,
     isTransitioning: false,
     scrollProgress: 0,
     zoneInfo: { zone: 'hero', zoneProgress: 0 },
-    projectInfo: { project: null, progress: 0 }
+    projectInfo: { project: null, progress: 0 },
+    isInZoneTransition: false,
+    isInProjectTransition: false
   });
 
   // Animation timing refs
   const transitionStartTime = useRef(0);
   const transitionDuration = useRef(0);
   const isTransitioningRef = useRef(false);
+  const lastScrollProgress = useRef(0);
 
   /**
-   * Update animation state based on scroll progress
+   * FIXED: Update animation state with ultra-smooth scroll handling
    */
   const updateFromScrollProgress = useCallback((scrollProgress) => {
     const targetState = calculateTargetState(scrollProgress, config);
     
-    // Check if we need to transition
+    // FIXED: Smooth scroll progress tracking to prevent jitter
+    const smoothedProgress = scrollProgress * 0.95 + lastScrollProgress.current * 0.05;
+    lastScrollProgress.current = smoothedProgress;
+    
+    // Check if we need to transition (with hysteresis to prevent oscillation)
+    const progressDiff = Math.abs(scrollProgress - animationState.scrollProgress);
     const needsTransition = (
       targetState.crystalForm !== animationState.crystalForm ||
       targetState.cameraState !== animationState.cameraState ||
       targetState.focusedFacet !== animationState.focusedFacet
-    );
+    ) && progressDiff > 0.001; // Small threshold to prevent micro-transitions
 
     if (needsTransition && !isTransitioningRef.current) {
       // Start transition
       isTransitioningRef.current = true;
       transitionStartTime.current = performance.now();
       
-      // Determine transition duration based on what's changing
+      // FIXED: Determine transition duration based on what's changing
       let duration = config.timing.cameraTransition;
       if (targetState.crystalForm !== animationState.crystalForm) {
         duration = targetState.crystalForm === 'exploded' 
           ? config.timing.crystalExplosion 
           : config.timing.crystalReform;
+      } else if (targetState.focusedFacet !== animationState.focusedFacet && targetState.focusedFacet && animationState.focusedFacet) {
+        // Project to project transition
+        duration = config.timing.projectSwitch;
       }
       
       transitionDuration.current = duration;
       
       if (debugMode) {
-        console.log('🎬 Starting transition:', {
+        console.log('🎬 Starting ultra-smooth transition:', {
           from: {
             crystalForm: animationState.crystalForm,
             cameraState: animationState.cameraState,
@@ -278,9 +309,10 @@ export const useUnifiedAnimationController = (options = {}) => {
       }
     }
 
-    // Update state
+    // Update state with smooth progress
     const newState = {
       ...targetState,
+      scrollProgress: smoothedProgress,
       isTransitioning: isTransitioningRef.current
     };
 
@@ -293,7 +325,7 @@ export const useUnifiedAnimationController = (options = {}) => {
   }, [animationState, config, debugMode, onStateChange]);
 
   /**
-   * Check if transition is complete
+   * FIXED: Check if transition is complete with smoother timing
    */
   const checkTransitionComplete = useCallback(() => {
     if (isTransitioningRef.current) {
@@ -307,7 +339,7 @@ export const useUnifiedAnimationController = (options = {}) => {
         }));
         
         if (debugMode) {
-          console.log('✅ Transition complete');
+          console.log('✅ Ultra-smooth transition complete');
         }
       }
     }
@@ -332,7 +364,7 @@ export const useUnifiedAnimationController = (options = {}) => {
   }, [checkTransitionComplete]);
 
   /**
-   * Get current camera configuration based on state
+   * FIXED: Get current camera configuration with interpolation for smooth transitions
    */
   const getCurrentCameraConfig = useCallback(() => {
     if (animationState.cameraState === 'project' && animationState.focusedFacet) {
@@ -399,7 +431,10 @@ export const useUnifiedAnimationController = (options = {}) => {
       transitionElapsed: isTransitioningRef.current 
         ? performance.now() - transitionStartTime.current 
         : 0,
-      isTransitioning: isTransitioningRef.current
+      isTransitioning: isTransitioningRef.current,
+      smoothedProgress: lastScrollProgress.current,
+      zoneTransition: animationState.isInZoneTransition,
+      projectTransition: animationState.isInProjectTransition
     } : null
   };
 };

@@ -1,58 +1,105 @@
 // src/components/ui/FooterSection.jsx
-// Elegant footer section with social links and contact info
+// FIXED: Footer only appears when reaching the bottom of the page
 
 import React, { useState, useEffect } from 'react';
 import { animated, useSpring } from '@react-spring/web';
 
 const FooterSection = ({ visible = false, onLoopBack }) => {
-  const [isVisible, setIsVisible] = useState(visible);
+  const [isVisible, setIsVisible] = useState(false);
+  const [isAtBottom, setIsAtBottom] = useState(false);
   
-  // Update visibility when prop changes
+  // FIXED: Track if user has scrolled to the bottom of the page
   useEffect(() => {
-    if (visible) {
-      setIsVisible(true);
-    }
+    const checkIfAtBottom = () => {
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      const windowHeight = window.innerHeight;
+      const documentHeight = Math.max(
+        document.body.scrollHeight,
+        document.body.offsetHeight,
+        document.documentElement.clientHeight,
+        document.documentElement.scrollHeight,
+        document.documentElement.offsetHeight
+      );
+      
+      // Consider "at bottom" when within 100px of the bottom
+      const threshold = 100;
+      const atBottom = scrollTop + windowHeight >= documentHeight - threshold;
+      
+      setIsAtBottom(atBottom);
+      
+      // Only show footer when at bottom AND visible prop is true
+      setIsVisible(atBottom && visible);
+    };
+    
+    // Check on scroll
+    const handleScroll = () => {
+      // Throttle scroll events for performance
+      requestAnimationFrame(checkIfAtBottom);
+    };
+    
+    // Check initially
+    checkIfAtBottom();
+    
+    // Add scroll listener
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    
+    // Also check on resize in case content height changes
+    window.addEventListener('resize', checkIfAtBottom, { passive: true });
+    
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', checkIfAtBottom);
+    };
   }, [visible]);
   
-  // Main container animation
+  // Update visibility when visible prop changes (but still respect bottom check)
+  useEffect(() => {
+    if (visible && isAtBottom) {
+      setIsVisible(true);
+    } else {
+      setIsVisible(false);
+    }
+  }, [visible, isAtBottom]);
+  
+  // FIXED: Enhanced animation with slide-up effect
   const containerSpring = useSpring({
-    opacity: visible ? 1 : 0,
-    transform: visible ? 'translateY(0px)' : 'translateY(30px)',
+    opacity: isVisible ? 1 : 0,
+    transform: isVisible ? 'translateY(0px)' : 'translateY(100%)', // Slide up from bottom
     config: {
       tension: 280,
       friction: 24
     },
     onRest: () => {
-      if (!visible) {
-        setIsVisible(false);
+      if (!isVisible) {
+        // Can add any cleanup here if needed
       }
     }
   });
   
   // Staggered animations for content
   const contentSpring = useSpring({
-    opacity: visible ? 1 : 0,
-    transform: visible ? 'translateY(0px)' : 'translateY(20px)',
-    delay: visible ? 100 : 0,
+    opacity: isVisible ? 1 : 0,
+    transform: isVisible ? 'translateY(0px)' : 'translateY(20px)',
+    delay: isVisible ? 100 : 0,
     config: { tension: 300, friction: 26 }
   });
   
   const linksSpring = useSpring({
-    opacity: visible ? 1 : 0,
-    transform: visible ? 'translateY(0px)' : 'translateY(15px)',
-    delay: visible ? 200 : 0,
+    opacity: isVisible ? 1 : 0,
+    transform: isVisible ? 'translateY(0px)' : 'translateY(15px)',
+    delay: isVisible ? 200 : 0,
     config: { tension: 300, friction: 26 }
   });
   
   const ctaSpring = useSpring({
-    opacity: visible ? 1 : 0,
-    transform: visible ? 'translateY(0px)' : 'translateY(15px)',
-    delay: visible ? 300 : 0,
+    opacity: isVisible ? 1 : 0,
+    transform: isVisible ? 'translateY(0px)' : 'translateY(15px)',
+    delay: isVisible ? 300 : 0,
     config: { tension: 300, friction: 26 }
   });
   
-  // Don't render if not visible
-  if (!isVisible && !visible) return null;
+  // FIXED: Don't render footer at all unless conditions are met
+  if (!isVisible && !isAtBottom) return null;
   
   // Social links data
   const socialLinks = [
@@ -72,7 +119,7 @@ const FooterSection = ({ visible = false, onLoopBack }) => {
       href: 'https://linkedin.com/in/jonshaw',
       icon: (
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M16 8C18.2091 8 20.2091 8.79018 21.6569 10.2379C23.1046 11.6857 23.8947 13.6857 23.8947 15.8947V21H19.7895V15.8947C19.7895 15.0649 19.4593 14.2689 18.8699 13.6795C18.2805 13.0901 17.4845 12.7598 16.6547 12.7598C15.8249 12.7598 15.0289 13.0901 14.4395 13.6795C13.8501 14.2689 13.5199 15.0649 13.5199 15.8947V21H9.41468V15.8947C9.41468 13.6857 10.2048 11.6857 11.6526 10.2379C13.1003 8.79018 15.1003 8 17.3094 8H16Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M16 8C18.2091 8 20.2091 8.79018 21.6569 10.2379C23.1046 11.6857 23.8947 13.6857 23.8947 15.8947V21H19.7895V15.8947C19.7895 15.0649 19.4593 14.2689 18.8699 13.6795C18.2805 13.0901 17.4845 12.7598 16.6547 12.7598C15.8249 12.7598 15.0289 13.0901 14.4395 13.6795C13.8501 14.2689 13.5199 15.0649 13.5199 15.8947V21H9.41468V15.8947C9.41468 13.6857 10.2048 11.6857 11.6526 10.2379C13.1003 8.79018 15.1003 8 17.3094 8H16Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           <rect x="2" y="9" width="4" height="12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           <circle cx="4" cy="4" r="2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>

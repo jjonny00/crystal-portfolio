@@ -1,5 +1,5 @@
 // src/components/three/UnifiedCrystalScene.jsx
-// Phase 1: Single crystal scene that replaces EnhancedCrystalScene
+// FIXED: Reduced floating, fixed outline positioning, smoother animations
 
 import { useRef, useState, useEffect } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
@@ -8,12 +8,80 @@ import * as THREE from 'three'
 
 // Import existing material manager and components
 import MaterialManager from './MaterialManager'
-import FacetOutline from './FacetOutline'
+
+/**
+ * FIXED: Facet Outline Effect with proper positioning
+ */
+const FacetOutlineEffect = ({ facetRef, color, thickness = 0.04, opacity = 0.8 }) => {
+  const outlineRef = useRef();
+  const [outlineGeometry, setOutlineGeometry] = useState(null);
+  
+  // Create outline geometry based on facet (only once)
+  useEffect(() => {
+    if (!facetRef) return;
+    
+    // Find the first mesh in the facet to create outline from
+    let sourceMesh = null;
+    facetRef.traverse((child) => {
+      if (child.isMesh && !sourceMesh) {
+        sourceMesh = child;
+      }
+    });
+    
+    if (sourceMesh && sourceMesh.geometry) {
+      // Clone and scale geometry for outline
+      const clonedGeometry = sourceMesh.geometry.clone();
+      const scale = 1 + thickness;
+      clonedGeometry.scale(scale, scale, scale);
+      setOutlineGeometry(clonedGeometry);
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🎯 Created outline for facet');
+      }
+    }
+  }, [facetRef, thickness]);
+  
+  useFrame(() => {
+    if (outlineRef.current && facetRef) {
+      // FIXED: Match the facet's world position exactly
+      facetRef.updateWorldMatrix(true, false);
+      outlineRef.current.position.setFromMatrixPosition(facetRef.matrixWorld);
+      
+      // Copy rotation and scale from facet
+      const rotation = new THREE.Euler();
+      const scale = new THREE.Vector3();
+      facetRef.matrixWorld.decompose(new THREE.Vector3(), new THREE.Quaternion().setFromEuler(rotation), scale);
+      
+      outlineRef.current.rotation.copy(rotation);
+      outlineRef.current.scale.copy(scale);
+      
+      // MUCH more subtle pulsing effect
+      const time = performance.now() * 0.001; // REDUCED from 0.002
+      const pulse = 1 + Math.sin(time) * 0.01; // HEAVILY REDUCED from 0.03 to 0.01
+      
+      // Apply minimal pulse only to the outline scale
+      outlineRef.current.scale.multiplyScalar(pulse);
+    }
+  });
+  
+  if (!outlineGeometry) return null;
+  
+  return (
+    <mesh ref={outlineRef} geometry={outlineGeometry}>
+      <meshBasicMaterial 
+        color={color}
+        transparent={true}
+        opacity={opacity}
+        side={THREE.BackSide}
+        depthWrite={false}
+      />
+    </mesh>
+  );
+};
 
 /**
  * Unified Crystal Scene
- * Replaces: EnhancedCrystalScene with simplified, reliable animation
- * Uses animationData from MasterAnimationCoordinator for state management
+ * FIXED: Much more subtle floating animation and proper outline positioning
  */
 const UnifiedCrystalScene = ({ 
   animationData,
@@ -102,30 +170,30 @@ const UnifiedCrystalScene = ({
   }, [animationData?.crystalForm, showWholeCrystal, showFacets]);
 
   /**
-   * Smooth animation loop for facet positions
+   * FIXED: Much smoother animation loop with greatly reduced floating
    */
   useFrame(() => {
     if (!animationData || !facetRefs.current.length) return;
 
-    // Calculate lerp speed based on animation state
-    let baseLerpSpeed = 0.06; // REDUCED from 0.08 for smoother movement
+    // Calculate ultra-smooth lerp speed
+    let baseLerpSpeed = 0.04; // REDUCED from 0.06 for extra smoothness
     
-    // Faster during fast scrolling
+    // Faster during fast scrolling but not too fast
     if (animationData.isFastScrolling) {
-      baseLerpSpeed *= 1.5; // REDUCED from 2
-    }
-    
-    // Faster during transitions
-    if (animationData.isTransitioning) {
       baseLerpSpeed *= 1.2; // REDUCED from 1.5
     }
     
-    // Slower on mobile
-    if (isMobile) {
-      baseLerpSpeed *= 0.9;
+    // Faster during transitions but controlled
+    if (animationData.isTransitioning) {
+      baseLerpSpeed *= 1.1; // REDUCED from 1.2
     }
     
-    const lerpSpeed = Math.min(baseLerpSpeed, 0.2); // REDUCED max from 0.3
+    // Slower on mobile for smoothness
+    if (isMobile) {
+      baseLerpSpeed *= 0.95;
+    }
+    
+    const lerpSpeed = Math.min(baseLerpSpeed, 0.15); // REDUCED max from 0.2
 
     if (animationData.crystalForm === 'exploded' && animationData.crystalConfig?.positions) {
       // Animate facets to exploded positions
@@ -138,10 +206,11 @@ const UnifiedCrystalScene = ({
         if (targetPos) {
           facetRef.position.lerp(targetPos, lerpSpeed);
           
-          // FIXED: Much more subtle floating animation when in focus
+          // HEAVILY REDUCED floating animation when in focus
           if (animationData.focusedFacet === facetKey) {
             const time = clock.getElapsedTime();
-            const floatOffset = Math.sin(time * 1.5) * 0.005; // REDUCED from 0.02 to 0.005
+            // MASSIVE reduction in floating amplitude
+            const floatOffset = Math.sin(time * 1.0) * 0.002; // REDUCED from 0.005 to 0.002!
             facetRef.position.y += floatOffset;
           }
         }
@@ -210,7 +279,7 @@ const UnifiedCrystalScene = ({
           >
             <primitive object={model.scene} />
             
-            {/* Outline when focused */}
+            {/* FIXED: Outline when focused with proper positioning */}
             {isFocused && (
               <FacetOutlineEffect
                 facetRef={facetRefs.current[index]}
@@ -251,70 +320,6 @@ const UnifiedCrystalScene = ({
         </Html>
       )}
     </group>
-  );
-};
-
-/**
- * Enhanced Facet Outline Effect
- * FIXED: Properly positioned outline that stays with the facet
- */
-const FacetOutlineEffect = ({ facetRef, color, thickness = 0.04, opacity = 0.8 }) => {
-  const outlineRef = useRef();
-  const [outlineGeometry, setOutlineGeometry] = useState(null);
-  
-  // Create outline geometry based on facet (only once)
-  useEffect(() => {
-    if (!facetRef) return;
-    
-    // Find the first mesh in the facet to create outline from
-    let sourceMesh = null;
-    facetRef.traverse((child) => {
-      if (child.isMesh && !sourceMesh) {
-        sourceMesh = child;
-      }
-    });
-    
-    if (sourceMesh && sourceMesh.geometry) {
-      // Clone and scale geometry for outline
-      const clonedGeometry = sourceMesh.geometry.clone();
-      const scale = 1 + thickness;
-      clonedGeometry.scale(scale, scale, scale);
-      setOutlineGeometry(clonedGeometry);
-      
-      if (process.env.NODE_ENV === 'development') {
-        console.log('🎯 Created outline for facet');
-      }
-    }
-  }, [facetRef, thickness]);
-  
-  useFrame(() => {
-    if (outlineRef.current && facetRef) {
-      // FIXED: Copy the exact position and rotation from the facet
-      outlineRef.current.position.copy(facetRef.position);
-      outlineRef.current.rotation.copy(facetRef.rotation);
-      outlineRef.current.scale.copy(facetRef.scale);
-      
-      // Add very subtle pulsing effect (much more subtle)
-      const time = performance.now() * 0.002; // REDUCED from 0.003
-      const pulse = 1 + Math.sin(time) * 0.03; // REDUCED from 0.1 to 0.03
-      
-      // Apply pulse only to the outline scale, not the facet position
-      outlineRef.current.scale.multiplyScalar(pulse);
-    }
-  });
-  
-  if (!outlineGeometry) return null;
-  
-  return (
-    <mesh ref={outlineRef} geometry={outlineGeometry}>
-      <meshBasicMaterial 
-        color={color}
-        transparent={true}
-        opacity={opacity}
-        side={THREE.BackSide}
-        depthWrite={false}
-      />
-    </mesh>
   );
 };
 
