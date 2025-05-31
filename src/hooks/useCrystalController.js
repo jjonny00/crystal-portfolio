@@ -1,5 +1,5 @@
-// src/hooks/useCrystalController.js - ZONE-BASED APPROACH
-// Simple, predictable crystal states based on page zones
+// src/hooks/useCrystalController.js - FIXED: Bidirectional zone transitions
+// Simple, predictable crystal states based on page zones with proper reverse transitions
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { CRYSTAL_STATES } from '../machines/crystalStateMachine';
@@ -124,7 +124,7 @@ const useScrollMetrics = () => {
 };
 
 /**
- * SIMPLE: Zone-Based Crystal Controller
+ * FIXED: Zone-Based Crystal Controller with proper bidirectional transitions
  */
 export const useCrystalController = (options = {}) => {
   const {
@@ -183,7 +183,7 @@ export const useCrystalController = (options = {}) => {
   }, []);
 
   /**
-   * SIMPLE: Handle zone changes with smooth animations
+   * FIXED: Handle zone changes with bidirectional transitions
    */
   const handleZoneChange = useCallback((newZone, newFacet, sectionId) => {
     const prevZone = previousZone.current;
@@ -191,7 +191,8 @@ export const useCrystalController = (options = {}) => {
     if (debugMode) {
       console.log(`🗺️ Zone change detected: ${prevZone} → ${newZone}`, {
         facet: newFacet,
-        section: sectionId
+        section: sectionId,
+        currentState: crystalState
       });
     }
 
@@ -218,8 +219,10 @@ export const useCrystalController = (options = {}) => {
         console.log(`💎 Crystal state transition: ${crystalState} → ${targetState}`);
       }
 
-      // HERO → PROJECTS: Explosion sequence
-      if (prevZone === PAGE_ZONES.HERO && newZone === PAGE_ZONES.PROJECTS) {
+      // FIXED: Handle all possible zone transitions
+
+      // TO PROJECTS ZONE: Always explode (regardless of previous zone)
+      if (newZone === PAGE_ZONES.PROJECTS && crystalState === CRYSTAL_STATES.WHOLE) {
         setIsTransitioning(true);
         
         // Start with fracturing
@@ -239,8 +242,9 @@ export const useCrystalController = (options = {}) => {
         }, 400); // Fracture duration
       }
       
-      // PROJECTS → ABOUT: Reform sequence
-      else if (prevZone === PAGE_ZONES.PROJECTS && newZone === PAGE_ZONES.ABOUT) {
+      // TO HERO OR ABOUT ZONE: Always reform (regardless of previous zone)
+      else if ((newZone === PAGE_ZONES.HERO || newZone === PAGE_ZONES.ABOUT) && 
+               crystalState !== CRYSTAL_STATES.WHOLE) {
         setIsTransitioning(true);
         
         setCrystalState(CRYSTAL_STATES.REFORMING);
@@ -256,15 +260,12 @@ export const useCrystalController = (options = {}) => {
         }, ANIMATION_CONFIG.reformDuration);
       }
       
-      // ABOUT → HERO: Direct to whole (should be instantaneous)
-      else if (newZone === PAGE_ZONES.HERO) {
-        setCrystalState(CRYSTAL_STATES.WHOLE);
-        setSelectedFacet(null);
-        setIsTransitioning(false);
-        
+      // ALREADY IN CORRECT STATE: Skip animation
+      else if (crystalState === targetState) {
         if (debugMode) {
-          console.log('🏠 Returned to hero state');
+          console.log(`✅ Already in target state ${targetState}, skipping animation`);
         }
+        setIsTransitioning(false);
       }
     }
     
@@ -391,7 +392,9 @@ export const useCrystalController = (options = {}) => {
       previousZone: previousZone.current,
       hasAnimationTimeout: !!animationTimeout.current,
       visibleSections: scrollObserver?.getVisibleSectionIds() || [],
-      scrollMetrics
+      scrollMetrics,
+      crystalState,
+      targetState: ZONE_TO_CRYSTAL_STATE[currentZone]
     } : null
   };
 };
