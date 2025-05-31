@@ -253,7 +253,7 @@ const HeroSection = ({
       </animated.div>
 
       {/* Background gradient overlay for better text contrast */}
-      <div style={{
+      {/* <div style={{
         position: 'absolute',
         top: 0,
         left: 0,
@@ -262,7 +262,7 @@ const HeroSection = ({
         background: 'radial-gradient(circle at center, rgba(5, 5, 5, 0.3) 0%, rgba(5, 5, 5, 0.7) 100%)',
         zIndex: 1,
         pointerEvents: 'none'
-      }} />
+      }} /> */}
       
       {/* Subtle animated grain texture for premium feel */}
       <div style={{

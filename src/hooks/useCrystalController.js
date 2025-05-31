@@ -1,75 +1,64 @@
-// src/hooks/useCrystalController.js
-// Phase 3.1: Scroll-Triggered Crystal Controller
-// Maps scroll positions to crystal states without hijacking scroll behavior
+// src/hooks/useCrystalController.js - ZONE-BASED APPROACH
+// Simple, predictable crystal states based on page zones
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { CRYSTAL_STATES } from '../machines/crystalStateMachine';
 
 /**
- * Section to Crystal State Mapping
- * Defines how each page section maps to crystal animation states
+ * SIMPLE: Page zones instead of individual sections
  */
-const SECTION_TO_CRYSTAL_STATE = {
-  'hero': CRYSTAL_STATES.WHOLE,
-  'projects-overview': CRYSTAL_STATES.EXPLODED,
-  'project-empathy': { 
-    state: CRYSTAL_STATES.PROJECT_SELECTED, 
-    facet: 'empathy' 
-  },
-  'project-narrative': { 
-    state: CRYSTAL_STATES.PROJECT_SELECTED, 
-    facet: 'narrative' 
-  },
-  'project-craft': { 
-    state: CRYSTAL_STATES.PROJECT_SELECTED, 
-    facet: 'craft' 
-  },
-  'project-system': { 
-    state: CRYSTAL_STATES.PROJECT_SELECTED, 
-    facet: 'system' 
-  },
-  'project-leadership': { 
-    state: CRYSTAL_STATES.PROJECT_SELECTED, 
-    facet: 'leadership' 
-  },
-  'project-exploration': { 
-    state: CRYSTAL_STATES.PROJECT_SELECTED, 
-    facet: 'exploration' 
-  },
-  'about': CRYSTAL_STATES.WHOLE // Reformed state
+const PAGE_ZONES = {
+  HERO: 'hero',           // Hero section
+  PROJECTS: 'projects',   // Projects overview + all project sections  
+  ABOUT: 'about'          // About section
 };
 
 /**
- * Animation timing configuration
- * Controls transition speeds and easing
+ * SIMPLE: Zone to crystal state mapping
+ */
+const ZONE_TO_CRYSTAL_STATE = {
+  [PAGE_ZONES.HERO]: CRYSTAL_STATES.WHOLE,
+  [PAGE_ZONES.PROJECTS]: CRYSTAL_STATES.EXPLODED,
+  [PAGE_ZONES.ABOUT]: CRYSTAL_STATES.WHOLE
+};
+
+/**
+ * SIMPLE: Map section ID to page zone
+ */
+const getPageZone = (sectionId) => {
+  if (!sectionId) return PAGE_ZONES.HERO;
+  
+  if (sectionId === 'hero') return PAGE_ZONES.HERO;
+  if (sectionId === 'about') return PAGE_ZONES.ABOUT;
+  
+  // All project-related sections map to PROJECTS zone
+  if (sectionId === 'projects-overview' || sectionId.startsWith('project-')) {
+    return PAGE_ZONES.PROJECTS;
+  }
+  
+  return PAGE_ZONES.HERO; // Default fallback
+};
+
+/**
+ * SIMPLE: Get selected facet from section ID (only for project sections)
+ */
+const getSelectedFacet = (sectionId) => {
+  if (!sectionId || !sectionId.startsWith('project-')) return null;
+  return sectionId.replace('project-', '');
+};
+
+/**
+ * SIMPLE: Animation timing configuration
  */
 const ANIMATION_CONFIG = {
-  // State transition delays to prevent conflicts
-  stateChangeDebounce: 100, // ms
-  
-  // Minimum visibility threshold to trigger state change
-  visibilityThreshold: 0.3, // 30% visible
-  
-  // Fast scroll detection threshold
-  fastScrollThreshold: 50, // px per frame
-  
-  // Animation easing curves
-  easingCurves: {
-    explosion: 'easeOutCubic',
-    reformation: 'easeInOutCubic',
-    projectSelection: 'easeOutQuart'
-  },
-  
-  // Priority system for conflicting states
-  statePriority: {
-    [CRYSTAL_STATES.PROJECT_SELECTED]: 3,
-    [CRYSTAL_STATES.EXPLODED]: 2,
-    [CRYSTAL_STATES.WHOLE]: 1
-  }
+  explosionDuration: 1400,  // How long explosion takes
+  reformDuration: 1000,     // How long reform takes
+  debounceMs: 200,          // Debounce for section changes
+  visibilityThreshold: 0.3  // Minimum visibility to trigger
 };
 
 /**
- * Debounce utility for state changes
+ * Simple debounce utility
  */
 const debounce = (func, wait) => {
   let timeout;
@@ -84,62 +73,7 @@ const debounce = (func, wait) => {
 };
 
 /**
- * Calculate transition priority between states
- */
-const getTransitionPriority = (fromState, toState) => {
-  const fromPriority = ANIMATION_CONFIG.statePriority[fromState] || 0;
-  const toPriority = ANIMATION_CONFIG.statePriority[toState] || 0;
-  return toPriority - fromPriority;
-};
-
-/**
- * Determine best crystal state from multiple visible sections
- */
-const resolveCrystalState = (visibleSections, scrollDirection = 'down') => {
-  if (!visibleSections || visibleSections.size === 0) {
-    return { state: CRYSTAL_STATES.WHOLE, facet: null };
-  }
-
-  let bestCandidate = null;
-  let highestPriority = -1;
-  let highestVisibility = 0;
-
-  // Evaluate each visible section
-  for (const [sectionId, sectionData] of visibleSections) {
-    const mapping = SECTION_TO_CRYSTAL_STATE[sectionId];
-    if (!mapping) continue;
-
-    const crystalState = typeof mapping === 'object' ? mapping.state : mapping;
-    const facet = typeof mapping === 'object' ? mapping.facet : null;
-    
-    const priority = ANIMATION_CONFIG.statePriority[crystalState] || 0;
-    const visibility = sectionData.intersectionRatio || 0;
-
-    // Only consider sections that meet visibility threshold
-    if (visibility < ANIMATION_CONFIG.visibilityThreshold) continue;
-
-    // Prefer higher priority states, then higher visibility
-    const isCandidate = priority > highestPriority || 
-                       (priority === highestPriority && visibility > highestVisibility);
-
-    if (isCandidate) {
-      highestPriority = priority;
-      highestVisibility = visibility;
-      bestCandidate = {
-        state: crystalState,
-        facet,
-        sectionId,
-        visibility,
-        priority
-      };
-    }
-  }
-
-  return bestCandidate || { state: CRYSTAL_STATES.WHOLE, facet: null };
-};
-
-/**
- * Detect scroll direction and speed
+ * Scroll metrics for fast scroll detection
  */
 const useScrollMetrics = () => {
   const [scrollMetrics, setScrollMetrics] = useState({
@@ -161,7 +95,7 @@ const useScrollMetrics = () => {
       
       const speed = Math.abs(deltaY) / deltaTime;
       const direction = deltaY > 0 ? 'down' : 'up';
-      const isFastScrolling = speed > ANIMATION_CONFIG.fastScrollThreshold;
+      const isFastScrolling = speed > 50; // Fast scroll threshold
 
       setScrollMetrics({
         direction,
@@ -190,16 +124,14 @@ const useScrollMetrics = () => {
 };
 
 /**
- * Main Crystal Controller Hook
- * Manages crystal state based on scroll position and section visibility
+ * SIMPLE: Zone-Based Crystal Controller
  */
 export const useCrystalController = (options = {}) => {
   const {
-    scrollObserver, // Required: scroll observer instance
+    scrollObserver,
     onStateChange = null,
     onFacetChange = null,
-    debugMode = false,
-    enableAnimationQueue = true
+    debugMode = false
   } = options;
 
   // Crystal state management
@@ -207,116 +139,153 @@ export const useCrystalController = (options = {}) => {
   const [selectedFacet, setSelectedFacet] = useState(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
 
-  // Animation queue for managing transitions
-  const animationQueue = useRef([]);
-  const transitionTimeouts = useRef(new Set());
+  // Zone tracking
+  const [currentZone, setCurrentZone] = useState(PAGE_ZONES.HERO);
+  const previousZone = useRef(PAGE_ZONES.HERO);
+  const animationTimeout = useRef(null);
   
-  // Scroll metrics for intelligent state resolution
+  // Scroll metrics
   const scrollMetrics = useScrollMetrics();
   
-  // Previous state tracking
+  // Previous state tracking for callbacks
   const previousState = useRef(crystalState);
   const previousFacet = useRef(selectedFacet);
 
   /**
-   * Process animation queue
+   * SIMPLE: Determine current zone from visible sections
    */
-  const processAnimationQueue = useCallback(() => {
-    if (animationQueue.current.length === 0 || isTransitioning) {
-      return;
+  const determineCurrentZone = useCallback((visibleSections) => {
+    if (!visibleSections || visibleSections.size === 0) {
+      return { zone: PAGE_ZONES.HERO, facet: null, sectionId: 'hero' };
     }
 
-    const nextAnimation = animationQueue.current.shift();
-    setIsTransitioning(true);
+    // Find the most visible section
+    let mostVisibleSection = null;
+    let maxVisibility = 0;
 
-    if (debugMode) {
-      console.log('🎬 Processing crystal animation:', nextAnimation);
-    }
-
-    // Apply state change
-    setCrystalState(nextAnimation.state);
-    setSelectedFacet(nextAnimation.facet);
-
-    // Set transition completion timeout
-    const timeout = setTimeout(() => {
-      setIsTransitioning(false);
-      transitionTimeouts.current.delete(timeout);
+    for (const [sectionId, sectionData] of visibleSections) {
+      const visibility = sectionData.intersectionRatio || 0;
       
-      // Process next animation in queue
-      if (animationQueue.current.length > 0) {
-        processAnimationQueue();
-      }
-    }, nextAnimation.duration || 1200);
-
-    transitionTimeouts.current.add(timeout);
-  }, [isTransitioning, debugMode]);
-
-  /**
-   * Queue state change with conflict resolution
-   */
-  const queueStateChange = useCallback((targetState, targetFacet = null, options = {}) => {
-    const {
-      priority = 0,
-      duration = 1200,
-      immediate = false
-    } = options;
-
-    // Skip if same state
-    if (targetState === crystalState && targetFacet === selectedFacet) {
-      return;
-    }
-
-    const animation = {
-      state: targetState,
-      facet: targetFacet,
-      priority,
-      duration,
-      timestamp: Date.now()
-    };
-
-    if (immediate || !enableAnimationQueue) {
-      // Clear queue and apply immediately
-      animationQueue.current = [animation];
-      processAnimationQueue();
-    } else {
-      // Add to queue with priority sorting
-      animationQueue.current.push(animation);
-      animationQueue.current.sort((a, b) => b.priority - a.priority);
-      
-      // Process if not currently transitioning
-      if (!isTransitioning) {
-        processAnimationQueue();
+      if (visibility > maxVisibility && visibility > ANIMATION_CONFIG.visibilityThreshold) {
+        maxVisibility = visibility;
+        mostVisibleSection = sectionId;
       }
     }
 
-    if (debugMode) {
-      console.log('📋 Crystal animation queued:', animation);
+    if (!mostVisibleSection) {
+      return { zone: PAGE_ZONES.HERO, facet: null, sectionId: 'hero' };
     }
-  }, [crystalState, selectedFacet, isTransitioning, enableAnimationQueue, processAnimationQueue, debugMode]);
+
+    const zone = getPageZone(mostVisibleSection);
+    const facet = getSelectedFacet(mostVisibleSection);
+
+    return { zone, facet, sectionId: mostVisibleSection };
+  }, []);
 
   /**
-   * Debounced state resolver
+   * SIMPLE: Handle zone changes with smooth animations
    */
-  const debouncedStateResolver = useCallback(
-    debounce((visibleSections) => {
-      const resolved = resolveCrystalState(visibleSections, scrollMetrics.direction);
+  const handleZoneChange = useCallback((newZone, newFacet, sectionId) => {
+    const prevZone = previousZone.current;
+    
+    if (debugMode) {
+      console.log(`🗺️ Zone change detected: ${prevZone} → ${newZone}`, {
+        facet: newFacet,
+        section: sectionId
+      });
+    }
+
+    // Update current zone
+    setCurrentZone(newZone);
+    previousZone.current = newZone;
+
+    // Update selected facet (can change within same zone)
+    if (newFacet !== selectedFacet) {
+      setSelectedFacet(newFacet);
+    }
+
+    // Handle crystal state changes based on zone transitions
+    if (prevZone !== newZone) {
+      // Clear any existing animation timeout
+      if (animationTimeout.current) {
+        clearTimeout(animationTimeout.current);
+        animationTimeout.current = null;
+      }
+
+      const targetState = ZONE_TO_CRYSTAL_STATE[newZone];
       
       if (debugMode) {
-        console.log('🔍 Crystal state resolved:', resolved);
+        console.log(`💎 Crystal state transition: ${crystalState} → ${targetState}`);
       }
 
-      // Calculate transition priority
-      const transitionPriority = getTransitionPriority(crystalState, resolved.state);
-      const isFastScroll = scrollMetrics.isFastScrolling;
+      // HERO → PROJECTS: Explosion sequence
+      if (prevZone === PAGE_ZONES.HERO && newZone === PAGE_ZONES.PROJECTS) {
+        setIsTransitioning(true);
+        
+        // Start with fracturing
+        setCrystalState(CRYSTAL_STATES.FRACTURING);
+        
+        animationTimeout.current = setTimeout(() => {
+          setCrystalState(CRYSTAL_STATES.EXPLODING);
+          
+          animationTimeout.current = setTimeout(() => {
+            setCrystalState(CRYSTAL_STATES.EXPLODED);
+            setIsTransitioning(false);
+            
+            if (debugMode) {
+              console.log('💥 Explosion sequence complete');
+            }
+          }, ANIMATION_CONFIG.explosionDuration);
+        }, 400); // Fracture duration
+      }
+      
+      // PROJECTS → ABOUT: Reform sequence
+      else if (prevZone === PAGE_ZONES.PROJECTS && newZone === PAGE_ZONES.ABOUT) {
+        setIsTransitioning(true);
+        
+        setCrystalState(CRYSTAL_STATES.REFORMING);
+        
+        animationTimeout.current = setTimeout(() => {
+          setCrystalState(CRYSTAL_STATES.WHOLE);
+          setSelectedFacet(null); // Clear facet when reformed
+          setIsTransitioning(false);
+          
+          if (debugMode) {
+            console.log('🔄 Reform sequence complete');
+          }
+        }, ANIMATION_CONFIG.reformDuration);
+      }
+      
+      // ABOUT → HERO: Direct to whole (should be instantaneous)
+      else if (newZone === PAGE_ZONES.HERO) {
+        setCrystalState(CRYSTAL_STATES.WHOLE);
+        setSelectedFacet(null);
+        setIsTransitioning(false);
+        
+        if (debugMode) {
+          console.log('🏠 Returned to hero state');
+        }
+      }
+    }
+    
+    // Within PROJECTS zone: only update facet, keep exploded state
+    else if (newZone === PAGE_ZONES.PROJECTS && newFacet !== selectedFacet) {
+      if (debugMode) {
+        console.log(`🎯 Facet change within projects zone: ${selectedFacet} → ${newFacet}`);
+      }
+      // Facet already updated above, crystal stays exploded
+    }
+  }, [crystalState, selectedFacet, debugMode]);
 
-      // Queue the state change
-      queueStateChange(resolved.state, resolved.facet, {
-        priority: transitionPriority,
-        duration: isFastScroll ? 800 : 1200, // Faster transitions during fast scroll
-        immediate: isFastScroll && transitionPriority > 0 // Skip queue for important fast scroll changes
-      });
-    }, ANIMATION_CONFIG.stateChangeDebounce),
-    [crystalState, scrollMetrics, queueStateChange, debugMode]
+  /**
+   * SIMPLE: Debounced zone resolver
+   */
+  const debouncedZoneResolver = useCallback(
+    debounce((visibleSections) => {
+      const { zone, facet, sectionId } = determineCurrentZone(visibleSections);
+      handleZoneChange(zone, facet, sectionId);
+    }, ANIMATION_CONFIG.debounceMs),
+    [determineCurrentZone, handleZoneChange]
   );
 
   /**
@@ -327,67 +296,85 @@ export const useCrystalController = (options = {}) => {
       return;
     }
 
-    debouncedStateResolver(scrollObserver.visibleSections);
-  }, [scrollObserver?.visibleSections, scrollObserver?.currentSection, debouncedStateResolver]);
+    debouncedZoneResolver(scrollObserver.visibleSections);
+  }, [scrollObserver?.visibleSections, debouncedZoneResolver]);
 
   /**
    * Handle state change callbacks
    */
   useEffect(() => {
     if (crystalState !== previousState.current) {
+      if (debugMode) {
+        console.log(`💎 Crystal state changed: ${previousState.current} → ${crystalState}`);
+      }
+      
       previousState.current = crystalState;
       
       if (onStateChange) {
         onStateChange(crystalState, previousState.current);
       }
     }
-  }, [crystalState, onStateChange]);
+  }, [crystalState, onStateChange, debugMode]);
 
   useEffect(() => {
     if (selectedFacet !== previousFacet.current) {
+      if (debugMode) {
+        console.log(`🎯 Facet changed: ${previousFacet.current || 'none'} → ${selectedFacet || 'none'}`);
+      }
+      
       previousFacet.current = selectedFacet;
       
       if (onFacetChange) {
         onFacetChange(selectedFacet, previousFacet.current);
       }
     }
-  }, [selectedFacet, onFacetChange]);
+  }, [selectedFacet, onFacetChange, debugMode]);
 
   /**
-   * Cleanup timeouts on unmount
+   * Cleanup timeout on unmount
    */
   useEffect(() => {
     return () => {
-      transitionTimeouts.current.forEach(timeout => clearTimeout(timeout));
-      transitionTimeouts.current.clear();
+      if (animationTimeout.current) {
+        clearTimeout(animationTimeout.current);
+      }
     };
   }, []);
 
   /**
-   * Manual override functions for external control
+   * Manual override functions (simplified)
    */
-  const overrideCrystalState = useCallback((state, facet = null, immediate = false) => {
-    queueStateChange(state, facet, {
-      priority: 999, // Highest priority
-      immediate
-    });
-  }, [queueStateChange]);
+  const overrideCrystalState = useCallback((state, facet = null) => {
+    if (debugMode) {
+      console.log('🎮 Manual override:', state, facet);
+    }
+    
+    setCrystalState(state);
+    if (facet !== undefined) {
+      setSelectedFacet(facet);
+    }
+  }, [debugMode]);
 
-  /**
-   * Clear animation queue (emergency reset)
-   */
   const clearAnimationQueue = useCallback(() => {
-    animationQueue.current = [];
-    transitionTimeouts.current.forEach(timeout => clearTimeout(timeout));
-    transitionTimeouts.current.clear();
+    if (animationTimeout.current) {
+      clearTimeout(animationTimeout.current);
+      animationTimeout.current = null;
+    }
     setIsTransitioning(false);
-  }, []);
+    
+    if (debugMode) {
+      console.log('🧹 Animation cleared');
+    }
+  }, [debugMode]);
 
   return {
     // Current state
     crystalState,
     selectedFacet,
     isTransitioning,
+    
+    // Zone information
+    currentZone,
     
     // Scroll metrics
     scrollDirection: scrollMetrics.direction,
@@ -400,40 +387,12 @@ export const useCrystalController = (options = {}) => {
     
     // Debug information
     debugInfo: debugMode ? {
-      animationQueueLength: animationQueue.current.length,
-      activeTimeouts: transitionTimeouts.current.size,
-      currentMapping: scrollObserver?.currentSection ? 
-        SECTION_TO_CRYSTAL_STATE[scrollObserver.currentSection.id] : null,
+      currentZone,
+      previousZone: previousZone.current,
+      hasAnimationTimeout: !!animationTimeout.current,
       visibleSections: scrollObserver?.getVisibleSectionIds() || [],
       scrollMetrics
     } : null
-  };
-};
-
-/**
- * Lightweight hook for simple crystal state without advanced features
- */
-export const useSimpleCrystalController = (scrollObserver) => {
-  const [crystalState, setCrystalState] = useState(CRYSTAL_STATES.WHOLE);
-  const [selectedFacet, setSelectedFacet] = useState(null);
-
-  useEffect(() => {
-    if (!scrollObserver?.currentSection) return;
-
-    const mapping = SECTION_TO_CRYSTAL_STATE[scrollObserver.currentSection.id];
-    if (!mapping) return;
-
-    const newState = typeof mapping === 'object' ? mapping.state : mapping;
-    const newFacet = typeof mapping === 'object' ? mapping.facet : null;
-
-    setCrystalState(newState);
-    setSelectedFacet(newFacet);
-  }, [scrollObserver?.currentSection]);
-
-  return {
-    crystalState,
-    selectedFacet,
-    isTransitioning: false
   };
 };
 
