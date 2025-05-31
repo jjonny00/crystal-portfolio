@@ -36,13 +36,13 @@ const SelectableFacet = React.forwardRef(({
       let foundAnchor = false;
       localRef.current.traverse((child) => {
         if (child.name && child.name.startsWith('anchor_')) {
-          console.log(`Found anchor in facet ${facetKey}: ${child.name}`);
+          // console.log(`Found anchor in facet ${facetKey}: ${child.name}`);
           foundAnchor = true;
         }
       });
       
       if (!foundAnchor) {
-        console.warn(`No anchor found in facet ${facetKey}`);
+        // console.warn(`No anchor found in facet ${facetKey}`);
       }
     }
   }, [ref, localRef.current, facetKey]);

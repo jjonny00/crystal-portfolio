@@ -1,5 +1,5 @@
 // src/components/layout/Fixed3DCanvas.jsx
-// Fixed position 3D canvas that sits behind scrollable content
+// FIXED: Proper scroll observer integration for camera movements
 
 import React from 'react';
 import { Canvas } from '@react-three/fiber';
@@ -14,7 +14,7 @@ import { FPSCounter } from '../ui/FpsDisplay';
 
 /**
  * Fixed3DCanvas - The 3D scene that remains fixed behind scrollable content
- * Fixed layering to ensure content appears above the canvas
+ * FIXED: Now properly passes scroll observer data to camera controller
  */
 const Fixed3DCanvas = ({ 
   crystalState,
@@ -23,6 +23,7 @@ const Fixed3DCanvas = ({
   onFacetSelect,
   onFacetHover,
   isFastScrolling = false,
+  isTransitioning = false,
   materialVariant = 'default',
   blackOpalConfig,
   iceOpalConfig,
@@ -32,7 +33,9 @@ const Fixed3DCanvas = ({
   config,
   canvasProps = {},
   environmentProps = {},
-  isMobile = false
+  isMobile = false,
+  // NEW: Accept scroll observer data
+  scrollObserver = null
 }) => {
   return (
     <div style={{
@@ -41,8 +44,8 @@ const Fixed3DCanvas = ({
       left: 0,
       width: '100vw',
       height: '100vh',
-      zIndex: 1, // IMPORTANT: Behind scrollable content (which is z-index 10)
-      pointerEvents: 'none', // IMPORTANT: Don't block scrolling
+      zIndex: 1, // Behind scrollable content (which is z-index 10)
+      pointerEvents: 'none', // Don't block scrolling
     }}>
       <Canvas 
         shadows 
@@ -60,7 +63,7 @@ const Fixed3DCanvas = ({
         style={{ 
           width: '100%', 
           height: '100%',
-          // IMPORTANT: Allow pointer events only for 3D interactions
+          // Allow pointer events only for 3D interactions (disabled on mobile)
           pointerEvents: isMobile ? 'none' : 'auto',
         }}
       >
@@ -95,22 +98,26 @@ const Fixed3DCanvas = ({
           color={config?.lighting?.spotLight?.color || "#FFFFFF"} 
         />
         
-        {/* Crystal scene */}
+        {/* FIXED: Crystal scene with proper scroll observer integration */}
         <EnhancedCrystalScene 
           isExploded={crystalState === 'EXPLODED' || crystalState === 'EXPLODING' || crystalState === 'PROJECT_SELECTED'} 
-          crystalState={crystalState}
+          crystalState={scrollObserver?.crystalState || crystalState}
           config={config} 
           materialVariant={materialVariant}
           blackOpalConfig={blackOpalConfig}
           iceOpalConfig={iceOpalConfig}
-          selectedFacet={selectedFacet}
+          selectedFacet={scrollObserver?.selectedFacet || selectedFacet}
           hoveredFacet={hoveredFacet}
-          onFacetSelect={isMobile ? null : onFacetSelect} // Disable on mobile
-          onFacetHover={isMobile ? null : onFacetHover}   // Disable on mobile
+          onFacetSelect={isMobile ? null : onFacetSelect}
+          onFacetHover={isMobile ? null : onFacetHover}
           isFastScrolling={isFastScrolling}
-          isTransitioning={false} // Will be managed by scroll observer
+          isTransitioning={isTransitioning}
           performanceConfig={performanceConfig}
           isMobileDevice={isMobile}
+          // CRITICAL: Pass scroll observer data for camera controller
+          scrollObserver={scrollObserver}
+          // Keep legacy prop for any floating animations that depend on it
+          scrollCrystalData={scrollObserver}
         />
         
         {/* Environment */}
@@ -165,7 +172,7 @@ const Fixed3DCanvas = ({
         {!isMobile && (
           <OrbitControls 
             makeDefault
-            enabled={crystalState !== 'PROJECT_SELECTED'} // Disable when project selected
+            enabled={crystalState !== 'PROJECT_SELECTED'} 
             enableZoom={config?.camera?.orbitControls?.enableZoom !== false}
             enablePan={config?.camera?.orbitControls?.enablePan !== false}
             rotateSpeed={config?.camera?.orbitControls?.rotateSpeed || 0.5}

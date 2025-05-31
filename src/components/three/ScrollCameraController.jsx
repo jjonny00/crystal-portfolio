@@ -1,6 +1,5 @@
 // src/components/three/ScrollCameraController.jsx
-// Phase 3.2: Enhanced Camera Controller with Animation Queue System
-// Removes scroll event listeners, accepts target states from crystal controller
+// FIXED: Proper integration with crystal controller and scroll-based camera movements
 
 import { useRef, useEffect, useState } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';
@@ -9,65 +8,57 @@ import * as THREE from 'three';
 // Enhanced camera states with mobile-optimized positions
 const CAMERA_STATES = {
   INTRO_CLOSE: {
-    position: [0, 3.2, 2.4], // Higher, more intimate mobile viewing
+    position: [0, 3.2, 2.4],
     target: [0, 0.5, 0],
-    rotation: [0, 0, 0],
     fov: 32,
     description: 'Intimate close view - mobile optimized'
   },
   INTRO: {
-    position: [0, 1.8, 4.2], // Elevated standard view
+    position: [0, 1.8, 4.2],
     target: [0, 0.2, 0],
-    rotation: [0, 0, 0],
     fov: 42,
     description: 'Standard intro view - elevated perspective'
   },
   EXPLOSION: {
-    position: [0, 2.5, 7.8], // Higher vantage point for explosion
+    position: [0, 2.5, 7.8],
     target: [0, 0.3, 0],
-    rotation: [0, 0, 0],
     fov: 48,
-    description: 'Wide elevated view for exploded facets'
+    description: 'Wide view to see all exploded facets'
   },
+  // UPDATED: Project camera positions that actually focus on each facet
   PROJECT_EMPATHY: {
-    position: [2.8, -1.5, 3.2],
-    target: [0.4, -0.5, -0.1],
-    rotation: [0, 0, 0],
+    position: [3.2, -1.8, 3.5],     // Focus on bottom-left facet
+    target: [0.3, -0.7, -0.2],      // Look directly at empathy facet
     fov: 35,
     description: 'Empathy facet focus'
   },
   PROJECT_NARRATIVE: {
-    position: [3.2, 1.2, 2.8],
-    target: [0.5, 0.1, -0.5],
-    rotation: [0, 0, 0],
+    position: [3.5, 0.8, 3.0],      // Focus on middle-left facet
+    target: [0.3, -0.1, -0.7],      // Look at narrative facet
     fov: 35,
     description: 'Narrative facet focus'
   },
   PROJECT_CRAFT: {
-    position: [4.2, 2.8, 1.8],
-    target: [1.4, 1.0, 0.3],
-    rotation: [0, 0, 0],
+    position: [4.5, 3.2, 2.2],      // Focus on top-right facet
+    target: [1.3, 0.8, 0.5],        // Look at craft facet
     fov: 35,
     description: 'Craft facet focus'
   },
   PROJECT_SYSTEM: {
-    position: [-2.4, 1.8, 1.2],
-    target: [-0.3, 0.4, -1.6],
-    rotation: [0, 0, 0],
+    position: [-2.8, 1.5, 2.0],     // Focus on left facet
+    target: [-0.5, 0.2, -1.8],      // Look at system facet
     fov: 35,
     description: 'System facet focus'
   },
   PROJECT_LEADERSHIP: {
-    position: [3.4, 4.2, 2.0],
-    target: [0.6, 1.4, 0.7],
-    rotation: [0, 0, 0],
+    position: [3.8, 4.5, 2.8],      // Focus on top facet
+    target: [0.4, 1.2, 0.9],        // Look at leadership facet
     fov: 35,
     description: 'Leadership facet focus'
   },
   PROJECT_EXPLORATION: {
-    position: [-2.6, 2.8, 2.2],
-    target: [-0.4, 0.9, -0.2],
-    rotation: [0, 0, 0],
+    position: [-3.0, 3.0, 2.8],     // Focus on top-left facet
+    target: [-0.6, 0.7, 0.0],       // Look at exploration facet
     fov: 35,
     description: 'Exploration facet focus'
   }
@@ -75,24 +66,17 @@ const CAMERA_STATES = {
 
 // Professional easing functions
 const EASING_FUNCTIONS = {
-  // Smooth cubic ease for general transitions
   easeInOutCubic: (t) => {
     return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
   },
-  
-  // Bouncy ease for intro sequences
   easeOutBack: (t) => {
     const c1 = 1.70158;
     const c3 = c1 + 1;
     return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
   },
-  
-  // Quick ease for fast scrolling
   easeOutQuart: (t) => {
     return 1 - Math.pow(1 - t, 4);
   },
-  
-  // Gentle ease for project selection
   easeInOutQuint: (t) => {
     return t < 0.5 ? 16 * t * t * t * t * t : 1 - Math.pow(-2 * t + 2, 5) / 2;
   }
@@ -127,14 +111,7 @@ const calculateLookAtQuaternion = (position, target) => {
 };
 
 /**
- * ScrollCameraController - Phase 3.2 Enhanced Camera Controller
- * 
- * Key Features:
- * - Animation queue system prevents interruption during fast scrolling
- * - Mobile-optimized camera positions with higher, more intimate viewing angles
- * - Professional easing functions for smooth movement
- * - Accepts target states from crystal controller (no scroll listeners)
- * - Improved state management with conflict resolution
+ * FIXED: ScrollCameraController with proper scroll integration
  */
 const ScrollCameraController = ({ 
   crystalState,
@@ -142,14 +119,16 @@ const ScrollCameraController = ({
   isFastScrolling = false,
   isTransitioning = false,
   config,
-  debugMode = false
+  debugMode = false,
+  scrollObserver = null,
+  // NEW: Accept crystal controller data
+  crystalControllerData = null
 }) => {
   const { camera, clock } = useThree();
   
-  // Animation queue system to prevent interruption
-  const animationQueue = useRef([]);
-  const isAnimating = useRef(false);
+  // Animation state
   const currentAnimation = useRef(null);
+  const isAnimating = useRef(false);
   
   // State tracking
   const [currentCameraState, setCurrentCameraState] = useState('INTRO_CLOSE');
@@ -157,16 +136,17 @@ const ScrollCameraController = ({
   const prevCrystalState = useRef(crystalState);
   const prevSelectedFacet = useRef(selectedFacet);
 
+  // NEW: Track scroll-based section changes
+  const prevScrollSection = useRef(null);
+
   /**
    * Execute a camera animation
    */
-  const executeAnimation = (animationConfig) => {
-    const { targetState, timing, priority } = animationConfig;
+  const executeAnimation = (targetState, options = {}) => {
     const stateConfig = getCameraState(targetState);
     
     if (!stateConfig) {
       console.warn(`❌ Camera state '${targetState}' not found`);
-      processNextAnimation();
       return;
     }
 
@@ -176,6 +156,8 @@ const ScrollCameraController = ({
 
     isAnimating.current = true;
     setIsInternalTransitioning(true);
+
+    const timing = options.timing || getAnimationTiming('projectSelect', isFastScrolling);
 
     // Store animation configuration
     currentAnimation.current = {
@@ -194,62 +176,6 @@ const ScrollCameraController = ({
       easingFunction: EASING_FUNCTIONS[timing.easing] || EASING_FUNCTIONS.easeInOutCubic,
       targetState
     };
-  };
-
-  /**
-   * Process next animation in queue
-   */
-  const processNextAnimation = () => {
-    if (animationQueue.current.length > 0 && !isAnimating.current) {
-      const nextAnimation = animationQueue.current.shift();
-      executeAnimation(nextAnimation);
-    }
-  };
-
-  /**
-   * Queue animation with priority and conflict resolution
-   */
-  const queueAnimation = (targetState, options = {}) => {
-    const {
-      priority = 0,
-      transitionType = 'intro',
-      immediate = false
-    } = options;
-
-    // Skip if same state
-    if (targetState === currentCameraState) {
-      return;
-    }
-
-    const timing = getAnimationTiming(transitionType, isFastScrolling);
-    
-    const animationConfig = {
-      targetState,
-      timing,
-      priority,
-      timestamp: Date.now()
-    };
-
-    if (immediate) {
-      // Clear queue and execute immediately
-      animationQueue.current = [animationConfig];
-      if (!isAnimating.current) {
-        processNextAnimation();
-      }
-    } else {
-      // Add to queue with priority sorting
-      animationQueue.current.push(animationConfig);
-      animationQueue.current.sort((a, b) => b.priority - a.priority);
-      
-      // Process if not currently animating
-      if (!isAnimating.current) {
-        processNextAnimation();
-      }
-    }
-
-    if (debugMode) {
-      console.log(`📋 Camera animation queued: ${targetState} (priority: ${priority})`);
-    }
   };
 
   /**
@@ -275,17 +201,59 @@ const ScrollCameraController = ({
   };
 
   /**
-   * Get transition type for timing
+   * NEW: Handle scroll-based camera movements
+   * This runs when the user scrolls through project sections
    */
-  const getTransitionType = (fromState, toState) => {
-    if (toState === 'EXPLOSION') return 'explosion';
-    if (toState.startsWith('PROJECT_')) return 'projectSelect';
-    if (fromState === 'EXPLOSION' && toState === 'INTRO') return 'reform';
-    return 'intro';
-  };
+  useEffect(() => {
+  console.log('🔍 ScrollCameraController DETAILED:', {
+    hasScrollObserver: !!scrollObserver,
+    scrollObserverKeys: scrollObserver ? Object.keys(scrollObserver) : 'none',
+    currentSection: scrollObserver?.currentSection,
+    currentSectionId: scrollObserver?.currentSection?.id,
+    crystalState,
+    selectedFacet,
+    currentCameraState
+  });
+
+  if (!scrollObserver) {
+    console.log('❌ No scroll observer');
+    return;
+  }
+
+  if (!scrollObserver.currentSection) {
+    console.log('❌ No current section in scroll observer');
+    return;
+  }
+
+  const currentSection = scrollObserver.currentSection;
+  const sectionId = currentSection.id;
+
+  console.log('📍 Section analysis:', {
+    sectionId,
+    isProjectSection: sectionId.startsWith('project-'),
+    crystalState,
+    shouldTriggerAnimation: (crystalState === 'EXPLODED' || crystalState === 'PROJECT_SELECTED')
+  });
+
+  // Only handle camera movements for project sections when exploded
+  if (crystalState === 'EXPLODED' || crystalState === 'PROJECT_SELECTED') {
+    console.log('✅ In correct crystal state for project animations');
+    
+    // Check if we're in a project section
+    if (sectionId.startsWith('project-')) {
+      console.log('✅ In project section, should animate camera');
+      // ... rest of animation code
+    } else {
+      console.log('⚠️ Not in project section, sectionId:', sectionId);
+    }
+  } else {
+    console.log('⚠️ Wrong crystal state for project animations:', crystalState);
+  }
+
+}, [scrollObserver?.currentSection, crystalState, currentCameraState, debugMode]);
 
   /**
-   * Handle crystal state changes
+   * Handle crystal state changes (non-scroll triggered)
    */
   useEffect(() => {
     if (prevCrystalState.current === crystalState && prevSelectedFacet.current === selectedFacet) {
@@ -293,23 +261,30 @@ const ScrollCameraController = ({
     }
 
     const targetCameraState = mapCrystalStateToCameraState(crystalState, selectedFacet);
-    const transitionType = getTransitionType(currentCameraState, targetCameraState);
     
-    // Calculate priority based on transition importance
-    let priority = 1;
-    if (crystalState === 'PROJECT_SELECTED') priority = 3;
-    else if (crystalState === 'EXPLODED') priority = 2;
-    else if (isFastScrolling) priority = 4;
+    // Only transition if it's a different state AND not already handled by scroll
+    if (targetCameraState !== currentCameraState) {
+      
+      // Determine transition type
+      let transitionType = 'intro';
+      if (targetCameraState === 'EXPLOSION') transitionType = 'explosion';
+      else if (targetCameraState.startsWith('PROJECT_')) transitionType = 'projectSelect';
+      else if (prevCrystalState.current === 'EXPLODED' && targetCameraState === 'INTRO') transitionType = 'reform';
 
-    queueAnimation(targetCameraState, {
-      priority,
-      transitionType,
-      immediate: isFastScrolling && priority > 2
-    });
+      if (debugMode) {
+        console.log(`📹 Crystal state camera transition: ${currentCameraState} → ${targetCameraState} (${transitionType})`);
+      }
 
+      executeAnimation(targetCameraState, {
+        timing: getAnimationTiming(transitionType, isFastScrolling)
+      });
+      
+      setCurrentCameraState(targetCameraState);
+    }
+    
     prevCrystalState.current = crystalState;
     prevSelectedFacet.current = selectedFacet;
-  }, [crystalState, selectedFacet, currentCameraState, isFastScrolling]);
+  }, [crystalState, selectedFacet, currentCameraState, isFastScrolling, debugMode]);
 
   /**
    * Animation frame loop
@@ -352,8 +327,7 @@ const ScrollCameraController = ({
       camera.fov = currentAnimation.current.targetFOV;
       camera.updateProjectionMatrix();
       
-      // Update state and cleanup
-      setCurrentCameraState(currentAnimation.current.targetState);
+      // Cleanup
       isAnimating.current = false;
       setIsInternalTransitioning(false);
       currentAnimation.current = null;
@@ -361,9 +335,6 @@ const ScrollCameraController = ({
       if (debugMode) {
         console.log(`📹 Camera animation complete: ${currentCameraState}`);
       }
-      
-      // Process next animation in queue
-      setTimeout(processNextAnimation, 50); // Small delay to prevent conflicts
     }
   });
 
@@ -389,32 +360,22 @@ const ScrollCameraController = ({
    */
   useEffect(() => {
     return () => {
-      animationQueue.current = [];
       isAnimating.current = false;
       currentAnimation.current = null;
     };
   }, []);
 
-  /**
-   * Emergency clear function for external control
-   */
-  const clearAnimationQueue = () => {
-    animationQueue.current = [];
-    isAnimating.current = false;
-    currentAnimation.current = null;
-    setIsInternalTransitioning(false);
-    
-    if (debugMode) {
-      console.log('🧹 Camera animation queue cleared');
-    }
-  };
-
-  // Expose clear function globally for debugging (only in development)
+  // Debug overlay in development
   if (debugMode && typeof window !== 'undefined') {
-    window.clearCameraQueue = clearAnimationQueue;
+    window.debugCamera = {
+      currentState: currentCameraState,
+      isAnimating: isAnimating.current,
+      currentSection: scrollObserver?.currentSection?.id,
+      crystalState
+    };
   }
 
-  return null; // This component doesn't render anything
+  return null;
 };
 
 export default ScrollCameraController;

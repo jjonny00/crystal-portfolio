@@ -22,7 +22,7 @@ const SelectablePremiumLabel = ({
   // DEBUG: Log position to help diagnose positioning issues
   useEffect(() => {
     if (visible && position) {
-      console.log(`Label ${label.key} position:`, position);
+      // console.log(`Label ${label.key} position:`, position);
     }
   }, [visible, position, label.key]);
   

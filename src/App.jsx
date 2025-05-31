@@ -1,6 +1,5 @@
-// src/App.jsx - Phase 1: Foundation Setup
-// Clean native-scrolling implementation with fixed 3D canvas
-// UPDATED: Removed ProjectDetailCard and old AboutSection functionality
+// src/App.jsx - FIXED: Proper scroll observer integration for camera movements
+// Updated to pass scroll observer data to 3D scene for camera animations
 
 import React, { useState, useCallback, useEffect } from 'react';
 import './App.css';
@@ -10,7 +9,7 @@ import './styles/scroll-snap.css';
 import ScrollablePortfolio from './components/layout/ScrollablePortfolio';
 import Fixed3DCanvas from './components/layout/Fixed3DCanvas';
 
-// Import scroll observer
+// Import scroll observers - BOTH versions
 import { useCrystalScrollObserver } from './hooks/useScrollObserver';
 
 // Import new crystal scroll controller
@@ -30,14 +29,9 @@ import PerformanceControls from './components/ui/PerformanceControls';
 import AccessibilityInstructions from './components/ui/AccessibilityInstructions';
 import FpsDisplay, { PerformanceAlert } from './components/ui/FpsDisplay';
 
-// REMOVED IMPORTS:
-// import ProjectDetailCard from './components/ui/ProjectDetailCard';
-// import AboutSection from './components/ui/AboutSection';
-
 // Import configuration and utilities
 import * as defaultConfig from './crystalConfig';
 import { useDeviceProfile } from './hooks/useDeviceProfile';
-// REMOVED: import { projects, getProjectByFacetKey } from './data/projects';
 
 // Simple mobile detection
 const isMobileDevice = () => {
@@ -61,38 +55,28 @@ function App() {
     enableOrientationLock: false
   });
 
-  // // Scroll observer for crystal state management
-  // const {
-  //   currentSection,
-  //   crystalState,
-  //   selectedFacet,
-  //   scrollProgress,
-  //   scrollToSection,
-  //   isSectionVisible,
-  //   debugInfo
-  // } = useCrystalScrollObserver({
-  //   onCrystalStateChange: (data) => {
-  //     console.log(`🔄 Crystal state: ${data.crystalState}, Facet: ${data.selectedFacet || 'none'}`);
-  //   },
-  //   isMobile
-  // });
-
-  // Enhanced scroll observer with crystal controller
+  // FIXED: Enhanced scroll observer with crystal controller integration
   const {
     currentSection,
     scrollProgress,
     scrollToSection,
     isSectionVisible,
     visibleSections,
-    debugInfo
+    debugInfo,
+    // Crystal-specific data
+    crystalState: observedCrystalState,
+    selectedFacet: observedSelectedFacet,
+    // Helper functions
+    getCrystalState,
+    getSelectedFacet
   } = useCrystalScrollObserver({
     onCrystalStateChange: (data) => {
-      console.log(`🔄 Crystal state: ${data.crystalState}, Facet: ${data.selectedFacet || 'none'}`);
+      console.log(`🔄 Scroll Observer - Crystal state: ${data.crystalState}, Facet: ${data.selectedFacet || 'none'}`);
     },
     isMobile
   });
 
-  // NEW: Crystal controller integration
+  // NEW: Crystal controller integration (receives scroll observer data)
   const {
     crystalState,
     selectedFacet,
@@ -102,23 +86,27 @@ function App() {
     overrideCrystalState,
     debugInfo: crystalDebugInfo
   } = useCrystalController({
-    scrollObserver: { currentSection, visibleSections, getVisibleSectionIds: () => Array.from(visibleSections.keys()) },
+    scrollObserver: { 
+      currentSection, 
+      visibleSections, 
+      getVisibleSectionIds: () => Array.from(visibleSections.keys()),
+      // Pass the full scroll observer object for camera controller
+      scrollObserver: {
+        currentSection,
+        visibleSections,
+        scrollProgress,
+        getCrystalState,
+        getSelectedFacet
+      }
+    },
     onStateChange: (newState, prevState) => {
-      console.log(`💎 Crystal: ${prevState} → ${newState}`);
+      console.log(`💎 Crystal Controller: ${prevState} → ${newState}`);
     },
     onFacetChange: (newFacet, prevFacet) => {
-      console.log(`🎯 Facet: ${prevFacet || 'none'} → ${newFacet || 'none'}`);
+      console.log(`🎯 Facet Controller: ${prevFacet || 'none'} → ${newFacet || 'none'}`);
     },
     debugMode: process.env.NODE_ENV === 'development'
   });
-
-  // Pass crystal state to 3D canvas
-  <Fixed3DCanvas
-    crystalState={crystalState}
-    selectedFacet={selectedFacet}
-    hoveredFacet={null}
-    isFastScrolling={isFastScrolling}
-  />
 
   // UI state
   const [config, setConfig] = useState({
@@ -227,11 +215,11 @@ function App() {
 
   // Navigation handlers - now use scroll observer
   const handleWorkClick = useCallback(() => {
-    scrollToSection('projects-overview'); // Match your ProjectsSection id
+    scrollToSection('projects-overview');
   }, [scrollToSection]);
 
   const handleAboutClick = useCallback(() => {
-    scrollToSection('about'); // Match your AboutSection id  
+    scrollToSection('about');
   }, [scrollToSection]);
 
   const handleProcessClick = useCallback(() => {
@@ -244,7 +232,7 @@ function App() {
   }, []);
 
   const handleContactClick = useCallback(() => {
-    scrollToSection('footer'); // Navigate to footer instead of about
+    scrollToSection('footer');
   }, [scrollToSection]);
 
   // Handler functions
@@ -297,9 +285,6 @@ function App() {
   const canvasProps = getOptimalCanvasProps();
   const environmentProps = getOptimalEnvironmentProps();
 
-  // REMOVED: Get current project logic
-  // const currentProject = selectedFacet ? getProjectByFacetKey(selectedFacet) : null;
-
   return (
     <>
       {/* Navigation Bar */}
@@ -308,7 +293,7 @@ function App() {
         onAboutClick={handleAboutClick}
         onProcessClick={handleProcessClick}
         onContactClick={handleContactClick}
-        isTransitioning={false}
+        isTransitioning={isTransitioning}
         crystalState={crystalState}
       />
 
@@ -328,13 +313,13 @@ function App() {
         }}
       />
 
-      {/* Fixed 3D Canvas - behind everything */}
+      {/* FIXED: Fixed 3D Canvas with proper scroll observer integration */}
       <Fixed3DCanvas
         crystalState={crystalState}
         selectedFacet={selectedFacet}
-        hoveredFacet={null} // No hover in scroll mode
-        onFacetSelect={null} // Disabled in scroll mode
-        onFacetHover={null} // Disabled in scroll mode
+        hoveredFacet={null}
+        onFacetSelect={null}
+        onFacetHover={null}
         materialVariant={materialVariant}
         blackOpalConfig={blackOpalConfig}
         iceOpalConfig={iceOpalConfig}
@@ -345,14 +330,27 @@ function App() {
         canvasProps={canvasProps}
         environmentProps={environmentProps}
         isMobile={isMobile}
+        isFastScrolling={isFastScrolling}
+        isTransitioning={isTransitioning}
+        // FIXED: Pass the scroll observer that includes currentSection from crystal scroll observer
+        scrollObserver={{
+          currentSection,
+          visibleSections,
+          scrollProgress,
+          getCrystalState,
+          getSelectedFacet,
+          scrollToSection,
+          isSectionVisible,
+          // CRITICAL: Pass the correct crystal state from crystal controller
+          crystalState: crystalState,  // This is the one from useCrystalController
+          selectedFacet: selectedFacet  // This is the one from useCrystalController
+        }}
       />
 
       {/* Scrollable Content - on top of 3D canvas */}
       <ScrollablePortfolio />
 
-      {/* REMOVED: AboutSection overlay - now it's inline in ScrollablePortfolio */}
-      
-      {/* FooterSection - keep this for any special footer interactions */}
+      {/* FooterSection */}
       <FooterSection 
         visible={isSectionVisible('footer')}
         onLoopBack={() => scrollToSection('hero')}
@@ -413,20 +411,9 @@ function App() {
         </TabbedControlPanel>
       )}
       
-      {/* REMOVED: Project Detail Card - no longer needed
-      {currentProject && (
-        <ProjectDetailCard 
-          project={currentProject}
-          visible={!!currentProject}
-          onClose={() => scrollToSection('projects-overview')}
-          isMobile={isMobile}
-        />
-      )}
-      */}
-      
       <AccessibilityInstructions visible={true} />
 
-      {/* Debug Info - only in development */}
+      {/* Enhanced Debug Info - only in development */}
       {process.env.NODE_ENV === 'development' && (
         <div style={{
           position: 'fixed',
@@ -439,13 +426,18 @@ function App() {
           fontSize: '12px',
           fontFamily: 'monospace',
           zIndex: 10000,
-          pointerEvents: 'none'
+          pointerEvents: 'none',
+          maxWidth: '300px'
         }}>
+          <div><strong>App Debug Info:</strong></div>
           <div>Section: {currentSection?.id || 'none'}</div>
           <div>Crystal: {crystalState}</div>
           <div>Facet: {selectedFacet || 'none'}</div>
           <div>Progress: {Math.round(scrollProgress * 100)}%</div>
           <div>Mobile: {isMobile ? 'Yes' : 'No'}</div>
+          <div>Fast Scroll: {isFastScrolling ? 'Yes' : 'No'}</div>
+          <div>Transitioning: {isTransitioning ? 'Yes' : 'No'}</div>
+          <div>Visible Sections: {Array.from(visibleSections.keys()).length}</div>
         </div>
       )}
     </>

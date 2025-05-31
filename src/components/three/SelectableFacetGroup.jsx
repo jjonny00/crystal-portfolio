@@ -19,8 +19,8 @@ const SelectableFacetGroup = ({
   // Ensure facetRefs is initialized correctly
   useEffect(() => {
     // Debug output to verify ref array is available
-    console.log("SelectableFacetGroup mounted with refs:", 
-      facetRefs ? `Array of length ${facetRefs.current ? facetRefs.current.length : 0}` : 'undefined');
+    // console.log("SelectableFacetGroup mounted with refs:", 
+    //   facetRefs ? `Array of length ${facetRefs.current ? facetRefs.current.length : 0}` : 'undefined');
     
     // Initialize refs array if needed
     if (facetRefs && !facetRefs.current) {
@@ -43,8 +43,8 @@ const SelectableFacetGroup = ({
             
             if (el) {
               // Log facet position when set
-              console.log(`Set ref for facet ${facetKey} at index ${index}: `, 
-                el.position ? [el.position.x, el.position.y, el.position.z] : 'No position');
+              // console.log(`Set ref for facet ${facetKey} at index ${index}: `, 
+              //   el.position ? [el.position.x, el.position.y, el.position.z] : 'No position');
               
               // Ensure world matrix is updated (important for anchor positioning)
               el.updateWorldMatrix(true, true);

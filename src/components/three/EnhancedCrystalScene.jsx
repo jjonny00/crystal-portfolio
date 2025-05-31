@@ -1,5 +1,5 @@
-// src/components/three/EnhancedCrystalScene.jsx - FIXED for proper animation timing
-// Phase 3.2 Option A: Quick Fix with proper explosion timing
+// src/components/three/EnhancedCrystalScene.jsx - FIXED for proper camera integration
+// Updated to properly pass scroll data to camera controller
 
 import { useRef, useState, useEffect } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
@@ -18,7 +18,7 @@ import { LabelConnector } from './LabelConnector'
 import { useMobileScrolling } from '../../hooks/useMobileScrolling'
 
 /**
- * FIXED: Enhanced crystal scene with proper animation timing
+ * FIXED: Enhanced crystal scene with proper camera controller integration
  */
 const EnhancedCrystalScene = ({ 
   isExploded, 
@@ -33,8 +33,10 @@ const EnhancedCrystalScene = ({
   onFacetHover,
   isTransitioning,
   performanceConfig = { useNormalMaps: true, textureQuality: 'high', usePBR: true },
-  scrollCrystalData = null,
-  isFastScrolling = false
+  scrollCrystalData = null, // This should be scroll observer data
+  isFastScrolling = false,
+  // NEW: Accept scroll observer directly
+  scrollObserver = null
 }) => {
   // Mobile touch handling
   const { isMobileDevice, preventOrbitOnMobile } = useMobileScrolling({
@@ -72,7 +74,7 @@ const EnhancedCrystalScene = ({
   
   const { clock } = useThree();
   
-  // FIXED: Proper timing tracking
+  // Animation timing tracking
   const explosionStartTime = useRef(0);
   const fractureStartTime = useRef(0);
   const lastGlowValue = useRef(0);
@@ -112,7 +114,7 @@ const EnhancedCrystalScene = ({
     
   }, [crystalWhole, facetEmpathy, facetNarrative, facetCraft, facetSystem, facetLeadership, facetExploration, crystalMaterialRef.current]);
   
-  // FIXED: Visibility transitions with proper timing and debug logging
+  // Visibility transitions with proper timing and debug logging
   useEffect(() => {
     const prevState = lastCrystalState.current;
     lastCrystalState.current = crystalState;
@@ -128,7 +130,6 @@ const EnhancedCrystalScene = ({
         break;
         
       case CRYSTAL_STATES.FRACTURING:
-        // Start fracturing - keep crystal visible, prepare for fracture effects
         setShowCrystal(true);
         setShowFacets(false);
         setShowLabels(false);
@@ -137,7 +138,6 @@ const EnhancedCrystalScene = ({
         break;
         
       case CRYSTAL_STATES.EXPLODING:
-        // Start explosion - hide crystal, show facets beginning to move
         setShowCrystal(false);
         setShowFacets(true);
         setShowLabels(false);
@@ -146,10 +146,8 @@ const EnhancedCrystalScene = ({
         break;
         
       case CRYSTAL_STATES.EXPLODED:
-        // Explosion complete - show facets and labels
         setShowFacets(true);
         setShowCrystal(false);
-        // Delay label appearance for smooth transition
         const labelTimer = setTimeout(() => {
           setShowLabels(true);
           console.log('🏷️ Showing labels');
@@ -165,7 +163,6 @@ const EnhancedCrystalScene = ({
         break;
         
       case CRYSTAL_STATES.REFORMING:
-        // Start reform - hide labels, keep facets for reform animation
         setShowLabels(false);
         setShowFacets(true);
         setShowCrystal(false);
@@ -180,7 +177,7 @@ const EnhancedCrystalScene = ({
     }
   }, [crystalState, clock]);
 
-  // FIXED: Enhanced animation frame with proper explosion timing
+  // Enhanced animation frame with proper explosion timing
   useFrame((state) => {
     const time = state.clock.getElapsedTime();
     
@@ -212,14 +209,12 @@ const EnhancedCrystalScene = ({
       }
     }
     
-    // FIXED: Idle floating animation with proper explosion timing
+    // Idle floating animation with proper explosion timing
     if ((crystalState === CRYSTAL_STATES.EXPLODED || crystalState === CRYSTAL_STATES.PROJECT_SELECTED) && 
         showFacets && facetRefs.current && explosionStartTime.current > 0) {
       
       const elapsedSinceExplosion = time - explosionStartTime.current;
-      
-      // Only start idle animations after explosion is complete
-      const explosionCompleteTime = 1.5; // seconds
+      const explosionCompleteTime = 1.5;
       
       if (elapsedSinceExplosion > explosionCompleteTime) {
         const idleTime = elapsedSinceExplosion - explosionCompleteTime;
@@ -338,28 +333,37 @@ const EnhancedCrystalScene = ({
     }
   }
   
-  // FIXED: Physics-based spring animations with proper state detection
+  // Physics-based spring animations with proper state detection
   const facetSprings = config.facetLabels.map((label, index) => {
     // Determine if we should be in exploded state
     const shouldBeExploded = crystalState === CRYSTAL_STATES.EXPLODING || 
                             crystalState === CRYSTAL_STATES.EXPLODED || 
                             crystalState === CRYSTAL_STATES.PROJECT_SELECTED;
     
+    const startPos = config.startingPositions[label.key];
+    const endPos = shouldBeExploded ? config.explodedPositions[label.key] : config.startingPositions[label.key];
+    
+    console.log(`🔍 Spring ${label.key} positions:`, {
+      startPos,
+      endPos,
+      startType: Array.isArray(startPos) ? 'array' : typeof startPos,
+      endType: Array.isArray(endPos) ? 'array' : typeof endPos,
+      startLength: Array.isArray(startPos) ? startPos.length : 'n/a',
+      endLength: Array.isArray(endPos) ? endPos.length : 'n/a'
+    });
+    
     return useSpring({
-      from: { position: config.startingPositions[label.key] },
-      to: { 
-        position: shouldBeExploded ? config.explodedPositions[label.key] : config.startingPositions[label.key]
-      },
+      from: { position: startPos },
+      to: { position: endPos },
       config: createSpringConfig('exploded', shouldBeExploded),
-      // Add some debug logging
       onStart: () => {
         if (process.env.NODE_ENV === 'development') {
-          console.log(`🌸 Spring ${label.key} starting: ${shouldBeExploded ? 'exploding' : 'reforming'}`);
+          // console.log(`🌸 Spring ${label.key} starting: ${shouldBeExploded ? 'exploding' : 'reforming'}`);
         }
       },
       onRest: () => {
         if (process.env.NODE_ENV === 'development') {
-          console.log(`🌸 Spring ${label.key} completed`);
+          // console.log(`🌸 Spring ${label.key} completed`);
         }
       }
     });
@@ -387,14 +391,22 @@ const EnhancedCrystalScene = ({
         performanceConfig={performanceConfig}
       />
       
-      {/* PHASE 3.2: Enhanced Camera Controller with Animation Queue */}
+      {/* FIXED: Enhanced Camera Controller with proper scroll observer integration */}
       <ScrollCameraController
-        crystalState={crystalState}
-        selectedFacet={selectedFacet}
+        crystalState={crystalState}  // This comes from App.jsx crystal controller
+        selectedFacet={selectedFacet}  // This comes from App.jsx crystal controller
         isFastScrolling={isFastScrolling}
         isTransitioning={isTransitioning}
         config={config}
         debugMode={process.env.NODE_ENV === 'development'}
+        // Remove scrollObserver prop entirely for now - it's causing conflicts
+        scrollObserver={null}
+        // Pass crystal controller data directly
+        directCrystalData={{
+          crystalState,
+          selectedFacet,
+          currentSection: scrollObserver?.currentSection
+        }}
       />
       
       {/* Show the whole crystal with floating animation AND slow rotation */}
@@ -435,7 +447,7 @@ const EnhancedCrystalScene = ({
         />
       ))}
       
-      {/* FIXED: Debug info overlay in development */}
+      {/* Debug info overlay in development */}
       {process.env.NODE_ENV === 'development' && (
         <Html>
           <div style={{
@@ -461,6 +473,7 @@ const EnhancedCrystalScene = ({
             <div>Explosion Start: {explosionStartTime.current.toFixed(2)}</div>
             <div>Current Time: {clock.getElapsedTime().toFixed(2)}</div>
             <div>Is Transitioning: {isTransitioning ? 'YES' : 'NO'}</div>
+            <div>Scroll Section: {scrollObserver?.currentSection?.id || 'none'}</div>
           </div>
         </Html>
       )}
