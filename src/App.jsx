@@ -1,21 +1,19 @@
-// src/App.jsx - FIXED: Proper scroll observer integration for camera movements
-// Updated to pass scroll observer data to 3D scene for camera animations
+// src/App.jsx - UPDATED: Phase 1 - Unified Animation System
+// REMOVED: All complex scroll observers, crystal controllers, and camera controllers
+// ADDED: Single MasterAnimationCoordinator that handles everything
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import './App.css';
 import './styles/scroll-snap.css';
 
-// Import new layout components
+// NEW: Single animation coordinator replaces all the complex state management
+import MasterAnimationCoordinator from './components/three/MasterAnimationCoordinator';
+
+// Layout components (unchanged)
 import ScrollablePortfolio from './components/layout/ScrollablePortfolio';
 import Fixed3DCanvas from './components/layout/Fixed3DCanvas';
 
-// Import scroll observers - BOTH versions
-import { useCrystalScrollObserver } from './hooks/useScrollObserver';
-
-// Import new crystal scroll controller
-import { useCrystalController } from './hooks/useCrystalController';
-
-// Import existing components we still need
+// UI components (unchanged)
 import Navigation from './components/ui/Navigation';
 import FooterSection from './components/ui/FooterSection';
 import ControlsToggle from './components/ui/ControlsToggle';
@@ -29,11 +27,11 @@ import PerformanceControls from './components/ui/PerformanceControls';
 import AccessibilityInstructions from './components/ui/AccessibilityInstructions';
 import FpsDisplay, { PerformanceAlert } from './components/ui/FpsDisplay';
 
-// Import configuration and utilities
+// Configuration and utilities (unchanged)
 import * as defaultConfig from './crystalConfig';
 import { useDeviceProfile } from './hooks/useDeviceProfile';
 
-// Simple mobile detection
+// Simple mobile detection (unchanged)
 const isMobileDevice = () => {
   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
          (navigator.maxTouchPoints && navigator.maxTouchPoints > 2);
@@ -42,7 +40,7 @@ const isMobileDevice = () => {
 function App() {
   const isMobile = isMobileDevice();
 
-  // Device profile for performance optimization
+  // Device profile for performance optimization (unchanged)
   const { 
     performanceProfile: devicePerformanceProfile, 
     deviceProfile, 
@@ -55,60 +53,7 @@ function App() {
     enableOrientationLock: false
   });
 
-  // FIXED: Enhanced scroll observer with crystal controller integration
-  const {
-    currentSection,
-    scrollProgress,
-    scrollToSection,
-    isSectionVisible,
-    visibleSections,
-    debugInfo,
-    // Crystal-specific data
-    crystalState: observedCrystalState,
-    selectedFacet: observedSelectedFacet,
-    // Helper functions
-    getCrystalState,
-    getSelectedFacet
-  } = useCrystalScrollObserver({
-    onCrystalStateChange: (data) => {
-      console.log(`🔄 Scroll Observer - Crystal state: ${data.crystalState}, Facet: ${data.selectedFacet || 'none'}`);
-    },
-    isMobile
-  });
-
-  // NEW: Crystal controller integration (receives scroll observer data)
-  const {
-    crystalState,
-    selectedFacet,
-    isTransitioning,
-    scrollDirection,
-    isFastScrolling,
-    overrideCrystalState,
-    debugInfo: crystalDebugInfo
-  } = useCrystalController({
-    scrollObserver: { 
-      currentSection, 
-      visibleSections, 
-      getVisibleSectionIds: () => Array.from(visibleSections.keys()),
-      // Pass the full scroll observer object for camera controller
-      scrollObserver: {
-        currentSection,
-        visibleSections,
-        scrollProgress,
-        getCrystalState,
-        getSelectedFacet
-      }
-    },
-    onStateChange: (newState, prevState) => {
-      console.log(`💎 Crystal Controller: ${prevState} → ${newState}`);
-    },
-    onFacetChange: (newFacet, prevFacet) => {
-      console.log(`🎯 Facet Controller: ${prevFacet || 'none'} → ${newFacet || 'none'}`);
-    },
-    debugMode: process.env.NODE_ENV === 'development'
-  });
-
-  // UI state
+  // UI state (unchanged)
   const [config, setConfig] = useState({
     ...defaultConfig,
     timing: {
@@ -125,7 +70,7 @@ function App() {
   const [showUI, setShowUI] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
   
-  // Material configs
+  // Material configs (unchanged)
   const [blackOpalConfig, setBlackOpalConfig] = useState({
     roughness: 0.4,
     metalness: 0.1,
@@ -146,7 +91,7 @@ function App() {
     emissiveIntensity: 0.4
   });
   
-  // Effects state
+  // Effects state (unchanged)
   const [effectsEnabled, setEffectsEnabled] = useState({
     bloom: true,
     chromaticAberration: true,
@@ -156,7 +101,7 @@ function App() {
   
   const [postProcessingConfig, setPostProcessingConfig] = useState(config.postProcessing);
   
-  // Performance config
+  // Performance config (unchanged)
   const [performanceConfig, setPerformanceConfig] = useState(() => {
     return {
       useNormalMaps: false,
@@ -166,11 +111,12 @@ function App() {
     };
   });
 
-  // Performance management
+  // Performance management (unchanged)
   const [lastAppliedProfile, setLastAppliedProfile] = useState(null);
   const [initialProfileApplied, setInitialProfileApplied] = useState(false);
   
-  useEffect(() => {
+  // Performance profile application (unchanged)
+  React.useEffect(() => {
     if (devicePerformanceProfile && !isDetecting) {
       const profileKey = JSON.stringify({
         useNormalMaps: devicePerformanceProfile.useNormalMaps,
@@ -205,7 +151,7 @@ function App() {
 
   const [hasInitialized, setHasInitialized] = useState(false);
   
-  useEffect(() => {
+  React.useEffect(() => {
     if (updateExternalPerformanceConfig && hasInitialized && initialProfileApplied) {
       updateExternalPerformanceConfig(performanceConfig);
     } else if (devicePerformanceProfile && !hasInitialized) {
@@ -213,14 +159,26 @@ function App() {
     }
   }, [performanceConfig, updateExternalPerformanceConfig, hasInitialized, devicePerformanceProfile, initialProfileApplied]);
 
-  // Navigation handlers - now use scroll observer
+  // NEW: Animation state change handler - receives unified animation state
+  const handleAnimationStateChange = useCallback((newState, prevState) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🎬 Animation state changed:', {
+        from: prevState,
+        to: newState
+      });
+    }
+  }, []);
+
+  // Navigation handlers - SIMPLIFIED: Now use scroll zones instead of complex section targeting
   const handleWorkClick = useCallback(() => {
-    scrollToSection('projects-overview');
-  }, [scrollToSection]);
+    // Use the animation coordinator's scroll utilities
+    // This will be passed down via animationData
+    console.log('Navigate to work section');
+  }, []);
 
   const handleAboutClick = useCallback(() => {
-    scrollToSection('about');
-  }, [scrollToSection]);
+    console.log('Navigate to about section');
+  }, []);
 
   const handleProcessClick = useCallback(() => {
     setMaterialVariant(prev => {
@@ -232,10 +190,10 @@ function App() {
   }, []);
 
   const handleContactClick = useCallback(() => {
-    scrollToSection('footer');
-  }, [scrollToSection]);
+    console.log('Navigate to contact section');
+  }, []);
 
-  // Handler functions
+  // Handler functions (unchanged)
   const handleConfigUpdate = useCallback((newConfig) => {
     setConfig(newConfig);
   }, []);
@@ -281,7 +239,7 @@ function App() {
     setShowUI(!showUI);
   }, [showUI]);
 
-  // Get optimal props for 3D canvas
+  // Get optimal props for 3D canvas (unchanged)
   const canvasProps = getOptimalCanvasProps();
   const environmentProps = getOptimalEnvironmentProps();
 
@@ -293,8 +251,7 @@ function App() {
         onAboutClick={handleAboutClick}
         onProcessClick={handleProcessClick}
         onContactClick={handleContactClick}
-        isTransitioning={isTransitioning}
-        crystalState={crystalState}
+        // Animation state will be passed down via context or props
       />
 
       {/* FPS Display */}
@@ -313,49 +270,40 @@ function App() {
         }}
       />
 
-      {/* FIXED: Fixed 3D Canvas with proper scroll observer integration */}
-      <Fixed3DCanvas
-        crystalState={crystalState}
-        selectedFacet={selectedFacet}
-        hoveredFacet={null}
-        onFacetSelect={null}
-        onFacetHover={null}
-        materialVariant={materialVariant}
-        blackOpalConfig={blackOpalConfig}
-        iceOpalConfig={iceOpalConfig}
-        effectsEnabled={effectsEnabled}
-        postProcessingConfig={postProcessingConfig}
-        performanceConfig={performanceConfig}
-        config={config}
-        canvasProps={canvasProps}
-        environmentProps={environmentProps}
-        isMobile={isMobile}
-        isFastScrolling={isFastScrolling}
-        isTransitioning={isTransitioning}
-        // FIXED: Pass the scroll observer that includes currentSection from crystal scroll observer
-        scrollObserver={{
-          currentSection,
-          visibleSections,
-          scrollProgress,
-          getCrystalState,
-          getSelectedFacet,
-          scrollToSection,
-          isSectionVisible,
-          // CRITICAL: Pass the correct crystal state from crystal controller
-          crystalState: crystalState,  // This is the one from useCrystalController
-          selectedFacet: selectedFacet  // This is the one from useCrystalController
-        }}
-      />
+      {/* NEW: Master Animation Coordinator - Single source of truth for all animations */}
+      <MasterAnimationCoordinator 
+        debugMode={process.env.NODE_ENV === 'development'}
+        onAnimationStateChange={handleAnimationStateChange}
+      >
+        {/* SIMPLIFIED: Fixed 3D Canvas now receives animationData from coordinator */}
+        <Fixed3DCanvas
+          materialVariant={materialVariant}
+          blackOpalConfig={blackOpalConfig}
+          iceOpalConfig={iceOpalConfig}
+          effectsEnabled={effectsEnabled}
+          postProcessingConfig={postProcessingConfig}
+          performanceConfig={performanceConfig}
+          config={config}
+          canvasProps={canvasProps}
+          environmentProps={environmentProps}
+          isMobile={isMobile}
+          // animationData will be passed by MasterAnimationCoordinator
+        />
+      </MasterAnimationCoordinator>
 
-      {/* Scrollable Content - on top of 3D canvas */}
+      {/* Scrollable Content - on top of 3D canvas (unchanged) */}
       <ScrollablePortfolio />
 
-      {/* FooterSection */}
+      {/* FooterSection - SIMPLIFIED: Will use animation coordinator for navigation */}
       <FooterSection 
-        visible={isSectionVisible('footer')}
-        onLoopBack={() => scrollToSection('hero')}
+        visible={true} // Always visible, coordinator handles the animation
+        onLoopBack={() => {
+          // Will be replaced with coordinator's scrollToZone function
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
       />
       
+      {/* UI Controls (unchanged) */}
       <ControlsToggle 
         showUI={showUI} 
         toggleUI={toggleUI} 
@@ -412,34 +360,6 @@ function App() {
       )}
       
       <AccessibilityInstructions visible={true} />
-
-      {/* Enhanced Debug Info - only in development */}
-      {process.env.NODE_ENV === 'development' && (
-        <div style={{
-          position: 'fixed',
-          top: '100px',
-          left: '10px',
-          background: 'rgba(0, 0, 0, 0.8)',
-          color: 'white',
-          padding: '10px',
-          borderRadius: '4px',
-          fontSize: '12px',
-          fontFamily: 'monospace',
-          zIndex: 10000,
-          pointerEvents: 'none',
-          maxWidth: '300px'
-        }}>
-          <div><strong>App Debug Info:</strong></div>
-          <div>Section: {currentSection?.id || 'none'}</div>
-          <div>Crystal: {crystalState}</div>
-          <div>Facet: {selectedFacet || 'none'}</div>
-          <div>Progress: {Math.round(scrollProgress * 100)}%</div>
-          <div>Mobile: {isMobile ? 'Yes' : 'No'}</div>
-          <div>Fast Scroll: {isFastScrolling ? 'Yes' : 'No'}</div>
-          <div>Transitioning: {isTransitioning ? 'Yes' : 'No'}</div>
-          <div>Visible Sections: {Array.from(visibleSections.keys()).length}</div>
-        </div>
-      )}
     </>
   );
 }

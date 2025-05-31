@@ -1,5 +1,7 @@
 // src/components/layout/Fixed3DCanvas.jsx
-// FIXED: Proper scroll observer integration for camera movements
+// UPDATED: Phase 1 - Simplified with unified animation system
+// REMOVED: Complex scroll observer integration, multiple camera controllers
+// ADDED: Single animationData prop from MasterAnimationCoordinator
 
 import React from 'react';
 import { Canvas } from '@react-three/fiber';
@@ -8,22 +10,21 @@ import { EffectComposer, Bloom, ChromaticAberration, Noise, Vignette } from '@re
 import { BlendFunction } from 'postprocessing';
 import * as THREE from 'three';
 
-// Import your existing 3D components
-import EnhancedCrystalScene from '../three/EnhancedCrystalScene';
+// NEW: Unified 3D components
+import UnifiedCameraController from '../three/UnifiedCameraController';
+import UnifiedCrystalScene from '../three/UnifiedCrystalScene';
 import { FPSCounter } from '../ui/FpsDisplay';
 
 /**
- * Fixed3DCanvas - The 3D scene that remains fixed behind scrollable content
- * FIXED: Now properly passes scroll observer data to camera controller
+ * Fixed3DCanvas - SIMPLIFIED
+ * Now receives single animationData prop instead of many complex props
+ * All animation logic moved to unified system
  */
 const Fixed3DCanvas = ({ 
-  crystalState,
-  selectedFacet,
-  hoveredFacet,
-  onFacetSelect,
-  onFacetHover,
-  isFastScrolling = false,
-  isTransitioning = false,
+  // Animation data from MasterAnimationCoordinator
+  animationData,
+  
+  // Material and effects (unchanged)
   materialVariant = 'default',
   blackOpalConfig,
   iceOpalConfig,
@@ -33,9 +34,7 @@ const Fixed3DCanvas = ({
   config,
   canvasProps = {},
   environmentProps = {},
-  isMobile = false,
-  // NEW: Accept scroll observer data
-  scrollObserver = null
+  isMobile = false
 }) => {
   return (
     <div style={{
@@ -72,7 +71,7 @@ const Fixed3DCanvas = ({
         
         <color attach="background" args={['#050505']} />
         
-        {/* Lighting setup */}
+        {/* Lighting setup (unchanged) */}
         <ambientLight intensity={config?.lighting?.ambient?.intensity || 0.2} />
         <directionalLight 
           position={config?.lighting?.directional?.position || [10, 8, 5]} 
@@ -98,36 +97,32 @@ const Fixed3DCanvas = ({
           color={config?.lighting?.spotLight?.color || "#FFFFFF"} 
         />
         
-        {/* FIXED: Crystal scene with proper scroll observer integration */}
-        <EnhancedCrystalScene 
-          isExploded={crystalState === 'EXPLODED' || crystalState === 'EXPLODING' || crystalState === 'PROJECT_SELECTED'} 
-          crystalState={scrollObserver?.crystalState || crystalState}
-          config={config} 
+        {/* NEW: Unified Camera Controller - Replaces ScrollCameraController */}
+        <UnifiedCameraController 
+          animationData={animationData}
+          config={config}
+          isMobile={isMobile}
+        />
+        
+        {/* NEW: Unified Crystal Scene - Replaces EnhancedCrystalScene */}
+        <UnifiedCrystalScene 
+          animationData={animationData}
+          config={config}
           materialVariant={materialVariant}
           blackOpalConfig={blackOpalConfig}
           iceOpalConfig={iceOpalConfig}
-          selectedFacet={scrollObserver?.selectedFacet || selectedFacet}
-          hoveredFacet={hoveredFacet}
-          onFacetSelect={isMobile ? null : onFacetSelect}
-          onFacetHover={isMobile ? null : onFacetHover}
-          isFastScrolling={isFastScrolling}
-          isTransitioning={isTransitioning}
           performanceConfig={performanceConfig}
-          isMobileDevice={isMobile}
-          // CRITICAL: Pass scroll observer data for camera controller
-          scrollObserver={scrollObserver}
-          // Keep legacy prop for any floating animations that depend on it
-          scrollCrystalData={scrollObserver}
+          isMobile={isMobile}
         />
         
-        {/* Environment */}
+        {/* Environment (unchanged) */}
         <Environment 
           files={environmentProps.files || config?.environment?.hdri || "/assets/environment/prismatic09-low.hdr"} 
           background={config?.environment?.showBackground !== false} 
           rotation={config?.environment?.rotation || [0, Math.PI * 0.5, 0]}
         />
         
-        {/* Post-processing effects */}
+        {/* Post-processing effects (unchanged) */}
         <EffectComposer enabled={true}>
           {/* Default minimal bloom when no effects are enabled */}
           <Bloom 
@@ -168,11 +163,12 @@ const Fixed3DCanvas = ({
           )}
         </EffectComposer>
         
-        {/* Orbit controls - disabled on mobile, scroll-aware on desktop */}
+        {/* Orbit controls - disabled on mobile, animation-aware on desktop */}
         {!isMobile && (
           <OrbitControls 
             makeDefault
-            enabled={crystalState !== 'PROJECT_SELECTED'} 
+            // SIMPLIFIED: Enable/disable based on animation state instead of complex crystal state
+            enabled={!animationData?.isTransitioning && animationData?.currentZone !== 'projects'} 
             enableZoom={config?.camera?.orbitControls?.enableZoom !== false}
             enablePan={config?.camera?.orbitControls?.enablePan !== false}
             rotateSpeed={config?.camera?.orbitControls?.rotateSpeed || 0.5}
