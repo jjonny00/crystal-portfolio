@@ -17,7 +17,7 @@ import { FPSCounter } from '../ui/FpsDisplay';
 
 
 // Animation Debug
-import AnimationDebugDisplay from './AnimationDebugDisplay';
+// import AnimationDebugDisplay from './AnimationDebugDisplay';
 
 /**
  * Fixed3DCanvas - SIMPLIFIED
@@ -76,7 +76,7 @@ const Fixed3DCanvas = ({
         <color attach="background" args={['#050505']} />
         
         {/*Animation Debug*/}
-        <AnimationDebugDisplay animationData={animationData} />
+        {/* <AnimationDebugDisplay animationData={animationData} /> */}
         
         {/* Lighting setup (unchanged) */}
         <ambientLight intensity={config?.lighting?.ambient?.intensity || 0.2} />
