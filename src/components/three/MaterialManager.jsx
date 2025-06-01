@@ -1,4 +1,6 @@
 // components/three/MaterialManager.jsx - Updated to prevent material sharing
+// CLEANED: Removed any potential outline material references
+
 import React, { useRef, useEffect } from 'react';
 import CrystalMaterial from '../materials/CrystalMaterial';
 import BlackOpalMaterial from '../materials/BlackOpalMaterial';
@@ -9,6 +11,7 @@ import IceOpalMaterial from '../materials/IceOpalMaterial';
 /**
  * Component to manage and apply the correct material based on selected variant
  * Updated to prevent material sharing between variants
+ * CLEANED: All outline material references removed
  */
 const MaterialManager = ({ 
   materialVariant, 

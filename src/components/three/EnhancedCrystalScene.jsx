@@ -1,5 +1,6 @@
 // src/components/three/EnhancedCrystalScene.jsx - FIXED for proper camera integration
 // Updated to properly pass scroll data to camera controller
+// CLEANED: All outline references removed
 
 import { useRef, useState, useEffect } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
@@ -19,6 +20,7 @@ import { useMobileScrolling } from '../../hooks/useMobileScrolling'
 
 /**
  * FIXED: Enhanced crystal scene with proper camera controller integration
+ * CLEANED: All outline references removed
  */
 const EnhancedCrystalScene = ({ 
   isExploded, 

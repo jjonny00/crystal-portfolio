@@ -1,5 +1,5 @@
 // src/components/three/UnifiedCrystalScene.jsx
-// FIXED: Reduced floating, fixed outline positioning, smoother animations
+// FIXED: Removed all facet outline references and components
 
 import { useRef, useState, useEffect } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
@@ -9,12 +9,9 @@ import * as THREE from 'three'
 // Import existing material manager and components
 import MaterialManager from './MaterialManager'
 
-// Add this component to the top of your UnifiedCrystalScene.jsx file
-// (after the imports, before the main UnifiedCrystalScene component)
-
 /**
  * Unified Crystal Scene
- * FIXED: Much more subtle floating animation and proper outline positioning
+ * CLEANED: All outline references removed
  */
 const UnifiedCrystalScene = ({ 
   animationData,
@@ -201,21 +198,21 @@ const UnifiedCrystalScene = ({
       )}
       
       {/* Individual Facets - shown when crystalForm is 'exploded' */}
-        {showFacets && facetModels.map((model, index) => {
+      {showFacets && facetModels.map((model, index) => {
         const facetKey = facetKeys[index];
         const isFocused = isFacetFocused(index);
         
         return (
-            <group 
+          <group 
             key={facetKey}
             ref={el => facetRefs.current[index] = el}
-            >
+          >
             <primitive object={model.scene} />
             
-            {/* TODO: Add working outline system later */}
-            </group>
+            {/* REMOVED: All outline components and references */}
+          </group>
         );
-        })}
+      })}
       
       {/* Debug info in development */}
       {process.env.NODE_ENV === 'development' && animationData && (

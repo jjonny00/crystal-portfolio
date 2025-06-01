@@ -1,11 +1,10 @@
-// SelectableFacet.jsx - Updated to better handle anchors
+// SelectableFacet.jsx - Updated to remove all outline references
 import React, { useRef, useState, useEffect } from 'react';
 import { a } from '@react-spring/three';
-import FacetOutline from './FacetOutline';
 
 /**
  * Component for a single facet that can be selected/hovered
- * Updated to properly handle anchors
+ * CLEANED: All outline references removed
  */
 const SelectableFacet = React.forwardRef(({
   model,
@@ -19,7 +18,6 @@ const SelectableFacet = React.forwardRef(({
   onHover
 }, ref) => {
   const localRef = useRef();
-  const [facetMesh, setFacetMesh] = useState(null);
   
   // Use both the forwarded ref and local ref
   useEffect(() => {
@@ -46,23 +44,6 @@ const SelectableFacet = React.forwardRef(({
       }
     }
   }, [ref, localRef.current, facetKey]);
-  
-  // Find the first mesh in the model after it's loaded
-  useEffect(() => {
-    if (!localRef.current) return;
-    
-    // Find the first mesh in the scene
-    let foundMesh = null;
-    localRef.current.traverse((child) => {
-      if (!foundMesh && child.isMesh) {
-        foundMesh = child;
-      }
-    });
-    
-    if (foundMesh) {
-      setFacetMesh(foundMesh);
-    }
-  }, [model]);
   
   // Event handlers
   const handlePointerOver = () => {
@@ -95,16 +76,7 @@ const SelectableFacet = React.forwardRef(({
     >
       <primitive object={model.scene} />
       
-      {/* Outline effect for selected or hovered facets */}
-      {facetMesh && (isSelected || isHovered) && (
-        <FacetOutline
-          visible={true}
-          originalMesh={facetMesh}
-          color={color}
-          thickness={isSelected ? 0.04 : 0.02}
-          opacity={isSelected ? 0.8 : 0.6}
-        />
-      )}
+      {/* REMOVED: All FacetOutline components and outline effect logic */}
     </a.group>
   );
 });
