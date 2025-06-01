@@ -16,6 +16,11 @@ const UnifiedCameraController = ({
 }) => {
   const { camera } = useThree();
   
+  // FIXED: Use current camera position as baseline, not preset positions
+  const currentCameraPosition = useRef(new THREE.Vector3());
+  const currentCameraTarget = useRef(new THREE.Vector3());
+  const currentCameraFOV = useRef(45);
+  
   // Target values for smooth interpolation
   const targetPosition = useRef(new THREE.Vector3());
   const targetLookAt = useRef(new THREE.Vector3());
@@ -24,22 +29,41 @@ const UnifiedCameraController = ({
   // FIXED: Enhanced project switching with ultra-smooth transitions
   const projectSwitchState = useRef({
     isAnimating: false,
-    phase: 'none', // 'none' | 'zoomOut' | 'zoomIn'
+    phase: 'none', // 'none' | 'directTransition'
     startTime: 0,
-    duration: 1800, // REDUCED from 2000 for snappier feel
+    duration: 1400, // REDUCED from 2000 for snappier feel
     fromProject: null,
     toProject: null,
-    intermediatePosition: new THREE.Vector3(0, 1.5, 5.5), // ADJUSTED for smoother overview
-    intermediateLookAt: new THREE.Vector3(0, 0, 0),
-    intermediateFOV: 50 // ADJUSTED FOV
+    // REMOVED: Fixed intermediate positions - use current position instead
+    startPosition: new THREE.Vector3(),
+    startTarget: new THREE.Vector3(),
+    startFOV: 45
   });
   
   // Previous values for smooth transitions
   const previousCameraState = useRef(null);
   const previousFocusedFacet = useRef(null);
 
+  // Initialize current camera state from actual camera
+  useEffect(() => {
+    currentCameraPosition.current.copy(camera.position);
+    currentCameraFOV.current = camera.fov;
+    
+    // Calculate current look-at direction
+    const direction = new THREE.Vector3();
+    camera.getWorldDirection(direction);
+    currentCameraTarget.current.copy(camera.position).add(direction);
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log('📹 Camera state initialized from current position:', {
+        position: currentCameraPosition.current.toArray(),
+        fov: currentCameraFOV.current
+      });
+    }
+  }, [camera]);
+
   /**
-   * FIXED: Handle project switching with smooth zoom-out-zoom-in
+   * FIXED: Handle project switching with smooth movement from current position
    */
   useEffect(() => {
     if (!animationData) return;
@@ -56,22 +80,32 @@ const UnifiedCameraController = ({
     if (isSwitchingProjects) {
       console.log('📹 Starting ultra-smooth project switch:', previousProject, '→', currentProject);
       
-      // Start project switch animation
+      // FIXED: Use CURRENT camera position as starting point
+      currentCameraPosition.current.copy(camera.position);
+      
+      // Calculate current look-at direction
+      const direction = new THREE.Vector3();
+      camera.getWorldDirection(direction);
+      currentCameraTarget.current.copy(camera.position).add(direction);
+      currentCameraFOV.current = camera.fov;
+      
+      // Start project switch animation from CURRENT position
       projectSwitchState.current = {
         isAnimating: true,
-        phase: 'zoomOut',
+        phase: 'directTransition', // SIMPLIFIED: Direct transition
         startTime: performance.now(),
-        duration: 1800, // Smooth but not too slow
+        duration: 1400, // Smooth but not too slow
         fromProject: previousProject,
         toProject: currentProject,
-        intermediatePosition: new THREE.Vector3(0, 1.5, 5.5), // Better intermediate position
-        intermediateLookAt: new THREE.Vector3(0, 0, 0),
-        intermediateFOV: 50
+        // Store current position as starting point
+        startPosition: currentCameraPosition.current.clone(),
+        startTarget: currentCameraTarget.current.clone(),
+        startFOV: currentCameraFOV.current
       };
     }
 
     previousFocusedFacet.current = currentProject;
-  }, [animationData?.focusedFacet, animationData?.cameraState]);
+  }, [animationData?.focusedFacet, animationData?.cameraState, camera]);
 
   /**
    * FIXED: Update target values when animation state changes - NO POPPING
@@ -97,6 +131,10 @@ const UnifiedCameraController = ({
       targetFOV.current = cameraConfig.fov;
     }
 
+    // Update current state tracking
+    currentCameraPosition.current.copy(camera.position);
+    currentCameraFOV.current = camera.fov;
+
     // Log camera state changes in development
     if (process.env.NODE_ENV === 'development') {
       const stateChanged = previousCameraState.current !== animationData.cameraState;
@@ -113,7 +151,7 @@ const UnifiedCameraController = ({
         previousCameraState.current = animationData.cameraState;
       }
     }
-  }, [animationData?.cameraConfig, animationData?.cameraState]);
+  }, [animationData?.cameraConfig, animationData?.cameraState, camera]);
 
   /**
    * FIXED: Ultra-smooth camera animation every frame - NO POPPING
@@ -124,56 +162,49 @@ const UnifiedCameraController = ({
     // Handle project switching animation
     if (projectSwitchState.current.isAnimating) {
       const elapsed = performance.now() - projectSwitchState.current.startTime;
-      const totalDuration = projectSwitchState.current.duration;
-      const halfDuration = totalDuration / 2;
+      const progress = Math.min(elapsed / projectSwitchState.current.duration, 1);
       
-      if (elapsed < halfDuration) {
-        // Phase 1: Zoom out - ULTRA SMOOTH
-        projectSwitchState.current.phase = 'zoomOut';
-        const progress = elapsed / halfDuration;
-        const easedProgress = ultraSmoothEasing(progress);
+      // Ultra-smooth easing
+      const easedProgress = ultraSmoothEasing(progress);
+      
+      // FIXED: Get target position for new project
+      const newProjectConfig = animationData.cameraConfig;
+      if (newProjectConfig) {
+        // Interpolate from CURRENT position to target position
+        camera.position.lerpVectors(
+          projectSwitchState.current.startPosition,
+          newProjectConfig.position,
+          easedProgress
+        );
         
-        // Animate to intermediate position with ultra-smooth easing
-        camera.position.lerp(projectSwitchState.current.intermediatePosition, easedProgress * 0.08); // REDUCED for ultra-smooth
-        camera.fov = THREE.MathUtils.lerp(camera.fov, projectSwitchState.current.intermediateFOV, easedProgress * 0.08);
-        camera.lookAt(projectSwitchState.current.intermediateLookAt);
-        camera.updateProjectionMatrix();
+        camera.fov = THREE.MathUtils.lerp(
+          projectSwitchState.current.startFOV,
+          newProjectConfig.fov,
+          easedProgress
+        );
         
-      } else if (elapsed < totalDuration) {
-        // Phase 2: Zoom in to new project - ULTRA SMOOTH
-        if (projectSwitchState.current.phase === 'zoomOut') {
-          // Just started zoom in phase - update targets to new project
-          projectSwitchState.current.phase = 'zoomIn';
-          
-          // Get the new project's camera config
-          const newProjectConfig = animationData.cameraConfig;
-          if (newProjectConfig) {
-            targetPosition.current.copy(newProjectConfig.position);
-            targetLookAt.current.copy(newProjectConfig.target);
-            targetFOV.current = newProjectConfig.fov;
-          }
-        }
+        // Smooth look-at transition
+        const targetDirection = new THREE.Vector3()
+          .subVectors(newProjectConfig.target, newProjectConfig.position)
+          .normalize();
         
-        const progress = (elapsed - halfDuration) / halfDuration;
-        const easedProgress = ultraSmoothEasing(progress);
+        const startDirection = new THREE.Vector3()
+          .subVectors(projectSwitchState.current.startTarget, projectSwitchState.current.startPosition)
+          .normalize();
         
-        // Animate to final position with ultra-smooth easing
-        camera.position.lerp(targetPosition.current, easedProgress * 0.06); // REDUCED for ultra-smooth
-        camera.fov = THREE.MathUtils.lerp(camera.fov, targetFOV.current, easedProgress * 0.06);
+        const currentDirection = new THREE.Vector3()
+          .lerpVectors(startDirection, targetDirection, easedProgress);
         
-        // Ultra-smooth look-at transition
-        const direction = new THREE.Vector3();
-        direction.subVectors(targetLookAt.current, camera.position).normalize();
-        const lookAtPoint = new THREE.Vector3();
-        lookAtPoint.addVectors(camera.position, direction);
+        const lookAtPoint = new THREE.Vector3()
+          .addVectors(camera.position, currentDirection);
+        
         camera.lookAt(lookAtPoint);
         camera.updateProjectionMatrix();
-        
-      } else {
+      }
+      
+      if (progress >= 1) {
         // Animation complete
         projectSwitchState.current.isAnimating = false;
-        projectSwitchState.current.phase = 'none';
-        
         console.log('📹 Ultra-smooth project switch complete');
       }
       
@@ -181,25 +212,25 @@ const UnifiedCameraController = ({
     }
 
     // FIXED: Normal camera animation with ultra-smooth interpolation
-    let baseLerpSpeed = 0.025; // HEAVILY REDUCED from 0.04 for ultra-smooth movement
+    let baseLerpSpeed = 0.02; // HEAVILY REDUCED from 0.025 for ultra-smooth movement
     
     // Slightly faster during fast scrolling but still smooth
     if (animationData.isFastScrolling) {
-      baseLerpSpeed *= 1.3; // REDUCED from 1.5
+      baseLerpSpeed *= 1.1; // REDUCED from 1.3
     }
     
     // Slightly faster during transitions but still smooth
     if (animationData.isTransitioning) {
-      baseLerpSpeed *= 1.1; // REDUCED from 1.2
+      baseLerpSpeed *= 1.05; // REDUCED from 1.1
     }
     
     // Even slower on mobile for maximum smoothness
     if (isMobile) {
-      baseLerpSpeed *= 0.75; // REDUCED from 0.8
+      baseLerpSpeed *= 0.9; // REDUCED from 0.75
     }
     
     // REDUCED max lerp speed to prevent any popping
-    const lerpSpeed = Math.min(baseLerpSpeed, 0.08); // REDUCED max from 0.15
+    const lerpSpeed = Math.min(baseLerpSpeed, 0.06); // REDUCED max from 0.08
 
     // Ultra-smooth position transition
     camera.position.lerp(targetPosition.current, lerpSpeed);
@@ -223,6 +254,10 @@ const UnifiedCameraController = ({
     const fovDiff = targetFOV.current - camera.fov;
     camera.fov += fovDiff * lerpSpeed;
     camera.updateProjectionMatrix();
+    
+    // Update current state tracking
+    currentCameraPosition.current.copy(camera.position);
+    currentCameraFOV.current = camera.fov;
   });
 
   /**

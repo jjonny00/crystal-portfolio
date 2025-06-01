@@ -1,14 +1,14 @@
 // src/hooks/useUnifiedAnimationController.js
-// FIXED: Ultra-smooth camera transitions with no popping throughout scroll
+// FIXED: Better scroll zone timing and smooth camera transitions
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Vector3 } from 'three';
 
 /**
- * FIXED: Centralized Animation Configuration with smoother transitions
+ * FIXED: Centralized Animation Configuration with corrected scroll zones
  */
 export const ANIMATION_CONFIG = {
-  // FIXED: Camera states with gradual position changes to prevent popping
+  // Camera states with gradual position changes to prevent popping
   camera: {
     hero: {
       position: new Vector3(0, 3.2, 2.4),
@@ -17,52 +17,32 @@ export const ANIMATION_CONFIG = {
       description: 'Intimate close view - elevated perspective'
     },
     overview: {
-      position: new Vector3(0, 2.5, 4.0), // ADJUSTED: Smoother transition from hero
-      target: new Vector3(0, 0.3, 0),      // ADJUSTED: Gradual target change
-      fov: 38,                             // ADJUSTED: Gradual FOV change
+      position: new Vector3(0, 2.5, 4.0),
+      target: new Vector3(0, 0.3, 0),
+      fov: 38,
       description: 'Intermediate view before explosion'
     },
     projects: {
       empathy: {
-        position: new Vector3(2.8, -1.5, 3.2), // ADJUSTED: Slightly closer for smoother transitions
+        position: new Vector3(2.8, -1.5, 3.2),
         target: new Vector3(0.3, -0.7, -0.2),
         fov: 35
       },
-      narrative: {
-        position: new Vector3(3.2, 1.0, 2.8),  // ADJUSTED: More gradual positioning
-        target: new Vector3(0.3, -0.1, -0.7),
-        fov: 35
-      },
-      craft: {
-        position: new Vector3(4.0, 3.0, 2.0),  // ADJUSTED: Smoother approach
-        target: new Vector3(1.3, 0.8, 0.5),
-        fov: 35
-      },
-      system: {
-        position: new Vector3(-2.5, 1.3, 1.8), // ADJUSTED: Less extreme positioning
-        target: new Vector3(-0.5, 0.2, -1.8),
-        fov: 35
-      },
-      leadership: {
-        position: new Vector3(3.5, 4.2, 2.6),  // ADJUSTED: Gentler positioning
-        target: new Vector3(0.4, 1.2, 0.9),
-        fov: 35
-      },
       exploration: {
-        position: new Vector3(-2.8, 2.8, 2.6), // ADJUSTED: Smoother positioning
+        position: new Vector3(-2.8, 2.8, 2.6),
         target: new Vector3(-0.6, 0.7, 0.0),
         fov: 35
       }
     },
     about: {
-      position: new Vector3(0, 2.0, 3.5),     // ADJUSTED: Gradual return position
+      position: new Vector3(0, 2.0, 3.5),
       target: new Vector3(0, 0.2, 0),
-      fov: 40,                                // ADJUSTED: Gradual FOV return
+      fov: 40,
       description: 'Reformed crystal view'
     }
   },
 
-  // Crystal facet positions when exploded (unchanged)
+  // Crystal facet positions when exploded
   crystal: {
     explodedPositions: {
       empathy: new Vector3(0.3, -0.7, -0.2),
@@ -77,42 +57,42 @@ export const ANIMATION_CONFIG = {
 
   // FIXED: Slower animation timing for ultra-smooth transitions
   timing: {
-    cameraTransition: 1800,     // INCREASED from 1200 for smoother movement
-    crystalExplosion: 1000,     // INCREASED from 800
-    crystalReform: 1200,        // INCREASED from 1000
-    facetFocus: 2200,          // INCREASED from 1800 for ultra-smooth project switches
-    projectSwitch: 2400,       // INCREASED from 2000 for maximum smoothness
+    cameraTransition: 1600,     // INCREASED for smoother movement
+    crystalExplosion: 1000,     
+    crystalReform: 1200,        
+    facetFocus: 2000,          // INCREASED for ultra-smooth project switches
+    projectSwitch: 2200,       // INCREASED for maximum smoothness
     easing: 'ultraSmooth'      // Use ultra-smooth easing
   },
 
-  // FIXED: Adjusted scroll zones for better transitions
+  // FIXED: Corrected scroll zones for 8 sections (hero, overview, 6 projects, about)
   scrollZones: {
-    hero: { start: 0, end: 0.18 },        // ADJUSTED: Slightly shorter for smoother transitions
-    overview: { start: 0.18, end: 0.22 }, // ADJUSTED: Smaller transition zone
-    projects: { start: 0.22, end: 0.78 }, // ADJUSTED: Larger project zone
-    about: { start: 0.78, end: 1.0 }      // ADJUSTED: About section
+    hero: { start: 0, end: 0.125 },        // FIXED: 1/8 of page (section 1)
+    overview: { start: 0.125, end: 0.25 }, // FIXED: 1/8 of page (section 2)
+    projects: { start: 0.25, end: 0.875 }, // FIXED: 6/8 of page (sections 3-8)
+    about: { start: 0.875, end: 1.0 }      // FIXED: 1/8 of page (section 8)
   },
 
-  // FIXED: Smoother project section transitions
+  // FIXED: Project section transitions aligned with actual scroll positions
   projectSections: {
-    empathy: { start: 0.22, end: 0.31 },    // ADJUSTED for smoother spacing
-    narrative: { start: 0.31, end: 0.40 },
-    craft: { start: 0.40, end: 0.49 },
-    system: { start: 0.49, end: 0.58 },
-    leadership: { start: 0.58, end: 0.67 },
-    exploration: { start: 0.67, end: 0.78 }  // ADJUSTED to end before about section
+    empathy: { start: 0.25, end: 0.375 },     // Section 3: 25-37.5%
+    narrative: { start: 0.375, end: 0.5 },    // Section 4: 37.5-50%
+    craft: { start: 0.5, end: 0.625 },        // Section 5: 50-62.5%
+    system: { start: 0.625, end: 0.75 },      // Section 6: 62.5-75%
+    leadership: { start: 0.75, end: 0.875 },  // Section 7: 75-87.5%
+    exploration: { start: 0.875, end: 1.0 }   // Section 8: 87.5-100% (overlaps with about)
   }
 };
 
 /**
- * FIXED: Enhanced easing functions for ultra-smooth movement
+ * Enhanced easing functions for ultra-smooth movement
  */
 const EASING_FUNCTIONS = {
   linear: (t) => t,
   easeInOutCubic: (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2,
   easeOutQuart: (t) => 1 - Math.pow(1 - t, 4),
   easeInOutQuint: (t) => t < 0.5 ? 16 * t * t * t * t * t : 1 - Math.pow(-2 * t + 2, 5) / 2,
-  // NEW: Ultra-smooth easing for camera movements
+  // Ultra-smooth easing for camera movements
   ultraSmooth: (t) => {
     // Smoothstep function for ultra-smooth transitions
     return t * t * t * (t * (t * 6 - 15) + 10);
@@ -125,8 +105,8 @@ const EASING_FUNCTIONS = {
 const calculateCurrentZone = (scrollProgress, config = ANIMATION_CONFIG) => {
   const zones = config.scrollZones;
   
-  // FIXED: Add small overlap zones to prevent abrupt transitions
-  const overlap = 0.02; // 2% overlap for smooth transitions
+  // Add small overlap zones to prevent abrupt transitions
+  const overlap = 0.01; // 1% overlap for smooth transitions
   
   if (scrollProgress <= zones.hero.end + overlap) {
     const zoneProgress = Math.min(scrollProgress / zones.hero.end, 1);
@@ -174,7 +154,7 @@ const calculateActiveProject = (scrollProgress, config = ANIMATION_CONFIG) => {
   const projectSections = config.projectSections;
   
   // Add small overlap for smoother project transitions
-  const overlap = 0.01; // 1% overlap
+  const overlap = 0.005; // 0.5% overlap
   
   for (const [projectKey, section] of Object.entries(projectSections)) {
     if (scrollProgress >= section.start - overlap && scrollProgress < section.end + overlap) {
@@ -228,7 +208,7 @@ const calculateTargetState = (scrollProgress, config = ANIMATION_CONFIG) => {
 };
 
 /**
- * FIXED: Main Unified Animation Controller with ultra-smooth transitions
+ * Main Unified Animation Controller with ultra-smooth transitions
  */
 export const useUnifiedAnimationController = (options = {}) => {
   const {
@@ -263,7 +243,7 @@ export const useUnifiedAnimationController = (options = {}) => {
     const targetState = calculateTargetState(scrollProgress, config);
     
     // FIXED: Smooth scroll progress tracking to prevent jitter
-    const smoothedProgress = scrollProgress * 0.95 + lastScrollProgress.current * 0.05;
+    const smoothedProgress = scrollProgress * 0.98 + lastScrollProgress.current * 0.02;
     lastScrollProgress.current = smoothedProgress;
     
     // Check if we need to transition (with hysteresis to prevent oscillation)
@@ -279,7 +259,7 @@ export const useUnifiedAnimationController = (options = {}) => {
       isTransitioningRef.current = true;
       transitionStartTime.current = performance.now();
       
-      // FIXED: Determine transition duration based on what's changing
+      // Determine transition duration based on what's changing
       let duration = config.timing.cameraTransition;
       if (targetState.crystalForm !== animationState.crystalForm) {
         duration = targetState.crystalForm === 'exploded' 
@@ -325,7 +305,7 @@ export const useUnifiedAnimationController = (options = {}) => {
   }, [animationState, config, debugMode, onStateChange]);
 
   /**
-   * FIXED: Check if transition is complete with smoother timing
+   * Check if transition is complete with smoother timing
    */
   const checkTransitionComplete = useCallback(() => {
     if (isTransitioningRef.current) {
@@ -364,7 +344,7 @@ export const useUnifiedAnimationController = (options = {}) => {
   }, [checkTransitionComplete]);
 
   /**
-   * FIXED: Get current camera configuration with interpolation for smooth transitions
+   * Get current camera configuration with interpolation for smooth transitions
    */
   const getCurrentCameraConfig = useCallback(() => {
     if (animationState.cameraState === 'project' && animationState.focusedFacet) {

@@ -1,5 +1,5 @@
 // src/components/three/MasterAnimationCoordinator.jsx
-// Phase 1: Master coordinator that replaces your current complex system
+// FIXED: Better data flow and timing for crystal explosions
 
 import React, { useEffect } from 'react';
 import { useScrollProgress } from '../../hooks/useScrollProgress';
@@ -7,17 +7,16 @@ import { useUnifiedAnimationController } from '../../hooks/useUnifiedAnimationCo
 
 /**
  * Master Animation Coordinator
- * Single component that coordinates all animation systems
- * Replaces: useCrystalController, ScrollCameraController, useScrollObserver
+ * FIXED: Better scroll handling and timing
  */
 const MasterAnimationCoordinator = ({ 
   children,
   debugMode = false,
   onAnimationStateChange = null 
 }) => {
-  // Get scroll progress (0-1 through entire page)
+  // Get scroll progress with higher frequency for smoother updates
   const scrollData = useScrollProgress({
-    throttleMs: 16,        // 60fps updates
+    throttleMs: 8,         // INCREASED frequency for smoother updates (was 16)
     includeVelocity: true,
     debugMode: debugMode
   });
@@ -28,12 +27,17 @@ const MasterAnimationCoordinator = ({
     onStateChange: onAnimationStateChange
   });
 
-  // Update animation state based on scroll progress
+  // FIXED: Update animation state with micro-debouncing to prevent jitter
   useEffect(() => {
-    animationController.updateFromScrollProgress(scrollData.scrollProgress);
+    // Small debounce to prevent micro-movements from causing camera jumps
+    const timeoutId = setTimeout(() => {
+      animationController.updateFromScrollProgress(scrollData.scrollProgress);
+    }, 8); // REDUCED delay for more responsive updates
+    
+    return () => clearTimeout(timeoutId);
   }, [scrollData.scrollProgress, animationController]);
 
-  // Provide animation data to child components via props or context
+  // Provide animation data to child components via props
   const animationData = {
     // Current state
     ...animationController.animationState,
@@ -86,7 +90,7 @@ const MasterAnimationCoordinator = ({
 };
 
 /**
- * Debug overlay for development
+ * FIXED: Enhanced debug overlay for better troubleshooting
  */
 const DebugOverlay = ({ scrollData, animationData, animationController }) => {
   return (
@@ -101,11 +105,11 @@ const DebugOverlay = ({ scrollData, animationData, animationController }) => {
       fontSize: '12px',
       fontFamily: 'monospace',
       zIndex: 10001,
-      maxWidth: '300px',
+      maxWidth: '320px',
       pointerEvents: 'none'
     }}>
       <div style={{ fontWeight: 'bold', marginBottom: '10px', color: '#64ffda' }}>
-        🎬 Animation Debug
+        🎬 Animation Debug (FIXED)
       </div>
       
       {/* Scroll Info */}
@@ -115,6 +119,7 @@ const DebugOverlay = ({ scrollData, animationData, animationController }) => {
         <div>Velocity: {Math.round(scrollData.velocity * 1000) / 1000}</div>
         <div>Scrolling: {scrollData.isScrolling ? 'YES' : 'NO'}</div>
         <div>Fast: {scrollData.isFastScrolling ? 'YES' : 'NO'}</div>
+        <div>Page Y: {Math.round(window.pageYOffset)}px</div>
       </div>
       
       {/* Animation State */}
@@ -123,7 +128,7 @@ const DebugOverlay = ({ scrollData, animationData, animationController }) => {
         <div>Zone: {animationData.currentZone}</div>
         <div>Crystal: {animationData.crystalForm}</div>
         <div>Camera: {animationData.cameraState}</div>
-        <div>Focus: {animationData.focusedFacet || 'none'}</div>
+        <div>Focus: {animationData.focusedProject || 'none'}</div>
         <div>Transitioning: {animationData.isTransitioning ? 'YES' : 'NO'}</div>
       </div>
       
@@ -131,16 +136,47 @@ const DebugOverlay = ({ scrollData, animationData, animationController }) => {
       <div style={{ marginBottom: '10px' }}>
         <div style={{ color: '#ffd600', fontWeight: 'bold' }}>Zone Progress:</div>
         <div>{Math.round((animationData.zoneProgress || 0) * 100)}%</div>
+        <div>In Transition: {animationData.isInZoneTransition ? 'YES' : 'NO'}</div>
       </div>
       
-      {/* Quick Zone Navigation */}
+      {/* Project Info */}
+      {animationData.focusedProject && (
+        <div style={{ marginBottom: '10px' }}>
+          <div style={{ color: '#ff7043', fontWeight: 'bold' }}>Project:</div>
+          <div>Current: {animationData.focusedProject}</div>
+          <div>Progress: {Math.round((animationData.projectProgress || 0) * 100)}%</div>
+          <div>In Transition: {animationData.isInProjectTransition ? 'YES' : 'NO'}</div>
+        </div>
+      )}
+      
+      {/* Scroll Zone Breakdown */}
       <div style={{ marginBottom: '10px' }}>
+        <div style={{ color: '#cf6679', fontWeight: 'bold' }}>Scroll Zones:</div>
+        <div style={{ fontSize: '10px' }}>
+          <div>Hero: 0-12.5% {scrollData.scrollProgress <= 0.125 ? '← HERE' : ''}</div>
+          <div>Overview: 12.5-25% {scrollData.scrollProgress > 0.125 && scrollData.scrollProgress <= 0.25 ? '← HERE' : ''}</div>
+          <div>Projects: 25-87.5% {scrollData.scrollProgress > 0.25 && scrollData.scrollProgress <= 0.875 ? '← HERE' : ''}</div>
+          <div>About: 87.5-100% {scrollData.scrollProgress > 0.875 ? '← HERE' : ''}</div>
+        </div>
+      </div>
+      
+      {/* Camera Config */}
+      {animationData.cameraConfig && (
+        <div style={{ marginBottom: '10px' }}>
+          <div style={{ color: '#8bc34a', fontWeight: 'bold' }}>Camera:</div>
+          <div>Pos: [{animationData.cameraConfig.position?.x?.toFixed(1)}, {animationData.cameraConfig.position?.y?.toFixed(1)}, {animationData.cameraConfig.position?.z?.toFixed(1)}]</div>
+          <div>FOV: {animationData.cameraConfig.fov}</div>
+        </div>
+      )}
+      
+      {/* Quick Zone Navigation */}
+      <div>
         <div style={{ color: '#ff7043', fontWeight: 'bold' }}>Quick Nav:</div>
         <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', marginTop: '5px' }}>
           {Object.keys(animationController.config.scrollZones).map(zone => (
             <button
               key={zone}
-              onClick={() => animationData.scrollToZone(zone)}
+              onClick={() => animationData.scrollToZone && animationData.scrollToZone(zone)}
               style={{
                 background: animationData.currentZone === zone ? '#64ffda' : 'rgba(255,255,255,0.2)',
                 color: animationData.currentZone === zone ? '#000' : '#fff',
@@ -156,22 +192,6 @@ const DebugOverlay = ({ scrollData, animationData, animationController }) => {
             </button>
           ))}
         </div>
-      </div>
-      
-      {/* Camera Config */}
-      {animationData.cameraConfig && (
-        <div style={{ marginBottom: '10px' }}>
-          <div style={{ color: '#cf6679', fontWeight: 'bold' }}>Camera:</div>
-          <div>Pos: [{animationData.cameraConfig.position?.x?.toFixed(1)}, {animationData.cameraConfig.position?.y?.toFixed(1)}, {animationData.cameraConfig.position?.z?.toFixed(1)}]</div>
-          <div>FOV: {animationData.cameraConfig.fov}</div>
-        </div>
-      )}
-      
-      {/* Performance Info */}
-      <div>
-        <div style={{ color: '#8bc34a', fontWeight: 'bold' }}>Performance:</div>
-        <div>FPS: {Math.round(1000 / 16)} target</div>
-        <div>Updates: 60fps</div>
       </div>
     </div>
   );

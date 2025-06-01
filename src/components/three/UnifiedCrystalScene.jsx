@@ -43,21 +43,18 @@ const FacetOutlineEffect = ({ facetRef, color, thickness = 0.04, opacity = 0.8 }
   
   useFrame(() => {
     if (outlineRef.current && facetRef) {
-      // FIXED: Match the facet's world position exactly
-      facetRef.updateWorldMatrix(true, false);
-      outlineRef.current.position.setFromMatrixPosition(facetRef.matrixWorld);
+      // FIXED: Copy the facet's transform exactly (including animation)
+      outlineRef.current.position.copy(facetRef.position);
+      outlineRef.current.rotation.copy(facetRef.rotation);
+      outlineRef.current.scale.copy(facetRef.scale);
       
-      // Copy rotation and scale from facet
-      const rotation = new THREE.Euler();
-      const scale = new THREE.Vector3();
-      facetRef.matrixWorld.decompose(new THREE.Vector3(), new THREE.Quaternion().setFromEuler(rotation), scale);
-      
-      outlineRef.current.rotation.copy(rotation);
-      outlineRef.current.scale.copy(scale);
+      // FIXED: Apply the outline scaling on top of the facet scale
+      const outlineScale = 1 + thickness;
+      outlineRef.current.scale.multiplyScalar(outlineScale);
       
       // MUCH more subtle pulsing effect
-      const time = performance.now() * 0.001; // REDUCED from 0.002
-      const pulse = 1 + Math.sin(time) * 0.01; // HEAVILY REDUCED from 0.03 to 0.01
+      const time = performance.now() * 0.0008; // HEAVILY REDUCED from 0.001
+      const pulse = 1 + Math.sin(time) * 0.005; // HEAVILY REDUCED from 0.01 to 0.005!
       
       // Apply minimal pulse only to the outline scale
       outlineRef.current.scale.multiplyScalar(pulse);
