@@ -295,13 +295,13 @@ function App() {
       <ScrollablePortfolio />
 
       {/* FooterSection - SIMPLIFIED: Will use animation coordinator for navigation */}
-      <FooterSection 
+      {/* <FooterSection 
         visible={true} // Always visible, coordinator handles the animation
         onLoopBack={() => {
           // Will be replaced with coordinator's scrollToZone function
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
-      />
+      /> */}
       
       {/* UI Controls (unchanged) */}
       <ControlsToggle 

@@ -1,21 +1,43 @@
-// src/components/sections/ProjectsSection.jsx
-// Phase 2.2: Projects Grid Section with exploded crystal state
-// Crystal State: Exploded view showing all facets with labels
+// Fixed ProjectsSection.jsx with proper grid layout
 
 import React, { useState, useEffect } from 'react';
 import { animated, useSpring } from '@react-spring/web';
 
-/**
- * Projects Grid Section Component
- * Shows all six design facets in an organized grid
- * Maps directly to crystal facets with matching colors
- */
 const ProjectsSection = ({ 
   visible = true,
   onProjectSelect = null,
   selectedProject = null 
 }) => {
   const [hoveredProject, setHoveredProject] = useState(null);
+
+  // FIXED: Detect actual screen size, not just user agent
+  const [isMobile, setIsMobile] = useState(false);
+  
+  useEffect(() => {
+    const checkMobile = () => {
+      // Use actual viewport width instead of user agent
+      const screenWidth = window.innerWidth;
+      const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+      
+      // Consider mobile if width < 768px OR touch device with width < 1024px
+      const shouldUseMobileLayout = screenWidth < 768 || (isTouchDevice && screenWidth < 1024);
+      
+      setIsMobile(shouldUseMobileLayout);
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log('📱 Layout check:', {
+          screenWidth,
+          isTouchDevice,
+          shouldUseMobileLayout
+        });
+      }
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Project data mapping to crystal facets
   const projects = [
@@ -116,12 +138,12 @@ const ProjectsSection = ({
         minHeight: '100vh',
         scrollSnapAlign: 'start',
         scrollSnapStop: 'normal',
-        padding: '4rem 2rem',
+        padding: isMobile ? '4rem 1rem' : '4rem 2rem',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         position: 'relative',
-        backgroundColor: 'transparent' // Let 3D background show through
+        backgroundColor: 'transparent'
       }}
     >
       <animated.div 
@@ -135,7 +157,7 @@ const ProjectsSection = ({
         {/* Section title */}
         <animated.div style={titleSpring}>
           <h2 style={{
-            fontSize: 'clamp(2rem, 6vw, 3.5rem)',
+            fontSize: isMobile ? 'clamp(1.5rem, 8vw, 2.5rem)' : 'clamp(2rem, 6vw, 3.5rem)',
             fontWeight: '600',
             color: 'white',
             marginBottom: '1rem',
@@ -146,7 +168,7 @@ const ProjectsSection = ({
           </h2>
           
           <p style={{
-            fontSize: 'clamp(1rem, 3vw, 1.25rem)',
+            fontSize: isMobile ? 'clamp(0.875rem, 4vw, 1rem)' : 'clamp(1rem, 3vw, 1.25rem)',
             color: 'rgba(255, 255, 255, 0.8)',
             marginBottom: '4rem',
             maxWidth: '600px',
@@ -158,12 +180,23 @@ const ProjectsSection = ({
           </p>
         </animated.div>
         
-        {/* Projects grid */}
+        {/* FIXED: Projects grid with proper responsive layout */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-          gap: '2rem',
-          marginTop: '2rem'
+          // FIXED: Use explicit grid columns instead of auto-fit
+          gridTemplateColumns: isMobile 
+            ? '1fr'  // Single column on mobile
+            : window.innerWidth >= 1200 
+              ? 'repeat(3, 1fr)'  // 3 columns on large screens (3x2 grid)
+              : window.innerWidth >= 900
+                ? 'repeat(2, 1fr)'  // 2 columns on medium screens (2x3 grid)
+                : '1fr',  // Single column on small screens
+          gap: isMobile ? '1.5rem' : '2rem',
+          marginTop: '2rem',
+          // FIXED: Ensure grid container has enough width
+          width: '100%',
+          maxWidth: isMobile ? '400px' : '1200px',
+          margin: '2rem auto 0'
         }}>
           {projects.map((project, index) => {
             const isHovered = hoveredProject === project.key;
@@ -177,6 +210,7 @@ const ProjectsSection = ({
                 isHovered={isHovered}
                 isSelected={isSelected}
                 visible={visible}
+                isMobile={isMobile}
                 onClick={() => handleProjectClick(project.key)}
                 onHover={(isHovering) => handleProjectHover(project.key, isHovering)}
               />
@@ -220,8 +254,7 @@ const ProjectsSection = ({
 };
 
 /**
- * Individual Project Card Component
- * Represents each design facet with hover and selection states
+ * FIXED: Individual Project Card Component with proper mobile handling
  */
 const ProjectCard = ({ 
   project, 
@@ -229,6 +262,7 @@ const ProjectCard = ({
   isHovered, 
   isSelected, 
   visible, 
+  isMobile,
   onClick, 
   onHover 
 }) => {
@@ -265,14 +299,19 @@ const ProjectCard = ({
           rgba(255, 255, 255, 0.03) 100%
         )`,
         backdropFilter: 'blur(20px)',
-        padding: '2rem',
+        padding: isMobile ? '1.5rem' : '2rem',
         borderRadius: '1rem',
         border: `1px solid ${isHovered || isSelected ? project.color : 'rgba(255, 255, 255, 0.1)'}`,
         cursor: 'pointer',
         position: 'relative',
         zIndex: 10,
         overflow: 'hidden',
-        transition: 'border-color 0.3s ease'
+        transition: 'border-color 0.3s ease',
+        // FIXED: Ensure minimum height for consistency
+        minHeight: isMobile ? '200px' : '300px',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between'
       }}
       onClick={onClick}
       onMouseEnter={() => onHover(true)}
@@ -293,15 +332,15 @@ const ProjectCard = ({
 
       {/* Project icon */}
       <div style={{
-        width: '64px',
-        height: '64px',
+        width: isMobile ? '48px' : '64px',
+        height: isMobile ? '48px' : '64px',
         background: project.color,
         borderRadius: '16px',
         margin: '0 auto 1.5rem',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontSize: '2rem',
+        fontSize: isMobile ? '1.5rem' : '2rem',
         boxShadow: `0 8px 32px ${project.color}40`,
         position: 'relative',
         zIndex: 2
@@ -311,7 +350,7 @@ const ProjectCard = ({
       
       {/* Project title */}
       <h3 style={{
-        fontSize: '1.5rem',
+        fontSize: isMobile ? '1.25rem' : '1.5rem',
         fontWeight: '600',
         color: 'white',
         marginBottom: '1rem',
@@ -324,12 +363,13 @@ const ProjectCard = ({
       
       {/* Project description */}
       <p style={{
-        fontSize: '0.875rem',
+        fontSize: isMobile ? '0.8rem' : '0.875rem',
         color: 'rgba(255, 255, 255, 0.8)',
         marginBottom: '1.5rem',
         lineHeight: '1.5',
         position: 'relative',
-        zIndex: 2
+        zIndex: 2,
+        flex: 1
       }}>
         {project.description}
       </p>
@@ -351,7 +391,7 @@ const ProjectCard = ({
               color: 'white',
               padding: '0.25rem 0.75rem',
               borderRadius: '1rem',
-              fontSize: '0.75rem',
+              fontSize: isMobile ? '0.7rem' : '0.75rem',
               fontWeight: '500',
               border: `1px solid ${project.color}40`
             }}

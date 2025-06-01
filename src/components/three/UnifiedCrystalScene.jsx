@@ -9,72 +9,8 @@ import * as THREE from 'three'
 // Import existing material manager and components
 import MaterialManager from './MaterialManager'
 
-/**
- * FIXED: Facet Outline Effect with proper positioning
- */
-const FacetOutlineEffect = ({ facetRef, color, thickness = 0.04, opacity = 0.8 }) => {
-  const outlineRef = useRef();
-  const [outlineGeometry, setOutlineGeometry] = useState(null);
-  
-  // Create outline geometry based on facet (only once)
-  useEffect(() => {
-    if (!facetRef) return;
-    
-    // Find the first mesh in the facet to create outline from
-    let sourceMesh = null;
-    facetRef.traverse((child) => {
-      if (child.isMesh && !sourceMesh) {
-        sourceMesh = child;
-      }
-    });
-    
-    if (sourceMesh && sourceMesh.geometry) {
-      // Clone and scale geometry for outline
-      const clonedGeometry = sourceMesh.geometry.clone();
-      const scale = 1 + thickness;
-      clonedGeometry.scale(scale, scale, scale);
-      setOutlineGeometry(clonedGeometry);
-      
-      if (process.env.NODE_ENV === 'development') {
-        console.log('🎯 Created outline for facet');
-      }
-    }
-  }, [facetRef, thickness]);
-  
-  useFrame(() => {
-    if (outlineRef.current && facetRef) {
-      // FIXED: Copy the facet's transform exactly (including animation)
-      outlineRef.current.position.copy(facetRef.position);
-      outlineRef.current.rotation.copy(facetRef.rotation);
-      outlineRef.current.scale.copy(facetRef.scale);
-      
-      // FIXED: Apply the outline scaling on top of the facet scale
-      const outlineScale = 1 + thickness;
-      outlineRef.current.scale.multiplyScalar(outlineScale);
-      
-      // MUCH more subtle pulsing effect
-      const time = performance.now() * 0.0008; // HEAVILY REDUCED from 0.001
-      const pulse = 1 + Math.sin(time) * 0.005; // HEAVILY REDUCED from 0.01 to 0.005!
-      
-      // Apply minimal pulse only to the outline scale
-      outlineRef.current.scale.multiplyScalar(pulse);
-    }
-  });
-  
-  if (!outlineGeometry) return null;
-  
-  return (
-    <mesh ref={outlineRef} geometry={outlineGeometry}>
-      <meshBasicMaterial 
-        color={color}
-        transparent={true}
-        opacity={opacity}
-        side={THREE.BackSide}
-        depthWrite={false}
-      />
-    </mesh>
-  );
-};
+// Add this component to the top of your UnifiedCrystalScene.jsx file
+// (after the imports, before the main UnifiedCrystalScene component)
 
 /**
  * Unified Crystal Scene
@@ -265,29 +201,21 @@ const UnifiedCrystalScene = ({
       )}
       
       {/* Individual Facets - shown when crystalForm is 'exploded' */}
-      {showFacets && facetModels.map((model, index) => {
+        {showFacets && facetModels.map((model, index) => {
         const facetKey = facetKeys[index];
         const isFocused = isFacetFocused(index);
         
         return (
-          <group 
+            <group 
             key={facetKey}
             ref={el => facetRefs.current[index] = el}
-          >
+            >
             <primitive object={model.scene} />
             
-            {/* FIXED: Outline when focused with proper positioning */}
-            {isFocused && (
-              <FacetOutlineEffect
-                facetRef={facetRefs.current[index]}
-                color={getFacetColor(index)}
-                thickness={0.04}
-                opacity={0.8}
-              />
-            )}
-          </group>
+            {/* TODO: Add working outline system later */}
+            </group>
         );
-      })}
+        })}
       
       {/* Debug info in development */}
       {process.env.NODE_ENV === 'development' && animationData && (

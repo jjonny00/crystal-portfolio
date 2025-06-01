@@ -11,34 +11,71 @@ export const ANIMATION_CONFIG = {
   // Camera states with gradual position changes to prevent popping
   camera: {
     hero: {
-      position: new Vector3(0, 3.2, 2.4),
-      target: new Vector3(0, 0.5, 0),
-      fov: 32,
-      description: 'Intimate close view - elevated perspective'
+        position: new Vector3(0, 3.2, 2.4),
+        target: new Vector3(0, 0.5, 0),
+        fov: 32,
+        description: 'Intimate close view - elevated perspective'
     },
     overview: {
-      position: new Vector3(0, 2.5, 4.0),
-      target: new Vector3(0, 0.3, 0),
-      fov: 38,
-      description: 'Intermediate view before explosion'
+        position: new Vector3(0, 2.5, 4.0),
+        target: new Vector3(0, 0.3, 0),
+        fov: 38,
+        description: 'Intermediate view before explosion'
     },
     projects: {
-      empathy: {
+        // EMPATHY - Bottom-left facet (existing)
+        empathy: {
         position: new Vector3(2.8, -1.5, 3.2),
         target: new Vector3(0.3, -0.7, -0.2),
-        fov: 35
-      },
-      exploration: {
+        fov: 35,
+        description: 'Close view of empathy facet'
+        },
+        
+        // NARRATIVE - Middle-left facet (NEW)
+        narrative: {
+        position: new Vector3(3.5, 0.2, 2.8),
+        target: new Vector3(0.3, -0.1, -0.7),
+        fov: 35,
+        description: 'Close view of narrative facet'
+        },
+        
+        // CRAFT - Top-right facet (NEW)
+        craft: {
+        position: new Vector3(3.8, 2.5, 3.0),
+        target: new Vector3(1.3, 0.8, 0.5),
+        fov: 35,
+        description: 'Close view of craft facet'
+        },
+        
+        // SYSTEM - Left facet (NEW)
+        system: {
+        position: new Vector3(-3.2, 1.0, 2.5),
+        target: new Vector3(-0.5, 0.2, -1.8),
+        fov: 35,
+        description: 'Close view of system facet'
+        },
+        
+        // LEADERSHIP - Top facet (NEW)
+        leadership: {
+        position: new Vector3(1.2, 4.0, 3.2),
+        target: new Vector3(0.4, 1.2, 0.9),
+        fov: 35,
+        description: 'Close view of leadership facet'
+        },
+        
+        // EXPLORATION - Top-left facet (existing)
+        exploration: {
         position: new Vector3(-2.8, 2.8, 2.6),
         target: new Vector3(-0.6, 0.7, 0.0),
-        fov: 35
-      }
+        fov: 35,
+        description: 'Close view of exploration facet'
+        }
     },
     about: {
-      position: new Vector3(0, 2.0, 3.5),
-      target: new Vector3(0, 0.2, 0),
-      fov: 40,
-      description: 'Reformed crystal view'
+        position: new Vector3(0, 2.0, 3.5),
+        target: new Vector3(0, 0.2, 0),
+        fov: 40,
+        description: 'Reformed crystal view'
     }
   },
 
@@ -148,24 +185,31 @@ const calculateCurrentZone = (scrollProgress, config = ANIMATION_CONFIG) => {
 };
 
 /**
- * FIXED: Calculate active project with smoother transitions
+ * FIXED: Calculate active project with proper camera position updates
  */
 const calculateActiveProject = (scrollProgress, config = ANIMATION_CONFIG) => {
   const projectSections = config.projectSections;
   
-  // Add small overlap for smoother project transitions
-  const overlap = 0.005; // 0.5% overlap
-  
+  // No overlap - make transitions more distinct
   for (const [projectKey, section] of Object.entries(projectSections)) {
-    if (scrollProgress >= section.start - overlap && scrollProgress < section.end + overlap) {
+    if (scrollProgress >= section.start && scrollProgress < section.end) {
       const projectProgress = Math.max(0, Math.min(
         (scrollProgress - section.start) / (section.end - section.start), 1
       ));
       
+      // Debug logging for project detection
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`🎯 Active project: ${projectKey} (${Math.round(projectProgress * 100)}%)`, {
+          scrollProgress: Math.round(scrollProgress * 1000) / 1000,
+          section: section,
+          projectProgress: Math.round(projectProgress * 1000) / 1000
+        });
+      }
+      
       return {
         project: projectKey,
         progress: projectProgress,
-        isInTransition: scrollProgress < section.start + overlap || scrollProgress > section.end - overlap
+        isInTransition: false // Remove transition flag that might be interfering
       };
     }
   }
@@ -343,16 +387,32 @@ export const useUnifiedAnimationController = (options = {}) => {
     };
   }, [checkTransitionComplete]);
 
-  /**
-   * Get current camera configuration with interpolation for smooth transitions
-   */
-  const getCurrentCameraConfig = useCallback(() => {
+    /**
+     * FIXED: Get current camera configuration with proper project handling
+     */
+    const getCurrentCameraConfig = useCallback(() => {
+    // Make sure we have the right camera state
     if (animationState.cameraState === 'project' && animationState.focusedFacet) {
-      return config.camera.projects[animationState.focusedFacet];
+        const projectCamera = config.camera.projects[animationState.focusedFacet];
+        
+        if (projectCamera) {
+        if (process.env.NODE_ENV === 'development') {
+            console.log(`📹 Using project camera for: ${animationState.focusedFacet}`, projectCamera);
+        }
+        return projectCamera;
+        } else {
+        console.warn(`⚠️ No camera config found for project: ${animationState.focusedFacet}`);
+        }
     }
-    
-    return config.camera[animationState.cameraState] || config.camera.hero;
-  }, [animationState.cameraState, animationState.focusedFacet, config]);
+
+    const fallbackCamera = config.camera[animationState.cameraState] || config.camera.hero;
+
+    if (process.env.NODE_ENV === 'development') {
+        console.log(`📹 Using fallback camera for state: ${animationState.cameraState}`, fallbackCamera);
+    }
+
+    return fallbackCamera;
+    }, [animationState.cameraState, animationState.focusedFacet, config]);
 
   /**
    * Get current crystal configuration based on state

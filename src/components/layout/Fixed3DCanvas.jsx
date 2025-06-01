@@ -15,6 +15,10 @@ import UnifiedCameraController from '../three/UnifiedCameraController';
 import UnifiedCrystalScene from '../three/UnifiedCrystalScene';
 import { FPSCounter } from '../ui/FpsDisplay';
 
+
+// Animation Debug
+import AnimationDebugDisplay from './AnimationDebugDisplay';
+
 /**
  * Fixed3DCanvas - SIMPLIFIED
  * Now receives single animationData prop instead of many complex props
@@ -70,6 +74,9 @@ const Fixed3DCanvas = ({
         <FPSCounter />
         
         <color attach="background" args={['#050505']} />
+        
+        {/*Animation Debug*/}
+        <AnimationDebugDisplay animationData={animationData} />
         
         {/* Lighting setup (unchanged) */}
         <ambientLight intensity={config?.lighting?.ambient?.intensity || 0.2} />
