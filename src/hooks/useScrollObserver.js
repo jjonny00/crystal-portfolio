@@ -1,95 +1,120 @@
 // src/hooks/useScrollObserver.js
-// Intersection Observer hook to replace scroll event listeners
+// ENHANCED: Scroll observer optimized for CSS scroll snapping
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 /**
- * Configuration for Intersection Observer
- * Optimized for crystal animation triggers
+ * Enhanced configuration for scroll snapping compatibility
  */
 const OBSERVER_CONFIG = {
-  // Multiple thresholds for smooth progress tracking
-  threshold: [0, 0.1, 0.25, 0.5, 0.75, 0.9, 1.0],
-  // Trigger slightly before section is fully visible
-  rootMargin: '-5% 0px -5% 0px',
-  // Use document viewport as root
-  root: null
-};
-
-/**
- * Mobile-optimized observer configuration
- * Larger trigger areas for better mobile experience
- */
-const MOBILE_OBSERVER_CONFIG = {
-  threshold: [0, 0.2, 0.5, 0.8, 1.0],
+  // Adjusted thresholds for better snap detection
+  threshold: [0, 0.15, 0.3, 0.5, 0.7, 0.85, 1.0],
+  // Tighter margins for more precise detection with scroll snap
   rootMargin: '-10% 0px -10% 0px',
   root: null
 };
 
 /**
- * Calculate section progress based on intersection ratio and position
+ * Mobile-optimized observer configuration
+ */
+const MOBILE_OBSERVER_CONFIG = {
+  threshold: [0, 0.25, 0.5, 0.75, 1.0],
+  rootMargin: '-15% 0px -15% 0px',
+  root: null
+};
+
+/**
+ * Calculate section progress with scroll snap awareness
  */
 const calculateSectionProgress = (entry) => {
   const { intersectionRatio, boundingClientRect, rootBounds } = entry;
   
-  // Calculate how far into the viewport the section is
+  // For scroll snapping, we want cleaner 0/1 states when sections are snapped
   const elementTop = boundingClientRect.top;
   const elementHeight = boundingClientRect.height;
   const viewportHeight = rootBounds.height;
   
-  // Return progress from 0 to 1
+  // If the section is near the top (snapped position), return 1
+  if (Math.abs(elementTop) < 10) { // Within 10px of perfect alignment
+    return 1;
+  }
+  
+  // If the section is mostly out of view, return 0
+  if (elementTop > viewportHeight * 0.8 || elementTop < -elementHeight * 0.8) {
+    return 0;
+  }
+  
+  // Otherwise calculate smooth progress
   return Math.max(0, Math.min(1,
     (viewportHeight - elementTop) / (viewportHeight + elementHeight)
   ));
 };
 
 /**
- * Debounce function to prevent rapid state changes
+ * Enhanced debounce with scroll snap detection
  */
-const debounce = (func, wait) => {
+const debounceWithSnap = (func, wait) => {
   let timeout;
+  let lastCall = 0;
+  
   return function executedFunction(...args) {
+    const now = Date.now();
+    
+    // If this is a rapid call (likely during snap), use shorter wait
+    const dynamicWait = (now - lastCall < 100) ? wait / 2 : wait;
+    
     const later = () => {
       clearTimeout(timeout);
+      lastCall = now;
       func(...args);
     };
+    
     clearTimeout(timeout);
-    timeout = setTimeout(later, wait);
+    timeout = setTimeout(later, dynamicWait);
   };
 };
 
 /**
- * useScrollObserver Hook
- * Replaces scroll event listeners with Intersection Observer
+ * Detect if browser supports scroll snapping
+ */
+const supportsScrollSnap = () => {
+  return CSS.supports('scroll-snap-type', 'y mandatory') || 
+         CSS.supports('scroll-snap-type', 'y proximity');
+};
+
+/**
+ * Enhanced useScrollObserver Hook with scroll snap support
  */
 export const useScrollObserver = (options = {}) => {
   const {
     sectionSelector = '.scroll-section',
-    debounceMs = 16, // ~60fps
+    debounceMs = supportsScrollSnap() ? 32 : 16, // Longer debounce with scroll snap
     onSectionChange = null,
     onProgressChange = null,
     isMobile = false
   } = options;
 
-  // State for visible sections and their progress
+  // State
   const [visibleSections, setVisibleSections] = useState(new Map());
   const [currentSection, setCurrentSection] = useState(null);
   const [scrollProgress, setScrollProgress] = useState(0);
+  const [isSnapping, setIsSnapping] = useState(false);
   
-  // Refs for cleanup and performance
+  // Refs
   const observerRef = useRef(null);
   const sectionsRef = useRef(new Map());
   const lastUpdateRef = useRef(0);
+  const snapTimeoutRef = useRef(null);
 
   /**
-   * Handle intersection changes
+   * Enhanced intersection handler with snap detection
    */
   const handleIntersection = useCallback(
-    debounce((entries) => {
+    debounceWithSnap((entries) => {
       const now = performance.now();
       
-      // Skip if updating too frequently
-      if (now - lastUpdateRef.current < debounceMs) {
+      // Skip if updating too frequently (unless during snap)
+      if (!isSnapping && now - lastUpdateRef.current < debounceMs) {
         return;
       }
       lastUpdateRef.current = now;
@@ -97,6 +122,7 @@ export const useScrollObserver = (options = {}) => {
       const newVisibleSections = new Map();
       let mostVisibleSection = null;
       let maxVisibility = 0;
+      let snapCandidate = null;
 
       entries.forEach((entry) => {
         const sectionId = entry.target.id;
@@ -110,57 +136,94 @@ export const useScrollObserver = (options = {}) => {
             bounds: entry.boundingClientRect
           });
 
-          // Track the most visible section
+          // Check for snap position (element at top of viewport)
+          const elementTop = entry.boundingClientRect.top;
+          if (Math.abs(elementTop) < 20 && entry.intersectionRatio > 0.8) {
+            snapCandidate = {
+              id: sectionId,
+              element: entry.target,
+              progress: 1,
+              intersectionRatio: entry.intersectionRatio,
+              isSnapped: true
+            };
+          }
+
+          // Track most visible section
           if (entry.intersectionRatio > maxVisibility) {
             maxVisibility = entry.intersectionRatio;
             mostVisibleSection = {
               id: sectionId,
               element: entry.target,
               progress,
-              intersectionRatio: entry.intersectionRatio
+              intersectionRatio: entry.intersectionRatio,
+              isSnapped: !!snapCandidate && snapCandidate.id === sectionId
             };
           }
         }
       });
 
+      // Prefer snapped section over most visible
+      const activeSection = snapCandidate || mostVisibleSection;
+
       // Update visible sections
       setVisibleSections(newVisibleSections);
 
-      // Update current section if it changed
-      if (mostVisibleSection && (!currentSection || currentSection.id !== mostVisibleSection.id)) {
+      // Handle section changes
+      if (activeSection && (!currentSection || currentSection.id !== activeSection.id)) {
         const oldSection = currentSection;
-        setCurrentSection(mostVisibleSection);
+        setCurrentSection(activeSection);
         
-        // Callback for section changes
-        if (onSectionChange) {
-          onSectionChange(mostVisibleSection, oldSection);
+        // Detect snapping state
+        if (activeSection.isSnapped && !isSnapping) {
+          setIsSnapping(true);
+          
+          // Clear snapping state after a delay
+          if (snapTimeoutRef.current) {
+            clearTimeout(snapTimeoutRef.current);
+          }
+          snapTimeoutRef.current = setTimeout(() => {
+            setIsSnapping(false);
+          }, 500);
         }
+        
+        // Section change callback
+        if (onSectionChange) {
+          onSectionChange(activeSection, oldSection);
+        }
+        
+        console.log(`📍 Section changed: ${oldSection?.id || 'none'} → ${activeSection.id}${activeSection.isSnapped ? ' (SNAPPED)' : ''}`);
       }
 
-      // Calculate overall scroll progress
-      if (mostVisibleSection) {
+      // Calculate enhanced scroll progress
+      if (activeSection) {
         const sections = Array.from(document.querySelectorAll(sectionSelector));
-        const currentIndex = sections.findIndex(section => section.id === mostVisibleSection.id);
+        const currentIndex = sections.findIndex(section => section.id === activeSection.id);
         const totalSections = sections.length;
         
         if (totalSections > 0) {
-          const baseProgress = currentIndex / Math.max(1, totalSections - 1);
-          const sectionProgress = mostVisibleSection.progress / totalSections;
-          const overallProgress = Math.min(1, baseProgress + sectionProgress);
-          
-          setScrollProgress(overallProgress);
+          // For snapped sections, use clean progress values
+          if (activeSection.isSnapped) {
+            const snapProgress = currentIndex / Math.max(1, totalSections - 1);
+            setScrollProgress(snapProgress);
+          } else {
+            // Use smooth progress for non-snapped sections
+            const baseProgress = currentIndex / Math.max(1, totalSections - 1);
+            const sectionProgress = activeSection.progress / totalSections;
+            const overallProgress = Math.min(1, baseProgress + sectionProgress);
+            setScrollProgress(overallProgress);
+          }
           
           if (onProgressChange) {
-            onProgressChange(overallProgress, mostVisibleSection);
+            onProgressChange(scrollProgress, activeSection);
           }
         }
       }
     }, debounceMs),
-    [currentSection, debounceMs, onSectionChange, onProgressChange, sectionSelector]
+    [currentSection, debounceMs, onSectionChange, onProgressChange, sectionSelector, isSnapping]
   );
 
   /**
-   * Set up Intersection Observer
+   * Set up enhanced Intersection Observer
    */
   useEffect(() => {
     // Clean up existing observer
@@ -168,7 +231,7 @@ export const useScrollObserver = (options = {}) => {
       observerRef.current.disconnect();
     }
 
-    // Use mobile-optimized config if needed
+    // Use appropriate config
     const observerConfig = isMobile ? MOBILE_OBSERVER_CONFIG : OBSERVER_CONFIG;
 
     // Create new observer
@@ -188,16 +251,43 @@ export const useScrollObserver = (options = {}) => {
       }
     });
 
-    console.log(`🔍 ScrollObserver: Watching ${sections.length} sections`);
+    console.log(`🔍 Enhanced ScrollObserver: Watching ${sections.length} sections ${supportsScrollSnap() ? 'with scroll snap support' : ''}`);
 
-    // Cleanup function
+    // Cleanup
     return () => {
       if (observerRef.current) {
         observerRef.current.disconnect();
       }
+      if (snapTimeoutRef.current) {
+        clearTimeout(snapTimeoutRef.current);
+      }
       sectionsRef.current.clear();
     };
   }, [handleIntersection, sectionSelector, isMobile]);
+
+  /**
+   * Enhanced scroll to section with snap support
+   */
+  const scrollToSection = useCallback((sectionId, behavior = 'smooth') => {
+    const section = sectionsRef.current.get(sectionId) || 
+                    document.getElementById(sectionId);
+    
+    if (section) {
+      // For scroll snap support, ensure we scroll to the exact top
+      section.scrollIntoView({ 
+        behavior,
+        block: 'start',
+        inline: 'nearest'
+      });
+      
+      // Set snapping state temporarily
+      setIsSnapping(true);
+      setTimeout(() => setIsSnapping(false), 1000);
+      
+    } else {
+      console.warn(`Section ${sectionId} not found`);
+    }
+  }, []);
 
   /**
    * Get section data by ID
@@ -221,24 +311,7 @@ export const useScrollObserver = (options = {}) => {
   }, [visibleSections]);
 
   /**
-   * Scroll to a specific section
-   */
-  const scrollToSection = useCallback((sectionId, behavior = 'smooth') => {
-    const section = sectionsRef.current.get(sectionId) || 
-                    document.getElementById(sectionId);
-    
-    if (section) {
-      section.scrollIntoView({ 
-        behavior,
-        block: 'start'
-      });
-    } else {
-      console.warn(`Section ${sectionId} not found`);
-    }
-  }, []);
-
-  /**
-   * Get the next/previous section relative to current
+   * Get the next/previous section with snap awareness
    */
   const getAdjacentSection = useCallback((direction = 'next') => {
     if (!currentSection) return null;
@@ -257,11 +330,22 @@ export const useScrollObserver = (options = {}) => {
     } : null;
   }, [currentSection, sectionSelector]);
 
+  /**
+   * Navigate to next/previous section
+   */
+  const navigateToAdjacent = useCallback((direction = 'next') => {
+    const adjacentSection = getAdjacentSection(direction);
+    if (adjacentSection) {
+      scrollToSection(adjacentSection.id);
+    }
+  }, [getAdjacentSection, scrollToSection]);
+
   return {
     // Current state
     currentSection,
     visibleSections,
     scrollProgress,
+    isSnapping,
     
     // Query functions
     getSectionData,
@@ -271,23 +355,26 @@ export const useScrollObserver = (options = {}) => {
     // Navigation functions
     scrollToSection,
     getAdjacentSection,
+    navigateToAdjacent,
     
     // Utility
     isObserving: !!observerRef.current,
+    supportsScrollSnap: supportsScrollSnap(),
     
     // Debug info
     debugInfo: {
       observedSections: sectionsRef.current.size,
       visibleCount: visibleSections.size,
       currentSectionId: currentSection?.id || null,
-      scrollProgress: Math.round(scrollProgress * 100) + '%'
+      scrollProgress: Math.round(scrollProgress * 100) + '%',
+      isSnapping,
+      snapSupported: supportsScrollSnap()
     }
   };
 };
 
 /**
- * Higher-order hook for crystal-specific scroll observation
- * Maps sections to crystal states
+ * Enhanced crystal scroll observer with snap support
  */
 export const useCrystalScrollObserver = (options = {}) => {
   const {
@@ -297,14 +384,14 @@ export const useCrystalScrollObserver = (options = {}) => {
 
   const scrollObserver = useScrollObserver(scrollObserverOptions);
 
-  // Map sections to crystal states
-  const getCrystalState = useCallback((sectionId) => {
+  // Enhanced crystal state mapping with snap awareness
+  const getCrystalState = useCallback((sectionId, isSnapped = false) => {
     if (!sectionId) return 'WHOLE';
 
     if (sectionId === 'hero') return 'WHOLE';
     if (sectionId === 'projects-overview') return 'EXPLODED';
     
-    // NEW: Individual project sections
+    // Individual project sections
     if (sectionId.startsWith('project-')) return 'PROJECT_SELECTED';
     
     if (sectionId === 'about') return 'WHOLE';
@@ -315,8 +402,6 @@ export const useCrystalScrollObserver = (options = {}) => {
   // Get selected facet from project section
   const getSelectedFacet = useCallback((sectionId) => {
     if (!sectionId || !sectionId.startsWith('project-')) return null;
-    
-    // Extract facet key from section ID (e.g., 'project-empathy' -> 'empathy')
     return sectionId.replace('project-', '');
   }, []);
 
@@ -327,7 +412,10 @@ export const useCrystalScrollObserver = (options = {}) => {
   // Update crystal state when section changes
   useEffect(() => {
     if (scrollObserver.currentSection) {
-      const newState = getCrystalState(scrollObserver.currentSection.id);
+      const newState = getCrystalState(
+        scrollObserver.currentSection.id, 
+        scrollObserver.currentSection.isSnapped
+      );
       const newFacet = getSelectedFacet(scrollObserver.currentSection.id);
 
       if (newState !== currentCrystalState) {
@@ -338,19 +426,22 @@ export const useCrystalScrollObserver = (options = {}) => {
         setSelectedFacet(newFacet);
       }
 
-      // Callback for crystal state changes
+      // Enhanced callback with snap information
       if (onCrystalStateChange) {
         onCrystalStateChange({
           crystalState: newState,
           selectedFacet: newFacet,
           section: scrollObserver.currentSection,
-          progress: scrollObserver.scrollProgress
+          progress: scrollObserver.scrollProgress,
+          isSnapped: scrollObserver.currentSection.isSnapped || false,
+          isSnapping: scrollObserver.isSnapping
         });
       }
     }
   }, [
     scrollObserver.currentSection, 
     scrollObserver.scrollProgress,
+    scrollObserver.isSnapping,
     getCrystalState,
     getSelectedFacet,
     currentCrystalState,
@@ -373,7 +464,8 @@ export const useCrystalScrollObserver = (options = {}) => {
     debugInfo: {
       ...scrollObserver.debugInfo,
       crystalState: currentCrystalState,
-      selectedFacet
+      selectedFacet,
+      snapTransitions: scrollObserver.isSnapping
     }
   };
 };

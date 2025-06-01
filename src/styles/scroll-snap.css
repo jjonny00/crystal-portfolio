@@ -1,204 +1,294 @@
 /* src/styles/scroll-snap.css */
-/* FIXED: Simplified scroll behavior to prevent nested scrollable areas */
+/* AGGRESSIVE FIX: Force scroll snapping to work */
 
-/* CRITICAL: Only apply scroll-snap to html, remove from body */
+/* CRITICAL: Reset and force scroll snap on root */
 html {
-  scroll-behavior: smooth;
-  /* REMOVED: scroll-snap-type to fix the nested scroll issue */
-  /* scroll-snap-type: y proximity; */
+  /* Force scroll snapping */
+  scroll-snap-type: y mandatory !important;
+  scroll-behavior: smooth !important;
+  
+  /* Ensure no conflicts */
+  height: 100% !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  
+  /* Enhanced scroll snap properties */
+  scroll-padding: 0 !important;
+  scroll-padding-top: 0 !important;
+  scroll-padding-bottom: 0 !important;
 }
 
-/* FIXED: Body should never have scroll properties */
+/* Ensure body doesn't interfere */
 body {
-  /* Essential mobile scrolling */
+  /* Critical: body must not have scroll properties */
+  overflow: visible !important;
+  height: auto !important;
+  
+  /* Mobile scroll support */
   -webkit-overflow-scrolling: touch;
   
-  /* REMOVED: overscroll-behavior: contain; - this can cause issues */
-  
-  /* Only hide horizontal scroll */
-  overflow-x: hidden;
-  /* CRITICAL: Never set overflow-y on body */
-  
-  /* ADDED: Ensure body takes full height without creating scroll conflicts */
-  min-height: 100vh;
-  margin: 0;
-  padding: 0;
+  /* Clean margins/padding */
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
-/* FIXED: Individual scroll sections - remove all snap properties for now */
+/* CRITICAL: Root container must not interfere with scroll */
+#root {
+  /* Allow natural content flow */
+  height: auto !important;
+  min-height: 100vh !important;
+  
+  /* Never set overflow on root */
+  overflow: visible !important;
+  
+  /* Clean width */
+  width: 100% !important;
+  max-width: 100vw !important;
+}
+
+/* AGGRESSIVE: Force scroll container to be the scroll parent */
+.scroll-container {
+  /* This is now the main scroll container */
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  
+  /* Force it to be the scroll container */
+  height: 100vh !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  
+  /* Apply scroll snap here instead of html */
+  scroll-snap-type: y mandatory !important;
+  scroll-behavior: smooth !important;
+  
+  /* Ensure it's above 3D canvas */
+  z-index: 10 !important;
+  
+  /* Mobile scroll support */
+  -webkit-overflow-scrolling: touch;
+  
+  /* Clean box model */
+  margin: 0 !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+}
+
+/* FORCE: All sections to snap */
 .scroll-section {
-  /* REMOVED ALL SCROLL-SNAP PROPERTIES */
-  /* scroll-snap-align: start; */
-  /* scroll-snap-stop: normal; */
+  /* Mandatory snap alignment */
+  scroll-snap-align: start !important;
+  scroll-snap-stop: always !important;
   
-  position: relative;
+  /* Force exact viewport height */
+  height: 100vh !important;
+  min-height: 100vh !important;
+  max-height: 100vh !important;
   
-  /* CRITICAL: Ensure exact height with no possibility of overflow */
-  height: 100vh;
-  min-height: 100vh;
-  max-height: 100vh;
+  /* Prevent internal scrolling */
+  overflow: hidden !important;
   
-  /* PREVENT any internal scrolling */
-  overflow: hidden;
+  /* Clean positioning */
+  position: relative !important;
   
-  /* Ensure proper box sizing */
-  box-sizing: border-box;
+  /* Ensure content fits */
+  display: flex !important;
+  flex-direction: column !important;
+  
+  /* Clean box model */
+  margin: 0 !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+  
+  /* Full width */
+  width: 100% !important;
+  
+  /* Snap margin for better control */
+  scroll-margin: 0 !important;
+  scroll-margin-top: 0 !important;
 }
 
-/* SPECIAL FIX: Make sure hero and about sections are exactly 100vh */
+/* Specific section overrides */
 #hero,
+#projects-overview,
+[id^="project-"],
 #about {
+  /* Force these critical properties */
+  scroll-snap-align: start !important;
+  scroll-snap-stop: always !important;
   height: 100vh !important;
   min-height: 100vh !important;
   max-height: 100vh !important;
   overflow: hidden !important;
   
-  /* Ensure content fits within viewport */
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
+  /* Center content */
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   
-  /* Prevent any margin/padding issues */
-  margin: 0 !important;
-  box-sizing: border-box;
+  /* Padding for content */
+  padding: 2rem !important;
+  box-sizing: border-box !important;
 }
 
-/* MOBILE: Even more aggressive fixes */
+/* MOBILE: Aggressive mobile fixes */
 @media (max-width: 768px) {
-  /* REMOVED: Mandatory snap that was causing issues */
+  /* Force scroll snap even on mobile */
   html {
-    /* scroll-snap-type: none; */
+    scroll-snap-type: y proximity !important; /* Less aggressive on mobile */
   }
   
-  body {
-    /* Essential touch scrolling */
-    -webkit-overflow-scrolling: touch;
-    /* REMOVED: overscroll-behavior: auto; - can interfere */
+  .scroll-container {
+    /* Keep scroll container approach on mobile */
+    height: 100vh !important;
+    overflow-y: auto !important;
+    scroll-snap-type: y proximity !important;
     
-    /* CRITICAL: Ensure body height doesn't interfere */
-    height: auto;
-    min-height: 100vh;
+    /* Enhanced mobile scrolling */
+    -webkit-overflow-scrolling: touch !important;
+    
+    /* Prevent bounce */
+    overscroll-behavior: contain !important;
   }
   
   .scroll-section {
-    /* REMOVED: All snap properties */
-    /* scroll-snap-align: none; */
-    /* scroll-snap-stop: normal; */
-    
-    /* Force exact viewport height */
+    /* Mobile sections */
+    scroll-snap-align: start !important;
     height: 100vh !important;
     min-height: 100vh !important;
     max-height: 100vh !important;
     
-    /* CRITICAL: Prevent any internal scrolling on mobile */
-    overflow: hidden !important;
+    /* Use iOS safe areas if available */
+    height: 100vh !important;
+    min-height: 100vh !important;
   }
   
-  /* MOBILE: Fix hero and about specifically */
-  #hero,
-  #about {
-    /* Mobile viewport units can be tricky, use regular vh */
-    height: 100vh !important;
-    min-height: 100vh !important;
-    max-height: 100vh !important;
-    
-    /* Ensure content is properly contained */
-    padding: 1rem;
-    box-sizing: border-box;
-    
-    /* Prevent content overflow */
-    overflow: hidden !important;
+  /* Mobile-specific fixes for iOS */
+  @supports (-webkit-touch-callout: none) {
+    .scroll-container {
+      /* iOS-specific height fix */
+      height: -webkit-fill-available !important;
+    }
   }
 }
 
-/* TABLET: Similar aggressive approach */
-@media (min-width: 769px) and (max-width: 1024px) {
-  html {
-    /* REMOVED: scroll-snap-type: y proximity; */
-  }
-  
-  .scroll-section {
-    height: 100vh !important;
-    min-height: 100vh !important;
-    max-height: 100vh !important;
-    overflow: hidden !important;
-  }
-}
-
-/* DESKTOP: Clean approach without snap conflicts */
+/* DESKTOP: Maximum snap control */
 @media (min-width: 1025px) {
+  html {
+    scroll-snap-type: y mandatory !important;
+  }
+  
+  .scroll-container {
+    scroll-snap-type: y mandatory !important;
+  }
+  
   .scroll-section {
-    height: 100vh;
-    min-height: 100vh;
-    max-height: 100vh;
-    overflow: hidden;
+    scroll-snap-align: start !important;
+    scroll-snap-stop: always !important;
   }
 }
 
-/* REMOVED: Custom scrollbar styling that might interfere */
-/* Keep only essential scrollbar styling */
-::-webkit-scrollbar {
-  width: 6px;
+/* FALLBACK: If scroll-container doesn't work, fall back to html */
+html:not(:has(.scroll-container)) {
+  /* Fallback scroll snap on html */
+  scroll-snap-type: y mandatory !important;
+  overflow-y: auto !important;
 }
 
-::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.1);
+html:not(:has(.scroll-container)) .scroll-section {
+  scroll-snap-align: start !important;
+  scroll-snap-stop: always !important;
 }
 
-::-webkit-scrollbar-thumb {
-  background: rgba(100, 255, 218, 0.3);
-  border-radius: 3px;
+/* DEBUG: Uncomment to see section boundaries */
+/*
+.scroll-section {
+  border: 3px solid red !important;
+  position: relative !important;
 }
 
-/* Firefox scrollbar */
-html {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(100, 255, 218, 0.3) rgba(0, 0, 0, 0.1);
+.scroll-section::before {
+  content: attr(id) " - " counter(section) !important;
+  position: absolute !important;
+  top: 10px !important;
+  left: 10px !important;
+  background: rgba(255, 0, 0, 0.9) !important;
+  color: white !important;
+  padding: 10px !important;
+  font-size: 14px !important;
+  font-weight: bold !important;
+  z-index: 10000 !important;
+  pointer-events: none !important;
 }
 
-/* ACCESSIBILITY: Reduced motion - disable problematic features */
+body {
+  counter-reset: section !important;
+}
+
+.scroll-section {
+  counter-increment: section !important;
+}
+*/
+
+/* BROWSER-SPECIFIC FIXES */
+
+/* Chrome/Safari scroll snap fixes */
+@supports (-webkit-appearance: none) {
+  .scroll-container {
+    /* Force hardware acceleration */
+    -webkit-transform: translateZ(0) !important;
+    transform: translateZ(0) !important;
+    
+    /* Improve scroll performance */
+    -webkit-backface-visibility: hidden !important;
+    backface-visibility: hidden !important;
+  }
+}
+
+/* Firefox scroll snap fixes */
+@-moz-document url-prefix() {
+  .scroll-container {
+    /* Firefox-specific optimizations */
+    scroll-behavior: smooth !important;
+  }
+  
+  .scroll-section {
+    /* Firefox sometimes needs explicit positioning */
+    position: relative !important;
+  }
+}
+
+/* REDUCED MOTION: Disable only animations, keep snap */
 @media (prefers-reduced-motion: reduce) {
-  html {
+  html, .scroll-container {
     scroll-behavior: auto !important;
-    /* scroll-snap-type: none !important; */
-  }
-  
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
-}
-
-/* FOCUS: Keep focus management clean */
-.scroll-section:focus {
-  outline: 2px solid #64ffda;
-  outline-offset: -2px;
-}
-
-/* PRINT: Clean print styles */
-@media print {
-  html {
-    scroll-behavior: auto !important;
-    /* scroll-snap-type: none !important; */
-  }
-  
-  body {
-    height: auto !important;
-    overflow: visible !important;
+    /* Keep scroll snap even with reduced motion */
+    scroll-snap-type: y mandatory !important;
   }
   
   .scroll-section {
-    /* scroll-snap-align: none !important; */
-    height: auto !important;
-    min-height: auto !important;
-    max-height: none !important;
+    scroll-snap-align: start !important;
+  }
+  
+  /* Disable CSS transitions but keep snap */
+  * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+/* PRINT: Disable snap for printing */
+@media print {
+  html, .scroll-container {
+    scroll-snap-type: none !important;
     overflow: visible !important;
+    height: auto !important;
+  }
+  
+  .scroll-section {
+    scroll-snap-align: none !important;
+    height: auto !important;
     page-break-inside: avoid;
-    break-inside: avoid;
   }
 }

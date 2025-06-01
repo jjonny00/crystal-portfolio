@@ -1,46 +1,77 @@
 // src/hooks/useScrollProgress.js
-// Phase 1: Simple, reliable scroll progress calculation
+// ENHANCED: Scroll progress calculation optimized for CSS scroll snapping
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 /**
- * Throttle function for performance
+ * Throttle function optimized for scroll snapping
  */
-const throttle = (func, limit) => {
+const throttleWithSnap = (func, limit) => {
   let inThrottle;
+  let lastScrollY = 0;
+  
   return function() {
     const args = arguments;
     const context = this;
+    const currentScrollY = window.pageYOffset;
+    
+    // Detect potential snap (small movements)
+    const isLikelySnapping = Math.abs(currentScrollY - lastScrollY) < 5;
+    const dynamicLimit = isLikelySnapping ? limit / 2 : limit;
+    
     if (!inThrottle) {
       func.apply(context, args);
       inThrottle = true;
-      setTimeout(() => inThrottle = false, limit);
+      setTimeout(() => inThrottle = false, dynamicLimit);
     }
+    
+    lastScrollY = currentScrollY;
   };
 };
 
 /**
- * Debounce function for scroll end detection
+ * Enhanced debounce with snap detection
  */
-const debounce = (func, wait) => {
+const debounceWithSnapDetection = (func, wait) => {
   let timeout;
+  let isSnapping = false;
+  
   return function executedFunction(...args) {
+    const wasSnapping = isSnapping;
+    
+    // Detect if we're in a snapping scenario
+    isSnapping = args[0] && args[0].isSnapping;
+    
+    // Use shorter delay during snapping for responsiveness
+    const dynamicWait = isSnapping || wasSnapping ? wait / 3 : wait;
+    
     const later = () => {
       clearTimeout(timeout);
       func(...args);
     };
+    
     clearTimeout(timeout);
-    timeout = setTimeout(later, wait);
+    timeout = setTimeout(later, dynamicWait);
   };
 };
 
 /**
- * Calculate scroll velocity for animation speed adjustments
+ * Detect if browser supports scroll snapping
+ */
+const supportsScrollSnap = () => {
+  return CSS.supports('scroll-snap-type', 'y mandatory') || 
+         CSS.supports('scroll-snap-type', 'y proximity');
+};
+
+/**
+ * Enhanced scroll velocity calculation with snap awareness
  */
 const useScrollVelocity = () => {
   const [velocity, setVelocity] = useState(0);
+  const [isSnapping, setIsSnapping] = useState(false);
   const lastScrollY = useRef(window.pageYOffset);
   const lastTimestamp = useRef(Date.now());
+  const snapDetectionTimeout = useRef(null);
 
   const updateVelocity = useCallback(() => {
     const currentScrollY = window.pageYOffset;
@@ -50,24 +81,39 @@ const useScrollVelocity = () => {
     const deltaTime = Math.max(currentTime - lastTimestamp.current, 1);
     
     const currentVelocity = deltaY / deltaTime; // pixels per ms
+    
+    // Detect snapping (very small movements followed by stops)
+    const isLikelySnapping = deltaY < 3 && currentVelocity < 0.1;
+    
+    if (isLikelySnapping && !isSnapping) {
+      setIsSnapping(true);
+      // Clear snapping state after a delay
+      if (snapDetectionTimeout.current) {
+        clearTimeout(snapDetectionTimeout.current);
+      }
+      snapDetectionTimeout.current = setTimeout(() => {
+        setIsSnapping(false);
+      }, 200);
+    }
+    
     setVelocity(currentVelocity);
 
     lastScrollY.current = currentScrollY;
     lastTimestamp.current = currentTime;
-  }, []);
+  }, [isSnapping]);
 
-  return { velocity, updateVelocity };
+  return { velocity, updateVelocity, isSnapping };
 };
 
 /**
- * Main scroll progress hook
- * Provides reliable 0-1 progress through the entire document
+ * Enhanced scroll progress hook with CSS scroll snap support
  */
 export const useScrollProgress = (options = {}) => {
   const {
-    throttleMs = 16,        // ~60fps updates
-    debounceMs = 150,       // Scroll end detection
-    includeVelocity = true, // Include velocity calculations
+    throttleMs = supportsScrollSnap() ? 24 : 16, // Slightly slower with scroll snap
+    debounceMs = supportsScrollSnap() ? 100 : 150, // Faster response with snap
+    includeVelocity = true,
+    includeSnapDetection = true,
     debugMode = false
   } = options;
 
@@ -76,13 +122,15 @@ export const useScrollProgress = (options = {}) => {
   const [isScrolling, setIsScrolling] = useState(false);
   const [documentHeight, setDocumentHeight] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(0);
+  const [currentSection, setCurrentSection] = useState(null);
 
-  // Scroll velocity
-  const { velocity, updateVelocity } = useScrollVelocity();
+  // Enhanced scroll velocity with snap detection
+  const { velocity, updateVelocity, isSnapping } = useScrollVelocity();
 
   // Refs for cleanup
   const scrollListenerRef = useRef(null);
   const resizeListenerRef = useRef(null);
+  const snapStateRef = useRef(false);
 
   /**
    * Calculate document dimensions
@@ -105,54 +153,129 @@ export const useScrollProgress = (options = {}) => {
       console.log('📏 Document dimensions updated:', {
         documentHeight: docHeight,
         viewportHeight: vpHeight,
-        scrollableHeight: docHeight - vpHeight
+        scrollableHeight: docHeight - vpHeight,
+        snapSupported: supportsScrollSnap()
       });
     }
   }, [debugMode]);
 
   /**
-   * Calculate scroll progress (0 to 1)
+   * Enhanced scroll progress calculation with snap awareness
    */
   const calculateScrollProgress = useCallback(() => {
     const scrolled = window.pageYOffset || document.documentElement.scrollTop;
-    const maxScroll = Math.max(documentHeight - viewportHeight, 1); // Prevent division by zero
-    const progress = Math.min(Math.max(scrolled / maxScroll, 0), 1); // Clamp between 0 and 1
+    const maxScroll = Math.max(documentHeight - viewportHeight, 1);
+    let progress = Math.min(Math.max(scrolled / maxScroll, 0), 1);
+    
+    // For scroll snapping, quantize progress to cleaner values when snapped
+    if (supportsScrollSnap() && isSnapping) {
+      // Detect which section we're likely snapped to
+      const sections = document.querySelectorAll('.scroll-section');
+      if (sections.length > 0) {
+        let closestSectionIndex = 0;
+        let minDistance = Infinity;
+        
+        sections.forEach((section, index) => {
+          const sectionTop = section.offsetTop;
+          const distance = Math.abs(scrolled - sectionTop);
+          if (distance < minDistance) {
+            minDistance = distance;
+            closestSectionIndex = index;
+          }
+        });
+        
+        // If we're very close to a section (snapped), use quantized progress
+        if (minDistance < 50) { // Within 50px of perfect alignment
+          const quantizedProgress = closestSectionIndex / Math.max(sections.length - 1, 1);
+          progress = quantizedProgress;
+          
+          if (debugMode) {
+            console.log(`📍 Snapped to section ${closestSectionIndex}, quantized progress: ${Math.round(progress * 100)}%`);
+          }
+        }
+      }
+    }
     
     return progress;
-  }, [documentHeight, viewportHeight]);
+  }, [documentHeight, viewportHeight, isSnapping, debugMode]);
 
   /**
-   * Handle scroll events
+   * Determine current section based on scroll position
+   */
+  const determineCurrentSection = useCallback(() => {
+    const sections = document.querySelectorAll('.scroll-section');
+    const scrolled = window.pageYOffset;
+    
+    let currentSectionId = null;
+    let minDistance = Infinity;
+    
+    sections.forEach((section) => {
+      const sectionTop = section.offsetTop;
+      const distance = Math.abs(scrolled - sectionTop);
+      
+      if (distance < minDistance) {
+        minDistance = distance;
+        currentSectionId = section.id;
+      }
+    });
+    
+    return currentSectionId;
+  }, []);
+
+  /**
+   * Handle scroll events with snap awareness
    */
   const handleScroll = useCallback(() => {
     const progress = calculateScrollProgress();
+    const sectionId = determineCurrentSection();
+    
     setScrollProgress(progress);
     setIsScrolling(true);
+    
+    if (sectionId !== currentSection) {
+      setCurrentSection(sectionId);
+    }
     
     // Update velocity if enabled
     if (includeVelocity) {
       updateVelocity();
     }
     
-    if (debugMode && Math.random() < 0.05) { // Only log occasionally
-      console.log('📜 Scroll progress:', {
+    if (debugMode && Math.random() < 0.03) { // Log occasionally
+      console.log('📜 Enhanced scroll progress:', {
         progress: Math.round(progress * 100) + '%',
         scrollY: window.pageYOffset,
-        velocity: Math.round(velocity * 1000) / 1000
+        velocity: Math.round(velocity * 1000) / 1000,
+        isSnapping,
+        currentSection: sectionId,
+        snapSupported: supportsScrollSnap()
       });
     }
-  }, [calculateScrollProgress, includeVelocity, updateVelocity, velocity, debugMode]);
+  }, [
+    calculateScrollProgress, 
+    determineCurrentSection,
+    currentSection,
+    includeVelocity, 
+    updateVelocity, 
+    velocity, 
+    isSnapping,
+    debugMode
+  ]);
 
   /**
-   * Handle scroll end
+   * Enhanced scroll end detection with snap awareness
    */
-  const handleScrollEnd = useCallback(() => {
+  const handleScrollEnd = useCallback(debounceWithSnapDetection(() => {
     setIsScrolling(false);
     
     if (debugMode) {
-      console.log('📜 Scroll ended at:', Math.round(scrollProgress * 100) + '%');
+      console.log('📜 Scroll ended at:', {
+        progress: Math.round(scrollProgress * 100) + '%',
+        section: currentSection,
+        wasSnapping: isSnapping
+      });
     }
-  }, [scrollProgress, debugMode]);
+  }, debounceMs), [scrollProgress, currentSection, isSnapping, debugMode, debounceMs]);
 
   /**
    * Handle window resize
@@ -166,24 +289,23 @@ export const useScrollProgress = (options = {}) => {
   }, [updateDocumentDimensions, calculateScrollProgress]);
 
   /**
-   * Set up event listeners
+   * Set up event listeners with snap optimization
    */
   useEffect(() => {
     // Initial dimension calculation
     updateDocumentDimensions();
     
-    // Set up throttled scroll listener
-    const throttledScroll = throttle(handleScroll, throttleMs);
-    const debouncedScrollEnd = debounce(handleScrollEnd, debounceMs);
+    // Set up optimized scroll listener
+    const throttledScroll = throttleWithSnap(handleScroll, throttleMs);
     
     // Combined scroll handler
     const scrollHandler = () => {
       throttledScroll();
-      debouncedScrollEnd();
+      handleScrollEnd({ isSnapping });
     };
     
     // Set up resize listener
-    const throttledResize = throttle(handleResize, 100);
+    const throttledResize = throttleWithSnap(handleResize, 100);
     
     // Add listeners
     window.addEventListener('scroll', scrollHandler, { passive: true });
@@ -205,55 +327,70 @@ export const useScrollProgress = (options = {}) => {
         window.removeEventListener('resize', resizeListenerRef.current);
       }
     };
-  }, [handleScroll, handleScrollEnd, handleResize, throttleMs, debounceMs, updateDocumentDimensions]);
+  }, [
+    handleScroll, 
+    handleScrollEnd, 
+    handleResize, 
+    throttleMs, 
+    updateDocumentDimensions,
+    isSnapping
+  ]);
 
   /**
-   * Get scroll progress within a specific zone
+   * Enhanced zone progress calculation with snap awareness
    */
   const getZoneProgress = useCallback((zoneName, zones) => {
     const zone = zones[zoneName];
     if (!zone) return 0;
     
-    const zoneProgress = Math.max(0, Math.min(1, 
+    let zoneProgress = Math.max(0, Math.min(1, 
       (scrollProgress - zone.start) / (zone.end - zone.start)
     ));
     
-    return zoneProgress;
-  }, [scrollProgress]);
-
-  /**
-   * Check if we're in a specific zone
-   */
-  const isInZone = useCallback((zoneName, zones) => {
-    const zone = zones[zoneName];
-    if (!zone) return false;
-    
-    return scrollProgress >= zone.start && scrollProgress <= zone.end;
-  }, [scrollProgress]);
-
-  /**
-   * Get current zone from zones config
-   */
-  const getCurrentZone = useCallback((zones) => {
-    for (const [zoneName, zone] of Object.entries(zones)) {
-      if (scrollProgress >= zone.start && scrollProgress <= zone.end) {
-        return {
-          name: zoneName,
-          progress: getZoneProgress(zoneName, zones),
-          zone: zone
-        };
-      }
+    // Quantize zone progress when snapping
+    if (supportsScrollSnap() && isSnapping) {
+      zoneProgress = Math.round(zoneProgress * 4) / 4; // Snap to quarters
     }
-    return null;
-  }, [scrollProgress, getZoneProgress]);
+    
+    return zoneProgress;
+  }, [scrollProgress, isSnapping]);
 
   /**
-   * Scroll to specific progress (0-1)
+   * Enhanced scroll to progress with snap support
    */
   const scrollToProgress = useCallback((targetProgress, behavior = 'smooth') => {
     const maxScroll = documentHeight - viewportHeight;
     const targetScrollY = targetProgress * maxScroll;
     
+    // For scroll snap support, try to align to nearest section
+    if (supportsScrollSnap()) {
+      const sections = document.querySelectorAll('.scroll-section');
+      if (sections.length > 0) {
+        let closestSection = null;
+        let minDistance = Infinity;
+        
+        sections.forEach((section) => {
+          const sectionTop = section.offsetTop;
+          const distance = Math.abs(targetScrollY - sectionTop);
+          if (distance < minDistance) {
+            minDistance = distance;
+            closestSection = section;
+          }
+        });
+        
+        if (closestSection && minDistance < viewportHeight * 0.2) {
+          // Scroll to the closest section instead
+          closestSection.scrollIntoView({
+            behavior,
+            block: 'start',
+            inline: 'nearest'
+          });
+          return;
+        }
+      }
+    }
+    
+    // Fallback to normal scroll
     window.scrollTo({
       top: targetScrollY,
       behavior: behavior
@@ -261,7 +398,7 @@ export const useScrollProgress = (options = {}) => {
   }, [documentHeight, viewportHeight]);
 
   /**
-   * Scroll to specific zone
+   * Enhanced zone navigation with snap awareness
    */
   const scrollToZone = useCallback((zoneName, zones, behavior = 'smooth') => {
     const zone = zones[zoneName];
@@ -278,24 +415,44 @@ export const useScrollProgress = (options = {}) => {
     scrollProgress,
     isScrolling,
     velocity: includeVelocity ? velocity : 0,
+    isSnapping: includeSnapDetection ? isSnapping : false,
+    currentSection,
     
     // Document info
     documentHeight,
     viewportHeight,
     maxScroll: Math.max(documentHeight - viewportHeight, 0),
     
-    // Zone utilities
+    // Zone utilities (enhanced)
     getZoneProgress,
-    isInZone,
-    getCurrentZone,
+    isInZone: useCallback((zoneName, zones) => {
+      const zone = zones[zoneName];
+      if (!zone) return false;
+      return scrollProgress >= zone.start && scrollProgress <= zone.end;
+    }, [scrollProgress]),
     
-    // Navigation
+    getCurrentZone: useCallback((zones) => {
+      for (const [zoneName, zone] of Object.entries(zones)) {
+        if (scrollProgress >= zone.start && scrollProgress <= zone.end) {
+          return {
+            name: zoneName,
+            progress: getZoneProgress(zoneName, zones),
+            zone: zone,
+            isSnapped: isSnapping
+          };
+        }
+      }
+      return null;
+    }, [scrollProgress, getZoneProgress, isSnapping]),
+    
+    // Enhanced navigation
     scrollToProgress,
     scrollToZone,
     
-    // Utilities
-    isFastScrolling: velocity > 50, // Threshold for "fast" scrolling
+    // Utilities with snap awareness
+    isFastScrolling: velocity > (isSnapping ? 20 : 50), // Lower threshold when snapping
     scrollDirection: velocity > 0 ? 'down' : 'up',
+    supportsScrollSnap: supportsScrollSnap(),
     
     // Debug info
     debugInfo: debugMode ? {
@@ -304,7 +461,10 @@ export const useScrollProgress = (options = {}) => {
       velocity: Math.round(velocity * 1000) / 1000,
       documentHeight,
       viewportHeight,
-      isScrolling
+      isScrolling,
+      isSnapping,
+      currentSection,
+      snapSupported: supportsScrollSnap()
     } : null
   };
 };
