@@ -45,12 +45,12 @@ const UnifiedCameraController = ({
     camera.getWorldDirection(direction);
     currentTarget.current.lookAt.copy(camera.position).add(direction);
     
-    if (process.env.NODE_ENV === 'development') {
-      console.log('📹 Camera initialized from current position:', {
-        position: camera.position.toArray(),
-        fov: camera.fov
-      });
-    }
+    // if (process.env.NODE_ENV === 'development') {
+    //   console.log('📹 Camera initialized from current position:', {
+    //     position: camera.position.toArray(),
+    //     fov: camera.fov
+    //   });
+    // }
   }, [camera]);
 
   /**
