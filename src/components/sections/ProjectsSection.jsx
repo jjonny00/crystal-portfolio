@@ -237,18 +237,6 @@ const ProjectsSection = ({
           </p>
         </animated.div>
       </animated.div>
-
-      {/* Background enhancement */}
-      <div style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'radial-gradient(circle at center, rgba(5, 5, 5, 0.2) 0%, rgba(5, 5, 5, 0.6) 100%)',
-        zIndex: 1,
-        pointerEvents: 'none'
-      }} />
     </section>
   );
 };

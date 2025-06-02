@@ -122,6 +122,8 @@ const ScrollablePortfolio = ({
           id="projects-overview" 
           className="scroll-section"
           style={{
+            scrollSnapAlign: 'start',
+            scrollSnapStop: 'normal',
             height: '100vh',
             minHeight: '100vh',
             maxHeight: '100vh',

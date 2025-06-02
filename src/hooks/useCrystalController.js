@@ -31,12 +31,11 @@ const getPageZone = (sectionId) => {
   if (sectionId === 'hero') return PAGE_ZONES.HERO;
   if (sectionId === 'about') return PAGE_ZONES.ABOUT;
   
-  // All project-related sections map to PROJECTS zone
-  if (sectionId === 'projects-overview' || sectionId.startsWith('project-')) {
-    return PAGE_ZONES.PROJECTS;
-  }
+  // ✅ FIXED: Explicitly handle projects-overview
+  if (sectionId === 'projects-overview') return PAGE_ZONES.PROJECTS;
+  if (sectionId.startsWith('project-')) return PAGE_ZONES.PROJECTS;
   
-  return PAGE_ZONES.HERO; // Default fallback
+  return PAGE_ZONES.HERO;
 };
 
 /**
