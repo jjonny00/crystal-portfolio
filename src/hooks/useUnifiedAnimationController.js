@@ -198,13 +198,13 @@ const calculateActiveProject = (scrollProgress, config = ANIMATION_CONFIG) => {
       ));
       
       // Debug logging for project detection
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`🎯 Active project: ${projectKey} (${Math.round(projectProgress * 100)}%)`, {
-          scrollProgress: Math.round(scrollProgress * 1000) / 1000,
-          section: section,
-          projectProgress: Math.round(projectProgress * 1000) / 1000
-        });
-      }
+    //   if (process.env.NODE_ENV === 'development') {
+    //     console.log(`🎯 Active project: ${projectKey} (${Math.round(projectProgress * 100)}%)`, {
+    //       scrollProgress: Math.round(scrollProgress * 1000) / 1000,
+    //       section: section,
+    //       projectProgress: Math.round(projectProgress * 1000) / 1000
+    //     });
+    //   }
       
       return {
         project: projectKey,
@@ -396,9 +396,9 @@ export const useUnifiedAnimationController = (options = {}) => {
         const projectCamera = config.camera.projects[animationState.focusedFacet];
         
         if (projectCamera) {
-        if (process.env.NODE_ENV === 'development') {
-            console.log(`📹 Using project camera for: ${animationState.focusedFacet}`, projectCamera);
-        }
+        // if (process.env.NODE_ENV === 'development') {
+        //     console.log(`📹 Using project camera for: ${animationState.focusedFacet}`, projectCamera);
+        // }
         return projectCamera;
         } else {
         console.warn(`⚠️ No camera config found for project: ${animationState.focusedFacet}`);
@@ -407,9 +407,9 @@ export const useUnifiedAnimationController = (options = {}) => {
 
     const fallbackCamera = config.camera[animationState.cameraState] || config.camera.hero;
 
-    if (process.env.NODE_ENV === 'development') {
-        console.log(`📹 Using fallback camera for state: ${animationState.cameraState}`, fallbackCamera);
-    }
+    // if (process.env.NODE_ENV === 'development') {
+    //     console.log(`📹 Using fallback camera for state: ${animationState.cameraState}`, fallbackCamera);
+    // }
 
     return fallbackCamera;
     }, [animationState.cameraState, animationState.focusedFacet, config]);

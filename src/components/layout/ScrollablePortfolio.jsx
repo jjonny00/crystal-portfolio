@@ -1,14 +1,50 @@
 // src/components/layout/ScrollablePortfolio.jsx
-// AGGRESSIVE: Make scroll-container the actual scroll parent
+// COMPLETE FILE - Copy and paste this entire file
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import HeroSection from '../sections/HeroSection';
 import ProjectsSection from '../sections/ProjectsSection';
 import ProjectFocusSection from '../sections/ProjectFocusSection';
 import AboutSection from '../sections/AboutSection';
 import { projects } from '../../data/projects';
 
-const ScrollablePortfolio = () => {
+const ScrollablePortfolio = ({ 
+  snapSpeed = 'medium' // 'fast', 'medium', 'slow', 'extra-slow', 'no-snap'
+}) => {
+  const [currentSnapSpeed, setCurrentSnapSpeed] = useState(snapSpeed);
+  
+  // Update snap speed when prop changes
+  useEffect(() => {
+    setCurrentSnapSpeed(snapSpeed);
+    
+    // Apply the snap speed class after a brief delay to ensure DOM is ready
+    const timeoutId = setTimeout(() => {
+      const container = document.querySelector('.scroll-container');
+      if (container) {
+        // Remove all existing speed classes
+        container.classList.remove('fast-snap', 'medium-snap', 'slow-snap', 'extra-slow-snap', 'no-snap');
+        
+        // Add the new speed class
+        const speedClass = `${snapSpeed}-snap`;
+        container.classList.add(speedClass);
+        
+        console.log('🎯 Applied snap speed:', snapSpeed);
+        console.log('🎯 Container classes:', container.className);
+        console.log('🎯 Computed scroll-snap-type:', getComputedStyle(container).scrollSnapType);
+        console.log('🎯 Computed scroll-behavior:', getComputedStyle(container).scrollBehavior);
+      } else {
+        console.error('❌ Scroll container not found');
+      }
+    }, 100);
+    
+    return () => clearTimeout(timeoutId);
+  }, [snapSpeed]);
+  
+  // Debug logging
+  useEffect(() => {
+    console.log('📏 ScrollablePortfolio received snapSpeed:', snapSpeed);
+  }, [snapSpeed]);
+  
   return (
     <div 
       className="scroll-container"
@@ -24,9 +60,7 @@ const ScrollablePortfolio = () => {
         overflowY: 'auto',
         overflowX: 'hidden',
         
-        // Apply scroll snap here
-        scrollSnapType: 'y mandatory',
-        scrollBehavior: 'smooth',
+        // NOTE: scroll-snap properties are now handled by CSS classes
         
         // Above 3D canvas
         zIndex: 10,
@@ -57,9 +91,7 @@ const ScrollablePortfolio = () => {
           id="hero" 
           className="scroll-section"
           style={{
-            // Force snap properties
-            scrollSnapAlign: 'start',
-            scrollSnapStop: 'always',
+            // NOTE: scroll-snap properties now handled by CSS classes
             
             // Force exact height
             height: '100vh',
@@ -90,8 +122,6 @@ const ScrollablePortfolio = () => {
           id="projects-overview" 
           className="scroll-section"
           style={{
-            scrollSnapAlign: 'start',
-            scrollSnapStop: 'always',
             height: '100vh',
             minHeight: '100vh',
             maxHeight: '100vh',
@@ -116,8 +146,6 @@ const ScrollablePortfolio = () => {
             id={`project-${project.facetKey}`}
             className="scroll-section"
             style={{
-              scrollSnapAlign: 'start',
-              scrollSnapStop: 'always',
               height: '100vh',
               minHeight: '100vh',
               maxHeight: '100vh',
@@ -147,8 +175,6 @@ const ScrollablePortfolio = () => {
           id="about" 
           className="scroll-section"
           style={{
-            scrollSnapAlign: 'start',
-            scrollSnapStop: 'always',
             height: '100vh',
             minHeight: '100vh',
             maxHeight: '100vh',

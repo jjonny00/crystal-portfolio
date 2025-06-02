@@ -75,13 +75,13 @@ export const useScrollProgress = (options = {}) => {
     setContainerHeight(containerRect.height);
     setContentHeight(scrollHeight);
     
-    if (debugMode) {
-      console.log('📏 Container dimensions updated:', {
-        containerHeight: containerRect.height,
-        contentHeight: scrollHeight,
-        scrollableHeight: scrollHeight - containerRect.height
-      });
-    }
+    // if (debugMode) {
+    //   console.log('📏 Container dimensions updated:', {
+    //     containerHeight: containerRect.height,
+    //     contentHeight: scrollHeight,
+    //     scrollableHeight: scrollHeight - containerRect.height
+    //   });
+    // }
   }, [debugMode]);
 
   /**
@@ -125,9 +125,9 @@ export const useScrollProgress = (options = {}) => {
             setTimeout(() => setIsSnapping(false), 300);
           }
           
-          if (debugMode) {
-            console.log(`📍 Snapped to section ${closestSectionIndex}, progress: ${Math.round(progress * 100)}%`);
-          }
+        //   if (debugMode) {
+        //     console.log(`📍 Snapped to section ${closestSectionIndex}, progress: ${Math.round(progress * 100)}%`);
+        //   }
         }
       }
     }
@@ -200,15 +200,15 @@ export const useScrollProgress = (options = {}) => {
       updateVelocity();
     }
     
-    if (debugMode && Math.random() < 0.05) {
-      console.log('📜 Container scroll progress:', {
-        progress: Math.round(progress * 100) + '%',
-        scrollTop: scrollContainerRef.current?.scrollTop,
-        velocity: Math.round(velocity * 1000) / 1000,
-        currentSection: sectionId,
-        isSnapping
-      });
-    }
+    // if (debugMode && Math.random() < 0.05) {
+    //   console.log('📜 Container scroll progress:', {
+    //     progress: Math.round(progress * 100) + '%',
+    //     scrollTop: scrollContainerRef.current?.scrollTop,
+    //     velocity: Math.round(velocity * 1000) / 1000,
+    //     currentSection: sectionId,
+    //     isSnapping
+    //   });
+    // }
   }, [
     calculateScrollProgress,
     determineCurrentSection,
@@ -284,9 +284,9 @@ export const useScrollProgress = (options = {}) => {
     // Initial calculation
     handleScroll();
     
-    if (debugMode) {
-      console.log('🔍 Scroll progress attached to container:', containerSelector);
-    }
+    // if (debugMode) {
+    //   console.log('🔍 Scroll progress attached to container:', containerSelector);
+    // }
     
     // Cleanup
     return () => {

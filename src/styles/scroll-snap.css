@@ -1,5 +1,5 @@
 /* src/styles/scroll-snap.css */
-/* AGGRESSIVE FIX: Force scroll snapping to work */
+/* COMPLETE FILE - Copy and paste this entire file */
 
 /* CRITICAL: Reset and force scroll snap on root */
 html {
@@ -132,6 +132,68 @@ body {
   box-sizing: border-box !important;
 }
 
+/* ========================================= */
+/* SNAP SPEED CONTROLS - NEW SECTION */
+/* ========================================= */
+
+/* Fast snapping - almost instant */
+html .scroll-container.fast-snap {
+  scroll-behavior: auto !important;
+  scroll-snap-type: y proximity !important;
+}
+
+html .scroll-container.fast-snap .scroll-section {
+  scroll-snap-stop: normal !important;
+}
+
+/* Medium snapping - default smooth (your current behavior) */
+html .scroll-container.medium-snap {
+  scroll-behavior: smooth !important;
+  scroll-snap-type: y mandatory !important;
+}
+
+html .scroll-container.medium-snap .scroll-section {
+  scroll-snap-stop: always !important;
+}
+
+/* Slow snapping - more gradual */
+html .scroll-container.slow-snap {
+  scroll-behavior: smooth !important;
+  scroll-snap-type: y mandatory !important;
+  scroll-padding: 10px !important;
+}
+
+html .scroll-container.slow-snap .scroll-section {
+  scroll-snap-stop: always !important;
+  scroll-margin-top: 5px !important;
+}
+
+/* Extra slow for very gradual movement */
+html .scroll-container.extra-slow-snap {
+  scroll-behavior: smooth !important;
+  scroll-snap-type: y proximity !important;
+  scroll-padding: 20px !important;
+}
+
+html .scroll-container.extra-slow-snap .scroll-section {
+  scroll-snap-stop: normal !important;
+}
+
+/* Disable snapping completely */
+html .scroll-container.no-snap {
+  scroll-snap-type: none !important;
+  scroll-behavior: smooth !important;
+}
+
+html .scroll-container.no-snap .scroll-section {
+  scroll-snap-align: none !important;
+  scroll-snap-stop: normal !important;
+}
+
+/* ========================================= */
+/* MOBILE RESPONSIVE */
+/* ========================================= */
+
 /* MOBILE: Aggressive mobile fixes */
 @media (max-width: 768px) {
   /* Force scroll snap even on mobile */
@@ -150,6 +212,19 @@ body {
     
     /* Prevent bounce */
     overscroll-behavior: contain !important;
+  }
+  
+  /* Mobile speed overrides */
+  .scroll-container.fast-snap {
+    scroll-snap-type: y proximity !important;
+  }
+  
+  .scroll-container.medium-snap {
+    scroll-snap-type: y proximity !important;
+  }
+  
+  .scroll-container.slow-snap {
+    scroll-snap-type: y proximity !important;
   }
   
   .scroll-section {
@@ -200,36 +275,6 @@ html:not(:has(.scroll-container)) .scroll-section {
   scroll-snap-align: start !important;
   scroll-snap-stop: always !important;
 }
-
-/* DEBUG: Uncomment to see section boundaries */
-/*
-.scroll-section {
-  border: 3px solid red !important;
-  position: relative !important;
-}
-
-.scroll-section::before {
-  content: attr(id) " - " counter(section) !important;
-  position: absolute !important;
-  top: 10px !important;
-  left: 10px !important;
-  background: rgba(255, 0, 0, 0.9) !important;
-  color: white !important;
-  padding: 10px !important;
-  font-size: 14px !important;
-  font-weight: bold !important;
-  z-index: 10000 !important;
-  pointer-events: none !important;
-}
-
-body {
-  counter-reset: section !important;
-}
-
-.scroll-section {
-  counter-increment: section !important;
-}
-*/
 
 /* BROWSER-SPECIFIC FIXES */
 

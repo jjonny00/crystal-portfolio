@@ -53,6 +53,9 @@ function App() {
     enableOrientationLock: false
   });
 
+  // Snap Speed Setting
+  const [snapSpeed, setSnapSpeed] = useState('medium');
+
   // UI state (unchanged)
   const [config, setConfig] = useState({
     ...defaultConfig,
@@ -159,13 +162,19 @@ function App() {
     }
   }, [performanceConfig, updateExternalPerformanceConfig, hasInitialized, devicePerformanceProfile, initialProfileApplied]);
 
+  // Snap Speed Handler
+  const handleSnapSpeedChange = useCallback((speed) => {
+    console.log('🎯 Changing snap speed to:', speed);
+    setSnapSpeed(speed);
+  }, []);
+
   // NEW: Animation state change handler - receives unified animation state
   const handleAnimationStateChange = useCallback((newState, prevState) => {
     if (process.env.NODE_ENV === 'development') {
-      console.log('🎬 Animation state changed:', {
-        from: prevState,
-        to: newState
-      });
+      // console.log('🎬 Animation state changed:', {
+      //   from: prevState,
+      //   to: newState
+      // });
     }
   }, []);
 
@@ -292,7 +301,9 @@ function App() {
       </MasterAnimationCoordinator>
 
       {/* Scrollable Content - on top of 3D canvas (unchanged) */}
-      <ScrollablePortfolio />
+      <ScrollablePortfolio snapSpeed={snapSpeed} />
+
+      
 
       {/* FooterSection - SIMPLIFIED: Will use animation coordinator for navigation */}
       {/* <FooterSection 
@@ -319,7 +330,8 @@ function App() {
             { label: 'Crystal' },
             { label: 'Materials' },
             { label: 'Effects' },
-            { label: 'Performance' }
+            { label: 'Performance' },
+            { label: 'Scroll' }
           ]}
         >
           <CrystalControls onUpdate={handleConfigUpdate} />
@@ -356,6 +368,92 @@ function App() {
             onConfigUpdate={handlePerformanceConfigUpdate}
             visible={true}
           />
+
+          <div>
+            <h2 style={{ margin: '0 0 15px 0', fontSize: '16px', display: 'flex', alignItems: 'center' }}>
+              <span role="img" aria-label="Scroll" style={{ marginRight: '8px' }}>📜</span>
+              Scroll Settings
+            </h2>
+            
+            <div style={{ marginBottom: '15px' }}>
+              <label style={{ 
+                fontSize: '14px', 
+                marginBottom: '10px', 
+                display: 'block',
+                color: 'rgba(255, 255, 255, 0.9)'
+              }}>
+                Snap Speed:
+              </label>
+              
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(2, 1fr)', 
+                gap: '8px',
+                marginBottom: '10px'
+              }}>
+                {['fast', 'medium', 'slow', 'extra-slow', 'no-snap'].map((speed) => (
+                  <button
+                    key={speed}
+                    onClick={() => handleSnapSpeedChange(speed)}
+                    style={{
+                      backgroundColor: snapSpeed === speed ? '#64ffda' : 'rgba(255, 255, 255, 0.1)',
+                      color: snapSpeed === speed ? '#000' : 'white',
+                      border: `1px solid ${snapSpeed === speed ? '#64ffda' : 'rgba(255, 255, 255, 0.2)'}`,
+                      padding: '8px 12px',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                      fontWeight: snapSpeed === speed ? 'bold' : 'normal',
+                      textTransform: 'capitalize',
+                      transition: 'all 0.2s ease',
+                      minHeight: '36px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (snapSpeed !== speed) {
+                        e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (snapSpeed !== speed) {
+                        e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+                      }
+                    }}
+                  >
+                    {speed.replace('-', ' ')}
+                  </button>
+                ))}
+              </div>
+              
+              <div style={{
+                fontSize: '12px',
+                color: 'rgba(255, 255, 255, 0.7)',
+                backgroundColor: 'rgba(100, 255, 218, 0.1)',
+                padding: '12px',
+                borderRadius: '6px',
+                lineHeight: '1.5',
+                border: '1px solid rgba(100, 255, 218, 0.2)'
+              }}>
+                <div style={{ marginBottom: '4px' }}><strong style={{ color: '#64ffda' }}>Fast:</strong> Almost instant snapping</div>
+                <div style={{ marginBottom: '4px' }}><strong style={{ color: '#64ffda' }}>Medium:</strong> Default smooth snapping</div>
+                <div style={{ marginBottom: '4px' }}><strong style={{ color: '#64ffda' }}>Slow:</strong> More gradual snapping</div>
+                <div style={{ marginBottom: '4px' }}><strong style={{ color: '#64ffda' }}>Extra Slow:</strong> Very gradual movement</div>
+                <div><strong style={{ color: '#64ffda' }}>No Snap:</strong> Free scrolling (no snapping)</div>
+              </div>
+              
+              <div style={{
+                fontSize: '11px',
+                color: 'rgba(255, 255, 255, 0.6)',
+                marginTop: '8px',
+                fontStyle: 'italic'
+              }}>
+                Current: <strong style={{ color: '#64ffda' }}>{snapSpeed.replace('-', ' ')}</strong>
+              </div>
+            </div>
+          </div>
+
         </TabbedControlPanel>
       )}
       
