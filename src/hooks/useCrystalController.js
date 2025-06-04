@@ -36,8 +36,11 @@ const getPageZone = (sectionId) => {
   // Split the project-related sections
   if (sectionId === 'projects-overview') return PAGE_ZONES.OVERVIEW;
   if (sectionId.startsWith('project-')) return PAGE_ZONES.PROJECTS;
+  // ✅ FIXED: Explicitly handle projects-overview
+  if (sectionId === 'projects-overview') return PAGE_ZONES.PROJECTS;
+  if (sectionId.startsWith('project-')) return PAGE_ZONES.PROJECTS;
   
-  return PAGE_ZONES.HERO; // Default fallback
+  return PAGE_ZONES.HERO;
 };
 
 /**
