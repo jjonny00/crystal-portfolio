@@ -1,5 +1,5 @@
 // src/hooks/useUnifiedAnimationController.js
-// FIXED: Proper explosion timing, smooth reverse animation, and camera coordination
+// FIXED: Comprehensive zone transition handling for proper crystal states
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Vector3 } from 'three';
@@ -122,20 +122,20 @@ export const ANIMATION_CONFIG = {
 
   // FIXED: More precise scroll zones
   scrollZones: {
-    hero: { start: 0, end: 0.125 },
-    overview: { start: 0.125, end: 0.25 },
-    projects: { start: 0.25, end: 0.875 },
+    hero: { start: 0, end: 0.12 },
+    overview: { start: 0.12, end: 0.24 },
+    projects: { start: 0.24, end: 0.875 },
     about: { start: 0.875, end: 1.0 }
   },
 
-  // Project section mapping
+  // Project section mapping - recalculated for new zone boundaries
   projectSections: {
-    empathy: { start: 0.25, end: 0.375 },
-    narrative: { start: 0.375, end: 0.5 },
-    craft: { start: 0.5, end: 0.625 },
-    system: { start: 0.625, end: 0.75 },
-    leadership: { start: 0.75, end: 0.875 },
-    exploration: { start: 0.875, end: 1.0 }
+    empathy: { start: 0.24, end: 0.346 },      // 24% - 34.6%
+    narrative: { start: 0.346, end: 0.452 },   // 34.6% - 45.2%
+    craft: { start: 0.452, end: 0.558 },       // 45.2% - 55.8%
+    system: { start: 0.558, end: 0.664 },      // 55.8% - 66.4%
+    leadership: { start: 0.664, end: 0.77 },   // 66.4% - 77%
+    exploration: { start: 0.77, end: 0.875 }   // 77% - 87.5%
   }
 };
 
@@ -367,7 +367,7 @@ export const useUnifiedAnimationController = (options = {}) => {
   }, [config, debugMode]);
 
   /**
-   * FIXED: Update animation state with proper sequencing
+   * FIXED: Comprehensive zone transition handling
    */
   const updateFromScrollProgress = useCallback((scrollProgress) => {
     const currentZone = calculateCurrentZone(scrollProgress, config);
@@ -382,23 +382,59 @@ export const useUnifiedAnimationController = (options = {}) => {
         console.log(`🗺️ Zone change: ${lastZone.current} → ${currentZone.zone}`);
       }
 
-      // Handle zone transitions with proper sequencing
-      if (lastZone.current === 'hero' && currentZone.zone === 'overview') {
-        // FIXED: Start explosion when entering overview
-        startAnimationSequence('explode');
-      } else if (lastZone.current === 'overview' && currentZone.zone === 'hero') {
-        // FIXED: Reverse explosion when going back to hero
-        startAnimationSequence('reform');
-      } else if (currentZone.zone === 'about') {
-        // Direct transition to about
+      // FIXED: Handle ALL zone transitions comprehensively
+      if (currentZone.zone === 'hero') {
+        // Reset to hero state
         setAnimationState(prev => ({
           ...prev,
-          state: ANIMATION_STATES.ABOUT,
+          state: ANIMATION_STATES.HERO,
           crystalForm: 'whole',
-          cameraState: 'about',
+          cameraState: 'hero',
           focusedFacet: null,
           isTransitioning: false
         }));
+      } 
+      else if (currentZone.zone === 'overview') {
+        // Projects overview - exploded but overview state
+        if (lastZone.current === 'hero') {
+          // Coming from hero - trigger explosion animation
+          startAnimationSequence('explode');
+        } else {
+          // Coming from projects or about - just set state (already exploded)
+          setAnimationState(prev => ({
+            ...prev,
+            state: ANIMATION_STATES.OVERVIEW,
+            crystalForm: 'exploded',
+            cameraState: 'overview',
+            focusedFacet: null,
+            isTransitioning: false
+          }));
+        }
+      }
+      else if (currentZone.zone === 'projects') {
+        // Individual projects - exploded and project focused
+        setAnimationState(prev => ({
+          ...prev,
+          state: ANIMATION_STATES.PROJECT_FOCUSED,  // Use PROJECT_FOCUSED
+          crystalForm: 'exploded',
+          cameraState: 'project', // This will focus on the specific project
+          isTransitioning: false
+        }));
+      }
+      else if (currentZone.zone === 'about') {
+        // About section - reform crystal
+        if (animationState.crystalForm === 'exploded') {
+          startAnimationSequence('reform');
+        } else {
+          setAnimationState(prev => ({
+            ...prev,
+            state: ANIMATION_STATES.ABOUT,
+            crystalForm: 'whole',
+            cameraState: 'about',
+            focusedFacet: null,
+            isTransitioning: false
+          }));
+        }
       }
 
       lastZone.current = currentZone.zone;
@@ -410,17 +446,20 @@ export const useUnifiedAnimationController = (options = {}) => {
         console.log(`🎯 Project change: ${lastProject.current} → ${activeProject.project}`);
       }
 
-      if (!lastProject.current) {
-        // First project focus
-        startAnimationSequence('focusProject', activeProject);
-      } else {
-        // Switch between projects
-        startAnimationSequence('switchProject', activeProject);
-      }
+      // Update focused facet for project sections
+      setAnimationState(prev => ({
+        ...prev,
+        focusedFacet: activeProject.project,
+        isTransitioning: false
+      }));
 
       lastProject.current = activeProject.project;
     } else if (currentZone.zone !== 'projects' && lastProject.current) {
-      // Left projects zone
+      // Left projects zone - clear focused facet
+      setAnimationState(prev => ({
+        ...prev,
+        focusedFacet: null
+      }));
       lastProject.current = null;
     }
 

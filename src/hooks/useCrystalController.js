@@ -9,7 +9,8 @@ import { CRYSTAL_STATES } from '../machines/crystalStateMachine';
  */
 const PAGE_ZONES = {
   HERO: 'hero',           // Hero section
-  PROJECTS: 'projects',   // Projects overview + all project sections  
+  OVERVIEW: 'overview',    // Projects Overview
+  PROJECTS: 'projects',   // all project sections  
   ABOUT: 'about'          // About section
 };
 
@@ -18,6 +19,7 @@ const PAGE_ZONES = {
  */
 const ZONE_TO_CRYSTAL_STATE = {
   [PAGE_ZONES.HERO]: CRYSTAL_STATES.WHOLE,
+  [PAGE_ZONES.OVERVIEW]: CRYSTAL_STATES.EXPLODED,
   [PAGE_ZONES.PROJECTS]: CRYSTAL_STATES.EXPLODED,
   [PAGE_ZONES.ABOUT]: CRYSTAL_STATES.WHOLE
 };
@@ -31,10 +33,9 @@ const getPageZone = (sectionId) => {
   if (sectionId === 'hero') return PAGE_ZONES.HERO;
   if (sectionId === 'about') return PAGE_ZONES.ABOUT;
   
-  // All project-related sections map to PROJECTS zone
-  if (sectionId === 'projects-overview' || sectionId.startsWith('project-')) {
-    return PAGE_ZONES.PROJECTS;
-  }
+  // Split the project-related sections
+  if (sectionId === 'projects-overview') return PAGE_ZONES.OVERVIEW;
+  if (sectionId.startsWith('project-')) return PAGE_ZONES.PROJECTS;
   
   return PAGE_ZONES.HERO; // Default fallback
 };
