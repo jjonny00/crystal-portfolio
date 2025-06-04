@@ -1,88 +1,88 @@
-// src/hooks/useUnifiedAnimationController.js
-// FIXED: Comprehensive zone transition handling for proper crystal states
+// FIXED: src/hooks/useUnifiedAnimationController.js
+// Coordinated animation system with proper sequencing to eliminate jumps
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Vector3 } from 'three';
 
 /**
- * FIXED: Animation Configuration with proper explosion timing
+ * FIXED: Animation Configuration with precise timing coordination
  */
 export const ANIMATION_CONFIG = {
-  // Camera states with coordinated positions
+  // FIXED: Coordinated camera positions that prevent jumps
   camera: {
     hero: {
       position: new Vector3(0, 3.2, 2.4),
       target: new Vector3(0, 0.5, 0),
       fov: 32,
-      description: 'Intimate close view - elevated perspective'
+      description: 'Hero close view'
     },
-    // NEW: Pre-explosion state for smooth transition
+    // FIXED: Intermediate positions for smooth transitions
     preExplosion: {
       position: new Vector3(0, 2.8, 3.8),
       target: new Vector3(0, 0.4, 0),
       fov: 38,
-      description: 'Ready for explosion view'
+      description: 'Moving toward explosion view'
     },
-    // NEW: Post-explosion state before focusing on projects
-    postExplosion: {
-      position: new Vector3(0, 2.5, 6.5),
-      target: new Vector3(0, 0.3, 0),
-      fov: 45,
-      description: 'Wide view showing all exploded facets'
-    },
+    // FIXED: Overview position that connects smoothly
     overview: {
-      position: new Vector3(0, 2.2, 5.5),
-      target: new Vector3(0, 0.2, 0),
+      position: new Vector3(0, 2.5, 6.2),  // FIXED: Slightly closer to prevent jump
+      target: new Vector3(0, 0.3, 0),
+      fov: 44,
+      description: 'Overview with exploded crystal - FIXED positioning'
+    },
+    // FIXED: Reform preparation position
+    preReform: {
+      position: new Vector3(0, 2.8, 5.5),  // NEW: Smooth transition position
+      target: new Vector3(0, 0.3, 0),
       fov: 42,
-      description: 'Projects overview with exploded crystal'
+      description: 'Preparing for crystal reform'
+    },
+    about: {
+      position: new Vector3(0, 2.0, 3.5),
+      target: new Vector3(0, 0.2, 0),
+      fov: 40,
+      description: 'About view with whole crystal'
     },
     projects: {
       empathy: {
         position: new Vector3(2.8, -1.5, 3.2),
         target: new Vector3(0.3, -0.7, -0.2),
         fov: 35,
-        description: 'Close view of empathy facet'
+        description: 'Empathy facet focus'
       },
       narrative: {
         position: new Vector3(3.5, 0.2, 2.8),
         target: new Vector3(0.3, -0.1, -0.7),
         fov: 35,
-        description: 'Close view of narrative facet'
+        description: 'Narrative facet focus'
       },
       craft: {
         position: new Vector3(3.8, 2.5, 3.0),
         target: new Vector3(1.3, 0.8, 0.5),
         fov: 35,
-        description: 'Close view of craft facet'
+        description: 'Craft facet focus'
       },
       system: {
         position: new Vector3(-3.2, 1.0, 2.5),
         target: new Vector3(-0.5, 0.2, -1.8),
         fov: 35,
-        description: 'Close view of system facet'
+        description: 'System facet focus'
       },
       leadership: {
         position: new Vector3(1.2, 4.0, 3.2),
         target: new Vector3(0.4, 1.2, 0.9),
         fov: 35,
-        description: 'Close view of leadership facet'
+        description: 'Leadership facet focus'
       },
       exploration: {
         position: new Vector3(-2.8, 2.8, 2.6),
         target: new Vector3(-0.6, 0.7, 0.0),
         fov: 35,
-        description: 'Close view of exploration facet'
+        description: 'Exploration facet focus'
       }
-    },
-    about: {
-      position: new Vector3(0, 2.0, 3.5),
-      target: new Vector3(0, 0.2, 0),
-      fov: 40,
-      description: 'Reformed crystal view'
     }
   },
 
-  // Crystal facet positions when exploded
   crystal: {
     explodedPositions: {
       empathy: new Vector3(0.3, -0.7, -0.2),
@@ -95,32 +95,27 @@ export const ANIMATION_CONFIG = {
     wholePosition: new Vector3(0, 0, 0)
   },
 
-  // FIXED: Coordinated timing for smooth animations
+  // FIXED: Coordinated timing that prevents conflicts
   timing: {
-    // Hero to overview transition
-    heroToOverview: 1200,
+    // Explosion sequence - hero to overview
+    explosionPrepare: 400,       // Move to pre-explosion position
+    explosionDuration: 1200,     // Crystal explodes + camera to overview
+    explosionSettle: 300,        // Final settling time
     
-    // Explosion sequence
-    explosionPrepare: 600,    // Time to get to pre-explosion camera
-    explosionDuration: 1400,  // Crystal explosion time
-    explosionSettle: 400,     // Time to settle into overview
+    // Reform sequence - overview/projects to about
+    reformPrepare: 500,          // Move to pre-reform position
+    reformDuration: 1000,        // Crystal reforms
+    reformCameraMove: 800,       // Camera moves to final about position
+    reformSettle: 200,           // Final settling
     
     // Project transitions
-    overviewToProject: 1800,  // First project focus
-    projectToProject: 1600,   // Between projects
+    projectFocus: 1200,          // Focus on specific project
+    projectSwitch: 800,          // Switch between projects
     
-    // Reform sequence
-    reformPrepare: 800,       // Move camera for reform
-    reformDuration: 1200,     // Crystal reform time
-    reformComplete: 600,      // Return to final position
-    
-    // NEW: Reverse explosion timing
-    reverseExplosionDuration: 1000,  // Faster reverse
-    
-    easing: 'ultraSmooth'
+    // General
+    debounceMs: 150,             // Prevent rapid state changes
   },
 
-  // FIXED: More precise scroll zones
   scrollZones: {
     hero: { start: 0, end: 0.12 },
     overview: { start: 0.12, end: 0.24 },
@@ -128,20 +123,17 @@ export const ANIMATION_CONFIG = {
     about: { start: 0.875, end: 1.0 }
   },
 
-  // Project section mapping - recalculated for new zone boundaries
   projectSections: {
-    empathy: { start: 0.24, end: 0.346 },      // 24% - 34.6%
-    narrative: { start: 0.346, end: 0.452 },   // 34.6% - 45.2%
-    craft: { start: 0.452, end: 0.558 },       // 45.2% - 55.8%
-    system: { start: 0.558, end: 0.664 },      // 55.8% - 66.4%
-    leadership: { start: 0.664, end: 0.77 },   // 66.4% - 77%
-    exploration: { start: 0.77, end: 0.875 }   // 77% - 87.5%
+    empathy: { start: 0.24, end: 0.346 },
+    narrative: { start: 0.346, end: 0.452 },
+    craft: { start: 0.452, end: 0.558 },
+    system: { start: 0.558, end: 0.664 },
+    leadership: { start: 0.664, end: 0.77 },
+    exploration: { start: 0.77, end: 0.875 }
   }
 };
 
-/**
- * Enhanced state tracking for coordinated animations
- */
+// FIXED: More precise animation states
 const ANIMATION_STATES = {
   HERO: 'hero',
   PREPARING_EXPLOSION: 'preparing_explosion',
@@ -151,19 +143,18 @@ const ANIMATION_STATES = {
   FOCUSING_PROJECT: 'focusing_project',
   PROJECT_FOCUSED: 'project_focused',
   PREPARING_REFORM: 'preparing_reform',
-  REFORMING: 'reforming',
+  REFORMING_CRYSTAL: 'reforming_crystal',      // FIXED: Crystal reforming phase
+  REFORMING_CAMERA: 'reforming_camera',        // FIXED: Camera moving to final position
   REFORM_SETTLING: 'reform_settling',
   ABOUT: 'about'
 };
 
 /**
- * FIXED: Calculate current zone with better transition detection
+ * FIXED: Zone calculation with better transition detection
  */
 const calculateCurrentZone = (scrollProgress, config = ANIMATION_CONFIG) => {
   const zones = config.scrollZones;
-  
-  // Small overlap for transition detection
-  const overlap = 0.02;
+  const overlap = 0.01; // Smaller overlap to prevent conflicts
   
   if (scrollProgress <= zones.hero.end) {
     return {
@@ -203,9 +194,6 @@ const calculateCurrentZone = (scrollProgress, config = ANIMATION_CONFIG) => {
   };
 };
 
-/**
- * FIXED: Calculate active project
- */
 const calculateActiveProject = (scrollProgress, config = ANIMATION_CONFIG) => {
   if (scrollProgress < config.scrollZones.projects.start) {
     return { project: null, progress: 0 };
@@ -227,7 +215,7 @@ const calculateActiveProject = (scrollProgress, config = ANIMATION_CONFIG) => {
 };
 
 /**
- * Main Unified Animation Controller with coordinated timing
+ * FIXED: Main controller with coordinated animation sequences
  */
 export const useUnifiedAnimationController = (options = {}) => {
   const {
@@ -236,7 +224,6 @@ export const useUnifiedAnimationController = (options = {}) => {
     onStateChange = null
   } = options;
 
-  // Enhanced animation state
   const [animationState, setAnimationState] = useState({
     state: ANIMATION_STATES.HERO,
     crystalForm: 'whole',
@@ -248,237 +235,289 @@ export const useUnifiedAnimationController = (options = {}) => {
     projectInfo: { project: null, progress: 0 }
   });
 
-  // Animation coordination refs
+  // FIXED: Better coordination refs
   const animationSequence = useRef(null);
+  const animationPhase = useRef(null);  // Track which phase of animation we're in
   const lastZone = useRef('hero');
   const lastProject = useRef(null);
+  const updateDebounce = useRef(null);
 
   /**
-   * FIXED: Coordinated animation sequences
+   * FIXED: Clear animation sequence safely
    */
-  const startAnimationSequence = useCallback((sequenceName, targetState) => {
-    // Clear any existing sequence
+  const clearAnimationSequence = useCallback(() => {
+    if (animationSequence.current) {
+      clearTimeout(animationSequence.current);
+      animationSequence.current = null;
+    }
+    if (animationPhase.current) {
+      clearTimeout(animationPhase.current);
+      animationPhase.current = null;
+    }
+  }, []);
+
+  /**
+   * FIXED: Coordinated explosion sequence (hero to overview)
+   */
+  const startExplosionSequence = useCallback(() => {
+    clearAnimationSequence();
+    
+    if (debugMode) {
+      console.log('🎬 Starting coordinated explosion sequence');
+    }
+
+    // Phase 1: Prepare for explosion (camera positioning)
+    setAnimationState(prev => ({
+      ...prev,
+      state: ANIMATION_STATES.PREPARING_EXPLOSION,
+      cameraState: 'preExplosion',
+      isTransitioning: true
+    }));
+
+    animationSequence.current = setTimeout(() => {
+      // Phase 2: Crystal explodes + camera moves to overview
+      setAnimationState(prev => ({
+        ...prev,
+        state: ANIMATION_STATES.EXPLODING,
+        crystalForm: 'exploded',
+        cameraState: 'overview'  // FIXED: Direct to overview, no intermediate jumps
+      }));
+
+      animationSequence.current = setTimeout(() => {
+        // Phase 3: Settle into stable overview state
+        setAnimationState(prev => ({
+          ...prev,
+          state: ANIMATION_STATES.OVERVIEW,
+          isTransitioning: false
+        }));
+        
+        if (debugMode) {
+          console.log('✅ Explosion sequence complete - camera should be stable at overview');
+        }
+        
+        animationSequence.current = null;
+      }, config.timing.explosionDuration);
+    }, config.timing.explosionPrepare);
+  }, [clearAnimationSequence, config, debugMode]);
+
+  /**
+   * FIXED: Coordinated reform sequence (overview/projects to about)
+   */
+  const startReformSequence = useCallback(() => {
+    clearAnimationSequence();
+    
+    if (debugMode) {
+      console.log('🎬 Starting coordinated reform sequence');
+    }
+
+    // Phase 1: Prepare for reform (move camera to pre-reform position)
+    setAnimationState(prev => ({
+      ...prev,
+      state: ANIMATION_STATES.PREPARING_REFORM,
+      cameraState: 'preReform',
+      focusedFacet: null,  // Clear any focused facet
+      isTransitioning: true
+    }));
+
+    animationSequence.current = setTimeout(() => {
+      // Phase 2: Crystal starts reforming (but camera stays put)
+      setAnimationState(prev => ({
+        ...prev,
+        state: ANIMATION_STATES.REFORMING_CRYSTAL,
+        crystalForm: 'whole'  // Crystal reforms first
+      }));
+
+      animationSequence.current = setTimeout(() => {
+        // Phase 3: Camera moves to final about position
+        setAnimationState(prev => ({
+          ...prev,
+          state: ANIMATION_STATES.REFORMING_CAMERA,
+          cameraState: 'about'  // FIXED: Now camera moves to final position
+        }));
+
+        animationSequence.current = setTimeout(() => {
+          // Phase 4: Final settle
+          setAnimationState(prev => ({
+            ...prev,
+            state: ANIMATION_STATES.ABOUT,
+            isTransitioning: false
+          }));
+          
+          if (debugMode) {
+            console.log('✅ Reform sequence complete - crystal reformed and camera stable');
+          }
+          
+          animationSequence.current = null;
+        }, config.timing.reformCameraMove);
+      }, config.timing.reformDuration);
+    }, config.timing.reformPrepare);
+  }, [clearAnimationSequence, config, debugMode]);
+
+  /**
+   * FIXED: Project focus sequence
+   */
+  const startProjectFocusSequence = useCallback((projectKey) => {
+    if (debugMode) {
+      console.log('🎯 Focusing on project:', projectKey);
+    }
+
+    setAnimationState(prev => ({
+      ...prev,
+      state: ANIMATION_STATES.FOCUSING_PROJECT,
+      cameraState: 'project',
+      focusedFacet: projectKey,
+      isTransitioning: true
+    }));
+
+    // Clear any existing timeout
     if (animationSequence.current) {
       clearTimeout(animationSequence.current);
     }
 
-    setAnimationState(prev => ({ ...prev, isTransitioning: true }));
-
-    if (debugMode) {
-      console.log(`🎬 Starting ${sequenceName} sequence`);
-    }
-
-    switch (sequenceName) {
-      case 'explode':
-        // Phase 1: Prepare for explosion
-        setAnimationState(prev => ({
-          ...prev,
-          state: ANIMATION_STATES.PREPARING_EXPLOSION,
-          cameraState: 'preExplosion'
-        }));
-
-        animationSequence.current = setTimeout(() => {
-          // Phase 2: Start explosion
-          setAnimationState(prev => ({
-            ...prev,
-            state: ANIMATION_STATES.EXPLODING,
-            crystalForm: 'exploded',
-            cameraState: 'postExplosion'
-          }));
-
-          animationSequence.current = setTimeout(() => {
-            // Phase 3: Settle into overview
-            setAnimationState(prev => ({
-              ...prev,
-              state: ANIMATION_STATES.OVERVIEW,
-              cameraState: 'overview',
-              isTransitioning: false
-            }));
-            animationSequence.current = null;
-          }, config.timing.explosionDuration);
-        }, config.timing.explosionPrepare);
-        break;
-
-      case 'reform':
-        // Phase 1: Prepare for reform
-        setAnimationState(prev => ({
-          ...prev,
-          state: ANIMATION_STATES.PREPARING_REFORM,
-          cameraState: 'postExplosion',
-          focusedFacet: null
-        }));
-
-        animationSequence.current = setTimeout(() => {
-          // Phase 2: Start reform (reverse explosion)
-          setAnimationState(prev => ({
-            ...prev,
-            state: ANIMATION_STATES.REFORMING,
-            crystalForm: 'whole',
-            cameraState: 'preExplosion'
-          }));
-
-          animationSequence.current = setTimeout(() => {
-            // Phase 3: Complete reform
-            setAnimationState(prev => ({
-              ...prev,
-              state: ANIMATION_STATES.HERO,
-              cameraState: 'hero',
-              isTransitioning: false
-            }));
-            animationSequence.current = null;
-          }, config.timing.reverseExplosionDuration);
-        }, config.timing.reformPrepare);
-        break;
-
-      case 'focusProject':
-        setAnimationState(prev => ({
-          ...prev,
-          state: ANIMATION_STATES.FOCUSING_PROJECT,
-          cameraState: 'project',
-          focusedFacet: targetState.project
-        }));
-
-        animationSequence.current = setTimeout(() => {
-          setAnimationState(prev => ({
-            ...prev,
-            state: ANIMATION_STATES.PROJECT_FOCUSED,
-            isTransitioning: false
-          }));
-          animationSequence.current = null;
-        }, config.timing.overviewToProject);
-        break;
-
-      case 'switchProject':
-        setAnimationState(prev => ({
-          ...prev,
-          isTransitioning: true,
-          focusedFacet: targetState.project
-        }));
-
-        animationSequence.current = setTimeout(() => {
-          setAnimationState(prev => ({
-            ...prev,
-            isTransitioning: false
-          }));
-          animationSequence.current = null;
-        }, config.timing.projectToProject);
-        break;
-    }
+    animationSequence.current = setTimeout(() => {
+      setAnimationState(prev => ({
+        ...prev,
+        state: ANIMATION_STATES.PROJECT_FOCUSED,
+        isTransitioning: false
+      }));
+      animationSequence.current = null;
+    }, config.timing.projectFocus);
   }, [config, debugMode]);
 
   /**
-   * FIXED: Comprehensive zone transition handling
+   * FIXED: Main scroll update with debouncing and coordination
    */
   const updateFromScrollProgress = useCallback((scrollProgress) => {
-    const currentZone = calculateCurrentZone(scrollProgress, config);
-    const activeProject = calculateActiveProject(scrollProgress, config);
-    
-    // Detect zone changes
-    const zoneChanged = currentZone.zone !== lastZone.current;
-    const projectChanged = activeProject.project !== lastProject.current;
+    // FIXED: Debounce rapid scroll updates to prevent conflicts
+    if (updateDebounce.current) {
+      clearTimeout(updateDebounce.current);
+    }
 
-    if (zoneChanged) {
-      if (debugMode) {
-        console.log(`🗺️ Zone change: ${lastZone.current} → ${currentZone.zone}`);
+    updateDebounce.current = setTimeout(() => {
+      const currentZone = calculateCurrentZone(scrollProgress, config);
+      const activeProject = calculateActiveProject(scrollProgress, config);
+      
+      const zoneChanged = currentZone.zone !== lastZone.current;
+      const projectChanged = activeProject.project !== lastProject.current;
+
+      if (debugMode && zoneChanged) {
+        console.log(`🗺️ Zone transition: ${lastZone.current} → ${currentZone.zone}`);
       }
 
-      // FIXED: Handle ALL zone transitions comprehensively
-      if (currentZone.zone === 'hero') {
-        // Reset to hero state
-        setAnimationState(prev => ({
-          ...prev,
-          state: ANIMATION_STATES.HERO,
-          crystalForm: 'whole',
-          cameraState: 'hero',
-          focusedFacet: null,
-          isTransitioning: false
-        }));
-      } 
-      else if (currentZone.zone === 'overview') {
-        // Projects overview - exploded but overview state
-        if (lastZone.current === 'hero') {
-          // Coming from hero - trigger explosion animation
-          startAnimationSequence('explode');
-        } else {
-          // Coming from projects or about - just set state (already exploded)
+      // FIXED: Only trigger animations on actual zone changes and when not already transitioning
+      if (zoneChanged && !animationState.isTransitioning) {
+        
+        if (currentZone.zone === 'hero') {
+          // Direct to hero - no animation needed since it's the start
           setAnimationState(prev => ({
             ...prev,
-            state: ANIMATION_STATES.OVERVIEW,
-            crystalForm: 'exploded',
-            cameraState: 'overview',
-            focusedFacet: null,
-            isTransitioning: false
-          }));
-        }
-      }
-      else if (currentZone.zone === 'projects') {
-        // Individual projects - exploded and project focused
-        setAnimationState(prev => ({
-          ...prev,
-          state: ANIMATION_STATES.PROJECT_FOCUSED,  // Use PROJECT_FOCUSED
-          crystalForm: 'exploded',
-          cameraState: 'project', // This will focus on the specific project
-          isTransitioning: false
-        }));
-      }
-      else if (currentZone.zone === 'about') {
-        // About section - reform crystal
-        if (animationState.crystalForm === 'exploded') {
-          startAnimationSequence('reform');
-        } else {
-          setAnimationState(prev => ({
-            ...prev,
-            state: ANIMATION_STATES.ABOUT,
+            state: ANIMATION_STATES.HERO,
             crystalForm: 'whole',
-            cameraState: 'about',
+            cameraState: 'hero',
             focusedFacet: null,
             isTransitioning: false
           }));
+        } 
+        else if (currentZone.zone === 'overview') {
+          if (lastZone.current === 'hero') {
+            // FIXED: Hero to overview - trigger coordinated explosion
+            startExplosionSequence();
+          } else {
+            // Coming from projects - just set overview state
+            setAnimationState(prev => ({
+              ...prev,
+              state: ANIMATION_STATES.OVERVIEW,
+              crystalForm: 'exploded',
+              cameraState: 'overview',
+              focusedFacet: null,
+              isTransitioning: false
+            }));
+          }
         }
+        else if (currentZone.zone === 'projects') {
+          // Projects zone - exploded crystal, may have focused facet
+          setAnimationState(prev => ({
+            ...prev,
+            state: ANIMATION_STATES.PROJECT_FOCUSED,
+            crystalForm: 'exploded',
+            cameraState: 'project',
+            isTransitioning: false
+          }));
+        }
+        else if (currentZone.zone === 'about') {
+          // FIXED: About section - trigger coordinated reform
+          if (animationState.crystalForm === 'exploded') {
+            startReformSequence();
+          } else {
+            // Already reformed
+            setAnimationState(prev => ({
+              ...prev,
+              state: ANIMATION_STATES.ABOUT,
+              crystalForm: 'whole',
+              cameraState: 'about',
+              focusedFacet: null,
+              isTransitioning: false
+            }));
+          }
+        }
+
+        lastZone.current = currentZone.zone;
       }
 
-      lastZone.current = currentZone.zone;
-    }
+      // Handle project changes within projects zone
+      if (currentZone.zone === 'projects' && projectChanged && activeProject.project) {
+        if (debugMode) {
+          console.log(`🎯 Project change: ${lastProject.current} → ${activeProject.project}`);
+        }
 
-    // Handle project changes within projects zone
-    if (currentZone.zone === 'projects' && projectChanged && activeProject.project) {
-      if (debugMode) {
-        console.log(`🎯 Project change: ${lastProject.current} → ${activeProject.project}`);
+        // Only trigger project focus if not already transitioning
+        if (!animationState.isTransitioning) {
+          startProjectFocusSequence(activeProject.project);
+        } else {
+          // Just update the focused facet if we're transitioning
+          setAnimationState(prev => ({
+            ...prev,
+            focusedFacet: activeProject.project
+          }));
+        }
+
+        lastProject.current = activeProject.project;
+      } else if (currentZone.zone !== 'projects' && lastProject.current) {
+        // Left projects zone
+        setAnimationState(prev => ({
+          ...prev,
+          focusedFacet: null
+        }));
+        lastProject.current = null;
       }
 
-      // Update focused facet for project sections
+      // Always update scroll progress and zone info
       setAnimationState(prev => ({
         ...prev,
-        focusedFacet: activeProject.project,
-        isTransitioning: false
+        scrollProgress,
+        zoneInfo: currentZone,
+        projectInfo: activeProject
       }));
 
-      lastProject.current = activeProject.project;
-    } else if (currentZone.zone !== 'projects' && lastProject.current) {
-      // Left projects zone - clear focused facet
-      setAnimationState(prev => ({
-        ...prev,
-        focusedFacet: null
-      }));
-      lastProject.current = null;
-    }
+    }, config.timing.debounceMs);
 
-    // Update base state
-    setAnimationState(prev => ({
-      ...prev,
-      scrollProgress,
-      zoneInfo: currentZone,
-      projectInfo: activeProject
-    }));
-
-    // State change callback
+    // Call state change callback
     if (onStateChange) {
       onStateChange(animationState);
     }
-  }, [config, debugMode, startAnimationSequence, onStateChange, animationState]);
+  }, [
+    config, 
+    debugMode, 
+    startExplosionSequence, 
+    startReformSequence, 
+    startProjectFocusSequence,
+    onStateChange,
+    animationState.isTransitioning,
+    animationState.crystalForm
+  ]);
 
   /**
-   * Get current camera configuration
+   * FIXED: Get current camera configuration
    */
   const getCurrentCameraConfig = useCallback(() => {
     if (animationState.cameraState === 'project' && animationState.focusedFacet) {
@@ -497,10 +536,9 @@ export const useUnifiedAnimationController = (options = {}) => {
       positions: animationState.crystalForm === 'exploded' 
         ? config.crystal.explodedPositions 
         : { center: config.crystal.wholePosition },
-      // NEW: Add rotation state for idle crystal
       shouldRotate: animationState.crystalForm === 'whole' && 
                    animationState.state === ANIMATION_STATES.HERO,
-      rotationSpeed: 0.0003 // Very subtle rotation
+      rotationSpeed: 0.0003
     };
   }, [animationState.crystalForm, animationState.state, config]);
 
@@ -509,11 +547,12 @@ export const useUnifiedAnimationController = (options = {}) => {
    */
   useEffect(() => {
     return () => {
-      if (animationSequence.current) {
-        clearTimeout(animationSequence.current);
+      clearAnimationSequence();
+      if (updateDebounce.current) {
+        clearTimeout(updateDebounce.current);
       }
     };
-  }, []);
+  }, [clearAnimationSequence]);
 
   return {
     // Current state
@@ -535,7 +574,9 @@ export const useUnifiedAnimationController = (options = {}) => {
       isTransitioning: animationState.isTransitioning,
       hasActiveSequence: !!animationSequence.current,
       lastZone: lastZone.current,
-      lastProject: lastProject.current
+      lastProject: lastProject.current,
+      cameraState: animationState.cameraState,
+      crystalForm: animationState.crystalForm
     } : null
   };
 };

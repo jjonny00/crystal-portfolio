@@ -1,16 +1,16 @@
-// src/components/three/UnifiedCrystalScene.jsx
-// FIXED: Added subtle rotation and coordinated animations
+// FIXED: src/components/three/UnifiedCrystalScene.jsx
+// Crystal scene that coordinates smoothly with animation sequences
 
 import { useRef, useState, useEffect } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useGLTF, Html } from '@react-three/drei'
 import * as THREE from 'three'
 
-// Import existing material manager and components
+// Import existing material manager
 import MaterialManager from './MaterialManager'
 
 /**
- * FIXED: Unified Crystal Scene with rotation and smooth animations
+ * FIXED: Crystal Scene with coordinated animations and smooth reform
  */
 const UnifiedCrystalScene = ({ 
   animationData,
@@ -27,8 +27,9 @@ const UnifiedCrystalScene = ({
   const facetRefs = useRef(Array(6).fill(null));
   const crystalMaterialRef = useRef();
   
-  // Rotation state
-  const rotationRef = useRef({ x: 0, y: 0, z: 0 });
+  // FIXED: Animation coordination
+  const lastAnimationState = useRef(null);
+  const reformStartTime = useRef(null);
   
   // Component state
   const [showWholeCrystal, setShowWholeCrystal] = useState(true);
@@ -80,95 +81,170 @@ const UnifiedCrystalScene = ({
   useEffect(() => {
     if (!animationData) return;
     
-    const shouldShowWhole = animationData.crystalForm === 'whole';
-    const shouldShowFacets = animationData.crystalForm === 'exploded';
+    const currentState = animationData.state;
+    const targetCrystalForm = animationData.crystalForm;
     
-    // Only update if state actually changed
-    if (showWholeCrystal !== shouldShowWhole) {
-      setShowWholeCrystal(shouldShowWhole);
-      
+    // FIXED: Only change visibility during appropriate states
+    const stateChanged = !lastAnimationState.current || 
+                        lastAnimationState.current.state !== currentState;
+    
+    if (stateChanged) {
       if (process.env.NODE_ENV === 'development') {
-        console.log('💎 Crystal form changed:', {
-          crystalForm: animationData.crystalForm,
-          showWhole: shouldShowWhole,
-          showFacets: shouldShowFacets,
+        console.log('💎 Crystal state transition:', {
+          from: lastAnimationState.current?.state || 'none',
+          to: currentState,
+          crystalForm: targetCrystalForm,
           shouldRotate: animationData.crystalConfig?.shouldRotate
         });
       }
+
+      // Handle visibility changes based on animation state
+      switch (currentState) {
+        case 'hero':
+          setShowWholeCrystal(true);
+          setShowFacets(false);
+          break;
+          
+        case 'preparing_explosion':
+          // Keep whole crystal visible during prep
+          setShowWholeCrystal(true);
+          setShowFacets(false);
+          break;
+          
+        case 'exploding':
+          // Switch to facets during explosion
+          setShowWholeCrystal(false);
+          setShowFacets(true);
+          break;
+          
+        case 'explosion_settling':
+        case 'overview':
+        case 'focusing_project':
+        case 'project_focused':
+          // Keep facets visible
+          setShowWholeCrystal(false);
+          setShowFacets(true);
+          break;
+          
+        case 'preparing_reform':
+          // FIXED: Keep facets visible during reform prep
+          setShowWholeCrystal(false);
+          setShowFacets(true);
+          break;
+          
+        case 'reforming_crystal':
+          // FIXED: This is when we switch from facets to whole crystal
+          setShowWholeCrystal(true);
+          setShowFacets(false);
+          reformStartTime.current = clock.getElapsedTime(); // Track reform start
+          break;
+          
+        case 'reforming_camera':
+        case 'reform_settling':
+        case 'about':
+          // Keep whole crystal visible
+          setShowWholeCrystal(true);
+          setShowFacets(false);
+          break;
+          
+        default:
+          // Default to whole crystal
+          setShowWholeCrystal(true);
+          setShowFacets(false);
+      }
+      
+      lastAnimationState.current = { state: currentState };
     }
-    
-    if (showFacets !== shouldShowFacets) {
-      setShowFacets(shouldShowFacets);
-    }
-  }, [animationData?.crystalForm, showWholeCrystal, showFacets]);
+  }, [animationData?.state, animationData?.crystalForm, clock]);
 
   /**
-   * FIXED: Enhanced animation loop with rotation and coordinated movement
+   * FIXED: Enhanced animation loop with coordinated movement
    */
   useFrame(() => {
     if (!animationData || !facetRefs.current.length) return;
 
     const time = clock.getElapsedTime();
+    const currentState = animationData.state;
 
-    // FIXED: Handle whole crystal rotation when idle
+    // FIXED: Handle whole crystal rotation and floating
     if (showWholeCrystal && wholeCrystalRef.current && animationData.crystalConfig?.shouldRotate) {
       const rotationSpeed = animationData.crystalConfig.rotationSpeed || 0.0003;
       
-      // Subtle, multi-axis rotation for organic feel
-      rotationRef.current.y += rotationSpeed;
-      rotationRef.current.x = Math.sin(time * 0.0001) * 0.015; // Very subtle X wobble
-      rotationRef.current.z = Math.cos(time * 0.00012) * 0.008; // Even subtler Z wobble
+      // Subtle rotation
+      wholeCrystalRef.current.rotation.y += rotationSpeed;
+      wholeCrystalRef.current.rotation.x = Math.sin(time * 0.0001) * 0.015;
+      wholeCrystalRef.current.rotation.z = Math.cos(time * 0.00012) * 0.008;
       
-      wholeCrystalRef.current.rotation.set(
-        rotationRef.current.x,
-        rotationRef.current.y,
-        rotationRef.current.z
-      );
-      
-      // FIXED: Add very subtle floating motion
-      const floatAmplitude = 0.008;
-      const floatY = Math.sin(time * 0.8) * floatAmplitude;
-      const floatX = Math.sin(time * 0.6) * floatAmplitude * 0.3;
-      const floatZ = Math.sin(time * 0.5) * floatAmplitude * 0.2;
-      
-      wholeCrystalRef.current.position.set(floatX, floatY, floatZ);
+      // FIXED: Floating motion only in hero state
+      if (currentState === 'hero') {
+        const floatAmplitude = 0.008;
+        const floatY = Math.sin(time * 0.8) * floatAmplitude;
+        const floatX = Math.sin(time * 0.6) * floatAmplitude * 0.3;
+        const floatZ = Math.sin(time * 0.5) * floatAmplitude * 0.2;
+        
+        wholeCrystalRef.current.position.set(floatX, floatY, floatZ);
+      } else {
+        // FIXED: Ensure crystal is centered when not floating
+        wholeCrystalRef.current.position.set(0, 0, 0);
+      }
     } else if (wholeCrystalRef.current && !animationData.crystalConfig?.shouldRotate) {
-      // Reset position and rotation when not rotating
+      // Stop rotation and reset position when not in hero state
       wholeCrystalRef.current.position.set(0, 0, 0);
-      // Keep current rotation for smooth transitions
     }
 
-    // FIXED: Smooth facet animations with reduced jitter
-    if (animationData.crystalForm === 'exploded' && animationData.crystalConfig?.positions) {
-      const lerpSpeed = animationData.isTransitioning ? 0.05 : 0.03; // Slower for smoother movement
+    // FIXED: Smooth facet animations based on animation state
+    if (showFacets && animationData.crystalConfig?.positions) {
+      // Different lerp speeds based on animation state
+      let lerpSpeed = 0.03; // Default
+      
+      if (currentState === 'exploding') {
+        lerpSpeed = 0.08; // Faster during explosion
+      } else if (currentState === 'preparing_reform' || currentState === 'reforming_crystal') {
+        lerpSpeed = 0.12; // Faster during reform (they need to move to center quickly)
+      } else if (animationData.isTransitioning) {
+        lerpSpeed = 0.05; // Medium speed during other transitions
+      }
       
       facetRefs.current.forEach((facetRef, index) => {
         if (!facetRef) return;
         
         const facetKey = facetKeys[index];
-        const targetPos = animationData.crystalConfig.positions[facetKey];
+        let targetPos = animationData.crystalConfig.positions[facetKey];
+        
+        // FIXED: During reform, move all facets to center regardless of config
+        if (currentState === 'preparing_reform' || currentState === 'reforming_crystal') {
+          targetPos = new THREE.Vector3(0, 0, 0); // Force to center
+        }
         
         if (targetPos) {
           // Smooth lerp to target position
           facetRef.position.lerp(targetPos, lerpSpeed);
           
-          // FIXED: Minimal floating when focused (much more subtle)
-          if (animationData.focusedFacet === facetKey && !animationData.isTransitioning) {
-            const floatOffset = Math.sin(time * 1.2 + index) * 0.001; // Ultra-subtle
+          // FIXED: Minimal floating when focused (only in stable states)
+          if (animationData.focusedFacet === facetKey && 
+              !animationData.isTransitioning && 
+              currentState === 'project_focused') {
+            const floatOffset = Math.sin(time * 1.2 + index) * 0.001;
             facetRef.position.y += floatOffset;
           }
         }
       });
-    } else if (animationData.crystalForm === 'whole') {
-      // FIXED: Smooth transition back to center when reforming
-      const centerPos = new THREE.Vector3(0, 0, 0);
-      const lerpSpeed = 0.08; // Faster return to center
+    }
+
+    // FIXED: Handle reform transition timing
+    if (currentState === 'reforming_crystal' && reformStartTime.current) {
+      const reformElapsed = time - reformStartTime.current;
+      const reformDuration = 1.0; // 1 second for crystal reform
       
-      facetRefs.current.forEach((facetRef) => {
-        if (facetRef) {
-          facetRef.position.lerp(centerPos, lerpSpeed);
-        }
-      });
+      // FIXED: Ensure facets are fully centered before we hide them
+      if (reformElapsed > reformDuration * 0.8) {
+        // Force all facets to exact center in the final phase
+        facetRefs.current.forEach((facetRef) => {
+          if (facetRef) {
+            facetRef.position.lerp(new THREE.Vector3(0, 0, 0), 0.2); // Fast convergence
+          }
+        });
+      }
     }
   });
 
@@ -199,14 +275,14 @@ const UnifiedCrystalScene = ({
         performanceConfig={performanceConfig}
       />
       
-      {/* FIXED: Whole Crystal with rotation and floating */}
+      {/* FIXED: Whole Crystal with proper visibility control */}
       {showWholeCrystal && (
         <group ref={wholeCrystalRef}>
           <primitive object={wholeCrystal.scene} />
         </group>
       )}
       
-      {/* Individual Facets with smooth animations */}
+      {/* FIXED: Individual Facets with coordinated animations */}
       {showFacets && facetModels.map((model, index) => {
         const facetKey = facetKeys[index];
         const isFocused = isFacetFocused(index);
@@ -236,19 +312,19 @@ const UnifiedCrystalScene = ({
             fontFamily: 'monospace',
             zIndex: 10002,
             pointerEvents: 'none',
-            maxWidth: '250px'
+            maxWidth: '280px'
           }}>
-            <div><strong>Crystal Debug (FIXED):</strong></div>
-            <div>Form: {animationData.crystalForm}</div>
+            <div><strong>💎 Crystal Debug (FIXED):</strong></div>
             <div>State: {animationData.state}</div>
+            <div>Form: {animationData.crystalForm}</div>
             <div>Show Whole: {showWholeCrystal ? 'YES' : 'NO'}</div>
             <div>Show Facets: {showFacets ? 'YES' : 'NO'}</div>
             <div>Should Rotate: {animationData.crystalConfig?.shouldRotate ? 'YES' : 'NO'}</div>
             <div>Focused: {animationData.focusedFacet || 'none'}</div>
             <div>Zone: {animationData.currentZone}</div>
             <div>Transitioning: {animationData.isTransitioning ? 'YES' : 'NO'}</div>
-            {rotationRef.current && (
-              <div>Rotation Y: {(rotationRef.current.y * 180 / Math.PI).toFixed(1)}°</div>
+            {reformStartTime.current && (
+              <div>Reform Time: {(clock.getElapsedTime() - reformStartTime.current).toFixed(1)}s</div>
             )}
           </div>
         </Html>
