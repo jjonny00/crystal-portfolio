@@ -470,16 +470,9 @@ export const useUnifiedAnimationController = (options = {}) => {
           console.log(`🎯 Project change: ${lastProject.current} → ${activeProject.project}`);
         }
 
-        // Only trigger project focus if not already transitioning
-        if (!animationState.isTransitioning) {
-          startProjectFocusSequence(activeProject.project);
-        } else {
-          // Just update the focused facet if we're transitioning
-          setAnimationState(prev => ({
-            ...prev,
-            focusedFacet: activeProject.project
-          }));
-        }
+        // Always start a new focus sequence. This will cancel any
+        // existing timeout and smoothly transition to the next facet.
+        startProjectFocusSequence(activeProject.project);
 
         lastProject.current = activeProject.project;
       } else if (currentZone.zone !== 'projects' && lastProject.current) {
