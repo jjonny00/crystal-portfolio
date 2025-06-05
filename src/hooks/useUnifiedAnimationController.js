@@ -240,7 +240,7 @@ export const useUnifiedAnimationController = (options = {}) => {
   const animationPhase = useRef(null);  // Track which phase of animation we're in
   const lastZone = useRef('hero');
   const lastProject = useRef(null);
-  const updateDebounce = useRef(null);
+  const lastUpdateTime = useRef(0); // throttle scroll handling
 
   /**
    * FIXED: Clear animation sequence safely
@@ -385,20 +385,20 @@ export const useUnifiedAnimationController = (options = {}) => {
   }, [config, debugMode]);
 
   /**
-   * FIXED: Main scroll update with debouncing and coordination
+   * FIXED: Main scroll update with throttling for smoother reactions
    */
   const updateFromScrollProgress = useCallback((scrollProgress) => {
-    // FIXED: Debounce rapid scroll updates to prevent conflicts
-    if (updateDebounce.current) {
-      clearTimeout(updateDebounce.current);
+    const now = performance.now();
+    if (now - lastUpdateTime.current < 16) {
+      return;
     }
+    lastUpdateTime.current = now;
 
-    updateDebounce.current = setTimeout(() => {
-      const currentZone = calculateCurrentZone(scrollProgress, config);
-      const activeProject = calculateActiveProject(scrollProgress, config);
-      
-      const zoneChanged = currentZone.zone !== lastZone.current;
-      const projectChanged = activeProject.project !== lastProject.current;
+    const currentZone = calculateCurrentZone(scrollProgress, config);
+    const activeProject = calculateActiveProject(scrollProgress, config);
+
+    const zoneChanged = currentZone.zone !== lastZone.current;
+    const projectChanged = activeProject.project !== lastProject.current;
 
       if (debugMode && zoneChanged) {
         console.log(`🗺️ Zone transition: ${lastZone.current} → ${currentZone.zone}`);
@@ -499,17 +499,15 @@ export const useUnifiedAnimationController = (options = {}) => {
         projectInfo: activeProject
       }));
 
-    }, config.timing.debounceMs);
-
     // Call state change callback
     if (onStateChange) {
       onStateChange(animationState);
     }
   }, [
-    config, 
-    debugMode, 
-    startExplosionSequence, 
-    startReformSequence, 
+    config,
+    debugMode,
+    startExplosionSequence,
+    startReformSequence,
     startProjectFocusSequence,
     onStateChange,
     animationState.isTransitioning,
@@ -548,9 +546,6 @@ export const useUnifiedAnimationController = (options = {}) => {
   useEffect(() => {
     return () => {
       clearAnimationSequence();
-      if (updateDebounce.current) {
-        clearTimeout(updateDebounce.current);
-      }
     };
   }, [clearAnimationSequence]);
 
