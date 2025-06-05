@@ -2,21 +2,20 @@
 /* COMPLETE FILE - Copy and paste this entire file */
 
 /* CRITICAL: Reset and force scroll snap on root */
+/*
 html {
-  /* Force scroll snapping */
   scroll-snap-type: y mandatory !important;
   scroll-behavior: smooth !important;
-  
-  /* Ensure no conflicts */
+
   height: 100% !important;
   overflow-x: hidden !important;
   overflow-y: auto !important;
-  
-  /* Enhanced scroll snap properties */
+
   scroll-padding: 0 !important;
   scroll-padding-top: 0 !important;
   scroll-padding-bottom: 0 !important;
 }
+*/
 
 /* Ensure body doesn't interfere */
 body {
