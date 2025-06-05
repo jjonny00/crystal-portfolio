@@ -136,55 +136,55 @@ body {
 /* ========================================= */
 
 /* Fast snapping - almost instant */
-html .scroll-container.fast-snap {
+.scroll-container.fast-snap {
   scroll-behavior: auto !important;
   scroll-snap-type: y proximity !important;
 }
 
-html .scroll-container.fast-snap .scroll-section {
+.scroll-container.fast-snap .scroll-section {
   scroll-snap-stop: normal !important;
 }
 
 /* Medium snapping - default smooth (your current behavior) */
-html .scroll-container.medium-snap {
+.scroll-container.medium-snap {
   scroll-behavior: smooth !important;
   scroll-snap-type: y mandatory !important;
 }
 
-html .scroll-container.medium-snap .scroll-section {
+.scroll-container.medium-snap .scroll-section {
   scroll-snap-stop: always !important;
 }
 
 /* Slow snapping - more gradual */
-html .scroll-container.slow-snap {
+.scroll-container.slow-snap {
   scroll-behavior: smooth !important;
   scroll-snap-type: y mandatory !important;
   scroll-padding: 10px !important;
 }
 
-html .scroll-container.slow-snap .scroll-section {
+.scroll-container.slow-snap .scroll-section {
   scroll-snap-stop: always !important;
   scroll-margin-top: 5px !important;
 }
 
 /* Extra slow for very gradual movement */
-html .scroll-container.extra-slow-snap {
+.scroll-container.extra-slow-snap {
   scroll-behavior: smooth !important;
   scroll-snap-type: y proximity !important;
   scroll-padding: 20px !important;
 }
 
-html .scroll-container.extra-slow-snap .scroll-section {
+.scroll-container.extra-slow-snap .scroll-section {
   scroll-snap-stop: normal !important;
 }
 
 /* Disable snapping completely */
-html .scroll-container.no-snap {
+.scroll-container.no-snap {
   scroll-snap-type: none !important;
   scroll-behavior: smooth !important;
 }
 
-html .scroll-container.no-snap .scroll-section {
+.scroll-container.no-snap .scroll-section {
   scroll-snap-align: none !important;
   scroll-snap-stop: normal !important;
 }
@@ -196,9 +196,9 @@ html .scroll-container.no-snap .scroll-section {
 /* MOBILE: Aggressive mobile fixes */
 @media (max-width: 768px) {
   /* Force scroll snap even on mobile */
-  html {
-    scroll-snap-type: y proximity !important; /* Less aggressive on mobile */
-  }
+  /* html {
+    scroll-snap-type: y proximity !important; 
+  } */
   
   .scroll-container {
     /* Keep scroll container approach on mobile */
@@ -249,9 +249,9 @@ html .scroll-container.no-snap .scroll-section {
 
 /* DESKTOP: Maximum snap control */
 @media (min-width: 1025px) {
-  html {
+  /* html {
     scroll-snap-type: y mandatory !important;
-  }
+  } */
   
   .scroll-container {
     scroll-snap-type: y mandatory !important;
@@ -305,7 +305,7 @@ html:not(:has(.scroll-container)) .scroll-section {
 
 /* REDUCED MOTION: Disable only animations, keep snap */
 @media (prefers-reduced-motion: reduce) {
-  html, .scroll-container {
+  .scroll-container {
     scroll-behavior: auto !important;
     /* Keep scroll snap even with reduced motion */
     scroll-snap-type: y mandatory !important;
@@ -324,7 +324,7 @@ html:not(:has(.scroll-container)) .scroll-section {
 
 /* PRINT: Disable snap for printing */
 @media print {
-  html, .scroll-container {
+  .scroll-container {
     scroll-snap-type: none !important;
     overflow: visible !important;
     height: auto !important;
