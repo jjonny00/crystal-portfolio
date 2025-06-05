@@ -104,14 +104,14 @@ const Fixed3DCanvas = ({
           color={config?.lighting?.spotLight?.color || "#FFFFFF"} 
         />
         
-        {/* NEW: Unified Camera Controller - Replaces ScrollCameraController */}
+        {/* Unified Camera Controller */}
         <UnifiedCameraController 
           animationData={animationData}
           config={config}
           isMobile={isMobile}
         />
         
-        {/* NEW: Unified Crystal Scene - Replaces EnhancedCrystalScene */}
+        {/* Unified Crystal Scene */}
         <UnifiedCrystalScene 
           animationData={animationData}
           config={config}
