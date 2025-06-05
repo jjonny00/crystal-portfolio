@@ -117,19 +117,21 @@ export const ANIMATION_CONFIG = {
   },
 
   scrollZones: {
-    hero: { start: 0, end: 0.12 },
-    overview: { start: 0.12, end: 0.24 },
-    projects: { start: 0.24, end: 0.875 },
+    // Updated to align with 0.125 increments
+    hero: { start: 0, end: 0.125 },
+    overview: { start: 0.125, end: 0.25 },
+    projects: { start: 0.25, end: 0.875 },
     about: { start: 0.875, end: 1.0 }
   },
 
   projectSections: {
-    empathy: { start: 0.24, end: 0.346 },
-    narrative: { start: 0.346, end: 0.452 },
-    craft: { start: 0.452, end: 0.558 },
-    system: { start: 0.558, end: 0.664 },
-    leadership: { start: 0.664, end: 0.77 },
-    exploration: { start: 0.77, end: 0.875 }
+    // Project sections also align on 0.125 increments
+    empathy: { start: 0.25, end: 0.375 },
+    narrative: { start: 0.375, end: 0.5 },
+    craft: { start: 0.5, end: 0.625 },
+    system: { start: 0.625, end: 0.75 },
+    leadership: { start: 0.75, end: 0.875 },
+    exploration: { start: 0.875, end: 1.0 }
   }
 };
 
