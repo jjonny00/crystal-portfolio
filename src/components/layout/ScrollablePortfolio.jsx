@@ -82,7 +82,7 @@ const ScrollablePortfolio = ({
       <div style={{
         // This wrapper holds all the content
         width: '100%',
-        minHeight: '800vh', // 8 sections × 100vh each
+        minHeight: '800vh', // 9 sections × 100vh each
         position: 'relative'
       }}>
         
