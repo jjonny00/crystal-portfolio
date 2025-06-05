@@ -16,7 +16,6 @@ import SelectableFacetGroup from './SelectableFacetGroup'
 import SelectablePremiumLabel from './SelectablePremiumLabel'
 import ScrollCameraController from './ScrollCameraController'
 import { LabelConnector } from './LabelConnector'
-import { useMobileScrolling } from '../../hooks/useMobileScrolling'
 
 /**
  * FIXED: Enhanced crystal scene with proper camera controller integration
@@ -40,15 +39,6 @@ const EnhancedCrystalScene = ({
   // NEW: Accept scroll observer directly
   scrollObserver = null
 }) => {
-  // Mobile touch handling
-  const { isMobileDevice, preventOrbitOnMobile } = useMobileScrolling({
-    enableTouchScrolling: true,
-    preventOrbitOnMobile: true,
-    smoothScrollFactor: 0.15,
-    momentumMultiplier: 0.2,
-    minSwipeDistance: 25,
-    debugMode: false
-  });
 
   // Component state
   const facetRefs = useRef(Array(6).fill(null));
@@ -429,8 +419,8 @@ const EnhancedCrystalScene = ({
           facetRefs={facetRefs}
           selectedFacet={selectedFacet}
           hoveredFacet={hoveredFacet}
-          onFacetSelect={isMobileDevice ? null : onFacetSelect}
-          onFacetHover={isMobileDevice ? null : onFacetHover}
+          onFacetSelect={onFacetSelect}
+          onFacetHover={onFacetHover}
         />
       )}
       
@@ -444,8 +434,8 @@ const EnhancedCrystalScene = ({
           visible={showFacets && showLabels}
           config={config}
           isSelected={label.key === selectedFacet}
-          isHovered={!isMobileDevice && label.key === hoveredFacet && label.key !== selectedFacet}
-          onSelect={isMobileDevice ? null : onFacetSelect}
+          isHovered={label.key === hoveredFacet && label.key !== selectedFacet}
+          onSelect={onFacetSelect}
         />
       ))}
       
