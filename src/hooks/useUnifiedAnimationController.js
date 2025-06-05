@@ -398,7 +398,11 @@ export const useUnifiedAnimationController = (options = {}) => {
       const activeProject = calculateActiveProject(scrollProgress, config);
       
       const zoneChanged = currentZone.zone !== lastZone.current;
-      const projectChanged = activeProject.project !== lastProject.current;
+      // Use the currently focused facet to determine if the project changed
+      // rather than relying solely on the lastProject ref. This prevents
+      // missed updates if the ref gets out of sync when scrolling quickly.
+      const projectChanged = activeProject.project &&
+        activeProject.project !== animationState.focusedFacet;
 
       if (debugMode && zoneChanged) {
         console.log(`🗺️ Zone transition: ${lastZone.current} → ${currentZone.zone}`);
@@ -467,7 +471,7 @@ export const useUnifiedAnimationController = (options = {}) => {
       // Handle project changes within projects zone
       if (currentZone.zone === 'projects' && projectChanged && activeProject.project) {
         if (debugMode) {
-          console.log(`🎯 Project change: ${lastProject.current} → ${activeProject.project}`);
+          console.log(`🎯 Project change: ${animationState.focusedFacet} → ${activeProject.project}`);
         }
 
         // Always start a new focus sequence. This will cancel any
@@ -502,11 +506,12 @@ export const useUnifiedAnimationController = (options = {}) => {
     config, 
     debugMode, 
     startExplosionSequence, 
-    startReformSequence, 
+    startReformSequence,
     startProjectFocusSequence,
     onStateChange,
     animationState.isTransitioning,
-    animationState.crystalForm
+    animationState.crystalForm,
+    animationState.focusedFacet
   ]);
 
   /**
