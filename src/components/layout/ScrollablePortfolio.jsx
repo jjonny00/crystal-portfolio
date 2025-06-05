@@ -25,7 +25,9 @@ const ScrollablePortfolio = ({
         container.classList.remove('fast-snap', 'medium-snap', 'slow-snap', 'extra-slow-snap', 'no-snap');
         
         // Add the new speed class
-        const speedClass = `${snapSpeed}-snap`;
+        const speedClass = snapSpeed === 'no-snap'
+            ? 'no-snap'
+            : `${snapSpeed}-snap`;
         container.classList.add(speedClass);
         
         console.log('🎯 Applied snap speed:', snapSpeed);
