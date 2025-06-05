@@ -113,7 +113,7 @@ export const ANIMATION_CONFIG = {
     projectSwitch: 800,          // Switch between projects
     
     // General
-    debounceMs: 150,             // Prevent rapid state changes
+    throttleMs: 30,              // Throttle scroll updates
   },
 
   scrollZones: {
@@ -242,7 +242,11 @@ export const useUnifiedAnimationController = (options = {}) => {
   const animationPhase = useRef(null);  // Track which phase of animation we're in
   const lastZone = useRef('hero');
   const lastProject = useRef(null);
-  const updateDebounce = useRef(null);
+  const updateThrottle = useRef({
+    timeout: null,
+    lastCall: 0,
+    latestProgress: 0
+  });
 
   /**
    * FIXED: Clear animation sequence safely
@@ -387,17 +391,16 @@ export const useUnifiedAnimationController = (options = {}) => {
   }, [config, debugMode]);
 
   /**
-   * FIXED: Main scroll update with debouncing and coordination
+   * FIXED: Main scroll update with throttling and coordination
    */
   const updateFromScrollProgress = useCallback((scrollProgress) => {
-    // FIXED: Debounce rapid scroll updates to prevent conflicts
-    if (updateDebounce.current) {
-      clearTimeout(updateDebounce.current);
-    }
+    const throttle = updateThrottle.current;
+    throttle.latestProgress = scrollProgress;
 
-    updateDebounce.current = setTimeout(() => {
-      const currentZone = calculateCurrentZone(scrollProgress, config);
-      const activeProject = calculateActiveProject(scrollProgress, config);
+    const runUpdates = () => {
+      const progress = throttle.latestProgress;
+      const currentZone = calculateCurrentZone(progress, config);
+      const activeProject = calculateActiveProject(progress, config);
       
       const zoneChanged = currentZone.zone !== lastZone.current;
       const projectChanged = activeProject.project !== lastProject.current;
@@ -496,12 +499,26 @@ export const useUnifiedAnimationController = (options = {}) => {
       // Always update scroll progress and zone info
       setAnimationState(prev => ({
         ...prev,
-        scrollProgress,
+        scrollProgress: progress,
         zoneInfo: currentZone,
         projectInfo: activeProject
       }));
 
-    }, config.timing.debounceMs);
+      throttle.lastCall = Date.now();
+      throttle.timeout = null;
+    };
+
+    const now = Date.now();
+    const remaining = config.timing.throttleMs - (now - throttle.lastCall);
+
+    if (remaining <= 0 || !throttle.lastCall) {
+      runUpdates();
+    } else {
+      if (throttle.timeout) {
+        clearTimeout(throttle.timeout);
+      }
+      throttle.timeout = setTimeout(runUpdates, remaining);
+    }
 
     // Call state change callback
     if (onStateChange) {
@@ -550,8 +567,8 @@ export const useUnifiedAnimationController = (options = {}) => {
   useEffect(() => {
     return () => {
       clearAnimationSequence();
-      if (updateDebounce.current) {
-        clearTimeout(updateDebounce.current);
+      if (updateThrottle.current.timeout) {
+        clearTimeout(updateThrottle.current.timeout);
       }
     };
   }, [clearAnimationSequence]);
