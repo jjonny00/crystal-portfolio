@@ -117,21 +117,21 @@ export const ANIMATION_CONFIG = {
   },
 
   scrollZones: {
-    // Updated to align with 0.125 increments
+    // Overall layout zones
     hero: { start: 0, end: 0.125 },
     overview: { start: 0.125, end: 0.25 },
-    projects: { start: 0.25, end: 0.875 },
-    about: { start: 0.875, end: 1.0 }
+    projects: { start: 0.25, end: 0.87 },
+    about: { start: 0.87, end: 1.0 }
   },
 
   projectSections: {
-    // Project sections also align on 0.125 increments
-    empathy: { start: 0.25, end: 0.375 },
-    narrative: { start: 0.375, end: 0.5 },
-    craft: { start: 0.5, end: 0.625 },
-    system: { start: 0.625, end: 0.75 },
-    leadership: { start: 0.75, end: 0.875 },
-    exploration: { start: 0.875, end: 1.0 }
+    // Updated to evenly divide the projects zone
+    empathy:    { start: 0.25,   end: 0.3533 },
+    narrative:  { start: 0.3533, end: 0.4566 },
+    craft:      { start: 0.4566, end: 0.5599 },
+    system:     { start: 0.5599, end: 0.6633 },
+    leadership: { start: 0.6633, end: 0.7666 },
+    exploration:{ start: 0.7666, end: 0.87 }
   }
 };
 
