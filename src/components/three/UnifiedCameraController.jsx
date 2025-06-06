@@ -1,12 +1,12 @@
 // FIXED: src/components/three/UnifiedCameraController.jsx
-// Camera controller with animation-synchronized timing
+// Simplified camera controller with smooth transitions for immediate state changes
 
 import { useRef, useEffect } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
 /**
- * FIXED: Camera Controller with synchronized animation timing
+ * SIMPLIFIED: Camera Controller with smooth transitions to immediate target changes
  */
 const UnifiedCameraController = ({ 
   animationData,
@@ -15,24 +15,22 @@ const UnifiedCameraController = ({
 }) => {
   const { camera } = useThree();
   
-  // FIXED: Current camera target tracking
+  // Current camera target tracking
   const currentTarget = useRef({
     position: new THREE.Vector3(),
     lookAt: new THREE.Vector3(), 
     fov: 45
   });
   
-  // FIXED: Animation speed and timing coordination
+  // Adaptive animation speeds based on distance
   const animationSpeed = useRef({
-    position: 0.025,
-    lookAt: 0.025,
-    fov: 0.025
+    position: 0.03,
+    lookAt: 0.03,
+    fov: 0.03
   });
   
-  // FIXED: Animation state coordination
-  const lastAnimationState = useRef(null);
-  const stateChangeTime = useRef(null);
-  const isInCoordinatedSequence = useRef(false);
+  // Track last camera config to detect changes
+  const lastCameraConfig = useRef(null);
 
   /**
    * Initialize camera target from current position
@@ -48,149 +46,104 @@ const UnifiedCameraController = ({
   }, [camera]);
 
   /**
-   * FIXED: Coordinated camera updates with proper sequencing
+   * FIXED: Update camera targets when config changes with state-aware timing
    */
   useEffect(() => {
     if (!animationData?.cameraConfig) return;
 
-    const newState = animationData.state;
-    const newCameraState = animationData.cameraState;
-    const isTransitioning = animationData.isTransitioning;
+    const newConfig = animationData.cameraConfig;
     
-    // FIXED: Detect coordinated sequences
-    const coordinatedStates = ['exploding', 'reforming'];
-    const wasInSequence = isInCoordinatedSequence.current;
-    const nowInSequence = coordinatedStates.includes(newState);
-    
-    // Update sequence tracking
-    isInCoordinatedSequence.current = nowInSequence;
-    
-    // FIXED: Only update camera targets when necessary and safe
-    const shouldUpdateCamera =
-      !lastAnimationState.current ||
-      lastAnimationState.current.state !== newState ||
-      lastAnimationState.current.cameraState !== newCameraState ||
-      lastAnimationState.current.focusedFacet !== animationData.focusedFacet ||
-      // Always update when entering/exiting coordinated sequences
-      (wasInSequence !== nowInSequence);
+    // Check if config actually changed to avoid unnecessary updates
+    const configChanged = !lastCameraConfig.current ||
+      !newConfig.position?.equals(lastCameraConfig.current.position) ||
+      !newConfig.target?.equals(lastCameraConfig.current.target) ||
+      newConfig.fov !== lastCameraConfig.current.fov;
 
-    if (shouldUpdateCamera) {
-      const cameraConfig = animationData.cameraConfig;
-      stateChangeTime.current = Date.now();
-      
+    if (configChanged) {
       if (process.env.NODE_ENV === 'development') {
         console.log('📹 Camera target updated:', {
-          state: newState,
-          cameraState: newCameraState,
-          isTransitioning,
-          isCoordinated: nowInSequence,
-          position: cameraConfig.position?.toArray(),
-          target: cameraConfig.target?.toArray(),
-          fov: cameraConfig.fov
+          state: animationData.state,
+          cameraState: animationData.cameraState,
+          focusedFacet: animationData.focusedFacet,
+          position: newConfig.position?.toArray(),
+          target: newConfig.target?.toArray(),
+          fov: newConfig.fov
         });
       }
 
-      // Update targets
-      if (cameraConfig.position) {
-        currentTarget.current.position.copy(cameraConfig.position);
+      // Update targets immediately
+      if (newConfig.position) {
+        currentTarget.current.position.copy(newConfig.position);
       }
       
-      if (cameraConfig.target) {
-        currentTarget.current.lookAt.copy(cameraConfig.target);
+      if (newConfig.target) {
+        currentTarget.current.lookAt.copy(newConfig.target);
       }
       
-      if (cameraConfig.fov !== undefined) {
-        currentTarget.current.fov = cameraConfig.fov;
+      if (newConfig.fov !== undefined) {
+        currentTarget.current.fov = newConfig.fov;
       }
 
-      // FIXED: Set animation speeds based on state and timing
-      if (nowInSequence) {
-        // In coordinated sequences, use specific timing
-        if (newState === 'exploding') {
-          // Explosion sequence - smooth movement to overview
-          animationSpeed.current.position = 0.02;
-          animationSpeed.current.lookAt = 0.02;
-          animationSpeed.current.fov = 0.02;
-        } else if (newState === 'reforming') {
-          // FIXED: Reform sequence - slower movement to ensure smooth completion
-          // Use slower speeds so camera takes the full 1800ms to reach target
-          animationSpeed.current.position = 0.015;  // Slower to match longer duration
-          animationSpeed.current.lookAt = 0.015;
-          animationSpeed.current.fov = 0.015;
-        }
-      } else if (isTransitioning) {
-        // Other transitions
-        if (animationData.isFastScrolling) {
-          animationSpeed.current.position = 0.08;
-          animationSpeed.current.lookAt = 0.08;
-          animationSpeed.current.fov = 0.08;
-        } else {
-          animationSpeed.current.position = 0.04;
-          animationSpeed.current.lookAt = 0.04;
-          animationSpeed.current.fov = 0.04;
+      // FIXED: State-aware animation speeds to match visual expectations
+      const positionDistance = camera.position.distanceTo(currentTarget.current.position);
+      
+      // Different speeds based on the type of transition
+      if (animationData.state === 'hero' && positionDistance > 3) {
+        // Returning to hero from far away (about/projects) - smooth but not too slow
+        animationSpeed.current.position = 0.025;
+        animationSpeed.current.lookAt = 0.025;
+        animationSpeed.current.fov = 0.025;
+      } else if (animationData.state === 'overview' && positionDistance > 2) {
+        // Moving to overview (explosion view) - slightly faster for drama
+        animationSpeed.current.position = 0.035;
+        animationSpeed.current.lookAt = 0.035;
+        animationSpeed.current.fov = 0.035;
+      } else if (animationData.state === 'about' && positionDistance > 2) {
+        // Moving to about (reform view) - slower for contemplative feel
+        animationSpeed.current.position = 0.02;
+        animationSpeed.current.lookAt = 0.02;
+        animationSpeed.current.fov = 0.02;
+      } else if (animationData.cameraState === 'project' && animationData.focusedFacet) {
+        // Project focus - quick and responsive
+        animationSpeed.current.position = 0.05;
+        animationSpeed.current.lookAt = 0.05;
+        animationSpeed.current.fov = 0.05;
+        
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`📹 Project focus camera update: ${animationData.focusedFacet}, distance: ${positionDistance.toFixed(2)}`);
         }
       } else {
-        // Non-transitioning states
+        // Default smooth speed
         animationSpeed.current.position = 0.03;
         animationSpeed.current.lookAt = 0.03;
         animationSpeed.current.fov = 0.03;
       }
-    }
 
-    // Update state tracking
-    lastAnimationState.current = {
-      state: newState,
-      cameraState: newCameraState,
-      focusedFacet: animationData.focusedFacet,
-      isTransitioning
-    };
-  }, [animationData]);
+      // Store current config for comparison
+      lastCameraConfig.current = {
+        position: newConfig.position?.clone(),
+        target: newConfig.target?.clone(),
+        fov: newConfig.fov
+      };
+    }
+  }, [
+    animationData?.cameraConfig, 
+    animationData?.state, 
+    animationData?.cameraState, 
+    animationData?.focusedFacet, // FIXED: Add focusedFacet as dependency
+    camera
+  ]);
 
   /**
-   * FIXED: Ultra-smooth animation loop with timing awareness
+   * SIMPLIFIED: Smooth animation loop with consistent lerping
    */
   useFrame(() => {
     if (!currentTarget.current) return;
 
-    // Use current animation speeds
     const currentSpeeds = animationSpeed.current;
 
-    // FIXED: Calculate distance to target for dynamic speed adjustment
-    const positionDistance = camera.position.distanceTo(currentTarget.current.position);
-    const fovDistance = Math.abs(camera.fov - currentTarget.current.fov);
-    
-    // FIXED: Dynamic speed adjustment for coordinated sequences
-    let speedMultiplier = 1.0;
-    
-    if (isInCoordinatedSequence.current) {
-      const timeSinceStateChange = stateChangeTime.current ? Date.now() - stateChangeTime.current : 0;
-      
-      if (animationData.state === 'reforming') {
-        // FIXED: Ensure camera movement completes in the full 1800ms duration
-        const timeProgress = timeSinceStateChange / 1800; // 1800ms camera movement time
-        const distanceProgress = 1 - (positionDistance / 10); // Normalize distance
-        
-        // Don't speed up too much - let it take the full time
-        if (timeProgress > 0.8 && distanceProgress < 0.7) {
-          speedMultiplier = 1.5; // Gentle speed up if really behind
-        }
-        
-        // Debug info for reform timing
-        if (process.env.NODE_ENV === 'development' && timeSinceStateChange % 200 < 16) {
-          console.log(`📹 Reform: ${timeProgress.toFixed(2)} time, ${distanceProgress.toFixed(2)} dist, speed: ${speedMultiplier.toFixed(1)}`);
-        }
-      }
-    }
-
-    // Apply speed multiplier
-    const adjustedSpeeds = {
-      position: currentSpeeds.position * speedMultiplier,
-      lookAt: currentSpeeds.lookAt * speedMultiplier,
-      fov: currentSpeeds.fov * speedMultiplier
-    };
-
     // Smooth position interpolation
-    camera.position.lerp(currentTarget.current.position, adjustedSpeeds.position);
+    camera.position.lerp(currentTarget.current.position, currentSpeeds.position);
     
     // Smooth look-at interpolation
     const currentDirection = new THREE.Vector3();
@@ -200,8 +153,10 @@ const UnifiedCameraController = ({
       .subVectors(currentTarget.current.lookAt, camera.position)
       .normalize();
     
-    currentDirection.lerp(targetDirection, adjustedSpeeds.lookAt);
+    // Interpolate direction vectors
+    currentDirection.lerp(targetDirection, currentSpeeds.lookAt);
     
+    // Apply new look direction
     const newLookAt = new THREE.Vector3()
       .addVectors(camera.position, currentDirection);
     
@@ -209,14 +164,17 @@ const UnifiedCameraController = ({
     
     // Smooth FOV interpolation
     const fovDiff = currentTarget.current.fov - camera.fov;
-    camera.fov += fovDiff * adjustedSpeeds.fov;
+    camera.fov += fovDiff * currentSpeeds.fov;
     camera.updateProjectionMatrix();
 
-    // Debug logging for coordinated sequences
-    if (process.env.NODE_ENV === 'development' && isInCoordinatedSequence.current) {
-      const timeSinceChange = stateChangeTime.current ? Date.now() - stateChangeTime.current : 0;
-      if (timeSinceChange % 500 < 16) { // Log every 500ms
-        console.log(`📹 Camera sync: ${animationData.state}, distance: ${positionDistance.toFixed(2)}, time: ${timeSinceChange}ms`);
+    // Optional: Debug logging for large movements
+    if (process.env.NODE_ENV === 'development') {
+      const positionDistance = camera.position.distanceTo(currentTarget.current.position);
+      if (positionDistance > 0.1) {
+        // Only log when camera is still moving significantly
+        if (Math.random() < 0.01) { // Reduce log frequency
+          console.log(`📹 Camera moving: distance ${positionDistance.toFixed(2)}, speed ${currentSpeeds.position.toFixed(3)}`);
+        }
       }
     }
   });
@@ -228,7 +186,7 @@ const UnifiedCameraController = ({
     if (isMobile) {
       // Slower animation on mobile for smoother feel
       Object.keys(animationSpeed.current).forEach(key => {
-        animationSpeed.current[key] *= 0.8;
+        animationSpeed.current[key] *= 0.7;
       });
     }
   }, [isMobile]);

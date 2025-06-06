@@ -1,12 +1,12 @@
 // FIXED: src/components/three/MasterAnimationCoordinator.jsx
-// Master coordinator with proper timing and state management
+// Simplified master coordinator with immediate state changes
 
 import React, { useEffect } from 'react';
 import { useScrollProgress } from '../../hooks/useScrollProgress';
 import { useUnifiedAnimationController } from '../../hooks/useUnifiedAnimationController';
 
 /**
- * FIXED: Master Animation Coordinator with better timing control
+ * SIMPLIFIED: Master Animation Coordinator with immediate state changes
  */
 const MasterAnimationCoordinator = ({ 
   children,
@@ -15,18 +15,18 @@ const MasterAnimationCoordinator = ({
 }) => {
   // Get scroll progress with optimized frequency
   const scrollData = useScrollProgress({
-    throttleMs: 12,  // Slightly slower to prevent conflicts
+    throttleMs: 16,
     includeVelocity: true,
     debugMode: debugMode
   });
 
-  // Get unified animation state with enhanced coordination
+  // Get unified animation state with simplified coordination
   const animationController = useUnifiedAnimationController({
     debugMode: debugMode,
     onStateChange: onAnimationStateChange
   });
 
-  // FIXED: More conservative scroll updates with better debouncing
+  // SIMPLIFIED: Direct scroll updates with minimal debouncing
   useEffect(() => {
     // Only update if scroll progress actually changed significantly
     const significantChange = Math.abs(
@@ -34,18 +34,14 @@ const MasterAnimationCoordinator = ({
     ) > 0.001;
     
     if (significantChange) {
-      // Micro-debounce to prevent jitter during coordinated sequences
-      const timeoutId = setTimeout(() => {
-        animationController.updateFromScrollProgress(scrollData.scrollProgress);
-      }, 8); // Conservative timing
-      
-      return () => clearTimeout(timeoutId);
+      // Direct update - no complex timing coordination needed
+      animationController.updateFromScrollProgress(scrollData.scrollProgress);
     }
   }, [scrollData.scrollProgress, animationController]);
 
-  // FIXED: Enhanced animation data with better coordination flags
+  // SIMPLIFIED: Animation data with immediate state information
   const animationData = {
-    // Core animation state
+    // Core animation state (immediate)
     ...animationController.animationState,
     
     // Enhanced scroll info
@@ -54,7 +50,7 @@ const MasterAnimationCoordinator = ({
     isFastScrolling: scrollData.isFastScrolling,
     scrollVelocity: scrollData.velocity,
     
-    // Coordinated configurations
+    // Immediate configurations (no complex coordination needed)
     cameraConfig: animationController.cameraConfig,
     crystalConfig: animationController.crystalConfig,
     
@@ -68,35 +64,15 @@ const MasterAnimationCoordinator = ({
     focusedProject: animationController.animationState.focusedFacet,
     projectProgress: animationController.animationState.projectInfo?.progress,
     
-    // FIXED: Better transition coordination flags
-    isInExplosionSequence: [
-      'preparing_explosion', 
-      'exploding', 
-      'explosion_settling'
-    ].includes(animationController.animationState.state),
-    
-    isInReformSequence: [
-      'preparing_reform', 
-      'reforming_crystal', 
-      'reforming_camera', 
-      'reform_settling'
-    ].includes(animationController.animationState.state),
-    
-    isInProjectTransition: animationController.animationState.state === 'focusing_project',
-    
-    // FIXED: More specific transition states
-    isPreparingExplosion: animationController.animationState.state === 'preparing_explosion',
-    isExploding: animationController.animationState.state === 'exploding',
-    isPreparingReform: animationController.animationState.state === 'preparing_reform',
-    isReformingCrystal: animationController.animationState.state === 'reforming_crystal',
-    isReformingCamera: animationController.animationState.state === 'reforming_camera',
+    // SIMPLIFIED: isTransitioning is managed by individual components
+    isTransitioning: false, // Components handle their own smooth transitions
     
     // Utility functions
     scrollToZone: (zoneName) => scrollData.scrollToZone?.(zoneName, animationController.config.scrollZones),
     overrideAnimationState: animationController.overrideState || (() => {})
   };
 
-  // Clone children and pass enhanced animation data
+  // Clone children and pass simplified animation data
   const childrenWithProps = React.Children.map(children, child => {
     if (React.isValidElement(child)) {
       return React.cloneElement(child, { animationData });
@@ -108,7 +84,7 @@ const MasterAnimationCoordinator = ({
     <>
       {childrenWithProps}
       
-      {/* FIXED: Enhanced debug overlay with timing info */}
+      {/* SIMPLIFIED: Debug overlay with immediate state info */}
       {debugMode && (
         <DebugOverlay 
           scrollData={scrollData}
@@ -121,7 +97,7 @@ const MasterAnimationCoordinator = ({
 };
 
 /**
- * FIXED: Enhanced debug overlay with coordination and timing info
+ * SIMPLIFIED: Debug overlay with immediate state information
  */
 const DebugOverlay = ({ scrollData, animationData, animationController }) => {
   return (
@@ -141,7 +117,7 @@ const DebugOverlay = ({ scrollData, animationData, animationController }) => {
       border: '1px solid rgba(100, 255, 218, 0.3)'
     }}>
       <div style={{ fontWeight: 'bold', marginBottom: '10px', color: '#64ffda' }}>
-        🎬 Animation Debug (FIXED COORDINATION)
+        🎬 Animation Debug (SIMPLIFIED)
       </div>
       
       {/* Scroll Info */}
@@ -152,34 +128,15 @@ const DebugOverlay = ({ scrollData, animationData, animationController }) => {
         <div>Fast: {scrollData.isFastScrolling ? 'YES' : 'NO'}</div>
       </div>
       
-      {/* FIXED: Enhanced Animation State */}
+      {/* SIMPLIFIED: Animation State */}
       <div style={{ marginBottom: '10px' }}>
-        <div style={{ color: '#03dac6', fontWeight: 'bold' }}>Animation State:</div>
+        <div style={{ color: '#03dac6', fontWeight: 'bold' }}>Animation State (IMMEDIATE):</div>
         <div>State: <span style={{ color: '#ffd600' }}>{animationData.state}</span></div>
         <div>Zone: {animationData.currentZone}</div>
         <div>Crystal: {animationData.crystalForm}</div>
         <div>Camera: {animationData.cameraState}</div>
         <div>Focus: {animationData.focusedProject || 'none'}</div>
-        <div>Transitioning: {animationData.isTransitioning ? 'YES' : 'NO'}</div>
-      </div>
-      
-      {/* FIXED: Detailed Coordination Status */}
-      <div style={{ marginBottom: '10px' }}>
-        <div style={{ color: '#ffd600', fontWeight: 'bold' }}>Coordination:</div>
-        <div>Explosion Seq: {animationData.isInExplosionSequence ? 'YES' : 'NO'}</div>
-        <div>Reform Seq: {animationData.isInReformSequence ? 'YES' : 'NO'}</div>
-        <div>Project Trans: {animationData.isInProjectTransition ? 'YES' : 'NO'}</div>
-        <div>Should Rotate: {animationData.crystalConfig?.shouldRotate ? 'YES' : 'NO'}</div>
-      </div>
-      
-      {/* FIXED: Specific State Flags */}
-      <div style={{ marginBottom: '10px' }}>
-        <div style={{ color: '#ff7043', fontWeight: 'bold' }}>Specific States:</div>
-        <div>Prep Explosion: {animationData.isPreparingExplosion ? 'YES' : 'NO'}</div>
-        <div>Exploding: {animationData.isExploding ? 'YES' : 'NO'}</div>
-        <div>Prep Reform: {animationData.isPreparingReform ? 'YES' : 'NO'}</div>
-        <div>Reform Crystal: {animationData.isReformingCrystal ? 'YES' : 'NO'}</div>
-        <div>Reform Camera: {animationData.isReformingCamera ? 'YES' : 'NO'}</div>
+        <div>Components Handle Transitions: YES</div>
       </div>
       
       {/* Zone Progress */}
@@ -193,7 +150,7 @@ const DebugOverlay = ({ scrollData, animationData, animationController }) => {
       {/* Camera Info */}
       {animationData.cameraConfig && (
         <div style={{ marginBottom: '10px' }}>
-          <div style={{ color: '#8bc34a', fontWeight: 'bold' }}>Camera Target:</div>
+          <div style={{ color: '#8bc34a', fontWeight: 'bold' }}>Camera Target (IMMEDIATE):</div>
           <div>Pos: [{animationData.cameraConfig.position?.x?.toFixed(1)}, {animationData.cameraConfig.position?.y?.toFixed(1)}, {animationData.cameraConfig.position?.z?.toFixed(1)}]</div>
           <div>Target: [{animationData.cameraConfig.target?.x?.toFixed(1)}, {animationData.cameraConfig.target?.y?.toFixed(1)}, {animationData.cameraConfig.target?.z?.toFixed(1)}]</div>
           <div>FOV: {animationData.cameraConfig.fov}</div>
@@ -203,27 +160,28 @@ const DebugOverlay = ({ scrollData, animationData, animationController }) => {
       {/* Debug Controller Info */}
       {animationController.debugInfo && (
         <div style={{ marginBottom: '10px' }}>
-          <div style={{ color: '#cf6679', fontWeight: 'bold' }}>Controller:</div>
-          <div>Has Sequence: {animationController.debugInfo.hasActiveSequence ? 'YES' : 'NO'}</div>
+          <div style={{ color: '#cf6679', fontWeight: 'bold' }}>Controller (SIMPLIFIED):</div>
           <div>Last Zone: {animationController.debugInfo.lastZone}</div>
           <div>Last Project: {animationController.debugInfo.lastProject || 'none'}</div>
+          <div>No Complex Sequences: YES</div>
         </div>
       )}
       
-      {/* Timing Warning */}
-      {(animationData.isInExplosionSequence || animationData.isInReformSequence) && (
-        <div style={{
-          background: 'rgba(255, 193, 7, 0.2)',
-          border: '1px solid #ffc107',
-          borderRadius: '4px',
-          padding: '8px',
-          marginTop: '10px',
-          fontSize: '10px'
-        }}>
-          <div style={{ color: '#ffc107', fontWeight: 'bold' }}>⚠️ COORDINATED SEQUENCE ACTIVE</div>
-          <div>Camera and crystal movements are synchronized</div>
-        </div>
-      )}
+      {/* Success Message */}
+      <div style={{
+        background: 'rgba(76, 175, 80, 0.2)',
+        border: '1px solid #4caf50',
+        borderRadius: '4px',
+        padding: '8px',
+        marginTop: '10px',
+        fontSize: '10px'
+      }}>
+        <div style={{ color: '#4caf50', fontWeight: 'bold' }}>✅ SIMPLIFIED APPROACH</div>
+        <div>• Immediate state changes</div>
+        <div>• Components handle smooth transitions</div>
+        <div>• No complex timing coordination</div>
+        <div>• Same pattern as working projects</div>
+      </div>
     </div>
   );
 };
