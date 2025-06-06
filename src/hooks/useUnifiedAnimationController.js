@@ -118,8 +118,8 @@ export const ANIMATION_CONFIG = {
 
   scrollZones: {
     // Overall layout zones
-    hero: { start: 0, end: 0.125 },
-    overview: { start: 0.125, end: 0.25 },
+    hero: { start: 0, end: 0.12 },
+    overview: { start: 0.12, end: 0.24 },
     projects: { start: 0.25, end: 0.87 },
     about: { start: 0.87, end: 1.0 }
   },
