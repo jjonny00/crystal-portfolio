@@ -475,6 +475,11 @@ export const useUnifiedAnimationController = (options = {}) => {
           }
         }
 
+      }
+
+      // Always track the latest zone so we don't retrigger when a
+      // transition finishes after the zone already changed
+      if (zoneChanged) {
         lastZone.current = currentZone.zone;
       }
 
