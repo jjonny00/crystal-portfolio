@@ -356,8 +356,7 @@ export const useUnifiedAnimationController = (options = {}) => {
             isTransitioning: false
           }));
 
-          // Ensure zone tracking matches the final position
-          lastZone.current = target;
+          // Animation complete, clear sequence target
           sequenceTarget.current = null;
           
           if (debugMode) {
@@ -418,6 +417,12 @@ export const useUnifiedAnimationController = (options = {}) => {
 
       if (debugMode && zoneChanged) {
         console.log(`🗺️ Zone transition: ${lastZone.current} → ${currentZone.zone}`);
+      }
+
+      // Track the latest zone immediately so any running sequences
+      // use the new target if a user scrolls during the animation
+      if (zoneChanged) {
+        lastZone.current = currentZone.zone;
       }
 
       // FIXED: Only trigger animations on actual zone changes and when not already transitioning
@@ -484,11 +489,7 @@ export const useUnifiedAnimationController = (options = {}) => {
 
       }
 
-      // Always track the latest zone so we don't retrigger when a
-      // transition finishes after the zone already changed
-      if (zoneChanged) {
-        lastZone.current = currentZone.zone;
-      }
+
 
       // Handle project changes within projects zone
       if (currentZone.zone === 'projects' && projectChanged && activeProject.project) {
