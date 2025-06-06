@@ -1,12 +1,12 @@
 // FIXED: src/components/three/UnifiedCameraController.jsx
-// Camera controller that prevents jumps and coordinates smoothly with animation sequences
+// Camera controller with animation-synchronized timing
 
 import { useRef, useEffect } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
 /**
- * FIXED: Camera Controller with eliminated jumps and smooth coordination
+ * FIXED: Camera Controller with synchronized animation timing
  */
 const UnifiedCameraController = ({ 
   animationData,
@@ -22,17 +22,17 @@ const UnifiedCameraController = ({
     fov: 45
   });
   
-  // FIXED: Adaptive animation speeds based on transition state
+  // FIXED: Animation speed and timing coordination
   const animationSpeed = useRef({
     position: 0.025,
     lookAt: 0.025,
     fov: 0.025
   });
   
-  // FIXED: State coordination tracking
+  // FIXED: Animation state coordination
   const lastAnimationState = useRef(null);
-  const coordinatedTransition = useRef(false);
-  const stateChangeTimeout = useRef(null);
+  const stateChangeTime = useRef(null);
+  const isInCoordinatedSequence = useRef(false);
 
   /**
    * Initialize camera target from current position
@@ -48,7 +48,7 @@ const UnifiedCameraController = ({
   }, [camera]);
 
   /**
-   * FIXED: Coordinated camera updates that prevent jumps
+   * FIXED: Coordinated camera updates with proper sequencing
    */
   useEffect(() => {
     if (!animationData?.cameraConfig) return;
@@ -57,32 +57,33 @@ const UnifiedCameraController = ({
     const newCameraState = animationData.cameraState;
     const isTransitioning = animationData.isTransitioning;
     
-    // FIXED: Detect when we're in a coordinated sequence
-    const isCoordinatedSequence = 
-      newState === 'preparing_explosion' ||
-      newState === 'exploding' ||
-      newState === 'explosion_settling' ||
-      newState === 'preparing_reform' ||
-      newState === 'reforming_crystal' ||
-      newState === 'reforming_camera' ||
-      newState === 'reform_settling';
+    // FIXED: Detect coordinated sequences
+    const coordinatedStates = ['exploding', 'reforming'];
+    const wasInSequence = isInCoordinatedSequence.current;
+    const nowInSequence = coordinatedStates.includes(newState);
     
-    // FIXED: Only update camera targets when necessary
+    // Update sequence tracking
+    isInCoordinatedSequence.current = nowInSequence;
+    
+    // FIXED: Only update camera targets when necessary and safe
     const shouldUpdateCamera =
       !lastAnimationState.current ||
+      lastAnimationState.current.state !== newState ||
       lastAnimationState.current.cameraState !== newCameraState ||
       lastAnimationState.current.focusedFacet !== animationData.focusedFacet ||
-      (!coordinatedTransition.current && isCoordinatedSequence);
+      // Always update when entering/exiting coordinated sequences
+      (wasInSequence !== nowInSequence);
 
     if (shouldUpdateCamera) {
       const cameraConfig = animationData.cameraConfig;
+      stateChangeTime.current = Date.now();
       
       if (process.env.NODE_ENV === 'development') {
         console.log('📹 Camera target updated:', {
           state: newState,
           cameraState: newCameraState,
           isTransitioning,
-          isCoordinated: isCoordinatedSequence,
+          isCoordinated: nowInSequence,
           position: cameraConfig.position?.toArray(),
           target: cameraConfig.target?.toArray(),
           fov: cameraConfig.fov
@@ -102,66 +103,37 @@ const UnifiedCameraController = ({
         currentTarget.current.fov = cameraConfig.fov;
       }
 
-      // FIXED: Coordinated animation speeds
-      if (isCoordinatedSequence) {
-        coordinatedTransition.current = true;
-        
-        // Different speeds for different phases
-        if (newState === 'preparing_explosion' || newState === 'preparing_reform') {
-          // Preparation phases - medium speed
-          animationSpeed.current.position = 0.035;
-          animationSpeed.current.lookAt = 0.035;
-          animationSpeed.current.fov = 0.035;
-        } else if (newState === 'exploding' || newState === 'reforming_camera') {
-          // Main animation phases - slower for smoothness
-          animationSpeed.current.position = 0.025;
-          animationSpeed.current.lookAt = 0.025;
-          animationSpeed.current.fov = 0.025;
-        } else if (newState === 'reforming_crystal') {
-          // Crystal reform phase - camera should stay relatively still
-          animationSpeed.current.position = 0.015;
+      // FIXED: Set animation speeds based on state and timing
+      if (nowInSequence) {
+        // In coordinated sequences, use specific timing
+        if (newState === 'exploding') {
+          // Explosion sequence - smooth movement to overview
+          animationSpeed.current.position = 0.02;
+          animationSpeed.current.lookAt = 0.02;
+          animationSpeed.current.fov = 0.02;
+        } else if (newState === 'reforming') {
+          // FIXED: Reform sequence - slower movement to ensure smooth completion
+          // Use slower speeds so camera takes the full 1800ms to reach target
+          animationSpeed.current.position = 0.015;  // Slower to match longer duration
           animationSpeed.current.lookAt = 0.015;
           animationSpeed.current.fov = 0.015;
-        } else {
-          // Settling phases - slightly faster to snap to final position
-          animationSpeed.current.position = 0.045;
-          animationSpeed.current.lookAt = 0.045;
-          animationSpeed.current.fov = 0.045;
         }
-        
-        // FIXED: Clear coordination flag after sequence
-        if (stateChangeTimeout.current) {
-          clearTimeout(stateChangeTimeout.current);
-        }
-        
-        stateChangeTimeout.current = setTimeout(() => {
-          coordinatedTransition.current = false;
-          
-          // Return to normal speeds
-          animationSpeed.current.position = 0.03;
-          animationSpeed.current.lookAt = 0.03;
-          animationSpeed.current.fov = 0.03;
-          
-          if (process.env.NODE_ENV === 'development') {
-            console.log('📹 Coordinated transition completed, returning to normal speeds');
-          }
-        }, 2000); // Give enough time for sequences to complete
-        
-      } else if (!isTransitioning) {
-        // Non-coordinated, non-transitioning updates
-        coordinatedTransition.current = false;
-        
+      } else if (isTransitioning) {
+        // Other transitions
         if (animationData.isFastScrolling) {
-          // Fast scrolling
           animationSpeed.current.position = 0.08;
           animationSpeed.current.lookAt = 0.08;
           animationSpeed.current.fov = 0.08;
         } else {
-          // Normal speed
-          animationSpeed.current.position = 0.03;
-          animationSpeed.current.lookAt = 0.03;
-          animationSpeed.current.fov = 0.03;
+          animationSpeed.current.position = 0.04;
+          animationSpeed.current.lookAt = 0.04;
+          animationSpeed.current.fov = 0.04;
         }
+      } else {
+        // Non-transitioning states
+        animationSpeed.current.position = 0.03;
+        animationSpeed.current.lookAt = 0.03;
+        animationSpeed.current.fov = 0.03;
       }
     }
 
@@ -175,16 +147,50 @@ const UnifiedCameraController = ({
   }, [animationData]);
 
   /**
-   * FIXED: Ultra-smooth animation loop with coordination awareness
+   * FIXED: Ultra-smooth animation loop with timing awareness
    */
   useFrame(() => {
     if (!currentTarget.current) return;
 
-    // FIXED: Use current animation speeds (which are set based on coordination state)
+    // Use current animation speeds
     const currentSpeeds = animationSpeed.current;
 
+    // FIXED: Calculate distance to target for dynamic speed adjustment
+    const positionDistance = camera.position.distanceTo(currentTarget.current.position);
+    const fovDistance = Math.abs(camera.fov - currentTarget.current.fov);
+    
+    // FIXED: Dynamic speed adjustment for coordinated sequences
+    let speedMultiplier = 1.0;
+    
+    if (isInCoordinatedSequence.current) {
+      const timeSinceStateChange = stateChangeTime.current ? Date.now() - stateChangeTime.current : 0;
+      
+      if (animationData.state === 'reforming') {
+        // FIXED: Ensure camera movement completes in the full 1800ms duration
+        const timeProgress = timeSinceStateChange / 1800; // 1800ms camera movement time
+        const distanceProgress = 1 - (positionDistance / 10); // Normalize distance
+        
+        // Don't speed up too much - let it take the full time
+        if (timeProgress > 0.8 && distanceProgress < 0.7) {
+          speedMultiplier = 1.5; // Gentle speed up if really behind
+        }
+        
+        // Debug info for reform timing
+        if (process.env.NODE_ENV === 'development' && timeSinceStateChange % 200 < 16) {
+          console.log(`📹 Reform: ${timeProgress.toFixed(2)} time, ${distanceProgress.toFixed(2)} dist, speed: ${speedMultiplier.toFixed(1)}`);
+        }
+      }
+    }
+
+    // Apply speed multiplier
+    const adjustedSpeeds = {
+      position: currentSpeeds.position * speedMultiplier,
+      lookAt: currentSpeeds.lookAt * speedMultiplier,
+      fov: currentSpeeds.fov * speedMultiplier
+    };
+
     // Smooth position interpolation
-    camera.position.lerp(currentTarget.current.position, currentSpeeds.position);
+    camera.position.lerp(currentTarget.current.position, adjustedSpeeds.position);
     
     // Smooth look-at interpolation
     const currentDirection = new THREE.Vector3();
@@ -194,7 +200,7 @@ const UnifiedCameraController = ({
       .subVectors(currentTarget.current.lookAt, camera.position)
       .normalize();
     
-    currentDirection.lerp(targetDirection, currentSpeeds.lookAt);
+    currentDirection.lerp(targetDirection, adjustedSpeeds.lookAt);
     
     const newLookAt = new THREE.Vector3()
       .addVectors(camera.position, currentDirection);
@@ -203,8 +209,16 @@ const UnifiedCameraController = ({
     
     // Smooth FOV interpolation
     const fovDiff = currentTarget.current.fov - camera.fov;
-    camera.fov += fovDiff * currentSpeeds.fov;
+    camera.fov += fovDiff * adjustedSpeeds.fov;
     camera.updateProjectionMatrix();
+
+    // Debug logging for coordinated sequences
+    if (process.env.NODE_ENV === 'development' && isInCoordinatedSequence.current) {
+      const timeSinceChange = stateChangeTime.current ? Date.now() - stateChangeTime.current : 0;
+      if (timeSinceChange % 500 < 16) { // Log every 500ms
+        console.log(`📹 Camera sync: ${animationData.state}, distance: ${positionDistance.toFixed(2)}, time: ${timeSinceChange}ms`);
+      }
+    }
   });
 
   /**
@@ -218,17 +232,6 @@ const UnifiedCameraController = ({
       });
     }
   }, [isMobile]);
-
-  /**
-   * Cleanup
-   */
-  useEffect(() => {
-    return () => {
-      if (stateChangeTimeout.current) {
-        clearTimeout(stateChangeTimeout.current);
-      }
-    };
-  }, []);
 
   // This component doesn't render anything
   return null;

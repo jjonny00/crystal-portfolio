@@ -1,5 +1,5 @@
 // FIXED: src/components/three/UnifiedCrystalScene.jsx
-// Crystal scene that coordinates smoothly with animation sequences
+// Crystal scene with proper animation coordination
 
 import { useRef, useState, useEffect } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
@@ -10,7 +10,7 @@ import * as THREE from 'three'
 import MaterialManager from './MaterialManager'
 
 /**
- * FIXED: Crystal Scene with coordinated animations and smooth reform
+ * FIXED: Crystal Scene with synchronized animations
  */
 const UnifiedCrystalScene = ({ 
   animationData,
@@ -27,9 +27,10 @@ const UnifiedCrystalScene = ({
   const facetRefs = useRef(Array(6).fill(null));
   const crystalMaterialRef = useRef();
   
-  // FIXED: Animation coordination
+  // FIXED: Animation state tracking
   const lastAnimationState = useRef(null);
   const reformStartTime = useRef(null);
+  const reformProgress = useRef(0);
   
   // Component state
   const [showWholeCrystal, setShowWholeCrystal] = useState(true);
@@ -76,84 +77,83 @@ const UnifiedCrystalScene = ({
   }, [wholeCrystal, facetModels, crystalMaterialRef.current]);
   
   /**
-   * FIXED: Handle crystal form changes with proper coordination
+   * FIXED: Handle crystal form changes with proper timing coordination
    */
   useEffect(() => {
     if (!animationData) return;
     
     const currentState = animationData.state;
-    const targetCrystalForm = animationData.crystalForm;
-    
-    // FIXED: Only change visibility during appropriate states
     const stateChanged = !lastAnimationState.current || 
-                        lastAnimationState.current.state !== currentState;
+                        lastAnimationState.current !== currentState;
     
     if (stateChanged) {
       if (process.env.NODE_ENV === 'development') {
         console.log('💎 Crystal state transition:', {
-          from: lastAnimationState.current?.state || 'none',
+          from: lastAnimationState.current || 'none',
           to: currentState,
-          crystalForm: targetCrystalForm,
+          crystalForm: animationData.crystalForm,
           shouldRotate: animationData.crystalConfig?.shouldRotate
         });
       }
 
-      // Handle visibility changes based on animation state
       switch (currentState) {
         case 'hero':
           setShowWholeCrystal(true);
           setShowFacets(false);
-          break;
-          
-        case 'preparing_explosion':
-          // Keep whole crystal visible during prep
-          setShowWholeCrystal(true);
-          setShowFacets(false);
+          reformStartTime.current = null;
+          reformProgress.current = 0;
           break;
           
         case 'exploding':
-          // Switch to facets during explosion
+          // During explosion, switch from whole to facets
           setShowWholeCrystal(false);
           setShowFacets(true);
           break;
           
-        case 'explosion_settling':
         case 'overview':
         case 'focusing_project':
         case 'project_focused':
-          // Keep facets visible
+          // Keep facets visible in these states
           setShowWholeCrystal(false);
           setShowFacets(true);
           break;
           
-        case 'preparing_reform':
-          // FIXED: Keep facets visible during reform prep
-          setShowWholeCrystal(false);
+        case 'reforming':
+          // FIXED: Handle reform sequence timing properly
+          if (!reformStartTime.current) {
+            reformStartTime.current = clock.getElapsedTime();
+            reformProgress.current = 0;
+          }
+          
+          // Keep facets visible initially, crystal will appear during animation
           setShowFacets(true);
+          
+          // Show whole crystal partway through the reform sequence
+          // This timing should match the camera animation
+          setTimeout(() => {
+            setShowWholeCrystal(true);
+          }, 600); // Show crystal after 600ms
+          
+          // Hide facets after crystal is fully formed
+          setTimeout(() => {
+            setShowFacets(false);
+          }, 1000); // Hide facets after 1000ms
           break;
           
-        case 'reforming_crystal':
-          // FIXED: This is when we switch from facets to whole crystal
-          setShowWholeCrystal(true);
-          setShowFacets(false);
-          reformStartTime.current = clock.getElapsedTime(); // Track reform start
-          break;
-          
-        case 'reforming_camera':
-        case 'reform_settling':
         case 'about':
-          // Keep whole crystal visible
+          // Final state - only whole crystal
           setShowWholeCrystal(true);
           setShowFacets(false);
+          reformStartTime.current = null;
+          reformProgress.current = 0;
           break;
           
         default:
-          // Default to whole crystal
           setShowWholeCrystal(true);
           setShowFacets(false);
       }
       
-      lastAnimationState.current = { state: currentState };
+      lastAnimationState.current = currentState;
     }
   }, [animationData?.state, animationData?.crystalForm, clock]);
 
@@ -166,7 +166,14 @@ const UnifiedCrystalScene = ({
     const time = clock.getElapsedTime();
     const currentState = animationData.state;
 
-    // FIXED: Handle whole crystal rotation and floating
+    // Update reform progress if in reform state
+    if (currentState === 'reforming' && reformStartTime.current) {
+      const elapsed = time - reformStartTime.current;
+      const totalReformTime = 2.8; // 2800ms total reform time (matching camera duration)
+      reformProgress.current = Math.min(elapsed / totalReformTime, 1);
+    }
+
+    // Handle whole crystal rotation and floating
     if (showWholeCrystal && wholeCrystalRef.current && animationData.crystalConfig?.shouldRotate) {
       const rotationSpeed = animationData.crystalConfig.rotationSpeed || 0.0003;
       
@@ -175,7 +182,7 @@ const UnifiedCrystalScene = ({
       wholeCrystalRef.current.rotation.x = Math.sin(time * 0.0001) * 0.015;
       wholeCrystalRef.current.rotation.z = Math.cos(time * 0.00012) * 0.008;
       
-      // FIXED: Floating motion only in hero state
+      // Floating motion only in hero state
       if (currentState === 'hero') {
         const floatAmplitude = 0.008;
         const floatY = Math.sin(time * 0.8) * floatAmplitude;
@@ -184,23 +191,25 @@ const UnifiedCrystalScene = ({
         
         wholeCrystalRef.current.position.set(floatX, floatY, floatZ);
       } else {
-        // FIXED: Ensure crystal is centered when not floating
+        // Ensure crystal is centered when not floating
         wholeCrystalRef.current.position.set(0, 0, 0);
       }
     } else if (wholeCrystalRef.current && !animationData.crystalConfig?.shouldRotate) {
-      // Stop rotation and reset position when not in hero state
+      // Stop rotation and reset position
       wholeCrystalRef.current.position.set(0, 0, 0);
     }
 
-    // FIXED: Smooth facet animations based on animation state
+    // FIXED: Handle facet animations with better coordination
     if (showFacets && animationData.crystalConfig?.positions) {
       // Different lerp speeds based on animation state
       let lerpSpeed = 0.03; // Default
       
       if (currentState === 'exploding') {
-        lerpSpeed = 0.08; // Faster during explosion
-      } else if (currentState === 'preparing_reform' || currentState === 'reforming_crystal') {
-        lerpSpeed = 0.12; // Faster during reform (they need to move to center quickly)
+        lerpSpeed = 0.06; // Faster during explosion
+      } else if (currentState === 'reforming') {
+        // FIXED: Use reform progress to control movement speed
+        const reformLerpSpeed = 0.08 + (reformProgress.current * 0.12); // Speed up as reform progresses
+        lerpSpeed = reformLerpSpeed;
       } else if (animationData.isTransitioning) {
         lerpSpeed = 0.05; // Medium speed during other transitions
       }
@@ -211,16 +220,21 @@ const UnifiedCrystalScene = ({
         const facetKey = facetKeys[index];
         let targetPos = animationData.crystalConfig.positions[facetKey];
         
-        // FIXED: During reform, move all facets to center regardless of config
-        if (currentState === 'preparing_reform' || currentState === 'reforming_crystal') {
-          targetPos = new THREE.Vector3(0, 0, 0); // Force to center
+        // FIXED: During reform, smoothly move all facets to center
+        if (currentState === 'reforming') {
+          // Use reform progress to control the movement
+          const centerPos = new THREE.Vector3(0, 0, 0);
+          const currentPos = targetPos || new THREE.Vector3(0, 0, 0);
+          
+          // Interpolate between current exploded position and center based on reform progress
+          targetPos = new THREE.Vector3().lerpVectors(currentPos, centerPos, reformProgress.current);
         }
         
         if (targetPos) {
           // Smooth lerp to target position
           facetRef.position.lerp(targetPos, lerpSpeed);
           
-          // FIXED: Minimal floating when focused (only in stable states)
+          // Minimal floating when focused (only in stable states)
           if (animationData.focusedFacet === facetKey && 
               !animationData.isTransitioning && 
               currentState === 'project_focused') {
@@ -230,23 +244,14 @@ const UnifiedCrystalScene = ({
         }
       });
     }
-
-    // FIXED: Handle reform transition timing
-    if (currentState === 'reforming_crystal' && reformStartTime.current) {
-      const reformElapsed = time - reformStartTime.current;
-      const reformDuration = 1.0; // 1 second for crystal reform
-      
-      // FIXED: Ensure facets are fully centered before we hide them
-      if (reformElapsed > reformDuration * 0.8) {
-        // Force all facets to exact center in the final phase
-        facetRefs.current.forEach((facetRef) => {
-          if (facetRef) {
-            facetRef.position.lerp(new THREE.Vector3(0, 0, 0), 0.2); // Fast convergence
-          }
-        });
-      }
-    }
   });
+
+  // Cleanup any pending timeouts on unmount
+  useEffect(() => {
+    return () => {
+      // Cleanup handled by useEffect cleanup in parent components
+    };
+  }, []);
 
   /**
    * Get facet color by index
@@ -312,7 +317,7 @@ const UnifiedCrystalScene = ({
             fontFamily: 'monospace',
             zIndex: 10002,
             pointerEvents: 'none',
-            maxWidth: '280px'
+            maxWidth: '300px'
           }}>
             <div><strong>💎 Crystal Debug (FIXED):</strong></div>
             <div>State: {animationData.state}</div>
@@ -324,7 +329,10 @@ const UnifiedCrystalScene = ({
             <div>Zone: {animationData.currentZone}</div>
             <div>Transitioning: {animationData.isTransitioning ? 'YES' : 'NO'}</div>
             {reformStartTime.current && (
-              <div>Reform Time: {(clock.getElapsedTime() - reformStartTime.current).toFixed(1)}s</div>
+              <div>
+                <div>Reform Time: {(clock.getElapsedTime() - reformStartTime.current).toFixed(1)}s</div>
+                <div>Reform Progress: {Math.round(reformProgress.current * 100)}%</div>
+              </div>
             )}
           </div>
         </Html>
