@@ -409,8 +409,26 @@ export const useUnifiedAnimationController = (options = {}) => {
 
     const runUpdates = () => {
       const progress = throttle.latestProgress;
-      const currentZone = calculateCurrentZone(progress, config);
+      let currentZone = calculateCurrentZone(progress, config);
       const activeProject = calculateActiveProject(progress, config);
+
+      // If a reform sequence is currently running, lock the zone to the
+      // sequence target so interim scroll position changes don't trigger
+      // additional reform sequences or zone flips. This prevents the camera
+      // pop that occurred when the calculated zone briefly switched to
+      // "about" right as the reform animation finished.
+      if (
+        animationState.isTransitioning &&
+        sequenceTarget.current &&
+        [
+          ANIMATION_STATES.PREPARING_REFORM,
+          ANIMATION_STATES.REFORMING_CRYSTAL,
+          ANIMATION_STATES.REFORMING_CAMERA,
+          ANIMATION_STATES.REFORM_SETTLING
+        ].includes(animationState.state)
+      ) {
+        currentZone = { ...currentZone, zone: sequenceTarget.current };
+      }
       
       const zoneChanged = currentZone.zone !== lastZone.current;
       const projectChanged = activeProject.project !== lastProject.current;
