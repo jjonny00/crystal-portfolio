@@ -30,6 +30,7 @@ const UnifiedCrystalScene = ({
   // FIXED: Animation coordination
   const lastAnimationState = useRef(null);
   const reformStartTime = useRef(null);
+  const reformTimeouts = useRef([]);
   
   // Component state
   const [showWholeCrystal, setShowWholeCrystal] = useState(true);
@@ -98,6 +99,10 @@ const UnifiedCrystalScene = ({
         });
       }
 
+      // Clear any pending reform timeouts when state changes
+      reformTimeouts.current.forEach(clearTimeout);
+      reformTimeouts.current = [];
+
       // Handle visibility changes based on animation state
       switch (currentState) {
         case 'hero':
@@ -133,10 +138,18 @@ const UnifiedCrystalScene = ({
           break;
           
         case 'reforming_crystal':
-          // FIXED: This is when we switch from facets to whole crystal
-          setShowWholeCrystal(true);
-          setShowFacets(false);
-          reformStartTime.current = clock.getElapsedTime(); // Track reform start
+          // Show facets moving back to center then reveal whole crystal
+          setShowWholeCrystal(false);
+          setShowFacets(true);
+          reformStartTime.current = clock.getElapsedTime();
+
+          // Reveal whole crystal slightly before facets disappear
+          reformTimeouts.current.push(
+            setTimeout(() => setShowWholeCrystal(true), config.timing.reform.crystalAppearTime)
+          );
+          reformTimeouts.current.push(
+            setTimeout(() => setShowFacets(false), config.timing.reform.facetsDisappearTime)
+          );
           break;
           
         case 'reforming_camera':
@@ -247,6 +260,13 @@ const UnifiedCrystalScene = ({
       }
     }
   });
+
+  // Cleanup any pending timeouts on unmount
+  useEffect(() => {
+    return () => {
+      reformTimeouts.current.forEach(clearTimeout);
+    };
+  }, []);
 
   /**
    * Get facet color by index
