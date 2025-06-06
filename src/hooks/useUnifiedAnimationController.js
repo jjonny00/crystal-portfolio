@@ -413,16 +413,21 @@ export const useUnifiedAnimationController = (options = {}) => {
       if (zoneChanged && !animationState.isTransitioning) {
         
         if (currentZone.zone === 'hero') {
-          // Direct to hero - no animation needed since it's the start
-          setAnimationState(prev => ({
-            ...prev,
-            state: ANIMATION_STATES.HERO,
-            crystalForm: 'whole',
-            cameraState: 'hero',
-            focusedFacet: null,
-            isTransitioning: false
-          }));
-        } 
+          if (animationState.crystalForm === 'exploded') {
+            // Coming from exploded state - play reform sequence
+            startReformSequence();
+          } else {
+            // Already whole - just reset state
+            setAnimationState(prev => ({
+              ...prev,
+              state: ANIMATION_STATES.HERO,
+              crystalForm: 'whole',
+              cameraState: 'hero',
+              focusedFacet: null,
+              isTransitioning: false
+            }));
+          }
+        }
         else if (currentZone.zone === 'overview') {
           if (lastZone.current === 'hero') {
             // FIXED: Hero to overview - trigger coordinated explosion
