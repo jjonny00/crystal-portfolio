@@ -241,6 +241,7 @@ export const useUnifiedAnimationController = (options = {}) => {
   const animationSequence = useRef(null);
   const animationPhase = useRef(null);  // Track which phase of animation we're in
   const lastZone = useRef('hero');
+  const sequenceTarget = useRef(null);  // Track target zone for active sequence
   const lastProject = useRef(null);
   const updateThrottle = useRef({
     timeout: null,
@@ -313,6 +314,7 @@ export const useUnifiedAnimationController = (options = {}) => {
    */
   const startReformSequence = useCallback((target = 'about') => {
     clearAnimationSequence();
+    sequenceTarget.current = target;
     
     if (debugMode) {
       console.log('🎬 Starting coordinated reform sequence');
@@ -350,8 +352,13 @@ export const useUnifiedAnimationController = (options = {}) => {
             state: target === 'hero'
               ? ANIMATION_STATES.HERO
               : ANIMATION_STATES.ABOUT,
+            cameraState: target,
             isTransitioning: false
           }));
+
+          // Ensure zone tracking matches the final position
+          lastZone.current = target;
+          sequenceTarget.current = null;
           
           if (debugMode) {
             console.log('✅ Reform sequence complete - crystal reformed and camera stable');
