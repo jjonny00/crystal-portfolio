@@ -120,8 +120,8 @@ export const ANIMATION_CONFIG = {
     // Overall layout zones
     hero: { start: 0, end: 0.12 },
     overview: { start: 0.12, end: 0.24 },
-    projects: { start: 0.25, end: 0.87 },
-    about: { start: 0.87, end: 1.0 }
+    projects: { start: 0.25, end: 0.875 },
+    about: { start: 0.875, end: 1.0 }
   },
 
   projectSections: {
@@ -131,7 +131,7 @@ export const ANIMATION_CONFIG = {
     craft:      { start: 0.4566, end: 0.5599 },
     system:     { start: 0.5599, end: 0.6633 },
     leadership: { start: 0.6633, end: 0.7666 },
-    exploration:{ start: 0.7666, end: 0.87 }
+    exploration:{ start: 0.7666, end: 0.875 }
   }
 };
 
