@@ -102,10 +102,10 @@ export const ANIMATION_CONFIG = {
     explosionDuration: 1200,     // Crystal explodes + camera to overview
     explosionSettle: 300,        // Final settling time
     
-    // Reform sequence - overview/projects to about
+    // Reform sequence - return crystal to whole (hero or about)
     reformPrepare: 500,          // Move to pre-reform position
     reformDuration: 1000,        // Crystal reforms
-    reformCameraMove: 800,       // Camera moves to final about position
+    reformCameraMove: 800,       // Camera moves to final position
     reformSettle: 200,           // Final settling
     
     // Project transitions
@@ -307,9 +307,11 @@ export const useUnifiedAnimationController = (options = {}) => {
   }, [clearAnimationSequence, config, debugMode]);
 
   /**
-   * FIXED: Coordinated reform sequence (overview/projects to about)
+   * FIXED: Coordinated reform sequence
+   * Now accepts a target ("hero" or "about") so the final camera
+   * position matches the zone that triggered the sequence.
    */
-  const startReformSequence = useCallback(() => {
+  const startReformSequence = useCallback((target = 'about') => {
     clearAnimationSequence();
     
     if (debugMode) {
@@ -334,18 +336,20 @@ export const useUnifiedAnimationController = (options = {}) => {
       }));
 
       animationSequence.current = setTimeout(() => {
-        // Phase 3: Camera moves to final about position
+        // Phase 3: Camera moves to final target position
         setAnimationState(prev => ({
           ...prev,
           state: ANIMATION_STATES.REFORMING_CAMERA,
-          cameraState: 'about'  // FIXED: Now camera moves to final position
+          cameraState: target  // Move camera to the requested final zone
         }));
 
         animationSequence.current = setTimeout(() => {
           // Phase 4: Final settle
           setAnimationState(prev => ({
             ...prev,
-            state: ANIMATION_STATES.ABOUT,
+            state: target === 'hero'
+              ? ANIMATION_STATES.HERO
+              : ANIMATION_STATES.ABOUT,
             isTransitioning: false
           }));
           
@@ -414,8 +418,8 @@ export const useUnifiedAnimationController = (options = {}) => {
         
         if (currentZone.zone === 'hero') {
           if (animationState.crystalForm === 'exploded') {
-            // Coming from exploded state - play reform sequence
-            startReformSequence();
+            // Coming from exploded state - play reform sequence back to hero
+            startReformSequence('hero');
           } else {
             // Already whole - just reset state
             setAnimationState(prev => ({
@@ -455,9 +459,9 @@ export const useUnifiedAnimationController = (options = {}) => {
           }));
         }
         else if (currentZone.zone === 'about') {
-          // FIXED: About section - trigger coordinated reform
+          // FIXED: About section - trigger coordinated reform to about
           if (animationState.crystalForm === 'exploded') {
-            startReformSequence();
+            startReformSequence('about');
           } else {
             // Already reformed
             setAnimationState(prev => ({
