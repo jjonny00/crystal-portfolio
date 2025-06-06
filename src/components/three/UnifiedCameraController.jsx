@@ -68,9 +68,10 @@ const UnifiedCameraController = ({
       newState === 'reform_settling';
     
     // FIXED: Only update camera targets when necessary
-    const shouldUpdateCamera = 
+    const shouldUpdateCamera =
       !lastAnimationState.current ||
       lastAnimationState.current.cameraState !== newCameraState ||
+      lastAnimationState.current.focusedFacet !== animationData.focusedFacet ||
       (!coordinatedTransition.current && isCoordinatedSequence);
 
     if (shouldUpdateCamera) {
