@@ -9,6 +9,9 @@ import * as THREE from 'three'
 // Import existing material manager
 import MaterialManager from './MaterialManager'
 
+//Import particle system
+import DustParticleSystem from './DustParticleSystem';
+
 /**
  * FIXED: Crystal Scene with instant, non-overlapping form changes + ease-in reform
  */
@@ -195,7 +198,7 @@ const UnifiedCrystalScene = ({
             facetRef.position.lerp(targetPos, facetSpeed);
             
             // Check if this facet has reached the center
-            if (distanceToCenter > 0.2) {
+            if (distanceToCenter > 0.8) {
               allFacetsAtCenter = false;
             }
           } else {
@@ -245,6 +248,16 @@ const UnifiedCrystalScene = ({
         config={config}
         materialRef={crystalMaterialRef}
         performanceConfig={performanceConfig}
+      />
+
+      <DustParticleSystem
+        animationData={animationData}
+        performanceConfig={performanceConfig}
+        visible={
+          animationData?.crystalForm === 'exploded' || 
+          animationData?.state === 'overview' ||
+          animationData?.state === 'project_focused'
+        }
       />
       
       {/* FIXED: Whole Crystal with INSTANT visibility control */}
