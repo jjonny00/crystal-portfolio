@@ -254,9 +254,8 @@ const UnifiedCrystalScene = ({
         animationData={animationData}
         performanceConfig={performanceConfig}
         visible={
-          animationData?.crystalForm === 'exploded' || 
-          animationData?.state === 'overview' ||
-          animationData?.state === 'project_focused'
+          animationData?.state !== 'hero' &&
+          animationData?.state !== 'about'
         }
       />
       
