@@ -10,7 +10,9 @@ import * as THREE from 'three'
 import MaterialManager from './MaterialManager'
 
 //Import particle system
-import DustParticleSystem from './DustParticleSystem';
+// Existing synchronized particle system disabled for testing
+// import DustParticleSystem from './DustParticleSystem';
+import PersistentDustSystem from './PersistentDustSystem';
 
 /**
  * FIXED: Crystal Scene with instant, non-overlapping form changes + ease-in reform
@@ -250,15 +252,8 @@ const UnifiedCrystalScene = ({
         performanceConfig={performanceConfig}
       />
 
-      <DustParticleSystem
-        animationData={animationData}
-        performanceConfig={performanceConfig}
-        visible={
-          animationData?.crystalForm === 'exploded' || 
-          animationData?.state === 'overview' ||
-          animationData?.state === 'project_focused'
-        }
-      />
+      {/* Temporary always-on dust system for debugging */}
+      <PersistentDustSystem />
       
       {/* FIXED: Whole Crystal with INSTANT visibility control */}
       {showWholeCrystal && (
