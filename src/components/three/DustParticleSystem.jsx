@@ -298,10 +298,19 @@ const DustParticleSystem = ({
     }
   }, [visible]);
 
-  if (!visible || particleConfig.count === 0) return null;
+  // Keep particle system mounted even when not visible to prevent flicker
+  // Returning null here would remove the geometry and force a costly
+  // re-creation on the next render. Instead we toggle the "visible" flag on the
+  // existing object so particles persist across transitions.
+
+  if (particleConfig.count === 0) return null;
 
   return (
-    <points ref={particlesRef} geometry={geometry} material={material} />
+    <points
+      ref={particlesRef}
+      geometry={geometry}
+      material={material}
+    />
   );
 };
 
