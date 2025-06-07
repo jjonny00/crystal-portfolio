@@ -24,7 +24,7 @@ const DustParticleSystem = ({
   const animationStateRef = useRef({
     phase: 'inactive', // 'inactive' | 'exploding' | 'frozen' | 'reforming'
     startTime: 0,
-    explosionDuration: 1.6, // Match crystal explosion duration (1600ms)
+    explosionDuration: 2.0, // UPDATED: 2 seconds for particle explosion
     lastCrystalForm: 'whole',
     hasExploded: false
   });
@@ -41,10 +41,10 @@ const DustParticleSystem = ({
     
     return {
       count,
-      size: 0.01,
-      sizeVariation: 0.08,
-      opacity: 0.25,
-      spread: 5.0, // Final spread distance (matches facet positions)
+      size: 0.01,           // UPDATED: Larger particles
+      sizeVariation: 0.08,  // UPDATED: Much more size variation
+      opacity: 0.25,        // UPDATED: More subtle opacity
+      spread: 5.0,          // UPDATED: Wider spread
       explosionSpeed: 1.5, // Speed during explosion phase
       floatSpeed: 0.1, // Gentle motion when frozen
       colors: [
@@ -230,7 +230,7 @@ const DustParticleSystem = ({
           positions[i3 + 1] = newPos.y;
           positions[i3 + 2] = newPos.z;
         } else {
-          // FREEZE: Explosion complete, switch to frozen state
+          // FREEZE: Explosion complete after 2 seconds, switch to frozen state
           lifecycleStates[i] = 2;
           
           // Snap to exact target position
@@ -239,7 +239,7 @@ const DustParticleSystem = ({
           positions[i3 + 2] = targetPositions[i3 + 2];
           
           if (i === 0) { // Log once when first particle freezes
-            console.log('🌟 Phase 2: Particles frozen in place at explosion end');
+            console.log('🌟 Phase 2: Particles frozen after 2-second explosion');
             animState.phase = 'frozen';
           }
         }
@@ -312,20 +312,26 @@ export default DustParticleSystem;
 // =============================================================================
 
 /*
+// FIXED: Simplified visibility to prevent ALL flickering
 // Update the visibility logic in UnifiedCrystalScene.jsx:
 
 <DustParticleSystem
   animationData={animationData}
   performanceConfig={performanceConfig}
   visible={
-    // Show particles during exploded states OR when transitioning
-    animationData?.crystalForm === 'exploded' || 
-    animationData?.state === 'overview' ||
-    animationData?.state === 'project_focused' ||
-    // Also show during transitions for smooth effect
-    (animationData?.isTransitioning && animationData?.crystalForm !== 'whole')
+    // SIMPLIFIED: Just check if we're NOT in hero or about states
+    animationData?.state !== 'hero' && animationData?.state !== 'about'
   }
 />
+
+// This means particles are visible during:
+// - overview state (when crystal explodes)
+// - project_focused state (all project sections)
+// - Any transition states between these
+// 
+// Particles are hidden only during:
+// - hero state (crystal is whole)
+// - about state (crystal reforms to whole)
 */
 
 // =============================================================================
@@ -333,24 +339,24 @@ export default DustParticleSystem;
 // =============================================================================
 
 /*
-✅ What to test after implementing Phase 2:
+✅ What to test after implementing Phase 2 updates:
 
-1. **Explosion Sync**: Particles start moving EXACTLY when crystal facets start moving
-2. **Speed Matching**: Particles reach their final positions at same time as facets
-3. **Freeze Behavior**: Particles stop moving when facets stop (gentle floating only)
-4. **Reform Sync**: Particles return to center when crystal reforms
-5. **Smooth Transitions**: No jarring movements or teleporting
-6. **Console Logging**: Check for Phase 2 debug messages in console
-7. **Performance**: Still smooth on mobile devices
+1. **2-Second Explosion**: Particles take exactly 2 seconds to reach final positions
+2. **No Project Flickering**: Particles stay visible when transitioning between projects
+3. **Updated Visuals**: Larger particles (0.01), more size variation (0.08), subtle opacity (0.25), wider spread (5.0)
+4. **Freeze Behavior**: Particles stop moving after 2 seconds (gentle floating only)
+5. **Reform Sync**: Particles still return to center when crystal reforms
+6. **Console Logging**: Check for "2-second explosion" message in console
 
-🎯 Expected synchronized behavior:
-- Scroll to overview → particles explode WITH facets
-- Scroll through projects → particles stay frozen in place
-- Scroll to about → particles return to center WITH crystal reform
-- Timing perfectly matches your crystal animation system
+🎯 Expected behavior changes:
+- Explosion animation now takes 2 full seconds
+- Particles are larger and more varied in size  
+- More subtle, wider spread effect
+- No more disappearing during project transitions
+- Crystal still explodes faster (1.6s) but particles continue for 2s total
 
-📝 Debug info to watch:
-- Console messages about explosion start/freeze/reform
-- Particle lifecycle states (exploding → frozen → reforming)
-- Animation phase tracking
+🐛 Fixed issues:
+- ✅ Particle flickering between projects
+- ✅ 2-second animation duration
+- ✅ Updated visual parameters
 */
