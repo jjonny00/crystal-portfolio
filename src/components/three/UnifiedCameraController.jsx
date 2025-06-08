@@ -168,15 +168,15 @@ const UnifiedCameraController = ({
     camera.updateProjectionMatrix();
 
     // Optional: Debug logging for large movements
-    if (process.env.NODE_ENV === 'development') {
-      const positionDistance = camera.position.distanceTo(currentTarget.current.position);
-      if (positionDistance > 0.1) {
-        // Only log when camera is still moving significantly
-        if (Math.random() < 0.01) { // Reduce log frequency
-          console.log(`📹 Camera moving: distance ${positionDistance.toFixed(2)}, speed ${currentSpeeds.position.toFixed(3)}`);
-        }
-      }
-    }
+    // if (process.env.NODE_ENV === 'development') {
+    //   const positionDistance = camera.position.distanceTo(currentTarget.current.position);
+    //   if (positionDistance > 0.1) {
+    //     // Only log when camera is still moving significantly
+    //     if (Math.random() < 0.01) { // Reduce log frequency
+    //       console.log(`📹 Camera moving: distance ${positionDistance.toFixed(2)}, speed ${currentSpeeds.position.toFixed(3)}`);
+    //     }
+    //   }
+    // }
   });
 
   /**

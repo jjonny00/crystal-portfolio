@@ -1,7 +1,5 @@
 // src/components/layout/Fixed3DCanvas.jsx
-// UPDATED: Phase 1 - Simplified with unified animation system
-// REMOVED: Complex scroll observer integration, multiple camera controllers
-// ADDED: Single animationData prop from MasterAnimationCoordinator
+// UPDATED: Added PersistentDustSystem to isolate from UnifiedCrystalScene re-renders
 
 import React from 'react';
 import { Canvas } from '@react-three/fiber';
@@ -13,6 +11,7 @@ import * as THREE from 'three';
 // NEW: Unified 3D components
 import UnifiedCameraController from '../three/UnifiedCameraController';
 import UnifiedCrystalScene from '../three/UnifiedCrystalScene';
+import PersistentDustSystem from '../three/PersistentDustSystem';
 import { FPSCounter } from '../ui/FpsDisplay';
 
 
@@ -23,6 +22,7 @@ import { FPSCounter } from '../ui/FpsDisplay';
  * Fixed3DCanvas - SIMPLIFIED
  * Now receives single animationData prop instead of many complex props
  * All animation logic moved to unified system
+ * UPDATED: Added PersistentDustSystem isolated from crystal animations
  */
 const Fixed3DCanvas = ({ 
   // Animation data from MasterAnimationCoordinator
@@ -74,6 +74,11 @@ const Fixed3DCanvas = ({
         <FPSCounter />
         
         <color attach="background" args={['#050505']} />
+        
+        {/* MOVED: PersistentDustSystem here - isolated from crystal animations */}
+        <PersistentDustSystem 
+          color="#00fff6"
+        />
         
         {/*Animation Debug*/}
         {/* <AnimationDebugDisplay animationData={animationData} /> */}

@@ -1,4 +1,5 @@
 // FIXED: src/components/three/UnifiedCrystalScene.jsx
+// REMOVED: PersistentDustSystem (moved to Fixed3DCanvas)
 // Fixed crystal form transitions with instant, non-overlapping visibility swaps + ease-in reform
 
 import { useRef, useState, useEffect } from 'react'
@@ -9,13 +10,11 @@ import * as THREE from 'three'
 // Import existing material manager
 import MaterialManager from './MaterialManager'
 
-//Import particle system
-// Existing synchronized particle system disabled for testing
-// import DustParticleSystem from './DustParticleSystem';
-import PersistentDustSystem from './PersistentDustSystem';
+// REMOVED: PersistentDustSystem import (moved to Fixed3DCanvas)
 
 /**
  * FIXED: Crystal Scene with instant, non-overlapping form changes + ease-in reform
+ * REMOVED: PersistentDustSystem (moved to Fixed3DCanvas to prevent re-render strobing)
  */
 const UnifiedCrystalScene = ({ 
   animationData,
@@ -252,8 +251,7 @@ const UnifiedCrystalScene = ({
         performanceConfig={performanceConfig}
       />
 
-      {/* Temporary always-on dust system for debugging */}
-      <PersistentDustSystem />
+      {/* REMOVED: PersistentDustSystem (moved to Fixed3DCanvas) */}
       
       {/* FIXED: Whole Crystal with INSTANT visibility control */}
       {showWholeCrystal && (

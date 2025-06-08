@@ -382,13 +382,13 @@ export const useUnifiedAnimationController = (options = {}) => {
       cameraConfig = config.camera[animationState.cameraState] || config.camera.hero;
     }
     
-    if (debugMode && cameraConfig) {
-      console.log(`📹 Camera config for "${animationState.cameraState}":`, {
-        position: cameraConfig.position?.toArray(),
-        target: cameraConfig.target?.toArray(),
-        fov: cameraConfig.fov
-      });
-    }
+    // if (debugMode && cameraConfig) {
+    //   console.log(`📹 Camera config for "${animationState.cameraState}":`, {
+    //     position: cameraConfig.position?.toArray(),
+    //     target: cameraConfig.target?.toArray(),
+    //     fov: cameraConfig.fov
+    //   });
+    // }
     
     return cameraConfig;
   }, [animationState.cameraState, animationState.focusedFacet, animationState.state, config, debugMode]);

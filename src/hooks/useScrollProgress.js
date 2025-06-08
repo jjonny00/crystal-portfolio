@@ -96,15 +96,15 @@ export const useScrollProgress = (options = {}) => {
     let progress = Math.min(Math.max(scrollTop / maxScroll, 0), 1);
     
     // DEBUG: Log scroll calculation
-    if (debugMode) {
-      console.log('📏 Scroll Debug:', {
-        scrollTop,
-        maxScroll,
-        rawProgress: progress,
-        containerHeight: container.clientHeight,
-        contentHeight: container.scrollHeight
-      });
-    }
+    // if (debugMode) {
+    //   console.log('📏 Scroll Debug:', {
+    //     scrollTop,
+    //     maxScroll,
+    //     rawProgress: progress,
+    //     containerHeight: container.clientHeight,
+    //     contentHeight: container.scrollHeight
+    //   });
+    // }
 
     // Detect snapping by checking for small movements
     const scrollDelta = Math.abs(scrollTop - lastScrollTop.current);
