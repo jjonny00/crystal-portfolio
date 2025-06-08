@@ -76,8 +76,13 @@ const Fixed3DCanvas = ({
         <color attach="background" args={['#050505']} />
         
         {/* MOVED: PersistentDustSystem here - isolated from crystal animations */}
-        <PersistentDustSystem 
-          color="#00fff6"
+        <PersistentDustSystem
+          colorPalette={[
+            '#ffffff',
+            '#bb86fc',
+            '#64ffda',
+            '#00fff6'
+          ]}
         />
         
         {/*Animation Debug*/}

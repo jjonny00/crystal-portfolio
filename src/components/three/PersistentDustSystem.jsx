@@ -13,9 +13,11 @@ const PersistentDustSystem = ({
   baseSize = 0.04,
   sizeVariation = 1.0,
   opacity = 0.5,
-  
-  // Simplified to single color only
+
+  // Single fallback color
   color = '#00fff6',
+  // Optional palette for per-particle color variety
+  colorPalette,
   blending = THREE.NormalBlending,
   alphaTest = 0.01,
   sizeAttenuation = true,
@@ -43,6 +45,11 @@ const PersistentDustSystem = ({
 
   // Convert single color to THREE.Color
   const singleColor = useMemo(() => new THREE.Color(color), [color]);
+  // Map palette strings to THREE.Color instances (if provided)
+  const paletteColors = useMemo(
+    () => colorPalette?.map((c) => new THREE.Color(c)) || [],
+    [colorPalette]
+  );
 
   const geometry = useMemo(() => {
     const positions = new Float32Array(count * 3);
@@ -67,12 +74,18 @@ const PersistentDustSystem = ({
       const sizeMultiplier = 1 + (Math.random() - 0.5) * sizeVariation;
       sizes[i] = baseSize * sizeMultiplier;
 
-      // SIMPLIFIED: Just use the single color for all particles
+      // Pick a base color: from palette if provided, otherwise the single color
+      const baseColor =
+        paletteColors.length > 0
+          ? paletteColors[Math.floor(Math.random() * paletteColors.length)]
+          : singleColor;
+
+      // Slight brightness variation for subtle differences
       const brightness = 0.8 + Math.random() * 0.4;
-      
-      particleColorsArray[i3] = singleColor.r * brightness;
-      particleColorsArray[i3 + 1] = singleColor.g * brightness;
-      particleColorsArray[i3 + 2] = singleColor.b * brightness;
+
+      particleColorsArray[i3] = baseColor.r * brightness;
+      particleColorsArray[i3 + 1] = baseColor.g * brightness;
+      particleColorsArray[i3 + 2] = baseColor.b * brightness;
     }
 
     velocities.current = vel;
@@ -83,7 +96,7 @@ const PersistentDustSystem = ({
     geometry.setAttribute('color', new THREE.BufferAttribute(particleColorsArray, 3));
     
     return geometry;
-  }, [count, boundary, speed, baseSize, sizeVariation, singleColor]);
+  }, [count, boundary, speed, baseSize, sizeVariation, singleColor, paletteColors]);
 
   const material = useMemo(() => {
     return new THREE.PointsMaterial({
@@ -107,72 +120,6 @@ const PersistentDustSystem = ({
   }, [baseSize, sizeAttenuation, opacity, alphaTest, 
       blending, depthWrite, fog, toneMapped, particleTexture]);
 
-  // Color interpolation function
-  const interpolateColor = (color1, color2, factor) => {
-    return {
-      r: color1.r + (color2.r - color1.r) * factor,
-      g: color1.g + (color2.g - color1.g) * factor,
-      b: color1.b + (color2.b - color1.b) * factor
-    };
-  };
-
-  // Get color for particle based on cycle mode
-  const getParticleColor = (particleIndex, time) => {
-    const offset = colorOffsets.current[particleIndex];
-    const adjustedTime = time * transitionSpeed + offset;
-    
-    // Ensure we have colors to work with
-    if (!colorPalette || colorPalette.length === 0) {
-      return new THREE.Color(color);
-    }
-    
-    // Single color case
-    if (colorPalette.length === 1) {
-      return colorPalette[0];
-    }
-    
-    switch (colorCycleMode) {
-      case 'smooth': {
-        // Smooth cycling through all colors with proper bounds checking
-        const cycle = (adjustedTime * 0.5) % colorPalette.length;
-        
-        // Ensure we stay within bounds
-        const lowerIndex = Math.floor(cycle) % colorPalette.length;
-        const upperIndex = (lowerIndex + 1) % colorPalette.length;
-        
-        // Clamp factor between 0 and 1
-        const factor = Math.max(0, Math.min(1, cycle - Math.floor(cycle)));
-        
-        // Ensure valid indices
-        const safeLocalLowerIndex = Math.max(0, Math.min(colorPalette.length - 1, lowerIndex));
-        const safeUpperIndex = Math.max(0, Math.min(colorPalette.length - 1, upperIndex));
-        
-        return interpolateColor(
-          colorPalette[safeLocalLowerIndex], 
-          colorPalette[safeUpperIndex], 
-          factor
-        );
-      }
-      
-      case 'discrete': {
-        // Discrete color steps with bounds checking
-        const cycle = Math.abs(Math.floor((adjustedTime * 0.5))) % colorPalette.length;
-        const safeIndex = Math.max(0, Math.min(colorPalette.length - 1, cycle));
-        return colorPalette[safeIndex];
-      }
-      
-      case 'random': {
-        // Each particle randomly picks from palette with bounds checking
-        const normalizedSin = (Math.sin(adjustedTime * 0.1) + 1) * 0.5; // 0 to 1
-        const randomIndex = Math.floor(normalizedSin * colorPalette.length);
-        const safeIndex = Math.max(0, Math.min(colorPalette.length - 1, randomIndex));
-        return colorPalette[safeIndex];
-      }
-      
-      default:
-        return colorPalette[0] || new THREE.Color(color);
-    }
-  };
 
   useFrame((state, delta) => {
     const pos = geometry.attributes.position.array;
