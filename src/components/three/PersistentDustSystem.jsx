@@ -15,7 +15,7 @@ const PersistentDustSystem = ({
   opacity = 0.5,
   
   // Simplified to single color only
-  color = '#00fff6',
+  color = '#f0c3ff',
   blending = THREE.NormalBlending,
   alphaTest = 0.01,
   sizeAttenuation = true,
