@@ -77,7 +77,6 @@ const Fixed3DCanvas = ({
         
         {/* MOVED: PersistentDustSystem here - isolated from crystal animations */}
         <PersistentDustSystem 
-          color="#00fff6"
         />
         
         {/*Animation Debug*/}

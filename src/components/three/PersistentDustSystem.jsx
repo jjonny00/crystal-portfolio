@@ -7,16 +7,16 @@ import * as THREE from 'three';
  * Enhanced Persistent Dust System with Color Cycling
  */
 const PersistentDustSystem = ({
-  count = 300,
-  boundary = 3.6,
-  speed = 0.0005,
-  baseSize = 0.04,
-  sizeVariation = 1.0,
-  opacity = 0.5,
+  count = 800,
+  boundary = 5.25,
+  speed = 0.0002,
+  baseSize = 0.08,
+  sizeVariation = 100.0,
+  opacity = 0.6,
   
   // Simplified to single color only
-  color = '#f0c3ff',
-  blending = THREE.NormalBlending,
+  color = '#5d70ff',
+  blending = THREE.AdditiveBlending,
   alphaTest = 0.01,
   sizeAttenuation = true,
   depthWrite = false,

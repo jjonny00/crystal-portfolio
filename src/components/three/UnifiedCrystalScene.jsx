@@ -10,6 +10,8 @@ import * as THREE from 'three'
 // Import existing material manager
 import MaterialManager from './MaterialManager'
 
+import VolumetricOmniLight, { SmartVolumetricOmniLight } from './VolumetricOmniLight'
+
 // REMOVED: PersistentDustSystem import (moved to Fixed3DCanvas)
 
 /**
@@ -251,7 +253,11 @@ const UnifiedCrystalScene = ({
         performanceConfig={performanceConfig}
       />
 
-      {/* REMOVED: PersistentDustSystem (moved to Fixed3DCanvas) */}
+      {/* Crystal Core Light */}
+      {/* <SmartVolumetricOmniLight 
+        animationData={animationData}
+        visible={true}
+      /> */}
       
       {/* FIXED: Whole Crystal with INSTANT visibility control */}
       {showWholeCrystal && (
