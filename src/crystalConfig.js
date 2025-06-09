@@ -24,6 +24,21 @@ export const explodedPositions = {
   exploration: [-0.6, 0.7, 0.0]   // More dynamic position
 }
 
+// === CAMERA POSITIONS ===
+export const cameraPositions = {
+  hero: [0, 3.2, 2.4],
+  overview: [0, 2.5, 6.2],
+  about: [0, 2.0, 3.5],
+  projects: {
+    empathy: [2.8, -1.5, 3.2],
+    narrative: [3.5, 0.2, 2.8],
+    craft: [3.8, 2.5, 3.0],
+    system: [-3.2, 1.0, 2.5],
+    leadership: [1.2, 4.0, 3.2],
+    exploration: [-2.8, 2.8, 2.6]
+  }
+}
+
 // Define the fracture positions (5% of the way to final positions)
 export const fracturePositions = {
   empathy: [0.015, -0.035, -0.010],
