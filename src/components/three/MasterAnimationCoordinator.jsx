@@ -8,10 +8,11 @@ import { useUnifiedAnimationController } from '../../hooks/useUnifiedAnimationCo
 /**
  * SIMPLIFIED: Master Animation Coordinator with immediate state changes
  */
-const MasterAnimationCoordinator = ({ 
+const MasterAnimationCoordinator = ({
   children,
   debugMode = false,
-  onAnimationStateChange = null 
+  onAnimationStateChange = null,
+  config = null
 }) => {
   // Get scroll progress with optimized frequency
   const scrollData = useScrollProgress({
@@ -23,7 +24,8 @@ const MasterAnimationCoordinator = ({
   // Get unified animation state with simplified coordination
   const animationController = useUnifiedAnimationController({
     debugMode: debugMode,
-    onStateChange: onAnimationStateChange
+    onStateChange: onAnimationStateChange,
+    config: config || undefined
   });
 
   // SIMPLIFIED: Direct scroll updates with minimal debouncing

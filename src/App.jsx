@@ -8,6 +8,59 @@ import './styles/scroll-snap.css';
 
 // NEW: Single animation coordinator replaces all the complex state management
 import MasterAnimationCoordinator from './components/three/MasterAnimationCoordinator';
+import { ANIMATION_CONFIG } from './hooks/useUnifiedAnimationController';
+import { Vector3 } from 'three';
+
+// Convert UI config into animation config used by the controller
+const buildAnimationConfig = (uiConfig) => {
+  const toVec = (arr) => new Vector3(...arr);
+
+  if (!uiConfig?.cameraPositions) return ANIMATION_CONFIG;
+
+  return {
+    ...ANIMATION_CONFIG,
+    camera: {
+      hero: {
+        ...ANIMATION_CONFIG.camera.hero,
+        position: toVec(uiConfig.cameraPositions.hero)
+      },
+      overview: {
+        ...ANIMATION_CONFIG.camera.overview,
+        position: toVec(uiConfig.cameraPositions.overview)
+      },
+      about: {
+        ...ANIMATION_CONFIG.camera.about,
+        position: toVec(uiConfig.cameraPositions.about)
+      },
+      projects: {
+        empathy: {
+          ...ANIMATION_CONFIG.camera.projects.empathy,
+          position: toVec(uiConfig.cameraPositions.projects.empathy)
+        },
+        narrative: {
+          ...ANIMATION_CONFIG.camera.projects.narrative,
+          position: toVec(uiConfig.cameraPositions.projects.narrative)
+        },
+        craft: {
+          ...ANIMATION_CONFIG.camera.projects.craft,
+          position: toVec(uiConfig.cameraPositions.projects.craft)
+        },
+        system: {
+          ...ANIMATION_CONFIG.camera.projects.system,
+          position: toVec(uiConfig.cameraPositions.projects.system)
+        },
+        leadership: {
+          ...ANIMATION_CONFIG.camera.projects.leadership,
+          position: toVec(uiConfig.cameraPositions.projects.leadership)
+        },
+        exploration: {
+          ...ANIMATION_CONFIG.camera.projects.exploration,
+          position: toVec(uiConfig.cameraPositions.projects.exploration)
+        }
+      }
+    }
+  };
+};
 
 // Layout components (unchanged)
 import ScrollablePortfolio from './components/layout/ScrollablePortfolio';
@@ -68,6 +121,9 @@ function App() {
       }
     }
   });
+  const [animationConfig, setAnimationConfig] = useState(
+    buildAnimationConfig(defaultConfig)
+  );
   
   const [materialVariant, setMaterialVariant] = useState('default');
   const [showUI, setShowUI] = useState(false);
@@ -205,6 +261,7 @@ function App() {
   // Handler functions (unchanged)
   const handleConfigUpdate = useCallback((newConfig) => {
     setConfig(newConfig);
+    setAnimationConfig(buildAnimationConfig(newConfig));
   }, []);
 
   const handleMaterialChange = useCallback((variant) => {
@@ -280,9 +337,10 @@ function App() {
       />
 
       {/* NEW: Master Animation Coordinator - Single source of truth for all animations */}
-      <MasterAnimationCoordinator 
+      <MasterAnimationCoordinator
         debugMode={process.env.NODE_ENV === 'development'}
         onAnimationStateChange={handleAnimationStateChange}
+        config={animationConfig}
       >
         {/* SIMPLIFIED: Fixed 3D Canvas now receives animationData from coordinator */}
         <Fixed3DCanvas
