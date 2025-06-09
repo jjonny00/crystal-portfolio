@@ -8,10 +8,20 @@ const CrystalControls = ({ onUpdate }) => {
   // Timing state
   const [timingValues, setTimingValues] = useState({
     'camera.explodeDuration': crystalConfig.timing.camera.explodeDuration,
-    'camera.reformDuration': crystalConfig.timing.camera.reformDuration,
-    'fracture.duration': crystalConfig.timing.fracture.duration,
-    'idle.transitionStartTime': crystalConfig.timing.idle.transitionStartTime,
-    'idle.transitionEndTime': crystalConfig.timing.idle.transitionEndTime,
+    'camera.reformDuration': crystalConfig.timing.camera.reformDuration
+  });
+
+  // Camera position state
+  const [cameraValues, setCameraValues] = useState({
+    'camera.hero': crystalConfig.cameraPositions.hero,
+    'camera.overview': crystalConfig.cameraPositions.overview,
+    'camera.about': crystalConfig.cameraPositions.about,
+    'camera.projects.empathy': crystalConfig.cameraPositions.projects.empathy,
+    'camera.projects.narrative': crystalConfig.cameraPositions.projects.narrative,
+    'camera.projects.craft': crystalConfig.cameraPositions.projects.craft,
+    'camera.projects.system': crystalConfig.cameraPositions.projects.system,
+    'camera.projects.leadership': crystalConfig.cameraPositions.projects.leadership,
+    'camera.projects.exploration': crystalConfig.cameraPositions.projects.exploration
   });
 
   // Position state  
@@ -82,6 +92,33 @@ const CrystalControls = ({ onUpdate }) => {
     updatedConfig[section][facet] = newPosition;
     
     // Notify parent component
+    onUpdate(updatedConfig);
+  };
+
+  // Handle camera position value changes
+  const handleCameraPositionChange = (key, index, value) => {
+    const numValue = parseFloat(value);
+    const parts = key.split('.');
+
+    const newPosition = [...cameraValues[key]];
+    newPosition[index] = numValue;
+
+    setCameraValues({
+      ...cameraValues,
+      [key]: newPosition
+    });
+
+    const updatedConfig = { ...crystalConfig };
+
+    if (parts.length === 2) {
+      updatedConfig.cameraPositions[parts[1]] = newPosition;
+    } else if (parts.length === 3) {
+      if (!updatedConfig.cameraPositions[parts[1]]) {
+        updatedConfig.cameraPositions[parts[1]] = { ...crystalConfig.cameraPositions[parts[1]] };
+      }
+      updatedConfig.cameraPositions[parts[1]][parts[2]] = newPosition;
+    }
+
     onUpdate(updatedConfig);
   };
 
@@ -163,9 +200,18 @@ const CrystalControls = ({ onUpdate }) => {
     setTimingValues({
       'camera.explodeDuration': crystalConfig.timing.camera.explodeDuration,
       'camera.reformDuration': crystalConfig.timing.camera.reformDuration,
-      'fracture.duration': crystalConfig.timing.fracture.duration,
-      'idle.transitionStartTime': crystalConfig.timing.idle.transitionStartTime,
-      'idle.transitionEndTime': crystalConfig.timing.idle.transitionEndTime,
+    });
+
+    setCameraValues({
+      'camera.hero': crystalConfig.cameraPositions.hero,
+      'camera.overview': crystalConfig.cameraPositions.overview,
+      'camera.about': crystalConfig.cameraPositions.about,
+      'camera.projects.empathy': crystalConfig.cameraPositions.projects.empathy,
+      'camera.projects.narrative': crystalConfig.cameraPositions.projects.narrative,
+      'camera.projects.craft': crystalConfig.cameraPositions.projects.craft,
+      'camera.projects.system': crystalConfig.cameraPositions.projects.system,
+      'camera.projects.leadership': crystalConfig.cameraPositions.projects.leadership,
+      'camera.projects.exploration': crystalConfig.cameraPositions.projects.exploration,
     });
     
     setPositionValues({
@@ -298,53 +344,6 @@ const CrystalControls = ({ onUpdate }) => {
         />
       </div>
       
-      <div style={sliderGroupStyle}>
-        <div style={sliderLabelStyle}>
-          <span>Fracture Duration</span>
-          <span>{timingValues['fracture.duration']}ms</span>
-        </div>
-        <input 
-          type="range" 
-          min="100" 
-          max="800" 
-          step="50"
-          value={timingValues['fracture.duration']} 
-          onChange={(e) => handleTimingChange('fracture.duration', e.target.value)}
-          style={sliderStyle}
-        />
-      </div>
-      
-      <div style={sliderGroupStyle}>
-        <div style={sliderLabelStyle}>
-          <span>Idle Transition Start</span>
-          <span>{timingValues['idle.transitionStartTime']}s</span>
-        </div>
-        <input 
-          type="range" 
-          min="0.2" 
-          max="2" 
-          step="0.1"
-          value={timingValues['idle.transitionStartTime']} 
-          onChange={(e) => handleTimingChange('idle.transitionStartTime', e.target.value)}
-          style={sliderStyle}
-        />
-      </div>
-      
-      <div style={sliderGroupStyle}>
-        <div style={sliderLabelStyle}>
-          <span>Idle Transition End</span>
-          <span>{timingValues['idle.transitionEndTime']}s</span>
-        </div>
-        <input 
-          type="range" 
-          min="1" 
-          max="3" 
-          step="0.1"
-          value={timingValues['idle.transitionEndTime']} 
-          onChange={(e) => handleTimingChange('idle.transitionEndTime', e.target.value)}
-          style={sliderStyle}
-        />
-      </div>
     </div>
   );
 
@@ -373,6 +372,42 @@ const CrystalControls = ({ onUpdate }) => {
                   step="0.1"
                   value={position[index]} 
                   onChange={(e) => handlePositionChange(key, index, e.target.value)}
+                  style={sliderStyle}
+                />
+              </div>
+            ))}
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  const renderCameraControls = () => (
+    <div>
+      <h3 style={{ fontSize: '14px', marginBottom: '15px' }}>Camera Positions</h3>
+
+      {Object.entries(cameraValues).map(([key, position]) => {
+        const parts = key.split('.');
+        const label = parts.length === 2 ? parts[1] : parts[2];
+        return (
+          <div key={key} style={sliderGroupStyle}>
+            <div style={{ fontSize: '13px', marginBottom: '8px', color: '#64ffda' }}>
+              {label.charAt(0).toUpperCase() + label.slice(1)}
+            </div>
+
+            {['X', 'Y', 'Z'].map((axis, index) => (
+              <div key={axis} style={{ marginBottom: '5px' }}>
+                <div style={sliderLabelStyle}>
+                  <span><span style={coordLabelStyle}>{axis}</span> Position</span>
+                  <span>{position[index].toFixed(2)}</span>
+                </div>
+                <input
+                  type="range"
+                  min="-5"
+                  max="5"
+                  step="0.1"
+                  value={position[index]}
+                  onChange={(e) => handleCameraPositionChange(key, index, e.target.value)}
                   style={sliderStyle}
                 />
               </div>
@@ -618,34 +653,41 @@ const CrystalControls = ({ onUpdate }) => {
       </h2>
       
       <div style={tabStyle}>
-        <button 
+        <button
           style={tabButtonStyle(activeTab === 'timing')}
           onClick={() => setActiveTab('timing')}
         >
           Timing
         </button>
-        <button 
+        <button
           style={tabButtonStyle(activeTab === 'positions')}
           onClick={() => setActiveTab('positions')}
         >
           Positions
         </button>
-        <button 
+        <button
+          style={tabButtonStyle(activeTab === 'camera')}
+          onClick={() => setActiveTab('camera')}
+        >
+          Camera
+        </button>
+        <button
           style={tabButtonStyle(activeTab === 'effects')}
           onClick={() => setActiveTab('effects')}
         >
           Effects
         </button>
-        <button 
+        <button
           style={tabButtonStyle(activeTab === 'material')}
           onClick={() => setActiveTab('material')}
         >
           Material
         </button>
       </div>
-      
+
       {activeTab === 'timing' && renderTimingControls()}
       {activeTab === 'positions' && renderPositionsControls()}
+      {activeTab === 'camera' && renderCameraControls()}
       {activeTab === 'effects' && renderEffectsControls()}
       {activeTab === 'material' && renderMaterialControls()}
       
