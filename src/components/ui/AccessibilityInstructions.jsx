@@ -1,10 +1,12 @@
-// components/ui/AccessibilityInstructions.jsx
+// UPDATED: src/components/ui/AccessibilityInstructions.jsx
+// Added debug panel shortcuts to the help system
+
 import React, { useState, useEffect } from 'react';
 import { animated, useSpring } from '@react-spring/web';
 
 /**
  * Component to display keyboard controls and accessibility instructions
- * Hidden by default with improved accessibility support and safer hotkeys
+ * UPDATED: Added debug panel shortcuts
  */
 const AccessibilityInstructions = ({ visible = true }) => {
   const [expanded, setExpanded] = useState(false);
@@ -197,6 +199,18 @@ const AccessibilityInstructions = ({ visible = true }) => {
                 margin: '8px 0'
               }} />
               
+              {/* ADDED: Debug Panel Controls */}
+              <div style={{ fontWeight: 'bold', marginBottom: '5px', color: '#64ffda' }}>Debug Panels:</div>
+              <div><strong>A</strong>: Toggle Animation Debug</div>
+              <div><strong>C</strong>: Toggle Crystal Debug</div>
+              
+              <div style={{ 
+                width: '100%', 
+                height: '1px', 
+                backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                margin: '8px 0'
+              }} />
+              
               <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>Effects Controls:</div>
               <div><strong>B</strong>: Toggle Bloom</div>
               <div><strong>C</strong>: Toggle Chromatic Aberration</div>
@@ -214,6 +228,24 @@ const AccessibilityInstructions = ({ visible = true }) => {
               <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>Performance Options:</div>
               <div><strong>M</strong>: Toggle Normal Maps</div>
               <div><strong>R</strong>: Reset to High Quality</div>
+              
+              {/* ADDED: Debug info */}
+              <div style={{ 
+                width: '100%', 
+                height: '1px', 
+                backgroundColor: 'rgba(100, 255, 218, 0.2)',
+                margin: '8px 0'
+              }} />
+              
+              <div style={{
+                fontSize: '11px',
+                color: 'rgba(100, 255, 218, 0.8)',
+                fontStyle: 'italic',
+                marginTop: '5px'
+              }}>
+                <div>💡 Debug panels help monitor performance</div>
+                <div>and troubleshoot animation issues</div>
+              </div>
             </>
           )}
         </animated.div>

@@ -1,12 +1,12 @@
-// FIXED: src/components/three/MasterAnimationCoordinator.jsx
-// Simplified master coordinator with immediate state changes
+// UPDATED: src/components/three/MasterAnimationCoordinator.jsx
+// Added keyboard control for animation debug panel
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useScrollProgress } from '../../hooks/useScrollProgress';
 import { useUnifiedAnimationController } from '../../hooks/useUnifiedAnimationController';
 
 /**
- * SIMPLIFIED: Master Animation Coordinator with immediate state changes
+ * SIMPLIFIED: Master Animation Coordinator with keyboard-controlled debug
  */
 const MasterAnimationCoordinator = ({
   children,
@@ -14,6 +14,9 @@ const MasterAnimationCoordinator = ({
   onAnimationStateChange = null,
   config = null
 }) => {
+  // ADDED: Local state for debug panel visibility
+  const [showAnimationDebug, setShowAnimationDebug] = useState(false);
+
   // Get scroll progress with optimized frequency
   const scrollData = useScrollProgress({
     throttleMs: 16,
@@ -27,6 +30,35 @@ const MasterAnimationCoordinator = ({
     onStateChange: onAnimationStateChange,
     config: config || undefined
   });
+
+  // ADDED: Keyboard listener for animation debug toggle
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Check if user is in an input field
+      const isInputField = e.target.tagName === 'INPUT' || 
+                          e.target.tagName === 'TEXTAREA' || 
+                          e.target.isContentEditable;
+      
+      if (isInputField) return;
+      
+      // Toggle animation debug with 'A' key
+      if (e.key === 'a' || e.key === 'A') {
+        if (!e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey) {
+          e.preventDefault();
+          setShowAnimationDebug(prev => {
+            const newState = !prev;
+            console.log(`🎬 Animation Debug Panel: ${newState ? 'ON' : 'OFF'}`);
+            return newState;
+          });
+        }
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
 
   // SIMPLIFIED: Direct scroll updates with minimal debouncing
   useEffect(() => {
@@ -86,8 +118,8 @@ const MasterAnimationCoordinator = ({
     <>
       {childrenWithProps}
       
-      {/* SIMPLIFIED: Debug overlay with immediate state info */}
-      {debugMode && (
+      {/* UPDATED: Debug overlay with keyboard-controlled visibility */}
+      {showAnimationDebug && (
         <DebugOverlay 
           scrollData={scrollData}
           animationData={animationData}
@@ -119,7 +151,7 @@ const DebugOverlay = ({ scrollData, animationData, animationController }) => {
       border: '1px solid rgba(100, 255, 218, 0.3)'
     }}>
       <div style={{ fontWeight: 'bold', marginBottom: '10px', color: '#64ffda' }}>
-        🎬 Animation Debug (SIMPLIFIED)
+        🎬 Animation Debug (Press 'A' to toggle)
       </div>
       
       {/* Scroll Info */}
@@ -178,10 +210,9 @@ const DebugOverlay = ({ scrollData, animationData, animationController }) => {
         marginTop: '10px',
         fontSize: '10px'
       }}>
-        <div style={{ color: '#4caf50', fontWeight: 'bold' }}>✅ SIMPLIFIED APPROACH</div>
-        <div>• Immediate state changes</div>
-        <div>• Components handle smooth transitions</div>
-        <div>• No complex timing coordination</div>
+        <div style={{ color: '#4caf50', fontWeight: 'bold' }}>✅ KEYBOARD CONTROLS</div>
+        <div>• Press 'A' to toggle this panel</div>
+        <div>• Press 'C' to toggle crystal debug</div>
         <div>• Same pattern as working projects</div>
       </div>
     </div>

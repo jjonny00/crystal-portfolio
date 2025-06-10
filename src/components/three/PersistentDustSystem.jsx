@@ -8,14 +8,14 @@ import * as THREE from 'three';
  */
 const PersistentDustSystem = ({
   count = 800,
-  boundary = 5.25,
-  speed = 0.0002,
-  baseSize = 0.08,
-  sizeVariation = 100.0,
-  opacity = 0.6,
+  boundary = 5.9,
+  speed = 0.0005,
+  baseSize = 0.03,
+  sizeVariation = 1000.0,
+  opacity = 0.9,
   
   // Simplified to single color only
-  color = '#5d70ff',
+  color = '#b3caff',
   blending = THREE.AdditiveBlending,
   alphaTest = 0.01,
   sizeAttenuation = true,

@@ -181,7 +181,7 @@ const ProjectsSection = ({
         </animated.div>
         
         {/* FIXED: Projects grid with proper responsive layout */}
-        <div style={{
+        {/* <div style={{
           display: 'grid',
           // FIXED: Use explicit grid columns instead of auto-fit
           gridTemplateColumns: isMobile 
@@ -216,7 +216,7 @@ const ProjectsSection = ({
               />
             );
           })}
-        </div>
+        </div> */}
 
         {/* Instruction text */}
         <animated.div 

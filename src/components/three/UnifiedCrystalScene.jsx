@@ -1,6 +1,5 @@
-// FIXED: src/components/three/UnifiedCrystalScene.jsx
-// REMOVED: PersistentDustSystem (moved to Fixed3DCanvas)
-// Fixed crystal form transitions with instant, non-overlapping visibility swaps + ease-in reform
+// UPDATED: src/components/three/UnifiedCrystalScene.jsx
+// Added keyboard control for crystal debug panel
 
 import { useRef, useState, useEffect } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
@@ -12,11 +11,8 @@ import MaterialManager from './MaterialManager'
 
 import VolumetricOmniLight, { SmartVolumetricOmniLight } from './VolumetricOmniLight'
 
-// REMOVED: PersistentDustSystem import (moved to Fixed3DCanvas)
-
 /**
- * FIXED: Crystal Scene with instant, non-overlapping form changes + ease-in reform
- * REMOVED: PersistentDustSystem (moved to Fixed3DCanvas to prevent re-render strobing)
+ * FIXED: Crystal Scene with keyboard-controlled debug panel
  */
 const UnifiedCrystalScene = ({ 
   animationData,
@@ -38,6 +34,9 @@ const UnifiedCrystalScene = ({
   const [showFacets, setShowFacets] = useState(false);
   const lastCrystalForm = useRef('whole');
   
+  // ADDED: Local state for crystal debug panel visibility
+  const [showCrystalDebug, setShowCrystalDebug] = useState(false);
+  
   const { clock } = useThree();
   
   // Facet configuration
@@ -53,6 +52,35 @@ const UnifiedCrystalScene = ({
     useGLTF(config.assets.models.facetLeadership),
     useGLTF(config.assets.models.facetExploration)
   ];
+  
+  // ADDED: Keyboard listener for crystal debug toggle
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Check if user is in an input field
+      const isInputField = e.target.tagName === 'INPUT' || 
+                          e.target.tagName === 'TEXTAREA' || 
+                          e.target.isContentEditable;
+      
+      if (isInputField) return;
+      
+      // Toggle crystal debug with 'C' key
+      if (e.key === 'c' || e.key === 'C') {
+        if (!e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey) {
+          e.preventDefault();
+          setShowCrystalDebug(prev => {
+            const newState = !prev;
+            console.log(`💎 Crystal Debug Panel: ${newState ? 'ON' : 'OFF'}`);
+            return newState;
+          });
+        }
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
   
   /**
    * Apply shared material to all models
@@ -281,8 +309,8 @@ const UnifiedCrystalScene = ({
         );
       })}
       
-      {/* Enhanced debug info in development */}
-      {process.env.NODE_ENV === 'development' && animationData && (
+      {/* UPDATED: Enhanced debug info with keyboard control */}
+      {showCrystalDebug && animationData && (
         <Html>
           <div style={{
             position: 'fixed',
@@ -296,9 +324,10 @@ const UnifiedCrystalScene = ({
             fontFamily: 'monospace',
             zIndex: 10002,
             pointerEvents: 'none',
-            maxWidth: '300px'
+            maxWidth: '300px',
+            border: '1px solid rgba(100, 255, 218, 0.3)'
           }}>
-            <div><strong>💎 Crystal Debug (EASE-IN REFORM):</strong></div>
+            <div><strong>💎 Crystal Debug (Press 'C' to toggle):</strong></div>
             <div>State: {animationData.state}</div>
             <div>Form: {animationData.crystalForm}</div>
             <div style={{ 
@@ -367,6 +396,20 @@ const UnifiedCrystalScene = ({
                 ⚠️ NONE VISIBLE!
               </div>
             )}
+            
+            {/* KEYBOARD HELP */}
+            <div style={{
+              background: 'rgba(76, 175, 80, 0.2)',
+              border: '1px solid #4caf50',
+              borderRadius: '2px',
+              padding: '4px',
+              marginTop: '4px',
+              fontSize: '10px'
+            }}>
+              <div style={{ color: '#4caf50', fontWeight: 'bold' }}>⌨️ KEYBOARD CONTROLS</div>
+              <div>• Press 'C' to toggle this panel</div>
+              <div>• Press 'A' to toggle animation debug</div>
+            </div>
           </div>
         </Html>
       )}
