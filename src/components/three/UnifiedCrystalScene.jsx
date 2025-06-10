@@ -1,5 +1,5 @@
-// UPDATED: src/components/three/UnifiedCrystalScene.jsx
-// Added keyboard control for crystal debug panel
+// FIXED: src/components/three/UnifiedCrystalScene.jsx
+// Proper particle core integration without animation interference
 
 import { useRef, useState, useEffect } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
@@ -9,10 +9,41 @@ import * as THREE from 'three'
 // Import existing material manager
 import MaterialManager from './MaterialManager'
 
-import VolumetricOmniLight, { SmartVolumetricOmniLight } from './VolumetricOmniLight'
+// Import particle systems - REMOVED complex particle system
+// import GlowingParticleCore, { SmartGlowingParticleCore } from './GlowingParticleCore'
 
 /**
- * FIXED: Crystal Scene with keyboard-controlled debug panel
+ * ULTRA SIMPLE: Just a glowing sphere that pulses - no complex particles
+ */
+const SimpleParticleCore = () => {
+  const meshRef = useRef();
+  
+  useFrame((state) => {
+    if (!meshRef.current) return;
+    
+    // Simple pulse using sin wave
+    const pulse = Math.sin(state.clock.elapsedTime * 3) * 0.3 + 0.7;
+    meshRef.current.material.emissiveIntensity = 15 * pulse;
+  });
+  
+  return (
+    <mesh ref={meshRef} renderOrder={1000}>
+      <sphereGeometry args={[0.08, 16, 12]} />
+      <meshBasicMaterial
+        color="#64ffda"
+        emissive="#64ffda"
+        emissiveIntensity={15}
+        transparent={true}
+        opacity={0.8}
+        blending={THREE.AdditiveBlending}
+        depthWrite={false}
+      />
+    </mesh>
+  );
+};
+
+/**
+ * FIXED: Crystal Scene with proper particle core integration
  */
 const UnifiedCrystalScene = ({ 
   animationData,
@@ -29,12 +60,16 @@ const UnifiedCrystalScene = ({
   const facetRefs = useRef(Array(6).fill(null));
   const crystalMaterialRef = useRef();
   
-  // FIXED: Simplified state tracking - just what we need for instant swaps
+  // Crystal state tracking (keep existing logic intact)
   const [showWholeCrystal, setShowWholeCrystal] = useState(true);
   const [showFacets, setShowFacets] = useState(false);
   const lastCrystalForm = useRef('whole');
   
-  // ADDED: Local state for crystal debug panel visibility
+  // SIMPLIFIED: Just track if particles should be visible
+  const [showParticleCore, setShowParticleCore] = useState(false);
+  const [explosionCount, setExplosionCount] = useState(0);
+  
+  // Debug panel state
   const [showCrystalDebug, setShowCrystalDebug] = useState(false);
   
   const { clock } = useThree();
@@ -53,38 +88,28 @@ const UnifiedCrystalScene = ({
     useGLTF(config.assets.models.facetExploration)
   ];
   
-  // ADDED: Keyboard listener for crystal debug toggle
+  // Keyboard listener for debug toggle
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Check if user is in an input field
       const isInputField = e.target.tagName === 'INPUT' || 
                           e.target.tagName === 'TEXTAREA' || 
                           e.target.isContentEditable;
       
       if (isInputField) return;
       
-      // Toggle crystal debug with 'C' key
       if (e.key === 'c' || e.key === 'C') {
         if (!e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey) {
           e.preventDefault();
-          setShowCrystalDebug(prev => {
-            const newState = !prev;
-            console.log(`💎 Crystal Debug Panel: ${newState ? 'ON' : 'OFF'}`);
-            return newState;
-          });
+          setShowCrystalDebug(prev => !prev);
         }
       }
     };
     
     window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
   
-  /**
-   * Apply shared material to all models
-   */
+  // Apply shared material to all models
   useEffect(() => {
     if (!crystalMaterialRef.current) return;
     
@@ -99,15 +124,12 @@ const UnifiedCrystalScene = ({
       });
     };
     
-    // Apply material to all models
     applyMaterial(wholeCrystal.scene);
     facetModels.forEach(model => applyMaterial(model.scene));
     
   }, [wholeCrystal, facetModels, crystalMaterialRef.current]);
   
-  /**
-   * FIXED: Handle crystal form changes with proper reform timing
-   */
+  // SIMPLIFIED: Crystal form change detection
   useEffect(() => {
     if (!animationData) return;
     
@@ -115,55 +137,47 @@ const UnifiedCrystalScene = ({
     const formChanged = currentForm !== lastCrystalForm.current;
     
     if (formChanged) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('💎 Crystal form change:', {
-          from: lastCrystalForm.current,
-          to: currentForm,
-          state: animationData.state
-        });
-      }
+      console.log('💎 Crystal form change detected:', {
+        from: lastCrystalForm.current,
+        to: currentForm
+      });
 
-      if (currentForm === 'whole') {
-        // EXPLODED → WHOLE (reform)
-        // Keep showing facets while they animate back to center
-        // The swap will happen when they reach the center (in animation loop)
-        if (process.env.NODE_ENV === 'development') {
-          console.log('💎 REFORM START: Keep facets visible, they will animate to center');
-        }
-      } 
-      else if (currentForm === 'exploded') {
-        // WHOLE → EXPLODED (explosion)
-        // Instantly hide whole crystal and show facets
-        setShowWholeCrystal(false);  // ← Hide whole IMMEDIATELY
-        setShowFacets(true);         // ← Show facets IMMEDIATELY
+      if (currentForm === 'exploded') {
+        // WHOLE → EXPLODED (explosion) - show particles
+        console.log('🌟 Showing particle core');
         
-        if (process.env.NODE_ENV === 'development') {
-          console.log('💎 EXPLOSION: Whole OFF, Facets ON - INSTANT');
-        }
+        // Crystal visibility changes
+        setShowWholeCrystal(false);
+        setShowFacets(true);
+        
+        // Show particle core
+        setShowParticleCore(true);
+        setExplosionCount(prev => prev + 1);
+        
+      } else if (currentForm === 'whole') {
+        // EXPLODED → WHOLE (reform) - hide particles
+        console.log('🌟 Hiding particle core');
+        setShowParticleCore(false);
       }
       
       lastCrystalForm.current = currentForm;
     }
-  }, [animationData?.crystalForm, animationData?.state]);
+  }, [animationData?.crystalForm]);
 
-  /**
-   * FIXED: Animation loop with ease-in reform and smooth movement
-   */
+  // FIXED: Main animation loop - keep original logic intact
   useFrame(() => {
     if (!animationData || !facetRefs.current.length) return;
 
     const time = clock.getElapsedTime();
 
-    // Handle whole crystal rotation and floating (only when visible)
+    // Handle whole crystal rotation and floating (unchanged)
     if (showWholeCrystal && wholeCrystalRef.current && animationData.crystalConfig?.shouldRotate) {
       const rotationSpeed = animationData.crystalConfig.rotationSpeed || 0.0003;
       
-      // Subtle rotation
       wholeCrystalRef.current.rotation.y += rotationSpeed;
       wholeCrystalRef.current.rotation.x = Math.sin(time * 0.0001) * 0.015;
       wholeCrystalRef.current.rotation.z = Math.cos(time * 0.00012) * 0.008;
       
-      // Floating motion only in hero state
       if (animationData.state === 'hero') {
         const floatAmplitude = 0.008;
         const floatY = Math.sin(time * 0.8) * floatAmplitude;
@@ -172,36 +186,31 @@ const UnifiedCrystalScene = ({
         
         wholeCrystalRef.current.position.set(floatX, floatY, floatZ);
       } else {
-        // Ensure crystal is centered when not floating
         wholeCrystalRef.current.position.set(0, 0, 0);
       }
     } else if (wholeCrystalRef.current && !animationData.crystalConfig?.shouldRotate) {
-      // Stop rotation and reset position
       wholeCrystalRef.current.position.set(0, 0, 0);
     }
 
-    // FIXED: Handle facet animations with ease-in reform
+    // Handle facet animations (unchanged)
     if (showFacets && animationData.crystalConfig?.positions) {
-      // Track if we're in reform mode (crystalForm is 'whole' but facets are still visible)
       const isReforming = animationData.crystalForm === 'whole' && showFacets;
       
-      // CONFIGURABLE SPEEDS - Adjust these values to change animation feel
       const speeds = {
-        explosion: 0.04,    // Normal explosion speed (facets moving outward)
-        reform: 0.12,       // Base reform speed (will be modified by ease-in)
-        projectFocus: 0.05, // Speed when focusing on individual projects
-        floating: 0.02      // Gentle floating animation speed
+        explosion: 0.04,
+        reform: 0.12,
+        projectFocus: 0.05,
+        floating: 0.02
       };
       
-      // Choose speed based on animation context (for non-reform animations)
       let lerpSpeed;
       if (animationData.focusedFacet) {
-        lerpSpeed = speeds.projectFocus;  // Medium speed for project transitions
+        lerpSpeed = speeds.projectFocus;
       } else {
-        lerpSpeed = speeds.explosion;     // Normal speed for explosion
+        lerpSpeed = speeds.explosion;
       }
       
-      let allFacetsAtCenter = true; // Track if all facets have reached center
+      let allFacetsAtCenter = true;
       
       facetRefs.current.forEach((facetRef, index) => {
         if (!facetRef) return;
@@ -209,35 +218,27 @@ const UnifiedCrystalScene = ({
         const facetKey = facetKeys[index];
         let targetPos = animationData.crystalConfig.positions[facetKey];
         
-        // FIXED: During reform, move facets to center (0,0,0)
         if (isReforming) {
-          targetPos = new THREE.Vector3(0, 0, 0); // Move to center for reform
+          targetPos = new THREE.Vector3(0, 0, 0);
         }
         
         if (targetPos) {
-          // EASE-IN REFORM: Different animation for reform vs others
           if (isReforming) {
-            // Calculate ease-in speed for this specific facet
             const distanceToCenter = facetRef.position.distanceTo(new THREE.Vector3(0, 0, 0));
-            const maxDistance = 2; // Adjust based on your exploded positions
+            const maxDistance = 2;
             const progress = Math.min(1 - (distanceToCenter / maxDistance), 1);
-            const clampedProgress = Math.max(0, progress); // Ensure progress is 0-1
+            const clampedProgress = Math.max(0, progress);
             
-            // Ease-in: slow start (0.02), fast finish (0.18)
             const facetSpeed = 0.02 + (clampedProgress * clampedProgress * 0.16);
-            
             facetRef.position.lerp(targetPos, facetSpeed);
             
-            // Check if this facet has reached the center
             if (distanceToCenter > 0.8) {
               allFacetsAtCenter = false;
             }
           } else {
-            // Normal lerp for explosion and project focus
             facetRef.position.lerp(targetPos, lerpSpeed);
           }
           
-          // Minimal floating when focused (only in stable states, not during reform)
           if (!isReforming && 
               animationData.focusedFacet === facetKey && 
               !animationData.isTransitioning && 
@@ -248,22 +249,15 @@ const UnifiedCrystalScene = ({
         }
       });
       
-      // FIXED: When all facets reach center during reform, swap to whole crystal
       if (isReforming && allFacetsAtCenter && !showWholeCrystal) {
-        if (process.env.NODE_ENV === 'development') {
-          console.log('💎 REFORM COMPLETE: All facets at center - swapping to whole crystal');
-        }
-        
-        // INSTANT swap at the end of reform animation
-        setShowFacets(false);        // ← Hide facets NOW
-        setShowWholeCrystal(true);   // ← Show whole NOW
+        console.log('💎 Reform complete - swapping to whole crystal');
+        setShowFacets(false);
+        setShowWholeCrystal(true);
       }
     }
   });
 
-  /**
-   * Check if facet is focused
-   */
+  // Check if facet is focused
   const isFacetFocused = (index) => {
     const facetKey = facetKeys[index];
     return animationData?.focusedFacet === facetKey;
@@ -281,20 +275,45 @@ const UnifiedCrystalScene = ({
         performanceConfig={performanceConfig}
       />
 
-      {/* Crystal Core Light */}
-      {/* <SmartVolumetricOmniLight 
-        animationData={animationData}
-        visible={true}
-      /> */}
+      {/* SIMPLE & RELIABLE: Direct particle core without complex component */}
+      {showParticleCore && (
+        <SimpleParticleCore />
+      )}
       
-      {/* FIXED: Whole Crystal with INSTANT visibility control */}
+      {/* DEBUG: Show current trigger state */}
+      <Html>
+        <div style={{
+          position: 'fixed',
+          top: '10px',
+          right: '10px',
+          background: 'rgba(0,0,0,0.8)',
+          color: 'white',
+          padding: '10px',
+          borderRadius: '4px',
+          fontSize: '14px',
+          fontFamily: 'monospace',
+          zIndex: 10000,
+          pointerEvents: 'none'
+        }}>
+          <div>Crystal Form: {animationData?.crystalForm || 'unknown'}</div>
+          <div style={{ 
+            color: showParticleCore ? '#4CAF50' : '#F44336',
+            fontWeight: 'bold'
+          }}>
+            Show Particle Core: {showParticleCore ? 'TRUE' : 'FALSE'}
+          </div>
+          <div>Explosion Count: {explosionCount}</div>
+        </div>
+      </Html>
+      
+      {/* Whole Crystal with INSTANT visibility control */}
       {showWholeCrystal && (
         <group ref={wholeCrystalRef}>
           <primitive object={wholeCrystal.scene} />
         </group>
       )}
       
-      {/* FIXED: Individual Facets with INSTANT visibility control */}
+      {/* Individual Facets with INSTANT visibility control */}
       {showFacets && facetModels.map((model, index) => {
         const facetKey = facetKeys[index];
         const isFocused = isFacetFocused(index);
@@ -309,106 +328,118 @@ const UnifiedCrystalScene = ({
         );
       })}
       
-      {/* UPDATED: Enhanced debug info with keyboard control */}
+      {/* Enhanced debug info */}
       {showCrystalDebug && animationData && (
         <Html>
           <div style={{
             position: 'fixed',
             bottom: '10px',
             left: '10px',
-            background: 'rgba(0, 0, 0, 0.8)',
+            background: 'rgba(0, 0, 0, 0.9)',
             color: 'white',
-            padding: '10px',
-            borderRadius: '4px',
+            padding: '15px',
+            borderRadius: '8px',
             fontSize: '12px',
             fontFamily: 'monospace',
             zIndex: 10002,
             pointerEvents: 'none',
-            maxWidth: '300px',
+            maxWidth: '350px',
             border: '1px solid rgba(100, 255, 218, 0.3)'
           }}>
-            <div><strong>💎 Crystal Debug (Press 'C' to toggle):</strong></div>
-            <div>State: {animationData.state}</div>
-            <div>Form: {animationData.crystalForm}</div>
             <div style={{ 
-              color: showWholeCrystal ? '#4CAF50' : '#F44336',
-              fontWeight: 'bold'
+              fontWeight: 'bold', 
+              marginBottom: '10px',
+              color: '#64ffda',
+              borderBottom: '1px solid rgba(100, 255, 218, 0.3)',
+              paddingBottom: '8px'
             }}>
-              Show Whole: {showWholeCrystal ? 'YES' : 'NO'}
+              💎 Crystal Debug (Press 'C' to toggle)
             </div>
-            <div style={{ 
-              color: showFacets ? '#4CAF50' : '#F44336',
-              fontWeight: 'bold'
-            }}>
-              Show Facets: {showFacets ? 'YES' : 'NO'}
-            </div>
-            <div>Should Rotate: {animationData.crystalConfig?.shouldRotate ? 'YES' : 'NO'}</div>
-            <div>Focused: {animationData.focusedFacet || 'none'}</div>
-            <div>Zone: {animationData.currentZone}</div>
-            <div>Transitioning: {animationData.isTransitioning ? 'YES' : 'NO'}</div>
             
-            {/* REFORM STATUS */}
+            {/* Crystal State */}
+            <div style={{ marginBottom: '10px' }}>
+              <div><strong>Crystal State:</strong></div>
+              <div>State: {animationData.state}</div>
+              <div>Form: {animationData.crystalForm}</div>
+              <div style={{ 
+                color: showWholeCrystal ? '#4CAF50' : '#F44336',
+                fontWeight: 'bold'
+              }}>
+                Show Whole: {showWholeCrystal ? 'YES' : 'NO'}
+              </div>
+              <div style={{ 
+                color: showFacets ? '#4CAF50' : '#F44336',
+                fontWeight: 'bold'
+              }}>
+                Show Facets: {showFacets ? 'YES' : 'NO'}
+              </div>
+              <div>Focused: {animationData.focusedFacet || 'none'}</div>
+            </div>
+
+            {/* SIMPLIFIED: Particle System Status */}
+            <div style={{ 
+              marginBottom: '10px',
+              borderTop: '1px solid rgba(187, 134, 252, 0.3)',
+              paddingTop: '8px'
+            }}>
+              <div style={{ color: '#bb86fc', fontWeight: 'bold' }}>🌟 Particle Core:</div>
+              <div style={{ 
+                color: showParticleCore ? '#4CAF50' : '#666',
+                fontWeight: 'bold'
+              }}>
+                Visible: {showParticleCore ? 'YES' : 'NO'}
+              </div>
+              <div>Explosions: {explosionCount}</div>
+              <div style={{ fontSize: '10px', color: '#999', marginTop: '4px' }}>
+                Shows when crystalForm === 'exploded'
+              </div>
+            </div>
+            
+            {/* ANIMATION STATUS */}
             {animationData.crystalForm === 'whole' && showFacets && (
               <div style={{
                 background: '#2196F3',
                 color: 'white',
-                padding: '4px',
-                borderRadius: '2px',
-                marginTop: '4px',
+                padding: '6px',
+                borderRadius: '4px',
+                marginTop: '8px',
                 fontWeight: 'bold'
               }}>
-                🔄 EASE-IN REFORM: Slow start → Fast finish
-                {/* Show distances for debugging */}
-                <div style={{ fontSize: '10px', marginTop: '2px' }}>
-                  Distances: {facetRefs.current.map((ref, i) => 
-                    ref ? ref.position.distanceTo(new THREE.Vector3(0, 0, 0)).toFixed(3) : '---'
-                  ).join(', ')}
-                </div>
-                <div style={{ fontSize: '10px' }}>
-                  Threshold: 0.015
-                </div>
+                🔄 REFORMING: Facets → Center
               </div>
             )}
             
-            {/* VISIBILITY WARNING */}
-            {showWholeCrystal && showFacets && (
-              <div style={{
-                background: '#F44336',
-                color: 'white',
-                padding: '4px',
-                borderRadius: '2px',
-                marginTop: '4px',
-                fontWeight: 'bold'
-              }}>
-                ⚠️ OVERLAP: Both visible!
-              </div>
-            )}
-            
-            {!showWholeCrystal && !showFacets && (
-              <div style={{
-                background: '#FF9800',
-                color: 'white',
-                padding: '4px',
-                borderRadius: '2px',
-                marginTop: '4px',
-                fontWeight: 'bold'
-              }}>
-                ⚠️ NONE VISIBLE!
-              </div>
-            )}
-            
-            {/* KEYBOARD HELP */}
+            {/* Manual Test - Simple toggle */}
             <div style={{
               background: 'rgba(76, 175, 80, 0.2)',
               border: '1px solid #4caf50',
-              borderRadius: '2px',
-              padding: '4px',
-              marginTop: '4px',
+              borderRadius: '4px',
+              padding: '6px',
+              marginTop: '10px',
               fontSize: '10px'
             }}>
-              <div style={{ color: '#4caf50', fontWeight: 'bold' }}>⌨️ KEYBOARD CONTROLS</div>
-              <div>• Press 'C' to toggle this panel</div>
-              <div>• Press 'A' to toggle animation debug</div>
+              <div style={{ color: '#4caf50', fontWeight: 'bold' }}>⚡ MANUAL TEST</div>
+              <div 
+                style={{
+                  background: '#ff6b6b',
+                  color: 'white',
+                  border: 'none',
+                  padding: '4px 8px',
+                  borderRadius: '3px',
+                  fontSize: '10px',
+                  cursor: 'pointer',
+                  marginTop: '4px',
+                  pointerEvents: 'auto',
+                  userSelect: 'none'
+                }}
+                onClick={() => {
+                  console.log('🧪 Manual particle test triggered');
+                  setShowParticleCore(prev => !prev);
+                  setExplosionCount(prev => prev + 1);
+                }}
+              >
+                Toggle Particle Core ({showParticleCore ? 'ON' : 'OFF'})
+              </div>
             </div>
           </div>
         </Html>
