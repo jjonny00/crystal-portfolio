@@ -1,5 +1,5 @@
 // FIXED: src/components/three/UnifiedCrystalScene.jsx
-// Proper particle core integration without animation interference
+// Proper particle core integration that doesn't interfere with crystal animations
 
 import { useRef, useState, useEffect } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
@@ -9,41 +9,11 @@ import * as THREE from 'three'
 // Import existing material manager
 import MaterialManager from './MaterialManager'
 
-// Import particle systems - REMOVED complex particle system
-// import GlowingParticleCore, { SmartGlowingParticleCore } from './GlowingParticleCore'
+// Import the full GlowingParticleCore for proper integration
+import GlowingParticleCore, { SmartGlowingParticleCore, ParticleCorePresets } from './GlowingParticleCore'
 
 /**
- * ULTRA SIMPLE: Just a glowing sphere that pulses - no complex particles
- */
-const SimpleParticleCore = () => {
-  const meshRef = useRef();
-  
-  useFrame((state) => {
-    if (!meshRef.current) return;
-    
-    // Simple pulse using sin wave
-    const pulse = Math.sin(state.clock.elapsedTime * 3) * 0.3 + 0.7;
-    meshRef.current.material.emissiveIntensity = 15 * pulse;
-  });
-  
-  return (
-    <mesh ref={meshRef} renderOrder={1000}>
-      <sphereGeometry args={[0.08, 16, 12]} />
-      <meshBasicMaterial
-        color="#64ffda"
-        emissive="#64ffda"
-        emissiveIntensity={15}
-        transparent={true}
-        opacity={0.8}
-        blending={THREE.AdditiveBlending}
-        depthWrite={false}
-      />
-    </mesh>
-  );
-};
-
-/**
- * FIXED: Crystal Scene with proper particle core integration
+ * FIXED: Crystal Scene with isolated particle core that doesn't interfere with animations
  */
 const UnifiedCrystalScene = ({ 
   animationData,
@@ -54,20 +24,23 @@ const UnifiedCrystalScene = ({
   performanceConfig = { useNormalMaps: true, textureQuality: 'high', usePBR: true },
   isMobile = false
 }) => {
-  // Component refs
+  // Component refs for crystal animation (keep existing logic)
   const crystalGroupRef = useRef();
   const wholeCrystalRef = useRef();
   const facetRefs = useRef(Array(6).fill(null));
   const crystalMaterialRef = useRef();
   
+  // FIXED: Separate particle core state that doesn't interfere with crystal
+  const [particleCoreState, setParticleCoreState] = useState({
+    visible: false,
+    explosionCount: 0,
+    lastCrystalForm: 'whole'
+  });
+  
   // Crystal state tracking (keep existing logic intact)
   const [showWholeCrystal, setShowWholeCrystal] = useState(true);
   const [showFacets, setShowFacets] = useState(false);
   const lastCrystalForm = useRef('whole');
-  
-  // SIMPLIFIED: Just track if particles should be visible
-  const [showParticleCore, setShowParticleCore] = useState(false);
-  const [explosionCount, setExplosionCount] = useState(0);
   
   // Debug panel state
   const [showCrystalDebug, setShowCrystalDebug] = useState(false);
@@ -129,7 +102,47 @@ const UnifiedCrystalScene = ({
     
   }, [wholeCrystal, facetModels, crystalMaterialRef.current]);
   
-  // SIMPLIFIED: Crystal form change detection
+  // FIXED: Isolated particle core detection that doesn't interfere with crystal
+  useEffect(() => {
+    if (!animationData) return;
+    
+    const currentForm = animationData.crystalForm;
+    const formChanged = currentForm !== particleCoreState.lastCrystalForm;
+    
+    if (formChanged) {
+      console.log('💎 Particle Core: Crystal form change detected:', {
+        from: particleCoreState.lastCrystalForm,
+        to: currentForm
+      });
+
+      // Update particle state in isolation
+      setParticleCoreState(prevState => {
+        if (currentForm === 'exploded' && prevState.lastCrystalForm === 'whole') {
+          console.log('🌟 Particle Core: Explosion detected - showing particles');
+          return {
+            visible: true,
+            explosionCount: prevState.explosionCount + 1,
+            lastCrystalForm: currentForm
+          };
+        } else if (currentForm === 'whole' && prevState.lastCrystalForm === 'exploded') {
+          console.log('🌟 Particle Core: Reform detected - hiding particles');
+          return {
+            visible: false,
+            explosionCount: prevState.explosionCount,
+            lastCrystalForm: currentForm
+          };
+        }
+        
+        // Just update the form reference without changing visibility
+        return {
+          ...prevState,
+          lastCrystalForm: currentForm
+        };
+      });
+    }
+  }, [animationData?.crystalForm, particleCoreState.lastCrystalForm]);
+
+  // FIXED: Crystal form change detection for crystal visibility (separate from particles)
   useEffect(() => {
     if (!animationData) return;
     
@@ -137,34 +150,29 @@ const UnifiedCrystalScene = ({
     const formChanged = currentForm !== lastCrystalForm.current;
     
     if (formChanged) {
-      console.log('💎 Crystal form change detected:', {
+      console.log('💎 Crystal: Form change detected:', {
         from: lastCrystalForm.current,
         to: currentForm
       });
 
       if (currentForm === 'exploded') {
-        // WHOLE → EXPLODED (explosion) - show particles
-        console.log('🌟 Showing particle core');
-        
-        // Crystal visibility changes
+        // WHOLE → EXPLODED (explosion) - crystal visibility changes only
+        console.log('💎 Crystal: Explosion - hiding whole, showing facets');
         setShowWholeCrystal(false);
         setShowFacets(true);
         
-        // Show particle core
-        setShowParticleCore(true);
-        setExplosionCount(prev => prev + 1);
-        
       } else if (currentForm === 'whole') {
-        // EXPLODED → WHOLE (reform) - hide particles
-        console.log('🌟 Hiding particle core');
-        setShowParticleCore(false);
+        // EXPLODED → WHOLE (reform) - crystal visibility changes only
+        console.log('💎 Crystal: Reform detected');
+        // NOTE: We don't immediately show whole crystal here
+        // The animation loop will handle the transition when facets reach center
       }
       
       lastCrystalForm.current = currentForm;
     }
   }, [animationData?.crystalForm]);
 
-  // FIXED: Main animation loop - keep original logic intact
+  // FIXED: Main animation loop - isolated and protected
   useFrame(() => {
     if (!animationData || !facetRefs.current.length) return;
 
@@ -275,36 +283,33 @@ const UnifiedCrystalScene = ({
         performanceConfig={performanceConfig}
       />
 
-      {/* SIMPLE & RELIABLE: Direct particle core without complex component */}
-      {showParticleCore && (
-        <SimpleParticleCore />
+      {/* FIXED: Properly isolated particle core that doesn't interfere with crystal animations */}
+      {particleCoreState.visible && (
+        <SmartGlowingParticleCore
+          particleShape="spheres"
+          animationData={animationData}
+          performanceConfig={performanceConfig}
+          maxExpansion={20.5}
+          visible={true}
+          position={[0, 0, 0]}
+          ignitionDuration={0.05}    // How fast particles ignite (default: 0.3s)
+          expansionDuration={0.2}   // How fast particles expand (default: 1.2s) 
+          fadeDuration={0.1}        // How fast particles fade out (default: 0.8s)
+          // Event handlers to track particle lifecycle (optional)
+          onExplosionStart={() => {
+            if (process.env.NODE_ENV === 'development') {
+              console.log('🌟 Particle explosion started');
+            }
+          }}
+          onExplosionEnd={() => {
+            if (process.env.NODE_ENV === 'development') {
+              console.log('🌟 Particle explosion ended');
+            }
+          }}
+        />
       )}
       
-      {/* DEBUG: Show current trigger state */}
-      <Html>
-        <div style={{
-          position: 'fixed',
-          top: '10px',
-          right: '10px',
-          background: 'rgba(0,0,0,0.8)',
-          color: 'white',
-          padding: '10px',
-          borderRadius: '4px',
-          fontSize: '14px',
-          fontFamily: 'monospace',
-          zIndex: 10000,
-          pointerEvents: 'none'
-        }}>
-          <div>Crystal Form: {animationData?.crystalForm || 'unknown'}</div>
-          <div style={{ 
-            color: showParticleCore ? '#4CAF50' : '#F44336',
-            fontWeight: 'bold'
-          }}>
-            Show Particle Core: {showParticleCore ? 'TRUE' : 'FALSE'}
-          </div>
-          <div>Explosion Count: {explosionCount}</div>
-        </div>
-      </Html>
+
       
       {/* Whole Crystal with INSTANT visibility control */}
       {showWholeCrystal && (
@@ -376,22 +381,23 @@ const UnifiedCrystalScene = ({
               <div>Focused: {animationData.focusedFacet || 'none'}</div>
             </div>
 
-            {/* SIMPLIFIED: Particle System Status */}
+            {/* FIXED: Isolated Particle System Status */}
             <div style={{ 
               marginBottom: '10px',
               borderTop: '1px solid rgba(187, 134, 252, 0.3)',
               paddingTop: '8px'
             }}>
-              <div style={{ color: '#bb86fc', fontWeight: 'bold' }}>🌟 Particle Core:</div>
+              <div style={{ color: '#bb86fc', fontWeight: 'bold' }}>🌟 Particle Core (Isolated):</div>
               <div style={{ 
-                color: showParticleCore ? '#4CAF50' : '#666',
+                color: particleCoreState.visible ? '#4CAF50' : '#666',
                 fontWeight: 'bold'
               }}>
-                Visible: {showParticleCore ? 'YES' : 'NO'}
+                Visible: {particleCoreState.visible ? 'YES' : 'NO'}
               </div>
-              <div>Explosions: {explosionCount}</div>
+              <div>Explosions: {particleCoreState.explosionCount}</div>
+              <div>Last Form: {particleCoreState.lastCrystalForm}</div>
               <div style={{ fontSize: '10px', color: '#999', marginTop: '4px' }}>
-                Shows when crystalForm === 'exploded'
+                ✅ Isolated from crystal animations
               </div>
             </div>
             
@@ -409,7 +415,7 @@ const UnifiedCrystalScene = ({
               </div>
             )}
             
-            {/* Manual Test - Simple toggle */}
+            {/* Manual Test */}
             <div style={{
               background: 'rgba(76, 175, 80, 0.2)',
               border: '1px solid #4caf50',
@@ -434,11 +440,14 @@ const UnifiedCrystalScene = ({
                 }}
                 onClick={() => {
                   console.log('🧪 Manual particle test triggered');
-                  setShowParticleCore(prev => !prev);
-                  setExplosionCount(prev => prev + 1);
+                  setParticleCoreState(prev => ({
+                    visible: !prev.visible,
+                    explosionCount: prev.explosionCount + 1,
+                    lastCrystalForm: prev.lastCrystalForm
+                  }));
                 }}
               >
-                Toggle Particle Core ({showParticleCore ? 'ON' : 'OFF'})
+                Toggle Particle Core ({particleCoreState.visible ? 'ON' : 'OFF'})
               </div>
             </div>
           </div>
