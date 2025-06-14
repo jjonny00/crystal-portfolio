@@ -286,15 +286,18 @@ const UnifiedCrystalScene = ({
       {/* FIXED: Properly isolated particle core that doesn't interfere with crystal animations */}
       {particleCoreState.visible && (
         <SmartGlowingParticleCore
-          particleShape="spheres"
+          particleShape="soft-spheres"  // ← This gives you the soft edges!
           animationData={animationData}
           performanceConfig={performanceConfig}
-          maxExpansion={20.5}
-          visible={true}
+          maxExpansion={100.0}          // How far particles spread
+          expansionDuration={2.0}      // How long expansion takes (default: 1.2)
+          particleCount={1500}         // More particles for fuller effect
+          coreRadius={0.12}           // Larger starting radius
+          expansionSpeed={1.8}
+          visible={particleCoreState.visible}
           position={[0, 0, 0]}
-          ignitionDuration={0.05}    // How fast particles ignite (default: 0.3s)
-          expansionDuration={0.2}   // How fast particles expand (default: 1.2s) 
-          fadeDuration={0.1}        // How fast particles fade out (default: 0.8s)
+          ignitionDuration={0.05}
+          fadeDuration={0.1}
           // Event handlers to track particle lifecycle (optional)
           onExplosionStart={() => {
             if (process.env.NODE_ENV === 'development') {
