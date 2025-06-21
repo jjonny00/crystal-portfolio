@@ -1,5 +1,5 @@
 // FIXED: src/components/three/UnifiedCrystalScene.jsx
-// Proper particle core integration that doesn't interfere with crystal animations
+// Proper particle core integration with working prop controls
 
 import { useRef, useState, useEffect } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
@@ -9,11 +9,11 @@ import * as THREE from 'three'
 // Import existing material manager
 import MaterialManager from './MaterialManager'
 
-// Import the full GlowingParticleCore for proper integration
-import GlowingParticleCore, { SmartGlowingParticleCore, ParticleCorePresets } from './GlowingParticleCore'
+// Import the direct GlowingParticleCore for full control
+import GlowingParticleCore from './GlowingParticleCore'
 
 /**
- * FIXED: Crystal Scene with isolated particle core that doesn't interfere with animations
+ * FIXED: Crystal Scene with working particle core prop controls
  */
 const UnifiedCrystalScene = ({ 
   animationData,
@@ -283,36 +283,67 @@ const UnifiedCrystalScene = ({
         performanceConfig={performanceConfig}
       />
 
-      {/* FIXED: Properly isolated particle core that doesn't interfere with crystal animations */}
+      {/* FIXED: Direct GlowingParticleCore with full prop control */}
       {particleCoreState.visible && (
-        <SmartGlowingParticleCore
-          particleShape="soft-spheres"  // ← This gives you the soft edges!
+        <GlowingParticleCore
+          // Core properties that you can now easily adjust
+          coreRadius={0.15}              // Starting size of particle core
+          particleCount={2000}           // Number of particles
+          particleShape="soft-spheres"   // Soft edges for beautiful effect
+          
+          // Visual properties
+          baseColor="#ffffff"            // Base particle color
+          accentColor="#64ffda"          // Accent color for variety
+          emissiveIntensity={30.0}       // Glow intensity
+          
+          // Animation properties
+          pulseEnabled={true}            // Enable pulsing
+          pulseSpeed={2.0}               // Pulse frequency
+          pulseAmount={0.3}              // Pulse strength
+          
+          // EXPLOSION BEHAVIOR - These are the key props to adjust!
+          maxExpansion={150.0}           // How far particles spread (try 100-300)
+          expansionSpeed={2.5}           // How fast they move during explosion
+          expansionDuration={2.5}        // How long expansion takes (in seconds)
+          
+          // Timing controls for different phases
+          ignitionDuration={0.1}         // How long ignition takes
+          fadeDuration={0.3}             // How long fade out takes
+          
+          // Position and visibility
+          position={[0, 0, 0]}
+          visible={particleCoreState.visible}
+          frustumCulled={false}          // Prevent disappearing
+          
+          // Pass animation data and performance config
           animationData={animationData}
           performanceConfig={performanceConfig}
-          maxExpansion={100.0}          // How far particles spread
-          expansionDuration={2.0}      // How long expansion takes (default: 1.2)
-          particleCount={1500}         // More particles for fuller effect
-          coreRadius={0.12}           // Larger starting radius
-          expansionSpeed={1.8}
-          visible={particleCoreState.visible}
-          position={[0, 0, 0]}
-          ignitionDuration={0.05}
-          fadeDuration={0.1}
-          // Event handlers to track particle lifecycle (optional)
+          
+          // Event handlers for debugging
           onExplosionStart={() => {
-            if (process.env.NODE_ENV === 'development') {
-              console.log('🌟 Particle explosion started');
-            }
+            console.log('🌟 Particle explosion started with settings:', {
+              maxExpansion: 150.0,
+              particleCount: 2000,
+              expansionDuration: 2.5,
+              coreRadius: 0.15
+            });
+          }}
+          onExplosionPeak={() => {
+            console.log('🌟 Particle explosion reached peak expansion');
           }}
           onExplosionEnd={() => {
-            if (process.env.NODE_ENV === 'development') {
-              console.log('🌟 Particle explosion ended');
-            }
+            console.log('🌟 Particle explosion completed');
           }}
         />
       )}
-      
 
+      {/* DEBUG: Tiny red sphere to show particle core position */}
+      {particleCoreState.visible && process.env.NODE_ENV === 'development' && (
+        <mesh position={[0, 0, 0]}>
+          <sphereGeometry args={[0.02, 8, 6]} />
+          <meshBasicMaterial color="red" />
+        </mesh>
+      )}
       
       {/* Whole Crystal with INSTANT visibility control */}
       {showWholeCrystal && (
@@ -384,13 +415,13 @@ const UnifiedCrystalScene = ({
               <div>Focused: {animationData.focusedFacet || 'none'}</div>
             </div>
 
-            {/* FIXED: Isolated Particle System Status */}
+            {/* FIXED: Particle System Status with prop debugging */}
             <div style={{ 
               marginBottom: '10px',
               borderTop: '1px solid rgba(187, 134, 252, 0.3)',
               paddingTop: '8px'
             }}>
-              <div style={{ color: '#bb86fc', fontWeight: 'bold' }}>🌟 Particle Core (Isolated):</div>
+              <div style={{ color: '#bb86fc', fontWeight: 'bold' }}>🌟 Particle Core (Direct Control):</div>
               <div style={{ 
                 color: particleCoreState.visible ? '#4CAF50' : '#666',
                 fontWeight: 'bold'
@@ -400,7 +431,10 @@ const UnifiedCrystalScene = ({
               <div>Explosions: {particleCoreState.explosionCount}</div>
               <div>Last Form: {particleCoreState.lastCrystalForm}</div>
               <div style={{ fontSize: '10px', color: '#999', marginTop: '4px' }}>
-                ✅ Isolated from crystal animations
+                ✅ Using direct GlowingParticleCore
+              </div>
+              <div style={{ fontSize: '10px', color: '#64ffda', marginTop: '4px' }}>
+                Props: maxExpansion=150, count=2000, duration=2.5s
               </div>
             </div>
             
@@ -418,7 +452,7 @@ const UnifiedCrystalScene = ({
               </div>
             )}
             
-            {/* Manual Test */}
+            {/* Manual Test with prop adjustment */}
             <div style={{
               background: 'rgba(76, 175, 80, 0.2)',
               border: '1px solid #4caf50',
@@ -427,7 +461,7 @@ const UnifiedCrystalScene = ({
               marginTop: '10px',
               fontSize: '10px'
             }}>
-              <div style={{ color: '#4caf50', fontWeight: 'bold' }}>⚡ MANUAL TEST</div>
+              <div style={{ color: '#4caf50', fontWeight: 'bold' }}>⚡ PROP TESTING</div>
               <div 
                 style={{
                   background: '#ff6b6b',
@@ -451,6 +485,9 @@ const UnifiedCrystalScene = ({
                 }}
               >
                 Toggle Particle Core ({particleCoreState.visible ? 'ON' : 'OFF'})
+              </div>
+              <div style={{ fontSize: '9px', color: '#aaa', marginTop: '4px' }}>
+                Adjust props in component code above
               </div>
             </div>
           </div>

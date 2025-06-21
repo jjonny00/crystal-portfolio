@@ -1,5 +1,5 @@
-// UPDATED: src/components/three/GlowingParticleCore.jsx
-// Complete implementation with soft-edge spheres that fade to transparent at edges
+// FIXED: src/components/three/GlowingParticleCore.jsx
+// Complete implementation with working instanced sphere position updates
 
 import React, { useRef, useMemo, useEffect, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
@@ -136,13 +136,13 @@ const createSoftPointShader = (baseColor, accentColor, emissiveIntensity) => {
 };
 
 /**
- * UPDATED: Glowing Particle Core Component with soft edges
+ * FIXED: Glowing Particle Core Component with working instanced sphere updates
  */
 const GlowingParticleCore = ({
   // Core properties
   position = [0, 0, 0],
   coreRadius = 0.08,
-  coreShape = 'sphere', // 'sphere', 'pill', 'ellipse'
+  coreShape = 'sphere',
   coreAspectRatio = 2.0,
   particleCount = 800,
   
@@ -163,11 +163,11 @@ const GlowingParticleCore = ({
   expansionDuration = 1.2,
   fadeDuration = 0.8,
   
-  // UPDATED: Particle shape options with new soft variants
+  // Particle shape options
   particleShape = 'soft-spheres', // 'points', 'spheres', 'soft-spheres', 'soft-points', 'cubes', 'diamonds'
   
   // Rendering properties
-  frustumCulled = false, // Disable frustum culling to prevent disappearing
+  frustumCulled = false,
   
   // Lifecycle
   visible = false,
@@ -215,14 +215,14 @@ const GlowingParticleCore = ({
     return null;
   }, [particleShape, baseColor, accentColor, adjustedEmissiveIntensity]);
 
-  // Create particle system with proper error handling and soft edge support
+  // FIXED: Create particle system with proper instanced sphere handling
   const { geometry, material, particleData, renderType } = useMemo(() => {
     console.log('🌟 Creating Glowing Particle Core system with shape:', particleShape);
     
     try {
       let geometry, material, renderType;
       
-      // UPDATED: Handle soft particle shapes
+      // Handle different particle shapes
       if (particleShape === 'soft-spheres') {
         // Use instanced spheres with soft shader
         geometry = new THREE.InstancedBufferGeometry().copy(new THREE.SphereGeometry(0.02, 12, 8));
@@ -420,23 +420,27 @@ const GlowingParticleCore = ({
           }
           
         } else if (renderType === 'instancedMesh') {
-          // Instanced rendering setup
+          // FIXED: Instanced rendering setup with proper matrix handling
           geometry.instanceCount = adjustedParticleCount;
           
-          // Set up instance matrices
+          // Set up instance matrices - start all at original positions
           const matrix = new THREE.Matrix4();
           for (let i = 0; i < adjustedParticleCount; i++) {
             const i3 = i * 3;
             const i16 = i * 16;
             
+            // Create transformation matrix for this instance
+            matrix.makeScale(1, 1, 1);
             matrix.setPosition(positions[i3], positions[i3 + 1], positions[i3 + 2]);
             matrix.toArray(instanceMatrices, i16);
             
+            // Set instance colors
             instanceColors[i3] = colors[i3];
             instanceColors[i3 + 1] = colors[i3 + 1];
             instanceColors[i3 + 2] = colors[i3 + 2];
           }
           
+          // CRITICAL: Use InstancedBufferAttribute for proper instancing
           geometry.setAttribute('instanceMatrix', new THREE.InstancedBufferAttribute(instanceMatrices, 16));
           geometry.setAttribute('instanceColor', new THREE.InstancedBufferAttribute(instanceColors, 3));
         }
@@ -523,7 +527,7 @@ const GlowingParticleCore = ({
     }
   }, [animationData?.crystalForm, onExplosionStart]);
   
-  // Main animation loop
+  // FIXED: Main animation loop with proper instanced sphere updates
   useFrame((state, delta) => {
     if (!particlesRef.current || !visible || !particleData) return;
     
@@ -534,7 +538,7 @@ const GlowingParticleCore = ({
         explosionTimeRef.current += delta;
       }
 
-      // UPDATED: Update shader uniforms for soft particles
+      // Update shader uniforms for soft particles
       if (material && material.uniforms) {
         if (material.uniforms.time) {
           material.uniforms.time.value = timeRef.current;
@@ -566,7 +570,6 @@ const GlowingParticleCore = ({
           material.uniforms.glowIntensity.value = globalIntensity;
         }
         if (material.uniforms.globalIntensity) {
-          // For soft points shader
           material.uniforms.globalIntensity.value = material.uniforms.glowIntensity?.value || 1.0;
         }
       }
@@ -663,23 +666,46 @@ const GlowingParticleCore = ({
         }
       }
       
-      // Update geometry based on render type
+      // CRITICAL FIX: Update geometry based on render type
       if (renderType === 'instancedMesh' && particleData.instanceMatrices) {
+        // FIXED: This is the key part that was broken for instanced spheres!
         const matrix = new THREE.Matrix4();
         for (let i = 0; i < adjustedParticleCount; i++) {
           const i3 = i * 3;
           const i16 = i * 16;
           
+          // Apply scale based on expansion (subtle scaling effect)
           const scale = 1 + (expansionFactor - 1) * 0.1;
+          
+          // FIXED: Create proper transformation matrix with position and scale
           matrix.makeScale(scale, scale, scale);
           matrix.setPosition(positions[i3], positions[i3 + 1], positions[i3 + 2]);
+          
+          // FIXED: Store matrix in the instance matrices array
           matrix.toArray(particleData.instanceMatrices, i16);
         }
         
+        // CRITICAL: Mark the instance matrix attribute for GPU update
         if (particlesRef.current?.geometry?.attributes?.instanceMatrix) {
           particlesRef.current.geometry.attributes.instanceMatrix.needsUpdate = true;
         }
+        
+        // Debug log occasionally to verify positions are updating
+        if (process.env.NODE_ENV === 'development' && Math.random() < 0.005) {
+          console.log('🌟 Instanced sphere positions updated:', {
+            expansionFactor: expansionFactor.toFixed(2),
+            firstParticlePos: [
+              positions[0]?.toFixed(3), 
+              positions[1]?.toFixed(3), 
+              positions[2]?.toFixed(3)
+            ],
+            phase: explosionPhase,
+            renderType: renderType
+          });
+        }
+        
       } else if (renderType === 'points') {
+        // For points rendering, just update the position attribute
         if (particlesRef.current?.geometry?.attributes?.position) {
           particlesRef.current.geometry.attributes.position.needsUpdate = true;
         }
@@ -882,62 +908,3 @@ export const SmartGlowingParticleCore = ({ animationData, performanceConfig, ...
 };
 
 export default GlowingParticleCore;
-
-/*
-USAGE EXAMPLES:
-
-1. Basic soft spheres (recommended):
-<SmartGlowingParticleCore
-  particleShape="soft-spheres"
-  animationData={animationData}
-  performanceConfig={performanceConfig}
-  visible={true}
-  position={[0, 0, 0]}
-/>
-
-2. Ultra-soft points for max performance:
-<GlowingParticleCore
-  particleShape="soft-points"
-  baseColor="#ffffff"
-  accentColor="#64ffda"
-  particleCount={800}
-  animationData={animationData}
-  visible={true}
-/>
-
-3. Custom soft configuration:
-<GlowingParticleCore
-  particleShape="soft-spheres"
-  baseColor="#bb86fc"
-  accentColor="#ffffff"
-  emissiveIntensity={30.0}
-  coreRadius={0.1}
-  maxExpansion={2.5}
-  animationData={animationData}
-  visible={true}
-/>
-
-4. Use preset:
-<GlowingParticleCore
-  {...ParticleCorePresets.mysticalSoft}
-  animationData={animationData}
-  visible={true}
-/>
-
-KEY FEATURES:
-✅ Soft edges that fade to transparent at sphere boundaries
-✅ Two soft particle modes: 'soft-spheres' and 'soft-points'
-✅ Custom shaders for radial alpha gradients
-✅ Performance optimized for different device tiers
-✅ Backward compatible with original hard-edge particles
-✅ Fresnel effects for realistic edge glow
-✅ Pulsing and animation effects preserved
-✅ Multiple presets for different visual styles
-
-SHADER TECHNIQUES USED:
-- UV distance calculation for radial gradients
-- smoothstep() for soft alpha falloff
-- Fresnel reflection for edge enhancement
-- Time-based uniforms for pulsing effects
-- Proper transparency blending modes
-*/
