@@ -187,7 +187,7 @@ const GlowingParticleCore = ({
       // Clean points rendering with proper depth testing
       geometry = new THREE.BufferGeometry();
       material = new THREE.PointsMaterial({
-        size: 8.0, // Good size for textured particles
+        size: 1.0, // Good size for textured particles
         transparent: true,
         opacity: 0.9, // Slightly transparent for better blending
         color: new THREE.Color(baseColor),
@@ -279,7 +279,7 @@ const GlowingParticleCore = ({
         colors[i3 + 2] = color.b * brightness;
         
         // Size variation for more organic look
-        sizes[i] = 6.0 + Math.random() * 8.0; // Size range 6-14
+        sizes[i] = 0.1 + Math.random() * 1.0; // Size range 6-14
         phases[i] = Math.random() * Math.PI * 2;
         intensities[i] = 0.8 + Math.random() * 0.4; // Good intensity range
       }
