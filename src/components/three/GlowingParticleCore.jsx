@@ -1,8 +1,9 @@
 // FIXED: src/components/three/GlowingParticleCore.jsx
-// Complete implementation with working instanced sphere position updates
+// Fixed particle expansion - particles now properly expand from origin
 
 import React, { useRef, useMemo, useEffect, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
+import { useTexture } from '@react-three/drei';
 import * as THREE from 'three';
 
 /**
@@ -75,68 +76,7 @@ const createSoftSphereShader = (baseColor, accentColor, emissiveIntensity) => {
 };
 
 /**
- * Soft Point Shader - For ultra-soft circular particles
- */
-const createSoftPointShader = (baseColor, accentColor, emissiveIntensity) => {
-  return {
-    vertexShader: `
-      attribute float size;
-      attribute vec3 particleColor;
-      attribute float intensity;
-      
-      uniform float time;
-      uniform float globalIntensity;
-      
-      varying vec3 vColor;
-      varying float vIntensity;
-      
-      void main() {
-        vColor = particleColor;
-        vIntensity = intensity * globalIntensity;
-        
-        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-        
-        // Size attenuation with distance
-        gl_PointSize = size * (300.0 / -mvPosition.z);
-        gl_Position = projectionMatrix * mvPosition;
-      }
-    `,
-    
-    fragmentShader: `
-      uniform float time;
-      
-      varying vec3 vColor;
-      varying float vIntensity;
-      
-      void main() {
-        // Create circular gradient from center to edge
-        vec2 center = vec2(0.5, 0.5);
-        float dist = distance(gl_PointCoord, center);
-        
-        // Soft circular fade - perfect circles
-        float alpha = 1.0 - smoothstep(0.0, 0.5, dist);
-        alpha = pow(alpha, 2.0); // Extra soft falloff
-        
-        // Pulse effect
-        float pulse = sin(time * 2.0) * 0.2 + 0.8;
-        alpha *= pulse * vIntensity;
-        
-        // Add some glow
-        vec3 finalColor = vColor * (1.0 + vIntensity * 0.5);
-        
-        gl_FragColor = vec4(finalColor, alpha);
-      }
-    `,
-    
-    uniforms: {
-      time: { value: 0 },
-      globalIntensity: { value: emissiveIntensity }
-    }
-  };
-};
-
-/**
- * FIXED: Glowing Particle Core Component with working instanced sphere updates
+ * FIXED: Glowing Particle Core Component with working expansion
  */
 const GlowingParticleCore = ({
   // Core properties
@@ -158,13 +98,13 @@ const GlowingParticleCore = ({
   expansionSpeed = 0.5,
   maxExpansion = 1.8,
   
-  // Timing controls for each phase
+  // FIXED: Key timing controls for each phase
   ignitionDuration = 0.3,
   expansionDuration = 1.2,
   fadeDuration = 0.8,
   
   // Particle shape options
-  particleShape = 'soft-spheres', // 'points', 'spheres', 'soft-spheres', 'soft-points', 'cubes', 'diamonds'
+  particleShape = 'soft-spheres',
   
   // Rendering properties
   frustumCulled = false,
@@ -184,10 +124,15 @@ const GlowingParticleCore = ({
   const timeRef = useRef(0);
   const explosionTimeRef = useRef(0);
   
-  // State tracking
-  const [isExploding, setIsExploding] = useState(false);
-  const [explosionPhase, setExplosionPhase] = useState('dormant');
-  const lastCrystalForm = useRef('whole');
+  // FIXED: Proper explosion state tracking
+  const [explosionState, setExplosionState] = useState({
+    isActive: false,
+    phase: 'dormant', // 'dormant', 'igniting', 'expanding', 'pulsing', 'fading'
+    startTime: 0,
+    lastCrystalForm: 'whole'
+  });
+  
+  const { clock } = useFrame ? { clock: { getElapsedTime: () => timeRef.current } } : { clock: null };
   
   // Performance adjustments
   const {
@@ -195,6 +140,23 @@ const GlowingParticleCore = ({
     usePBR = true
   } = performanceConfig;
   
+  // Load the particle texture (same as PersistentDustSystem)
+  const particleTexture = useTexture('/assets/textures/particle-dust01.png');
+  
+  // Configure the texture
+  useEffect(() => {
+    if (particleTexture) {
+      particleTexture.minFilter = THREE.LinearFilter;
+      particleTexture.magFilter = THREE.LinearFilter;
+      particleTexture.generateMipmaps = false;
+      particleTexture.wrapS = THREE.ClampToEdgeWrapping;
+      particleTexture.wrapT = THREE.ClampToEdgeWrapping;
+      particleTexture.colorSpace = THREE.SRGBColorSpace;
+      particleTexture.needsUpdate = true;
+      console.log('🖼️ Particle texture loaded and configured');
+    }
+  }, [particleTexture]);
+
   const adjustedParticleCount = Math.floor(particleCount * renderScale);
   const adjustedEmissiveIntensity = usePBR ? emissiveIntensity : emissiveIntensity * 0.7;
 
@@ -215,93 +177,31 @@ const GlowingParticleCore = ({
     return null;
   }, [particleShape, baseColor, accentColor, adjustedEmissiveIntensity]);
 
-  // FIXED: Create particle system with proper instanced sphere handling
+  // FIXED: Create particle system with VISIBLE particles
   const { geometry, material, particleData, renderType } = useMemo(() => {
-    console.log('🌟 Creating Glowing Particle Core system with shape:', particleShape);
+    console.log('🌟 Creating particle system with count:', adjustedParticleCount);
     
     try {
       let geometry, material, renderType;
       
-      // Handle different particle shapes
-      if (particleShape === 'soft-spheres') {
-        // Use instanced spheres with soft shader
-        geometry = new THREE.InstancedBufferGeometry().copy(new THREE.SphereGeometry(0.02, 12, 8));
-        material = softSphereMaterial;
-        renderType = 'instancedMesh';
-        
-      } else if (particleShape === 'soft-points') {
-        // Use points with custom shader for maximum softness
-        geometry = new THREE.BufferGeometry();
-        
-        const pointShader = createSoftPointShader(baseColor, accentColor, adjustedEmissiveIntensity);
-        material = new THREE.ShaderMaterial({
-          ...pointShader,
-          transparent: true,
-          blending: THREE.AdditiveBlending,
-          depthWrite: false,
-          depthTest: true,
-          vertexColors: true
-        });
-        
-        renderType = 'points';
-        
-      } else if (particleShape === 'spheres') {
-        // Original hard-edge spheres
-        geometry = new THREE.InstancedBufferGeometry().copy(new THREE.SphereGeometry(0.02, 8, 6));
-        
-        material = new THREE.MeshBasicMaterial({
-          transparent: true,
-          opacity: 1.0,
-          blending: THREE.AdditiveBlending,
-          depthWrite: false,
-          depthTest: true,
-          color: new THREE.Color(baseColor),
-          emissive: new THREE.Color(baseColor),
-          emissiveIntensity: adjustedEmissiveIntensity * 0.5,
-        });
-        
-        renderType = 'instancedMesh';
-        
-      } else if (particleShape === 'cubes') {
-        // Instanced cubes
-        geometry = new THREE.InstancedBufferGeometry().copy(new THREE.BoxGeometry(0.03, 0.03, 0.03));
-        
-        material = new THREE.MeshBasicMaterial({
-          transparent: true,
-          opacity: 1.0,
-          blending: THREE.AdditiveBlending,
-          depthWrite: false,
-          depthTest: true,
-          color: new THREE.Color(baseColor),
-          emissive: new THREE.Color(baseColor),
-          emissiveIntensity: adjustedEmissiveIntensity * 0.5,
-        });
-        
-        renderType = 'instancedMesh';
-        
-      } else {
-        // Default: points (original behavior)
-        geometry = new THREE.BufferGeometry();
-        
-        material = new THREE.PointsMaterial({
-          size: 0.15,
-          transparent: true,
-          opacity: 1.0,
-          vertexColors: true,
-          blending: THREE.AdditiveBlending,
-          depthWrite: false,
-          depthTest: true,
-          sizeAttenuation: true,
-          alphaTest: 0.01,
-        });
-        
-        renderType = 'points';
-      }
-      
-      // Validate material was created successfully
-      if (!material) {
-        throw new Error('Failed to create particle material');
-      }
+      // Clean points rendering with proper depth testing
+      geometry = new THREE.BufferGeometry();
+      material = new THREE.PointsMaterial({
+        size: 8.0, // Good size for textured particles
+        transparent: true,
+        opacity: 0.9, // Slightly transparent for better blending
+        color: new THREE.Color(baseColor),
+        vertexColors: true, // Enable vertex colors for variety
+        blending: THREE.AdditiveBlending,
+        depthWrite: false, // Don't write to depth buffer (for transparency)
+        depthTest: true, // BUT do test depth for proper ordering
+        sizeAttenuation: true, // Enable distance-based sizing
+        alphaTest: 0.01,
+        map: particleTexture, // Textured particles
+        fog: false, // Don't let fog affect explosion particles
+        toneMapped: true,
+      });
+      renderType = 'points';
       
       // Particle data arrays
       const positions = new Float32Array(adjustedParticleCount * 3);
@@ -312,54 +212,24 @@ const GlowingParticleCore = ({
       const intensities = new Float32Array(adjustedParticleCount);
       const originalPositions = new Float32Array(adjustedParticleCount * 3);
       
-      // For instanced rendering, we need additional arrays
-      const instanceMatrices = renderType === 'instancedMesh' ? new Float32Array(adjustedParticleCount * 16) : null;
-      const instanceColors = renderType === 'instancedMesh' ? new Float32Array(adjustedParticleCount * 3) : null;
-      
-      // Color palette for variation
+      // Color palette
       const baseColorObj = new THREE.Color(baseColor);
       const accentColorObj = new THREE.Color(accentColor);
       
-      // Particle initialization
+      // FIXED: Particle initialization with proper distribution
       for (let i = 0; i < adjustedParticleCount; i++) {
         const i3 = i * 3;
         
+        // Generate initial positions within core radius
         let x, y, z;
-        let attempts = 0;
+        do {
+          x = (Math.random() - 0.5) * 2;
+          y = (Math.random() - 0.5) * 2;
+          z = (Math.random() - 0.5) * 2;
+        } while (x*x + y*y + z*z > 1);
         
-        if (coreShape === 'pill' || coreShape === 'ellipse') {
-          // Pill/elliptical shape distribution
-          do {
-            x = (Math.random() - 0.5) * 2;
-            y = (Math.random() - 0.5) * 2;
-            z = (Math.random() - 0.5) * 2;
-            
-            const scaledY = y / coreAspectRatio;
-            
-            attempts++;
-            if (attempts > 100) {
-              x = y = z = 0;
-              break;
-            }
-          } while (x*x + scaledY*scaledY + z*z > 1);
-          
-          y *= coreAspectRatio;
-        } else {
-          // Spherical distribution
-          do {
-            x = (Math.random() - 0.5) * 2;
-            y = (Math.random() - 0.5) * 2;
-            z = (Math.random() - 0.5) * 2;
-            attempts++;
-            if (attempts > 100) {
-              x = y = z = 0;
-              break;
-            }
-          } while (x*x + y*y + z*z > 1);
-        }
-        
-        // Scale to core radius with density bias toward center
-        const distance = Math.pow(Math.random(), 1.5) * coreRadius;
+        // Scale to core radius
+        const distance = Math.pow(Math.random(), 0.5) * coreRadius;
         const magnitude = Math.sqrt(x*x + y*y + z*z);
         
         if (magnitude > 0) {
@@ -368,91 +238,67 @@ const GlowingParticleCore = ({
           z = (z / magnitude) * distance;
         }
         
-        // Store positions with bounds checking
-        positions[i3] = isFinite(x) ? x : 0;
-        positions[i3 + 1] = isFinite(y) ? y : 0;
-        positions[i3 + 2] = isFinite(z) ? z : 0;
+        // Store initial positions (at core)
+        positions[i3] = x;
+        positions[i3 + 1] = y;
+        positions[i3 + 2] = z;
         
-        // Store original positions for expansion calculation
-        originalPositions[i3] = positions[i3];
-        originalPositions[i3 + 1] = positions[i3 + 1];
-        originalPositions[i3 + 2] = positions[i3 + 2];
+        // Store original positions for reference
+        originalPositions[i3] = x;
+        originalPositions[i3 + 1] = y;
+        originalPositions[i3 + 2] = z;
         
-        // Random velocities for expansion
-        const velocity = new THREE.Vector3(x, y, z).normalize();
-        velocity.multiplyScalar(expansionSpeed * (0.5 + Math.random() * 0.5));
+        // FIXED: Calculate expansion velocities (direction * speed)
+        const direction = new THREE.Vector3(x, y, z);
+        if (direction.length() > 0) {
+          direction.normalize();
+        } else {
+          // Fallback for particles exactly at center
+          direction.set(
+            Math.random() - 0.5,
+            Math.random() - 0.5,
+            Math.random() - 0.5
+          ).normalize();
+        }
         
-        velocities[i3] = isFinite(velocity.x) ? velocity.x : 0;
-        velocities[i3 + 1] = isFinite(velocity.y) ? velocity.y : 0;
-        velocities[i3 + 2] = isFinite(velocity.z) ? velocity.z : 0;
+        // Scale by expansion parameters - REDUCED speed for testing
+        const speed = expansionSpeed * 0.1 * (0.5 + Math.random() * 0.5); // Much slower for debugging
+        direction.multiplyScalar(speed);
         
-        // Color variation
-        const useAccent = Math.random() < 0.15;
+        velocities[i3] = direction.x;
+        velocities[i3 + 1] = direction.y;
+        velocities[i3 + 2] = direction.z;
+        
+        // Color variation - more natural colors with texture
+        const useAccent = Math.random() < 0.25; // More accent particles
         const color = useAccent ? accentColorObj : baseColorObj;
+        const brightness = 0.7 + Math.random() * 0.6; // More brightness variation
         
-        const brightness = 0.8 + Math.random() * 0.4;
         colors[i3] = color.r * brightness;
         colors[i3 + 1] = color.g * brightness;
         colors[i3 + 2] = color.b * brightness;
         
-        // Size variation
-        sizes[i] = 0.8 + Math.random() * 0.4;
-        
-        // Random phase for pulsing
+        // Size variation for more organic look
+        sizes[i] = 6.0 + Math.random() * 8.0; // Size range 6-14
         phases[i] = Math.random() * Math.PI * 2;
-        
-        // Intensity for individual particle brightness
-        intensities[i] = 0.7 + Math.random() * 0.6;
+        intensities[i] = 0.8 + Math.random() * 0.4; // Good intensity range
       }
       
-      // Set geometry attributes
-      try {
-        if (renderType === 'points') {
-          // Standard points rendering
-          geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-          geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-          
-          // For soft points, add extra attributes
-          if (particleShape === 'soft-points') {
-            geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
-            geometry.setAttribute('particleColor', new THREE.BufferAttribute(colors, 3));
-            geometry.setAttribute('intensity', new THREE.BufferAttribute(intensities, 1));
-          }
-          
-        } else if (renderType === 'instancedMesh') {
-          // FIXED: Instanced rendering setup with proper matrix handling
-          geometry.instanceCount = adjustedParticleCount;
-          
-          // Set up instance matrices - start all at original positions
-          const matrix = new THREE.Matrix4();
-          for (let i = 0; i < adjustedParticleCount; i++) {
-            const i3 = i * 3;
-            const i16 = i * 16;
-            
-            // Create transformation matrix for this instance
-            matrix.makeScale(1, 1, 1);
-            matrix.setPosition(positions[i3], positions[i3 + 1], positions[i3 + 2]);
-            matrix.toArray(instanceMatrices, i16);
-            
-            // Set instance colors
-            instanceColors[i3] = colors[i3];
-            instanceColors[i3 + 1] = colors[i3 + 1];
-            instanceColors[i3 + 2] = colors[i3 + 2];
-          }
-          
-          // CRITICAL: Use InstancedBufferAttribute for proper instancing
-          geometry.setAttribute('instanceMatrix', new THREE.InstancedBufferAttribute(instanceMatrices, 16));
-          geometry.setAttribute('instanceColor', new THREE.InstancedBufferAttribute(instanceColors, 3));
-        }
-      } catch (error) {
-        console.error('Failed to set geometry attributes:', error);
-        throw error;
-      }
+      // Set geometry attributes for POINTS with texture support
+      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+      geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1)); // Individual sizes
+      
+      console.log('🌟 Created textured particle system:', {
+        count: adjustedParticleCount,
+        hasTexture: !!particleTexture,
+        renderType: 'points'
+      });
       
       return { 
         geometry, 
         material,
-        renderType,
+        renderType: 'points', // Force points
         particleData: { 
           positions, 
           colors, 
@@ -461,22 +307,15 @@ const GlowingParticleCore = ({
           phases, 
           intensities,
           originalPositions,
-          instanceMatrices,
-          instanceColors
+          instanceMatrices: null, // Not used for points
+          instanceColors: null
         }
       };
     } catch (error) {
       console.error('❌ Failed to create particle system:', error);
-      
-      // Return fallback empty system
       return {
         geometry: new THREE.BufferGeometry(),
-        material: new THREE.PointsMaterial({ 
-          size: 0.001, 
-          transparent: true, 
-          opacity: 0,
-          visible: false 
-        }),
+        material: new THREE.PointsMaterial({ size: 0.001, transparent: true, opacity: 0 }),
         renderType: 'points',
         particleData: null
       };
@@ -488,423 +327,176 @@ const GlowingParticleCore = ({
     accentColor, 
     adjustedEmissiveIntensity, 
     expansionSpeed,
-    coreShape,
-    coreAspectRatio,
     particleShape,
-    softSphereMaterial
+    particleTexture // Add texture as dependency
   ]);
   
-  // Explosion detection
+  // SIMPLIFIED: Explosion detection that properly triggers state changes
   useEffect(() => {
     if (!animationData) return;
     
-    try {
-      const currentForm = animationData.crystalForm;
-      const formChanged = currentForm !== lastCrystalForm.current;
-      
-      if (formChanged) {
-        if (lastCrystalForm.current === 'whole' && currentForm === 'exploded') {
-          console.log('🌟 Crystal explosion detected - igniting particle core');
-          
-          setIsExploding(true);
-          setExplosionPhase('igniting');
-          explosionTimeRef.current = 0;
-          
-          if (onExplosionStart) {
-            onExplosionStart();
-          }
-        } else if (lastCrystalForm.current === 'exploded' && currentForm === 'whole') {
-          console.log('🌟 Crystal reforming - fading particle core');
-          
-          setExplosionPhase('fading');
-          explosionTimeRef.current = 0;
-        }
-      }
-      
-      lastCrystalForm.current = currentForm;
-    } catch (error) {
-      console.error('❌ Error in explosion detection:', error);
-    }
-  }, [animationData?.crystalForm, onExplosionStart]);
-  
-  // FIXED: Main animation loop with proper instanced sphere updates
-  useFrame((state, delta) => {
-    if (!particlesRef.current || !visible || !particleData) return;
+    const currentForm = animationData.crystalForm;
     
-    try {
-      timeRef.current += delta;
-      
-      if (isExploding) {
-        explosionTimeRef.current += delta;
+    // Only trigger when form actually changes
+    if (currentForm !== explosionState.lastCrystalForm) {
+      if (explosionState.lastCrystalForm === 'whole' && currentForm === 'exploded') {
+        console.log('🌟 Starting particle explosion');
+        
+        // Reset and start explosion
+        setExplosionState({
+          isActive: true,
+          phase: 'igniting',
+          startTime: timeRef.current,
+          lastCrystalForm: currentForm
+        });
+        
+        explosionTimeRef.current = 0;
+        
+        if (onExplosionStart) {
+          onExplosionStart();
+        }
+        
+      } else if (explosionState.lastCrystalForm === 'exploded' && currentForm === 'whole') {
+        console.log('🌟 Starting particle fade');
+        
+        setExplosionState(prev => ({
+          ...prev,
+          phase: 'fading',
+          startTime: timeRef.current,
+          lastCrystalForm: currentForm
+        }));
+        
+        explosionTimeRef.current = 0;
+      } else {
+        // Just update the form reference
+        setExplosionState(prev => ({
+          ...prev,
+          lastCrystalForm: currentForm
+        }));
       }
-
-      // Update shader uniforms for soft particles
-      if (material && material.uniforms) {
-        if (material.uniforms.time) {
-          material.uniforms.time.value = timeRef.current;
-        }
-        if (material.uniforms.glowIntensity) {
-          // Calculate glow intensity based on explosion phase
-          let globalIntensity = 1;
-          
-          switch (explosionPhase) {
-            case 'igniting':
-              const ignitionProgress = Math.min(explosionTimeRef.current / ignitionDuration, 1);
-              globalIntensity = ignitionProgress;
-              break;
-            case 'expanding':
-              const expansionProgress = Math.min(explosionTimeRef.current / expansionDuration, 1);
-              globalIntensity = 1.2 - expansionProgress * 0.3;
-              break;
-            case 'pulsing':
-              globalIntensity = 0.9;
-              break;
-            case 'fading':
-              const fadeProgress = Math.min(explosionTimeRef.current / fadeDuration, 1);
-              globalIntensity = 1 - fadeProgress;
-              break;
-            default:
-              globalIntensity = 0;
-          }
-          
-          material.uniforms.glowIntensity.value = globalIntensity;
-        }
-        if (material.uniforms.globalIntensity) {
-          material.uniforms.globalIntensity.value = material.uniforms.glowIntensity?.value || 1.0;
-        }
+    }
+  }, [animationData?.crystalForm, explosionState.lastCrystalForm, onExplosionStart]);
+  
+  // Simplified animation loop
+  useFrame((state, delta) => {
+    timeRef.current += delta;
+    
+    if (!particlesRef.current || !particleData) return;
+    
+    // Only animate when explosion is active
+    if (!explosionState.isActive) return;
+    
+    explosionTimeRef.current += delta;
+    
+    // Update shader uniforms
+    if (material && material.uniforms) {
+      if (material.uniforms.time) {
+        material.uniforms.time.value = timeRef.current;
       }
+    }
+    
+    const { positions, velocities, originalPositions } = particleData;
+    
+    // Calculate expansion factor based on elapsed time
+    let expansionFactor = 0;
+    const totalElapsed = explosionTimeRef.current;
+    
+    if (explosionState.phase === 'igniting') {
+      // Small initial expansion
+      const progress = Math.min(totalElapsed / ignitionDuration, 1);
+      expansionFactor = progress * 0.2;
       
-      const { positions, velocities, originalPositions, phases, intensities } = particleData;
+      if (progress >= 1) {
+        setExplosionState(prev => ({
+          ...prev,
+          phase: 'expanding'
+        }));
+        explosionTimeRef.current = 0;
+      }
+    } 
+    else if (explosionState.phase === 'expanding') {
+      // Main expansion
+      const progress = Math.min(totalElapsed / expansionDuration, 1);
+      expansionFactor = 0.2 + (progress * (maxExpansion - 0.2)); // From 0.2 to maxExpansion
       
-      if (!positions || !originalPositions) {
-        console.warn('⚠️ Particle data arrays not available');
+      if (progress >= 1) {
+        setExplosionState(prev => ({
+          ...prev,
+          phase: 'pulsing'
+        }));
+      }
+    }
+    else if (explosionState.phase === 'pulsing') {
+      // Stay expanded
+      expansionFactor = maxExpansion;
+    }
+    else if (explosionState.phase === 'fading') {
+      // Shrink back
+      const progress = Math.min(totalElapsed / fadeDuration, 1);
+      expansionFactor = maxExpansion * (1 - progress);
+      
+      if (progress >= 1) {
+        setExplosionState(prev => ({
+          ...prev,
+          isActive: false,
+          phase: 'dormant'
+        }));
+        if (onExplosionEnd) onExplosionEnd();
         return;
       }
+    }
+    
+    // Update particle positions
+    for (let i = 0; i < adjustedParticleCount; i++) {
+      const i3 = i * 3;
       
-      // Phase management and transitions
-      let phaseProgress = 0;
-      let globalIntensity = 1;
-      let expansionFactor = 1;
+      // Get velocity direction
+      const velX = velocities[i3];
+      const velY = velocities[i3 + 1];
+      const velZ = velocities[i3 + 2];
       
-      switch (explosionPhase) {
-        case 'igniting':
-          phaseProgress = Math.min(explosionTimeRef.current / ignitionDuration, 1);
-          globalIntensity = phaseProgress;
-          expansionFactor = 1 + phaseProgress * 0.1;
-          
-          if (phaseProgress >= 1) {
-            setExplosionPhase('expanding');
-            explosionTimeRef.current = 0;
-            if (onExplosionPeak) onExplosionPeak();
-          }
-          break;
-          
-        case 'expanding':
-          phaseProgress = Math.min(explosionTimeRef.current / expansionDuration, 1);
-          globalIntensity = 1.2 - phaseProgress * 0.3;
-          expansionFactor = 1 + phaseProgress * (maxExpansion - 1);
-          
-          if (phaseProgress >= 1) {
-            setExplosionPhase('pulsing');
-            explosionTimeRef.current = 0;
-          }
-          break;
-          
-        case 'pulsing':
-          globalIntensity = 0.9;
-          expansionFactor = maxExpansion;
-          break;
-          
-        case 'fading':
-          phaseProgress = Math.min(explosionTimeRef.current / fadeDuration, 1);
-          globalIntensity = 1 - phaseProgress;
-          expansionFactor = maxExpansion * (1 - phaseProgress * 0.3);
-          
-          if (phaseProgress >= 1) {
-            setIsExploding(false);
-            setExplosionPhase('dormant');
-            if (onExplosionEnd) onExplosionEnd();
-          }
-          break;
-          
-        case 'dormant':
-        default:
-          globalIntensity = 0;
-          expansionFactor = 1;
-          break;
-      }
+      // Calculate new position = original + (velocity * expansionFactor)
+      const newX = originalPositions[i3] + (velX * expansionFactor);
+      const newY = originalPositions[i3 + 1] + (velY * expansionFactor);
+      const newZ = originalPositions[i3 + 2] + (velZ * expansionFactor);
       
-      // Update particle positions
-      for (let i = 0; i < adjustedParticleCount; i++) {
-        const i3 = i * 3;
-        
-        if (explosionPhase === 'dormant') {
-          positions[i3] = originalPositions[i3];
-          positions[i3 + 1] = originalPositions[i3 + 1];
-          positions[i3 + 2] = originalPositions[i3 + 2];
-        } else {
-          const originalPos = new THREE.Vector3(
-            originalPositions[i3] || 0,
-            originalPositions[i3 + 1] || 0,
-            originalPositions[i3 + 2] || 0
-          );
-          
-          const jitterAmount = 0.002 * Math.sin(timeRef.current * 3 + phases[i]);
-          const expandedPos = originalPos.clone().multiplyScalar(expansionFactor);
-          
-          const jitterX = Math.sin(timeRef.current * 2 + phases[i]) * jitterAmount;
-          const jitterY = Math.cos(timeRef.current * 1.7 + phases[i]) * jitterAmount;
-          const jitterZ = Math.sin(timeRef.current * 2.3 + phases[i]) * jitterAmount;
-          
-          expandedPos.x += isFinite(jitterX) ? jitterX : 0;
-          expandedPos.y += isFinite(jitterY) ? jitterY : 0;
-          expandedPos.z += isFinite(jitterZ) ? jitterZ : 0;
-          
-          positions[i3] = isFinite(expandedPos.x) ? expandedPos.x : 0;
-          positions[i3 + 1] = isFinite(expandedPos.y) ? expandedPos.y : 0;
-          positions[i3 + 2] = isFinite(expandedPos.z) ? expandedPos.z : 0;
-        }
-      }
-      
-      // CRITICAL FIX: Update geometry based on render type
-      if (renderType === 'instancedMesh' && particleData.instanceMatrices) {
-        // FIXED: This is the key part that was broken for instanced spheres!
-        const matrix = new THREE.Matrix4();
-        for (let i = 0; i < adjustedParticleCount; i++) {
-          const i3 = i * 3;
-          const i16 = i * 16;
-          
-          // Apply scale based on expansion (subtle scaling effect)
-          const scale = 1 + (expansionFactor - 1) * 0.1;
-          
-          // FIXED: Create proper transformation matrix with position and scale
-          matrix.makeScale(scale, scale, scale);
-          matrix.setPosition(positions[i3], positions[i3 + 1], positions[i3 + 2]);
-          
-          // FIXED: Store matrix in the instance matrices array
-          matrix.toArray(particleData.instanceMatrices, i16);
-        }
-        
-        // CRITICAL: Mark the instance matrix attribute for GPU update
-        if (particlesRef.current?.geometry?.attributes?.instanceMatrix) {
-          particlesRef.current.geometry.attributes.instanceMatrix.needsUpdate = true;
-        }
-        
-        // Debug log occasionally to verify positions are updating
-        if (process.env.NODE_ENV === 'development' && Math.random() < 0.005) {
-          console.log('🌟 Instanced sphere positions updated:', {
-            expansionFactor: expansionFactor.toFixed(2),
-            firstParticlePos: [
-              positions[0]?.toFixed(3), 
-              positions[1]?.toFixed(3), 
-              positions[2]?.toFixed(3)
-            ],
-            phase: explosionPhase,
-            renderType: renderType
-          });
-        }
-        
-      } else if (renderType === 'points') {
-        // For points rendering, just update the position attribute
-        if (particlesRef.current?.geometry?.attributes?.position) {
-          particlesRef.current.geometry.attributes.position.needsUpdate = true;
-        }
-      }
-      
-      // Global pulsing effect
-      if (pulseEnabled && isExploding) {
-        const pulsePhase = Math.sin(timeRef.current * pulseSpeed);
-        const pulseMultiplier = THREE.MathUtils.lerp(
-          pulseIntensityRange[0],
-          pulseIntensityRange[1],
-          (pulsePhase + 1) * 0.5
-        );
-        globalIntensity *= pulseMultiplier;
-      }
-      
-      // Update material properties
-      if (material && material.opacity !== undefined) {
-        material.opacity = Math.max(0, Math.min(1, globalIntensity));
-        
-        if (material.emissiveIntensity !== undefined) {
-          material.emissiveIntensity = adjustedEmissiveIntensity * globalIntensity;
-        }
-      }
-      
-    } catch (error) {
-      console.error('❌ Error in particle animation loop:', error);
+      positions[i3] = newX;
+      positions[i3 + 1] = newY;
+      positions[i3 + 2] = newZ;
+    }
+    
+    // Update geometry
+    const positionAttribute = particlesRef.current.geometry.attributes.position;
+    if (positionAttribute) {
+      positionAttribute.needsUpdate = true;
     }
   });
   
   // Cleanup
   useEffect(() => {
     return () => {
-      try {
-        if (material) {
-          material.dispose();
-        }
-        if (geometry) {
-          geometry.dispose();
-        }
-      } catch (error) {
-        console.warn('⚠️ Error during particle cleanup:', error);
-      }
+      if (material) material.dispose();
+      if (geometry) geometry.dispose();
     };
   }, [material, geometry]);
   
-  const shouldRender = visible && explosionPhase !== 'dormant' && particleData;
+  // FIXED: Only render when explosion is active
+  const shouldRender = visible && explosionState.isActive;
   
   if (!shouldRender) return null;
   
   return (
     <group position={position}>
-      {/* Render different particle types based on particleShape */}
-      {renderType === 'instancedMesh' ? (
-        <instancedMesh
-          ref={particlesRef}
-          args={[geometry, material, adjustedParticleCount]}
-          renderOrder={-1000}
-          frustumCulled={frustumCulled}
-        />
-      ) : (
-        <points
-          ref={particlesRef}
-          geometry={geometry}
-          material={material}
-          renderOrder={-1000}
-          frustumCulled={frustumCulled}
-        />
-      )}
-      
-      {/* Additional glow sphere for extra effect */}
-      {isExploding && (
-        <mesh renderOrder={-999} frustumCulled={frustumCulled}>
-          <sphereGeometry args={[coreRadius * 0.5, 16, 12]} />
-          <meshBasicMaterial
-            color={baseColor}
-            transparent={true}
-            opacity={0.1}
-            blending={THREE.AdditiveBlending}
-            depthWrite={false}
-            depthTest={true}
-            side={THREE.DoubleSide}
-          />
-        </mesh>
-      )}
+      {/* Main particle system */}
+      <points
+        ref={particlesRef}
+        geometry={geometry}
+        material={material}
+        renderOrder={0} // Normal render order for proper depth sorting
+        frustumCulled={false} // Never cull particles
+      />
     </group>
   );
-};
-
-/**
- * Updated Preset configurations with soft particle options
- */
-export const ParticleCorePresets = {
-  // Soft spheres with beautiful fade-to-transparent edges
-  softSpheres: {
-    baseColor: '#ffffff',
-    accentColor: '#64ffda',
-    emissiveIntensity: 25.0,
-    coreRadius: 0.08,
-    coreShape: 'sphere',
-    particleCount: 800,
-    particleShape: 'soft-spheres',
-    pulseSpeed: 2.5,
-    maxExpansion: 1.8,
-    frustumCulled: false
-  },
-  
-  // Ultra-soft circular points for maximum performance
-  softPoints: {
-    baseColor: '#ffffff',
-    accentColor: '#64ffda',
-    emissiveIntensity: 20.0,
-    coreRadius: 0.08,
-    coreShape: 'sphere',
-    particleCount: 1200,
-    particleShape: 'soft-points',
-    pulseSpeed: 2.0,
-    maxExpansion: 2.2,
-    frustumCulled: false
-  },
-  
-  // Default hard spheres (original)
-  default: {
-    baseColor: '#ffffff',
-    accentColor: '#64ffda',
-    emissiveIntensity: 25.0,
-    coreRadius: 0.08,
-    coreShape: 'sphere',
-    particleCount: 800,
-    particleShape: 'spheres',
-    pulseSpeed: 2.5,
-    maxExpansion: 1.8,
-    frustumCulled: false
-  },
-  
-  // Intense cyan soft core
-  cyanSoft: {
-    baseColor: '#64ffda',
-    accentColor: '#ffffff',
-    emissiveIntensity: 30.0,
-    coreRadius: 0.06,
-    coreShape: 'sphere',
-    particleCount: 1000,
-    particleShape: 'soft-spheres',
-    pulseSpeed: 3.0,
-    maxExpansion: 2.2,
-    frustumCulled: false
-  },
-  
-  // Purple mystical soft core - Pill-shaped
-  mysticalSoft: {
-    baseColor: '#bb86fc',
-    accentColor: '#ffffff',
-    emissiveIntensity: 28.0,
-    coreRadius: 0.09,
-    coreShape: 'pill',
-    coreAspectRatio: 2.5,
-    particleCount: 600,
-    particleShape: 'soft-spheres',
-    pulseSpeed: 1.8,
-    maxExpansion: 2.0,
-    frustumCulled: false
-  },
-  
-  // Performance-optimized soft core for mobile
-  performanceSoft: {
-    baseColor: '#ffffff',
-    accentColor: '#64ffda',
-    emissiveIntensity: 18.0,
-    coreRadius: 0.07,
-    coreShape: 'sphere',
-    particleCount: 400,
-    particleShape: 'soft-points',
-    pulseSpeed: 2.0,
-    maxExpansion: 1.5,
-    frustumCulled: false
-  }
-};
-
-/**
- * Smart Particle Core with automatic preset selection and soft edges
- */
-export const SmartGlowingParticleCore = ({ animationData, performanceConfig, ...props }) => {
-  // Select preset based on performance profile
-  let preset = ParticleCorePresets.softSpheres; // Default to soft spheres
-  
-  if (performanceConfig) {
-    const tier = performanceConfig.renderScale;
-    if (tier < 0.7) {
-      preset = ParticleCorePresets.performanceSoft; // Use soft points for performance
-    } else if (performanceConfig.usePBR) {
-      preset = ParticleCorePresets.cyanSoft; // High quality soft spheres
-    }
-  }
-  
-  // Merge preset with custom props
-  const finalProps = { ...preset, ...props, animationData, performanceConfig };
-  
-  return <GlowingParticleCore {...finalProps} />;
 };
 
 export default GlowingParticleCore;
