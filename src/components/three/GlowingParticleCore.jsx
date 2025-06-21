@@ -1,5 +1,5 @@
 // FIXED: src/components/three/GlowingParticleCore.jsx
-// Fixed particle expansion - particles now properly expand from origin
+// Fixed particle expansion with proper maxExpansion control
 
 import React, { useRef, useMemo, useEffect, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
@@ -7,76 +7,7 @@ import { useTexture } from '@react-three/drei';
 import * as THREE from 'three';
 
 /**
- * Soft Sphere Shader - Creates radial gradient from center to transparent edges
- */
-const createSoftSphereShader = (baseColor, accentColor, emissiveIntensity) => {
-  return {
-    vertexShader: `
-      varying vec3 vNormal;
-      varying vec3 vViewPosition;
-      varying vec2 vUv;
-      
-      void main() {
-        vNormal = normalize(normalMatrix * normal);
-        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-        vViewPosition = -mvPosition.xyz;
-        vUv = uv;
-        
-        gl_Position = projectionMatrix * mvPosition;
-      }
-    `,
-    
-    fragmentShader: `
-      uniform vec3 baseColor;
-      uniform vec3 accentColor;
-      uniform float emissiveIntensity;
-      uniform float time;
-      uniform float glowIntensity;
-      
-      varying vec3 vNormal;
-      varying vec3 vViewPosition;
-      varying vec2 vUv;
-      
-      void main() {
-        // Calculate distance from center using UV coordinates
-        vec2 center = vec2(0.5, 0.5);
-        float dist = distance(vUv, center) * 2.0; // 0 at center, 1 at edges
-        
-        // Create radial alpha gradient (fade to transparent at edges)
-        float alpha = 1.0 - smoothstep(0.2, 1.0, dist);
-        alpha = pow(alpha, 1.5); // Softer falloff
-        
-        // Fresnel effect for extra glow at edges (before transparency)
-        vec3 viewDir = normalize(vViewPosition);
-        float fresnel = 1.0 - abs(dot(vNormal, viewDir));
-        fresnel = pow(fresnel, 2.0);
-        
-        // Mix colors based on distance and fresnel
-        vec3 color = mix(baseColor, accentColor, fresnel * 0.3);
-        
-        // Add emissive glow
-        color += color * emissiveIntensity * glowIntensity;
-        
-        // Pulse effect
-        float pulse = sin(time * 3.0) * 0.1 + 0.9;
-        alpha *= pulse;
-        
-        gl_FragColor = vec4(color, alpha);
-      }
-    `,
-    
-    uniforms: {
-      baseColor: { value: new THREE.Color(baseColor) },
-      accentColor: { value: new THREE.Color(accentColor) },
-      emissiveIntensity: { value: emissiveIntensity },
-      time: { value: 0 },
-      glowIntensity: { value: 1.0 }
-    }
-  };
-};
-
-/**
- * FIXED: Glowing Particle Core Component with working expansion
+ * FIXED: Glowing Particle Core Component with working maxExpansion control
  */
 const GlowingParticleCore = ({
   // Core properties
@@ -95,10 +26,12 @@ const GlowingParticleCore = ({
   pulseEnabled = true,
   pulseSpeed = 2.5,
   pulseIntensityRange = [0.6, 1.4],
-  expansionSpeed = 0.5,
-  maxExpansion = 1.8,
   
-  // FIXED: Key timing controls for each phase
+  // FIXED: Key expansion controls that now work properly
+  maxExpansion = 1.8,        // THIS NOW CONTROLS THE PARTICLE SPREAD
+  expansionSpeed = 0.5,      // How fast particles move during expansion
+  
+  // FIXED: Timing controls for each phase
   ignitionDuration = 0.3,
   expansionDuration = 1.2,
   fadeDuration = 0.8,
@@ -140,7 +73,7 @@ const GlowingParticleCore = ({
     usePBR = true
   } = performanceConfig;
   
-  // Load the particle texture (same as PersistentDustSystem)
+  // Load the particle texture
   const particleTexture = useTexture('/assets/textures/particle-dust01.png');
   
   // Configure the texture
@@ -160,26 +93,9 @@ const GlowingParticleCore = ({
   const adjustedParticleCount = Math.floor(particleCount * renderScale);
   const adjustedEmissiveIntensity = usePBR ? emissiveIntensity : emissiveIntensity * 0.7;
 
-  // Create soft sphere material
-  const softSphereMaterial = useMemo(() => {
-    if (particleShape === 'soft-spheres') {
-      const shader = createSoftSphereShader(baseColor, accentColor, adjustedEmissiveIntensity);
-      
-      return new THREE.ShaderMaterial({
-        ...shader,
-        transparent: true,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-        depthTest: true,
-        side: THREE.DoubleSide
-      });
-    }
-    return null;
-  }, [particleShape, baseColor, accentColor, adjustedEmissiveIntensity]);
-
-  // FIXED: Create particle system with VISIBLE particles
+  // FIXED: Create particle system with proper velocity calculation based on maxExpansion
   const { geometry, material, particleData, renderType } = useMemo(() => {
-    console.log('🌟 Creating particle system with count:', adjustedParticleCount);
+    console.log('🌟 Creating particle system with maxExpansion:', maxExpansion);
     
     try {
       let geometry, material, renderType;
@@ -187,18 +103,18 @@ const GlowingParticleCore = ({
       // Clean points rendering with proper depth testing
       geometry = new THREE.BufferGeometry();
       material = new THREE.PointsMaterial({
-        size: 1.0, // Good size for textured particles
+        size: 8,
         transparent: true,
-        opacity: 0.9, // Slightly transparent for better blending
+        opacity: 0.7,
         color: new THREE.Color(baseColor),
-        vertexColors: true, // Enable vertex colors for variety
+        vertexColors: true,
         blending: THREE.AdditiveBlending,
-        depthWrite: false, // Don't write to depth buffer (for transparency)
-        depthTest: true, // BUT do test depth for proper ordering
-        sizeAttenuation: true, // Enable distance-based sizing
+        depthWrite: false,
+        depthTest: true,
+        sizeAttenuation: true,
         alphaTest: 0.01,
-        map: particleTexture, // Textured particles
-        fog: false, // Don't let fog affect explosion particles
+        map: particleTexture,
+        fog: false,
         toneMapped: true,
       });
       renderType = 'points';
@@ -216,27 +132,18 @@ const GlowingParticleCore = ({
       const baseColorObj = new THREE.Color(baseColor);
       const accentColorObj = new THREE.Color(accentColor);
       
-      // FIXED: Particle initialization with proper distribution
+      // FIXED: Particle initialization with proper distribution and velocity calculation
       for (let i = 0; i < adjustedParticleCount; i++) {
         const i3 = i * 3;
         
-        // Generate initial positions within core radius
-        let x, y, z;
-        do {
-          x = (Math.random() - 0.5) * 2;
-          y = (Math.random() - 0.5) * 2;
-          z = (Math.random() - 0.5) * 2;
-        } while (x*x + y*y + z*z > 1);
+        // Generate initial positions within core radius using spherical distribution
+        const phi = Math.acos(1 - 2 * Math.random()); // Uniform distribution on sphere
+        const theta = 2 * Math.PI * Math.random();
+        const radius = Math.pow(Math.random(), 1/3) * coreRadius; // Cubic root for volume distribution
         
-        // Scale to core radius
-        const distance = Math.pow(Math.random(), 0.5) * coreRadius;
-        const magnitude = Math.sqrt(x*x + y*y + z*z);
-        
-        if (magnitude > 0) {
-          x = (x / magnitude) * distance;
-          y = (y / magnitude) * distance;
-          z = (z / magnitude) * distance;
-        }
+        const x = radius * Math.sin(phi) * Math.cos(theta);
+        const y = radius * Math.sin(phi) * Math.sin(theta);
+        const z = radius * Math.cos(phi);
         
         // Store initial positions (at core)
         positions[i3] = x;
@@ -248,7 +155,7 @@ const GlowingParticleCore = ({
         originalPositions[i3 + 1] = y;
         originalPositions[i3 + 2] = z;
         
-        // FIXED: Calculate expansion velocities (direction * speed)
+        // FIXED: Calculate expansion direction and velocity based on maxExpansion
         const direction = new THREE.Vector3(x, y, z);
         if (direction.length() > 0) {
           direction.normalize();
@@ -261,44 +168,50 @@ const GlowingParticleCore = ({
           ).normalize();
         }
         
-        // Scale by expansion parameters - REDUCED speed for testing
-        const speed = expansionSpeed * 0.1 * (0.5 + Math.random() * 0.5); // Much slower for debugging
+        // FIXED: Calculate target distance based on maxExpansion
+        // Add some randomness to make it look more organic
+        const targetDistance = maxExpansion * (0.5 + Math.random() * 0.5);
+        
+        // Calculate velocity needed to reach target position
+        // Velocity = direction * speed, where speed determines how fast they reach target
+        const speed = expansionSpeed * targetDistance; // Scale speed by target distance
         direction.multiplyScalar(speed);
         
         velocities[i3] = direction.x;
         velocities[i3 + 1] = direction.y;
         velocities[i3 + 2] = direction.z;
         
-        // Color variation - more natural colors with texture
-        const useAccent = Math.random() < 0.25; // More accent particles
+        // Color variation
+        const useAccent = Math.random() < 0.25;
         const color = useAccent ? accentColorObj : baseColorObj;
-        const brightness = 0.7 + Math.random() * 0.6; // More brightness variation
+        const brightness = 0.7 + Math.random() * 0.6;
         
         colors[i3] = color.r * brightness;
         colors[i3 + 1] = color.g * brightness;
         colors[i3 + 2] = color.b * brightness;
         
-        // Size variation for more organic look
-        sizes[i] = 0.1 + Math.random() * 1.0; // Size range 6-14
+        // Size variation
+        sizes[i] = 0.1 + Math.random() * 1.0;
         phases[i] = Math.random() * Math.PI * 2;
-        intensities[i] = 0.8 + Math.random() * 0.4; // Good intensity range
+        intensities[i] = 0.8 + Math.random() * 0.4;
       }
       
-      // Set geometry attributes for POINTS with texture support
+      // Set geometry attributes
       geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
       geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-      geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1)); // Individual sizes
+      geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
       
-      console.log('🌟 Created textured particle system:', {
+      console.log('🌟 Created particle system with maxExpansion control:', {
         count: adjustedParticleCount,
-        hasTexture: !!particleTexture,
-        renderType: 'points'
+        maxExpansion,
+        expansionSpeed,
+        hasTexture: !!particleTexture
       });
       
       return { 
         geometry, 
         material,
-        renderType: 'points', // Force points
+        renderType: 'points',
         particleData: { 
           positions, 
           colors, 
@@ -307,7 +220,7 @@ const GlowingParticleCore = ({
           phases, 
           intensities,
           originalPositions,
-          instanceMatrices: null, // Not used for points
+          instanceMatrices: null,
           instanceColors: null
         }
       };
@@ -323,26 +236,25 @@ const GlowingParticleCore = ({
   }, [
     adjustedParticleCount, 
     coreRadius, 
+    maxExpansion,        // FIXED: Add maxExpansion as dependency
+    expansionSpeed,      // FIXED: Add expansionSpeed as dependency
     baseColor, 
     accentColor, 
     adjustedEmissiveIntensity, 
-    expansionSpeed,
     particleShape,
-    particleTexture // Add texture as dependency
+    particleTexture
   ]);
   
-  // SIMPLIFIED: Explosion detection that properly triggers state changes
+  // Explosion detection (keep existing logic)
   useEffect(() => {
     if (!animationData) return;
     
     const currentForm = animationData.crystalForm;
     
-    // Only trigger when form actually changes
     if (currentForm !== explosionState.lastCrystalForm) {
       if (explosionState.lastCrystalForm === 'whole' && currentForm === 'exploded') {
-        console.log('🌟 Starting particle explosion');
+        console.log('🌟 Starting particle explosion with maxExpansion:', maxExpansion);
         
-        // Reset and start explosion
         setExplosionState({
           isActive: true,
           phase: 'igniting',
@@ -368,16 +280,15 @@ const GlowingParticleCore = ({
         
         explosionTimeRef.current = 0;
       } else {
-        // Just update the form reference
         setExplosionState(prev => ({
           ...prev,
           lastCrystalForm: currentForm
         }));
       }
     }
-  }, [animationData?.crystalForm, explosionState.lastCrystalForm, onExplosionStart]);
+  }, [animationData?.crystalForm, explosionState.lastCrystalForm, onExplosionStart, maxExpansion]);
   
-  // Simplified animation loop
+  // FIXED: Animation loop with proper expansion calculation
   useFrame((state, delta) => {
     timeRef.current += delta;
     
@@ -397,14 +308,14 @@ const GlowingParticleCore = ({
     
     const { positions, velocities, originalPositions } = particleData;
     
-    // Calculate expansion factor based on elapsed time
+    // FIXED: Calculate expansion factor that properly uses maxExpansion
     let expansionFactor = 0;
     const totalElapsed = explosionTimeRef.current;
     
     if (explosionState.phase === 'igniting') {
       // Small initial expansion
       const progress = Math.min(totalElapsed / ignitionDuration, 1);
-      expansionFactor = progress * 0.2;
+      expansionFactor = progress * 0.1; // Start with 10% of maxExpansion
       
       if (progress >= 1) {
         setExplosionState(prev => ({
@@ -412,14 +323,18 @@ const GlowingParticleCore = ({
           phase: 'expanding'
         }));
         explosionTimeRef.current = 0;
+        if (onExplosionPeak) onExplosionPeak();
       }
     } 
     else if (explosionState.phase === 'expanding') {
-      // Main expansion
+      // FIXED: Main expansion that reaches exactly maxExpansion
       const progress = Math.min(totalElapsed / expansionDuration, 1);
-      expansionFactor = 0.2 + (progress * (maxExpansion - 0.2)); // From 0.2 to maxExpansion
+      // Use ease-out curve for natural deceleration
+      const easedProgress = 1 - Math.pow(1 - progress, 3);
+      expansionFactor = 0.1 + (easedProgress * 0.9); // From 10% to 100% of maxExpansion
       
       if (progress >= 1) {
+        console.log('🌟 Particles reached maximum expansion:', maxExpansion);
         setExplosionState(prev => ({
           ...prev,
           phase: 'pulsing'
@@ -427,13 +342,13 @@ const GlowingParticleCore = ({
       }
     }
     else if (explosionState.phase === 'pulsing') {
-      // Stay expanded
-      expansionFactor = maxExpansion;
+      // Stay at full expansion
+      expansionFactor = 1.0;
     }
     else if (explosionState.phase === 'fading') {
       // Shrink back
       const progress = Math.min(totalElapsed / fadeDuration, 1);
-      expansionFactor = maxExpansion * (1 - progress);
+      expansionFactor = 1.0 * (1 - progress);
       
       if (progress >= 1) {
         setExplosionState(prev => ({
@@ -446,16 +361,19 @@ const GlowingParticleCore = ({
       }
     }
     
-    // Update particle positions
+    // FIXED: Update particle positions using proper expansion calculation
     for (let i = 0; i < adjustedParticleCount; i++) {
       const i3 = i * 3;
       
-      // Get velocity direction
+      // Get velocity (which represents the direction and target distance)
       const velX = velocities[i3];
       const velY = velocities[i3 + 1];
       const velZ = velocities[i3 + 2];
       
-      // Calculate new position = original + (velocity * expansionFactor)
+      // FIXED: Calculate new position using expansionFactor and maxExpansion
+      // Position = original + (velocity * expansionFactor)
+      // Since velocity already includes the target distance based on maxExpansion,
+      // expansionFactor (0-1) controls how far along that path we are
       const newX = originalPositions[i3] + (velX * expansionFactor);
       const newY = originalPositions[i3 + 1] + (velY * expansionFactor);
       const newZ = originalPositions[i3 + 2] + (velZ * expansionFactor);
@@ -470,6 +388,16 @@ const GlowingParticleCore = ({
     if (positionAttribute) {
       positionAttribute.needsUpdate = true;
     }
+    
+    // Debug logging occasionally
+    if (process.env.NODE_ENV === 'development' && Math.random() < 0.01) {
+      console.log('🌟 Particle animation:', {
+        phase: explosionState.phase,
+        expansionFactor: expansionFactor.toFixed(3),
+        maxExpansion,
+        elapsed: totalElapsed.toFixed(2)
+      });
+    }
   });
   
   // Cleanup
@@ -480,7 +408,7 @@ const GlowingParticleCore = ({
     };
   }, [material, geometry]);
   
-  // FIXED: Only render when explosion is active
+  // Only render when explosion is active
   const shouldRender = visible && explosionState.isActive;
   
   if (!shouldRender) return null;
@@ -492,8 +420,8 @@ const GlowingParticleCore = ({
         ref={particlesRef}
         geometry={geometry}
         material={material}
-        renderOrder={0} // Normal render order for proper depth sorting
-        frustumCulled={false} // Never cull particles
+        renderOrder={0}
+        frustumCulled={false}
       />
     </group>
   );

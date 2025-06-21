@@ -288,13 +288,13 @@ const UnifiedCrystalScene = ({
         <GlowingParticleCore
           // Core properties that you can now easily adjust
           coreRadius={0.15}              // Starting size of particle core
-          particleCount={2000}           // Number of particles
+          particleCount={10}           // Number of particles
           particleShape="soft-spheres"   // Soft edges for beautiful effect
           
           // Visual properties
           baseColor="#ffffff"            // Base particle color
           accentColor="#64ffda"          // Accent color for variety
-          emissiveIntensity={30.0}       // Glow intensity
+          emissiveIntensity={300.0}       // Glow intensity
           
           // Animation properties
           pulseEnabled={true}            // Enable pulsing
@@ -302,7 +302,7 @@ const UnifiedCrystalScene = ({
           pulseAmount={0.3}              // Pulse strength
           
           // EXPLOSION BEHAVIOR - These are the key props to adjust!
-          maxExpansion={150.0}           // How far particles spread (try 100-300)
+          maxExpansion={0.4}           // How far particles spread (try 100-300)
           expansionSpeed={2.5}           // How fast they move during explosion
           expansionDuration={2.5}        // How long expansion takes (in seconds)
           
