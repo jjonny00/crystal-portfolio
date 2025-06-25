@@ -103,15 +103,15 @@ const GlowingParticleCore = ({
       // Clean points rendering with proper depth testing
       geometry = new THREE.BufferGeometry();
       material = new THREE.PointsMaterial({
-        size: 8,
+        size: 600,
         transparent: true,
-        opacity: 0.7,
+        opacity: 0.1,
         color: new THREE.Color(baseColor),
         vertexColors: true,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
         depthTest: true,
-        sizeAttenuation: true,
+        sizeAttenuation: false,
         alphaTest: 0.01,
         map: particleTexture,
         fog: false,
