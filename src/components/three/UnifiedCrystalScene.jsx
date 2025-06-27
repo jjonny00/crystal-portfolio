@@ -1,5 +1,5 @@
-// COMPLETE: src/components/three/UnifiedCrystalScene.jsx
-// Updated with GlowingSphereImage replacing GlowingParticleCore
+// CLEANED: src/components/three/UnifiedCrystalScene.jsx
+// Removed ALL GlowingParticleCore references and debug spheres
 
 import { useRef, useState, useEffect } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
@@ -9,11 +9,12 @@ import * as THREE from 'three'
 // Import existing material manager
 import MaterialManager from './MaterialManager'
 
-// UPDATED: Import the new sphere image component instead of particle core
-import GlowingSphereImage, { BLENDING_MODES, SmartBlendingSphere } from './GlowingSphereImage'
+// UPDATED: Only import the sphere image component (no particle core)
+import GlowingSphereImage, { BLENDING_MODES } from './GlowingSphereImage'
 
 /**
- * Crystal Scene with simple sphere image instead of complex particle system
+ * Crystal Scene with simple sphere image (no particle system)
+ * CLEANED: All GlowingParticleCore references removed
  */
 const UnifiedCrystalScene = ({ 
   animationData,
@@ -30,7 +31,7 @@ const UnifiedCrystalScene = ({
   const facetRefs = useRef(Array(6).fill(null));
   const crystalMaterialRef = useRef();
   
-  // UPDATED: Simple sphere state instead of complex particle core state
+  // CLEANED: Simple sphere state (no complex particle system)
   const [sphereVisible, setSphereVisible] = useState(false);
   
   // Crystal state tracking (keep existing logic intact)
@@ -98,7 +99,7 @@ const UnifiedCrystalScene = ({
     
   }, [wholeCrystal, facetModels, crystalMaterialRef.current]);
   
-  // UPDATED: Crystal form change detection that includes sphere visibility
+  // Crystal form change detection that includes sphere visibility
   useEffect(() => {
     if (!animationData) return;
     
@@ -116,12 +117,12 @@ const UnifiedCrystalScene = ({
         console.log('💎 Crystal: Explosion - hiding whole, showing facets, showing sphere');
         setShowWholeCrystal(false);
         setShowFacets(true);
-        setSphereVisible(true); // ADDED: Show sphere when crystal explodes
+        setSphereVisible(true); // Show sphere when crystal explodes
         
       } else if (currentForm === 'whole') {
         // EXPLODED → WHOLE (reform) - crystal visibility changes + hide sphere
         console.log('💎 Crystal: Reform detected - hiding sphere');
-        setSphereVisible(false); // ADDED: Hide sphere when crystal reforms
+        setSphereVisible(false); // Hide sphere when crystal reforms
         // NOTE: We don't immediately show whole crystal here
         // The animation loop will handle the transition when facets reach center
       }
@@ -241,22 +242,22 @@ const UnifiedCrystalScene = ({
         performanceConfig={performanceConfig}
       />
 
-      {/* REPLACED: Simple sphere image instead of complex particle system */}
+      {/* CLEANED: Simple sphere image (no complex particle system) */}
       {sphereVisible && (
         <GlowingSphereImage
-          // Path to your sphere image (create this image)
+          // Path to your sphere image
           imagePath="/assets/textures/glowing-sphere03.jpg"
           
-          // BLENDING MODE for black background images
+          // Blending mode for black background images
           blendingMode={BLENDING_MODES.ADDITIVE}
 
-          // Size settings - adjust these to your preference
-          baseSize={0.2}              // Starting size
-          maxScale={2.5}              // How big it gets during explosion
+          // Size settings
+          baseSize={0.2}
+          maxScale={2.5}
           
           // Timing that matches your crystal explosion
-          explosionDuration={1.6}     // Match your crystal explosion timing
-          fadeInDuration={0.8}        // How long the fade-in takes
+          explosionDuration={1.6}
+          fadeInDuration={0.8}
           
           // Position at center of exploded crystal
           position={[0, 0, 0]}
@@ -276,14 +277,6 @@ const UnifiedCrystalScene = ({
             console.log('🌟 Sphere explosion completed');
           }}
         />
-      )}
-
-      {/* DEBUG: Tiny red sphere to show sphere position */}
-      {sphereVisible && process.env.NODE_ENV === 'development' && (
-        <mesh position={[0, 0, 0]}>
-          <sphereGeometry args={[0.02, 8, 6]} />
-          <meshBasicMaterial color="red" />
-        </mesh>
       )}
       
       {/* Whole Crystal with INSTANT visibility control */}
@@ -308,7 +301,7 @@ const UnifiedCrystalScene = ({
         );
       })}
       
-      {/* Enhanced debug info */}
+      {/* CLEANED: Enhanced debug info (no particle or sphere debug) */}
       {showCrystalDebug && animationData && (
         <Html>
           <div style={{
@@ -356,7 +349,7 @@ const UnifiedCrystalScene = ({
               <div>Focused: {animationData.focusedFacet || 'none'}</div>
             </div>
 
-            {/* UPDATED: Sphere debug info instead of particle debug */}
+            {/* CLEANED: Simple sphere debug info (no complex particle system debug) */}
             <div style={{ 
               marginBottom: '10px',
               borderTop: '1px solid rgba(187, 134, 252, 0.3)',
@@ -393,7 +386,7 @@ const UnifiedCrystalScene = ({
               </div>
             )}
             
-            {/* UPDATED: Manual test with sphere toggle */}
+            {/* CLEANED: Simple sphere test control (no complex particle controls) */}
             <div style={{
               background: 'rgba(76, 175, 80, 0.2)',
               border: '1px solid #4caf50',
