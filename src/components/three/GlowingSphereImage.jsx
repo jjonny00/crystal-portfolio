@@ -1,255 +1,249 @@
 // src/components/three/GlowingSphereImage.jsx
-// Simple image-based glowing sphere that scales and fades with crystal explosion
+// BLENDING MODES: Support for Screen, Additive, Multiply, etc.
 
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { useTexture } from '@react-three/drei';
 import * as THREE from 'three';
 
 /**
- * Simple Image-Based Glowing Sphere
- * Replaces particle system with a single billboard image that:
- * - Always faces the camera
- * - Scales from center during explosion
- * - Fades in opacity from 0% to 100%
- * - Syncs with crystal explosion timing
+ * BLENDING MODE OPTIONS for Three.js materials
+ */
+export const BLENDING_MODES = {
+  // Most common for glowing effects
+  SCREEN: THREE.AdditiveBlending,       // Similar to Photoshop Screen - brightens
+  ADDITIVE: THREE.AdditiveBlending,     // Adds color values - great for glow
+  
+  // Other useful modes
+  NORMAL: THREE.NormalBlending,         // Default blending
+  MULTIPLY: THREE.MultiplyBlending,     // Darkens - good for shadows
+  SUBTRACT: THREE.SubtractiveBlending,  // Subtracts color values
+  
+  // Custom blending (advanced)
+  CUSTOM: THREE.CustomBlending
+};
+
+/**
+ * Simple Plane-Based Sphere with Blending Mode Support
  */
 const GlowingSphereImage = ({
-  // Image properties
-  imagePath = '/assets/textures/glowing-sphere02.png', // Your image path
-  baseSize = 1.0,              // Base size of the sphere image
-  maxScale = 2.0,              // Maximum scale during explosion
+  // Image path
+  imagePath = '/assets/textures/glowing-sphere03.jpg',
   
-  // Animation timing to match crystal explosion
-  explosionDuration = 1.6,     // Match crystal explosion (1.6s)
-  fadeInDuration = 0.8,        // How long the fade-in takes
+  // Size settings
+  baseSize = 0.5,
+  maxScale = 2.0,
+  
+  // Animation timing
+  explosionDuration = 1.6,
+  fadeInDuration = 0.8,
+  
+  // BLENDING MODES
+  blendingMode = BLENDING_MODES.SCREEN,  // Default to Screen mode
+  
+  // Advanced blending options (for custom blending)
+  blendSrc = THREE.SrcAlphaFactor,
+  blendDst = THREE.OneMinusSrcAlphaFactor,
+  blendEquation = THREE.AddEquation,
   
   // Position and visibility
-  position = [0, 0, 0],        // Center of exploded crystal
-  visible = false,             // Controlled by parent
+  position = [0, 0, 0],
+  visible = false,
   
-  // Animation state from parent
+  // Animation state
   animationData = null,
   
   // Debug
   debugMode = false
 }) => {
   const meshRef = useRef();
-  const materialRef = useRef();
   const { camera } = useThree();
   
-  // Animation state
-  const [explosionState, setExplosionState] = useState({
-    isActive: false,
-    startTime: 0,
-    lastCrystalForm: 'whole'
-  });
+  // Simple state
+  const [isExploding, setIsExploding] = useState(false);
+  const [startTime, setStartTime] = useState(0);
+  const lastCrystalForm = useRef('whole');
   
-  const timeRef = useRef(0);
+  // Load texture once
+  const texture = useTexture(imagePath);
   
-  // Load the sphere image texture
-  const sphereTexture = useTexture(imagePath);
-  
-  // Configure texture
+  // Configure texture on load
   useEffect(() => {
-    if (sphereTexture) {
-      sphereTexture.minFilter = THREE.LinearFilter;
-      sphereTexture.magFilter = THREE.LinearFilter;
-      sphereTexture.generateMipmaps = false;
-      sphereTexture.wrapS = THREE.ClampToEdgeWrapping;
-      sphereTexture.wrapT = THREE.ClampToEdgeWrapping;
-      sphereTexture.needsUpdate = true;
+    if (texture) {
+      texture.minFilter = THREE.LinearFilter;
+      texture.magFilter = THREE.LinearFilter;
+      texture.generateMipmaps = false;
+      texture.flipY = false;
+      texture.needsUpdate = true;
       
       if (debugMode) {
-        console.log('🌟 Sphere texture loaded:', imagePath);
+        console.log('🌟 Sphere texture loaded with blending mode:', {
+          mode: Object.keys(BLENDING_MODES).find(key => BLENDING_MODES[key] === blendingMode),
+          imagePath
+        });
       }
     }
-  }, [sphereTexture, imagePath, debugMode]);
+  }, [texture, blendingMode, imagePath, debugMode]);
   
-  // Create material for the billboard
-  const sphereMaterial = React.useMemo(() => {
-    return new THREE.SpriteMaterial({
-      map: sphereTexture,
+  // Create geometry once
+  const geometry = useMemo(() => new THREE.PlaneGeometry(1, 1), []);
+  
+  // Create material with blending mode
+  const material = useMemo(() => {
+    const mat = new THREE.MeshBasicMaterial({
+      map: texture,
       transparent: true,
       opacity: 0,
-      alphaTest: 0.001,
-      blending: THREE.AdditiveBlending, // For glow effect
+      alphaTest: 0.01,
+      side: THREE.DoubleSide,
       depthWrite: false,
-      depthTest: true,
-      fog: false
+      depthTest: true,        // FIXED: Enable depth testing so facets render in front
+      fog: false,
+      
+      // BLENDING CONFIGURATION
+      blending: blendingMode
     });
-  }, [sphereTexture]);
+    
+    // If using custom blending, set additional parameters
+    if (blendingMode === THREE.CustomBlending) {
+      mat.blendSrc = blendSrc;
+      mat.blendDst = blendDst;
+      mat.blendEquation = blendEquation;
+    }
+    
+    return mat;
+  }, [texture, blendingMode, blendSrc, blendDst, blendEquation]);
   
-  // Detect crystal explosion start/end
+  // Detect explosion start/stop
   useEffect(() => {
     if (!animationData) return;
     
     const currentForm = animationData.crystalForm;
-    const formChanged = currentForm !== explosionState.lastCrystalForm;
-    
-    if (formChanged) {
-      if (currentForm === 'exploded' && explosionState.lastCrystalForm === 'whole') {
-        // START EXPLOSION
-        if (debugMode) {
-          console.log('🌟 Starting sphere explosion animation');
-        }
+    if (currentForm !== lastCrystalForm.current) {
+      
+      if (currentForm === 'exploded' && lastCrystalForm.current === 'whole') {
+        setIsExploding(true);
+        setStartTime(Date.now());
+        if (debugMode) console.log('🌟 Sphere: Start explosion with blending');
         
-        setExplosionState({
-          isActive: true,
-          startTime: timeRef.current,
-          lastCrystalForm: currentForm
-        });
-        
-      } else if (currentForm === 'whole' && explosionState.lastCrystalForm === 'exploded') {
-        // START REFORM (fade out)
-        if (debugMode) {
-          console.log('🌟 Starting sphere fade out');
-        }
-        
-        setExplosionState(prev => ({
-          ...prev,
-          isActive: false,
-          lastCrystalForm: currentForm
-        }));
-      } else {
-        // Just update form reference
-        setExplosionState(prev => ({
-          ...prev,
-          lastCrystalForm: currentForm
-        }));
+      } else if (currentForm === 'whole' && lastCrystalForm.current === 'exploded') {
+        setIsExploding(false);
+        if (debugMode) console.log('🌟 Sphere: Stop explosion');
       }
+      
+      lastCrystalForm.current = currentForm;
     }
-  }, [animationData?.crystalForm, explosionState.lastCrystalForm, debugMode]);
+  }, [animationData?.crystalForm, debugMode]);
   
   // Animation loop
-  useFrame((state, delta) => {
-    timeRef.current += delta;
+  useFrame(() => {
+    if (!meshRef.current || !visible) return;
     
-    if (!meshRef.current || !materialRef.current || !visible) return;
-    
-    // Always face the camera (billboard behavior)
+    // Face camera
     meshRef.current.lookAt(camera.position);
     
-    // Handle explosion animation
-    if (explosionState.isActive) {
-      const elapsed = timeRef.current - explosionState.startTime;
+    if (isExploding) {
+      const elapsed = (Date.now() - startTime) / 1000;
       const explosionProgress = Math.min(elapsed / explosionDuration, 1);
       const fadeProgress = Math.min(elapsed / fadeInDuration, 1);
       
-      // Scale animation (ease-out for natural feel)
-      const easedScale = 1 - Math.pow(1 - explosionProgress, 3);
-      const currentScale = baseSize + (maxScale - baseSize) * easedScale;
-      meshRef.current.scale.setScalar(currentScale);
-      
-      // Opacity animation (smooth fade-in)
+      const scale = baseSize + (maxScale - baseSize) * explosionProgress;
       const opacity = fadeProgress;
-      materialRef.current.opacity = opacity;
       
-      if (debugMode && Math.random() < 0.02) {
-        console.log('🌟 Sphere animation:', {
-          elapsed: elapsed.toFixed(2),
-          scale: currentScale.toFixed(2),
-          opacity: opacity.toFixed(2),
-          explosionProgress: explosionProgress.toFixed(2)
-        });
-      }
+      meshRef.current.scale.setScalar(scale);
+      material.opacity = opacity;
       
     } else {
-      // Fade out when not active
-      const currentOpacity = materialRef.current.opacity;
-      const fadeOutSpeed = 3.0; // Fast fade out
-      const newOpacity = Math.max(0, currentOpacity - delta * fadeOutSpeed);
-      materialRef.current.opacity = newOpacity;
-      
-      // Reset scale when faded out
-      if (newOpacity <= 0) {
-        meshRef.current.scale.setScalar(baseSize);
+      const currentOpacity = material.opacity;
+      if (currentOpacity > 0) {
+        material.opacity = Math.max(0, currentOpacity - 0.05);
+        if (material.opacity <= 0) {
+          meshRef.current.scale.setScalar(baseSize);
+        }
       }
     }
   });
   
-  // Don't render if not visible
   if (!visible) return null;
   
   return (
-    <sprite
+    <mesh
       ref={meshRef}
-      material={sphereMaterial}
+      geometry={geometry}
+      material={material}
       position={position}
       scale={[baseSize, baseSize, baseSize]}
-    >
-      <spriteMaterial
-        ref={materialRef}
-        attach="material"
-        map={sphereTexture}
-        transparent={true}
-        opacity={0}
-        alphaTest={0.001}
-        blending={THREE.AdditiveBlending}
-        depthWrite={false}
-        depthTest={true}
-        fog={false}
-      />
-    </sprite>
+    />
   );
 };
 
 /**
- * Preset configurations for different crystal states
+ * PRESET CONFIGURATIONS for different effects
  */
-export const SphereImagePresets = {
-  // Standard explosion
-  standard: {
-    baseSize: 0.5,
-    maxScale: 2.0,
-    explosionDuration: 1.6,
-    fadeInDuration: 0.8
+export const BlendingPresets = {
+  // For images with black backgrounds - use Screen/Additive
+  GLOW_ON_BLACK: {
+    blendingMode: BLENDING_MODES.SCREEN,
+    description: "Perfect for black backgrounds - brightens and glows"
   },
   
-  // Dramatic explosion
-  dramatic: {
-    baseSize: 0.3,
-    maxScale: 3.0,
-    explosionDuration: 2.0,
-    fadeInDuration: 1.0
+  // For images with white backgrounds - use Multiply
+  SHADOW_ON_WHITE: {
+    blendingMode: BLENDING_MODES.MULTIPLY,
+    description: "Good for white backgrounds - darkens and creates shadows"
   },
   
-  // Quick explosion
-  quick: {
-    baseSize: 0.4,
-    maxScale: 1.5,
-    explosionDuration: 1.0,
-    fadeInDuration: 0.5
+  // Maximum brightness/glow effect
+  MAXIMUM_GLOW: {
+    blendingMode: BLENDING_MODES.ADDITIVE,
+    description: "Maximum glow effect - adds all color values"
   },
   
-  // Subtle effect
-  subtle: {
-    baseSize: 0.8,
-    maxScale: 1.2,
-    explosionDuration: 1.6,
-    fadeInDuration: 1.2
+  // Standard blending
+  NORMAL: {
+    blendingMode: BLENDING_MODES.NORMAL,
+    description: "Standard alpha blending"
+  },
+  
+  // Custom example: Strong additive with custom factors
+  CUSTOM_BRIGHT: {
+    blendingMode: BLENDING_MODES.CUSTOM,
+    blendSrc: THREE.OneFactor,
+    blendDst: THREE.OneFactor,
+    blendEquation: THREE.AddEquation,
+    description: "Custom strong additive blending"
   }
 };
 
 /**
- * Smart preset selector based on animation data
+ * Smart Blending Sphere - automatically chooses good settings
  */
-export const SmartGlowingSphereImage = ({ 
-  animationData, 
-  preset = 'standard',
-  imagePath = '/assets/textures/glowing-sphere02.png',
+export const SmartBlendingSphere = ({ 
+  imageHasBlackBackground = true,  // Tell us about your image
+  glowIntensity = 'medium',        // 'subtle', 'medium', 'intense'
   ...props 
 }) => {
-  const presetConfig = SphereImagePresets[preset] || SphereImagePresets.standard;
+  // Choose blending mode based on image background
+  let preset = BlendingPresets.NORMAL;
   
-  const finalProps = { 
-    ...presetConfig, 
-    ...props, 
-    animationData,
-    imagePath
-  };
+  if (imageHasBlackBackground) {
+    switch (glowIntensity) {
+      case 'subtle':
+        preset = BlendingPresets.NORMAL;
+        break;
+      case 'medium':
+        preset = BlendingPresets.GLOW_ON_BLACK;
+        break;
+      case 'intense':
+        preset = BlendingPresets.MAXIMUM_GLOW;
+        break;
+    }
+  } else {
+    // For white/transparent backgrounds
+    preset = BlendingPresets.NORMAL;
+  }
   
-  return <GlowingSphereImage {...finalProps} />;
+  return <GlowingSphereImage {...preset} {...props} />;
 };
 
 export default GlowingSphereImage;

@@ -10,7 +10,7 @@ import * as THREE from 'three'
 import MaterialManager from './MaterialManager'
 
 // UPDATED: Import the new sphere image component instead of particle core
-import GlowingSphereImage from './GlowingSphereImage'
+import GlowingSphereImage, { BLENDING_MODES, SmartBlendingSphere } from './GlowingSphereImage'
 
 /**
  * Crystal Scene with simple sphere image instead of complex particle system
@@ -245,8 +245,11 @@ const UnifiedCrystalScene = ({
       {sphereVisible && (
         <GlowingSphereImage
           // Path to your sphere image (create this image)
-          imagePath="/assets/textures/glowing-sphere02.png"
+          imagePath="/assets/textures/glowing-sphere03.jpg"
           
+          // BLENDING MODE for black background images
+          blendingMode={BLENDING_MODES.ADDITIVE}
+
           // Size settings - adjust these to your preference
           baseSize={0.2}              // Starting size
           maxScale={2.5}              // How big it gets during explosion
@@ -372,7 +375,7 @@ const UnifiedCrystalScene = ({
                 ✅ Simple image-based implementation
               </div>
               <div style={{ fontSize: '10px', color: '#64ffda', marginTop: '4px' }}>
-                Image: /assets/textures/glowing-sphere02.png
+                Image: /assets/textures/glowing-sphere03.jpg
               </div>
             </div>
             
