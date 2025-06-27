@@ -1,5 +1,5 @@
-// FIXED: src/components/three/UnifiedCrystalScene.jsx
-// Proper particle core integration with working prop controls
+// COMPLETE: src/components/three/UnifiedCrystalScene.jsx
+// Updated with GlowingSphereImage replacing GlowingParticleCore
 
 import { useRef, useState, useEffect } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
@@ -9,11 +9,11 @@ import * as THREE from 'three'
 // Import existing material manager
 import MaterialManager from './MaterialManager'
 
-// Import the direct GlowingParticleCore for full control
-import GlowingParticleCore from './GlowingParticleCore'
+// UPDATED: Import the new sphere image component instead of particle core
+import GlowingSphereImage from './GlowingSphereImage'
 
 /**
- * FIXED: Crystal Scene with working particle core prop controls
+ * Crystal Scene with simple sphere image instead of complex particle system
  */
 const UnifiedCrystalScene = ({ 
   animationData,
@@ -30,12 +30,8 @@ const UnifiedCrystalScene = ({
   const facetRefs = useRef(Array(6).fill(null));
   const crystalMaterialRef = useRef();
   
-  // FIXED: Separate particle core state that doesn't interfere with crystal
-  const [particleCoreState, setParticleCoreState] = useState({
-    visible: false,
-    explosionCount: 0,
-    lastCrystalForm: 'whole'
-  });
+  // UPDATED: Simple sphere state instead of complex particle core state
+  const [sphereVisible, setSphereVisible] = useState(false);
   
   // Crystal state tracking (keep existing logic intact)
   const [showWholeCrystal, setShowWholeCrystal] = useState(true);
@@ -102,47 +98,7 @@ const UnifiedCrystalScene = ({
     
   }, [wholeCrystal, facetModels, crystalMaterialRef.current]);
   
-  // FIXED: Isolated particle core detection that doesn't interfere with crystal
-  useEffect(() => {
-    if (!animationData) return;
-    
-    const currentForm = animationData.crystalForm;
-    const formChanged = currentForm !== particleCoreState.lastCrystalForm;
-    
-    if (formChanged) {
-      console.log('💎 Particle Core: Crystal form change detected:', {
-        from: particleCoreState.lastCrystalForm,
-        to: currentForm
-      });
-
-      // Update particle state in isolation
-      setParticleCoreState(prevState => {
-        if (currentForm === 'exploded' && prevState.lastCrystalForm === 'whole') {
-          console.log('🌟 Particle Core: Explosion detected - showing particles');
-          return {
-            visible: true,
-            explosionCount: prevState.explosionCount + 1,
-            lastCrystalForm: currentForm
-          };
-        } else if (currentForm === 'whole' && prevState.lastCrystalForm === 'exploded') {
-          console.log('🌟 Particle Core: Reform detected - hiding particles');
-          return {
-            visible: false,
-            explosionCount: prevState.explosionCount,
-            lastCrystalForm: currentForm
-          };
-        }
-        
-        // Just update the form reference without changing visibility
-        return {
-          ...prevState,
-          lastCrystalForm: currentForm
-        };
-      });
-    }
-  }, [animationData?.crystalForm, particleCoreState.lastCrystalForm]);
-
-  // FIXED: Crystal form change detection for crystal visibility (separate from particles)
+  // UPDATED: Crystal form change detection that includes sphere visibility
   useEffect(() => {
     if (!animationData) return;
     
@@ -156,14 +112,16 @@ const UnifiedCrystalScene = ({
       });
 
       if (currentForm === 'exploded') {
-        // WHOLE → EXPLODED (explosion) - crystal visibility changes only
-        console.log('💎 Crystal: Explosion - hiding whole, showing facets');
+        // WHOLE → EXPLODED (explosion) - crystal visibility changes + show sphere
+        console.log('💎 Crystal: Explosion - hiding whole, showing facets, showing sphere');
         setShowWholeCrystal(false);
         setShowFacets(true);
+        setSphereVisible(true); // ADDED: Show sphere when crystal explodes
         
       } else if (currentForm === 'whole') {
-        // EXPLODED → WHOLE (reform) - crystal visibility changes only
-        console.log('💎 Crystal: Reform detected');
+        // EXPLODED → WHOLE (reform) - crystal visibility changes + hide sphere
+        console.log('💎 Crystal: Reform detected - hiding sphere');
+        setSphereVisible(false); // ADDED: Hide sphere when crystal reforms
         // NOTE: We don't immediately show whole crystal here
         // The animation loop will handle the transition when facets reach center
       }
@@ -172,7 +130,7 @@ const UnifiedCrystalScene = ({
     }
   }, [animationData?.crystalForm]);
 
-  // FIXED: Main animation loop - isolated and protected
+  // Main animation loop - isolated and protected
   useFrame(() => {
     if (!animationData || !facetRefs.current.length) return;
 
@@ -283,62 +241,42 @@ const UnifiedCrystalScene = ({
         performanceConfig={performanceConfig}
       />
 
-      {/* FIXED: Direct GlowingParticleCore with full prop control */}
-      {particleCoreState.visible && (
-        <GlowingParticleCore
-          // Core properties that you can now easily adjust
-          coreRadius={0.15}              // Starting size of particle core
-          particleCount={6}           // Number of particles
-          particleShape="soft-spheres"   // Soft edges for beautiful effect
+      {/* REPLACED: Simple sphere image instead of complex particle system */}
+      {sphereVisible && (
+        <GlowingSphereImage
+          // Path to your sphere image (create this image)
+          imagePath="/assets/textures/glowing-sphere02.png"
           
-          // Visual properties
-          baseColor="#ffffff"            // Base particle color
-          accentColor="#64ffda"          // Accent color for variety
-          emissiveIntensity={300.0}       // Glow intensity
+          // Size settings - adjust these to your preference
+          baseSize={0.2}              // Starting size
+          maxScale={2.5}              // How big it gets during explosion
           
-          // Animation properties
-          pulseEnabled={true}            // Enable pulsing
-          pulseSpeed={0.1}               // Pulse frequency
-          pulseAmount={2.3}              // Pulse strength
+          // Timing that matches your crystal explosion
+          explosionDuration={1.6}     // Match your crystal explosion timing
+          fadeInDuration={0.8}        // How long the fade-in takes
           
-          // EXPLOSION BEHAVIOR - These are the key props to adjust!
-          maxExpansion={0.2}           // How far particles spread (try 100-300)
-          expansionSpeed={2.5}           // How fast they move during explosion
-          expansionDuration={2.5}        // How long expansion takes (in seconds)
-          
-          // Timing controls for different phases
-          ignitionDuration={0.1}         // How long ignition takes
-          fadeDuration={0.3}             // How long fade out takes
-          
-          // Position and visibility
+          // Position at center of exploded crystal
           position={[0, 0, 0]}
-          visible={particleCoreState.visible}
-          frustumCulled={false}          // Prevent disappearing
           
-          // Pass animation data and performance config
+          // Pass through animation data and visibility
+          visible={sphereVisible}
           animationData={animationData}
-          performanceConfig={performanceConfig}
           
-          // Event handlers for debugging
+          // Debug mode for development
+          debugMode={process.env.NODE_ENV === 'development'}
+          
+          // Event handlers (optional)
           onExplosionStart={() => {
-            console.log('🌟 Particle explosion started with settings:', {
-              maxExpansion: 150.0,
-              particleCount: 2000,
-              expansionDuration: 2.5,
-              coreRadius: 0.15
-            });
-          }}
-          onExplosionPeak={() => {
-            console.log('🌟 Particle explosion reached peak expansion');
+            console.log('🌟 Sphere explosion started');
           }}
           onExplosionEnd={() => {
-            console.log('🌟 Particle explosion completed');
+            console.log('🌟 Sphere explosion completed');
           }}
         />
       )}
 
-      {/* DEBUG: Tiny red sphere to show particle core position */}
-      {particleCoreState.visible && process.env.NODE_ENV === 'development' && (
+      {/* DEBUG: Tiny red sphere to show sphere position */}
+      {sphereVisible && process.env.NODE_ENV === 'development' && (
         <mesh position={[0, 0, 0]}>
           <sphereGeometry args={[0.02, 8, 6]} />
           <meshBasicMaterial color="red" />
@@ -415,26 +353,26 @@ const UnifiedCrystalScene = ({
               <div>Focused: {animationData.focusedFacet || 'none'}</div>
             </div>
 
-            {/* FIXED: Particle System Status with prop debugging */}
+            {/* UPDATED: Sphere debug info instead of particle debug */}
             <div style={{ 
               marginBottom: '10px',
               borderTop: '1px solid rgba(187, 134, 252, 0.3)',
               paddingTop: '8px'
             }}>
-              <div style={{ color: '#bb86fc', fontWeight: 'bold' }}>🌟 Particle Core (Direct Control):</div>
+              <div style={{ color: '#bb86fc', fontWeight: 'bold' }}>🌟 Glowing Sphere (Image Billboard):</div>
               <div style={{ 
-                color: particleCoreState.visible ? '#4CAF50' : '#666',
+                color: sphereVisible ? '#4CAF50' : '#666',
                 fontWeight: 'bold'
               }}>
-                Visible: {particleCoreState.visible ? 'YES' : 'NO'}
+                Visible: {sphereVisible ? 'YES' : 'NO'}
               </div>
-              <div>Explosions: {particleCoreState.explosionCount}</div>
-              <div>Last Form: {particleCoreState.lastCrystalForm}</div>
+              <div>Type: Image Billboard</div>
+              <div>Always Faces Camera: YES</div>
               <div style={{ fontSize: '10px', color: '#999', marginTop: '4px' }}>
-                ✅ Using direct GlowingParticleCore
+                ✅ Simple image-based implementation
               </div>
               <div style={{ fontSize: '10px', color: '#64ffda', marginTop: '4px' }}>
-                Props: maxExpansion=150, count=2000, duration=2.5s
+                Image: /assets/textures/glowing-sphere02.png
               </div>
             </div>
             
@@ -452,7 +390,7 @@ const UnifiedCrystalScene = ({
               </div>
             )}
             
-            {/* Manual Test with prop adjustment */}
+            {/* UPDATED: Manual test with sphere toggle */}
             <div style={{
               background: 'rgba(76, 175, 80, 0.2)',
               border: '1px solid #4caf50',
@@ -461,7 +399,7 @@ const UnifiedCrystalScene = ({
               marginTop: '10px',
               fontSize: '10px'
             }}>
-              <div style={{ color: '#4caf50', fontWeight: 'bold' }}>⚡ PROP TESTING</div>
+              <div style={{ color: '#4caf50', fontWeight: 'bold' }}>⚡ SPHERE TESTING</div>
               <div 
                 style={{
                   background: '#ff6b6b',
@@ -476,18 +414,14 @@ const UnifiedCrystalScene = ({
                   userSelect: 'none'
                 }}
                 onClick={() => {
-                  console.log('🧪 Manual particle test triggered');
-                  setParticleCoreState(prev => ({
-                    visible: !prev.visible,
-                    explosionCount: prev.explosionCount + 1,
-                    lastCrystalForm: prev.lastCrystalForm
-                  }));
+                  console.log('🧪 Manual sphere test triggered');
+                  setSphereVisible(prev => !prev);
                 }}
               >
-                Toggle Particle Core ({particleCoreState.visible ? 'ON' : 'OFF'})
+                Toggle Sphere ({sphereVisible ? 'ON' : 'OFF'})
               </div>
               <div style={{ fontSize: '9px', color: '#aaa', marginTop: '4px' }}>
-                Adjust props in component code above
+                Create your sphere image at the path above
               </div>
             </div>
           </div>
