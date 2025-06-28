@@ -32,7 +32,7 @@ const PulsingOmniLight = () => {
     if (lightRef.current) {
       const time = state.clock.elapsedTime;
       const pulse = Math.sin(time * 2 + Math.sin(time * 0.7) * 0.5) * 0.3 + 1;
-      lightRef.current.intensity = 1000.5 * pulse;
+      lightRef.current.intensity = 600.5 * pulse;
     }
   });
 
