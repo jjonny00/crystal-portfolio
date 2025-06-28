@@ -246,7 +246,7 @@ const UnifiedCrystalScene = ({
       {sphereVisible && (
         <GlowingSphereImage
           // Path to your sphere image
-          imagePath="/assets/textures/glowing-sphere03.jpg"
+          imagePath="/assets/textures/glowing-sphere04.jpg"
           
           // Blending mode for black background images
           blendingMode={BLENDING_MODES.ADDITIVE}
@@ -368,7 +368,7 @@ const UnifiedCrystalScene = ({
                 ✅ Simple image-based implementation
               </div>
               <div style={{ fontSize: '10px', color: '#64ffda', marginTop: '4px' }}>
-                Image: /assets/textures/glowing-sphere03.jpg
+                Image: /assets/textures/glowing-sphere04.jpg
               </div>
             </div>
             

@@ -28,7 +28,7 @@ export const BLENDING_MODES = {
  */
 const GlowingSphereImage = ({
   // Image path
-  imagePath = '/assets/textures/glowing-sphere03.jpg',
+  imagePath = '/assets/textures/glowing-sphere04.jpg',
   
   // Size settings
   baseSize = 0.5,
