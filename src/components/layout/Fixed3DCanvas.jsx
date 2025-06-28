@@ -99,6 +99,16 @@ const Fixed3DCanvas = ({
             color={light.color} 
           />
         ))}
+
+        {/* Center Omni Light */}
+        <pointLight
+          position={[0, 0, 0]}
+          intensity={1000.5}
+          color="#64ffda"
+          distance={5}
+          decay={2}
+          castShadow={false}
+        />
         
         <spotLight 
           position={config?.lighting?.spotLight?.position || [0, 0, 10]} 
