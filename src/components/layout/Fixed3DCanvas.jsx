@@ -1,8 +1,8 @@
 // src/components/layout/Fixed3DCanvas.jsx
 // UPDATED: Added PersistentDustSystem to isolate from UnifiedCrystalScene re-renders
 
-import React from 'react';
-import { Canvas } from '@react-three/fiber';
+import Reac, { useRef } from 'react';
+import { Canvas, useFrame } from '@react-three/fiber';
 import { Environment, OrbitControls } from '@react-three/drei';
 import { EffectComposer, Bloom, ChromaticAberration, Noise, Vignette } from '@react-three/postprocessing';
 import { BlendFunction } from 'postprocessing';
@@ -24,6 +24,31 @@ import { FPSCounter } from '../ui/FpsDisplay';
  * All animation logic moved to unified system
  * UPDATED: Added PersistentDustSystem isolated from crystal animations
  */
+
+const PulsingOmniLight = () => {
+  const lightRef = useRef();
+  
+  useFrame((state) => {
+    if (lightRef.current) {
+      const time = state.clock.elapsedTime;
+      const pulse = Math.sin(time * 2 + Math.sin(time * 0.7) * 0.5) * 0.3 + 1;
+      lightRef.current.intensity = 1000.5 * pulse;
+    }
+  });
+
+  return (
+    <pointLight
+      ref={lightRef}
+      position={[0, 0, 0]}
+      intensity={1.5}
+      color="#64ffda"
+      distance={5}
+      decay={2}
+      castShadow={false}
+    />
+  );
+};
+
 const Fixed3DCanvas = ({ 
   // Animation data from MasterAnimationCoordinator
   animationData,
@@ -40,6 +65,7 @@ const Fixed3DCanvas = ({
   environmentProps = {},
   isMobile = false
 }) => {
+
   return (
     <div style={{
       position: 'fixed',
@@ -100,15 +126,18 @@ const Fixed3DCanvas = ({
           />
         ))}
 
+        <PulsingOmniLight />
+
         {/* Center Omni Light */}
-        <pointLight
+        {/* <pointLight
+          ref={omniLightRef}        // ADD THIS REF
           position={[0, 0, 0]}
-          intensity={1000.5}
+          intensity={1.5}           // This will be overridden by the pulse
           color="#64ffda"
           distance={5}
           decay={2}
           castShadow={false}
-        />
+        /> */}
         
         <spotLight 
           position={config?.lighting?.spotLight?.position || [0, 0, 10]} 
