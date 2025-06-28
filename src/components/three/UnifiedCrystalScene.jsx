@@ -242,22 +242,25 @@ const UnifiedCrystalScene = ({
         performanceConfig={performanceConfig}
       />
 
-      {/* CLEANED: Simple sphere image (no complex particle system) */}
+      {/* ENHANCED: Glowing sphere with anti-banding */}
       {sphereVisible && (
         <GlowingSphereImage
           // Path to your sphere image
-          imagePath="/assets/textures/glowing-sphere04.jpg"
+          imagePath="/assets/textures/glowing-sphere05-noise.png"
           
-          // Blending mode for black background images
+          // ANTI-BANDING: Enhanced settings to reduce banding
           blendingMode={BLENDING_MODES.ADDITIVE}
-
+          enableDithering={true}           // Breaks up color banding
+          enableAntialiasing={true}        // Smoother edges and gradients
+          textureFiltering="enhanced"      // Better texture interpolation
+          
           // Size settings
           baseSize={0.2}
-          maxScale={2.5}
+          maxScale={4.5}
           
           // Timing that matches your crystal explosion
-          explosionDuration={1.6}
-          fadeInDuration={0.8}
+          explosionDuration={0.05}
+          fadeInDuration={0.02}
           
           // Position at center of exploded crystal
           position={[0, 0, 0]}
@@ -271,10 +274,10 @@ const UnifiedCrystalScene = ({
           
           // Event handlers (optional)
           onExplosionStart={() => {
-            console.log('🌟 Sphere explosion started');
+            console.log('🌟 Enhanced sphere explosion started');
           }}
           onExplosionEnd={() => {
-            console.log('🌟 Sphere explosion completed');
+            console.log('🌟 Enhanced sphere explosion completed');
           }}
         />
       )}
@@ -368,7 +371,7 @@ const UnifiedCrystalScene = ({
                 ✅ Simple image-based implementation
               </div>
               <div style={{ fontSize: '10px', color: '#64ffda', marginTop: '4px' }}>
-                Image: /assets/textures/glowing-sphere04.jpg
+                Image: /assets/textures/glowing-sphere05-noise.png
               </div>
             </div>
             

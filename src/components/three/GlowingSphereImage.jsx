@@ -1,5 +1,5 @@
 // src/components/three/GlowingSphereImage.jsx
-// BLENDING MODES: Support for Screen, Additive, Multiply, etc.
+// FIXED: Anti-banding improvements added to existing component
 
 import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
@@ -24,11 +24,11 @@ export const BLENDING_MODES = {
 };
 
 /**
- * Simple Plane-Based Sphere with Blending Mode Support
+ * Enhanced Plane-Based Sphere with Anti-Banding Support
  */
 const GlowingSphereImage = ({
   // Image path
-  imagePath = '/assets/textures/glowing-sphere04.jpg',
+  imagePath = '/assets/textures/glowing-sphere05-noise.png',
   
   // Size settings
   baseSize = 0.5,
@@ -39,12 +39,17 @@ const GlowingSphereImage = ({
   fadeInDuration = 0.8,
   
   // BLENDING MODES
-  blendingMode = BLENDING_MODES.SCREEN,  // Default to Screen mode
+  blendingMode = BLENDING_MODES.ADDITIVE,  // Default to Additive mode
   
   // Advanced blending options (for custom blending)
   blendSrc = THREE.SrcAlphaFactor,
   blendDst = THREE.OneMinusSrcAlphaFactor,
   blendEquation = THREE.AddEquation,
+  
+  // NEW: Anti-banding options
+  enableDithering = true,
+  enableAntialiasing = true,
+  textureFiltering = 'enhanced', // 'basic', 'enhanced', 'premium'
   
   // Position and visibility
   position = [0, 0, 0],
@@ -64,31 +69,64 @@ const GlowingSphereImage = ({
   const [startTime, setStartTime] = useState(0);
   const lastCrystalForm = useRef('whole');
   
-  // Load texture once
+  // Load texture once with enhanced settings
   const texture = useTexture(imagePath);
   
-  // Configure texture on load
+  // ENHANCED: Configure texture with anti-banding settings
   useEffect(() => {
     if (texture) {
-      texture.minFilter = THREE.LinearFilter;
-      texture.magFilter = THREE.LinearFilter;
-      texture.generateMipmaps = false;
+      // Apply different filtering based on quality setting
+      switch (textureFiltering) {
+        case 'premium':
+          texture.minFilter = THREE.LinearFilter;
+          texture.magFilter = THREE.LinearFilter;
+          texture.anisotropy = Math.min(16, texture.renderer?.capabilities?.getMaxAnisotropy?.() || 1);
+          texture.generateMipmaps = false; // Prevent mipmap banding
+          break;
+          
+        case 'enhanced':
+          texture.minFilter = THREE.LinearFilter;
+          texture.magFilter = THREE.LinearFilter;
+          texture.anisotropy = Math.min(4, texture.renderer?.capabilities?.getMaxAnisotropy?.() || 1);
+          texture.generateMipmaps = false;
+          break;
+          
+        default: // 'basic'
+          texture.minFilter = THREE.LinearFilter;
+          texture.magFilter = THREE.LinearFilter;
+          texture.anisotropy = 1;
+          texture.generateMipmaps = false;
+      }
+      
+      // Force better color space handling
+      texture.colorSpace = THREE.SRGBColorSpace;
+      
+      // Optimize wrapping for sphere textures
+      texture.wrapS = THREE.ClampToEdgeWrapping;
+      texture.wrapT = THREE.ClampToEdgeWrapping;
+      
       texture.flipY = false;
       texture.needsUpdate = true;
       
       if (debugMode) {
-        console.log('🌟 Sphere texture loaded with blending mode:', {
-          mode: Object.keys(BLENDING_MODES).find(key => BLENDING_MODES[key] === blendingMode),
+        console.log('🌟 Enhanced sphere texture loaded:', {
+          filtering: textureFiltering,
+          anisotropy: texture.anisotropy,
+          colorSpace: texture.colorSpace,
           imagePath
         });
       }
     }
-  }, [texture, blendingMode, imagePath, debugMode]);
+  }, [texture, textureFiltering, imagePath, debugMode]);
   
-  // Create geometry once
-  const geometry = useMemo(() => new THREE.PlaneGeometry(1, 1), []);
+  // Create geometry with higher tessellation for smoother appearance
+  const geometry = useMemo(() => {
+    // Use more segments for anti-aliasing and smoother curves
+    const segments = enableAntialiasing ? 64 : 32;
+    return new THREE.PlaneGeometry(1, 1, segments, segments);
+  }, [enableAntialiasing]);
   
-  // Create material with blending mode
+  // ENHANCED: Create material with anti-banding features
   const material = useMemo(() => {
     const mat = new THREE.MeshBasicMaterial({
       map: texture,
@@ -97,11 +135,17 @@ const GlowingSphereImage = ({
       alphaTest: 0.01,
       side: THREE.DoubleSide,
       depthWrite: false,
-      depthTest: true,        // FIXED: Enable depth testing so facets render in front
+      depthTest: true,        
       fog: false,
       
       // BLENDING CONFIGURATION
-      blending: blendingMode
+      blending: blendingMode,
+      
+      // ANTI-BANDING: Enable dithering
+      dithering: enableDithering,
+      
+      // Use higher precision for better gradients
+      precision: 'highp'
     });
     
     // If using custom blending, set additional parameters
@@ -112,7 +156,7 @@ const GlowingSphereImage = ({
     }
     
     return mat;
-  }, [texture, blendingMode, blendSrc, blendDst, blendEquation]);
+  }, [texture, blendingMode, blendSrc, blendDst, blendEquation, enableDithering]);
   
   // Detect explosion start/stop
   useEffect(() => {
@@ -124,11 +168,11 @@ const GlowingSphereImage = ({
       if (currentForm === 'exploded' && lastCrystalForm.current === 'whole') {
         setIsExploding(true);
         setStartTime(Date.now());
-        if (debugMode) console.log('🌟 Sphere: Start explosion with blending');
+        if (debugMode) console.log('🌟 Enhanced sphere: Start explosion with anti-banding');
         
       } else if (currentForm === 'whole' && lastCrystalForm.current === 'exploded') {
         setIsExploding(false);
-        if (debugMode) console.log('🌟 Sphere: Stop explosion');
+        if (debugMode) console.log('🌟 Enhanced sphere: Stop explosion');
       }
       
       lastCrystalForm.current = currentForm;
@@ -173,54 +217,68 @@ const GlowingSphereImage = ({
       material={material}
       position={position}
       scale={[baseSize, baseSize, baseSize]}
+      renderOrder={999} // Render after other objects to avoid z-fighting
     />
   );
 };
 
 /**
- * PRESET CONFIGURATIONS for different effects
+ * PRESET CONFIGURATIONS for different effects with anti-banding
  */
 export const BlendingPresets = {
-  // For images with black backgrounds - use Screen/Additive
+  // For images with black backgrounds - use Screen/Additive with anti-banding
   GLOW_ON_BLACK: {
     blendingMode: BLENDING_MODES.SCREEN,
-    description: "Perfect for black backgrounds - brightens and glows"
+    enableDithering: true,
+    textureFiltering: 'enhanced',
+    description: "Perfect for black backgrounds with anti-banding"
   },
   
   // For images with white backgrounds - use Multiply
   SHADOW_ON_WHITE: {
     blendingMode: BLENDING_MODES.MULTIPLY,
-    description: "Good for white backgrounds - darkens and creates shadows"
+    enableDithering: true,
+    textureFiltering: 'enhanced',
+    description: "Good for white backgrounds with smooth gradients"
   },
   
-  // Maximum brightness/glow effect
+  // Maximum brightness/glow effect with premium anti-banding
   MAXIMUM_GLOW: {
     blendingMode: BLENDING_MODES.ADDITIVE,
-    description: "Maximum glow effect - adds all color values"
+    enableDithering: true,
+    enableAntialiasing: true,
+    textureFiltering: 'premium',
+    description: "Maximum glow with premium anti-banding"
   },
   
-  // Standard blending
+  // Standard blending with basic anti-banding
   NORMAL: {
     blendingMode: BLENDING_MODES.NORMAL,
-    description: "Standard alpha blending"
+    enableDithering: true,
+    textureFiltering: 'basic',
+    description: "Standard alpha blending with basic smoothing"
   },
   
-  // Custom example: Strong additive with custom factors
+  // Custom example: Strong additive with enhanced quality
   CUSTOM_BRIGHT: {
     blendingMode: BLENDING_MODES.CUSTOM,
     blendSrc: THREE.OneFactor,
     blendDst: THREE.OneFactor,
     blendEquation: THREE.AddEquation,
-    description: "Custom strong additive blending"
+    enableDithering: true,
+    enableAntialiasing: true,
+    textureFiltering: 'premium',
+    description: "Custom strong additive with maximum quality"
   }
 };
 
 /**
- * Smart Blending Sphere - automatically chooses good settings
+ * Smart Blending Sphere - automatically chooses good settings with anti-banding
  */
 export const SmartBlendingSphere = ({ 
-  imageHasBlackBackground = true,  // Tell us about your image
-  glowIntensity = 'medium',        // 'subtle', 'medium', 'intense'
+  imageHasBlackBackground = true,  
+  glowIntensity = 'medium',        
+  antiAliasingQuality = 'enhanced', // 'basic', 'enhanced', 'premium'
   ...props 
 }) => {
   // Choose blending mode based on image background
@@ -243,7 +301,14 @@ export const SmartBlendingSphere = ({
     preset = BlendingPresets.NORMAL;
   }
   
-  return <GlowingSphereImage {...preset} {...props} />;
+  // Override texture filtering based on quality setting
+  const enhancedPreset = {
+    ...preset,
+    textureFiltering: antiAliasingQuality,
+    enableAntialiasing: antiAliasingQuality !== 'basic'
+  };
+  
+  return <GlowingSphereImage {...enhancedPreset} {...props} />;
 };
 
 export default GlowingSphereImage;
