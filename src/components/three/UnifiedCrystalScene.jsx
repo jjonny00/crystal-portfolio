@@ -246,7 +246,7 @@ const UnifiedCrystalScene = ({
       {sphereVisible && (
         <GlowingSphereImage
           // Path to your sphere image
-          imagePath="/assets/textures/glowing-sphere06.jpg"
+          imagePath="/assets/textures/glowing-sphere06-noise.jpg"
           
           // ANTI-BANDING: Enhanced settings to reduce banding
           blendingMode={BLENDING_MODES.ADDITIVE}
@@ -371,7 +371,7 @@ const UnifiedCrystalScene = ({
                 ✅ Simple image-based implementation
               </div>
               <div style={{ fontSize: '10px', color: '#64ffda', marginTop: '4px' }}>
-                Image: /assets/textures/glowing-sphere06.jpg
+                Image: /assets/textures/glowing-sphere06-noise.jpg
               </div>
             </div>
             
