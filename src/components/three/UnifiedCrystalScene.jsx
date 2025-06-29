@@ -1,7 +1,7 @@
-// CLEANED: src/components/three/UnifiedCrystalScene.jsx
-// Removed ALL GlowingParticleCore references and debug spheres
+// UPDATED: src/components/three/UnifiedCrystalScene.jsx
+// Pass facet refs to camera controller for anchor targeting
 
-import { useRef, useState, useEffect } from 'react'
+import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useGLTF, Html } from '@react-three/drei'
 import * as THREE from 'three'
@@ -9,14 +9,13 @@ import * as THREE from 'three'
 // Import existing material manager
 import MaterialManager from './MaterialManager'
 
-// UPDATED: Only import the sphere image component (no particle core)
+// Import enhanced sphere component
 import GlowingSphereImage, { BLENDING_MODES } from './GlowingSphereImage'
 
 /**
- * Crystal Scene with simple sphere image (no particle system)
- * CLEANED: All GlowingParticleCore references removed
+ * UPDATED: Crystal Scene that passes facet refs to camera controller
  */
-const UnifiedCrystalScene = ({ 
+const UnifiedCrystalScene = forwardRef(({ 
   animationData,
   config, 
   materialVariant = 'default',
@@ -24,17 +23,17 @@ const UnifiedCrystalScene = ({
   iceOpalConfig,
   performanceConfig = { useNormalMaps: true, textureQuality: 'high', usePBR: true },
   isMobile = false
-}) => {
-  // Component refs for crystal animation (keep existing logic)
+}, ref) => {
+  // Component refs for crystal animation
   const crystalGroupRef = useRef();
   const wholeCrystalRef = useRef();
   const facetRefs = useRef(Array(6).fill(null));
   const crystalMaterialRef = useRef();
   
-  // CLEANED: Simple sphere state (no complex particle system)
+  // Sphere state
   const [sphereVisible, setSphereVisible] = useState(false);
   
-  // Crystal state tracking (keep existing logic intact)
+  // Crystal state tracking
   const [showWholeCrystal, setShowWholeCrystal] = useState(true);
   const [showFacets, setShowFacets] = useState(false);
   const lastCrystalForm = useRef('whole');
@@ -46,6 +45,20 @@ const UnifiedCrystalScene = ({
   
   // Facet configuration
   const facetKeys = ['empathy', 'narrative', 'craft', 'system', 'leadership', 'exploration'];
+
+  // NEW: Expose facet refs to parent component
+  useImperativeHandle(ref, () => ({
+    facetRefs: facetRefs.current,
+    getFacetRef: (index) => facetRefs.current[index],
+    findAnchor: (facetKey) => {
+      const facetIndex = facetKeys.indexOf(facetKey);
+      if (facetIndex !== -1 && facetRefs.current[facetIndex]) {
+        const anchorName = `anchor_${facetKey}`;
+        return facetRefs.current[facetIndex].current?.getObjectByName(anchorName) || null;
+      }
+      return null;
+    }
+  }), [facetKeys]);
 
   // Load models
   const wholeCrystal = useGLTF(config.assets.models.crystalWhole);
@@ -98,6 +111,33 @@ const UnifiedCrystalScene = ({
     facetModels.forEach(model => applyMaterial(model.scene));
     
   }, [wholeCrystal, facetModels, crystalMaterialRef.current]);
+
+  // NEW: Debug anchor positions when facets are loaded
+  useEffect(() => {
+    if (showCrystalDebug && facetRefs.current.length > 0) {
+      facetKeys.forEach((facetKey, index) => {
+        const facetRef = facetRefs.current[index];
+        if (facetRef && facetRef.current) {
+          const anchorName = `anchor_${facetKey}`;
+          const anchor = facetRef.current.getObjectByName(anchorName);
+          
+          if (anchor) {
+            const worldPos = new THREE.Vector3();
+            anchor.getWorldPosition(worldPos);
+            console.log(`🎯 Anchor found: ${anchorName}`, worldPos.toArray());
+          } else {
+            console.warn(`⚠️ Anchor not found: ${anchorName}`);
+            // List all available objects for debugging
+            const availableNames = [];
+            facetRef.current.traverse((child) => {
+              if (child.name) availableNames.push(child.name);
+            });
+            console.log(`Available objects in ${facetKey}:`, availableNames);
+          }
+        }
+      });
+    }
+  }, [showCrystalDebug, showFacets, facetKeys]);
   
   // Crystal form change detection that includes sphere visibility
   useEffect(() => {
@@ -113,18 +153,14 @@ const UnifiedCrystalScene = ({
       });
 
       if (currentForm === 'exploded') {
-        // WHOLE → EXPLODED (explosion) - crystal visibility changes + show sphere
         console.log('💎 Crystal: Explosion - hiding whole, showing facets, showing sphere');
         setShowWholeCrystal(false);
         setShowFacets(true);
-        setSphereVisible(true); // Show sphere when crystal explodes
+        setSphereVisible(true);
         
       } else if (currentForm === 'whole') {
-        // EXPLODED → WHOLE (reform) - crystal visibility changes + hide sphere
         console.log('💎 Crystal: Reform detected - hiding sphere');
-        setSphereVisible(false); // Hide sphere when crystal reforms
-        // NOTE: We don't immediately show whole crystal here
-        // The animation loop will handle the transition when facets reach center
+        setSphereVisible(false);
       }
       
       lastCrystalForm.current = currentForm;
@@ -242,37 +278,22 @@ const UnifiedCrystalScene = ({
         performanceConfig={performanceConfig}
       />
 
-      {/* ENHANCED: Glowing sphere with anti-banding */}
+      {/* Enhanced Glowing Sphere */}
       {sphereVisible && (
         <GlowingSphereImage
-          // Path to your sphere image
           imagePath="/assets/textures/glowing-sphere06-noise.jpg"
-          
-          // ANTI-BANDING: Enhanced settings to reduce banding
           blendingMode={BLENDING_MODES.ADDITIVE}
-          enableDithering={true}           // Breaks up color banding
-          enableAntialiasing={true}        // Smoother edges and gradients
-          textureFiltering="enhanced"      // Better texture interpolation
-          
-          // Size settings
+          enableDithering={true}
+          enableAntialiasing={true}
+          textureFiltering="enhanced"
           baseSize={0.2}
           maxScale={4.5}
-          
-          // Timing that matches your crystal explosion
           explosionDuration={0.05}
           fadeInDuration={0.02}
-          
-          // Position at center of exploded crystal
           position={[0, 0, 0]}
-          
-          // Pass through animation data and visibility
           visible={sphereVisible}
           animationData={animationData}
-          
-          // Debug mode for development
           debugMode={process.env.NODE_ENV === 'development'}
-          
-          // Event handlers (optional)
           onExplosionStart={() => {
             console.log('🌟 Enhanced sphere explosion started');
           }}
@@ -289,7 +310,7 @@ const UnifiedCrystalScene = ({
         </group>
       )}
       
-      {/* Individual Facets with INSTANT visibility control */}
+      {/* UPDATED: Individual Facets with refs properly assigned */}
       {showFacets && facetModels.map((model, index) => {
         const facetKey = facetKeys[index];
         const isFocused = isFacetFocused(index);
@@ -297,14 +318,37 @@ const UnifiedCrystalScene = ({
         return (
           <group 
             key={facetKey}
-            ref={el => facetRefs.current[index] = el}
+            ref={el => {
+              facetRefs.current[index] = el;
+            }}
           >
             <primitive object={model.scene} />
           </group>
         );
       })}
       
-      {/* CLEANED: Enhanced debug info (no particle or sphere debug) */}
+      {/* DEBUG: Anchor visual markers - only when debug enabled */}
+      {showCrystalDebug && showFacets && facetKeys.map((facetKey, index) => {
+        const facetRef = facetRefs.current[index];
+        if (!facetRef?.current) return null;
+        
+        const anchor = facetRef.current.getObjectByName(`anchor_${facetKey}`);
+        if (!anchor) return null;
+        
+        const worldPos = new THREE.Vector3();
+        anchor.getWorldPosition(worldPos);
+        
+        const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
+        
+        return (
+          <mesh key={`marker-${facetKey}`} position={worldPos} renderOrder={999}>
+            <sphereGeometry args={[0.05, 8, 8]} />
+            <meshBasicMaterial color={colors[index]} depthTest={false} />
+          </mesh>
+        );
+      })}
+      
+      {/* ENHANCED: Debug info with anchor information */}
       {showCrystalDebug && animationData && (
         <Html>
           <div style={{
@@ -319,7 +363,7 @@ const UnifiedCrystalScene = ({
             fontFamily: 'monospace',
             zIndex: 10002,
             pointerEvents: 'none',
-            maxWidth: '350px',
+            maxWidth: '400px',
             border: '1px solid rgba(100, 255, 218, 0.3)'
           }}>
             <div style={{ 
@@ -352,82 +396,87 @@ const UnifiedCrystalScene = ({
               <div>Focused: {animationData.focusedFacet || 'none'}</div>
             </div>
 
-            {/* CLEANED: Simple sphere debug info (no complex particle system debug) */}
+            {/* NEW: Anchor Debug Info */}
+            {showFacets && (
+              <div style={{ 
+                marginBottom: '10px',
+                borderTop: '1px solid rgba(100, 255, 218, 0.3)',
+                paddingTop: '8px'
+              }}>
+                <div style={{ color: '#64ffda', fontWeight: 'bold' }}>🎯 Anchor Status:</div>
+                {facetKeys.map((facetKey, index) => {
+                  const facetRef = facetRefs.current[index];
+                  let anchorStatus = 'Not Checked';
+                  let anchorPosition = null;
+                  
+                  if (facetRef && facetRef.current) {
+                    const anchorName = `anchor_${facetKey}`;
+                    const anchor = facetRef.current.getObjectByName(anchorName);
+                    
+                    if (anchor) {
+                      anchorStatus = 'Found';
+                      const worldPos = new THREE.Vector3();
+                      anchor.getWorldPosition(worldPos);
+                      anchorPosition = worldPos.toArray().map(v => v.toFixed(2));
+                    } else {
+                      anchorStatus = 'Missing';
+                    }
+                  }
+                  
+                  return (
+                    <div key={facetKey} style={{ 
+                      fontSize: '10px', 
+                      color: anchorStatus === 'Found' ? '#4CAF50' : 
+                             anchorStatus === 'Missing' ? '#F44336' : '#999',
+                      marginBottom: '2px'
+                    }}>
+                      {facetKey}: {anchorStatus}
+                      {anchorPosition && ` [${anchorPosition.join(', ')}]`}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Sphere Debug */}
             <div style={{ 
               marginBottom: '10px',
               borderTop: '1px solid rgba(187, 134, 252, 0.3)',
               paddingTop: '8px'
             }}>
-              <div style={{ color: '#bb86fc', fontWeight: 'bold' }}>🌟 Glowing Sphere (Image Billboard):</div>
+              <div style={{ color: '#bb86fc', fontWeight: 'bold' }}>🌟 Glowing Sphere:</div>
               <div style={{ 
                 color: sphereVisible ? '#4CAF50' : '#666',
                 fontWeight: 'bold'
               }}>
                 Visible: {sphereVisible ? 'YES' : 'NO'}
               </div>
-              <div>Type: Image Billboard</div>
-              <div>Always Faces Camera: YES</div>
-              <div style={{ fontSize: '10px', color: '#999', marginTop: '4px' }}>
-                ✅ Simple image-based implementation
-              </div>
-              <div style={{ fontSize: '10px', color: '#64ffda', marginTop: '4px' }}>
-                Image: /assets/textures/glowing-sphere06-noise.jpg
-              </div>
             </div>
             
-            {/* ANIMATION STATUS */}
-            {animationData.crystalForm === 'whole' && showFacets && (
+            {/* Camera targeting info */}
+            {animationData.cameraState === 'project' && animationData.focusedFacet && (
               <div style={{
-                background: '#2196F3',
-                color: 'white',
-                padding: '6px',
+                background: 'rgba(100, 255, 218, 0.2)',
+                border: '1px solid #64ffda',
                 borderRadius: '4px',
+                padding: '6px',
                 marginTop: '8px',
-                fontWeight: 'bold'
+                fontSize: '10px'
               }}>
-                🔄 REFORMING: Facets → Center
+                <div style={{ color: '#64ffda', fontWeight: 'bold' }}>📹 CAMERA TARGETING</div>
+                <div>Project: {animationData.focusedFacet}</div>
+                <div>Expected Anchor: anchor_{animationData.focusedFacet}</div>
+                <div>Using Anchor: {facetRefs.current.length > 0 ? 'Checking...' : 'No facets loaded'}</div>
               </div>
             )}
-            
-            {/* CLEANED: Simple sphere test control (no complex particle controls) */}
-            <div style={{
-              background: 'rgba(76, 175, 80, 0.2)',
-              border: '1px solid #4caf50',
-              borderRadius: '4px',
-              padding: '6px',
-              marginTop: '10px',
-              fontSize: '10px'
-            }}>
-              <div style={{ color: '#4caf50', fontWeight: 'bold' }}>⚡ SPHERE TESTING</div>
-              <div 
-                style={{
-                  background: '#ff6b6b',
-                  color: 'white',
-                  border: 'none',
-                  padding: '4px 8px',
-                  borderRadius: '3px',
-                  fontSize: '10px',
-                  cursor: 'pointer',
-                  marginTop: '4px',
-                  pointerEvents: 'auto',
-                  userSelect: 'none'
-                }}
-                onClick={() => {
-                  console.log('🧪 Manual sphere test triggered');
-                  setSphereVisible(prev => !prev);
-                }}
-              >
-                Toggle Sphere ({sphereVisible ? 'ON' : 'OFF'})
-              </div>
-              <div style={{ fontSize: '9px', color: '#aaa', marginTop: '4px' }}>
-                Create your sphere image at the path above
-              </div>
-            </div>
           </div>
         </Html>
       )}
     </group>
   );
-};
+});
+
+// Set display name for debugging
+UnifiedCrystalScene.displayName = 'UnifiedCrystalScene';
 
 export default UnifiedCrystalScene;

@@ -1,17 +1,18 @@
-// FIXED: src/components/three/UnifiedCameraController.jsx
-// Simplified camera controller with smooth transitions for immediate state changes
+// ENHANCED: src/components/three/UnifiedCameraController.jsx
+// Now supports targeting anchor objects within facet models
 
 import { useRef, useEffect } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
 /**
- * SIMPLIFIED: Camera Controller with smooth transitions to immediate target changes
+ * ENHANCED: Camera Controller with anchor targeting support
  */
 const UnifiedCameraController = ({ 
   animationData,
   config,
-  isMobile = false 
+  isMobile = false,
+  facetRefs = null // NEW: Pass in refs to facet models to find anchors
 }) => {
   const { camera } = useThree();
   
@@ -22,6 +23,8 @@ const UnifiedCameraController = ({
     fov: 45
   });
   
+  // REMOVED: Anchor cache - we'll get fresh positions every time
+  
   // Adaptive animation speeds based on distance
   const animationSpeed = useRef({
     position: 0.03,
@@ -31,6 +34,75 @@ const UnifiedCameraController = ({
   
   // Track last camera config to detect changes
   const lastCameraConfig = useRef(null);
+
+  /**
+   * FIXED: Find anchor object within a facet model and get FRESH position
+   */
+  const findAnchorInFacet = (facetRef, facetKey) => {
+    if (!facetRef || !facetRef.current) return null;
+    
+    // Expected anchor name pattern
+    const anchorName = `anchor_${facetKey}`;
+    
+    // Search for anchor in the facet model
+    let anchorObject = null;
+    
+    // Method 1: Direct search by name
+    anchorObject = facetRef.current.getObjectByName(anchorName);
+    
+    if (!anchorObject) {
+      // Method 2: Traverse the entire facet model to find anchor
+      facetRef.current.traverse((child) => {
+        if (child.name === anchorName) {
+          anchorObject = child;
+        }
+      });
+    }
+    
+    if (anchorObject) {
+      // FIXED: Get FRESH world position every time - no caching
+      const worldPosition = new THREE.Vector3();
+      anchorObject.getWorldPosition(worldPosition);
+      
+      console.log(`🎯 Fresh anchor position for ${facetKey}:`, {
+        anchorName,
+        worldPosition: worldPosition.toArray(),
+        time: Date.now()
+      });
+      
+      return worldPosition;
+    } else {
+      console.warn(`⚠️ Anchor "${anchorName}" not found in facet ${facetKey}`);
+      return null;
+    }
+  };
+
+  /**
+   * FIXED: Get camera target with fresh anchor positions
+   */
+  const getCameraTarget = (cameraConfig, focusedFacet) => {
+    // For project cameras, try to find anchor with FRESH position
+    if (animationData?.cameraState === 'project' && focusedFacet && facetRefs) {
+      const facetIndex = ['empathy', 'narrative', 'craft', 'system', 'leadership', 'exploration'].indexOf(focusedFacet);
+      
+      if (facetIndex !== -1 && facetRefs.current && facetRefs.current[facetIndex]) {
+        // FIXED: Get fresh anchor position every time
+        const anchorPosition = findAnchorInFacet(facetRefs.current[facetIndex], focusedFacet);
+        
+        if (anchorPosition) {
+          // Return camera config with FRESH anchor as target
+          return {
+            ...cameraConfig,
+            target: anchorPosition,
+            description: `${cameraConfig.description} (fresh anchor targeted)`
+          };
+        }
+      }
+    }
+    
+    // Fallback to original target
+    return cameraConfig;
+  };
 
   /**
    * Initialize camera target from current position
@@ -46,74 +118,73 @@ const UnifiedCameraController = ({
   }, [camera]);
 
   /**
-   * FIXED: Update camera targets when config changes with state-aware timing
+   * ENHANCED: Update camera targets with anchor support
    */
   useEffect(() => {
     if (!animationData?.cameraConfig) return;
 
-    const newConfig = animationData.cameraConfig;
+    const baseConfig = animationData.cameraConfig;
+    
+    // Get enhanced config with anchor targeting
+    const enhancedConfig = getCameraTarget(baseConfig, animationData.focusedFacet);
     
     // Check if config actually changed to avoid unnecessary updates
     const configChanged = !lastCameraConfig.current ||
-      !newConfig.position?.equals(lastCameraConfig.current.position) ||
-      !newConfig.target?.equals(lastCameraConfig.current.target) ||
-      newConfig.fov !== lastCameraConfig.current.fov;
+      !enhancedConfig.position?.equals(lastCameraConfig.current.position) ||
+      !enhancedConfig.target?.equals(lastCameraConfig.current.target) ||
+      enhancedConfig.fov !== lastCameraConfig.current.fov;
 
     if (configChanged) {
       if (process.env.NODE_ENV === 'development') {
-        console.log('📹 Camera target updated:', {
+        console.log('📹 Enhanced camera target updated:', {
           state: animationData.state,
           cameraState: animationData.cameraState,
           focusedFacet: animationData.focusedFacet,
-          position: newConfig.position?.toArray(),
-          target: newConfig.target?.toArray(),
-          fov: newConfig.fov
+          position: enhancedConfig.position?.toArray(),
+          target: enhancedConfig.target?.toArray(),
+          fov: enhancedConfig.fov,
+          usingAnchor: enhancedConfig.description?.includes('fresh anchor')
         });
       }
 
       // Update targets immediately
-      if (newConfig.position) {
-        currentTarget.current.position.copy(newConfig.position);
+      if (enhancedConfig.position) {
+        currentTarget.current.position.copy(enhancedConfig.position);
       }
       
-      if (newConfig.target) {
-        currentTarget.current.lookAt.copy(newConfig.target);
+      if (enhancedConfig.target) {
+        currentTarget.current.lookAt.copy(enhancedConfig.target);
       }
       
-      if (newConfig.fov !== undefined) {
-        currentTarget.current.fov = newConfig.fov;
+      if (enhancedConfig.fov !== undefined) {
+        currentTarget.current.fov = enhancedConfig.fov;
       }
 
-      // FIXED: State-aware animation speeds to match visual expectations
+      // State-aware animation speeds
       const positionDistance = camera.position.distanceTo(currentTarget.current.position);
       
-      // Different speeds based on the type of transition
       if (animationData.state === 'hero' && positionDistance > 3) {
-        // Returning to hero from far away (about/projects) - smooth but not too slow
         animationSpeed.current.position = 0.025;
         animationSpeed.current.lookAt = 0.025;
         animationSpeed.current.fov = 0.025;
       } else if (animationData.state === 'overview' && positionDistance > 2) {
-        // Moving to overview (explosion view) - slightly faster for drama
         animationSpeed.current.position = 0.035;
         animationSpeed.current.lookAt = 0.035;
         animationSpeed.current.fov = 0.035;
       } else if (animationData.state === 'about' && positionDistance > 2) {
-        // Moving to about (reform view) - slower for contemplative feel
         animationSpeed.current.position = 0.02;
         animationSpeed.current.lookAt = 0.02;
         animationSpeed.current.fov = 0.02;
       } else if (animationData.cameraState === 'project' && animationData.focusedFacet) {
-        // Project focus - quick and responsive
+        // Project focus - quick and responsive for anchor targeting
         animationSpeed.current.position = 0.05;
         animationSpeed.current.lookAt = 0.05;
         animationSpeed.current.fov = 0.05;
         
         if (process.env.NODE_ENV === 'development') {
-          console.log(`📹 Project focus camera update: ${animationData.focusedFacet}, distance: ${positionDistance.toFixed(2)}`);
+          console.log(`📹 Project focus camera update: ${animationData.focusedFacet}, distance: ${positionDistance.toFixed(2)}, using fresh anchor: ${enhancedConfig.description?.includes('fresh anchor')}`);
         }
       } else {
-        // Default smooth speed
         animationSpeed.current.position = 0.03;
         animationSpeed.current.lookAt = 0.03;
         animationSpeed.current.fov = 0.03;
@@ -121,21 +192,24 @@ const UnifiedCameraController = ({
 
       // Store current config for comparison
       lastCameraConfig.current = {
-        position: newConfig.position?.clone(),
-        target: newConfig.target?.clone(),
-        fov: newConfig.fov
+        position: enhancedConfig.position?.clone(),
+        target: enhancedConfig.target?.clone(),
+        fov: enhancedConfig.fov
       };
     }
   }, [
     animationData?.cameraConfig, 
     animationData?.state, 
     animationData?.cameraState, 
-    animationData?.focusedFacet, // FIXED: Add focusedFacet as dependency
+    animationData?.focusedFacet,
+    facetRefs, // Keep facetRefs as dependency
     camera
   ]);
 
+  // REMOVED: Clear anchor cache effect - no longer needed
+
   /**
-   * SIMPLIFIED: Smooth animation loop with consistent lerping
+   * Smooth animation loop (unchanged)
    */
   useFrame(() => {
     if (!currentTarget.current) return;
@@ -166,17 +240,6 @@ const UnifiedCameraController = ({
     const fovDiff = currentTarget.current.fov - camera.fov;
     camera.fov += fovDiff * currentSpeeds.fov;
     camera.updateProjectionMatrix();
-
-    // Optional: Debug logging for large movements
-    // if (process.env.NODE_ENV === 'development') {
-    //   const positionDistance = camera.position.distanceTo(currentTarget.current.position);
-    //   if (positionDistance > 0.1) {
-    //     // Only log when camera is still moving significantly
-    //     if (Math.random() < 0.01) { // Reduce log frequency
-    //       console.log(`📹 Camera moving: distance ${positionDistance.toFixed(2)}, speed ${currentSpeeds.position.toFixed(3)}`);
-    //     }
-    //   }
-    // }
   });
 
   /**

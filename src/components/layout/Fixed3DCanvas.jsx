@@ -1,29 +1,18 @@
-// src/components/layout/Fixed3DCanvas.jsx
-// UPDATED: Added PersistentDustSystem to isolate from UnifiedCrystalScene re-renders
+// UPDATED: src/components/layout/Fixed3DCanvas.jsx
+// Pass facet refs from crystal scene to camera controller
 
-import Reac, { useRef } from 'react';
+import React, { useRef } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Environment, OrbitControls } from '@react-three/drei';
 import { EffectComposer, Bloom, ChromaticAberration, Noise, Vignette } from '@react-three/postprocessing';
 import { BlendFunction } from 'postprocessing';
 import * as THREE from 'three';
 
-// NEW: Unified 3D components
+// NEW: Import enhanced camera controller
 import UnifiedCameraController from '../three/UnifiedCameraController';
 import UnifiedCrystalScene from '../three/UnifiedCrystalScene';
 import PersistentDustSystem from '../three/PersistentDustSystem';
 import { FPSCounter } from '../ui/FpsDisplay';
-
-
-// Animation Debug
-// import AnimationDebugDisplay from './AnimationDebugDisplay';
-
-/**
- * Fixed3DCanvas - SIMPLIFIED
- * Now receives single animationData prop instead of many complex props
- * All animation logic moved to unified system
- * UPDATED: Added PersistentDustSystem isolated from crystal animations
- */
 
 const PulsingOmniLight = () => {
   const lightRef = useRef();
@@ -49,6 +38,9 @@ const PulsingOmniLight = () => {
   );
 };
 
+/**
+ * UPDATED: Fixed3DCanvas with facet ref coordination
+ */
 const Fixed3DCanvas = ({ 
   // Animation data from MasterAnimationCoordinator
   animationData,
@@ -65,6 +57,17 @@ const Fixed3DCanvas = ({
   environmentProps = {},
   isMobile = false
 }) => {
+  // NEW: Ref to access facet refs from crystal scene
+  const crystalSceneRef = useRef();
+  const facetRefs = useRef(null);
+
+  // NEW: Function to get facet refs from crystal scene
+  const getFacetRefs = () => {
+    if (crystalSceneRef.current && crystalSceneRef.current.facetRefs) {
+      return crystalSceneRef.current.facetRefs;
+    }
+    return null;
+  };
 
   return (
     <div style={{
@@ -101,12 +104,8 @@ const Fixed3DCanvas = ({
         
         <color attach="background" args={['#050505']} />
         
-        {/* MOVED: PersistentDustSystem here - isolated from crystal animations */}
-        <PersistentDustSystem 
-        />
-        
-        {/*Animation Debug*/}
-        {/* <AnimationDebugDisplay animationData={animationData} /> */}
+        {/* Persistent Dust System */}
+        <PersistentDustSystem />
         
         {/* Lighting setup (unchanged) */}
         <ambientLight intensity={config?.lighting?.ambient?.intensity || 0.2} />
@@ -127,17 +126,6 @@ const Fixed3DCanvas = ({
         ))}
 
         <PulsingOmniLight />
-
-        {/* Center Omni Light */}
-        {/* <pointLight
-          ref={omniLightRef}        // ADD THIS REF
-          position={[0, 0, 0]}
-          intensity={1.5}           // This will be overridden by the pulse
-          color="#64ffda"
-          distance={5}
-          decay={2}
-          castShadow={false}
-        /> */}
         
         <spotLight 
           position={config?.lighting?.spotLight?.position || [0, 0, 10]} 
@@ -147,15 +135,17 @@ const Fixed3DCanvas = ({
           color={config?.lighting?.spotLight?.color || "#FFFFFF"} 
         />
         
-        {/* Unified Camera Controller */}
+        {/* UPDATED: Enhanced Camera Controller with facet refs */}
         <UnifiedCameraController 
           animationData={animationData}
           config={config}
           isMobile={isMobile}
+          facetRefs={getFacetRefs()} // NEW: Pass facet refs for anchor targeting
         />
         
-        {/* Unified Crystal Scene */}
+        {/* UPDATED: Crystal Scene with ref for accessing facet refs */}
         <UnifiedCrystalScene 
+          ref={crystalSceneRef} // NEW: Ref to access facet refs
           animationData={animationData}
           config={config}
           materialVariant={materialVariant}
@@ -217,7 +207,7 @@ const Fixed3DCanvas = ({
         {!isMobile && (
           <OrbitControls 
             makeDefault
-            // SIMPLIFIED: Enable/disable based on animation state instead of complex crystal state
+            // Enable/disable based on animation state
             enabled={!animationData?.isTransitioning && animationData?.currentZone !== 'projects'} 
             enableZoom={config?.camera?.orbitControls?.enableZoom !== false}
             enablePan={config?.camera?.orbitControls?.enablePan !== false}
