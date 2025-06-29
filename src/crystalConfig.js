@@ -229,7 +229,7 @@ export const materials = {
     iridescence: 1,
     iridescenceIOR: 1.0,
     metalness: 0.0,
-    roughness: 0.1,
+    roughness: 0.11,
     attenuationColor: new THREE.Color('#6bfcff'),
     attenuationDistance: 0.1,
     clearcoat: 0.5,
