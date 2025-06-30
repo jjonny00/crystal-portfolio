@@ -1,5 +1,5 @@
 // UPDATED: src/components/layout/Fixed3DCanvas.jsx
-// Added external CrystalDebugPanels outside the Canvas
+// Fixed import and getFacetRefs function to properly access exposed refs
 
 import React, { useRef, useState, useEffect } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
@@ -8,7 +8,7 @@ import { EffectComposer, Bloom, ChromaticAberration, Noise, Vignette } from '@re
 import { BlendFunction } from 'postprocessing';
 import * as THREE from 'three';
 
-// Import enhanced camera controller
+// FIXED: Import enhanced camera controller from correct path
 import UnifiedCameraController from '../three/UnifiedCameraController';
 import UnifiedCrystalScene from '../three/UnifiedCrystalScene';
 import PersistentDustSystem from '../three/PersistentDustSystem';
@@ -42,7 +42,7 @@ const PulsingOmniLight = () => {
 };
 
 /**
- * UPDATED: Fixed3DCanvas with external debug panels
+ * UPDATED: Fixed3DCanvas with corrected ref access
  */
 const Fixed3DCanvas = ({ 
   // Animation data from MasterAnimationCoordinator
@@ -91,11 +91,13 @@ const Fixed3DCanvas = ({
     }
   }, [crystalSceneRef.current]);
 
-  // NEW: Function to get facet refs from crystal scene
+  // FIXED: Function to get facet refs from crystal scene with proper access
   const getFacetRefs = () => {
     if (crystalSceneRef.current && crystalSceneRef.current.facetRefs) {
-      return crystalSceneRef.current.facetRefs;
+      console.log('📍 Fixed3DCanvas: Retrieved facet refs from crystal scene');
+      return crystalSceneRef.current.facetRefs; // Access the exposed refs directly
     }
+    console.warn('📍 Fixed3DCanvas: No facet refs available from crystal scene');
     return null;
   };
 
@@ -172,7 +174,7 @@ const Fixed3DCanvas = ({
             animationData={animationData}
             config={config}
             isMobile={isMobile}
-            facetRefs={getFacetRefs()} // NEW: Pass facet refs for anchor targeting
+            facetRefs={getFacetRefs()} // FIXED: Pass exposed facet refs for anchor targeting
           />
           
           {/* UPDATED: Crystal Scene with ref for accessing debug state */}
