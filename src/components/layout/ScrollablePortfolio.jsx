@@ -9,7 +9,8 @@ import AboutSection from '../sections/AboutSection';
 import { projects } from '../../data/projects';
 
 const ScrollablePortfolio = ({ 
-  snapSpeed = 'medium' // 'fast', 'medium', 'slow', 'extra-slow', 'no-snap'
+  snapSpeed = 'medium', // 'fast', 'medium', 'slow', 'extra-slow', 'no-snap'
+  hideContent = false  // NEW: Hide content for screenshots
 }) => {
   const [currentSnapSpeed, setCurrentSnapSpeed] = useState(snapSpeed);
   
@@ -77,7 +78,10 @@ const ScrollablePortfolio = ({
         // Clean box model
         margin: 0,
         padding: 0,
-        boxSizing: 'border-box'
+        boxSizing: 'border-box',
+        
+        // NEW: Hide content when needed for screenshots
+        opacity: hideContent ? 0 : 1
       }}
     >
       {/* Content wrapper - contains all sections */}
@@ -85,7 +89,10 @@ const ScrollablePortfolio = ({
         // This wrapper holds all the content
         width: '100%',
         minHeight: '800vh', // 9 sections × 100vh each
-        position: 'relative'
+        position: 'relative',
+        
+        // NEW: Make content invisible but keep structure for scrolling
+        opacity: hideContent ? 0 : 1
       }}>
         
         {/* HERO SECTION */}

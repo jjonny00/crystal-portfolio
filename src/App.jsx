@@ -106,6 +106,9 @@ function App() {
     enableOrientationLock: false
   });
 
+  // UI Hide Toggle State
+  const [hideAllUI, setHideAllUI] = useState(false);
+
   // Snap Speed Setting
   const [snapSpeed, setSnapSpeed] = useState('medium');
 
@@ -218,6 +221,33 @@ function App() {
     }
   }, [performanceConfig, updateExternalPerformanceConfig, hasInitialized, devicePerformanceProfile, initialProfileApplied]);
 
+  // UI Hide Toggle Keyboard Listener
+  React.useEffect(() => {
+    const handleKeyDown = (e) => {
+      const isInputField = e.target.tagName === 'INPUT' || 
+                          e.target.tagName === 'TEXTAREA' || 
+                          e.target.isContentEditable;
+      
+      if (isInputField) return;
+      
+      if (e.key === 'u' || e.key === 'U') {
+        if (!e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey) {
+          e.preventDefault();
+          setHideAllUI(prev => {
+            const newState = !prev;
+            console.log(`🎨 UI Hidden: ${newState ? 'ON' : 'OFF'}`);
+            return newState;
+          });
+        }
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
   // Snap Speed Handler
   const handleSnapSpeedChange = useCallback((speed) => {
     console.log('🎯 Changing snap speed to:', speed);
@@ -311,30 +341,56 @@ function App() {
 
   return (
     <>
+      {/* UI Hide Toggle Button - Always Visible */}
+      <button
+        onClick={() => setHideAllUI(!hideAllUI)}
+        style={{
+          position: 'fixed',
+          top: '10px',
+          left: '10px',
+          zIndex: 99999,
+          backgroundColor: hideAllUI ? '#64ffda' : 'rgba(0, 0, 0, 0.7)',
+          color: hideAllUI ? '#000' : 'white',
+          border: 'none',
+          padding: '8px 12px',
+          borderRadius: '4px',
+          fontSize: '12px',
+          cursor: 'pointer',
+          fontWeight: 'bold'
+        }}
+      >
+        {hideAllUI ? 'Show UI (U)' : 'Hide UI (U)'}
+      </button>
+
       {/* Navigation Bar */}
-      <Navigation
-        onWorkClick={handleWorkClick}
-        onAboutClick={handleAboutClick}
-        onProcessClick={handleProcessClick}
-        onContactClick={handleContactClick}
-        // Animation state will be passed down via context or props
-      />
+      {!hideAllUI && (
+        <Navigation
+          onWorkClick={handleWorkClick}
+          onAboutClick={handleAboutClick}
+          onProcessClick={handleProcessClick}
+          onContactClick={handleContactClick}
+        />
+      )}
 
       {/* FPS Display */}
-      <FpsDisplay 
-        visible={true}
-        position="top-right"
-        showDetails={false}
-      />
+      {!hideAllUI && (
+        <FpsDisplay 
+          visible={true}
+          position="top-right"
+          showDetails={false}
+        />
+      )}
       
       {/* Performance alerts */}
-      <PerformanceAlert 
-        visible={true}
-        threshold={deviceProfile?.isMobile ? 25 : 30}
-        onPerformanceIssue={(data) => {
-          console.warn('Performance issue:', data);
-        }}
-      />
+      {!hideAllUI && (
+        <PerformanceAlert 
+          visible={true}
+          threshold={deviceProfile?.isMobile ? 25 : 30}
+          onPerformanceIssue={(data) => {
+            console.warn('Performance issue:', data);
+          }}
+        />
+      )}
 
       {/* NEW: Master Animation Coordinator - Single source of truth for all animations */}
       <MasterAnimationCoordinator
@@ -354,32 +410,25 @@ function App() {
           canvasProps={canvasProps}
           environmentProps={environmentProps}
           isMobile={isMobile}
-          // animationData will be passed by MasterAnimationCoordinator
         />
       </MasterAnimationCoordinator>
 
-      {/* Scrollable Content - on top of 3D canvas (unchanged) */}
-      <ScrollablePortfolio snapSpeed={snapSpeed} />
-
-      
-
-      {/* FooterSection - SIMPLIFIED: Will use animation coordinator for navigation */}
-      {/* <FooterSection 
-        visible={true} // Always visible, coordinator handles the animation
-        onLoopBack={() => {
-          // Will be replaced with coordinator's scrollToZone function
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }}
-      /> */}
-      
-      {/* UI Controls (unchanged) */}
-      <ControlsToggle 
-        showUI={showUI} 
-        toggleUI={toggleUI} 
-        disabled={false}
+      {/* Scrollable Content - Keep for scrolling but hide content */}
+      <ScrollablePortfolio 
+        snapSpeed={snapSpeed}
+        hideContent={hideAllUI}
       />
+
+      {/* UI Controls */}
+      {!hideAllUI && (
+        <ControlsToggle 
+          showUI={showUI} 
+          toggleUI={toggleUI} 
+          disabled={false}
+        />
+      )}
       
-      {showUI && (
+      {!hideAllUI && showUI && (
         <TabbedControlPanel 
           visible={true}
           activeTab={activeTab}
@@ -515,7 +564,9 @@ function App() {
         </TabbedControlPanel>
       )}
       
-      <AccessibilityInstructions visible={true} />
+      {!hideAllUI && (
+        <AccessibilityInstructions visible={true} />
+      )}
     </>
   );
 }
