@@ -333,12 +333,6 @@ const UnifiedCrystalScene = forwardRef(({
     }
   });
 
-  // Check if facet is focused
-  const isFacetFocused = (index) => {
-    const facetKey = facetKeys[index];
-    return animationData?.focusedFacet === facetKey;
-  };
-
   return (
     <group ref={crystalGroupRef}>
       {/* Material Manager Component */}
@@ -379,8 +373,7 @@ const UnifiedCrystalScene = forwardRef(({
       
       {showFacets && facetModels.map((model, index) => {
         const facetKey = facetKeys[index];
-        const isFocused = isFacetFocused(index);
-        
+
         return (
           <primitive
             key={facetKey}
