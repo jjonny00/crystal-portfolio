@@ -1,4 +1,3 @@
-// UPDATED: src/components/three/MasterAnimationCoordinator.jsx
 // Added keyboard control for animation debug panel
 
 import React, { useEffect, useState } from 'react';
@@ -14,7 +13,6 @@ const MasterAnimationCoordinator = ({
   onAnimationStateChange = null,
   config = null
 }) => {
-  // ADDED: Local state for debug panel visibility
   const [showAnimationDebug, setShowAnimationDebug] = useState(false);
 
   // Get scroll progress with optimized frequency
@@ -31,7 +29,6 @@ const MasterAnimationCoordinator = ({
     config: config || undefined
   });
 
-  // ADDED: Keyboard listener for animation debug toggle
   useEffect(() => {
     const handleKeyDown = (e) => {
       // Check if user is in an input field
@@ -118,7 +115,6 @@ const MasterAnimationCoordinator = ({
     <>
       {childrenWithProps}
       
-      {/* UPDATED: Debug overlay with keyboard-controlled visibility */}
       {showAnimationDebug && (
         <DebugOverlay 
           scrollData={scrollData}

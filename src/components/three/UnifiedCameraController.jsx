@@ -1,13 +1,7 @@
-// FIXED: src/components/three/UnifiedCameraController.jsx
-// Now properly targets project anchors with correct data structure access
-
 import { useRef, useEffect } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
-/**
- * FIXED: Camera Controller with working anchor targeting
- */
 const UnifiedCameraController = ({ 
   animationData,
   config,
@@ -33,9 +27,6 @@ const UnifiedCameraController = ({
   // Track last camera config to detect changes
   const lastCameraConfig = useRef(null);
 
-  /**
-   * FIXED: Find anchor object within a facet model with correct data structure access
-   */
   const findAnchorInFacet = (facetKey) => {
     if (!facetRefs) {
       console.warn('⚠️ Camera Controller: No facet refs available for anchor search');
@@ -50,7 +41,7 @@ const UnifiedCameraController = ({
       return null;
     }
     
-    // FIXED: Access refs directly as array (not facetRefs.current[index])
+    
     const facetRef = facetRefs[facetIndex]; // Direct array access
     
     if (!facetRef || !facetRef.current) {
@@ -77,7 +68,7 @@ const UnifiedCameraController = ({
     }
     
     if (anchorObject) {
-      // FIXED: Get FRESH world position every time - no caching
+      
       const worldPosition = new THREE.Vector3();
       anchorObject.getWorldPosition(worldPosition);
       
@@ -97,13 +88,10 @@ const UnifiedCameraController = ({
     }
   };
 
-  /**
-   * FIXED: Get camera target with fresh anchor positions and proper state description
-   */
   const getCameraTarget = (cameraConfig, focusedFacet, cameraState) => {
     // For project cameras, try to find anchor with FRESH position
     if (cameraState === 'project' && focusedFacet && facetRefs) {
-      // FIXED: Get fresh anchor position every time
+      
       const anchorPosition = findAnchorInFacet(focusedFacet);
       
       if (anchorPosition) {
@@ -111,14 +99,14 @@ const UnifiedCameraController = ({
         return {
           ...cameraConfig,
           target: anchorPosition,
-          description: `${focusedFacet} project (anchor targeted)` // FIXED: Show actual project name
+          description: `${focusedFacet} project (anchor targeted)` 
         };
       } else {
         // Fallback to default project config if anchor not found
         console.warn(`⚠️ Camera Controller: No anchor found for ${focusedFacet}, using default target`);
         return {
           ...cameraConfig,
-          description: `${focusedFacet} project (default target)` // FIXED: Show actual project name
+          description: `${focusedFacet} project (default target)` 
         };
       }
     }
@@ -140,9 +128,6 @@ const UnifiedCameraController = ({
     currentTarget.current.lookAt.copy(camera.position).add(direction);
   }, [camera]);
 
-  /**
-   * FIXED: Update camera targets with anchor support and proper state tracking
-   */
   useEffect(() => {
     if (!animationData?.cameraConfig) return;
 
@@ -169,7 +154,7 @@ const UnifiedCameraController = ({
           position: enhancedConfig.position?.toArray(),
           target: enhancedConfig.target?.toArray(),
           fov: enhancedConfig.fov,
-          description: enhancedConfig.description // FIXED: Show actual description
+          description: enhancedConfig.description 
         });
       }
 
@@ -186,7 +171,7 @@ const UnifiedCameraController = ({
         currentTarget.current.fov = enhancedConfig.fov;
       }
 
-      // FIXED: State-aware animation speeds with project-specific tuning
+      
       const positionDistance = camera.position.distanceTo(currentTarget.current.position);
       
       if (animationData.state === 'hero' && positionDistance > 3) {
@@ -202,7 +187,7 @@ const UnifiedCameraController = ({
         animationSpeed.current.lookAt = 0.02;
         animationSpeed.current.fov = 0.02;
       } else if (cameraState === 'project' && focusedFacet) {
-        // FIXED: Project focus - quick and responsive for anchor targeting
+        
         animationSpeed.current.position = 0.05;
         animationSpeed.current.lookAt = 0.05;
         animationSpeed.current.fov = 0.05;

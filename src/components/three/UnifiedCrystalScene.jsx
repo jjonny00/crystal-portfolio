@@ -1,4 +1,3 @@
-// UPDATED: src/components/three/UnifiedCrystalScene.jsx
 // ONLY CHANGE: Fixed facet refs exposure for anchor targeting
 
 import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle } from 'react'
@@ -12,9 +11,6 @@ import MaterialManager from './MaterialManager'
 // Import enhanced sphere component
 import GlowingSphereImage, { BLENDING_MODES } from './GlowingSphereImage'
 
-/**
- * FIXED: Crystal Scene with proper facet refs exposure for anchor targeting
- */
 const UnifiedCrystalScene = forwardRef(({ 
   animationData,
   config, 
@@ -27,7 +23,7 @@ const UnifiedCrystalScene = forwardRef(({
   // Component refs for crystal animation
   const crystalGroupRef = useRef();
   const wholeCrystalRef = useRef();
-  const facetRefs = useRef([]); // FIXED: Use array like working version
+  const facetRefs = useRef([]); 
   const crystalMaterialRef = useRef();
   
   // Sphere state
@@ -46,14 +42,14 @@ const UnifiedCrystalScene = forwardRef(({
   // Facet configuration
   const facetKeys = ['empathy', 'narrative', 'craft', 'system', 'leadership', 'exploration'];
 
-  // FIXED: Initialize facet refs like working version
+  
   useEffect(() => {
     if (facetRefs.current.length === 0) {
       facetRefs.current = facetKeys.map(() => React.createRef());
     }
   }, [facetKeys]);
 
-  // FIXED: Expose facet refs properly for anchor targeting
+  
   useImperativeHandle(ref, () => ({
     // Expose the refs array directly (this is what Fixed3DCanvas expects)
     facetRefs: facetRefs.current,
@@ -381,7 +377,6 @@ const UnifiedCrystalScene = forwardRef(({
         </group>
       )}
       
-      {/* FIXED: Individual Facets using primitive with direct ref assignment like working version */}
       {showFacets && facetModels.map((model, index) => {
         const facetKey = facetKeys[index];
         const isFocused = isFacetFocused(index);
@@ -389,7 +384,7 @@ const UnifiedCrystalScene = forwardRef(({
         return (
           <primitive
             key={facetKey}
-            ref={facetRefs.current[index]} // FIXED: Direct ref assignment to primitive like working version
+            ref={facetRefs.current[index]} 
             object={model.scene}
             position={[0, 0, 0]} // Position will be animated via useFrame
           />
