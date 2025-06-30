@@ -1,5 +1,5 @@
-// UPDATED: src/components/three/UnifiedCrystalScene.jsx
-// Complete file with enhanced anchor debugging and visualization
+// FIXED: src/components/three/UnifiedCrystalScene.jsx
+// Removed DOM-based debug panels from Three.js Canvas
 
 import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
@@ -13,7 +13,7 @@ import MaterialManager from './MaterialManager'
 import GlowingSphereImage, { BLENDING_MODES } from './GlowingSphereImage'
 
 /**
- * ENHANCED: Crystal Scene with comprehensive anchor debugging
+ * FIXED: Crystal Scene with Three.js-compatible debug only
  */
 const UnifiedCrystalScene = forwardRef(({ 
   animationData,
@@ -57,8 +57,65 @@ const UnifiedCrystalScene = forwardRef(({
         return facetRefs.current[facetIndex].current?.getObjectByName(anchorName) || null;
       }
       return null;
+    },
+    // ADDED: Expose debug state and methods for external debug panels
+    debugState: {
+      showCrystalDebug,
+      setShowCrystalDebug,
+      showWholeCrystal,
+      showFacets,
+      sphereVisible,
+      lastCrystalForm: lastCrystalForm.current
+    },
+    debugMethods: {
+      forceShowFacets: () => {
+        console.log('🔥 FORCING FACETS VISIBLE');
+        setShowWholeCrystal(false);
+        setShowFacets(true);
+        setSphereVisible(true);
+        lastCrystalForm.current = 'exploded';
+      },
+      forceShowWhole: () => {
+        console.log('🔄 RESETTING TO WHOLE');
+        setShowWholeCrystal(true);
+        setShowFacets(false);
+        setSphereVisible(false);
+        lastCrystalForm.current = 'whole';
+      },
+      inspectModels: () => {
+        console.group('🔍 MANUAL FACET INSPECTION');
+        facetModels.forEach((model, index) => {
+          const facetKey = facetKeys[index];
+          console.log(`\n=== ${facetKey.toUpperCase()} MODEL ===`);
+          console.log('Model:', model);
+          console.log('Scene:', model.scene);
+          
+          if (model.scene) {
+            console.log('Scene children:', model.scene.children.length);
+            const objectNames = [];
+            model.scene.traverse((child) => {
+              if (child.name) {
+                objectNames.push(`${child.name} (${child.type})`);
+              }
+            });
+            console.log('All objects:', objectNames);
+            
+            // Look for anchor specifically
+            const anchor = model.scene.getObjectByName(`anchor_${facetKey}`);
+            console.log(`Anchor "anchor_${facetKey}":`, anchor ? 'FOUND' : 'NOT FOUND');
+            if (anchor) {
+              console.log('Anchor details:', {
+                position: anchor.position.toArray(),
+                parent: anchor.parent?.name || 'root',
+                type: anchor.type
+              });
+            }
+          }
+        });
+        console.groupEnd();
+      }
     }
-  }), [facetKeys]);
+  }), [facetKeys, showCrystalDebug, showWholeCrystal, showFacets, sphereVisible]);
 
   // Load models
   const wholeCrystal = useGLTF(config.assets.models.crystalWhole);
@@ -324,7 +381,7 @@ const UnifiedCrystalScene = forwardRef(({
         </group>
       )}
       
-      {/* UPDATED: Individual Facets with refs properly assigned */}
+      {/* Individual Facets with refs properly assigned */}
       {showFacets && facetModels.map((model, index) => {
         const facetKey = facetKeys[index];
         const isFocused = isFacetFocused(index);
@@ -544,30 +601,6 @@ const UnifiedCrystalScene = forwardRef(({
             </mesh>
           )}
           
-          {/* Line from camera to target */}
-          {animationData.cameraConfig.position && (
-            <line renderOrder={9999}>
-              <bufferGeometry>
-                <bufferAttribute
-                  attach="attributes-position"
-                  count={2}
-                  array={new Float32Array([
-                    ...animationData.cameraConfig.position.toArray(),
-                    ...animationData.cameraConfig.target.toArray()
-                  ])}
-                  itemSize={3}
-                />
-              </bufferGeometry>
-              <lineBasicMaterial 
-                color="#ffff00" 
-                depthTest={false}
-                depthWrite={false}
-                transparent={true}
-                opacity={0.5}
-              />
-            </line>
-          )}
-          
           {/* Camera target label */}
           <Html
             position={[
@@ -596,347 +629,6 @@ const UnifiedCrystalScene = forwardRef(({
             </div>
           </Html>
         </group>
-      )}
-      
-      {/* ENHANCED: Debug info with comprehensive anchor information */}
-      {showCrystalDebug && animationData && (
-        <Html>
-          <div style={{
-            position: 'fixed',
-            bottom: '10px',
-            left: '10px',
-            background: 'rgba(0, 0, 0, 0.95)',
-            color: 'white',
-            padding: '20px',
-            borderRadius: '8px',
-            fontSize: '12px',
-            fontFamily: 'monospace',
-            zIndex: 10002,
-            pointerEvents: 'none',
-            maxWidth: '500px',
-            border: '1px solid rgba(100, 255, 218, 0.3)',
-            maxHeight: '60vh',
-            overflowY: 'auto'
-          }}>
-            <div style={{ 
-              fontWeight: 'bold', 
-              marginBottom: '15px',
-              color: '#64ffda',
-              borderBottom: '1px solid rgba(100, 255, 218, 0.3)',
-              paddingBottom: '10px',
-              fontSize: '14px'
-            }}>
-              💎 Enhanced Crystal Debug (Press 'C' to toggle)
-            </div>
-            
-            {/* Crystal State */}
-            <div style={{ marginBottom: '15px' }}>
-              <div style={{ color: '#bb86fc', fontWeight: 'bold', marginBottom: '5px' }}>Crystal State:</div>
-              <div>State: {animationData.state}</div>
-              <div>Form: {animationData.crystalForm}</div>
-              <div style={{ color: showWholeCrystal ? '#4CAF50' : '#F44336', fontWeight: 'bold' }}>
-                Show Whole: {showWholeCrystal ? 'YES' : 'NO'}
-              </div>
-              <div style={{ color: showFacets ? '#4CAF50' : '#F44336', fontWeight: 'bold' }}>
-                Show Facets: {showFacets ? 'YES' : 'NO'}
-              </div>
-              <div>Focused: {animationData.focusedFacet || 'none'}</div>
-            </div>
-
-            {/* Anchor Debug Info */}
-            {showFacets && (
-              <div style={{ 
-                marginBottom: '15px',
-                borderTop: '1px solid rgba(100, 255, 218, 0.3)',
-                paddingTop: '10px'
-              }}>
-                <div style={{ color: '#64ffda', fontWeight: 'bold', marginBottom: '8px' }}>🎯 Anchor Analysis:</div>
-                {facetKeys.map((facetKey, index) => {
-                  const facetRef = facetRefs.current[index];
-                  let anchorStatus = 'Not Loaded';
-                  let anchorPosition = null;
-                  let facetPosition = null;
-                  
-                  if (facetRef && facetRef.current) {
-                    facetPosition = facetRef.position.toArray().map(v => v.toFixed(2));
-                    
-                    const anchorName = `anchor_${facetKey}`;
-                    const anchor = facetRef.current.getObjectByName(anchorName);
-                    
-                    if (anchor) {
-                      anchorStatus = '✅ Found';
-                      const worldPos = new THREE.Vector3();
-                      anchor.getWorldPosition(worldPos);
-                      anchorPosition = worldPos.toArray().map(v => v.toFixed(2));
-                    } else {
-                      anchorStatus = '❌ Missing';
-                    }
-                  }
-                  
-                  const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
-                  const color = colors[index % colors.length];
-                  
-                  return (
-                    <div key={facetKey} style={{ 
-                      fontSize: '11px', 
-                      marginBottom: '6px',
-                      padding: '4px 8px',
-                      borderLeft: `3px solid ${color}`,
-                      backgroundColor: 'rgba(255, 255, 255, 0.05)'
-                    }}>
-                      <div style={{ fontWeight: 'bold', color: color }}>
-                        {facetKey.toUpperCase()}: {anchorStatus}
-                      </div>
-                      {facetPosition && (
-                        <div style={{ fontSize: '10px', opacity: 0.8 }}>
-                          Facet: [{facetPosition.join(', ')}]
-                        </div>
-                      )}
-                      {anchorPosition && (
-                        <div style={{ fontSize: '10px', opacity: 0.8 }}>
-                          Anchor: [{anchorPosition.join(', ')}]
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Camera Debug */}
-            <div style={{ 
-              marginBottom: '15px',
-              borderTop: '1px solid rgba(187, 134, 252, 0.3)',
-              paddingTop: '10px'
-            }}>
-              <div style={{ color: '#bb86fc', fontWeight: 'bold', marginBottom: '5px' }}>📹 Camera Info:</div>
-              <div>State: {animationData.cameraState}</div>
-              <div>Focused Facet: {animationData.focusedFacet || 'none'}</div>
-              {animationData.cameraConfig && (
-                <>
-                  <div style={{ fontSize: '10px', marginTop: '5px' }}>
-                    Target: [{animationData.cameraConfig.target?.x?.toFixed(2)}, {animationData.cameraConfig.target?.y?.toFixed(2)}, {animationData.cameraConfig.target?.z?.toFixed(2)}]
-                  </div>
-                  <div style={{ fontSize: '10px' }}>
-                    Position: [{animationData.cameraConfig.position?.x?.toFixed(2)}, {animationData.cameraConfig.position?.y?.toFixed(2)}, {animationData.cameraConfig.position?.z?.toFixed(2)}]
-                  </div>
-                  <div style={{ fontSize: '10px' }}>
-                    FOV: {animationData.cameraConfig.fov}°
-                  </div>
-                </>
-              )}
-            </div>
-            
-            {/* Usage Instructions */}
-            <div style={{
-              background: 'rgba(100, 255, 218, 0.1)',
-              border: '1px solid #64ffda',
-              borderRadius: '4px',
-              padding: '8px',
-              marginTop: '15px',
-              fontSize: '10px'
-            }}>
-              <div style={{ color: '#64ffda', fontWeight: 'bold', marginBottom: '4px' }}>Legend:</div>
-              <div>🎯 = Anchor positions</div>
-              <div>📹 = Camera target</div>
-              <div>Red/Green/Blue lines = X/Y/Z axes</div>
-              <div>Colors distinguish different facets</div>
-              <div>Wireframe boxes = Missing anchors</div>
-              <div>Pulsing rings = Active anchor markers</div>
-            </div>
-            
-            {/* Performance Info */}
-            <div style={{
-              background: 'rgba(255, 165, 0, 0.1)',
-              border: '1px solid #ffa500',
-              borderRadius: '4px',
-              padding: '8px',
-              marginTop: '10px',
-              fontSize: '10px'
-            }}>
-              <div style={{ color: '#ffa500', fontWeight: 'bold', marginBottom: '4px' }}>⚡ Debug Impact:</div>
-              <div>This debug mode affects performance</div>
-              <div>Turn off for production testing</div>
-              <div>Press 'C' to toggle this panel</div>
-            </div>
-          </div>
-        </Html>
-      )}
-
-      {/* DIAGNOSTIC: Facet Loading Status Debug */}
-      {showCrystalDebug && (
-        <Html>
-          <div style={{
-            position: 'fixed',
-            top: '10px',
-            right: '10px',
-            background: 'rgba(255, 0, 0, 0.9)',
-            color: 'white',
-            padding: '15px',
-            borderRadius: '8px',
-            fontSize: '11px',
-            fontFamily: 'monospace',
-            zIndex: 10003,
-            maxWidth: '400px',
-            border: '2px solid #ff0000'
-          }}>
-            <div style={{ fontWeight: 'bold', marginBottom: '10px', color: '#ffff00' }}>
-              🔍 FACET LOADING DIAGNOSTIC
-            </div>
-            
-            {/* Check if showFacets is true */}
-            <div style={{ marginBottom: '10px' }}>
-              <strong>showFacets:</strong> 
-              <span style={{ color: showFacets ? '#00ff00' : '#ff0000', fontWeight: 'bold' }}>
-                {showFacets ? ' TRUE' : ' FALSE'}
-              </span>
-              {!showFacets && <div style={{ color: '#ffff00', fontSize: '10px' }}>
-                ⚠️ Facets are not being rendered! This is why refs are null.
-              </div>}
-            </div>
-            
-            {/* Check animation state */}
-            <div style={{ marginBottom: '10px' }}>
-              <strong>Crystal Form:</strong> {animationData?.crystalForm || 'undefined'}
-              <br />
-              <strong>Animation State:</strong> {animationData?.state || 'undefined'}
-              <br />
-              <strong>Last Crystal Form:</strong> {lastCrystalForm.current}
-            </div>
-            
-            {/* Check facet models loading */}
-            <div style={{ marginBottom: '10px' }}>
-              <strong>Facet Models Loaded:</strong>
-              <div style={{ marginLeft: '10px', fontSize: '10px' }}>
-                {facetKeys.map((facetKey, index) => {
-                  const model = facetModels[index];
-                  const hasScene = model && model.scene;
-                  const sceneChildren = hasScene ? model.scene.children.length : 0;
-                  
-                  return (
-                    <div key={facetKey} style={{ 
-                      color: hasScene ? '#00ff00' : '#ff0000',
-                      marginBottom: '2px'
-                    }}>
-                      {index}: {facetKey} - {hasScene ? `✅ (${sceneChildren} children)` : '❌ No scene'}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-            
-            {/* Check facet refs array */}
-            <div style={{ marginBottom: '10px' }}>
-              <strong>Facet Refs Status:</strong>
-              <div style={{ marginLeft: '10px', fontSize: '10px' }}>
-                <div>Array Length: {facetRefs.current ? facetRefs.current.length : 'null'}</div>
-                {facetRefs.current && facetRefs.current.map((ref, index) => (
-                  <div key={index} style={{ 
-                    color: ref ? '#00ff00' : '#ff0000',
-                    marginBottom: '1px'
-                  }}>
-                    [{index}] {facetKeys[index]}: {ref ? '✅ Has ref' : '❌ Null ref'}
-                    {ref && ref.current && (
-                      <span style={{ color: '#ffff00' }}>
-                        {' '}(pos: [{ref.position.x.toFixed(2)}, {ref.position.y.toFixed(2)}, {ref.position.z.toFixed(2)}])
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-            
-            {/* Force crystal explosion button for testing */}
-            <div style={{ marginTop: '15px', borderTop: '1px solid #666', paddingTop: '10px' }}>
-              <button 
-                onClick={() => {
-                  console.log('🔥 FORCE EXPLOSION TEST');
-                  setShowWholeCrystal(false);
-                  setShowFacets(true);
-                  setSphereVisible(true);
-                  lastCrystalForm.current = 'exploded';
-                }}
-                style={{
-                  background: '#ff6600',
-                  color: 'white',
-                  border: 'none',
-                  padding: '8px 12px',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontSize: '11px',
-                  fontWeight: 'bold',
-                  marginRight: '8px'
-                }}
-              >
-                FORCE SHOW FACETS
-              </button>
-              
-              <button 
-                onClick={() => {
-                  console.log('🔄 RESET TO WHOLE');
-                  setShowWholeCrystal(true);
-                  setShowFacets(false);
-                  setSphereVisible(false);
-                  lastCrystalForm.current = 'whole';
-                }}
-                style={{
-                  background: '#0066ff',
-                  color: 'white',
-                  border: 'none',
-                  padding: '8px 12px',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontSize: '11px',
-                  fontWeight: 'bold'
-                }}
-              >
-                RESET TO WHOLE
-              </button>
-            </div>
-            
-            {/* Manual object inspection */}
-            <div style={{ marginTop: '15px', borderTop: '1px solid #666', paddingTop: '10px' }}>
-              <button 
-                onClick={() => {
-                  console.group('🔍 MANUAL FACET INSPECTION');
-                  facetModels.forEach((model, index) => {
-                    const facetKey = facetKeys[index];
-                    console.log(`\n=== ${facetKey.toUpperCase()} MODEL ===`);
-                    console.log('Model:', model);
-                    console.log('Scene:', model.scene);
-                    
-                    if (model.scene) {
-                      console.log('Scene children:', model.scene.children.length);
-                      model.scene.traverse((child) => {
-                        if (child.name) {
-                          console.log(`  - ${child.name} (${child.type})`);
-                        }
-                      });
-                      
-                      // Look for anchor specifically
-                      const anchor = model.scene.getObjectByName(`anchor_${facetKey}`);
-                      console.log(`Anchor "anchor_${facetKey}":`, anchor);
-                    }
-                  });
-                  console.groupEnd();
-                }}
-                style={{
-                  background: '#9900ff',
-                  color: 'white',
-                  border: 'none',
-                  padding: '8px 12px',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontSize: '11px',
-                  fontWeight: 'bold',
-                  width: '100%'
-                }}
-              >
-                INSPECT MODELS IN CONSOLE
-              </button>
-            </div>
-          </div>
-        </Html>
       )}
 
       {/* CSS for pulsing animation */}
