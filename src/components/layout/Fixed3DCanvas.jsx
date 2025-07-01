@@ -182,7 +182,8 @@ const Fixed3DCanvas = ({
           />
           
           {/* UPDATED: Crystal Scene with ref for accessing debug state */}
-          <UnifiedCrystalScene 
+          <UnifiedCrystalScene
+            key={performanceConfig?.usePBR}
             ref={crystalSceneRef} // NEW: Ref to access debug state and methods
             animationData={animationData}
             config={config}
