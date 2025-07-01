@@ -37,6 +37,7 @@ export const useAdaptivePerformance = (
   const highFpsStart = useRef(null);
   const pbrChangeStart = useRef(null);
   const downgraded = useRef(false);
+  const lastSwitchTime = useRef(0);
 
   // Update stored base config when it changes externally
   useEffect(() => {
@@ -57,6 +58,7 @@ export const useAdaptivePerformance = (
         const { usePBR, ...rest } = lowTierProfile;
         setCurrentPerformanceConfig(prev => ({ ...prev, ...rest }));
         downgraded.current = true;
+        lastSwitchTime.current = now;
         highFpsStart.current = null;
         pbrChangeStart.current = now;
       }
@@ -76,6 +78,7 @@ export const useAdaptivePerformance = (
           const { usePBR } = currentPerformanceConfig;
           setCurrentPerformanceConfig({ ...basePerformanceConfig, usePBR });
           downgraded.current = false;
+          lastSwitchTime.current = now;
           highFpsStart.current = null;
           pbrChangeStart.current = now;
         }
