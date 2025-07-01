@@ -17,11 +17,12 @@ import { useFPSMonitorDOM } from '../components/ui/FpsDisplay';
 export const useAdaptivePerformance = (
   baseConfig = {},
   {
-    threshold = 55,
+    threshold = 50,
     lowTierProfile = { usePBR: false, textureQuality: 'low', renderScale: 0.7 },
     restoreThreshold = 60,
-    lowFpsDuration = 3000,
-    highFpsDuration = 5000
+    lowFpsDuration = 5000,
+    highFpsDuration = 5000,
+    minSwitchInterval = 30000
   } = {}
 ) => {
   const { avgFps } = useFPSMonitorDOM();
@@ -35,6 +36,7 @@ export const useAdaptivePerformance = (
   const lowFpsStart = useRef(null);
   const highFpsStart = useRef(null);
   const downgraded = useRef(false);
+  const lastSwitchTime = useRef(0);
 
   // Update stored base config when it changes externally
   useEffect(() => {
@@ -50,9 +52,14 @@ export const useAdaptivePerformance = (
       if (lowFpsStart.current === null) {
         lowFpsStart.current = now;
       }
-      if (now - lowFpsStart.current > lowFpsDuration && !downgraded.current) {
+      if (
+        now - lowFpsStart.current > lowFpsDuration &&
+        !downgraded.current &&
+        now - lastSwitchTime.current > minSwitchInterval
+      ) {
         setCurrentPerformanceConfig(prev => ({ ...prev, ...lowTierProfile }));
         downgraded.current = true;
+        lastSwitchTime.current = now;
         highFpsStart.current = null;
       }
     } else {
@@ -62,16 +69,20 @@ export const useAdaptivePerformance = (
         if (highFpsStart.current === null) {
           highFpsStart.current = now;
         }
-        if (now - highFpsStart.current > highFpsDuration) {
+        if (
+          now - highFpsStart.current > highFpsDuration &&
+          now - lastSwitchTime.current > minSwitchInterval
+        ) {
           setCurrentPerformanceConfig(basePerformanceConfig);
           downgraded.current = false;
+          lastSwitchTime.current = now;
           highFpsStart.current = null;
         }
       } else {
         highFpsStart.current = null;
       }
     }
-  }, [avgFps, threshold, lowTierProfile, restoreThreshold, lowFpsDuration, highFpsDuration, basePerformanceConfig]);
+  }, [avgFps, threshold, lowTierProfile, restoreThreshold, lowFpsDuration, highFpsDuration, minSwitchInterval, basePerformanceConfig]);
 
   // Allow manual config updates
   const updatePerformanceConfig = (config) => {
