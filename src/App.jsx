@@ -83,7 +83,7 @@ import FpsDisplay, { PerformanceAlert } from './components/ui/FpsDisplay';
 // Configuration and utilities (unchanged)
 import * as defaultConfig from './crystalConfig';
 import { useDeviceProfile } from './hooks/useDeviceProfile';
-import { useAdaptivePerformance } from './hooks/useAdaptivePerformance';
+import { useInitialPerformanceTest } from './hooks/useInitialPerformanceTest';
 
 // Simple mobile detection (unchanged)
 const isMobileDevice = () => {
@@ -174,56 +174,35 @@ function App() {
     };
   });
 
-  // Adaptive performance based on runtime FPS
-  const { currentPerformanceConfig, updatePerformanceConfig } = useAdaptivePerformance(performanceConfig);
+  // Initial performance test based on FPS
+  const { performanceConfig: initialPerformanceConfig, isTesting: isPerfTesting } =
+    useInitialPerformanceTest(deviceProfile);
+
+  React.useEffect(() => {
+    if (initialPerformanceConfig) {
+      setPerformanceConfig(initialPerformanceConfig);
+    }
+  }, [initialPerformanceConfig]);
 
   // Performance management (unchanged)
-  const [lastAppliedProfile, setLastAppliedProfile] = useState(null);
   const [initialProfileApplied, setInitialProfileApplied] = useState(false);
   
-  // Performance profile application (unchanged)
+  // Mark initialization when performance config is applied
   React.useEffect(() => {
-    if (devicePerformanceProfile && !isDetecting) {
-      const profileKey = JSON.stringify({
-        useNormalMaps: devicePerformanceProfile.useNormalMaps,
-        textureQuality: devicePerformanceProfile.textureQuality,
-        usePBR: devicePerformanceProfile.usePBR,
-        renderScale: devicePerformanceProfile.renderScale
-      });
-      
-      if (lastAppliedProfile !== profileKey) {
-        const newConfig = {
-          useNormalMaps: devicePerformanceProfile.useNormalMaps,
-          textureQuality: devicePerformanceProfile.textureQuality,
-          usePBR: devicePerformanceProfile.usePBR,
-          renderScale: devicePerformanceProfile.renderScale
-        };
-        
-        setPerformanceConfig(newConfig);
-        setLastAppliedProfile(profileKey);
-        setInitialProfileApplied(true);
-        
-        if (devicePerformanceProfile.postProcessing) {
-          setEffectsEnabled({
-            bloom: devicePerformanceProfile.postProcessing.bloom || false,
-            chromaticAberration: devicePerformanceProfile.postProcessing.chromaticAberration || false,
-            noise: devicePerformanceProfile.postProcessing.noise || true,
-            vignette: devicePerformanceProfile.postProcessing.vignette || false
-          });
-        }
-      }
+    if (initialPerformanceConfig && !initialProfileApplied) {
+      setInitialProfileApplied(true);
     }
-  }, [devicePerformanceProfile, isDetecting, lastAppliedProfile]);
+  }, [initialPerformanceConfig, initialProfileApplied]);
 
   const [hasInitialized, setHasInitialized] = useState(false);
   
   React.useEffect(() => {
     if (updateExternalPerformanceConfig && hasInitialized && initialProfileApplied) {
-      updateExternalPerformanceConfig(currentPerformanceConfig);
-    } else if (devicePerformanceProfile && !hasInitialized) {
+      updateExternalPerformanceConfig(performanceConfig);
+    } else if (initialPerformanceConfig && !hasInitialized) {
       setHasInitialized(true);
     }
-  }, [currentPerformanceConfig, updateExternalPerformanceConfig, hasInitialized, devicePerformanceProfile, initialProfileApplied]);
+  }, [performanceConfig, updateExternalPerformanceConfig, hasInitialized, initialPerformanceConfig, initialProfileApplied]);
 
   // UI Hide Toggle Keyboard Listener
   React.useEffect(() => {
@@ -333,8 +312,7 @@ function App() {
   const handlePerformanceConfigUpdate = useCallback((newConfig) => {
     console.log("🔧 Manual performance config update:", newConfig);
     setPerformanceConfig(newConfig);
-    updatePerformanceConfig(newConfig);
-  }, [updatePerformanceConfig]);
+  }, []);
 
   const toggleUI = useCallback(() => {
     setShowUI(!showUI);
@@ -398,7 +376,7 @@ function App() {
       )}
 
       {/* NEW: Master Animation Coordinator - Single source of truth for all animations */}
-      {!isDetecting && (
+      {!isDetecting && !isPerfTesting && (
         <MasterAnimationCoordinator
           debugMode={process.env.NODE_ENV === 'development'}
           onAnimationStateChange={handleAnimationStateChange}
@@ -411,7 +389,7 @@ function App() {
             iceOpalConfig={iceOpalConfig}
             effectsEnabled={effectsEnabled}
             postProcessingConfig={postProcessingConfig}
-            performanceConfig={currentPerformanceConfig}
+            performanceConfig={performanceConfig}
             config={config}
             canvasProps={canvasProps}
             environmentProps={environmentProps}
@@ -478,7 +456,7 @@ function App() {
           />
           
           <PerformanceControls
-            performanceConfig={currentPerformanceConfig}
+            performanceConfig={performanceConfig}
             onConfigUpdate={handlePerformanceConfigUpdate}
             visible={true}
           />
