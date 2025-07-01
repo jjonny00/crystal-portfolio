@@ -17,12 +17,12 @@ import { useFPSMonitorDOM } from '../components/ui/FpsDisplay';
 export const useAdaptivePerformance = (
   baseConfig = {},
   {
-    threshold = 50,
+    threshold = 48,
     lowTierProfile = { usePBR: false, textureQuality: 'low', renderScale: 0.7 },
     restoreThreshold = 60,
     lowFpsDuration = 5000,
     highFpsDuration = 5000,
-    minSwitchInterval = 30000
+    pbrChangeDelay = 5000
   } = {}
 ) => {
   const { avgFps } = useFPSMonitorDOM();
@@ -35,6 +35,7 @@ export const useAdaptivePerformance = (
 
   const lowFpsStart = useRef(null);
   const highFpsStart = useRef(null);
+  const pbrChangeStart = useRef(null);
   const downgraded = useRef(false);
   const lastSwitchTime = useRef(0);
 
@@ -52,15 +53,19 @@ export const useAdaptivePerformance = (
       if (lowFpsStart.current === null) {
         lowFpsStart.current = now;
       }
-      if (
-        now - lowFpsStart.current > lowFpsDuration &&
-        !downgraded.current &&
-        now - lastSwitchTime.current > minSwitchInterval
-      ) {
-        setCurrentPerformanceConfig(prev => ({ ...prev, ...lowTierProfile }));
+
+      if (now - lowFpsStart.current > lowFpsDuration && !downgraded.current) {
+        const { usePBR, ...rest } = lowTierProfile;
+        setCurrentPerformanceConfig(prev => ({ ...prev, ...rest }));
         downgraded.current = true;
         lastSwitchTime.current = now;
         highFpsStart.current = null;
+        pbrChangeStart.current = now;
+      }
+
+      if (downgraded.current && currentPerformanceConfig.usePBR &&
+          now - pbrChangeStart.current > pbrChangeDelay) {
+        setCurrentPerformanceConfig(prev => ({ ...prev, usePBR: lowTierProfile.usePBR }));
       }
     } else {
       lowFpsStart.current = null;
@@ -69,20 +74,26 @@ export const useAdaptivePerformance = (
         if (highFpsStart.current === null) {
           highFpsStart.current = now;
         }
-        if (
-          now - highFpsStart.current > highFpsDuration &&
-          now - lastSwitchTime.current > minSwitchInterval
-        ) {
-          setCurrentPerformanceConfig(basePerformanceConfig);
+        if (now - highFpsStart.current > highFpsDuration) {
+          const { usePBR } = currentPerformanceConfig;
+          setCurrentPerformanceConfig({ ...basePerformanceConfig, usePBR });
           downgraded.current = false;
           lastSwitchTime.current = now;
           highFpsStart.current = null;
+          pbrChangeStart.current = now;
         }
       } else {
         highFpsStart.current = null;
       }
+
+      if (!downgraded.current && !currentPerformanceConfig.usePBR &&
+          avgFps >= restoreThreshold &&
+          now - pbrChangeStart.current > pbrChangeDelay) {
+        setCurrentPerformanceConfig(prev => ({ ...prev, usePBR: basePerformanceConfig.usePBR }));
+        pbrChangeStart.current = null;
+      }
     }
-  }, [avgFps, threshold, lowTierProfile, restoreThreshold, lowFpsDuration, highFpsDuration, minSwitchInterval, basePerformanceConfig]);
+  }, [avgFps, threshold, lowTierProfile, restoreThreshold, lowFpsDuration, highFpsDuration, basePerformanceConfig, pbrChangeDelay, currentPerformanceConfig.usePBR]);
 
   // Allow manual config updates
   const updatePerformanceConfig = (config) => {
