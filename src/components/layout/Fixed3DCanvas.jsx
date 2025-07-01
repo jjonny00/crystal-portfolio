@@ -94,10 +94,14 @@ const Fixed3DCanvas = ({
   // FIXED: Function to get facet refs from crystal scene with proper access
   const getFacetRefs = () => {
     if (crystalSceneRef.current && crystalSceneRef.current.facetRefs) {
-      console.log('📍 Fixed3DCanvas: Retrieved facet refs from crystal scene');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('📍 Fixed3DCanvas: Retrieved facet refs from crystal scene');
+      }
       return crystalSceneRef.current.facetRefs; // Access the exposed refs directly
     }
-    console.warn('📍 Fixed3DCanvas: No facet refs available from crystal scene');
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('📍 Fixed3DCanvas: No facet refs available from crystal scene');
+    }
     return null;
   };
 

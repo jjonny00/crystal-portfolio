@@ -29,7 +29,9 @@ const UnifiedCameraController = ({
 
   const findAnchorInFacet = (facetKey) => {
     if (!facetRefs) {
-      console.warn('⚠️ Camera Controller: No facet refs available for anchor search');
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('⚠️ Camera Controller: No facet refs available for anchor search');
+      }
       return null;
     }
     
@@ -37,7 +39,9 @@ const UnifiedCameraController = ({
     const facetIndex = facetKeys.indexOf(facetKey);
     
     if (facetIndex === -1) {
-      console.warn(`⚠️ Camera Controller: Unknown facet key: ${facetKey}`);
+      if (process.env.NODE_ENV === 'development') {
+        console.warn(`⚠️ Camera Controller: Unknown facet key: ${facetKey}`);
+      }
       return null;
     }
     
@@ -45,7 +49,9 @@ const UnifiedCameraController = ({
     const facetRef = facetRefs[facetIndex]; // Direct array access
     
     if (!facetRef || !facetRef.current) {
-      console.warn(`⚠️ Camera Controller: Facet ref not available for ${facetKey} (index ${facetIndex})`);
+      if (process.env.NODE_ENV === 'development') {
+        console.warn(`⚠️ Camera Controller: Facet ref not available for ${facetKey} (index ${facetIndex})`);
+      }
       return null;
     }
     
@@ -83,7 +89,9 @@ const UnifiedCameraController = ({
       
       return worldPosition;
     } else {
-      console.warn(`⚠️ Camera Controller: Anchor "${anchorName}" not found in facet ${facetKey}`);
+      if (process.env.NODE_ENV === 'development') {
+        console.warn(`⚠️ Camera Controller: Anchor "${anchorName}" not found in facet ${facetKey}`);
+      }
       return null;
     }
   };
@@ -103,10 +111,12 @@ const UnifiedCameraController = ({
         };
       } else {
         // Fallback to default project config if anchor not found
-        console.warn(`⚠️ Camera Controller: No anchor found for ${focusedFacet}, using default target`);
+        if (process.env.NODE_ENV === 'development') {
+          console.warn(`⚠️ Camera Controller: No anchor found for ${focusedFacet}, using default target`);
+        }
         return {
           ...cameraConfig,
-          description: `${focusedFacet} project (default target)` 
+          description: `${focusedFacet} project (default target)`
         };
       }
     }
