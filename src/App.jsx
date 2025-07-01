@@ -79,7 +79,7 @@ import PostProcessingControls from './components/ui/PostProcessingControls';
 import PerformanceControls from './components/ui/PerformanceControls';
 import AccessibilityInstructions from './components/ui/AccessibilityInstructions';
 import FpsDisplay, { PerformanceAlert } from './components/ui/FpsDisplay';
-import Loader from './components/ui/Loader';
+import LoadingScreen from './components/ui/LoadingScreen';
 
 // Configuration and utilities (unchanged)
 import * as defaultConfig from './crystalConfig';
@@ -180,8 +180,20 @@ function App() {
   const [isReady, setIsReady] = useState(false);
 
   // Initial performance test based on FPS
-  const { performanceConfig: initialPerformanceConfig, isTesting: isPerfTesting } =
-    useInitialPerformanceTest(deviceProfile);
+  const {
+    performanceConfig: initialPerformanceConfig,
+    isTesting: isPerfTesting,
+    startTest: startPerfTest,
+  } = useInitialPerformanceTest(deviceProfile, {
+    autoStart: false,
+    onComplete: setPerformanceConfig,
+  });
+
+  React.useEffect(() => {
+    if (deviceProfile && !initialPerformanceConfig && !isPerfTesting) {
+      startPerfTest();
+    }
+  }, [deviceProfile, initialPerformanceConfig, isPerfTesting, startPerfTest]);
 
   React.useEffect(() => {
     if (initialPerformanceConfig) {
@@ -336,7 +348,7 @@ function App() {
 
   return (
     <>
-      {!isReady && <Loader />}
+      {!isReady && <LoadingScreen />}
       {/* UI Hide Toggle Button - Always Visible */}
       <button
         onClick={() => setHideAllUI(!hideAllUI)}
