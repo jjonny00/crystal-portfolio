@@ -83,6 +83,7 @@ import FpsDisplay, { PerformanceAlert } from './components/ui/FpsDisplay';
 // Configuration and utilities (unchanged)
 import * as defaultConfig from './crystalConfig';
 import { useDeviceProfile } from './hooks/useDeviceProfile';
+import { useAdaptivePerformance } from './hooks/useAdaptivePerformance';
 
 // Simple mobile detection (unchanged)
 const isMobileDevice = () => {
@@ -162,7 +163,7 @@ function App() {
   });
   
   const [postProcessingConfig, setPostProcessingConfig] = useState(config.postProcessing);
-  
+
   // Performance config (unchanged)
   const [performanceConfig, setPerformanceConfig] = useState(() => {
     return {
@@ -172,6 +173,9 @@ function App() {
       renderScale: 0.7
     };
   });
+
+  // Adaptive performance based on runtime FPS
+  const { currentPerformanceConfig } = useAdaptivePerformance(performanceConfig);
 
   // Performance management (unchanged)
   const [lastAppliedProfile, setLastAppliedProfile] = useState(null);
@@ -215,11 +219,11 @@ function App() {
   
   React.useEffect(() => {
     if (updateExternalPerformanceConfig && hasInitialized && initialProfileApplied) {
-      updateExternalPerformanceConfig(performanceConfig);
+      updateExternalPerformanceConfig(currentPerformanceConfig);
     } else if (devicePerformanceProfile && !hasInitialized) {
       setHasInitialized(true);
     }
-  }, [performanceConfig, updateExternalPerformanceConfig, hasInitialized, devicePerformanceProfile, initialProfileApplied]);
+  }, [currentPerformanceConfig, updateExternalPerformanceConfig, hasInitialized, devicePerformanceProfile, initialProfileApplied]);
 
   // UI Hide Toggle Keyboard Listener
   React.useEffect(() => {
@@ -405,7 +409,7 @@ function App() {
           iceOpalConfig={iceOpalConfig}
           effectsEnabled={effectsEnabled}
           postProcessingConfig={postProcessingConfig}
-          performanceConfig={performanceConfig}
+          performanceConfig={currentPerformanceConfig}
           config={config}
           canvasProps={canvasProps}
           environmentProps={environmentProps}
@@ -471,7 +475,7 @@ function App() {
           />
           
           <PerformanceControls
-            performanceConfig={performanceConfig}
+            performanceConfig={currentPerformanceConfig}
             onConfigUpdate={handlePerformanceConfigUpdate}
             visible={true}
           />
