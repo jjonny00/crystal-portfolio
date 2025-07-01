@@ -398,25 +398,27 @@ function App() {
       )}
 
       {/* NEW: Master Animation Coordinator - Single source of truth for all animations */}
-      <MasterAnimationCoordinator
-        debugMode={process.env.NODE_ENV === 'development'}
-        onAnimationStateChange={handleAnimationStateChange}
-        config={animationConfig}
-      >
-        {/* SIMPLIFIED: Fixed 3D Canvas now receives animationData from coordinator */}
-        <Fixed3DCanvas
-          materialVariant={materialVariant}
-          blackOpalConfig={blackOpalConfig}
-          iceOpalConfig={iceOpalConfig}
-          effectsEnabled={effectsEnabled}
-          postProcessingConfig={postProcessingConfig}
-          performanceConfig={currentPerformanceConfig}
-          config={config}
-          canvasProps={canvasProps}
-          environmentProps={environmentProps}
-          isMobile={isMobile}
-        />
-      </MasterAnimationCoordinator>
+      {!isDetecting && (
+        <MasterAnimationCoordinator
+          debugMode={process.env.NODE_ENV === 'development'}
+          onAnimationStateChange={handleAnimationStateChange}
+          config={animationConfig}
+        >
+          {/* SIMPLIFIED: Fixed 3D Canvas now receives animationData from coordinator */}
+          <Fixed3DCanvas
+            materialVariant={materialVariant}
+            blackOpalConfig={blackOpalConfig}
+            iceOpalConfig={iceOpalConfig}
+            effectsEnabled={effectsEnabled}
+            postProcessingConfig={postProcessingConfig}
+            performanceConfig={currentPerformanceConfig}
+            config={config}
+            canvasProps={canvasProps}
+            environmentProps={environmentProps}
+            isMobile={isMobile}
+          />
+        </MasterAnimationCoordinator>
+      )}
 
       {/* Scrollable Content - Keep for scrolling but hide content */}
       <ScrollablePortfolio 
