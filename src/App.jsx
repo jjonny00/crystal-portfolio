@@ -175,7 +175,7 @@ function App() {
   });
 
   // Adaptive performance based on runtime FPS
-  const { currentPerformanceConfig } = useAdaptivePerformance(performanceConfig);
+  const { currentPerformanceConfig, updatePerformanceConfig } = useAdaptivePerformance(performanceConfig);
 
   // Performance management (unchanged)
   const [lastAppliedProfile, setLastAppliedProfile] = useState(null);
@@ -333,7 +333,8 @@ function App() {
   const handlePerformanceConfigUpdate = useCallback((newConfig) => {
     console.log("🔧 Manual performance config update:", newConfig);
     setPerformanceConfig(newConfig);
-  }, []);
+    updatePerformanceConfig(newConfig);
+  }, [updatePerformanceConfig]);
 
   const toggleUI = useCallback(() => {
     setShowUI(!showUI);

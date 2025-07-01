@@ -39,9 +39,7 @@ export const useAdaptivePerformance = (
   // Update stored base config when it changes externally
   useEffect(() => {
     setBasePerformanceConfig(baseConfig);
-    if (!downgraded.current) {
-      setCurrentPerformanceConfig(baseConfig);
-    }
+    setCurrentPerformanceConfig(baseConfig);
   }, [baseConfig]);
 
   // Monitor FPS and adjust configuration
