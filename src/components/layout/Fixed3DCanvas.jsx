@@ -89,7 +89,7 @@ const Fixed3DCanvas = ({
         }));
       }
     }
-  }, [crystalSceneRef.current]);
+  }, [crystalSceneRef]);
 
   // FIXED: Function to get facet refs from crystal scene with proper access
   const getFacetRefs = () => {
