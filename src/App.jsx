@@ -79,6 +79,7 @@ import PostProcessingControls from './components/ui/PostProcessingControls';
 import PerformanceControls from './components/ui/PerformanceControls';
 import AccessibilityInstructions from './components/ui/AccessibilityInstructions';
 import FpsDisplay, { PerformanceAlert } from './components/ui/FpsDisplay';
+import Loader from './components/ui/Loader';
 
 // Configuration and utilities (unchanged)
 import * as defaultConfig from './crystalConfig';
@@ -174,6 +175,10 @@ function App() {
     };
   });
 
+  // Ready state - becomes true after device profiling and initial performance
+  // test complete
+  const [isReady, setIsReady] = useState(false);
+
   // Initial performance test based on FPS
   const { performanceConfig: initialPerformanceConfig, isTesting: isPerfTesting } =
     useInitialPerformanceTest(deviceProfile);
@@ -195,6 +200,13 @@ function App() {
   }, [initialPerformanceConfig, initialProfileApplied]);
 
   const [hasInitialized, setHasInitialized] = useState(false);
+
+  // When device profiling and initial performance test complete, mark ready
+  React.useEffect(() => {
+    if (!isDetecting && !isPerfTesting && initialPerformanceConfig && !isReady) {
+      setIsReady(true);
+    }
+  }, [isDetecting, isPerfTesting, initialPerformanceConfig, isReady]);
   
   React.useEffect(() => {
     if (updateExternalPerformanceConfig && hasInitialized && initialProfileApplied) {
@@ -324,6 +336,7 @@ function App() {
 
   return (
     <>
+      {!isReady && <Loader />}
       {/* UI Hide Toggle Button - Always Visible */}
       <button
         onClick={() => setHideAllUI(!hideAllUI)}
@@ -376,7 +389,7 @@ function App() {
       )}
 
       {/* NEW: Master Animation Coordinator - Single source of truth for all animations */}
-      {!isDetecting && !isPerfTesting && (
+      {isReady && (
         <MasterAnimationCoordinator
           debugMode={process.env.NODE_ENV === 'development'}
           onAnimationStateChange={handleAnimationStateChange}
