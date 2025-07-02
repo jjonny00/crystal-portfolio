@@ -1,12 +1,46 @@
-# React + Vite
+# Crystal Portfolio
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A React + Vite project showcasing a 3D crystal scene. The app adapts its rendering quality based on the visitor's device and a short performance test.
 
-Currently, two official plugins are available:
+## Device detection (`useDeviceProfile`)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+`useDeviceProfile` runs on start up and determines the current device type and a recommended performance profile. The hook provides:
 
-## Expanding the ESLint configuration
+- `deviceProfile` – information about the platform (mobile, tablet, desktop, etc.)
+- `performanceProfile` – initial performance settings based on that device
+- `uiProfile` – UI layout hints for responsive design
+- `isDetecting` – `true` while device capabilities are being measured
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Options such as `enableDebugLogging`, `enableOrientationLock` and `enableProfileOverride` can be passed to the hook for additional control. Profiles are defined in [`src/utils/deviceProfiles.js`](src/utils/deviceProfiles.js).
+
+The returned `updateExternalPerformanceConfig` function allows you to override the automatic profile at runtime (for example from the "Performance" tab in the UI).
+
+## One‑time performance test
+
+After the device profile is resolved the app runs `useInitialPerformanceTest`. This hook measures the FPS for about four seconds and adjusts the performance profile if necessary. The test runs only once on first load. When complete, the resulting profile is stored via `updateExternalPerformanceConfig`.
+
+While detection and the FPS test are running the `LoadingScreen` component keeps the UI hidden. You can edit the loader styles or text in [`src/components/ui/LoadingScreen.jsx`](src/components/ui/LoadingScreen.jsx).
+
+## Customising performance settings
+
+Performance presets for each device tier live in [`src/utils/deviceProfiles.js`](src/utils/deviceProfiles.js). To tweak defaults edit those profiles. To override the active settings at runtime call `updateExternalPerformanceConfig` with a custom configuration object. You may also enable the manual `overrideProfile` helper exposed by `useDeviceProfile` when developing.
+
+## Development
+
+Install dependencies and start a dev server:
+
+```bash
+npm install
+npm run dev
+```
+
+## Building for production
+
+```bash
+npm run build
+# Optional preview of the dist folder
+npm run preview
+```
+
+The build output is placed in `dist/`.
+
