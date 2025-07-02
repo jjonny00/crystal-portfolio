@@ -15,8 +15,6 @@ const UnifiedCrystalScene = forwardRef(({
   animationData,
   config, 
   materialVariant = 'default',
-  blackOpalConfig,
-  iceOpalConfig,
   performanceConfig = { useNormalMaps: true, textureQuality: 'high', usePBR: true },
   isMobile = false
 }, ref) => {
@@ -354,8 +352,6 @@ const UnifiedCrystalScene = forwardRef(({
       {/* Material Manager Component */}
       <MaterialManager
         materialVariant={materialVariant}
-        blackOpalConfig={blackOpalConfig}
-        iceOpalConfig={iceOpalConfig}
         config={config}
         materialRef={crystalMaterialRef}
         performanceConfig={performanceConfig}

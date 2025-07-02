@@ -50,8 +50,6 @@ const Fixed3DCanvas = ({
   
   // Material and effects (unchanged)
   materialVariant = 'default',
-  blackOpalConfig,
-  iceOpalConfig,
   effectsEnabled,
   postProcessingConfig,
   performanceConfig,
@@ -187,8 +185,6 @@ const Fixed3DCanvas = ({
             animationData={animationData}
             config={config}
             materialVariant={materialVariant}
-            blackOpalConfig={blackOpalConfig}
-            iceOpalConfig={iceOpalConfig}
             performanceConfig={performanceConfig}
             isMobile={isMobile}
           />

@@ -1,5 +1,5 @@
 // Updated MaterialSelector.jsx - Modified for tabbed interface
-import { useState } from 'react';
+// No local state needed
 
 const MaterialSelector = ({ currentVariant, onChange }) => {
   // Remove expanded state as it's no longer needed with the tabbed UI
@@ -10,10 +10,7 @@ const MaterialSelector = ({ currentVariant, onChange }) => {
     { id: 'glass', name: 'Glass', description: 'Clear glass with subtle reflections' },
     { id: 'gem', name: 'Gemstone', description: 'Rich purple gemstone with facets' },
     { id: 'holographic', name: 'Holographic', description: 'Futuristic holographic material with shifting colors' },
-    { id: 'blackOpal', name: 'Black Opal', description: 'Premium black opal with iridescent play of colors' },
-    { id: 'iceOpal', name: 'Ice Opal', description: 'Translucent ice-like opal with blue-tinged glow' },
-    { id: 'blackOpalSolidBase', name: 'Opal - Solid Base', description: 'Diagnostic: Black Opal with solid base color' },
-    { id: 'blackOpalSolidEmissive', name: 'Opal - Solid Emissive', description: 'Diagnostic: Black Opal with solid emissive' }
+    // Additional test materials removed
   ];
   
   // Updated styles that work better in the tabbed context

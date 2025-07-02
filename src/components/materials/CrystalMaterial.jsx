@@ -213,36 +213,44 @@ const CrystalMaterial = ({
     // Otherwise create new material
     createMaterial();
     
-  }, [config.materials.crystal, variant, materialRef, usePBR]);
+  }, [config.materials.crystal, variant, materialRef, usePBR, useNormalMaps]);
   
   // Separate effect for handling normal maps - this ensures they reload when useNormalMaps changes
   useEffect(() => {
     if (!materialRef.current) return;
-    
+
+    const controller = new AbortController();
+    let cancelled = false;
+
     if (useNormalMaps && config.assets.textures.normalMap) {
       console.log('Loading normal map for crystal material:', config.assets.textures.normalMap);
-      
+
       // Load normal map
       const textureLoader = new THREE.TextureLoader();
       textureLoader.load(config.assets.textures.normalMap, (texture) => {
+        if (cancelled || controller.signal.aborted || !useNormalMaps) {
+          texture.dispose();
+          return;
+        }
+
         texture.wrapS = config.materials.textures.normalMap.wrapS;
         texture.wrapT = config.materials.textures.normalMap.wrapT;
         texture.repeat.set(...config.materials.textures.normalMap.repeat);
-        
+
         // Set texture quality based on performance settings
         const mipmapEnabled = textureQuality !== 'low';
         const anisotropy = textureQuality === 'high' ? 4 : (textureQuality === 'medium' ? 2 : 1);
-        
+
         texture.minFilter = mipmapEnabled ? THREE.LinearMipmapLinearFilter : THREE.LinearFilter;
         texture.generateMipmaps = mipmapEnabled;
         texture.anisotropy = anisotropy;
         texture.colorSpace = THREE.SRGBColorSpace;
-        
+
         // Apply the normal map to the material
         materialRef.current.normalMap = texture;
         materialRef.current.normalScale = new THREE.Vector2(0.3, 0.3);
         materialRef.current.needsUpdate = true;
-        
+
         console.log('Normal map applied to crystal material');
       });
     } else {
@@ -254,10 +262,15 @@ const CrystalMaterial = ({
         materialRef.current.needsUpdate = true;
       }
     }
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
   }, [
-    useNormalMaps, 
-    config.assets.textures.normalMap, 
-    config.materials.textures.normalMap, 
+    useNormalMaps,
+    config.assets.textures.normalMap,
+    config.materials.textures.normalMap,
     textureQuality,
     materialRef.current // This ensures the effect runs when the material is created or changed
   ]);

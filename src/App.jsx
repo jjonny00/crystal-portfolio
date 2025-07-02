@@ -73,8 +73,6 @@ import ControlsToggle from './components/ui/ControlsToggle';
 import TabbedControlPanel from './components/ui/TabbedControlPanel';
 import CrystalControls from './components/ui/CrystalControls';
 import MaterialSelector from './components/ui/MaterialSelector';
-import BlackOpalControls from './components/ui/BlackOpalControls';
-import IceOpalControls from './components/ui/IceOpalControls';
 import PostProcessingControls from './components/ui/PostProcessingControls';
 import PerformanceControls from './components/ui/PerformanceControls';
 import AccessibilityInstructions from './components/ui/AccessibilityInstructions';
@@ -134,26 +132,7 @@ function App() {
   const [showUI, setShowUI] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
   
-  // Material configs (unchanged)
-  const [blackOpalConfig, setBlackOpalConfig] = useState({
-    roughness: 0.4,
-    metalness: 0.1,
-    clearcoat: 0.6,
-    transmission: 0.2,
-    iridescence: 0.9,
-    normalScale: 0.8,
-    emissiveIntensity: 0.5
-  });
-  
-  const [iceOpalConfig, setIceOpalConfig] = useState({
-    roughness: 0.3,
-    metalness: 0.05,
-    clearcoat: 0.8,
-    transmission: 0.6,
-    iridescence: 0.4,
-    normalScale: 0.6,
-    emissiveIntensity: 0.4
-  });
+  // Material configs removed
   
   // Effects state (unchanged)
   const [effectsEnabled, setEffectsEnabled] = useState({
@@ -284,7 +263,7 @@ function App() {
 
   const handleProcessClick = useCallback(() => {
     setMaterialVariant(prev => {
-      const variants = ['default', 'glass', 'gem', 'holographic', 'blackOpal', 'iceOpal'];
+      const variants = ['default', 'glass', 'gem', 'holographic'];
       const currentIndex = variants.indexOf(prev);
       const nextIndex = (currentIndex + 1) % variants.length;
       return variants[nextIndex];
@@ -306,15 +285,7 @@ function App() {
     setMaterialVariant(variant);
   }, []);
   
-  const handleBlackOpalConfigUpdate = useCallback((newConfig) => {
-    console.log("Updating Black Opal config:", newConfig);
-    setBlackOpalConfig(newConfig);
-  }, []);
-  
-  const handleIceOpalConfigUpdate = useCallback((newConfig) => {
-    console.log("Updating Ice Opal config:", newConfig);
-    setIceOpalConfig(newConfig);
-  }, []);
+  // Removed: handlers for test materials
   
   const handleToggleEffect = useCallback((effect, enabled, params = null) => {
     setEffectsEnabled(prev => ({
@@ -410,8 +381,6 @@ function App() {
           {/* SIMPLIFIED: Fixed 3D Canvas now receives animationData from coordinator */}
           <Fixed3DCanvas
             materialVariant={materialVariant}
-            blackOpalConfig={blackOpalConfig}
-            iceOpalConfig={iceOpalConfig}
             effectsEnabled={effectsEnabled}
             postProcessingConfig={postProcessingConfig}
             performanceConfig={performanceConfig}
@@ -456,21 +425,7 @@ function App() {
           <div>
             <MaterialSelector currentVariant={materialVariant} onChange={handleMaterialChange} />
             
-            {materialVariant === 'blackOpal' && (
-              <BlackOpalControls 
-                visible={true} 
-                onConfigUpdate={handleBlackOpalConfigUpdate}
-                currentConfig={blackOpalConfig}
-              />
-            )}
-            
-            {materialVariant === 'iceOpal' && (
-              <IceOpalControls 
-                visible={true} 
-                onConfigUpdate={handleIceOpalConfigUpdate}
-                currentConfig={iceOpalConfig}
-              />
-            )}
+            {/* Removed test material controls */}
           </div>
           
           <PostProcessingControls 
