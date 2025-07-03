@@ -1,5 +1,5 @@
 // src/hooks/useDeviceProfile.js
-// React hook for device detection and performance profiling
+// FIXED: Proper performance config handling and debugging
 
 import { useState, useEffect, useCallback } from 'react';
 import { detectDevice, enforcePortraitOnMobile } from '../utils/deviceDetection';
@@ -12,14 +12,13 @@ import {
 } from '../utils/deviceProfiles';
 
 /**
- * Custom hook for device detection and performance optimization
- * Provides device info, performance settings, and UI configuration
+ * FIXED: Custom hook for device detection and performance optimization
  */
 export const useDeviceProfile = (options = {}) => {
   const {
     enableDebugLogging = false,
     enableOrientationLock = true,
-    enableProfileOverride = true // Allow manual override in development
+    enableProfileOverride = true
   } = options;
   
   // State for device and profile information
@@ -28,6 +27,10 @@ export const useDeviceProfile = (options = {}) => {
   const [uiProfile, setUIProfile] = useState(null);
   const [isDetecting, setIsDetecting] = useState(true);
   const [manualOverride, setManualOverride] = useState(null);
+  
+  // FIXED: Track external performance config separately
+  const [externalPerformanceConfig, setExternalPerformanceConfig] = useState(null);
+  const [hasInitialized, setHasInitialized] = useState(false);
   
   // Detection function
   const detectDeviceProfile = useCallback(async () => {
@@ -51,7 +54,7 @@ export const useDeviceProfile = (options = {}) => {
       setPerformanceProfile(performance);
       setUIProfile(ui);
       
-      // Debug logging - only log when profile actually changes
+      // Debug logging
       if (enableDebugLogging) {
         const profileKey = `${device.category}-${device.performanceTier}`;
         if (detectDeviceProfile.lastProfileKey !== profileKey) {
@@ -59,6 +62,15 @@ export const useDeviceProfile = (options = {}) => {
           detectDeviceProfile.lastProfileKey = profileKey;
         }
       }
+      
+      console.log('🎯 Device Profile Applied:', {
+        category: device.category,
+        performanceTier: device.performanceTier,
+        usePBR: performance.usePBR,
+        useNormalMaps: performance.useNormalMaps,
+        textureQuality: performance.textureQuality,
+        renderScale: performance.renderScale
+      });
       
     } catch (error) {
       console.error('❌ Device detection failed:', error);
@@ -85,17 +97,64 @@ export const useDeviceProfile = (options = {}) => {
     detectDeviceProfile();
   }, [detectDeviceProfile]);
   
+  // FIXED: Separate external config update function with proper initialization check
+  const updateExternalPerformanceConfig = useCallback((config) => {
+    console.log('🔧 External performance config update attempted:', config);
+    console.log('🔧 Has initialized?', hasInitialized);
+    console.log('🔧 Current external config:', externalPerformanceConfig);
+    
+    // FIXED: Only allow external config updates if we've properly initialized
+    // AND if the user has actually changed settings in the Performance tab
+    if (hasInitialized && config && typeof config === 'object') {
+      // Check if this is actually different from the current performance profile
+      const currentProfile = manualOverride?.performance || performanceProfile;
+      
+      if (currentProfile) {
+        const hasChanges = 
+          config.usePBR !== currentProfile.usePBR ||
+          config.useNormalMaps !== currentProfile.useNormalMaps ||
+          config.textureQuality !== currentProfile.textureQuality ||
+          config.renderScale !== currentProfile.renderScale;
+        
+        if (hasChanges) {
+          console.log('✅ Applying external performance config changes:', {
+            from: {
+              usePBR: currentProfile.usePBR,
+              useNormalMaps: currentProfile.useNormalMaps,
+              textureQuality: currentProfile.textureQuality,
+              renderScale: currentProfile.renderScale
+            },
+            to: {
+              usePBR: config.usePBR,
+              useNormalMaps: config.useNormalMaps,
+              textureQuality: config.textureQuality,
+              renderScale: config.renderScale
+            }
+          });
+          setExternalPerformanceConfig(config);
+        } else {
+          console.log('🚫 External config is same as current profile, ignoring');
+        }
+      }
+    } else {
+      console.log('🚫 External config update rejected - not initialized or invalid config');
+    }
+  }, [hasInitialized, performanceProfile, manualOverride]);
+  
+  // FIXED: Mark as initialized only after initial performance test is complete
+  const markAsInitialized = useCallback(() => {
+    console.log('✅ Device profile marked as initialized');
+    setHasInitialized(true);
+  }, []);
+  
   // Listen for orientation/resize changes
   useEffect(() => {
     const handleResize = () => {
-      // Only re-detect on significant changes and with debouncing
       if (deviceProfile) {
         const newOrientation = window.innerWidth > window.innerHeight ? 'landscape' : 'portrait';
         
-        // Only re-detect if orientation actually changed
         if (newOrientation !== deviceProfile.screen.orientation) {
           console.log('Orientation changed, re-detecting device profile...');
-          // Debounce the detection to avoid rapid calls
           setTimeout(() => {
             detectDeviceProfile();
           }, 500);
@@ -103,7 +162,6 @@ export const useDeviceProfile = (options = {}) => {
       }
     };
     
-    // Debounce resize events
     let resizeTimeout;
     const debouncedResize = () => {
       clearTimeout(resizeTimeout);
@@ -143,32 +201,42 @@ export const useDeviceProfile = (options = {}) => {
     }
   }, [deviceProfile, enableProfileOverride, enableDebugLogging]);
   
-  // Get current effective profiles (with override support)
-  const currentPerformanceProfile = manualOverride?.performance || performanceProfile;
+  // Get current effective profiles (with proper precedence)
   const currentDeviceProfile = manualOverride ? 
     { ...deviceProfile, performanceTier: manualOverride.tier } : 
     deviceProfile;
   
-  // Allow external performance config to override profile settings
-  // This enables the Performance tab controls to affect the environment
-  const [externalPerformanceConfig, setExternalPerformanceConfig] = useState(null);
+  // FIXED: Proper precedence for performance config
+  // 1. External config (user changes via Performance tab) - highest priority
+  // 2. Manual override (dev tools)
+  // 3. Initial performance profile (device detection + performance test)
+  const effectivePerformanceConfig = externalPerformanceConfig || 
+                                   manualOverride?.performance || 
+                                   performanceProfile;
   
-  const updateExternalPerformanceConfig = useCallback((config) => {
-    setExternalPerformanceConfig(config);
-  }, []);
-  
-  // Get effective performance config (external override or profile)
-  const effectivePerformanceConfig = externalPerformanceConfig || currentPerformanceProfile;
+  // FIXED: Add debug logging when effective config changes
+  useEffect(() => {
+    if (effectivePerformanceConfig && hasInitialized) {
+      console.log('🎮 Effective Performance Config Applied:', {
+        source: externalPerformanceConfig ? 'External Config' : 
+                manualOverride ? 'Manual Override' : 
+                'Device Profile',
+        usePBR: effectivePerformanceConfig.usePBR,
+        useNormalMaps: effectivePerformanceConfig.useNormalMaps,
+        textureQuality: effectivePerformanceConfig.textureQuality,
+        renderScale: effectivePerformanceConfig.renderScale
+      });
+    }
+  }, [effectivePerformanceConfig?.usePBR, effectivePerformanceConfig?.useNormalMaps, 
+      effectivePerformanceConfig?.textureQuality, effectivePerformanceConfig?.renderScale, 
+      hasInitialized, externalPerformanceConfig, manualOverride]);
   
   // Utility functions
   const getOptimalCanvasProps = useCallback(() => {
     if (!currentDeviceProfile || !effectivePerformanceConfig) return {};
     
-    // Calculate DPR based on render scale and device capabilities
     const baseDPR = getCanvasDPR(currentDeviceProfile, effectivePerformanceConfig);
     const renderScale = effectivePerformanceConfig.renderScale || 1.0;
-    
-    // Apply render scale to DPR for performance
     const scaledDPR = baseDPR.map(dpr => dpr * renderScale);
     
     console.log(`🎮 Canvas - Render Scale: ${renderScale}, DPR: [${scaledDPR.join(', ')}]`);
@@ -177,9 +245,8 @@ export const useDeviceProfile = (options = {}) => {
       dpr: scaledDPR,
       gl: {
         antialias: effectivePerformanceConfig.antialiasing || false,
-        alpha: false, // Opaque background for better performance
+        alpha: false,
         powerPreference: currentDeviceProfile.performanceTier === 'high' ? 'high-performance' : 'low-power',
-        // Force lower precision on mobile
         precision: currentDeviceProfile.isMobile ? 'mediump' : 'highp'
       }
     };
@@ -188,28 +255,14 @@ export const useDeviceProfile = (options = {}) => {
   const getOptimalEnvironmentProps = useCallback(() => {
     if (!effectivePerformanceConfig) return {};
     
-    // Use the current texture quality setting for HDRI quality
     const textureQuality = effectivePerformanceConfig.textureQuality || 'high';
     const hdriPath = getHDRIPath(textureQuality);
     
     return {
       files: hdriPath,
-      // Scale down environment intensity on lower-end devices
       environmentIntensity: effectivePerformanceConfig.renderScale || 1.0
     };
   }, [effectivePerformanceConfig]);
-  
-  // ADD THIS: Debug logging for performance config changes
-  useEffect(() => {
-    if (effectivePerformanceConfig) {
-      console.log(`🎯 Performance Config Updated:`, {
-        usePBR: effectivePerformanceConfig.usePBR,
-        useNormalMaps: effectivePerformanceConfig.useNormalMaps,
-        textureQuality: effectivePerformanceConfig.textureQuality,
-        renderScale: effectivePerformanceConfig.renderScale
-      });
-    }
-  }, [effectivePerformanceConfig?.usePBR, effectivePerformanceConfig?.useNormalMaps, effectivePerformanceConfig?.textureQuality, effectivePerformanceConfig?.renderScale]);
   
   const shouldShowEffect = useCallback((effectName) => {
     if (!effectivePerformanceConfig) return false;
@@ -232,12 +285,24 @@ export const useDeviceProfile = (options = {}) => {
     uiProfile,
     isDetecting,
     
+    // Initialization tracking
+    hasInitialized,
+    markAsInitialized,
+    
     // Manual override (for development)
     manualOverride: manualOverride?.tier || null,
     overrideProfile,
     
     // External config update (for Performance tab)
     updateExternalPerformanceConfig,
+    
+    // Debug info
+    debugInfo: {
+      externalConfigActive: !!externalPerformanceConfig,
+      manualOverrideActive: !!manualOverride,
+      currentSource: externalPerformanceConfig ? 'external' : 
+                    manualOverride ? 'override' : 'profile'
+    },
     
     // Utility functions
     getOptimalCanvasProps,
@@ -252,31 +317,5 @@ export const useDeviceProfile = (options = {}) => {
     
     // Actions
     redetect: detectDeviceProfile
-  };
-};
-
-/**
- * Simple hook for just getting current performance settings
- * Useful when you only need the performance config
- */
-export const usePerformanceSettings = () => {
-  const { performanceProfile, isDetecting } = useDeviceProfile();
-  
-  return {
-    settings: performanceProfile,
-    isLoading: isDetecting
-  };
-};
-
-/**
- * Hook for responsive UI settings
- */
-export const useUISettings = () => {
-  const { uiProfile, deviceProfile, isDetecting } = useDeviceProfile();
-  
-  return {
-    ui: uiProfile,
-    device: deviceProfile,
-    isLoading: isDetecting
   };
 };

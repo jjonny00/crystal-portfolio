@@ -1,4 +1,4 @@
-// src/App.jsx - FIXED: Corrected hooks order to prevent React hooks error
+// src/App.jsx - FIXED: Added performance test bypass for high-end devices
 // CRITICAL: All hooks must be called in the same order every render
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
@@ -30,10 +30,16 @@ import PerformanceControls from './components/ui/PerformanceControls';
 import AccessibilityInstructions from './components/ui/AccessibilityInstructions';
 import FpsDisplay, { PerformanceAlert } from './components/ui/FpsDisplay';
 
+// ADDED: Debug component
+import PerformanceDebugPanel from './components/ui/PerformanceDebugPanel';
+
 // Configuration and utilities (unchanged)
 import * as defaultConfig from './crystalConfig';
 import { useDeviceProfile } from './hooks/useDeviceProfile';
 import { useInitialPerformanceTest } from './hooks/useInitialPerformanceTest';
+
+// ENHANCED: Bypass performance test for high-end devices
+const BYPASS_PERFORMANCE_TEST_FOR_HIGH_END = true; // Set to true to skip testing on high-end devices
 
 // Convert UI config into animation config used by the controller
 const buildAnimationConfig = (uiConfig) => {
@@ -134,18 +140,22 @@ function App() {
   });
   const [isAppReady, setIsAppReady] = useState(false);
   const [initialProfileApplied, setInitialProfileApplied] = useState(false);
-  const [hasInitialized, setHasInitialized] = useState(false);
 
-  // Device profile hook - always called
+  // ENHANCED: Add bypass state for performance test
+  const [bypassedPerformanceConfig, setBypassedPerformanceConfig] = useState(null);
+
+  // FIXED: Device profile hook with debug logging and proper initialization tracking
   const {
     performanceProfile: devicePerformanceProfile,
     deviceProfile,
     getOptimalCanvasProps,
     getOptimalEnvironmentProps,
     updateExternalPerformanceConfig,
+    markAsInitialized,
+    hasInitialized,
     isDetecting
   } = useDeviceProfile({
-    enableDebugLogging: false,
+    enableDebugLogging: true, // ENABLE DEBUG LOGGING
     enableOrientationLock: false
   });
 
@@ -163,7 +173,7 @@ function App() {
     retry
   } = useAssetLoader(devicePerformanceProfile, deviceProfile);
 
-  // Initial performance test hook - always called
+  // ENHANCED: Initial performance test with bypass option for high-end devices
   const {
     performanceConfig: initialPerformanceConfig,
     isTesting: isPerfTesting,
@@ -243,10 +253,25 @@ function App() {
     }
   }, []);
   
+  // FIXED: Handle manual performance config updates (from Performance Controls UI)
   const handlePerformanceConfigUpdate = useCallback((newConfig) => {
     console.log("🔧 Manual performance config update:", newConfig);
+    
+    // Update local state
     setPerformanceConfig(newConfig);
-  }, []);
+    
+    // ONLY send to device profile if properly initialized
+    if (hasInitialized && initialProfileApplied && updateExternalPerformanceConfig) {
+      console.log("📤 Sending manual config to device profile");
+      updateExternalPerformanceConfig(newConfig);
+    } else {
+      console.log("🚫 Not ready for external config updates yet", {
+        hasInitialized,
+        initialProfileApplied,
+        hasUpdateFunction: !!updateExternalPerformanceConfig
+      });
+    }
+  }, [hasInitialized, initialProfileApplied, updateExternalPerformanceConfig]);
 
   const toggleUI = useCallback(() => {
     setShowUI(!showUI);
@@ -256,45 +281,82 @@ function App() {
   // EFFECTS - always called in same order
   // ========================================
 
-  // Start performance test when device profile is available
+  // ENHANCED: Bypass performance test for high-end devices if desired
   useEffect(() => {
-    if (deviceProfile && !initialPerformanceConfig && !isPerfTesting) {
-      startPerfTest();
+    if (deviceProfile && !initialPerformanceConfig && !isPerfTesting && !bypassedPerformanceConfig) {
+      // Check if we should bypass the performance test
+      const shouldBypass = BYPASS_PERFORMANCE_TEST_FOR_HIGH_END && 
+                          deviceProfile.performanceTier === 'high' && 
+                          !deviceProfile.isMobile;
+      
+      if (shouldBypass) {
+        console.log('🚀 Bypassing performance test for high-end device');
+        console.log('📱 Device profile:', {
+          category: deviceProfile.category,
+          tier: deviceProfile.performanceTier,
+          isMobile: deviceProfile.isMobile
+        });
+        
+        // Use device profile directly without testing
+        const directConfig = devicePerformanceProfile;
+        console.log('🎯 Using direct device profile config:', {
+          usePBR: directConfig.usePBR,
+          useNormalMaps: directConfig.useNormalMaps,
+          textureQuality: directConfig.textureQuality,
+          renderScale: directConfig.renderScale
+        });
+        
+        setBypassedPerformanceConfig(directConfig);
+        setPerformanceConfig(directConfig);
+      } else {
+        // Run performance test as normal
+        console.log('🔬 Running performance test for device:', deviceProfile.performanceTier);
+        startPerfTest();
+      }
     }
-  }, [deviceProfile, initialPerformanceConfig, isPerfTesting, startPerfTest]);
+  }, [deviceProfile, initialPerformanceConfig, isPerfTesting, bypassedPerformanceConfig, 
+      devicePerformanceProfile, startPerfTest]);
 
-  // Apply initial performance config
+  // FIXED: Apply initial performance config and mark as initialized
   useEffect(() => {
-    if (initialPerformanceConfig) {
-      setPerformanceConfig(initialPerformanceConfig);
-    }
-  }, [initialPerformanceConfig]);
-
-  // Mark initialization when performance config is applied
-  useEffect(() => {
-    if (initialPerformanceConfig && !initialProfileApplied) {
+    const effectivePerformanceConfig = bypassedPerformanceConfig || initialPerformanceConfig;
+    
+    if (effectivePerformanceConfig && !initialProfileApplied) {
+      console.log('🎯 Applying performance config:', {
+        source: bypassedPerformanceConfig ? 'Device Profile (bypassed test)' : 'Performance Test',
+        usePBR: effectivePerformanceConfig.usePBR,
+        useNormalMaps: effectivePerformanceConfig.useNormalMaps,
+        textureQuality: effectivePerformanceConfig.textureQuality,
+        renderScale: effectivePerformanceConfig.renderScale
+      });
+      
+      setPerformanceConfig(effectivePerformanceConfig);
       setInitialProfileApplied(true);
+      
+      // IMPORTANT: Mark device profile as initialized AFTER we set the performance config
+      if (markAsInitialized) {
+        markAsInitialized();
+      }
     }
-  }, [initialPerformanceConfig, initialProfileApplied]);
+  }, [initialPerformanceConfig, bypassedPerformanceConfig, initialProfileApplied, markAsInitialized]);
 
-  // Handle external performance config updates
+  // FIXED: Only allow external updates after proper initialization
   useEffect(() => {
-    if (updateExternalPerformanceConfig && hasInitialized && initialProfileApplied) {
-      updateExternalPerformanceConfig(performanceConfig);
-    } else if (initialPerformanceConfig && !hasInitialized) {
-      setHasInitialized(true);
+    if (hasInitialized && initialProfileApplied && updateExternalPerformanceConfig) {
+      console.log('🔧 Ready for external performance config updates');
     }
-  }, [performanceConfig, updateExternalPerformanceConfig, hasInitialized, initialPerformanceConfig, initialProfileApplied]);
+  }, [hasInitialized, initialProfileApplied, updateExternalPerformanceConfig]);
 
-  // Check if app is ready to show
+  // ENHANCED: Check if app is ready to show (with bypass support)
   useEffect(() => {
-    const shouldBeReady = !isDetecting && isReady && devicePerformanceProfile && initialPerformanceConfig;
+    const effectivePerformanceConfig = bypassedPerformanceConfig || initialPerformanceConfig;
+    const shouldBeReady = !isDetecting && isReady && devicePerformanceProfile && effectivePerformanceConfig;
     
     if (shouldBeReady && !isAppReady) {
       console.log('🎯 App is ready to show');
       setIsAppReady(true);
     }
-  }, [isDetecting, isReady, devicePerformanceProfile, initialPerformanceConfig, isAppReady]);
+  }, [isDetecting, isReady, devicePerformanceProfile, initialPerformanceConfig, bypassedPerformanceConfig, isAppReady]);
 
   // UI Hide Toggle Keyboard Listener
   useEffect(() => {
@@ -559,6 +621,18 @@ function App() {
       
       {!hideAllUI && (
         <AccessibilityInstructions visible={true} />
+      )}
+
+      {/* ENHANCED: Debug Panel for Development with bypass support */}
+      {process.env.NODE_ENV === 'development' && (
+        <PerformanceDebugPanel
+          deviceProfile={deviceProfile}
+          performanceConfig={performanceConfig}
+          devicePerformanceProfile={devicePerformanceProfile}
+          initialPerformanceConfig={bypassedPerformanceConfig || initialPerformanceConfig}
+          hasInitialized={hasInitialized}
+          initialProfileApplied={initialProfileApplied}
+        />
       )}
     </>
   );
