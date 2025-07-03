@@ -6,11 +6,12 @@ import * as THREE from 'three';
  * Component to create and apply the base crystal material
  * Updated for Three.js compatibility with fixed normal map toggling
  */
-const CrystalMaterial = ({ 
-  config, 
-  materialRef, 
+const CrystalMaterial = ({
+  config,
+  materialRef,
   variant = 'default',
-  performanceConfig = {}
+  performanceConfig = {},
+  onMaterialReady = null
 }) => {
   // Set default performance settings if not provided
   const {
@@ -82,9 +83,10 @@ const CrystalMaterial = ({
       
       // Create the material
       const material = new THREE.MeshPhysicalMaterial(baseConfig);
-      
+
       // Store the material
       materialRef.current = material;
+      if (onMaterialReady) onMaterialReady(material);
       
       // We'll load the normal map in a separate effect
     };
@@ -207,11 +209,13 @@ const CrystalMaterial = ({
     // If material already exists, just update it
     if (materialRef.current) {
       updateMaterial();
+      if (onMaterialReady) onMaterialReady(materialRef.current);
       return;
     }
     
     // Otherwise create new material
     createMaterial();
+    if (onMaterialReady) onMaterialReady(materialRef.current);
     
   }, [config.materials.crystal, variant, materialRef, usePBR, useNormalMaps]);
   

@@ -9,11 +9,12 @@ import * as THREE from 'three';
  * Component to manage and apply the correct material based on selected variant
  * UPDATED: Now respects performance profile settings and creates appropriate materials
  */
-const MaterialManager = ({ 
+const MaterialManager = ({
   materialVariant,
   config,
   materialRef,
-  performanceConfig = {}
+  performanceConfig = {},
+  onMaterialReady = null
 }) => {
   // Create separate refs for each material type to prevent sharing
   const crystalMaterialRef = useRef();
@@ -84,6 +85,7 @@ const MaterialManager = ({
       const basicMaterial = new THREE.MeshLambertMaterial(materialProps);
       basicMaterialRef.current = basicMaterial;
       console.log('✅ Basic material created for low-performance device:', materialVariant);
+      if (onMaterialReady) onMaterialReady(basicMaterial);
     }
   }, [usePBR, config.materials.crystal.color, config.materials.crystal.emissive, materialVariant]);
 
@@ -153,6 +155,8 @@ const MaterialManager = ({
       materialRef.current = crystalMaterialRef.current;
       console.log('✅ Using PBR crystal material:', materialVariant);
     }
+
+    if (onMaterialReady) onMaterialReady(materialRef.current);
   }, [materialVariant, materialRef, usePBR]);
   
   // Only render PBR material component if PBR is enabled
@@ -166,11 +170,12 @@ const MaterialManager = ({
     <CrystalMaterial 
       config={config} 
       materialRef={crystalMaterialRef} 
-      variant={materialVariant === 'default' || 
-               materialVariant === 'glass' || 
-               materialVariant === 'gem' || 
+      variant={materialVariant === 'default' ||
+               materialVariant === 'glass' ||
+               materialVariant === 'gem' ||
                materialVariant === 'holographic' ? materialVariant : 'default'}
       performanceConfig={performanceConfig}
+      onMaterialReady={onMaterialReady}
     />
   );
 };
