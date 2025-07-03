@@ -97,23 +97,23 @@ function App() {
 
   const { progress } = useProgress();
 
+  // Device profile for performance optimization (unchanged)
+  const {
+    performanceProfile: devicePerformanceProfile,
+    deviceProfile,
+    getOptimalCanvasProps,
+    getOptimalEnvironmentProps,
+    updateExternalPerformanceConfig,
+    isDetecting
+  } = useDeviceProfile({
+    enableDebugLogging: false,
+    enableOrientationLock: false
+  });
+
   // Preload assets immediately based on detected performance profile
   useEffect(() => {
     preloadAssets(devicePerformanceProfile?.hdriQuality || 'low');
   }, [devicePerformanceProfile]);
-
-  // Device profile for performance optimization (unchanged)
-  const { 
-    performanceProfile: devicePerformanceProfile, 
-    deviceProfile, 
-    getOptimalCanvasProps,
-    getOptimalEnvironmentProps,
-    updateExternalPerformanceConfig,
-    isDetecting 
-  } = useDeviceProfile({ 
-    enableDebugLogging: false,
-    enableOrientationLock: false
-  });
 
   // UI Hide Toggle State
   const [hideAllUI, setHideAllUI] = useState(false);
