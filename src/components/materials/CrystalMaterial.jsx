@@ -1,4 +1,4 @@
-// CrystalMaterial.jsx - ENHANCED: Better PBR and Non-PBR material compatibility
+// CrystalMaterial.jsx - FIXED: Better PBR and Non-PBR material compatibility with proper depth settings
 // Creates materials that look great whether PBR is enabled or disabled
 
 import React, { useEffect } from 'react';
@@ -22,7 +22,7 @@ const CrystalMaterial = ({
     usePBR = true
   } = performanceConfig;
   
-  // ENHANCED: Create material with better non-PBR compatibility
+  // ENHANCED: Create material with better non-PBR compatibility and proper depth settings
   useEffect(() => {
     const createMaterial = () => {
       const baseConfig = { ...config.materials.crystal };
@@ -105,7 +105,7 @@ const CrystalMaterial = ({
           break;
       }
       
-      // ENHANCED: Create material with additional properties for better compatibility
+      // ENHANCED: Create material with additional properties for better compatibility and FIXED depth settings
       const materialProps = {
         ...baseConfig,
         
@@ -113,8 +113,10 @@ const CrystalMaterial = ({
         transparent: true,
         side: THREE.DoubleSide,
         fog: true,
-        depthWrite: false,
-        depthTest: true,
+        
+        // FIXED: Proper depth settings so crystal facets block the sphere
+        depthWrite: true,    // CHANGED: Enable depth writing so facets are properly occluded
+        depthTest: true,     // Keep depth testing
         
         // ENHANCED: Additional properties for better visual quality
         flatShading: false, // Smooth shading for crystal
@@ -142,7 +144,8 @@ const CrystalMaterial = ({
         transmission: material.transmission,
         clearcoat: material.clearcoat,
         iridescence: material.iridescence,
-        envMapIntensity: material.envMapIntensity
+        envMapIntensity: material.envMapIntensity,
+        depthWrite: material.depthWrite // Log the fixed depth setting
       });
     };
     

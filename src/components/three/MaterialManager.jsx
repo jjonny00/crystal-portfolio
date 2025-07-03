@@ -1,4 +1,4 @@
-// MaterialManager.jsx - ENHANCED: Advanced non-PBR materials that closely mimic PBR
+// MaterialManager.jsx - FIXED: Proper depth settings for crystal materials
 // Uses MeshPhysicalMaterial with PBR features disabled but enhanced visual effects
 
 import React, { useRef, useEffect } from 'react';
@@ -19,7 +19,7 @@ const MaterialManager = ({
   
   console.log('🎨 MaterialManager: PBR enabled?', usePBR, 'Performance config:', performanceConfig);
 
-  // ENHANCED: Create advanced non-PBR material that mimics PBR appearance
+  // FIXED: Create advanced non-PBR material with proper depth settings
   useEffect(() => {
     if (!usePBR && !enhancedBasicMaterialRef.current) {
       console.log('🔄 Creating enhanced non-PBR material with advanced features');
@@ -30,8 +30,10 @@ const MaterialManager = ({
         transparent: true,
         side: THREE.DoubleSide,
         fog: true,
-        depthWrite: false,
-        depthTest: true,
+        
+        // FIXED: Proper depth settings for crystal materials
+        depthWrite: true,      // CHANGED: Enable depth writing so facets block sphere
+        depthTest: true,       // Keep depth testing
         
         // ENHANCED: Add environment mapping for reflections (key for crystal look)
         envMapIntensity: 1.2,  // Strong reflections
@@ -152,7 +154,7 @@ const MaterialManager = ({
     }
   }, [usePBR, config.materials.crystal.color, config.materials.crystal.emissive, config.materials.crystal.attenuationColor, materialVariant]);
 
-  // ENHANCED: Update material when variant changes with smooth transitions
+  // Update material when variant changes with smooth transitions
   useEffect(() => {
     if (!usePBR && enhancedBasicMaterialRef.current) {
       console.log('🔄 Updating enhanced non-PBR material for variant:', materialVariant);
@@ -237,7 +239,7 @@ const MaterialManager = ({
     }
   }, [materialVariant, usePBR, config.materials.crystal]);
 
-  // ENHANCED: Add normal map support even for non-PBR materials
+  // Add normal map support even for non-PBR materials
   useEffect(() => {
     if (!usePBR && enhancedBasicMaterialRef.current && performanceConfig.useNormalMaps && config.assets.textures.normalMap) {
       console.log('🔧 Adding normal map to enhanced non-PBR material');
