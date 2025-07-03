@@ -6,10 +6,11 @@ const LoadingScreen = ({
   text = 'Loading...',
   progress = null,
 }) => {
-  const displayText =
-    progress !== null && progress !== undefined
-      ? `${text} ${Math.floor(progress)}%`
-      : text;
+  const showProgress =
+    progress !== null && progress !== undefined && !Number.isNaN(progress);
+  const displayText = showProgress
+    ? `${text} ${Math.floor(progress)}%`
+    : text;
 
   return (
     <div

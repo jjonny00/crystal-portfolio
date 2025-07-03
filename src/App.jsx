@@ -324,11 +324,17 @@ function App() {
   const canvasProps = getOptimalCanvasProps();
   const environmentProps = getOptimalEnvironmentProps();
 
-  const showLoading = !isReady || progress < 100;
+  const showLoading = !isReady;
+  const loadingText = progress < 100 ? 'Loading...' : 'Preparing scene...';
 
   return (
     <>
-      {showLoading && <LoadingScreen progress={progress} />}
+      {showLoading && (
+        <LoadingScreen
+          progress={progress < 100 ? progress : null}
+          text={loadingText}
+        />
+      )}
       {/* UI Hide Toggle Button - Always Visible */}
       <button
         onClick={() => setHideAllUI(!hideAllUI)}
