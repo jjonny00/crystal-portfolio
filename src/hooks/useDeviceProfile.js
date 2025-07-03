@@ -32,6 +32,8 @@ export const useDeviceProfile = (options = {}) => {
   // Detection function
   const detectDeviceProfile = useCallback(async () => {
     setIsDetecting(true);
+    console.log('🔍 Starting device detection...');
+    const startTime = performance.now();
     
     try {
       // Detect device capabilities
@@ -50,6 +52,9 @@ export const useDeviceProfile = (options = {}) => {
       setDeviceProfile(device);
       setPerformanceProfile(performance);
       setUIProfile(ui);
+
+      const duration = Math.round(performance.now() - startTime);
+      console.log(`✅ Device detection complete in ${duration}ms`, device);
       
       // Debug logging - only log when profile actually changes
       if (enableDebugLogging) {
@@ -77,6 +82,7 @@ export const useDeviceProfile = (options = {}) => {
       setUIProfile(getUIProfile(fallbackDevice));
     } finally {
       setIsDetecting(false);
+      console.log('📱 Device detection finished');
     }
   }, [enableDebugLogging, enableOrientationLock]);
   
