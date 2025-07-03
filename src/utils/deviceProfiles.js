@@ -288,19 +288,14 @@ export const uiProfiles = {
     // 3D Viewport  
     viewportPadding: 20,
     showFpsCounter: true
-  },
-  
-  'desktop-xl': {
-    // Inherit desktop settings
-    ...this?.desktop || {},
-    
-    // Extra space utilization
-    maxVisiblePanels: 6,
-    viewportPadding: 40,
-    
-    // Enhanced layout
-    useWideLayout: true
   }
+};
+
+uiProfiles['desktop-xl'] = {
+  ...uiProfiles.desktop,
+  maxVisiblePanels: 6,
+  viewportPadding: 40,
+  useWideLayout: true
 };
 
 /**
