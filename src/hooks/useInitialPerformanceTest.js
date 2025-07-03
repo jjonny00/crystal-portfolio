@@ -19,6 +19,7 @@ export const useInitialPerformanceTest = (
   const startRef = useRef(null);
 
   const startTest = useCallback(() => {
+    console.log('🚀 Starting initial performance test...');
     startRef.current = performance.now();
     setTesting(true);
     setPerformanceConfig(null);
@@ -26,6 +27,9 @@ export const useInitialPerformanceTest = (
 
   useEffect(() => {
     if (!deviceProfile || !testing) return;
+    if (startRef.current === null) {
+      console.log('🕒 Sampling FPS for performance test');
+    }
 
     if (startRef.current === null) {
       startRef.current = performance.now();
@@ -40,6 +44,7 @@ export const useInitialPerformanceTest = (
         ...deviceProfile,
         performanceTier: finalTier,
       });
+      console.log('✅ Performance test complete:', { avgFps, finalTier });
       setPerformanceConfig(finalConfig);
       setTesting(false);
       if (onComplete) onComplete(finalConfig);
@@ -48,6 +53,7 @@ export const useInitialPerformanceTest = (
 
   useEffect(() => {
     if (deviceProfile && autoStart && startRef.current === null) {
+      console.log('📊 Auto-starting performance test');
       startTest();
     }
   }, [deviceProfile, autoStart, startTest]);

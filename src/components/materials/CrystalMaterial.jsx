@@ -86,7 +86,10 @@ const CrystalMaterial = ({
 
       // Store the material
       materialRef.current = material;
-      if (onMaterialReady) onMaterialReady(material);
+      if (onMaterialReady) {
+        console.log('📦 Crystal material created');
+        onMaterialReady(material);
+      }
       
       // We'll load the normal map in a separate effect
     };
@@ -209,13 +212,19 @@ const CrystalMaterial = ({
     // If material already exists, just update it
     if (materialRef.current) {
       updateMaterial();
-      if (onMaterialReady) onMaterialReady(materialRef.current);
+      if (onMaterialReady) {
+        console.log('🔄 Crystal material updated');
+        onMaterialReady(materialRef.current);
+      }
       return;
     }
     
     // Otherwise create new material
     createMaterial();
-    if (onMaterialReady) onMaterialReady(materialRef.current);
+    if (onMaterialReady) {
+      console.log('📦 Crystal material initialized');
+      onMaterialReady(materialRef.current);
+    }
     
   }, [config.materials.crystal, variant, materialRef, usePBR, useNormalMaps]);
   

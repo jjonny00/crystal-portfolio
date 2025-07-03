@@ -105,6 +105,7 @@ export const useAssetLoader = (performanceProfile, deviceProfile) => {
     return new Promise((resolve, reject) => {
       try {
         // Create a loading manager to track progress
+        console.log(`🔄 Loading asset ${name} from ${url}`);
         const startTime = Date.now();
         updateAssetProgress(assetKey, 0, `Loading ${name}...`);
 
@@ -220,6 +221,7 @@ export const useAssetLoader = (performanceProfile, deviceProfile) => {
 
     hasStartedLoading.current = true;
     console.log('🎯 Starting asset loading process...');
+    const startTime = Date.now();
 
     // Initialize abort controller
     abortControllerRef.current = new AbortController();
@@ -259,6 +261,7 @@ export const useAssetLoader = (performanceProfile, deviceProfile) => {
       const errors = await loadAllAssets(requiredAssets);
 
       // Finish loading
+      const loadTime = Date.now() - startTime;
       if (errors.length > 0) {
         console.warn('⚠️ Some assets failed to load:', errors);
         setLoadingState(prev => ({
@@ -277,6 +280,8 @@ export const useAssetLoader = (performanceProfile, deviceProfile) => {
           currentAsset: 'All assets loaded'
         }));
       }
+
+      console.log(`🕑 Asset loading completed in ${loadTime}ms`);
 
     } catch (error) {
       console.error('❌ Asset loading failed:', error);
@@ -305,6 +310,7 @@ export const useAssetLoader = (performanceProfile, deviceProfile) => {
   useEffect(() => {
     return () => {
       if (abortControllerRef.current) {
+        console.log('🛑 Aborting asset loading');
         abortControllerRef.current.abort();
       }
     };
@@ -314,6 +320,7 @@ export const useAssetLoader = (performanceProfile, deviceProfile) => {
    * Reset function to retry loading
    */
   const retry = useCallback(() => {
+    console.log('🔁 Retrying asset loading');
     hasStartedLoading.current = false;
     progressRef.current.clear();
     setLoadingState({

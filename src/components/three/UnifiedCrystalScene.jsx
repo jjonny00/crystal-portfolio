@@ -45,6 +45,9 @@ const UnifiedCrystalScene = forwardRef(({
 
   const handleMaterialReady = useCallback(() => {
     setMaterialVersion(v => v + 1);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔧 Material ready, reapplying to models');
+    }
   }, []);
 
   
@@ -186,7 +189,11 @@ const UnifiedCrystalScene = forwardRef(({
     
     applyMaterial(wholeCrystal.scene);
     facetModels.forEach(model => applyMaterial(model.scene));
-    
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🎨 Material applied to models');
+    }
+
   }, [wholeCrystal, facetModels, materialVersion]);
 
   // Debug anchor positions when facets are loaded

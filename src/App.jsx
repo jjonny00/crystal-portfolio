@@ -259,6 +259,7 @@ function App() {
   // Start performance test when device profile is available
   useEffect(() => {
     if (deviceProfile && !initialPerformanceConfig && !isPerfTesting) {
+      console.log('📊 Device profile ready, starting performance test');
       startPerfTest();
     }
   }, [deviceProfile, initialPerformanceConfig, isPerfTesting, startPerfTest]);
@@ -266,6 +267,7 @@ function App() {
   // Apply initial performance config
   useEffect(() => {
     if (initialPerformanceConfig) {
+      console.log('✅ Initial performance config ready');
       setPerformanceConfig(initialPerformanceConfig);
     }
   }, [initialPerformanceConfig]);
@@ -273,6 +275,7 @@ function App() {
   // Mark initialization when performance config is applied
   useEffect(() => {
     if (initialPerformanceConfig && !initialProfileApplied) {
+      console.log('🎮 Initial performance profile applied');
       setInitialProfileApplied(true);
     }
   }, [initialPerformanceConfig, initialProfileApplied]);
@@ -280,6 +283,7 @@ function App() {
   // Handle external performance config updates
   useEffect(() => {
     if (updateExternalPerformanceConfig && hasInitialized && initialProfileApplied) {
+      console.log('📤 Syncing performance config externally');
       updateExternalPerformanceConfig(performanceConfig);
     } else if (initialPerformanceConfig && !hasInitialized) {
       setHasInitialized(true);

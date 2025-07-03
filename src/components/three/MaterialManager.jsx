@@ -156,7 +156,10 @@ const MaterialManager = ({
       console.log('✅ Using PBR crystal material:', materialVariant);
     }
 
-    if (onMaterialReady) onMaterialReady(materialRef.current);
+    if (onMaterialReady) {
+      console.log('📦 Material ready callback', materialRef.current?.type);
+      onMaterialReady(materialRef.current);
+    }
   }, [materialVariant, materialRef, usePBR]);
   
   // Only render PBR material component if PBR is enabled
