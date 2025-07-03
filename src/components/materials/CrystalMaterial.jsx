@@ -24,7 +24,7 @@ const CrystalMaterial = ({
     // Create functions INSIDE useEffect to avoid reference errors
     const createMaterial = () => {
       const baseConfig = { ...config.materials.crystal };
-      
+
       // Apply variant-specific overrides
       switch(variant) {
         case 'glass':
@@ -81,7 +81,16 @@ const CrystalMaterial = ({
       }
       
       // Create the material
-      const material = new THREE.MeshPhysicalMaterial(baseConfig);
+      const material = usePBR
+        ? new THREE.MeshPhysicalMaterial(baseConfig)
+        : new THREE.MeshStandardMaterial({
+            color: baseConfig.color,
+            transparent: baseConfig.transparent,
+            roughness: baseConfig.roughness,
+            metalness: baseConfig.metalness,
+            emissive: baseConfig.emissive,
+            emissiveIntensity: baseConfig.emissiveIntensity
+          });
       
       // Store the material
       materialRef.current = material;
@@ -128,8 +137,10 @@ const CrystalMaterial = ({
           return;
         }
         
-        // Assign the rest
-        materialRef.current[key] = value;
+        // Assign the rest if supported by the material
+        if (key in materialRef.current) {
+          materialRef.current[key] = value;
+        }
       });
       
       // Set color properties
@@ -148,57 +159,67 @@ const CrystalMaterial = ({
       switch(variant) {
         case 'glass':
           materialRef.current.color.set('#ffffff');
-          materialRef.current.transmission = 0.95;
-          materialRef.current.ior = 1.5;
-          materialRef.current.metalness = 0.0;
-          materialRef.current.roughness = 0.05;
-          materialRef.current.attenuationColor.set('#ffffff');
-          materialRef.current.attenuationDistance = 0.5;
-          materialRef.current.clearcoat = 1.0;
-          materialRef.current.clearcoatRoughness = 0.02;
-          materialRef.current.iridescence = 0.1;
-          materialRef.current.iridescenceIOR = 1.5;
+          if ('transmission' in materialRef.current) materialRef.current.transmission = 0.95;
+          if ('ior' in materialRef.current) materialRef.current.ior = 1.5;
+          if ('metalness' in materialRef.current) materialRef.current.metalness = 0.0;
+          if ('roughness' in materialRef.current) materialRef.current.roughness = 0.05;
+          if ('attenuationColor' in materialRef.current) materialRef.current.attenuationColor.set('#ffffff');
+          if ('attenuationDistance' in materialRef.current) materialRef.current.attenuationDistance = 0.5;
+          if ('clearcoat' in materialRef.current) materialRef.current.clearcoat = 1.0;
+          if ('clearcoatRoughness' in materialRef.current) materialRef.current.clearcoatRoughness = 0.02;
+          if ('iridescence' in materialRef.current) materialRef.current.iridescence = 0.1;
+          if ('iridescenceIOR' in materialRef.current) materialRef.current.iridescenceIOR = 1.5;
           materialRef.current.emissive.set('#ffffff');
           break;
           
         case 'gem':
           materialRef.current.color.set('#7b4bbc');
-          materialRef.current.transmission = 0.7;
-          materialRef.current.ior = 2.5;
-          materialRef.current.metalness = 0.1;
-          materialRef.current.roughness = 0.05;
-          materialRef.current.attenuationColor.set('#7b4bbc');
-          materialRef.current.attenuationDistance = 0.2;
-          materialRef.current.clearcoat = 0.8;
-          materialRef.current.clearcoatRoughness = 0.01;
-          materialRef.current.iridescence = 0.5;
-          materialRef.current.iridescenceIOR = 1.2;
+          if ('transmission' in materialRef.current) materialRef.current.transmission = 0.7;
+          if ('ior' in materialRef.current) materialRef.current.ior = 2.5;
+          if ('metalness' in materialRef.current) materialRef.current.metalness = 0.1;
+          if ('roughness' in materialRef.current) materialRef.current.roughness = 0.05;
+          if ('attenuationColor' in materialRef.current) materialRef.current.attenuationColor.set('#7b4bbc');
+          if ('attenuationDistance' in materialRef.current) materialRef.current.attenuationDistance = 0.2;
+          if ('clearcoat' in materialRef.current) materialRef.current.clearcoat = 0.8;
+          if ('clearcoatRoughness' in materialRef.current) materialRef.current.clearcoatRoughness = 0.01;
+          if ('iridescence' in materialRef.current) materialRef.current.iridescence = 0.5;
+          if ('iridescenceIOR' in materialRef.current) materialRef.current.iridescenceIOR = 1.2;
           materialRef.current.emissive.set('#7b4bbc');
           break;
           
         case 'holographic':
           materialRef.current.color.set('#00ffff');
-          materialRef.current.transmission = 0.6;
-          materialRef.current.ior = 2.0;
-          materialRef.current.metalness = 0.3;
-          materialRef.current.roughness = 0.1;
-          materialRef.current.attenuationColor.set('#ff00ff');
-          materialRef.current.attenuationDistance = 0.1;
-          materialRef.current.clearcoat = 1.0;
-          materialRef.current.clearcoatRoughness = 0.0;
-          materialRef.current.iridescence = 1.0;
-          materialRef.current.iridescenceIOR = 2.0;
+          if ('transmission' in materialRef.current) materialRef.current.transmission = 0.6;
+          if ('ior' in materialRef.current) materialRef.current.ior = 2.0;
+          if ('metalness' in materialRef.current) materialRef.current.metalness = 0.3;
+          if ('roughness' in materialRef.current) materialRef.current.roughness = 0.1;
+          if ('attenuationColor' in materialRef.current) materialRef.current.attenuationColor.set('#ff00ff');
+          if ('attenuationDistance' in materialRef.current) materialRef.current.attenuationDistance = 0.1;
+          if ('clearcoat' in materialRef.current) materialRef.current.clearcoat = 1.0;
+          if ('clearcoatRoughness' in materialRef.current) materialRef.current.clearcoatRoughness = 0.0;
+          if ('iridescence' in materialRef.current) materialRef.current.iridescence = 1.0;
+          if ('iridescenceIOR' in materialRef.current) materialRef.current.iridescenceIOR = 2.0;
           materialRef.current.emissive.set('#00ffff');
           break;
           
         default:
           // Apply performance adjustments to default settings
           if (!usePBR) {
-            materialRef.current.transmission *= 0.7;
-            materialRef.current.ior = Math.min(materialRef.current.ior, 1.5);
-            materialRef.current.clearcoat = 0;
-            materialRef.current.iridescence = 0;
-            materialRef.current.attenuationDistance *= 0.5;
+            if ('transmission' in materialRef.current) {
+              materialRef.current.transmission *= 0.7;
+            }
+            if ('ior' in materialRef.current) {
+              materialRef.current.ior = Math.min(materialRef.current.ior, 1.5);
+            }
+            if ('clearcoat' in materialRef.current) {
+              materialRef.current.clearcoat = 0;
+            }
+            if ('iridescence' in materialRef.current) {
+              materialRef.current.iridescence = 0;
+            }
+            if ('attenuationDistance' in materialRef.current) {
+              materialRef.current.attenuationDistance *= 0.5;
+            }
           }
           break;
       }

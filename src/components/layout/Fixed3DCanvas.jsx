@@ -1,7 +1,7 @@
 // UPDATED: src/components/layout/Fixed3DCanvas.jsx
 // Fixed import and getFacetRefs function to properly access exposed refs
 
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, Suspense } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Environment, OrbitControls } from '@react-three/drei';
 import { EffectComposer, Bloom, ChromaticAberration, Noise, Vignette } from '@react-three/postprocessing';
@@ -180,14 +180,16 @@ const Fixed3DCanvas = ({
           />
           
           {/* UPDATED: Crystal Scene with ref for accessing debug state */}
-          <UnifiedCrystalScene
-            ref={crystalSceneRef} // NEW: Ref to access debug state and methods
-            animationData={animationData}
-            config={config}
-            materialVariant={materialVariant}
-            performanceConfig={performanceConfig}
-            isMobile={isMobile}
-          />
+          <Suspense fallback={null}>
+            <UnifiedCrystalScene
+              ref={crystalSceneRef} // NEW: Ref to access debug state and methods
+              animationData={animationData}
+              config={config}
+              materialVariant={materialVariant}
+              performanceConfig={performanceConfig}
+              isMobile={isMobile}
+            />
+          </Suspense>
           
           {/* Environment (unchanged) */}
           <Environment 
