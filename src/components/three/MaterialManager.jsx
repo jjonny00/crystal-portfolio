@@ -1,14 +1,10 @@
-// components/three/MaterialManager.jsx - UPDATED: Respects performance profiles
-// CRITICAL: Prevents PBR materials from loading when disabled by performance profile
+// MaterialManager.jsx - UPDATED: Add reflections to non-PBR materials
+// Option 1: Use MeshStandardMaterial instead of MeshLambertMaterial
 
 import React, { useRef, useEffect } from 'react';
 import CrystalMaterial from '../materials/CrystalMaterial';
 import * as THREE from 'three';
 
-/**
- * Component to manage and apply the correct material based on selected variant
- * UPDATED: Now respects performance profile settings and creates appropriate materials
- */
 const MaterialManager = ({
   materialVariant,
   config,
@@ -16,38 +12,44 @@ const MaterialManager = ({
   performanceConfig = {},
   onMaterialReady = null
 }) => {
-  // Create separate refs for each material type to prevent sharing
   const crystalMaterialRef = useRef();
   const basicMaterialRef = useRef();
   
-  // CRITICAL: Check if PBR is disabled by performance profile
-  const usePBR = performanceConfig.usePBR !== false; // Default to true if undefined
+  const usePBR = performanceConfig.usePBR !== false;
   
   console.log('🎨 MaterialManager: PBR enabled?', usePBR, 'Performance config:', performanceConfig);
 
-  // Create basic material for low-performance devices
+  // UPDATED: Create better basic material with reflections
   useEffect(() => {
     if (!usePBR && !basicMaterialRef.current) {
-      console.log('🚫 Creating basic material (PBR disabled by performance profile)');
+      console.log('🔄 Creating enhanced basic material (PBR disabled but with reflections)');
       
-      // Create variant-specific basic materials
+      // OPTION 1: Use MeshStandardMaterial (supports envMap but no transmission)
       let materialProps = {
         transparent: true,
         side: THREE.DoubleSide,
         fog: true,
         depthWrite: false,
-        depthTest: true
+        depthTest: true,
+        
+        // KEY: Add environment map support
+        envMapIntensity: 0.8,  // Adjust reflection strength
+        metalness: 0.1,        // Small amount for subtle reflections
+        roughness: 0.3,        // Control reflection sharpness
       };
 
-      // Apply variant-specific properties to basic material
+      // Apply variant-specific properties
       switch(materialVariant) {
         case 'glass':
           materialProps = {
             ...materialProps,
             color: new THREE.Color('#ffffff'),
-            opacity: 0.3,
+            opacity: 0.4,           // Increased opacity for better reflections
             emissive: new THREE.Color('#ffffff'),
-            emissiveIntensity: 0.05
+            emissiveIntensity: 0.02,
+            metalness: 0.0,         // Glass isn't metallic
+            roughness: 0.1,         // Very smooth for clear reflections
+            envMapIntensity: 1.2,   // Strong reflections for glass
           };
           break;
           
@@ -55,9 +57,12 @@ const MaterialManager = ({
           materialProps = {
             ...materialProps,
             color: new THREE.Color('#7b4bbc'),
-            opacity: 0.6,
+            opacity: 0.7,
             emissive: new THREE.Color('#7b4bbc'),
-            emissiveIntensity: 0.1
+            emissiveIntensity: 0.05,
+            metalness: 0.2,         // Slight metallic for gem-like reflections
+            roughness: 0.05,        // Very smooth for sharp reflections
+            envMapIntensity: 1.0,
           };
           break;
           
@@ -65,9 +70,12 @@ const MaterialManager = ({
           materialProps = {
             ...materialProps,
             color: new THREE.Color('#00ffff'),
-            opacity: 0.5,
+            opacity: 0.6,
             emissive: new THREE.Color('#00ffff'),
-            emissiveIntensity: 0.15
+            emissiveIntensity: 0.1,
+            metalness: 0.8,         // High metallic for holographic effect
+            roughness: 0.0,         // Mirror-like reflections
+            envMapIntensity: 1.5,   // Strong reflections
           };
           break;
           
@@ -77,22 +85,27 @@ const MaterialManager = ({
             color: config.materials.crystal.color,
             opacity: 0.8,
             emissive: new THREE.Color(config.materials.crystal.emissive).multiplyScalar(0.1),
-            emissiveIntensity: 0.2
+            emissiveIntensity: 0.2,
+            metalness: 0.1,
+            roughness: 0.2,
+            envMapIntensity: 0.8,
           };
           break;
       }
       
-      const basicMaterial = new THREE.MeshLambertMaterial(materialProps);
+      // UPDATED: Use MeshStandardMaterial instead of MeshLambertMaterial
+      const basicMaterial = new THREE.MeshStandardMaterial(materialProps);
       basicMaterialRef.current = basicMaterial;
-      console.log('✅ Basic material created for low-performance device:', materialVariant);
+      
+      console.log('✅ Enhanced basic material created with reflections:', materialVariant);
       if (onMaterialReady) onMaterialReady(basicMaterial);
     }
   }, [usePBR, config.materials.crystal.color, config.materials.crystal.emissive, materialVariant]);
 
-  // Update basic material when variant changes (for non-PBR mode)
+  // UPDATED: Update basic material when variant changes (now with reflection support)
   useEffect(() => {
     if (!usePBR && basicMaterialRef.current) {
-      console.log('🔄 Updating basic material for variant:', materialVariant);
+      console.log('🔄 Updating enhanced basic material for variant:', materialVariant);
       
       const material = basicMaterialRef.current;
       
@@ -100,23 +113,32 @@ const MaterialManager = ({
       switch(materialVariant) {
         case 'glass':
           material.color.set('#ffffff');
-          material.opacity = 0.3;
+          material.opacity = 0.4;
           material.emissive.set('#ffffff');
-          material.emissiveIntensity = 0.05;
+          material.emissiveIntensity = 0.02;
+          material.metalness = 0.0;
+          material.roughness = 0.1;
+          material.envMapIntensity = 1.2;
           break;
           
         case 'gem':
           material.color.set('#7b4bbc');
-          material.opacity = 0.6;
+          material.opacity = 0.7;
           material.emissive.set('#7b4bbc');
-          material.emissiveIntensity = 0.1;
+          material.emissiveIntensity = 0.05;
+          material.metalness = 0.2;
+          material.roughness = 0.05;
+          material.envMapIntensity = 1.0;
           break;
           
         case 'holographic':
           material.color.set('#00ffff');
-          material.opacity = 0.5;
+          material.opacity = 0.6;
           material.emissive.set('#00ffff');
-          material.emissiveIntensity = 0.15;
+          material.emissiveIntensity = 0.1;
+          material.metalness = 0.8;
+          material.roughness = 0.0;
+          material.envMapIntensity = 1.5;
           break;
           
         default:
@@ -124,6 +146,9 @@ const MaterialManager = ({
           material.opacity = 0.8;
           material.emissive.copy(new THREE.Color(config.materials.crystal.emissive).multiplyScalar(0.1));
           material.emissiveIntensity = 0.2;
+          material.metalness = 0.1;
+          material.roughness = 0.2;
+          material.envMapIntensity = 0.8;
           break;
       }
       
@@ -139,19 +164,14 @@ const MaterialManager = ({
       previousMaterial: materialRef.current?.type
     });
     
-    // Clear previous material if it exists
     if (materialRef.current) {
       console.log('🗑️ Disposing previous material:', materialRef.current.type);
-      // Don't dispose immediately - will be handled when component unmounts
     }
     
-    // Assign the appropriate material ref based on performance and variant
     if (!usePBR) {
-      // Use basic material for low-performance devices
       materialRef.current = basicMaterialRef.current;
-      console.log('✅ Using basic material (PBR disabled)');
+      console.log('✅ Using enhanced basic material with reflections (PBR disabled)');
     } else {
-      // Use PBR crystal material for high-performance devices
       materialRef.current = crystalMaterialRef.current;
       console.log('✅ Using PBR crystal material:', materialVariant);
     }
@@ -162,10 +182,9 @@ const MaterialManager = ({
   // Only render PBR material component if PBR is enabled
   if (!usePBR) {
     console.log('🚫 Skipping PBR material component (disabled by performance profile)');
-    return null; // Don't render the expensive PBR material component
+    return null;
   }
 
-  // Render PBR materials for high-performance devices
   return (
     <CrystalMaterial 
       config={config} 
