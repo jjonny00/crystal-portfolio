@@ -79,10 +79,6 @@ import AccessibilityInstructions from './components/ui/AccessibilityInstructions
 import FpsDisplay, { PerformanceAlert } from './components/ui/FpsDisplay';
 import LoadingScreen from './components/ui/LoadingScreen';
 import { useProgress } from '@react-three/drei';
-import { preloadAssets } from './utils/preloadAssets';
-
-// Preload 3D assets as soon as the module is evaluated
-preloadAssets();
 
 // Configuration and utilities (unchanged)
 import * as defaultConfig from './crystalConfig';
@@ -324,12 +320,12 @@ function App() {
   const canvasProps = getOptimalCanvasProps();
   const environmentProps = getOptimalEnvironmentProps();
 
-  const showLoading = !isReady;
+  const loading = progress < 100 || !isReady;
   const loadingText = progress < 100 ? 'Loading...' : 'Preparing scene...';
 
   return (
     <>
-      {showLoading && (
+      {loading && (
         <LoadingScreen
           progress={progress < 100 ? progress : null}
           text={loadingText}
@@ -387,25 +383,23 @@ function App() {
       )}
 
       {/* NEW: Master Animation Coordinator - Single source of truth for all animations */}
-      {isReady && (
-        <MasterAnimationCoordinator
-          debugMode={process.env.NODE_ENV === 'development'}
-          onAnimationStateChange={handleAnimationStateChange}
-          config={animationConfig}
-        >
-          {/* SIMPLIFIED: Fixed 3D Canvas now receives animationData from coordinator */}
-          <Fixed3DCanvas
-            materialVariant={materialVariant}
-            effectsEnabled={effectsEnabled}
-            postProcessingConfig={postProcessingConfig}
-            performanceConfig={performanceConfig}
-            config={config}
-            canvasProps={canvasProps}
-            environmentProps={environmentProps}
-            isMobile={isMobile}
-          />
-        </MasterAnimationCoordinator>
-      )}
+      <MasterAnimationCoordinator
+        debugMode={process.env.NODE_ENV === 'development'}
+        onAnimationStateChange={handleAnimationStateChange}
+        config={animationConfig}
+      >
+        {/* SIMPLIFIED: Fixed 3D Canvas now receives animationData from coordinator */}
+        <Fixed3DCanvas
+          materialVariant={materialVariant}
+          effectsEnabled={effectsEnabled}
+          postProcessingConfig={postProcessingConfig}
+          performanceConfig={performanceConfig}
+          config={config}
+          canvasProps={canvasProps}
+          environmentProps={environmentProps}
+          isMobile={isMobile}
+        />
+      </MasterAnimationCoordinator>
 
       {/* Scrollable Content - Keep for scrolling but hide content */}
       <ScrollablePortfolio 
