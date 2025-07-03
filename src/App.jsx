@@ -2,7 +2,7 @@
 // REMOVED: All complex scroll observers, crystal controllers, and camera controllers
 // ADDED: Single MasterAnimationCoordinator that handles everything
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import './App.css';
 import './styles/scroll-snap.css';
 
@@ -79,6 +79,7 @@ import AccessibilityInstructions from './components/ui/AccessibilityInstructions
 import FpsDisplay, { PerformanceAlert } from './components/ui/FpsDisplay';
 import LoadingScreen from './components/ui/LoadingScreen';
 import { useProgress } from '@react-three/drei';
+import { preloadAssets } from './utils/preloadAssets';
 
 // Configuration and utilities (unchanged)
 import * as defaultConfig from './crystalConfig';
@@ -95,6 +96,11 @@ function App() {
   const isMobile = isMobileDevice();
 
   const { progress } = useProgress();
+
+  // Preload assets immediately based on detected performance profile
+  useEffect(() => {
+    preloadAssets(devicePerformanceProfile?.hdriQuality || 'low');
+  }, [devicePerformanceProfile]);
 
   // Device profile for performance optimization (unchanged)
   const { 
