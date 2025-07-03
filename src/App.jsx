@@ -292,10 +292,7 @@ function App() {
     
     if (shouldBeReady && !isAppReady) {
       console.log('🎯 App is ready to show');
-      // Small delay to ensure everything is settled
-      setTimeout(() => {
-        setIsAppReady(true);
-      }, 200);
+      setIsAppReady(true);
     }
   }, [isDetecting, isReady, devicePerformanceProfile, initialPerformanceConfig, isAppReady]);
 

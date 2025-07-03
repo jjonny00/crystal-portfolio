@@ -1,6 +1,6 @@
 // ONLY CHANGE: Fixed facet refs exposure for anchor targeting
 
-import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle } from 'react'
+import React, { useRef, useState, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useGLTF, Html } from '@react-three/drei'
 import * as THREE from 'three'
@@ -36,9 +36,16 @@ const UnifiedCrystalScene = forwardRef(({
   const [showCrystalDebug, setShowCrystalDebug] = useState(false);
   
   const { clock } = useThree();
-  
+
   // Facet configuration
   const facetKeys = ['empathy', 'narrative', 'craft', 'system', 'leadership', 'exploration'];
+
+  // Track material updates so we can reapply when ready
+  const [materialVersion, setMaterialVersion] = useState(0);
+
+  const handleMaterialReady = useCallback(() => {
+    setMaterialVersion(v => v + 1);
+  }, []);
 
   
   useEffect(() => {
@@ -180,7 +187,7 @@ const UnifiedCrystalScene = forwardRef(({
     applyMaterial(wholeCrystal.scene);
     facetModels.forEach(model => applyMaterial(model.scene));
     
-  }, [wholeCrystal, facetModels, crystalMaterialRef.current]);
+  }, [wholeCrystal, facetModels, materialVersion]);
 
   // Debug anchor positions when facets are loaded
   useEffect(() => {
@@ -355,6 +362,7 @@ const UnifiedCrystalScene = forwardRef(({
         config={config}
         materialRef={crystalMaterialRef}
         performanceConfig={performanceConfig}
+        onMaterialReady={handleMaterialReady}
       />
 
       {/* Enhanced Glowing Sphere */}
