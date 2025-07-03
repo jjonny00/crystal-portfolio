@@ -220,6 +220,7 @@ export const useAssetLoader = (performanceProfile, deviceProfile) => {
 
     hasStartedLoading.current = true;
     console.log('🎯 Starting asset loading process...');
+    const loadStart = Date.now();
 
     // Initialize abort controller
     abortControllerRef.current = new AbortController();
@@ -259,8 +260,10 @@ export const useAssetLoader = (performanceProfile, deviceProfile) => {
       const errors = await loadAllAssets(requiredAssets);
 
       // Finish loading
+      const duration = Date.now() - loadStart;
       if (errors.length > 0) {
         console.warn('⚠️ Some assets failed to load:', errors);
+        console.log(`🏁 Asset loading completed in ${duration}ms with errors`);
         setLoadingState(prev => ({
           ...prev,
           errors,
@@ -269,7 +272,7 @@ export const useAssetLoader = (performanceProfile, deviceProfile) => {
           currentAsset: 'Ready with some errors'
         }));
       } else {
-        console.log('✅ All assets loaded successfully');
+        console.log(`✅ All assets loaded successfully in ${duration}ms`);
         setLoadingState(prev => ({
           ...prev,
           phase: 'ready',
@@ -279,7 +282,9 @@ export const useAssetLoader = (performanceProfile, deviceProfile) => {
       }
 
     } catch (error) {
+      const duration = Date.now() - loadStart;
       console.error('❌ Asset loading failed:', error);
+      console.log(`🏁 Asset loading aborted after ${duration}ms due to error`);
       setLoadingState(prev => ({
         ...prev,
         phase: 'error',
