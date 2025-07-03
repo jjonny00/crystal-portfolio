@@ -2,7 +2,7 @@
 // REMOVED: All complex scroll observers, crystal controllers, and camera controllers
 // ADDED: Single MasterAnimationCoordinator that handles everything
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import './App.css';
 import './styles/scroll-snap.css';
 
@@ -78,6 +78,8 @@ import PerformanceControls from './components/ui/PerformanceControls';
 import AccessibilityInstructions from './components/ui/AccessibilityInstructions';
 import FpsDisplay, { PerformanceAlert } from './components/ui/FpsDisplay';
 import LoadingScreen from './components/ui/LoadingScreen';
+import { useProgress } from '@react-three/drei';
+import { preloadAssets } from './utils/preloadAssets';
 
 // Configuration and utilities (unchanged)
 import * as defaultConfig from './crystalConfig';
@@ -92,6 +94,13 @@ const isMobileDevice = () => {
 
 function App() {
   const isMobile = isMobileDevice();
+
+  const { progress } = useProgress();
+
+  // Preload assets immediately based on detected performance profile
+  useEffect(() => {
+    preloadAssets(devicePerformanceProfile?.hdriQuality || 'low');
+  }, [devicePerformanceProfile]);
 
   // Device profile for performance optimization (unchanged)
   const { 
@@ -317,9 +326,17 @@ function App() {
   const canvasProps = getOptimalCanvasProps();
   const environmentProps = getOptimalEnvironmentProps();
 
+  const loading = progress < 100 || !isReady;
+  const loadingText = progress < 100 ? 'Loading...' : 'Preparing scene...';
+
   return (
     <>
-      {!isReady && <LoadingScreen />}
+      {loading && (
+        <LoadingScreen
+          progress={progress < 100 ? progress : null}
+          text={loadingText}
+        />
+      )}
       {/* UI Hide Toggle Button - Always Visible */}
       <button
         onClick={() => setHideAllUI(!hideAllUI)}
@@ -372,25 +389,23 @@ function App() {
       )}
 
       {/* NEW: Master Animation Coordinator - Single source of truth for all animations */}
-      {isReady && (
-        <MasterAnimationCoordinator
-          debugMode={process.env.NODE_ENV === 'development'}
-          onAnimationStateChange={handleAnimationStateChange}
-          config={animationConfig}
-        >
-          {/* SIMPLIFIED: Fixed 3D Canvas now receives animationData from coordinator */}
-          <Fixed3DCanvas
-            materialVariant={materialVariant}
-            effectsEnabled={effectsEnabled}
-            postProcessingConfig={postProcessingConfig}
-            performanceConfig={performanceConfig}
-            config={config}
-            canvasProps={canvasProps}
-            environmentProps={environmentProps}
-            isMobile={isMobile}
-          />
-        </MasterAnimationCoordinator>
-      )}
+      <MasterAnimationCoordinator
+        debugMode={process.env.NODE_ENV === 'development'}
+        onAnimationStateChange={handleAnimationStateChange}
+        config={animationConfig}
+      >
+        {/* SIMPLIFIED: Fixed 3D Canvas now receives animationData from coordinator */}
+        <Fixed3DCanvas
+          materialVariant={materialVariant}
+          effectsEnabled={effectsEnabled}
+          postProcessingConfig={postProcessingConfig}
+          performanceConfig={performanceConfig}
+          config={config}
+          canvasProps={canvasProps}
+          environmentProps={environmentProps}
+          isMobile={isMobile}
+        />
+      </MasterAnimationCoordinator>
 
       {/* Scrollable Content - Keep for scrolling but hide content */}
       <ScrollablePortfolio 

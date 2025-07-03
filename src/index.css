@@ -238,3 +238,19 @@ a:focus:not(:focus-visible) {
     display: none !important;
   }
 }
+
+/* Initial loading screen shown before React mounts */
+#initial-loading {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #050505;
+  color: #64ffda;
+  font-size: 1.2rem;
+  z-index: 100000;
+}

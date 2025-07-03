@@ -4,7 +4,14 @@ const LoadingScreen = ({
   style = {},
   className = '',
   text = 'Loading...',
+  progress = null,
 }) => {
+  const showProgress =
+    progress !== null && progress !== undefined && !Number.isNaN(progress);
+  const displayText = showProgress
+    ? `${text} ${Math.floor(progress)}%`
+    : text;
+
   return (
     <div
       className={className}
@@ -24,7 +31,7 @@ const LoadingScreen = ({
         ...style,
       }}
     >
-      {text}
+      {displayText}
     </div>
   );
 };
