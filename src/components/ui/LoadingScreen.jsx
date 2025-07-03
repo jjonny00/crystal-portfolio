@@ -4,7 +4,13 @@ const LoadingScreen = ({
   style = {},
   className = '',
   text = 'Loading...',
+  progress = null,
 }) => {
+  const displayText =
+    progress !== null && progress !== undefined
+      ? `${text} ${Math.floor(progress)}%`
+      : text;
+
   return (
     <div
       className={className}
@@ -24,7 +30,7 @@ const LoadingScreen = ({
         ...style,
       }}
     >
-      {text}
+      {displayText}
     </div>
   );
 };

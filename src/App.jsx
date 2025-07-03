@@ -78,6 +78,7 @@ import PerformanceControls from './components/ui/PerformanceControls';
 import AccessibilityInstructions from './components/ui/AccessibilityInstructions';
 import FpsDisplay, { PerformanceAlert } from './components/ui/FpsDisplay';
 import LoadingScreen from './components/ui/LoadingScreen';
+import { useProgress } from '@react-three/drei';
 
 // Configuration and utilities (unchanged)
 import * as defaultConfig from './crystalConfig';
@@ -92,6 +93,8 @@ const isMobileDevice = () => {
 
 function App() {
   const isMobile = isMobileDevice();
+
+  const { progress } = useProgress();
 
   // Device profile for performance optimization (unchanged)
   const { 
@@ -317,9 +320,11 @@ function App() {
   const canvasProps = getOptimalCanvasProps();
   const environmentProps = getOptimalEnvironmentProps();
 
+  const showLoading = !isReady || progress < 100;
+
   return (
     <>
-      {!isReady && <LoadingScreen />}
+      {showLoading && <LoadingScreen progress={progress} />}
       {/* UI Hide Toggle Button - Always Visible */}
       <button
         onClick={() => setHideAllUI(!hideAllUI)}
