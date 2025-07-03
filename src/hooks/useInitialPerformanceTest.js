@@ -20,9 +20,10 @@ export const useInitialPerformanceTest = (
 
   const startTest = useCallback(() => {
     startRef.current = performance.now();
+    console.log(`\uD83D\uDD01 Starting performance test (target ${duration}ms)...`);
     setTesting(true);
     setPerformanceConfig(null);
-  }, []);
+  }, [duration]);
 
   useEffect(() => {
     if (!deviceProfile || !testing) return;
@@ -32,6 +33,7 @@ export const useInitialPerformanceTest = (
     }
 
     if (performance.now() - startRef.current >= duration) {
+      const elapsed = performance.now() - startRef.current;
       const fpsTier = avgFps >= 50 ? 'high' : avgFps >= 30 ? 'medium' : 'low';
       const order = { low: 0, medium: 1, high: 2 };
       const baseTier = deviceProfile.performanceTier || 'medium';
@@ -43,6 +45,7 @@ export const useInitialPerformanceTest = (
       setPerformanceConfig(finalConfig);
       setTesting(false);
       if (onComplete) onComplete(finalConfig);
+      console.log(`\u2705 Performance test completed in ${Math.round(elapsed)}ms`);
     }
   }, [avgFps, deviceProfile, duration, testing, onComplete]);
 
