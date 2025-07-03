@@ -79,6 +79,10 @@ import AccessibilityInstructions from './components/ui/AccessibilityInstructions
 import FpsDisplay, { PerformanceAlert } from './components/ui/FpsDisplay';
 import LoadingScreen from './components/ui/LoadingScreen';
 import { useProgress } from '@react-three/drei';
+import { preloadAssets } from './utils/preloadAssets';
+
+// Preload 3D assets as soon as the module is evaluated
+preloadAssets();
 
 // Configuration and utilities (unchanged)
 import * as defaultConfig from './crystalConfig';
