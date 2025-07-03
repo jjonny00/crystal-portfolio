@@ -1,15 +1,40 @@
-// src/App.jsx - UPDATED: Phase 1 - Unified Animation System
+// src/App.jsx - UPDATED: Complete integration with enhanced loading system
 // REMOVED: All complex scroll observers, crystal controllers, and camera controllers
-// ADDED: Single MasterAnimationCoordinator that handles everything
+// ADDED: Enhanced asset loading with accurate progress tracking
 
 import React, { useState, useCallback, useEffect } from 'react';
 import './App.css';
 import './styles/scroll-snap.css';
 
-// NEW: Single animation coordinator replaces all the complex state management
+// NEW: Enhanced loading system
+import { useAssetLoader } from './hooks/useAssetLoader';
+import EnhancedLoadingScreen from './components/ui/EnhancedLoadingScreen';
+
+// UNIFIED: Single animation coordinator replaces all complex state management
 import MasterAnimationCoordinator from './components/three/MasterAnimationCoordinator';
 import { ANIMATION_CONFIG } from './hooks/useUnifiedAnimationController';
 import { Vector3 } from 'three';
+
+// Layout components (unchanged)
+import ScrollablePortfolio from './components/layout/ScrollablePortfolio';
+import Fixed3DCanvas from './components/layout/Fixed3DCanvas';
+
+// UI components (unchanged)
+import Navigation from './components/ui/Navigation';
+import FooterSection from './components/ui/FooterSection';
+import ControlsToggle from './components/ui/ControlsToggle';
+import TabbedControlPanel from './components/ui/TabbedControlPanel';
+import CrystalControls from './components/ui/CrystalControls';
+import MaterialSelector from './components/ui/MaterialSelector';
+import PostProcessingControls from './components/ui/PostProcessingControls';
+import PerformanceControls from './components/ui/PerformanceControls';
+import AccessibilityInstructions from './components/ui/AccessibilityInstructions';
+import FpsDisplay, { PerformanceAlert } from './components/ui/FpsDisplay';
+
+// Configuration and utilities (unchanged)
+import * as defaultConfig from './crystalConfig';
+import { useDeviceProfile } from './hooks/useDeviceProfile';
+import { useInitialPerformanceTest } from './hooks/useInitialPerformanceTest';
 
 // Convert UI config into animation config used by the controller
 const buildAnimationConfig = (uiConfig) => {
@@ -62,30 +87,6 @@ const buildAnimationConfig = (uiConfig) => {
   };
 };
 
-// Layout components (unchanged)
-import ScrollablePortfolio from './components/layout/ScrollablePortfolio';
-import Fixed3DCanvas from './components/layout/Fixed3DCanvas';
-
-// UI components (unchanged)
-import Navigation from './components/ui/Navigation';
-import FooterSection from './components/ui/FooterSection';
-import ControlsToggle from './components/ui/ControlsToggle';
-import TabbedControlPanel from './components/ui/TabbedControlPanel';
-import CrystalControls from './components/ui/CrystalControls';
-import MaterialSelector from './components/ui/MaterialSelector';
-import PostProcessingControls from './components/ui/PostProcessingControls';
-import PerformanceControls from './components/ui/PerformanceControls';
-import AccessibilityInstructions from './components/ui/AccessibilityInstructions';
-import FpsDisplay, { PerformanceAlert } from './components/ui/FpsDisplay';
-import LoadingScreen from './components/ui/LoadingScreen';
-import { useProgress } from '@react-three/drei';
-import { preloadAssets } from './utils/preloadAssets';
-
-// Configuration and utilities (unchanged)
-import * as defaultConfig from './crystalConfig';
-import { useDeviceProfile } from './hooks/useDeviceProfile';
-import { useInitialPerformanceTest } from './hooks/useInitialPerformanceTest';
-
 // Simple mobile detection (unchanged)
 const isMobileDevice = () => {
   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
@@ -94,8 +95,6 @@ const isMobileDevice = () => {
 
 function App() {
   const isMobile = isMobileDevice();
-
-  const { progress } = useProgress();
 
   // Device profile for performance optimization (unchanged)
   const {
@@ -110,10 +109,19 @@ function App() {
     enableOrientationLock: false
   });
 
-  // Preload assets immediately based on detected performance profile
-  useEffect(() => {
-    preloadAssets(devicePerformanceProfile?.hdriQuality || 'low');
-  }, [devicePerformanceProfile]);
+  // NEW: Enhanced asset loading with accurate progress tracking
+  const {
+    progress,
+    phase,
+    currentAsset,
+    loadedAssets,
+    totalAssets,
+    errors,
+    isLoading,
+    isReady,
+    hasErrors,
+    retry
+  } = useAssetLoader(devicePerformanceProfile, deviceProfile);
 
   // UI Hide Toggle State
   const [hideAllUI, setHideAllUI] = useState(false);
@@ -141,8 +149,6 @@ function App() {
   const [showUI, setShowUI] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
   
-  // Material configs removed
-  
   // Effects state (unchanged)
   const [effectsEnabled, setEffectsEnabled] = useState({
     bloom: true,
@@ -163,9 +169,8 @@ function App() {
     };
   });
 
-  // Ready state - becomes true after device profiling and initial performance
-  // test complete
-  const [isReady, setIsReady] = useState(false);
+  // Ready state - becomes true when assets are loaded AND device profiling complete
+  const [isAppReady, setIsAppReady] = useState(false);
 
   // Initial performance test based on FPS
   const {
@@ -200,13 +205,6 @@ function App() {
   }, [initialPerformanceConfig, initialProfileApplied]);
 
   const [hasInitialized, setHasInitialized] = useState(false);
-
-  // When device profiling and initial performance test complete, mark ready
-  React.useEffect(() => {
-    if (!isDetecting && !isPerfTesting && initialPerformanceConfig && !isReady) {
-      setIsReady(true);
-    }
-  }, [isDetecting, isPerfTesting, initialPerformanceConfig, isReady]);
   
   React.useEffect(() => {
     if (updateExternalPerformanceConfig && hasInitialized && initialProfileApplied) {
@@ -215,6 +213,38 @@ function App() {
       setHasInitialized(true);
     }
   }, [performanceConfig, updateExternalPerformanceConfig, hasInitialized, initialPerformanceConfig, initialProfileApplied]);
+
+  // NEW: Check if app is ready to show
+  useEffect(() => {
+    const shouldBeReady = !isDetecting && isReady && devicePerformanceProfile && initialPerformanceConfig;
+    
+    if (shouldBeReady && !isAppReady) {
+      console.log('🎯 App is ready to show');
+      // Small delay to ensure everything is settled
+      setTimeout(() => {
+        setIsAppReady(true);
+      }, 200);
+    }
+  }, [isDetecting, isReady, devicePerformanceProfile, initialPerformanceConfig, isAppReady]);
+
+  // NEW: Show enhanced loading screen while loading or device detection
+  if (!isAppReady) {
+    return (
+      <EnhancedLoadingScreen
+        progress={progress}
+        phase={isDetecting ? 'initializing' : (isPerfTesting ? 'initializing' : phase)}
+        currentAsset={
+          isDetecting ? 'Detecting device capabilities...' : 
+          isPerfTesting ? 'Testing performance...' : 
+          currentAsset
+        }
+        loadedAssets={loadedAssets}
+        totalAssets={totalAssets}
+        errors={errors}
+        onRetry={retry}
+      />
+    );
+  }
 
   // UI Hide Toggle Keyboard Listener
   React.useEffect(() => {
@@ -261,8 +291,6 @@ function App() {
 
   // Navigation handlers - SIMPLIFIED: Now use scroll zones instead of complex section targeting
   const handleWorkClick = useCallback(() => {
-    // Use the animation coordinator's scroll utilities
-    // This will be passed down via animationData
     console.log('Navigate to work section');
   }, []);
 
@@ -294,8 +322,6 @@ function App() {
     setMaterialVariant(variant);
   }, []);
   
-  // Removed: handlers for test materials
-  
   const handleToggleEffect = useCallback((effect, enabled, params = null) => {
     setEffectsEnabled(prev => ({
       ...prev,
@@ -326,17 +352,8 @@ function App() {
   const canvasProps = getOptimalCanvasProps();
   const environmentProps = getOptimalEnvironmentProps();
 
-  const loading = progress < 100 || !isReady;
-  const loadingText = progress < 100 ? 'Loading...' : 'Preparing scene...';
-
   return (
     <>
-      {loading && (
-        <LoadingScreen
-          progress={progress < 100 ? progress : null}
-          text={loadingText}
-        />
-      )}
       {/* UI Hide Toggle Button - Always Visible */}
       <button
         onClick={() => setHideAllUI(!hideAllUI)}
@@ -439,8 +456,6 @@ function App() {
           
           <div>
             <MaterialSelector currentVariant={materialVariant} onChange={handleMaterialChange} />
-            
-            {/* Removed test material controls */}
           </div>
           
           <PostProcessingControls 
