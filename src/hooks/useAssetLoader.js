@@ -1,16 +1,11 @@
 // src/hooks/useAssetLoader.js
-// NEW: Complete asset loading system with accurate progress tracking
+// FIXED: Proper asset loading with real progress tracking
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useGLTF, useTexture } from '@react-three/drei';
-import { useLoader } from '@react-three/fiber';
-import { RGBELoader } from 'three-stdlib';
-import { assets } from '../crystalConfig';
-import { getHDRIPath } from '../utils/deviceProfiles';
 
 /**
- * Enhanced Asset Loader with accurate progress tracking
- * Respects performance profiles and loads only what's needed
+ * FIXED: Asset Loader that actually tracks loading progress properly
+ * The issue was that drei's preload functions don't provide progress callbacks
  */
 export const useAssetLoader = (performanceProfile, deviceProfile) => {
   const [loadingState, setLoadingState] = useState({
@@ -24,11 +19,31 @@ export const useAssetLoader = (performanceProfile, deviceProfile) => {
 
   const progressRef = useRef(new Map());
   const abortControllerRef = useRef(null);
+  const hasStartedLoading = useRef(false);
 
   /**
    * Calculate what assets we actually need based on performance profile
    */
   const getRequiredAssets = useCallback(() => {
+    // Import assets here to avoid circular dependencies
+    const assets = {
+      models: {
+        crystalWhole: '/assets/models/CrystalWhole.glb',
+        facetEmpathy: '/assets/models/FacetEmpathy.glb',
+        facetNarrative: '/assets/models/FacetNarrative.glb',
+        facetCraft: '/assets/models/FacetCraft.glb',
+        facetSystem: '/assets/models/FacetSystem.glb',
+        facetLeadership: '/assets/models/FacetLeadership.glb',
+        facetExploration: '/assets/models/FacetExploration.glb'
+      },
+      textures: {
+        normalMap: '/assets/textures/quartz-normal07.png'
+      },
+      environment: {
+        hdri: '/assets/environment/prismatic09-low.hdr'
+      }
+    };
+
     const requiredAssets = {
       models: Object.entries(assets.models), // Always load all models
       textures: [],
@@ -42,7 +57,7 @@ export const useAssetLoader = (performanceProfile, deviceProfile) => {
 
     // Load appropriate HDRI quality
     const hdriQuality = performanceProfile?.hdriQuality || 'low';
-    const hdriPath = getHDRIPath(hdriQuality);
+    const hdriPath = `/assets/environment/prismatic09-${hdriQuality}.hdr`;
     requiredAssets.environment.push(['hdri', hdriPath]);
 
     const totalCount = 
@@ -69,85 +84,142 @@ export const useAssetLoader = (performanceProfile, deviceProfile) => {
   const updateAssetProgress = useCallback((assetKey, progress, name = '') => {
     progressRef.current.set(assetKey, progress);
     
-    const totalProgress = Array.from(progressRef.current.values())
-      .reduce((sum, p) => sum + p, 0) / progressRef.current.size;
+    const allProgress = Array.from(progressRef.current.values());
+    const totalProgress = allProgress.reduce((sum, p) => sum + p, 0) / allProgress.length;
+    const loadedCount = allProgress.filter(p => p >= 1).length;
 
     setLoadingState(prev => ({
       ...prev,
       progress: Math.min(Math.round(totalProgress * 100), 100),
       currentAsset: name || assetKey,
-      loadedAssets: Array.from(progressRef.current.values()).filter(p => p >= 1).length
+      loadedAssets: loadedCount
     }));
+
+    console.log(`📊 Asset progress: ${assetKey} = ${Math.round(progress * 100)}%, Total: ${Math.round(totalProgress * 100)}%`);
   }, []);
 
   /**
-   * Load models with progress tracking
+   * FIXED: Load a single asset with real progress tracking
    */
-  const loadModels = useCallback(async (modelEntries) => {
-    const modelPromises = modelEntries.map(async ([key, url]) => {
+  const loadAssetWithProgress = useCallback((url, assetKey, name) => {
+    return new Promise((resolve, reject) => {
       try {
-        // Use drei's preload which handles progress better
-        const result = useGLTF.preload(url);
-        updateAssetProgress(`model_${key}`, 1, `Model: ${key}`);
-        return result;
+        // Create a loading manager to track progress
+        const startTime = Date.now();
+        updateAssetProgress(assetKey, 0, `Loading ${name}...`);
+
+        // Use fetch to load the asset and track progress
+        fetch(url)
+          .then(response => {
+            if (!response.ok) {
+              throw new Error(`Failed to load ${name}: ${response.status}`);
+            }
+
+            const contentLength = response.headers.get('content-length');
+            if (!contentLength) {
+              // If we can't track progress, simulate it
+              updateAssetProgress(assetKey, 0.5, `Processing ${name}...`);
+              return response.blob();
+            }
+
+            const total = parseInt(contentLength, 10);
+            let loaded = 0;
+
+            const reader = response.body.getReader();
+            const chunks = [];
+
+            const pump = () => {
+              return reader.read().then(({ done, value }) => {
+                if (done) {
+                  updateAssetProgress(assetKey, 1, `${name} loaded`);
+                  const blob = new Blob(chunks);
+                  return blob;
+                }
+
+                chunks.push(value);
+                loaded += value.length;
+                const progress = loaded / total;
+                
+                updateAssetProgress(assetKey, progress, `Loading ${name}... ${Math.round(progress * 100)}%`);
+                
+                return pump();
+              });
+            };
+
+            return pump();
+          })
+          .then(() => {
+            const loadTime = Date.now() - startTime;
+            console.log(`✅ ${name} loaded in ${loadTime}ms`);
+            resolve();
+          })
+          .catch(error => {
+            console.error(`❌ Failed to load ${name}:`, error);
+            updateAssetProgress(assetKey, 1, `${name} (error)`);
+            reject(error);
+          });
+
       } catch (error) {
-        console.error(`Failed to load model ${key}:`, error);
-        updateAssetProgress(`model_${key}`, 1, `Model: ${key} (error)`);
-        throw error;
+        console.error(`❌ Error loading ${name}:`, error);
+        updateAssetProgress(assetKey, 1, `${name} (error)`);
+        reject(error);
       }
     });
-
-    return Promise.allSettled(modelPromises);
   }, [updateAssetProgress]);
 
   /**
-   * Load textures with progress tracking
+   * FIXED: Load all assets with proper progress tracking
    */
-  const loadTextures = useCallback(async (textureEntries) => {
-    if (textureEntries.length === 0) return [];
+  const loadAllAssets = useCallback(async (requiredAssets) => {
+    const assetPromises = [];
 
-    const texturePromises = textureEntries.map(async ([key, url]) => {
-      try {
-        const result = useTexture.preload(url);
-        updateAssetProgress(`texture_${key}`, 1, `Texture: ${key}`);
-        return result;
-      } catch (error) {
-        console.error(`Failed to load texture ${key}:`, error);
-        updateAssetProgress(`texture_${key}`, 1, `Texture: ${key} (error)`);
-        throw error;
+    // Load models
+    requiredAssets.models.forEach(([key, url]) => {
+      assetPromises.push(
+        loadAssetWithProgress(url, `model_${key}`, `Model: ${key}`)
+      );
+    });
+
+    // Load textures
+    requiredAssets.textures.forEach(([key, url]) => {
+      assetPromises.push(
+        loadAssetWithProgress(url, `texture_${key}`, `Texture: ${key}`)
+      );
+    });
+
+    // Load environment
+    requiredAssets.environment.forEach(([key, url]) => {
+      assetPromises.push(
+        loadAssetWithProgress(url, `env_${key}`, `Environment: ${key}`)
+      );
+    });
+
+    console.log(`🚀 Starting to load ${assetPromises.length} assets...`);
+
+    // Load all assets in parallel
+    const results = await Promise.allSettled(assetPromises);
+    
+    // Check for errors
+    const errors = [];
+    results.forEach((result, index) => {
+      if (result.status === 'rejected') {
+        errors.push(`Asset ${index + 1} failed: ${result.reason.message}`);
       }
     });
 
-    return Promise.allSettled(texturePromises);
-  }, [updateAssetProgress]);
+    return errors;
+  }, [loadAssetWithProgress]);
 
   /**
-   * Load environment with progress tracking
-   */
-  const loadEnvironment = useCallback(async (envEntries) => {
-    const envPromises = envEntries.map(async ([key, url]) => {
-      try {
-        const result = useLoader.preload(RGBELoader, url);
-        updateAssetProgress(`env_${key}`, 1, `Environment: ${key}`);
-        return result;
-      } catch (error) {
-        console.error(`Failed to load environment ${key}:`, error);
-        updateAssetProgress(`env_${key}`, 1, `Environment: ${key} (error)`);
-        throw error;
-      }
-    });
-
-    return Promise.allSettled(envPromises);
-  }, [updateAssetProgress]);
-
-  /**
-   * Main loading function
+   * FIXED: Main loading function with proper sequencing
    */
   const startLoading = useCallback(async () => {
-    if (!performanceProfile) {
-      console.log('⏳ Waiting for performance profile...');
+    if (!performanceProfile || hasStartedLoading.current) {
       return;
     }
+
+    hasStartedLoading.current = true;
+    console.log('🎯 Starting asset loading process...');
 
     // Initialize abort controller
     abortControllerRef.current = new AbortController();
@@ -156,8 +228,12 @@ export const useAssetLoader = (performanceProfile, deviceProfile) => {
       setLoadingState(prev => ({
         ...prev,
         phase: 'loading',
-        currentAsset: 'Analyzing required assets...'
+        currentAsset: 'Analyzing required assets...',
+        progress: 0
       }));
+
+      // Small delay to show the loading screen
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       const requiredAssets = getRequiredAssets();
       
@@ -168,6 +244,7 @@ export const useAssetLoader = (performanceProfile, deviceProfile) => {
       }));
 
       // Initialize progress tracking for all assets
+      progressRef.current.clear();
       requiredAssets.models.forEach(([key]) => {
         progressRef.current.set(`model_${key}`, 0);
       });
@@ -178,30 +255,16 @@ export const useAssetLoader = (performanceProfile, deviceProfile) => {
         progressRef.current.set(`env_${key}`, 0);
       });
 
-      console.log('🚀 Starting asset loading with', requiredAssets.totalCount, 'assets');
+      // Load all assets
+      const errors = await loadAllAssets(requiredAssets);
 
-      // Load all asset types in parallel
-      const [modelResults, textureResults, envResults] = await Promise.allSettled([
-        loadModels(requiredAssets.models),
-        loadTextures(requiredAssets.textures),
-        loadEnvironment(requiredAssets.environment)
-      ]);
-
-      // Check for errors
-      const errors = [];
-      [modelResults, textureResults, envResults].forEach((results, typeIndex) => {
-        const typeName = ['models', 'textures', 'environment'][typeIndex];
-        if (results.status === 'rejected') {
-          errors.push(`Failed to load ${typeName}: ${results.reason}`);
-        }
-      });
-
+      // Finish loading
       if (errors.length > 0) {
         console.warn('⚠️ Some assets failed to load:', errors);
         setLoadingState(prev => ({
           ...prev,
           errors,
-          phase: 'ready', // Continue anyway
+          phase: 'ready',
           progress: 100,
           currentAsset: 'Ready with some errors'
         }));
@@ -224,13 +287,13 @@ export const useAssetLoader = (performanceProfile, deviceProfile) => {
         currentAsset: 'Loading failed'
       }));
     }
-  }, [performanceProfile, getRequiredAssets, loadModels, loadTextures, loadEnvironment]);
+  }, [performanceProfile, getRequiredAssets, loadAllAssets]);
 
   /**
-   * Start loading when performance profile is available
+   * FIXED: Start loading when performance profile is available
    */
   useEffect(() => {
-    if (performanceProfile && loadingState.phase === 'initializing') {
+    if (performanceProfile && loadingState.phase === 'initializing' && !hasStartedLoading.current) {
       console.log('🎯 Performance profile available, starting asset loading');
       startLoading();
     }
@@ -247,11 +310,27 @@ export const useAssetLoader = (performanceProfile, deviceProfile) => {
     };
   }, []);
 
+  /**
+   * Reset function to retry loading
+   */
+  const retry = useCallback(() => {
+    hasStartedLoading.current = false;
+    progressRef.current.clear();
+    setLoadingState({
+      progress: 0,
+      phase: 'initializing',
+      loadedAssets: 0,
+      totalAssets: 0,
+      currentAsset: '',
+      errors: []
+    });
+  }, []);
+
   return {
     ...loadingState,
     isLoading: loadingState.phase === 'loading',
     isReady: loadingState.phase === 'ready',
     hasErrors: loadingState.errors.length > 0,
-    retry: startLoading
+    retry
   };
 };

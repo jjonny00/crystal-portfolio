@@ -1,4 +1,4 @@
-/* index.css - FIXED: Eliminate all sources of nested scrolling */
+/* index.css - FIXED: Remove static loading screen */
 
 * {
   margin: 0;
@@ -8,16 +8,8 @@
 
 /* CRITICAL: Clean document scroll setup */
 html {
-  /* REMOVED: scroll-behavior: smooth; - let CSS handle this */
-  
-  /* CRITICAL: Only hide horizontal scroll */
   overflow-x: hidden;
-  /* NEVER set overflow-y: hidden on html */
-  
-  /* Ensure document takes full height */
   height: 100%;
-  
-  /* REMOVED: Any scroll-snap properties */
 }
 
 body {
@@ -29,35 +21,20 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-color: #050505;
-  
-  /* CRITICAL: Body height setup */
   min-height: 100vh;
-  height: auto; /* Let content determine height */
-  
-  /* CRITICAL: Only prevent horizontal scroll */
+  height: auto;
   overflow-x: hidden;
-  overflow-y: auto; /* Essential for vertical scrolling */
-  
-  /* REMOVED: Any positioning that could interfere */
+  overflow-y: auto;
 }
 
 #root {
-  /* CRITICAL: Root container setup */
   width: 100%;
   min-height: 100vh;
-  
-  /* NEVER set height: 100vh on root */
-  /* NEVER set overflow: hidden on root */
-  
-  /* Only prevent horizontal overflow */
   overflow-x: hidden;
-  /* Let vertical content flow naturally */
-  
-  /* Ensure proper positioning context */
   position: relative;
 }
 
-/* Custom scrollbar styling - keep minimal */
+/* Custom scrollbar styling */
 ::-webkit-scrollbar {
   width: 6px;
 }
@@ -81,57 +58,34 @@ html {
   scrollbar-color: rgba(100, 255, 218, 0.3) rgba(0, 0, 0, 0.1);
 }
 
-/* MOBILE FIXES - Ultra-conservative approach */
+/* MOBILE FIXES */
 @media (max-width: 768px) {
   html {
-    /* Essential mobile scroll support */
     -webkit-overflow-scrolling: touch;
-    
-    /* REMOVED: Any scroll-snap properties */
-    
-    /* Ensure clean height */
     height: 100%;
-    
-    /* CRITICAL: Never interfere with mobile scrolling */
     overflow-x: hidden;
     overflow-y: auto;
   }
   
   body {
-    /* Essential touch scrolling */
     -webkit-overflow-scrolling: touch;
-    
-    /* CRITICAL: Clean mobile body setup */
     height: auto;
     min-height: 100vh;
-    
-    /* Allow natural scrolling */
     overflow-x: hidden;
     overflow-y: auto;
-    
-    /* REMOVED: touch-action restrictions that might interfere */
-    touch-action: manipulation; /* Only prevent double-tap zoom */
-    
-    /* REMOVED: overscroll-behavior - can cause issues */
-  }
-  
-  #root {
-    /* Mobile root container */
-    width: 100%;
-    min-height: 100vh;
-    
-    /* NEVER set max-width or height constraints on mobile */
-    
-    /* Clean overflow handling */
-    overflow-x: hidden;
-    /* Let vertical content flow */
-    
-    /* Ensure proper rendering */
+    touch-action: manipulation;
     -webkit-backface-visibility: hidden;
     backface-visibility: hidden;
   }
   
-  /* CRITICAL: Prevent text selection issues but don't break scrolling */
+  #root {
+    width: 100%;
+    min-height: 100vh;
+    overflow-x: hidden;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+  }
+  
   .no-select {
     -webkit-user-select: none;
     -moz-user-select: none;
@@ -139,7 +93,6 @@ html {
     user-select: none;
   }
   
-  /* Allow text selection on appropriate elements */
   p, span, div[contenteditable], input, textarea {
     -webkit-user-select: text;
     -moz-user-select: text;
@@ -148,21 +101,17 @@ html {
     touch-action: manipulation;
   }
   
-  /* Canvas optimizations without breaking scroll */
   canvas {
     -webkit-backface-visibility: hidden;
     backface-visibility: hidden;
-    /* NEVER set touch-action: none on canvas - breaks mobile scroll */
   }
 }
 
-/* TABLET: Similar conservative approach */
+/* TABLET */
 @media (min-width: 769px) and (max-width: 1024px) {
   body {
     -webkit-overflow-scrolling: touch;
     touch-action: manipulation;
-    
-    /* Ensure clean scrolling */
     overflow-x: hidden;
     overflow-y: auto;
   }
@@ -172,7 +121,7 @@ html {
   }
 }
 
-/* DESKTOP: Clean setup without restrictions */
+/* DESKTOP */
 @media (min-width: 1025px) {
   html, body {
     overflow-x: hidden;
@@ -184,7 +133,7 @@ html {
   }
 }
 
-/* REDUCED MOTION: Clean implementation */
+/* REDUCED MOTION */
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto !important;
@@ -197,7 +146,7 @@ html {
   }
 }
 
-/* ACCESSIBILITY: Focus styles */
+/* ACCESSIBILITY */
 button:focus-visible,
 a:focus-visible {
   outline: 2px solid #64ffda;
@@ -239,18 +188,4 @@ a:focus:not(:focus-visible) {
   }
 }
 
-/* Initial loading screen shown before React mounts */
-#initial-loading {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: #050505;
-  color: #64ffda;
-  font-size: 1.2rem;
-  z-index: 100000;
-}
+/* REMOVED: Static loading screen styles - let React handle all loading */

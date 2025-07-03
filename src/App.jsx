@@ -1,8 +1,7 @@
-// src/App.jsx - UPDATED: Complete integration with enhanced loading system
-// REMOVED: All complex scroll observers, crystal controllers, and camera controllers
-// ADDED: Enhanced asset loading with accurate progress tracking
+// src/App.jsx - FIXED: Corrected hooks order to prevent React hooks error
+// CRITICAL: All hooks must be called in the same order every render
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import './App.css';
 import './styles/scroll-snap.css';
 
@@ -94,42 +93,13 @@ const isMobileDevice = () => {
 };
 
 function App() {
-  const isMobile = isMobileDevice();
-
-  // Device profile for performance optimization (unchanged)
-  const {
-    performanceProfile: devicePerformanceProfile,
-    deviceProfile,
-    getOptimalCanvasProps,
-    getOptimalEnvironmentProps,
-    updateExternalPerformanceConfig,
-    isDetecting
-  } = useDeviceProfile({
-    enableDebugLogging: false,
-    enableOrientationLock: false
-  });
-
-  // NEW: Enhanced asset loading with accurate progress tracking
-  const {
-    progress,
-    phase,
-    currentAsset,
-    loadedAssets,
-    totalAssets,
-    errors,
-    isLoading,
-    isReady,
-    hasErrors,
-    retry
-  } = useAssetLoader(devicePerformanceProfile, deviceProfile);
-
-  // UI Hide Toggle State
+  // ========================================
+  // CRITICAL: ALL HOOKS MUST BE CALLED FIRST
+  // ========================================
+  
+  // Basic state hooks - always called
   const [hideAllUI, setHideAllUI] = useState(false);
-
-  // Snap Speed Setting
   const [snapSpeed, setSnapSpeed] = useState('medium');
-
-  // UI state (unchanged)
   const [config, setConfig] = useState({
     ...defaultConfig,
     timing: {
@@ -144,22 +114,16 @@ function App() {
   const [animationConfig, setAnimationConfig] = useState(
     buildAnimationConfig(defaultConfig)
   );
-  
   const [materialVariant, setMaterialVariant] = useState('default');
   const [showUI, setShowUI] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
-  
-  // Effects state (unchanged)
   const [effectsEnabled, setEffectsEnabled] = useState({
     bloom: true,
     chromaticAberration: true,
     noise: true,
     vignette: true
   });
-  
   const [postProcessingConfig, setPostProcessingConfig] = useState(config.postProcessing);
-
-  // Performance config (unchanged)
   const [performanceConfig, setPerformanceConfig] = useState(() => {
     return {
       useNormalMaps: false,
@@ -168,11 +132,38 @@ function App() {
       renderScale: 0.7
     };
   });
-
-  // Ready state - becomes true when assets are loaded AND device profiling complete
   const [isAppReady, setIsAppReady] = useState(false);
+  const [initialProfileApplied, setInitialProfileApplied] = useState(false);
+  const [hasInitialized, setHasInitialized] = useState(false);
 
-  // Initial performance test based on FPS
+  // Device profile hook - always called
+  const {
+    performanceProfile: devicePerformanceProfile,
+    deviceProfile,
+    getOptimalCanvasProps,
+    getOptimalEnvironmentProps,
+    updateExternalPerformanceConfig,
+    isDetecting
+  } = useDeviceProfile({
+    enableDebugLogging: false,
+    enableOrientationLock: false
+  });
+
+  // Asset loader hook - always called
+  const {
+    progress,
+    phase,
+    currentAsset,
+    loadedAssets,
+    totalAssets,
+    errors,
+    isLoading,
+    isReady,
+    hasErrors,
+    retry
+  } = useAssetLoader(devicePerformanceProfile, deviceProfile);
+
+  // Initial performance test hook - always called
   const {
     performanceConfig: initialPerformanceConfig,
     isTesting: isPerfTesting,
@@ -182,106 +173,21 @@ function App() {
     onComplete: setPerformanceConfig,
   });
 
-  React.useEffect(() => {
-    if (deviceProfile && !initialPerformanceConfig && !isPerfTesting) {
-      startPerfTest();
-    }
-  }, [deviceProfile, initialPerformanceConfig, isPerfTesting, startPerfTest]);
+  // Detect if mobile - always called
+  const isMobile = isMobileDevice();
 
-  React.useEffect(() => {
-    if (initialPerformanceConfig) {
-      setPerformanceConfig(initialPerformanceConfig);
-    }
-  }, [initialPerformanceConfig]);
+  // ========================================
+  // CALLBACKS - always called
+  // ========================================
 
-  // Performance management (unchanged)
-  const [initialProfileApplied, setInitialProfileApplied] = useState(false);
-  
-  // Mark initialization when performance config is applied
-  React.useEffect(() => {
-    if (initialPerformanceConfig && !initialProfileApplied) {
-      setInitialProfileApplied(true);
-    }
-  }, [initialPerformanceConfig, initialProfileApplied]);
-
-  const [hasInitialized, setHasInitialized] = useState(false);
-  
-  React.useEffect(() => {
-    if (updateExternalPerformanceConfig && hasInitialized && initialProfileApplied) {
-      updateExternalPerformanceConfig(performanceConfig);
-    } else if (initialPerformanceConfig && !hasInitialized) {
-      setHasInitialized(true);
-    }
-  }, [performanceConfig, updateExternalPerformanceConfig, hasInitialized, initialPerformanceConfig, initialProfileApplied]);
-
-  // NEW: Check if app is ready to show
-  useEffect(() => {
-    const shouldBeReady = !isDetecting && isReady && devicePerformanceProfile && initialPerformanceConfig;
-    
-    if (shouldBeReady && !isAppReady) {
-      console.log('🎯 App is ready to show');
-      // Small delay to ensure everything is settled
-      setTimeout(() => {
-        setIsAppReady(true);
-      }, 200);
-    }
-  }, [isDetecting, isReady, devicePerformanceProfile, initialPerformanceConfig, isAppReady]);
-
-  // NEW: Show enhanced loading screen while loading or device detection
-  if (!isAppReady) {
-    return (
-      <EnhancedLoadingScreen
-        progress={progress}
-        phase={isDetecting ? 'initializing' : (isPerfTesting ? 'initializing' : phase)}
-        currentAsset={
-          isDetecting ? 'Detecting device capabilities...' : 
-          isPerfTesting ? 'Testing performance...' : 
-          currentAsset
-        }
-        loadedAssets={loadedAssets}
-        totalAssets={totalAssets}
-        errors={errors}
-        onRetry={retry}
-      />
-    );
-  }
-
-  // UI Hide Toggle Keyboard Listener
-  React.useEffect(() => {
-    const handleKeyDown = (e) => {
-      const isInputField = e.target.tagName === 'INPUT' || 
-                          e.target.tagName === 'TEXTAREA' || 
-                          e.target.isContentEditable;
-      
-      if (isInputField) return;
-      
-      if (e.key === 'u' || e.key === 'U') {
-        if (!e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey) {
-          e.preventDefault();
-          setHideAllUI(prev => {
-            const newState = !prev;
-            console.log(`🎨 UI Hidden: ${newState ? 'ON' : 'OFF'}`);
-            return newState;
-          });
-        }
-      }
-    };
-    
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, []);
-
-  // Snap Speed Handler
   const handleSnapSpeedChange = useCallback((speed) => {
     console.log('🎯 Changing snap speed to:', speed);
     setSnapSpeed(speed);
   }, []);
 
-  // NEW: Animation state change handler - receives unified animation state
   const handleAnimationStateChange = useCallback((newState, prevState) => {
     if (process.env.NODE_ENV === 'development') {
+      // Uncomment for debugging
       // console.log('🎬 Animation state changed:', {
       //   from: prevState,
       //   to: newState
@@ -289,7 +195,6 @@ function App() {
     }
   }, []);
 
-  // Navigation handlers - SIMPLIFIED: Now use scroll zones instead of complex section targeting
   const handleWorkClick = useCallback(() => {
     console.log('Navigate to work section');
   }, []);
@@ -311,7 +216,6 @@ function App() {
     console.log('Navigate to contact section');
   }, []);
 
-  // Handler functions (unchanged)
   const handleConfigUpdate = useCallback((newConfig) => {
     setConfig(newConfig);
     setAnimationConfig(buildAnimationConfig(newConfig));
@@ -348,7 +252,104 @@ function App() {
     setShowUI(!showUI);
   }, [showUI]);
 
-  // Get optimal props for 3D canvas (unchanged)
+  // ========================================
+  // EFFECTS - always called in same order
+  // ========================================
+
+  // Start performance test when device profile is available
+  useEffect(() => {
+    if (deviceProfile && !initialPerformanceConfig && !isPerfTesting) {
+      startPerfTest();
+    }
+  }, [deviceProfile, initialPerformanceConfig, isPerfTesting, startPerfTest]);
+
+  // Apply initial performance config
+  useEffect(() => {
+    if (initialPerformanceConfig) {
+      setPerformanceConfig(initialPerformanceConfig);
+    }
+  }, [initialPerformanceConfig]);
+
+  // Mark initialization when performance config is applied
+  useEffect(() => {
+    if (initialPerformanceConfig && !initialProfileApplied) {
+      setInitialProfileApplied(true);
+    }
+  }, [initialPerformanceConfig, initialProfileApplied]);
+
+  // Handle external performance config updates
+  useEffect(() => {
+    if (updateExternalPerformanceConfig && hasInitialized && initialProfileApplied) {
+      updateExternalPerformanceConfig(performanceConfig);
+    } else if (initialPerformanceConfig && !hasInitialized) {
+      setHasInitialized(true);
+    }
+  }, [performanceConfig, updateExternalPerformanceConfig, hasInitialized, initialPerformanceConfig, initialProfileApplied]);
+
+  // Check if app is ready to show
+  useEffect(() => {
+    const shouldBeReady = !isDetecting && isReady && devicePerformanceProfile && initialPerformanceConfig;
+    
+    if (shouldBeReady && !isAppReady) {
+      console.log('🎯 App is ready to show');
+      // Small delay to ensure everything is settled
+      setTimeout(() => {
+        setIsAppReady(true);
+      }, 200);
+    }
+  }, [isDetecting, isReady, devicePerformanceProfile, initialPerformanceConfig, isAppReady]);
+
+  // UI Hide Toggle Keyboard Listener
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      const isInputField = e.target.tagName === 'INPUT' || 
+                          e.target.tagName === 'TEXTAREA' || 
+                          e.target.isContentEditable;
+      
+      if (isInputField) return;
+      
+      if (e.key === 'u' || e.key === 'U') {
+        if (!e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey) {
+          e.preventDefault();
+          setHideAllUI(prev => {
+            const newState = !prev;
+            console.log(`🎨 UI Hidden: ${newState ? 'ON' : 'OFF'}`);
+            return newState;
+          });
+        }
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
+  // ========================================
+  // CONDITIONAL RENDERING - After all hooks
+  // ========================================
+
+  // Show enhanced loading screen while loading or device detection
+  if (!isAppReady) {
+    return (
+      <EnhancedLoadingScreen
+        progress={progress}
+        phase={isDetecting ? 'initializing' : (isPerfTesting ? 'initializing' : phase)}
+        currentAsset={
+          isDetecting ? 'Detecting device capabilities...' : 
+          isPerfTesting ? 'Testing performance...' : 
+          currentAsset
+        }
+        loadedAssets={loadedAssets}
+        totalAssets={totalAssets}
+        errors={errors}
+        onRetry={retry}
+      />
+    );
+  }
+
+  // Get optimal props for 3D canvas
   const canvasProps = getOptimalCanvasProps();
   const environmentProps = getOptimalEnvironmentProps();
 
@@ -405,13 +406,13 @@ function App() {
         />
       )}
 
-      {/* NEW: Master Animation Coordinator - Single source of truth for all animations */}
+      {/* Master Animation Coordinator */}
       <MasterAnimationCoordinator
         debugMode={process.env.NODE_ENV === 'development'}
         onAnimationStateChange={handleAnimationStateChange}
         config={animationConfig}
       >
-        {/* SIMPLIFIED: Fixed 3D Canvas now receives animationData from coordinator */}
+        {/* Fixed 3D Canvas */}
         <Fixed3DCanvas
           materialVariant={materialVariant}
           effectsEnabled={effectsEnabled}
@@ -424,7 +425,7 @@ function App() {
         />
       </MasterAnimationCoordinator>
 
-      {/* Scrollable Content - Keep for scrolling but hide content */}
+      {/* Scrollable Content */}
       <ScrollablePortfolio 
         snapSpeed={snapSpeed}
         hideContent={hideAllUI}
