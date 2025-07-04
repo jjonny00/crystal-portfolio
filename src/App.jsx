@@ -250,8 +250,42 @@ function App() {
   }, [showUI]);
 
   // ========================================
-  // EFFECTS - SIMPLIFIED FLOW
+  // CRITICAL: Update immediate loader and show React app when ready
   // ========================================
+
+  // Update the immediate HTML loader with real progress
+  useEffect(() => {
+    if (window.updateImmediateLoader) {
+      let displayPhase = 'Initializing...';
+      let displayAsset = 'Setting up...';
+      
+      if (isDetecting) {
+        displayPhase = 'Detecting Device';
+        displayAsset = 'Analyzing device capabilities...';
+      } else if (phase === 'loading') {
+        displayPhase = 'Loading Assets';
+        displayAsset = currentAsset || 'Loading resources...';
+      } else if (isPerfTesting) {
+        displayPhase = 'Testing Performance';
+        displayAsset = 'Optimizing settings...';
+      } else if (isReady && performanceConfig) {
+        displayPhase = 'Ready';
+        displayAsset = 'Starting experience...';
+      }
+      
+      window.updateImmediateLoader(progress, displayPhase, displayAsset);
+    }
+  }, [progress, phase, currentAsset, isDetecting, isPerfTesting, isReady, performanceConfig]);
+
+  // Hide immediate loader and show React app when ready
+  useEffect(() => {
+    if (isAppReady && window.showReactApp) {
+      // Small delay to show "Ready" state briefly
+      setTimeout(() => {
+        window.showReactApp();
+      }, 500);
+    }
+  }, [isAppReady]);
 
   // Start performance test when device profile is ready
   useEffect(() => {
@@ -308,26 +342,7 @@ function App() {
     };
   }, []);
 
-  // ========================================
-  // RENDER: Show loader FIRST, then app
-  // ========================================
-
-  // ALWAYS show loader if not ready - this appears IMMEDIATELY
-  if (!isAppReady) {
-    return (
-      <EnhancedLoadingScreen
-        progress={progress}
-        phase={phase}
-        currentAsset={currentAsset}
-        loadedAssets={loadedAssets}
-        totalAssets={totalAssets}
-        errors={errors}
-        onRetry={retry}
-      />
-    );
-  }
-
-  // Only show main app when fully ready
+  // Get canvas props
   const canvasProps = getOptimalCanvasProps();
   const environmentProps = getOptimalEnvironmentProps();
 

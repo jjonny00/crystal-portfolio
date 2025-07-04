@@ -1,13 +1,239 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite + React</title>
+    <title>Multifaceted Designer</title>
+    
+    <!-- CRITICAL: Immediate loader styles that render BEFORE React -->
+    <style>
+      /* Reset and base styles */
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      
+      body {
+        background-color: #050505;
+        color: white;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        overflow: hidden;
+      }
+      
+      /* IMMEDIATE LOADER - Shows instantly before React loads */
+      #immediate-loader {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background-color: #050505;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 100000;
+        opacity: 1;
+        transition: opacity 0.3s ease;
+      }
+      
+      #immediate-loader.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+      
+      /* Loader title */
+      .loader-title {
+        font-size: clamp(1.5rem, 5vw, 2.5rem);
+        font-weight: 600;
+        background: linear-gradient(135deg, #64ffda 0%, #bb86fc 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 2rem;
+        text-align: center;
+      }
+      
+      /* Progress container */
+      .progress-container {
+        width: 90%;
+        max-width: 400px;
+        margin-bottom: 1rem;
+      }
+      
+      /* Progress bar background */
+      .progress-bar-bg {
+        width: 100%;
+        height: 8px;
+        background-color: rgba(255, 255, 255, 0.1);
+        border-radius: 4px;
+        overflow: hidden;
+        margin-bottom: 1rem;
+      }
+      
+      /* Progress bar fill */
+      .progress-bar-fill {
+        width: 0%;
+        height: 100%;
+        background-color: #64ffda;
+        border-radius: 4px;
+        transition: width 0.3s ease;
+        box-shadow: 0 0 10px rgba(100, 255, 218, 0.4);
+      }
+      
+      /* Progress info */
+      .progress-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        color: white;
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+      }
+      
+      .progress-phase {
+        color: #64ffda;
+        font-weight: 600;
+      }
+      
+      .progress-percent {
+        color: rgba(255, 255, 255, 0.7);
+      }
+      
+      /* Current asset display */
+      .current-asset {
+        text-align: center;
+        color: rgba(255, 255, 255, 0.5);
+        font-size: 0.75rem;
+        height: 1rem;
+        overflow: hidden;
+        margin-top: 0.5rem;
+      }
+      
+      /* Loading animation dots */
+      .loading-dots {
+        margin-top: 1rem;
+        display: flex;
+        gap: 4px;
+      }
+      
+      .loading-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background-color: #64ffda;
+        animation: pulse 1.5s ease-in-out infinite alternate;
+        opacity: 0.7;
+      }
+      
+      .loading-dot:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+      
+      .loading-dot:nth-child(3) {
+        animation-delay: 0.4s;
+      }
+      
+      @keyframes pulse {
+        0% { opacity: 0.3; transform: scale(0.8); }
+        100% { opacity: 1; transform: scale(1.2); }
+      }
+      
+      /* Hide root initially */
+      #root {
+        opacity: 0;
+        transition: opacity 0.3s ease;
+      }
+      
+      #root.ready {
+        opacity: 1;
+      }
+    </style>
   </head>
-    <body>
-      <div id="root"></div>
-      <script type="module" src="/src/main.jsx"></script>
-    </body>
+  <body>
+    <!-- IMMEDIATE LOADER - Shows instantly before any JavaScript runs -->
+    <div id="immediate-loader">
+      <div class="loader-title">Multifaceted Designer</div>
+      
+      <div class="progress-container">
+        <div class="progress-info">
+          <span class="progress-phase" id="progress-phase">Initializing...</span>
+          <span class="progress-percent" id="progress-percent">0%</span>
+        </div>
+        
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" id="progress-bar-fill"></div>
+        </div>
+        
+        <div class="current-asset" id="current-asset">Starting up...</div>
+      </div>
+      
+      <div class="loading-dots">
+        <div class="loading-dot"></div>
+        <div class="loading-dot"></div>
+        <div class="loading-dot"></div>
+      </div>
+    </div>
+    
+    <!-- React root - hidden initially -->
+    <div id="root"></div>
+    
+    <!-- CRITICAL: Update loader from JavaScript -->
+    <script>
+      // Global functions to update the immediate loader
+      window.updateImmediateLoader = function(progress, phase, currentAsset) {
+        const progressFill = document.getElementById('progress-bar-fill');
+        const progressPhase = document.getElementById('progress-phase');
+        const progressPercent = document.getElementById('progress-percent');
+        const currentAssetEl = document.getElementById('current-asset');
+        
+        if (progressFill) {
+          progressFill.style.width = progress + '%';
+        }
+        
+        if (progressPhase) {
+          progressPhase.textContent = phase || 'Loading...';
+        }
+        
+        if (progressPercent) {
+          progressPercent.textContent = Math.round(progress) + '%';
+        }
+        
+        if (currentAssetEl) {
+          currentAssetEl.textContent = currentAsset || '';
+        }
+        
+        console.log('📊 Immediate loader updated:', { progress, phase, currentAsset });
+      };
+      
+      // Hide immediate loader and show React app
+      window.showReactApp = function() {
+        const immediateLoader = document.getElementById('immediate-loader');
+        const root = document.getElementById('root');
+        
+        if (immediateLoader) {
+          immediateLoader.classList.add('hidden');
+          setTimeout(() => {
+            immediateLoader.style.display = 'none';
+          }, 300);
+        }
+        
+        if (root) {
+          root.classList.add('ready');
+        }
+        
+        // Re-enable body overflow
+        document.body.style.overflow = 'auto';
+        
+        console.log('✅ React app is now visible, immediate loader hidden');
+      };
+      
+      // Initial update
+      window.updateImmediateLoader(0, 'Initializing...', 'Starting application...');
+    </script>
+    
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
 </html>

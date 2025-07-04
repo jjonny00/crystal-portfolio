@@ -1,5 +1,4 @@
-// MaterialManager.jsx - FIXED: Proper depth settings for crystal materials
-// Uses MeshPhysicalMaterial with PBR features disabled but enhanced visual effects
+// MaterialManager.jsx - FIXED: Null safety for performanceConfig
 
 import React, { useRef, useEffect } from 'react';
 import CrystalMaterial from '../materials/CrystalMaterial';
@@ -15,9 +14,17 @@ const MaterialManager = ({
   const crystalMaterialRef = useRef();
   const enhancedBasicMaterialRef = useRef();
   
-  const usePBR = performanceConfig.usePBR !== false;
+  // FIXED: Null safety with proper defaults
+  const safePerformanceConfig = performanceConfig || {
+    usePBR: true,
+    useNormalMaps: true,
+    textureQuality: 'high',
+    renderScale: 1.0
+  };
   
-  console.log('🎨 MaterialManager: PBR enabled?', usePBR, 'Performance config:', performanceConfig);
+  const usePBR = safePerformanceConfig.usePBR !== false;
+  
+  console.log('🎨 MaterialManager: PBR enabled?', usePBR, 'Performance config:', safePerformanceConfig);
 
   // FIXED: Create advanced non-PBR material with proper depth settings
   useEffect(() => {
@@ -241,7 +248,7 @@ const MaterialManager = ({
 
   // Add normal map support even for non-PBR materials
   useEffect(() => {
-    if (!usePBR && enhancedBasicMaterialRef.current && performanceConfig.useNormalMaps && config.assets.textures.normalMap) {
+    if (!usePBR && enhancedBasicMaterialRef.current && safePerformanceConfig.useNormalMaps && config.assets.textures.normalMap) {
       console.log('🔧 Adding normal map to enhanced non-PBR material');
       
       const textureLoader = new THREE.TextureLoader();
@@ -251,7 +258,7 @@ const MaterialManager = ({
         texture.repeat.set(...config.materials.textures.normalMap.repeat);
         
         // Configure texture quality
-        const textureQuality = performanceConfig.textureQuality || 'high';
+        const textureQuality = safePerformanceConfig.textureQuality || 'high';
         const mipmapEnabled = textureQuality !== 'low';
         const anisotropy = textureQuality === 'high' ? 4 : (textureQuality === 'medium' ? 2 : 1);
         
@@ -266,7 +273,7 @@ const MaterialManager = ({
         
         console.log('✅ Normal map added to enhanced non-PBR material');
       });
-    } else if (!usePBR && enhancedBasicMaterialRef.current && !performanceConfig.useNormalMaps) {
+    } else if (!usePBR && enhancedBasicMaterialRef.current && !safePerformanceConfig.useNormalMaps) {
       // Remove normal map if disabled
       if (enhancedBasicMaterialRef.current.normalMap) {
         enhancedBasicMaterialRef.current.normalMap = null;
@@ -274,7 +281,7 @@ const MaterialManager = ({
         enhancedBasicMaterialRef.current.needsUpdate = true;
       }
     }
-  }, [usePBR, performanceConfig.useNormalMaps, performanceConfig.textureQuality, config.assets.textures.normalMap, config.materials.textures.normalMap]);
+  }, [usePBR, safePerformanceConfig.useNormalMaps, safePerformanceConfig.textureQuality, config.assets.textures.normalMap, config.materials.textures.normalMap]);
 
   // Update the main material ref whenever the variant or performance config changes
   useEffect(() => {
@@ -313,7 +320,7 @@ const MaterialManager = ({
                materialVariant === 'glass' ||
                materialVariant === 'gem' ||
                materialVariant === 'holographic' ? materialVariant : 'default'}
-      performanceConfig={performanceConfig}
+      performanceConfig={safePerformanceConfig}
       onMaterialReady={onMaterialReady}
     />
   );
