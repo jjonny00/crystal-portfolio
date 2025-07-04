@@ -1,4 +1,5 @@
-// MaterialManager.jsx - FIXED: Null safety for performanceConfig
+// MaterialManager.jsx - OPTIMIZED: Fast mobile crystal material that still looks great
+// Creates materials that perform well on mobile while maintaining crystal appearance
 
 import React, { useRef, useEffect } from 'react';
 import CrystalMaterial from '../materials/CrystalMaterial';
@@ -12,7 +13,7 @@ const MaterialManager = ({
   onMaterialReady = null
 }) => {
   const crystalMaterialRef = useRef();
-  const enhancedBasicMaterialRef = useRef();
+  const optimizedMobileRef = useRef();
   
   // FIXED: Null safety with proper defaults
   const safePerformanceConfig = performanceConfig || {
@@ -26,219 +27,150 @@ const MaterialManager = ({
   
   console.log('🎨 MaterialManager: PBR enabled?', usePBR, 'Performance config:', safePerformanceConfig);
 
-  // FIXED: Create advanced non-PBR material with proper depth settings
+  // OPTIMIZED: Create high-performance mobile material using MeshStandardMaterial
   useEffect(() => {
-    if (!usePBR && !enhancedBasicMaterialRef.current) {
-      console.log('🔄 Creating enhanced non-PBR material with advanced features');
+    if (!usePBR && !optimizedMobileRef.current) {
+      console.log('🚀 Creating OPTIMIZED mobile crystal material');
       
-      // Use MeshPhysicalMaterial but disable expensive PBR features
+      // Use MeshStandardMaterial instead of MeshPhysicalMaterial for mobile
+      // This removes expensive features like transmission, clearcoat, iridescence
       let materialProps = {
-        // Keep transparency and basic properties
-        transparent: true,
-        side: THREE.DoubleSide,
-        fog: true,
+        // Basic PBR properties (much cheaper than Physical)
+        color: new THREE.Color('#4488ff'), // Slightly blue crystal color
+        metalness: 0.1,                     // Slight metallic look
+        roughness: 0.15,                    // Smooth but not mirror-like
         
-        // FIXED: Proper depth settings for crystal materials
-        depthWrite: true,      // CHANGED: Enable depth writing so facets block sphere
-        depthTest: true,       // Keep depth testing
+        // Environment mapping for reflections (key for crystal look!)
+        envMapIntensity: 2.0,               // Strong environment reflections
         
-        // ENHANCED: Add environment mapping for reflections (key for crystal look)
-        envMapIntensity: 1.2,  // Strong reflections
-        
-        // ENHANCED: Use slight transmission even without full PBR
-        transmission: 0.3,     // Reduced from PBR version but still gives glass effect
-        
-        // ENHANCED: Add clearcoat for surface reflections
-        clearcoat: 0.8,        // High clearcoat for crystal-like surface
-        clearcoatRoughness: 0.05, // Very smooth clearcoat
-        
-        // ENHANCED: Add iridescence for prismatic effects
-        iridescence: 0.6,      // Moderate iridescence
-        iridescenceIOR: 1.3,   // Controls iridescence strength
+        // NO transparency - major performance gain!
+        transparent: false,
+        opacity: 1.0,
         
         // Standard material properties
-        metalness: 0.1,        // Slight metallic for reflections
-        roughness: 0.15,       // Smooth surface
+        side: THREE.FrontSide,              // Only render front faces (perf gain)
+        fog: true,
         
-        // ENHANCED: Add refraction with simple IOR
-        ior: 1.8,              // Simpler than PBR but still gives refraction
+        // CRITICAL: Enable depth writing for proper rendering
+        depthWrite: true,
+        depthTest: true,
         
-        // ENHANCED: Add attenuation for depth-based color
-        attenuationDistance: 0.2,
+        // Emissive glow to simulate internal light
+        emissive: new THREE.Color('#001166'), // Dark blue emissive
+        emissiveIntensity: 0.2,             // Subtle internal glow
         
-        // ENHANCED: Reflectivity for additional shine
-        reflectivity: 0.9,
+        // Use higher precision only when needed
+        precision: safePerformanceConfig.highPrecision ? 'highp' : 'mediump'
       };
 
-      // Apply variant-specific properties with enhanced settings
+      // Apply variant-specific properties (optimized versions)
       switch(materialVariant) {
         case 'glass':
-          materialProps = {
-            ...materialProps,
-            color: new THREE.Color('#ffffff'),
-            opacity: 0.6,           // More transparent for glass
-            emissive: new THREE.Color('#ffffff'),
-            emissiveIntensity: 0.03,
-            attenuationColor: new THREE.Color('#ffffff'),
-            transmission: 0.5,      // Higher transmission for glass
-            clearcoat: 1.0,         // Maximum clearcoat for glass
-            clearcoatRoughness: 0.02,
-            iridescence: 0.2,       // Subtle iridescence for glass
-            metalness: 0.0,         // Glass isn't metallic
-            roughness: 0.08,        // Very smooth
-            envMapIntensity: 1.5,   // Strong reflections
-            ior: 1.5,               // Glass-like refraction
-          };
+          materialProps.color.set('#f0f8ff');        // Very light blue
+          materialProps.metalness = 0.0;             // Glass isn't metallic
+          materialProps.roughness = 0.05;            // Very smooth
+          materialProps.envMapIntensity = 2.5;       // Strong reflections
+          materialProps.emissive.set('#ffffff');     // White emissive
+          materialProps.emissiveIntensity = 0.1;     // Subtle
           break;
           
         case 'gem':
-          materialProps = {
-            ...materialProps,
-            color: new THREE.Color('#7b4bbc'),
-            opacity: 0.8,
-            emissive: new THREE.Color('#7b4bbc'),
-            emissiveIntensity: 0.08,
-            attenuationColor: new THREE.Color('#7b4bbc'),
-            transmission: 0.4,      // Good transmission for gem
-            clearcoat: 0.9,         // High clearcoat for gem shine
-            clearcoatRoughness: 0.01,
-            iridescence: 0.8,       // Strong iridescence for gem
-            iridescenceIOR: 1.4,
-            metalness: 0.2,         // Slight metallic for gem-like reflections
-            roughness: 0.05,        // Very smooth gem surface
-            envMapIntensity: 1.3,
-            ior: 2.2,               // High refraction for gem
-          };
+          materialProps.color.set('#6644bb');        // Purple gem
+          materialProps.metalness = 0.3;             // More metallic
+          materialProps.roughness = 0.05;            // Very smooth
+          materialProps.envMapIntensity = 1.8;       // Good reflections
+          materialProps.emissive.set('#220044');     // Purple emissive
+          materialProps.emissiveIntensity = 0.3;     // More pronounced
           break;
           
         case 'holographic':
-          materialProps = {
-            ...materialProps,
-            color: new THREE.Color('#00ffff'),
-            opacity: 0.7,
-            emissive: new THREE.Color('#00ffff'),
-            emissiveIntensity: 0.15,
-            attenuationColor: new THREE.Color('#ff00ff'),
-            transmission: 0.4,      // Good transmission
-            clearcoat: 1.0,         // Maximum clearcoat for holographic
-            clearcoatRoughness: 0.0,
-            iridescence: 1.0,       // Maximum iridescence
-            iridescenceIOR: 2.0,    // Strong iridescence effect
-            metalness: 0.8,         // High metallic for holographic
-            roughness: 0.0,         // Mirror-like surface
-            envMapIntensity: 2.0,   // Very strong reflections
-            ior: 2.0,               // Strong refraction
-          };
+          materialProps.color.set('#00dddd');        // Cyan
+          materialProps.metalness = 0.8;             // Very metallic
+          materialProps.roughness = 0.0;             // Mirror-like
+          materialProps.envMapIntensity = 3.0;       // Maximum reflections
+          materialProps.emissive.set('#004444');     // Cyan emissive
+          materialProps.emissiveIntensity = 0.4;     // Strong glow
           break;
           
         default:
-          materialProps = {
-            ...materialProps,
-            color: config.materials.crystal.color,
-            opacity: 0.85,
-            emissive: new THREE.Color(config.materials.crystal.emissive),
-            emissiveIntensity: 0.1,
-            attenuationColor: new THREE.Color(config.materials.crystal.attenuationColor),
-            transmission: 0.4,      // Good transmission
-            clearcoat: 0.7,         // Good clearcoat
-            clearcoatRoughness: 0.03,
-            iridescence: 0.7,       // Strong iridescence
-            iridescenceIOR: 1.2,
-            metalness: 0.1,
-            roughness: 0.12,
-            envMapIntensity: 1.0,
-            ior: 1.9,               // Close to PBR version
-          };
+          // Use config colors if available
+          if (config.materials.crystal.color) {
+            materialProps.color.copy(config.materials.crystal.color);
+          }
+          if (config.materials.crystal.emissive) {
+            materialProps.emissive.copy(config.materials.crystal.emissive);
+          }
+          materialProps.emissiveIntensity = 0.2;
           break;
       }
       
-      // Create MeshPhysicalMaterial with enhanced settings
-      const enhancedMaterial = new THREE.MeshPhysicalMaterial(materialProps);
-      enhancedBasicMaterialRef.current = enhancedMaterial;
+      // Create the optimized material
+      const optimizedMaterial = new THREE.MeshStandardMaterial(materialProps);
+      optimizedMobileRef.current = optimizedMaterial;
       
-      console.log('✅ Enhanced non-PBR material created:', materialVariant);
-      if (onMaterialReady) onMaterialReady(enhancedMaterial);
+      console.log('✅ OPTIMIZED mobile material created:', {
+        variant: materialVariant,
+        transparent: optimizedMaterial.transparent,
+        metalness: optimizedMaterial.metalness,
+        roughness: optimizedMaterial.roughness,
+        envMapIntensity: optimizedMaterial.envMapIntensity,
+        emissiveIntensity: optimizedMaterial.emissiveIntensity
+      });
+      
+      if (onMaterialReady) onMaterialReady(optimizedMaterial);
     }
-  }, [usePBR, config.materials.crystal.color, config.materials.crystal.emissive, config.materials.crystal.attenuationColor, materialVariant]);
+  }, [usePBR, config.materials.crystal.color, config.materials.crystal.emissive, materialVariant, onMaterialReady]);
 
-  // Update material when variant changes with smooth transitions
+  // Update material when variant changes
   useEffect(() => {
-    if (!usePBR && enhancedBasicMaterialRef.current) {
-      console.log('🔄 Updating enhanced non-PBR material for variant:', materialVariant);
+    if (!usePBR && optimizedMobileRef.current) {
+      console.log('🔄 Updating optimized mobile material for variant:', materialVariant);
       
-      const material = enhancedBasicMaterialRef.current;
+      const material = optimizedMobileRef.current;
       
       // Store current emissive intensity to preserve glow effects
       const currentEmissiveIntensity = material.emissiveIntensity;
       
-      // Update material properties based on variant with enhanced settings
+      // Update material properties based on variant
       switch(materialVariant) {
         case 'glass':
-          material.color.set('#ffffff');
-          material.opacity = 0.6;
-          material.emissive.set('#ffffff');
-          material.emissiveIntensity = Math.max(0.03, currentEmissiveIntensity);
-          material.attenuationColor.set('#ffffff');
-          material.transmission = 0.5;
-          material.clearcoat = 1.0;
-          material.clearcoatRoughness = 0.02;
-          material.iridescence = 0.2;
-          material.iridescenceIOR = 1.3;
+          material.color.set('#f0f8ff');
           material.metalness = 0.0;
-          material.roughness = 0.08;
-          material.envMapIntensity = 1.5;
-          material.ior = 1.5;
+          material.roughness = 0.05;
+          material.envMapIntensity = 2.5;
+          material.emissive.set('#ffffff');
+          material.emissiveIntensity = Math.max(0.1, currentEmissiveIntensity);
           break;
           
         case 'gem':
-          material.color.set('#7b4bbc');
-          material.opacity = 0.8;
-          material.emissive.set('#7b4bbc');
-          material.emissiveIntensity = Math.max(0.08, currentEmissiveIntensity);
-          material.attenuationColor.set('#7b4bbc');
-          material.transmission = 0.4;
-          material.clearcoat = 0.9;
-          material.clearcoatRoughness = 0.01;
-          material.iridescence = 0.8;
-          material.iridescenceIOR = 1.4;
-          material.metalness = 0.2;
+          material.color.set('#6644bb');
+          material.metalness = 0.3;
           material.roughness = 0.05;
-          material.envMapIntensity = 1.3;
-          material.ior = 2.2;
+          material.envMapIntensity = 1.8;
+          material.emissive.set('#220044');
+          material.emissiveIntensity = Math.max(0.3, currentEmissiveIntensity);
           break;
           
         case 'holographic':
-          material.color.set('#00ffff');
-          material.opacity = 0.7;
-          material.emissive.set('#00ffff');
-          material.emissiveIntensity = Math.max(0.15, currentEmissiveIntensity);
-          material.attenuationColor.set('#ff00ff');
-          material.transmission = 0.4;
-          material.clearcoat = 1.0;
-          material.clearcoatRoughness = 0.0;
-          material.iridescence = 1.0;
-          material.iridescenceIOR = 2.0;
+          material.color.set('#00dddd');
           material.metalness = 0.8;
           material.roughness = 0.0;
-          material.envMapIntensity = 2.0;
-          material.ior = 2.0;
+          material.envMapIntensity = 3.0;
+          material.emissive.set('#004444');
+          material.emissiveIntensity = Math.max(0.4, currentEmissiveIntensity);
           break;
           
         default:
-          material.color.copy(config.materials.crystal.color);
-          material.opacity = 0.85;
-          material.emissive.copy(config.materials.crystal.emissive);
-          material.emissiveIntensity = Math.max(0.1, currentEmissiveIntensity);
-          material.attenuationColor.copy(config.materials.crystal.attenuationColor);
-          material.transmission = 0.4;
-          material.clearcoat = 0.7;
-          material.clearcoatRoughness = 0.03;
-          material.iridescence = 0.7;
-          material.iridescenceIOR = 1.2;
+          if (config.materials.crystal.color) {
+            material.color.copy(config.materials.crystal.color);
+          }
+          if (config.materials.crystal.emissive) {
+            material.emissive.copy(config.materials.crystal.emissive);
+          }
           material.metalness = 0.1;
-          material.roughness = 0.12;
-          material.envMapIntensity = 1.0;
-          material.ior = 1.9;
+          material.roughness = 0.15;
+          material.envMapIntensity = 2.0;
+          material.emissiveIntensity = Math.max(0.2, currentEmissiveIntensity);
           break;
       }
       
@@ -246,44 +178,41 @@ const MaterialManager = ({
     }
   }, [materialVariant, usePBR, config.materials.crystal]);
 
-  // Add normal map support even for non-PBR materials
+  // SIMPLIFIED: Normal map support for mobile (optional)
   useEffect(() => {
-    if (!usePBR && enhancedBasicMaterialRef.current && safePerformanceConfig.useNormalMaps && config.assets.textures.normalMap) {
-      console.log('🔧 Adding normal map to enhanced non-PBR material');
+    if (!usePBR && optimizedMobileRef.current && safePerformanceConfig.useNormalMaps && config.assets.textures.normalMap) {
+      console.log('🔧 Adding normal map to optimized mobile material');
       
       const textureLoader = new THREE.TextureLoader();
       textureLoader.load(config.assets.textures.normalMap, (texture) => {
-        texture.wrapS = config.materials.textures.normalMap.wrapS;
-        texture.wrapT = config.materials.textures.normalMap.wrapT;
-        texture.repeat.set(...config.materials.textures.normalMap.repeat);
+        // Basic texture setup
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapT = THREE.RepeatWrapping;
+        texture.repeat.set(5, 5); // Simple repeat
         
-        // Configure texture quality
-        const textureQuality = safePerformanceConfig.textureQuality || 'high';
-        const mipmapEnabled = textureQuality !== 'low';
-        const anisotropy = textureQuality === 'high' ? 4 : (textureQuality === 'medium' ? 2 : 1);
+        // Mobile-optimized texture settings
+        texture.minFilter = THREE.LinearFilter;      // No mipmaps for mobile
+        texture.magFilter = THREE.LinearFilter;
+        texture.generateMipmaps = false;             // Save memory
+        texture.anisotropy = 1;                      // No anisotropic filtering
         
-        texture.minFilter = mipmapEnabled ? THREE.LinearMipmapLinearFilter : THREE.LinearFilter;
-        texture.generateMipmaps = mipmapEnabled;
-        texture.anisotropy = anisotropy;
-        texture.colorSpace = THREE.SRGBColorSpace;
+        optimizedMobileRef.current.normalMap = texture;
+        optimizedMobileRef.current.normalScale = new THREE.Vector2(0.5, 0.5); // Subtle normal
+        optimizedMobileRef.current.needsUpdate = true;
         
-        enhancedBasicMaterialRef.current.normalMap = texture;
-        enhancedBasicMaterialRef.current.normalScale = new THREE.Vector2(0.3, 0.3);
-        enhancedBasicMaterialRef.current.needsUpdate = true;
-        
-        console.log('✅ Normal map added to enhanced non-PBR material');
+        console.log('✅ Normal map added to optimized mobile material');
       });
-    } else if (!usePBR && enhancedBasicMaterialRef.current && !safePerformanceConfig.useNormalMaps) {
+    } else if (!usePBR && optimizedMobileRef.current && !safePerformanceConfig.useNormalMaps) {
       // Remove normal map if disabled
-      if (enhancedBasicMaterialRef.current.normalMap) {
-        enhancedBasicMaterialRef.current.normalMap = null;
-        enhancedBasicMaterialRef.current.normalScale.set(0, 0);
-        enhancedBasicMaterialRef.current.needsUpdate = true;
+      if (optimizedMobileRef.current.normalMap) {
+        optimizedMobileRef.current.normalMap = null;
+        optimizedMobileRef.current.normalScale.set(0, 0);
+        optimizedMobileRef.current.needsUpdate = true;
       }
     }
-  }, [usePBR, safePerformanceConfig.useNormalMaps, safePerformanceConfig.textureQuality, config.assets.textures.normalMap, config.materials.textures.normalMap]);
+  }, [usePBR, safePerformanceConfig.useNormalMaps, config.assets.textures.normalMap]);
 
-  // Update the main material ref whenever the variant or performance config changes
+  // Update the main material ref
   useEffect(() => {
     console.log('🔄 MaterialManager: Updating material reference', {
       variant: materialVariant,
@@ -291,24 +220,20 @@ const MaterialManager = ({
       previousMaterial: materialRef.current?.type
     });
     
-    if (materialRef.current) {
-      console.log('🗑️ Disposing previous material:', materialRef.current.type);
-    }
-    
     if (!usePBR) {
-      materialRef.current = enhancedBasicMaterialRef.current;
-      console.log('✅ Using enhanced non-PBR material (advanced features enabled)');
+      materialRef.current = optimizedMobileRef.current;
+      console.log('✅ Using OPTIMIZED mobile material (MeshStandardMaterial)');
     } else {
       materialRef.current = crystalMaterialRef.current;
       console.log('✅ Using full PBR crystal material:', materialVariant);
     }
 
     if (onMaterialReady) onMaterialReady(materialRef.current);
-  }, [materialVariant, materialRef, usePBR]);
+  }, [materialVariant, materialRef, usePBR, onMaterialReady]);
   
   // Only render PBR material component if PBR is enabled
   if (!usePBR) {
-    console.log('🚫 Skipping PBR material component (using enhanced non-PBR instead)');
+    console.log('🚫 Skipping PBR material component (using optimized mobile instead)');
     return null;
   }
 
