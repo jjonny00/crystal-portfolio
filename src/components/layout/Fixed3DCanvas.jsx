@@ -33,7 +33,7 @@ const PulsingOmniLight = () => {
       ref={lightRef}
       position={[0, 0, 0]}
       intensity={1.5}
-      color="#ffa192"
+      color="#00ffe4"
       distance={5}
       decay={2}
       castShadow={false}

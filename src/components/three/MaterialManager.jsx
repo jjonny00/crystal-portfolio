@@ -2,6 +2,7 @@
 // Creates materials that perform well on mobile while maintaining crystal appearance
 
 import React, { useRef, useEffect } from 'react';
+import { useThree } from '@react-three/fiber';
 import CrystalMaterial from '../materials/CrystalMaterial';
 import * as THREE from 'three';
 
@@ -14,6 +15,7 @@ const MaterialManager = ({
 }) => {
   const crystalMaterialRef = useRef();
   const optimizedMobileRef = useRef();
+  const { scene } = useThree(); // Get Three.js scene to access environment
   
   // FIXED: Null safety with proper defaults
   const safePerformanceConfig = performanceConfig || {
@@ -35,20 +37,20 @@ const MaterialManager = ({
       // Use MeshStandardMaterial instead of MeshPhysicalMaterial for mobile
       // This removes expensive features like transmission, clearcoat, iridescence
       let materialProps = {
-        // Basic PBR properties (much cheaper than Physical)
-        color: new THREE.Color('#4488ff'), // Slightly blue crystal color
-        metalness: 0.1,                     // Slight metallic look
-        roughness: 0.15,                    // Smooth but not mirror-like
+        // AGGRESSIVE: Settings similar to gem variant for strong reflections
+        color: new THREE.Color('#5f4e75'),   // Purple like gem (shows reflections better than blue)
+        metalness: 0.08,                      // MUCH higher metallic (like gem variant)
+        roughness: 0.02,                     // VERY smooth (like gem variant)
         
         // Environment mapping for reflections (key for crystal look!)
-        envMapIntensity: 2.0,               // Strong environment reflections
+        envMapIntensity: 4.0,                // VERY strong environment reflections
         
         // NO transparency - major performance gain!
         transparent: false,
         opacity: 1.0,
         
         // Standard material properties
-        side: THREE.FrontSide,              // Only render front faces (perf gain)
+        side: THREE.FrontSide,               // Only render front faces (perf gain)
         fog: true,
         
         // CRITICAL: Enable depth writing for proper rendering
@@ -56,8 +58,8 @@ const MaterialManager = ({
         depthTest: true,
         
         // Emissive glow to simulate internal light
-        emissive: new THREE.Color('#001166'), // Dark blue emissive
-        emissiveIntensity: 0.2,             // Subtle internal glow
+        emissive: new THREE.Color('#a7ffdb'), // Purple emissive (like gem)
+        emissiveIntensity: 0.03,              // More pronounced glow
         
         // Use higher precision only when needed
         precision: safePerformanceConfig.highPrecision ? 'highp' : 'mediump'
@@ -67,45 +69,53 @@ const MaterialManager = ({
       switch(materialVariant) {
         case 'glass':
           materialProps.color.set('#f0f8ff');        // Very light blue
-          materialProps.metalness = 0.0;             // Glass isn't metallic
-          materialProps.roughness = 0.05;            // Very smooth
-          materialProps.envMapIntensity = 2.5;       // Strong reflections
+          materialProps.metalness = 0.1;             // Slight metallic for reflections
+          materialProps.roughness = 0.02;            // Very smooth
+          materialProps.envMapIntensity = 4.0;       // Very strong reflections
           materialProps.emissive.set('#ffffff');     // White emissive
           materialProps.emissiveIntensity = 0.1;     // Subtle
           break;
           
         case 'gem':
           materialProps.color.set('#6644bb');        // Purple gem
-          materialProps.metalness = 0.3;             // More metallic
-          materialProps.roughness = 0.05;            // Very smooth
-          materialProps.envMapIntensity = 1.8;       // Good reflections
+          materialProps.metalness = 0.5;             // More metallic
+          materialProps.roughness = 0.02;            // Very smooth
+          materialProps.envMapIntensity = 3.5;       // Strong reflections
           materialProps.emissive.set('#220044');     // Purple emissive
           materialProps.emissiveIntensity = 0.3;     // More pronounced
           break;
           
         case 'holographic':
           materialProps.color.set('#00dddd');        // Cyan
-          materialProps.metalness = 0.8;             // Very metallic
+          materialProps.metalness = 0.9;             // Very metallic
           materialProps.roughness = 0.0;             // Mirror-like
-          materialProps.envMapIntensity = 3.0;       // Maximum reflections
+          materialProps.envMapIntensity = 5.0;       // Maximum reflections
           materialProps.emissive.set('#004444');     // Cyan emissive
           materialProps.emissiveIntensity = 0.4;     // Strong glow
           break;
           
         default:
-          // Use config colors if available
+          // Use config colors if available, but keep gem-like settings
           if (config.materials.crystal.color) {
             materialProps.color.copy(config.materials.crystal.color);
           }
           if (config.materials.crystal.emissive) {
             materialProps.emissive.copy(config.materials.crystal.emissive);
           }
-          materialProps.emissiveIntensity = 0.2;
+          // KEEP these high values for visible reflections
+          materialProps.metalness = 0.08;        // High metallic
+          materialProps.roughness = 0.02;       // Very smooth
+          materialProps.envMapIntensity = 40.0;   // Strong reflections
+          materialProps.emissiveIntensity = 0.3; // Visible glow
           break;
       }
       
       // Create the optimized material
       const optimizedMaterial = new THREE.MeshStandardMaterial(materialProps);
+      
+      // CRITICAL: We need to manually set the environment map
+      // MeshStandardMaterial doesn't automatically pick it up from the scene
+      // We'll set it when the component mounts and environment is available
       optimizedMobileRef.current = optimizedMaterial;
       
       console.log('✅ OPTIMIZED mobile material created:', {
@@ -121,6 +131,59 @@ const MaterialManager = ({
     }
   }, [usePBR, config.materials.crystal.color, config.materials.crystal.emissive, materialVariant, onMaterialReady]);
 
+  // CRITICAL: Set environment map for reflections
+  useEffect(() => {
+    if (!usePBR && optimizedMobileRef.current && scene) {
+      // Check if scene has environment
+      if (scene.environment) {
+        console.log('🌍 Setting environment map for mobile material');
+        optimizedMobileRef.current.envMap = scene.environment;
+        optimizedMobileRef.current.needsUpdate = true;
+        
+        // DEBUG: Log material properties to verify settings
+        console.log('🔍 Mobile material debug:', {
+          hasEnvMap: !!optimizedMobileRef.current.envMap,
+          metalness: optimizedMobileRef.current.metalness,
+          roughness: optimizedMobileRef.current.roughness,
+          envMapIntensity: optimizedMobileRef.current.envMapIntensity,
+          color: optimizedMobileRef.current.color.getHexString(),
+          emissiveIntensity: optimizedMobileRef.current.emissiveIntensity
+        });
+      } else {
+        console.log('⏳ Waiting for environment to load...');
+        // Wait for environment to load
+        const checkEnvironment = () => {
+          if (scene.environment && optimizedMobileRef.current) {
+            console.log('🌍 Environment loaded - applying to mobile material');
+            optimizedMobileRef.current.envMap = scene.environment;
+            optimizedMobileRef.current.needsUpdate = true;
+            
+            // DEBUG: Log material properties
+            console.log('🔍 Mobile material debug (delayed):', {
+              hasEnvMap: !!optimizedMobileRef.current.envMap,
+              metalness: optimizedMobileRef.current.metalness,
+              roughness: optimizedMobileRef.current.roughness,
+              envMapIntensity: optimizedMobileRef.current.envMapIntensity
+            });
+          }
+        };
+        
+        // Check periodically for environment
+        const intervalId = setInterval(() => {
+          if (scene.environment) {
+            checkEnvironment();
+            clearInterval(intervalId);
+          }
+        }, 100);
+        
+        // Clean up after 5 seconds
+        setTimeout(() => {
+          clearInterval(intervalId);
+        }, 5000);
+      }
+    }
+  }, [usePBR, optimizedMobileRef.current, scene]);
+
   // Update material when variant changes
   useEffect(() => {
     if (!usePBR && optimizedMobileRef.current) {
@@ -135,27 +198,27 @@ const MaterialManager = ({
       switch(materialVariant) {
         case 'glass':
           material.color.set('#f0f8ff');
-          material.metalness = 0.0;
-          material.roughness = 0.05;
-          material.envMapIntensity = 2.5;
+          material.metalness = 0.1;
+          material.roughness = 0.02;
+          material.envMapIntensity = 4.0;
           material.emissive.set('#ffffff');
           material.emissiveIntensity = Math.max(0.1, currentEmissiveIntensity);
           break;
           
         case 'gem':
           material.color.set('#6644bb');
-          material.metalness = 0.3;
-          material.roughness = 0.05;
-          material.envMapIntensity = 1.8;
+          material.metalness = 0.5;
+          material.roughness = 0.02;
+          material.envMapIntensity = 3.5;
           material.emissive.set('#220044');
           material.emissiveIntensity = Math.max(0.3, currentEmissiveIntensity);
           break;
           
         case 'holographic':
           material.color.set('#00dddd');
-          material.metalness = 0.8;
+          material.metalness = 0.9;
           material.roughness = 0.0;
-          material.envMapIntensity = 3.0;
+          material.envMapIntensity = 5.0;
           material.emissive.set('#004444');
           material.emissiveIntensity = Math.max(0.4, currentEmissiveIntensity);
           break;
@@ -167,10 +230,11 @@ const MaterialManager = ({
           if (config.materials.crystal.emissive) {
             material.emissive.copy(config.materials.crystal.emissive);
           }
-          material.metalness = 0.1;
-          material.roughness = 0.15;
-          material.envMapIntensity = 2.0;
-          material.emissiveIntensity = Math.max(0.2, currentEmissiveIntensity);
+          // AGGRESSIVE: Use gem-like settings for strong reflections
+          material.metalness = 0.8;              // High metallic
+          material.roughness = 0.02;             // Very smooth
+          material.envMapIntensity = 4.0;        // Strong reflections
+          material.emissiveIntensity = Math.max(0.3, currentEmissiveIntensity);
           break;
       }
       

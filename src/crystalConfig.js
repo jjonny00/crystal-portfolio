@@ -221,7 +221,7 @@ export const effects = {
 export const materials = {
   // Base crystal material configuration
   crystal: {
-    color: new THREE.Color('#0d00bb'),
+    color: new THREE.Color('#251264'),
     transparent: true,
     transmission: 0.9,
     ior: 2.3,
@@ -230,7 +230,7 @@ export const materials = {
     iridescenceIOR: 1.0,
     metalness: 0.0,
     roughness: 0.11,
-    attenuationColor: new THREE.Color('#6bfcff'),
+    attenuationColor: new THREE.Color('#00ffe4'),
     attenuationDistance: 0.1,
     clearcoat: 0.5,
     clearcoatRoughness: 0.01,
@@ -238,7 +238,7 @@ export const materials = {
     reflectivity: 0.7,
     specularIntensity: 1.0,
     specularColor: new THREE.Color('#ffffff'),
-    emissive: new THREE.Color('#0c00ff'),
+    emissive: new THREE.Color('#000257'),
     emissiveIntensity: 0 // Default, will be changed dynamically
   },
   
