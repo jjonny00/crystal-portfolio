@@ -1,17 +1,17 @@
 // src/hooks/useInitialPerformanceTest.js
-// FIXED: Proper FPS evaluation and device profile respect
+// FIXED: Conservative performance test that respects device profiles
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useFPSMonitorDOM } from '../components/ui/FpsDisplay';
 import { getPerformanceProfile } from '../utils/deviceProfiles';
 
 /**
- * FIXED: Run a short FPS sampling test on startup and return
- * a performance configuration based on the results, but respect device profiles
+ * FIXED: Conservative performance test that only adjusts for genuinely poor performance
+ * Respects device profiles and only downgrades when FPS is actually problematic
  */
 export const useInitialPerformanceTest = (
   deviceProfile,
-  { duration = 4000, autoStart = true, onComplete } = {}
+  { duration = 5000, autoStart = true, onComplete } = {}
 ) => {
   const { avgFps } = useFPSMonitorDOM();
   const [performanceConfig, setPerformanceConfig] = useState(null);
@@ -23,56 +23,61 @@ export const useInitialPerformanceTest = (
     const elapsed = performance.now() - (startRef.current || 0);
     
     console.log(`🔬 Performance Test Results:`, {
-      avgFps,
+      avgFps: avgFps.toFixed(1),
       elapsed: Math.round(elapsed),
+      deviceCategory: deviceProfile?.category,
       deviceTier: deviceProfile?.performanceTier
     });
     
-    // FIXED: More intelligent FPS evaluation
-    let fpsTier;
-    if (avgFps >= 55) {
-      fpsTier = 'high';
-    } else if (avgFps >= 40) {
-      fpsTier = 'medium'; 
-    } else if (avgFps >= 25) {
-      fpsTier = 'low';
+    // FIXED: Start with device profile as baseline (not override it)
+    const baseProfile = getPerformanceProfile(deviceProfile);
+    let finalConfig = { ...baseProfile };
+    
+    // FIXED: Only make adjustments for genuinely poor performance
+    if (avgFps < 15) {
+      // Severe performance issues - apply aggressive optimizations
+      console.log(`⬇️ Severe performance detected (${avgFps.toFixed(1)} fps) - applying aggressive optimizations`);
+      
+      finalConfig = {
+        ...finalConfig,
+        usePBR: false,                    // Disable PBR entirely
+        useNormalMaps: false,             // Disable normal maps
+        textureQuality: 'low',            // Lowest texture quality
+        renderScale: Math.min(finalConfig.renderScale * 0.7, 0.6), // Reduce render scale
+        postProcessing: {
+          bloom: false,
+          chromaticAberration: false,
+          noise: true,                    // Keep cheap noise
+          vignette: true                  // Keep cheap vignette
+        }
+      };
+      
+    } else if (avgFps >= 15 && avgFps < 25) {
+      // Moderate performance issues - apply minor optimizations
+      console.log(`⚠️ Moderate performance detected (${avgFps.toFixed(1)} fps) - applying minor optimizations`);
+      
+      // Only adjust post-processing, keep PBR and normal maps
+      finalConfig = {
+        ...finalConfig,
+        postProcessing: {
+          ...finalConfig.postProcessing,
+          bloom: false,                   // Disable expensive bloom
+          chromaticAberration: false      // Disable chromatic aberration
+          // Keep noise and vignette - they're cheap
+        }
+      };
+      
     } else {
-      fpsTier = 'very-low'; // New tier for very poor performance
+      // Good performance (25+ fps) - keep device profile unchanged
+      console.log(`✅ Good performance detected (${avgFps.toFixed(1)} fps) - keeping device profile settings`);
+      // finalConfig already equals baseProfile, no changes needed
     }
-    
-    console.log(`📊 FPS Analysis: ${avgFps} fps → ${fpsTier} tier`);
-    
-    // FIXED: More conservative tier selection
-    const baseTier = deviceProfile?.performanceTier || 'medium';
-    
-    // Only downgrade if FPS is significantly poor
-    let finalTier;
-    if (fpsTier === 'very-low') {
-      // Force to low if FPS is really bad (< 25)
-      finalTier = 'low';
-      console.log(`⬇️ Downgrading from ${baseTier} to low due to very poor FPS`);
-    } else if (fpsTier === 'low' && baseTier === 'high') {
-      // Only downgrade high to medium if FPS is poor (25-40)
-      finalTier = 'medium';
-      console.log(`⬇️ Downgrading from high to medium due to low FPS`);
-    } else if (fpsTier === 'medium' && baseTier === 'high') {
-      // Keep high tier even with medium FPS - might just be initial loading
-      finalTier = 'high';
-      console.log(`✅ Keeping high tier despite medium FPS (could be loading)`);
-    } else {
-      // Keep original tier for most cases
-      finalTier = baseTier;
-      console.log(`✅ Keeping original tier: ${baseTier} (FPS: ${fpsTier})`);
-    }
-    
-    // FIXED: Create config based on final tier, not FPS tier
-    const finalConfig = getPerformanceProfile({
-      ...deviceProfile,
-      performanceTier: finalTier,
-    });
     
     console.log(`🎯 Final Performance Config:`, {
-      tier: finalTier,
+      source: avgFps < 15 ? 'Aggressive Optimization' : 
+              avgFps < 25 ? 'Minor Optimization' : 
+              'Device Profile (Unchanged)',
+      originalTier: deviceProfile?.performanceTier,
       usePBR: finalConfig.usePBR,
       useNormalMaps: finalConfig.useNormalMaps,
       textureQuality: finalConfig.textureQuality,
@@ -89,8 +94,8 @@ export const useInitialPerformanceTest = (
 
   const startTest = useCallback(() => {
     startRef.current = performance.now();
-    console.log(`🔬 Starting performance test (target ${duration}ms)...`);
-    console.log(`📱 Device profile:`, {
+    console.log(`🔬 Starting conservative performance test (${duration}ms)...`);
+    console.log(`📱 Device baseline:`, {
       category: deviceProfile?.category,
       tier: deviceProfile?.performanceTier,
       isMobile: deviceProfile?.isMobile
@@ -102,6 +107,14 @@ export const useInitialPerformanceTest = (
     timeoutRef.current = setTimeout(finalizeTest, duration);
   }, [duration, finalizeTest, deviceProfile]);
 
+  // Auto-start effect
+  useEffect(() => {
+    if (deviceProfile && autoStart && startRef.current === null) {
+      startTest();
+    }
+  }, [deviceProfile, autoStart, startTest]);
+
+  // Timeout completion check
   useEffect(() => {
     if (!deviceProfile || !testing) return;
 
@@ -116,12 +129,7 @@ export const useInitialPerformanceTest = (
     }
   }, [avgFps, deviceProfile, duration, testing, finalizeTest]);
 
-  useEffect(() => {
-    if (deviceProfile && autoStart && startRef.current === null) {
-      startTest();
-    }
-  }, [deviceProfile, autoStart, startTest]);
-
+  // Cleanup
   useEffect(() => {
     return () => {
       if (timeoutRef.current) {
@@ -130,5 +138,9 @@ export const useInitialPerformanceTest = (
     };
   }, []);
 
-  return { performanceConfig, isTesting: testing, startTest };
+  return { 
+    performanceConfig, 
+    isTesting: testing, 
+    startTest 
+  };
 };

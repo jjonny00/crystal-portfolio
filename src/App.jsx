@@ -1,24 +1,23 @@
-// src/App.jsx - FIXED: Added performance test bypass for high-end devices
-// CRITICAL: All hooks must be called in the same order every render
+// src/App.jsx - FIXED: Immediate loader, conservative performance test
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import './App.css';
 import './styles/scroll-snap.css';
 
-// NEW: Enhanced loading system
+// Enhanced loading system
 import { useAssetLoader } from './hooks/useAssetLoader';
 import EnhancedLoadingScreen from './components/ui/EnhancedLoadingScreen';
 
-// UNIFIED: Single animation coordinator replaces all complex state management
+// Animation coordinator
 import MasterAnimationCoordinator from './components/three/MasterAnimationCoordinator';
 import { ANIMATION_CONFIG } from './hooks/useUnifiedAnimationController';
 import { Vector3 } from 'three';
 
-// Layout components (unchanged)
+// Layout components
 import ScrollablePortfolio from './components/layout/ScrollablePortfolio';
 import Fixed3DCanvas from './components/layout/Fixed3DCanvas';
 
-// UI components (unchanged)
+// UI components
 import Navigation from './components/ui/Navigation';
 import FooterSection from './components/ui/FooterSection';
 import ControlsToggle from './components/ui/ControlsToggle';
@@ -30,18 +29,15 @@ import PerformanceControls from './components/ui/PerformanceControls';
 import AccessibilityInstructions from './components/ui/AccessibilityInstructions';
 import FpsDisplay, { PerformanceAlert } from './components/ui/FpsDisplay';
 
-// ADDED: Debug component
+// Debug component
 import PerformanceDebugPanel from './components/ui/PerformanceDebugPanel';
 
-// Configuration and utilities (unchanged)
+// Configuration and utilities
 import * as defaultConfig from './crystalConfig';
 import { useDeviceProfile } from './hooks/useDeviceProfile';
 import { useInitialPerformanceTest } from './hooks/useInitialPerformanceTest';
 
-// ENHANCED: Bypass performance test for high-end devices
-const BYPASS_PERFORMANCE_TEST_FOR_HIGH_END = true; // Set to true to skip testing on high-end devices
-
-// Convert UI config into animation config used by the controller
+// Convert UI config into animation config
 const buildAnimationConfig = (uiConfig) => {
   const toVec = (arr) => new Vector3(...arr);
 
@@ -92,7 +88,7 @@ const buildAnimationConfig = (uiConfig) => {
   };
 };
 
-// Simple mobile detection (unchanged)
+// Mobile detection
 const isMobileDevice = () => {
   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
          (navigator.maxTouchPoints && navigator.maxTouchPoints > 2);
@@ -100,10 +96,11 @@ const isMobileDevice = () => {
 
 function App() {
   // ========================================
-  // CRITICAL: ALL HOOKS MUST BE CALLED FIRST
+  // CRITICAL: Start with loading state TRUE
   // ========================================
+  const [isAppReady, setIsAppReady] = useState(false); // Start FALSE to show loader immediately
   
-  // Basic state hooks - always called
+  // Basic state hooks
   const [hideAllUI, setHideAllUI] = useState(false);
   const [snapSpeed, setSnapSpeed] = useState('medium');
   const [config, setConfig] = useState({
@@ -130,21 +127,9 @@ function App() {
     vignette: true
   });
   const [postProcessingConfig, setPostProcessingConfig] = useState(config.postProcessing);
-  const [performanceConfig, setPerformanceConfig] = useState(() => {
-    return {
-      useNormalMaps: false,
-      textureQuality: 'low',
-      usePBR: false,
-      renderScale: 0.7
-    };
-  });
-  const [isAppReady, setIsAppReady] = useState(false);
-  const [initialProfileApplied, setInitialProfileApplied] = useState(false);
+  const [performanceConfig, setPerformanceConfig] = useState(null);
 
-  // ENHANCED: Add bypass state for performance test
-  const [bypassedPerformanceConfig, setBypassedPerformanceConfig] = useState(null);
-
-  // FIXED: Device profile hook with debug logging and proper initialization tracking
+  // Device profile hook
   const {
     performanceProfile: devicePerformanceProfile,
     deviceProfile,
@@ -155,11 +140,11 @@ function App() {
     hasInitialized,
     isDetecting
   } = useDeviceProfile({
-    enableDebugLogging: true, // ENABLE DEBUG LOGGING
+    enableDebugLogging: true,
     enableOrientationLock: false
   });
 
-  // Asset loader hook - always called
+  // Asset loader hook
   const {
     progress,
     phase,
@@ -173,21 +158,24 @@ function App() {
     retry
   } = useAssetLoader(devicePerformanceProfile, deviceProfile);
 
-  // ENHANCED: Initial performance test with bypass option for high-end devices
+  // Performance test hook
   const {
-    performanceConfig: initialPerformanceConfig,
+    performanceConfig: testPerformanceConfig,
     isTesting: isPerfTesting,
     startTest: startPerfTest,
   } = useInitialPerformanceTest(deviceProfile, {
     autoStart: false,
-    onComplete: setPerformanceConfig,
+    onComplete: (config) => {
+      console.log('🎯 Performance test completed, setting config:', config);
+      setPerformanceConfig(config);
+    }
   });
 
-  // Detect if mobile - always called
+  // Detect if mobile
   const isMobile = isMobileDevice();
 
   // ========================================
-  // CALLBACKS - always called
+  // CALLBACKS
   // ========================================
 
   const handleSnapSpeedChange = useCallback((speed) => {
@@ -196,13 +184,7 @@ function App() {
   }, []);
 
   const handleAnimationStateChange = useCallback((newState, prevState) => {
-    if (process.env.NODE_ENV === 'development') {
-      // Uncomment for debugging
-      // console.log('🎬 Animation state changed:', {
-      //   from: prevState,
-      //   to: newState
-      // });
-    }
+    // Debug logging if needed
   }, []);
 
   const handleWorkClick = useCallback(() => {
@@ -253,110 +235,51 @@ function App() {
     }
   }, []);
   
-  // FIXED: Handle manual performance config updates (from Performance Controls UI)
   const handlePerformanceConfigUpdate = useCallback((newConfig) => {
     console.log("🔧 Manual performance config update:", newConfig);
-    
-    // Update local state
     setPerformanceConfig(newConfig);
     
-    // ONLY send to device profile if properly initialized
-    if (hasInitialized && initialProfileApplied && updateExternalPerformanceConfig) {
+    if (hasInitialized && updateExternalPerformanceConfig) {
       console.log("📤 Sending manual config to device profile");
       updateExternalPerformanceConfig(newConfig);
-    } else {
-      console.log("🚫 Not ready for external config updates yet", {
-        hasInitialized,
-        initialProfileApplied,
-        hasUpdateFunction: !!updateExternalPerformanceConfig
-      });
     }
-  }, [hasInitialized, initialProfileApplied, updateExternalPerformanceConfig]);
+  }, [hasInitialized, updateExternalPerformanceConfig]);
 
   const toggleUI = useCallback(() => {
     setShowUI(!showUI);
   }, [showUI]);
 
   // ========================================
-  // EFFECTS - always called in same order
+  // EFFECTS - SIMPLIFIED FLOW
   // ========================================
 
-  // ENHANCED: Bypass performance test for high-end devices if desired
+  // Start performance test when device profile is ready
   useEffect(() => {
-    if (deviceProfile && !initialPerformanceConfig && !isPerfTesting && !bypassedPerformanceConfig) {
-      // Check if we should bypass the performance test
-      const shouldBypass = BYPASS_PERFORMANCE_TEST_FOR_HIGH_END && 
-                          deviceProfile.performanceTier === 'high' && 
-                          !deviceProfile.isMobile;
-      
-      if (shouldBypass) {
-        console.log('🚀 Bypassing performance test for high-end device');
-        console.log('📱 Device profile:', {
-          category: deviceProfile.category,
-          tier: deviceProfile.performanceTier,
-          isMobile: deviceProfile.isMobile
-        });
-        
-        // Use device profile directly without testing
-        const directConfig = devicePerformanceProfile;
-        console.log('🎯 Using direct device profile config:', {
-          usePBR: directConfig.usePBR,
-          useNormalMaps: directConfig.useNormalMaps,
-          textureQuality: directConfig.textureQuality,
-          renderScale: directConfig.renderScale
-        });
-        
-        setBypassedPerformanceConfig(directConfig);
-        setPerformanceConfig(directConfig);
-      } else {
-        // Run performance test as normal
-        console.log('🔬 Running performance test for device:', deviceProfile.performanceTier);
-        startPerfTest();
-      }
+    if (deviceProfile && !testPerformanceConfig && !isPerfTesting) {
+      console.log('🔬 Starting performance test for device:', deviceProfile.performanceTier);
+      startPerfTest();
     }
-  }, [deviceProfile, initialPerformanceConfig, isPerfTesting, bypassedPerformanceConfig, 
-      devicePerformanceProfile, startPerfTest]);
+  }, [deviceProfile, testPerformanceConfig, isPerfTesting, startPerfTest]);
 
-  // FIXED: Apply initial performance config and mark as initialized
+  // Apply performance config when test completes
   useEffect(() => {
-    const effectivePerformanceConfig = bypassedPerformanceConfig || initialPerformanceConfig;
-    
-    if (effectivePerformanceConfig && !initialProfileApplied) {
-      console.log('🎯 Applying performance config:', {
-        source: bypassedPerformanceConfig ? 'Device Profile (bypassed test)' : 'Performance Test',
-        usePBR: effectivePerformanceConfig.usePBR,
-        useNormalMaps: effectivePerformanceConfig.useNormalMaps,
-        textureQuality: effectivePerformanceConfig.textureQuality,
-        renderScale: effectivePerformanceConfig.renderScale
-      });
+    if (testPerformanceConfig) {
+      console.log('🎯 Applying performance test results:', testPerformanceConfig);
+      setPerformanceConfig(testPerformanceConfig);
       
-      setPerformanceConfig(effectivePerformanceConfig);
-      setInitialProfileApplied(true);
-      
-      // IMPORTANT: Mark device profile as initialized AFTER we set the performance config
       if (markAsInitialized) {
         markAsInitialized();
       }
     }
-  }, [initialPerformanceConfig, bypassedPerformanceConfig, initialProfileApplied, markAsInitialized]);
+  }, [testPerformanceConfig, markAsInitialized]);
 
-  // FIXED: Only allow external updates after proper initialization
+  // SIMPLE: App is ready when assets are loaded AND we have a performance config
   useEffect(() => {
-    if (hasInitialized && initialProfileApplied && updateExternalPerformanceConfig) {
-      console.log('🔧 Ready for external performance config updates');
-    }
-  }, [hasInitialized, initialProfileApplied, updateExternalPerformanceConfig]);
-
-  // ENHANCED: Check if app is ready to show (with bypass support)
-  useEffect(() => {
-    const effectivePerformanceConfig = bypassedPerformanceConfig || initialPerformanceConfig;
-    const shouldBeReady = !isDetecting && isReady && devicePerformanceProfile && effectivePerformanceConfig;
-    
-    if (shouldBeReady && !isAppReady) {
-      console.log('🎯 App is ready to show');
+    if (isReady && performanceConfig && !isAppReady) {
+      console.log('🎯 App is ready - assets loaded and performance configured');
       setIsAppReady(true);
     }
-  }, [isDetecting, isReady, devicePerformanceProfile, initialPerformanceConfig, bypassedPerformanceConfig, isAppReady]);
+  }, [isReady, performanceConfig, isAppReady]);
 
   // UI Hide Toggle Keyboard Listener
   useEffect(() => {
@@ -386,20 +309,16 @@ function App() {
   }, []);
 
   // ========================================
-  // CONDITIONAL RENDERING - After all hooks
+  // RENDER: Show loader FIRST, then app
   // ========================================
 
-  // Show enhanced loading screen while loading or device detection
+  // ALWAYS show loader if not ready - this appears IMMEDIATELY
   if (!isAppReady) {
     return (
       <EnhancedLoadingScreen
         progress={progress}
-        phase={isDetecting ? 'initializing' : (isPerfTesting ? 'initializing' : phase)}
-        currentAsset={
-          isDetecting ? 'Detecting device capabilities...' : 
-          isPerfTesting ? 'Testing performance...' : 
-          currentAsset
-        }
+        phase={phase}
+        currentAsset={currentAsset}
         loadedAssets={loadedAssets}
         totalAssets={totalAssets}
         errors={errors}
@@ -408,13 +327,13 @@ function App() {
     );
   }
 
-  // Get optimal props for 3D canvas
+  // Only show main app when fully ready
   const canvasProps = getOptimalCanvasProps();
   const environmentProps = getOptimalEnvironmentProps();
 
   return (
     <>
-      {/* UI Hide Toggle Button - Always Visible */}
+      {/* UI Hide Toggle Button */}
       <button
         onClick={() => setHideAllUI(!hideAllUI)}
         style={{
@@ -573,45 +492,10 @@ function App() {
                       alignItems: 'center',
                       justifyContent: 'center'
                     }}
-                    onMouseEnter={(e) => {
-                      if (snapSpeed !== speed) {
-                        e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (snapSpeed !== speed) {
-                        e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
-                      }
-                    }}
                   >
                     {speed.replace('-', ' ')}
                   </button>
                 ))}
-              </div>
-              
-              <div style={{
-                fontSize: '12px',
-                color: 'rgba(255, 255, 255, 0.7)',
-                backgroundColor: 'rgba(100, 255, 218, 0.1)',
-                padding: '12px',
-                borderRadius: '6px',
-                lineHeight: '1.5',
-                border: '1px solid rgba(100, 255, 218, 0.2)'
-              }}>
-                <div style={{ marginBottom: '4px' }}><strong style={{ color: '#64ffda' }}>Fast:</strong> Almost instant snapping</div>
-                <div style={{ marginBottom: '4px' }}><strong style={{ color: '#64ffda' }}>Medium:</strong> Default smooth snapping</div>
-                <div style={{ marginBottom: '4px' }}><strong style={{ color: '#64ffda' }}>Slow:</strong> More gradual snapping</div>
-                <div style={{ marginBottom: '4px' }}><strong style={{ color: '#64ffda' }}>Extra Slow:</strong> Very gradual movement</div>
-                <div><strong style={{ color: '#64ffda' }}>No Snap:</strong> Free scrolling (no snapping)</div>
-              </div>
-              
-              <div style={{
-                fontSize: '11px',
-                color: 'rgba(255, 255, 255, 0.6)',
-                marginTop: '8px',
-                fontStyle: 'italic'
-              }}>
-                Current: <strong style={{ color: '#64ffda' }}>{snapSpeed.replace('-', ' ')}</strong>
               </div>
             </div>
           </div>
@@ -623,15 +507,15 @@ function App() {
         <AccessibilityInstructions visible={true} />
       )}
 
-      {/* ENHANCED: Debug Panel for Development with bypass support */}
+      {/* Debug Panel for Development */}
       {process.env.NODE_ENV === 'development' && (
         <PerformanceDebugPanel
           deviceProfile={deviceProfile}
           performanceConfig={performanceConfig}
           devicePerformanceProfile={devicePerformanceProfile}
-          initialPerformanceConfig={bypassedPerformanceConfig || initialPerformanceConfig}
+          initialPerformanceConfig={testPerformanceConfig}
           hasInitialized={hasInitialized}
-          initialProfileApplied={initialProfileApplied}
+          initialProfileApplied={!!performanceConfig}
         />
       )}
     </>
