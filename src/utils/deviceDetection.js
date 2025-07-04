@@ -1,59 +1,75 @@
 // src/utils/deviceDetection.js
-// Core device detection and classification system
+// FIXED: Enhanced device detection that properly classifies high-end devices
 
 /**
- * Device Detection Utility
- * Analyzes device capabilities and classifies performance tier
+ * Enhanced Device Detection with proper high-end device classification
  */
 
-// Device capability scoring system
-const detectDeviceCapabilities = () => {
-  const capabilities = {
-    // Hardware detection
-    isMobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent),
-    isTablet: /(iPad|Android(?!.*Mobile))/i.test(navigator.userAgent),
-    isIOS: /iPad|iPhone|iPod/.test(navigator.userAgent),
-    isAndroid: /Android/i.test(navigator.userAgent),
-    
-    // Specific iPad detection
-    isIPad: /iPad/.test(navigator.userAgent) || 
-             (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1), // Detect iPad Pro in desktop mode
-    
-    // Screen information
-    screenWidth: window.screen.width,
-    screenHeight: window.screen.height,
-    devicePixelRatio: window.devicePixelRatio || 1,
-    
-    // Browser capabilities
-    supportsWebGL2: (() => {
-      try {
-        const canvas = document.createElement('canvas');
-        return !!(canvas.getContext('webgl2'));
-      } catch (e) {
-        return false;
-      }
-    })(),
-    
-    // Hardware concurrency (CPU cores)
-    cpuCores: navigator.hardwareConcurrency || 2,
-    
-    // Memory (if available)
-    deviceMemory: navigator.deviceMemory || null,
-    
-    // Network information
-    connectionType: navigator.connection ? navigator.connection.effectiveType : null,
-    
-    // Touch capability
-    supportsTouch: 'ontouchstart' in window || navigator.maxTouchPoints > 0
-  };
+// Known high-performance devices (add more as needed)
+const HIGH_PERFORMANCE_DEVICES = {
+  // iPhone models (recent high-end)
+  iphones: [
+    'iPhone15,2', 'iPhone15,3', 'iPhone15,4', 'iPhone15,5', // iPhone 14 series
+    'iPhone16,1', 'iPhone16,2', // iPhone 15 series
+    'iPhone14,2', 'iPhone14,3', 'iPhone14,4', 'iPhone14,5', // iPhone 13 series
+  ],
   
-  return capabilities;
+  // iPad models (Pro and recent Air)
+  ipads: [
+    'iPad14,1', 'iPad14,2', // iPad Pro M2 12.9"
+    'iPad14,3', 'iPad14,4', // iPad Pro M2 11"
+    'iPad13,16', 'iPad13,17', // iPad Air M1
+    'iPad13,1', 'iPad13,2', // iPad Pro M1 12.9"
+    'iPad13,4', 'iPad13,5', 'iPad13,6', 'iPad13,7', // iPad Pro M1 11"
+  ],
+  
+  // Android flagships (add specific models)
+  android: [
+    'SM-G998', 'SM-G996', 'SM-G991', // Samsung Galaxy S21 series
+    'SM-G988', 'SM-G985', 'SM-G981', // Samsung Galaxy S20 series
+    'Pixel 7', 'Pixel 6', 'Pixel 5', // Google Pixel
+  ]
 };
 
 /**
- * Get detailed device information including GPU
+ * Get device model identifier
  */
-const getGPUInfo = () => {
+const getDeviceModel = () => {
+  const userAgent = navigator.userAgent;
+  
+  // iOS device detection
+  if (/iPhone|iPad/.test(userAgent)) {
+    // Try to get actual model from user agent
+    const modelMatch = userAgent.match(/iPhone(\d+,\d+)|iPad(\d+,\d+)/);
+    if (modelMatch) {
+      return modelMatch[0];
+    }
+    
+    // Fallback to OS version for rough classification
+    const osMatch = userAgent.match(/OS (\d+)_/);
+    if (osMatch) {
+      const osVersion = parseInt(osMatch[1]);
+      // iOS 15+ usually means recent hardware
+      return osVersion >= 15 ? 'iOS_Modern' : 'iOS_Legacy';
+    }
+  }
+  
+  // Android device detection
+  if (/Android/.test(userAgent)) {
+    // Try to extract model
+    const modelMatch = userAgent.match(/;\s*([^;]+)\s+Build/);
+    if (modelMatch) {
+      return modelMatch[1];
+    }
+  }
+  
+  return 'Unknown';
+};
+
+/**
+ * Enhanced GPU detection with better classification
+ */
+const getEnhancedGPUInfo = () => {
   try {
     const canvas = document.createElement('canvas');
     const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
@@ -66,143 +82,221 @@ const getGPUInfo = () => {
     const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
     const vendor = gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL);
     
-    return {
+    // Enhanced GPU classification
+    const gpuInfo = {
       renderer,
       vendor,
-      // Try to determine if it's integrated or dedicated
-      isIntegrated: /Intel|integrated/i.test(renderer) || /Mali|Adreno|PowerVR/i.test(renderer)
+      tier: 'unknown'
     };
+    
+    const rendererLower = renderer.toLowerCase();
+    
+    // High-end desktop GPUs
+    if (/rtx\s*40\d0|rtx\s*30\d0|rtx\s*20\d0/.test(rendererLower)) {
+      gpuInfo.tier = 'desktop-high';
+    } else if (/gtx\s*10\d0|gtx\s*9\d0|rx\s*6\d00|rx\s*5\d00/.test(rendererLower)) {
+      gpuInfo.tier = 'desktop-medium';
+    }
+    // Apple Silicon (M1/M2)
+    else if (/apple\s*m[12]|apple.*gpu/i.test(rendererLower)) {
+      gpuInfo.tier = 'apple-silicon';
+    }
+    // Modern mobile GPUs
+    else if (/adreno\s*7\d0|adreno\s*6\d0/.test(rendererLower)) {
+      gpuInfo.tier = 'mobile-high';
+    } else if (/adreno\s*5\d0|mali.*g7\d|mali.*g9\d/.test(rendererLower)) {
+      gpuInfo.tier = 'mobile-medium';
+    }
+    // Intel integrated (newer)
+    else if (/iris.*xe|uhd.*6\d0|uhd.*7\d0/.test(rendererLower)) {
+      gpuInfo.tier = 'integrated-modern';
+    }
+    // Older integrated
+    else if (/intel|hd.*graphics|uhd.*graphics/i.test(rendererLower)) {
+      gpuInfo.tier = 'integrated-old';
+    }
+    // Unknown mobile
+    else if (/mali|adreno|powervr/i.test(rendererLower)) {
+      gpuInfo.tier = 'mobile-unknown';
+    }
+    
+    return gpuInfo;
   } catch (e) {
     return null;
   }
 };
 
 /**
- * Classify device performance tier based on capabilities
+ * Enhanced device capabilities detection
  */
-const classifyDevicePerformance = (capabilities, gpuInfo) => {
-  let score = 0;
+const detectEnhancedCapabilities = () => {
+  const capabilities = {
+    // Basic device info
+    isMobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent),
+    isTablet: /(iPad|Android(?!.*Mobile))/i.test(navigator.userAgent),
+    isIOS: /iPad|iPhone|iPod/.test(navigator.userAgent),
+    isAndroid: /Android/i.test(navigator.userAgent),
+    
+    // Enhanced iPad detection
+    isIPad: /iPad/.test(navigator.userAgent) || 
+             (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1),
+    
+    // Screen information
+    screenWidth: window.screen.width,
+    screenHeight: window.screen.height,
+    devicePixelRatio: window.devicePixelRatio || 1,
+    
+    // Hardware info
+    cpuCores: navigator.hardwareConcurrency || 2,
+    deviceMemory: navigator.deviceMemory || null,
+    
+    // Device model
+    deviceModel: getDeviceModel(),
+    
+    // Browser capabilities
+    supportsWebGL2: (() => {
+      try {
+        const canvas = document.createElement('canvas');
+        return !!(canvas.getContext('webgl2'));
+      } catch (e) {
+        return false;
+      }
+    })(),
+    
+    // Network
+    connectionType: navigator.connection ? navigator.connection.effectiveType : null,
+    
+    // Touch capability
+    supportsTouch: 'ontouchstart' in window || navigator.maxTouchPoints > 0,
+    
+    // Performance hints
+    estimatedRAM: (() => {
+      // Estimate RAM based on available clues
+      if (navigator.deviceMemory) return navigator.deviceMemory;
+      
+      // Use screen resolution and device type as proxy
+      const totalPixels = window.screen.width * window.screen.height;
+      if (totalPixels > 2073600) return 8; // 1920x1080+ suggests 8GB+
+      if (totalPixels > 921600) return 4;  // 1280x720+ suggests 4GB+
+      return 2; // Default to 2GB
+    })()
+  };
   
-  // IMPORTANT: Force iPad detection with even more aggressive settings
-  if (capabilities.isIPad) {
-    console.log("🍎 iPad detected - forcing LOW performance tier for better FPS");
-    return 'low'; // Force iPads to LOW tier for maximum performance
+  return capabilities;
+};
+
+/**
+ * FIXED: Enhanced performance classification
+ */
+const classifyEnhancedPerformance = (capabilities, gpuInfo) => {
+  const deviceModel = capabilities.deviceModel;
+  
+  // Check if it's a known high-performance device
+  const isHighPerformanceDevice = 
+    HIGH_PERFORMANCE_DEVICES.iphones.some(model => deviceModel.includes(model)) ||
+    HIGH_PERFORMANCE_DEVICES.ipads.some(model => deviceModel.includes(model)) ||
+    HIGH_PERFORMANCE_DEVICES.android.some(model => deviceModel.includes(model));
+  
+  if (isHighPerformanceDevice) {
+    console.log(`🚀 High-performance device detected: ${deviceModel}`);
+    return 'high';
   }
   
-  // Base device type scoring - be more aggressive for mobile
-  if (capabilities.isMobile && !capabilities.isTablet) {
-    score += 0; // Mobile phones start at 0 (force low tier)
-  } else if (capabilities.isTablet) {
-    score += 1; // Tablets start low-medium
-  } else {
-    score += 3; // Desktop starts high
+  // Modern iOS devices (iOS 15+ with good hardware indicators)
+  if (capabilities.isIOS && deviceModel === 'iOS_Modern' && capabilities.cpuCores >= 6) {
+    return 'high';
   }
   
-  // CPU scoring
-  if (capabilities.cpuCores >= 8) score += 2;
-  else if (capabilities.cpuCores >= 4) score += 1;
-  
-  // Memory scoring (if available)
-  if (capabilities.deviceMemory) {
-    if (capabilities.deviceMemory >= 8) score += 2;
-    else if (capabilities.deviceMemory >= 4) score += 1;
+  // iPad Pro detection (M1/M2 chips)
+  if (capabilities.isIPad && gpuInfo?.tier === 'apple-silicon') {
+    console.log('🍎 iPad with Apple Silicon detected - HIGH tier');
+    return 'high';
   }
   
-  // GPU scoring
-  if (gpuInfo) {
-    if (!gpuInfo.isIntegrated) {
-      score += 2; // Dedicated GPU
+  // Recent iPads with good specs
+  if (capabilities.isIPad && capabilities.cpuCores >= 6 && capabilities.estimatedRAM >= 4) {
+    console.log('🍎 High-spec iPad detected - HIGH tier');
+    return 'high';
+  }
+  
+  // Desktop classification
+  if (!capabilities.isMobile && !capabilities.isTablet) {
+    // High-end desktop
+    if (gpuInfo?.tier === 'desktop-high' || 
+        (capabilities.cpuCores >= 8 && capabilities.estimatedRAM >= 16)) {
+      return 'high';
     }
     
-    // Specific GPU detection for known high-performance chips
-    const renderer = gpuInfo.renderer.toLowerCase();
-    if (renderer.includes('rtx') || renderer.includes('gtx')) {
-      score += 2; // NVIDIA gaming cards
-    } else if (renderer.includes('radeon rx') || renderer.includes('vega')) {
-      score += 2; // AMD gaming cards
-    } else if (renderer.includes('apple m1') || renderer.includes('apple m2')) {
-      score += 1; // Apple Silicon - good but not desktop level for 3D
+    // Medium desktop
+    if (gpuInfo?.tier === 'desktop-medium' || 
+        gpuInfo?.tier === 'integrated-modern' ||
+        (capabilities.cpuCores >= 4 && capabilities.estimatedRAM >= 8)) {
+      return 'medium';
     }
+    
+    // Low-end desktop
+    return 'low';
   }
   
-  // WebGL 2 support
-  if (capabilities.supportsWebGL2) {
-    score += 1;
+  // Mobile/tablet classification with better differentiation
+  if (capabilities.isMobile || capabilities.isTablet) {
+    // High-end mobile (flagship phones, iPad Pro)
+    if (gpuInfo?.tier === 'mobile-high' || 
+        gpuInfo?.tier === 'apple-silicon' ||
+        (capabilities.cpuCores >= 6 && capabilities.estimatedRAM >= 6)) {
+      return 'high';
+    }
+    
+    // Mid-range mobile
+    if (gpuInfo?.tier === 'mobile-medium' ||
+        (capabilities.cpuCores >= 4 && capabilities.estimatedRAM >= 4)) {
+      return 'medium';
+    }
+    
+    // Low-end mobile
+    return 'low';
   }
   
-  // Screen resolution penalty for very high DPI
-  const totalPixels = capabilities.screenWidth * capabilities.screenHeight * capabilities.devicePixelRatio;
-  if (totalPixels > 8000000) { // 4K+ screens
-    score -= 2; // Higher resolution = much more work
-  }
-  
-  // Device-specific overrides for known devices
-  const userAgent = navigator.userAgent;
-  
-  // Force mobile devices to lower performance tiers
-  if (capabilities.isMobile) {
-    score = Math.min(score, 2); // Cap mobile devices at medium
-  }
-  
-  // High-end mobile devices get small boost
-  if (/iPhone1[4-9]|iPhone[2-9][0-9]/.test(userAgent)) {
-    score += 0.5; // iPhone 14+ series - small boost
-  }
-  
-  if (/iPad.*OS 1[5-9]/.test(userAgent)) {
-    score += 0.5; // Recent iPads - small boost
-  }
-  
-  // Classification - more conservative
-  if (score >= 5) return 'high';
-  if (score >= 2.5) return 'medium';
   return 'low';
 };
 
 /**
- * Get device category for UI responsive design
- */
-const getDeviceCategory = (capabilities) => {
-  // Force iPad detection
-  if (capabilities.isIPad) {
-    return 'tablet';
-  }
-  
-  if (capabilities.isMobile && !capabilities.isTablet) {
-    return 'mobile';
-  } else if (capabilities.isTablet) {
-    return 'tablet';
-  } else if (capabilities.screenWidth >= 2560) {
-    return 'desktop-xl';
-  } else {
-    return 'desktop';
-  }
-};
-
-/**
- * Main device detection function
- * Returns comprehensive device profile
+ * Main enhanced device detection
  */
 export const detectDevice = () => {
-  const capabilities = detectDeviceCapabilities();
-  const gpuInfo = getGPUInfo();
-  const performanceTier = classifyDevicePerformance(capabilities, gpuInfo);
-  const deviceCategory = getDeviceCategory(capabilities);
+  const capabilities = detectEnhancedCapabilities();
+  const gpuInfo = getEnhancedGPUInfo();
+  const performanceTier = classifyEnhancedPerformance(capabilities, gpuInfo);
+  
+  // Device category
+  let category = 'desktop';
+  if (capabilities.isIPad) {
+    category = 'tablet';
+  } else if (capabilities.isMobile && !capabilities.isTablet) {
+    category = 'mobile';
+  } else if (capabilities.isTablet) {
+    category = 'tablet';
+  } else if (capabilities.screenWidth >= 2560) {
+    category = 'desktop-xl';
+  }
   
   const deviceProfile = {
     // Basic info
-    category: deviceCategory,
+    category,
     performanceTier,
     
     // Capabilities
     isMobile: capabilities.isMobile,
     isTablet: capabilities.isTablet,
+    isIPad: capabilities.isIPad,
     isTouch: capabilities.supportsTouch,
     supportsWebGL2: capabilities.supportsWebGL2,
     
     // Hardware
     cpuCores: capabilities.cpuCores,
     deviceMemory: capabilities.deviceMemory,
+    estimatedRAM: capabilities.estimatedRAM,
+    deviceModel: capabilities.deviceModel,
     gpu: gpuInfo,
     
     // Screen
@@ -210,7 +304,8 @@ export const detectDevice = () => {
       width: capabilities.screenWidth,
       height: capabilities.screenHeight,
       pixelRatio: capabilities.devicePixelRatio,
-      orientation: capabilities.screenWidth > capabilities.screenHeight ? 'landscape' : 'portrait'
+      orientation: capabilities.screenWidth > capabilities.screenHeight ? 'landscape' : 'portrait',
+      totalPixels: capabilities.screenWidth * capabilities.screenHeight * capabilities.devicePixelRatio
     },
     
     // Network
@@ -220,15 +315,19 @@ export const detectDevice = () => {
     detectedAt: new Date().toISOString()
   };
   
-  // Debug logging
-  console.log('🔍 Device Detection Results:', deviceProfile);
+  console.log('🔍 Enhanced Device Detection Results:', {
+    model: deviceProfile.deviceModel,
+    category: deviceProfile.category,
+    tier: deviceProfile.performanceTier,
+    gpu: gpuInfo?.tier,
+    cores: deviceProfile.cpuCores,
+    ram: deviceProfile.estimatedRAM
+  });
   
   return deviceProfile;
 };
 
-/**
- * Simple device check functions for quick use
- */
+// Re-export utility functions
 export const isMobile = () => {
   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 };
@@ -241,9 +340,6 @@ export const isDesktop = () => {
   return !isMobile();
 };
 
-/**
- * Force portrait orientation on mobile
- */
 export const enforcePortraitOnMobile = () => {
   if (isMobile() && screen.orientation && screen.orientation.lock) {
     try {
@@ -254,17 +350,14 @@ export const enforcePortraitOnMobile = () => {
   }
 };
 
-/**
- * Get recommended render scale based on device
- */
 export const getRecommendedRenderScale = (deviceProfile) => {
   switch (deviceProfile.performanceTier) {
     case 'high':
-      return 1.0;
+      return deviceProfile.isMobile ? 0.9 : 1.0; // Slightly reduced for mobile even if high-end
     case 'medium':
-      return 0.8;
+      return deviceProfile.isMobile ? 0.7 : 0.8;
     case 'low':
     default:
-      return 0.6;
+      return deviceProfile.isMobile ? 0.5 : 0.6;
   }
 };

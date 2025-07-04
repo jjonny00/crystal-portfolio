@@ -1,4 +1,4 @@
-// src/App.jsx - FIXED: Immediate loader, conservative performance test
+// src/App.jsx - FIXED: Integration with enhanced performance system
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import './App.css';
@@ -40,7 +40,6 @@ import { useInitialPerformanceTest } from './hooks/useInitialPerformanceTest';
 // Convert UI config into animation config
 const buildAnimationConfig = (uiConfig) => {
   const toVec = (arr) => new Vector3(...arr);
-
   if (!uiConfig?.cameraPositions) return ANIMATION_CONFIG;
 
   return {
@@ -96,9 +95,9 @@ const isMobileDevice = () => {
 
 function App() {
   // ========================================
-  // CRITICAL: Start with loading state TRUE
+  // ENHANCED: App ready state with better tracking
   // ========================================
-  const [isAppReady, setIsAppReady] = useState(false); // Start FALSE to show loader immediately
+  const [isAppReady, setIsAppReady] = useState(false);
   
   // Basic state hooks
   const [hideAllUI, setHideAllUI] = useState(false);
@@ -114,9 +113,7 @@ function App() {
       }
     }
   });
-  const [animationConfig, setAnimationConfig] = useState(
-    buildAnimationConfig(defaultConfig)
-  );
+  const [animationConfig, setAnimationConfig] = useState(buildAnimationConfig(defaultConfig));
   const [materialVariant, setMaterialVariant] = useState('default');
   const [showUI, setShowUI] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
@@ -129,7 +126,7 @@ function App() {
   const [postProcessingConfig, setPostProcessingConfig] = useState(config.postProcessing);
   const [performanceConfig, setPerformanceConfig] = useState(null);
 
-  // Device profile hook
+  // ENHANCED: Device profile hook with better debugging
   const {
     performanceProfile: devicePerformanceProfile,
     deviceProfile,
@@ -138,13 +135,14 @@ function App() {
     updateExternalPerformanceConfig,
     markAsInitialized,
     hasInitialized,
-    isDetecting
+    isDetecting,
+    debugInfo
   } = useDeviceProfile({
     enableDebugLogging: true,
     enableOrientationLock: false
   });
 
-  // Asset loader hook
+  // ENHANCED: Asset loader hook
   const {
     progress,
     phase,
@@ -158,15 +156,18 @@ function App() {
     retry
   } = useAssetLoader(devicePerformanceProfile, deviceProfile);
 
-  // Performance test hook
+  // ENHANCED: Smart performance test hook
   const {
     performanceConfig: testPerformanceConfig,
     isTesting: isPerfTesting,
     startTest: startPerfTest,
+    testProgress,
+    currentMetrics
   } = useInitialPerformanceTest(deviceProfile, {
+    duration: 3000, // Shorter test for faster startup
     autoStart: false,
     onComplete: (config) => {
-      console.log('🎯 Performance test completed, setting config:', config);
+      console.log('🎯 Enhanced performance test completed:', config);
       setPerformanceConfig(config);
     }
   });
@@ -175,7 +176,7 @@ function App() {
   const isMobile = isMobileDevice();
 
   // ========================================
-  // CALLBACKS
+  // ENHANCED: Callbacks with better logging
   // ========================================
 
   const handleSnapSpeedChange = useCallback((speed) => {
@@ -184,7 +185,9 @@ function App() {
   }, []);
 
   const handleAnimationStateChange = useCallback((newState, prevState) => {
-    // Debug logging if needed
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🎬 Animation state change:', { prev: prevState, new: newState });
+    }
   }, []);
 
   const handleWorkClick = useCallback(() => {
@@ -250,10 +253,10 @@ function App() {
   }, [showUI]);
 
   // ========================================
-  // CRITICAL: Update immediate loader and show React app when ready
+  // ENHANCED: Immediate loader with test progress
   // ========================================
 
-  // Update the immediate HTML loader with real progress
+  // Update the immediate HTML loader with enhanced progress info
   useEffect(() => {
     if (window.updateImmediateLoader) {
       let displayPhase = 'Initializing...';
@@ -261,36 +264,46 @@ function App() {
       
       if (isDetecting) {
         displayPhase = 'Detecting Device';
-        displayAsset = 'Analyzing device capabilities...';
+        displayAsset = `Analyzing ${deviceProfile?.category || 'device'} capabilities...`;
       } else if (phase === 'loading') {
         displayPhase = 'Loading Assets';
         displayAsset = currentAsset || 'Loading resources...';
       } else if (isPerfTesting) {
         displayPhase = 'Testing Performance';
-        displayAsset = 'Optimizing settings...';
+        displayAsset = currentMetrics ? 
+          `Testing... ${currentMetrics.avgSoFar}fps avg (${currentMetrics.samples} samples)` :
+          'Optimizing settings...';
       } else if (isReady && performanceConfig) {
         displayPhase = 'Ready';
         displayAsset = 'Starting experience...';
       }
       
-      window.updateImmediateLoader(progress, displayPhase, displayAsset);
+      const finalProgress = isPerfTesting ? 
+        Math.max(progress, testProgress || 0) : 
+        progress;
+      
+      window.updateImmediateLoader(finalProgress, displayPhase, displayAsset);
     }
-  }, [progress, phase, currentAsset, isDetecting, isPerfTesting, isReady, performanceConfig]);
+  }, [progress, phase, currentAsset, isDetecting, isPerfTesting, isReady, performanceConfig, deviceProfile, testProgress, currentMetrics]);
 
   // Hide immediate loader and show React app when ready
   useEffect(() => {
     if (isAppReady && window.showReactApp) {
-      // Small delay to show "Ready" state briefly
       setTimeout(() => {
         window.showReactApp();
       }, 500);
     }
   }, [isAppReady]);
 
-  // Start performance test when device profile is ready
+  // ENHANCED: Start performance test when device profile is ready
   useEffect(() => {
     if (deviceProfile && !testPerformanceConfig && !isPerfTesting) {
-      console.log('🔬 Starting performance test for device:', deviceProfile.performanceTier);
+      console.log('🔬 Starting enhanced performance test for device:', {
+        category: deviceProfile.category,
+        tier: deviceProfile.performanceTier,
+        model: deviceProfile.deviceModel,
+        gpu: deviceProfile.gpu?.tier
+      });
       startPerfTest();
     }
   }, [deviceProfile, testPerformanceConfig, isPerfTesting, startPerfTest]);
@@ -298,7 +311,7 @@ function App() {
   // Apply performance config when test completes
   useEffect(() => {
     if (testPerformanceConfig) {
-      console.log('🎯 Applying performance test results:', testPerformanceConfig);
+      console.log('🎯 Applying enhanced performance test results:', testPerformanceConfig);
       setPerformanceConfig(testPerformanceConfig);
       
       if (markAsInitialized) {
@@ -307,13 +320,22 @@ function App() {
     }
   }, [testPerformanceConfig, markAsInitialized]);
 
-  // SIMPLE: App is ready when assets are loaded AND we have a performance config
+  // ENHANCED: App ready detection with better criteria
   useEffect(() => {
     if (isReady && performanceConfig && !isAppReady) {
-      console.log('🎯 App is ready - assets loaded and performance configured');
+      console.log('🎯 App is ready - enhanced system initialized:', {
+        assetsLoaded: isReady,
+        performanceConfigured: !!performanceConfig,
+        deviceTier: deviceProfile?.performanceTier,
+        finalSettings: {
+          renderScale: performanceConfig.renderScale,
+          usePBR: performanceConfig.usePBR,
+          textureQuality: performanceConfig.textureQuality
+        }
+      });
       setIsAppReady(true);
     }
-  }, [isReady, performanceConfig, isAppReady]);
+  }, [isReady, performanceConfig, isAppReady, deviceProfile]);
 
   // UI Hide Toggle Keyboard Listener
   useEffect(() => {
@@ -379,7 +401,7 @@ function App() {
         />
       )}
 
-      {/* FPS Display */}
+      {/* ENHANCED: FPS Display with device info */}
       {!hideAllUI && (
         <FpsDisplay 
           visible={true}
@@ -388,13 +410,14 @@ function App() {
         />
       )}
       
-      {/* Performance alerts */}
+      {/* ENHANCED: Performance alerts with device-appropriate thresholds */}
       {!hideAllUI && (
         <PerformanceAlert 
           visible={true}
-          threshold={deviceProfile?.isMobile ? 25 : 30}
+          threshold={deviceProfile?.category === 'mobile' ? 20 : 
+                    deviceProfile?.category === 'tablet' ? 25 : 30}
           onPerformanceIssue={(data) => {
-            console.warn('Performance issue:', data);
+            console.warn('Performance issue detected:', data);
           }}
         />
       )}
@@ -514,7 +537,6 @@ function App() {
               </div>
             </div>
           </div>
-
         </TabbedControlPanel>
       )}
       
@@ -522,7 +544,7 @@ function App() {
         <AccessibilityInstructions visible={true} />
       )}
 
-      {/* Debug Panel for Development */}
+      {/* ENHANCED: Debug Panel with detailed performance info */}
       {process.env.NODE_ENV === 'development' && (
         <PerformanceDebugPanel
           deviceProfile={deviceProfile}
@@ -531,6 +553,8 @@ function App() {
           initialPerformanceConfig={testPerformanceConfig}
           hasInitialized={hasInitialized}
           initialProfileApplied={!!performanceConfig}
+          debugInfo={debugInfo}
+          testMetrics={currentMetrics}
         />
       )}
     </>

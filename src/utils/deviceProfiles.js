@@ -1,138 +1,185 @@
 // src/utils/deviceProfiles.js
-// Performance and UI profiles for different device categories
+// FIXED: Enhanced performance profiles that properly utilize high-end devices
 
 /**
- * Performance profiles optimized for different device tiers
- * These profiles balance quality with performance for target frame rates
+ * Enhanced Performance profiles that properly differentiate device capabilities
  */
 
-// Base performance settings that all profiles inherit
+// Base performance settings
 const basePerformanceSettings = {
-  // Render scaling
   renderScale: 1.0,
+  useNormalMaps: true,
+  usePBR: true,
+  textureQuality: 'high',
+  postProcessing: {
+    bloom: true,
+    chromaticAberration: true,
+    noise: true,
+    vignette: true
+  },
+  maxLights: 5,
+  shadowQuality: 'high',
+  hdriQuality: 'high',
+  antialiasing: true,
+  anisotropicFiltering: 4
+};
+
+/**
+ * HIGH-END MOBILE PROFILE (iPad Pro, iPhone 14/15 Pro, Android Flagships)
+ * Target: 60fps with high quality
+ * Strategy: Leverage powerful mobile hardware properly
+ */
+export const highEndMobileProfile = {
+  ...basePerformanceSettings,
   
-  // Material settings
+  // Higher render scale for powerful devices
+  renderScale: 0.85,  // Much higher than old mobile profile
+  
+  // Enable advanced material features
+  useNormalMaps: true,   // HIGH-END can handle this
+  usePBR: true,          // ENABLE PBR on high-end mobile!
+  textureQuality: 'high', // High quality textures
+  
+  // Enable selective post-processing
+  postProcessing: {
+    bloom: true,           // Enable bloom on high-end
+    chromaticAberration: false, // Skip this one for performance
+    noise: true,
+    vignette: true
+  },
+  
+  // Better lighting
+  maxLights: 3,
+  shadowQuality: 'medium',
+  
+  // High environment quality
+  hdriQuality: 'high',
+  
+  // Some AA on high-end mobile
+  antialiasing: true,
+  anisotropicFiltering: 2,
+  
+  // High-end mobile optimizations
+  reducedParticles: false,  // Don't reduce particles
+  simplifiedAnimations: false
+};
+
+/**
+ * MEDIUM MOBILE PROFILE (Mid-range phones, older iPads)
+ * Target: 30fps stable
+ * Strategy: Balanced quality and performance
+ */
+export const mediumMobileProfile = {
+  ...basePerformanceSettings,
+  
+  renderScale: 0.7,
+  
+  // Selective material features
+  useNormalMaps: false,     // Skip normal maps
+  usePBR: true,             // Keep PBR - it's not that expensive
+  textureQuality: 'medium',
+  
+  // Minimal post-processing
+  postProcessing: {
+    bloom: false,
+    chromaticAberration: false,
+    noise: true,
+    vignette: true
+  },
+  
+  maxLights: 2,
+  shadowQuality: 'low',
+  hdriQuality: 'medium',
+  
+  antialiasing: false,
+  anisotropicFiltering: 1,
+  
+  reducedParticles: true,
+  simplifiedAnimations: false
+};
+
+/**
+ * LOW-END MOBILE PROFILE (Older phones, budget devices)
+ * Target: 30fps minimum
+ * Strategy: Maximum performance optimization
+ */
+export const lowEndMobileProfile = {
+  ...basePerformanceSettings,
+  
+  renderScale: 0.5,
+  
+  // Disable expensive features
+  useNormalMaps: false,
+  usePBR: false,           // Disable PBR for low-end
+  textureQuality: 'low',
+  
+  // Minimal post-processing
+  postProcessing: {
+    bloom: false,
+    chromaticAberration: false,
+    noise: true,           // Keep cheap noise
+    vignette: true         // Keep cheap vignette
+  },
+  
+  maxLights: 2,
+  shadowQuality: 'off',
+  hdriQuality: 'low',
+  
+  antialiasing: false,
+  anisotropicFiltering: 1,
+  
+  reducedParticles: true,
+  simplifiedAnimations: false
+};
+
+/**
+ * HIGH-END TABLET PROFILE (iPad Pro M1/M2, Samsung Tab S8+)
+ * Target: 60fps with premium quality
+ * Strategy: Utilize tablet's larger screen and better cooling
+ */
+export const highEndTabletProfile = {
+  ...basePerformanceSettings,
+  
+  // Higher resolution for larger screens
+  renderScale: 0.9,
+  
+  // Full material features
   useNormalMaps: true,
   usePBR: true,
   textureQuality: 'high',
   
-  // Post-processing effects
+  // Most post-processing effects
   postProcessing: {
     bloom: true,
     chromaticAberration: true,
-    noise: true,        // Always on - cheap and adds character
+    noise: true,
     vignette: true
   },
   
-  // Lighting
-  maxLights: 5,
+  maxLights: 4,
   shadowQuality: 'high',
-  
-  // Environment
   hdriQuality: 'high',
   
-  // Advanced settings
   antialiasing: true,
-  anisotropicFiltering: 4
-};
-
-/**
- * Mobile Phone Profile
- * Target: 30fps stable
- * Strategy: Aggressive optimization for small screens (with better resolution now that PBR is properly off)
- */
-export const mobileProfile = {
-  ...basePerformanceSettings,
+  anisotropicFiltering: 2,
   
-  // Bump up render scale since PBR off gives major performance boost
-  renderScale: 0.7,  // Increased from 0.5
-  
-  // Disable expensive material features
-  useNormalMaps: false,
-  usePBR: false,           // Biggest performance win
-  textureQuality: 'low',
-  
-  // Minimal post-processing
-  postProcessing: {
-    bloom: false,
-    chromaticAberration: false,
-    noise: true,           // Keep noise - very cheap
-    vignette: true         // Helps with lower resolution
-  },
-  
-  // Reduced lighting complexity
-  maxLights: 2,
-  shadowQuality: 'off',
-  
-  // Low-res environment
-  hdriQuality: 'low',
-  
-  // Disable expensive features
-  antialiasing: false,
-  anisotropicFiltering: 1,
-  
-  // Mobile-specific optimizations
-  reducedParticles: true,
-  simplifiedAnimations: false  // Keep animations, they're important for UX
-};
-
-/**
- * Tablet Profile (for non-iPad tablets)
- * Target: 30fps stable
- * Strategy: Aggressive optimization for Android tablets
- */
-export const tabletProfile = {
-  ...basePerformanceSettings,
-  
-  // Aggressive render scaling for tablets
-  renderScale: 0.6,
-  
-  // Disable expensive features
-  useNormalMaps: false,
-  usePBR: false,
-  textureQuality: 'low',
-  
-  // Minimal post-processing
-  postProcessing: {
-    bloom: false,
-    chromaticAberration: false,
-    noise: true,
-    vignette: true
-  },
-  
-  // Reduced lighting
-  maxLights: 2,
-  shadowQuality: 'off',
-  
-  // Low environment quality
-  hdriQuality: 'low',
-  
-  // Disable expensive features
-  antialiasing: false,
-  anisotropicFiltering: 1,
-  
-  // Tablet optimizations
-  reducedParticles: true,
+  // Don't reduce features on high-end tablets
+  reducedParticles: false,
   simplifiedAnimations: false
 };
 
 /**
- * iPad-specific profile
- * Target: 30-60fps on iPad Pro
- * Strategy: Optimized specifically for iPad hardware
+ * MEDIUM TABLET PROFILE
  */
-export const iPadProfile = {
+export const mediumTabletProfile = {
   ...basePerformanceSettings,
   
-  // Better resolution for iPad Pro since it's more powerful than phones
-  renderScale: 0.8,  // Higher than mobile but still optimized
+  renderScale: 0.7,
   
-  // Keep normal maps off but allow slightly better settings
   useNormalMaps: false,
-  usePBR: false,           // Keep PBR off for performance
-  textureQuality: 'medium', // iPad can handle medium textures
+  usePBR: true,
+  textureQuality: 'medium',
   
-  // Minimal post-processing but slightly better than mobile
   postProcessing: {
     bloom: false,
     chromaticAberration: false,
@@ -140,186 +187,152 @@ export const iPadProfile = {
     vignette: true
   },
   
-  // Slightly better lighting than mobile
   maxLights: 2,
-  shadowQuality: 'off',
-  
-  // Medium environment quality
+  shadowQuality: 'medium',
   hdriQuality: 'medium',
   
-  // Keep expensive features off
   antialiasing: false,
   anisotropicFiltering: 1,
   
-  // iPad-specific optimizations
   reducedParticles: true,
   simplifiedAnimations: false
 };
 
 /**
- * Desktop Profile
- * Target: 60fps stable  
- * Strategy: Full quality experience
+ * DESKTOP PROFILES (unchanged - these were working fine)
  */
 export const desktopProfile = {
   ...basePerformanceSettings,
-  
-  // Full resolution
   renderScale: 1.0,
-  
-  // All material features enabled
   useNormalMaps: true,
-  usePBR: true,            // PSR materials enabled
+  usePBR: true,
   textureQuality: 'high',
-  
-  // All post-processing effects
   postProcessing: {
     bloom: true,
     chromaticAberration: true,
     noise: true,
     vignette: true
   },
-  
-  // Full lighting
   maxLights: 5,
   shadowQuality: 'high',
-  
-  // High-quality environment
   hdriQuality: 'high',
-  
-  // Full AA
   antialiasing: true,
   anisotropicFiltering: 4
 };
 
-/**
- * Desktop XL Profile
- * Target: 60fps on high-end systems
- * Strategy: Enhanced quality for powerful hardware
- */
 export const desktopXLProfile = {
   ...desktopProfile,
-  
-  // Could go higher resolution on very powerful systems
   renderScale: 1.0,
-  
-  // Enhanced settings for high-end hardware
   maxLights: 6,
-  shadowQuality: 'ultra',  // If we implement ultra shadows
-  
-  // Maximum quality
+  shadowQuality: 'ultra',
   anisotropicFiltering: 8,
-  
-  // Extra features for high-end systems
   enhancedReflections: true
 };
 
 /**
- * UI Layout profiles for responsive design
+ * ENHANCED: Get performance profile with proper high-end device support
+ */
+export const getPerformanceProfile = (deviceProfile) => {
+  console.log('🎮 Getting performance profile for:', {
+    category: deviceProfile.category,
+    tier: deviceProfile.performanceTier,
+    isIPad: deviceProfile.isIPad,
+    isMobile: deviceProfile.isMobile,
+    deviceModel: deviceProfile.deviceModel
+  });
+  
+  // Desktop devices
+  if (deviceProfile.category === 'desktop' || deviceProfile.category === 'desktop-xl') {
+    if (deviceProfile.performanceTier === 'high') {
+      return deviceProfile.category === 'desktop-xl' ? desktopXLProfile : desktopProfile;
+    } else if (deviceProfile.performanceTier === 'medium') {
+      return { ...desktopProfile, renderScale: 0.8, textureQuality: 'medium' };
+    } else {
+      return { ...desktopProfile, renderScale: 0.6, usePBR: false, textureQuality: 'low' };
+    }
+  }
+  
+  // Tablet devices (including iPad)
+  if (deviceProfile.category === 'tablet' || deviceProfile.isIPad) {
+    if (deviceProfile.performanceTier === 'high') {
+      console.log('✅ High-end tablet detected - using premium settings');
+      return highEndTabletProfile;
+    } else {
+      return mediumTabletProfile;
+    }
+  }
+  
+  // Mobile devices
+  if (deviceProfile.category === 'mobile' || deviceProfile.isMobile) {
+    if (deviceProfile.performanceTier === 'high') {
+      console.log('✅ High-end mobile detected - using premium mobile settings');
+      return highEndMobileProfile;
+    } else if (deviceProfile.performanceTier === 'medium') {
+      return mediumMobileProfile;
+    } else {
+      return lowEndMobileProfile;
+    }
+  }
+  
+  // Fallback
+  return desktopProfile;
+};
+
+/**
+ * UI Profiles (enhanced for better device support)
  */
 export const uiProfiles = {
   mobile: {
-    // Force portrait orientation
-    forcePortrait: true,
-    
-    // Simplified UI
+    forcePortrait: false, // Don't force portrait on high-end mobile
     showAdvancedControls: false,
     compactLayout: true,
-    
-    // Touch-optimized
     buttonSize: 'large',
-    minimumTouchTarget: 44, // 44px minimum for touch
-    
-    // Reduced control panels
+    minimumTouchTarget: 44,
     maxVisiblePanels: 1,
-    
-    // Navigation
     useBottomNavigation: true,
     hideKeyboardShortcuts: true,
-    
-    // 3D Viewport
     viewportPadding: 10,
-    showFpsCounter: false  // Hide by default on mobile
+    showFpsCounter: true  // Show FPS on mobile for debugging
   },
   
   tablet: {
-    // Allow both orientations
     forcePortrait: false,
-    
-    // Adaptive UI
     showAdvancedControls: true,
     compactLayout: false,
-    
-    // Touch-friendly but more space
     buttonSize: 'medium',
     minimumTouchTarget: 40,
-    
-    // Multiple panels OK
     maxVisiblePanels: 2,
-    
-    // Mixed navigation
     useBottomNavigation: false,
     hideKeyboardShortcuts: false,
-    
-    // 3D Viewport
     viewportPadding: 20,
-    showFpsCounter: true   // Show for debugging
+    showFpsCounter: true
   },
   
   desktop: {
-    // Full desktop experience
     forcePortrait: false,
-    
-    // All controls available
     showAdvancedControls: true,
     compactLayout: false,
-    
-    // Mouse-optimized
     buttonSize: 'medium',
     minimumTouchTarget: 32,
-    
-    // Multiple panels
     maxVisiblePanels: 4,
-    
-    // Keyboard-heavy
     useBottomNavigation: false,
     hideKeyboardShortcuts: false,
-    
-    // 3D Viewport  
     viewportPadding: 20,
     showFpsCounter: true
   },
   
   'desktop-xl': {
-    // Inherit desktop settings
-    ...this?.desktop || {},
-    
-    // Extra space utilization
+    forcePortrait: false,
+    showAdvancedControls: true,
+    compactLayout: false,
+    buttonSize: 'medium',
+    minimumTouchTarget: 32,
     maxVisiblePanels: 6,
+    useBottomNavigation: false,
+    hideKeyboardShortcuts: false,
     viewportPadding: 40,
-    
-    // Enhanced layout
+    showFpsCounter: true,
     useWideLayout: true
-  }
-};
-
-/**
- * Get performance profile based on device detection
- */
-export const getPerformanceProfile = (deviceProfile) => {
-  // Special handling for iPad
-  if (deviceProfile.isIPad) {
-    return iPadProfile;
-  }
-  
-  switch (deviceProfile.performanceTier) {
-    case 'high':
-      return deviceProfile.category === 'desktop-xl' ? desktopXLProfile : desktopProfile;
-    case 'medium':
-      return tabletProfile;
-    case 'low':
-    default:
-      return mobileProfile;
   }
 };
 
@@ -331,7 +344,7 @@ export const getUIProfile = (deviceProfile) => {
 };
 
 /**
- * Get HDRI filename based on quality setting
+ * Enhanced HDRI path selection
  */
 export const getHDRIPath = (quality) => {
   const basePath = '/assets/environment/prismatic09';
@@ -348,55 +361,51 @@ export const getHDRIPath = (quality) => {
 };
 
 /**
- * Apply texture quality scaling at runtime
- */
-export const getTextureScale = (quality) => {
-  switch (quality) {
-    case 'high':
-      return 1.0;
-    case 'medium':
-      return 0.7;
-    case 'low':
-    default:
-      return 0.5;
-  }
-};
-
-/**
- * Get recommended canvas DPR based on performance tier
+ * Enhanced canvas DPR that doesn't cap high-end devices unnecessarily
  */
 export const getCanvasDPR = (deviceProfile, performanceProfile) => {
-  // Be very conservative with DPR for mobile devices
-  if (deviceProfile.isIPad || deviceProfile.isTablet) {
-    return [1, 1]; // Force 1x DPR on all tablets including iPad Pro
+  const maxDPR = Math.min(window.devicePixelRatio || 1, 2);
+  
+  // High-end devices can handle higher DPR
+  if (deviceProfile.performanceTier === 'high') {
+    if (deviceProfile.category === 'desktop' || deviceProfile.category === 'desktop-xl') {
+      return [1, maxDPR]; // Full DPR on high-end desktop
+    } else {
+      // High-end mobile/tablet: allow higher DPR but be conservative
+      return [1, Math.min(maxDPR, 1.5)];
+    }
   }
   
-  if (deviceProfile.isMobile) {
-    return [1, 1]; // Force 1x DPR on mobile
+  // Medium devices: modest DPR
+  if (deviceProfile.performanceTier === 'medium') {
+    return [1, Math.min(maxDPR, 1.2)];
   }
   
-  const maxDPR = Math.min(window.devicePixelRatio || 1, 2); // Cap at 2x
-  
-  switch (deviceProfile.performanceTier) {
-    case 'high':
-      return [1, maxDPR];
-    case 'medium':
-      return [1, 1]; // Even medium tier gets 1x DPR
-    case 'low':
-    default:
-      return [1, 1]; // No high DPR on low-end devices
-  }
+  // Low-end devices: stick to 1x
+  return [1, 1];
 };
 
 /**
- * Debug function to log current profiles
+ * Enhanced logging with more details
  */
 export const logProfileInfo = (deviceProfile, performanceProfile, uiProfile) => {
-  console.group('🎮 Device Profile Configuration');
+  console.group('🎮 Enhanced Device Profile Configuration');
   console.log('Device:', deviceProfile);
   console.log('Performance Profile:', performanceProfile);
   console.log('UI Profile:', uiProfile);
   console.log('HDRI Path:', getHDRIPath(performanceProfile.hdriQuality));
   console.log('Recommended DPR:', getCanvasDPR(deviceProfile, performanceProfile));
+  
+  // Performance summary
+  console.log('📊 Performance Summary:', {
+    renderScale: performanceProfile.renderScale,
+    usePBR: performanceProfile.usePBR,
+    useNormalMaps: performanceProfile.useNormalMaps,
+    textureQuality: performanceProfile.textureQuality,
+    postProcessing: Object.entries(performanceProfile.postProcessing)
+      .filter(([_, enabled]) => enabled)
+      .map(([effect, _]) => effect)
+  });
+  
   console.groupEnd();
 };
