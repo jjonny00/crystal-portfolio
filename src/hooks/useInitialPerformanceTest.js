@@ -49,34 +49,37 @@ export const useInitialPerformanceTest = (
   }, []);
 
   /**
-   * Determine if performance adjustments are needed
-   * Only downgrade if there are ACTUAL performance problems
+   * FIXED: More aggressive performance standards for mobile devices
    */
   const shouldAdjustPerformance = useCallback((metrics, deviceProfile) => {
     if (!metrics) return false;
     
-    // Define targets based on device category
+    // FIXED: More realistic targets for mobile devices
     const targets = {
       'desktop': { min: 45, avg: 55, stability: 50 },
       'desktop-xl': { min: 50, avg: 60, stability: 40 },
-      'tablet': { min: 25, avg: 35, stability: 60 },
-      'mobile': { min: 20, avg: 28, stability: 70 }
+      'tablet': { min: 20, avg: 25, stability: 80 },     // More lenient for tablets
+      'mobile': { min: 15, avg: 20, stability: 100 }     // More lenient for mobile
     };
     
     const target = targets[deviceProfile.category] || targets.mobile;
     
-    // Check if any performance criteria are failing
+    // FIXED: More aggressive failure detection for mobile
     const failing = {
       lowAverage: metrics.avgFps < target.avg,
       lowMinimum: metrics.lowPercentile < target.min,
       unstable: metrics.stability > target.stability,
-      severe: metrics.avgFps < (target.min * 0.8) // Really bad performance
+      severe: metrics.avgFps < (target.min * 0.7), // Slightly more lenient severe threshold
+      // NEW: Mobile-specific checks
+      mobilePerformanceIssue: (deviceProfile.isMobile || deviceProfile.category === 'mobile') && 
+                             (metrics.avgFps < 25 || metrics.lowPercentile < 18)
     };
     
-    console.log('📊 Performance Analysis:', {
+    console.log('📊 FIXED Performance Analysis:', {
       metrics,
       target,
       failing,
+      deviceCategory: deviceProfile.category,
       deviceTier: deviceProfile.performanceTier,
       shouldAdjust: Object.values(failing).some(Boolean)
     });
@@ -85,7 +88,7 @@ export const useInitialPerformanceTest = (
   }, []);
 
   /**
-   * Create optimized config based on device profile + performance issues
+   * FIXED: More conservative optimization that works better for mobile
    */
   const createOptimizedConfig = useCallback((deviceProfile, metrics, issues) => {
     // Start with the device's optimal profile
@@ -99,11 +102,41 @@ export const useInitialPerformanceTest = (
     
     console.log('⚡ Performance issues detected, applying smart optimizations:', issues);
     
-    // Smart optimization strategy
+    // Smart optimization strategy - be more aggressive for mobile
     let optimizedConfig = { ...baseProfile };
     
+    // SPECIAL: Mobile-specific optimization path
+    if (deviceProfile.isMobile || deviceProfile.category === 'mobile') {
+      console.log('📱 Mobile device with performance issues - applying mobile-specific optimizations');
+      
+      // For mobile, jump more aggressively to low settings
+      if (issues.mobilePerformanceIssue || issues.severe || issues.lowAverage) {
+        console.log('📉 Mobile performance issues - using aggressive mobile optimization');
+        return {
+          ...optimizedConfig,
+          renderScale: 0.5,              // Low render scale
+          usePBR: false,                 // Disable PBR
+          useNormalMaps: false,
+          textureQuality: 'low',
+          postProcessing: {
+            bloom: false,
+            chromaticAberration: false,
+            noise: true,               // Keep cheap effects only
+            vignette: true
+          },
+          maxLights: 2,
+          shadowQuality: 'off',
+          hdriQuality: 'low',
+          antialiasing: false,
+          anisotropicFiltering: 1
+        };
+      }
+    }
+    
+    // Standard optimization for desktop/tablet
+    
     // Level 1: Minor issues - reduce post-processing only
-    if (issues.unstable && !issues.severe) {
+    if (issues.unstable && !issues.severe && !issues.lowAverage) {
       console.log('📉 Level 1 optimization: Reducing post-processing');
       optimizedConfig.postProcessing = {
         ...optimizedConfig.postProcessing,
@@ -114,17 +147,22 @@ export const useInitialPerformanceTest = (
     }
     
     // Level 2: Moderate issues - reduce render scale and some materials
-    if ((issues.lowAverage || issues.lowMinimum) && !issues.severe) {
+    else if ((issues.lowAverage || issues.lowMinimum) && !issues.severe) {
       console.log('📉 Level 2 optimization: Reducing render scale and materials');
-      optimizedConfig.renderScale = Math.max(optimizedConfig.renderScale * 0.8, 0.5);
+      optimizedConfig.renderScale = Math.max(optimizedConfig.renderScale * 0.7, 0.4);
       optimizedConfig.useNormalMaps = false;
       optimizedConfig.textureQuality = optimizedConfig.textureQuality === 'high' ? 'medium' : 'low';
+      optimizedConfig.postProcessing = {
+        ...optimizedConfig.postProcessing,
+        bloom: false,
+        chromaticAberration: false
+      };
     }
     
     // Level 3: Severe issues - aggressive optimization
-    if (issues.severe) {
+    else if (issues.severe) {
       console.log('📉 Level 3 optimization: Aggressive performance mode');
-      optimizedConfig.renderScale = Math.max(optimizedConfig.renderScale * 0.6, 0.4);
+      optimizedConfig.renderScale = Math.max(optimizedConfig.renderScale * 0.5, 0.3);
       optimizedConfig.usePBR = false;                 // Disable PBR entirely
       optimizedConfig.useNormalMaps = false;
       optimizedConfig.textureQuality = 'low';
