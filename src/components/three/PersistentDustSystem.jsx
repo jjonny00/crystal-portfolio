@@ -9,22 +9,25 @@ import * as THREE from 'three';
 const PersistentDustSystem = ({
   count = 80,
   emissionRadius = 1.5,
-  riseHeight = 4.0,
-  baseRiseSpeed = 0.0003,
+  emissionHeight = -4.0,
+  riseHeight = 23.0,
+  baseRiseSpeed = 0.01,
   spiralStrength = 0.8,
   spiralRadius = 1.2,
-  spiralSpeed = 0.3,
-  driftSpeed = 0.05,
+  spiralSpeed = 1.3,
+  driftSpeed = 0.5,
   fadeStart = 0.3,
-  fadeEnd = 0.8,
+  fadeEnd = 1.8,
   baseSize = 0.2,
-  sizeVariation = 2.0,
-  color = '#5cd9ff',
-  emissiveIntensity = 1.5,
+  sizeVariation = 5.0,
+  color = '#ff6b35',
+  emissiveIntensity = 5.5,
   blending = THREE.AdditiveBlending,
   turbulenceStrength = 0.15,
-  turbulenceSpeed = 0.1,
+  turbulenceSpeed = 1.0,
   respawnDelay = 0.5,
+  minLifetime = 5.0,
+  maxLifetime = 10.0,
 }) => {
   const particlesRef = useRef();
   const timeRef = useRef(0);
@@ -59,27 +62,25 @@ const PersistentDustSystem = ({
     // Particle data for animation
     const data = [];
     
-    /**
-     * Initialize a single particle with ember properties
-     */
-    function initializeParticle(index) {
+    // Create a closure that captures all the parameters we need
+    const createParticleData = () => {
       // Random position within emission radius
       const angle = Math.random() * Math.PI * 2;
       const radius = Math.random() * emissionRadius;
       const x = Math.cos(angle) * radius;
       const z = Math.sin(angle) * radius;
-      const y = -0.5 + Math.random() * 0.3;
+      const y = emissionHeight + Math.random() * 0.3;
       
       return {
         basePosition: { x, y, z },
         position: { x, y, z },
         velocity: {
           x: (Math.random() - 0.5) * 0.01 * driftSpeed,
-          y: baseRiseSpeed * (0.8 + Math.random() * 0.4),
+          y: baseRiseSpeed * (0.5 + Math.random() * 0.3),
           z: (Math.random() - 0.5) * 0.01 * driftSpeed
         },
         size: baseSize + Math.random() * (baseSize * sizeVariation),
-        lifetime: 3 + Math.random() * 4,
+        lifetime: minLifetime + Math.random() * (maxLifetime - minLifetime),
         age: 0,
         phase: Math.random() * Math.PI * 2,
         turbulence: {
@@ -88,13 +89,13 @@ const PersistentDustSystem = ({
           z: (Math.random() - 0.5) * 0.3
         }
       };
-    }
+    };
     
     for (let i = 0; i < count; i++) {
       const i3 = i * 3;
       
       // Initialize particle
-      const particle = initializeParticle(i);
+      const particle = createParticleData();
       data.push(particle);
       
       // Set initial positions
@@ -185,12 +186,12 @@ const PersistentDustSystem = ({
     return { 
       geometry: geo, 
       material: mat, 
-      particleData: data,
-      initializeParticle // Include the function in the returned object
+      particleData: data
     };
   }, [
     count, 
     emissionRadius, 
+    emissionHeight,
     baseRiseSpeed, 
     spiralStrength, 
     baseSize, 
@@ -200,7 +201,9 @@ const PersistentDustSystem = ({
     emissiveIntensity, 
     blending, 
     particleTexture,
-    turbulenceStrength
+    turbulenceStrength,
+    minLifetime,
+    maxLifetime
   ]);
 
   // Animation loop
@@ -224,45 +227,39 @@ const PersistentDustSystem = ({
       particle.age += delta;
       
       if (particle.age >= particle.lifetime) {
-        // Respawn particle using the closure function
-        const newParticle = (() => {
-          const angle = Math.random() * Math.PI * 2;
-          const radius = Math.random() * emissionRadius;
-          const x = Math.cos(angle) * radius;
-          const z = Math.sin(angle) * radius;
-          const y = -0.5 + Math.random() * 0.3;
-          
-          return {
-            basePosition: { x, y, z },
-            position: { x, y, z },
-            velocity: {
-              x: (Math.random() - 0.5) * 0.01 * driftSpeed,
-              y: baseRiseSpeed * (0.8 + Math.random() * 0.4),
-              z: (Math.random() - 0.5) * 0.01 * driftSpeed
-            },
-            size: baseSize + Math.random() * (baseSize * sizeVariation),
-            lifetime: 3 + Math.random() * 4,
-            age: 0,
-            phase: Math.random() * Math.PI * 2,
-            turbulence: {
-              x: (Math.random() - 0.5) * 0.3,
-              y: (Math.random() - 0.5) * 0.1,
-              z: (Math.random() - 0.5) * 0.3
-            }
-          };
-        })();
+        // Respawn particle with new random values
+        const angle = Math.random() * Math.PI * 2;
+        const radius = Math.random() * emissionRadius;
+        const x = Math.cos(angle) * radius;
+        const z = Math.sin(angle) * radius;
+        const y = emissionHeight + Math.random() * 0.3;
         
-        Object.assign(particle, newParticle);
+        // Reset particle data
+        particle.basePosition = { x, y, z };
+        particle.position = { x, y, z };
+        particle.velocity = {
+          x: (Math.random() - 0.5) * 0.01 * driftSpeed,
+          y: baseRiseSpeed * (0.5 + Math.random() * 0.3),
+          z: (Math.random() - 0.5) * 0.01 * driftSpeed
+        };
+        particle.size = baseSize + Math.random() * (baseSize * sizeVariation);
+        particle.lifetime = minLifetime + Math.random() * (maxLifetime - minLifetime);
         particle.age = -Math.random() * respawnDelay;
+        particle.phase = Math.random() * Math.PI * 2;
+        particle.turbulence = {
+          x: (Math.random() - 0.5) * 0.3,
+          y: (Math.random() - 0.5) * 0.1,
+          z: (Math.random() - 0.5) * 0.3
+        };
       }
       
       if (particle.age > 0) {
         // Update position with spiral motion
         const lifeProgress = particle.age / particle.lifetime;
-        const height = lifeProgress * riseHeight;
+        const height = lifeProgress * riseHeight * 0.3; // REDUCED: Much slower height progression
         
-        // Spiral motion around Y axis
-        const spiralAngle = particle.phase + lifeProgress * Math.PI * 4 * spiralStrength * spiralSpeed;
+        // Spiral motion around Y axis  
+        const spiralAngle = particle.phase + lifeProgress * Math.PI * 2 * spiralStrength * spiralSpeed; // REDUCED: Less spiral rotation
         const currentSpiralRadius = spiralRadius * (1 - lifeProgress * 0.3);
         
         // Base position with spiral
