@@ -5,17 +5,18 @@ import * as THREE from 'three';
 
 /**
  * Enhanced Ember System with iridescent shimmer and spiral vortex motion
+ * FIXED: Ring/donut emission pattern and static iridescence
  */
 const PersistentDustSystem = ({
-  count = 80,
-  emissionRadius = 1.5,
-  emissionInnerRadius = 0.8,  // NEW: Inner radius for ring/donut shape
+  count = 200,
+  emissionRadius = 5.5,
+  emissionInnerRadius = 1.8,  // NEW: Inner radius for ring/donut shape
   emissionHeight = -4.0,
   riseHeight = 23.0,
   baseRiseSpeed = 0.01,
-  spiralStrength = 0.8,
+  spiralStrength = 0.5,
   spiralRadius = 1.2,
-  spiralSpeed = 1.3,
+  spiralSpeed = 0.003,
   driftSpeed = 0.5,
   fadeStart = 0.3,
   fadeEnd = 1.8,
@@ -38,7 +39,7 @@ const PersistentDustSystem = ({
   const timeRef = useRef(0);
   
   // Load the particle texture
-  const particleTexture = useTexture('/assets/textures/particle-dust01.png');
+  const particleTexture = useTexture('/assets/textures/particle-dust03.png');
   
   // Configure the texture for embers
   React.useEffect(() => {
@@ -304,7 +305,7 @@ const PersistentDustSystem = ({
     shimmerIntensity
   ]);
 
-  // Animation loop (mostly unchanged, with iridescence updates)
+  // Animation loop
   useFrame((state, delta) => {
     timeRef.current += delta;
     
@@ -361,18 +362,24 @@ const PersistentDustSystem = ({
       }
       
       if (particle.age > 0) {
-        // Update position with spiral motion
+        // Update position with unified vortex motion
         const lifeProgress = particle.age / particle.lifetime;
         const height = lifeProgress * riseHeight * 0.3;
         
-        // Spiral motion around Y axis  
-        const spiralAngle = particle.phase + lifeProgress * Math.PI * 2 * spiralStrength * spiralSpeed;
-        const currentSpiralRadius = spiralRadius * (1 - lifeProgress * 0.3);
+        // FIXED: Calculate base angle from particle's starting position for unified vortex
+        const baseAngle = Math.atan2(particle.basePosition.z, particle.basePosition.x);
         
-        // Base position with spiral
-        const x = particle.basePosition.x + Math.cos(spiralAngle) * currentSpiralRadius;
+        // Create unified spiral motion - all particles rotate together around center
+        const spiralAngle = baseAngle + (timeRef.current * spiralSpeed) + (lifeProgress * spiralStrength * Math.PI * 2);
+        
+        // Radius decreases as particles rise (creates inward spiral)
+        const startRadius = Math.sqrt(particle.basePosition.x * particle.basePosition.x + particle.basePosition.z * particle.basePosition.z);
+        const currentSpiralRadius = startRadius * (1 - lifeProgress * 0.3);
+        
+        // Calculate new position in the vortex
+        const x = Math.cos(spiralAngle) * currentSpiralRadius;
         const y = particle.basePosition.y + height;
-        const z = particle.basePosition.z + Math.sin(spiralAngle) * currentSpiralRadius;
+        const z = Math.sin(spiralAngle) * currentSpiralRadius;
         
         // Add turbulence with speed control
         const turbulentX = x + Math.sin(timeRef.current * 2 * turbulenceSpeed + particle.phase) * particle.turbulence.x;
@@ -403,19 +410,18 @@ const PersistentDustSystem = ({
         // Update size (embers shrink as they burn out)
         const sizeMultiplier = 1.0 - lifeProgress * 0.6;
         sizes[i] = particle.size * sizeMultiplier;
-        
-        // FIXED: No time-based iridescence updates - colors stay stable per particle
       } else {
         // Hide particle during respawn delay
         alphas[i] = 0;
       }
     }
     
-    // Mark attributes for update (removed iridescence attributes - they're static now)
+    // FIXED: Mark attributes for update (removed the erroneous merOffset line)
     geometry.attributes.position.needsUpdate = true;
     geometry.attributes.color.needsUpdate = true;
     geometry.attributes.alpha.needsUpdate = true;
-    geometry.attributes.size.needsUpdate = true;merOffset.needsUpdate = true;
+    geometry.attributes.size.needsUpdate = true;
+    // Note: iridescence attributes are static so they don't need updating every frame
   });
 
   return <points ref={particlesRef} geometry={geometry} material={material} />;
