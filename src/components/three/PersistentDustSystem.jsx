@@ -4,31 +4,35 @@ import { useTexture } from '@react-three/drei';
 import * as THREE from 'three';
 
 /**
- * Enhanced Persistent Dust System with Color Cycling
+ * Enhanced Ember System with spiral vortex motion and dynamic fading
  */
 const PersistentDustSystem = ({
-  count = 50,
-  boundary = 4.0,
-  speed = 0.0008,
-  baseSize = 0.03,
-  sizeVariation = 1.0,
-  opacity = 2,
-  
-  // Simplified to single color only
-  color = '#ab9bff',
+  count = 80,
+  emissionRadius = 1.5,
+  riseHeight = 4.0,
+  baseRiseSpeed = 0.0003,
+  spiralStrength = 0.8,
+  spiralRadius = 1.2,
+  spiralSpeed = 0.3,
+  driftSpeed = 0.05,
+  fadeStart = 0.3,
+  fadeEnd = 0.8,
+  baseSize = 0.2,
+  sizeVariation = 2.0,
+  color = '#5cd9ff',
+  emissiveIntensity = 1.5,
   blending = THREE.AdditiveBlending,
-  alphaTest = 0.01,
-  sizeAttenuation = true,
-  depthWrite = false,
-  fog = true,
-  toneMapped = true
+  turbulenceStrength = 0.15,
+  turbulenceSpeed = 0.1,
+  respawnDelay = 0.5,
 }) => {
-  const velocities = useRef();
+  const particlesRef = useRef();
+  const timeRef = useRef(0);
   
   // Load the particle texture
   const particleTexture = useTexture('/assets/textures/particle-dust01.png');
   
-  // Configure the texture
+  // Configure the texture for embers
   React.useEffect(() => {
     if (particleTexture) {
       particleTexture.minFilter = THREE.LinearFilter;
@@ -41,162 +45,274 @@ const PersistentDustSystem = ({
     }
   }, [particleTexture]);
 
-  // Convert single color to THREE.Color
-  const singleColor = useMemo(() => new THREE.Color(color), [color]);
-
-  const geometry = useMemo(() => {
+  // Initialize particle system
+  const { geometry, material, particleData } = useMemo(() => {
     const positions = new Float32Array(count * 3);
+    const velocities = new Float32Array(count * 3);
     const sizes = new Float32Array(count);
-    const particleColorsArray = new Float32Array(count * 3);
-    const vel = new Float32Array(count * 3);
-
+    const colors = new Float32Array(count * 3);
+    const alphas = new Float32Array(count);
+    const lifetimes = new Float32Array(count);
+    const phases = new Float32Array(count);
+    const turbulence = new Float32Array(count * 3);
+    
+    // Particle data for animation
+    const data = [];
+    
+    /**
+     * Initialize a single particle with ember properties
+     */
+    function initializeParticle(index) {
+      // Random position within emission radius
+      const angle = Math.random() * Math.PI * 2;
+      const radius = Math.random() * emissionRadius;
+      const x = Math.cos(angle) * radius;
+      const z = Math.sin(angle) * radius;
+      const y = -0.5 + Math.random() * 0.3;
+      
+      return {
+        basePosition: { x, y, z },
+        position: { x, y, z },
+        velocity: {
+          x: (Math.random() - 0.5) * 0.01 * driftSpeed,
+          y: baseRiseSpeed * (0.8 + Math.random() * 0.4),
+          z: (Math.random() - 0.5) * 0.01 * driftSpeed
+        },
+        size: baseSize + Math.random() * (baseSize * sizeVariation),
+        lifetime: 3 + Math.random() * 4,
+        age: 0,
+        phase: Math.random() * Math.PI * 2,
+        turbulence: {
+          x: (Math.random() - 0.5) * 0.3,
+          y: (Math.random() - 0.5) * 0.1,
+          z: (Math.random() - 0.5) * 0.3
+        }
+      };
+    }
+    
     for (let i = 0; i < count; i++) {
       const i3 = i * 3;
       
-      // Position
-      positions[i3] = (Math.random() - 0.5) * boundary * 2;
-      positions[i3 + 1] = (Math.random() - 0.5) * boundary * 2;
-      positions[i3 + 2] = (Math.random() - 0.5) * boundary * 2;
-
-      // Velocity
-      vel[i3] = (Math.random() - 0.5) * speed;
-      vel[i3 + 1] = (Math.random() - 0.5) * speed;
-      vel[i3 + 2] = (Math.random() - 0.5) * speed;
-
-      // Size
-      const sizeMultiplier = 1 + (Math.random() - 0.5) * sizeVariation;
-      sizes[i] = baseSize * sizeMultiplier;
-
-      // SIMPLIFIED: Just use the single color for all particles
-      const brightness = 0.8 + Math.random() * 0.4;
+      // Initialize particle
+      const particle = initializeParticle(i);
+      data.push(particle);
       
-      particleColorsArray[i3] = singleColor.r * brightness;
-      particleColorsArray[i3 + 1] = singleColor.g * brightness;
-      particleColorsArray[i3 + 2] = singleColor.b * brightness;
+      // Set initial positions
+      positions[i3] = particle.position.x;
+      positions[i3 + 1] = particle.position.y;
+      positions[i3 + 2] = particle.position.z;
+      
+      // Set initial velocities
+      velocities[i3] = particle.velocity.x;
+      velocities[i3 + 1] = particle.velocity.y;
+      velocities[i3 + 2] = particle.velocity.z;
+      
+      // Set particle properties
+      sizes[i] = particle.size;
+      lifetimes[i] = particle.lifetime;
+      phases[i] = particle.phase;
+      
+      // Set initial colors
+      const emberColor = new THREE.Color(color);
+      colors[i3] = emberColor.r;
+      colors[i3 + 1] = emberColor.g;
+      colors[i3 + 2] = emberColor.b;
+      alphas[i] = 1.0;
+      
+      // Random turbulence direction
+      turbulence[i3] = (Math.random() - 0.5) * turbulenceStrength;
+      turbulence[i3 + 1] = (Math.random() - 0.5) * turbulenceStrength * 0.3;
+      turbulence[i3 + 2] = (Math.random() - 0.5) * turbulenceStrength;
     }
-
-    velocities.current = vel;
     
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
-    geometry.setAttribute('color', new THREE.BufferAttribute(particleColorsArray, 3));
+    // Create geometry
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    geo.setAttribute('alpha', new THREE.BufferAttribute(alphas, 1));
+    geo.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
     
-    return geometry;
-  }, [count, boundary, speed, baseSize, sizeVariation, singleColor]);
-
-  const material = useMemo(() => {
-    return new THREE.PointsMaterial({
-      size: baseSize,
-      sizeAttenuation,
-      vertexColors: true, // Use vertex colors from geometry
-      
-      // Removed emissive properties that weren't working
-      
+    // Create custom shader material
+    const mat = new THREE.ShaderMaterial({
+      uniforms: {
+        uTexture: { value: particleTexture },
+        uTime: { value: 0 },
+        uEmissiveIntensity: { value: emissiveIntensity }
+      },
+      vertexShader: `
+        attribute float size;
+        attribute float alpha;
+        varying vec3 vColor;
+        varying float vAlpha;
+        
+        void main() {
+          vColor = color;
+          vAlpha = alpha;
+          
+          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+          gl_PointSize = size * (300.0 / -mvPosition.z);
+          gl_Position = projectionMatrix * mvPosition;
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D uTexture;
+        uniform float uTime;
+        uniform float uEmissiveIntensity;
+        varying vec3 vColor;
+        varying float vAlpha;
+        
+        void main() {
+          vec2 uv = gl_PointCoord;
+          vec4 textureColor = texture2D(uTexture, uv);
+          
+          float distance = length(uv - 0.5);
+          float glow = 1.0 - smoothstep(0.0, 0.5, distance);
+          
+          float flicker = 0.8 + 0.2 * sin(uTime * 10.0 + gl_FragCoord.x * 0.1);
+          
+          vec3 finalColor = vColor * uEmissiveIntensity * glow * flicker;
+          float finalAlpha = vAlpha * glow * textureColor.a;
+          
+          gl_FragColor = vec4(finalColor, finalAlpha);
+        }
+      `,
       transparent: true,
-      opacity,
-      alphaTest,
-      blending,
-      depthWrite,
-      depthTest: true,
-      map: particleTexture,
-      fog,
-      toneMapped,
-      side: THREE.DoubleSide,
+      depthWrite: false,
+      blending: blending,
+      vertexColors: true
     });
-  }, [baseSize, sizeAttenuation, opacity, alphaTest, 
-      blending, depthWrite, fog, toneMapped, particleTexture]);
-
-  // Color interpolation function
-  const interpolateColor = (color1, color2, factor) => {
-    return {
-      r: color1.r + (color2.r - color1.r) * factor,
-      g: color1.g + (color2.g - color1.g) * factor,
-      b: color1.b + (color2.b - color1.b) * factor
+    
+    return { 
+      geometry: geo, 
+      material: mat, 
+      particleData: data,
+      initializeParticle // Include the function in the returned object
     };
-  };
+  }, [
+    count, 
+    emissionRadius, 
+    baseRiseSpeed, 
+    spiralStrength, 
+    baseSize, 
+    sizeVariation, 
+    driftSpeed, 
+    color, 
+    emissiveIntensity, 
+    blending, 
+    particleTexture,
+    turbulenceStrength
+  ]);
 
-  // Get color for particle based on cycle mode
-  const getParticleColor = (particleIndex, time) => {
-    const offset = colorOffsets.current[particleIndex];
-    const adjustedTime = time * transitionSpeed + offset;
-    
-    // Ensure we have colors to work with
-    if (!colorPalette || colorPalette.length === 0) {
-      return new THREE.Color(color);
-    }
-    
-    // Single color case
-    if (colorPalette.length === 1) {
-      return colorPalette[0];
-    }
-    
-    switch (colorCycleMode) {
-      case 'smooth': {
-        // Smooth cycling through all colors with proper bounds checking
-        const cycle = (adjustedTime * 0.5) % colorPalette.length;
-        
-        // Ensure we stay within bounds
-        const lowerIndex = Math.floor(cycle) % colorPalette.length;
-        const upperIndex = (lowerIndex + 1) % colorPalette.length;
-        
-        // Clamp factor between 0 and 1
-        const factor = Math.max(0, Math.min(1, cycle - Math.floor(cycle)));
-        
-        // Ensure valid indices
-        const safeLocalLowerIndex = Math.max(0, Math.min(colorPalette.length - 1, lowerIndex));
-        const safeUpperIndex = Math.max(0, Math.min(colorPalette.length - 1, upperIndex));
-        
-        return interpolateColor(
-          colorPalette[safeLocalLowerIndex], 
-          colorPalette[safeUpperIndex], 
-          factor
-        );
-      }
-      
-      case 'discrete': {
-        // Discrete color steps with bounds checking
-        const cycle = Math.abs(Math.floor((adjustedTime * 0.5))) % colorPalette.length;
-        const safeIndex = Math.max(0, Math.min(colorPalette.length - 1, cycle));
-        return colorPalette[safeIndex];
-      }
-      
-      case 'random': {
-        // Each particle randomly picks from palette with bounds checking
-        const normalizedSin = (Math.sin(adjustedTime * 0.1) + 1) * 0.5; // 0 to 1
-        const randomIndex = Math.floor(normalizedSin * colorPalette.length);
-        const safeIndex = Math.max(0, Math.min(colorPalette.length - 1, randomIndex));
-        return colorPalette[safeIndex];
-      }
-      
-      default:
-        return colorPalette[0] || new THREE.Color(color);
-    }
-  };
-
+  // Animation loop
   useFrame((state, delta) => {
-    const pos = geometry.attributes.position.array;
-    const vel = velocities.current;
-
+    timeRef.current += delta;
+    
+    if (material.uniforms) {
+      material.uniforms.uTime.value = timeRef.current;
+    }
+    
+    const positions = geometry.attributes.position.array;
+    const colors = geometry.attributes.color.array;
+    const alphas = geometry.attributes.alpha.array;
+    const sizes = geometry.attributes.size.array;
+    
     for (let i = 0; i < count; i++) {
+      const particle = particleData[i];
       const i3 = i * 3;
       
-      // Update positions
-      pos[i3] += vel[i3];
-      pos[i3 + 1] += vel[i3 + 1];
-      pos[i3 + 2] += vel[i3 + 2];
-
-      // Boundary collision
-      if (pos[i3] > boundary || pos[i3] < -boundary) vel[i3] = -vel[i3];
-      if (pos[i3 + 1] > boundary || pos[i3 + 1] < -boundary) vel[i3 + 1] = -vel[i3 + 1];
-      if (pos[i3 + 2] > boundary || pos[i3 + 2] < -boundary) vel[i3 + 2] = -vel[i3 + 2];
+      // Update particle lifetime
+      particle.age += delta;
+      
+      if (particle.age >= particle.lifetime) {
+        // Respawn particle using the closure function
+        const newParticle = (() => {
+          const angle = Math.random() * Math.PI * 2;
+          const radius = Math.random() * emissionRadius;
+          const x = Math.cos(angle) * radius;
+          const z = Math.sin(angle) * radius;
+          const y = -0.5 + Math.random() * 0.3;
+          
+          return {
+            basePosition: { x, y, z },
+            position: { x, y, z },
+            velocity: {
+              x: (Math.random() - 0.5) * 0.01 * driftSpeed,
+              y: baseRiseSpeed * (0.8 + Math.random() * 0.4),
+              z: (Math.random() - 0.5) * 0.01 * driftSpeed
+            },
+            size: baseSize + Math.random() * (baseSize * sizeVariation),
+            lifetime: 3 + Math.random() * 4,
+            age: 0,
+            phase: Math.random() * Math.PI * 2,
+            turbulence: {
+              x: (Math.random() - 0.5) * 0.3,
+              y: (Math.random() - 0.5) * 0.1,
+              z: (Math.random() - 0.5) * 0.3
+            }
+          };
+        })();
+        
+        Object.assign(particle, newParticle);
+        particle.age = -Math.random() * respawnDelay;
+      }
+      
+      if (particle.age > 0) {
+        // Update position with spiral motion
+        const lifeProgress = particle.age / particle.lifetime;
+        const height = lifeProgress * riseHeight;
+        
+        // Spiral motion around Y axis
+        const spiralAngle = particle.phase + lifeProgress * Math.PI * 4 * spiralStrength * spiralSpeed;
+        const currentSpiralRadius = spiralRadius * (1 - lifeProgress * 0.3);
+        
+        // Base position with spiral
+        const x = particle.basePosition.x + Math.cos(spiralAngle) * currentSpiralRadius;
+        const y = particle.basePosition.y + height;
+        const z = particle.basePosition.z + Math.sin(spiralAngle) * currentSpiralRadius;
+        
+        // Add turbulence with speed control
+        const turbulentX = x + Math.sin(timeRef.current * 2 * turbulenceSpeed + particle.phase) * particle.turbulence.x;
+        const turbulentY = y + Math.sin(timeRef.current * 1.5 * turbulenceSpeed + particle.phase * 1.3) * particle.turbulence.y;
+        const turbulentZ = z + Math.cos(timeRef.current * 1.8 * turbulenceSpeed + particle.phase * 0.8) * particle.turbulence.z;
+        
+        // Update position
+        positions[i3] = turbulentX;
+        positions[i3 + 1] = turbulentY;
+        positions[i3 + 2] = turbulentZ;
+        
+        // Update color fade (bright to dim)
+        const fadeProgress = Math.max(0, Math.min(1, (lifeProgress - fadeStart) / (fadeEnd - fadeStart)));
+        const brightness = 1.0 - fadeProgress;
+        
+        // Ember color transition: bright orange -> dim red -> invisible
+        const emberStart = new THREE.Color(color);
+        const emberEnd = new THREE.Color('#330000');
+        const currentColor = emberStart.clone().lerp(emberEnd, fadeProgress);
+        
+        colors[i3] = currentColor.r * brightness;
+        colors[i3 + 1] = currentColor.g * brightness;
+        colors[i3 + 2] = currentColor.b * brightness;
+        
+        // Update alpha with fade
+        alphas[i] = brightness * (1.0 - lifeProgress * 0.7);
+        
+        // Update size (embers shrink as they burn out)
+        const sizeMultiplier = 1.0 - lifeProgress * 0.6;
+        sizes[i] = particle.size * sizeMultiplier;
+      } else {
+        // Hide particle during respawn delay
+        alphas[i] = 0;
+      }
     }
-
-    // Only update positions - colors stay static
+    
+    // Mark attributes for update
     geometry.attributes.position.needsUpdate = true;
+    geometry.attributes.color.needsUpdate = true;
+    geometry.attributes.alpha.needsUpdate = true;
+    geometry.attributes.size.needsUpdate = true;
   });
 
-  return <points geometry={geometry} material={material} />;
+  return <points ref={particlesRef} geometry={geometry} material={material} />;
 };
 
 export default PersistentDustSystem;
