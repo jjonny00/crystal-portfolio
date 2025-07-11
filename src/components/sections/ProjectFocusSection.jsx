@@ -167,11 +167,11 @@ const ProjectFocusSection = ({
                 </div>
                 <h1 style={{
                   fontSize: isMobile ? 'clamp(1.75rem, 6vw, 2.5rem)' : 'clamp(2rem, 4vw, 3rem)',
-                  fontWeight: '700',
+                  fontWeight: '400',
                   color: 'white',
                   margin: 0,
                   lineHeight: '1.1',
-                  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif'
+                  fontFamily: '"ivypresto-display", "Playfair Display", Georgia, "Times New Roman", serif'
                 }}>
                   {project.title}
                 </h1>

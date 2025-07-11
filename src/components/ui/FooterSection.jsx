@@ -165,7 +165,7 @@ const FooterSection = ({ visible = false, onLoopBack }) => {
         backdropFilter: 'blur(20px)',
         borderTop: '1px solid rgba(100, 255, 218, 0.1)',
         zIndex: 999,
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif'
+        fontFamily: '"ivypresto-display", "Playfair Display", Georgia, "Times New Roman", serif'
       }}
     >
       <div style={{

@@ -126,7 +126,7 @@ const HeroSection = ({
           style={{
             ...contentSpring,
             fontSize: 'clamp(2.5rem, 8vw, 5rem)',
-            fontWeight: '700',
+            fontWeight: '400',
             marginBottom: '1.5rem',
             background: 'linear-gradient(135deg, #64ffda 0%, #bb86fc 50%, #03dac6 100%)',
             WebkitBackgroundClip: 'text',
@@ -134,7 +134,7 @@ const HeroSection = ({
             backgroundClip: 'text',
             lineHeight: '1.1',
             textShadow: '0 4px 20px rgba(100, 255, 218, 0.3)',
-            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif'
+            fontFamily: '"ivypresto-display", "Playfair Display", Georgia, "Times New Roman", serif'
           }}
         >
           Multifaceted Designer

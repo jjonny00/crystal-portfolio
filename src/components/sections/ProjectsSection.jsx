@@ -158,11 +158,11 @@ const ProjectsSection = ({
         <animated.div style={titleSpring}>
           <h2 style={{
             fontSize: isMobile ? 'clamp(1.5rem, 8vw, 2.5rem)' : 'clamp(2rem, 6vw, 3.5rem)',
-            fontWeight: '600',
+            fontWeight: '400',
             color: 'white',
             marginBottom: '1rem',
             textShadow: '0 4px 20px rgba(0, 0, 0, 0.8)',
-            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif'
+            fontFamily: '"ivypresto-display", "Playfair Display", Georgia, "Times New Roman", serif'
           }}>
             Six Facets of Design
           </h2>
