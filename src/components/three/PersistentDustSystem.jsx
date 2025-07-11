@@ -4,11 +4,12 @@ import { useTexture } from '@react-three/drei';
 import * as THREE from 'three';
 
 /**
- * Enhanced Ember System with spiral vortex motion and dynamic fading
+ * Enhanced Ember System with iridescent shimmer and spiral vortex motion
  */
 const PersistentDustSystem = ({
   count = 80,
   emissionRadius = 1.5,
+  emissionInnerRadius = 0.8,  // NEW: Inner radius for ring/donut shape
   emissionHeight = -4.0,
   riseHeight = 23.0,
   baseRiseSpeed = 0.01,
@@ -28,6 +29,10 @@ const PersistentDustSystem = ({
   respawnDelay = 0.5,
   minLifetime = 5.0,
   maxLifetime = 10.0,
+  // NEW: Improved iridescence parameters
+  iridescenceStrength = 0.8,
+  iridescenceVariation = 0.3,  // How much each particle varies
+  shimmerIntensity = 1.2
 }) => {
   const particlesRef = useRef();
   const timeRef = useRef(0);
@@ -58,15 +63,19 @@ const PersistentDustSystem = ({
     const lifetimes = new Float32Array(count);
     const phases = new Float32Array(count);
     const turbulence = new Float32Array(count * 3);
+    // NEW: Add static iridescence data (no time animation)
+    const iridescenceHues = new Float32Array(count);
+    const shimmerPhases = new Float32Array(count);
     
     // Particle data for animation
     const data = [];
     
     // Create a closure that captures all the parameters we need
     const createParticleData = () => {
-      // Random position within emission radius
+      // FIXED: Ring/donut emission pattern
       const angle = Math.random() * Math.PI * 2;
-      const radius = Math.random() * emissionRadius;
+      // Generate radius between inner and outer radius for ring shape
+      const radius = emissionInnerRadius + Math.random() * (emissionRadius - emissionInnerRadius);
       const x = Math.cos(angle) * radius;
       const z = Math.sin(angle) * radius;
       const y = emissionHeight + Math.random() * 0.3;
@@ -87,7 +96,10 @@ const PersistentDustSystem = ({
           x: (Math.random() - 0.5) * 0.3,
           y: (Math.random() - 0.5) * 0.1,
           z: (Math.random() - 0.5) * 0.3
-        }
+        },
+        // FIXED: Static iridescence properties (no time-based animation)
+        iridescenceHue: Math.random(), // Random hue for each particle (0-1)
+        shimmerPhase: Math.random() * Math.PI * 2
       };
     };
     
@@ -113,6 +125,10 @@ const PersistentDustSystem = ({
       lifetimes[i] = particle.lifetime;
       phases[i] = particle.phase;
       
+      // NEW: Set static iridescence properties
+      iridescenceHues[i] = particle.iridescenceHue;
+      shimmerPhases[i] = particle.shimmerPhase;
+      
       // Set initial colors
       const emberColor = new THREE.Color(color);
       colors[i3] = emberColor.r;
@@ -132,25 +148,49 @@ const PersistentDustSystem = ({
     geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     geo.setAttribute('alpha', new THREE.BufferAttribute(alphas, 1));
     geo.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+    // NEW: Add static iridescence attributes
+    geo.setAttribute('iridescenceHue', new THREE.BufferAttribute(iridescenceHues, 1));
+    geo.setAttribute('shimmerPhase', new THREE.BufferAttribute(shimmerPhases, 1));
     
-    // Create custom shader material
+    // ENHANCED: Custom shader material with iridescence
     const mat = new THREE.ShaderMaterial({
       uniforms: {
         uTexture: { value: particleTexture },
         uTime: { value: 0 },
-        uEmissiveIntensity: { value: emissiveIntensity }
+        uEmissiveIntensity: { value: emissiveIntensity },
+        // FIXED: Simplified iridescence uniforms
+        uIridescenceStrength: { value: iridescenceStrength },
+        uIridescenceVariation: { value: iridescenceVariation },
+        uShimmerIntensity: { value: shimmerIntensity }
       },
       vertexShader: `
         attribute float size;
         attribute float alpha;
+        attribute float iridescenceHue;
+        attribute float shimmerPhase;
+        
         varying vec3 vColor;
         varying float vAlpha;
+        varying vec2 vUv;
+        varying float vIridescenceHue;
+        varying float vShimmerPhase;
+        varying vec3 vWorldPosition;
+        varying vec3 vViewPosition;
         
         void main() {
           vColor = color;
           vAlpha = alpha;
+          vUv = uv;
+          vIridescenceHue = iridescenceHue;
+          vShimmerPhase = shimmerPhase;
+          
+          // Calculate world position for iridescence calculations
+          vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+          vWorldPosition = worldPosition.xyz;
           
           vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+          vViewPosition = mvPosition.xyz;
+          
           gl_PointSize = size * (300.0 / -mvPosition.z);
           gl_Position = projectionMatrix * mvPosition;
         }
@@ -159,20 +199,74 @@ const PersistentDustSystem = ({
         uniform sampler2D uTexture;
         uniform float uTime;
         uniform float uEmissiveIntensity;
+        uniform float uIridescenceStrength;
+        uniform float uIridescenceVariation;
+        uniform float uShimmerIntensity;
+        
         varying vec3 vColor;
         varying float vAlpha;
+        varying float vIridescenceHue;
+        varying float vShimmerPhase;
+        varying vec3 vWorldPosition;
+        varying vec3 vViewPosition;
+        
+        // Enhanced HSV to RGB conversion for smooth color transitions
+        vec3 hsv2rgb(vec3 c) {
+          vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+          vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+          return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+        }
+        
+        // Simple noise for subtle variation
+        float noise(vec3 p) {
+          return fract(sin(dot(p, vec3(12.9898, 78.233, 54.531))) * 43758.5453);
+        }
         
         void main() {
           vec2 uv = gl_PointCoord;
           vec4 textureColor = texture2D(uTexture, uv);
           
+          // Base glow calculation
           float distance = length(uv - 0.5);
           float glow = 1.0 - smoothstep(0.0, 0.5, distance);
           
-          float flicker = 0.8 + 0.2 * sin(uTime * 10.0 + gl_FragCoord.x * 0.1);
+          // Enhanced flickering with multiple frequencies
+          float baseFlicker = 0.8 + 0.2 * sin(uTime * 10.0 + vShimmerPhase);
+          float microFlicker = 0.95 + 0.05 * sin(uTime * 30.0 + vShimmerPhase * 2.0);
+          float flicker = baseFlicker * microFlicker;
           
-          vec3 finalColor = vColor * uEmissiveIntensity * glow * flicker;
+          // FIXED: Static iridescence based on particle's fixed hue
+          // Add subtle spatial variation using world position
+          vec3 spatialVariation = vWorldPosition * 0.1;
+          float spatialNoise = noise(spatialVariation) * uIridescenceVariation;
+          
+          // Create iridescent color from particle's base hue + spatial variation
+          float finalHue = mod(vIridescenceHue + spatialNoise, 1.0);
+          
+          // Create iridescent color in HSV space
+          vec3 iridHSV = vec3(
+            finalHue, // Use particle's fixed hue with slight variation
+            0.8,      // High saturation for vibrant colors
+            1.0       // Full brightness
+          );
+          
+          // Convert to RGB
+          vec3 iridColor = hsv2rgb(iridHSV);
+          
+          // Create shimmer intensity based on viewing angle
+          float viewDot = abs(dot(normalize(vViewPosition), vec3(0.0, 0.0, 1.0)));
+          float shimmer = mix(0.3, 1.0, pow(viewDot, 0.5)) * uShimmerIntensity;
+          
+          // Blend base color with iridescent color
+          vec3 finalColor = mix(vColor, iridColor, uIridescenceStrength * shimmer * glow);
+          
+          // Apply all effects
+          finalColor *= uEmissiveIntensity * glow * flicker;
           float finalAlpha = vAlpha * glow * textureColor.a;
+          
+          // Add extra sparkle at particle edges
+          float edgeSparkle = pow(glow, 3.0) * shimmer * 0.5;
+          finalColor += vec3(edgeSparkle);
           
           gl_FragColor = vec4(finalColor, finalAlpha);
         }
@@ -191,6 +285,7 @@ const PersistentDustSystem = ({
   }, [
     count, 
     emissionRadius, 
+    emissionInnerRadius,
     emissionHeight,
     baseRiseSpeed, 
     spiralStrength, 
@@ -203,10 +298,13 @@ const PersistentDustSystem = ({
     particleTexture,
     turbulenceStrength,
     minLifetime,
-    maxLifetime
+    maxLifetime,
+    iridescenceStrength,
+    iridescenceVariation,
+    shimmerIntensity
   ]);
 
-  // Animation loop
+  // Animation loop (mostly unchanged, with iridescence updates)
   useFrame((state, delta) => {
     timeRef.current += delta;
     
@@ -218,6 +316,8 @@ const PersistentDustSystem = ({
     const colors = geometry.attributes.color.array;
     const alphas = geometry.attributes.alpha.array;
     const sizes = geometry.attributes.size.array;
+    const iridescenceHues = geometry.attributes.iridescenceHue.array;
+    const shimmerPhases = geometry.attributes.shimmerPhase.array;
     
     for (let i = 0; i < count; i++) {
       const particle = particleData[i];
@@ -227,9 +327,9 @@ const PersistentDustSystem = ({
       particle.age += delta;
       
       if (particle.age >= particle.lifetime) {
-        // Respawn particle with new random values
+        // FIXED: Respawn particle with ring/donut emission pattern
         const angle = Math.random() * Math.PI * 2;
-        const radius = Math.random() * emissionRadius;
+        const radius = emissionInnerRadius + Math.random() * (emissionRadius - emissionInnerRadius);
         const x = Math.cos(angle) * radius;
         const z = Math.sin(angle) * radius;
         const y = emissionHeight + Math.random() * 0.3;
@@ -251,15 +351,22 @@ const PersistentDustSystem = ({
           y: (Math.random() - 0.5) * 0.1,
           z: (Math.random() - 0.5) * 0.3
         };
+        // FIXED: Reset static iridescence properties
+        particle.iridescenceHue = Math.random();
+        particle.shimmerPhase = Math.random() * Math.PI * 2;
+        
+        // Update attributes
+        iridescenceHues[i] = particle.iridescenceHue;
+        shimmerPhases[i] = particle.shimmerPhase;
       }
       
       if (particle.age > 0) {
         // Update position with spiral motion
         const lifeProgress = particle.age / particle.lifetime;
-        const height = lifeProgress * riseHeight * 0.3; // REDUCED: Much slower height progression
+        const height = lifeProgress * riseHeight * 0.3;
         
         // Spiral motion around Y axis  
-        const spiralAngle = particle.phase + lifeProgress * Math.PI * 2 * spiralStrength * spiralSpeed; // REDUCED: Less spiral rotation
+        const spiralAngle = particle.phase + lifeProgress * Math.PI * 2 * spiralStrength * spiralSpeed;
         const currentSpiralRadius = spiralRadius * (1 - lifeProgress * 0.3);
         
         // Base position with spiral
@@ -281,7 +388,7 @@ const PersistentDustSystem = ({
         const fadeProgress = Math.max(0, Math.min(1, (lifeProgress - fadeStart) / (fadeEnd - fadeStart)));
         const brightness = 1.0 - fadeProgress;
         
-        // Ember color transition: bright orange -> dim red -> invisible
+        // Base ember color (will be modified by iridescence in shader)
         const emberStart = new THREE.Color(color);
         const emberEnd = new THREE.Color('#330000');
         const currentColor = emberStart.clone().lerp(emberEnd, fadeProgress);
@@ -296,17 +403,19 @@ const PersistentDustSystem = ({
         // Update size (embers shrink as they burn out)
         const sizeMultiplier = 1.0 - lifeProgress * 0.6;
         sizes[i] = particle.size * sizeMultiplier;
+        
+        // FIXED: No time-based iridescence updates - colors stay stable per particle
       } else {
         // Hide particle during respawn delay
         alphas[i] = 0;
       }
     }
     
-    // Mark attributes for update
+    // Mark attributes for update (removed iridescence attributes - they're static now)
     geometry.attributes.position.needsUpdate = true;
     geometry.attributes.color.needsUpdate = true;
     geometry.attributes.alpha.needsUpdate = true;
-    geometry.attributes.size.needsUpdate = true;
+    geometry.attributes.size.needsUpdate = true;merOffset.needsUpdate = true;
   });
 
   return <points ref={particlesRef} geometry={geometry} material={material} />;
