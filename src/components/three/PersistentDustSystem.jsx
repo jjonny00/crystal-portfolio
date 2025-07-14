@@ -8,9 +8,9 @@ import * as THREE from 'three';
  * FIXED: Ring/donut emission pattern and static iridescence
  */
 const PersistentDustSystem = ({
-  count = 200,
+  count = 20,
   emissionRadius = 5.5,
-  emissionInnerRadius = 1.8,  // NEW: Inner radius for ring/donut shape
+  emissionInnerRadius = 1.0,  // NEW: Inner radius for ring/donut shape
   emissionHeight = -4.0,
   riseHeight = 23.0,
   baseRiseSpeed = 0.01,
@@ -21,12 +21,12 @@ const PersistentDustSystem = ({
   fadeStart = 0.3,
   fadeEnd = 1.8,
   baseSize = 0.2,
-  sizeVariation = 5.0,
+  sizeVariation = 8.0,
   color = '#ff6b35',
   emissiveIntensity = 5.5,
   blending = THREE.AdditiveBlending,
-  turbulenceStrength = 0.15,
-  turbulenceSpeed = 1.0,
+  turbulenceStrength = 0.5,
+  turbulenceSpeed = 0.5,
   respawnDelay = 0.5,
   minLifetime = 5.0,
   maxLifetime = 10.0,
@@ -39,7 +39,7 @@ const PersistentDustSystem = ({
   const timeRef = useRef(0);
   
   // Load the particle texture
-  const particleTexture = useTexture('/assets/textures/particle-dust03.png');
+  const particleTexture = useTexture('/assets/textures/particle-dust05.png');
   
   // Configure the texture for embers
   React.useEffect(() => {
