@@ -1,11 +1,13 @@
+// src/components/three/PersistentDustSystem.jsx
 import React, { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useTexture } from '@react-three/drei';
 import * as THREE from 'three';
 
 /**
- * Enhanced Ember System with iridescent shimmer and spiral vortex motion
+ * Enhanced Ember System with iridescent shimmer, spiral vortex motion, and directional rotation
  * FIXED: Ring/donut emission pattern and static iridescence
+ * NEW: Particles rotate based on their movement direction
  */
 const PersistentDustSystem = ({
   count = 20,
@@ -33,7 +35,14 @@ const PersistentDustSystem = ({
   // NEW: Improved iridescence parameters
   iridescenceStrength = 0.8,
   iridescenceVariation = 0.3,  // How much each particle varies
-  shimmerIntensity = 1.2
+  shimmerIntensity = 1.2,
+  // NEW: Rotation parameters
+  enableRotation = true,        // Enable directional rotation
+  rotationSmoothing = 0.1,      // How quickly particles rotate to face new direction (0.1 = smooth, 1.0 = instant)
+  maxRotationAngle = Math.PI / 4, // Maximum rotation angle (45 degrees = Math.PI/4) - both directions
+  // NEW: Persistence parameters
+  enableFrustumCulling = false, // Keep particles alive even when emitter is off-screen
+  maxDistance = 100             // Maximum distance from origin before culling particles
 }) => {
   const particlesRef = useRef();
   const timeRef = useRef(0);
@@ -64,6 +73,8 @@ const PersistentDustSystem = ({
     const lifetimes = new Float32Array(count);
     const phases = new Float32Array(count);
     const turbulence = new Float32Array(count * 3);
+    // NEW: Add rotation attributes
+    const rotations = new Float32Array(count);
     // NEW: Add static iridescence data (no time animation)
     const iridescenceHues = new Float32Array(count);
     const shimmerPhases = new Float32Array(count);
@@ -84,6 +95,7 @@ const PersistentDustSystem = ({
       return {
         basePosition: { x, y, z },
         position: { x, y, z },
+        lastPosition: { x, y, z }, // NEW: Track previous position for velocity calculation
         velocity: {
           x: (Math.random() - 0.5) * 0.01 * driftSpeed,
           y: baseRiseSpeed * (0.5 + Math.random() * 0.3),
@@ -98,6 +110,10 @@ const PersistentDustSystem = ({
           y: (Math.random() - 0.5) * 0.1,
           z: (Math.random() - 0.5) * 0.3
         },
+        // NEW: Rotation properties
+        rotation: 0, // Start with no rotation (pointing forward)
+        targetRotation: 0, // NEW: Target rotation for smooth lerping
+        baseRotation: 0, // NEW: Base rotation for limiting range
         // FIXED: Static iridescence properties (no time-based animation)
         iridescenceHue: Math.random(), // Random hue for each particle (0-1)
         shimmerPhase: Math.random() * Math.PI * 2
@@ -126,6 +142,9 @@ const PersistentDustSystem = ({
       lifetimes[i] = particle.lifetime;
       phases[i] = particle.phase;
       
+      // NEW: Set rotation properties
+      rotations[i] = particle.rotation;
+      
       // NEW: Set static iridescence properties
       iridescenceHues[i] = particle.iridescenceHue;
       shimmerPhases[i] = particle.shimmerPhase;
@@ -149,11 +168,13 @@ const PersistentDustSystem = ({
     geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     geo.setAttribute('alpha', new THREE.BufferAttribute(alphas, 1));
     geo.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+    // NEW: Add rotation attributes
+    geo.setAttribute('rotation', new THREE.BufferAttribute(rotations, 1));
     // NEW: Add static iridescence attributes
     geo.setAttribute('iridescenceHue', new THREE.BufferAttribute(iridescenceHues, 1));
     geo.setAttribute('shimmerPhase', new THREE.BufferAttribute(shimmerPhases, 1));
     
-    // ENHANCED: Custom shader material with iridescence
+    // ENHANCED: Custom shader material with iridescence and rotation
     const mat = new THREE.ShaderMaterial({
       uniforms: {
         uTexture: { value: particleTexture },
@@ -167,12 +188,14 @@ const PersistentDustSystem = ({
       vertexShader: `
         attribute float size;
         attribute float alpha;
+        attribute float rotation;
         attribute float iridescenceHue;
         attribute float shimmerPhase;
         
         varying vec3 vColor;
         varying float vAlpha;
         varying vec2 vUv;
+        varying float vRotation;
         varying float vIridescenceHue;
         varying float vShimmerPhase;
         varying vec3 vWorldPosition;
@@ -182,6 +205,7 @@ const PersistentDustSystem = ({
           vColor = color;
           vAlpha = alpha;
           vUv = uv;
+          vRotation = rotation;
           vIridescenceHue = iridescenceHue;
           vShimmerPhase = shimmerPhase;
           
@@ -206,6 +230,7 @@ const PersistentDustSystem = ({
         
         varying vec3 vColor;
         varying float vAlpha;
+        varying float vRotation;
         varying float vIridescenceHue;
         varying float vShimmerPhase;
         varying vec3 vWorldPosition;
@@ -224,7 +249,19 @@ const PersistentDustSystem = ({
         }
         
         void main() {
+          // NEW: Apply rotation to UV coordinates
           vec2 uv = gl_PointCoord;
+          vec2 center = vec2(0.5);
+          uv -= center;
+          
+          float cosR = cos(vRotation);
+          float sinR = sin(vRotation);
+          mat2 rotationMatrix = mat2(cosR, -sinR, sinR, cosR);
+          uv = rotationMatrix * uv;
+          
+          uv += center;
+          
+          // Sample texture with rotated coordinates
           vec4 textureColor = texture2D(uTexture, uv);
           
           // Base glow calculation
@@ -302,7 +339,12 @@ const PersistentDustSystem = ({
     maxLifetime,
     iridescenceStrength,
     iridescenceVariation,
-    shimmerIntensity
+    shimmerIntensity,
+    enableRotation,
+    rotationSmoothing,
+    maxRotationAngle,
+    enableFrustumCulling,
+    maxDistance
   ]);
 
   // Animation loop
@@ -317,6 +359,7 @@ const PersistentDustSystem = ({
     const colors = geometry.attributes.color.array;
     const alphas = geometry.attributes.alpha.array;
     const sizes = geometry.attributes.size.array;
+    const rotations = geometry.attributes.rotation.array;
     const iridescenceHues = geometry.attributes.iridescenceHue.array;
     const shimmerPhases = geometry.attributes.shimmerPhase.array;
     
@@ -328,6 +371,22 @@ const PersistentDustSystem = ({
       particle.age += delta;
       
       if (particle.age >= particle.lifetime) {
+        // Check if we should cull particles that are too far from origin
+        if (!enableFrustumCulling) {
+          const distanceFromOrigin = Math.sqrt(
+            particle.position.x * particle.position.x + 
+            particle.position.y * particle.position.y + 
+            particle.position.z * particle.position.z
+          );
+          
+          // Only respawn if particle isn't too far away (prevents infinite expansion)
+          if (distanceFromOrigin > maxDistance) {
+            // Hide particle instead of respawning
+            alphas[i] = 0;
+            continue;
+          }
+        }
+        
         // FIXED: Respawn particle with ring/donut emission pattern
         const angle = Math.random() * Math.PI * 2;
         const radius = emissionInnerRadius + Math.random() * (emissionRadius - emissionInnerRadius);
@@ -338,6 +397,7 @@ const PersistentDustSystem = ({
         // Reset particle data
         particle.basePosition = { x, y, z };
         particle.position = { x, y, z };
+        particle.lastPosition = { x, y, z }; // NEW: Reset last position
         particle.velocity = {
           x: (Math.random() - 0.5) * 0.01 * driftSpeed,
           y: baseRiseSpeed * (0.5 + Math.random() * 0.3),
@@ -352,6 +412,10 @@ const PersistentDustSystem = ({
           y: (Math.random() - 0.5) * 0.1,
           z: (Math.random() - 0.5) * 0.3
         };
+        // NEW: Reset rotation properties
+        particle.rotation = 0;
+        particle.targetRotation = 0;
+        particle.baseRotation = 0;
         // FIXED: Reset static iridescence properties
         particle.iridescenceHue = Math.random();
         particle.shimmerPhase = Math.random() * Math.PI * 2;
@@ -362,6 +426,11 @@ const PersistentDustSystem = ({
       }
       
       if (particle.age > 0) {
+        // Store previous position for velocity calculation
+        particle.lastPosition.x = particle.position.x;
+        particle.lastPosition.y = particle.position.y;
+        particle.lastPosition.z = particle.position.z;
+        
         // Update position with unified vortex motion
         const lifeProgress = particle.age / particle.lifetime;
         const height = lifeProgress * riseHeight * 0.3;
@@ -387,9 +456,40 @@ const PersistentDustSystem = ({
         const turbulentZ = z + Math.cos(timeRef.current * 1.8 * turbulenceSpeed + particle.phase * 0.8) * particle.turbulence.z;
         
         // Update position
+        particle.position.x = turbulentX;
+        particle.position.y = turbulentY;
+        particle.position.z = turbulentZ;
+        
         positions[i3] = turbulentX;
         positions[i3 + 1] = turbulentY;
         positions[i3 + 2] = turbulentZ;
+        
+        // NEW: Calculate rotation based on Z-axis position (front-to-back relative to camera)
+        if (enableRotation) {
+          // Use the particle's Z position (front-to-back axis) to determine rotation
+          // Positive Z = closer to camera = lean forward (+45°)
+          // Negative Z = further from camera = lean backward (-45°)
+          const zPosition = particle.position.z;
+          
+          // Normalize Z position to get rotation value
+          // We'll use the emission radius as our reference for maximum Z values
+          const normalizedZ = Math.max(-1, Math.min(1, zPosition / emissionRadius));
+          
+          // Map normalized Z (-1 to +1) to rotation (-45° to +45°)
+          const targetRotation = normalizedZ * maxRotationAngle;
+          
+          // Smooth rotation toward target direction
+          let angleDiff = targetRotation - particle.rotation;
+          
+          // Smoothly rotate toward target
+          particle.rotation += angleDiff * rotationSmoothing;
+          
+          // Clamp to ensure we stay within -maxRotationAngle to +maxRotationAngle range
+          particle.rotation = Math.max(-maxRotationAngle, Math.min(maxRotationAngle, particle.rotation));
+          
+          // Update rotation attribute
+          rotations[i] = particle.rotation;
+        }
         
         // Update color fade (bright to dim)
         const fadeProgress = Math.max(0, Math.min(1, (lifeProgress - fadeStart) / (fadeEnd - fadeStart)));
@@ -416,15 +516,24 @@ const PersistentDustSystem = ({
       }
     }
     
-    // FIXED: Mark attributes for update (removed the erroneous merOffset line)
+    // FIXED: Mark attributes for update (including new rotation attribute)
     geometry.attributes.position.needsUpdate = true;
     geometry.attributes.color.needsUpdate = true;
     geometry.attributes.alpha.needsUpdate = true;
     geometry.attributes.size.needsUpdate = true;
+    geometry.attributes.rotation.needsUpdate = true;
     // Note: iridescence attributes are static so they don't need updating every frame
   });
 
-  return <points ref={particlesRef} geometry={geometry} material={material} />;
+  return (
+    <points 
+      ref={particlesRef} 
+      geometry={geometry} 
+      material={material}
+      // Disable frustum culling to keep particles alive when emitter goes off-screen
+      frustumCulled={enableFrustumCulling}
+    />
+  );
 };
 
 export default PersistentDustSystem;
