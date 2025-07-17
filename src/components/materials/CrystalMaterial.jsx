@@ -1,4 +1,4 @@
-// CrystalMaterial.jsx - FIXED: Better PBR and Non-PBR material compatibility with proper depth settings
+// CrystalMaterial.jsx - UPDATED: Better shadow handling for transparent materials
 // Creates materials that look great whether PBR is enabled or disabled
 
 import React, { useEffect } from 'react';
@@ -7,6 +7,7 @@ import * as THREE from 'three';
 /**
  * Enhanced Crystal Material Component
  * Creates high-quality materials that work well in both PBR and non-PBR modes
+ * UPDATED: Improved shadow handling for transparent lighting
  */
 const CrystalMaterial = ({
   config,
@@ -22,7 +23,7 @@ const CrystalMaterial = ({
     usePBR = true
   } = performanceConfig;
   
-  // ENHANCED: Create material with better non-PBR compatibility and proper depth settings
+  // ENHANCED: Create material with better shadow handling for transparent objects
   useEffect(() => {
     const createMaterial = () => {
       const baseConfig = { ...config.materials.crystal };
@@ -105,7 +106,7 @@ const CrystalMaterial = ({
           break;
       }
       
-      // ENHANCED: Create material with additional properties for better compatibility and FIXED depth settings
+      // UPDATED: Create material with improved shadow handling for transparent objects
       const materialProps = {
         ...baseConfig,
         
@@ -114,9 +115,12 @@ const CrystalMaterial = ({
         side: THREE.DoubleSide,
         fog: true,
         
-        // FIXED: Proper depth settings so crystal facets block the sphere
-        depthWrite: true,    // CHANGED: Enable depth writing so facets are properly occluded
+        // Depth settings for proper transparency
+        depthWrite: true,    // Keep depth writing for proper occlusion
         depthTest: true,     // Keep depth testing
+        
+        // UPDATED: Enhanced shadow settings for transparent materials
+        shadowSide: THREE.DoubleSide,  // Render shadows on both sides for transparency
         
         // ENHANCED: Additional properties for better visual quality
         flatShading: false, // Smooth shading for crystal
@@ -138,14 +142,15 @@ const CrystalMaterial = ({
       materialRef.current = material;
       if (onMaterialReady) onMaterialReady(material);
       
-      console.log('✅ Enhanced crystal material created:', {
+      console.log('✅ Enhanced crystal material created with improved shadow handling:', {
         variant,
         usePBR,
         transmission: material.transmission,
         clearcoat: material.clearcoat,
         iridescence: material.iridescence,
         envMapIntensity: material.envMapIntensity,
-        depthWrite: material.depthWrite // Log the fixed depth setting
+        shadowSide: material.shadowSide,
+        depthWrite: material.depthWrite
       });
     };
     
@@ -214,6 +219,9 @@ const CrystalMaterial = ({
       
       // Restore or enhance emissive intensity
       material.emissiveIntensity = Math.max(currentEmissiveIntensity, material.emissiveIntensity || 0);
+      
+      // UPDATED: Ensure shadow settings are maintained
+      material.shadowSide = THREE.DoubleSide;
       
       // ENHANCED: Apply variant-specific updates with PBR awareness
       switch(variant) {

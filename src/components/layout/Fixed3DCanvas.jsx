@@ -1,5 +1,5 @@
 // UPDATED: src/components/layout/Fixed3DCanvas.jsx
-// Fixed import and getFacetRefs function to properly access exposed refs
+// ADDED: Bottom directional light to illuminate crystal undersides
 
 import React, { useRef, useState, useEffect } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
@@ -42,7 +42,7 @@ const PulsingOmniLight = () => {
 };
 
 /**
- * UPDATED: Fixed3DCanvas with corrected ref access
+ * UPDATED: Fixed3DCanvas with bottom directional light for better crystal illumination
  */
 const Fixed3DCanvas = ({ 
   // Animation data from MasterAnimationCoordinator
@@ -143,8 +143,10 @@ const Fixed3DCanvas = ({
           {/* Persistent Dust System */}
           <PersistentDustSystem />
           
-          {/* Lighting setup (unchanged) */}
-          <ambientLight intensity={config?.lighting?.ambient?.intensity || 0.2} />
+          {/* UPDATED: Enhanced lighting setup with bottom directional light */}
+          <ambientLight intensity={config?.lighting?.ambient?.intensity || 0.4} />
+          
+          {/* Main directional light (from above/side) */}
           <directionalLight 
             position={config?.lighting?.directional?.position || [10, 8, 5]} 
             intensity={config?.lighting?.directional?.intensity || 1.8} 
@@ -152,6 +154,18 @@ const Fixed3DCanvas = ({
             castShadow={config?.lighting?.directional?.castShadow !== false} 
           />
           
+          {/* ADDED: Bottom directional light pointing upward */}
+          {config?.lighting?.directionalBottom && (
+            <directionalLight 
+              position={config.lighting.directionalBottom.position || [0, -5, 0]} 
+              target-position={config.lighting.directionalBottom.target || [0, 0, 0]}
+              intensity={config.lighting.directionalBottom.intensity || 1.2} 
+              color={config.lighting.directionalBottom.color || "#E8F4FF"} 
+              castShadow={config.lighting.directionalBottom.castShadow !== true}
+            />
+          )}
+          
+          {/* Point lights */}
           {config?.lighting?.pointLights?.map((light, index) => (
             <pointLight 
               key={index}
@@ -163,9 +177,10 @@ const Fixed3DCanvas = ({
 
           <PulsingOmniLight />
           
+          {/* Spot light */}
           <spotLight 
             position={config?.lighting?.spotLight?.position || [0, 0, 10]} 
-            intensity={config?.lighting?.spotLight?.intensity || 1.0} 
+            intensity={config?.lighting?.spotLight?.intensity || 1.2} 
             angle={config?.lighting?.spotLight?.angle || Math.PI / 4} 
             penumbra={config?.lighting?.spotLight?.penumbra || 0.2} 
             color={config?.lighting?.spotLight?.color || "#FFFFFF"} 

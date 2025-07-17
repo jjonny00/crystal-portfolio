@@ -1,5 +1,5 @@
 // crystalConfig.js - Crystal Animation & Visual Control Center
-// This file serves as the "cockpit" for controlling all aspects of the crystal experience
+// UPDATED: Lighting adjustments to compensate for disabled crystal shadows
 
 import * as THREE from 'three'
 
@@ -290,31 +290,46 @@ export const postProcessing = {
 }
 
 // === LIGHTING ===
+// UPDATED: Enhanced lighting to compensate for disabled crystal shadows
 export const lighting = {
   ambient: {
-    intensity: 0.2
+    intensity: 0.4  // INCREASED: Boost ambient light to compensate for disabled shadows
   },
   directional: {
     position: [10, 8, 5],
     intensity: 1.8,
     color: "#FFFFFF",
-    castShadow: true
+    castShadow: false  // CHANGED: Disable shadow casting to improve transparent lighting
+  },
+  // ADDED: Upward directional light from below the crystal
+  directionalBottom: {
+    position: [0, -5, 0],    // Position below the crystal
+    target: [0, 0, 0],       // Point straight up toward crystal center
+    intensity: 100.2,          // Strong enough to illuminate undersides
+    color: "#E8F4FF",        // Slightly cool blue-white
+    castShadow: false        // No shadows for better transparency
   },
   pointLights: [
     {
       position: [-5, 3, -5],
-      intensity: 0.8,
+      intensity: 1.0,    // INCREASED: Boost intensity
       color: "#CCE8FF"
     },
     {
       position: [0, -8, -10],
-      intensity: 0.6,
+      intensity: 0.8,    // INCREASED: Boost intensity
       color: "#FFFFFF"
+    },
+    // ADDED: Additional fill light to brighten dark areas
+    {
+      position: [5, -3, 5],
+      intensity: 0.6,
+      color: "#FFE8CC"
     }
   ],
   spotLight: {
     position: [0, 0, 10],
-    intensity: 1.0,
+    intensity: 1.2,    // INCREASED: Boost intensity
     angle: Math.PI / 4,
     penumbra: 0.2,
     color: "#FFFFFF"

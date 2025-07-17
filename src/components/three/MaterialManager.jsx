@@ -1,4 +1,4 @@
-// MaterialManager.jsx - OPTIMIZED: Fast mobile crystal material that still looks great
+// MaterialManager.jsx - UPDATED: Shadow improvements for mobile crystal material
 // Creates materials that perform well on mobile while maintaining crystal appearance
 
 import React, { useRef, useEffect } from 'react';
@@ -32,7 +32,7 @@ const MaterialManager = ({
   // OPTIMIZED: Create high-performance mobile material using MeshStandardMaterial
   useEffect(() => {
     if (!usePBR && !optimizedMobileRef.current) {
-      console.log('🚀 Creating OPTIMIZED mobile crystal material');
+      console.log('🚀 Creating OPTIMIZED mobile crystal material with shadow improvements');
       
       // Use MeshStandardMaterial instead of MeshPhysicalMaterial for mobile
       // This removes expensive features like transmission, clearcoat, iridescence
@@ -56,6 +56,9 @@ const MaterialManager = ({
         // CRITICAL: Enable depth writing for proper rendering
         depthWrite: true,
         depthTest: true,
+        
+        // UPDATED: Enhanced shadow settings for better transparent lighting simulation
+        shadowSide: THREE.DoubleSide,        // Render shadows on both sides when needed
         
         // Emissive glow to simulate internal light
         emissive: new THREE.Color('#a7ffdb'), // Purple emissive (like gem)
@@ -118,13 +121,14 @@ const MaterialManager = ({
       // We'll set it when the component mounts and environment is available
       optimizedMobileRef.current = optimizedMaterial;
       
-      console.log('✅ OPTIMIZED mobile material created:', {
+      console.log('✅ OPTIMIZED mobile material created with shadow improvements:', {
         variant: materialVariant,
         transparent: optimizedMaterial.transparent,
         metalness: optimizedMaterial.metalness,
         roughness: optimizedMaterial.roughness,
         envMapIntensity: optimizedMaterial.envMapIntensity,
-        emissiveIntensity: optimizedMaterial.emissiveIntensity
+        emissiveIntensity: optimizedMaterial.emissiveIntensity,
+        shadowSide: optimizedMaterial.shadowSide
       });
       
       if (onMaterialReady) onMaterialReady(optimizedMaterial);
@@ -147,7 +151,8 @@ const MaterialManager = ({
           roughness: optimizedMobileRef.current.roughness,
           envMapIntensity: optimizedMobileRef.current.envMapIntensity,
           color: optimizedMobileRef.current.color.getHexString(),
-          emissiveIntensity: optimizedMobileRef.current.emissiveIntensity
+          emissiveIntensity: optimizedMobileRef.current.emissiveIntensity,
+          shadowSide: optimizedMobileRef.current.shadowSide
         });
       } else {
         console.log('⏳ Waiting for environment to load...');
@@ -238,6 +243,8 @@ const MaterialManager = ({
           break;
       }
       
+      // UPDATED: Ensure shadow settings are maintained
+      material.shadowSide = THREE.DoubleSide;
       material.needsUpdate = true;
     }
   }, [materialVariant, usePBR, config.materials.crystal]);
@@ -286,7 +293,7 @@ const MaterialManager = ({
     
     if (!usePBR) {
       materialRef.current = optimizedMobileRef.current;
-      console.log('✅ Using OPTIMIZED mobile material (MeshStandardMaterial)');
+      console.log('✅ Using OPTIMIZED mobile material (MeshStandardMaterial) with shadow improvements');
     } else {
       materialRef.current = crystalMaterialRef.current;
       console.log('✅ Using full PBR crystal material:', materialVariant);

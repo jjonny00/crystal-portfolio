@@ -10,7 +10,7 @@ import * as THREE from 'three';
  * NEW: Particles rotate based on their movement direction
  */
 const PersistentDustSystem = ({
-  count = 20,
+  count = 16,
   emissionRadius = 5.5,
   emissionInnerRadius = 1.0,  // NEW: Inner radius for ring/donut shape
   emissionHeight = -4.0,
@@ -25,7 +25,7 @@ const PersistentDustSystem = ({
   baseSize = 0.2,
   sizeVariation = 8.0,
   color = '#ff6b35',
-  emissiveIntensity = 5.5,
+  emissiveIntensity = 1.5,
   blending = THREE.AdditiveBlending,
   turbulenceStrength = 0.5,
   turbulenceSpeed = 0.5,

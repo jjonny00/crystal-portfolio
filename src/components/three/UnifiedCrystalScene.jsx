@@ -1,4 +1,5 @@
-// ONLY CHANGE: Fixed facet refs exposure for anchor targeting
+// UPDATED: src/components/three/UnifiedCrystalScene.jsx
+// FIXED: Disabled shadows for crystal materials to improve lighting through transparent faces
 
 import React, { useRef, useState, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
@@ -169,7 +170,7 @@ const UnifiedCrystalScene = forwardRef(({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
   
-  // Apply shared material to all models
+  // UPDATED: Apply shared material to all models with disabled shadows
   useEffect(() => {
     if (!crystalMaterialRef.current) return;
     
@@ -178,8 +179,14 @@ const UnifiedCrystalScene = forwardRef(({
       modelScene.traverse((child) => {
         if (child.isMesh) {
           child.material = crystalMaterialRef.current;
-          child.castShadow = true;
-          child.receiveShadow = true;
+          
+          // CHANGED: Disable shadows for crystal materials to improve transparent lighting
+          child.castShadow = false;    // Don't cast shadows
+          child.receiveShadow = false; // Don't receive shadows
+          
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`💡 Disabled shadows for crystal mesh: ${child.name}`);
+          }
         }
       });
     };
