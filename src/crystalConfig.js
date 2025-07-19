@@ -221,24 +221,24 @@ export const effects = {
 export const materials = {
   // Base crystal material configuration
   crystal: {
-    color: new THREE.Color('#251264'),
+    color: new THREE.Color('#31259c'),
     transparent: true,
-    transmission: 0.9,
+    transmission: 0.7,
     ior: 2.3,
     thickness: 0.1,
-    iridescence: 1,
-    iridescenceIOR: 1.0,
+    iridescence: 0.3,
+    iridescenceIOR: 1.3,
     metalness: 0.0,
     roughness: 0.11,
-    attenuationColor: new THREE.Color('#00ffe4'),
-    attenuationDistance: 0.1,
-    clearcoat: 0.5,
-    clearcoatRoughness: 0.01,
+    attenuationColor: new THREE.Color('#b8fffbff'),
+    attenuationDistance: 0.5,
+    clearcoat: 0.8,
+    clearcoatRoughness: 0.05,
     envMapIntensity: 10.0,
     reflectivity: 0.7,
-    specularIntensity: 1.0,
+    specularIntensity: 5.0,
     specularColor: new THREE.Color('#ffffff'),
-    emissive: new THREE.Color('#000257'),
+    emissive: new THREE.Color('#5900ff'),
     emissiveIntensity: 0 // Default, will be changed dynamically
   },
   
@@ -305,34 +305,34 @@ export const lighting = {
   directionalBottom: {
     position: [0, -5, 0],    // Position below the crystal
     target: [0, 0, 0],       // Point straight up toward crystal center
-    intensity: 100.2,          // Strong enough to illuminate undersides
-    color: "#E8F4FF",        // Slightly cool blue-white
+    intensity: 20.2,          // Strong enough to illuminate undersides
+    color: "#ff4800",        // Slightly cool blue-white
     castShadow: false        // No shadows for better transparency
   },
   pointLights: [
     {
       position: [-5, 3, -5],
-      intensity: 1.0,    // INCREASED: Boost intensity
-      color: "#CCE8FF"
+      intensity: 10.0,    // INCREASED: Boost intensity
+      color: "#00ad1d"
     },
     {
       position: [0, -8, -10],
-      intensity: 0.8,    // INCREASED: Boost intensity
-      color: "#FFFFFF"
+      intensity: 10.8,    // INCREASED: Boost intensity
+      color: "#00e380"
     },
     // ADDED: Additional fill light to brighten dark areas
     {
       position: [5, -3, 5],
-      intensity: 0.6,
+      intensity: 5.6,
       color: "#FFE8CC"
     }
   ],
   spotLight: {
     position: [0, 0, 10],
-    intensity: 1.2,    // INCREASED: Boost intensity
+    intensity: 10.2,    // INCREASED: Boost intensity
     angle: Math.PI / 4,
-    penumbra: 0.2,
-    color: "#FFFFFF"
+    penumbra: 100.2,
+    color: "#ff0051"
   }
 }
 

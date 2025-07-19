@@ -24,7 +24,7 @@ const PulsingOmniLight = () => {
     if (lightRef.current) {
       const time = state.clock.elapsedTime;
       const pulse = Math.sin(time * 2 + Math.sin(time * 0.7) * 0.5) * 0.3 + 1;
-      lightRef.current.intensity = 600.5 * pulse;
+      lightRef.current.intensity = 2.5 * pulse;
     }
   });
 
@@ -32,10 +32,10 @@ const PulsingOmniLight = () => {
     <pointLight
       ref={lightRef}
       position={[0, 0, 0]}
-      intensity={1.5}
-      color="#00ffe4"
-      distance={5}
-      decay={2}
+      intensity={5.5}
+      color="#b4ffda"
+      distance={10}
+      decay={8}
       castShadow={false}
     />
   );
@@ -159,8 +159,8 @@ const Fixed3DCanvas = ({
             <directionalLight 
               position={config.lighting.directionalBottom.position || [0, -5, 0]} 
               target-position={config.lighting.directionalBottom.target || [0, 0, 0]}
-              intensity={config.lighting.directionalBottom.intensity || 1.2} 
-              color={config.lighting.directionalBottom.color || "#E8F4FF"} 
+              intensity={config.lighting.directionalBottom.intensity || 0.2} 
+              color={config.lighting.directionalBottom.color || "#e75c25ff"} 
               castShadow={config.lighting.directionalBottom.castShadow !== true}
             />
           )}
@@ -180,10 +180,10 @@ const Fixed3DCanvas = ({
           {/* Spot light */}
           <spotLight 
             position={config?.lighting?.spotLight?.position || [0, 0, 10]} 
-            intensity={config?.lighting?.spotLight?.intensity || 1.2} 
+            intensity={config?.lighting?.spotLight?.intensity || 10.2} 
             angle={config?.lighting?.spotLight?.angle || Math.PI / 4} 
             penumbra={config?.lighting?.spotLight?.penumbra || 0.2} 
-            color={config?.lighting?.spotLight?.color || "#FFFFFF"} 
+            color={config?.lighting?.spotLight?.color || "#ffffffff"} 
           />
           
           {/* UPDATED: Enhanced Camera Controller with facet refs */}

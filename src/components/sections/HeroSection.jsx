@@ -265,7 +265,7 @@ const HeroSection = ({
       }} /> */}
       
       {/* Subtle animated grain texture for premium feel */}
-      <div style={{
+      {/* <div style={{
         position: 'absolute',
         top: 0,
         left: 0,
@@ -278,7 +278,7 @@ const HeroSection = ({
         zIndex: 2,
         pointerEvents: 'none',
         opacity: 0.8
-      }} />
+      }} /> */}
     </section>
   );
 };
