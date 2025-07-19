@@ -221,7 +221,7 @@ export const effects = {
 export const materials = {
   // Base crystal material configuration
   crystal: {
-    color: new THREE.Color('#31259c'),
+    color: new THREE.Color('#1f2391'),
     transparent: true,
     transmission: 0.7,
     ior: 2.3,
@@ -230,13 +230,13 @@ export const materials = {
     iridescenceIOR: 1.3,
     metalness: 0.0,
     roughness: 0.11,
-    attenuationColor: new THREE.Color('#b8fffbff'),
+    attenuationColor: new THREE.Color('#00fff2'),
     attenuationDistance: 0.5,
     clearcoat: 0.8,
     clearcoatRoughness: 0.05,
-    envMapIntensity: 10.0,
+    envMapIntensity: 15.0,
     reflectivity: 0.7,
-    specularIntensity: 5.0,
+    specularIntensity: 1.0,
     specularColor: new THREE.Color('#ffffff'),
     emissive: new THREE.Color('#5900ff'),
     emissiveIntensity: 0 // Default, will be changed dynamically
@@ -305,7 +305,7 @@ export const lighting = {
   directionalBottom: {
     position: [0, -5, 0],    // Position below the crystal
     target: [0, 0, 0],       // Point straight up toward crystal center
-    intensity: 20.2,          // Strong enough to illuminate undersides
+    intensity: 80.2,          // Strong enough to illuminate undersides
     color: "#ff4800",        // Slightly cool blue-white
     castShadow: false        // No shadows for better transparency
   },
@@ -329,7 +329,7 @@ export const lighting = {
   ],
   spotLight: {
     position: [0, 0, 10],
-    intensity: 10.2,    // INCREASED: Boost intensity
+    intensity: 100.2,    // INCREASED: Boost intensity
     angle: Math.PI / 4,
     penumbra: 100.2,
     color: "#ff0051"

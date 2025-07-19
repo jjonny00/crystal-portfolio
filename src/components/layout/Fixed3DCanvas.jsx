@@ -24,7 +24,7 @@ const PulsingOmniLight = () => {
     if (lightRef.current) {
       const time = state.clock.elapsedTime;
       const pulse = Math.sin(time * 2 + Math.sin(time * 0.7) * 0.5) * 0.3 + 1;
-      lightRef.current.intensity = 2.5 * pulse;
+      lightRef.current.intensity = 100.5 * pulse;
     }
   });
 
@@ -33,9 +33,9 @@ const PulsingOmniLight = () => {
       ref={lightRef}
       position={[0, 0, 0]}
       intensity={5.5}
-      color="#b4ffda"
-      distance={10}
-      decay={8}
+      color="#00ba7f"
+      distance={100}
+      decay={1}
       castShadow={false}
     />
   );
@@ -147,12 +147,12 @@ const Fixed3DCanvas = ({
           <ambientLight intensity={config?.lighting?.ambient?.intensity || 0.4} />
           
           {/* Main directional light (from above/side) */}
-          <directionalLight 
+          {/* <directionalLight 
             position={config?.lighting?.directional?.position || [10, 8, 5]} 
             intensity={config?.lighting?.directional?.intensity || 1.8} 
             color={config?.lighting?.directional?.color || "#FFFFFF"} 
             castShadow={config?.lighting?.directional?.castShadow !== false} 
-          />
+          /> */}
           
           {/* ADDED: Bottom directional light pointing upward */}
           {config?.lighting?.directionalBottom && (
