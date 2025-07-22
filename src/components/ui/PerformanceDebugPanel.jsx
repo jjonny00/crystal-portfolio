@@ -44,6 +44,7 @@ const PerformanceDebugPanel = ({
         
         <div>
           <div style={{ color: '#bb86fc', fontWeight: 'bold' }}>Device Profile:</div>
+          <div>Material: {devicePerformanceProfile?.pbrQuality}</div>
           <div>PBR: {devicePerformanceProfile?.usePBR ? 'YES' : 'NO'}</div>
           <div>Normal Maps: {devicePerformanceProfile?.useNormalMaps ? 'YES' : 'NO'}</div>
           <div>Texture Quality: {devicePerformanceProfile?.textureQuality}</div>
@@ -57,6 +58,7 @@ const PerformanceDebugPanel = ({
           </div>
           {initialPerformanceConfig && (
             <>
+              <div>Material: {initialPerformanceConfig.pbrQuality}</div>
               <div>PBR: {initialPerformanceConfig.usePBR ? 'YES' : 'NO'}</div>
               <div>Normal Maps: {initialPerformanceConfig.useNormalMaps ? 'YES' : 'NO'}</div>
               <div>Texture: {initialPerformanceConfig.textureQuality}</div>
@@ -70,6 +72,7 @@ const PerformanceDebugPanel = ({
           <div style={{ color: performanceConfig?.usePBR ? '#4CAF50' : '#F44336' }}>
             PBR: {performanceConfig?.usePBR ? 'YES' : 'NO'}
           </div>
+          <div>Material: {performanceConfig?.pbrQuality}</div>
           <div style={{ color: performanceConfig?.useNormalMaps ? '#4CAF50' : '#F44336' }}>
             Normal Maps: {performanceConfig?.useNormalMaps ? 'YES' : 'NO'}
           </div>
