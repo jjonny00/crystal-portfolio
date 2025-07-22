@@ -89,7 +89,7 @@ const ProjectFocusSection = ({
   };
 
   if (!project) {
-    console.warn('ProjectFocusSection: No project provided');
+    if (process.env.NODE_ENV === "development") console.warn('ProjectFocusSection: No project provided');
     return null;
   }
 

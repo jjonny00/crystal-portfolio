@@ -167,7 +167,7 @@ function App() {
     duration: 3000, // Shorter test for faster startup
     autoStart: false,
     onComplete: (config) => {
-      console.log('🎯 Enhanced performance test completed:', config);
+      if (process.env.NODE_ENV === "development") console.log('🎯 Enhanced performance test completed:', config);
       setPerformanceConfig(config);
     }
   });
@@ -180,7 +180,7 @@ function App() {
   // ========================================
 
   const handleSnapSpeedChange = useCallback((speed) => {
-    console.log('🎯 Changing snap speed to:', speed);
+    if (process.env.NODE_ENV === "development") console.log('🎯 Changing snap speed to:', speed);
     setSnapSpeed(speed);
   }, []);
 
@@ -191,11 +191,11 @@ function App() {
   }, []);
 
   const handleWorkClick = useCallback(() => {
-    console.log('Navigate to work section');
+    if (process.env.NODE_ENV === "development") console.log('Navigate to work section');
   }, []);
 
   const handleAboutClick = useCallback(() => {
-    console.log('Navigate to about section');
+    if (process.env.NODE_ENV === "development") console.log('Navigate to about section');
   }, []);
 
   const handleProcessClick = useCallback(() => {
@@ -208,7 +208,7 @@ function App() {
   }, []);
 
   const handleContactClick = useCallback(() => {
-    console.log('Navigate to contact section');
+    if (process.env.NODE_ENV === "development") console.log('Navigate to contact section');
   }, []);
 
   const handleConfigUpdate = useCallback((newConfig) => {
@@ -217,7 +217,7 @@ function App() {
   }, []);
 
   const handleMaterialChange = useCallback((variant) => {
-    console.log("Changing material variant to:", variant);
+    if (process.env.NODE_ENV === "development") console.log("Changing material variant to:", variant);
     setMaterialVariant(variant);
   }, []);
   
@@ -239,11 +239,11 @@ function App() {
   }, []);
   
   const handlePerformanceConfigUpdate = useCallback((newConfig) => {
-    console.log("🔧 Manual performance config update:", newConfig);
+    if (process.env.NODE_ENV === "development") console.log("🔧 Manual performance config update:", newConfig);
     setPerformanceConfig(newConfig);
     
     if (hasInitialized && updateExternalPerformanceConfig) {
-      console.log("📤 Sending manual config to device profile");
+      if (process.env.NODE_ENV === "development") console.log("📤 Sending manual config to device profile");
       updateExternalPerformanceConfig(newConfig);
     }
   }, [hasInitialized, updateExternalPerformanceConfig]);
@@ -298,7 +298,7 @@ function App() {
   // ENHANCED: Start performance test when device profile is ready
   useEffect(() => {
     if (deviceProfile && !testPerformanceConfig && !isPerfTesting) {
-      console.log('🔬 Starting enhanced performance test for device:', {
+      if (process.env.NODE_ENV === "development") console.log('🔬 Starting enhanced performance test for device:', {
         category: deviceProfile.category,
         tier: deviceProfile.performanceTier,
         model: deviceProfile.deviceModel,
@@ -311,7 +311,7 @@ function App() {
   // Apply performance config when test completes
   useEffect(() => {
     if (testPerformanceConfig) {
-      console.log('🎯 Applying enhanced performance test results:', testPerformanceConfig);
+      if (process.env.NODE_ENV === "development") console.log('🎯 Applying enhanced performance test results:', testPerformanceConfig);
       setPerformanceConfig(testPerformanceConfig);
       
       if (markAsInitialized) {
@@ -323,7 +323,7 @@ function App() {
   // ENHANCED: App ready detection with better criteria
   useEffect(() => {
     if (isReady && performanceConfig && !isAppReady) {
-      console.log('🎯 App is ready - enhanced system initialized:', {
+      if (process.env.NODE_ENV === "development") console.log('🎯 App is ready - enhanced system initialized:', {
         assetsLoaded: isReady,
         performanceConfigured: !!performanceConfig,
         deviceTier: deviceProfile?.performanceTier,
@@ -351,7 +351,7 @@ function App() {
           e.preventDefault();
           setHideAllUI(prev => {
             const newState = !prev;
-            console.log(`🎨 UI Hidden: ${newState ? 'ON' : 'OFF'}`);
+            if (process.env.NODE_ENV === "development") console.log(`🎨 UI Hidden: ${newState ? 'ON' : 'OFF'}`);
             return newState;
           });
         }
@@ -417,7 +417,7 @@ function App() {
           threshold={deviceProfile?.category === 'mobile' ? 20 : 
                     deviceProfile?.category === 'tablet' ? 25 : 30}
           onPerformanceIssue={(data) => {
-            console.warn('Performance issue detected:', data);
+            if (process.env.NODE_ENV === "development") console.warn('Performance issue detected:', data);
           }}
         />
       )}

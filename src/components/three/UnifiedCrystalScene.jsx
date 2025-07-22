@@ -110,23 +110,23 @@ const UnifiedCrystalScene = forwardRef(({
           console.group('🔍 Manual Facet Inspection');
           facetModels.forEach((model, index) => {
             const facetKey = facetKeys[index];
-            console.log(`\n=== ${facetKey.toUpperCase()} MODEL ===`);
-            console.log('Model:', model);
-            console.log('Scene:', model.scene);
+            if (process.env.NODE_ENV === "development") console.log(`\n=== ${facetKey.toUpperCase()} MODEL ===`);
+            if (process.env.NODE_ENV === "development") console.log('Model:', model);
+            if (process.env.NODE_ENV === "development") console.log('Scene:', model.scene);
 
             if (model.scene) {
-              console.log('Scene children:', model.scene.children.length);
+              if (process.env.NODE_ENV === "development") console.log('Scene children:', model.scene.children.length);
               model.scene.traverse((child) => {
                 if (child.name) {
-                  console.log(`  - ${child.name} (${child.type})`);
+                  if (process.env.NODE_ENV === "development") console.log(`  - ${child.name} (${child.type})`);
                 }
               });
 
               const anchor = model.scene.getObjectByName(`anchor_${facetKey}`);
-              console.log(`Anchor "anchor_${facetKey}":`, anchor);
+              if (process.env.NODE_ENV === "development") console.log(`Anchor "anchor_${facetKey}":`, anchor);
             }
           });
-          console.groupEnd();
+          if (process.env.NODE_ENV === "development") console.groupEnd();
         }
       }
     }
@@ -210,25 +210,25 @@ const UnifiedCrystalScene = forwardRef(({
           if (anchor) {
             const worldPos = new THREE.Vector3();
             anchor.getWorldPosition(worldPos);
-            console.log(`✅ ${anchorName}:`, {
+            if (process.env.NODE_ENV === "development") console.log(`✅ ${anchorName}:`, {
               localPosition: anchor.position.toArray(),
               worldPosition: worldPos.toArray(),
               parent: anchor.parent?.name || 'root'
             });
           } else {
-            console.warn(`❌ ${anchorName}: NOT FOUND`);
+            if (process.env.NODE_ENV === "development") console.warn(`❌ ${anchorName}: NOT FOUND`);
             const availableNames = [];
             facetRef.current.traverse((child) => {
               if (child.name) availableNames.push(child.name);
             });
-            console.log(`Available objects in ${facetKey}:`, availableNames);
+            if (process.env.NODE_ENV === "development") console.log(`Available objects in ${facetKey}:`, availableNames);
           }
         } else {
-          console.warn(`❌ Facet ref for ${facetKey} is null`);
+          if (process.env.NODE_ENV === "development") console.warn(`❌ Facet ref for ${facetKey} is null`);
         }
       });
       
-      console.groupEnd();
+      if (process.env.NODE_ENV === "development") console.groupEnd();
     }
   }, [showCrystalDebug, showFacets, facetKeys]);
   

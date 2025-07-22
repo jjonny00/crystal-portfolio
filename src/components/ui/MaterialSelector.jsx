@@ -43,7 +43,7 @@ const MaterialSelector = ({ currentVariant, onChange }) => {
   };
 
   const handleMaterialSelect = (variant) => {
-    console.log(`Selected material variant: ${variant}`);
+    if (process.env.NODE_ENV === "development") console.log(`Selected material variant: ${variant}`);
     onChange(variant);
   };
 

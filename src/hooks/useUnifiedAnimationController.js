@@ -212,7 +212,7 @@ export const useUnifiedAnimationController = (options = {}) => {
    */
   const handleZoneTransition = useCallback((fromZone, toZone) => {
     if (debugMode) {
-      console.log(`🗺️ IMMEDIATE Zone transition: ${fromZone} → ${toZone}`);
+      if (process.env.NODE_ENV === "development") console.log(`🗺️ IMMEDIATE Zone transition: ${fromZone} → ${toZone}`);
     }
 
     // IMMEDIATE state changes - no complex sequences
@@ -263,7 +263,7 @@ export const useUnifiedAnimationController = (options = {}) => {
    */
   const handleProjectFocus = useCallback((projectKey) => {
     if (debugMode) {
-      console.log('🎯 IMMEDIATE Project focus:', projectKey);
+      if (process.env.NODE_ENV === "development") console.log('🎯 IMMEDIATE Project focus:', projectKey);
     }
 
     // Immediate state change - same pattern as working projects
@@ -304,7 +304,7 @@ export const useUnifiedAnimationController = (options = {}) => {
       
       if (shouldChangeZone) {
         if (debugMode) {
-          console.log(`🗺️ Zone change confirmed: ${lastZone.current} → ${currentZone.zone} (progress: ${currentZone.progress.toFixed(3)})`);
+          if (process.env.NODE_ENV === "development") console.log(`🗺️ Zone change confirmed: ${lastZone.current} → ${currentZone.zone} (progress: ${currentZone.progress.toFixed(3)})`);
         }
         handleZoneTransition(lastZone.current, currentZone.zone);
         lastZone.current = currentZone.zone;
@@ -316,7 +316,7 @@ export const useUnifiedAnimationController = (options = {}) => {
       // First, ensure we're in project state when entering projects zone
       if (animationState.state !== ANIMATION_STATES.PROJECT_FOCUSED) {
         if (debugMode) {
-          console.log('🎯 Entering projects zone - setting project state');
+          if (process.env.NODE_ENV === "development") console.log('🎯 Entering projects zone - setting project state');
         }
         setAnimationState(prev => ({
           ...prev,
@@ -383,7 +383,7 @@ export const useUnifiedAnimationController = (options = {}) => {
     }
     
     // if (debugMode && cameraConfig) {
-    //   console.log(`📹 Camera config for "${animationState.cameraState}":`, {
+    //   if (process.env.NODE_ENV === "development") console.log(`📹 Camera config for "${animationState.cameraState}":`, {
     //     position: cameraConfig.position?.toArray(),
     //     target: cameraConfig.target?.toArray(),
     //     fov: cameraConfig.fov

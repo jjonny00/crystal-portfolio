@@ -216,7 +216,7 @@ export const desktopXLProfile = {
  * OPTIMIZED: More aggressive profile selection
  */
 export const getPerformanceProfile = (deviceProfile) => {
-  console.log('🎮 Getting OPTIMIZED performance profile for:', {
+  if (process.env.NODE_ENV === "development") console.log('🎮 Getting OPTIMIZED performance profile for:', {
     category: deviceProfile.category,
     tier: deviceProfile.performanceTier,
     isIPad: deviceProfile.isIPad,
@@ -248,7 +248,7 @@ export const getPerformanceProfile = (deviceProfile) => {
   // Tablet devices - now more performance focused
   if (deviceProfile.category === 'tablet' || deviceProfile.isIPad) {
     if (deviceProfile.performanceTier === 'high') {
-      console.log('✅ High-end tablet - using optimized non-PBR profile');
+      if (process.env.NODE_ENV === "development") console.log('✅ High-end tablet - using optimized non-PBR profile');
       return highEndTabletProfile;
     } else {
       return mediumTabletProfile;
@@ -258,7 +258,7 @@ export const getPerformanceProfile = (deviceProfile) => {
   // Mobile devices - all get non-PBR now for better performance
   if (deviceProfile.category === 'mobile' || deviceProfile.isMobile) {
     if (deviceProfile.performanceTier === 'high') {
-      console.log('✅ High-end mobile - using optimized non-PBR profile');
+      if (process.env.NODE_ENV === "development") console.log('✅ High-end mobile - using optimized non-PBR profile');
       return highEndMobileProfile;
     } else if (deviceProfile.performanceTier === 'medium') {
       return mediumMobileProfile;
@@ -369,14 +369,14 @@ export const getCanvasDPR = (deviceProfile, performanceProfile) => {
 };
 
 export const logProfileInfo = (deviceProfile, performanceProfile, uiProfile) => {
-  console.group('🎮 OPTIMIZED Device Profile Configuration');
-  console.log('Device:', deviceProfile);
-  console.log('Performance Profile:', performanceProfile);
-  console.log('UI Profile:', uiProfile);
-  console.log('HDRI Path:', getHDRIPath(performanceProfile.hdriQuality));
-  console.log('Recommended DPR:', getCanvasDPR(deviceProfile, performanceProfile));
+  if (process.env.NODE_ENV === "development") console.group('🎮 OPTIMIZED Device Profile Configuration');
+  if (process.env.NODE_ENV === "development") console.log('Device:', deviceProfile);
+  if (process.env.NODE_ENV === "development") console.log('Performance Profile:', performanceProfile);
+  if (process.env.NODE_ENV === "development") console.log('UI Profile:', uiProfile);
+  if (process.env.NODE_ENV === "development") console.log('HDRI Path:', getHDRIPath(performanceProfile.hdriQuality));
+  if (process.env.NODE_ENV === "development") console.log('Recommended DPR:', getCanvasDPR(deviceProfile, performanceProfile));
   
-  console.log('📊 OPTIMIZED Performance Summary:', {
+  if (process.env.NODE_ENV === "development") console.log('📊 OPTIMIZED Performance Summary:', {
     renderScale: performanceProfile.renderScale,
     usePBR: performanceProfile.usePBR,
     useNormalMaps: performanceProfile.useNormalMaps,
@@ -387,5 +387,5 @@ export const logProfileInfo = (deviceProfile, performanceProfile, uiProfile) => 
     optimization: performanceProfile.usePBR ? 'Full PBR' : 'Optimized Standard Material'
   });
   
-  console.groupEnd();
+  if (process.env.NODE_ENV === "development") console.groupEnd();
 };

@@ -75,7 +75,7 @@ export const useInitialPerformanceTest = (
                              (metrics.avgFps < 25 || metrics.lowPercentile < 18)
     };
     
-    console.log('📊 FIXED Performance Analysis:', {
+    if (process.env.NODE_ENV === "development") console.log('📊 FIXED Performance Analysis:', {
       metrics,
       target,
       failing,
@@ -96,22 +96,22 @@ export const useInitialPerformanceTest = (
     
     // If no performance issues, use device profile as-is
     if (!issues || !Object.values(issues).some(Boolean)) {
-      console.log('✅ No performance issues detected - using device profile');
+      if (process.env.NODE_ENV === "development") console.log('✅ No performance issues detected - using device profile');
       return baseProfile;
     }
     
-    console.log('⚡ Performance issues detected, applying smart optimizations:', issues);
+    if (process.env.NODE_ENV === "development") console.log('⚡ Performance issues detected, applying smart optimizations:', issues);
     
     // Smart optimization strategy - be more aggressive for mobile
     let optimizedConfig = { ...baseProfile };
     
     // SPECIAL: Mobile-specific optimization path
     if (deviceProfile.isMobile || deviceProfile.category === 'mobile') {
-      console.log('📱 Mobile device with performance issues - applying mobile-specific optimizations');
+      if (process.env.NODE_ENV === "development") console.log('📱 Mobile device with performance issues - applying mobile-specific optimizations');
       
       // For mobile, jump more aggressively to low settings
       if (issues.mobilePerformanceIssue || issues.severe || issues.lowAverage) {
-        console.log('📉 Mobile performance issues - using aggressive mobile optimization');
+        if (process.env.NODE_ENV === "development") console.log('📉 Mobile performance issues - using aggressive mobile optimization');
         return {
           ...optimizedConfig,
           renderScale: 0.5,              // Low render scale
@@ -137,7 +137,7 @@ export const useInitialPerformanceTest = (
     
     // Level 1: Minor issues - reduce post-processing only
     if (issues.unstable && !issues.severe && !issues.lowAverage) {
-      console.log('📉 Level 1 optimization: Reducing post-processing');
+      if (process.env.NODE_ENV === "development") console.log('📉 Level 1 optimization: Reducing post-processing');
       optimizedConfig.postProcessing = {
         ...optimizedConfig.postProcessing,
         bloom: false,                    // Expensive
@@ -148,7 +148,7 @@ export const useInitialPerformanceTest = (
     
     // Level 2: Moderate issues - reduce render scale and some materials
     else if ((issues.lowAverage || issues.lowMinimum) && !issues.severe) {
-      console.log('📉 Level 2 optimization: Reducing render scale and materials');
+      if (process.env.NODE_ENV === "development") console.log('📉 Level 2 optimization: Reducing render scale and materials');
       optimizedConfig.renderScale = Math.max(optimizedConfig.renderScale * 0.7, 0.4);
       optimizedConfig.useNormalMaps = false;
       optimizedConfig.textureQuality = optimizedConfig.textureQuality === 'high' ? 'medium' : 'low';
@@ -161,7 +161,7 @@ export const useInitialPerformanceTest = (
     
     // Level 3: Severe issues - aggressive optimization
     else if (issues.severe) {
-      console.log('📉 Level 3 optimization: Aggressive performance mode');
+      if (process.env.NODE_ENV === "development") console.log('📉 Level 3 optimization: Aggressive performance mode');
       optimizedConfig.renderScale = Math.max(optimizedConfig.renderScale * 0.5, 0.3);
       optimizedConfig.usePBR = false;                 // Disable PBR entirely
       optimizedConfig.useNormalMaps = false;
@@ -193,7 +193,7 @@ export const useInitialPerformanceTest = (
     const metrics = analyzePerformance();
     
     if (!metrics) {
-      console.warn('⚠️ No performance data collected, using device profile');
+      if (process.env.NODE_ENV === "development") console.warn('⚠️ No performance data collected, using device profile');
       const fallbackConfig = getPerformanceProfile(deviceProfile);
       setPerformanceConfig(fallbackConfig);
       setTesting(false);
@@ -201,7 +201,7 @@ export const useInitialPerformanceTest = (
       return;
     }
     
-    console.log(`🏁 Performance Test Complete (${Math.round(elapsed)}ms):`, metrics);
+    if (process.env.NODE_ENV === "development") console.log(`🏁 Performance Test Complete (${Math.round(elapsed)}ms):`, metrics);
     
     // Analyze if adjustments are needed
     const issues = shouldAdjustPerformance(metrics, deviceProfile);
@@ -210,7 +210,7 @@ export const useInitialPerformanceTest = (
     const finalConfig = createOptimizedConfig(deviceProfile, metrics, issues);
     
     // Log the decision
-    console.log(`🎯 Final Performance Decision:`, {
+    if (process.env.NODE_ENV === "development") console.log(`🎯 Final Performance Decision:`, {
       deviceTier: deviceProfile.performanceTier,
       hadIssues: issues ? Object.values(issues).some(Boolean) : false,
       finalSettings: {
@@ -237,8 +237,8 @@ export const useInitialPerformanceTest = (
     startRef.current = performance.now();
     fpsSamples.current = [];
     
-    console.log(`🔬 Starting SMART performance test (${duration}ms)...`);
-    console.log(`📱 Device baseline:`, {
+    if (process.env.NODE_ENV === "development") console.log(`🔬 Starting SMART performance test (${duration}ms)...`);
+    if (process.env.NODE_ENV === "development") console.log(`📱 Device baseline:`, {
       category: deviceProfile?.category,
       tier: deviceProfile?.performanceTier,
       model: deviceProfile?.deviceModel,
@@ -262,7 +262,7 @@ export const useInitialPerformanceTest = (
       // Log progress occasionally
       if (fpsSamples.current.length % 30 === 0) {
         const currentAvg = fpsSamples.current.reduce((a, b) => a + b, 0) / fpsSamples.current.length;
-        console.log(`📊 Performance test progress: ${fpsSamples.current.length} samples, avg: ${currentAvg.toFixed(1)}fps`);
+        if (process.env.NODE_ENV === "development") console.log(`📊 Performance test progress: ${fpsSamples.current.length} samples, avg: ${currentAvg.toFixed(1)}fps`);
       }
     }
   }, [fps, testing]);

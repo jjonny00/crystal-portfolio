@@ -76,7 +76,7 @@ export const useScrollProgress = (options = {}) => {
     setContentHeight(scrollHeight);
     
     // if (debugMode) {
-    //   console.log('📏 Container dimensions updated:', {
+    //   if (process.env.NODE_ENV === "development") console.log('📏 Container dimensions updated:', {
     //     containerHeight: containerRect.height,
     //     contentHeight: scrollHeight,
     //     scrollableHeight: scrollHeight - containerRect.height
@@ -97,7 +97,7 @@ export const useScrollProgress = (options = {}) => {
     
     // DEBUG: Log scroll calculation
     // if (debugMode) {
-    //   console.log('📏 Scroll Debug:', {
+    //   if (process.env.NODE_ENV === "development") console.log('📏 Scroll Debug:', {
     //     scrollTop,
     //     maxScroll,
     //     rawProgress: progress,
@@ -137,7 +137,7 @@ export const useScrollProgress = (options = {}) => {
           }
           
         //   if (debugMode) {
-        //     console.log(`📍 Snapped to section ${closestSectionIndex}, progress: ${Math.round(progress * 100)}%`);
+        //     if (process.env.NODE_ENV === "development") console.log(`📍 Snapped to section ${closestSectionIndex}, progress: ${Math.round(progress * 100)}%`);
         //   }
         }
       }
@@ -212,7 +212,7 @@ export const useScrollProgress = (options = {}) => {
     }
     
     // if (debugMode && Math.random() < 0.05) {
-    //   console.log('📜 Container scroll progress:', {
+    //   if (process.env.NODE_ENV === "development") console.log('📜 Container scroll progress:', {
     //     progress: Math.round(progress * 100) + '%',
     //     scrollTop: scrollContainerRef.current?.scrollTop,
     //     velocity: Math.round(velocity * 1000) / 1000,
@@ -238,7 +238,7 @@ export const useScrollProgress = (options = {}) => {
     setIsScrolling(false);
     
     if (debugMode) {
-      console.log('📜 Container scroll ended at:', {
+      if (process.env.NODE_ENV === "development") console.log('📜 Container scroll ended at:', {
         progress: Math.round(scrollProgress * 100) + '%',
         section: currentSection,
         wasSnapping: isSnapping
@@ -264,7 +264,7 @@ export const useScrollProgress = (options = {}) => {
     // Find the scroll container
     const container = document.querySelector(containerSelector);
     if (!container) {
-      console.error(`Scroll container not found: ${containerSelector}`);
+      if (process.env.NODE_ENV === "development") console.error(`Scroll container not found: ${containerSelector}`);
       return;
     }
     
@@ -296,7 +296,7 @@ export const useScrollProgress = (options = {}) => {
     handleScroll();
     
     // if (debugMode) {
-    //   console.log('🔍 Scroll progress attached to container:', containerSelector);
+    //   if (process.env.NODE_ENV === "development") console.log('🔍 Scroll progress attached to container:', containerSelector);
     // }
     
     // Cleanup
@@ -385,7 +385,7 @@ export const useScrollProgress = (options = {}) => {
   const scrollToZone = useCallback((zoneName, zones, behavior = 'smooth') => {
     const zone = zones[zoneName];
     if (!zone) {
-      console.warn(`Zone "${zoneName}" not found`);
+      if (process.env.NODE_ENV === "development") console.warn(`Zone "${zoneName}" not found`);
       return;
     }
     

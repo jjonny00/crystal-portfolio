@@ -64,7 +64,7 @@ export const crystalStateMachine = {
 export const getNextState = (currentState, event) => {
   const nextState = crystalStateMachine[currentState]?.[event];
   if (!nextState) {
-    console.warn(`Invalid transition: ${currentState} -> ${event}`);
+    if (process.env.NODE_ENV === "development") console.warn(`Invalid transition: ${currentState} -> ${event}`);
     return currentState;
   }
   return nextState;

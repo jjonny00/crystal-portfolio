@@ -27,12 +27,12 @@ const MaterialManager = ({
   
   const usePBR = safePerformanceConfig.usePBR !== false;
   
-  console.log('🎨 MaterialManager: PBR enabled?', usePBR, 'Performance config:', safePerformanceConfig);
+  if (process.env.NODE_ENV === "development") console.log('🎨 MaterialManager: PBR enabled?', usePBR, 'Performance config:', safePerformanceConfig);
 
   // OPTIMIZED: Create high-performance mobile material using MeshStandardMaterial
   useEffect(() => {
     if (!usePBR && !optimizedMobileRef.current) {
-      console.log('🚀 Creating OPTIMIZED mobile crystal material with shadow improvements');
+      if (process.env.NODE_ENV === "development") console.log('🚀 Creating OPTIMIZED mobile crystal material with shadow improvements');
       
       // Use MeshStandardMaterial instead of MeshPhysicalMaterial for mobile
       // This removes expensive features like transmission, clearcoat, iridescence
@@ -127,7 +127,7 @@ const MaterialManager = ({
       // We'll set it when the component mounts and environment is available
       optimizedMobileRef.current = optimizedMaterial;
       
-      console.log('✅ OPTIMIZED mobile material created with shadow improvements:', {
+      if (process.env.NODE_ENV === "development") console.log('✅ OPTIMIZED mobile material created with shadow improvements:', {
         variant: materialVariant,
         transparent: optimizedMaterial.transparent,
         metalness: optimizedMaterial.metalness,
@@ -146,12 +146,12 @@ const MaterialManager = ({
     if (!usePBR && optimizedMobileRef.current && scene) {
       // Check if scene has environment
       if (scene.environment) {
-        console.log('🌍 Setting environment map for mobile material');
+        if (process.env.NODE_ENV === "development") console.log('🌍 Setting environment map for mobile material');
         optimizedMobileRef.current.envMap = scene.environment;
         optimizedMobileRef.current.needsUpdate = true;
         
         // DEBUG: Log material properties to verify settings
-        console.log('🔍 Mobile material debug:', {
+        if (process.env.NODE_ENV === "development") console.log('🔍 Mobile material debug:', {
           hasEnvMap: !!optimizedMobileRef.current.envMap,
           metalness: optimizedMobileRef.current.metalness,
           roughness: optimizedMobileRef.current.roughness,
@@ -161,16 +161,16 @@ const MaterialManager = ({
           shadowSide: optimizedMobileRef.current.shadowSide
         });
       } else {
-        console.log('⏳ Waiting for environment to load...');
+        if (process.env.NODE_ENV === "development") console.log('⏳ Waiting for environment to load...');
         // Wait for environment to load
         const checkEnvironment = () => {
           if (scene.environment && optimizedMobileRef.current) {
-            console.log('🌍 Environment loaded - applying to mobile material');
+            if (process.env.NODE_ENV === "development") console.log('🌍 Environment loaded - applying to mobile material');
             optimizedMobileRef.current.envMap = scene.environment;
             optimizedMobileRef.current.needsUpdate = true;
             
             // DEBUG: Log material properties
-            console.log('🔍 Mobile material debug (delayed):', {
+            if (process.env.NODE_ENV === "development") console.log('🔍 Mobile material debug (delayed):', {
               hasEnvMap: !!optimizedMobileRef.current.envMap,
               metalness: optimizedMobileRef.current.metalness,
               roughness: optimizedMobileRef.current.roughness,
@@ -198,7 +198,7 @@ const MaterialManager = ({
   // Update material when variant changes
   useEffect(() => {
     if (!usePBR && optimizedMobileRef.current) {
-      console.log('🔄 Updating optimized mobile material for variant:', materialVariant);
+      if (process.env.NODE_ENV === "development") console.log('🔄 Updating optimized mobile material for variant:', materialVariant);
       
       const material = optimizedMobileRef.current;
       
@@ -258,7 +258,7 @@ const MaterialManager = ({
   // SIMPLIFIED: Normal map support for mobile (optional)
   useEffect(() => {
     if (!usePBR && optimizedMobileRef.current && safePerformanceConfig.useNormalMaps && config.assets.textures.normalMap) {
-      console.log('🔧 Adding normal map to optimized mobile material');
+      if (process.env.NODE_ENV === "development") console.log('🔧 Adding normal map to optimized mobile material');
       
       const textureLoader = new THREE.TextureLoader();
       textureLoader.load(config.assets.textures.normalMap, (texture) => {
@@ -277,7 +277,7 @@ const MaterialManager = ({
         optimizedMobileRef.current.normalScale = new THREE.Vector2(0.5, 0.5); // Subtle normal
         optimizedMobileRef.current.needsUpdate = true;
         
-        console.log('✅ Normal map added to optimized mobile material');
+        if (process.env.NODE_ENV === "development") console.log('✅ Normal map added to optimized mobile material');
       });
     } else if (!usePBR && optimizedMobileRef.current && !safePerformanceConfig.useNormalMaps) {
       // Remove normal map if disabled
@@ -291,7 +291,7 @@ const MaterialManager = ({
 
   // Update the main material ref
   useEffect(() => {
-    console.log('🔄 MaterialManager: Updating material reference', {
+    if (process.env.NODE_ENV === "development") console.log('🔄 MaterialManager: Updating material reference', {
       variant: materialVariant,
       usePBR,
       previousMaterial: materialRef.current?.type
@@ -299,10 +299,10 @@ const MaterialManager = ({
     
     if (!usePBR) {
       materialRef.current = optimizedMobileRef.current;
-      console.log('✅ Using OPTIMIZED mobile material (MeshStandardMaterial) with shadow improvements');
+      if (process.env.NODE_ENV === "development") console.log('✅ Using OPTIMIZED mobile material (MeshStandardMaterial) with shadow improvements');
     } else {
       materialRef.current = crystalMaterialRef.current;
-      console.log('✅ Using full PBR crystal material:', materialVariant);
+      if (process.env.NODE_ENV === "development") console.log('✅ Using full PBR crystal material:', materialVariant);
     }
 
     if (onMaterialReady) onMaterialReady(materialRef.current);
@@ -310,7 +310,7 @@ const MaterialManager = ({
   
   // Only render PBR material component if PBR is enabled
   if (!usePBR) {
-    console.log('🚫 Skipping PBR material component (using optimized mobile instead)');
+    if (process.env.NODE_ENV === "development") console.log('🚫 Skipping PBR material component (using optimized mobile instead)');
     return null;
   }
 

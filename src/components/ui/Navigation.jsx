@@ -53,7 +53,7 @@ const Navigation = ({
       }}
       onError={(e) => {
         // Fallback if SVG doesn't load
-        console.warn('Logo failed to load, check path: /assets/logo/jonshaw.svg');
+        if (process.env.NODE_ENV === "development") console.warn('Logo failed to load, check path: /assets/logo/jonshaw.svg');
         e.target.style.display = 'none';
       }}
     />

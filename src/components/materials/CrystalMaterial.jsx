@@ -142,7 +142,7 @@ const CrystalMaterial = ({
       materialRef.current = material;
       if (onMaterialReady) onMaterialReady(material);
       
-      console.log('✅ Enhanced crystal material created with improved shadow handling:', {
+      if (process.env.NODE_ENV === "development") console.log('✅ Enhanced crystal material created with improved shadow handling:', {
         variant,
         usePBR,
         transmission: material.transmission,
@@ -315,7 +315,7 @@ const CrystalMaterial = ({
     let cancelled = false;
 
     if (useNormalMaps && config.assets.textures.normalMap) {
-      console.log('📋 Loading enhanced normal map:', config.assets.textures.normalMap);
+      if (process.env.NODE_ENV === "development") console.log('📋 Loading enhanced normal map:', config.assets.textures.normalMap);
 
       // Load normal map with enhanced settings
       const textureLoader = new THREE.TextureLoader();
@@ -359,7 +359,7 @@ const CrystalMaterial = ({
           materialRef.current.normalScale = normalScale;
           materialRef.current.needsUpdate = true;
 
-          console.log('✅ Enhanced normal map applied:', {
+          if (process.env.NODE_ENV === "development") console.log('✅ Enhanced normal map applied:', {
             usePBR,
             quality: textureQuality,
             anisotropy,
@@ -368,13 +368,13 @@ const CrystalMaterial = ({
         },
         undefined, // onProgress
         (error) => {
-          console.error('❌ Failed to load normal map:', error);
+          if (process.env.NODE_ENV === "development") console.error('❌ Failed to load normal map:', error);
         }
       );
     } else {
       // Remove normal map if disabled
       if (materialRef.current.normalMap) {
-        console.log('🗑️ Removing normal map');
+        if (process.env.NODE_ENV === "development") console.log('🗑️ Removing normal map');
         materialRef.current.normalMap = null;
         materialRef.current.normalScale.set(0, 0);
         materialRef.current.needsUpdate = true;

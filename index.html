@@ -206,7 +206,7 @@
           currentAssetEl.textContent = currentAsset || '';
         }
         
-        console.log('📊 Immediate loader updated:', { progress, phase, currentAsset });
+        if (process.env.NODE_ENV === "development") console.log('📊 Immediate loader updated:', { progress, phase, currentAsset });
       };
       
       // Hide immediate loader and show React app
@@ -228,7 +228,7 @@
         // Re-enable body overflow
         document.body.style.overflow = 'auto';
         
-        console.log('✅ React app is now visible, immediate loader hidden');
+        if (process.env.NODE_ENV === "development") console.log('✅ React app is now visible, immediate loader hidden');
       };
       
       // Initial update

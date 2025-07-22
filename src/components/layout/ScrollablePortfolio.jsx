@@ -31,12 +31,12 @@ const ScrollablePortfolio = ({
             : `${snapSpeed}-snap`;
         container.classList.add(speedClass);
         
-        console.log('🎯 Applied snap speed:', snapSpeed);
-        console.log('🎯 Container classes:', container.className);
-        console.log('🎯 Computed scroll-snap-type:', getComputedStyle(container).scrollSnapType);
-        console.log('🎯 Computed scroll-behavior:', getComputedStyle(container).scrollBehavior);
+        if (process.env.NODE_ENV === "development") console.log('🎯 Applied snap speed:', snapSpeed);
+        if (process.env.NODE_ENV === "development") console.log('🎯 Container classes:', container.className);
+        if (process.env.NODE_ENV === "development") console.log('🎯 Computed scroll-snap-type:', getComputedStyle(container).scrollSnapType);
+        if (process.env.NODE_ENV === "development") console.log('🎯 Computed scroll-behavior:', getComputedStyle(container).scrollBehavior);
       } else {
-        console.error('❌ Scroll container not found');
+        if (process.env.NODE_ENV === "development") console.error('❌ Scroll container not found');
       }
     }, 100);
     
@@ -45,7 +45,7 @@ const ScrollablePortfolio = ({
   
   // Debug logging
   useEffect(() => {
-    console.log('📏 ScrollablePortfolio received snapSpeed:', snapSpeed);
+    if (process.env.NODE_ENV === "development") console.log('📏 ScrollablePortfolio received snapSpeed:', snapSpeed);
   }, [snapSpeed]);
   
   return (
@@ -175,7 +175,7 @@ const ScrollablePortfolio = ({
               project={project}
               visible={true}
               onViewProject={(project) => {
-                console.log('View project:', project);
+                if (process.env.NODE_ENV === "development") console.log('View project:', project);
               }}
             />
           </section>
