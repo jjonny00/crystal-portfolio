@@ -125,7 +125,6 @@ export const useInitialPerformanceTest = (
             vignette: true
           },
           maxLights: 2,
-          shadowQuality: 'off',
           hdriQuality: 'low',
           antialiasing: false,
           anisotropicFiltering: 1
@@ -173,7 +172,6 @@ export const useInitialPerformanceTest = (
         vignette: true
       };
       optimizedConfig.maxLights = Math.min(optimizedConfig.maxLights, 2);
-      optimizedConfig.shadowQuality = 'off';
       optimizedConfig.hdriQuality = 'low';
       optimizedConfig.antialiasing = false;
       optimizedConfig.anisotropicFiltering = 1;
