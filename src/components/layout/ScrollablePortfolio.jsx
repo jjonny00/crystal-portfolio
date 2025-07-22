@@ -31,12 +31,12 @@ const ScrollablePortfolio = ({
             : `${snapSpeed}-snap`;
         container.classList.add(speedClass);
         
-        console.log('🎯 Applied snap speed:', snapSpeed);
-        console.log('🎯 Container classes:', container.className);
-        console.log('🎯 Computed scroll-snap-type:', getComputedStyle(container).scrollSnapType);
-        console.log('🎯 Computed scroll-behavior:', getComputedStyle(container).scrollBehavior);
+        if (import.meta.env.DEV) console.log('🎯 Applied snap speed:', snapSpeed);
+        if (import.meta.env.DEV) console.log('🎯 Container classes:', container.className);
+        if (import.meta.env.DEV) console.log('🎯 Computed scroll-snap-type:', getComputedStyle(container).scrollSnapType);
+        if (import.meta.env.DEV) console.log('🎯 Computed scroll-behavior:', getComputedStyle(container).scrollBehavior);
       } else {
-        console.error('❌ Scroll container not found');
+        if (import.meta.env.DEV) console.error('❌ Scroll container not found');
       }
     }, 100);
     
@@ -45,7 +45,7 @@ const ScrollablePortfolio = ({
   
   // Debug logging
   useEffect(() => {
-    console.log('📏 ScrollablePortfolio received snapSpeed:', snapSpeed);
+    if (import.meta.env.DEV) console.log('📏 ScrollablePortfolio received snapSpeed:', snapSpeed);
   }, [snapSpeed]);
   
   return (
@@ -175,7 +175,7 @@ const ScrollablePortfolio = ({
               project={project}
               visible={true}
               onViewProject={(project) => {
-                console.log('View project:', project);
+                if (import.meta.env.DEV) console.log('View project:', project);
               }}
             />
           </section>

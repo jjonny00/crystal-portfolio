@@ -167,7 +167,7 @@ function App() {
     duration: 3000, // Shorter test for faster startup
     autoStart: false,
     onComplete: (config) => {
-      console.log('🎯 Enhanced performance test completed:', config);
+      if (import.meta.env.DEV) console.log('🎯 Enhanced performance test completed:', config);
       setPerformanceConfig(config);
     }
   });
@@ -180,22 +180,22 @@ function App() {
   // ========================================
 
   const handleSnapSpeedChange = useCallback((speed) => {
-    console.log('🎯 Changing snap speed to:', speed);
+    if (import.meta.env.DEV) console.log('🎯 Changing snap speed to:', speed);
     setSnapSpeed(speed);
   }, []);
 
   const handleAnimationStateChange = useCallback((newState, prevState) => {
-    if (process.env.NODE_ENV === 'development') {
+    if (import.meta.env.DEV) {
       console.log('🎬 Animation state change:', { prev: prevState, new: newState });
     }
   }, []);
 
   const handleWorkClick = useCallback(() => {
-    console.log('Navigate to work section');
+    if (import.meta.env.DEV) console.log('Navigate to work section');
   }, []);
 
   const handleAboutClick = useCallback(() => {
-    console.log('Navigate to about section');
+    if (import.meta.env.DEV) console.log('Navigate to about section');
   }, []);
 
   const handleProcessClick = useCallback(() => {
@@ -208,7 +208,7 @@ function App() {
   }, []);
 
   const handleContactClick = useCallback(() => {
-    console.log('Navigate to contact section');
+    if (import.meta.env.DEV) console.log('Navigate to contact section');
   }, []);
 
   const handleConfigUpdate = useCallback((newConfig) => {
@@ -217,7 +217,7 @@ function App() {
   }, []);
 
   const handleMaterialChange = useCallback((variant) => {
-    console.log("Changing material variant to:", variant);
+    if (import.meta.env.DEV) console.log("Changing material variant to:", variant);
     setMaterialVariant(variant);
   }, []);
   
@@ -239,11 +239,11 @@ function App() {
   }, []);
   
   const handlePerformanceConfigUpdate = useCallback((newConfig) => {
-    console.log("🔧 Manual performance config update:", newConfig);
+    if (import.meta.env.DEV) console.log("🔧 Manual performance config update:", newConfig);
     setPerformanceConfig(newConfig);
     
     if (hasInitialized && updateExternalPerformanceConfig) {
-      console.log("📤 Sending manual config to device profile");
+      if (import.meta.env.DEV) console.log("📤 Sending manual config to device profile");
       updateExternalPerformanceConfig(newConfig);
     }
   }, [hasInitialized, updateExternalPerformanceConfig]);
@@ -298,7 +298,7 @@ function App() {
   // ENHANCED: Start performance test when device profile is ready
   useEffect(() => {
     if (deviceProfile && !testPerformanceConfig && !isPerfTesting) {
-      console.log('🔬 Starting enhanced performance test for device:', {
+      if (import.meta.env.DEV) console.log('🔬 Starting enhanced performance test for device:', {
         category: deviceProfile.category,
         tier: deviceProfile.performanceTier,
         model: deviceProfile.deviceModel,
@@ -311,7 +311,7 @@ function App() {
   // Apply performance config when test completes
   useEffect(() => {
     if (testPerformanceConfig) {
-      console.log('🎯 Applying enhanced performance test results:', testPerformanceConfig);
+      if (import.meta.env.DEV) console.log('🎯 Applying enhanced performance test results:', testPerformanceConfig);
       setPerformanceConfig(testPerformanceConfig);
       
       if (markAsInitialized) {
@@ -323,7 +323,7 @@ function App() {
   // ENHANCED: App ready detection with better criteria
   useEffect(() => {
     if (isReady && performanceConfig && !isAppReady) {
-      console.log('🎯 App is ready - enhanced system initialized:', {
+      if (import.meta.env.DEV) console.log('🎯 App is ready - enhanced system initialized:', {
         assetsLoaded: isReady,
         performanceConfigured: !!performanceConfig,
         deviceTier: deviceProfile?.performanceTier,
@@ -351,7 +351,7 @@ function App() {
           e.preventDefault();
           setHideAllUI(prev => {
             const newState = !prev;
-            console.log(`🎨 UI Hidden: ${newState ? 'ON' : 'OFF'}`);
+            if (import.meta.env.DEV) console.log(`🎨 UI Hidden: ${newState ? 'ON' : 'OFF'}`);
             return newState;
           });
         }
@@ -417,14 +417,14 @@ function App() {
           threshold={deviceProfile?.category === 'mobile' ? 20 : 
                     deviceProfile?.category === 'tablet' ? 25 : 30}
           onPerformanceIssue={(data) => {
-            console.warn('Performance issue detected:', data);
+            if (import.meta.env.DEV) console.warn('Performance issue detected:', data);
           }}
         />
       )}
 
       {/* Master Animation Coordinator */}
       <MasterAnimationCoordinator
-        debugMode={process.env.NODE_ENV === 'development'}
+        debugMode={import.meta.env.DEV}
         onAnimationStateChange={handleAnimationStateChange}
         config={animationConfig}
       >
@@ -545,7 +545,7 @@ function App() {
       )}
 
       {/* ENHANCED: Debug Panel with detailed performance info */}
-      {process.env.NODE_ENV === 'development' && (
+      {import.meta.env.DEV && (
         <PerformanceDebugPanel
           deviceProfile={deviceProfile}
           performanceConfig={performanceConfig}

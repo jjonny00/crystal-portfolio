@@ -109,7 +109,7 @@ const GlowingSphereImage = ({
       texture.needsUpdate = true;
       
       if (debugMode) {
-        console.log('🌟 Enhanced sphere texture loaded:', {
+        if (import.meta.env.DEV) console.log('🌟 Enhanced sphere texture loaded:', {
           filtering: textureFiltering,
           anisotropy: texture.anisotropy,
           colorSpace: texture.colorSpace,
@@ -168,11 +168,11 @@ const GlowingSphereImage = ({
       if (currentForm === 'exploded' && lastCrystalForm.current === 'whole') {
         setIsExploding(true);
         setStartTime(Date.now());
-        if (debugMode) console.log('🌟 Enhanced sphere: Start explosion with anti-banding');
+        if (debugMode) if (import.meta.env.DEV) console.log('🌟 Enhanced sphere: Start explosion with anti-banding');
         
       } else if (currentForm === 'whole' && lastCrystalForm.current === 'exploded') {
         setIsExploding(false);
-        if (debugMode) console.log('🌟 Enhanced sphere: Stop explosion');
+        if (debugMode) if (import.meta.env.DEV) console.log('🌟 Enhanced sphere: Stop explosion');
       }
       
       lastCrystalForm.current = currentForm;

@@ -11,7 +11,7 @@ const PerformanceDebugPanel = ({
   hasInitialized,
   initialProfileApplied
 }) => {
-  if (process.env.NODE_ENV !== 'development') return null;
+  if (!import.meta.env.DEV) return null;
 
   return (
     <div style={{

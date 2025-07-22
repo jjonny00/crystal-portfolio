@@ -182,7 +182,7 @@
     <div id="root"></div>
     
     <!-- CRITICAL: Update loader from JavaScript -->
-    <script>
+    <script type="module">
       // Global functions to update the immediate loader
       window.updateImmediateLoader = function(progress, phase, currentAsset) {
         const progressFill = document.getElementById('progress-bar-fill');
@@ -206,7 +206,7 @@
           currentAssetEl.textContent = currentAsset || '';
         }
         
-        console.log('📊 Immediate loader updated:', { progress, phase, currentAsset });
+        if (import.meta.env.DEV) console.log('📊 Immediate loader updated:', { progress, phase, currentAsset });
       };
       
       // Hide immediate loader and show React app
@@ -228,7 +228,7 @@
         // Re-enable body overflow
         document.body.style.overflow = 'auto';
         
-        console.log('✅ React app is now visible, immediate loader hidden');
+        if (import.meta.env.DEV) console.log('✅ React app is now visible, immediate loader hidden');
       };
       
       // Initial update

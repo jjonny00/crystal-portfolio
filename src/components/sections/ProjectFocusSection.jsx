@@ -89,7 +89,7 @@ const ProjectFocusSection = ({
   };
 
   if (!project) {
-    console.warn('ProjectFocusSection: No project provided');
+    if (import.meta.env.DEV) console.warn('ProjectFocusSection: No project provided');
     return null;
   }
 

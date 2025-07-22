@@ -198,7 +198,7 @@ const classifyEnhancedPerformance = (capabilities, gpuInfo) => {
     HIGH_PERFORMANCE_DEVICES.android.some(model => deviceModel.includes(model));
   
   if (isHighPerformanceDevice) {
-    console.log(`🚀 High-performance device detected: ${deviceModel}`);
+    if (import.meta.env.DEV) console.log(`🚀 High-performance device detected: ${deviceModel}`);
     return 'high';
   }
   
@@ -209,13 +209,13 @@ const classifyEnhancedPerformance = (capabilities, gpuInfo) => {
   
   // iPad Pro detection (M1/M2 chips)
   if (capabilities.isIPad && gpuInfo?.tier === 'apple-silicon') {
-    console.log('🍎 iPad with Apple Silicon detected - HIGH tier');
+    if (import.meta.env.DEV) console.log('🍎 iPad with Apple Silicon detected - HIGH tier');
     return 'high';
   }
   
   // Recent iPads with good specs
   if (capabilities.isIPad && capabilities.cpuCores >= 6 && capabilities.estimatedRAM >= 4) {
-    console.log('🍎 High-spec iPad detected - HIGH tier');
+    if (import.meta.env.DEV) console.log('🍎 High-spec iPad detected - HIGH tier');
     return 'high';
   }
   
@@ -315,7 +315,7 @@ export const detectDevice = () => {
     detectedAt: new Date().toISOString()
   };
   
-  console.log('🔍 Enhanced Device Detection Results:', {
+  if (import.meta.env.DEV) console.log('🔍 Enhanced Device Detection Results:', {
     model: deviceProfile.deviceModel,
     category: deviceProfile.category,
     tier: deviceProfile.performanceTier,
@@ -345,7 +345,7 @@ export const enforcePortraitOnMobile = () => {
     try {
       screen.orientation.lock('portrait');
     } catch (e) {
-      console.warn('Could not lock orientation:', e);
+      if (import.meta.env.DEV) console.warn('Could not lock orientation:', e);
     }
   }
 };
