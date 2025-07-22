@@ -16,7 +16,7 @@ const UnifiedCrystalScene = forwardRef(({
   animationData,
   config, 
   materialVariant = 'default',
-  performanceConfig = { useNormalMaps: true, textureQuality: 'high', usePBR: true },
+  performanceConfig = { useNormalMaps: true, textureQuality: 'high', pbrQuality: 'high', usePBR: true },
   isMobile = false
 }, ref) => {
   // Component refs for crystal animation

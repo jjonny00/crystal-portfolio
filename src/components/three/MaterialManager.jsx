@@ -18,16 +18,19 @@ const MaterialManager = ({
   const { scene } = useThree(); // Get Three.js scene to access environment
   
   // FIXED: Null safety with proper defaults
-  const safePerformanceConfig = performanceConfig || {
+  const safePerformanceConfig = {
+    pbrQuality: 'high',
     usePBR: true,
     useNormalMaps: true,
     textureQuality: 'high',
-    renderScale: 1.0
+    renderScale: 1.0,
+    ...performanceConfig
   };
+
+  const pbrQuality = safePerformanceConfig.pbrQuality || (safePerformanceConfig.usePBR === false ? 'low' : 'high');
+  const usePBR = pbrQuality !== 'low';
   
-  const usePBR = safePerformanceConfig.usePBR !== false;
-  
-  if (import.meta.env.DEV) console.log('🎨 MaterialManager: PBR enabled?', usePBR, 'Performance config:', safePerformanceConfig);
+  if (import.meta.env.DEV) console.log('🎨 MaterialManager: PBR enabled?', usePBR, 'PBR quality:', pbrQuality, 'Performance config:', safePerformanceConfig);
 
   // OPTIMIZED: Create high-performance mobile material using MeshStandardMaterial
   useEffect(() => {

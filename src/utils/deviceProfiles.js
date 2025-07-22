@@ -5,6 +5,7 @@
 const basePerformanceSettings = {
   renderScale: 1.0,
   useNormalMaps: true,
+  pbrQuality: 'high',
   usePBR: true,
   textureQuality: 'high',
   postProcessing: {
@@ -32,6 +33,7 @@ export const highEndMobileProfile = {
   // OPTIMIZED: Disable PBR even on high-end mobile for better performance
   // The new MeshStandardMaterial looks great and performs much better
   useNormalMaps: true,      // Keep normal maps on high-end
+  pbrQuality: 'low',
   usePBR: false,            // CHANGED: Disable PBR for better performance
   textureQuality: 'high',   // Keep high textures
   
@@ -66,6 +68,7 @@ export const mediumMobileProfile = {
   
   // Disable expensive features
   useNormalMaps: false,     // CHANGED: Disable normal maps
+  pbrQuality: 'low',
   usePBR: false,            // Keep disabled
   textureQuality: 'medium',
   
@@ -97,6 +100,7 @@ export const lowEndMobileProfile = {
   
   // Disable all expensive features
   useNormalMaps: false,
+  pbrQuality: 'low',
   usePBR: false,
   textureQuality: 'low',
   
@@ -128,6 +132,7 @@ export const highEndTabletProfile = {
   
   // CHANGED: Even high-end tablets get non-PBR for better performance
   useNormalMaps: true,
+  pbrQuality: 'low',
   usePBR: false,            // CHANGED: Use optimized material instead
   textureQuality: 'high',
   
@@ -155,6 +160,7 @@ export const mediumTabletProfile = {
   renderScale: 0.7,
   
   useNormalMaps: false,
+  pbrQuality: 'low',
   usePBR: false,
   textureQuality: 'medium',
   
@@ -182,6 +188,7 @@ export const desktopProfile = {
   ...basePerformanceSettings,
   renderScale: 1.0,
   useNormalMaps: true,
+  pbrQuality: 'high',
   usePBR: true,             // Desktop keeps PBR
   textureQuality: 'high',
   postProcessing: {
@@ -221,18 +228,20 @@ export const getPerformanceProfile = (deviceProfile) => {
     if (deviceProfile.performanceTier === 'high') {
       return deviceProfile.category === 'desktop-xl' ? desktopXLProfile : desktopProfile;
     } else if (deviceProfile.performanceTier === 'medium') {
-      return { 
-        ...desktopProfile, 
-        renderScale: 0.8, 
+      return {
+        ...desktopProfile,
+        renderScale: 0.8,
         textureQuality: 'medium',
+        pbrQuality: 'high',
         usePBR: true  // Keep PBR on desktop even if medium performance
       };
     } else {
-      return { 
-        ...desktopProfile, 
-        renderScale: 0.6, 
+      return {
+        ...desktopProfile,
+        renderScale: 0.6,
+        pbrQuality: 'low',
         usePBR: false,    // Only disable PBR on very low-end desktop
-        textureQuality: 'low' 
+        textureQuality: 'low'
       };
     }
   }
@@ -370,13 +379,14 @@ export const logProfileInfo = (deviceProfile, performanceProfile, uiProfile) => 
   
   if (import.meta.env.DEV) console.log('📊 OPTIMIZED Performance Summary:', {
     renderScale: performanceProfile.renderScale,
+    pbrQuality: performanceProfile.pbrQuality,
     usePBR: performanceProfile.usePBR,
     useNormalMaps: performanceProfile.useNormalMaps,
     textureQuality: performanceProfile.textureQuality,
     postProcessing: Object.entries(performanceProfile.postProcessing)
       .filter(([_, enabled]) => enabled)
       .map(([effect, _]) => effect),
-    optimization: performanceProfile.usePBR ? 'Full PBR' : 'Optimized Standard Material'
+    optimization: performanceProfile.pbrQuality
   });
   
   if (import.meta.env.DEV) console.groupEnd();
