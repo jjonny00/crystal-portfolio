@@ -14,7 +14,6 @@ const basePerformanceSettings = {
     vignette: true
   },
   maxLights: 5,
-  shadowQuality: 'high',
   hdriQuality: 'high',
   antialiasing: true,
   anisotropicFiltering: 4
@@ -46,7 +45,6 @@ export const highEndMobileProfile = {
   
   // Conservative lighting
   maxLights: 3,
-  shadowQuality: 'medium',
   hdriQuality: 'high',      // Keep high HDRI for environment reflections
   
   // Minimal AA
@@ -80,7 +78,6 @@ export const mediumMobileProfile = {
   },
   
   maxLights: 2,
-  shadowQuality: 'low',
   hdriQuality: 'medium',    // Medium HDRI still gives reflections
   
   antialiasing: false,
@@ -112,7 +109,6 @@ export const lowEndMobileProfile = {
   },
   
   maxLights: 2,
-  shadowQuality: 'off',
   hdriQuality: 'low',       // Still get some environment reflections
   
   antialiasing: false,
@@ -144,7 +140,6 @@ export const highEndTabletProfile = {
   },
   
   maxLights: 4,
-  shadowQuality: 'high',
   hdriQuality: 'high',
   
   antialiasing: false,      // CHANGED: Disable for better performance
@@ -171,7 +166,6 @@ export const mediumTabletProfile = {
   },
   
   maxLights: 2,
-  shadowQuality: 'medium',
   hdriQuality: 'medium',
   
   antialiasing: false,
@@ -197,7 +191,6 @@ export const desktopProfile = {
     vignette: true
   },
   maxLights: 5,
-  shadowQuality: 'high',
   hdriQuality: 'high',
   antialiasing: true,
   anisotropicFiltering: 4
@@ -207,7 +200,6 @@ export const desktopXLProfile = {
   ...desktopProfile,
   renderScale: 1.0,
   maxLights: 6,
-  shadowQuality: 'ultra',
   anisotropicFiltering: 8,
   enhancedReflections: true
 };

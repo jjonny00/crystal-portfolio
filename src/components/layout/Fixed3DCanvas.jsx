@@ -115,12 +115,11 @@ const Fixed3DCanvas = ({
         zIndex: 1, // Behind scrollable content (which is z-index 10)
         pointerEvents: 'none', // Don't block scrolling
       }}>
-        <Canvas 
-          shadows 
-          camera={{ 
-            position: config?.camera?.startingPosition || [0, 0, 4.5], 
-            fov: config?.camera?.fov || 45 
-          }} 
+        <Canvas
+          camera={{
+            position: config?.camera?.startingPosition || [0, 0, 4.5],
+            fov: config?.camera?.fov || 45
+          }}
           {...canvasProps}
           gl={{ 
             toneMapping: THREE.ACESFilmicToneMapping,
@@ -147,43 +146,47 @@ const Fixed3DCanvas = ({
           <ambientLight intensity={config?.lighting?.ambient?.intensity || 0.4} />
           
           {/* Main directional light (from above/side) */}
-          <directionalLight 
-            position={config?.lighting?.directional?.position || [10, 8, 5]} 
-            intensity={config?.lighting?.directional?.intensity || 1.8} 
-            color={config?.lighting?.directional?.color || "#FFFFFF"} 
-            castShadow={config?.lighting?.directional?.castShadow !== false} 
+          <directionalLight
+            position={config?.lighting?.directional?.position || [10, 8, 5]}
+            intensity={config?.lighting?.directional?.intensity || 1.8}
+            color={config?.lighting?.directional?.color || "#FFFFFF"}
+            castShadow={false}
           />
           
           {/* ADDED: Bottom directional light pointing upward */}
           {config?.lighting?.directionalBottom && (
-            <directionalLight 
-              position={config.lighting.directionalBottom.position || [0, -5, 0]} 
+            <directionalLight
+              position={config.lighting.directionalBottom.position || [0, -5, 0]}
               target-position={config.lighting.directionalBottom.target || [0, 0, 0]}
-              intensity={config.lighting.directionalBottom.intensity || 0.2} 
-              color={config.lighting.directionalBottom.color || "#e75c25ff"} 
-              castShadow={config.lighting.directionalBottom.castShadow !== true}
+              intensity={config.lighting.directionalBottom.intensity || 0.2}
+              color={config.lighting.directionalBottom.color || "#e75c25ff"}
+              castShadow={false}
             />
           )}
           
           {/* Point lights */}
-          {config?.lighting?.pointLights?.map((light, index) => (
-            <pointLight 
-              key={index}
-              position={light.position} 
-              intensity={light.intensity} 
-              color={light.color} 
-            />
-          ))}
+          {config?.lighting?.pointLights
+            ?.slice(0, performanceConfig?.maxLights || config?.lighting?.pointLights.length)
+            .map((light, index) => (
+              <pointLight
+                key={index}
+                position={light.position}
+                intensity={light.intensity}
+                color={light.color}
+                castShadow={false}
+              />
+            ))}
 
           <PulsingOmniLight />
           
           {/* Spot light */}
-          <spotLight 
-            position={config?.lighting?.spotLight?.position || [0, 0, 10]} 
-            intensity={config?.lighting?.spotLight?.intensity || 1000.2} 
-            angle={config?.lighting?.spotLight?.angle || Math.PI / 4} 
-            penumbra={config?.lighting?.spotLight?.penumbra || 0.2} 
-            color={config?.lighting?.spotLight?.color || "#ffffffff"} 
+          <spotLight
+            position={config?.lighting?.spotLight?.position || [0, 0, 10]}
+            intensity={config?.lighting?.spotLight?.intensity || 1000.2}
+            angle={config?.lighting?.spotLight?.angle || Math.PI / 4}
+            penumbra={config?.lighting?.spotLight?.penumbra || 0.2}
+            color={config?.lighting?.spotLight?.color || "#ffffffff"}
+            castShadow={false}
           />
           
           {/* UPDATED: Enhanced Camera Controller with facet refs */}
