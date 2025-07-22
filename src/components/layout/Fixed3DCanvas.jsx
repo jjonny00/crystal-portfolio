@@ -147,12 +147,12 @@ const Fixed3DCanvas = ({
           <ambientLight intensity={config?.lighting?.ambient?.intensity || 0.4} />
           
           {/* Main directional light (from above/side) */}
-          {/* <directionalLight 
+          <directionalLight 
             position={config?.lighting?.directional?.position || [10, 8, 5]} 
             intensity={config?.lighting?.directional?.intensity || 1.8} 
             color={config?.lighting?.directional?.color || "#FFFFFF"} 
             castShadow={config?.lighting?.directional?.castShadow !== false} 
-          /> */}
+          />
           
           {/* ADDED: Bottom directional light pointing upward */}
           {config?.lighting?.directionalBottom && (
@@ -180,7 +180,7 @@ const Fixed3DCanvas = ({
           {/* Spot light */}
           <spotLight 
             position={config?.lighting?.spotLight?.position || [0, 0, 10]} 
-            intensity={config?.lighting?.spotLight?.intensity || 10.2} 
+            intensity={config?.lighting?.spotLight?.intensity || 1000.2} 
             angle={config?.lighting?.spotLight?.angle || Math.PI / 4} 
             penumbra={config?.lighting?.spotLight?.penumbra || 0.2} 
             color={config?.lighting?.spotLight?.color || "#ffffffff"} 

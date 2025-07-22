@@ -221,7 +221,7 @@ export const effects = {
 export const materials = {
   // Base crystal material configuration
   crystal: {
-    color: new THREE.Color('#1f2391'),
+    color: new THREE.Color('#120a2d'),
     transparent: true,
     transmission: 0.7,
     ior: 2.3,
@@ -238,7 +238,7 @@ export const materials = {
     reflectivity: 0.7,
     specularIntensity: 1.0,
     specularColor: new THREE.Color('#ffffff'),
-    emissive: new THREE.Color('#5900ff'),
+    emissive: new THREE.Color('#050c4e'),
     emissiveIntensity: 0 // Default, will be changed dynamically
   },
   
@@ -296,17 +296,17 @@ export const lighting = {
     intensity: 0.4  // INCREASED: Boost ambient light to compensate for disabled shadows
   },
   directional: {
-    position: [10, 8, 5],
-    intensity: 1.8,
-    color: "#FFFFFF",
+    position: [2, 8, 5],
+    intensity: 10.8,
+    color: "#ffdcc1ff",
     castShadow: false  // CHANGED: Disable shadow casting to improve transparent lighting
   },
   // ADDED: Upward directional light from below the crystal
   directionalBottom: {
     position: [0, -5, 0],    // Position below the crystal
     target: [0, 0, 0],       // Point straight up toward crystal center
-    intensity: 80.2,          // Strong enough to illuminate undersides
-    color: "#ff4800",        // Slightly cool blue-white
+    intensity: 10.2,          // Strong enough to illuminate undersides
+    color: "#f2feffff",        // Slightly cool blue-white
     castShadow: false        // No shadows for better transparency
   },
   pointLights: [
@@ -317,7 +317,7 @@ export const lighting = {
     },
     {
       position: [0, -8, -10],
-      intensity: 10.8,    // INCREASED: Boost intensity
+      intensity: 1.8,    // INCREASED: Boost intensity
       color: "#00e380"
     },
     // ADDED: Additional fill light to brighten dark areas
@@ -329,9 +329,9 @@ export const lighting = {
   ],
   spotLight: {
     position: [0, 0, 10],
-    intensity: 100.2,    // INCREASED: Boost intensity
+    intensity: 10.2,    // INCREASED: Boost intensity
     angle: Math.PI / 4,
-    penumbra: 100.2,
+    penumbra: 10.2,
     color: "#ff0051"
   }
 }

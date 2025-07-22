@@ -38,16 +38,20 @@ const MaterialManager = ({
       // This removes expensive features like transmission, clearcoat, iridescence
       let materialProps = {
         // AGGRESSIVE: Settings similar to gem variant for strong reflections
-        color: new THREE.Color('#5f4e75'),   // Purple like gem (shows reflections better than blue)
-        metalness: 0.08,                      // MUCH higher metallic (like gem variant)
-        roughness: 0.02,                     // VERY smooth (like gem variant)
+        color: new THREE.Color('#1f2391'),   // Purple like gem (shows reflections better than blue)
+        metalness: 0.1,                      // MUCH higher metallic (like gem variant)
+        roughness: 0.05,                     // VERY smooth (like gem variant)
         
         // Environment mapping for reflections (key for crystal look!)
         envMapIntensity: 4.0,                // VERY strong environment reflections
+
+        specularIntensity: 100.0,                    // Bright highlights
+        specularColor: new THREE.Color('#ffffff'), // White highlights
+        reflectivity: 1.8,                        // High reflectiveness
         
         // NO transparency - major performance gain!
-        transparent: false,
-        opacity: 1.0,
+        transparent: true,
+        opacity: 0.96,
         
         // Standard material properties
         side: THREE.FrontSide,               // Only render front faces (perf gain)
@@ -66,6 +70,8 @@ const MaterialManager = ({
         
         // Use higher precision only when needed
         precision: safePerformanceConfig.highPrecision ? 'highp' : 'mediump'
+
+
       };
 
       // Apply variant-specific properties (optimized versions)
@@ -238,8 +244,8 @@ const MaterialManager = ({
           // AGGRESSIVE: Use gem-like settings for strong reflections
           material.metalness = 0.8;              // High metallic
           material.roughness = 0.02;             // Very smooth
-          material.envMapIntensity = 4.0;        // Strong reflections
-          material.emissiveIntensity = Math.max(0.3, currentEmissiveIntensity);
+          material.envMapIntensity = 15.0;        // Strong reflections
+          material.emissiveIntensity = Math.max(0.0, currentEmissiveIntensity);
           break;
       }
       
