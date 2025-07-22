@@ -313,12 +313,17 @@ function App() {
     if (testPerformanceConfig) {
       if (import.meta.env.DEV) console.log('🎯 Applying enhanced performance test results:', testPerformanceConfig);
       setPerformanceConfig(testPerformanceConfig);
-      
+
+      // Inform the device profile hook so helpers use the new config
+      if (updateExternalPerformanceConfig) {
+        updateExternalPerformanceConfig(testPerformanceConfig);
+      }
+
       if (markAsInitialized) {
         markAsInitialized();
       }
     }
-  }, [testPerformanceConfig, markAsInitialized]);
+  }, [testPerformanceConfig, markAsInitialized, updateExternalPerformanceConfig]);
 
   // ENHANCED: App ready detection with better criteria
   useEffect(() => {
