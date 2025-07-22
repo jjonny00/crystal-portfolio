@@ -295,9 +295,9 @@ function App() {
     }
   }, [isAppReady]);
 
-  // ENHANCED: Start performance test when device profile is ready
+  // ENHANCED: Start performance test when device profile and assets are ready
   useEffect(() => {
-    if (deviceProfile && !testPerformanceConfig && !isPerfTesting) {
+    if (deviceProfile && isReady && !testPerformanceConfig && !isPerfTesting) {
       if (import.meta.env.DEV) console.log('🔬 Starting enhanced performance test for device:', {
         category: deviceProfile.category,
         tier: deviceProfile.performanceTier,
@@ -306,7 +306,7 @@ function App() {
       });
       startPerfTest();
     }
-  }, [deviceProfile, testPerformanceConfig, isPerfTesting, startPerfTest]);
+  }, [deviceProfile, isReady, testPerformanceConfig, isPerfTesting, startPerfTest]);
 
   // Apply performance config when test completes
   useEffect(() => {
