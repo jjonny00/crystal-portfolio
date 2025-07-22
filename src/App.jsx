@@ -329,7 +329,7 @@ function App() {
         deviceTier: deviceProfile?.performanceTier,
         finalSettings: {
           renderScale: performanceConfig.renderScale,
-          usePBR: performanceConfig.usePBR,
+          pbrQuality: performanceConfig.pbrQuality,
           textureQuality: performanceConfig.textureQuality
         }
       });

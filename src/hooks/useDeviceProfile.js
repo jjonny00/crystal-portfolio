@@ -66,7 +66,7 @@ export const useDeviceProfile = (options = {}) => {
       if (import.meta.env.DEV) console.log('🎯 Device Profile Applied:', {
         category: device.category,
         performanceTier: device.performanceTier,
-        usePBR: performance.usePBR,
+        pbrQuality: performance.pbrQuality,
         useNormalMaps: performance.useNormalMaps,
         textureQuality: performance.textureQuality,
         renderScale: performance.renderScale
@@ -110,8 +110,8 @@ export const useDeviceProfile = (options = {}) => {
       const currentProfile = manualOverride?.performance || performanceProfile;
       
       if (currentProfile) {
-        const hasChanges = 
-          config.usePBR !== currentProfile.usePBR ||
+        const hasChanges =
+          config.pbrQuality !== currentProfile.pbrQuality ||
           config.useNormalMaps !== currentProfile.useNormalMaps ||
           config.textureQuality !== currentProfile.textureQuality ||
           config.renderScale !== currentProfile.renderScale;
@@ -119,13 +119,13 @@ export const useDeviceProfile = (options = {}) => {
         if (hasChanges) {
           if (import.meta.env.DEV) console.log('✅ Applying external performance config changes:', {
             from: {
-              usePBR: currentProfile.usePBR,
+              pbrQuality: currentProfile.pbrQuality,
               useNormalMaps: currentProfile.useNormalMaps,
               textureQuality: currentProfile.textureQuality,
               renderScale: currentProfile.renderScale
             },
             to: {
-              usePBR: config.usePBR,
+              pbrQuality: config.pbrQuality,
               useNormalMaps: config.useNormalMaps,
               textureQuality: config.textureQuality,
               renderScale: config.renderScale
@@ -221,14 +221,14 @@ export const useDeviceProfile = (options = {}) => {
         source: externalPerformanceConfig ? 'External Config' : 
                 manualOverride ? 'Manual Override' : 
                 'Device Profile',
-        usePBR: effectivePerformanceConfig.usePBR,
+        pbrQuality: effectivePerformanceConfig.pbrQuality,
         useNormalMaps: effectivePerformanceConfig.useNormalMaps,
         textureQuality: effectivePerformanceConfig.textureQuality,
         renderScale: effectivePerformanceConfig.renderScale
       });
     }
-  }, [effectivePerformanceConfig?.usePBR, effectivePerformanceConfig?.useNormalMaps, 
-      effectivePerformanceConfig?.textureQuality, effectivePerformanceConfig?.renderScale, 
+  }, [effectivePerformanceConfig?.pbrQuality, effectivePerformanceConfig?.useNormalMaps,
+      effectivePerformanceConfig?.textureQuality, effectivePerformanceConfig?.renderScale,
       hasInitialized, externalPerformanceConfig, manualOverride]);
   
   // Utility functions

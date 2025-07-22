@@ -115,6 +115,7 @@ export const useInitialPerformanceTest = (
         return {
           ...optimizedConfig,
           renderScale: 0.5,              // Low render scale
+          pbrQuality: 'low',
           usePBR: false,                 // Disable PBR
           useNormalMaps: false,
           textureQuality: 'low',
@@ -162,6 +163,7 @@ export const useInitialPerformanceTest = (
     else if (issues.severe) {
       if (import.meta.env.DEV) console.log('📉 Level 3 optimization: Aggressive performance mode');
       optimizedConfig.renderScale = Math.max(optimizedConfig.renderScale * 0.5, 0.3);
+      optimizedConfig.pbrQuality = 'low';
       optimizedConfig.usePBR = false;                 // Disable PBR entirely
       optimizedConfig.useNormalMaps = false;
       optimizedConfig.textureQuality = 'low';
@@ -205,7 +207,19 @@ export const useInitialPerformanceTest = (
     const issues = shouldAdjustPerformance(metrics, deviceProfile);
     
     // Create final configuration
-    const finalConfig = createOptimizedConfig(deviceProfile, metrics, issues);
+    let finalConfig = createOptimizedConfig(deviceProfile, metrics, issues);
+
+    // Adjust PBR quality based on measured FPS
+    if (metrics.avgFps > 50 && metrics.lowPercentile > 40) {
+      finalConfig.pbrQuality = 'high';
+    } else if (metrics.avgFps > 30 && metrics.lowPercentile > 20) {
+      if (finalConfig.pbrQuality === 'low') finalConfig.pbrQuality = 'medium';
+    } else if (metrics.avgFps < 25 || metrics.lowPercentile < 15) {
+      finalConfig.pbrQuality = 'low';
+    } else {
+      finalConfig.pbrQuality = finalConfig.pbrQuality || 'medium';
+    }
+    finalConfig.usePBR = finalConfig.pbrQuality !== 'low';
     
     // Log the decision
     if (import.meta.env.DEV) console.log(`🎯 Final Performance Decision:`, {
@@ -213,7 +227,7 @@ export const useInitialPerformanceTest = (
       hadIssues: issues ? Object.values(issues).some(Boolean) : false,
       finalSettings: {
         renderScale: finalConfig.renderScale,
-        usePBR: finalConfig.usePBR,
+        pbrQuality: finalConfig.pbrQuality,
         useNormalMaps: finalConfig.useNormalMaps,
         textureQuality: finalConfig.textureQuality,
         enabledEffects: Object.entries(finalConfig.postProcessing || {})
