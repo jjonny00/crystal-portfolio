@@ -44,7 +44,7 @@ const MasterAnimationCoordinator = ({
           e.preventDefault();
           setShowAnimationDebug(prev => {
             const newState = !prev;
-            if (process.env.NODE_ENV === "development") console.log(`🎬 Animation Debug Panel: ${newState ? 'ON' : 'OFF'}`);
+            if (import.meta.env.DEV) console.log(`🎬 Animation Debug Panel: ${newState ? 'ON' : 'OFF'}`);
             return newState;
           });
         }

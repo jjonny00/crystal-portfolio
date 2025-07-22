@@ -88,7 +88,7 @@ const UnifiedCrystalScene = forwardRef(({
     // Expose debug methods for debug panels
     debugMethods: {
       forceShowFacets: () => {
-        if (process.env.NODE_ENV === 'development') {
+        if (import.meta.env.DEV) {
           console.log('🔥 Debug: Force showing facets');
         }
         setShowWholeCrystal(false);
@@ -97,7 +97,7 @@ const UnifiedCrystalScene = forwardRef(({
         lastCrystalForm.current = 'exploded';
       },
       forceShowWhole: () => {
-        if (process.env.NODE_ENV === 'development') {
+        if (import.meta.env.DEV) {
           console.log('🔄 Debug: Force showing whole crystal');
         }
         setShowFacets(false);
@@ -106,27 +106,27 @@ const UnifiedCrystalScene = forwardRef(({
         lastCrystalForm.current = 'whole';
       },
       inspectModels: () => {
-        if (process.env.NODE_ENV === 'development') {
+        if (import.meta.env.DEV) {
           console.group('🔍 Manual Facet Inspection');
           facetModels.forEach((model, index) => {
             const facetKey = facetKeys[index];
-            if (process.env.NODE_ENV === "development") console.log(`\n=== ${facetKey.toUpperCase()} MODEL ===`);
-            if (process.env.NODE_ENV === "development") console.log('Model:', model);
-            if (process.env.NODE_ENV === "development") console.log('Scene:', model.scene);
+            if (import.meta.env.DEV) console.log(`\n=== ${facetKey.toUpperCase()} MODEL ===`);
+            if (import.meta.env.DEV) console.log('Model:', model);
+            if (import.meta.env.DEV) console.log('Scene:', model.scene);
 
             if (model.scene) {
-              if (process.env.NODE_ENV === "development") console.log('Scene children:', model.scene.children.length);
+              if (import.meta.env.DEV) console.log('Scene children:', model.scene.children.length);
               model.scene.traverse((child) => {
                 if (child.name) {
-                  if (process.env.NODE_ENV === "development") console.log(`  - ${child.name} (${child.type})`);
+                  if (import.meta.env.DEV) console.log(`  - ${child.name} (${child.type})`);
                 }
               });
 
               const anchor = model.scene.getObjectByName(`anchor_${facetKey}`);
-              if (process.env.NODE_ENV === "development") console.log(`Anchor "anchor_${facetKey}":`, anchor);
+              if (import.meta.env.DEV) console.log(`Anchor "anchor_${facetKey}":`, anchor);
             }
           });
-          if (process.env.NODE_ENV === "development") console.groupEnd();
+          if (import.meta.env.DEV) console.groupEnd();
         }
       }
     }
@@ -157,7 +157,7 @@ const UnifiedCrystalScene = forwardRef(({
           e.preventDefault();
           setShowCrystalDebug(prev => {
             const newState = !prev;
-            if (process.env.NODE_ENV === 'development') {
+            if (import.meta.env.DEV) {
               console.log(`💎 Crystal Debug Panel: ${newState ? 'ON' : 'OFF'}`);
             }
             return newState;
@@ -184,7 +184,7 @@ const UnifiedCrystalScene = forwardRef(({
           child.castShadow = false;    // Don't cast shadows
           child.receiveShadow = false; // Don't receive shadows
           
-          if (process.env.NODE_ENV === 'development') {
+          if (import.meta.env.DEV) {
             console.log(`💡 Disabled shadows for crystal mesh: ${child.name}`);
           }
         }
@@ -198,7 +198,7 @@ const UnifiedCrystalScene = forwardRef(({
 
   // Debug anchor positions when facets are loaded
   useEffect(() => {
-    if (process.env.NODE_ENV === 'development' && showCrystalDebug && facetRefs.current.length > 0) {
+    if (import.meta.env.DEV && showCrystalDebug && facetRefs.current.length > 0) {
       console.group('🎯 Anchor Detection Report');
       
       facetKeys.forEach((facetKey, index) => {
@@ -210,25 +210,25 @@ const UnifiedCrystalScene = forwardRef(({
           if (anchor) {
             const worldPos = new THREE.Vector3();
             anchor.getWorldPosition(worldPos);
-            if (process.env.NODE_ENV === "development") console.log(`✅ ${anchorName}:`, {
+            if (import.meta.env.DEV) console.log(`✅ ${anchorName}:`, {
               localPosition: anchor.position.toArray(),
               worldPosition: worldPos.toArray(),
               parent: anchor.parent?.name || 'root'
             });
           } else {
-            if (process.env.NODE_ENV === "development") console.warn(`❌ ${anchorName}: NOT FOUND`);
+            if (import.meta.env.DEV) console.warn(`❌ ${anchorName}: NOT FOUND`);
             const availableNames = [];
             facetRef.current.traverse((child) => {
               if (child.name) availableNames.push(child.name);
             });
-            if (process.env.NODE_ENV === "development") console.log(`Available objects in ${facetKey}:`, availableNames);
+            if (import.meta.env.DEV) console.log(`Available objects in ${facetKey}:`, availableNames);
           }
         } else {
-          if (process.env.NODE_ENV === "development") console.warn(`❌ Facet ref for ${facetKey} is null`);
+          if (import.meta.env.DEV) console.warn(`❌ Facet ref for ${facetKey} is null`);
         }
       });
       
-      if (process.env.NODE_ENV === "development") console.groupEnd();
+      if (import.meta.env.DEV) console.groupEnd();
     }
   }, [showCrystalDebug, showFacets, facetKeys]);
   
@@ -240,7 +240,7 @@ const UnifiedCrystalScene = forwardRef(({
     const formChanged = currentForm !== lastCrystalForm.current;
     
     if (formChanged) {
-      if (process.env.NODE_ENV === 'development') {
+      if (import.meta.env.DEV) {
         console.log('💎 Crystal: Form change detected:', {
           from: lastCrystalForm.current,
           to: currentForm
@@ -248,7 +248,7 @@ const UnifiedCrystalScene = forwardRef(({
       }
 
       if (currentForm === 'exploded') {
-        if (process.env.NODE_ENV === 'development') {
+        if (import.meta.env.DEV) {
           console.log('💎 Crystal: Explosion - hiding whole, showing facets, showing sphere');
         }
         setShowWholeCrystal(false);
@@ -256,7 +256,7 @@ const UnifiedCrystalScene = forwardRef(({
         setSphereVisible(true);
         
       } else if (currentForm === 'whole') {
-        if (process.env.NODE_ENV === 'development') {
+        if (import.meta.env.DEV) {
           console.log('💎 Crystal: Reform detected - hiding sphere');
         }
         setSphereVisible(false);
@@ -352,7 +352,7 @@ const UnifiedCrystalScene = forwardRef(({
       });
       
       if (isReforming && allFacetsAtCenter && !showWholeCrystal) {
-        if (process.env.NODE_ENV === 'development') {
+        if (import.meta.env.DEV) {
           console.log('💎 Reform complete - swapping to whole crystal');
         }
         setShowFacets(false);
@@ -387,7 +387,7 @@ const UnifiedCrystalScene = forwardRef(({
           position={[0, 0, 0]}
           visible={sphereVisible}
           animationData={animationData}
-          debugMode={process.env.NODE_ENV === 'development'}
+          debugMode={import.meta.env.DEV}
         />
       )}
       

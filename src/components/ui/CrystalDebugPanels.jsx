@@ -80,7 +80,7 @@ const CrystalDebugPanels = ({
           <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
             <button 
               onClick={() => {
-                if (process.env.NODE_ENV === "development") console.log('🔥 FORCING FACETS VISIBLE');
+                if (import.meta.env.DEV) console.log('🔥 FORCING FACETS VISIBLE');
                 if (onForceShowFacets) onForceShowFacets();
               }}
               style={{
@@ -100,7 +100,7 @@ const CrystalDebugPanels = ({
             
             <button 
               onClick={() => {
-                if (process.env.NODE_ENV === "development") console.log('🔄 RESETTING TO WHOLE');
+                if (import.meta.env.DEV) console.log('🔄 RESETTING TO WHOLE');
                 if (onForceShowWhole) onForceShowWhole();
               }}
               style={{
@@ -121,7 +121,7 @@ const CrystalDebugPanels = ({
           
           <button 
             onClick={() => {
-              if (process.env.NODE_ENV === "development") console.log('🔍 MANUAL FACET INSPECTION');
+              if (import.meta.env.DEV) console.log('🔍 MANUAL FACET INSPECTION');
               if (onInspectModels) onInspectModels();
             }}
             style={{

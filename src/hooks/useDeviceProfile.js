@@ -63,7 +63,7 @@ export const useDeviceProfile = (options = {}) => {
         }
       }
       
-      if (process.env.NODE_ENV === "development") console.log('🎯 Device Profile Applied:', {
+      if (import.meta.env.DEV) console.log('🎯 Device Profile Applied:', {
         category: device.category,
         performanceTier: device.performanceTier,
         usePBR: performance.usePBR,
@@ -73,7 +73,7 @@ export const useDeviceProfile = (options = {}) => {
       });
       
     } catch (error) {
-      if (process.env.NODE_ENV === "development") console.error('❌ Device detection failed:', error);
+      if (import.meta.env.DEV) console.error('❌ Device detection failed:', error);
       
       // Fallback to safe defaults
       const fallbackDevice = {
@@ -99,9 +99,9 @@ export const useDeviceProfile = (options = {}) => {
   
   // FIXED: Separate external config update function with proper initialization check
   const updateExternalPerformanceConfig = useCallback((config) => {
-    if (process.env.NODE_ENV === "development") console.log('🔧 External performance config update attempted:', config);
-    if (process.env.NODE_ENV === "development") console.log('🔧 Has initialized?', hasInitialized);
-    if (process.env.NODE_ENV === "development") console.log('🔧 Current external config:', externalPerformanceConfig);
+    if (import.meta.env.DEV) console.log('🔧 External performance config update attempted:', config);
+    if (import.meta.env.DEV) console.log('🔧 Has initialized?', hasInitialized);
+    if (import.meta.env.DEV) console.log('🔧 Current external config:', externalPerformanceConfig);
     
     // FIXED: Only allow external config updates if we've properly initialized
     // AND if the user has actually changed settings in the Performance tab
@@ -117,7 +117,7 @@ export const useDeviceProfile = (options = {}) => {
           config.renderScale !== currentProfile.renderScale;
         
         if (hasChanges) {
-          if (process.env.NODE_ENV === "development") console.log('✅ Applying external performance config changes:', {
+          if (import.meta.env.DEV) console.log('✅ Applying external performance config changes:', {
             from: {
               usePBR: currentProfile.usePBR,
               useNormalMaps: currentProfile.useNormalMaps,
@@ -133,17 +133,17 @@ export const useDeviceProfile = (options = {}) => {
           });
           setExternalPerformanceConfig(config);
         } else {
-          if (process.env.NODE_ENV === "development") console.log('🚫 External config is same as current profile, ignoring');
+          if (import.meta.env.DEV) console.log('🚫 External config is same as current profile, ignoring');
         }
       }
     } else {
-      if (process.env.NODE_ENV === "development") console.log('🚫 External config update rejected - not initialized or invalid config');
+      if (import.meta.env.DEV) console.log('🚫 External config update rejected - not initialized or invalid config');
     }
   }, [hasInitialized, performanceProfile, manualOverride]);
   
   // FIXED: Mark as initialized only after initial performance test is complete
   const markAsInitialized = useCallback(() => {
-    if (process.env.NODE_ENV === "development") console.log('✅ Device profile marked as initialized');
+    if (import.meta.env.DEV) console.log('✅ Device profile marked as initialized');
     setHasInitialized(true);
   }, []);
   
@@ -154,7 +154,7 @@ export const useDeviceProfile = (options = {}) => {
         const newOrientation = window.innerWidth > window.innerHeight ? 'landscape' : 'portrait';
         
         if (newOrientation !== deviceProfile.screen.orientation) {
-          if (process.env.NODE_ENV === "development") console.log('Orientation changed, re-detecting device profile...');
+          if (import.meta.env.DEV) console.log('Orientation changed, re-detecting device profile...');
           setTimeout(() => {
             detectDeviceProfile();
           }, 500);
@@ -197,7 +197,7 @@ export const useDeviceProfile = (options = {}) => {
     setManualOverride({ tier, performance: overridePerformance });
     
     if (enableDebugLogging) {
-      if (process.env.NODE_ENV === "development") console.log('🔧 Manual override applied:', tier, overridePerformance);
+      if (import.meta.env.DEV) console.log('🔧 Manual override applied:', tier, overridePerformance);
     }
   }, [deviceProfile, enableProfileOverride, enableDebugLogging]);
   
@@ -217,7 +217,7 @@ export const useDeviceProfile = (options = {}) => {
   // FIXED: Add debug logging when effective config changes
   useEffect(() => {
     if (effectivePerformanceConfig && hasInitialized) {
-      if (process.env.NODE_ENV === "development") console.log('🎮 Effective Performance Config Applied:', {
+      if (import.meta.env.DEV) console.log('🎮 Effective Performance Config Applied:', {
         source: externalPerformanceConfig ? 'External Config' : 
                 manualOverride ? 'Manual Override' : 
                 'Device Profile',
@@ -239,7 +239,7 @@ export const useDeviceProfile = (options = {}) => {
     const renderScale = effectivePerformanceConfig.renderScale || 1.0;
     const scaledDPR = baseDPR.map(dpr => dpr * renderScale);
     
-    if (process.env.NODE_ENV === "development") console.log(`🎮 Canvas - Render Scale: ${renderScale}, DPR: [${scaledDPR.join(', ')}]`);
+    if (import.meta.env.DEV) console.log(`🎮 Canvas - Render Scale: ${renderScale}, DPR: [${scaledDPR.join(', ')}]`);
     
     return {
       dpr: scaledDPR,

@@ -24,7 +24,7 @@ const ProjectsSection = ({
       
       setIsMobile(shouldUseMobileLayout);
       
-      if (process.env.NODE_ENV === 'development') {
+      if (import.meta.env.DEV) {
         console.log('📱 Layout check:', {
           screenWidth,
           isTouchDevice,

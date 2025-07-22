@@ -134,7 +134,7 @@ const CrystalControls = ({ onUpdate }) => {
     const updatedConfig = { ...crystalConfig };
     const parts = key.split('.');
     
-    if (process.env.NODE_ENV === "development") console.log(`Updating effect: ${key} = ${numValue}`);
+    if (import.meta.env.DEV) console.log(`Updating effect: ${key} = ${numValue}`);
     
     // This is a bit complex due to nested structure
     if (parts.length === 4) {
@@ -176,7 +176,7 @@ const CrystalControls = ({ onUpdate }) => {
     const updatedConfig = { ...crystalConfig };
     const [section, category, property] = key.split('.');
     
-    if (process.env.NODE_ENV === "development") console.log(`Updating material: ${key} = ${numValue}`);
+    if (import.meta.env.DEV) console.log(`Updating material: ${key} = ${numValue}`);
     
     // Ensure parent objects exist
     if (!updatedConfig[section]) updatedConfig[section] = {};

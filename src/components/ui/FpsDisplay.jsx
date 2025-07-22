@@ -258,7 +258,7 @@ export const FPSCounter = () => {
     // You could dispatch FPS data to a global state here if needed
     // For now, we'll just log performance warnings
     if (fps > 0 && fps < 20) {
-      if (process.env.NODE_ENV === "development") console.warn(`⚠️ Low FPS detected: ${fps}fps`);
+      if (import.meta.env.DEV) console.warn(`⚠️ Low FPS detected: ${fps}fps`);
     }
   }, [fps]);
   

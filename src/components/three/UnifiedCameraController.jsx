@@ -29,7 +29,7 @@ const UnifiedCameraController = ({
 
   const findAnchorInFacet = (facetKey) => {
     if (!facetRefs) {
-      if (process.env.NODE_ENV === 'development') {
+      if (import.meta.env.DEV) {
         console.warn('⚠️ Camera Controller: No facet refs available for anchor search');
       }
       return null;
@@ -39,7 +39,7 @@ const UnifiedCameraController = ({
     const facetIndex = facetKeys.indexOf(facetKey);
     
     if (facetIndex === -1) {
-      if (process.env.NODE_ENV === 'development') {
+      if (import.meta.env.DEV) {
         console.warn(`⚠️ Camera Controller: Unknown facet key: ${facetKey}`);
       }
       return null;
@@ -49,7 +49,7 @@ const UnifiedCameraController = ({
     const facetRef = facetRefs[facetIndex]; // Direct array access
     
     if (!facetRef || !facetRef.current) {
-      if (process.env.NODE_ENV === 'development') {
+      if (import.meta.env.DEV) {
         console.warn(`⚠️ Camera Controller: Facet ref not available for ${facetKey} (index ${facetIndex})`);
       }
       return null;
@@ -78,7 +78,7 @@ const UnifiedCameraController = ({
       const worldPosition = new THREE.Vector3();
       anchorObject.getWorldPosition(worldPosition);
       
-      if (process.env.NODE_ENV === 'development') {
+      if (import.meta.env.DEV) {
         console.log(`🎯 Camera Controller: Fresh anchor position for ${facetKey}:`, {
           anchorName,
           worldPosition: worldPosition.toArray(),
@@ -89,7 +89,7 @@ const UnifiedCameraController = ({
       
       return worldPosition;
     } else {
-      if (process.env.NODE_ENV === 'development') {
+      if (import.meta.env.DEV) {
         console.warn(`⚠️ Camera Controller: Anchor "${anchorName}" not found in facet ${facetKey}`);
       }
       return null;
@@ -111,7 +111,7 @@ const UnifiedCameraController = ({
         };
       } else {
         // Fallback to default project config if anchor not found
-        if (process.env.NODE_ENV === 'development') {
+        if (import.meta.env.DEV) {
           console.warn(`⚠️ Camera Controller: No anchor found for ${focusedFacet}, using default target`);
         }
         return {
@@ -156,7 +156,7 @@ const UnifiedCameraController = ({
       enhancedConfig.description !== lastCameraConfig.current.description; // Also check description
 
     if (configChanged) {
-      if (process.env.NODE_ENV === 'development') {
+      if (import.meta.env.DEV) {
         console.log('📹 Camera Controller: Enhanced camera target updated:', {
           state: animationData.state,
           cameraState: cameraState,
@@ -202,7 +202,7 @@ const UnifiedCameraController = ({
         animationSpeed.current.lookAt = 0.05;
         animationSpeed.current.fov = 0.05;
         
-        if (process.env.NODE_ENV === 'development') {
+        if (import.meta.env.DEV) {
           console.log(`📹 Camera Controller: Project focus camera update: ${focusedFacet}, distance: ${positionDistance.toFixed(2)}, using anchor: ${enhancedConfig.description?.includes('anchor')}`);
         }
       } else {

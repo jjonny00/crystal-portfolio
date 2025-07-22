@@ -45,7 +45,7 @@ export const useAssetLoader = (performanceProfile, deviceProfile) => {
       window.updateImmediateLoader(finalProgress, displayPhase, name || assetKey);
     }
 
-    if (process.env.NODE_ENV === "development") console.log(`📊 Asset progress: ${assetKey} = ${Math.round(progress * 100)}%, Total: ${finalProgress}%`);
+    if (import.meta.env.DEV) console.log(`📊 Asset progress: ${assetKey} = ${Math.round(progress * 100)}%, Total: ${finalProgress}%`);
   }, []);
 
   /**
@@ -97,7 +97,7 @@ export const useAssetLoader = (performanceProfile, deviceProfile) => {
       name: 'Environment: HDRI' 
     });
 
-    if (process.env.NODE_ENV === "development") console.log('📦 Required assets:', {
+    if (import.meta.env.DEV) console.log('📦 Required assets:', {
       total: requiredAssets.length,
       models: requiredAssets.filter(a => a.type === 'model').length,
       textures: requiredAssets.filter(a => a.type === 'texture').length,
@@ -162,11 +162,11 @@ export const useAssetLoader = (performanceProfile, deviceProfile) => {
         })
         .then(() => {
           const loadTime = Date.now() - startTime;
-          if (process.env.NODE_ENV === "development") console.log(`✅ ${asset.name} loaded in ${loadTime}ms`);
+          if (import.meta.env.DEV) console.log(`✅ ${asset.name} loaded in ${loadTime}ms`);
           resolve();
         })
         .catch(error => {
-          if (process.env.NODE_ENV === "development") console.error(`❌ Failed to load ${asset.name}:`, error);
+          if (import.meta.env.DEV) console.error(`❌ Failed to load ${asset.name}:`, error);
           updateProgress(asset.key, 1, `${asset.name} (error)`);
           // Don't reject - continue loading other assets
           resolve();
@@ -216,10 +216,10 @@ export const useAssetLoader = (performanceProfile, deviceProfile) => {
         window.updateImmediateLoader(100, 'Ready', 'All assets loaded');
       }
 
-      if (process.env.NODE_ENV === "development") console.log('✅ All assets loaded successfully');
+      if (import.meta.env.DEV) console.log('✅ All assets loaded successfully');
       
     } catch (error) {
-      if (process.env.NODE_ENV === "development") console.error('❌ Asset loading failed:', error);
+      if (import.meta.env.DEV) console.error('❌ Asset loading failed:', error);
       setLoadingState(prev => ({
         ...prev,
         phase: 'error',
@@ -235,7 +235,7 @@ export const useAssetLoader = (performanceProfile, deviceProfile) => {
   useEffect(() => {
     if (performanceProfile && !hasStartedLoading.current) {
       hasStartedLoading.current = true;
-      if (process.env.NODE_ENV === "development") console.log('🚀 Starting asset loading with performance profile');
+      if (import.meta.env.DEV) console.log('🚀 Starting asset loading with performance profile');
       
       // Small delay to ensure HTML loader is ready
       setTimeout(() => {
