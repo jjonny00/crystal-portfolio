@@ -20,8 +20,11 @@ const CrystalMaterial = ({
   const {
     useNormalMaps = true,
     textureQuality = 'high',
-    usePBR = true
+    pbrQuality = 'high'
   } = performanceConfig;
+
+  const usePBR = pbrQuality !== 'low';
+  const isMedium = pbrQuality === 'medium';
   
   // ENHANCED: Create material with better shadow handling for transparent objects
   useEffect(() => {
@@ -86,7 +89,7 @@ const CrystalMaterial = ({
           baseConfig.envMapIntensity = usePBR ? 2.0 : 1.5;
           baseConfig.opacity = usePBR ? 0.6 : 0.7;
           break;
-          
+
         default:
           // Default variant - adaptive settings based on PBR availability
           if (!usePBR) {
@@ -104,6 +107,13 @@ const CrystalMaterial = ({
             baseConfig.reflectivity = Math.min(baseConfig.reflectivity + 0.1, 1.0);
           }
           break;
+      }
+
+      // Apply medium quality tweaks
+      if (isMedium && usePBR) {
+        baseConfig.transmission *= 0.7;
+        if (baseConfig.clearcoat !== undefined) baseConfig.clearcoat *= 0.7;
+        if (baseConfig.iridescence !== undefined) baseConfig.iridescence *= 0.5;
       }
       
       // UPDATED: Create material with improved shadow handling for transparent objects
@@ -275,7 +285,7 @@ const CrystalMaterial = ({
           material.emissiveIntensity = Math.max(0.15, currentEmissiveIntensity);
           material.envMapIntensity = usePBR ? 2.0 : 1.5;
           break;
-          
+
         default:
           // Apply performance adjustments to default settings
           if (!usePBR) {
@@ -292,6 +302,12 @@ const CrystalMaterial = ({
           }
           break;
       }
+
+      if (isMedium && usePBR) {
+        material.transmission *= 0.7;
+        if (material.clearcoat !== undefined) material.clearcoat *= 0.7;
+        if (material.iridescence !== undefined) material.iridescence *= 0.5;
+      }
       
       material.needsUpdate = true;
     };
@@ -305,7 +321,7 @@ const CrystalMaterial = ({
     
     if (onMaterialReady) onMaterialReady(materialRef.current);
     
-  }, [config.materials.crystal, variant, materialRef, usePBR, useNormalMaps]);
+  }, [config.materials.crystal, variant, materialRef, usePBR, isMedium, useNormalMaps]);
   
   // ENHANCED: Separate effect for handling normal maps with better error handling
   useEffect(() => {

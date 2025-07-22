@@ -12,14 +12,14 @@ const PerformanceControls = ({
   // Performance options state
   const [useNormalMaps, setUseNormalMaps] = useState(performanceConfig?.useNormalMaps ?? true);
   const [textureQuality, setTextureQuality] = useState(performanceConfig?.textureQuality ?? 'high');
-  const [usePBR, setUsePBR] = useState(performanceConfig?.usePBR ?? true);
+  const [pbrQuality, setPbrQuality] = useState(performanceConfig?.pbrQuality ?? 'high');
   
   // Update local state when config changes externally
   useEffect(() => {
     if (performanceConfig) {
       if (performanceConfig.useNormalMaps !== undefined) setUseNormalMaps(performanceConfig.useNormalMaps);
       if (performanceConfig.textureQuality !== undefined) setTextureQuality(performanceConfig.textureQuality);
-      if (performanceConfig.usePBR !== undefined) setUsePBR(performanceConfig.usePBR);
+      if (performanceConfig.pbrQuality !== undefined) setPbrQuality(performanceConfig.pbrQuality);
     }
   }, [performanceConfig]);
 
@@ -36,14 +36,14 @@ const PerformanceControls = ({
     }
   };
   
-  const handlePBRToggle = () => {
-    const newValue = !usePBR;
-    setUsePBR(newValue);
-    
+  const handlePbrQualityChange = (value) => {
+    setPbrQuality(value);
+
     if (onConfigUpdate) {
       onConfigUpdate({
         ...performanceConfig,
-        usePBR: newValue
+        pbrQuality: value,
+        usePBR: value !== 'low'
       });
     }
   };
@@ -201,18 +201,42 @@ const PerformanceControls = ({
         />
       </div>
       
-      {/* PBR Toggle */}
-      <div 
-        style={{
-          ...toggleContainerStyle,
-          backgroundColor: usePBR ? 'rgba(100, 255, 218, 0.1)' : 'rgba(0, 0, 0, 0.2)'
-        }}
-      >
-        <div style={toggleLabelStyle}>Use PBR Materials</div>
-        <ToggleSwitch 
-          checked={usePBR}
-          onChange={handlePBRToggle}
-        />
+
+      {/* Material Quality */}
+      <div style={radioContainerStyle}>
+        <div style={toggleLabelStyle}>Material Quality</div>
+        <div style={radioGroupStyle}>
+          <label style={radioLabelStyle}>
+            <input
+              type="radio"
+              name="pbrQuality"
+              value="low"
+              checked={pbrQuality === 'low'}
+              onChange={() => handlePbrQualityChange('low')}
+            />
+            Low (Non-PBR)
+          </label>
+          <label style={radioLabelStyle}>
+            <input
+              type="radio"
+              name="pbrQuality"
+              value="medium"
+              checked={pbrQuality === 'medium'}
+              onChange={() => handlePbrQualityChange('medium')}
+            />
+            Medium
+          </label>
+          <label style={radioLabelStyle}>
+            <input
+              type="radio"
+              name="pbrQuality"
+              value="high"
+              checked={pbrQuality === 'high'}
+              onChange={() => handlePbrQualityChange('high')}
+            />
+            High
+          </label>
+        </div>
       </div>
       
       {/* Texture Quality Radio Buttons */}
@@ -253,7 +277,7 @@ const PerformanceControls = ({
       </div>
       
       <div style={infoTextStyle}>
-        <p>These settings can significantly improve performance on lower-end devices or mobile phones. Try disabling normal maps and PBR materials for the best performance boost.</p>
+        <p>These settings can significantly improve performance on lower-end devices or mobile phones. Try lowering material quality and disabling normal maps for the best boost.</p>
         <p style={{ marginTop: '8px' }}>Changes apply to newly loaded materials and may require refreshing the page to take full effect.</p>
       </div>
     </div>
