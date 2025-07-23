@@ -1,7 +1,7 @@
 // UPDATED: src/components/layout/Fixed3DCanvas.jsx
 // ADDED: Bottom directional light to illuminate crystal undersides
 
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Environment, OrbitControls } from '@react-three/drei';
 import { EffectComposer, Bloom, ChromaticAberration, Noise, Vignette } from '@react-three/postprocessing';
@@ -44,7 +44,7 @@ const PulsingOmniLight = () => {
 /**
  * UPDATED: Fixed3DCanvas with bottom directional light for better crystal illumination
  */
-const Fixed3DCanvas = ({ 
+const Fixed3DCanvas = forwardRef(({
   // Animation data from MasterAnimationCoordinator
   animationData,
   
@@ -57,9 +57,14 @@ const Fixed3DCanvas = ({
   canvasProps = {},
   environmentProps = {},
   isMobile = false
-}) => {
+}, ref) => {
   // NEW: Ref to access crystal scene for debug panels
   const crystalSceneRef = useRef();
+
+  // Expose internal state to parent components
+  useImperativeHandle(ref, () => ({
+    modelsLoaded: crystalSceneRef.current?.modelsLoaded || false
+  }), [crystalSceneRef.current?.modelsLoaded]);
   
   // NEW: State for debug data
   const [debugData, setDebugData] = useState({
@@ -290,6 +295,6 @@ const Fixed3DCanvas = ({
       )}
     </>
   );
-};
+});
 
 export default Fixed3DCanvas;

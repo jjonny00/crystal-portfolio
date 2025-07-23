@@ -44,6 +44,9 @@ const UnifiedCrystalScene = forwardRef(({
   // Track material updates so we can reapply when ready
   const [materialVersion, setMaterialVersion] = useState(0);
 
+  // Track when GLTF models have loaded
+  const [modelsLoaded, setModelsLoaded] = useState(false);
+
   const handleMaterialReady = useCallback(() => {
     setMaterialVersion(v => v + 1);
   }, []);
@@ -59,6 +62,9 @@ const UnifiedCrystalScene = forwardRef(({
   useImperativeHandle(ref, () => ({
     // Expose the refs array directly (this is what Fixed3DCanvas expects)
     facetRefs: facetRefs.current,
+
+    // Loaded state for parent components
+    modelsLoaded,
     
     // Helper method for getting specific facet ref
     getFacetRef: (index) => facetRefs.current[index],
@@ -130,7 +136,7 @@ const UnifiedCrystalScene = forwardRef(({
         }
       }
     }
-  }), [facetKeys, showWholeCrystal, showFacets, sphereVisible, showCrystalDebug]);
+  }), [facetKeys, showWholeCrystal, showFacets, sphereVisible, showCrystalDebug, modelsLoaded]);
 
   // Load models
   const wholeCrystal = useGLTF(config.assets.models.crystalWhole);
@@ -142,6 +148,15 @@ const UnifiedCrystalScene = forwardRef(({
     useGLTF(config.assets.models.facetLeadership),
     useGLTF(config.assets.models.facetExploration)
   ];
+
+  // Mark models as loaded when all GLTF hooks resolve
+  useEffect(() => {
+    const allLoaded =
+      wholeCrystal && facetModels.every((m) => m && m.scene);
+    if (allLoaded) {
+      setModelsLoaded(true);
+    }
+  }, [wholeCrystal, ...facetModels]);
   
   // Keyboard listener for debug toggle
   useEffect(() => {
