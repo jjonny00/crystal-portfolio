@@ -98,6 +98,10 @@ function App() {
   // ENHANCED: App ready state with better tracking
   // ========================================
   const [isAppReady, setIsAppReady] = useState(false);
+
+  // Track when GLTF models have loaded via Fixed3DCanvas
+  const fixedCanvasRef = useRef();
+  const [modelsLoaded, setModelsLoaded] = useState(false);
   
   // Basic state hooks
   const [hideAllUI, setHideAllUI] = useState(false);
@@ -295,9 +299,21 @@ function App() {
     }
   }, [isAppReady]);
 
-  // ENHANCED: Start performance test when device profile and assets are ready
+  // Poll the Fixed3DCanvas ref until models are loaded
   useEffect(() => {
-    if (deviceProfile && isReady && !testPerformanceConfig && !isPerfTesting) {
+    if (modelsLoaded) return;
+    const id = setInterval(() => {
+      if (fixedCanvasRef.current?.modelsLoaded) {
+        setModelsLoaded(true);
+        clearInterval(id);
+      }
+    }, 100);
+    return () => clearInterval(id);
+  }, [modelsLoaded]);
+
+  // ENHANCED: Start performance test when device profile, assets and models are ready
+  useEffect(() => {
+    if (deviceProfile && isReady && modelsLoaded && !testPerformanceConfig && !isPerfTesting) {
       if (import.meta.env.DEV) console.log('🔬 Starting enhanced performance test for device:', {
         category: deviceProfile.category,
         tier: deviceProfile.performanceTier,
@@ -306,7 +322,7 @@ function App() {
       });
       startPerfTest();
     }
-  }, [deviceProfile, isReady, testPerformanceConfig, isPerfTesting, startPerfTest]);
+  }, [deviceProfile, isReady, modelsLoaded, testPerformanceConfig, isPerfTesting, startPerfTest]);
 
   // Apply performance config when test completes
   useEffect(() => {
@@ -434,9 +450,10 @@ function App() {
         config={animationConfig}
       >
         {/* Fixed 3D Canvas */}
-        <Fixed3DCanvas
-          materialVariant={materialVariant}
-          effectsEnabled={effectsEnabled}
+          <Fixed3DCanvas
+            ref={fixedCanvasRef}
+            materialVariant={materialVariant}
+            effectsEnabled={effectsEnabled}
           postProcessingConfig={postProcessingConfig}
           performanceConfig={performanceConfig}
           config={config}
