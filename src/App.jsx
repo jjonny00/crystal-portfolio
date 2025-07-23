@@ -130,6 +130,7 @@ function App() {
   const [postProcessingConfig, setPostProcessingConfig] = useState(config.postProcessing);
   const [performanceConfig, setPerformanceConfig] = useState(null);
 
+
   // ENHANCED: Device profile hook with better debugging
   const {
     performanceProfile: devicePerformanceProfile,
@@ -145,6 +146,14 @@ function App() {
     enableDebugLogging: true,
     enableOrientationLock: false
   });
+
+  // Initialize effects from the detected device profile
+  useEffect(() => {
+    if (devicePerformanceProfile?.postProcessing) {
+      setEffectsEnabled(devicePerformanceProfile.postProcessing);
+      setPostProcessingConfig(devicePerformanceProfile.postProcessing);
+    }
+  }, [devicePerformanceProfile]);
 
   // ENHANCED: Asset loader hook
   const {
@@ -178,6 +187,14 @@ function App() {
 
   // Detect if mobile
   const isMobile = isMobileDevice();
+
+  // Sync effects with the current performance configuration
+  useEffect(() => {
+    if (performanceConfig?.postProcessing) {
+      setEffectsEnabled(performanceConfig.postProcessing);
+      setPostProcessingConfig(performanceConfig.postProcessing);
+    }
+  }, [performanceConfig]);
 
   // ========================================
   // ENHANCED: Callbacks with better logging
@@ -245,7 +262,12 @@ function App() {
   const handlePerformanceConfigUpdate = useCallback((newConfig) => {
     if (import.meta.env.DEV) console.log("🔧 Manual performance config update:", newConfig);
     setPerformanceConfig(newConfig);
-    
+
+    if (newConfig?.postProcessing) {
+      setEffectsEnabled(newConfig.postProcessing);
+      setPostProcessingConfig(newConfig.postProcessing);
+    }
+
     if (hasInitialized && updateExternalPerformanceConfig) {
       if (import.meta.env.DEV) console.log("📤 Sending manual config to device profile");
       updateExternalPerformanceConfig(newConfig);
