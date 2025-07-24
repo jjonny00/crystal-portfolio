@@ -147,48 +147,51 @@ const MaterialManager = ({
     }
   }, [isLow, config.materials.crystal.color, config.materials.crystal.emissive, materialVariant, onMaterialReady]);
 
-  // MEDIUM: Create simplified PBR material without expensive features
+  // MEDIUM: Create PBR material without heavy features
   useEffect(() => {
     if (isMedium && !mediumMaterialRef.current) {
       if (import.meta.env.DEV) console.log('🚀 Creating MEDIUM quality crystal material');
 
       const materialProps = {
         color: new THREE.Color('#1f2391'),
-        metalness: 0.2,
-        roughness: 0.15,
-        envMapIntensity: 2.0,
+        metalness: 0.4,
+        roughness: 0.1,
+        envMapIntensity: 5.0,
         transparent: true,
-        opacity: 0.95,
+        opacity: 0.9,
         side: THREE.FrontSide,
         fog: true,
         depthWrite: true,
         depthTest: true,
         shadowSide: THREE.DoubleSide,
         emissive: new THREE.Color('#a7ffdb'),
-        emissiveIntensity: 0.05,
+        emissiveIntensity: 0.1,
+        clearcoat: 0,
+        iridescence: 0,
+        transmission: 0,
         precision: safePerformanceConfig.highPrecision ? 'highp' : 'mediump'
       };
 
       switch(materialVariant) {
         case 'glass':
           materialProps.color.set('#f0f8ff');
-          materialProps.metalness = 0.1;
+          materialProps.metalness = 0.3;
           materialProps.roughness = 0.05;
-          materialProps.envMapIntensity = 2.0;
+          materialProps.envMapIntensity = 5.0;
           materialProps.emissive.set('#ffffff');
           break;
         case 'gem':
           materialProps.color.set('#6644bb');
-          materialProps.metalness = 0.4;
-          materialProps.roughness = 0.1;
-          materialProps.envMapIntensity = 2.5;
+          materialProps.metalness = 0.6;
+          materialProps.roughness = 0.08;
+          materialProps.envMapIntensity = 5.0;
           materialProps.emissive.set('#220044');
           break;
         case 'holographic':
           materialProps.color.set('#00dddd');
-          materialProps.metalness = 0.7;
-          materialProps.roughness = 0.05;
-          materialProps.envMapIntensity = 3.0;
+          materialProps.metalness = 0.9;
+          materialProps.roughness = 0.02;
+          materialProps.envMapIntensity = 5.5;
           materialProps.emissive.set('#004444');
           break;
         default:
@@ -198,9 +201,11 @@ const MaterialManager = ({
           if (config.materials.crystal.emissive) {
             materialProps.emissive.copy(config.materials.crystal.emissive);
           }
+          materialProps.envMapIntensity = 5.0;
+          break;
       }
 
-      const mediumMat = new THREE.MeshStandardMaterial(materialProps);
+      const mediumMat = new THREE.MeshPhysicalMaterial(materialProps);
       mediumMaterialRef.current = mediumMat;
 
       if (import.meta.env.DEV) console.log('✅ Medium material created:', {
@@ -364,31 +369,33 @@ const MaterialManager = ({
       switch(materialVariant) {
         case 'glass':
           material.color.set('#f0f8ff');
-          material.metalness = 0.1;
+          material.metalness = 0.3;
           material.roughness = 0.05;
-          material.envMapIntensity = 2.0;
+          material.envMapIntensity = 5.0;
           material.emissive.set('#ffffff');
-          material.emissiveIntensity = Math.max(0.05, currentEmissiveIntensity);
+          material.emissiveIntensity = Math.max(0.1, currentEmissiveIntensity);
           break;
         case 'gem':
           material.color.set('#6644bb');
-          material.metalness = 0.4;
-          material.roughness = 0.1;
-          material.envMapIntensity = 2.5;
+          material.metalness = 0.6;
+          material.roughness = 0.08;
+          material.envMapIntensity = 5.0;
           material.emissive.set('#220044');
-          material.emissiveIntensity = Math.max(0.1, currentEmissiveIntensity);
+          material.emissiveIntensity = Math.max(0.15, currentEmissiveIntensity);
           break;
         case 'holographic':
           material.color.set('#00dddd');
-          material.metalness = 0.7;
-          material.roughness = 0.05;
-          material.envMapIntensity = 3.0;
+          material.metalness = 0.9;
+          material.roughness = 0.02;
+          material.envMapIntensity = 5.5;
           material.emissive.set('#004444');
-          material.emissiveIntensity = Math.max(0.15, currentEmissiveIntensity);
+          material.emissiveIntensity = Math.max(0.2, currentEmissiveIntensity);
           break;
         default:
           if (config.materials.crystal.color) material.color.copy(config.materials.crystal.color);
           if (config.materials.crystal.emissive) material.emissive.copy(config.materials.crystal.emissive);
+          material.envMapIntensity = 5.0;
+          break;
       }
 
       material.shadowSide = THREE.DoubleSide;
