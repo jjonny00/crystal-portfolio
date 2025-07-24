@@ -147,18 +147,18 @@ const MaterialManager = ({
     }
   }, [isLow, config.materials.crystal.color, config.materials.crystal.emissive, materialVariant, onMaterialReady]);
 
-  // MEDIUM: Create MeshStandardMaterial without heavy features
+  // MEDIUM: Create MeshPhysicalMaterial with higher reflectivity
   useEffect(() => {
     if (isMedium && !mediumMaterialRef.current) {
       if (import.meta.env.DEV) console.log('🚀 Creating MEDIUM quality crystal material');
 
       const materialProps = {
         color: new THREE.Color('#1f2391'),
-        metalness: 0.1,
-        roughness: 0.01,
-        envMapIntensity: 25.0,
+        metalness: 1.0,
+        roughness: 0.05,
+        envMapIntensity: 8.0,
         transparent: true,
-        opacity: 0.95,
+        opacity: 0.85,
         side: THREE.FrontSide,
         fog: true,
         depthWrite: true,
@@ -169,8 +169,10 @@ const MaterialManager = ({
         clearcoat: 0,
         iridescence: 0,
         transmission: 0,
-        precision: safePerformanceConfig.highPrecision ? 'highp' : 'mediump',
-        reflectivity: 15.8
+        reflectivity: 0.9,
+        specularIntensity: 1.2,
+        specularColor: new THREE.Color('#ffffff'),
+        precision: safePerformanceConfig.highPrecision ? 'highp' : 'mediump'
       };
 
       switch(materialVariant) {
@@ -206,7 +208,7 @@ const MaterialManager = ({
           break;
       }
 
-      const mediumMat = new THREE.MeshStandardMaterial(materialProps);
+      const mediumMat = new THREE.MeshPhysicalMaterial(materialProps);
       mediumMaterialRef.current = mediumMat;
 
       if (import.meta.env.DEV) console.log('✅ Medium material created:', {
@@ -399,6 +401,11 @@ const MaterialManager = ({
           break;
       }
 
+      material.reflectivity = 0.9;
+      material.specularIntensity = 1.2;
+      material.specularColor.set('#ffffff');
+      material.opacity = 0.85;
+      
       material.shadowSide = THREE.DoubleSide;
       material.needsUpdate = true;
     }
