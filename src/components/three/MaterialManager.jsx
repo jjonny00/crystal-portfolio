@@ -156,7 +156,7 @@ const MaterialManager = ({
         color: new THREE.Color('#1f2391'),
         metalness: 0.1,
         roughness: 0.01,
-        envMapIntensity: 15.0,
+        envMapIntensity: 25.0,
         transparent: true,
         opacity: 0.95,
         side: THREE.FrontSide,
@@ -170,7 +170,7 @@ const MaterialManager = ({
         iridescence: 0,
         transmission: 0,
         precision: safePerformanceConfig.highPrecision ? 'highp' : 'mediump',
-        reflectivity: 1.8
+        reflectivity: 15.8
       };
 
       switch(materialVariant) {
