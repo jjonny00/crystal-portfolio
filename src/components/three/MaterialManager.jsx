@@ -147,7 +147,7 @@ const MaterialManager = ({
     }
   }, [isLow, config.materials.crystal.color, config.materials.crystal.emissive, materialVariant, onMaterialReady]);
 
-  // MEDIUM: Create PBR material without heavy features
+  // MEDIUM: Create MeshStandardMaterial without heavy features
   useEffect(() => {
     if (isMedium && !mediumMaterialRef.current) {
       if (import.meta.env.DEV) console.log('🚀 Creating MEDIUM quality crystal material');
@@ -206,7 +206,7 @@ const MaterialManager = ({
           break;
       }
 
-      const mediumMat = new THREE.MeshPhysicalMaterial(materialProps);
+      const mediumMat = new THREE.MeshStandardMaterial(materialProps);
       mediumMaterialRef.current = mediumMat;
 
       if (import.meta.env.DEV) console.log('✅ Medium material created:', {
