@@ -154,11 +154,11 @@ const MaterialManager = ({
 
       const materialProps = {
         color: new THREE.Color('#1f2391'),
-        metalness: 0.4,
-        roughness: 0.1,
-        envMapIntensity: 5.0,
+        metalness: 0.1,
+        roughness: 0.01,
+        envMapIntensity: 15.0,
         transparent: true,
-        opacity: 0.9,
+        opacity: 0.95,
         side: THREE.FrontSide,
         fog: true,
         depthWrite: true,
@@ -169,7 +169,8 @@ const MaterialManager = ({
         clearcoat: 0,
         iridescence: 0,
         transmission: 0,
-        precision: safePerformanceConfig.highPrecision ? 'highp' : 'mediump'
+        precision: safePerformanceConfig.highPrecision ? 'highp' : 'mediump',
+        reflectivity: 1.8
       };
 
       switch(materialVariant) {

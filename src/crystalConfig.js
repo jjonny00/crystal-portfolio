@@ -221,11 +221,11 @@ export const effects = {
 export const materials = {
   // Base crystal material configuration
   crystal: {
-    color: new THREE.Color('#120a2d'),
+    color: new THREE.Color('#0d042b'),
     transparent: true,
     transmission: 0.7,
     ior: 2.3,
-    thickness: 0.1,
+    thickness: 0.01,
     iridescence: 0.3,
     iridescenceIOR: 1.3,
     metalness: 0.0,
