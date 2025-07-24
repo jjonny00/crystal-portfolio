@@ -2,6 +2,7 @@
 // FIXED: Immediate progress updates and proper asset tracking
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { preloadAssets } from '../utils/preloadAssets';
 
 /**
  * FIXED: Asset Loader with immediate progress updates
@@ -90,6 +91,8 @@ export const useAssetLoader = (performanceProfile, deviceProfile) => {
     // Load HDRI environment
     const hdriQuality = performanceProfile?.hdriQuality || 'low';
     const hdriPath = `/assets/environment/prismatic09-${hdriQuality}.hdr`;
+    // Preload models, textures and HDRI for quicker subsequent access
+    preloadAssets(hdriQuality);
     requiredAssets.push({ 
       type: 'environment', 
       key: 'hdri', 
@@ -110,13 +113,22 @@ export const useAssetLoader = (performanceProfile, deviceProfile) => {
   /**
    * Load single asset with immediate progress updates
    */
+
   const loadSingleAsset = useCallback((asset) => {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       const startTime = Date.now();
-      
+
       // Start loading immediately
       updateProgress(asset.key, 0, `Loading ${asset.name}...`);
-      
+
+      if (asset.type === 'model') {
+        // Models are already preloaded via drei loaders
+        updateProgress(asset.key, 1, `${asset.name} preloaded`);
+        if (import.meta.env.DEV) console.log(`✅ ${asset.name} preloaded`);
+        resolve();
+        return;
+      }
+
       fetch(asset.url)
         .then(response => {
           if (!response.ok) {
