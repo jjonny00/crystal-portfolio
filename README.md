@@ -15,6 +15,10 @@ Options such as `enableDebugLogging`, `enableOrientationLock` and `enableProfile
 
 The returned `updateExternalPerformanceConfig` function allows you to override the automatic profile at runtime (for example from the "Performance" tab in the UI).
 
+### Debugging in production
+
+To inspect the device and performance profiles in a live build set `window.__PERF_DEBUG__ = true` in the browser console. Set it back to `false` to hide debug output.
+
 ## One‑time performance test
 
 After the device profile is resolved the app runs `useInitialPerformanceTest`. This hook measures the FPS for about four seconds and adjusts the performance profile if necessary. The test runs only once on first load. When complete, the resulting profile is stored via `updateExternalPerformanceConfig`.
@@ -24,6 +28,7 @@ While detection and the FPS test are running the `LoadingScreen` component keeps
 ## Customising performance settings
 
 Performance presets for each device tier live in [`src/utils/deviceProfiles.js`](src/utils/deviceProfiles.js). To tweak defaults edit those profiles. To override the active settings at runtime call `updateExternalPerformanceConfig` with a custom configuration object. You may also enable the manual `overrideProfile` helper exposed by `useDeviceProfile` when developing.
+The predefined tiers are `high`, `medium`, `low` and the new `very-low` profile for extremely slow hardware.
 
 ## Development
 
