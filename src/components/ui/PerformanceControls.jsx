@@ -4,10 +4,12 @@ import { useState, useEffect } from 'react';
 /**
  * UI component for controlling performance-related settings
  */
-const PerformanceControls = ({ 
-  performanceConfig, 
-  onConfigUpdate, 
-  visible = false 
+const PerformanceControls = ({
+  performanceConfig,
+  onConfigUpdate,
+  visible = false,
+  onToggleDebug,
+  debugEnabled = false
 }) => {
   // Performance options state
   const [useNormalMaps, setUseNormalMaps] = useState(performanceConfig?.useNormalMaps ?? true);
@@ -280,6 +282,23 @@ const PerformanceControls = ({
         <p>These settings can significantly improve performance on lower-end devices or mobile phones. Try lowering material quality and disabling normal maps for the best boost.</p>
         <p style={{ marginTop: '8px' }}>Changes apply to newly loaded materials and may require refreshing the page to take full effect.</p>
       </div>
+
+      <button
+        onClick={onToggleDebug}
+        style={{
+          marginTop: '10px',
+          width: '100%',
+          backgroundColor: debugEnabled ? '#ffd600' : '#64ffda',
+          color: '#000',
+          border: 'none',
+          padding: '8px',
+          borderRadius: '4px',
+          fontWeight: 'bold',
+          cursor: 'pointer'
+        }}
+      >
+        {debugEnabled ? 'Hide Debug Panel' : 'Show Debug Panel'}
+      </button>
     </div>
   );
 };

@@ -279,6 +279,15 @@ function App() {
     setShowUI(!showUI);
   }, [showUI]);
 
+  const togglePerfDebug = useCallback(() => {
+    const next = !perfDebug;
+    window.__PERF_DEBUG__ = next;
+    setPerfDebug(next);
+    if (import.meta.env.DEV || next) {
+      console.log(`🛠️ Performance debug ${next ? 'enabled' : 'disabled'}`);
+    }
+  }, [perfDebug]);
+
   // ========================================
   // ENHANCED: Immediate loader with test progress
   // ========================================
@@ -541,6 +550,8 @@ function App() {
             performanceConfig={performanceConfig}
             onConfigUpdate={handlePerformanceConfigUpdate}
             visible={true}
+            onToggleDebug={togglePerfDebug}
+            debugEnabled={perfDebug}
           />
 
           <div>
