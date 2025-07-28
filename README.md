@@ -21,7 +21,7 @@ To inspect the device and performance profiles in a live build you can toggle th
 
 ## One‑time performance test
 
-After the device profile is resolved the app runs `useInitialPerformanceTest`. This hook measures the FPS for about four seconds and adjusts the performance profile if necessary. The test runs only once on first load. When complete, the resulting profile is stored via `updateExternalPerformanceConfig`.
+After the device profile is resolved the app runs `useInitialPerformanceTest`. This hook measures the FPS for about four seconds and adjusts the performance profile if necessary. When complete, the resulting configuration is saved to `localStorage` and passed back through `updateExternalPerformanceConfig` so subsequent visits start with the same settings.
 
 While detection and the FPS test are running the `LoadingScreen` component keeps the UI hidden. You can edit the loader styles or text in [`src/components/ui/LoadingScreen.jsx`](src/components/ui/LoadingScreen.jsx).
 

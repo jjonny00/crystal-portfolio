@@ -14,11 +14,14 @@ import {
 /**
  * FIXED: Custom hook for device detection and performance optimization
  */
+const LOCAL_STORAGE_KEY = 'crystal-performance-config';
+
 export const useDeviceProfile = (options = {}) => {
   const {
     enableDebugLogging = false,
     enableOrientationLock = true,
-    enableProfileOverride = true
+    enableProfileOverride = true,
+    resetCachedSettings = false
   } = options;
   
   // State for device and profile information
@@ -41,8 +44,27 @@ export const useDeviceProfile = (options = {}) => {
       const device = detectDevice();
       
       // Get appropriate profiles
-      const performance = getPerformanceProfile(device);
+      let performance = getPerformanceProfile(device);
       const ui = getUIProfile(device);
+
+      if (resetCachedSettings) {
+        localStorage.removeItem(LOCAL_STORAGE_KEY);
+      } else {
+        const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (stored) {
+          try {
+            const cached = JSON.parse(stored);
+            performance = { ...performance, ...cached };
+            if (import.meta.env.DEV) {
+              console.log('🔄 Applying cached performance config:', cached);
+            }
+          } catch (err) {
+            if (import.meta.env.DEV) {
+              console.error('Failed to parse cached performance config', err);
+            }
+          }
+        }
+      }
       
       // Apply orientation lock if needed
       if (enableOrientationLock && device.category === 'mobile') {
@@ -90,7 +112,7 @@ export const useDeviceProfile = (options = {}) => {
     } finally {
       setIsDetecting(false);
     }
-  }, [enableDebugLogging, enableOrientationLock]);
+  }, [enableDebugLogging, enableOrientationLock, resetCachedSettings]);
   
   // Initial detection on mount
   useEffect(() => {
