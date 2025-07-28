@@ -2,10 +2,11 @@ import { useRef, useEffect } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
-const UnifiedCameraController = ({ 
+const UnifiedCameraController = ({
   animationData,
   config,
   isMobile = false,
+  simplifiedAnimations = false,
   facetRefs = null // Facet refs passed from UnifiedCrystalScene
 }) => {
   const { camera } = useThree();
@@ -233,6 +234,14 @@ const UnifiedCameraController = ({
    */
   useFrame(() => {
     if (!currentTarget.current) return;
+
+    if (simplifiedAnimations) {
+      camera.position.copy(currentTarget.current.position);
+      camera.lookAt(currentTarget.current.lookAt);
+      camera.fov = currentTarget.current.fov;
+      camera.updateProjectionMatrix();
+      return;
+    }
 
     const currentSpeeds = animationSpeed.current;
 

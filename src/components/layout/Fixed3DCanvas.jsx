@@ -17,11 +17,15 @@ import { FPSCounter } from '../ui/FpsDisplay';
 // ADDED: Import the debug panels component
 import CrystalDebugPanels from '../ui/CrystalDebugPanels';
 
-const PulsingOmniLight = () => {
+const PulsingOmniLight = ({ simplified = false }) => {
   const lightRef = useRef();
-  
+
   useFrame((state) => {
     if (lightRef.current) {
+      if (simplified) {
+        lightRef.current.intensity = 100.5;
+        return;
+      }
       const time = state.clock.elapsedTime;
       const pulse = Math.sin(time * 2 + Math.sin(time * 0.7) * 0.5) * 0.3 + 1;
       lightRef.current.intensity = 100.5 * pulse;
@@ -77,6 +81,10 @@ const Fixed3DCanvas = forwardRef(({
     showCrystalDebug: false,
     lastCrystalForm: 'whole'
   });
+
+  const simplifiedAnimations = performanceConfig?.simplifiedAnimations;
+  const dustEnabled = !performanceConfig?.reducedParticles;
+  const particleCount = performanceConfig?.particleCount;
 
   // NEW: Update debug data when crystal scene changes
   useEffect(() => {
@@ -145,7 +153,9 @@ const Fixed3DCanvas = forwardRef(({
           <color attach="background" args={['#050505']} />
           
           {/* Persistent Dust System */}
-          <PersistentDustSystem />
+          {dustEnabled && (
+            <PersistentDustSystem count={particleCount} enabled={dustEnabled} />
+          )}
           
           {/* UPDATED: Enhanced lighting setup with bottom directional light */}
           <ambientLight intensity={config?.lighting?.ambient?.intensity || 0.4} />
@@ -182,7 +192,7 @@ const Fixed3DCanvas = forwardRef(({
               />
             ))}
 
-          <PulsingOmniLight />
+          <PulsingOmniLight simplified={simplifiedAnimations} />
           
           {/* Spot light */}
           <spotLight
@@ -195,10 +205,11 @@ const Fixed3DCanvas = forwardRef(({
           />
           
           {/* UPDATED: Enhanced Camera Controller with facet refs */}
-          <UnifiedCameraController 
+          <UnifiedCameraController
             animationData={animationData}
             config={config}
             isMobile={isMobile}
+            simplifiedAnimations={simplifiedAnimations}
             facetRefs={getFacetRefs()} // FIXED: Pass exposed facet refs for anchor targeting
           />
           
@@ -210,6 +221,7 @@ const Fixed3DCanvas = forwardRef(({
             materialVariant={materialVariant}
             performanceConfig={performanceConfig}
             isMobile={isMobile}
+            simplifiedAnimations={simplifiedAnimations}
           />
           
           {/* Environment (unchanged) */}

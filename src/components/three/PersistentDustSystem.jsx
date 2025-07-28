@@ -11,6 +11,7 @@ import * as THREE from 'three';
  */
 const PersistentDustSystem = ({
   count = 16,
+  enabled = true,
   emissionRadius = 5.5,
   emissionInnerRadius = 1.0,  // NEW: Inner radius for ring/donut shape
   emissionHeight = -4.0,
@@ -44,6 +45,9 @@ const PersistentDustSystem = ({
   enableFrustumCulling = false, // Keep particles alive even when emitter is off-screen
   maxDistance = 100             // Maximum distance from origin before culling particles
 }) => {
+  if (!enabled) {
+    return null;
+  }
   const particlesRef = useRef();
   const timeRef = useRef(0);
   
