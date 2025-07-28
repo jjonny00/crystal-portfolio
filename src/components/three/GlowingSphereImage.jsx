@@ -57,9 +57,10 @@ const GlowingSphereImage = ({
   
   // Animation state
   animationData = null,
-  
+
   // Debug
-  debugMode = false
+  debugMode = false,
+  simplifiedAnimations = false
 }) => {
   const meshRef = useRef();
   const { camera } = useThree();
@@ -208,7 +209,7 @@ const GlowingSphereImage = ({
     }
   });
   
-  if (!visible) return null;
+  if (!visible || simplifiedAnimations) return null;
   
   return (
     <mesh

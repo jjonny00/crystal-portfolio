@@ -14,10 +14,11 @@ import GlowingSphereImage, { BLENDING_MODES } from './GlowingSphereImage'
 
 const UnifiedCrystalScene = forwardRef(({ 
   animationData,
-  config, 
+  config,
   materialVariant = 'default',
   performanceConfig = { useNormalMaps: true, textureQuality: 'high', pbrQuality: 'high', usePBR: true },
-  isMobile = false
+  isMobile = false,
+  simplifiedAnimations = false
 }, ref) => {
   // Component refs for crystal animation
   const crystalGroupRef = useRef();
@@ -283,7 +284,7 @@ const UnifiedCrystalScene = forwardRef(({
 
   // Main animation loop
   useFrame(() => {
-    if (!animationData || !facetRefs.current.length) return;
+    if (!animationData || !facetRefs.current.length || simplifiedAnimations) return;
 
     const time = clock.getElapsedTime();
 
@@ -388,7 +389,7 @@ const UnifiedCrystalScene = forwardRef(({
       />
 
       {/* Enhanced Glowing Sphere */}
-      {sphereVisible && (
+      {sphereVisible && !simplifiedAnimations && (
         <GlowingSphereImage
           imagePath="/assets/textures/glowing-sphere06-noise.jpg"
           blendingMode={BLENDING_MODES.ADDITIVE}
@@ -402,6 +403,7 @@ const UnifiedCrystalScene = forwardRef(({
           position={[0, 0, 0]}
           visible={sphereVisible}
           animationData={animationData}
+          simplifiedAnimations={simplifiedAnimations}
           debugMode={import.meta.env.DEV}
         />
       )}
@@ -413,7 +415,7 @@ const UnifiedCrystalScene = forwardRef(({
         </group>
       )}
       
-      {showFacets && facetModels.map((model, index) => {
+      {showFacets && !simplifiedAnimations && facetModels.map((model, index) => {
         const facetKey = facetKeys[index];
 
         return (
@@ -427,7 +429,7 @@ const UnifiedCrystalScene = forwardRef(({
       })}
       
       {/* Debug visualization when enabled */}
-      {showCrystalDebug && showFacets && (
+      {showCrystalDebug && showFacets && !simplifiedAnimations && (
         <group name="anchor-debug-system">
           {facetKeys.map((facetKey, index) => {
             const facetRef = facetRefs.current[index];
