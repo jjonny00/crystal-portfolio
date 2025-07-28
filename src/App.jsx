@@ -105,6 +105,7 @@ function App() {
   
   // Basic state hooks
   const [hideAllUI, setHideAllUI] = useState(false);
+  const [perfDebug, setPerfDebug] = useState(window.__PERF_DEBUG__ || false);
   const [snapSpeed, setSnapSpeed] = useState('medium');
   const [config, setConfig] = useState({
     ...defaultConfig,
@@ -399,6 +400,16 @@ function App() {
           });
         }
       }
+
+      if (e.key === 'p' || e.key === 'P') {
+        if (!e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey) {
+          e.preventDefault();
+          const next = !window.__PERF_DEBUG__;
+          window.__PERF_DEBUG__ = next;
+          setPerfDebug(next);
+          if (import.meta.env.DEV || next) console.log(`🛠️ Performance debug ${next ? 'enabled' : 'disabled'}`);
+        }
+      }
     };
     
     window.addEventListener('keydown', handleKeyDown);
@@ -589,7 +600,7 @@ function App() {
       )}
 
       {/* ENHANCED: Debug Panel with detailed performance info */}
-      {import.meta.env.DEV && (
+      {(import.meta.env.DEV || perfDebug) && (
         <PerformanceDebugPanel
           deviceProfile={deviceProfile}
           performanceConfig={performanceConfig}

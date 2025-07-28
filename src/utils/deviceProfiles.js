@@ -95,7 +95,7 @@ export const mediumMobileProfile = {
  */
 export const lowEndMobileProfile = {
   ...basePerformanceSettings,
-  
+
   renderScale: 0.5,         // Keep low render scale
   
   // Disable all expensive features
@@ -120,6 +120,15 @@ export const lowEndMobileProfile = {
   
   reducedParticles: true,
   simplifiedAnimations: true  // CHANGED: Enable simplified animations
+};
+
+/**
+ * NEW: Extremely low-end profile for old hardware
+ * Mostly identical to lowEndMobileProfile but with an even lower render scale
+ */
+export const veryLowProfile = {
+  ...lowEndMobileProfile,
+  renderScale: 0.35
 };
 
 /**
@@ -235,12 +244,20 @@ export const getPerformanceProfile = (deviceProfile) => {
         pbrQuality: 'high',
         usePBR: true  // Keep PBR on desktop even if medium performance
       };
-    } else {
+    } else if (deviceProfile.performanceTier === 'low') {
       return {
         ...desktopProfile,
         renderScale: 0.6,
         pbrQuality: 'low',
-        usePBR: false,    // Only disable PBR on very low-end desktop
+        usePBR: false,
+        textureQuality: 'low'
+      };
+    } else {
+      return {
+        ...desktopProfile,
+        renderScale: 0.4,
+        pbrQuality: 'low',
+        usePBR: false,
         textureQuality: 'low'
       };
     }
@@ -251,8 +268,12 @@ export const getPerformanceProfile = (deviceProfile) => {
     if (deviceProfile.performanceTier === 'high') {
       if (import.meta.env.DEV) console.log('✅ High-end tablet - using optimized non-PBR profile');
       return highEndTabletProfile;
-    } else {
+    } else if (deviceProfile.performanceTier === 'medium') {
       return mediumTabletProfile;
+    } else if (deviceProfile.performanceTier === 'low') {
+      return { ...mediumTabletProfile, renderScale: 0.6, textureQuality: 'low' };
+    } else {
+      return veryLowProfile;
     }
   }
   
@@ -263,8 +284,10 @@ export const getPerformanceProfile = (deviceProfile) => {
       return highEndMobileProfile;
     } else if (deviceProfile.performanceTier === 'medium') {
       return mediumMobileProfile;
-    } else {
+    } else if (deviceProfile.performanceTier === 'low') {
       return lowEndMobileProfile;
+    } else {
+      return veryLowProfile;
     }
   }
   
@@ -370,14 +393,17 @@ export const getCanvasDPR = (deviceProfile, performanceProfile) => {
 };
 
 export const logProfileInfo = (deviceProfile, performanceProfile, uiProfile) => {
-  if (import.meta.env.DEV) console.group('🎮 OPTIMIZED Device Profile Configuration');
-  if (import.meta.env.DEV) console.log('Device:', deviceProfile);
-  if (import.meta.env.DEV) console.log('Performance Profile:', performanceProfile);
-  if (import.meta.env.DEV) console.log('UI Profile:', uiProfile);
-  if (import.meta.env.DEV) console.log('HDRI Path:', getHDRIPath(performanceProfile.hdriQuality));
-  if (import.meta.env.DEV) console.log('Recommended DPR:', getCanvasDPR(deviceProfile, performanceProfile));
-  
-  if (import.meta.env.DEV) console.log('📊 OPTIMIZED Performance Summary:', {
+  const debugEnabled = import.meta.env.DEV || window.__PERF_DEBUG__;
+  if (!debugEnabled) return;
+
+  console.group('🎮 OPTIMIZED Device Profile Configuration');
+  console.log('Device:', deviceProfile);
+  console.log('Performance Profile:', performanceProfile);
+  console.log('UI Profile:', uiProfile);
+  console.log('HDRI Path:', getHDRIPath(performanceProfile.hdriQuality));
+  console.log('Recommended DPR:', getCanvasDPR(deviceProfile, performanceProfile));
+
+  console.log('📊 OPTIMIZED Performance Summary:', {
     renderScale: performanceProfile.renderScale,
     pbrQuality: performanceProfile.pbrQuality,
     usePBR: performanceProfile.usePBR,
@@ -388,6 +414,6 @@ export const logProfileInfo = (deviceProfile, performanceProfile, uiProfile) => 
       .map(([effect, _]) => effect),
     optimization: performanceProfile.pbrQuality
   });
-  
-  if (import.meta.env.DEV) console.groupEnd();
+
+  console.groupEnd();
 };

@@ -235,6 +235,9 @@ const classifyEnhancedPerformance = (capabilities, gpuInfo) => {
     }
     
     // Low-end desktop
+    if (gpuInfo?.tier === 'integrated-old' || capabilities.cpuCores <= 2 || capabilities.estimatedRAM <= 4) {
+      return 'very-low';
+    }
     return 'low';
   }
   
@@ -254,6 +257,9 @@ const classifyEnhancedPerformance = (capabilities, gpuInfo) => {
     }
     
     // Low-end mobile
+    if (capabilities.estimatedRAM <= 2 || gpuInfo?.tier === 'mobile-unknown') {
+      return 'very-low';
+    }
     return 'low';
   }
   

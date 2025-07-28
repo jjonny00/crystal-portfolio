@@ -55,7 +55,7 @@ export const useDeviceProfile = (options = {}) => {
       setUIProfile(ui);
       
       // Debug logging
-      if (enableDebugLogging) {
+      if (enableDebugLogging || window.__PERF_DEBUG__) {
         const profileKey = `${device.category}-${device.performanceTier}`;
         if (detectDeviceProfile.lastProfileKey !== profileKey) {
           logProfileInfo(device, performance, ui);
@@ -196,8 +196,8 @@ export const useDeviceProfile = (options = {}) => {
     
     setManualOverride({ tier, performance: overridePerformance });
     
-    if (enableDebugLogging) {
-      if (import.meta.env.DEV) console.log('🔧 Manual override applied:', tier, overridePerformance);
+    if (enableDebugLogging || window.__PERF_DEBUG__) {
+      if (import.meta.env.DEV || window.__PERF_DEBUG__) console.log('🔧 Manual override applied:', tier, overridePerformance);
     }
   }, [deviceProfile, enableProfileOverride, enableDebugLogging]);
   
@@ -276,7 +276,7 @@ export const useDeviceProfile = (options = {}) => {
   // Performance monitoring utilities
   const isHighPerformance = currentDeviceProfile?.performanceTier === 'high';
   const isMobileDevice = currentDeviceProfile?.isMobile || false;
-  const isLowEndDevice = currentDeviceProfile?.performanceTier === 'low';
+  const isLowEndDevice = ['low', 'very-low'].includes(currentDeviceProfile?.performanceTier);
   
   return {
     // Profile information
