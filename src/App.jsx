@@ -541,6 +541,13 @@ function App() {
             performanceConfig={performanceConfig}
             onConfigUpdate={handlePerformanceConfigUpdate}
             visible={true}
+            perfDebug={perfDebug}
+            togglePerfDebug={() => {
+              const next = !window.__PERF_DEBUG__;
+              window.__PERF_DEBUG__ = next;
+              setPerfDebug(next);
+              if (import.meta.env.DEV || next) console.log(`🛠️ Performance debug ${next ? 'enabled' : 'disabled'}`);
+            }}
           />
 
           <div>

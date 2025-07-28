@@ -17,7 +17,7 @@ The returned `updateExternalPerformanceConfig` function allows you to override t
 
 ### Debugging in production
 
-To inspect the device and performance profiles in a live build you can toggle the debug panel at any time by pressing **P**. This sets `window.__PERF_DEBUG__` to `true` and re‑pressing **P** hides it again.
+To inspect the device and performance profiles in a live build you can toggle the debug panel at any time by pressing **P** or by using the "Show Debug Panel" button under the *Performance* tab of the settings UI. Both methods set `window.__PERF_DEBUG__` to `true` and pressing the control again hides it.
 
 ## One‑time performance test
 
