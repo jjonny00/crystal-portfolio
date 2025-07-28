@@ -3,7 +3,7 @@
 
 import React from 'react';
 
-const PerformanceDebugPanel = ({ 
+const PerformanceDebugPanel = ({
   deviceProfile,
   performanceConfig,
   devicePerformanceProfile,
@@ -11,7 +11,7 @@ const PerformanceDebugPanel = ({
   hasInitialized,
   initialProfileApplied
 }) => {
-  if (!import.meta.env.DEV) return null;
+  if (!import.meta.env.DEV && !window.__PERF_DEBUG__) return null;
 
   return (
     <div style={{
