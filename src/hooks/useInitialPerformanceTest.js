@@ -5,6 +5,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useFPSMonitorDOM } from '../components/ui/FpsDisplay';
 import { getPerformanceProfile } from '../utils/deviceProfiles';
 
+const LOCAL_STORAGE_KEY = 'crystal-performance-config';
+
 // Exported priority map for adjustments
 export const TUNING_PRIORITY = {
   renderScale: 1,
@@ -78,6 +80,16 @@ export const useInitialPerformanceTest = (
 
   const finish = useCallback(() => {
     setTesting(false);
+    try {
+      localStorage.setItem(
+        LOCAL_STORAGE_KEY,
+        JSON.stringify(currentConfig.current)
+      );
+    } catch (err) {
+      if (import.meta.env.DEV) {
+        console.error('Failed to save performance config:', err);
+      }
+    }
     if (onComplete) onComplete(currentConfig.current);
   }, [onComplete]);
 
