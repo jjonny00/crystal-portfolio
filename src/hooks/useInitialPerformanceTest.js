@@ -1,317 +1,146 @@
 // src/hooks/useInitialPerformanceTest.js
-// FIXED: Smart performance test that works with device profiles intelligently
+// Iterative tuning performance test
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useFPSMonitorDOM } from '../components/ui/FpsDisplay';
 import { getPerformanceProfile } from '../utils/deviceProfiles';
 
-/**
- * SMART Performance Test System
- * 
- * Strategy:
- * 1. Start with device profile as baseline (don't override good devices)
- * 2. Only adjust if ACTUAL performance is problematic
- * 3. Use shorter test duration for faster startup
- * 4. Respect device capabilities - don't downgrade high-end unnecessarily
- */
+// Exported priority map for adjustments
+export const TUNING_PRIORITY = {
+  renderScale: 1,
+  heavyEffects: 2,
+  textureQuality: 3,
+  pbrQuality: 4,
+  reducedParticles: 5,
+  simplifiedAnimations: 6
+};
+
+const QUALITY_ORDER = ['high', 'medium', 'low'];
+const degradeQuality = (value) => {
+  const idx = QUALITY_ORDER.indexOf(value);
+  return idx === -1 || idx === QUALITY_ORDER.length - 1
+    ? 'low'
+    : QUALITY_ORDER[idx + 1];
+};
+
+// useInitialPerformanceTest with iterative tuning
 export const useInitialPerformanceTest = (
   deviceProfile,
-  { duration = 3000, autoStart = true, onComplete } = {}
+  { interval = 1000, autoStart = true, tuningPriority = TUNING_PRIORITY, onComplete } = {}
 ) => {
-  const { avgFps, fps } = useFPSMonitorDOM();
+  const { fps } = useFPSMonitorDOM();
   const [performanceConfig, setPerformanceConfig] = useState(null);
   const [testing, setTesting] = useState(autoStart);
-  const startRef = useRef(null);
-  const timeoutRef = useRef(null);
+
+  const currentConfig = useRef(null);
   const fpsSamples = useRef([]);
-  
-  /**
-   * Smart performance analysis based on device profile + actual FPS
-   */
-  const analyzePerformance = useCallback(() => {
-    const samples = fpsSamples.current;
-    if (samples.length === 0) return null;
-    
-    // Calculate performance metrics
-    const avgFps = samples.reduce((a, b) => a + b, 0) / samples.length;
-    const minFps = Math.min(...samples);
-    const maxFps = Math.max(...samples);
-    const fps90thPercentile = samples.sort((a, b) => a - b)[Math.floor(samples.length * 0.1)]; // 10th percentile (worst 10%)
-    
-    return {
-      avgFps: Math.round(avgFps),
-      minFps: Math.round(minFps),
-      maxFps: Math.round(maxFps),
-      lowPercentile: Math.round(fps90thPercentile),
-      stability: Math.round(((maxFps - minFps) / avgFps) * 100), // Lower is more stable
-      sampleCount: samples.length
-    };
-  }, []);
+  const stepIndex = useRef(0);
+  const timeoutRef = useRef(null);
 
-  /**
-   * FIXED: More aggressive performance standards for mobile devices
-   */
-  const shouldAdjustPerformance = useCallback((metrics, deviceProfile) => {
-    if (!metrics) return false;
-    
-    // FIXED: More realistic targets for mobile devices
-    const targets = {
-      'desktop': { min: 45, avg: 55, stability: 50 },
-      'desktop-xl': { min: 50, avg: 60, stability: 40 },
-      'tablet': { min: 20, avg: 25, stability: 80 },     // More lenient for tablets
-      'mobile': { min: 15, avg: 20, stability: 100 }     // More lenient for mobile
-    };
-    
-    const target = targets[deviceProfile.category] || targets.mobile;
-    
-    // FIXED: More aggressive failure detection for mobile
-    const failing = {
-      lowAverage: metrics.avgFps < target.avg,
-      lowMinimum: metrics.lowPercentile < target.min,
-      unstable: metrics.stability > target.stability,
-      severe: metrics.avgFps < (target.min * 0.7), // Slightly more lenient severe threshold
-      // NEW: Mobile-specific checks
-      mobilePerformanceIssue: (deviceProfile.isMobile || deviceProfile.category === 'mobile') && 
-                             (metrics.avgFps < 25 || metrics.lowPercentile < 18)
-    };
-    
-    if (import.meta.env.DEV) console.log('📊 FIXED Performance Analysis:', {
-      metrics,
-      target,
-      failing,
-      deviceCategory: deviceProfile.category,
-      deviceTier: deviceProfile.performanceTier,
-      shouldAdjust: Object.values(failing).some(Boolean)
-    });
-    
-    return failing;
-  }, []);
+  const orderedSteps = Object.entries(tuningPriority)
+    .sort((a, b) => a[1] - b[1])
+    .map(([k]) => k);
 
-  /**
-   * FIXED: More conservative optimization that works better for mobile
-   */
-  const createOptimizedConfig = useCallback((deviceProfile, metrics, issues) => {
-    // Start with the device's optimal profile
-    const baseProfile = getPerformanceProfile(deviceProfile);
-    
-    // If no performance issues, use device profile as-is
-    if (!issues || !Object.values(issues).some(Boolean)) {
-      if (import.meta.env.DEV) console.log('✅ No performance issues detected - using device profile');
-      return baseProfile;
-    }
-    
-    if (import.meta.env.DEV) console.log('⚡ Performance issues detected, applying smart optimizations:', issues);
-    
-    // Smart optimization strategy - be more aggressive for mobile
-    let optimizedConfig = { ...baseProfile };
-    
-    // SPECIAL: Mobile-specific optimization path
-    if (deviceProfile.isMobile || deviceProfile.category === 'mobile') {
-      if (import.meta.env.DEV) console.log('📱 Mobile device with performance issues - applying mobile-specific optimizations');
-      
-      // For mobile, jump more aggressively to low settings
-      if (issues.mobilePerformanceIssue || issues.severe || issues.lowAverage) {
-        if (import.meta.env.DEV) console.log('📉 Mobile performance issues - using aggressive mobile optimization');
-        return {
-          ...optimizedConfig,
-          renderScale: 0.5,              // Low render scale
-          pbrQuality: 'low',
-          usePBR: false,                 // Disable PBR
-          useNormalMaps: false,
-          textureQuality: 'low',
-          postProcessing: {
+  const applyAdjustment = useCallback((step) => {
+    const cfg = { ...currentConfig.current };
+    switch (step) {
+      case 'renderScale':
+        cfg.renderScale = Math.max((cfg.renderScale || 1) * 0.9, 0.3);
+        break;
+      case 'heavyEffects':
+        if (cfg.postProcessing) {
+          cfg.postProcessing = {
+            ...cfg.postProcessing,
             bloom: false,
-            chromaticAberration: false,
-            noise: true,               // Keep cheap effects only
-            vignette: true
-          },
-          maxLights: 2,
-          hdriQuality: 'low',
-          antialiasing: false,
-          anisotropicFiltering: 1
-        };
-      }
+            chromaticAberration: false
+          };
+        }
+        break;
+      case 'textureQuality':
+        cfg.textureQuality = degradeQuality(cfg.textureQuality);
+        break;
+      case 'pbrQuality':
+        cfg.pbrQuality = degradeQuality(cfg.pbrQuality);
+        cfg.usePBR = cfg.pbrQuality !== 'low';
+        break;
+      case 'reducedParticles':
+        cfg.reducedParticles = true;
+        break;
+      case 'simplifiedAnimations':
+        cfg.simplifiedAnimations = true;
+        break;
+      default:
+        break;
     }
-    
-    // Standard optimization for desktop/tablet
-    
-    // Level 1: Minor issues - reduce post-processing only
-    if (issues.unstable && !issues.severe && !issues.lowAverage) {
-      if (import.meta.env.DEV) console.log('📉 Level 1 optimization: Reducing post-processing');
-      optimizedConfig.postProcessing = {
-        ...optimizedConfig.postProcessing,
-        bloom: false,                    // Expensive
-        chromaticAberration: false       // Expensive
-        // Keep noise and vignette - they're cheap
-      };
-    }
-    
-    // Level 2: Moderate issues - reduce render scale and some materials
-    else if ((issues.lowAverage || issues.lowMinimum) && !issues.severe) {
-      if (import.meta.env.DEV) console.log('📉 Level 2 optimization: Reducing render scale and materials');
-      optimizedConfig.renderScale = Math.max(optimizedConfig.renderScale * 0.7, 0.4);
-      optimizedConfig.useNormalMaps = false;
-      optimizedConfig.textureQuality = optimizedConfig.textureQuality === 'high' ? 'medium' : 'low';
-      optimizedConfig.postProcessing = {
-        ...optimizedConfig.postProcessing,
-        bloom: false,
-        chromaticAberration: false
-      };
-    }
-    
-    // Level 3: Severe issues - aggressive optimization
-    else if (issues.severe) {
-      if (import.meta.env.DEV) console.log('📉 Level 3 optimization: Aggressive performance mode');
-      optimizedConfig.renderScale = Math.max(optimizedConfig.renderScale * 0.5, 0.3);
-      optimizedConfig.pbrQuality = 'low';
-      optimizedConfig.usePBR = false;                 // Disable PBR entirely
-      optimizedConfig.useNormalMaps = false;
-      optimizedConfig.textureQuality = 'low';
-      optimizedConfig.postProcessing = {
-        bloom: false,
-        chromaticAberration: false,
-        noise: true,                    // Keep cheap effects
-        vignette: true
-      };
-      optimizedConfig.maxLights = Math.min(optimizedConfig.maxLights, 2);
-      optimizedConfig.hdriQuality = 'low';
-      optimizedConfig.antialiasing = false;
-      optimizedConfig.anisotropicFiltering = 1;
-    }
-    
-    // Never go below minimum viable settings
-    optimizedConfig.renderScale = Math.max(optimizedConfig.renderScale, 0.3);
-    
-    return optimizedConfig;
+    currentConfig.current = cfg;
+    setPerformanceConfig(cfg);
   }, []);
 
-  /**
-   * Finalize the performance test
-   */
-  const finalizeTest = useCallback(() => {
-    const elapsed = performance.now() - (startRef.current || 0);
-    const metrics = analyzePerformance();
-    
-    if (!metrics) {
-      if (import.meta.env.DEV) console.warn('⚠️ No performance data collected, using device profile');
-      const fallbackConfig = getPerformanceProfile(deviceProfile);
-      setPerformanceConfig(fallbackConfig);
-      setTesting(false);
-      if (onComplete) onComplete(fallbackConfig);
+  const finish = useCallback(() => {
+    setTesting(false);
+    if (onComplete) onComplete(currentConfig.current);
+  }, [onComplete]);
+
+  const runIteration = useCallback(() => {
+    const avg =
+      fpsSamples.current.reduce((a, b) => a + b, 0) / fpsSamples.current.length || 0;
+
+    if (avg >= 60 || stepIndex.current >= orderedSteps.length) {
+      finish();
       return;
     }
-    
-    if (import.meta.env.DEV) console.log(`🏁 Performance Test Complete (${Math.round(elapsed)}ms):`, metrics);
-    
-    // Analyze if adjustments are needed
-    const issues = shouldAdjustPerformance(metrics, deviceProfile);
-    
-    // Create final configuration
-    let finalConfig = createOptimizedConfig(deviceProfile, metrics, issues);
 
-    // Adjust PBR quality based on measured FPS
-    if (metrics.avgFps > 50 && metrics.lowPercentile > 40) {
-      finalConfig.pbrQuality = 'high';
-    } else if (metrics.avgFps > 30 && metrics.lowPercentile > 20) {
-      if (finalConfig.pbrQuality === 'low') finalConfig.pbrQuality = 'medium';
-    } else if (metrics.avgFps < 25 || metrics.lowPercentile < 15) {
-      finalConfig.pbrQuality = 'low';
-    } else {
-      finalConfig.pbrQuality = finalConfig.pbrQuality || 'medium';
-    }
-    finalConfig.usePBR = finalConfig.pbrQuality !== 'low';
-    
-    // Log the decision
-    if (import.meta.env.DEV) console.log(`🎯 Final Performance Decision:`, {
-      deviceTier: deviceProfile.performanceTier,
-      hadIssues: issues ? Object.values(issues).some(Boolean) : false,
-      finalSettings: {
-        renderScale: finalConfig.renderScale,
-        pbrQuality: finalConfig.pbrQuality,
-        useNormalMaps: finalConfig.useNormalMaps,
-        textureQuality: finalConfig.textureQuality,
-        enabledEffects: Object.entries(finalConfig.postProcessing || {})
-          .filter(([_, enabled]) => enabled)
-          .map(([effect, _]) => effect)
-      }
-    });
-    
-    setPerformanceConfig(finalConfig);
-    setTesting(false);
-    
-    if (onComplete) onComplete(finalConfig);
-  }, [deviceProfile, analyzePerformance, shouldAdjustPerformance, createOptimizedConfig, onComplete]);
-
-  /**
-   * Start the performance test
-   */
-  const startTest = useCallback(() => {
-    startRef.current = performance.now();
+    applyAdjustment(orderedSteps[stepIndex.current]);
+    stepIndex.current += 1;
     fpsSamples.current = [];
-    
-    if (import.meta.env.DEV) console.log(`🔬 Starting SMART performance test (${duration}ms)...`);
-    if (import.meta.env.DEV) console.log(`📱 Device baseline:`, {
-      category: deviceProfile?.category,
-      tier: deviceProfile?.performanceTier,
-      model: deviceProfile?.deviceModel,
-      gpu: deviceProfile?.gpu?.tier
-    });
-    
-    setTesting(true);
-    setPerformanceConfig(null);
-    
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    timeoutRef.current = setTimeout(finalizeTest, duration);
-  }, [duration, finalizeTest, deviceProfile]);
+    timeoutRef.current = setTimeout(runIteration, interval);
+  }, [applyAdjustment, finish, interval, orderedSteps]);
 
-  /**
-   * Collect FPS samples during the test
-   */
+  const startTest = useCallback(() => {
+    currentConfig.current = getPerformanceProfile(deviceProfile);
+    setPerformanceConfig(currentConfig.current);
+    stepIndex.current = 0;
+    fpsSamples.current = [];
+    setTesting(true);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(runIteration, interval);
+  }, [deviceProfile, interval, runIteration]);
+
   useEffect(() => {
     if (testing && fps > 0) {
       fpsSamples.current.push(fps);
-      
-      // Log progress occasionally
-      if (fpsSamples.current.length % 30 === 0) {
-        const currentAvg = fpsSamples.current.reduce((a, b) => a + b, 0) / fpsSamples.current.length;
-        if (import.meta.env.DEV) console.log(`📊 Performance test progress: ${fpsSamples.current.length} samples, avg: ${currentAvg.toFixed(1)}fps`);
-      }
     }
   }, [fps, testing]);
 
-  /**
-   * Auto-start when device profile is available
-   */
   useEffect(() => {
-    if (deviceProfile && autoStart && startRef.current === null && !testing) {
-      // Small delay to ensure rendering has started
-      setTimeout(() => {
-        startTest();
-      }, 500);
+    if (deviceProfile && autoStart && !performanceConfig && !testing) {
+      startTest();
     }
-  }, [deviceProfile, autoStart, startTest, testing]);
+  }, [deviceProfile, autoStart, performanceConfig, testing, startTest]);
 
-  /**
-   * Cleanup
-   */
   useEffect(() => {
     return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
   }, []);
 
-  return { 
-    performanceConfig, 
-    isTesting: testing, 
+  return {
+    performanceConfig,
+    isTesting: testing,
     startTest,
-    testProgress: testing ? Math.min((fpsSamples.current.length / 60) * 100, 100) : 0, // Approximate progress
-    currentMetrics: testing ? {
-      samples: fpsSamples.current.length,
-      currentFps: fps,
-      avgSoFar: fpsSamples.current.length > 0 ? 
-        Math.round(fpsSamples.current.reduce((a, b) => a + b, 0) / fpsSamples.current.length) : 0
-    } : null
+    testProgress: testing ? (stepIndex.current / orderedSteps.length) * 100 : 100,
+    currentMetrics: testing
+      ? {
+          samples: fpsSamples.current.length,
+          currentFps: fps,
+          avgSoFar:
+            fpsSamples.current.length > 0
+              ? Math.round(
+                  fpsSamples.current.reduce((a, b) => a + b, 0) /
+                    fpsSamples.current.length
+                )
+              : 0
+        }
+      : null
   };
 };
