@@ -15,6 +15,7 @@ const PerformanceControls = ({
   const [useNormalMaps, setUseNormalMaps] = useState(performanceConfig?.useNormalMaps ?? true);
   const [textureQuality, setTextureQuality] = useState(performanceConfig?.textureQuality ?? 'high');
   const [pbrQuality, setPbrQuality] = useState(performanceConfig?.pbrQuality ?? 'high');
+  const [renderScale, setRenderScale] = useState(performanceConfig?.renderScale ?? 1.0);
   
   // Update local state when config changes externally
   useEffect(() => {
@@ -22,6 +23,7 @@ const PerformanceControls = ({
       if (performanceConfig.useNormalMaps !== undefined) setUseNormalMaps(performanceConfig.useNormalMaps);
       if (performanceConfig.textureQuality !== undefined) setTextureQuality(performanceConfig.textureQuality);
       if (performanceConfig.pbrQuality !== undefined) setPbrQuality(performanceConfig.pbrQuality);
+      if (performanceConfig.renderScale !== undefined) setRenderScale(performanceConfig.renderScale);
     }
   }, [performanceConfig]);
 
@@ -52,11 +54,23 @@ const PerformanceControls = ({
   
   const handleTextureQualityChange = (value) => {
     setTextureQuality(value);
-    
+
     if (onConfigUpdate) {
       onConfigUpdate({
         ...performanceConfig,
         textureQuality: value
+      });
+    }
+  };
+
+  const handleRenderScaleChange = (value) => {
+    const numeric = parseFloat(value);
+    setRenderScale(numeric);
+
+    if (onConfigUpdate) {
+      onConfigUpdate({
+        ...performanceConfig,
+        renderScale: numeric
       });
     }
   };
@@ -111,6 +125,27 @@ const PerformanceControls = ({
     gap: '8px',
     fontSize: '14px',
     cursor: 'pointer'
+  };
+
+  const sliderGroupStyle = {
+    marginBottom: '15px',
+    padding: '10px',
+    borderRadius: '8px',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)'
+  };
+
+  const sliderLabelStyle = {
+    fontSize: '12px',
+    marginBottom: '5px',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center'
+  };
+
+  const sliderStyle = {
+    width: '100%',
+    backgroundColor: 'transparent',
+    accentColor: '#64ffda'
   };
   
   const infoTextStyle = {
@@ -240,7 +275,7 @@ const PerformanceControls = ({
           </label>
         </div>
       </div>
-      
+
       {/* Texture Quality Radio Buttons */}
       <div style={radioContainerStyle}>
         <div style={toggleLabelStyle}>Texture Quality</div>
@@ -277,7 +312,24 @@ const PerformanceControls = ({
           </label>
         </div>
       </div>
-      
+
+      {/* Render Scale Slider */}
+      <div style={sliderGroupStyle}>
+        <div style={sliderLabelStyle}>
+          <span>Render Scale</span>
+          <span>{renderScale.toFixed(2)}</span>
+        </div>
+        <input
+          type="range"
+          min="0.35"
+          max="1"
+          step="0.05"
+          value={renderScale}
+          onChange={(e) => handleRenderScaleChange(e.target.value)}
+          style={sliderStyle}
+        />
+      </div>
+
       <div style={infoTextStyle}>
         <p>These settings can significantly improve performance on lower-end devices or mobile phones. Try lowering material quality and disabling normal maps for the best boost.</p>
         <p style={{ marginTop: '8px' }}>Changes apply to newly loaded materials and may require refreshing the page to take full effect.</p>
