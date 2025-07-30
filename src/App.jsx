@@ -356,9 +356,9 @@ function App() {
     }
   }, [deviceProfile, isReady, modelsLoaded, testPerformanceConfig, isPerfTesting, startPerfTest]);
 
-  // Apply performance config when test completes
+  // Apply performance config only when the initial test finishes
   useEffect(() => {
-    if (testPerformanceConfig) {
+    if (testPerformanceConfig && !isPerfTesting) {
       if (import.meta.env.DEV) console.log('🎯 Applying enhanced performance test results:', testPerformanceConfig);
       setPerformanceConfig(testPerformanceConfig);
 
@@ -371,7 +371,7 @@ function App() {
         markAsInitialized();
       }
     }
-  }, [testPerformanceConfig, markAsInitialized, updateExternalPerformanceConfig]);
+  }, [testPerformanceConfig, isPerfTesting, markAsInitialized, updateExternalPerformanceConfig]);
 
   // ENHANCED: App ready detection with better criteria
   useEffect(() => {
