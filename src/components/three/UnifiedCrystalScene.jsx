@@ -267,15 +267,26 @@ const UnifiedCrystalScene = forwardRef(({
         if (import.meta.env.DEV) {
           console.log('💎 Crystal: Explosion - hiding whole, showing facets, showing sphere');
         }
-        setShowWholeCrystal(false);
-        setShowFacets(true);
-        setSphereVisible(true);
-        
+        if (!simplifiedAnimations) {
+          setShowWholeCrystal(false);
+          setShowFacets(true);
+          setSphereVisible(true);
+        } else {
+          // In simplified mode keep the whole crystal visible
+          setShowWholeCrystal(true);
+          setShowFacets(false);
+          setSphereVisible(false);
+        }
+
       } else if (currentForm === 'whole') {
         if (import.meta.env.DEV) {
           console.log('💎 Crystal: Reform detected - hiding sphere');
         }
         setSphereVisible(false);
+        if (simplifiedAnimations) {
+          setShowWholeCrystal(true);
+          setShowFacets(false);
+        }
       }
       
       lastCrystalForm.current = currentForm;
