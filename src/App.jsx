@@ -138,7 +138,6 @@ function App() {
   const {
     performanceProfile: devicePerformanceProfile,
     deviceProfile,
-    fingerprint,
     getOptimalCanvasProps,
     getOptimalEnvironmentProps,
     updateExternalPerformanceConfig,
@@ -188,9 +187,9 @@ function App() {
 
   // Load cached performance config if available
   useEffect(() => {
-    if (fingerprint !== null && !profileConfig && !hasCachedProfile) {
+    if (!profileConfig && !hasCachedProfile) {
       try {
-        const key = fingerprint ? `${PERFORMANCE_STORAGE_KEY}:${fingerprint}` : PERFORMANCE_STORAGE_KEY;
+        const key = PERFORMANCE_STORAGE_KEY;
         const stored = localStorage.getItem(key);
         if (stored) {
           const obj = JSON.parse(stored);
@@ -205,7 +204,7 @@ function App() {
         if (import.meta.env.DEV) console.error('Failed to load cached profile', err);
       }
     }
-  }, [fingerprint, profileConfig, hasCachedProfile]);
+  }, [profileConfig, hasCachedProfile]);
 
   // Detect if mobile
   const isMobile = isMobileDevice();
@@ -300,13 +299,13 @@ function App() {
     if (!result?.config) return;
     setProfileConfig(result.config);
     try {
-      const key = fingerprint ? `${PERFORMANCE_STORAGE_KEY}:${fingerprint}` : PERFORMANCE_STORAGE_KEY;
+      const key = PERFORMANCE_STORAGE_KEY;
       localStorage.setItem(key, JSON.stringify({ version: APP_VERSION, config: result.config }));
     } catch (err) {
       if (import.meta.env.DEV) console.error('Failed to save performance config:', err);
     }
     try {
-      const histKey = fingerprint ? `${HISTORY_STORAGE_PREFIX}:${fingerprint}` : HISTORY_STORAGE_PREFIX;
+      const histKey = HISTORY_STORAGE_PREFIX;
       const entry = { timestamp: Date.now(), fps: Math.round(result.avg || 0) };
       const existing = JSON.parse(localStorage.getItem(histKey) || '[]');
       existing.push(entry);
@@ -314,11 +313,11 @@ function App() {
     } catch (err) {
       if (import.meta.env.DEV) console.error('Failed to record performance history:', err);
     }
-  }, [fingerprint]);
+  }, []);
 
   const handleForceRetest = useCallback(() => {
     try {
-      const key = fingerprint ? `${PERFORMANCE_STORAGE_KEY}:${fingerprint}` : PERFORMANCE_STORAGE_KEY;
+      const key = PERFORMANCE_STORAGE_KEY;
       localStorage.removeItem(key);
     } catch (err) {
       if (import.meta.env.DEV) console.error('Failed to clear cached profile', err);
@@ -326,7 +325,7 @@ function App() {
     setProfileConfig(null);
     setHasCachedProfile(false);
     startProfiler(100).then(saveProfileResult);
-  }, [fingerprint, startProfiler, saveProfileResult]);
+  }, [startProfiler, saveProfileResult]);
 
   const toggleUI = useCallback(() => {
     setShowUI(!showUI);
@@ -383,7 +382,7 @@ function App() {
 
   // Start performance profiler when ready and no cached profile
   useEffect(() => {
-    if (deviceProfile && fingerprint !== null && isReady && !profileConfig && !hasCachedProfile && !isProfiling) {
+    if (deviceProfile && isReady && !profileConfig && !hasCachedProfile && !isProfiling) {
       if (import.meta.env.DEV) console.log('🔬 Starting performance profiler for device:', {
         category: deviceProfile.category,
         tier: deviceProfile.performanceTier,
@@ -392,7 +391,7 @@ function App() {
       });
       startProfiler(progress).then(saveProfileResult);
     }
-  }, [deviceProfile, fingerprint, isReady, profileConfig, hasCachedProfile, isProfiling, startProfiler, progress, saveProfileResult]);
+  }, [deviceProfile, isReady, profileConfig, hasCachedProfile, isProfiling, startProfiler, progress, saveProfileResult]);
 
   // Apply performance config when profiler completes or cache loaded
   useEffect(() => {
@@ -670,7 +669,6 @@ function App() {
           hasInitialized={hasInitialized}
           initialProfileApplied={!!performanceConfig}
           debugInfo={debugInfo}
-          fingerprint={fingerprint}
           onForceRetest={handleForceRetest}
         />
       )}
