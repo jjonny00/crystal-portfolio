@@ -1,4 +1,4 @@
-// src/App.jsx - FIXED: Integration with enhanced performance system
+// src/App.jsx - FIXED: Proper integration with enhanced performance system
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import './App.css';
@@ -93,7 +93,7 @@ const isMobileDevice = () => {
 
 function App() {
   // ========================================
-  // ENHANCED: App ready state with better tracking
+  // FIXED: Enhanced performance system integration
   // ========================================
   const [isAppReady, setIsAppReady] = useState(false);
 
@@ -126,19 +126,20 @@ function App() {
     vignette: true
   });
   const [postProcessingConfig, setPostProcessingConfig] = useState(config.postProcessing);
-  const [performanceConfig, setPerformanceConfig] = useState(null);
 
-
-  // ENHANCED: Device profile hook with better debugging
+  // FIXED: Enhanced performance hook with proper error handling
   const {
     profile: performanceProfile,
     tier: performanceTier,
-    isReady: hasInitialized,
-    updateProfile
+    isReady: performanceReady,
+    isInitializing: performanceInitializing,
+    error: performanceError,
+    testResults,
+    updateProfile,
+    forceRetest,
+    clearCache,
+    debugInfo
   } = usePerformance();
-
-  const getOptimalCanvasProps = () => ({ });
-  const getOptimalEnvironmentProps = () => ({ });
 
   // Initialize effects from the detected device profile
   useEffect(() => {
@@ -148,7 +149,7 @@ function App() {
     }
   }, [performanceProfile]);
 
-  // ENHANCED: Asset loader hook
+  // FIXED: Asset loader hook with proper performance profile dependency
   const {
     progress,
     phase,
@@ -157,32 +158,45 @@ function App() {
     totalAssets,
     errors,
     isLoading,
-    isReady,
+    isReady: assetsReady,
     hasErrors,
     retry
   } = useAssetLoader(performanceProfile);
-
-  // Apply profile from performance manager when ready
-  useEffect(() => {
-    if (performanceProfile && !performanceConfig) {
-      setPerformanceConfig(performanceProfile);
-    }
-  }, [performanceProfile, performanceConfig]);
-
 
   // Detect if mobile
   const isMobile = isMobileDevice();
 
   // Sync effects with the current performance configuration
   useEffect(() => {
-    if (performanceConfig?.postProcessing) {
-      setEffectsEnabled(performanceConfig.postProcessing);
-      setPostProcessingConfig(performanceConfig.postProcessing);
+    if (performanceProfile?.postProcessing) {
+      setEffectsEnabled(performanceProfile.postProcessing);
+      setPostProcessingConfig(performanceProfile.postProcessing);
     }
-  }, [performanceConfig]);
+  }, [performanceProfile]);
 
   // ========================================
-  // ENHANCED: Callbacks with better logging
+  // FIXED: App ready detection with proper dependencies
+  // ========================================
+  useEffect(() => {
+    if (performanceReady && assetsReady && !isAppReady) {
+      if (import.meta.env.DEV) {
+        console.log('🎯 App is ready - enhanced system initialized:', {
+          performanceReady,
+          assetsReady,
+          performanceTier,
+          performanceProfile: {
+            renderScale: performanceProfile.renderScale,
+            pbrQuality: performanceProfile.pbrQuality,
+            textureQuality: performanceProfile.textureQuality
+          }
+        });
+      }
+      setIsAppReady(true);
+    }
+  }, [performanceReady, assetsReady, isAppReady, performanceTier, performanceProfile]);
+
+  // ========================================
+  // Enhanced callbacks with better logging
   // ========================================
 
   const handleSnapSpeedChange = useCallback((speed) => {
@@ -244,17 +258,27 @@ function App() {
     }
   }, []);
   
+  // FIXED: Performance config handler with proper profile management
   const handlePerformanceConfigUpdate = useCallback((newConfig) => {
-    if (import.meta.env.DEV) console.log("🔧 Manual performance config update:", newConfig);
-    setPerformanceConfig(newConfig);
-
-    if (newConfig?.postProcessing) {
-      setEffectsEnabled(newConfig.postProcessing);
-      setPostProcessingConfig(newConfig.postProcessing);
+    if (import.meta.env.DEV) console.log("🔧 Performance config update:", newConfig);
+    
+    // Update performance profile through the manager
+    if (newConfig.pbrQuality && newConfig.pbrQuality !== performanceProfile.pbrQuality) {
+      // This is a tier change, use the proper method
+      let newTier = 'medium';
+      if (newConfig.pbrQuality === 'high') newTier = 'high';
+      else if (newConfig.pbrQuality === 'low') newTier = 'low';
+      
+      updateProfile(newTier);
+    } else {
+      // For other config changes, we would need to extend the system
+      // For now, just update the local effects
+      if (newConfig.postProcessing) {
+        setEffectsEnabled(newConfig.postProcessing);
+        setPostProcessingConfig(newConfig.postProcessing);
+      }
     }
-
-  }, []);
-
+  }, [performanceProfile, updateProfile]);
 
   const toggleUI = useCallback(() => {
     setShowUI(!showUI);
@@ -270,26 +294,32 @@ function App() {
   }, [perfDebug]);
 
   // ========================================
-  // ENHANCED: Immediate loader with test progress
+  // FIXED: Enhanced loading screen with performance info
   // ========================================
 
-  // Update the immediate HTML loader with progress info
+  // Update the immediate HTML loader with performance info
   useEffect(() => {
     if (window.updateImmediateLoader) {
       let displayPhase = 'Initializing...';
       let displayAsset = 'Setting up...';
 
-      if (phase === 'loading') {
+      if (performanceInitializing) {
+        displayPhase = 'Testing Performance';
+        displayAsset = 'Detecting device capabilities...';
+      } else if (performanceError) {
+        displayPhase = 'Performance Error';
+        displayAsset = performanceError;
+      } else if (phase === 'loading') {
         displayPhase = 'Loading Assets';
         displayAsset = currentAsset || 'Loading resources...';
-      } else if (isReady && performanceConfig) {
+      } else if (isAppReady) {
         displayPhase = 'Ready';
         displayAsset = 'Starting experience...';
       }
 
       window.updateImmediateLoader(progress, displayPhase, displayAsset, null);
     }
-  }, [progress, phase, currentAsset, isReady, performanceConfig]);
+  }, [progress, phase, currentAsset, isAppReady, performanceInitializing, performanceError]);
 
   // Hide immediate loader and show React app when ready
   useEffect(() => {
@@ -299,25 +329,6 @@ function App() {
       }, 500);
     }
   }, [isAppReady]);
-
-
-
-  // ENHANCED: App ready detection with better criteria
-  useEffect(() => {
-    if (isReady && performanceConfig && !isAppReady) {
-      if (import.meta.env.DEV) console.log('🎯 App is ready - enhanced system initialized:', {
-        assetsLoaded: isReady,
-        performanceConfigured: !!performanceConfig,
-        deviceTier: performanceTier,
-        finalSettings: {
-          renderScale: performanceConfig.renderScale,
-          pbrQuality: performanceConfig.pbrQuality,
-          textureQuality: performanceConfig.textureQuality
-        }
-      });
-      setIsAppReady(true);
-    }
-  }, [isReady, performanceConfig, isAppReady, performanceProfile]);
 
   // UI Hide Toggle Keyboard Listener
   useEffect(() => {
@@ -356,19 +367,38 @@ function App() {
     };
   }, []);
 
-  // Get canvas props
-  const canvasProps = getOptimalCanvasProps();
-  const environmentProps = getOptimalEnvironmentProps();
+  // Get canvas props based on performance profile
+  const getOptimalCanvasProps = useCallback(() => {
+    if (!performanceProfile) return {};
+    
+    return {
+      gl: {
+        antialias: performanceProfile.antialiasing !== false,
+        powerPreference: performanceTier === 'high' ? 'high-performance' : 'default'
+      },
+      dpr: [1, Math.min(performanceProfile.maxPixelRatio || 2, window.devicePixelRatio)]
+    };
+  }, [performanceProfile, performanceTier]);
 
+  const getOptimalEnvironmentProps = useCallback(() => {
+    if (!performanceProfile) return {};
+    
+    return {
+      files: `/assets/environment/prismatic09-${performanceProfile.hdriQuality || 'medium'}.hdr`
+    };
+  }, [performanceProfile]);
+
+  // FIXED: Show enhanced loading screen with performance info
   if (!isAppReady) {
     return (
       <EnhancedLoadingScreen
         progress={Math.round(progress)}
-        phase={phase}
-        currentAsset={currentAsset}
+        phase={performanceInitializing ? 'profiling' : phase}
+        currentAsset={performanceInitializing ? 'Testing device performance...' : currentAsset}
         loadedAssets={loadedAssets}
         totalAssets={totalAssets}
-        errors={errors}
+        profilerProgress={performanceInitializing ? 50 : null}
+        errors={performanceError ? [performanceError, ...errors] : errors}
         onRetry={retry}
       />
     );
@@ -407,7 +437,7 @@ function App() {
         />
       )}
 
-      {/* ENHANCED: FPS Display with device info */}
+      {/* FIXED: FPS Display with performance tier info */}
       {!hideAllUI && (
         <FpsDisplay 
           visible={true}
@@ -416,11 +446,11 @@ function App() {
         />
       )}
       
-      {/* ENHANCED: Performance alerts with device-appropriate thresholds */}
+      {/* FIXED: Performance alerts with tier-appropriate thresholds */}
       {!hideAllUI && (
         <PerformanceAlert 
           visible={true}
-          threshold={25}
+          threshold={performanceProfile?.minAcceptableFPS || 25}
           onPerformanceIssue={(data) => {
             if (import.meta.env.DEV) console.warn('Performance issue detected:', data);
           }}
@@ -434,15 +464,15 @@ function App() {
         config={animationConfig}
       >
         {/* Fixed 3D Canvas */}
-          <Fixed3DCanvas
-            ref={fixedCanvasRef}
-            materialVariant={materialVariant}
-            effectsEnabled={effectsEnabled}
+        <Fixed3DCanvas
+          ref={fixedCanvasRef}
+          materialVariant={materialVariant}
+          effectsEnabled={effectsEnabled}
           postProcessingConfig={postProcessingConfig}
-          performanceProfile={performanceConfig}
+          performanceProfile={performanceProfile}
           config={config}
-          canvasProps={canvasProps}
-          environmentProps={environmentProps}
+          canvasProps={getOptimalCanvasProps()}
+          environmentProps={getOptimalEnvironmentProps()}
           isMobile={isMobile}
         />
       </MasterAnimationCoordinator>
@@ -489,7 +519,7 @@ function App() {
           />
           
           <PerformanceControls
-            performanceConfig={performanceConfig}
+            performanceConfig={performanceProfile}
             onConfigUpdate={handlePerformanceConfigUpdate}
             visible={true}
             onToggleDebug={togglePerfDebug}
@@ -552,13 +582,17 @@ function App() {
         <AccessibilityInstructions visible={true} />
       )}
 
-      {/* ENHANCED: Debug Panel with detailed performance info */}
+      {/* FIXED: Enhanced Debug Panel with performance system info */}
       {(import.meta.env.DEV || perfDebug) && (
         <PerformanceDebugPanel
-          performanceConfig={performanceConfig}
-          hasInitialized={hasInitialized}
-          initialProfileApplied={!!performanceConfig}
+          performanceConfig={performanceProfile}
+          hasInitialized={performanceReady}
+          initialProfileApplied={!!performanceProfile}
           tier={performanceTier}
+          testResults={testResults}
+          debugInfo={debugInfo}
+          onForceRetest={forceRetest}
+          onClearCache={clearCache}
         />
       )}
     </>

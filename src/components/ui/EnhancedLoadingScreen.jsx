@@ -1,5 +1,5 @@
 // src/components/ui/EnhancedLoadingScreen.jsx
-// NEW: Enhanced loading screen with accurate progress
+// UPDATED: Enhanced loading screen with performance testing display
 
 import React from 'react';
 
@@ -17,6 +17,8 @@ const EnhancedLoadingScreen = ({
     switch (phase) {
       case 'initializing':
         return 'Initializing...';
+      case 'profiling':
+        return 'Testing Performance';
       case 'loading':
         return 'Loading Assets';
       case 'ready':
@@ -31,7 +33,21 @@ const EnhancedLoadingScreen = ({
   const getProgressColor = () => {
     if (phase === 'error') return '#ff6b6b';
     if (phase === 'ready' && errors.length > 0) return '#ffa726';
+    if (phase === 'profiling') return '#bb86fc';
     return '#64ffda';
+  };
+
+  const getPhaseDescription = () => {
+    switch (phase) {
+      case 'profiling':
+        return 'Detecting your device capabilities to optimize performance...';
+      case 'loading':
+        return 'Loading 3D models, textures, and environment assets...';
+      case 'ready':
+        return 'Everything is ready! Starting your crystal experience...';
+      default:
+        return 'Setting up the multifaceted design experience...';
+    }
   };
 
   return (
@@ -57,10 +73,22 @@ const EnhancedLoadingScreen = ({
         background: 'linear-gradient(135deg, #64ffda 0%, #bb86fc 100%)',
         WebkitBackgroundClip: 'text',
         WebkitTextFillColor: 'transparent',
-        marginBottom: '2rem',
+        marginBottom: '1rem',
         textAlign: 'center'
       }}>
         Multifaceted Designer
+      </div>
+
+      {/* Phase Description */}
+      <div style={{
+        fontSize: '1rem',
+        color: 'rgba(255, 255, 255, 0.8)',
+        textAlign: 'center',
+        marginBottom: '3rem',
+        maxWidth: '500px',
+        lineHeight: '1.5'
+      }}>
+        {getPhaseDescription()}
       </div>
 
       {/* Progress Container */}
@@ -96,7 +124,8 @@ const EnhancedLoadingScreen = ({
           justifyContent: 'space-between',
           alignItems: 'center',
           color: 'white',
-          fontSize: '0.9rem'
+          fontSize: '0.9rem',
+          marginBottom: '0.5rem'
         }}>
           <span style={{ color: getProgressColor(), fontWeight: '600' }}>
             {getPhaseMessage()}
@@ -107,24 +136,23 @@ const EnhancedLoadingScreen = ({
         </div>
 
         {/* Asset Counter */}
-        {totalAssets > 0 && (
+        {totalAssets > 0 && phase === 'loading' && (
           <div style={{
             textAlign: 'center',
             color: 'rgba(255, 255, 255, 0.6)',
             fontSize: '0.8rem',
-            marginTop: '0.5rem'
+            marginBottom: '0.5rem'
           }}>
             {loadedAssets} / {totalAssets} assets loaded
           </div>
         )}
 
         {/* Current Asset */}
-        {currentAsset && phase === 'loading' && (
+        {currentAsset && (phase === 'loading' || phase === 'profiling') && (
           <div style={{
             textAlign: 'center',
             color: 'rgba(255, 255, 255, 0.5)',
             fontSize: '0.75rem',
-            marginTop: '0.5rem',
             height: '1rem',
             overflow: 'hidden'
           }}>
@@ -132,18 +160,80 @@ const EnhancedLoadingScreen = ({
           </div>
         )}
 
-        {/* Profiler Progress */}
+        {/* Performance Profiler Progress */}
         {profilerProgress !== null && phase === 'profiling' && (
           <div style={{
-            textAlign: 'center',
-            color: 'rgba(255, 255, 255, 0.6)',
-            fontSize: '0.8rem',
-            marginTop: '0.5rem'
+            marginTop: '1rem',
+            padding: '1rem',
+            backgroundColor: 'rgba(187, 134, 252, 0.1)',
+            border: '1px solid rgba(187, 134, 252, 0.3)',
+            borderRadius: '8px'
           }}>
-            Performance test {Math.round(profilerProgress)}%
+            <div style={{
+              color: '#bb86fc',
+              fontWeight: '600',
+              marginBottom: '0.5rem',
+              fontSize: '0.9rem',
+              textAlign: 'center'
+            }}>
+              🔧 Performance Testing
+            </div>
+            <div style={{
+              width: '100%',
+              height: '4px',
+              backgroundColor: 'rgba(187, 134, 252, 0.2)',
+              borderRadius: '2px',
+              overflow: 'hidden',
+              marginBottom: '0.5rem'
+            }}>
+              <div style={{
+                width: `${profilerProgress}%`,
+                height: '100%',
+                backgroundColor: '#bb86fc',
+                borderRadius: '2px',
+                transition: 'width 0.3s ease'
+              }} />
+            </div>
+            <div style={{
+              textAlign: 'center',
+              color: 'rgba(255, 255, 255, 0.6)',
+              fontSize: '0.75rem'
+            }}>
+              Testing device capabilities: {Math.round(profilerProgress)}%
+            </div>
           </div>
         )}
       </div>
+
+      {/* Performance Test Explanation */}
+      {phase === 'profiling' && (
+        <div style={{
+          backgroundColor: 'rgba(187, 134, 252, 0.1)',
+          border: '1px solid rgba(187, 134, 252, 0.3)',
+          borderRadius: '8px',
+          padding: '1rem',
+          margin: '1rem',
+          maxWidth: '400px',
+          width: '90%'
+        }}>
+          <div style={{
+            color: '#bb86fc',
+            fontWeight: '600',
+            marginBottom: '0.5rem',
+            fontSize: '0.9rem'
+          }}>
+            🚀 Optimizing for Your Device
+          </div>
+          <div style={{
+            color: 'rgba(255, 255, 255, 0.8)',
+            fontSize: '0.8rem',
+            lineHeight: '1.4'
+          }}>
+            Testing your device's graphics capabilities to provide the best possible experience. 
+            This ensures smooth performance by automatically selecting optimal quality settings.
+          </div>
+        </div>
+      )}
 
       {/* Error Display */}
       {errors.length > 0 && (
@@ -197,9 +287,9 @@ const EnhancedLoadingScreen = ({
       )}
 
       {/* Loading Indicator */}
-      {phase === 'loading' && (
+      {(phase === 'loading' || phase === 'profiling') && (
         <div style={{
-          marginTop: '1rem',
+          marginTop: '2rem',
           display: 'flex',
           gap: '4px'
         }}>
@@ -210,7 +300,7 @@ const EnhancedLoadingScreen = ({
                 width: '8px',
                 height: '8px',
                 borderRadius: '50%',
-                backgroundColor: '#64ffda',
+                backgroundColor: getProgressColor(),
                 animation: `pulse 1.5s ease-in-out ${i * 0.2}s infinite alternate`,
                 opacity: 0.7
               }}
@@ -229,6 +319,21 @@ const EnhancedLoadingScreen = ({
           fontWeight: '500'
         }}>
           {errors.length > 0 ? '⚠️ Ready with warnings' : '✅ Ready to explore'}
+        </div>
+      )}
+
+      {/* Development Info */}
+      {import.meta.env.DEV && phase === 'profiling' && (
+        <div style={{
+          position: 'absolute',
+          bottom: '20px',
+          left: '20px',
+          right: '20px',
+          textAlign: 'center',
+          color: 'rgba(255, 255, 255, 0.4)',
+          fontSize: '0.7rem'
+        }}>
+          Performance testing runs on each app start during development to ensure accuracy
         </div>
       )}
 
