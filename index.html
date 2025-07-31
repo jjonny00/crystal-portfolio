@@ -83,6 +83,25 @@
         transition: width 0.3s ease;
         box-shadow: 0 0 10px rgba(100, 255, 218, 0.4);
       }
+
+      /* Testing progress bar */
+      .testing-progress-bg {
+        width: 100%;
+        height: 4px;
+        background-color: rgba(255, 255, 255, 0.1);
+        border-radius: 4px;
+        overflow: hidden;
+        margin-top: 4px;
+        display: none;
+      }
+
+      .testing-progress-fill {
+        width: 0%;
+        height: 100%;
+        background-color: #bb86fc;
+        border-radius: 4px;
+        transition: width 0.3s ease;
+      }
       
       /* Progress info */
       .progress-info {
@@ -167,8 +186,13 @@
         <div class="progress-bar-bg">
           <div class="progress-bar-fill" id="progress-bar-fill"></div>
         </div>
-        
+
+        <div class="testing-progress-bg" id="testing-progress-bg">
+          <div class="testing-progress-fill" id="testing-progress-fill"></div>
+        </div>
+
         <div class="current-asset" id="current-asset">Starting up...</div>
+        <div class="current-asset" id="testing-info" style="margin-top:4px"></div>
       </div>
       
       <div class="loading-dots">
@@ -184,14 +208,26 @@
     <!-- CRITICAL: Update loader from JavaScript -->
     <script type="module">
       // Global functions to update the immediate loader
-      window.updateImmediateLoader = function(progress, phase, currentAsset) {
+      window.updateImmediateLoader = function(progress, phase, currentAsset, testingProgress) {
         const progressFill = document.getElementById('progress-bar-fill');
+        const testingFill = document.getElementById('testing-progress-fill');
+        const testingBg = document.getElementById('testing-progress-bg');
+        const testingInfo = document.getElementById('testing-info');
         const progressPhase = document.getElementById('progress-phase');
         const progressPercent = document.getElementById('progress-percent');
         const currentAssetEl = document.getElementById('current-asset');
         
         if (progressFill) {
           progressFill.style.width = progress + '%';
+        }
+
+        if (testingFill && testingBg) {
+          if (typeof testingProgress === 'number') {
+            testingBg.style.display = 'block';
+            testingFill.style.width = testingProgress + '%';
+          } else {
+            testingBg.style.display = 'none';
+          }
         }
         
         if (progressPhase) {
@@ -202,11 +238,15 @@
           progressPercent.textContent = Math.round(progress) + '%';
         }
         
-        if (currentAssetEl) {
-          currentAssetEl.textContent = currentAsset || '';
+        if (testingInfo && typeof testingProgress === 'number') {
+          testingInfo.textContent = currentAsset || '';
+          if (currentAssetEl) currentAssetEl.textContent = '';
+        } else {
+          if (currentAssetEl) currentAssetEl.textContent = currentAsset || '';
+          if (testingInfo) testingInfo.textContent = '';
         }
         
-        if (import.meta.env.DEV) console.log('📊 Immediate loader updated:', { progress, phase, currentAsset });
+        if (import.meta.env.DEV) console.log('📊 Immediate loader updated:', { progress, phase, currentAsset, testingProgress });
       };
       
       // Hide immediate loader and show React app
@@ -232,7 +272,7 @@
       };
       
       // Initial update
-      window.updateImmediateLoader(0, 'Initializing...', 'Starting application...');
+      window.updateImmediateLoader(0, 'Initializing...', 'Starting application...', null);
     </script>
     
     <script type="module" src="/src/main.jsx"></script>
