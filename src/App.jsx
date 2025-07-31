@@ -37,6 +37,8 @@ import * as defaultConfig from './crystalConfig';
 import { useDeviceProfile } from './hooks/useDeviceProfile';
 import { useInitialPerformanceTest } from './hooks/useInitialPerformanceTest';
 
+const APP_VERSION = '0.0.0';
+
 // Convert UI config into animation config
 const buildAnimationConfig = (uiConfig) => {
   const toVec = (arr) => new Vector3(...arr);
@@ -136,6 +138,7 @@ function App() {
   const {
     performanceProfile: devicePerformanceProfile,
     deviceProfile,
+    fingerprint,
     getOptimalCanvasProps,
     getOptimalEnvironmentProps,
     updateExternalPerformanceConfig,
@@ -145,7 +148,8 @@ function App() {
     debugInfo
   } = useDeviceProfile({
     enableDebugLogging: true,
-    enableOrientationLock: false
+    enableOrientationLock: false,
+    appVersion: APP_VERSION
   });
 
   // Initialize effects from the detected device profile
@@ -180,6 +184,8 @@ function App() {
   } = useInitialPerformanceTest(deviceProfile, {
     duration: 3000, // Shorter test for faster startup
     autoStart: false,
+    fingerprint,
+    appVersion: APP_VERSION,
     onComplete: (config) => {
       if (import.meta.env.DEV) console.log('🎯 Enhanced performance test completed:', config);
       setPerformanceConfig(config);

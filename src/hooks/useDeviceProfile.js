@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { detectDevice, enforcePortraitOnMobile } from '../utils/deviceDetection';
+import { generateFingerprint } from '../utils/deviceFingerprint';
 import { 
   getPerformanceProfile, 
   getUIProfile, 
@@ -21,7 +22,9 @@ export const useDeviceProfile = (options = {}) => {
     enableDebugLogging = false,
     enableOrientationLock = true,
     enableProfileOverride = true,
-    resetCachedSettings = false
+    resetCachedSettings = false,
+    forceRetest = false,
+    appVersion = null
   } = options;
   
   // State for device and profile information
@@ -30,10 +33,16 @@ export const useDeviceProfile = (options = {}) => {
   const [uiProfile, setUIProfile] = useState(null);
   const [isDetecting, setIsDetecting] = useState(true);
   const [manualOverride, setManualOverride] = useState(null);
+  const [fingerprint, setFingerprint] = useState(null);
   
   // FIXED: Track external performance config separately
   const [externalPerformanceConfig, setExternalPerformanceConfig] = useState(null);
   const [hasInitialized, setHasInitialized] = useState(false);
+
+  // Generate device fingerprint once
+  useEffect(() => {
+    generateFingerprint().then(setFingerprint);
+  }, []);
   
   // Detection function
   const detectDeviceProfile = useCallback(async () => {
@@ -47,16 +56,23 @@ export const useDeviceProfile = (options = {}) => {
       let performance = getPerformanceProfile(device);
       const ui = getUIProfile(device);
 
-      if (resetCachedSettings) {
-        localStorage.removeItem(LOCAL_STORAGE_KEY);
-      } else {
-        const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
+      const cacheKey = fingerprint ? `${LOCAL_STORAGE_KEY}:${fingerprint}` : LOCAL_STORAGE_KEY;
+      if (resetCachedSettings || forceRetest) {
+        localStorage.removeItem(cacheKey);
+      } else if (cacheKey) {
+        const stored = localStorage.getItem(cacheKey);
         if (stored) {
           try {
-            const cached = JSON.parse(stored);
-            performance = { ...performance, ...cached };
-            if (import.meta.env.DEV) {
-              console.log('🔄 Applying cached performance config:', cached);
+            const cachedObj = JSON.parse(stored);
+            const versionMatch = !appVersion || cachedObj.version === appVersion;
+            if (versionMatch) {
+              const cachedCfg = cachedObj.config || cachedObj;
+              performance = { ...performance, ...cachedCfg };
+              if (import.meta.env.DEV) {
+                console.log('🔄 Applying cached performance config:', cachedCfg);
+              }
+            } else {
+              localStorage.removeItem(cacheKey);
             }
           } catch (err) {
             if (import.meta.env.DEV) {
@@ -112,12 +128,14 @@ export const useDeviceProfile = (options = {}) => {
     } finally {
       setIsDetecting(false);
     }
-  }, [enableDebugLogging, enableOrientationLock, resetCachedSettings]);
+  }, [enableDebugLogging, enableOrientationLock, resetCachedSettings, fingerprint, forceRetest, appVersion]);
   
   // Initial detection on mount
   useEffect(() => {
-    detectDeviceProfile();
-  }, [detectDeviceProfile]);
+    if (fingerprint !== null) {
+      detectDeviceProfile();
+    }
+  }, [detectDeviceProfile, fingerprint]);
   
   // FIXED: Separate external config update function with proper initialization check
   const updateExternalPerformanceConfig = useCallback((config) => {
@@ -154,6 +172,17 @@ export const useDeviceProfile = (options = {}) => {
             }
           });
           setExternalPerformanceConfig(config);
+          try {
+            const cacheKey = fingerprint ? `${LOCAL_STORAGE_KEY}:${fingerprint}` : LOCAL_STORAGE_KEY;
+            if (cacheKey) {
+              localStorage.setItem(
+                cacheKey,
+                JSON.stringify({ version: appVersion, config })
+              );
+            }
+          } catch (err) {
+            if (import.meta.env.DEV) console.error('Failed to save performance config:', err);
+          }
         } else {
           if (import.meta.env.DEV) console.log('🚫 External config is same as current profile, ignoring');
         }
@@ -161,7 +190,7 @@ export const useDeviceProfile = (options = {}) => {
     } else {
       if (import.meta.env.DEV) console.log('🚫 External config update rejected - not initialized or invalid config');
     }
-  }, [hasInitialized, performanceProfile, manualOverride]);
+  }, [hasInitialized, performanceProfile, manualOverride, fingerprint, appVersion]);
   
   // FIXED: Mark as initialized only after initial performance test is complete
   const markAsInitialized = useCallback(() => {
@@ -322,9 +351,11 @@ export const useDeviceProfile = (options = {}) => {
     debugInfo: {
       externalConfigActive: !!externalPerformanceConfig,
       manualOverrideActive: !!manualOverride,
-      currentSource: externalPerformanceConfig ? 'external' : 
+      currentSource: externalPerformanceConfig ? 'external' :
                     manualOverride ? 'override' : 'profile'
     },
+
+    fingerprint,
     
     // Utility functions
     getOptimalCanvasProps,
