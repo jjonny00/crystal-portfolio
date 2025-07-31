@@ -1,4 +1,4 @@
-import React, { useState, useRef, forwardRef, useImperativeHandle } from 'react';
+import React, { useState, useRef, forwardRef, useImperativeHandle, useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Environment } from '@react-three/drei';
 import { EffectComposer, Bloom, ChromaticAberration, Noise, Vignette } from '@react-three/postprocessing';
@@ -8,6 +8,7 @@ import * as THREE from 'three';
 import UnifiedCrystalScene from '../components/three/UnifiedCrystalScene';
 import * as defaultConfig from '../crystalConfig';
 import { getHDRIPath } from '../utils/deviceProfiles';
+import { preloadAssets } from '../utils/preloadAssets';
 
 const PerformanceTestScene = forwardRef(({
   config = defaultConfig,
@@ -33,6 +34,11 @@ const PerformanceTestScene = forwardRef(({
   const rafRef = useRef(null);
   const durationRef = useRef(0);
   const resolveRef = useRef(null);
+  const assetPromiseRef = useRef(Promise.resolve());
+
+  useEffect(() => {
+    assetPromiseRef.current = preloadAssets(hdriQuality);
+  }, []);
 
   const animationData = {
     state: 'hero',
@@ -80,7 +86,9 @@ const PerformanceTestScene = forwardRef(({
       startRef.current = 0;
       setActive(true);
       return new Promise((resolve) => {
-        resolveRef.current = resolve;
+        resolveRef.current = (result) => {
+          assetPromiseRef.current.then(() => resolve(result));
+        };
         rafRef.current = requestAnimationFrame(loop);
       });
     }
