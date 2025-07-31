@@ -6,9 +6,7 @@ import React, { useRef } from 'react';
 const PERFORMANCE_STORAGE_KEY = 'crystal-performance-config';
 
 const PerformanceDebugPanel = ({
-  deviceProfile,
   performanceConfig,
-  devicePerformanceProfile,
   initialPerformanceConfig,
   hasInitialized,
   initialProfileApplied,
@@ -74,24 +72,7 @@ const PerformanceDebugPanel = ({
         🔧 FIXED PERFORMANCE SYSTEM (Press F12 for console)
       </div>
       
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '15px' }}>
-        <div>
-          <div style={{ color: '#64ffda', fontWeight: 'bold' }}>Device Detection:</div>
-          <div>Category: {deviceProfile?.category}</div>
-          <div>Tier: {deviceProfile?.performanceTier}</div>
-          <div>Is Mobile: {deviceProfile?.isMobile ? 'YES' : 'NO'}</div>
-          <div>Is iPad: {deviceProfile?.isIPad ? 'YES' : 'NO'}</div>
-        </div>
-        
-        <div>
-          <div style={{ color: '#bb86fc', fontWeight: 'bold' }}>Device Profile:</div>
-          <div>Material: {devicePerformanceProfile?.pbrQuality}</div>
-          <div>PBR: {devicePerformanceProfile?.usePBR ? 'YES' : 'NO'}</div>
-          <div>Normal Maps: {devicePerformanceProfile?.useNormalMaps ? 'YES' : 'NO'}</div>
-          <div>Texture Quality: {devicePerformanceProfile?.textureQuality}</div>
-          <div>Render Scale: {devicePerformanceProfile?.renderScale}</div>
-        </div>
-        
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
         <div>
           <div style={{ color: '#03dac6', fontWeight: 'bold' }}>Performance Test:</div>
           <div style={{ color: initialPerformanceConfig ? '#4CAF50' : '#FF9800' }}>

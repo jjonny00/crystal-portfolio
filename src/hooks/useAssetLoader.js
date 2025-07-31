@@ -7,7 +7,7 @@ import { preloadAssets } from '../utils/preloadAssets';
 /**
  * FIXED: Asset Loader with immediate progress updates
  */
-export const useAssetLoader = (performanceProfile, deviceProfile) => {
+export const useAssetLoader = (performanceProfile) => {
   const [loadingState, setLoadingState] = useState({
     progress: 0,
     phase: 'initializing',
