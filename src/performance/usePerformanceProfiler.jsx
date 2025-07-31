@@ -80,9 +80,9 @@ const stepDescriptions = [
   'Simplify animations'
 ];
 
-export const usePerformanceProfiler = () => {
+export const usePerformanceProfiler = (initialConfig = HIGH_SETTINGS) => {
   const sceneRef = useRef(null);
-  const [sceneConfig, setSceneConfig] = useState(HIGH_SETTINGS);
+  const [sceneConfig, setSceneConfig] = useState(initialConfig);
   const [progress, setProgress] = useState(0);
   const [isProfiling, setIsProfiling] = useState(false);
   const cancelRef = useRef(false);
@@ -107,7 +107,7 @@ export const usePerformanceProfiler = () => {
     setProgress(0);
 
     const metrics = [];
-    let currentConfig = { ...HIGH_SETTINGS };
+    let currentConfig = { ...initialConfig };
     let result = await runWithConfig(currentConfig);
     metrics.push({ config: currentConfig, metrics: result });
     let avg = result.avg;

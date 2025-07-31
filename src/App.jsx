@@ -182,7 +182,7 @@ function App() {
     cancelProfiler,
     progress: profilerProgress,
     isProfiling
-  } = usePerformanceProfiler();
+  } = usePerformanceProfiler(devicePerformanceProfile);
 
   const [profileConfig, setProfileConfig] = useState(null);
   const [hasCachedProfile, setHasCachedProfile] = useState(false);
@@ -198,6 +198,8 @@ function App() {
           if (!obj.version || obj.version === APP_VERSION) {
             setProfileConfig(obj.config || obj);
             setHasCachedProfile(true);
+          } else {
+            localStorage.removeItem(key);
           }
         }
       } catch (err) {
