@@ -16,7 +16,7 @@ const UnifiedCrystalScene = forwardRef(({
   animationData,
   config,
   materialVariant = 'default',
-  performanceConfig = { useNormalMaps: true, textureQuality: 'high', pbrQuality: 'high', usePBR: true },
+  performanceProfile = { useNormalMaps: true, textureQuality: 'high', pbrQuality: 'high', usePBR: true },
   isMobile = false,
   simplifiedAnimations = false
 }, ref) => {
@@ -395,7 +395,7 @@ const UnifiedCrystalScene = forwardRef(({
         materialVariant={materialVariant}
         config={config}
         materialRef={crystalMaterialRef}
-        performanceConfig={performanceConfig}
+        performanceProfile={performanceProfile}
         onMaterialReady={handleMaterialReady}
       />
 
