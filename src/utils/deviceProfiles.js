@@ -3,6 +3,7 @@ export const PERFORMANCE_PROFILES = {
   high: {
     renderScale: 1.0,
     pbrQuality: 'high',
+    hdriQuality: 'high',
     useNormalMaps: true,
     particleCount: 16,
     postProcessing: {
@@ -13,6 +14,7 @@ export const PERFORMANCE_PROFILES = {
   medium: {
     renderScale: 0.75,
     pbrQuality: 'medium',
+    hdriQuality: 'medium',
     useNormalMaps: false,
     particleCount: 8,
     postProcessing: {
@@ -23,6 +25,7 @@ export const PERFORMANCE_PROFILES = {
   low: {
     renderScale: 0.5,
     pbrQuality: 'low',
+    hdriQuality: 'low',
     useNormalMaps: false,
     particleCount: 4,
     postProcessing: {
