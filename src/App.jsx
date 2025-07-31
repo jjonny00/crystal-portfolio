@@ -19,7 +19,6 @@ import Fixed3DCanvas from './components/layout/Fixed3DCanvas';
 
 // UI components
 import Navigation from './components/ui/Navigation';
-import FooterSection from './components/ui/FooterSection';
 import ControlsToggle from './components/ui/ControlsToggle';
 import TabbedControlPanel from './components/ui/TabbedControlPanel';
 import CrystalControls from './components/ui/CrystalControls';
@@ -35,9 +34,10 @@ import PerformanceDebugPanel from './components/ui/PerformanceDebugPanel';
 // Configuration and utilities
 import * as defaultConfig from './crystalConfig';
 import { useDeviceProfile } from './hooks/useDeviceProfile';
-import { useInitialPerformanceTest } from './hooks/useInitialPerformanceTest';
+import { usePerformanceProfiler } from './performance/usePerformanceProfiler.jsx';
 
 const APP_VERSION = '0.0.0';
+const PERFORMANCE_STORAGE_KEY = 'crystal-performance-config';
 
 // Convert UI config into animation config
 const buildAnimationConfig = (uiConfig) => {
@@ -174,23 +174,36 @@ function App() {
     retry
   } = useAssetLoader(devicePerformanceProfile, deviceProfile);
 
-  // ENHANCED: Smart performance test hook
+  // Performance profiler hook
   const {
-    performanceConfig: testPerformanceConfig,
-    isTesting: isPerfTesting,
-    startTest: startPerfTest,
-    testProgress,
-    currentMetrics
-  } = useInitialPerformanceTest(deviceProfile, {
-    duration: 3000, // Shorter test for faster startup
-    autoStart: false,
-    fingerprint,
-    appVersion: APP_VERSION,
-    onComplete: (config) => {
-      if (import.meta.env.DEV) console.log('🎯 Enhanced performance test completed:', config);
-      setPerformanceConfig(config);
+    TestScene,
+    startProfiler,
+    cancelProfiler,
+    progress: profilerProgress,
+    isProfiling
+  } = usePerformanceProfiler();
+
+  const [profileConfig, setProfileConfig] = useState(null);
+  const [hasCachedProfile, setHasCachedProfile] = useState(false);
+
+  // Load cached performance config if available
+  useEffect(() => {
+    if (fingerprint !== null && !profileConfig && !hasCachedProfile) {
+      try {
+        const key = fingerprint ? `${PERFORMANCE_STORAGE_KEY}:${fingerprint}` : PERFORMANCE_STORAGE_KEY;
+        const stored = localStorage.getItem(key);
+        if (stored) {
+          const obj = JSON.parse(stored);
+          if (!obj.version || obj.version === APP_VERSION) {
+            setProfileConfig(obj.config || obj);
+            setHasCachedProfile(true);
+          }
+        }
+      } catch (err) {
+        if (import.meta.env.DEV) console.error('Failed to load cached profile', err);
+      }
     }
-  });
+  }, [fingerprint, profileConfig, hasCachedProfile]);
 
   // Detect if mobile
   const isMobile = isMobileDevice();
@@ -310,23 +323,19 @@ function App() {
       } else if (phase === 'loading') {
         displayPhase = 'Loading Assets';
         displayAsset = currentAsset || 'Loading resources...';
-      } else if (isPerfTesting) {
-        displayPhase = 'Testing Performance';
-        displayAsset = currentMetrics ? 
-          `Testing... ${currentMetrics.avgSoFar}fps avg (${currentMetrics.samples} samples)` :
-          'Optimizing settings...';
+      } else if (isProfiling) {
+        displayPhase = 'Profiling Performance';
+        displayAsset = `Running tests... ${Math.round(profilerProgress)}%`;
       } else if (isReady && performanceConfig) {
         displayPhase = 'Ready';
         displayAsset = 'Starting experience...';
       }
-      
-      const finalProgress = isPerfTesting ? 
-        Math.max(progress, testProgress || 0) : 
-        progress;
-      
+
+      const finalProgress = isProfiling ? profilerProgress : progress;
+
       window.updateImmediateLoader(finalProgress, displayPhase, displayAsset);
     }
-  }, [progress, phase, currentAsset, isDetecting, isPerfTesting, isReady, performanceConfig, deviceProfile, testProgress, currentMetrics]);
+  }, [progress, phase, currentAsset, isDetecting, isProfiling, profilerProgress, isReady, performanceConfig, deviceProfile]);
 
   // Hide immediate loader and show React app when ready
   useEffect(() => {
@@ -349,39 +358,48 @@ function App() {
     return () => clearInterval(id);
   }, [modelsLoaded]);
 
-  // ENHANCED: Start performance test when device profile, assets and models are ready
+  // Start performance profiler when ready and no cached profile
   useEffect(() => {
-    if (deviceProfile && isReady && modelsLoaded && !testPerformanceConfig && !isPerfTesting) {
-      if (import.meta.env.DEV) console.log('🔬 Starting enhanced performance test for device:', {
+    if (deviceProfile && isReady && modelsLoaded && !profileConfig && !hasCachedProfile && !isProfiling) {
+      if (import.meta.env.DEV) console.log('🔬 Starting performance profiler for device:', {
         category: deviceProfile.category,
         tier: deviceProfile.performanceTier,
         model: deviceProfile.deviceModel,
         gpu: deviceProfile.gpu?.tier
       });
-      startPerfTest();
+      startProfiler().then(result => {
+        if (result?.config) {
+          setProfileConfig(result.config);
+          try {
+            const key = fingerprint ? `${PERFORMANCE_STORAGE_KEY}:${fingerprint}` : PERFORMANCE_STORAGE_KEY;
+            localStorage.setItem(key, JSON.stringify({ version: APP_VERSION, config: result.config }));
+          } catch (err) {
+            if (import.meta.env.DEV) console.error('Failed to save performance config:', err);
+          }
+        }
+      });
     }
-  }, [deviceProfile, isReady, modelsLoaded, testPerformanceConfig, isPerfTesting, startPerfTest]);
+  }, [deviceProfile, isReady, modelsLoaded, profileConfig, hasCachedProfile, isProfiling, startProfiler, fingerprint]);
 
-  // Apply performance config only when the initial test finishes
+  // Apply performance config when profiler completes or cache loaded
   useEffect(() => {
-    if (testPerformanceConfig && !isPerfTesting) {
-      if (import.meta.env.DEV) console.log('🎯 Applying enhanced performance test results:', testPerformanceConfig);
-      setPerformanceConfig(testPerformanceConfig);
+    if (profileConfig) {
+      if (import.meta.env.DEV) console.log('🎯 Applying profiler results:', profileConfig);
+      setPerformanceConfig(profileConfig);
 
-      // Inform the device profile hook so helpers use the new config
       if (updateExternalPerformanceConfig) {
-        updateExternalPerformanceConfig(testPerformanceConfig);
+        updateExternalPerformanceConfig(profileConfig);
       }
 
       if (markAsInitialized) {
         markAsInitialized();
       }
     }
-  }, [testPerformanceConfig, isPerfTesting, markAsInitialized, updateExternalPerformanceConfig]);
+  }, [profileConfig, updateExternalPerformanceConfig, markAsInitialized]);
 
   // ENHANCED: App ready detection with better criteria
   useEffect(() => {
-    if (isReady && performanceConfig && !isAppReady) {
+    if (isReady && performanceConfig && !isProfiling && !isAppReady) {
       if (import.meta.env.DEV) console.log('🎯 App is ready - enhanced system initialized:', {
         assetsLoaded: isReady,
         performanceConfigured: !!performanceConfig,
@@ -394,7 +412,7 @@ function App() {
       });
       setIsAppReady(true);
     }
-  }, [isReady, performanceConfig, isAppReady, deviceProfile]);
+  }, [isReady, performanceConfig, isProfiling, isAppReady, deviceProfile]);
 
   // UI Hide Toggle Keyboard Listener
   useEffect(() => {
@@ -436,6 +454,24 @@ function App() {
   // Get canvas props
   const canvasProps = getOptimalCanvasProps();
   const environmentProps = getOptimalEnvironmentProps();
+
+  if (!isAppReady) {
+    return (
+      <>
+        {isProfiling && TestScene}
+        <EnhancedLoadingScreen
+          progress={isProfiling ? Math.round(profilerProgress) : Math.round(progress)}
+          phase={isProfiling ? 'profiling' : phase}
+          currentAsset={currentAsset}
+          loadedAssets={loadedAssets}
+          totalAssets={totalAssets}
+          profilerProgress={isProfiling ? profilerProgress : null}
+          errors={errors}
+          onRetry={retry}
+        />
+      </>
+    );
+  }
 
   return (
     <>
@@ -622,11 +658,10 @@ function App() {
           deviceProfile={deviceProfile}
           performanceConfig={performanceConfig}
           devicePerformanceProfile={devicePerformanceProfile}
-          initialPerformanceConfig={testPerformanceConfig}
+          initialPerformanceConfig={profileConfig}
           hasInitialized={hasInitialized}
           initialProfileApplied={!!performanceConfig}
           debugInfo={debugInfo}
-          testMetrics={currentMetrics}
         />
       )}
     </>
