@@ -12,7 +12,6 @@ const PerformanceDebugPanel = ({
   initialPerformanceConfig,
   hasInitialized,
   initialProfileApplied,
-  fingerprint,
   onForceRetest
 }) => {
   if (!import.meta.env.DEV && !window.__PERF_DEBUG__) return null;
@@ -21,7 +20,7 @@ const PerformanceDebugPanel = ({
 
   const exportProfile = () => {
     try {
-      const key = fingerprint ? `${PERFORMANCE_STORAGE_KEY}:${fingerprint}` : PERFORMANCE_STORAGE_KEY;
+      const key = PERFORMANCE_STORAGE_KEY;
       const stored = localStorage.getItem(key);
       if (stored) {
         const blob = new Blob([stored], { type: 'application/json' });
@@ -45,7 +44,7 @@ const PerformanceDebugPanel = ({
       try {
         const text = ev.target.result;
         JSON.parse(text);
-        const key = fingerprint ? `${PERFORMANCE_STORAGE_KEY}:${fingerprint}` : PERFORMANCE_STORAGE_KEY;
+        const key = PERFORMANCE_STORAGE_KEY;
         localStorage.setItem(key, text);
         window.location.reload();
       } catch (err) {
