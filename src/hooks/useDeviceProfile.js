@@ -2,7 +2,7 @@
 // FIXED: Proper performance config handling and debugging
 
 import { useState, useEffect, useCallback } from 'react';
-import { detectDevice, enforcePortraitOnMobile } from '../utils/deviceDetection';
+import { isMobile, isTablet } from '../utils/deviceDetection';
 import { generateFingerprint } from '../utils/deviceFingerprint';
 import { 
   getPerformanceProfile, 
@@ -55,6 +55,16 @@ export const useDeviceProfile = (options = {}) => {
   const [isDetecting, setIsDetecting] = useState(true);
   const [manualOverride, setManualOverride] = useState(null);
   const [fingerprint, setFingerprint] = useState(null);
+
+  const lockPortrait = useCallback(() => {
+    if (screen.orientation && screen.orientation.lock) {
+      try {
+        screen.orientation.lock('portrait');
+      } catch (e) {
+        if (import.meta.env.DEV) console.warn('Could not lock orientation:', e);
+      }
+    }
+  }, []);
   
   // FIXED: Track external performance config separately
   const [externalPerformanceConfig, setExternalPerformanceConfig] = useState(null);
@@ -68,10 +78,28 @@ export const useDeviceProfile = (options = {}) => {
   // Detection function
   const detectDeviceProfile = useCallback(async () => {
     setIsDetecting(true);
-    
+
     try {
-      // Detect device capabilities
-      const device = detectDevice();
+      // Basic device capabilities using simple helpers
+      const mobile = isMobile();
+      const tablet = isTablet();
+      const category = tablet ? 'tablet' : mobile ? 'mobile' : 'desktop';
+      const device = {
+        category,
+        performanceTier: 'medium',
+        isMobile: mobile,
+        isTablet: tablet,
+        isIPad: false,
+        isTouch: 'ontouchstart' in window || navigator.maxTouchPoints > 0,
+        screen: {
+          width: window.screen.width,
+          height: window.screen.height,
+          pixelRatio: window.devicePixelRatio || 1,
+          orientation: window.innerWidth > window.innerHeight ? 'landscape' : 'portrait'
+        },
+        deviceModel: 'Unknown',
+        gpu: null
+      };
       
       // Get appropriate profiles
       let performance = getPerformanceProfile(device);
@@ -108,7 +136,7 @@ export const useDeviceProfile = (options = {}) => {
       
       // Apply orientation lock if needed
       if (enableOrientationLock && device.category === 'mobile') {
-        enforcePortraitOnMobile();
+        lockPortrait();
       }
       
       // Update state
