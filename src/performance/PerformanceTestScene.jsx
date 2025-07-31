@@ -7,7 +7,7 @@ import * as THREE from 'three';
 
 import UnifiedCrystalScene from '../components/three/UnifiedCrystalScene';
 import * as defaultConfig from '../crystalConfig';
-import { getHDRIPath } from '../utils/deviceProfiles';
+import { getHDRIPath, getCanvasDPR } from '../utils/deviceProfiles';
 import { preloadAssets } from '../utils/preloadAssets';
 
 const PerformanceTestScene = forwardRef(({
@@ -24,7 +24,8 @@ const PerformanceTestScene = forwardRef(({
   anisotropicFiltering = 4,
   simplifiedAnimations = false,
   reducedParticles = false,
-  particleCount = 16
+  particleCount = 16,
+  deviceProfile
 }, ref) => {
   const [active, setActive] = useState(false);
   const fpsSamples = useRef([]);
@@ -110,10 +111,12 @@ const PerformanceTestScene = forwardRef(({
     particleCount
   };
 
+  const [minDpr, maxDpr] = getCanvasDPR(deviceProfile, { renderScale });
+
   return active ? (
     <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none' }}>
       <Canvas
-        dpr={renderScale}
+        dpr={[minDpr * renderScale, maxDpr * renderScale]}
         gl={{
           toneMapping: THREE.ACESFilmicToneMapping,
           toneMappingExposure: 0.2,
