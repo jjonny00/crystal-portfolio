@@ -313,7 +313,7 @@ function App() {
 
   // Update the immediate HTML loader with enhanced progress info
   useEffect(() => {
-    if (window.updateImmediateLoader) {
+    if (window.updateImmediateLoader && !isProfiling) {
       let displayPhase = 'Initializing...';
       let displayAsset = 'Setting up...';
       
@@ -333,7 +333,7 @@ function App() {
 
       const finalProgress = isProfiling ? profilerProgress : progress;
 
-      window.updateImmediateLoader(finalProgress, displayPhase, displayAsset);
+      window.updateImmediateLoader(finalProgress, displayPhase, displayAsset, null);
     }
   }, [progress, phase, currentAsset, isDetecting, isProfiling, profilerProgress, isReady, performanceConfig, deviceProfile]);
 
@@ -367,7 +367,7 @@ function App() {
         model: deviceProfile.deviceModel,
         gpu: deviceProfile.gpu?.tier
       });
-      startProfiler().then(result => {
+      startProfiler(progress).then(result => {
         if (result?.config) {
           setProfileConfig(result.config);
           try {

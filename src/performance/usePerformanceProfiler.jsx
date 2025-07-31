@@ -70,6 +70,16 @@ const stepReducers = [
   (cfg) => ({ ...cfg, simplifiedAnimations: true })
 ];
 
+const stepDescriptions = [
+  'Disable post-processing',
+  'Lower render scale',
+  'Reduce material quality',
+  'Reduce texture quality',
+  'Disable normal maps',
+  'Reduce particles',
+  'Simplify animations'
+];
+
 export const usePerformanceProfiler = () => {
   const sceneRef = useRef(null);
   const [sceneConfig, setSceneConfig] = useState(HIGH_SETTINGS);
@@ -90,7 +100,7 @@ export const usePerformanceProfiler = () => {
     return sceneRef.current.runTest(2000);
   }, []);
 
-  const startProfiler = useCallback(async () => {
+  const startProfiler = useCallback(async (assetProgress = 100) => {
     if (isProfiling) return null;
     setIsProfiling(true);
     cancelRef.current = false;
@@ -104,13 +114,24 @@ export const usePerformanceProfiler = () => {
     let completed = 1;
     const total = stepReducers.length + 1;
     setProgress((completed / total) * 100);
+    if (window.updateImmediateLoader) {
+      const combined = (assetProgress + (completed / total) * 100) / 2;
+      window.updateImmediateLoader(combined, 'Profiling Performance', `Baseline - ${Math.round(result.avg)} FPS`, combined);
+    }
 
     for (let i = 0; i < stepReducers.length && !cancelRef.current && avg < 55; i++) {
       const reduced = stepReducers[i](currentConfig);
       const newResult = await runWithConfig(reduced);
       metrics.push({ config: reduced, metrics: newResult });
       completed += 1;
-      setProgress((completed / total) * 100);
+      const prog = (completed / total) * 100;
+      setProgress(prog);
+
+      const desc = stepDescriptions[i] || `Step ${i + 1}`;
+      if (window.updateImmediateLoader) {
+        const combined = (assetProgress + prog) / 2;
+        window.updateImmediateLoader(combined, 'Profiling Performance', `${desc} - ${Math.round(newResult.avg)} FPS`, combined);
+      }
 
       if (newResult.avg > avg) {
         currentConfig = reduced;
@@ -119,6 +140,10 @@ export const usePerformanceProfiler = () => {
     }
 
     setProgress(100);
+    if (window.updateImmediateLoader) {
+      const combined = (assetProgress + 100) / 2;
+      window.updateImmediateLoader(combined, 'Profiling Performance', 'Finalizing...', combined);
+    }
     setIsProfiling(false);
     return { config: currentConfig, metrics };
   }, [isProfiling, runWithConfig]);

@@ -43,7 +43,7 @@ export const useAssetLoader = (performanceProfile, deviceProfile) => {
     // CRITICAL: Update HTML loader immediately
     if (window.updateImmediateLoader) {
       const displayPhase = finalProgress === 100 ? 'Ready' : 'Loading Assets';
-      window.updateImmediateLoader(finalProgress, displayPhase, name || assetKey);
+      window.updateImmediateLoader(finalProgress, displayPhase, name || assetKey, null);
     }
 
     if (import.meta.env.DEV) console.log(`📊 Asset progress: ${assetKey} = ${Math.round(progress * 100)}%, Total: ${finalProgress}%`);
@@ -201,7 +201,7 @@ export const useAssetLoader = (performanceProfile, deviceProfile) => {
 
     // Update HTML loader
     if (window.updateImmediateLoader) {
-      window.updateImmediateLoader(0, 'Loading Assets', 'Preparing to load assets...');
+      window.updateImmediateLoader(0, 'Loading Assets', 'Preparing to load assets...', null);
     }
 
     // Initialize progress tracking
@@ -225,7 +225,7 @@ export const useAssetLoader = (performanceProfile, deviceProfile) => {
       }));
 
       if (window.updateImmediateLoader) {
-        window.updateImmediateLoader(100, 'Ready', 'All assets loaded');
+        window.updateImmediateLoader(100, 'Ready', 'All assets loaded', null);
       }
 
       if (import.meta.env.DEV) console.log('✅ All assets loaded successfully');
