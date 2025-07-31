@@ -34,11 +34,6 @@ import PerformanceDebugPanel from './components/ui/PerformanceDebugPanel';
 // Configuration and utilities
 import * as defaultConfig from './crystalConfig';
 import usePerformance from './hooks/usePerformance';
-import { usePerformanceProfiler } from './performance/usePerformanceProfiler.jsx';
-
-const APP_VERSION = '0.0.0';
-const PERFORMANCE_STORAGE_KEY = 'crystal-performance-config';
-const HISTORY_STORAGE_PREFIX = 'perf-history';
 
 // Convert UI config into animation config
 const buildAnimationConfig = (uiConfig) => {
@@ -136,7 +131,7 @@ function App() {
 
   // ENHANCED: Device profile hook with better debugging
   const {
-    profile: devicePerformanceProfile,
+    profile: performanceProfile,
     isReady: hasInitialized,
     updateProfile
   } = usePerformance();
@@ -146,11 +141,11 @@ function App() {
 
   // Initialize effects from the detected device profile
   useEffect(() => {
-    if (devicePerformanceProfile?.postProcessing) {
-      setEffectsEnabled(devicePerformanceProfile.postProcessing);
-      setPostProcessingConfig(devicePerformanceProfile.postProcessing);
+    if (performanceProfile?.postProcessing) {
+      setEffectsEnabled(performanceProfile.postProcessing);
+      setPostProcessingConfig(performanceProfile.postProcessing);
     }
-  }, [devicePerformanceProfile]);
+  }, [performanceProfile]);
 
   // ENHANCED: Asset loader hook
   const {
@@ -164,40 +159,15 @@ function App() {
     isReady,
     hasErrors,
     retry
-  } = useAssetLoader(devicePerformanceProfile);
+  } = useAssetLoader(performanceProfile);
 
-  // Performance profiler hook
-  const {
-    TestScene,
-    startProfiler,
-    cancelProfiler,
-    progress: profilerProgress,
-    isProfiling
-  } = usePerformanceProfiler(devicePerformanceProfile);
-
-  const [profileConfig, setProfileConfig] = useState(null);
-  const [hasCachedProfile, setHasCachedProfile] = useState(false);
-
-  // Load cached performance config if available
+  // Apply profile from performance manager when ready
   useEffect(() => {
-    if (!profileConfig && !hasCachedProfile) {
-      try {
-        const key = PERFORMANCE_STORAGE_KEY;
-        const stored = localStorage.getItem(key);
-        if (stored) {
-          const obj = JSON.parse(stored);
-          if (!obj.version || obj.version === APP_VERSION) {
-            setProfileConfig(obj.config || obj);
-            setHasCachedProfile(true);
-          } else {
-            localStorage.removeItem(key);
-          }
-        }
-      } catch (err) {
-        if (import.meta.env.DEV) console.error('Failed to load cached profile', err);
-      }
+    if (performanceProfile && !performanceConfig) {
+      setPerformanceConfig(performanceProfile);
     }
-  }, [profileConfig, hasCachedProfile]);
+  }, [performanceProfile, performanceConfig]);
+
 
   // Detect if mobile
   const isMobile = isMobileDevice();
@@ -284,37 +254,6 @@ function App() {
 
   }, []);
 
-  const saveProfileResult = useCallback((result) => {
-    if (!result?.config) return;
-    setProfileConfig(result.config);
-    try {
-      const key = PERFORMANCE_STORAGE_KEY;
-      localStorage.setItem(key, JSON.stringify({ version: APP_VERSION, config: result.config }));
-    } catch (err) {
-      if (import.meta.env.DEV) console.error('Failed to save performance config:', err);
-    }
-    try {
-      const histKey = HISTORY_STORAGE_PREFIX;
-      const entry = { timestamp: Date.now(), fps: Math.round(result.avg || 0) };
-      const existing = JSON.parse(localStorage.getItem(histKey) || '[]');
-      existing.push(entry);
-      localStorage.setItem(histKey, JSON.stringify(existing));
-    } catch (err) {
-      if (import.meta.env.DEV) console.error('Failed to record performance history:', err);
-    }
-  }, []);
-
-  const handleForceRetest = useCallback(() => {
-    try {
-      const key = PERFORMANCE_STORAGE_KEY;
-      localStorage.removeItem(key);
-    } catch (err) {
-      if (import.meta.env.DEV) console.error('Failed to clear cached profile', err);
-    }
-    setProfileConfig(null);
-    setHasCachedProfile(false);
-    startProfiler(100).then(saveProfileResult);
-  }, [startProfiler, saveProfileResult]);
 
   const toggleUI = useCallback(() => {
     setShowUI(!showUI);
@@ -333,28 +272,23 @@ function App() {
   // ENHANCED: Immediate loader with test progress
   // ========================================
 
-  // Update the immediate HTML loader with enhanced progress info
+  // Update the immediate HTML loader with progress info
   useEffect(() => {
-    if (window.updateImmediateLoader && !isProfiling) {
+    if (window.updateImmediateLoader) {
       let displayPhase = 'Initializing...';
       let displayAsset = 'Setting up...';
-      
+
       if (phase === 'loading') {
         displayPhase = 'Loading Assets';
         displayAsset = currentAsset || 'Loading resources...';
-      } else if (isProfiling) {
-        displayPhase = 'Profiling Performance';
-        displayAsset = `Running tests... ${Math.round(profilerProgress)}%`;
       } else if (isReady && performanceConfig) {
         displayPhase = 'Ready';
         displayAsset = 'Starting experience...';
       }
 
-      const finalProgress = isProfiling ? profilerProgress : progress;
-
-      window.updateImmediateLoader(finalProgress, displayPhase, displayAsset, null);
+      window.updateImmediateLoader(progress, displayPhase, displayAsset, null);
     }
-  }, [progress, phase, currentAsset, isProfiling, profilerProgress, isReady, performanceConfig]);
+  }, [progress, phase, currentAsset, isReady, performanceConfig]);
 
   // Hide immediate loader and show React app when ready
   useEffect(() => {
@@ -366,30 +300,14 @@ function App() {
   }, [isAppReady]);
 
 
-  // Start performance profiler when ready and no cached profile
-  useEffect(() => {
-    if (isReady && !profileConfig && !hasCachedProfile && !isProfiling) {
-      if (import.meta.env.DEV) console.log('🔬 Starting performance profiler');
-      startProfiler(progress).then(saveProfileResult);
-    }
-  }, [isReady, profileConfig, hasCachedProfile, isProfiling, startProfiler, progress, saveProfileResult]);
-
-  // Apply performance config when profiler completes or cache loaded
-  useEffect(() => {
-    if (profileConfig) {
-      if (import.meta.env.DEV) console.log('🎯 Applying profiler results:', profileConfig);
-      setPerformanceConfig(profileConfig);
-
-    }
-  }, [profileConfig]);
 
   // ENHANCED: App ready detection with better criteria
   useEffect(() => {
-    if (isReady && performanceConfig && !isProfiling && !isAppReady) {
+    if (isReady && performanceConfig && !isAppReady) {
       if (import.meta.env.DEV) console.log('🎯 App is ready - enhanced system initialized:', {
         assetsLoaded: isReady,
         performanceConfigured: !!performanceConfig,
-        deviceTier: devicePerformanceProfile?.tier,
+        deviceTier: performanceProfile?.tier,
         finalSettings: {
           renderScale: performanceConfig.renderScale,
           pbrQuality: performanceConfig.pbrQuality,
@@ -398,7 +316,7 @@ function App() {
       });
       setIsAppReady(true);
     }
-  }, [isReady, performanceConfig, isProfiling, isAppReady, devicePerformanceProfile]);
+  }, [isReady, performanceConfig, isAppReady, performanceProfile]);
 
   // UI Hide Toggle Keyboard Listener
   useEffect(() => {
@@ -443,19 +361,15 @@ function App() {
 
   if (!isAppReady) {
     return (
-      <>
-        {isProfiling && TestScene}
-        <EnhancedLoadingScreen
-          progress={isProfiling ? Math.round(profilerProgress) : Math.round(progress)}
-          phase={isProfiling ? 'profiling' : phase}
-          currentAsset={currentAsset}
-          loadedAssets={loadedAssets}
-          totalAssets={totalAssets}
-          profilerProgress={isProfiling ? profilerProgress : null}
-          errors={errors}
-          onRetry={retry}
-        />
-      </>
+      <EnhancedLoadingScreen
+        progress={Math.round(progress)}
+        phase={phase}
+        currentAsset={currentAsset}
+        loadedAssets={loadedAssets}
+        totalAssets={totalAssets}
+        errors={errors}
+        onRetry={retry}
+      />
     );
   }
 
@@ -524,7 +438,7 @@ function App() {
             materialVariant={materialVariant}
             effectsEnabled={effectsEnabled}
           postProcessingConfig={postProcessingConfig}
-          performanceConfig={performanceConfig}
+          performanceProfile={performanceConfig}
           config={config}
           canvasProps={canvasProps}
           environmentProps={environmentProps}
@@ -641,10 +555,8 @@ function App() {
       {(import.meta.env.DEV || perfDebug) && (
         <PerformanceDebugPanel
           performanceConfig={performanceConfig}
-          initialPerformanceConfig={profileConfig}
           hasInitialized={hasInitialized}
           initialProfileApplied={!!performanceConfig}
-          onForceRetest={handleForceRetest}
         />
       )}
     </>

@@ -10,7 +10,7 @@ const MaterialManager = ({
   materialVariant,
   config,
   materialRef,
-  performanceConfig = {},
+  performanceProfile = {},
   onMaterialReady = null
 }) => {
   const crystalMaterialRef = useRef();
@@ -25,7 +25,7 @@ const MaterialManager = ({
     useNormalMaps: true,
     textureQuality: 'high',
     renderScale: 1.0,
-    ...performanceConfig
+    ...performanceProfile
   };
 
   const pbrQuality = safePerformanceConfig.pbrQuality || (safePerformanceConfig.usePBR === false ? 'low' : 'high');
