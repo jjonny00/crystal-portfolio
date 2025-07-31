@@ -56,7 +56,7 @@ const Fixed3DCanvas = forwardRef(({
   materialVariant = 'default',
   effectsEnabled,
   postProcessingConfig,
-  performanceConfig,
+  performanceProfile,
   config,
   canvasProps = {},
   environmentProps = {},
@@ -82,9 +82,9 @@ const Fixed3DCanvas = forwardRef(({
     lastCrystalForm: 'whole'
   });
 
-  const simplifiedAnimations = performanceConfig?.simplifiedAnimations;
-  const dustEnabled = !performanceConfig?.reducedParticles;
-  const particleCount = performanceConfig?.particleCount;
+  const simplifiedAnimations = performanceProfile?.simplifiedAnimations;
+  const dustEnabled = !performanceProfile?.reducedParticles;
+  const particleCount = performanceProfile?.particleCount;
 
   // NEW: Update debug data when crystal scene changes
   useEffect(() => {
@@ -181,7 +181,7 @@ const Fixed3DCanvas = forwardRef(({
           
           {/* Point lights */}
           {config?.lighting?.pointLights
-            ?.slice(0, performanceConfig?.maxLights || config?.lighting?.pointLights.length)
+            ?.slice(0, performanceProfile?.maxLights || config?.lighting?.pointLights.length)
             .map((light, index) => (
               <pointLight
                 key={index}
@@ -219,7 +219,7 @@ const Fixed3DCanvas = forwardRef(({
             animationData={animationData}
             config={config}
             materialVariant={materialVariant}
-            performanceConfig={performanceConfig}
+            performanceProfile={performanceProfile}
             isMobile={isMobile}
             simplifiedAnimations={simplifiedAnimations}
           />
