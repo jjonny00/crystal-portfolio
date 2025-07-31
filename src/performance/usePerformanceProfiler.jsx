@@ -116,6 +116,8 @@ export const usePerformanceProfiler = (initialConfig = HIGH_SETTINGS, deviceProf
     let result = await runWithConfig(currentConfig);
     metrics.push({ step: 0, description: 'Baseline', config: currentConfig, metrics: result, applied: true });
     let avg = result.avg;
+    let bestAvg = avg;
+    let bestConfig = { ...currentConfig };
     let completed = 1;
     const total = stepReducers.length + 1;
     setProgress((completed / total) * 100);
@@ -143,12 +145,17 @@ export const usePerformanceProfiler = (initialConfig = HIGH_SETTINGS, deviceProf
         window.updateImmediateLoader(combined, 'Profiling Performance', `${desc} - ${Math.round(newResult.avg)} FPS`, combined);
       }
 
-      if (newResult.avg > avg) {
+      if (newResult.avg > bestAvg) {
+        bestAvg = newResult.avg;
+        bestConfig = { ...reduced };
+      }
+
+      if (newResult.avg > avg || avg - newResult.avg <= 2) {
         currentConfig = reduced;
         avg = newResult.avg;
         stepMetric.applied = true;
       } else {
-        // Revert back to the previous configuration before continuing
+        // Revert back to the previous configuration only on significant drops
         setSceneConfig(currentConfig);
         await waitNextFrame();
       }
@@ -161,7 +168,7 @@ export const usePerformanceProfiler = (initialConfig = HIGH_SETTINGS, deviceProf
       window.updateImmediateLoader(combined, 'Profiling Performance', 'Finalizing...', combined);
     }
     setIsProfiling(false);
-    return { config: currentConfig, metrics, avg };
+    return { config: bestConfig, metrics, avg: bestAvg };
   }, [isProfiling, runWithConfig]);
 
   const cancelProfiler = useCallback(() => {
