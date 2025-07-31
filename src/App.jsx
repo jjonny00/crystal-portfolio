@@ -400,13 +400,8 @@ function App() {
       if (import.meta.env.DEV) console.log('🎯 Applying profiler results:', profileConfig);
       setPerformanceConfig(profileConfig);
 
-      if (updateExternalPerformanceConfig) {
-        updateExternalPerformanceConfig(profileConfig);
-      }
-
-      if (markAsInitialized) {
-        markAsInitialized();
-      }
+      if (markAsInitialized) markAsInitialized();
+      if (updateExternalPerformanceConfig) updateExternalPerformanceConfig(profileConfig, true);
     }
   }, [profileConfig, updateExternalPerformanceConfig, markAsInitialized]);
 

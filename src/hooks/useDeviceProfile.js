@@ -138,14 +138,13 @@ export const useDeviceProfile = (options = {}) => {
   }, [detectDeviceProfile, fingerprint]);
   
   // FIXED: Separate external config update function with proper initialization check
-  const updateExternalPerformanceConfig = useCallback((config) => {
+  const updateExternalPerformanceConfig = useCallback((config, force = false) => {
     if (import.meta.env.DEV) console.log('🔧 External performance config update attempted:', config);
     if (import.meta.env.DEV) console.log('🔧 Has initialized?', hasInitialized);
     if (import.meta.env.DEV) console.log('🔧 Current external config:', externalPerformanceConfig);
     
-    // FIXED: Only allow external config updates if we've properly initialized
-    // AND if the user has actually changed settings in the Performance tab
-    if (hasInitialized && config && typeof config === 'object') {
+    // Allow external config updates once initialized or when forced
+    if ((hasInitialized || force) && config && typeof config === 'object') {
       // Check if this is actually different from the current performance profile
       const currentProfile = manualOverride?.performance || performanceProfile;
       
@@ -188,7 +187,7 @@ export const useDeviceProfile = (options = {}) => {
         }
       }
     } else {
-      if (import.meta.env.DEV) console.log('🚫 External config update rejected - not initialized or invalid config');
+      if (import.meta.env.DEV) console.log('🚫 External config update rejected - not initialized (and not forced) or invalid config');
     }
   }, [hasInitialized, performanceProfile, manualOverride, fingerprint, appVersion]);
   
