@@ -132,6 +132,7 @@ function App() {
   // ENHANCED: Device profile hook with better debugging
   const {
     profile: performanceProfile,
+    tier: performanceTier,
     isReady: hasInitialized,
     updateProfile
   } = usePerformance();
@@ -307,7 +308,7 @@ function App() {
       if (import.meta.env.DEV) console.log('🎯 App is ready - enhanced system initialized:', {
         assetsLoaded: isReady,
         performanceConfigured: !!performanceConfig,
-        deviceTier: performanceProfile?.tier,
+        deviceTier: performanceTier,
         finalSettings: {
           renderScale: performanceConfig.renderScale,
           pbrQuality: performanceConfig.pbrQuality,
@@ -557,6 +558,7 @@ function App() {
           performanceConfig={performanceConfig}
           hasInitialized={hasInitialized}
           initialProfileApplied={!!performanceConfig}
+          tier={performanceTier}
         />
       )}
     </>

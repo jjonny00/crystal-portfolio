@@ -15,6 +15,7 @@ The hook returns:
 - `profile` – current performance settings
 - `isReady` – `true` once the benchmark has completed
 - `updateProfile(tier)` – manually switch tiers
+- `tier` – active tier name
 
 Profiles are defined in [`src/utils/deviceProfiles.js`](src/utils/deviceProfiles.js). Call `updateProfile` or use the performance controls in the debug panel to override the selected profile at runtime.
 
