@@ -3,31 +3,48 @@ import { PERFORMANCE_PROFILES } from './deviceProfiles.js';
 
 const STORAGE_KEY = 'crystal-performance-tier';
 
-class PerformanceManager {
+export default class PerformanceManager {
   constructor() {
+    this.tier = 'medium';
+    this.profile = PERFORMANCE_PROFILES[this.tier] || PERFORMANCE_PROFILES.medium;
+    this._initialized = false;
+    this._ready = false;
+    this._initPromise = null;
+  }
+
+  initialize() {
+    if (this._initPromise) return this._initPromise;
+    this._initialized = true;
+
     const storedTier = typeof window !== 'undefined'
       ? window.localStorage.getItem(STORAGE_KEY)
       : null;
 
-    this.tier = storedTier || 'medium';
-    this.profile = PERFORMANCE_PROFILES[this.tier] || PERFORMANCE_PROFILES.medium;
-    this._testStarted = false;
-
-    if (!storedTier) {
-      this._runTest();
+    if (storedTier && PERFORMANCE_PROFILES[storedTier]) {
+      this.tier = storedTier;
+      this.profile = PERFORMANCE_PROFILES[storedTier];
+      this._ready = true;
+      this._initPromise = Promise.resolve();
     } else {
-      this._testStarted = true;
+      this._initPromise = this._runTest().then(() => {
+        this._ready = true;
+      });
     }
+
+    return this._initPromise;
   }
 
   _runTest() {
-    this._testStarted = true;
     const tester = new RuntimePerformanceTest();
-    tester.run().then(({ tier }) => {
+    return tester.run().then(({ tier }) => {
       if (tier && PERFORMANCE_PROFILES[tier]) {
         this.setProfile(tier);
       }
     });
+  }
+
+  isReady() {
+    return this._ready;
   }
 
   getProfile() {
@@ -47,7 +64,3 @@ class PerformanceManager {
   }
 }
 
-const manager = new PerformanceManager();
-export default manager;
-export const getProfile = () => manager.getProfile();
-export const setProfile = (tier) => manager.setProfile(tier);

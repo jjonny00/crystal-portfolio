@@ -2,18 +2,15 @@
 
 A React + Vite project showcasing a 3D crystal scene. The app adapts its rendering quality based on the visitor's device and a short performance test.
 
-## Device detection (`useDeviceProfile`)
+## Performance manager (`usePerformance`)
 
-`useDeviceProfile` runs on start up and determines the current device type and a recommended performance profile. The hook provides:
+`usePerformance` exposes the active performance profile detected by `PerformanceManager`. The hook returns:
 
-- `deviceProfile` – information about the platform (mobile, tablet, desktop, etc.)
-- `performanceProfile` – initial performance settings based on that device
-- `uiProfile` – UI layout hints for responsive design
-- `isDetecting` – `true` while device capabilities are being measured
+- `profile` – current performance settings
+- `isReady` – `true` once the manager has finished its initial test
+- `updateProfile(tier)` – manually set the performance tier
 
-Options such as `enableDebugLogging`, `enableOrientationLock` and `enableProfileOverride` can be passed to the hook for additional control. Profiles are defined in [`src/utils/deviceProfiles.js`](src/utils/deviceProfiles.js).
-
-The returned `updateExternalPerformanceConfig` function allows you to override the automatic profile at runtime (for example from the "Performance" tab in the UI).
+Profiles are defined in [`src/utils/deviceProfiles.js`](src/utils/deviceProfiles.js). Use `updateProfile` to override the detected tier at runtime.
 
 ### Debugging in production
 
@@ -21,7 +18,7 @@ To inspect the device and performance profiles in a live build you can toggle th
 
 ## Customising performance settings
 
-Performance presets for each device tier live in [`src/utils/deviceProfiles.js`](src/utils/deviceProfiles.js). To tweak defaults edit those profiles. To override the active settings at runtime call `updateExternalPerformanceConfig` with a custom configuration object. You may also enable the manual `overrideProfile` helper exposed by `useDeviceProfile` when developing.
+Performance presets for each device tier live in [`src/utils/deviceProfiles.js`](src/utils/deviceProfiles.js). To tweak defaults edit those profiles. Use `updateProfile` from `usePerformance` to switch tiers at runtime.
 The predefined tiers are `high`, `medium`, `low` and the new `very-low` profile for extremely slow hardware.
 
 ## Development

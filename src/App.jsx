@@ -33,7 +33,7 @@ import PerformanceDebugPanel from './components/ui/PerformanceDebugPanel';
 
 // Configuration and utilities
 import * as defaultConfig from './crystalConfig';
-import { useDeviceProfile } from './hooks/useDeviceProfile';
+import usePerformance from './hooks/usePerformance';
 import { usePerformanceProfiler } from './performance/usePerformanceProfiler.jsx';
 
 const APP_VERSION = '0.0.0';
@@ -136,20 +136,13 @@ function App() {
 
   // ENHANCED: Device profile hook with better debugging
   const {
-    performanceProfile: devicePerformanceProfile,
-    deviceProfile,
-    getOptimalCanvasProps,
-    getOptimalEnvironmentProps,
-    updateExternalPerformanceConfig,
-    markAsInitialized,
-    hasInitialized,
-    isDetecting,
-    debugInfo
-  } = useDeviceProfile({
-    enableDebugLogging: true,
-    enableOrientationLock: false,
-    appVersion: APP_VERSION
-  });
+    profile: devicePerformanceProfile,
+    isReady: hasInitialized,
+    updateProfile
+  } = usePerformance();
+
+  const getOptimalCanvasProps = () => ({ });
+  const getOptimalEnvironmentProps = () => ({ });
 
   // Initialize effects from the detected device profile
   useEffect(() => {
@@ -171,7 +164,7 @@ function App() {
     isReady,
     hasErrors,
     retry
-  } = useAssetLoader(devicePerformanceProfile, deviceProfile);
+  } = useAssetLoader(devicePerformanceProfile);
 
   // Performance profiler hook
   const {
@@ -180,7 +173,7 @@ function App() {
     cancelProfiler,
     progress: profilerProgress,
     isProfiling
-  } = usePerformanceProfiler(devicePerformanceProfile, deviceProfile);
+  } = usePerformanceProfiler(devicePerformanceProfile);
 
   const [profileConfig, setProfileConfig] = useState(null);
   const [hasCachedProfile, setHasCachedProfile] = useState(false);
@@ -289,11 +282,7 @@ function App() {
       setPostProcessingConfig(newConfig.postProcessing);
     }
 
-    if (hasInitialized && updateExternalPerformanceConfig) {
-      if (import.meta.env.DEV) console.log("📤 Sending manual config to device profile");
-      updateExternalPerformanceConfig(newConfig);
-    }
-  }, [hasInitialized, updateExternalPerformanceConfig]);
+  }, []);
 
   const saveProfileResult = useCallback((result) => {
     if (!result?.config) return;
@@ -350,10 +339,7 @@ function App() {
       let displayPhase = 'Initializing...';
       let displayAsset = 'Setting up...';
       
-      if (isDetecting) {
-        displayPhase = 'Detecting Device';
-        displayAsset = `Analyzing ${deviceProfile?.category || 'device'} capabilities...`;
-      } else if (phase === 'loading') {
+      if (phase === 'loading') {
         displayPhase = 'Loading Assets';
         displayAsset = currentAsset || 'Loading resources...';
       } else if (isProfiling) {
@@ -368,7 +354,7 @@ function App() {
 
       window.updateImmediateLoader(finalProgress, displayPhase, displayAsset, null);
     }
-  }, [progress, phase, currentAsset, isDetecting, isProfiling, profilerProgress, isReady, performanceConfig, deviceProfile]);
+  }, [progress, phase, currentAsset, isProfiling, profilerProgress, isReady, performanceConfig]);
 
   // Hide immediate loader and show React app when ready
   useEffect(() => {
@@ -382,16 +368,11 @@ function App() {
 
   // Start performance profiler when ready and no cached profile
   useEffect(() => {
-    if (deviceProfile && isReady && !profileConfig && !hasCachedProfile && !isProfiling) {
-      if (import.meta.env.DEV) console.log('🔬 Starting performance profiler for device:', {
-        category: deviceProfile.category,
-        tier: deviceProfile.performanceTier,
-        model: deviceProfile.deviceModel,
-        gpu: deviceProfile.gpu?.tier
-      });
+    if (isReady && !profileConfig && !hasCachedProfile && !isProfiling) {
+      if (import.meta.env.DEV) console.log('🔬 Starting performance profiler');
       startProfiler(progress).then(saveProfileResult);
     }
-  }, [deviceProfile, isReady, profileConfig, hasCachedProfile, isProfiling, startProfiler, progress, saveProfileResult]);
+  }, [isReady, profileConfig, hasCachedProfile, isProfiling, startProfiler, progress, saveProfileResult]);
 
   // Apply performance config when profiler completes or cache loaded
   useEffect(() => {
@@ -399,10 +380,8 @@ function App() {
       if (import.meta.env.DEV) console.log('🎯 Applying profiler results:', profileConfig);
       setPerformanceConfig(profileConfig);
 
-      if (markAsInitialized) markAsInitialized();
-      if (updateExternalPerformanceConfig) updateExternalPerformanceConfig(profileConfig, true);
     }
-  }, [profileConfig, updateExternalPerformanceConfig, markAsInitialized]);
+  }, [profileConfig]);
 
   // ENHANCED: App ready detection with better criteria
   useEffect(() => {
@@ -410,7 +389,7 @@ function App() {
       if (import.meta.env.DEV) console.log('🎯 App is ready - enhanced system initialized:', {
         assetsLoaded: isReady,
         performanceConfigured: !!performanceConfig,
-        deviceTier: deviceProfile?.performanceTier,
+        deviceTier: devicePerformanceProfile?.tier,
         finalSettings: {
           renderScale: performanceConfig.renderScale,
           pbrQuality: performanceConfig.pbrQuality,
@@ -419,7 +398,7 @@ function App() {
       });
       setIsAppReady(true);
     }
-  }, [isReady, performanceConfig, isProfiling, isAppReady, deviceProfile]);
+  }, [isReady, performanceConfig, isProfiling, isAppReady, devicePerformanceProfile]);
 
   // UI Hide Toggle Keyboard Listener
   useEffect(() => {
@@ -526,8 +505,7 @@ function App() {
       {!hideAllUI && (
         <PerformanceAlert 
           visible={true}
-          threshold={deviceProfile?.category === 'mobile' ? 20 : 
-                    deviceProfile?.category === 'tablet' ? 25 : 30}
+          threshold={25}
           onPerformanceIssue={(data) => {
             if (import.meta.env.DEV) console.warn('Performance issue detected:', data);
           }}
@@ -662,13 +640,10 @@ function App() {
       {/* ENHANCED: Debug Panel with detailed performance info */}
       {(import.meta.env.DEV || perfDebug) && (
         <PerformanceDebugPanel
-          deviceProfile={deviceProfile}
           performanceConfig={performanceConfig}
-          devicePerformanceProfile={devicePerformanceProfile}
           initialPerformanceConfig={profileConfig}
           hasInitialized={hasInitialized}
           initialProfileApplied={!!performanceConfig}
-          debugInfo={debugInfo}
           onForceRetest={handleForceRetest}
         />
       )}
