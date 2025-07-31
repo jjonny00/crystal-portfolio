@@ -28,7 +28,14 @@ const degradeQuality = (value) => {
 // useInitialPerformanceTest with iterative tuning
 export const useInitialPerformanceTest = (
   deviceProfile,
-  { interval = 1000, autoStart = true, tuningPriority = TUNING_PRIORITY, onComplete } = {}
+  {
+    interval = 1000,
+    autoStart = true,
+    tuningPriority = TUNING_PRIORITY,
+    onComplete,
+    fingerprint = null,
+    appVersion = null
+  } = {}
 ) => {
   const { fps } = useFPSMonitorDOM();
   const [performanceConfig, setPerformanceConfig] = useState(null);
@@ -81,9 +88,10 @@ export const useInitialPerformanceTest = (
   const finish = useCallback(() => {
     setTesting(false);
     try {
+      const key = fingerprint ? `${LOCAL_STORAGE_KEY}:${fingerprint}` : LOCAL_STORAGE_KEY;
       localStorage.setItem(
-        LOCAL_STORAGE_KEY,
-        JSON.stringify(currentConfig.current)
+        key,
+        JSON.stringify({ version: appVersion, config: currentConfig.current })
       );
     } catch (err) {
       if (import.meta.env.DEV) {
@@ -91,7 +99,7 @@ export const useInitialPerformanceTest = (
       }
     }
     if (onComplete) onComplete(currentConfig.current);
-  }, [onComplete]);
+  }, [onComplete, fingerprint, appVersion]);
 
   const runIteration = useCallback(() => {
     const avg =
