@@ -12,7 +12,7 @@ export default class RuntimePerformanceTest {
     this.renderer = null;
     this.scene = null;
     this.camera = null;
-    this.mesh = null;
+    this.meshes = [];
   }
 
   /**
@@ -23,16 +23,29 @@ export default class RuntimePerformanceTest {
   init() {
     const canvas = document.createElement('canvas');
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
-    this.renderer.setSize(64, 64);
+    this.renderer.setSize(256, 256);
 
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(60, 1, 0.1, 10);
     this.camera.position.z = 2;
 
     const geometry = new THREE.BoxGeometry(1, 1, 1);
-    const material = new THREE.MeshBasicMaterial({ color: 0xffffff });
-    this.mesh = new THREE.Mesh(geometry, material);
-    this.scene.add(this.mesh);
+    const material = new THREE.MeshStandardMaterial({ color: 0xffffff });
+    this.meshes = [];
+    for (let i = 0; i < 5; i++) {
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.position.x = Math.sin((i / 5) * Math.PI * 2) * 1.5;
+      mesh.position.y = Math.cos((i / 5) * Math.PI * 2) * 1.5;
+      this.scene.add(mesh);
+      this.meshes.push(mesh);
+    }
+
+    // Basic lighting
+    const ambient = new THREE.AmbientLight(0x404040);
+    const directional = new THREE.DirectionalLight(0xffffff, 1);
+    directional.position.set(1, 1, 1);
+    this.scene.add(ambient);
+    this.scene.add(directional);
   }
 
   /**
@@ -49,9 +62,11 @@ export default class RuntimePerformanceTest {
 
     return new Promise((resolve) => {
       const frame = (time) => {
-        // Spin cube
-        this.mesh.rotation.x += 0.01;
-        this.mesh.rotation.y += 0.01;
+        // Spin meshes
+        for (const mesh of this.meshes) {
+          mesh.rotation.x += 0.02;
+          mesh.rotation.y += 0.02;
+        }
 
         // Render frame
         this.renderer.render(this.scene, this.camera);
@@ -78,8 +93,8 @@ export default class RuntimePerformanceTest {
   }
 
   _tierFromFPS(avgFps) {
-    if (avgFps >= 50) return 'high';
-    if (avgFps >= 30) return 'medium';
+    if (avgFps >= 40) return 'high';
+    if (avgFps >= 25) return 'medium';
     return 'low';
   }
 }
