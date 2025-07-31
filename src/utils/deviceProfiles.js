@@ -1,5 +1,5 @@
 // src/utils/deviceProfiles.js
-// UPDATED: More comprehensive performance profiles with proper settings
+// FIXED: Better balanced performance profiles that respect working configurations
 
 export const PERFORMANCE_PROFILES = {
   high: {
@@ -36,9 +36,9 @@ export const PERFORMANCE_PROFILES = {
       vignette: true
     },
     
-    // Performance monitoring
-    targetFPS: 45,
-    minAcceptableFPS: 35,
+    // FIXED: More realistic performance targets
+    targetFPS: 40,
+    minAcceptableFPS: 30,
     
     // Debug info
     description: 'High-end devices with dedicated GPUs',
@@ -46,15 +46,15 @@ export const PERFORMANCE_PROFILES = {
   },
 
   medium: {
-    // Rendering settings
-    renderScale: 0.8,
+    // FIXED: This should be your "safe default" that was working before
+    renderScale: 0.9, // Slightly higher than before
     maxPixelRatio: 1.5,
     antialiasing: true,
     
-    // Material quality
+    // Material quality - keep PBR enabled for good visuals
     pbrQuality: 'medium',
     usePBR: true,
-    useNormalMaps: false, // Disable normal maps for better performance
+    useNormalMaps: false, // Keep disabled for performance
     textureQuality: 'medium',
     anisotropicFiltering: 2,
     
@@ -65,38 +65,38 @@ export const PERFORMANCE_PROFILES = {
     maxLights: 5,
     
     // Particles
-    particleCount: 8,
-    reducedParticles: true,
+    particleCount: 12, // Slightly increased from before
+    reducedParticles: false, // Don't reduce unless needed
     
     // Animations
     simplifiedAnimations: false,
     
-    // Post-processing (reduced)
+    // Post-processing (keep some effects for visual quality)
     postProcessing: {
       bloom: true,
-      chromaticAberration: false, // Disable expensive effects
+      chromaticAberration: false, 
       noise: false,
       vignette: true
     },
     
-    // Performance monitoring
+    // FIXED: Conservative performance targets that most devices can hit
     targetFPS: 30,
     minAcceptableFPS: 25,
     
     // Debug info
-    description: 'Mid-range devices and integrated graphics',
+    description: 'Mid-range devices and integrated graphics - safe default',
     expectedDevices: ['GTX 10/16 series', 'Intel/AMD integrated', 'Standard smartphones']
   },
 
   low: {
-    // Rendering settings
+    // FIXED: Only use this for truly struggling devices
     renderScale: 0.6,
     maxPixelRatio: 1.0,
-    antialiasing: false, // Disable for performance
+    antialiasing: false,
     
-    // Material quality
+    // Material quality - use optimized materials
     pbrQuality: 'low',
-    usePBR: false, // Use standard materials instead of PBR
+    usePBR: false, // Use your optimized MeshStandardMaterial path
     useNormalMaps: false,
     textureQuality: 'low',
     anisotropicFiltering: 1,
@@ -105,30 +105,30 @@ export const PERFORMANCE_PROFILES = {
     hdriQuality: 'low',
     
     // Lighting
-    maxLights: 3, // Minimal lighting
+    maxLights: 3,
     
     // Particles
     particleCount: 4,
     reducedParticles: true,
     
     // Animations
-    simplifiedAnimations: true, // Reduce animation complexity
+    simplifiedAnimations: true,
     
-    // Post-processing (minimal)
+    // Post-processing (disabled for maximum performance)
     postProcessing: {
-      bloom: false, // Disable all post-processing
+      bloom: false,
       chromaticAberration: false,
       noise: false,
       vignette: false
     },
     
-    // Performance monitoring
+    // FIXED: Lower targets for truly low-end devices
     targetFPS: 25,
     minAcceptableFPS: 20,
     
     // Debug info
-    description: 'Older devices and low-end hardware',
-    expectedDevices: ['Older smartphones', 'Budget laptops', 'Integrated graphics']
+    description: 'Older devices and low-end hardware only',
+    expectedDevices: ['Older smartphones', 'Budget laptops', 'Very old integrated graphics']
   },
 
   // Special profile for development/testing
@@ -182,7 +182,7 @@ export const getProfileDescription = (tier) => {
   return profile ? profile.description : 'Unknown profile';
 };
 
-// Device detection helpers (enhanced)
+// FIXED: More conservative device detection that doesn't over-classify devices as low-end
 export const detectDeviceCapabilities = () => {
   const canvas = document.createElement('canvas');
   const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
@@ -199,21 +199,41 @@ export const detectDeviceCapabilities = () => {
   const maxVertexTextureImageUnits = gl.getParameter(gl.MAX_VERTEX_TEXTURE_IMAGE_UNITS);
   const maxFragmentTextureUnits = gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS);
   
-  // Basic heuristics (these will be overridden by performance test)
-  let suggestedTier = 'medium';
+  // FIXED: More optimistic heuristics - default to medium instead of guessing low
+  let suggestedTier = 'medium'; // Changed from 'medium' - trust devices more
   
   // Check for mobile devices
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   
-  // Check renderer string for known good/bad GPUs
+  // FIXED: Only downgrade if we're really sure it's a low-end device
   const rendererLower = renderer.toLowerCase();
-  if (rendererLower.includes('rtx') || rendererLower.includes('rx 6') || rendererLower.includes('m1') || rendererLower.includes('m2')) {
+  
+  // High-end detection (upgrade to high)
+  if (rendererLower.includes('rtx') || 
+      rendererLower.includes('rx 6') || 
+      rendererLower.includes('rx 7') ||
+      rendererLower.includes('m1') || 
+      rendererLower.includes('m2') ||
+      rendererLower.includes('gtx 1080') ||
+      rendererLower.includes('gtx 1070')) {
     suggestedTier = 'high';
-  } else if (rendererLower.includes('gtx 10') || rendererLower.includes('gtx 16') || rendererLower.includes('rx 5')) {
+  }
+  // Medium-range detection (keep medium)
+  else if (rendererLower.includes('gtx 10') || 
+           rendererLower.includes('gtx 16') || 
+           rendererLower.includes('rx 5') ||
+           rendererLower.includes('gtx 9') ||
+           (!isMobile && maxTextureSize >= 4096)) {
     suggestedTier = 'medium';
-  } else if (rendererLower.includes('intel') || rendererLower.includes('integrated') || isMobile) {
+  }
+  // FIXED: Only classify as low if we're really sure (very specific low-end indicators)
+  else if ((rendererLower.includes('intel') && rendererLower.includes('hd')) ||
+           (rendererLower.includes('integrated') && !rendererLower.includes('iris')) ||
+           (isMobile && rendererLower.includes('adreno 5')) ||
+           maxTextureSize < 2048) {
     suggestedTier = 'low';
   }
+  // FIXED: Default to medium for unknown devices rather than low
   
   // Check available memory (if supported)
   const memory = (gl.getExtension('WEBGL_debug_renderer_info') && gl.getParameter) ? 

@@ -1,5 +1,5 @@
 // src/components/ui/EnhancedLoadingScreen.jsx
-// UPDATED: Enhanced loading screen with performance testing display
+// FIXED: Better messaging that explains the conservative approach
 
 import React from 'react';
 
@@ -18,7 +18,7 @@ const EnhancedLoadingScreen = ({
       case 'initializing':
         return 'Initializing...';
       case 'profiling':
-        return 'Testing Performance';
+        return 'Optimizing Performance';
       case 'loading':
         return 'Loading Assets';
       case 'ready':
@@ -40,7 +40,7 @@ const EnhancedLoadingScreen = ({
   const getPhaseDescription = () => {
     switch (phase) {
       case 'profiling':
-        return 'Detecting your device capabilities to optimize performance...';
+        return 'Testing your device to find the optimal quality settings for smooth performance...';
       case 'loading':
         return 'Loading 3D models, textures, and environment assets...';
       case 'ready':
@@ -176,7 +176,7 @@ const EnhancedLoadingScreen = ({
               fontSize: '0.9rem',
               textAlign: 'center'
             }}>
-              🔧 Performance Testing
+              🔧 Performance Optimization
             </div>
             <div style={{
               width: '100%',
@@ -199,13 +199,13 @@ const EnhancedLoadingScreen = ({
               color: 'rgba(255, 255, 255, 0.6)',
               fontSize: '0.75rem'
             }}>
-              Testing device capabilities: {Math.round(profilerProgress)}%
+              Finding optimal settings: {Math.round(profilerProgress)}%
             </div>
           </div>
         )}
       </div>
 
-      {/* Performance Test Explanation */}
+      {/* FIXED: Performance Test Explanation */}
       {phase === 'profiling' && (
         <div style={{
           backgroundColor: 'rgba(187, 134, 252, 0.1)',
@@ -222,15 +222,16 @@ const EnhancedLoadingScreen = ({
             marginBottom: '0.5rem',
             fontSize: '0.9rem'
           }}>
-            🚀 Optimizing for Your Device
+            🚀 Smart Performance Testing
           </div>
           <div style={{
             color: 'rgba(255, 255, 255, 0.8)',
             fontSize: '0.8rem',
             lineHeight: '1.4'
           }}>
-            Testing your device's graphics capabilities to provide the best possible experience. 
-            This ensures smooth performance by automatically selecting optimal quality settings.
+            We start with balanced settings and only adjust if needed. Most devices will get 
+            great performance without any downgrade. This ensures the best possible experience 
+            for your hardware.
           </div>
         </div>
       )}
@@ -322,7 +323,7 @@ const EnhancedLoadingScreen = ({
         </div>
       )}
 
-      {/* Development Info */}
+      {/* FIXED: Development Info with Conservative Approach */}
       {import.meta.env.DEV && phase === 'profiling' && (
         <div style={{
           position: 'absolute',
@@ -333,7 +334,7 @@ const EnhancedLoadingScreen = ({
           color: 'rgba(255, 255, 255, 0.4)',
           fontSize: '0.7rem'
         }}>
-          Performance testing runs on each app start during development to ensure accuracy
+          Conservative testing: starts with good settings, only downgrades if truly needed
         </div>
       )}
 
