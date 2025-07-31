@@ -17,6 +17,27 @@ import {
  */
 const LOCAL_STORAGE_KEY = 'crystal-performance-config';
 
+// Helper to roughly infer a performance tier from a performance configuration
+export const inferPerformanceTierFromConfig = (cfg = {}) => {
+  const renderScale = cfg.renderScale ?? 1;
+  const pbrQuality = cfg.pbrQuality ?? 'high';
+  const usePBR = cfg.usePBR !== undefined ? cfg.usePBR : true;
+
+  if (renderScale >= 0.9 && usePBR && pbrQuality === 'high') {
+    return 'high';
+  }
+
+  if (renderScale >= 0.7 && (usePBR || pbrQuality !== 'low')) {
+    return 'medium';
+  }
+
+  if (renderScale >= 0.5) {
+    return 'low';
+  }
+
+  return 'very-low';
+};
+
 export const useDeviceProfile = (options = {}) => {
   const {
     enableDebugLogging = false,
@@ -68,6 +89,9 @@ export const useDeviceProfile = (options = {}) => {
             if (versionMatch) {
               const cachedCfg = cachedObj.config || cachedObj;
               performance = { ...performance, ...cachedCfg };
+              if (cachedObj.tier) {
+                device.performanceTier = cachedObj.tier;
+              }
               if (import.meta.env.DEV) {
                 console.log('🔄 Applying cached performance config:', cachedCfg);
               }
@@ -171,12 +195,18 @@ export const useDeviceProfile = (options = {}) => {
             }
           });
           setExternalPerformanceConfig(config);
+
+          const inferredTier = inferPerformanceTierFromConfig(config);
+          if (deviceProfile && deviceProfile.performanceTier !== inferredTier) {
+            setDeviceProfile(prev => ({ ...prev, performanceTier: inferredTier }));
+          }
+
           try {
             const cacheKey = fingerprint ? `${LOCAL_STORAGE_KEY}:${fingerprint}` : LOCAL_STORAGE_KEY;
             if (cacheKey) {
               localStorage.setItem(
                 cacheKey,
-                JSON.stringify({ version: appVersion, config })
+                JSON.stringify({ version: appVersion, config, tier: inferredTier })
               );
             }
           } catch (err) {
@@ -189,7 +219,7 @@ export const useDeviceProfile = (options = {}) => {
     } else {
       if (import.meta.env.DEV) console.log('🚫 External config update rejected - not initialized (and not forced) or invalid config');
     }
-  }, [hasInitialized, performanceProfile, manualOverride, fingerprint, appVersion]);
+  }, [hasInitialized, performanceProfile, manualOverride, fingerprint, appVersion, deviceProfile]);
   
   // FIXED: Mark as initialized only after initial performance test is complete
   const markAsInitialized = useCallback(() => {
