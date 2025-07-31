@@ -2,7 +2,7 @@ import { useGLTF, useTexture } from '@react-three/drei';
 import { useLoader } from '@react-three/fiber';
 import { RGBELoader } from 'three-stdlib';
 import { assets } from '../crystalConfig';
-import { getHDRIPath } from './deviceProfiles';
+import { getHDRIPath } from './renderUtils';
 
 export function preloadAssets(hdriQuality = 'low') {
   const promises = [];
