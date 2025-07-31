@@ -9,6 +9,7 @@ const EnhancedLoadingScreen = ({
   currentAsset = '',
   loadedAssets = 0,
   totalAssets = 0,
+  profilerProgress = null,
   errors = [],
   onRetry = null
 }) => {
@@ -128,6 +129,18 @@ const EnhancedLoadingScreen = ({
             overflow: 'hidden'
           }}>
             {currentAsset}
+          </div>
+        )}
+
+        {/* Profiler Progress */}
+        {profilerProgress !== null && phase === 'profiling' && (
+          <div style={{
+            textAlign: 'center',
+            color: 'rgba(255, 255, 255, 0.6)',
+            fontSize: '0.8rem',
+            marginTop: '0.5rem'
+          }}>
+            Performance test {Math.round(profilerProgress)}%
           </div>
         )}
       </div>
