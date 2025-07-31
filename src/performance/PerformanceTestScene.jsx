@@ -18,7 +18,7 @@ const PerformanceTestScene = forwardRef(({
   usePBR = true,
   textureQuality = 'high',
   postProcessing = { bloom: true, chromaticAberration: true, noise: true, vignette: true },
-  hdriQuality = 'high',
+  hdriQuality,
   maxLights = 5,
   antialiasing = true,
   anisotropicFiltering = 4,
@@ -38,7 +38,7 @@ const PerformanceTestScene = forwardRef(({
 
   useEffect(() => {
     assetPromiseRef.current = preloadAssets(hdriQuality);
-  }, []);
+  }, [hdriQuality]);
 
   const animationData = {
     state: 'hero',

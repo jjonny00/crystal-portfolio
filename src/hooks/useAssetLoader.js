@@ -89,7 +89,7 @@ export const useAssetLoader = (performanceProfile) => {
     }
 
     // Load HDRI environment
-    const hdriQuality = performanceProfile?.hdriQuality || 'low';
+    const hdriQuality = performanceProfile?.hdriQuality;
     const hdriPath = `/assets/environment/prismatic09-${hdriQuality}.hdr`;
     // Preload models, textures and HDRI for quicker subsequent access
     preloadAssets(hdriQuality);
