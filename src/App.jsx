@@ -383,7 +383,7 @@ function App() {
 
   // Start performance profiler when ready and no cached profile
   useEffect(() => {
-    if (deviceProfile && isReady && !profileConfig && !hasCachedProfile && !isProfiling) {
+    if (deviceProfile && fingerprint !== null && isReady && !profileConfig && !hasCachedProfile && !isProfiling) {
       if (import.meta.env.DEV) console.log('🔬 Starting performance profiler for device:', {
         category: deviceProfile.category,
         tier: deviceProfile.performanceTier,
@@ -392,7 +392,7 @@ function App() {
       });
       startProfiler(progress).then(saveProfileResult);
     }
-  }, [deviceProfile, isReady, profileConfig, hasCachedProfile, isProfiling, startProfiler, progress, saveProfileResult]);
+  }, [deviceProfile, fingerprint, isReady, profileConfig, hasCachedProfile, isProfiling, startProfiler, progress, saveProfileResult]);
 
   // Apply performance config when profiler completes or cache loaded
   useEffect(() => {
