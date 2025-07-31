@@ -109,7 +109,7 @@ export const usePerformanceProfiler = (initialConfig = HIGH_SETTINGS) => {
     const metrics = [];
     let currentConfig = { ...initialConfig };
     let result = await runWithConfig(currentConfig);
-    metrics.push({ config: currentConfig, metrics: result });
+    metrics.push({ step: 0, description: 'Baseline', config: currentConfig, metrics: result, applied: true });
     let avg = result.avg;
     let completed = 1;
     const total = stepReducers.length + 1;
@@ -120,14 +120,19 @@ export const usePerformanceProfiler = (initialConfig = HIGH_SETTINGS) => {
     }
 
     for (let i = 0; i < stepReducers.length && !cancelRef.current && avg < 55; i++) {
+      const desc = stepDescriptions[i] || `Step ${i + 1}`;
       const reduced = stepReducers[i](currentConfig);
       const newResult = await runWithConfig(reduced);
-      metrics.push({ config: reduced, metrics: newResult });
+      const stepMetric = {
+        step: i + 1,
+        description: desc,
+        config: reduced,
+        metrics: newResult,
+        applied: false
+      };
       completed += 1;
       const prog = (completed / total) * 100;
       setProgress(prog);
-
-      const desc = stepDescriptions[i] || `Step ${i + 1}`;
       if (window.updateImmediateLoader) {
         const combined = (assetProgress + prog) / 2;
         window.updateImmediateLoader(combined, 'Profiling Performance', `${desc} - ${Math.round(newResult.avg)} FPS`, combined);
@@ -136,7 +141,13 @@ export const usePerformanceProfiler = (initialConfig = HIGH_SETTINGS) => {
       if (newResult.avg > avg) {
         currentConfig = reduced;
         avg = newResult.avg;
+        stepMetric.applied = true;
+      } else {
+        // Revert back to the previous configuration before continuing
+        setSceneConfig(currentConfig);
+        await waitNextFrame();
       }
+      metrics.push(stepMetric);
     }
 
     setProgress(100);
