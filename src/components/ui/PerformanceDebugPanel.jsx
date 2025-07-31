@@ -7,10 +7,8 @@ const PERFORMANCE_STORAGE_KEY = 'crystal-performance-config';
 
 const PerformanceDebugPanel = ({
   performanceConfig,
-  initialPerformanceConfig,
   hasInitialized,
-  initialProfileApplied,
-  onForceRetest
+  initialProfileApplied
 }) => {
   if (!import.meta.env.DEV && !window.__PERF_DEBUG__) return null;
 
@@ -73,21 +71,7 @@ const PerformanceDebugPanel = ({
       </div>
       
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-        <div>
-          <div style={{ color: '#03dac6', fontWeight: 'bold' }}>Performance Test:</div>
-          <div style={{ color: initialPerformanceConfig ? '#4CAF50' : '#FF9800' }}>
-            Completed: {initialPerformanceConfig ? 'YES' : 'RUNNING'}
-          </div>
-          {initialPerformanceConfig && (
-            <>
-              <div>Material: {initialPerformanceConfig.pbrQuality}</div>
-              <div>PBR: {initialPerformanceConfig.usePBR ? 'YES' : 'NO'}</div>
-              <div>Normal Maps: {initialPerformanceConfig.useNormalMaps ? 'YES' : 'NO'}</div>
-              <div>Texture: {initialPerformanceConfig.textureQuality}</div>
-              <div>Render Scale: {initialPerformanceConfig.renderScale}</div>
-            </>
-          )}
-        </div>
+
         
         <div>
           <div style={{ color: '#ffd600', fontWeight: 'bold' }}>Active Config:</div>
@@ -107,13 +91,9 @@ const PerformanceDebugPanel = ({
         <div style={{ color: '#64ffda', fontWeight: 'bold' }}>System Status:</div>
         <div>Has Initialized: {hasInitialized ? '✅' : '❌'}</div>
         <div>Profile Applied: {initialProfileApplied ? '✅' : '❌'}</div>
-        <div>Performance Test: {initialPerformanceConfig ? '✅ Completed' : '⏳ Running'}</div>
       </div>
-      
+
       <div style={{ marginTop: '10px', display: 'flex', gap: '8px' }}>
-        <button onClick={onForceRetest} style={{ pointerEvents: 'auto', padding: '6px 8px', fontSize: '11px' }}>
-          Force Re-test
-        </button>
         <button onClick={exportProfile} style={{ pointerEvents: 'auto', padding: '6px 8px', fontSize: '11px' }}>
           Export Profile
         </button>
