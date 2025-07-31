@@ -5,10 +5,17 @@ import { assets } from '../crystalConfig';
 import { getHDRIPath } from './deviceProfiles';
 
 export function preloadAssets(hdriQuality = 'low') {
-  Object.values(assets.models).forEach((url) => useGLTF.preload(url));
+  const promises = [];
+  Object.values(assets.models).forEach((url) => {
+    const p = useGLTF.preload(url);
+    if (p) promises.push(p);
+  });
   if (assets.textures?.normalMap) {
-    useTexture.preload(assets.textures.normalMap);
+    const p = useTexture.preload(assets.textures.normalMap);
+    if (p) promises.push(p);
   }
   const hdriPath = getHDRIPath(hdriQuality);
-  useLoader.preload(RGBELoader, hdriPath);
+  const hdriPromise = useLoader.preload(RGBELoader, hdriPath);
+  if (hdriPromise) promises.push(hdriPromise);
+  return Promise.all(promises);
 }
