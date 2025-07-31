@@ -80,7 +80,7 @@ const stepDescriptions = [
   'Simplify animations'
 ];
 
-export const usePerformanceProfiler = (initialConfig = HIGH_SETTINGS) => {
+export const usePerformanceProfiler = (initialConfig = HIGH_SETTINGS, deviceProfile = null) => {
   const sceneRef = useRef(null);
   const [sceneConfig, setSceneConfig] = useState(initialConfig);
   const [progress, setProgress] = useState(0);
@@ -88,7 +88,12 @@ export const usePerformanceProfiler = (initialConfig = HIGH_SETTINGS) => {
   const cancelRef = useRef(false);
 
   const TestScene = (
-    <PerformanceTestScene ref={sceneRef} {...sceneConfig} config={defaultConfig} />
+    <PerformanceTestScene
+      ref={sceneRef}
+      {...sceneConfig}
+      config={defaultConfig}
+      deviceProfile={deviceProfile}
+    />
   );
 
   const waitNextFrame = () =>

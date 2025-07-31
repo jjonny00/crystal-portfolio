@@ -181,7 +181,7 @@ function App() {
     cancelProfiler,
     progress: profilerProgress,
     isProfiling
-  } = usePerformanceProfiler(devicePerformanceProfile);
+  } = usePerformanceProfiler(devicePerformanceProfile, deviceProfile);
 
   const [profileConfig, setProfileConfig] = useState(null);
   const [hasCachedProfile, setHasCachedProfile] = useState(false);
