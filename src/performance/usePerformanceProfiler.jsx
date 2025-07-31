@@ -83,12 +83,14 @@ const stepDescriptions = [
 export const usePerformanceProfiler = (initialConfig = HIGH_SETTINGS, deviceProfile = null) => {
   const sceneRef = useRef(null);
   const [sceneConfig, setSceneConfig] = useState(initialConfig);
+  const [sceneInstance, setSceneInstance] = useState(0);
   const [progress, setProgress] = useState(0);
   const [isProfiling, setIsProfiling] = useState(false);
   const cancelRef = useRef(false);
 
   const TestScene = (
     <PerformanceTestScene
+      key={sceneInstance}
       ref={sceneRef}
       {...sceneConfig}
       config={defaultConfig}
@@ -99,11 +101,15 @@ export const usePerformanceProfiler = (initialConfig = HIGH_SETTINGS, deviceProf
   const waitNextFrame = () =>
     new Promise((resolve) => requestAnimationFrame(() => resolve()));
 
-  const runWithConfig = useCallback(async (cfg) => {
-    setSceneConfig(cfg);
-    await waitNextFrame();
-    return sceneRef.current.runTest(2000);
-  }, []);
+  const runWithConfig = useCallback(
+    async (cfg) => {
+      setSceneConfig(cfg);
+      setSceneInstance((v) => v + 1);
+      await waitNextFrame();
+      return sceneRef.current.runTest(2000);
+    },
+    [setSceneConfig, setSceneInstance]
+  );
 
   const startProfiler = useCallback(async (assetProgress = 100) => {
     if (isProfiling) return null;
