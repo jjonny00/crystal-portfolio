@@ -1,7 +1,9 @@
 // src/components/ui/PerformanceDebugPanel.jsx
 // UPDATED: Debug panel reflecting the fixed performance system
 
-import React from 'react';
+import React, { useRef } from 'react';
+
+const PERFORMANCE_STORAGE_KEY = 'crystal-performance-config';
 
 const PerformanceDebugPanel = ({
   deviceProfile,
@@ -9,9 +11,49 @@ const PerformanceDebugPanel = ({
   devicePerformanceProfile,
   initialPerformanceConfig,
   hasInitialized,
-  initialProfileApplied
+  initialProfileApplied,
+  fingerprint,
+  onForceRetest
 }) => {
   if (!import.meta.env.DEV && !window.__PERF_DEBUG__) return null;
+
+  const fileInputRef = useRef(null);
+
+  const exportProfile = () => {
+    try {
+      const key = fingerprint ? `${PERFORMANCE_STORAGE_KEY}:${fingerprint}` : PERFORMANCE_STORAGE_KEY;
+      const stored = localStorage.getItem(key);
+      if (stored) {
+        const blob = new Blob([stored], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'profile.json';
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    } catch (err) {
+      console.error('Export failed', err);
+    }
+  };
+
+  const importProfile = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const text = ev.target.result;
+        JSON.parse(text);
+        const key = fingerprint ? `${PERFORMANCE_STORAGE_KEY}:${fingerprint}` : PERFORMANCE_STORAGE_KEY;
+        localStorage.setItem(key, text);
+        window.location.reload();
+      } catch (err) {
+        console.error('Import failed', err);
+      }
+    };
+    reader.readAsText(file);
+  };
 
   return (
     <div style={{
@@ -27,7 +69,7 @@ const PerformanceDebugPanel = ({
       fontFamily: 'monospace',
       zIndex: 20000,
       maxWidth: '900px',
-      pointerEvents: 'none'
+      pointerEvents: 'auto'
     }}>
       <div style={{ fontWeight: 'bold', marginBottom: '10px', color: '#ffff00' }}>
         🔧 FIXED PERFORMANCE SYSTEM (Press F12 for console)
@@ -88,6 +130,19 @@ const PerformanceDebugPanel = ({
         <div>Performance Test: {initialPerformanceConfig ? '✅ Completed' : '⏳ Running'}</div>
       </div>
       
+      <div style={{ marginTop: '10px', display: 'flex', gap: '8px' }}>
+        <button onClick={onForceRetest} style={{ pointerEvents: 'auto', padding: '6px 8px', fontSize: '11px' }}>
+          Force Re-test
+        </button>
+        <button onClick={exportProfile} style={{ pointerEvents: 'auto', padding: '6px 8px', fontSize: '11px' }}>
+          Export Profile
+        </button>
+        <button onClick={() => fileInputRef.current?.click()} style={{ pointerEvents: 'auto', padding: '6px 8px', fontSize: '11px' }}>
+          Import Profile
+        </button>
+        <input type="file" accept="application/json" ref={fileInputRef} onChange={importProfile} style={{ display: 'none' }} />
+      </div>
+
       <div style={{
         marginTop: '10px',
         padding: '10px',

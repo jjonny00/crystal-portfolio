@@ -38,6 +38,7 @@ import { usePerformanceProfiler } from './performance/usePerformanceProfiler.jsx
 
 const APP_VERSION = '0.0.0';
 const PERFORMANCE_STORAGE_KEY = 'crystal-performance-config';
+const HISTORY_STORAGE_PREFIX = 'perf-history';
 
 // Convert UI config into animation config
 const buildAnimationConfig = (uiConfig) => {
@@ -294,6 +295,38 @@ function App() {
     }
   }, [hasInitialized, updateExternalPerformanceConfig]);
 
+  const saveProfileResult = useCallback((result) => {
+    if (!result?.config) return;
+    setProfileConfig(result.config);
+    try {
+      const key = fingerprint ? `${PERFORMANCE_STORAGE_KEY}:${fingerprint}` : PERFORMANCE_STORAGE_KEY;
+      localStorage.setItem(key, JSON.stringify({ version: APP_VERSION, config: result.config }));
+    } catch (err) {
+      if (import.meta.env.DEV) console.error('Failed to save performance config:', err);
+    }
+    try {
+      const histKey = fingerprint ? `${HISTORY_STORAGE_PREFIX}:${fingerprint}` : HISTORY_STORAGE_PREFIX;
+      const entry = { timestamp: Date.now(), fps: Math.round(result.avg || 0) };
+      const existing = JSON.parse(localStorage.getItem(histKey) || '[]');
+      existing.push(entry);
+      localStorage.setItem(histKey, JSON.stringify(existing));
+    } catch (err) {
+      if (import.meta.env.DEV) console.error('Failed to record performance history:', err);
+    }
+  }, [fingerprint]);
+
+  const handleForceRetest = useCallback(() => {
+    try {
+      const key = fingerprint ? `${PERFORMANCE_STORAGE_KEY}:${fingerprint}` : PERFORMANCE_STORAGE_KEY;
+      localStorage.removeItem(key);
+    } catch (err) {
+      if (import.meta.env.DEV) console.error('Failed to clear cached profile', err);
+    }
+    setProfileConfig(null);
+    setHasCachedProfile(false);
+    startProfiler(100).then(saveProfileResult);
+  }, [fingerprint, startProfiler, saveProfileResult]);
+
   const toggleUI = useCallback(() => {
     setShowUI(!showUI);
   }, [showUI]);
@@ -367,19 +400,9 @@ function App() {
         model: deviceProfile.deviceModel,
         gpu: deviceProfile.gpu?.tier
       });
-      startProfiler(progress).then(result => {
-        if (result?.config) {
-          setProfileConfig(result.config);
-          try {
-            const key = fingerprint ? `${PERFORMANCE_STORAGE_KEY}:${fingerprint}` : PERFORMANCE_STORAGE_KEY;
-            localStorage.setItem(key, JSON.stringify({ version: APP_VERSION, config: result.config }));
-          } catch (err) {
-            if (import.meta.env.DEV) console.error('Failed to save performance config:', err);
-          }
-        }
-      });
+      startProfiler(progress).then(saveProfileResult);
     }
-  }, [deviceProfile, isReady, modelsLoaded, profileConfig, hasCachedProfile, isProfiling, startProfiler, fingerprint]);
+  }, [deviceProfile, isReady, modelsLoaded, profileConfig, hasCachedProfile, isProfiling, startProfiler, fingerprint, saveProfileResult]);
 
   // Apply performance config when profiler completes or cache loaded
   useEffect(() => {
@@ -662,6 +685,8 @@ function App() {
           hasInitialized={hasInitialized}
           initialProfileApplied={!!performanceConfig}
           debugInfo={debugInfo}
+          fingerprint={fingerprint}
+          onForceRetest={handleForceRetest}
         />
       )}
     </>

@@ -145,7 +145,7 @@ export const usePerformanceProfiler = () => {
       window.updateImmediateLoader(combined, 'Profiling Performance', 'Finalizing...', combined);
     }
     setIsProfiling(false);
-    return { config: currentConfig, metrics };
+    return { config: currentConfig, metrics, avg };
   }, [isProfiling, runWithConfig]);
 
   const cancelProfiler = useCallback(() => {
