@@ -104,7 +104,6 @@ function App() {
 
   // Track when GLTF models have loaded via Fixed3DCanvas
   const fixedCanvasRef = useRef();
-  const [modelsLoaded, setModelsLoaded] = useState(false);
   
   // Basic state hooks
   const [hideAllUI, setHideAllUI] = useState(false);
@@ -381,21 +380,10 @@ function App() {
     }
   }, [isAppReady]);
 
-  // Poll the Fixed3DCanvas ref until models are loaded
-  useEffect(() => {
-    if (modelsLoaded) return;
-    const id = setInterval(() => {
-      if (fixedCanvasRef.current?.modelsLoaded) {
-        setModelsLoaded(true);
-        clearInterval(id);
-      }
-    }, 100);
-    return () => clearInterval(id);
-  }, [modelsLoaded]);
 
   // Start performance profiler when ready and no cached profile
   useEffect(() => {
-    if (deviceProfile && isReady && modelsLoaded && !profileConfig && !hasCachedProfile && !isProfiling) {
+    if (deviceProfile && isReady && !profileConfig && !hasCachedProfile && !isProfiling) {
       if (import.meta.env.DEV) console.log('🔬 Starting performance profiler for device:', {
         category: deviceProfile.category,
         tier: deviceProfile.performanceTier,
@@ -404,7 +392,7 @@ function App() {
       });
       startProfiler(progress).then(saveProfileResult);
     }
-  }, [deviceProfile, isReady, modelsLoaded, profileConfig, hasCachedProfile, isProfiling, startProfiler, fingerprint, saveProfileResult]);
+  }, [deviceProfile, isReady, profileConfig, hasCachedProfile, isProfiling, startProfiler, progress, saveProfileResult]);
 
   // Apply performance config when profiler completes or cache loaded
   useEffect(() => {
