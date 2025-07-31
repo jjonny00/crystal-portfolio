@@ -8,7 +8,8 @@ const PERFORMANCE_STORAGE_KEY = 'crystal-performance-config';
 const PerformanceDebugPanel = ({
   performanceConfig,
   hasInitialized,
-  initialProfileApplied
+  initialProfileApplied,
+  tier
 }) => {
   if (!import.meta.env.DEV && !window.__PERF_DEBUG__) return null;
 
@@ -75,6 +76,7 @@ const PerformanceDebugPanel = ({
         
         <div>
           <div style={{ color: '#ffd600', fontWeight: 'bold' }}>Active Config:</div>
+          <div>Tier: {tier}</div>
           <div style={{ color: performanceConfig?.usePBR ? '#4CAF50' : '#F44336' }}>
             PBR: {performanceConfig?.usePBR ? 'YES' : 'NO'}
           </div>

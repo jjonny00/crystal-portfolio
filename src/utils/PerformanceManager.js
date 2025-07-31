@@ -51,6 +51,10 @@ export default class PerformanceManager {
     return this.profile;
   }
 
+  getTier() {
+    return this.tier;
+  }
+
   setProfile(tier) {
     if (PERFORMANCE_PROFILES[tier]) {
       this.tier = tier;
