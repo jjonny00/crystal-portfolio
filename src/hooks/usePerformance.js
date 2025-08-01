@@ -76,9 +76,9 @@ export const usePerformance = () => {
   }, []);
 
   // Update profile manually
-  const updateProfile = useCallback((newTier) => {
+  const updateProfile = useCallback((newTier, overrides = {}) => {
     try {
-      manager.setProfile(newTier);
+      manager.setProfile(newTier, overrides);
       setProfile(manager.getProfile());
       setTier(manager.getTier());
       

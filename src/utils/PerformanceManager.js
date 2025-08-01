@@ -351,10 +351,10 @@ export default class PerformanceManager {
     return this._testResults;
   }
 
-  setProfile(tier) {
+  setProfile(tier, overrides = {}) {
     if (PERFORMANCE_PROFILES[tier]) {
       this.tier = tier;
-      this.profile = { ...PERFORMANCE_PROFILES[tier] };
+      this.profile = { ...PERFORMANCE_PROFILES[tier], ...overrides };
       
       // Update cache
       if (this._testResults) {
