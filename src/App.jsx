@@ -268,8 +268,9 @@ function App() {
       let newTier = 'medium';
       if (newConfig.pbrQuality === 'high') newTier = 'high';
       else if (newConfig.pbrQuality === 'low') newTier = 'low';
-      
-      updateProfile(newTier);
+
+      const overrides = newTier === 'low' ? { simplifiedAnimations: false } : {};
+      updateProfile(newTier, overrides);
     } else {
       // For other config changes, we would need to extend the system
       // For now, just update the local effects
