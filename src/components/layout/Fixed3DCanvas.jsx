@@ -107,6 +107,7 @@ const Fixed3DCanvas = forwardRef(({
   }, [crystalSceneRef]);
 
   // Update gradient background based on scroll zone or project focus
+  const bg = backgroundRef.current;
   useEffect(() => {
     let key = 'default';
     if (animationData?.focusedProject) {
@@ -114,8 +115,8 @@ const Fixed3DCanvas = forwardRef(({
     } else if (animationData?.currentZone === 'overview' || animationData?.currentZone === 'projects') {
       key = 'overview';
     }
-    backgroundRef.current?.updateBackground(key);
-  }, [animationData?.focusedProject, animationData?.currentZone]);
+    bg?.updateBackground(key);
+  }, [animationData?.focusedProject, animationData?.currentZone, bg]);
 
   // FIXED: Function to get facet refs from crystal scene with proper access
   const getFacetRefs = () => {
