@@ -2,32 +2,33 @@
 // Define color schemes for background gradients per project
 
 export const projectBackgrounds = {
+  // Distinct complementary pairs for clear visual testing
   default: {
-    colorA: '#1a1a1a',
-    colorB: '#4a4a4a'
+    colorA: '#5b0060', // deep purple
+    colorB: '#ffd100'  // gold
   },
   empathy: {
-    colorA: '#330000',
-    colorB: '#ff6666'
+    colorA: '#ff0000', // red
+    colorB: '#00ffff'  // cyan
   },
   narrative: {
-    colorA: '#003300',
-    colorB: '#66ff66'
+    colorA: '#00ff00', // green
+    colorB: '#ff00ff'  // magenta
   },
   craft: {
-    colorA: '#000033',
-    colorB: '#6699ff'
+    colorA: '#0000ff', // blue
+    colorB: '#ffff00'  // yellow
   },
   system: {
-    colorA: '#332200',
-    colorB: '#ffcc66'
+    colorA: '#ff7f00', // orange
+    colorB: '#007fff'  // azure
   },
   leadership: {
-    colorA: '#330033',
-    colorB: '#cc66ff'
+    colorA: '#8b00ff', // violet
+    colorB: '#74ff00'  // chartreuse
   },
   exploration: {
-    colorA: '#003333',
-    colorB: '#66ffff'
+    colorA: '#00ff80', // spring green
+    colorB: '#ff0080'  // fuchsia
   }
 };

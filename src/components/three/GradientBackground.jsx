@@ -18,12 +18,18 @@ const fragmentShader = /* glsl */`
   uniform vec3 colorA;
   uniform vec3 colorB;
   varying vec3 vWorldPosition;
+  
+  // Cheap procedural noise using sin() products for mobile-friendly variation
+  float cheapNoise(vec3 p) {
+    return sin(p.x) * sin(p.y) * sin(p.z);
+  }
+
   void main() {
     vec3 dir = normalize(vWorldPosition);
-    float height = dir.y * 0.5 + 0.5;
-    float angle = (atan(dir.z, dir.x) / (2.0 * 3.1415926)) + 0.5;
-    float noise = sin(vWorldPosition.x * 0.02) * sin(vWorldPosition.y * 0.02) * sin(vWorldPosition.z * 0.02);
-    float t = clamp(height + angle * 0.1 + noise * 0.1, 0.0, 1.0);
+    float height = dir.y * 0.5 + 0.5;             // vertical gradient component
+    float angle = (atan(dir.z, dir.x) / (2.0 * 3.1415926)) + 0.5; // around-sphere variation
+    float noise = cheapNoise(vWorldPosition * 0.05) * 0.1;        // subtle randomized variation
+    float t = clamp(height + angle * 0.1 + noise, 0.0, 1.0);
     vec3 color = mix(colorA, colorB, t);
     gl_FragColor = vec4(color, 1.0);
   }
@@ -66,6 +72,7 @@ const GradientBackground = forwardRef(({ backgrounds, initialKey = 'default', ra
         side={THREE.BackSide}
         depthWrite={false}
         depthTest={false}
+        toneMapped={false}
       />
     </mesh>
   );
