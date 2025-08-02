@@ -165,7 +165,7 @@ const PerformanceTestScene = forwardRef(({
 
         <Environment
           files={getHDRIPath(hdriQuality)}
-          background={config.environment?.showBackground !== false}
+          background={false}
           rotation={config.environment?.rotation || [0, Math.PI * 0.5, 0]}
         />
 

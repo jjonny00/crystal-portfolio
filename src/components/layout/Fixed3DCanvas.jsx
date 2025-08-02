@@ -16,6 +16,8 @@ import { FPSCounter } from '../ui/FpsDisplay';
 
 // ADDED: Import the debug panels component
 import CrystalDebugPanels from '../ui/CrystalDebugPanels';
+import GradientBackground from '../three/GradientBackground';
+import { projectBackgrounds } from '../../data/projectBackgrounds';
 
 const PulsingOmniLight = ({ simplified = false }) => {
   const lightRef = useRef();
@@ -64,10 +66,12 @@ const Fixed3DCanvas = forwardRef(({
 }, ref) => {
   // NEW: Ref to access crystal scene for debug panels
   const crystalSceneRef = useRef();
+  const backgroundRef = useRef();
 
   // Expose internal state to parent components
   useImperativeHandle(ref, () => ({
-    modelsLoaded: crystalSceneRef.current?.modelsLoaded || false
+    modelsLoaded: crystalSceneRef.current?.modelsLoaded || false,
+    updateBackground: (key) => backgroundRef.current?.updateBackground(key)
   }), [crystalSceneRef.current?.modelsLoaded]);
   
   // NEW: State for debug data
@@ -101,6 +105,18 @@ const Fixed3DCanvas = forwardRef(({
       }
     }
   }, [crystalSceneRef]);
+
+  // Update gradient background based on scroll zone or project focus
+  const bg = backgroundRef.current;
+  useEffect(() => {
+    let key = 'default';
+    if (animationData?.focusedProject) {
+      key = animationData.focusedProject;
+    } else if (animationData?.currentZone === 'overview' || animationData?.currentZone === 'projects') {
+      key = 'overview';
+    }
+    bg?.updateBackground(key);
+  }, [animationData?.focusedProject, animationData?.currentZone, bg]);
 
   // FIXED: Function to get facet refs from crystal scene with proper access
   const getFacetRefs = () => {
@@ -149,9 +165,9 @@ const Fixed3DCanvas = forwardRef(({
         >
           
           <FPSCounter />
-          
-          <color attach="background" args={['#050505']} />
-          
+
+          <GradientBackground ref={backgroundRef} backgrounds={projectBackgrounds} />
+
           {/* Persistent Dust System */}
           {dustEnabled && (
             <PersistentDustSystem count={particleCount} enabled={dustEnabled} />
@@ -224,10 +240,10 @@ const Fixed3DCanvas = forwardRef(({
             simplifiedAnimations={simplifiedAnimations}
           />
           
-          {/* Environment (unchanged) */}
-          <Environment 
-            files={environmentProps.files || config?.environment?.hdri || "/assets/environment/prismatic09-low.hdr"} 
-            background={config?.environment?.showBackground !== false} 
+          {/* Environment used for reflections only */}
+          <Environment
+            files={environmentProps.files || config?.environment?.hdri || "/assets/environment/prismatic09-low.hdr"}
+            background={false}
             rotation={config?.environment?.rotation || [0, Math.PI * 0.5, 0]}
           />
           
