@@ -7,6 +7,10 @@ export const projectBackgrounds = {
     colorA: '#5b0060', // deep purple
     colorB: '#ffd100'  // gold
   },
+  overview: {
+    colorA: '#ff3300', // orange-red
+    colorB: '#00ffcc'  // aqua
+  },
   empathy: {
     colorA: '#ff0000', // red
     colorB: '#00ffff'  // cyan
