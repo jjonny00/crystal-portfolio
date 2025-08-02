@@ -261,7 +261,7 @@ function App() {
   // FIXED: Performance config handler with proper profile management
   const handlePerformanceConfigUpdate = useCallback((newConfig) => {
     if (import.meta.env.DEV) console.log("🔧 Performance config update:", newConfig);
-    
+
     // Update performance profile through the manager
     if (newConfig.pbrQuality && newConfig.pbrQuality !== performanceProfile.pbrQuality) {
       // This is a tier change, use the proper method
@@ -271,6 +271,11 @@ function App() {
 
       const overrides = newTier === 'low' ? { simplifiedAnimations: false } : {};
       updateProfile(newTier, overrides);
+    } else if (
+      typeof newConfig.simplifiedAnimations === 'boolean' &&
+      newConfig.simplifiedAnimations !== performanceProfile.simplifiedAnimations
+    ) {
+      updateProfile(performanceTier, { simplifiedAnimations: newConfig.simplifiedAnimations });
     } else {
       // For other config changes, we would need to extend the system
       // For now, just update the local effects
@@ -279,7 +284,7 @@ function App() {
         setPostProcessingConfig(newConfig.postProcessing);
       }
     }
-  }, [performanceProfile, updateProfile]);
+  }, [performanceProfile, performanceTier, updateProfile]);
 
   const toggleUI = useCallback(() => {
     setShowUI(!showUI);
