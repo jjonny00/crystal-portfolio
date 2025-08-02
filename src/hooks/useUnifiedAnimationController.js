@@ -1,5 +1,5 @@
 // FIXED: src/hooks/useUnifiedAnimationController.js
-// Simplified animation system with immediate state changes (no complex sequences)
+// Simplified animation system with immediate state changes + enhanced debugging for background issues
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Vector3 } from 'three';
@@ -166,7 +166,7 @@ const calculateActiveProject = (scrollProgress, config = ANIMATION_CONFIG) => {
     if (scrollProgress >= section.start && scrollProgress < section.end) {
       const progress = (scrollProgress - section.start) / (section.end - section.start);
       
-      // Debug logging for project detection
+      // ENHANCED: Debug logging for project detection and background updates
       if (import.meta.env.DEV && Math.random() < 0.1) {
         console.log(`🎯 Project detected: ${projectKey}, progress: ${progress.toFixed(3)}, scroll: ${scrollProgress.toFixed(3)}`);
       }
@@ -182,7 +182,7 @@ const calculateActiveProject = (scrollProgress, config = ANIMATION_CONFIG) => {
 };
 
 /**
- * SIMPLIFIED: Main controller with immediate state changes
+ * SIMPLIFIED: Main controller with immediate state changes + enhanced debugging
  */
 export const useUnifiedAnimationController = (options = {}) => {
   const {
@@ -266,6 +266,11 @@ export const useUnifiedAnimationController = (options = {}) => {
       if (import.meta.env.DEV) console.log('🎯 IMMEDIATE Project focus:', projectKey);
     }
 
+    // ENHANCED: Log when project focus changes for background debugging
+    if (import.meta.env.DEV) {
+      console.log(`🎨 Background trigger: Project focus changed to "${projectKey}"`);
+    }
+
     // Immediate state change - same pattern as working projects
     setAnimationState(prev => ({
       ...prev,
@@ -276,11 +281,24 @@ export const useUnifiedAnimationController = (options = {}) => {
   }, [debugMode]);
 
   /**
-   * FIXED: Main scroll update with hysteresis to prevent boundary flickering
+   * FIXED: Main scroll update with hysteresis to prevent boundary flickering + enhanced debugging
    */
   const updateFromScrollProgress = useCallback((scrollProgress) => {
     const currentZone = calculateCurrentZone(scrollProgress, config);
     const activeProject = calculateActiveProject(scrollProgress, config);
+    
+    // ENHANCED: Log scroll updates for background debugging
+    if (import.meta.env.DEV && Math.random() < 0.05) { // Sample 5% of updates
+      console.log('🔄 Animation state update:', {
+        scrollProgress: scrollProgress.toFixed(3),
+        currentZone: currentZone.zone,
+        zoneProgress: currentZone.progress.toFixed(3),
+        activeProject: activeProject.project,
+        projectProgress: activeProject.progress.toFixed(3),
+        lastZone: lastZone.current,
+        lastProject: lastProject.current
+      });
+    }
     
     // FIXED: Add hysteresis to prevent boundary flickering
     const zoneChanged = currentZone.zone !== lastZone.current;
@@ -303,8 +321,9 @@ export const useUnifiedAnimationController = (options = {}) => {
       }
       
       if (shouldChangeZone) {
-        if (debugMode) {
-          if (import.meta.env.DEV) console.log(`🗺️ Zone change confirmed: ${lastZone.current} → ${currentZone.zone} (progress: ${currentZone.progress.toFixed(3)})`);
+        if (debugMode || import.meta.env.DEV) {
+          console.log(`🗺️ Zone change confirmed: ${lastZone.current} → ${currentZone.zone} (progress: ${currentZone.progress.toFixed(3)})`);
+          console.log(`🎨 Background trigger: Zone changed to "${currentZone.zone}"`);
         }
         handleZoneTransition(lastZone.current, currentZone.zone);
         lastZone.current = currentZone.zone;
@@ -315,8 +334,9 @@ export const useUnifiedAnimationController = (options = {}) => {
     if (currentZone.zone === 'projects') {
       // First, ensure we're in project state when entering projects zone
       if (animationState.state !== ANIMATION_STATES.PROJECT_FOCUSED) {
-        if (debugMode) {
-          if (import.meta.env.DEV) console.log('🎯 Entering projects zone - setting project state');
+        if (debugMode || import.meta.env.DEV) {
+          console.log('🎯 Entering projects zone - setting project state');
+          console.log('🎨 Background trigger: Entering projects zone');
         }
         setAnimationState(prev => ({
           ...prev,
@@ -332,6 +352,10 @@ export const useUnifiedAnimationController = (options = {}) => {
         // Reduce hysteresis for projects since they're working well
         const projectHysteresis = 0.05; // 5% into project section
         if (activeProject.progress > projectHysteresis) {
+          if (import.meta.env.DEV) {
+            console.log(`🎯 Project changed: ${lastProject.current} → ${activeProject.project}`);
+            console.log(`🎨 Background trigger: Project changed to "${activeProject.project}"`);
+          }
           handleProjectFocus(activeProject.project);
           lastProject.current = activeProject.project;
         }
@@ -339,10 +363,18 @@ export const useUnifiedAnimationController = (options = {}) => {
       
       // Set initial project if none is set but we have an active project
       if (!animationState.focusedFacet && activeProject.project && activeProject.progress > 0.05) {
+        if (import.meta.env.DEV) {
+          console.log(`🎯 Setting initial project: ${activeProject.project}`);
+          console.log(`🎨 Background trigger: Initial project set to "${activeProject.project}"`);
+        }
         handleProjectFocus(activeProject.project);
         lastProject.current = activeProject.project;
       }
     } else if (currentZone.zone !== 'projects' && lastProject.current) {
+      if (import.meta.env.DEV) {
+        console.log('🎯 Clearing project focus - left projects zone');
+        console.log('🎨 Background trigger: Left projects zone, clearing project focus');
+      }
       setAnimationState(prev => ({
         ...prev,
         focusedFacet: null
@@ -381,14 +413,6 @@ export const useUnifiedAnimationController = (options = {}) => {
     } else {
       cameraConfig = config.camera[animationState.cameraState] || config.camera.hero;
     }
-    
-    // if (debugMode && cameraConfig) {
-    //   if (import.meta.env.DEV) console.log(`📹 Camera config for "${animationState.cameraState}":`, {
-    //     position: cameraConfig.position?.toArray(),
-    //     target: cameraConfig.target?.toArray(),
-    //     fov: cameraConfig.fov
-    //   });
-    // }
     
     return cameraConfig;
   }, [animationState.cameraState, animationState.focusedFacet, animationState.state, config, debugMode]);

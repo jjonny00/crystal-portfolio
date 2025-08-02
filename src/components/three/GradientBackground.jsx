@@ -1,5 +1,5 @@
-// src/components/three/GradientBackground.jsx
-// Large inverted sphere gradient background with smooth color transitions
+// FIXED: src/components/three/GradientBackground.jsx
+// Large inverted sphere gradient background with smooth color transitions and better state management
 
 import React, { useRef, forwardRef, useImperativeHandle } from 'react';
 import { useFrame } from '@react-three/fiber';
@@ -41,6 +41,9 @@ const GradientBackground = forwardRef(({ backgrounds, initialKey = 'default', ra
   const currentB = useRef(new THREE.Color(backgrounds[initialKey].colorB));
   const targetA = useRef(currentA.current.clone());
   const targetB = useRef(currentB.current.clone());
+  
+  // ADDED: Track current key to prevent redundant updates
+  const currentKey = useRef(initialKey);
 
   useFrame(() => {
     if (!materialRef.current) return;
@@ -52,9 +55,44 @@ const GradientBackground = forwardRef(({ backgrounds, initialKey = 'default', ra
 
   useImperativeHandle(ref, () => ({
     updateBackground: (key) => {
+      // FIXED: Always update if key is different, or if we don't have the key in backgrounds
+      if (key !== currentKey.current || !backgrounds[key]) {
+        const scheme = backgrounds[key] || backgrounds.default;
+        
+        if (import.meta.env.DEV) {
+          console.log(`🎨 GradientBackground: Updating from "${currentKey.current}" to "${key}"`, {
+            oldColors: {
+              colorA: currentKey.current ? backgrounds[currentKey.current]?.colorA : 'unknown',
+              colorB: currentKey.current ? backgrounds[currentKey.current]?.colorB : 'unknown'
+            },
+            newColors: {
+              colorA: scheme.colorA,
+              colorB: scheme.colorB
+            }
+          });
+        }
+        
+        targetA.current = new THREE.Color(scheme.colorA);
+        targetB.current = new THREE.Color(scheme.colorB);
+        currentKey.current = key;
+      } else if (import.meta.env.DEV) {
+        console.log(`🎨 GradientBackground: Skipping update, already on "${key}"`);
+      }
+    },
+    
+    // ADDED: Getter to check current state
+    getCurrentKey: () => currentKey.current,
+    
+    // ADDED: Force update method for debugging
+    forceUpdate: (key) => {
       const scheme = backgrounds[key] || backgrounds.default;
       targetA.current = new THREE.Color(scheme.colorA);
       targetB.current = new THREE.Color(scheme.colorB);
+      currentKey.current = key;
+      
+      if (import.meta.env.DEV) {
+        console.log(`🎨 GradientBackground: Force updated to "${key}"`);
+      }
     }
   }));
 

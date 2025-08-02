@@ -1,5 +1,5 @@
-// UPDATED: src/components/layout/Fixed3DCanvas.jsx
-// ADDED: Bottom directional light to illuminate crystal undersides
+// FIXED: src/components/layout/Fixed3DCanvas.jsx
+// UPDATED: Fixed background color updates for project sections
 
 import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
@@ -48,7 +48,7 @@ const PulsingOmniLight = ({ simplified = false }) => {
 };
 
 /**
- * UPDATED: Fixed3DCanvas with bottom directional light for better crystal illumination
+ * UPDATED: Fixed3DCanvas with corrected background color logic
  */
 const Fixed3DCanvas = forwardRef(({
   // Animation data from MasterAnimationCoordinator
@@ -106,17 +106,71 @@ const Fixed3DCanvas = forwardRef(({
     }
   }, [crystalSceneRef]);
 
-  // Update gradient background based on scroll zone or project focus
+  // FIXED: Update gradient background based on scroll zone or project focus
   const bg = backgroundRef.current;
   useEffect(() => {
+    if (!bg || !animationData) return;
+    
     let key = 'default';
-    if (animationData?.focusedProject) {
-      key = animationData.focusedProject;
-    } else if (animationData?.currentZone === 'overview' || animationData?.currentZone === 'projects') {
-      key = 'overview';
+    
+    // Debug logging to see what's happening
+    if (import.meta.env.DEV) {
+      console.log('🎨 Background update check:', {
+        currentZone: animationData?.currentZone,
+        zoneInfo: animationData?.zoneInfo,
+        state: animationData?.state,
+        focusedProject: animationData?.focusedProject,
+        focusedFacet: animationData?.focusedFacet,
+        projectInfo: animationData?.projectInfo
+      });
     }
-    bg?.updateBackground(key);
-  }, [animationData?.focusedProject, animationData?.currentZone, bg]);
+
+    // FIXED: Check for focused project first (more specific)
+    if (animationData.focusedProject || animationData.focusedFacet) {
+      const projectKey = animationData.focusedProject || animationData.focusedFacet;
+      key = projectKey;
+      if (import.meta.env.DEV) {
+        console.log(`🎨 Setting background to project: ${projectKey}`);
+      }
+    }
+    // FIXED: Then check zones - be more specific about projects zone
+    else if (animationData.currentZone === 'projects' || animationData.state === 'project_focused') {
+      // In projects zone but no specific project focused - use overview
+      key = 'overview';
+      if (import.meta.env.DEV) {
+        console.log('🎨 Setting background to projects overview');
+      }
+    }
+    else if (animationData.currentZone === 'overview') {
+      key = 'overview';
+      if (import.meta.env.DEV) {
+        console.log('🎨 Setting background to overview');
+      }
+    }
+    else {
+      // Default for hero, about, or any other zone
+      key = 'default';
+      if (import.meta.env.DEV) {
+        console.log('🎨 Setting background to default');
+      }
+    }
+
+    // FIXED: Always call updateBackground, even if key is the same
+    // The component should handle duplicate calls internally
+    bg.updateBackground(key);
+    
+    if (import.meta.env.DEV) {
+      console.log(`🎨 Background key set to: ${key}`);
+    }
+    
+  }, [
+    animationData?.focusedProject, 
+    animationData?.focusedFacet,
+    animationData?.currentZone, 
+    animationData?.state,
+    animationData?.projectInfo,
+    bg
+  ]);
 
   // FIXED: Function to get facet refs from crystal scene with proper access
   const getFacetRefs = () => {
@@ -166,7 +220,12 @@ const Fixed3DCanvas = forwardRef(({
           
           <FPSCounter />
 
-          <GradientBackground ref={backgroundRef} backgrounds={projectBackgrounds} />
+          {/* FIXED: Pass backgrounds to GradientBackground and use 'default' as initial */}
+          <GradientBackground 
+            ref={backgroundRef} 
+            backgrounds={projectBackgrounds} 
+            initialKey="default"
+          />
 
           {/* Persistent Dust System */}
           {dustEnabled && (
