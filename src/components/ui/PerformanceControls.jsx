@@ -16,6 +16,7 @@ const PerformanceControls = ({
   const [textureQuality, setTextureQuality] = useState(performanceConfig?.textureQuality ?? 'high');
   const [pbrQuality, setPbrQuality] = useState(performanceConfig?.pbrQuality ?? 'high');
   const [renderScale, setRenderScale] = useState(performanceConfig?.renderScale ?? 1.0);
+  const [simplifiedAnimations, setSimplifiedAnimations] = useState(performanceConfig?.simplifiedAnimations ?? false);
   
   // Update local state when config changes externally
   useEffect(() => {
@@ -24,6 +25,7 @@ const PerformanceControls = ({
       if (performanceConfig.textureQuality !== undefined) setTextureQuality(performanceConfig.textureQuality);
       if (performanceConfig.pbrQuality !== undefined) setPbrQuality(performanceConfig.pbrQuality);
       if (performanceConfig.renderScale !== undefined) setRenderScale(performanceConfig.renderScale);
+      if (performanceConfig.simplifiedAnimations !== undefined) setSimplifiedAnimations(performanceConfig.simplifiedAnimations);
     }
   }, [performanceConfig]);
 
@@ -36,6 +38,18 @@ const PerformanceControls = ({
       onConfigUpdate({
         ...performanceConfig,
         useNormalMaps: newValue
+      });
+    }
+  };
+
+  const handleSimplifiedToggle = () => {
+    const newValue = !simplifiedAnimations;
+    setSimplifiedAnimations(newValue);
+
+    if (onConfigUpdate) {
+      onConfigUpdate({
+        ...performanceConfig,
+        simplifiedAnimations: newValue
       });
     }
   };
@@ -231,10 +245,24 @@ const PerformanceControls = ({
           backgroundColor: useNormalMaps ? 'rgba(100, 255, 218, 0.1)' : 'rgba(0, 0, 0, 0.2)'
         }}
       >
-        <div style={toggleLabelStyle}>Use Normal Maps</div>
-        <ToggleSwitch 
-          checked={useNormalMaps}
-          onChange={handleNormalMapToggle}
+      <div style={toggleLabelStyle}>Use Normal Maps</div>
+      <ToggleSwitch
+        checked={useNormalMaps}
+        onChange={handleNormalMapToggle}
+      />
+      </div>
+
+      {/* Simplified Animations Toggle */}
+      <div
+        style={{
+          ...toggleContainerStyle,
+          backgroundColor: simplifiedAnimations ? 'rgba(100, 255, 218, 0.1)' : 'rgba(0, 0, 0, 0.2)'
+        }}
+      >
+        <div style={toggleLabelStyle}>Simplified Animations</div>
+        <ToggleSwitch
+          checked={simplifiedAnimations}
+          onChange={handleSimplifiedToggle}
         />
       </div>
       
