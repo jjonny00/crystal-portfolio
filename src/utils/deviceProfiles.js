@@ -41,7 +41,7 @@ export const PERFORMANCE_PROFILES = {
     minAcceptableFPS: 30,
     
     // Debug info
-    description: 'High-end devices with dedicated GPUs',
+    description: 'High-end devices (avg ≥40 FPS) with dedicated GPUs',
     expectedDevices: ['RTX 30/40 series', 'M1/M2 MacBooks', 'High-end iPhones/iPads']
   },
 
@@ -84,7 +84,7 @@ export const PERFORMANCE_PROFILES = {
     minAcceptableFPS: 25,
     
     // Debug info
-    description: 'Mid-range devices and integrated graphics - safe default',
+    description: 'Mid-range devices (~30 FPS) and integrated graphics - safe default',
     expectedDevices: ['GTX 10/16 series', 'Intel/AMD integrated', 'Standard smartphones']
   },
 
@@ -127,7 +127,7 @@ export const PERFORMANCE_PROFILES = {
     minAcceptableFPS: 20,
     
     // Debug info
-    description: 'Older devices and low-end hardware only',
+    description: 'Older devices and low-end hardware (<28 FPS) only',
     expectedDevices: ['Older smartphones', 'Budget laptops', 'Very old integrated graphics']
   },
 

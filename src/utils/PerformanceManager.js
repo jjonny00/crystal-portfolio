@@ -338,21 +338,21 @@ export default class PerformanceManager {
   _determineTierFromResults(testResults) {
     // FIXED: Much more conservative thresholds that trust devices that were working before
     const { avgFps, minFps } = testResults;
-    
+
     if (import.meta.env.DEV) {
-      console.log('🔧 Conservative performance test results:', { avgFps, minFps });
+      console.log('🔧 Performance test results:', { avgFps, minFps });
     }
 
-    // FIXED: Lower thresholds that match the "Fix Strategy" from the document
-    // High: 35+ avg, 25+ min (instead of 45+/35+)
-    if (avgFps >= 35 && minFps >= 25) {
+    // Determine tier with a small buffer so ~30 FPS devices aren't flagged as low
+    // High: 40+ avg, 30+ min
+    if (avgFps >= 40 && minFps >= 30) {
       return 'high';
     }
-    // Medium: 22+ avg, 18+ min (instead of 30+/25+)  
-    else if (avgFps >= 22 && minFps >= 18) {
+    // Medium: 28+ avg, 22+ min (gives ~2 FPS margin around 30)
+    else if (avgFps >= 28 && minFps >= 22) {
       return 'medium';
     }
-    // Low: <22 avg FPS
+    // Low: anything below the medium thresholds
     else {
       return 'low';
     }
