@@ -4,7 +4,7 @@ A React + Vite project showcasing a 3D crystal scene. Rendering quality is tuned
 
 ## Performance manager (`usePerformance`)
 
-`usePerformance` exposes the active profile managed by `PerformanceManager`. When the app starts the manager renders a minimal scene (`RuntimePerformanceTest`) and assigns one of three tiers:
+`usePerformance` exposes the active profile managed by `PerformanceManager`. When the app starts the manager renders a minimal scene (`RuntimePerformanceTest`) and assigns one of three tiers. The benchmark now includes a short 200 ms warm‑up period and runs three iterations of the 1.5 s test, averaging the results before deciding which tier to use. These averaged metrics are cached so the test only reruns when needed:
 
 - `high` – fast desktop or mobile hardware
 - `medium` – mid‑range devices
