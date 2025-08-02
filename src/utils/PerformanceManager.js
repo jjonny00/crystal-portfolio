@@ -5,7 +5,7 @@ import { PERFORMANCE_PROFILES } from './deviceProfiles.js';
 
 const STORAGE_KEY = 'crystal-performance-config';
 const VERSION_KEY = 'crystal-performance-version';
-const CURRENT_VERSION = '2.1'; // Increment to force re-testing with new conservative approach
+const CURRENT_VERSION = '2.2'; // Increment to force re-testing with new conservative approach
 
 export default class PerformanceManager {
   constructor() {
@@ -130,12 +130,13 @@ export default class PerformanceManager {
     document.body.appendChild(canvas);
 
     try {
+      const iterations = 3;
       // FIXED: Test medium first (what was working), only upgrade if performance is excellent
-      const mediumResults = await this._testWithActualSceneComplexity(canvas, 'medium');
-      
+      const mediumResults = await this._testWithActualSceneComplexity(canvas, 'medium', iterations);
+
       // Only try high quality if medium performs excellently
       if (mediumResults.avgFps >= 50 && mediumResults.minFps >= 40) {
-        const highResults = await this._testWithActualSceneComplexity(canvas, 'high');
+        const highResults = await this._testWithActualSceneComplexity(canvas, 'high', iterations);
         
         // Only use high if it still performs well
         if (highResults.avgFps >= 40 && highResults.minFps >= 30) {
@@ -145,7 +146,7 @@ export default class PerformanceManager {
       
       // Only downgrade to low if medium performs poorly
       if (mediumResults.avgFps < 25 || mediumResults.minFps < 20) {
-        const lowResults = await this._testWithActualSceneComplexity(canvas, 'low');
+        const lowResults = await this._testWithActualSceneComplexity(canvas, 'low', iterations);
         return { ...lowResults, recommendedTier: 'low' };
       }
       
@@ -160,155 +161,178 @@ export default class PerformanceManager {
     }
   }
 
-  async _testWithActualSceneComplexity(canvas, tier) {
+  async _testWithActualSceneComplexity(canvas, tier, iterations = 3) {
     const profile = PERFORMANCE_PROFILES[tier];
-    
-    // FIXED: Create test scene that matches your ACTUAL crystal scene complexity
-    return new Promise((resolve) => {
-      import('three').then((THREE) => {
-        const renderer = new THREE.WebGLRenderer({ 
-          canvas,
-          antialias: profile.antialiasing !== false,
-          powerPreference: 'default' // FIXED: Don't force high-performance mode in test
-        });
-        
-        // FIXED: Use smaller render scale for testing to avoid test being harder than real scene
-        const testRenderScale = Math.min(profile.renderScale, 0.8);
-        renderer.setSize(256 * testRenderScale, 256 * testRenderScale);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, profile.maxPixelRatio || 2));
-        
-        // Create scene that matches your actual crystal complexity
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
-        camera.position.set(0, 2, 4);
+    const THREE = await import('three');
 
-        // FIXED: Use simpler geometry that better matches your optimized scene
-        const crystalGeometry = new THREE.IcosahedronGeometry(1, 1); // Less complex than before
-        
-        // FIXED: Create material that matches your MaterialManager output for this tier
-        let crystalMaterial;
-        
-        if (profile.pbrQuality === 'low') {
-          // Match your MaterialManager optimized mobile material
-          crystalMaterial = new THREE.MeshStandardMaterial({
-            color: 0x1f2391,
-            metalness: 0.8,
-            roughness: 0.02,
-            envMapIntensity: 4.0,
-            transparent: true,
-            opacity: 0.96,
-            emissive: new THREE.Color(0xa7ffdb),
-            emissiveIntensity: 0.03
-          });
-        } else {
-          // Use simplified PBR material for medium/high
-          crystalMaterial = new THREE.MeshPhysicalMaterial({
-            color: 0x0d042b,
-            metalness: 0.0,
-            roughness: 0.11,
-            transmission: profile.pbrQuality === 'high' ? 0.7 : 0.4,
-            ior: 2.3,
-            transparent: true,
-            opacity: 0.8,
-            envMapIntensity: profile.pbrQuality === 'high' ? 2.0 : 1.5
-          });
-        }
-
-        const crystal = new THREE.Mesh(crystalGeometry, crystalMaterial);
-        scene.add(crystal);
-
-        // FIXED: Add only 3 facets to match your optimized scene (not 6)
-        for (let i = 0; i < 3; i++) {
-          const facet = crystal.clone();
-          facet.position.set(
-            Math.cos(i / 3 * Math.PI * 2) * 1.5,
-            Math.sin(i / 3 * Math.PI * 2) * 0.8,
-            Math.sin(i / 3 * Math.PI * 2) * 0.5
-          );
-          facet.scale.setScalar(0.4);
-          scene.add(facet);
-        }
-
-        // FIXED: Use lighting that matches your actual scene
-        const ambientLight = new THREE.AmbientLight(0x404040, 0.4);
-        scene.add(ambientLight);
-        
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 1.8);
-        directionalLight.position.set(2, 8, 5);
-        scene.add(directionalLight);
-
-        // Add only as many lights as the profile allows
-        if (profile.maxLights > 2) {
-          const pointLight1 = new THREE.PointLight(0x00ad1d, 1.0);
-          pointLight1.position.set(-5, 3, -5);
-          scene.add(pointLight1);
-        }
-
-        // FIXED: Don't simulate post-processing overhead - test real rendering load only
-        
-        // FIXED: Shorter test duration to reduce impact
-        const samples = [];
-        const duration = 1500; // 1.5 seconds instead of 2
-        let startTime = 0;
-        let lastTime = 0;
-        let frameCount = 0;
-
-        const testLoop = (time) => {
-          if (!startTime) {
-            startTime = time;
-            lastTime = time;
-          }
-
-          const deltaTime = time - lastTime;
-          lastTime = time;
-
-          // FIXED: Lighter animation load to match your optimized scene
-          crystal.rotation.y += 0.003; // Slower rotation
-          crystal.rotation.x += 0.001;
-          
-          scene.children.forEach(child => {
-            if (child.isMesh && child !== crystal) {
-              child.rotation.y += 0.002;
-              child.rotation.z += 0.0005;
-            }
-          });
-
-          // Render frame
-          renderer.render(scene, camera);
-          
-          // Collect FPS sample every 100ms
-          if (deltaTime > 0) {
-            samples.push(1000 / deltaTime);
-            frameCount++;
-          }
-
-          if (time - startTime < duration) {
-            requestAnimationFrame(testLoop);
-          } else {
-            // Calculate results
-            const avgFps = samples.reduce((a, b) => a + b, 0) / samples.length;
-            const minFps = Math.min(...samples);
-            const maxFps = Math.max(...samples);
-            
-            // Clean up
-            renderer.dispose();
-            crystalMaterial.dispose();
-            crystalGeometry.dispose();
-            
-            resolve({
-              tier,
-              avgFps: avgFps || 0,
-              minFps: minFps || 0,
-              maxFps: maxFps || 0,
-              frameCount,
-              samples: samples.length
-            });
-          }
-        };
-
-        requestAnimationFrame(testLoop);
+    const runSingleTest = () => new Promise((resolve) => {
+      const renderer = new THREE.WebGLRenderer({
+        canvas,
+        antialias: profile.antialiasing !== false,
+        powerPreference: 'default' // FIXED: Don't force high-performance mode in test
       });
+
+      // FIXED: Use smaller render scale for testing to avoid test being harder than real scene
+      const testRenderScale = Math.min(profile.renderScale, 0.8);
+      renderer.setSize(256 * testRenderScale, 256 * testRenderScale);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, profile.maxPixelRatio || 2));
+
+      // Create scene that matches your actual crystal complexity
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+      camera.position.set(0, 2, 4);
+
+      // FIXED: Use simpler geometry that better matches your optimized scene
+      const crystalGeometry = new THREE.IcosahedronGeometry(1, 1); // Less complex than before
+
+      // FIXED: Create material that matches your MaterialManager output for this tier
+      let crystalMaterial;
+
+      if (profile.pbrQuality === 'low') {
+        // Match your MaterialManager optimized mobile material
+        crystalMaterial = new THREE.MeshStandardMaterial({
+          color: 0x1f2391,
+          metalness: 0.8,
+          roughness: 0.02,
+          envMapIntensity: 4.0,
+          transparent: true,
+          opacity: 0.96,
+          emissive: new THREE.Color(0xa7ffdb),
+          emissiveIntensity: 0.03
+        });
+      } else {
+        // Use simplified PBR material for medium/high
+        crystalMaterial = new THREE.MeshPhysicalMaterial({
+          color: 0x0d042b,
+          metalness: 0.0,
+          roughness: 0.11,
+          transmission: profile.pbrQuality === 'high' ? 0.7 : 0.4,
+          ior: 2.3,
+          transparent: true,
+          opacity: 0.8,
+          envMapIntensity: profile.pbrQuality === 'high' ? 2.0 : 1.5
+        });
+      }
+
+      const crystal = new THREE.Mesh(crystalGeometry, crystalMaterial);
+      scene.add(crystal);
+
+      // FIXED: Add only 3 facets to match your optimized scene (not 6)
+      for (let i = 0; i < 3; i++) {
+        const facet = crystal.clone();
+        facet.position.set(
+          Math.cos(i / 3 * Math.PI * 2) * 1.5,
+          Math.sin(i / 3 * Math.PI * 2) * 0.8,
+          Math.sin(i / 3 * Math.PI * 2) * 0.5
+        );
+        facet.scale.setScalar(0.4);
+        scene.add(facet);
+      }
+
+      // FIXED: Use lighting that matches your actual scene
+      const ambientLight = new THREE.AmbientLight(0x404040, 0.4);
+      scene.add(ambientLight);
+
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 1.8);
+      directionalLight.position.set(2, 8, 5);
+      scene.add(directionalLight);
+
+      // Add only as many lights as the profile allows
+      if (profile.maxLights > 2) {
+        const pointLight1 = new THREE.PointLight(0x00ad1d, 1.0);
+        pointLight1.position.set(-5, 3, -5);
+        scene.add(pointLight1);
+      }
+
+      // FIXED: Don't simulate post-processing overhead - test real rendering load only
+
+      const samples = [];
+      const warmup = 200; // Ignore first 200ms
+      const measureDuration = 1500; // 1.5 seconds of sampling
+      const totalDuration = warmup + measureDuration;
+      let startTime = 0;
+      let lastTime = 0;
+      let frameCount = 0;
+
+      const testLoop = (time) => {
+        if (!startTime) {
+          startTime = time;
+          lastTime = time;
+        }
+
+        const deltaTime = time - lastTime;
+        lastTime = time;
+
+        // FIXED: Lighter animation load to match your optimized scene
+        crystal.rotation.y += 0.003; // Slower rotation
+        crystal.rotation.x += 0.001;
+
+        scene.children.forEach(child => {
+          if (child.isMesh && child !== crystal) {
+            child.rotation.y += 0.002;
+            child.rotation.z += 0.0005;
+          }
+        });
+
+        // Render frame
+        renderer.render(scene, camera);
+
+        const elapsed = time - startTime;
+        if (elapsed > warmup && deltaTime > 0) {
+          samples.push(1000 / deltaTime);
+          frameCount++;
+        }
+
+        if (elapsed < totalDuration) {
+          requestAnimationFrame(testLoop);
+        } else {
+          const avgFps = samples.reduce((a, b) => a + b, 0) / samples.length;
+          const minFps = Math.min(...samples);
+          const maxFps = Math.max(...samples);
+
+          renderer.dispose();
+          crystalMaterial.dispose();
+          crystalGeometry.dispose();
+
+          resolve({
+            avgFps: avgFps || 0,
+            minFps: minFps || 0,
+            maxFps: maxFps || 0,
+            frameCount,
+            samples: samples.length
+          });
+        }
+      };
+
+      requestAnimationFrame(testLoop);
     });
+
+    let aggregated = {
+      avgFps: 0,
+      minFps: 0,
+      maxFps: 0,
+      frameCount: 0,
+      samples: 0
+    };
+
+    for (let i = 0; i < iterations; i++) {
+      const result = await runSingleTest();
+      aggregated.avgFps += result.avgFps;
+      aggregated.minFps += result.minFps;
+      aggregated.maxFps += result.maxFps;
+      aggregated.frameCount += result.frameCount;
+      aggregated.samples += result.samples;
+    }
+
+    return {
+      tier,
+      avgFps: aggregated.avgFps / iterations,
+      minFps: aggregated.minFps / iterations,
+      maxFps: aggregated.maxFps / iterations,
+      frameCount: Math.round(aggregated.frameCount / iterations),
+      samples: Math.round(aggregated.samples / iterations),
+      iterations
+    };
   }
 
   _determineTierFromResults(testResults) {
