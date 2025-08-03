@@ -51,6 +51,8 @@ const GradientBackground = forwardRef(({ backgrounds, initialKey = 'default', ra
     currentB.current.lerp(targetB.current, 0.05);
     materialRef.current.uniforms.colorA.value.copy(currentA.current);
     materialRef.current.uniforms.colorB.value.copy(currentB.current);
+    materialRef.current.uniformsNeedUpdate = true;
+    materialRef.current.needsUpdate = true;
   });
 
   useImperativeHandle(ref, () => ({
