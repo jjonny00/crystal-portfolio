@@ -4,14 +4,14 @@
 export const projectBackgrounds = {
   // Default - Deep purple to gold (elegant, professional)
   default: {
-    colorA: '#1a0033', // deeper purple  
-    colorB: '#2d1b00'  // darker gold
+    colorA: '#28212e', // deeper purple  
+    colorB: '#3d2400'  // darker gold
   },
   
   // Overview - Bright contrast for projects overview
   overview: {
-    colorA: '#1cf409', // deep red-orange
-    colorB: '#7100bc'  // deep teal
+    colorA: '#03d1cd', // deep red-orange
+    colorB: '#19141b'  // deep teal
   },
   
   // Empathy - Warm and inviting (red to cyan)

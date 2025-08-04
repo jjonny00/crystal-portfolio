@@ -12,23 +12,58 @@ const vertexShader = /* glsl */`
 `;
 
 const fragmentShader = /* glsl */`
-  uniform vec3 colorA;
-  uniform vec3 colorB;
-  varying vec3 vWorldPosition;
+uniform vec3 colorA;
+uniform vec3 colorB;
+varying vec3 vWorldPosition;
 
-  float cheapNoise(vec3 p) {
-    return sin(p.x) * sin(p.y) * sin(p.z);
+// Hash function for scattered randomness
+float hash(vec3 p) {
+  return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453123);
+}
+
+// Generates scattered soft bursts
+float burstField(vec3 p) {
+  vec3 cell = floor(p);
+  float burst = 0.0;
+
+  for (int x = -1; x <= 1; x++) {
+    for (int y = -1; y <= 1; y++) {
+      for (int z = -1; z <= 1; z++) {
+        vec3 offset = vec3(float(x), float(y), float(z));
+        vec3 pos = cell + offset;
+
+        // Random offset inside the cell
+        vec3 randOffset = fract(sin(pos * 17.0) * 43758.5453);
+        vec3 feature = pos + randOffset;
+
+        // Soft contribution using smooth inverse falloff
+        float dist = length(p - feature);
+        float strength = smoothstep(1.0, 0.0, dist);  // Soft fade-in
+        burst += strength;
+      }
+    }
   }
 
-  void main() {
-    vec3 dir = normalize(vWorldPosition);
-    float height = dir.y * 0.5 + 0.5;
-    float angle = (atan(dir.z, dir.x) / (2.0 * 3.1415926)) + 0.5;
-    float noise = cheapNoise(vWorldPosition * 0.05) * 0.1;
-    float t = clamp(height + angle * 0.1 + noise, 0.0, 1.0);
-    vec3 color = mix(colorA, colorB, t);
-    gl_FragColor = vec4(color, 1.0);
-  }
+  return burst;
+}
+
+void main() {
+  vec3 dir = normalize(vWorldPosition);
+
+  float height = dir.y * 0.5 + 0.5;
+  float angle = (atan(dir.z, dir.x) / (2.0 * 3.1415926)) + 0.5;
+
+  // Subtle directional gradient
+  float baseT = clamp(height + angle * 0.1, 0.0, 1.0);
+
+  // Bursts of randomness (scale position to control density)
+  float bursts = burstField(vWorldPosition * 0.03) * 0.01;
+
+  float t = clamp(baseT + bursts, 0.0, 1.0);
+
+  vec3 color = mix(colorA, colorB, t);
+  gl_FragColor = vec4(color, 1.0);
+}
 `;
 
 const GradientBackground = forwardRef(({ backgrounds, initialKey = 'default', radius = 100 }, ref) => {
@@ -54,8 +89,7 @@ const GradientBackground = forwardRef(({ backgrounds, initialKey = 'default', ra
 
     uniforms.colorA.value.copy(currentA.current);
     uniforms.colorB.value.copy(currentB.current);
-
-    materialRef.current.needsUpdate = true; // 🔥 Key fix
+    materialRef.current.needsUpdate = true;
   });
 
   useImperativeHandle(ref, () => ({
