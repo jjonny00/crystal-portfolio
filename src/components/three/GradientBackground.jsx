@@ -57,7 +57,7 @@ void main() {
   float baseT = clamp(height + angle * 0.1, 0.0, 1.0);
 
   // Bursts of randomness (scale position to control density)
-  float bursts = burstField(vWorldPosition * 0.03) * 0.01;
+  float bursts = burstField(vWorldPosition * 0.03) * 0.1;
 
   float t = clamp(baseT + bursts, 0.0, 1.0);
 

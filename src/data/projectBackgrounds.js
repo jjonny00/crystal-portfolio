@@ -10,14 +10,14 @@ export const projectBackgrounds = {
   
   // Overview - Bright contrast for projects overview
   overview: {
-    colorA: '#03d1cd', // deep red-orange
-    colorB: '#19141b'  // deep teal
+    colorA: '#0d001f', // deep red-orange
+    colorB: '#007ea8'  // deep teal
   },
   
   // Empathy - Warm and inviting (red to cyan)
   empathy: {
-    colorA: '#4d0000', // deep red
-    colorB: '#004d4d'  // deep cyan
+    colorA: '#08004d', // deep red
+    colorB: '#00a67f'  // deep cyan
   },
   
   // Narrative - Creative and inspiring (green to magenta) 
