@@ -1,6 +1,7 @@
 // src/performance/loadingPhases.js
 // Comprehensive loading phases and sequence for progressive loading
 import { detectDeviceCapabilities } from '../utils/deviceProfiles';
+import EnhancedLoadingManager from './EnhancedLoadingManager';
 
 // Placeholder implementations for domain specific functions. These are
 // designed to be replaced by real implementations in the application.
@@ -131,5 +132,16 @@ export const LOADING_SEQUENCE = [
     }
   }
 ];
+
+export async function runLoadingSequence(sequence = LOADING_SEQUENCE, manager = new EnhancedLoadingManager()) {
+  let data = null;
+  for (const step of sequence) {
+    manager.startPhase(step.phase);
+    data = await step.action((p, m) => manager.updatePhaseProgress(p, m), data);
+  }
+  manager.startPhase('ready');
+  manager.updatePhaseProgress(100);
+  return data;
+}
 
 export default LOADING_PHASES;

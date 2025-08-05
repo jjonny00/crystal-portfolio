@@ -1,7 +1,59 @@
 // src/performance/ProgressivePerformanceTester.js
 // Progressive real scene performance tester with progress feedback
 
+import React, { createRef } from 'react';
+import { createRoot } from 'react-dom/client';
+import PerformanceTestScene from './PerformanceTestScene';
+
 export const QUALITY_LEVELS = ['low', 'medium', 'high'];
+
+const QUALITY_PRESETS = {
+  low: {
+    renderScale: 0.5,
+    textureQuality: 'low',
+    pbrQuality: 'low',
+    usePBR: false,
+    useNormalMaps: false,
+    postProcessing: { bloom: false, chromaticAberration: false, noise: false, vignette: false },
+    simplifiedAnimations: true,
+    reducedParticles: true,
+    particleCount: 4,
+    maxLights: 2,
+    antialiasing: false,
+    anisotropicFiltering: 1,
+    hdriQuality: 'low'
+  },
+  medium: {
+    renderScale: 0.75,
+    textureQuality: 'medium',
+    pbrQuality: 'medium',
+    usePBR: true,
+    useNormalMaps: true,
+    postProcessing: { bloom: false, chromaticAberration: false, noise: false, vignette: true },
+    simplifiedAnimations: false,
+    reducedParticles: false,
+    particleCount: 8,
+    maxLights: 3,
+    antialiasing: true,
+    anisotropicFiltering: 2,
+    hdriQuality: 'medium'
+  },
+  high: {
+    renderScale: 1,
+    textureQuality: 'high',
+    pbrQuality: 'high',
+    usePBR: true,
+    useNormalMaps: true,
+    postProcessing: { bloom: true, chromaticAberration: true, noise: true, vignette: true },
+    simplifiedAnimations: false,
+    reducedParticles: false,
+    particleCount: 16,
+    maxLights: 5,
+    antialiasing: true,
+    anisotropicFiltering: 4,
+    hdriQuality: 'high'
+  }
+};
 
 export class ProgressivePerformanceTester {
   constructor({ targetFPS = 60, minimumFPS = 30 } = {}) {
@@ -10,15 +62,25 @@ export class ProgressivePerformanceTester {
   }
 
   getStartingLevel() {
-    return 1; // start from medium index
+    return 0; // start from the lowest level to avoid overwhelming low power devices
   }
 
-  async testLevel(level) {
-    // Placeholder for actual FPS measurement using test scenes
-    // Simulate asynchronous delay and return ideal FPS for demo
-    await new Promise(r => setTimeout(r, 50));
-    const base = 70 - level * 20; // decreasing fps per level for simulation
-    return base;
+  async testLevel(levelIndex) {
+    const levelName = QUALITY_LEVELS[levelIndex];
+    const config = QUALITY_PRESETS[levelName];
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    const ref = createRef();
+    root.render(<PerformanceTestScene ref={ref} {...config} />);
+
+    // allow mount and warm up
+    await new Promise(r => setTimeout(r, 300));
+    const { avg } = await ref.current.runTest(3000);
+
+    root.unmount();
+    container.remove();
+    return avg;
   }
 
   async findOptimalSettings(progressCallback) {
@@ -26,36 +88,23 @@ export class ProgressivePerformanceTester {
     let currentLevel = this.getStartingLevel();
     let tested = 0;
 
-    progressCallback(0, 'Testing higher quality settings...');
+    progressCallback(0, `Testing quality level ${currentLevel + 1}/${totalLevels}...`);
+    let fps = await this.testLevel(currentLevel);
+    tested++;
 
-    while (currentLevel < totalLevels - 1) {
-      const nextLevel = currentLevel + 1;
-      progressCallback(
-        (tested / (totalLevels * 0.7)) * 100,
-        `Testing quality level ${nextLevel + 1}/${totalLevels}...`
-      );
-
-      const fps = await this.testLevel(nextLevel);
+    // ascend while performance is good
+    while (fps >= this.targetFPS && currentLevel < totalLevels - 1) {
+      currentLevel++;
+      progressCallback((tested / (totalLevels * 1.2)) * 100, `Testing quality level ${currentLevel + 1}/${totalLevels}...`);
+      fps = await this.testLevel(currentLevel);
       tested++;
-      if (fps >= this.targetFPS) {
-        currentLevel = nextLevel;
-      } else {
-        break;
-      }
     }
 
-    progressCallback(70, 'Ensuring smooth performance...');
-
-    while (currentLevel > 0) {
-      const fps = await this.testLevel(currentLevel);
-      progressCallback(
-        70 + ((tested / totalLevels) * 30),
-        `Verifying quality level ${currentLevel + 1}...`
-      );
-      if (fps >= this.minimumFPS) {
-        break;
-      }
+    // descend if performance is poor
+    while (fps < this.minimumFPS && currentLevel > 0) {
       currentLevel--;
+      progressCallback((tested / (totalLevels * 1.2)) * 100, `Testing quality level ${currentLevel + 1}/${totalLevels}...`);
+      fps = await this.testLevel(currentLevel);
       tested++;
     }
 

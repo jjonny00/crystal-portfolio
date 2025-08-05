@@ -31,11 +31,10 @@ export default class RuntimePerformanceMonitor {
       <div class="performance-modal-overlay">
         <div class="performance-modal">
           <div class="performance-modal-header">
-            <h3>🎯 Performance Optimization Available</h3>
+            <h3>Need smoother performance?</h3>
           </div>
           <div class="performance-modal-content">
-            <p>We've detected your experience is running at <strong>${currentFPS} FPS</strong>.
-               We can automatically optimize the settings to ensure smooth performance.</p>
+            <p>Your experience is averaging <strong>${currentFPS} FPS</strong>. Run a quick test and we'll pick the best settings for you.</p>
             <div class="performance-stats">
               <div class="stat">
                 <span class="stat-label">Current Performance:</span>
@@ -47,23 +46,22 @@ export default class RuntimePerformanceMonitor {
               </div>
             </div>
             <p class="optimization-note">
-              <strong>What this does:</strong> We'll quickly test different quality settings
-              and choose the best balance of visual quality and smooth performance for your device.
+              <strong>What happens:</strong> we'll test a few quality levels and choose the smoothest one for your device.
             </p>
           </div>
           <div class="performance-modal-actions">
             <button class="btn-optimize primary" onclick="RuntimePerformanceMonitor.instance.handleOptimize()">
               <span class="btn-icon">⚡</span>
-              Optimize Performance
-              <span class="btn-subtitle">Recommended • Takes 5-10 seconds</span>
+              Run Performance Test
+              <span class="btn-subtitle">Recommended • 5‑10 seconds</span>
             </button>
             <button class="btn-dismiss secondary" onclick="RuntimePerformanceMonitor.instance.handleDismiss()">
-              Continue As-Is
-              <span class="btn-subtitle">Keep current settings</span>
+              Keep Current Settings
+              <span class="btn-subtitle">Dismiss warning</span>
             </button>
           </div>
           <div class="performance-modal-footer">
-            <small>You can always manually adjust settings using the controls panel</small>
+            <small>You can adjust settings any time from the controls panel</small>
           </div>
         </div>
       </div>
@@ -80,6 +78,7 @@ export default class RuntimePerformanceMonitor {
       const newSettings = await tester.findOptimalSettings((p, t) => this.updateOptimizationProgress(p, t));
       this.applyNewSettings(newSettings);
       this.showOptimizationSuccess(newSettings);
+      this.fpsHistory = [];
     } catch (error) {
       this.showOptimizationFailed();
     }
@@ -104,8 +103,8 @@ export default class RuntimePerformanceMonitor {
       <div class="optimization-overlay">
         <div class="optimization-card">
           <div class="optimization-spinner"></div>
-          <h4>Optimizing Performance...</h4>
-          <p>Finding the best settings for your device</p>
+          <h4>Optimizing performance...</h4>
+          <p>Testing quality levels to keep things smooth</p>
           <div class="optimization-progress">
             <div class="progress-bar">
               <div class="progress-fill" id="optimization-progress-fill"></div>
@@ -157,7 +156,7 @@ export default class RuntimePerformanceMonitor {
         <div class="success-content">
           <span class="success-icon">ℹ️</span>
           <div class="success-text">
-            <strong>Using current settings</strong>
+            <strong>Continuing with current settings</strong>
           </div>
         </div>
       </div>`;
