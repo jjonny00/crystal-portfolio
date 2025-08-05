@@ -62,7 +62,8 @@ export class ProgressivePerformanceTester {
   }
 
   getStartingLevel() {
-    return 0; // start from the lowest level to avoid overwhelming low power devices
+    // start from the highest level and step down until requirements are met
+    return QUALITY_LEVELS.length - 1;
   }
 
   async testLevel(levelIndex) {
@@ -92,18 +93,10 @@ export class ProgressivePerformanceTester {
     let fps = await this.testLevel(currentLevel);
     tested++;
 
-    // ascend while performance is good
-    while (fps >= this.targetFPS && currentLevel < totalLevels - 1) {
-      currentLevel++;
-      progressCallback((tested / (totalLevels * 1.2)) * 100, `Testing quality level ${currentLevel + 1}/${totalLevels}...`);
-      fps = await this.testLevel(currentLevel);
-      tested++;
-    }
-
-    // descend if performance is poor
-    while (fps < this.minimumFPS && currentLevel > 0) {
+    // progressively step down until performance meets the target FPS
+    while (fps < this.targetFPS && currentLevel > 0) {
       currentLevel--;
-      progressCallback((tested / (totalLevels * 1.2)) * 100, `Testing quality level ${currentLevel + 1}/${totalLevels}...`);
+      progressCallback((tested / totalLevels) * 100, `Testing quality level ${currentLevel + 1}/${totalLevels}...`);
       fps = await this.testLevel(currentLevel);
       tested++;
     }
