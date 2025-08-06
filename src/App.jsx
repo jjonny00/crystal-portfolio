@@ -63,7 +63,7 @@ function App() {
           isIndeterminate={loadingProgress.isIndeterminate}
         />
       )}
-      <MasterAnimationCoordinator config={config}>
+      <MasterAnimationCoordinator>
         <Fixed3DCanvas
           onRendererReady={handleRendererReady}
           materialVariant="default"

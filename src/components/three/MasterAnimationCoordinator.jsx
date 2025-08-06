@@ -10,8 +10,7 @@ import { useUnifiedAnimationController } from '../../hooks/useUnifiedAnimationCo
 const MasterAnimationCoordinator = ({
   children,
   debugMode = false,
-  onAnimationStateChange = null,
-  config = null
+  onAnimationStateChange = null
 }) => {
   const [showAnimationDebug, setShowAnimationDebug] = useState(false);
 
@@ -25,8 +24,7 @@ const MasterAnimationCoordinator = ({
   // Get unified animation state with simplified coordination
   const animationController = useUnifiedAnimationController({
     debugMode: debugMode,
-    onStateChange: onAnimationStateChange,
-    config: config || undefined
+    onStateChange: onAnimationStateChange
   });
 
   useEffect(() => {
