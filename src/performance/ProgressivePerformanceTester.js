@@ -66,22 +66,39 @@ export class ProgressivePerformanceTester {
     return QUALITY_LEVELS.length - 1;
   }
 
-  async testLevel(levelIndex) {
+  async testLevel(levelIndex, iterations = 2) {
     const levelName = QUALITY_LEVELS[levelIndex];
     const config = QUALITY_PRESETS[levelName];
-    const container = document.createElement('div');
-    document.body.appendChild(container);
-    const root = createRoot(container);
-    const ref = createRef();
-    root.render(<PerformanceTestScene ref={ref} {...config} />);
+    const fpsResults = [];
 
-    // allow mount and warm up
-    await new Promise(r => setTimeout(r, 300));
-    const { avg } = await ref.current.runTest(3000);
+    for (let i = 0; i < iterations; i++) {
+      const container = document.createElement('div');
+      document.body.appendChild(container);
+      const root = createRoot(container);
+      const ref = createRef();
+      root.render(<PerformanceTestScene ref={ref} {...config} />);
 
-    root.unmount();
-    container.remove();
-    return avg;
+      // allow mount and warm up
+      await new Promise(r => setTimeout(r, 300));
+      const { avg } = await ref.current.runTest(3000);
+
+      root.unmount();
+      container.remove();
+
+      fpsResults.push(avg);
+
+      // brief pause between iterations to reset GPU timing
+      if (i < iterations - 1) {
+        await new Promise(r => setTimeout(r, 100));
+      }
+    }
+
+    // return median to avoid outliers
+    fpsResults.sort((a, b) => a - b);
+    const mid = Math.floor(fpsResults.length / 2);
+    return fpsResults.length % 2
+      ? fpsResults[mid]
+      : (fpsResults[mid - 1] + fpsResults[mid]) / 2;
   }
 
   async findOptimalSettings(progressCallback) {
@@ -99,6 +116,13 @@ export class ProgressivePerformanceTester {
       progressCallback((tested / totalLevels) * 100, `Testing quality level ${currentLevel + 1}/${totalLevels}...`);
       fps = await this.testLevel(currentLevel);
       tested++;
+    }
+
+    // double-check the chosen level for stability
+    const verify = await this.testLevel(currentLevel);
+    if (verify < this.targetFPS && currentLevel > 0) {
+      currentLevel--;
+      await this.testLevel(currentLevel); // final confirmation run
     }
 
     progressCallback(100, 'Performance optimization complete!');
