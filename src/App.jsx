@@ -13,6 +13,11 @@ function App() {
   });
 
   useEffect(() => {
+    // Hide the immediate loader defined in index.html once React mounts
+    if (typeof window !== 'undefined' && typeof window.showReactApp === 'function') {
+      window.showReactApp();
+    }
+
     const app = new AdaptivePerformanceApp({
       onProgressUpdate: (update) => {
         setLoadingProgress({
