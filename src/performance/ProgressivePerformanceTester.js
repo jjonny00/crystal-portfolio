@@ -62,8 +62,8 @@ export class ProgressivePerformanceTester {
   }
 
   getStartingLevel() {
-    // start from the highest level and step down until requirements are met
-    return QUALITY_LEVELS.length - 1;
+    // begin from a middle tier to probe both directions
+    return Math.floor(QUALITY_LEVELS.length / 2);
   }
 
   async testLevel(levelIndex, iterations = 2) {
@@ -101,28 +101,44 @@ export class ProgressivePerformanceTester {
       : (fpsResults[mid - 1] + fpsResults[mid]) / 2;
   }
 
-  async findOptimalSettings(progressCallback) {
+  async findOptimalSettings(progressCallback = () => {}) {
     const totalLevels = QUALITY_LEVELS.length;
     let currentLevel = this.getStartingLevel();
     let tested = 0;
 
-    progressCallback(0, `Testing quality level ${currentLevel + 1}/${totalLevels}...`);
-    let fps = await this.testLevel(currentLevel);
-    tested++;
-
-    // progressively step down until performance meets the target FPS
-    while (fps < this.targetFPS && currentLevel > 0) {
-      currentLevel--;
-      progressCallback((tested / totalLevels) * 100, `Testing quality level ${currentLevel + 1}/${totalLevels}...`);
-      fps = await this.testLevel(currentLevel);
+    // test upwards to find the highest level meeting the target FPS
+    progressCallback(0, 'Testing higher quality settings...');
+    while (currentLevel < totalLevels - 1) {
+      const nextLevel = currentLevel + 1;
+      progressCallback(
+        (tested / (totalLevels * 0.7)) * 100,
+        `Testing quality level ${nextLevel + 1}/${totalLevels}...`
+      );
+      const fps = await this.testLevel(nextLevel);
       tested++;
+
+      if (fps >= this.targetFPS) {
+        currentLevel = nextLevel;
+      } else {
+        break;
+      }
     }
 
-    // double-check the chosen level for stability
-    const verify = await this.testLevel(currentLevel);
-    if (verify < this.targetFPS && currentLevel > 0) {
+    // verify downward to ensure performance stays above the minimum FPS
+    progressCallback(70, 'Ensuring smooth performance...');
+    while (currentLevel > 0) {
+      const fps = await this.testLevel(currentLevel);
+      progressCallback(
+        70 + ((tested / totalLevels) * 30),
+        `Verifying quality level ${currentLevel + 1}...`
+      );
+
+      if (fps >= this.minimumFPS) {
+        break;
+      }
+
       currentLevel--;
-      await this.testLevel(currentLevel); // final confirmation run
+      tested++;
     }
 
     progressCallback(100, 'Performance optimization complete!');
