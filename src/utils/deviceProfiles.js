@@ -36,12 +36,12 @@ export const PERFORMANCE_PROFILES = {
       vignette: true
     },
     
-    // FIXED: More realistic performance targets
-    targetFPS: 40,
-    minAcceptableFPS: 30,
-    
+    // All tiers now target a 60 FPS baseline
+    targetFPS: 60,
+    minAcceptableFPS: 55,
+
     // Debug info
-    description: 'High-end devices (avg ≥40 FPS) with dedicated GPUs',
+    description: 'High-end devices (avg ≥58 FPS) with dedicated GPUs',
     expectedDevices: ['RTX 30/40 series', 'M1/M2 MacBooks', 'High-end iPhones/iPads']
   },
 
@@ -65,9 +65,9 @@ export const PERFORMANCE_PROFILES = {
     maxLights: 5,
     
     // Particles
-    particleCount: 12, // Slightly increased from before
-    reducedParticles: false, // Don't reduce unless needed
-    
+    particleCount: 16,
+    reducedParticles: false,
+
     // Animations
     simplifiedAnimations: false,
     
@@ -79,12 +79,12 @@ export const PERFORMANCE_PROFILES = {
       vignette: true
     },
     
-    // FIXED: Conservative performance targets that most devices can hit
-    targetFPS: 30,
-    minAcceptableFPS: 25,
-    
+    // All tiers now target a 60 FPS baseline
+    targetFPS: 60,
+    minAcceptableFPS: 55,
+
     // Debug info
-    description: 'Mid-range devices (~30 FPS) and integrated graphics - safe default',
+    description: 'Mid-range devices (avg 40–57 FPS) and integrated graphics - safe default',
     expectedDevices: ['GTX 10/16 series', 'Intel/AMD integrated', 'Standard smartphones']
   },
 
@@ -108,11 +108,11 @@ export const PERFORMANCE_PROFILES = {
     maxLights: 3,
     
     // Particles
-    particleCount: 4,
-    reducedParticles: true,
-    
+    particleCount: 16,
+    reducedParticles: false,
+
     // Animations
-    simplifiedAnimations: true,
+    simplifiedAnimations: false,
     
     // Post-processing (disabled for maximum performance)
     postProcessing: {
@@ -122,12 +122,12 @@ export const PERFORMANCE_PROFILES = {
       vignette: false
     },
     
-    // FIXED: Lower targets for truly low-end devices
-    targetFPS: 25,
-    minAcceptableFPS: 20,
-    
+    // All tiers now target a 60 FPS baseline
+    targetFPS: 60,
+    minAcceptableFPS: 55,
+
     // Debug info
-    description: 'Older devices and low-end hardware (<28 FPS) only',
+    description: 'Older devices and low-end hardware (<40 FPS) only',
     expectedDevices: ['Older smartphones', 'Budget laptops', 'Very old integrated graphics']
   },
 

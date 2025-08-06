@@ -343,13 +343,13 @@ export default class PerformanceManager {
       console.log('🔧 Performance test results:', { avgFps, minFps });
     }
 
-    // Determine tier with a small buffer so ~30 FPS devices aren't flagged as low
-    // High: 40+ avg, 30+ min
-    if (avgFps >= 40 && minFps >= 30) {
+    // Determine tier with a buffer around the 60 FPS target
+    // High: 58+ avg, 55+ min
+    if (avgFps >= 58 && minFps >= 55) {
       return 'high';
     }
-    // Medium: 28+ avg, 22+ min (gives ~2 FPS margin around 30)
-    else if (avgFps >= 28 && minFps >= 22) {
+    // Medium: 40+ avg, 35+ min
+    else if (avgFps >= 40 && minFps >= 35) {
       return 'medium';
     }
     // Low: anything below the medium thresholds
