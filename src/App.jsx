@@ -1,21 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import './App.css';
+import './styles/scroll-snap.css';
+
 import LoadingScreen from './components/ui/LoadingScreen.jsx';
 import AdaptivePerformanceApp from './performance/AdaptivePerformanceApp.js';
-import './App.css';
-
-function RotatingCube() {
-  const ref = useRef();
-  useFrame((_, delta) => {
-    if (ref.current) ref.current.rotation.y += delta;
-  });
-  return (
-    <mesh ref={ref}>
-      <boxGeometry args={[1, 1, 1]} />
-      <meshStandardMaterial color="orange" />
-    </mesh>
-  );
-}
+import MasterAnimationCoordinator from './components/three/MasterAnimationCoordinator.jsx';
+import Fixed3DCanvas from './components/layout/Fixed3DCanvas.jsx';
+import ScrollablePortfolio from './components/layout/ScrollablePortfolio.jsx';
+import * as config from './crystalConfig.js';
 
 function App() {
   const [isLoading, setIsLoading] = useState(true);
@@ -27,7 +19,6 @@ function App() {
   const appRef = useRef();
 
   useEffect(() => {
-    // Hide the immediate loader defined in index.html once React mounts
     if (typeof window !== 'undefined' && typeof window.showReactApp === 'function') {
       window.showReactApp();
     }
@@ -43,10 +34,24 @@ function App() {
     });
   }, []);
 
-  const handleCreated = async ({ gl }) => {
+  const handleRendererReady = async (gl) => {
     appRef.current.setRenderer(gl);
     await appRef.current.initialize();
     setIsLoading(false);
+  };
+
+  // Basic defaults for the 3D scene
+  const performanceProfile = {
+    simplifiedAnimations: false,
+    reducedParticles: false,
+    particleCount: 16,
+    maxLights: 10
+  };
+  const effectsEnabled = {
+    bloom: true,
+    chromaticAberration: true,
+    noise: true,
+    vignette: true
   };
 
   return (
@@ -58,16 +63,17 @@ function App() {
           isIndeterminate={loadingProgress.isIndeterminate}
         />
       )}
-      <Canvas
-        onCreated={handleCreated}
-        style={{
-          opacity: isLoading ? 0 : 1,
-          transition: 'opacity 0.5s ease'
-        }}
-      >
-        <ambientLight />
-        <RotatingCube />
-      </Canvas>
+      <MasterAnimationCoordinator config={config}>
+        <Fixed3DCanvas
+          onRendererReady={handleRendererReady}
+          materialVariant="default"
+          effectsEnabled={effectsEnabled}
+          postProcessingConfig={config.postProcessing}
+          performanceProfile={performanceProfile}
+          config={config}
+        />
+        <ScrollablePortfolio />
+      </MasterAnimationCoordinator>
     </>
   );
 }
