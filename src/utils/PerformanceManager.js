@@ -336,23 +336,22 @@ export default class PerformanceManager {
   }
 
   _determineTierFromResults(testResults) {
-    // FIXED: Much more conservative thresholds that trust devices that were working before
+    // Strict thresholds for a true 60 FPS experience
     const { avgFps, minFps } = testResults;
 
     if (import.meta.env.DEV) {
       console.log('🔧 Performance test results:', { avgFps, minFps });
     }
 
-    // Determine tier with a small buffer so ~30 FPS devices aren't flagged as low
-    // High: 40+ avg, 30+ min
-    if (avgFps >= 40 && minFps >= 30) {
+    // High tier only if we comfortably hit 60 FPS
+    if (avgFps >= 58 && minFps >= 55) {
       return 'high';
     }
-    // Medium: 28+ avg, 22+ min (gives ~2 FPS margin around 30)
-    else if (avgFps >= 28 && minFps >= 22) {
+    // Medium tier accepts slightly lower but still near-60 FPS performance
+    else if (avgFps >= 55 && minFps >= 50) {
       return 'medium';
     }
-    // Low: anything below the medium thresholds
+    // Anything below goes to low tier
     else {
       return 'low';
     }

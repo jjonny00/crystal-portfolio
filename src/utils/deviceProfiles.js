@@ -36,12 +36,12 @@ export const PERFORMANCE_PROFILES = {
       vignette: true
     },
     
-    // FIXED: More realistic performance targets
-    targetFPS: 40,
-    minAcceptableFPS: 30,
-    
+    // Updated: strict 60 FPS targets for top-tier hardware
+    targetFPS: 60,
+    minAcceptableFPS: 55,
+
     // Debug info
-    description: 'High-end devices (avg ≥40 FPS) with dedicated GPUs',
+    description: 'High-end devices (avg ≥60 FPS) with dedicated GPUs',
     expectedDevices: ['RTX 30/40 series', 'M1/M2 MacBooks', 'High-end iPhones/iPads']
   },
 
@@ -79,12 +79,12 @@ export const PERFORMANCE_PROFILES = {
       vignette: true
     },
     
-    // FIXED: Conservative performance targets that most devices can hit
-    targetFPS: 30,
-    minAcceptableFPS: 25,
-    
+    // Updated: 60 FPS targets with slightly reduced visuals
+    targetFPS: 60,
+    minAcceptableFPS: 55,
+
     // Debug info
-    description: 'Mid-range devices (~30 FPS) and integrated graphics - safe default',
+    description: 'Mid-range devices (55-60 FPS) - safe default',
     expectedDevices: ['GTX 10/16 series', 'Intel/AMD integrated', 'Standard smartphones']
   },
 
@@ -122,12 +122,12 @@ export const PERFORMANCE_PROFILES = {
       vignette: false
     },
     
-    // FIXED: Lower targets for truly low-end devices
-    targetFPS: 25,
-    minAcceptableFPS: 20,
-    
+    // Updated: still targets 60 FPS but with aggressive reductions
+    targetFPS: 60,
+    minAcceptableFPS: 55,
+
     // Debug info
-    description: 'Older devices and low-end hardware (<28 FPS) only',
+    description: 'Older devices and low-end hardware aiming for 60 FPS',
     expectedDevices: ['Older smartphones', 'Budget laptops', 'Very old integrated graphics']
   },
 
@@ -159,9 +159,9 @@ export const PERFORMANCE_PROFILES = {
     },
     
     targetFPS: 60,
-    minAcceptableFPS: 45,
-    
-    description: 'Development/testing - maximum quality',
+    minAcceptableFPS: 55,
+
+    description: 'Development/testing - maximum quality (60 FPS target)',
     expectedDevices: ['Development machines only']
   }
 };

@@ -454,9 +454,9 @@ function App() {
       
       {/* FIXED: Performance alerts with tier-appropriate thresholds */}
       {!hideAllUI && (
-        <PerformanceAlert 
+        <PerformanceAlert
           visible={true}
-          threshold={performanceProfile?.minAcceptableFPS || 25}
+          threshold={performanceProfile?.minAcceptableFPS || 55}
           onPerformanceIssue={(data) => {
             if (import.meta.env.DEV) console.warn('Performance issue detected:', data);
           }}
