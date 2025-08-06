@@ -36,25 +36,24 @@ export default class SceneWarmupManager {
   async performWarmup(renderer, scene, camera) {
     const measurements = [];
 
-    // First 30 frames: shader compilation
+    // First 30 frames: shader compilation (no measurements)
     for (let i = 0; i < 30; i++) {
       renderer.render(scene, camera);
       await this.nextFrame();
     }
 
-    // Next 60 frames: measure
+    // Next 60 frames: measure full frame cost
     for (let i = 0; i < 60; i++) {
       const startFrame = performance.now();
       renderer.render(scene, camera);
+      await this.nextFrame();
       const endFrame = performance.now();
       measurements.push({
         fps: 1000 / (endFrame - startFrame),
         frameTime: endFrame - startFrame
       });
-      if (i % 10 === 0) {
-        await this.nextFrame();
-      }
     }
+
     return this.calculateMetrics(measurements);
   }
 

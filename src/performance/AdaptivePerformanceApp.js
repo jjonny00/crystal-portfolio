@@ -6,8 +6,9 @@ import Performance60FPSManager from './Performance60FPSManager.js';
 import { QUALITY_PRESETS } from './qualityPresets.js';
 
 export default class AdaptivePerformanceApp {
-  constructor({ onProgressUpdate } = {}) {
+  constructor({ onProgressUpdate, sceneBuilder } = {}) {
     this.onProgressUpdate = onProgressUpdate;
+    this.sceneBuilder = sceneBuilder;
     this.renderer = null; // Will be provided by React Three Fiber
     this.performanceManager = null;
   }
@@ -40,10 +41,12 @@ export default class AdaptivePerformanceApp {
       const gpuInfo = GPUDetector.detect();
       const warmupManager = new SceneWarmupManager(this.buildScene.bind(this));
       const warmupResults = await warmupManager.warmupBehindLoadingScreen();
-      this.applyQualityPreset(warmupResults.quality);
+      const initialQuality = warmupResults.quality || 'medium';
+      this.applyQualityPreset(initialQuality);
       await this.transitionToMainScene();
       this.performanceManager = new Performance60FPSManager();
       this.performanceManager.applyQualityLevel = this.applyQualityPreset.bind(this);
+      this.performanceManager.currentLevel = this.performanceManager.qualityLevels.indexOf(initialQuality);
       this.startRuntimeMonitoring();
     } catch (error) {
       console.error('Initialization failed:', error);
@@ -52,7 +55,11 @@ export default class AdaptivePerformanceApp {
   }
 
   async buildScene(canvas) {
-    // Build a simple scene for shader compilation and performance warmup
+    if (this.sceneBuilder) {
+      return this.sceneBuilder(canvas);
+    }
+
+    // Fallback: simple cube scene for warmup
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
     renderer.setSize(canvas.width, canvas.height, false);
     const scene = new THREE.Scene();
