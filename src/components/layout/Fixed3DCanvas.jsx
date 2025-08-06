@@ -2,7 +2,7 @@
 // UPDATED: Fixed background color updates for project sections
 
 import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { Canvas, useFrame } from '@react-three/fiber';
 import { Environment, OrbitControls } from '@react-three/drei';
 import { EffectComposer, Bloom, ChromaticAberration, Noise, Vignette } from '@react-three/postprocessing';
 import { BlendFunction } from 'postprocessing';
@@ -18,15 +18,6 @@ import { FPSCounter } from '../ui/FpsDisplay';
 import CrystalDebugPanels from '../ui/CrystalDebugPanels';
 import GradientBackground from '../three/GradientBackground';
 import { projectBackgrounds } from '../../data/projectBackgrounds';
-
-// Bridge component to expose Three.js renderer to parent components
-const RendererBridge = ({ onReady }) => {
-  const { gl } = useThree();
-  useEffect(() => {
-    onReady?.(gl);
-  }, [gl, onReady]);
-  return null;
-};
 
 const PulsingOmniLight = ({ simplified = false }) => {
   const lightRef = useRef();
@@ -71,8 +62,7 @@ const Fixed3DCanvas = forwardRef(({
   config,
   canvasProps = {},
   environmentProps = {},
-  isMobile = false,
-  onRendererReady
+  isMobile = false
 }, ref) => {
   // NEW: Ref to access crystal scene for debug panels
   const crystalSceneRef = useRef();
@@ -220,14 +210,14 @@ const Fixed3DCanvas = forwardRef(({
             outputColorSpace: THREE.SRGBColorSpace,
             ...canvasProps.gl
           }}
-          style={{
-            width: '100%',
+          style={{ 
+            width: '100%', 
             height: '100%',
             // Allow pointer events only for 3D interactions (disabled on mobile)
             pointerEvents: isMobile ? 'none' : 'auto',
           }}
         >
-          {onRendererReady && <RendererBridge onReady={onRendererReady} />}
+          
           <FPSCounter />
 
           {/* FIXED: Pass backgrounds to GradientBackground and use 'default' as initial */}
