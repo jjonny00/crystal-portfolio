@@ -23,24 +23,20 @@ export default class LoadingProgressManager {
     const totalWeight = tasks.reduce((sum, task) => sum + task.weight, 0);
 
     for (const task of tasks) {
+      try {
+        await this.executeTask(task, completedWeight, totalWeight);
+        completedWeight += task.weight;
+      } catch (error) {
+        console.error(`Task ${task.id} failed:`, error);
+        completedWeight += task.weight;
+      }
+
+      // Ensure progress is updated after each task completes
       this.onProgressUpdate({
         progress: (completedWeight / totalWeight) * 100,
         currentTask: task.name,
         isIndeterminate: false
       });
-
-      try {
-        await this.executeTask(task.id);
-        completedWeight += task.weight;
-        this.onProgressUpdate({
-          progress: (completedWeight / totalWeight) * 100,
-          currentTask: task.name,
-          isIndeterminate: false
-        });
-      } catch (error) {
-        console.error(`Task ${task.id} failed:`, error);
-        completedWeight += task.weight;
-      }
     }
 
     return {
@@ -49,37 +45,46 @@ export default class LoadingProgressManager {
     };
   }
 
-  async executeTask(taskId) {
-    switch (taskId) {
-      case 'gpu-detect':
-        return this.detectGPUCapabilities();
-      case 'load-models':
-        return this.loadAllModels();
-      case 'load-textures':
-        return this.loadAllTextures();
-      case 'load-hdri':
-        return this.loadEnvironment();
-      case 'compile-shaders':
-        return this.compileShaders();
-      case 'warmup-scene':
-        return this.warmupScene();
-      case 'final-quality':
-        return this.applyFinalSettings();
-      default:
-        return Promise.resolve();
-    }
+  async executeTask(task, completedWeight, totalWeight) {
+    // Estimated durations for each task (ms)
+    const durations = {
+      'gpu-detect': 300,
+      'load-models': 800,
+      'load-textures': 600,
+      'load-hdri': 500,
+      'compile-shaders': 600,
+      'warmup-scene': 800,
+      'final-quality': 400
+    };
+
+    const duration = durations[task.id] || 300;
+    return this.simulateWork(duration, completedWeight, task.weight, totalWeight, task.name);
   }
 
-  // Placeholder task implementations that simulate work so progress updates are visible
-  async detectGPUCapabilities() { return this.simulateWork(200); }
-  async loadAllModels() { return this.simulateWork(400); }
-  async loadAllTextures() { return this.simulateWork(300); }
-  async loadEnvironment() { return this.simulateWork(300); }
-  async compileShaders() { return this.simulateWork(300); }
-  async warmupScene() { return this.simulateWork(400); }
-  async applyFinalSettings() { return this.simulateWork(200); }
+  // Placeholder progress simulation that provides smooth updates for each task
+  simulateWork(duration, completedWeight, taskWeight, totalWeight, taskName) {
+    return new Promise((resolve) => {
+      const start = performance.now();
 
-  simulateWork(duration) {
-    return new Promise((resolve) => setTimeout(resolve, duration));
+      const tick = () => {
+        const elapsed = performance.now() - start;
+        const fraction = Math.min(elapsed / duration, 1);
+        const overall = ((completedWeight + taskWeight * fraction) / totalWeight) * 100;
+
+        this.onProgressUpdate({
+          progress: overall,
+          currentTask: taskName,
+          isIndeterminate: false
+        });
+
+        if (fraction < 1) {
+          setTimeout(tick, 50);
+        } else {
+          resolve();
+        }
+      };
+
+      tick();
+    });
   }
 }
