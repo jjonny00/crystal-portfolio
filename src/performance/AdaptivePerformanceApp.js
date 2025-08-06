@@ -8,9 +8,7 @@ import { QUALITY_PRESETS } from './qualityPresets.js';
 export default class AdaptivePerformanceApp {
   constructor({ onProgressUpdate } = {}) {
     this.onProgressUpdate = onProgressUpdate;
-    this.renderer = null;
-    this.scene = null;
-    this.camera = null;
+    this.renderer = null; // Will be provided by React Three Fiber
     this.performanceManager = null;
   }
 
@@ -26,6 +24,10 @@ export default class AdaptivePerformanceApp {
         isIndeterminate: update.isIndeterminate
       });
     }
+  }
+
+  setRenderer(renderer) {
+    this.renderer = renderer;
   }
 
   async initialize() {
@@ -50,17 +52,18 @@ export default class AdaptivePerformanceApp {
   }
 
   async buildScene(canvas) {
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-    this.renderer.setSize(canvas.width, canvas.height, false);
-    this.scene = new THREE.Scene();
-    this.camera = new THREE.PerspectiveCamera(45, canvas.width / canvas.height, 0.1, 1000);
-    this.camera.position.z = 5;
+    // Build a simple scene for shader compilation and performance warmup
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setSize(canvas.width, canvas.height, false);
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(45, canvas.width / canvas.height, 0.1, 1000);
+    camera.position.z = 5;
     const cube = new THREE.Mesh(
       new THREE.BoxGeometry(1, 1, 1),
       new THREE.MeshBasicMaterial({ color: 0x00ff00 })
     );
-    this.scene.add(cube);
-    return { renderer: this.renderer, scene: this.scene, camera: this.camera };
+    scene.add(cube);
+    return { renderer, scene, camera };
   }
 
   async transitionToMainScene() {

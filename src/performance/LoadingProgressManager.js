@@ -70,12 +70,16 @@ export default class LoadingProgressManager {
     }
   }
 
-  // Placeholder task implementations
-  detectGPUCapabilities() { return Promise.resolve(); }
-  loadAllModels() { return Promise.resolve(); }
-  loadAllTextures() { return Promise.resolve(); }
-  loadEnvironment() { return Promise.resolve(); }
-  compileShaders() { return Promise.resolve(); }
-  warmupScene() { return Promise.resolve(); }
-  applyFinalSettings() { return Promise.resolve(); }
+  // Placeholder task implementations that simulate work so progress updates are visible
+  async detectGPUCapabilities() { return this.simulateWork(200); }
+  async loadAllModels() { return this.simulateWork(400); }
+  async loadAllTextures() { return this.simulateWork(300); }
+  async loadEnvironment() { return this.simulateWork(300); }
+  async compileShaders() { return this.simulateWork(300); }
+  async warmupScene() { return this.simulateWork(400); }
+  async applyFinalSettings() { return this.simulateWork(200); }
+
+  simulateWork(duration) {
+    return new Promise((resolve) => setTimeout(resolve, duration));
+  }
 }
