@@ -452,7 +452,8 @@ export default class PerformanceManager {
       return; // Not in a browser environment
     }
 
-    const downgradeThresholds = { high: 55, medium: 35 };
+    // Downgrade when sustained FPS falls below 55 for either high or medium tiers
+    const downgradeThresholds = { high: 55, medium: 55 };
     const sampleWindow = 180; // ~3 seconds at 60 FPS
     let lastTime = performance.now();
 
