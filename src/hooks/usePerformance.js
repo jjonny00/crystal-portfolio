@@ -75,6 +75,15 @@ export const usePerformance = () => {
     };
   }, []);
 
+  // Listen for automatic profile changes
+  useEffect(() => {
+    const unsubscribe = manager.subscribe(({ tier: t, profile: p }) => {
+      setTier(t);
+      setProfile(p);
+    });
+    return unsubscribe;
+  }, []);
+
   // Update profile manually
   const updateProfile = useCallback((newTier, overrides = {}) => {
     try {
