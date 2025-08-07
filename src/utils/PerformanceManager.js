@@ -15,6 +15,9 @@ export default class PerformanceManager {
     this._ready = false;
     this._initPromise = null;
     this._testResults = null;
+    this._listeners = new Set();
+    this._fpsBuffer = [];
+    this._monitorHandle = null;
   }
 
   async initialize() {
@@ -39,6 +42,7 @@ export default class PerformanceManager {
       this.profile = { ...PERFORMANCE_PROFILES[cachedData.tier] };
       this._testResults = cachedData.testResults;
       this._ready = true;
+      this._startRuntimeMonitoring();
       return;
     }
 
@@ -73,6 +77,7 @@ export default class PerformanceManager {
     }
 
     this._ready = true;
+    this._startRuntimeMonitoring();
   }
 
   _getCachedResults() {
@@ -343,13 +348,13 @@ export default class PerformanceManager {
       console.log('🔧 Performance test results:', { avgFps, minFps });
     }
 
-    // Determine tier with a small buffer so ~30 FPS devices aren't flagged as low
-    // High: 40+ avg, 30+ min
-    if (avgFps >= 40 && minFps >= 30) {
+    // Determine tier with a buffer around the 60 FPS target
+    // High: 58+ avg, 55+ min
+    if (avgFps >= 58 && minFps >= 55) {
       return 'high';
     }
-    // Medium: 28+ avg, 22+ min (gives ~2 FPS margin around 30)
-    else if (avgFps >= 28 && minFps >= 22) {
+    // Medium: 40+ avg, 35+ min
+    else if (avgFps >= 40 && minFps >= 35) {
       return 'medium';
     }
     // Low: anything below the medium thresholds
@@ -379,15 +384,17 @@ export default class PerformanceManager {
     if (PERFORMANCE_PROFILES[tier]) {
       this.tier = tier;
       this.profile = { ...PERFORMANCE_PROFILES[tier], ...overrides };
-      
+
       // Update cache
       if (this._testResults) {
         this._cacheResults(tier, this._testResults);
       }
-      
+
       if (import.meta.env.DEV) {
         console.log('🔧 Manually set performance tier:', tier);
       }
+
+      this._notifyListeners();
     }
   }
 
@@ -422,5 +429,59 @@ export default class PerformanceManager {
     } catch (error) {
       console.warn('Failed to clear performance cache:', error);
     }
+  }
+
+  // Subscribe to profile changes
+  subscribe(listener) {
+    this._listeners.add(listener);
+    return () => this._listeners.delete(listener);
+  }
+
+  _notifyListeners() {
+    for (const listener of this._listeners) {
+      try {
+        listener({ tier: this.tier, profile: this.profile });
+      } catch (e) {
+        console.warn('Listener error:', e);
+      }
+    }
+  }
+
+  _startRuntimeMonitoring() {
+    if (typeof window === 'undefined' || typeof requestAnimationFrame === 'undefined') {
+      return; // Not in a browser environment
+    }
+
+    // Downgrade when sustained FPS falls below 55 for either high or medium tiers
+    const downgradeThresholds = { high: 55, medium: 55 };
+    const sampleWindow = 180; // ~3 seconds at 60 FPS
+    let lastTime = performance.now();
+
+    const check = (now) => {
+      const delta = now - lastTime;
+      lastTime = now;
+      const fps = 1000 / delta;
+      this._fpsBuffer.push(fps);
+      if (this._fpsBuffer.length > sampleWindow) this._fpsBuffer.shift();
+
+      const threshold = downgradeThresholds[this.tier];
+      if (threshold && this._fpsBuffer.length === sampleWindow) {
+        const avg = this._fpsBuffer.reduce((a, b) => a + b, 0) / this._fpsBuffer.length;
+        if (avg < threshold) {
+          if (this.tier === 'high') {
+            this.setProfile('medium');
+          } else if (this.tier === 'medium') {
+            this.setProfile('low');
+          }
+          this._fpsBuffer.length = 0;
+        }
+      }
+
+      this._monitorHandle = requestAnimationFrame(check);
+    };
+
+    if (this._monitorHandle) cancelAnimationFrame(this._monitorHandle);
+    this._fpsBuffer.length = 0;
+    this._monitorHandle = requestAnimationFrame(check);
   }
 }
