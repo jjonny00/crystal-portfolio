@@ -143,6 +143,20 @@ function App() {
     debugInfo
   } = usePerformance();
 
+  // FIXED: Asset loader hook with proper performance profile dependency
+  const {
+    progress,
+    phase,
+    currentAsset,
+    loadedAssets,
+    totalAssets,
+    errors,
+    isLoading,
+    isReady: assetsReady,
+    hasErrors,
+    retry
+  } = useAssetLoader(performanceProfile);
+
   // Initialize effects from the detected device profile
   useEffect(() => {
     if (performanceProfile?.postProcessing) {
@@ -168,7 +182,7 @@ function App() {
   // Simulated progress for starting phase
   useEffect(() => {
     let id;
-    if (phase === 'initializing' && !performanceInitializing) {
+    if (phase === 'initializing') {
       setStartingProgress(0);
       id = setInterval(() => {
         setStartingProgress(prev => Math.min(prev + 5, 100));
@@ -177,32 +191,10 @@ function App() {
       setStartingProgress(prev => (prev < 100 ? 100 : prev));
     }
     return () => clearInterval(id);
-  }, [phase, performanceInitializing]);
-
-  // FIXED: Asset loader hook with proper performance profile dependency
-  const {
-    progress,
-    phase,
-    currentAsset,
-    loadedAssets,
-    totalAssets,
-    errors,
-    isLoading,
-    isReady: assetsReady,
-    hasErrors,
-    retry
-  } = useAssetLoader(performanceProfile);
+  }, [phase]);
 
   // Detect if mobile
   const isMobile = isMobileDevice();
-
-  // Sync effects with the current performance configuration
-  useEffect(() => {
-    if (performanceProfile?.postProcessing) {
-      setEffectsEnabled(performanceProfile.postProcessing);
-      setPostProcessingConfig(performanceProfile.postProcessing);
-    }
-  }, [performanceProfile]);
 
   // ========================================
   // FIXED: App ready detection with proper dependencies
