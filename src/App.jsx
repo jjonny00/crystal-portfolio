@@ -126,6 +126,7 @@ function App() {
     vignette: true
   });
   const [postProcessingConfig, setPostProcessingConfig] = useState(config.postProcessing);
+  const [testingProgress, setTestingProgress] = useState(0);
 
   // FIXED: Enhanced performance hook with proper error handling
   const {
@@ -148,6 +149,20 @@ function App() {
       setPostProcessingConfig(performanceProfile.postProcessing);
     }
   }, [performanceProfile]);
+
+  // Simulated progress for device testing phase
+  useEffect(() => {
+    let id;
+    if (performanceInitializing) {
+      setTestingProgress(0);
+      id = setInterval(() => {
+        setTestingProgress(prev => Math.min(prev + 5, 100));
+      }, 100);
+    } else {
+      setTestingProgress(prev => (prev < 100 ? 100 : prev));
+    }
+    return () => clearInterval(id);
+  }, [performanceInitializing]);
 
   // FIXED: Asset loader hook with proper performance profile dependency
   const {
@@ -306,7 +321,7 @@ function App() {
   // Update the immediate HTML loader with performance info
   useEffect(() => {
     if (window.updateImmediateLoader) {
-      let displayPhase = 'Initializing...';
+      let displayPhase = 'Starting Application';
       let displayAsset = 'Setting up...';
 
       if (performanceInitializing) {
@@ -323,9 +338,14 @@ function App() {
         displayAsset = 'Starting experience...';
       }
 
-      window.updateImmediateLoader(progress, displayPhase, displayAsset, null);
+      window.updateImmediateLoader(
+        progress,
+        displayPhase,
+        displayAsset,
+        performanceInitializing ? testingProgress : null
+      );
     }
-  }, [progress, phase, currentAsset, isAppReady, performanceInitializing, performanceError]);
+  }, [progress, phase, currentAsset, isAppReady, performanceInitializing, performanceError, testingProgress]);
 
   // Hide immediate loader and show React app when ready
   useEffect(() => {
@@ -403,7 +423,7 @@ function App() {
         currentAsset={performanceInitializing ? 'Testing device performance...' : currentAsset}
         loadedAssets={loadedAssets}
         totalAssets={totalAssets}
-        profilerProgress={performanceInitializing ? 50 : null}
+        profilerProgress={performanceInitializing ? testingProgress : null}
         errors={performanceError ? [performanceError, ...errors] : errors}
         onRetry={retry}
       />
