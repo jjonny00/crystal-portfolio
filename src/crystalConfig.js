@@ -298,7 +298,7 @@ export const lighting = {
   directional: {
     position: [2, 8, 5],
     intensity: 10.8,
-    color: "#ffdcc1ff",
+    color: "#ffdcc1",
     castShadow: false  // CHANGED: Disable shadow casting to improve transparent lighting
   },
   // ADDED: Upward directional light from below the crystal
@@ -306,7 +306,7 @@ export const lighting = {
     position: [0, -5, 0],    // Position below the crystal
     target: [0, 0, 0],       // Point straight up toward crystal center
     intensity: 10.2,          // Strong enough to illuminate undersides
-    color: "#f2feffff",        // Slightly cool blue-white
+    color: "#f2feff",        // Slightly cool blue-white
     castShadow: false        // No shadows for better transparency
   },
   pointLights: [
