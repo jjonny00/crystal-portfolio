@@ -40,6 +40,12 @@ export const useAssetLoader = (performanceProfile) => {
       phase: finalProgress === 100 ? 'ready' : 'loading'
     }));
 
+    // Notify HTML loader for immediate progress updates
+    window.updateImmediateLoader?.({
+      assets: finalProgress,
+      phase: 'Loading Assets',
+      currentAsset: name || assetKey,
+    });
 
     if (import.meta.env.DEV) console.log(`📊 Asset progress: ${assetKey} = ${Math.round(progress * 100)}%, Total: ${finalProgress}%`);
   }, []);
