@@ -127,7 +127,7 @@ function App() {
   });
   const [postProcessingConfig, setPostProcessingConfig] = useState(config.postProcessing);
   const [testingProgress, setTestingProgress] = useState(0);
-  const [startingProgress, setStartingProgress] = useState(0);
+  const startingProgress = 100;
 
   // FIXED: Enhanced performance hook with proper error handling
   const {
@@ -171,7 +171,7 @@ function App() {
     if (performanceInitializing) {
       setTestingProgress(0);
       id = setInterval(() => {
-        setTestingProgress(prev => Math.min(prev + 5, 100));
+        setTestingProgress(prev => Math.min(prev + 5, 95));
       }, 100);
     } else {
       setTestingProgress(prev => (prev < 100 ? 100 : prev));
@@ -179,19 +179,10 @@ function App() {
     return () => clearInterval(id);
   }, [performanceInitializing]);
 
-  // Simulated progress for starting phase
+  // Stop the pre-React start progress simulation
   useEffect(() => {
-    let id;
-    if (phase === 'initializing') {
-      setStartingProgress(0);
-      id = setInterval(() => {
-        setStartingProgress(prev => Math.min(prev + 5, 100));
-      }, 100);
-    } else {
-      setStartingProgress(prev => (prev < 100 ? 100 : prev));
-    }
-    return () => clearInterval(id);
-  }, [phase]);
+    window.stopStartProgress?.();
+  }, []);
 
   // Detect if mobile
   const isMobile = isMobileDevice();
@@ -353,7 +344,7 @@ function App() {
         currentAsset: displayAsset
       });
     }
-  }, [progress, phase, currentAsset, isAppReady, performanceInitializing, performanceError, testingProgress, startingProgress]);
+  }, [progress, phase, currentAsset, isAppReady, performanceInitializing, performanceError, testingProgress]);
 
   // Hide immediate loader and show React app when ready
   useEffect(() => {
