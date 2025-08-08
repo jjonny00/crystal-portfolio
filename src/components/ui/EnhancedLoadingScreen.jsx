@@ -2,13 +2,15 @@
 // FIXED: Better messaging that explains the conservative approach
 
 import React from 'react';
+import RadialProgressRing from './RadialProgressRing.jsx';
 
 const EnhancedLoadingScreen = ({
-  progress = 0,
   phase = 'initializing',
   currentAsset = '',
   loadedAssets = 0,
   totalAssets = 0,
+  startingProgress = 0,
+  assetProgress = 0,
   profilerProgress = null,
   errors = [],
   onRetry = null
@@ -16,11 +18,11 @@ const EnhancedLoadingScreen = ({
   const getPhaseMessage = () => {
     switch (phase) {
       case 'initializing':
-        return 'Initializing...';
-      case 'profiling':
-        return 'Optimizing Performance';
+        return 'Starting Application';
       case 'loading':
         return 'Loading Assets';
+      case 'profiling':
+        return 'Testing Performance';
       case 'ready':
         return errors.length > 0 ? 'Ready (with warnings)' : 'Ready to Experience';
       case 'error':
@@ -33,7 +35,8 @@ const EnhancedLoadingScreen = ({
   const getProgressColor = () => {
     if (phase === 'error') return '#ff6b6b';
     if (phase === 'ready' && errors.length > 0) return '#ffa726';
-    if (phase === 'profiling') return '#bb86fc';
+    if (phase === 'profiling') return '#ffa726';
+    if (phase === 'loading') return '#bb86fc';
     return '#64ffda';
   };
 
@@ -95,45 +98,33 @@ const EnhancedLoadingScreen = ({
       <div style={{
         width: '90%',
         maxWidth: '400px',
-        marginBottom: '2rem'
+        marginBottom: '2rem',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center'
       }}>
-        
-        {/* Progress Bar Background */}
-        <div style={{
-          width: '100%',
-          height: '8px',
-          backgroundColor: 'rgba(255, 255, 255, 0.1)',
-          borderRadius: '4px',
-          overflow: 'hidden',
-          marginBottom: '1rem'
-        }}>
-          {/* Progress Bar Fill */}
-          <div style={{
-            width: `${progress}%`,
-            height: '100%',
-            backgroundColor: getProgressColor(),
-            borderRadius: '4px',
-            transition: 'width 0.3s ease, background-color 0.3s ease',
-            boxShadow: `0 0 10px ${getProgressColor()}40`
-          }} />
-        </div>
 
-        {/* Progress Info */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          color: 'white',
-          fontSize: '0.9rem',
-          marginBottom: '0.5rem'
-        }}>
-          <span style={{ color: getProgressColor(), fontWeight: '600' }}>
-            {getPhaseMessage()}
-          </span>
-          <span style={{ color: 'rgba(255, 255, 255, 0.7)' }}>
-            {progress}%
-          </span>
-        </div>
+        {/* Radial Progress Rings */}
+        {(() => {
+          const testProgress = profilerProgress ?? 0;
+          const currentProgress =
+            phase === 'profiling'
+              ? testProgress
+              : phase === 'loading'
+                ? assetProgress
+                : startingProgress;
+          return (
+            <div style={{ position: 'relative', width: '200px', height: '200px', marginBottom: '1rem' }}>
+              <RadialProgressRing size={200} progress={startingProgress} color="#64ffda" />
+              <RadialProgressRing size={160} progress={assetProgress} color="#bb86fc" />
+              <RadialProgressRing size={120} progress={testProgress} color="#ffa726" />
+              <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center' }}>
+                <div style={{ color: getProgressColor(), fontWeight: '600', marginBottom: '0.25rem', fontSize: '0.9rem' }}>{getPhaseMessage()}</div>
+                <div style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.8rem' }}>{Math.round(currentProgress)}%</div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Asset Counter */}
         {totalAssets > 0 && phase === 'loading' && (
@@ -165,12 +156,12 @@ const EnhancedLoadingScreen = ({
           <div style={{
             marginTop: '1rem',
             padding: '1rem',
-            backgroundColor: 'rgba(187, 134, 252, 0.1)',
-            border: '1px solid rgba(187, 134, 252, 0.3)',
+            backgroundColor: 'rgba(255, 167, 38, 0.1)',
+            border: '1px solid rgba(255, 167, 38, 0.3)',
             borderRadius: '8px'
           }}>
             <div style={{
-              color: '#bb86fc',
+              color: '#ffa726',
               fontWeight: '600',
               marginBottom: '0.5rem',
               fontSize: '0.9rem',
@@ -181,7 +172,7 @@ const EnhancedLoadingScreen = ({
             <div style={{
               width: '100%',
               height: '4px',
-              backgroundColor: 'rgba(187, 134, 252, 0.2)',
+              backgroundColor: 'rgba(255, 167, 38, 0.2)',
               borderRadius: '2px',
               overflow: 'hidden',
               marginBottom: '0.5rem'
@@ -189,7 +180,7 @@ const EnhancedLoadingScreen = ({
               <div style={{
                 width: `${profilerProgress}%`,
                 height: '100%',
-                backgroundColor: '#bb86fc',
+                backgroundColor: '#ffa726',
                 borderRadius: '2px',
                 transition: 'width 0.3s ease'
               }} />

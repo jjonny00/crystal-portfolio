@@ -126,6 +126,8 @@ function App() {
     vignette: true
   });
   const [postProcessingConfig, setPostProcessingConfig] = useState(config.postProcessing);
+  const [testingProgress, setTestingProgress] = useState(0);
+  const [startingProgress, setStartingProgress] = useState(0);
 
   // FIXED: Enhanced performance hook with proper error handling
   const {
@@ -141,14 +143,6 @@ function App() {
     debugInfo
   } = usePerformance();
 
-  // Initialize effects from the detected device profile
-  useEffect(() => {
-    if (performanceProfile?.postProcessing) {
-      setEffectsEnabled(performanceProfile.postProcessing);
-      setPostProcessingConfig(performanceProfile.postProcessing);
-    }
-  }, [performanceProfile]);
-
   // FIXED: Asset loader hook with proper performance profile dependency
   const {
     progress,
@@ -163,16 +157,44 @@ function App() {
     retry
   } = useAssetLoader(performanceProfile);
 
-  // Detect if mobile
-  const isMobile = isMobileDevice();
-
-  // Sync effects with the current performance configuration
+  // Initialize effects from the detected device profile
   useEffect(() => {
     if (performanceProfile?.postProcessing) {
       setEffectsEnabled(performanceProfile.postProcessing);
       setPostProcessingConfig(performanceProfile.postProcessing);
     }
   }, [performanceProfile]);
+
+  // Simulated progress for device testing phase
+  useEffect(() => {
+    let id;
+    if (performanceInitializing) {
+      setTestingProgress(0);
+      id = setInterval(() => {
+        setTestingProgress(prev => Math.min(prev + 5, 100));
+      }, 100);
+    } else {
+      setTestingProgress(prev => (prev < 100 ? 100 : prev));
+    }
+    return () => clearInterval(id);
+  }, [performanceInitializing]);
+
+  // Simulated progress for starting phase
+  useEffect(() => {
+    let id;
+    if (phase === 'initializing') {
+      setStartingProgress(0);
+      id = setInterval(() => {
+        setStartingProgress(prev => Math.min(prev + 5, 100));
+      }, 100);
+    } else {
+      setStartingProgress(prev => (prev < 100 ? 100 : prev));
+    }
+    return () => clearInterval(id);
+  }, [phase]);
+
+  // Detect if mobile
+  const isMobile = isMobileDevice();
 
   // ========================================
   // FIXED: App ready detection with proper dependencies
@@ -306,7 +328,7 @@ function App() {
   // Update the immediate HTML loader with performance info
   useEffect(() => {
     if (window.updateImmediateLoader) {
-      let displayPhase = 'Initializing...';
+      let displayPhase = 'Starting Application';
       let displayAsset = 'Setting up...';
 
       if (performanceInitializing) {
@@ -323,9 +345,15 @@ function App() {
         displayAsset = 'Starting experience...';
       }
 
-      window.updateImmediateLoader(progress, displayPhase, displayAsset, null);
+      window.updateImmediateLoader({
+        start: startingProgress,
+        assets: progress,
+        test: testingProgress,
+        phase: displayPhase,
+        currentAsset: displayAsset
+      });
     }
-  }, [progress, phase, currentAsset, isAppReady, performanceInitializing, performanceError]);
+  }, [progress, phase, currentAsset, isAppReady, performanceInitializing, performanceError, testingProgress, startingProgress]);
 
   // Hide immediate loader and show React app when ready
   useEffect(() => {
@@ -398,12 +426,13 @@ function App() {
   if (!isAppReady) {
     return (
       <EnhancedLoadingScreen
-        progress={Math.round(progress)}
         phase={performanceInitializing ? 'profiling' : phase}
         currentAsset={performanceInitializing ? 'Testing device performance...' : currentAsset}
         loadedAssets={loadedAssets}
         totalAssets={totalAssets}
-        profilerProgress={performanceInitializing ? 50 : null}
+        startingProgress={Math.round(startingProgress)}
+        assetProgress={Math.round(progress)}
+        profilerProgress={performanceInitializing ? testingProgress : null}
         errors={performanceError ? [performanceError, ...errors] : errors}
         onRetry={retry}
       />
