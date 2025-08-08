@@ -127,6 +127,7 @@ function App() {
   });
   const [postProcessingConfig, setPostProcessingConfig] = useState(config.postProcessing);
   const [testingProgress, setTestingProgress] = useState(0);
+  const [startingProgress, setStartingProgress] = useState(0);
 
   // FIXED: Enhanced performance hook with proper error handling
   const {
@@ -163,6 +164,20 @@ function App() {
     }
     return () => clearInterval(id);
   }, [performanceInitializing]);
+
+  // Simulated progress for starting phase
+  useEffect(() => {
+    let id;
+    if (phase === 'initializing' && !performanceInitializing) {
+      setStartingProgress(0);
+      id = setInterval(() => {
+        setStartingProgress(prev => Math.min(prev + 5, 100));
+      }, 100);
+    } else {
+      setStartingProgress(prev => (prev < 100 ? 100 : prev));
+    }
+    return () => clearInterval(id);
+  }, [phase, performanceInitializing]);
 
   // FIXED: Asset loader hook with proper performance profile dependency
   const {
@@ -338,14 +353,15 @@ function App() {
         displayAsset = 'Starting experience...';
       }
 
+      const activeProgress = phase === 'initializing' ? startingProgress : progress;
       window.updateImmediateLoader(
-        progress,
+        activeProgress,
         displayPhase,
         displayAsset,
         performanceInitializing ? testingProgress : null
       );
     }
-  }, [progress, phase, currentAsset, isAppReady, performanceInitializing, performanceError, testingProgress]);
+  }, [progress, phase, currentAsset, isAppReady, performanceInitializing, performanceError, testingProgress, startingProgress]);
 
   // Hide immediate loader and show React app when ready
   useEffect(() => {
@@ -418,7 +434,7 @@ function App() {
   if (!isAppReady) {
     return (
       <EnhancedLoadingScreen
-        progress={Math.round(progress)}
+        progress={Math.round(phase === 'initializing' ? startingProgress : progress)}
         phase={performanceInitializing ? 'profiling' : phase}
         currentAsset={performanceInitializing ? 'Testing device performance...' : currentAsset}
         loadedAssets={loadedAssets}
