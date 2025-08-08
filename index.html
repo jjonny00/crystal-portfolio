@@ -203,7 +203,7 @@
     <!-- CRITICAL: Update loader from JavaScript -->
     <script type="module">
       // Global functions to update the immediate loader
-      window.updateImmediateLoader = function(progress, phase, currentAsset, testingProgress) {
+      window.updateImmediateLoader = function({ start = null, assets = null, test = null, phase, currentAsset }) {
         const ringStart = document.getElementById('ring-start');
         const ringAssets = document.getElementById('ring-assets');
         const ringTest = document.getElementById('ring-test');
@@ -214,20 +214,9 @@
 
         window.__phaseProgress = window.__phaseProgress || { start: 0, assets: 0, test: 0 };
 
-        if (phase === 'Starting Application') {
-          window.__phaseProgress.start = progress;
-        } else if (phase === 'Loading Assets') {
-          window.__phaseProgress.start = 100;
-          window.__phaseProgress.assets = progress;
-        } else if (phase === 'Testing Performance') {
-          window.__phaseProgress.start = 100;
-          window.__phaseProgress.assets = 100;
-          if (typeof testingProgress === 'number') window.__phaseProgress.test = testingProgress;
-        } else if (phase === 'Ready') {
-          window.__phaseProgress.start = 100;
-          window.__phaseProgress.assets = 100;
-          window.__phaseProgress.test = 100;
-        }
+        if (typeof start === 'number') window.__phaseProgress.start = start;
+        if (typeof assets === 'number') window.__phaseProgress.assets = assets;
+        if (typeof test === 'number') window.__phaseProgress.test = test;
 
         if (ringStart) ringStart.style.strokeDashoffset = 100 - window.__phaseProgress.start;
         if (ringAssets) ringAssets.style.strokeDashoffset = 100 - window.__phaseProgress.assets;
@@ -252,7 +241,7 @@
           if (testingInfo) testingInfo.textContent = '';
         }
 
-        if (import.meta.env.DEV) console.log('📊 Immediate loader updated:', { progress, phase, currentAsset, testingProgress });
+        if (import.meta.env.DEV) console.log('📊 Immediate loader updated:', { start, assets, test, phase, currentAsset });
       };
       
       // Hide immediate loader and show React app
@@ -278,7 +267,7 @@
       };
       
       // Initial update
-      window.updateImmediateLoader(0, 'Starting Application', 'Starting application...', null);
+      window.updateImmediateLoader({ start: 0, assets: 0, test: 0, phase: 'Starting Application', currentAsset: 'Starting application...' });
     </script>
     
     <script type="module" src="/src/main.jsx"></script>

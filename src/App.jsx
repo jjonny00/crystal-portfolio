@@ -345,13 +345,13 @@ function App() {
         displayAsset = 'Starting experience...';
       }
 
-      const activeProgress = phase === 'initializing' ? startingProgress : progress;
-      window.updateImmediateLoader(
-        activeProgress,
-        displayPhase,
-        displayAsset,
-        performanceInitializing ? testingProgress : null
-      );
+      window.updateImmediateLoader({
+        start: startingProgress,
+        assets: progress,
+        test: testingProgress,
+        phase: displayPhase,
+        currentAsset: displayAsset
+      });
     }
   }, [progress, phase, currentAsset, isAppReady, performanceInitializing, performanceError, testingProgress, startingProgress]);
 
@@ -426,11 +426,12 @@ function App() {
   if (!isAppReady) {
     return (
       <EnhancedLoadingScreen
-        progress={Math.round(phase === 'initializing' ? startingProgress : progress)}
         phase={performanceInitializing ? 'profiling' : phase}
         currentAsset={performanceInitializing ? 'Testing device performance...' : currentAsset}
         loadedAssets={loadedAssets}
         totalAssets={totalAssets}
+        startingProgress={Math.round(startingProgress)}
+        assetProgress={Math.round(progress)}
         profilerProgress={performanceInitializing ? testingProgress : null}
         errors={performanceError ? [performanceError, ...errors] : errors}
         onRetry={retry}

@@ -5,11 +5,12 @@ import React from 'react';
 import RadialProgressRing from './RadialProgressRing.jsx';
 
 const EnhancedLoadingScreen = ({
-  progress = 0,
   phase = 'initializing',
   currentAsset = '',
   loadedAssets = 0,
   totalAssets = 0,
+  startingProgress = 0,
+  assetProgress = 0,
   profilerProgress = null,
   errors = [],
   onRetry = null
@@ -105,14 +106,17 @@ const EnhancedLoadingScreen = ({
 
         {/* Radial Progress Rings */}
         {(() => {
-          const startProgress = phase === 'initializing' ? progress : 100;
-          const loadProgress = phase === 'loading' ? progress : phase !== 'initializing' ? 100 : 0;
-          const testProgress = phase === 'profiling' ? (profilerProgress ?? 0) : phase === 'ready' ? 100 : 0;
-          const currentProgress = phase === 'profiling' ? testProgress : phase === 'loading' ? loadProgress : startProgress;
+          const testProgress = profilerProgress ?? 0;
+          const currentProgress =
+            phase === 'profiling'
+              ? testProgress
+              : phase === 'loading'
+                ? assetProgress
+                : startingProgress;
           return (
             <div style={{ position: 'relative', width: '200px', height: '200px', marginBottom: '1rem' }}>
-              <RadialProgressRing size={200} progress={startProgress} color="#64ffda" />
-              <RadialProgressRing size={160} progress={loadProgress} color="#bb86fc" />
+              <RadialProgressRing size={200} progress={startingProgress} color="#64ffda" />
+              <RadialProgressRing size={160} progress={assetProgress} color="#bb86fc" />
               <RadialProgressRing size={120} progress={testProgress} color="#ffa726" />
               <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center' }}>
                 <div style={{ color: getProgressColor(), fontWeight: '600', marginBottom: '0.25rem', fontSize: '0.9rem' }}>{getPhaseMessage()}</div>
