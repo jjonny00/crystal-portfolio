@@ -272,7 +272,10 @@
       // Simulate script loading progress until React takes over
       let __startSimProgress = 0;
       const __startSimInterval = setInterval(() => {
-        __startSimProgress = Math.min(__startSimProgress + 2, 90);
+        __startSimProgress =
+          __startSimProgress < 90
+            ? Math.min(__startSimProgress + 2, 90)
+            : Math.min(__startSimProgress + 0.5, 99);
         window.updateImmediateLoader({
           start: __startSimProgress,
           phase: 'Starting Application',

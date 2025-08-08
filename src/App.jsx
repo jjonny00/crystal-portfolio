@@ -171,7 +171,10 @@ function App() {
     if (performanceInitializing) {
       setTestingProgress(0);
       id = setInterval(() => {
-        setTestingProgress(prev => Math.min(prev + 5, 95));
+        setTestingProgress(prev => {
+          if (prev < 95) return Math.min(prev + 5, 95);
+          return Math.min(prev + 1, 99);
+        });
       }, 100);
     } else {
       setTestingProgress(prev => (prev < 100 ? 100 : prev));
