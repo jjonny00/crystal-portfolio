@@ -18,6 +18,11 @@ export default class PerformanceManager {
     this._listeners = new Set();
     this._fpsBuffer = [];
     this._monitorHandle = null;
+    this._progressCallback = null;
+  }
+
+  setProgressCallback(callback) {
+    this._progressCallback = callback;
   }
 
   async initialize() {
@@ -123,12 +128,13 @@ export default class PerformanceManager {
   }
 
   async _runConservativeTest() {
-    // FIXED: Start with medium profile test that matches your actual scene complexity
+    // Report test phases for better progress tracking
+    this._reportProgress(0, 'Starting performance test...');
+
     const canvas = document.createElement('canvas');
-    canvas.width = 256; // SMALLER test size to reduce overhead
+    canvas.width = 256;
     canvas.height = 256;
     
-    // Don't attach to DOM - keep it invisible
     canvas.style.position = 'absolute';
     canvas.style.top = '-9999px';
     canvas.style.pointerEvents = 'none';
@@ -136,26 +142,32 @@ export default class PerformanceManager {
 
     try {
       const iterations = 3;
-      // FIXED: Test medium first (what was working), only upgrade if performance is excellent
+      
+      // Test medium quality
+      this._reportProgress(20, 'Testing medium quality...');
       const mediumResults = await this._testWithActualSceneComplexity(canvas, 'medium', iterations);
 
       // Only try high quality if medium performs excellently
       if (mediumResults.avgFps >= 50 && mediumResults.minFps >= 40) {
+        this._reportProgress(60, 'Testing high quality...');
         const highResults = await this._testWithActualSceneComplexity(canvas, 'high', iterations);
         
-        // Only use high if it still performs well
         if (highResults.avgFps >= 40 && highResults.minFps >= 30) {
+          this._reportProgress(95, 'High quality test passed');
           return { ...highResults, recommendedTier: 'high' };
         }
       }
       
       // Only downgrade to low if medium performs poorly
       if (mediumResults.avgFps < 25 || mediumResults.minFps < 20) {
+        this._reportProgress(60, 'Testing low quality...');
         const lowResults = await this._testWithActualSceneComplexity(canvas, 'low', iterations);
+        this._reportProgress(95, 'Low quality test completed');
         return { ...lowResults, recommendedTier: 'low' };
       }
       
-      // Default to medium (what was working before)
+      // Default to medium
+      this._reportProgress(95, 'Medium quality test completed');
       return { ...mediumResults, recommendedTier: 'medium' };
       
     } finally {
@@ -163,8 +175,73 @@ export default class PerformanceManager {
       if (canvas.parentNode) {
         canvas.parentNode.removeChild(canvas);
       }
+      this._reportProgress(100, 'Performance test complete');
     }
   }
+
+  _reportProgress(percentage, message) {
+    if (this._progressCallback) {
+      this._progressCallback(percentage, message);
+    }
+  }
+
+  async _performInitialization() {
+    this._initialized = true;
+
+    // Check if we have valid cached results
+    const cachedData = this._getCachedResults();
+    
+    if (cachedData && this._isCacheValid(cachedData)) {
+      if (import.meta.env.DEV) {
+        console.log('🔧 Using cached performance profile:', cachedData.tier);
+      }
+      
+      this.tier = cachedData.tier;
+      this.profile = { ...PERFORMANCE_PROFILES[cachedData.tier] };
+      this._testResults = cachedData.testResults;
+      this._ready = true;
+      this._startRuntimeMonitoring();
+      return;
+    }
+
+    // FIXED: Report progress during test
+    if (import.meta.env.DEV) {
+      console.log('🔧 Running conservative performance test...');
+    }
+
+    try {
+      const testResults = await this._runConservativeTest();
+      const optimalTier = this._determineTierFromResults(testResults);
+      
+      this.tier = optimalTier;
+      this.profile = { ...PERFORMANCE_PROFILES[optimalTier] };
+      this._testResults = testResults;
+      
+      // Cache results
+      this._cacheResults(optimalTier, testResults);
+      
+      if (import.meta.env.DEV) {
+        console.log('🔧 Conservative performance test complete:', {
+          tier: optimalTier,
+          avgFps: testResults.avgFps,
+          profile: this.profile
+        });
+      }
+      
+    } catch (error) {
+      console.warn('Performance test failed, using medium profile:', error);
+      this.tier = 'medium';
+      this.profile = { ...PERFORMANCE_PROFILES.medium };
+    }
+
+    // FIXED: Ensure _ready is set after everything completes
+    this._ready = true;
+    this._startRuntimeMonitoring();
+    
+    // Final progress report
+    this._reportProgress(100, 'Initialization complete');
+  }
+
 
   async _testWithActualSceneComplexity(canvas, tier, iterations = 3) {
     const profile = PERFORMANCE_PROFILES[tier];

@@ -137,6 +137,7 @@ function App() {
     isInitializing: performanceInitializing,
     error: performanceError,
     testResults,
+    testProgress: actualTestProgress,
     updateProfile,
     forceRetest,
     clearCache,
@@ -166,21 +167,25 @@ function App() {
   }, [performanceProfile]);
 
   // Simulated progress for device testing phase
-  useEffect(() => {
-    let id;
-    if (performanceInitializing) {
-      setTestingProgress(0);
-      id = setInterval(() => {
-        setTestingProgress(prev => {
-          if (prev < 95) return Math.min(prev + 5, 95);
-          return Math.min(prev + 1, 99);
-        });
-      }, 100);
-    } else {
-      setTestingProgress(prev => (prev < 100 ? 100 : prev));
-    }
-    return () => clearInterval(id);
-  }, [performanceInitializing]);
+useEffect(() => {
+  let id;
+  if (performanceInitializing) {
+    setTestingProgress(0);
+    id = setInterval(() => {
+      setTestingProgress(prev => {
+        // FIXED: Don't go past 95% until test actually completes
+        if (prev < 85) return Math.min(prev + 5, 85);
+        if (prev < 95) return Math.min(prev + 2, 95); // Slower approach to 95%
+        return Math.min(prev + 0.5, 95); // Very slow approach, stop at 95%
+      });
+    }, 100);
+  } else if (performanceReady && !performanceError) {
+    // FIXED: When test completes, immediately jump to 100%
+    setTestingProgress(100);
+    clearInterval(id);
+  }
+  return () => clearInterval(id);
+}, [performanceInitializing, performanceReady, performanceError]);
 
   // Stop the pre-React start progress simulation
   useEffect(() => {
@@ -324,30 +329,34 @@ function App() {
     if (window.updateImmediateLoader) {
       let displayPhase = 'Starting Application';
       let displayAsset = 'Setting up...';
+      let testingProgressValue = actualTestProgress || 0; // Use actual progress
 
       if (performanceInitializing) {
         displayPhase = 'Testing Performance';
         displayAsset = 'Detecting device capabilities...';
+        // Use actual progress instead of simulated
       } else if (performanceError) {
         displayPhase = 'Performance Error';
         displayAsset = performanceError;
+        testingProgressValue = 100;
       } else if (phase === 'loading') {
         displayPhase = 'Loading Assets';
         displayAsset = currentAsset || 'Loading resources...';
       } else if (isAppReady) {
         displayPhase = 'Ready';
         displayAsset = 'Starting experience...';
+        testingProgressValue = 100;
       }
 
       window.updateImmediateLoader({
         start: startingProgress,
         assets: progress,
-        test: testingProgress,
+        test: testingProgressValue, // FIXED: Use actual test progress
         phase: displayPhase,
         currentAsset: displayAsset
       });
     }
-  }, [progress, phase, currentAsset, isAppReady, performanceInitializing, performanceError, testingProgress]);
+  }, [progress, phase, currentAsset, isAppReady, performanceInitializing, performanceError, actualTestProgress]);
 
   // Hide immediate loader and show React app when ready
   useEffect(() => {
