@@ -1,7 +1,7 @@
 export function installLegacyVhPolyfill() {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined') return false;
   const supportsDvh = CSS && CSS.supports && CSS.supports('height: 100dvh');
-  if (supportsDvh) return;
+  if (supportsDvh) return false;
 
   const setVh = () => {
     const h = window.visualViewport?.height ?? window.innerHeight;
@@ -11,4 +11,5 @@ export function installLegacyVhPolyfill() {
   setVh();
   window.addEventListener('resize', setVh);
   window.addEventListener('orientationchange', setVh);
+  return true;
 }

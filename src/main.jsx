@@ -5,8 +5,10 @@ import './styles/global.css';
 import App from './App.jsx';
 import { installLegacyVhPolyfill } from './utils/viewportHeight.js';
 
-installLegacyVhPolyfill();
-document.documentElement.classList.add('legacy-vh');
+const needsLegacyVh = installLegacyVhPolyfill();
+if (needsLegacyVh) {
+  document.documentElement.classList.add('legacy-vh');
+}
 
 const rootEl = document.getElementById('root');
 
