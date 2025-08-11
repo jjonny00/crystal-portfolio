@@ -4,7 +4,8 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <link rel="stylesheet" href="https://use.typekit.net/qqu3acy.css">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#050505" />
     <title>Multifaceted Designer</title>
     
     <!-- CRITICAL: Immediate loader styles that render BEFORE React -->
@@ -29,7 +30,7 @@
         top: 0;
         left: 0;
         width: 100vw;
-        height: 100vh;
+        min-height: 100dvh;
         background-color: #050505;
         display: flex;
         flex-direction: column;
@@ -38,6 +39,11 @@
         z-index: 100000;
         opacity: 1;
         transition: opacity 0.3s ease;
+        padding-top: env(safe-area-inset-top);
+        padding-right: env(safe-area-inset-right);
+        padding-bottom: env(safe-area-inset-bottom);
+        padding-left: env(safe-area-inset-left);
+        box-sizing: border-box;
       }
       
       #immediate-loader.hidden {

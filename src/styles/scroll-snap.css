@@ -36,7 +36,7 @@ body {
 #root {
   /* Allow natural content flow */
   height: auto !important;
-  min-height: 100vh !important;
+  min-height: 100dvh !important;
   
   /* Never set overflow on root */
   overflow: visible !important;
@@ -55,7 +55,7 @@ body {
   right: 0 !important;
   
   /* Force it to be the scroll container */
-  height: 100vh !important;
+  height: 100dvh !important;
   overflow-y: auto !important;
   overflow-x: hidden !important;
   
@@ -82,9 +82,9 @@ body {
   scroll-snap-stop: always !important;
   
   /* Force exact viewport height */
-  height: 100vh !important;
-  min-height: 100vh !important;
-  max-height: 100vh !important;
+  height: 100dvh !important;
+  min-height: 100dvh !important;
+  max-height: 100dvh !important;
   
   /* Prevent internal scrolling */
   overflow: hidden !important;
@@ -117,9 +117,9 @@ body {
   /* Force these critical properties */
   scroll-snap-align: start !important;
   scroll-snap-stop: always !important;
-  height: 100vh !important;
-  min-height: 100vh !important;
-  max-height: 100vh !important;
+  height: 100dvh !important;
+  min-height: 100dvh !important;
+  max-height: 100dvh !important;
   overflow: hidden !important;
   
   /* Center content */
@@ -203,7 +203,7 @@ html .scroll-container.no-snap .scroll-section {
   
   .scroll-container {
     /* Keep scroll container approach on mobile */
-    height: 100vh !important;
+    height: 100dvh !important;
     overflow-y: auto !important;
     scroll-snap-type: y proximity !important;
     
@@ -230,13 +230,13 @@ html .scroll-container.no-snap .scroll-section {
   .scroll-section {
     /* Mobile sections */
     scroll-snap-align: start !important;
-    height: 100vh !important;
-    min-height: 100vh !important;
-    max-height: 100vh !important;
+    height: 100dvh !important;
+    min-height: 100dvh !important;
+    max-height: 100dvh !important;
     
     /* Use iOS safe areas if available */
-    height: 100vh !important;
-    min-height: 100vh !important;
+    height: 100dvh !important;
+    min-height: 100dvh !important;
   }
   
   /* Mobile-specific fixes for iOS */

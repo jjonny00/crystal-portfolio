@@ -420,7 +420,7 @@ const AboutSection = ({
       id="about"
       className="scroll-section"
       style={{
-        minHeight: '100vh',
+        minHeight: '100dvh',
         scrollSnapAlign: 'start',
         scrollSnapStop: 'normal',
         padding: isMobile ? '4rem 1rem' : '6rem 2rem',

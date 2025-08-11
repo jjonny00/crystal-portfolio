@@ -456,7 +456,7 @@ useEffect(() => {
   }
 
   return (
-    <>
+    <div className="app-shell fullscreen">
       {/* UI Hide Toggle Button */}
       <button
         onClick={() => setHideAllUI(!hideAllUI)}
@@ -529,10 +529,12 @@ useEffect(() => {
       </MasterAnimationCoordinator>
 
       {/* Scrollable Content */}
-      <ScrollablePortfolio 
-        snapSpeed={snapSpeed}
-        hideContent={hideAllUI}
-      />
+      <div id="scene-root" className="scroll-y">
+        <ScrollablePortfolio
+          snapSpeed={snapSpeed}
+          hideContent={hideAllUI}
+        />
+      </div>
 
       {/* UI Controls */}
       {!hideAllUI && (
@@ -646,7 +648,7 @@ useEffect(() => {
           onClearCache={clearCache}
         />
       )}
-    </>
+    </div>
   );
 }
 

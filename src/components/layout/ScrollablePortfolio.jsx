@@ -59,7 +59,7 @@ const ScrollablePortfolio = ({
         right: 0,
         
         // Force it to be full viewport height and scrollable
-        height: '100vh',
+        height: '100dvh',
         overflowY: 'auto',
         overflowX: 'hidden',
         
@@ -88,7 +88,7 @@ const ScrollablePortfolio = ({
       <div style={{
         // This wrapper holds all the content
         width: '100%',
-        minHeight: '800vh', // 9 sections × 100vh each
+        minHeight: '800dvh', // 9 sections × 100dvh each
         position: 'relative',
         
         // NEW: Make content invisible but keep structure for scrolling
@@ -103,9 +103,9 @@ const ScrollablePortfolio = ({
             // NOTE: scroll-snap properties now handled by CSS classes
             
             // Force exact height
-            height: '100vh',
-            minHeight: '100vh',
-            maxHeight: '100vh',
+            height: '100dvh',
+            minHeight: '100dvh',
+            maxHeight: '100dvh',
             
             // Prevent internal scroll
             overflow: 'hidden',
@@ -133,9 +133,9 @@ const ScrollablePortfolio = ({
           style={{
             scrollSnapAlign: 'start',
             scrollSnapStop: 'normal',
-            height: '100vh',
-            minHeight: '100vh',
-            maxHeight: '100vh',
+            height: '100dvh',
+            minHeight: '100dvh',
+            maxHeight: '100dvh',
             overflow: 'hidden',
             display: 'flex',
             alignItems: 'center',
@@ -157,9 +157,9 @@ const ScrollablePortfolio = ({
             id={`project-${project.facetKey}`}
             className="scroll-section"
             style={{
-              height: '100vh',
-              minHeight: '100vh',
-              maxHeight: '100vh',
+              height: '100dvh',
+              minHeight: '100dvh',
+              maxHeight: '100dvh',
               overflow: 'hidden',
               display: 'flex',
               alignItems: 'center',
@@ -186,9 +186,9 @@ const ScrollablePortfolio = ({
           id="about" 
           className="scroll-section"
           style={{
-            height: '100vh',
-            minHeight: '100vh',
-            maxHeight: '100vh',
+            height: '100dvh',
+            minHeight: '100dvh',
+            maxHeight: '100dvh',
             overflow: 'hidden',
             display: 'flex',
             alignItems: 'center',
