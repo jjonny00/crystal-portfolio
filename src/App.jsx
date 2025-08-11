@@ -529,7 +529,7 @@ useEffect(() => {
       </MasterAnimationCoordinator>
 
       {/* Scrollable Content */}
-      <div id="scene-root" className="scroll-y">
+      <div id="scene-root" className="scroll-y scroll-container">
         <ScrollablePortfolio
           snapSpeed={snapSpeed}
           hideContent={hideAllUI}

@@ -49,51 +49,18 @@ const ScrollablePortfolio = ({
   }, [snapSpeed]);
   
   return (
-    <div 
-      className="scroll-container"
+    <div
       style={{
-        // CRITICAL: This div becomes the scroll parent
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        
-        // Force it to be full viewport height and scrollable
-        height: '100dvh',
-        overflowY: 'auto',
-        overflowX: 'hidden',
-        
-        // NOTE: scroll-snap properties are now handled by CSS classes
-        
-        // Above 3D canvas
-        zIndex: 10,
-        
-        // Mobile scroll support
-        WebkitOverflowScrolling: 'touch',
-        
-        // Clean styling
-        backgroundColor: 'transparent',
-        pointerEvents: 'auto',
-        
-        // Clean box model
+        width: '100%',
+        minHeight: '800dvh', // 9 sections × 100dvh each
+        position: 'relative',
         margin: 0,
         padding: 0,
         boxSizing: 'border-box',
-        
         // NEW: Hide content when needed for screenshots
         opacity: hideContent ? 0 : 1
       }}
     >
-      {/* Content wrapper - contains all sections */}
-      <div style={{
-        // This wrapper holds all the content
-        width: '100%',
-        minHeight: '800dvh', // 9 sections × 100dvh each
-        position: 'relative',
-        
-        // NEW: Make content invisible but keep structure for scrolling
-        opacity: hideContent ? 0 : 1
-      }}>
         
         {/* HERO SECTION */}
         <section 
@@ -203,7 +170,6 @@ const ScrollablePortfolio = ({
           <AboutSection />
         </section>
         
-      </div>
     </div>
   );
 };
