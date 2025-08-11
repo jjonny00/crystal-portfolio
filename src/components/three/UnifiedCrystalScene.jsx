@@ -46,6 +46,7 @@ const UnifiedCrystalScene = forwardRef(({
   // Individual facet materials and colors
   const facetMaterialsRef = useRef([]);
   const targetColorsRef = useRef([]);
+  const activeFacetRef = useRef(null);
   const defaultColorRef = useRef(new THREE.Color('#ffffff'));
   const projectColors = useMemo(() => (
     facetKeys.map(key => new THREE.Color(getProjectColorByFacetKey(key)))
@@ -273,17 +274,29 @@ const UnifiedCrystalScene = forwardRef(({
     }
   }, [showCrystalDebug, showFacets, facetKeys]);
 
-  // Update target colors based on focused facet
+  // Update target colors when facet focus actually changes
   useEffect(() => {
-    const focused = animationData?.state === 'project_focused'
-      ? animationData?.focusedFacet
-      : null;
+    const inProjects = animationData?.state === 'project_focused';
+    const nextFacet = inProjects ? animationData?.focusedFacet : null;
 
-    facetKeys.forEach((key, idx) => {
-      targetColorsRef.current[idx] = focused === key
-        ? projectColors[idx]
-        : defaultColorRef.current;
-    });
+    // Leaving project zone - reset all to default
+    if (!inProjects && activeFacetRef.current !== null) {
+      facetKeys.forEach((_, idx) => {
+        targetColorsRef.current[idx] = defaultColorRef.current;
+      });
+      activeFacetRef.current = null;
+      return;
+    }
+
+    // Change to a new focused facet
+    if (nextFacet && nextFacet !== activeFacetRef.current) {
+      facetKeys.forEach((key, idx) => {
+        targetColorsRef.current[idx] = nextFacet === key
+          ? projectColors[idx]
+          : defaultColorRef.current;
+      });
+      activeFacetRef.current = nextFacet;
+    }
   }, [animationData?.focusedFacet, animationData?.state, facetKeys, projectColors]);
   
   // Crystal form change detection
