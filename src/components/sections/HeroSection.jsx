@@ -99,7 +99,7 @@ const HeroSection = ({
       id="hero"
       className="scroll-section"
       style={{
-        height: '100vh',
+        height: '100dvh',
         scrollSnapAlign: 'start',
         scrollSnapStop: 'normal',
         position: 'relative',

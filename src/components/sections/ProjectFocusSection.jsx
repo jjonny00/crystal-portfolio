@@ -98,7 +98,7 @@ const ProjectFocusSection = ({
       id={`project-${project.facetKey}`}
       className="scroll-section"
       style={{
-        height: '100vh',
+        height: '100dvh',
         scrollSnapAlign: 'start',
         scrollSnapStop: 'normal',
         padding: isMobile ? '2rem 1rem' : '4rem 2rem',

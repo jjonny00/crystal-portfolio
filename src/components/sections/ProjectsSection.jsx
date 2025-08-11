@@ -135,7 +135,7 @@ const ProjectsSection = ({
       id="projects-overview"
       className="scroll-section"
       style={{
-        minHeight: '100vh',
+        minHeight: '100dvh',
         scrollSnapAlign: 'start',
         scrollSnapStop: 'normal',
         padding: isMobile ? '4rem 1rem' : '4rem 2rem',
