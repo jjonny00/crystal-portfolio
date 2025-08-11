@@ -276,20 +276,21 @@ const UnifiedCrystalScene = forwardRef(({
 
   // Update target colors when facet focus actually changes
   useEffect(() => {
-    const inProjects = animationData?.state === 'project_focused';
-    const nextFacet = inProjects ? animationData?.focusedFacet : null;
+    const nextFacet = animationData?.focusedFacet;
 
-    // Leaving project zone - reset all to default
-    if (!inProjects && activeFacetRef.current !== null) {
-      facetKeys.forEach((_, idx) => {
-        targetColorsRef.current[idx] = defaultColorRef.current;
-      });
-      activeFacetRef.current = null;
+    // No facet focused – reset all to default
+    if (!nextFacet) {
+      if (activeFacetRef.current !== null) {
+        facetKeys.forEach((_, idx) => {
+          targetColorsRef.current[idx] = defaultColorRef.current;
+        });
+        activeFacetRef.current = null;
+      }
       return;
     }
 
     // Change to a new focused facet
-    if (nextFacet && nextFacet !== activeFacetRef.current) {
+    if (nextFacet !== activeFacetRef.current) {
       facetKeys.forEach((key, idx) => {
         targetColorsRef.current[idx] = nextFacet === key
           ? projectColors[idx]
@@ -297,7 +298,7 @@ const UnifiedCrystalScene = forwardRef(({
       });
       activeFacetRef.current = nextFacet;
     }
-  }, [animationData?.focusedFacet, animationData?.state, facetKeys, projectColors]);
+  }, [animationData?.focusedFacet, facetKeys, projectColors]);
   
   // Crystal form change detection
   useEffect(() => {
