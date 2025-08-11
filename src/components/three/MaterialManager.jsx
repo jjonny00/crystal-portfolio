@@ -461,6 +461,14 @@ const MaterialManager = ({
       if (import.meta.env.DEV) console.log('✅ Using full PBR crystal material:', materialVariant);
     }
 
+    // Store the base color so clones can reference the original
+    if (materialRef.current) {
+      materialRef.current.userData = {
+        ...(materialRef.current.userData || {}),
+        baseColor: materialRef.current.color.clone()
+      };
+    }
+
     if (onMaterialReady) onMaterialReady(materialRef.current);
   }, [materialVariant, materialRef, isLow, isMedium, onMaterialReady]);
   

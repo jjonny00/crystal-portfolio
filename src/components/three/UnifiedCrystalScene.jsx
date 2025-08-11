@@ -1,7 +1,7 @@
 // UPDATED: src/components/three/UnifiedCrystalScene.jsx
 // FIXED: Disabled shadows for crystal materials to improve lighting through transparent faces
 
-import React, { useRef, useState, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react'
+import React, { useRef, useState, useEffect, useCallback, forwardRef, useImperativeHandle, useMemo } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useGLTF, Html } from '@react-three/drei'
 import * as THREE from 'three'
@@ -11,6 +11,7 @@ import MaterialManager from './MaterialManager'
 
 // Import enhanced sphere component
 import GlowingSphereImage, { BLENDING_MODES } from './GlowingSphereImage'
+import { getProjectColorByFacetKey } from '../../data/projects'
 
 const UnifiedCrystalScene = forwardRef(({ 
   animationData,
@@ -25,7 +26,7 @@ const UnifiedCrystalScene = forwardRef(({
   const wholeCrystalRef = useRef();
   const facetRefs = useRef([]); 
   const crystalMaterialRef = useRef();
-  
+
   // Sphere state
   const [sphereVisible, setSphereVisible] = useState(false);
   
@@ -41,6 +42,15 @@ const UnifiedCrystalScene = forwardRef(({
 
   // Facet configuration
   const facetKeys = ['empathy', 'narrative', 'craft', 'system', 'leadership', 'exploration'];
+
+  // Individual facet materials and colors
+  const facetMaterialsRef = useRef([]);
+  const activeFacetRef = useRef(null);
+  const defaultColorRef = useRef(new THREE.Color('#ffffff'));
+  const projectColors = useMemo(
+    () => facetKeys.map(key => new THREE.Color(getProjectColorByFacetKey(key))),
+    [facetKeys]
+  );
 
   // Track material updates so we can reapply when ready
   const [materialVersion, setMaterialVersion] = useState(0);
@@ -186,31 +196,56 @@ const UnifiedCrystalScene = forwardRef(({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
   
-  // UPDATED: Apply shared material to all models with disabled shadows
+  // Apply materials to the crystal and create facet-specific clones
   useEffect(() => {
     if (!crystalMaterialRef.current) return;
-    
-    const applyMaterial = (modelScene) => {
+
+    // Default color for resetting facet materials
+    defaultColorRef.current.copy(
+      crystalMaterialRef.current.userData?.baseColor ||
+      crystalMaterialRef.current.color
+    );
+
+    // Apply material to whole crystal
+    const applyMaterial = (modelScene, material) => {
       if (!modelScene) return;
       modelScene.traverse((child) => {
         if (child.isMesh) {
-          child.material = crystalMaterialRef.current;
-          
-          // CHANGED: Disable shadows for crystal materials to improve transparent lighting
-          child.castShadow = false;    // Don't cast shadows
-          child.receiveShadow = false; // Don't receive shadows
-          
+          child.material = material;
+          child.castShadow = false;
+          child.receiveShadow = false;
+
           if (import.meta.env.DEV) {
             console.log(`💡 Disabled shadows for crystal mesh: ${child.name}`);
           }
         }
       });
     };
-    
-    applyMaterial(wholeCrystal.scene);
-    facetModels.forEach(model => applyMaterial(model.scene));
-    
-  }, [wholeCrystal, facetModels, materialVersion]);
+
+    applyMaterial(wholeCrystal.scene, crystalMaterialRef.current);
+
+    // Create or update facet materials
+    facetMaterialsRef.current = facetKeys.map((key, idx) => {
+      const mat = crystalMaterialRef.current.clone();
+
+      // If a facet is already active, initialize its material with the project color
+      const isActive = activeFacetRef.current === key;
+      const initialColor = isActive ? projectColors[idx] : defaultColorRef.current;
+
+      mat.color.copy(initialColor);
+      mat.userData = {
+        ...(mat.userData || {}),
+        targetColor: initialColor.clone(),
+        startColor: initialColor.clone(),
+        progress: 1
+      };
+
+      const model = facetModels[idx];
+      applyMaterial(model.scene, mat);
+      return mat;
+    });
+
+  }, [wholeCrystal, facetModels, materialVersion, facetKeys, projectColors]);
 
   // Debug anchor positions when facets are loaded
   useEffect(() => {
@@ -247,6 +282,37 @@ const UnifiedCrystalScene = forwardRef(({
       if (import.meta.env.DEV) console.groupEnd();
     }
   }, [showCrystalDebug, showFacets, facetKeys]);
+
+  // Update target colors when facet focus actually changes
+  useEffect(() => {
+    const nextFacet = animationData?.focusedFacet;
+
+    // Wait until materials have been created
+    if (!facetMaterialsRef.current.length) return;
+
+    // No facet focused – reset all to default
+    if (!nextFacet) {
+      facetMaterialsRef.current.forEach((mat) => {
+        mat.userData.startColor.copy(mat.color);
+        mat.userData.targetColor.copy(defaultColorRef.current);
+        mat.userData.progress = 0;
+      });
+      activeFacetRef.current = null;
+      return;
+    }
+
+    // Change to a new focused facet
+    if (nextFacet !== activeFacetRef.current) {
+      facetMaterialsRef.current.forEach((mat, idx) => {
+        const key = facetKeys[idx];
+        const color = nextFacet === key ? projectColors[idx] : defaultColorRef.current;
+        mat.userData.startColor.copy(mat.color);
+        mat.userData.targetColor.copy(color);
+        mat.userData.progress = 0;
+      });
+      activeFacetRef.current = nextFacet;
+    }
+  }, [animationData?.focusedFacet, materialVersion, facetKeys, projectColors]);
   
   // Crystal form change detection
   useEffect(() => {
@@ -294,7 +360,7 @@ const UnifiedCrystalScene = forwardRef(({
   }, [animationData?.crystalForm]);
 
   // Main animation loop
-  useFrame(() => {
+  useFrame((_, delta) => {
     if (!animationData || !facetRefs.current.length || simplifiedAnimations) return;
 
     const time = clock.getElapsedTime();
@@ -386,6 +452,16 @@ const UnifiedCrystalScene = forwardRef(({
         setShowWholeCrystal(true);
       }
     }
+
+    // Smooth color transitions for facet materials
+    facetMaterialsRef.current.forEach((mat) => {
+      const { targetColor, startColor, progress = 1 } = mat.userData || {};
+      if (targetColor && startColor && progress < 1) {
+        const speed = 1.5; // seconds to fully transition
+        mat.userData.progress = Math.min(progress + delta * speed, 1);
+        mat.color.lerpColors(startColor, targetColor, mat.userData.progress);
+      }
+    });
   });
 
   return (
