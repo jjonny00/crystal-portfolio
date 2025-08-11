@@ -71,11 +71,11 @@ export const PERFORMANCE_PROFILES = {
     // Animations
     simplifiedAnimations: false,
     
-    // Post-processing (keep some effects for visual quality)
+    // Post-processing (noise and vignette enabled for consistency)
     postProcessing: {
       bloom: true,
-      chromaticAberration: false, 
-      noise: false,
+      chromaticAberration: false,
+      noise: true,
       vignette: true
     },
     
@@ -114,12 +114,12 @@ export const PERFORMANCE_PROFILES = {
     // Animations
     simplifiedAnimations: false,
     
-    // Post-processing (disabled for maximum performance)
+    // Post-processing (bloom/CA vary, noise and vignette always on)
     postProcessing: {
       bloom: false,
       chromaticAberration: false,
-      noise: false,
-      vignette: false
+      noise: true,
+      vignette: true
     },
     
     // All tiers now target a 60 FPS baseline
