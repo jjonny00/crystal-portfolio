@@ -134,7 +134,7 @@ export default class PerformanceManager {
     const canvas = document.createElement('canvas');
     canvas.width = 256;
     canvas.height = 256;
-    
+
     canvas.style.position = 'absolute';
     canvas.style.top = '-9999px';
     canvas.style.pointerEvents = 'none';
@@ -142,34 +142,48 @@ export default class PerformanceManager {
 
     try {
       const iterations = 3;
-      
-      // Test medium quality
-      this._reportProgress(20, 'Testing medium quality...');
-      const mediumResults = await this._testWithActualSceneComplexity(canvas, 'medium', iterations);
+
+      // Test medium quality with progressive updates (0-60%)
+      const mediumResults = await this._testWithActualSceneComplexity(
+        canvas,
+        'medium',
+        iterations,
+        (p) => this._reportProgress(p * 60, 'Testing medium quality...')
+      );
 
       // Only try high quality if medium performs excellently
       if (mediumResults.avgFps >= 50 && mediumResults.minFps >= 40) {
-        this._reportProgress(60, 'Testing high quality...');
-        const highResults = await this._testWithActualSceneComplexity(canvas, 'high', iterations);
-        
-        if (highResults.avgFps >= 40 && highResults.minFps >= 30) {
-          this._reportProgress(95, 'High quality test passed');
-          return { ...highResults, recommendedTier: 'high' };
-        }
+        const highResults = await this._testWithActualSceneComplexity(
+          canvas,
+          'high',
+          iterations,
+          (p) => this._reportProgress(60 + p * 35, 'Testing high quality...')
+        );
+
+        this._reportProgress(95, 'High quality test passed');
+        return { ...highResults, recommendedTier: 'high' };
       }
-      
+
       // Only downgrade to low if medium performs poorly
       if (mediumResults.avgFps < 25 || mediumResults.minFps < 20) {
-        this._reportProgress(60, 'Testing low quality...');
-        const lowResults = await this._testWithActualSceneComplexity(canvas, 'low', iterations);
+        const lowResults = await this._testWithActualSceneComplexity(
+          canvas,
+          'low',
+          iterations,
+          (p) => this._reportProgress(60 + p * 35, 'Testing low quality...')
+        );
         this._reportProgress(95, 'Low quality test completed');
         return { ...lowResults, recommendedTier: 'low' };
       }
-      
-      // Default to medium
+
+      // Default to medium - smooth final progress to 95%
+      for (let p = 60; p < 95; p += 5) {
+        this._reportProgress(p, 'Analyzing results...');
+        await new Promise((r) => setTimeout(r, 50));
+      }
       this._reportProgress(95, 'Medium quality test completed');
       return { ...mediumResults, recommendedTier: 'medium' };
-      
+
     } finally {
       // Clean up
       if (canvas.parentNode) {
@@ -243,11 +257,11 @@ export default class PerformanceManager {
   }
 
 
-  async _testWithActualSceneComplexity(canvas, tier, iterations = 3) {
+  async _testWithActualSceneComplexity(canvas, tier, iterations = 3, onProgress) {
     const profile = PERFORMANCE_PROFILES[tier];
     const THREE = await import('three');
 
-    const runSingleTest = () => new Promise((resolve) => {
+    const runSingleTest = (progressCallback) => new Promise((resolve) => {
       const renderer = new THREE.WebGLRenderer({
         canvas,
         antialias: profile.antialiasing !== false,
@@ -360,6 +374,7 @@ export default class PerformanceManager {
         renderer.render(scene, camera);
 
         const elapsed = time - startTime;
+        progressCallback?.(Math.min(1, elapsed / totalDuration));
         if (elapsed > warmup && deltaTime > 0) {
           samples.push(1000 / deltaTime);
           frameCount++;
@@ -386,6 +401,7 @@ export default class PerformanceManager {
         }
       };
 
+      progressCallback?.(0);
       requestAnimationFrame(testLoop);
     });
 
@@ -398,13 +414,16 @@ export default class PerformanceManager {
     };
 
     for (let i = 0; i < iterations; i++) {
-      const result = await runSingleTest();
+      const result = await runSingleTest((p) =>
+        onProgress?.((i + p) / iterations)
+      );
       aggregated.avgFps += result.avgFps;
       aggregated.minFps += result.minFps;
       aggregated.maxFps += result.maxFps;
       aggregated.frameCount += result.frameCount;
       aggregated.samples += result.samples;
     }
+    onProgress?.(1);
 
     return {
       tier,
