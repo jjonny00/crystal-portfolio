@@ -173,7 +173,7 @@ function App() {
       // Apply unified configuration values
       setPostProcessingConfig({
         ...performanceProfile.postProcessing,
-        noise: { opacity: 1.5 },      // Unified value
+        noise: { opacity: 0.15 },      // Unified value
         vignette: { darkness: 0.7 }    // Unified value
       });
     }
