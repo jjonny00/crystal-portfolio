@@ -235,7 +235,9 @@ const UnifiedCrystalScene = forwardRef(({
       mat.color.copy(initialColor);
       mat.userData = {
         ...(mat.userData || {}),
-        targetColor: initialColor.clone()
+        targetColor: initialColor.clone(),
+        startColor: initialColor.clone(),
+        progress: 1
       };
 
       const model = facetModels[idx];
@@ -291,7 +293,9 @@ const UnifiedCrystalScene = forwardRef(({
     // No facet focused – reset all to default
     if (!nextFacet) {
       facetMaterialsRef.current.forEach((mat) => {
+        mat.userData.startColor.copy(mat.color);
         mat.userData.targetColor.copy(defaultColorRef.current);
+        mat.userData.progress = 0;
       });
       activeFacetRef.current = null;
       return;
@@ -302,7 +306,9 @@ const UnifiedCrystalScene = forwardRef(({
       facetMaterialsRef.current.forEach((mat, idx) => {
         const key = facetKeys[idx];
         const color = nextFacet === key ? projectColors[idx] : defaultColorRef.current;
+        mat.userData.startColor.copy(mat.color);
         mat.userData.targetColor.copy(color);
+        mat.userData.progress = 0;
       });
       activeFacetRef.current = nextFacet;
     }
@@ -354,7 +360,7 @@ const UnifiedCrystalScene = forwardRef(({
   }, [animationData?.crystalForm]);
 
   // Main animation loop
-  useFrame(() => {
+  useFrame((_, delta) => {
     if (!animationData || !facetRefs.current.length || simplifiedAnimations) return;
 
     const time = clock.getElapsedTime();
@@ -449,9 +455,11 @@ const UnifiedCrystalScene = forwardRef(({
 
     // Smooth color transitions for facet materials
     facetMaterialsRef.current.forEach((mat) => {
-      const target = mat.userData?.targetColor;
-      if (mat && target) {
-        mat.color.lerp(target, 0.08);
+      const { targetColor, startColor, progress = 1 } = mat.userData || {};
+      if (targetColor && startColor && progress < 1) {
+        const speed = 1.5; // seconds to fully transition
+        mat.userData.progress = Math.min(progress + delta * speed, 1);
+        mat.color.lerpColors(startColor, targetColor, mat.userData.progress);
       }
     });
   });
