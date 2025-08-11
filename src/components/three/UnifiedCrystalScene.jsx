@@ -45,12 +45,12 @@ const UnifiedCrystalScene = forwardRef(({
 
   // Individual facet materials and colors
   const facetMaterialsRef = useRef([]);
-  const targetColorsRef = useRef([]);
   const activeFacetRef = useRef(null);
   const defaultColorRef = useRef(new THREE.Color('#ffffff'));
-  const projectColors = useMemo(() => (
-    facetKeys.map(key => new THREE.Color(getProjectColorByFacetKey(key)))
-  ), [facetKeys]);
+  const projectColors = useMemo(
+    () => facetKeys.map(key => new THREE.Color(getProjectColorByFacetKey(key))),
+    [facetKeys]
+  );
 
   // Track material updates so we can reapply when ready
   const [materialVersion, setMaterialVersion] = useState(0);
@@ -228,13 +228,14 @@ const UnifiedCrystalScene = forwardRef(({
     facetMaterialsRef.current = facetKeys.map((_, idx) => {
       const mat = crystalMaterialRef.current.clone();
       mat.color.copy(defaultColorRef.current);
+      mat.userData = {
+        ...(mat.userData || {}),
+        targetColor: defaultColorRef.current.clone()
+      };
       const model = facetModels[idx];
       applyMaterial(model.scene, mat);
       return mat;
     });
-
-    // Initialize target colors for each facet
-    targetColorsRef.current = facetKeys.map(() => defaultColorRef.current.clone());
 
   }, [wholeCrystal, facetModels, materialVersion, facetKeys]);
 
@@ -280,21 +281,19 @@ const UnifiedCrystalScene = forwardRef(({
 
     // No facet focused – reset all to default
     if (!nextFacet) {
-      if (activeFacetRef.current !== null) {
-        facetKeys.forEach((_, idx) => {
-          targetColorsRef.current[idx] = defaultColorRef.current;
-        });
-        activeFacetRef.current = null;
-      }
+      facetMaterialsRef.current.forEach((mat) => {
+        mat.userData.targetColor.copy(defaultColorRef.current);
+      });
+      activeFacetRef.current = null;
       return;
     }
 
     // Change to a new focused facet
     if (nextFacet !== activeFacetRef.current) {
-      facetKeys.forEach((key, idx) => {
-        targetColorsRef.current[idx] = nextFacet === key
-          ? projectColors[idx]
-          : defaultColorRef.current;
+      facetMaterialsRef.current.forEach((mat, idx) => {
+        const key = facetKeys[idx];
+        const color = nextFacet === key ? projectColors[idx] : defaultColorRef.current;
+        mat.userData.targetColor.copy(color);
       });
       activeFacetRef.current = nextFacet;
     }
@@ -440,8 +439,8 @@ const UnifiedCrystalScene = forwardRef(({
     }
 
     // Smooth color transitions for facet materials
-    facetMaterialsRef.current.forEach((mat, idx) => {
-      const target = targetColorsRef.current[idx];
+    facetMaterialsRef.current.forEach((mat) => {
+      const target = mat.userData?.targetColor;
       if (mat && target) {
         mat.color.lerp(target, 0.08);
       }
