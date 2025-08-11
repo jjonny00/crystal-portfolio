@@ -455,90 +455,88 @@ useEffect(() => {
     );
   }
 
-  return (
-    <div className="app-shell fullscreen">
-      {/* UI Hide Toggle Button */}
-      <button
-        onClick={() => setHideAllUI(!hideAllUI)}
-        style={{
-          position: 'fixed',
-          top: '10px',
-          left: '10px',
-          zIndex: 99999,
-          backgroundColor: hideAllUI ? '#64ffda' : 'rgba(0, 0, 0, 0.7)',
-          color: hideAllUI ? '#000' : 'white',
-          border: 'none',
-          padding: '8px 12px',
-          borderRadius: '4px',
-          fontSize: '12px',
-          cursor: 'pointer',
-          fontWeight: 'bold'
-        }}
-      >
-        {hideAllUI ? 'Show UI (U)' : 'Hide UI (U)'}
-      </button>
+    return (
+      <div className="app-shell">
+        <div
+          id="scene-root"
+          className="scroll-y scroll-container"
+          style={{ position: 'relative', zIndex: 1 }}
+        >
+          <MasterAnimationCoordinator
+            debugMode={import.meta.env.DEV}
+            onAnimationStateChange={handleAnimationStateChange}
+            config={animationConfig}
+          >
+            {/* Fixed 3D Canvas */}
+            <Fixed3DCanvas
+              ref={fixedCanvasRef}
+              materialVariant={materialVariant}
+              effectsEnabled={effectsEnabled}
+              postProcessingConfig={postProcessingConfig}
+              performanceProfile={performanceProfile}
+              config={config}
+              canvasProps={getOptimalCanvasProps()}
+              environmentProps={getOptimalEnvironmentProps()}
+              isMobile={isMobile}
+            />
+            {/* Scrollable Content */}
+            <ScrollablePortfolio
+              snapSpeed={snapSpeed}
+              hideContent={hideAllUI}
+            />
+          </MasterAnimationCoordinator>
+        </div>
 
-      {/* Navigation Bar */}
-      {!hideAllUI && (
-        <Navigation
-          onWorkClick={handleWorkClick}
-          onAboutClick={handleAboutClick}
-          onProcessClick={handleProcessClick}
-          onContactClick={handleContactClick}
-        />
-      )}
-
-      {/* FIXED: FPS Display with performance tier info */}
-      {!hideAllUI && (
-        <FpsDisplay 
-          visible={true}
-          position="top-right"
-          showDetails={false}
-        />
-      )}
-      
-      {/* FIXED: Performance alerts with tier-appropriate thresholds */}
-      {!hideAllUI && (
-        <PerformanceAlert 
-          visible={true}
-          threshold={performanceProfile?.minAcceptableFPS || 25}
-          onPerformanceIssue={(data) => {
-            if (import.meta.env.DEV) console.warn('Performance issue detected:', data);
+        {/* UI Hide Toggle Button */}
+        <button
+          onClick={() => setHideAllUI(!hideAllUI)}
+          style={{
+            position: 'fixed',
+            top: '10px',
+            left: '10px',
+            zIndex: 99999,
+            backgroundColor: hideAllUI ? '#64ffda' : 'rgba(0, 0, 0, 0.7)',
+            color: hideAllUI ? '#000' : 'white',
+            border: 'none',
+            padding: '8px 12px',
+            borderRadius: '4px',
+            fontSize: '12px',
+            cursor: 'pointer',
+            fontWeight: 'bold'
           }}
-        />
-      )}
+        >
+          {hideAllUI ? 'Show UI (U)' : 'Hide UI (U)'}
+        </button>
 
-      {/* Master Animation Coordinator */}
-      <MasterAnimationCoordinator
-        debugMode={import.meta.env.DEV}
-        onAnimationStateChange={handleAnimationStateChange}
-        config={animationConfig}
-      >
-        {/* Fixed 3D Canvas */}
-        <Fixed3DCanvas
-          ref={fixedCanvasRef}
-          materialVariant={materialVariant}
-          effectsEnabled={effectsEnabled}
-          postProcessingConfig={postProcessingConfig}
-          performanceProfile={performanceProfile}
-          config={config}
-          canvasProps={getOptimalCanvasProps()}
-          environmentProps={getOptimalEnvironmentProps()}
-          isMobile={isMobile}
-        />
-      </MasterAnimationCoordinator>
+        {/* Navigation Bar */}
+        {!hideAllUI && (
+          <Navigation
+            onWorkClick={handleWorkClick}
+            onAboutClick={handleAboutClick}
+            onProcessClick={handleProcessClick}
+            onContactClick={handleContactClick}
+          />
+        )}
 
-      {/* Scrollable Content */}
-      <div
-        id="scene-root"
-        className="scroll-y scroll-container"
-        style={{ position: 'relative', zIndex: 1 }}
-      >
-        <ScrollablePortfolio
-          snapSpeed={snapSpeed}
-          hideContent={hideAllUI}
-        />
-      </div>
+        {/* FIXED: FPS Display with performance tier info */}
+        {!hideAllUI && (
+          <FpsDisplay
+            visible={true}
+            position="top-right"
+            showDetails={false}
+          />
+        )}
+
+        {/* FIXED: Performance alerts with tier-appropriate thresholds */}
+        {!hideAllUI && (
+          <PerformanceAlert
+            visible={true}
+            threshold={performanceProfile?.minAcceptableFPS || 25}
+            onPerformanceIssue={(data) => {
+              if (import.meta.env.DEV) console.warn('Performance issue detected:', data);
+            }}
+          />
+        )}
 
       {/* UI Controls */}
       {!hideAllUI && (

@@ -1,27 +1,9 @@
 /* src/styles/scroll-snap.css */
 /* COMPLETE FILE - Copy and paste this entire file */
 
-/* CRITICAL: Disable document scrolling; the app handles its own scroll */
-html {
-  height: 100% !important;
-  overflow-x: hidden !important;
-  overflow-y: hidden !important;
-  scroll-snap-type: none !important;
-  scroll-behavior: auto !important;
-}
-
-body {
-  margin: 0 !important;
-  padding: 0 !important;
-  height: auto !important;
-  overflow: visible !important;
-}
-
-#root {
-  width: 100% !important;
-  height: auto !important;
-  min-height: 100dvh !important;
-  overflow: visible !important;
+/* Document layout handled globally; just ensure full height */
+html, body, #root {
+  height: 100%;
 }
 
 /* The main scroll container inside the app */
@@ -190,13 +172,7 @@ html .scroll-container.no-snap .scroll-section {
     min-height: 100dvh !important;
   }
   
-  /* Mobile-specific fixes for iOS */
-  @supports (-webkit-touch-callout: none) {
-    .scroll-container {
-      /* iOS-specific height fix */
-      height: -webkit-fill-available !important;
-    }
-  }
+    /* Legacy iOS height hacks removed in favour of modern units */
 }
 
 /* DESKTOP: Maximum snap control */
