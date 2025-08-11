@@ -225,19 +225,25 @@ const UnifiedCrystalScene = forwardRef(({
     applyMaterial(wholeCrystal.scene, crystalMaterialRef.current);
 
     // Create or update facet materials
-    facetMaterialsRef.current = facetKeys.map((_, idx) => {
+    facetMaterialsRef.current = facetKeys.map((key, idx) => {
       const mat = crystalMaterialRef.current.clone();
-      mat.color.copy(defaultColorRef.current);
+
+      // If a facet is already active, initialize its material with the project color
+      const isActive = activeFacetRef.current === key;
+      const initialColor = isActive ? projectColors[idx] : defaultColorRef.current;
+
+      mat.color.copy(initialColor);
       mat.userData = {
         ...(mat.userData || {}),
-        targetColor: defaultColorRef.current.clone()
+        targetColor: initialColor.clone()
       };
+
       const model = facetModels[idx];
       applyMaterial(model.scene, mat);
       return mat;
     });
 
-  }, [wholeCrystal, facetModels, materialVersion, facetKeys]);
+  }, [wholeCrystal, facetModels, materialVersion, facetKeys, projectColors]);
 
   // Debug anchor positions when facets are loaded
   useEffect(() => {
@@ -279,6 +285,9 @@ const UnifiedCrystalScene = forwardRef(({
   useEffect(() => {
     const nextFacet = animationData?.focusedFacet;
 
+    // Wait until materials have been created
+    if (!facetMaterialsRef.current.length) return;
+
     // No facet focused – reset all to default
     if (!nextFacet) {
       facetMaterialsRef.current.forEach((mat) => {
@@ -297,7 +306,7 @@ const UnifiedCrystalScene = forwardRef(({
       });
       activeFacetRef.current = nextFacet;
     }
-  }, [animationData?.focusedFacet, facetKeys, projectColors]);
+  }, [animationData?.focusedFacet, materialVersion, facetKeys, projectColors]);
   
   // Crystal form change detection
   useEffect(() => {
