@@ -280,12 +280,12 @@ export const postProcessing = {
     modulationOffset: 0.5
   },
   noise: {
-    opacity: 0.1
+    opacity: 1.5  // UNIFIED: Set to 1.5 for all levels
   },
   vignette: {
     eskil: false,
     offset: 0.1,
-    darkness: 1.1
+    darkness: 0.7  // UNIFIED: Set to 0.7 for all levels
   }
 }
 

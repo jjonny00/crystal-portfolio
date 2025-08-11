@@ -161,8 +161,21 @@ function App() {
   // Initialize effects from the detected device profile
   useEffect(() => {
     if (performanceProfile?.postProcessing) {
-      setEffectsEnabled(performanceProfile.postProcessing);
-      setPostProcessingConfig(performanceProfile.postProcessing);
+      // Apply unified noise and vignette settings regardless of profile
+      const unifiedEffects = {
+        ...performanceProfile.postProcessing,
+        noise: true,        // Always enabled
+        vignette: true      // Always enabled
+      };
+
+      setEffectsEnabled(unifiedEffects);
+
+      // Apply unified configuration values
+      setPostProcessingConfig({
+        ...performanceProfile.postProcessing,
+        noise: { opacity: 1.5 },      // Unified value
+        vignette: { darkness: 0.7 }    // Unified value
+      });
     }
   }, [performanceProfile]);
 

@@ -141,7 +141,7 @@ export default class PerformanceManager {
     document.body.appendChild(canvas);
 
     try {
-      const iterations = 3;
+      const iterations = 2;
 
       // Test medium quality with progressive updates (0-60%)
       const mediumResults = await this._testWithActualSceneComplexity(
@@ -257,7 +257,7 @@ export default class PerformanceManager {
   }
 
 
-  async _testWithActualSceneComplexity(canvas, tier, iterations = 3, onProgress) {
+  async _testWithActualSceneComplexity(canvas, tier, iterations = 2, onProgress) {
     const profile = PERFORMANCE_PROFILES[tier];
     const THREE = await import('three');
 
@@ -343,8 +343,8 @@ export default class PerformanceManager {
       // FIXED: Don't simulate post-processing overhead - test real rendering load only
 
       const samples = [];
-      const warmup = 200; // Ignore first 200ms
-      const measureDuration = 1500; // 1.5 seconds of sampling
+      const warmup = 100; // Ignore first 100ms
+      const measureDuration = 600; // 0.6 seconds of sampling
       const totalDuration = warmup + measureDuration;
       let startTime = 0;
       let lastTime = 0;
