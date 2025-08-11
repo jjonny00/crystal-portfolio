@@ -1,286 +1,41 @@
-/* src/styles/scroll-snap.css */
-/* COMPLETE FILE - Copy and paste this entire file */
-
-/* CRITICAL: Disable document scrolling; the app handles its own scroll */
-html {
-  height: 100% !important;
-  overflow-x: hidden !important;
-  overflow-y: hidden !important;
-  scroll-snap-type: none !important;
-  scroll-behavior: auto !important;
-}
-
-body {
-  margin: 0 !important;
-  padding: 0 !important;
-  height: auto !important;
-  overflow: visible !important;
-}
-
-#root {
-  width: 100% !important;
-  height: auto !important;
-  min-height: 100dvh !important;
-  overflow: visible !important;
-}
-
-/* The main scroll container inside the app */
+/* Fix scroll container behavior */
 .scroll-container {
-  scroll-snap-type: y mandatory !important;
-  scroll-behavior: smooth !important;
+  /* Ensure proper height for the viewport */
+  height: 100%;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
+
+  /* Prevent bounce on iOS */
+  overscroll-behavior: contain;
 }
 
-/* FORCE: All sections to snap */
+/* Ensure sections use regular vh, not dvh */
 .scroll-section {
-  /* Mandatory snap alignment */
-  scroll-snap-align: start !important;
-  scroll-snap-stop: always !important;
-  
-  /* Force exact viewport height */
-  height: 100dvh !important;
-  min-height: 100dvh !important;
-  max-height: 100dvh !important;
-  
-  /* Prevent internal scrolling */
-  overflow: hidden !important;
-  
-  /* Clean positioning */
-  position: relative !important;
-  
-  /* Ensure content fits */
-  display: flex !important;
-  flex-direction: column !important;
-  
-  /* Clean box model */
-  margin: 0 !important;
-  padding: 0 !important;
-  box-sizing: border-box !important;
-  
-  /* Full width */
-  width: 100% !important;
-  
-  /* Snap margin for better control */
-  scroll-margin: 0 !important;
-  scroll-margin-top: 0 !important;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+
+  /* Use regular vh for content, let container handle viewport */
+  height: 100vh !important;
+  min-height: 100vh !important;
+  max-height: 100vh !important;
+
+  overflow: hidden;
+  position: relative;
+  box-sizing: border-box;
 }
 
-/* Specific section overrides */
-#hero,
-#projects-overview,
-[id^="project-"],
-#about {
-  /* Force these critical properties */
-  scroll-snap-align: start !important;
-  scroll-snap-stop: always !important;
-  height: 100dvh !important;
-  min-height: 100dvh !important;
-  max-height: 100dvh !important;
-  overflow: hidden !important;
-  
-  /* Center content */
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  
-  /* Padding for content */
-  padding: 2rem !important;
-  box-sizing: border-box !important;
-}
-
-/* ========================================= */
-/* SNAP SPEED CONTROLS - NEW SECTION */
-/* ========================================= */
-
-/* Fast snapping - almost instant */
-html .scroll-container.fast-snap {
-  scroll-behavior: auto !important;
-  scroll-snap-type: y proximity !important;
-}
-
-html .scroll-container.fast-snap .scroll-section {
-  scroll-snap-stop: normal !important;
-}
-
-/* Medium snapping - default smooth (your current behavior) */
-html .scroll-container.medium-snap {
-  scroll-behavior: smooth !important;
-  scroll-snap-type: y mandatory !important;
-}
-
-html .scroll-container.medium-snap .scroll-section {
-  scroll-snap-stop: always !important;
-}
-
-/* Slow snapping - more gradual */
-html .scroll-container.slow-snap {
-  scroll-behavior: smooth !important;
-  scroll-snap-type: y mandatory !important;
-  scroll-padding: 10px !important;
-}
-
-html .scroll-container.slow-snap .scroll-section {
-  scroll-snap-stop: always !important;
-  scroll-margin-top: 5px !important;
-}
-
-/* Extra slow for very gradual movement */
-html .scroll-container.extra-slow-snap {
-  scroll-behavior: smooth !important;
-  scroll-snap-type: y proximity !important;
-  scroll-padding: 20px !important;
-}
-
-html .scroll-container.extra-slow-snap .scroll-section {
-  scroll-snap-stop: normal !important;
-}
-
-/* Disable snapping completely */
-html .scroll-container.no-snap {
-  scroll-snap-type: none !important;
-  scroll-behavior: smooth !important;
-}
-
-html .scroll-container.no-snap .scroll-section {
-  scroll-snap-align: none !important;
-  scroll-snap-stop: normal !important;
-}
-
-/* ========================================= */
-/* MOBILE RESPONSIVE */
-/* ========================================= */
-
-/* MOBILE: Aggressive mobile fixes */
-@media (max-width: 768px) {
+/* iOS specific fixes */
+@supports (-webkit-touch-callout: none) {
   .scroll-container {
-    /* Keep scroll container approach on mobile */
-    height: 100dvh !important;
-    overflow-y: auto !important;
-    scroll-snap-type: y proximity !important;
+    /* iOS Safari specific height */
+    height: 100%;
+  }
 
-    /* Enhanced mobile scrolling */
-    -webkit-overflow-scrolling: touch !important;
-
-    /* Prevent bounce */
-    overscroll-behavior: contain !important;
-  }
-  
-  /* Mobile speed overrides */
-  .scroll-container.fast-snap {
-    scroll-snap-type: y proximity !important;
-  }
-  
-  .scroll-container.medium-snap {
-    scroll-snap-type: y proximity !important;
-  }
-  
-  .scroll-container.slow-snap {
-    scroll-snap-type: y proximity !important;
-  }
-  
-  .scroll-section {
-    /* Mobile sections */
-    scroll-snap-align: start !important;
-    height: 100dvh !important;
-    min-height: 100dvh !important;
-    max-height: 100dvh !important;
-    
-    /* Use iOS safe areas if available */
-    height: 100dvh !important;
-    min-height: 100dvh !important;
-  }
-  
-  /* Mobile-specific fixes for iOS */
-  @supports (-webkit-touch-callout: none) {
-    .scroll-container {
-      /* iOS-specific height fix */
-      height: -webkit-fill-available !important;
-    }
+  .app-shell {
+    /* Ensure iOS gets proper height */
+    min-height: -webkit-fill-available;
   }
 }
 
-/* DESKTOP: Maximum snap control */
-@media (min-width: 1025px) {
-  .scroll-container {
-    scroll-snap-type: y mandatory !important;
-  }
-
-  .scroll-section {
-    scroll-snap-align: start !important;
-    scroll-snap-stop: always !important;
-  }
-}
-
-/* FALLBACK: If scroll-container doesn't work, fall back to html */
-html:not(:has(.scroll-container)) {
-  /* Fallback scroll snap on html */
-  scroll-snap-type: y mandatory !important;
-  overflow-y: auto !important;
-}
-
-html:not(:has(.scroll-container)) .scroll-section {
-  scroll-snap-align: start !important;
-  scroll-snap-stop: always !important;
-}
-
-/* BROWSER-SPECIFIC FIXES */
-
-/* Chrome/Safari scroll snap fixes */
-@supports (-webkit-appearance: none) {
-  .scroll-container {
-    /* Force hardware acceleration */
-    -webkit-transform: translateZ(0) !important;
-    transform: translateZ(0) !important;
-    
-    /* Improve scroll performance */
-    -webkit-backface-visibility: hidden !important;
-    backface-visibility: hidden !important;
-  }
-}
-
-/* Firefox scroll snap fixes */
-@-moz-document url-prefix() {
-  .scroll-container {
-    /* Firefox-specific optimizations */
-    scroll-behavior: smooth !important;
-  }
-  
-  .scroll-section {
-    /* Firefox sometimes needs explicit positioning */
-    position: relative !important;
-  }
-}
-
-/* REDUCED MOTION: Disable only animations, keep snap */
-@media (prefers-reduced-motion: reduce) {
-  html, .scroll-container {
-    scroll-behavior: auto !important;
-    /* Keep scroll snap even with reduced motion */
-    scroll-snap-type: y mandatory !important;
-  }
-  
-  .scroll-section {
-    scroll-snap-align: start !important;
-  }
-  
-  /* Disable CSS transitions but keep snap */
-  * {
-    transition-duration: 0.01ms !important;
-    animation-duration: 0.01ms !important;
-  }
-}
-
-/* PRINT: Disable snap for printing */
-@media print {
-  html, .scroll-container {
-    scroll-snap-type: none !important;
-    overflow: visible !important;
-    height: auto !important;
-  }
-  
-  .scroll-section {
-    scroll-snap-align: none !important;
-    height: auto !important;
-    page-break-inside: avoid;
-  }
-}

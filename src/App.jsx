@@ -456,14 +456,14 @@ useEffect(() => {
   }
 
   return (
-    <div className="app-shell fullscreen">
+    <div className="app-shell">
       {/* UI Hide Toggle Button */}
       <button
         onClick={() => setHideAllUI(!hideAllUI)}
         style={{
           position: 'fixed',
-          top: '10px',
-          left: '10px',
+          top: `calc(10px + var(--sai-top))`,
+          left: `calc(10px + var(--sai-left))`,
           zIndex: 99999,
           backgroundColor: hideAllUI ? '#64ffda' : 'rgba(0, 0, 0, 0.7)',
           color: hideAllUI ? '#000' : 'white',
@@ -481,6 +481,11 @@ useEffect(() => {
       {/* Navigation Bar */}
       {!hideAllUI && (
         <Navigation
+          style={{
+            paddingTop: 'var(--sai-top)',
+            paddingLeft: 'var(--sai-left)',
+            paddingRight: 'var(--sai-right)'
+          }}
           onWorkClick={handleWorkClick}
           onAboutClick={handleAboutClick}
           onProcessClick={handleProcessClick}

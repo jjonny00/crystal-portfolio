@@ -52,7 +52,7 @@ const ScrollablePortfolio = ({
     <div
       style={{
         width: '100%',
-        minHeight: '800dvh', // 9 sections × 100dvh each
+        minHeight: '800vh', // 8 sections × 100vh each
         position: 'relative',
         margin: 0,
         padding: 0,
@@ -68,11 +68,11 @@ const ScrollablePortfolio = ({
           className="scroll-section"
           style={{
             // NOTE: scroll-snap properties now handled by CSS classes
-            
+
             // Force exact height
-            height: '100dvh',
-            minHeight: '100dvh',
-            maxHeight: '100dvh',
+            height: '100vh',
+            minHeight: '100vh',
+            maxHeight: '100vh',
             
             // Prevent internal scroll
             overflow: 'hidden',
@@ -100,9 +100,9 @@ const ScrollablePortfolio = ({
           style={{
             scrollSnapAlign: 'start',
             scrollSnapStop: 'normal',
-            height: '100dvh',
-            minHeight: '100dvh',
-            maxHeight: '100dvh',
+            height: '100vh',
+            minHeight: '100vh',
+            maxHeight: '100vh',
             overflow: 'hidden',
             display: 'flex',
             alignItems: 'center',
@@ -124,9 +124,9 @@ const ScrollablePortfolio = ({
             id={`project-${project.facetKey}`}
             className="scroll-section"
             style={{
-              height: '100dvh',
-              minHeight: '100dvh',
-              maxHeight: '100dvh',
+              height: '100vh',
+              minHeight: '100vh',
+              maxHeight: '100vh',
               overflow: 'hidden',
               display: 'flex',
               alignItems: 'center',
@@ -153,9 +153,9 @@ const ScrollablePortfolio = ({
           id="about" 
           className="scroll-section"
           style={{
-            height: '100dvh',
-            minHeight: '100dvh',
-            maxHeight: '100dvh',
+            height: '100vh',
+            minHeight: '100vh',
+            maxHeight: '100vh',
             overflow: 'hidden',
             display: 'flex',
             alignItems: 'center',

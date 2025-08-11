@@ -197,9 +197,9 @@ const Fixed3DCanvas = forwardRef(({
           right: 0,
           bottom: 0,
           width: '100%',
-          minHeight: '100dvh',
+          height: '100%',
           zIndex: -1, // Sit behind scrollable/UI content
-          pointerEvents: 'none', // Don't block scrolling
+          pointerEvents: isMobile ? 'none' : 'auto',
         }}
       >
         <Canvas
@@ -214,11 +214,9 @@ const Fixed3DCanvas = forwardRef(({
             outputColorSpace: THREE.SRGBColorSpace,
             ...canvasProps.gl
           }}
-          style={{ 
-            width: '100%', 
+          style={{
+            width: '100%',
             height: '100%',
-            // Allow pointer events only for 3D interactions (disabled on mobile)
-            pointerEvents: isMobile ? 'none' : 'auto',
           }}
         >
           
