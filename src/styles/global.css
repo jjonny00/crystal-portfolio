@@ -38,6 +38,7 @@ body {
   min-height: 100svh;
   min-height: 100dvh;
   padding: var(--sai-top) var(--sai-right) var(--sai-bottom) var(--sai-left);
+  width: 100%; /* ensure shell spans full viewport width */
 }
 
 /* Prefer LVH if the browser supports it (helps iOS standalone) */
@@ -51,6 +52,7 @@ body {
   min-height: 0; /* critical so flex children can shrink */
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  width: 100%; /* keep scroll container full width so scrollbar hugs edge */
 }
 
 /* Fullscreen elements that previously used 100vh */

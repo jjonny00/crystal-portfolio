@@ -198,7 +198,8 @@ const Fixed3DCanvas = forwardRef(({
           bottom: 0,
           width: '100%',
           minHeight: '100dvh',
-          zIndex: -1, // Sit behind scrollable/UI content
+          height: '100dvh', // explicit height so canvas mounts correctly
+          zIndex: 0, // keep above body but behind content
           pointerEvents: 'none', // Don't block scrolling
         }}
       >
