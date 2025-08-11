@@ -1,7 +1,7 @@
 // UPDATED: src/components/three/UnifiedCrystalScene.jsx
 // FIXED: Disabled shadows for crystal materials to improve lighting through transparent faces
 
-import React, { useRef, useState, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react'
+import React, { useRef, useState, useEffect, useCallback, forwardRef, useImperativeHandle, useMemo } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useGLTF, Html } from '@react-three/drei'
 import * as THREE from 'three'
@@ -11,6 +11,7 @@ import MaterialManager from './MaterialManager'
 
 // Import enhanced sphere component
 import GlowingSphereImage, { BLENDING_MODES } from './GlowingSphereImage'
+import { getProjectColorByFacetKey } from '../../data/projects'
 
 const UnifiedCrystalScene = forwardRef(({ 
   animationData,
@@ -25,7 +26,7 @@ const UnifiedCrystalScene = forwardRef(({
   const wholeCrystalRef = useRef();
   const facetRefs = useRef([]); 
   const crystalMaterialRef = useRef();
-  
+
   // Sphere state
   const [sphereVisible, setSphereVisible] = useState(false);
   
@@ -41,6 +42,14 @@ const UnifiedCrystalScene = forwardRef(({
 
   // Facet configuration
   const facetKeys = ['empathy', 'narrative', 'craft', 'system', 'leadership', 'exploration'];
+
+  // Individual facet materials and colors
+  const facetMaterialsRef = useRef([]);
+  const targetColorsRef = useRef([]);
+  const defaultColorRef = useRef(new THREE.Color('#ffffff'));
+  const projectColors = useMemo(() => (
+    facetKeys.map(key => new THREE.Color(getProjectColorByFacetKey(key)))
+  ), [facetKeys]);
 
   // Track material updates so we can reapply when ready
   const [materialVersion, setMaterialVersion] = useState(0);
@@ -186,31 +195,47 @@ const UnifiedCrystalScene = forwardRef(({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
   
-  // UPDATED: Apply shared material to all models with disabled shadows
+  // Apply materials to the crystal and create facet-specific clones
   useEffect(() => {
     if (!crystalMaterialRef.current) return;
-    
-    const applyMaterial = (modelScene) => {
+
+    // Default color for resetting facet materials
+    defaultColorRef.current.copy(
+      crystalMaterialRef.current.userData?.baseColor ||
+      crystalMaterialRef.current.color
+    );
+
+    // Apply material to whole crystal
+    const applyMaterial = (modelScene, material) => {
       if (!modelScene) return;
       modelScene.traverse((child) => {
         if (child.isMesh) {
-          child.material = crystalMaterialRef.current;
-          
-          // CHANGED: Disable shadows for crystal materials to improve transparent lighting
-          child.castShadow = false;    // Don't cast shadows
-          child.receiveShadow = false; // Don't receive shadows
-          
+          child.material = material;
+          child.castShadow = false;
+          child.receiveShadow = false;
+
           if (import.meta.env.DEV) {
             console.log(`💡 Disabled shadows for crystal mesh: ${child.name}`);
           }
         }
       });
     };
-    
-    applyMaterial(wholeCrystal.scene);
-    facetModels.forEach(model => applyMaterial(model.scene));
-    
-  }, [wholeCrystal, facetModels, materialVersion]);
+
+    applyMaterial(wholeCrystal.scene, crystalMaterialRef.current);
+
+    // Create or update facet materials
+    facetMaterialsRef.current = facetKeys.map((_, idx) => {
+      const mat = crystalMaterialRef.current.clone();
+      mat.color.copy(defaultColorRef.current);
+      const model = facetModels[idx];
+      applyMaterial(model.scene, mat);
+      return mat;
+    });
+
+    // Initialize target colors for each facet
+    targetColorsRef.current = facetKeys.map(() => defaultColorRef.current.clone());
+
+  }, [wholeCrystal, facetModels, materialVersion, facetKeys]);
 
   // Debug anchor positions when facets are loaded
   useEffect(() => {
@@ -247,6 +272,19 @@ const UnifiedCrystalScene = forwardRef(({
       if (import.meta.env.DEV) console.groupEnd();
     }
   }, [showCrystalDebug, showFacets, facetKeys]);
+
+  // Update target colors based on focused facet
+  useEffect(() => {
+    const focused = animationData?.state === 'project_focused'
+      ? animationData?.focusedFacet
+      : null;
+
+    facetKeys.forEach((key, idx) => {
+      targetColorsRef.current[idx] = focused === key
+        ? projectColors[idx]
+        : defaultColorRef.current;
+    });
+  }, [animationData?.focusedFacet, animationData?.state, facetKeys, projectColors]);
   
   // Crystal form change detection
   useEffect(() => {
@@ -386,6 +424,14 @@ const UnifiedCrystalScene = forwardRef(({
         setShowWholeCrystal(true);
       }
     }
+
+    // Smooth color transitions for facet materials
+    facetMaterialsRef.current.forEach((mat, idx) => {
+      const target = targetColorsRef.current[idx];
+      if (mat && target) {
+        mat.color.lerp(target, 0.08);
+      }
+    });
   });
 
   return (
