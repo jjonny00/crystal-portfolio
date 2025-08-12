@@ -6,7 +6,7 @@ import './styles/scroll-snap.css';
 
 // Enhanced loading system
 import { useAssetLoader } from './hooks/useAssetLoader';
-import EnhancedLoadingScreen from './components/ui/EnhancedLoadingScreen';
+import LoaderV2 from './ui/LoaderV2';
 
 // Animation coordinator
 import MasterAnimationCoordinator from './components/three/MasterAnimationCoordinator';
@@ -438,19 +438,31 @@ useEffect(() => {
     };
   }, [performanceProfile]);
 
-  // FIXED: Show enhanced loading screen with performance info
+  // Show new loader overlay
   if (!isAppReady) {
+    const loaderPhase = performanceInitializing
+      ? 'testing'
+      : phase === 'loading'
+        ? 'loading'
+        : 'starting';
+
+    const phaseProgressValue = loaderPhase === 'starting'
+      ? startingProgress / 100
+      : loaderPhase === 'loading'
+        ? progress / 100
+        : testingProgress / 100;
+
+    const overallProgress = loaderPhase === 'starting'
+      ? phaseProgressValue / 3
+      : loaderPhase === 'loading'
+        ? (1 / 3) + phaseProgressValue / 3
+        : (2 / 3) + phaseProgressValue / 3;
+
     return (
-      <EnhancedLoadingScreen
-        phase={performanceInitializing ? 'profiling' : phase}
-        currentAsset={performanceInitializing ? 'Testing device performance...' : currentAsset}
-        loadedAssets={loadedAssets}
-        totalAssets={totalAssets}
-        startingProgress={Math.round(startingProgress)}
-        assetProgress={Math.round(progress)}
-        profilerProgress={performanceInitializing ? testingProgress : null}
-        errors={performanceError ? [performanceError, ...errors] : errors}
-        onRetry={retry}
+      <LoaderV2
+        phase={loaderPhase}
+        phaseProgress={phaseProgressValue}
+        overallProgress={overallProgress}
       />
     );
   }
