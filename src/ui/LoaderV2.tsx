@@ -36,8 +36,6 @@ const LoaderV2: React.FC<LoaderV2Props> = ({ phase, phaseProgress, overallProgre
     middle: phase === 'loading' ? phaseProgress : phase === 'testing' ? 1 : 0,
     inner: phase === 'testing' ? phaseProgress : 0
   }), [phase, phaseProgress]);
-
-  const circumference = (r: number) => 2 * Math.PI * r;
   const S = (R + stroke) * 2;
 
   const percent = Math.round(overallProgress * 100);
@@ -54,9 +52,8 @@ const LoaderV2: React.FC<LoaderV2Props> = ({ phase, phaseProgress, overallProgre
         {radii.map((radius, i) => {
           const prog = [ringProgress.outer, ringProgress.middle, ringProgress.inner][i];
           const color = ['var(--ring1, #9CF6DC)', 'var(--ring2, #B2A3FF)', 'var(--ring3, #FFB15A)'][i];
-          const c = circumference(radius);
           return (
-            <g key={i}>
+            <g key={i} transform="rotate(-90)">
               <circle
                 r={radius}
                 fill="none"
@@ -68,8 +65,9 @@ const LoaderV2: React.FC<LoaderV2Props> = ({ phase, phaseProgress, overallProgre
                 fill="none"
                 stroke={color}
                 strokeWidth={stroke}
-                strokeDasharray={`${c} ${c}`}
-                strokeDashoffset={c * (1 - prog)}
+                pathLength={100}
+                strokeDasharray="100"
+                strokeDashoffset={(1 - prog) * 100}
                 strokeLinecap="round"
                 className={styles.progress}
               />
