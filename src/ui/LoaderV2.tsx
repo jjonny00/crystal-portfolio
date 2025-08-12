@@ -53,14 +53,14 @@ const LoaderV2: React.FC<LoaderV2Props> = ({ phase, phaseProgress, overallProgre
       >
         {radii.map((radius, i) => {
           const prog = [ringProgress.outer, ringProgress.middle, ringProgress.inner][i];
-          const color = ['var(--ring1)', 'var(--ring2)', 'var(--ring3)'][i];
+          const color = ['var(--ring1, #9CF6DC)', 'var(--ring2, #B2A3FF)', 'var(--ring3, #FFB15A)'][i];
           const c = circumference(radius);
           return (
             <g key={i}>
               <circle
                 r={radius}
                 fill="none"
-                stroke="var(--ringTrack)"
+                stroke="var(--ringTrack, rgba(255,255,255,0.08))"
                 strokeWidth={stroke}
               />
               <circle
@@ -76,15 +76,6 @@ const LoaderV2: React.FC<LoaderV2Props> = ({ phase, phaseProgress, overallProgre
             </g>
           );
         })}
-        <text
-          x="0"
-          y="0"
-          textAnchor="middle"
-          dominantBaseline="central"
-          className={styles.percent}
-        >
-          {percent}%
-        </text>
         {/* eslint-disable-next-line jsx-a11y/alt-text */}
         <image
           href="/assets/ui/diamond.svg"
@@ -94,7 +85,17 @@ const LoaderV2: React.FC<LoaderV2Props> = ({ phase, phaseProgress, overallProgre
           height={box}
           preserveAspectRatio="xMidYMid meet"
           className={styles.diamond}
+          pointerEvents="none"
         />
+        <text
+          x="0"
+          y="0"
+          textAnchor="middle"
+          dominantBaseline="central"
+          className={styles.percent}
+        >
+          {percent}%
+        </text>
       </svg>
       <div className={styles.status} aria-live="polite">
         {statusText(phase)}
