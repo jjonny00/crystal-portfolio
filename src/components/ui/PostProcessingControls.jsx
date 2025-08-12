@@ -174,56 +174,54 @@ const PostProcessingControls = ({
   
   // Custom toggle switch component
   const ToggleSwitch = ({ checked, onChange }) => (
-    <div style={controlToggleStyle}>
+    <label
+      style={{
+        ...controlToggleStyle,
+        cursor: "pointer",
+        position: "relative",
+        display: "inline-block"
+      }}
+    >
       <input
         type="checkbox"
         checked={checked}
         onChange={onChange}
         style={{
           opacity: 0,
-          width: 0,
-          height: 0
+          width: "100%",
+          height: "100%",
+          position: "absolute",
+          top: 0,
+          left: 0,
+          margin: 0,
+          cursor: "inherit"
         }}
       />
       <span
         style={{
-          position: 'absolute',
-          cursor: 'pointer',
+          position: "absolute",
           top: 0,
           left: 0,
           right: 0,
           bottom: 0,
-          backgroundColor: checked ? '#64ffda' : 'rgba(255, 255, 255, 0.2)',
-          transition: '0.3s',
-          borderRadius: '20px',
-          '&:before': {
-            position: 'absolute',
-            content: '""',
-            height: '16px',
-            width: '16px',
-            left: checked ? '20px' : '4px',
-            bottom: '2px',
-            backgroundColor: 'white',
-            transition: '0.3s',
-            borderRadius: '50%'
-          }
+          backgroundColor: checked ? "#64ffda" : "rgba(255, 255, 255, 0.2)",
+          transition: "background-color 0.3s",
+          borderRadius: "20px"
         }}
-        onClick={onChange}
-      >
-        <span 
-          style={{
-            position: 'absolute',
-            height: '16px',
-            width: '16px',
-            left: checked ? '20px' : '4px',
-            bottom: '2px',
-            backgroundColor: 'white',
-            transition: '0.3s',
-            borderRadius: '50%'
-          }}
-        />
-      </span>
-    </div>
+      />
+      <span
+        style={{
+          position: "absolute",
+          top: "2px",
+          left: checked ? "22px" : "2px",
+          width: "16px",
+          height: "16px",
+          backgroundColor: "white",
+          borderRadius: "50%",
+          transition: "left 0.3s"
+        }}
+      />
+    </label>
   );
   
   // Only render if visible
