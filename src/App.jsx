@@ -398,11 +398,11 @@ useEffect(() => {
 
   // Show new loader overlay
   if (!isAppReady) {
-    const loaderPhase = performanceInitializing
-      ? 'testing'
+    const loaderPhase = phase === 'initializing'
+      ? 'starting'
       : phase === 'loading'
         ? 'loading'
-        : 'starting';
+        : 'testing';
 
     const phaseProgressValue = loaderPhase === 'starting'
       ? startingProgress / 100
@@ -411,10 +411,10 @@ useEffect(() => {
         : testingProgress / 100;
 
     const overallProgress = loaderPhase === 'starting'
-      ? phaseProgressValue / 3
+      ? phaseProgressValue * 0.33
       : loaderPhase === 'loading'
-        ? (1 / 3) + phaseProgressValue / 3
-        : (2 / 3) + phaseProgressValue / 3;
+        ? 0.33 + phaseProgressValue * 0.33
+        : 0.66 + phaseProgressValue * 0.34;
 
     return (
       <LoaderV2

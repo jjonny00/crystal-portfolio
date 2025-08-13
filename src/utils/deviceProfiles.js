@@ -186,68 +186,71 @@ export const getProfileDescription = (tier) => {
 export const detectDeviceCapabilities = () => {
   const canvas = document.createElement('canvas');
   const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-  
+
   if (!gl) {
-    return { tier: 'low', reason: 'No WebGL support' };
+    return { tier: 'low', confidence: 1, reason: 'No WebGL support', capabilities: {} };
   }
 
   const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
   const renderer = debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : 'Unknown';
   const vendor = debugInfo ? gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) : 'Unknown';
-  
+
   const maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
   const maxVertexTextureImageUnits = gl.getParameter(gl.MAX_VERTEX_TEXTURE_IMAGE_UNITS);
   const maxFragmentTextureUnits = gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS);
-  
-  // FIXED: More optimistic heuristics - default to medium instead of guessing low
-  let suggestedTier = 'medium'; // Changed from 'medium' - trust devices more
-  
-  // Check for mobile devices
-  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-  
-  // FIXED: Only downgrade if we're really sure it's a low-end device
+
   const rendererLower = renderer.toLowerCase();
-  
-  // High-end detection (upgrade to high)
-  if (rendererLower.includes('rtx') || 
-      rendererLower.includes('rx 6') || 
-      rendererLower.includes('rx 7') ||
-      rendererLower.includes('m1') || 
-      rendererLower.includes('m2') ||
-      rendererLower.includes('gtx 1080') ||
-      rendererLower.includes('gtx 1070')) {
-    suggestedTier = 'high';
-  }
-  // Medium-range detection (keep medium)
-  else if (rendererLower.includes('gtx 10') || 
-           rendererLower.includes('gtx 16') || 
-           rendererLower.includes('rx 5') ||
-           rendererLower.includes('gtx 9') ||
-           (!isMobile && maxTextureSize >= 4096)) {
-    suggestedTier = 'medium';
-  }
-  // FIXED: Only classify as low if we're really sure (very specific low-end indicators)
-  else if ((rendererLower.includes('intel') && rendererLower.includes('hd')) ||
-           (rendererLower.includes('integrated') && !rendererLower.includes('iris')) ||
-           (isMobile && rendererLower.includes('adreno 5')) ||
-           maxTextureSize < 2048) {
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  const deviceMemory = navigator.deviceMemory || null;
+
+  const gpuBlacklist = ['mali-4', 'mali-3', 'adreno 3', 'adreno 4', 'intel hd', 'powervr', 'nouveau'];
+  const highEndDesktopGPUs = ['rtx', 'rx 6', 'rx 7', 'gtx 1080', 'gtx 1070'];
+  const midRangeGPUs = ['gtx 10', 'gtx 16', 'rx 5', 'gtx 9'];
+  const highEndMobileGPUs = ['apple a17', 'apple a16', 'apple a15', 'apple m1', 'apple m2', 'snapdragon 8', 'adreno 7', 'mali-g78'];
+
+  let suggestedTier = 'medium';
+  let confidence = 0.5;
+
+  if (gpuBlacklist.some(g => rendererLower.includes(g)) || (isMobile && deviceMemory && deviceMemory <= 2)) {
     suggestedTier = 'low';
+    confidence = 0.8;
+  } else if (!isMobile && (highEndDesktopGPUs.some(g => rendererLower.includes(g)) || maxTextureSize >= 8192)) {
+    suggestedTier = 'high';
+    confidence = 0.9;
+  } else if (!isMobile && (midRangeGPUs.some(g => rendererLower.includes(g)) || maxTextureSize >= 4096)) {
+    suggestedTier = 'medium';
+    confidence = 0.7;
+  } else if (isMobile) {
+    suggestedTier = 'low';
+    confidence = 0.7;
+    if (highEndMobileGPUs.some(g => rendererLower.includes(g)) || (deviceMemory && deviceMemory >= 4 && maxTextureSize >= 4096)) {
+      suggestedTier = 'medium';
+      confidence = 0.8;
+    }
+    if ((rendererLower.includes('m1') || rendererLower.includes('m2')) || (deviceMemory && deviceMemory >= 6 && maxTextureSize >= 8192)) {
+      suggestedTier = 'high';
+      confidence = 0.85;
+    }
+  } else if (maxTextureSize < 2048) {
+    suggestedTier = 'low';
+    confidence = 0.6;
   }
-  // FIXED: Default to medium for unknown devices rather than low
-  
-  // Check available memory (if supported)
-  const memory = (gl.getExtension('WEBGL_debug_renderer_info') && gl.getParameter) ? 
-    gl.getParameter(0x9048) : null; // WEBGL_memory_info extension
-  
+
+  if (deviceMemory && deviceMemory < 4 && suggestedTier !== 'low') {
+    suggestedTier = 'low';
+    confidence = Math.max(confidence, 0.7);
+  }
+
   return {
     tier: suggestedTier,
+    confidence,
     capabilities: {
       renderer,
       vendor,
       maxTextureSize,
       maxVertexTextureImageUnits,
       maxFragmentTextureUnits,
-      memory,
+      memory: deviceMemory,
       isMobile,
       devicePixelRatio: window.devicePixelRatio
     }
