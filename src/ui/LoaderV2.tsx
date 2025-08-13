@@ -5,17 +5,18 @@ export type LoaderV2Props = {
   phase: 'starting' | 'loading' | 'testing';
   phaseProgress: number; // 0..1
   overallProgress: number; // 0..1
+  /** optional detailed message for the current phase */
   statusMessage?: string;
 };
 
 const statusText = (phase: LoaderV2Props['phase']) => {
   switch (phase) {
     case 'starting':
-      return 'Starting';
+      return 'Initializing system';
     case 'loading':
-      return 'Loading';
+      return 'Loading assets';
     case 'testing':
-      return 'Testing';
+      return 'Testing performance';
     default:
       return '';
   }
@@ -96,9 +97,17 @@ const LoaderV2: React.FC<LoaderV2Props> = ({ phase, phaseProgress, overallProgre
           {percent}%
         </text>
       </svg>
-        <div className={styles.status} aria-live="polite">
-          {statusMessage || statusText(phase)}
-          <span className={styles.dots}>
+        <div
+          className={styles.status}
+          aria-live="polite"
+          aria-atomic="true"
+          role="status"
+        >
+          <span className={styles.phase}>{statusText(phase)}</span>
+          {statusMessage && (
+            <span className={styles.message}>{statusMessage}</span>
+          )}
+          <span className={styles.dots} aria-hidden="true">
             <span className={styles.dot} />
             <span className={styles.dot} />
             <span className={styles.dot} />
