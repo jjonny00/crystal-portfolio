@@ -5,6 +5,7 @@ export type LoaderV2Props = {
   phase: 'starting' | 'loading' | 'testing';
   phaseProgress: number; // 0..1
   overallProgress: number; // 0..1
+  statusMessage?: string;
 };
 
 const statusText = (phase: LoaderV2Props['phase']) => {
@@ -20,7 +21,7 @@ const statusText = (phase: LoaderV2Props['phase']) => {
   }
 };
 
-const LoaderV2: React.FC<LoaderV2Props> = ({ phase, phaseProgress, overallProgress }) => {
+const LoaderV2: React.FC<LoaderV2Props> = ({ phase, phaseProgress, overallProgress, statusMessage }) => {
   const isMobile = /Mobi|Android/i.test(navigator.userAgent);
   const stroke = isMobile ? 4 : 6;
   const R = 100;
@@ -95,14 +96,14 @@ const LoaderV2: React.FC<LoaderV2Props> = ({ phase, phaseProgress, overallProgre
           {percent}%
         </text>
       </svg>
-      <div className={styles.status} aria-live="polite">
-        {statusText(phase)}
-        <span className={styles.dots}>
-          <span className={styles.dot} />
-          <span className={styles.dot} />
-          <span className={styles.dot} />
-        </span>
-      </div>
+        <div className={styles.status} aria-live="polite">
+          {statusMessage || statusText(phase)}
+          <span className={styles.dots}>
+            <span className={styles.dot} />
+            <span className={styles.dot} />
+            <span className={styles.dot} />
+          </span>
+        </div>
     </div>
   );
 };

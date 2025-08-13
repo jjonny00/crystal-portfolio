@@ -126,7 +126,10 @@ function App() {
     vignette: true
   });
   const [postProcessingConfig, setPostProcessingConfig] = useState(config.postProcessing);
-  const [testingProgress, setTestingProgress] = useState(0);
+  const testingStartRef = useRef(null);
+  const loadingStartRef = useRef(null);
+  const [testingDuration, setTestingDuration] = useState(null);
+  const [loadingDuration, setLoadingDuration] = useState(null);
 
   // FIXED: Enhanced performance hook with proper error handling
   const {
@@ -137,6 +140,7 @@ function App() {
     error: performanceError,
     testResults,
     testProgress: actualTestProgress,
+    testStatus,
     updateProfile,
     forceRetest,
     clearCache,
@@ -177,26 +181,39 @@ function App() {
     }
   }, [performanceProfile]);
 
-  // Simulated progress for device testing phase
-useEffect(() => {
-  let id;
-  if (performanceInitializing) {
-    setTestingProgress(0);
-    id = setInterval(() => {
-      setTestingProgress(prev => {
-        // FIXED: Don't go past 95% until test actually completes
-        if (prev < 85) return Math.min(prev + 5, 85);
-        if (prev < 95) return Math.min(prev + 2, 95); // Slower approach to 95%
-        return Math.min(prev + 0.5, 95); // Very slow approach, stop at 95%
-      });
-    }, 100);
-  } else if (performanceReady && !performanceError) {
-    // FIXED: When test completes, immediately jump to 100%
-    setTestingProgress(100);
-    clearInterval(id);
-  }
-  return () => clearInterval(id);
-}, [performanceInitializing, performanceReady, performanceError]);
+  // Track phase durations for dynamic overall progress
+  useEffect(() => {
+    if (performanceInitializing && !testingStartRef.current) {
+      testingStartRef.current = performance.now();
+    }
+    if (performanceReady && testingStartRef.current && testingDuration === null) {
+      setTestingDuration(performance.now() - testingStartRef.current);
+      testingStartRef.current = null;
+    }
+  }, [performanceInitializing, performanceReady, testingDuration]);
+
+  useEffect(() => {
+    if (isLoading && !loadingStartRef.current) {
+      loadingStartRef.current = performance.now();
+    }
+    if (assetsReady && loadingStartRef.current && loadingDuration === null) {
+      setLoadingDuration(performance.now() - loadingStartRef.current);
+      loadingStartRef.current = null;
+    }
+  }, [isLoading, assetsReady, loadingDuration]);
+
+  const computeOverallProgress = useCallback(() => {
+    const now = performance.now();
+    const testElapsed = testingDuration ?? (testingStartRef.current ? now - testingStartRef.current : 0);
+    const testTotal = testingDuration ?? (actualTestProgress > 0 ? testElapsed / (actualTestProgress / 100) : 0);
+    const loadElapsed = loadingDuration ?? (loadingStartRef.current ? now - loadingStartRef.current : 0);
+    const loadTotal = loadingDuration ?? (progress > 0 ? loadElapsed / (progress / 100) : 0);
+    const total = testTotal + loadTotal;
+    if (total === 0) return 0;
+    return (testElapsed + loadElapsed) / total;
+  }, [testingDuration, loadingDuration, actualTestProgress, progress]);
+
+  const overallProgress = computeOverallProgress();
 
   // Detect if mobile
   const isMobile = isMobileDevice();
@@ -397,22 +414,21 @@ useEffect(() => {
   // Show loader overlay during initialization and asset loading
   if (!isAppReady) {
     if (!performanceReady) {
-      const overallProgress = (testingProgress / 100) * 0.5;
       return (
         <LoaderV2
           phase="testing"
-          phaseProgress={testingProgress / 100}
+          phaseProgress={actualTestProgress / 100}
           overallProgress={overallProgress}
+          statusMessage={testStatus}
         />
       );
     }
-
-    const overallProgress = 0.5 + (progress / 100) * 0.5;
     return (
       <LoaderV2
         phase="loading"
         phaseProgress={progress / 100}
         overallProgress={overallProgress}
+        statusMessage={currentAsset}
       />
     );
   }

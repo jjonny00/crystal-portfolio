@@ -15,6 +15,7 @@ export const usePerformance = () => {
   const [error, setError] = useState(null);
   const [testResults, setTestResults] = useState(manager.getTestResults());
   const [testProgress, setTestProgress] = useState(0); // NEW: Track test progress
+  const [testStatus, setTestStatus] = useState(''); // NEW: Track status message
 
   // Initialize performance manager
   useEffect(() => {
@@ -33,11 +34,13 @@ export const usePerformance = () => {
       setIsInitializing(true);
       setError(null);
       setTestProgress(0);
+      setTestStatus('');
 
       // FIXED: Set up progress callback
       manager.setProgressCallback((percentage, message) => {
         if (mounted) {
           setTestProgress(percentage);
+          setTestStatus(message || '');
           // Update global HTML loader too
           window.updateImmediateLoader?.({
             test: percentage,
@@ -74,9 +77,10 @@ export const usePerformance = () => {
         console.error('Failed to initialize performance manager:', err);
         
         if (mounted) {
-          setError(err.message);
-          setIsInitializing(false);
-          setTestProgress(100); // Complete even on error
+            setError(err.message);
+            setIsInitializing(false);
+            setTestProgress(100); // Complete even on error
+            setTestStatus(err.message);
           // Fall back to medium profile
           setProfile(manager.getProfile());
           setTier(manager.getTier());
@@ -124,6 +128,8 @@ export const usePerformance = () => {
     setIsInitializing(true);
     setError(null);
     setIsReady(false);
+    setTestProgress(0);
+    setTestStatus('');
 
     try {
       if (import.meta.env.DEV) {
@@ -169,20 +175,22 @@ export const usePerformance = () => {
     hasCache: !!testResults
   };
 
-  return { 
-    profile, 
-    tier, 
-    isReady, 
+  return {
+    profile,
+    tier,
+    isReady,
     isInitializing,
     error,
     testResults,
     testProgress,
+    testStatus,
     updateProfile,
     forceRetest,
     clearCache,
     debugInfo: {
       ...debugInfo,
-      testProgress
+      testProgress,
+      testStatus
     }
   };
 };
