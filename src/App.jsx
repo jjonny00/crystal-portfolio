@@ -127,7 +127,6 @@ function App() {
   });
   const [postProcessingConfig, setPostProcessingConfig] = useState(config.postProcessing);
   const [testingProgress, setTestingProgress] = useState(0);
-  const startingProgress = 100;
 
   // FIXED: Enhanced performance hook with proper error handling
   const {
@@ -147,7 +146,6 @@ function App() {
   // FIXED: Asset loader hook with proper performance profile dependency
   const {
     progress,
-    phase,
     currentAsset,
     loadedAssets,
     totalAssets,
@@ -156,7 +154,7 @@ function App() {
     isReady: assetsReady,
     hasErrors,
     retry
-  } = useAssetLoader(performanceProfile);
+  } = useAssetLoader(performanceReady ? performanceProfile : null);
 
   // Initialize effects from the detected device profile
   useEffect(() => {
@@ -396,30 +394,24 @@ useEffect(() => {
     };
   }, [performanceProfile]);
 
-  // Show new loader overlay
+  // Show loader overlay during initialization and asset loading
   if (!isAppReady) {
-    const loaderPhase = phase === 'initializing'
-      ? 'starting'
-      : phase === 'loading'
-        ? 'loading'
-        : 'testing';
+    if (!performanceReady) {
+      const overallProgress = (testingProgress / 100) * 0.5;
+      return (
+        <LoaderV2
+          phase="testing"
+          phaseProgress={testingProgress / 100}
+          overallProgress={overallProgress}
+        />
+      );
+    }
 
-    const phaseProgressValue = loaderPhase === 'starting'
-      ? startingProgress / 100
-      : loaderPhase === 'loading'
-        ? progress / 100
-        : testingProgress / 100;
-
-    const overallProgress = loaderPhase === 'starting'
-      ? phaseProgressValue * 0.33
-      : loaderPhase === 'loading'
-        ? 0.33 + phaseProgressValue * 0.33
-        : 0.66 + phaseProgressValue * 0.34;
-
+    const overallProgress = 0.5 + (progress / 100) * 0.5;
     return (
       <LoaderV2
-        phase={loaderPhase}
-        phaseProgress={phaseProgressValue}
+        phase="loading"
+        phaseProgress={progress / 100}
         overallProgress={overallProgress}
       />
     );
