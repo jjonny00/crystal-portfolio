@@ -24,8 +24,9 @@ export const useAssetLoader = (performanceProfile) => {
    * Update progress immediately and call global HTML loader
    */
   const updateProgress = useCallback((assetKey, progress, name = '') => {
-    progressRef.current.set(assetKey, progress);
-    
+    const clamped = Math.min(Math.max(progress, 0), 1);
+    progressRef.current.set(assetKey, clamped);
+
     const allProgress = Array.from(progressRef.current.values());
     const totalProgress = allProgress.reduce((sum, p) => sum + p, 0) / Math.max(allProgress.length, 1);
     const loadedCount = allProgress.filter(p => p >= 1).length;

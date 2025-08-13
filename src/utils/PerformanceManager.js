@@ -1,7 +1,7 @@
 // src/utils/PerformanceManager.js
 // Progressive performance testing system
 
-import { PERFORMANCE_PROFILES } from './deviceProfiles.js';
+import { PERFORMANCE_PROFILES, detectDeviceCapabilities } from './deviceProfiles.js';
 
 const STORAGE_KEY = 'crystal-performance-config';
 const VERSION_KEY = 'crystal-performance-version';
@@ -51,12 +51,18 @@ export default class PerformanceManager {
       return;
     }
 
+    // Detect device capabilities before running any tests
+    const { tier: suggestedTier } = detectDeviceCapabilities();
+    this.tier = suggestedTier;
+    this.profile = { ...PERFORMANCE_PROFILES[suggestedTier] };
+
     if (import.meta.env.DEV) {
+      console.log('🔧 Detected device tier:', suggestedTier);
       console.log('🔧 Running progressive performance test...');
     }
 
     try {
-      const { tier, testResults } = await this._runProgressiveTest();
+      const { tier, testResults } = await this._runProgressiveTest(suggestedTier);
 
       this.tier = tier;
       this.profile = { ...PERFORMANCE_PROFILES[tier] };
@@ -124,9 +130,7 @@ export default class PerformanceManager {
     }
   }
 
-  async _runProgressiveTest() {
-    this._reportProgress(0, 'Testing medium quality...');
-
+  async _runProgressiveTest(startTier) {
     const canvas = document.createElement('canvas');
     canvas.width = 256;
     canvas.height = 256;
@@ -137,59 +141,65 @@ export default class PerformanceManager {
     document.body.appendChild(canvas);
 
     const results = {};
+    const iterations = 2;
+
+    // Determine test order based on suggested tier
+    let tiersToTest = [];
+    let totalTests = 0;
+    if (startTier === 'low') {
+      tiersToTest = ['low', 'medium'];
+      totalTests = 2;
+    } else if (startTier === 'high') {
+      tiersToTest = ['high', 'medium', 'low'];
+      totalTests = 3;
+    } else {
+      tiersToTest = ['medium', 'high']; // default: maybe swap high for low later
+      totalTests = 2;
+    }
+    const testWeight = 100 / totalTests;
 
     try {
-      const iterations = 2;
+      for (let i = 0; i < tiersToTest.length; i++) {
+        const tier = tiersToTest[i];
+        const baseProgress = i * testWeight;
 
-      // Medium quality test first as a safe baseline
-      const mediumResults = await this._testWithActualSceneComplexity(
-        canvas,
-        'medium',
-        iterations,
-        (p) => this._reportProgress(p * 60, 'Testing medium quality...')
-      );
-      results.medium = mediumResults;
-      this._reportProgress(60, `Medium quality results: avg ${mediumResults.avgFps.toFixed(1)} FPS (min ${mediumResults.minFps.toFixed(1)})`);
+        this._reportProgress(baseProgress, `Testing ${tier} quality...`);
 
-      if (mediumResults.avgFps >= 55 && mediumResults.minFps >= 50) {
-        // Try upgrading to high quality if medium comfortably passes
-        this._reportProgress(65, 'Medium tier above target, testing high quality...');
-        const highResults = await this._testWithActualSceneComplexity(
+        const tierResult = await this._testWithActualSceneComplexity(
           canvas,
-          'high',
+          tier,
           iterations,
-          (p) => this._reportProgress(65 + p * 25, 'Testing high quality...')
+          (p) => this._reportProgress(baseProgress + p * testWeight, `Testing ${tier} quality...`)
         );
-        results.high = highResults;
-        this._reportProgress(90, `High quality results: avg ${highResults.avgFps.toFixed(1)} FPS (min ${highResults.minFps.toFixed(1)})`);
-        if (highResults.avgFps >= 55 && highResults.minFps >= 50) {
-          this._reportProgress(95, 'High tier selected');
-          return { tier: 'high', testResults: results };
+
+        results[tier] = tierResult;
+
+        // Early selection logic
+        if (tier === 'high') {
+          if (tierResult.avgFps >= 55 && tierResult.minFps >= 50) {
+            return { tier: 'high', testResults: results };
+          }
+          // fall through to next test
+        } else if (tier === 'medium') {
+          if (tierResult.avgFps >= 55 && tierResult.minFps >= 50) {
+            // medium passed
+            if (tiersToTest[i + 1] === 'high') {
+              continue; // will test high next
+            }
+            return { tier: 'medium', testResults: results };
+          }
+          // medium failed, ensure next test is low
+          if (tiersToTest[i + 1] === 'high') {
+            tiersToTest[i + 1] = 'low';
+          }
+        } else if (tier === 'low') {
+          // Lowest tier tested, return whatever we have
+          return { tier: 'low', testResults: results };
         }
-        this._reportProgress(95, 'Medium tier selected');
-        return { tier: 'medium', testResults: results };
       }
 
-      // Medium tier below target, fall back to low quality
-      this._reportProgress(65, 'Medium tier below target, testing low quality...');
-      const lowResults = await this._testWithActualSceneComplexity(
-        canvas,
-        'low',
-        iterations,
-        (p) => this._reportProgress(65 + p * 25, 'Testing low quality...')
-      );
-      results.low = lowResults;
-      this._reportProgress(90, `Low quality results: avg ${lowResults.avgFps.toFixed(1)} FPS (min ${lowResults.minFps.toFixed(1)})`);
-
-      if (lowResults.avgFps >= 55 && lowResults.minFps >= 50) {
-        return { tier: 'low', testResults: results };
-      }
-
-      // If none reach 55 FPS, fallback to medium if it meets medium thresholds
-      if (mediumResults.avgFps >= 45 && mediumResults.minFps >= 40) {
-        return { tier: 'medium', testResults: results };
-      }
-      return { tier: 'low', testResults: results };
+      // Fallback if loop completes without return
+      return { tier: startTier || 'medium', testResults: results };
     } finally {
       if (canvas.parentNode) {
         canvas.parentNode.removeChild(canvas);
@@ -199,8 +209,12 @@ export default class PerformanceManager {
   }
 
   _reportProgress(percentage, message) {
+    const clamped = Math.min(100, Math.max(0, percentage));
+    if (import.meta.env.DEV) {
+      console.debug(`📈 Performance test progress: ${clamped.toFixed(1)}% - ${message}`);
+    }
     if (this._progressCallback) {
-      this._progressCallback(percentage, message);
+      this._progressCallback(clamped, message);
     }
   }
 
@@ -302,6 +316,7 @@ export default class PerformanceManager {
       let startTime = 0;
       let lastTime = 0;
       let frameCount = 0;
+      let lowFpsTime = 0;
 
       const testLoop = (time) => {
         if (!startTime) {
@@ -329,7 +344,27 @@ export default class PerformanceManager {
         const elapsed = time - startTime;
         progressCallback?.(Math.min(1, elapsed / totalDuration));
         if (elapsed > warmup && deltaTime > 0) {
-          samples.push(1000 / deltaTime);
+          const currentFps = 1000 / deltaTime;
+          if (currentFps < 20) {
+            lowFpsTime += deltaTime;
+            if (lowFpsTime > 200) {
+              composer.dispose();
+              renderer.dispose();
+              crystalMaterial.dispose();
+              crystalGeometry.dispose();
+              resolve({
+                avgFps: currentFps,
+                minFps: currentFps,
+                maxFps: currentFps,
+                frameCount,
+                samples: samples.length
+              });
+              return;
+            }
+          } else {
+            lowFpsTime = 0;
+          }
+          samples.push(currentFps);
           frameCount++;
         }
 
@@ -472,9 +507,10 @@ export default class PerformanceManager {
 
     const downgradeThresholds = { high: 50, medium: 40 };
     const upgradeThreshold = 60;
-    const sampleWindow = 5000; // 5 seconds in milliseconds
+    const sampleWindow = 1500; // 1.5 seconds for quicker response
     let lastTime = performance.now();
-    let upgradeCheck = false;
+    let lowFpsDuration = 0;
+    let highFpsDuration = 0;
 
     const check = async (now) => {
       const delta = now - lastTime;
@@ -485,40 +521,60 @@ export default class PerformanceManager {
         this._fpsBuffer.shift();
       }
 
+      if (fps < 20) {
+        lowFpsDuration += delta;
+      } else {
+        lowFpsDuration = 0;
+      }
+
       if (this._fpsBuffer.length && now - this._fpsBuffer[0].time >= sampleWindow) {
         const avg = this._fpsBuffer.reduce((a, b) => a + b.fps, 0) / this._fpsBuffer.length;
 
         const downgrade = downgradeThresholds[this.tier];
-        if (downgrade && avg < downgrade) {
+        if (lowFpsDuration > 500) {
+          // Emergency downgrade
+          if (this.tier === 'high') {
+            this.setProfile('medium');
+          } else if (this.tier === 'medium') {
+            this.setProfile('low');
+          }
+          lowFpsDuration = 0;
+          this._fpsBuffer.length = 0;
+        } else if (downgrade && avg < downgrade) {
           if (this.tier === 'high') {
             this.setProfile('medium');
           } else if (this.tier === 'medium') {
             this.setProfile('low');
           }
           this._fpsBuffer.length = 0;
-        } else if ((this.tier === 'low' || this.tier === 'medium') && avg > upgradeThreshold && !upgradeCheck) {
-          upgradeCheck = true;
-          const nextTier = this.tier === 'low' ? 'medium' : 'high';
-          try {
-            const canvas = document.createElement('canvas');
-            canvas.width = canvas.height = 256;
-            canvas.style.position = 'absolute';
-            canvas.style.top = '-9999px';
-            canvas.style.pointerEvents = 'none';
-            document.body.appendChild(canvas);
+          highFpsDuration = 0;
+        } else if ((this.tier === 'low' || this.tier === 'medium') && avg > upgradeThreshold) {
+          highFpsDuration += sampleWindow;
+          if (highFpsDuration >= 3000) {
+            const nextTier = this.tier === 'low' ? 'medium' : 'high';
             try {
-              const result = await this._testWithActualSceneComplexity(canvas, nextTier, 1);
-              if (result.avgFps >= 55 && result.minFps >= 50) {
-                this.setProfile(nextTier);
+              const canvas = document.createElement('canvas');
+              canvas.width = canvas.height = 256;
+              canvas.style.position = 'absolute';
+              canvas.style.top = '-9999px';
+              canvas.style.pointerEvents = 'none';
+              document.body.appendChild(canvas);
+              try {
+                const result = await this._testWithActualSceneComplexity(canvas, nextTier, 1);
+                if (result.avgFps >= 55 && result.minFps >= 50) {
+                  this.setProfile(nextTier);
+                }
+              } finally {
+                if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
               }
-            } finally {
-              if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+            } catch (e) {
+              // ignore
             }
-          } catch (e) {
-            // ignore
+            this._fpsBuffer.length = 0;
+            highFpsDuration = 0;
           }
-          this._fpsBuffer.length = 0;
-          upgradeCheck = false;
+        } else {
+          highFpsDuration = 0;
         }
       }
 
