@@ -172,8 +172,8 @@ export default class PerformanceManager {
       );
       results.medium = mediumResult;
 
+      // If medium fails, immediately fall back to low
       if (mediumResult.avgFps < 55 || mediumResult.minFps < 50) {
-        // Medium failed, fall back to low
         this._reportProgress(50, 'Testing low quality...');
         const lowResult = await this._testWithActualSceneComplexity(
           canvas,
@@ -185,7 +185,12 @@ export default class PerformanceManager {
         return { tier: 'low', testResults: results };
       }
 
-      // Medium passed, optionally try high
+      // On mobile devices, cap at medium tier even if test passes
+      if (_isMobile) {
+        return { tier: 'medium', testResults: results };
+      }
+
+      // Medium passed, optionally try high for non-mobile
       this._reportProgress(50, 'Testing high quality...');
       const highResult = await this._testWithActualSceneComplexity(
         canvas,
@@ -511,6 +516,7 @@ export default class PerformanceManager {
     let lastTime = performance.now();
     let lowFpsDuration = 0;
     let highFpsDuration = 0;
+    let lastTierChange = 0;
 
     const check = async (now) => {
       const delta = now - lastTime;
@@ -531,7 +537,7 @@ export default class PerformanceManager {
         const avg = this._fpsBuffer.reduce((a, b) => a + b.fps, 0) / this._fpsBuffer.length;
 
         const downgrade = downgradeThresholds[this.tier];
-        if (lowFpsDuration > 500) {
+        if (lowFpsDuration > 500 && now - lastTierChange > 15000) {
           // Emergency downgrade
           if (this.tier === 'high') {
             this.setProfile('medium');
@@ -540,7 +546,8 @@ export default class PerformanceManager {
           }
           lowFpsDuration = 0;
           this._fpsBuffer.length = 0;
-        } else if (downgrade && avg < downgrade) {
+          lastTierChange = now;
+        } else if (downgrade && avg < downgrade && now - lastTierChange > 15000) {
           if (this.tier === 'high') {
             this.setProfile('medium');
           } else if (this.tier === 'medium') {
@@ -548,7 +555,8 @@ export default class PerformanceManager {
           }
           this._fpsBuffer.length = 0;
           highFpsDuration = 0;
-        } else if ((this.tier === 'low' || this.tier === 'medium') && avg > upgradeThreshold) {
+          lastTierChange = now;
+        } else if ((this.tier === 'low' || this.tier === 'medium') && avg > upgradeThreshold && now - lastTierChange > 15000) {
           highFpsDuration += sampleWindow;
           if (highFpsDuration >= 3000) {
             const nextTier = this.tier === 'low' ? 'medium' : 'high';
@@ -563,6 +571,7 @@ export default class PerformanceManager {
                 const result = await this._testWithActualSceneComplexity(canvas, nextTier, 1);
                 if (result.avgFps >= 55 && result.minFps >= 50) {
                   this.setProfile(nextTier);
+                  lastTierChange = now;
                 }
               } finally {
                 if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
