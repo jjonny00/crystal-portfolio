@@ -116,6 +116,7 @@ function App() {
   // UPDATED: Use V2 asset loader hook
   const {
     progress: assetProgress,
+    itemProgress: assetItemProgress,
     currentAsset,
     loadedAssets,
     totalAssets,
@@ -124,7 +125,7 @@ function App() {
     isReady: assetsReady,
     hasErrors: assetHasErrors,
     retry: retryAssets
-  } = useAssetLoaderV2(performanceProfile);
+  } = useAssetLoaderV2(performanceReady ? performanceProfile : null);
 
   // Track when GLTF models have loaded via Fixed3DCanvas
   const fixedCanvasRef = useRef();
@@ -314,12 +315,17 @@ function App() {
   };
 
   const getOverallProgress = () => {
+    // Phase 1: performance testing contributes first 40%
     if (!performanceReady) {
-      return testProgress / 100;
+      return (testProgress / 40) * 0.4;
     }
+
+    // Phase 2: asset loading fills remaining 60%
     if (!assetsReady) {
-      return 0.4 + (assetProgress / 100) * 0.6; // Testing = 40%, Loading = 60%
+      return 0.4 + (assetProgress / 100) * 0.6;
     }
+
+    // Complete
     return 1.0;
   };
 
@@ -390,13 +396,29 @@ function App() {
   if (!isAppReady) {
     const currentPhase = getCurrentPhase();
     const overallProgress = getOverallProgress();
-    
-    // Calculate phase-specific progress
+
+    // Calculate phase-specific progress and sub-task progress
     let phaseProgress = 0;
+    let subProgress = 0;
+
     if (currentPhase === 'testing') {
-      phaseProgress = testProgress / 100;
+      // testProgress ranges 0-40, convert to 0-1 for phase progress
+      phaseProgress = testProgress / 40;
+
+      // Three sub-tests: low -> medium -> high
+      const segment = 40 / 3;
+      if (testProgress >= 40) {
+        subProgress = 1;
+      } else {
+        const remainder = testProgress % segment;
+        subProgress = remainder / segment;
+      }
     } else if (currentPhase === 'loading') {
       phaseProgress = assetProgress / 100;
+      subProgress = assetItemProgress / 100;
+    } else {
+      phaseProgress = 1;
+      subProgress = 1;
     }
 
     // Get current status message
@@ -413,8 +435,7 @@ function App() {
         phaseProgress={phaseProgress}
         overallProgress={overallProgress}
         statusMessage={statusMessage}
-        testingProgress={testProgress / 100}
-        loadingProgress={assetProgress / 100}
+        subProgress={subProgress}
       />
     );
   }

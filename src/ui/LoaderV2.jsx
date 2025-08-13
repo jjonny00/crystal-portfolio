@@ -8,15 +8,14 @@ const LoaderV2 = ({
   phaseProgress = 0,
   overallProgress = 0,
   statusMessage = '',
-  testingProgress = 0,
-  loadingProgress = 0
+  subProgress = 0
 }) => {
   const [smoothOverall, setSmoothOverall] = useState(0);
   const [smoothPhase, setSmoothPhase] = useState(0);
-  const [smoothTesting, setSmoothTesting] = useState(0);
-  const [smoothLoading, setSmoothLoading] = useState(0);
-  
+  const [smoothSub, setSmoothSub] = useState(0);
+
   const animationFrameRef = useRef();
+  const prevPhaseRef = useRef(phase);
 
   // Smooth progress animation
   useEffect(() => {
@@ -31,13 +30,8 @@ const LoaderV2 = ({
         return prev + diff * 0.15;
       });
       
-      setSmoothTesting(prev => {
-        const diff = testingProgress - prev;
-        return prev + diff * 0.12;
-      });
-      
-      setSmoothLoading(prev => {
-        const diff = loadingProgress - prev;
+      setSmoothSub(prev => {
+        const diff = subProgress - prev;
         return prev + diff * 0.12;
       });
       
@@ -51,7 +45,16 @@ const LoaderV2 = ({
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [overallProgress, phaseProgress, testingProgress, loadingProgress]);
+  }, [overallProgress, phaseProgress, subProgress]);
+
+  // Reset phase-specific progress when switching phases
+  useEffect(() => {
+    if (prevPhaseRef.current !== phase) {
+      setSmoothPhase(0);
+      setSmoothSub(0);
+      prevPhaseRef.current = phase;
+    }
+  }, [phase]);
 
   // FIXED: Correct ring mapping
   const ringProgress = {
@@ -61,10 +64,8 @@ const LoaderV2 = ({
     // Middle ring: Current phase progress (resets for each phase)
     middle: Math.min(smoothPhase * 100, 100),
     
-    // Inner ring: Sub-task progress (testing or loading specific progress)
-    inner: phase === 'testing' 
-      ? Math.min(smoothTesting * 100, 100)
-      : Math.min(smoothLoading * 100, 100)
+    // Inner ring: Sub-task progress within current phase
+    inner: Math.min(smoothSub * 100, 100)
   };
 
   const getPhaseText = () => {

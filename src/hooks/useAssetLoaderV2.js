@@ -11,7 +11,9 @@ export const useAssetLoaderV2 = (performanceProfile) => {
     loadedAssets: 0,
     totalAssets: 0,
     currentAsset: 'Starting up...',
-    errors: []
+    errors: [],
+    // Track progress of the currently loading asset
+    itemProgress: 0
   });
 
   const assetLoaderRef = useRef(null);
@@ -99,7 +101,11 @@ export const useAssetLoaderV2 = (performanceProfile) => {
       progress: Math.round(overallProgress),
       currentAsset: currentAsset || prev.currentAsset,
       loadedAssets: assetLoaderRef.current?.getLoadingStats().loaded || prev.loadedAssets,
-      phase: overallProgress >= 100 ? 'ready' : 'loading'
+      phase: overallProgress >= 100 ? 'ready' : 'loading',
+      // Only update item progress for specific asset events
+      itemProgress: typeof progress === 'number' && type !== 'item'
+        ? Math.max(0, Math.min(progress, 100))
+        : prev.itemProgress
     }));
 
     // Update global HTML loader immediately
@@ -171,7 +177,8 @@ export const useAssetLoaderV2 = (performanceProfile) => {
       progress: 0,
       phase: 'loading',
       currentAsset: 'Starting asset loading...',
-      errors: []
+      errors: [],
+      itemProgress: 0
     }));
 
     try {
@@ -189,9 +196,10 @@ export const useAssetLoaderV2 = (performanceProfile) => {
         loadedAssets: result.loadedAssets,
         totalAssets: result.totalAssets,
         currentAsset: result.success ? 'All assets loaded successfully' : 'Loading completed with errors',
-        errors: result.failedAssets > 0 ? 
-          [...prev.errors, `${result.failedAssets} assets failed to load`] : 
-          prev.errors
+        errors: result.failedAssets > 0 ?
+          [...prev.errors, `${result.failedAssets} assets failed to load`] :
+          prev.errors,
+        itemProgress: 100
       }));
 
       // Update global loader
@@ -257,7 +265,8 @@ export const useAssetLoaderV2 = (performanceProfile) => {
       loadedAssets: 0,
       totalAssets: 0,
       currentAsset: 'Retrying...',
-      errors: []
+      errors: [],
+      itemProgress: 0
     });
 
     if (import.meta.env.DEV) {
