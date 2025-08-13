@@ -296,8 +296,8 @@ export default class PerformanceManager {
       composer.addPass(new UnrealBloomPass(new THREE.Vector2(256, 256), 0.6, 0.4, 0.85));
 
       const samples = [];
-      const warmup = 100; // Ignore first 100ms
-      const measureDuration = 600; // 0.6 seconds of sampling
+      const warmup = 500; // Ignore first 500ms to allow shader compilation
+      const measureDuration = 1000; // 1 second of sampling for stability
       const totalDuration = warmup + measureDuration;
       let startTime = 0;
       let lastTime = 0;
@@ -337,8 +337,11 @@ export default class PerformanceManager {
           requestAnimationFrame(testLoop);
         } else {
           const avgFps = samples.reduce((a, b) => a + b, 0) / samples.length;
-          const minFps = Math.min(...samples);
-          const maxFps = Math.max(...samples);
+          const sorted = samples.slice().sort((a, b) => a - b);
+          const minIndex = Math.floor(sorted.length * 0.05); // 5th percentile
+          const maxIndex = Math.floor(sorted.length * 0.95); // 95th percentile
+          const minFps = sorted[minIndex] ?? Math.min(...sorted);
+          const maxFps = sorted[maxIndex] ?? Math.max(...sorted);
 
           composer.dispose();
           renderer.dispose();
@@ -359,33 +362,21 @@ export default class PerformanceManager {
       requestAnimationFrame(testLoop);
     });
 
-    let aggregated = {
-      avgFps: 0,
-      minFps: 0,
-      maxFps: 0,
-      frameCount: 0,
-      samples: 0
-    };
+    let bestResult = null;
 
     for (let i = 0; i < iterations; i++) {
       const result = await runSingleTest((p) =>
         onProgress?.((i + p) / iterations)
       );
-      aggregated.avgFps += result.avgFps;
-      aggregated.minFps += result.minFps;
-      aggregated.maxFps += result.maxFps;
-      aggregated.frameCount += result.frameCount;
-      aggregated.samples += result.samples;
+      if (!bestResult || result.avgFps > bestResult.avgFps) {
+        bestResult = result;
+      }
     }
     onProgress?.(1);
 
     return {
       tier,
-      avgFps: aggregated.avgFps / iterations,
-      minFps: aggregated.minFps / iterations,
-      maxFps: aggregated.maxFps / iterations,
-      frameCount: Math.round(aggregated.frameCount / iterations),
-      samples: Math.round(aggregated.samples / iterations),
+      ...bestResult,
       iterations
     };
   }
