@@ -37,7 +37,15 @@
   color: var(--offwhite, #F4F2E6);
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.5rem;
+}
+
+.phase {
+  font-weight: 600;
+}
+
+.message {
+  opacity: 0.8;
 }
 
 .dots {
