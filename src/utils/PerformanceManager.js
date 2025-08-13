@@ -51,19 +51,19 @@ export default class PerformanceManager {
       return;
     }
 
-    // Detect device capabilities before running any tests
-    const { tier: detectedTier, confidence, capabilities } = detectDeviceCapabilities();
-    const startTier = detectedTier === 'high' && confidence < 0.8 ? 'medium' : detectedTier;
-    this.tier = startTier;
-    this.profile = { ...PERFORMANCE_PROFILES[startTier] };
+    // Detect device capabilities for supplemental info only
+    const { capabilities } = detectDeviceCapabilities();
+
+    // Always start from a safe baseline and only upgrade after testing
+    this.tier = 'medium';
+    this.profile = { ...PERFORMANCE_PROFILES.medium };
 
     if (import.meta.env.DEV) {
-      console.log('🔧 Detected device tier:', detectedTier, `(confidence ${confidence})`);
-      console.log('🔧 Starting progressive performance test...');
+      console.log('🔧 Starting progressive performance test from medium baseline...');
     }
 
     try {
-      const { tier, testResults } = await this._runProgressiveTest(detectedTier, capabilities.isMobile);
+      const { tier, testResults } = await this._runProgressiveTest('medium', capabilities.isMobile);
 
       this.tier = tier;
       this.profile = { ...PERFORMANCE_PROFILES[tier] };
@@ -93,9 +93,10 @@ export default class PerformanceManager {
     try {
       const cached = localStorage.getItem(STORAGE_KEY);
       const version = localStorage.getItem(VERSION_KEY);
-      
-      if (cached && version === CURRENT_VERSION) {
-        return JSON.parse(cached);
+
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        return { ...parsed, appVersion: version };
       }
     } catch (error) {
       console.warn('Failed to read cached performance data:', error);
@@ -107,10 +108,25 @@ export default class PerformanceManager {
     // Cache is valid for 24 hours in production, always invalid in dev for testing
     if (import.meta.env.DEV) return false;
     
+    if (cachedData.appVersion !== CURRENT_VERSION) return false;
+
     const maxAge = 24 * 60 * 60 * 1000; // 24 hours
     const age = Date.now() - (cachedData.timestamp || 0);
-    
-    return age < maxAge && cachedData.tier && cachedData.testResults;
+
+    if (!(age < maxAge && cachedData.tier && cachedData.testResults)) {
+      return false;
+    }
+
+    if (cachedData.tier === 'high') {
+      if (
+        cachedData.userAgent !== navigator.userAgent ||
+        cachedData.devicePixelRatio !== window.devicePixelRatio
+      ) {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   _cacheResults(tier, testResults) {
@@ -120,9 +136,10 @@ export default class PerformanceManager {
         testResults,
         timestamp: Date.now(),
         userAgent: navigator.userAgent,
-        devicePixelRatio: window.devicePixelRatio
+        devicePixelRatio: window.devicePixelRatio,
+        appVersion: CURRENT_VERSION
       };
-      
+
       localStorage.setItem(STORAGE_KEY, JSON.stringify(cacheData));
       localStorage.setItem(VERSION_KEY, CURRENT_VERSION);
       
@@ -131,7 +148,7 @@ export default class PerformanceManager {
     }
   }
 
-  async _runProgressiveTest(startTier, isMobile = false) {
+  async _runProgressiveTest(_startTier = 'medium', _isMobile = false) {
     const canvas = document.createElement('canvas');
     canvas.width = 256;
     canvas.height = 256;
@@ -144,60 +161,45 @@ export default class PerformanceManager {
     const results = {};
     const iterations = 2;
 
-    // Determine test order based on suggested tier and device type
-    let tiersToTest;
-    if (startTier === 'low') {
-      tiersToTest = ['low', 'medium'];
-    } else if (startTier === 'high') {
-      tiersToTest = ['high', 'medium', 'low'];
-    } else {
-      tiersToTest = isMobile ? ['medium', 'low', 'high'] : ['medium', 'high', 'low'];
-    }
-    const totalTests = tiersToTest.length;
-    const testWeight = 100 / totalTests;
-
     try {
-      for (let i = 0; i < tiersToTest.length; i++) {
-        const tier = tiersToTest[i];
-        const baseProgress = i * testWeight;
+      // Always test medium first
+      this._reportProgress(0, 'Testing medium quality...');
+      const mediumResult = await this._testWithActualSceneComplexity(
+        canvas,
+        'medium',
+        iterations,
+        (p) => this._reportProgress(p * 50, 'Testing medium quality...')
+      );
+      results.medium = mediumResult;
 
-        this._reportProgress(baseProgress, `Testing ${tier} quality...`);
-
-        const tierResult = await this._testWithActualSceneComplexity(
+      if (mediumResult.avgFps < 55 || mediumResult.minFps < 50) {
+        // Medium failed, fall back to low
+        this._reportProgress(50, 'Testing low quality...');
+        const lowResult = await this._testWithActualSceneComplexity(
           canvas,
-          tier,
+          'low',
           iterations,
-          (p) => this._reportProgress(baseProgress + p * testWeight, `Testing ${tier} quality...`)
+          (p) => this._reportProgress(50 + p * 50, 'Testing low quality...')
         );
-
-        results[tier] = tierResult;
-
-        // Early selection logic
-        if (tier === 'high') {
-          if (tierResult.avgFps >= 55 && tierResult.minFps >= 50) {
-            return { tier: 'high', testResults: results };
-          }
-          // fall through to next test
-        } else if (tier === 'medium') {
-          if (tierResult.avgFps >= 55 && tierResult.minFps >= 50) {
-            // medium passed
-            if (tiersToTest[i + 1] === 'high') {
-              continue; // will test high next
-            }
-            return { tier: 'medium', testResults: results };
-          }
-          // medium failed, ensure next test is low
-          if (tiersToTest[i + 1] === 'high') {
-            tiersToTest[i + 1] = 'low';
-          }
-        } else if (tier === 'low') {
-          // Lowest tier tested, return whatever we have
-          return { tier: 'low', testResults: results };
-        }
+        results.low = lowResult;
+        return { tier: 'low', testResults: results };
       }
 
-      // Fallback if loop completes without return
-      return { tier: startTier || 'medium', testResults: results };
+      // Medium passed, optionally try high
+      this._reportProgress(50, 'Testing high quality...');
+      const highResult = await this._testWithActualSceneComplexity(
+        canvas,
+        'high',
+        iterations,
+        (p) => this._reportProgress(50 + p * 50, 'Testing high quality...')
+      );
+      results.high = highResult;
+
+      if (highResult.avgFps >= 55 && highResult.minFps >= 50) {
+        return { tier: 'high', testResults: results };
+      }
+
+      return { tier: 'medium', testResults: results };
     } finally {
       if (canvas.parentNode) {
         canvas.parentNode.removeChild(canvas);

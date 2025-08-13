@@ -1,10 +1,10 @@
 # Crystal Portfolio
 
-A React + Vite project showcasing a 3D crystal scene. Rendering quality is tuned by running a short benchmark at startup to choose an appropriate performance profile. The benchmark now starts from a medium baseline and only upgrades to high quality when the device comfortably meets the target frame rate. At runtime the performance manager averages FPS over the last five seconds to dynamically downgrade or upgrade quality tiers.
+A React + Vite project showcasing a 3D crystal scene. Rendering quality is tuned by running a short benchmark at startup to choose an appropriate performance profile. The benchmark always begins at a safe medium tier and only attempts high quality after confirming that both `avgFps` and `minFps` pass the required thresholds. If medium can't keep up the manager falls back to a low tier. At runtime the performance manager averages FPS over the last five seconds to dynamically downgrade or upgrade quality tiers.
 
 ## Performance manager (`usePerformance`)
 
-`usePerformance` exposes the active profile managed by `PerformanceManager`. When the app starts the manager renders a minimal scene (`RuntimePerformanceTest`) and assigns one of three tiers. The benchmark now includes a short 200 ms warm‑up period and runs three iterations of the 1.5 s test, averaging the results before deciding which tier to use. These averaged metrics are cached so the test only reruns when needed:
+`usePerformance` exposes the active profile managed by `PerformanceManager`. When the app starts the manager renders a minimal scene (`RuntimePerformanceTest`) and assigns one of three tiers. The benchmark now includes a short 200 ms warm‑up period and runs three iterations of the 1.5 s test, averaging the results before deciding which tier to use. These averaged metrics are cached so the test only reruns when needed. Cached high‑tier results are validated against the current app version and hardware fingerprint (user agent and device pixel ratio) before reuse:
 
 - `high` – fast desktop or mobile hardware
 - `medium` – mid‑range devices
