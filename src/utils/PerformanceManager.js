@@ -1,11 +1,11 @@
 // src/utils/PerformanceManager.js
-// FIXED: Conservative performance system that trusts original settings
+// Progressive performance testing system
 
 import { PERFORMANCE_PROFILES } from './deviceProfiles.js';
 
 const STORAGE_KEY = 'crystal-performance-config';
 const VERSION_KEY = 'crystal-performance-version';
-const CURRENT_VERSION = '2.2'; // Increment to force re-testing with new conservative approach
+const CURRENT_VERSION = '2.3'; // Increment to force re-testing with progressive approach
 
 export default class PerformanceManager {
   constructor() {
@@ -51,30 +51,27 @@ export default class PerformanceManager {
       return;
     }
 
-    // FIXED: Conservative testing approach - start with medium, only test for upgrades
     if (import.meta.env.DEV) {
-      console.log('🔧 Running conservative performance test...');
+      console.log('🔧 Running progressive performance test...');
     }
 
     try {
-      const testResults = await this._runConservativeTest();
-      const optimalTier = this._determineTierFromResults(testResults);
-      
-      this.tier = optimalTier;
-      this.profile = { ...PERFORMANCE_PROFILES[optimalTier] };
+      const { tier, testResults } = await this._runProgressiveTest();
+
+      this.tier = tier;
+      this.profile = { ...PERFORMANCE_PROFILES[tier] };
       this._testResults = testResults;
-      
+
       // Cache results
-      this._cacheResults(optimalTier, testResults);
-      
+      this._cacheResults(tier, testResults);
+
       if (import.meta.env.DEV) {
-        console.log('🔧 Conservative performance test complete:', {
-          tier: optimalTier,
-          avgFps: testResults.avgFps,
-          profile: this.profile
+        console.log('🔧 Progressive performance test complete:', {
+          tier,
+          results: testResults[tier]
         });
       }
-      
+
     } catch (error) {
       console.warn('Performance test failed, using medium profile:', error);
       this.tier = 'medium';
@@ -127,9 +124,8 @@ export default class PerformanceManager {
     }
   }
 
-  async _runConservativeTest() {
-    // Report test phases for better progress tracking
-    this._reportProgress(0, 'Starting performance test...');
+  async _runProgressiveTest() {
+    this._reportProgress(0, 'Testing high quality...');
 
     const canvas = document.createElement('canvas');
     canvas.width = 256;
@@ -140,52 +136,61 @@ export default class PerformanceManager {
     canvas.style.pointerEvents = 'none';
     document.body.appendChild(canvas);
 
+    const results = {};
+
     try {
       const iterations = 2;
 
-      // Test medium quality with progressive updates (0-60%)
+      // High quality test
+      const highResults = await this._testWithActualSceneComplexity(
+        canvas,
+        'high',
+        iterations,
+        (p) => this._reportProgress(p * 30, 'Testing high quality...')
+      );
+      results.high = highResults;
+      this._reportProgress(30, `High quality results: avg ${highResults.avgFps.toFixed(1)} FPS (min ${highResults.minFps.toFixed(1)})`);
+      if (highResults.avgFps >= 55 && highResults.minFps >= 50) {
+        this._reportProgress(95, 'High tier selected');
+        return { tier: 'high', testResults: results };
+      }
+
+      // Medium quality test
+      this._reportProgress(35, 'High tier below target, testing medium quality...');
       const mediumResults = await this._testWithActualSceneComplexity(
         canvas,
         'medium',
         iterations,
-        (p) => this._reportProgress(p * 60, 'Testing medium quality...')
+        (p) => this._reportProgress(35 + p * 30, 'Testing medium quality...')
       );
-
-      // Only try high quality if medium performs excellently
-      if (mediumResults.avgFps >= 50 && mediumResults.minFps >= 40) {
-        const highResults = await this._testWithActualSceneComplexity(
-          canvas,
-          'high',
-          iterations,
-          (p) => this._reportProgress(60 + p * 35, 'Testing high quality...')
-        );
-
-        this._reportProgress(95, 'High quality test passed');
-        return { ...highResults, recommendedTier: 'high' };
+      results.medium = mediumResults;
+      this._reportProgress(65, `Medium quality results: avg ${mediumResults.avgFps.toFixed(1)} FPS (min ${mediumResults.minFps.toFixed(1)})`);
+      if (mediumResults.avgFps >= 55 && mediumResults.minFps >= 50) {
+        this._reportProgress(95, 'Medium tier selected');
+        return { tier: 'medium', testResults: results };
       }
 
-      // Only downgrade to low if medium performs poorly
-      if (mediumResults.avgFps < 25 || mediumResults.minFps < 20) {
-        const lowResults = await this._testWithActualSceneComplexity(
-          canvas,
-          'low',
-          iterations,
-          (p) => this._reportProgress(60 + p * 35, 'Testing low quality...')
-        );
-        this._reportProgress(95, 'Low quality test completed');
-        return { ...lowResults, recommendedTier: 'low' };
+      // Low quality test
+      this._reportProgress(70, 'Medium tier below target, testing low quality...');
+      const lowResults = await this._testWithActualSceneComplexity(
+        canvas,
+        'low',
+        iterations,
+        (p) => this._reportProgress(70 + p * 25, 'Testing low quality...')
+      );
+      results.low = lowResults;
+      this._reportProgress(95, `Low quality results: avg ${lowResults.avgFps.toFixed(1)} FPS (min ${lowResults.minFps.toFixed(1)})`);
+
+      if (lowResults.avgFps >= 55 && lowResults.minFps >= 50) {
+        return { tier: 'low', testResults: results };
       }
 
-      // Default to medium - smooth final progress to 95%
-      for (let p = 60; p < 95; p += 5) {
-        this._reportProgress(p, 'Analyzing results...');
-        await new Promise((r) => setTimeout(r, 50));
+      // If none reach 55 FPS, fallback to medium if it meets medium thresholds
+      if (mediumResults.avgFps >= 45 && mediumResults.minFps >= 40) {
+        return { tier: 'medium', testResults: results };
       }
-      this._reportProgress(95, 'Medium quality test completed');
-      return { ...mediumResults, recommendedTier: 'medium' };
-
+      return { tier: 'low', testResults: results };
     } finally {
-      // Clean up
       if (canvas.parentNode) {
         canvas.parentNode.removeChild(canvas);
       }
@@ -199,78 +204,18 @@ export default class PerformanceManager {
     }
   }
 
-  async _performInitialization() {
-    this._initialized = true;
-
-    // Check if we have valid cached results
-    const cachedData = this._getCachedResults();
-    
-    if (cachedData && this._isCacheValid(cachedData)) {
-      if (import.meta.env.DEV) {
-        console.log('🔧 Using cached performance profile:', cachedData.tier);
-      }
-      
-      this.tier = cachedData.tier;
-      this.profile = { ...PERFORMANCE_PROFILES[cachedData.tier] };
-      this._testResults = cachedData.testResults;
-      this._ready = true;
-      this._startRuntimeMonitoring();
-      return;
-    }
-
-    // FIXED: Report progress during test
-    if (import.meta.env.DEV) {
-      console.log('🔧 Running conservative performance test...');
-    }
-
-    try {
-      const testResults = await this._runConservativeTest();
-      const optimalTier = this._determineTierFromResults(testResults);
-      
-      this.tier = optimalTier;
-      this.profile = { ...PERFORMANCE_PROFILES[optimalTier] };
-      this._testResults = testResults;
-      
-      // Cache results
-      this._cacheResults(optimalTier, testResults);
-      
-      if (import.meta.env.DEV) {
-        console.log('🔧 Conservative performance test complete:', {
-          tier: optimalTier,
-          avgFps: testResults.avgFps,
-          profile: this.profile
-        });
-      }
-      
-    } catch (error) {
-      console.warn('Performance test failed, using medium profile:', error);
-      this.tier = 'medium';
-      this.profile = { ...PERFORMANCE_PROFILES.medium };
-    }
-
-    // FIXED: Ensure _ready is set after everything completes
-    this._ready = true;
-    this._startRuntimeMonitoring();
-    
-    // Final progress report
-    this._reportProgress(100, 'Initialization complete');
-  }
-
-
   async _testWithActualSceneComplexity(canvas, tier, iterations = 2, onProgress) {
     const profile = PERFORMANCE_PROFILES[tier];
     const THREE = await import('three');
 
-    const runSingleTest = (progressCallback) => new Promise((resolve) => {
+    const runSingleTest = (progressCallback) => new Promise(async (resolve) => {
       const renderer = new THREE.WebGLRenderer({
         canvas,
         antialias: profile.antialiasing !== false,
-        powerPreference: 'default' // FIXED: Don't force high-performance mode in test
+        powerPreference: 'default'
       });
 
-      // FIXED: Use smaller render scale for testing to avoid test being harder than real scene
-      const testRenderScale = Math.min(profile.renderScale, 0.8);
-      renderer.setSize(256 * testRenderScale, 256 * testRenderScale);
+      renderer.setSize(256 * profile.renderScale, 256 * profile.renderScale);
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, profile.maxPixelRatio || 2));
 
       // Create scene that matches your actual crystal complexity
@@ -278,8 +223,8 @@ export default class PerformanceManager {
       const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
       camera.position.set(0, 2, 4);
 
-      // FIXED: Use simpler geometry that better matches your optimized scene
-      const crystalGeometry = new THREE.IcosahedronGeometry(1, 1); // Less complex than before
+      // Use more realistic geometry
+      const crystalGeometry = new THREE.OctahedronGeometry(1, 2);
 
       // FIXED: Create material that matches your MaterialManager output for this tier
       let crystalMaterial;
@@ -313,13 +258,13 @@ export default class PerformanceManager {
       const crystal = new THREE.Mesh(crystalGeometry, crystalMaterial);
       scene.add(crystal);
 
-      // FIXED: Add only 3 facets to match your optimized scene (not 6)
-      for (let i = 0; i < 3; i++) {
+      // Add six facets around the main crystal
+      for (let i = 0; i < 6; i++) {
         const facet = crystal.clone();
         facet.position.set(
-          Math.cos(i / 3 * Math.PI * 2) * 1.5,
-          Math.sin(i / 3 * Math.PI * 2) * 0.8,
-          Math.sin(i / 3 * Math.PI * 2) * 0.5
+          Math.cos((i / 6) * Math.PI * 2) * 1.5,
+          Math.sin((i / 6) * Math.PI * 2) * 0.8,
+          Math.sin((i / 6) * Math.PI * 2) * 0.5
         );
         facet.scale.setScalar(0.4);
         scene.add(facet);
@@ -340,11 +285,19 @@ export default class PerformanceManager {
         scene.add(pointLight1);
       }
 
-      // FIXED: Don't simulate post-processing overhead - test real rendering load only
+      // Simulate post-processing overhead to match real load
+      const { EffectComposer } = await import('three/examples/jsm/postprocessing/EffectComposer.js');
+      const { RenderPass } = await import('three/examples/jsm/postprocessing/RenderPass.js');
+      const { UnrealBloomPass } = await import('three/examples/jsm/postprocessing/UnrealBloomPass.js');
+
+      const composer = new EffectComposer(renderer);
+      composer.setSize(256 * profile.renderScale, 256 * profile.renderScale);
+      composer.addPass(new RenderPass(scene, camera));
+      composer.addPass(new UnrealBloomPass(new THREE.Vector2(256, 256), 0.6, 0.4, 0.85));
 
       const samples = [];
-      const warmup = 100; // Ignore first 100ms
-      const measureDuration = 600; // 0.6 seconds of sampling
+      const warmup = 500; // Ignore first 500ms to allow shader compilation
+      const measureDuration = 1000; // 1 second of sampling for stability
       const totalDuration = warmup + measureDuration;
       let startTime = 0;
       let lastTime = 0;
@@ -370,8 +323,8 @@ export default class PerformanceManager {
           }
         });
 
-        // Render frame
-        renderer.render(scene, camera);
+        // Render frame with post-processing
+        composer.render();
 
         const elapsed = time - startTime;
         progressCallback?.(Math.min(1, elapsed / totalDuration));
@@ -384,9 +337,13 @@ export default class PerformanceManager {
           requestAnimationFrame(testLoop);
         } else {
           const avgFps = samples.reduce((a, b) => a + b, 0) / samples.length;
-          const minFps = Math.min(...samples);
-          const maxFps = Math.max(...samples);
+          const sorted = samples.slice().sort((a, b) => a - b);
+          const minIndex = Math.floor(sorted.length * 0.05); // 5th percentile
+          const maxIndex = Math.floor(sorted.length * 0.95); // 95th percentile
+          const minFps = sorted[minIndex] ?? Math.min(...sorted);
+          const maxFps = sorted[maxIndex] ?? Math.max(...sorted);
 
+          composer.dispose();
           renderer.dispose();
           crystalMaterial.dispose();
           crystalGeometry.dispose();
@@ -405,58 +362,23 @@ export default class PerformanceManager {
       requestAnimationFrame(testLoop);
     });
 
-    let aggregated = {
-      avgFps: 0,
-      minFps: 0,
-      maxFps: 0,
-      frameCount: 0,
-      samples: 0
-    };
+    let bestResult = null;
 
     for (let i = 0; i < iterations; i++) {
       const result = await runSingleTest((p) =>
         onProgress?.((i + p) / iterations)
       );
-      aggregated.avgFps += result.avgFps;
-      aggregated.minFps += result.minFps;
-      aggregated.maxFps += result.maxFps;
-      aggregated.frameCount += result.frameCount;
-      aggregated.samples += result.samples;
+      if (!bestResult || result.avgFps > bestResult.avgFps) {
+        bestResult = result;
+      }
     }
     onProgress?.(1);
 
     return {
       tier,
-      avgFps: aggregated.avgFps / iterations,
-      minFps: aggregated.minFps / iterations,
-      maxFps: aggregated.maxFps / iterations,
-      frameCount: Math.round(aggregated.frameCount / iterations),
-      samples: Math.round(aggregated.samples / iterations),
+      ...bestResult,
       iterations
     };
-  }
-
-  _determineTierFromResults(testResults) {
-    // FIXED: Much more conservative thresholds that trust devices that were working before
-    const { avgFps, minFps } = testResults;
-
-    if (import.meta.env.DEV) {
-      console.log('🔧 Performance test results:', { avgFps, minFps });
-    }
-
-    // Determine tier with a buffer around the 60 FPS target
-    // High: 58+ avg, 55+ min
-    if (avgFps >= 58 && minFps >= 55) {
-      return 'high';
-    }
-    // Medium: 40+ avg, 35+ min
-    else if (avgFps >= 40 && minFps >= 35) {
-      return 'medium';
-    }
-    // Low: anything below the medium thresholds
-    else {
-      return 'low';
-    }
   }
 
   // Public methods (unchanged)
@@ -548,28 +470,53 @@ export default class PerformanceManager {
       return; // Not in a browser environment
     }
 
-    // Downgrade when sustained FPS falls below 55 for either high or medium tiers
-    const downgradeThresholds = { high: 55, medium: 55 };
-    const sampleWindow = 180; // ~3 seconds at 60 FPS
+    const downgradeThresholds = { high: 50, medium: 40 };
+    const upgradeThreshold = 60;
+    const sampleWindow = 300; // ~5 seconds at 60 FPS
     let lastTime = performance.now();
+    let upgradeCheck = false;
 
-    const check = (now) => {
+    const check = async (now) => {
       const delta = now - lastTime;
       lastTime = now;
       const fps = 1000 / delta;
       this._fpsBuffer.push(fps);
       if (this._fpsBuffer.length > sampleWindow) this._fpsBuffer.shift();
 
-      const threshold = downgradeThresholds[this.tier];
-      if (threshold && this._fpsBuffer.length === sampleWindow) {
-        const avg = this._fpsBuffer.reduce((a, b) => a + b, 0) / this._fpsBuffer.length;
-        if (avg < threshold) {
+      if (this._fpsBuffer.length === sampleWindow) {
+        const avg = this._fpsBuffer.reduce((a, b) => a + b, 0) / sampleWindow;
+
+        const downgrade = downgradeThresholds[this.tier];
+        if (downgrade && avg < downgrade) {
           if (this.tier === 'high') {
             this.setProfile('medium');
           } else if (this.tier === 'medium') {
             this.setProfile('low');
           }
           this._fpsBuffer.length = 0;
+        } else if ((this.tier === 'low' || this.tier === 'medium') && avg > upgradeThreshold && !upgradeCheck) {
+          upgradeCheck = true;
+          const nextTier = this.tier === 'low' ? 'medium' : 'high';
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = canvas.height = 256;
+            canvas.style.position = 'absolute';
+            canvas.style.top = '-9999px';
+            canvas.style.pointerEvents = 'none';
+            document.body.appendChild(canvas);
+            try {
+              const result = await this._testWithActualSceneComplexity(canvas, nextTier, 1);
+              if (result.avgFps >= 55 && result.minFps >= 50) {
+                this.setProfile(nextTier);
+              }
+            } finally {
+              if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+            }
+          } catch (e) {
+            // ignore
+          }
+          this._fpsBuffer.length = 0;
+          upgradeCheck = false;
         }
       }
 
