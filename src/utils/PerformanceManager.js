@@ -125,7 +125,7 @@ export default class PerformanceManager {
   }
 
   async _runProgressiveTest() {
-    this._reportProgress(0, 'Testing high quality...');
+    this._reportProgress(0, 'Testing medium quality...');
 
     const canvas = document.createElement('canvas');
     canvas.width = 256;
@@ -141,45 +141,45 @@ export default class PerformanceManager {
     try {
       const iterations = 2;
 
-      // High quality test
-      const highResults = await this._testWithActualSceneComplexity(
-        canvas,
-        'high',
-        iterations,
-        (p) => this._reportProgress(p * 30, 'Testing high quality...')
-      );
-      results.high = highResults;
-      this._reportProgress(30, `High quality results: avg ${highResults.avgFps.toFixed(1)} FPS (min ${highResults.minFps.toFixed(1)})`);
-      if (highResults.avgFps >= 55 && highResults.minFps >= 50) {
-        this._reportProgress(95, 'High tier selected');
-        return { tier: 'high', testResults: results };
-      }
-
-      // Medium quality test
-      this._reportProgress(35, 'High tier below target, testing medium quality...');
+      // Medium quality test first as a safe baseline
       const mediumResults = await this._testWithActualSceneComplexity(
         canvas,
         'medium',
         iterations,
-        (p) => this._reportProgress(35 + p * 30, 'Testing medium quality...')
+        (p) => this._reportProgress(p * 60, 'Testing medium quality...')
       );
       results.medium = mediumResults;
-      this._reportProgress(65, `Medium quality results: avg ${mediumResults.avgFps.toFixed(1)} FPS (min ${mediumResults.minFps.toFixed(1)})`);
+      this._reportProgress(60, `Medium quality results: avg ${mediumResults.avgFps.toFixed(1)} FPS (min ${mediumResults.minFps.toFixed(1)})`);
+
       if (mediumResults.avgFps >= 55 && mediumResults.minFps >= 50) {
+        // Try upgrading to high quality if medium comfortably passes
+        this._reportProgress(65, 'Medium tier above target, testing high quality...');
+        const highResults = await this._testWithActualSceneComplexity(
+          canvas,
+          'high',
+          iterations,
+          (p) => this._reportProgress(65 + p * 25, 'Testing high quality...')
+        );
+        results.high = highResults;
+        this._reportProgress(90, `High quality results: avg ${highResults.avgFps.toFixed(1)} FPS (min ${highResults.minFps.toFixed(1)})`);
+        if (highResults.avgFps >= 55 && highResults.minFps >= 50) {
+          this._reportProgress(95, 'High tier selected');
+          return { tier: 'high', testResults: results };
+        }
         this._reportProgress(95, 'Medium tier selected');
         return { tier: 'medium', testResults: results };
       }
 
-      // Low quality test
-      this._reportProgress(70, 'Medium tier below target, testing low quality...');
+      // Medium tier below target, fall back to low quality
+      this._reportProgress(65, 'Medium tier below target, testing low quality...');
       const lowResults = await this._testWithActualSceneComplexity(
         canvas,
         'low',
         iterations,
-        (p) => this._reportProgress(70 + p * 25, 'Testing low quality...')
+        (p) => this._reportProgress(65 + p * 25, 'Testing low quality...')
       );
       results.low = lowResults;
-      this._reportProgress(95, `Low quality results: avg ${lowResults.avgFps.toFixed(1)} FPS (min ${lowResults.minFps.toFixed(1)})`);
+      this._reportProgress(90, `Low quality results: avg ${lowResults.avgFps.toFixed(1)} FPS (min ${lowResults.minFps.toFixed(1)})`);
 
       if (lowResults.avgFps >= 55 && lowResults.minFps >= 50) {
         return { tier: 'low', testResults: results };
@@ -472,7 +472,7 @@ export default class PerformanceManager {
 
     const downgradeThresholds = { high: 50, medium: 40 };
     const upgradeThreshold = 60;
-    const sampleWindow = 300; // ~5 seconds at 60 FPS
+    const sampleWindow = 5000; // 5 seconds in milliseconds
     let lastTime = performance.now();
     let upgradeCheck = false;
 
@@ -480,11 +480,13 @@ export default class PerformanceManager {
       const delta = now - lastTime;
       lastTime = now;
       const fps = 1000 / delta;
-      this._fpsBuffer.push(fps);
-      if (this._fpsBuffer.length > sampleWindow) this._fpsBuffer.shift();
+      this._fpsBuffer.push({ fps, time: now });
+      while (this._fpsBuffer.length && now - this._fpsBuffer[0].time > sampleWindow) {
+        this._fpsBuffer.shift();
+      }
 
-      if (this._fpsBuffer.length === sampleWindow) {
-        const avg = this._fpsBuffer.reduce((a, b) => a + b, 0) / sampleWindow;
+      if (this._fpsBuffer.length && now - this._fpsBuffer[0].time >= sampleWindow) {
+        const avg = this._fpsBuffer.reduce((a, b) => a + b.fps, 0) / this._fpsBuffer.length;
 
         const downgrade = downgradeThresholds[this.tier];
         if (downgrade && avg < downgrade) {

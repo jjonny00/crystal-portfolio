@@ -1,6 +1,6 @@
 # Crystal Portfolio
 
-A React + Vite project showcasing a 3D crystal scene. Rendering quality is tuned by running a short benchmark at startup to choose an appropriate performance profile.
+A React + Vite project showcasing a 3D crystal scene. Rendering quality is tuned by running a short benchmark at startup to choose an appropriate performance profile. The benchmark now starts from a medium baseline and only upgrades to high quality when the device comfortably meets the target frame rate. At runtime the performance manager averages FPS over the last five seconds to dynamically downgrade or upgrade quality tiers.
 
 ## Performance manager (`usePerformance`)
 
