@@ -416,7 +416,7 @@ function App() {
     if (!performanceReady) {
       return (
         <LoaderV2
-          phase="testing"
+          phase="starting"
           phaseProgress={actualTestProgress / 100}
           overallProgress={overallProgress}
           statusMessage={testStatus}
