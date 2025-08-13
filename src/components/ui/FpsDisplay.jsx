@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useFrame } from '@react-three/fiber';
+import usePerformance from '../../hooks/usePerformance';
 
 /**
  * FPS Monitor Hook for Canvas components
@@ -269,47 +270,77 @@ export const FPSCounter = () => {
  * Performance Alert Component
  * Shows warnings when performance drops
  */
-export const PerformanceAlert = ({ 
+export const PerformanceAlert = ({
   visible = true,
-  threshold = 25,
   onPerformanceIssue
 }) => {
   const { fps, avgFps } = useFPSMonitorDOM();
+  const { profile, tier, updateProfile, forceRetest } = usePerformance();
+  const threshold = profile?.minAcceptableFPS || 55;
   const [showAlert, setShowAlert] = useState(false);
   const [alertCount, setAlertCount] = useState(0);
   const [dismissed, setDismissed] = useState(false);
   const lastAlertTime = useRef(0);
-  
+  const belowThresholdStart = useRef(null);
+  const suppressUntil = useRef(0);
+  const SUSTAINED_MS = 3000; // 3 seconds below threshold required
+
   useEffect(() => {
-    // Don't show alerts if already dismissed
     if (dismissed) return;
-    
-    // Only check every few seconds to avoid spam
+
     const now = Date.now();
-    if (now - lastAlertTime.current < 5000) return; // 5 second cooldown
-    
+    if (now < suppressUntil.current) return;
+
     if (fps > 0 && avgFps < threshold && avgFps > 0) {
-      lastAlertTime.current = now;
-      setShowAlert(true);
-      setAlertCount(prev => prev + 1);
-      
-      if (onPerformanceIssue) {
-        onPerformanceIssue({ fps, avgFps, alertCount });
+      if (belowThresholdStart.current === null) {
+        belowThresholdStart.current = now;
+      } else if (
+        now - belowThresholdStart.current >= SUSTAINED_MS &&
+        now - lastAlertTime.current >= 5000
+      ) {
+        lastAlertTime.current = now;
+        setShowAlert(true);
+        setAlertCount(prev => prev + 1);
+        if (onPerformanceIssue) {
+          onPerformanceIssue({ fps, avgFps, alertCount });
+        }
       }
+    } else {
+      belowThresholdStart.current = null;
     }
   }, [fps, avgFps, threshold, onPerformanceIssue, alertCount, dismissed]);
-  
+
+  const suppressAlerts = () => {
+    suppressUntil.current = Date.now() + 10000; // 10 second cooldown
+    belowThresholdStart.current = null;
+  };
+
+  const handleLowerQuality = () => {
+    const targetTier = tier === 'high' ? 'medium' : 'low';
+    console.log('PerformanceAlert: lowering quality', { from: tier, to: targetTier });
+    updateProfile(targetTier);
+    setShowAlert(false);
+    suppressAlerts();
+  };
+
+  const handleRetest = () => {
+    console.log('PerformanceAlert: retesting performance');
+    forceRetest();
+    setShowAlert(false);
+    suppressAlerts();
+  };
+
   const handleDismiss = () => {
     setShowAlert(false);
     setDismissed(true); // Permanently dismiss
   };
-  
+
   if (!visible || !showAlert || dismissed) return null;
-  
+
   return (
     <div style={{
       position: 'fixed',
-      top: '20px', // Move to top instead of center
+      top: '20px',
       left: '50%',
       transform: 'translateX(-50%)',
       backgroundColor: 'rgba(244, 67, 54, 0.95)',
@@ -330,20 +361,50 @@ export const PerformanceAlert = ({
       <div style={{ fontSize: '11px', opacity: 0.9, marginBottom: '8px' }}>
         Try reducing quality settings
       </div>
-      <button
-        onClick={handleDismiss}
-        style={{
-          backgroundColor: 'rgba(255, 255, 255, 0.2)',
-          border: '1px solid rgba(255, 255, 255, 0.3)',
-          borderRadius: '4px',
-          color: 'white',
-          cursor: 'pointer',
-          fontSize: '11px',
-          padding: '4px 8px'
-        }}
-      >
-        Dismiss
-      </button>
+      <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+        <button
+          onClick={handleLowerQuality}
+          style={{
+            backgroundColor: 'rgba(255, 255, 255, 0.2)',
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            borderRadius: '4px',
+            color: 'white',
+            cursor: 'pointer',
+            fontSize: '11px',
+            padding: '4px 8px'
+          }}
+        >
+          Lower quality
+        </button>
+        <button
+          onClick={handleRetest}
+          style={{
+            backgroundColor: 'rgba(255, 255, 255, 0.2)',
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            borderRadius: '4px',
+            color: 'white',
+            cursor: 'pointer',
+            fontSize: '11px',
+            padding: '4px 8px'
+          }}
+        >
+          Retest
+        </button>
+        <button
+          onClick={handleDismiss}
+          style={{
+            backgroundColor: 'rgba(255, 255, 255, 0.2)',
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            borderRadius: '4px',
+            color: 'white',
+            cursor: 'pointer',
+            fontSize: '11px',
+            padding: '4px 8px'
+          }}
+        >
+          Dismiss
+        </button>
+      </div>
     </div>
   );
 };
