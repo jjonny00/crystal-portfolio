@@ -19,6 +19,7 @@ export const useAssetLoader = (performanceProfile) => {
 
   const progressRef = useRef(new Map());
   const hasStartedLoading = useRef(false);
+  const previousProfile = useRef(null);
 
   /**
    * Update progress immediately and call global HTML loader
@@ -237,13 +238,29 @@ export const useAssetLoader = (performanceProfile) => {
   }, [getRequiredAssets, loadSingleAsset]);
 
   /**
-   * Start loading when performance profile is available
+   * Reset and start loading when a new performance profile arrives
    */
   useEffect(() => {
-    if (performanceProfile && !hasStartedLoading.current) {
+    if (!performanceProfile) return;
+
+    if (previousProfile.current !== performanceProfile) {
+      previousProfile.current = performanceProfile;
+      hasStartedLoading.current = false;
+      progressRef.current.clear();
+      setLoadingState({
+        progress: 0,
+        phase: 'initializing',
+        loadedAssets: 0,
+        totalAssets: 0,
+        currentAsset: 'Starting up...',
+        errors: []
+      });
+    }
+
+    if (!hasStartedLoading.current) {
       hasStartedLoading.current = true;
       if (import.meta.env.DEV) console.log('🚀 Starting asset loading with performance profile');
-      
+
       // Small delay to ensure HTML loader is ready
       setTimeout(() => {
         loadAllAssets();
