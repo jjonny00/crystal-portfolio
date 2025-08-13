@@ -123,7 +123,8 @@ function App() {
     isLoading,
     isReady: assetsReady,
     hasErrors: assetHasErrors,
-    retry: retryAssets
+    retry: retryAssets,
+    itemProgress
   } = useAssetLoaderV2(performanceReady ? performanceProfile : null);
 
   // Track when GLTF models have loaded via Fixed3DCanvas
@@ -399,6 +400,15 @@ function App() {
     // Normalize dedicated progress values
     const testingProgress = Math.min(testProgress / 40, 1); // 0-1
     const assetsProgress = assetProgress / 100;
+    const itemProgressNorm = itemProgress / 100;
+
+    const phaseProgress = currentPhase === 'testing'
+      ? testingProgress
+      : assetsProgress;
+
+    const subProgress = currentPhase === 'testing'
+      ? testingProgress
+      : itemProgressNorm;
 
     // Get current status message
     let statusMessage = '';
@@ -412,8 +422,8 @@ function App() {
       <LoaderV2
         phase={currentPhase}
         overallProgress={overallProgress}
-        assetsProgress={assetsProgress}
-        testingProgress={testingProgress}
+        phaseProgress={phaseProgress}
+        subProgress={subProgress}
         statusMessage={statusMessage}
       />
     );

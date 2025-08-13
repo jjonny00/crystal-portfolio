@@ -98,6 +98,7 @@ export default class AssetLoaderV2 {
       const xhr = new XMLHttpRequest();
       xhr.open('GET', url, true);
       xhr.responseType = 'arraybuffer';
+      xhr.timeout = 15000;
       
       xhr.onprogress = (event) => {
         if (event.lengthComputable) {
@@ -171,6 +172,13 @@ export default class AssetLoaderV2 {
         reject(error);
       };
       
+      xhr.ontimeout = () => {
+        const error = new Error('Timeout downloading GLTF');
+        console.error(`Timeout loading GLTF ${key}:`, error);
+        this.failedAssets++;
+        reject(error);
+      };
+
       xhr.send();
     });
   }
@@ -181,6 +189,7 @@ export default class AssetLoaderV2 {
       const xhr = new XMLHttpRequest();
       xhr.open('GET', url, true);
       xhr.responseType = 'blob';
+      xhr.timeout = 15000;
       
       xhr.onprogress = (event) => {
         if (event.lengthComputable && this.progressCallback) {
@@ -244,6 +253,13 @@ export default class AssetLoaderV2 {
         reject(error);
       };
       
+      xhr.ontimeout = () => {
+        const error = new Error('Timeout downloading texture');
+        console.error(`Timeout loading texture ${key}:`, error);
+        this.failedAssets++;
+        reject(error);
+      };
+
       xhr.send();
     });
   }
@@ -254,6 +270,7 @@ export default class AssetLoaderV2 {
       const xhr = new XMLHttpRequest();
       xhr.open('GET', url, true);
       xhr.responseType = 'arraybuffer';
+      xhr.timeout = 15000;
       
       xhr.onprogress = (event) => {
         if (event.lengthComputable && this.progressCallback) {
@@ -314,6 +331,13 @@ export default class AssetLoaderV2 {
         reject(error);
       };
       
+      xhr.ontimeout = () => {
+        const error = new Error('Timeout downloading HDRI');
+        console.error(`Timeout loading HDRI ${key}:`, error);
+        this.failedAssets++;
+        reject(error);
+      };
+
       xhr.send();
     });
   }

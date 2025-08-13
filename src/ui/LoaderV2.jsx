@@ -6,13 +6,13 @@ import React, { useState, useEffect, useRef } from 'react';
 const LoaderV2 = ({
   phase = 'initializing',
   overallProgress = 0,
-  assetsProgress = 0,
-  testingProgress = 0,
+  phaseProgress = 0,
+  subProgress = 0,
   statusMessage = ''
 }) => {
   const [smoothOverall, setSmoothOverall] = useState(0);
-  const [smoothAssets, setSmoothAssets] = useState(0);
-  const [smoothTesting, setSmoothTesting] = useState(0);
+  const [smoothPhase, setSmoothPhase] = useState(0);
+  const [smoothSub, setSmoothSub] = useState(0);
 
   const animationFrameRef = useRef();
 
@@ -24,13 +24,13 @@ const LoaderV2 = ({
         return prev + diff * 0.1; // Smooth interpolation
       });
 
-      setSmoothAssets(prev => {
-        const diff = assetsProgress - prev;
+      setSmoothPhase(prev => {
+        const diff = phaseProgress - prev;
         return prev + diff * 0.15;
       });
 
-      setSmoothTesting(prev => {
-        const diff = testingProgress - prev;
+      setSmoothSub(prev => {
+        const diff = subProgress - prev;
         return prev + diff * 0.12;
       });
 
@@ -44,18 +44,18 @@ const LoaderV2 = ({
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [overallProgress, assetsProgress, testingProgress]);
+  }, [overallProgress, phaseProgress, subProgress]);
 
   // FIXED: Correct ring mapping
   const ringProgress = {
-    // Outer ring: Overall initialization progress
+    // Outer ring: Overall progress across all phases
     outer: Math.min(smoothOverall * 100, 100),
 
-    // Middle ring: Asset loading progress
-    middle: Math.min(smoothAssets * 100, 100),
+    // Middle ring: Current phase progress
+    middle: Math.min(smoothPhase * 100, 100),
 
-    // Inner ring: Performance testing progress
-    inner: Math.min(smoothTesting * 100, 100)
+    // Inner ring: Sub-task progress within the phase
+    inner: Math.min(smoothSub * 100, 100)
   };
 
   const getPhaseText = () => {
@@ -249,7 +249,7 @@ const LoaderV2 = ({
           
           <div style={{ textAlign: 'center' }}>
             <div style={{ color: ringColors.middle, fontWeight: '600' }}>
-              Assets
+              {phase === 'testing' ? 'Testing' : phase === 'loading' ? 'Assets' : 'Phase'}
             </div>
             <div style={{ color: 'rgba(244, 242, 230, 0.8)' }}>
               {Math.round(ringProgress.middle)}%
@@ -258,7 +258,7 @@ const LoaderV2 = ({
 
           <div style={{ textAlign: 'center' }}>
             <div style={{ color: ringColors.inner, fontWeight: '600' }}>
-              Performance
+              {phase === 'testing' ? 'Step' : phase === 'loading' ? 'Asset' : 'Task'}
             </div>
             <div style={{ color: 'rgba(244, 242, 230, 0.8)' }}>
               {Math.round(ringProgress.inner)}%
