@@ -52,17 +52,18 @@ export default class PerformanceManager {
     }
 
     // Detect device capabilities before running any tests
-    const { tier: suggestedTier } = detectDeviceCapabilities();
-    this.tier = suggestedTier;
-    this.profile = { ...PERFORMANCE_PROFILES[suggestedTier] };
+    const { tier: detectedTier, confidence, capabilities } = detectDeviceCapabilities();
+    const startTier = detectedTier === 'high' && confidence < 0.8 ? 'medium' : detectedTier;
+    this.tier = startTier;
+    this.profile = { ...PERFORMANCE_PROFILES[startTier] };
 
     if (import.meta.env.DEV) {
-      console.log('🔧 Detected device tier:', suggestedTier);
-      console.log('🔧 Running progressive performance test...');
+      console.log('🔧 Detected device tier:', detectedTier, `(confidence ${confidence})`);
+      console.log('🔧 Starting progressive performance test...');
     }
 
     try {
-      const { tier, testResults } = await this._runProgressiveTest(suggestedTier);
+      const { tier, testResults } = await this._runProgressiveTest(detectedTier, capabilities.isMobile);
 
       this.tier = tier;
       this.profile = { ...PERFORMANCE_PROFILES[tier] };
@@ -130,7 +131,7 @@ export default class PerformanceManager {
     }
   }
 
-  async _runProgressiveTest(startTier) {
+  async _runProgressiveTest(startTier, isMobile = false) {
     const canvas = document.createElement('canvas');
     canvas.width = 256;
     canvas.height = 256;
@@ -143,19 +144,16 @@ export default class PerformanceManager {
     const results = {};
     const iterations = 2;
 
-    // Determine test order based on suggested tier
-    let tiersToTest = [];
-    let totalTests = 0;
+    // Determine test order based on suggested tier and device type
+    let tiersToTest;
     if (startTier === 'low') {
       tiersToTest = ['low', 'medium'];
-      totalTests = 2;
     } else if (startTier === 'high') {
       tiersToTest = ['high', 'medium', 'low'];
-      totalTests = 3;
     } else {
-      tiersToTest = ['medium', 'high']; // default: maybe swap high for low later
-      totalTests = 2;
+      tiersToTest = isMobile ? ['medium', 'low', 'high'] : ['medium', 'high', 'low'];
     }
+    const totalTests = tiersToTest.length;
     const testWeight = 100 / totalTests;
 
     try {

@@ -204,8 +204,9 @@ export const detectDeviceCapabilities = () => {
   const deviceMemory = navigator.deviceMemory || null;
 
   const gpuBlacklist = ['mali-4', 'mali-3', 'adreno 3', 'adreno 4', 'intel hd', 'powervr', 'nouveau'];
-  const highEndGPUs = ['rtx', 'rx 6', 'rx 7', 'm1', 'm2', 'gtx 1080', 'gtx 1070'];
+  const highEndDesktopGPUs = ['rtx', 'rx 6', 'rx 7', 'gtx 1080', 'gtx 1070'];
   const midRangeGPUs = ['gtx 10', 'gtx 16', 'rx 5', 'gtx 9'];
+  const highEndMobileGPUs = ['apple a17', 'apple a16', 'apple a15', 'apple m1', 'apple m2', 'snapdragon 8', 'adreno 7', 'mali-g78'];
 
   let suggestedTier = 'medium';
   let confidence = 0.5;
@@ -213,12 +214,23 @@ export const detectDeviceCapabilities = () => {
   if (gpuBlacklist.some(g => rendererLower.includes(g)) || (isMobile && deviceMemory && deviceMemory <= 2)) {
     suggestedTier = 'low';
     confidence = 0.8;
-  } else if (highEndGPUs.some(g => rendererLower.includes(g)) || (!isMobile && maxTextureSize >= 8192)) {
+  } else if (!isMobile && (highEndDesktopGPUs.some(g => rendererLower.includes(g)) || maxTextureSize >= 8192)) {
     suggestedTier = 'high';
     confidence = 0.9;
-  } else if (midRangeGPUs.some(g => rendererLower.includes(g)) || (!isMobile && maxTextureSize >= 4096)) {
+  } else if (!isMobile && (midRangeGPUs.some(g => rendererLower.includes(g)) || maxTextureSize >= 4096)) {
     suggestedTier = 'medium';
     confidence = 0.7;
+  } else if (isMobile) {
+    suggestedTier = 'low';
+    confidence = 0.7;
+    if (highEndMobileGPUs.some(g => rendererLower.includes(g)) || (deviceMemory && deviceMemory >= 4 && maxTextureSize >= 4096)) {
+      suggestedTier = 'medium';
+      confidence = 0.8;
+    }
+    if ((rendererLower.includes('m1') || rendererLower.includes('m2')) || (deviceMemory && deviceMemory >= 6 && maxTextureSize >= 8192)) {
+      suggestedTier = 'high';
+      confidence = 0.85;
+    }
   } else if (maxTextureSize < 2048) {
     suggestedTier = 'low';
     confidence = 0.6;
