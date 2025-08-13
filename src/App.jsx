@@ -398,7 +398,7 @@ function App() {
     const overallProgress = getOverallProgress();
 
     // Normalize dedicated progress values
-    const testingProgress = Math.min(testProgress / 40, 1); // 0-1
+    const testingProgress = Math.min(testProgress / 40, 1); // 0-1 across full testing phase
     const assetsProgress = assetProgress / 100;
     const itemProgressNorm = itemProgress / 100;
 
@@ -406,8 +406,11 @@ function App() {
       ? testingProgress
       : assetsProgress;
 
+    // During testing, show per-step progress (each test spans 10%)
+    const testingSubProgress = (testProgress % 10) / 10; // 0-1 within current test
+
     const subProgress = currentPhase === 'testing'
-      ? testingProgress
+      ? testingSubProgress
       : itemProgressNorm;
 
     // Get current status message

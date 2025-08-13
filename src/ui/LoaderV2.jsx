@@ -86,11 +86,14 @@ const LoaderV2 = ({
     }
   };
 
-  // Ring colors match phases: blue/overall, purple/assets, yellow/testing
+  // Ring colors match phases:
+  // outer/blue = overall initialization
+  // middle/purple = asset loading
+  // inner/yellow = performance testing
   const ringColors = {
-    outer: '#64ffda',   // Teal - overall initialization
-    middle: '#bb86fc',  // Purple - asset loading
-    inner: '#ffd600'    // Gold - performance testing
+    outer: '#2196f3',  // Blue - overall progress
+    middle: '#9c27b0', // Purple - assets
+    inner: '#ffd600'   // Yellow - performance test
   };
 
   const ringSize = 120;

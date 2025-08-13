@@ -88,9 +88,14 @@ export const useAssetLoaderV2 = (performanceProfile) => {
 
     // Calculate overall progress based on asset completion
     let overallProgress = 0;
+    let loadedCount = 0;
+    let totalCount = 0;
     if (assetLoaderRef.current) {
       const stats = assetLoaderRef.current.getLoadingStats();
       overallProgress = stats.progress;
+      // Keep loaded count in sync with stats
+      loadedCount = stats.loaded;
+      totalCount = stats.total;
     } else {
       overallProgress = progress || 0;
     }
@@ -100,7 +105,8 @@ export const useAssetLoaderV2 = (performanceProfile) => {
       ...prev,
       progress: Math.round(overallProgress),
       currentAsset: currentAsset || prev.currentAsset,
-      loadedAssets: assetLoaderRef.current?.getLoadingStats().loaded || prev.loadedAssets,
+      loadedAssets: typeof loadedCount === 'number' ? loadedCount : prev.loadedAssets,
+      totalAssets: typeof totalCount === 'number' ? totalCount : prev.totalAssets,
       phase: overallProgress >= 100 ? 'ready' : 'loading',
       // Only update item progress for specific asset events
       itemProgress: typeof progress === 'number' && type !== 'item'
