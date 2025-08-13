@@ -116,7 +116,6 @@ function App() {
   // UPDATED: Use V2 asset loader hook
   const {
     progress: assetProgress,
-    itemProgress: assetItemProgress,
     currentAsset,
     loadedAssets,
     totalAssets,
@@ -397,29 +396,9 @@ function App() {
     const currentPhase = getCurrentPhase();
     const overallProgress = getOverallProgress();
 
-    // Calculate phase-specific progress and sub-task progress
-    let phaseProgress = 0;
-    let subProgress = 0;
-
-    if (currentPhase === 'testing') {
-      // testProgress ranges 0-40, convert to 0-1 for phase progress
-      phaseProgress = testProgress / 40;
-
-      // Three sub-tests: low -> medium -> high
-      const segment = 40 / 3;
-      if (testProgress >= 40) {
-        subProgress = 1;
-      } else {
-        const remainder = testProgress % segment;
-        subProgress = remainder / segment;
-      }
-    } else if (currentPhase === 'loading') {
-      phaseProgress = assetProgress / 100;
-      subProgress = assetItemProgress / 100;
-    } else {
-      phaseProgress = 1;
-      subProgress = 1;
-    }
+    // Normalize dedicated progress values
+    const testingProgress = Math.min(testProgress / 40, 1); // 0-1
+    const assetsProgress = assetProgress / 100;
 
     // Get current status message
     let statusMessage = '';
@@ -432,10 +411,10 @@ function App() {
     return (
       <LoaderV2
         phase={currentPhase}
-        phaseProgress={phaseProgress}
         overallProgress={overallProgress}
+        assetsProgress={assetsProgress}
+        testingProgress={testingProgress}
         statusMessage={statusMessage}
-        subProgress={subProgress}
       />
     );
   }

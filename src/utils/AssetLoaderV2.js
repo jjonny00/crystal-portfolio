@@ -385,7 +385,10 @@ export default class AssetLoaderV2 {
       total: this.totalAssets,
       loaded: this.loadedAssets,
       failed: this.failedAssets,
-      progress: this.totalAssets > 0 ? (this.loadedAssets / this.totalAssets) * 100 : 0
+      // Count both successful and failed attempts toward completion so progress reaches 100%
+      progress: this.totalAssets > 0
+        ? ((this.loadedAssets + this.failedAssets) / this.totalAssets) * 100
+        : 0
     };
   }
 
