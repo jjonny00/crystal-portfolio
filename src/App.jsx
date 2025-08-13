@@ -1,11 +1,12 @@
-// src/App.jsx - FIXED: Proper integration with enhanced performance system
+// src/App.jsx - UPDATED: Integration with V2 performance and loading system
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import './App.css';
 import './styles/scroll-snap.css';
 
-// Enhanced loading system
-import { useAssetLoader } from './hooks/useAssetLoader';
+// UPDATED: Import V2 systems
+import { useAssetLoaderV2 } from './hooks/useAssetLoaderV2';
+import { usePerformanceV2 } from './hooks/usePerformanceV2';
 import LoaderV2 from './ui/LoaderV2';
 
 // Animation coordinator
@@ -33,7 +34,6 @@ import PerformanceDebugPanel from './components/ui/PerformanceDebugPanel';
 
 // Configuration and utilities
 import * as defaultConfig from './crystalConfig';
-import usePerformance from './hooks/usePerformance';
 
 // Convert UI config into animation config
 const buildAnimationConfig = (uiConfig) => {
@@ -93,9 +93,38 @@ const isMobileDevice = () => {
 
 function App() {
   // ========================================
-  // FIXED: Enhanced performance system integration
+  // UPDATED: V2 Performance and Asset Loading System
   // ========================================
   const [isAppReady, setIsAppReady] = useState(false);
+
+  // UPDATED: Use V2 performance hook
+  const {
+    profile: performanceProfile,
+    tier: performanceTier,
+    isReady: performanceReady,
+    isInitializing: performanceInitializing,
+    error: performanceError,
+    testResults,
+    testProgress,
+    testStatus,
+    updateProfile,
+    forceRetest,
+    clearCache,
+    debugInfo
+  } = usePerformanceV2();
+
+  // UPDATED: Use V2 asset loader hook
+  const {
+    progress: assetProgress,
+    currentAsset,
+    loadedAssets,
+    totalAssets,
+    errors: assetErrors,
+    isLoading,
+    isReady: assetsReady,
+    hasErrors: assetHasErrors,
+    retry: retryAssets
+  } = useAssetLoaderV2(performanceProfile);
 
   // Track when GLTF models have loaded via Fixed3DCanvas
   const fixedCanvasRef = useRef();
@@ -126,39 +155,6 @@ function App() {
     vignette: true
   });
   const [postProcessingConfig, setPostProcessingConfig] = useState(config.postProcessing);
-  const testingStartRef = useRef(null);
-  const loadingStartRef = useRef(null);
-  const [testingDuration, setTestingDuration] = useState(null);
-  const [loadingDuration, setLoadingDuration] = useState(null);
-
-  // FIXED: Enhanced performance hook with proper error handling
-  const {
-    profile: performanceProfile,
-    tier: performanceTier,
-    isReady: performanceReady,
-    isInitializing: performanceInitializing,
-    error: performanceError,
-    testResults,
-    testProgress: actualTestProgress,
-    testStatus,
-    updateProfile,
-    forceRetest,
-    clearCache,
-    debugInfo
-  } = usePerformance();
-
-  // FIXED: Asset loader hook with proper performance profile dependency
-  const {
-    progress,
-    currentAsset,
-    loadedAssets,
-    totalAssets,
-    errors,
-    isLoading,
-    isReady: assetsReady,
-    hasErrors,
-    retry
-  } = useAssetLoader(performanceReady ? performanceProfile : null);
 
   // Initialize effects from the detected device profile
   useEffect(() => {
@@ -181,50 +177,16 @@ function App() {
     }
   }, [performanceProfile]);
 
-  // Track phase durations for dynamic overall progress
-  useEffect(() => {
-    if (performanceInitializing && !testingStartRef.current) {
-      testingStartRef.current = performance.now();
-    }
-    if (performanceReady && testingStartRef.current && testingDuration === null) {
-      setTestingDuration(performance.now() - testingStartRef.current);
-      testingStartRef.current = null;
-    }
-  }, [performanceInitializing, performanceReady, testingDuration]);
-
-  useEffect(() => {
-    if (isLoading && !loadingStartRef.current) {
-      loadingStartRef.current = performance.now();
-    }
-    if (assetsReady && loadingStartRef.current && loadingDuration === null) {
-      setLoadingDuration(performance.now() - loadingStartRef.current);
-      loadingStartRef.current = null;
-    }
-  }, [isLoading, assetsReady, loadingDuration]);
-
-  const computeOverallProgress = useCallback(() => {
-    const now = performance.now();
-    const testElapsed = testingDuration ?? (testingStartRef.current ? now - testingStartRef.current : 0);
-    const testTotal = testingDuration ?? (actualTestProgress > 0 ? testElapsed / (actualTestProgress / 100) : 0);
-    const loadElapsed = loadingDuration ?? (loadingStartRef.current ? now - loadingStartRef.current : 0);
-    const loadTotal = loadingDuration ?? (progress > 0 ? loadElapsed / (progress / 100) : 0);
-    const total = testTotal + loadTotal;
-    if (total === 0) return 0;
-    return (testElapsed + loadElapsed) / total;
-  }, [testingDuration, loadingDuration, actualTestProgress, progress]);
-
-  const overallProgress = computeOverallProgress();
-
   // Detect if mobile
   const isMobile = isMobileDevice();
 
   // ========================================
-  // FIXED: App ready detection with proper dependencies
+  // UPDATED: App ready detection with V2 system
   // ========================================
   useEffect(() => {
     if (performanceReady && assetsReady && !isAppReady) {
       if (import.meta.env.DEV) {
-        console.log('🎯 App is ready - enhanced system initialized:', {
+        console.log('🎯 App is ready - V2 system initialized:', {
           performanceReady,
           assetsReady,
           performanceTier,
@@ -302,11 +264,11 @@ function App() {
     }
   }, []);
   
-  // FIXED: Performance config handler with proper profile management
+  // UPDATED: Performance config handler with V2 profile management
   const handlePerformanceConfigUpdate = useCallback((newConfig) => {
     if (import.meta.env.DEV) console.log("🔧 Performance config update:", newConfig);
 
-    // Update performance profile through the manager
+    // Update performance profile through the V2 manager
     if (newConfig.pbrQuality && newConfig.pbrQuality !== performanceProfile.pbrQuality) {
       // This is a tier change, use the proper method
       let newTier = 'medium';
@@ -321,8 +283,7 @@ function App() {
     ) {
       updateProfile(performanceTier, { simplifiedAnimations: newConfig.simplifiedAnimations });
     } else {
-      // For other config changes, we would need to extend the system
-      // For now, just update the local effects
+      // For other config changes, update local effects
       if (newConfig.postProcessing) {
         setEffectsEnabled(newConfig.postProcessing);
         setPostProcessingConfig(newConfig.postProcessing);
@@ -344,9 +305,23 @@ function App() {
   }, [perfDebug]);
 
   // ========================================
-  // FIXED: Enhanced loading screen with performance info
+  // UPDATED: V2 Loading screen with proper phase detection
   // ========================================
+  const getCurrentPhase = () => {
+    if (performanceInitializing) return 'testing';
+    if (isLoading || !assetsReady) return 'loading';
+    return 'ready';
+  };
 
+  const getOverallProgress = () => {
+    if (!performanceReady) {
+      return testProgress / 100;
+    }
+    if (!assetsReady) {
+      return 0.4 + (assetProgress / 100) * 0.6; // Testing = 40%, Loading = 60%
+    }
+    return 1.0;
+  };
 
   // Toggle body scrolling based on app readiness
   useEffect(() => {
@@ -411,24 +386,35 @@ function App() {
     };
   }, [performanceProfile]);
 
-  // Show loader overlay during initialization and asset loading
+  // UPDATED: Show V2 loader overlay during initialization and asset loading
   if (!isAppReady) {
-    if (!performanceReady) {
-      return (
-        <LoaderV2
-          phase="starting"
-          phaseProgress={actualTestProgress / 100}
-          overallProgress={overallProgress}
-          statusMessage={testStatus}
-        />
-      );
+    const currentPhase = getCurrentPhase();
+    const overallProgress = getOverallProgress();
+    
+    // Calculate phase-specific progress
+    let phaseProgress = 0;
+    if (currentPhase === 'testing') {
+      phaseProgress = testProgress / 100;
+    } else if (currentPhase === 'loading') {
+      phaseProgress = assetProgress / 100;
     }
+
+    // Get current status message
+    let statusMessage = '';
+    if (currentPhase === 'testing') {
+      statusMessage = testStatus;
+    } else if (currentPhase === 'loading') {
+      statusMessage = currentAsset;
+    }
+
     return (
       <LoaderV2
-        phase="loading"
-        phaseProgress={progress / 100}
+        phase={currentPhase}
+        phaseProgress={phaseProgress}
         overallProgress={overallProgress}
-        statusMessage={currentAsset}
+        statusMessage={statusMessage}
+        testingProgress={testProgress / 100}
+        loadingProgress={assetProgress / 100}
       />
     );
   }
@@ -466,7 +452,7 @@ function App() {
         />
       )}
 
-      {/* FIXED: FPS Display with performance tier info */}
+      {/* UPDATED: FPS Display with V2 performance tier info */}
       {!hideAllUI && (
         <FpsDisplay 
           visible={true}
@@ -475,7 +461,7 @@ function App() {
         />
       )}
       
-      {/* FIXED: Performance alerts with tier-appropriate thresholds */}
+      {/* UPDATED: Performance alerts with V2 tier-appropriate thresholds */}
       {!hideAllUI && (
         <PerformanceAlert
           visible={true}
@@ -610,7 +596,7 @@ function App() {
         <AccessibilityInstructions visible={true} />
       )}
 
-      {/* FIXED: Enhanced Debug Panel with performance system info */}
+      {/* UPDATED: Enhanced Debug Panel with V2 performance system info */}
       {(import.meta.env.DEV || perfDebug) && (
         <PerformanceDebugPanel
           performanceConfig={performanceProfile}
