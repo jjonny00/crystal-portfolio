@@ -114,11 +114,12 @@ export const useAssetLoaderV2 = (performanceProfile) => {
         : prev.itemProgress
     }));
 
-    // Update global HTML loader immediately
-    window.updateImmediateLoader?.({
-      assets: overallProgress,
-      phase: 'Loading Assets',
-      currentAsset: currentAsset || 'Loading...',
+    // Update LoaderV2 progress (phase: loading)
+    window.updateLoader?.({
+      phase: 'loading',
+      assetsPct: Math.round(overallProgress),
+      assetsReady: overallProgress >= 100,
+      status: 'LOADING ASSETS',
     });
 
     if (import.meta.env.DEV && type !== 'item') {
@@ -208,11 +209,12 @@ export const useAssetLoaderV2 = (performanceProfile) => {
         itemProgress: 100
       }));
 
-      // Update global loader
-      window.updateImmediateLoader?.({
-        assets: 100,
-        phase: 'Assets Ready',
-        currentAsset: 'All assets loaded',
+      // Notify LoaderV2 that assets are fully loaded
+      window.updateLoader?.({
+        phase: 'ready',
+        assetsPct: 100,
+        assetsReady: true,
+        status: 'READY',
       });
 
       if (import.meta.env.DEV) {
