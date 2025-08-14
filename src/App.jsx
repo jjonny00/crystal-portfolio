@@ -201,6 +201,7 @@ function App() {
 
   // ========================================
   // App ready detection based on LoaderV2 snapshot
+  // Keep loader mounted long enough to show 100% state
   // ========================================
   useEffect(() => {
     if (loaderReady && !isAppReady) {
@@ -216,7 +217,19 @@ function App() {
           }
         });
       }
-      setIsAppReady(true);
+
+      // Ensure rings visibly snap to 100 before unmount
+      window.updateLoader?.({
+        phase: 'ready',
+        testPct: 100,
+        assetsPct: 100,
+        performanceReady: true,
+        assetsReady: true,
+        status: 'READY',
+      });
+
+      const id = setTimeout(() => setIsAppReady(true), 300);
+      return () => clearTimeout(id);
     }
   }, [loaderReady, isAppReady, performanceTier, performanceProfile, loaderSnap.performanceReady, loaderSnap.assetsReady]);
 
