@@ -400,18 +400,18 @@ function App() {
     // Normalize dedicated progress values
     const testingProgress = Math.min(testProgress / 40, 1); // 0-1 across full testing phase
     const assetsProgress = assetProgress / 100;
-    const itemProgressNorm = itemProgress / 100;
 
-    const phaseProgress = currentPhase === 'testing'
-      ? testingProgress
-      : assetsProgress;
-
-    // During testing, show per-step progress (each test spans 10%)
+    // Phase-specific progress values
     const testingSubProgress = (testProgress % 10) / 10; // 0-1 within current test
 
-    const subProgress = currentPhase === 'testing'
-      ? testingSubProgress
-      : itemProgressNorm;
+    let phaseProgress = 0;
+    let subProgress = 0;
+
+    if (currentPhase === 'loading') {
+      phaseProgress = assetsProgress; // Only move purple ring during asset loading
+    } else if (currentPhase === 'testing') {
+      subProgress = testingSubProgress; // Only move yellow ring during performance tests
+    }
 
     // Get current status message
     let statusMessage = '';

@@ -25,11 +25,13 @@ const LoaderV2 = ({
       });
 
       setSmoothPhase(prev => {
+        if (phase !== 'loading') return prev; // Freeze once loading completes
         const diff = phaseProgress - prev;
         return prev + diff * 0.15;
       });
 
       setSmoothSub(prev => {
+        if (phase !== 'testing') return prev; // Freeze once testing completes
         const diff = subProgress - prev;
         return prev + diff * 0.12;
       });
@@ -44,7 +46,7 @@ const LoaderV2 = ({
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [overallProgress, phaseProgress, subProgress]);
+  }, [overallProgress, phaseProgress, subProgress, phase]);
 
   // FIXED: Correct ring mapping
   const ringProgress = {
