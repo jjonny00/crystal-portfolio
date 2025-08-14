@@ -1,5 +1,5 @@
 // src/utils/AssetLoaderV2.js
-// FIXED: Real GLTF loading progress with accurate progress tracking
+// COMPLETE FIXED VERSION - Simple and reliable HDRI loading
 
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -25,7 +25,6 @@ export default class AssetLoaderV2 {
 
   _setupLoadingManager() {
     this.loadingManager.onProgress = (url, loaded, total) => {
-      // This gets called for each individual asset
       if (this.progressCallback) {
         const overallProgress = total > 0 ? (loaded / total) * 100 : 0;
         this.progressCallback({
@@ -55,7 +54,6 @@ export default class AssetLoaderV2 {
       if (this.errorCallback) {
         this.errorCallback(url, `Failed to load: ${url}`);
       }
-      // Notify progress callback so progress reflects this failure
       this.progressCallback?.({
         type: 'error',
         url,
@@ -70,7 +68,6 @@ export default class AssetLoaderV2 {
     const filename = parts[parts.length - 1];
     const name = filename.split('.')[0];
     
-    // Convert filenames to friendly names
     const friendlyNames = {
       'CrystalWhole': 'Whole Crystal',
       'FacetEmpathy': 'Empathy Facet',
@@ -98,47 +95,28 @@ export default class AssetLoaderV2 {
 
   async loadGLTF(url, key) {
     return new Promise((resolve, reject) => {
-      // Use a custom progress tracking approach for GLTF
-      let lastProgress = 0;
-      
-      // Create XHR to track actual download progress
       const xhr = new XMLHttpRequest();
       xhr.open('GET', url, true);
       xhr.responseType = 'arraybuffer';
       xhr.timeout = 15000;
       
       xhr.onprogress = (event) => {
-        if (event.lengthComputable) {
+        if (event.lengthComputable && this.progressCallback) {
           const progress = (event.loaded / event.total) * 100;
-          if (this.progressCallback && progress > lastProgress) {
-            this.progressCallback({
-              type: 'gltf_download',
-              key,
-              url,
-              progress,
-              loaded: event.loaded,
-              total: event.total,
-              currentAsset: `Downloading ${this._getAssetNameFromUrl(url)}`
-            });
-            lastProgress = progress;
-          }
+          this.progressCallback({
+            type: 'gltf_download',
+            key,
+            url,
+            progress,
+            loaded: event.loaded,
+            total: event.total,
+            currentAsset: `Downloading ${this._getAssetNameFromUrl(url)}`
+          });
         }
       };
       
       xhr.onload = () => {
         if (xhr.status === 200) {
-          // Now parse the GLTF data
-          if (this.progressCallback) {
-            this.progressCallback({
-              type: 'gltf_parse',
-              key,
-              url,
-              progress: 100,
-              currentAsset: `Parsing ${this._getAssetNameFromUrl(url)}`
-            });
-          }
-          
-          // Use GLTFLoader to parse the downloaded data
           this.gltfLoader.parse(
             xhr.response,
             '',
@@ -161,56 +139,25 @@ export default class AssetLoaderV2 {
             (error) => {
               console.error(`Failed to parse GLTF ${key}:`, error);
               this.failedAssets++;
-              this.progressCallback?.({
-                type: 'error',
-                key,
-                url,
-                progress: this.getLoadingStats().progress,
-                currentAsset: `${this._getAssetNameFromUrl(url)} failed`
-              });
               reject(error);
             }
           );
         } else {
           const error = new Error(`HTTP ${xhr.status}: ${xhr.statusText}`);
-          console.error(`Failed to download GLTF ${key}:`, error);
           this.failedAssets++;
-          this.progressCallback?.({
-            type: 'error',
-            key,
-            url,
-            progress: this.getLoadingStats().progress,
-            currentAsset: `${this._getAssetNameFromUrl(url)} failed`
-          });
           reject(error);
         }
       };
 
       xhr.onerror = () => {
         const error = new Error('Network error downloading GLTF');
-        console.error(`Network error loading GLTF ${key}:`, error);
         this.failedAssets++;
-        this.progressCallback?.({
-          type: 'error',
-          key,
-          url,
-          progress: this.getLoadingStats().progress,
-          currentAsset: `${this._getAssetNameFromUrl(url)} failed`
-        });
         reject(error);
       };
 
       xhr.ontimeout = () => {
         const error = new Error('Timeout downloading GLTF');
-        console.error(`Timeout loading GLTF ${key}:`, error);
         this.failedAssets++;
-        this.progressCallback?.({
-          type: 'error',
-          key,
-          url,
-          progress: this.getLoadingStats().progress,
-          currentAsset: `${this._getAssetNameFromUrl(url)} failed`
-        });
         reject(error);
       };
 
@@ -220,7 +167,6 @@ export default class AssetLoaderV2 {
 
   async loadTexture(url, key) {
     return new Promise((resolve, reject) => {
-      // Track texture loading progress using XHR
       const xhr = new XMLHttpRequest();
       xhr.open('GET', url, true);
       xhr.responseType = 'blob';
@@ -270,56 +216,25 @@ export default class AssetLoaderV2 {
               URL.revokeObjectURL(blobUrl);
               console.error(`Failed to load texture ${key}:`, error);
               this.failedAssets++;
-              this.progressCallback?.({
-                type: 'error',
-                key,
-                url,
-                progress: this.getLoadingStats().progress,
-                currentAsset: `${this._getAssetNameFromUrl(url)} failed`
-              });
               reject(error);
             }
           );
         } else {
           const error = new Error(`HTTP ${xhr.status}: ${xhr.statusText}`);
-          console.error(`Failed to download texture ${key}:`, error);
           this.failedAssets++;
-          this.progressCallback?.({
-            type: 'error',
-            key,
-            url,
-            progress: this.getLoadingStats().progress,
-            currentAsset: `${this._getAssetNameFromUrl(url)} failed`
-          });
           reject(error);
         }
       };
 
       xhr.onerror = () => {
         const error = new Error('Network error downloading texture');
-        console.error(`Network error loading texture ${key}:`, error);
         this.failedAssets++;
-        this.progressCallback?.({
-          type: 'error',
-          key,
-          url,
-          progress: this.getLoadingStats().progress,
-          currentAsset: `${this._getAssetNameFromUrl(url)} failed`
-        });
         reject(error);
       };
 
       xhr.ontimeout = () => {
         const error = new Error('Timeout downloading texture');
-        console.error(`Timeout loading texture ${key}:`, error);
         this.failedAssets++;
-        this.progressCallback?.({
-          type: 'error',
-          key,
-          url,
-          progress: this.getLoadingStats().progress,
-          currentAsset: `${this._getAssetNameFromUrl(url)} failed`
-        });
         reject(error);
       };
 
@@ -327,102 +242,85 @@ export default class AssetLoaderV2 {
     });
   }
 
+  // COMPLETELY REWRITTEN: Simple, reliable HDRI loading
   async loadHDRI(url, key) {
+    console.log(`🌍 Starting simple HDRI load: ${url}`);
+    
     return new Promise((resolve, reject) => {
-      // Track HDRI loading progress
-      const xhr = new XMLHttpRequest();
-      xhr.open('GET', url, true);
-      xhr.responseType = 'arraybuffer';
-      xhr.timeout = 15000;
+      // Use the THREE.js RGBELoader directly with its built-in loading
+      const loader = new RGBELoader();
+      loader.setDataType(THREE.FloatType);
       
-      xhr.onprogress = (event) => {
-        if (event.lengthComputable && this.progressCallback) {
-          const progress = (event.loaded / event.total) * 100;
-          this.progressCallback({
-            type: 'hdri_download',
-            key,
-            url,
-            progress,
-            loaded: event.loaded,
-            total: event.total,
-            currentAsset: `Loading ${this._getAssetNameFromUrl(url)}`
-          });
-        }
-      };
+      // Set a reasonable timeout
+      const timeoutId = setTimeout(() => {
+        console.error('🌍 HDRI load timed out');
+        this.failedAssets++;
+        reject(new Error('HDRI load timeout'));
+      }, 10000); // 10 second timeout
       
-      xhr.onload = () => {
-        if (xhr.status === 200) {
-          // Parse the HDRI data
+      loader.load(
+        url,
+        // Success callback
+        (texture) => {
+          clearTimeout(timeoutId);
+          console.log('🌍 HDRI loaded successfully');
+          
+          // Configure texture
+          texture.mapping = THREE.EquirectangularReflectionMapping;
+          texture.flipY = false;
+          
+          this.assets.set(key, texture);
+          this.loadedAssets++;
+          
           if (this.progressCallback) {
             this.progressCallback({
-              type: 'hdri_parse',
+              type: 'hdri_complete',
               key,
               url,
               progress: 100,
-              currentAsset: `Processing ${this._getAssetNameFromUrl(url)}`
+              currentAsset: `${this._getAssetNameFromUrl(url)} loaded`
             });
           }
           
-          this.rgbeLoader.parse(xhr.response, (texture) => {
-            this.assets.set(key, texture);
-            this.loadedAssets++;
+          resolve(texture);
+        },
+        // Progress callback
+        (progress) => {
+          if (this.progressCallback) {
+            const percent = progress.loaded && progress.total 
+              ? (progress.loaded / progress.total) * 100 
+              : 50;
             
-            if (this.progressCallback) {
-              this.progressCallback({
-                type: 'hdri_complete',
-                key,
-                url,
-                progress: 100,
-                currentAsset: `${this._getAssetNameFromUrl(url)} loaded`
-              });
-            }
-            
-            resolve(texture);
-          });
-        } else {
-          const error = new Error(`HTTP ${xhr.status}: ${xhr.statusText}`);
-          console.error(`Failed to download HDRI ${key}:`, error);
+            this.progressCallback({
+              type: 'hdri_download',
+              key,
+              url,
+              progress: percent,
+              loaded: progress.loaded,
+              total: progress.total,
+              currentAsset: `Loading ${this._getAssetNameFromUrl(url)}`
+            });
+          }
+        },
+        // Error callback
+        (error) => {
+          clearTimeout(timeoutId);
+          console.error('🌍 HDRI load failed:', error);
           this.failedAssets++;
-          this.progressCallback?.({
-            type: 'error',
-            key,
-            url,
-            progress: this.getLoadingStats().progress,
-            currentAsset: `${this._getAssetNameFromUrl(url)} failed`
-          });
+          
+          if (this.progressCallback) {
+            this.progressCallback({
+              type: 'error',
+              key,
+              url,
+              progress: this.getLoadingStats().progress,
+              currentAsset: `${this._getAssetNameFromUrl(url)} failed`
+            });
+          }
+          
           reject(error);
         }
-      };
-
-      xhr.onerror = () => {
-        const error = new Error('Network error downloading HDRI');
-        console.error(`Network error loading HDRI ${key}:`, error);
-        this.failedAssets++;
-        this.progressCallback?.({
-          type: 'error',
-          key,
-          url,
-          progress: this.getLoadingStats().progress,
-          currentAsset: `${this._getAssetNameFromUrl(url)} failed`
-        });
-        reject(error);
-      };
-
-      xhr.ontimeout = () => {
-        const error = new Error('Timeout downloading HDRI');
-        console.error(`Timeout loading HDRI ${key}:`, error);
-        this.failedAssets++;
-        this.progressCallback?.({
-          type: 'error',
-          key,
-          url,
-          progress: this.getLoadingStats().progress,
-          currentAsset: `${this._getAssetNameFromUrl(url)} failed`
-        });
-        reject(error);
-      };
-
-      xhr.send();
+      );
     });
   }
 
@@ -431,29 +329,31 @@ export default class AssetLoaderV2 {
     this.loadedAssets = 0;
     this.failedAssets = 0;
     
-    // Helper to prevent hanging requests – force-settle after timeout
+    // Shorter, more reasonable timeout wrapper
     const withTimeout = (promise, asset) => {
       return new Promise(resolve => {
+        const timeoutDuration = 15000; // 15 seconds for all assets
         const timer = setTimeout(() => {
-          console.error(`Timeout loading asset ${asset.key}`);
+          console.error(`Timeout loading asset ${asset.key} after ${timeoutDuration}ms`);
           this.failedAssets++;
-          // Notify progress callback so UI can update
           this.progressCallback?.({
             type: 'timeout',
             key: asset.key,
             url: asset.url,
             progress: 100,
-            currentAsset: `${this._getAssetNameFromUrl(asset.url)} failed`
+            currentAsset: `${this._getAssetNameFromUrl(asset.url)} timed out`
           });
           resolve(null);
-        }, 15000);
+        }, timeoutDuration);
 
         promise
-          .then(result => { clearTimeout(timer); resolve(result); })
+          .then(result => { 
+            clearTimeout(timer); 
+            resolve(result); 
+          })
           .catch(error => {
             clearTimeout(timer);
             console.error(`Failed to load asset ${asset.key}:`, error);
-            // Notify progress callback so UI can update
             this.progressCallback?.({
               type: 'error',
               key: asset.key,
@@ -461,7 +361,6 @@ export default class AssetLoaderV2 {
               progress: this.getLoadingStats().progress,
               currentAsset: `${this._getAssetNameFromUrl(asset.url)} failed`
             });
-            // Don't reject – continue loading other assets
             resolve(null);
           });
       });
@@ -528,7 +427,6 @@ export default class AssetLoaderV2 {
       total: this.totalAssets,
       loaded: this.loadedAssets,
       failed: this.failedAssets,
-      // Count both successful and failed attempts toward completion so progress reaches 100%
       progress: this.totalAssets > 0
         ? ((this.loadedAssets + this.failedAssets) / this.totalAssets) * 100
         : 0
@@ -536,7 +434,6 @@ export default class AssetLoaderV2 {
   }
 
   dispose() {
-    // Clean up assets
     this.assets.forEach((asset, key) => {
       if (asset && typeof asset.dispose === 'function') {
         asset.dispose();
@@ -544,7 +441,6 @@ export default class AssetLoaderV2 {
     });
     this.assets.clear();
     
-    // Reset counters
     this.totalAssets = 0;
     this.loadedAssets = 0;
     this.failedAssets = 0;
