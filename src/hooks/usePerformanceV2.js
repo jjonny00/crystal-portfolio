@@ -68,7 +68,8 @@ export const usePerformanceV2 = () => {
           setIsReady(true);
           setTestResults(manager.getTestResults());
           setIsInitializing(false);
-          setTestProgress(100);
+          // Testing phase contributes 40% of overall progress
+          setTestProgress(40);
 
           if (import.meta.env.DEV) {
             console.log('🔧 Conservative performance testing complete:', {
@@ -84,7 +85,7 @@ export const usePerformanceV2 = () => {
         if (mounted) {
           setError(err.message);
           setIsInitializing(false);
-          setTestProgress(100);
+          setTestProgress(40);
           setTestStatus('Test failed - using safe defaults');
           
           // Fall back to low profile
@@ -166,7 +167,7 @@ export const usePerformanceV2 = () => {
       setTestResults(manager.getTestResults());
       setIsReady(true);
       setIsInitializing(false);
-      setTestProgress(100);
+      setTestProgress(40);
 
       if (import.meta.env.DEV) {
         console.log('🔧 Performance retest complete:', {
@@ -178,7 +179,7 @@ export const usePerformanceV2 = () => {
       console.error('Performance retest failed:', err);
       setError(err.message);
       setIsInitializing(false);
-      setTestProgress(100);
+      setTestProgress(40);
       setTestStatus('Retest failed');
       setIsReady(true); // Still mark as ready with fallback profile
     } finally {

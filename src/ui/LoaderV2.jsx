@@ -5,17 +5,15 @@ import React, { useState, useEffect, useRef } from 'react';
 
 const LoaderV2 = ({
   phase = 'initializing',
-  phaseProgress = 0,
   overallProgress = 0,
-  statusMessage = '',
-  testingProgress = 0,
-  loadingProgress = 0
+  phaseProgress = 0,
+  subProgress = 0,
+  statusMessage = ''
 }) => {
   const [smoothOverall, setSmoothOverall] = useState(0);
   const [smoothPhase, setSmoothPhase] = useState(0);
-  const [smoothTesting, setSmoothTesting] = useState(0);
-  const [smoothLoading, setSmoothLoading] = useState(0);
-  
+  const [smoothSub, setSmoothSub] = useState(0);
+
   const animationFrameRef = useRef();
 
   // Smooth progress animation
@@ -25,46 +23,39 @@ const LoaderV2 = ({
         const diff = overallProgress - prev;
         return prev + diff * 0.1; // Smooth interpolation
       });
-      
+
       setSmoothPhase(prev => {
         const diff = phaseProgress - prev;
         return prev + diff * 0.15;
       });
-      
-      setSmoothTesting(prev => {
-        const diff = testingProgress - prev;
+
+      setSmoothSub(prev => {
+        const diff = subProgress - prev;
         return prev + diff * 0.12;
       });
-      
-      setSmoothLoading(prev => {
-        const diff = loadingProgress - prev;
-        return prev + diff * 0.12;
-      });
-      
+
       animationFrameRef.current = requestAnimationFrame(animate);
     };
-    
+
     animationFrameRef.current = requestAnimationFrame(animate);
-    
+
     return () => {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [overallProgress, phaseProgress, testingProgress, loadingProgress]);
+  }, [overallProgress, phaseProgress, subProgress]);
 
   // FIXED: Correct ring mapping
   const ringProgress = {
-    // Outer ring: Overall progress (0-100% of entire initialization)
+    // Outer ring: Overall progress across all phases
     outer: Math.min(smoothOverall * 100, 100),
-    
-    // Middle ring: Current phase progress (resets for each phase)
+
+    // Middle ring: Current phase progress
     middle: Math.min(smoothPhase * 100, 100),
-    
-    // Inner ring: Sub-task progress (testing or loading specific progress)
-    inner: phase === 'testing' 
-      ? Math.min(smoothTesting * 100, 100)
-      : Math.min(smoothLoading * 100, 100)
+
+    // Inner ring: Sub-task progress within the phase
+    inner: Math.min(smoothSub * 100, 100)
   };
 
   const getPhaseText = () => {
@@ -95,11 +86,14 @@ const LoaderV2 = ({
     }
   };
 
-  // Ring colors
+  // Ring colors match phases:
+  // outer/blue = overall initialization
+  // middle/purple = asset loading
+  // inner/yellow = performance testing
   const ringColors = {
-    outer: '#64ffda',   // Teal - overall progress
-    middle: '#bb86fc',  // Purple - phase progress  
-    inner: '#ffd600'    // Gold - sub-task progress
+    outer: '#2196f3',  // Blue - overall progress
+    middle: '#9c27b0', // Purple - assets
+    inner: '#ffd600'   // Yellow - performance test
   };
 
   const ringSize = 120;
@@ -258,16 +252,16 @@ const LoaderV2 = ({
           
           <div style={{ textAlign: 'center' }}>
             <div style={{ color: ringColors.middle, fontWeight: '600' }}>
-              {phase === 'testing' ? 'Testing' : phase === 'loading' ? 'Loading' : 'Phase'}
+              {phase === 'testing' ? 'Testing' : phase === 'loading' ? 'Assets' : 'Phase'}
             </div>
             <div style={{ color: 'rgba(244, 242, 230, 0.8)' }}>
               {Math.round(ringProgress.middle)}%
             </div>
           </div>
-          
+
           <div style={{ textAlign: 'center' }}>
             <div style={{ color: ringColors.inner, fontWeight: '600' }}>
-              {phase === 'testing' ? 'Quality' : 'Assets'}
+              {phase === 'testing' ? 'Step' : phase === 'loading' ? 'Asset' : 'Task'}
             </div>
             <div style={{ color: 'rgba(244, 242, 230, 0.8)' }}>
               {Math.round(ringProgress.inner)}%

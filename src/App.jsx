@@ -123,8 +123,9 @@ function App() {
     isLoading,
     isReady: assetsReady,
     hasErrors: assetHasErrors,
-    retry: retryAssets
-  } = useAssetLoaderV2(performanceProfile);
+    retry: retryAssets,
+    itemProgress
+  } = useAssetLoaderV2(performanceReady ? performanceProfile : null);
 
   // Track when GLTF models have loaded via Fixed3DCanvas
   const fixedCanvasRef = useRef();
@@ -314,12 +315,17 @@ function App() {
   };
 
   const getOverallProgress = () => {
+    // Phase 1: performance testing contributes first 40%
     if (!performanceReady) {
-      return testProgress / 100;
+      return (testProgress / 40) * 0.4;
     }
+
+    // Phase 2: asset loading fills remaining 60%
     if (!assetsReady) {
-      return 0.4 + (assetProgress / 100) * 0.6; // Testing = 40%, Loading = 60%
+      return 0.4 + (assetProgress / 100) * 0.6;
     }
+
+    // Complete
     return 1.0;
   };
 
@@ -390,14 +396,22 @@ function App() {
   if (!isAppReady) {
     const currentPhase = getCurrentPhase();
     const overallProgress = getOverallProgress();
-    
-    // Calculate phase-specific progress
-    let phaseProgress = 0;
-    if (currentPhase === 'testing') {
-      phaseProgress = testProgress / 100;
-    } else if (currentPhase === 'loading') {
-      phaseProgress = assetProgress / 100;
-    }
+
+    // Normalize dedicated progress values
+    const testingProgress = Math.min(testProgress / 40, 1); // 0-1 across full testing phase
+    const assetsProgress = assetProgress / 100;
+    const itemProgressNorm = itemProgress / 100;
+
+    const phaseProgress = currentPhase === 'testing'
+      ? testingProgress
+      : assetsProgress;
+
+    // During testing, show per-step progress (each test spans 10%)
+    const testingSubProgress = (testProgress % 10) / 10; // 0-1 within current test
+
+    const subProgress = currentPhase === 'testing'
+      ? testingSubProgress
+      : itemProgressNorm;
 
     // Get current status message
     let statusMessage = '';
@@ -410,11 +424,10 @@ function App() {
     return (
       <LoaderV2
         phase={currentPhase}
-        phaseProgress={phaseProgress}
         overallProgress={overallProgress}
+        phaseProgress={phaseProgress}
+        subProgress={subProgress}
         statusMessage={statusMessage}
-        testingProgress={testProgress / 100}
-        loadingProgress={assetProgress / 100}
       />
     );
   }

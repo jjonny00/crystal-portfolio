@@ -98,6 +98,7 @@ export default class AssetLoaderV2 {
       const xhr = new XMLHttpRequest();
       xhr.open('GET', url, true);
       xhr.responseType = 'arraybuffer';
+      xhr.timeout = 15000;
       
       xhr.onprogress = (event) => {
         if (event.lengthComputable) {
@@ -171,6 +172,13 @@ export default class AssetLoaderV2 {
         reject(error);
       };
       
+      xhr.ontimeout = () => {
+        const error = new Error('Timeout downloading GLTF');
+        console.error(`Timeout loading GLTF ${key}:`, error);
+        this.failedAssets++;
+        reject(error);
+      };
+
       xhr.send();
     });
   }
@@ -181,6 +189,7 @@ export default class AssetLoaderV2 {
       const xhr = new XMLHttpRequest();
       xhr.open('GET', url, true);
       xhr.responseType = 'blob';
+      xhr.timeout = 15000;
       
       xhr.onprogress = (event) => {
         if (event.lengthComputable && this.progressCallback) {
@@ -244,6 +253,13 @@ export default class AssetLoaderV2 {
         reject(error);
       };
       
+      xhr.ontimeout = () => {
+        const error = new Error('Timeout downloading texture');
+        console.error(`Timeout loading texture ${key}:`, error);
+        this.failedAssets++;
+        reject(error);
+      };
+
       xhr.send();
     });
   }
@@ -254,6 +270,7 @@ export default class AssetLoaderV2 {
       const xhr = new XMLHttpRequest();
       xhr.open('GET', url, true);
       xhr.responseType = 'arraybuffer';
+      xhr.timeout = 15000;
       
       xhr.onprogress = (event) => {
         if (event.lengthComputable && this.progressCallback) {
@@ -314,6 +331,13 @@ export default class AssetLoaderV2 {
         reject(error);
       };
       
+      xhr.ontimeout = () => {
+        const error = new Error('Timeout downloading HDRI');
+        console.error(`Timeout loading HDRI ${key}:`, error);
+        this.failedAssets++;
+        reject(error);
+      };
+
       xhr.send();
     });
   }
@@ -323,23 +347,50 @@ export default class AssetLoaderV2 {
     this.loadedAssets = 0;
     this.failedAssets = 0;
     
-    const promises = assetList.map(async (asset) => {
-      try {
-        switch (asset.type) {
-          case 'model':
-            return await this.loadGLTF(asset.url, asset.key);
-          case 'texture':
-            return await this.loadTexture(asset.url, asset.key);
-          case 'environment':
-            return await this.loadHDRI(asset.url, asset.key);
-          default:
-            throw new Error(`Unknown asset type: ${asset.type}`);
-        }
-      } catch (error) {
-        console.error(`Failed to load asset ${asset.key}:`, error);
-        // Don't reject - continue loading other assets
-        return null;
+    // Helper to prevent hanging requests – force-settle after timeout
+    const withTimeout = (promise, asset) => {
+      return new Promise(resolve => {
+        const timer = setTimeout(() => {
+          console.error(`Timeout loading asset ${asset.key}`);
+          this.failedAssets++;
+          // Notify progress callback so UI can update
+          this.progressCallback?.({
+            type: 'timeout',
+            key: asset.key,
+            url: asset.url,
+            progress: 100,
+            currentAsset: `${this._getAssetNameFromUrl(asset.url)} failed`
+          });
+          resolve(null);
+        }, 15000);
+
+        promise
+          .then(result => { clearTimeout(timer); resolve(result); })
+          .catch(error => {
+            clearTimeout(timer);
+            console.error(`Failed to load asset ${asset.key}:`, error);
+            // Don't reject – count failure and continue
+            resolve(null);
+          });
+      });
+    };
+
+    const promises = assetList.map(asset => {
+      let loaderPromise;
+      switch (asset.type) {
+        case 'model':
+          loaderPromise = this.loadGLTF(asset.url, asset.key);
+          break;
+        case 'texture':
+          loaderPromise = this.loadTexture(asset.url, asset.key);
+          break;
+        case 'environment':
+          loaderPromise = this.loadHDRI(asset.url, asset.key);
+          break;
+        default:
+          loaderPromise = Promise.reject(new Error(`Unknown asset type: ${asset.type}`));
       }
+      return withTimeout(loaderPromise, asset);
     });
 
     try {
@@ -385,7 +436,10 @@ export default class AssetLoaderV2 {
       total: this.totalAssets,
       loaded: this.loadedAssets,
       failed: this.failedAssets,
-      progress: this.totalAssets > 0 ? (this.loadedAssets / this.totalAssets) * 100 : 0
+      // Count both successful and failed attempts toward completion so progress reaches 100%
+      progress: this.totalAssets > 0
+        ? ((this.loadedAssets + this.failedAssets) / this.totalAssets) * 100
+        : 0
     };
   }
 
