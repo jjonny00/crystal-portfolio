@@ -45,12 +45,13 @@ export const usePerformanceV2 = () => {
         if (mounted) {
           setTestProgress(percentage);
           setTestStatus(message || '');
-          
-          // Update global HTML loader with testing progress
-          window.updateImmediateLoader?.({
-            test: percentage,
-            phase: 'Testing Performance',
-            currentAsset: message,
+
+          // Update LoaderV2 progress (phase: testing)
+          window.updateLoader?.({
+            phase: 'testing',
+            testPct: Math.round(percentage),
+            performanceReady: percentage >= 100,
+            status: 'TESTING PERFORMANCE',
           });
         }
       });
@@ -70,6 +71,14 @@ export const usePerformanceV2 = () => {
           setIsInitializing(false);
           // Testing phase contributes 40% of overall progress
           setTestProgress(40);
+
+          // Notify LoaderV2 that testing is complete and we are moving to asset loading
+          window.updateLoader?.({
+            phase: 'loading',
+            testPct: 100,
+            performanceReady: true,
+            status: 'LOADING ASSETS',
+          });
 
           if (import.meta.env.DEV) {
             console.log('🔧 Conservative performance testing complete:', {
@@ -146,12 +155,13 @@ export const usePerformanceV2 = () => {
     manager.setProgressCallback((percentage, message) => {
       setTestProgress(percentage);
       setTestStatus(message || '');
-      
-      // Update global HTML loader
-      window.updateImmediateLoader?.({
-        test: percentage,
-        phase: 'Retesting Performance',
-        currentAsset: message,
+
+      // Update LoaderV2 during retest
+      window.updateLoader?.({
+        phase: 'testing',
+        testPct: Math.round(percentage),
+        performanceReady: percentage >= 100,
+        status: 'TESTING PERFORMANCE',
       });
     });
 

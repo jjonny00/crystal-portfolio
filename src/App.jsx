@@ -97,6 +97,24 @@ function App() {
   // ========================================
   const [isAppReady, setIsAppReady] = useState(false);
 
+  // Loader V2 snapshot state managed via window.updateLoader
+  const [loaderSnap, setLoaderSnap] = useState({
+    phase: 'testing',
+    testPct: 0,
+    assetsPct: 0,
+    performanceReady: false,
+    assetsReady: false,
+    status: 'TESTING PERFORMANCE',
+  });
+
+  useEffect(() => {
+    window.updateLoader = (patch) => {
+      setLoaderSnap((prev) => ({ ...prev, ...patch }));
+    };
+  }, []);
+
+  const loaderReady = loaderSnap.performanceReady && loaderSnap.assetsReady;
+
   // UPDATED: Use V2 performance hook
   const {
     profile: performanceProfile,
@@ -126,10 +144,6 @@ function App() {
     retry: retryAssets,
     itemProgress
   } = useAssetLoaderV2(performanceReady ? performanceProfile : null);
-
-  // Forced readiness flags to unblock the app if progress reaches completion
-  const [forcedPerformanceReady, setForcedPerformanceReady] = useState(false);
-  const [forcedAssetsReady, setForcedAssetsReady] = useState(false);
 
   // Track when GLTF models have loaded via Fixed3DCanvas
   const fixedCanvasRef = useRef();
@@ -186,14 +200,14 @@ function App() {
   const isMobile = isMobileDevice();
 
   // ========================================
-  // UPDATED: App ready detection with V2 system
+  // App ready detection based on LoaderV2 snapshot
   // ========================================
   useEffect(() => {
-    if ((performanceReady || forcedPerformanceReady) && (assetsReady || forcedAssetsReady) && !isAppReady) {
+    if (loaderReady && !isAppReady) {
       if (import.meta.env.DEV) {
         console.log('🎯 App is ready - V2 system initialized:', {
-          performanceReady: performanceReady || forcedPerformanceReady,
-          assetsReady: assetsReady || forcedAssetsReady,
+          performanceReady: loaderSnap.performanceReady,
+          assetsReady: loaderSnap.assetsReady,
           performanceTier,
           performanceProfile: {
             renderScale: performanceProfile.renderScale,
@@ -204,7 +218,7 @@ function App() {
       }
       setIsAppReady(true);
     }
-  }, [performanceReady, assetsReady, isAppReady, performanceTier, performanceProfile, forcedPerformanceReady, forcedAssetsReady]);
+  }, [loaderReady, isAppReady, performanceTier, performanceProfile, loaderSnap.performanceReady, loaderSnap.assetsReady]);
 
   // ========================================
   // Enhanced callbacks with better logging
@@ -309,66 +323,6 @@ function App() {
     }
   }, [perfDebug]);
 
-  // ========================================
-  // UPDATED: V2 Loading screen with proper phase detection
-  // ========================================
-  const getCurrentPhase = () => {
-    if (performanceInitializing) return 'testing';
-    if (!(assetsReady || forcedAssetsReady)) return 'loading';
-    return 'ready';
-  };
-
-  const getOverallProgress = () => {
-    // Phase 1: performance testing contributes first 40%
-    if (!(performanceReady || forcedPerformanceReady)) {
-      return (testProgress / 40) * 0.4;
-    }
-
-    // Phase 2: asset loading fills remaining 60%
-    if (!(assetsReady || forcedAssetsReady)) {
-      return 0.4 + (assetProgress / 100) * 0.6;
-    }
-
-    // Complete
-    return 1.0;
-  };
-
-  // Watch progress and force readiness if overall progress completes
-  useEffect(() => {
-    if (getOverallProgress() === 1) {
-      if (!assetsReady) setForcedAssetsReady(true);
-      if (!performanceReady) setForcedPerformanceReady(true);
-    }
-  }, [assetProgress, testProgress, assetsReady, performanceReady]);
-
-  // Safeguard: retry loading if progress stalls for too long
-  useEffect(() => {
-    if (isAppReady) return;
-
-    const progress = getOverallProgress();
-    if (progress >= 1) return;
-
-    const timer = setTimeout(() => {
-      if (getOverallProgress() === progress) {
-        console.warn('⚠️ Loading progress stalled, attempting recovery...');
-        if (!assetsReady && !forcedAssetsReady) retryAssets();
-        if (!performanceReady && !forcedPerformanceReady) forceRetest();
-      }
-    }, 15000);
-
-    return () => clearTimeout(timer);
-  }, [
-    assetProgress,
-    testProgress,
-    assetsReady,
-    performanceReady,
-    forcedAssetsReady,
-    forcedPerformanceReady,
-    retryAssets,
-    forceRetest,
-    isAppReady
-  ]);
-
   // Toggle body scrolling based on app readiness
   useEffect(() => {
     document.body.style.overflow = isAppReady ? 'auto' : 'hidden';
@@ -432,44 +386,9 @@ function App() {
     };
   }, [performanceProfile]);
 
-  // UPDATED: Show V2 loader overlay during initialization and asset loading
+  // Show LoaderV2 until both performance tests and assets are ready
   if (!isAppReady) {
-    const currentPhase = getCurrentPhase();
-    const overallProgress = getOverallProgress();
-
-    // Normalize dedicated progress values
-    const testingProgress = Math.min(testProgress / 40, 1); // 0-1 across full testing phase
-    const assetsProgress = assetProgress / 100;
-
-    // Phase-specific progress values
-    const testingSubProgress = (testProgress % 10) / 10; // 0-1 within current test
-
-    let phaseProgress = 0;
-    let subProgress = 0;
-
-    if (currentPhase === 'loading') {
-      phaseProgress = assetsProgress; // Only move purple ring during asset loading
-    } else if (currentPhase === 'testing') {
-      subProgress = testingSubProgress; // Only move yellow ring during performance tests
-    }
-
-    // Get current status message
-    let statusMessage = '';
-    if (currentPhase === 'testing') {
-      statusMessage = testStatus;
-    } else if (currentPhase === 'loading') {
-      statusMessage = currentAsset;
-    }
-
-    return (
-      <LoaderV2
-        phase={currentPhase}
-        overallProgress={overallProgress}
-        phaseProgress={phaseProgress}
-        subProgress={subProgress}
-        statusMessage={statusMessage}
-      />
-    );
+    return <LoaderV2 {...loaderSnap} />;
   }
 
   return (
