@@ -127,6 +127,10 @@ function App() {
     itemProgress
   } = useAssetLoaderV2(performanceReady ? performanceProfile : null);
 
+  // Forced readiness flags to unblock the app if progress reaches completion
+  const [forcedPerformanceReady, setForcedPerformanceReady] = useState(false);
+  const [forcedAssetsReady, setForcedAssetsReady] = useState(false);
+
   // Track when GLTF models have loaded via Fixed3DCanvas
   const fixedCanvasRef = useRef();
   
@@ -185,11 +189,11 @@ function App() {
   // UPDATED: App ready detection with V2 system
   // ========================================
   useEffect(() => {
-    if (performanceReady && assetsReady && !isAppReady) {
+    if ((performanceReady || forcedPerformanceReady) && (assetsReady || forcedAssetsReady) && !isAppReady) {
       if (import.meta.env.DEV) {
         console.log('🎯 App is ready - V2 system initialized:', {
-          performanceReady,
-          assetsReady,
+          performanceReady: performanceReady || forcedPerformanceReady,
+          assetsReady: assetsReady || forcedAssetsReady,
           performanceTier,
           performanceProfile: {
             renderScale: performanceProfile.renderScale,
@@ -200,7 +204,7 @@ function App() {
       }
       setIsAppReady(true);
     }
-  }, [performanceReady, assetsReady, isAppReady, performanceTier, performanceProfile]);
+  }, [performanceReady, assetsReady, isAppReady, performanceTier, performanceProfile, forcedPerformanceReady, forcedAssetsReady]);
 
   // ========================================
   // Enhanced callbacks with better logging
@@ -310,24 +314,60 @@ function App() {
   // ========================================
   const getCurrentPhase = () => {
     if (performanceInitializing) return 'testing';
-    if (isLoading || !assetsReady) return 'loading';
+    if (!(assetsReady || forcedAssetsReady)) return 'loading';
     return 'ready';
   };
 
   const getOverallProgress = () => {
     // Phase 1: performance testing contributes first 40%
-    if (!performanceReady) {
+    if (!(performanceReady || forcedPerformanceReady)) {
       return (testProgress / 40) * 0.4;
     }
 
     // Phase 2: asset loading fills remaining 60%
-    if (!assetsReady) {
+    if (!(assetsReady || forcedAssetsReady)) {
       return 0.4 + (assetProgress / 100) * 0.6;
     }
 
     // Complete
     return 1.0;
   };
+
+  // Watch progress and force readiness if overall progress completes
+  useEffect(() => {
+    if (getOverallProgress() === 1) {
+      if (!assetsReady) setForcedAssetsReady(true);
+      if (!performanceReady) setForcedPerformanceReady(true);
+    }
+  }, [assetProgress, testProgress, assetsReady, performanceReady]);
+
+  // Safeguard: retry loading if progress stalls for too long
+  useEffect(() => {
+    if (isAppReady) return;
+
+    const progress = getOverallProgress();
+    if (progress >= 1) return;
+
+    const timer = setTimeout(() => {
+      if (getOverallProgress() === progress) {
+        console.warn('⚠️ Loading progress stalled, attempting recovery...');
+        if (!assetsReady && !forcedAssetsReady) retryAssets();
+        if (!performanceReady && !forcedPerformanceReady) forceRetest();
+      }
+    }, 15000);
+
+    return () => clearTimeout(timer);
+  }, [
+    assetProgress,
+    testProgress,
+    assetsReady,
+    performanceReady,
+    forcedAssetsReady,
+    forcedPerformanceReady,
+    retryAssets,
+    forceRetest,
+    isAppReady
+  ]);
 
   // Toggle body scrolling based on app readiness
   useEffect(() => {
