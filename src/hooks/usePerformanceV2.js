@@ -43,15 +43,19 @@ export const usePerformanceV2 = () => {
       // Set up progress callback for real-time updates
       manager.setProgressCallback((percentage, message) => {
         if (mounted) {
-          setTestProgress(percentage);
+          const normalized = (percentage / 40) * 100;
+          setTestProgress(normalized);
           setTestStatus(message || '');
-          
-          // Update global HTML loader with testing progress
-          window.updateImmediateLoader?.({
-            test: percentage,
-            phase: 'Testing Performance',
-            currentAsset: message,
-          });
+
+          if (typeof window !== 'undefined' && typeof window.updateImmediateLoader === 'function') {
+            window.updateImmediateLoader({
+              phase: 'testing',
+              test: normalized,
+              overall: normalized * 0.5,
+              currentAsset: '',
+              message: message || ''
+            });
+          }
         }
       });
 
@@ -68,8 +72,16 @@ export const usePerformanceV2 = () => {
           setIsReady(true);
           setTestResults(manager.getTestResults());
           setIsInitializing(false);
-          // Testing phase contributes 40% of overall progress
-          setTestProgress(40);
+          setTestProgress(100);
+
+          if (typeof window !== 'undefined' && typeof window.updateImmediateLoader === 'function') {
+            window.updateImmediateLoader({
+              phase: 'loading',
+              test: 100,
+              overall: 50,
+              message: 'Testing complete. Loading assets...'
+            });
+          }
 
           if (import.meta.env.DEV) {
             console.log('🔧 Conservative performance testing complete:', {
@@ -81,11 +93,11 @@ export const usePerformanceV2 = () => {
         }
       } catch (err) {
         console.error('Performance testing failed:', err);
-        
+
         if (mounted) {
           setError(err.message);
           setIsInitializing(false);
-          setTestProgress(40);
+          setTestProgress(100);
           setTestStatus('Test failed - using safe defaults');
           
           // Fall back to low profile
@@ -144,15 +156,19 @@ export const usePerformanceV2 = () => {
 
     // Set up progress callback for retest
     manager.setProgressCallback((percentage, message) => {
-      setTestProgress(percentage);
+      const normalized = (percentage / 40) * 100;
+      setTestProgress(normalized);
       setTestStatus(message || '');
-      
-      // Update global HTML loader
-      window.updateImmediateLoader?.({
-        test: percentage,
-        phase: 'Retesting Performance',
-        currentAsset: message,
-      });
+
+      if (typeof window !== 'undefined' && typeof window.updateImmediateLoader === 'function') {
+        window.updateImmediateLoader({
+          phase: 'testing',
+          test: normalized,
+          overall: normalized * 0.5,
+          currentAsset: '',
+          message: message || ''
+        });
+      }
     });
 
     try {
@@ -167,7 +183,7 @@ export const usePerformanceV2 = () => {
       setTestResults(manager.getTestResults());
       setIsReady(true);
       setIsInitializing(false);
-      setTestProgress(40);
+      setTestProgress(100);
 
       if (import.meta.env.DEV) {
         console.log('🔧 Performance retest complete:', {
@@ -179,7 +195,7 @@ export const usePerformanceV2 = () => {
       console.error('Performance retest failed:', err);
       setError(err.message);
       setIsInitializing(false);
-      setTestProgress(40);
+      setTestProgress(100);
       setTestStatus('Retest failed');
       setIsReady(true); // Still mark as ready with fallback profile
     } finally {

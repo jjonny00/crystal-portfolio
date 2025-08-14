@@ -115,11 +115,15 @@ export const useAssetLoaderV2 = (performanceProfile) => {
     }));
 
     // Update global HTML loader immediately
-    window.updateImmediateLoader?.({
-      assets: overallProgress,
-      phase: 'Loading Assets',
-      currentAsset: currentAsset || 'Loading...',
-    });
+    if (typeof window !== 'undefined' && typeof window.updateImmediateLoader === 'function') {
+      window.updateImmediateLoader({
+        phase: 'loading',
+        assets: overallProgress,
+        overall: 50 + (Math.max(0, Math.min(100, overallProgress)) * 0.5),
+        currentAsset: currentAsset || '',
+        message: currentAsset ? `Loading ${currentAsset}` : 'Loading assets...'
+      });
+    }
 
     if (import.meta.env.DEV && type !== 'item') {
       console.log(`📊 Asset loading progress: ${type} - ${Math.round(overallProgress)}%`, {
@@ -209,11 +213,14 @@ export const useAssetLoaderV2 = (performanceProfile) => {
       }));
 
       // Update global loader
-      window.updateImmediateLoader?.({
-        assets: 100,
-        phase: 'Assets Ready',
-        currentAsset: 'All assets loaded',
-      });
+      if (typeof window !== 'undefined' && typeof window.updateImmediateLoader === 'function') {
+        window.updateImmediateLoader({
+          phase: 'ready',
+          assets: 100,
+          overall: 100,
+          message: 'All assets loaded'
+        });
+      }
 
       if (import.meta.env.DEV) {
         console.log('✅ Asset loading complete:', result);
