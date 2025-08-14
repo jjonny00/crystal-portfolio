@@ -75,7 +75,7 @@ const LoaderV2 = ({
     if (statusMessage) {
       return statusMessage;
     }
-    
+
     switch (phase) {
       case 'testing':
         return 'Finding optimal quality settings...';
@@ -83,6 +83,19 @@ const LoaderV2 = ({
         return 'Loading 3D models and textures...';
       default:
         return 'Preparing crystal experience...';
+    }
+  };
+
+  const getOuterLabel = () => {
+    switch (phase) {
+      case 'testing':
+        return 'Testing';
+      case 'loading':
+        return 'Assets';
+      case 'initializing':
+        return 'Initializing';
+      default:
+        return 'Total';
     }
   };
 
@@ -242,8 +255,8 @@ const LoaderV2 = ({
           fontSize: '0.875rem'
         }}>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ color: ringColors.outer, fontWeight: '600' }}>
-              Overall
+            <div style={{ color: ringColors.outer, fontWeight: '600', whiteSpace: 'nowrap' }}>
+              {getOuterLabel()}
             </div>
             <div style={{ color: 'rgba(244, 242, 230, 0.8)' }}>
               {Math.round(ringProgress.outer)}%
