@@ -88,28 +88,40 @@ const LoaderV2 = ({
     }
   };
 
-  const getOuterLabel = () => {
-    switch (phase) {
+  // Determine ring colors based on phase
+  // Blue represents testing, purple represents asset loading
+  const getRingColors = currentPhase => {
+    const colors = {
+      testing: '#2196f3', // Blue
+      assets: '#9c27b0',  // Purple
+      step: '#ffd600'     // Yellow
+    };
+
+    switch (currentPhase) {
       case 'testing':
-        return 'Testing';
+        // Highlight testing progress in blue
+        return {
+          outer: colors.assets,
+          middle: colors.testing,
+          inner: colors.step
+        };
       case 'loading':
-        return 'Assets';
-      case 'initializing':
-        return 'Initializing';
+        // Highlight asset loading in purple
+        return {
+          outer: colors.testing,
+          middle: colors.assets,
+          inner: colors.step
+        };
       default:
-        return 'Total';
+        return {
+          outer: colors.testing,
+          middle: colors.assets,
+          inner: colors.step
+        };
     }
   };
 
-  // Ring colors match phases:
-  // outer/blue = overall initialization
-  // middle/purple = asset loading
-  // inner/yellow = performance testing
-  const ringColors = {
-    outer: '#2196f3',  // Blue - overall progress
-    middle: '#9c27b0', // Purple - assets
-    inner: '#ffd600'   // Yellow - performance test
-  };
+  const ringColors = getRingColors(phase);
 
   const ringSize = 120;
   const strokeWidth = 8;
@@ -258,13 +270,13 @@ const LoaderV2 = ({
         }}>
           <div style={{ textAlign: 'center' }}>
             <div style={{ color: ringColors.outer, fontWeight: '600', whiteSpace: 'nowrap' }}>
-              {getOuterLabel()}
+              Overall
             </div>
             <div style={{ color: 'rgba(244, 242, 230, 0.8)' }}>
               {Math.round(ringProgress.outer)}%
             </div>
           </div>
-          
+
           <div style={{ textAlign: 'center' }}>
             <div style={{ color: ringColors.middle, fontWeight: '600' }}>
               {phase === 'testing' ? 'Testing' : phase === 'loading' ? 'Assets' : 'Phase'}
