@@ -55,6 +55,13 @@ export default class AssetLoaderV2 {
       if (this.errorCallback) {
         this.errorCallback(url, `Failed to load: ${url}`);
       }
+      // Notify progress callback so progress reflects this failure
+      this.progressCallback?.({
+        type: 'error',
+        url,
+        progress: this.getLoadingStats().progress,
+        currentAsset: `${this._getAssetNameFromUrl(url)} failed`
+      });
     };
   }
 
@@ -154,6 +161,13 @@ export default class AssetLoaderV2 {
             (error) => {
               console.error(`Failed to parse GLTF ${key}:`, error);
               this.failedAssets++;
+              this.progressCallback?.({
+                type: 'error',
+                key,
+                url,
+                progress: this.getLoadingStats().progress,
+                currentAsset: `${this._getAssetNameFromUrl(url)} failed`
+              });
               reject(error);
             }
           );
@@ -161,21 +175,42 @@ export default class AssetLoaderV2 {
           const error = new Error(`HTTP ${xhr.status}: ${xhr.statusText}`);
           console.error(`Failed to download GLTF ${key}:`, error);
           this.failedAssets++;
+          this.progressCallback?.({
+            type: 'error',
+            key,
+            url,
+            progress: this.getLoadingStats().progress,
+            currentAsset: `${this._getAssetNameFromUrl(url)} failed`
+          });
           reject(error);
         }
       };
-      
+
       xhr.onerror = () => {
         const error = new Error('Network error downloading GLTF');
         console.error(`Network error loading GLTF ${key}:`, error);
         this.failedAssets++;
+        this.progressCallback?.({
+          type: 'error',
+          key,
+          url,
+          progress: this.getLoadingStats().progress,
+          currentAsset: `${this._getAssetNameFromUrl(url)} failed`
+        });
         reject(error);
       };
-      
+
       xhr.ontimeout = () => {
         const error = new Error('Timeout downloading GLTF');
         console.error(`Timeout loading GLTF ${key}:`, error);
         this.failedAssets++;
+        this.progressCallback?.({
+          type: 'error',
+          key,
+          url,
+          progress: this.getLoadingStats().progress,
+          currentAsset: `${this._getAssetNameFromUrl(url)} failed`
+        });
         reject(error);
       };
 
@@ -235,6 +270,13 @@ export default class AssetLoaderV2 {
               URL.revokeObjectURL(blobUrl);
               console.error(`Failed to load texture ${key}:`, error);
               this.failedAssets++;
+              this.progressCallback?.({
+                type: 'error',
+                key,
+                url,
+                progress: this.getLoadingStats().progress,
+                currentAsset: `${this._getAssetNameFromUrl(url)} failed`
+              });
               reject(error);
             }
           );
@@ -242,21 +284,42 @@ export default class AssetLoaderV2 {
           const error = new Error(`HTTP ${xhr.status}: ${xhr.statusText}`);
           console.error(`Failed to download texture ${key}:`, error);
           this.failedAssets++;
+          this.progressCallback?.({
+            type: 'error',
+            key,
+            url,
+            progress: this.getLoadingStats().progress,
+            currentAsset: `${this._getAssetNameFromUrl(url)} failed`
+          });
           reject(error);
         }
       };
-      
+
       xhr.onerror = () => {
         const error = new Error('Network error downloading texture');
         console.error(`Network error loading texture ${key}:`, error);
         this.failedAssets++;
+        this.progressCallback?.({
+          type: 'error',
+          key,
+          url,
+          progress: this.getLoadingStats().progress,
+          currentAsset: `${this._getAssetNameFromUrl(url)} failed`
+        });
         reject(error);
       };
-      
+
       xhr.ontimeout = () => {
         const error = new Error('Timeout downloading texture');
         console.error(`Timeout loading texture ${key}:`, error);
         this.failedAssets++;
+        this.progressCallback?.({
+          type: 'error',
+          key,
+          url,
+          progress: this.getLoadingStats().progress,
+          currentAsset: `${this._getAssetNameFromUrl(url)} failed`
+        });
         reject(error);
       };
 
@@ -320,21 +383,42 @@ export default class AssetLoaderV2 {
           const error = new Error(`HTTP ${xhr.status}: ${xhr.statusText}`);
           console.error(`Failed to download HDRI ${key}:`, error);
           this.failedAssets++;
+          this.progressCallback?.({
+            type: 'error',
+            key,
+            url,
+            progress: this.getLoadingStats().progress,
+            currentAsset: `${this._getAssetNameFromUrl(url)} failed`
+          });
           reject(error);
         }
       };
-      
+
       xhr.onerror = () => {
         const error = new Error('Network error downloading HDRI');
         console.error(`Network error loading HDRI ${key}:`, error);
         this.failedAssets++;
+        this.progressCallback?.({
+          type: 'error',
+          key,
+          url,
+          progress: this.getLoadingStats().progress,
+          currentAsset: `${this._getAssetNameFromUrl(url)} failed`
+        });
         reject(error);
       };
-      
+
       xhr.ontimeout = () => {
         const error = new Error('Timeout downloading HDRI');
         console.error(`Timeout loading HDRI ${key}:`, error);
         this.failedAssets++;
+        this.progressCallback?.({
+          type: 'error',
+          key,
+          url,
+          progress: this.getLoadingStats().progress,
+          currentAsset: `${this._getAssetNameFromUrl(url)} failed`
+        });
         reject(error);
       };
 
@@ -369,7 +453,15 @@ export default class AssetLoaderV2 {
           .catch(error => {
             clearTimeout(timer);
             console.error(`Failed to load asset ${asset.key}:`, error);
-            // Don't reject – count failure and continue
+            // Notify progress callback so UI can update
+            this.progressCallback?.({
+              type: 'error',
+              key: asset.key,
+              url: asset.url,
+              progress: this.getLoadingStats().progress,
+              currentAsset: `${this._getAssetNameFromUrl(asset.url)} failed`
+            });
+            // Don't reject – continue loading other assets
             resolve(null);
           });
       });
