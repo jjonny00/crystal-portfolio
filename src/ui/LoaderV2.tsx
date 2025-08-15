@@ -11,13 +11,15 @@ interface LoaderProps {
   assetProgress?: number;  // 0..1 asset loading progress
   testProgress?: number;   // 0..1 performance testing progress
   statusMessage?: string;
+  exiting?: boolean;       // trigger fade-out animation
 }
 
 const LoaderV2: React.FC<LoaderProps> = ({
   initProgress = 0,
   assetProgress = 0,
   testProgress = 0,
-  statusMessage = ''
+  statusMessage = '',
+  exiting = false
 }) => {
   // Loader dimensions
   const size = 260; // matches CSS meter size
@@ -48,7 +50,7 @@ const LoaderV2: React.FC<LoaderProps> = ({
   const box = safeRadius * 2.2; // safeRadius*1.1*2
 
   return (
-    <div className={styles.overlay}>
+    <div className={`${styles.overlay} ${exiting ? styles.fadeOut : ''}`}>
       <h1 className={styles.headline}>
         Multifaceted Designer
         <span className={styles.subhead}></span>

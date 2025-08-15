@@ -97,6 +97,8 @@ function App() {
   // ========================================
   const [isAppReady, setIsAppReady] = useState(false);
   const [initProgress, setInitProgress] = useState(0);
+  const [exitLoader, setExitLoader] = useState(false);
+  const [showLoader, setShowLoader] = useState(true);
 
   // UPDATED: Use V2 performance hook
   const {
@@ -197,7 +199,7 @@ function App() {
   // UPDATED: App ready detection with V2 system
   // ========================================
   useEffect(() => {
-    if (performanceReady && assetsReady && initProgress >= 100 && !isAppReady) {
+    if (performanceReady && assetsReady && initProgress >= 100 && !exitLoader) {
       if (import.meta.env.DEV) {
         console.log('🎯 App is ready - V2 system initialized:', {
           performanceReady,
@@ -211,8 +213,11 @@ function App() {
         });
       }
       setIsAppReady(true);
+      setExitLoader(true);
+      // allow rings to animate to completion before fading out
+      setTimeout(() => setShowLoader(false), 600);
     }
-  }, [performanceReady, assetsReady, initProgress, isAppReady, performanceTier, performanceProfile]);
+  }, [performanceReady, assetsReady, initProgress, exitLoader, performanceTier, performanceProfile]);
 
   // ========================================
   // Enhanced callbacks with better logging
@@ -380,19 +385,19 @@ function App() {
     };
   }, [performanceProfile]);
 
-  // UPDATED: Show V2 loader overlay during initialization and asset loading
-  if (!isAppReady) {
-    let statusMessage = '';
-    if (initProgress < 100) {
-      statusMessage = 'Initializing application...';
-    } else if (!performanceReady) {
-      statusMessage = testStatus || 'Testing performance...';
-    } else if (!assetsReady) {
-      statusMessage = currentAsset || 'Loading assets...';
-    } else {
-      statusMessage = 'Finalizing...';
-    }
+  // UPDATED: Determine loader message and early return before app mounts
+  let statusMessage = '';
+  if (initProgress < 100) {
+    statusMessage = 'Initializing application...';
+  } else if (!performanceReady) {
+    statusMessage = testStatus || 'Testing performance...';
+  } else if (!assetsReady) {
+    statusMessage = currentAsset || 'Loading assets...';
+  } else {
+    statusMessage = 'Finalizing...';
+  }
 
+  if (!isAppReady && !exitLoader) {
     return (
       <LoaderV2
         initProgress={initProgress / 100}
@@ -591,6 +596,16 @@ function App() {
           debugInfo={debugInfo}
           onForceRetest={forceRetest}
           onClearCache={clearCache}
+        />
+      )}
+
+      {showLoader && (
+        <LoaderV2
+          initProgress={exitLoader ? 1 : initProgress / 100}
+          assetProgress={exitLoader ? 1 : assetProgress / 100}
+          testProgress={exitLoader ? 1 : testProgress / 100}
+          statusMessage={exitLoader ? 'Launching...' : statusMessage}
+          exiting={exitLoader}
         />
       )}
     </>
