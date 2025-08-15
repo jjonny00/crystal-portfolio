@@ -96,13 +96,13 @@ function App() {
   // UPDATED: V2 Performance and Asset Loading System
   // ========================================
   const [isAppReady, setIsAppReady] = useState(false);
+  const [initProgress, setInitProgress] = useState(0);
 
   // UPDATED: Use V2 performance hook
   const {
     profile: performanceProfile,
     tier: performanceTier,
     isReady: performanceReady,
-    isInitializing: performanceInitializing,
     error: performanceError,
     testResults,
     testProgress,
@@ -120,7 +120,6 @@ function App() {
     loadedAssets,
     totalAssets,
     errors: assetErrors,
-    isLoading,
     isReady: assetsReady,
     hasErrors: assetHasErrors,
     retry: retryAssets
@@ -156,6 +155,20 @@ function App() {
   });
   const [postProcessingConfig, setPostProcessingConfig] = useState(config.postProcessing);
 
+  // Simulate application initialization progress for loader
+  useEffect(() => {
+    let frame;
+    const step = () => {
+      setInitProgress((p) => {
+        if (p >= 100) return 100;
+        frame = requestAnimationFrame(step);
+        return Math.min(100, p + 2);
+      });
+    };
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
   // Initialize effects from the detected device profile
   useEffect(() => {
     if (performanceProfile?.postProcessing) {
@@ -184,7 +197,7 @@ function App() {
   // UPDATED: App ready detection with V2 system
   // ========================================
   useEffect(() => {
-    if (performanceReady && assetsReady && !isAppReady) {
+    if (performanceReady && assetsReady && initProgress >= 100 && !isAppReady) {
       if (import.meta.env.DEV) {
         console.log('🎯 App is ready - V2 system initialized:', {
           performanceReady,
@@ -199,7 +212,7 @@ function App() {
       }
       setIsAppReady(true);
     }
-  }, [performanceReady, assetsReady, isAppReady, performanceTier, performanceProfile]);
+  }, [performanceReady, assetsReady, initProgress, isAppReady, performanceTier, performanceProfile]);
 
   // ========================================
   // Enhanced callbacks with better logging
@@ -304,27 +317,6 @@ function App() {
     }
   }, [perfDebug]);
 
-  // ========================================
-  // UPDATED: V2 Loading screen with proper phase detection
-  // ========================================
-  const getCurrentPhase = () => {
-    if (performanceInitializing) return 'testing';
-    if (isLoading || !assetsReady) return 'loading';
-    return 'ready';
-  };
-
-  const getOverallProgress = () => {
-    if (!performanceReady) {
-      // Performance testing accounts for 40% of total progress
-      return (testProgress / 100) * 0.4;
-    }
-    if (!assetsReady) {
-      // Asset loading covers the remaining 60%
-      return 0.4 + (assetProgress / 100) * 0.6;
-    }
-    return 1.0;
-  };
-
   // Toggle body scrolling based on app readiness
   useEffect(() => {
     document.body.style.overflow = isAppReady ? 'auto' : 'hidden';
@@ -390,33 +382,23 @@ function App() {
 
   // UPDATED: Show V2 loader overlay during initialization and asset loading
   if (!isAppReady) {
-    const currentPhase = getCurrentPhase();
-    const overallProgress = getOverallProgress();
-    
-    // Calculate phase-specific progress
-    let phaseProgress = 0;
-    if (currentPhase === 'testing') {
-      phaseProgress = testProgress / 100;
-    } else if (currentPhase === 'loading') {
-      phaseProgress = assetProgress / 100;
-    }
-
-    // Get current status message
     let statusMessage = '';
-    if (currentPhase === 'testing') {
+    if (initProgress < 100) {
+      statusMessage = 'Initializing application...';
+    } else if (!performanceReady) {
       statusMessage = testStatus || 'Testing performance...';
-    } else if (currentPhase === 'loading') {
+    } else if (!assetsReady) {
       statusMessage = currentAsset || 'Loading assets...';
+    } else {
+      statusMessage = 'Finalizing...';
     }
 
     return (
       <LoaderV2
-        phase={currentPhase}
-        phaseProgress={phaseProgress}
-        overallProgress={overallProgress}
+        initProgress={initProgress / 100}
+        assetProgress={assetProgress / 100}
+        testProgress={testProgress / 100}
         statusMessage={statusMessage}
-        testingProgress={testProgress / 100}
-        loadingProgress={assetProgress / 100}
       />
     );
   }

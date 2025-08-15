@@ -1,5 +1,5 @@
 // src/ui/LoaderV2.tsx
-// Radial loader with phase specific rings and diamond center
+// Radial loader showing initialization, asset loading, and performance testing
 
 import React from 'react';
 import styles from './LoaderV2.module.css';
@@ -7,51 +7,40 @@ import styles from './LoaderV2.module.css';
 const clamp = (v: number) => Math.min(1, Math.max(0, v));
 
 interface LoaderProps {
-  phase?: 'starting' | 'loading' | 'testing';
-  phaseProgress?: number; // 0..1 for active phase
-  overallProgress?: number; // 0..1 overall
+  initProgress?: number;   // 0..1 initialization progress
+  assetProgress?: number;  // 0..1 asset loading progress
+  testProgress?: number;   // 0..1 performance testing progress
   statusMessage?: string;
-  testingProgress?: number; // optional explicit progress for testing ring
-  loadingProgress?: number; // optional explicit progress for loading ring
 }
 
 const LoaderV2: React.FC<LoaderProps> = ({
-  phase = 'starting',
-  phaseProgress = 0,
-  overallProgress = 0,
-  statusMessage = '',
-  testingProgress = 0,
-  loadingProgress = 0
+  initProgress = 0,
+  assetProgress = 0,
+  testProgress = 0,
+  statusMessage = ''
 }) => {
   // Loader dimensions
   const size = 260; // matches CSS meter size
-  const stroke = parseFloat(
-    getComputedStyle(document.documentElement).getPropertyValue('--ringStroke')
-  ) || 6;
+  const stroke =
+    parseFloat(
+      getComputedStyle(document.documentElement).getPropertyValue('--ringStroke')
+    ) || 6;
 
   const radii = [
     size / 2 - stroke / 2,
-    size / 2 - stroke * 3 / 2,
-    size / 2 - stroke * 5 / 2
+    size / 2 - (stroke * 3) / 2,
+    size / 2 - (stroke * 5) / 2
   ];
 
-  // Determine per-ring progress
-  let testing = phase === 'testing' ? phaseProgress : testingProgress;
-  let loading = phase === 'loading' ? phaseProgress : loadingProgress;
-
-  // Lock completed rings at 100%
-  if (phase === 'loading' || phase === 'starting') {
-    testing = 1;
-  }
-  if (phase === 'starting') {
-    loading = 0;
-  }
-
   const ringProgress = {
-    outer: clamp(overallProgress) * 100,
-    middle: clamp(loading) * 100,
-    inner: clamp(testing) * 100
+    outer: clamp(initProgress) * 100,
+    middle: clamp(assetProgress) * 100,
+    inner: clamp(testProgress) * 100
   };
+
+  const overall = Math.round(
+    (ringProgress.outer + ringProgress.middle + ringProgress.inner) / 3
+  );
 
   // Diamond sizing based on spec
   const gap = 10;
@@ -120,12 +109,16 @@ const LoaderV2: React.FC<LoaderProps> = ({
           </g>
         </svg>
 
-        <div className={styles.percent}>{Math.round(ringProgress.outer)}%</div>
+        <div className={styles.percent}>{overall}%</div>
       </div>
 
       <p className={styles.status} aria-live="polite">
         {statusMessage}
-        <span className={styles.dots}><i/><i/><i/></span>
+        <span className={styles.dots}>
+          <i />
+          <i />
+          <i />
+        </span>
       </p>
     </div>
   );
