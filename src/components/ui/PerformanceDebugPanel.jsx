@@ -137,6 +137,10 @@ const PerformanceDebugPanel = ({
           <div>Initialized: {hasInitialized ? '✅' : '❌'}</div>
           <div>Profile Applied: {initialProfileApplied ? '✅' : '❌'}</div>
           <div>Is Initializing: {debugInfo?.isInitializing ? '⏳' : '✅'}</div>
+          <div>Test Progress: {Math.round(debugInfo?.testProgress || 0)}%</div>
+          {debugInfo?.testStatus && (
+            <div>Test Status: {debugInfo.testStatus}</div>
+          )}
           <div>Has Cache: {debugInfo?.hasCache ? '✅' : '❌'}</div>
           <div>Manager Ready: {debugInfo?.managerReady ? '✅' : '❌'}</div>
           {debugInfo?.error && (
