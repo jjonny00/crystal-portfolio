@@ -315,10 +315,12 @@ function App() {
 
   const getOverallProgress = () => {
     if (!performanceReady) {
-      return testProgress / 100;
+      // Performance testing accounts for 40% of total progress
+      return (testProgress / 100) * 0.4;
     }
     if (!assetsReady) {
-      return 0.4 + (assetProgress / 100) * 0.6; // Testing = 40%, Loading = 60%
+      // Asset loading covers the remaining 60%
+      return 0.4 + (assetProgress / 100) * 0.6;
     }
     return 1.0;
   };
@@ -402,9 +404,9 @@ function App() {
     // Get current status message
     let statusMessage = '';
     if (currentPhase === 'testing') {
-      statusMessage = testStatus;
+      statusMessage = testStatus || 'Testing performance...';
     } else if (currentPhase === 'loading') {
-      statusMessage = currentAsset;
+      statusMessage = currentAsset || 'Loading assets...';
     }
 
     return (

@@ -1,10 +1,11 @@
 :root{
   --bg: #0B0B0C;
-  --ring1: #CFECDD;  /* outer = overall (mint) */
-  --ring2: #CDBCF6;  /* middle = assets (lavender) */
-  --ring3: #F7DBB1;  /* inner = performance (peach) */
+  --ring1: #64ffda;  /* outer = initialization (teal) */
+  --ring2: #bb86fc;  /* middle = assets (purple) */
+  --ring3: #ff64b0;  /* inner = performance (pink) */
   --ringTrack: rgba(255,255,255,0.12);
   --text: #F0ECE0;
+  --offwhite: #F4F2E6;
   --ringStroke: 6;
 }
 
@@ -20,11 +21,13 @@
 
 .headline{
   margin: 0 0 14px 0;
-  color: var(--text);
   font-family: "Times New Roman", ui-serif, Georgia, serif;
   font-size: clamp(26px, 4vw, 48px);
   font-weight: 700;
   text-align: center; letter-spacing: 0.02em;
+  background: linear-gradient(90deg, var(--ring1), var(--ring2));
+  -webkit-background-clip: text;
+  color: transparent;
 }
 .subhead{
   display: block; margin-top: 4px;
@@ -39,6 +42,18 @@
 .progress{ transition: stroke-dashoffset 0.35s ease-out, stroke 0.2s ease-out; }
 
 .diamond{ filter: drop-shadow(0 0 10px rgba(255,255,230,0.18)); }
+
+.percent{
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--offwhite);
+  pointer-events: none;
+}
 
 .status{
   margin-top: 10px; color: var(--text); font-size: 12px; letter-spacing: 0.06em; text-align: center;
