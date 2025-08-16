@@ -4,6 +4,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { animated, useSpring } from '@react-spring/web';
+import Headline from '../ui/Headline';
 
 /**
  * ProjectFocusSection Component
@@ -96,7 +97,7 @@ const ProjectFocusSection = ({
   return (
     <section 
       id={`project-${project.facetKey}`}
-      className="scroll-section"
+      className="scroll-section project"
       style={{
         height: '100vh',
         scrollSnapAlign: 'start',
@@ -165,7 +166,7 @@ const ProjectFocusSection = ({
                 }}>
                   {project.facetKey}
                 </div>
-                <h1 style={{
+                {/* <h1 style={{
                   fontSize: isMobile ? 'clamp(1.75rem, 6vw, 2.5rem)' : 'clamp(2rem, 4vw, 3rem)',
                   fontWeight: '400',
                   color: 'white',
@@ -174,7 +175,19 @@ const ProjectFocusSection = ({
                   fontFamily: '"ivypresto-display", "Playfair Display", Georgia, "Times New Roman", serif'
                 }}>
                   {project.title}
-                </h1>
+                </h1> */}
+                <Headline 
+                  as="h1"
+                  style={{
+                    fontSize: isMobile ? 'clamp(1.75rem, 6vw, 2.5rem)' : 'clamp(2rem, 4vw, 3rem)',
+                    fontWeight: '400',
+                    margin: 0,
+                    lineHeight: '1.1',
+                    fontFamily: '"ivypresto-display", "Playfair Display", Georgia, "Times New Roman", serif'
+                  }}
+                >
+                  {project.title}
+                </Headline>
               </div>
             </div>
           </animated.div>

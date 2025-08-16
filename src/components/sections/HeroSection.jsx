@@ -4,6 +4,9 @@
 import React, { useState, useEffect } from 'react';
 import { animated, useSpring } from '@react-spring/web';
 
+// Cinematic Movie Titles Effect
+import Headline from '../ui/Headline';
+
 /**
  * Hero Section Component
  * Full viewport height introduction with crystal metaphor
@@ -97,7 +100,8 @@ const HeroSection = ({
   return (
     <section 
       id="hero"
-      className="scroll-section"
+      className="scroll-section project"
+      data-headline-color='#64ffda'
       style={{
         height: '100vh',
         scrollSnapAlign: 'start',
@@ -122,7 +126,7 @@ const HeroSection = ({
       }}>
         
         {/* Main headline */}
-        <animated.h1 
+        {/* <animated.h1 
           style={{
             ...contentSpring,
             fontSize: 'clamp(2.5rem, 8vw, 5rem)',
@@ -138,7 +142,23 @@ const HeroSection = ({
           }}
         >
           Multifaceted Designer
-        </animated.h1>
+        </animated.h1> */}
+
+        {/* Main headline */}
+        <Headline 
+          as="h1"
+          style={{
+            fontSize: 'clamp(2.5rem, 8vw, 5rem)',
+            fontWeight: '400',
+            marginBottom: '1.5rem',
+            lineHeight: '1.1',
+            fontFamily: '"ivypresto-display", "Playfair Display", Georgia, "Times New Roman", serif'
+          }}
+        >
+          Multifaceted Designer
+        </Headline>
+
+        
         
         {/* Subtitle with crystal metaphor */}
         <animated.div style={subtitleSpring}>

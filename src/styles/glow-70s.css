@@ -1,0 +1,70 @@
+:root{
+  /* Default headline color - you can change this */
+  --headline-ink: #64ffda;
+
+  /* Derived glow colors—set by JS from --headline-ink, but provide safe fallbacks */
+  --headline-glow1: #40e0d0; /* near halo */
+  --headline-glow2: #008080; /* far halo */
+
+  --headline-bg: #000;
+}
+
+/* Reusable headline class */
+.headline-70s{
+  position: relative;
+  display: inline-block;
+  color: var(--headline-ink);
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  /* crisp face + soft perimeter */
+  text-shadow:
+    0 0 0.5px rgba(0,0,0,.2),
+    0 1px 0 rgba(0,0,0,.35),
+    0 0 4px  var(--headline-glow1),
+    0 0 10px var(--headline-glow1),
+    0 0 22px var(--headline-glow2),
+    0 0 38px var(--headline-glow2);
+}
+
+/* Bloom duplicate behind the text */
+.headline-70s::after{
+  content: attr(data-text);
+  position: absolute; 
+  inset: 0;
+  color: var(--headline-ink);
+  mix-blend-mode: screen;
+  filter: blur(6px) saturate(105%);
+  opacity: .85;
+  z-index: -1;
+}
+
+/* Subtle chroma fringe for optical feel */
+.headline-70s::before{
+  content: attr(data-text);
+  position: absolute; 
+  inset: 0;
+  color: var(--headline-ink);
+  text-shadow:
+    1px 0 rgba(255,20,0,.35),
+   -1px 0 rgba(0,180,255,.28);
+  opacity: .6;
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
+/* Optional micro flicker */
+@keyframes projectorFlicker {
+  0%,100%{ filter: brightness(1); }
+  50%{ filter: brightness(1.03); }
+}
+
+.headline-70s{ 
+  animation: projectorFlicker 1.1s steps(2,end) infinite; 
+}
+
+@media (prefers-reduced-motion: reduce){
+  .headline-70s{ 
+    animation: none; 
+  }
+}

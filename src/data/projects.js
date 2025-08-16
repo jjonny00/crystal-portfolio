@@ -1,4 +1,5 @@
 // src/data/projects.js
+// UPDATED: Added headlineColor property for 1970s glow effect
 // Project data structure that maps to crystal facets
 
 /**
@@ -13,6 +14,7 @@ export const projects = [
     description: "A dashboard designed with user needs at the forefront, featuring intuitive navigation and data visualization. Uses research-driven design to simplify complex data for quick decision making.",
     technologies: ["React", "D3.js", "Figma", "User Research"],
     color: "#64ffda", // Match the facet color
+    headlineColor: "#64ffda", // NEW: Color for 1970s glow headlines
     imageUrl: "/assets/projects/user-dashboard.jpg",
     demoUrl: "https://demo-url.com/dashboard",
     githubUrl: "https://github.com/yourusername/user-dashboard",
@@ -28,6 +30,7 @@ export const projects = [
     description: "A platform that guides users through narratives with compelling visuals and interaction. Creates immersive experiences that communicate complex ideas through story-driven interfaces.",
     technologies: ["Three.js", "GSAP", "React", "Storyboarding"],
     color: "#bb86fc", // Match the facet color
+    headlineColor: "#bb86fc", // NEW: Color for 1970s glow headlines
     imageUrl: "/assets/projects/storytelling-platform.jpg",
     demoUrl: "https://demo-url.com/storytelling",
     githubUrl: "https://github.com/yourusername/storytelling-platform",
@@ -43,6 +46,7 @@ export const projects = [
     description: "A meticulously crafted design system with attention to detail and consistency. Provides a foundation for scalable product development with precision-engineered components.",
     technologies: ["Styled Components", "Storybook", "Figma", "Design Tokens"],
     color: "#03dac6", // Match the facet color
+    headlineColor: "#03dac6", // NEW: Color for 1970s glow headlines
     imageUrl: "/assets/projects/design-system.jpg",
     demoUrl: "https://demo-url.com/design-system",
     githubUrl: "https://github.com/yourusername/design-system",
@@ -58,6 +62,7 @@ export const projects = [
     description: "A comprehensive component library with scalable architecture and documentation. Built for maximum reusability and maintainability across multiple applications and teams.",
     technologies: ["React", "TypeScript", "Monorepo", "CI/CD"],
     color: "#cf6679", // Match the facet color
+    headlineColor: "#cf6679", // NEW: Color for 1970s glow headlines
     imageUrl: "/assets/projects/component-architecture.jpg",
     demoUrl: "https://demo-url.com/components",
     githubUrl: "https://github.com/yourusername/component-architecture",
@@ -73,6 +78,7 @@ export const projects = [
     description: "A tool designed to empower teams and facilitate collaboration across disciplines. Streamlines communication and workflow between design, development, and product teams.",
     technologies: ["Next.js", "Firebase", "Tailwind CSS", "User Testing"],
     color: "#ffd600", // Match the facet color
+    headlineColor: "#ffd600", // NEW: Color for 1970s glow headlines
     imageUrl: "/assets/projects/collaboration-platform.jpg",
     demoUrl: "https://demo-url.com/collaboration",
     githubUrl: "https://github.com/yourusername/collaboration-platform",
@@ -88,6 +94,7 @@ export const projects = [
     description: "A collection of experimental interaction prototypes exploring new paradigms. Pushes boundaries with cutting-edge techniques and technologies to discover novel ways of engaging users.",
     technologies: ["WebGL", "React Three Fiber", "Shaders", "Motion Design"],
     color: "#ff7043", // Match the facet color
+    headlineColor: "#ff7043", // NEW: Color for 1970s glow headlines
     imageUrl: "/assets/projects/experimental-interactions.jpg",
     demoUrl: "https://demo-url.com/experiments",
     githubUrl: "https://github.com/yourusername/experimental-interactions",
@@ -123,6 +130,16 @@ export const getProjectById = (id) => {
 export const getProjectColorByFacetKey = (facetKey) => {
   const project = getProjectByFacetKey(facetKey);
   return project ? project.color : '#64ffda'; // Default color
+};
+
+/**
+ * NEW: Get headline color by facet key for 1970s glow effect
+ * @param {string} facetKey - The facet key to lookup
+ * @returns {string} Hex color for headline glow
+ */
+export const getProjectHeadlineColorByFacetKey = (facetKey) => {
+  const project = getProjectByFacetKey(facetKey);
+  return project ? project.headlineColor : '#64ffda'; // Default headline color
 };
 
 /**

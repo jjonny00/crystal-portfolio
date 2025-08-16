@@ -35,6 +35,10 @@ import PerformanceDebugPanel from './components/ui/PerformanceDebugPanel';
 // Configuration and utilities
 import * as defaultConfig from './crystalConfig';
 
+// Cinematic Movie Titles Effects
+import useProjectHeadlineColor from './hooks/useProjectHeadlineColor';
+import './styles/glow-70s.css';
+
 // Convert UI config into animation config
 const buildAnimationConfig = (uiConfig) => {
   const toVec = (arr) => new Vector3(...arr);
