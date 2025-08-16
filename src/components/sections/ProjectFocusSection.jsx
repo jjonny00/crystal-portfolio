@@ -1,24 +1,27 @@
 // src/components/sections/ProjectFocusSection.jsx
-// Phase 2.3: Individual Project Focus Areas
-// UPDATED: Removed "View Full Project" button and modal functionality
+// FIXED: Individual Project Focus Areas with proper headline color integration
 
 import React, { useState, useEffect } from 'react';
 import { animated, useSpring } from '@react-spring/web';
 import Headline from '../ui/Headline';
 
+// FIXED: Import the headline color hook
+import useProjectHeadlineColor from '../../hooks/useProjectHeadlineColor';
+
 /**
  * ProjectFocusSection Component
  * Individual full-viewport sections for each project
  * Maps directly to crystal facets with focused camera view
- * UPDATED: Removed modal functionality
  */
 const ProjectFocusSection = ({ 
   project,
   visible = true,
   scrollProgress = 0,
-  // REMOVED: onViewProject prop since we're not using modals
   isMobile = false
 }) => {
+  // FIXED: Initialize the headline color hook
+  useProjectHeadlineColor();
+  
   const [imageLoaded, setImageLoaded] = useState(false);
   const [hasAnimated, setHasAnimated] = useState(false);
 
@@ -54,16 +57,12 @@ const ProjectFocusSection = ({
     config: { tension: 280, friction: 26 }
   });
 
-  // REMOVED: ctaSpring since we're not showing the button anymore
-
   const imageSpring = useSpring({
     opacity: visible && imageLoaded ? 1 : 0,
     transform: visible && imageLoaded ? 'scale(1)' : 'scale(1.1)',
     delay: visible ? 300 : 0,
     config: { tension: 200, friction: 25 }
   });
-
-  // REMOVED: handleViewProject since we're not using modals
 
   // Generate project stats based on project data
   const getProjectStats = () => {
@@ -98,6 +97,7 @@ const ProjectFocusSection = ({
     <section 
       id={`project-${project.facetKey}`}
       className="scroll-section project"
+      data-headline-color={project.headlineColor || project.color}
       style={{
         height: '100vh',
         scrollSnapAlign: 'start',
@@ -166,16 +166,8 @@ const ProjectFocusSection = ({
                 }}>
                   {project.facetKey}
                 </div>
-                {/* <h1 style={{
-                  fontSize: isMobile ? 'clamp(1.75rem, 6vw, 2.5rem)' : 'clamp(2rem, 4vw, 3rem)',
-                  fontWeight: '400',
-                  color: 'white',
-                  margin: 0,
-                  lineHeight: '1.1',
-                  fontFamily: '"ivypresto-display", "Playfair Display", Georgia, "Times New Roman", serif'
-                }}>
-                  {project.title}
-                </h1> */}
+                
+                {/* FIXED: Use Headline component with proper color application */}
                 <Headline 
                   as="h1"
                   style={{
@@ -320,7 +312,7 @@ const ProjectFocusSection = ({
               </div>
             </div>
 
-            {/* OPTIONAL: External links if available */}
+            {/* External links if available */}
             {(project.demoUrl || project.githubUrl) && (
               <div style={{
                 display: 'flex',
@@ -365,8 +357,6 @@ const ProjectFocusSection = ({
               </div>
             )}
           </animated.div>
-
-          {/* REMOVED: Call to Action button section */}
         </div>
 
         {/* Project Visual/Preview */}

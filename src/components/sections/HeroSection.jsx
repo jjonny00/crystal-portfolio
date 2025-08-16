@@ -1,8 +1,11 @@
 // src/components/sections/HeroSection.jsx
-// Phase 2.1: Hero Section with crystal-themed introduction
+// FIXED: Hero Section with properly integrated 1970s glow effect
 
 import React, { useState, useEffect } from 'react';
 import { animated, useSpring } from '@react-spring/web';
+
+// FIXED: Import the headline color hook
+import useProjectHeadlineColor from '../../hooks/useProjectHeadlineColor';
 
 // Cinematic Movie Titles Effect
 import Headline from '../ui/Headline';
@@ -17,6 +20,9 @@ const HeroSection = ({
   scrollProgress = 0,
   onScrollHint = null 
 }) => {
+  // FIXED: Initialize the headline color hook
+  useProjectHeadlineColor();
+  
   const [hasScrolled, setHasScrolled] = useState(false);
   
   // Track if user has started scrolling to hide scroll hint
@@ -101,7 +107,7 @@ const HeroSection = ({
     <section 
       id="hero"
       className="scroll-section project"
-      data-headline-color='#4400ff'
+      data-headline-color='#ff8800'
       style={{
         height: '100vh',
         scrollSnapAlign: 'start',
@@ -125,40 +131,21 @@ const HeroSection = ({
         width: '100%',
       }}>
         
-        {/* Main headline */}
-        {/* <animated.h1 
-          style={{
-            ...contentSpring,
-            fontSize: 'clamp(2.5rem, 8vw, 5rem)',
-            fontWeight: '400',
-            marginBottom: '1.5rem',
-            background: 'linear-gradient(135deg, #64ffda 0%, #bb86fc 50%, #03dac6 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            backgroundClip: 'text',
-            lineHeight: '1.1',
-            textShadow: '0 4px 20px rgba(100, 255, 218, 0.3)',
-            fontFamily: '"ivypresto-display", "Playfair Display", Georgia, "Times New Roman", serif'
-          }}
-        >
-          Multifaceted Designer
-        </animated.h1> */}
-
-        {/* Main headline */}
-        <Headline 
-          as="h1"
-          style={{
-            fontSize: 'clamp(2.5rem, 8vw, 5rem)',
-            fontWeight: '400',
-            marginBottom: '1.5rem',
-            lineHeight: '1.1',
-            fontFamily: '"ivypresto-display", "Playfair Display", Georgia, "Times New Roman", serif'
-          }}
-        >
-          Multifaceted Designer
-        </Headline>
-
-        
+        {/* FIXED: Main headline with proper animation wrapper */}
+        <animated.div style={contentSpring}>
+          <Headline 
+            as="h1"
+            style={{
+              fontSize: 'clamp(2.5rem, 8vw, 5rem)',
+              fontWeight: '400',
+              marginBottom: '1.5rem',
+              lineHeight: '1.1',
+              fontFamily: '"ivypresto-display", "Playfair Display", Georgia, "Times New Roman", serif'
+            }}
+          >
+            Multifaceted Designer
+          </Headline>
+        </animated.div>
         
         {/* Subtitle with crystal metaphor */}
         <animated.div style={subtitleSpring}>
@@ -271,34 +258,6 @@ const HeroSection = ({
           opacity: 0.6
         }} />
       </animated.div>
-
-      {/* Background gradient overlay for better text contrast */}
-      {/* <div style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'radial-gradient(circle at center, rgba(5, 5, 5, 0.3) 0%, rgba(5, 5, 5, 0.7) 100%)',
-        zIndex: 1,
-        pointerEvents: 'none'
-      }} /> */}
-      
-      {/* Subtle animated grain texture for premium feel */}
-      {/* <div style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: `
-          radial-gradient(circle at 25% 25%, rgba(100, 255, 218, 0.05) 0%, transparent 50%),
-          radial-gradient(circle at 75% 75%, rgba(187, 134, 252, 0.05) 0%, transparent 50%)
-        `,
-        zIndex: 2,
-        pointerEvents: 'none',
-        opacity: 0.8
-      }} /> */}
     </section>
   );
 };

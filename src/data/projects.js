@@ -14,7 +14,7 @@ export const projects = [
     description: "A dashboard designed with user needs at the forefront, featuring intuitive navigation and data visualization. Uses research-driven design to simplify complex data for quick decision making.",
     technologies: ["React", "D3.js", "Figma", "User Research"],
     color: "#64ffda", // Match the facet color
-    headlineColor: "#2110bb", // NEW: Color for 1970s glow headlines
+    headlineColor: "#64ffda", // NEW: Color for 1970s glow headlines
     imageUrl: "/assets/projects/user-dashboard.jpg",
     demoUrl: "https://demo-url.com/dashboard",
     githubUrl: "https://github.com/yourusername/user-dashboard",
