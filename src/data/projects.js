@@ -14,7 +14,7 @@ export const projects = [
     description: "A dashboard designed with user needs at the forefront, featuring intuitive navigation and data visualization. Uses research-driven design to simplify complex data for quick decision making.",
     technologies: ["React", "D3.js", "Figma", "User Research"],
     color: "#64ffda", // Match the facet color
-    headlineColor: "#64ffda", // NEW: Color for 1970s glow headlines
+    headlineColor: "#2110bb", // NEW: Color for 1970s glow headlines
     imageUrl: "/assets/projects/user-dashboard.jpg",
     demoUrl: "https://demo-url.com/dashboard",
     githubUrl: "https://github.com/yourusername/user-dashboard",
@@ -129,7 +129,7 @@ export const getProjectById = (id) => {
  */
 export const getProjectColorByFacetKey = (facetKey) => {
   const project = getProjectByFacetKey(facetKey);
-  return project ? project.color : '#64ffda'; // Default color
+  return project ? project.color : '#028700'; // Default color
 };
 
 /**
@@ -139,7 +139,7 @@ export const getProjectColorByFacetKey = (facetKey) => {
  */
 export const getProjectHeadlineColorByFacetKey = (facetKey) => {
   const project = getProjectByFacetKey(facetKey);
-  return project ? project.headlineColor : '#64ffda'; // Default headline color
+  return project ? project.headlineColor : '#ffd364'; // Default headline color
 };
 
 /**

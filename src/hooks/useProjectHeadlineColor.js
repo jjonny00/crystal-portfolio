@@ -1,70 +1,142 @@
 // src/hooks/useProjectHeadlineColor.js
-// Observes project sections and updates headline glow colors
+// FIXED: Enhanced version with better debugging and color application
 
 import { useEffect } from 'react';
 import { deriveGlowFromBase } from '../utils/color';
 import { getProjectColorByFacetKey } from '../data/projects';
 
-// Default headline color - you can change this
-const DEFAULT_HEADLINE_COLOR = '#64ffda';
+// Default headline color
+const DEFAULT_HEADLINE_COLOR = '#6200ff';
 
-export default function useProjectHeadlineColor(){
+export default function useProjectHeadlineColor() {
   useEffect(() => {
     const root = document.documentElement;
     
-    const apply = (hex) => {
-      if (!/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(hex)) return;
+    // Helper to apply colors with validation and logging
+    const apply = (hex, source = 'unknown') => {
+      if (!/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(hex)) {
+        console.warn('🎨 Invalid hex color:', hex, 'from source:', source);
+        return;
+      }
+      
       const { glow1, glow2 } = deriveGlowFromBase(hex);
+      
       root.style.setProperty('--headline-ink', hex);
       root.style.setProperty('--headline-glow1', glow1);
       root.style.setProperty('--headline-glow2', glow2);
+      
+      console.log('🎨 Applied headline color:', {
+        source,
+        ink: hex,
+        glow1,
+        glow2
+      });
     };
 
     // Set initial default color
-    apply(DEFAULT_HEADLINE_COLOR);
+    apply(DEFAULT_HEADLINE_COLOR, 'initial default');
 
-    // Look for both .project sections (for facet-based colors) and sections with explicit data-headline-color
+    // Look for sections that should trigger color changes
     const sections = Array.from(document.querySelectorAll('.project, [data-headline-color]'));
-    if (!sections.length) return;
+    
+    if (!sections.length) {
+      console.warn('🎨 No sections found with .project class or data-headline-color attribute');
+      return;
+    }
 
-    const io = new IntersectionObserver((entries) => {
+    console.log('🎨 Found sections for headline colors:', sections.map(s => ({
+      id: s.id,
+      classes: s.className,
+      explicitColor: s.getAttribute('data-headline-color')
+    })));
+
+    const observer = new IntersectionObserver((entries) => {
+      // Find the most visible entry
       const visible = entries
         .filter(e => e.isIntersecting)
-        .sort((a,b) => Math.abs(0.5 - a.intersectionRatio) - Math.abs(0.5 - b.intersectionRatio));
+        .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
 
-      if (visible[0]) {
-        const section = visible[0].target;
+      if (visible.length === 0) {
+        console.log('🎨 No sections intersecting, keeping current color');
+        return;
+      }
+
+      const mostVisible = visible[0];
+      const section = mostVisible.target;
+      
+      console.log('🎨 Most visible section:', {
+        id: section.id,
+        classes: section.className,
+        intersectionRatio: mostVisible.intersectionRatio
+      });
+      
+      let hex = null;
+      let source = 'unknown';
+      
+      // First, check for explicit data-headline-color
+      const explicitColor = section.getAttribute('data-headline-color');
+      if (explicitColor) {
+        hex = explicitColor;
+        source = `data-headline-color on ${section.id}`;
+      }
+      
+      // If no explicit color, try to get from project data using section ID
+      if (!hex) {
+        const sectionId = section.id;
+        console.log('🎨 Checking section ID for project mapping:', sectionId);
         
-        // First, check for explicit data-headline-color
-        let hex = section.getAttribute('data-headline-color');
+        // Try different patterns to extract facet key
+        let facetKey = null;
         
-        // If no explicit color, try to get from project data using section ID
-        if (!hex) {
-          const sectionId = section.id;
-          
-          // Extract facet key from section ID (e.g., "project-empathy" -> "empathy")
-          const facetKey = sectionId.replace('project-', '');
-          
-          // Get color from projects.js
-          hex = getProjectColorByFacetKey(facetKey);
+        if (sectionId === 'hero') {
+          // Hero section - use default or check for explicit color
+          hex = DEFAULT_HEADLINE_COLOR;
+          source = 'hero section default';
+        } else if (sectionId === 'projects-overview') {
+          // Projects overview - could use a special color or default
+          hex = '#bb86fc'; // Purple for overview
+          source = 'projects overview';
+        } else if (sectionId && sectionId.startsWith('project-')) {
+          // Individual project section: "project-empathy" -> "empathy"
+          facetKey = sectionId.replace('project-', '');
+        } else if (sectionId && ['empathy', 'narrative', 'craft', 'system', 'leadership', 'exploration'].includes(sectionId)) {
+          // Direct facet key
+          facetKey = sectionId;
         }
         
-        // Apply the color, or fall back to default
-        if (hex) {
-          apply(hex);
-        } else {
-          apply(DEFAULT_HEADLINE_COLOR);
+        if (facetKey) {
+          const projectColor = getProjectColorByFacetKey(facetKey);
+          if (projectColor) {
+            hex = projectColor;
+            source = `project ${facetKey}`;
+          }
         }
+      }
+      
+      // Apply the color, or fall back to default
+      if (hex) {
+        apply(hex, source);
+      } else {
+        console.warn('🎨 No color found for section:', section.id, 'using default');
+        apply(DEFAULT_HEADLINE_COLOR, 'fallback default');
       }
     }, { 
       rootMargin: '0px 0px -40% 0px', 
       threshold: [0, 0.25, 0.5, 0.75, 1] 
     });
 
-    sections.forEach(s => io.observe(s));
-    return () => io.disconnect();
+    // Observe all sections
+    sections.forEach(section => {
+      observer.observe(section);
+      console.log('🎨 Observing section:', section.id);
+    });
+
+    // Cleanup
+    return () => {
+      observer.disconnect();
+      console.log('🎨 Disconnected headline color observer');
+    };
   }, []);
 
-  // Export the default color for use elsewhere if needed
   return { DEFAULT_HEADLINE_COLOR };
 }

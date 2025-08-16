@@ -101,7 +101,7 @@ const HeroSection = ({
     <section 
       id="hero"
       className="scroll-section project"
-      data-headline-color='#64ffda'
+      data-headline-color='#4400ff'
       style={{
         height: '100vh',
         scrollSnapAlign: 'start',
@@ -173,7 +173,7 @@ const HeroSection = ({
             fontWeight: '400'
           }}>
             Like a crystal refracting light into its spectrum, I approach design through 
-            <strong style={{ color: '#64ffda', fontWeight: '600' }}> six interconnected facets</strong>—each 
+            <strong style={{ color: '#002fff', fontWeight: '600' }}> six interconnected facets</strong>—each 
             one essential to creating meaningful, impactful experiences.
           </p>
           

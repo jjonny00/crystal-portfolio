@@ -149,7 +149,7 @@ const AboutSection = ({
               fontSize: '1.25rem',
               fontWeight: '600',
               margin: '0 0 1rem 0',
-              color: '#64ffda',
+              color: '#80ff64',
               display: 'flex',
               alignItems: 'center',
               gap: '0.5rem'
