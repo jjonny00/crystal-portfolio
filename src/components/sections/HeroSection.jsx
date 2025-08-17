@@ -107,7 +107,7 @@ const HeroSection = ({
     <section 
       id="hero"
       className="scroll-section project"
-      data-headline-color='#ff8800'
+      data-headline-color='#ffaa43'
       style={{
         height: '100vh',
         scrollSnapAlign: 'start',

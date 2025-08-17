@@ -22,10 +22,10 @@
   
   /* FIXED: Use CSS variables in text-shadow */
   text-shadow:
-    0 0 0.5px rgba(0,0,0,.2),
-    0 1px 0 rgba(0,0,0,.35),
-    0 0 4px  var(--headline-glow1, #40e0d0),
-    0 0 10px var(--headline-glow1, #40e0d0),
+    0 0 1.5px rgba(0,0,0,.2),
+    0 1px 0 rgba(0,0,0,.1),
+    0 0 0px  var(--headline-glow1, #40e0d0),
+    0 0 0px var(--headline-glow1, #40e0d0),
     0 0 22px var(--headline-glow2, #008080),
     0 0 38px var(--headline-glow2, #008080);
 }
