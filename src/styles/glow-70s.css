@@ -22,12 +22,12 @@
   
   /* FIXED: Use CSS variables in text-shadow */
   text-shadow:
-    0 0 1.5px rgba(0,0,0,.2),
-    0 1px 0 rgba(0,0,0,.1),
-    0 0 0px  var(--headline-glow1, #40e0d0),
-    0 0 0px var(--headline-glow1, #40e0d0),
-    0 0 22px var(--headline-glow2, #008080),
-    0 0 38px var(--headline-glow2, #008080);
+    /* 0 0 0.1px rgba(0,0,0,.2), */
+    /* 0 1px 0 rgba(0,0,0,.01), */
+    0 0 2px  var(--headline-glow1, #40e0d0),
+    /* 0 0 4px var(--headline-glow1, #40e0d0), */
+    0 0 10px var(--headline-glow2, #008080),
+    /* 0 0 100px var(--headline-glow2, rgb(0, 128, 128, .01)); */
 }
 
 /* Bloom duplicate behind the text - FIXED */
@@ -41,7 +41,7 @@
   
   mix-blend-mode: screen;
   filter: blur(6px) saturate(105%);
-  opacity: .85;
+  opacity: .25;
   z-index: -1;
   pointer-events: none;
 }
@@ -56,8 +56,8 @@
   color: var(--headline-ink, #64ffda);
   
   text-shadow:
-    1px 0 rgba(255,20,0,.35),
-   -1px 0 rgba(0,180,255,.28);
+    2px 0 rgba(255, 127, 116, 0.15),
+   -0.6px 0 rgba(155, 233, 255, 0.8);
   opacity: .6;
   mix-blend-mode: screen;
   pointer-events: none;
