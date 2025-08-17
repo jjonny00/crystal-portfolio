@@ -24,10 +24,10 @@
   text-shadow:
     /* 0 0 0.1px rgba(0,0,0,.2), */
     /* 0 1px 0 rgba(0,0,0,.01), */
-    0 0 2px  var(--headline-glow1, #40e0d0),
-    /* 0 0 4px var(--headline-glow1, #40e0d0), */
-    0 0 10px var(--headline-glow2, #008080),
-    /* 0 0 100px var(--headline-glow2, rgb(0, 128, 128, .01)); */
+    0 0 1px  var(--headline-glow1, #40e0d0),
+    0 0 6px var(--headline-glow1, #40e0d0),
+    /* 0 0 20px var(--headline-glow2, #008080), */
+    0 0 30px var(--headline-glow2, #008080);
 }
 
 /* Bloom duplicate behind the text - FIXED */
@@ -57,7 +57,7 @@
   
   text-shadow:
     2px 0 rgba(255, 127, 116, 0.15),
-   -0.6px 0 rgba(155, 233, 255, 0.8);
+   -1px 0 rgba(155, 233, 255, 0.2);
   opacity: .6;
   mix-blend-mode: screen;
   pointer-events: none;
