@@ -36,7 +36,6 @@ import PerformanceDebugPanel from './components/ui/PerformanceDebugPanel';
 import * as defaultConfig from './crystalConfig';
 
 // Cinematic Movie Titles Effects
-import useProjectHeadlineColor from './hooks/useProjectHeadlineColor';
 import './styles/glow-70s.css';
 
 // Convert UI config into animation config
