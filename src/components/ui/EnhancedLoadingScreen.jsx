@@ -66,7 +66,7 @@ const EnhancedLoadingScreen = ({
       alignItems: 'center',
       justifyContent: 'center',
       zIndex: 100000,
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+      fontFamily: '"acumin-variable", sans-serif'
     }}>
       
       {/* Main Title */}

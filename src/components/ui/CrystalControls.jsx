@@ -248,7 +248,7 @@ const CrystalControls = ({ onUpdate }) => {
 
   // Container style - no fixed positioning since parent handles that
   const containerStyle = {
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif',
+    fontFamily: '"acumin-variable", sans-serif',
   };
 
   const tabStyle = {

@@ -61,7 +61,7 @@ const TabbedControlPanel = ({
     boxShadow: '0 0 20px rgba(0, 0, 0, 0.5)',
     transition: 'left 0.3s ease',
     zIndex: 1000,
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif',
+    fontFamily: '"acumin-variable", sans-serif',
     maxHeight: '70vh',
     overflowY: 'hidden',
     display: 'flex',

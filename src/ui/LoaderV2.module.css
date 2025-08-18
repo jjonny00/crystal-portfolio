@@ -26,21 +26,21 @@
   pointer-events: none;
 }
 
-.headline{
-  margin: 0 0 14px 0;
-  font-family: "Times New Roman", ui-serif, Georgia, serif;
-  font-size: clamp(26px, 4vw, 48px);
-  font-weight: 700;
-  text-align: center; letter-spacing: 0.02em;
-  background: linear-gradient(90deg, var(--ring1), var(--ring2));
-  -webkit-background-clip: text;
-  color: transparent;
-}
-.subhead{
-  display: block; margin-top: 4px;
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-  font-size: 0.38em; letter-spacing: 0.08em; opacity: 0.8;
-}
+  .headline{
+    margin: 0 0 14px 0;
+    font-family: "ivypresto-display", serif;
+    font-size: clamp(26px, 4vw, 48px);
+    font-weight: 400;
+    text-align: center; letter-spacing: 0.02em;
+    background: linear-gradient(90deg, var(--ring1), var(--ring2));
+    -webkit-background-clip: text;
+    color: transparent;
+  }
+  .subhead{
+    display: block; margin-top: 4px;
+    font-family: "acumin-variable", sans-serif;
+    font-size: 0.38em; letter-spacing: 0.08em; opacity: 0.8;
+  }
 
 .meter{ position: relative; width: 260px; height: 260px; display: grid; place-items: center; }
 .svg{ width: 100%; height: 100%; }

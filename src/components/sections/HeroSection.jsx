@@ -224,7 +224,7 @@ const HeroSection = ({
           textTransform: 'uppercase',
           textAlign: 'center',
           textShadow: '0 2px 4px rgba(0, 0, 0, 0.8)',
-          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+          fontFamily: '"acumin-variable", sans-serif',
           marginBottom: '0.5rem'
         }}>
           Scroll to explore

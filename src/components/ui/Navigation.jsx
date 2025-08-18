@@ -156,7 +156,7 @@ const Navigation = ({
                 position: 'relative',
                 transition: 'all 0.2s ease',
                 opacity: isTransitioning ? 0.5 : 1,
-                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif',
+                fontFamily: '"acumin-variable", sans-serif',
                 textTransform: 'uppercase'
               }}
               onMouseEnter={(e) => {
@@ -244,7 +244,7 @@ const Navigation = ({
                 opacity: isTransitioning ? 0.5 : 1,
                 marginBottom: '4px',
                 textAlign: 'left',
-                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif'
+                fontFamily: '"acumin-variable", sans-serif'
               }}
               onMouseEnter={(e) => {
                 if (!isTransitioning) {
