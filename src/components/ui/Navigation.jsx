@@ -1,16 +1,101 @@
 // src/components/ui/Navigation.jsx
 import React, { useState, useEffect } from 'react';
 
-const Navigation = ({ 
-  onWorkClick, 
-  onAboutClick, 
-  onProcessClick, 
+// Shared style constants to avoid recreation on each render
+const NAV_BASE_STYLE = {
+  position: 'fixed',
+  top: 0,
+  left: 0,
+  right: 0,
+  zIndex: 10000,
+  transition: 'all 0.3s ease',
+  backgroundColor: 'transparent',
+};
+
+const NAV_INNER_STYLE = {
+  maxWidth: '1280px',
+  margin: '0 auto',
+  padding: '0 24px',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  height: '80px',
+};
+
+const LOGO_BUTTON_STYLE = {
+  background: 'none',
+  border: 'none',
+  cursor: 'pointer',
+  padding: '0',
+  display: 'flex',
+  alignItems: 'center',
+};
+
+const DESKTOP_NAV_CONTAINER_STYLE = {
+  alignItems: 'center',
+  gap: '2rem',
+  marginLeft: 'auto',
+};
+
+const NAV_ITEM_BASE_STYLE = {
+  background: 'none',
+  border: 'none',
+  color: 'white',
+  fontSize: '14px',
+  fontWeight: '500',
+  letterSpacing: '0.5px',
+  padding: '8px 0',
+  position: 'relative',
+  transition: 'all 0.2s ease',
+  fontFamily: '"acumin-variable", sans-serif',
+  textTransform: 'uppercase',
+};
+
+const MOBILE_MENU_BUTTON_BASE_STYLE = {
+  background: 'none',
+  border: 'none',
+  color: 'white',
+  padding: '8px',
+  borderRadius: '8px',
+  transition: 'background-color 0.2s ease',
+  marginLeft: '16px',
+};
+
+const MOBILE_NAV_CONTAINER_BASE_STYLE = {
+  overflow: 'hidden',
+  transition: 'all 0.3s ease',
+  borderTop: '1px solid rgba(100, 255, 218, 0.1)',
+  backgroundColor: 'rgba(5, 5, 5, 0.95)',
+  backdropFilter: 'blur(20px)',
+};
+
+const MOBILE_NAV_ITEM_STYLE = {
+  display: 'block',
+  width: '100%',
+  background: 'none',
+  border: 'none',
+  color: 'white',
+  fontSize: '16px',
+  fontWeight: '500',
+  padding: '12px 16px',
+  borderRadius: '8px',
+  transition: 'all 0.2s ease',
+  marginBottom: '4px',
+  textAlign: 'left',
+  fontFamily: '"acumin-variable", sans-serif',
+};
+
+const Navigation = ({
+  onWorkClick,
+  onAboutClick,
+  onProcessClick,
   onContactClick,
   isTransitioning = false,
-  crystalState = 'WHOLE' 
+  crystalState = 'WHOLE'
 }) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(true);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -19,6 +104,17 @@ const Navigation = ({
 
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Track viewport width for responsive logic
+  useEffect(() => {
+    const handleResize = () => {
+      setIsDesktop(window.innerWidth >= 1024);
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   // Handle mobile menu close when transitioning states
@@ -83,48 +179,25 @@ const Navigation = ({
   ];
 
   return (
-    <nav 
+    <nav
       style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        zIndex: 10000, // Above the 3D scene
-        transition: 'all 0.3s ease',
-        // FIXED: Always transparent background
-        backgroundColor: 'transparent',
-        // Only apply blur and border on scroll
+        ...NAV_BASE_STYLE,
         backdropFilter: isScrolled ? 'blur(20px)' : 'none',
-        borderBottom: isScrolled 
-          ? '1px solid rgba(100, 255, 218, 0.1)' 
+        borderBottom: isScrolled
+          ? '1px solid rgba(100, 255, 218, 0.1)'
           : '1px solid transparent',
-        boxShadow: isScrolled 
-          ? '0 4px 20px rgba(0, 0, 0, 0.3)' 
+        boxShadow: isScrolled
+          ? '0 4px 20px rgba(0, 0, 0, 0.3)'
           : 'none'
       }}
     >
-      <div style={{
-        maxWidth: '1280px',
-        margin: '0 auto',
-        padding: '0 24px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        height: '80px'
-      }}>
+      <div style={NAV_INNER_STYLE}>
         
         {/* Logo - Left aligned */}
         <div style={{ flex: '0 0 auto' }}>
           <button
             onClick={() => window.location.reload()} // Reset to home state
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              padding: '0',
-              display: 'flex',
-              alignItems: 'center'
-            }}
+            style={LOGO_BUTTON_STYLE}
             aria-label="Home"
             disabled={isTransitioning}
           >
@@ -133,31 +206,21 @@ const Navigation = ({
         </div>
 
         {/* Desktop Navigation */}
-        <div style={{
-          display: window.innerWidth >= 1024 ? 'flex' : 'none',
-          alignItems: 'center',
-          gap: '2rem',
-          marginLeft: 'auto'
-        }}>
+        <div
+          style={{
+            ...DESKTOP_NAV_CONTAINER_STYLE,
+            display: isDesktop ? 'flex' : 'none'
+          }}
+        >
           {navItems.map((item, index) => (
             <button
               key={item.label}
               onClick={item.onClick}
               disabled={isTransitioning}
               style={{
-                background: 'none',
-                border: 'none',
-                color: 'white',
-                fontSize: '14px',
-                fontWeight: '500',
-                letterSpacing: '0.5px',
+                ...NAV_ITEM_BASE_STYLE,
                 cursor: isTransitioning ? 'not-allowed' : 'pointer',
-                padding: '8px 0',
-                position: 'relative',
-                transition: 'all 0.2s ease',
-                opacity: isTransitioning ? 0.5 : 1,
-                fontFamily: '"acumin-variable", sans-serif',
-                textTransform: 'uppercase'
+                opacity: isTransitioning ? 0.5 : 1
               }}
               onMouseEnter={(e) => {
                 if (!isTransitioning) {
@@ -182,16 +245,10 @@ const Navigation = ({
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           disabled={isTransitioning}
           style={{
-            display: window.innerWidth < 1024 ? 'block' : 'none',
-            background: 'none',
-            border: 'none',
-            color: 'white',
+            ...MOBILE_MENU_BUTTON_BASE_STYLE,
+            display: isDesktop ? 'none' : 'block',
             cursor: isTransitioning ? 'not-allowed' : 'pointer',
-            padding: '8px',
-            borderRadius: '8px',
-            transition: 'background-color 0.2s ease',
-            opacity: isTransitioning ? 0.5 : 1,
-            marginLeft: '16px'
+            opacity: isTransitioning ? 0.5 : 1
           }}
           onMouseEnter={(e) => {
             if (!isTransitioning) {
@@ -208,16 +265,13 @@ const Navigation = ({
       </div>
 
       {/* Mobile Navigation Menu - Keep existing blur for dropdown */}
-      <div 
+      <div
         style={{
-          display: window.innerWidth < 1024 ? 'block' : 'none',
-          overflow: 'hidden',
-          transition: 'all 0.3s ease',
+          ...MOBILE_NAV_CONTAINER_BASE_STYLE,
+          display: isDesktop ? 'none' : 'block',
           maxHeight: isMobileMenuOpen ? '256px' : '0',
           opacity: isMobileMenuOpen ? 1 : 0,
-          borderTop: isMobileMenuOpen ? '1px solid rgba(100, 255, 218, 0.1)' : 'none',
-          backgroundColor: 'rgba(5, 5, 5, 0.95)',
-          backdropFilter: 'blur(20px)'
+          borderTop: isMobileMenuOpen ? '1px solid rgba(100, 255, 218, 0.1)' : 'none'
         }}
       >
         <div style={{ padding: '16px 24px' }}>
@@ -230,21 +284,9 @@ const Navigation = ({
               }}
               disabled={isTransitioning}
               style={{
-                display: 'block',
-                width: '100%',
-                background: 'none',
-                border: 'none',
-                color: 'white',
-                fontSize: '16px',
-                fontWeight: '500',
+                ...MOBILE_NAV_ITEM_STYLE,
                 cursor: isTransitioning ? 'not-allowed' : 'pointer',
-                padding: '12px 16px',
-                borderRadius: '8px',
-                transition: 'all 0.2s ease',
-                opacity: isTransitioning ? 0.5 : 1,
-                marginBottom: '4px',
-                textAlign: 'left',
-                fontFamily: '"acumin-variable", sans-serif'
+                opacity: isTransitioning ? 0.5 : 1
               }}
               onMouseEnter={(e) => {
                 if (!isTransitioning) {
