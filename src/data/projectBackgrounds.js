@@ -50,29 +50,3 @@ export const projectBackgrounds = {
     colorB: '#4d0026'  // deep fuchsia
   }
 };
-
-// ADDED: Helper function to get background info
-export const getBackgroundInfo = (key) => {
-  const background = projectBackgrounds[key] || projectBackgrounds.default;
-  return {
-    colorA: background.colorA,
-    colorB: background.colorB,
-    exists: !!projectBackgrounds[key]
-  };
-};
-
-// ADDED: Helper to get all available background keys
-export const getAvailableBackgroundKeys = () => {
-  return Object.keys(projectBackgrounds);
-};
-
-// ADDED: Debug helper to log all colors
-export const logAllBackgrounds = () => {
-  if (import.meta.env.DEV) {
-    console.group('🎨 All Project Backgrounds:');
-    Object.entries(projectBackgrounds).forEach(([key, colors]) => {
-      console.log(`${key}:`, colors);
-    });
-    console.groupEnd();
-  }
-};
