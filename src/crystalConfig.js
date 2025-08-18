@@ -374,7 +374,7 @@ export const ui = {
       backdropFilter: 'blur(10px)',
       boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
       pointerEvents: 'auto',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif',
+      fontFamily: '"acumin-variable", sans-serif',
       transition: 'all 0.3s ease'
     },
     hoverStyles: {
@@ -390,7 +390,7 @@ export const ui = {
     styles: {
       main: {
         color: 'white',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif',
+        fontFamily: '"acumin-variable", sans-serif',
         fontSize: '16px',
         fontWeight: '600',
         letterSpacing: '1px',
@@ -407,7 +407,7 @@ export const ui = {
       },
       description: {
         color: 'rgba(255,255,255,0.9)',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif',
+        fontFamily: '"acumin-variable", sans-serif',
         fontSize: '12px',
         fontWeight: '400',
         textAlign: 'center',

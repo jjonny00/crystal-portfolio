@@ -158,7 +158,7 @@ const AccessibilityInstructions = ({ visible = true }) => {
           backdropFilter: 'blur(20px)',
           zIndex: 1000,
           pointerEvents: 'auto',
-          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif',
+          fontFamily: '"acumin-variable", sans-serif',
           cursor: 'pointer',
           boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
           overflowY: 'hidden',
