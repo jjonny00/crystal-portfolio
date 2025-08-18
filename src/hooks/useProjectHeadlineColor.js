@@ -15,7 +15,7 @@ export default function useProjectHeadlineColor() {
     // Helper to apply colors with validation and logging
     const apply = (hex, source = 'unknown') => {
       if (!/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(hex)) {
-        console.warn('🎨 Invalid hex color:', hex, 'from source:', source);
+        if (import.meta.env.DEV) console.warn('🎨 Invalid hex color:', hex, 'from source:', source);
         return;
       }
       
@@ -25,12 +25,14 @@ export default function useProjectHeadlineColor() {
       root.style.setProperty('--headline-glow1', glow1);
       root.style.setProperty('--headline-glow2', glow2);
       
-      console.log('🎨 Applied headline color:', {
-        source,
-        ink: hex,
-        glow1,
-        glow2
-      });
+      if (import.meta.env.DEV) {
+        console.log('🎨 Applied headline color:', {
+          source,
+          ink: hex,
+          glow1,
+          glow2
+        });
+      }
     };
 
     // Set initial default color
@@ -40,11 +42,11 @@ export default function useProjectHeadlineColor() {
     const sections = Array.from(document.querySelectorAll('.project, [data-headline-color]'));
     
     if (!sections.length) {
-      console.warn('🎨 No sections found with .project class or data-headline-color attribute');
+      if (import.meta.env.DEV) console.warn('🎨 No sections found with .project class or data-headline-color attribute');
       return;
     }
 
-    console.log('🎨 Found sections for headline colors:', sections.map(s => ({
+    if (import.meta.env.DEV) console.log('🎨 Found sections for headline colors:', sections.map(s => ({
       id: s.id,
       classes: s.className,
       explicitColor: s.getAttribute('data-headline-color')
@@ -57,18 +59,20 @@ export default function useProjectHeadlineColor() {
         .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
 
       if (visible.length === 0) {
-        console.log('🎨 No sections intersecting, keeping current color');
+        if (import.meta.env.DEV) console.log('🎨 No sections intersecting, keeping current color');
         return;
       }
 
       const mostVisible = visible[0];
       const section = mostVisible.target;
       
-      console.log('🎨 Most visible section:', {
-        id: section.id,
-        classes: section.className,
-        intersectionRatio: mostVisible.intersectionRatio
-      });
+      if (import.meta.env.DEV) {
+        console.log('🎨 Most visible section:', {
+          id: section.id,
+          classes: section.className,
+          intersectionRatio: mostVisible.intersectionRatio
+        });
+      }
       
       let hex = null;
       let source = 'unknown';
@@ -83,7 +87,7 @@ export default function useProjectHeadlineColor() {
       // If no explicit color, try to get from project data using section ID
       if (!hex) {
         const sectionId = section.id;
-        console.log('🎨 Checking section ID for project mapping:', sectionId);
+        if (import.meta.env.DEV) console.log('🎨 Checking section ID for project mapping:', sectionId);
         
         // Try different patterns to extract facet key
         let facetKey = null;
@@ -117,7 +121,7 @@ export default function useProjectHeadlineColor() {
       if (hex) {
         apply(hex, source);
       } else {
-        console.warn('🎨 No color found for section:', section.id, 'using default');
+        if (import.meta.env.DEV) console.warn('🎨 No color found for section:', section.id, 'using default');
         apply(DEFAULT_HEADLINE_COLOR, 'fallback default');
       }
     }, { 
@@ -128,15 +132,13 @@ export default function useProjectHeadlineColor() {
     // Observe all sections
     sections.forEach(section => {
       observer.observe(section);
-      console.log('🎨 Observing section:', section.id);
+      if (import.meta.env.DEV) console.log('🎨 Observing section:', section.id);
     });
 
     // Cleanup
     return () => {
       observer.disconnect();
-      console.log('🎨 Disconnected headline color observer');
+      if (import.meta.env.DEV) console.log('🎨 Disconnected headline color observer');
     };
   }, []);
-
-  return { DEFAULT_HEADLINE_COLOR };
 }
