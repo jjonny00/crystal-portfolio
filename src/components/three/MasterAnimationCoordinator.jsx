@@ -1,6 +1,6 @@
 // Added keyboard control for animation debug panel
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useScrollProgress } from '../../hooks/useScrollProgress';
 import { useUnifiedAnimationController } from '../../hooks/useUnifiedAnimationController';
 
@@ -71,37 +71,48 @@ const MasterAnimationCoordinator = ({
   }, [scrollData.scrollProgress, animationController]);
 
   // SIMPLIFIED: Animation data with immediate state information
-  const animationData = {
+  const animationData = useMemo(() => ({
     // Core animation state (immediate)
     ...animationController.animationState,
-    
+
     // Enhanced scroll info
     scrollProgress: scrollData.scrollProgress,
     isScrolling: scrollData.isScrolling,
     isFastScrolling: scrollData.isFastScrolling,
     scrollVelocity: scrollData.velocity,
-    
+
     // Immediate configurations (no complex coordination needed)
     cameraConfig: animationController.cameraConfig,
     crystalConfig: animationController.crystalConfig,
-    
+
     // Enhanced zone information
     currentZone: animationController.animationState.zoneInfo?.zone,
     zoneProgress: animationController.animationState.zoneInfo?.progress,
     isEnteringZone: animationController.animationState.zoneInfo?.isEntering,
     isLeavingZone: animationController.animationState.zoneInfo?.isLeaving,
-    
+
     // Enhanced project information
     focusedProject: animationController.animationState.focusedFacet,
     projectProgress: animationController.animationState.projectInfo?.progress,
-    
+
     // SIMPLIFIED: isTransitioning is managed by individual components
     isTransitioning: false, // Components handle their own smooth transitions
-    
+
     // Utility functions
     scrollToZone: (zoneName) => scrollData.scrollToZone?.(zoneName, animationController.config.scrollZones),
     overrideAnimationState: animationController.overrideState || (() => {})
-  };
+  }), [
+    animationController.animationState,
+    animationController.cameraConfig,
+    animationController.crystalConfig,
+    scrollData.scrollProgress,
+    scrollData.isScrolling,
+    scrollData.isFastScrolling,
+    scrollData.velocity,
+    scrollData.scrollToZone,
+    animationController.config?.scrollZones,
+    animationController.overrideState
+  ]);
 
   // Clone children and pass simplified animation data
   const childrenWithProps = React.Children.map(children, child => {
