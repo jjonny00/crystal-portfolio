@@ -1,5 +1,6 @@
 // src/components/ui/PerformanceControls.jsx
 import { useState, useEffect } from 'react';
+import styles from './performanceControlsStyles';
 
 /**
  * UI component for controlling performance-related settings
@@ -84,166 +85,64 @@ const PerformanceControls = ({
     if (onConfigUpdate) {
       onConfigUpdate({
         ...performanceConfig,
-        renderScale: numeric
+        renderScale: numeric,
       });
     }
   };
-
-  // Styles
-  const titleStyle = {
-    margin: '0 0 15px 0', 
-    fontSize: '16px', 
-    display: 'flex', 
-    alignItems: 'center'
-  };
-  
-  const toggleContainerStyle = {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '15px',
-    padding: '10px',
-    borderRadius: '8px',
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    transition: 'background-color 0.3s ease'
-  };
-  
-  const toggleLabelStyle = {
-    fontSize: '14px',
-    fontWeight: '500'
-  };
-  
-  const controlToggleStyle = {
-    position: 'relative',
-    width: '40px',
-    height: '20px'
-  };
-  
-  const radioContainerStyle = {
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    padding: '10px',
-    borderRadius: '8px',
-    marginBottom: '15px'
-  };
-  
-  const radioGroupStyle = {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '8px',
-    marginTop: '5px'
-  };
-  
-  const radioLabelStyle = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    fontSize: '14px',
-    cursor: 'pointer'
-  };
-
-  const sliderGroupStyle = {
-    marginBottom: '15px',
-    padding: '10px',
-    borderRadius: '8px',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)'
-  };
-
-  const sliderLabelStyle = {
-    fontSize: '12px',
-    marginBottom: '5px',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center'
-  };
-
-  const sliderStyle = {
-    width: '100%',
-    backgroundColor: 'transparent',
-    accentColor: '#64ffda'
-  };
-  
-  const infoTextStyle = {
-    fontSize: '12px',
-    color: 'rgba(255, 255, 255, 0.7)',
-    marginTop: '15px',
-    backgroundColor: 'rgba(100, 255, 218, 0.1)',
-    padding: '10px',
-    borderRadius: '8px',
-    lineHeight: '1.4'
-  };
   
   // Custom toggle switch component
-  const ToggleSwitch = ({ checked, onChange, disabled = false }) => (
-    <label
-      style={{
-        ...controlToggleStyle,
-        cursor: disabled ? "not-allowed" : "pointer",
-        opacity: disabled ? 0.5 : 1,
-        position: "relative",
-        display: "inline-block"
-      }}
-    >
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={onChange}
-        disabled={disabled}
+    const ToggleSwitch = ({ checked, onChange, disabled = false }) => (
+      <label
         style={{
-          opacity: 0,
-          width: "100%",
-          height: "100%",
-          position: "absolute",
-          top: 0,
-          left: 0,
-          margin: 0,
-          cursor: "inherit"
+          ...styles.controlToggle,
+          cursor: disabled ? "not-allowed" : "pointer",
+          opacity: disabled ? 0.5 : 1,
         }}
-      />
-      <span
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: disabled ? "rgba(150, 150, 150, 0.2)" : (checked ? "#64ffda" : "rgba(255, 255, 255, 0.2)"),
-          borderRadius: "20px",
-          transition: "background-color 0.3s"
-        }}
-      />
-      <span
-        style={{
-          position: "absolute",
-          top: "2px",
-          left: checked ? "22px" : "2px",
-          width: "16px",
-          height: "16px",
-          backgroundColor: "white",
-          borderRadius: "50%",
-          transition: "left 0.3s"
-        }}
-      />
-    </label>
-  );
+      >
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={onChange}
+          disabled={disabled}
+          style={styles.toggleSwitchInput}
+        />
+        <span
+          style={{
+            ...styles.toggleSwitchTrack,
+            backgroundColor: disabled
+              ? "rgba(150, 150, 150, 0.2)"
+              : checked
+                ? "#64ffda"
+                : "rgba(255, 255, 255, 0.2)",
+          }}
+        />
+        <span
+          style={{
+            ...styles.toggleSwitchThumb,
+            left: checked ? "22px" : "2px",
+          }}
+        />
+      </label>
+    );
 
   // Only render if visible
   if (!visible) return null;
   
   return (
     <div>
-      <h2 style={titleStyle}>
-        <span role="img" aria-label="Performance" style={{ marginRight: '8px' }}>⚡</span>
+      <h2 style={styles.title}>
+        <span role="img" aria-label="Performance" style={styles.titleIcon}>⚡</span>
         Performance Settings
       </h2>
       
       {/* Normal Map Toggle */}
-      <div 
+      <div
         style={{
-          ...toggleContainerStyle,
+          ...styles.toggleContainer,
           backgroundColor: useNormalMaps ? 'rgba(100, 255, 218, 0.1)' : 'rgba(0, 0, 0, 0.2)'
         }}
       >
-      <div style={toggleLabelStyle}>Use Normal Maps</div>
+      <div style={styles.toggleLabel}>Use Normal Maps</div>
       <ToggleSwitch
         checked={useNormalMaps}
         onChange={handleNormalMapToggle}
@@ -253,11 +152,11 @@ const PerformanceControls = ({
       {/* Simplified Animations Toggle */}
       <div
         style={{
-          ...toggleContainerStyle,
+          ...styles.toggleContainer,
           backgroundColor: simplifiedAnimations ? 'rgba(100, 255, 218, 0.1)' : 'rgba(0, 0, 0, 0.2)'
         }}
       >
-        <div style={toggleLabelStyle}>Simplified Animations</div>
+        <div style={styles.toggleLabel}>Simplified Animations</div>
         <ToggleSwitch
           checked={simplifiedAnimations}
           onChange={handleSimplifiedToggle}
@@ -266,10 +165,10 @@ const PerformanceControls = ({
       
 
       {/* Material Quality */}
-      <div style={radioContainerStyle}>
-        <div style={toggleLabelStyle}>Material Quality</div>
-        <div style={radioGroupStyle}>
-          <label style={radioLabelStyle}>
+      <div style={styles.radioContainer}>
+        <div style={styles.toggleLabel}>Material Quality</div>
+        <div style={styles.radioGroup}>
+          <label style={styles.radioLabel}>
             <input
               type="radio"
               name="pbrQuality"
@@ -279,7 +178,7 @@ const PerformanceControls = ({
             />
             Low (Non-PBR)
           </label>
-          <label style={radioLabelStyle}>
+          <label style={styles.radioLabel}>
             <input
               type="radio"
               name="pbrQuality"
@@ -289,7 +188,7 @@ const PerformanceControls = ({
             />
             Medium
           </label>
-          <label style={radioLabelStyle}>
+          <label style={styles.radioLabel}>
             <input
               type="radio"
               name="pbrQuality"
@@ -303,11 +202,11 @@ const PerformanceControls = ({
       </div>
 
       {/* Texture Quality Radio Buttons */}
-      <div style={radioContainerStyle}>
-        <div style={toggleLabelStyle}>Texture Quality</div>
-        <div style={radioGroupStyle}>
-          <label style={radioLabelStyle}>
-            <input 
+      <div style={styles.radioContainer}>
+        <div style={styles.toggleLabel}>Texture Quality</div>
+        <div style={styles.radioGroup}>
+          <label style={styles.radioLabel}>
+            <input
               type="radio"
               name="textureQuality"
               value="low"
@@ -316,8 +215,8 @@ const PerformanceControls = ({
             />
             Low (Best Performance)
           </label>
-          <label style={radioLabelStyle}>
-            <input 
+          <label style={styles.radioLabel}>
+            <input
               type="radio"
               name="textureQuality"
               value="medium"
@@ -326,8 +225,8 @@ const PerformanceControls = ({
             />
             Medium
           </label>
-          <label style={radioLabelStyle}>
-            <input 
+          <label style={styles.radioLabel}>
+            <input
               type="radio"
               name="textureQuality"
               value="high"
@@ -340,8 +239,8 @@ const PerformanceControls = ({
       </div>
 
       {/* Render Scale Slider */}
-      <div style={sliderGroupStyle}>
-        <div style={sliderLabelStyle}>
+      <div style={styles.sliderGroup}>
+        <div style={styles.sliderLabel}>
           <span>Render Scale</span>
           <span>{renderScale.toFixed(2)}</span>
         </div>
@@ -352,27 +251,20 @@ const PerformanceControls = ({
           step="0.05"
           value={renderScale}
           onChange={(e) => handleRenderScaleChange(e.target.value)}
-          style={sliderStyle}
+          style={styles.slider}
         />
       </div>
 
-      <div style={infoTextStyle}>
+      <div style={styles.infoText}>
         <p>These settings can significantly improve performance on lower-end devices or mobile phones. Try lowering material quality and disabling normal maps for the best boost.</p>
-        <p style={{ marginTop: '8px' }}>Changes apply to newly loaded materials and may require refreshing the page to take full effect.</p>
+        <p style={styles.infoParagraph}>Changes apply to newly loaded materials and may require refreshing the page to take full effect.</p>
       </div>
 
       <button
         onClick={onToggleDebug}
         style={{
-          marginTop: '10px',
-          width: '100%',
+          ...styles.debugButton,
           backgroundColor: debugEnabled ? '#ffd600' : '#64ffda',
-          color: '#000',
-          border: 'none',
-          padding: '8px',
-          borderRadius: '4px',
-          fontWeight: 'bold',
-          cursor: 'pointer'
         }}
       >
         {debugEnabled ? 'Hide Debug Panel' : 'Show Debug Panel'}
