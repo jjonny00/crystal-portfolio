@@ -107,7 +107,7 @@ const HeroSection = ({
     <section 
       id="hero"
       className="scroll-section project"
-      data-headline-color='#ff2600'
+      data-headline-color='#ffaa00'
       style={{
         height: '100vh',
         scrollSnapAlign: 'start',
@@ -136,14 +136,14 @@ const HeroSection = ({
           <Headline 
             as="h1"
             style={{
-              fontSize: 'clamp(2.5rem, 8vw, 5rem)',
+              fontSize: 'clamp(2.5rem, 8vw, 8rem)',
               fontWeight: '400',
               marginBottom: '1.5rem',
               lineHeight: '1.1',
               fontFamily: '"ivypresto-display", "Playfair Display", Georgia, "Times New Roman", serif'
             }}
           >
-            Multifaceted Designer
+            Shaped through iteration.
           </Headline>
         </animated.div>
         
@@ -151,12 +151,12 @@ const HeroSection = ({
         <animated.div style={subtitleSpring}>
           <p style={{
             fontSize: 'clamp(1.125rem, 4vw, 1.5rem)',
-            color: 'rgba(255, 255, 255, 0.9)',
+            color: '#fcf5eb',
             marginBottom: '3rem',
             lineHeight: '1.6',
             maxWidth: '700px',
             margin: '0 auto 3rem',
-            textShadow: '0 2px 10px rgba(0, 0, 0, 0.8)',
+            // textShadow: '0 2px 10px rgba(0, 0, 0, 0.8)',
             fontWeight: '400'
           }}>
             Like a crystal refracting light into its spectrum, I approach design through 

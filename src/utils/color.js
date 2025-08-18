@@ -43,9 +43,9 @@ export function hslToHex(h,s,l){
 export function deriveGlowFromBase(baseHex){
   const {h,s,l} = hexToHsl(baseHex);
   const s1 = Math.min(1, s + 0.15);
-  const s2 = Math.min(1, s + 0.25);
-  const l1 = Math.max(0, l - 0.01);
-  const l2 = Math.max(0, l - 0.18);
+  const s2 = Math.min(1, s + 0.35);
+  const l1 = Math.max(0, l + 0.01);
+  const l2 = Math.max(0, l + 0.01);
   return {
     glow1: hslToHex(h, s1, l1),
     glow2: hslToHex(h, s2, l2)
