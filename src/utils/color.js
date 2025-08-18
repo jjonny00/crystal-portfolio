@@ -1,7 +1,7 @@
 // src/utils/color.js
 // Color manipulation utilities for 1970s glow effect
 
-export function hexToHsl(hex){
+function hexToHsl(hex){
   let c = hex.replace('#','');
   if (c.length === 3) c = c.split('').map(x=>x+x).join('');
   const num = parseInt(c,16);
@@ -23,7 +23,7 @@ export function hexToHsl(hex){
   return {h, s, l};
 }
 
-export function hslToHex(h,s,l){
+function hslToHex(h,s,l){
   h = (h%360+360)%360;
   const c = (1 - Math.abs(2*l - 1)) * s;
   const x = c * (1 - Math.abs((h/60)%2 - 1));
