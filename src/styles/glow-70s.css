@@ -26,8 +26,8 @@
     0 0.2px 0 rgba(0,0,0,.01),
     0 0 0.7px  var(--headline-glow1, #40e0d0),
     0 0 0.8px var(--headline-glow1, #40e0d0),
-    0 0 1px var(--headline-glow2, #008080),
-    0 0 4px rgb(from var(--headline-glow2, #008080) r g b / 0.4);
+    0 0 7px rgb(from var(--headline-glow2, #008080) r g b / 0.5),
+    0 0 40px rgb(from var(--headline-glow2, #008080) r g b / 0.4);
 }
 
 /* Bloom duplicate behind the text - FIXED */
@@ -57,7 +57,7 @@
   
   text-shadow:
     2px 0 rgba(186, 59, 47, 0.1),
-   -1px 0 rgba(182, 239, 255, 0.8);
+   -1.2px 0 rgba(182, 239, 255, 0.3);
   opacity: .6;
   mix-blend-mode: screen;
   pointer-events: none;
