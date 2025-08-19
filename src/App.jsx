@@ -36,7 +36,6 @@ import PerformanceDebugPanel from './components/ui/PerformanceDebugPanel';
 import * as defaultConfig from './crystalConfig';
 
 // Cinematic Movie Titles Effects
-import useProjectHeadlineColor from './hooks/useProjectHeadlineColor';
 import './styles/glow-70s.css';
 
 // Convert UI config into animation config
@@ -321,7 +320,7 @@ function App() {
     const next = !perfDebug;
     window.__PERF_DEBUG__ = next;
     setPerfDebug(next);
-    if (import.meta.env.DEV || next) {
+    if (import.meta.env.DEV) {
       console.log(`🛠️ Performance debug ${next ? 'enabled' : 'disabled'}`);
     }
   }, [perfDebug]);
@@ -357,7 +356,7 @@ function App() {
           const next = !window.__PERF_DEBUG__;
           window.__PERF_DEBUG__ = next;
           setPerfDebug(next);
-          if (import.meta.env.DEV || next) console.log(`🛠️ Performance debug ${next ? 'enabled' : 'disabled'}`);
+          if (import.meta.env.DEV) console.log(`🛠️ Performance debug ${next ? 'enabled' : 'disabled'}`);
         }
       }
     };

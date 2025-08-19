@@ -110,17 +110,8 @@ export const projects = [
  * @param {string} facetKey - The facet key to lookup
  * @returns {Object|null} Project object or null if not found
  */
-export const getProjectByFacetKey = (facetKey) => {
+const getProjectByFacetKey = (facetKey) => {
   return projects.find(project => project.facetKey === facetKey) || null;
-};
-
-/**
- * Helper function to get project by ID
- * @param {string} id - The project ID to lookup
- * @returns {Object|null} Project object or null if not found
- */
-export const getProjectById = (id) => {
-  return projects.find(project => project.id === id) || null;
 };
 
 /**
@@ -130,25 +121,6 @@ export const getProjectById = (id) => {
 export const getProjectColorByFacetKey = (facetKey) => {
   const project = getProjectByFacetKey(facetKey);
   return project ? project.color : '#028700'; // Default color
-};
-
-/**
- * NEW: Get headline color by facet key for 1970s glow effect
- * @param {string} facetKey - The facet key to lookup
- * @returns {string} Hex color for headline glow
- */
-export const getProjectHeadlineColorByFacetKey = (facetKey) => {
-  const project = getProjectByFacetKey(facetKey);
-  return project ? project.headlineColor : '#ffd364'; // Default headline color
-};
-
-/**
- * Get project featured technologies
- * Returns top 2 technologies for summary displays
- */
-export const getProjectFeaturedTech = (facetKey) => {
-  const project = getProjectByFacetKey(facetKey);
-  return project && project.technologies ? project.technologies.slice(0, 2) : [];
 };
 
 export default projects;
