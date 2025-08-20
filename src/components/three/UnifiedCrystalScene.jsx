@@ -12,6 +12,8 @@ import MaterialManager from './MaterialManager'
 // Import enhanced sphere component
 import GlowingSphereImage, { BLENDING_MODES } from './GlowingSphereImage'
 import { getProjectColorByFacetKey } from '../../data/projects'
+import FacetLabels from './FacetLabels'
+import projects from '../../data/projects'
 
 const UnifiedCrystalScene = forwardRef(({ 
   animationData,
@@ -168,6 +170,18 @@ const UnifiedCrystalScene = forwardRef(({
       setModelsLoaded(true);
     }
   }, [wholeCrystal, ...facetModels]);
+
+  const facetAnchors = useMemo(() => {
+    const anchors = {}
+    facetKeys.forEach((facetKey, index) => {
+      const facetRef = facetRefs.current[index]?.current
+      if (facetRef) {
+        const anchor = facetRef.getObjectByName(`anchor_${facetKey}`)
+        if (anchor) anchors[facetKey] = anchor
+      }
+    })
+    return anchors
+  }, [facetKeys, showFacets, modelsLoaded])
   
   // Keyboard listener for debug toggle
   useEffect(() => {
@@ -508,13 +522,17 @@ const UnifiedCrystalScene = forwardRef(({
         return (
           <primitive
             key={facetKey}
-            ref={facetRefs.current[index]} 
+            ref={facetRefs.current[index]}
             object={model.scene}
             position={[0, 0, 0]} // Position will be animated via useFrame
           />
         );
       })}
-      
+
+      {animationData.currentZone === 'overview' && animationData.crystalForm === 'exploded' && (
+        <FacetLabels anchors={facetAnchors} projects={projects} animationData={animationData} />
+      )}
+
       {/* Debug visualization when enabled */}
       {showCrystalDebug && showFacets && !simplifiedAnimations && (
         <group name="anchor-debug-system">
