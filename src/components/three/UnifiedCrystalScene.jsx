@@ -544,6 +544,8 @@ const UnifiedCrystalScene = forwardRef(({
             }}
             onPointerOut={(e) => {
               e.stopPropagation();
+              // Ignore pointer out events when moving between child meshes
+              if (e.intersections.length) return;
               const mat = facetMaterialsRef.current[index];
               if (mat) {
                 const target =
