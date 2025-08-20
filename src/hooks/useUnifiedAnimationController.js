@@ -309,11 +309,16 @@ export const useUnifiedAnimationController = (options = {}) => {
       // Add hysteresis - require being well into the new zone before switching
       const hysteresis = 0.02; // 2% buffer zone
       let shouldChangeZone = false;
-      
+
       if (currentZone.zone === 'hero' && currentZone.progress > hysteresis) {
         shouldChangeZone = true;
-      } else if (currentZone.zone === 'overview' && currentZone.progress > hysteresis && currentZone.progress < (1 - hysteresis)) {
-        shouldChangeZone = true;
+      } else if (currentZone.zone === 'overview') {
+        if (currentZone.progress > hysteresis && currentZone.progress < (1 - hysteresis)) {
+          shouldChangeZone = true;
+        } else if (lastZone.current === 'projects' && currentZone.progress >= (1 - hysteresis)) {
+          // Coming from projects and we're right at the boundary—still transition
+          shouldChangeZone = true;
+        }
       } else if (currentZone.zone === 'projects' && currentZone.progress > hysteresis && currentZone.progress < (1 - hysteresis)) {
         shouldChangeZone = true;
       } else if (currentZone.zone === 'about' && currentZone.progress > hysteresis) {
