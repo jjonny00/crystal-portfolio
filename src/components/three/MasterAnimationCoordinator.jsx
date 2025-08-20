@@ -4,6 +4,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useScrollProgress } from '../../hooks/useScrollProgress';
 import { useUnifiedAnimationController } from '../../hooks/useUnifiedAnimationController';
 
+let exportedAnimationData = {};
+
 /**
  * SIMPLIFIED: Master Animation Coordinator with keyboard-controlled debug
  */
@@ -99,6 +101,7 @@ const MasterAnimationCoordinator = ({
     isTransitioning: false, // Components handle their own smooth transitions
 
     // Utility functions
+    scrollToProgress: scrollData.scrollToProgress,
     scrollToZone: (zoneName) => scrollData.scrollToZone?.(zoneName, animationController.config.scrollZones),
     overrideAnimationState: animationController.overrideState || (() => {})
   }), [
@@ -109,10 +112,13 @@ const MasterAnimationCoordinator = ({
     scrollData.isScrolling,
     scrollData.isFastScrolling,
     scrollData.velocity,
+    scrollData.scrollToProgress,
     scrollData.scrollToZone,
     animationController.config?.scrollZones,
     animationController.overrideState
   ]);
+
+  exportedAnimationData = animationData;
 
   // Clone children and pass simplified animation data
   const childrenWithProps = React.Children.map(children, child => {
@@ -226,4 +232,5 @@ const DebugOverlay = ({ scrollData, animationData, animationController }) => {
   );
 };
 
+export { exportedAnimationData as animationData };
 export default MasterAnimationCoordinator;
