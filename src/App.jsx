@@ -135,7 +135,7 @@ function App() {
   
   // Basic state hooks
   const [hideAllUI, setHideAllUI] = useState(false);
-  const [perfDebug, setPerfDebug] = useState(window.__PERF_DEBUG__ || false);
+  const [perfDebug, setPerfDebug] = useState(false);
   const [snapSpeed, setSnapSpeed] = useState('medium');
   const [config, setConfig] = useState({
     ...defaultConfig,
@@ -589,7 +589,7 @@ function App() {
       )}
 
       {/* UPDATED: Enhanced Debug Panel with V2 performance system info */}
-      {(import.meta.env.DEV || perfDebug) && (
+      {perfDebug && (
         <PerformanceDebugPanel
           performanceConfig={performanceProfile}
           hasInitialized={performanceReady}
