@@ -3,7 +3,6 @@
 
 import React, { useState, useEffect } from 'react';
 import HeroSection from '../sections/HeroSection';
-import ProjectsSection from '../sections/ProjectsSection';
 import ProjectFocusSection from '../sections/ProjectFocusSection';
 import AboutSection from '../sections/AboutSection';
 import { projects } from '../../data/projects';
@@ -73,7 +72,7 @@ const ScrollablePortfolio = ({
         
         // Clean styling
         backgroundColor: 'transparent',
-        pointerEvents: 'auto',
+        pointerEvents: 'none',
         
         // Clean box model
         margin: 0,
@@ -120,7 +119,8 @@ const ScrollablePortfolio = ({
             width: '100%',
             margin: 0,
             padding: 0,
-            boxSizing: 'border-box'
+            boxSizing: 'border-box',
+            pointerEvents: 'auto'
           }}
         >
           <HeroSection />
@@ -144,10 +144,10 @@ const ScrollablePortfolio = ({
             width: '100%',
             margin: 0,
             padding: 0,
-            boxSizing: 'border-box'
+            boxSizing: 'border-box',
+            pointerEvents: 'none'
           }}
         >
-          <ProjectsSection />
         </section>
         
         {/* INDIVIDUAL PROJECT SECTIONS */}
@@ -168,7 +168,8 @@ const ScrollablePortfolio = ({
               width: '100%',
               margin: 0,
               padding: 0,
-              boxSizing: 'border-box'
+              boxSizing: 'border-box',
+              pointerEvents: 'auto'
             }}
           >
             <ProjectFocusSection
@@ -183,7 +184,7 @@ const ScrollablePortfolio = ({
 
         {/* ABOUT SECTION */}
         <section 
-          id="about" 
+          id="about"
           className="scroll-section"
           style={{
             height: '100vh',
@@ -197,7 +198,8 @@ const ScrollablePortfolio = ({
             width: '100%',
             margin: 0,
             padding: 0,
-            boxSizing: 'border-box'
+            boxSizing: 'border-box',
+            pointerEvents: 'auto'
           }}
         >
           <AboutSection />
