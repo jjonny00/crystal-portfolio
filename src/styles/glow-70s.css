@@ -26,8 +26,8 @@
     0 0.2px 0 rgba(0,0,0,.01),
     0 0 0.7px  var(--headline-glow1, #40e0d0),
     0 0 0.8px var(--headline-glow1, #40e0d0),
-    0 0 7px rgb(from var(--headline-glow2, #008080) r g b / 0.5),
-    0 0 40px rgb(from var(--headline-glow2, #008080) r g b / 0.4);
+    0 0 7px rgb(from var(--headline-glow2, #008080) r g b / 0.4),
+    0 0 40px rgb(from var(--headline-glow2, #008080) r g b / 0.3);
 }
 
 /* Bloom duplicate behind the text - FIXED */
