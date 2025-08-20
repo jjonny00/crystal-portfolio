@@ -14,6 +14,7 @@ import GlowingSphereImage, { BLENDING_MODES } from './GlowingSphereImage'
 import { getProjectColorByFacetKey } from '../../data/projects'
 import FacetLabels from './FacetLabels'
 import projects from '../../data/projects'
+import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController'
 
 const UnifiedCrystalScene = forwardRef(({ 
   animationData,
@@ -251,7 +252,8 @@ const UnifiedCrystalScene = forwardRef(({
         ...(mat.userData || {}),
         targetColor: initialColor.clone(),
         startColor: initialColor.clone(),
-        progress: 1
+        progress: 1,
+        baseEmissiveIntensity: mat.emissiveIntensity
       };
 
       const model = facetModels[idx];
@@ -525,6 +527,36 @@ const UnifiedCrystalScene = forwardRef(({
             ref={facetRefs.current[index]}
             object={model.scene}
             position={[0, 0, 0]} // Position will be animated via useFrame
+            onClick={(e) => {
+              e.stopPropagation();
+              animationData.scrollToProgress(
+                ANIMATION_CONFIG.projectSections[facetKey].start
+              );
+            }}
+            onPointerOver={(e) => {
+              e.stopPropagation();
+              const facet = facetRefs.current[index]?.current;
+              if (facet) {
+                facet.scale.setScalar(1.05);
+              }
+              const mat = facetMaterialsRef.current[index];
+              if (mat) {
+                const base = mat.userData.baseEmissiveIntensity ?? mat.emissiveIntensity;
+                mat.emissiveIntensity = base * 1.5;
+              }
+            }}
+            onPointerOut={(e) => {
+              e.stopPropagation();
+              const facet = facetRefs.current[index]?.current;
+              if (facet) {
+                facet.scale.setScalar(1);
+              }
+              const mat = facetMaterialsRef.current[index];
+              if (mat) {
+                const base = mat.userData.baseEmissiveIntensity ?? mat.emissiveIntensity;
+                mat.emissiveIntensity = base;
+              }
+            }}
           />
         );
       })}
