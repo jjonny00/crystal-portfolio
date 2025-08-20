@@ -4,6 +4,7 @@ import { useFrame } from '@react-three/fiber';
 import Headline from '../ui/Headline';
 import { deriveGlowFromBase } from '../../utils/color';
 import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController';
+import '../../styles/facet-label.css';
 
 const FacetLabels = ({ anchors = {}, projects = [], animationData }) => {
   const groupRefs = useRef({});
@@ -57,37 +58,33 @@ const Label = ({ project, onClick, glow1, glow2 }) => {
 
   return (
     <div
+      className="facet-label"
       onPointerEnter={() => setHovered(true)}
       onPointerLeave={() => setHovered(false)}
       onClick={onClick}
       style={{
-        cursor: 'pointer',
         transform: hovered ? 'scale(1.1)' : 'scale(1)',
         transition: 'transform 0.2s',
-        textAlign: 'center',
-        userSelect: 'none',
       }}
     >
-      <Headline
-        as="h3"
-        style={{
-          margin: 0,
-          fontSize: '1rem',
-          '--headline-ink': project.headlineColor,
-          '--headline-glow1': glow1,
-          '--headline-glow2': glow2,
-        }}
-      >
-        {project.label}
-      </Headline>
-      <div
-        style={{
-          marginTop: '0.25rem',
-          fontSize: '0.75rem',
-          color: 'rgba(255, 255, 255, 0.8)',
-        }}
-      >
-        {project.tagline}
+      <div className="label-container">
+        <div className="label-logo">
+          <img src={project.logo} alt={`${project.title} logo`} />
+        </div>
+        <div>
+          <Headline
+            as="h3"
+            className="label-title"
+            style={{
+              '--headline-ink': project.headlineColor,
+              '--headline-glow1': glow1,
+              '--headline-glow2': glow2,
+            }}
+          >
+            {project.label}
+          </Headline>
+          <div className="label-description">{project.tagline}</div>
+        </div>
       </div>
     </div>
   );
