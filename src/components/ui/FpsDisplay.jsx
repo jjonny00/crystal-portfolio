@@ -269,6 +269,8 @@ export const FPSCounter = () => {
 /**
  * Performance Alert Component
  * Shows warnings when performance drops
+ * Includes hysteresis to prevent flicker: alert only shows after sustained low FPS
+ * and auto-hides after sustained recovery.
  */
 export const PerformanceAlert = ({
   visible = true,
@@ -276,14 +278,16 @@ export const PerformanceAlert = ({
 }) => {
   const { fps, avgFps } = useFPSMonitorDOM();
   const { profile, tier, updateProfile, forceRetest } = usePerformance();
-  const threshold = profile?.minAcceptableFPS || 55;
+  const threshold = profile?.minAcceptableFPS || 48; // Alert when avg FPS dips below ~48
   const [showAlert, setShowAlert] = useState(false);
   const [alertCount, setAlertCount] = useState(0);
   const [dismissed, setDismissed] = useState(false);
   const lastAlertTime = useRef(0);
-  const belowThresholdStart = useRef(null);
+  const belowThresholdStart = useRef(null); // track low-FPS duration
+  const recoveryStart = useRef(null); // track recovery duration above threshold
   const suppressUntil = useRef(0);
-  const SUSTAINED_MS = 3000; // 3 seconds below threshold required
+  const SUSTAINED_MS = 6000; // 6s below threshold required before showing alert
+  const RECOVERY_MS = 10000; // hide after 10s of sustained recovery
 
   useEffect(() => {
     if (dismissed) return;
@@ -292,6 +296,8 @@ export const PerformanceAlert = ({
     if (now < suppressUntil.current) return;
 
     if (fps > 0 && avgFps < threshold && avgFps > 0) {
+      // below threshold: reset recovery tracking and start/continue low FPS timer
+      recoveryStart.current = null;
       if (belowThresholdStart.current === null) {
         belowThresholdStart.current = now;
       } else if (
@@ -305,14 +311,31 @@ export const PerformanceAlert = ({
           onPerformanceIssue({ fps, avgFps, alertCount });
         }
       }
-    } else {
+    } else if (fps > 0 && avgFps >= threshold) {
+      // above threshold: reset low FPS timer and track recovery time
       belowThresholdStart.current = null;
+      if (showAlert) {
+        if (recoveryStart.current === null) {
+          recoveryStart.current = now;
+        } else if (now - recoveryStart.current >= RECOVERY_MS) {
+          // hide alert after sustained recovery
+          setShowAlert(false);
+          recoveryStart.current = null;
+        }
+      } else {
+        recoveryStart.current = null;
+      }
+    } else {
+      // reset if FPS is zero or undefined
+      belowThresholdStart.current = null;
+      recoveryStart.current = null;
     }
-  }, [fps, avgFps, threshold, onPerformanceIssue, alertCount, dismissed]);
+  }, [fps, avgFps, threshold, onPerformanceIssue, alertCount, dismissed, showAlert]);
 
   const suppressAlerts = () => {
     suppressUntil.current = Date.now() + 10000; // 10 second cooldown
     belowThresholdStart.current = null;
+    recoveryStart.current = null;
   };
 
   const handleLowerQuality = () => {
