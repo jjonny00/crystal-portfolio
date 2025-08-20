@@ -49,47 +49,6 @@ export const fracturePositions = {
   exploration: [-0.030, 0.035, 0.000],
 }
 
-// === FACET LABELS ===
-// Premium label system with descriptions
-export const facetLabels = [
-  { 
-    key: 'empathy', 
-    text: 'EMPATHY', 
-    description: 'Understanding user needs and pain points',
-    color: '#64ffda' 
-  },
-  { 
-    key: 'narrative', 
-    text: 'NARRATIVE', 
-    description: 'Guiding teams through compelling stories',
-    color: '#bb86fc' 
-  },
-  { 
-    key: 'craft', 
-    text: 'CRAFT', 
-    description: 'Precision in every design detail',
-    color: '#03dac6' 
-  },
-  { 
-    key: 'system', 
-    text: 'SYSTEM', 
-    description: 'Building scalable design systems',
-    color: '#cf6679' 
-  },
-  { 
-    key: 'leadership', 
-    text: 'LEADERSHIP', 
-    description: 'Empowering teams to do their best work',
-    color: '#ffd600' 
-  },
-  { 
-    key: 'exploration', 
-    text: 'EXPLORATION', 
-    description: 'Finding opportunities in ambiguity',
-    color: '#ff7043' 
-  }
-]
-
 // === ANIMATION TIMING ===
 export const timing = {
   // Camera animations
