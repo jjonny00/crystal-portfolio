@@ -535,26 +535,24 @@ const UnifiedCrystalScene = forwardRef(({
             }}
             onPointerOver={(e) => {
               e.stopPropagation();
-              const facet = facetRefs.current[index]?.current;
-              if (facet) {
-                facet.scale.setScalar(1.05);
-              }
               const mat = facetMaterialsRef.current[index];
               if (mat) {
-                const base = mat.userData.baseEmissiveIntensity ?? mat.emissiveIntensity;
-                mat.emissiveIntensity = base * 1.5;
+                mat.userData.startColor.copy(mat.color);
+                mat.userData.targetColor.copy(projectColors[index]);
+                mat.userData.progress = 0;
               }
             }}
             onPointerOut={(e) => {
               e.stopPropagation();
-              const facet = facetRefs.current[index]?.current;
-              if (facet) {
-                facet.scale.setScalar(1);
-              }
               const mat = facetMaterialsRef.current[index];
               if (mat) {
-                const base = mat.userData.baseEmissiveIntensity ?? mat.emissiveIntensity;
-                mat.emissiveIntensity = base;
+                const target =
+                  animationData?.focusedFacet === facetKey
+                    ? projectColors[index]
+                    : defaultColorRef.current;
+                mat.userData.startColor.copy(mat.color);
+                mat.userData.targetColor.copy(target);
+                mat.userData.progress = 0;
               }
             }}
           />
