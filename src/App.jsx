@@ -299,6 +299,12 @@ function App() {
       const overrides = newTier === 'low' ? { simplifiedAnimations: false } : {};
       updateProfile(newTier, overrides);
     } else if (
+      typeof newConfig.renderScale === 'number' &&
+      newConfig.renderScale !== performanceProfile.renderScale
+    ) {
+      // Allow manual adjustment of render scale
+      updateProfile(performanceTier, { renderScale: newConfig.renderScale });
+    } else if (
       typeof newConfig.simplifiedAnimations === 'boolean' &&
       newConfig.simplifiedAnimations !== performanceProfile.simplifiedAnimations
     ) {
@@ -376,7 +382,11 @@ function App() {
         antialias: performanceProfile.antialiasing !== false,
         powerPreference: performanceTier === 'high' ? 'high-performance' : 'default'
       },
-      dpr: [1, Math.min(performanceProfile.maxPixelRatio || 2, window.devicePixelRatio)]
+      dpr: [
+        1,
+        Math.min(performanceProfile.maxPixelRatio || 2, window.devicePixelRatio) *
+          (performanceProfile.renderScale || 1)
+      ]
     };
   }, [performanceProfile, performanceTier]);
 
@@ -471,6 +481,7 @@ function App() {
       >
         {/* Fixed 3D Canvas */}
         <Fixed3DCanvas
+          key={performanceProfile?.renderScale}
           ref={fixedCanvasRef}
           materialVariant={materialVariant}
           effectsEnabled={effectsEnabled}

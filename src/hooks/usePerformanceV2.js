@@ -121,7 +121,16 @@ export const usePerformanceV2 = () => {
   const updateProfile = useCallback((newTier, overrides = {}) => {
     console.log('usePerformanceV2: updateProfile called', { newTier, overrides });
     try {
-      manager.setProfile(newTier, overrides);
+      // Explicitly allow renderScale overrides (numeric only)
+      const allowedOverrides = { ...overrides };
+      if (overrides.renderScale !== undefined) {
+        const numeric = Number(overrides.renderScale);
+        if (!Number.isNaN(numeric)) {
+          allowedOverrides.renderScale = numeric;
+        }
+      }
+
+      manager.setProfile(newTier, allowedOverrides);
       setProfile(manager.getProfile());
       setTier(manager.getTier());
       setTestResults(manager.getTestResults() || null);
