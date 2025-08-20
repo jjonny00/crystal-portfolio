@@ -119,14 +119,12 @@ export const usePerformanceV2 = () => {
 
   // Update profile manually
   const updateProfile = useCallback((newTier, overrides = {}) => {
+    console.log('usePerformanceV2: updateProfile called', { newTier, overrides });
     try {
       manager.setProfile(newTier, overrides);
       setProfile(manager.getProfile());
       setTier(manager.getTier());
-      
-      if (import.meta.env.DEV) {
-        console.log('🔧 Performance profile manually updated to:', newTier);
-      }
+      console.log('usePerformanceV2: profile updated to', newTier);
     } catch (err) {
       console.error('Failed to update performance profile:', err);
       setError(err.message);
@@ -135,6 +133,7 @@ export const usePerformanceV2 = () => {
 
   // Force retest with progress tracking
   const forceRetest = useCallback(async () => {
+    console.log('usePerformanceV2: forceRetest called');
     setIsInitializing(true);
     setError(null);
     setIsReady(false);
@@ -145,7 +144,7 @@ export const usePerformanceV2 = () => {
     manager.setProgressCallback((percentage, message) => {
       setTestProgress(percentage);
       setTestStatus(message || '');
-      
+
       // Update global HTML loader
       window.updateImmediateLoader?.({
         test: percentage,
@@ -155,12 +154,10 @@ export const usePerformanceV2 = () => {
     });
 
     try {
-      if (import.meta.env.DEV) {
-        console.log('🔧 Forcing performance retest...');
-      }
+      console.log('usePerformanceV2: starting performance retest');
 
       await manager.forceRetest();
-      
+
       setProfile(manager.getProfile());
       setTier(manager.getTier());
       setTestResults(manager.getTestResults());
@@ -168,12 +165,10 @@ export const usePerformanceV2 = () => {
       setIsInitializing(false);
       setTestProgress(100);
 
-      if (import.meta.env.DEV) {
-        console.log('🔧 Performance retest complete:', {
-          tier: manager.getTier(),
-          results: manager.getTestResults()
-        });
-      }
+      console.log('usePerformanceV2: performance retest complete', {
+        tier: manager.getTier(),
+        results: manager.getTestResults()
+      });
     } catch (err) {
       console.error('Performance retest failed:', err);
       setError(err.message);
