@@ -309,11 +309,16 @@ export const useUnifiedAnimationController = (options = {}) => {
       // Add hysteresis - require being well into the new zone before switching
       const hysteresis = 0.02; // 2% buffer zone
       let shouldChangeZone = false;
-      
+
       if (currentZone.zone === 'hero' && currentZone.progress > hysteresis) {
         shouldChangeZone = true;
-      } else if (currentZone.zone === 'overview' && currentZone.progress > hysteresis && currentZone.progress < (1 - hysteresis)) {
-        shouldChangeZone = true;
+      } else if (currentZone.zone === 'overview') {
+        if (currentZone.progress > hysteresis && currentZone.progress < (1 - hysteresis)) {
+          shouldChangeZone = true;
+        } else if (lastZone.current === 'projects' && currentZone.progress >= (1 - hysteresis)) {
+          // Coming from projects and we're right at the boundary—still transition
+          shouldChangeZone = true;
+        }
       } else if (currentZone.zone === 'projects' && currentZone.progress > hysteresis && currentZone.progress < (1 - hysteresis)) {
         shouldChangeZone = true;
       } else if (currentZone.zone === 'about' && currentZone.progress > hysteresis) {
@@ -377,7 +382,9 @@ export const useUnifiedAnimationController = (options = {}) => {
       }
       setAnimationState(prev => ({
         ...prev,
-        focusedFacet: null
+        focusedFacet: null,
+        // Ensure camera snaps back to the proper zone camera instead of hero fallback
+        cameraState: currentZone.zone
       }));
       lastProject.current = null;
     }
@@ -408,8 +415,11 @@ export const useUnifiedAnimationController = (options = {}) => {
   const getCurrentCameraConfig = useCallback(() => {
     let cameraConfig;
     
-    if (animationState.cameraState === 'project' && animationState.focusedFacet) {
-      cameraConfig = config.camera.projects[animationState.focusedFacet];
+    if (animationState.cameraState === 'project') {
+      cameraConfig = animationState.focusedFacet
+        ? config.camera.projects[animationState.focusedFacet]
+        // When no facet is focused, default to overview camera instead of hero fallback
+        : config.camera.overview;
     } else {
       cameraConfig = config.camera[animationState.cameraState] || config.camera.hero;
     }
