@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useFrame } from '@react-three/fiber';
-import usePerformance from '../../hooks/usePerformance';
+import { usePerformanceV2 } from '../../hooks/usePerformanceV2';
 
 /**
  * FPS Monitor Hook for Canvas components
@@ -277,7 +277,7 @@ export const PerformanceAlert = ({
   onPerformanceIssue
 }) => {
   const { fps, avgFps } = useFPSMonitorDOM();
-  const { profile, tier, updateProfile, forceRetest } = usePerformance();
+  const { profile, tier, updateProfile, forceRetest } = usePerformanceV2();
   const threshold = profile?.minAcceptableFPS || 48; // Alert when avg FPS dips below ~48
   const [showAlert, setShowAlert] = useState(false);
   const [alertCount, setAlertCount] = useState(0);
@@ -339,7 +339,7 @@ export const PerformanceAlert = ({
   };
 
   const handleLowerQuality = () => {
-    const targetTier = tier === 'high' ? 'medium' : 'low';
+    const targetTier = tier === 'high' ? 'medium' : tier === 'medium' ? 'low' : 'low';
     console.log('PerformanceAlert: lowering quality', { from: tier, to: targetTier });
     updateProfile(targetTier);
     setShowAlert(false);
