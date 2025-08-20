@@ -88,7 +88,8 @@ const ScrollablePortfolio = ({
         
         // Clean styling
         backgroundColor: 'transparent',
-        pointerEvents: 'none',
+        pointerEvents: 'auto',
+        touchAction: 'pan-y',
         
         // Clean box model
         margin: 0,
@@ -161,7 +162,7 @@ const ScrollablePortfolio = ({
             margin: 0,
             padding: 0,
             boxSizing: 'border-box',
-            pointerEvents: 'none'
+            pointerEvents: 'auto'
           }}
         >
         </section>
