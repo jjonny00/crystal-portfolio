@@ -382,7 +382,9 @@ export const useUnifiedAnimationController = (options = {}) => {
       }
       setAnimationState(prev => ({
         ...prev,
-        focusedFacet: null
+        focusedFacet: null,
+        // Ensure camera snaps back to the proper zone camera instead of hero fallback
+        cameraState: currentZone.zone
       }));
       lastProject.current = null;
     }
@@ -413,8 +415,11 @@ export const useUnifiedAnimationController = (options = {}) => {
   const getCurrentCameraConfig = useCallback(() => {
     let cameraConfig;
     
-    if (animationState.cameraState === 'project' && animationState.focusedFacet) {
-      cameraConfig = config.camera.projects[animationState.focusedFacet];
+    if (animationState.cameraState === 'project') {
+      cameraConfig = animationState.focusedFacet
+        ? config.camera.projects[animationState.focusedFacet]
+        // When no facet is focused, default to overview camera instead of hero fallback
+        : config.camera.overview;
     } else {
       cameraConfig = config.camera[animationState.cameraState] || config.camera.hero;
     }
