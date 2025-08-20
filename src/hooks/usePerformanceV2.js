@@ -13,7 +13,7 @@ export const usePerformanceV2 = () => {
   const [isReady, setIsReady] = useState(manager.isReady());
   const [isInitializing, setIsInitializing] = useState(false);
   const [error, setError] = useState(null);
-  const [testResults, setTestResults] = useState(manager.getTestResults());
+  const [testResults, setTestResults] = useState(manager.getTestResults() || null);
   const [testProgress, setTestProgress] = useState(0);
   const [testStatus, setTestStatus] = useState('');
 
@@ -27,7 +27,7 @@ export const usePerformanceV2 = () => {
         setProfile(manager.getProfile());
         setTier(manager.getTier());
         setIsReady(true);
-        setTestResults(manager.getTestResults());
+        setTestResults(manager.getTestResults() || null);
         
         if (import.meta.env.DEV) {
           console.log('🔧 Using cached performance profile:', manager.getTier());
@@ -66,7 +66,7 @@ export const usePerformanceV2 = () => {
           setProfile(manager.getProfile());
           setTier(manager.getTier());
           setIsReady(true);
-          setTestResults(manager.getTestResults());
+          setTestResults(manager.getTestResults() || null);
           setIsInitializing(false);
           setTestProgress(100);
 
@@ -124,6 +124,7 @@ export const usePerformanceV2 = () => {
       manager.setProfile(newTier, overrides);
       setProfile(manager.getProfile());
       setTier(manager.getTier());
+      setTestResults(manager.getTestResults() || null);
       console.log('usePerformanceV2: profile updated to', newTier);
     } catch (err) {
       console.error('Failed to update performance profile:', err);
@@ -160,7 +161,7 @@ export const usePerformanceV2 = () => {
 
       setProfile(manager.getProfile());
       setTier(manager.getTier());
-      setTestResults(manager.getTestResults());
+      setTestResults(manager.getTestResults() || null);
       setIsReady(true);
       setIsInitializing(false);
       setTestProgress(100);
@@ -202,22 +203,6 @@ export const usePerformanceV2 = () => {
       });
     }
     
-    if (testResults && Object.keys(testResults).length > 1) {
-      const availableTiers = Object.keys(testResults);
-      const higherTiers = availableTiers.filter(t => 
-        (tier === 'low' && (t === 'medium' || t === 'high')) ||
-        (tier === 'medium' && t === 'high')
-      );
-      
-      if (higherTiers.length > 0) {
-        recommendations.push({
-          type: 'upgrade',
-          message: `Your device may support ${higherTiers.join(' or ')} quality`,
-          action: () => updateProfile(higherTiers[0])
-        });
-      }
-    }
-    
     if (error) {
       recommendations.push({
         type: 'error',
@@ -225,9 +210,9 @@ export const usePerformanceV2 = () => {
         action: 'Try refreshing the page or retesting'
       });
     }
-    
+
     return recommendations;
-  }, [tier, testResults, error, updateProfile]);
+  }, [tier, error]);
 
   // Debug info
   const debugInfo = {

@@ -119,13 +119,18 @@ const PerformanceDebugPanel = ({
         {testResults && (
           <div>
             <div style={{ color: '#bb86fc', fontWeight: 'bold', marginBottom: '8px' }}>Test Results:</div>
-            <div>Average FPS: <span style={{ color: '#64ffda' }}>{Math.round(testResults.avgFps || 0)}</span></div>
-            <div>Min FPS: <span style={{ color: testResults.minFps > 25 ? '#4CAF50' : '#F44336' }}>{Math.round(testResults.minFps || 0)}</span></div>
-            <div>Max FPS: <span style={{ color: '#4CAF50' }}>{Math.round(testResults.maxFps || 0)}</span></div>
-            <div>Test Tier: {testResults.tier}</div>
-            <div>Frame Count: {testResults.frameCount || 0}</div>
-            <div>Samples: {testResults.samples || 0}</div>
-            {testResults.recommendedTier && (
+            <div>Average FPS: <span style={{ color: '#64ffda' }}>{Math.round(testResults?.avgFps ?? 0)}</span></div>
+            <div>
+              Min FPS:{' '}
+              <span style={{ color: (testResults?.minFps ?? 0) > 25 ? '#4CAF50' : '#F44336' }}>
+                {Math.round(testResults?.minFps ?? 0)}
+              </span>
+            </div>
+            <div>Max FPS: <span style={{ color: '#4CAF50' }}>{Math.round(testResults?.maxFps ?? 0)}</span></div>
+            <div>Test Tier: {testResults?.tier ?? 'unknown'}</div>
+            <div>Frame Count: {testResults?.frameCount ?? 0}</div>
+            <div>Samples: {testResults?.samples ?? 0}</div>
+            {testResults?.recommendedTier && (
               <div>Recommended: <span style={{ color: '#ffd600' }}>{testResults.recommendedTier}</span></div>
             )}
           </div>

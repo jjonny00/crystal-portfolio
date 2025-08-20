@@ -41,10 +41,13 @@ export default class PerformanceManagerV2 {
       if (import.meta.env.DEV) {
         console.log('🔧 Using cached performance profile:', cachedData.tier);
       }
-      
+
       this.tier = cachedData.tier;
       this.profile = { ...PERFORMANCE_PROFILES[cachedData.tier] };
-      this._testResults = cachedData.testResults;
+      // Store only the flattened result for the active tier
+      this._testResults = cachedData.testResults?.tier
+        ? cachedData.testResults
+        : { ...cachedData.testResults, tier: cachedData.tier };
       this._ready = true;
       return;
     }
@@ -58,10 +61,13 @@ export default class PerformanceManagerV2 {
 
       this.tier = tier;
       this.profile = { ...PERFORMANCE_PROFILES[tier] };
-      this._testResults = testResults;
 
-      // Cache results
-      this._cacheResults(tier, testResults);
+      // Store only the result for the selected tier
+      const tierResult = testResults?.[tier] || null;
+      this._testResults = tierResult;
+
+      // Cache flattened results
+      this._cacheResults(tier, tierResult);
 
       if (import.meta.env.DEV) {
         console.log('🔧 Conservative performance test complete:', {
@@ -434,7 +440,18 @@ export default class PerformanceManagerV2 {
   }
 
   getTestResults() {
-    return this._testResults;
+    // Always return a flattened result for the active tier
+    if (!this._testResults) return null;
+
+    // If already flattened, return as-is
+    if (this._testResults.tier) return this._testResults;
+
+    // Backwards compatibility: if results for all tiers were stored, pick current tier
+    if (this._testResults[this.tier]) {
+      return this._testResults[this.tier];
+    }
+
+    return null;
   }
 
   setProfile(tier, overrides = {}) {
