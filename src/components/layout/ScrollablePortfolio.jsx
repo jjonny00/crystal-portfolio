@@ -46,6 +46,22 @@ const ScrollablePortfolio = ({
   useEffect(() => {
     if (import.meta.env.DEV) console.log('📏 ScrollablePortfolio received snapSpeed:', snapSpeed);
   }, [snapSpeed]);
+
+  // Allow scrolling when overlay sections disable pointer events
+  useEffect(() => {
+    const container = document.querySelector('.scroll-container');
+    if (!container) return;
+
+    const handleWheel = (e) => {
+      // If the event target isn't inside the scroll container, manually scroll it
+      if (!e.target.closest('.scroll-container')) {
+        container.scrollBy({ top: e.deltaY });
+      }
+    };
+
+    window.addEventListener('wheel', handleWheel, { passive: true });
+    return () => window.removeEventListener('wheel', handleWheel);
+  }, []);
   
   return (
     <div 
