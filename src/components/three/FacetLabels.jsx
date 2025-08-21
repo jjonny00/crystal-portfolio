@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Html } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import Headline from '../ui/Headline';
@@ -57,17 +57,32 @@ const FacetLabels = ({ anchors = {}, projects = [], animationData, onHoverChange
 
 const Label = ({ project, facetKey, onClick, onHoverChange, glow1, glow2 }) => {
   const [hovered, setHovered] = useState(false);
+  const hoverTimeout = useRef();
+
+  useEffect(() => {
+    return () => {
+      if (hoverTimeout.current) {
+        clearTimeout(hoverTimeout.current);
+      }
+    };
+  }, []);
 
   return (
     <div
       className="facet-label"
       onPointerEnter={() => {
+        if (hoverTimeout.current) {
+          clearTimeout(hoverTimeout.current);
+          hoverTimeout.current = null;
+        }
         setHovered(true);
         onHoverChange?.(facetKey, true);
       }}
       onPointerLeave={() => {
-        setHovered(false);
-        onHoverChange?.(facetKey, false);
+        hoverTimeout.current = setTimeout(() => {
+          setHovered(false);
+          onHoverChange?.(facetKey, false);
+        }, 100);
       }}
       onClick={onClick}
       style={{
