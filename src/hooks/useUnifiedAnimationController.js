@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Vector3 } from 'three';
+import { timing } from '../crystalConfig.js';
 
 /**
  * SIMPLIFIED: Animation Configuration with immediate state changes
@@ -199,13 +200,15 @@ export const useUnifiedAnimationController = (options = {}) => {
     isTransitioning: false, // Will be managed by individual components
     scrollProgress: 0,
     zoneInfo: { zone: 'hero', progress: 0 },
-    projectInfo: { project: null, progress: 0 }
+    projectInfo: { project: null, progress: 0 },
+    explosionComplete: false
   });
 
   // Simplified refs for tracking changes
   const lastZone = useRef('hero');
   const lastProject = useRef(null);
   const updateTimeout = useRef(null);
+  const explosionTimeout = useRef(null);
 
   /**
    * FIXED: Handle zone transitions with immediate state changes
@@ -433,14 +436,39 @@ export const useUnifiedAnimationController = (options = {}) => {
   const getCurrentCrystalConfig = useCallback(() => {
     return {
       form: animationState.crystalForm,
-      positions: animationState.crystalForm === 'exploded' 
-        ? config.crystal.explodedPositions 
+      positions: animationState.crystalForm === 'exploded'
+        ? config.crystal.explodedPositions
         : { center: config.crystal.wholePosition },
-      shouldRotate: animationState.crystalForm === 'whole' && 
+      shouldRotate: animationState.crystalForm === 'whole' &&
                    animationState.state === ANIMATION_STATES.HERO,
       rotationSpeed: 0.0003
     };
   }, [animationState.crystalForm, animationState.state, config]);
+
+  // Track when the explosion animation completes
+  const EXPLOSION_DURATION = timing?.camera?.explodeDuration ?? 1600;
+  const EXPLOSION_BUFFER = 200;
+
+  useEffect(() => {
+    if (animationState.crystalForm === 'exploded') {
+      if (explosionTimeout.current) {
+        clearTimeout(explosionTimeout.current);
+      }
+      // reset completion flag and start timer
+      setAnimationState(prev => ({ ...prev, explosionComplete: false }));
+      explosionTimeout.current = setTimeout(() => {
+        setAnimationState(prev => ({ ...prev, explosionComplete: true }));
+      }, EXPLOSION_DURATION + EXPLOSION_BUFFER);
+    } else {
+      if (explosionTimeout.current) {
+        clearTimeout(explosionTimeout.current);
+        explosionTimeout.current = null;
+      }
+      if (animationState.explosionComplete) {
+        setAnimationState(prev => ({ ...prev, explosionComplete: false }));
+      }
+    }
+  }, [animationState.crystalForm]);
 
   /**
    * Cleanup on unmount
@@ -449,6 +477,9 @@ export const useUnifiedAnimationController = (options = {}) => {
     return () => {
       if (updateTimeout.current) {
         clearTimeout(updateTimeout.current);
+      }
+      if (explosionTimeout.current) {
+        clearTimeout(explosionTimeout.current);
       }
     };
   }, []);
