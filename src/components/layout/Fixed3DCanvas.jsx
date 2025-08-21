@@ -62,7 +62,8 @@ const Fixed3DCanvas = forwardRef(({
   config,
   canvasProps = {},
   environmentProps = {},
-  isMobile = false
+  isMobile = false,
+  scrollToProgress
 }, ref) => {
   // NEW: Ref to access crystal scene for debug panels
   const crystalSceneRef = useRef();
@@ -298,6 +299,7 @@ const Fixed3DCanvas = forwardRef(({
             performanceProfile={performanceProfile}
             isMobile={isMobile}
             simplifiedAnimations={simplifiedAnimations}
+            scrollToProgress={scrollToProgress}
           />
           
           {/* Environment used for reflections only */}

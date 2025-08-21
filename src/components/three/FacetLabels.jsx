@@ -6,7 +6,7 @@ import { deriveGlowFromBase } from '../../utils/color';
 import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController';
 import '../../styles/facet-label.css';
 
-const FacetLabels = ({ anchors = {}, projects = [], animationData, onHoverChange }) => {
+const FacetLabels = ({ anchors = {}, projects = [], scrollToProgress, onHoverChange }) => {
   const groupRefs = useRef({});
 
   useFrame(() => {
@@ -41,7 +41,7 @@ const FacetLabels = ({ anchors = {}, projects = [], animationData, onHoverChange
                 glow1={glow1}
                 glow2={glow2}
                 onClick={() =>
-                  animationData.scrollToProgress(
+                  scrollToProgress(
                     ANIMATION_CONFIG.projectSections[facetKey].start
                   )
                 }

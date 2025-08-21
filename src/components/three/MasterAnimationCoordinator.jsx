@@ -5,6 +5,7 @@ import { useScrollProgress } from '../../hooks/useScrollProgress';
 import { useUnifiedAnimationController } from '../../hooks/useUnifiedAnimationController';
 
 let exportedAnimationData = {};
+let exportedScrollMetrics = {};
 
 /**
  * SIMPLIFIED: Master Animation Coordinator with keyboard-controlled debug
@@ -72,58 +73,63 @@ const MasterAnimationCoordinator = ({
     }
   }, [scrollData.scrollProgress, animationController]);
 
-  // SIMPLIFIED: Animation data with immediate state information
-  const animationData = useMemo(() => ({
-    // Core animation state (immediate)
-    ...animationController.animationState,
-
-    // Enhanced scroll info
+  // Memoize scroll metrics separately so components that don't care about
+  // scrolling won't re-render on every scroll tick
+  const scrollMetrics = useMemo(() => ({
     scrollProgress: scrollData.scrollProgress,
     isScrolling: scrollData.isScrolling,
     isFastScrolling: scrollData.isFastScrolling,
-    scrollVelocity: scrollData.velocity,
-
-    // Immediate configurations (no complex coordination needed)
-    cameraConfig: animationController.cameraConfig,
-    crystalConfig: animationController.crystalConfig,
-
-    // Enhanced zone information
-    currentZone: animationController.animationState.zoneInfo?.zone,
-    zoneProgress: animationController.animationState.zoneInfo?.progress,
-    isEnteringZone: animationController.animationState.zoneInfo?.isEntering,
-    isLeavingZone: animationController.animationState.zoneInfo?.isLeaving,
-
-    // Enhanced project information
-    focusedProject: animationController.animationState.focusedFacet,
-    projectProgress: animationController.animationState.projectInfo?.progress,
-
-    // SIMPLIFIED: isTransitioning is managed by individual components
-    isTransitioning: false, // Components handle their own smooth transitions
-
-    // Utility functions
-    scrollToProgress: scrollData.scrollToProgress,
-    scrollToZone: (zoneName) => scrollData.scrollToZone?.(zoneName, animationController.config.scrollZones),
-    overrideAnimationState: animationController.overrideState || (() => {})
+    scrollVelocity: scrollData.velocity
   }), [
-    animationController.animationState,
-    animationController.cameraConfig,
-    animationController.crystalConfig,
     scrollData.scrollProgress,
     scrollData.isScrolling,
     scrollData.isFastScrolling,
-    scrollData.velocity,
+    scrollData.velocity
+  ]);
+
+  exportedScrollMetrics = scrollMetrics;
+
+  // Stable scroll controls - primarily used for label clicks
+  const scrollControls = useMemo(() => ({
+    scrollToProgress: scrollData.scrollToProgress,
+    scrollToZone: (zoneName) =>
+      scrollData.scrollToZone?.(zoneName, animationController.config.scrollZones)
+  }), [
     scrollData.scrollToProgress,
     scrollData.scrollToZone,
-    animationController.config?.scrollZones,
-    animationController.overrideState
+    animationController.config?.scrollZones
+  ]);
+
+  // Core animation data consumed by 3D components
+  const animationData = useMemo(() => ({
+    state: animationController.animationState.state,
+    crystalForm: animationController.animationState.crystalForm,
+    cameraState: animationController.animationState.cameraState,
+    focusedFacet: animationController.animationState.focusedFacet,
+    focusedProject: animationController.animationState.projectInfo?.project,
+    projectProgress: animationController.animationState.projectInfo?.progress,
+    isTransitioning: animationController.animationState.isTransitioning,
+    cameraConfig: animationController.cameraConfig,
+    crystalConfig: animationController.crystalConfig,
+    currentZone: animationController.animationState.zoneInfo?.zone,
+    zoneProgress: animationController.animationState.zoneInfo?.progress,
+    isEnteringZone: animationController.animationState.zoneInfo?.isEntering,
+    isLeavingZone: animationController.animationState.zoneInfo?.isLeaving
+  }), [
+    animationController.animationState,
+    animationController.cameraConfig,
+    animationController.crystalConfig
   ]);
 
   exportedAnimationData = animationData;
 
-  // Clone children and pass simplified animation data
+  // Clone children and pass only required fields
   const childrenWithProps = React.Children.map(children, child => {
     if (React.isValidElement(child)) {
-      return React.cloneElement(child, { animationData });
+      return React.cloneElement(child, {
+        animationData,
+        scrollToProgress: scrollControls.scrollToProgress
+      });
     }
     return child;
   });
@@ -232,5 +238,5 @@ const DebugOverlay = ({ scrollData, animationData, animationController }) => {
   );
 };
 
-export { exportedAnimationData as animationData };
+export { exportedAnimationData as animationData, exportedScrollMetrics as scrollMetrics };
 export default MasterAnimationCoordinator;
