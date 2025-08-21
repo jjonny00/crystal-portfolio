@@ -14,7 +14,6 @@ import GlowingSphereImage, { BLENDING_MODES } from './GlowingSphereImage'
 import { getProjectColorByFacetKey } from '../../data/projects'
 import FacetLabels from './FacetLabels'
 import projects from '../../data/projects'
-import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController'
 
 const UnifiedCrystalScene = forwardRef(({ 
   animationData,
@@ -183,6 +182,26 @@ const UnifiedCrystalScene = forwardRef(({
     })
     return anchors
   }, [facetKeys, showFacets, modelsLoaded])
+
+  const handleLabelHover = useCallback(
+    (facetKey, hovering) => {
+      const index = facetKeys.indexOf(facetKey)
+      if (index === -1) return
+      const mat = facetMaterialsRef.current[index]
+      if (!mat) return
+
+      const target = hovering
+        ? projectColors[index]
+        : animationData?.focusedFacet === facetKey
+          ? projectColors[index]
+          : defaultColorRef.current
+
+      mat.userData.startColor.copy(mat.color)
+      mat.userData.targetColor.copy(target)
+      mat.userData.progress = 0
+    },
+    [facetKeys, projectColors, animationData]
+  )
   
   // Keyboard listener for debug toggle
   useEffect(() => {
@@ -527,42 +546,18 @@ const UnifiedCrystalScene = forwardRef(({
             ref={facetRefs.current[index]}
             object={model.scene}
             position={[0, 0, 0]} // Position will be animated via useFrame
-            onClick={(e) => {
-              e.stopPropagation();
-              animationData.scrollToProgress(
-                ANIMATION_CONFIG.projectSections[facetKey].start
-              );
-            }}
-            onPointerOver={(e) => {
-              e.stopPropagation();
-              const facet = facetRefs.current[index]?.current;
-              if (facet) {
-                facet.scale.setScalar(1.05);
-              }
-              const mat = facetMaterialsRef.current[index];
-              if (mat) {
-                const base = mat.userData.baseEmissiveIntensity ?? mat.emissiveIntensity;
-                mat.emissiveIntensity = base * 1.5;
-              }
-            }}
-            onPointerOut={(e) => {
-              e.stopPropagation();
-              const facet = facetRefs.current[index]?.current;
-              if (facet) {
-                facet.scale.setScalar(1);
-              }
-              const mat = facetMaterialsRef.current[index];
-              if (mat) {
-                const base = mat.userData.baseEmissiveIntensity ?? mat.emissiveIntensity;
-                mat.emissiveIntensity = base;
-              }
-            }}
+            pointerEvents="none"
           />
         );
       })}
 
       {animationData.currentZone === 'overview' && animationData.crystalForm === 'exploded' && (
-        <FacetLabels anchors={facetAnchors} projects={projects} animationData={animationData} />
+        <FacetLabels
+          anchors={facetAnchors}
+          projects={projects}
+          animationData={animationData}
+          onHoverChange={handleLabelHover}
+        />
       )}
 
       {/* Debug visualization when enabled */}

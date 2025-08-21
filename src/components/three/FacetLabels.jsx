@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Html } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import Headline from '../ui/Headline';
@@ -6,7 +6,7 @@ import { deriveGlowFromBase } from '../../utils/color';
 import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController';
 import '../../styles/facet-label.css';
 
-const FacetLabels = ({ anchors = {}, projects = [], animationData }) => {
+const FacetLabels = ({ anchors = {}, projects = [], animationData, onHoverChange }) => {
   const groupRefs = useRef({});
 
   useFrame(() => {
@@ -37,6 +37,7 @@ const FacetLabels = ({ anchors = {}, projects = [], animationData }) => {
             <Html center style={{ pointerEvents: 'auto' }}>
               <Label
                 project={project}
+                facetKey={facetKey}
                 glow1={glow1}
                 glow2={glow2}
                 onClick={() =>
@@ -44,6 +45,7 @@ const FacetLabels = ({ anchors = {}, projects = [], animationData }) => {
                     ANIMATION_CONFIG.projectSections[facetKey].start
                   )
                 }
+                onHoverChange={onHoverChange}
               />
             </Html>
           </group>
@@ -53,14 +55,35 @@ const FacetLabels = ({ anchors = {}, projects = [], animationData }) => {
   );
 };
 
-const Label = ({ project, onClick, glow1, glow2 }) => {
+const Label = ({ project, facetKey, onClick, onHoverChange, glow1, glow2 }) => {
   const [hovered, setHovered] = useState(false);
+  const hoverTimeout = useRef();
+
+  useEffect(() => {
+    return () => {
+      if (hoverTimeout.current) {
+        clearTimeout(hoverTimeout.current);
+      }
+    };
+  }, []);
 
   return (
     <div
       className="facet-label"
-      onPointerEnter={() => setHovered(true)}
-      onPointerLeave={() => setHovered(false)}
+      onPointerEnter={() => {
+        if (hoverTimeout.current) {
+          clearTimeout(hoverTimeout.current);
+          hoverTimeout.current = null;
+        }
+        setHovered(true);
+        onHoverChange?.(facetKey, true);
+      }}
+      onPointerLeave={() => {
+        hoverTimeout.current = setTimeout(() => {
+          setHovered(false);
+          onHoverChange?.(facetKey, false);
+        }, 100);
+      }}
       onClick={onClick}
       style={{
         transform: hovered ? 'scale(1.1)' : 'scale(1)',

@@ -62,6 +62,31 @@ const ScrollablePortfolio = ({
     window.addEventListener('wheel', handleWheel, { passive: true });
     return () => window.removeEventListener('wheel', handleWheel);
   }, []);
+
+  // Enable touch scrolling while allowing pointer events to pass through
+  useEffect(() => {
+    const container = document.querySelector('.scroll-container');
+    if (!container) return;
+
+    let startY = 0;
+    const handleTouchStart = (e) => {
+      startY = e.touches[0].clientY;
+    };
+
+    const handleTouchMove = (e) => {
+      const currentY = e.touches[0].clientY;
+      const deltaY = startY - currentY;
+      container.scrollBy({ top: deltaY });
+      startY = currentY;
+    };
+
+    window.addEventListener('touchstart', handleTouchStart, { passive: true });
+    window.addEventListener('touchmove', handleTouchMove, { passive: true });
+    return () => {
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchmove', handleTouchMove);
+    };
+  }, []);
   
   return (
     <div 
@@ -88,8 +113,7 @@ const ScrollablePortfolio = ({
         
         // Clean styling
         backgroundColor: 'transparent',
-        pointerEvents: 'auto',
-        touchAction: 'pan-y',
+        pointerEvents: 'none',
         
         // Clean box model
         margin: 0,
@@ -137,7 +161,7 @@ const ScrollablePortfolio = ({
             margin: 0,
             padding: 0,
             boxSizing: 'border-box',
-            pointerEvents: 'auto'
+            pointerEvents: 'none'
           }}
         >
           <HeroSection />
@@ -162,7 +186,7 @@ const ScrollablePortfolio = ({
             margin: 0,
             padding: 0,
             boxSizing: 'border-box',
-            pointerEvents: 'auto'
+            pointerEvents: 'none'
           }}
         >
         </section>
