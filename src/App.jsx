@@ -1,6 +1,6 @@
 // src/App.jsx - UPDATED: Integration with V2 performance and loading system
 
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import './App.css';
 import './styles/scroll-snap.css';
 
@@ -374,9 +374,9 @@ function App() {
   }, []);
 
   // Get canvas props based on performance profile
-  const getOptimalCanvasProps = useCallback(() => {
+  const getOptimalCanvasProps = useMemo(() => {
     if (!performanceProfile) return {};
-    
+
     return {
       gl: {
         antialias: performanceProfile.antialiasing !== false,
@@ -390,13 +390,13 @@ function App() {
     };
   }, [performanceProfile, performanceTier]);
 
-  const getOptimalEnvironmentProps = useCallback(() => {
+  const getOptimalEnvironmentProps = useMemo(() => {
     if (!performanceProfile) return {};
-    
+
     return {
       files: `/assets/environment/prismatic09-${performanceProfile.hdriQuality || 'medium'}.hdr`
     };
-  }, [performanceProfile]);
+  }, [performanceProfile, performanceTier]);
 
   // UPDATED: Determine loader message and early return before app mounts
   let statusMessage = '';
@@ -488,8 +488,8 @@ function App() {
           postProcessingConfig={postProcessingConfig}
           performanceProfile={performanceProfile}
           config={config}
-          canvasProps={getOptimalCanvasProps()}
-          environmentProps={getOptimalEnvironmentProps()}
+          canvasProps={getOptimalCanvasProps}
+          environmentProps={getOptimalEnvironmentProps}
           isMobile={isMobile}
         />
       </MasterAnimationCoordinator>
