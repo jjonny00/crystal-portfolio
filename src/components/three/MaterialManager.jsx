@@ -492,4 +492,4 @@ const MaterialManager = ({
   );
 };
 
-export default MaterialManager;
+export default React.memo(MaterialManager);

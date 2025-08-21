@@ -59,12 +59,16 @@ const UnifiedCrystalScene = forwardRef(({
 
   // Track material updates so we can reapply when ready
   const [materialVersion, setMaterialVersion] = useState(0);
+  const lastMaterialRef = useRef(null);
 
   // Track when GLTF models have loaded
   const [modelsLoaded, setModelsLoaded] = useState(false);
 
-  const handleMaterialReady = useCallback(() => {
-    setMaterialVersion(v => v + 1);
+  const handleMaterialReady = useCallback((mat) => {
+    if (mat && lastMaterialRef.current !== mat) {
+      lastMaterialRef.current = mat;
+      setMaterialVersion(v => v + 1);
+    }
   }, []);
 
   
