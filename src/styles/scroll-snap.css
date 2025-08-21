@@ -68,6 +68,7 @@ body {
   
   /* Mobile scroll support */
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
   
   /* Clean box model */
   margin: 0 !important;
