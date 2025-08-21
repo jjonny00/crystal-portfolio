@@ -455,21 +455,26 @@ export default class PerformanceManagerV2 {
   }
 
   setProfile(tier, overrides = {}) {
-    if (PERFORMANCE_PROFILES[tier]) {
-      this.tier = tier;
-      this.profile = { ...PERFORMANCE_PROFILES[tier], ...overrides };
+    if (!PERFORMANCE_PROFILES[tier]) return;
 
-      // Update cache
-      if (this._testResults) {
-        this._cacheResults(tier, this._testResults);
-      }
+    const newProfile = { ...PERFORMANCE_PROFILES[tier], ...overrides };
+    const tierChanged = this.tier !== tier;
+    const profileChanged = tierChanged || JSON.stringify(this.profile) !== JSON.stringify(newProfile);
+    if (!profileChanged) return;
 
-      if (import.meta.env.DEV) {
-        console.log('🔧 Manually set performance tier:', tier);
-      }
+    this.tier = tier;
+    this.profile = newProfile;
 
-      this._notifyListeners();
+    // Update cache
+    if (this._testResults) {
+      this._cacheResults(tier, this._testResults);
     }
+
+    if (import.meta.env.DEV) {
+      console.log('🔧 Manually set performance tier:', tier);
+    }
+
+    this._notifyListeners();
   }
 
   async forceRetest() {
