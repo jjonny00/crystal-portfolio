@@ -7,7 +7,8 @@ const UnifiedCameraController = ({
   config,
   isMobile = false,
   simplifiedAnimations = false,
-  facetRefs = null // Facet refs passed from UnifiedCrystalScene
+  facetRefs = null, // Facet refs passed from UnifiedCrystalScene
+  onCameraSettledChange = () => {}
 }) => {
   const { camera } = useThree();
   
@@ -27,6 +28,7 @@ const UnifiedCameraController = ({
   
   // Track last camera config to detect changes
   const lastCameraConfig = useRef(null);
+  const cameraSettledRef = useRef(false);
 
   const findAnchorInFacet = (facetKey) => {
     if (!facetRefs) {
@@ -173,13 +175,19 @@ const UnifiedCameraController = ({
       if (enhancedConfig.position) {
         currentTarget.current.position.copy(enhancedConfig.position);
       }
-      
+
       if (enhancedConfig.target) {
         currentTarget.current.lookAt.copy(enhancedConfig.target);
       }
-      
+
       if (enhancedConfig.fov !== undefined) {
         currentTarget.current.fov = enhancedConfig.fov;
+      }
+
+      // Mark camera as moving toward new target
+      if (cameraSettledRef.current) {
+        cameraSettledRef.current = false;
+        onCameraSettledChange(false);
       }
 
       
@@ -240,35 +248,56 @@ const UnifiedCameraController = ({
       camera.lookAt(currentTarget.current.lookAt);
       camera.fov = currentTarget.current.fov;
       camera.updateProjectionMatrix();
-      return;
+    } else {
+      const currentSpeeds = animationSpeed.current;
+
+      // Smooth position interpolation
+      camera.position.lerp(currentTarget.current.position, currentSpeeds.position);
+
+      // Smooth look-at interpolation
+      const currentDirection = new THREE.Vector3();
+      camera.getWorldDirection(currentDirection);
+
+      const targetDirection = new THREE.Vector3()
+        .subVectors(currentTarget.current.lookAt, camera.position)
+        .normalize();
+
+      // Interpolate direction vectors
+      currentDirection.lerp(targetDirection, currentSpeeds.lookAt);
+
+      // Apply new look direction
+      const newLookAt = new THREE.Vector3()
+        .addVectors(camera.position, currentDirection);
+
+      camera.lookAt(newLookAt);
+
+      // Smooth FOV interpolation
+      const fovDiff = currentTarget.current.fov - camera.fov;
+      camera.fov += fovDiff * currentSpeeds.fov;
+      camera.updateProjectionMatrix();
+
+      // Determine if camera has essentially stopped moving
+      const positionDiff = camera.position.distanceTo(currentTarget.current.position);
+      const directionDiff = currentDirection.angleTo(targetDirection);
+      const fovDiffAbs = Math.abs(fovDiff);
+      const settled = positionDiff < 0.005 && directionDiff < 0.005 && fovDiffAbs < 0.01;
+
+      if (settled && !cameraSettledRef.current) {
+        cameraSettledRef.current = true;
+        onCameraSettledChange(true);
+      } else if (!settled && cameraSettledRef.current) {
+        cameraSettledRef.current = false;
+        onCameraSettledChange(false);
+      }
     }
 
-    const currentSpeeds = animationSpeed.current;
-
-    // Smooth position interpolation
-    camera.position.lerp(currentTarget.current.position, currentSpeeds.position);
-    
-    // Smooth look-at interpolation
-    const currentDirection = new THREE.Vector3();
-    camera.getWorldDirection(currentDirection);
-    
-    const targetDirection = new THREE.Vector3()
-      .subVectors(currentTarget.current.lookAt, camera.position)
-      .normalize();
-    
-    // Interpolate direction vectors
-    currentDirection.lerp(targetDirection, currentSpeeds.lookAt);
-    
-    // Apply new look direction
-    const newLookAt = new THREE.Vector3()
-      .addVectors(camera.position, currentDirection);
-    
-    camera.lookAt(newLookAt);
-    
-    // Smooth FOV interpolation
-    const fovDiff = currentTarget.current.fov - camera.fov;
-    camera.fov += fovDiff * currentSpeeds.fov;
-    camera.updateProjectionMatrix();
+    if (simplifiedAnimations) {
+      // In simplified mode, camera reaches target instantly, so mark as settled
+      if (!cameraSettledRef.current) {
+        cameraSettledRef.current = true;
+        onCameraSettledChange(true);
+      }
+    }
   });
 
   /**

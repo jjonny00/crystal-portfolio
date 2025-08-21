@@ -116,7 +116,8 @@ const MasterAnimationCoordinator = ({
     zoneProgress: animationController.animationState.zoneInfo?.progress,
     isEnteringZone: animationController.animationState.zoneInfo?.isEntering,
     isLeavingZone: animationController.animationState.zoneInfo?.isLeaving,
-    explosionComplete: animationController.animationState.explosionComplete
+    explosionComplete: animationController.animationState.explosionComplete,
+    cameraSettled: animationController.animationState.cameraSettled
   }), [
     animationController.animationState,
     animationController.cameraConfig,
@@ -130,7 +131,8 @@ const MasterAnimationCoordinator = ({
     if (React.isValidElement(child)) {
       return React.cloneElement(child, {
         animationData,
-        scrollToProgress: scrollControls.scrollToProgress
+        scrollToProgress: scrollControls.scrollToProgress,
+        setCameraSettled: animationController.setCameraSettled
       });
     }
     return child;

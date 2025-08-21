@@ -53,6 +53,7 @@ const PulsingOmniLight = ({ simplified = false }) => {
 const Fixed3DCanvas = forwardRef(({
   // Animation data from MasterAnimationCoordinator
   animationData,
+  setCameraSettled,
   
   // Material and effects (unchanged)
   materialVariant = 'default',
@@ -288,6 +289,7 @@ const Fixed3DCanvas = forwardRef(({
             isMobile={isMobile}
             simplifiedAnimations={simplifiedAnimations}
             facetRefs={getFacetRefs()} // FIXED: Pass exposed facet refs for anchor targeting
+            onCameraSettledChange={setCameraSettled}
           />
           
           {/* UPDATED: Crystal Scene with ref for accessing debug state */}

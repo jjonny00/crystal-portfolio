@@ -660,7 +660,8 @@ const UnifiedCrystalScene = forwardRef(({
 
       {animationData.currentZone === 'overview' &&
        animationData.crystalForm === 'exploded' &&
-       animationData.explosionComplete && (
+       animationData.explosionComplete &&
+       animationData.cameraSettled && (
         <FacetLabels
           anchors={facetAnchors}
           projects={projects}

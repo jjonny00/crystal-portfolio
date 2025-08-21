@@ -201,7 +201,8 @@ export const useUnifiedAnimationController = (options = {}) => {
     scrollProgress: 0,
     zoneInfo: { zone: 'hero', progress: 0 },
     projectInfo: { project: null, progress: 0 },
-    explosionComplete: false
+    explosionComplete: false,
+    cameraSettled: false
   });
 
   // Simplified refs for tracking changes
@@ -445,6 +446,16 @@ export const useUnifiedAnimationController = (options = {}) => {
     };
   }, [animationState.crystalForm, animationState.state, config]);
 
+  // External components can update when the camera stops moving
+  const setCameraSettled = useCallback((settled) => {
+    setAnimationState(prev => ({ ...prev, cameraSettled: settled }));
+  }, []);
+
+  // Reset camera settled state whenever camera target changes
+  useEffect(() => {
+    setAnimationState(prev => ({ ...prev, cameraSettled: false }));
+  }, [animationState.cameraState, animationState.focusedFacet]);
+
   // Track when the explosion animation completes
   const EXPLOSION_DURATION = timing?.camera?.explodeDuration ?? 1600;
   const EXPLOSION_BUFFER = 200;
@@ -493,6 +504,7 @@ export const useUnifiedAnimationController = (options = {}) => {
     
     // Update functions
     updateFromScrollProgress,
+    setCameraSettled,
     
     // Current configs for 3D components
     cameraConfig: getCurrentCameraConfig(),
@@ -505,7 +517,8 @@ export const useUnifiedAnimationController = (options = {}) => {
       lastZone: lastZone.current,
       lastProject: lastProject.current,
       cameraState: animationState.cameraState,
-      crystalForm: animationState.crystalForm
+      crystalForm: animationState.crystalForm,
+      cameraSettled: animationState.cameraSettled
     } : null
   };
 };
