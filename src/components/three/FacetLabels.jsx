@@ -67,27 +67,59 @@ const Label = ({ project, facetKey, onClick, onHoverChange, glow1, glow2 }) => {
     };
   }, []);
 
+  // FIXED: Remove the timeout delay that was causing the hover to end immediately
+  const handlePointerEnter = () => {
+    // Clear any pending timeout
+    if (hoverTimeout.current) {
+      clearTimeout(hoverTimeout.current);
+      hoverTimeout.current = null;
+    }
+    
+    if (import.meta.env.DEV) {
+      console.log(`🏷️ Label hover START: ${facetKey}`);
+    }
+    
+    setHovered(true);
+    onHoverChange?.(facetKey, true);
+  };
+
+  const handlePointerLeave = () => {
+    if (import.meta.env.DEV) {
+      console.log(`🏷️ Label hover END: ${facetKey}`);
+    }
+    
+    // FIXED: Reduced timeout from 100ms to 50ms and added better cleanup
+    hoverTimeout.current = setTimeout(() => {
+      setHovered(false);
+      onHoverChange?.(facetKey, false);
+      hoverTimeout.current = null;
+    }, 50); // Shorter delay to reduce flickering
+  };
+
+  // FIXED: Add mouse events as backup in case pointer events have issues
+  const handleMouseEnter = () => {
+    handlePointerEnter();
+  };
+
+  const handleMouseLeave = () => {
+    handlePointerLeave();
+  };
+
   return (
     <div
       className="facet-label"
-      onPointerEnter={() => {
-        if (hoverTimeout.current) {
-          clearTimeout(hoverTimeout.current);
-          hoverTimeout.current = null;
-        }
-        setHovered(true);
-        onHoverChange?.(facetKey, true);
-      }}
-      onPointerLeave={() => {
-        hoverTimeout.current = setTimeout(() => {
-          setHovered(false);
-          onHoverChange?.(facetKey, false);
-        }, 100);
-      }}
+      onPointerEnter={handlePointerEnter}
+      onPointerLeave={handlePointerLeave}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       onClick={onClick}
       style={{
         transform: hovered ? 'scale(1.1)' : 'scale(1)',
         transition: 'transform 0.2s',
+        // FIXED: Ensure the label has enough area for stable hover
+        padding: '0.75rem 1rem', // Increased padding
+        minWidth: '200px', // Minimum width to prevent tiny hover areas
+        cursor: 'pointer',
       }}
     >
       <div className="label-container">
