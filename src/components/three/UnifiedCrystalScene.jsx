@@ -43,6 +43,12 @@ const UnifiedCrystalScene = forwardRef(({
   
   // FIXED: Add hover state tracking
   const [hoveredFacet, setHoveredFacet] = useState(null);
+  const hoveredFacetRef = useRef(null);
+
+  // Track previous focus/material state
+  const prevFocusedFacetRef = useRef(null);
+  const prevMaterialVersionRef = useRef(materialVersion);
+  const focusUpdateTimeoutRef = useRef();
   
   const { clock } = useThree();
 
@@ -191,11 +197,12 @@ const UnifiedCrystalScene = forwardRef(({
   const handleLabelHover = useCallback(
     (facetKey, hovering) => {
       if (import.meta.env.DEV) {
-        console.log(`🎨 Label hover RECEIVED: ${facetKey}, hovering: ${hovering}, current hoveredFacet: ${hoveredFacet}`);
+        console.log(`🎨 Label hover RECEIVED: ${facetKey}, hovering: ${hovering}, current hoveredFacet: ${hoveredFacetRef.current}`);
       }
 
       // Update hover state FIRST
       setHoveredFacet(hovering ? facetKey : null);
+      hoveredFacetRef.current = hovering ? facetKey : null;
 
       const index = facetKeys.indexOf(facetKey)
       if (index === -1) {
@@ -244,7 +251,7 @@ const UnifiedCrystalScene = forwardRef(({
         });
       }
     },
-    [facetKeys, projectColors, animationData, hoveredFacet]
+    [facetKeys, projectColors, animationData]
   )
   
   // Keyboard listener for debug toggle
@@ -362,72 +369,83 @@ const UnifiedCrystalScene = forwardRef(({
     }
   }, [showCrystalDebug, showFacets, facetKeys]);
 
-  // FIXED: Update target colors when facet focus changes, but respect hover state with better debugging
+  // FIXED: Update target colors when facet focus changes with debounce and hover guards
   useEffect(() => {
-    const nextFacet = animationData?.focusedFacet;
+    const currentFacet = animationData?.focusedFacet ?? null;
 
-    if (import.meta.env.DEV) {
-      console.log(`🎨 Focus change effect triggered:`, {
-        nextFacet,
-        hoveredFacet,
-        materialsReady: facetMaterialsRef.current.length > 0,
-        willSkip: !!hoveredFacet
-      });
+    console.debug('🎨 Focus/material effect fired', {
+      currentFacet,
+      materialVersion,
+      prevFacet: prevFocusedFacetRef.current,
+      prevVersion: prevMaterialVersionRef.current,
+      hovered: hoveredFacetRef.current
+    });
+
+    if (
+      currentFacet === prevFocusedFacetRef.current &&
+      materialVersion === prevMaterialVersionRef.current
+    ) {
+      console.debug('🎨 Skipping effect - no change in facet or material version');
+      return;
     }
+
+    prevFocusedFacetRef.current = currentFacet;
+    prevMaterialVersionRef.current = materialVersion;
 
     // Wait until materials have been created
-    if (!facetMaterialsRef.current.length) return;
-
-    // CRITICAL: Don't override hover state
-    if (hoveredFacet) {
-      if (import.meta.env.DEV) {
-        console.log(`🎨 SKIPPING color update - ${hoveredFacet} is being hovered`);
-      }
+    if (!facetMaterialsRef.current.length) {
+      console.debug('🎨 Skipping - materials not ready');
       return;
     }
 
-    if (import.meta.env.DEV) {
-      console.log(`🎨 PROCEEDING with focus color update:`, {
-        nextFacet,
-        activeFacetRef: activeFacetRef.current
-      });
-    }
-
-    // No facet focused – reset all to default
-    if (!nextFacet) {
-      if (import.meta.env.DEV) {
-        console.log(`🎨 Resetting all facets to default color`);
-      }
-      facetMaterialsRef.current.forEach((mat, idx) => {
-        mat.userData.startColor.copy(mat.color);
-        mat.userData.targetColor.copy(defaultColorRef.current);
-        mat.userData.progress = 0;
-        if (import.meta.env.DEV) {
-          console.log(`🎨 Reset facet ${facetKeys[idx]} to default`);
-        }
-      });
-      activeFacetRef.current = null;
+    // Don't override hover state
+    if (hoveredFacetRef.current) {
+      console.debug(`🎨 Skipping - ${hoveredFacetRef.current} is hovered`);
       return;
     }
 
-    // Change to a new focused facet
-    if (nextFacet !== activeFacetRef.current) {
-      if (import.meta.env.DEV) {
-        console.log(`🎨 Updating colors for new focused facet: ${nextFacet}`);
-      }
-      facetMaterialsRef.current.forEach((mat, idx) => {
-        const key = facetKeys[idx];
-        const color = nextFacet === key ? projectColors[idx] : defaultColorRef.current;
-        mat.userData.startColor.copy(mat.color);
-        mat.userData.targetColor.copy(color);
-        mat.userData.progress = 0;
-        if (import.meta.env.DEV) {
-          console.log(`🎨 Set ${key} color to:`, color.getHexString(), `(focused: ${nextFacet === key})`);
-        }
-      });
-      activeFacetRef.current = nextFacet;
+    if (focusUpdateTimeoutRef.current) {
+      clearTimeout(focusUpdateTimeoutRef.current);
     }
-  }, [animationData?.focusedFacet ?? null, materialVersion, facetKeys, projectColors, hoveredFacet]);
+
+    focusUpdateTimeoutRef.current = setTimeout(() => {
+      if (hoveredFacetRef.current) {
+        console.debug(`🎨 Debounced skip - ${hoveredFacetRef.current} hovered`);
+        return;
+      }
+
+      const nextFacet = currentFacet;
+
+      // No facet focused – reset all to default
+      if (!nextFacet) {
+        console.debug('🎨 Debounced apply - resetting all facets');
+        facetMaterialsRef.current.forEach((mat, idx) => {
+          mat.userData.startColor.copy(mat.color);
+          mat.userData.targetColor.copy(defaultColorRef.current);
+          mat.userData.progress = 0;
+          console.debug(`🎨 Reset facet ${facetKeys[idx]} to default`);
+        });
+        activeFacetRef.current = null;
+        return;
+      }
+
+      // Change to a new focused facet
+      if (nextFacet !== activeFacetRef.current) {
+        console.debug(`🎨 Debounced apply - focusing facet: ${nextFacet}`);
+        facetMaterialsRef.current.forEach((mat, idx) => {
+          const key = facetKeys[idx];
+          const color = nextFacet === key ? projectColors[idx] : defaultColorRef.current;
+          mat.userData.startColor.copy(mat.color);
+          mat.userData.targetColor.copy(color);
+          mat.userData.progress = 0;
+          console.debug(`🎨 Set ${key} color to:`, color.getHexString(), `(focused: ${nextFacet === key})`);
+        });
+        activeFacetRef.current = nextFacet;
+      }
+    }, 50);
+
+    return () => clearTimeout(focusUpdateTimeoutRef.current);
+  }, [animationData?.focusedFacet, materialVersion, facetKeys, projectColors]);
   
   // Crystal form change detection
   useEffect(() => {
