@@ -492,4 +492,26 @@ const MaterialManager = ({
   );
 };
 
-export default React.memo(MaterialManager);
+// Prevent unnecessary re-renders that recreate materials and reset facet colors
+const propsAreEqual = (prevProps, nextProps) => {
+  // Compare primitive props normally
+  if (prevProps.materialVariant !== nextProps.materialVariant) return false;
+
+  // Compare performance profile deeply since parent may pass a new object each render
+  const prevPerf = JSON.stringify(prevProps.performanceProfile || {});
+  const nextPerf = JSON.stringify(nextProps.performanceProfile || {});
+  if (prevPerf !== nextPerf) return false;
+
+  // Only react to config changes when crystal colors actually change
+  const prevColor = prevProps.config?.materials?.crystal?.color?.getHexString?.();
+  const nextColor = nextProps.config?.materials?.crystal?.color?.getHexString?.();
+  if (prevColor !== nextColor) return false;
+
+  const prevEmissive = prevProps.config?.materials?.crystal?.emissive?.getHexString?.();
+  const nextEmissive = nextProps.config?.materials?.crystal?.emissive?.getHexString?.();
+  if (prevEmissive !== nextEmissive) return false;
+
+  return true;
+};
+
+export default React.memo(MaterialManager, propsAreEqual);
