@@ -105,7 +105,8 @@ const MasterAnimationCoordinator = ({
     state: animationController.animationState.state,
     crystalForm: animationController.animationState.crystalForm,
     cameraState: animationController.animationState.cameraState,
-    focusedFacet: animationController.animationState.focusedFacet,
+    // Normalize undefined to null so consumers can rely on explicit null check
+    focusedFacet: animationController.animationState.focusedFacet ?? null,
     focusedProject: animationController.animationState.projectInfo?.project,
     projectProgress: animationController.animationState.projectInfo?.progress,
     isTransitioning: animationController.animationState.isTransitioning,
