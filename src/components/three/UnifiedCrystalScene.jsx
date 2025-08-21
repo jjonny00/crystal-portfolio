@@ -181,7 +181,11 @@ const UnifiedCrystalScene = forwardRef(({
     }
   }, [wholeCrystal, ...facetModels]);
 
-  const facetAnchors = useMemo(() => {
+  const [facetAnchors, setFacetAnchors] = useState({})
+
+  useEffect(() => {
+    if (!modelsLoaded || !showFacets) return
+
     const anchors = {}
     facetKeys.forEach((facetKey, index) => {
       const facetRef = facetRefs.current[index]?.current
@@ -190,8 +194,8 @@ const UnifiedCrystalScene = forwardRef(({
         if (anchor) anchors[facetKey] = anchor
       }
     })
-    return anchors
-  }, [facetKeys, showFacets, modelsLoaded])
+    setFacetAnchors(anchors)
+  }, [modelsLoaded, showFacets, facetKeys])
 
   // FIXED: Improved handleLabelHover with better state management
   const handleLabelHover = useCallback(
