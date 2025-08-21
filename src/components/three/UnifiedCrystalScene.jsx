@@ -310,18 +310,20 @@ const UnifiedCrystalScene = forwardRef(({
     applyMaterial(wholeCrystal.scene, crystalMaterialRef.current);
 
     // Create or update facet materials
+    const hoveredKey = hoveredFacetRef.current;
     facetMaterialsRef.current = facetKeys.map((key, idx) => {
+      const isHovered = hoveredKey === key;
       const mat = crystalMaterialRef.current.clone();
 
-      // If a facet is already active, initialize its material with the project color
+      // If a facet is already active or hovered, initialize its material with the project color
       const isActive = activeFacetRef.current === key;
-      const initialColor = isActive ? projectColors[idx] : defaultColorRef.current;
+      const initialColor = (isActive || isHovered) ? projectColors[idx] : defaultColorRef.current;
 
       mat.color.copy(initialColor);
       mat.userData = {
         ...(mat.userData || {}),
-        targetColor: initialColor.clone(),
-        startColor: initialColor.clone(),
+        targetColor: mat.color.clone(),
+        startColor: mat.color.clone(),
         progress: 1,
         baseEmissiveIntensity: mat.emissiveIntensity
       };
@@ -398,28 +400,20 @@ const UnifiedCrystalScene = forwardRef(({
       return;
     }
 
-    // Don't override hover state
-    if (hoveredFacetRef.current) {
-      console.debug(`🎨 Skipping - ${hoveredFacetRef.current} is hovered`);
-      return;
-    }
-
     if (focusUpdateTimeoutRef.current) {
       clearTimeout(focusUpdateTimeoutRef.current);
     }
 
     focusUpdateTimeoutRef.current = setTimeout(() => {
-      if (hoveredFacetRef.current) {
-        console.debug(`🎨 Debounced skip - ${hoveredFacetRef.current} hovered`);
-        return;
-      }
-
+      const hovered = hoveredFacetRef.current;
       const nextFacet = currentFacet;
 
       // No facet focused – reset all to default
       if (!nextFacet) {
         console.debug('🎨 Debounced apply - resetting all facets');
         facetMaterialsRef.current.forEach((mat, idx) => {
+          const key = facetKeys[idx];
+          if (key === hovered) return; // preserve hovered facet color
           mat.userData.startColor.copy(mat.color);
           mat.userData.targetColor.copy(defaultColorRef.current);
           mat.userData.progress = 0;
@@ -434,6 +428,10 @@ const UnifiedCrystalScene = forwardRef(({
         console.debug(`🎨 Debounced apply - focusing facet: ${nextFacet}`);
         facetMaterialsRef.current.forEach((mat, idx) => {
           const key = facetKeys[idx];
+          if (key === hovered && hovered !== nextFacet) {
+            // preserve non-active hovered facet
+            return;
+          }
           const color = nextFacet === key ? projectColors[idx] : defaultColorRef.current;
           mat.userData.startColor.copy(mat.color);
           mat.userData.targetColor.copy(color);
