@@ -427,7 +427,7 @@ const UnifiedCrystalScene = forwardRef(({
       });
       activeFacetRef.current = nextFacet;
     }
-  }, [animationData?.focusedFacet, materialVersion, facetKeys, projectColors, hoveredFacet]);
+  }, [animationData?.focusedFacet ?? null, materialVersion, facetKeys, projectColors, hoveredFacet]);
   
   // Crystal form change detection
   useEffect(() => {
