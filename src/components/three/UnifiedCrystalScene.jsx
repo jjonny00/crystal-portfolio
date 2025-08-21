@@ -45,6 +45,9 @@ const UnifiedCrystalScene = forwardRef(({
   const [hoveredFacet, setHoveredFacet] = useState(null);
   const hoveredFacetRef = useRef(null);
 
+  // Track material updates so we can reapply when ready
+  const [materialVersion, setMaterialVersion] = useState(0);
+
   // Track previous focus/material state
   const prevFocusedFacetRef = useRef(null);
   const prevMaterialVersionRef = useRef(materialVersion);
@@ -63,9 +66,6 @@ const UnifiedCrystalScene = forwardRef(({
     () => facetKeys.map(key => new THREE.Color(getProjectColorByFacetKey(key))),
     [facetKeys]
   );
-
-  // Track material updates so we can reapply when ready
-  const [materialVersion, setMaterialVersion] = useState(0);
 
   // Track when GLTF models have loaded
   const [modelsLoaded, setModelsLoaded] = useState(false);
