@@ -427,7 +427,7 @@ const UnifiedCrystalScene = forwardRef(({
         console.debug(`🎨 Debounced apply - focusing facet: ${nextFacet}`);
         facetMaterialsRef.current.forEach((mat, idx) => {
           const key = facetKeys[idx];
-          if (key === hoveredKey) return;
+          if (key === hoveredKey && key !== nextFacet) return;
           const color = nextFacet === key ? projectColors[idx] : defaultColorRef.current;
           mat.userData.startColor.copy(mat.color);
           mat.userData.targetColor.copy(color);
