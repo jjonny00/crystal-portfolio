@@ -29,6 +29,7 @@ const UnifiedCameraController = ({
   // Track last camera config to detect changes
   const lastCameraConfig = useRef(null);
   const cameraSettledRef = useRef(false);
+  const settledFramesRef = useRef(0);
 
   const findAnchorInFacet = (facetKey) => {
     if (!facetRefs) {
@@ -189,6 +190,7 @@ const UnifiedCameraController = ({
         cameraSettledRef.current = false;
         onCameraSettledChange(false);
       }
+      settledFramesRef.current = 0;
 
       
       const positionDistance = camera.position.distanceTo(currentTarget.current.position);
@@ -280,14 +282,19 @@ const UnifiedCameraController = ({
       const positionDiff = camera.position.distanceTo(currentTarget.current.position);
       const directionDiff = currentDirection.angleTo(targetDirection);
       const fovDiffAbs = Math.abs(fovDiff);
-      const settled = positionDiff < 0.005 && directionDiff < 0.005 && fovDiffAbs < 0.01;
+      const settled =
+        positionDiff < 0.02 &&
+        directionDiff < 0.02 &&
+        fovDiffAbs < 0.05;
 
-      if (settled && !cameraSettledRef.current) {
-        cameraSettledRef.current = true;
-        onCameraSettledChange(true);
-      } else if (!settled && cameraSettledRef.current) {
-        cameraSettledRef.current = false;
-        onCameraSettledChange(false);
+      if (settled) {
+        settledFramesRef.current += 1;
+        if (!cameraSettledRef.current && settledFramesRef.current >= 5) {
+          cameraSettledRef.current = true;
+          onCameraSettledChange(true);
+        }
+      } else {
+        settledFramesRef.current = 0;
       }
     }
 
