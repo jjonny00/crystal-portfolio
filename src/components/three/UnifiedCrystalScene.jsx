@@ -310,18 +310,20 @@ const UnifiedCrystalScene = forwardRef(({
     applyMaterial(wholeCrystal.scene, crystalMaterialRef.current);
 
     // Create or update facet materials
+    const hoveredKey = hoveredFacetRef.current;
     facetMaterialsRef.current = facetKeys.map((key, idx) => {
+      const isHovered = hoveredKey === key;
       const mat = crystalMaterialRef.current.clone();
 
-      // If a facet is already active, initialize its material with the project color
+      // If a facet is already active or hovered, initialize its material with the project color
       const isActive = activeFacetRef.current === key;
-      const initialColor = isActive ? projectColors[idx] : defaultColorRef.current;
+      const initialColor = (isActive || isHovered) ? projectColors[idx] : defaultColorRef.current;
 
       mat.color.copy(initialColor);
       mat.userData = {
         ...(mat.userData || {}),
-        targetColor: initialColor.clone(),
-        startColor: initialColor.clone(),
+        targetColor: mat.color.clone(),
+        startColor: mat.color.clone(),
         progress: 1,
         baseEmissiveIntensity: mat.emissiveIntensity
       };
