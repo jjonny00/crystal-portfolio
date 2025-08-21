@@ -21,7 +21,8 @@ const UnifiedCrystalScene = forwardRef(({
   materialVariant = 'default',
   performanceProfile = { useNormalMaps: true, textureQuality: 'high', pbrQuality: 'high', usePBR: true },
   isMobile = false,
-  simplifiedAnimations = false
+  simplifiedAnimations = false,
+  scrollToProgress
 }, ref) => {
   // Component refs for crystal animation
   const crystalGroupRef = useRef();
@@ -634,7 +635,7 @@ const UnifiedCrystalScene = forwardRef(({
         <FacetLabels
           anchors={facetAnchors}
           projects={projects}
-          animationData={animationData}
+          scrollToProgress={scrollToProgress}
           onHoverChange={handleLabelHover}
         />
       )}
@@ -704,4 +705,4 @@ const UnifiedCrystalScene = forwardRef(({
 // Set display name for debugging
 UnifiedCrystalScene.displayName = 'UnifiedCrystalScene';
 
-export default UnifiedCrystalScene;
+export default React.memo(UnifiedCrystalScene);
