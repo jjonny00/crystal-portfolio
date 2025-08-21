@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useCallback } from 'react';
 import { Html } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import Headline from '../ui/Headline';
@@ -8,15 +8,27 @@ import '../../styles/facet-label.css';
 
 const FacetLabels = ({ anchors = {}, projects = [], scrollToProgress, onHoverChange }) => {
   const groupRefs = useRef({});
+  const [hoveredFacetKey, setHoveredFacetKey] = useState(null);
 
   useFrame(() => {
     Object.entries(anchors).forEach(([key, anchor]) => {
       const group = groupRefs.current[key];
       if (anchor && group) {
-        anchor.getWorldPosition(group.position);
+        // Freeze label position while it is hovered so the pointer doesn't slip off
+        if (hoveredFacetKey !== key) {
+          anchor.getWorldPosition(group.position);
+        }
       }
     });
   });
+
+  const handleHoverChange = useCallback(
+    (facetKey, hovering) => {
+      setHoveredFacetKey(prev => (hovering ? facetKey : prev === facetKey ? null : prev));
+      onHoverChange?.(facetKey, hovering);
+    },
+    [onHoverChange]
+  );
 
   return (
     <>
@@ -45,7 +57,7 @@ const FacetLabels = ({ anchors = {}, projects = [], scrollToProgress, onHoverCha
                     ANIMATION_CONFIG.projectSections[facetKey].start
                   )
                 }
-                onHoverChange={onHoverChange}
+                onHoverChange={handleHoverChange}
               />
             </Html>
           </group>
@@ -57,28 +69,12 @@ const FacetLabels = ({ anchors = {}, projects = [], scrollToProgress, onHoverCha
 
 const Label = ({ project, facetKey, onClick, onHoverChange, glow1, glow2 }) => {
   const [hovered, setHovered] = useState(false);
-  const hoverTimeout = useRef();
 
-  useEffect(() => {
-    return () => {
-      if (hoverTimeout.current) {
-        clearTimeout(hoverTimeout.current);
-      }
-    };
-  }, []);
-
-  // FIXED: Remove the timeout delay that was causing the hover to end immediately
   const handlePointerEnter = () => {
-    // Clear any pending timeout
-    if (hoverTimeout.current) {
-      clearTimeout(hoverTimeout.current);
-      hoverTimeout.current = null;
-    }
-    
     if (import.meta.env.DEV) {
       console.log(`🏷️ Label hover START: ${facetKey}`);
     }
-    
+
     setHovered(true);
     onHoverChange?.(facetKey, true);
   };
@@ -87,22 +83,9 @@ const Label = ({ project, facetKey, onClick, onHoverChange, glow1, glow2 }) => {
     if (import.meta.env.DEV) {
       console.log(`🏷️ Label hover END: ${facetKey}`);
     }
-    
-    // FIXED: Reduced timeout from 100ms to 50ms and added better cleanup
-    hoverTimeout.current = setTimeout(() => {
-      setHovered(false);
-      onHoverChange?.(facetKey, false);
-      hoverTimeout.current = null;
-    }, 50); // Shorter delay to reduce flickering
-  };
 
-  // FIXED: Add mouse events as backup in case pointer events have issues
-  const handleMouseEnter = () => {
-    handlePointerEnter();
-  };
-
-  const handleMouseLeave = () => {
-    handlePointerLeave();
+    setHovered(false);
+    onHoverChange?.(facetKey, false);
   };
 
   return (
@@ -110,8 +93,8 @@ const Label = ({ project, facetKey, onClick, onHoverChange, glow1, glow2 }) => {
       className="facet-label"
       onPointerEnter={handlePointerEnter}
       onPointerLeave={handlePointerLeave}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
+      onMouseEnter={handlePointerEnter}
+      onMouseLeave={handlePointerLeave}
       onClick={onClick}
       style={{
         transform: hovered ? 'scale(1.1)' : 'scale(1)',
