@@ -181,10 +181,27 @@ export const useUnifiedAnimationController = (options = {}) => {
     onStateChange = null
   } = options;
 
-  const mergedConfig = useMemo(() => ({
-    ...config,
-    projectSections
-  }), [config, projectSections]);
+  // Dynamically adjust project and about zone boundaries when sections are measured
+  const mergedConfig = useMemo(() => {
+    const projectValues = Object.values(projectSections);
+    let scrollZones = { ...config.scrollZones };
+
+    if (projectValues.length) {
+      const start = Math.min(...projectValues.map((s) => s.start));
+      const end = Math.max(...projectValues.map((s) => s.end));
+      scrollZones = {
+        ...scrollZones,
+        projects: { start, end },
+        about: { ...scrollZones.about, start: end, end: 1 }
+      };
+    }
+
+    return {
+      ...config,
+      projectSections,
+      scrollZones
+    };
+  }, [config, projectSections]);
 
   const [animationState, setAnimationState] = useState({
     state: ANIMATION_STATES.HERO,
