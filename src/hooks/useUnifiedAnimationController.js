@@ -105,43 +105,46 @@ const ANIMATION_STATES = {
  * FIXED: Zone calculation with hysteresis to prevent boundary flickering
  */
 const calculateCurrentZone = (scrollProgress, config = ANIMATION_CONFIG) => {
-  const zones = config.scrollZones;
-  
-  // Use more precise boundaries to prevent flickering
-  if (scrollProgress <= zones.hero.end) {
+  const { hero, overview, projects, about } = config.scrollZones;
+
+  const clamp = (v) => Math.max(0, Math.min(v, 1));
+
+  if (scrollProgress < overview.start) {
+    const progress = (scrollProgress - hero.start) / (overview.start - hero.start);
     return {
       zone: 'hero',
-      progress: scrollProgress / zones.hero.end,
+      progress: clamp(progress),
       isEntering: false,
-      isLeaving: scrollProgress > zones.hero.end * 0.85
+      isLeaving: scrollProgress > overview.start * 0.85
     };
   }
-  
-  if (scrollProgress <= zones.overview.end) {
-    const progress = (scrollProgress - zones.overview.start) / (zones.overview.end - zones.overview.start);
+
+  if (scrollProgress < projects.start) {
+    const progress = (scrollProgress - overview.start) / (projects.start - overview.start);
     return {
       zone: 'overview',
-      progress: Math.max(0, Math.min(progress, 1)),
-      isEntering: scrollProgress < zones.overview.start + 0.015,
-      isLeaving: scrollProgress > zones.overview.end - 0.015
+      progress: clamp(progress),
+      isEntering: scrollProgress < overview.start + 0.015,
+      isLeaving: scrollProgress > projects.start - 0.015
     };
   }
-  
-  if (scrollProgress <= zones.projects.end) {
-    const progress = (scrollProgress - zones.projects.start) / (zones.projects.end - zones.projects.start);
+
+  if (scrollProgress < about.start) {
+    const progress = (scrollProgress - projects.start) / (about.start - projects.start);
     return {
       zone: 'projects',
-      progress: Math.max(0, Math.min(progress, 1)),
-      isEntering: scrollProgress < zones.projects.start + 0.015,
-      isLeaving: scrollProgress > zones.projects.end - 0.015
+      progress: clamp(progress),
+      isEntering: scrollProgress < projects.start + 0.015,
+      isLeaving: scrollProgress > about.start - 0.015
     };
   }
-  
-  const progress = (scrollProgress - zones.about.start) / (zones.about.end - zones.about.start);
+
+  const width = about.end - about.start || 1;
+  const progress = (scrollProgress - about.start) / width;
   return {
     zone: 'about',
-    progress: Math.max(0, Math.min(progress, 1)),
-    isEntering: scrollProgress < zones.about.start + 0.015,
+    progress: clamp(progress),
+    isEntering: scrollProgress < about.start + 0.015,
     isLeaving: false
   };
 };
@@ -187,10 +190,13 @@ export const useUnifiedAnimationController = (options = {}) => {
     let scrollZones = { ...config.scrollZones };
 
     if (projectValues.length) {
-      const start = Math.min(...projectValues.map((s) => s.start));
-      const end = Math.max(...projectValues.map((s) => s.end));
+      const clamp = (v) => Math.max(0, Math.min(v, 1));
+      const start = clamp(Math.min(...projectValues.map((s) => s.start)));
+      const end = clamp(Math.max(...projectValues.map((s) => s.end)));
+
       scrollZones = {
         ...scrollZones,
+        overview: { ...scrollZones.overview, end: start },
         projects: { start, end },
         about: { ...scrollZones.about, start: end, end: 1 }
       };

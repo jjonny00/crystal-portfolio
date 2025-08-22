@@ -52,9 +52,16 @@ const ScrollablePortfolio = ({
     const container = document.querySelector('.scroll-container');
     if (!container) return;
 
+    let raf;
+
     const measure = () => {
       const scrollableHeight = container.scrollHeight - container.clientHeight;
-      if (scrollableHeight <= 0) return;
+
+      // If the content hasn't been laid out yet, keep waiting
+      if (scrollableHeight <= 0) {
+        raf = requestAnimationFrame(measure);
+        return;
+      }
 
       const sections = Array.from(container.querySelectorAll('.scroll-section'));
       const projectSections = {};
@@ -75,7 +82,7 @@ const ScrollablePortfolio = ({
       onSectionsMeasured?.(projectSections);
     };
 
-    const raf = requestAnimationFrame(measure);
+    raf = requestAnimationFrame(measure);
     window.addEventListener('resize', measure);
     return () => {
       cancelAnimationFrame(raf);
