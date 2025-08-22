@@ -22,7 +22,8 @@ const UnifiedCrystalScene = forwardRef(({
   performanceProfile = { useNormalMaps: true, textureQuality: 'high', pbrQuality: 'high', usePBR: true },
   isMobile = false,
   simplifiedAnimations = false,
-  scrollToProgress
+  scrollToProgress,
+  projectSections
 }, ref) => {
   // Component refs for crystal animation
   const crystalGroupRef = useRef();
@@ -670,6 +671,7 @@ const UnifiedCrystalScene = forwardRef(({
         <FacetLabels
           anchors={facetAnchors}
           projects={projects}
+          projectSections={projectSections}
           scrollToProgress={scrollToProgress}
           onHoverChange={handleLabelHover}
         />

@@ -50,7 +50,7 @@ const PulsingOmniLight = ({ simplified = false }) => {
 /**
  * UPDATED: Fixed3DCanvas with corrected background color logic
  */
-const Fixed3DCanvas = forwardRef(({
+const Fixed3DCanvas = forwardRef(({ 
   // Animation data from MasterAnimationCoordinator
   animationData,
   
@@ -63,7 +63,8 @@ const Fixed3DCanvas = forwardRef(({
   canvasProps = {},
   environmentProps = {},
   isMobile = false,
-  scrollToProgress
+  scrollToProgress,
+  projectSections
 }, ref) => {
   // NEW: Ref to access crystal scene for debug panels
   const crystalSceneRef = useRef();
@@ -300,6 +301,7 @@ const Fixed3DCanvas = forwardRef(({
             isMobile={isMobile}
             simplifiedAnimations={simplifiedAnimations}
             scrollToProgress={scrollToProgress}
+            projectSections={projectSections}
           />
           
           {/* Environment used for reflections only */}

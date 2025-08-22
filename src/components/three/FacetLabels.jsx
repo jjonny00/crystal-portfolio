@@ -3,10 +3,9 @@ import { Html } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import Headline from '../ui/Headline';
 import { deriveGlowFromBase } from '../../utils/color';
-import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController';
 import '../../styles/facet-label.css';
 
-const FacetLabels = ({ anchors = {}, projects = [], scrollToProgress, onHoverChange }) => {
+const FacetLabels = ({ anchors = {}, projects = [], projectSections = {}, scrollToProgress, onHoverChange }) => {
   const groupRefs = useRef({});
 
   useFrame(() => {
@@ -46,7 +45,7 @@ const FacetLabels = ({ anchors = {}, projects = [], scrollToProgress, onHoverCha
                 glow2={glow2}
                 onClick={() =>
                   scrollToProgress(
-                    ANIMATION_CONFIG.projectSections[facetKey].start
+                    projectSections[facetKey]?.start || 0
                   )
                 }
                 onHoverChange={onHoverChange}

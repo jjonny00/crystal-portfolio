@@ -148,6 +148,7 @@ function App() {
     }
   });
   const [animationConfig, setAnimationConfig] = useState(buildAnimationConfig(defaultConfig));
+  const [projectSections, setProjectSections] = useState({});
   const [materialVariant, setMaterialVariant] = useState('default');
   const [showUI, setShowUI] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
@@ -477,6 +478,7 @@ function App() {
         debugMode={import.meta.env.DEV}
         onAnimationStateChange={handleAnimationStateChange}
         config={animationConfig}
+        projectSections={projectSections}
       >
         {/* Fixed 3D Canvas */}
         <Fixed3DCanvas
@@ -494,9 +496,10 @@ function App() {
       </MasterAnimationCoordinator>
 
       {/* Scrollable Content */}
-      <ScrollablePortfolio 
+      <ScrollablePortfolio
         snapSpeed={snapSpeed}
         hideContent={hideAllUI}
+        onSectionsMeasured={setProjectSections}
       />
 
       {/* UI Controls */}

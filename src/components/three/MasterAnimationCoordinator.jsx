@@ -14,7 +14,8 @@ const MasterAnimationCoordinator = ({
   children,
   debugMode = false,
   onAnimationStateChange = null,
-  config = null
+  config = null,
+  projectSections = {}
 }) => {
   const [showAnimationDebug, setShowAnimationDebug] = useState(false);
 
@@ -29,7 +30,8 @@ const MasterAnimationCoordinator = ({
   const animationController = useUnifiedAnimationController({
     debugMode: debugMode,
     onStateChange: onAnimationStateChange,
-    config: config || undefined
+    config: config || undefined,
+    projectSections
   });
 
   useEffect(() => {
@@ -129,7 +131,8 @@ const MasterAnimationCoordinator = ({
     if (React.isValidElement(child)) {
       return React.cloneElement(child, {
         animationData,
-        scrollToProgress: scrollControls.scrollToProgress
+        scrollToProgress: scrollControls.scrollToProgress,
+        projectSections
       });
     }
     return child;

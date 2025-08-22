@@ -1,7 +1,7 @@
 // FIXED: src/hooks/useUnifiedAnimationController.js
 // Simplified animation system with immediate state changes + enhanced debugging for background issues
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Vector3 } from 'three';
 
 /**
@@ -90,15 +90,6 @@ export const ANIMATION_CONFIG = {
     overview: { start: 0.12, end: 0.24 },
     projects: { start: 0.24, end: 0.875 },
     about: { start: 0.875, end: 1.0 }
-  },
-
-  projectSections: {
-    empathy:    { start: 0.24,   end: 0.3433 },
-    narrative:  { start: 0.3433, end: 0.4466 },
-    craft:      { start: 0.4466, end: 0.5499 },
-    system:     { start: 0.5499, end: 0.6533 },
-    leadership: { start: 0.6533, end: 0.7566 },
-    exploration:{ start: 0.7566, end: 0.875 }
   }
 };
 
@@ -155,13 +146,11 @@ const calculateCurrentZone = (scrollProgress, config = ANIMATION_CONFIG) => {
   };
 };
 
-const calculateActiveProject = (scrollProgress, config = ANIMATION_CONFIG) => {
+const calculateActiveProject = (scrollProgress, projectSections = {}, config = ANIMATION_CONFIG) => {
   if (scrollProgress < config.scrollZones.projects.start) {
     return { project: null, progress: 0 };
   }
-  
-  const projectSections = config.projectSections;
-  
+
   for (const [projectKey, section] of Object.entries(projectSections)) {
     if (scrollProgress >= section.start && scrollProgress < section.end) {
       const progress = (scrollProgress - section.start) / (section.end - section.start);
@@ -187,9 +176,15 @@ const calculateActiveProject = (scrollProgress, config = ANIMATION_CONFIG) => {
 export const useUnifiedAnimationController = (options = {}) => {
   const {
     config = ANIMATION_CONFIG,
+    projectSections = {},
     debugMode = false,
     onStateChange = null
   } = options;
+
+  const mergedConfig = useMemo(() => ({
+    ...config,
+    projectSections
+  }), [config, projectSections]);
 
   const [animationState, setAnimationState] = useState({
     state: ANIMATION_STATES.HERO,
@@ -284,8 +279,8 @@ export const useUnifiedAnimationController = (options = {}) => {
    * FIXED: Main scroll update with hysteresis to prevent boundary flickering + enhanced debugging
    */
   const updateFromScrollProgress = useCallback((scrollProgress) => {
-    const currentZone = calculateCurrentZone(scrollProgress, config);
-    const activeProject = calculateActiveProject(scrollProgress, config);
+    const currentZone = calculateCurrentZone(scrollProgress, mergedConfig);
+    const activeProject = calculateActiveProject(scrollProgress, projectSections, mergedConfig);
     
     // ENHANCED: Log scroll updates for background debugging
     if (import.meta.env.DEV && Math.random() < 0.05) { // Sample 5% of updates
@@ -401,7 +396,8 @@ export const useUnifiedAnimationController = (options = {}) => {
       onStateChange(animationState);
     }
   }, [
-    config, 
+    mergedConfig,
+    projectSections,
     handleZoneTransition,
     handleProjectFocus,
     onStateChange,
@@ -417,15 +413,15 @@ export const useUnifiedAnimationController = (options = {}) => {
     
     if (animationState.cameraState === 'project') {
       cameraConfig = animationState.focusedFacet
-        ? config.camera.projects[animationState.focusedFacet]
+        ? mergedConfig.camera.projects[animationState.focusedFacet]
         // When no facet is focused, default to overview camera instead of hero fallback
-        : config.camera.overview;
+        : mergedConfig.camera.overview;
     } else {
-      cameraConfig = config.camera[animationState.cameraState] || config.camera.hero;
+      cameraConfig = mergedConfig.camera[animationState.cameraState] || mergedConfig.camera.hero;
     }
     
     return cameraConfig;
-  }, [animationState.cameraState, animationState.focusedFacet, animationState.state, config, debugMode]);
+  }, [animationState.cameraState, animationState.focusedFacet, animationState.state, mergedConfig, debugMode]);
 
   /**
    * Get current crystal configuration (same as before)
@@ -434,13 +430,13 @@ export const useUnifiedAnimationController = (options = {}) => {
     return {
       form: animationState.crystalForm,
       positions: animationState.crystalForm === 'exploded' 
-        ? config.crystal.explodedPositions 
-        : { center: config.crystal.wholePosition },
-      shouldRotate: animationState.crystalForm === 'whole' && 
+        ? mergedConfig.crystal.explodedPositions
+        : { center: mergedConfig.crystal.wholePosition },
+      shouldRotate: animationState.crystalForm === 'whole' &&
                    animationState.state === ANIMATION_STATES.HERO,
       rotationSpeed: 0.0003
     };
-  }, [animationState.crystalForm, animationState.state, config]);
+  }, [animationState.crystalForm, animationState.state, mergedConfig]);
 
   /**
    * Cleanup on unmount
@@ -458,7 +454,7 @@ export const useUnifiedAnimationController = (options = {}) => {
     animationState,
     
     // Configuration
-    config,
+    config: mergedConfig,
     
     // Update functions
     updateFromScrollProgress,

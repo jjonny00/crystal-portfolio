@@ -9,7 +9,8 @@ import { projects } from '../../data/projects';
 
 const ScrollablePortfolio = ({
   snapSpeed = 'medium', // 'fast', 'medium', 'slow', 'extra-slow', 'no-snap'
-  hideContent = false  // NEW: Hide content for screenshots
+  hideContent = false,  // NEW: Hide content for screenshots
+  onSectionsMeasured
 }) => {
   // Detect mobile via user agent to keep desktop interactions intact
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobi/i.test(navigator.userAgent);
@@ -40,11 +41,47 @@ const ScrollablePortfolio = ({
     
     return () => clearTimeout(timeoutId);
   }, [snapSpeed]);
-  
+
   // Debug logging
   useEffect(() => {
     if (import.meta.env.DEV) console.log('📏 ScrollablePortfolio received snapSpeed:', snapSpeed);
   }, [snapSpeed]);
+
+  // Measure project sections after layout to provide dynamic scroll thresholds
+  useEffect(() => {
+    const container = document.querySelector('.scroll-container');
+    if (!container) return;
+
+    const measure = () => {
+      const scrollableHeight = container.scrollHeight - container.clientHeight;
+      if (scrollableHeight <= 0) return;
+
+      const sections = Array.from(container.querySelectorAll('.scroll-section'));
+      const projectSections = {};
+
+      sections.forEach(section => {
+        const id = section.id;
+        if (!id || !id.startsWith('project-')) return;
+
+        const start = section.offsetTop / scrollableHeight;
+        const end = Math.min(
+          (section.offsetTop + section.scrollHeight) / scrollableHeight,
+          1
+        );
+        const facetKey = id.replace('project-', '');
+        projectSections[facetKey] = { start, end };
+      });
+
+      onSectionsMeasured?.(projectSections);
+    };
+
+    const raf = requestAnimationFrame(measure);
+    window.addEventListener('resize', measure);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('resize', measure);
+    };
+  }, [onSectionsMeasured]);
 
   // Allow scrolling when overlay sections disable pointer events
   useEffect(() => {
