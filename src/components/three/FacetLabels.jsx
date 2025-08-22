@@ -34,7 +34,11 @@ const FacetLabels = ({ anchors = {}, projects = [], scrollToProgress, onHoverCha
               if (ref) groupRefs.current[facetKey] = ref;
             }}
           >
-            <Html center style={{ pointerEvents: 'auto' }}>
+            <Html
+              center
+              portal={{ current: document.body }}
+              style={{ pointerEvents: 'auto', zIndex: 20 }}
+            >
               <Label
                 project={project}
                 facetKey={facetKey}
