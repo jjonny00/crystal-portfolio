@@ -22,7 +22,6 @@ export const useScrollProgress = (options = {}) => {
   const [contentHeight, setContentHeight] = useState(0);
   const [currentSection, setCurrentSection] = useState(null);
   const [velocity, setVelocity] = useState(0);
-  const [isSnapping, setIsSnapping] = useState(false);
 
   // Refs
   const scrollContainerRef = useRef(null);
@@ -95,56 +94,19 @@ export const useScrollProgress = (options = {}) => {
     const maxScroll = Math.max(container.scrollHeight - container.clientHeight, 1);
     let progress = Math.min(Math.max(scrollTop / maxScroll, 0), 1);
     
-    // DEBUG: Log scroll calculation
-    // if (debugMode) {
-    //   if (import.meta.env.DEV) console.log('📏 Scroll Debug:', {
-    //     scrollTop,
-    //     maxScroll,
-    //     rawProgress: progress,
-    //     containerHeight: container.clientHeight,
-    //     contentHeight: container.scrollHeight
-    //   });
-    // }
+      // DEBUG: Log scroll calculation
+      // if (debugMode) {
+      //   if (import.meta.env.DEV) console.log('📏 Scroll Debug:', {
+      //     scrollTop,
+      //     maxScroll,
+      //     rawProgress: progress,
+      //     containerHeight: container.clientHeight,
+      //     contentHeight: container.scrollHeight
+      //   });
+      // }
 
-    // Detect snapping by checking for small movements
-    const scrollDelta = Math.abs(scrollTop - lastScrollTop.current);
-    const isLikelySnapped = scrollDelta < 5;
-    
-    if (isLikelySnapped && !isSnapping) {
-      // Quantize progress to clean values when snapped
-      const sections = container.querySelectorAll('.scroll-section');
-      if (sections.length > 0) {
-        let closestSectionIndex = 0;
-        let minDistance = Infinity;
-        
-        sections.forEach((section, index) => {
-          const sectionTop = section.offsetTop;
-          const distance = Math.abs(scrollTop - sectionTop);
-          if (distance < minDistance) {
-            minDistance = distance;
-            closestSectionIndex = index;
-          }
-        });
-        
-        // If very close to a section (snapped), use quantized progress
-        if (minDistance < 50) {
-          const quantizedProgress = closestSectionIndex / Math.max(sections.length - 1, 1);
-          progress = quantizedProgress;
-          
-          if (!isSnapping) {
-            setIsSnapping(true);
-            setTimeout(() => setIsSnapping(false), 300);
-          }
-          
-        //   if (debugMode) {
-        //     if (import.meta.env.DEV) console.log(`📍 Snapped to section ${closestSectionIndex}, progress: ${Math.round(progress * 100)}%`);
-        //   }
-        }
-      }
-    }
-    
-    return progress;
-  }, [isSnapping, debugMode]);
+      return progress;
+    }, [debugMode]);
 
   /**
    * Update velocity calculation
@@ -216,35 +178,32 @@ export const useScrollProgress = (options = {}) => {
     //     progress: Math.round(progress * 100) + '%',
     //     scrollTop: scrollContainerRef.current?.scrollTop,
     //     velocity: Math.round(velocity * 1000) / 1000,
-    //     currentSection: sectionId,
-    //     isSnapping
-    //   });
+      //     currentSection: sectionId
+      //   });
     // }
-  }, [
-    calculateScrollProgress,
-    determineCurrentSection,
-    currentSection,
-    includeVelocity,
-    updateVelocity,
-    velocity,
-    isSnapping,
-    debugMode
-  ]);
+    }, [
+      calculateScrollProgress,
+      determineCurrentSection,
+      currentSection,
+      includeVelocity,
+      updateVelocity,
+      velocity,
+      debugMode
+    ]);
 
   /**
    * Handle scroll end
    */
-  const handleScrollEnd = useCallback(debounce(() => {
+    const handleScrollEnd = useCallback(debounce(() => {
     setIsScrolling(false);
-    
+
     if (debugMode) {
       if (import.meta.env.DEV) console.log('📜 Container scroll ended at:', {
         progress: Math.round(scrollProgress * 100) + '%',
-        section: currentSection,
-        wasSnapping: isSnapping
+        section: currentSection
       });
     }
-  }, debounceMs), [scrollProgress, currentSection, isSnapping, debugMode, debounceMs]);
+  }, debounceMs), [scrollProgress, currentSection, debugMode, debounceMs]);
 
   /**
    * Handle container resize
@@ -321,21 +280,14 @@ export const useScrollProgress = (options = {}) => {
   /**
    * Enhanced zone progress calculation
    */
-  const getZoneProgress = useCallback((zoneName, zones) => {
-    const zone = zones[zoneName];
-    if (!zone) return 0;
-    
-    let zoneProgress = Math.max(0, Math.min(1, 
-      (scrollProgress - zone.start) / (zone.end - zone.start)
-    ));
-    
-    // Quantize zone progress when snapping
-    if (isSnapping) {
-      zoneProgress = Math.round(zoneProgress * 4) / 4; // Snap to quarters
-    }
-    
-    return zoneProgress;
-  }, [scrollProgress, isSnapping]);
+    const getZoneProgress = useCallback((zoneName, zones) => {
+      const zone = zones[zoneName];
+      if (!zone) return 0;
+
+      return Math.max(0, Math.min(1,
+        (scrollProgress - zone.start) / (zone.end - zone.start)
+      ));
+    }, [scrollProgress]);
 
   /**
    * Check if in zone
@@ -354,14 +306,13 @@ export const useScrollProgress = (options = {}) => {
       if (scrollProgress >= zone.start && scrollProgress <= zone.end) {
         return {
           name: zoneName,
-          progress: getZoneProgress(zoneName, zones),
-          zone: zone,
-          isSnapped: isSnapping
-        };
+            progress: getZoneProgress(zoneName, zones),
+            zone: zone
+          };
+        }
       }
-    }
-    return null;
-  }, [scrollProgress, getZoneProgress, isSnapping]);
+      return null;
+    }, [scrollProgress, getZoneProgress]);
 
   /**
    * FIXED: Scroll to progress within container
@@ -394,11 +345,10 @@ export const useScrollProgress = (options = {}) => {
 
   return {
     // Current state
-    scrollProgress,
-    isScrolling,
-    velocity: includeVelocity ? velocity : 0,
-    isSnapping,
-    currentSection,
+      scrollProgress,
+      isScrolling,
+      velocity: includeVelocity ? velocity : 0,
+      currentSection,
     
     // Container info
     containerHeight,
@@ -406,18 +356,18 @@ export const useScrollProgress = (options = {}) => {
     maxScroll: Math.max(contentHeight - containerHeight, 0),
     scrollContainer: scrollContainerRef.current,
     
-    // Zone utilities
-    getZoneProgress,
-    isInZone,
-    getCurrentZone,
+      // Zone utilities
+      getZoneProgress,
+      isInZone,
+      getCurrentZone,
     
     // Navigation
     scrollToProgress,
     scrollToZone,
     
-    // Utilities
-    isFastScrolling: velocity > (isSnapping ? 20 : 50),
-    scrollDirection: velocity > 0 ? 'down' : 'up',
+      // Utilities
+      isFastScrolling: velocity > 50,
+      scrollDirection: velocity > 0 ? 'down' : 'up',
     
     // Debug info
     debugInfo: debugMode ? {
@@ -427,9 +377,8 @@ export const useScrollProgress = (options = {}) => {
       containerHeight,
       contentHeight,
       isScrolling,
-      isSnapping,
-      currentSection,
-      hasContainer: !!scrollContainerRef.current
-    } : null
+        currentSection,
+        hasContainer: !!scrollContainerRef.current
+      } : null
+    };
   };
-};
