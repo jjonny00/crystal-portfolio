@@ -1,6 +1,6 @@
 // Added keyboard control for animation debug panel
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useScrollProgress } from '../../hooks/useScrollProgress';
 import { useUnifiedAnimationController } from '../../hooks/useUnifiedAnimationController';
 
@@ -62,18 +62,37 @@ const MasterAnimationCoordinator = ({
     };
   }, []);
 
+  // Track latest scroll progress for reuse when project sections update
+  const scrollProgressRef = useRef(scrollData.scrollProgress);
+  useEffect(() => {
+    scrollProgressRef.current = scrollData.scrollProgress;
+  }, [scrollData.scrollProgress]);
+
+  // Track latest update function to avoid stale closures
+  const updateFromScrollRef = useRef(animationController.updateFromScrollProgress);
+  useEffect(() => {
+    updateFromScrollRef.current = animationController.updateFromScrollProgress;
+  }, [animationController.updateFromScrollProgress]);
+
   // SIMPLIFIED: Direct scroll updates with minimal debouncing
   useEffect(() => {
     // Only update if scroll progress actually changed significantly
     const significantChange = Math.abs(
       scrollData.scrollProgress - (animationController.animationState.scrollProgress || 0)
     ) > 0.001;
-    
+
     if (significantChange) {
       // Direct update - no complex timing coordination needed
       animationController.updateFromScrollProgress(scrollData.scrollProgress);
     }
   }, [scrollData.scrollProgress, animationController]);
+
+  // Ensure focus updates when project sections are measured after layout
+  useEffect(() => {
+    if (Object.keys(projectSections).length > 0) {
+      updateFromScrollRef.current(scrollProgressRef.current);
+    }
+  }, [projectSections]);
 
   // Memoize scroll metrics separately so components that don't care about
   // scrolling won't re-render on every scroll tick
@@ -97,8 +116,7 @@ const MasterAnimationCoordinator = ({
     scrollToZone: (zoneName) =>
       scrollData.scrollToZone?.(zoneName, animationController.config.scrollZones)
   }), [
-    scrollData.scrollToProgress,
-    scrollData.scrollToZone,
+    scrollData,
     animationController.config?.scrollZones
   ]);
 

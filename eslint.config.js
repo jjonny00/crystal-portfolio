@@ -9,7 +9,10 @@ export default [
     files: ['**/*.{js,jsx}'],
     languageOptions: {
       ecmaVersion: 2020,
-      globals: globals.browser,
+      // Trim global keys to avoid issues with package whitespace
+      globals: Object.fromEntries(
+        Object.entries(globals.browser).map(([key, value]) => [key.trim(), value])
+      ),
       parserOptions: {
         ecmaVersion: 'latest',
         ecmaFeatures: { jsx: true },
