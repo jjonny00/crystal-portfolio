@@ -191,6 +191,50 @@ export const useUnifiedAnimationController = (options = {}) => {
     onStateChange = null
   } = options;
 
+  // Dynamic configuration that updates based on measured DOM sections
+  const [dynamicConfig, setDynamicConfig] = useState(config);
+
+  useEffect(() => {
+    const measureSections = () => {
+      const container = document.querySelector('.scroll-container');
+      if (!container) return;
+
+      const sections = container.querySelectorAll('.scroll-section');
+      const maxScroll = Math.max(container.scrollHeight - container.clientHeight, 1);
+      const zones = {};
+      const projectSections = {};
+
+      sections.forEach((section) => {
+        const start = section.offsetTop / maxScroll;
+        const end = (section.offsetTop + section.offsetHeight) / maxScroll;
+        const id = section.id;
+
+        if (id === 'hero') {
+          zones.hero = { start: 0, end };
+        } else if (id === 'overview') {
+          zones.overview = { start, end };
+        } else if (id === 'about') {
+          zones.about = { start, end: 1 };
+        } else if (id.startsWith('project-')) {
+          const key = id.replace('project-', '');
+          projectSections[key] = { start, end };
+        }
+      });
+
+      if (Object.keys(projectSections).length) {
+        const starts = Object.values(projectSections).map(s => s.start);
+        const ends = Object.values(projectSections).map(s => s.end);
+        zones.projects = { start: Math.min(...starts), end: Math.max(...ends) };
+      }
+
+      setDynamicConfig(prev => ({ ...prev, scrollZones: zones, projectSections }));
+    };
+
+    measureSections();
+    window.addEventListener('resize', measureSections);
+    return () => window.removeEventListener('resize', measureSections);
+  }, [config]);
+
   const [animationState, setAnimationState] = useState({
     state: ANIMATION_STATES.HERO,
     crystalForm: 'whole',
@@ -284,8 +328,8 @@ export const useUnifiedAnimationController = (options = {}) => {
    * FIXED: Main scroll update with hysteresis to prevent boundary flickering + enhanced debugging
    */
   const updateFromScrollProgress = useCallback((scrollProgress) => {
-    const currentZone = calculateCurrentZone(scrollProgress, config);
-    const activeProject = calculateActiveProject(scrollProgress, config);
+    const currentZone = calculateCurrentZone(scrollProgress, dynamicConfig);
+    const activeProject = calculateActiveProject(scrollProgress, dynamicConfig);
 
     // DEBUG: Log potential mismatches between scroll and visible section
     if (debugMode || import.meta.env.DEV) {
@@ -399,7 +443,7 @@ export const useUnifiedAnimationController = (options = {}) => {
       onStateChange(animationState);
     }
   }, [
-    config, 
+    dynamicConfig,
     handleZoneTransition,
     handleProjectFocus,
     onStateChange,
@@ -415,15 +459,15 @@ export const useUnifiedAnimationController = (options = {}) => {
     
     if (animationState.cameraState === 'project') {
       cameraConfig = animationState.focusedFacet
-        ? config.camera.projects[animationState.focusedFacet]
+        ? dynamicConfig.camera.projects[animationState.focusedFacet]
         // When no facet is focused, default to overview camera instead of hero fallback
-        : config.camera.overview;
+        : dynamicConfig.camera.overview;
     } else {
-      cameraConfig = config.camera[animationState.cameraState] || config.camera.hero;
+      cameraConfig = dynamicConfig.camera[animationState.cameraState] || dynamicConfig.camera.hero;
     }
     
     return cameraConfig;
-  }, [animationState.cameraState, animationState.focusedFacet, animationState.state, config, debugMode]);
+  }, [animationState.cameraState, animationState.focusedFacet, animationState.state, dynamicConfig, debugMode]);
 
   /**
    * Get current crystal configuration (same as before)
@@ -432,13 +476,13 @@ export const useUnifiedAnimationController = (options = {}) => {
     return {
       form: animationState.crystalForm,
       positions: animationState.crystalForm === 'exploded' 
-        ? config.crystal.explodedPositions 
-        : { center: config.crystal.wholePosition },
+        ? dynamicConfig.crystal.explodedPositions
+        : { center: dynamicConfig.crystal.wholePosition },
       shouldRotate: animationState.crystalForm === 'whole' && 
                    animationState.state === ANIMATION_STATES.HERO,
       rotationSpeed: 0.0003
     };
-  }, [animationState.crystalForm, animationState.state, config]);
+  }, [animationState.crystalForm, animationState.state, dynamicConfig]);
 
   /**
    * Cleanup on unmount
@@ -454,9 +498,9 @@ export const useUnifiedAnimationController = (options = {}) => {
   return {
     // Current state
     animationState,
-    
+
     // Configuration
-    config,
+    config: dynamicConfig,
     
     // Update functions
     updateFromScrollProgress,

@@ -9,11 +9,11 @@ import { ANIMATION_CONFIG, calculateActiveProject, calculateCurrentZone } from '
 const DEFAULT_HEADLINE_COLOR = '#6200ff';
 const HERO_HEADLINE_COLOR = '#fff6ae';
 
-export default function useProjectHeadlineColor(scrollProgress = 0) {
+export default function useProjectHeadlineColor(scrollProgress = 0, config = ANIMATION_CONFIG) {
   useEffect(() => {
     const root = document.documentElement;
-    const { project } = calculateActiveProject(scrollProgress, ANIMATION_CONFIG);
-    const { zone } = calculateCurrentZone(scrollProgress, ANIMATION_CONFIG);
+    const { project } = calculateActiveProject(scrollProgress, config);
+    const { zone } = calculateCurrentZone(scrollProgress, config);
 
     let hex = DEFAULT_HEADLINE_COLOR;
     let source = 'default';

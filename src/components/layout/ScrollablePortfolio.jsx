@@ -6,7 +6,6 @@ import HeroSection from '../sections/HeroSection';
 import ProjectFocusSection from '../sections/ProjectFocusSection';
 import AboutSection from '../sections/AboutSection';
 import { projects } from '../../data/projects';
-import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController';
 
 const ScrollablePortfolio = ({
   snapSpeed = 'medium', // 'fast', 'medium', 'slow', 'extra-slow', 'no-snap'
@@ -61,41 +60,6 @@ const ScrollablePortfolio = ({
 
     window.addEventListener('wheel', handleWheel, { passive: true });
     return () => window.removeEventListener('wheel', handleWheel);
-  }, []);
-
-  // Debug actual section offsets vs configured starts
-  useEffect(() => {
-    const measureSections = () => {
-      const container = document.querySelector('.scroll-container');
-      if (!container) return;
-
-      const sections = container.querySelectorAll('.scroll-section');
-      const containerHeight = container.scrollHeight;
-
-      console.log('=== SECTION MAPPING DEBUG ===');
-      sections.forEach((section, index) => {
-        const offsetTop = section.offsetTop;
-        const scrollProgress = offsetTop / (containerHeight - container.clientHeight);
-        const configEntry = Object.entries(ANIMATION_CONFIG.projectSections)[index - 2]?.[1];
-        const configuredStart = configEntry?.start;
-        const mismatch = Math.abs(scrollProgress - (configuredStart || 0)) > 0.01;
-
-        console.log(`${section.id}:`, {
-          index,
-          offsetTop,
-          scrollProgress: scrollProgress.toFixed(4),
-          configuredStart,
-          mismatch
-        });
-      });
-    };
-
-    const timeout = setTimeout(measureSections, 1000);
-    window.addEventListener('resize', measureSections);
-    return () => {
-      clearTimeout(timeout);
-      window.removeEventListener('resize', measureSections);
-    };
   }, []);
 
   // Mobile scrolling uses native browser behavior

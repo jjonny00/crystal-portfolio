@@ -26,15 +26,15 @@ const MasterAnimationCoordinator = ({
     debugMode: debugMode
   });
 
-  // Sync headline colors with scroll progress
-  useProjectHeadlineColor(scrollData.scrollProgress);
-
   // Get unified animation state with simplified coordination
   const animationController = useUnifiedAnimationController({
     debugMode: debugMode,
     onStateChange: onAnimationStateChange,
     config: config || undefined
   });
+
+  // Sync headline colors with scroll progress using measured config
+  useProjectHeadlineColor(scrollData.scrollProgress, animationController.config);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
