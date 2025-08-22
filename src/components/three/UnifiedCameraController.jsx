@@ -18,11 +18,11 @@ const UnifiedCameraController = ({
     fov: 45
   });
   
-  // Adaptive animation speeds based on distance
+  // Adaptive animation damping rates (higher = faster)
   const animationSpeed = useRef({
-    position: 0.03,
-    lookAt: 0.03,
-    fov: 0.03
+    position: 6,
+    lookAt: 6,
+    fov: 6
   });
   
   // Track last camera config to detect changes
@@ -186,30 +186,30 @@ const UnifiedCameraController = ({
       const positionDistance = camera.position.distanceTo(currentTarget.current.position);
       
       if (animationData.state === 'hero' && positionDistance > 3) {
-        animationSpeed.current.position = 0.015;
-        animationSpeed.current.lookAt = 0.015;
-        animationSpeed.current.fov = 0.015;
+        animationSpeed.current.position = 5;
+        animationSpeed.current.lookAt = 5;
+        animationSpeed.current.fov = 5;
       } else if (animationData.state === 'overview' && positionDistance > 2) {
-        animationSpeed.current.position = 0.02;
-        animationSpeed.current.lookAt = 0.02;
-        animationSpeed.current.fov = 0.02;
+        animationSpeed.current.position = 6;
+        animationSpeed.current.lookAt = 6;
+        animationSpeed.current.fov = 6;
       } else if (animationData.state === 'about' && positionDistance > 2) {
-        animationSpeed.current.position = 0.02;
-        animationSpeed.current.lookAt = 0.02;
-        animationSpeed.current.fov = 0.02;
+        animationSpeed.current.position = 6;
+        animationSpeed.current.lookAt = 6;
+        animationSpeed.current.fov = 6;
       } else if (cameraState === 'project' && focusedFacet) {
 
-        animationSpeed.current.position = 0.03;
-        animationSpeed.current.lookAt = 0.03;
-        animationSpeed.current.fov = 0.03;
-        
+        animationSpeed.current.position = 8;
+        animationSpeed.current.lookAt = 8;
+        animationSpeed.current.fov = 8;
+
         if (import.meta.env.DEV) {
           console.log(`📹 Camera Controller: Project focus camera update: ${focusedFacet}, distance: ${positionDistance.toFixed(2)}, using anchor: ${enhancedConfig.description?.includes('anchor')}`);
         }
       } else {
-        animationSpeed.current.position = 0.025;
-        animationSpeed.current.lookAt = 0.025;
-        animationSpeed.current.fov = 0.025;
+        animationSpeed.current.position = 7;
+        animationSpeed.current.lookAt = 7;
+        animationSpeed.current.fov = 7;
       }
 
       // Store current config for comparison (including description)
@@ -244,12 +244,9 @@ const UnifiedCameraController = ({
     }
 
     const currentSpeeds = animationSpeed.current;
-    const deltaMultiplier = Math.min(deltaTime * 60, 2);
 
-    camera.position.lerp(
-      currentTarget.current.position,
-      currentSpeeds.position * deltaMultiplier
-    );
+    const posFactor = 1 - Math.exp(-currentSpeeds.position * deltaTime);
+    camera.position.lerp(currentTarget.current.position, posFactor);
 
     const currentDirection = new THREE.Vector3();
     camera.getWorldDirection(currentDirection);
@@ -258,17 +255,18 @@ const UnifiedCameraController = ({
       .subVectors(currentTarget.current.lookAt, camera.position)
       .normalize();
 
-    currentDirection.lerp(
-      targetDirection,
-      currentSpeeds.lookAt * deltaMultiplier
-    );
+    const dirFactor = 1 - Math.exp(-currentSpeeds.lookAt * deltaTime);
+    currentDirection.lerp(targetDirection, dirFactor);
 
-    const newLookAt = new THREE.Vector3()
-      .addVectors(camera.position, currentDirection);
+    const newLookAt = new THREE.Vector3().addVectors(camera.position, currentDirection);
     camera.lookAt(newLookAt);
 
-    const fovDiff = currentTarget.current.fov - camera.fov;
-    camera.fov += fovDiff * currentSpeeds.fov * deltaMultiplier;
+    camera.fov = THREE.MathUtils.damp(
+      camera.fov,
+      currentTarget.current.fov,
+      currentSpeeds.fov,
+      deltaTime
+    );
     camera.updateProjectionMatrix();
   });
 
