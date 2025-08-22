@@ -65,7 +65,49 @@ const ScrollablePortfolio = ({
     return () => window.removeEventListener('wheel', handleWheel);
   }, []);
 
-  // Mobile scrolling now handled by native browser behavior
+  // Touch scrolling implementation that preserves tap/click events
+  useEffect(() => {
+    if (!isMobile) return;
+    const container = document.querySelector('.scroll-container');
+    if (!container) return;
+
+    let startY = 0;
+    let isScrolling = false;
+
+    const handleTouchStart = (e) => {
+      startY = e.touches[0].clientY;
+      isScrolling = false;
+    };
+
+    const handleTouchMove = (e) => {
+      const currentY = e.touches[0].clientY;
+      const deltaY = startY - currentY;
+      if (Math.abs(deltaY) > 5) {
+        isScrolling = true;
+        container.scrollBy({ top: deltaY });
+        startY = currentY;
+        e.preventDefault();
+      }
+    };
+
+    const handleTouchEnd = (e) => {
+      if (isScrolling) {
+        e.preventDefault();
+      }
+    };
+
+    window.addEventListener('touchstart', handleTouchStart, { passive: false });
+    window.addEventListener('touchmove', handleTouchMove, { passive: false });
+    window.addEventListener('touchend', handleTouchEnd, { passive: false });
+
+    return () => {
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [isMobile]);
+
+  // Mobile scrolling now handled by custom touch logic
   
   return (
     <div 
@@ -89,10 +131,10 @@ const ScrollablePortfolio = ({
         
         // Mobile scroll support
         WebkitOverflowScrolling: 'touch',
-        
+
         // Clean styling
         backgroundColor: 'transparent',
-        pointerEvents: isMobile ? 'auto' : 'none',
+        pointerEvents: 'none',
         
         // Clean box model
         margin: 0,
