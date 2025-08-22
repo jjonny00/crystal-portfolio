@@ -372,12 +372,21 @@ const UnifiedCrystalScene = forwardRef(({
       
       if (import.meta.env.DEV) console.groupEnd();
     }
-  }, [showCrystalDebug, showFacets, facetKeys]);
+    }, [showCrystalDebug, showFacets, facetKeys]);
+
+  // Clear hovered facet when focus moves to a different section
+  useEffect(() => {
+    const hoveredKey = hoveredFacetRef.current;
+    const focusedKey = animationData?.focusedFacet ?? null;
+    if (hoveredKey && hoveredKey !== focusedKey) {
+      handleLabelHover(hoveredKey, false);
+    }
+  }, [animationData?.focusedFacet, handleLabelHover]);
 
   // FIXED: Update facet colors when focus changes, but respect hover state
   useEffect(() => {
-    const currentFacet = animationData?.focusedFacet ?? null;
-    const currentHovered = hoveredFacetRef.current;
+      const currentFacet = animationData?.focusedFacet ?? null;
+      const currentHovered = hoveredFacetRef.current;
 
     if (import.meta.env.DEV) {
       console.log('🎨 Focus change effect:', {

@@ -109,18 +109,14 @@ const Label = ({ project, facetKey, onClick, onHoverChange, glow1, glow2 }) => {
     handlePointerLeave();
   };
 
-  // NEW: Clear hover state on click to prevent sticky colors
-  const handleClick = () => {
-    if (hoverTimeout.current) {
-      clearTimeout(hoverTimeout.current);
-      hoverTimeout.current = null;
-    }
-    if (hovered) {
-      setHovered(false);
-      onHoverChange?.(facetKey, false);
-    }
-    onClick?.();
-  };
+    // Handle label click without clearing hover; hover will reset on scroll
+    const handleClick = () => {
+      if (hoverTimeout.current) {
+        clearTimeout(hoverTimeout.current);
+        hoverTimeout.current = null;
+      }
+      onClick?.();
+    };
 
   return (
     <div
