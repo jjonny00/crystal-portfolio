@@ -2,7 +2,7 @@
 // FIXED: Anti-banding improvements added to existing component
 
 import React, { useRef, useState, useEffect, useMemo } from 'react';
-import { useFrame, useThree } from '@react-three/fiber';
+import { useFrame } from '@react-three/fiber';
 import { useTexture } from '@react-three/drei';
 import * as THREE from 'three';
 
@@ -63,7 +63,6 @@ const GlowingSphereImage = ({
   simplifiedAnimations = false
 }) => {
   const meshRef = useRef();
-  const { camera } = useThree();
   
   // Simple state
   const [isExploding, setIsExploding] = useState(false);
@@ -181,11 +180,11 @@ const GlowingSphereImage = ({
   }, [animationData?.crystalForm, debugMode]);
   
   // Animation loop
-  useFrame(() => {
+  useFrame((state, deltaTime) => {
     if (!meshRef.current || !visible) return;
-    
+
     // Face camera
-    meshRef.current.lookAt(camera.position);
+    meshRef.current.lookAt(state.camera.position);
     
     if (isExploding) {
       const elapsed = (Date.now() - startTime) / 1000;
@@ -201,7 +200,7 @@ const GlowingSphereImage = ({
     } else {
       const currentOpacity = material.opacity;
       if (currentOpacity > 0) {
-        material.opacity = Math.max(0, currentOpacity - 0.05);
+        material.opacity = Math.max(0, currentOpacity - 0.05 * deltaTime * 60);
         if (material.opacity <= 0) {
           meshRef.current.scale.setScalar(baseSize);
         }
