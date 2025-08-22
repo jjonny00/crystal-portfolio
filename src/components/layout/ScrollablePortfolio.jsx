@@ -12,8 +12,8 @@ const ScrollablePortfolio = ({
   hideContent = false  // NEW: Hide content for screenshots
 }) => {
   const [currentSnapSpeed, setCurrentSnapSpeed] = useState(snapSpeed);
-  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
-                   (navigator.maxTouchPoints && navigator.maxTouchPoints > 2);
+  // Detect mobile via user agent to keep desktop interactions intact
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobi/i.test(navigator.userAgent);
   
   // Update snap speed when prop changes
   useEffect(() => {
