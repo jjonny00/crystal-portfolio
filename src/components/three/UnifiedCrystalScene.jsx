@@ -374,11 +374,13 @@ const UnifiedCrystalScene = forwardRef(({
     }
     }, [showCrystalDebug, showFacets, facetKeys]);
 
-  // Clear hovered facet when focus moves to a different section
+  // Clear hovered facet only when a new facet gains focus
   useEffect(() => {
     const hoveredKey = hoveredFacetRef.current;
     const focusedKey = animationData?.focusedFacet ?? null;
-    if (hoveredKey && hoveredKey !== focusedKey) {
+
+    // Only clear hover when there is an active focus that differs from the hovered facet
+    if (hoveredKey && focusedKey && hoveredKey !== focusedKey) {
       handleLabelHover(hoveredKey, false);
     }
   }, [animationData?.focusedFacet, handleLabelHover]);
