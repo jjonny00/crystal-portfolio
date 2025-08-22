@@ -352,8 +352,8 @@ const PersistentDustSystem = ({
   ]);
 
   // Animation loop
-  useFrame((state, delta) => {
-    timeRef.current += delta;
+  useFrame((state, deltaTime) => {
+    timeRef.current += deltaTime;
     
     if (material.uniforms) {
       material.uniforms.uTime.value = timeRef.current;
@@ -372,7 +372,7 @@ const PersistentDustSystem = ({
       const i3 = i * 3;
       
       // Update particle lifetime
-      particle.age += delta;
+      particle.age += deltaTime;
       
       if (particle.age >= particle.lifetime) {
         // Check if we should cull particles that are too far from origin
@@ -484,9 +484,9 @@ const PersistentDustSystem = ({
           
           // Smooth rotation toward target direction
           let angleDiff = targetRotation - particle.rotation;
-          
+
           // Smoothly rotate toward target
-          particle.rotation += angleDiff * rotationSmoothing;
+          particle.rotation += angleDiff * rotationSmoothing * deltaTime * 60;
           
           // Clamp to ensure we stay within -maxRotationAngle to +maxRotationAngle range
           particle.rotation = Math.max(-maxRotationAngle, Math.min(maxRotationAngle, particle.rotation));
