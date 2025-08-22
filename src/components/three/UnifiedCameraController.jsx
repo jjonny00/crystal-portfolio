@@ -245,16 +245,14 @@ const UnifiedCameraController = ({
 
     const currentSpeeds = animationSpeed.current;
 
-    // Prevent large frame gaps from causing jumps
-    const deltaMultiplier = Math.min(deltaTime * 60, 2);
+    const zone = animationData?.currentZone;
+    const baseFactor = (zone === 'hero' || zone === 'overview')
+      ? 1 - Math.exp(-12 * deltaTime)
+      : 1 - Math.exp(-8 * deltaTime);
 
-    // Smooth position interpolation
-    camera.position.lerp(
-      currentTarget.current.position,
-      currentSpeeds.position * deltaMultiplier
-    );
+    const posFactor = baseFactor * (currentSpeeds.position / 0.03);
+    camera.position.lerp(currentTarget.current.position, posFactor);
 
-    // Smooth look-at interpolation
     const currentDirection = new THREE.Vector3();
     camera.getWorldDirection(currentDirection);
 
@@ -262,21 +260,16 @@ const UnifiedCameraController = ({
       .subVectors(currentTarget.current.lookAt, camera.position)
       .normalize();
 
-    // Interpolate direction vectors
-    currentDirection.lerp(
-      targetDirection,
-      currentSpeeds.lookAt * deltaMultiplier
-    );
+    const lookFactor = baseFactor * (currentSpeeds.lookAt / 0.03);
+    currentDirection.lerp(targetDirection, lookFactor);
 
-    // Apply new look direction
     const newLookAt = new THREE.Vector3()
       .addVectors(camera.position, currentDirection);
-
     camera.lookAt(newLookAt);
 
-    // Smooth FOV interpolation
     const fovDiff = currentTarget.current.fov - camera.fov;
-    camera.fov += fovDiff * currentSpeeds.fov * deltaMultiplier;
+    const fovFactor = baseFactor * (currentSpeeds.fov / 0.03);
+    camera.fov += fovDiff * fovFactor;
     camera.updateProjectionMatrix();
   });
 

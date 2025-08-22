@@ -5,7 +5,6 @@ import React, { useState, useEffect } from 'react';
 import { animated, useSpring } from '@react-spring/web';
 
 // FIXED: Import the headline color hook
-import useProjectHeadlineColor from '../../hooks/useProjectHeadlineColor';
 
 // Cinematic Movie Titles Effect
 import Headline from '../ui/Headline';
@@ -20,9 +19,6 @@ const HeroSection = ({
   scrollProgress = 0,
   onScrollHint = null 
 }) => {
-  // FIXED: Initialize the headline color hook
-  useProjectHeadlineColor();
-  
   const [hasScrolled, setHasScrolled] = useState(false);
   
   // Track if user has started scrolling to hide scroll hint

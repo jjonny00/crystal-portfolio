@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useScrollProgress } from '../../hooks/useScrollProgress';
 import { useUnifiedAnimationController } from '../../hooks/useUnifiedAnimationController';
+import useProjectHeadlineColor from '../../hooks/useProjectHeadlineColor';
 
 let exportedAnimationData = {};
 let exportedScrollMetrics = {};
@@ -24,6 +25,9 @@ const MasterAnimationCoordinator = ({
     includeVelocity: true,
     debugMode: debugMode
   });
+
+  // Sync headline colors with scroll progress
+  useProjectHeadlineColor(scrollData.scrollProgress);
 
   // Get unified animation state with simplified coordination
   const animationController = useUnifiedAnimationController({

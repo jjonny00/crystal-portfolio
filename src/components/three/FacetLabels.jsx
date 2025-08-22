@@ -44,11 +44,28 @@ const FacetLabels = ({ anchors = {}, projects = [], scrollToProgress, onHoverCha
                 facetKey={facetKey}
                 glow1={glow1}
                 glow2={glow2}
-                onClick={() =>
-                  scrollToProgress(
-                    ANIMATION_CONFIG.projectSections[facetKey].start
-                  )
-                }
+                onClick={() => {
+                  const container = document.querySelector('.scroll-container');
+                  const section = document.getElementById(`project-${facetKey}`);
+                  const configStart = ANIMATION_CONFIG.projectSections[facetKey]?.start;
+                  let targetProgress = configStart;
+
+                  if (container && section) {
+                    const maxScroll = container.scrollHeight - container.clientHeight;
+                    targetProgress = section.offsetTop / maxScroll;
+                  }
+
+                  if (import.meta.env.DEV) {
+                    console.log(`Label clicked: ${facetKey}`, {
+                      targetProgress,
+                      configStart,
+                      sectionId: `project-${facetKey}`,
+                      sectionExists: !!section
+                    });
+                  }
+
+                  scrollToProgress(targetProgress);
+                }}
                 onHoverChange={onHoverChange}
               />
             </Html>

@@ -6,7 +6,6 @@ import { animated, useSpring } from '@react-spring/web';
 import Headline from '../ui/Headline';
 
 // FIXED: Import the headline color hook
-import useProjectHeadlineColor from '../../hooks/useProjectHeadlineColor';
 
 /**
  * ProjectFocusSection Component
@@ -19,9 +18,6 @@ const ProjectFocusSection = ({
   scrollProgress = 0,
   isMobile = false
 }) => {
-  // FIXED: Initialize the headline color hook
-  useProjectHeadlineColor();
-  
   const [imageLoaded, setImageLoaded] = useState(false);
   const [hasAnimated, setHasAnimated] = useState(false);
 

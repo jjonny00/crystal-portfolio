@@ -155,7 +155,7 @@ const calculateCurrentZone = (scrollProgress, config = ANIMATION_CONFIG) => {
   };
 };
 
-const calculateActiveProject = (scrollProgress, config = ANIMATION_CONFIG) => {
+export const calculateActiveProject = (scrollProgress, config = ANIMATION_CONFIG) => {
   if (scrollProgress < config.scrollZones.projects.start) {
     return { project: null, progress: 0 };
   }
@@ -286,17 +286,15 @@ export const useUnifiedAnimationController = (options = {}) => {
   const updateFromScrollProgress = useCallback((scrollProgress) => {
     const currentZone = calculateCurrentZone(scrollProgress, config);
     const activeProject = calculateActiveProject(scrollProgress, config);
-    
-    // ENHANCED: Log scroll updates for background debugging
-    if (import.meta.env.DEV && Math.random() < 0.05) { // Sample 5% of updates
-      console.log('🔄 Animation state update:', {
-        scrollProgress: scrollProgress.toFixed(3),
-        currentZone: currentZone.zone,
-        zoneProgress: currentZone.progress.toFixed(3),
-        activeProject: activeProject.project,
-        projectProgress: activeProject.progress.toFixed(3),
-        lastZone: lastZone.current,
-        lastProject: lastProject.current
+
+    // DEBUG: Log potential mismatches between scroll and visible section
+    if (debugMode || import.meta.env.DEV) {
+      console.log('Animation State Update:', {
+        scrollProgress: scrollProgress.toFixed(4),
+        detectedZone: currentZone.zone,
+        detectedProject: activeProject.project,
+        timestamp: performance.now(),
+        visibleSection: document.querySelector('.scroll-section[data-headline-color]')?.id || null
       });
     }
     
