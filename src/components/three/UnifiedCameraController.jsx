@@ -230,9 +230,9 @@ const UnifiedCameraController = ({
   ]);
 
   /**
-   * Smooth animation loop (unchanged)
+   * Smooth animation loop
    */
-  useFrame(() => {
+  useFrame((state, deltaTime) => {
     if (!currentTarget.current) return;
 
     if (simplifiedAnimations) {
@@ -246,7 +246,10 @@ const UnifiedCameraController = ({
     const currentSpeeds = animationSpeed.current;
 
     // Smooth position interpolation
-    camera.position.lerp(currentTarget.current.position, currentSpeeds.position);
+    camera.position.lerp(
+      currentTarget.current.position,
+      currentSpeeds.position * deltaTime * 60
+    );
     
     // Smooth look-at interpolation
     const currentDirection = new THREE.Vector3();
@@ -257,7 +260,10 @@ const UnifiedCameraController = ({
       .normalize();
     
     // Interpolate direction vectors
-    currentDirection.lerp(targetDirection, currentSpeeds.lookAt);
+    currentDirection.lerp(
+      targetDirection,
+      currentSpeeds.lookAt * deltaTime * 60
+    );
     
     // Apply new look direction
     const newLookAt = new THREE.Vector3()
@@ -267,7 +273,7 @@ const UnifiedCameraController = ({
     
     // Smooth FOV interpolation
     const fovDiff = currentTarget.current.fov - camera.fov;
-    camera.fov += fovDiff * currentSpeeds.fov;
+    camera.fov += fovDiff * currentSpeeds.fov * deltaTime * 60;
     camera.updateProjectionMatrix();
   });
 
