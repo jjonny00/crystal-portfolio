@@ -81,11 +81,11 @@ const GradientBackground = forwardRef(({ backgrounds, initialKey = 'default', ra
     colorB: { value: currentB.current.clone() }
   }), []);
 
-  useFrame(() => {
+  useFrame((state, deltaTime) => {
     if (!materialRef.current) return;
 
-    currentA.current.lerp(targetA.current, 0.05);
-    currentB.current.lerp(targetB.current, 0.05);
+    currentA.current.lerp(targetA.current, 0.05 * deltaTime * 60);
+    currentB.current.lerp(targetB.current, 0.05 * deltaTime * 60);
 
     uniforms.colorA.value.copy(currentA.current);
     uniforms.colorB.value.copy(currentB.current);
