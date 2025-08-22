@@ -109,6 +109,19 @@ const Label = ({ project, facetKey, onClick, onHoverChange, glow1, glow2 }) => {
     handlePointerLeave();
   };
 
+  // NEW: Clear hover state on click to prevent sticky colors
+  const handleClick = () => {
+    if (hoverTimeout.current) {
+      clearTimeout(hoverTimeout.current);
+      hoverTimeout.current = null;
+    }
+    if (hovered) {
+      setHovered(false);
+      onHoverChange?.(facetKey, false);
+    }
+    onClick?.();
+  };
+
   return (
     <div
       className="facet-label"
@@ -116,7 +129,7 @@ const Label = ({ project, facetKey, onClick, onHoverChange, glow1, glow2 }) => {
       onPointerLeave={handlePointerLeave}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      onClick={onClick}
+      onClick={handleClick}
       style={{
         transform: hovered ? 'scale(1.1)' : 'scale(1)',
         transition: 'transform 0.2s',
