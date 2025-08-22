@@ -113,7 +113,7 @@ const ANIMATION_STATES = {
 /**
  * FIXED: Zone calculation with hysteresis to prevent boundary flickering
  */
-const calculateCurrentZone = (scrollProgress, config = ANIMATION_CONFIG) => {
+export const calculateCurrentZone = (scrollProgress, config = ANIMATION_CONFIG) => {
   const zones = config.scrollZones;
   
   // Use more precise boundaries to prevent flickering

@@ -186,30 +186,30 @@ const UnifiedCameraController = ({
       const positionDistance = camera.position.distanceTo(currentTarget.current.position);
       
       if (animationData.state === 'hero' && positionDistance > 3) {
-        animationSpeed.current.position = 0.025;
-        animationSpeed.current.lookAt = 0.025;
-        animationSpeed.current.fov = 0.025;
+        animationSpeed.current.position = 0.015;
+        animationSpeed.current.lookAt = 0.015;
+        animationSpeed.current.fov = 0.015;
       } else if (animationData.state === 'overview' && positionDistance > 2) {
-        animationSpeed.current.position = 0.035;
-        animationSpeed.current.lookAt = 0.035;
-        animationSpeed.current.fov = 0.035;
+        animationSpeed.current.position = 0.02;
+        animationSpeed.current.lookAt = 0.02;
+        animationSpeed.current.fov = 0.02;
       } else if (animationData.state === 'about' && positionDistance > 2) {
         animationSpeed.current.position = 0.02;
         animationSpeed.current.lookAt = 0.02;
         animationSpeed.current.fov = 0.02;
       } else if (cameraState === 'project' && focusedFacet) {
-        
-        animationSpeed.current.position = 0.05;
-        animationSpeed.current.lookAt = 0.05;
-        animationSpeed.current.fov = 0.05;
+
+        animationSpeed.current.position = 0.03;
+        animationSpeed.current.lookAt = 0.03;
+        animationSpeed.current.fov = 0.03;
         
         if (import.meta.env.DEV) {
           console.log(`📹 Camera Controller: Project focus camera update: ${focusedFacet}, distance: ${positionDistance.toFixed(2)}, using anchor: ${enhancedConfig.description?.includes('anchor')}`);
         }
       } else {
-        animationSpeed.current.position = 0.03;
-        animationSpeed.current.lookAt = 0.03;
-        animationSpeed.current.fov = 0.03;
+        animationSpeed.current.position = 0.025;
+        animationSpeed.current.lookAt = 0.025;
+        animationSpeed.current.fov = 0.025;
       }
 
       // Store current config for comparison (including description)
@@ -244,14 +244,12 @@ const UnifiedCameraController = ({
     }
 
     const currentSpeeds = animationSpeed.current;
+    const deltaMultiplier = Math.min(deltaTime * 60, 2);
 
-    const zone = animationData?.currentZone;
-    const baseFactor = (zone === 'hero' || zone === 'overview')
-      ? 1 - Math.exp(-12 * deltaTime)
-      : 1 - Math.exp(-8 * deltaTime);
-
-    const posFactor = baseFactor * (currentSpeeds.position / 0.03);
-    camera.position.lerp(currentTarget.current.position, posFactor);
+    camera.position.lerp(
+      currentTarget.current.position,
+      currentSpeeds.position * deltaMultiplier
+    );
 
     const currentDirection = new THREE.Vector3();
     camera.getWorldDirection(currentDirection);
@@ -260,16 +258,17 @@ const UnifiedCameraController = ({
       .subVectors(currentTarget.current.lookAt, camera.position)
       .normalize();
 
-    const lookFactor = baseFactor * (currentSpeeds.lookAt / 0.03);
-    currentDirection.lerp(targetDirection, lookFactor);
+    currentDirection.lerp(
+      targetDirection,
+      currentSpeeds.lookAt * deltaMultiplier
+    );
 
     const newLookAt = new THREE.Vector3()
       .addVectors(camera.position, currentDirection);
     camera.lookAt(newLookAt);
 
     const fovDiff = currentTarget.current.fov - camera.fov;
-    const fovFactor = baseFactor * (currentSpeeds.fov / 0.03);
-    camera.fov += fovDiff * fovFactor;
+    camera.fov += fovDiff * currentSpeeds.fov * deltaMultiplier;
     camera.updateProjectionMatrix();
   });
 
