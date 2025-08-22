@@ -206,6 +206,8 @@ html .scroll-container.no-snap .scroll-section {
     height: 100vh !important;
     overflow-y: auto !important;
     scroll-snap-type: y proximity !important;
+    pointer-events: auto !important;
+    touch-action: pan-y !important;
 
     /* Enhanced mobile scrolling */
     -webkit-overflow-scrolling: touch !important;
