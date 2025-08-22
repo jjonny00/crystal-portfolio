@@ -1,22 +1,21 @@
 // src/components/layout/ScrollablePortfolio.jsx
 // COMPLETE FILE - Copy and paste this entire file
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import HeroSection from '../sections/HeroSection';
 import ProjectFocusSection from '../sections/ProjectFocusSection';
 import AboutSection from '../sections/AboutSection';
 import { projects } from '../../data/projects';
 
-const ScrollablePortfolio = ({ 
+const ScrollablePortfolio = ({
   snapSpeed = 'medium', // 'fast', 'medium', 'slow', 'extra-slow', 'no-snap'
   hideContent = false  // NEW: Hide content for screenshots
 }) => {
-  const [currentSnapSpeed, setCurrentSnapSpeed] = useState(snapSpeed);
+  // Detect mobile via user agent to keep desktop interactions intact
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobi/i.test(navigator.userAgent);
   
   // Update snap speed when prop changes
   useEffect(() => {
-    setCurrentSnapSpeed(snapSpeed);
-    
     // Apply the snap speed class after a brief delay to ensure DOM is ready
     const timeoutId = setTimeout(() => {
       const container = document.querySelector('.scroll-container');
@@ -63,30 +62,7 @@ const ScrollablePortfolio = ({
     return () => window.removeEventListener('wheel', handleWheel);
   }, []);
 
-  // Enable touch scrolling while allowing pointer events to pass through
-  useEffect(() => {
-    const container = document.querySelector('.scroll-container');
-    if (!container) return;
-
-    let startY = 0;
-    const handleTouchStart = (e) => {
-      startY = e.touches[0].clientY;
-    };
-
-    const handleTouchMove = (e) => {
-      const currentY = e.touches[0].clientY;
-      const deltaY = startY - currentY;
-      container.scrollBy({ top: deltaY });
-      startY = currentY;
-    };
-
-    window.addEventListener('touchstart', handleTouchStart, { passive: true });
-    window.addEventListener('touchmove', handleTouchMove, { passive: true });
-    return () => {
-      window.removeEventListener('touchstart', handleTouchStart);
-      window.removeEventListener('touchmove', handleTouchMove);
-    };
-  }, []);
+  // Mobile scrolling uses native browser behavior
   
   return (
     <div 
@@ -110,10 +86,10 @@ const ScrollablePortfolio = ({
         
         // Mobile scroll support
         WebkitOverflowScrolling: 'touch',
-        
+
         // Clean styling
         backgroundColor: 'transparent',
-        pointerEvents: 'none',
+        pointerEvents: isMobile ? 'auto' : 'none',
         
         // Clean box model
         margin: 0,

@@ -34,7 +34,11 @@ const FacetLabels = ({ anchors = {}, projects = [], scrollToProgress, onHoverCha
               if (ref) groupRefs.current[facetKey] = ref;
             }}
           >
-            <Html center style={{ pointerEvents: 'auto' }}>
+            <Html
+              center
+              portal={{ current: document.body }}
+              style={{ pointerEvents: 'auto', zIndex: 20 }}
+            >
               <Label
                 project={project}
                 facetKey={facetKey}
@@ -105,6 +109,15 @@ const Label = ({ project, facetKey, onClick, onHoverChange, glow1, glow2 }) => {
     handlePointerLeave();
   };
 
+    // Handle label click without clearing hover; hover will reset on scroll
+    const handleClick = () => {
+      if (hoverTimeout.current) {
+        clearTimeout(hoverTimeout.current);
+        hoverTimeout.current = null;
+      }
+      onClick?.();
+    };
+
   return (
     <div
       className="facet-label"
@@ -112,7 +125,7 @@ const Label = ({ project, facetKey, onClick, onHoverChange, glow1, glow2 }) => {
       onPointerLeave={handlePointerLeave}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      onClick={onClick}
+      onClick={handleClick}
       style={{
         transform: hovered ? 'scale(1.1)' : 'scale(1)',
         transition: 'transform 0.2s',

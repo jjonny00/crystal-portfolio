@@ -88,10 +88,9 @@ const buildAnimationConfig = (uiConfig) => {
   };
 };
 
-// Mobile detection
+// Mobile detection - avoid misclassifying touch-enabled desktops
 const isMobileDevice = () => {
-  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
-         (navigator.maxTouchPoints && navigator.maxTouchPoints > 2);
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobi/i.test(navigator.userAgent);
 };
 
 function App() {
