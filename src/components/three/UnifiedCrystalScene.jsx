@@ -2,7 +2,7 @@
 // Fixed facet color conflicts between hover and scroll focus
 
 import React, { useRef, useState, useEffect, useCallback, forwardRef, useImperativeHandle, useMemo } from 'react'
-import { useFrame, useThree } from '@react-three/fiber'
+import { useFrame } from '@react-three/fiber'
 import { useGLTF, Html } from '@react-three/drei'
 import * as THREE from 'three'
 
@@ -52,8 +52,6 @@ const UnifiedCrystalScene = forwardRef(({
   const prevFocusedFacetRef = useRef(null);
   const prevMaterialVersionRef = useRef(materialVersion);
   const focusUpdateTimeoutRef = useRef();
-  
-  const { clock } = useThree();
 
   // Facet configuration
   const facetKeys = ['empathy', 'narrative', 'craft', 'system', 'leadership', 'exploration'];
@@ -513,24 +511,24 @@ const UnifiedCrystalScene = forwardRef(({
   }, [animationData?.crystalForm]);
 
   // Main animation loop
-  useFrame((_, delta) => {
+  useFrame((state, deltaTime) => {
     if (!animationData || !facetRefs.current.length || simplifiedAnimations) return;
 
-    const time = clock.getElapsedTime();
+    const elapsed = state.clock.elapsedTime;
 
     // Handle whole crystal rotation and floating
     if (showWholeCrystal && wholeCrystalRef.current && animationData.crystalConfig?.shouldRotate) {
       const rotationSpeed = animationData.crystalConfig.rotationSpeed || 0.0003;
-      
-      wholeCrystalRef.current.rotation.y += rotationSpeed;
-      wholeCrystalRef.current.rotation.x = Math.sin(time * 0.0001) * 0.015;
-      wholeCrystalRef.current.rotation.z = Math.cos(time * 0.00012) * 0.008;
+
+      wholeCrystalRef.current.rotation.y += rotationSpeed * deltaTime * 60;
+      wholeCrystalRef.current.rotation.x = Math.sin(elapsed * 0.0001) * 0.015;
+      wholeCrystalRef.current.rotation.z = Math.cos(elapsed * 0.00012) * 0.008;
       
       if (animationData.state === 'hero') {
         const floatAmplitude = 0.008;
-        const floatY = Math.sin(time * 0.8) * floatAmplitude;
-        const floatX = Math.sin(time * 0.6) * floatAmplitude * 0.3;
-        const floatZ = Math.sin(time * 0.5) * floatAmplitude * 0.2;
+        const floatY = Math.sin(elapsed * 0.8) * floatAmplitude;
+        const floatX = Math.sin(elapsed * 0.6) * floatAmplitude * 0.3;
+        const floatZ = Math.sin(elapsed * 0.5) * floatAmplitude * 0.2;
         
         wholeCrystalRef.current.position.set(floatX, floatY, floatZ);
       } else {
@@ -562,37 +560,36 @@ const UnifiedCrystalScene = forwardRef(({
       
       facetRefs.current.forEach((facetRef, index) => {
         if (!facetRef || !facetRef.current) return;
-        
+
         const facetKey = facetKeys[index];
         let targetPos = animationData.crystalConfig.positions[facetKey];
-        
+
         if (isReforming) {
           targetPos = new THREE.Vector3(0, 0, 0);
         }
-        
+
         if (targetPos) {
           if (isReforming) {
             const distanceToCenter = facetRef.current.position.distanceTo(new THREE.Vector3(0, 0, 0));
             const maxDistance = 2;
             const progress = Math.min(1 - (distanceToCenter / maxDistance), 1);
             const clampedProgress = Math.max(0, progress);
-            
+
             const facetSpeed = 0.02 + (clampedProgress * clampedProgress * 0.16);
-            facetRef.current.position.lerp(targetPos, facetSpeed);
-            
+            facetRef.current.position.lerp(targetPos, facetSpeed * deltaTime * 60);
+
             if (distanceToCenter > 0.8) {
               allFacetsAtCenter = false;
             }
           } else {
-            facetRef.current.position.lerp(targetPos, lerpSpeed);
-          }
-          
-          if (!isReforming && 
-              animationData.focusedFacet === facetKey && 
-              !animationData.isTransitioning && 
-              animationData.state === 'project_focused') {
-            const floatOffset = Math.sin(time * 1.2 + index) * 0.001;
-            facetRef.current.position.y += floatOffset;
+            let finalTarget = targetPos;
+            if (animationData.focusedFacet === facetKey &&
+                !animationData.isTransitioning &&
+                animationData.state === 'project_focused') {
+              const floatOffset = Math.sin(elapsed * 1.2 + index) * 0.001;
+              finalTarget = targetPos.clone().add(new THREE.Vector3(0, floatOffset, 0));
+            }
+            facetRef.current.position.lerp(finalTarget, lerpSpeed * deltaTime * 60);
           }
         }
       });
@@ -611,7 +608,7 @@ const UnifiedCrystalScene = forwardRef(({
       const { targetColor, startColor, progress = 1 } = mat.userData || {};
       if (targetColor && startColor && progress < 1) {
         const speed = 1.5; // seconds to fully transition
-        mat.userData.progress = Math.min(progress + delta * speed, 1);
+        mat.userData.progress = Math.min(progress + deltaTime * speed, 1);
         mat.color.lerpColors(startColor, targetColor, mat.userData.progress);
       }
     });
