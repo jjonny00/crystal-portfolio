@@ -66,37 +66,36 @@ const FacetBillboard = ({ project, anchor, onClick, onHoverChange }) => {
         ctx.drawImage(logo, 0, centerY - logoSize / 2, logoSize, logoSize);
       }
 
-      const centerX = logoSize + 20 + (width - logoSize - 20) / 2;
+      const textX = logoSize + 32;
 
       ctx.save();
       ctx.font = '32px "ivypresto-display", serif';
-      ctx.textAlign = 'center';
+      ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
 
-      // Outer glow
+      // Soft glow behind headline
       ctx.shadowColor = glow2;
       ctx.shadowBlur = 30;
-      ctx.globalAlpha = 0.3;
+      ctx.globalAlpha = 0.2;
       ctx.fillStyle = glow2;
-      ctx.fillText(project.label, centerX, centerY - 10);
+      ctx.fillText(project.label, textX, centerY - 10);
 
-      // Inner glow
       ctx.shadowColor = glow1;
-      ctx.shadowBlur = 10;
-      ctx.globalAlpha = 0.7;
+      ctx.shadowBlur = 12;
+      ctx.globalAlpha = 0.4;
       ctx.fillStyle = glow1;
-      ctx.fillText(project.label, centerX, centerY - 10);
+      ctx.fillText(project.label, textX, centerY - 10);
 
-      // Main text
+      // Main headline text
       ctx.shadowBlur = 0;
       ctx.globalAlpha = 1;
       ctx.fillStyle = project.headlineColor;
-      ctx.fillText(project.label, centerX, centerY - 10);
+      ctx.fillText(project.label, textX, centerY - 10);
 
       // Tagline
       ctx.font = '14px "acumin-variable", sans-serif';
       ctx.fillStyle = 'rgba(255,255,255,0.8)';
-      ctx.fillText(project.tagline, centerX, centerY + 25);
+      ctx.fillText(project.tagline, textX, centerY + 25);
 
       ctx.restore();
 
@@ -133,7 +132,8 @@ const FacetBillboard = ({ project, anchor, onClick, onHoverChange }) => {
     onClick?.();
   };
 
-  const scale = hovered ? 1.1 : 1;
+  const baseScale = 0.5;
+  const scale = baseScale * (hovered ? 1.1 : 1);
 
   return (
     <sprite
