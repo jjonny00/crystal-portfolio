@@ -88,17 +88,17 @@ export const ANIMATION_CONFIG = {
   scrollZones: {
     hero: { start: 0, end: 0.12 },
     overview: { start: 0.12, end: 0.24 },
-    projects: { start: 0.24, end: 0.875 },
-    about: { start: 0.875, end: 1.0 }
+    projects: { start: 0.24, end: 0.89 },
+    about: { start: 0.89, end: 1.0 }
   },
 
   projectSections: {
-    empathy:    { start: 0.24,   end: 0.3433 },
-    narrative:  { start: 0.3433, end: 0.4466 },
-    craft:      { start: 0.4466, end: 0.5499 },
-    system:     { start: 0.5499, end: 0.6533 },
-    leadership: { start: 0.6533, end: 0.7566 },
-    exploration:{ start: 0.7566, end: 0.875 }
+    empathy:    { start: 0.24,   end: 0.345 },
+    narrative:  { start: 0.345,  end: 0.45 },
+    craft:      { start: 0.45,   end: 0.555 },
+    system:     { start: 0.555,  end: 0.66 },
+    leadership: { start: 0.66,   end: 0.765 },
+    exploration:{ start: 0.765,  end: 0.87 }
   }
 };
 
@@ -355,7 +355,7 @@ export const useUnifiedAnimationController = (options = {}) => {
       // Then handle project focus changes
       if (projectChanged && activeProject.project) {
         // Reduce hysteresis for projects since they're working well
-        const projectHysteresis = 0.05; // 5% into project section
+        const projectHysteresis = activeProject.project === 'exploration' ? 0.01 : 0.05;
         if (activeProject.progress > projectHysteresis) {
           if (import.meta.env.DEV) {
             console.log(`🎯 Project changed: ${lastProject.current} → ${activeProject.project}`);
@@ -365,7 +365,7 @@ export const useUnifiedAnimationController = (options = {}) => {
           lastProject.current = activeProject.project;
         }
       }
-      
+
       // Set initial project if none is set but we have an active project
       if (!animationState.focusedFacet && activeProject.project && activeProject.progress > 0.05) {
         if (import.meta.env.DEV) {
@@ -375,6 +375,25 @@ export const useUnifiedAnimationController = (options = {}) => {
         handleProjectFocus(activeProject.project);
         lastProject.current = activeProject.project;
       }
+    }
+    // SPECIAL FIX: Don't clear exploration focus at boundary
+    else if (currentZone.zone !== 'projects' && lastProject.current === 'exploration') {
+        // If exploration is active and we're at the boundary, keep it active
+        if (scrollProgress >= config.projectSections.exploration.start &&
+            scrollProgress <= config.scrollZones.projects.end + 0.02) {
+          if (import.meta.env.DEV) {
+            console.log('🔍 KEEPING exploration focus despite zone boundary');
+          }
+          // Don't clear - keep exploration active
+        } else {
+          // Normal clearing logic
+          setAnimationState(prev => ({
+            ...prev,
+            focusedFacet: null,
+            cameraState: currentZone.zone
+          }));
+          lastProject.current = null;
+        }
     } else if (currentZone.zone !== 'projects' && lastProject.current) {
       if (import.meta.env.DEV) {
         console.log('🎯 Clearing project focus - left projects zone');
