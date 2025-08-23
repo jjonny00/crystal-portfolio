@@ -1,47 +1,21 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { deriveGlowFromBase } from '../../utils/color';
 import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController';
 
 const FacetLabels = ({ anchors = {}, projects = [], scrollToProgress, onHoverChange }) => {
-  const [anchorPositions, setAnchorPositions] = useState({});
-
-  useFrame(() => {
-    let hasChanged = false;
-    const newPositions = {};
-
-    Object.entries(anchors).forEach(([key, anchor]) => {
-      if (!anchor) return;
-
-      const worldPos = new THREE.Vector3();
-      anchor.getWorldPosition(worldPos);
-
-      const prev = anchorPositions[key];
-      if (!prev || worldPos.distanceTo(prev) > 0.01) {
-        newPositions[key] = worldPos;
-        hasChanged = true;
-      } else {
-        newPositions[key] = prev;
-      }
-    });
-
-    if (hasChanged) {
-      setAnchorPositions(newPositions);
-    }
-  });
-
   return (
     <group>
       {projects.map((project) => {
-        const position = anchorPositions[project.facetKey];
-        if (!position) return null;
+        const anchor = anchors[project.facetKey];
+        if (!anchor) return null;
 
         return (
           <FacetBillboard
             key={project.facetKey}
             project={project}
-            position={[position.x, position.y + 0.5, position.z]}
+            anchor={anchor}
             onClick={() =>
               scrollToProgress(
                 ANIMATION_CONFIG.projectSections[project.facetKey].start
@@ -55,12 +29,15 @@ const FacetLabels = ({ anchors = {}, projects = [], scrollToProgress, onHoverCha
   );
 };
 
-const FacetBillboard = ({ project, position, onClick, onHoverChange }) => {
+const FacetBillboard = ({ project, anchor, onClick, onHoverChange }) => {
   const { glow1, glow2 } = deriveGlowFromBase(project.headlineColor);
 
+  const width = 512;
+  const height = 128;
+  const aspect = width / height;
+  const spriteRef = useRef();
+
   const texture = useMemo(() => {
-    const width = 512;
-    const height = 128;
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     const dpr = Math.min(window.devicePixelRatio, 2);
@@ -131,7 +108,14 @@ const FacetBillboard = ({ project, position, onClick, onHoverChange }) => {
     draw();
 
     return texture;
-  }, [project.label, project.tagline, project.logo, project.headlineColor, glow1, glow2]);
+  }, [project.label, project.tagline, project.logo, project.headlineColor, glow1, glow2, width, height]);
+
+  useFrame(() => {
+    if (anchor && spriteRef.current) {
+      anchor.getWorldPosition(spriteRef.current.position);
+      spriteRef.current.position.y += 0.5;
+    }
+  });
 
   const [hovered, setHovered] = useState(false);
 
@@ -149,16 +133,24 @@ const FacetBillboard = ({ project, position, onClick, onHoverChange }) => {
     onClick?.();
   };
 
+  const scale = hovered ? 1.1 : 1;
+
   return (
     <sprite
-      position={position}
-      scale={hovered ? 1.1 : 1}
+      ref={spriteRef}
+      scale={[aspect * scale, scale, 1]}
+      renderOrder={1000}
       onPointerOver={handleOver}
       onPointerOut={handleOut}
       onPointerDown={handleClick}
-      onClick={handleClick}
     >
-      <spriteMaterial map={texture} transparent alphaTest={0.1} />
+      <spriteMaterial
+        map={texture}
+        transparent
+        alphaTest={0.1}
+        depthTest={false}
+        depthWrite={false}
+      />
     </sprite>
   );
 };
