@@ -132,6 +132,17 @@ const FacetBillboard = ({ project, anchor, onClick, onHoverChange }) => {
     onClick?.();
   };
 
+  const handleDown = (e) => {
+    e.stopPropagation();
+    handleOver();
+  };
+
+  const handleUp = (e) => {
+    e.stopPropagation();
+    handleOut();
+    handleClick();
+  };
+
   const baseScale = 0.5;
   const scale = baseScale * (hovered ? 1.1 : 1);
 
@@ -142,7 +153,9 @@ const FacetBillboard = ({ project, anchor, onClick, onHoverChange }) => {
       renderOrder={1000}
       onPointerOver={handleOver}
       onPointerOut={handleOut}
-      onPointerDown={handleClick}
+      onPointerDown={handleDown}
+      onPointerUp={handleUp}
+      onClick={handleClick}
     >
       <spriteMaterial
         map={texture}
