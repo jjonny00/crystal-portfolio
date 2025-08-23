@@ -11,35 +11,39 @@ const FacetLabels = ({ anchors = {}, projects = [], scrollToProgress, onHoverCha
   const groupRefs = useRef({});
   const htmlRefs = useRef({});
   const dotRefs = useRef({});
-  const lastPositions = useRef({});
+  const targetPositions = useRef({});
   const lastUpdate = useRef(0);
   const tempVec = useRef(new THREE.Vector3());
   const offsetVec = useRef(new THREE.Vector3());
 
   useFrame((state) => {
     const elapsed = state.clock.getElapsedTime();
-    if (elapsed - lastUpdate.current < 1 / 15) return;
-    lastUpdate.current = elapsed;
+    const needsUpdate = elapsed - lastUpdate.current >= 1 / 15;
+    if (needsUpdate) lastUpdate.current = elapsed;
 
     Object.entries(anchors).forEach(([key, anchor]) => {
       const group = groupRefs.current[key];
-      if (!anchor || !group) return;
+      if (!group) return;
 
-      const worldPos = tempVec.current;
-      anchor.getWorldPosition(worldPos);
+      if (needsUpdate && anchor) {
+        const worldPos = tempVec.current;
+        anchor.getWorldPosition(worldPos);
 
-      // Skip until the anchor has a valid position
-      if (worldPos.lengthSq() === 0) return;
+        // Skip until the anchor has a valid position
+        if (worldPos.lengthSq() === 0) return;
 
-      // Offset label slightly away from the crystal so it doesn't get occluded
-      const offsetPos = offsetVec.current;
-      offsetPos.copy(worldPos).setLength(worldPos.length() + 0.5);
+        // Offset label slightly away from the crystal so it doesn't get occluded
+        const offsetPos = offsetVec.current;
+        offsetPos.copy(worldPos).setLength(worldPos.length() + 0.5);
 
-      const prev = lastPositions.current[key];
-      if (!prev || offsetPos.distanceTo(prev) > 0.01) {
-        group.position.copy(offsetPos);
-        lastPositions.current[key] = offsetPos.clone();
+        targetPositions.current[key] = offsetPos.clone();
       }
+
+      const target = targetPositions.current[key];
+      if (!target) return;
+
+      // Smoothly move toward the latest target to prevent jitter
+      group.position.lerp(target, 0.25);
 
       const distance = state.camera.position.distanceTo(group.position);
       const showDetailed = distance < 10;
