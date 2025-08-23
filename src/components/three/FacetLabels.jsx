@@ -74,7 +74,8 @@ const FacetLabels = ({ anchors = {}, projects = [], scrollToProgress, onHoverCha
               }}
               center
               distanceFactor={10}
-              style={{ pointerEvents: 'auto' }}
+              // Allow touches to pass through unless directly over the label
+              style={{ pointerEvents: 'none' }}
             >
               <Label
                 project={project}
@@ -173,6 +174,7 @@ const Label = ({ project, facetKey, onClick, onHoverChange, glow1, glow2 }) => {
       onMouseLeave={handleMouseLeave}
       onClick={handleClick}
       style={{
+        pointerEvents: 'auto',
         transform: hovered ? 'scale(1.1)' : 'scale(1)',
         transition: 'transform 0.2s',
         // FIXED: Ensure the label has enough area for stable hover
