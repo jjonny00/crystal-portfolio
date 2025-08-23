@@ -35,8 +35,13 @@ export default function useProjectHeadlineColor() {
       }
     };
 
-    // Set initial default color
-    apply(DEFAULT_HEADLINE_COLOR, 'initial default');
+      // Apply initial color - prefer explicit hero color to avoid default flash
+      const heroSection = document.querySelector('#hero[data-headline-color]');
+      if (heroSection) {
+        apply(heroSection.getAttribute('data-headline-color'), 'initial hero');
+      } else {
+        apply(DEFAULT_HEADLINE_COLOR, 'initial default');
+      }
 
     // Look for sections that should trigger color changes
     const sections = Array.from(document.querySelectorAll('.project, [data-headline-color]'));
@@ -54,7 +59,7 @@ export default function useProjectHeadlineColor() {
 
     let currentSectionId = null;
 
-    const observer = new IntersectionObserver((entries) => {
+      const observer = new IntersectionObserver((entries) => {
       // Find the most visible entry
       const visible = entries
         .filter(e => e.isIntersecting)
@@ -133,10 +138,10 @@ export default function useProjectHeadlineColor() {
         if (import.meta.env.DEV) console.warn('🎨 No color found for section:', section.id, 'using default');
         apply(DEFAULT_HEADLINE_COLOR, 'fallback default');
       }
-    }, {
-      rootMargin: '0px 0px -40% 0px',
-      threshold: 0.6
-    });
+      }, {
+        rootMargin: '0px 0px -40% 0px',
+        threshold: 0.4 // lower threshold so hero registers on mobile
+      });
 
     // Observe all sections
     sections.forEach(section => {
