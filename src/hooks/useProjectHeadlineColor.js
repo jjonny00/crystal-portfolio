@@ -52,6 +52,8 @@ export default function useProjectHeadlineColor() {
       explicitColor: s.getAttribute('data-headline-color')
     })));
 
+    let currentSectionId = null;
+
     const observer = new IntersectionObserver((entries) => {
       // Find the most visible entry
       const visible = entries
@@ -65,7 +67,14 @@ export default function useProjectHeadlineColor() {
 
       const mostVisible = visible[0];
       const section = mostVisible.target;
-      
+
+      if (section.id === currentSectionId) {
+        // Skip if we're still in the same section
+        return;
+      }
+
+      currentSectionId = section.id;
+
       if (import.meta.env.DEV) {
         console.log('🎨 Most visible section:', {
           id: section.id,
@@ -73,7 +82,7 @@ export default function useProjectHeadlineColor() {
           intersectionRatio: mostVisible.intersectionRatio
         });
       }
-      
+
       let hex = null;
       let source = 'unknown';
       
@@ -124,9 +133,9 @@ export default function useProjectHeadlineColor() {
         if (import.meta.env.DEV) console.warn('🎨 No color found for section:', section.id, 'using default');
         apply(DEFAULT_HEADLINE_COLOR, 'fallback default');
       }
-    }, { 
-      rootMargin: '0px 0px -40% 0px', 
-      threshold: [0, 0.25, 0.5, 0.75, 1] 
+    }, {
+      rootMargin: '0px 0px -40% 0px',
+      threshold: 0.6
     });
 
     // Observe all sections
