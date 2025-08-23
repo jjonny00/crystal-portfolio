@@ -233,26 +233,24 @@ const UnifiedCameraController = ({
    * Smooth animation loop
    */
   useFrame((state, deltaTime) => {
-    if (!currentTarget.current) return;
-
-    if (simplifiedAnimations) {
-      camera.position.copy(currentTarget.current.position);
-      camera.lookAt(currentTarget.current.lookAt);
-      camera.fov = currentTarget.current.fov;
-      camera.updateProjectionMatrix();
+    if (!currentTarget.current || simplifiedAnimations) {
+      if (simplifiedAnimations) {
+        camera.position.copy(currentTarget.current.position);
+        camera.lookAt(currentTarget.current.lookAt);
+        camera.fov = currentTarget.current.fov;
+        camera.updateProjectionMatrix();
+      }
       return;
     }
 
-    const currentSpeeds = animationSpeed.current;
+    // FIXED: Use exponential smoothing instead of lerp
+    const smoothingFactor = 1 - Math.exp(-6 * deltaTime); // Frame-rate independent
 
-    // Prevent large frame gaps from causing jumps
-    const deltaMultiplier = Math.min(deltaTime * 60, 2);
+    // FIXED: Clamp smoothing to prevent overshooting
+    const clampedSmoothing = Math.min(Math.max(smoothingFactor, 0.01), 0.15);
 
     // Smooth position interpolation
-    camera.position.lerp(
-      currentTarget.current.position,
-      currentSpeeds.position * deltaMultiplier
-    );
+    camera.position.lerp(currentTarget.current.position, clampedSmoothing);
 
     // Smooth look-at interpolation
     const currentDirection = new THREE.Vector3();
@@ -262,13 +260,8 @@ const UnifiedCameraController = ({
       .subVectors(currentTarget.current.lookAt, camera.position)
       .normalize();
 
-    // Interpolate direction vectors
-    currentDirection.lerp(
-      targetDirection,
-      currentSpeeds.lookAt * deltaMultiplier
-    );
+    currentDirection.lerp(targetDirection, clampedSmoothing);
 
-    // Apply new look direction
     const newLookAt = new THREE.Vector3()
       .addVectors(camera.position, currentDirection);
 
@@ -276,7 +269,7 @@ const UnifiedCameraController = ({
 
     // Smooth FOV interpolation
     const fovDiff = currentTarget.current.fov - camera.fov;
-    camera.fov += fovDiff * currentSpeeds.fov * deltaMultiplier;
+    camera.fov += fovDiff * clampedSmoothing;
     camera.updateProjectionMatrix();
   });
 
