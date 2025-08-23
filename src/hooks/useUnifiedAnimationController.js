@@ -210,7 +210,7 @@ export const useUnifiedAnimationController = (options = {}) => {
   /**
    * FIXED: Handle zone transitions with immediate state changes
    */
-  const handleZoneTransition = useCallback((fromZone, toZone) => {
+  const handleZoneTransition = useCallback((fromZone, toZone, options = {}) => {
     if (debugMode) {
       if (import.meta.env.DEV) console.log(`🗺️ IMMEDIATE Zone transition: ${fromZone} → ${toZone}`);
     }
@@ -252,7 +252,7 @@ export const useUnifiedAnimationController = (options = {}) => {
         state: ANIMATION_STATES.ABOUT,
         crystalForm: 'whole',        // Immediate
         cameraState: 'about',        // Immediate
-        focusedFacet: null,
+        focusedFacet: options.keepExploration ? prev.focusedFacet : null,
         isTransitioning: false
       }));
     }
@@ -330,7 +330,14 @@ export const useUnifiedAnimationController = (options = {}) => {
           console.log(`🗺️ Zone change confirmed: ${lastZone.current} → ${currentZone.zone} (progress: ${currentZone.progress.toFixed(3)})`);
           console.log(`🎨 Background trigger: Zone changed to "${currentZone.zone}"`);
         }
-        handleZoneTransition(lastZone.current, currentZone.zone);
+
+        const keepExploration =
+          lastZone.current === 'projects' &&
+          currentZone.zone === 'about' &&
+          lastProject.current === 'exploration' &&
+          scrollProgress <= config.scrollZones.projects.end + 0.02;
+
+        handleZoneTransition(lastZone.current, currentZone.zone, { keepExploration });
         lastZone.current = currentZone.zone;
       }
     }
