@@ -13,14 +13,15 @@ import useProjectHeadlineColor from '../../hooks/useProjectHeadlineColor';
  * Individual full-viewport sections for each project
  * Maps directly to crystal facets with focused camera view
  */
-const ProjectFocusSection = ({ 
+const ProjectFocusSection = ({
   project,
   visible = true,
   scrollProgress = 0,
-  isMobile = false
+  isMobile = false,
+  animationState
 }) => {
-  // FIXED: Initialize the headline color hook
-  useProjectHeadlineColor();
+  // Sync headline color with animation controller
+  useProjectHeadlineColor(animationState);
   
   const [imageLoaded, setImageLoaded] = useState(false);
   const [hasAnimated, setHasAnimated] = useState(false);

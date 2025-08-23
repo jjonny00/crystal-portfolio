@@ -158,6 +158,7 @@ function App() {
     vignette: true
   });
   const [postProcessingConfig, setPostProcessingConfig] = useState(config.postProcessing);
+  const [animationState, setAnimationState] = useState(null);
 
   // Simulate application initialization progress for loader
   useEffect(() => {
@@ -234,6 +235,7 @@ function App() {
     if (import.meta.env.DEV) {
       console.log('🎬 Animation state change:', { prev: prevState, new: newState });
     }
+    setAnimationState(newState);
   }, []);
 
   const handleWorkClick = useCallback(() => {
@@ -494,9 +496,10 @@ function App() {
       </MasterAnimationCoordinator>
 
       {/* Scrollable Content */}
-      <ScrollablePortfolio 
+      <ScrollablePortfolio
         snapSpeed={snapSpeed}
         hideContent={hideAllUI}
+        animationState={animationState}
       />
 
       {/* UI Controls */}

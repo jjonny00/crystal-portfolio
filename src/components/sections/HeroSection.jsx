@@ -15,13 +15,14 @@ import Headline from '../ui/Headline';
  * Full viewport height introduction with crystal metaphor
  * Crystal State: Whole crystal, slow rotation
  */
-const HeroSection = ({ 
+const HeroSection = ({
   visible = true,
   scrollProgress = 0,
-  onScrollHint = null 
+  onScrollHint = null,
+  animationState
 }) => {
-  // FIXED: Initialize the headline color hook
-  useProjectHeadlineColor();
+  // Sync headline color with animation controller
+  useProjectHeadlineColor(animationState);
   
   const [hasScrolled, setHasScrolled] = useState(false);
   

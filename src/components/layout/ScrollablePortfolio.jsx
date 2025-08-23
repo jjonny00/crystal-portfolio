@@ -9,7 +9,8 @@ import { projects } from '../../data/projects';
 
 const ScrollablePortfolio = ({
   snapSpeed = 'medium', // 'fast', 'medium', 'slow', 'extra-slow', 'no-snap'
-  hideContent = false  // NEW: Hide content for screenshots
+  hideContent = false,  // NEW: Hide content for screenshots
+  animationState
 }) => {
   // Detect mobile via user agent to keep desktop interactions intact
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobi/i.test(navigator.userAgent);
@@ -140,7 +141,7 @@ const ScrollablePortfolio = ({
             pointerEvents: 'none'
           }}
         >
-          <HeroSection />
+          <HeroSection animationState={animationState} />
         </section>
         
         {/* PROJECTS OVERVIEW SECTION */}
@@ -192,6 +193,7 @@ const ScrollablePortfolio = ({
             <ProjectFocusSection
               project={project}
               visible={true}
+              animationState={animationState}
               onViewProject={(project) => {
                 if (import.meta.env.DEV) console.log('View project:', project);
               }}
