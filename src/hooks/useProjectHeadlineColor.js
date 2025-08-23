@@ -53,24 +53,33 @@ export default function useProjectHeadlineColor() {
     })));
 
     const observer = new IntersectionObserver((entries) => {
-      // Find the most visible entry
-      const visible = entries
-        .filter(e => e.isIntersecting)
-        .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+      // Find entries that are currently visible
+      const visible = entries.filter(e => e.isIntersecting);
 
       if (visible.length === 0) {
         if (import.meta.env.DEV) console.log('🎨 No sections intersecting, keeping current color');
         return;
       }
 
-      const mostVisible = visible[0];
-      const section = mostVisible.target;
-      
+      const viewportCenter = window.innerHeight / 2;
+
+      // Pick the section whose center is closest to the viewport center
+      visible.sort((a, b) => {
+        const aRect = a.target.getBoundingClientRect();
+        const bRect = b.target.getBoundingClientRect();
+        const aCenter = aRect.top + aRect.height / 2;
+        const bCenter = bRect.top + bRect.height / 2;
+        return Math.abs(aCenter - viewportCenter) - Math.abs(bCenter - viewportCenter);
+      });
+
+      const targetEntry = visible[0];
+      const section = targetEntry.target;
+
       if (import.meta.env.DEV) {
-        console.log('🎨 Most visible section:', {
+        console.log('🎨 Centered section:', {
           id: section.id,
           classes: section.className,
-          intersectionRatio: mostVisible.intersectionRatio
+          intersectionRatio: targetEntry.intersectionRatio
         });
       }
       
