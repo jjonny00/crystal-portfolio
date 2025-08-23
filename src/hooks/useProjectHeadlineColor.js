@@ -1,7 +1,7 @@
 // src/hooks/useProjectHeadlineColor.js
 // FIXED: Enhanced version with better debugging and color application
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { deriveGlowFromBase } from '../utils/color';
 import { getProjectColorByFacetKey } from '../data/projects';
 
@@ -9,136 +9,129 @@ import { getProjectColorByFacetKey } from '../data/projects';
 const DEFAULT_HEADLINE_COLOR = '#6200ff';
 
 export default function useProjectHeadlineColor() {
+  const scrollDirection = useRef('down');
+  const lastScrollProgress = useRef(0);
+
   useEffect(() => {
     const root = document.documentElement;
-    
-    // Helper to apply colors with validation and logging
+
+    // Helper to apply colors (keep existing)
     const apply = (hex, source = 'unknown') => {
       if (!/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(hex)) {
         if (import.meta.env.DEV) console.warn('🎨 Invalid hex color:', hex, 'from source:', source);
         return;
       }
-      
+
       const { glow1, glow2 } = deriveGlowFromBase(hex);
-      
+
       root.style.setProperty('--headline-ink', hex);
       root.style.setProperty('--headline-glow1', glow1);
       root.style.setProperty('--headline-glow2', glow2);
-      
+
       if (import.meta.env.DEV) {
-        console.log('🎨 Applied headline color:', {
-          source,
-          ink: hex,
-          glow1,
-          glow2
-        });
+        console.log('🎨 Applied headline color:', { source, ink: hex });
       }
     };
 
     // Set initial default color
     apply(DEFAULT_HEADLINE_COLOR, 'initial default');
 
-    // Look for sections that should trigger color changes
-    const sections = Array.from(document.querySelectorAll('.project, [data-headline-color]'));
-    
-    if (!sections.length) {
-      if (import.meta.env.DEV) console.warn('🎨 No sections found with .project class or data-headline-color attribute');
+    // SYNC WITH ANIMATION CONTROLLER: Listen for scroll events on the same container
+    const container = document.querySelector('.scroll-container');
+    if (!container) {
+      if (import.meta.env.DEV) console.error('🎨 Scroll container not found for headline colors');
       return;
     }
 
-    if (import.meta.env.DEV) console.log('🎨 Found sections for headline colors:', sections.map(s => ({
-      id: s.id,
-      classes: s.className,
-      explicitColor: s.getAttribute('data-headline-color')
-    })));
+    const handleScroll = () => {
+      // USE SAME CALCULATION AS ANIMATION CONTROLLER
+      const scrollTop = container.scrollTop;
+      const maxScroll = Math.max(container.scrollHeight - container.clientHeight, 1);
+      const scrollProgress = Math.min(Math.max(scrollTop / maxScroll, 0), 1);
 
-    const observer = new IntersectionObserver((entries) => {
-      // Find the most visible entry
-      const visible = entries
-        .filter(e => e.isIntersecting)
-        .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
-
-      if (visible.length === 0) {
-        if (import.meta.env.DEV) console.log('🎨 No sections intersecting, keeping current color');
-        return;
+      // Detect scroll direction
+      if (scrollProgress > lastScrollProgress.current) {
+        scrollDirection.current = 'down';
+      } else if (scrollProgress < lastScrollProgress.current) {
+        scrollDirection.current = 'up';
       }
 
-      const mostVisible = visible[0];
-      const section = mostVisible.target;
-      
-      if (import.meta.env.DEV) {
-        console.log('🎨 Most visible section:', {
-          id: section.id,
-          classes: section.className,
-          intersectionRatio: mostVisible.intersectionRatio
-        });
+      // Add small offset when scrolling up to prevent premature color changes
+      let adjustedProgress = scrollProgress;
+      if (scrollDirection.current === 'up') {
+        adjustedProgress = scrollProgress + 0.01; // 1% hysteresis when scrolling up
       }
-      
-      let hex = null;
-      let source = 'unknown';
-      
-      // First, check for explicit data-headline-color
-      const explicitColor = section.getAttribute('data-headline-color');
-      if (explicitColor) {
-        hex = explicitColor;
-        source = `data-headline-color on ${section.id}`;
-      }
-      
-      // If no explicit color, try to get from project data using section ID
-      if (!hex) {
-        const sectionId = section.id;
-        if (import.meta.env.DEV) console.log('🎨 Checking section ID for project mapping:', sectionId);
-        
-        // Try different patterns to extract facet key
-        let facetKey = null;
-        
-        if (sectionId === 'hero') {
-          // Hero section - use default or check for explicit color
-          hex = DEFAULT_HEADLINE_COLOR;
-          source = 'hero section default';
-        } else if (sectionId === 'projects-overview') {
-          // Projects overview - could use a special color or default
-          hex = '#bb86fc'; // Purple for overview
-          source = 'projects overview';
-        } else if (sectionId && sectionId.startsWith('project-')) {
-          // Individual project section: "project-empathy" -> "empathy"
-          facetKey = sectionId.replace('project-', '');
-        } else if (sectionId && ['empathy', 'narrative', 'craft', 'system', 'leadership', 'exploration'].includes(sectionId)) {
-          // Direct facet key
-          facetKey = sectionId;
-        }
-        
-        if (facetKey) {
-          const projectColor = getProjectColorByFacetKey(facetKey);
-          if (projectColor) {
-            hex = projectColor;
-            source = `project ${facetKey}`;
+
+      // USE SAME PROJECT DETECTION LOGIC AS ANIMATION CONTROLLER
+      const projectSections = {
+        empathy:    { start: 0.24,   end: 0.3433 },
+        narrative:  { start: 0.3433, end: 0.4466 },
+        craft:      { start: 0.4466, end: 0.5499 },
+        system:     { start: 0.5499, end: 0.6533 },
+        leadership: { start: 0.6533, end: 0.7566 },
+        exploration:{ start: 0.7566, end: 0.875 }
+      };
+
+      let activeProject = null;
+      let targetColor = DEFAULT_HEADLINE_COLOR;
+      let source = 'default';
+
+      // Check zones first
+      if (adjustedProgress <= 0.12) {
+        // Hero zone
+        targetColor = '#fff6ae'; // From HeroSection data-headline-color
+        source = 'hero section';
+      } else if (adjustedProgress <= 0.24) {
+        // Overview zone  
+        targetColor = '#bb86fc'; // Purple for overview
+        source = 'overview section';
+      } else if (adjustedProgress <= 0.875) {
+        // Projects zone - find active project
+        for (const [projectKey, section] of Object.entries(projectSections)) {
+          if (adjustedProgress >= section.start && adjustedProgress < section.end) {
+            activeProject = projectKey;
+            break;
           }
         }
-      }
-      
-      // Apply the color, or fall back to default
-      if (hex) {
-        apply(hex, source);
-      } else {
-        if (import.meta.env.DEV) console.warn('🎨 No color found for section:', section.id, 'using default');
-        apply(DEFAULT_HEADLINE_COLOR, 'fallback default');
-      }
-    }, { 
-      rootMargin: '0px 0px -40% 0px', 
-      threshold: [0, 0.25, 0.5, 0.75, 1] 
-    });
 
-    // Observe all sections
-    sections.forEach(section => {
-      observer.observe(section);
-      if (import.meta.env.DEV) console.log('🎨 Observing section:', section.id);
-    });
+        if (activeProject) {
+          const projectColor = getProjectColorByFacetKey(activeProject);
+          if (projectColor) {
+            targetColor = projectColor;
+            source = `project ${activeProject}`;
+          }
+        }
+      } else {
+        // About zone
+        targetColor = '#64ffda'; // Default about color
+        source = 'about section';
+      }
+
+      apply(targetColor, source);
+      lastScrollProgress.current = scrollProgress;
+    };
+
+    // THROTTLE: Limit updates to 60fps to match animation system
+    let ticking = false;
+    const throttledScroll = () => {
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          handleScroll();
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    // Listen to same scroll events as animation controller
+    container.addEventListener('scroll', throttledScroll, { passive: true });
+
+    // Initial calculation
+    handleScroll();
 
     // Cleanup
     return () => {
-      observer.disconnect();
-      if (import.meta.env.DEV) console.log('🎨 Disconnected headline color observer');
+      container.removeEventListener('scroll', throttledScroll);
     };
   }, []);
 }
