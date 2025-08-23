@@ -132,23 +132,49 @@ const FacetBillboard = ({ project, anchor, onClick, onHoverChange }) => {
     onClick?.();
   };
 
+  const isPointerDown = useRef(false);
+
+  const capture = (e) => {
+    // Capture on the underlying canvas element so scroll controls don't steal events
+    e.nativeEvent.target.setPointerCapture?.(e.pointerId);
+  };
+
+  const release = (e) => {
+    e.nativeEvent.target.releasePointerCapture?.(e.pointerId);
+  };
+
   const handleDown = (e) => {
     e.stopPropagation();
-    // Capture the pointer so we reliably receive the corresponding up event
-    e.target.setPointerCapture?.(e.pointerId);
+    e.nativeEvent.stopImmediatePropagation?.();
+    e.preventDefault();
+    capture(e);
+    isPointerDown.current = true;
     handleOver();
   };
 
   const handleUp = (e) => {
     e.stopPropagation();
-    e.target.releasePointerCapture?.(e.pointerId);
-    handleOut();
-    handleClick();
+    e.nativeEvent.stopImmediatePropagation?.();
+    release(e);
+    if (isPointerDown.current) {
+      handleOut();
+      handleClick();
+    }
+    isPointerDown.current = false;
+  };
+
+  const handleMove = (e) => {
+    if (isPointerDown.current) {
+      e.stopPropagation();
+      e.nativeEvent.stopImmediatePropagation?.();
+    }
   };
 
   const handleCancel = (e) => {
     e.stopPropagation();
-    e.target.releasePointerCapture?.(e.pointerId);
+    e.nativeEvent.stopImmediatePropagation?.();
+    release(e);
+    isPointerDown.current = false;
     handleOut();
   };
 
@@ -163,6 +189,7 @@ const FacetBillboard = ({ project, anchor, onClick, onHoverChange }) => {
       onPointerOver={handleOver}
       onPointerOut={handleOut}
       onPointerDown={handleDown}
+      onPointerMove={handleMove}
       onPointerUp={handleUp}
       onPointerCancel={handleCancel}
       onClick={handleClick}
