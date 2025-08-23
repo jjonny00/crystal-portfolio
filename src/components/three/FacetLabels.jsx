@@ -28,9 +28,12 @@ const FacetLabels = ({ anchors = {}, projects = [], scrollToProgress, onHoverCha
       const worldPos = tempVec.current;
       anchor.getWorldPosition(worldPos);
 
+      // Skip until the anchor has a valid position
+      if (worldPos.lengthSq() === 0) return;
+
       // Offset label slightly away from the crystal so it doesn't get occluded
       const offsetPos = offsetVec.current;
-      offsetPos.copy(worldPos).normalize().multiplyScalar(0.5).add(worldPos);
+      offsetPos.copy(worldPos).setLength(worldPos.length() + 0.5);
 
       const prev = lastPositions.current[key];
       if (!prev || offsetPos.distanceTo(prev) > 0.01) {
@@ -66,7 +69,6 @@ const FacetLabels = ({ anchors = {}, projects = [], scrollToProgress, onHoverCha
                 if (ref) htmlRefs.current[facetKey] = ref;
               }}
               center
-              occlude
               distanceFactor={10}
               style={{ pointerEvents: 'auto' }}
             >
