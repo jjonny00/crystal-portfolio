@@ -666,7 +666,9 @@ const UnifiedCrystalScene = forwardRef(({
         );
       })}
 
-      {animationData.currentZone === 'overview' && animationData.crystalForm === 'exploded' && (
+      {animationData.currentZone === 'overview' &&
+        animationData.crystalForm === 'exploded' &&
+        !animationData.isScrolling && (
         <FacetLabels
           anchors={facetAnchors}
           projects={projects}

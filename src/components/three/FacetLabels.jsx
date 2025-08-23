@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Html } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
+import * as THREE from 'three';
 import Headline from '../ui/Headline';
 import { deriveGlowFromBase } from '../../utils/color';
 import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController';
@@ -8,13 +9,33 @@ import '../../styles/facet-label.css';
 
 const FacetLabels = ({ anchors = {}, projects = [], scrollToProgress, onHoverChange }) => {
   const groupRefs = useRef({});
+  const htmlRefs = useRef({});
+  const dotRefs = useRef({});
+  const lastPositions = useRef({});
+  const lastUpdate = useRef(0);
+  const tempVec = useRef(new THREE.Vector3());
 
-  useFrame(() => {
+  useFrame((state) => {
+    const elapsed = state.clock.getElapsedTime();
+    if (elapsed - lastUpdate.current < 1 / 15) return;
+    lastUpdate.current = elapsed;
+
     Object.entries(anchors).forEach(([key, anchor]) => {
       const group = groupRefs.current[key];
-      if (anchor && group) {
-        anchor.getWorldPosition(group.position);
+      if (!anchor || !group) return;
+
+      const worldPos = tempVec.current;
+      anchor.getWorldPosition(worldPos);
+      const prev = lastPositions.current[key];
+      if (!prev || worldPos.distanceTo(prev) > 0.01) {
+        group.position.copy(worldPos);
+        lastPositions.current[key] = worldPos.clone();
       }
+
+      const distance = state.camera.position.distanceTo(group.position);
+      const showDetailed = distance < 10;
+      if (htmlRefs.current[key]) htmlRefs.current[key].visible = showDetailed;
+      if (dotRefs.current[key]) dotRefs.current[key].visible = !showDetailed;
     });
   });
 
@@ -35,9 +56,13 @@ const FacetLabels = ({ anchors = {}, projects = [], scrollToProgress, onHoverCha
             }}
           >
             <Html
+              ref={(ref) => {
+                if (ref) htmlRefs.current[facetKey] = ref;
+              }}
               center
-              portal={{ current: document.body }}
-              style={{ pointerEvents: 'auto', zIndex: 20 }}
+              occlude
+              distanceFactor={10}
+              style={{ pointerEvents: 'auto' }}
             >
               <Label
                 project={project}
@@ -52,6 +77,15 @@ const FacetLabels = ({ anchors = {}, projects = [], scrollToProgress, onHoverCha
                 onHoverChange={onHoverChange}
               />
             </Html>
+            <mesh
+              ref={(ref) => {
+                if (ref) dotRefs.current[facetKey] = ref;
+              }}
+              visible={false}
+            >
+              <sphereGeometry args={[0.03, 8, 8]} />
+              <meshBasicMaterial color={project.headlineColor} />
+            </mesh>
           </group>
         );
       })}
