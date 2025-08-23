@@ -6,11 +6,13 @@ import HeroSection from '../sections/HeroSection';
 import ProjectFocusSection from '../sections/ProjectFocusSection';
 import AboutSection from '../sections/AboutSection';
 import { projects } from '../../data/projects';
+import useProjectHeadlineColor from '../../hooks/useProjectHeadlineColor';
 
 const ScrollablePortfolio = ({
   snapSpeed = 'medium', // 'fast', 'medium', 'slow', 'extra-slow', 'no-snap'
   hideContent = false  // NEW: Hide content for screenshots
 }) => {
+  useProjectHeadlineColor();
   // Detect mobile via user agent to keep desktop interactions intact
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobi/i.test(navigator.userAgent);
   
@@ -168,8 +170,8 @@ const ScrollablePortfolio = ({
         </section>
         
         {/* INDIVIDUAL PROJECT SECTIONS */}
-        {projects.map((project, index) => (
-          <section 
+        {projects.map((project) => (
+          <section
             key={project.id}
             id={`project-${project.facetKey}`}
             className="scroll-section"

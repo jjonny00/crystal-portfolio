@@ -2,10 +2,7 @@
 // FIXED: Hero Section with properly integrated 1970s glow effect
 
 import React, { useState, useEffect } from 'react';
-import { animated, useSpring } from '@react-spring/web';
-
-// FIXED: Import the headline color hook
-import useProjectHeadlineColor from '../../hooks/useProjectHeadlineColor';
+import { animated as Animated, useSpring } from '@react-spring/web';
 
 // Cinematic Movie Titles Effect
 import Headline from '../ui/Headline';
@@ -15,13 +12,11 @@ import Headline from '../ui/Headline';
  * Full viewport height introduction with crystal metaphor
  * Crystal State: Whole crystal, slow rotation
  */
-const HeroSection = ({ 
+const HeroSection = ({
   visible = true,
   scrollProgress = 0,
-  onScrollHint = null 
+  onScrollHint = null
 }) => {
-  // FIXED: Initialize the headline color hook
-  useProjectHeadlineColor();
   
   const [hasScrolled, setHasScrolled] = useState(false);
   
@@ -132,7 +127,7 @@ const HeroSection = ({
       }}>
         
         {/* FIXED: Main headline with proper animation wrapper */}
-        <animated.div style={contentSpring}>
+    <Animated.div style={contentSpring}>
           <Headline 
             as="h1"
             style={{
@@ -145,10 +140,10 @@ const HeroSection = ({
           >
             Shaped through iteration.
           </Headline>
-        </animated.div>
+        </Animated.div>
         
         {/* Subtitle with crystal metaphor */}
-        <animated.div style={subtitleSpring}>
+        <Animated.div style={subtitleSpring}>
           <p style={{
             fontSize: 'clamp(1.125rem, 4vw, 1.5rem)',
             color: '#fcf5eb',
@@ -176,7 +171,7 @@ const HeroSection = ({
               'Design Leader',
               'Systems Thinker', 
               'User Advocate'
-            ].map((role, index) => (
+            ].map((role) => (
               <span
                 key={role}
                 style={{
@@ -196,11 +191,11 @@ const HeroSection = ({
               </span>
             ))}
           </div>
-        </animated.div>
+        </Animated.div>
       </div>
       
       {/* Scroll hint indicator */}
-      <animated.div 
+      <Animated.div
         style={{
           ...scrollHintSpring,
           position: 'absolute',
@@ -230,7 +225,7 @@ const HeroSection = ({
           Scroll to explore
         </div>
         
-        <animated.div style={bounceSpring}>
+          <Animated.div style={bounceSpring}>
           <svg 
             width="24" 
             height="24" 
@@ -247,7 +242,7 @@ const HeroSection = ({
               fill="#64ffda"
             />
           </svg>
-        </animated.div>
+        </Animated.div>
         
         {/* Subtle gradient line beneath arrow */}
         <div style={{
@@ -257,7 +252,7 @@ const HeroSection = ({
           marginTop: '0.5rem',
           opacity: 0.6
         }} />
-      </animated.div>
+      </Animated.div>
     </section>
   );
 };

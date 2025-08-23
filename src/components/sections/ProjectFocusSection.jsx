@@ -2,11 +2,8 @@
 // FIXED: Individual Project Focus Areas with proper headline color integration
 
 import React, { useState, useEffect } from 'react';
-import { animated, useSpring } from '@react-spring/web';
+import { animated as Animated, useSpring } from '@react-spring/web';
 import Headline from '../ui/Headline';
-
-// FIXED: Import the headline color hook
-import useProjectHeadlineColor from '../../hooks/useProjectHeadlineColor';
 
 /**
  * ProjectFocusSection Component
@@ -19,9 +16,6 @@ const ProjectFocusSection = ({
   scrollProgress = 0,
   isMobile = false
 }) => {
-  // FIXED: Initialize the headline color hook
-  useProjectHeadlineColor();
-  
   const [imageLoaded, setImageLoaded] = useState(false);
   const [hasAnimated, setHasAnimated] = useState(false);
 
@@ -111,7 +105,7 @@ const ProjectFocusSection = ({
         overflow: 'hidden'
       }}
     >
-      <animated.div 
+      <Animated.div
         style={{
           ...containerSpring,
           maxWidth: '1400px',
@@ -132,7 +126,7 @@ const ProjectFocusSection = ({
         }}>
           
           {/* Project Title & Facet */}
-          <animated.div style={titleSpring}>
+          <Animated.div style={titleSpring}>
             <div style={{
               display: 'flex',
               alignItems: 'center',
@@ -182,10 +176,10 @@ const ProjectFocusSection = ({
                 </Headline>
               </div>
             </div>
-          </animated.div>
+          </Animated.div>
 
           {/* Project Description */}
-          <animated.div style={contentSpring}>
+          <Animated.div style={contentSpring}>
             <p style={{
               fontSize: isMobile ? '1rem' : '1.125rem',
               color: 'rgba(255, 255, 255, 0.9)',
@@ -204,8 +198,8 @@ const ProjectFocusSection = ({
               gap: '1rem',
               marginBottom: '2rem'
             }}>
-              {getProjectStats().map((stat, index) => (
-                <div key={index} style={{
+              {getProjectStats().map((stat, _index) => (
+                <div key={_index} style={{
                   background: 'rgba(255, 255, 255, 0.05)',
                   padding: '1rem',
                   borderRadius: '8px',
@@ -256,9 +250,9 @@ const ProjectFocusSection = ({
                   flexWrap: 'wrap',
                   gap: '0.5rem'
                 }}>
-                  {project.technologies.map((tech, index) => (
+                  {project.technologies.map((tech, _index) => (
                     <span
-                      key={index}
+                      key={_index}
                       style={{
                         background: `${project.color}20`,
                         color: 'white',
@@ -292,9 +286,9 @@ const ProjectFocusSection = ({
                   flexWrap: 'wrap',
                   gap: '0.5rem'
                 }}>
-                  {getMethodologies().map((method, index) => (
+                  {getMethodologies().map((method, _index) => (
                     <span
-                      key={index}
+                      key={_index}
                       style={{
                         background: 'rgba(255, 255, 255, 0.1)',
                         color: 'rgba(255, 255, 255, 0.9)',
@@ -356,11 +350,11 @@ const ProjectFocusSection = ({
                 )}
               </div>
             )}
-          </animated.div>
+          </Animated.div>
         </div>
 
         {/* Project Visual/Preview */}
-        <animated.div 
+        <Animated.div
           style={{
             ...imageSpring,
             order: isMobile ? 1 : 2,
@@ -415,8 +409,8 @@ const ProjectFocusSection = ({
             background: `linear-gradient(to top, ${project.color}40, transparent)`,
             pointerEvents: 'none'
           }} />
-        </animated.div>
-      </animated.div>
+        </Animated.div>
+      </Animated.div>
 
       {/* Background Enhancement */}
       <div style={{
