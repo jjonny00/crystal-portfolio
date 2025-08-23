@@ -134,13 +134,22 @@ const FacetBillboard = ({ project, anchor, onClick, onHoverChange }) => {
 
   const handleDown = (e) => {
     e.stopPropagation();
+    // Capture the pointer so we reliably receive the corresponding up event
+    e.target.setPointerCapture?.(e.pointerId);
     handleOver();
   };
 
   const handleUp = (e) => {
     e.stopPropagation();
+    e.target.releasePointerCapture?.(e.pointerId);
     handleOut();
     handleClick();
+  };
+
+  const handleCancel = (e) => {
+    e.stopPropagation();
+    e.target.releasePointerCapture?.(e.pointerId);
+    handleOut();
   };
 
   const baseScale = 0.5;
@@ -155,6 +164,7 @@ const FacetBillboard = ({ project, anchor, onClick, onHoverChange }) => {
       onPointerOut={handleOut}
       onPointerDown={handleDown}
       onPointerUp={handleUp}
+      onPointerCancel={handleCancel}
       onClick={handleClick}
     >
       <spriteMaterial
