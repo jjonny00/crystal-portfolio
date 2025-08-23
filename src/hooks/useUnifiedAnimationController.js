@@ -114,8 +114,18 @@ const ANIMATION_STATES = {
  * FIXED: Zone calculation with hysteresis to prevent boundary flickering
  */
 export const calculateCurrentZone = (scrollProgress, config = ANIMATION_CONFIG) => {
-  const zones = config.scrollZones;
-  
+  const zones = config.scrollZones || {};
+
+  // Guard against missing zone information to avoid runtime errors
+  if (!zones.hero || !zones.overview || !zones.projects || !zones.about) {
+    return {
+      zone: 'hero',
+      progress: scrollProgress,
+      isEntering: false,
+      isLeaving: false
+    };
+  }
+
   // Use more precise boundaries to prevent flickering
   if (scrollProgress <= zones.hero.end) {
     return {
@@ -201,38 +211,44 @@ export const useUnifiedAnimationController = (options = {}) => {
 
       const sections = container.querySelectorAll('.scroll-section');
       const maxScroll = Math.max(container.scrollHeight - container.clientHeight, 1);
-      const zones = {};
-      const projectSections = {};
 
-      sections.forEach((section) => {
-        const start = section.offsetTop / maxScroll;
-        const end = (section.offsetTop + section.offsetHeight) / maxScroll;
-        const id = section.id;
+      setDynamicConfig(prev => {
+        const zones = { ...prev.scrollZones };
+        const projectSections = { ...prev.projectSections };
 
-        if (id === 'hero') {
-          zones.hero = { start: 0, end };
-        } else if (id === 'overview') {
-          zones.overview = { start, end };
-        } else if (id === 'about') {
-          zones.about = { start, end: 1 };
-        } else if (id.startsWith('project-')) {
-          const key = id.replace('project-', '');
-          projectSections[key] = { start, end };
+        sections.forEach((section) => {
+          const start = section.offsetTop / maxScroll;
+          const end = (section.offsetTop + section.offsetHeight) / maxScroll;
+          const id = section.id;
+
+          if (id === 'hero') {
+            zones.hero = { start: 0, end };
+          } else if (id === 'overview') {
+            zones.overview = { start, end };
+          } else if (id === 'about') {
+            zones.about = { start, end: 1 };
+          } else if (id.startsWith('project-')) {
+            const key = id.replace('project-', '');
+            projectSections[key] = { start, end };
+          }
+        });
+
+        if (Object.keys(projectSections).length) {
+          const starts = Object.values(projectSections).map(s => s.start);
+          const ends = Object.values(projectSections).map(s => s.end);
+          zones.projects = { start: Math.min(...starts), end: Math.max(...ends) };
         }
+
+        return { ...prev, scrollZones: zones, projectSections };
       });
-
-      if (Object.keys(projectSections).length) {
-        const starts = Object.values(projectSections).map(s => s.start);
-        const ends = Object.values(projectSections).map(s => s.end);
-        zones.projects = { start: Math.min(...starts), end: Math.max(...ends) };
-      }
-
-      setDynamicConfig(prev => ({ ...prev, scrollZones: zones, projectSections }));
     };
 
-    measureSections();
+    const timeout = setTimeout(measureSections, 1000);
     window.addEventListener('resize', measureSections);
-    return () => window.removeEventListener('resize', measureSections);
+    return () => {
+      clearTimeout(timeout);
+      window.removeEventListener('resize', measureSections);
+    };
   }, [config]);
 
   const [animationState, setAnimationState] = useState({
@@ -349,7 +365,7 @@ export const useUnifiedAnimationController = (options = {}) => {
     // Only change zones if we're clearly in the new zone (not at boundary)
     if (zoneChanged) {
       // Add hysteresis - require being well into the new zone before switching
-      const hysteresis = 0.02; // 2% buffer zone
+      const hysteresis = 0.05; // 5% buffer zone
       let shouldChangeZone = false;
 
       if (currentZone.zone === 'hero' && currentZone.progress > hysteresis) {
@@ -397,7 +413,7 @@ export const useUnifiedAnimationController = (options = {}) => {
       // Then handle project focus changes
       if (projectChanged && activeProject.project) {
         // Reduce hysteresis for projects since they're working well
-        const projectHysteresis = 0.05; // 5% into project section
+        const projectHysteresis = 0.1; // 10% into project section
         if (activeProject.progress > projectHysteresis) {
           if (import.meta.env.DEV) {
             console.log(`🎯 Project changed: ${lastProject.current} → ${activeProject.project}`);

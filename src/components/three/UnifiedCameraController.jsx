@@ -187,30 +187,30 @@ const UnifiedCameraController = ({
       const positionDistance = camera.position.distanceTo(currentTarget.current.position);
       
       if (animationData.state === 'hero' && positionDistance > 3) {
+        animationSpeed.current.position = 2.5;
+        animationSpeed.current.lookAt = 2.5;
+        animationSpeed.current.fov = 2.5;
+      } else if (animationData.state === 'overview' && positionDistance > 2) {
         animationSpeed.current.position = 3;
         animationSpeed.current.lookAt = 3;
         animationSpeed.current.fov = 3;
-      } else if (animationData.state === 'overview' && positionDistance > 2) {
-        animationSpeed.current.position = 3.5;
-        animationSpeed.current.lookAt = 3.5;
-        animationSpeed.current.fov = 3.5;
       } else if (animationData.state === 'about' && positionDistance > 2) {
-        animationSpeed.current.position = 3.5;
-        animationSpeed.current.lookAt = 3.5;
-        animationSpeed.current.fov = 3.5;
+        animationSpeed.current.position = 3;
+        animationSpeed.current.lookAt = 3;
+        animationSpeed.current.fov = 3;
       } else if (cameraState === 'project' && focusedFacet) {
 
-        animationSpeed.current.position = 5;
-        animationSpeed.current.lookAt = 5;
-        animationSpeed.current.fov = 5;
+        animationSpeed.current.position = 4;
+        animationSpeed.current.lookAt = 4;
+        animationSpeed.current.fov = 4;
 
         if (import.meta.env.DEV) {
           console.log(`📹 Camera Controller: Project focus camera update: ${focusedFacet}, distance: ${positionDistance.toFixed(2)}, using anchor: ${enhancedConfig.description?.includes('anchor')}`);
         }
       } else {
-        animationSpeed.current.position = 4;
-        animationSpeed.current.lookAt = 4;
-        animationSpeed.current.fov = 4;
+        animationSpeed.current.position = 3.5;
+        animationSpeed.current.lookAt = 3.5;
+        animationSpeed.current.fov = 3.5;
       }
 
       // Store current config for comparison (including description)
@@ -247,7 +247,7 @@ const UnifiedCameraController = ({
     const currentSpeeds = animationSpeed.current;
 
     // Clamp deltaTime to avoid large jumps that can cause jitter
-    const dt = Math.min(deltaTime, 1 / 30);
+    const dt = Math.min(deltaTime, 1 / 60);
 
     const posFactor = 1 - Math.exp(-currentSpeeds.position * dt);
     camera.position.lerp(currentTarget.current.position, posFactor);
