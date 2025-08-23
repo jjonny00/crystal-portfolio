@@ -350,17 +350,14 @@ const Fixed3DCanvas = forwardRef(({
             )}
           </EffectComposer>
           
-          {/* Orbit controls - disabled on mobile, animation-aware on desktop */}
-          {!isMobile && (
-            <OrbitControls 
+          {/* Orbit controls - explicitly disabled to prevent camera conflicts */}
+          {false && !isMobile && (
+            <OrbitControls
               makeDefault
-              // Enable/disable based on animation state
-              enabled={!animationData?.isTransitioning && animationData?.currentZone !== 'projects'} 
-              enableZoom={config?.camera?.orbitControls?.enableZoom !== false}
-              enablePan={config?.camera?.orbitControls?.enablePan !== false}
-              rotateSpeed={config?.camera?.orbitControls?.rotateSpeed || 0.5}
-              minPolarAngle={config?.camera?.orbitControls?.minPolarAngle || Math.PI / 3}
-              maxPolarAngle={config?.camera?.orbitControls?.maxPolarAngle || Math.PI / 1.5}
+              enabled={false}
+              enableZoom={false}
+              enablePan={false}
+              enableRotate={false}
             />
           )}
         </Canvas>
