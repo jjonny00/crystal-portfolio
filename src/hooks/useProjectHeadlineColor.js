@@ -3,10 +3,15 @@
 
 import { useEffect } from 'react';
 import { deriveGlowFromBase } from '../utils/color';
-import { getProjectColorByFacetKey } from '../data/projects';
+import { getProjectHeadlineColorByFacetKey } from '../data/projects';
 
 // Default headline color when no project is focused
 const DEFAULT_HEADLINE_COLOR = '#6200ff';
+
+// Static colors for non-project zones
+const ZONE_HEADLINE_COLORS = {
+  hero: '#fff6ae',
+};
 
 /**
  * Apply headline colors based on animation controller state.
@@ -14,6 +19,8 @@ const DEFAULT_HEADLINE_COLOR = '#6200ff';
  */
 export default function useProjectHeadlineColor(animationState) {
   useEffect(() => {
+    if (!animationState) return;
+
     const root = document.documentElement;
 
     // Helper to apply color values to CSS variables
@@ -35,18 +42,25 @@ export default function useProjectHeadlineColor(animationState) {
     };
 
     // Determine color from focused facet
-    const facet = animationState?.focusedFacet;
-
+    const facet = animationState.focusedFacet;
     if (facet) {
-      const projectColor = getProjectColorByFacetKey(facet);
+      const projectColor = getProjectHeadlineColorByFacetKey(facet);
       if (projectColor) {
         apply(projectColor, `facet ${facet}`);
         return;
       }
     }
 
-    // Fallback to default when no facet focused or color missing
+    // Use zone color when no project is focused
+    const zone = animationState.state;
+    const zoneColor = ZONE_HEADLINE_COLORS[zone];
+    if (zoneColor) {
+      apply(zoneColor, `zone ${zone}`);
+      return;
+    }
+
+    // Fallback to default when no facet or zone color
     apply(DEFAULT_HEADLINE_COLOR, 'default');
-  }, [animationState?.focusedFacet]);
+  }, [animationState?.focusedFacet, animationState?.state]);
 }
 

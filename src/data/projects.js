@@ -147,4 +147,14 @@ export const getProjectColorByFacetKey = (facetKey) => {
   return project ? project.color : '#028700'; // Default color
 };
 
+/**
+ * Get project headline color by facet key
+ * Falls back to base color if no headlineColor provided
+ */
+export const getProjectHeadlineColorByFacetKey = (facetKey) => {
+  const project = getProjectByFacetKey(facetKey);
+  if (!project) return '#028700';
+  return project.headlineColor || project.color || '#028700';
+};
+
 export default projects;
