@@ -4,9 +4,9 @@
 import React, { useState, useEffect } from 'react';
 import { animated, useSpring } from '@react-spring/web';
 import Headline from '../ui/Headline';
+import { deriveGlowFromBase } from '../../utils/color';
 
-// FIXED: Import the headline color hook
-import useProjectHeadlineColor from '../../hooks/useProjectHeadlineColor';
+// Headline colors are applied per-project, no hook needed here
 
 /**
  * ProjectFocusSection Component
@@ -19,9 +19,6 @@ const ProjectFocusSection = ({
   scrollProgress = 0,
   isMobile = false
 }) => {
-  // FIXED: Initialize the headline color hook
-  useProjectHeadlineColor();
-  
   const [imageLoaded, setImageLoaded] = useState(false);
   const [hasAnimated, setHasAnimated] = useState(false);
 
@@ -92,6 +89,10 @@ const ProjectFocusSection = ({
     if (import.meta.env.DEV) console.warn('ProjectFocusSection: No project provided');
     return null;
   }
+
+  // Derive glow shades from the project's headline color
+  const headlineColor = project.headlineColor || project.color;
+  const { glow1, glow2 } = deriveGlowFromBase(headlineColor);
 
   return (
     <section 
@@ -168,14 +169,17 @@ const ProjectFocusSection = ({
                 </div>
                 
                 {/* FIXED: Use Headline component with proper color application */}
-                <Headline 
+                <Headline
                   as="h1"
                   style={{
                     fontSize: isMobile ? 'clamp(1.75rem, 6vw, 2.5rem)' : 'clamp(2rem, 4vw, 3rem)',
                     fontWeight: '400',
                     margin: 0,
                     lineHeight: '1.1',
-                    fontFamily: '"ivypresto-display", "Playfair Display", Georgia, "Times New Roman", serif'
+                    fontFamily: '"ivypresto-display", "Playfair Display", Georgia, "Times New Roman", serif',
+                    '--headline-ink': headlineColor,
+                    '--headline-glow1': glow1,
+                    '--headline-glow2': glow2
                   }}
                 >
                   {project.title}
