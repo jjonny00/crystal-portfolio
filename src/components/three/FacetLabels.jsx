@@ -14,6 +14,7 @@ const FacetLabels = ({ anchors = {}, projects = [], scrollToProgress, onHoverCha
   const lastPositions = useRef({});
   const lastUpdate = useRef(0);
   const tempVec = useRef(new THREE.Vector3());
+  const offsetVec = useRef(new THREE.Vector3());
 
   useFrame((state) => {
     const elapsed = state.clock.getElapsedTime();
@@ -26,10 +27,15 @@ const FacetLabels = ({ anchors = {}, projects = [], scrollToProgress, onHoverCha
 
       const worldPos = tempVec.current;
       anchor.getWorldPosition(worldPos);
+
+      // Offset label slightly away from the crystal so it doesn't get occluded
+      const offsetPos = offsetVec.current;
+      offsetPos.copy(worldPos).normalize().multiplyScalar(0.5).add(worldPos);
+
       const prev = lastPositions.current[key];
-      if (!prev || worldPos.distanceTo(prev) > 0.01) {
-        group.position.copy(worldPos);
-        lastPositions.current[key] = worldPos.clone();
+      if (!prev || offsetPos.distanceTo(prev) > 0.01) {
+        group.position.copy(offsetPos);
+        lastPositions.current[key] = offsetPos.clone();
       }
 
       const distance = state.camera.position.distanceTo(group.position);
