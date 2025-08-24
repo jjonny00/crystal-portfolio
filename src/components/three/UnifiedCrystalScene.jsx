@@ -656,7 +656,6 @@ const UnifiedCrystalScene = forwardRef(({
 
       {animationData.currentZone === 'overview' && animationData.crystalForm === 'exploded' && (
         <FacetLabels
-          anchors={facetAnchors}
           projects={projects}
           scrollToProgress={scrollToProgress}
           onHoverChange={handleLabelHover}
