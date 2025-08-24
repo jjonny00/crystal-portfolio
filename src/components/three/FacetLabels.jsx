@@ -4,6 +4,7 @@ import Headline from '../ui/Headline';
 import { deriveGlowFromBase } from '../../utils/color';
 import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController';
 import '../../styles/facet-label.css';
+import { Vector3 } from 'three';
 
 // Individual label rendered in HTML overlay
 const OptimizedLabel = React.memo(function OptimizedLabel({
@@ -40,19 +41,9 @@ const OptimizedLabel = React.memo(function OptimizedLabel({
   );
 });
 
-// Pre-calculated static positions based on final exploded facet locations.
-// These are slightly pushed outward so the labels clear the facet geometry.
-const LABEL_POSITIONS = Object.fromEntries(
-  Object.entries(ANIMATION_CONFIG.crystal.explodedPositions).map(
-    ([key, vec]) => [
-      key,
-      vec.clone().multiplyScalar(1.2).toArray(),
-    ]
-  )
-);
-
 // Optimized facet labels component
 const FacetLabels = React.memo(function FacetLabels({
+  anchors = {},
   projects = [],
   scrollToProgress,
   onHoverChange,
@@ -61,6 +52,7 @@ const FacetLabels = React.memo(function FacetLabels({
 }) {
   const [visible, setVisible] = useState(false);
   const [fadeDuration, setFadeDuration] = useState(0.8);
+  const [positions, setPositions] = useState({});
 
   const shouldShow = useMemo(() => {
     if (performanceProfile?.simplifiedAnimations) return false;
@@ -81,11 +73,22 @@ const FacetLabels = React.memo(function FacetLabels({
     if (shouldShow) {
       setFadeDuration(0.8);
       setVisible(true);
+      // Capture anchor world positions once
+      const newPositions = {};
+      Object.entries(anchors).forEach(([key, anchor]) => {
+        if (anchor) {
+          const v = new Vector3();
+          anchor.getWorldPosition(v);
+          newPositions[key] = v.toArray();
+        }
+      });
+      setPositions(newPositions);
     } else {
       setFadeDuration(0.2);
       setVisible(false);
+      setPositions({});
     }
-  }, [shouldShow]);
+  }, [shouldShow, anchors]);
 
   if (performanceProfile?.simplifiedAnimations && !visible) {
     return null;
@@ -94,7 +97,7 @@ const FacetLabels = React.memo(function FacetLabels({
   return (
     <>
       {projects.map((project) => {
-        const position = LABEL_POSITIONS[project.facetKey];
+        const position = positions[project.facetKey];
         if (!position) return null;
 
         return (
