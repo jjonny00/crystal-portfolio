@@ -54,13 +54,14 @@ const FacetLabels = React.memo(function FacetLabels({
   const lastUpdateTime = useRef(0);
 
   const shouldShowLabels = useMemo(() => {
-    return (
-      animationData?.crystalForm === 'exploded' &&
-      animationData?.currentZone === 'overview' &&
-      !animationData?.isScrolling &&
-      !performanceProfile?.simplifiedAnimations
-    );
-  }, [animationData, performanceProfile]);
+    if (performanceProfile?.simplifiedAnimations) return false;
+    if (animationData?.isScrolling) return false;
+    return animationData?.crystalForm === 'exploded';
+  }, [
+    animationData?.crystalForm,
+    animationData?.isScrolling,
+    performanceProfile?.simplifiedAnimations,
+  ]);
 
   useFrame((state) => {
     if (!shouldShowLabels) return;
@@ -93,7 +94,7 @@ const FacetLabels = React.memo(function FacetLabels({
               if (ref) groupRefs.current[project.facetKey] = ref;
             }}
           >
-            <Html center occlude distanceFactor={10} style={{ pointerEvents: 'auto' }}>
+            <Html center distanceFactor={10} style={{ pointerEvents: 'auto' }}>
               <OptimizedLabel
                 project={project}
                 onHover={onHoverChange}
