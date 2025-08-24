@@ -5,6 +5,7 @@ import React, { useRef, useState, useEffect, useCallback, forwardRef, useImperat
 import { useFrame } from '@react-three/fiber'
 import { useGLTF, Html } from '@react-three/drei'
 import * as THREE from 'three'
+import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController'
 
 // Import existing material manager
 import MaterialManager from './MaterialManager'
@@ -47,6 +48,9 @@ const UnifiedCrystalScene = forwardRef(({
 
   // Track material updates so we can reapply when ready
   const [materialVersion, setMaterialVersion] = useState(0);
+
+  // Precomputed anchor-based label positions
+  const [labelPositions, setLabelPositions] = useState({});
 
   // FIXED: Better tracking of focus changes
   const prevFocusedFacetRef = useRef(null);
@@ -178,6 +182,27 @@ const UnifiedCrystalScene = forwardRef(({
       setModelsLoaded(true);
     }
   }, [wholeCrystal, ...facetModels]);
+
+  // Compute static label positions from facet anchors
+  useEffect(() => {
+    if (!modelsLoaded) return;
+
+    const positions = {};
+    facetKeys.forEach((facetKey, index) => {
+      const facetRef = facetRefs.current[index];
+      if (!facetRef?.current) return;
+      const anchor = facetRef.current.getObjectByName(`anchor_${facetKey}`);
+      if (!anchor) return;
+      const basePos = new THREE.Vector3();
+      anchor.getWorldPosition(basePos);
+      const finalPos = basePos
+        .clone()
+        .add(ANIMATION_CONFIG.crystal.explodedPositions[facetKey]);
+      positions[facetKey] = finalPos.toArray();
+    });
+
+    setLabelPositions(positions);
+  }, [modelsLoaded]);
 
 
   // FIXED: Improved handleLabelHover with better state management
@@ -661,6 +686,7 @@ const UnifiedCrystalScene = forwardRef(({
         onHoverChange={handleLabelHover}
         animationData={animationData}
         performanceProfile={performanceProfile}
+        labelPositions={labelPositions}
       />
 
       {/* Debug visualization when enabled */}

@@ -40,21 +40,6 @@ const OptimizedLabel = React.memo(function OptimizedLabel({
   );
 });
 
-// Precompute static label positions by projecting each facet's final
-// exploded position outward along its vector. This matches the
-// original anchor positions without requiring runtime lookups.
-const LABEL_RADIUS = 4;
-const STATIC_LABEL_POSITIONS = Object.fromEntries(
-  Object.entries(ANIMATION_CONFIG.crystal.explodedPositions).map(([key, vec]) => {
-    const pos = vec
-      .clone()
-      .normalize()
-      .multiplyScalar(LABEL_RADIUS)
-      .toArray();
-    return [key, pos];
-  })
-);
-
 // Optimized facet labels component
 const FacetLabels = React.memo(function FacetLabels({
   projects = [],
@@ -62,6 +47,7 @@ const FacetLabels = React.memo(function FacetLabels({
   onHoverChange,
   animationData,
   performanceProfile,
+  labelPositions = {},
 }) {
   const [visible, setVisible] = useState(false);
   const [fadeDuration, setFadeDuration] = useState(0.8);
@@ -98,7 +84,7 @@ const FacetLabels = React.memo(function FacetLabels({
   return (
     <>
       {projects.map((project) => {
-        const position = STATIC_LABEL_POSITIONS[project.facetKey];
+        const position = labelPositions[project.facetKey];
         if (!position) return null;
 
         return (
