@@ -40,12 +40,19 @@ const OptimizedLabel = React.memo(function OptimizedLabel({
   );
 });
 
-// Precompute static label positions from camera project positions
+// Precompute static label positions by projecting each facet's final
+// exploded position outward along its vector. This matches the
+// original anchor positions without requiring runtime lookups.
+const LABEL_RADIUS = 4;
 const STATIC_LABEL_POSITIONS = Object.fromEntries(
-  Object.entries(ANIMATION_CONFIG.camera.projects).map(([key, { position }]) => [
-    key,
-    position.toArray(),
-  ])
+  Object.entries(ANIMATION_CONFIG.crystal.explodedPositions).map(([key, vec]) => {
+    const pos = vec
+      .clone()
+      .normalize()
+      .multiplyScalar(LABEL_RADIUS)
+      .toArray();
+    return [key, pos];
+  })
 );
 
 // Optimized facet labels component

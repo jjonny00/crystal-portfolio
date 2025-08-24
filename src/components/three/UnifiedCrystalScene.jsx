@@ -655,15 +655,13 @@ const UnifiedCrystalScene = forwardRef(({
         );
       })}
 
-      {animationData.currentZone === 'overview' && animationData.crystalForm === 'exploded' && (
-        <FacetLabels
-          projects={projects}
-          scrollToProgress={scrollToProgress}
-          onHoverChange={handleLabelHover}
-          animationData={animationData}
-          performanceProfile={performanceProfile}
-        />
-      )}
+      <FacetLabels
+        projects={projects}
+        scrollToProgress={scrollToProgress}
+        onHoverChange={handleLabelHover}
+        animationData={animationData}
+        performanceProfile={performanceProfile}
+      />
 
       {/* Debug visualization when enabled */}
       {showCrystalDebug && showFacets && !simplifiedAnimations && (
