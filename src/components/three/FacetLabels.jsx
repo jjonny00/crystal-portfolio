@@ -66,7 +66,10 @@ const FacetLabels = React.memo(function FacetLabels({
   useFrame((state) => {
     if (!shouldShowLabels) return;
     const now = state.clock.elapsedTime;
-    if (now - lastUpdateTime.current < 0.066) return;
+
+    // During transitions (like explosion animation), update every frame for smooth motion
+    const interval = animationData?.isTransitioning ? 0 : 0.066;
+    if (now - lastUpdateTime.current < interval) return;
     lastUpdateTime.current = now;
 
     Object.entries(anchors).forEach(([key, anchor]) => {
