@@ -672,6 +672,8 @@ const UnifiedCrystalScene = forwardRef(({
           projects={projects}
           scrollToProgress={scrollToProgress}
           onHoverChange={handleLabelHover}
+          animationData={animationData}
+          performanceProfile={performanceProfile}
         />
       )}
 
