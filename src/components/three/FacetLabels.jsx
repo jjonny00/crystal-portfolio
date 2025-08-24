@@ -51,7 +51,6 @@ const FacetLabels = React.memo(function FacetLabels({
   performanceProfile,
 }) {
   const groupRefs = useRef({});
-  const lastUpdateTime = useRef(0);
 
   const shouldShowLabels = useMemo(() => {
     if (performanceProfile?.simplifiedAnimations) return false;
@@ -63,14 +62,8 @@ const FacetLabels = React.memo(function FacetLabels({
     performanceProfile?.simplifiedAnimations,
   ]);
 
-  useFrame((state) => {
+  useFrame(() => {
     if (!shouldShowLabels) return;
-    const now = state.clock.elapsedTime;
-
-    // During transitions (like explosion animation), update every frame for smooth motion
-    const interval = animationData?.isTransitioning ? 0 : 0.066;
-    if (now - lastUpdateTime.current < interval) return;
-    lastUpdateTime.current = now;
 
     Object.entries(anchors).forEach(([key, anchor]) => {
       const group = groupRefs.current[key];
