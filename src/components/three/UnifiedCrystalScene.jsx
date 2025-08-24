@@ -189,12 +189,19 @@ const UnifiedCrystalScene = forwardRef(({
 
     const positions = {};
     facetKeys.forEach((facetKey, index) => {
-      const facetRef = facetRefs.current[index];
-      if (!facetRef?.current) return;
-      const anchor = facetRef.current.getObjectByName(`anchor_${facetKey}`);
+      const model = facetModels[index];
+      const scene = model?.scene;
+      if (!scene) return;
+
+      const anchor = scene.getObjectByName(`anchor_${facetKey}`);
       if (!anchor) return;
+
+      // Ensure matrices are up to date before reading positions
+      scene.updateWorldMatrix(true, false);
+
       const basePos = new THREE.Vector3();
       anchor.getWorldPosition(basePos);
+
       const finalPos = basePos
         .clone()
         .add(ANIMATION_CONFIG.crystal.explodedPositions[facetKey]);
@@ -202,7 +209,7 @@ const UnifiedCrystalScene = forwardRef(({
     });
 
     setLabelPositions(positions);
-  }, [modelsLoaded]);
+  }, [modelsLoaded, facetKeys]);
 
 
   // FIXED: Improved handleLabelHover with better state management
