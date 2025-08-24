@@ -40,12 +40,15 @@ const OptimizedLabel = React.memo(function OptimizedLabel({
   );
 });
 
-// Pre-calculated static positions from camera configs
+// Pre-calculated static positions based on final exploded facet locations.
+// These are slightly pushed outward so the labels clear the facet geometry.
 const LABEL_POSITIONS = Object.fromEntries(
-  Object.entries(ANIMATION_CONFIG.camera.projects).map(([key, cfg]) => [
-    key,
-    cfg.position.toArray(),
-  ])
+  Object.entries(ANIMATION_CONFIG.crystal.explodedPositions).map(
+    ([key, vec]) => [
+      key,
+      vec.clone().multiplyScalar(1.2).toArray(),
+    ]
+  )
 );
 
 // Optimized facet labels component
@@ -65,12 +68,11 @@ const FacetLabels = React.memo(function FacetLabels({
     if (animationData?.crystalForm !== 'exploded') return false;
     if (animationData?.currentZone !== 'overview') return false;
     if (animationData?.focusedProject) return false;
-    return animationData?.zoneProgress > 0.8;
+    return true;
   }, [
     animationData?.crystalForm,
     animationData?.currentZone,
     animationData?.focusedProject,
-    animationData?.zoneProgress,
     animationData?.isScrolling,
     performanceProfile?.simplifiedAnimations,
   ]);
