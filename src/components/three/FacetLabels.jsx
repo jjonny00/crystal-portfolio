@@ -1,6 +1,5 @@
-import React, { useRef, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Html } from '@react-three/drei';
-import { useFrame } from '@react-three/fiber';
 import Headline from '../ui/Headline';
 import { deriveGlowFromBase } from '../../utils/color';
 import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController';
@@ -41,60 +40,73 @@ const OptimizedLabel = React.memo(function OptimizedLabel({
   );
 });
 
+// Pre-calculated static positions from camera configs
+const LABEL_POSITIONS = Object.fromEntries(
+  Object.entries(ANIMATION_CONFIG.camera.projects).map(([key, cfg]) => [
+    key,
+    cfg.position.toArray(),
+  ])
+);
+
 // Optimized facet labels component
 const FacetLabels = React.memo(function FacetLabels({
-  anchors = {},
   projects = [],
   scrollToProgress,
   onHoverChange,
   animationData,
   performanceProfile,
 }) {
-  const groupRefs = useRef({});
+  const [visible, setVisible] = useState(false);
+  const [fadeDuration, setFadeDuration] = useState(0.8);
 
-  const shouldShowLabels = useMemo(() => {
+  const shouldShow = useMemo(() => {
     if (performanceProfile?.simplifiedAnimations) return false;
     if (animationData?.isScrolling) return false;
-    return animationData?.crystalForm === 'exploded';
+    if (animationData?.crystalForm !== 'exploded') return false;
+    if (animationData?.currentZone !== 'overview') return false;
+    if (animationData?.focusedProject) return false;
+    return animationData?.zoneProgress > 0.8;
   }, [
     animationData?.crystalForm,
+    animationData?.currentZone,
+    animationData?.focusedProject,
+    animationData?.zoneProgress,
     animationData?.isScrolling,
     performanceProfile?.simplifiedAnimations,
   ]);
 
-  useFrame(() => {
-    if (!shouldShowLabels) return;
+  useEffect(() => {
+    if (shouldShow) {
+      setFadeDuration(0.8);
+      setVisible(true);
+    } else {
+      setFadeDuration(0.2);
+      setVisible(false);
+    }
+  }, [shouldShow]);
 
-    Object.entries(anchors).forEach(([key, anchor]) => {
-      const group = groupRefs.current[key];
-      if (anchor && group) {
-        anchor.getWorldPosition(group.position);
-      }
-    });
-  });
-
-  if (!shouldShowLabels) {
+  if (performanceProfile?.simplifiedAnimations && !visible) {
     return null;
   }
 
   return (
     <>
       {projects.map((project) => {
-        const anchor = anchors[project.facetKey];
-        if (!anchor) return null;
+        const position = LABEL_POSITIONS[project.facetKey];
+        if (!position) return null;
 
         return (
-          <group
-            key={project.facetKey}
-            ref={(ref) => {
-              if (ref) groupRefs.current[project.facetKey] = ref;
-            }}
-          >
+          <group key={project.facetKey} position={position}>
             <Html
               center
               portal={{ current: document.body }}
               distanceFactor={10}
-              style={{ pointerEvents: 'auto', zIndex: 20 }}
+              style={{
+                pointerEvents: visible ? 'auto' : 'none',
+                zIndex: 20,
+                opacity: visible ? 1 : 0,
+                transition: `opacity ${fadeDuration}s`,
+              }}
             >
               <OptimizedLabel
                 project={project}
