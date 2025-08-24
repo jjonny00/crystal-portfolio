@@ -94,7 +94,12 @@ const FacetLabels = React.memo(function FacetLabels({
               if (ref) groupRefs.current[project.facetKey] = ref;
             }}
           >
-            <Html center distanceFactor={10} style={{ pointerEvents: 'auto' }}>
+            <Html
+              center
+              portal={{ current: document.body }}
+              distanceFactor={10}
+              style={{ pointerEvents: 'auto', zIndex: 20 }}
+            >
               <OptimizedLabel
                 project={project}
                 onHover={onHoverChange}
