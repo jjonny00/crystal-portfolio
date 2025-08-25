@@ -79,17 +79,35 @@ const FacetLabels = React.memo(function FacetLabels({
     };
   }, []);
 
-  // Convert static exploded positions plus anchor offsets to screen space
+  // Calculate final world-space positions by adding anchor offsets to exploded positions
+  const anchorWorldPositions = useMemo(() => {
+    const explodedVec = new Vector3();
+    const offsetVec = new Vector3();
+    const result = {};
+    Object.entries(explodedPositions).forEach(([facetKey, exploded]) => {
+      explodedVec.fromArray(exploded);
+      const anchorOffset = anchorOffsets[facetKey] || [0, 0, 0];
+      offsetVec.fromArray(anchorOffset);
+      const finalPos = explodedVec.clone().add(offsetVec);
+      console.log(
+        `Facet ${facetKey} exploded=`,
+        exploded,
+        'anchorOffset=',
+        anchorOffset,
+        'finalWorld=',
+        finalPos.toArray()
+      );
+      result[facetKey] = finalPos;
+    });
+    return result;
+  }, [anchorOffsets]);
+
+  // Convert final world positions to screen space
   const screenPositions = useMemo(() => {
     const vec = new Vector3();
-    const offset = new Vector3(); // ✅ Reuse this Vector3 instance
     const result = {};
-    Object.entries(explodedPositions).forEach(([key, pos]) => {
-      vec.fromArray(pos);
-      if (anchorOffsets[key]) {
-        offset.fromArray(anchorOffsets[key]); // ✅ Reuse existing Vector3
-        vec.add(offset);
-      }
+    Object.entries(anchorWorldPositions).forEach(([key, worldPos]) => {
+      vec.copy(worldPos);
       vec.project(camera);
       result[key] = [
         (vec.x * 0.5 + 0.5) * size.width,
@@ -97,7 +115,7 @@ const FacetLabels = React.memo(function FacetLabels({
       ];
     });
     return result;
-  }, [camera, size.width, size.height, anchorOffsets]);
+  }, [camera, size.width, size.height, anchorWorldPositions]);
 
   const shouldShow = useMemo(() => {
     if (performanceProfile?.simplifiedAnimations) return false;
