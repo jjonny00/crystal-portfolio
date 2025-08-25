@@ -197,12 +197,20 @@ const UnifiedCrystalScene = forwardRef(({
       const anchor = model.scene.getObjectByName(anchorName);
 
       if (anchor) {
-        // Get anchor's local position within the model (this is the offset we need)
-        const anchorLocalPosition = anchor.position.clone();
-        offsets[facetKey] = anchorLocalPosition.toArray();
+        // Include any rotation/scale on the model by using world coordinates
+        model.scene.updateMatrixWorld(true);
+
+        const worldPos = new THREE.Vector3();
+        anchor.getWorldPosition(worldPos);
+
+        const modelWorldPos = new THREE.Vector3();
+        model.scene.getWorldPosition(modelWorldPos);
+
+        const offset = worldPos.sub(modelWorldPos);
+        offsets[facetKey] = offset.toArray();
 
         if (import.meta.env.DEV) {
-          console.log(`📍 Extracted anchor offset for ${facetKey}:`, anchorLocalPosition.toArray());
+          console.log(`📍 Extracted anchor offset for ${facetKey}:`, offset.toArray());
         }
       } else if (import.meta.env.DEV) {
         console.warn(`⚠️ Anchor not found for ${facetKey}`);
