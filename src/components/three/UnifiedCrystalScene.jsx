@@ -183,32 +183,28 @@ const UnifiedCrystalScene = forwardRef(({
     }
   }, [wholeCrystal, ...facetModels]);
 
-  // Compute label positions from final anchor world locations
+  // Precompute static label positions using anchor offsets plus exploded positions
   useEffect(() => {
-    if (!modelsLoaded || !showFacets) return;
-
-    if (animationData?.crystalForm !== 'exploded') {
-      setLabelPositions({});
-      return;
-    }
+    if (!modelsLoaded) return;
 
     const positions = {};
     facetKeys.forEach((facetKey, index) => {
-      const facet = facetRefs.current[index]?.current;
-      if (!facet) return;
-      const anchor = facet.getObjectByName(`anchor_${facetKey}`);
-      if (!anchor) return;
+      const model = facetModels[index];
+      const anchor = model?.scene?.getObjectByName(`anchor_${facetKey}`);
+      const exploded = ANIMATION_CONFIG.crystal.explodedPositions[facetKey];
+      if (!anchor || !exploded) return;
 
-      // Current world position of anchor
+      // Anchor world position when facet is at origin
       anchor.updateWorldMatrix(true, false);
-      const worldPos = new THREE.Vector3();
-      anchor.getWorldPosition(worldPos);
+      const basePos = new THREE.Vector3();
+      anchor.getWorldPosition(basePos);
 
+      const worldPos = basePos.add(exploded);
       positions[facetKey] = worldPos.toArray();
     });
 
     setLabelPositions(positions);
-  }, [modelsLoaded, showFacets, animationData?.crystalForm, facetKeys]);
+  }, [modelsLoaded, facetModels, facetKeys]);
 
 
   // FIXED: Improved handleLabelHover with better state management
