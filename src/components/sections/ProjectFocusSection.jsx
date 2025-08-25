@@ -1,5 +1,5 @@
 // src/components/sections/ProjectFocusSection.jsx
-// FIXED: Individual Project Focus Areas with proper headline color integration
+// FIXED: Use project.label instead of project.facetKey for display text
 
 import React, { useState, useEffect } from 'react';
 import { animated, useSpring } from '@react-spring/web';
@@ -165,7 +165,7 @@ const ProjectFocusSection = ({
                   textTransform: 'uppercase',
                   marginBottom: '0.25rem'
                 }}>
-                  {project.facetKey}
+                  {project.label}
                 </div>
                 
                 {/* FIXED: Use Headline component with proper color application */}
