@@ -189,13 +189,9 @@ const UnifiedCrystalScene = forwardRef(({
       const model = facetModels[index];
       if (!model?.scene) return;
       const anchor = model.scene.getObjectByName(`anchor_${facetKey}`);
-      if (!anchor) return;
-      const anchorPos = new THREE.Vector3();
-      anchor.getWorldPosition(anchorPos);
-      const centerPos = new THREE.Vector3();
-      model.scene.getWorldPosition(centerPos);
-      anchorPos.sub(centerPos);
-      offsets[facetKey] = anchorPos.toArray();
+      if (anchor) {
+        offsets[facetKey] = anchor.position.clone().toArray();
+      }
     });
     setAnchorOffsets(offsets);
   }, [modelsLoaded]);
