@@ -79,8 +79,22 @@ const FacetLabels = React.memo(function FacetLabels({
     };
   }, []);
 
+  if (import.meta.env.DEV) {
+    console.log('📍 FacetLabels: anchorOffsets state:', {
+      hasOffsets: Object.keys(anchorOffsets).length > 0,
+      offsets: anchorOffsets,
+    });
+  }
+
   // Convert static exploded positions plus anchor offsets to screen space
   const screenPositions = useMemo(() => {
+    // Don't calculate positions until we have anchor offsets
+    if (Object.keys(anchorOffsets).length === 0) {
+      if (import.meta.env.DEV)
+        console.log('📍 Waiting for anchor offsets...');
+      return {};
+    }
+
     const vec = new Vector3();
     const offset = new Vector3(); // ✅ Reuse this Vector3 instance
     const result = {};
