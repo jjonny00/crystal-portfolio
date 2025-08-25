@@ -5,7 +5,6 @@ import React, { useRef, useState, useEffect, useCallback, forwardRef, useImperat
 import { useFrame } from '@react-three/fiber'
 import { useGLTF, Html } from '@react-three/drei'
 import * as THREE from 'three'
-import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController'
 
 // Import existing material manager
 import MaterialManager from './MaterialManager'
@@ -183,28 +182,30 @@ const UnifiedCrystalScene = forwardRef(({
     }
   }, [wholeCrystal, ...facetModels]);
 
-  // Precompute static label positions using anchor offsets plus exploded positions
+  // Sample anchor world positions once facets reach their exploded state
   useEffect(() => {
     if (!modelsLoaded) return;
+    if (animationData?.crystalForm !== 'exploded') return;
+    if (!showFacets) return;
 
-    const positions = {};
-    facetKeys.forEach((facetKey, index) => {
-      const model = facetModels[index];
-      const anchor = model?.scene?.getObjectByName(`anchor_${facetKey}`);
-      const exploded = ANIMATION_CONFIG.crystal.explodedPositions[facetKey];
-      if (!anchor || !exploded) return;
+    // Allow a brief delay for facets to settle into position
+    const handle = setTimeout(() => {
+      const positions = {};
+      facetKeys.forEach((facetKey, index) => {
+        const facetRef = facetRefs.current[index];
+        const anchor = facetRef?.current?.getObjectByName(`anchor_${facetKey}`);
+        if (!anchor) return;
 
-      // Anchor world position when facet is at origin
-      anchor.updateWorldMatrix(true, false);
-      const basePos = new THREE.Vector3();
-      anchor.getWorldPosition(basePos);
+        const worldPos = new THREE.Vector3();
+        anchor.getWorldPosition(worldPos);
+        positions[facetKey] = worldPos.toArray();
+      });
 
-      const worldPos = basePos.add(exploded);
-      positions[facetKey] = worldPos.toArray();
-    });
+      setLabelPositions(positions);
+    }, 100);
 
-    setLabelPositions(positions);
-  }, [modelsLoaded, facetModels, facetKeys]);
+    return () => clearTimeout(handle);
+  }, [animationData?.crystalForm, modelsLoaded, showFacets, facetKeys]);
 
 
   // FIXED: Improved handleLabelHover with better state management
