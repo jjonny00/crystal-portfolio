@@ -190,7 +190,8 @@ const UnifiedCrystalScene = forwardRef(({
       if (!model?.scene) return;
       const anchor = model.scene.getObjectByName(`anchor_${facetKey}`);
       if (anchor) {
-        offsets[facetKey] = anchor.position.clone().toArray();
+        const localOffset = anchor.position.clone();
+        offsets[facetKey] = localOffset.toArray();
       }
     });
     setAnchorOffsets(offsets);
