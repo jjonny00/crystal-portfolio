@@ -232,7 +232,10 @@ const UnifiedCrystalScene = forwardRef(({
       if (!model?.scene) return;
       const anchor = model.scene.getObjectByName(`anchor_${facetKey}`);
       if (anchor) {
-        offsets[facetKey] = anchor.position.clone().toArray();
+        const rotatedOffset = anchor.position
+          .clone()
+          .applyQuaternion(model.scene.quaternion);
+        offsets[facetKey] = rotatedOffset.toArray();
       }
     });
     setAnchorOffsets(offsets);
