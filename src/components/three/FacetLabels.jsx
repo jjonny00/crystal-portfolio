@@ -198,7 +198,11 @@ const FacetLabels = React.memo(function FacetLabels({
 
 export default FacetLabels;
 
-export function testScreenProjection(worldVec, camera, size) {
+export function testScreenProjection(worldVec, camera, size, label = 'vector') {
+  if (!worldVec || !camera || !size) {
+    console.warn('testScreenProjection requires a Vector3, camera, and size');
+    return null;
+  }
   const vec = worldVec.clone();
   vec.project(camera);
   const screen = [
@@ -206,7 +210,7 @@ export function testScreenProjection(worldVec, camera, size) {
     (-vec.y * 0.5 + 0.5) * size.height,
   ];
   if (import.meta.env.DEV) {
-    console.log('🔍 testScreenProjection:', {
+    console.log(`🔍 testScreenProjection (${label}):`, {
       world: worldVec.toArray(),
       screen,
     });
