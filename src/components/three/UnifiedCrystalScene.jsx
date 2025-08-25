@@ -180,7 +180,7 @@ const UnifiedCrystalScene = forwardRef(({
           console.group('📐 Verifying exploded facet positions');
           facetRefs.current.forEach((facetRef, index) => {
             const facetKey = facetKeys[index];
-            const expected = config?.explodedPositions?.[facetKey];
+            const expected = animationData?.crystalConfig?.explodedPositions?.[facetKey];
             if (!facetRef?.current || !expected) {
               console.warn(`Facet ${facetKey}: missing ref or expected position`);
               return;
@@ -201,7 +201,7 @@ const UnifiedCrystalScene = forwardRef(({
         }
       }
     }
-  }), [facetKeys, showWholeCrystal, showFacets, sphereVisible, showCrystalDebug, modelsLoaded]);
+  }), [facetKeys, showWholeCrystal, showFacets, sphereVisible, showCrystalDebug, modelsLoaded, animationData]);
 
   // Load models
   const wholeCrystal = useGLTF(config.assets.models.crystalWhole);
