@@ -67,8 +67,8 @@ const UnifiedCrystalScene = forwardRef(({
 
   // Track when GLTF models have loaded
   const [modelsLoaded, setModelsLoaded] = useState(false);
-  // Store precomputed anchor offsets for label placement
-  const [anchorOffsets, setAnchorOffsets] = useState({});
+  // Store computed anchor world positions for label placement
+  const [anchorWorldPositions, setAnchorWorldPositions] = useState({});
 
   const handleMaterialReady = useCallback(() => {
     setMaterialVersion(v => v + 1);
@@ -247,45 +247,18 @@ const UnifiedCrystalScene = forwardRef(({
     [facetKeys, facetModels, animationData?.crystalConfig?.explodedPositions]
   );
 
-  // Calculate anchor offsets relative to facet centers once models are ready
+  // Calculate anchor world positions once models are ready
   useEffect(() => {
     if (!modelsLoaded) return;
-    const offsets = {};
-    facetKeys.forEach((facetKey, index) => {
-      const model = facetModels[index];
-      if (!model?.scene) return;
-      const anchor = model.scene.getObjectByName(`anchor_${facetKey}`);
-      if (anchor) {
-        anchor.updateMatrixWorld(true);
-        const worldAnchor = new THREE.Vector3();
-        anchor.getWorldPosition(worldAnchor);
-        const worldFacet = new THREE.Vector3();
-        model.scene.getWorldPosition(worldFacet);
-        const offset = worldAnchor.sub(worldFacet);
-        offsets[facetKey] = offset.toArray();
-
-        const worldPos = computeAnchorWorldPosition(facetKey);
-        const exploded = animationData?.crystalConfig?.explodedPositions?.[facetKey];
-        if (worldPos && exploded && import.meta.env.DEV) {
-          const manualWorld = new THREE.Vector3()
-            .fromArray(exploded)
-            .add(offset);
-          const diff = worldPos.clone().sub(manualWorld);
-          const distance = diff.length();
-          if (distance > 0.001) {
-            console.warn(`❌ Anchor mismatch for ${facetKey}`, {
-              viaMatrix: worldPos.toArray(),
-              manual: manualWorld.toArray(),
-              delta: diff.toArray()
-            });
-          } else {
-            console.log(`✅ Anchor match for ${facetKey}`, worldPos.toArray());
-          }
-        }
+    const positions = {};
+    facetKeys.forEach((facetKey) => {
+      const worldPos = computeAnchorWorldPosition(facetKey);
+      if (worldPos) {
+        positions[facetKey] = worldPos;
       }
     });
-    setAnchorOffsets(offsets);
-  }, [modelsLoaded, facetKeys, facetModels, computeAnchorWorldPosition, animationData?.crystalConfig?.explodedPositions]);
+    setAnchorWorldPositions(positions);
+  }, [modelsLoaded, facetKeys, computeAnchorWorldPosition]);
 
   // FIXED: Improved handleLabelHover with better state management
   const handleLabelHover = useCallback(
@@ -768,7 +741,7 @@ const UnifiedCrystalScene = forwardRef(({
         onHoverChange={handleLabelHover}
         animationData={animationData}
         performanceProfile={performanceProfile}
-        anchorOffsets={anchorOffsets}
+        anchorWorldPositions={anchorWorldPositions}
       />
 
       {/* Debug visualization when enabled */}

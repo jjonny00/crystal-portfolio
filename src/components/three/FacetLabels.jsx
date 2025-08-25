@@ -5,7 +5,6 @@ import { Vector3 } from 'three';
 import Headline from '../ui/Headline';
 import { deriveGlowFromBase } from '../../utils/color';
 import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController';
-import { explodedPositions } from '../../crystalConfig';
 import '../../styles/facet-label.css';
 
 // Individual label rendered without card styling
@@ -50,7 +49,7 @@ const FacetLabels = React.memo(function FacetLabels({
   onHoverChange,
   animationData,
   performanceProfile,
-  anchorOffsets = {},
+  anchorWorldPositions = {},
 }) {
   const { camera, size } = useThree();
   const [visible, setVisible] = useState(false);
@@ -78,30 +77,6 @@ const FacetLabels = React.memo(function FacetLabels({
       document.body.removeChild(layer);
     };
   }, []);
-
-  // Calculate final world-space positions by combining exploded positions with rotated offsets
-  const anchorWorldPositions = useMemo(() => {
-    const result = {};
-    Object.entries(anchorOffsets).forEach(([facetKey, offsetArray]) => {
-      const exploded = explodedPositions[facetKey];
-      if (!exploded) return;
-
-      // Translate by exploded position then apply rotated anchor offset
-      const explodedVec = new Vector3().fromArray(exploded);
-      const rotatedOffset = new Vector3().fromArray(offsetArray);
-      const finalWorld = explodedVec.add(rotatedOffset);
-
-      console.log('Facet anchor position:', {
-        facetKey,
-        exploded,
-        anchorOffset: offsetArray,
-        finalWorld: finalWorld.toArray(),
-      });
-
-      result[facetKey] = finalWorld;
-    });
-    return result;
-  }, [anchorOffsets]);
 
   // Convert final world positions to screen space
   const screenPositions = useMemo(() => {
