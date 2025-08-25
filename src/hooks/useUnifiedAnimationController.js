@@ -2,7 +2,7 @@
 // Simplified animation system with immediate state changes + enhanced debugging for background issues
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Vector3 } from 'three';
+import { Vector3, Quaternion } from 'three';
 
 /**
  * SIMPLIFIED: Animation Configuration with immediate state changes
@@ -76,6 +76,14 @@ export const ANIMATION_CONFIG = {
       system: new Vector3(-0.5, 0.2, -1.8),
       leadership: new Vector3(0.4, 1.2, 0.9),
       exploration: new Vector3(-0.6, 0.7, 0.0)
+    },
+    explodedRotations: {
+      empathy: new Quaternion(0, 0, 0, 1),
+      narrative: new Quaternion(0, 0, 0, 1),
+      craft: new Quaternion(0, 0, 0, 1),
+      system: new Quaternion(0, 0, 0, 1),
+      leadership: new Quaternion(0, 0, 0, 1),
+      exploration: new Quaternion(0, 0, 0, 1)
     },
     wholePosition: new Vector3(0, 0, 0)
   },
@@ -433,10 +441,11 @@ export const useUnifiedAnimationController = (options = {}) => {
   const getCurrentCrystalConfig = useCallback(() => {
     return {
       form: animationState.crystalForm,
-      positions: animationState.crystalForm === 'exploded' 
-        ? config.crystal.explodedPositions 
+      positions: animationState.crystalForm === 'exploded'
+        ? config.crystal.explodedPositions
         : { center: config.crystal.wholePosition },
-      shouldRotate: animationState.crystalForm === 'whole' && 
+      rotations: config.crystal.explodedRotations,
+      shouldRotate: animationState.crystalForm === 'whole' &&
                    animationState.state === ANIMATION_STATES.HERO,
       rotationSpeed: 0.0003
     };

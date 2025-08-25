@@ -24,6 +24,16 @@ export const explodedPositions = {
   exploration: [-0.6, 0.7, 0.0]   // More dynamic position
 }
 
+// Optional final rotations for exploded facets (quaternions)
+export const explodedRotations = {
+  empathy: [0, 0, 0, 1],
+  narrative: [0, 0, 0, 1],
+  craft: [0, 0, 0, 1],
+  system: [0, 0, 0, 1],
+  leadership: [0, 0, 0, 1],
+  exploration: [0, 0, 0, 1]
+}
+
 // === CAMERA POSITIONS ===
 export const cameraPositions = {
   hero: [0, 3.2, 2.4],
