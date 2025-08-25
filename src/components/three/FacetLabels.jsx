@@ -82,12 +82,12 @@ const FacetLabels = React.memo(function FacetLabels({
   // Convert static exploded positions plus anchor offsets to screen space
   const screenPositions = useMemo(() => {
     const vec = new Vector3();
-    const offset = new Vector3();
+    const offset = new Vector3(); // ✅ Reuse this Vector3 instance
     const result = {};
     Object.entries(explodedPositions).forEach(([key, pos]) => {
       vec.fromArray(pos);
       if (anchorOffsets[key]) {
-        offset.fromArray(anchorOffsets[key]);
+        offset.fromArray(anchorOffsets[key]); // ✅ Reuse existing Vector3
         vec.add(offset);
       }
       vec.project(camera);
