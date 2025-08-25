@@ -67,6 +67,8 @@ const UnifiedCrystalScene = forwardRef(({
 
   // Track when GLTF models have loaded
   const [modelsLoaded, setModelsLoaded] = useState(false);
+  // Store precomputed anchor offsets for label placement
+  const [anchorOffsets, setAnchorOffsets] = useState({});
 
   const handleMaterialReady = useCallback(() => {
     setMaterialVersion(v => v + 1);
@@ -178,6 +180,25 @@ const UnifiedCrystalScene = forwardRef(({
       setModelsLoaded(true);
     }
   }, [wholeCrystal, ...facetModels]);
+
+  // Calculate anchor offsets relative to facet centers once models are ready
+  useEffect(() => {
+    if (!modelsLoaded) return;
+    const offsets = {};
+    facetKeys.forEach((facetKey, index) => {
+      const model = facetModels[index];
+      if (!model?.scene) return;
+      const anchor = model.scene.getObjectByName(`anchor_${facetKey}`);
+      if (!anchor) return;
+      const anchorPos = new THREE.Vector3();
+      anchor.getWorldPosition(anchorPos);
+      const centerPos = new THREE.Vector3();
+      model.scene.getWorldPosition(centerPos);
+      anchorPos.sub(centerPos);
+      offsets[facetKey] = anchorPos.toArray();
+    });
+    setAnchorOffsets(offsets);
+  }, [modelsLoaded]);
 
   // FIXED: Improved handleLabelHover with better state management
   const handleLabelHover = useCallback(
@@ -660,6 +681,7 @@ const UnifiedCrystalScene = forwardRef(({
         onHoverChange={handleLabelHover}
         animationData={animationData}
         performanceProfile={performanceProfile}
+        anchorOffsets={anchorOffsets}
       />
 
       {/* Debug visualization when enabled */}

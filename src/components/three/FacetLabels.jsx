@@ -50,6 +50,7 @@ const FacetLabels = React.memo(function FacetLabels({
   onHoverChange,
   animationData,
   performanceProfile,
+  anchorOffsets = {},
 }) {
   const { camera, size } = useThree();
   const [visible, setVisible] = useState(false);
@@ -78,12 +79,17 @@ const FacetLabels = React.memo(function FacetLabels({
     };
   }, []);
 
-  // Convert static exploded positions to screen space
+  // Convert static exploded positions plus anchor offsets to screen space
   const screenPositions = useMemo(() => {
     const vec = new Vector3();
+    const offset = new Vector3();
     const result = {};
     Object.entries(explodedPositions).forEach(([key, pos]) => {
       vec.fromArray(pos);
+      if (anchorOffsets[key]) {
+        offset.fromArray(anchorOffsets[key]);
+        vec.add(offset);
+      }
       vec.project(camera);
       result[key] = [
         (vec.x * 0.5 + 0.5) * size.width,
@@ -91,7 +97,7 @@ const FacetLabels = React.memo(function FacetLabels({
       ];
     });
     return result;
-  }, [camera, size.width, size.height]);
+  }, [camera, size.width, size.height, anchorOffsets]);
 
   const shouldShow = useMemo(() => {
     if (performanceProfile?.simplifiedAnimations) return false;
