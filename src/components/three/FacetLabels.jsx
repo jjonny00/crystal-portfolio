@@ -79,20 +79,25 @@ const FacetLabels = React.memo(function FacetLabels({
     };
   }, []);
 
-  // Calculate final world-space positions by adding anchor offsets to exploded positions
+  // Calculate final world-space positions by combining exploded positions with rotated offsets
   const anchorWorldPositions = useMemo(() => {
     const result = {};
-    Object.entries(explodedPositions).forEach(([facetKey, exploded]) => {
-      const anchorOffset = anchorOffsets[facetKey] || [0, 0, 0];
-      const world = new Vector3().fromArray(exploded);
-      const offset = new Vector3().fromArray(anchorOffset);
-      const finalWorld = world.add(offset);
+    Object.entries(anchorOffsets).forEach(([facetKey, offsetArray]) => {
+      const exploded = explodedPositions[facetKey];
+      if (!exploded) return;
+
+      // Translate by exploded position then apply rotated anchor offset
+      const explodedVec = new Vector3().fromArray(exploded);
+      const rotatedOffset = new Vector3().fromArray(offsetArray);
+      const finalWorld = explodedVec.add(rotatedOffset);
+
       console.log('Facet anchor position:', {
         facetKey,
         exploded,
-        anchorOffset,
+        anchorOffset: offsetArray,
         finalWorld: finalWorld.toArray(),
       });
+
       result[facetKey] = finalWorld;
     });
     return result;
