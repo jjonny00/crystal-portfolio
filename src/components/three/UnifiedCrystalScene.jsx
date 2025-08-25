@@ -157,6 +157,48 @@ const UnifiedCrystalScene = forwardRef(({
           });
           if (import.meta.env.DEV) console.groupEnd();
         }
+      },
+      inspectAnchors: () => {
+        if (import.meta.env.DEV) {
+          console.group('🔍 Anchor Check');
+          facetModels.forEach((model, index) => {
+            const facetKey = facetKeys[index];
+            const anchorName = `anchor_${facetKey}`;
+            const anchor = model?.scene?.getObjectByName(anchorName);
+            if (anchor) {
+              const pos = anchor.position.toArray().map(n => Number(n.toFixed(3)));
+              console.log(`${anchorName} exists at`, pos);
+            } else {
+              console.warn(`${anchorName} missing`);
+            }
+          });
+          console.groupEnd();
+        }
+      },
+      verifyExplodedPositions: () => {
+        if (import.meta.env.DEV) {
+          console.group('📐 Verifying exploded facet positions');
+          facetRefs.current.forEach((facetRef, index) => {
+            const facetKey = facetKeys[index];
+            const expected = config?.explodedPositions?.[facetKey];
+            if (!facetRef?.current || !expected) {
+              console.warn(`Facet ${facetKey}: missing ref or expected position`);
+              return;
+            }
+            const expectedVec = new THREE.Vector3().fromArray(expected);
+            const actual = facetRef.current.position.clone();
+            const delta = actual.clone().sub(expectedVec);
+            const distance = delta.length();
+            if (distance > 0.01) {
+              console.warn(
+                `❌ ${facetKey} discrepancy: expected [${expectedVec.x.toFixed(3)}, ${expectedVec.y.toFixed(3)}, ${expectedVec.z.toFixed(3)}], actual [${actual.x.toFixed(3)}, ${actual.y.toFixed(3)}, ${actual.z.toFixed(3)}], delta ${distance.toFixed(3)}`
+              );
+            } else {
+              console.log(`✅ ${facetKey} position verified`);
+            }
+          });
+          console.groupEnd();
+        }
       }
     }
   }), [facetKeys, showWholeCrystal, showFacets, sphereVisible, showCrystalDebug, modelsLoaded]);

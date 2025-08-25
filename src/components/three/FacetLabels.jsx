@@ -201,3 +201,19 @@ const FacetLabels = React.memo(function FacetLabels({
 });
 
 export default FacetLabels;
+
+export function testScreenProjection(worldVec, camera, size) {
+  const vec = worldVec.clone();
+  vec.project(camera);
+  const screen = [
+    (vec.x * 0.5 + 0.5) * size.width,
+    (-vec.y * 0.5 + 0.5) * size.height,
+  ];
+  if (import.meta.env.DEV) {
+    console.log('🔍 testScreenProjection:', {
+      world: worldVec.toArray(),
+      screen,
+    });
+  }
+  return screen;
+}
