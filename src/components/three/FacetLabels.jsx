@@ -81,23 +81,19 @@ const FacetLabels = React.memo(function FacetLabels({
 
   // Calculate final world-space positions by adding anchor offsets to exploded positions
   const anchorWorldPositions = useMemo(() => {
-    const explodedVec = new Vector3();
-    const offsetVec = new Vector3();
     const result = {};
     Object.entries(explodedPositions).forEach(([facetKey, exploded]) => {
-      explodedVec.fromArray(exploded);
       const anchorOffset = anchorOffsets[facetKey] || [0, 0, 0];
-      offsetVec.fromArray(anchorOffset);
-      const finalPos = explodedVec.clone().add(offsetVec);
-      console.log(
-        `Facet ${facetKey} exploded=`,
+      const world = new Vector3().fromArray(exploded);
+      const offset = new Vector3().fromArray(anchorOffset);
+      const finalWorld = world.add(offset);
+      console.log('Facet anchor position:', {
+        facetKey,
         exploded,
-        'anchorOffset=',
         anchorOffset,
-        'finalWorld=',
-        finalPos.toArray()
-      );
-      result[facetKey] = finalPos;
+        finalWorld: finalWorld.toArray(),
+      });
+      result[facetKey] = finalWorld;
     });
     return result;
   }, [anchorOffsets]);
