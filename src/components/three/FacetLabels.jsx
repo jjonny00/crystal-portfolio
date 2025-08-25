@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { createRoot } from 'react-dom/client';
 import { useThree } from '@react-three/fiber';
 import { Vector3 } from 'three';
 import Headline from '../ui/Headline';
@@ -54,7 +54,9 @@ const FacetLabels = React.memo(function FacetLabels({
   const { camera, size } = useThree();
   const [visible, setVisible] = useState(false);
   const [fadeDuration, setFadeDuration] = useState(0.8);
+  const [rootReady, setRootReady] = useState(false);
   const layerRef = useRef(null);
+  const rootRef = useRef(null);
 
   // Create a fixed layer for labels
   useEffect(() => {
@@ -68,7 +70,10 @@ const FacetLabels = React.memo(function FacetLabels({
     layer.style.zIndex = '20';
     document.body.appendChild(layer);
     layerRef.current = layer;
+    rootRef.current = createRoot(layer);
+    setRootReady(true);
     return () => {
+      rootRef.current?.unmount();
       document.body.removeChild(layer);
     };
   }, []);
@@ -118,38 +123,55 @@ const FacetLabels = React.memo(function FacetLabels({
     return () => clearTimeout(timeout);
   }, [shouldShow]);
 
-  if (!layerRef.current) return null;
-  if (performanceProfile?.simplifiedAnimations && !visible) return null;
+  // Render labels into detached root
+  useEffect(() => {
+    if (!rootRef.current) return;
+    if (!layerRef.current) return;
+    if (performanceProfile?.simplifiedAnimations && !visible) {
+      rootRef.current.render(null);
+      return;
+    }
 
-  return createPortal(
-    <>
-      {projects.map((project) => {
-        const pos = screenPositions[project.facetKey];
-        if (!pos) return null;
-        return (
-          <div
-            key={project.facetKey}
-            style={{
-              position: 'absolute',
-              left: `${pos[0]}px`,
-              top: `${pos[1]}px`,
-              transform: 'translate(-50%, -50%)',
-              opacity: visible ? 1 : 0,
-              transition: `opacity ${fadeDuration}s`,
-              pointerEvents: visible ? 'auto' : 'none',
-            }}
-          >
-            <OptimizedLabel
-              project={project}
-              onHover={onHoverChange}
-              scrollToProgress={scrollToProgress}
-            />
-          </div>
-        );
-      })}
-    </>,
-    layerRef.current
-  );
+    rootRef.current.render(
+      <>
+        {projects.map((project) => {
+          const pos = screenPositions[project.facetKey];
+          if (!pos) return null;
+          return (
+            <div
+              key={project.facetKey}
+              style={{
+                position: 'absolute',
+                left: `${pos[0]}px`,
+                top: `${pos[1]}px`,
+                transform: 'translate(-50%, -50%)',
+                opacity: visible ? 1 : 0,
+                transition: `opacity ${fadeDuration}s`,
+                pointerEvents: visible ? 'auto' : 'none',
+              }}
+            >
+              <OptimizedLabel
+                project={project}
+                onHover={onHoverChange}
+                scrollToProgress={scrollToProgress}
+              />
+            </div>
+          );
+        })}
+      </>
+    );
+  }, [
+    projects,
+    screenPositions,
+    visible,
+    fadeDuration,
+    onHoverChange,
+    scrollToProgress,
+    performanceProfile?.simplifiedAnimations,
+    rootReady,
+  ]);
+
+  return null;
 });
 
 export default FacetLabels;
