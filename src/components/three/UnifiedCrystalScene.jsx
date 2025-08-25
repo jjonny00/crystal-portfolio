@@ -225,7 +225,7 @@ const UnifiedCrystalScene = forwardRef(({
 
   // Compute anchor world position using matrix transforms
   const computeAnchorWorldPosition = useCallback(
-    (facetKey) => {
+    (facetKey, finalQuaternion = null, finalScale = null) => {
       const index = facetKeys.indexOf(facetKey);
       if (index === -1) return null;
 
@@ -239,8 +239,20 @@ const UnifiedCrystalScene = forwardRef(({
       // Ensure we have an up-to-date matrixWorld
       model.scene.updateMatrixWorld(true);
 
-      const matrixWorld = model.scene.matrixWorld.clone();
-      matrixWorld.setPosition(new THREE.Vector3().fromArray(exploded));
+      const position = new THREE.Vector3().fromArray(exploded);
+      const quaternion = finalQuaternion
+        ? (Array.isArray(finalQuaternion)
+            ? new THREE.Quaternion().fromArray(finalQuaternion)
+            : finalQuaternion)
+        : model.scene.quaternion;
+      const scale = finalScale
+        ? (Array.isArray(finalScale)
+            ? new THREE.Vector3().fromArray(finalScale)
+            : finalScale)
+        : model.scene.scale;
+
+      const matrixWorld = new THREE.Matrix4();
+      matrixWorld.compose(position, quaternion, scale);
 
       return anchor.position.clone().applyMatrix4(matrixWorld);
     },
@@ -264,12 +276,16 @@ const UnifiedCrystalScene = forwardRef(({
         const offset = worldAnchor.sub(worldFacet);
         offsets[facetKey] = offset.toArray();
 
-        const worldPos = computeAnchorWorldPosition(facetKey);
+        const rotation = animationData?.crystalConfig?.explodedRotations?.[facetKey];
+        const worldPos = computeAnchorWorldPosition(facetKey, rotation);
         const exploded = animationData?.crystalConfig?.explodedPositions?.[facetKey];
         if (worldPos && exploded && import.meta.env.DEV) {
+          const rotQuat = rotation
+            ? new THREE.Quaternion().fromArray(rotation)
+            : model.scene.quaternion;
           const manualWorld = new THREE.Vector3()
             .fromArray(exploded)
-            .add(offset);
+            .add(offset.clone().applyQuaternion(rotQuat));
           const diff = worldPos.clone().sub(manualWorld);
           const distance = diff.length();
           if (distance > 0.001) {
