@@ -256,17 +256,20 @@ const UnifiedCrystalScene = forwardRef(({
       if (!model?.scene) return;
       const anchor = model.scene.getObjectByName(`anchor_${facetKey}`);
       if (anchor) {
-        const rotatedOffset = anchor.position
-          .clone()
-          .applyQuaternion(model.scene.quaternion);
-        offsets[facetKey] = rotatedOffset.toArray();
+        anchor.updateMatrixWorld(true);
+        const worldAnchor = new THREE.Vector3();
+        anchor.getWorldPosition(worldAnchor);
+        const worldFacet = new THREE.Vector3();
+        model.scene.getWorldPosition(worldFacet);
+        const offset = worldAnchor.sub(worldFacet);
+        offsets[facetKey] = offset.toArray();
 
         const worldPos = computeAnchorWorldPosition(facetKey);
         const exploded = animationData?.crystalConfig?.explodedPositions?.[facetKey];
         if (worldPos && exploded && import.meta.env.DEV) {
           const manualWorld = new THREE.Vector3()
             .fromArray(exploded)
-            .add(rotatedOffset);
+            .add(offset);
           const diff = worldPos.clone().sub(manualWorld);
           const distance = diff.length();
           if (distance > 0.001) {
