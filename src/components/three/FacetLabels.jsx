@@ -79,17 +79,38 @@ const FacetLabels = React.memo(function FacetLabels({
     };
   }, []);
 
-  // Convert static exploded positions plus anchor offsets to screen space
-  const screenPositions = useMemo(() => {
+  // Combine exploded positions with anchor offsets to world positions
+  const anchorWorldPositions = useMemo(() => {
     const vec = new Vector3();
-    const offset = new Vector3(); // ✅ Reuse this Vector3 instance
+    const offset = new Vector3();
     const result = {};
-    Object.entries(explodedPositions).forEach(([key, pos]) => {
+    Object.entries(explodedPositions).forEach(([facetKey, pos]) => {
       vec.fromArray(pos);
-      if (anchorOffsets[key]) {
-        offset.fromArray(anchorOffsets[key]); // ✅ Reuse existing Vector3
+      if (anchorOffsets[facetKey]) {
+        offset.fromArray(anchorOffsets[facetKey]);
         vec.add(offset);
       }
+      console.log(
+        'Facet',
+        facetKey,
+        'exploded',
+        pos,
+        'offset',
+        anchorOffsets[facetKey],
+        'world',
+        vec.toArray()
+      );
+      result[facetKey] = vec.clone();
+    });
+    return result;
+  }, [anchorOffsets]);
+
+  // Convert world positions to screen space
+  const screenPositions = useMemo(() => {
+    const vec = new Vector3();
+    const result = {};
+    Object.entries(anchorWorldPositions).forEach(([key, worldPos]) => {
+      vec.copy(worldPos);
       vec.project(camera);
       result[key] = [
         (vec.x * 0.5 + 0.5) * size.width,
@@ -97,7 +118,7 @@ const FacetLabels = React.memo(function FacetLabels({
       ];
     });
     return result;
-  }, [camera, size.width, size.height, anchorOffsets]);
+  }, [anchorWorldPositions, camera, size.width, size.height]);
 
   const shouldShow = useMemo(() => {
     if (performanceProfile?.simplifiedAnimations) return false;
