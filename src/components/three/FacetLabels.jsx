@@ -5,6 +5,7 @@ import { Vector3 } from 'three';
 import Headline from '../ui/Headline';
 import { deriveGlowFromBase } from '../../utils/color';
 import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController';
+import { explodedPositions } from '../../crystalConfig';
 import '../../styles/facet-label.css';
 
 // Individual label rendered without card styling
@@ -49,7 +50,6 @@ const FacetLabels = React.memo(function FacetLabels({
   onHoverChange,
   animationData,
   performanceProfile,
-  labelPositions = {},
 }) {
   const { camera, size } = useThree();
   const [visible, setVisible] = useState(false);
@@ -78,11 +78,11 @@ const FacetLabels = React.memo(function FacetLabels({
     };
   }, []);
 
-  // Convert world positions to screen space once
+  // Convert static exploded positions to screen space
   const screenPositions = useMemo(() => {
     const vec = new Vector3();
     const result = {};
-    Object.entries(labelPositions).forEach(([key, pos]) => {
+    Object.entries(explodedPositions).forEach(([key, pos]) => {
       vec.fromArray(pos);
       vec.project(camera);
       result[key] = [
@@ -91,11 +91,12 @@ const FacetLabels = React.memo(function FacetLabels({
       ];
     });
     return result;
-  }, [labelPositions, camera, size.width, size.height]);
+  }, [camera, size.width, size.height]);
 
   const shouldShow = useMemo(() => {
     if (performanceProfile?.simplifiedAnimations) return false;
     if (animationData?.isScrolling) return false;
+    if (animationData?.isTransitioning) return false;
     if (animationData?.crystalForm !== 'exploded') return false;
     if (animationData?.currentZone !== 'overview') return false;
     if (animationData?.focusedProject) return false;
@@ -105,6 +106,7 @@ const FacetLabels = React.memo(function FacetLabels({
     animationData?.currentZone,
     animationData?.focusedProject,
     animationData?.isScrolling,
+    animationData?.isTransitioning,
     performanceProfile?.simplifiedAnimations,
   ]);
 

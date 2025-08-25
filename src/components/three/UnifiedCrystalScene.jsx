@@ -48,9 +48,6 @@ const UnifiedCrystalScene = forwardRef(({
   // Track material updates so we can reapply when ready
   const [materialVersion, setMaterialVersion] = useState(0);
 
-  // Precomputed anchor-based label positions
-  const [labelPositions, setLabelPositions] = useState({});
-
   // FIXED: Better tracking of focus changes
   const prevFocusedFacetRef = useRef(null);
   const prevMaterialVersionRef = useRef(materialVersion);
@@ -181,32 +178,6 @@ const UnifiedCrystalScene = forwardRef(({
       setModelsLoaded(true);
     }
   }, [wholeCrystal, ...facetModels]);
-
-  // Sample anchor world positions once facets reach their exploded state
-  useEffect(() => {
-    if (!modelsLoaded) return;
-    if (animationData?.crystalForm !== 'exploded') return;
-    if (!showFacets) return;
-
-    // Allow a brief delay for facets to settle into position
-    const handle = setTimeout(() => {
-      const positions = {};
-      facetKeys.forEach((facetKey, index) => {
-        const facetRef = facetRefs.current[index];
-        const anchor = facetRef?.current?.getObjectByName(`anchor_${facetKey}`);
-        if (!anchor) return;
-
-        const worldPos = new THREE.Vector3();
-        anchor.getWorldPosition(worldPos);
-        positions[facetKey] = worldPos.toArray();
-      });
-
-      setLabelPositions(positions);
-    }, 100);
-
-    return () => clearTimeout(handle);
-  }, [animationData?.crystalForm, modelsLoaded, showFacets, facetKeys]);
-
 
   // FIXED: Improved handleLabelHover with better state management
   const handleLabelHover = useCallback(
@@ -689,7 +660,6 @@ const UnifiedCrystalScene = forwardRef(({
         onHoverChange={handleLabelHover}
         animationData={animationData}
         performanceProfile={performanceProfile}
-        labelPositions={labelPositions}
       />
 
       {/* Debug visualization when enabled */}
