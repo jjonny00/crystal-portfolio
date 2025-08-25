@@ -79,25 +79,60 @@ const FacetLabels = React.memo(function FacetLabels({
     };
   }, []);
 
-  // Convert static exploded positions plus anchor offsets to screen space
+  // Calculate final anchor world positions
+  const anchorWorldPositions = useMemo(() => {
+    const positions = {};
+
+    Object.entries(explodedPositions).forEach(([facetKey, facetPosition]) => {
+      const anchorOffset = anchorOffsets[facetKey];
+
+      if (anchorOffset) {
+        const facetPosVector = new Vector3().fromArray(facetPosition);
+        const anchorOffsetVector = new Vector3().fromArray(anchorOffset);
+        const finalPosition = facetPosVector.add(anchorOffsetVector);
+
+        positions[facetKey] = finalPosition;
+
+        if (import.meta.env.DEV) {
+          console.log(`📍 Final anchor position for ${facetKey}:`, {
+            explodedPos: facetPosition,
+            anchorOffset: anchorOffset,
+            finalPos: finalPosition.toArray(),
+          });
+        }
+      }
+    });
+
+    return positions;
+  }, [anchorOffsets]);
+
+  // Convert world positions to screen space
   const screenPositions = useMemo(() => {
     const vec = new Vector3();
-    const offset = new Vector3(); // ✅ Reuse this Vector3 instance
     const result = {};
-    Object.entries(explodedPositions).forEach(([key, pos]) => {
-      vec.fromArray(pos);
-      if (anchorOffsets[key]) {
-        offset.fromArray(anchorOffsets[key]); // ✅ Reuse existing Vector3
-        vec.add(offset);
-      }
-      vec.project(camera);
+
+    Object.entries(anchorWorldPositions).forEach(([key, pos]) => {
+      vec.copy(pos).project(camera);
       result[key] = [
         (vec.x * 0.5 + 0.5) * size.width,
         (-vec.y * 0.5 + 0.5) * size.height,
       ];
     });
+
     return result;
-  }, [camera, size.width, size.height, anchorOffsets]);
+  }, [camera, size.width, size.height, anchorWorldPositions]);
+
+  // Debug helper to inspect projection results
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+
+    window.testScreenProjection = () => {
+      Object.entries(screenPositions).forEach(([key, screen]) => {
+        const world = anchorWorldPositions[key];
+        console.log(`${key}: world`, world ? world.toArray() : 'n/a', '-> screen', screen);
+      });
+    };
+  }, [anchorWorldPositions, screenPositions]);
 
   const shouldShow = useMemo(() => {
     if (performanceProfile?.simplifiedAnimations) return false;

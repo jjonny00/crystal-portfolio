@@ -14,6 +14,7 @@ import GlowingSphereImage, { BLENDING_MODES } from './GlowingSphereImage'
 import { getProjectColorByFacetKey } from '../../data/projects'
 import FacetLabels from './FacetLabels'
 import projects from '../../data/projects'
+import { explodedPositions } from '../../crystalConfig'
 
 const UnifiedCrystalScene = forwardRef(({ 
   animationData,
@@ -181,24 +182,64 @@ const UnifiedCrystalScene = forwardRef(({
     }
   }, [wholeCrystal, ...facetModels]);
 
-  // Calculate anchor offsets relative to facet centers once models are ready
+  // When models load, extract anchor offsets relative to model origin
   useEffect(() => {
     if (!modelsLoaded) return;
+
     const offsets = {};
+
     facetKeys.forEach((facetKey, index) => {
       const model = facetModels[index];
       if (!model?.scene) return;
-      const anchor = model.scene.getObjectByName(`anchor_${facetKey}`);
-      if (!anchor) return;
-      const anchorPos = new THREE.Vector3();
-      anchor.getWorldPosition(anchorPos);
-      const centerPos = new THREE.Vector3();
-      model.scene.getWorldPosition(centerPos);
-      anchorPos.sub(centerPos);
-      offsets[facetKey] = anchorPos.toArray();
+
+      // CRITICAL: Find anchor in the GLB file
+      const anchorName = `anchor_${facetKey}`;
+      const anchor = model.scene.getObjectByName(anchorName);
+
+      if (anchor) {
+        // Get anchor's local position within the model (this is the offset we need)
+        const anchorLocalPosition = anchor.position.clone();
+        offsets[facetKey] = anchorLocalPosition.toArray();
+
+        if (import.meta.env.DEV) {
+          console.log(`📍 Extracted anchor offset for ${facetKey}:`, anchorLocalPosition.toArray());
+        }
+      } else if (import.meta.env.DEV) {
+        console.warn(`⚠️ Anchor not found for ${facetKey}`);
+      }
     });
+
     setAnchorOffsets(offsets);
   }, [modelsLoaded]);
+
+  // Debug helpers to verify anchor and facet positions
+  useEffect(() => {
+    if (!modelsLoaded || !import.meta.env.DEV) return;
+
+    window.inspectGLBAnchors = () => {
+      facetKeys.forEach((facetKey, index) => {
+        const model = facetModels[index];
+        const anchor = model?.scene?.getObjectByName(`anchor_${facetKey}`);
+        console.log(`anchor_${facetKey}:`, anchor ? anchor.position.toArray() : 'NOT FOUND');
+      });
+    };
+
+    window.verifyExplodedPositions = () => {
+      facetKeys.forEach((facetKey, index) => {
+        const ref = facetRefs.current[index];
+        if (ref?.current) {
+          const pos = new THREE.Vector3();
+          ref.current.getWorldPosition(pos);
+          console.log(
+            `${facetKey} world pos:`,
+            pos.toArray(),
+            'expected:',
+            explodedPositions[facetKey]
+          );
+        }
+      });
+    };
+  }, [modelsLoaded, facetKeys, facetModels]);
 
   // FIXED: Improved handleLabelHover with better state management
   const handleLabelHover = useCallback(
