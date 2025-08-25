@@ -58,14 +58,12 @@ const FacetLabels = React.memo(function FacetLabels({
     if (animationData?.crystalForm !== 'exploded') return false;
     if (animationData?.currentZone !== 'overview') return false;
     if (animationData?.focusedProject) return false;
-    if (typeof animationData?.zoneProgress === 'number' && animationData.zoneProgress < 0.8) return false;
     return true;
   }, [
     animationData?.crystalForm,
     animationData?.currentZone,
     animationData?.focusedProject,
     animationData?.isScrolling,
-    animationData?.zoneProgress,
     performanceProfile?.simplifiedAnimations,
   ]);
 
