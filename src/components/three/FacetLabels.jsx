@@ -1,12 +1,14 @@
-import React, { useRef, useMemo } from 'react';
-import { Html } from '@react-three/drei';
-import { useFrame } from '@react-three/fiber';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { createRoot } from 'react-dom/client';
+import { useThree } from '@react-three/fiber';
+import { Vector3 } from 'three';
 import Headline from '../ui/Headline';
 import { deriveGlowFromBase } from '../../utils/color';
 import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController';
+import { explodedPositions } from '../../crystalConfig';
 import '../../styles/facet-label.css';
 
-// Individual label rendered in HTML overlay
+// Individual label rendered without card styling
 const OptimizedLabel = React.memo(function OptimizedLabel({
   project,
   onHover,
@@ -41,73 +43,143 @@ const OptimizedLabel = React.memo(function OptimizedLabel({
   );
 });
 
-// Optimized facet labels component
+// Render facet labels as static screen-space elements
 const FacetLabels = React.memo(function FacetLabels({
-  anchors = {},
   projects = [],
   scrollToProgress,
   onHoverChange,
   animationData,
   performanceProfile,
+  anchorOffsets = {},
 }) {
-  const groupRefs = useRef({});
+  const { camera, size } = useThree();
+  const [visible, setVisible] = useState(false);
+  const [fadeDuration, setFadeDuration] = useState(0.8);
+  const [rootReady, setRootReady] = useState(false);
+  const layerRef = useRef(null);
+  const rootRef = useRef(null);
 
-  const shouldShowLabels = useMemo(() => {
+  // Create a fixed layer for labels
+  useEffect(() => {
+    const layer = document.createElement('div');
+    layer.style.position = 'fixed';
+    layer.style.top = '0';
+    layer.style.left = '0';
+    layer.style.width = '100%';
+    layer.style.height = '100%';
+    layer.style.pointerEvents = 'none';
+    layer.style.zIndex = '20';
+    document.body.appendChild(layer);
+    layerRef.current = layer;
+    rootRef.current = createRoot(layer);
+    setRootReady(true);
+    return () => {
+      rootRef.current?.unmount();
+      document.body.removeChild(layer);
+    };
+  }, []);
+
+  // Convert static exploded positions plus anchor offsets to screen space
+  const screenPositions = useMemo(() => {
+    const vec = new Vector3();
+    const offset = new Vector3();
+    const result = {};
+    Object.entries(explodedPositions).forEach(([key, pos]) => {
+      vec.fromArray(pos);
+      if (anchorOffsets[key]) {
+        offset.fromArray(anchorOffsets[key]);
+        vec.add(offset);
+      }
+      vec.project(camera);
+      result[key] = [
+        (vec.x * 0.5 + 0.5) * size.width,
+        (-vec.y * 0.5 + 0.5) * size.height,
+      ];
+    });
+    return result;
+  }, [camera, size.width, size.height, anchorOffsets]);
+
+  const shouldShow = useMemo(() => {
     if (performanceProfile?.simplifiedAnimations) return false;
     if (animationData?.isScrolling) return false;
-    return animationData?.crystalForm === 'exploded';
+    if (animationData?.isTransitioning) return false;
+    if (animationData?.crystalForm !== 'exploded') return false;
+    if (animationData?.currentZone !== 'overview') return false;
+    if (animationData?.focusedProject) return false;
+    return true;
   }, [
     animationData?.crystalForm,
+    animationData?.currentZone,
+    animationData?.focusedProject,
     animationData?.isScrolling,
+    animationData?.isTransitioning,
     performanceProfile?.simplifiedAnimations,
   ]);
 
-  useFrame(() => {
-    if (!shouldShowLabels) return;
+  // Delay fade-in so we avoid showing during active explosion
+  useEffect(() => {
+    let timeout;
+    if (shouldShow) {
+      timeout = setTimeout(() => {
+        setFadeDuration(0.8);
+        setVisible(true);
+      }, 500);
+    } else {
+      setFadeDuration(0.2);
+      setVisible(false);
+    }
+    return () => clearTimeout(timeout);
+  }, [shouldShow]);
 
-    Object.entries(anchors).forEach(([key, anchor]) => {
-      const group = groupRefs.current[key];
-      if (anchor && group) {
-        anchor.getWorldPosition(group.position);
-      }
-    });
-  });
+  // Render labels into detached root
+  useEffect(() => {
+    if (!rootRef.current) return;
+    if (!layerRef.current) return;
+    if (performanceProfile?.simplifiedAnimations && !visible) {
+      rootRef.current.render(null);
+      return;
+    }
 
-  if (!shouldShowLabels) {
-    return null;
-  }
-
-  return (
-    <>
-      {projects.map((project) => {
-        const anchor = anchors[project.facetKey];
-        if (!anchor) return null;
-
-        return (
-          <group
-            key={project.facetKey}
-            ref={(ref) => {
-              if (ref) groupRefs.current[project.facetKey] = ref;
-            }}
-          >
-            <Html
-              center
-              portal={{ current: document.body }}
-              distanceFactor={10}
-              style={{ pointerEvents: 'auto', zIndex: 20 }}
+    rootRef.current.render(
+      <>
+        {projects.map((project) => {
+          const pos = screenPositions[project.facetKey];
+          if (!pos) return null;
+          return (
+            <div
+              key={project.facetKey}
+              style={{
+                position: 'absolute',
+                left: `${pos[0]}px`,
+                top: `${pos[1]}px`,
+                transform: 'translate(-50%, -50%)',
+                opacity: visible ? 1 : 0,
+                transition: `opacity ${fadeDuration}s`,
+                pointerEvents: visible ? 'auto' : 'none',
+              }}
             >
               <OptimizedLabel
                 project={project}
                 onHover={onHoverChange}
                 scrollToProgress={scrollToProgress}
               />
-            </Html>
-          </group>
-        );
-      })}
-    </>
-  );
+            </div>
+          );
+        })}
+      </>
+    );
+  }, [
+    projects,
+    screenPositions,
+    visible,
+    fadeDuration,
+    onHoverChange,
+    scrollToProgress,
+    performanceProfile?.simplifiedAnimations,
+    rootReady,
+  ]);
+
+  return null;
 });
 
 export default FacetLabels;
-

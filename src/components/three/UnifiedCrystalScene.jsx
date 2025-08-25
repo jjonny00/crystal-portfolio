@@ -67,6 +67,8 @@ const UnifiedCrystalScene = forwardRef(({
 
   // Track when GLTF models have loaded
   const [modelsLoaded, setModelsLoaded] = useState(false);
+  // Store precomputed anchor offsets for label placement
+  const [anchorOffsets, setAnchorOffsets] = useState({});
 
   const handleMaterialReady = useCallback(() => {
     setMaterialVersion(v => v + 1);
@@ -179,17 +181,24 @@ const UnifiedCrystalScene = forwardRef(({
     }
   }, [wholeCrystal, ...facetModels]);
 
-  const facetAnchors = useMemo(() => {
-    const anchors = {}
+  // Calculate anchor offsets relative to facet centers once models are ready
+  useEffect(() => {
+    if (!modelsLoaded) return;
+    const offsets = {};
     facetKeys.forEach((facetKey, index) => {
-      const facetRef = facetRefs.current[index]?.current
-      if (facetRef) {
-        const anchor = facetRef.getObjectByName(`anchor_${facetKey}`)
-        if (anchor) anchors[facetKey] = anchor
-      }
-    })
-    return anchors
-  }, [facetKeys, showFacets, modelsLoaded])
+      const model = facetModels[index];
+      if (!model?.scene) return;
+      const anchor = model.scene.getObjectByName(`anchor_${facetKey}`);
+      if (!anchor) return;
+      const anchorPos = new THREE.Vector3();
+      anchor.getWorldPosition(anchorPos);
+      const centerPos = new THREE.Vector3();
+      model.scene.getWorldPosition(centerPos);
+      anchorPos.sub(centerPos);
+      offsets[facetKey] = anchorPos.toArray();
+    });
+    setAnchorOffsets(offsets);
+  }, [modelsLoaded]);
 
   // FIXED: Improved handleLabelHover with better state management
   const handleLabelHover = useCallback(
@@ -666,16 +675,14 @@ const UnifiedCrystalScene = forwardRef(({
         );
       })}
 
-      {animationData.currentZone === 'overview' && animationData.crystalForm === 'exploded' && (
-        <FacetLabels
-          anchors={facetAnchors}
-          projects={projects}
-          scrollToProgress={scrollToProgress}
-          onHoverChange={handleLabelHover}
-          animationData={animationData}
-          performanceProfile={performanceProfile}
-        />
-      )}
+      <FacetLabels
+        projects={projects}
+        scrollToProgress={scrollToProgress}
+        onHoverChange={handleLabelHover}
+        animationData={animationData}
+        performanceProfile={performanceProfile}
+        anchorOffsets={anchorOffsets}
+      />
 
       {/* Debug visualization when enabled */}
       {showCrystalDebug && showFacets && !simplifiedAnimations && (
