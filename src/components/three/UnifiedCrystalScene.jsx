@@ -185,7 +185,7 @@ const UnifiedCrystalScene = forwardRef(({
 
   // Compute label positions from final anchor world locations
   useEffect(() => {
-    if (!modelsLoaded) return;
+    if (!modelsLoaded || !showFacets) return;
 
     if (animationData?.crystalForm !== 'exploded') {
       setLabelPositions({});
@@ -204,14 +204,11 @@ const UnifiedCrystalScene = forwardRef(({
       const worldPos = new THREE.Vector3();
       anchor.getWorldPosition(worldPos);
 
-      // Derive base position relative to facet and add full exploded offset
-      const basePos = worldPos.clone().sub(facet.position);
-      const finalPos = basePos.add(ANIMATION_CONFIG.crystal.explodedPositions[facetKey]);
-      positions[facetKey] = finalPos.toArray();
+      positions[facetKey] = worldPos.toArray();
     });
 
     setLabelPositions(positions);
-  }, [modelsLoaded, animationData?.crystalForm, facetKeys]);
+  }, [modelsLoaded, showFacets, animationData?.crystalForm, facetKeys]);
 
 
   // FIXED: Improved handleLabelHover with better state management
