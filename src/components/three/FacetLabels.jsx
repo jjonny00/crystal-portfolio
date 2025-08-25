@@ -1,11 +1,13 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Html } from '@react-three/drei';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useThree } from '@react-three/fiber';
+import { Vector3 } from 'three';
 import Headline from '../ui/Headline';
 import { deriveGlowFromBase } from '../../utils/color';
 import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController';
 import '../../styles/facet-label.css';
 
-// Individual label rendered in HTML overlay
+// Individual label rendered without card styling
 const OptimizedLabel = React.memo(function OptimizedLabel({
   project,
   onHover,
@@ -40,7 +42,7 @@ const OptimizedLabel = React.memo(function OptimizedLabel({
   );
 });
 
-// Optimized facet labels component
+// Render facet labels as static screen-space elements
 const FacetLabels = React.memo(function FacetLabels({
   projects = [],
   scrollToProgress,
@@ -49,8 +51,42 @@ const FacetLabels = React.memo(function FacetLabels({
   performanceProfile,
   labelPositions = {},
 }) {
+  const { camera, size } = useThree();
   const [visible, setVisible] = useState(false);
   const [fadeDuration, setFadeDuration] = useState(0.8);
+  const layerRef = useRef(null);
+
+  // Create a fixed layer for labels
+  useEffect(() => {
+    const layer = document.createElement('div');
+    layer.style.position = 'fixed';
+    layer.style.top = '0';
+    layer.style.left = '0';
+    layer.style.width = '100%';
+    layer.style.height = '100%';
+    layer.style.pointerEvents = 'none';
+    layer.style.zIndex = '20';
+    document.body.appendChild(layer);
+    layerRef.current = layer;
+    return () => {
+      document.body.removeChild(layer);
+    };
+  }, []);
+
+  // Convert world positions to screen space once
+  const screenPositions = useMemo(() => {
+    const vec = new Vector3();
+    const result = {};
+    Object.entries(labelPositions).forEach(([key, pos]) => {
+      vec.fromArray(pos);
+      vec.project(camera);
+      result[key] = [
+        (vec.x * 0.5 + 0.5) * size.width,
+        (-vec.y * 0.5 + 0.5) * size.height,
+      ];
+    });
+    return result;
+  }, [labelPositions, camera, size.width, size.height]);
 
   const shouldShow = useMemo(() => {
     if (performanceProfile?.simplifiedAnimations) return false;
@@ -67,52 +103,53 @@ const FacetLabels = React.memo(function FacetLabels({
     performanceProfile?.simplifiedAnimations,
   ]);
 
+  // Delay fade-in so we avoid showing during active explosion
   useEffect(() => {
+    let timeout;
     if (shouldShow) {
-      setFadeDuration(0.8);
-      setVisible(true);
+      timeout = setTimeout(() => {
+        setFadeDuration(0.8);
+        setVisible(true);
+      }, 500);
     } else {
       setFadeDuration(0.2);
       setVisible(false);
     }
+    return () => clearTimeout(timeout);
   }, [shouldShow]);
 
-  if (performanceProfile?.simplifiedAnimations && !visible) {
-    return null;
-  }
+  if (!layerRef.current) return null;
+  if (performanceProfile?.simplifiedAnimations && !visible) return null;
 
-  return (
+  return createPortal(
     <>
       {projects.map((project) => {
-        const position = labelPositions[project.facetKey];
-        if (!position) return null;
-
+        const pos = screenPositions[project.facetKey];
+        if (!pos) return null;
         return (
-          <group key={project.facetKey} position={position}>
-            <Html
-              center
-              portal={{ current: document.body }}
-              distanceFactor={10}
-              style={{
-                pointerEvents: visible ? 'auto' : 'none',
-                zIndex: 20,
-                opacity: visible ? 1 : 0,
-                transition: `opacity ${fadeDuration}s`,
-                willChange: 'opacity',
-              }}
-            >
-              <OptimizedLabel
-                project={project}
-                onHover={onHoverChange}
-                scrollToProgress={scrollToProgress}
-              />
-            </Html>
-          </group>
+          <div
+            key={project.facetKey}
+            style={{
+              position: 'absolute',
+              left: `${pos[0]}px`,
+              top: `${pos[1]}px`,
+              transform: 'translate(-50%, -50%)',
+              opacity: visible ? 1 : 0,
+              transition: `opacity ${fadeDuration}s`,
+              pointerEvents: visible ? 'auto' : 'none',
+            }}
+          >
+            <OptimizedLabel
+              project={project}
+              onHover={onHoverChange}
+              scrollToProgress={scrollToProgress}
+            />
+          </div>
         );
       })}
-    </>
+    </>,
+    layerRef.current
   );
 });
 
 export default FacetLabels;
-
