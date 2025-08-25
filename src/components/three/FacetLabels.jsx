@@ -5,7 +5,6 @@ import { Vector3 } from 'three';
 import Headline from '../ui/Headline';
 import { deriveGlowFromBase } from '../../utils/color';
 import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController';
-import { explodedPositions } from '../../crystalConfig';
 import '../../styles/facet-label.css';
 
 // Individual label rendered without card styling
@@ -82,57 +81,34 @@ const FacetLabels = React.memo(function FacetLabels({
   // Calculate final anchor world positions
   const anchorWorldPositions = useMemo(() => {
     const positions = {};
+    const facetPositions = animationData?.crystalConfig?.positions || {};
 
-    Object.entries(explodedPositions).forEach(([facetKey, facetPosition]) => {
+    Object.entries(facetPositions).forEach(([facetKey, facetPosition]) => {
       const anchorOffset = anchorOffsets[facetKey];
+      if (!anchorOffset) return;
 
-      if (anchorOffset) {
-        const facetPosVector = new Vector3().fromArray(facetPosition);
-        const anchorOffsetVector = new Vector3().fromArray(anchorOffset);
-        const finalPosition = facetPosVector.add(anchorOffsetVector);
+      const facetPosVector = facetPosition.isVector3
+        ? facetPosition.clone()
+        : new Vector3().fromArray(facetPosition);
+      const anchorOffsetVector = new Vector3().fromArray(anchorOffset);
+      const finalPosition = facetPosVector.add(anchorOffsetVector);
 
-        positions[facetKey] = finalPosition;
+      positions[facetKey] = finalPosition;
 
-        if (import.meta.env.DEV) {
-          console.log(`📍 Final anchor position for ${facetKey}:`, {
-            explodedPos: facetPosition,
-            anchorOffset: anchorOffset,
-            finalPos: finalPosition.toArray(),
-          });
-        }
+      if (import.meta.env.DEV) {
+        console.log(`📍 Final anchor position for ${facetKey}:`, {
+          explodedPos: facetPosition.toArray ? facetPosition.toArray() : facetPosition,
+          anchorOffset: anchorOffset,
+          finalPos: finalPosition.toArray(),
+        });
       }
     });
 
     return positions;
-  }, [anchorOffsets]);
+  }, [anchorOffsets, animationData?.crystalConfig?.positions]);
 
-  // Convert world positions to screen space
-  const screenPositions = useMemo(() => {
-    const vec = new Vector3();
-    const result = {};
-
-    Object.entries(anchorWorldPositions).forEach(([key, pos]) => {
-      vec.copy(pos).project(camera);
-      result[key] = [
-        (vec.x * 0.5 + 0.5) * size.width,
-        (-vec.y * 0.5 + 0.5) * size.height,
-      ];
-    });
-
-    return result;
-  }, [camera, size.width, size.height, anchorWorldPositions]);
-
-  // Debug helper to inspect projection results
-  useEffect(() => {
-    if (!import.meta.env.DEV) return;
-
-    window.testScreenProjection = () => {
-      Object.entries(screenPositions).forEach(([key, screen]) => {
-        const world = anchorWorldPositions[key];
-        console.log(`${key}: world`, world ? world.toArray() : 'n/a', '-> screen', screen);
-      });
-    };
-  }, [anchorWorldPositions, screenPositions]);
+  // Convert world positions to screen space when labels become visible or size changes
+  const [screenPositions, setScreenPositions] = useState({});
 
   const shouldShow = useMemo(() => {
     if (performanceProfile?.simplifiedAnimations) return false;
@@ -150,6 +126,36 @@ const FacetLabels = React.memo(function FacetLabels({
     animationData?.isTransitioning,
     performanceProfile?.simplifiedAnimations,
   ]);
+
+  useEffect(() => {
+    if (!shouldShow) return;
+
+    const vec = new Vector3();
+    const result = {};
+    camera.updateMatrixWorld();
+
+    Object.entries(anchorWorldPositions).forEach(([key, pos]) => {
+      vec.copy(pos).project(camera);
+      result[key] = [
+        (vec.x * 0.5 + 0.5) * size.width,
+        (-vec.y * 0.5 + 0.5) * size.height,
+      ];
+    });
+
+    setScreenPositions(result);
+  }, [shouldShow, anchorWorldPositions, camera, size.width, size.height]);
+
+  // Debug helper to inspect projection results
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+
+    window.testScreenProjection = () => {
+      Object.entries(screenPositions).forEach(([key, screen]) => {
+        const world = anchorWorldPositions[key];
+        console.log(`${key}: world`, world ? world.toArray() : 'n/a', '-> screen', screen);
+      });
+    };
+  }, [anchorWorldPositions, screenPositions]);
 
   // Delay fade-in so we avoid showing during active explosion
   useEffect(() => {
