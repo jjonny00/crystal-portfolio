@@ -6,6 +6,7 @@ import { PERFORMANCE_PROFILES, detectDeviceCapabilities } from './deviceProfiles
 const STORAGE_KEY = 'crystal-performance-config-v2';
 const VERSION_KEY = 'crystal-performance-version-v2';
 const CURRENT_VERSION = '3.0'; // New version for conservative approach
+const CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // ~7 days
 
 export default class PerformanceManagerV2 {
   constructor() {
@@ -25,20 +26,20 @@ export default class PerformanceManagerV2 {
     this._progressCallback = callback;
   }
 
-  async initialize() {
+  async initialize({ forceRetest = false } = {}) {
     if (this._initPromise) return this._initPromise;
-    
-    this._initPromise = this._performInitialization();
+
+    this._initPromise = this._performInitialization({ forceRetest });
     return this._initPromise;
   }
 
-  async _performInitialization() {
+  async _performInitialization({ forceRetest = false } = {}) {
     this._initialized = true;
 
     // Check if we have valid cached results
     const cachedData = this._getCachedResults();
-    
-    if (cachedData && this._isCacheValid(cachedData)) {
+
+    if (cachedData && this._isCacheValid(cachedData, forceRetest)) {
       if (import.meta.env.DEV) {
         console.log('🔧 Using cached performance profile:', cachedData.tier);
       }
@@ -101,16 +102,16 @@ export default class PerformanceManagerV2 {
     return null;
   }
 
-  _isCacheValid(cachedData) {
+  _isCacheValid(cachedData, forceRetest = false) {
     // Cache is always invalid in dev for testing
     if (import.meta.env.DEV) return false;
-    
+    if (forceRetest) return false;
+
     if (cachedData.appVersion !== CURRENT_VERSION) return false;
 
-    const maxAge = 24 * 60 * 60 * 1000; // 24 hours
     const age = Date.now() - (cachedData.timestamp || 0);
 
-    return age < maxAge && cachedData.tier && cachedData.testResults;
+    return age < CACHE_TTL && cachedData.tier && cachedData.testResults;
   }
 
   _cacheResults(tier, testResults) {
@@ -473,22 +474,15 @@ export default class PerformanceManagerV2 {
   }
 
   async forceRetest() {
-    // Clear cache
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-      localStorage.removeItem(VERSION_KEY);
-    } catch (error) {
-      // Ignore
-    }
-
-    // Reset state
+    // Clear cache and reset state
+    this.clearCache();
     this._ready = false;
     this._initialized = false;
     this._initPromise = null;
     this._testResults = null;
 
-    // Re-run initialization
-    return this.initialize();
+    // Re-run initialization and ignore any leftover cache
+    return this.initialize({ forceRetest: true });
   }
 
   clearCache() {
