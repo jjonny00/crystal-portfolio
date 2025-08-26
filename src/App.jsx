@@ -98,6 +98,8 @@ function App() {
   const [initProgress, setInitProgress] = useState(0);
   const [exitLoader, setExitLoader] = useState(false);
   const [showLoader, setShowLoader] = useState(true);
+  const [assetProgress, setAssetProgress] = useState(0);
+  const [testProgress, setTestProgress] = useState(0);
 
   // UPDATED: Use V2 performance hook
   const {
@@ -106,7 +108,7 @@ function App() {
     isReady: performanceReady,
     error: performanceError,
     testResults,
-    testProgress,
+    testProgress: testProgressHook,
     testStatus,
     updateProfile,
     forceRetest,
@@ -116,7 +118,7 @@ function App() {
 
   // UPDATED: Use V2 asset loader hook
   const {
-    progress: assetProgress,
+    progress: assetProgressHook,
     currentAsset,
     loadedAssets,
     totalAssets,
@@ -124,7 +126,15 @@ function App() {
     isReady: assetsReady,
     hasErrors: assetHasErrors,
     retry: retryAssets
-  } = useAssetLoaderV2(performanceProfile);
+  } = useAssetLoaderV2(performanceReady ? performanceProfile : null);
+
+  useEffect(() => {
+    setAssetProgress(assetProgressHook);
+  }, [assetProgressHook]);
+
+  useEffect(() => {
+    setTestProgress(testProgressHook);
+  }, [testProgressHook]);
 
   // Track when GLTF models have loaded via Fixed3DCanvas
   const fixedCanvasRef = useRef();
@@ -212,9 +222,11 @@ function App() {
         });
       }
       setIsAppReady(true);
-      setExitLoader(true);
-      // allow rings to animate to completion before fading out
-      setTimeout(() => setShowLoader(false), 600);
+      setInitProgress(100);
+      setAssetProgress(100);
+      setTestProgress(100);
+      setTimeout(() => setExitLoader(true), 800);
+      setTimeout(() => setShowLoader(false), 1400);
     }
   }, [performanceReady, assetsReady, initProgress, exitLoader, performanceTier, performanceProfile]);
 
