@@ -163,22 +163,23 @@ export default class PerformanceManagerV2 {
       const mediumResult = await this._testTier('medium', 33, 50, 384);
       results.medium = mediumResult;
 
-      if (mediumResult.avgFps >= 50 && mediumResult.minFps >= 45) {
-        // Try high tier next with an even heavier load
+      if (mediumResult.avgFps >= 45 && mediumResult.minFps >= 40) {
+        // Medium was acceptable, attempt the high tier
         const highResult = await this._testTier('high', 50, 66, 512);
         results.high = highResult;
-        if (highResult.avgFps >= 58 && highResult.minFps >= 50) {
+        if (highResult.avgFps >= 50 && highResult.minFps >= 45) {
           return { tier: 'high', testResults: results };
         }
+        // High failed, stay on medium
         return { tier: 'medium', testResults: results };
       } else {
-        // Test low tier at a reduced resolution
+        // Medium failed, try the low tier at a reduced resolution
         const lowResult = await this._testTier('low', 50, 66, 256);
         results.low = lowResult;
-        if (lowResult.avgFps >= 40 && lowResult.minFps >= 35) {
+        if (lowResult.avgFps >= 35 && lowResult.minFps >= 30) {
           return { tier: 'low', testResults: results };
         }
-        // Even low failed; fallback
+        // Even low failed; fallback to device capability detection
         return { tier: fallbackTier(), testResults: results };
       }
     } catch (error) {
