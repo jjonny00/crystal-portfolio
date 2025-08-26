@@ -171,28 +171,9 @@ export default class PerformanceManagerV2 {
         return { tier: 'medium', testResults: results };
       }
 
-      // Medium test failed, evaluate low tier
-      const lowResult = await this._testTier('low', 50, 66, 256);
-      results.low = lowResult;
-      if (lowResult.avgFps >= 35 && lowResult.minFps >= 30 && !lowResult.failedEarly) {
-        return { tier: 'low', testResults: results };
-      }
-
-      // Even low tier failed – fall back to capability detection
-      const fallback = detectDeviceCapabilities();
-      const { capabilities } = fallback;
-      const renderer = capabilities.renderer?.toLowerCase() || '';
-      let finalTier = 'medium';
-
-      if (capabilities.isMobile) {
-        const highEndMobile = /m1|m2|a1[5-9]/i.test(renderer);
-        finalTier = highEndMobile ? 'high' : 'medium';
-      } else {
-        // Desktop defaults to medium, drop to low only for very old hardware
-        finalTier = fallback.tier === 'low' ? 'low' : 'medium';
-      }
-
-      return { tier: finalTier, testResults: results };
+      // Medium test failed, drop directly to low tier
+      this._reportProgress(50, 'Medium tier insufficient, using low profile');
+      return { tier: 'low', testResults: results };
     } catch (error) {
       console.warn('Smart performance test failed:', error);
       return { tier: 'low', testResults: results };
