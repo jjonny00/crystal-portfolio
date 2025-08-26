@@ -1,5 +1,5 @@
 // src/utils/PerformanceManagerV2.js
-// FIXED: Conservative progressive performance testing system
+// FIXED: Smart progressive performance testing system
 
 import { PERFORMANCE_PROFILES, detectDeviceCapabilities } from './deviceProfiles.js';
 
@@ -18,6 +18,7 @@ export default class PerformanceManagerV2 {
     this._testResults = null;
     this._listeners = new Set();
     this._progressCallback = null;
+    this._testCanvas = null;
   }
 
   setProgressCallback(callback) {
@@ -53,11 +54,11 @@ export default class PerformanceManagerV2 {
     }
 
     if (import.meta.env.DEV) {
-      console.log('🔧 Starting CONSERVATIVE performance test from LOW baseline...');
+      console.log('🔧 Starting SMART performance test from MEDIUM baseline...');
     }
 
     try {
-      const { tier, testResults } = await this._runConservativeProgressiveTest();
+      const { tier, testResults } = await this._runSmartProgressiveTest();
 
       this.tier = tier;
       this.profile = { ...PERFORMANCE_PROFILES[tier] };
@@ -70,7 +71,7 @@ export default class PerformanceManagerV2 {
       this._cacheResults(tier, tierResult);
 
       if (import.meta.env.DEV) {
-        console.log('🔧 Conservative performance test complete:', {
+        console.log('🔧 Smart performance test complete:', {
           tier,
           finalProfile: this.profile
         });
@@ -131,90 +132,86 @@ export default class PerformanceManagerV2 {
     }
   }
 
-  async _runConservativeProgressiveTest() {
-    const canvas = document.createElement('canvas');
-    canvas.width = 256;
-    canvas.height = 256;
+  async _runSmartProgressiveTest() {
+    this._testCanvas = document.createElement('canvas');
+    const canvas = this._testCanvas;
+    // Preallocate enough resolution for all test tiers
+    canvas.width = 512;
+    canvas.height = 512;
     canvas.style.position = 'absolute';
     canvas.style.top = '-9999px';
     canvas.style.pointerEvents = 'none';
     document.body.appendChild(canvas);
 
     const results = {};
-    const { capabilities } = detectDeviceCapabilities();
 
     try {
-      // Phase 1: Test LOW quality (10-20% progress)
-      this._reportProgress(10, 'Testing low quality (60 FPS target)...');
-      const lowResult = await this._testWithRealisticScene(
-        canvas,
-        'low',
-        2500, // 2.5 seconds test duration
-        (p) => this._reportProgress(10 + p * 10, 'Testing low quality...')
-      );
-      results.low = lowResult;
-
-      // If LOW fails to maintain 60 FPS, stay on low
-      if (lowResult.avgFps < 60 || lowResult.minFps < 55) {
-        return { tier: 'low', testResults: results };
-      }
-
-      // Phase 2: Test MEDIUM quality (20-30% progress)
-      this._reportProgress(20, 'Testing medium quality (55 FPS target)...');
-      const mediumResult = await this._testWithRealisticScene(
-        canvas,
-        'medium',
-        2500,
-        (p) => this._reportProgress(20 + p * 10, 'Testing medium quality...')
-      );
+      // Start with medium tier using a larger base resolution to stress hardware
+      const mediumResult = await this._testTier('medium', 33, 50, 384);
       results.medium = mediumResult;
 
-      // If MEDIUM fails to maintain 55 FPS, use low
-      if (mediumResult.avgFps < 55 || mediumResult.minFps < 50) {
-        return { tier: 'low', testResults: results };
-      }
+      // Require ~70 FPS headroom before probing higher quality
+      if (mediumResult.avgFps >= 70 && mediumResult.minFps >= 65) {
+        // Medium was strong enough, attempt the high tier
+        const highResult = await this._testTier('high', 50, 66, 512);
+        results.high = highResult;
+        if (highResult.avgFps >= 60 && highResult.minFps >= 55) {
+          // Only allow high tier for clearly high-end hardware
+          const { capabilities } = detectDeviceCapabilities();
+          const renderer = capabilities.renderer?.toLowerCase() || '';
+          const isHighEndMobile =
+            capabilities.isMobile && /m1|m2|a1[5-9]/i.test(renderer);
+          const isHighEndDesktop =
+            !capabilities.isMobile && /(rtx|gtx (1080|1070|2080|2070)|rx [6-9])/i.test(renderer);
 
-      // Phase 3: Test HIGH quality (30-40% progress) - only if not mobile
-      if (capabilities.isMobile) {
-        // Cap mobile devices at medium tier
+          if (isHighEndMobile || isHighEndDesktop) {
+            return { tier: 'high', testResults: results };
+          }
+        }
+        // High failed or hardware not high-end, stay on medium
         return { tier: 'medium', testResults: results };
       }
 
-      this._reportProgress(30, 'Testing high quality (50 FPS target)...');
-      const highResult = await this._testWithRealisticScene(
-        canvas,
-        'high',
-        2500,
-        (p) => this._reportProgress(30 + p * 10, 'Testing high quality...')
-      );
-      results.high = highResult;
-
-      // If HIGH maintains 50 FPS, use high; otherwise use medium
-      if (highResult.avgFps >= 50 && highResult.minFps >= 45) {
-        return { tier: 'high', testResults: results };
-      }
-
-      return { tier: 'medium', testResults: results };
-
+      // Medium test failed, drop directly to low tier
+      this._reportProgress(50, 'Medium tier insufficient, using low profile');
+      return { tier: 'low', testResults: results };
+    } catch (error) {
+      console.warn('Smart performance test failed:', error);
+      return { tier: 'low', testResults: results };
     } finally {
       if (canvas.parentNode) {
         canvas.parentNode.removeChild(canvas);
       }
-      this._reportProgress(40, 'Performance test complete');
+      this._testCanvas = null;
+      this._reportProgress(66, 'Performance test complete');
     }
+  }
+
+  async _testTier(tier, rangeStart, rangeEnd, baseResolution = 256) {
+    const canvas = this._testCanvas;
+    return this._testWithRealisticScene(
+      canvas,
+      tier,
+      baseResolution,
+      2500,
+      (p) => {
+        const progress = rangeStart + p * (rangeEnd - rangeStart);
+        this._reportProgress(progress, `Testing ${tier} quality...`);
+      }
+    );
   }
 
   _reportProgress(percentage, message) {
     const clamped = Math.min(100, Math.max(0, percentage));
     if (import.meta.env.DEV) {
-      console.debug(`📈 Conservative test progress: ${clamped.toFixed(1)}% - ${message}`);
+      console.debug(`📈 Smart test progress: ${clamped.toFixed(1)}% - ${message}`);
     }
     if (this._progressCallback) {
       this._progressCallback(clamped, message);
     }
   }
 
-  async _testWithRealisticScene(canvas, tier, testDuration = 2500, onProgress) {
+  async _testWithRealisticScene(canvas, tier, baseResolution = 256, testDuration = 2500, onProgress) {
     const profile = PERFORMANCE_PROFILES[tier];
     const THREE = await import('three');
 
@@ -225,7 +222,8 @@ export default class PerformanceManagerV2 {
         powerPreference: 'default'
       });
 
-      renderer.setSize(256 * profile.renderScale, 256 * profile.renderScale);
+      const size = baseResolution * profile.renderScale;
+      renderer.setSize(size, size);
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, profile.maxPixelRatio || 2));
 
       // Create scene that matches actual crystal complexity
@@ -309,11 +307,11 @@ export default class PerformanceManagerV2 {
       const { UnrealBloomPass } = await import('three/examples/jsm/postprocessing/UnrealBloomPass.js');
 
       const composer = new EffectComposer(renderer);
-      composer.setSize(256 * profile.renderScale, 256 * profile.renderScale);
+      composer.setSize(size, size);
       composer.addPass(new RenderPass(scene, camera));
-      
+
       if (profile.postProcessing.bloom) {
-        composer.addPass(new UnrealBloomPass(new THREE.Vector2(256, 256), 0.6, 0.4, 0.85));
+        composer.addPass(new UnrealBloomPass(new THREE.Vector2(baseResolution, baseResolution), 0.6, 0.4, 0.85));
       }
 
       const samples = [];
