@@ -1,7 +1,7 @@
 // src/ui/LoaderV2.tsx
 // Radial loader showing initialization, asset loading, and performance testing
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import styles from './LoaderV2.module.css';
 
 const clamp = (v: number) => Math.min(1, Math.max(0, v));
@@ -34,14 +34,26 @@ const LoaderV2: React.FC<LoaderProps> = ({
     size / 2 - (stroke * 5) / 2
   ];
 
-  const ringProgress = {
-    outer: clamp(initProgress) * 100,
-    middle: clamp(assetProgress) * 100,
-    inner: clamp(testProgress) * 100
-  };
+  const [outer, setOuter] = useState(0);
+  const [middle, setMiddle] = useState(0);
+  const [inner, setInner] = useState(0);
+
+  useEffect(() => {
+    if (exiting) {
+      setOuter(100);
+      setMiddle(100);
+      setInner(100);
+    } else {
+      setOuter(clamp(initProgress) * 100);
+      setMiddle(clamp(assetProgress) * 100);
+      setInner(clamp(testProgress) * 100);
+    }
+  }, [initProgress, assetProgress, testProgress, exiting]);
 
   const overall = Math.round(
-    (ringProgress.outer + ringProgress.middle + ringProgress.inner) / 3
+    clamp(initProgress) * 33 +
+    clamp(testProgress) * 33 +
+    clamp(assetProgress) * 34
   );
 
   // Diamond sizing based on spec
@@ -75,16 +87,16 @@ const LoaderV2: React.FC<LoaderProps> = ({
           ))}
 
           {[
-            { r: radii[0], color: 'var(--ring1)', progress: ringProgress.outer },
-            { r: radii[1], color: 'var(--ring2)', progress: ringProgress.middle },
-            { r: radii[2], color: 'var(--ring3)', progress: ringProgress.inner }
+            { r: radii[0], color: 'var(--ring1)', progress: outer },
+            { r: radii[1], color: 'var(--ring2)', progress: middle },
+            { r: radii[2], color: 'var(--ring3)', progress: inner }
           ].map((ring, i) => {
             const circumference = 2 * Math.PI * ring.r;
             const offset = circumference * (1 - ring.progress / 100);
             return (
               <circle
                 key={`progress-${i}`}
-                className={styles.progress}
+                className={`${styles.progress} ${exiting ? styles.complete : ''}`}
                 cx={0}
                 cy={0}
                 r={ring.r}
