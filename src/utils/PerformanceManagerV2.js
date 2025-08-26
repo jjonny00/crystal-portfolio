@@ -150,7 +150,7 @@ export default class PerformanceManagerV2 {
       const mediumResult = await this._testTier('medium', 33, 50, 384);
       results.medium = mediumResult;
 
-      if (mediumResult.avgFps >= 45 && mediumResult.minFps >= 40) {
+      if (mediumResult.avgFps >= 50 && mediumResult.minFps >= 45) {
         // Medium was acceptable, attempt the high tier
         const highResult = await this._testTier('high', 50, 66, 512);
         results.high = highResult;
