@@ -1,5 +1,5 @@
 // src/utils/PerformanceManagerV2.js
-// FIXED: Conservative progressive performance testing system
+// FIXED: Smart progressive performance testing system
 
 import { PERFORMANCE_PROFILES, detectDeviceCapabilities } from './deviceProfiles.js';
 
@@ -18,6 +18,7 @@ export default class PerformanceManagerV2 {
     this._testResults = null;
     this._listeners = new Set();
     this._progressCallback = null;
+    this._testCanvas = null;
   }
 
   setProgressCallback(callback) {
@@ -53,11 +54,11 @@ export default class PerformanceManagerV2 {
     }
 
     if (import.meta.env.DEV) {
-      console.log('🔧 Starting CONSERVATIVE performance test from LOW baseline...');
+      console.log('🔧 Starting SMART performance test from MEDIUM baseline...');
     }
 
     try {
-      const { tier, testResults } = await this._runConservativeProgressiveTest();
+      const { tier, testResults } = await this._runSmartProgressiveTest();
 
       this.tier = tier;
       this.profile = { ...PERFORMANCE_PROFILES[tier] };
@@ -70,7 +71,7 @@ export default class PerformanceManagerV2 {
       this._cacheResults(tier, tierResult);
 
       if (import.meta.env.DEV) {
-        console.log('🔧 Conservative performance test complete:', {
+        console.log('🔧 Smart performance test complete:', {
           tier,
           finalProfile: this.profile
         });
@@ -131,8 +132,9 @@ export default class PerformanceManagerV2 {
     }
   }
 
-  async _runConservativeProgressiveTest() {
-    const canvas = document.createElement('canvas');
+  async _runSmartProgressiveTest() {
+    this._testCanvas = document.createElement('canvas');
+    const canvas = this._testCanvas;
     canvas.width = 256;
     canvas.height = 256;
     canvas.style.position = 'absolute';
@@ -141,73 +143,72 @@ export default class PerformanceManagerV2 {
     document.body.appendChild(canvas);
 
     const results = {};
-    const { capabilities } = detectDeviceCapabilities();
+
+    const fallbackTier = () => {
+      const { tier: detectedTier, capabilities } = detectDeviceCapabilities();
+      const renderer = capabilities.renderer?.toLowerCase() || '';
+      if (capabilities.isMobile) {
+        if (/m1|m2|a1[5-9]/i.test(renderer)) {
+          if (detectedTier === 'low') return 'low';
+          return detectedTier === 'high' ? 'high' : 'medium';
+        }
+        return detectedTier === 'low' ? 'low' : 'medium';
+      }
+      return detectedTier === 'low' ? 'low' : 'medium';
+    };
 
     try {
-      // Phase 1: Test LOW quality (10-20% progress)
-      this._reportProgress(10, 'Testing low quality (60 FPS target)...');
-      const lowResult = await this._testWithRealisticScene(
-        canvas,
-        'low',
-        2500, // 2.5 seconds test duration
-        (p) => this._reportProgress(10 + p * 10, 'Testing low quality...')
-      );
-      results.low = lowResult;
-
-      // If LOW fails to maintain 60 FPS, stay on low
-      if (lowResult.avgFps < 60 || lowResult.minFps < 55) {
-        return { tier: 'low', testResults: results };
-      }
-
-      // Phase 2: Test MEDIUM quality (20-30% progress)
-      this._reportProgress(20, 'Testing medium quality (55 FPS target)...');
-      const mediumResult = await this._testWithRealisticScene(
-        canvas,
-        'medium',
-        2500,
-        (p) => this._reportProgress(20 + p * 10, 'Testing medium quality...')
-      );
+      // Start with medium tier
+      const mediumResult = await this._testTier('medium', 33, 50);
       results.medium = mediumResult;
 
-      // If MEDIUM fails to maintain 55 FPS, use low
-      if (mediumResult.avgFps < 55 || mediumResult.minFps < 50) {
-        return { tier: 'low', testResults: results };
-      }
-
-      // Phase 3: Test HIGH quality (30-40% progress) - only if not mobile
-      if (capabilities.isMobile) {
-        // Cap mobile devices at medium tier
+      if (mediumResult.avgFps >= 45 && mediumResult.minFps >= 40) {
+        // Try high tier next
+        const highResult = await this._testTier('high', 50, 66);
+        results.high = highResult;
+        if (highResult.avgFps >= 50 && highResult.minFps >= 45) {
+          return { tier: 'high', testResults: results };
+        }
         return { tier: 'medium', testResults: results };
+      } else {
+        // Test low tier
+        const lowResult = await this._testTier('low', 50, 66);
+        results.low = lowResult;
+        if (lowResult.avgFps >= 35 && lowResult.minFps >= 30) {
+          return { tier: 'low', testResults: results };
+        }
+        // Even low failed; fallback
+        return { tier: fallbackTier(), testResults: results };
       }
-
-      this._reportProgress(30, 'Testing high quality (50 FPS target)...');
-      const highResult = await this._testWithRealisticScene(
-        canvas,
-        'high',
-        2500,
-        (p) => this._reportProgress(30 + p * 10, 'Testing high quality...')
-      );
-      results.high = highResult;
-
-      // If HIGH maintains 50 FPS, use high; otherwise use medium
-      if (highResult.avgFps >= 50 && highResult.minFps >= 45) {
-        return { tier: 'high', testResults: results };
-      }
-
-      return { tier: 'medium', testResults: results };
-
+    } catch (error) {
+      console.warn('Smart performance test failed, falling back to capabilities:', error);
+      return { tier: fallbackTier(), testResults: results };
     } finally {
       if (canvas.parentNode) {
         canvas.parentNode.removeChild(canvas);
       }
-      this._reportProgress(40, 'Performance test complete');
+      this._testCanvas = null;
+      this._reportProgress(66, 'Performance test complete');
     }
+  }
+
+  async _testTier(tier, rangeStart, rangeEnd) {
+    const canvas = this._testCanvas;
+    return this._testWithRealisticScene(
+      canvas,
+      tier,
+      2500,
+      (p) => {
+        const progress = rangeStart + p * (rangeEnd - rangeStart);
+        this._reportProgress(progress, `Testing ${tier} quality...`);
+      }
+    );
   }
 
   _reportProgress(percentage, message) {
     const clamped = Math.min(100, Math.max(0, percentage));
     if (import.meta.env.DEV) {
-      console.debug(`📈 Conservative test progress: ${clamped.toFixed(1)}% - ${message}`);
+      console.debug(`📈 Smart test progress: ${clamped.toFixed(1)}% - ${message}`);
     }
     if (this._progressCallback) {
       this._progressCallback(clamped, message);
