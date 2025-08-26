@@ -37,6 +37,7 @@ import * as defaultConfig from './crystalConfig';
 
 // Cinematic Movie Titles Effects
 import './styles/glow-70s.css';
+import { isMobileDevice } from './utils/isMobileDevice.js';
 
 // Convert UI config into animation config
 const buildAnimationConfig = (uiConfig) => {
@@ -88,10 +89,6 @@ const buildAnimationConfig = (uiConfig) => {
   };
 };
 
-// Mobile detection - avoid misclassifying touch-enabled desktops
-const isMobileDevice = () => {
-  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobi/i.test(navigator.userAgent);
-};
 
 function App() {
   // ========================================

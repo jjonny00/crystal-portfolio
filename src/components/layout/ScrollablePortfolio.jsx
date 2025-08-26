@@ -6,13 +6,14 @@ import HeroSection from '../sections/HeroSection';
 import ProjectFocusSection from '../sections/ProjectFocusSection';
 import AboutSection from '../sections/AboutSection';
 import { projects } from '../../data/projects';
+import { isMobileDevice } from '../../utils/isMobileDevice.js';
 
 const ScrollablePortfolio = ({
   snapSpeed = 'medium', // 'fast', 'medium', 'slow', 'extra-slow', 'no-snap'
   hideContent = false  // NEW: Hide content for screenshots
 }) => {
   // Detect mobile via user agent to keep desktop interactions intact
-  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobi/i.test(navigator.userAgent);
+  const isMobile = isMobileDevice();
   
   // Update snap speed when prop changes
   useEffect(() => {
