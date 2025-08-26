@@ -1,6 +1,8 @@
 // src/utils/deviceProfiles.js
 // FIXED: Better balanced performance profiles that respect working configurations
 
+import { isMobileDevice } from './isMobileDevice.js';
+
 export const PERFORMANCE_PROFILES = {
   high: {
     // Rendering settings
@@ -200,7 +202,7 @@ export const detectDeviceCapabilities = () => {
   const maxFragmentTextureUnits = gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS);
 
   const rendererLower = renderer.toLowerCase();
-  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  const isMobile = isMobileDevice();
   const deviceMemory = navigator.deviceMemory || null;
 
   const gpuBlacklist = ['mali-4', 'mali-3', 'adreno 3', 'adreno 4', 'intel hd', 'powervr', 'nouveau'];
