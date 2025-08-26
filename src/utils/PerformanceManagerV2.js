@@ -258,13 +258,15 @@ export default class PerformanceManagerV2 {
           color: 0x0d042b,
           metalness: 0.0,
           roughness: 0.11,
-          transmission: profile.pbrQuality === 'high' ? 0.7 : 0.4,
+          // Medium tier omits transmission for parity with runtime material
+          transmission: profile.pbrQuality === 'high' ? 0.7 : 0.0,
           ior: 2.3,
           transparent: true,
           opacity: 0.8,
           envMapIntensity: profile.pbrQuality === 'high' ? 2.0 : 1.5,
-          clearcoat: profile.pbrQuality === 'high' ? 0.8 : 0.4,
-          iridescence: profile.pbrQuality === 'high' ? 0.3 : 0.1
+          // Advanced features like clearcoat/iridescence are only enabled on high tier
+          clearcoat: profile.pbrQuality === 'high' ? 0.8 : 0.0,
+          iridescence: profile.pbrQuality === 'high' ? 0.3 : 0.0
         });
       }
 
@@ -287,15 +289,16 @@ export default class PerformanceManagerV2 {
       const ambientLight = new THREE.AmbientLight(0x404040, 0.4);
       scene.add(ambientLight);
 
-      const directionalLight = new THREE.DirectionalLight(0xffffff, 1.8);
+      // Match runtime directional intensity for medium profile
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 10.8);
       directionalLight.position.set(2, 8, 5);
       scene.add(directionalLight);
 
       // Add point lights according to profile limits
       const pointLights = [
-        { position: [-5, 3, -5], color: 0x00ad1d, intensity: 1.0 },
+        { position: [-5, 3, -5], color: 0x00ad1d, intensity: 10.0 },
         { position: [0, -8, -10], color: 0x00e380, intensity: 1.8 },
-        { position: [5, -3, 5], color: 0xFFE8CC, intensity: 0.6 }
+        { position: [5, -3, 5], color: 0xFFE8CC, intensity: 5.6 }
       ];
 
       pointLights.slice(0, Math.max(0, profile.maxLights - 2)).forEach(config => {

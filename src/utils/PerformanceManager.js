@@ -266,7 +266,8 @@ export default class PerformanceManager {
           color: 0x0d042b,
           metalness: 0.0,
           roughness: 0.11,
-          transmission: profile.pbrQuality === 'high' ? 0.7 : 0.4,
+          // Medium tier mirrors runtime by disabling transmission
+          transmission: profile.pbrQuality === 'high' ? 0.7 : 0.0,
           ior: 2.3,
           transparent: true,
           opacity: 0.8,
@@ -293,13 +294,14 @@ export default class PerformanceManager {
       const ambientLight = new THREE.AmbientLight(0x404040, 0.4);
       scene.add(ambientLight);
 
-      const directionalLight = new THREE.DirectionalLight(0xffffff, 1.8);
+      // Match runtime lighting intensity
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 10.8);
       directionalLight.position.set(2, 8, 5);
       scene.add(directionalLight);
 
       // Add only as many lights as the profile allows
       if (profile.maxLights > 2) {
-        const pointLight1 = new THREE.PointLight(0x00ad1d, 1.0);
+        const pointLight1 = new THREE.PointLight(0x00ad1d, 10.0);
         pointLight1.position.set(-5, 3, -5);
         scene.add(pointLight1);
       }
@@ -312,7 +314,9 @@ export default class PerformanceManager {
       const composer = new EffectComposer(renderer);
       composer.setSize(256 * profile.renderScale, 256 * profile.renderScale);
       composer.addPass(new RenderPass(scene, camera));
-      composer.addPass(new UnrealBloomPass(new THREE.Vector2(256, 256), 0.6, 0.4, 0.85));
+      if (profile.postProcessing.bloom) {
+        composer.addPass(new UnrealBloomPass(new THREE.Vector2(256, 256), 0.6, 0.4, 0.85));
+      }
 
       const samples = [];
       const warmup = 500; // Ignore first 500ms to allow shader compilation
