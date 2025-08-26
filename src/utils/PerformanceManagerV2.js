@@ -135,8 +135,9 @@ export default class PerformanceManagerV2 {
   async _runSmartProgressiveTest() {
     this._testCanvas = document.createElement('canvas');
     const canvas = this._testCanvas;
-    canvas.width = 256;
-    canvas.height = 256;
+    // Preallocate enough resolution for all test tiers
+    canvas.width = 512;
+    canvas.height = 512;
     canvas.style.position = 'absolute';
     canvas.style.top = '-9999px';
     canvas.style.pointerEvents = 'none';
@@ -158,23 +159,23 @@ export default class PerformanceManagerV2 {
     };
 
     try {
-      // Start with medium tier
-      const mediumResult = await this._testTier('medium', 33, 50);
+      // Start with medium tier using a larger base resolution to stress hardware
+      const mediumResult = await this._testTier('medium', 33, 50, 384);
       results.medium = mediumResult;
 
-      if (mediumResult.avgFps >= 45 && mediumResult.minFps >= 40) {
-        // Try high tier next
-        const highResult = await this._testTier('high', 50, 66);
+      if (mediumResult.avgFps >= 50 && mediumResult.minFps >= 45) {
+        // Try high tier next with an even heavier load
+        const highResult = await this._testTier('high', 50, 66, 512);
         results.high = highResult;
-        if (highResult.avgFps >= 50 && highResult.minFps >= 45) {
+        if (highResult.avgFps >= 58 && highResult.minFps >= 50) {
           return { tier: 'high', testResults: results };
         }
         return { tier: 'medium', testResults: results };
       } else {
-        // Test low tier
-        const lowResult = await this._testTier('low', 50, 66);
+        // Test low tier at a reduced resolution
+        const lowResult = await this._testTier('low', 50, 66, 256);
         results.low = lowResult;
-        if (lowResult.avgFps >= 35 && lowResult.minFps >= 30) {
+        if (lowResult.avgFps >= 40 && lowResult.minFps >= 35) {
           return { tier: 'low', testResults: results };
         }
         // Even low failed; fallback
@@ -192,11 +193,12 @@ export default class PerformanceManagerV2 {
     }
   }
 
-  async _testTier(tier, rangeStart, rangeEnd) {
+  async _testTier(tier, rangeStart, rangeEnd, baseResolution = 256) {
     const canvas = this._testCanvas;
     return this._testWithRealisticScene(
       canvas,
       tier,
+      baseResolution,
       2500,
       (p) => {
         const progress = rangeStart + p * (rangeEnd - rangeStart);
@@ -215,7 +217,7 @@ export default class PerformanceManagerV2 {
     }
   }
 
-  async _testWithRealisticScene(canvas, tier, testDuration = 2500, onProgress) {
+  async _testWithRealisticScene(canvas, tier, baseResolution = 256, testDuration = 2500, onProgress) {
     const profile = PERFORMANCE_PROFILES[tier];
     const THREE = await import('three');
 
@@ -226,7 +228,8 @@ export default class PerformanceManagerV2 {
         powerPreference: 'default'
       });
 
-      renderer.setSize(256 * profile.renderScale, 256 * profile.renderScale);
+      const size = baseResolution * profile.renderScale;
+      renderer.setSize(size, size);
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, profile.maxPixelRatio || 2));
 
       // Create scene that matches actual crystal complexity
@@ -310,11 +313,11 @@ export default class PerformanceManagerV2 {
       const { UnrealBloomPass } = await import('three/examples/jsm/postprocessing/UnrealBloomPass.js');
 
       const composer = new EffectComposer(renderer);
-      composer.setSize(256 * profile.renderScale, 256 * profile.renderScale);
+      composer.setSize(size, size);
       composer.addPass(new RenderPass(scene, camera));
-      
+
       if (profile.postProcessing.bloom) {
-        composer.addPass(new UnrealBloomPass(new THREE.Vector2(256, 256), 0.6, 0.4, 0.85));
+        composer.addPass(new UnrealBloomPass(new THREE.Vector2(baseResolution, baseResolution), 0.6, 0.4, 0.85));
       }
 
       const samples = [];
