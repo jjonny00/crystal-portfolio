@@ -145,19 +145,6 @@ export default class PerformanceManagerV2 {
 
     const results = {};
 
-    const fallbackTier = () => {
-      const { tier: detectedTier, capabilities } = detectDeviceCapabilities();
-      const renderer = capabilities.renderer?.toLowerCase() || '';
-      if (capabilities.isMobile) {
-        if (/m1|m2|a1[5-9]/i.test(renderer)) {
-          if (detectedTier === 'low') return 'low';
-          return detectedTier === 'high' ? 'high' : 'medium';
-        }
-        return detectedTier === 'low' ? 'low' : 'medium';
-      }
-      return detectedTier === 'low' ? 'low' : 'medium';
-    };
-
     try {
       // Start with medium tier using a larger base resolution to stress hardware
       const mediumResult = await this._testTier('medium', 33, 50, 384);
@@ -168,37 +155,28 @@ export default class PerformanceManagerV2 {
         const highResult = await this._testTier('high', 50, 66, 512);
         results.high = highResult;
         if (highResult.avgFps >= 50 && highResult.minFps >= 45) {
-          // Double-check device capabilities so weaker GPUs don't get promoted
-          const { tier: detectedTier, capabilities } = detectDeviceCapabilities();
+          // Only allow high tier for clearly high-end hardware
+          const { capabilities } = detectDeviceCapabilities();
           const renderer = capabilities.renderer?.toLowerCase() || '';
           const isHighEndMobile =
             capabilities.isMobile && /m1|m2|a1[5-9]/i.test(renderer);
+          const isHighEndDesktop =
+            !capabilities.isMobile && /(rtx|gtx (1080|1070|2080|2070)|rx [6-9])/i.test(renderer);
 
-          if (capabilities.isMobile && !isHighEndMobile) {
-            return { tier: 'medium', testResults: results };
+          if (isHighEndMobile || isHighEndDesktop) {
+            return { tier: 'high', testResults: results };
           }
-
-          if (!capabilities.isMobile && detectedTier !== 'high') {
-            return { tier: 'medium', testResults: results };
-          }
-
-          return { tier: 'high', testResults: results };
         }
-        // High failed, stay on medium
+        // High failed or hardware not high-end, stay on medium
         return { tier: 'medium', testResults: results };
-      } else {
-        // Medium failed, try the low tier at a reduced resolution
-        const lowResult = await this._testTier('low', 50, 66, 256);
-        results.low = lowResult;
-        if (lowResult.avgFps >= 35 && lowResult.minFps >= 30) {
-          return { tier: 'low', testResults: results };
-        }
-        // Even low failed; fallback to device capability detection
-        return { tier: fallbackTier(), testResults: results };
       }
+
+      // Medium test failed, drop straight to low tier
+      this._reportProgress(50, 'Medium tier failed, using low quality');
+      return { tier: 'low', testResults: results };
     } catch (error) {
-      console.warn('Smart performance test failed, falling back to capabilities:', error);
-      return { tier: fallbackTier(), testResults: results };
+      console.warn('Smart performance test failed:', error);
+      return { tier: 'low', testResults: results };
     } finally {
       if (canvas.parentNode) {
         canvas.parentNode.removeChild(canvas);
