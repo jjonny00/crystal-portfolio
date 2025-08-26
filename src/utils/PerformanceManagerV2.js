@@ -150,11 +150,12 @@ export default class PerformanceManagerV2 {
       const mediumResult = await this._testTier('medium', 33, 50, 384);
       results.medium = mediumResult;
 
-      if (mediumResult.avgFps >= 50 && mediumResult.minFps >= 45) {
+      // Require ~70 FPS headroom (60/55 thresholds) before probing higher quality
+      if (mediumResult.avgFps >= 60 && mediumResult.minFps >= 55) {
         // Medium was acceptable, attempt the high tier
         const highResult = await this._testTier('high', 50, 66, 512);
         results.high = highResult;
-        if (highResult.avgFps >= 60 && highResult.minFps >= 55) {
+        if (highResult.avgFps >= 70 && highResult.minFps >= 65) {
           // Only allow high tier for clearly high-end hardware
           const { capabilities } = detectDeviceCapabilities();
           const renderer = capabilities.renderer?.toLowerCase() || '';
