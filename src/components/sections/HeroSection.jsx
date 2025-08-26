@@ -159,9 +159,19 @@ const HeroSection = ({
             // textShadow: '0 2px 10px rgba(0, 0, 0, 0.8)',
             fontWeight: '400'
           }}>
-            Like a crystal refracting light into its spectrum, I approach design through 
-            <strong style={{ color: '#002fff', fontWeight: '600' }}> six interconnected facets</strong>—each 
-            one essential to creating meaningful, impactful experiences.
+            Across products, platforms, and industries, I’ve worked with teams to solve complex problems through systems thinking, clear communication, and stubborn optimism.
+          </p>
+          <p style={{
+            fontSize: 'clamp(1.125rem, 4vw, 1.5rem)',
+            color: '#fcf5eb',
+            marginBottom: '3rem',
+            lineHeight: '1.6',
+            maxWidth: '700px',
+            margin: '0 auto 3rem',
+            // textShadow: '0 2px 10px rgba(0, 0, 0, 0.8)',
+            fontWeight: '400'
+          }}>
+            Each facet of this crystal reflects a moment that shaped how I design.
           </p>
           
           {/* Role indicators */}
