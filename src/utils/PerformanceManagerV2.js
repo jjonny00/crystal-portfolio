@@ -168,6 +168,20 @@ export default class PerformanceManagerV2 {
         const highResult = await this._testTier('high', 50, 66, 512);
         results.high = highResult;
         if (highResult.avgFps >= 50 && highResult.minFps >= 45) {
+          // Double-check device capabilities so weaker GPUs don't get promoted
+          const { tier: detectedTier, capabilities } = detectDeviceCapabilities();
+          const renderer = capabilities.renderer?.toLowerCase() || '';
+          const isHighEndMobile =
+            capabilities.isMobile && /m1|m2|a1[5-9]/i.test(renderer);
+
+          if (capabilities.isMobile && !isHighEndMobile) {
+            return { tier: 'medium', testResults: results };
+          }
+
+          if (!capabilities.isMobile && detectedTier !== 'high') {
+            return { tier: 'medium', testResults: results };
+          }
+
           return { tier: 'high', testResults: results };
         }
         // High failed, stay on medium
