@@ -35,7 +35,7 @@ const OptimizedLabel = React.memo(function OptimizedLabel({
         '--headline-glow2': glow2,
       }}
     >
-      <Headline as="h3" className="label-title" style={{ margin: 0, fontSize: '1rem' }}>
+      <Headline as="h3" className="label-title" style={{ margin: 0, fontSize: '1.6rem' }}>
         {project.label}
       </Headline>
       <div className="label-description">{project.tagline}</div>
