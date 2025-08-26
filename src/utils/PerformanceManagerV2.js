@@ -1,7 +1,7 @@
 // src/utils/PerformanceManagerV2.js
 // FIXED: Smart progressive performance testing system
 
-import { PERFORMANCE_PROFILES } from './deviceProfiles.js';
+import { PERFORMANCE_PROFILES, detectDeviceCapabilities } from './deviceProfiles.js';
 
 const STORAGE_KEY = 'crystal-performance-config-v2';
 const VERSION_KEY = 'crystal-performance-version-v2';
@@ -150,15 +150,28 @@ export default class PerformanceManagerV2 {
       const mediumResult = await this._testTier('medium', 33, 50, 384);
       results.medium = mediumResult;
 
-      // Require ~55 FPS headroom before probing higher quality
-      if (mediumResult.avgFps >= 55 && mediumResult.minFps >= 50) {
+      // Require ~65 FPS headroom before probing higher quality
+      if (mediumResult.avgFps >= 65 && mediumResult.minFps >= 60) {
         // Medium was strong enough, attempt the high tier
         const highResult = await this._testTier('high', 50, 66, 512);
         results.high = highResult;
-        if (highResult.avgFps >= 50 && highResult.minFps >= 45) {
-          return { tier: 'high', testResults: results };
+        if (highResult.avgFps >= 58 && highResult.minFps >= 53) {
+          // Only allow high tier for clearly high-end hardware
+          const { capabilities } = detectDeviceCapabilities();
+          const renderer = capabilities.renderer?.toLowerCase() || '';
+          const isHighEndMobile =
+            capabilities.isMobile && /m1|m2|a1[5-9]/i.test(renderer);
+          const isHighEndDesktop =
+            !capabilities.isMobile &&
+            /(rtx (?:20|30|40)|gtx (1080|1070|2080|2070)|rx [6-9]|arc a)/i.test(
+              renderer
+            );
+
+          if (isHighEndMobile || isHighEndDesktop) {
+            return { tier: 'high', testResults: results };
+          }
         }
-        // High failed, stay on medium
+        // High failed or hardware not high-end, stay on medium
         return { tier: 'medium', testResults: results };
       }
 
