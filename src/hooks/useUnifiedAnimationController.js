@@ -231,6 +231,7 @@ export const useUnifiedAnimationController = (options = {}) => {
   const lastZone = useRef('hero');
   const lastProject = useRef(null);
   const updateTimeout = useRef(null);
+  const cameraDelayTimeout = useRef(null);
 
   /**
    * FIXED: Handle zone transitions with immediate state changes
@@ -238,6 +239,12 @@ export const useUnifiedAnimationController = (options = {}) => {
   const handleZoneTransition = useCallback((fromZone, toZone) => {
     if (debugMode) {
       if (import.meta.env.DEV) console.log(`🗺️ IMMEDIATE Zone transition: ${fromZone} → ${toZone}`);
+    }
+
+    // Clear any pending delayed camera transitions when switching zones
+    if (cameraDelayTimeout.current) {
+      clearTimeout(cameraDelayTimeout.current);
+      cameraDelayTimeout.current = null;
     }
 
     // IMMEDIATE state changes - no complex sequences
@@ -252,14 +259,22 @@ export const useUnifiedAnimationController = (options = {}) => {
       }));
     }
     else if (toZone === 'overview') {
+      // Start explosion immediately but delay camera move until fracture pause completes
       setAnimationState(prev => ({
         ...prev,
         state: ANIMATION_STATES.OVERVIEW,
         crystalForm: 'exploded',     // Immediate
-        cameraState: 'overview',     // Immediate
+        cameraState: 'hero',         // Hold camera during fracture pause
         focusedFacet: null,
         isTransitioning: false
       }));
+
+      cameraDelayTimeout.current = setTimeout(() => {
+        setAnimationState(prev => ({
+          ...prev,
+          cameraState: 'overview'
+        }));
+      }, (config.crystal.fracturePause || 0.5) * 1000);
     }
     else if (toZone === 'projects') {
       // Don't set focusedFacet here - let the project handling logic do it
@@ -281,7 +296,7 @@ export const useUnifiedAnimationController = (options = {}) => {
         isTransitioning: false
       }));
     }
-  }, [debugMode]);
+  }, [debugMode, config]);
 
   /**
    * SIMPLIFIED: Handle project focus (same pattern as before - it works!)
@@ -486,6 +501,9 @@ export const useUnifiedAnimationController = (options = {}) => {
     return () => {
       if (updateTimeout.current) {
         clearTimeout(updateTimeout.current);
+      }
+      if (cameraDelayTimeout.current) {
+         clearTimeout(cameraDelayTimeout.current);
       }
     };
   }, []);
