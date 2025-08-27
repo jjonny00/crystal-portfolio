@@ -250,14 +250,22 @@ export const useUnifiedAnimationController = (options = {}) => {
 
     // IMMEDIATE state changes - no complex sequences
     if (toZone === 'hero') {
+      // Reform crystal immediately but keep camera at overview until fracture pause completes
       setAnimationState(prev => ({
         ...prev,
         state: ANIMATION_STATES.HERO,
-        crystalForm: 'whole',        // Immediate
-        cameraState: 'hero',         // Immediate
+        crystalForm: 'whole',
+        cameraState: 'overview', // Hold camera during reform pause
         focusedFacet: null,
-        isTransitioning: false       // Let components handle their own transitions
+        isTransitioning: false
       }));
+
+      cameraDelayTimeout.current = setTimeout(() => {
+        setAnimationState(prev => ({
+          ...prev,
+          cameraState: 'hero'
+        }));
+      }, (config.crystal.fracturePause || 0.5) * 1000);
     }
     else if (toZone === 'overview') {
       // Start explosion immediately but delay camera move until fracture pause completes
