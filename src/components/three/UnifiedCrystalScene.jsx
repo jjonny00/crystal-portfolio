@@ -42,6 +42,7 @@ const UnifiedCrystalScene = forwardRef(({
   // Track rotation at fracture start so we can slerp back to neutral
   const fractureStartQuatRef = useRef(new THREE.Quaternion());
   const neutralQuat = useMemo(() => new THREE.Quaternion(), []);
+  const origin = useMemo(() => new THREE.Vector3(0, 0, 0), []);
   
   // Debug panel state
   const [showCrystalDebug, setShowCrystalDebug] = useState(false);
@@ -746,20 +747,20 @@ const UnifiedCrystalScene = forwardRef(({
         let targetPos = animationData.crystalConfig.positions[facetKey];
 
         if (isReforming) {
-          targetPos = new THREE.Vector3(0, 0, 0);
+          targetPos = origin;
         }
 
         if (targetPos) {
           if (isReforming) {
-            const distanceToCenter = facetRef.current.position.distanceTo(new THREE.Vector3(0, 0, 0));
-            const maxDistance = 2;
+            const distanceToCenter = facetRef.current.position.length();
+            const maxDistance = 3;
             const progress = Math.min(1 - (distanceToCenter / maxDistance), 1);
             const clampedProgress = Math.max(0, progress);
 
             const facetSpeed = 0.02 + (clampedProgress * clampedProgress * 0.16);
             facetRef.current.position.lerp(targetPos, facetSpeed * deltaTime * 60);
 
-            if (distanceToCenter > 0.8) {
+            if (distanceToCenter > 0.05) {
               allFacetsAtCenter = false;
             }
           } else {
