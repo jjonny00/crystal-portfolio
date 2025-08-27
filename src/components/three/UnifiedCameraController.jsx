@@ -24,9 +24,15 @@ const UnifiedCameraController = ({
     lookAt: 0.03,
     fov: 0.03
   });
-  
+
   // Track last camera config to detect changes
   const lastCameraConfig = useRef(null);
+
+  // Track when camera has reached its target
+  const settleFrameCount = useRef(0);
+  const cameraSettledRef = useRef(false);
+  const SETTLE_EPSILON = 0.01;
+  const SETTLE_FRAMES = 5;
 
   const findAnchorInFacet = (facetKey) => {
     if (!facetRefs) {
@@ -219,11 +225,16 @@ const UnifiedCameraController = ({
         fov: enhancedConfig.fov,
         description: enhancedConfig.description
       };
+
+      // Reset camera settled state when new configuration is applied
+      settleFrameCount.current = 0;
+      cameraSettledRef.current = false;
+      animationData?.setCameraSettled?.(false);
     }
   }, [
-    animationData?.cameraConfig, 
-    animationData?.state, 
-    animationData?.cameraState, 
+    animationData?.cameraConfig,
+    animationData?.state,
+    animationData?.cameraState,
     animationData?.focusedFacet,
     facetRefs, // Keep facetRefs as dependency to update when refs change
     camera
@@ -239,6 +250,10 @@ const UnifiedCameraController = ({
         camera.lookAt(currentTarget.current.lookAt);
         camera.fov = currentTarget.current.fov;
         camera.updateProjectionMatrix();
+        if (!cameraSettledRef.current) {
+          cameraSettledRef.current = true;
+          animationData?.setCameraSettled?.(true);
+        }
       }
       return;
     }
@@ -260,7 +275,7 @@ const UnifiedCameraController = ({
       .subVectors(currentTarget.current.lookAt, camera.position)
       .normalize();
 
-    currentDirection.lerp(targetDirection, clampedSmoothing);
+    currentDirection.lerp(targetDirection, clampedSmoothing).normalize();
 
     const newLookAt = new THREE.Vector3()
       .addVectors(camera.position, currentDirection);
@@ -271,6 +286,24 @@ const UnifiedCameraController = ({
     const fovDiff = currentTarget.current.fov - camera.fov;
     camera.fov += fovDiff * clampedSmoothing;
     camera.updateProjectionMatrix();
+
+    // Check if camera has settled at target
+    const positionDiff = camera.position.distanceTo(currentTarget.current.position);
+    const lookAtDiff = currentDirection.angleTo(targetDirection);
+
+    if (positionDiff < SETTLE_EPSILON && lookAtDiff < SETTLE_EPSILON) {
+      settleFrameCount.current += 1;
+      if (settleFrameCount.current >= SETTLE_FRAMES && !cameraSettledRef.current) {
+        cameraSettledRef.current = true;
+        animationData?.setCameraSettled?.(true);
+      }
+    } else {
+      if (cameraSettledRef.current) {
+        cameraSettledRef.current = false;
+        animationData?.setCameraSettled?.(false);
+      }
+      settleFrameCount.current = 0;
+    }
   });
 
   /**

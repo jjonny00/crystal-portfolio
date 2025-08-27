@@ -115,11 +115,14 @@ const MasterAnimationCoordinator = ({
     currentZone: animationController.animationState.zoneInfo?.zone,
     zoneProgress: animationController.animationState.zoneInfo?.progress,
     isEnteringZone: animationController.animationState.zoneInfo?.isEntering,
-    isLeavingZone: animationController.animationState.zoneInfo?.isLeaving
+    isLeavingZone: animationController.animationState.zoneInfo?.isLeaving,
+    cameraSettled: animationController.animationState.cameraSettled,
+    setCameraSettled: animationController.setCameraSettled
   }), [
     animationController.animationState,
     animationController.cameraConfig,
-    animationController.crystalConfig
+    animationController.crystalConfig,
+    animationController.setCameraSettled
   ]);
 
   exportedAnimationData = animationData;
