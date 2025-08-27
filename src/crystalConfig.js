@@ -24,6 +24,15 @@ export const explodedPositions = {
   exploration: [-0.6, 0.7, 0.0]   // More dynamic position
 }
 
+// Define the fracture positions (3% of the way to final positions)
+const FRACTURE_SCALE = 0.03;
+export const fracturePositions = Object.fromEntries(
+  Object.entries(explodedPositions).map(([key, coords]) => [
+    key,
+    coords.map(c => Number((c * FRACTURE_SCALE).toFixed(3)))
+  ])
+);
+
 // Optional final rotations for exploded facets (quaternions)
 export const explodedRotations = {
   empathy: [0, 0, 0, 1],
@@ -49,15 +58,6 @@ export const cameraPositions = {
   }
 }
 
-// Define the fracture positions (5% of the way to final positions)
-export const fracturePositions = {
-  empathy: [0.015, -0.035, -0.010],
-  narrative: [0.015, -0.005, -0.035],
-  craft: [0.065, 0.040, 0.025],
-  system: [-0.025, 0.010, -0.090],
-  leadership: [0.020, 0.060, 0.045],
-  exploration: [-0.030, 0.035, 0.000],
-}
 
 // === ANIMATION TIMING ===
 export const timing = {

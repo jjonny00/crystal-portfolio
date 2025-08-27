@@ -4,6 +4,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Vector3, Quaternion } from 'three';
 
+// Percentage of total facet travel used for the instantaneous fracture snap
+const FRACTURE_RATIO = 0.03;
+
 /**
  * SIMPLIFIED: Animation Configuration with immediate state changes
  */
@@ -109,6 +112,18 @@ export const ANIMATION_CONFIG = {
     exploration:{ start: 0.7566, end: 0.875 }
   }
 };
+
+// Derive fracture positions and timing based on exploded targets
+ANIMATION_CONFIG.crystal.fracturePositions = Object.fromEntries(
+  Object.entries(ANIMATION_CONFIG.crystal.explodedPositions).map(([key, vec]) => [
+    key,
+    vec.clone().multiplyScalar(FRACTURE_RATIO)
+  ])
+);
+// How long to hold the facets at their fractured positions (seconds)
+ANIMATION_CONFIG.crystal.fracturePause = 0.5;
+// Total time for fracture + explosion (seconds). Matches previous explode duration
+ANIMATION_CONFIG.crystal.explodeDuration = 1.2;
 
 // SIMPLIFIED: Only essential states (no intermediate transition states)
 const ANIMATION_STATES = {
@@ -452,6 +467,9 @@ export const useUnifiedAnimationController = (options = {}) => {
       positions: animationState.crystalForm === 'exploded'
         ? config.crystal.explodedPositions
         : { center: config.crystal.wholePosition },
+      fracturePositions: config.crystal.fracturePositions,
+      fracturePause: config.crystal.fracturePause,
+      explodeDuration: config.crystal.explodeDuration,
       rotations: config.crystal.explodedRotations,
       shouldRotate: animationState.crystalForm === 'whole' &&
                    animationState.state === ANIMATION_STATES.HERO,

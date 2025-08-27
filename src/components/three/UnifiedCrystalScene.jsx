@@ -65,6 +65,9 @@ const UnifiedCrystalScene = forwardRef(({
     [facetKeys]
   );
 
+  // Track explosion timing so we can implement fracture pause
+  const explosionStartRef = useRef(null);
+
   // Track when GLTF models have loaded
   const [modelsLoaded, setModelsLoaded] = useState(false);
   // Store precomputed anchor offsets for label placement
@@ -600,6 +603,19 @@ const UnifiedCrystalScene = forwardRef(({
           setShowWholeCrystal(false);
           setShowFacets(true);
           setSphereVisible(true);
+          explosionStartRef.current = performance.now();
+
+          // Snap facets immediately to fracture positions (small initial offset)
+          const fracture = animationData?.crystalConfig?.fracturePositions;
+          if (fracture) {
+            facetRefs.current.forEach((facetRef, idx) => {
+              const facetKey = facetKeys[idx];
+              const pos = fracture[facetKey];
+              if (facetRef?.current && pos) {
+                facetRef.current.position.copy(pos);
+              }
+            });
+          }
         } else {
           // In simplified mode keep the whole crystal visible
           setShowWholeCrystal(true);
@@ -616,6 +632,7 @@ const UnifiedCrystalScene = forwardRef(({
           setShowWholeCrystal(true);
           setShowFacets(false);
         }
+        explosionStartRef.current = null;
       }
       
       lastCrystalForm.current = currentForm;
@@ -652,24 +669,56 @@ const UnifiedCrystalScene = forwardRef(({
 
     // Handle facet animations
     if (showFacets && animationData.crystalConfig?.positions) {
+      // Custom fracture/explosion timing
+      if (animationData.crystalForm === 'exploded' && explosionStartRef.current) {
+        const fracturePause = animationData.crystalConfig.fracturePause || 0.5;
+        const totalDuration = animationData.crystalConfig.explodeDuration || 1.2;
+        const elapsedExplosion = (performance.now() - explosionStartRef.current) / 1000;
+
+        if (elapsedExplosion < fracturePause) {
+          // Stay at fracture positions during the pause
+          return;
+        }
+
+        const progress = Math.min((elapsedExplosion - fracturePause) / (totalDuration - fracturePause), 1);
+        const fracture = animationData.crystalConfig.fracturePositions;
+
+        facetRefs.current.forEach((facetRef, index) => {
+          if (!facetRef || !facetRef.current) return;
+
+          const facetKey = facetKeys[index];
+          const start = fracture?.[facetKey];
+          const end = animationData.crystalConfig.positions[facetKey];
+          if (start && end) {
+            const interpolated = start.clone().lerp(end, progress);
+            facetRef.current.position.copy(interpolated);
+          }
+        });
+
+        if (progress >= 1) {
+          explosionStartRef.current = null; // Animation finished
+        }
+        return;
+      }
+
       const isReforming = animationData.crystalForm === 'whole' && showFacets;
-      
+
       const speeds = {
         explosion: 0.04,
         reform: 0.12,
         projectFocus: 0.05,
         floating: 0.02
       };
-      
+
       let lerpSpeed;
       if (animationData.focusedFacet) {
         lerpSpeed = speeds.projectFocus;
       } else {
         lerpSpeed = speeds.explosion;
       }
-      
+
       let allFacetsAtCenter = true;
-      
+
       facetRefs.current.forEach((facetRef, index) => {
         if (!facetRef || !facetRef.current) return;
 
@@ -705,7 +754,7 @@ const UnifiedCrystalScene = forwardRef(({
           }
         }
       });
-      
+
       if (isReforming && allFacetsAtCenter && !showWholeCrystal) {
         if (import.meta.env.DEV) {
           console.log('💎 Reform complete - swapping to whole crystal');
