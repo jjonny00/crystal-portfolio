@@ -207,7 +207,8 @@ export const useUnifiedAnimationController = (options = {}) => {
     isTransitioning: false, // Will be managed by individual components
     scrollProgress: 0,
     zoneInfo: { zone: 'hero', progress: 0 },
-    projectInfo: { project: null, progress: 0 }
+    projectInfo: { project: null, progress: 0 },
+    cameraSettled: false
   });
 
   // Simplified refs for tracking changes
@@ -409,13 +410,20 @@ export const useUnifiedAnimationController = (options = {}) => {
       onStateChange(animationState);
     }
   }, [
-    config, 
+    config,
     handleZoneTransition,
     handleProjectFocus,
     onStateChange,
     animationState,
     debugMode
   ]);
+
+  /**
+   * Track when the camera has fully reached its target
+   */
+  const setCameraSettled = useCallback((value) => {
+    setAnimationState(prev => ({ ...prev, cameraSettled: value }));
+  }, []);
 
   /**
    * Get current camera configuration (same as before)
@@ -465,12 +473,13 @@ export const useUnifiedAnimationController = (options = {}) => {
   return {
     // Current state
     animationState,
-    
+
     // Configuration
     config,
-    
+
     // Update functions
     updateFromScrollProgress,
+    setCameraSettled,
     
     // Current configs for 3D components
     cameraConfig: getCurrentCameraConfig(),
