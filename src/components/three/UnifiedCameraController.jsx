@@ -275,7 +275,7 @@ const UnifiedCameraController = ({
       .subVectors(currentTarget.current.lookAt, camera.position)
       .normalize();
 
-    currentDirection.lerp(targetDirection, clampedSmoothing);
+    currentDirection.lerp(targetDirection, clampedSmoothing).normalize();
 
     const newLookAt = new THREE.Vector3()
       .addVectors(camera.position, currentDirection);
@@ -289,7 +289,7 @@ const UnifiedCameraController = ({
 
     // Check if camera has settled at target
     const positionDiff = camera.position.distanceTo(currentTarget.current.position);
-    const lookAtDiff = newLookAt.distanceTo(currentTarget.current.lookAt);
+    const lookAtDiff = currentDirection.angleTo(targetDirection);
 
     if (positionDiff < SETTLE_EPSILON && lookAtDiff < SETTLE_EPSILON) {
       settleFrameCount.current += 1;
