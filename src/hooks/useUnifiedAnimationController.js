@@ -5,7 +5,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Vector3, Quaternion } from 'three';
 
 // Percentage of total facet travel used for the instantaneous fracture snap
-const FRACTURE_RATIO = 0.03; // 3%
+const FRACTURE_RATIO = 0.10; // 10%
 
 /**
  * SIMPLIFIED: Animation Configuration with immediate state changes
@@ -35,37 +35,37 @@ export const ANIMATION_CONFIG = {
     projects: {
       empathy: {
         position: new Vector3(2.8, -1.5, 3.2),
-        target: new Vector3(0.45, -1.05, -0.3),
+      target: new Vector3(0.3, -0.7, -0.2),
         fov: 35,
         description: 'Empathy facet focus'
       },
       narrative: {
         position: new Vector3(3.5, 0.2, 2.8),
-        target: new Vector3(0.45, -0.15, -1.05),
+      target: new Vector3(0.3, -0.1, -0.7),
         fov: 35,
         description: 'Narrative facet focus'
       },
       craft: {
         position: new Vector3(3.8, 2.5, 3.0),
-        target: new Vector3(1.95, 1.2, 0.75),
+      target: new Vector3(1.3, 0.8, 0.5),
         fov: 35,
         description: 'Craft facet focus'
       },
       system: {
         position: new Vector3(-3.2, 1.0, 2.5),
-        target: new Vector3(-0.75, 0.3, -2.7),
+      target: new Vector3(-0.5, 0.2, -1.8),
         fov: 35,
         description: 'System facet focus'
       },
       leadership: {
         position: new Vector3(1.2, 4.0, 3.2),
-        target: new Vector3(0.6, 1.8, 1.35),
+      target: new Vector3(0.4, 1.2, 0.9),
         fov: 35,
         description: 'Leadership facet focus'
       },
       exploration: {
         position: new Vector3(-2.8, 2.8, 2.6),
-        target: new Vector3(-0.9, 1.05, 0.0),
+      target: new Vector3(-0.6, 0.7, 0.0),
         fov: 35,
         description: 'Exploration facet focus'
       }
@@ -74,12 +74,12 @@ export const ANIMATION_CONFIG = {
 
   crystal: {
     explodedPositions: {
-      empathy: new Vector3(0.45, -1.05, -0.3),
-      narrative: new Vector3(0.45, -0.15, -1.05),
-      craft: new Vector3(1.95, 1.2, 0.75),
-      system: new Vector3(-0.75, 0.3, -2.7),
-      leadership: new Vector3(0.6, 1.8, 1.35),
-      exploration: new Vector3(-0.9, 1.05, 0.0)
+      empathy: new Vector3(0.3, -0.7, -0.2),
+      narrative: new Vector3(0.3, -0.1, -0.7),
+      craft: new Vector3(1.3, 0.8, 0.5),
+      system: new Vector3(-0.5, 0.2, -1.8),
+      leadership: new Vector3(0.4, 1.2, 0.9),
+      exploration: new Vector3(-0.6, 0.7, 0.0)
     },
     explodedRotations: {
       empathy: new Quaternion(0, 0, 0, 1),

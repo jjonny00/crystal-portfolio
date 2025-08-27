@@ -16,16 +16,16 @@ export const startingPositions = {
 
 // Define the exploded positions with organic variation
 export const explodedPositions = {
-  empathy: [0.45, -1.05, -0.3],      // Slightly off-center
-  narrative: [0.45, -0.15, -1.05],     // Adds some depth variation
-  craft: [1.95, 1.2, 0.75],        // Not perfectly on axis
-  system: [-0.75, 0.3, -2.7],        // Slight angle
-  leadership: [0.6, 1.8, 1.35],    // Mixed axis movement
-  exploration: [-0.9, 1.05, 0.0]   // More dynamic position
+  empathy: [0.3, -0.7, -0.2],      // Slightly off-center
+  narrative: [0.3, -0.1, -0.7],     // Adds some depth variation
+  craft: [1.3, 0.8, 0.5],        // Not perfectly on axis
+  system: [-0.5, 0.2, -1.8],        // Slight angle
+  leadership: [0.4, 1.2, 0.9],    // Mixed axis movement
+  exploration: [-0.6, 0.7, 0.0]   // More dynamic position
 }
 
-// Define the fracture positions (3% of the way to final positions)
-const FRACTURE_SCALE = 0.03;
+// Define the fracture positions (10% of the way to final positions)
+const FRACTURE_SCALE = 0.1;
 export const fracturePositions = Object.fromEntries(
   Object.entries(explodedPositions).map(([key, coords]) => [
     key,

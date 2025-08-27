@@ -149,6 +149,15 @@ const UnifiedCameraController = ({
   }, [camera]);
 
   useEffect(() => {
+    // During fracture pauses, hold camera at its current position
+    if (
+      (animationData?.state === 'overview' && animationData?.cameraState === 'hero') ||
+      (animationData?.state === 'hero' && animationData?.cameraState === 'overview')
+    ) {
+      isOrbitingRef.current = false;
+      return;
+    }
+
     if (!animationData?.cameraConfig) return;
 
     const baseConfig = animationData.cameraConfig;
