@@ -68,6 +68,8 @@ const Fixed3DCanvas = forwardRef(({
   // NEW: Ref to access crystal scene for debug panels
   const crystalSceneRef = useRef();
   const backgroundRef = useRef();
+  const overviewBgTimer = useRef(null);
+  const [overviewBgReady, setOverviewBgReady] = useState(true);
 
   // Expose internal state to parent components
   useImperativeHandle(ref, () => ({
@@ -111,9 +113,9 @@ const Fixed3DCanvas = forwardRef(({
   const bg = backgroundRef.current;
   useEffect(() => {
     if (!bg || !animationData) return;
-    
+
     let key = 'default';
-    
+
     // Debug logging to see what's happening
     if (import.meta.env.DEV) {
       console.log('🎨 Background update check:', {
@@ -143,9 +145,9 @@ const Fixed3DCanvas = forwardRef(({
       }
     }
     else if (animationData.currentZone === 'overview') {
-      key = 'overview';
+      key = overviewBgReady ? 'overview' : 'default';
       if (import.meta.env.DEV) {
-        console.log('🎨 Setting background to overview');
+        console.log(`🎨 Setting background to ${overviewBgReady ? 'overview' : 'default (waiting)'}`);
       }
     }
     else {
@@ -159,19 +161,51 @@ const Fixed3DCanvas = forwardRef(({
     // FIXED: Always call updateBackground, even if key is the same
     // The component should handle duplicate calls internally
     bg.updateBackground(key);
-    
+
     if (import.meta.env.DEV) {
       console.log(`🎨 Background key set to: ${key}`);
     }
-    
+
   }, [
-    animationData?.focusedProject, 
+    animationData?.focusedProject,
     animationData?.focusedFacet,
-    animationData?.currentZone, 
+    animationData?.currentZone,
     animationData?.state,
     animationData?.projectInfo,
+    overviewBgReady,
     bg
   ]);
+
+  // Delay overview background until after fracture pause
+  useEffect(() => {
+    if (!animationData) return;
+
+    if (animationData.crystalForm === 'exploded') {
+      setOverviewBgReady(false);
+      if (overviewBgTimer.current) {
+        clearTimeout(overviewBgTimer.current);
+      }
+      const pause = (animationData.crystalConfig?.fracturePause || 0.5) * 1000;
+      overviewBgTimer.current = setTimeout(() => {
+        setOverviewBgReady(true);
+        overviewBgTimer.current = null;
+      }, pause);
+    } else {
+      if (overviewBgTimer.current) {
+        clearTimeout(overviewBgTimer.current);
+        overviewBgTimer.current = null;
+      }
+      setOverviewBgReady(true);
+    }
+  }, [animationData?.crystalForm, animationData?.crystalConfig?.fracturePause]);
+
+  useEffect(() => {
+    return () => {
+      if (overviewBgTimer.current) {
+        clearTimeout(overviewBgTimer.current);
+      }
+    };
+  }, []);
 
   // FIXED: Function to get facet refs from crystal scene with proper access
   const getFacetRefs = () => {
