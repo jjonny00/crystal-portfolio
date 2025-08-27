@@ -157,7 +157,16 @@ const UnifiedCameraController = ({
     
     // Get enhanced config with anchor targeting
     const enhancedConfig = getCameraTarget(baseConfig, focusedFacet, cameraState);
-    
+
+    // Guard against missing config (prevents runtime errors when animation state changes
+    // before camera configuration is ready)
+    if (!enhancedConfig) {
+      if (import.meta.env.DEV) {
+        console.warn('📹 Camera Controller: No camera configuration available');
+      }
+      return;
+    }
+
     // Check if config actually changed to avoid unnecessary updates
     const configChanged = !lastCameraConfig.current ||
       !enhancedConfig.position?.equals(lastCameraConfig.current.position) ||
