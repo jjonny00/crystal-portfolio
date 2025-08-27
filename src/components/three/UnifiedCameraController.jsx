@@ -12,6 +12,7 @@ const UnifiedCameraController = ({
 
   // Track orbital rotation around the crystal during hero state
   const heroOrbitAngle = useRef(0);
+  const isOrbitingRef = useRef(false);
   
   // Current camera target tracking
   const currentTarget = useRef({
@@ -240,7 +241,20 @@ const UnifiedCameraController = ({
       // Reset camera settled state when new configuration is applied
       settleFrameCount.current = 0;
       cameraSettledRef.current = false;
-      animationData?.setCameraSettled?.(false);
+      if (animationData?.cameraSettled) {
+        animationData.setCameraSettled(false);
+      }
+    }
+
+    // Reset orbit when switching camera states and derive starting angle for hero
+    if (cameraState === 'hero' && enhancedConfig.position) {
+      heroOrbitAngle.current = Math.atan2(
+        enhancedConfig.position.x,
+        enhancedConfig.position.z
+      );
+      isOrbitingRef.current = false;
+    } else {
+      isOrbitingRef.current = false;
     }
   }, [
     animationData?.cameraConfig,
@@ -269,8 +283,8 @@ const UnifiedCameraController = ({
       return;
     }
 
-    // Orbit camera around crystal during hero state
-    if (animationData.state === 'hero') {
+    // Orbit camera around crystal during hero state once settled
+    if (animationData.state === 'hero' && animationData.cameraState === 'hero' && isOrbitingRef.current) {
       const speed = animationData.cameraConfig?.orbitSpeed || 0.0003;
       heroOrbitAngle.current += speed * deltaTime * 60;
       // Use current camera config to determine orbit radius; fall back to current position
@@ -287,10 +301,7 @@ const UnifiedCameraController = ({
 
       currentTarget.current.position.set(x, y, z);
 
-      if (cameraSettledRef.current) {
-        cameraSettledRef.current = false;
-        animationData?.setCameraSettled?.(false);
-      }
+      animationData?.setCameraSettled?.(false);
 
       return;
     }
@@ -340,6 +351,20 @@ const UnifiedCameraController = ({
         animationData?.setCameraSettled?.(false);
       }
       settleFrameCount.current = 0;
+    }
+
+    // Begin hero orbit once camera reaches hero target
+    if (
+      animationData.state === 'hero' &&
+      animationData.cameraState === 'hero' &&
+      cameraSettledRef.current &&
+      !isOrbitingRef.current
+    ) {
+      isOrbitingRef.current = true;
+      heroOrbitAngle.current = Math.atan2(
+        camera.position.x,
+        camera.position.z
+      );
     }
   });
 
