@@ -13,6 +13,8 @@ const UnifiedCameraController = ({
   // Track orbital rotation around the crystal during hero state
   const heroOrbitAngle = useRef(0);
   const isOrbitingRef = useRef(false);
+  const orbitRadiusRef = useRef(0);
+  const orbitHeightRef = useRef(0);
   
   // Current camera target tracking
   const currentTarget = useRef({
@@ -296,12 +298,10 @@ const UnifiedCameraController = ({
     if (animationData.state === 'hero' && animationData.cameraState === 'hero' && isOrbitingRef.current) {
       const speed = animationData.cameraConfig?.orbitSpeed || 0.0003;
       heroOrbitAngle.current += speed * deltaTime * 60;
-      // Use current camera config to determine orbit radius; fall back to current position
-      const basePos = animationData.cameraConfig?.position || camera.position;
-      const radius = Math.sqrt(basePos.x * basePos.x + basePos.z * basePos.z);
+      const radius = orbitRadiusRef.current;
       const x = radius * Math.sin(heroOrbitAngle.current);
       const z = radius * Math.cos(heroOrbitAngle.current);
-      const y = basePos.y;
+      const y = orbitHeightRef.current;
 
       camera.position.set(x, y, z);
       camera.lookAt(currentTarget.current.lookAt);
@@ -374,6 +374,11 @@ const UnifiedCameraController = ({
         camera.position.x,
         camera.position.z
       );
+      orbitRadiusRef.current = Math.sqrt(
+        camera.position.x * camera.position.x +
+        camera.position.z * camera.position.z
+      );
+      orbitHeightRef.current = camera.position.y;
     }
   });
 
