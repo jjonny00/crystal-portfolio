@@ -682,6 +682,9 @@ const UnifiedCrystalScene = forwardRef(({
 
         const progress = Math.min((elapsedExplosion - fracturePause) / (totalDuration - fracturePause), 1);
         const fracture = animationData.crystalConfig.fracturePositions;
+        const eased = animationData.crystalConfig.explosionEase
+          ? animationData.crystalConfig.explosionEase(progress)
+          : progress;
 
         facetRefs.current.forEach((facetRef, index) => {
           if (!facetRef || !facetRef.current) return;
@@ -690,7 +693,7 @@ const UnifiedCrystalScene = forwardRef(({
           const start = fracture?.[facetKey];
           const end = animationData.crystalConfig.positions[facetKey];
           if (start && end) {
-            const interpolated = start.clone().lerp(end, progress);
+            const interpolated = start.clone().lerp(end, eased);
             facetRef.current.position.copy(interpolated);
           }
         });

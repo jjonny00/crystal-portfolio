@@ -24,8 +24,8 @@ export const explodedPositions = {
   exploration: [-0.6, 0.7, 0.0]   // More dynamic position
 }
 
-// Define the fracture positions (3% of the way to final positions)
-const FRACTURE_SCALE = 0.03;
+// Define the fracture positions (5% of the way to final positions)
+const FRACTURE_SCALE = 0.05;
 export const fracturePositions = Object.fromEntries(
   Object.entries(explodedPositions).map(([key, coords]) => [
     key,
@@ -146,8 +146,8 @@ export const springConfigs = {
 export const easings = {
   // Explosion easing - smoother stop
   explosionEase: (t) => {
-    // Smoother end with cubic bezier-like curve
-    return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+    // Starts extremely fast and glides to a stop smoothly
+    return 1 - Math.pow(1 - t, 3);
   },
   
   // Reform easing - smoother start

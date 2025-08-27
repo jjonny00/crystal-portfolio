@@ -5,7 +5,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Vector3, Quaternion } from 'three';
 
 // Percentage of total facet travel used for the instantaneous fracture snap
-const FRACTURE_RATIO = 0.03;
+const FRACTURE_RATIO = 0.05;
 
 /**
  * SIMPLIFIED: Animation Configuration with immediate state changes
@@ -88,7 +88,8 @@ export const ANIMATION_CONFIG = {
       leadership: new Quaternion(0, 0, 0, 1),
       exploration: new Quaternion(0, 0, 0, 1)
     },
-    wholePosition: new Vector3(0, 0, 0)
+    wholePosition: new Vector3(0, 0, 0),
+    explosionEase: (t) => 1 - Math.pow(1 - t, 3) // starts fast, smooth stop
   },
 
   // SIMPLIFIED: No complex timing - just smooth transition speeds
@@ -470,6 +471,7 @@ export const useUnifiedAnimationController = (options = {}) => {
       fracturePositions: config.crystal.fracturePositions,
       fracturePause: config.crystal.fracturePause,
       explodeDuration: config.crystal.explodeDuration,
+      explosionEase: config.crystal.explosionEase,
       rotations: config.crystal.explodedRotations,
       shouldRotate: animationState.crystalForm === 'whole' &&
                    animationState.state === ANIMATION_STATES.HERO,
