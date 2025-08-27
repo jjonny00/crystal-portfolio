@@ -701,10 +701,9 @@ const UnifiedCrystalScene = forwardRef(({
           : progress;
 
         if (facetsGroupRef.current) {
-          THREE.Quaternion.slerp(
+          facetsGroupRef.current.quaternion.slerpQuaternions(
             fractureStartQuatRef.current,
             neutralQuat,
-            facetsGroupRef.current.quaternion,
             eased
           );
         }
