@@ -27,7 +27,8 @@ const UnifiedCrystalScene = forwardRef(({
   // Component refs for crystal animation
   const crystalGroupRef = useRef();
   const wholeCrystalRef = useRef();
-  const facetRefs = useRef([]); 
+  const facetRefs = useRef([]);
+  const facetsGroupRef = useRef();
   const crystalMaterialRef = useRef();
 
   // Sphere state
@@ -37,6 +38,10 @@ const UnifiedCrystalScene = forwardRef(({
   const [showWholeCrystal, setShowWholeCrystal] = useState(true);
   const [showFacets, setShowFacets] = useState(false);
   const lastCrystalForm = useRef('whole');
+
+  // Track rotation at fracture start so we can slerp back to neutral
+  const fractureStartQuatRef = useRef(new THREE.Quaternion());
+  const neutralQuat = useMemo(() => new THREE.Quaternion(), []);
   
   // Debug panel state
   const [showCrystalDebug, setShowCrystalDebug] = useState(false);
@@ -605,6 +610,12 @@ const UnifiedCrystalScene = forwardRef(({
           setSphereVisible(true);
           explosionStartRef.current = performance.now();
 
+          // Capture hero rotation so facets start from same orientation
+          if (wholeCrystalRef.current && facetsGroupRef.current) {
+            fractureStartQuatRef.current.copy(wholeCrystalRef.current.quaternion);
+            facetsGroupRef.current.quaternion.copy(wholeCrystalRef.current.quaternion);
+          }
+
           // Snap facets immediately to fracture positions (small initial offset)
           const fracture = animationData?.crystalConfig?.fracturePositions;
           if (fracture) {
@@ -633,6 +644,9 @@ const UnifiedCrystalScene = forwardRef(({
           setShowFacets(false);
         }
         explosionStartRef.current = null;
+        if (facetsGroupRef.current) {
+          facetsGroupRef.current.quaternion.copy(neutralQuat);
+        }
       }
       
       lastCrystalForm.current = currentForm;
@@ -685,6 +699,15 @@ const UnifiedCrystalScene = forwardRef(({
         const eased = animationData.crystalConfig.explosionEase
           ? animationData.crystalConfig.explosionEase(progress)
           : progress;
+
+        if (facetsGroupRef.current) {
+          THREE.Quaternion.slerp(
+            fractureStartQuatRef.current,
+            neutralQuat,
+            facetsGroupRef.current.quaternion,
+            eased
+          );
+        }
 
         facetRefs.current.forEach((facetRef, index) => {
           if (!facetRef || !facetRef.current) return;
@@ -816,19 +839,23 @@ const UnifiedCrystalScene = forwardRef(({
         </group>
       )}
       
-      {showFacets && !simplifiedAnimations && facetModels.map((model, index) => {
-        const facetKey = facetKeys[index];
+      {showFacets && !simplifiedAnimations && (
+        <group ref={facetsGroupRef}>
+          {facetModels.map((model, index) => {
+            const facetKey = facetKeys[index];
 
-        return (
-          <primitive
-            key={facetKey}
-            ref={facetRefs.current[index]}
-            object={model.scene}
-            position={[0, 0, 0]} // Position will be animated via useFrame
-            pointerEvents="none"
-          />
-        );
-      })}
+            return (
+              <primitive
+                key={facetKey}
+                ref={facetRefs.current[index]}
+                object={model.scene}
+                position={[0, 0, 0]} // Position will be animated via useFrame
+                pointerEvents="none"
+              />
+            );
+          })}
+        </group>
+      )}
 
       <FacetLabels
         projects={projects}
