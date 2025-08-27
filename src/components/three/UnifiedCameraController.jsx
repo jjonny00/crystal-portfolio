@@ -10,6 +10,9 @@ const UnifiedCameraController = ({
   facetRefs = null // Facet refs passed from UnifiedCrystalScene
 }) => {
   const { camera } = useThree();
+
+  // Track orbital rotation around the crystal during hero state
+  const heroOrbitAngle = useRef(0);
   
   // Current camera target tracking
   const currentTarget = useRef({
@@ -255,6 +258,32 @@ const UnifiedCameraController = ({
           animationData?.setCameraSettled?.(true);
         }
       }
+      return;
+    }
+
+    // Orbit camera around crystal during hero state
+    if (animationData.state === 'hero') {
+      const speed = animationData.cameraConfig?.orbitSpeed || 0.0003;
+      heroOrbitAngle.current += speed * deltaTime * 60;
+
+      const basePos = config.camera.hero.position;
+      const radius = Math.sqrt(basePos.x * basePos.x + basePos.z * basePos.z);
+      const x = radius * Math.sin(heroOrbitAngle.current);
+      const z = radius * Math.cos(heroOrbitAngle.current);
+      const y = basePos.y;
+
+      camera.position.set(x, y, z);
+      camera.lookAt(currentTarget.current.lookAt);
+      camera.fov = currentTarget.current.fov;
+      camera.updateProjectionMatrix();
+
+      currentTarget.current.position.set(x, y, z);
+
+      if (cameraSettledRef.current) {
+        cameraSettledRef.current = false;
+        animationData?.setCameraSettled?.(false);
+      }
+
       return;
     }
 

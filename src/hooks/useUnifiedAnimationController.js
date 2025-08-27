@@ -17,7 +17,8 @@ export const ANIMATION_CONFIG = {
       position: new Vector3(0, 3.2, 2.4),
       target: new Vector3(0, 0.5, 0),
       fov: 32,
-      description: 'Hero close view'
+      description: 'Hero close view',
+      orbitSpeed: 0.0003
     },
     overview: {
       position: new Vector3(0, 2.5, 6.2),
@@ -487,10 +488,7 @@ export const useUnifiedAnimationController = (options = {}) => {
       fracturePause: config.crystal.fracturePause,
       explodeDuration: config.crystal.explodeDuration,
       explosionEase: config.crystal.explosionEase,
-      rotations: config.crystal.explodedRotations,
-      shouldRotate: animationState.crystalForm === 'whole' &&
-                   animationState.state === ANIMATION_STATES.HERO,
-      rotationSpeed: 0.0003
+      rotations: config.crystal.explodedRotations
     };
   }, [animationState.crystalForm, animationState.state, config]);
 

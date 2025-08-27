@@ -659,26 +659,21 @@ const UnifiedCrystalScene = forwardRef(({
 
     const elapsed = state.clock.elapsedTime;
 
-    // Handle whole crystal rotation and floating
-    if (showWholeCrystal && wholeCrystalRef.current && animationData.crystalConfig?.shouldRotate) {
-      const rotationSpeed = animationData.crystalConfig.rotationSpeed || 0.0003;
+    // Handle whole crystal floating (no rotation)
+    if (showWholeCrystal && wholeCrystalRef.current) {
+      // Keep crystal oriented at neutral rotation
+      wholeCrystalRef.current.rotation.set(0, 0, 0);
 
-      wholeCrystalRef.current.rotation.y += rotationSpeed * deltaTime * 60;
-      wholeCrystalRef.current.rotation.x = Math.sin(elapsed * 0.0001) * 0.015;
-      wholeCrystalRef.current.rotation.z = Math.cos(elapsed * 0.00012) * 0.008;
-      
       if (animationData.state === 'hero') {
         const floatAmplitude = 0.008;
         const floatY = Math.sin(elapsed * 0.8) * floatAmplitude;
         const floatX = Math.sin(elapsed * 0.6) * floatAmplitude * 0.3;
         const floatZ = Math.sin(elapsed * 0.5) * floatAmplitude * 0.2;
-        
+
         wholeCrystalRef.current.position.set(floatX, floatY, floatZ);
       } else {
         wholeCrystalRef.current.position.set(0, 0, 0);
       }
-    } else if (wholeCrystalRef.current && !animationData.crystalConfig?.shouldRotate) {
-      wholeCrystalRef.current.position.set(0, 0, 0);
     }
 
     // Handle facet animations
