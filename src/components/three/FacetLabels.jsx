@@ -1,3 +1,6 @@
+// FIXED: src/components/three/FacetLabels.jsx
+// Calculate anchor positions once at startup for optimal performance
+
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { useThree } from '@react-three/fiber';
@@ -7,6 +10,16 @@ import { deriveGlowFromBase } from '../../utils/color';
 import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController';
 import { explodedPositions } from '../../crystalConfig';
 import '../../styles/facet-label.css';
+
+// FIXED: Actual anchor world positions from debug system (not offsets!)
+const ANCHOR_WORLD_POSITIONS = {
+  empathy: new Vector3(0.20, -2.37, -0.11),
+  narrative: new Vector3(0.09, -1.16, -1.00),
+  craft: new Vector3(1.39, 0.19, 0.70),
+  system: new Vector3(-0.74, 0.19, -2.11),
+  leadership: new Vector3(0.48, 2.01, 1.19),
+  exploration: new Vector3(-0.83, 1.38, -0.07)
+};
 
 // Individual label rendered without card styling
 const OptimizedLabel = React.memo(function OptimizedLabel({
@@ -43,21 +56,39 @@ const OptimizedLabel = React.memo(function OptimizedLabel({
   );
 });
 
-// Render facet labels as static screen-space elements
+// FIXED: Calculate final anchor world positions once at startup
 const FacetLabels = React.memo(function FacetLabels({
   projects = [],
   scrollToProgress,
   onHoverChange,
   animationData,
   performanceProfile,
-  anchorOffsets = {},
+  anchorOffsets = {}, // Not used - we have static data from Blender
 }) {
   const { camera, size } = useThree();
   const [visible, setVisible] = useState(false);
   const [fadeDuration, setFadeDuration] = useState(0.8);
   const [rootReady, setRootReady] = useState(false);
+  const [screenPositions, setScreenPositions] = useState({});
+  
   const layerRef = useRef(null);
   const rootRef = useRef(null);
+  const lastCameraHash = useRef('');
+
+  // FIXED: Use actual anchor world positions from debug system
+  const anchorWorldPositions = useMemo(() => {
+    const positions = { ...ANCHOR_WORLD_POSITIONS };
+    
+    if (import.meta.env.DEV) {
+      console.log('📍 Using actual anchor world positions from debug system:', 
+        Object.fromEntries(
+          Object.entries(positions).map(([key, vec]) => [key, vec.toArray()])
+        )
+      );
+    }
+    
+    return positions;
+  }, []); // Empty deps - these are static positions
 
   // Create a fixed layer for labels
   useEffect(() => {
@@ -79,45 +110,46 @@ const FacetLabels = React.memo(function FacetLabels({
     };
   }, []);
 
-  // Calculate final world-space positions by combining exploded positions with rotated offsets
-  const anchorWorldPositions = useMemo(() => {
-    const result = {};
-    Object.entries(anchorOffsets).forEach(([facetKey, offsetArray]) => {
-      const exploded = explodedPositions[facetKey];
-      if (!exploded) return;
+  // FIXED: Use the same projection method as debug anchors (Html component)
+  useEffect(() => {
+    if (!camera || Object.keys(anchorWorldPositions).length === 0) return;
 
-      // Translate by exploded position then apply rotated anchor offset
-      const explodedVec = new Vector3().fromArray(exploded);
-      const rotatedOffset = new Vector3().fromArray(offsetArray);
-      const finalWorld = explodedVec.add(rotatedOffset);
+    // Create a hash of camera state to avoid unnecessary recalculations
+    const cameraHash = `${camera.position.x.toFixed(2)},${camera.position.y.toFixed(2)},${camera.position.z.toFixed(2)},${size.width}x${size.height}`;
+    
+    if (cameraHash === lastCameraHash.current) {
+      return; // No significant change
+    }
 
-      console.log('Facet anchor position:', {
-        facetKey,
-        exploded,
-        anchorOffset: offsetArray,
-        finalWorld: finalWorld.toArray(),
-      });
+    const newScreenPositions = {};
 
-      result[facetKey] = finalWorld;
+    Object.entries(anchorWorldPositions).forEach(([facetKey, worldPos]) => {
+      // FIXED: Use the same projection math as Three.js Html component
+      // This replicates what @react-three/drei's Html component does internally
+      
+      // Step 1: Apply view matrix (world to camera space)
+      const vec = worldPos.clone();
+      vec.applyMatrix4(camera.matrixWorldInverse);
+      
+      // Step 2: Apply projection matrix (camera to clip space)  
+      vec.applyMatrix4(camera.projectionMatrix);
+      
+      // Step 3: Convert from clip space to screen space (same as Html component)
+      const screenX = (vec.x * 0.5 + 0.5) * size.width;
+      const screenY = (-vec.y * 0.5 + 0.5) * size.height;
+      
+      newScreenPositions[facetKey] = [screenX, screenY];
     });
-    return result;
-  }, [anchorOffsets]);
 
-  // Convert final world positions to screen space
-  const screenPositions = useMemo(() => {
-    const vec = new Vector3();
-    const result = {};
-    Object.entries(anchorWorldPositions).forEach(([key, worldPos]) => {
-      vec.copy(worldPos);
-      vec.project(camera);
-      result[key] = [
-        (vec.x * 0.5 + 0.5) * size.width,
-        (-vec.y * 0.5 + 0.5) * size.height,
-      ];
-    });
-    return result;
+    setScreenPositions(newScreenPositions);
+    lastCameraHash.current = cameraHash;
+
+    if (import.meta.env.DEV) {
+      console.log('📍 Updated screen positions using Html component projection:', newScreenPositions);
+    }
   }, [camera, size.width, size.height, anchorWorldPositions]);
 
+  // FIXED: Only show labels in overview when crystal is exploded (not during animation)
   const shouldShow = useMemo(() => {
     if (performanceProfile?.simplifiedAnimations) return false;
     if (animationData?.isScrolling) return false;
@@ -135,26 +167,38 @@ const FacetLabels = React.memo(function FacetLabels({
     performanceProfile?.simplifiedAnimations,
   ]);
 
-  // Delay fade-in so we avoid showing during active explosion
+  // FIXED: Delay label appearance until after explosion is complete
   useEffect(() => {
     let timeout;
     if (shouldShow) {
       timeout = setTimeout(() => {
         setFadeDuration(0.8);
         setVisible(true);
-      }, 500);
+        if (import.meta.env.DEV) {
+          console.log('📍 Showing facet labels at calculated anchor positions');
+        }
+      }, 1200); // Wait for explosion to complete
     } else {
       setFadeDuration(0.2);
       setVisible(false);
+      if (import.meta.env.DEV && visible) {
+        console.log('📍 Hiding facet labels');
+      }
     }
     return () => clearTimeout(timeout);
-  }, [shouldShow]);
+  }, [shouldShow, visible]);
 
-  // Render labels into detached root
+  // FIXED: Render labels using calculated anchor positions
   useEffect(() => {
-    if (!rootRef.current) return;
-    if (!layerRef.current) return;
+    if (!rootRef.current || !layerRef.current || !rootReady) return;
+    
     if (performanceProfile?.simplifiedAnimations && !visible) {
+      rootRef.current.render(null);
+      return;
+    }
+
+    // Only render if we have screen positions calculated
+    if (Object.keys(screenPositions).length === 0) {
       rootRef.current.render(null);
       return;
     }
@@ -163,7 +207,13 @@ const FacetLabels = React.memo(function FacetLabels({
       <>
         {projects.map((project) => {
           const pos = screenPositions[project.facetKey];
-          if (!pos) return null;
+          if (!pos) {
+            if (import.meta.env.DEV) {
+              console.warn(`📍 No screen position calculated for project: ${project.facetKey}`);
+            }
+            return null;
+          }
+          
           return (
             <div
               key={project.facetKey}
@@ -203,22 +253,13 @@ const FacetLabels = React.memo(function FacetLabels({
 
 export default FacetLabels;
 
-export function testScreenProjection(worldVec, camera, size, label = 'vector') {
-  if (!worldVec || !camera || !size) {
-    console.warn('testScreenProjection requires a Vector3, camera, and size');
-    return null;
-  }
-  const vec = worldVec.clone();
-  vec.project(camera);
-  const screen = [
-    (vec.x * 0.5 + 0.5) * size.width,
-    (-vec.y * 0.5 + 0.5) * size.height,
-  ];
-  if (import.meta.env.DEV) {
-    console.log(`🔍 testScreenProjection (${label}):`, {
-      world: worldVec.toArray(),
-      screen,
-    });
-  }
-  return screen;
+// Helper function for testing actual anchor positions
+export function testAnchorPositions() {
+  if (!import.meta.env.DEV) return;
+  
+  console.group('🔍 Using Actual Anchor World Positions');
+  Object.entries(ANCHOR_WORLD_POSITIONS).forEach(([facetKey, worldPos]) => {
+    console.log(`${facetKey}:`, worldPos.toArray());
+  });
+  console.groupEnd();
 }
