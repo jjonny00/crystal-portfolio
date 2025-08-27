@@ -4,7 +4,6 @@ import * as THREE from 'three';
 
 const UnifiedCameraController = ({
   animationData,
-  config,
   isMobile = false,
   simplifiedAnimations = false,
   facetRefs = null // Facet refs passed from UnifiedCrystalScene
@@ -274,8 +273,8 @@ const UnifiedCameraController = ({
     if (animationData.state === 'hero') {
       const speed = animationData.cameraConfig?.orbitSpeed || 0.0003;
       heroOrbitAngle.current += speed * deltaTime * 60;
-
-      const basePos = config.camera.hero.position;
+      // Use current camera config to determine orbit radius; fall back to current position
+      const basePos = animationData.cameraConfig?.position || camera.position;
       const radius = Math.sqrt(basePos.x * basePos.x + basePos.z * basePos.z);
       const x = radius * Math.sin(heroOrbitAngle.current);
       const z = radius * Math.cos(heroOrbitAngle.current);
