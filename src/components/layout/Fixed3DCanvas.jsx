@@ -68,6 +68,8 @@ const Fixed3DCanvas = forwardRef(({
   // NEW: Ref to access crystal scene for debug panels
   const crystalSceneRef = useRef();
   const backgroundRef = useRef();
+  const overviewBgTimer = useRef(null);
+  const lastZoneRef = useRef(null);
 
   // Expose internal state to parent components
   useImperativeHandle(ref, () => ({
@@ -107,71 +109,58 @@ const Fixed3DCanvas = forwardRef(({
     }
   }, [crystalSceneRef]);
 
-  // FIXED: Update gradient background based on scroll zone or project focus
+  // Update gradient background based on project focus or zone changes
   const bg = backgroundRef.current;
   useEffect(() => {
     if (!bg || !animationData) return;
-    
-    let key = 'default';
-    
-    // Debug logging to see what's happening
-    if (import.meta.env.DEV) {
-      console.log('🎨 Background update check:', {
-        currentZone: animationData?.currentZone,
-        zoneInfo: animationData?.zoneInfo,
-        state: animationData?.state,
-        focusedProject: animationData?.focusedProject,
-        focusedFacet: animationData?.focusedFacet,
-        projectInfo: animationData?.projectInfo
-      });
-    }
 
-    // FIXED: Check for focused project first (more specific)
+    // Project-specific backgrounds override zone backgrounds
     if (animationData.focusedProject || animationData.focusedFacet) {
       const projectKey = animationData.focusedProject || animationData.focusedFacet;
-      key = projectKey;
-      if (import.meta.env.DEV) {
-        console.log(`🎨 Setting background to project: ${projectKey}`);
-      }
-    }
-    // FIXED: Then check zones - be more specific about projects zone
-    else if (animationData.currentZone === 'projects' || animationData.state === 'project_focused') {
-      // In projects zone but no specific project focused - use overview
-      key = 'overview';
-      if (import.meta.env.DEV) {
-        console.log('🎨 Setting background to projects overview');
-      }
-    }
-    else if (animationData.currentZone === 'overview') {
-      key = 'overview';
-      if (import.meta.env.DEV) {
-        console.log('🎨 Setting background to overview');
-      }
-    }
-    else {
-      // Default for hero, about, or any other zone
-      key = 'default';
-      if (import.meta.env.DEV) {
-        console.log('🎨 Setting background to default');
-      }
+      bg.updateBackground(projectKey);
+      return;
     }
 
-    // FIXED: Always call updateBackground, even if key is the same
-    // The component should handle duplicate calls internally
-    bg.updateBackground(key);
-    
-    if (import.meta.env.DEV) {
-      console.log(`🎨 Background key set to: ${key}`);
+    const zone = animationData.currentZone;
+
+    if (lastZoneRef.current === zone) return;
+    lastZoneRef.current = zone;
+
+    // Clear any pending timers when zone changes
+    if (overviewBgTimer.current) {
+      clearTimeout(overviewBgTimer.current);
+      overviewBgTimer.current = null;
     }
-    
+
+    if (zone === 'overview') {
+      // Hold hero background during fracture pause
+      bg.updateBackground('default');
+      const pause = (animationData.crystalConfig?.fracturePause || 0.5) * 1000;
+      overviewBgTimer.current = setTimeout(() => {
+        bg.updateBackground('overview');
+        overviewBgTimer.current = null;
+      }, pause);
+    } else if (zone === 'projects' || animationData.state === 'project_focused') {
+      bg.updateBackground('overview');
+    } else {
+      bg.updateBackground('default');
+    }
   }, [
-    animationData?.focusedProject, 
+    animationData?.focusedProject,
     animationData?.focusedFacet,
-    animationData?.currentZone, 
+    animationData?.currentZone,
     animationData?.state,
-    animationData?.projectInfo,
+    animationData?.crystalConfig?.fracturePause,
     bg
   ]);
+
+  useEffect(() => {
+    return () => {
+      if (overviewBgTimer.current) {
+        clearTimeout(overviewBgTimer.current);
+      }
+    };
+  }, []);
 
   // FIXED: Function to get facet refs from crystal scene with proper access
   const getFacetRefs = () => {

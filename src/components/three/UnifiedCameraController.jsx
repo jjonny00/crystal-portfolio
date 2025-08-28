@@ -4,12 +4,17 @@ import * as THREE from 'three';
 
 const UnifiedCameraController = ({
   animationData,
-  config,
   isMobile = false,
   simplifiedAnimations = false,
   facetRefs = null // Facet refs passed from UnifiedCrystalScene
 }) => {
   const { camera } = useThree();
+
+  // Track orbital rotation around the crystal during hero state
+  const heroOrbitAngle = useRef(0);
+  const isOrbitingRef = useRef(false);
+  const orbitRadiusRef = useRef(0);
+  const orbitHeightRef = useRef(0);
   
   // Current camera target tracking
   const currentTarget = useRef({
@@ -146,6 +151,15 @@ const UnifiedCameraController = ({
   }, [camera]);
 
   useEffect(() => {
+    // During fracture pauses, hold camera at its current position
+    if (
+      (animationData?.state === 'overview' && animationData?.cameraState === 'hero') ||
+      (animationData?.state === 'hero' && animationData?.cameraState === 'overview')
+    ) {
+      isOrbitingRef.current = false;
+      return;
+    }
+
     if (!animationData?.cameraConfig) return;
 
     const baseConfig = animationData.cameraConfig;
@@ -154,7 +168,16 @@ const UnifiedCameraController = ({
     
     // Get enhanced config with anchor targeting
     const enhancedConfig = getCameraTarget(baseConfig, focusedFacet, cameraState);
-    
+
+    // Guard against missing config (prevents runtime errors when animation state changes
+    // before camera configuration is ready)
+    if (!enhancedConfig) {
+      if (import.meta.env.DEV) {
+        console.warn('📹 Camera Controller: No camera configuration available');
+      }
+      return;
+    }
+
     // Check if config actually changed to avoid unnecessary updates
     const configChanged = !lastCameraConfig.current ||
       !enhancedConfig.position?.equals(lastCameraConfig.current.position) ||
@@ -229,7 +252,20 @@ const UnifiedCameraController = ({
       // Reset camera settled state when new configuration is applied
       settleFrameCount.current = 0;
       cameraSettledRef.current = false;
-      animationData?.setCameraSettled?.(false);
+      if (animationData?.cameraSettled) {
+        animationData.setCameraSettled(false);
+      }
+    }
+
+    // Reset orbit when switching camera states and derive starting angle for hero
+    if (cameraState === 'hero' && enhancedConfig.position) {
+      heroOrbitAngle.current = Math.atan2(
+        enhancedConfig.position.x,
+        enhancedConfig.position.z
+      );
+      isOrbitingRef.current = false;
+    } else {
+      isOrbitingRef.current = false;
     }
   }, [
     animationData?.cameraConfig,
@@ -255,6 +291,27 @@ const UnifiedCameraController = ({
           animationData?.setCameraSettled?.(true);
         }
       }
+      return;
+    }
+
+    // Orbit camera around crystal during hero state once settled
+    if (animationData.state === 'hero' && animationData.cameraState === 'hero' && isOrbitingRef.current) {
+      const speed = animationData.cameraConfig?.orbitSpeed || 0.0003;
+      heroOrbitAngle.current += speed * deltaTime * 60;
+      const radius = orbitRadiusRef.current;
+      const x = radius * Math.sin(heroOrbitAngle.current);
+      const z = radius * Math.cos(heroOrbitAngle.current);
+      const y = orbitHeightRef.current;
+
+      camera.position.set(x, y, z);
+      camera.lookAt(currentTarget.current.lookAt);
+      camera.fov = currentTarget.current.fov;
+      camera.updateProjectionMatrix();
+
+      currentTarget.current.position.set(x, y, z);
+
+      animationData?.setCameraSettled?.(false);
+
       return;
     }
 
@@ -303,6 +360,33 @@ const UnifiedCameraController = ({
         animationData?.setCameraSettled?.(false);
       }
       settleFrameCount.current = 0;
+    }
+
+    // Begin hero orbit once camera reaches hero target
+    if (
+      animationData.state === 'hero' &&
+      animationData.cameraState === 'hero' &&
+      cameraSettledRef.current &&
+      !isOrbitingRef.current
+    ) {
+      // Snap to the final hero target to avoid a visible jump when orbiting begins
+      camera.position.copy(currentTarget.current.position);
+      camera.lookAt(currentTarget.current.lookAt);
+      camera.fov = currentTarget.current.fov;
+      camera.updateProjectionMatrix();
+
+      // Derive orbit parameters from the settled hero pose
+      heroOrbitAngle.current = Math.atan2(
+        currentTarget.current.position.x,
+        currentTarget.current.position.z
+      );
+      orbitRadiusRef.current = Math.sqrt(
+        currentTarget.current.position.x * currentTarget.current.position.x +
+        currentTarget.current.position.z * currentTarget.current.position.z
+      );
+      orbitHeightRef.current = currentTarget.current.position.y;
+      isOrbitingRef.current = true;
+      return;
     }
   });
 

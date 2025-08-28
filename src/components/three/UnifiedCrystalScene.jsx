@@ -27,7 +27,8 @@ const UnifiedCrystalScene = forwardRef(({
   // Component refs for crystal animation
   const crystalGroupRef = useRef();
   const wholeCrystalRef = useRef();
-  const facetRefs = useRef([]); 
+  const facetRefs = useRef([]);
+  const facetsGroupRef = useRef();
   const crystalMaterialRef = useRef();
 
   // Sphere state
@@ -37,6 +38,11 @@ const UnifiedCrystalScene = forwardRef(({
   const [showWholeCrystal, setShowWholeCrystal] = useState(true);
   const [showFacets, setShowFacets] = useState(false);
   const lastCrystalForm = useRef('whole');
+
+  // Track rotation at fracture start so we can slerp back to neutral
+  const fractureStartQuatRef = useRef(new THREE.Quaternion());
+  const neutralQuat = useMemo(() => new THREE.Quaternion(), []);
+  const origin = useMemo(() => new THREE.Vector3(0, 0, 0), []);
   
   // Debug panel state
   const [showCrystalDebug, setShowCrystalDebug] = useState(false);
@@ -64,6 +70,9 @@ const UnifiedCrystalScene = forwardRef(({
     () => facetKeys.map(key => new THREE.Color(getProjectColorByFacetKey(key))),
     [facetKeys]
   );
+
+  // Track explosion timing so we can implement fracture pause
+  const explosionStartRef = useRef(null);
 
   // Track when GLTF models have loaded
   const [modelsLoaded, setModelsLoaded] = useState(false);
@@ -600,6 +609,25 @@ const UnifiedCrystalScene = forwardRef(({
           setShowWholeCrystal(false);
           setShowFacets(true);
           setSphereVisible(true);
+          explosionStartRef.current = performance.now();
+
+          // Capture hero rotation so facets start from same orientation
+          if (wholeCrystalRef.current && facetsGroupRef.current) {
+            fractureStartQuatRef.current.copy(wholeCrystalRef.current.quaternion);
+            facetsGroupRef.current.quaternion.copy(wholeCrystalRef.current.quaternion);
+          }
+
+          // Snap facets immediately to fracture positions (small initial offset)
+          const fracture = animationData?.crystalConfig?.fracturePositions;
+          if (fracture) {
+            facetRefs.current.forEach((facetRef, idx) => {
+              const facetKey = facetKeys[idx];
+              const pos = fracture[facetKey];
+              if (facetRef?.current && pos) {
+                facetRef.current.position.copy(pos);
+              }
+            });
+          }
         } else {
           // In simplified mode keep the whole crystal visible
           setShowWholeCrystal(true);
@@ -616,6 +644,10 @@ const UnifiedCrystalScene = forwardRef(({
           setShowWholeCrystal(true);
           setShowFacets(false);
         }
+        explosionStartRef.current = null;
+        if (facetsGroupRef.current) {
+          facetsGroupRef.current.quaternion.copy(neutralQuat);
+        }
       }
       
       lastCrystalForm.current = currentForm;
@@ -628,48 +660,86 @@ const UnifiedCrystalScene = forwardRef(({
 
     const elapsed = state.clock.elapsedTime;
 
-    // Handle whole crystal rotation and floating
-    if (showWholeCrystal && wholeCrystalRef.current && animationData.crystalConfig?.shouldRotate) {
-      const rotationSpeed = animationData.crystalConfig.rotationSpeed || 0.0003;
+    // Handle whole crystal floating (no rotation)
+    if (showWholeCrystal && wholeCrystalRef.current) {
+      // Keep crystal oriented at neutral rotation
+      wholeCrystalRef.current.rotation.set(0, 0, 0);
 
-      wholeCrystalRef.current.rotation.y += rotationSpeed * deltaTime * 60;
-      wholeCrystalRef.current.rotation.x = Math.sin(elapsed * 0.0001) * 0.015;
-      wholeCrystalRef.current.rotation.z = Math.cos(elapsed * 0.00012) * 0.008;
-      
       if (animationData.state === 'hero') {
         const floatAmplitude = 0.008;
         const floatY = Math.sin(elapsed * 0.8) * floatAmplitude;
         const floatX = Math.sin(elapsed * 0.6) * floatAmplitude * 0.3;
         const floatZ = Math.sin(elapsed * 0.5) * floatAmplitude * 0.2;
-        
+
         wholeCrystalRef.current.position.set(floatX, floatY, floatZ);
       } else {
         wholeCrystalRef.current.position.set(0, 0, 0);
       }
-    } else if (wholeCrystalRef.current && !animationData.crystalConfig?.shouldRotate) {
-      wholeCrystalRef.current.position.set(0, 0, 0);
     }
 
     // Handle facet animations
     if (showFacets && animationData.crystalConfig?.positions) {
+      // Custom fracture/explosion timing
+      if (animationData.crystalForm === 'exploded' && explosionStartRef.current) {
+        const fracturePause = animationData.crystalConfig.fracturePause || 0.5;
+        const totalDuration = animationData.crystalConfig.explodeDuration || 1.2;
+        const elapsedExplosion = (performance.now() - explosionStartRef.current) / 1000;
+
+        if (elapsedExplosion < fracturePause) {
+          // Stay at fracture positions during the pause
+          return;
+        }
+
+        const progress = Math.min((elapsedExplosion - fracturePause) / (totalDuration - fracturePause), 1);
+        const fracture = animationData.crystalConfig.fracturePositions;
+        const eased = animationData.crystalConfig.explosionEase
+          ? animationData.crystalConfig.explosionEase(progress)
+          : progress;
+
+        if (facetsGroupRef.current) {
+          facetsGroupRef.current.quaternion.slerpQuaternions(
+            fractureStartQuatRef.current,
+            neutralQuat,
+            eased
+          );
+        }
+
+        facetRefs.current.forEach((facetRef, index) => {
+          if (!facetRef || !facetRef.current) return;
+
+          const facetKey = facetKeys[index];
+          const start = fracture?.[facetKey];
+          const end = animationData.crystalConfig.positions[facetKey];
+          if (start && end) {
+            const interpolated = start.clone().lerp(end, eased);
+            facetRef.current.position.copy(interpolated);
+          }
+        });
+
+        if (progress >= 1) {
+          explosionStartRef.current = null; // Animation finished
+        }
+        return;
+      }
+
       const isReforming = animationData.crystalForm === 'whole' && showFacets;
-      
+
       const speeds = {
         explosion: 0.04,
         reform: 0.12,
         projectFocus: 0.05,
         floating: 0.02
       };
-      
+
       let lerpSpeed;
       if (animationData.focusedFacet) {
         lerpSpeed = speeds.projectFocus;
       } else {
         lerpSpeed = speeds.explosion;
       }
-      
+
       let allFacetsAtCenter = true;
-      
+
       facetRefs.current.forEach((facetRef, index) => {
         if (!facetRef || !facetRef.current) return;
 
@@ -677,20 +747,20 @@ const UnifiedCrystalScene = forwardRef(({
         let targetPos = animationData.crystalConfig.positions[facetKey];
 
         if (isReforming) {
-          targetPos = new THREE.Vector3(0, 0, 0);
+          targetPos = origin;
         }
 
         if (targetPos) {
           if (isReforming) {
-            const distanceToCenter = facetRef.current.position.distanceTo(new THREE.Vector3(0, 0, 0));
-            const maxDistance = 2;
+            const distanceToCenter = facetRef.current.position.length();
+            const maxDistance = 3;
             const progress = Math.min(1 - (distanceToCenter / maxDistance), 1);
             const clampedProgress = Math.max(0, progress);
 
             const facetSpeed = 0.02 + (clampedProgress * clampedProgress * 0.16);
             facetRef.current.position.lerp(targetPos, facetSpeed * deltaTime * 60);
 
-            if (distanceToCenter > 0.8) {
+            if (distanceToCenter > 0.05) {
               allFacetsAtCenter = false;
             }
           } else {
@@ -705,7 +775,7 @@ const UnifiedCrystalScene = forwardRef(({
           }
         }
       });
-      
+
       if (isReforming && allFacetsAtCenter && !showWholeCrystal) {
         if (import.meta.env.DEV) {
           console.log('💎 Reform complete - swapping to whole crystal');
@@ -764,19 +834,23 @@ const UnifiedCrystalScene = forwardRef(({
         </group>
       )}
       
-      {showFacets && !simplifiedAnimations && facetModels.map((model, index) => {
-        const facetKey = facetKeys[index];
+      {showFacets && !simplifiedAnimations && (
+        <group ref={facetsGroupRef}>
+          {facetModels.map((model, index) => {
+            const facetKey = facetKeys[index];
 
-        return (
-          <primitive
-            key={facetKey}
-            ref={facetRefs.current[index]}
-            object={model.scene}
-            position={[0, 0, 0]} // Position will be animated via useFrame
-            pointerEvents="none"
-          />
-        );
-      })}
+            return (
+              <primitive
+                key={facetKey}
+                ref={facetRefs.current[index]}
+                object={model.scene}
+                position={[0, 0, 0]} // Position will be animated via useFrame
+                pointerEvents="none"
+              />
+            );
+          })}
+        </group>
+      )}
 
       <FacetLabels
         projects={projects}

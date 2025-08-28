@@ -4,6 +4,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Vector3, Quaternion } from 'three';
 
+// Percentage of total facet travel used for the instantaneous fracture snap
+const FRACTURE_RATIO = 0.03; // 3%
+
 /**
  * SIMPLIFIED: Animation Configuration with immediate state changes
  */
@@ -14,7 +17,8 @@ export const ANIMATION_CONFIG = {
       position: new Vector3(0, 3.2, 2.4),
       target: new Vector3(0, 0.5, 0),
       fov: 32,
-      description: 'Hero close view'
+      description: 'Hero close view',
+      orbitSpeed: 0.0003
     },
     overview: {
       position: new Vector3(0, 2.5, 6.2),
@@ -31,37 +35,37 @@ export const ANIMATION_CONFIG = {
     projects: {
       empathy: {
         position: new Vector3(2.8, -1.5, 3.2),
-        target: new Vector3(0.3, -0.7, -0.2),
+      target: new Vector3(0.3, -0.7, -0.2),
         fov: 35,
         description: 'Empathy facet focus'
       },
       narrative: {
         position: new Vector3(3.5, 0.2, 2.8),
-        target: new Vector3(0.3, -0.1, -0.7),
+      target: new Vector3(0.3, -0.1, -0.7),
         fov: 35,
         description: 'Narrative facet focus'
       },
       craft: {
         position: new Vector3(3.8, 2.5, 3.0),
-        target: new Vector3(1.3, 0.8, 0.5),
+      target: new Vector3(1.3, 0.8, 0.5),
         fov: 35,
         description: 'Craft facet focus'
       },
       system: {
         position: new Vector3(-3.2, 1.0, 2.5),
-        target: new Vector3(-0.5, 0.2, -1.8),
+      target: new Vector3(-0.5, 0.2, -1.8),
         fov: 35,
         description: 'System facet focus'
       },
       leadership: {
         position: new Vector3(1.2, 4.0, 3.2),
-        target: new Vector3(0.4, 1.2, 0.9),
+      target: new Vector3(0.4, 1.2, 0.9),
         fov: 35,
         description: 'Leadership facet focus'
       },
       exploration: {
         position: new Vector3(-2.8, 2.8, 2.6),
-        target: new Vector3(-0.6, 0.7, 0.0),
+      target: new Vector3(-0.6, 0.7, 0.0),
         fov: 35,
         description: 'Exploration facet focus'
       }
@@ -85,7 +89,8 @@ export const ANIMATION_CONFIG = {
       leadership: new Quaternion(0, 0, 0, 1),
       exploration: new Quaternion(0, 0, 0, 1)
     },
-    wholePosition: new Vector3(0, 0, 0)
+    wholePosition: new Vector3(0, 0, 0),
+    explosionEase: (t) => 1 - Math.pow(1 - t, 3) // starts fast, smooth stop
   },
 
   // SIMPLIFIED: No complex timing - just smooth transition speeds
@@ -109,6 +114,19 @@ export const ANIMATION_CONFIG = {
     exploration:{ start: 0.7566, end: 0.875 }
   }
 };
+
+// Derive fracture positions and timing based on exploded targets
+ANIMATION_CONFIG.crystal.fracturePositions = Object.fromEntries(
+  Object.entries(ANIMATION_CONFIG.crystal.explodedPositions).map(([key, vec]) => [
+    key,
+    vec.clone().multiplyScalar(FRACTURE_RATIO)
+  ])
+);
+// How long to hold the facets at their fractured positions (seconds)
+ANIMATION_CONFIG.crystal.fracturePause = 0.5;
+// Total time for fracture + explosion (seconds). Matches previous explode duration
+// Total time for fracture + explosion (seconds). Matches original explode timing
+ANIMATION_CONFIG.crystal.explodeDuration = 1.6;
 
 // SIMPLIFIED: Only essential states (no intermediate transition states)
 const ANIMATION_STATES = {
@@ -215,6 +233,7 @@ export const useUnifiedAnimationController = (options = {}) => {
   const lastZone = useRef('hero');
   const lastProject = useRef(null);
   const updateTimeout = useRef(null);
+  const cameraDelayTimeout = useRef(null);
 
   /**
    * FIXED: Handle zone transitions with immediate state changes
@@ -224,26 +243,48 @@ export const useUnifiedAnimationController = (options = {}) => {
       if (import.meta.env.DEV) console.log(`🗺️ IMMEDIATE Zone transition: ${fromZone} → ${toZone}`);
     }
 
+    // Clear any pending delayed camera transitions when switching zones
+    if (cameraDelayTimeout.current) {
+      clearTimeout(cameraDelayTimeout.current);
+      cameraDelayTimeout.current = null;
+    }
+
     // IMMEDIATE state changes - no complex sequences
     if (toZone === 'hero') {
+      // Reform crystal immediately but keep camera at overview until fracture pause completes
       setAnimationState(prev => ({
         ...prev,
         state: ANIMATION_STATES.HERO,
-        crystalForm: 'whole',        // Immediate
-        cameraState: 'hero',         // Immediate
+        crystalForm: 'whole',
+        cameraState: 'overview', // Hold camera during reform pause
         focusedFacet: null,
-        isTransitioning: false       // Let components handle their own transitions
+        isTransitioning: false
       }));
+
+      cameraDelayTimeout.current = setTimeout(() => {
+        setAnimationState(prev => ({
+          ...prev,
+          cameraState: 'hero'
+        }));
+      }, (config.crystal.fracturePause || 0.5) * 1000);
     }
     else if (toZone === 'overview') {
+      // Start explosion immediately but delay camera move until fracture pause completes
       setAnimationState(prev => ({
         ...prev,
         state: ANIMATION_STATES.OVERVIEW,
         crystalForm: 'exploded',     // Immediate
-        cameraState: 'overview',     // Immediate
+        cameraState: 'hero',         // Hold camera during fracture pause
         focusedFacet: null,
         isTransitioning: false
       }));
+
+      cameraDelayTimeout.current = setTimeout(() => {
+        setAnimationState(prev => ({
+          ...prev,
+          cameraState: 'overview'
+        }));
+      }, (config.crystal.fracturePause || 0.5) * 1000);
     }
     else if (toZone === 'projects') {
       // Don't set focusedFacet here - let the project handling logic do it
@@ -265,7 +306,7 @@ export const useUnifiedAnimationController = (options = {}) => {
         isTransitioning: false
       }));
     }
-  }, [debugMode]);
+  }, [debugMode, config]);
 
   /**
    * SIMPLIFIED: Handle project focus (same pattern as before - it works!)
@@ -452,10 +493,11 @@ export const useUnifiedAnimationController = (options = {}) => {
       positions: animationState.crystalForm === 'exploded'
         ? config.crystal.explodedPositions
         : { center: config.crystal.wholePosition },
-      rotations: config.crystal.explodedRotations,
-      shouldRotate: animationState.crystalForm === 'whole' &&
-                   animationState.state === ANIMATION_STATES.HERO,
-      rotationSpeed: 0.0003
+      fracturePositions: config.crystal.fracturePositions,
+      fracturePause: config.crystal.fracturePause,
+      explodeDuration: config.crystal.explodeDuration,
+      explosionEase: config.crystal.explosionEase,
+      rotations: config.crystal.explodedRotations
     };
   }, [animationState.crystalForm, animationState.state, config]);
 
@@ -466,6 +508,9 @@ export const useUnifiedAnimationController = (options = {}) => {
     return () => {
       if (updateTimeout.current) {
         clearTimeout(updateTimeout.current);
+      }
+      if (cameraDelayTimeout.current) {
+         clearTimeout(cameraDelayTimeout.current);
       }
     };
   }, []);

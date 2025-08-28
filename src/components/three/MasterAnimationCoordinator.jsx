@@ -101,24 +101,31 @@ const MasterAnimationCoordinator = ({
   ]);
 
   // Core animation data consumed by 3D components
-  const animationData = useMemo(() => ({
-    state: animationController.animationState.state,
-    crystalForm: animationController.animationState.crystalForm,
-    cameraState: animationController.animationState.cameraState,
-    // Normalize undefined to null so consumers can rely on explicit null check
-    focusedFacet: animationController.animationState.focusedFacet ?? null,
-    focusedProject: animationController.animationState.projectInfo?.project,
-    projectProgress: animationController.animationState.projectInfo?.progress,
-    isTransitioning: animationController.animationState.isTransitioning,
-    cameraConfig: animationController.cameraConfig,
-    crystalConfig: animationController.crystalConfig,
-    currentZone: animationController.animationState.zoneInfo?.zone,
-    zoneProgress: animationController.animationState.zoneInfo?.progress,
-    isEnteringZone: animationController.animationState.zoneInfo?.isEntering,
-    isLeavingZone: animationController.animationState.zoneInfo?.isLeaving,
-    cameraSettled: animationController.animationState.cameraSettled,
-    setCameraSettled: animationController.setCameraSettled
-  }), [
+  const animationData = useMemo(() => {
+    const zone = animationController.animationState.zoneInfo?.zone;
+    return {
+      state: animationController.animationState.state,
+      crystalForm: animationController.animationState.crystalForm,
+      cameraState: animationController.animationState.cameraState,
+      // Normalize undefined to null so consumers can rely on explicit null check
+      focusedFacet: animationController.animationState.focusedFacet ?? null,
+      // Only expose a focused project when actually in the projects zone
+      focusedProject:
+        zone === 'projects'
+          ? animationController.animationState.projectInfo?.project
+          : null,
+      projectProgress: animationController.animationState.projectInfo?.progress,
+      isTransitioning: animationController.animationState.isTransitioning,
+      cameraConfig: animationController.cameraConfig,
+      crystalConfig: animationController.crystalConfig,
+      currentZone: zone,
+      zoneProgress: animationController.animationState.zoneInfo?.progress,
+      isEnteringZone: animationController.animationState.zoneInfo?.isEntering,
+      isLeavingZone: animationController.animationState.zoneInfo?.isLeaving,
+      cameraSettled: animationController.animationState.cameraSettled,
+      setCameraSettled: animationController.setCameraSettled
+    };
+  }, [
     animationController.animationState,
     animationController.cameraConfig,
     animationController.crystalConfig,
