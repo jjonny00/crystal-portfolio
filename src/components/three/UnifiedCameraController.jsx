@@ -1,3 +1,6 @@
+// FIXED: src/components/three/UnifiedCameraController.jsx
+// Fixed hero orbit jump by adding stricter orbit initiation conditions
+
 import { useRef, useEffect } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -6,7 +9,7 @@ const UnifiedCameraController = ({
   animationData,
   isMobile = false,
   simplifiedAnimations = false,
-  facetRefs = null // Facet refs passed from UnifiedCrystalScene
+  facetRefs = null
 }) => {
   const { camera } = useThree();
 
@@ -39,6 +42,11 @@ const UnifiedCameraController = ({
   const SETTLE_EPSILON = 0.01;
   const SETTLE_FRAMES = 5;
 
+  // ADDED: Additional tracking for orbit initiation
+  const orbitInitDelayRef = useRef(0);
+  const ORBIT_DELAY_FRAMES = 30; // Wait 30 frames after settling before starting orbit
+  const lastCameraStateRef = useRef(null);
+
   const findAnchorInFacet = (facetKey) => {
     if (!facetRefs) {
       if (import.meta.env.DEV) {
@@ -57,8 +65,7 @@ const UnifiedCameraController = ({
       return null;
     }
     
-    
-    const facetRef = facetRefs[facetIndex]; // Direct array access
+    const facetRef = facetRefs[facetIndex];
     
     if (!facetRef || !facetRef.current) {
       if (import.meta.env.DEV) {
@@ -67,17 +74,12 @@ const UnifiedCameraController = ({
       return null;
     }
     
-    // Expected anchor name pattern
     const anchorName = `anchor_${facetKey}`;
-    
-    // Search for anchor in the facet model
     let anchorObject = null;
     
-    // Method 1: Direct search by name
     anchorObject = facetRef.current.getObjectByName(anchorName);
     
     if (!anchorObject) {
-      // Method 2: Traverse the entire facet model to find anchor
       facetRef.current.traverse((child) => {
         if (child.name === anchorName) {
           anchorObject = child;
@@ -86,7 +88,6 @@ const UnifiedCameraController = ({
     }
     
     if (anchorObject) {
-      
       const worldPosition = new THREE.Vector3();
       anchorObject.getWorldPosition(worldPosition);
       
@@ -109,20 +110,16 @@ const UnifiedCameraController = ({
   };
 
   const getCameraTarget = (cameraConfig, focusedFacet, cameraState) => {
-    // For project cameras, try to find anchor with FRESH position
     if (cameraState === 'project' && focusedFacet && facetRefs) {
-      
       const anchorPosition = findAnchorInFacet(focusedFacet);
       
       if (anchorPosition) {
-        // Return camera config with FRESH anchor as target
         return {
           ...cameraConfig,
           target: anchorPosition,
           description: `${focusedFacet} project (anchor targeted)` 
         };
       } else {
-        // Fallback to default project config if anchor not found
         if (import.meta.env.DEV) {
           console.warn(`⚠️ Camera Controller: No anchor found for ${focusedFacet}, using default target`);
         }
@@ -133,24 +130,30 @@ const UnifiedCameraController = ({
       }
     }
     
-    // Non-project cameras use original target
     return cameraConfig;
   };
 
-  /**
-   * Initialize camera target from current position
-   */
   useEffect(() => {
     currentTarget.current.position.copy(camera.position);
     currentTarget.current.fov = camera.fov;
     
-    // Calculate current look-at direction
     const direction = new THREE.Vector3();
     camera.getWorldDirection(direction);
     currentTarget.current.lookAt.copy(camera.position).add(direction);
   }, [camera]);
 
   useEffect(() => {
+    // FIXED: Reset orbit state when camera state changes
+    if (animationData?.cameraState !== lastCameraStateRef.current) {
+      isOrbitingRef.current = false;
+      orbitInitDelayRef.current = 0;
+      lastCameraStateRef.current = animationData?.cameraState;
+      
+      if (import.meta.env.DEV) {
+        console.log('📹 Camera state changed, resetting orbit:', animationData?.cameraState);
+      }
+    }
+
     // During fracture pauses, hold camera at its current position
     if (
       (animationData?.state === 'overview' && animationData?.cameraState === 'hero') ||
@@ -166,11 +169,8 @@ const UnifiedCameraController = ({
     const focusedFacet = animationData.focusedFacet;
     const cameraState = animationData.cameraState;
     
-    // Get enhanced config with anchor targeting
     const enhancedConfig = getCameraTarget(baseConfig, focusedFacet, cameraState);
 
-    // Guard against missing config (prevents runtime errors when animation state changes
-    // before camera configuration is ready)
     if (!enhancedConfig) {
       if (import.meta.env.DEV) {
         console.warn('📹 Camera Controller: No camera configuration available');
@@ -178,12 +178,11 @@ const UnifiedCameraController = ({
       return;
     }
 
-    // Check if config actually changed to avoid unnecessary updates
     const configChanged = !lastCameraConfig.current ||
       !enhancedConfig.position?.equals(lastCameraConfig.current.position) ||
       !enhancedConfig.target?.equals(lastCameraConfig.current.target) ||
       enhancedConfig.fov !== lastCameraConfig.current.fov ||
-      enhancedConfig.description !== lastCameraConfig.current.description; // Also check description
+      enhancedConfig.description !== lastCameraConfig.current.description;
 
     if (configChanged) {
       if (import.meta.env.DEV) {
@@ -198,7 +197,6 @@ const UnifiedCameraController = ({
         });
       }
 
-      // Update targets immediately
       if (enhancedConfig.position) {
         currentTarget.current.position.copy(enhancedConfig.position);
       }
@@ -211,7 +209,6 @@ const UnifiedCameraController = ({
         currentTarget.current.fov = enhancedConfig.fov;
       }
 
-      
       const positionDistance = camera.position.distanceTo(currentTarget.current.position);
       
       if (animationData.state === 'hero' && positionDistance > 3) {
@@ -227,7 +224,6 @@ const UnifiedCameraController = ({
         animationSpeed.current.lookAt = 0.02;
         animationSpeed.current.fov = 0.02;
       } else if (cameraState === 'project' && focusedFacet) {
-        
         animationSpeed.current.position = 0.05;
         animationSpeed.current.lookAt = 0.05;
         animationSpeed.current.fov = 0.05;
@@ -241,7 +237,6 @@ const UnifiedCameraController = ({
         animationSpeed.current.fov = 0.03;
       }
 
-      // Store current config for comparison (including description)
       lastCameraConfig.current = {
         position: enhancedConfig.position?.clone(),
         target: enhancedConfig.target?.clone(),
@@ -249,9 +244,10 @@ const UnifiedCameraController = ({
         description: enhancedConfig.description
       };
 
-      // Reset camera settled state when new configuration is applied
+      // FIXED: Reset settle tracking when new config is applied
       settleFrameCount.current = 0;
       cameraSettledRef.current = false;
+      orbitInitDelayRef.current = 0; // ADDED: Reset orbit delay
       if (animationData?.cameraSettled) {
         animationData.setCameraSettled(false);
       }
@@ -263,7 +259,7 @@ const UnifiedCameraController = ({
         enhancedConfig.position.x,
         enhancedConfig.position.z
       );
-      isOrbitingRef.current = false;
+      // FIXED: Don't immediately set isOrbitingRef here
     } else {
       isOrbitingRef.current = false;
     }
@@ -272,13 +268,10 @@ const UnifiedCameraController = ({
     animationData?.state,
     animationData?.cameraState,
     animationData?.focusedFacet,
-    facetRefs, // Keep facetRefs as dependency to update when refs change
+    facetRefs,
     camera
   ]);
 
-  /**
-   * Smooth animation loop
-   */
   useFrame((state, deltaTime) => {
     if (!currentTarget.current || simplifiedAnimations) {
       if (simplifiedAnimations) {
@@ -311,14 +304,11 @@ const UnifiedCameraController = ({
       currentTarget.current.position.set(x, y, z);
 
       animationData?.setCameraSettled?.(false);
-
       return;
     }
 
-    // FIXED: Use exponential smoothing instead of lerp
-    const smoothingFactor = 1 - Math.exp(-6 * deltaTime); // Frame-rate independent
-
-    // FIXED: Clamp smoothing to prevent overshooting
+    // FIXED: Use exponential smoothing with clamping
+    const smoothingFactor = 1 - Math.exp(-6 * deltaTime);
     const clampedSmoothing = Math.min(Math.max(smoothingFactor, 0.01), 0.15);
 
     // Smooth position interpolation
@@ -360,49 +350,67 @@ const UnifiedCameraController = ({
         animationData?.setCameraSettled?.(false);
       }
       settleFrameCount.current = 0;
+      orbitInitDelayRef.current = 0; // ADDED: Reset orbit delay when not settled
     }
 
-    // Begin hero orbit once camera reaches hero target
+    // FIXED: Enhanced orbit initiation with additional delay and stricter conditions
     if (
       animationData.state === 'hero' &&
       animationData.cameraState === 'hero' &&
       cameraSettledRef.current &&
       !isOrbitingRef.current
     ) {
-      // Snap to the final hero target to avoid a visible jump when orbiting begins
-      camera.position.copy(currentTarget.current.position);
-      camera.lookAt(currentTarget.current.lookAt);
-      camera.fov = currentTarget.current.fov;
-      camera.updateProjectionMatrix();
+      // ADDED: Additional delay after camera settles to prevent jumps
+      orbitInitDelayRef.current += 1;
+      
+      if (orbitInitDelayRef.current >= ORBIT_DELAY_FRAMES) {
+        // ADDED: Extra verification that camera is truly at target
+        const finalPositionCheck = camera.position.distanceTo(currentTarget.current.position);
+        const finalLookAtCheck = currentDirection.angleTo(targetDirection);
+        
+        if (finalPositionCheck < SETTLE_EPSILON * 0.5 && finalLookAtCheck < SETTLE_EPSILON * 0.5) {
+          // Snap to the exact target position to eliminate any remaining interpolation
+          camera.position.copy(currentTarget.current.position);
+          camera.lookAt(currentTarget.current.lookAt);
+          camera.fov = currentTarget.current.fov;
+          camera.updateProjectionMatrix();
 
-      // Derive orbit parameters from the settled hero pose
-      heroOrbitAngle.current = Math.atan2(
-        currentTarget.current.position.x,
-        currentTarget.current.position.z
-      );
-      orbitRadiusRef.current = Math.sqrt(
-        currentTarget.current.position.x * currentTarget.current.position.x +
-        currentTarget.current.position.z * currentTarget.current.position.z
-      );
-      orbitHeightRef.current = currentTarget.current.position.y;
-      isOrbitingRef.current = true;
-      return;
+          // Derive orbit parameters from the final position
+          heroOrbitAngle.current = Math.atan2(
+            currentTarget.current.position.x,
+            currentTarget.current.position.z
+          );
+          orbitRadiusRef.current = Math.sqrt(
+            currentTarget.current.position.x * currentTarget.current.position.x +
+            currentTarget.current.position.z * currentTarget.current.position.z
+          );
+          orbitHeightRef.current = currentTarget.current.position.y;
+          isOrbitingRef.current = true;
+          
+          if (import.meta.env.DEV) {
+            console.log('📹 Hero orbit initiated after delay:', {
+              delay: orbitInitDelayRef.current,
+              radius: orbitRadiusRef.current,
+              height: orbitHeightRef.current,
+              finalCheck: { pos: finalPositionCheck, look: finalLookAtCheck }
+            });
+          }
+        } else {
+          // Reset delay if final check fails
+          orbitInitDelayRef.current = 0;
+        }
+      }
     }
   });
 
-  /**
-   * Handle mobile optimizations
-   */
   useEffect(() => {
     if (isMobile) {
-      // Slower animation on mobile for smoother feel
       Object.keys(animationSpeed.current).forEach(key => {
         animationSpeed.current[key] *= 0.7;
       });
     }
   }, [isMobile]);
 
-  // This component doesn't render anything
   return null;
 };
 
