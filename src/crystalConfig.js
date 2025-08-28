@@ -29,7 +29,8 @@ const FRACTURE_SCALE = 0.03;
 export const fracturePositions = Object.fromEntries(
   Object.entries(explodedPositions).map(([key, coords]) => [
     key,
-    coords.map(c => Number((c * FRACTURE_SCALE).toFixed(3)))
+    // Use full precision to keep the 3% snap exact for tiny movements
+    coords.map(c => c * FRACTURE_SCALE)
   ])
 );
 

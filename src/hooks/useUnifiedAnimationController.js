@@ -125,7 +125,8 @@ ANIMATION_CONFIG.crystal.fracturePositions = Object.fromEntries(
 // How long to hold the facets at their fractured positions (seconds)
 ANIMATION_CONFIG.crystal.fracturePause = 0.5;
 // Total time for fracture + explosion (seconds). Matches previous explode duration
-ANIMATION_CONFIG.crystal.explodeDuration = 1.2;
+// Total time for fracture + explosion (seconds). Matches original explode timing
+ANIMATION_CONFIG.crystal.explodeDuration = 1.6;
 
 // SIMPLIFIED: Only essential states (no intermediate transition states)
 const ANIMATION_STATES = {
