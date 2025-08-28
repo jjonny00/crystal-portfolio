@@ -369,16 +369,24 @@ const UnifiedCameraController = ({
       cameraSettledRef.current &&
       !isOrbitingRef.current
     ) {
-      isOrbitingRef.current = true;
+      // Snap to the final hero target to avoid a visible jump when orbiting begins
+      camera.position.copy(currentTarget.current.position);
+      camera.lookAt(currentTarget.current.lookAt);
+      camera.fov = currentTarget.current.fov;
+      camera.updateProjectionMatrix();
+
+      // Derive orbit parameters from the settled hero pose
       heroOrbitAngle.current = Math.atan2(
-        camera.position.x,
-        camera.position.z
+        currentTarget.current.position.x,
+        currentTarget.current.position.z
       );
       orbitRadiusRef.current = Math.sqrt(
-        camera.position.x * camera.position.x +
-        camera.position.z * camera.position.z
+        currentTarget.current.position.x * currentTarget.current.position.x +
+        currentTarget.current.position.z * currentTarget.current.position.z
       );
-      orbitHeightRef.current = camera.position.y;
+      orbitHeightRef.current = currentTarget.current.position.y;
+      isOrbitingRef.current = true;
+      return;
     }
   });
 
