@@ -1,6 +1,23 @@
 // CrystalControls.jsx - Updated for tabbed interface
 import { useState } from 'react';
 import * as crystalConfig from '../../crystalConfig';
+import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController';
+
+const RAD2DEG = 180 / Math.PI;
+const DEG2RAD = Math.PI / 180;
+
+// Map camera targets to the same keys used for positions
+const cameraTargets = {
+  'camera.hero': ANIMATION_CONFIG.camera.hero.target.toArray(),
+  'camera.overview': ANIMATION_CONFIG.camera.overview.target.toArray(),
+  'camera.about': ANIMATION_CONFIG.camera.about.target.toArray(),
+  'camera.projects.empathy': ANIMATION_CONFIG.camera.projects.empathy.target.toArray(),
+  'camera.projects.narrative': ANIMATION_CONFIG.camera.projects.narrative.target.toArray(),
+  'camera.projects.craft': ANIMATION_CONFIG.camera.projects.craft.target.toArray(),
+  'camera.projects.system': ANIMATION_CONFIG.camera.projects.system.target.toArray(),
+  'camera.projects.leadership': ANIMATION_CONFIG.camera.projects.leadership.target.toArray(),
+  'camera.projects.exploration': ANIMATION_CONFIG.camera.projects.exploration.target.toArray(),
+};
 
 const CrystalControls = ({ onUpdate }) => {
   const [activeTab, setActiveTab] = useState('timing');
@@ -95,14 +112,8 @@ const CrystalControls = ({ onUpdate }) => {
     onUpdate(updatedConfig);
   };
 
-  // Handle camera position value changes
-  const handleCameraPositionChange = (key, index, value) => {
-    const numValue = parseFloat(value);
+  const updateCameraPosition = (key, newPosition) => {
     const parts = key.split('.');
-
-    const newPosition = [...cameraValues[key]];
-    newPosition[index] = numValue;
-
     setCameraValues({
       ...cameraValues,
       [key]: newPosition
@@ -120,6 +131,50 @@ const CrystalControls = ({ onUpdate }) => {
     }
 
     onUpdate(updatedConfig);
+  };
+
+  // Handle camera position value changes for XYZ sliders
+  const handleCameraPositionChange = (key, index, value) => {
+    const numValue = parseFloat(value);
+    const newPosition = [...cameraValues[key]];
+    newPosition[index] = numValue;
+    updateCameraPosition(key, newPosition);
+  };
+
+  // Convert Cartesian coordinates to polar (distance, yaw, pitch)
+  const getPolarCoords = (position, target) => {
+    const dx = position[0] - target[0];
+    const dy = position[1] - target[1];
+    const dz = position[2] - target[2];
+    const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    const yaw = Math.atan2(dx, dz);
+    const pitch = Math.atan2(dy, Math.sqrt(dx * dx + dz * dz));
+    return { distance, yaw, pitch };
+  };
+
+  const updateFromPolar = (key, { distance, yaw, pitch }) => {
+    const target = cameraTargets[key] || [0, 0, 0];
+    const horizontal = distance * Math.cos(pitch);
+    const x = target[0] + horizontal * Math.sin(yaw);
+    const z = target[2] + horizontal * Math.cos(yaw);
+    const y = target[1] + distance * Math.sin(pitch);
+    updateCameraPosition(key, [x, y, z]);
+  };
+
+  const handleCameraRotationChange = (key, axis, value) => {
+    const target = cameraTargets[key] || [0, 0, 0];
+    const { distance, yaw, pitch } = getPolarCoords(cameraValues[key], target);
+    if (axis === 'yaw') {
+      updateFromPolar(key, { distance, yaw: parseFloat(value) * DEG2RAD, pitch });
+    } else if (axis === 'pitch') {
+      updateFromPolar(key, { distance, yaw, pitch: parseFloat(value) * DEG2RAD });
+    }
+  };
+
+  const handleCameraDistanceChange = (key, value) => {
+    const target = cameraTargets[key] || [0, 0, 0];
+    const { yaw, pitch } = getPolarCoords(cameraValues[key], target);
+    updateFromPolar(key, { distance: parseFloat(value), yaw, pitch });
   };
 
   // Handle effect value changes
@@ -389,6 +444,10 @@ const CrystalControls = ({ onUpdate }) => {
       {Object.entries(cameraValues).map(([key, position]) => {
         const parts = key.split('.');
         const label = parts.length === 2 ? parts[1] : parts[2];
+        const target = cameraTargets[key] || [0, 0, 0];
+        const { distance, yaw, pitch } = getPolarCoords(position, target);
+        const yawDeg = yaw * RAD2DEG;
+        const pitchDeg = pitch * RAD2DEG;
         return (
           <div key={key} style={sliderGroupStyle}>
             <div style={{ fontSize: '13px', marginBottom: '8px', color: '#64ffda' }}>
@@ -412,6 +471,54 @@ const CrystalControls = ({ onUpdate }) => {
                 />
               </div>
             ))}
+
+            <div style={{ marginBottom: '5px' }}>
+              <div style={sliderLabelStyle}>
+                <span>Yaw</span>
+                <span>{yawDeg.toFixed(1)}°</span>
+              </div>
+              <input
+                type="range"
+                min="-180"
+                max="180"
+                step="1"
+                value={yawDeg}
+                onChange={(e) => handleCameraRotationChange(key, 'yaw', e.target.value)}
+                style={sliderStyle}
+              />
+            </div>
+
+            <div style={{ marginBottom: '5px' }}>
+              <div style={sliderLabelStyle}>
+                <span>Pitch</span>
+                <span>{pitchDeg.toFixed(1)}°</span>
+              </div>
+              <input
+                type="range"
+                min="-89"
+                max="89"
+                step="1"
+                value={pitchDeg}
+                onChange={(e) => handleCameraRotationChange(key, 'pitch', e.target.value)}
+                style={sliderStyle}
+              />
+            </div>
+
+            <div style={{ marginBottom: '5px' }}>
+              <div style={sliderLabelStyle}>
+                <span>Distance</span>
+                <span>{distance.toFixed(2)}</span>
+              </div>
+              <input
+                type="range"
+                min="0.5"
+                max="15"
+                step="0.1"
+                value={distance}
+                onChange={(e) => handleCameraDistanceChange(key, e.target.value)}
+                style={sliderStyle}
+              />
+            </div>
           </div>
         );
       })}
