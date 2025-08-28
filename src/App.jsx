@@ -304,7 +304,9 @@ function App() {
       if (newConfig.pbrQuality === 'high') newTier = 'high';
       else if (newConfig.pbrQuality === 'low') newTier = 'low';
 
-      const overrides = newTier === 'low' ? { simplifiedAnimations: false } : {};
+      const overrides = {};
+      if (newTier === 'low') overrides.simplifiedAnimations = false;
+      if (typeof newConfig.useNormalMaps === 'boolean') overrides.useNormalMaps = newConfig.useNormalMaps;
       updateProfile(newTier, overrides);
     } else if (
       typeof newConfig.renderScale === 'number' &&
@@ -317,6 +319,11 @@ function App() {
       newConfig.simplifiedAnimations !== performanceProfile.simplifiedAnimations
     ) {
       updateProfile(performanceTier, { simplifiedAnimations: newConfig.simplifiedAnimations });
+    } else if (
+      typeof newConfig.useNormalMaps === 'boolean' &&
+      newConfig.useNormalMaps !== performanceProfile.useNormalMaps
+    ) {
+      updateProfile(performanceTier, { useNormalMaps: newConfig.useNormalMaps });
     } else {
       // For other config changes, update local effects
       if (newConfig.postProcessing) {
