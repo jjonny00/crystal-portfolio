@@ -78,6 +78,16 @@ const UnifiedCrystalScene = forwardRef(({
   const burstTriggeredRef = useRef(false);
   const fractureGlowStartRef = useRef(null);
 
+  const triggerFractureGlow = useCallback(() => {
+    fractureGlowStartRef.current = performance.now();
+    facetMaterialsRef.current.forEach((mat, idx) => {
+      mat.emissive.copy(projectColors[idx]);
+      const glow = config?.effects?.fracture?.initialGlow ?? 5.0;
+      mat.emissiveIntensity = glow;
+      mat.needsUpdate = true;
+    });
+  }, [projectColors, config]);
+
   // Track when GLTF models have loaded
   const [modelsLoaded, setModelsLoaded] = useState(false);
   // Store precomputed anchor offsets for label placement
@@ -460,7 +470,11 @@ const UnifiedCrystalScene = forwardRef(({
       return mat;
     });
 
-  }, [wholeCrystal, facetModels, materialVersion, facetKeys, projectColors, animationData?.focusedFacet]);
+    if (fractureGlowStartRef.current) {
+      triggerFractureGlow();
+    }
+
+  }, [wholeCrystal, facetModels, materialVersion, facetKeys, projectColors, animationData?.focusedFacet, triggerFractureGlow]);
 
   // Debug anchor positions when facets are loaded
   useEffect(() => {
@@ -636,12 +650,7 @@ const UnifiedCrystalScene = forwardRef(({
           }
 
           // Trigger bright emissive glow for each facet
-          fractureGlowStartRef.current = performance.now();
-          facetMaterialsRef.current.forEach((mat, idx) => {
-            mat.emissive.copy(projectColors[idx]);
-            const glow = config?.effects?.fracture?.initialGlow ?? 3.0;
-            mat.emissiveIntensity = glow;
-          });
+          triggerFractureGlow();
         } else {
           // In simplified mode keep the whole crystal visible
           setShowWholeCrystal(true);
@@ -812,7 +821,7 @@ const UnifiedCrystalScene = forwardRef(({
       const ease = 1 - Math.pow(1 - t, 3); // Soft ease out
       facetMaterialsRef.current.forEach((mat, idx) => {
         const baseIntensity = mat.userData?.baseEmissiveIntensity || 0;
-        const startIntensity = config?.effects?.fracture?.initialGlow ?? 3.0;
+        const startIntensity = config?.effects?.fracture?.initialGlow ?? 5.0;
         mat.emissiveIntensity = THREE.MathUtils.lerp(startIntensity, baseIntensity, ease);
         if (mat.userData?.baseEmissiveColor) {
           mat.emissive.lerpColors(projectColors[idx], mat.userData.baseEmissiveColor, ease);
