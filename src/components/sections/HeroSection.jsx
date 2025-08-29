@@ -137,7 +137,7 @@ const HeroSection = ({
             as="h1"
             style={{
               fontSize: 'clamp(2.5rem, 8vw, 8rem)',
-              fontWeight: '400',
+              fontWeight: '300',
               marginBottom: '1.5rem',
               lineHeight: '1.1',
               fontFamily: '"ivypresto-display", "Playfair Display", Georgia, "Times New Roman", serif'
