@@ -484,6 +484,8 @@ const UnifiedCrystalScene = forwardRef(({
       const explosionDuration = Math.max(totalDuration - fracturePause, 0);
       const fadeOutDuration = explosionDuration * 2;
       const elapsedExplosion = elapsedGlow - fracturePause;
+      const rampDuration = explosionDuration * 0.15;
+      const totalFadeDuration = explosionDuration + fadeOutDuration;
 
       facetMaterialsRef.current.forEach((mat, idx) => {
         const baseIntensity = mat.userData?.baseEmissiveIntensity ?? 0.02;
@@ -495,14 +497,14 @@ const UnifiedCrystalScene = forwardRef(({
           mat.emissive.set(0, 0, 0);
           mat.emissiveIntensity = 0;
           mat.userData.isFading = true;
-        } else if (elapsedExplosion < explosionDuration) {
-          const t = Math.min(elapsedExplosion / explosionDuration, 1);
+        } else if (elapsedExplosion < rampDuration) {
+          const t = Math.min(elapsedExplosion / rampDuration, 1);
           mat.emissive.copy(startColor).multiplyScalar(t);
           mat.emissiveIntensity = THREE.MathUtils.lerp(0, startIntensity, t);
           mat.userData.isFading = true;
         } else {
-          const fadeElapsed = elapsedExplosion - explosionDuration;
-          const t = Math.min(fadeElapsed / fadeOutDuration, 1);
+          const fadeElapsed = elapsedExplosion - rampDuration;
+          const t = Math.min(fadeElapsed / (totalFadeDuration - rampDuration), 1);
           const ease = 1 - Math.pow(1 - t, 3);
           mat.emissive.copy(startColor).lerp(baseColor, ease);
           mat.emissiveIntensity = THREE.MathUtils.lerp(startIntensity, baseIntensity, ease);
@@ -740,6 +742,8 @@ const UnifiedCrystalScene = forwardRef(({
       const explosionDuration = Math.max(totalDuration - fracturePause, 0);
       const fadeOutDuration = explosionDuration * 2;
       const elapsedExplosion = elapsedGlow - fracturePause;
+      const rampDuration = explosionDuration * 0.15;
+      const totalFadeDuration = explosionDuration + fadeOutDuration;
 
       facetMaterialsRef.current.forEach((mat, idx) => {
         const baseIntensity = mat.userData?.baseEmissiveIntensity ?? 0.02;
@@ -751,14 +755,14 @@ const UnifiedCrystalScene = forwardRef(({
           mat.emissive.set(0, 0, 0);
           mat.emissiveIntensity = 0;
           mat.userData.isFading = true;
-        } else if (elapsedExplosion < explosionDuration) {
-          const t = Math.min(elapsedExplosion / explosionDuration, 1);
+        } else if (elapsedExplosion < rampDuration) {
+          const t = Math.min(elapsedExplosion / rampDuration, 1);
           mat.emissive.copy(startColor).multiplyScalar(t);
           mat.emissiveIntensity = THREE.MathUtils.lerp(0, startIntensity, t);
           mat.userData.isFading = true;
         } else {
-          const fadeElapsed = elapsedExplosion - explosionDuration;
-          const t = Math.min(fadeElapsed / fadeOutDuration, 1);
+          const fadeElapsed = elapsedExplosion - rampDuration;
+          const t = Math.min(fadeElapsed / (totalFadeDuration - rampDuration), 1);
           const ease = 1 - Math.pow(1 - t, 3); // Soft ease out
           mat.emissive.copy(startColor).lerp(baseColor, ease);
           mat.emissiveIntensity = THREE.MathUtils.lerp(startIntensity, baseIntensity, ease);
@@ -768,7 +772,7 @@ const UnifiedCrystalScene = forwardRef(({
         mat.needsUpdate = true;
       });
 
-      if (elapsedExplosion >= explosionDuration + fadeOutDuration) {
+      if (elapsedExplosion >= totalFadeDuration) {
         fractureGlowStartRef.current = null;
         facetMaterialsRef.current.forEach(mat => {
           if (mat.userData) mat.userData.isFading = false;
