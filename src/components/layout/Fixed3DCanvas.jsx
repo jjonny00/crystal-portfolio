@@ -68,7 +68,6 @@ const Fixed3DCanvas = forwardRef(({
   // NEW: Ref to access crystal scene for debug panels
   const crystalSceneRef = useRef();
   const backgroundRef = useRef();
-  const overviewBgTimer = useRef(null);
   const lastZoneRef = useRef(null);
 
   // Expose internal state to parent components
@@ -116,65 +115,43 @@ const Fixed3DCanvas = forwardRef(({
 
     const zone = animationData.currentZone;
 
-    // Handle overview zone first so leftover facet focus doesn't block the update
+    // Overview zone always uses its own gradient
     if (zone === 'overview') {
       if (lastZoneRef.current !== zone) {
         lastZoneRef.current = zone;
-
-        // Clear any pending timers when zone changes
-        if (overviewBgTimer.current) {
-          clearTimeout(overviewBgTimer.current);
-          overviewBgTimer.current = null;
-        }
-
-        // Hold hero background during fracture pause before switching to overview colors
-        bg.updateBackground('default');
-        const pause = (animationData.crystalConfig?.fracturePause || 0.5) * 1000;
-        overviewBgTimer.current = setTimeout(() => {
-          bg.updateBackground('overview');
-          overviewBgTimer.current = null;
-        }, pause);
+        bg.updateBackground('overview');
       }
       return;
     }
 
-    // Outside of overview, project-specific backgrounds take precedence
-    if (animationData.focusedProject || animationData.focusedFacet) {
+    // Project-specific backgrounds only apply inside the projects zone
+    if (zone === 'projects' && (animationData.focusedProject || animationData.focusedFacet)) {
       const projectKey = animationData.focusedProject || animationData.focusedFacet;
       bg.updateBackground(projectKey);
+      lastZoneRef.current = zone;
       return;
     }
 
-    if (lastZoneRef.current === zone) return;
-    lastZoneRef.current = zone;
-
-    // Clear any pending timers when zone changes
-    if (overviewBgTimer.current) {
-      clearTimeout(overviewBgTimer.current);
-      overviewBgTimer.current = null;
+    // General projects area uses overview background
+    if (zone === 'projects') {
+      if (lastZoneRef.current !== zone) {
+        lastZoneRef.current = zone;
+        bg.updateBackground('overview');
+      }
+      return;
     }
 
-    if (zone === 'projects' || animationData.state === 'project_focused') {
-      bg.updateBackground('overview');
-    } else {
+    // All other zones fall back to default
+    if (lastZoneRef.current !== zone) {
+      lastZoneRef.current = zone;
       bg.updateBackground('default');
     }
   }, [
     animationData?.focusedProject,
     animationData?.focusedFacet,
     animationData?.currentZone,
-    animationData?.state,
-    animationData?.crystalConfig?.fracturePause,
     bg
   ]);
-
-  useEffect(() => {
-    return () => {
-      if (overviewBgTimer.current) {
-        clearTimeout(overviewBgTimer.current);
-      }
-    };
-  }, []);
 
   // FIXED: Function to get facet refs from crystal scene with proper access
   const getFacetRefs = () => {
