@@ -80,13 +80,14 @@ const UnifiedCrystalScene = forwardRef(({
 
   const triggerFractureGlow = useCallback(() => {
     fractureGlowStartRef.current = performance.now();
-    facetMaterialsRef.current.forEach((mat, idx) => {
-      mat.emissive.copy(projectColors[idx]);
-      const glow = config?.effects?.fracture?.initialGlow ?? 2.0;
-      mat.emissiveIntensity = glow;
+    facetMaterialsRef.current.forEach((mat) => {
+      // Start from no glow and fade in during the fracture pause
+      mat.emissive.set(0, 0, 0);
+      mat.emissiveIntensity = 0;
+      mat.userData = { ...(mat.userData || {}), isFading: true };
       mat.needsUpdate = true;
     });
-  }, [projectColors, config]);
+  }, []);
 
   // Track when GLTF models have loaded
   const [modelsLoaded, setModelsLoaded] = useState(false);
@@ -341,6 +342,7 @@ const UnifiedCrystalScene = forwardRef(({
       if (index === -1 || !facetMaterialsRef.current[index]) return;
       
       const mat = facetMaterialsRef.current[index];
+      if (!mat || mat.userData?.isFading) return;
 
       // FIXED: Determine target color based on priority:
       // 1. Hover state (highest priority)
@@ -458,11 +460,14 @@ const UnifiedCrystalScene = forwardRef(({
       mat.color.copy(initialColor);
       mat.userData = {
         ...(mat.userData || {}),
+        isFading: mat.userData?.isFading || false,
         targetColor: mat.color.clone(),
         startColor: mat.color.clone(),
         progress: 1,
-        baseEmissiveIntensity: mat.emissiveIntensity,
-        baseEmissiveColor: mat.emissive.clone()
+        baseEmissiveIntensity:
+          mat.userData?.baseEmissiveIntensity ?? mat.emissiveIntensity,
+        baseEmissiveColor:
+          mat.userData?.baseEmissiveColor?.clone?.() || mat.emissive.clone()
       };
 
       const model = facetModels[idx];
@@ -470,11 +475,56 @@ const UnifiedCrystalScene = forwardRef(({
       return mat;
     });
 
+    // If fracture glow is active, apply current fade state to new materials
     if (fractureGlowStartRef.current) {
-      triggerFractureGlow();
+      const elapsedGlow = (performance.now() - fractureGlowStartRef.current) / 1000;
+      const rawDuration = animationData?.crystalConfig?.explodeDuration || 1.2;
+      const fracturePause = animationData?.crystalConfig?.fracturePause || 0.5;
+      const totalDuration = rawDuration > 10 ? rawDuration / 1000 : rawDuration;
+      const explosionDuration = Math.max(totalDuration - fracturePause, 0);
+      const fadeOutDuration = explosionDuration * 2;
+      const elapsedExplosion = elapsedGlow - fracturePause;
+      const rampDuration = explosionDuration * 0.15;
+      const totalFadeDuration = explosionDuration + fadeOutDuration;
+
+      facetMaterialsRef.current.forEach((mat, idx) => {
+        const baseIntensity = mat.userData?.baseEmissiveIntensity ?? 0.02;
+        const startIntensity = (config?.effects?.fracture?.initialGlow ?? 2.0) * 0.15;
+        const baseColor = mat.userData?.baseEmissiveColor || defaultColorRef.current;
+        const startColor = projectColors[idx];
+
+        if (elapsedExplosion < 0) {
+          mat.emissive.set(0, 0, 0);
+          mat.emissiveIntensity = 0;
+          mat.userData.isFading = true;
+        } else if (elapsedExplosion < rampDuration) {
+          const t = Math.min(elapsedExplosion / rampDuration, 1);
+          mat.emissive.copy(startColor).multiplyScalar(t);
+          mat.emissiveIntensity = THREE.MathUtils.lerp(0, startIntensity, t);
+          mat.userData.isFading = true;
+        } else {
+          const fadeElapsed = elapsedExplosion - rampDuration;
+          const t = Math.min(fadeElapsed / (totalFadeDuration - rampDuration), 1);
+          const ease = 1 - Math.pow(1 - t, 3);
+          mat.emissive.copy(startColor).lerp(baseColor, ease);
+          mat.emissiveIntensity = THREE.MathUtils.lerp(startIntensity, baseIntensity, ease);
+          mat.userData.isFading = t < 1;
+        }
+        mat.needsUpdate = true;
+      });
     }
 
-  }, [wholeCrystal, facetModels, materialVersion, facetKeys, projectColors, animationData?.focusedFacet, triggerFractureGlow]);
+  }, [
+    wholeCrystal,
+    facetModels,
+    materialVersion,
+    facetKeys,
+    projectColors,
+    animationData?.focusedFacet,
+    animationData?.crystalConfig?.fracturePause,
+    animationData?.crystalConfig?.explodeDuration,
+    config?.effects?.fracture?.initialGlow
+  ]);
 
   // Debug anchor positions when facets are loaded
   useEffect(() => {
@@ -569,7 +619,9 @@ const UnifiedCrystalScene = forwardRef(({
 
       facetMaterialsRef.current.forEach((mat, idx) => {
         const key = facetKeys[idx];
-        
+
+        if (mat.userData?.isFading) return;
+
         // FIXED: Don't change color of hovered facets - let hover take precedence
         if (currentHovered === key) {
           if (import.meta.env.DEV) {
@@ -577,7 +629,7 @@ const UnifiedCrystalScene = forwardRef(({
           }
           return;
         }
-        
+
         // Determine target color for non-hovered facets
         let targetColor;
         if (currentFacet === key) {
@@ -593,7 +645,7 @@ const UnifiedCrystalScene = forwardRef(({
             console.log(`🎨 Resetting ${key} to default`);
           }
         }
-        
+
         mat.userData.startColor.copy(mat.color);
         mat.userData.targetColor.copy(targetColor);
         mat.userData.progress = 0;
@@ -681,24 +733,50 @@ const UnifiedCrystalScene = forwardRef(({
   useFrame((state, deltaTime) => {
     if (!animationData || !facetRefs.current.length || simplifiedAnimations) return;
 
-    // Fade emissive glow after fracture
+    // Fade emissive glow timed with explosion
     if (fractureGlowStartRef.current && facetMaterialsRef.current.length) {
       const elapsedGlow = (performance.now() - fractureGlowStartRef.current) / 1000;
       const rawDuration = animationData?.crystalConfig?.explodeDuration || 1.2;
-      const duration = rawDuration > 10 ? rawDuration / 1000 : rawDuration;
-      const t = Math.min(elapsedGlow / duration, 1);
-      const ease = 1 - Math.pow(1 - t, 3); // Soft ease out
+      const fracturePause = animationData?.crystalConfig?.fracturePause || 0.5;
+      const totalDuration = rawDuration > 10 ? rawDuration / 1000 : rawDuration;
+      const explosionDuration = Math.max(totalDuration - fracturePause, 0);
+      const fadeOutDuration = explosionDuration * 2;
+      const elapsedExplosion = elapsedGlow - fracturePause;
+      const rampDuration = explosionDuration * 0.15;
+      const totalFadeDuration = explosionDuration + fadeOutDuration;
+
       facetMaterialsRef.current.forEach((mat, idx) => {
-        const baseIntensity = mat.userData?.baseEmissiveIntensity || 0;
-        const startIntensity = config?.effects?.fracture?.initialGlow ?? 2.0;
+        const baseIntensity = mat.userData?.baseEmissiveIntensity ?? 0.02;
+        const startIntensity = (config?.effects?.fracture?.initialGlow ?? 2.0) * 0.15;
         const baseColor = mat.userData?.baseEmissiveColor || defaultColorRef.current;
         const startColor = projectColors[idx];
-        mat.emissive.copy(startColor).lerp(baseColor, ease);
-        mat.emissiveIntensity = THREE.MathUtils.lerp(startIntensity, baseIntensity, ease);
+
+        if (elapsedExplosion < 0) {
+          mat.emissive.set(0, 0, 0);
+          mat.emissiveIntensity = 0;
+          mat.userData.isFading = true;
+        } else if (elapsedExplosion < rampDuration) {
+          const t = Math.min(elapsedExplosion / rampDuration, 1);
+          mat.emissive.copy(startColor).multiplyScalar(t);
+          mat.emissiveIntensity = THREE.MathUtils.lerp(0, startIntensity, t);
+          mat.userData.isFading = true;
+        } else {
+          const fadeElapsed = elapsedExplosion - rampDuration;
+          const t = Math.min(fadeElapsed / (totalFadeDuration - rampDuration), 1);
+          const ease = 1 - Math.pow(1 - t, 3); // Soft ease out
+          mat.emissive.copy(startColor).lerp(baseColor, ease);
+          mat.emissiveIntensity = THREE.MathUtils.lerp(startIntensity, baseIntensity, ease);
+          mat.userData.isFading = t < 1;
+        }
+
         mat.needsUpdate = true;
       });
-      if (t >= 1) {
+
+      if (elapsedExplosion >= totalFadeDuration) {
         fractureGlowStartRef.current = null;
+        facetMaterialsRef.current.forEach(mat => {
+          if (mat.userData) mat.userData.isFading = false;
+        });
       }
     }
 
@@ -836,7 +914,8 @@ const UnifiedCrystalScene = forwardRef(({
 
     // Smooth color transitions for facet materials
     facetMaterialsRef.current.forEach((mat) => {
-      const { targetColor, startColor, progress = 1 } = mat.userData || {};
+      const { targetColor, startColor, progress = 1, isFading } = mat.userData || {};
+      if (isFading) return;
       if (targetColor && startColor && progress < 1) {
         const speed = 1.5; // seconds to fully transition
         mat.userData.progress = Math.min(progress + deltaTime * speed, 1);
