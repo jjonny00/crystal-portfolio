@@ -114,14 +114,36 @@ const Fixed3DCanvas = forwardRef(({
   useEffect(() => {
     if (!bg || !animationData) return;
 
-    // Project-specific backgrounds override zone backgrounds
+    const zone = animationData.currentZone;
+
+    // Handle overview zone first so leftover facet focus doesn't block the update
+    if (zone === 'overview') {
+      if (lastZoneRef.current !== zone) {
+        lastZoneRef.current = zone;
+
+        // Clear any pending timers when zone changes
+        if (overviewBgTimer.current) {
+          clearTimeout(overviewBgTimer.current);
+          overviewBgTimer.current = null;
+        }
+
+        // Hold hero background during fracture pause before switching to overview colors
+        bg.updateBackground('default');
+        const pause = (animationData.crystalConfig?.fracturePause || 0.5) * 1000;
+        overviewBgTimer.current = setTimeout(() => {
+          bg.updateBackground('overview');
+          overviewBgTimer.current = null;
+        }, pause);
+      }
+      return;
+    }
+
+    // Outside of overview, project-specific backgrounds take precedence
     if (animationData.focusedProject || animationData.focusedFacet) {
       const projectKey = animationData.focusedProject || animationData.focusedFacet;
       bg.updateBackground(projectKey);
       return;
     }
-
-    const zone = animationData.currentZone;
 
     if (lastZoneRef.current === zone) return;
     lastZoneRef.current = zone;
@@ -132,15 +154,7 @@ const Fixed3DCanvas = forwardRef(({
       overviewBgTimer.current = null;
     }
 
-    if (zone === 'overview') {
-      // Hold hero background during fracture pause
-      bg.updateBackground('default');
-      const pause = (animationData.crystalConfig?.fracturePause || 0.5) * 1000;
-      overviewBgTimer.current = setTimeout(() => {
-        bg.updateBackground('overview');
-        overviewBgTimer.current = null;
-      }, pause);
-    } else if (zone === 'projects' || animationData.state === 'project_focused') {
+    if (zone === 'projects' || animationData.state === 'project_focused') {
       bg.updateBackground('overview');
     } else {
       bg.updateBackground('default');
