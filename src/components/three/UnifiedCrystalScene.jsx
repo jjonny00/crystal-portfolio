@@ -820,12 +820,12 @@ const UnifiedCrystalScene = forwardRef(({
       const duration = rawDuration > 10 ? rawDuration / 1000 : rawDuration;
       const t = Math.min(elapsedGlow / duration, 1);
       const ease = 1 - Math.pow(1 - t, 3); // Soft ease out
-      facetMaterialsRef.current.forEach((mat, idx) => {
+      facetMaterialsRef.current.forEach((mat) => {
         const baseIntensity = mat.userData?.baseEmissiveIntensity || 0;
         const startIntensity = config?.effects?.fracture?.initialGlow ?? 2.0;
         mat.emissiveIntensity = THREE.MathUtils.lerp(startIntensity, baseIntensity, ease);
-        if (mat.userData?.baseEmissiveColor) {
-          mat.emissive.lerpColors(projectColors[idx], mat.userData.baseEmissiveColor, ease);
+        if (t >= 1 && mat.userData?.baseEmissiveColor) {
+          mat.emissive.copy(mat.userData.baseEmissiveColor);
         }
       });
       if (t >= 1) {
