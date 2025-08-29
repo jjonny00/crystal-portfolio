@@ -475,11 +475,27 @@ const UnifiedCrystalScene = forwardRef(({
       return mat;
     });
 
+    // If fracture glow is active, apply current fade state to new materials
     if (fractureGlowStartRef.current) {
-      triggerFractureGlow();
+      const elapsedGlow = (performance.now() - fractureGlowStartRef.current) / 1000;
+      const rawDuration = animationData?.crystalConfig?.explodeDuration || 1.2;
+      const duration = rawDuration > 10 ? rawDuration / 1000 : rawDuration;
+      const t = Math.min(elapsedGlow / duration, 1);
+      const ease = 1 - Math.pow(1 - t, 3);
+
+      facetMaterialsRef.current.forEach((mat, idx) => {
+        const baseIntensity = mat.userData?.baseEmissiveIntensity ?? 0.05;
+        const startIntensity = config?.effects?.fracture?.initialGlow ?? 2.0;
+        const baseColor = mat.userData?.baseEmissiveColor || defaultColorRef.current;
+        const startColor = projectColors[idx];
+        mat.emissive.copy(startColor).lerp(baseColor, ease);
+        mat.emissiveIntensity = THREE.MathUtils.lerp(startIntensity, baseIntensity, ease);
+        mat.userData.isFading = t < 1;
+        mat.needsUpdate = true;
+      });
     }
 
-  }, [wholeCrystal, facetModels, materialVersion, facetKeys, projectColors, animationData?.focusedFacet, triggerFractureGlow]);
+  }, [wholeCrystal, facetModels, materialVersion, facetKeys, projectColors, animationData?.focusedFacet, config?.effects?.fracture?.initialGlow]);
 
   // Debug anchor positions when facets are loaded
   useEffect(() => {
