@@ -80,9 +80,9 @@ const UnifiedCrystalScene = forwardRef(({
 
   const triggerFractureGlow = useCallback(() => {
     fractureGlowStartRef.current = performance.now();
+    const glow = (config?.effects?.fracture?.initialGlow ?? 2.0) * 0.5;
     facetMaterialsRef.current.forEach((mat, idx) => {
       mat.emissive.copy(projectColors[idx]);
-      const glow = config?.effects?.fracture?.initialGlow ?? 2.0;
       mat.emissiveIntensity = glow;
       mat.userData = { ...(mat.userData || {}), isFading: true };
       mat.needsUpdate = true;
@@ -479,13 +479,14 @@ const UnifiedCrystalScene = forwardRef(({
     if (fractureGlowStartRef.current) {
       const elapsedGlow = (performance.now() - fractureGlowStartRef.current) / 1000;
       const rawDuration = animationData?.crystalConfig?.explodeDuration || 1.2;
+      const fracturePause = animationData?.crystalConfig?.fracturePause || 0.5;
       const duration = rawDuration > 10 ? rawDuration / 1000 : rawDuration;
-      const t = Math.min(elapsedGlow / duration, 1);
+      const t = Math.min(Math.max((elapsedGlow - fracturePause) / duration, 0), 1);
       const ease = 1 - Math.pow(1 - t, 3);
 
       facetMaterialsRef.current.forEach((mat, idx) => {
         const baseIntensity = mat.userData?.baseEmissiveIntensity ?? 0.05;
-        const startIntensity = config?.effects?.fracture?.initialGlow ?? 2.0;
+        const startIntensity = (config?.effects?.fracture?.initialGlow ?? 2.0) * 0.5;
         const baseColor = mat.userData?.baseEmissiveColor || defaultColorRef.current;
         const startColor = projectColors[idx];
         mat.emissive.copy(startColor).lerp(baseColor, ease);
@@ -495,7 +496,16 @@ const UnifiedCrystalScene = forwardRef(({
       });
     }
 
-  }, [wholeCrystal, facetModels, materialVersion, facetKeys, projectColors, animationData?.focusedFacet, config?.effects?.fracture?.initialGlow]);
+  }, [
+    wholeCrystal,
+    facetModels,
+    materialVersion,
+    facetKeys,
+    projectColors,
+    animationData?.focusedFacet,
+    animationData?.crystalConfig?.fracturePause,
+    config?.effects?.fracture?.initialGlow
+  ]);
 
   // Debug anchor positions when facets are loaded
   useEffect(() => {
@@ -708,12 +718,13 @@ const UnifiedCrystalScene = forwardRef(({
     if (fractureGlowStartRef.current && facetMaterialsRef.current.length) {
       const elapsedGlow = (performance.now() - fractureGlowStartRef.current) / 1000;
       const rawDuration = animationData?.crystalConfig?.explodeDuration || 1.2;
+      const fracturePause = animationData?.crystalConfig?.fracturePause || 0.5;
       const duration = rawDuration > 10 ? rawDuration / 1000 : rawDuration;
-      const t = Math.min(elapsedGlow / duration, 1);
+      const t = Math.min(Math.max((elapsedGlow - fracturePause) / duration, 0), 1);
       const ease = 1 - Math.pow(1 - t, 3); // Soft ease out
       facetMaterialsRef.current.forEach((mat, idx) => {
         const baseIntensity = mat.userData?.baseEmissiveIntensity ?? 0.05;
-        const startIntensity = config?.effects?.fracture?.initialGlow ?? 2.0;
+        const startIntensity = (config?.effects?.fracture?.initialGlow ?? 2.0) * 0.5;
         const baseColor = mat.userData?.baseEmissiveColor || defaultColorRef.current;
         const startColor = projectColors[idx];
         mat.emissive.copy(startColor).lerp(baseColor, ease);
