@@ -84,6 +84,7 @@ const UnifiedCrystalScene = forwardRef(({
       mat.emissive.copy(projectColors[idx]);
       const glow = config?.effects?.fracture?.initialGlow ?? 2.0;
       mat.emissiveIntensity = glow;
+      mat.userData = { ...(mat.userData || {}), isFading: true };
       mat.needsUpdate = true;
     });
   }, [projectColors, config]);
@@ -341,6 +342,7 @@ const UnifiedCrystalScene = forwardRef(({
       if (index === -1 || !facetMaterialsRef.current[index]) return;
       
       const mat = facetMaterialsRef.current[index];
+      if (!mat || mat.userData?.isFading) return;
 
       // FIXED: Determine target color based on priority:
       // 1. Hover state (highest priority)
@@ -458,11 +460,14 @@ const UnifiedCrystalScene = forwardRef(({
       mat.color.copy(initialColor);
       mat.userData = {
         ...(mat.userData || {}),
+        isFading: mat.userData?.isFading || false,
         targetColor: mat.color.clone(),
         startColor: mat.color.clone(),
         progress: 1,
-        baseEmissiveIntensity: mat.emissiveIntensity,
-        baseEmissiveColor: mat.emissive.clone()
+        baseEmissiveIntensity:
+          mat.userData?.baseEmissiveIntensity ?? mat.emissiveIntensity,
+        baseEmissiveColor:
+          mat.userData?.baseEmissiveColor?.clone?.() || mat.emissive.clone()
       };
 
       const model = facetModels[idx];
@@ -569,7 +574,9 @@ const UnifiedCrystalScene = forwardRef(({
 
       facetMaterialsRef.current.forEach((mat, idx) => {
         const key = facetKeys[idx];
-        
+
+        if (mat.userData?.isFading) return;
+
         // FIXED: Don't change color of hovered facets - let hover take precedence
         if (currentHovered === key) {
           if (import.meta.env.DEV) {
@@ -577,7 +584,7 @@ const UnifiedCrystalScene = forwardRef(({
           }
           return;
         }
-        
+
         // Determine target color for non-hovered facets
         let targetColor;
         if (currentFacet === key) {
@@ -593,7 +600,7 @@ const UnifiedCrystalScene = forwardRef(({
             console.log(`🎨 Resetting ${key} to default`);
           }
         }
-        
+
         mat.userData.startColor.copy(mat.color);
         mat.userData.targetColor.copy(targetColor);
         mat.userData.progress = 0;
@@ -689,16 +696,20 @@ const UnifiedCrystalScene = forwardRef(({
       const t = Math.min(elapsedGlow / duration, 1);
       const ease = 1 - Math.pow(1 - t, 3); // Soft ease out
       facetMaterialsRef.current.forEach((mat, idx) => {
-        const baseIntensity = mat.userData?.baseEmissiveIntensity || 0;
+        const baseIntensity = mat.userData?.baseEmissiveIntensity ?? 0.05;
         const startIntensity = config?.effects?.fracture?.initialGlow ?? 2.0;
         const baseColor = mat.userData?.baseEmissiveColor || defaultColorRef.current;
         const startColor = projectColors[idx];
         mat.emissive.copy(startColor).lerp(baseColor, ease);
         mat.emissiveIntensity = THREE.MathUtils.lerp(startIntensity, baseIntensity, ease);
+        mat.userData.isFading = t < 1;
         mat.needsUpdate = true;
       });
       if (t >= 1) {
         fractureGlowStartRef.current = null;
+        facetMaterialsRef.current.forEach(mat => {
+          if (mat.userData) mat.userData.isFading = false;
+        });
       }
     }
 
@@ -836,7 +847,8 @@ const UnifiedCrystalScene = forwardRef(({
 
     // Smooth color transitions for facet materials
     facetMaterialsRef.current.forEach((mat) => {
-      const { targetColor, startColor, progress = 1 } = mat.userData || {};
+      const { targetColor, startColor, progress = 1, isFading } = mat.userData || {};
+      if (isFading) return;
       if (targetColor && startColor && progress < 1) {
         const speed = 1.5; // seconds to fully transition
         mat.userData.progress = Math.min(progress + deltaTime * speed, 1);
