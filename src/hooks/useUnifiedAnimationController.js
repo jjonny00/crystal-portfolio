@@ -5,7 +5,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Vector3, Quaternion } from 'three';
 
 // Percentage of total facet travel used for the instantaneous fracture snap
-const FRACTURE_RATIO = 0.08; // 8%
+const FRACTURE_RATIO = 0.2; // 20%
 
 /**
  * SIMPLIFIED: Animation Configuration with immediate state changes
