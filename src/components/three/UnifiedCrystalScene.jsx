@@ -5,6 +5,7 @@ import React, { useRef, useState, useEffect, useCallback, forwardRef, useImperat
 import { useFrame } from '@react-three/fiber'
 import { useGLTF, Html } from '@react-three/drei'
 import * as THREE from 'three'
+import FractureBurstParticles from './FractureBurstParticles'
 
 // Import existing material manager
 import MaterialManager from './MaterialManager'
@@ -33,6 +34,7 @@ const UnifiedCrystalScene = forwardRef(({
 
   // Sphere state
   const [sphereVisible, setSphereVisible] = useState(false);
+  const [burstId, setBurstId] = useState(0);
   
   // Crystal state tracking
   const [showWholeCrystal, setShowWholeCrystal] = useState(true);
@@ -73,6 +75,7 @@ const UnifiedCrystalScene = forwardRef(({
 
   // Track explosion timing so we can implement fracture pause
   const explosionStartRef = useRef(null);
+  const burstTriggeredRef = useRef(false);
 
   // Track when GLTF models have loaded
   const [modelsLoaded, setModelsLoaded] = useState(false);
@@ -610,6 +613,7 @@ const UnifiedCrystalScene = forwardRef(({
           setShowFacets(true);
           setSphereVisible(true);
           explosionStartRef.current = performance.now();
+          burstTriggeredRef.current = false;
 
           // Capture hero rotation so facets start from same orientation
           if (wholeCrystalRef.current && facetsGroupRef.current) {
@@ -688,6 +692,11 @@ const UnifiedCrystalScene = forwardRef(({
         if (elapsedExplosion < fracturePause) {
           // Stay at fracture positions during the pause
           return;
+        }
+
+        if (!burstTriggeredRef.current) {
+          setBurstId(id => id + 1);
+          burstTriggeredRef.current = true;
         }
 
         const progress = Math.min((elapsedExplosion - fracturePause) / (totalDuration - fracturePause), 1);
@@ -826,7 +835,9 @@ const UnifiedCrystalScene = forwardRef(({
           debugMode={import.meta.env.DEV}
         />
       )}
-      
+
+      {!simplifiedAnimations && <FractureBurstParticles trigger={burstId} />}
+
       {/* Whole Crystal */}
       {showWholeCrystal && (
         <group ref={wholeCrystalRef}>
