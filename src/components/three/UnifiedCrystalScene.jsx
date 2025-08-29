@@ -76,6 +76,17 @@ const UnifiedCrystalScene = forwardRef(({
   // Track explosion timing so we can implement fracture pause
   const explosionStartRef = useRef(null);
   const burstTriggeredRef = useRef(false);
+  const fractureGlowStartRef = useRef(null);
+
+  const triggerFractureGlow = useCallback(() => {
+    fractureGlowStartRef.current = performance.now();
+    facetMaterialsRef.current.forEach((mat, idx) => {
+      mat.emissive.copy(projectColors[idx]);
+      const glow = config?.effects?.fracture?.initialGlow ?? 2.0;
+      mat.emissiveIntensity = glow;
+      mat.needsUpdate = true;
+    });
+  }, [projectColors, config]);
 
   // Track when GLTF models have loaded
   const [modelsLoaded, setModelsLoaded] = useState(false);
@@ -450,7 +461,8 @@ const UnifiedCrystalScene = forwardRef(({
         targetColor: mat.color.clone(),
         startColor: mat.color.clone(),
         progress: 1,
-        baseEmissiveIntensity: mat.emissiveIntensity
+        baseEmissiveIntensity: mat.emissiveIntensity,
+        baseEmissiveColor: mat.emissive.clone()
       };
 
       const model = facetModels[idx];
@@ -458,7 +470,11 @@ const UnifiedCrystalScene = forwardRef(({
       return mat;
     });
 
-  }, [wholeCrystal, facetModels, materialVersion, facetKeys, projectColors, animationData?.focusedFacet]);
+    if (fractureGlowStartRef.current) {
+      triggerFractureGlow();
+    }
+
+  }, [wholeCrystal, facetModels, materialVersion, facetKeys, projectColors, animationData?.focusedFacet, triggerFractureGlow]);
 
   // Debug anchor positions when facets are loaded
   useEffect(() => {
@@ -632,6 +648,9 @@ const UnifiedCrystalScene = forwardRef(({
               }
             });
           }
+
+          // Trigger bright emissive glow for each facet
+          triggerFractureGlow();
         } else {
           // In simplified mode keep the whole crystal visible
           setShowWholeCrystal(true);
@@ -661,6 +680,27 @@ const UnifiedCrystalScene = forwardRef(({
   // Main animation loop
   useFrame((state, deltaTime) => {
     if (!animationData || !facetRefs.current.length || simplifiedAnimations) return;
+
+    // Fade emissive glow after fracture
+    if (fractureGlowStartRef.current && facetMaterialsRef.current.length) {
+      const elapsedGlow = (performance.now() - fractureGlowStartRef.current) / 1000;
+      const rawDuration = animationData?.crystalConfig?.explodeDuration || 1.2;
+      const duration = rawDuration > 10 ? rawDuration / 1000 : rawDuration;
+      const t = Math.min(elapsedGlow / duration, 1);
+      const ease = 1 - Math.pow(1 - t, 3); // Soft ease out
+      facetMaterialsRef.current.forEach((mat, idx) => {
+        const baseIntensity = mat.userData?.baseEmissiveIntensity || 0;
+        const startIntensity = config?.effects?.fracture?.initialGlow ?? 2.0;
+        const baseColor = mat.userData?.baseEmissiveColor || defaultColorRef.current;
+        const startColor = projectColors[idx];
+        mat.emissive.copy(startColor).lerp(baseColor, ease);
+        mat.emissiveIntensity = THREE.MathUtils.lerp(startIntensity, baseIntensity, ease);
+        mat.needsUpdate = true;
+      });
+      if (t >= 1) {
+        fractureGlowStartRef.current = null;
+      }
+    }
 
     const elapsed = state.clock.elapsedTime;
 
