@@ -75,6 +75,7 @@ const UnifiedCrystalScene = forwardRef(({
 
   // Track explosion timing so we can implement fracture pause
   const explosionStartRef = useRef(null);
+  const burstTriggeredRef = useRef(false);
 
   // Track when GLTF models have loaded
   const [modelsLoaded, setModelsLoaded] = useState(false);
@@ -612,7 +613,7 @@ const UnifiedCrystalScene = forwardRef(({
           setShowFacets(true);
           setSphereVisible(true);
           explosionStartRef.current = performance.now();
-          setBurstId(id => id + 1);
+          burstTriggeredRef.current = false;
 
           // Capture hero rotation so facets start from same orientation
           if (wholeCrystalRef.current && facetsGroupRef.current) {
@@ -691,6 +692,11 @@ const UnifiedCrystalScene = forwardRef(({
         if (elapsedExplosion < fracturePause) {
           // Stay at fracture positions during the pause
           return;
+        }
+
+        if (!burstTriggeredRef.current) {
+          setBurstId(id => id + 1);
+          burstTriggeredRef.current = true;
         }
 
         const progress = Math.min((elapsedExplosion - fracturePause) / (totalDuration - fracturePause), 1);
