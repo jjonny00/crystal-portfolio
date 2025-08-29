@@ -681,6 +681,27 @@ const UnifiedCrystalScene = forwardRef(({
   useFrame((state, deltaTime) => {
     if (!animationData || !facetRefs.current.length || simplifiedAnimations) return;
 
+    // Fade emissive glow after fracture
+    if (fractureGlowStartRef.current && facetMaterialsRef.current.length) {
+      const elapsedGlow = (performance.now() - fractureGlowStartRef.current) / 1000;
+      const rawDuration = animationData?.crystalConfig?.explodeDuration || 1.2;
+      const duration = rawDuration > 10 ? rawDuration / 1000 : rawDuration;
+      const t = Math.min(elapsedGlow / duration, 1);
+      const ease = 1 - Math.pow(1 - t, 3); // Soft ease out
+      facetMaterialsRef.current.forEach((mat, idx) => {
+        const baseIntensity = mat.userData?.baseEmissiveIntensity || 0;
+        const startIntensity = config?.effects?.fracture?.initialGlow ?? 2.0;
+        const baseColor = mat.userData?.baseEmissiveColor || defaultColorRef.current;
+        const startColor = projectColors[idx];
+        mat.emissive.copy(startColor).lerp(baseColor, ease);
+        mat.emissiveIntensity = THREE.MathUtils.lerp(startIntensity, baseIntensity, ease);
+        mat.needsUpdate = true;
+      });
+      if (t >= 1) {
+        fractureGlowStartRef.current = null;
+      }
+    }
+
     const elapsed = state.clock.elapsedTime;
 
     // Handle whole crystal floating (no rotation)
@@ -810,27 +831,6 @@ const UnifiedCrystalScene = forwardRef(({
         }
         setShowFacets(false);
         setShowWholeCrystal(true);
-      }
-    }
-
-    // Fade emissive glow after fracture
-    if (fractureGlowStartRef.current && facetMaterialsRef.current.length) {
-      const elapsedGlow = (performance.now() - fractureGlowStartRef.current) / 1000;
-      const rawDuration = animationData?.crystalConfig?.explodeDuration || 1.2;
-      const duration = rawDuration > 10 ? rawDuration / 1000 : rawDuration;
-      const t = Math.min(elapsedGlow / duration, 1);
-      const ease = 1 - Math.pow(1 - t, 3); // Soft ease out
-      facetMaterialsRef.current.forEach((mat, idx) => {
-        const baseIntensity = mat.userData?.baseEmissiveIntensity || 0;
-        const startIntensity = config?.effects?.fracture?.initialGlow ?? 2.0;
-        const baseColor = mat.userData?.baseEmissiveColor || defaultColorRef.current;
-        const startColor = projectColors[idx];
-        mat.emissive.copy(startColor).lerp(baseColor, ease);
-        mat.emissiveIntensity = THREE.MathUtils.lerp(startIntensity, baseIntensity, ease);
-        mat.needsUpdate = true;
-      });
-      if (t >= 1) {
-        fractureGlowStartRef.current = null;
       }
     }
 
