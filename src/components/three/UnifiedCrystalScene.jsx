@@ -695,11 +695,14 @@ const UnifiedCrystalScene = forwardRef(({
             facetRefs.current.forEach((facetRef, idx) => {
               const facetKey = facetKeys[idx];
               const explodedPos = animationData?.crystalConfig?.positions?.[facetKey];
+              const configuredFracture = fracture?.[facetKey];
               if (facetRef?.current && explodedPos) {
-                // Create fracture position as 30% of exploded distance
-                const fracturePos = explodedPos.clone().multiplyScalar(0.3);
+                // Use configured fracture position when available, fallback to 30% offset
+                const fracturePos = configuredFracture
+                  ? configuredFracture.clone()
+                  : explodedPos.clone().multiplyScalar(0.3);
                 facetRef.current.position.copy(fracturePos);
-                
+
                 console.log(`💥 ${facetKey} fracture:`, fracturePos.toArray());
               }
             });
