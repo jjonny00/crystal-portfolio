@@ -3,10 +3,10 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Vector3, Quaternion } from 'three';
+import { fracture as fractureConfig } from '../crystalConfig';
 
-// Distance in world units that facets snap outward before the full explosion
-// Using a constant lets us tweak how far facets move without modifying config
-const FRACTURE_DISTANCE = 0.3;
+// Percentage of explode distance facets travel during fracture
+const FRACTURE_DISTANCE = fractureConfig.distance;
 
 /**
  * SIMPLIFIED: Animation Configuration with immediate state changes
@@ -116,18 +116,18 @@ export const ANIMATION_CONFIG = {
   }
 };
 
-// Derive fracture positions based on a fixed outward distance along explode vectors
+// Derive fracture positions based on percentage of explode distance
 ANIMATION_CONFIG.crystal.fracturePositions = Object.fromEntries(
   Object.entries(ANIMATION_CONFIG.crystal.explodedPositions).map(([key, vec]) => {
     const direction = vec.clone().normalize();
-    const distance = Math.min(vec.length(), FRACTURE_DISTANCE);
+    const distance = vec.length() * FRACTURE_DISTANCE;
     return [key, direction.multiplyScalar(distance)];
   })
 );
 // Expose the distance so components can consistently compute fallback positions
 ANIMATION_CONFIG.crystal.fractureDistance = FRACTURE_DISTANCE;
 // How long to hold the facets at their fractured positions (seconds)
-ANIMATION_CONFIG.crystal.fracturePause = 0.5;
+ANIMATION_CONFIG.crystal.fracturePause = fractureConfig.duration;
 // Total time for fracture + explosion (seconds). Matches previous explode duration
 // Total time for fracture + explosion (seconds). Matches original explode timing
 ANIMATION_CONFIG.crystal.explodeDuration = 1.6;

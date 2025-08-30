@@ -36,7 +36,6 @@ const UnifiedCrystalScene = forwardRef(({
   const [sphereVisible, setSphereVisible] = useState(false);
   const [ringVisible, setRingVisible] = useState(false);
   const [burstId, setBurstId] = useState(0);
-  const burstTimeoutRef = useRef();
   
   // Crystal state tracking
   const [showWholeCrystal, setShowWholeCrystal] = useState(true);
@@ -80,7 +79,8 @@ const UnifiedCrystalScene = forwardRef(({
   const fractureGlowStartRef = useRef(null);
 
   const triggerFractureGlow = useCallback(() => {
-    fractureGlowStartRef.current = performance.now();
+    const delay = config?.fracture?.emissive?.delay ?? 0;
+    fractureGlowStartRef.current = performance.now() + delay * 1000;
     facetMaterialsRef.current.forEach((mat) => {
       // Start from no glow and fade in during the fracture pause
       mat.emissive.set(0, 0, 0);
@@ -88,7 +88,7 @@ const UnifiedCrystalScene = forwardRef(({
       mat.userData = { ...(mat.userData || {}), isFading: true };
       mat.needsUpdate = true;
     });
-  }, []);
+  }, [config]);
 
   // Track when GLTF models have loaded
   const [modelsLoaded, setModelsLoaded] = useState(false);
@@ -492,7 +492,7 @@ const UnifiedCrystalScene = forwardRef(({
 
       facetMaterialsRef.current.forEach((mat, idx) => {
         const baseIntensity = mat.userData?.baseEmissiveIntensity ?? 0.02;
-        const startIntensity = (config?.effects?.fracture?.initialGlow ?? 2.0) * 0.15;
+        const startIntensity = (config?.fracture?.emissive?.intensity ?? 2.0) * 0.15;
         const baseColor = mat.userData?.baseEmissiveColor || defaultColorRef.current;
         const startColor = projectColors[idx];
 
@@ -685,8 +685,7 @@ const UnifiedCrystalScene = forwardRef(({
           setSphereVisible(true);
           setRingVisible(true);
           explosionStartRef.current = performance.now();
-          if (burstTimeoutRef.current) clearTimeout(burstTimeoutRef.current);
-          burstTimeoutRef.current = setTimeout(() => setBurstId(id => id + 1), 150);
+          setBurstId(id => id + 1);
 
           // Capture hero rotation so facets start from same orientation
           if (wholeCrystalRef.current && facetsGroupRef.current) {
@@ -706,7 +705,7 @@ const UnifiedCrystalScene = forwardRef(({
                 const fallback = explodedPos
                   .clone()
                   .normalize()
-                  .multiplyScalar(Math.min(explodedPos.length(), fractureDistance));
+                  .multiplyScalar(explodedPos.length() * fractureDistance);
                 const fracturePos = configuredFracture ? configuredFracture.clone() : fallback;
                 facetRef.current.position.copy(fracturePos);
 
@@ -744,13 +743,7 @@ const UnifiedCrystalScene = forwardRef(({
     }
 
     lastCrystalForm.current = currentForm;
-    return () => {
-      if (burstTimeoutRef.current) {
-        clearTimeout(burstTimeoutRef.current);
-        burstTimeoutRef.current = null;
-      }
-    };
-  }, [animationData?.crystalForm]);
+  }, [animationData?.crystalForm, triggerFractureGlow]);
 
   // Main animation loop
   useFrame((state, deltaTime) => {
@@ -818,7 +811,7 @@ const UnifiedCrystalScene = forwardRef(({
             const fallback = explodedPos
               .clone()
               .normalize()
-              .multiplyScalar(Math.min(explodedPos.length(), fractureDistance));
+              .multiplyScalar(explodedPos.length() * fractureDistance);
             facetRef.current.position.copy(configured ? configured : fallback);
           }
         });
@@ -874,7 +867,7 @@ const UnifiedCrystalScene = forwardRef(({
           const facetKey = facetKeys[index];
           const end = animationData.crystalConfig.positions[facetKey];
           const start = fracture?.[facetKey] ||
-            end?.clone().normalize().multiplyScalar(Math.min(end.length(), fractureDistance));
+            end?.clone().normalize().multiplyScalar(end.length() * fractureDistance);
           if (start && end) {
             const interpolated = start.clone().lerp(end, eased);
             facetRef.current.position.copy(interpolated);
@@ -976,10 +969,7 @@ const UnifiedCrystalScene = forwardRef(({
       {/* Fracture expanding ring */}
       {ringVisible && !simplifiedAnimations && (
         <FractureRingImage
-          imagePath="/assets/textures/fractureRing02.jpg"
-          baseSize={0.5}
-          maxScale={24}
-          duration={0.4}
+          {...config.fracture.image}
           visible={ringVisible}
           animationData={animationData}
           simplifiedAnimations={simplifiedAnimations}
@@ -1007,7 +997,12 @@ const UnifiedCrystalScene = forwardRef(({
         />
       )}
 
-      {!simplifiedAnimations && <FractureBurstParticles trigger={burstId} />}
+      {!simplifiedAnimations && (
+        <FractureBurstParticles
+          trigger={burstId}
+          {...config.fracture.particles}
+        />
+      )}
 
       {/* Whole Crystal */}
       {showWholeCrystal && (
