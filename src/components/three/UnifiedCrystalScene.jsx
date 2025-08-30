@@ -12,6 +12,7 @@ import MaterialManager from './MaterialManager'
 
 // Import enhanced sphere component
 import GlowingSphereImage, { BLENDING_MODES } from './GlowingSphereImage'
+import FractureRingImage from './FractureRingImage'
 import { getProjectColorByFacetKey } from '../../data/projects'
 import FacetLabels from './FacetLabels'
 import projects from '../../data/projects'
@@ -33,6 +34,7 @@ const UnifiedCrystalScene = forwardRef(({
 
   // Sphere state
   const [sphereVisible, setSphereVisible] = useState(false);
+  const [ringVisible, setRingVisible] = useState(false);
   const [burstId, setBurstId] = useState(0);
   const burstTimeoutRef = useRef();
   
@@ -146,6 +148,7 @@ const UnifiedCrystalScene = forwardRef(({
         setShowWholeCrystal(false);
         setShowFacets(true);
         setSphereVisible(true);
+        setRingVisible(true);
         lastCrystalForm.current = 'exploded';
       },
       forceShowWhole: () => {
@@ -155,6 +158,7 @@ const UnifiedCrystalScene = forwardRef(({
         setShowFacets(false);
         setShowWholeCrystal(true);
         setSphereVisible(false);
+        setRingVisible(false);
         lastCrystalForm.current = 'whole';
       },
       inspectModels: () => {
@@ -679,6 +683,7 @@ const UnifiedCrystalScene = forwardRef(({
           setShowWholeCrystal(false);
           setShowFacets(true);
           setSphereVisible(true);
+          setRingVisible(true);
           explosionStartRef.current = performance.now();
           if (burstTimeoutRef.current) clearTimeout(burstTimeoutRef.current);
           burstTimeoutRef.current = setTimeout(() => setBurstId(id => id + 1), 150);
@@ -717,6 +722,7 @@ const UnifiedCrystalScene = forwardRef(({
           setShowWholeCrystal(true);
           setShowFacets(false);
           setSphereVisible(false);
+          setRingVisible(false);
         }
 
       } else if (currentForm === 'whole') {
@@ -724,6 +730,7 @@ const UnifiedCrystalScene = forwardRef(({
           console.log('💎 Crystal: Reform detected - hiding sphere');
         }
         setSphereVisible(false);
+        setRingVisible(false);
         if (simplifiedAnimations) {
           setShowWholeCrystal(true);
           setShowFacets(false);
@@ -965,6 +972,20 @@ const UnifiedCrystalScene = forwardRef(({
         performanceProfile={performanceProfile}
         onMaterialReady={handleMaterialReady}
       />
+
+      {/* Fracture expanding ring */}
+      {ringVisible && !simplifiedAnimations && (
+        <FractureRingImage
+          imagePath="/assets/textures/fractureRing02.jpg"
+          baseSize={0.5}
+          maxScale={8}
+          duration={1.0}
+          visible={ringVisible}
+          animationData={animationData}
+          simplifiedAnimations={simplifiedAnimations}
+          debugMode={import.meta.env.DEV}
+        />
+      )}
 
       {/* Enhanced Glowing Sphere */}
       {sphereVisible && !simplifiedAnimations && (
