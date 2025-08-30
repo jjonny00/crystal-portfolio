@@ -182,7 +182,7 @@ export const effects = {
   // Fracture effect
   fracture: {
     maxScaleFactor: 0.1,     // Maximum scale increase during fracture (10%)
-    initialGlow: 3.0,        // Initial bright glow
+    initialGlow: 1.0,        // Initial bright glow
     secondaryGlow: 1.0       // Secondary glow after initial pulse
   }
 }
