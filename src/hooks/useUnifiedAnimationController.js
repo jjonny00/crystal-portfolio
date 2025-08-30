@@ -4,9 +4,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Vector3, Quaternion } from 'three';
 
-// Percentage of total facet travel used for the instantaneous fracture snap
-// Using a constant lets us tweak how far facets move before the full explosion
-const FRACTURE_RATIO = 0.3; // 30%
+// Distance in world units that facets snap outward before the full explosion
+// Using a constant lets us tweak how far facets move without modifying config
+const FRACTURE_DISTANCE = 0.3;
 
 /**
  * SIMPLIFIED: Animation Configuration with immediate state changes
@@ -116,16 +116,16 @@ export const ANIMATION_CONFIG = {
   }
 };
 
-// Derive fracture positions and timing based on exploded targets
+// Derive fracture positions based on a fixed outward distance along explode vectors
 ANIMATION_CONFIG.crystal.fracturePositions = Object.fromEntries(
-  Object.entries(ANIMATION_CONFIG.crystal.explodedPositions).map(([key, vec]) => [
-    key,
-    // Use the configured fracture ratio to control how far facets snap before exploding
-    vec.clone().multiplyScalar(FRACTURE_RATIO)
-  ])
+  Object.entries(ANIMATION_CONFIG.crystal.explodedPositions).map(([key, vec]) => {
+    const direction = vec.clone().normalize();
+    const distance = Math.min(vec.length(), FRACTURE_DISTANCE);
+    return [key, direction.multiplyScalar(distance)];
+  })
 );
-// Expose the ratio so components can consistently compute fallback positions
-ANIMATION_CONFIG.crystal.fractureRatio = FRACTURE_RATIO;
+// Expose the distance so components can consistently compute fallback positions
+ANIMATION_CONFIG.crystal.fractureDistance = FRACTURE_DISTANCE;
 // How long to hold the facets at their fractured positions (seconds)
 ANIMATION_CONFIG.crystal.fracturePause = 0.5;
 // Total time for fracture + explosion (seconds). Matches previous explode duration
@@ -498,7 +498,7 @@ export const useUnifiedAnimationController = (options = {}) => {
         ? config.crystal.explodedPositions
         : { center: config.crystal.wholePosition },
       fracturePositions: config.crystal.fracturePositions,
-      fractureRatio: config.crystal.fractureRatio,
+      fractureDistance: config.crystal.fractureDistance,
       fracturePause: config.crystal.fracturePause,
       explodeDuration: config.crystal.explodeDuration,
       explosionEase: config.crystal.explosionEase,
