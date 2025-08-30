@@ -75,7 +75,6 @@ const UnifiedCrystalScene = forwardRef(({
 
   // Track explosion timing so we can implement fracture pause
   const explosionStartRef = useRef(null);
-  const burstTriggeredRef = useRef(false);
   const fractureGlowStartRef = useRef(null);
 
   const triggerFractureGlow = useCallback(() => {
@@ -681,7 +680,7 @@ const UnifiedCrystalScene = forwardRef(({
           setShowFacets(true);
           setSphereVisible(true);
           explosionStartRef.current = performance.now();
-          burstTriggeredRef.current = false;
+          setBurstId(id => id + 1);
 
           // Capture hero rotation so facets start from same orientation
           if (wholeCrystalRef.current && facetsGroupRef.current) {
@@ -838,11 +837,6 @@ const UnifiedCrystalScene = forwardRef(({
         const fracturePause = animationData.crystalConfig.fracturePause || 0.5;
         const totalDuration = animationData.crystalConfig.explodeDuration || 1.2;
         const elapsedExplosion = (performance.now() - explosionStartRef.current) / 1000;
-
-        if (!burstTriggeredRef.current) {
-          setBurstId(id => id + 1);
-          burstTriggeredRef.current = true;
-        }
 
         const progress = Math.min((elapsedExplosion - fracturePause) / (totalDuration - fracturePause), 1);
         const fracture = animationData.crystalConfig.fracturePositions;
