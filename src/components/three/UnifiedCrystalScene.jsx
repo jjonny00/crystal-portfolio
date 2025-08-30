@@ -21,7 +21,6 @@ const UnifiedCrystalScene = forwardRef(({
   config,
   materialVariant = 'default',
   performanceProfile = { useNormalMaps: true, textureQuality: 'high', pbrQuality: 'high', usePBR: true },
-  isMobile = false,
   simplifiedAnimations = false,
   scrollToProgress
 }, ref) => {
@@ -35,6 +34,7 @@ const UnifiedCrystalScene = forwardRef(({
   // Sphere state
   const [sphereVisible, setSphereVisible] = useState(false);
   const [burstId, setBurstId] = useState(0);
+  const burstTimeoutRef = useRef();
   
   // Crystal state tracking
   const [showWholeCrystal, setShowWholeCrystal] = useState(true);
@@ -50,7 +50,7 @@ const UnifiedCrystalScene = forwardRef(({
   const [showCrystalDebug, setShowCrystalDebug] = useState(false);
   
   // FIXED: Better hover state tracking
-  const [hoveredFacet, setHoveredFacet] = useState(null);
+  const [, setHoveredFacet] = useState(null);
   const hoveredFacetRef = useRef(null);
 
   // Track material updates so we can reapply when ready
@@ -680,7 +680,8 @@ const UnifiedCrystalScene = forwardRef(({
           setShowFacets(true);
           setSphereVisible(true);
           explosionStartRef.current = performance.now();
-          setBurstId(id => id + 1);
+          if (burstTimeoutRef.current) clearTimeout(burstTimeoutRef.current);
+          burstTimeoutRef.current = setTimeout(() => setBurstId(id => id + 1), 150);
 
           // Capture hero rotation so facets start from same orientation
           if (wholeCrystalRef.current && facetsGroupRef.current) {
@@ -732,9 +733,16 @@ const UnifiedCrystalScene = forwardRef(({
           facetsGroupRef.current.quaternion.copy(neutralQuat);
         }
       }
-      
-      lastCrystalForm.current = currentForm;
+
     }
+
+    lastCrystalForm.current = currentForm;
+    return () => {
+      if (burstTimeoutRef.current) {
+        clearTimeout(burstTimeoutRef.current);
+        burstTimeoutRef.current = null;
+      }
+    };
   }, [animationData?.crystalForm]);
 
   // Main animation loop

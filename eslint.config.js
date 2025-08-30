@@ -3,13 +3,18 @@ import globals from 'globals'
 import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 
+// Trim any accidental whitespace from global keys (e.g. AudioWorkletGlobalScope )
+const browserGlobals = Object.fromEntries(
+  Object.entries(globals.browser).map(([key, value]) => [key.trim(), value])
+)
+
 export default [
   { ignores: ['dist'] },
   {
     files: ['**/*.{js,jsx}'],
     languageOptions: {
       ecmaVersion: 2020,
-      globals: globals.browser,
+      globals: browserGlobals,
       parserOptions: {
         ecmaVersion: 'latest',
         ecmaFeatures: { jsx: true },

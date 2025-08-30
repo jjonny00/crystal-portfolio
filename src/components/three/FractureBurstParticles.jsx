@@ -50,7 +50,7 @@ const FractureBurstParticles = ({ trigger, count = 200, duration = 1.2 }) => {
         transparent: true,
         depthWrite: false,
         blending: THREE.AdditiveBlending,
-        color: '#ffffff',
+        color: '#66ffcc',
         opacity: 0,
       }),
     []
@@ -112,7 +112,14 @@ const FractureBurstParticles = ({ trigger, count = 200, duration = 1.2 }) => {
     }
   });
 
-  return <lineSegments ref={linesRef} geometry={geometry} material={material} />;
+  return (
+    <lineSegments
+      ref={linesRef}
+      geometry={geometry}
+      material={material}
+      renderOrder={-1}
+    />
+  );
 };
 
 export default FractureBurstParticles;
