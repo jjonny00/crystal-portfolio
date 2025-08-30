@@ -124,6 +124,8 @@ ANIMATION_CONFIG.crystal.fracturePositions = Object.fromEntries(
     vec.clone().multiplyScalar(FRACTURE_RATIO)
   ])
 );
+// Expose the ratio so components can consistently compute fallback positions
+ANIMATION_CONFIG.crystal.fractureRatio = FRACTURE_RATIO;
 // How long to hold the facets at their fractured positions (seconds)
 ANIMATION_CONFIG.crystal.fracturePause = 0.5;
 // Total time for fracture + explosion (seconds). Matches previous explode duration
@@ -496,6 +498,7 @@ export const useUnifiedAnimationController = (options = {}) => {
         ? config.crystal.explodedPositions
         : { center: config.crystal.wholePosition },
       fracturePositions: config.crystal.fracturePositions,
+      fractureRatio: config.crystal.fractureRatio,
       fracturePause: config.crystal.fracturePause,
       explodeDuration: config.crystal.explodeDuration,
       explosionEase: config.crystal.explosionEase,

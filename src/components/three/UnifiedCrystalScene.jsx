@@ -690,17 +690,18 @@ const UnifiedCrystalScene = forwardRef(({
           }
 
           // Snap facets immediately to fracture positions (small initial offset)
+          const fractureRatio = animationData?.crystalConfig?.fractureRatio ?? 0.3;
           const fracture = animationData?.crystalConfig?.fracturePositions;
-          if (fracture) {
+          if (fracture || fractureRatio) {
             facetRefs.current.forEach((facetRef, idx) => {
               const facetKey = facetKeys[idx];
               const explodedPos = animationData?.crystalConfig?.positions?.[facetKey];
               const configuredFracture = fracture?.[facetKey];
               if (facetRef?.current && explodedPos) {
-                // Use configured fracture position when available, fallback to 30% offset
+                // Use configured fracture position when available, fallback to configured ratio
                 const fracturePos = configuredFracture
                   ? configuredFracture.clone()
-                  : explodedPos.clone().multiplyScalar(0.3);
+                  : explodedPos.clone().multiplyScalar(fractureRatio);
                 facetRef.current.position.copy(fracturePos);
 
                 console.log(`💥 ${facetKey} fracture:`, fracturePos.toArray());
@@ -826,6 +827,7 @@ const UnifiedCrystalScene = forwardRef(({
 
         const progress = Math.min((elapsedExplosion - fracturePause) / (totalDuration - fracturePause), 1);
         const fracture = animationData.crystalConfig.fracturePositions;
+        const fractureRatio = animationData.crystalConfig.fractureRatio ?? 0.3;
         const eased = animationData.crystalConfig.explosionEase
           ? animationData.crystalConfig.explosionEase(progress)
           : progress;
@@ -842,8 +844,8 @@ const UnifiedCrystalScene = forwardRef(({
           if (!facetRef || !facetRef.current) return;
 
           const facetKey = facetKeys[index];
-          const start = fracture?.[facetKey];
           const end = animationData.crystalConfig.positions[facetKey];
+          const start = fracture?.[facetKey] || end?.clone().multiplyScalar(fractureRatio);
           if (start && end) {
             const interpolated = start.clone().lerp(end, eased);
             facetRef.current.position.copy(interpolated);
