@@ -119,7 +119,6 @@ export const usePerformanceV2 = () => {
 
   // Update profile manually
   const updateProfile = useCallback((newTier, overrides = {}) => {
-    console.log('usePerformanceV2: updateProfile called', { newTier, overrides });
     try {
       // Explicitly allow renderScale overrides (numeric only)
       const allowedOverrides = { ...overrides };
@@ -134,7 +133,6 @@ export const usePerformanceV2 = () => {
       setProfile(manager.getProfile());
       setTier(manager.getTier());
       setTestResults(manager.getTestResults() || null);
-      console.log('usePerformanceV2: profile updated to', newTier);
     } catch (err) {
       console.error('Failed to update performance profile:', err);
       setError(err.message);
@@ -143,7 +141,6 @@ export const usePerformanceV2 = () => {
 
   // Force retest with progress tracking
   const forceRetest = useCallback(async () => {
-    console.log('usePerformanceV2: forceRetest called');
     setIsInitializing(true);
     setError(null);
     setIsReady(false);
@@ -164,7 +161,6 @@ export const usePerformanceV2 = () => {
     });
 
     try {
-      console.log('usePerformanceV2: starting performance retest');
 
       await manager.forceRetest();
 
@@ -174,11 +170,6 @@ export const usePerformanceV2 = () => {
       setIsReady(true);
       setIsInitializing(false);
       setTestProgress(100);
-
-      console.log('usePerformanceV2: performance retest complete', {
-        tier: manager.getTier(),
-        results: manager.getTestResults()
-      });
     } catch (err) {
       console.error('Performance retest failed:', err);
       setError(err.message);
