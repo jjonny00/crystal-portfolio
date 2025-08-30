@@ -5,7 +5,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Vector3, Quaternion } from 'three';
 
 // Percentage of total facet travel used for the instantaneous fracture snap
-const FRACTURE_RATIO = 0.08; // 8%
+// Using a constant lets us tweak how far facets move before the full explosion
+const FRACTURE_RATIO = 0.3; // 30%
 
 /**
  * SIMPLIFIED: Animation Configuration with immediate state changes
@@ -119,7 +120,8 @@ export const ANIMATION_CONFIG = {
 ANIMATION_CONFIG.crystal.fracturePositions = Object.fromEntries(
   Object.entries(ANIMATION_CONFIG.crystal.explodedPositions).map(([key, vec]) => [
     key,
-    vec.clone().multiplyScalar(0.3)  // Force 30% distance
+    // Use the configured fracture ratio to control how far facets snap before exploding
+    vec.clone().multiplyScalar(FRACTURE_RATIO)
   ])
 );
 // How long to hold the facets at their fractured positions (seconds)
