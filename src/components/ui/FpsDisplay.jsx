@@ -340,14 +340,12 @@ export const PerformanceAlert = ({
 
   const handleLowerQuality = () => {
     const targetTier = tier === 'high' ? 'medium' : tier === 'medium' ? 'low' : 'low';
-    console.log('PerformanceAlert: lowering quality', { from: tier, to: targetTier });
     updateProfile(targetTier);
     setShowAlert(false);
     suppressAlerts();
   };
 
   const handleRetest = () => {
-    console.log('PerformanceAlert: retesting performance');
     forceRetest();
     setShowAlert(false);
     suppressAlerts();
