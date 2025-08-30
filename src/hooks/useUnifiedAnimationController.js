@@ -119,7 +119,7 @@ export const ANIMATION_CONFIG = {
 ANIMATION_CONFIG.crystal.fracturePositions = Object.fromEntries(
   Object.entries(ANIMATION_CONFIG.crystal.explodedPositions).map(([key, vec]) => [
     key,
-    vec.clone().multiplyScalar(FRACTURE_RATIO)
+    vec.clone().multiplyScalar(0.3)  // Force 30% distance
   ])
 );
 // How long to hold the facets at their fractured positions (seconds)

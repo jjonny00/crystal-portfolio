@@ -25,7 +25,7 @@ export const explodedPositions = {
 }
 
 // Define the fracture positions (3% of the way to final positions)
-const FRACTURE_SCALE = 0.03;
+const FRACTURE_SCALE = 0.3;
 export const fracturePositions = Object.fromEntries(
   Object.entries(explodedPositions).map(([key, coords]) => [
     key,

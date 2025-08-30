@@ -694,9 +694,13 @@ const UnifiedCrystalScene = forwardRef(({
           if (fracture) {
             facetRefs.current.forEach((facetRef, idx) => {
               const facetKey = facetKeys[idx];
-              const pos = fracture[facetKey];
-              if (facetRef?.current && pos) {
-                facetRef.current.position.copy(pos);
+              const explodedPos = animationData?.crystalConfig?.positions?.[facetKey];
+              if (facetRef?.current && explodedPos) {
+                // Create fracture position as 30% of exploded distance
+                const fracturePos = explodedPos.clone().multiplyScalar(0.3);
+                facetRef.current.position.copy(fracturePos);
+                
+                console.log(`💥 ${facetKey} fracture:`, fracturePos.toArray());
               }
             });
           }
