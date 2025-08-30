@@ -5,10 +5,18 @@ import * as THREE from 'three';
 /**
  * Particle burst that erupts from the crystal center when triggered.
  */
-const FractureBurstParticles = ({ trigger, count = 200, duration = 1.2 }) => {
+const FractureBurstParticles = ({
+  trigger,
+  delay = 0,
+  count = 200,
+  duration = 1.2,
+  color = '#66ffcc',
+  spread = 0.5
+}) => {
   const linesRef = useRef();
   const startTimeRef = useRef(0);
   const velocitiesRef = useRef();
+  const delayRef = useRef();
 
   const { geometry, velocities } = useMemo(() => {
     const positions = new Float32Array(count * 6);
@@ -29,7 +37,7 @@ const FractureBurstParticles = ({ trigger, count = 200, duration = 1.2 }) => {
       velocities[i3 + 1] = dir.y * speed;
       velocities[i3 + 2] = dir.z * speed;
 
-      const length = 1 + Math.random() * 0.5;
+      const length = 1 + Math.random() * spread;
       positions[i6] = positions[i6 + 1] = positions[i6 + 2] = 0;
       positions[i6 + 3] = dir.x * length;
       positions[i6 + 4] = dir.y * length;
@@ -40,7 +48,7 @@ const FractureBurstParticles = ({ trigger, count = 200, duration = 1.2 }) => {
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
 
     return { geometry, velocities };
-  }, [count]);
+  }, [count, spread]);
 
   velocitiesRef.current = velocities;
 
@@ -50,42 +58,58 @@ const FractureBurstParticles = ({ trigger, count = 200, duration = 1.2 }) => {
         transparent: true,
         depthWrite: false,
         blending: THREE.AdditiveBlending,
-        color: '#66ffcc',
+        color,
         opacity: 0,
       }),
-    []
+    [color]
   );
 
   useEffect(() => {
     if (!geometry) return;
-    // Reset positions and regenerate velocities
-    const positions = geometry.attributes.position.array;
-    const velocities = velocitiesRef.current;
-    for (let i = 0; i < count; i++) {
-      const i6 = i * 6;
-      const i3 = i * 3;
 
-      const dir = new THREE.Vector3(
-        Math.random() - 0.5,
-        Math.random() - 0.5,
-        Math.random() - 0.5
-      ).normalize();
+    const reset = () => {
+      // Reset positions and regenerate velocities
+      const positions = geometry.attributes.position.array;
+      const velocities = velocitiesRef.current;
+      for (let i = 0; i < count; i++) {
+        const i6 = i * 6;
+        const i3 = i * 3;
 
-      const speed = 20 + Math.random() * 10;
-      velocities[i3] = dir.x * speed;
-      velocities[i3 + 1] = dir.y * speed;
-      velocities[i3 + 2] = dir.z * speed;
+        const dir = new THREE.Vector3(
+          Math.random() - 0.5,
+          Math.random() - 0.5,
+          Math.random() - 0.5
+        ).normalize();
 
-      const length = 1 + Math.random() * 0.5;
-      positions[i6] = positions[i6 + 1] = positions[i6 + 2] = 0;
-      positions[i6 + 3] = dir.x * length;
-      positions[i6 + 4] = dir.y * length;
-      positions[i6 + 5] = dir.z * length;
+        const speed = 20 + Math.random() * 10;
+        velocities[i3] = dir.x * speed;
+        velocities[i3 + 1] = dir.y * speed;
+        velocities[i3 + 2] = dir.z * speed;
+
+        const length = 1 + Math.random() * spread;
+        positions[i6] = positions[i6 + 1] = positions[i6 + 2] = 0;
+        positions[i6 + 3] = dir.x * length;
+        positions[i6 + 4] = dir.y * length;
+        positions[i6 + 5] = dir.z * length;
+      }
+      geometry.attributes.position.needsUpdate = true;
+      material.opacity = 1;
+      startTimeRef.current = performance.now();
+    };
+
+    if (delay > 0) {
+      delayRef.current = setTimeout(reset, delay * 1000);
+    } else {
+      reset();
     }
-    geometry.attributes.position.needsUpdate = true;
-    material.opacity = 1;
-    startTimeRef.current = performance.now();
-  }, [trigger, geometry, material, count]);
+
+    return () => {
+      if (delayRef.current) {
+        clearTimeout(delayRef.current);
+        delayRef.current = null;
+      }
+    };
+  }, [trigger, geometry, material, count, delay, spread]);
 
   useFrame((_, dt) => {
     if (!startTimeRef.current) return;

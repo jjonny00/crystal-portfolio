@@ -24,13 +24,39 @@ export const explodedPositions = {
   exploration: [-0.6, 0.7, 0.0]   // More dynamic position
 }
 
-// Define the fracture positions (3% of the way to final positions)
-const FRACTURE_SCALE = 0.3;
+// === FRACTURE SETTINGS ===
+// Centralized controls for fracture/explosion effects
+export const fracture = {
+  duration: 0.5,          // Seconds facets remain in fractured state
+  distance: 0.3,          // Percentage of explode distance applied during fracture
+  particles: {
+    delay: 0.15,          // Delay before particle burst (seconds)
+    count: 200,           // Number of burst particles
+    color: '#66ffcc',     // Particle color
+    duration: 1.2,        // Particle fade duration (seconds)
+    spread: 0.5           // How far particles initially spread from origin
+  },
+  image: {
+    imagePath: '/assets/textures/fractureRing02.jpg',
+    baseSize: 0.5,
+    maxScale: 24,
+    duration: 0.4,
+    triggerDelay: 0,
+    fadeInDuration: 0.1,
+    fadeOutDuration: 0.3,
+    scaleEasing: 'linear'
+  },
+  emissive: {
+    intensity: 1.0,       // Bright glow intensity at fracture
+    delay: 0              // Delay before emissive glow starts (seconds)
+  }
+};
+
+// Define the fracture positions based on distance percentage
 export const fracturePositions = Object.fromEntries(
   Object.entries(explodedPositions).map(([key, coords]) => [
     key,
-    // Use full precision to keep the 3% snap exact for tiny movements
-    coords.map(c => c * FRACTURE_SCALE)
+    coords.map(c => c * fracture.distance)
   ])
 );
 
@@ -75,7 +101,7 @@ export const timing = {
   
   // Fracture phase
   fracture: {
-    duration: 350,         // ms - how long the fracture phase lasts
+    duration: fracture.duration * 1000, // ms - how long the fracture phase lasts
     pulseDuration: 100,    // ms - initial pulse animation
     glowFadeDuration: 200, // ms - how long the glow fades after pulse
   },
@@ -182,7 +208,7 @@ export const effects = {
   // Fracture effect
   fracture: {
     maxScaleFactor: 0.1,     // Maximum scale increase during fracture (10%)
-    initialGlow: 1.0,        // Initial bright glow
+    initialGlow: fracture.emissive.intensity, // Initial bright glow
     secondaryGlow: 1.0       // Secondary glow after initial pulse
   }
 }
