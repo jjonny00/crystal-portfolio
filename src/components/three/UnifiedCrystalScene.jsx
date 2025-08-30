@@ -789,6 +789,29 @@ const UnifiedCrystalScene = forwardRef(({
       }
     }
 
+    // Hold facets at fracture positions before the explosion resumes
+    if (animationData.crystalForm === 'exploded' && explosionStartRef.current) {
+      const fracturePause = animationData.crystalConfig?.fracturePause || 0.5;
+      const elapsedExplosion = (performance.now() - explosionStartRef.current) / 1000;
+      if (elapsedExplosion < fracturePause) {
+        const fracture = animationData.crystalConfig?.fracturePositions;
+        const fractureDistance = animationData.crystalConfig?.fractureDistance ?? 0.3;
+        facetRefs.current.forEach((facetRef, idx) => {
+          const facetKey = facetKeys[idx];
+          const explodedPos = animationData.crystalConfig.positions[facetKey];
+          const configured = fracture?.[facetKey];
+          if (facetRef?.current && explodedPos) {
+            const fallback = explodedPos
+              .clone()
+              .normalize()
+              .multiplyScalar(Math.min(explodedPos.length(), fractureDistance));
+            facetRef.current.position.copy(configured ? configured : fallback);
+          }
+        });
+        return; // Skip other animations during fracture pause
+      }
+    }
+
     const elapsed = state.clock.elapsedTime;
 
     // Handle whole crystal floating (no rotation)
@@ -815,11 +838,6 @@ const UnifiedCrystalScene = forwardRef(({
         const fracturePause = animationData.crystalConfig.fracturePause || 0.5;
         const totalDuration = animationData.crystalConfig.explodeDuration || 1.2;
         const elapsedExplosion = (performance.now() - explosionStartRef.current) / 1000;
-
-        if (elapsedExplosion < fracturePause) {
-          // Stay at fracture positions during the pause
-          return;
-        }
 
         if (!burstTriggeredRef.current) {
           setBurstId(id => id + 1);
