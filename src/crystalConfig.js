@@ -28,26 +28,26 @@ export const explodedPositions = {
 // Centralized controls for fracture/explosion effects
 export const fracture = {
   duration: 0.5,          // Seconds facets remain in fractured state
-  distance: 0.3,          // Percentage of explode distance applied during fracture
+  distance: 0.08,          // Percentage of explode distance applied during fracture
   particles: {
-    delay: 0.15,          // Delay before particle burst (seconds)
+    delay: 0.6,          // Delay before particle burst (seconds)
     count: 200,           // Number of burst particles
     color: '#66ffcc',     // Particle color
-    duration: 1.2,        // Particle fade duration (seconds)
-    spread: 0.5           // How far particles initially spread from origin
+    duration: 0.8,        // Particle fade duration (seconds)
+    spread: 0.3           // How far particles initially spread from origin
   },
   image: {
     imagePath: '/assets/textures/fractureRing02.jpg',
-    baseSize: 0.5,
-    maxScale: 24,
+    baseSize: 0.1,
+    maxScale: 16,
     duration: 0.4,
-    triggerDelay: 0,
+    triggerDelay: 0.5,
     fadeInDuration: 0.1,
-    fadeOutDuration: 0.3,
+    fadeOutDuration: 0.8,
     scaleEasing: 'linear'
   },
   emissive: {
-    intensity: 1.0,       // Bright glow intensity at fracture
+    intensity: 3.0,       // Bright glow intensity at fracture
     delay: 0              // Delay before emissive glow starts (seconds)
   }
 };
