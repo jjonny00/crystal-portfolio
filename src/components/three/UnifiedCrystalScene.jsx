@@ -978,8 +978,8 @@ const UnifiedCrystalScene = forwardRef(({
         <FractureRingImage
           imagePath="/assets/textures/fractureRing02.jpg"
           baseSize={0.5}
-          maxScale={8}
-          duration={1.0}
+          maxScale={24}
+          duration={0.2}
           visible={ringVisible}
           animationData={animationData}
           simplifiedAnimations={simplifiedAnimations}

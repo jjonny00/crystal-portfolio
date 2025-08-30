@@ -11,8 +11,8 @@ import { BLENDING_MODES } from './GlowingSphereImage';
 const FractureRingImage = ({
   imagePath = '/assets/textures/fractureRing02.jpg',
   baseSize = 0.5,
-  maxScale = 8,
-  duration = 1.0,
+  maxScale = 24,
+  duration = 0.2,
   blendingMode = BLENDING_MODES.ADDITIVE,
   position = [0, 0, 0],
   visible = false,
