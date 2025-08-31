@@ -23,7 +23,8 @@ const UnifiedCrystalScene = forwardRef(({
   materialVariant = 'default',
   performanceProfile = { useNormalMaps: true, textureQuality: 'high', pbrQuality: 'high', usePBR: true },
   simplifiedAnimations = false,
-  scrollToProgress
+  scrollToProgress,
+  onFractureStart
 }, ref) => {
   // Component refs for crystal animation
   const crystalGroupRef = useRef();
@@ -88,7 +89,8 @@ const UnifiedCrystalScene = forwardRef(({
       mat.userData = { ...(mat.userData || {}), isFading: true };
       mat.needsUpdate = true;
     });
-  }, [config]);
+    onFractureStart?.();
+  }, [config, onFractureStart]);
 
   // Track when GLTF models have loaded
   const [modelsLoaded, setModelsLoaded] = useState(false);
