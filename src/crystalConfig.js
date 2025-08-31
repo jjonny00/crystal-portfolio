@@ -34,13 +34,13 @@ export const fracture = {
     count: 200,           // Number of burst particles
     color: '#66ffcc',     // Particle color
     duration: 0.8,        // Particle fade duration (seconds)
-    spread: 0.3           // How far particles initially spread from origin
+    spread: 0.02           // How far particles initially spread from origin
   },
   image: {
-    imagePath: '/assets/textures/fractureRing02.jpg',
+    imagePath: '/assets/textures/fractureRing03.jpg',
     baseSize: 0.1,
     maxScale: 16,
-    duration: 0.4,
+    duration: 0.8,
     triggerDelay: 0.5,
     fadeInDuration: 0.1,
     fadeOutDuration: 0.8,

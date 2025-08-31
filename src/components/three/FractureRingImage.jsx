@@ -28,7 +28,7 @@ const FractureRingImage = ({
   
   // VISUAL PARAMETERS
   blendingMode = BLENDING_MODES.ADDITIVE,
-  opacity = 1.0,         // Maximum opacity during animation
+  opacity = 2.0,         // Maximum opacity during animation
   rotationSpeed = 0,     // Rotation speed (radians per second)
   
   // OTHER PROPS
