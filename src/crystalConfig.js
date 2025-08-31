@@ -28,7 +28,7 @@ export const explodedPositions = {
 // Centralized controls for fracture/explosion effects
 export const fracture = {
   duration: 0.5,          // Seconds facets remain in fractured state
-  distance: 0.08,          // Percentage of explode distance applied during fracture
+  distance: 0.01,          // Percentage of explode distance applied during fracture
   particles: {
     delay: 0.6,          // Delay before particle burst (seconds)
     count: 200,           // Number of burst particles
@@ -40,10 +40,10 @@ export const fracture = {
     imagePath: '/assets/textures/fractureRing03.jpg',
     baseSize: 0.1,
     maxScale: 16,
-    duration: 0.8,
-    triggerDelay: 0.5,
+    duration: 0.4,
+    triggerDelay: 0.45,
     fadeInDuration: 0.1,
-    fadeOutDuration: 0.8,
+    fadeOutDuration: 0.4,
     scaleEasing: 'linear'
   },
   emissive: {
