@@ -85,69 +85,54 @@ const FacetLabels = React.memo(function FacetLabels({
     };
   }, []);
 
-  // FIXED: Only calculate positions when camera is stable AND in overview mode
+  // Calculate label positions whenever the camera or relevant state changes
   useEffect(() => {
     if (!camera || Object.keys(ANCHOR_WORLD_POSITIONS).length === 0) return;
 
-    // CRITICAL: Only calculate when we're definitely in overview mode with overview camera
-    const isOverviewState = animationData?.currentZone === 'overview' &&
-                           animationData?.cameraState === 'overview' &&
-                           animationData?.crystalForm === 'exploded' &&
-                           !animationData?.isTransitioning;
-    
+    const isOverviewState =
+      animationData?.currentZone === 'overview' &&
+      animationData?.cameraState === 'overview' &&
+      animationData?.crystalForm === 'exploded' &&
+      !animationData?.isTransitioning;
+
     if (!isOverviewState) {
       setScreenPositions({});
+      lastCameraHash.current = '';
       return;
     }
 
-    // Create camera hash that includes animation state
     const cameraHash = `${camera.position.x.toFixed(2)},${camera.position.y.toFixed(2)},${camera.position.z.toFixed(2)},${size.width}x${size.height}`;
-    const stateHash = `${animationData.currentZone}-${animationData.cameraState}-${animationData.crystalForm}`;
+    const stateHash = `${animationData.currentZone}-${animationData.cameraState}-${animationData.crystalForm}-${animationData.cameraSettled}`;
     const fullHash = `${cameraHash}-${stateHash}`;
-    
+
     if (fullHash === lastCameraHash.current) {
       return; // No significant change
-    }
-
-    // DEBUGGING: Log camera details
-    if (import.meta.env.DEV) {
-      console.log('📍 Calculating label positions:', {
-        zone: animationData.currentZone,
-        cameraState: animationData.cameraState,
-        crystalForm: animationData.crystalForm,
-        cameraPosition: camera.position.toArray(),
-        isTransitioning: animationData.isTransitioning
-      });
     }
 
     const newScreenPositions = {};
 
     Object.entries(ANCHOR_WORLD_POSITIONS).forEach(([facetKey, worldPos]) => {
-      // Use the same projection math as Three.js Html component
       const vec = worldPos.clone();
       vec.applyMatrix4(camera.matrixWorldInverse);
       vec.applyMatrix4(camera.projectionMatrix);
-      
+
       const screenX = (vec.x * 0.5 + 0.5) * size.width;
       const screenY = (-vec.y * 0.5 + 0.5) * size.height;
-      
+
       newScreenPositions[facetKey] = [screenX, screenY];
     });
 
     setScreenPositions(newScreenPositions);
     lastCameraHash.current = fullHash;
-
-    if (import.meta.env.DEV) {
-      console.log('📍 Updated screen positions with stable camera:', newScreenPositions);
-    }
   }, [
-    camera, 
-    size.width, 
-    size.height, 
+    camera,
+    size.width,
+    size.height,
     animationData?.currentZone,
     animationData?.cameraState,
     animationData?.crystalForm,
-    animationData?.isTransitioning
+    animationData?.isTransitioning,
+    animationData?.cameraSettled
   ]);
 
   // Determine when labels should be visible
