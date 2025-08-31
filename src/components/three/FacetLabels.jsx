@@ -3,7 +3,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { useThree } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import { Vector3 } from 'three';
 import Headline from '../ui/Headline';
 import { deriveGlowFromBase } from '../../utils/color';
@@ -85,72 +85,46 @@ const FacetLabels = React.memo(function FacetLabels({
     };
   }, []);
 
-  // FIXED: Only calculate positions when camera is stable AND in overview mode
-  useEffect(() => {
+  // Continuously track camera movement to keep label positions in sync
+  useFrame(() => {
     if (!camera || Object.keys(ANCHOR_WORLD_POSITIONS).length === 0) return;
 
-    // CRITICAL: Only calculate when we're definitely in overview mode with overview camera
-    const isOverviewState = animationData?.currentZone === 'overview' &&
-                           animationData?.cameraState === 'overview' &&
-                           animationData?.crystalForm === 'exploded' &&
-                           !animationData?.isTransitioning &&
-                           animationData?.cameraSettled;
-    
+    const isOverviewState =
+      animationData?.currentZone === 'overview' &&
+      animationData?.cameraState === 'overview' &&
+      animationData?.crystalForm === 'exploded' &&
+      !animationData?.isTransitioning;
+
     if (!isOverviewState) {
-      setScreenPositions({});
+      if (lastCameraHash.current) {
+        lastCameraHash.current = '';
+        setScreenPositions({});
+      }
       return;
     }
 
-    // Create camera hash that includes animation state
     const cameraHash = `${camera.position.x.toFixed(2)},${camera.position.y.toFixed(2)},${camera.position.z.toFixed(2)},${size.width}x${size.height}`;
-    const stateHash = `${animationData.currentZone}-${animationData.cameraState}-${animationData.crystalForm}`;
+    const stateHash = `${animationData.currentZone}-${animationData.cameraState}-${animationData.crystalForm}-${animationData.cameraSettled}`;
     const fullHash = `${cameraHash}-${stateHash}`;
-    
-    if (fullHash === lastCameraHash.current) {
-      return; // No significant change
-    }
 
-    // DEBUGGING: Log camera details
-    if (import.meta.env.DEV) {
-      console.log('📍 Calculating label positions:', {
-        zone: animationData.currentZone,
-        cameraState: animationData.cameraState,
-        crystalForm: animationData.crystalForm,
-        cameraPosition: camera.position.toArray(),
-        isTransitioning: animationData.isTransitioning
-      });
-    }
+    if (fullHash === lastCameraHash.current) return;
 
     const newScreenPositions = {};
 
     Object.entries(ANCHOR_WORLD_POSITIONS).forEach(([facetKey, worldPos]) => {
-      // Use the same projection math as Three.js Html component
       const vec = worldPos.clone();
       vec.applyMatrix4(camera.matrixWorldInverse);
       vec.applyMatrix4(camera.projectionMatrix);
-      
+
       const screenX = (vec.x * 0.5 + 0.5) * size.width;
       const screenY = (-vec.y * 0.5 + 0.5) * size.height;
-      
+
       newScreenPositions[facetKey] = [screenX, screenY];
     });
 
     setScreenPositions(newScreenPositions);
     lastCameraHash.current = fullHash;
-
-    if (import.meta.env.DEV) {
-      console.log('📍 Updated screen positions with stable camera:', newScreenPositions);
-    }
-  }, [
-    camera, 
-    size.width, 
-    size.height, 
-    animationData?.currentZone,
-    animationData?.cameraState,
-    animationData?.crystalForm,
-    animationData?.isTransitioning,
-    animationData?.cameraSettled
-  ]);
+  });
 
   // Determine when labels should be visible
   const shouldShow = useMemo(() => {
@@ -161,7 +135,6 @@ const FacetLabels = React.memo(function FacetLabels({
     if (animationData?.currentZone !== 'overview') return false;
     if (animationData?.focusedProject) return false;
     if (animationData?.cameraState !== 'overview') return false; // ADDED: Must be in overview camera mode
-    if (!animationData?.cameraSettled) return false;
     return true;
   }, [
     animationData?.crystalForm,
@@ -170,7 +143,6 @@ const FacetLabels = React.memo(function FacetLabels({
     animationData?.isScrolling,
     animationData?.isTransitioning,
     animationData?.cameraState, // ADDED: Camera state dependency
-    animationData?.cameraSettled,
     performanceProfile?.simplifiedAnimations,
   ]);
 
