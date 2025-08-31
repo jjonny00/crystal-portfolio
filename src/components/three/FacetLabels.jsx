@@ -3,7 +3,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { useThree } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import { Vector3 } from 'three';
 import Headline from '../ui/Headline';
 import { deriveGlowFromBase } from '../../utils/color';
@@ -85,8 +85,8 @@ const FacetLabels = React.memo(function FacetLabels({
     };
   }, []);
 
-  // Calculate label positions whenever the camera or relevant state changes
-  useEffect(() => {
+  // Continuously track camera movement to keep label positions in sync
+  useFrame(() => {
     if (!camera || Object.keys(ANCHOR_WORLD_POSITIONS).length === 0) return;
 
     const isOverviewState =
@@ -96,8 +96,10 @@ const FacetLabels = React.memo(function FacetLabels({
       !animationData?.isTransitioning;
 
     if (!isOverviewState) {
-      setScreenPositions({});
-      lastCameraHash.current = '';
+      if (lastCameraHash.current) {
+        lastCameraHash.current = '';
+        setScreenPositions({});
+      }
       return;
     }
 
@@ -105,9 +107,7 @@ const FacetLabels = React.memo(function FacetLabels({
     const stateHash = `${animationData.currentZone}-${animationData.cameraState}-${animationData.crystalForm}-${animationData.cameraSettled}`;
     const fullHash = `${cameraHash}-${stateHash}`;
 
-    if (fullHash === lastCameraHash.current) {
-      return; // No significant change
-    }
+    if (fullHash === lastCameraHash.current) return;
 
     const newScreenPositions = {};
 
@@ -124,16 +124,7 @@ const FacetLabels = React.memo(function FacetLabels({
 
     setScreenPositions(newScreenPositions);
     lastCameraHash.current = fullHash;
-  }, [
-    camera,
-    size.width,
-    size.height,
-    animationData?.currentZone,
-    animationData?.cameraState,
-    animationData?.crystalForm,
-    animationData?.isTransitioning,
-    animationData?.cameraSettled
-  ]);
+  });
 
   // Determine when labels should be visible
   const shouldShow = useMemo(() => {
