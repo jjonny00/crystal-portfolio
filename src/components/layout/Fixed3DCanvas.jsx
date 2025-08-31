@@ -1,7 +1,7 @@
 // FIXED: src/components/layout/Fixed3DCanvas.jsx
 // UPDATED: Fixed background color updates for project sections
 
-import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle } from 'react';
+import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallback } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Environment, OrbitControls } from '@react-three/drei';
 import { EffectComposer, Bloom, ChromaticAberration, Noise, Vignette } from '@react-three/postprocessing';
@@ -69,6 +69,10 @@ const Fixed3DCanvas = forwardRef(({
   const crystalSceneRef = useRef();
   const backgroundRef = useRef();
   const lastZoneRef = useRef(null);
+
+  const handleFractureStart = useCallback(() => {
+    backgroundRef.current?.flash(1, 0.5);
+  }, []);
 
   // Expose internal state to parent components
   useImperativeHandle(ref, () => ({
@@ -280,6 +284,7 @@ const Fixed3DCanvas = forwardRef(({
             isMobile={isMobile}
             simplifiedAnimations={simplifiedAnimations}
             scrollToProgress={scrollToProgress}
+            onFractureStart={handleFractureStart}
           />
           
           {/* Environment used for reflections only */}

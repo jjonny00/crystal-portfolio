@@ -14,6 +14,7 @@ const vertexShader = /* glsl */`
 const fragmentShader = /* glsl */`
 uniform vec3 colorA;
 uniform vec3 colorB;
+uniform float flash;
 varying vec3 vWorldPosition;
 
 // Hash function for scattered randomness
@@ -62,6 +63,7 @@ void main() {
   float t = clamp(baseT + bursts, 0.0, 1.0);
 
   vec3 color = mix(colorA, colorB, t);
+  color = mix(color, vec3(1.0), flash);
   gl_FragColor = vec4(color, 1.0);
 }
 `;
@@ -76,9 +78,13 @@ const GradientBackground = forwardRef(({ backgrounds, initialKey = 'default', ra
 
   const currentKey = useRef(initialKey);
 
+  const flashIntensityRef = useRef(0);
+  const flashDurationRef = useRef(1);
+
   const uniforms = useMemo(() => ({
     colorA: { value: currentA.current.clone() },
-    colorB: { value: currentB.current.clone() }
+    colorB: { value: currentB.current.clone() },
+    flash: { value: 0 }
   }), []);
 
   useFrame((state, deltaTime) => {
@@ -87,8 +93,16 @@ const GradientBackground = forwardRef(({ backgrounds, initialKey = 'default', ra
     currentA.current.lerp(targetA.current, 0.05 * deltaTime * 60);
     currentB.current.lerp(targetB.current, 0.05 * deltaTime * 60);
 
+    if (flashIntensityRef.current > 0) {
+      flashIntensityRef.current = Math.max(
+        flashIntensityRef.current - deltaTime / flashDurationRef.current,
+        0
+      );
+    }
+
     uniforms.colorA.value.copy(currentA.current);
     uniforms.colorB.value.copy(currentB.current);
+    uniforms.flash.value = flashIntensityRef.current;
     materialRef.current.needsUpdate = true;
   });
 
@@ -116,6 +130,11 @@ const GradientBackground = forwardRef(({ backgrounds, initialKey = 'default', ra
       } else if (import.meta.env.DEV) {
         console.log(`🎨 GradientBackground: Skipping update, already on "${key}"`);
       }
+    },
+
+    flash: (intensity = 1, duration = 0.5) => {
+      flashIntensityRef.current = intensity;
+      flashDurationRef.current = Math.max(duration, 0.001);
     },
 
     getCurrentKey: () => currentKey.current,
