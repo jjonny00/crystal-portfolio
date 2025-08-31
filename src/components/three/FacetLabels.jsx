@@ -93,8 +93,7 @@ const FacetLabels = React.memo(function FacetLabels({
     const isOverviewState = animationData?.currentZone === 'overview' &&
                            animationData?.cameraState === 'overview' &&
                            animationData?.crystalForm === 'exploded' &&
-                           !animationData?.isTransitioning &&
-                           animationData?.cameraSettled;
+                           !animationData?.isTransitioning;
     
     if (!isOverviewState) {
       setScreenPositions({});
@@ -148,8 +147,7 @@ const FacetLabels = React.memo(function FacetLabels({
     animationData?.currentZone,
     animationData?.cameraState,
     animationData?.crystalForm,
-    animationData?.isTransitioning,
-    animationData?.cameraSettled
+    animationData?.isTransitioning
   ]);
 
   // Determine when labels should be visible
@@ -161,7 +159,6 @@ const FacetLabels = React.memo(function FacetLabels({
     if (animationData?.currentZone !== 'overview') return false;
     if (animationData?.focusedProject) return false;
     if (animationData?.cameraState !== 'overview') return false; // ADDED: Must be in overview camera mode
-    if (!animationData?.cameraSettled) return false;
     return true;
   }, [
     animationData?.crystalForm,
@@ -170,7 +167,6 @@ const FacetLabels = React.memo(function FacetLabels({
     animationData?.isScrolling,
     animationData?.isTransitioning,
     animationData?.cameraState, // ADDED: Camera state dependency
-    animationData?.cameraSettled,
     performanceProfile?.simplifiedAnimations,
   ]);
 
