@@ -1,19 +1,15 @@
-// FIXED: src/components/three/FacetLabels.jsx
-// The issue is camera timing, not facet positions!
-
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { useFrame, useThree } from '@react-three/fiber';
+import { useThree } from '@react-three/fiber';
 import { Vector3 } from 'three';
 import Headline from '../ui/Headline';
 import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController';
-import projects from '../../data/projects';
 
-// Static anchor world positions (your original approach is correct!)
+// Predefined anchor positions in world space
 const ANCHOR_WORLD_POSITIONS = {
-  empathy: new Vector3(0.20, -2.37, -0.11),
-  narrative: new Vector3(0.09, -1.16, -1.00),
-  craft: new Vector3(1.39, 0.19, 0.70),
+  empathy: new Vector3(0.2, -2.37, -0.11),
+  narrative: new Vector3(0.09, -1.16, -1.0),
+  craft: new Vector3(1.39, 0.19, 0.7),
   system: new Vector3(-0.74, 0.19, -2.11),
   leadership: new Vector3(0.48, 2.01, 1.19),
   exploration: new Vector3(-0.83, 1.38, -0.07)
@@ -58,15 +54,18 @@ const FacetLabels = React.memo(function FacetLabels({
   animationData,
   performanceProfile,
 }) {
+  // Do nothing while the crystal is transitioning or not exploded
+  if (animationData?.isTransitioning || animationData?.crystalForm !== 'exploded') {
+    return null;
+  }
+
   const { camera, size } = useThree();
+  const [anchorScreenPositions, setAnchorScreenPositions] = useState({});
   const [visible, setVisible] = useState(false);
   const [fadeDuration, setFadeDuration] = useState(0.8);
-  const [rootReady, setRootReady] = useState(false);
-  const [screenPositions, setScreenPositions] = useState({});
-  
   const layerRef = useRef(null);
   const rootRef = useRef(null);
-  const lastCameraHash = useRef('');
+  const [rootReady, setRootReady] = useState(false);
 
   // Create DOM layer
   useEffect(() => {
@@ -82,108 +81,46 @@ const FacetLabels = React.memo(function FacetLabels({
     };
   }, []);
 
-  // Continuously track camera movement to keep label positions in sync
-  useFrame(() => {
-    if (!camera || Object.keys(ANCHOR_WORLD_POSITIONS).length === 0) return;
-
-    const isOverviewState =
-      animationData?.currentZone === 'overview' &&
-      animationData?.cameraState === 'overview' &&
-      animationData?.crystalForm === 'exploded' &&
-      !animationData?.isTransitioning;
-
-    if (!isOverviewState) {
-      if (lastCameraHash.current) {
-        lastCameraHash.current = '';
-        setScreenPositions({});
-      }
-      return;
-    }
-
-    const cameraHash = `${camera.position.x.toFixed(2)},${camera.position.y.toFixed(2)},${camera.position.z.toFixed(2)},${size.width}x${size.height}`;
-    const stateHash = `${animationData.currentZone}-${animationData.cameraState}-${animationData.crystalForm}-${animationData.cameraSettled}`;
-    const fullHash = `${cameraHash}-${stateHash}`;
-
-    if (fullHash === lastCameraHash.current) return;
-
-    const newScreenPositions = {};
-
+  const calculateAndCacheAnchorPositions = useCallback(() => {
+    const positions = {};
     Object.entries(ANCHOR_WORLD_POSITIONS).forEach(([facetKey, worldPos]) => {
-      const vec = worldPos.clone();
-      vec.applyMatrix4(camera.matrixWorldInverse);
-      vec.applyMatrix4(camera.projectionMatrix);
-
-      const screenX = (vec.x * 0.5 + 0.5) * size.width;
-      const screenY = (-vec.y * 0.5 + 0.5) * size.height;
-
-      newScreenPositions[facetKey] = [screenX, screenY];
+      const vec = worldPos.clone().project(camera);
+      const x = (vec.x * 0.5 + 0.5) * size.width;
+      const y = (-vec.y * 0.5 + 0.5) * size.height;
+      positions[facetKey] = { x, y };
     });
+    setAnchorScreenPositions(positions);
+  }, [camera, size]);
 
-    setScreenPositions(newScreenPositions);
-    lastCameraHash.current = fullHash;
-  });
+  useEffect(() => {
+    if (
+      animationData?.isTransitioning === false &&
+      animationData?.crystalForm === 'exploded' &&
+      animationData?.cameraSettled === true
+    ) {
+      calculateAndCacheAnchorPositions();
+    }
+  }, [animationData?.isTransitioning, animationData?.cameraSettled, animationData?.crystalForm, calculateAndCacheAnchorPositions]);
 
-  // Determine when labels should be visible
-  const shouldShow = useMemo(() => {
-    if (performanceProfile?.simplifiedAnimations) return false;
-    if (animationData?.isScrolling) return false;
-    if (animationData?.isTransitioning) return false;
-    if (animationData?.crystalForm !== 'exploded') return false;
-    if (animationData?.currentZone !== 'overview') return false;
-    if (animationData?.focusedProject) return false;
-    if (animationData?.cameraState !== 'overview') return false; // ADDED: Must be in overview camera mode
-    return true;
-  }, [
-    animationData?.crystalForm,
-    animationData?.currentZone,
-    animationData?.focusedProject,
-    animationData?.isScrolling,
-    animationData?.isTransitioning,
-    animationData?.cameraState, // ADDED: Camera state dependency
-    performanceProfile?.simplifiedAnimations,
-  ]);
-
-  // FIXED: Wait for both shouldShow AND stable screen positions
+  // Fade labels in once positions are calculated
   useEffect(() => {
     let timeout;
-    if (shouldShow && Object.keys(screenPositions).length > 0) {
-      // DEBUGGING: Log when we decide to show
-      if (import.meta.env.DEV) {
-        console.log('📍 Ready to show labels:', {
-          shouldShow,
-          hasPositions: Object.keys(screenPositions).length > 0,
-          screenPositions
-        });
-      }
-      
+    if (Object.keys(anchorScreenPositions).length > 0) {
       timeout = setTimeout(() => {
         setFadeDuration(0.8);
         setVisible(true);
-        if (import.meta.env.DEV) {
-          console.log('📍 Showing facet labels with stable positions');
-        }
-      }, 500); // REDUCED: Less delay since we're now ensuring camera stability first
+      }, 0);
     } else {
       setFadeDuration(0.2);
       setVisible(false);
-      if (import.meta.env.DEV && visible) {
-        console.log('📍 Hiding facet labels');
-      }
     }
     return () => clearTimeout(timeout);
-  }, [shouldShow, screenPositions, visible]);
+  }, [anchorScreenPositions]);
 
-  // Render labels
+  // Render labels using cached positions
   useEffect(() => {
-    if (!rootRef.current || !layerRef.current || !rootReady) return;
-    
-    if (performanceProfile?.simplifiedAnimations && !visible) {
-      rootRef.current.render(null);
-      return;
-    }
-
-    // Only render if we have screen positions calculated
-    if (Object.keys(screenPositions).length === 0) {
+    if (!rootReady || !rootRef.current) return;
+    if (performanceProfile?.simplifiedAnimations || Object.keys(anchorScreenPositions).length === 0) {
       rootRef.current.render(null);
       return;
     }
@@ -191,21 +128,15 @@ const FacetLabels = React.memo(function FacetLabels({
     rootRef.current.render(
       <>
         {projects.map((project) => {
-          const pos = screenPositions[project.facetKey];
-          if (!pos) {
-            if (import.meta.env.DEV) {
-              console.warn(`📍 No screen position calculated for project: ${project.facetKey}`);
-            }
-            return null;
-          }
-          
+          const pos = anchorScreenPositions[project.facetKey];
+          if (!pos) return null;
           return (
             <div
               key={project.facetKey}
               style={{
                 position: 'absolute',
-                left: `${pos[0]}px`,
-                top: `${pos[1]}px`,
+                left: `${pos.x}px`,
+                top: `${pos.y}px`,
                 transform: 'translate(-50%, -50%)',
                 opacity: visible ? 1 : 0,
                 transition: `opacity ${fadeDuration}s`,
@@ -223,8 +154,8 @@ const FacetLabels = React.memo(function FacetLabels({
       </>
     );
   }, [
+    anchorScreenPositions,
     projects,
-    screenPositions,
     visible,
     fadeDuration,
     onHoverChange,
@@ -237,3 +168,4 @@ const FacetLabels = React.memo(function FacetLabels({
 });
 
 export default FacetLabels;
+
