@@ -78,20 +78,13 @@ const FacetLabels = React.memo(function FacetLabels({
     setAnchorScreenPositions(positions);
   }, [camera, size]);
 
-  // Fade labels as soon as we start moving away from the overview
+  // Fade labels the moment the camera leaves the overview state
   useEffect(() => {
-    if (
-      animationData?.currentZone === 'overview' &&
-      (animationData?.isTransitioning || animationData?.cameraSettled === false)
-    ) {
+    if (animationData?.cameraState !== 'overview') {
       setFadeDuration(0.2);
       setVisible(false);
     }
-  }, [
-    animationData?.currentZone,
-    animationData?.isTransitioning,
-    animationData?.cameraSettled,
-  ]);
+  }, [animationData?.cameraState]);
 
   // Handle DOM layer, activation, and cleanup based on overview state
   useEffect(() => {
