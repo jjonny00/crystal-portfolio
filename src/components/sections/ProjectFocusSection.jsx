@@ -4,7 +4,6 @@
 import React, { useState, useEffect } from 'react';
 import { animated, useSpring } from '@react-spring/web';
 import Headline from '../ui/Headline';
-import { deriveGlowFromBase } from '../../utils/color';
 
 // Headline colors are applied per-project, no hook needed here
 
@@ -92,7 +91,8 @@ const ProjectFocusSection = ({
 
   // Derive glow shades from the project's headline color
   const headlineColor = project.headlineColor || project.color;
-  const { glow1, glow2 } = deriveGlowFromBase(headlineColor);
+  const glow1 = headlineColor;
+  const glow2 = headlineColor;
 
   return (
     <section 

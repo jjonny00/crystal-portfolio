@@ -2,7 +2,6 @@
 // FIXED: Enhanced version with better debugging and color application
 
 import { useEffect } from 'react';
-import { deriveGlowFromBase } from '../utils/color';
 import { getProjectColorByFacetKey } from '../data/projects';
 
 // Default headline color
@@ -19,20 +18,21 @@ export default function useProjectHeadlineColor() {
         return;
       }
       
-      const { glow1, glow2 } = deriveGlowFromBase(hex);
-      
-      root.style.setProperty('--headline-ink', hex);
-      root.style.setProperty('--headline-glow1', glow1);
-      root.style.setProperty('--headline-glow2', glow2);
-      
-      if (import.meta.env.DEV) {
-        console.log('🎨 Applied headline color:', {
-          source,
-          ink: hex,
-          glow1,
-          glow2
-        });
-      }
+        // Apply the color directly and reuse for glow accents
+        const glow1 = hex;
+        const glow2 = hex;
+        root.style.setProperty('--headline-ink', hex);
+        root.style.setProperty('--headline-glow1', glow1);
+        root.style.setProperty('--headline-glow2', glow2);
+
+        if (import.meta.env.DEV) {
+          console.log('🎨 Applied headline color:', {
+            source,
+            ink: hex,
+            glow1,
+            glow2
+          });
+        }
     };
 
       // Apply initial color - prefer explicit hero color to avoid default flash
