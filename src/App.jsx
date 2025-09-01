@@ -1,7 +1,6 @@
 // src/App.jsx - UPDATED: Integration with V2 performance and loading system
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import './App.css';
 import './styles/scroll-snap.css';
 
 // UPDATED: Import V2 systems
