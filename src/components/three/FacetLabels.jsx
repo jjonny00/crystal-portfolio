@@ -61,10 +61,13 @@ const FacetLabels = React.memo(function FacetLabels({
   const layerRef = useRef(null);
   const rootRef = useRef(null);
   const fadeTimeoutRef = useRef(null);
+  const zoneProgress = animationData?.zoneInfo?.progress ?? 0;
   const inActiveOverview =
     animationData?.currentZone === 'overview' &&
     animationData?.crystalForm === 'exploded' &&
-    animationData?.isTransitioning === false;
+    animationData?.isTransitioning === false &&
+    zoneProgress > 0.02 &&
+    zoneProgress < 0.98;
 
   const calculateAndCacheAnchorPositions = useCallback(() => {
     const positions = {};
@@ -77,21 +80,7 @@ const FacetLabels = React.memo(function FacetLabels({
     setAnchorScreenPositions(positions);
   }, [camera, size]);
 
-  // Create DOM layer once
-  useEffect(() => {
-    const layer = document.createElement('div');
-    layer.style.cssText =
-      'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:20';
-    document.body.appendChild(layer);
-    layerRef.current = layer;
-    rootRef.current = createRoot(layer);
-    return () => {
-      rootRef.current?.unmount();
-      layer.remove();
-    };
-  }, []);
-
-  // Handle activation and cleanup based on overview state
+  // Handle DOM layer, activation, and cleanup based on overview state
   useEffect(() => {
     if (!inActiveOverview) {
       setFadeDuration(0.2);
@@ -99,16 +88,34 @@ const FacetLabels = React.memo(function FacetLabels({
       clearTimeout(fadeTimeoutRef.current);
       fadeTimeoutRef.current = setTimeout(() => {
         rootRef.current?.render(null);
+        rootRef.current?.unmount();
+        layerRef.current?.remove();
+        rootRef.current = null;
+        layerRef.current = null;
         setAnchorScreenPositions({});
       }, 200);
       return;
     }
 
     clearTimeout(fadeTimeoutRef.current);
+
+    if (!rootRef.current) {
+      const layer = document.createElement('div');
+      layer.style.cssText =
+        'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:20';
+      document.body.appendChild(layer);
+      layerRef.current = layer;
+      rootRef.current = createRoot(layer);
+    }
+
     if (animationData?.cameraSettled === true) {
       calculateAndCacheAnchorPositions();
     }
-  }, [inActiveOverview, animationData?.cameraSettled, calculateAndCacheAnchorPositions]);
+  }, [
+    inActiveOverview,
+    animationData?.cameraSettled,
+    calculateAndCacheAnchorPositions,
+  ]);
 
   // Fade labels in once positions are calculated
   useEffect(() => {
