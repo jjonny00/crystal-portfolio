@@ -61,44 +61,39 @@ const FacetLabels = React.memo(function FacetLabels({
   const layerRef = useRef(null);
   const rootRef = useRef(null);
   const [rootReady, setRootReady] = useState(false);
+  const zoneProgress = animationData?.zoneProgress ?? 1;
+  const inActiveOverview =
+    animationData?.currentZone === 'overview' &&
+    animationData?.crystalForm === 'exploded' &&
+    animationData?.isTransitioning === false &&
+    zoneProgress < 0.98;
 
-  // Create DOM layer
+  // Manage DOM layer creation and cleanup based on overview activation
   useEffect(() => {
-    const layer = document.createElement('div');
-    layer.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:20';
-    document.body.appendChild(layer);
-    layerRef.current = layer;
-    rootRef.current = createRoot(layer);
-    setRootReady(true);
-    return () => {
-      rootRef.current?.unmount();
-      document.body.removeChild(layer);
-    };
-  }, []);
-
-  // Fade out and clean up when leaving the overview or near zone boundaries
-  useEffect(() => {
-    const zoneProgress = animationData?.zoneProgress ?? 1;
-    if (
-      animationData?.isTransitioning ||
-      animationData?.crystalForm !== 'exploded' ||
-      animationData?.currentZone !== 'overview' ||
-      zoneProgress > 0.98
-    ) {
+    if (inActiveOverview && !rootReady) {
+      const layer = document.createElement('div');
+      layer.style.cssText =
+        'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:20';
+      document.body.appendChild(layer);
+      layerRef.current = layer;
+      rootRef.current = createRoot(layer);
+      setRootReady(true);
+    }
+    if (!inActiveOverview && rootReady) {
       setFadeDuration(0.2);
       setVisible(false);
       const timeout = setTimeout(() => {
         rootRef.current?.render(null);
+        rootRef.current?.unmount();
+        layerRef.current?.remove();
+        rootRef.current = null;
+        layerRef.current = null;
+        setRootReady(false);
         setAnchorScreenPositions({});
       }, 200);
       return () => clearTimeout(timeout);
     }
-  }, [
-    animationData?.isTransitioning,
-    animationData?.crystalForm,
-    animationData?.currentZone,
-    animationData?.zoneProgress,
-  ]);
+  }, [inActiveOverview, rootReady]);
 
   const calculateAndCacheAnchorPositions = useCallback(() => {
     const positions = {};
@@ -112,22 +107,12 @@ const FacetLabels = React.memo(function FacetLabels({
   }, [camera, size]);
 
   useEffect(() => {
-    const zoneProgress = animationData?.zoneProgress ?? 1;
-    if (
-      animationData?.currentZone === 'overview' &&
-      animationData?.isTransitioning === false &&
-      animationData?.crystalForm === 'exploded' &&
-      animationData?.cameraSettled === true &&
-      zoneProgress < 0.98
-    ) {
+    if (inActiveOverview && animationData?.cameraSettled === true) {
       calculateAndCacheAnchorPositions();
     }
   }, [
-    animationData?.currentZone,
-    animationData?.isTransitioning,
+    inActiveOverview,
     animationData?.cameraSettled,
-    animationData?.crystalForm,
-    animationData?.zoneProgress,
     calculateAndCacheAnchorPositions,
   ]);
 
@@ -157,8 +142,11 @@ const FacetLabels = React.memo(function FacetLabels({
 
   // Render labels using cached positions
   useEffect(() => {
-    if (!rootReady || !rootRef.current) return;
-    if (performanceProfile?.simplifiedAnimations || Object.keys(anchorScreenPositions).length === 0) {
+    if (!rootReady || !rootRef.current || !inActiveOverview) return;
+    if (
+      performanceProfile?.simplifiedAnimations ||
+      Object.keys(anchorScreenPositions).length === 0
+    ) {
       rootRef.current.render(null);
       return;
     }
@@ -200,6 +188,7 @@ const FacetLabels = React.memo(function FacetLabels({
     scrollToProgress,
     performanceProfile?.simplifiedAnimations,
     rootReady,
+    inActiveOverview,
   ]);
 
   return null;
