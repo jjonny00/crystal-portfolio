@@ -6,7 +6,6 @@ import { createRoot } from 'react-dom/client';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Vector3 } from 'three';
 import Headline from '../ui/Headline';
-import { deriveGlowFromBase } from '../../utils/color';
 import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController';
 import projects from '../../data/projects';
 
@@ -25,10 +24,8 @@ const OptimizedLabel = React.memo(function OptimizedLabel({
   onHover,
   scrollToProgress,
 }) {
-  const { glow1, glow2 } = useMemo(
-    () => deriveGlowFromBase(project.headlineColor),
-    [project.headlineColor]
-  );
+  const glow1 = project.headlineColor;
+  const glow2 = project.headlineColor;
 
   return (
     <div
