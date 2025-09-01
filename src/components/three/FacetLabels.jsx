@@ -64,7 +64,8 @@ const FacetLabels = React.memo(function FacetLabels({
   const inActiveOverview =
     animationData?.currentZone === 'overview' &&
     animationData?.crystalForm === 'exploded' &&
-    animationData?.isTransitioning === false;
+    animationData?.isTransitioning === false &&
+    animationData?.cameraSettled === true;
 
   const calculateAndCacheAnchorPositions = useCallback(() => {
     const positions = {};
