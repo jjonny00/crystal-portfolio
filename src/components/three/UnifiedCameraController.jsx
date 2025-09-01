@@ -35,6 +35,8 @@ const UnifiedCameraController = ({
 
   // Track last camera config to detect changes
   const lastCameraConfig = useRef(null);
+  const lastFocusedFacet = useRef(null);
+  const POSITION_EPSILON = 0.001;
 
   // Track when camera has reached its target
   const settleFrameCount = useRef(0);
@@ -178,11 +180,22 @@ const UnifiedCameraController = ({
       return;
     }
 
-    const configChanged = !lastCameraConfig.current ||
-      !enhancedConfig.position?.equals(lastCameraConfig.current.position) ||
-      !enhancedConfig.target?.equals(lastCameraConfig.current.target) ||
+    const focusedFacetChanged = focusedFacet !== lastFocusedFacet.current;
+    const positionChanged = !lastCameraConfig.current || (
+      enhancedConfig.position &&
+      lastCameraConfig.current.position &&
+      enhancedConfig.position.distanceTo(lastCameraConfig.current.position) > POSITION_EPSILON
+    );
+    const targetChanged = !lastCameraConfig.current || (
+      enhancedConfig.target &&
+      lastCameraConfig.current.target &&
+      enhancedConfig.target.distanceTo(lastCameraConfig.current.target) > POSITION_EPSILON
+    );
+    const fovOrDescChanged = !lastCameraConfig.current ||
       enhancedConfig.fov !== lastCameraConfig.current.fov ||
       enhancedConfig.description !== lastCameraConfig.current.description;
+
+    const configChanged = focusedFacetChanged || positionChanged || targetChanged || fovOrDescChanged;
 
     if (configChanged) {
       if (import.meta.env.DEV) {
@@ -243,6 +256,7 @@ const UnifiedCameraController = ({
         fov: enhancedConfig.fov,
         description: enhancedConfig.description
       };
+      lastFocusedFacet.current = focusedFacet;
 
       // FIXED: Reset settle tracking when new config is applied
       settleFrameCount.current = 0;
