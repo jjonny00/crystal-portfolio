@@ -60,40 +60,11 @@ const FacetLabels = React.memo(function FacetLabels({
   const [fadeDuration, setFadeDuration] = useState(0.8);
   const layerRef = useRef(null);
   const rootRef = useRef(null);
-  const [rootReady, setRootReady] = useState(false);
-  const zoneProgress = animationData?.zoneProgress ?? 1;
+  const fadeTimeoutRef = useRef(null);
   const inActiveOverview =
     animationData?.currentZone === 'overview' &&
     animationData?.crystalForm === 'exploded' &&
-    animationData?.isTransitioning === false &&
-    zoneProgress < 0.98;
-
-  // Manage DOM layer creation and cleanup based on overview activation
-  useEffect(() => {
-    if (inActiveOverview && !rootReady) {
-      const layer = document.createElement('div');
-      layer.style.cssText =
-        'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:20';
-      document.body.appendChild(layer);
-      layerRef.current = layer;
-      rootRef.current = createRoot(layer);
-      setRootReady(true);
-    }
-    if (!inActiveOverview && rootReady) {
-      setFadeDuration(0.2);
-      setVisible(false);
-      const timeout = setTimeout(() => {
-        rootRef.current?.render(null);
-        rootRef.current?.unmount();
-        layerRef.current?.remove();
-        rootRef.current = null;
-        layerRef.current = null;
-        setRootReady(false);
-        setAnchorScreenPositions({});
-      }, 200);
-      return () => clearTimeout(timeout);
-    }
-  }, [inActiveOverview, rootReady]);
+    animationData?.isTransitioning === false;
 
   const calculateAndCacheAnchorPositions = useCallback(() => {
     const positions = {};
@@ -106,15 +77,38 @@ const FacetLabels = React.memo(function FacetLabels({
     setAnchorScreenPositions(positions);
   }, [camera, size]);
 
+  // Create DOM layer once
   useEffect(() => {
-    if (inActiveOverview && animationData?.cameraSettled === true) {
+    const layer = document.createElement('div');
+    layer.style.cssText =
+      'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:20';
+    document.body.appendChild(layer);
+    layerRef.current = layer;
+    rootRef.current = createRoot(layer);
+    return () => {
+      rootRef.current?.unmount();
+      layer.remove();
+    };
+  }, []);
+
+  // Handle activation and cleanup based on overview state
+  useEffect(() => {
+    if (!inActiveOverview) {
+      setFadeDuration(0.2);
+      setVisible(false);
+      clearTimeout(fadeTimeoutRef.current);
+      fadeTimeoutRef.current = setTimeout(() => {
+        rootRef.current?.render(null);
+        setAnchorScreenPositions({});
+      }, 200);
+      return;
+    }
+
+    clearTimeout(fadeTimeoutRef.current);
+    if (animationData?.cameraSettled === true) {
       calculateAndCacheAnchorPositions();
     }
-  }, [
-    inActiveOverview,
-    animationData?.cameraSettled,
-    calculateAndCacheAnchorPositions,
-  ]);
+  }, [inActiveOverview, animationData?.cameraSettled, calculateAndCacheAnchorPositions]);
 
   // Fade labels in once positions are calculated
   useEffect(() => {
@@ -142,7 +136,7 @@ const FacetLabels = React.memo(function FacetLabels({
 
   // Render labels using cached positions
   useEffect(() => {
-    if (!rootReady || !rootRef.current || !inActiveOverview) return;
+    if (!rootRef.current || !inActiveOverview) return;
     if (
       performanceProfile?.simplifiedAnimations ||
       Object.keys(anchorScreenPositions).length === 0
@@ -187,7 +181,6 @@ const FacetLabels = React.memo(function FacetLabels({
     onHoverChange,
     scrollToProgress,
     performanceProfile?.simplifiedAnimations,
-    rootReady,
     inActiveOverview,
   ]);
 
