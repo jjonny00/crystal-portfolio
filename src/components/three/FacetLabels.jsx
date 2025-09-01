@@ -54,11 +54,6 @@ const FacetLabels = React.memo(function FacetLabels({
   animationData,
   performanceProfile,
 }) {
-  // Do nothing while the crystal is transitioning or not exploded
-  if (animationData?.isTransitioning || animationData?.crystalForm !== 'exploded') {
-    return null;
-  }
-
   const { camera, size } = useThree();
   const [anchorScreenPositions, setAnchorScreenPositions] = useState({});
   const [visible, setVisible] = useState(false);
@@ -80,6 +75,19 @@ const FacetLabels = React.memo(function FacetLabels({
       document.body.removeChild(layer);
     };
   }, []);
+
+  // Fade out and clean up when leaving the overview
+  useEffect(() => {
+    if (animationData?.isTransitioning || animationData?.crystalForm !== 'exploded') {
+      setFadeDuration(0.2);
+      setVisible(false);
+      const timeout = setTimeout(() => {
+        rootRef.current?.render(null);
+        setAnchorScreenPositions({});
+      }, 200);
+      return () => clearTimeout(timeout);
+    }
+  }, [animationData?.isTransitioning, animationData?.crystalForm]);
 
   const calculateAndCacheAnchorPositions = useCallback(() => {
     const positions = {};
