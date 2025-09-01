@@ -76,12 +76,14 @@ const FacetLabels = React.memo(function FacetLabels({
     };
   }, []);
 
-  // Fade out and clean up when leaving the overview
+  // Fade out and clean up when leaving the overview or near zone boundaries
   useEffect(() => {
+    const zoneProgress = animationData?.zoneProgress ?? 1;
     if (
       animationData?.isTransitioning ||
       animationData?.crystalForm !== 'exploded' ||
-      animationData?.currentZone !== 'overview'
+      animationData?.currentZone !== 'overview' ||
+      zoneProgress > 0.98
     ) {
       setFadeDuration(0.2);
       setVisible(false);
@@ -91,7 +93,12 @@ const FacetLabels = React.memo(function FacetLabels({
       }, 200);
       return () => clearTimeout(timeout);
     }
-  }, [animationData?.isTransitioning, animationData?.crystalForm, animationData?.currentZone]);
+  }, [
+    animationData?.isTransitioning,
+    animationData?.crystalForm,
+    animationData?.currentZone,
+    animationData?.zoneProgress,
+  ]);
 
   const calculateAndCacheAnchorPositions = useCallback(() => {
     const positions = {};
@@ -105,11 +112,13 @@ const FacetLabels = React.memo(function FacetLabels({
   }, [camera, size]);
 
   useEffect(() => {
+    const zoneProgress = animationData?.zoneProgress ?? 1;
     if (
       animationData?.currentZone === 'overview' &&
       animationData?.isTransitioning === false &&
       animationData?.crystalForm === 'exploded' &&
-      animationData?.cameraSettled === true
+      animationData?.cameraSettled === true &&
+      zoneProgress < 0.98
     ) {
       calculateAndCacheAnchorPositions();
     }
@@ -118,6 +127,7 @@ const FacetLabels = React.memo(function FacetLabels({
     animationData?.isTransitioning,
     animationData?.cameraSettled,
     animationData?.crystalForm,
+    animationData?.zoneProgress,
     calculateAndCacheAnchorPositions,
   ]);
 
