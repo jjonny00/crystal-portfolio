@@ -61,13 +61,10 @@ const FacetLabels = React.memo(function FacetLabels({
   const layerRef = useRef(null);
   const rootRef = useRef(null);
   const fadeTimeoutRef = useRef(null);
-  const zoneProgress = animationData?.zoneInfo?.progress ?? 0;
   const inActiveOverview =
     animationData?.currentZone === 'overview' &&
     animationData?.crystalForm === 'exploded' &&
-    animationData?.isTransitioning === false &&
-    zoneProgress > 0.02 &&
-    zoneProgress < 0.98;
+    animationData?.isTransitioning === false;
 
   const calculateAndCacheAnchorPositions = useCallback(() => {
     const positions = {};
