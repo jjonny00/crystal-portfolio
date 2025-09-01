@@ -78,7 +78,11 @@ const FacetLabels = React.memo(function FacetLabels({
 
   // Fade out and clean up when leaving the overview
   useEffect(() => {
-    if (animationData?.isTransitioning || animationData?.crystalForm !== 'exploded') {
+    if (
+      animationData?.isTransitioning ||
+      animationData?.crystalForm !== 'exploded' ||
+      animationData?.currentZone !== 'overview'
+    ) {
       setFadeDuration(0.2);
       setVisible(false);
       const timeout = setTimeout(() => {
@@ -87,7 +91,7 @@ const FacetLabels = React.memo(function FacetLabels({
       }, 200);
       return () => clearTimeout(timeout);
     }
-  }, [animationData?.isTransitioning, animationData?.crystalForm]);
+  }, [animationData?.isTransitioning, animationData?.crystalForm, animationData?.currentZone]);
 
   const calculateAndCacheAnchorPositions = useCallback(() => {
     const positions = {};
@@ -102,27 +106,43 @@ const FacetLabels = React.memo(function FacetLabels({
 
   useEffect(() => {
     if (
+      animationData?.currentZone === 'overview' &&
       animationData?.isTransitioning === false &&
       animationData?.crystalForm === 'exploded' &&
       animationData?.cameraSettled === true
     ) {
       calculateAndCacheAnchorPositions();
     }
-  }, [animationData?.isTransitioning, animationData?.cameraSettled, animationData?.crystalForm, calculateAndCacheAnchorPositions]);
+  }, [
+    animationData?.currentZone,
+    animationData?.isTransitioning,
+    animationData?.cameraSettled,
+    animationData?.crystalForm,
+    calculateAndCacheAnchorPositions,
+  ]);
 
   // Fade labels in once positions are calculated
   useEffect(() => {
-    let timeout;
+    let frame1;
+    let frame2;
     if (Object.keys(anchorScreenPositions).length > 0) {
-      timeout = setTimeout(() => {
-        setFadeDuration(0.8);
-        setVisible(true);
-      }, 0);
+      // Render once with opacity 0, then fade up
+      setFadeDuration(0);
+      setVisible(false);
+      frame1 = requestAnimationFrame(() => {
+        frame2 = requestAnimationFrame(() => {
+          setFadeDuration(0.8);
+          setVisible(true);
+        });
+      });
     } else {
       setFadeDuration(0.2);
       setVisible(false);
     }
-    return () => clearTimeout(timeout);
+    return () => {
+      if (frame1) cancelAnimationFrame(frame1);
+      if (frame2) cancelAnimationFrame(frame2);
+    };
   }, [anchorScreenPositions]);
 
   // Render labels using cached positions
