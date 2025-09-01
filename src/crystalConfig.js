@@ -74,14 +74,14 @@ export const explodedRotations = {
 export const cameraPositions = {
   hero: [0.55, 0.92, 3.94],
   overview: [0.23, 0.53, 6.57],
-  about: [-0.13, 1.34, 2.55],
+  about: [1.74, 1.34, 1.87],
   projects: {
     empathy: [0.16, -1.85, 1.79],
     narrative: [-0.66, -1.37, 1.1],
-    craft: [-1.26, -0.02, 2.58],
+    craft: [-0.88, -0.85, 2.53],
     system: [-1.28, -0.23, 1.58],
-    leadership: [-0.72, 1.60, 3.98],
-    exploration: [-1.34, 1.67, 3.81]
+    leadership: [-0.09, 0.38, 2.87],
+    exploration: [-0.05, 0.28, 3.94]
   }
 }
 
