@@ -78,13 +78,31 @@ const FacetLabels = React.memo(function FacetLabels({
     setAnchorScreenPositions(positions);
   }, [camera, size]);
 
-  // Fade labels the moment the camera leaves the overview state
+  // Fade labels when the first project scrolls into view
   useEffect(() => {
-    if (animationData?.cameraState !== 'overview') {
-      setFadeDuration(0.2);
-      setVisible(false);
-    }
-  }, [animationData?.cameraState]);
+    const firstFacetKey = projects?.[0]?.facetKey;
+    if (!firstFacetKey || !inActiveOverview) return;
+
+    const section = document.getElementById(`project-${firstFacetKey}`);
+    if (!section) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.intersectionRatio >= 0.1) {
+          setFadeDuration(0.2);
+          setVisible(false);
+        } else if (inActiveOverview) {
+          setFadeDuration(0.8);
+          setVisible(true);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    observer.observe(section);
+
+    return () => observer.disconnect();
+  }, [projects, inActiveOverview]);
 
   // Handle DOM layer, activation, and cleanup based on overview state
   useEffect(() => {
