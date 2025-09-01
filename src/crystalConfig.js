@@ -28,7 +28,7 @@ export const explodedPositions = {
 // Centralized controls for fracture/explosion effects
 export const fracture = {
   duration: 0.5,          // Seconds facets remain in fractured state
-  distance: 0.01,          // Percentage of explode distance applied during fracture
+  distance: 0.03,          // Percentage of explode distance applied during fracture
   particles: {
     delay: 0.6,          // Delay before particle burst (seconds)
     count: 200,           // Number of burst particles
