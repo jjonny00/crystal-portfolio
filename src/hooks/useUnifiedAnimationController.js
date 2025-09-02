@@ -242,7 +242,7 @@ export const useUnifiedAnimationController = (options = {}) => {
   /**
    * FIXED: Handle zone transitions with immediate state changes
    */
-  const handleZoneTransition = useCallback((fromZone, toZone) => {
+  const handleZoneTransition = useCallback((fromZone, toZone, initialProject = null) => {
     if (debugMode) {
       if (import.meta.env.DEV) console.log(`🗺️ IMMEDIATE Zone transition: ${fromZone} → ${toZone}`);
     }
@@ -291,14 +291,16 @@ export const useUnifiedAnimationController = (options = {}) => {
       }, (config.crystal.fracturePause || 0.5) * 1000);
     }
     else if (toZone === 'projects') {
-      // Don't set focusedFacet here - let the project handling logic do it
+      // Immediately enter project state and set initial facet
       setAnimationState(prev => ({
         ...prev,
         state: ANIMATION_STATES.PROJECT_FOCUSED,
         crystalForm: 'exploded',     // Immediate
         cameraState: 'project',      // Immediate - this enables project camera positioning
+        focusedFacet: initialProject,
         isTransitioning: false
       }));
+      lastProject.current = initialProject;
     }
     else if (toZone === 'about') {
       setAnimationState(prev => ({
@@ -361,7 +363,8 @@ export const useUnifiedAnimationController = (options = {}) => {
     // Only change zones if we're clearly in the new zone (not at boundary)
     if (zoneChanged) {
       // Add hysteresis - require being well into the new zone before switching
-      const hysteresis = 0.02; // 2% buffer zone
+      const hysteresis = 0.02; // 2% buffer zone for most zones
+      const projectsZoneHysteresis = 0; // Immediate transition at projects start
       let shouldChangeZone = false;
 
       if (currentZone.zone === 'hero' && currentZone.progress > hysteresis) {
@@ -373,18 +376,28 @@ export const useUnifiedAnimationController = (options = {}) => {
           // Coming from projects and we're right at the boundary—still transition
           shouldChangeZone = true;
         }
-      } else if (currentZone.zone === 'projects' && currentZone.progress > hysteresis && currentZone.progress < (1 - hysteresis)) {
+      } else if (currentZone.zone === 'projects' && currentZone.progress >= projectsZoneHysteresis && currentZone.progress < (1 - projectsZoneHysteresis)) {
         shouldChangeZone = true;
       } else if (currentZone.zone === 'about' && currentZone.progress > hysteresis) {
         shouldChangeZone = true;
       }
-      
+
       if (shouldChangeZone) {
-        if (debugMode || import.meta.env.DEV) {
-          console.log(`🗺️ Zone change confirmed: ${lastZone.current} → ${currentZone.zone} (progress: ${currentZone.progress.toFixed(3)})`);
-          console.log(`🎨 Background trigger: Zone changed to "${currentZone.zone}"`);
+        if (currentZone.zone === 'projects') {
+          const initialProject = calculateActiveProject(scrollProgress, config).project || 'empathy';
+          if (debugMode || import.meta.env.DEV) {
+            console.log(`🗺️ Zone change confirmed: ${lastZone.current} → ${currentZone.zone} (progress: ${currentZone.progress.toFixed(3)})`);
+            console.log(`🧭 Projects zone transition at scroll ${scrollProgress.toFixed(3)} initialProject=${initialProject}`);
+            console.log(`🎨 Background trigger: Zone changed to "${currentZone.zone}"`);
+          }
+          handleZoneTransition(lastZone.current, currentZone.zone, initialProject);
+        } else {
+          if (debugMode || import.meta.env.DEV) {
+            console.log(`🗺️ Zone change confirmed: ${lastZone.current} → ${currentZone.zone} (progress: ${currentZone.progress.toFixed(3)})`);
+            console.log(`🎨 Background trigger: Zone changed to "${currentZone.zone}"`);
+          }
+          handleZoneTransition(lastZone.current, currentZone.zone);
         }
-        handleZoneTransition(lastZone.current, currentZone.zone);
         lastZone.current = currentZone.zone;
       }
     }
