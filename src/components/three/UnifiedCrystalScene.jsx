@@ -944,9 +944,10 @@ const UnifiedCrystalScene = forwardRef(({
             let finalTarget = targetPos;
             if (floatAll || (floatFocused && animationData.focusedFacet === facetKey)) {
               const params = floatParamsRef.current[index];
-              const fx = Math.sin(elapsed * floatConfig.xFrequency + params.phaseX) * params.amp * floatConfig.xMultiplier;
-              const fy = Math.sin(elapsed * floatConfig.yFrequency + params.phaseY) * params.amp;
-              const fz = Math.sin(elapsed * floatConfig.zFrequency + params.phaseZ) * params.amp * floatConfig.zMultiplier;
+              const amp = params.amp * (floatAll ? floatConfig.overviewMultiplier : 1);
+              const fx = Math.sin(elapsed * floatConfig.xFrequency + params.phaseX) * amp * floatConfig.xMultiplier;
+              const fy = Math.sin(elapsed * floatConfig.yFrequency + params.phaseY) * amp;
+              const fz = Math.sin(elapsed * floatConfig.zFrequency + params.phaseZ) * amp * floatConfig.zMultiplier;
               finalTarget = targetPos.clone().add(new THREE.Vector3(fx, fy, fz));
             }
             facetRef.current.position.lerp(finalTarget, lerpSpeed * deltaTime * 60);
