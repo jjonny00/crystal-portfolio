@@ -420,8 +420,8 @@ export const useUnifiedAnimationController = (options = {}) => {
         }
       }
       
-      // Set initial project if none is set but we have an active project
-      if (!animationState.focusedFacet && activeProject.project && activeProject.progress > 0.05) {
+      // Set initial project immediately when entering projects zone
+      if (!animationState.focusedFacet && activeProject.project) {
         if (import.meta.env.DEV) {
           console.log(`🎯 Setting initial project: ${activeProject.project}`);
           console.log(`🎨 Background trigger: Initial project set to "${activeProject.project}"`);
