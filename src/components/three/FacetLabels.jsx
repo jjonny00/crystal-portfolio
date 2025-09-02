@@ -56,6 +56,8 @@ const FacetLabels = React.memo(function FacetLabels({
 }) {
   const { camera, size } = useThree();
   const [anchorScreenPositions, setAnchorScreenPositions] = useState({});
+  const cachedPositionsRef = useRef({});
+  const positionsCachedRef = useRef(false);
   const [visible, setVisible] = useState(false);
   const [fadeDuration, setFadeDuration] = useState(0.8);
   const layerRef = useRef(null);
@@ -68,14 +70,19 @@ const FacetLabels = React.memo(function FacetLabels({
     animationData?.cameraSettled === true;
 
   const calculateAndCacheAnchorPositions = useCallback(() => {
-    const positions = {};
-    Object.entries(ANCHOR_WORLD_POSITIONS).forEach(([facetKey, worldPos]) => {
-      const vec = worldPos.clone().project(camera);
-      const x = (vec.x * 0.5 + 0.5) * size.width;
-      const y = (-vec.y * 0.5 + 0.5) * size.height;
-      positions[facetKey] = { x, y };
-    });
-    setAnchorScreenPositions(positions);
+    if (!positionsCachedRef.current) {
+      const positions = {};
+      Object.entries(ANCHOR_WORLD_POSITIONS).forEach(([facetKey, worldPos]) => {
+        const vec = worldPos.clone().project(camera);
+        const x = (vec.x * 0.5 + 0.5) * size.width;
+        const y = (-vec.y * 0.5 + 0.5) * size.height;
+        positions[facetKey] = { x, y };
+      });
+      cachedPositionsRef.current = positions;
+      positionsCachedRef.current = true;
+    }
+    // Always set state from cached positions to trigger re-render when needed
+    setAnchorScreenPositions({ ...cachedPositionsRef.current });
   }, [camera, size]);
 
   // Fade labels when the first project scrolls into view
@@ -116,7 +123,6 @@ const FacetLabels = React.memo(function FacetLabels({
         layerRef.current?.remove();
         rootRef.current = null;
         layerRef.current = null;
-        setAnchorScreenPositions({});
       }, 200);
       return;
     }
