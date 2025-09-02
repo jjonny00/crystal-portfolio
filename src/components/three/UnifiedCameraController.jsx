@@ -181,21 +181,17 @@ const UnifiedCameraController = ({
     }
 
     const focusedFacetChanged = focusedFacet !== lastFocusedFacet.current;
+    const cameraStateChanged = cameraState !== lastCameraConfig.current?.cameraState;
     const positionChanged = !lastCameraConfig.current || (
       enhancedConfig.position &&
       lastCameraConfig.current.position &&
       enhancedConfig.position.distanceTo(lastCameraConfig.current.position) > POSITION_EPSILON
     );
-    const targetChanged = !lastCameraConfig.current || (
-      enhancedConfig.target &&
-      lastCameraConfig.current.target &&
-      enhancedConfig.target.distanceTo(lastCameraConfig.current.target) > POSITION_EPSILON
-    );
     const fovOrDescChanged = !lastCameraConfig.current ||
       enhancedConfig.fov !== lastCameraConfig.current.fov ||
       enhancedConfig.description !== lastCameraConfig.current.description;
 
-    const configChanged = focusedFacetChanged || positionChanged || targetChanged || fovOrDescChanged;
+    const configChanged = focusedFacetChanged || cameraStateChanged || positionChanged || fovOrDescChanged;
 
     if (configChanged) {
       if (import.meta.env.DEV) {
@@ -254,7 +250,8 @@ const UnifiedCameraController = ({
         position: enhancedConfig.position?.clone(),
         target: enhancedConfig.target?.clone(),
         fov: enhancedConfig.fov,
-        description: enhancedConfig.description
+        description: enhancedConfig.description,
+        cameraState
       };
       lastFocusedFacet.current = focusedFacet;
 
@@ -265,6 +262,14 @@ const UnifiedCameraController = ({
       if (animationData?.cameraSettled) {
         animationData.setCameraSettled(false);
       }
+    } else if (
+      enhancedConfig.target &&
+      lastCameraConfig.current?.target &&
+      enhancedConfig.target.distanceTo(lastCameraConfig.current.target) > POSITION_EPSILON
+    ) {
+      // Update lookAt for minor anchor adjustments without resetting animation
+      currentTarget.current.lookAt.copy(enhancedConfig.target);
+      lastCameraConfig.current.target.copy(enhancedConfig.target);
     }
 
     // Reset orbit when switching camera states and derive starting angle for hero
