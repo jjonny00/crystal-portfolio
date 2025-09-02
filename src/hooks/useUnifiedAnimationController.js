@@ -475,18 +475,18 @@ export const useUnifiedAnimationController = (options = {}) => {
    */
   const getCurrentCameraConfig = useCallback(() => {
     let cameraConfig;
-    
+
     if (animationState.cameraState === 'project') {
-      cameraConfig = animationState.focusedFacet
-        ? config.camera.projects[animationState.focusedFacet]
-        // When no facet is focused, default to overview camera instead of hero fallback
+      const facetKey = animationState.focusedFacet ?? lastProject.current;
+      cameraConfig = facetKey
+        ? config.camera.projects[facetKey]
         : config.camera.overview;
     } else {
       cameraConfig = config.camera[animationState.cameraState] || config.camera.hero;
     }
-    
+
     return cameraConfig;
-  }, [animationState.cameraState, animationState.focusedFacet, animationState.state, config, debugMode]);
+  }, [animationState.cameraState, animationState.focusedFacet, config]);
 
   /**
    * Get current crystal configuration (same as before)
