@@ -97,8 +97,7 @@ function App() {
   const [initProgress, setInitProgress] = useState(0);
   const [exitLoader, setExitLoader] = useState(false);
   const [showLoader, setShowLoader] = useState(true);
-  const [assetProgress, setAssetProgress] = useState(0);
-  const [testProgress, setTestProgress] = useState(0);
+  // Progress is now provided directly by hooks
 
   // UPDATED: Use V2 performance hook
   const {
@@ -126,14 +125,6 @@ function App() {
     hasErrors: assetHasErrors,
     retry: retryAssets
   } = useAssetLoaderV2(performanceReady ? performanceProfile : null);
-
-  useEffect(() => {
-    setAssetProgress(assetProgressHook);
-  }, [assetProgressHook]);
-
-  useEffect(() => {
-    setTestProgress(testProgressHook);
-  }, [testProgressHook]);
 
   // Track when GLTF models have loaded via Fixed3DCanvas
   const fixedCanvasRef = useRef();
@@ -428,8 +419,8 @@ function App() {
     return (
       <LoaderV2
         initProgress={initProgress / 100}
-        assetProgress={assetProgress / 100}
-        testProgress={testProgress / 100}
+        assetProgress={assetProgressHook / 100}
+        testProgress={testProgressHook / 100}
         statusMessage={statusMessage}
       />
     );
@@ -630,8 +621,8 @@ function App() {
       {showLoader && (
         <LoaderV2
           initProgress={exitLoader ? 1 : initProgress / 100}
-          assetProgress={exitLoader ? 1 : assetProgress / 100}
-          testProgress={exitLoader ? 1 : testProgress / 100}
+          assetProgress={exitLoader ? 1 : assetProgressHook / 100}
+          testProgress={exitLoader ? 1 : testProgressHook / 100}
           statusMessage={exitLoader ? 'Launching...' : statusMessage}
           exiting={exitLoader}
         />
