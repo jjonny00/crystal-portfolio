@@ -213,8 +213,6 @@ function App() {
       }
       setIsAppReady(true);
       setInitProgress(100);
-      setAssetProgress(100);
-      setTestProgress(100);
       setTimeout(() => setExitLoader(true), 800);
       setTimeout(() => setShowLoader(false), 1400);
     }
