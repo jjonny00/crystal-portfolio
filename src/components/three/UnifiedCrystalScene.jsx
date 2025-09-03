@@ -16,6 +16,7 @@ import FractureRingImage from './FractureRingImage'
 import { getProjectColorByFacetKey } from '../../data/projects'
 import FacetLabels from './FacetLabels'
 import projects from '../../data/projects'
+import { effects } from '../../crystalConfig'
 
 const UnifiedCrystalScene = forwardRef(({ 
   animationData,
@@ -73,6 +74,16 @@ const UnifiedCrystalScene = forwardRef(({
   const projectColors = useMemo(
     () => facetKeys.map(key => new THREE.Color(getProjectColorByFacetKey(key))),
     [facetKeys]
+  );
+
+  // Precompute random floating parameters for facets
+  const floatParamsRef = useRef(
+    facetKeys.map(() => ({
+      amp: effects.idle.float.baseAmplitude * (0.8 + Math.random() * 0.4),
+      phaseX: Math.random() * Math.PI * 2,
+      phaseY: Math.random() * Math.PI * 2,
+      phaseZ: Math.random() * Math.PI * 2
+    }))
   );
 
   // Track explosion timing so we can implement fracture pause
@@ -822,6 +833,12 @@ const UnifiedCrystalScene = forwardRef(({
     }
 
     const elapsed = state.clock.elapsedTime;
+    const floatConfig = effects.idle.float;
+    const floatAll = animationData.state === 'overview' && !animationData.isTransitioning;
+    const floatFocused =
+      animationData.state === 'project_focused' &&
+      animationData.focusedFacet &&
+      !animationData.isTransitioning;
 
     // Handle whole crystal floating (no rotation)
     if (showWholeCrystal && wholeCrystalRef.current) {
@@ -925,11 +942,13 @@ const UnifiedCrystalScene = forwardRef(({
             }
           } else {
             let finalTarget = targetPos;
-            if (animationData.focusedFacet === facetKey &&
-                !animationData.isTransitioning &&
-                animationData.state === 'project_focused') {
-              const floatOffset = Math.sin(elapsed * 1.2 + index) * 0.001;
-              finalTarget = targetPos.clone().add(new THREE.Vector3(0, floatOffset, 0));
+            if (floatAll || (floatFocused && animationData.focusedFacet === facetKey)) {
+              const params = floatParamsRef.current[index];
+              const amp = params.amp * (floatAll ? floatConfig.overviewMultiplier : 1);
+              const fx = Math.sin(elapsed * floatConfig.xFrequency + params.phaseX) * amp * floatConfig.xMultiplier;
+              const fy = Math.sin(elapsed * floatConfig.yFrequency + params.phaseY) * amp;
+              const fz = Math.sin(elapsed * floatConfig.zFrequency + params.phaseZ) * amp * floatConfig.zMultiplier;
+              finalTarget = targetPos.clone().add(new THREE.Vector3(fx, fy, fz));
             }
             facetRef.current.position.lerp(finalTarget, lerpSpeed * deltaTime * 60);
           }

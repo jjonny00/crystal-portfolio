@@ -190,7 +190,8 @@ export const effects = {
   idle: {
     float: {
       baseAmplitude: 0.007,  // Base floating movement amount
-      xMultiplier: 0.6,      // X-axis movement multiplier  
+      overviewMultiplier: 3, // Additional movement when all facets float
+      xMultiplier: 0.6,      // X-axis movement multiplier
       zMultiplier: 0.5,      // Z-axis movement multiplier
       yFrequency: 1.2,       // Y-axis wave frequency
       xFrequency: 0.9,       // X-axis wave frequency
