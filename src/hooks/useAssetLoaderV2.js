@@ -4,6 +4,17 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import AssetLoaderV2 from '../utils/AssetLoaderV2.js';
 
+// Descriptors for all GLTF models used in the app
+const MODEL_DESCRIPTORS = [
+  { key: 'crystalWhole', url: '/assets/models/CrystalWhole.glb' },
+  { key: 'facetEmpathy', url: '/assets/models/FacetEmpathy.glb' },
+  { key: 'facetNarrative', url: '/assets/models/FacetNarrative.glb' },
+  { key: 'facetCraft', url: '/assets/models/FacetCraft.glb' },
+  { key: 'facetSystem', url: '/assets/models/FacetSystem.glb' },
+  { key: 'facetLeadership', url: '/assets/models/FacetLeadership.glb' },
+  { key: 'facetExploration', url: '/assets/models/FacetExploration.glb' }
+];
+
 export const useAssetLoaderV2 = (performanceProfile) => {
   const [loadingState, setLoadingState] = useState({
     progress: 0,
@@ -24,46 +35,34 @@ export const useAssetLoaderV2 = (performanceProfile) => {
   const getRequiredAssets = useCallback(() => {
     if (!performanceProfile) return [];
 
-    const assets = [];
+    // Transform model descriptors into asset objects
+    const modelAssets = MODEL_DESCRIPTORS.map(({ key, url }) => ({
+      type: 'model',
+      key,
+      url,
+      name: `Model: ${key}`
+    }));
 
-    // Always load all models (GLTF files)
-    const models = [
-      { key: 'crystalWhole', url: '/assets/models/CrystalWhole.glb' },
-      { key: 'facetEmpathy', url: '/assets/models/FacetEmpathy.glb' },
-      { key: 'facetNarrative', url: '/assets/models/FacetNarrative.glb' },
-      { key: 'facetCraft', url: '/assets/models/FacetCraft.glb' },
-      { key: 'facetSystem', url: '/assets/models/FacetSystem.glb' },
-      { key: 'facetLeadership', url: '/assets/models/FacetLeadership.glb' },
-      { key: 'facetExploration', url: '/assets/models/FacetExploration.glb' }
-    ];
+    // Optional texture asset
+    const textureAssets = performanceProfile.useNormalMaps
+      ? [{
+          type: 'texture',
+          key: 'normalMap',
+          url: '/assets/textures/quartz-normal07.png',
+          name: 'Normal Map Texture'
+        }]
+      : [];
 
-    models.forEach(model => {
-      assets.push({
-        type: 'model',
-        key: model.key,
-        url: model.url,
-        name: `Model: ${model.key}`
-      });
-    });
-
-    // Load textures if performance allows
-    if (performanceProfile.useNormalMaps) {
-      assets.push({
-        type: 'texture',
-        key: 'normalMap',
-        url: '/assets/textures/quartz-normal07.png',
-        name: 'Normal Map Texture'
-      });
-    }
-
-    // Load HDRI environment
+    // HDRI environment asset
     const hdriQuality = performanceProfile.hdriQuality || 'low';
-    assets.push({
+    const hdriAssets = [{
       type: 'environment',
       key: 'hdri',
       url: `/assets/environment/prismatic09-${hdriQuality}.hdr`,
       name: `Environment (${hdriQuality})`
-    });
+    }];
+
+    const assets = [...modelAssets, ...textureAssets, ...hdriAssets];
 
     if (import.meta.env.DEV) {
       console.log('📦 Required assets for loading:', {
