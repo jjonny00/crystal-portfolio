@@ -147,14 +147,16 @@ export default class PerformanceManagerV2 {
     const results = {};
 
     try {
-      // Start with medium tier using a larger base resolution to stress hardware
-      const mediumResult = await this._testTier('medium', 33, 50, 384);
+      // Start with medium tier using the real viewport size
+      const mediumWidth = window.innerWidth;
+      const mediumHeight = window.innerHeight;
+      const mediumResult = await this._testTier('medium', 33, 50, mediumWidth, mediumHeight);
       results.medium = mediumResult;
 
       // Final thresholds derived from benchmark analysis
       if (mediumResult.avgFps >= 50 && mediumResult.minFps >= 45) {
         // Medium was strong enough, attempt the high tier
-        const highResult = await this._testTier('high', 50, 66, 512);
+        const highResult = await this._testTier('high', 50, 66, 512, 512);
         results.high = highResult;
         if (highResult.avgFps >= 45 && highResult.minFps >= 40) {
           // Only allow high tier for clearly high-end hardware
@@ -188,12 +190,19 @@ export default class PerformanceManagerV2 {
     }
   }
 
-  async _testTier(tier, rangeStart, rangeEnd, baseResolution = 256) {
+  async _testTier(
+    tier,
+    rangeStart,
+    rangeEnd,
+    width = window.innerWidth,
+    height = window.innerHeight
+  ) {
     const canvas = this._testCanvas;
     return this._testWithRealisticScene(
       canvas,
       tier,
-      baseResolution,
+      width,
+      height,
       2500,
       (p) => {
         const progress = rangeStart + p * (rangeEnd - rangeStart);
@@ -212,7 +221,7 @@ export default class PerformanceManagerV2 {
     }
   }
 
-  async _testWithRealisticScene(canvas, tier, baseResolution = 256, testDuration = 2500, onProgress) {
+  async _testWithRealisticScene(canvas, tier, width, height, testDuration = 2500, onProgress) {
     const profile = PERFORMANCE_PROFILES[tier];
     const THREE = await import('three');
 
@@ -223,13 +232,14 @@ export default class PerformanceManagerV2 {
         powerPreference: 'default'
       });
 
-      const size = baseResolution * profile.renderScale;
-      renderer.setSize(size, size);
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, profile.maxPixelRatio || 2));
+      const actualWidth = width;
+      const actualHeight = height;
+      renderer.setSize(actualWidth, actualHeight);
+      renderer.setPixelRatio(window.devicePixelRatio);
 
       // Create scene that matches actual crystal complexity
       const scene = new THREE.Scene();
-      const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+      const camera = new THREE.PerspectiveCamera(45, actualWidth / actualHeight, 0.1, 100);
       camera.position.set(0, 2, 4);
 
       // Use realistic geometry that matches your actual scene
@@ -308,11 +318,11 @@ export default class PerformanceManagerV2 {
       const { UnrealBloomPass } = await import('three/examples/jsm/postprocessing/UnrealBloomPass.js');
 
       const composer = new EffectComposer(renderer);
-      composer.setSize(size, size);
+      composer.setSize(actualWidth, actualHeight);
       composer.addPass(new RenderPass(scene, camera));
 
       if (profile.postProcessing.bloom) {
-        composer.addPass(new UnrealBloomPass(new THREE.Vector2(baseResolution, baseResolution), 0.6, 0.4, 0.85));
+        composer.addPass(new UnrealBloomPass(new THREE.Vector2(actualWidth, actualHeight), 0.6, 0.4, 0.85));
       }
 
       const samples = [];
