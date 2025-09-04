@@ -151,14 +151,12 @@ export default class PerformanceManagerV2 {
       const mediumResult = await this._testTier('medium', 33, 50, 384);
       results.medium = mediumResult;
 
-      // NOTE: thresholds relaxed slightly (~10 FPS) to gather data on edge cases
-      // TODO: tighten these numbers once benchmarking and tuning are complete
-      if (mediumResult.avgFps >= 60 && mediumResult.minFps >= 55) {
+      // Final thresholds derived from benchmark analysis
+      if (mediumResult.avgFps >= 70 && mediumResult.minFps >= 65) {
         // Medium was strong enough, attempt the high tier
         const highResult = await this._testTier('high', 50, 66, 512);
         results.high = highResult;
-        // High-tier acceptance threshold relaxed in parallel with medium test
-        if (highResult.avgFps >= 55 && highResult.minFps >= 50) {
+        if (highResult.avgFps >= 60 && highResult.minFps >= 55) {
           // Only allow high tier for clearly high-end hardware
           const { capabilities } = detectDeviceCapabilities();
           const renderer = capabilities.renderer?.toLowerCase() || '';
