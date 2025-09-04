@@ -1,6 +1,6 @@
 # Crystal Portfolio
 
-A React + Vite project showcasing a 3D crystal scene. Rendering quality is tuned by running a short benchmark at startup to choose an appropriate performance profile. The benchmark always begins at a safe medium tier and only attempts high quality after confirming that both `avgFps` and `minFps` pass the required thresholds. If medium can't keep up the manager falls back to a low tier. At runtime the performance manager averages FPS over the last five seconds to dynamically downgrade or upgrade quality tiers.
+A React + Vite project showcasing a 3D crystal scene. Rendering quality is tuned by running a short benchmark at startup to choose an appropriate performance profile. The benchmark always begins at a safe medium tier and only attempts high quality after the medium test averages at least **70 FPS** with a **65 FPS** minimum. High tier is selected only when a follow‑up test stays above **55 FPS** average and **50 FPS** minimum and the device passes hardware capability checks. If medium can't keep up the manager falls back to a low tier. At runtime the performance manager averages FPS over the last five seconds to dynamically downgrade or upgrade quality tiers.
 
 ## Performance manager (`usePerformanceV2`)
 
