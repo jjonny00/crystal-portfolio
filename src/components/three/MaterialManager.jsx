@@ -49,15 +49,15 @@ const MaterialManager = ({
         roughness: 0.05,                     // VERY smooth (like gem variant)
         
         // Environment mapping for reflections (key for crystal look!)
-        envMapIntensity: 4.0,                // VERY strong environment reflections
+        envMapIntensity: 1.0,                // VERY strong environment reflections
 
-        specularIntensity: 100.0,                    // Bright highlights
+        specularIntensity: 1.0,                    // Bright highlights
         specularColor: new THREE.Color('#ffffff'), // White highlights
         reflectivity: 1.8,                        // High reflectiveness
         
         // NO transparency - major performance gain!
         transparent: true,
-        opacity: 0.96,
+        opacity: 0.99,
         
         // Standard material properties
         side: THREE.FrontSide,               // Only render front faces (perf gain)
@@ -120,7 +120,7 @@ const MaterialManager = ({
           // KEEP these high values for visible reflections
           materialProps.metalness = 0.08;        // High metallic
           materialProps.roughness = 0.02;       // Very smooth
-          materialProps.envMapIntensity = 40.0;   // Strong reflections
+          materialProps.envMapIntensity = 1.0;   // Strong reflections
           materialProps.emissiveIntensity = 0.3; // Visible glow
           break;
       }
@@ -156,7 +156,7 @@ const MaterialManager = ({
         color: new THREE.Color('#1f2391'),
         metalness: 0.0,
         roughness: 0.05,
-        envMapIntensity: 15.0,
+        envMapIntensity: 1.0,
         transparent: true,
         opacity: 0.99,
         side: THREE.FrontSide,
@@ -170,7 +170,7 @@ const MaterialManager = ({
         iridescence: 0,
         transmission: 0,
         reflectivity: 1.9,
-        specularIntensity: 1.2,
+        specularIntensity: 1,
         specularColor: new THREE.Color('#ffffff'),
         precision: safePerformanceConfig.highPrecision ? 'highp' : 'mediump'
       };
@@ -350,7 +350,7 @@ const MaterialManager = ({
           // AGGRESSIVE: Use gem-like settings for strong reflections
           material.metalness = 0.8;              // High metallic
           material.roughness = 0.02;             // Very smooth
-          material.envMapIntensity = 15.0;        // Strong reflections
+          material.envMapIntensity = 1.0;        // Strong reflections
           material.emissiveIntensity = Math.max(0.0, currentEmissiveIntensity);
           break;
       }

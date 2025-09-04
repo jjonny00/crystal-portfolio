@@ -220,7 +220,7 @@ export const materials = {
   crystal: {
     color: new THREE.Color('#0d042b'),
     transparent: true,
-    transmission: 0.7,
+    transmission: 0.85,
     ior: 2.3,
     thickness: 0.01,
     iridescence: 0.3,
@@ -236,7 +236,8 @@ export const materials = {
     specularIntensity: 1.0,
     specularColor: new THREE.Color('#ffffff'),
     emissive: new THREE.Color('#050c4e'),
-    emissiveIntensity: 0 // Default, will be changed dynamically
+    emissiveIntensity: 0, // Default, will be changed dynamically
+    opacity: 0.98
   },
   
   // Texture settings
