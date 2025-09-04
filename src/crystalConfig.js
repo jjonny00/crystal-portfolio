@@ -336,7 +336,7 @@ export const lighting = {
 
 // === ENVIRONMENT ===
 export const environment = {
-  hdri: "/assets/environment/prismatic09-low.hdr",
+  hdri: "/assets/environment/prismatic10-low.hdr",
   showBackground: true,
   rotation: [0, Math.PI * 0.5, 0]
 }

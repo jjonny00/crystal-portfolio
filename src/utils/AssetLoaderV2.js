@@ -77,9 +77,9 @@ export default class AssetLoaderV2 {
       'FacetLeadership': 'Leadership Facet',
       'FacetExploration': 'Exploration Facet',
       'quartz-normal07': 'Normal Map Texture',
-      'prismatic09-low': 'Environment (Low)',
-      'prismatic09-medium': 'Environment (Medium)',
-      'prismatic09-high': 'Environment (High)'
+      'prismatic10-low': 'Environment (Low)',
+      'prismatic10-medium': 'Environment (Medium)',
+      'prismatic10-high': 'Environment (High)'
     };
     
     return friendlyNames[name] || filename;

@@ -58,7 +58,7 @@ export const useAssetLoaderV2 = (performanceProfile) => {
     const hdriAssets = [{
       type: 'environment',
       key: 'hdri',
-      url: `/assets/environment/prismatic09-${hdriQuality}.hdr`,
+      url: `/assets/environment/prismatic10-${hdriQuality}.hdr`,
       name: `Environment (${hdriQuality})`
     }];
 
