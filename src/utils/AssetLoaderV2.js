@@ -258,7 +258,9 @@ export default class AssetLoaderV2 {
 
   // COMPLETELY REWRITTEN: Simple, reliable HDRI loading
   async loadHDRI(url, key) {
-    console.log(`🌍 Starting simple HDRI load: ${url}`);
+    if (import.meta.env.DEV) {
+      console.log(`🌍 Starting simple HDRI load: ${url}`);
+    }
     
     return new Promise((resolve, reject) => {
       // Use the THREE.js RGBELoader directly with its built-in loading
@@ -277,7 +279,9 @@ export default class AssetLoaderV2 {
         // Success callback
         (texture) => {
           clearTimeout(timeoutId);
-          console.log('🌍 HDRI loaded successfully');
+          if (import.meta.env.DEV) {
+            console.log('🌍 HDRI loaded successfully');
+          }
           
           // Configure texture
           texture.mapping = THREE.EquirectangularReflectionMapping;
