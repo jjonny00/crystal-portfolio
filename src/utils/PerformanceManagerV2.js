@@ -152,7 +152,7 @@ export default class PerformanceManagerV2 {
       results.medium = mediumResult;
 
       // Final thresholds derived from benchmark analysis
-      if (mediumResult.avgFps >= 70 && mediumResult.minFps >= 65) {
+      if (mediumResult.avgFps >= 60 && mediumResult.minFps >= 55) {
         // Medium was strong enough, attempt the high tier
         const highResult = await this._testTier('high', 50, 66, 512);
         results.high = highResult;
