@@ -243,6 +243,34 @@ export const detectDeviceCapabilities = () => {
     confidence = Math.max(confidence, 0.7);
   }
 
+  console.log('🔍 DEVICE DETECTION RESULTS:', {
+    suggestedTier,
+    confidence,
+    renderer: rendererLower,
+    vendor,
+    isMobile,
+    deviceMemory,
+    maxTextureSize,
+    matchedGPUPattern: {
+      blacklist: gpuBlacklist.find(g => rendererLower.includes(g)) || 'none',
+      highEndDesktop: highEndDesktopGPUs.find(g => rendererLower.includes(g)) || 'none',
+      midRange: midRangeGPUs.find(g => rendererLower.includes(g)) || 'none',
+      highEndMobile: highEndMobileGPUs.find(g => rendererLower.includes(g)) || 'none'
+    },
+    decisionFactors: {
+      memoryCheck: deviceMemory
+        ? (deviceMemory <= 2 ? 'LOW' : deviceMemory >= 4 ? 'OK' : 'MEDIUM')
+        : 'unknown',
+      textureCheck:
+        maxTextureSize >= 8192
+          ? 'HIGH'
+          : maxTextureSize >= 4096
+            ? 'MEDIUM'
+            : 'LOW',
+      gpuMatch: gpuBlacklist.some(g => rendererLower.includes(g)) ? 'BLACKLISTED' : 'OK'
+    }
+  });
+
   return {
     tier: suggestedTier,
     confidence,

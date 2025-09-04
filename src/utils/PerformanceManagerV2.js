@@ -143,16 +143,61 @@ export default class PerformanceManagerV2 {
     canvas.style.top = '-9999px';
     canvas.style.pointerEvents = 'none';
     document.body.appendChild(canvas);
+    const cached = this._getCachedResults();
+    console.log('🔍 PERFORMANCE TEST STARTING:', {
+      timestamp: Date.now(),
+      userAgent: navigator.userAgent,
+      hasCache: !!cached,
+      cacheValid: cached ? this._isCacheValid(cached) : false,
+      canvas: {
+        width: canvas.width,
+        height: canvas.height,
+        id: 'debug-test-canvas'
+      }
+    });
 
     const results = {};
 
     try {
       // Start with medium tier using a larger base resolution to stress hardware
+      console.log('🔍 STARTING MEDIUM TIER TEST');
       const mediumResult = await this._testTier('medium', 33, 50, 384);
       results.medium = mediumResult;
 
+      // ENHANCED: Detailed medium test results
+      console.log('🔍 MEDIUM TEST RESULTS:', {
+        avgFps: mediumResult.avgFps,
+        minFps: mediumResult.minFps,
+        maxFps: mediumResult.maxFps,
+        frameCount: mediumResult.frameCount,
+        samples: mediumResult.samples,
+        failedEarly: mediumResult.failedEarly,
+        testDuration: mediumResult.testDuration,
+        THRESHOLD_AVG: 50,
+        THRESHOLD_MIN: 45,
+        PASSES_THRESHOLD: mediumResult.avgFps >= 50 && mediumResult.minFps >= 45,
+        // Additional analysis
+        performanceGap: {
+          avgGap: mediumResult.avgFps - 50,
+          minGap: mediumResult.minFps - 45
+        },
+        verdict:
+          mediumResult.avgFps >= 50 && mediumResult.minFps >= 45
+            ? 'PASS'
+            : 'FAIL'
+      });
+
       // Final thresholds derived from benchmark analysis
       if (mediumResult.avgFps >= 50 && mediumResult.minFps >= 45) {
+        console.log('🔍 MEDIUM PASSED - ATTEMPTING HIGH TIER', {
+          decision: 'attempt_high_tier',
+          avgFps: mediumResult.avgFps,
+          minFps: mediumResult.minFps,
+          exceededBy: {
+            avg: mediumResult.avgFps - 50,
+            min: mediumResult.minFps - 45
+          }
+        });
         // Medium was strong enough, attempt the high tier
         const highResult = await this._testTier('high', 50, 66, 512);
         results.high = highResult;
@@ -171,11 +216,21 @@ export default class PerformanceManagerV2 {
         }
         // High failed or hardware not high-end, stay on medium
         return { tier: 'medium', testResults: results };
-      }
+      } else {
+        console.log('🔍 MEDIUM FAILED - ASSIGNING LOW TIER', {
+          decision: 'fallback_to_low',
+          avgFps: mediumResult.avgFps,
+          minFps: mediumResult.minFps,
+          shortfallBy: {
+            avg: 50 - mediumResult.avgFps,
+            min: 45 - mediumResult.minFps
+          },
+          reason: mediumResult.avgFps < 50 ? 'avg_fps_too_low' : 'min_fps_too_low'
+        });
 
-      // Medium test failed, drop directly to low tier
-      this._reportProgress(50, 'Medium tier insufficient, using low profile');
-      return { tier: 'low', testResults: results };
+        this._reportProgress(50, 'Medium tier insufficient, using low profile');
+        return { tier: 'low', testResults: results };
+      }
     } catch (error) {
       console.warn('Smart performance test failed:', error);
       return { tier: 'low', testResults: results };
@@ -315,6 +370,39 @@ export default class PerformanceManagerV2 {
         composer.addPass(new UnrealBloomPass(new THREE.Vector2(baseResolution, baseResolution), 0.6, 0.4, 0.85));
       }
 
+      // Scene complexity verification
+      let totalTriangles = 0;
+      scene.traverse((child) => {
+        if (child.isMesh && child.geometry) {
+          const positions = child.geometry.attributes.position;
+          if (positions) {
+            totalTriangles += positions.count / 3;
+          }
+        }
+      });
+
+      console.log('🔍 TEST SCENE VERIFICATION:', {
+        tier,
+        resolution: `${size}x${size}`,
+        renderScale: profile.renderScale,
+        pixelRatio: renderer.getPixelRatio(),
+        totalTriangles,
+        lightCount: scene.children.filter(child => child.isLight).length,
+        meshCount: scene.children.filter(child => child.isMesh).length,
+        hasPostProcessing: !!composer,
+        materialType: crystalMaterial.type,
+        materialProps: {
+          transparent: crystalMaterial.transparent,
+          transmission: crystalMaterial.transmission || 'N/A',
+          metalness: crystalMaterial.metalness,
+          roughness: crystalMaterial.roughness
+        },
+        rendererInfo: {
+          domElement: renderer.domElement.width + 'x' + renderer.domElement.height,
+          context: renderer.getContext().constructor.name
+        }
+      });
+
       const samples = [];
       const warmupDuration = 500; // Allow shader compilation
       let startTime = 0;
@@ -377,9 +465,23 @@ export default class PerformanceManagerV2 {
           } else {
             criticalLowFpsTime = 0;
           }
-          
+
           samples.push(currentFps);
           frameCount++;
+
+          // Sample every 100 frames for detailed logging
+          if (samples.length % 100 === 0) {
+            console.log('🔍 PERFORMANCE SAMPLE:', {
+              tier,
+              elapsed: Math.round(elapsed),
+              currentFps: Math.round(currentFps),
+              avgSoFar: Math.round(samples.reduce((a, b) => a + b, 0) / samples.length),
+              minSoFar: Math.round(Math.min(...samples)),
+              maxSoFar: Math.round(Math.max(...samples)),
+              sampleCount: samples.length,
+              criticalLowTime: criticalLowFpsTime
+            });
+          }
         }
 
         if (elapsed < testDuration) {
@@ -396,6 +498,28 @@ export default class PerformanceManagerV2 {
           const maxFps = sorted[maxIndex] ?? Math.max(...sorted);
 
           this._cleanup(composer, renderer, crystalMaterial, crystalGeometry);
+
+          console.log('🔍 FINAL TEST RESULTS:', {
+            tier,
+            finalStats: {
+              avgFps: Math.round(avgFps * 100) / 100,
+              minFps: Math.round(minFps * 100) / 100,
+              maxFps: Math.round(maxFps * 100) / 100,
+              frameCount,
+              samples: samples.length,
+              testDuration: Math.round(elapsed)
+            },
+            thresholdComparison: {
+              avgVsThreshold: `${Math.round(avgFps)} vs 50`,
+              minVsThreshold: `${Math.round(minFps)} vs 45`,
+              wouldPass: avgFps >= 50 && minFps >= 45
+            },
+            performance: {
+              consistency: Math.round((minFps / avgFps) * 100) + '%',
+              range: Math.round(maxFps - minFps) + ' fps',
+              stability: samples.filter(s => s >= avgFps * 0.8).length / samples.length
+            }
+          });
 
           resolve({
             tier,
@@ -481,6 +605,49 @@ export default class PerformanceManagerV2 {
 
     // Re-run initialization and ignore any leftover cache
     return this.initialize({ forceRetest: true });
+  }
+
+  async debugForceCleanTest() {
+    console.log('🔍 FORCING COMPLETELY CLEAN TEST');
+
+    // Clear all cache
+    this.clearCache();
+
+    // Reset internal state
+    this._ready = false;
+    this._initialized = false;
+    this._initPromise = null;
+    this._testResults = null;
+    this.tier = 'low';
+    this.profile = { ...PERFORMANCE_PROFILES.low };
+
+    // Run fresh test
+    return this.initialize({ forceRetest: true });
+  }
+
+  debugWebGLInfo() {
+    const canvas = document.createElement('canvas');
+    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+
+    if (!gl) {
+      console.log('🔍 WebGL not available');
+      return null;
+    }
+
+    const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+    const info = {
+      renderer: debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : 'Unknown',
+      vendor: debugInfo ? gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) : 'Unknown',
+      version: gl.getParameter(gl.VERSION),
+      glslVersion: gl.getParameter(gl.SHADING_LANGUAGE_VERSION),
+      maxTextureSize: gl.getParameter(gl.MAX_TEXTURE_SIZE),
+      maxRenderBufferSize: gl.getParameter(gl.MAX_RENDERBUFFER_SIZE),
+      maxViewportDims: gl.getParameter(gl.MAX_VIEWPORT_DIMS),
+      extensions: gl.getSupportedExtensions()?.length || 0
+    };
+
+    console.log('🔍 WebGL Info:', info);
+    return info;
   }
 
   clearCache() {

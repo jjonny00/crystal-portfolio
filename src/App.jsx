@@ -194,6 +194,41 @@ function App() {
   // Detect if mobile
   const isMobile = isMobileDevice();
 
+  useEffect(() => {
+    // Expose debug functions to window for manual testing
+    if (import.meta.env.DEV) {
+      window.debugPerformance = {
+        clearCache: () => {
+          localStorage.removeItem('crystal-performance-config-v2');
+          localStorage.removeItem('crystal-performance-version-v2');
+          console.log('🔍 Cache cleared manually');
+        },
+
+        getWebGLInfo: () => {
+          const canvas = document.createElement('canvas');
+          const gl = canvas.getContext('webgl');
+          const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+          console.log('WebGL Renderer:', gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL));
+          console.log('WebGL Vendor:', gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL));
+        },
+
+        forceRetest: async () => {
+          if (window.performanceManager) {
+            console.log('🔍 Forcing clean test...');
+            await window.performanceManager.debugForceCleanTest();
+          } else {
+            console.log('❌ Performance manager not available on window');
+          }
+        }
+      };
+
+      // Also expose the performance manager if available
+      if (performanceReady && forceRetest) {
+        window.performanceManager = { debugForceCleanTest: forceRetest };
+      }
+    }
+  }, [performanceReady, forceRetest]);
+
   // ========================================
   // UPDATED: App ready detection with V2 system
   // ========================================
