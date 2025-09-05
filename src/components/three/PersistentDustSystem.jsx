@@ -53,7 +53,7 @@ const PersistentDustSystem = ({
   const timeRef = useRef(0);
 
   const { size } = useThree();
-  const { px, dpr } = usePxToWorld();
+  const { px } = usePxToWorld();
   
   // Load the particle texture
   const particleTexture = useTexture('/assets/textures/particle-dust05.png');
@@ -193,7 +193,7 @@ const PersistentDustSystem = ({
         uIridescenceVariation: { value: iridescenceVariation },
         uShimmerIntensity: { value: shimmerIntensity },
         uPx: { value: px(1) },
-        uScale: { value: (size.height * dpr) / 2 }
+        uScale: { value: size.height / 2 }
       },
       vertexShader: `
         attribute float size;
@@ -358,7 +358,6 @@ const PersistentDustSystem = ({
     enableFrustumCulling,
     maxDistance,
     px,
-    dpr,
     size.height
   ]);
 
@@ -369,7 +368,7 @@ const PersistentDustSystem = ({
     if (material.uniforms) {
       material.uniforms.uTime.value = timeRef.current;
       material.uniforms.uPx.value = px(1);
-      material.uniforms.uScale.value = (state.size.height * state.gl.getPixelRatio()) / 2;
+      material.uniforms.uScale.value = state.size.height / 2;
     }
     
     const positions = geometry.attributes.position.array;

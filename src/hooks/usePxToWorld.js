@@ -11,10 +11,13 @@ export function usePxToWorld() {
   const { size, viewport, gl } = useThree();
   const dpr = gl.getPixelRatio();
 
+  // Normalize height to CSS pixels so world-per-pixel is DPR-proof
+  const cssHeight = size.height / dpr;
+
   // world units per 1 CSS pixel at Z=0
   const worldPerPx = useMemo(
-    () => viewport.height / size.height,
-    [viewport.height, size.height]
+    () => viewport.height / cssHeight,
+    [viewport.height, cssHeight]
   );
 
   const px = (n) => n * worldPerPx;            // CSS px → world units
