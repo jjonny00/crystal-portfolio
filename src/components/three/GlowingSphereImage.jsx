@@ -3,8 +3,8 @@
 
 import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { useTexture } from '@react-three/drei';
 import * as THREE from 'three';
+import { getGlowingSphereTexture } from '../../loader/preloadFractureAssets';
 
 /**
  * BLENDING MODE OPTIONS for Three.js materials
@@ -27,9 +27,6 @@ export const BLENDING_MODES = {
  * Enhanced Plane-Based Sphere with Anti-Banding Support
  */
 const GlowingSphereImage = ({
-  // Image path
-  imagePath = '/assets/textures/glowing-sphere06-noise.jpg',
-  
   // Size settings
   baseSize = 0.5,
   maxScale = 2.0,
@@ -68,9 +65,8 @@ const GlowingSphereImage = ({
   const [isExploding, setIsExploding] = useState(false);
   const [startTime, setStartTime] = useState(0);
   const lastCrystalForm = useRef('whole');
-  
-  // Load texture once with enhanced settings
-  const texture = useTexture(imagePath);
+
+  const texture = getGlowingSphereTexture();
   
   // ENHANCED: Configure texture with anti-banding settings
   useEffect(() => {
@@ -112,12 +108,11 @@ const GlowingSphereImage = ({
         if (import.meta.env.DEV) console.log('🌟 Enhanced sphere texture loaded:', {
           filtering: textureFiltering,
           anisotropy: texture.anisotropy,
-          colorSpace: texture.colorSpace,
-          imagePath
+          colorSpace: texture.colorSpace
         });
       }
     }
-  }, [texture, textureFiltering, imagePath, debugMode]);
+  }, [texture, textureFiltering, debugMode]);
   
   // Create geometry with higher tessellation for smoother appearance
   const geometry = useMemo(() => {
@@ -208,7 +203,7 @@ const GlowingSphereImage = ({
     }
   });
   
-  if (!visible || simplifiedAnimations) return null;
+  if (!visible || simplifiedAnimations || !texture) return null;
   
   return (
     <mesh
