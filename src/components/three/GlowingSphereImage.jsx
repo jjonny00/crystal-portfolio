@@ -5,6 +5,7 @@ import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { getGlowingSphereTexture } from '../../loader/preloadFractureAssets';
+import { usePxToWorld } from '../../hooks/usePxToWorld';
 
 /**
  * BLENDING MODE OPTIONS for Three.js materials
@@ -28,8 +29,8 @@ export const BLENDING_MODES = {
  */
 const GlowingSphereImage = ({
   // Size settings
-  baseSize = 0.5,
-  maxScale = 2.0,
+  baseSize = 256,
+  maxScale = 512,
   
   // Animation timing
   explosionDuration = 1.6,
@@ -67,6 +68,7 @@ const GlowingSphereImage = ({
   const lastCrystalForm = useRef('whole');
 
   const texture = getGlowingSphereTexture();
+  const { px } = usePxToWorld();
   
   // ENHANCED: Configure texture with anti-banding settings
   useEffect(() => {
@@ -175,6 +177,13 @@ const GlowingSphereImage = ({
   }, [animationData?.crystalForm, debugMode]);
   
   // Animation loop
+  const baseWorldSize = px(baseSize);
+  const maxWorldSize = px(maxScale);
+
+  useEffect(() => {
+    meshRef.current?.scale.setScalar(baseWorldSize);
+  }, [baseWorldSize]);
+
   useFrame((state, deltaTime) => {
     if (!meshRef.current || !visible) return;
 
@@ -186,9 +195,9 @@ const GlowingSphereImage = ({
       const explosionProgress = Math.min(elapsed / explosionDuration, 1);
       const fadeProgress = Math.min(elapsed / fadeInDuration, 1);
       
-      const scale = baseSize + (maxScale - baseSize) * explosionProgress;
+      const scale = baseWorldSize + (maxWorldSize - baseWorldSize) * explosionProgress;
       const opacity = fadeProgress;
-      
+
       meshRef.current.scale.setScalar(scale);
       material.opacity = opacity;
       
@@ -197,7 +206,7 @@ const GlowingSphereImage = ({
       if (currentOpacity > 0) {
         material.opacity = Math.max(0, currentOpacity - 0.05 * deltaTime * 60);
         if (material.opacity <= 0) {
-          meshRef.current.scale.setScalar(baseSize);
+          meshRef.current.scale.setScalar(baseWorldSize);
         }
       }
     }
@@ -211,7 +220,7 @@ const GlowingSphereImage = ({
       geometry={geometry}
       material={material}
       position={position}
-      scale={[baseSize, baseSize, baseSize]}
+      scale={[baseWorldSize, baseWorldSize, baseWorldSize]}
       renderOrder={999} // Render after other objects to avoid z-fighting
     />
   );
