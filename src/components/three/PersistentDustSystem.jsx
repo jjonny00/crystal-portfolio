@@ -1,8 +1,9 @@
 // src/components/three/PersistentDustSystem.jsx
 import React, { useMemo, useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import { useTexture } from '@react-three/drei';
 import * as THREE from 'three';
+import { usePxToWorld } from '../../hooks/usePxToWorld';
 
 /**
  * Enhanced Ember System with iridescent shimmer, spiral vortex motion, and directional rotation
@@ -23,7 +24,7 @@ const PersistentDustSystem = ({
   driftSpeed = 0.5,
   fadeStart = 0.3,
   fadeEnd = 1.8,
-  baseSize = 0.2,
+  baseSize = 6,
   sizeVariation = 8.0,
   color = '#ff6b35',
   emissiveIntensity = 1.0,
@@ -50,6 +51,9 @@ const PersistentDustSystem = ({
   }
   const particlesRef = useRef();
   const timeRef = useRef(0);
+
+  const { size } = useThree();
+  const { px, dpr } = usePxToWorld();
   
   // Load the particle texture
   const particleTexture = useTexture('/assets/textures/particle-dust05.png');
@@ -187,7 +191,9 @@ const PersistentDustSystem = ({
         // FIXED: Simplified iridescence uniforms
         uIridescenceStrength: { value: iridescenceStrength },
         uIridescenceVariation: { value: iridescenceVariation },
-        uShimmerIntensity: { value: shimmerIntensity }
+        uShimmerIntensity: { value: shimmerIntensity },
+        uPx: { value: px(1) },
+        uScale: { value: (size.height * dpr) / 2 }
       },
       vertexShader: `
         attribute float size;
@@ -195,6 +201,8 @@ const PersistentDustSystem = ({
         attribute float rotation;
         attribute float iridescenceHue;
         attribute float shimmerPhase;
+        uniform float uPx;
+        uniform float uScale;
         
         varying vec3 vColor;
         varying float vAlpha;
@@ -220,7 +228,7 @@ const PersistentDustSystem = ({
           vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
           vViewPosition = mvPosition.xyz;
           
-          gl_PointSize = size * (300.0 / -mvPosition.z);
+          gl_PointSize = size * uPx * (uScale / -mvPosition.z);
           gl_Position = projectionMatrix * mvPosition;
         }
       `,
@@ -325,18 +333,18 @@ const PersistentDustSystem = ({
       particleData: data
     };
   }, [
-    count, 
-    emissionRadius, 
+    count,
+    emissionRadius,
     emissionInnerRadius,
     emissionHeight,
-    baseRiseSpeed, 
-    spiralStrength, 
-    baseSize, 
-    sizeVariation, 
-    driftSpeed, 
-    color, 
-    emissiveIntensity, 
-    blending, 
+    baseRiseSpeed,
+    spiralStrength,
+    baseSize,
+    sizeVariation,
+    driftSpeed,
+    color,
+    emissiveIntensity,
+    blending,
     particleTexture,
     turbulenceStrength,
     minLifetime,
@@ -348,15 +356,20 @@ const PersistentDustSystem = ({
     rotationSmoothing,
     maxRotationAngle,
     enableFrustumCulling,
-    maxDistance
+    maxDistance,
+    px,
+    dpr,
+    size.height
   ]);
 
   // Animation loop
   useFrame((state, deltaTime) => {
     timeRef.current += deltaTime;
-    
+
     if (material.uniforms) {
       material.uniforms.uTime.value = timeRef.current;
+      material.uniforms.uPx.value = px(1);
+      material.uniforms.uScale.value = (state.size.height * state.gl.getPixelRatio()) / 2;
     }
     
     const positions = geometry.attributes.position.array;
