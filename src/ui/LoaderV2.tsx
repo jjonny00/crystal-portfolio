@@ -34,9 +34,9 @@ const LoaderV2: React.FC<LoaderProps> = ({
     size / 2 - (stroke * 5) / 2
   ];
 
-  const [outer, setOuter] = useState(0);
-  const [middle, setMiddle] = useState(0);
-  const [inner, setInner] = useState(0);
+  const [outer, setOuter] = useState(() => clamp(initProgress) * 100);
+  const [middle, setMiddle] = useState(() => clamp(assetProgress) * 100);
+  const [inner, setInner] = useState(() => clamp(testProgress) * 100);
 
   useEffect(() => {
     if (exiting) {
@@ -73,42 +73,44 @@ const LoaderV2: React.FC<LoaderProps> = ({
           className={styles.svg}
           viewBox={`-${size / 2} -${size / 2} ${size} ${size}`}
         >
-          {radii.map((r, i) => (
-            <circle
-              key={`track-${i}`}
-              className={styles.track}
-              cx={0}
-              cy={0}
-              r={r}
-              fill="none"
-              stroke="var(--ringTrack)"
-              strokeWidth={stroke}
-            />
-          ))}
-
-          {[
-            { r: radii[0], color: 'var(--ring1)', progress: outer },
-            { r: radii[1], color: 'var(--ring2)', progress: middle },
-            { r: radii[2], color: 'var(--ring3)', progress: inner }
-          ].map((ring, i) => {
-            const circumference = 2 * Math.PI * ring.r;
-            const offset = circumference * (1 - ring.progress / 100);
-            return (
+          <g transform="rotate(90 0 0)">
+            {radii.map((r, i) => (
               <circle
-                key={`progress-${i}`}
-                className={`${styles.progress} ${exiting ? styles.complete : ''}`}
+                key={`track-${i}`}
+                className={styles.track}
                 cx={0}
                 cy={0}
-                r={ring.r}
+                r={r}
                 fill="none"
-                stroke={ring.color}
+                stroke="var(--ringTrack)"
                 strokeWidth={stroke}
-                strokeDasharray={circumference}
-                strokeDashoffset={offset}
-                strokeLinecap="round"
               />
-            );
-          })}
+            ))}
+
+            {[
+              { r: radii[0], color: 'var(--ring1)', progress: outer },
+              { r: radii[1], color: 'var(--ring2)', progress: middle },
+              { r: radii[2], color: 'var(--ring3)', progress: inner }
+            ].map((ring, i) => {
+              const circumference = 2 * Math.PI * ring.r;
+              const offset = circumference * (1 - ring.progress / 100);
+              return (
+                <circle
+                  key={`progress-${i}`}
+                  className={`${styles.progress} ${exiting ? styles.complete : ''}`}
+                  cx={0}
+                  cy={0}
+                  r={ring.r}
+                  fill="none"
+                  stroke={ring.color}
+                  strokeWidth={stroke}
+                  strokeDasharray={circumference}
+                  strokeDashoffset={offset}
+                  strokeLinecap="round"
+                />
+              );
+            })}
+          </g>
 
           <g style={{ transform: 'scale(var(--diamond-scale,1))' }}>
             <image

@@ -404,13 +404,17 @@ function App() {
   // UPDATED: Determine loader message and early return before app mounts
   let statusMessage = '';
   if (initProgress < 100) {
-    statusMessage = 'Initializing application...';
+    statusMessage = 'Initializing...';
   } else if (!performanceReady) {
-    statusMessage = testStatus || 'Testing performance...';
+    statusMessage = 'Optimizing for your device...';
   } else if (!assetsReady) {
-    statusMessage = currentAsset || 'Loading assets...';
+    if (currentAsset && /loaded|failed|timed out/i.test(currentAsset)) {
+      statusMessage = 'Loading assets...';
+    } else {
+      statusMessage = currentAsset || 'Loading assets...';
+    }
   } else {
-    statusMessage = 'Finalizing...';
+    statusMessage = 'Finishing up...';
   }
 
   if (!isAppReady && !exitLoader) {

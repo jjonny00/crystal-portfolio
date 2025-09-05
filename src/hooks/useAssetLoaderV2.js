@@ -83,25 +83,29 @@ export const useAssetLoaderV2 = (performanceProfile) => {
   const handleProgress = useCallback((progressData) => {
     const { type, progress, currentAsset, loaded, total } = progressData;
 
-    // Calculate overall progress based on asset completion
+    const stats = assetLoaderRef.current?.getLoadingStats();
     let overallProgress = 0;
-    if (assetLoaderRef.current) {
-      const stats = assetLoaderRef.current.getLoadingStats();
-      overallProgress = stats.progress;
+
+    if (['gltf_download', 'texture_download', 'hdri_download'].includes(type) && stats) {
+      const completedCount = stats.loaded;
+      if (progressData.total) {
+        const fraction = progressData.loaded / progressData.total;
+        overallProgress = ((completedCount + fraction) / stats.total) * 100;
+      } else {
+        overallProgress = stats.progress || progress || 0;
+      }
     } else {
-      overallProgress = progress || 0;
+      overallProgress = stats?.progress || progress || 0;
     }
 
-    // Update state with real progress
     setLoadingState(prev => ({
       ...prev,
       progress: Math.round(overallProgress),
       currentAsset: currentAsset || prev.currentAsset,
-      loadedAssets: assetLoaderRef.current?.getLoadingStats().loaded || prev.loadedAssets,
+      loadedAssets: stats?.loaded || prev.loadedAssets,
       phase: overallProgress >= 100 ? 'ready' : 'loading'
     }));
 
-    // Update global HTML loader immediately
     window.updateImmediateLoader?.({
       assets: overallProgress,
       phase: 'Loading Assets',
