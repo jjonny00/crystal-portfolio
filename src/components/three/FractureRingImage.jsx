@@ -1,8 +1,8 @@
 import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { useTexture } from '@react-three/drei';
 import * as THREE from 'three';
 import { BLENDING_MODES } from './GlowingSphereImage';
+import { getFractureRingTexture } from '../../loader/preloadFractureAssets';
 
 /**
  * Enhanced Fracture Ring Image with tweakable parameters
@@ -10,8 +10,6 @@ import { BLENDING_MODES } from './GlowingSphereImage';
  * Black in the texture becomes transparent via additive blending.
  */
 const FractureRingImage = ({
-  imagePath = '/assets/textures/fractureRing02.jpg',
-  
   // SCALE PARAMETERS - Easy to tweak!
   baseSize = 0.5,        // Starting size of the ring
   maxScale = 24,         // Maximum scale the ring reaches
@@ -44,22 +42,7 @@ const FractureRingImage = ({
   const [delayTimer, setDelayTimer] = useState(null);
   const lastForm = useRef('whole');
 
-  const texture = useTexture(imagePath);
-
-  // Configure texture
-  useEffect(() => {
-    if (texture) {
-      texture.minFilter = THREE.LinearFilter;
-      texture.magFilter = THREE.LinearFilter;
-      texture.anisotropy = Math.min(4, texture.renderer?.capabilities?.getMaxAnisotropy?.() || 1);
-      texture.generateMipmaps = false;
-      texture.colorSpace = THREE.SRGBColorSpace;
-      texture.wrapS = THREE.ClampToEdgeWrapping;
-      texture.wrapT = THREE.ClampToEdgeWrapping;
-      texture.flipY = false;
-      texture.needsUpdate = true;
-    }
-  }, [texture]);
+  const texture = getFractureRingTexture();
 
   const material = useMemo(() => new THREE.MeshBasicMaterial({
     map: texture,
@@ -204,7 +187,7 @@ const FractureRingImage = ({
     };
   }, [delayTimer]);
 
-  if (!visible || simplifiedAnimations) return null;
+  if (!visible || simplifiedAnimations || !texture) return null;
 
   return (
     <mesh

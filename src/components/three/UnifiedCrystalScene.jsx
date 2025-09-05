@@ -988,35 +988,30 @@ const UnifiedCrystalScene = forwardRef(({
       />
 
       {/* Fracture expanding ring */}
-      {ringVisible && !simplifiedAnimations && (
-        <FractureRingImage
-          {...config.fracture.image}
-          visible={ringVisible}
-          animationData={animationData}
-          simplifiedAnimations={simplifiedAnimations}
-          debugMode={import.meta.env.DEV}
-        />
-      )}
+      <FractureRingImage
+        {...config.fracture.image}
+        visible={ringVisible}
+        animationData={animationData}
+        simplifiedAnimations={simplifiedAnimations}
+        debugMode={import.meta.env.DEV}
+      />
 
       {/* Enhanced Glowing Sphere */}
-      {sphereVisible && !simplifiedAnimations && (
-        <GlowingSphereImage
-          imagePath="/assets/textures/glowing-sphere06-noise.jpg"
-          blendingMode={BLENDING_MODES.ADDITIVE}
-          enableDithering={true}
-          enableAntialiasing={true}
-          textureFiltering="enhanced"
-          baseSize={0.2}
-          maxScale={1.0}
-          explosionDuration={0.05}
-          fadeInDuration={0.02}
-          position={[0, 0, 0]}
-          visible={sphereVisible}
-          animationData={animationData}
-          simplifiedAnimations={simplifiedAnimations}
-          debugMode={import.meta.env.DEV}
-        />
-      )}
+      <GlowingSphereImage
+        blendingMode={BLENDING_MODES.ADDITIVE}
+        enableDithering={true}
+        enableAntialiasing={true}
+        textureFiltering="enhanced"
+        baseSize={0.2}
+        maxScale={1.0}
+        explosionDuration={0.05}
+        fadeInDuration={0.02}
+        position={[0, 0, 0]}
+        visible={sphereVisible}
+        animationData={animationData}
+        simplifiedAnimations={simplifiedAnimations}
+        debugMode={import.meta.env.DEV}
+      />
 
       {!simplifiedAnimations && (
         <FractureBurstParticles
