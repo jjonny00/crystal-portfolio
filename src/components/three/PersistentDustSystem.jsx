@@ -23,8 +23,10 @@ const PersistentDustSystem = ({
   driftSpeed = 0.5,
   fadeStart = 0.3,
   fadeEnd = 1.8,
-  baseSize = 0.2,
-  sizeVariation = 8.0,
+  // Increased default base size to restore ~6px particle rendering
+  baseSize = 0.4,
+  // Reduced variation to compensate for larger base size
+  sizeVariation = 3.5,
   color = '#ff6b35',
   emissiveIntensity = 1.0,
   blending = THREE.AdditiveBlending,
