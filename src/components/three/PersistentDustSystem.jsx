@@ -5,6 +5,45 @@ import { useTexture } from '@react-three/drei';
 import * as THREE from 'three';
 import { usePxToWorld } from '../../hooks/usePxToWorld';
 
+export const CRYSTAL_EMBER_PRESET = {
+  // Emission - start below crystal base
+  emissionHeight: -1.5,
+  emissionRadius: 1.2,
+  emissionInnerRadius: 0.3,
+
+  // Movement - rise around crystal over 3-5 seconds  
+  riseHeight: 3.5,
+  baseRiseSpeed: 0.7,
+
+  // Vortex motion
+  spiralStrength: 0.8,
+  spiralRadius: 0.8,
+  spiralSpeed: 0.004,
+
+  // Turbulence for ember-like movement
+  turbulenceStrength: 0.3,
+  turbulenceSpeed: 0.6,
+
+  // Particle lifecycle
+  minLifetime: 3.0,
+  maxLifetime: 5.0,
+  fadeStart: 0.6,
+  fadeEnd: 1.0,
+
+  // Size appropriate for crystal scale
+  baseSize: 8,
+  sizeVariation: 3.0,
+
+  // Never cull - always visible
+  maxDistance: 50,
+  enableFrustumCulling: false,
+
+  // Ember appearance
+  color: '#ff6b35',
+  emissiveIntensity: 1.2,
+  count: 12
+};
+
 /**
  * Enhanced Ember System with iridescent shimmer, spiral vortex motion, and directional rotation
  * FIXED: Ring/donut emission pattern and static iridescence

@@ -11,7 +11,7 @@ import * as THREE from 'three';
 // FIXED: Import enhanced camera controller from correct path
 import UnifiedCameraController from '../three/UnifiedCameraController';
 import UnifiedCrystalScene from '../three/UnifiedCrystalScene';
-import PersistentDustSystem from '../three/PersistentDustSystem';
+import PersistentDustSystem, { CRYSTAL_EMBER_PRESET } from '../three/PersistentDustSystem';
 import { FPSCounter } from '../ui/FpsDisplay';
 
 // ADDED: Import the debug panels component
@@ -215,7 +215,11 @@ const Fixed3DCanvas = forwardRef(({
 
           {/* Persistent Dust System */}
           {dustEnabled && (
-            <PersistentDustSystem count={particleCount} enabled={dustEnabled} />
+            <PersistentDustSystem
+              enabled={dustEnabled}
+              {...CRYSTAL_EMBER_PRESET}
+              count={particleCount ?? CRYSTAL_EMBER_PRESET.count}
+            />
           )}
           
           {/* UPDATED: Enhanced lighting setup with bottom directional light */}
