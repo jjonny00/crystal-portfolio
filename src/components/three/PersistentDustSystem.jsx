@@ -22,10 +22,10 @@ const PersistentDustSystem = ({
   spiralRadius = 1.2,
   spiralSpeed = 0.003,
   driftSpeed = 0.5,
-  fadeStart = 0.9,
+  fadeStart = 0.97,
   fadeEnd = 1.0,
-  baseSize = 10,
-  sizeVariation = 6.0,
+  baseSize = 20,
+  sizeVariation = 4.0,
   color = '#ff6b35',
   emissiveIntensity = 1.0,
   blending = THREE.AdditiveBlending,
@@ -508,20 +508,28 @@ const PersistentDustSystem = ({
           rotations[i] = particle.rotation;
         }
         
-        // Update color fade (bright to dim)
-        const heightProgress = Math.max(0, Math.min(1, (turbulentY - emissionHeight) / riseHeight));
-        const fadeProgress = Math.max(0, Math.min(1, (heightProgress - fadeStart) / (fadeEnd - fadeStart)));
+        // Update color fade (bright to dim) based on vertical progress
+        const heightProgress = THREE.MathUtils.clamp(
+          (particle.position.y - emissionHeight) / riseHeight,
+          0,
+          1
+        );
+        const fadeProgress = THREE.MathUtils.clamp(
+          (heightProgress - fadeStart) / (fadeEnd - fadeStart),
+          0,
+          1
+        );
         const brightness = 1.0 - fadeProgress;
-        
+
         // Base ember color (will be modified by iridescence in shader)
         const emberStart = new THREE.Color(color);
         const emberEnd = new THREE.Color('#330000');
         const currentColor = emberStart.clone().lerp(emberEnd, fadeProgress);
-        
+
         colors[i3] = currentColor.r * brightness;
         colors[i3 + 1] = currentColor.g * brightness;
         colors[i3 + 2] = currentColor.b * brightness;
-        
+
         // Update alpha with fade
         alphas[i] = brightness;
         
