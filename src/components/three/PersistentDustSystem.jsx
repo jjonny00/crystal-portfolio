@@ -1,6 +1,6 @@
 // src/components/three/PersistentDustSystem.jsx
 import React, { useMemo, useRef } from 'react';
-import { useFrame, useThree } from '@react-three/fiber';
+import { useFrame } from '@react-three/fiber';
 import { useTexture } from '@react-three/drei';
 import * as THREE from 'three';
 import { usePxToWorld } from '../../hooks/usePxToWorld';
@@ -19,7 +19,6 @@ const PersistentDustSystem = ({
   riseHeight = 23.0,
   baseRiseSpeed = 0.01,
   spiralStrength = 0.5,
-  spiralRadius = 1.2,
   spiralSpeed = 0.003,
   driftSpeed = 0.5,
   fadeStart = 0.3,
@@ -46,14 +45,10 @@ const PersistentDustSystem = ({
   enableFrustumCulling = false, // Keep particles alive even when emitter is off-screen
   maxDistance = 100             // Maximum distance from origin before culling particles
 }) => {
-  if (!enabled) {
-    return null;
-  }
   const particlesRef = useRef();
   const timeRef = useRef(0);
 
-  const { size } = useThree();
-  const { px, dpr } = usePxToWorld();
+  const { px } = usePxToWorld();
   
   // Load the particle texture
   const particleTexture = useTexture('/assets/textures/particle-dust05.png');
@@ -73,6 +68,9 @@ const PersistentDustSystem = ({
 
   // Initialize particle system
   const { geometry, material, particleData } = useMemo(() => {
+    if (!enabled) {
+      return { geometry: null, material: null, particleData: [] };
+    }
     const positions = new Float32Array(count * 3);
     const velocities = new Float32Array(count * 3);
     const sizes = new Float32Array(count);
@@ -192,8 +190,10 @@ const PersistentDustSystem = ({
         uIridescenceStrength: { value: iridescenceStrength },
         uIridescenceVariation: { value: iridescenceVariation },
         uShimmerIntensity: { value: shimmerIntensity },
-        uPx: { value: px(1) },
-        uScale: { value: (size.height * dpr) / 2 }
+        // Viewport-dependent uniforms are initialized with default values and
+        // updated each frame in the animation loop.
+        uPx: { value: 1 },
+        uScale: { value: 1 }
       },
       vertexShader: `
         attribute float size;
@@ -333,12 +333,12 @@ const PersistentDustSystem = ({
       particleData: data
     };
   }, [
+    enabled,
     count,
     emissionRadius,
     emissionInnerRadius,
     emissionHeight,
     baseRiseSpeed,
-    spiralStrength,
     baseSize,
     sizeVariation,
     driftSpeed,
@@ -351,27 +351,19 @@ const PersistentDustSystem = ({
     maxLifetime,
     iridescenceStrength,
     iridescenceVariation,
-    shimmerIntensity,
-    enableRotation,
-    rotationSmoothing,
-    maxRotationAngle,
-    enableFrustumCulling,
-    maxDistance,
-    px,
-    dpr,
-    size.height
+    shimmerIntensity
   ]);
 
   // Animation loop
   useFrame((state, deltaTime) => {
+    if (!enabled || !material || !geometry) return;
+
     timeRef.current += deltaTime;
 
-    if (material.uniforms) {
-      material.uniforms.uTime.value = timeRef.current;
-      material.uniforms.uPx.value = px(1);
-      material.uniforms.uScale.value = (state.size.height * state.gl.getPixelRatio()) / 2;
-    }
-    
+    material.uniforms.uTime.value = timeRef.current;
+    material.uniforms.uPx.value = px(1);
+    material.uniforms.uScale.value = (state.size.height * state.gl.getPixelRatio()) / 2;
+
     const positions = geometry.attributes.position.array;
     const colors = geometry.attributes.color.array;
     const alphas = geometry.attributes.alpha.array;
@@ -542,10 +534,14 @@ const PersistentDustSystem = ({
     // Note: iridescence attributes are static so they don't need updating every frame
   });
 
+  if (!enabled || !geometry || !material) {
+    return null;
+  }
+
   return (
-    <points 
-      ref={particlesRef} 
-      geometry={geometry} 
+    <points
+      ref={particlesRef}
+      geometry={geometry}
       material={material}
       // Disable frustum culling to keep particles alive when emitter goes off-screen
       frustumCulled={enableFrustumCulling}
