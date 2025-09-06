@@ -508,14 +508,9 @@ const PersistentDustSystem = ({
           rotations[i] = particle.rotation;
         }
         
-        // Update color fade (bright to dim) based on vertical progress
-        const heightProgress = THREE.MathUtils.clamp(
-          (particle.position.y - emissionHeight) / riseHeight,
-          0,
-          1
-        );
+        // Update color fade (bright to dim) based on lifetime progress
         const fadeProgress = THREE.MathUtils.clamp(
-          (heightProgress - fadeStart) / (fadeEnd - fadeStart),
+          (lifeProgress - fadeStart) / (fadeEnd - fadeStart),
           0,
           1
         );
