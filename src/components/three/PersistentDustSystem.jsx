@@ -15,9 +15,9 @@ const PersistentDustSystem = ({
   enabled = true,
   emissionRadius = 5.5,
   emissionInnerRadius = 1.0,  // NEW: Inner radius for ring/donut shape
-  emissionHeight = -4.0,
-  riseHeight = 23.0,
-  baseRiseSpeed = 0.01,
+  emissionHeight = -2.0,
+  riseHeight = 4.0,
+  baseRiseSpeed = 0.8,
   spiralStrength = 0.5,
   spiralRadius = 1.2,
   spiralSpeed = 0.003,
@@ -32,8 +32,8 @@ const PersistentDustSystem = ({
   turbulenceStrength = 0.5,
   turbulenceSpeed = 0.5,
   respawnDelay = 0.5,
-  minLifetime = 5.0,
-  maxLifetime = 10.0,
+  minLifetime = 3.0,
+  maxLifetime = 5.0,
   // NEW: Improved iridescence parameters
   iridescenceStrength = 0.8,
   iridescenceVariation = 0.3,  // How much each particle varies
@@ -44,7 +44,7 @@ const PersistentDustSystem = ({
   maxRotationAngle = Math.PI / 4, // Maximum rotation angle (45 degrees = Math.PI/4) - both directions
   // NEW: Persistence parameters
   enableFrustumCulling = false, // Keep particles alive even when emitter is off-screen
-  maxDistance = 100             // Maximum distance from origin before culling particles
+  maxDistance = 10              // Maximum distance from origin before culling particles
 }) => {
   if (!enabled) {
     return null;
