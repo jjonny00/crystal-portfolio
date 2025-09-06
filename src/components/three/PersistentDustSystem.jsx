@@ -450,7 +450,7 @@ const PersistentDustSystem = ({
         
         // Update position with unified vortex motion
         const lifeProgress = particle.age / particle.lifetime;
-        const height = lifeProgress * riseHeight * 0.3;
+        const height = lifeProgress * riseHeight;
         
         // FIXED: Calculate base angle from particle's starting position for unified vortex
         const baseAngle = Math.atan2(particle.basePosition.z, particle.basePosition.x);
@@ -509,7 +509,8 @@ const PersistentDustSystem = ({
         }
         
         // Update color fade (bright to dim)
-        const fadeProgress = Math.max(0, Math.min(1, (lifeProgress - fadeStart) / (fadeEnd - fadeStart)));
+        const heightProgress = Math.max(0, Math.min(1, (turbulentY - emissionHeight) / riseHeight));
+        const fadeProgress = Math.max(0, Math.min(1, (heightProgress - fadeStart) / (fadeEnd - fadeStart)));
         const brightness = 1.0 - fadeProgress;
         
         // Base ember color (will be modified by iridescence in shader)
