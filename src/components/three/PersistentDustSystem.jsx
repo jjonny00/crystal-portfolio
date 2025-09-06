@@ -22,10 +22,10 @@ const PersistentDustSystem = ({
   spiralRadius = 1.2,
   spiralSpeed = 0.003,
   driftSpeed = 0.5,
-  fadeStart = 0.3,
-  fadeEnd = 1.8,
-  baseSize = 6,
-  sizeVariation = 8.0,
+  fadeStart = 0.9,
+  fadeEnd = 1.0,
+  baseSize = 10,
+  sizeVariation = 6.0,
   color = '#ff6b35',
   emissiveIntensity = 1.0,
   blending = THREE.AdditiveBlending,
@@ -522,7 +522,7 @@ const PersistentDustSystem = ({
         colors[i3 + 2] = currentColor.b * brightness;
         
         // Update alpha with fade
-        alphas[i] = brightness * (1.0 - lifeProgress * 0.7);
+        alphas[i] = brightness;
         
         // Update size (embers shrink as they burn out)
         const sizeMultiplier = 1.0 - lifeProgress * 0.6;
