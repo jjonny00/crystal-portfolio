@@ -24,7 +24,7 @@ export const PERFORMANCE_PROFILES = {
     maxLights: 8,
     
     // Particles
-    particleCount: 16,
+    particleCount: 80,
     reducedParticles: false,
     
     // Animations
@@ -67,7 +67,7 @@ export const PERFORMANCE_PROFILES = {
     maxLights: 5,
     
     // Particles
-    particleCount: 16,
+    particleCount: 60,
     reducedParticles: false,
 
     // Animations
@@ -110,7 +110,7 @@ export const PERFORMANCE_PROFILES = {
     maxLights: 3,
     
     // Particles
-    particleCount: 16,
+    particleCount: 32,
     reducedParticles: false,
 
     // Animations
