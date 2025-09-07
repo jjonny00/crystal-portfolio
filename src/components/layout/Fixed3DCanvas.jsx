@@ -290,11 +290,11 @@ const Fixed3DCanvas = forwardRef(({
 
           {/* Low drifting mist for subtle atmosphere */}
           <MistyLayerStack
-            y={-1.2}
-            width={32}
-            height={6}
+            y={2}
+            width={30}
+            height={10}
             layers={3}
-            opacity={0.35}
+            opacity={0.5}
             drift={{ x: 0.002, y: 0.0005 }}
             pulseAmp={0.007}
             pulseFreq={0.1}

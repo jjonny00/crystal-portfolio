@@ -32,7 +32,7 @@ export default function MistyLayerStack({
   drift = { x: 0.002, y: 0.0 },
   pulseAmp = 0.01,
   pulseFreq = 0.12,
-  zSpacing = 0.02,
+  zSpacing = 0.2,
   renderOrder = 999 // draw late
 }) {
   const group = useRef()
