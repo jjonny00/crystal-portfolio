@@ -294,7 +294,7 @@ const Fixed3DCanvas = forwardRef(({
           <MistyLayerStack
             y={1}              // Position above crystal
             width={3}         // Wide coverage
-            height={1}        // Tall mist band
+            height={1.5}      // 2:1 aspect ratio with new texture
             layers={3}         // Multiple layers for depth
             opacity={1.0}      // Semi-transparent
             drift={{ x: 0.002, y: 0.0005 }}  // Gentle drift
