@@ -20,7 +20,7 @@ export default function MistyLayerStack({
   copies = 3,
   speed = 0.5,
   opacity = 5.95,
-  drift = { x: 0.002, y: 0.0 },
+  drift = 0.002,
   pulseAmp = 0.01,
   pulseFreq = 0.12,
   zSpacing = 0.2,
@@ -64,12 +64,9 @@ export default function MistyLayerStack({
     planes.current = Array.from({ length: copies }, () => [])
   }, [copies])
 
-  // Billboard to camera, recycle segments and animate
+  // Billboard planes to camera, recycle segments and animate
   useFrame((state, dt) => {
     if (!group.current) return
-
-    group.current.quaternion.copy(camera.quaternion)
-    group.current.position.set(camera.position.x, y, camera.position.z)
 
     const t = state.clock.getElapsedTime()
     const leftBound = (-width * copies) / 2
@@ -85,8 +82,7 @@ export default function MistyLayerStack({
 
       mats.current[s]?.forEach((mat, i) => {
         if (!mat?.map) return
-        mat.map.offset.x = (mat.map.offset.x + drift.x * dt * layerConfigs[i].df) % 1
-        mat.map.offset.y = (mat.map.offset.y + drift.y * dt * layerConfigs[i].df) % 1
+        mat.map.offset.x = (mat.map.offset.x + drift * dt * layerConfigs[i].df) % 1
       })
 
       planes.current[s]?.forEach((mesh, i) => {
@@ -94,6 +90,7 @@ export default function MistyLayerStack({
         const { seed } = layerConfigs[i]
         const pulse = 1 + Math.sin((t + seed) * Math.PI * 2 * pulseFreq) * pulseAmp
         mesh.scale.set(mesh.userData.baseScaleX * pulse, mesh.userData.baseScaleY * pulse, 1)
+        mesh.quaternion.copy(camera.quaternion)
       })
     })
   })
