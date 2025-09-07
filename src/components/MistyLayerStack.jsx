@@ -1,39 +1,33 @@
-import React, { useMemo, useRef, useEffect } from 'react'
+import React, { useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useTexture } from '@react-three/drei'
 
 /**
- * MistyLayerStack - UPDATED with additive blending and recycling layers
- * - Renders multiple billboarded planes that drift to the left.
- * - As planes move off-screen they're recycled to the right for a constant mist.
- *
- * Props mirror the previous version with additions:
- *  - copies: number of horizontal stacks to maintain
- *  - speed: world drift speed to the left
+ * MistyLayerStack
+ * Renders multiple static billboarded planes using a tileable mist texture.
+ * The texture scrolls horizontally (and optionally vertically) so the mist
+ * always appears to drift sideways relative to the camera.
  */
 export default function MistyLayerStack({
   y = -1,
   width = 30,
-  height = 6,
+  height = 15,
   layers = 3,
-  copies = 3,
-  speed = 0.5,
-  opacity = 5.95,
-  drift = 0.002,
+  opacity = 0.35,
+  drift = { x: 0.002, y: 0 },
   pulseAmp = 0.01,
   pulseFreq = 0.12,
   zSpacing = 0.2,
   renderOrder = 2000
 }) {
   const group = useRef()
-  const segments = useRef([])
   const mats = useRef([])
   const planes = useRef([])
 
-  const { camera, gl } = useThree()
+  const { camera } = useThree()
 
-  // Load the black-backed mist texture from the public assets path
+  // Load the tileable mist texture
   const tex = useTexture('/assets/textures/mist03.jpg')
   tex.wrapS = THREE.RepeatWrapping
   tex.wrapT = THREE.RepeatWrapping
@@ -57,73 +51,45 @@ export default function MistyLayerStack({
     return arr
   }, [layers])
 
-  // Reset refs when copy count changes
-  useEffect(() => {
-    segments.current = []
-    mats.current = Array.from({ length: copies }, () => [])
-    planes.current = Array.from({ length: copies }, () => [])
-  }, [copies])
-
-  // Billboard planes to camera, recycle segments and animate
+  // Animate scrolling texture and billboard planes
   useFrame((state, dt) => {
-    if (!group.current) return
-
     const t = state.clock.getElapsedTime()
-    const leftBound = (-width * copies) / 2
-    const fullWidth = width * copies
 
-    segments.current.forEach((seg, s) => {
-      if (!seg) return
+    planes.current.forEach((mesh, i) => {
+      if (!mesh) return
+      const { seed, df } = layerConfigs[i]
+      const mat = mats.current[i]
 
-      seg.position.x -= speed * dt
-      if (seg.position.x < leftBound) {
-        seg.position.x += fullWidth
+      if (mat?.map) {
+        mat.map.offset.x = (mat.map.offset.x + (drift.x || 0) * dt * df) % 1
+        mat.map.offset.y = (mat.map.offset.y + (drift.y || 0) * dt * df) % 1
       }
 
-      mats.current[s]?.forEach((mat, i) => {
-        if (!mat?.map) return
-        mat.map.offset.x = (mat.map.offset.x + drift * dt * layerConfigs[i].df) % 1
-      })
-
-      planes.current[s]?.forEach((mesh, i) => {
-        if (!mesh) return
-        const { seed } = layerConfigs[i]
-        const pulse = 1 + Math.sin((t + seed) * Math.PI * 2 * pulseFreq) * pulseAmp
-        mesh.scale.set(mesh.userData.baseScaleX * pulse, mesh.userData.baseScaleY * pulse, 1)
-        mesh.quaternion.copy(camera.quaternion)
-      })
+      const pulse =
+        1 + Math.sin((t + seed) * Math.PI * 2 * pulseFreq) * pulseAmp
+      mesh.scale.set(
+        mesh.userData.baseScaleX * pulse,
+        mesh.userData.baseScaleY * pulse,
+        1
+      )
+      mesh.quaternion.copy(camera.quaternion)
     })
   })
 
   return (
     <group ref={group} position={[0, y, 0]}>
-      {Array.from({ length: copies }).map((_, s) => (
-        <group
-          key={s}
-          ref={(el) => (segments.current[s] = el)}
-          position={[(s - Math.floor(copies / 2)) * width, 0, 0]}
-        >
-          {layerConfigs.map(({ vary }, i) => (
-            <MistPlane
-              key={`${s}-${i}`}
-              ref={(el) => {
-                if (!planes.current[s]) planes.current[s] = []
-                planes.current[s][i] = el
-              }}
-              setMatRef={(m) => {
-                if (!mats.current[s]) mats.current[s] = []
-                mats.current[s][i] = m
-              }}
-              texture={tex}
-              width={width * vary}
-              height={height * vary}
-              z={i * zSpacing}
-              opacity={opacity * (1 - i * 0.08)}
-              renderOrder={renderOrder + i}
-              gl={gl}
-            />
-          ))}
-        </group>
+      {layerConfigs.map(({ vary }, i) => (
+        <MistPlane
+          key={i}
+          ref={(el) => (planes.current[i] = el)}
+          setMatRef={(m) => (mats.current[i] = m)}
+          texture={tex}
+          width={width * vary}
+          height={height * vary}
+          z={i * zSpacing}
+          opacity={opacity * (1 - i * 0.08)}
+          renderOrder={renderOrder + i}
+        />
       ))}
     </group>
   )
@@ -166,3 +132,4 @@ const MistPlane = React.forwardRef(function MistPlane(
     </mesh>
   )
 })
+
