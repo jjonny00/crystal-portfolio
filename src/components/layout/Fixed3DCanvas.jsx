@@ -18,6 +18,7 @@ import { FPSCounter } from '../ui/FpsDisplay';
 import CrystalDebugPanels from '../ui/CrystalDebugPanels';
 import GradientBackground from '../three/GradientBackground';
 import { projectBackgrounds } from '../../data/projectBackgrounds';
+import MistyLayerStack from '../MistyLayerStack';
 
 const PulsingOmniLight = ({ simplified = false }) => {
   const lightRef = useRef();
@@ -286,7 +287,19 @@ const Fixed3DCanvas = forwardRef(({
             scrollToProgress={scrollToProgress}
             onFractureStart={handleFractureStart}
           />
-          
+
+          {/* Low drifting mist for subtle atmosphere */}
+          <MistyLayerStack
+            y={-1.2}
+            width={32}
+            height={6}
+            layers={3}
+            opacity={0.35}
+            drift={{ x: 0.002, y: 0.0005 }}
+            pulseAmp={0.007}
+            pulseFreq={0.1}
+          />
+
           {/* Environment used for reflections only */}
           <Environment
             files={environmentProps.files || config?.environment?.hdri || "/assets/environment/prismatic10-low.hdr"}
@@ -334,8 +347,9 @@ const Fixed3DCanvas = forwardRef(({
               />
             )}
           </EffectComposer>
-          
+
           {/* Orbit controls - explicitly disabled to prevent camera conflicts */}
+          {/* eslint-disable-next-line no-constant-binary-expression */}
           {false && !isMobile && (
             <OrbitControls
               makeDefault
