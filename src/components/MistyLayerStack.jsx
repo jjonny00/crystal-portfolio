@@ -34,7 +34,7 @@ export default function MistyLayerStack({
   const { camera, gl } = useThree()
 
   // Load the black-backed mist texture from the public assets path
-  const tex = useTexture('/assets/textures/mist02.jpg')
+  const tex = useTexture('/assets/textures/mist03.jpg')
   tex.wrapS = THREE.RepeatWrapping
   tex.wrapT = THREE.RepeatWrapping
   tex.minFilter = THREE.LinearMipmapLinearFilter

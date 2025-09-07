@@ -293,10 +293,10 @@ const Fixed3DCanvas = forwardRef(({
           {/* UPDATED: Enhanced MistyLayerStack with highest render order */}
           <MistyLayerStack
             y={1}              // Position above crystal
-            width={30}         // Wide coverage
-            height={15}        // Tall mist band
+            width={3}         // Wide coverage
+            height={1}        // Tall mist band
             layers={3}         // Multiple layers for depth
-            opacity={0.5}      // Semi-transparent
+            opacity={1.0}      // Semi-transparent
             drift={{ x: 0.002, y: 0.0005 }}  // Gentle drift
             pulseAmp={0.007}   // Subtle pulsing
             pulseFreq={0.1}    // Slow pulse frequency
