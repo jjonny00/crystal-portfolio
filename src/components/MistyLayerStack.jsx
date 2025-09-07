@@ -4,10 +4,11 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { useTexture } from '@react-three/drei'
 
 /**
- * MistyLayerStack
+ * MistyLayerStack - UPDATED with additive blending and top render order
  * - Renders N vertical, billboarded planes with a black-backed mist texture.
  * - Uses AdditiveBlending so black becomes effectively transparent.
  * - Super lightweight: MeshBasicMaterial, depthWrite=false, small UV drift + micro scale pulse.
+ * - UPDATED: High render order to appear on top of everything
  *
  * Props:
  *  - y: world y-position (vertical placement of the stack)
@@ -19,6 +20,7 @@ import { useTexture } from '@react-three/drei'
  *  - pulseAmp: scale pulse amplitude (tiny, e.g., 0.01)
  *  - pulseFreq: Hz for pulsing (e.g., 0.1–0.2)
  *  - zSpacing: small separation in Z between layers to minimize z-fighting
+ *  - renderOrder: render order for sorting (higher = rendered later/on top)
  *
  * Usage example:
  *  <MistyLayerStack y={-1} width={30} height={6} layers={3} />
@@ -28,12 +30,12 @@ export default function MistyLayerStack({
   width = 30,
   height = 6,
   layers = 3,
-  opacity = 0.35,
+  opacity = 5.95,
   drift = { x: 0.002, y: 0.0 },
   pulseAmp = 0.01,
   pulseFreq = 0.12,
   zSpacing = 0.2,
-  renderOrder = 999 // draw late
+  renderOrder = 2000 // UPDATED: Very high render order to be on top
 }) {
   const group = useRef()
   const mats = useRef([]) // store materials to animate offsets
@@ -42,7 +44,7 @@ export default function MistyLayerStack({
   const { camera, gl } = useThree()
 
   // Load the black-backed mist texture from the public assets path
-  const tex = useTexture('/assets/textures/mist01.png')
+  const tex = useTexture('/assets/textures/mist02.jpg')
   // Setup texture tiling so UV scroll loops
   tex.wrapS = THREE.RepeatWrapping
   tex.wrapT = THREE.RepeatWrapping
@@ -81,7 +83,7 @@ export default function MistyLayerStack({
       mat.map.offset.y = (mat.map.offset.y + drift.y * dt * layerConfigs[i].df) % 1
     })
 
-    // Micro pulsing on each plane’s scale for extra life
+    // Micro pulsing on each plane's scale for extra life
     planes.current.forEach((mesh, i) => {
       if (!mesh) return
       const { seed } = layerConfigs[i]
@@ -103,7 +105,7 @@ export default function MistyLayerStack({
             height={height * vary}
             z={i * zSpacing}
             opacity={opacity * (1 - i * 0.08)} // back layers a touch fainter
-            renderOrder={renderOrder + i}
+            renderOrder={renderOrder + i} // UPDATED: Ensure each layer renders on top
             gl={gl}
           />
         )
@@ -113,22 +115,21 @@ export default function MistyLayerStack({
 }
 
 const MistPlane = React.forwardRef(function MistPlane(
-  { texture, width, height, z = 0, opacity = 0.35, renderOrder = 999, setMatRef },
+  { texture, width, height, z = 0, opacity = 0.35, renderOrder = 2000, setMatRef },
   ref
 ) {
   const mat = useRef()
 
-  // Material: MeshBasic + AdditiveBlending (black=transparent), no depth write
-  // Keeping depthTest true usually works; depthWrite=false avoids writing into depth buffer
-  // so the mist blends over objects behind it.
+  // UPDATED: Material with additive blending and settings for top rendering
   const onMaterial = (m) => {
     if (!m) return
     m.transparent = true
     m.opacity = opacity
-    m.depthWrite = false
-    m.depthTest = true
-    m.blending = THREE.AdditiveBlending
+    m.depthWrite = false // CRITICAL: Don't write to depth buffer
+    m.depthTest = false  // UPDATED: Don't test depth so it renders on top
+    m.blending = THREE.AdditiveBlending // UPDATED: Additive blending mode
     m.toneMapped = false // keeps additive brightness consistent post-tonemap
+    m.side = THREE.DoubleSide // Render both sides for better coverage
     setMatRef?.(m)
   }
 
@@ -136,7 +137,7 @@ const MistPlane = React.forwardRef(function MistPlane(
     <mesh
       ref={ref}
       position={[0, 0, z]}
-      renderOrder={renderOrder}
+      renderOrder={renderOrder} // UPDATED: High render order for top rendering
       userData={{ baseScaleX: width, baseScaleY: height }}
       // We set scale via userData base values + pulse in useFrame
       scale={[width, height, 1]}

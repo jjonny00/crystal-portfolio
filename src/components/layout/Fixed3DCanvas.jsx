@@ -1,5 +1,5 @@
 // FIXED: src/components/layout/Fixed3DCanvas.jsx
-// UPDATED: Fixed background color updates for project sections
+// UPDATED: Enhanced MistyLayerStack positioning and render order
 
 import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallback } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
@@ -49,7 +49,7 @@ const PulsingOmniLight = ({ simplified = false }) => {
 };
 
 /**
- * UPDATED: Fixed3DCanvas with corrected background color logic
+ * UPDATED: Fixed3DCanvas with enhanced MistyLayerStack render order
  */
 const Fixed3DCanvas = forwardRef(({
   // Animation data from MasterAnimationCoordinator
@@ -195,6 +195,8 @@ const Fixed3DCanvas = forwardRef(({
             toneMapping: THREE.ACESFilmicToneMapping,
             toneMappingExposure: 0.2,
             outputColorSpace: THREE.SRGBColorSpace,
+            // UPDATED: Ensure depth sorting is enabled for proper render order
+            sortObjects: true,
             ...canvasProps.gl
           }}
           style={{ 
@@ -288,16 +290,17 @@ const Fixed3DCanvas = forwardRef(({
             onFractureStart={handleFractureStart}
           />
 
-          {/* Low drifting mist for subtle atmosphere */}
+          {/* UPDATED: Enhanced MistyLayerStack with highest render order */}
           <MistyLayerStack
-            y={2}
-            width={30}
-            height={10}
-            layers={3}
-            opacity={0.5}
-            drift={{ x: 0.002, y: 0.0005 }}
-            pulseAmp={0.007}
-            pulseFreq={0.1}
+            y={1}              // Position above crystal
+            width={30}         // Wide coverage
+            height={15}        // Tall mist band
+            layers={3}         // Multiple layers for depth
+            opacity={0.5}      // Semi-transparent
+            drift={{ x: 0.002, y: 0.0005 }}  // Gentle drift
+            pulseAmp={0.007}   // Subtle pulsing
+            pulseFreq={0.1}    // Slow pulse frequency
+            renderOrder={3000} // UPDATED: Highest render order to be on top
           />
 
           {/* Environment used for reflections only */}
