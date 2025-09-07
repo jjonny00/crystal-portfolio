@@ -13,7 +13,7 @@ import { usePxToWorld } from '../../hooks/usePxToWorld';
 const PersistentDustSystem = ({
   count = 32,
   enabled = true,
-  emissionRadius = 6.0,
+  emissionRadius = 5.0,
   emissionInnerRadius = 1.5,  // NEW: Inner radius for ring/donut shape
   emissionHeight = -5.0,
   riseHeight = 22.0,

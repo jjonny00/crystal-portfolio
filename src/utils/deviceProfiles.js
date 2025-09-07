@@ -24,7 +24,7 @@ export const PERFORMANCE_PROFILES = {
     maxLights: 8,
     
     // Particles
-    particleCount: 80,
+    particleCount: 60,
     reducedParticles: false,
     
     // Animations
