@@ -6,6 +6,8 @@ import { useFrame } from '@react-three/fiber'
 import { useGLTF, Html } from '@react-three/drei'
 import * as THREE from 'three'
 import FractureBurstParticles from './FractureBurstParticles'
+import { useBlendTexture, setBlend } from '../../three/useBlendTexture'
+import { loadFacetOverlayTexture } from '../../three/loadFacetOverlayTexture'
 
 // Import existing material manager
 import MaterialManager from './MaterialManager'
@@ -18,7 +20,93 @@ import FacetLabels from './FacetLabels'
 import projects from '../../data/projects'
 import { effects } from '../../crystalConfig'
 
-const UnifiedCrystalScene = forwardRef(({ 
+const FacetNode = forwardRef(({ mesh, ...props }, ref) => {
+  const [overlayMap, setOverlayMap] = useState(null);
+  const [focused, setFocused] = useState(false);
+
+  // Create a PBR material for the facet
+  const material = useMemo(() => {
+    const m = new THREE.MeshPhysicalMaterial({
+      color: new THREE.Color("#1c2a4f"),
+      roughness: 0.1,
+      metalness: 0.0,
+      transmission: 0.9,
+      ior: 1.5,
+      thickness: 0.2,
+      transparent: true,
+      opacity: 1.0,
+    });
+    return m;
+  }, []);
+
+  // Load overlay texture once
+  useEffect(() => {
+    let alive = true;
+    loadFacetOverlayTexture().then((tex) => {
+      if (!alive) return;
+      setOverlayMap(tex);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // Attach overlay texture to material
+  useEffect(() => {
+    if (!material || !overlayMap) return;
+    material.map = overlayMap;
+    material.needsUpdate = true;
+  }, [material, overlayMap]);
+
+  // Patch material for blending
+  useBlendTexture(material, { initialBlend: 0 });
+
+  // Animate uBlend when focus/hover changes
+  useEffect(() => {
+    let raf;
+    const start = performance.now();
+    const duration = 450;
+    const from = focused ? 0 : 1;
+    const to = focused ? 1 : 0;
+
+    const tick = (t) => {
+      const el = Math.min(1, (t - start) / duration);
+      const eased = 1 - Math.pow(1 - el, 3);
+      const v = from + (to - from) * eased;
+      setBlend(material, v);
+      if (el < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [focused, material]);
+
+  return (
+    <primitive
+      ref={ref}
+      object={mesh}
+      onPointerOver={(e) => {
+        e.stopPropagation();
+        setFocused(true);
+      }}
+      onPointerOut={(e) => {
+        e.stopPropagation();
+        setFocused(false);
+      }}
+      onClick={(e) => {
+        e.stopPropagation();
+        setFocused(true);
+      }}
+      onUpdate={(obj) => {
+        obj.traverse?.((child) => {
+          if (child.isMesh) child.material = material;
+        });
+      }}
+      {...props}
+    />
+  );
+});
+
+const UnifiedCrystalScene = forwardRef(({
   animationData,
   config,
   materialVariant = 'default',
@@ -1033,12 +1121,11 @@ const UnifiedCrystalScene = forwardRef(({
             const facetKey = facetKeys[index];
 
             return (
-              <primitive
+              <FacetNode
                 key={facetKey}
                 ref={facetRefs.current[index]}
-                object={model.scene}
+                mesh={model.scene}
                 position={[0, 0, 0]} // Position will be animated via useFrame
-                pointerEvents="none"
               />
             );
           })}
