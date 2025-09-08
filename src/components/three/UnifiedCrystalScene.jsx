@@ -62,18 +62,28 @@ const FacetNode = forwardRef(({ mesh, ...props }, ref) => {
   useBlendTexture(material, { initialBlend: 0 });
 
   // Animate uBlend when focus/hover changes
+  const blendRef = useRef(0);
   useEffect(() => {
+    const from = blendRef.current;
+    const to = focused ? 1 : 0;
+
+    // Skip animation if already at target
+    if (from === to) {
+      setBlend(material, to);
+      blendRef.current = to;
+      return;
+    }
+
     let raf;
     const start = performance.now();
     const duration = 450;
-    const from = focused ? 0 : 1;
-    const to = focused ? 1 : 0;
 
     const tick = (t) => {
       const el = Math.min(1, (t - start) / duration);
       const eased = 1 - Math.pow(1 - el, 3);
       const v = from + (to - from) * eased;
       setBlend(material, v);
+      blendRef.current = v;
       if (el < 1) raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
