@@ -48,7 +48,7 @@ export const useAssetLoaderV2 = (performanceProfile) => {
       ? [{
           type: 'texture',
           key: 'normalMap',
-          url: '/assets/textures/quartz-normal07.png',
+          url: '/assets/textures/quartz-normal07_subtle.png',
           name: 'Normal Map Texture'
         }]
       : [];
