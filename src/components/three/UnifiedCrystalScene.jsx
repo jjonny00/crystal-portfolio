@@ -20,7 +20,7 @@ import FacetLabels from './FacetLabels'
 import projects from '../../data/projects'
 import { effects } from '../../crystalConfig'
 
-const FacetNode = forwardRef(({ mesh, ...props }, ref) => {
+const FacetNode = forwardRef(({ mesh, index, registerMaterial, ...props }, ref) => {
   const [overlayMap, setOverlayMap] = useState(null);
   const [focused, setFocused] = useState(false);
   const hoverTimeoutRef = useRef();
@@ -37,6 +37,16 @@ const FacetNode = forwardRef(({ mesh, ...props }, ref) => {
       transparent: true,
       opacity: 1.0,
     });
+    // Initialize userData similar to existing facet materials
+    m.userData = {
+      ...(m.userData || {}),
+      isFading: false,
+      targetColor: m.color.clone(),
+      startColor: m.color.clone(),
+      progress: 1,
+      baseEmissiveIntensity: m.emissiveIntensity,
+      baseEmissiveColor: m.emissive.clone()
+    };
     return m;
   }, []);
 
@@ -61,6 +71,20 @@ const FacetNode = forwardRef(({ mesh, ...props }, ref) => {
 
   // Patch material for blending
   useBlendTexture(material, { initialBlend: 0 });
+
+  // Register this material so parent effects can access it
+  useEffect(() => {
+    registerMaterial(index, material);
+    return () => registerMaterial(index, null);
+  }, [index, material, registerMaterial]);
+
+  // Apply material to mesh once
+  useEffect(() => {
+    if (!mesh) return;
+    mesh.traverse?.((child) => {
+      if (child.isMesh) child.material = material;
+    });
+  }, [mesh, material]);
 
   // Animate uBlend when focus/hover changes
   const blendRef = useRef(0);
@@ -117,11 +141,6 @@ const FacetNode = forwardRef(({ mesh, ...props }, ref) => {
       onClick={(e) => {
         e.stopPropagation();
         setFocused(true);
-      }}
-      onUpdate={(obj) => {
-        obj.traverse?.((child) => {
-          if (child.isMesh) child.material = material;
-        });
       }}
       {...props}
     />
@@ -185,6 +204,10 @@ const UnifiedCrystalScene = forwardRef(({
     () => facetKeys.map(key => new THREE.Color(getProjectColorByFacetKey(key))),
     [facetKeys]
   );
+
+  const registerFacetMaterial = useCallback((idx, mat) => {
+    facetMaterialsRef.current[idx] = mat;
+  }, []);
 
   // Precompute random floating parameters for facets
   const floatParamsRef = useRef(
@@ -537,7 +560,7 @@ const UnifiedCrystalScene = forwardRef(({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
   
-  // Apply materials to the crystal and create facet-specific clones
+  // Apply material to the whole crystal and manage facet glow
   useEffect(() => {
     if (!crystalMaterialRef.current) return;
 
@@ -565,44 +588,8 @@ const UnifiedCrystalScene = forwardRef(({
 
     applyMaterial(wholeCrystal.scene, crystalMaterialRef.current);
 
-    // Create or update facet materials
-    const hoveredKey = hoveredFacetRef.current;
-    const focusedKey = animationData?.focusedFacet;
-    
-    facetMaterialsRef.current = facetKeys.map((key, idx) => {
-      const mat = crystalMaterialRef.current.clone();
-
-      // FIXED: Determine initial color based on current state
-      let initialColor = defaultColorRef.current;
-      
-      if (hoveredKey === key) {
-        // This facet is currently hovered
-        initialColor = projectColors[idx];
-      } else if (focusedKey === key && !hoveredKey) {
-        // This facet is focused and no other facet is hovered
-        initialColor = projectColors[idx];
-      }
-
-      mat.color.copy(initialColor);
-      mat.userData = {
-        ...(mat.userData || {}),
-        isFading: mat.userData?.isFading || false,
-        targetColor: mat.color.clone(),
-        startColor: mat.color.clone(),
-        progress: 1,
-        baseEmissiveIntensity:
-          mat.userData?.baseEmissiveIntensity ?? mat.emissiveIntensity,
-        baseEmissiveColor:
-          mat.userData?.baseEmissiveColor?.clone?.() || mat.emissive.clone()
-      };
-
-      const model = facetModels[idx];
-      applyMaterial(model.scene, mat);
-      return mat;
-    });
-
-    // If fracture glow is active, apply current fade state to new materials
-    if (fractureGlowStartRef.current) {
+    // If fracture glow is active, apply current fade state to facet materials
+    if (fractureGlowStartRef.current && facetMaterialsRef.current.length) {
       const elapsedGlow = (performance.now() - fractureGlowStartRef.current) / 1000;
       const rawDuration = animationData?.crystalConfig?.explodeDuration || 1.2;
       const fracturePause = animationData?.crystalConfig?.fracturePause || 0.5;
@@ -1147,6 +1134,8 @@ const UnifiedCrystalScene = forwardRef(({
                 key={facetKey}
                 ref={facetRefs.current[index]}
                 mesh={model.scene}
+                index={index}
+                registerMaterial={registerFacetMaterial}
                 position={[0, 0, 0]} // Position will be animated via useFrame
               />
             );
