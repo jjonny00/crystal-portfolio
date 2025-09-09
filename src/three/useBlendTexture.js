@@ -16,7 +16,11 @@ export function useBlendTexture(material, { initialBlend = 0 } = {}) {
       material.userData._blendUniform = shader.uniforms.uBlend;
       material.userData._currentBlend = current;
 
-      shader.fragmentShader = `uniform float uBlend;\n${shader.fragmentShader}`;
+      shader.fragmentShader = shader.fragmentShader.replace(
+        "void main() {",
+        "uniform float uBlend;\nvoid main() {"
+      );
+
       shader.fragmentShader = shader.fragmentShader.replace(
         "#include <map_fragment>",
         `
