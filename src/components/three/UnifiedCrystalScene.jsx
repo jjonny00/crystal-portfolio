@@ -115,20 +115,47 @@ const FacetNode = forwardRef(({ mesh, index, registerMaterial, ...props }, ref) 
     return () => cancelAnimationFrame(raf);
   }, [focused, material]);
 
-  const handlePointerEnter = useCallback(() => {
-    if (hoverTimeoutRef.current) {
-      clearTimeout(hoverTimeoutRef.current);
-      hoverTimeoutRef.current = null;
-    }
-    setFocused(true);
-  }, []);
+  const hoverCountRef = useRef(0);
 
-  const handlePointerLeave = useCallback(() => {
-    hoverTimeoutRef.current = setTimeout(() => {
-      hoverTimeoutRef.current = null;
-      setFocused(false);
-    }, 100);
-  }, []);
+  const contains = useCallback(
+    (obj) => {
+      let cur = obj;
+      while (cur) {
+        if (cur === mesh) return true;
+        cur = cur.parent;
+      }
+      return false;
+    },
+    [mesh]
+  );
+
+  const handlePointerOver = useCallback(
+    (e) => {
+      if (!contains(e.object)) return;
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+        hoverTimeoutRef.current = null;
+      }
+      hoverCountRef.current++;
+      if (hoverCountRef.current === 1) setFocused(true);
+    },
+    [contains]
+  );
+
+  const handlePointerOut = useCallback(
+    (e) => {
+      if (!contains(e.object)) return;
+      hoverCountRef.current = Math.max(0, hoverCountRef.current - 1);
+      hoverTimeoutRef.current = setTimeout(() => {
+        const stillInside = e.intersections.some((i) => contains(i.object));
+        if (!stillInside && hoverCountRef.current === 0) {
+          setFocused(false);
+        }
+        hoverTimeoutRef.current = null;
+      }, 50);
+    },
+    [contains]
+  );
 
   useEffect(() => () => clearTimeout(hoverTimeoutRef.current), []);
 
@@ -136,8 +163,8 @@ const FacetNode = forwardRef(({ mesh, index, registerMaterial, ...props }, ref) 
     <primitive
       ref={ref}
       object={mesh}
-      onPointerEnter={handlePointerEnter}
-      onPointerLeave={handlePointerLeave}
+      onPointerOver={handlePointerOver}
+      onPointerOut={handlePointerOut}
       onClick={(e) => {
         e.stopPropagation();
         setFocused(true);
