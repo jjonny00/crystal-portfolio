@@ -96,12 +96,11 @@ const FacetNode = forwardRef(({ mesh, ...props }, ref) => {
       object={mesh}
       onPointerOver={(e) => {
         e.stopPropagation();
-        setFocused(true);
+        if (!focused) setFocused(true);
       }}
-      onPointerOut={(e) => {
+      onPointerLeave={(e) => {
         e.stopPropagation();
-        // Only unfocus when the pointer fully leaves all facet children
-        if (e.intersections.length === 0) setFocused(false);
+        if (focused) setFocused(false);
       }}
       onClick={(e) => {
         e.stopPropagation();
