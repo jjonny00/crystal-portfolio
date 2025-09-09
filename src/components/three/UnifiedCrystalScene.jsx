@@ -23,6 +23,7 @@ import { effects } from '../../crystalConfig'
 const FacetNode = forwardRef(({ mesh, ...props }, ref) => {
   const [overlayMap, setOverlayMap] = useState(null);
   const [focused, setFocused] = useState(false);
+  const hoverTimeoutRef = useRef();
 
   // Create a PBR material for the facet
   const material = useMemo(() => {
@@ -90,18 +91,47 @@ const FacetNode = forwardRef(({ mesh, ...props }, ref) => {
     return () => cancelAnimationFrame(raf);
   }, [focused, material]);
 
+  const handlePointerOver = useCallback(
+    (e) => {
+      e.stopPropagation();
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+        hoverTimeoutRef.current = null;
+      }
+      if (!focused) setFocused(true);
+    },
+    [focused]
+  );
+
+  const handlePointerOut = useCallback(
+    (e) => {
+      e.stopPropagation();
+      const stillOver = e.intersections.some((i) => {
+        let obj = i.object;
+        while (obj) {
+          if (obj === mesh) return true;
+          obj = obj.parent;
+        }
+        return false;
+      });
+      if (stillOver) return;
+
+      hoverTimeoutRef.current = setTimeout(() => {
+        hoverTimeoutRef.current = null;
+        setFocused(false);
+      }, 100);
+    },
+    [mesh]
+  );
+
+  useEffect(() => () => clearTimeout(hoverTimeoutRef.current), []);
+
   return (
     <primitive
       ref={ref}
       object={mesh}
-      onPointerOver={(e) => {
-        e.stopPropagation();
-        if (!focused) setFocused(true);
-      }}
-      onPointerLeave={(e) => {
-        e.stopPropagation();
-        if (focused) setFocused(false);
-      }}
+      onPointerOver={handlePointerOver}
+      onPointerOut={handlePointerOut}
       onClick={(e) => {
         e.stopPropagation();
         setFocused(true);
