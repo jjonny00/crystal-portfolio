@@ -23,15 +23,6 @@ import { effects } from '../../crystalConfig'
 const FacetNode = forwardRef(({ mesh, ...props }, ref) => {
   const [overlayMap, setOverlayMap] = useState(null);
   const [focused, setFocused] = useState(false);
-  const hoverCountRef = useRef(0);
-  const unhoverTimeout = useRef();
-  const UNHOVER_DELAY = 100;
-
-  useEffect(() => {
-    return () => {
-      if (unhoverTimeout.current) clearTimeout(unhoverTimeout.current);
-    };
-  }, []);
 
   // Create a PBR material for the facet
   const material = useMemo(() => {
@@ -105,21 +96,12 @@ const FacetNode = forwardRef(({ mesh, ...props }, ref) => {
       object={mesh}
       onPointerOver={(e) => {
         e.stopPropagation();
-        hoverCountRef.current++;
-        if (unhoverTimeout.current) {
-          clearTimeout(unhoverTimeout.current);
-          unhoverTimeout.current = undefined;
-        }
-        if (!focused) setFocused(true);
+        setFocused(true);
       }}
       onPointerOut={(e) => {
         e.stopPropagation();
-        hoverCountRef.current = Math.max(0, hoverCountRef.current - 1);
-        if (hoverCountRef.current === 0) {
-          unhoverTimeout.current = setTimeout(() => {
-            if (hoverCountRef.current === 0) setFocused(false);
-          }, UNHOVER_DELAY);
-        }
+        // Only unfocus when the pointer fully leaves all facet children
+        if (e.intersections.length === 0) setFocused(false);
       }}
       onClick={(e) => {
         e.stopPropagation();
