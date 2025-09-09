@@ -25,6 +25,7 @@ const FacetNode = forwardRef(({ mesh, ...props }, ref) => {
   const [focused, setFocused] = useState(false);
   const hoverCountRef = useRef(0);
   const unhoverTimeout = useRef();
+  const UNHOVER_DELAY = 100;
 
   useEffect(() => {
     return () => {
@@ -117,7 +118,7 @@ const FacetNode = forwardRef(({ mesh, ...props }, ref) => {
         if (hoverCountRef.current === 0) {
           unhoverTimeout.current = setTimeout(() => {
             if (hoverCountRef.current === 0) setFocused(false);
-          }, 0);
+          }, UNHOVER_DELAY);
         }
       }}
       onClick={(e) => {

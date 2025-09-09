@@ -11,9 +11,12 @@ export function useBlendTexture(material, { initialBlend = 0 } = {}) {
     if (!material) return;
 
     material.onBeforeCompile = (shader) => {
-      shader.uniforms.uBlend = { value: initialBlend };
+      const current = material.userData._currentBlend ?? initialBlend;
+      shader.uniforms.uBlend = { value: current };
       material.userData._blendUniform = shader.uniforms.uBlend;
+      material.userData._currentBlend = current;
 
+      shader.fragmentShader = `uniform float uBlend;\n${shader.fragmentShader}`;
       shader.fragmentShader = shader.fragmentShader.replace(
         "#include <map_fragment>",
         `
@@ -36,15 +39,17 @@ export function useBlendTexture(material, { initialBlend = 0 } = {}) {
 
     material.needsUpdate = true;
 
-    return () => {
-      material.onBeforeCompile = null;
-      delete material.userData._blendUniform;
-      material.needsUpdate = true;
-    };
+  return () => {
+    material.onBeforeCompile = null;
+    delete material.userData._blendUniform;
+    delete material.userData._currentBlend;
+    material.needsUpdate = true;
+  };
   }, [material, initialBlend]);
 }
 
 export function setBlend(material, value) {
   const u = material?.userData?._blendUniform;
   if (u) u.value = value;
+  if (material?.userData) material.userData._currentBlend = value;
 }
