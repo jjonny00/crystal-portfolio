@@ -91,38 +91,20 @@ const FacetNode = forwardRef(({ mesh, ...props }, ref) => {
     return () => cancelAnimationFrame(raf);
   }, [focused, material]);
 
-  const handlePointerOver = useCallback(
-    (e) => {
-      e.stopPropagation();
-      if (hoverTimeoutRef.current) {
-        clearTimeout(hoverTimeoutRef.current);
-        hoverTimeoutRef.current = null;
-      }
-      if (!focused) setFocused(true);
-    },
-    [focused]
-  );
+  const handlePointerEnter = useCallback(() => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+    setFocused(true);
+  }, []);
 
-  const handlePointerOut = useCallback(
-    (e) => {
-      e.stopPropagation();
-      const stillOver = e.intersections.some((i) => {
-        let obj = i.object;
-        while (obj) {
-          if (obj === mesh) return true;
-          obj = obj.parent;
-        }
-        return false;
-      });
-      if (stillOver) return;
-
-      hoverTimeoutRef.current = setTimeout(() => {
-        hoverTimeoutRef.current = null;
-        setFocused(false);
-      }, 100);
-    },
-    [mesh]
-  );
+  const handlePointerLeave = useCallback(() => {
+    hoverTimeoutRef.current = setTimeout(() => {
+      hoverTimeoutRef.current = null;
+      setFocused(false);
+    }, 100);
+  }, []);
 
   useEffect(() => () => clearTimeout(hoverTimeoutRef.current), []);
 
@@ -130,8 +112,8 @@ const FacetNode = forwardRef(({ mesh, ...props }, ref) => {
     <primitive
       ref={ref}
       object={mesh}
-      onPointerOver={handlePointerOver}
-      onPointerOut={handlePointerOut}
+      onPointerEnter={handlePointerEnter}
+      onPointerLeave={handlePointerLeave}
       onClick={(e) => {
         e.stopPropagation();
         setFocused(true);
