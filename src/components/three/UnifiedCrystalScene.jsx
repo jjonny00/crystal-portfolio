@@ -17,7 +17,6 @@ import { getProjectColorByFacetKey } from '../../data/projects'
 import FacetLabels from './FacetLabels'
 import projects from '../../data/projects'
 import { effects } from '../../crystalConfig'
-import { useBlendTexture, setBlend } from '../../three/useBlendTexture'
 import { loadFacetOverlayTexture } from '../../three/loadFacetOverlayTexture'
 
 const UnifiedCrystalScene = forwardRef(({ 
@@ -72,6 +71,7 @@ const UnifiedCrystalScene = forwardRef(({
 
   // Individual facet materials and colors
   const facetMaterialsRef = useRef([]);
+  const overlayMaterialsRef = useRef([]);
   const activeFacetRef = useRef(null);
   const defaultColorRef = useRef(new THREE.Color('#ffffff'));
   const projectColors = useMemo(
@@ -481,10 +481,7 @@ const UnifiedCrystalScene = forwardRef(({
         baseEmissiveIntensity:
           mat.userData?.baseEmissiveIntensity ?? mat.emissiveIntensity,
         baseEmissiveColor:
-          mat.userData?.baseEmissiveColor?.clone?.() || mat.emissive.clone(),
-        // Add blend tracking
-        blendTarget: 0,
-        blendCurrent: 0
+          mat.userData?.baseEmissiveColor?.clone?.() || mat.emissive.clone()
       };
 
       const model = facetModels[idx];
@@ -545,10 +542,47 @@ const UnifiedCrystalScene = forwardRef(({
     config?.effects?.fracture?.initialGlow
   ]);
 
-  // Apply blending to each material (hook handles missing texture/material)
-  facetKeys.forEach((_, idx) => {
-    useBlendTexture(facetMaterialsRef.current[idx], overlayTexture, { initialBlend: 0 });
-  });
+  // Create overlay materials and meshes for each facet
+  useEffect(() => {
+    if (!overlayTexture || !modelsLoaded) return;
+
+    // Remove existing overlays
+    facetModels.forEach((model) => {
+      model.scene.traverse((child) => {
+        if (child.isMesh) {
+          const toRemove = [];
+          child.children.forEach((c) => {
+            if (c.userData?.isOverlay) toRemove.push(c);
+          });
+          toRemove.forEach((c) => child.remove(c));
+        }
+      });
+    });
+
+    overlayMaterialsRef.current = facetModels.map(() => null);
+
+    facetModels.forEach((model, idx) => {
+      const overlayMat = new THREE.MeshBasicMaterial({
+        map: overlayTexture,
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+        side: THREE.DoubleSide
+      });
+      overlayMat.userData = { targetOpacity: 0 };
+
+      model.scene.traverse((child) => {
+        if (child.isMesh) {
+          const overlayMesh = new THREE.Mesh(child.geometry, overlayMat);
+          overlayMesh.userData.isOverlay = true;
+          child.add(overlayMesh);
+        }
+      });
+
+      overlayMaterialsRef.current[idx] = overlayMat;
+    });
+  }, [overlayTexture, modelsLoaded, facetModels, materialVersion]);
+
 
   // Debug anchor positions when facets are loaded
   useEffect(() => {
@@ -669,24 +703,21 @@ const UnifiedCrystalScene = forwardRef(({
       activeFacetRef.current = currentFacet;
     }, 50);
 
-    // NEW: Handle texture blending for project focus
-    if (facetMaterialsRef.current.length && overlayTexture) {
-      facetMaterialsRef.current.forEach((mat, idx) => {
+    // NEW: Handle overlay opacity for project focus
+    if (overlayMaterialsRef.current.length) {
+      overlayMaterialsRef.current.forEach((mat, idx) => {
+        if (!mat) return;
         const key = facetKeys[idx];
-        const shouldShowTexture = currentFacet === key;
-
-        if (mat.userData.blendTarget !== (shouldShowTexture ? 1 : 0)) {
-          mat.userData.blendTarget = shouldShowTexture ? 1 : 0;
-
-          if (import.meta.env.DEV) {
-            console.log(`🎨 Texture blend ${key}: ${shouldShowTexture ? 'fade in' : 'fade out'}`);
-          }
+        const shouldShow = currentFacet === key;
+        mat.userData.targetOpacity = shouldShow ? 1 : 0;
+        if (import.meta.env.DEV) {
+          console.log(`🎨 Overlay ${key}: ${shouldShow ? 'fade in' : 'fade out'}`);
         }
       });
     }
 
     return () => clearTimeout(focusUpdateTimeoutRef.current);
-  }, [animationData?.focusedFacet, materialVersion, facetKeys, overlayTexture]);
+  }, [animationData?.focusedFacet, materialVersion, facetKeys]);
   
   // Crystal form change detection
   useEffect(() => {
@@ -979,22 +1010,17 @@ const UnifiedCrystalScene = forwardRef(({
       }
     }
 
-    // NEW: Animate texture blending
-    if (overlayTexture) {
-      facetMaterialsRef.current.forEach((mat) => {
-        if (mat.userData?.blendTarget !== undefined) {
-          const current = mat.userData.blendCurrent || 0;
-          const target = mat.userData.blendTarget || 0;
-
-          if (Math.abs(current - target) > 0.01) {
-            const blendSpeed = 2.0; // Adjust fade speed here
-            const newBlend = THREE.MathUtils.lerp(current, target, blendSpeed * deltaTime);
-            mat.userData.blendCurrent = newBlend;
-            setBlend(mat, newBlend);
-          }
-        }
-      });
-    }
+    // NEW: Animate overlay opacity
+    overlayMaterialsRef.current.forEach((mat) => {
+      if (!mat) return;
+      const current = mat.opacity;
+      const target = mat.userData?.targetOpacity ?? 0;
+      if (Math.abs(current - target) > 0.01) {
+        const fadeSpeed = 2.0;
+        mat.opacity = THREE.MathUtils.lerp(current, target, fadeSpeed * deltaTime);
+        mat.needsUpdate = true;
+      }
+    });
 
     // Smooth color transitions for facet materials
     facetMaterialsRef.current.forEach((mat) => {
