@@ -561,12 +561,10 @@ const UnifiedCrystalScene = forwardRef(({
     config?.effects?.fracture?.initialGlow
   ]);
 
-  // Apply blending to each material if texture is loaded
-  if (overlayTexture) {
-    facetMaterialsRef.current.forEach((material) => {
-      useBlendTexture(material, overlayTexture, { initialBlend: 0 });
-    });
-  }
+  // Apply blending to each material (hook handles missing texture/material)
+  facetKeys.forEach((_, idx) => {
+    useBlendTexture(facetMaterialsRef.current[idx], overlayTexture, { initialBlend: 0 });
+  });
 
   // Debug anchor positions when facets are loaded
   useEffect(() => {
