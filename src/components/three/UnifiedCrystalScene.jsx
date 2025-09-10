@@ -377,12 +377,9 @@ const UnifiedCrystalScene = forwardRef(({
       const mat = facetMaterialsRef.current[index];
       if (!mat || mat.userData?.isFading) return;
 
-      // FIXED: Determine target color based on priority:
-      // 1. Hover state (highest priority)
-      // 2. Focus state (medium priority) 
-      // 3. Default (lowest priority)
+      // Determine target color
       let targetColor;
-      
+
       if (hovering) {
         // Hovering takes precedence
         targetColor = projectColors[index];
@@ -390,22 +387,10 @@ const UnifiedCrystalScene = forwardRef(({
           console.log(`🎨 Setting hover color for ${facetKey}`);
         }
       } else {
-        // Not hovering - check if this facet is focused or if another facet is hovered
-        const currentlyFocused = animationData?.focusedFacet === facetKey;
-        const anotherFacetHovered = hoveredFacetRef.current && hoveredFacetRef.current !== facetKey;
-        
-        if (currentlyFocused && !anotherFacetHovered) {
-          // This facet is focused and no other facet is hovered
-          targetColor = projectColors[index];
-          if (import.meta.env.DEV) {
-            console.log(`🎨 Maintaining focus color for ${facetKey}`);
-          }
-        } else {
-          // Default color
-          targetColor = defaultColorRef.current;
-          if (import.meta.env.DEV) {
-            console.log(`🎨 Resetting to default color for ${facetKey}`);
-          }
+        // Not hovering - always reset to default color
+        targetColor = defaultColorRef.current;
+        if (import.meta.env.DEV) {
+          console.log(`🎨 Resetting to default color for ${facetKey}`);
         }
       }
 
@@ -414,7 +399,7 @@ const UnifiedCrystalScene = forwardRef(({
       mat.userData.targetColor.copy(targetColor)
       mat.userData.progress = 0
     },
-    [facetKeys, projectColors, animationData?.focusedFacet]
+    [facetKeys, projectColors]
   )
   
   // Keyboard listener for debug toggle
@@ -474,7 +459,6 @@ const UnifiedCrystalScene = forwardRef(({
 
     // Create or update facet materials
     const hoveredKey = hoveredFacetRef.current;
-    const focusedKey = animationData?.focusedFacet;
     
     facetMaterialsRef.current = facetKeys.map((key, idx) => {
       const mat = crystalMaterialRef.current.clone();
@@ -484,9 +468,6 @@ const UnifiedCrystalScene = forwardRef(({
       
       if (hoveredKey === key) {
         // This facet is currently hovered
-        initialColor = projectColors[idx];
-      } else if (focusedKey === key && !hoveredKey) {
-        // This facet is focused and no other facet is hovered
         initialColor = projectColors[idx];
       }
 
@@ -559,7 +540,6 @@ const UnifiedCrystalScene = forwardRef(({
     materialVersion,
     facetKeys,
     projectColors,
-    animationData?.focusedFacet,
     animationData?.crystalConfig?.fracturePause,
     animationData?.crystalConfig?.explodeDuration,
     config?.effects?.fracture?.initialGlow
@@ -675,19 +655,10 @@ const UnifiedCrystalScene = forwardRef(({
         }
 
         // Determine target color for non-hovered facets
-        let targetColor;
-        if (currentFacet === key) {
-          // This facet is focused and not hovered by another
-          targetColor = projectColors[idx];
-          if (import.meta.env.DEV) {
-            console.log(`🎨 Setting focus color for ${key}`);
-          }
-        } else {
-          // Default color
-          targetColor = defaultColorRef.current;
-          if (import.meta.env.DEV) {
-            console.log(`🎨 Resetting ${key} to default`);
-          }
+        // Temporarily disable focus color changes by always resetting to default
+        let targetColor = defaultColorRef.current;
+        if (import.meta.env.DEV) {
+          console.log(`🎨 Resetting ${key} to default`);
         }
 
         mat.userData.startColor.copy(mat.color);
@@ -715,7 +686,7 @@ const UnifiedCrystalScene = forwardRef(({
     }
 
     return () => clearTimeout(focusUpdateTimeoutRef.current);
-  }, [animationData?.focusedFacet, materialVersion, facetKeys, projectColors, overlayTexture]);
+  }, [animationData?.focusedFacet, materialVersion, facetKeys, overlayTexture]);
   
   // Crystal form change detection
   useEffect(() => {
