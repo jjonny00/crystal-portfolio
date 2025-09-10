@@ -50,10 +50,6 @@ const MaterialManager = ({
         
         // Environment mapping for reflections (key for crystal look!)
         envMapIntensity: 1.0,                // VERY strong environment reflections
-
-        specularIntensity: 1.0,                    // Bright highlights
-        specularColor: new THREE.Color('#ffffff'), // White highlights
-        reflectivity: 1.8,                        // High reflectiveness
         
         // NO transparency - major performance gain!
         transparent: true,

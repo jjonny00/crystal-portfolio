@@ -572,7 +572,8 @@ const UnifiedCrystalScene = forwardRef(({
       overlayMat.userData = { targetOpacity: 0 };
 
       model.scene.traverse((child) => {
-        if (child.isMesh) {
+        // Avoid adding overlays to existing overlay meshes
+        if (child.isMesh && !child.userData.isOverlay) {
           const overlayMesh = new THREE.Mesh(child.geometry, overlayMat);
           overlayMesh.userData.isOverlay = true;
           child.add(overlayMesh);
