@@ -60,6 +60,7 @@ const UnifiedCrystalScene = forwardRef(({
 
   // Track material updates so we can reapply when ready
   const [materialVersion, setMaterialVersion] = useState(0);
+  const [, forceMaterialRender] = useState(0);
 
   // FIXED: Better tracking of focus changes
   const prevFocusedFacetRef = useRef(null);
@@ -548,6 +549,9 @@ const UnifiedCrystalScene = forwardRef(({
         mat.needsUpdate = true;
       });
     }
+
+    // Force a re-render so hooks see the newly created materials
+    forceMaterialRender(v => v + 1);
 
   }, [
     wholeCrystal,
