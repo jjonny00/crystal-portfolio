@@ -16,8 +16,9 @@ export async function loadFacetOverlayTexture() {
         texture.anisotropy = 8;
         // Use repeating so the pattern tiles across facets regardless of UV range
         texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+        texture.repeat.set(8, 8);
         texture.needsUpdate = true;
-        
+
         cachedTexture = texture;
         resolve(texture);
       },

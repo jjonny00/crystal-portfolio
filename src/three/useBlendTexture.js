@@ -8,15 +8,22 @@ export function useBlendTexture(material, texture, { initialBlend = 0 } = {}) {
     if (!material || !texture || patchedRef.current) return;
 
     const originalOnBeforeCompile = material.onBeforeCompile;
-    
+
     material.onBeforeCompile = (shader) => {
       if (originalOnBeforeCompile) {
         originalOnBeforeCompile(shader);
       }
-      
+
       if (!shader.uniforms.uBlend) {
         shader.uniforms.uBlend = { value: initialBlend };
         material.userData._blendUniform = shader.uniforms.uBlend;
+      }
+
+      if (!/uniform\s+float\s+uBlend/.test(shader.fragmentShader)) {
+        shader.fragmentShader = shader.fragmentShader.replace(
+          "void main() {",
+          "uniform float uBlend;\nvoid main() {"
+        );
       }
 
       if (!shader.fragmentShader.includes('// TEXTURE_BLEND_PATCH')) {
