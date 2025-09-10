@@ -14,7 +14,8 @@ export async function loadFacetOverlayTexture() {
         texture.magFilter = THREE.NearestFilter;
         texture.minFilter = THREE.NearestMipmapNearestFilter;
         texture.anisotropy = 8;
-        texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
+        // Use repeating so the pattern tiles across facets regardless of UV range
+        texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
         texture.needsUpdate = true;
         
         cachedTexture = texture;

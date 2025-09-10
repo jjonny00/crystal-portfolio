@@ -41,6 +41,8 @@ export function useBlendTexture(material, texture, { initialBlend = 0 } = {}) {
     };
 
     material.map = texture;
+    material.userData.blendCurrent = initialBlend;
+    setBlend(material, initialBlend);
     material.needsUpdate = true;
     patchedRef.current = true;
 
