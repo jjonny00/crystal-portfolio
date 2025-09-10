@@ -22,12 +22,16 @@ describe('useBlendTexture', () => {
       expect(material.onBeforeCompile).not.toBe(original);
     });
 
-    const shader = { uniforms: {}, fragmentShader: '#include <map_fragment>' };
+    const shader = {
+      uniforms: {},
+      fragmentShader: '#include <map_pars_fragment>\n#include <map_fragment>'
+    };
     material.onBeforeCompile(shader);
 
     expect(shader.uniforms.uBlend.value).toBeCloseTo(0.5);
     expect(material.userData._blendUniform).toBe(shader.uniforms.uBlend);
     expect(material.map).toBe(texture);
+    expect(shader.fragmentShader).toContain('uniform float uBlend');
     expect(shader.fragmentShader).toContain('TEXTURE_BLEND_PATCH');
 
     setBlend(material, 0.3);
