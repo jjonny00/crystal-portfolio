@@ -17,6 +17,8 @@ import { getProjectColorByFacetKey } from '../../data/projects'
 import FacetLabels from './FacetLabels'
 import projects from '../../data/projects'
 import { effects } from '../../crystalConfig'
+import { useBlendTexture, setBlend } from '../../three/useBlendTexture'
+import { loadFacetOverlayTexture } from '../../three/loadFacetOverlayTexture'
 
 const UnifiedCrystalScene = forwardRef(({ 
   animationData,
@@ -107,6 +109,7 @@ const UnifiedCrystalScene = forwardRef(({
   const [modelsLoaded, setModelsLoaded] = useState(false);
   // Store precomputed anchor offsets for label placement
   const [anchorOffsets, setAnchorOffsets] = useState({});
+  const [overlayTexture, setOverlayTexture] = useState(null);
 
   const handleMaterialReady = useCallback(() => {
     setMaterialVersion(v => v + 1);
@@ -118,6 +121,19 @@ const UnifiedCrystalScene = forwardRef(({
       facetRefs.current = facetKeys.map(() => React.createRef());
     }
   }, [facetKeys]);
+
+  // Load overlay texture once
+  useEffect(() => {
+    let mounted = true;
+    loadFacetOverlayTexture()
+      .then((texture) => {
+        if (mounted) setOverlayTexture(texture);
+      })
+      .catch((error) => {
+        console.warn('Failed to load overlay texture:', error);
+      });
+    return () => { mounted = false; };
+  }, []);
 
   
   useImperativeHandle(ref, () => ({
@@ -483,7 +499,10 @@ const UnifiedCrystalScene = forwardRef(({
         baseEmissiveIntensity:
           mat.userData?.baseEmissiveIntensity ?? mat.emissiveIntensity,
         baseEmissiveColor:
-          mat.userData?.baseEmissiveColor?.clone?.() || mat.emissive.clone()
+          mat.userData?.baseEmissiveColor?.clone?.() || mat.emissive.clone(),
+        // Add blend tracking
+        blendTarget: 0,
+        blendCurrent: 0
       };
 
       const model = facetModels[idx];
@@ -541,6 +560,13 @@ const UnifiedCrystalScene = forwardRef(({
     animationData?.crystalConfig?.explodeDuration,
     config?.effects?.fracture?.initialGlow
   ]);
+
+  // Apply blending to each material if texture is loaded
+  if (overlayTexture) {
+    facetMaterialsRef.current.forEach((material) => {
+      useBlendTexture(material, overlayTexture, { initialBlend: 0 });
+    });
+  }
 
   // Debug anchor positions when facets are loaded
   useEffect(() => {
@@ -670,8 +696,24 @@ const UnifiedCrystalScene = forwardRef(({
       activeFacetRef.current = currentFacet;
     }, 50);
 
+    // NEW: Handle texture blending for project focus
+    if (facetMaterialsRef.current.length && overlayTexture) {
+      facetMaterialsRef.current.forEach((mat, idx) => {
+        const key = facetKeys[idx];
+        const shouldShowTexture = currentFacet === key;
+
+        if (mat.userData.blendTarget !== (shouldShowTexture ? 1 : 0)) {
+          mat.userData.blendTarget = shouldShowTexture ? 1 : 0;
+
+          if (import.meta.env.DEV) {
+            console.log(`🎨 Texture blend ${key}: ${shouldShowTexture ? 'fade in' : 'fade out'}`);
+          }
+        }
+      });
+    }
+
     return () => clearTimeout(focusUpdateTimeoutRef.current);
-  }, [animationData?.focusedFacet, materialVersion, facetKeys, projectColors]);
+  }, [animationData?.focusedFacet, materialVersion, facetKeys, projectColors, overlayTexture]);
   
   // Crystal form change detection
   useEffect(() => {
@@ -962,6 +1004,23 @@ const UnifiedCrystalScene = forwardRef(({
         setShowFacets(false);
         setShowWholeCrystal(true);
       }
+    }
+
+    // NEW: Animate texture blending
+    if (overlayTexture) {
+      facetMaterialsRef.current.forEach((mat) => {
+        if (mat.userData?.blendTarget !== undefined) {
+          const current = mat.userData.blendCurrent || 0;
+          const target = mat.userData.blendTarget || 0;
+
+          if (Math.abs(current - target) > 0.01) {
+            const blendSpeed = 2.0; // Adjust fade speed here
+            const newBlend = THREE.MathUtils.lerp(current, target, blendSpeed * deltaTime);
+            mat.userData.blendCurrent = newBlend;
+            setBlend(mat, newBlend);
+          }
+        }
+      });
     }
 
     // Smooth color transitions for facet materials
