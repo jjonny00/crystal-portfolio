@@ -450,7 +450,7 @@ const UnifiedCrystalScene = forwardRef(({
     const applyMaterial = (modelScene, material) => {
       if (!modelScene) return;
       modelScene.traverse((child) => {
-        if (child.isMesh) {
+        if (child.isMesh && !child.userData?.isOverlay) {
           child.material = material;
           child.castShadow = false;
           child.receiveShadow = false;
