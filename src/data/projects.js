@@ -19,6 +19,7 @@ export const projects = [
     technologies: ["React", "D3.js", "Figma", "User Research"],
     color: "#64ffda", // Match the facet color
     headlineColor: "#64ffda", // NEW: Color for 1970s glow headlines
+    overlayTexture: "/assets/textures/checker01.jpg",
     imageUrl: "/assets/projects/user-dashboard.jpg",
     demoUrl: "https://demo-url.com/dashboard",
     githubUrl: "https://github.com/yourusername/user-dashboard",
@@ -39,6 +40,7 @@ export const projects = [
     technologies: ["Three.js", "GSAP", "React", "Storyboarding"],
     color: "#bb86fc", // Match the facet color
     headlineColor: "#bb86fc", // NEW: Color for 1970s glow headlines
+    overlayTexture: "/assets/textures/checker01.jpg",
     imageUrl: "/assets/projects/storytelling-platform.jpg",
     demoUrl: "https://demo-url.com/storytelling",
     githubUrl: "https://github.com/yourusername/storytelling-platform",
@@ -59,6 +61,7 @@ export const projects = [
     technologies: ["Styled Components", "Storybook", "Figma", "Design Tokens"],
     color: "#03dac6", // Match the facet color
     headlineColor: "#03dac6", // NEW: Color for 1970s glow headlines
+    overlayTexture: "/assets/textures/checker01.jpg",
     imageUrl: "/assets/projects/design-system.jpg",
     demoUrl: "https://demo-url.com/design-system",
     githubUrl: "https://github.com/yourusername/design-system",
@@ -79,6 +82,7 @@ export const projects = [
     technologies: ["React", "TypeScript", "Monorepo", "CI/CD"],
     color: "#cf6679", // Match the facet color
     headlineColor: "#cf6679", // NEW: Color for 1970s glow headlines
+    overlayTexture: "/assets/textures/checker01.jpg",
     imageUrl: "/assets/projects/component-architecture.jpg",
     demoUrl: "https://demo-url.com/components",
     githubUrl: "https://github.com/yourusername/component-architecture",
@@ -99,6 +103,7 @@ export const projects = [
     technologies: ["Next.js", "Firebase", "Tailwind CSS", "User Testing"],
     color: "#ffd600", // Match the facet color
     headlineColor: "#ffd600", // NEW: Color for 1970s glow headlines
+    overlayTexture: "/assets/textures/checker01.jpg",
     imageUrl: "/assets/projects/collaboration-platform.jpg",
     demoUrl: "https://demo-url.com/collaboration",
     githubUrl: "https://github.com/yourusername/collaboration-platform",
@@ -119,6 +124,7 @@ export const projects = [
     technologies: ["WebGL", "React Three Fiber", "Shaders", "Motion Design"],
     color: "#ff7043", // Match the facet color
     headlineColor: "#ff7043", // NEW: Color for 1970s glow headlines
+    overlayTexture: "/assets/textures/checker01.jpg",
     imageUrl: "/assets/projects/experimental-interactions.jpg",
     demoUrl: "https://demo-url.com/experiments",
     githubUrl: "https://github.com/yourusername/experimental-interactions",
@@ -145,6 +151,16 @@ const getProjectByFacetKey = (facetKey) => {
 export const getProjectColorByFacetKey = (facetKey) => {
   const project = getProjectByFacetKey(facetKey);
   return project ? project.color : '#028700'; // Default color
+};
+
+/**
+ * Get overlay texture path by facet key
+ * @param {string} facetKey - The facet key to lookup
+ * @returns {string|null} Overlay texture path or null if not found
+ */
+export const getOverlayTextureByFacetKey = (facetKey) => {
+  const project = getProjectByFacetKey(facetKey);
+  return project?.overlayTexture || null;
 };
 
 export default projects;

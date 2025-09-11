@@ -17,6 +17,7 @@ import { getProjectColorByFacetKey } from '../../data/projects'
 import FacetLabels from './FacetLabels'
 import projects from '../../data/projects'
 import { effects } from '../../crystalConfig'
+import { useFacetOverlayGeometry } from '../../hooks/useFacetOverlayGeometry'
 
 const UnifiedCrystalScene = forwardRef(({ 
   animationData,
@@ -112,7 +113,15 @@ const UnifiedCrystalScene = forwardRef(({
     setMaterialVersion(v => v + 1);
   }, []);
 
-  
+  const {
+    isReady: overlaysReady,
+    createOverlayMesh,
+    setOverlayVisibility,
+    updateOverlays,
+    cleanup: cleanupOverlays,
+    overlayMeshes
+  } = useFacetOverlayGeometry(facetKeys);
+
   useEffect(() => {
     if (facetRefs.current.length === 0) {
       facetRefs.current = facetKeys.map(() => React.createRef());
@@ -441,7 +450,7 @@ const UnifiedCrystalScene = forwardRef(({
     const applyMaterial = (modelScene, material) => {
       if (!modelScene) return;
       modelScene.traverse((child) => {
-        if (child.isMesh) {
+        if (child.isMesh && !child.userData?.isOverlay) {
           child.material = material;
           child.castShadow = false;
           child.receiveShadow = false;
@@ -540,6 +549,39 @@ const UnifiedCrystalScene = forwardRef(({
     animationData?.crystalConfig?.fracturePause,
     animationData?.crystalConfig?.explodeDuration,
     config?.effects?.fracture?.initialGlow
+  ]);
+
+  useEffect(() => {
+    if (!overlaysReady || !showFacets || !modelsLoaded) return;
+
+    facetRefs.current.forEach((facetRef, index) => {
+      const facetKey = facetKeys[index];
+      if (facetRef?.current) {
+        const overlayMesh = createOverlayMesh(facetRef, facetKey);
+        if (overlayMesh) {
+          console.log(`📄 Created overlay mesh for ${facetKey}`);
+        }
+      }
+    });
+
+    const currentFocus = animationData?.focusedFacet;
+    if (currentFocus) {
+      setOverlayVisibility(currentFocus, true);
+    }
+
+    return () => {
+      overlayMeshes.forEach((mesh) => {
+        if (mesh.parent) {
+          mesh.parent.remove(mesh);
+        }
+      });
+      overlayMeshes.clear();
+    };
+  }, [
+    overlaysReady,
+    showFacets,
+    modelsLoaded,
+    createOverlayMesh
   ]);
 
   // Debug anchor positions when facets are loaded
@@ -670,8 +712,23 @@ const UnifiedCrystalScene = forwardRef(({
       activeFacetRef.current = currentFacet;
     }, 50);
 
+    if (overlaysReady) {
+      facetKeys.forEach(key => setOverlayVisibility(key, false));
+      if (currentFacet) {
+        setOverlayVisibility(currentFacet, true);
+        console.log(`📄 Showing overlay for ${currentFacet}`);
+      }
+    }
+
     return () => clearTimeout(focusUpdateTimeoutRef.current);
-  }, [animationData?.focusedFacet, materialVersion, facetKeys, projectColors]);
+  }, [
+    animationData?.focusedFacet,
+    materialVersion,
+    facetKeys,
+    projectColors,
+    overlaysReady,
+    setOverlayVisibility
+  ]);
   
   // Crystal form change detection
   useEffect(() => {
@@ -974,7 +1031,17 @@ const UnifiedCrystalScene = forwardRef(({
         mat.color.lerpColors(startColor, targetColor, mat.userData.progress);
       }
     });
+
+    if (overlaysReady) {
+      updateOverlays(deltaTime);
+    }
   });
+
+  useEffect(() => {
+    return () => {
+      cleanupOverlays();
+    };
+  }, [cleanupOverlays]);
 
   return (
     <group ref={crystalGroupRef}>
