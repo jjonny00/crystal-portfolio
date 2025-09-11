@@ -575,6 +575,7 @@ const UnifiedCrystalScene = forwardRef(({
           mesh.parent.remove(mesh);
         }
       });
+      overlayMeshes.clear();
     };
   }, [
     overlaysReady,

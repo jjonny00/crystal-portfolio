@@ -30,6 +30,7 @@ export const useFacetOverlayGeometry = (facetKeys) => {
             texture.minFilter = THREE.LinearFilter;
             texture.magFilter = THREE.LinearFilter;
             texture.colorSpace = THREE.SRGBColorSpace;
+            texture.needsUpdate = true;
 
             textureMap.set(facetKey, texture);
             console.log(`✅ Loaded overlay texture for ${facetKey}`);
@@ -78,12 +79,13 @@ export const useFacetOverlayGeometry = (facetKeys) => {
     // Create mesh
     const overlayMesh = new THREE.Mesh(sourceMesh.geometry.clone(), overlayMaterial);
 
-    // Align with source mesh and attach
+    // Align with source mesh and attach to facet group
     overlayMesh.position.copy(sourceMesh.position);
     overlayMesh.rotation.copy(sourceMesh.rotation);
     overlayMesh.scale.copy(sourceMesh.scale);
     overlayMesh.renderOrder = (sourceMesh.renderOrder || 0) + 1;
-    sourceMesh.add(overlayMesh);
+    overlayMesh.visible = false;
+    facetRef.current.add(overlayMesh);
 
     // Store reference for animation
     overlayMesh.userData = {
@@ -116,6 +118,7 @@ export const useFacetOverlayGeometry = (facetKeys) => {
 
         mesh.userData.currentOpacity = newOpacity;
         mesh.material.opacity = newOpacity;
+        mesh.material.needsUpdate = true;
         mesh.visible = newOpacity > 0.01;
       }
     });
