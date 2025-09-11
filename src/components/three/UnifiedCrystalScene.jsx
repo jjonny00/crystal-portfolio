@@ -558,8 +558,7 @@ const UnifiedCrystalScene = forwardRef(({
       const facetKey = facetKeys[index];
       if (facetRef?.current) {
         const overlayMesh = createOverlayMesh(facetRef, facetKey);
-        if (overlayMesh && facetsGroupRef.current) {
-          facetsGroupRef.current.add(overlayMesh);
+        if (overlayMesh) {
           console.log(`📄 Created overlay mesh for ${facetKey}`);
         }
       }
@@ -581,8 +580,7 @@ const UnifiedCrystalScene = forwardRef(({
     overlaysReady,
     showFacets,
     modelsLoaded,
-    createOverlayMesh,
-    animationData?.focusedFacet
+    createOverlayMesh
   ]);
 
   // Debug anchor positions when facets are loaded

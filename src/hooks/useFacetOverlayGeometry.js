@@ -6,9 +6,13 @@ export const useFacetOverlayGeometry = (facetKeys) => {
   const [overlayTextures, setOverlayTextures] = useState(new Map());
   const [isReady, setIsReady] = useState(false);
   const overlayMeshesRef = useRef(new Map());
+  const texturesLoadedRef = useRef(false);
 
   // Load all overlay textures
   useEffect(() => {
+    if (texturesLoadedRef.current) return;
+    texturesLoadedRef.current = true;
+
     const loadTextures = async () => {
       const loader = new THREE.TextureLoader();
       const textureMap = new Map();
@@ -47,15 +51,15 @@ export const useFacetOverlayGeometry = (facetKeys) => {
     const texture = overlayTextures.get(facetKey);
     if (!texture || !facetRef?.current) return null;
 
-    // Clone the facet geometry
-    let overlayGeometry = null;
+    // Find first mesh inside facet
+    let sourceMesh = null;
     facetRef.current.traverse((child) => {
-      if (child.isMesh && child.geometry) {
-        overlayGeometry = child.geometry.clone();
+      if (!sourceMesh && child.isMesh) {
+        sourceMesh = child;
       }
     });
 
-    if (!overlayGeometry) return null;
+    if (!sourceMesh) return null;
 
     // Create overlay material
     const overlayMaterial = new THREE.MeshBasicMaterial({
@@ -66,20 +70,20 @@ export const useFacetOverlayGeometry = (facetKeys) => {
       depthWrite: false,
       depthTest: true,
       blending: THREE.NormalBlending,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1,
     });
 
     // Create mesh
-    const overlayMesh = new THREE.Mesh(overlayGeometry, overlayMaterial);
+    const overlayMesh = new THREE.Mesh(sourceMesh.geometry.clone(), overlayMaterial);
 
-    // Position slightly above the facet surface
-    overlayMesh.position.copy(facetRef.current.position);
-    overlayMesh.rotation.copy(facetRef.current.rotation);
-    overlayMesh.scale.copy(facetRef.current.scale);
-
-    // Move slightly outward along the facet's normal
-    const direction = new THREE.Vector3();
-    facetRef.current.getWorldDirection(direction);
-    overlayMesh.position.add(direction.multiplyScalar(0.01));
+    // Align with source mesh and attach
+    overlayMesh.position.copy(sourceMesh.position);
+    overlayMesh.rotation.copy(sourceMesh.rotation);
+    overlayMesh.scale.copy(sourceMesh.scale);
+    overlayMesh.renderOrder = (sourceMesh.renderOrder || 0) + 1;
+    sourceMesh.add(overlayMesh);
 
     // Store reference for animation
     overlayMesh.userData = {
