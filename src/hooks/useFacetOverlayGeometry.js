@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import * as THREE from 'three';
-import { getOverlayTextureByFacetKey } from '../data/projects';
+import { getOverlayImageByFacetKey } from '../data/projects';
 
 export const useFacetOverlayGeometry = (facetKeys) => {
   const [overlayTextures, setOverlayTextures] = useState(new Map());
@@ -8,7 +8,7 @@ export const useFacetOverlayGeometry = (facetKeys) => {
   const overlayMeshesRef = useRef(new Map());
   const texturesLoadedRef = useRef(false);
 
-  // Load all overlay textures
+  // Load all overlay images
   useEffect(() => {
     if (texturesLoadedRef.current) return;
     texturesLoadedRef.current = true;
@@ -18,10 +18,10 @@ export const useFacetOverlayGeometry = (facetKeys) => {
       const textureMap = new Map();
 
       for (const facetKey of facetKeys) {
-        const texturePath = getOverlayTextureByFacetKey(facetKey);
-        if (texturePath) {
+        const imagePath = getOverlayImageByFacetKey(facetKey);
+        if (imagePath) {
           try {
-            const texture = await loader.loadAsync(texturePath);
+            const texture = await loader.loadAsync(imagePath);
 
             // Configure texture
             texture.wrapS = THREE.RepeatWrapping;
@@ -33,9 +33,9 @@ export const useFacetOverlayGeometry = (facetKeys) => {
             texture.needsUpdate = true;
 
             textureMap.set(facetKey, texture);
-            console.log(`✅ Loaded overlay texture for ${facetKey}`);
+            console.log(`✅ Loaded overlay image for ${facetKey}`);
           } catch (error) {
-            console.warn(`❌ Failed to load overlay texture for ${facetKey}:`, error);
+            console.warn(`❌ Failed to load overlay image for ${facetKey}:`, error);
           }
         }
       }
