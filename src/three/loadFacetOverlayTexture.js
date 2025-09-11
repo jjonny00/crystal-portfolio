@@ -14,7 +14,8 @@ export async function loadFacetOverlayTexture() {
         texture.magFilter = THREE.NearestFilter;
         texture.minFilter = THREE.NearestMipmapNearestFilter;
         texture.anisotropy = 8;
-        texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
+        texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+        texture.repeat.set(4, 4);
         texture.needsUpdate = true;
         cachedTexture = texture;
         resolve(texture);

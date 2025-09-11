@@ -19,28 +19,28 @@ export function useBlendTexture(material, texture, { initialBlend = 0 } = {}) {
         material.userData._blendUniform = shader.uniforms.uBlend;
       }
 
-      if (!shader.fragmentShader.includes('uniform float uBlend')) {
+      shader.uniforms.uOverlayTexture = { value: texture };
+
+      if (!shader.fragmentShader.includes('uniform sampler2D uOverlayTexture')) {
         shader.fragmentShader = shader.fragmentShader.replace(
-          '#include <map_pars_fragment>',
-          '#include <map_pars_fragment>\nuniform float uBlend;'
+          '#include <uv_pars_fragment>',
+          '#include <uv_pars_fragment>\nuniform sampler2D uOverlayTexture;\nuniform float uBlend;'
         );
       }
 
       if (!shader.fragmentShader.includes('// TEXTURE_BLEND_PATCH')) {
         shader.fragmentShader = shader.fragmentShader.replace(
           '#include <map_fragment>',
-          `// TEXTURE_BLEND_PATCH\n#ifdef USE_MAP\n  vec4 sampledDiffuseColor = texture2D( map, vMapUv );\n  sampledDiffuseColor = mapTexelToLinear( sampledDiffuseColor );\n  vec3 baseCol = diffuseColor.rgb;\n  vec3 mappedCol = baseCol * sampledDiffuseColor.rgb;\n  diffuseColor.rgb = mix( baseCol, mappedCol, uBlend );\n#endif`
+          '#include <map_fragment>\n// TEXTURE_BLEND_PATCH\nvec3 overlayCol = texture2D(uOverlayTexture, vUv).rgb;\ndiffuseColor.rgb = mix(diffuseColor.rgb, overlayCol, uBlend * 0.3);'
         );
       }
     };
 
-    material.map = texture;
     material.needsUpdate = true;
     patchedRef.current = true;
 
     return () => {
       material.onBeforeCompile = originalOnBeforeCompile;
-      material.map = null;
       delete material.userData._blendUniform;
       material.needsUpdate = true;
       patchedRef.current = false;
@@ -51,6 +51,6 @@ export function useBlendTexture(material, texture, { initialBlend = 0 } = {}) {
 export function setBlend(material, value) {
   const uniform = material?.userData?._blendUniform;
   if (uniform) {
-    uniform.value = Math.max(0, Math.min(1, value));
+    uniform.value = THREE.MathUtils.clamp(value, 0, 1);
   }
 }

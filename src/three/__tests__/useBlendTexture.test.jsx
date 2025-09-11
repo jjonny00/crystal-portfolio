@@ -24,7 +24,7 @@ describe('useBlendTexture', () => {
 
     const shader = {
       uniforms: {},
-      fragmentShader: '#include <map_pars_fragment>\n#include <map_fragment>'
+      fragmentShader: '#include <uv_pars_fragment>\n#include <map_fragment>'
     };
     material.onBeforeCompile(shader);
     setBlend(material, 0.5);
@@ -32,6 +32,6 @@ describe('useBlendTexture', () => {
     expect(shader.uniforms.uBlend.value).toBeCloseTo(0.5);
     expect(material.userData._blendUniform).toBe(shader.uniforms.uBlend);
     expect(shader.fragmentShader).toContain('TEXTURE_BLEND_PATCH');
-    expect(material.map).toBe(texture);
+    expect(shader.uniforms.uOverlayTexture.value).toBe(texture);
   });
 });
