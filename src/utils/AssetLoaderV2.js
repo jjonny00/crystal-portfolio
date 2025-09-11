@@ -76,7 +76,7 @@ export default class AssetLoaderV2 {
       'FacetSystem': 'System Facet',
       'FacetLeadership': 'Leadership Facet',
       'FacetExploration': 'Exploration Facet',
-      'quartz-normal07_subtle-polished': 'Normal Map Texture',
+      'quartz-normal07_subtle': 'Normal Map Texture',
       'prismatic10-low': 'Environment (Low)',
       'prismatic10-medium': 'Environment (Medium)',
       'prismatic10-high': 'Environment (High)'
