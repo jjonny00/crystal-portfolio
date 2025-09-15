@@ -1,0 +1,313 @@
+.sequencer-app {
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: linear-gradient(160deg, rgba(15, 23, 42, 0.9), rgba(15, 118, 110, 0.8));
+  color: #e2e8f0;
+  padding: 24px;
+  border-radius: 20px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.45);
+  max-width: 1080px;
+  margin: 40px auto;
+  backdrop-filter: blur(18px);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.sequencer-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.sequencer-title {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  margin: 0;
+}
+
+.sequencer-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.sequencer-controls label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  background: rgba(15, 23, 42, 0.45);
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.sequencer-controls input[type="number"] {
+  width: 70px;
+  padding: 6px 8px;
+  background: rgba(15, 23, 42, 0.75);
+  color: inherit;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.sequencer-button {
+  background: linear-gradient(135deg, #22d3ee, #6366f1);
+  border: none;
+  color: #0f172a;
+  font-weight: 600;
+  padding: 10px 18px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: 0 12px 24px rgba(14, 165, 233, 0.35);
+}
+
+.sequencer-button:hover,
+.sequencer-button:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 30px rgba(14, 165, 233, 0.45);
+}
+
+.sequencer-status {
+  font-size: 14px;
+  background: rgba(15, 23, 42, 0.45);
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.sequencer-tabs {
+  display: inline-flex;
+  margin-top: 24px;
+  border-radius: 999px;
+  padding: 4px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.sequencer-tab {
+  position: relative;
+  background: transparent;
+  border: none;
+  color: rgba(226, 232, 240, 0.8);
+  font-weight: 600;
+  padding: 10px 22px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.sequencer-tab.is-active {
+  color: #0f172a;
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.85), rgba(20, 184, 166, 0.85));
+  box-shadow: 0 12px 24px rgba(20, 184, 166, 0.35);
+}
+
+.sequencer-tab:focus-visible {
+  outline: 2px solid rgba(226, 232, 240, 0.7);
+  outline-offset: 2px;
+}
+
+.sequencer-content {
+  margin-top: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.song-view,
+.track-view {
+  background: rgba(15, 23, 42, 0.45);
+  border-radius: 18px;
+  padding: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  box-shadow: inset 0 1px 0 rgba(148, 163, 184, 0.15);
+}
+
+.song-view__header,
+.track-view__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.song-view__title,
+.track-view__title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.track-view__subtitle {
+  margin: 0;
+  color: rgba(226, 232, 240, 0.65);
+  font-size: 14px;
+}
+
+.song-view__add-section {
+  background: rgba(34, 197, 94, 0.18);
+  color: #bbf7d0;
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.song-view__add-section:hover,
+.song-view__add-section:focus-visible {
+  background: rgba(34, 197, 94, 0.32);
+  border-color: rgba(34, 197, 94, 0.55);
+}
+
+.song-view__grid,
+.track-view__grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.song-view__row,
+.track-view__row {
+  display: grid;
+  align-items: center;
+  gap: 8px;
+}
+
+.song-view__row--header,
+.track-view__row--header {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: rgba(226, 232, 240, 0.6);
+}
+
+.song-view__cell,
+.track-view__cell {
+  background: rgba(15, 23, 42, 0.58);
+  border-radius: 12px;
+  padding: 10px 12px;
+  text-align: center;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.song-view__cell--label,
+.track-view__cell--label {
+  justify-content: flex-start;
+  font-weight: 600;
+  color: rgba(226, 232, 240, 0.95);
+  background: transparent;
+  border: none;
+}
+
+.song-view__cell--section {
+  font-weight: 600;
+  background: transparent;
+  border: none;
+  color: rgba(226, 232, 240, 0.7);
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.song-view__cell--section.is-current {
+  color: #38bdf8;
+}
+
+.song-view__cell--toggle,
+.track-view__cell--step {
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.song-view__cell--toggle.is-active,
+.track-view__cell--step.is-active {
+  background: rgba(34, 197, 94, 0.25);
+  border-color: rgba(34, 197, 94, 0.65);
+  box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.4);
+}
+
+.song-view__cell--toggle.is-current,
+.track-view__cell--step.is-current {
+  box-shadow: inset 0 0 0 2px rgba(56, 189, 248, 0.9);
+}
+
+.track-view__row.is-muted .track-view__cell--step {
+  opacity: 0.35;
+}
+
+.track-view__cell--step.is-triggered {
+  animation: sequencerPulse 0.35s ease-out;
+  background: rgba(59, 130, 246, 0.45);
+  border-color: rgba(59, 130, 246, 0.75);
+}
+
+.song-view__cell-indicator,
+.track-view__cell-indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: rgba(148, 163, 184, 0.35);
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.song-view__cell--toggle.is-active .song-view__cell-indicator,
+.track-view__cell--step.is-active .track-view__cell-indicator {
+  background: #34d399;
+  transform: scale(1.2);
+}
+
+.song-view__cell--toggle.is-current .song-view__cell-indicator,
+.track-view__cell--step.is-current .track-view__cell-indicator {
+  background: #38bdf8;
+}
+
+.song-view__empty {
+  font-size: 15px;
+  padding: 18px;
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 16px;
+  border: 1px dashed rgba(148, 163, 184, 0.4);
+  text-align: center;
+  color: rgba(226, 232, 240, 0.75);
+}
+
+.track-view__cell--step-label {
+  background: transparent;
+  border: none;
+  color: rgba(226, 232, 240, 0.5);
+}
+
+.track-view__cell--step-label.is-current {
+  color: #38bdf8;
+}
+
+@keyframes sequencerPulse {
+  0% {
+    transform: scale(0.9);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.song-view__cell--toggle:focus-visible,
+.track-view__cell--step:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.75);
+  outline-offset: 2px;
+}
