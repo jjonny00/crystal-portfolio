@@ -2,7 +2,7 @@
 // Fixed facet color conflicts between hover and scroll focus
 
 import React, { useRef, useState, useEffect, useCallback, forwardRef, useImperativeHandle, useMemo } from 'react'
-import { useFrame } from '@react-three/fiber'
+import { useFrame, useLoader } from '@react-three/fiber'
 import { useGLTF, Html } from '@react-three/drei'
 import * as THREE from 'three'
 import FractureBurstParticles from './FractureBurstParticles'
@@ -19,6 +19,104 @@ import projects from '../../data/projects'
 import { effects } from '../../crystalConfig'
 import { useFacetOverlayGeometry } from '../../hooks/useFacetOverlayGeometry'
 
+const ANCHOR_BILLBOARD_SIZE = 1.0;
+const ANCHOR_BILLBOARD_OFFSET = 0.02;
+const FACET_KEYS = ['empathy', 'narrative', 'craft', 'system', 'leadership', 'exploration'];
+
+const AnchorBillboard = React.memo(({ facetKey, facetRef, texture, visible, modelsLoaded }) => {
+  const meshRef = useRef(null);
+  const anchorRef = useRef(null);
+  const anchorPosition = useMemo(() => new THREE.Vector3(), []);
+  const cameraPosition = useMemo(() => new THREE.Vector3(), []);
+  const cameraQuaternion = useMemo(() => new THREE.Quaternion(), []);
+  const offsetDirection = useMemo(() => new THREE.Vector3(), []);
+
+  useEffect(() => {
+    anchorRef.current = null;
+  }, [facetKey, facetRef]);
+
+  useEffect(() => {
+    const mesh = meshRef.current;
+    if (!mesh) return;
+
+    mesh.visible = false;
+    mesh.renderOrder = 2000;
+    mesh.scale.setScalar(ANCHOR_BILLBOARD_SIZE);
+    mesh.userData = {
+      ...(mesh.userData || {}),
+      isAnchorBillboard: true,
+      facetKey
+    };
+  }, [facetKey]);
+
+  useEffect(() => {
+    if (!modelsLoaded || !facetRef?.current) {
+      anchorRef.current = null;
+      return;
+    }
+
+    anchorRef.current = facetRef.current.getObjectByName(`anchor_${facetKey}`) || null;
+  }, [modelsLoaded, facetRef, facetKey]);
+
+  useFrame((state) => {
+    const mesh = meshRef.current;
+    if (!mesh) return;
+
+    if (!visible || !modelsLoaded || !facetRef?.current) {
+      mesh.visible = false;
+      return;
+    }
+
+    let anchor = anchorRef.current;
+    if (!anchor) {
+      anchor = facetRef.current.getObjectByName(`anchor_${facetKey}`);
+      if (anchor) {
+        anchorRef.current = anchor;
+      } else {
+        mesh.visible = false;
+        return;
+      }
+    }
+
+    anchor.updateWorldMatrix(true, false);
+    anchor.getWorldPosition(anchorPosition);
+
+    state.camera.getWorldQuaternion(cameraQuaternion);
+    state.camera.getWorldPosition(cameraPosition);
+
+    mesh.position.copy(anchorPosition);
+
+    offsetDirection.copy(cameraPosition).sub(anchorPosition);
+    if (offsetDirection.lengthSq() > 1e-6) {
+      offsetDirection.normalize();
+      mesh.position.addScaledVector(offsetDirection, ANCHOR_BILLBOARD_OFFSET);
+    }
+
+    mesh.quaternion.copy(cameraQuaternion);
+    mesh.visible = !!texture;
+  });
+
+  if (!texture) {
+    return null;
+  }
+
+  return (
+    <mesh ref={meshRef} name={`anchor_billboard_${facetKey}`}>
+      <planeGeometry args={[1, 1]} />
+      <meshBasicMaterial
+        map={texture}
+        transparent
+        opacity={1}
+        toneMapped={false}
+        side={THREE.DoubleSide}
+        depthWrite={false}
+      />
+    </mesh>
+  );
+});
+
+AnchorBillboard.displayName = 'AnchorBillboard';
+
 const UnifiedCrystalScene = forwardRef(({ 
   animationData,
   config,
@@ -28,10 +126,11 @@ const UnifiedCrystalScene = forwardRef(({
   scrollToProgress,
   onFractureStart
 }, ref) => {
+  const facetKeys = FACET_KEYS;
   // Component refs for crystal animation
   const crystalGroupRef = useRef();
   const wholeCrystalRef = useRef();
-  const facetRefs = useRef([]);
+  const facetRefs = useRef(facetKeys.map(() => React.createRef()));
   const facetsGroupRef = useRef();
   const crystalMaterialRef = useRef();
 
@@ -64,9 +163,6 @@ const UnifiedCrystalScene = forwardRef(({
   const prevFocusedFacetRef = useRef(null);
   const prevMaterialVersionRef = useRef(materialVersion);
   const focusUpdateTimeoutRef = useRef();
-
-  // Facet configuration
-  const facetKeys = ['empathy', 'narrative', 'craft', 'system', 'leadership', 'exploration'];
 
   // Individual facet materials and colors
   const facetMaterialsRef = useRef([]);
@@ -122,8 +218,21 @@ const UnifiedCrystalScene = forwardRef(({
     overlayMeshes
   } = useFacetOverlayGeometry(facetKeys);
 
+  const anchorBillboardTexture = useLoader(THREE.TextureLoader, '/assets/textures/checker01.jpg');
+
   useEffect(() => {
-    if (facetRefs.current.length === 0) {
+    if (!anchorBillboardTexture) return;
+
+    anchorBillboardTexture.wrapS = THREE.ClampToEdgeWrapping;
+    anchorBillboardTexture.wrapT = THREE.ClampToEdgeWrapping;
+    anchorBillboardTexture.minFilter = THREE.LinearFilter;
+    anchorBillboardTexture.magFilter = THREE.LinearFilter;
+    anchorBillboardTexture.colorSpace = THREE.SRGBColorSpace;
+    anchorBillboardTexture.needsUpdate = true;
+  }, [anchorBillboardTexture]);
+
+  useEffect(() => {
+    if (facetRefs.current.length !== facetKeys.length) {
       facetRefs.current = facetKeys.map(() => React.createRef());
     }
   }, [facetKeys]);
@@ -1109,6 +1218,21 @@ const UnifiedCrystalScene = forwardRef(({
               />
             );
           })}
+        </group>
+      )}
+
+      {showFacets && !simplifiedAnimations && (
+        <group name="facet-anchor-billboards">
+          {facetKeys.map((facetKey, index) => (
+            <AnchorBillboard
+              key={`anchor-billboard-${facetKey}`}
+              facetKey={facetKey}
+              facetRef={facetRefs.current[index]}
+              texture={anchorBillboardTexture}
+              visible={showFacets}
+              modelsLoaded={modelsLoaded}
+            />
+          ))}
         </group>
       )}
 
