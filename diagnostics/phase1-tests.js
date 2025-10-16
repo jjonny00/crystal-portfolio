@@ -49,34 +49,54 @@ function stopRenderLoop(renderer) {
   }
 }
 
-function createOverlay() {
-  const existing = document.getElementById('renderer-diagnostics-overlay');
-  if (existing) {
-    return existing;
-  }
-  const overlay = document.createElement('div');
+function applyOverlayStyles(overlay) {
   overlay.id = 'renderer-diagnostics-overlay';
+  overlay.setAttribute('role', 'status');
   overlay.style.position = 'fixed';
-  overlay.style.top = '24px';
+  overlay.style.top = 'calc(env(safe-area-inset-top, 0px) + 16px)';
   overlay.style.left = '50%';
   overlay.style.transform = 'translateX(-50%)';
   overlay.style.padding = '12px 20px';
-  overlay.style.borderRadius = '8px';
-  overlay.style.background = 'rgba(10, 12, 24, 0.88)';
-  overlay.style.color = '#f3f6ff';
-  overlay.style.fontFamily = `'Inter', 'Helvetica Neue', Arial, sans-serif`;
-  overlay.style.fontSize = '15px';
+  overlay.style.borderRadius = '999px';
+  overlay.style.background = 'rgba(8, 10, 20, 0.92)';
+  overlay.style.color = '#f6f8ff';
+  overlay.style.fontFamily = `'Inter', 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif`;
+  overlay.style.fontSize = 'clamp(14px, 1.8vw, 16px)';
+  overlay.style.lineHeight = '1.4';
+  overlay.style.fontWeight = '600';
   overlay.style.letterSpacing = '0.01em';
-  overlay.style.boxShadow = '0 12px 30px rgba(0, 0, 0, 0.35)';
-  overlay.style.zIndex = '9999';
+  overlay.style.boxShadow = '0 10px 34px rgba(0, 0, 0, 0.45)';
+  overlay.style.zIndex = '2147483647';
   overlay.style.pointerEvents = 'none';
   overlay.style.textAlign = 'center';
-  document.body.appendChild(overlay);
+  overlay.style.maxWidth = 'min(92vw, 520px)';
+  overlay.style.margin = '0 auto';
+  overlay.style.display = 'flex';
+  overlay.style.justifyContent = 'center';
+  overlay.style.alignItems = 'center';
+  overlay.style.gap = '10px';
+  overlay.style.opacity = '1';
+  overlay.style.transition = 'opacity 0.3s ease';
+  overlay.style.backdropFilter = 'blur(10px)';
+  overlay.style.webkitBackdropFilter = 'blur(10px)';
+}
+
+function createOverlay() {
+  const existing = document.getElementById('renderer-diagnostics-overlay');
+  if (existing) {
+    applyOverlayStyles(existing);
+    return existing;
+  }
+  const overlay = document.createElement('div');
+  applyOverlayStyles(overlay);
+  const parent = document.body || document.documentElement;
+  parent.appendChild(overlay);
   return overlay;
 }
 
 function updateOverlay(overlay, message) {
   if (overlay) {
+    overlay.style.opacity = '1';
     overlay.textContent = message;
   }
 }
