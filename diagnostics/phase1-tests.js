@@ -60,7 +60,7 @@ function applyOverlayStyles(overlay) {
   overlay.style.borderRadius = '999px';
   overlay.style.background = 'rgba(8, 10, 20, 0.92)';
   overlay.style.color = '#f6f8ff';
-  overlay.style.fontFamily = `'Inter', 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif`;
+  overlay.style.fontFamily = "Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif";
   overlay.style.fontSize = 'clamp(14px, 1.8vw, 16px)';
   overlay.style.lineHeight = '1.4';
   overlay.style.fontWeight = '600';
