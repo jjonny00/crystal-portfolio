@@ -118,6 +118,31 @@ function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function waitForCanvasParent(renderer, timeoutMs = 10000) {
+  if (!renderer || !renderer.domElement) {
+    throw new Error('Renderer diagnostics requires renderer.domElement to exist.');
+  }
+
+  const start = Date.now();
+
+  while (true) {
+    const canvas = renderer.domElement;
+    if (!canvas) {
+      throw new Error('Renderer diagnostics lost access to renderer.domElement.');
+    }
+
+    if (canvas.parentElement) {
+      return canvas.parentElement;
+    }
+
+    if (Date.now() - start > timeoutMs) {
+      throw new Error('Renderer diagnostics timed out waiting for renderer.domElement to attach to the DOM.');
+    }
+
+    await wait(16);
+  }
+}
+
 export async function runRendererDiagnostics(scene, camera, rendererOverride) {
   if (typeof window === 'undefined') {
     console.warn('Renderer diagnostics can only run in a browser context.');
@@ -135,10 +160,10 @@ export async function runRendererDiagnostics(scene, camera, rendererOverride) {
   baseRenderer.__rendererDiagnosticsScheduled = true;
 
   const originalCanvas = baseRenderer.domElement;
-  const parentElement = originalCanvas.parentElement;
-  if (!parentElement) {
-    throw new Error('Renderer diagnostics requires renderer.domElement to be attached to the DOM.');
-  }
+  const overlay = createOverlay();
+  updateOverlay(overlay, 'Preparing renderer diagnostics…');
+
+  const parentElement = await waitForCanvasParent(baseRenderer);
   const anchor = document.createComment('renderer-diagnostics-anchor');
   parentElement.insertBefore(anchor, originalCanvas.nextSibling);
 
@@ -216,9 +241,6 @@ export async function runRendererDiagnostics(scene, camera, rendererOverride) {
   console.log('Running renderer diagnostic sequence to isolate iOS 26 transparency artifacts.');
   console.log('Each test will display on-screen for 8 seconds before advancing automatically.');
   console.groupEnd();
-
-  const overlay = createOverlay();
-  updateOverlay(overlay, 'Preparing renderer diagnostics…');
 
   const runTest = async (label, action) => {
     updateOverlay(overlay, `Testing Renderer Config: ${label}`);
@@ -307,6 +329,7 @@ function installAutoRunHook() {
         runRendererDiagnostics(scene, camera, renderer).catch((error) => {
           console.error('Renderer diagnostics failed:', error);
           renderer.__rendererDiagnosticsErrored = true;
+          renderer.__rendererDiagnosticsScheduled = false;
         });
       });
     }
