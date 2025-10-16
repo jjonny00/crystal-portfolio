@@ -1,19 +1,5 @@
 import * as THREE from 'three';
 
-function waitForEnter() {
-  return new Promise((resolve) => {
-    window.addEventListener(
-      'keydown',
-      (event) => {
-        if (event.key === 'Enter') {
-          resolve();
-        }
-      },
-      { once: true }
-    );
-  });
-}
-
 function resolveActiveRenderer(scene, camera) {
   if (scene?.userData?.renderer instanceof THREE.WebGLRenderer) {
     return scene.userData.renderer;
@@ -63,6 +49,42 @@ function stopRenderLoop(renderer) {
   }
 }
 
+function createOverlay() {
+  const existing = document.getElementById('renderer-diagnostics-overlay');
+  if (existing) {
+    return existing;
+  }
+  const overlay = document.createElement('div');
+  overlay.id = 'renderer-diagnostics-overlay';
+  overlay.style.position = 'fixed';
+  overlay.style.top = '24px';
+  overlay.style.left = '50%';
+  overlay.style.transform = 'translateX(-50%)';
+  overlay.style.padding = '12px 20px';
+  overlay.style.borderRadius = '8px';
+  overlay.style.background = 'rgba(10, 12, 24, 0.88)';
+  overlay.style.color = '#f3f6ff';
+  overlay.style.fontFamily = `'Inter', 'Helvetica Neue', Arial, sans-serif`;
+  overlay.style.fontSize = '15px';
+  overlay.style.letterSpacing = '0.01em';
+  overlay.style.boxShadow = '0 12px 30px rgba(0, 0, 0, 0.35)';
+  overlay.style.zIndex = '9999';
+  overlay.style.pointerEvents = 'none';
+  overlay.style.textAlign = 'center';
+  document.body.appendChild(overlay);
+  return overlay;
+}
+
+function updateOverlay(overlay, message) {
+  if (overlay) {
+    overlay.textContent = message;
+  }
+}
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export async function runRendererDiagnostics(scene, camera) {
   if (typeof window === 'undefined') {
     console.warn('Renderer diagnostics can only run in a browser context.');
@@ -72,8 +94,7 @@ export async function runRendererDiagnostics(scene, camera) {
   const baseRenderer = resolveActiveRenderer(scene, camera);
   if (!baseRenderer) {
     throw new Error(
-      'Unable to locate an active THREE.WebGLRenderer. ' +
-        'Assign your renderer to scene.userData.renderer before calling runRendererDiagnostics.'
+      'Unable to locate an active THREE.WebGLRenderer. Assign your renderer to scene.userData.renderer before calling runRendererDiagnostics.'
     );
   }
 
@@ -152,57 +173,61 @@ export async function runRendererDiagnostics(scene, camera) {
 
   console.groupCollapsed('🔍 Phase 1 – Renderer Baseline Diagnostics');
   console.log('Running renderer diagnostic sequence to isolate iOS 26 transparency artifacts.');
-  console.log('Each test reconfigures the renderer and pauses until you press Enter in the console.');
+  console.log('Each test will display on-screen for 8 seconds before advancing automatically.');
   console.groupEnd();
 
+  const overlay = createOverlay();
+
+  const runTest = async (label, action) => {
+    updateOverlay(overlay, `Testing Renderer Config: ${label}`);
+    console.log(`▶️  ${label}`);
+    await action();
+    await wait(8000);
+  };
+
   try {
-    console.log('--- Test 1 – Alpha disabled -------------------------------------');
-    let renderer = createRenderer({ alpha: false, antialias: true });
-    renderer.setClearColor(0x0f0f1a);
-    renderer.render(scene, camera);
-    console.log('✅  Test 1 applied.');
-    console.log('Look at your iPhone 17 Pro (iOS 26) display now.');
-    console.log('Press Enter here in the console when ready to continue.');
-    await waitForEnter();
+    let renderer = null;
 
-    console.log('--- Test 2 – Tone-mapping + HDR disabled -------------------------');
-    renderer.toneMapping = THREE.NoToneMapping;
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.toneMappingExposure = 1.0;
-    renderer.render(scene, camera);
-    console.log('✅  Test 2 applied.');
-    console.log('Look at your iPhone 17 Pro (iOS 26) display now.');
-    console.log('Press Enter here in the console when ready to continue.');
-    await waitForEnter();
+    await runTest('Alpha Disabled (1/4)', async () => {
+      renderer = createRenderer({ alpha: false, antialias: true });
+      renderer.setClearColor(0x0f0f1a);
+      renderer.render(scene, camera);
+      console.log('✅  Alpha disabled test running.');
+    });
 
-    console.log('--- Test 3 – Device Pixel Ratio clamped --------------------------');
-    const clampedDpr = Math.min(window.devicePixelRatio || 1, 2);
-    renderer.setPixelRatio(clampedDpr);
-    renderer.render(scene, camera);
-    console.log('✅  Test 3 applied.');
-    console.log('Look at your iPhone 17 Pro (iOS 26) display now.');
-    console.log('Press Enter here in the console when ready to continue.');
-    await waitForEnter();
+    await runTest('Tone Mapping Disabled (2/4)', async () => {
+      renderer.toneMapping = THREE.NoToneMapping;
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      renderer.toneMappingExposure = 1.0;
+      renderer.render(scene, camera);
+      console.log('✅  Tone mapping disabled test running.');
+    });
 
-    console.log('--- Test 4 – Force WebGL 1 context --------------------------------');
-    renderer = createRenderer(
-      { alpha: false, antialias: true },
-      (canvas) => canvas.getContext('webgl', { alpha: false })
-    );
-    renderer.setClearColor(0x0f0f1a);
-    renderer.toneMapping = THREE.NoToneMapping;
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.toneMappingExposure = 1.0;
-    const forcedDpr = Math.min(window.devicePixelRatio || 1, 2);
-    renderer.setPixelRatio(forcedDpr);
-    renderer.render(scene, camera);
-    console.log('Using WebGL 1:', !renderer.capabilities.isWebGL2);
-    console.log('✅  Test 4 applied.');
-    console.log('Look at your iPhone 17 Pro (iOS 26) display now.');
-    console.log('Press Enter here in the console when ready to continue.');
-    await waitForEnter();
+    await runTest('Device Pixel Ratio ≤ 2 (3/4)', async () => {
+      const clampedDpr = Math.min(window.devicePixelRatio || 1, 2);
+      renderer.setPixelRatio(clampedDpr);
+      renderer.render(scene, camera);
+      console.log('✅  Pixel ratio clamp test running.');
+    });
+
+    await runTest('Forced WebGL 1 Context (4/4)', async () => {
+      renderer = createRenderer(
+        { alpha: false, antialias: true },
+        (canvas) => canvas.getContext('webgl', { alpha: false })
+      );
+      renderer.setClearColor(0x0f0f1a);
+      renderer.toneMapping = THREE.NoToneMapping;
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      renderer.toneMappingExposure = 1.0;
+      const forcedDpr = Math.min(window.devicePixelRatio || 1, 2);
+      renderer.setPixelRatio(forcedDpr);
+      renderer.render(scene, camera);
+      console.log('Using WebGL 1:', !renderer.capabilities.isWebGL2);
+      console.log('✅  WebGL 1 context test running.');
+    });
   } finally {
     restoreOriginal();
+    updateOverlay(overlay, 'Diagnostics complete');
     console.log('All renderer-level tests completed.');
     console.log('Note which configuration eliminated or reduced the artifact.');
     console.log('Proceed to Phase 2 diagnostics next.');
