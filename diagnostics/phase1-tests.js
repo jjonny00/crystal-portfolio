@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 
+let autoRunHookInstalled = false;
+
 function resolveActiveRenderer(scene, camera) {
   if (scene?.userData?.renderer instanceof THREE.WebGLRenderer) {
     return scene.userData.renderer;
@@ -89,8 +91,19 @@ function createOverlay() {
   }
   const overlay = document.createElement('div');
   applyOverlayStyles(overlay);
-  const parent = document.body || document.documentElement;
-  parent.appendChild(overlay);
+  const attachOverlay = () => {
+    if (overlay.parentElement) {
+      return;
+    }
+    const parent = document.body || document.documentElement;
+    parent.appendChild(overlay);
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', attachOverlay, { once: true });
+  }
+
+  attachOverlay();
   return overlay;
 }
 
@@ -105,21 +118,27 @@ function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export async function runRendererDiagnostics(scene, camera) {
+export async function runRendererDiagnostics(scene, camera, rendererOverride) {
   if (typeof window === 'undefined') {
     console.warn('Renderer diagnostics can only run in a browser context.');
     return;
   }
 
-  const baseRenderer = resolveActiveRenderer(scene, camera);
+  const baseRenderer = rendererOverride ?? resolveActiveRenderer(scene, camera);
   if (!baseRenderer) {
     throw new Error(
       'Unable to locate an active THREE.WebGLRenderer. Assign your renderer to scene.userData.renderer before calling runRendererDiagnostics.'
     );
   }
 
+  baseRenderer.__skipRendererDiagnosticsAutoRun = true;
+  baseRenderer.__rendererDiagnosticsScheduled = true;
+
   const originalCanvas = baseRenderer.domElement;
-  const parentElement = originalCanvas.parentElement || document.body;
+  const parentElement = originalCanvas.parentElement;
+  if (!parentElement) {
+    throw new Error('Renderer diagnostics requires renderer.domElement to be attached to the DOM.');
+  }
   const anchor = document.createComment('renderer-diagnostics-anchor');
   parentElement.insertBefore(anchor, originalCanvas.nextSibling);
 
@@ -168,6 +187,8 @@ export async function runRendererDiagnostics(scene, camera) {
     }
 
     const renderer = new THREE.WebGLRenderer(options);
+    renderer.__skipRendererDiagnosticsAutoRun = true;
+    renderer.__rendererDiagnosticsScheduled = true;
     renderer.setSize(width, height, false);
     renderer.setPixelRatio(originalPixelRatio);
     renderer.shadowMap.enabled = baseRenderer.shadowMap?.enabled ?? false;
@@ -197,6 +218,7 @@ export async function runRendererDiagnostics(scene, camera) {
   console.groupEnd();
 
   const overlay = createOverlay();
+  updateOverlay(overlay, 'Preparing renderer diagnostics…');
 
   const runTest = async (label, action) => {
     updateOverlay(overlay, `Testing Renderer Config: ${label}`);
@@ -246,6 +268,8 @@ export async function runRendererDiagnostics(scene, camera) {
       console.log('✅  WebGL 1 context test running.');
     });
   } finally {
+    baseRenderer.__rendererDiagnosticsCompleted = true;
+    baseRenderer.__skipRendererDiagnosticsAutoRun = true;
     restoreOriginal();
     updateOverlay(overlay, 'Diagnostics complete');
     console.log('All renderer-level tests completed.');
@@ -253,3 +277,45 @@ export async function runRendererDiagnostics(scene, camera) {
     console.log('Proceed to Phase 2 diagnostics next.');
   }
 }
+
+function installAutoRunHook() {
+  if (autoRunHookInstalled || typeof window === 'undefined') {
+    return;
+  }
+
+  const proto = THREE.WebGLRenderer.prototype;
+  if (proto.__rendererDiagnosticsPatched) {
+    autoRunHookInstalled = true;
+    return;
+  }
+
+  const originalRender = proto.render;
+
+  proto.render = function patchedRender(scene, camera) {
+    if (
+      !this.__skipRendererDiagnosticsAutoRun &&
+      !this.__rendererDiagnosticsScheduled &&
+      scene &&
+      camera
+    ) {
+      if (typeof window !== 'undefined') {
+        window.__R3F_DIAGNOSTICS_RENDERER__ = this;
+      }
+      this.__rendererDiagnosticsScheduled = true;
+      const renderer = this;
+      Promise.resolve().then(() => {
+        runRendererDiagnostics(scene, camera, renderer).catch((error) => {
+          console.error('Renderer diagnostics failed:', error);
+          renderer.__rendererDiagnosticsErrored = true;
+        });
+      });
+    }
+
+    return originalRender.call(this, scene, camera);
+  };
+
+  proto.__rendererDiagnosticsPatched = true;
+  autoRunHookInstalled = true;
+}
+
+installAutoRunHook();
