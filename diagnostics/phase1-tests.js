@@ -22,35 +22,6 @@ function resolveActiveRenderer(scene, camera) {
   return null;
 }
 
-function startRenderLoop(renderer, scene, camera) {
-  if (typeof renderer.setAnimationLoop === 'function') {
-    renderer.setAnimationLoop(() => {
-      renderer.render(scene, camera);
-    });
-  } else {
-    let frameId;
-    const renderFrame = () => {
-      renderer.render(scene, camera);
-      frameId = window.requestAnimationFrame(renderFrame);
-    };
-    renderFrame();
-    renderer.__diagnosticsFrameId = frameId;
-  }
-}
-
-function stopRenderLoop(renderer) {
-  if (!renderer) {
-    return;
-  }
-  if (typeof renderer.setAnimationLoop === 'function') {
-    renderer.setAnimationLoop(null);
-  }
-  if (renderer.__diagnosticsFrameId) {
-    window.cancelAnimationFrame(renderer.__diagnosticsFrameId);
-    delete renderer.__diagnosticsFrameId;
-  }
-}
-
 function ensureOverlayContainer() {
   const existing = document.getElementById('renderer-diagnostics-overlay-container');
   if (existing) {
@@ -155,31 +126,6 @@ function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function waitForCanvasParent(renderer, timeoutMs = 10000) {
-  if (!renderer || !renderer.domElement) {
-    throw new Error('Renderer diagnostics requires renderer.domElement to exist.');
-  }
-
-  const start = Date.now();
-
-  while (true) {
-    const canvas = renderer.domElement;
-    if (!canvas) {
-      throw new Error('Renderer diagnostics lost access to renderer.domElement.');
-    }
-
-    if (canvas.parentElement) {
-      return canvas.parentElement;
-    }
-
-    if (Date.now() - start > timeoutMs) {
-      throw new Error('Renderer diagnostics timed out waiting for renderer.domElement to attach to the DOM.');
-    }
-
-    await wait(16);
-  }
-}
-
 export async function runRendererDiagnostics(scene, camera, rendererOverride) {
   if (typeof window === 'undefined') {
     console.warn('Renderer diagnostics can only run in a browser context.');
@@ -193,147 +139,329 @@ export async function runRendererDiagnostics(scene, camera, rendererOverride) {
     );
   }
 
+  if (baseRenderer.__rendererDiagnosticsRunning) {
+    return;
+  }
+
+  baseRenderer.__rendererDiagnosticsRunning = true;
   baseRenderer.__skipRendererDiagnosticsAutoRun = true;
   baseRenderer.__rendererDiagnosticsScheduled = true;
 
-  const originalCanvas = baseRenderer.domElement;
   const overlay = createOverlay();
-  updateOverlay(overlay, 'Preparing renderer diagnostics…');
+  updateOverlay(overlay, 'Preparing scene diagnostics…');
 
-  const parentElement = await waitForCanvasParent(baseRenderer);
-  const anchor = document.createComment('renderer-diagnostics-anchor');
-  parentElement.insertBefore(anchor, originalCanvas.nextSibling);
+  const tests = [];
 
-  const originalDisplay = originalCanvas.style.display;
-  originalCanvas.style.display = 'none';
+  tests.push({
+    label: 'Environment Disabled (1/4)',
+    apply: () => {
+      const originalState = {
+        background: scene.background,
+        environment: scene.environment,
+        backgroundIntensity: 'backgroundIntensity' in scene ? scene.backgroundIntensity : undefined,
+        backgroundBlurriness: 'backgroundBlurriness' in scene ? scene.backgroundBlurriness : undefined,
+        environmentIntensity: 'environmentIntensity' in scene ? scene.environmentIntensity : undefined,
+        fog: scene.fog
+      };
 
-  const size = new THREE.Vector2();
-  baseRenderer.getSize(size);
-  const originalPixelRatio = baseRenderer.getPixelRatio?.() ?? window.devicePixelRatio ?? 1;
-  const width = size.x;
-  const height = size.y;
+      scene.background = new THREE.Color('#050505');
+      scene.environment = null;
+      if (typeof originalState.backgroundIntensity === 'number') {
+        scene.backgroundIntensity = 1;
+      }
+      if (typeof originalState.backgroundBlurriness === 'number') {
+        scene.backgroundBlurriness = 0;
+      }
+      if (typeof originalState.environmentIntensity === 'number') {
+        scene.environmentIntensity = 0;
+      }
+      scene.fog = null;
 
-  let activeRenderer = null;
-  let activeCanvas = null;
-
-  const cleanupActiveRenderer = () => {
-    if (activeRenderer) {
-      stopRenderLoop(activeRenderer);
-      activeRenderer.dispose?.();
-      activeRenderer = null;
+      return () => {
+        scene.background = originalState.background;
+        scene.environment = originalState.environment;
+        if (typeof originalState.backgroundIntensity === 'number') {
+          scene.backgroundIntensity = originalState.backgroundIntensity;
+        }
+        if (typeof originalState.backgroundBlurriness === 'number') {
+          scene.backgroundBlurriness = originalState.backgroundBlurriness;
+        }
+        if (typeof originalState.environmentIntensity === 'number') {
+          scene.environmentIntensity = originalState.environmentIntensity;
+        }
+        scene.fog = originalState.fog;
+      };
     }
-    if (activeCanvas?.parentElement) {
-      activeCanvas.parentElement.removeChild(activeCanvas);
-      activeCanvas = null;
+  });
+
+  tests.push({
+    label: 'Force Materials Opaque (2/4)',
+    apply: () => {
+      const snapshots = [];
+
+      scene.traverse((object) => {
+        if (!object.isMesh && !object.isPoints && !object.isLine) {
+          return;
+        }
+
+        const materials = Array.isArray(object.material) ? object.material : [object.material];
+        materials.forEach((material) => {
+          if (!material || typeof material !== 'object') {
+            return;
+          }
+
+          const snapshot = {
+            material,
+            transparent: material.transparent,
+            opacity: material.opacity,
+            alphaTest: material.alphaTest,
+            depthWrite: material.depthWrite,
+            depthTest: material.depthTest,
+            blending: material.blending,
+            toneMapped: material.toneMapped,
+            side: material.side,
+            color: material.color?.clone?.() ?? material.color,
+            emissive: material.emissive?.clone?.() ?? material.emissive,
+            emissiveIntensity: material.emissiveIntensity,
+            transmission: material.transmission,
+            thickness: material.thickness,
+            ior: material.ior,
+            attenuationDistance: material.attenuationDistance,
+            attenuationColor: material.attenuationColor?.clone?.() ?? material.attenuationColor
+          };
+
+          material.transparent = false;
+          if (typeof material.opacity === 'number') {
+            material.opacity = 1;
+          }
+          if ('transmission' in material && typeof material.transmission === 'number') {
+            material.transmission = 0;
+          }
+          if ('thickness' in material && typeof material.thickness === 'number') {
+            material.thickness = 0;
+          }
+          if ('ior' in material && typeof material.ior === 'number') {
+            material.ior = 1;
+          }
+          if ('attenuationDistance' in material && material.attenuationDistance !== undefined) {
+            material.attenuationDistance = Infinity;
+          }
+          if (material.attenuationColor?.isColor) {
+            material.attenuationColor.set(0xffffff);
+          }
+          if (material.emissive?.isColor) {
+            material.emissive.set(0x000000);
+          }
+          if (typeof material.emissiveIntensity === 'number') {
+            material.emissiveIntensity = 0;
+          }
+          material.depthWrite = true;
+          material.depthTest = true;
+          material.alphaTest = 0;
+          material.blending = THREE.NormalBlending;
+          material.toneMapped = true;
+          material.side = THREE.FrontSide;
+          material.needsUpdate = true;
+
+          snapshots.push(snapshot);
+        });
+      });
+
+      return () => {
+        snapshots.forEach((snapshot) => {
+          const { material } = snapshot;
+          if (!material) {
+            return;
+          }
+          material.transparent = snapshot.transparent;
+          if (typeof snapshot.opacity === 'number') {
+            material.opacity = snapshot.opacity;
+          }
+          if ('transmission' in material && snapshot.transmission !== undefined) {
+            material.transmission = snapshot.transmission;
+          }
+          if ('thickness' in material && snapshot.thickness !== undefined) {
+            material.thickness = snapshot.thickness;
+          }
+          if ('ior' in material && snapshot.ior !== undefined) {
+            material.ior = snapshot.ior;
+          }
+          if ('attenuationDistance' in material && snapshot.attenuationDistance !== undefined) {
+            material.attenuationDistance = snapshot.attenuationDistance;
+          }
+          if (material.attenuationColor?.isColor && snapshot.attenuationColor?.isColor) {
+            material.attenuationColor.copy(snapshot.attenuationColor);
+          }
+          if (material.color?.isColor && snapshot.color?.isColor) {
+            material.color.copy(snapshot.color);
+          }
+          if (material.emissive?.isColor && snapshot.emissive?.isColor) {
+            material.emissive.copy(snapshot.emissive);
+          }
+          if (typeof snapshot.emissiveIntensity === 'number') {
+            material.emissiveIntensity = snapshot.emissiveIntensity;
+          }
+          material.depthWrite = snapshot.depthWrite;
+          material.depthTest = snapshot.depthTest;
+          material.alphaTest = snapshot.alphaTest;
+          material.blending = snapshot.blending;
+          material.toneMapped = snapshot.toneMapped;
+          material.side = snapshot.side;
+          material.needsUpdate = true;
+        });
+      };
     }
-  };
+  });
 
-  const createRenderer = (params = {}, contextFactory) => {
-    cleanupActiveRenderer();
+  tests.push({
+    label: 'Disable Material Reflections (3/4)',
+    apply: () => {
+      const snapshots = [];
 
-    const canvas = document.createElement('canvas');
-    canvas.className = originalCanvas.className;
-    canvas.style.cssText = originalCanvas.style.cssText;
-    canvas.style.display = 'block';
-    canvas.style.width = originalCanvas.style.width || `${width}px`;
-    canvas.style.height = originalCanvas.style.height || `${height}px`;
-    canvas.style.maxWidth = originalCanvas.style.maxWidth;
-    canvas.style.maxHeight = originalCanvas.style.maxHeight;
-    canvas.style.minWidth = originalCanvas.style.minWidth;
-    canvas.style.minHeight = originalCanvas.style.minHeight;
-    parentElement.insertBefore(canvas, anchor);
+      scene.traverse((object) => {
+        if (!object.isMesh && !object.isPoints && !object.isLine) {
+          return;
+        }
 
-    const options = { antialias: true, ...params, canvas };
-    if (typeof contextFactory === 'function') {
-      options.context = contextFactory(canvas);
+        const materials = Array.isArray(object.material) ? object.material : [object.material];
+        materials.forEach((material) => {
+          if (!material || typeof material !== 'object') {
+            return;
+          }
+
+          const hasReflectionProps =
+            'envMap' in material ||
+            'envMapIntensity' in material ||
+            'metalness' in material ||
+            'roughness' in material ||
+            'reflectivity' in material ||
+            'clearcoat' in material;
+
+          if (!hasReflectionProps) {
+            return;
+          }
+
+          const snapshot = {
+            material,
+            envMap: material.envMap,
+            envMapIntensity: material.envMapIntensity,
+            metalness: material.metalness,
+            roughness: material.roughness,
+            reflectivity: material.reflectivity,
+            clearcoat: material.clearcoat,
+            clearcoatRoughness: material.clearcoatRoughness
+          };
+
+          material.envMap = null;
+          if (typeof material.envMapIntensity === 'number') {
+            material.envMapIntensity = 0;
+          }
+          if (typeof material.metalness === 'number') {
+            material.metalness = Math.min(material.metalness, 0.05);
+          }
+          if (typeof material.roughness === 'number') {
+            material.roughness = Math.max(material.roughness, 0.6);
+          }
+          if (typeof material.reflectivity === 'number') {
+            material.reflectivity = 0;
+          }
+          if (typeof material.clearcoat === 'number') {
+            material.clearcoat = 0;
+          }
+          if (typeof material.clearcoatRoughness === 'number') {
+            material.clearcoatRoughness = 0;
+          }
+          material.needsUpdate = true;
+
+          snapshots.push(snapshot);
+        });
+      });
+
+      return () => {
+        snapshots.forEach((snapshot) => {
+          const { material } = snapshot;
+          if (!material) {
+            return;
+          }
+          material.envMap = snapshot.envMap;
+          if (snapshot.envMapIntensity !== undefined) {
+            material.envMapIntensity = snapshot.envMapIntensity;
+          }
+          if (snapshot.metalness !== undefined) {
+            material.metalness = snapshot.metalness;
+          }
+          if (snapshot.roughness !== undefined) {
+            material.roughness = snapshot.roughness;
+          }
+          if (snapshot.reflectivity !== undefined) {
+            material.reflectivity = snapshot.reflectivity;
+          }
+          if (snapshot.clearcoat !== undefined) {
+            material.clearcoat = snapshot.clearcoat;
+          }
+          if (snapshot.clearcoatRoughness !== undefined) {
+            material.clearcoatRoughness = snapshot.clearcoatRoughness;
+          }
+          material.needsUpdate = true;
+        });
+      };
     }
+  });
 
-    const renderer = new THREE.WebGLRenderer(options);
-    renderer.__skipRendererDiagnosticsAutoRun = true;
-    renderer.__rendererDiagnosticsScheduled = true;
-    renderer.setSize(width, height, false);
-    renderer.setPixelRatio(originalPixelRatio);
-    renderer.shadowMap.enabled = baseRenderer.shadowMap?.enabled ?? false;
-    renderer.shadowMap.type = baseRenderer.shadowMap?.type ?? THREE.PCFShadowMap;
-    renderer.toneMapping = baseRenderer.toneMapping;
-    renderer.outputColorSpace = baseRenderer.outputColorSpace ?? THREE.SRGBColorSpace;
-    renderer.toneMappingExposure = baseRenderer.toneMappingExposure ?? 1.0;
+  tests.push({
+    label: 'Override Materials with Basic Shading (4/4)',
+    apply: () => {
+      const previousOverrideMaterial = scene.overrideMaterial;
+      const fallbackMaterial = new THREE.MeshBasicMaterial({ color: 0xd8dcff });
 
-    activeRenderer = renderer;
-    activeCanvas = canvas;
-    startRenderLoop(renderer, scene, camera);
-    return renderer;
-  };
+      scene.overrideMaterial = fallbackMaterial;
 
-  const restoreOriginal = () => {
-    cleanupActiveRenderer();
-    originalCanvas.style.display = originalDisplay;
-    if (anchor.parentElement) {
-      anchor.parentElement.insertBefore(originalCanvas, anchor);
-      anchor.parentElement.removeChild(anchor);
+      return () => {
+        scene.overrideMaterial = previousOverrideMaterial;
+        fallbackMaterial.dispose();
+      };
     }
-  };
+  });
 
-  console.groupCollapsed('🔍 Phase 1 – Renderer Baseline Diagnostics');
-  console.log('Running renderer diagnostic sequence to isolate iOS 26 transparency artifacts.');
+  console.groupCollapsed('🔍 Phase 2 – Scene Composition Diagnostics');
+  console.log('Running follow-up diagnostics to isolate scene-level contributors to the iOS 26 transparency artifact.');
   console.log('Each test will display on-screen for 8 seconds before advancing automatically.');
   console.groupEnd();
 
-  const runTest = async (label, action) => {
-    updateOverlay(overlay, `Testing Renderer Config: ${label}`);
+  const runTest = async ({ label, apply }) => {
+    updateOverlay(overlay, `Testing Scene Config: ${label}`);
     console.log(`▶️  ${label}`);
-    await action();
+
+    let cleanup = () => {};
+    try {
+      const result = await apply();
+      if (typeof result === 'function') {
+        cleanup = result;
+      }
+    } catch (error) {
+      console.error(`❌  Failed to apply diagnostic step: ${label}`, error);
+    }
+
     await wait(8000);
+
+    try {
+      cleanup();
+    } catch (error) {
+      console.error(`❌  Failed to restore diagnostic step: ${label}`, error);
+    }
   };
 
   try {
-    let renderer = null;
-
-    await runTest('Alpha Disabled (1/4)', async () => {
-      renderer = createRenderer({ alpha: false, antialias: true });
-      renderer.setClearColor(0x0f0f1a);
-      renderer.render(scene, camera);
-      console.log('✅  Alpha disabled test running.');
-    });
-
-    await runTest('Tone Mapping Disabled (2/4)', async () => {
-      renderer.toneMapping = THREE.NoToneMapping;
-      renderer.outputColorSpace = THREE.SRGBColorSpace;
-      renderer.toneMappingExposure = 1.0;
-      renderer.render(scene, camera);
-      console.log('✅  Tone mapping disabled test running.');
-    });
-
-    await runTest('Device Pixel Ratio ≤ 2 (3/4)', async () => {
-      const clampedDpr = Math.min(window.devicePixelRatio || 1, 2);
-      renderer.setPixelRatio(clampedDpr);
-      renderer.render(scene, camera);
-      console.log('✅  Pixel ratio clamp test running.');
-    });
-
-    await runTest('Forced WebGL 1 Context (4/4)', async () => {
-      renderer = createRenderer(
-        { alpha: false, antialias: true },
-        (canvas) => canvas.getContext('webgl', { alpha: false })
-      );
-      renderer.setClearColor(0x0f0f1a);
-      renderer.toneMapping = THREE.NoToneMapping;
-      renderer.outputColorSpace = THREE.SRGBColorSpace;
-      renderer.toneMappingExposure = 1.0;
-      const forcedDpr = Math.min(window.devicePixelRatio || 1, 2);
-      renderer.setPixelRatio(forcedDpr);
-      renderer.render(scene, camera);
-      console.log('Using WebGL 1:', !renderer.capabilities.isWebGL2);
-      console.log('✅  WebGL 1 context test running.');
-    });
+    for (const test of tests) {
+      await runTest(test);
+    }
   } finally {
     baseRenderer.__rendererDiagnosticsCompleted = true;
     baseRenderer.__skipRendererDiagnosticsAutoRun = true;
-    restoreOriginal();
+    baseRenderer.__rendererDiagnosticsRunning = false;
     updateOverlay(overlay, 'Diagnostics complete');
-    console.log('All renderer-level tests completed.');
+    console.log('Scene-level diagnostics complete.');
     console.log('Note which configuration eliminated or reduced the artifact.');
-    console.log('Proceed to Phase 2 diagnostics next.');
   }
 }
 
