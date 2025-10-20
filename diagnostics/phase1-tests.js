@@ -56,20 +56,25 @@ function ensureOverlayContainer() {
   if (existing) {
     return existing;
   }
+
   const container = document.createElement('div');
   container.id = 'renderer-diagnostics-overlay-container';
   container.style.position = 'fixed';
-  container.style.top = '0';
-  container.style.left = '0';
-  container.style.right = '0';
-  container.style.bottom = '0';
+  container.style.top = '50%';
+  container.style.left = '50%';
+  container.style.transform = 'translate(-50%, -50%)';
+  container.style.zIndex = '10000';
   container.style.display = 'flex';
   container.style.alignItems = 'center';
   container.style.justifyContent = 'center';
-  container.style.pointerEvents = 'none';
-  container.style.zIndex = '2147483646';
-  container.style.padding = 'calc(env(safe-area-inset-top, 0px) + 16px) 16px 16px';
-  container.style.boxSizing = 'border-box';
+  container.style.minWidth = '100px';
+  container.style.minHeight = '100px';
+  container.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+  container.style.borderRadius = '24px';
+  container.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.3)';
+  container.style.backdropFilter = 'blur(5px)';
+  container.style.webkitBackdropFilter = 'blur(5px)';
+  container.style.pointerEvents = 'auto';
 
   const attachContainer = () => {
     if (container.parentElement) {
@@ -87,52 +92,13 @@ function ensureOverlayContainer() {
   return container;
 }
 
-function applyOverlayStyles(overlay) {
-  overlay.id = 'renderer-diagnostics-overlay';
-  overlay.setAttribute('role', 'status');
-  overlay.style.padding = '12px 20px';
-  overlay.style.borderRadius = '999px';
-  overlay.style.background = 'rgba(8, 10, 20, 0.92)';
-  overlay.style.color = '#f6f8ff';
-  overlay.style.fontFamily = "Inter, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif";
-  overlay.style.fontSize = 'clamp(14px, 1.8vw, 16px)';
-  overlay.style.lineHeight = '1.4';
-  overlay.style.fontWeight = '600';
-  overlay.style.letterSpacing = '0.01em';
-  overlay.style.boxShadow = '0 10px 34px rgba(0, 0, 0, 0.45)';
-  overlay.style.pointerEvents = 'none';
-  overlay.style.textAlign = 'center';
-  overlay.style.maxWidth = 'min(92vw, 520px)';
-  overlay.style.margin = '0 auto';
-  overlay.style.display = 'flex';
-  overlay.style.justifyContent = 'center';
-  overlay.style.alignItems = 'center';
-  overlay.style.gap = '10px';
-  overlay.style.opacity = '1';
-  overlay.style.transition = 'opacity 0.3s ease';
-  overlay.style.backdropFilter = 'blur(10px)';
-  overlay.style.webkitBackdropFilter = 'blur(10px)';
-}
-
 function createOverlay() {
-  const existing = document.getElementById('renderer-diagnostics-overlay');
-  if (existing) {
-    applyOverlayStyles(existing);
-    return existing;
-  }
-  const overlay = document.createElement('div');
-  applyOverlayStyles(overlay);
-  const container = ensureOverlayContainer();
-  if (!overlay.parentElement) {
-    container.appendChild(overlay);
-  }
-  return overlay;
+  return ensureOverlayContainer();
 }
 
 function updateOverlay(overlay, message) {
   if (overlay) {
-    overlay.style.opacity = '1';
-    overlay.textContent = message;
+    overlay.setAttribute('data-renderer-diagnostics-message', message);
   }
 }
 
@@ -361,6 +327,10 @@ function installAutoRunHook() {
 
   proto.__rendererDiagnosticsPatched = true;
   autoRunHookInstalled = true;
+}
+
+if (typeof window !== 'undefined') {
+  ensureOverlayContainer();
 }
 
 installAutoRunHook();
