@@ -51,13 +51,45 @@ function stopRenderLoop(renderer) {
   }
 }
 
+function ensureOverlayContainer() {
+  const existing = document.getElementById('renderer-diagnostics-overlay-container');
+  if (existing) {
+    return existing;
+  }
+  const container = document.createElement('div');
+  container.id = 'renderer-diagnostics-overlay-container';
+  container.style.position = 'fixed';
+  container.style.top = '0';
+  container.style.left = '0';
+  container.style.right = '0';
+  container.style.bottom = '0';
+  container.style.display = 'flex';
+  container.style.alignItems = 'center';
+  container.style.justifyContent = 'center';
+  container.style.pointerEvents = 'none';
+  container.style.zIndex = '2147483646';
+  container.style.padding = 'calc(env(safe-area-inset-top, 0px) + 16px) 16px 16px';
+  container.style.boxSizing = 'border-box';
+
+  const attachContainer = () => {
+    if (container.parentElement) {
+      return;
+    }
+    const parent = document.body || document.documentElement;
+    parent.appendChild(container);
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', attachContainer, { once: true });
+  }
+
+  attachContainer();
+  return container;
+}
+
 function applyOverlayStyles(overlay) {
   overlay.id = 'renderer-diagnostics-overlay';
   overlay.setAttribute('role', 'status');
-  overlay.style.position = 'fixed';
-  overlay.style.top = 'calc(env(safe-area-inset-top, 0px) + 16px)';
-  overlay.style.left = '50%';
-  overlay.style.transform = 'translateX(-50%)';
   overlay.style.padding = '12px 20px';
   overlay.style.borderRadius = '999px';
   overlay.style.background = 'rgba(8, 10, 20, 0.92)';
@@ -68,7 +100,6 @@ function applyOverlayStyles(overlay) {
   overlay.style.fontWeight = '600';
   overlay.style.letterSpacing = '0.01em';
   overlay.style.boxShadow = '0 10px 34px rgba(0, 0, 0, 0.45)';
-  overlay.style.zIndex = '2147483647';
   overlay.style.pointerEvents = 'none';
   overlay.style.textAlign = 'center';
   overlay.style.maxWidth = 'min(92vw, 520px)';
@@ -91,19 +122,10 @@ function createOverlay() {
   }
   const overlay = document.createElement('div');
   applyOverlayStyles(overlay);
-  const attachOverlay = () => {
-    if (overlay.parentElement) {
-      return;
-    }
-    const parent = document.body || document.documentElement;
-    parent.appendChild(overlay);
-  };
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', attachOverlay, { once: true });
+  const container = ensureOverlayContainer();
+  if (!overlay.parentElement) {
+    container.appendChild(overlay);
   }
-
-  attachOverlay();
   return overlay;
 }
 
