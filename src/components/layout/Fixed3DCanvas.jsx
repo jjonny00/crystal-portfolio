@@ -7,6 +7,7 @@ import { Environment, OrbitControls } from '@react-three/drei';
 import { EffectComposer, Bloom, ChromaticAberration, Noise, Vignette } from '@react-three/postprocessing';
 import { BlendFunction } from 'postprocessing';
 import * as THREE from 'three';
+import { runRendererDiagnostics } from '../../../diagnostics/phase1-tests.js';
 
 // FIXED: Import enhanced camera controller from correct path
 import UnifiedCameraController from '../three/UnifiedCameraController';
@@ -70,6 +71,34 @@ const Fixed3DCanvas = forwardRef(({
   const crystalSceneRef = useRef();
   const backgroundRef = useRef();
   const lastZoneRef = useRef(null);
+  const diagnosticsScheduledRef = useRef(false);
+
+  const handleCanvasCreated = useCallback(({ gl, scene, camera }) => {
+    if (!gl || !scene || !camera) {
+      return;
+    }
+
+    scene.userData.renderer = gl;
+    camera.userData.renderer = gl;
+
+    if (typeof window !== 'undefined') {
+      window.__THREE_RENDERER__ = gl;
+      window.__THREE__ = { ...(window.__THREE__ || {}), renderer: gl, scene, camera };
+    }
+
+    if (diagnosticsScheduledRef.current || gl.__rendererDiagnosticsScheduled) {
+      return;
+    }
+
+    diagnosticsScheduledRef.current = true;
+
+    Promise.resolve()
+      .then(() => runRendererDiagnostics(scene, camera, gl))
+      .catch((error) => {
+        diagnosticsScheduledRef.current = false;
+        console.error('Renderer diagnostics failed:', error);
+      });
+  }, []);
 
   const handleFractureStart = useCallback(() => {
     backgroundRef.current?.flash(1, 0.5);
@@ -191,6 +220,7 @@ const Fixed3DCanvas = forwardRef(({
             fov: config?.camera?.fov || 45
           }}
           {...canvasProps}
+          onCreated={handleCanvasCreated}
           gl={{
             toneMapping: THREE.ACESFilmicToneMapping,
             toneMappingExposure: 0.2,
