@@ -178,6 +178,16 @@ export async function runRendererDiagnostics(scene, camera, rendererOverride) {
   const originalCanvasVisibility = baseCanvas?.style?.visibility ?? '';
   const baseContext = baseRenderer.getContext?.();
   const baseContextAttributes = baseContext?.getContextAttributes?.() ?? {};
+  const fiberRoot = scene?.__r3f?.root ?? null;
+  const fiberStore = fiberRoot
+    ? typeof fiberRoot === 'function'
+      ? fiberRoot
+      : typeof fiberRoot?.getState === 'function'
+      ? fiberRoot
+      : typeof fiberRoot?.store === 'function'
+      ? fiberRoot.store
+      : null
+    : null;
 
   const applyRendererConfig = (targetRenderer, config) => {
     const cleanups = [];
@@ -441,7 +451,7 @@ export async function runRendererDiagnostics(scene, camera, rendererOverride) {
     diagnosticCanvas.dataset.rendererDiagnostics = 'replacement';
     diagnosticCanvas.style.cssText = baseCanvasStyle;
     diagnosticCanvas.style.visibility = 'visible';
-    diagnosticCanvas.style.pointerEvents = 'none';
+    diagnosticCanvas.style.pointerEvents = baseCanvas?.style?.pointerEvents ?? 'none';
     diagnosticCanvas.style.position = baseCanvas.style.position || diagnosticCanvas.style.position;
     diagnosticCanvas.width = baseCanvas.width;
     diagnosticCanvas.height = baseCanvas.height;
@@ -484,6 +494,8 @@ export async function runRendererDiagnostics(scene, camera, rendererOverride) {
       powerPreference
     });
 
+    diagnosticRenderer.__skipRendererDiagnosticsAutoRun = true;
+
     if (diagnosticRenderer.shadowMap) {
       diagnosticRenderer.shadowMap.enabled = baseRenderer.shadowMap?.enabled ?? false;
       diagnosticRenderer.shadowMap.autoUpdate = baseRenderer.shadowMap?.autoUpdate ?? true;
@@ -519,23 +531,33 @@ export async function runRendererDiagnostics(scene, camera, rendererOverride) {
       frameHandle = window.requestAnimationFrame(renderFrame);
     };
 
-    frameHandle = window.requestAnimationFrame(renderFrame);
+    const start = () => {
+      if (disposed || frameHandle !== null) {
+        return;
+      }
+      frameHandle = window.requestAnimationFrame(renderFrame);
+    };
+
+    const stop = () => {
+      if (frameHandle !== null) {
+        window.cancelAnimationFrame(frameHandle);
+        frameHandle = null;
+      }
+    };
 
     const teardown = () => {
       if (disposed) {
         return;
       }
       disposed = true;
-      if (frameHandle !== null) {
-        window.cancelAnimationFrame(frameHandle);
-      }
+      stop();
       diagnosticRenderer.dispose();
       if (diagnosticCanvas.parentElement) {
         diagnosticCanvas.parentElement.removeChild(diagnosticCanvas);
       }
     };
 
-    return { renderer: diagnosticRenderer, teardown, canvas: diagnosticCanvas };
+    return { renderer: diagnosticRenderer, teardown, canvas: diagnosticCanvas, start, stop };
   };
 
   console.groupCollapsed('🔍 Phase 3 – Renderer Precision Diagnostics');
@@ -572,10 +594,109 @@ export async function runRendererDiagnostics(scene, camera, rendererOverride) {
 
       let replacement = null;
       let cleanup = () => {};
+      let storeCleanup = () => {};
+      let manualLoopStarted = false;
 
       try {
         replacement = createReplacementRenderer(rendererOptions, config);
         cleanup = applyRendererConfig(replacement.renderer, config);
+        const storeApi = fiberStore && typeof fiberStore.getState === 'function' ? fiberStore : null;
+
+        if (storeApi && baseCanvas) {
+          const state = storeApi.getState();
+          const previousGl = state.gl;
+          const previousDpr = state.viewport?.dpr ?? baseRenderer.getPixelRatio();
+          const previousSize = state.size ? { ...state.size } : null;
+          const previousEventsTarget = state.events?.connected ?? null;
+          const connect = state.events?.connect;
+          const disconnect = state.events?.disconnect;
+
+          try {
+            disconnect?.();
+          } catch (error) {
+            console.warn('Renderer diagnostics: failed to disconnect events before swap', error);
+          }
+
+          try {
+            storeApi.setState({ gl: replacement.renderer }, false, 'rendererDiagnostics:setRenderer');
+          } catch (error) {
+            console.warn('Renderer diagnostics: failed to assign replacement renderer to store', error);
+          }
+
+          const targetPixelRatio = config.pixelRatio ?? replacement.renderer.getPixelRatio();
+
+          try {
+            state.setDpr?.(targetPixelRatio);
+          } catch (error) {
+            console.warn('Renderer diagnostics: failed to update DPR for replacement renderer', error);
+          }
+
+          const replacementSize = replacement.renderer.getSize(new THREE.Vector2());
+
+          try {
+            state.setSize?.(
+              replacementSize.x,
+              replacementSize.y,
+              false,
+              previousSize?.top,
+              previousSize?.left
+            );
+          } catch (error) {
+            console.warn('Renderer diagnostics: failed to sync size for replacement renderer', error);
+          }
+
+          try {
+            if (connect && replacement.canvas) {
+              connect(replacement.canvas);
+            }
+          } catch (error) {
+            console.warn('Renderer diagnostics: failed to connect events for replacement renderer', error);
+          }
+
+          state.invalidate?.();
+
+          storeCleanup = () => {
+            try {
+              const currentState = storeApi.getState();
+              currentState.events?.disconnect?.();
+            } catch (error) {
+              console.warn('Renderer diagnostics: failed to disconnect events during restore', error);
+            }
+
+            try {
+              storeApi.setState({ gl: previousGl }, false, 'rendererDiagnostics:restoreRenderer');
+            } catch (error) {
+              console.warn('Renderer diagnostics: failed to restore original renderer', error);
+            }
+
+            try {
+              const stateAfterRestore = storeApi.getState();
+              stateAfterRestore.setDpr?.(previousDpr);
+              if (previousSize) {
+                stateAfterRestore.setSize?.(
+                  previousSize.width,
+                  previousSize.height,
+                  false,
+                  previousSize.top,
+                  previousSize.left
+                );
+              }
+              if (connect) {
+                if (previousEventsTarget && typeof previousEventsTarget.addEventListener === 'function') {
+                  connect(previousEventsTarget);
+                } else if (baseCanvas) {
+                  connect(baseCanvas);
+                }
+              }
+              stateAfterRestore.invalidate?.();
+            } catch (error) {
+              console.warn('Renderer diagnostics: failed to restore store state', error);
+            }
+          };
+        } else if (replacement) {
+          replacement.start();
+          manualLoopStarted = true;
+        }
       } catch (error) {
         console.error(`❌  Failed to initialize replacement renderer for diagnostic configuration: ${label}`, error);
       }
@@ -588,7 +709,20 @@ export async function runRendererDiagnostics(scene, camera, rendererOverride) {
         console.error(`❌  Failed to restore diagnostic configuration for replacement renderer: ${label}`, error);
       }
 
+      try {
+        storeCleanup();
+      } catch (error) {
+        console.error(`❌  Failed to restore renderer store state for diagnostic configuration: ${label}`, error);
+      }
+
       if (replacement) {
+        if (manualLoopStarted) {
+          try {
+            replacement.stop();
+          } catch (error) {
+            console.warn('Renderer diagnostics: failed to stop manual render loop', error);
+          }
+        }
         replacement.teardown();
       }
 
