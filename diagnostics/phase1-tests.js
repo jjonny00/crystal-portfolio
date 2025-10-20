@@ -518,27 +518,34 @@ export async function runRendererDiagnostics(scene, camera, rendererOverride) {
 
     let frameHandle = null;
     let disposed = false;
+    let renderCallback = null;
 
-    const renderFrame = () => {
+    const renderFrame = (time) => {
       if (disposed) {
         return;
       }
       try {
-        diagnosticRenderer.render(scene, camera);
+        if (typeof renderCallback === 'function') {
+          renderCallback(time);
+        } else {
+          diagnosticRenderer.render(scene, camera);
+        }
       } catch (error) {
         console.error('Renderer diagnostics manual render failed:', error);
       }
       frameHandle = window.requestAnimationFrame(renderFrame);
     };
 
-    const start = () => {
+    const start = (callback) => {
       if (disposed || frameHandle !== null) {
         return;
       }
+      renderCallback = typeof callback === 'function' ? callback : null;
       frameHandle = window.requestAnimationFrame(renderFrame);
     };
 
     const stop = () => {
+      renderCallback = null;
       if (frameHandle !== null) {
         window.cancelAnimationFrame(frameHandle);
         frameHandle = null;
@@ -610,6 +617,7 @@ export async function runRendererDiagnostics(scene, camera, rendererOverride) {
           const previousEventsTarget = state.events?.connected ?? null;
           const connect = state.events?.connect;
           const disconnect = state.events?.disconnect;
+          const previousFrameloop = state.frameloop ?? 'always';
 
           try {
             disconnect?.();
@@ -646,6 +654,12 @@ export async function runRendererDiagnostics(scene, camera, rendererOverride) {
           }
 
           try {
+            state.setFrameloop?.('never');
+          } catch (error) {
+            console.warn('Renderer diagnostics: failed to pause frameloop for replacement renderer', error);
+          }
+
+          try {
             if (connect && replacement.canvas) {
               connect(replacement.canvas);
             }
@@ -654,6 +668,22 @@ export async function runRendererDiagnostics(scene, camera, rendererOverride) {
           }
 
           state.invalidate?.();
+
+          const manualRender = (time) => {
+            const currentState = storeApi.getState();
+            if (typeof currentState.advance === 'function') {
+              try {
+                currentState.advance(time, true);
+              } catch (error) {
+                console.error('Renderer diagnostics: failed to advance store during replacement render', error);
+              }
+            } else {
+              replacement.renderer.render(scene, camera);
+            }
+          };
+
+          replacement.start(manualRender);
+          manualLoopStarted = true;
 
           storeCleanup = () => {
             try {
@@ -680,6 +710,11 @@ export async function runRendererDiagnostics(scene, camera, rendererOverride) {
                   previousSize.top,
                   previousSize.left
                 );
+              }
+              try {
+                stateAfterRestore.setFrameloop?.(previousFrameloop);
+              } catch (error) {
+                console.warn('Renderer diagnostics: failed to restore frameloop state', error);
               }
               if (connect) {
                 if (previousEventsTarget && typeof previousEventsTarget.addEventListener === 'function') {
@@ -709,6 +744,15 @@ export async function runRendererDiagnostics(scene, camera, rendererOverride) {
         console.error(`❌  Failed to restore diagnostic configuration for replacement renderer: ${label}`, error);
       }
 
+      if (manualLoopStarted && replacement) {
+        try {
+          replacement.stop();
+        } catch (error) {
+          console.warn('Renderer diagnostics: failed to stop manual render loop', error);
+        }
+        manualLoopStarted = false;
+      }
+
       try {
         storeCleanup();
       } catch (error) {
@@ -716,13 +760,6 @@ export async function runRendererDiagnostics(scene, camera, rendererOverride) {
       }
 
       if (replacement) {
-        if (manualLoopStarted) {
-          try {
-            replacement.stop();
-          } catch (error) {
-            console.warn('Renderer diagnostics: failed to stop manual render loop', error);
-          }
-        }
         replacement.teardown();
       }
 
