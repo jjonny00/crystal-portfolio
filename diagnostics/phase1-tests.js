@@ -74,7 +74,14 @@ function ensureOverlayContainer() {
   container.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.3)';
   container.style.backdropFilter = 'blur(5px)';
   container.style.webkitBackdropFilter = 'blur(5px)';
-  container.style.pointerEvents = 'auto';
+  container.style.pointerEvents = 'none';
+  container.style.padding = '20px 28px';
+  container.style.boxSizing = 'border-box';
+  container.style.color = '#f5f7ff';
+  container.style.fontFamily = '"Inter", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+  container.style.fontSize = '16px';
+  container.style.lineHeight = '1.4';
+  container.style.textAlign = 'center';
 
   const attachContainer = () => {
     if (container.parentElement) {
@@ -93,12 +100,54 @@ function ensureOverlayContainer() {
 }
 
 function createOverlay() {
-  return ensureOverlayContainer();
+  const container = ensureOverlayContainer();
+
+  if (!container.__rendererDiagnosticsMessage) {
+    const message = document.createElement('div');
+    message.className = 'renderer-diagnostics-message';
+    message.style.width = '100%';
+    message.style.display = 'flex';
+    message.style.flexDirection = 'column';
+    message.style.alignItems = 'center';
+    message.style.justifyContent = 'center';
+    message.style.gap = '8px';
+    message.style.pointerEvents = 'none';
+
+    const label = document.createElement('div');
+    label.className = 'renderer-diagnostics-message__label';
+    label.style.fontWeight = '600';
+    label.style.letterSpacing = '0.01em';
+    label.style.textTransform = 'uppercase';
+    label.style.fontSize = '12px';
+    label.style.opacity = '0.8';
+    label.textContent = 'Renderer Diagnostics';
+
+    const content = document.createElement('div');
+    content.className = 'renderer-diagnostics-message__content';
+    content.style.fontWeight = '500';
+    content.style.fontSize = '16px';
+    content.style.opacity = '1';
+    content.textContent = '';
+
+    message.appendChild(label);
+    message.appendChild(content);
+    container.appendChild(message);
+
+    container.__rendererDiagnosticsMessage = content;
+    container.__rendererDiagnosticsLabel = label;
+  }
+
+  return {
+    container,
+    message: container.__rendererDiagnosticsMessage,
+    label: container.__rendererDiagnosticsLabel
+  };
 }
 
 function updateOverlay(overlay, message) {
-  if (overlay) {
-    overlay.setAttribute('data-renderer-diagnostics-message', message);
+  if (overlay?.message) {
+    overlay.message.textContent = message;
+    overlay.container.setAttribute('data-renderer-diagnostics-message', message);
   }
 }
 
