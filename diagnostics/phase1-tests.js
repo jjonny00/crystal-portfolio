@@ -171,115 +171,122 @@ export async function runRendererDiagnostics(scene, camera, rendererOverride) {
   };
 
   const originalState = getOriginalRendererState();
+  const baseCanvas = baseRenderer.domElement;
+  const baseParent = baseCanvas?.parentElement;
+  const baseCanvasStyle = baseCanvas?.getAttribute('style') ?? '';
+  const baseCanvasClass = baseCanvas?.className ?? '';
+  const originalCanvasVisibility = baseCanvas?.style?.visibility ?? '';
+  const baseContext = baseRenderer.getContext?.();
+  const baseContextAttributes = baseContext?.getContextAttributes?.() ?? {};
 
-  const applyRendererConfig = (config) => {
+  const applyRendererConfig = (targetRenderer, config) => {
     const cleanups = [];
 
     if (config.toneMapping !== undefined) {
-      const prev = baseRenderer.toneMapping;
-      baseRenderer.toneMapping = config.toneMapping;
+      const prev = targetRenderer.toneMapping;
+      targetRenderer.toneMapping = config.toneMapping;
       cleanups.push(() => {
-        baseRenderer.toneMapping = prev;
+        targetRenderer.toneMapping = prev;
       });
     }
 
     if (config.toneMappingExposure !== undefined) {
-      const prev = baseRenderer.toneMappingExposure;
-      baseRenderer.toneMappingExposure = config.toneMappingExposure;
+      const prev = targetRenderer.toneMappingExposure;
+      targetRenderer.toneMappingExposure = config.toneMappingExposure;
       cleanups.push(() => {
-        baseRenderer.toneMappingExposure = prev;
+        targetRenderer.toneMappingExposure = prev;
       });
     }
 
     if (config.outputColorSpace !== undefined) {
-      const prev = baseRenderer.outputColorSpace;
-      baseRenderer.outputColorSpace = config.outputColorSpace;
+      const prev = targetRenderer.outputColorSpace;
+      targetRenderer.outputColorSpace = config.outputColorSpace;
       cleanups.push(() => {
-        baseRenderer.outputColorSpace = prev;
+        targetRenderer.outputColorSpace = prev;
       });
     }
 
     if (config.physicallyCorrectLights !== undefined) {
-      const prev = baseRenderer.physicallyCorrectLights;
-      baseRenderer.physicallyCorrectLights = config.physicallyCorrectLights;
+      const prev = targetRenderer.physicallyCorrectLights;
+      targetRenderer.physicallyCorrectLights = config.physicallyCorrectLights;
       cleanups.push(() => {
-        baseRenderer.physicallyCorrectLights = prev;
+        targetRenderer.physicallyCorrectLights = prev;
       });
     }
 
     if (config.shadowMap !== undefined) {
-      const prevEnabled = baseRenderer.shadowMap.enabled;
-      const prevAutoUpdate = baseRenderer.shadowMap.autoUpdate;
-      baseRenderer.shadowMap.enabled = !!config.shadowMap.enabled;
-      baseRenderer.shadowMap.autoUpdate = config.shadowMap.autoUpdate ?? baseRenderer.shadowMap.autoUpdate;
+      const prevEnabled = targetRenderer.shadowMap.enabled;
+      const prevAutoUpdate = targetRenderer.shadowMap.autoUpdate;
+      targetRenderer.shadowMap.enabled = !!config.shadowMap.enabled;
+      targetRenderer.shadowMap.autoUpdate = config.shadowMap.autoUpdate ?? targetRenderer.shadowMap.autoUpdate;
       cleanups.push(() => {
-        baseRenderer.shadowMap.enabled = prevEnabled;
-        baseRenderer.shadowMap.autoUpdate = prevAutoUpdate;
+        targetRenderer.shadowMap.enabled = prevEnabled;
+        targetRenderer.shadowMap.autoUpdate = prevAutoUpdate;
       });
     }
 
     if (config.clearColor !== undefined) {
-      const prevColor = baseRenderer.getClearColor(new THREE.Color()).clone();
-      const prevAlpha = baseRenderer.getClearAlpha();
+      const prevColor = targetRenderer.getClearColor(new THREE.Color()).clone();
+      const prevAlpha = targetRenderer.getClearAlpha();
       const color = config.clearColor instanceof THREE.Color ? config.clearColor : new THREE.Color(config.clearColor);
-      baseRenderer.setClearColor(color, config.clearAlpha ?? prevAlpha);
+      targetRenderer.setClearColor(color, config.clearAlpha ?? prevAlpha);
       cleanups.push(() => {
-        baseRenderer.setClearColor(prevColor, prevAlpha);
+        targetRenderer.setClearColor(prevColor, prevAlpha);
       });
     } else if (config.clearAlpha !== undefined) {
-      const prevAlpha = baseRenderer.getClearAlpha();
-      const currentColor = baseRenderer.getClearColor(new THREE.Color()).clone();
-      baseRenderer.setClearColor(currentColor, config.clearAlpha);
+      const prevAlpha = targetRenderer.getClearAlpha();
+      const currentColor = targetRenderer.getClearColor(new THREE.Color()).clone();
+      targetRenderer.setClearColor(currentColor, config.clearAlpha);
       cleanups.push(() => {
-        baseRenderer.setClearColor(currentColor, prevAlpha);
+        targetRenderer.setClearColor(currentColor, prevAlpha);
       });
     }
 
     if (config.autoClear !== undefined) {
-      const prev = baseRenderer.autoClear;
-      baseRenderer.autoClear = config.autoClear;
+      const prev = targetRenderer.autoClear;
+      targetRenderer.autoClear = config.autoClear;
       cleanups.push(() => {
-        baseRenderer.autoClear = prev;
+        targetRenderer.autoClear = prev;
       });
     }
 
     if (config.autoClearColor !== undefined) {
-      const prev = baseRenderer.autoClearColor;
-      baseRenderer.autoClearColor = config.autoClearColor;
+      const prev = targetRenderer.autoClearColor;
+      targetRenderer.autoClearColor = config.autoClearColor;
       cleanups.push(() => {
-        baseRenderer.autoClearColor = prev;
+        targetRenderer.autoClearColor = prev;
       });
     }
 
     if (config.pixelRatio !== undefined) {
-      const prev = baseRenderer.getPixelRatio();
-      const size = baseRenderer.getSize(new THREE.Vector2());
-      baseRenderer.setPixelRatio(config.pixelRatio);
-      baseRenderer.setSize(size.x, size.y, false);
+      const prev = targetRenderer.getPixelRatio();
+      const size = targetRenderer.getSize(new THREE.Vector2());
+      targetRenderer.setPixelRatio(config.pixelRatio);
+      targetRenderer.setSize(size.x, size.y, false);
       cleanups.push(() => {
-        baseRenderer.setPixelRatio(prev);
-        baseRenderer.setSize(size.x, size.y, false);
+        targetRenderer.setPixelRatio(prev);
+        targetRenderer.setSize(size.x, size.y, false);
       });
     }
 
-    if (config.xrEnabled !== undefined && baseRenderer.xr) {
-      const prev = baseRenderer.xr.enabled;
-      baseRenderer.xr.enabled = config.xrEnabled;
+    if (config.xrEnabled !== undefined && targetRenderer.xr) {
+      const prev = targetRenderer.xr.enabled;
+      targetRenderer.xr.enabled = config.xrEnabled;
       cleanups.push(() => {
-        baseRenderer.xr.enabled = prev;
+        targetRenderer.xr.enabled = prev;
       });
     }
 
     if (config.useLegacyLights !== undefined) {
-      const prev = baseRenderer.useLegacyLights;
-      baseRenderer.useLegacyLights = config.useLegacyLights;
+      const prev = targetRenderer.useLegacyLights;
+      targetRenderer.useLegacyLights = config.useLegacyLights;
       cleanups.push(() => {
-        baseRenderer.useLegacyLights = prev;
+        targetRenderer.useLegacyLights = prev;
       });
     }
 
     if (config.domBackgroundColor !== undefined) {
-      const canvas = baseRenderer.domElement;
+      const canvas = targetRenderer.domElement;
       const prev = canvas.style.backgroundColor;
       canvas.style.backgroundColor = config.domBackgroundColor;
       cleanups.push(() => {
@@ -302,72 +309,9 @@ export async function runRendererDiagnostics(scene, camera, rendererOverride) {
 
   const tests = [
     {
-      label: 'Safe Renderer Baseline (1/5)',
-      config: {
-        toneMapping: THREE.NoToneMapping,
-        toneMappingExposure: 1,
-        outputColorSpace: THREE.SRGBColorSpace,
-        clearColor: '#050505',
-        clearAlpha: 1,
-        pixelRatio: safePixelRatio,
-        autoClear: true,
-        autoClearColor: true,
-        shadowMap: { enabled: originalState.shadowMapEnabled, autoUpdate: originalState.shadowMapAutoUpdate },
-        xrEnabled: false,
-        domBackgroundColor: '#050505'
-      }
-    },
-    {
-      label: 'Re-enable Tone Mapping (2/5)',
-      config: {
-        toneMapping: originalState.toneMapping,
-        toneMappingExposure: originalState.toneMappingExposure,
-        outputColorSpace: THREE.SRGBColorSpace,
-        clearColor: '#050505',
-        clearAlpha: 1,
-        pixelRatio: safePixelRatio,
-        autoClear: true,
-        autoClearColor: true,
-        shadowMap: { enabled: originalState.shadowMapEnabled, autoUpdate: originalState.shadowMapAutoUpdate },
-        xrEnabled: false,
-        domBackgroundColor: '#050505'
-      }
-    },
-    {
-      label: 'Restore HDR Output Color Space (3/5)',
-      config: {
-        toneMapping: originalState.toneMapping,
-        toneMappingExposure: originalState.toneMappingExposure,
-        outputColorSpace: originalState.outputColorSpace,
-        clearColor: originalState.clearColor.clone(),
-        clearAlpha: originalState.clearAlpha,
-        pixelRatio: safePixelRatio,
-        autoClear: originalState.autoClear,
-        autoClearColor: originalState.autoClearColor,
-        shadowMap: { enabled: originalState.shadowMapEnabled, autoUpdate: originalState.shadowMapAutoUpdate },
-        xrEnabled: originalState.xrEnabled,
-        domBackgroundColor: originalState.domBackgroundColor
-      }
-    },
-    {
-      label: 'Restore Device Pixel Ratio (4/5)',
-      config: {
-        toneMapping: originalState.toneMapping,
-        toneMappingExposure: originalState.toneMappingExposure,
-        outputColorSpace: originalState.outputColorSpace,
-        clearColor: originalState.clearColor.clone(),
-        clearAlpha: originalState.clearAlpha,
-        pixelRatio: originalState.pixelRatio,
-        autoClear: originalState.autoClear,
-        autoClearColor: originalState.autoClearColor,
-        shadowMap: { enabled: originalState.shadowMapEnabled, autoUpdate: originalState.shadowMapAutoUpdate },
-        xrEnabled: originalState.xrEnabled,
-        domBackgroundColor: originalState.domBackgroundColor
-      }
-    },
-    {
-      label: 'Original Renderer Configuration (5/5)',
-      config: {
+      label: 'Baseline Production Renderer (1/6)',
+      mode: 'reuse',
+      makeConfig: () => ({
         toneMapping: originalState.toneMapping,
         toneMappingExposure: originalState.toneMappingExposure,
         outputColorSpace: originalState.outputColorSpace,
@@ -381,32 +325,277 @@ export async function runRendererDiagnostics(scene, camera, rendererOverride) {
         domBackgroundColor: originalState.domBackgroundColor,
         useLegacyLights: originalState.useLegacyLights,
         physicallyCorrectLights: originalState.physicallyCorrectLights
-      }
+      })
+    },
+    {
+      label: 'Opaque Canvas · WebGL2 Context (2/6)',
+      mode: 'context',
+      rendererOptions: { alpha: false, forceWebGL1: false },
+      makeConfig: () => ({
+        toneMapping: originalState.toneMapping,
+        toneMappingExposure: originalState.toneMappingExposure,
+        outputColorSpace: originalState.outputColorSpace,
+        clearColor: originalState.clearColor.clone(),
+        clearAlpha: 1,
+        pixelRatio: originalState.pixelRatio,
+        autoClear: true,
+        autoClearColor: true,
+        shadowMap: { enabled: originalState.shadowMapEnabled, autoUpdate: originalState.shadowMapAutoUpdate }
+      })
+    },
+    {
+      label: 'Opaque Canvas · sRGB Safe Mode (3/6)',
+      mode: 'context',
+      rendererOptions: { alpha: false, forceWebGL1: false },
+      makeConfig: () => ({
+        toneMapping: THREE.NoToneMapping,
+        toneMappingExposure: 1,
+        outputColorSpace: THREE.SRGBColorSpace,
+        clearColor: '#050505',
+        clearAlpha: 1,
+        pixelRatio: Math.min(originalState.pixelRatio, safePixelRatio),
+        autoClear: true,
+        autoClearColor: true,
+        shadowMap: { enabled: originalState.shadowMapEnabled, autoUpdate: originalState.shadowMapAutoUpdate }
+      })
+    },
+    {
+      label: 'Transparent Canvas · Tone Mapping Disabled (4/6)',
+      mode: 'reuse',
+      makeConfig: () => ({
+        toneMapping: THREE.NoToneMapping,
+        toneMappingExposure: 1,
+        outputColorSpace: THREE.SRGBColorSpace,
+        clearColor: originalState.clearColor.clone(),
+        clearAlpha: originalState.clearAlpha,
+        pixelRatio: originalState.pixelRatio,
+        autoClear: originalState.autoClear,
+        autoClearColor: originalState.autoClearColor,
+        shadowMap: { enabled: originalState.shadowMapEnabled, autoUpdate: originalState.shadowMapAutoUpdate },
+        xrEnabled: originalState.xrEnabled,
+        domBackgroundColor: originalState.domBackgroundColor,
+        useLegacyLights: originalState.useLegacyLights,
+        physicallyCorrectLights: originalState.physicallyCorrectLights
+      })
+    },
+    {
+      label: 'Transparent Canvas · DPR Clamped ≤ 2 (5/6)',
+      mode: 'reuse',
+      makeConfig: () => ({
+        toneMapping: originalState.toneMapping,
+        toneMappingExposure: originalState.toneMappingExposure,
+        outputColorSpace: originalState.outputColorSpace,
+        clearColor: originalState.clearColor.clone(),
+        clearAlpha: originalState.clearAlpha,
+        pixelRatio: safePixelRatio,
+        autoClear: originalState.autoClear,
+        autoClearColor: originalState.autoClearColor,
+        shadowMap: { enabled: originalState.shadowMapEnabled, autoUpdate: originalState.shadowMapAutoUpdate },
+        xrEnabled: originalState.xrEnabled,
+        domBackgroundColor: originalState.domBackgroundColor,
+        useLegacyLights: originalState.useLegacyLights,
+        physicallyCorrectLights: originalState.physicallyCorrectLights
+      })
+    },
+    {
+      label: 'Transparent Canvas · WebGL1 Context (6/6)',
+      mode: 'context',
+      rendererOptions: { alpha: true, forceWebGL1: true },
+      makeConfig: () => ({
+        toneMapping: originalState.toneMapping,
+        toneMappingExposure: originalState.toneMappingExposure,
+        outputColorSpace: originalState.outputColorSpace,
+        clearColor: originalState.clearColor.clone(),
+        clearAlpha: originalState.clearAlpha,
+        pixelRatio: Math.min(originalState.pixelRatio, safePixelRatio),
+        autoClear: originalState.autoClear,
+        autoClearColor: originalState.autoClearColor,
+        shadowMap: { enabled: originalState.shadowMapEnabled, autoUpdate: originalState.shadowMapAutoUpdate }
+      })
     }
   ];
 
+  const showBaseCanvas = (visible) => {
+    if (!baseCanvas) {
+      return;
+    }
+    baseCanvas.style.visibility = visible ? originalCanvasVisibility : 'hidden';
+  };
+
+  const createReplacementRenderer = (options = {}, config = {}) => {
+    if (!baseCanvas) {
+      throw new Error('Base renderer canvas is unavailable for diagnostics.');
+    }
+
+    const {
+      alpha = baseContextAttributes.alpha ?? true,
+      forceWebGL1 = false,
+      antialias = baseContextAttributes.antialias ?? true,
+      preserveDrawingBuffer = baseContextAttributes.preserveDrawingBuffer ?? false,
+      premultipliedAlpha = baseContextAttributes.premultipliedAlpha ?? true,
+      powerPreference = baseContextAttributes.powerPreference ?? 'high-performance'
+    } = options;
+
+    const diagnosticCanvas = document.createElement('canvas');
+    diagnosticCanvas.className = baseCanvasClass;
+    diagnosticCanvas.dataset.rendererDiagnostics = 'replacement';
+    diagnosticCanvas.style.cssText = baseCanvasStyle;
+    diagnosticCanvas.style.visibility = 'visible';
+    diagnosticCanvas.style.pointerEvents = 'none';
+    diagnosticCanvas.style.position = baseCanvas.style.position || diagnosticCanvas.style.position;
+    diagnosticCanvas.width = baseCanvas.width;
+    diagnosticCanvas.height = baseCanvas.height;
+
+    if (baseParent) {
+      baseParent.appendChild(diagnosticCanvas);
+    } else {
+      document.body.appendChild(diagnosticCanvas);
+    }
+
+    const contextAttributes = {
+      alpha,
+      antialias,
+      depth: baseContextAttributes.depth ?? true,
+      stencil: baseContextAttributes.stencil ?? false,
+      desynchronized: baseContextAttributes.desynchronized ?? false,
+      premultipliedAlpha,
+      preserveDrawingBuffer,
+      powerPreference
+    };
+
+    let gl = null;
+    if (forceWebGL1) {
+      gl = diagnosticCanvas.getContext('webgl', contextAttributes);
+    } else {
+      gl = diagnosticCanvas.getContext('webgl2', contextAttributes) || diagnosticCanvas.getContext('webgl', contextAttributes);
+    }
+
+    if (!gl) {
+      diagnosticCanvas.remove();
+      throw new Error('Unable to create diagnostic renderer context.');
+    }
+
+    const diagnosticRenderer = new THREE.WebGLRenderer({
+      canvas: diagnosticCanvas,
+      context: gl,
+      alpha,
+      antialias,
+      preserveDrawingBuffer,
+      powerPreference
+    });
+
+    if (diagnosticRenderer.shadowMap) {
+      diagnosticRenderer.shadowMap.enabled = baseRenderer.shadowMap?.enabled ?? false;
+      diagnosticRenderer.shadowMap.autoUpdate = baseRenderer.shadowMap?.autoUpdate ?? true;
+    }
+    if (diagnosticRenderer.xr) {
+      diagnosticRenderer.xr.enabled = false;
+    }
+
+    const size = baseRenderer.getSize(new THREE.Vector2());
+    const targetPixelRatio = config.pixelRatio ?? baseRenderer.getPixelRatio();
+    diagnosticRenderer.setPixelRatio(targetPixelRatio);
+    diagnosticRenderer.setSize(size.x, size.y, false);
+
+    if (!diagnosticCanvas.style.width) {
+      diagnosticCanvas.style.width = baseCanvas.style.width || `${size.x}px`;
+    }
+    if (!diagnosticCanvas.style.height) {
+      diagnosticCanvas.style.height = baseCanvas.style.height || `${size.y}px`;
+    }
+
+    let frameHandle = null;
+    let disposed = false;
+
+    const renderFrame = () => {
+      if (disposed) {
+        return;
+      }
+      try {
+        diagnosticRenderer.render(scene, camera);
+      } catch (error) {
+        console.error('Renderer diagnostics manual render failed:', error);
+      }
+      frameHandle = window.requestAnimationFrame(renderFrame);
+    };
+
+    frameHandle = window.requestAnimationFrame(renderFrame);
+
+    const teardown = () => {
+      if (disposed) {
+        return;
+      }
+      disposed = true;
+      if (frameHandle !== null) {
+        window.cancelAnimationFrame(frameHandle);
+      }
+      diagnosticRenderer.dispose();
+      if (diagnosticCanvas.parentElement) {
+        diagnosticCanvas.parentElement.removeChild(diagnosticCanvas);
+      }
+    };
+
+    return { renderer: diagnosticRenderer, teardown, canvas: diagnosticCanvas };
+  };
+
   console.groupCollapsed('🔍 Phase 3 – Renderer Precision Diagnostics');
-  console.log('Cycling renderer-level configurations to isolate tone mapping, HDR, and DPR regressions.');
-  console.log('Each configuration displays for 8 seconds; watch for the checkerboard artifact to return.');
+  console.log('Cycling production vs fallback renderers to isolate alpha, tone mapping, DPR, and WebGL version regressions.');
+  console.log('Each configuration displays for 8 seconds; watch which setup reintroduces the checkerboard pattern.');
   console.groupEnd();
 
-  const runTest = async ({ label, config }) => {
+  const runTest = async (test) => {
+    const { label, mode, makeConfig, rendererOptions } = test;
     updateOverlay(overlay, `Testing Renderer Config: ${label}`);
     console.log(`▶️  ${label}`);
 
-    let cleanup = () => {};
-    try {
-      cleanup = applyRendererConfig(config);
-    } catch (error) {
-      console.error(`❌  Failed to apply renderer diagnostic configuration: ${label}`, error);
-    }
+    const config = typeof makeConfig === 'function' ? makeConfig() : {};
 
-    await wait(8000);
+    if (mode === 'reuse') {
+      showBaseCanvas(true);
 
-    try {
-      cleanup();
-    } catch (error) {
-      console.error(`❌  Failed to restore renderer diagnostic configuration: ${label}`, error);
+      let cleanup = () => {};
+      try {
+        cleanup = applyRendererConfig(baseRenderer, config);
+      } catch (error) {
+        console.error(`❌  Failed to apply renderer diagnostic configuration: ${label}`, error);
+      }
+
+      await wait(8000);
+
+      try {
+        cleanup();
+      } catch (error) {
+        console.error(`❌  Failed to restore renderer diagnostic configuration: ${label}`, error);
+      }
+    } else if (mode === 'context') {
+      showBaseCanvas(false);
+
+      let replacement = null;
+      let cleanup = () => {};
+
+      try {
+        replacement = createReplacementRenderer(rendererOptions, config);
+        cleanup = applyRendererConfig(replacement.renderer, config);
+      } catch (error) {
+        console.error(`❌  Failed to initialize replacement renderer for diagnostic configuration: ${label}`, error);
+      }
+
+      await wait(8000);
+
+      try {
+        cleanup();
+      } catch (error) {
+        console.error(`❌  Failed to restore diagnostic configuration for replacement renderer: ${label}`, error);
+      }
+
+      if (replacement) {
+        replacement.teardown();
+      }
+
+      showBaseCanvas(true);
+    } else {
+      console.warn(`Skipping unknown diagnostic mode for test: ${label}`);
+      await wait(8000);
     }
   };
 
@@ -418,10 +607,11 @@ export async function runRendererDiagnostics(scene, camera, rendererOverride) {
     baseRenderer.__rendererDiagnosticsCompleted = true;
     baseRenderer.__skipRendererDiagnosticsAutoRun = true;
     baseRenderer.__rendererDiagnosticsRunning = false;
+    showBaseCanvas(true);
     updateOverlay(overlay, 'Diagnostics complete');
     console.log('Renderer precision diagnostics complete.');
     console.log('Note which configuration allowed the checkerboard artifact to return.');
-    applyRendererConfig({
+    applyRendererConfig(baseRenderer, {
       toneMapping: originalState.toneMapping,
       toneMappingExposure: originalState.toneMappingExposure,
       outputColorSpace: originalState.outputColorSpace,
