@@ -1,12 +1,13 @@
 // FIXED: src/components/layout/Fixed3DCanvas.jsx
 // UPDATED: Enhanced MistyLayerStack positioning and render order
 
-import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallback } from 'react';
+import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallback, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Environment, OrbitControls } from '@react-three/drei';
 import { EffectComposer, Bloom, ChromaticAberration, Noise, Vignette } from '@react-three/postprocessing';
 import { BlendFunction } from 'postprocessing';
 import * as THREE from 'three';
+import { HalfFloatType, UnsignedByteType } from 'three';
 
 // FIXED: Import enhanced camera controller from correct path
 import UnifiedCameraController from '../three/UnifiedCameraController';
@@ -19,6 +20,7 @@ import CrystalDebugPanels from '../ui/CrystalDebugPanels';
 import GradientBackground from '../three/GradientBackground';
 import { projectBackgrounds } from '../../data/projectBackgrounds';
 import MistyLayerStack from '../MistyLayerStack';
+import { isIOS26 } from '../../utils/isIOS26';
 
 const PulsingOmniLight = ({ simplified = false }) => {
   const lightRef = useRef();
@@ -96,6 +98,15 @@ const Fixed3DCanvas = forwardRef(({
   const simplifiedAnimations = performanceProfile?.simplifiedAnimations;
   const dustEnabled = !performanceProfile?.reducedParticles;
   const particleCount = performanceProfile?.particleCount;
+  const ios26 = useMemo(() => isIOS26(), []);
+
+  useEffect(() => {
+    console[ios26 ? 'warn' : 'log'](
+      ios26
+        ? '⚠️  iOS 26 / A18 detected — disabling MSAA in composer to prevent Safari 26 artifact.'
+        : '✅  Full 8× MSAA composer enabled.'
+    );
+  }, [ios26]);
 
   // NEW: Update debug data when crystal scene changes
   useEffect(() => {
@@ -311,7 +322,11 @@ const Fixed3DCanvas = forwardRef(({
           />
           
           {/* Post-processing effects (unchanged) */}
-          <EffectComposer enabled={true}>
+          <EffectComposer
+            enabled={true}
+            multisampling={ios26 ? 0 : 8}
+            frameBufferType={ios26 ? UnsignedByteType : HalfFloatType}
+          >
             {/* Default minimal bloom when no effects are enabled */}
             <Bloom 
               intensity={Object.values(effectsEnabled || {}).some(Boolean) ? 0 : 0.0001}
