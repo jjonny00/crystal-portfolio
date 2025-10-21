@@ -1,7 +1,15 @@
 // FIXED: src/components/layout/Fixed3DCanvas.jsx
 // UPDATED: Enhanced MistyLayerStack positioning and render order
 
-import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallback } from 'react';
+import React, {
+  useRef,
+  useState,
+  useEffect,
+  useMemo,
+  forwardRef,
+  useImperativeHandle,
+  useCallback
+} from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Environment, OrbitControls } from '@react-three/drei';
 import { EffectComposer, Bloom, ChromaticAberration, Noise, Vignette } from '@react-three/postprocessing';
@@ -73,6 +81,25 @@ const Fixed3DCanvas = forwardRef(({
   const lastZoneRef = useRef(null);
   const diagnosticsScheduledRef = useRef(false);
 
+  const [diagnosticOverrides, setDiagnosticOverrides] = useState({});
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+
+    const handleConfig = (event) => {
+      const detail = event?.detail;
+      setDiagnosticOverrides(detail ?? {});
+    };
+
+    window.addEventListener('renderer-diagnostics-scene-config', handleConfig);
+
+    return () => {
+      window.removeEventListener('renderer-diagnostics-scene-config', handleConfig);
+    };
+  }, []);
+
   const handleCanvasCreated = useCallback(({ gl, scene, camera }) => {
     if (!gl || !scene || !camera) {
       return;
@@ -125,6 +152,23 @@ const Fixed3DCanvas = forwardRef(({
   const simplifiedAnimations = performanceProfile?.simplifiedAnimations;
   const dustEnabled = !performanceProfile?.reducedParticles;
   const particleCount = performanceProfile?.particleCount;
+
+  const composerEnabled = diagnosticOverrides.composerEnabled ?? true;
+  const composerFrameBufferType = diagnosticOverrides.composerFrameBufferType;
+  const composerMultisampling = diagnosticOverrides.composerMultisampling;
+  const diagnosticEffects = diagnosticOverrides.effects || {};
+
+  const composerKey = useMemo(() => {
+    const frameBufferKey = composerFrameBufferType ?? 'default';
+    const multisamplingKey = composerMultisampling ?? 'default';
+    return `diagnostics-composer-${composerEnabled}-${frameBufferKey}-${multisamplingKey}`;
+  }, [composerEnabled, composerFrameBufferType, composerMultisampling]);
+
+  const defaultBloomActive = diagnosticEffects.defaultBloom ?? !Object.values(effectsEnabled || {}).some(Boolean);
+  const userBloomActive = diagnosticEffects.bloom ?? Boolean(effectsEnabled?.bloom);
+  const chromaticAberrationActive = diagnosticEffects.chromaticAberration ?? Boolean(effectsEnabled?.chromaticAberration);
+  const noiseActive = diagnosticEffects.noise ?? Boolean(effectsEnabled?.noise);
+  const vignetteActive = diagnosticEffects.vignette ?? Boolean(effectsEnabled?.vignette);
 
   // NEW: Update debug data when crystal scene changes
   useEffect(() => {
@@ -341,41 +385,46 @@ const Fixed3DCanvas = forwardRef(({
           />
           
           {/* Post-processing effects (unchanged) */}
-          <EffectComposer enabled={true}>
+          <EffectComposer
+            key={composerKey}
+            enabled={composerEnabled}
+            frameBufferType={composerFrameBufferType ?? undefined}
+            multisampling={composerMultisampling ?? undefined}
+          >
             {/* Default minimal bloom when no effects are enabled */}
-            <Bloom 
-              intensity={Object.values(effectsEnabled || {}).some(Boolean) ? 0 : 0.0001}
+            <Bloom
+              intensity={defaultBloomActive ? 0.0001 : 0}
               luminanceThreshold={1.0}
               luminanceSmoothing={0.9}
               radius={0.5}
-              enabled={!Object.values(effectsEnabled || {}).some(Boolean)}
+              enabled={defaultBloomActive}
             />
-            
-            {effectsEnabled?.bloom && (
-              <Bloom 
-                luminanceThreshold={postProcessingConfig?.bloom?.luminanceThreshold || 0.05} 
-                luminanceSmoothing={postProcessingConfig?.bloom?.luminanceSmoothing || 0.9} 
-                intensity={postProcessingConfig?.bloom?.intensity || 1.0} 
-                radius={postProcessingConfig?.bloom?.radius || 1.9} 
+
+            {userBloomActive && (
+              <Bloom
+                luminanceThreshold={postProcessingConfig?.bloom?.luminanceThreshold || 0.05}
+                luminanceSmoothing={postProcessingConfig?.bloom?.luminanceSmoothing || 0.9}
+                intensity={postProcessingConfig?.bloom?.intensity || 1.0}
+                radius={postProcessingConfig?.bloom?.radius || 1.9}
               />
             )}
-            {effectsEnabled?.chromaticAberration && (
-              <ChromaticAberration 
-                offset={postProcessingConfig?.chromaticAberration?.offset || [0.003, 0.003]} 
-                radialModulation={postProcessingConfig?.chromaticAberration?.radialModulation !== false} 
-                modulationOffset={postProcessingConfig?.chromaticAberration?.modulationOffset || 0.5} 
+            {chromaticAberrationActive && (
+              <ChromaticAberration
+                offset={postProcessingConfig?.chromaticAberration?.offset || [0.003, 0.003]}
+                radialModulation={postProcessingConfig?.chromaticAberration?.radialModulation !== false}
+                modulationOffset={postProcessingConfig?.chromaticAberration?.modulationOffset || 0.5}
               />
             )}
-            {effectsEnabled?.noise && (
-              <Noise 
-                opacity={postProcessingConfig?.noise?.opacity || 0.1} 
-                blendFunction={BlendFunction.OVERLAY} 
+            {noiseActive && (
+              <Noise
+                opacity={postProcessingConfig?.noise?.opacity || 0.1}
+                blendFunction={BlendFunction.OVERLAY}
               />
             )}
-            {effectsEnabled?.vignette && (
-              <Vignette 
-                eskil={postProcessingConfig?.vignette?.eskil || false} 
-                offset={postProcessingConfig?.vignette?.offset || 0.1} 
+            {vignetteActive && (
+              <Vignette
+                eskil={postProcessingConfig?.vignette?.eskil || false}
+                offset={postProcessingConfig?.vignette?.offset || 0.1}
                 darkness={postProcessingConfig?.vignette?.darkness || 1.1} 
               />
             )}

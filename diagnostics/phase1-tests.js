@@ -126,6 +126,28 @@ function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function dispatchSceneOverrides(overrides) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  const detail = overrides ?? null;
+  const event = new CustomEvent('renderer-diagnostics-scene-config', { detail });
+  window.dispatchEvent(event);
+}
+
+function applySceneOverrides(overrides) {
+  if (typeof window === 'undefined') {
+    return () => {};
+  }
+
+  dispatchSceneOverrides(overrides);
+
+  return () => {
+    dispatchSceneOverrides(null);
+  };
+}
+
 export async function runRendererDiagnostics(scene, camera, rendererOverride) {
   if (typeof window === 'undefined') {
     console.warn('Renderer diagnostics can only run in a browser context.');
@@ -149,6 +171,11 @@ export async function runRendererDiagnostics(scene, camera, rendererOverride) {
 
   const overlay = createOverlay();
   updateOverlay(overlay, 'Preparing scene diagnostics…');
+  try {
+    dispatchSceneOverrides(null);
+  } catch (error) {
+    console.warn('Renderer diagnostics: unable to reset scene overrides before diagnostics', error);
+  }
 
   const getOriginalRendererState = () => {
     const clearColor = baseRenderer.getClearColor(new THREE.Color()).clone();
@@ -321,6 +348,7 @@ export async function runRendererDiagnostics(scene, camera, rendererOverride) {
     {
       label: 'Baseline Production Renderer (1/6)',
       mode: 'reuse',
+      applySceneOverrides: () => applySceneOverrides(null),
       makeConfig: () => ({
         toneMapping: originalState.toneMapping,
         toneMappingExposure: originalState.toneMappingExposure,
@@ -338,40 +366,69 @@ export async function runRendererDiagnostics(scene, camera, rendererOverride) {
       })
     },
     {
-      label: 'Opaque Canvas · WebGL2 Context (2/6)',
-      mode: 'context',
-      rendererOptions: { alpha: false, forceWebGL1: false },
+      label: 'Post-Processing Disabled · Transparent Canvas (2/6)',
+      mode: 'reuse',
+      applySceneOverrides: () =>
+        applySceneOverrides({
+          composerEnabled: false,
+          effects: {
+            defaultBloom: false,
+            bloom: false,
+            chromaticAberration: false,
+            noise: false,
+            vignette: false
+          }
+        }),
       makeConfig: () => ({
         toneMapping: originalState.toneMapping,
         toneMappingExposure: originalState.toneMappingExposure,
         outputColorSpace: originalState.outputColorSpace,
         clearColor: originalState.clearColor.clone(),
-        clearAlpha: 1,
+        clearAlpha: originalState.clearAlpha,
         pixelRatio: originalState.pixelRatio,
-        autoClear: true,
-        autoClearColor: true,
-        shadowMap: { enabled: originalState.shadowMapEnabled, autoUpdate: originalState.shadowMapAutoUpdate }
+        autoClear: originalState.autoClear,
+        autoClearColor: originalState.autoClearColor,
+        shadowMap: { enabled: originalState.shadowMapEnabled, autoUpdate: originalState.shadowMapAutoUpdate },
+        xrEnabled: originalState.xrEnabled,
+        domBackgroundColor: originalState.domBackgroundColor,
+        useLegacyLights: originalState.useLegacyLights,
+        physicallyCorrectLights: originalState.physicallyCorrectLights
       })
     },
     {
-      label: 'Opaque Canvas · sRGB Safe Mode (3/6)',
-      mode: 'context',
-      rendererOptions: { alpha: false, forceWebGL1: false },
-      makeConfig: () => ({
-        toneMapping: THREE.NoToneMapping,
-        toneMappingExposure: 1,
-        outputColorSpace: THREE.SRGBColorSpace,
-        clearColor: '#050505',
-        clearAlpha: 1,
-        pixelRatio: Math.min(originalState.pixelRatio, safePixelRatio),
-        autoClear: true,
-        autoClearColor: true,
-        shadowMap: { enabled: originalState.shadowMapEnabled, autoUpdate: originalState.shadowMapAutoUpdate }
-      })
-    },
-    {
-      label: 'Transparent Canvas · Tone Mapping Disabled (4/6)',
+      label: 'Post-Processing · Unsigned Byte FBO (3/6)',
       mode: 'reuse',
+      applySceneOverrides: () =>
+        applySceneOverrides({
+          composerEnabled: true,
+          composerFrameBufferType: THREE.UnsignedByteType,
+          composerMultisampling: 0
+        }),
+      makeConfig: () => ({
+        toneMapping: originalState.toneMapping,
+        toneMappingExposure: originalState.toneMappingExposure,
+        outputColorSpace: originalState.outputColorSpace,
+        clearColor: originalState.clearColor.clone(),
+        clearAlpha: originalState.clearAlpha,
+        pixelRatio: originalState.pixelRatio,
+        autoClear: originalState.autoClear,
+        autoClearColor: originalState.autoClearColor,
+        shadowMap: { enabled: originalState.shadowMapEnabled, autoUpdate: originalState.shadowMapAutoUpdate },
+        xrEnabled: originalState.xrEnabled,
+        domBackgroundColor: originalState.domBackgroundColor,
+        useLegacyLights: originalState.useLegacyLights,
+        physicallyCorrectLights: originalState.physicallyCorrectLights
+      })
+    },
+    {
+      label: 'Post-Processing · Unsigned Byte FBO · Tone Mapping Off (4/6)',
+      mode: 'reuse',
+      applySceneOverrides: () =>
+        applySceneOverrides({
+          composerEnabled: true,
+          composerFrameBufferType: THREE.UnsignedByteType,
+          composerMultisampling: 0
+        }),
       makeConfig: () => ({
         toneMapping: THREE.NoToneMapping,
         toneMappingExposure: 1,
@@ -389,12 +446,18 @@ export async function runRendererDiagnostics(scene, camera, rendererOverride) {
       })
     },
     {
-      label: 'Transparent Canvas · DPR Clamped ≤ 2 (5/6)',
+      label: 'Post-Processing · Unsigned Byte FBO · DPR ≤ 2 (5/6)',
       mode: 'reuse',
+      applySceneOverrides: () =>
+        applySceneOverrides({
+          composerEnabled: true,
+          composerFrameBufferType: THREE.UnsignedByteType,
+          composerMultisampling: 0
+        }),
       makeConfig: () => ({
         toneMapping: originalState.toneMapping,
         toneMappingExposure: originalState.toneMappingExposure,
-        outputColorSpace: originalState.outputColorSpace,
+        outputColorSpace: THREE.SRGBColorSpace,
         clearColor: originalState.clearColor.clone(),
         clearAlpha: originalState.clearAlpha,
         pixelRatio: safePixelRatio,
@@ -408,19 +471,28 @@ export async function runRendererDiagnostics(scene, camera, rendererOverride) {
       })
     },
     {
-      label: 'Transparent Canvas · WebGL1 Context (6/6)',
-      mode: 'context',
-      rendererOptions: { alpha: true, forceWebGL1: true },
+      label: 'Post-Processing · Half-Float FBO Control (6/6)',
+      mode: 'reuse',
+      applySceneOverrides: () =>
+        applySceneOverrides({
+          composerEnabled: true,
+          composerFrameBufferType: THREE.HalfFloatType,
+          composerMultisampling: 0
+        }),
       makeConfig: () => ({
         toneMapping: originalState.toneMapping,
         toneMappingExposure: originalState.toneMappingExposure,
         outputColorSpace: originalState.outputColorSpace,
         clearColor: originalState.clearColor.clone(),
         clearAlpha: originalState.clearAlpha,
-        pixelRatio: Math.min(originalState.pixelRatio, safePixelRatio),
+        pixelRatio: originalState.pixelRatio,
         autoClear: originalState.autoClear,
         autoClearColor: originalState.autoClearColor,
-        shadowMap: { enabled: originalState.shadowMapEnabled, autoUpdate: originalState.shadowMapAutoUpdate }
+        shadowMap: { enabled: originalState.shadowMapEnabled, autoUpdate: originalState.shadowMapAutoUpdate },
+        xrEnabled: originalState.xrEnabled,
+        domBackgroundColor: originalState.domBackgroundColor,
+        useLegacyLights: originalState.useLegacyLights,
+        physicallyCorrectLights: originalState.physicallyCorrectLights
       })
     }
   ];
@@ -567,206 +639,230 @@ export async function runRendererDiagnostics(scene, camera, rendererOverride) {
     return { renderer: diagnosticRenderer, teardown, canvas: diagnosticCanvas, start, stop };
   };
 
-  console.groupCollapsed('🔍 Phase 3 – Renderer Precision Diagnostics');
-  console.log('Cycling production vs fallback renderers to isolate alpha, tone mapping, DPR, and WebGL version regressions.');
-  console.log('Each configuration displays for 8 seconds; watch which setup reintroduces the checkerboard pattern.');
+  console.groupCollapsed('🔍 Phase 4 – Post-Processing Buffer Diagnostics');
+  console.log('Cycling composer configurations (frame-buffer type, tone mapping, DPR, and bypass) to isolate the iOS checkerboard regression.');
+  console.log('Each configuration displays for 8 seconds; note which setups still show artifacts once post-processing changes take effect.');
   console.groupEnd();
 
   const runTest = async (test) => {
-    const { label, mode, makeConfig, rendererOptions } = test;
+    const { label, mode, makeConfig, rendererOptions, applySceneOverrides: applyOverrides } = test;
     updateOverlay(overlay, `Testing Renderer Config: ${label}`);
     console.log(`▶️  ${label}`);
 
     const config = typeof makeConfig === 'function' ? makeConfig() : {};
 
-    if (mode === 'reuse') {
-      showBaseCanvas(true);
-
-      let cleanup = () => {};
+    let restoreSceneOverrides = () => {};
+    if (typeof applyOverrides === 'function') {
       try {
-        cleanup = applyRendererConfig(baseRenderer, config);
+        restoreSceneOverrides = applyOverrides() || (() => {});
       } catch (error) {
-        console.error(`❌  Failed to apply renderer diagnostic configuration: ${label}`, error);
+        console.error(`❌  Failed to apply scene override for diagnostic configuration: ${label}`, error);
+        restoreSceneOverrides = () => {
+          try {
+            dispatchSceneOverrides(null);
+          } catch (cleanupError) {
+            console.error('❌  Failed to reset scene overrides after error', cleanupError);
+          }
+        };
       }
+    }
 
-      await wait(8000);
+    try {
+      if (mode === 'reuse') {
+        showBaseCanvas(true);
 
-      try {
-        cleanup();
-      } catch (error) {
-        console.error(`❌  Failed to restore renderer diagnostic configuration: ${label}`, error);
-      }
-    } else if (mode === 'context') {
-      showBaseCanvas(false);
-
-      let replacement = null;
-      let cleanup = () => {};
-      let storeCleanup = () => {};
-      let manualLoopStarted = false;
-
-      try {
-        replacement = createReplacementRenderer(rendererOptions, config);
-        cleanup = applyRendererConfig(replacement.renderer, config);
-        const storeApi = fiberStore && typeof fiberStore.getState === 'function' ? fiberStore : null;
-
-        if (storeApi && baseCanvas) {
-          const state = storeApi.getState();
-          const previousGl = state.gl;
-          const previousDpr = state.viewport?.dpr ?? baseRenderer.getPixelRatio();
-          const previousSize = state.size ? { ...state.size } : null;
-          const previousEventsTarget = state.events?.connected ?? null;
-          const connect = state.events?.connect;
-          const disconnect = state.events?.disconnect;
-          const previousFrameloop = state.frameloop ?? 'always';
-
-          try {
-            disconnect?.();
-          } catch (error) {
-            console.warn('Renderer diagnostics: failed to disconnect events before swap', error);
-          }
-
-          try {
-            storeApi.setState({ gl: replacement.renderer }, false, 'rendererDiagnostics:setRenderer');
-          } catch (error) {
-            console.warn('Renderer diagnostics: failed to assign replacement renderer to store', error);
-          }
-
-          const targetPixelRatio = config.pixelRatio ?? replacement.renderer.getPixelRatio();
-
-          try {
-            state.setDpr?.(targetPixelRatio);
-          } catch (error) {
-            console.warn('Renderer diagnostics: failed to update DPR for replacement renderer', error);
-          }
-
-          const replacementSize = replacement.renderer.getSize(new THREE.Vector2());
-
-          try {
-            state.setSize?.(
-              replacementSize.x,
-              replacementSize.y,
-              false,
-              previousSize?.top,
-              previousSize?.left
-            );
-          } catch (error) {
-            console.warn('Renderer diagnostics: failed to sync size for replacement renderer', error);
-          }
-
-          try {
-            state.setFrameloop?.('never');
-          } catch (error) {
-            console.warn('Renderer diagnostics: failed to pause frameloop for replacement renderer', error);
-          }
-
-          try {
-            if (connect && replacement.canvas) {
-              connect(replacement.canvas);
-            }
-          } catch (error) {
-            console.warn('Renderer diagnostics: failed to connect events for replacement renderer', error);
-          }
-
-          state.invalidate?.();
-
-          const manualRender = (time) => {
-            const currentState = storeApi.getState();
-            if (typeof currentState.advance === 'function') {
-              try {
-                currentState.advance(time, true);
-              } catch (error) {
-                console.error('Renderer diagnostics: failed to advance store during replacement render', error);
-              }
-            } else {
-              replacement.renderer.render(scene, camera);
-            }
-          };
-
-          replacement.start(manualRender);
-          manualLoopStarted = true;
-
-          storeCleanup = () => {
-            try {
-              const currentState = storeApi.getState();
-              currentState.events?.disconnect?.();
-            } catch (error) {
-              console.warn('Renderer diagnostics: failed to disconnect events during restore', error);
-            }
-
-            try {
-              storeApi.setState({ gl: previousGl }, false, 'rendererDiagnostics:restoreRenderer');
-            } catch (error) {
-              console.warn('Renderer diagnostics: failed to restore original renderer', error);
-            }
-
-            try {
-              const stateAfterRestore = storeApi.getState();
-              stateAfterRestore.setDpr?.(previousDpr);
-              if (previousSize) {
-                stateAfterRestore.setSize?.(
-                  previousSize.width,
-                  previousSize.height,
-                  false,
-                  previousSize.top,
-                  previousSize.left
-                );
-              }
-              try {
-                stateAfterRestore.setFrameloop?.(previousFrameloop);
-              } catch (error) {
-                console.warn('Renderer diagnostics: failed to restore frameloop state', error);
-              }
-              if (connect) {
-                if (previousEventsTarget && typeof previousEventsTarget.addEventListener === 'function') {
-                  connect(previousEventsTarget);
-                } else if (baseCanvas) {
-                  connect(baseCanvas);
-                }
-              }
-              stateAfterRestore.invalidate?.();
-            } catch (error) {
-              console.warn('Renderer diagnostics: failed to restore store state', error);
-            }
-          };
-        } else if (replacement) {
-          replacement.start();
-          manualLoopStarted = true;
-        }
-      } catch (error) {
-        console.error(`❌  Failed to initialize replacement renderer for diagnostic configuration: ${label}`, error);
-      }
-
-      await wait(8000);
-
-      try {
-        cleanup();
-      } catch (error) {
-        console.error(`❌  Failed to restore diagnostic configuration for replacement renderer: ${label}`, error);
-      }
-
-      if (manualLoopStarted && replacement) {
+        let cleanup = () => {};
         try {
-          replacement.stop();
+          cleanup = applyRendererConfig(baseRenderer, config);
         } catch (error) {
-          console.warn('Renderer diagnostics: failed to stop manual render loop', error);
+          console.error(`❌  Failed to apply renderer diagnostic configuration: ${label}`, error);
         }
-        manualLoopStarted = false;
-      }
 
+        await wait(8000);
+
+        try {
+          cleanup();
+        } catch (error) {
+          console.error(`❌  Failed to restore renderer diagnostic configuration: ${label}`, error);
+        }
+      } else if (mode === 'context') {
+        showBaseCanvas(false);
+
+        let replacement = null;
+        let cleanup = () => {};
+        let storeCleanup = () => {};
+        let manualLoopStarted = false;
+
+        try {
+          replacement = createReplacementRenderer(rendererOptions, config);
+          cleanup = applyRendererConfig(replacement.renderer, config);
+          const storeApi = fiberStore && typeof fiberStore.getState === 'function' ? fiberStore : null;
+
+          if (storeApi && baseCanvas) {
+            const state = storeApi.getState();
+            const previousGl = state.gl;
+            const previousDpr = state.viewport?.dpr ?? baseRenderer.getPixelRatio();
+            const previousSize = state.size ? { ...state.size } : null;
+            const previousEventsTarget = state.events?.connected ?? null;
+            const connect = state.events?.connect;
+            const disconnect = state.events?.disconnect;
+            const previousFrameloop = state.frameloop ?? 'always';
+
+            try {
+              disconnect?.();
+            } catch (error) {
+              console.warn('Renderer diagnostics: failed to disconnect events before swap', error);
+            }
+
+            try {
+              storeApi.setState({ gl: replacement.renderer }, false, 'rendererDiagnostics:setRenderer');
+            } catch (error) {
+              console.warn('Renderer diagnostics: failed to assign replacement renderer to store', error);
+            }
+
+            const targetPixelRatio = config.pixelRatio ?? replacement.renderer.getPixelRatio();
+
+            try {
+              state.setDpr?.(targetPixelRatio);
+            } catch (error) {
+              console.warn('Renderer diagnostics: failed to update DPR for replacement renderer', error);
+            }
+
+            const replacementSize = replacement.renderer.getSize(new THREE.Vector2());
+
+            try {
+              state.setSize?.(
+                replacementSize.x,
+                replacementSize.y,
+                false,
+                previousSize?.top,
+                previousSize?.left
+              );
+            } catch (error) {
+              console.warn('Renderer diagnostics: failed to sync size for replacement renderer', error);
+            }
+
+            try {
+              state.setFrameloop?.('never');
+            } catch (error) {
+              console.warn('Renderer diagnostics: failed to pause frameloop for replacement renderer', error);
+            }
+
+            try {
+              if (connect && replacement.canvas) {
+                connect(replacement.canvas);
+              }
+            } catch (error) {
+              console.warn('Renderer diagnostics: failed to connect events for replacement renderer', error);
+            }
+
+            state.invalidate?.();
+
+            const manualRender = (time) => {
+              const currentState = storeApi.getState();
+              if (typeof currentState.advance === 'function') {
+                try {
+                  currentState.advance(time, true);
+                } catch (error) {
+                  console.error('Renderer diagnostics: failed to advance store during replacement render', error);
+                }
+              } else {
+                replacement.renderer.render(scene, camera);
+              }
+            };
+
+            replacement.start(manualRender);
+            manualLoopStarted = true;
+
+            storeCleanup = () => {
+              try {
+                const currentState = storeApi.getState();
+                currentState.events?.disconnect?.();
+              } catch (error) {
+                console.warn('Renderer diagnostics: failed to disconnect events during restore', error);
+              }
+
+              try {
+                storeApi.setState({ gl: previousGl }, false, 'rendererDiagnostics:restoreRenderer');
+              } catch (error) {
+                console.warn('Renderer diagnostics: failed to restore original renderer', error);
+              }
+
+              try {
+                const stateAfterRestore = storeApi.getState();
+                stateAfterRestore.setDpr?.(previousDpr);
+                if (previousSize) {
+                  stateAfterRestore.setSize?.(
+                    previousSize.width,
+                    previousSize.height,
+                    false,
+                    previousSize.top,
+                    previousSize.left
+                  );
+                }
+                try {
+                  stateAfterRestore.setFrameloop?.(previousFrameloop);
+                } catch (error) {
+                  console.warn('Renderer diagnostics: failed to restore frameloop state', error);
+                }
+                if (connect) {
+                  if (previousEventsTarget && typeof previousEventsTarget.addEventListener === 'function') {
+                    connect(previousEventsTarget);
+                  } else if (baseCanvas) {
+                    connect(baseCanvas);
+                  }
+                }
+                stateAfterRestore.invalidate?.();
+              } catch (error) {
+                console.warn('Renderer diagnostics: failed to restore store state', error);
+              }
+            };
+          } else if (replacement) {
+            replacement.start();
+            manualLoopStarted = true;
+          }
+        } catch (error) {
+          console.error(`❌  Failed to initialize replacement renderer for diagnostic configuration: ${label}`, error);
+        }
+
+        await wait(8000);
+
+        try {
+          cleanup();
+        } catch (error) {
+          console.error(`❌  Failed to restore diagnostic configuration for replacement renderer: ${label}`, error);
+        }
+
+        if (manualLoopStarted && replacement) {
+          try {
+            replacement.stop();
+          } catch (error) {
+            console.warn('Renderer diagnostics: failed to stop manual render loop', error);
+          }
+          manualLoopStarted = false;
+        }
+
+        try {
+          storeCleanup();
+        } catch (error) {
+          console.error(`❌  Failed to restore renderer store state for diagnostic configuration: ${label}`, error);
+        }
+
+        if (replacement) {
+          replacement.teardown();
+        }
+
+        showBaseCanvas(true);
+      } else {
+        console.warn(`Skipping unknown diagnostic mode for test: ${label}`);
+        await wait(8000);
+      }
+    } finally {
       try {
-        storeCleanup();
+        restoreSceneOverrides();
       } catch (error) {
-        console.error(`❌  Failed to restore renderer store state for diagnostic configuration: ${label}`, error);
+        console.error(`❌  Failed to restore scene overrides for diagnostic configuration: ${label}`, error);
       }
-
-      if (replacement) {
-        replacement.teardown();
-      }
-
-      showBaseCanvas(true);
-    } else {
-      console.warn(`Skipping unknown diagnostic mode for test: ${label}`);
-      await wait(8000);
     }
   };
 
@@ -782,6 +878,11 @@ export async function runRendererDiagnostics(scene, camera, rendererOverride) {
     updateOverlay(overlay, 'Diagnostics complete');
     console.log('Renderer precision diagnostics complete.');
     console.log('Note which configuration allowed the checkerboard artifact to return.');
+    try {
+      dispatchSceneOverrides(null);
+    } catch (error) {
+      console.warn('Renderer diagnostics: failed to reset scene overrides after diagnostics', error);
+    }
     applyRendererConfig(baseRenderer, {
       toneMapping: originalState.toneMapping,
       toneMappingExposure: originalState.toneMappingExposure,
