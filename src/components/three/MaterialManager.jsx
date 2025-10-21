@@ -1,7 +1,7 @@
 // MaterialManager.jsx - UPDATED: Shadow improvements for mobile crystal material
 // Creates materials that perform well on mobile while maintaining crystal appearance
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useMemo } from 'react';
 import { useThree } from '@react-three/fiber';
 import CrystalMaterial from '../materials/CrystalMaterial';
 import * as THREE from 'three';
@@ -36,14 +36,28 @@ const MaterialManager = ({
   if (import.meta.env.DEV) console.log('🎨 MaterialManager: PBR enabled?', usePBR, 'PBR quality:', pbrQuality, 'Performance config:', safePerformanceConfig);
 
   const brightenColor = (color, amount = 0.35) => color.clone().lerp(new THREE.Color('#ffffff'), amount);
+  const crystalConfig = config?.materials?.crystal ?? {};
+  const baseIor = crystalConfig.ior ?? 2.3;
+  const baseSpecularIntensity = crystalConfig.specularIntensity ?? 1.0;
+  const baseSpecularColor = useMemo(() => {
+    const specColor = crystalConfig.specularColor;
+    if (specColor?.isColor) {
+      return specColor.clone();
+    }
 
-  // OPTIMIZED: Create high-performance mobile material using MeshStandardMaterial
+    if (typeof specColor === 'string') {
+      return new THREE.Color(specColor);
+    }
+
+    return new THREE.Color('#ffffff');
+  }, [crystalConfig.specularColor]);
+
+  // OPTIMIZED: Create high-performance mobile material using MeshPhysicalMaterial
   useEffect(() => {
     if (isLow && !optimizedMobileRef.current) {
       if (import.meta.env.DEV) console.log('🚀 Creating OPTIMIZED mobile crystal material with shadow improvements');
 
-      // Use MeshStandardMaterial instead of MeshPhysicalMaterial for mobile
-      // This removes expensive features like transmission, clearcoat, iridescence
+      // Use MeshPhysicalMaterial to retain specular Fresnel control while keeping heavy features disabled
       let materialProps = {
         // AGGRESSIVE: Settings similar to gem variant for strong reflections
         color: brightenColor(new THREE.Color('#1f2391')),   // Purple like gem (shows reflections better than blue)
@@ -53,13 +67,16 @@ const MaterialManager = ({
         // Environment mapping for reflections (key for crystal look!)
         envMapIntensity: 1.0,                // VERY strong environment reflections
 
-        specularIntensity: 1.0,                    // Bright highlights
-        specularColor: new THREE.Color('#ffffff'), // White highlights
+        specularIntensity: baseSpecularIntensity,                    // Bright highlights
+        specularColor: baseSpecularColor.clone(), // White highlights
+        ior: baseIor,
         reflectivity: 1.8,                        // High reflectiveness
         
         // NO transmission - keep partially transparent for bright core
         transparent: true,
         opacity: 0.68,
+        transmission: 0,
+        thickness: 0,
         
         // Standard material properties
         side: THREE.DoubleSide,              // Render both sides to preserve internal reflections
@@ -128,10 +145,10 @@ const MaterialManager = ({
       }
       
       // Create the optimized material
-      const optimizedMaterial = new THREE.MeshStandardMaterial(materialProps);
+      const optimizedMaterial = new THREE.MeshPhysicalMaterial(materialProps);
       
       // CRITICAL: We need to manually set the environment map
-      // MeshStandardMaterial doesn't automatically pick it up from the scene
+      // The optimized MeshPhysicalMaterial doesn't automatically pick it up from the scene
       // We'll set it when the component mounts and environment is available
       optimizedMobileRef.current = optimizedMaterial;
       
@@ -147,7 +164,16 @@ const MaterialManager = ({
       
       if (onMaterialReady) onMaterialReady(optimizedMaterial);
     }
-  }, [isLow, config.materials.crystal.color, config.materials.crystal.emissive, materialVariant, onMaterialReady]);
+  }, [
+    isLow,
+    config.materials.crystal.color,
+    config.materials.crystal.emissive,
+    baseIor,
+    baseSpecularIntensity,
+    baseSpecularColor,
+    materialVariant,
+    onMaterialReady
+  ]);
 
   // MEDIUM: Create MeshPhysicalMaterial with higher reflectivity
   useEffect(() => {
@@ -172,8 +198,9 @@ const MaterialManager = ({
         iridescence: 0,
         transmission: 0,
         reflectivity: 1.2,
-        specularIntensity: 1.1,
-        specularColor: new THREE.Color('#ffffff'),
+        specularIntensity: baseSpecularIntensity,
+        specularColor: baseSpecularColor.clone(),
+        ior: baseIor,
         precision: safePerformanceConfig.highPrecision ? 'highp' : 'mediump'
       };
 
@@ -222,7 +249,15 @@ const MaterialManager = ({
 
       if (onMaterialReady) onMaterialReady(mediumMat);
     }
-  }, [isMedium, materialVariant, config.materials.crystal, onMaterialReady]);
+  }, [
+    isMedium,
+    materialVariant,
+    config.materials.crystal,
+    baseIor,
+    baseSpecularIntensity,
+    baseSpecularColor,
+    onMaterialReady
+  ]);
 
   // CRITICAL: Set environment map for reflections
   useEffect(() => {
@@ -359,9 +394,19 @@ const MaterialManager = ({
 
       // UPDATED: Ensure shadow settings are maintained
       material.shadowSide = THREE.DoubleSide;
+      material.ior = baseIor;
+      material.specularIntensity = baseSpecularIntensity;
+      material.specularColor.copy(baseSpecularColor);
       material.needsUpdate = true;
     }
-  }, [materialVariant, isLow, config.materials.crystal]);
+  }, [
+    materialVariant,
+    isLow,
+    config.materials.crystal,
+    baseIor,
+    baseSpecularIntensity,
+    baseSpecularColor
+  ]);
 
   // Update medium material when variant changes
   useEffect(() => {
@@ -404,14 +449,22 @@ const MaterialManager = ({
       }
 
       material.reflectivity = 1.1;
-      material.specularIntensity = 1.1;
-      material.specularColor.set('#ffffff');
+      material.specularIntensity = baseSpecularIntensity;
+      material.specularColor.copy(baseSpecularColor);
+      material.ior = baseIor;
       material.opacity = 0.75;
-      
+
       material.shadowSide = THREE.DoubleSide;
       material.needsUpdate = true;
     }
-  }, [materialVariant, isMedium, config.materials.crystal]);
+  }, [
+    materialVariant,
+    isMedium,
+    config.materials.crystal,
+    baseIor,
+    baseSpecularIntensity,
+    baseSpecularColor
+  ]);
 
   // SIMPLIFIED: Normal map support for mobile (optional)
   useEffect(() => {
