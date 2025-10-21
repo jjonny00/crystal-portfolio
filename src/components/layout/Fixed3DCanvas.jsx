@@ -1,7 +1,7 @@
 // FIXED: src/components/layout/Fixed3DCanvas.jsx
 // UPDATED: Enhanced MistyLayerStack positioning and render order
 
-import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallback, useMemo } from 'react';
+import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallback } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Environment, OrbitControls } from '@react-three/drei';
 import { EffectComposer, Bloom, ChromaticAberration, Noise, Vignette } from '@react-three/postprocessing';
@@ -98,7 +98,47 @@ const Fixed3DCanvas = forwardRef(({
   const simplifiedAnimations = performanceProfile?.simplifiedAnimations;
   const dustEnabled = !performanceProfile?.reducedParticles;
   const particleCount = performanceProfile?.particleCount;
-  const ios26 = useMemo(() => isIOS26(), []);
+  const [ios26, setIos26] = useState(() => {
+    if (typeof navigator === 'undefined') {
+      return false;
+    }
+    return isIOS26();
+  });
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function refineIOSDetection() {
+      if (typeof navigator === 'undefined') {
+        return;
+      }
+
+      const uaData = navigator.userAgentData;
+
+      if (!uaData || typeof uaData.getHighEntropyValues !== 'function') {
+        return;
+      }
+
+      try {
+        const entropy = await uaData.getHighEntropyValues(['platformVersion', 'architecture', 'model']);
+        if (!isMounted) return;
+
+        if (isIOS26(entropy)) {
+          setIos26(true);
+        }
+      } catch (error) {
+        console.debug('[Fixed3DCanvas] Failed to refine iOS 26 detection', error);
+      }
+    }
+
+    if (!ios26) {
+      refineIOSDetection();
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [ios26]);
 
   useEffect(() => {
     console[ios26 ? 'warn' : 'log'](
@@ -323,6 +363,7 @@ const Fixed3DCanvas = forwardRef(({
           
           {/* Post-processing effects (unchanged) */}
           <EffectComposer
+            key={ios26 ? 'ios26-no-msaa' : 'default-msaa'}
             enabled={true}
             multisampling={ios26 ? 0 : 8}
             frameBufferType={ios26 ? UnsignedByteType : HalfFloatType}
