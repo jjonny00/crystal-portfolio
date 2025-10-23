@@ -54,7 +54,30 @@ const MaterialManager = ({
   const baseClearcoat = crystalConfig.clearcoat ?? 0.8;
   const baseClearcoatRoughness = crystalConfig.clearcoatRoughness ?? 0.05;
   const baseReflectivity = THREE.MathUtils.clamp(crystalConfig.reflectivity ?? 0.7, 0, 1);
-  const fallbackSpecularIntensity = Math.max(baseSpecularIntensity, 1.6);
+  const fallbackSpecularIntensity = Math.min(Math.max(baseSpecularIntensity, 1.2), 1.5);
+
+  const clampEnvIntensity = (value) => {
+    const base = value ?? 1.8;
+    return THREE.MathUtils.clamp(base, 0.6, 2.2);
+  };
+
+  const adjustFallbackRoughness = (value) => {
+    const base = value ?? 0.12;
+    return THREE.MathUtils.clamp(base, 0.12, 0.3);
+  };
+
+  const guardHotspotParams = (props) => {
+    const guarded = { ...props };
+    guarded.roughness = adjustFallbackRoughness(guarded.roughness);
+    guarded.envMapIntensity = clampEnvIntensity(guarded.envMapIntensity);
+    return guarded;
+  };
+
+  const applyHotspotGuard = (material) => {
+    if (!material) return;
+    material.roughness = adjustFallbackRoughness(material.roughness);
+    material.envMapIntensity = clampEnvIntensity(material.envMapIntensity);
+  };
 
   // OPTIMIZED: Create high-performance mobile material using MeshPhysicalMaterial
   useEffect(() => {
@@ -62,12 +85,12 @@ const MaterialManager = ({
       if (import.meta.env.DEV) console.log('🚀 Creating OPTIMIZED mobile crystal material with shadow improvements');
 
       // Use MeshPhysicalMaterial to retain specular Fresnel control while keeping heavy features disabled
-      let materialProps = {
+      let materialProps = guardHotspotParams({
         // AGGRESSIVE: Settings similar to gem variant for strong reflections
         color: brightenColor(new THREE.Color('#1f2391')),   // Purple like gem (shows reflections better than blue)
         metalness: 0.08,                      // Keep in dielectric range
         roughness: 0.08,                     // Slightly softer for smoother falloff
-        
+
         // Environment mapping for reflections (key for crystal look!)
         envMapIntensity: 1.0,                // VERY strong environment reflections
 
@@ -99,20 +122,20 @@ const MaterialManager = ({
         // Emissive glow to simulate internal light
         emissive: new THREE.Color('#a7ffdb'), // Purple emissive (like gem)
         emissiveIntensity: 0.12,              // More pronounced glow
-        
+
         // Use higher precision only when needed
         precision: safePerformanceConfig.highPrecision ? 'highp' : 'mediump'
 
 
-      };
+      });
 
       // Apply variant-specific properties (optimized versions)
       switch(materialVariant) {
         case 'glass':
           materialProps.color = brightenColor(new THREE.Color('#f0f8ff'), 0.15);
           materialProps.metalness = 0.05;
-          materialProps.roughness = 0.08;
-          materialProps.envMapIntensity = 3.0;
+          materialProps.roughness = adjustFallbackRoughness(0.08);
+          materialProps.envMapIntensity = clampEnvIntensity(3.0);
           materialProps.emissive.set('#ffffff');
           materialProps.emissiveIntensity = 0.12;
           break;
@@ -120,8 +143,8 @@ const MaterialManager = ({
         case 'gem':
           materialProps.color = brightenColor(new THREE.Color('#6644bb'), 0.4);
           materialProps.metalness = 0.08;
-          materialProps.roughness = 0.08;
-          materialProps.envMapIntensity = 2.8;
+          materialProps.roughness = adjustFallbackRoughness(0.08);
+          materialProps.envMapIntensity = clampEnvIntensity(2.8);
           materialProps.emissive.set('#332266');
           materialProps.emissiveIntensity = 0.18;
           break;
@@ -129,8 +152,8 @@ const MaterialManager = ({
         case 'holographic':
           materialProps.color = brightenColor(new THREE.Color('#00dddd'), 0.25);
           materialProps.metalness = 0.1;
-          materialProps.roughness = 0.05;
-          materialProps.envMapIntensity = 3.5;
+          materialProps.roughness = adjustFallbackRoughness(0.05);
+          materialProps.envMapIntensity = clampEnvIntensity(3.5);
           materialProps.emissive.set('#006666');
           materialProps.emissiveIntensity = 0.22;
           break;
@@ -145,11 +168,13 @@ const MaterialManager = ({
           }
           // KEEP dielectric with soft reflections
           materialProps.metalness = 0.05;
-          materialProps.roughness = 0.08;
-          materialProps.envMapIntensity = 2.5;
+          materialProps.roughness = adjustFallbackRoughness(0.08);
+          materialProps.envMapIntensity = clampEnvIntensity(2.5);
           materialProps.emissiveIntensity = 0.12;
           break;
       }
+
+      materialProps = guardHotspotParams(materialProps);
       
       // Create the optimized material
       const optimizedMaterial = new THREE.MeshPhysicalMaterial(materialProps);
@@ -191,7 +216,7 @@ const MaterialManager = ({
     if (isMedium && !mediumMaterialRef.current) {
       if (import.meta.env.DEV) console.log('🚀 Creating MEDIUM quality crystal material');
 
-      const materialProps = {
+      let materialProps = guardHotspotParams({
         color: brightenColor(new THREE.Color('#1f2391')),
         metalness: 0.08,
         roughness: 0.08,
@@ -215,28 +240,28 @@ const MaterialManager = ({
         clearcoat: baseClearcoat,
         clearcoatRoughness: Math.max(baseClearcoatRoughness, 0.03),
         precision: safePerformanceConfig.highPrecision ? 'highp' : 'mediump'
-      };
+      });
 
       switch(materialVariant) {
         case 'glass':
           materialProps.color = brightenColor(new THREE.Color('#f0f8ff'), 0.15);
           materialProps.metalness = 0.05;
-          materialProps.roughness = 0.08;
-          materialProps.envMapIntensity = 3.5;
+          materialProps.roughness = adjustFallbackRoughness(0.08);
+          materialProps.envMapIntensity = clampEnvIntensity(3.5);
           materialProps.emissive.set('#ffffff');
           break;
         case 'gem':
           materialProps.color = brightenColor(new THREE.Color('#6644bb'), 0.4);
           materialProps.metalness = 0.08;
-          materialProps.roughness = 0.08;
-          materialProps.envMapIntensity = 3.0;
+          materialProps.roughness = adjustFallbackRoughness(0.08);
+          materialProps.envMapIntensity = clampEnvIntensity(3.0);
           materialProps.emissive.set('#332266');
           break;
         case 'holographic':
           materialProps.color = brightenColor(new THREE.Color('#00dddd'), 0.25);
           materialProps.metalness = 0.1;
-          materialProps.roughness = 0.05;
-          materialProps.envMapIntensity = 4.0;
+          materialProps.roughness = adjustFallbackRoughness(0.05);
+          materialProps.envMapIntensity = clampEnvIntensity(4.0);
           materialProps.emissive.set('#006666');
           break;
         default:
@@ -246,9 +271,11 @@ const MaterialManager = ({
           if (config.materials.crystal.emissive) {
             materialProps.emissive.copy(config.materials.crystal.emissive);
           }
-          materialProps.envMapIntensity = 3.0;
+          materialProps.envMapIntensity = clampEnvIntensity(3.0);
           break;
       }
+
+      materialProps = guardHotspotParams(materialProps);
 
       const mediumMat = new THREE.MeshPhysicalMaterial(materialProps);
       mediumMaterialRef.current = mediumMat;
@@ -370,8 +397,8 @@ const MaterialManager = ({
         case 'glass':
           material.color.copy(brightenColor(new THREE.Color('#f0f8ff'), 0.15));
           material.metalness = 0.05;
-          material.roughness = 0.08;
-          material.envMapIntensity = 3.0;
+          material.roughness = adjustFallbackRoughness(0.08);
+          material.envMapIntensity = clampEnvIntensity(3.0);
           material.emissive.set('#ffffff');
           material.emissiveIntensity = Math.max(0.12, currentEmissiveIntensity);
           break;
@@ -379,8 +406,8 @@ const MaterialManager = ({
         case 'gem':
           material.color.copy(brightenColor(new THREE.Color('#6644bb'), 0.4));
           material.metalness = 0.08;
-          material.roughness = 0.08;
-          material.envMapIntensity = 2.8;
+          material.roughness = adjustFallbackRoughness(0.08);
+          material.envMapIntensity = clampEnvIntensity(2.8);
           material.emissive.set('#332266');
           material.emissiveIntensity = Math.max(0.18, currentEmissiveIntensity);
           break;
@@ -388,8 +415,8 @@ const MaterialManager = ({
         case 'holographic':
           material.color.copy(brightenColor(new THREE.Color('#00dddd'), 0.25));
           material.metalness = 0.1;
-          material.roughness = 0.05;
-          material.envMapIntensity = 3.5;
+          material.roughness = adjustFallbackRoughness(0.05);
+          material.envMapIntensity = clampEnvIntensity(3.5);
           material.emissive.set('#006666');
           material.emissiveIntensity = Math.max(0.22, currentEmissiveIntensity);
           break;
@@ -403,8 +430,8 @@ const MaterialManager = ({
           }
           // AGGRESSIVE: Use gem-like settings for strong reflections
           material.metalness = 0.05;
-          material.roughness = 0.08;
-          material.envMapIntensity = 2.5;
+          material.roughness = adjustFallbackRoughness(0.08);
+          material.envMapIntensity = clampEnvIntensity(2.5);
           material.emissiveIntensity = Math.max(0.12, currentEmissiveIntensity);
           break;
       }
@@ -417,6 +444,7 @@ const MaterialManager = ({
       material.reflectivity = baseReflectivity;
       material.clearcoat = baseClearcoat;
       material.clearcoatRoughness = Math.max(baseClearcoatRoughness, 0.03);
+      applyHotspotGuard(material);
       material.needsUpdate = true;
     }
   }, [
@@ -444,31 +472,31 @@ const MaterialManager = ({
         case 'glass':
           material.color.copy(brightenColor(new THREE.Color('#f0f8ff'), 0.15));
           material.metalness = 0.05;
-          material.roughness = 0.08;
-          material.envMapIntensity = 3.5;
+          material.roughness = adjustFallbackRoughness(0.08);
+          material.envMapIntensity = clampEnvIntensity(3.5);
           material.emissive.set('#ffffff');
           material.emissiveIntensity = Math.max(0.15, currentEmissiveIntensity);
           break;
         case 'gem':
           material.color.copy(brightenColor(new THREE.Color('#6644bb'), 0.4));
           material.metalness = 0.08;
-          material.roughness = 0.08;
-          material.envMapIntensity = 3.0;
+          material.roughness = adjustFallbackRoughness(0.08);
+          material.envMapIntensity = clampEnvIntensity(3.0);
           material.emissive.set('#332266');
           material.emissiveIntensity = Math.max(0.18, currentEmissiveIntensity);
           break;
         case 'holographic':
           material.color.copy(brightenColor(new THREE.Color('#00dddd'), 0.25));
           material.metalness = 0.1;
-          material.roughness = 0.05;
-          material.envMapIntensity = 4.0;
+          material.roughness = adjustFallbackRoughness(0.05);
+          material.envMapIntensity = clampEnvIntensity(4.0);
           material.emissive.set('#006666');
           material.emissiveIntensity = Math.max(0.22, currentEmissiveIntensity);
           break;
         default:
           if (config.materials.crystal.color) material.color.copy(brightenColor(config.materials.crystal.color));
           if (config.materials.crystal.emissive) material.emissive.copy(config.materials.crystal.emissive);
-          material.envMapIntensity = 3.0;
+          material.envMapIntensity = clampEnvIntensity(3.0);
           break;
       }
 
@@ -481,6 +509,7 @@ const MaterialManager = ({
       material.opacity = 0.75;
 
       material.shadowSide = THREE.DoubleSide;
+      applyHotspotGuard(material);
       material.needsUpdate = true;
     }
   }, [
