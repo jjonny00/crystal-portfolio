@@ -51,6 +51,10 @@ const MaterialManager = ({
 
     return new THREE.Color('#ffffff');
   }, [crystalConfig.specularColor]);
+  const baseClearcoat = crystalConfig.clearcoat ?? 0.8;
+  const baseClearcoatRoughness = crystalConfig.clearcoatRoughness ?? 0.05;
+  const baseReflectivity = THREE.MathUtils.clamp(crystalConfig.reflectivity ?? 0.7, 0, 1);
+  const fallbackSpecularIntensity = Math.max(baseSpecularIntensity, 1.6);
 
   // OPTIMIZED: Create high-performance mobile material using MeshPhysicalMaterial
   useEffect(() => {
@@ -67,16 +71,19 @@ const MaterialManager = ({
         // Environment mapping for reflections (key for crystal look!)
         envMapIntensity: 1.0,                // VERY strong environment reflections
 
-        specularIntensity: baseSpecularIntensity,                    // Bright highlights
+        specularIntensity: fallbackSpecularIntensity,                    // Bright highlights
         specularColor: baseSpecularColor.clone(), // White highlights
         ior: baseIor,
-        reflectivity: 1.8,                        // High reflectiveness
-        
+        reflectivity: baseReflectivity,                        // High reflectiveness
+
         // NO transmission - keep partially transparent for bright core
         transparent: true,
         opacity: 0.68,
         transmission: 0,
         thickness: 0,
+
+        clearcoat: baseClearcoat,
+        clearcoatRoughness: Math.max(baseClearcoatRoughness, 0.03),
         
         // Standard material properties
         side: THREE.DoubleSide,              // Render both sides to preserve internal reflections
@@ -171,6 +178,10 @@ const MaterialManager = ({
     baseIor,
     baseSpecularIntensity,
     baseSpecularColor,
+    baseClearcoat,
+    baseClearcoatRoughness,
+    baseReflectivity,
+    fallbackSpecularIntensity,
     materialVariant,
     onMaterialReady
   ]);
@@ -197,10 +208,12 @@ const MaterialManager = ({
         clearcoat: 0,
         iridescence: 0,
         transmission: 0,
-        reflectivity: 1.2,
-        specularIntensity: baseSpecularIntensity,
+        reflectivity: baseReflectivity,
+        specularIntensity: fallbackSpecularIntensity,
         specularColor: baseSpecularColor.clone(),
         ior: baseIor,
+        clearcoat: baseClearcoat,
+        clearcoatRoughness: Math.max(baseClearcoatRoughness, 0.03),
         precision: safePerformanceConfig.highPrecision ? 'highp' : 'mediump'
       };
 
@@ -256,6 +269,10 @@ const MaterialManager = ({
     baseIor,
     baseSpecularIntensity,
     baseSpecularColor,
+    baseClearcoat,
+    baseClearcoatRoughness,
+    baseReflectivity,
+    fallbackSpecularIntensity,
     onMaterialReady
   ]);
 
@@ -395,8 +412,11 @@ const MaterialManager = ({
       // UPDATED: Ensure shadow settings are maintained
       material.shadowSide = THREE.DoubleSide;
       material.ior = baseIor;
-      material.specularIntensity = baseSpecularIntensity;
+      material.specularIntensity = fallbackSpecularIntensity;
       material.specularColor.copy(baseSpecularColor);
+      material.reflectivity = baseReflectivity;
+      material.clearcoat = baseClearcoat;
+      material.clearcoatRoughness = Math.max(baseClearcoatRoughness, 0.03);
       material.needsUpdate = true;
     }
   }, [
@@ -405,7 +425,11 @@ const MaterialManager = ({
     config.materials.crystal,
     baseIor,
     baseSpecularIntensity,
-    baseSpecularColor
+    baseSpecularColor,
+    baseClearcoat,
+    baseClearcoatRoughness,
+    baseReflectivity,
+    fallbackSpecularIntensity
   ]);
 
   // Update medium material when variant changes
@@ -448,10 +472,12 @@ const MaterialManager = ({
           break;
       }
 
-      material.reflectivity = 1.1;
-      material.specularIntensity = baseSpecularIntensity;
+      material.reflectivity = baseReflectivity;
+      material.specularIntensity = fallbackSpecularIntensity;
       material.specularColor.copy(baseSpecularColor);
       material.ior = baseIor;
+      material.clearcoat = baseClearcoat;
+      material.clearcoatRoughness = Math.max(baseClearcoatRoughness, 0.03);
       material.opacity = 0.75;
 
       material.shadowSide = THREE.DoubleSide;
@@ -463,7 +489,11 @@ const MaterialManager = ({
     config.materials.crystal,
     baseIor,
     baseSpecularIntensity,
-    baseSpecularColor
+    baseSpecularColor,
+    baseClearcoat,
+    baseClearcoatRoughness,
+    baseReflectivity,
+    fallbackSpecularIntensity
   ]);
 
   // SIMPLIFIED: Normal map support for mobile (optional)
