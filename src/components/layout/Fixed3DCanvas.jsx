@@ -2,7 +2,7 @@
 // UPDATED: Enhanced MistyLayerStack positioning and render order
 
 import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallback } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Environment, OrbitControls } from '@react-three/drei';
 import { EffectComposer, Bloom, ChromaticAberration, Noise, Vignette } from '@react-three/postprocessing';
 import { BlendFunction } from 'postprocessing';
@@ -49,6 +49,18 @@ const PulsingOmniLight = ({ simplified = false }) => {
     />
   );
 };
+
+function ForceComposerClear() {
+  const { gl, scene, camera } = useThree();
+
+  useEffect(() => {
+    gl.setClearColor(0x000000, 1);
+    gl.clear(true, true, true);
+    gl.render(scene, camera);
+  }, [gl, scene, camera]);
+
+  return null;
+}
 
 /**
  * UPDATED: Fixed3DCanvas with enhanced MistyLayerStack render order
@@ -248,6 +260,9 @@ const Fixed3DCanvas = forwardRef(({
             outputColorSpace: THREE.SRGBColorSpace,
             // UPDATED: Ensure depth sorting is enabled for proper render order
             sortObjects: true,
+            autoClearColor: true,
+            autoClearDepth: true,
+            autoClearStencil: true,
             ...canvasProps.gl
           }}
           style={{ 
@@ -308,7 +323,7 @@ const Fixed3DCanvas = forwardRef(({
             ))}
 
           <PulsingOmniLight simplified={simplifiedAnimations} />
-          
+
           {/* Spot light */}
           <spotLight
             position={config?.lighting?.spotLight?.position || [0, 0, 10]}
@@ -362,6 +377,7 @@ const Fixed3DCanvas = forwardRef(({
           />
           
           {/* Post-processing effects (unchanged) */}
+          <ForceComposerClear />
           <EffectComposer
             key={ios26 ? 'ios26-no-msaa' : 'default-msaa'}
             enabled={true}
