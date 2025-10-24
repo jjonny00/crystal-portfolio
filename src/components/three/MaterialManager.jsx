@@ -35,26 +35,39 @@ const MaterialManager = ({
   
   if (import.meta.env.DEV) console.log('🎨 MaterialManager: PBR enabled?', usePBR, 'PBR quality:', pbrQuality, 'Performance config:', safePerformanceConfig);
 
-  // OPTIMIZED: Create high-performance mobile material using MeshStandardMaterial
+  const crystalConfig = config?.materials?.crystal ?? {};
+  const clamp01 = (value) => Math.min(Math.max(value ?? 0, 0), 1);
+  const fallbackClearcoat = clamp01(crystalConfig.clearcoat ?? 0.8);
+  const fallbackClearcoatRoughness = Math.max(Math.min(crystalConfig.clearcoatRoughness ?? 0.05, 1), 0);
+  const fallbackIOR = crystalConfig.ior ?? 2.3;
+  const fallbackSpecularIntensity = crystalConfig.specularIntensity ?? 1.0;
+  const fallbackSpecularColor = crystalConfig.specularColor ? crystalConfig.specularColor.clone() : new THREE.Color('#ffffff');
+  const fallbackReflectivity = clamp01(crystalConfig.reflectivity ?? 0.7);
+
+  // OPTIMIZED: Create high-performance mobile material using a trimmed MeshPhysicalMaterial
   useEffect(() => {
     if (isLow && !optimizedMobileRef.current) {
       if (import.meta.env.DEV) console.log('🚀 Creating OPTIMIZED mobile crystal material with shadow improvements');
-      
-      // Use MeshStandardMaterial instead of MeshPhysicalMaterial for mobile
-      // This removes expensive features like transmission, clearcoat, iridescence
+
+      // Use MeshPhysicalMaterial so we can keep the clearcoat lobe that brightens direct highlights
       let materialProps = {
         // Match the high-quality dielectric response so hotspots stay bright
         color: new THREE.Color('#1f2391'),
         metalness: 0.05,
         roughness: 0.08,
-        
+
         // Environment mapping for reflections (key for crystal look!)
         envMapIntensity: 1.0,                // VERY strong environment reflections
 
-        specularIntensity: 1.0,                    // Bright highlights
-        specularColor: new THREE.Color('#ffffff'), // White highlights
-        reflectivity: 1.8,                        // High reflectiveness
-        
+        specularIntensity: fallbackSpecularIntensity,
+        specularColor: fallbackSpecularColor.clone(),
+        reflectivity: fallbackReflectivity,
+        clearcoat: fallbackClearcoat * 0.85,
+        clearcoatRoughness: Math.max(fallbackClearcoatRoughness, 0.02),
+        ior: fallbackIOR,
+        transmission: 0,
+        thickness: 0,
+
         // Keep partial transparency for the crystal shell
         transparent: true,
         opacity: 0.82,
@@ -125,10 +138,10 @@ const MaterialManager = ({
       }
       
       // Create the optimized material
-      const optimizedMaterial = new THREE.MeshStandardMaterial(materialProps);
+      const optimizedMaterial = new THREE.MeshPhysicalMaterial(materialProps);
       
       // CRITICAL: We need to manually set the environment map
-      // MeshStandardMaterial doesn't automatically pick it up from the scene
+      // Three.js won't automatically bind the scene environment to newly created materials
       // We'll set it when the component mounts and environment is available
       optimizedMobileRef.current = optimizedMaterial;
       
@@ -165,12 +178,15 @@ const MaterialManager = ({
         shadowSide: THREE.DoubleSide,
         emissive: new THREE.Color('#a7ffdb'),
         emissiveIntensity: 0.1,
-        clearcoat: 0,
+        clearcoat: fallbackClearcoat * 0.7,
+        clearcoatRoughness: Math.max(fallbackClearcoatRoughness, 0.02),
+        ior: fallbackIOR,
         iridescence: 0,
         transmission: 0,
-        reflectivity: 0.9,
-        specularIntensity: 1,
-        specularColor: new THREE.Color('#ffffff'),
+        thickness: 0,
+        reflectivity: fallbackReflectivity,
+        specularIntensity: fallbackSpecularIntensity,
+        specularColor: fallbackSpecularColor.clone(),
         precision: safePerformanceConfig.highPrecision ? 'highp' : 'mediump'
       };
 
@@ -354,7 +370,15 @@ const MaterialManager = ({
           material.emissiveIntensity = Math.max(0.15, currentEmissiveIntensity);
           break;
       }
-      
+
+      material.clearcoat = fallbackClearcoat * 0.85;
+      material.clearcoatRoughness = Math.max(fallbackClearcoatRoughness, 0.02);
+      material.specularIntensity = fallbackSpecularIntensity;
+      material.specularColor.copy(fallbackSpecularColor);
+      material.ior = fallbackIOR;
+      material.thickness = 0;
+      material.reflectivity = fallbackReflectivity;
+
       // UPDATED: Ensure shadow settings are maintained
       material.shadowSide = THREE.DoubleSide;
       material.needsUpdate = true;
@@ -403,9 +427,13 @@ const MaterialManager = ({
           break;
       }
 
-      material.reflectivity = 0.9;
-      material.specularIntensity = 1.2;
-      material.specularColor.set('#ffffff');
+      material.reflectivity = fallbackReflectivity;
+      material.specularIntensity = fallbackSpecularIntensity;
+      material.specularColor.copy(fallbackSpecularColor);
+      material.clearcoat = fallbackClearcoat * 0.7;
+      material.clearcoatRoughness = Math.max(fallbackClearcoatRoughness, 0.02);
+      material.ior = fallbackIOR;
+      material.thickness = 0;
       material.opacity = 0.85;
       
       material.shadowSide = THREE.DoubleSide;
