@@ -1,13 +1,28 @@
 // FIXED: src/components/layout/Fixed3DCanvas.jsx
 // UPDATED: Enhanced MistyLayerStack positioning and render order
 
-import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallback } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import React, {
+  useRef,
+  useState,
+  useEffect,
+  useMemo,
+  forwardRef,
+  useImperativeHandle,
+  useCallback
+} from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Environment, OrbitControls } from '@react-three/drei';
-import { EffectComposer, Bloom, ChromaticAberration, Noise, Vignette } from '@react-three/postprocessing';
+import {
+  EffectComposer,
+  Bloom,
+  ChromaticAberration,
+  Noise,
+  Vignette,
+  ToneMapping
+} from '@react-three/postprocessing';
 import { BlendFunction } from 'postprocessing';
+import { ToneMappingMode, ShaderPass } from 'postprocessing';
 import * as THREE from 'three';
-import { HalfFloatType, UnsignedByteType } from 'three';
 
 // FIXED: Import enhanced camera controller from correct path
 import UnifiedCameraController from '../three/UnifiedCameraController';
@@ -21,6 +36,59 @@ import GradientBackground from '../three/GradientBackground';
 import { projectBackgrounds } from '../../data/projectBackgrounds';
 import MistyLayerStack from '../MistyLayerStack';
 import { isIOS26 } from '../../utils/isIOS26';
+import { detectDeviceCapabilities } from '../../utils/deviceProfiles.js';
+import { getSafeRenderTargetOptions } from '../../utils/getSafeRenderTargetOptions.js';
+
+const LDR_CLAMP_SHADER = {
+  uniforms: {
+    tDiffuse: { value: null }
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: `
+    uniform sampler2D tDiffuse;
+    varying vec2 vUv;
+    void main() {
+      vec3 c = texture2D(tDiffuse, vUv).rgb;
+      c = clamp(c, 0.0, 16.0);
+      gl_FragColor = vec4(c, 1.0);
+    }
+  `
+};
+
+const ToneMappingController = ({ exposure }) => {
+  const { gl } = useThree();
+
+  useEffect(() => {
+    gl.outputColorSpace = THREE.SRGBColorSpace;
+    gl.toneMapping = THREE.ACESFilmicToneMapping;
+    gl.toneMappingExposure = exposure;
+    gl.useLegacyLights = false;
+  }, [gl, exposure]);
+
+  return null;
+};
+
+const LdrClampPass = ({ enabled }) => {
+  const pass = useMemo(() => {
+    if (!enabled) return null;
+    return new ShaderPass(LDR_CLAMP_SHADER);
+  }, [enabled]);
+
+  useEffect(() => {
+    return () => {
+      pass?.dispose?.();
+    };
+  }, [pass]);
+
+  if (!pass) return null;
+  return <primitive object={pass} />;
+};
 
 const PulsingOmniLight = ({ simplified = false }) => {
   const lightRef = useRef();
@@ -53,15 +121,16 @@ const PulsingOmniLight = ({ simplified = false }) => {
 /**
  * UPDATED: Fixed3DCanvas with enhanced MistyLayerStack render order
  */
-const Fixed3DCanvas = forwardRef(({
+const Fixed3DCanvas = forwardRef(({ 
   // Animation data from MasterAnimationCoordinator
   animationData,
-  
+
   // Material and effects (unchanged)
   materialVariant = 'default',
   effectsEnabled,
   postProcessingConfig,
   performanceProfile,
+  performanceTier = 'medium',
   config,
   canvasProps = {},
   environmentProps = {},
@@ -70,8 +139,10 @@ const Fixed3DCanvas = forwardRef(({
 }, ref) => {
   // NEW: Ref to access crystal scene for debug panels
   const crystalSceneRef = useRef();
+  const composerRef = useRef();
   const backgroundRef = useRef();
   const lastZoneRef = useRef(null);
+  const [deviceCapabilities, setDeviceCapabilities] = useState(null);
 
   const handleFractureStart = useCallback(() => {
     backgroundRef.current?.flash(1, 0.5);
@@ -104,6 +175,32 @@ const Fixed3DCanvas = forwardRef(({
     }
     return isIOS26();
   });
+
+  const toneMappingExposure = useMemo(() => {
+    switch (performanceTier) {
+      case 'low':
+        return 0.95;
+      case 'high':
+      case 'ultra':
+        return 1.05;
+      default:
+        return 1.0;
+    }
+  }, [performanceTier]);
+
+  const renderTargetOptions = useMemo(() => {
+    return getSafeRenderTargetOptions(deviceCapabilities || {}, performanceTier);
+  }, [deviceCapabilities, ios26, performanceTier]);
+
+  const composerKey = useMemo(() => {
+    return [
+      renderTargetOptions.type,
+      renderTargetOptions.samples,
+      renderTargetOptions.useClampPass ? 'ldr' : 'hdr'
+    ].join('-');
+  }, [renderTargetOptions]);
+
+  const useClampPass = renderTargetOptions.useClampPass;
 
   useEffect(() => {
     let isMounted = true;
@@ -141,12 +238,31 @@ const Fixed3DCanvas = forwardRef(({
   }, [ios26]);
 
   useEffect(() => {
+    try {
+      const detected = detectDeviceCapabilities();
+      setDeviceCapabilities(detected.capabilities || {});
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        console.warn('[Fixed3DCanvas] Failed to detect device capabilities', error);
+      }
+      setDeviceCapabilities({});
+    }
+  }, []);
+
+  useEffect(() => {
     console[ios26 ? 'warn' : 'log'](
       ios26
         ? '⚠️  iOS 26 / A18 detected — disabling MSAA in composer to prevent Safari 26 artifact.'
-        : '✅  Full 8× MSAA composer enabled.'
+        : '✅  HDR half-float composer active with MSAA.'
     );
   }, [ios26]);
+
+  useEffect(() => {
+    if (!composerRef.current) return;
+    if (import.meta.env.DEV) {
+      console.log('[Fixed3DCanvas] Composer render target type:', composerRef.current.renderTarget1?.texture?.type);
+    }
+  }, [renderTargetOptions.type]);
 
   // NEW: Update debug data when crystal scene changes
   useEffect(() => {
@@ -243,21 +359,21 @@ const Fixed3DCanvas = forwardRef(({
           }}
           {...canvasProps}
           gl={{
-            toneMapping: THREE.ACESFilmicToneMapping,
-            toneMappingExposure: 0.2,
             outputColorSpace: THREE.SRGBColorSpace,
             // UPDATED: Ensure depth sorting is enabled for proper render order
             sortObjects: true,
             ...canvasProps.gl
           }}
-          style={{ 
-            width: '100%', 
+          style={{
+            width: '100%',
             height: '100%',
             // Allow pointer events only for 3D interactions (disabled on mobile)
             pointerEvents: isMobile ? 'none' : 'auto',
           }}
         >
-          
+
+          <ToneMappingController exposure={toneMappingExposure} />
+
           <FPSCounter />
 
           {/* FIXED: Pass backgrounds to GradientBackground and use 'default' as initial */}
@@ -363,48 +479,56 @@ const Fixed3DCanvas = forwardRef(({
           
           {/* Post-processing effects (unchanged) */}
           <EffectComposer
-            key={ios26 ? 'ios26-no-msaa' : 'default-msaa'}
+            ref={composerRef}
+            key={composerKey}
             enabled={true}
-            multisampling={ios26 ? 0 : 8}
-            frameBufferType={ios26 ? UnsignedByteType : HalfFloatType}
+            depthBuffer={renderTargetOptions.depthBuffer}
+            stencilBuffer={renderTargetOptions.stencilBuffer}
+            multisampling={renderTargetOptions.samples}
+            frameBufferType={renderTargetOptions.type}
           >
+            <LdrClampPass enabled={useClampPass} />
             {/* Default minimal bloom when no effects are enabled */}
-            <Bloom 
+            <Bloom
               intensity={Object.values(effectsEnabled || {}).some(Boolean) ? 0 : 0.0001}
               luminanceThreshold={1.0}
               luminanceSmoothing={0.9}
               radius={0.5}
               enabled={!Object.values(effectsEnabled || {}).some(Boolean)}
             />
-            
+
             {effectsEnabled?.bloom && (
-              <Bloom 
-                luminanceThreshold={postProcessingConfig?.bloom?.luminanceThreshold || 0.05} 
-                luminanceSmoothing={postProcessingConfig?.bloom?.luminanceSmoothing || 0.9} 
-                intensity={postProcessingConfig?.bloom?.intensity || 1.0} 
-                radius={postProcessingConfig?.bloom?.radius || 1.9} 
+              <Bloom
+                luminanceThreshold={postProcessingConfig?.bloom?.luminanceThreshold || 0.05}
+                luminanceSmoothing={postProcessingConfig?.bloom?.luminanceSmoothing || 0.9}
+                intensity={postProcessingConfig?.bloom?.intensity || 1.0}
+                radius={postProcessingConfig?.bloom?.radius || 1.9}
               />
             )}
             {effectsEnabled?.chromaticAberration && (
-              <ChromaticAberration 
-                offset={postProcessingConfig?.chromaticAberration?.offset || [0.003, 0.003]} 
-                radialModulation={postProcessingConfig?.chromaticAberration?.radialModulation !== false} 
-                modulationOffset={postProcessingConfig?.chromaticAberration?.modulationOffset || 0.5} 
+              <ChromaticAberration
+                offset={postProcessingConfig?.chromaticAberration?.offset || [0.003, 0.003]}
+                radialModulation={postProcessingConfig?.chromaticAberration?.radialModulation !== false}
+                modulationOffset={postProcessingConfig?.chromaticAberration?.modulationOffset || 0.5}
               />
             )}
             {effectsEnabled?.noise && (
-              <Noise 
-                opacity={postProcessingConfig?.noise?.opacity || 0.1} 
-                blendFunction={BlendFunction.OVERLAY} 
+              <Noise
+                opacity={postProcessingConfig?.noise?.opacity || 0.1}
+                blendFunction={BlendFunction.OVERLAY}
               />
             )}
             {effectsEnabled?.vignette && (
-              <Vignette 
-                eskil={postProcessingConfig?.vignette?.eskil || false} 
-                offset={postProcessingConfig?.vignette?.offset || 0.1} 
-                darkness={postProcessingConfig?.vignette?.darkness || 1.1} 
+              <Vignette
+                eskil={postProcessingConfig?.vignette?.eskil || false}
+                offset={postProcessingConfig?.vignette?.offset || 0.1}
+                darkness={postProcessingConfig?.vignette?.darkness || 1.1}
               />
             )}
+            <ToneMapping
+              mode={ToneMappingMode.ACES_FILMIC}
+              blendFunction={BlendFunction.NORMAL}
+            />
           </EffectComposer>
 
           {/* Orbit controls - explicitly disabled to prevent camera conflicts */}

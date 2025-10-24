@@ -494,6 +494,7 @@ function App() {
           effectsEnabled={effectsEnabled}
           postProcessingConfig={postProcessingConfig}
           performanceProfile={performanceProfile}
+          performanceTier={performanceTier}
           config={config}
           canvasProps={getOptimalCanvasProps()}
           environmentProps={getOptimalEnvironmentProps()}

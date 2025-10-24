@@ -187,7 +187,8 @@ export const getProfileDescription = (tier) => {
 // FIXED: More conservative device detection that doesn't over-classify devices as low-end
 export const detectDeviceCapabilities = () => {
   const canvas = document.createElement('canvas');
-  const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+  const gl2 = canvas.getContext('webgl2');
+  const gl = gl2 || canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
 
   if (!gl) {
     return { tier: 'low', confidence: 1, reason: 'No WebGL support', capabilities: {} };
@@ -196,6 +197,10 @@ export const detectDeviceCapabilities = () => {
   const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
   const renderer = debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : 'Unknown';
   const vendor = debugInfo ? gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) : 'Unknown';
+
+  const extHalfFloat =
+    gl.getExtension('EXT_color_buffer_half_float') ||
+    gl.getExtension('WEBGL_color_buffer_float');
 
   const maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
   const maxVertexTextureImageUnits = gl.getParameter(gl.MAX_VERTEX_TEXTURE_IMAGE_UNITS);
@@ -254,7 +259,9 @@ export const detectDeviceCapabilities = () => {
       maxFragmentTextureUnits,
       memory: deviceMemory,
       isMobile,
-      devicePixelRatio: window.devicePixelRatio
+      devicePixelRatio: window.devicePixelRatio,
+      supportsColorBufferHalfFloat: Boolean(extHalfFloat),
+      webgl2: Boolean(gl2)
     }
   };
 };

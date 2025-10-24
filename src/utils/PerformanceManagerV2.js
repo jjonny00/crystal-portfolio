@@ -2,6 +2,7 @@
 // FIXED: Smart progressive performance testing system
 
 import { PERFORMANCE_PROFILES, detectDeviceCapabilities } from './deviceProfiles.js';
+import { getSafeRenderTargetOptions } from './getSafeRenderTargetOptions.js';
 
 const STORAGE_KEY = 'crystal-performance-config-v2';
 const VERSION_KEY = 'crystal-performance-version-v2';
@@ -237,6 +238,13 @@ export default class PerformanceManagerV2 {
       renderer.setSize(actualWidth, actualHeight);
       renderer.setPixelRatio(window.devicePixelRatio);
 
+      const toneExposure =
+        tier === 'low' ? 0.95 : tier === 'high' || tier === 'ultra' ? 1.05 : 1.0;
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = toneExposure;
+      renderer.useLegacyLights = false;
+
       // Create scene that matches actual crystal complexity
       const scene = new THREE.Scene();
       const camera = new THREE.PerspectiveCamera(45, actualWidth / actualHeight, 0.1, 100);
@@ -316,10 +324,46 @@ export default class PerformanceManagerV2 {
       const { EffectComposer } = await import('three/examples/jsm/postprocessing/EffectComposer.js');
       const { RenderPass } = await import('three/examples/jsm/postprocessing/RenderPass.js');
       const { UnrealBloomPass } = await import('three/examples/jsm/postprocessing/UnrealBloomPass.js');
+      const { ShaderPass } = await import('three/examples/jsm/postprocessing/ShaderPass.js');
 
-      const composer = new EffectComposer(renderer);
+      const { capabilities } = detectDeviceCapabilities();
+      const targetOptions = getSafeRenderTargetOptions(capabilities, tier);
+      const hdrTarget = new THREE.WebGLRenderTarget(actualWidth, actualHeight, {
+        format: targetOptions.format,
+        type: targetOptions.type,
+        depthBuffer: targetOptions.depthBuffer,
+        stencilBuffer: targetOptions.stencilBuffer,
+        samples: targetOptions.samples
+      });
+
+      const composer = new EffectComposer(renderer, hdrTarget);
       composer.setSize(actualWidth, actualHeight);
       composer.addPass(new RenderPass(scene, camera));
+
+      if (targetOptions.useClampPass) {
+        const clampPass = new ShaderPass({
+          uniforms: {
+            tDiffuse: { value: null }
+          },
+          vertexShader: `
+            varying vec2 vUv;
+            void main() {
+              vUv = uv;
+              gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+          `,
+          fragmentShader: `
+            uniform sampler2D tDiffuse;
+            varying vec2 vUv;
+            void main() {
+              vec3 c = texture2D(tDiffuse, vUv).rgb;
+              c = clamp(c, 0.0, 16.0);
+              gl_FragColor = vec4(c, 1.0);
+            }
+          `
+        });
+        composer.addPass(clampPass);
+      }
 
       if (profile.postProcessing.bloom) {
         composer.addPass(new UnrealBloomPass(new THREE.Vector2(actualWidth, actualHeight), 0.6, 0.4, 0.85));
