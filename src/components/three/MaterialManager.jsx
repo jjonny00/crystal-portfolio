@@ -1,10 +1,47 @@
 // MaterialManager.jsx - UPDATED: Shadow improvements for mobile crystal material
 // Creates materials that perform well on mobile while maintaining crystal appearance
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import { useThree } from '@react-three/fiber';
 import CrystalMaterial from '../materials/CrystalMaterial';
 import * as THREE from 'three';
+
+function normalizeCrystalMaterial(material, quality, pmremEnv) {
+  if (!material) return;
+
+  material.envMap = pmremEnv;
+  material.envMapIntensity =
+    quality === 'low' ? 0.8 : quality === 'medium' ? 1.0 : 1.1;
+
+  const floor = quality === 'low' ? 0.12 : quality === 'medium' ? 0.08 : 0.05;
+  material.roughness = Math.max(material.roughness ?? floor, floor);
+
+  if (quality === 'low') {
+    material.clearcoat = 0.0;
+    material.clearcoatRoughness = 0.0;
+  } else if (quality === 'medium') {
+    material.clearcoat = Math.max(material.clearcoat ?? 0.3, 0.25);
+    material.clearcoatRoughness = Math.max(
+      material.clearcoatRoughness ?? 0.12,
+      0.1
+    );
+  }
+
+  material.ior = 1.45;
+  material.specularIntensity = 1.0;
+  if (material.specularColor?.set) material.specularColor.set(0xffffff);
+  material.side = THREE.FrontSide;
+
+  if (material.normalScale?.set) {
+    const scale = quality === 'low' ? 0.6 : quality === 'medium' ? 0.8 : 1.0;
+    material.normalScale.set(
+      material.normalScale.x * scale,
+      material.normalScale.y * scale
+    );
+  }
+
+  material.needsUpdate = true;
+}
 
 const MaterialManager = ({
   materialVariant,
@@ -16,6 +53,7 @@ const MaterialManager = ({
   const crystalMaterialRef = useRef();
   const optimizedMobileRef = useRef();
   const mediumMaterialRef = useRef();
+  const pmremEnvRef = useRef(null);
   const { scene } = useThree(); // Get Three.js scene to access environment
   
   // FIXED: Null safety with proper defaults
@@ -32,6 +70,24 @@ const MaterialManager = ({
   const isLow = pbrQuality === 'low';
   const isMedium = pbrQuality === 'medium';
   const usePBR = pbrQuality === 'high';
+  const qualityTier = performanceProfile?.tier || (isLow ? 'low' : isMedium ? 'medium' : 'high');
+
+  const applyNormalization = useCallback(
+    (material) => {
+      if (!material) return;
+      const env = pmremEnvRef.current || scene.environment || null;
+      normalizeCrystalMaterial(material, qualityTier, env);
+    },
+    [qualityTier, scene]
+  );
+
+  const forwardMaterialReady = useCallback(
+    (material) => {
+      applyNormalization(material);
+      if (onMaterialReady) onMaterialReady(material);
+    },
+    [applyNormalization, onMaterialReady]
+  );
   
   if (import.meta.env.DEV) console.log('🎨 MaterialManager: PBR enabled?', usePBR, 'PBR quality:', pbrQuality, 'Performance config:', safePerformanceConfig);
 
@@ -127,11 +183,9 @@ const MaterialManager = ({
       
       // Create the optimized material
       const optimizedMaterial = new THREE.MeshStandardMaterial(materialProps);
-      
-      // CRITICAL: We need to manually set the environment map
-      // MeshStandardMaterial doesn't automatically pick it up from the scene
-      // We'll set it when the component mounts and environment is available
+
       optimizedMobileRef.current = optimizedMaterial;
+      applyNormalization(optimizedMaterial);
       
       if (import.meta.env.DEV) console.log('✅ OPTIMIZED mobile material created with shadow improvements:', {
         variant: materialVariant,
@@ -143,9 +197,16 @@ const MaterialManager = ({
         shadowSide: optimizedMaterial.shadowSide
       });
       
-      if (onMaterialReady) onMaterialReady(optimizedMaterial);
+      forwardMaterialReady(optimizedMaterial);
     }
-  }, [isLow, config.materials.crystal.color, config.materials.crystal.emissive, materialVariant, onMaterialReady]);
+  }, [
+    isLow,
+    config.materials.crystal.color,
+    config.materials.crystal.emissive,
+    materialVariant,
+    applyNormalization,
+    forwardMaterialReady
+  ]);
 
   // MEDIUM: Create MeshPhysicalMaterial with higher reflectivity
   useEffect(() => {
@@ -210,6 +271,7 @@ const MaterialManager = ({
 
       const mediumMat = new THREE.MeshPhysicalMaterial(materialProps);
       mediumMaterialRef.current = mediumMat;
+      applyNormalization(mediumMat);
 
       if (import.meta.env.DEV) console.log('✅ Medium material created:', {
         variant: materialVariant,
@@ -218,88 +280,57 @@ const MaterialManager = ({
         envMapIntensity: mediumMat.envMapIntensity
       });
 
-      if (onMaterialReady) onMaterialReady(mediumMat);
+      forwardMaterialReady(mediumMat);
     }
-  }, [isMedium, materialVariant, config.materials.crystal, onMaterialReady]);
+  }, [
+    isMedium,
+    materialVariant,
+    config.materials.crystal,
+    applyNormalization,
+    forwardMaterialReady
+  ]);
 
-  // CRITICAL: Set environment map for reflections
   useEffect(() => {
-    if (isLow && optimizedMobileRef.current && scene) {
-      // Check if scene has environment
-      if (scene.environment) {
-        if (import.meta.env.DEV) console.log('🌍 Setting environment map for mobile material');
-        optimizedMobileRef.current.envMap = scene.environment;
-        optimizedMobileRef.current.needsUpdate = true;
-        
-        // DEBUG: Log material properties to verify settings
-        if (import.meta.env.DEV) console.log('🔍 Mobile material debug:', {
-          hasEnvMap: !!optimizedMobileRef.current.envMap,
-          metalness: optimizedMobileRef.current.metalness,
-          roughness: optimizedMobileRef.current.roughness,
-          envMapIntensity: optimizedMobileRef.current.envMapIntensity,
-          color: optimizedMobileRef.current.color.getHexString(),
-          emissiveIntensity: optimizedMobileRef.current.emissiveIntensity,
-          shadowSide: optimizedMobileRef.current.shadowSide
-        });
-      } else {
-        if (import.meta.env.DEV) console.log('⏳ Waiting for environment to load...');
-        // Wait for environment to load
-        const checkEnvironment = () => {
-          if (scene.environment && optimizedMobileRef.current) {
-            if (import.meta.env.DEV) console.log('🌍 Environment loaded - applying to mobile material');
-            optimizedMobileRef.current.envMap = scene.environment;
-            optimizedMobileRef.current.needsUpdate = true;
-            
-            // DEBUG: Log material properties
-            if (import.meta.env.DEV) console.log('🔍 Mobile material debug (delayed):', {
-              hasEnvMap: !!optimizedMobileRef.current.envMap,
-              metalness: optimizedMobileRef.current.metalness,
-              roughness: optimizedMobileRef.current.roughness,
-              envMapIntensity: optimizedMobileRef.current.envMapIntensity
-            });
-          }
-        };
-        
-        // Check periodically for environment
-        const intervalId = setInterval(() => {
-          if (scene.environment) {
-            checkEnvironment();
-            clearInterval(intervalId);
-          }
-        }, 100);
-        
-        // Clean up after 5 seconds
-        setTimeout(() => {
-          clearInterval(intervalId);
-        }, 5000);
-      }
-    }
-  }, [isLow, optimizedMobileRef.current, scene]);
+    if (!scene) return;
 
-  // Apply environment map for medium material
-  useEffect(() => {
-    if (isMedium && mediumMaterialRef.current && scene) {
-      if (scene.environment) {
-        if (import.meta.env.DEV) console.log('🌍 Setting environment map for medium material');
-        mediumMaterialRef.current.envMap = scene.environment;
-        mediumMaterialRef.current.needsUpdate = true;
-      } else {
-        const checkEnv = () => {
-          if (scene.environment && mediumMaterialRef.current) {
-            mediumMaterialRef.current.envMap = scene.environment;
-            mediumMaterialRef.current.needsUpdate = true;
-          }
-        };
-        const intervalId = setInterval(() => {
-          if (scene.environment) {
-            checkEnv();
-            clearInterval(intervalId);
-          }
-        }, 100);
-        setTimeout(() => clearInterval(intervalId), 5000);
+    const applyEnvToMaterials = () => {
+      const env = scene.environment;
+      if (!env) return false;
+
+      pmremEnvRef.current = env;
+
+      if (optimizedMobileRef.current) {
+        if (import.meta.env.DEV) console.log('🌍 Normalizing mobile material with PMREM environment');
+        applyNormalization(optimizedMobileRef.current);
       }
+
+      if (mediumMaterialRef.current) {
+        if (import.meta.env.DEV) console.log('🌍 Normalizing medium material with PMREM environment');
+        applyNormalization(mediumMaterialRef.current);
+      }
+
+      if (crystalMaterialRef.current) {
+        if (import.meta.env.DEV) console.log('🌍 Normalizing high quality material with PMREM environment');
+        applyNormalization(crystalMaterialRef.current);
+      }
+
+      return true;
+    };
+
+    if (applyEnvToMaterials()) {
+      return undefined;
     }
-  }, [isMedium, mediumMaterialRef.current, scene]);
+
+    const intervalId = setInterval(() => {
+      if (applyEnvToMaterials()) {
+        clearInterval(intervalId);
+      }
+    }, 100);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [scene, applyNormalization]);
 
   // Update material when variant changes
   useEffect(() => {
@@ -358,8 +389,9 @@ const MaterialManager = ({
       // UPDATED: Ensure shadow settings are maintained
       material.shadowSide = THREE.DoubleSide;
       material.needsUpdate = true;
+      applyNormalization(material);
     }
-  }, [materialVariant, isLow, config.materials.crystal]);
+  }, [materialVariant, isLow, config.materials.crystal, applyNormalization]);
 
   // Update medium material when variant changes
   useEffect(() => {
@@ -408,8 +440,9 @@ const MaterialManager = ({
       
       material.shadowSide = THREE.DoubleSide;
       material.needsUpdate = true;
+      applyNormalization(material);
     }
-  }, [materialVariant, isMedium, config.materials.crystal]);
+  }, [materialVariant, isMedium, config.materials.crystal, applyNormalization]);
 
   // SIMPLIFIED: Normal map support for mobile (optional)
   useEffect(() => {
@@ -430,6 +463,7 @@ const MaterialManager = ({
         target.normalMap = texture;
         target.normalScale = new THREE.Vector2(0.5, 0.5);
         target.needsUpdate = true;
+        applyNormalization(target);
 
         if (import.meta.env.DEV) console.log('✅ Normal map added');
       });
@@ -438,9 +472,16 @@ const MaterialManager = ({
         target.normalMap = null;
         target.normalScale.set(0, 0);
         target.needsUpdate = true;
+        applyNormalization(target);
       }
     }
-  }, [isLow, isMedium, safePerformanceConfig.useNormalMaps, config.assets.textures.normalMap]);
+  }, [
+    isLow,
+    isMedium,
+    safePerformanceConfig.useNormalMaps,
+    config.assets.textures.normalMap,
+    applyNormalization
+  ]);
 
   // Update the main material ref
   useEffect(() => {
@@ -463,14 +504,24 @@ const MaterialManager = ({
 
     // Store the base color so clones can reference the original
     if (materialRef.current) {
+      applyNormalization(materialRef.current);
       materialRef.current.userData = {
         ...(materialRef.current.userData || {}),
         baseColor: materialRef.current.color.clone()
       };
     }
 
-    if (onMaterialReady) onMaterialReady(materialRef.current);
-  }, [materialVariant, materialRef, isLow, isMedium, onMaterialReady]);
+    if (materialRef.current) {
+      forwardMaterialReady(materialRef.current);
+    }
+  }, [
+    materialVariant,
+    materialRef,
+    isLow,
+    isMedium,
+    applyNormalization,
+    forwardMaterialReady
+  ]);
   
   // Only render PBR material component if PBR is enabled
   if (!usePBR) {
@@ -479,15 +530,15 @@ const MaterialManager = ({
   }
 
   return (
-    <CrystalMaterial 
-      config={config} 
-      materialRef={crystalMaterialRef} 
+    <CrystalMaterial
+      config={config}
+      materialRef={crystalMaterialRef}
       variant={materialVariant === 'default' ||
                materialVariant === 'glass' ||
                materialVariant === 'gem' ||
                materialVariant === 'holographic' ? materialVariant : 'default'}
       performanceConfig={safePerformanceConfig}
-      onMaterialReady={onMaterialReady}
+      onMaterialReady={forwardMaterialReady}
     />
   );
 };
