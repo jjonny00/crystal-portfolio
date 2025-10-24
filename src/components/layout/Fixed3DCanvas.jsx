@@ -1,13 +1,14 @@
 // FIXED: src/components/layout/Fixed3DCanvas.jsx
 // UPDATED: Enhanced MistyLayerStack positioning and render order
 
-import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallback } from 'react';
+import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallback, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Environment, OrbitControls } from '@react-three/drei';
 import { EffectComposer, Bloom, ChromaticAberration, Noise, Vignette } from '@react-three/postprocessing';
 import { BlendFunction } from 'postprocessing';
+import { ShaderPass } from 'postprocessing';
 import * as THREE from 'three';
-import { HalfFloatType, UnsignedByteType } from 'three';
+import { HalfFloatType, UnsignedByteType, ShaderMaterial } from 'three';
 
 // FIXED: Import enhanced camera controller from correct path
 import UnifiedCameraController from '../three/UnifiedCameraController';
@@ -21,6 +22,49 @@ import GradientBackground from '../three/GradientBackground';
 import { projectBackgrounds } from '../../data/projectBackgrounds';
 import MistyLayerStack from '../MistyLayerStack';
 import { isIOS26 } from '../../utils/isIOS26';
+
+function createSanitizePass() {
+  const material = new ShaderMaterial({
+    uniforms: { inputBuffer: { value: null } },
+    vertexShader: `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = vec4(position.xy, 0.0, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform sampler2D inputBuffer;
+      varying vec2 vUv;
+
+      bool isInvalidValue(float v) {
+        return (v != v) || abs(v) > 100000.0;
+      }
+
+      bool isInvalidColor(vec3 c) {
+        return isInvalidValue(c.r) || isInvalidValue(c.g) || isInvalidValue(c.b);
+      }
+
+      void main() {
+        vec4 texel = texture2D(inputBuffer, vUv);
+        vec3 c = texel.rgb;
+        if (isInvalidColor(c)) {
+          c = vec3(1.0);
+        }
+        c = clamp(c, 0.0, 4.0);
+        gl_FragColor = vec4(c, texel.a);
+      }
+    `
+  });
+
+  material.toneMapped = false;
+  material.depthTest = false;
+  material.depthWrite = false;
+
+  const pass = new ShaderPass(material);
+  pass.enabled = true;
+  return pass;
+}
 
 const PulsingOmniLight = ({ simplified = false }) => {
   const lightRef = useRef();
@@ -104,6 +148,13 @@ const Fixed3DCanvas = forwardRef(({
     }
     return isIOS26();
   });
+
+  const sanitizePass = useMemo(() => createSanitizePass(), []);
+
+  useEffect(() => () => {
+    sanitizePass?.dispose?.();
+    sanitizePass?.material?.dispose?.();
+  }, [sanitizePass]);
 
   useEffect(() => {
     let isMounted = true;
@@ -386,16 +437,20 @@ const Fixed3DCanvas = forwardRef(({
               />
             )}
             {effectsEnabled?.chromaticAberration && (
-              <ChromaticAberration 
-                offset={postProcessingConfig?.chromaticAberration?.offset || [0.003, 0.003]} 
-                radialModulation={postProcessingConfig?.chromaticAberration?.radialModulation !== false} 
-                modulationOffset={postProcessingConfig?.chromaticAberration?.modulationOffset || 0.5} 
+              <ChromaticAberration
+                offset={postProcessingConfig?.chromaticAberration?.offset || [0.003, 0.003]}
+                radialModulation={postProcessingConfig?.chromaticAberration?.radialModulation !== false}
+                modulationOffset={postProcessingConfig?.chromaticAberration?.modulationOffset || 0.5}
               />
             )}
+
+            {/* Sanitize HDR data before any full-screen overlays */}
+            <primitive object={sanitizePass} />
+
             {effectsEnabled?.noise && (
-              <Noise 
-                opacity={postProcessingConfig?.noise?.opacity || 0.1} 
-                blendFunction={BlendFunction.OVERLAY} 
+              <Noise
+                opacity={postProcessingConfig?.noise?.opacity || 0.1}
+                blendFunction={BlendFunction.OVERLAY}
               />
             )}
             {effectsEnabled?.vignette && (
