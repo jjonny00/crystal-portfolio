@@ -1,7 +1,7 @@
 // FIXED: src/components/layout/Fixed3DCanvas.jsx
 // UPDATED: Enhanced MistyLayerStack positioning and render order
 
-import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallback, useMemo } from 'react';
+import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallback } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Environment, OrbitControls } from '@react-three/drei';
 import { EffectComposer, Bloom, ChromaticAberration, Noise, Vignette } from '@react-three/postprocessing';
@@ -72,29 +72,6 @@ const Fixed3DCanvas = forwardRef(({
   const crystalSceneRef = useRef();
   const backgroundRef = useRef();
   const lastZoneRef = useRef(null);
-
-  const toneMappingSettings = useMemo(() => {
-    const quality = performanceProfile?.pbrQuality;
-
-    if (quality === 'low') {
-      return {
-        toneMapping: THREE.ReinhardToneMapping,
-        toneMappingExposure: 0.14
-      };
-    }
-
-    if (quality === 'medium') {
-      return {
-        toneMapping: THREE.ReinhardToneMapping,
-        toneMappingExposure: 0.16
-      };
-    }
-
-    return {
-      toneMapping: THREE.ACESFilmicToneMapping,
-      toneMappingExposure: 0.2
-    };
-  }, [performanceProfile?.pbrQuality]);
 
   const handleFractureStart = useCallback(() => {
     backgroundRef.current?.flash(1, 0.5);
@@ -266,8 +243,8 @@ const Fixed3DCanvas = forwardRef(({
           }}
           {...canvasProps}
           gl={{
-            toneMapping: toneMappingSettings.toneMapping,
-            toneMappingExposure: toneMappingSettings.toneMappingExposure,
+            toneMapping: THREE.ACESFilmicToneMapping,
+            toneMappingExposure: 0.2,
             outputColorSpace: THREE.SRGBColorSpace,
             // UPDATED: Ensure depth sorting is enabled for proper render order
             sortObjects: true,
