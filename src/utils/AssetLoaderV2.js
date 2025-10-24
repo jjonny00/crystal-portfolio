@@ -266,19 +266,59 @@ export default class AssetLoaderV2 {
       // Use the THREE.js RGBELoader directly with its built-in loading
       const loader = new RGBELoader();
       loader.setDataType(THREE.FloatType);
-      
-      // Set a reasonable timeout
-      const timeoutId = setTimeout(() => {
-        console.error('🌍 HDRI load timed out');
+
+      const timeoutMs = 45000; // allow ample time for large HDRI files
+      let timeoutId;
+      let settled = false;
+
+      const clearTimer = () => {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = undefined;
+        }
+      };
+
+      const failWith = (error, reason = 'error') => {
+        if (settled) return;
+        settled = true;
+        clearTimer();
+        if (reason === 'timeout') {
+          console.error('🌍 HDRI load timed out');
+        } else {
+          console.error('🌍 HDRI load failed:', error);
+        }
         this.failedAssets++;
-        reject(new Error('HDRI load timeout'));
-      }, 10000); // 10 second timeout
-      
+
+        if (this.progressCallback) {
+          this.progressCallback({
+            type: reason,
+            key,
+            url,
+            progress: this.getLoadingStats().progress,
+            currentAsset: `${this._getAssetNameFromUrl(url)} ${reason === 'timeout' ? 'timed out' : 'failed'}`
+          });
+        }
+
+        reject(error);
+      };
+
+      const triggerTimeout = () => {
+        if (settled) return;
+        clearTimer();
+        timeoutId = setTimeout(() => {
+          failWith(new Error('HDRI load timeout'), 'timeout');
+        }, timeoutMs);
+      };
+
+      triggerTimeout();
+
       loader.load(
         url,
         // Success callback
         (texture) => {
-          clearTimeout(timeoutId);
+          if (settled) return;
+          settled = true;
+          clearTimer();
           if (import.meta.env.DEV) {
             console.log('🌍 HDRI loaded successfully');
           }
@@ -299,16 +339,17 @@ export default class AssetLoaderV2 {
               currentAsset: `${this._getAssetNameFromUrl(url)} loaded`
             });
           }
-          
+
           resolve(texture);
         },
         // Progress callback
         (progress) => {
+          triggerTimeout();
           if (this.progressCallback) {
-            const percent = progress.loaded && progress.total 
-              ? (progress.loaded / progress.total) * 100 
+            const percent = progress.loaded && progress.total
+              ? (progress.loaded / progress.total) * 100
               : 50;
-            
+
             this.progressCallback({
               type: 'hdri_download',
               key,
@@ -322,21 +363,7 @@ export default class AssetLoaderV2 {
         },
         // Error callback
         (error) => {
-          clearTimeout(timeoutId);
-          console.error('🌍 HDRI load failed:', error);
-          this.failedAssets++;
-          
-          if (this.progressCallback) {
-            this.progressCallback({
-              type: 'error',
-              key,
-              url,
-              progress: this.getLoadingStats().progress,
-              currentAsset: `${this._getAssetNameFromUrl(url)} failed`
-            });
-          }
-          
-          reject(error);
+          failWith(error);
         }
       );
     });
@@ -349,8 +376,12 @@ export default class AssetLoaderV2 {
     
     // Shorter, more reasonable timeout wrapper
     const withTimeout = (promise, asset) => {
+      if (asset.type === 'environment') {
+        return promise;
+      }
+
       return new Promise(resolve => {
-        const timeoutDuration = 15000; // 15 seconds for all assets
+        const timeoutDuration = 15000; // 15 seconds for non-environment assets
         const timer = setTimeout(() => {
           console.error(`Timeout loading asset ${asset.key} after ${timeoutDuration}ms`);
           this.failedAssets++;
