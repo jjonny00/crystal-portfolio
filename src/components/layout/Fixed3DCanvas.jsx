@@ -1,7 +1,7 @@
 // FIXED: src/components/layout/Fixed3DCanvas.jsx
 // UPDATED: Enhanced MistyLayerStack positioning and render order
 
-import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallback } from 'react';
+import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallback, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Environment, OrbitControls } from '@react-three/drei';
 import { EffectComposer, Bloom, ChromaticAberration, Noise, Vignette } from '@react-three/postprocessing';
@@ -23,28 +23,48 @@ import { projectBackgrounds } from '../../data/projectBackgrounds';
 import MistyLayerStack from '../MistyLayerStack';
 import { isIOS26 } from '../../utils/isIOS26';
 
-const sanitizeMaterial = new ShaderMaterial({
-  uniforms: { tDiffuse: { value: null } },
-  vertexShader: `
-    varying vec2 vUv;
-    void main() {
-      vUv = uv;
-      gl_Position = vec4(position.xy, 0.0, 1.0);
-    }
-  `,
-  fragmentShader: `
-    uniform sampler2D tDiffuse;
-    varying vec2 vUv;
-    void main() {
-      vec3 c = texture2D(tDiffuse, vUv).rgb;
-      if (any(isnan(c)) || any(isinf(c))) c = vec3(1.0);
-      c = clamp(c, 0.0, 4.0);
-      gl_FragColor = vec4(c, 1.0);
-    }
-  `
-});
+function createSanitizePass() {
+  const material = new ShaderMaterial({
+    uniforms: { tDiffuse: { value: null } },
+    vertexShader: `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = vec4(position.xy, 0.0, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform sampler2D tDiffuse;
+      varying vec2 vUv;
 
-const SanitizePass = new ShaderPass(sanitizeMaterial);
+      bool isInvalidValue(float v) {
+        return (v != v) || abs(v) > 100000.0;
+      }
+
+      bool isInvalidColor(vec3 c) {
+        return isInvalidValue(c.r) || isInvalidValue(c.g) || isInvalidValue(c.b);
+      }
+
+      void main() {
+        vec4 texel = texture2D(tDiffuse, vUv);
+        vec3 c = texel.rgb;
+        if (isInvalidColor(c)) {
+          c = vec3(1.0);
+        }
+        c = clamp(c, 0.0, 4.0);
+        gl_FragColor = vec4(c, texel.a);
+      }
+    `
+  });
+
+  material.toneMapped = false;
+  material.depthTest = false;
+  material.depthWrite = false;
+
+  const pass = new ShaderPass(material);
+  pass.enabled = true;
+  return pass;
+}
 
 const PulsingOmniLight = ({ simplified = false }) => {
   const lightRef = useRef();
@@ -128,6 +148,13 @@ const Fixed3DCanvas = forwardRef(({
     }
     return isIOS26();
   });
+
+  const sanitizePass = useMemo(() => createSanitizePass(), []);
+
+  useEffect(() => () => {
+    sanitizePass?.dispose?.();
+    sanitizePass?.material?.dispose?.();
+  }, [sanitizePass]);
 
   useEffect(() => {
     let isMounted = true;
@@ -418,7 +445,7 @@ const Fixed3DCanvas = forwardRef(({
             )}
 
             {/* Sanitize HDR data before any full-screen overlays */}
-            <primitive object={SanitizePass} />
+            <primitive object={sanitizePass} />
 
             {effectsEnabled?.noise && (
               <Noise
