@@ -1,7 +1,7 @@
 // MaterialManager.jsx - UPDATED: Shadow improvements for mobile crystal material
 // Creates materials that perform well on mobile while maintaining crystal appearance
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { useThree } from '@react-three/fiber';
 import CrystalMaterial from '../materials/CrystalMaterial';
 import * as THREE from 'three';
@@ -16,6 +16,7 @@ const MaterialManager = ({
   const crystalMaterialRef = useRef();
   const optimizedMobileRef = useRef();
   const mediumMaterialRef = useRef();
+  const [hotspotMaterial, setHotspotMaterial] = useState(null);
   const { scene } = useThree(); // Get Three.js scene to access environment
   
   // FIXED: Null safety with proper defaults
@@ -43,6 +44,51 @@ const MaterialManager = ({
   const fallbackSpecularIntensity = crystalConfig.specularIntensity ?? 1.0;
   const fallbackSpecularColor = crystalConfig.specularColor ? crystalConfig.specularColor.clone() : new THREE.Color('#ffffff');
   const fallbackReflectivity = clamp01(crystalConfig.reflectivity ?? 0.7);
+
+  const hotspotDebugFlag = safePerformanceConfig.debugCrystalHotspot ?? (import.meta.env.VITE_DEBUG_CRYSTAL_HOTSPOT === 'true');
+  const hotspotDebugStepMsRaw = safePerformanceConfig.debugCrystalHotspotStepDuration ?? parseInt(import.meta.env.VITE_DEBUG_CRYSTAL_HOTSPOT_STEP_MS ?? '2500', 10);
+  const hotspotDebugStepMs = Number.isFinite(hotspotDebugStepMsRaw) ? hotspotDebugStepMsRaw : 2500;
+
+  const captureMaterialState = (material) => ({
+    color: material.color?.clone?.() ?? new THREE.Color('#ffffff'),
+    emissive: material.emissive?.clone?.() ?? new THREE.Color('#000000'),
+    emissiveIntensity: material.emissiveIntensity,
+    metalness: material.metalness,
+    roughness: material.roughness,
+    envMapIntensity: material.envMapIntensity,
+    opacity: material.opacity,
+    transparent: material.transparent,
+    clearcoat: material.clearcoat,
+    clearcoatRoughness: material.clearcoatRoughness,
+    specularIntensity: material.specularIntensity,
+    specularColor: material.specularColor?.clone?.() ?? new THREE.Color('#ffffff'),
+    reflectivity: material.reflectivity,
+    ior: material.ior,
+    transmission: material.transmission,
+    thickness: material.thickness,
+    side: material.side
+  });
+
+  const restoreMaterialState = (material, state) => {
+    if (!state) return;
+    material.color?.copy?.(state.color ?? material.color);
+    material.emissive?.copy?.(state.emissive ?? material.emissive);
+    material.emissiveIntensity = state.emissiveIntensity;
+    material.metalness = state.metalness;
+    material.roughness = state.roughness;
+    material.envMapIntensity = state.envMapIntensity;
+    material.opacity = state.opacity;
+    material.transparent = state.transparent;
+    if (typeof state.clearcoat === 'number') material.clearcoat = state.clearcoat;
+    if (typeof state.clearcoatRoughness === 'number') material.clearcoatRoughness = state.clearcoatRoughness;
+    if (typeof state.specularIntensity === 'number') material.specularIntensity = state.specularIntensity;
+    if (material.specularColor && state.specularColor) material.specularColor.copy(state.specularColor);
+    if (typeof state.reflectivity === 'number') material.reflectivity = state.reflectivity;
+    if (typeof state.ior === 'number') material.ior = state.ior;
+    if (typeof state.transmission === 'number') material.transmission = state.transmission;
+    if (typeof state.thickness === 'number') material.thickness = state.thickness;
+    if (typeof state.side === 'number') material.side = state.side;
+  };
 
   // OPTIMIZED: Create high-performance mobile material using a trimmed MeshPhysicalMaterial
   useEffect(() => {
@@ -144,6 +190,7 @@ const MaterialManager = ({
       // Three.js won't automatically bind the scene environment to newly created materials
       // We'll set it when the component mounts and environment is available
       optimizedMobileRef.current = optimizedMaterial;
+      if (hotspotDebugFlag) setHotspotMaterial(optimizedMaterial);
       
       if (import.meta.env.DEV) console.log('✅ OPTIMIZED mobile material created with shadow improvements:', {
         variant: materialVariant,
@@ -157,7 +204,7 @@ const MaterialManager = ({
       
       if (onMaterialReady) onMaterialReady(optimizedMaterial);
     }
-  }, [isLow, config.materials.crystal.color, config.materials.crystal.emissive, materialVariant, onMaterialReady]);
+  }, [isLow, hotspotDebugFlag, config.materials.crystal.color, config.materials.crystal.emissive, materialVariant, onMaterialReady]);
 
   // MEDIUM: Create MeshPhysicalMaterial with higher reflectivity
   useEffect(() => {
@@ -227,6 +274,7 @@ const MaterialManager = ({
 
       const mediumMat = new THREE.MeshPhysicalMaterial(materialProps);
       mediumMaterialRef.current = mediumMat;
+      if (hotspotDebugFlag) setHotspotMaterial(mediumMat);
 
       if (import.meta.env.DEV) console.log('✅ Medium material created:', {
         variant: materialVariant,
@@ -237,7 +285,7 @@ const MaterialManager = ({
 
       if (onMaterialReady) onMaterialReady(mediumMat);
     }
-  }, [isMedium, materialVariant, config.materials.crystal, onMaterialReady]);
+  }, [isMedium, hotspotDebugFlag, materialVariant, config.materials.crystal, onMaterialReady]);
 
   // CRITICAL: Set environment map for reflections
   useEffect(() => {
@@ -440,6 +488,182 @@ const MaterialManager = ({
       material.needsUpdate = true;
     }
   }, [materialVariant, isMedium, config.materials.crystal]);
+
+  useEffect(() => {
+    if (!hotspotDebugFlag) {
+      if (hotspotMaterial) setHotspotMaterial(null);
+      return;
+    }
+
+    if (!(isLow || isMedium)) {
+      if (hotspotMaterial) setHotspotMaterial(null);
+      return;
+    }
+
+    const candidate = isLow ? optimizedMobileRef.current : mediumMaterialRef.current;
+    if (candidate && hotspotMaterial !== candidate) {
+      setHotspotMaterial(candidate);
+    }
+  }, [
+    hotspotDebugFlag,
+    isLow,
+    isMedium,
+    hotspotMaterial,
+    optimizedMobileRef.current,
+    mediumMaterialRef.current
+  ]);
+
+  useEffect(() => {
+    if (!hotspotDebugFlag || typeof window === 'undefined') return undefined;
+
+    const target = (isLow || isMedium) ? hotspotMaterial : null;
+    if (!target) return undefined;
+
+    const originalState = captureMaterialState(target);
+    let stepIndex = 0;
+    let timeoutId;
+    let cancelled = false;
+
+    const debugSteps = [
+      {
+        label: 'baseline (restored)',
+        apply: () => {}
+      },
+      {
+        label: 'clearcoat disabled',
+        apply: (material) => {
+          material.clearcoat = 0;
+          material.clearcoatRoughness = Math.max(originalState.clearcoatRoughness ?? 0.05, 0.05);
+        }
+      },
+      {
+        label: 'clearcoat boosted',
+        apply: (material) => {
+          material.clearcoat = Math.min(1, (originalState.clearcoat ?? fallbackClearcoat) * 1.4);
+          material.clearcoatRoughness = Math.max(0.01, (originalState.clearcoatRoughness ?? fallbackClearcoatRoughness) * 0.6);
+        }
+      },
+      {
+        label: 'specular disabled',
+        apply: (material) => {
+          material.specularIntensity = 0;
+        }
+      },
+      {
+        label: 'specular boosted',
+        apply: (material) => {
+          material.specularIntensity = (originalState.specularIntensity ?? fallbackSpecularIntensity) * 2.0;
+        }
+      },
+      {
+        label: 'env map disabled',
+        apply: (material) => {
+          material.envMapIntensity = 0;
+        }
+      },
+      {
+        label: 'env map boosted',
+        apply: (material) => {
+          material.envMapIntensity = Math.max(0, (originalState.envMapIntensity ?? 1) * 3.0);
+        }
+      },
+      {
+        label: 'roughness high',
+        apply: (material) => {
+          material.roughness = Math.min(1, (originalState.roughness ?? 0.1) + 0.35);
+        }
+      },
+      {
+        label: 'roughness low',
+        apply: (material) => {
+          material.roughness = Math.max(0.01, (originalState.roughness ?? 0.1) * 0.25);
+        }
+      },
+      {
+        label: 'metalness zero',
+        apply: (material) => {
+          material.metalness = 0;
+        }
+      },
+      {
+        label: 'metalness boosted',
+        apply: (material) => {
+          material.metalness = clamp01((originalState.metalness ?? 0.05) + 0.45);
+        }
+      },
+      {
+        label: 'ior set to air',
+        apply: (material) => {
+          material.ior = 1.0;
+        }
+      },
+      {
+        label: 'ior boosted',
+        apply: (material) => {
+          material.ior = Math.max(1.01, (originalState.ior ?? fallbackIOR) * 1.4);
+        }
+      },
+      {
+        label: 'front-side only',
+        apply: (material) => {
+          material.side = THREE.FrontSide;
+        }
+      },
+      {
+        label: 'double-sided restore',
+        apply: (material) => {
+          material.side = THREE.DoubleSide;
+        }
+      }
+    ];
+
+    const runStep = () => {
+      if (cancelled || !target) return;
+
+      restoreMaterialState(target, originalState);
+
+      const step = debugSteps[stepIndex];
+      step.apply(target);
+      target.needsUpdate = true;
+
+      if (import.meta.env.DEV) {
+        console.groupCollapsed(`💡 Crystal hotspot debug → Step ${stepIndex + 1}/${debugSteps.length}: ${step.label}`);
+        console.log('material settings', {
+          clearcoat: target.clearcoat,
+          clearcoatRoughness: target.clearcoatRoughness,
+          specularIntensity: target.specularIntensity,
+          envMapIntensity: target.envMapIntensity,
+          roughness: target.roughness,
+          metalness: target.metalness,
+          ior: target.ior,
+          side: target.side === THREE.DoubleSide ? 'DoubleSide' : target.side === THREE.FrontSide ? 'FrontSide' : target.side
+        });
+        console.groupEnd();
+      }
+
+      stepIndex = (stepIndex + 1) % debugSteps.length;
+      timeoutId = window.setTimeout(runStep, hotspotDebugStepMs);
+    };
+
+    runStep();
+
+    return () => {
+      cancelled = true;
+      if (timeoutId) window.clearTimeout(timeoutId);
+      restoreMaterialState(target, originalState);
+      target.needsUpdate = true;
+    };
+  }, [
+    hotspotDebugFlag,
+    hotspotDebugStepMs,
+    hotspotMaterial,
+    isLow,
+    isMedium,
+    fallbackClearcoat,
+    fallbackClearcoatRoughness,
+    fallbackIOR,
+    fallbackSpecularIntensity
+  ]);
 
   // SIMPLIFIED: Normal map support for mobile (optional)
   useEffect(() => {
