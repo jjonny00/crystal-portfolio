@@ -25,7 +25,7 @@ import { isIOS26 } from '../../utils/isIOS26';
 
 function createSanitizePass() {
   const material = new ShaderMaterial({
-    uniforms: { tDiffuse: { value: null } },
+    uniforms: { inputBuffer: { value: null } },
     vertexShader: `
       varying vec2 vUv;
       void main() {
@@ -34,7 +34,7 @@ function createSanitizePass() {
       }
     `,
     fragmentShader: `
-      uniform sampler2D tDiffuse;
+      uniform sampler2D inputBuffer;
       varying vec2 vUv;
 
       bool isInvalidValue(float v) {
@@ -46,7 +46,7 @@ function createSanitizePass() {
       }
 
       void main() {
-        vec4 texel = texture2D(tDiffuse, vUv);
+        vec4 texel = texture2D(inputBuffer, vUv);
         vec3 c = texel.rgb;
         if (isInvalidColor(c)) {
           c = vec3(1.0);
