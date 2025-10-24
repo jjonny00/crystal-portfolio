@@ -6,8 +6,9 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { Environment, OrbitControls } from '@react-three/drei';
 import { EffectComposer, Bloom, ChromaticAberration, Noise, Vignette } from '@react-three/postprocessing';
 import { BlendFunction } from 'postprocessing';
+import { ShaderPass } from 'postprocessing';
 import * as THREE from 'three';
-import { HalfFloatType, UnsignedByteType } from 'three';
+import { HalfFloatType, UnsignedByteType, ShaderMaterial } from 'three';
 
 // FIXED: Import enhanced camera controller from correct path
 import UnifiedCameraController from '../three/UnifiedCameraController';
@@ -21,6 +22,29 @@ import GradientBackground from '../three/GradientBackground';
 import { projectBackgrounds } from '../../data/projectBackgrounds';
 import MistyLayerStack from '../MistyLayerStack';
 import { isIOS26 } from '../../utils/isIOS26';
+
+const sanitizeMaterial = new ShaderMaterial({
+  uniforms: { tDiffuse: { value: null } },
+  vertexShader: `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: `
+    uniform sampler2D tDiffuse;
+    varying vec2 vUv;
+    void main() {
+      vec3 c = texture2D(tDiffuse, vUv).rgb;
+      if (any(isnan(c)) || any(isinf(c))) c = vec3(1.0);
+      c = clamp(c, 0.0, 4.0);
+      gl_FragColor = vec4(c, 1.0);
+    }
+  `
+});
+
+const SanitizePass = new ShaderPass(sanitizeMaterial);
 
 const PulsingOmniLight = ({ simplified = false }) => {
   const lightRef = useRef();
@@ -386,16 +410,20 @@ const Fixed3DCanvas = forwardRef(({
               />
             )}
             {effectsEnabled?.chromaticAberration && (
-              <ChromaticAberration 
-                offset={postProcessingConfig?.chromaticAberration?.offset || [0.003, 0.003]} 
-                radialModulation={postProcessingConfig?.chromaticAberration?.radialModulation !== false} 
-                modulationOffset={postProcessingConfig?.chromaticAberration?.modulationOffset || 0.5} 
+              <ChromaticAberration
+                offset={postProcessingConfig?.chromaticAberration?.offset || [0.003, 0.003]}
+                radialModulation={postProcessingConfig?.chromaticAberration?.radialModulation !== false}
+                modulationOffset={postProcessingConfig?.chromaticAberration?.modulationOffset || 0.5}
               />
             )}
+
+            {/* Sanitize HDR data before any full-screen overlays */}
+            <primitive object={SanitizePass} />
+
             {effectsEnabled?.noise && (
-              <Noise 
-                opacity={postProcessingConfig?.noise?.opacity || 0.1} 
-                blendFunction={BlendFunction.OVERLAY} 
+              <Noise
+                opacity={postProcessingConfig?.noise?.opacity || 0.1}
+                blendFunction={BlendFunction.OVERLAY}
               />
             )}
             {effectsEnabled?.vignette && (
