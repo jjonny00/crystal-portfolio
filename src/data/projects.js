@@ -124,7 +124,7 @@ export const projects = [
     technologies: ["WebGL", "React Three Fiber", "Shaders", "Motion Design"],
     color: "#ff7043", // Match the facet color
     headlineColor: "#ff7043", // NEW: Color for 1970s glow headlines
-    overlayImage: "/assets/projects/fundseeder.png",
+    overlayImage: "/assets/projects/fundseeder.jpg",
     imageUrl: "/assets/projects/experimental-interactions.jpg",
     demoUrl: "https://demo-url.com/experiments",
     githubUrl: "https://github.com/yourusername/experimental-interactions",
