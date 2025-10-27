@@ -152,6 +152,10 @@ const UnifiedCrystalScene = forwardRef(({
       uniforms.projectDisplayOverlayMap.value = DEFAULT_PROJECT_DISPLAY_TEXTURE;
     }
 
+    if (!material.map) {
+      material.map = DEFAULT_PROJECT_DISPLAY_TEXTURE;
+    }
+
     const defines = material.defines ? { ...material.defines } : {};
     if (defines.USE_UV !== 1 && defines.USE_UV !== '') {
       defines.USE_UV = 1;
