@@ -136,34 +136,66 @@ const UnifiedCrystalScene = forwardRef(({
     return textureLoaderRef.current;
   }, []);
 
-  const computePlaneAspect = useCallback((mesh) => {
-    if (!mesh?.geometry) return 1;
+  const computeProjectDisplayUVInfo = useCallback((mesh) => {
+    const defaultInfo = {
+      minU: 0,
+      minV: 0,
+      maxU: 1,
+      maxV: 1,
+      width: 1,
+      height: 1,
+      aspect: 1
+    };
 
-    const geometry = mesh.geometry;
-    if (!geometry.boundingBox) {
-      geometry.computeBoundingBox();
+    const geometry = mesh?.geometry;
+    const uvAttribute = geometry?.attributes?.uv;
+    const count = uvAttribute?.count ?? 0;
+
+    if (!geometry || !uvAttribute || count === 0) {
+      return defaultInfo;
     }
 
-    if (!geometry.boundingBox) return 1;
+    let minU = Infinity;
+    let minV = Infinity;
+    let maxU = -Infinity;
+    let maxV = -Infinity;
 
-    const size = new THREE.Vector3();
-    geometry.boundingBox.getSize(size);
+    for (let i = 0; i < count; i += 1) {
+      const u = uvAttribute.getX(i);
+      const v = uvAttribute.getY(i);
 
-    const scale = mesh.scale ?? { x: 1, y: 1, z: 1 };
-    const dims = [
-      Math.abs(size.x * (scale.x ?? 1)),
-      Math.abs(size.y * (scale.y ?? 1)),
-      Math.abs(size.z * (scale.z ?? 1))
-    ].sort((a, b) => b - a);
+      if (!Number.isFinite(u) || !Number.isFinite(v)) {
+        continue;
+      }
 
-    const width = dims[0] ?? 1;
-    const height = dims[1] ?? 1;
-
-    if (!height || !isFinite(width / height) || height <= 0) {
-      return 1;
+      if (u < minU) minU = u;
+      if (u > maxU) maxU = u;
+      if (v < minV) minV = v;
+      if (v > maxV) maxV = v;
     }
 
-    return width / height;
+    if (!Number.isFinite(minU) || !Number.isFinite(minV) || !Number.isFinite(maxU) || !Number.isFinite(maxV)) {
+      return defaultInfo;
+    }
+
+    const width = maxU - minU;
+    const height = maxV - minV;
+
+    if (!(width > 0) || !(height > 0)) {
+      return defaultInfo;
+    }
+
+    const aspect = width / height;
+
+    return {
+      minU,
+      minV,
+      maxU,
+      maxV,
+      width,
+      height,
+      aspect: Number.isFinite(aspect) && aspect > 0 ? aspect : 1
+    };
   }, []);
 
   const getProjectDisplayCacheKey = useCallback((path, planeAspect) => {
@@ -213,10 +245,9 @@ const UnifiedCrystalScene = forwardRef(({
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    const scale = Math.min(
+    const scale = Math.max(
       canvas.width / (srcHeight || 1),
-      canvas.height / (srcWidth || 1),
-      1
+      canvas.height / (srcWidth || 1)
     );
 
     const drawWidth = srcWidth * scale;
@@ -449,22 +480,33 @@ const UnifiedCrystalScene = forwardRef(({
       const applyTexture = (texture) => {
         if (!texture || cancelled) return;
 
-        const planeAspect = computePlaneAspect(slot.mesh);
+        const uvInfo = computeProjectDisplayUVInfo(slot.mesh);
+        const planeAspect = uvInfo.aspect;
         const cacheKey = getProjectDisplayCacheKey(overlayPath, planeAspect);
 
-        let fittedTexture = projectDisplayProcessedTextureCacheRef.current.get(cacheKey);
-        if (!fittedTexture) {
-          fittedTexture = createProjectDisplayTexture(texture, planeAspect);
-          if (fittedTexture) {
-            projectDisplayProcessedTextureCacheRef.current.set(cacheKey, fittedTexture);
+        let baseTexture = projectDisplayProcessedTextureCacheRef.current.get(cacheKey);
+        if (!baseTexture) {
+          baseTexture = createProjectDisplayTexture(texture, planeAspect);
+          if (baseTexture) {
+            projectDisplayProcessedTextureCacheRef.current.set(cacheKey, baseTexture);
           }
         }
 
-        if (!fittedTexture) {
+        if (!baseTexture) {
           return;
         }
 
-        slot.material.map = fittedTexture;
+        const appliedTexture = baseTexture.clone();
+        appliedTexture.needsUpdate = true;
+
+        const uvWidth = uvInfo.width > 0 ? uvInfo.width : 1;
+        const uvHeight = uvInfo.height > 0 ? uvInfo.height : 1;
+        const repeatX = 1 / uvWidth;
+        const repeatY = 1 / uvHeight;
+        appliedTexture.repeat.set(repeatX, repeatY);
+        appliedTexture.offset.set(-uvInfo.minU * repeatX, -uvInfo.minV * repeatY);
+
+        slot.material.map = appliedTexture;
         if (slot.material.color?.set) {
           slot.material.color.set('#ffffff');
         }
@@ -473,7 +515,8 @@ const UnifiedCrystalScene = forwardRef(({
         slot.material.userData = {
           ...(slot.material.userData || {}),
           projectDisplayTexture: overlayPath,
-          projectDisplayPlaneAspect: planeAspect
+          projectDisplayPlaneAspect: planeAspect,
+          projectDisplayUVInfo: uvInfo
         };
 
         if (import.meta.env.DEV) {
@@ -509,7 +552,7 @@ const UnifiedCrystalScene = forwardRef(({
   }, [
     modelsLoaded,
     facetKeys,
-    computePlaneAspect,
+    computeProjectDisplayUVInfo,
     getProjectDisplayCacheKey,
     createProjectDisplayTexture,
     getTextureLoader,
