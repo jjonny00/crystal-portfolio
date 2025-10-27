@@ -139,6 +139,16 @@ const UnifiedCrystalScene = forwardRef(({
     };
 
     material.onBeforeCompile = (shader) => {
+      shader.fragmentShader = shader.fragmentShader.replace(
+        '#include <common>',
+        `#include <common>\n` +
+          'uniform sampler2D projectDisplayOverlayMap;\n' +
+          'uniform float projectDisplayOverlayOpacity;\n' +
+          'uniform vec2 projectDisplayOverlayOffset;\n' +
+          'uniform vec2 projectDisplayOverlayRepeat;\n' +
+          'uniform float projectDisplayOverlayEnabled;\n'
+      );
+
       shader.uniforms.projectDisplayOverlayMap = uniforms.projectDisplayOverlayMap;
       shader.uniforms.projectDisplayOverlayOpacity = uniforms.projectDisplayOverlayOpacity;
       shader.uniforms.projectDisplayOverlayOffset = uniforms.projectDisplayOverlayOffset;
