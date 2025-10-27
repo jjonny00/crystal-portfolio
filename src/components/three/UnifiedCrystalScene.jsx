@@ -187,13 +187,19 @@ const UnifiedCrystalScene = forwardRef(({
           `  vec3 projectDisplayFillColor = projectDisplayOverlayFillColor;\n` +
           `  float projectDisplayVisibility = clamp(projectDisplayOverlayVisibility, 0.0, 1.0);\n` +
           `  float projectDisplayFadeAmount = clamp(projectDisplayOverlayOpacity, 0.0, 1.0);\n` +
+          `  float projectDisplayOverlayAlpha = projectDisplayFadeAmount;\n` +
           `  vec3 projectDisplayOverlayColor = projectDisplayFillColor;\n` +
           `#ifdef USE_UV\n` +
           `    vec2 projectDisplayUv = vUv * projectDisplayOverlayRepeat + projectDisplayOverlayOffset;\n` +
           `    vec4 projectDisplaySample = texture2D(projectDisplayOverlayMap, projectDisplayUv);\n` +
-          `    projectDisplayOverlayColor = mix(projectDisplayFillColor, projectDisplaySample.rgb, projectDisplayFadeAmount);\n` +
+          `    float projectDisplaySampleAlpha = projectDisplaySample.a;\n` +
+          `    projectDisplayOverlayAlpha = clamp(projectDisplaySampleAlpha * projectDisplayFadeAmount, 0.0, 1.0);\n` +
+          `    projectDisplayOverlayColor = mix(projectDisplayFillColor, projectDisplaySample.rgb, projectDisplayOverlayAlpha);\n` +
           `#endif\n` +
-          `  diffuseColor.rgb = mix(projectDisplayBaseColor, projectDisplayOverlayColor, projectDisplayVisibility);\n` +
+          `  float projectDisplayBaseMix = projectDisplayVisibility * (1.0 - projectDisplayOverlayAlpha);\n` +
+          `  float projectDisplayOverlayMix = projectDisplayVisibility * projectDisplayOverlayAlpha;\n` +
+          `  vec3 projectDisplayBaseWithFill = mix(projectDisplayBaseColor, projectDisplayFillColor, projectDisplayBaseMix);\n` +
+          `  diffuseColor.rgb = mix(projectDisplayBaseWithFill, projectDisplayOverlayColor, projectDisplayOverlayMix);\n` +
           `#include <dithering_fragment>`
       );
     };
