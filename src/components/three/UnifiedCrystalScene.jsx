@@ -169,7 +169,9 @@ const UnifiedCrystalScene = forwardRef(({
     const image = texture.image;
     const textureWidth = image?.width ?? 1;
     const textureHeight = image?.height ?? 1;
-    const safeTextureAspect = textureHeight > 0 ? textureWidth / textureHeight : 1;
+    const rotatedWidth = textureHeight;
+    const rotatedHeight = textureWidth;
+    const safeTextureAspect = rotatedHeight > 0 ? rotatedWidth / rotatedHeight : 1;
     const safePlaneAspect = planeAspect > 0 ? planeAspect : 1;
 
     let repeatX = 1;
@@ -188,6 +190,7 @@ const UnifiedCrystalScene = forwardRef(({
     texture.wrapS = THREE.ClampToEdgeWrapping;
     texture.wrapT = THREE.ClampToEdgeWrapping;
     texture.center.set(0.5, 0.5);
+    texture.rotation = -Math.PI / 2;
     texture.repeat.set(repeatX, repeatY);
     texture.offset.set(offsetX, offsetY);
     texture.flipY = false;
