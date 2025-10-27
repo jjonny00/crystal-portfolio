@@ -6,6 +6,8 @@ const PROJECT_DISPLAY_SLOT = 'ProjectDisplay';
 const EPSILON = 1e-5;
 
 const ensureMaterialAssignment = (mesh, materialIndex, material) => {
+  if (!mesh) return;
+
   if (materialIndex != null) {
     const current = Array.isArray(mesh.material) ? mesh.material.slice() : [mesh.material];
     current[materialIndex] = material;
@@ -17,7 +19,7 @@ const ensureMaterialAssignment = (mesh, materialIndex, material) => {
     });
   } else {
     mesh.material = material;
-    if (material) {
+    if (material && typeof material === 'object') {
       material.needsUpdate = true;
     }
   }
@@ -258,117 +260,186 @@ export const useFacetOverlayGeometry = (facetKeys) => {
   const registerOverlaySlot = useCallback(
     (facetRef, facetKey) => {
       if (!facetRef?.current) return null;
-      if (overlaySlotsRef.current.has(facetKey)) {
-        return overlaySlotsRef.current.get(facetKey);
-      }
 
       const image = overlayImages.get(facetKey);
       if (!image) return null;
 
-      let registeredSlot = null;
+      const existingSlot = overlaySlotsRef.current.get(facetKey) || null;
+      let candidate = null;
 
       facetRef.current.traverse((child) => {
-        if (registeredSlot || !child.isMesh) return;
+        if (candidate || !child.isMesh) return;
 
         const isArrayMaterial = Array.isArray(child.material);
         const materials = isArrayMaterial ? child.material : [child.material];
         const originalInfo = child.userData?.__originalMaterialInfo;
         const originalSlots = originalInfo?.slots || [];
-        const originalSlotCount = originalSlots.length;
-        const materialsCount = materials.length;
+        const materialCount = Math.max(originalSlots.length, materials.length);
 
-        const candidateIndices = originalSlots
+        const preferredIndices = originalSlots
           .filter((slot) => (slot.name || slot.slotId) === PROJECT_DISPLAY_SLOT)
           .map((slot) => slot.index);
 
-        const indicesToCheck = candidateIndices.length
-          ? candidateIndices
+        const indicesToCheck = preferredIndices.length
+          ? preferredIndices
           : materials.map((_, index) => index);
 
-        indicesToCheck.forEach((index) => {
-          if (registeredSlot) return;
+        indicesToCheck.some((index) => {
+          if (!isArrayMaterial && index > 0) {
+            return false;
+          }
 
-          if (!isArrayMaterial && index > 0) return;
-
-          const material = isArrayMaterial ? materials[index] : materials[0];
-          if (!material) return;
-
+          const materialIndex = isArrayMaterial ? index : null;
+          const rawMaterial = isArrayMaterial ? materials[index] : materials[0];
           const slotMeta = originalSlots.find((slot) => slot.index === index);
-          const fallbackName = material.name || material.userData?.slotId;
+          const fallbackName = rawMaterial?.name || rawMaterial?.userData?.slotId;
           const slotName = slotMeta?.name || slotMeta?.slotId || fallbackName;
-          if (slotName !== PROJECT_DISPLAY_SLOT) return;
 
-          const hasMultipleSlots = (originalSlotCount || materialsCount) > 1;
-          const bounds = computeSlotUVBounds(child.geometry, hasMultipleSlots ? index : null);
+          if (slotName !== PROJECT_DISPLAY_SLOT) {
+            return false;
+          }
+
+          const previousSlotMatches =
+            existingSlot &&
+            existingSlot.mesh === child &&
+            existingSlot.materialIndex === materialIndex;
+
+          const baseMaterial = previousSlotMatches
+            ? existingSlot.originalMaterial
+            : rawMaterial;
+
+          if (!baseMaterial) {
+            return false;
+          }
+
+          const bounds = computeSlotUVBounds(
+            child.geometry,
+            materialCount > 1 ? index : null
+          );
+
           if (!bounds) {
-            console.warn(`❌ Unable to compute UV bounds for ProjectDisplay slot on facet ${facetKey}`);
-            return;
+            console.warn(
+              `❌ Unable to compute UV bounds for ProjectDisplay slot on facet ${facetKey}`
+            );
+            return false;
           }
 
-          const canvas = getOrCreateCanvas(image, bounds.aspect || 1);
-          if (!canvas) {
-            console.warn(`❌ Unable to prepare overlay canvas for facet ${facetKey}`);
-            return;
-          }
-          const overlayTexture = new THREE.CanvasTexture(canvas);
-          configureOverlayTexture(overlayTexture, bounds, material);
-
-          const overlayMaterial = material.clone();
-          overlayMaterial.map = overlayTexture;
-          overlayMaterial.transparent = true;
-          overlayMaterial.opacity = 0;
-          overlayMaterial.depthWrite = false;
-          overlayMaterial.color.set(0xffffff);
-          overlayMaterial.emissive.set(0x000000);
-          overlayMaterial.emissiveIntensity = 0;
-          overlayMaterial.metalness = 0;
-          overlayMaterial.roughness = 1;
-          overlayMaterial.metalnessMap = null;
-          overlayMaterial.roughnessMap = null;
-          overlayMaterial.normalMap = null;
-          overlayMaterial.aoMap = null;
-          overlayMaterial.emissiveMap = null;
-          overlayMaterial.needsUpdate = true;
-
-          if (overlayMaterial.alphaMap == null && overlayTexture) {
-            overlayMaterial.alphaMap = overlayTexture;
-            overlayMaterial.alphaMap.needsUpdate = true;
-          }
-
-          registeredSlot = {
-            facetKey,
+          candidate = {
             mesh: child,
-            materialIndex: isArrayMaterial ? index : null,
-            originalMaterial: material,
-            originalOpacity: material.opacity ?? 1,
-            originalTransparent: material.transparent ?? false,
-            originalMap: material.map || null,
-            originalMapTransform:
-              material.map
-                ? {
-                    offset: material.map.offset.clone(),
-                    repeat: material.map.repeat.clone(),
-                    rotation: material.map.rotation ?? 0,
-                    center: material.map.center ? material.map.center.clone() : new THREE.Vector2(0.5, 0.5),
-                  }
-                : null,
-            overlayMaterial,
-            overlayTexture,
+            materialIndex,
+            baseMaterial,
             bounds,
-            targetOpacity: 0,
-            currentOpacity: 0,
-            isActive: false,
           };
 
-          overlaySlotsRef.current.set(facetKey, registeredSlot);
+          return true;
         });
       });
 
-      if (!registeredSlot) {
+      if (!candidate) {
         console.warn(`❌ No ProjectDisplay slot found for facet ${facetKey}`);
+        return null;
       }
 
-      return registeredSlot;
+      const { mesh, materialIndex, baseMaterial, bounds } = candidate;
+
+      const canvas = getOrCreateCanvas(image, bounds.aspect || 1);
+      if (!canvas) {
+        console.warn(`❌ Unable to prepare overlay canvas for facet ${facetKey}`);
+        return null;
+      }
+
+      let overlayTexture = existingSlot?.overlayTexture || null;
+      let overlayMaterial = existingSlot?.overlayMaterial || null;
+      const previousOpacity = existingSlot?.currentOpacity ?? 0;
+      const previousTarget = existingSlot?.targetOpacity ?? 0;
+      const wasActive = existingSlot?.isActive ?? false;
+
+      const baseMaterialChanged = baseMaterial !== existingSlot?.originalMaterial;
+      const boundsChanged = existingSlot && existingSlot.bounds
+        ? Math.abs(existingSlot.bounds.minU - bounds.minU) > EPSILON ||
+          Math.abs(existingSlot.bounds.minV - bounds.minV) > EPSILON ||
+          Math.abs(existingSlot.bounds.maxU - bounds.maxU) > EPSILON ||
+          Math.abs(existingSlot.bounds.maxV - bounds.maxV) > EPSILON
+        : false;
+
+      if (!overlayTexture || baseMaterialChanged || boundsChanged) {
+        if (overlayTexture) {
+          overlayTexture.dispose();
+        }
+        overlayTexture = new THREE.CanvasTexture(canvas);
+      }
+
+      configureOverlayTexture(overlayTexture, bounds, baseMaterial);
+
+      if (!overlayMaterial || baseMaterialChanged || boundsChanged) {
+        if (overlayMaterial) {
+          if (wasActive) {
+            ensureMaterialAssignment(mesh, materialIndex, baseMaterial);
+          }
+          overlayMaterial.dispose();
+        }
+
+        overlayMaterial = baseMaterial.clone();
+        overlayMaterial.transparent = true;
+        overlayMaterial.depthWrite = false;
+        overlayMaterial.color.set(0xffffff);
+        overlayMaterial.emissive.set(0x000000);
+        overlayMaterial.emissiveIntensity = 0;
+        overlayMaterial.metalness = 0;
+        overlayMaterial.roughness = 1;
+        overlayMaterial.metalnessMap = null;
+        overlayMaterial.roughnessMap = null;
+        overlayMaterial.normalMap = null;
+        overlayMaterial.aoMap = null;
+        overlayMaterial.emissiveMap = null;
+      }
+
+      overlayMaterial.map = overlayTexture;
+      overlayMaterial.opacity = wasActive ? previousOpacity : 0;
+      overlayMaterial.needsUpdate = true;
+
+      if (overlayMaterial.alphaMap == null && overlayTexture) {
+        overlayMaterial.alphaMap = overlayTexture;
+        overlayMaterial.alphaMap.needsUpdate = true;
+      }
+
+      const slot = {
+        facetKey,
+        mesh,
+        materialIndex,
+        originalMaterial: baseMaterial,
+        originalOpacity: baseMaterial.opacity ?? 1,
+        originalTransparent: baseMaterial.transparent ?? false,
+        originalMap: baseMaterial.map || null,
+        originalMapTransform:
+          baseMaterial.map
+            ? {
+                offset: baseMaterial.map.offset.clone(),
+                repeat: baseMaterial.map.repeat.clone(),
+                rotation: baseMaterial.map.rotation ?? 0,
+                center: baseMaterial.map.center
+                  ? baseMaterial.map.center.clone()
+                  : new THREE.Vector2(0.5, 0.5),
+              }
+            : null,
+        overlayMaterial,
+        overlayTexture,
+        bounds,
+        targetOpacity: previousTarget,
+        currentOpacity: previousOpacity,
+        isActive: wasActive,
+      };
+
+      overlaySlotsRef.current.set(facetKey, slot);
+
+      if (slot.isActive) {
+        slot.overlayMaterial.opacity = slot.currentOpacity;
+        ensureMaterialAssignment(slot.mesh, slot.materialIndex, slot.overlayMaterial);
+      } else {
+        ensureMaterialAssignment(slot.mesh, slot.materialIndex, slot.originalMaterial);
+      }
+
+      return slot;
     },
     [getOrCreateCanvas, overlayImages]
   );

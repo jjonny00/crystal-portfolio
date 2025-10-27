@@ -628,7 +628,10 @@ const UnifiedCrystalScene = forwardRef(({
     showFacets,
     modelsLoaded,
     registerOverlaySlot,
-    overlaySlots
+    overlaySlots,
+    facetKeys,
+    materialVersion,
+    animationData?.focusedFacet
   ]);
 
   // Debug anchor positions when facets are loaded
