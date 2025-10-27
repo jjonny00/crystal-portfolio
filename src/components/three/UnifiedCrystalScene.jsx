@@ -19,6 +19,8 @@ import projects from '../../data/projects'
 import { effects } from '../../crystalConfig'
 import { useFacetOverlayGeometry } from '../../hooks/useFacetOverlayGeometry'
 
+const PROJECT_DISPLAY_SLOT = 'ProjectDisplay'
+
 const UnifiedCrystalScene = forwardRef(({ 
   animationData,
   config,
@@ -461,6 +463,11 @@ const UnifiedCrystalScene = forwardRef(({
           ? child.material
           : [child.material];
 
+        const projectDisplayIndex = existingMaterials.findIndex((mat) => {
+          const slotName = mat?.name || mat?.userData?.slotId || null;
+          return slotName === PROJECT_DISPLAY_SLOT;
+        });
+
         if (!child.userData.__originalMaterialInfo) {
           child.userData.__originalMaterialInfo = {
             isArray: Array.isArray(child.material),
@@ -469,7 +476,13 @@ const UnifiedCrystalScene = forwardRef(({
               name: mat?.name || null,
               slotId: mat?.userData?.slotId || null,
             })),
+            projectDisplayIndex: projectDisplayIndex !== -1 ? projectDisplayIndex : null,
           };
+        } else if (
+          child.userData.__originalMaterialInfo.projectDisplayIndex == null &&
+          projectDisplayIndex !== -1
+        ) {
+          child.userData.__originalMaterialInfo.projectDisplayIndex = projectDisplayIndex;
         }
 
         if (existingMaterials.length > 1) {

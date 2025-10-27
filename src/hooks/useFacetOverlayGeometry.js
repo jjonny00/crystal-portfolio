@@ -280,6 +280,18 @@ export const useFacetOverlayGeometry = (facetKeys) => {
           .filter((slot) => (slot.name || slot.slotId) === PROJECT_DISPLAY_SLOT)
           .map((slot) => slot.index);
 
+        const storedProjectDisplayIndex =
+          typeof originalInfo?.projectDisplayIndex === 'number'
+            ? originalInfo.projectDisplayIndex
+            : null;
+
+        if (
+          preferredIndices.length === 0 &&
+          storedProjectDisplayIndex !== null
+        ) {
+          preferredIndices.push(storedProjectDisplayIndex);
+        }
+
         const indicesToCheck = preferredIndices.length
           ? preferredIndices
           : materials.map((_, index) => index);
@@ -295,7 +307,10 @@ export const useFacetOverlayGeometry = (facetKeys) => {
           const fallbackName = rawMaterial?.name || rawMaterial?.userData?.slotId;
           const slotName = slotMeta?.name || slotMeta?.slotId || fallbackName;
 
-          if (slotName !== PROJECT_DISPLAY_SLOT) {
+          const nameMatches = slotName === PROJECT_DISPLAY_SLOT;
+          const indexMatchesStored = storedProjectDisplayIndex === index;
+
+          if (!nameMatches && !indexMatchesStored) {
             return false;
           }
 
