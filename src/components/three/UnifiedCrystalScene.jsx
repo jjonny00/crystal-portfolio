@@ -551,13 +551,14 @@ const UnifiedCrystalScene = forwardRef(({
 
         const materials = Array.isArray(child.material) ? child.material : [child.material];
         materials.forEach((mat) => {
-          if (mat?.name === 'ProjectDisplay') {
+          if (mat?.name === 'ProjectDisplay' && mat?.userData?.projectDisplaySlot) {
             ensureProjectDisplayFadeState(facetKey, mat);
             const fadeState = projectDisplayFadeStateRef.current.get(facetKey);
             if (fadeState) {
               fadeStates.set(facetKey, fadeState);
             }
-            slots.set(facetKey, { material: mat, mesh: child });
+            const linkedMaterial = mat.userData?.projectDisplayLinkedMaterial || facetMaterialsRef.current[index] || null;
+            slots.set(facetKey, { material: mat, mesh: child, baseMaterial: linkedMaterial });
           }
         });
       });
@@ -847,19 +848,40 @@ const UnifiedCrystalScene = forwardRef(({
       crystalMaterialRef.current.color
     );
 
-    const shouldPreserveMaterial = (material) => material?.name === 'ProjectDisplay';
-
     // Apply material to whole crystal
-    const applyMaterial = (modelScene, material) => {
+    const applyMaterial = (modelScene, material, facetKey = null) => {
       if (!modelScene) return;
+
+      const createProjectDisplayMaterial = (sourceMaterial) => {
+        const projectDisplayMaterial = material.clone();
+        projectDisplayMaterial.name = sourceMaterial?.name || 'ProjectDisplay';
+        projectDisplayMaterial.userData = {
+          ...(projectDisplayMaterial.userData || {}),
+          projectDisplaySlot: true,
+          projectDisplayFacetKey: facetKey,
+          projectDisplayLinkedMaterial: material
+        };
+
+        if (facetKey) {
+          ensureProjectDisplayFadeState(facetKey, projectDisplayMaterial);
+        }
+
+        return projectDisplayMaterial;
+      };
+
+      const assignMaterial = (mat) => {
+        if (mat?.name === 'ProjectDisplay') {
+          return createProjectDisplayMaterial(mat);
+        }
+        return material;
+      };
+
       modelScene.traverse((child) => {
         if (child.isMesh && !child.userData?.isOverlay) {
           if (Array.isArray(child.material)) {
-            child.material = child.material.map((mat) =>
-              shouldPreserveMaterial(mat) ? mat : material
-            );
-          } else if (!shouldPreserveMaterial(child.material)) {
-            child.material = material;
+            child.material = child.material.map(assignMaterial);
+          } else {
+            child.material = assignMaterial(child.material);
           }
 
           child.castShadow = false;
@@ -906,7 +928,7 @@ const UnifiedCrystalScene = forwardRef(({
       };
 
       const model = facetModels[idx];
-      applyMaterial(model.scene, mat);
+      applyMaterial(model.scene, mat, key);
       return mat;
     });
 
@@ -958,7 +980,8 @@ const UnifiedCrystalScene = forwardRef(({
     animationData?.focusedFacet,
     animationData?.crystalConfig?.fracturePause,
     animationData?.crystalConfig?.explodeDuration,
-    config?.effects?.fracture?.initialGlow
+    config?.effects?.fracture?.initialGlow,
+    ensureProjectDisplayFadeState
   ]);
 
   // Debug anchor positions when facets are loaded
@@ -1408,6 +1431,24 @@ const UnifiedCrystalScene = forwardRef(({
     });
 
     projectDisplaySlotsRef.current.forEach((slot, facetKey) => {
+      const baseMaterial =
+        slot?.baseMaterial || slot?.material?.userData?.projectDisplayLinkedMaterial;
+      if (slot?.material && baseMaterial && baseMaterial !== slot.material) {
+        slot.material.color.copy(baseMaterial.color);
+        slot.material.emissive.copy(baseMaterial.emissive);
+        slot.material.emissiveIntensity = baseMaterial.emissiveIntensity;
+        if (typeof baseMaterial.roughness === 'number') {
+          slot.material.roughness = baseMaterial.roughness;
+        }
+        if (typeof baseMaterial.metalness === 'number') {
+          slot.material.metalness = baseMaterial.metalness;
+        }
+        if (typeof baseMaterial.opacity === 'number') {
+          slot.material.opacity = baseMaterial.opacity;
+          slot.material.transparent = baseMaterial.transparent;
+        }
+      }
+
       const fadeState = projectDisplayFadeStateRef.current.get(facetKey);
       const uniforms = slot?.material?.userData?.projectDisplayUniforms;
       if (!slot?.material || !fadeState || !uniforms) {
