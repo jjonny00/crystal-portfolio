@@ -557,9 +557,9 @@ const UnifiedCrystalScene = forwardRef(({
     facetRefs.current.forEach((facetRef, index) => {
       const facetKey = facetKeys[index];
       if (facetRef?.current) {
-        const overlayMesh = createOverlayMesh(facetRef, facetKey);
-        if (overlayMesh) {
-          console.log(`📄 Created overlay mesh for ${facetKey}`);
+        const material = createOverlayMesh(facetRef, facetKey);
+        if (material) {
+          console.log(`🖼️ Applied project display for ${facetKey}`);
         }
       }
     });
@@ -570,9 +570,11 @@ const UnifiedCrystalScene = forwardRef(({
     }
 
     return () => {
-      overlayMeshes.forEach((mesh) => {
-        if (mesh.parent) {
-          mesh.parent.remove(mesh);
+      overlayMeshes.forEach((entry) => {
+        if (entry.material) {
+          entry.material.map = null;
+          entry.material.opacity = 0;
+          entry.material.needsUpdate = true;
         }
       });
       overlayMeshes.clear();
