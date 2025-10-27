@@ -21,7 +21,7 @@ import { effects } from '../../crystalConfig'
 const MAX_PROJECT_DISPLAY_TEXTURE_SIZE = 1024
 
 const DEFAULT_PROJECT_DISPLAY_TEXTURE = (() => {
-  const data = new Uint8Array([0, 0, 0, 0]);
+  const data = new Uint8Array([255, 255, 255, 255]);
   const texture = new THREE.DataTexture(data, 1, 1, THREE.RGBAFormat);
   texture.needsUpdate = true;
   texture.colorSpace = THREE.SRGBColorSpace;
@@ -191,10 +191,9 @@ const UnifiedCrystalScene = forwardRef(({
           `#ifdef USE_UV\n` +
           `    vec2 projectDisplayUv = vUv * projectDisplayOverlayRepeat + projectDisplayOverlayOffset;\n` +
           `    vec4 projectDisplaySample = texture2D(projectDisplayOverlayMap, projectDisplayUv);\n` +
-          `    projectDisplayOverlayColor = mix(projectDisplayFillColor, projectDisplaySample.rgb, projectDisplaySample.a);\n` +
+          `    projectDisplayOverlayColor = mix(projectDisplayFillColor, projectDisplaySample.rgb, projectDisplayFadeAmount);\n` +
           `#endif\n` +
-          `  vec3 projectDisplayComposite = mix(projectDisplayFillColor, projectDisplayOverlayColor, projectDisplayFadeAmount);\n` +
-          `  diffuseColor.rgb = mix(projectDisplayBaseColor, projectDisplayComposite, projectDisplayVisibility);\n` +
+          `  diffuseColor.rgb = mix(projectDisplayBaseColor, projectDisplayOverlayColor, projectDisplayVisibility);\n` +
           `#include <dithering_fragment>`
       );
     };
@@ -1502,6 +1501,12 @@ const UnifiedCrystalScene = forwardRef(({
       const uniforms = slot?.material?.userData?.projectDisplayUniforms;
       if (!slot?.material || !fadeState || !uniforms) {
         return;
+      }
+
+      const isFocused = animationData?.focusedFacet === facetKey;
+      const desiredTarget = isFocused ? 1 : 0;
+      if (fadeState.targetOpacity !== desiredTarget) {
+        fadeState.targetOpacity = desiredTarget;
       }
 
       const { targetOpacity = 0, currentOpacity = 0 } = fadeState;
