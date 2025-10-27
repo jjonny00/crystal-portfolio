@@ -20,6 +20,15 @@ import { effects } from '../../crystalConfig'
 
 const MAX_PROJECT_DISPLAY_TEXTURE_SIZE = 1024
 
+const DEFAULT_PROJECT_DISPLAY_TEXTURE = (() => {
+  const data = new Uint8Array([0, 0, 0, 0]);
+  const texture = new THREE.DataTexture(data, 1, 1, THREE.RGBAFormat);
+  texture.needsUpdate = true;
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.name = 'ProjectDisplay::DefaultPlaceholder';
+  return texture;
+})();
+
 const UnifiedCrystalScene = forwardRef(({ 
   animationData,
   config,
@@ -135,8 +144,13 @@ const UnifiedCrystalScene = forwardRef(({
       projectDisplayOverlayOpacity: { value: 0 },
       projectDisplayOverlayOffset: { value: new THREE.Vector2(0, 0) },
       projectDisplayOverlayRepeat: { value: new THREE.Vector2(1, 1) },
-      projectDisplayOverlayEnabled: { value: 0 }
+      projectDisplayOverlayEnabled: { value: 0 },
+      projectDisplayOverlayFillColor: { value: new THREE.Color(0x000000) }
     };
+
+    if (!uniforms.projectDisplayOverlayMap.value) {
+      uniforms.projectDisplayOverlayMap.value = DEFAULT_PROJECT_DISPLAY_TEXTURE;
+    }
 
     const defines = material.defines ? { ...material.defines } : {};
     if (defines.USE_UV !== 1 && defines.USE_UV !== '') {
@@ -160,15 +174,20 @@ const UnifiedCrystalScene = forwardRef(({
       shader.uniforms.projectDisplayOverlayOffset = uniforms.projectDisplayOverlayOffset;
       shader.uniforms.projectDisplayOverlayRepeat = uniforms.projectDisplayOverlayRepeat;
       shader.uniforms.projectDisplayOverlayEnabled = uniforms.projectDisplayOverlayEnabled;
+      shader.uniforms.projectDisplayOverlayFillColor = uniforms.projectDisplayOverlayFillColor;
 
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <map_fragment>',
         `#include <map_fragment>\n` +
+          `  vec3 projectDisplayBaseColor = diffuseColor.rgb;\n` +
+          `  vec3 projectDisplayFillColor = mix(projectDisplayBaseColor, projectDisplayOverlayFillColor, projectDisplayOverlayEnabled);\n` +
+          `  diffuseColor.rgb = projectDisplayFillColor;\n` +
           `#ifdef USE_UV\n` +
-          `  if (projectDisplayOverlayEnabled > 0.5) {\n` +
+          `  if (projectDisplayOverlayEnabled > 0.0) {\n` +
           `    vec2 projectDisplayUv = vUv * projectDisplayOverlayRepeat + projectDisplayOverlayOffset;\n` +
           `    vec4 projectDisplayColor = texture2D(projectDisplayOverlayMap, projectDisplayUv);\n` +
-          `    diffuseColor.rgb = mix(diffuseColor.rgb, projectDisplayColor.rgb, projectDisplayColor.a * projectDisplayOverlayOpacity);\n` +
+          `    float projectDisplayOverlayMix = projectDisplayColor.a * projectDisplayOverlayOpacity;\n` +
+          `    diffuseColor.rgb = mix(projectDisplayFillColor, projectDisplayColor.rgb, projectDisplayOverlayMix);\n` +
           `  }\n` +
           `#endif\n`
       );
@@ -200,6 +219,14 @@ const UnifiedCrystalScene = forwardRef(({
       const uniforms = ensureProjectDisplayShaderPatch(material);
       if (uniforms) {
         uniforms.projectDisplayOverlayOpacity.value = fadeState.currentOpacity;
+        const facetIndex = facetKeys.indexOf(facetKey);
+        if (facetIndex >= 0) {
+          const projectColor = projectColors[facetIndex];
+          if (projectColor) {
+            uniforms.projectDisplayOverlayFillColor.value.copy(projectColor);
+          }
+        }
+        uniforms.projectDisplayOverlayEnabled.value = 1;
       }
 
       material.userData = {
@@ -211,7 +238,7 @@ const UnifiedCrystalScene = forwardRef(({
     }
 
     return fadeState;
-  }, [ensureProjectDisplayShaderPatch]);
+  }, [ensureProjectDisplayShaderPatch, facetKeys, projectColors]);
 
   const setProjectDisplayVisibility = useCallback((facetKey, visible) => {
     const slot = projectDisplaySlotsRef.current.get(facetKey);
@@ -620,7 +647,14 @@ const UnifiedCrystalScene = forwardRef(({
         uniforms.projectDisplayOverlayOffset.value.set(offsetX, offsetY);
         const initialOpacity = fadeState?.currentOpacity ?? 0;
         uniforms.projectDisplayOverlayOpacity.value = initialOpacity;
-        uniforms.projectDisplayOverlayEnabled.value = initialOpacity > 0.001 ? 1 : 0;
+        uniforms.projectDisplayOverlayEnabled.value = 1;
+        const facetIndex = facetKeys.indexOf(facetKey);
+        if (facetIndex >= 0) {
+          const projectColor = projectColors[facetIndex];
+          if (projectColor) {
+            uniforms.projectDisplayOverlayFillColor.value.copy(projectColor);
+          }
+        }
 
         const existingUserData = slot.material.userData || {};
         slot.material.userData = {
@@ -1434,7 +1468,6 @@ const UnifiedCrystalScene = forwardRef(({
       const baseMaterial =
         slot?.baseMaterial || slot?.material?.userData?.projectDisplayLinkedMaterial;
       if (slot?.material && baseMaterial && baseMaterial !== slot.material) {
-        slot.material.color.copy(baseMaterial.color);
         slot.material.emissive.copy(baseMaterial.emissive);
         slot.material.emissiveIntensity = baseMaterial.emissiveIntensity;
         if (typeof baseMaterial.roughness === 'number') {
@@ -1471,8 +1504,7 @@ const UnifiedCrystalScene = forwardRef(({
         uniforms.projectDisplayOverlayOpacity.value = updated;
       }
 
-      const hasTexture = !!uniforms.projectDisplayOverlayMap.value;
-      uniforms.projectDisplayOverlayEnabled.value = updated > 0.001 && hasTexture ? 1 : 0;
+      uniforms.projectDisplayOverlayEnabled.value = 1;
     });
   });
 
