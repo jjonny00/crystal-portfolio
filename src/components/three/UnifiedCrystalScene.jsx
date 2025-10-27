@@ -17,7 +17,6 @@ import { getProjectColorByFacetKey, getOverlayImageByFacetKey } from '../../data
 import FacetLabels from './FacetLabels'
 import projects from '../../data/projects'
 import { effects } from '../../crystalConfig'
-import { useFacetOverlayGeometry } from '../../hooks/useFacetOverlayGeometry'
 
 const MAX_PROJECT_DISPLAY_TEXTURE_SIZE = 1024
 
@@ -115,19 +114,49 @@ const UnifiedCrystalScene = forwardRef(({
     setMaterialVersion(v => v + 1);
   }, []);
 
-  const {
-    isReady: overlaysReady,
-    createOverlayMesh,
-    setOverlayVisibility,
-    updateOverlays,
-    cleanup: cleanupOverlays,
-    overlayMeshes
-  } = useFacetOverlayGeometry(facetKeys);
-
   const projectDisplaySlotsRef = useRef(new Map());
+  const projectDisplayFadeStateRef = useRef(new Map());
   const projectDisplayTextureCacheRef = useRef(new Map());
   const projectDisplayProcessedTextureCacheRef = useRef(new Map());
   const textureLoaderRef = useRef(null);
+
+  const ensureProjectDisplayFadeState = useCallback((facetKey, material) => {
+    let fadeState = projectDisplayFadeStateRef.current.get(facetKey);
+
+    if (!fadeState) {
+      fadeState = {
+        currentOpacity: 0,
+        targetOpacity: 0
+      };
+      projectDisplayFadeStateRef.current.set(facetKey, fadeState);
+    }
+
+    if (material) {
+      material.transparent = true;
+      material.opacity = fadeState.currentOpacity;
+      material.needsUpdate = true;
+      material.userData = {
+        ...(material.userData || {}),
+        projectDisplayFadeState: fadeState
+      };
+    }
+
+    return fadeState;
+  }, []);
+
+  const setProjectDisplayVisibility = useCallback((facetKey, visible) => {
+    const slot = projectDisplaySlotsRef.current.get(facetKey);
+    if (!slot?.material) {
+      return;
+    }
+
+    const fadeState = ensureProjectDisplayFadeState(facetKey, slot.material);
+    if (!fadeState) {
+      return;
+    }
+
+    fadeState.targetOpacity = visible ? 1 : 0;
+  }, [ensureProjectDisplayFadeState]);
 
   const getTextureLoader = useCallback(() => {
     if (!textureLoaderRef.current) {
@@ -442,6 +471,7 @@ const UnifiedCrystalScene = forwardRef(({
     if (!modelsLoaded) return;
 
     const slots = new Map();
+    const fadeStates = new Map();
 
     facetKeys.forEach((facetKey, index) => {
       const model = facetModels[index];
@@ -453,16 +483,20 @@ const UnifiedCrystalScene = forwardRef(({
         const materials = Array.isArray(child.material) ? child.material : [child.material];
         materials.forEach((mat) => {
           if (mat?.name === 'ProjectDisplay') {
+            ensureProjectDisplayFadeState(facetKey, mat);
+            const fadeState = projectDisplayFadeStateRef.current.get(facetKey);
+            if (fadeState) {
+              fadeStates.set(facetKey, fadeState);
+            }
             slots.set(facetKey, { material: mat, mesh: child });
           }
         });
       });
     });
 
-    if (slots.size > 0) {
-      projectDisplaySlotsRef.current = slots;
-    }
-  }, [modelsLoaded, facetKeys, facetModels, materialVersion]);
+    projectDisplaySlotsRef.current = slots;
+    projectDisplayFadeStateRef.current = fadeStates;
+  }, [modelsLoaded, facetKeys, facetModels, materialVersion, ensureProjectDisplayFadeState]);
 
   useEffect(() => {
     if (!modelsLoaded || projectDisplaySlotsRef.current.size === 0) return;
@@ -510,7 +544,10 @@ const UnifiedCrystalScene = forwardRef(({
         if (slot.material.color?.set) {
           slot.material.color.set('#ffffff');
         }
-        slot.material.transparent = true;
+        const fadeState = ensureProjectDisplayFadeState(facetKey, slot.material);
+        if (fadeState) {
+          slot.material.opacity = fadeState.currentOpacity;
+        }
         slot.material.needsUpdate = true;
         slot.material.userData = {
           ...(slot.material.userData || {}),
@@ -555,6 +592,7 @@ const UnifiedCrystalScene = forwardRef(({
     computeProjectDisplayUVInfo,
     getProjectDisplayCacheKey,
     createProjectDisplayTexture,
+    ensureProjectDisplayFadeState,
     getTextureLoader,
     materialVersion
   ]);
@@ -847,39 +885,6 @@ const UnifiedCrystalScene = forwardRef(({
     config?.effects?.fracture?.initialGlow
   ]);
 
-  useEffect(() => {
-    if (!overlaysReady || !showFacets || !modelsLoaded) return;
-
-    facetRefs.current.forEach((facetRef, index) => {
-      const facetKey = facetKeys[index];
-      if (facetRef?.current) {
-        const overlayMesh = createOverlayMesh(facetRef, facetKey);
-        if (overlayMesh) {
-          console.log(`📄 Created overlay mesh for ${facetKey}`);
-        }
-      }
-    });
-
-    const currentFocus = animationData?.focusedFacet;
-    if (currentFocus) {
-      setOverlayVisibility(currentFocus, true);
-    }
-
-    return () => {
-      overlayMeshes.forEach((mesh) => {
-        if (mesh.parent) {
-          mesh.parent.remove(mesh);
-        }
-      });
-      overlayMeshes.clear();
-    };
-  }, [
-    overlaysReady,
-    showFacets,
-    modelsLoaded,
-    createOverlayMesh
-  ]);
-
   // Debug anchor positions when facets are loaded
   useEffect(() => {
     if (import.meta.env.DEV && showCrystalDebug && facetRefs.current.length > 0) {
@@ -1008,12 +1013,10 @@ const UnifiedCrystalScene = forwardRef(({
       activeFacetRef.current = currentFacet;
     }, 50);
 
-    if (overlaysReady) {
-      facetKeys.forEach(key => setOverlayVisibility(key, false));
-      if (currentFacet) {
-        setOverlayVisibility(currentFacet, true);
-        console.log(`📄 Showing overlay for ${currentFacet}`);
-      }
+    if (projectDisplaySlotsRef.current.size > 0) {
+      facetKeys.forEach((key) => {
+        setProjectDisplayVisibility(key, currentFacet === key);
+      });
     }
 
     return () => clearTimeout(focusUpdateTimeoutRef.current);
@@ -1022,8 +1025,8 @@ const UnifiedCrystalScene = forwardRef(({
     materialVersion,
     facetKeys,
     projectColors,
-    overlaysReady,
-    setOverlayVisibility
+    setProjectDisplayVisibility,
+    modelsLoaded
   ]);
   
   // Crystal form change detection
@@ -1328,16 +1331,28 @@ const UnifiedCrystalScene = forwardRef(({
       }
     });
 
-    if (overlaysReady) {
-      updateOverlays(deltaTime);
-    }
-  });
+    projectDisplaySlotsRef.current.forEach((slot, facetKey) => {
+      const fadeState = projectDisplayFadeStateRef.current.get(facetKey);
+      if (!slot?.material || !fadeState) {
+        return;
+      }
 
-  useEffect(() => {
-    return () => {
-      cleanupOverlays();
-    };
-  }, [cleanupOverlays]);
+      const { targetOpacity = 0, currentOpacity = 0 } = fadeState;
+      if (Math.abs(targetOpacity - currentOpacity) > 0.01) {
+        const speed = 3.0;
+        const newOpacity = THREE.MathUtils.lerp(currentOpacity, targetOpacity, deltaTime * speed);
+        fadeState.currentOpacity = newOpacity;
+        slot.material.opacity = newOpacity;
+        slot.material.transparent = true;
+        slot.material.needsUpdate = true;
+      } else if (currentOpacity !== targetOpacity) {
+        fadeState.currentOpacity = targetOpacity;
+        slot.material.opacity = targetOpacity;
+        slot.material.transparent = true;
+        slot.material.needsUpdate = true;
+      }
+    });
+  });
 
   return (
     <group ref={crystalGroupRef}>
