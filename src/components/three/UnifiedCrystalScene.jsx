@@ -450,14 +450,36 @@ const UnifiedCrystalScene = forwardRef(({
     const applyMaterial = (modelScene, material) => {
       if (!modelScene) return;
       modelScene.traverse((child) => {
-        if (child.isMesh && !child.userData?.isOverlay) {
-          child.material = material;
-          child.castShadow = false;
-          child.receiveShadow = false;
+        if (!child.isMesh || child.userData?.isOverlay) {
+          return;
+        }
 
-          if (import.meta.env.DEV) {
-            console.log(`💡 Disabled shadows for crystal mesh: ${child.name}`);
-          }
+        const existingMaterials = Array.isArray(child.material)
+          ? child.material
+          : [child.material];
+
+        if (!child.userData.__originalMaterialInfo) {
+          child.userData.__originalMaterialInfo = {
+            isArray: Array.isArray(child.material),
+            slots: existingMaterials.map((mat, index) => ({
+              index,
+              name: mat?.name || null,
+              slotId: mat?.userData?.slotId || null,
+            })),
+          };
+        }
+
+        if (existingMaterials.length > 1) {
+          child.material = existingMaterials.map(() => material);
+        } else {
+          child.material = material;
+        }
+
+        child.castShadow = false;
+        child.receiveShadow = false;
+
+        if (import.meta.env.DEV) {
+          console.log(`💡 Disabled shadows for crystal mesh: ${child.name}`);
         }
       });
     };

@@ -270,15 +270,36 @@ export const useFacetOverlayGeometry = (facetKeys) => {
       facetRef.current.traverse((child) => {
         if (registeredSlot || !child.isMesh) return;
 
-        const materials = Array.isArray(child.material) ? child.material : [child.material];
+        const isArrayMaterial = Array.isArray(child.material);
+        const materials = isArrayMaterial ? child.material : [child.material];
+        const originalInfo = child.userData?.__originalMaterialInfo;
+        const originalSlots = originalInfo?.slots || [];
+        const originalSlotCount = originalSlots.length;
+        const materialsCount = materials.length;
 
-        materials.forEach((material, index) => {
-          if (registeredSlot || !material) return;
+        const candidateIndices = originalSlots
+          .filter((slot) => (slot.name || slot.slotId) === PROJECT_DISPLAY_SLOT)
+          .map((slot) => slot.index);
 
-          const slotName = material.name || material.userData?.slotId;
+        const indicesToCheck = candidateIndices.length
+          ? candidateIndices
+          : materials.map((_, index) => index);
+
+        indicesToCheck.forEach((index) => {
+          if (registeredSlot) return;
+
+          if (!isArrayMaterial && index > 0) return;
+
+          const material = isArrayMaterial ? materials[index] : materials[0];
+          if (!material) return;
+
+          const slotMeta = originalSlots.find((slot) => slot.index === index);
+          const fallbackName = material.name || material.userData?.slotId;
+          const slotName = slotMeta?.name || slotMeta?.slotId || fallbackName;
           if (slotName !== PROJECT_DISPLAY_SLOT) return;
 
-          const bounds = computeSlotUVBounds(child.geometry, Array.isArray(child.material) ? index : null);
+          const hasMultipleSlots = (originalSlotCount || materialsCount) > 1;
+          const bounds = computeSlotUVBounds(child.geometry, hasMultipleSlots ? index : null);
           if (!bounds) {
             console.warn(`❌ Unable to compute UV bounds for ProjectDisplay slot on facet ${facetKey}`);
             return;
@@ -317,7 +338,7 @@ export const useFacetOverlayGeometry = (facetKeys) => {
           registeredSlot = {
             facetKey,
             mesh: child,
-            materialIndex: Array.isArray(child.material) ? index : null,
+            materialIndex: isArrayMaterial ? index : null,
             originalMaterial: material,
             originalOpacity: material.opacity ?? 1,
             originalTransparent: material.transparent ?? false,
