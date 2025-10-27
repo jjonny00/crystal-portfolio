@@ -392,16 +392,13 @@ export const useFacetOverlayGeometry = (facetKeys) => {
         overlayMaterial.normalMap = null;
         overlayMaterial.aoMap = null;
         overlayMaterial.emissiveMap = null;
+        overlayMaterial.alphaMap = null;
       }
 
       overlayMaterial.map = overlayTexture;
+      overlayMaterial.alphaMap = null;
       overlayMaterial.opacity = wasActive ? previousOpacity : 0;
       overlayMaterial.needsUpdate = true;
-
-      if (overlayMaterial.alphaMap == null && overlayTexture) {
-        overlayMaterial.alphaMap = overlayTexture;
-        overlayMaterial.alphaMap.needsUpdate = true;
-      }
 
       const slot = {
         facetKey,
