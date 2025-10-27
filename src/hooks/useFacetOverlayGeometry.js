@@ -379,23 +379,20 @@ export const useFacetOverlayGeometry = (facetKeys) => {
           overlayMaterial.dispose();
         }
 
-        overlayMaterial = baseMaterial.clone();
-        overlayMaterial.transparent = true;
+        overlayMaterial = new THREE.MeshBasicMaterial({
+          transparent: true,
+          opacity: wasActive ? previousOpacity : 0,
+          map: overlayTexture,
+        });
+
         overlayMaterial.depthWrite = false;
-        overlayMaterial.color.set(0xffffff);
-        overlayMaterial.emissive.set(0x000000);
-        overlayMaterial.emissiveIntensity = 0;
-        overlayMaterial.metalness = 0;
-        overlayMaterial.roughness = 1;
-        overlayMaterial.metalnessMap = null;
-        overlayMaterial.roughnessMap = null;
-        overlayMaterial.normalMap = null;
-        overlayMaterial.aoMap = null;
-        overlayMaterial.emissiveMap = null;
-        overlayMaterial.alphaMap = null;
+        overlayMaterial.depthTest = true;
+        overlayMaterial.toneMapped = false;
+        overlayMaterial.side = baseMaterial.side ?? THREE.FrontSide;
+      } else {
+        overlayMaterial.map = overlayTexture;
       }
 
-      overlayMaterial.map = overlayTexture;
       overlayMaterial.alphaMap = null;
       overlayMaterial.opacity = wasActive ? previousOpacity : 0;
       overlayMaterial.needsUpdate = true;
