@@ -184,16 +184,13 @@ const UnifiedCrystalScene = forwardRef(({
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <map_fragment>',
         `#include <map_fragment>\n` +
-          `  vec3 projectDisplayBaseColor = diffuseColor.rgb;\n` +
-          `  vec3 projectDisplayFillColor = mix(projectDisplayBaseColor, projectDisplayOverlayFillColor, projectDisplayOverlayEnabled);\n` +
+          `  vec3 projectDisplayFillColor = projectDisplayOverlayFillColor;\n` +
           `  diffuseColor.rgb = projectDisplayFillColor;\n` +
           `#ifdef USE_UV\n` +
-          `  if (projectDisplayOverlayEnabled > 0.0) {\n` +
           `    vec2 projectDisplayUv = vUv * projectDisplayOverlayRepeat + projectDisplayOverlayOffset;\n` +
           `    vec4 projectDisplayColor = texture2D(projectDisplayOverlayMap, projectDisplayUv);\n` +
-          `    float projectDisplayOverlayMix = projectDisplayColor.a * projectDisplayOverlayOpacity;\n` +
+          `    float projectDisplayOverlayMix = projectDisplayColor.a * projectDisplayOverlayOpacity * projectDisplayOverlayEnabled;\n` +
           `    diffuseColor.rgb = mix(projectDisplayFillColor, projectDisplayColor.rgb, projectDisplayOverlayMix);\n` +
-          `  }\n` +
           `#endif\n`
       );
     };
