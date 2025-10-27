@@ -166,7 +166,8 @@ const UnifiedCrystalScene = forwardRef(({
           'uniform float projectDisplayOverlayOpacity;\n' +
           'uniform vec2 projectDisplayOverlayOffset;\n' +
           'uniform vec2 projectDisplayOverlayRepeat;\n' +
-          'uniform float projectDisplayOverlayEnabled;\n'
+          'uniform float projectDisplayOverlayEnabled;\n' +
+          'uniform vec3 projectDisplayOverlayFillColor;\n'
       );
 
       shader.uniforms.projectDisplayOverlayMap = uniforms.projectDisplayOverlayMap;
