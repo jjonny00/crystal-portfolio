@@ -66,7 +66,10 @@ const UnifiedCrystalScene = forwardRef(({
   const focusUpdateTimeoutRef = useRef();
 
   // Facet configuration
-  const facetKeys = ['empathy', 'narrative', 'craft', 'system', 'leadership', 'exploration'];
+  const facetKeys = useMemo(
+    () => ['empathy', 'narrative', 'craft', 'system', 'leadership', 'exploration'],
+    []
+  );
 
   // Individual facet materials and colors
   const facetMaterialsRef = useRef([]);
