@@ -190,7 +190,7 @@ const UnifiedCrystalScene = forwardRef(({
     texture.wrapS = THREE.ClampToEdgeWrapping;
     texture.wrapT = THREE.ClampToEdgeWrapping;
     texture.center.set(0.5, 0.5);
-    texture.rotation = -Math.PI / 2;
+    texture.rotation = Math.PI / 2;
     texture.repeat.set(repeatX, repeatY);
     texture.offset.set(offsetX, offsetY);
     texture.flipY = false;
