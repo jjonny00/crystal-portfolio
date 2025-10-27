@@ -124,6 +124,7 @@ const UnifiedCrystalScene = forwardRef(({
   }, []);
 
   const projectDisplaySlotsRef = useRef(new Map());
+  const [projectDisplaySlotsVersion, setProjectDisplaySlotsVersion] = useState(0);
   const projectDisplayFadeStateRef = useRef(new Map());
   const projectDisplayTextureCacheRef = useRef(new Map());
   const projectDisplayProcessedTextureCacheRef = useRef(new Map());
@@ -713,7 +714,8 @@ const UnifiedCrystalScene = forwardRef(({
     ensureProjectDisplayFadeState,
     ensureProjectDisplayShaderPatch,
     getTextureLoader,
-    materialVersion
+    materialVersion,
+    projectDisplaySlotsVersion
   ]);
 
   // Compute anchor world position using matrix transforms
@@ -1057,7 +1059,15 @@ const UnifiedCrystalScene = forwardRef(({
 
     projectDisplaySlotsRef.current = slots;
     projectDisplayFadeStateRef.current = fadeStates;
-  }, [modelsLoaded, facetKeys, facetModels, materialVersion, ensureProjectDisplayFadeState]);
+
+    setProjectDisplaySlotsVersion((version) => version + 1);
+  }, [
+    modelsLoaded,
+    facetKeys,
+    facetModels,
+    materialVersion,
+    ensureProjectDisplayFadeState
+  ]);
 
   // Debug anchor positions when facets are loaded
   useEffect(() => {
