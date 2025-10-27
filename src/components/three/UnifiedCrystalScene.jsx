@@ -65,6 +65,7 @@ const UnifiedCrystalScene = forwardRef(({
   // FIXED: Better tracking of focus changes
   const prevFocusedFacetRef = useRef(null);
   const prevMaterialVersionRef = useRef(materialVersion);
+  const prevOverlaysReadyRef = useRef(false);
   const focusUpdateTimeoutRef = useRef();
 
   // Facet configuration
@@ -707,18 +708,24 @@ const UnifiedCrystalScene = forwardRef(({
       });
     }
 
+    const previousFacet = prevFocusedFacetRef.current;
+    const overlaysJustBecameReady = overlaysReady && !prevOverlaysReadyRef.current;
+
     if (
-      currentFacet === prevFocusedFacetRef.current &&
+      !overlaysJustBecameReady &&
+      currentFacet === previousFacet &&
       materialVersion === prevMaterialVersionRef.current
     ) {
       if (import.meta.env.DEV) {
         console.log('🎨 Skipping focus effect - no change');
       }
+      prevOverlaysReadyRef.current = overlaysReady;
       return;
     }
 
     prevFocusedFacetRef.current = currentFacet;
     prevMaterialVersionRef.current = materialVersion;
+    prevOverlaysReadyRef.current = overlaysReady;
 
     // Wait until materials have been created
     if (!facetMaterialsRef.current.length) {
@@ -775,10 +782,19 @@ const UnifiedCrystalScene = forwardRef(({
     }, 50);
 
     if (overlaysReady) {
-      facetKeys.forEach(key => setOverlayVisibility(key, false));
-      if (currentFacet) {
+      const focusChanged = currentFacet !== previousFacet;
+
+      if (focusChanged) {
+        facetKeys.forEach((key) => {
+          const shouldShow = currentFacet != null && key === currentFacet;
+          setOverlayVisibility(key, shouldShow);
+        });
+
+        if (currentFacet) {
+          console.log(`📄 Showing overlay for ${currentFacet}`);
+        }
+      } else if (currentFacet) {
         setOverlayVisibility(currentFacet, true);
-        console.log(`📄 Showing overlay for ${currentFacet}`);
       }
     }
 
