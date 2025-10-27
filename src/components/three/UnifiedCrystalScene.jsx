@@ -138,6 +138,12 @@ const UnifiedCrystalScene = forwardRef(({
       projectDisplayOverlayEnabled: { value: 0 }
     };
 
+    const defines = material.defines ? { ...material.defines } : {};
+    if (defines.USE_UV !== 1 && defines.USE_UV !== '') {
+      defines.USE_UV = 1;
+      material.defines = defines;
+    }
+
     material.onBeforeCompile = (shader) => {
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <common>',
