@@ -184,13 +184,17 @@ const UnifiedCrystalScene = forwardRef(({
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <map_fragment>',
         `#include <map_fragment>\n` +
+          `  vec3 projectDisplayBaseColor = diffuseColor.rgb;\n` +
           `  vec3 projectDisplayFillColor = projectDisplayOverlayFillColor;\n` +
-          `  diffuseColor.rgb = projectDisplayFillColor;\n` +
           `#ifdef USE_UV\n` +
           `    vec2 projectDisplayUv = vUv * projectDisplayOverlayRepeat + projectDisplayOverlayOffset;\n` +
-          `    vec4 projectDisplayColor = texture2D(projectDisplayOverlayMap, projectDisplayUv);\n` +
-          `    float projectDisplayOverlayMix = projectDisplayColor.a * projectDisplayOverlayOpacity * projectDisplayOverlayEnabled;\n` +
-          `    diffuseColor.rgb = mix(projectDisplayFillColor, projectDisplayColor.rgb, projectDisplayOverlayMix);\n` +
+          `    vec4 projectDisplaySample = texture2D(projectDisplayOverlayMap, projectDisplayUv);\n` +
+          `    float projectDisplayFadeAmount = projectDisplayOverlayOpacity * projectDisplayOverlayEnabled;\n` +
+          `    vec3 projectDisplayLayer = mix(projectDisplayFillColor, projectDisplaySample.rgb, projectDisplaySample.a);\n` +
+          `    vec3 projectDisplayResult = mix(projectDisplayFillColor, projectDisplayLayer, projectDisplayFadeAmount);\n` +
+          `    diffuseColor.rgb = mix(projectDisplayBaseColor, projectDisplayResult, projectDisplayOverlayEnabled);\n` +
+          `#else\n` +
+          `    diffuseColor.rgb = mix(projectDisplayBaseColor, projectDisplayFillColor, projectDisplayOverlayEnabled);\n` +
           `#endif\n`
       );
     };
@@ -657,6 +661,8 @@ const UnifiedCrystalScene = forwardRef(({
             uniforms.projectDisplayOverlayFillColor.value.copy(projectColor);
           }
         }
+
+        slot.material.needsUpdate = true;
 
         const existingUserData = slot.material.userData || {};
         slot.material.userData = {
