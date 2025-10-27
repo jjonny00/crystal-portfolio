@@ -31,16 +31,23 @@ const applyCoverTransform = (texture, mesh) => {
   const displayWidth = dimensions[0];
   const displayHeight = dimensions[1] ?? dimensions[0];
 
+  if (displayWidth <= 0 || displayHeight <= 0) return;
+
   const { width: imageWidth = 1, height: imageHeight = 1 } = texture.image;
 
   if (imageWidth <= 0 || imageHeight <= 0) return;
 
-  const scale = Math.max(displayWidth / imageWidth, displayHeight / imageHeight);
-  const scaledWidth = imageWidth * scale;
-  const scaledHeight = imageHeight * scale;
+  const displayAspect = displayWidth / displayHeight;
+  const imageAspect = imageWidth / imageHeight;
 
-  const repeatX = displayWidth / scaledWidth;
-  const repeatY = displayHeight / scaledHeight;
+  let repeatX = 1;
+  let repeatY = 1;
+
+  if (displayAspect > imageAspect) {
+    repeatX = imageAspect / displayAspect;
+  } else if (displayAspect < imageAspect) {
+    repeatY = displayAspect / imageAspect;
+  }
 
   texture.wrapS = THREE.ClampToEdgeWrapping;
   texture.wrapT = THREE.ClampToEdgeWrapping;
