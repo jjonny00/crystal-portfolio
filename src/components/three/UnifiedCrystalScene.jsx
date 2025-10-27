@@ -115,11 +115,11 @@ const UnifiedCrystalScene = forwardRef(({
 
   const {
     isReady: overlaysReady,
-    createOverlayMesh,
+    registerOverlaySlot,
     setOverlayVisibility,
     updateOverlays,
     cleanup: cleanupOverlays,
-    overlayMeshes
+    overlaySlots
   } = useFacetOverlayGeometry(facetKeys);
 
   useEffect(() => {
@@ -557,9 +557,9 @@ const UnifiedCrystalScene = forwardRef(({
     facetRefs.current.forEach((facetRef, index) => {
       const facetKey = facetKeys[index];
       if (facetRef?.current) {
-        const overlayMesh = createOverlayMesh(facetRef, facetKey);
-        if (overlayMesh) {
-          console.log(`📄 Created overlay mesh for ${facetKey}`);
+        const overlaySlot = registerOverlaySlot(facetRef, facetKey);
+        if (overlaySlot) {
+          console.log(`📄 Registered overlay slot for ${facetKey}`);
         }
       }
     });
@@ -570,18 +570,40 @@ const UnifiedCrystalScene = forwardRef(({
     }
 
     return () => {
-      overlayMeshes.forEach((mesh) => {
-        if (mesh.parent) {
-          mesh.parent.remove(mesh);
+      overlaySlots.forEach((slot) => {
+        if (!slot?.mesh) return;
+
+        if (slot.isActive) {
+          const materials = Array.isArray(slot.mesh.material)
+            ? slot.mesh.material
+            : [slot.mesh.material];
+          const index = slot.materialIndex ?? 0;
+
+          if (materials[index] === slot.overlayMaterial) {
+            if (slot.materialIndex != null) {
+              const updated = materials.slice();
+              updated[index] = slot.originalMaterial;
+              slot.mesh.material = updated;
+            } else {
+              slot.mesh.material = slot.originalMaterial;
+            }
+          }
+        }
+
+        slot.targetOpacity = 0;
+        slot.currentOpacity = 0;
+        slot.isActive = false;
+        if (slot.overlayMaterial) {
+          slot.overlayMaterial.opacity = 0;
         }
       });
-      overlayMeshes.clear();
     };
   }, [
     overlaysReady,
     showFacets,
     modelsLoaded,
-    createOverlayMesh
+    registerOverlaySlot,
+    overlaySlots
   ]);
 
   // Debug anchor positions when facets are loaded

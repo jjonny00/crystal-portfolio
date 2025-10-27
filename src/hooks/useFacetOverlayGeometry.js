@@ -2,10 +2,30 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import * as THREE from 'three';
 import { getOverlayImageByFacetKey } from '../data/projects';
 
+const PROJECT_DISPLAY_SLOT = 'ProjectDisplay';
+
+const ensureMaterialAssignment = (mesh, materialIndex, material) => {
+  if (materialIndex != null) {
+    const current = Array.isArray(mesh.material) ? mesh.material.slice() : [mesh.material];
+    current[materialIndex] = material;
+    mesh.material = current;
+    current.forEach((mat) => {
+      if (mat && typeof mat === 'object') {
+        mat.needsUpdate = true;
+      }
+    });
+  } else {
+    mesh.material = material;
+    if (material) {
+      material.needsUpdate = true;
+    }
+  }
+};
+
 export const useFacetOverlayGeometry = (facetKeys) => {
   const [overlayTextures, setOverlayTextures] = useState(new Map());
   const [isReady, setIsReady] = useState(false);
-  const overlayMeshesRef = useRef(new Map());
+  const overlaySlotsRef = useRef(new Map());
   const texturesLoadedRef = useRef(false);
 
   // Load all overlay images
@@ -47,90 +67,125 @@ export const useFacetOverlayGeometry = (facetKeys) => {
     loadTextures();
   }, [facetKeys]);
 
-  // Create overlay mesh for a facet
-  const createOverlayMesh = useCallback((facetRef, facetKey) => {
+  // Register the ProjectDisplay material slot for a facet
+  const registerOverlaySlot = useCallback((facetRef, facetKey) => {
+    if (!facetRef?.current || overlaySlotsRef.current.has(facetKey)) return null;
+
     const texture = overlayTextures.get(facetKey);
-    if (!texture || !facetRef?.current) return null;
+    if (!texture) return null;
 
-    // Find first mesh inside facet
-    let sourceMesh = null;
+    let registeredSlot = null;
+
     facetRef.current.traverse((child) => {
-      if (!sourceMesh && child.isMesh) {
-        sourceMesh = child;
-      }
+      if (registeredSlot || !child.isMesh) return;
+
+      const materials = Array.isArray(child.material) ? child.material : [child.material];
+
+      materials.forEach((material, index) => {
+        if (registeredSlot || !material) return;
+
+        const slotName = material.name || material.userData?.slotId;
+        if (slotName !== PROJECT_DISPLAY_SLOT) return;
+
+        const overlayMaterial = material.clone();
+        overlayMaterial.map = texture;
+        overlayMaterial.transparent = true;
+        overlayMaterial.opacity = 0;
+        overlayMaterial.depthWrite = false;
+        overlayMaterial.needsUpdate = true;
+
+        registeredSlot = {
+          facetKey,
+          mesh: child,
+          materialIndex: Array.isArray(child.material) ? index : null,
+          originalMaterial: material,
+          originalOpacity: material.opacity ?? 1,
+          originalTransparent: material.transparent ?? false,
+          overlayMaterial,
+          overlayTexture: texture,
+          targetOpacity: 0,
+          currentOpacity: 0,
+          isActive: false,
+        };
+
+        overlaySlotsRef.current.set(facetKey, registeredSlot);
+      });
     });
 
-    if (!sourceMesh) return null;
+    if (!registeredSlot) {
+      console.warn(`❌ No ProjectDisplay slot found for facet ${facetKey}`);
+    }
 
-    // Create overlay material
-    const overlayMaterial = new THREE.MeshBasicMaterial({
-      map: texture,
-      transparent: true,
-      opacity: 0,
-      side: THREE.FrontSide,
-      depthWrite: false,
-      depthTest: true,
-      blending: THREE.NormalBlending,
-      polygonOffset: true,
-      polygonOffsetFactor: -1,
-      polygonOffsetUnits: -1,
-    });
-
-    // Create mesh
-    const overlayMesh = new THREE.Mesh(sourceMesh.geometry.clone(), overlayMaterial);
-
-    // Align with source mesh and attach to facet group
-    overlayMesh.position.copy(sourceMesh.position);
-    overlayMesh.rotation.copy(sourceMesh.rotation);
-    overlayMesh.scale.copy(sourceMesh.scale);
-    overlayMesh.renderOrder = (sourceMesh.renderOrder || 0) + 1;
-    overlayMesh.visible = false;
-    facetRef.current.add(overlayMesh);
-
-    // Store reference for animation
-    overlayMesh.userData = {
-      facetKey,
-      targetOpacity: 0,
-      currentOpacity: 0,
-      isOverlay: true,
-    };
-
-    overlayMeshesRef.current.set(facetKey, overlayMesh);
-    return overlayMesh;
+    return registeredSlot;
   }, [overlayTextures]);
 
   // Set target opacity for a facet overlay
   const setOverlayVisibility = useCallback((facetKey, visible) => {
-    const mesh = overlayMeshesRef.current.get(facetKey);
-    if (mesh) {
-      mesh.userData.targetOpacity = visible ? 0.6 : 0;
+    const slot = overlaySlotsRef.current.get(facetKey);
+    if (!slot) return;
+
+    slot.targetOpacity = visible ? 1 : 0;
+
+    if (visible && !slot.isActive) {
+      slot.overlayMaterial.opacity = slot.currentOpacity;
+      ensureMaterialAssignment(slot.mesh, slot.materialIndex, slot.overlayMaterial);
+      slot.isActive = true;
     }
   }, []);
 
   // Animation update function (call in useFrame)
   const updateOverlays = useCallback((deltaTime) => {
-    overlayMeshesRef.current.forEach((mesh) => {
-      const { targetOpacity, currentOpacity } = mesh.userData;
+    overlaySlotsRef.current.forEach((slot) => {
+      const { targetOpacity, currentOpacity, isActive } = slot;
 
-      if (Math.abs(targetOpacity - currentOpacity) > 0.01) {
-        const speed = 3.0;
-        const newOpacity = THREE.MathUtils.lerp(currentOpacity, targetOpacity, deltaTime * speed);
+      if (!slot.mesh) return;
 
-        mesh.userData.currentOpacity = newOpacity;
-        mesh.material.opacity = newOpacity;
-        mesh.material.needsUpdate = true;
-        mesh.visible = newOpacity > 0.01;
+      if (!isActive && targetOpacity <= 0) {
+        slot.currentOpacity = 0;
+        return;
+      }
+
+      if (!slot.isActive && targetOpacity > 0) {
+        slot.overlayMaterial.opacity = slot.currentOpacity;
+        ensureMaterialAssignment(slot.mesh, slot.materialIndex, slot.overlayMaterial);
+        slot.isActive = true;
+      }
+
+      const speed = 3.0;
+      const lerpAlpha = Math.min(deltaTime * speed, 1);
+      const newOpacity = THREE.MathUtils.lerp(currentOpacity, targetOpacity, lerpAlpha);
+
+      slot.currentOpacity = newOpacity;
+
+      if (slot.isActive) {
+        slot.overlayMaterial.opacity = newOpacity;
+        slot.overlayMaterial.needsUpdate = true;
+      }
+
+      if (slot.isActive && targetOpacity === 0 && newOpacity <= 0.01) {
+        ensureMaterialAssignment(slot.mesh, slot.materialIndex, slot.originalMaterial);
+        slot.overlayMaterial.opacity = 0;
+        slot.isActive = false;
+        slot.currentOpacity = 0;
+        slot.originalMaterial.transparent = slot.originalTransparent;
+        slot.originalMaterial.opacity = slot.originalOpacity;
       }
     });
   }, []);
 
   // Cleanup
   const cleanup = useCallback(() => {
-    overlayMeshesRef.current.forEach((mesh) => {
-      if (mesh.geometry) mesh.geometry.dispose();
-      if (mesh.material) mesh.material.dispose();
+    overlaySlotsRef.current.forEach((slot) => {
+      if (slot.isActive) {
+        ensureMaterialAssignment(slot.mesh, slot.materialIndex, slot.originalMaterial);
+      }
+
+      if (slot.overlayMaterial) {
+        slot.overlayMaterial.dispose();
+      }
     });
-    overlayMeshesRef.current.clear();
+
+    overlaySlotsRef.current.clear();
 
     overlayTextures.forEach((texture) => {
       texture.dispose();
@@ -139,10 +194,10 @@ export const useFacetOverlayGeometry = (facetKeys) => {
 
   return {
     isReady,
-    createOverlayMesh,
+    registerOverlaySlot,
     setOverlayVisibility,
     updateOverlays,
     cleanup,
-    overlayMeshes: overlayMeshesRef.current,
+    overlaySlots: overlaySlotsRef.current,
   };
 };
