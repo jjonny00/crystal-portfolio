@@ -602,38 +602,6 @@ const UnifiedCrystalScene = forwardRef(({
   }, [wholeCrystal, ...facetModels]);
 
   useEffect(() => {
-    if (!modelsLoaded) return;
-
-    const slots = new Map();
-    const fadeStates = new Map();
-
-    facetKeys.forEach((facetKey, index) => {
-      const model = facetModels[index];
-      if (!model?.scene) return;
-
-      model.scene.traverse((child) => {
-        if (!child.isMesh) return;
-
-        const materials = Array.isArray(child.material) ? child.material : [child.material];
-        materials.forEach((mat) => {
-          if (mat?.name === 'ProjectDisplay' && mat?.userData?.projectDisplaySlot) {
-            ensureProjectDisplayFadeState(facetKey, mat);
-            const fadeState = projectDisplayFadeStateRef.current.get(facetKey);
-            if (fadeState) {
-              fadeStates.set(facetKey, fadeState);
-            }
-            const linkedMaterial = mat.userData?.projectDisplayLinkedMaterial || facetMaterialsRef.current[index] || null;
-            slots.set(facetKey, { material: mat, mesh: child, baseMaterial: linkedMaterial });
-          }
-        });
-      });
-    });
-
-    projectDisplaySlotsRef.current = slots;
-    projectDisplayFadeStateRef.current = fadeStates;
-  }, [modelsLoaded, facetKeys, facetModels, materialVersion, ensureProjectDisplayFadeState]);
-
-  useEffect(() => {
     if (!modelsLoaded || projectDisplaySlotsRef.current.size === 0) return;
 
     let cancelled = false;
@@ -1057,6 +1025,39 @@ const UnifiedCrystalScene = forwardRef(({
     config?.effects?.fracture?.initialGlow,
     ensureProjectDisplayFadeState
   ]);
+
+  useEffect(() => {
+    if (!modelsLoaded) return;
+    if (facetMaterialsRef.current.length === 0) return;
+
+    const slots = new Map();
+    const fadeStates = new Map();
+
+    facetKeys.forEach((facetKey, index) => {
+      const model = facetModels[index];
+      if (!model?.scene) return;
+
+      model.scene.traverse((child) => {
+        if (!child.isMesh) return;
+
+        const materials = Array.isArray(child.material) ? child.material : [child.material];
+        materials.forEach((mat) => {
+          if (mat?.name === 'ProjectDisplay' && mat?.userData?.projectDisplaySlot) {
+            ensureProjectDisplayFadeState(facetKey, mat);
+            const fadeState = projectDisplayFadeStateRef.current.get(facetKey);
+            if (fadeState) {
+              fadeStates.set(facetKey, fadeState);
+            }
+            const linkedMaterial = mat.userData?.projectDisplayLinkedMaterial || facetMaterialsRef.current[index] || null;
+            slots.set(facetKey, { material: mat, mesh: child, baseMaterial: linkedMaterial });
+          }
+        });
+      });
+    });
+
+    projectDisplaySlotsRef.current = slots;
+    projectDisplayFadeStateRef.current = fadeStates;
+  }, [modelsLoaded, facetKeys, facetModels, materialVersion, ensureProjectDisplayFadeState]);
 
   // Debug anchor positions when facets are loaded
   useEffect(() => {
