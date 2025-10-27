@@ -13,7 +13,7 @@ import MaterialManager from './MaterialManager'
 // Import enhanced sphere component
 import GlowingSphereImage, { BLENDING_MODES } from './GlowingSphereImage'
 import FractureRingImage from './FractureRingImage'
-import { getProjectColorByFacetKey } from '../../data/projects'
+import { getProjectColorByFacetKey, getOverlayImageByFacetKey } from '../../data/projects'
 import FacetLabels from './FacetLabels'
 import projects from '../../data/projects'
 import { effects } from '../../crystalConfig'
@@ -121,6 +121,79 @@ const UnifiedCrystalScene = forwardRef(({
     cleanup: cleanupOverlays,
     overlayMeshes
   } = useFacetOverlayGeometry(facetKeys);
+
+  const projectDisplaySlotsRef = useRef(new Map());
+  const projectDisplayTextureCacheRef = useRef(new Map());
+  const textureLoaderRef = useRef(null);
+
+  const getTextureLoader = useCallback(() => {
+    if (!textureLoaderRef.current) {
+      textureLoaderRef.current = new THREE.TextureLoader();
+    }
+    return textureLoaderRef.current;
+  }, []);
+
+  const computePlaneAspect = useCallback((mesh) => {
+    if (!mesh?.geometry) return 1;
+
+    const geometry = mesh.geometry;
+    if (!geometry.boundingBox) {
+      geometry.computeBoundingBox();
+    }
+
+    if (!geometry.boundingBox) return 1;
+
+    const size = new THREE.Vector3();
+    geometry.boundingBox.getSize(size);
+
+    const scale = mesh.scale ?? { x: 1, y: 1, z: 1 };
+    const dims = [
+      Math.abs(size.x * (scale.x ?? 1)),
+      Math.abs(size.y * (scale.y ?? 1)),
+      Math.abs(size.z * (scale.z ?? 1))
+    ].sort((a, b) => b - a);
+
+    const width = dims[0] ?? 1;
+    const height = dims[1] ?? 1;
+
+    if (!height || !isFinite(width / height) || height <= 0) {
+      return 1;
+    }
+
+    return width / height;
+  }, []);
+
+  const configureTextureForCover = useCallback((texture, planeAspect = 1) => {
+    if (!texture) return;
+
+    const image = texture.image;
+    const textureWidth = image?.width ?? 1;
+    const textureHeight = image?.height ?? 1;
+    const safeTextureAspect = textureHeight > 0 ? textureWidth / textureHeight : 1;
+    const safePlaneAspect = planeAspect > 0 ? planeAspect : 1;
+
+    let repeatX = 1;
+    let repeatY = 1;
+    let offsetX = 0;
+    let offsetY = 0;
+
+    if (safeTextureAspect > safePlaneAspect) {
+      repeatX = Math.max(safePlaneAspect / safeTextureAspect, 0.0001);
+      offsetX = (1 - repeatX) * 0.5;
+    } else if (safeTextureAspect < safePlaneAspect) {
+      repeatY = Math.max(safeTextureAspect / safePlaneAspect, 0.0001);
+      offsetY = (1 - repeatY) * 0.5;
+    }
+
+    texture.wrapS = THREE.ClampToEdgeWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.center.set(0.5, 0.5);
+    texture.repeat.set(repeatX, repeatY);
+    texture.offset.set(offsetX, offsetY);
+    texture.flipY = false;
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.needsUpdate = true;
+  }, []);
 
   useEffect(() => {
     if (facetRefs.current.length === 0) {
@@ -271,6 +344,101 @@ const UnifiedCrystalScene = forwardRef(({
       setModelsLoaded(true);
     }
   }, [wholeCrystal, ...facetModels]);
+
+  useEffect(() => {
+    if (!modelsLoaded) return;
+
+    const slots = new Map();
+
+    facetKeys.forEach((facetKey, index) => {
+      const model = facetModels[index];
+      if (!model?.scene) return;
+
+      model.scene.traverse((child) => {
+        if (!child.isMesh) return;
+
+        const materials = Array.isArray(child.material) ? child.material : [child.material];
+        materials.forEach((mat) => {
+          if (mat?.name === 'ProjectDisplay') {
+            slots.set(facetKey, { material: mat, mesh: child });
+          }
+        });
+      });
+    });
+
+    if (slots.size > 0) {
+      projectDisplaySlotsRef.current = slots;
+    }
+  }, [modelsLoaded, facetKeys, facetModels, materialVersion]);
+
+  useEffect(() => {
+    if (!modelsLoaded || projectDisplaySlotsRef.current.size === 0) return;
+
+    let cancelled = false;
+    const loader = getTextureLoader();
+
+    facetKeys.forEach((facetKey) => {
+      const slot = projectDisplaySlotsRef.current.get(facetKey);
+      if (!slot?.material || !slot.mesh) return;
+
+      const overlayPath = getOverlayImageByFacetKey(facetKey);
+      if (!overlayPath) return;
+
+      const applyTexture = (texture) => {
+        if (!texture || cancelled) return;
+
+        const planeAspect = computePlaneAspect(slot.mesh);
+        configureTextureForCover(texture, planeAspect);
+
+        slot.material.map = texture;
+        if (slot.material.color?.set) {
+          slot.material.color.set('#ffffff');
+        }
+        slot.material.transparent = true;
+        slot.material.needsUpdate = true;
+        slot.material.userData = {
+          ...(slot.material.userData || {}),
+          projectDisplayTexture: overlayPath
+        };
+
+        if (import.meta.env.DEV) {
+          console.log(`🖼️ Applied project display texture to ${facetKey}`);
+        }
+      };
+
+      const cachedTexture = projectDisplayTextureCacheRef.current.get(overlayPath);
+      if (cachedTexture) {
+        applyTexture(cachedTexture);
+        return;
+      }
+
+      loader.load(
+        overlayPath,
+        (texture) => {
+          if (cancelled) return;
+          projectDisplayTextureCacheRef.current.set(overlayPath, texture);
+          applyTexture(texture);
+        },
+        undefined,
+        (error) => {
+          if (!cancelled) {
+            console.warn(`❌ Failed to load project display texture for ${facetKey}:`, error);
+          }
+        }
+      );
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    modelsLoaded,
+    facetKeys,
+    computePlaneAspect,
+    configureTextureForCover,
+    getTextureLoader,
+    materialVersion
+  ]);
 
   // Compute anchor world position using matrix transforms
   const computeAnchorWorldPosition = useCallback(
@@ -446,12 +614,21 @@ const UnifiedCrystalScene = forwardRef(({
       crystalMaterialRef.current.color
     );
 
+    const shouldPreserveMaterial = (material) => material?.name === 'ProjectDisplay';
+
     // Apply material to whole crystal
     const applyMaterial = (modelScene, material) => {
       if (!modelScene) return;
       modelScene.traverse((child) => {
         if (child.isMesh && !child.userData?.isOverlay) {
-          child.material = material;
+          if (Array.isArray(child.material)) {
+            child.material = child.material.map((mat) =>
+              shouldPreserveMaterial(mat) ? mat : material
+            );
+          } else if (!shouldPreserveMaterial(child.material)) {
+            child.material = material;
+          }
+
           child.castShadow = false;
           child.receiveShadow = false;
 
