@@ -140,16 +140,38 @@ const UnifiedCrystalScene = forwardRef(({
     }
 
     const uniforms = existingUniforms || {
-      projectDisplayOverlayMap: { value: null },
+      projectDisplayOverlayMap: { value: DEFAULT_PROJECT_DISPLAY_TEXTURE },
       projectDisplayOverlayOpacity: { value: 0 },
       projectDisplayOverlayOffset: { value: new THREE.Vector2(0, 0) },
       projectDisplayOverlayRepeat: { value: new THREE.Vector2(1, 1) },
       projectDisplayOverlayFillColor: { value: new THREE.Color(0x000000) },
-      projectDisplayOverlayVisibility: { value: 1 }
+      projectDisplayOverlayFillStrength: { value: 1 }
     };
 
-    if (!uniforms.projectDisplayOverlayMap.value) {
+    if (!uniforms.projectDisplayOverlayMap) {
+      uniforms.projectDisplayOverlayMap = { value: DEFAULT_PROJECT_DISPLAY_TEXTURE };
+    } else if (!uniforms.projectDisplayOverlayMap.value) {
       uniforms.projectDisplayOverlayMap.value = DEFAULT_PROJECT_DISPLAY_TEXTURE;
+    }
+
+    if (!uniforms.projectDisplayOverlayOpacity) {
+      uniforms.projectDisplayOverlayOpacity = { value: 0 };
+    }
+
+    if (!uniforms.projectDisplayOverlayOffset) {
+      uniforms.projectDisplayOverlayOffset = { value: new THREE.Vector2(0, 0) };
+    }
+
+    if (!uniforms.projectDisplayOverlayRepeat) {
+      uniforms.projectDisplayOverlayRepeat = { value: new THREE.Vector2(1, 1) };
+    }
+
+    if (!uniforms.projectDisplayOverlayFillColor) {
+      uniforms.projectDisplayOverlayFillColor = { value: new THREE.Color(0x000000) };
+    }
+
+    if (!uniforms.projectDisplayOverlayFillStrength) {
+      uniforms.projectDisplayOverlayFillStrength = { value: 1 };
     }
 
     if (!material.map) {
@@ -171,35 +193,32 @@ const UnifiedCrystalScene = forwardRef(({
           'uniform vec2 projectDisplayOverlayOffset;\n' +
           'uniform vec2 projectDisplayOverlayRepeat;\n' +
           'uniform vec3 projectDisplayOverlayFillColor;\n' +
-          'uniform float projectDisplayOverlayVisibility;\n'
+          'uniform float projectDisplayOverlayFillStrength;\n'
       );
 
-      shader.uniforms.projectDisplayOverlayMap = uniforms.projectDisplayOverlayMap;
-      shader.uniforms.projectDisplayOverlayOpacity = uniforms.projectDisplayOverlayOpacity;
-      shader.uniforms.projectDisplayOverlayOffset = uniforms.projectDisplayOverlayOffset;
-      shader.uniforms.projectDisplayOverlayRepeat = uniforms.projectDisplayOverlayRepeat;
-      shader.uniforms.projectDisplayOverlayFillColor = uniforms.projectDisplayOverlayFillColor;
-      shader.uniforms.projectDisplayOverlayVisibility = uniforms.projectDisplayOverlayVisibility;
+      shader.uniforms = {
+        ...shader.uniforms,
+        projectDisplayOverlayMap: uniforms.projectDisplayOverlayMap,
+        projectDisplayOverlayOpacity: uniforms.projectDisplayOverlayOpacity,
+        projectDisplayOverlayOffset: uniforms.projectDisplayOverlayOffset,
+        projectDisplayOverlayRepeat: uniforms.projectDisplayOverlayRepeat,
+        projectDisplayOverlayFillColor: uniforms.projectDisplayOverlayFillColor,
+        projectDisplayOverlayFillStrength: uniforms.projectDisplayOverlayFillStrength
+      };
 
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <dithering_fragment>',
         `  vec3 projectDisplayBaseColor = diffuseColor.rgb;\n` +
-          `  vec3 projectDisplayFillColor = projectDisplayOverlayFillColor;\n` +
-          `  float projectDisplayVisibility = clamp(projectDisplayOverlayVisibility, 0.0, 1.0);\n` +
-          `  float projectDisplayFadeAmount = clamp(projectDisplayOverlayOpacity, 0.0, 1.0);\n` +
-          `  float projectDisplayOverlayAlpha = projectDisplayFadeAmount;\n` +
-          `  vec3 projectDisplayOverlayColor = projectDisplayFillColor;\n` +
+          `  vec3 projectDisplayFillTint = mix(projectDisplayBaseColor, projectDisplayBaseColor * projectDisplayOverlayFillColor, clamp(projectDisplayOverlayFillStrength, 0.0, 1.0));\n` +
+          `  vec3 projectDisplayResult = projectDisplayFillTint;\n` +
           `#ifdef USE_UV\n` +
           `    vec2 projectDisplayUv = vUv * projectDisplayOverlayRepeat + projectDisplayOverlayOffset;\n` +
           `    vec4 projectDisplaySample = texture2D(projectDisplayOverlayMap, projectDisplayUv);\n` +
-          `    float projectDisplaySampleAlpha = projectDisplaySample.a;\n` +
-          `    projectDisplayOverlayAlpha = clamp(projectDisplaySampleAlpha * projectDisplayFadeAmount, 0.0, 1.0);\n` +
-          `    projectDisplayOverlayColor = mix(projectDisplayFillColor, projectDisplaySample.rgb, projectDisplayOverlayAlpha);\n` +
+          `    float projectDisplayOverlayAlpha = clamp(projectDisplaySample.a * projectDisplayOverlayOpacity, 0.0, 1.0);\n` +
+          `    vec3 projectDisplayOverlayColor = projectDisplaySample.rgb;\n` +
+          `    projectDisplayResult = mix(projectDisplayResult, projectDisplayOverlayColor, projectDisplayOverlayAlpha);\n` +
           `#endif\n` +
-          `  float projectDisplayBaseMix = projectDisplayVisibility * (1.0 - projectDisplayOverlayAlpha);\n` +
-          `  float projectDisplayOverlayMix = projectDisplayVisibility * projectDisplayOverlayAlpha;\n` +
-          `  vec3 projectDisplayBaseWithFill = mix(projectDisplayBaseColor, projectDisplayFillColor, projectDisplayBaseMix);\n` +
-          `  diffuseColor.rgb = mix(projectDisplayBaseWithFill, projectDisplayOverlayColor, projectDisplayOverlayMix);\n` +
+          `  diffuseColor.rgb = projectDisplayResult;\n` +
           `#include <dithering_fragment>`
       );
     };
@@ -245,7 +264,7 @@ const UnifiedCrystalScene = forwardRef(({
             uniforms.projectDisplayOverlayFillColor.value.copy(projectColor);
           }
         }
-        uniforms.projectDisplayOverlayVisibility.value = 1;
+        uniforms.projectDisplayOverlayFillStrength.value = 1;
       }
 
       material.userData = {
@@ -666,7 +685,7 @@ const UnifiedCrystalScene = forwardRef(({
         uniforms.projectDisplayOverlayOffset.value.set(offsetX, offsetY);
         const initialOpacity = fadeState?.currentOpacity ?? 0;
         uniforms.projectDisplayOverlayOpacity.value = initialOpacity;
-        uniforms.projectDisplayOverlayVisibility.value = 1;
+        uniforms.projectDisplayOverlayFillStrength.value = 1;
         const facetIndex = facetKeys.indexOf(facetKey);
         if (facetIndex >= 0) {
           const projectColor = projectColors[facetIndex];
@@ -1531,7 +1550,7 @@ const UnifiedCrystalScene = forwardRef(({
         uniforms.projectDisplayOverlayOpacity.value = updated;
       }
 
-      uniforms.projectDisplayOverlayVisibility.value = 1;
+      uniforms.projectDisplayOverlayFillStrength.value = 1;
     });
   });
 
