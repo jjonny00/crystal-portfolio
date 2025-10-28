@@ -53,13 +53,13 @@ const patchOverlayBlend = (material) => {
 
     if (!shader.fragmentShader.includes('overlayOpacity')) {
       shader.fragmentShader = shader.fragmentShader.replace(
-        'void main() {',
-        `uniform sampler2D overlayMap;\nuniform float overlayOpacity;\n\nvoid main() {`
+        '#include <common>',
+        `#include <common>\nuniform sampler2D overlayMap;\nuniform float overlayOpacity;\n`
       );
 
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <map_fragment>',
-        `#include <map_fragment>\n#ifdef USE_UV\n  if (overlayOpacity > 0.0) {\n    vec4 overlaySample = texture2D(overlayMap, vMapUv);\n    float overlayAlpha = overlaySample.a * overlayOpacity;\n    diffuseColor.rgb = mix(diffuseColor.rgb, overlaySample.rgb, overlayAlpha);\n  }\n#endif\n`
+        `#include <map_fragment>\n#if defined( USE_UV )\n  if (overlayOpacity > 0.0) {\n    vec2 overlayUv;\n    #ifdef USE_MAP\n      overlayUv = vMapUv;\n    #else\n      overlayUv = vUv;\n    #endif\n    vec4 overlaySample = texture2D(overlayMap, overlayUv);\n    overlaySample = mapTexelToLinear(overlaySample);\n    float overlayAlpha = overlaySample.a * overlayOpacity;\n    diffuseColor.rgb = mix(diffuseColor.rgb, overlaySample.rgb, overlayAlpha);\n  }\n#endif\n`
       );
     }
   };
