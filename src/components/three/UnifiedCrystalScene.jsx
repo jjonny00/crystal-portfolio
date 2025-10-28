@@ -453,7 +453,26 @@ const UnifiedCrystalScene = forwardRef(({
     );
 
     // Apply material to whole crystal
-    const applyMaterial = (modelScene, material) => {
+    const updateOverlaySlotBase = (slot, baseMaterial) => {
+      if (!slot || !baseMaterial) return;
+
+      slot.originalMaterial = baseMaterial;
+      slot.originalOpacity = baseMaterial.opacity ?? 1;
+      slot.originalTransparent = baseMaterial.transparent ?? false;
+      slot.originalMap = baseMaterial.map || null;
+      slot.originalMapTransform = baseMaterial.map
+        ? {
+            offset: baseMaterial.map.offset.clone(),
+            repeat: baseMaterial.map.repeat.clone(),
+            rotation: baseMaterial.map.rotation ?? 0,
+            center: baseMaterial.map.center
+              ? baseMaterial.map.center.clone()
+              : new THREE.Vector2(0.5, 0.5),
+          }
+        : null;
+    };
+
+    const applyMaterial = (modelScene, material, facetKey = null) => {
       if (!modelScene) return;
       modelScene.traverse((child) => {
         if (!child.isMesh || child.userData?.isOverlay) {
@@ -463,6 +482,13 @@ const UnifiedCrystalScene = forwardRef(({
         const existingMaterials = Array.isArray(child.material)
           ? child.material
           : [child.material];
+
+        const overlaySlot =
+          facetKey && overlaySlots?.get
+            ? overlaySlots.get(facetKey) ?? null
+            : null;
+        const overlayTargetsChild =
+          overlaySlot && overlaySlot.mesh === child ? overlaySlot : null;
 
         const projectDisplayIndex = existingMaterials.findIndex((mat) => {
           const slotName = mat?.name || mat?.userData?.slotId || null;
@@ -486,10 +512,40 @@ const UnifiedCrystalScene = forwardRef(({
           child.userData.__originalMaterialInfo.projectDisplayIndex = projectDisplayIndex;
         }
 
+        if (overlayTargetsChild) {
+          updateOverlaySlotBase(overlayTargetsChild, material);
+        }
+
         if (existingMaterials.length > 1) {
-          child.material = existingMaterials.map(() => material);
+          const materialCount = existingMaterials.length;
+          const updatedMaterials = new Array(materialCount).fill(material);
+
+          if (
+            overlayTargetsChild &&
+            overlayTargetsChild.isActive &&
+            overlayTargetsChild.materialIndex != null &&
+            overlayTargetsChild.materialIndex < materialCount
+          ) {
+            updatedMaterials[overlayTargetsChild.materialIndex] =
+              overlayTargetsChild.overlayMaterial;
+          }
+
+          child.material = updatedMaterials;
         } else {
-          child.material = material;
+          child.material =
+            overlayTargetsChild && overlayTargetsChild.isActive
+              ? overlayTargetsChild.overlayMaterial
+              : material;
+        }
+
+        if (Array.isArray(child.material)) {
+          child.material.forEach((mat) => {
+            if (mat && typeof mat === 'object') {
+              mat.needsUpdate = true;
+            }
+          });
+        } else if (child.material && typeof child.material === 'object') {
+          child.material.needsUpdate = true;
         }
 
         child.castShadow = false;
@@ -535,7 +591,7 @@ const UnifiedCrystalScene = forwardRef(({
       };
 
       const model = facetModels[idx];
-      applyMaterial(model.scene, mat);
+      applyMaterial(model.scene, mat, facetKeys[idx]);
       return mat;
     });
 
