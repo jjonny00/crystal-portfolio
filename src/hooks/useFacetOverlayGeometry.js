@@ -114,21 +114,30 @@ const rotateImage90CounterClockwise = (image) => {
   return canvas;
 };
 
+const MAX_OVERLAY_TEXTURE_SIZE = 2048;
+
 const createCoverCanvas = (rotatedCanvas, targetAspect) => {
   if (!rotatedCanvas || typeof document === 'undefined') return null;
 
   const overlayAspect = rotatedCanvas.width / rotatedCanvas.height;
   const aspect = targetAspect > 0 ? targetAspect : overlayAspect;
 
-  let canvasWidth = rotatedCanvas.width;
-  let canvasHeight = rotatedCanvas.height;
+  let canvasWidth;
+  let canvasHeight;
 
-  if (overlayAspect > aspect) {
+  if (overlayAspect >= aspect) {
     canvasHeight = rotatedCanvas.height;
     canvasWidth = Math.max(1, Math.round(canvasHeight * aspect));
   } else {
     canvasWidth = rotatedCanvas.width;
     canvasHeight = Math.max(1, Math.round(canvasWidth / aspect));
+  }
+
+  const largestDimension = Math.max(canvasWidth, canvasHeight);
+  if (largestDimension > MAX_OVERLAY_TEXTURE_SIZE) {
+    const scaleDown = MAX_OVERLAY_TEXTURE_SIZE / largestDimension;
+    canvasWidth = Math.max(1, Math.round(canvasWidth * scaleDown));
+    canvasHeight = Math.max(1, Math.round(canvasHeight * scaleDown));
   }
 
   const canvas = document.createElement('canvas');
@@ -140,7 +149,10 @@ const createCoverCanvas = (rotatedCanvas, targetAspect) => {
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  const scale = Math.max(canvas.width / rotatedCanvas.width, canvas.height / rotatedCanvas.height);
+  const scale = Math.max(
+    canvas.width / rotatedCanvas.width,
+    canvas.height / rotatedCanvas.height
+  );
   const drawWidth = rotatedCanvas.width * scale;
   const drawHeight = rotatedCanvas.height * scale;
   const offsetX = (canvas.width - drawWidth) / 2;
@@ -166,8 +178,12 @@ const configureOverlayTexture = (texture, bounds, referenceMaterial) => {
     texture.magFilter = THREE.LinearFilter;
   }
 
-  texture.repeat.set(bounds.width, bounds.height);
-  texture.offset.set(bounds.minU, bounds.minV);
+  const repeatU = bounds.width > EPSILON ? 1 / bounds.width : 1;
+  const repeatV = bounds.height > EPSILON ? 1 / bounds.height : 1;
+  texture.repeat.set(repeatU, repeatV);
+  texture.offset.set(-bounds.minU * repeatU, -bounds.minV * repeatV);
+  texture.center.set(0, 0);
+  texture.rotation = 0;
   texture.needsUpdate = true;
 };
 
