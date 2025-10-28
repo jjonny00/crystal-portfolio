@@ -25,6 +25,54 @@ const ensureMaterialAssignment = (mesh, materialIndex, material) => {
   }
 };
 
+const patchOverlayBlend = (material) => {
+  if (!material || typeof material !== 'object') {
+    return null;
+  }
+
+  const existing = material.userData?.overlayBlend;
+  if (existing?.uniforms) {
+    return existing.uniforms;
+  }
+
+  const uniforms = {
+    overlayMap: { value: null },
+    overlayOpacity: { value: 0 },
+  };
+
+  const previousOnBeforeCompile = material.onBeforeCompile;
+
+  material.onBeforeCompile = function onBeforeCompile(shader, ...args) {
+    if (typeof previousOnBeforeCompile === 'function') {
+      previousOnBeforeCompile.call(this, shader, ...args);
+    }
+
+    shader.uniforms.overlayMap = uniforms.overlayMap;
+    shader.uniforms.overlayOpacity = uniforms.overlayOpacity;
+
+    if (!shader.fragmentShader.includes('overlayOpacity')) {
+      shader.fragmentShader = shader.fragmentShader.replace(
+        'void main() {',
+        `uniform sampler2D overlayMap;\nuniform float overlayOpacity;\n\nvoid main() {`
+      );
+
+      shader.fragmentShader = shader.fragmentShader.replace(
+        '#include <map_fragment>',
+        `#include <map_fragment>\n#ifdef USE_UV\n  if (overlayOpacity > 0.0) {\n    vec4 overlaySample = texture2D(overlayMap, vMapUv);\n    float overlayAlpha = overlaySample.a * overlayOpacity;\n    diffuseColor.rgb = mix(diffuseColor.rgb, overlaySample.rgb, overlayAlpha);\n  }\n#endif\n`
+      );
+    }
+  };
+
+  if (!material.userData) {
+    material.userData = {};
+  }
+
+  material.userData.overlayBlend = { uniforms };
+  material.needsUpdate = true;
+
+  return uniforms;
+};
+
 const computeSlotUVBounds = (geometry, materialIndex) => {
   if (!geometry) return null;
 
@@ -373,6 +421,15 @@ export const useFacetOverlayGeometry = (facetKeys) => {
 
       const { mesh, materialIndex, baseMaterial, bounds } = candidate;
 
+      const overlayUniforms = patchOverlayBlend(baseMaterial);
+
+      if (!overlayUniforms) {
+        console.warn(`❌ Unable to patch overlay blend for facet ${facetKey}`);
+        return null;
+      }
+
+      ensureMaterialAssignment(mesh, materialIndex, baseMaterial);
+
       const canvas = getOrCreateCanvas(image, bounds.aspect || 1);
       if (!canvas) {
         console.warn(`❌ Unable to prepare overlay canvas for facet ${facetKey}`);
@@ -380,11 +437,6 @@ export const useFacetOverlayGeometry = (facetKeys) => {
       }
 
       let overlayTexture = existingSlot?.overlayTexture || null;
-      let overlayMaterial = existingSlot?.overlayMaterial || null;
-      const previousOpacity = existingSlot?.currentOpacity ?? 0;
-      const previousTarget = existingSlot?.targetOpacity ?? 0;
-      const wasActive = existingSlot?.isActive ?? false;
-
       const baseMaterialChanged = baseMaterial !== existingSlot?.originalMaterial;
       const boundsChanged = existingSlot && existingSlot.bounds
         ? Math.abs(existingSlot.bounds.minU - bounds.minU) > EPSILON ||
@@ -402,67 +454,27 @@ export const useFacetOverlayGeometry = (facetKeys) => {
 
       configureOverlayTexture(overlayTexture, bounds, baseMaterial);
 
-      if (!overlayMaterial || baseMaterialChanged || boundsChanged) {
-        if (overlayMaterial) {
-          if (wasActive) {
-            ensureMaterialAssignment(mesh, materialIndex, baseMaterial);
-          }
-          overlayMaterial.dispose();
-        }
+      const previousOpacity = baseMaterialChanged
+        ? 0
+        : existingSlot?.overlayUniforms?.overlayOpacity?.value ?? 0;
+      const previousTarget = baseMaterialChanged ? 0 : existingSlot?.targetOpacity ?? 0;
 
-        overlayMaterial = new THREE.MeshBasicMaterial({
-          transparent: true,
-          opacity: wasActive ? previousOpacity : 0,
-          map: overlayTexture,
-        });
-
-        overlayMaterial.depthWrite = false;
-        overlayMaterial.depthTest = true;
-        overlayMaterial.toneMapped = false;
-        overlayMaterial.side = baseMaterial.side ?? THREE.FrontSide;
-      } else {
-        overlayMaterial.map = overlayTexture;
-      }
-
-      overlayMaterial.alphaMap = null;
-      overlayMaterial.opacity = wasActive ? previousOpacity : 0;
-      overlayMaterial.needsUpdate = true;
+      overlayUniforms.overlayMap.value = overlayTexture;
+      overlayUniforms.overlayOpacity.value = previousOpacity;
 
       const slot = {
         facetKey,
         mesh,
         materialIndex,
         originalMaterial: baseMaterial,
-        originalOpacity: baseMaterial.opacity ?? 1,
-        originalTransparent: baseMaterial.transparent ?? false,
-        originalMap: baseMaterial.map || null,
-        originalMapTransform:
-          baseMaterial.map
-            ? {
-                offset: baseMaterial.map.offset.clone(),
-                repeat: baseMaterial.map.repeat.clone(),
-                rotation: baseMaterial.map.rotation ?? 0,
-                center: baseMaterial.map.center
-                  ? baseMaterial.map.center.clone()
-                  : new THREE.Vector2(0.5, 0.5),
-              }
-            : null,
-        overlayMaterial,
         overlayTexture,
+        overlayUniforms,
         bounds,
         targetOpacity: previousTarget,
         currentOpacity: previousOpacity,
-        isActive: wasActive,
       };
 
       overlaySlotsRef.current.set(facetKey, slot);
-
-      if (slot.isActive) {
-        slot.overlayMaterial.opacity = slot.currentOpacity;
-        ensureMaterialAssignment(slot.mesh, slot.materialIndex, slot.overlayMaterial);
-      } else {
-        ensureMaterialAssignment(slot.mesh, slot.materialIndex, slot.originalMaterial);
-      }
 
       return slot;
     },
@@ -473,75 +485,32 @@ export const useFacetOverlayGeometry = (facetKeys) => {
     const slot = overlaySlotsRef.current.get(facetKey);
     if (!slot) return;
 
+    slot.currentOpacity = slot.overlayUniforms.overlayOpacity.value;
     slot.targetOpacity = visible ? 1 : 0;
-
-    if (visible && !slot.isActive) {
-      slot.overlayMaterial.opacity = slot.currentOpacity;
-      ensureMaterialAssignment(slot.mesh, slot.materialIndex, slot.overlayMaterial);
-      slot.isActive = true;
-    }
   }, []);
 
   const updateOverlays = useCallback((deltaTime) => {
     overlaySlotsRef.current.forEach((slot) => {
-      if (!slot.mesh) return;
-
-      if (!slot.isActive && slot.targetOpacity <= 0) {
-        slot.currentOpacity = 0;
-        return;
-      }
-
-      if (!slot.isActive && slot.targetOpacity > 0) {
-        slot.overlayMaterial.opacity = slot.currentOpacity;
-        ensureMaterialAssignment(slot.mesh, slot.materialIndex, slot.overlayMaterial);
-        slot.isActive = true;
-      }
+      if (!slot.mesh || !slot.overlayUniforms) return;
 
       const speed = 3.0;
       const lerpAlpha = Math.min(deltaTime * speed, 1);
       const newOpacity = THREE.MathUtils.lerp(slot.currentOpacity, slot.targetOpacity, lerpAlpha);
 
       slot.currentOpacity = newOpacity;
-
-      if (slot.isActive) {
-        slot.overlayMaterial.opacity = newOpacity;
-        slot.overlayMaterial.needsUpdate = true;
-      }
-
-      if (slot.isActive && slot.targetOpacity === 0 && newOpacity <= 0.01) {
-        ensureMaterialAssignment(slot.mesh, slot.materialIndex, slot.originalMaterial);
-        slot.overlayMaterial.opacity = 0;
-        slot.isActive = false;
-        slot.currentOpacity = 0;
-        slot.originalMaterial.transparent = slot.originalTransparent;
-        slot.originalMaterial.opacity = slot.originalOpacity;
-        slot.originalMaterial.needsUpdate = true;
-
-        if (slot.originalMaterial.map && slot.originalMapTransform) {
-          slot.originalMaterial.map.offset.copy(slot.originalMapTransform.offset);
-          slot.originalMaterial.map.repeat.copy(slot.originalMapTransform.repeat);
-          slot.originalMaterial.map.rotation = slot.originalMapTransform.rotation;
-          if (slot.originalMaterial.map.center && slot.originalMapTransform.center) {
-            slot.originalMaterial.map.center.copy(slot.originalMapTransform.center);
-          }
-          slot.originalMaterial.map.needsUpdate = true;
-        }
-      }
+      slot.overlayUniforms.overlayOpacity.value = newOpacity;
     });
   }, []);
 
   const cleanup = useCallback(() => {
     overlaySlotsRef.current.forEach((slot) => {
-      if (slot.isActive) {
-        ensureMaterialAssignment(slot.mesh, slot.materialIndex, slot.originalMaterial);
-      }
-
-      if (slot.overlayMaterial) {
-        slot.overlayMaterial.dispose();
-      }
-
       if (slot.overlayTexture) {
         slot.overlayTexture.dispose();
+      }
+
+      if (slot.overlayUniforms) {
+        slot.overlayUniforms.overlayOpacity.value = 0;
+        slot.overlayUniforms.overlayMap.value = null;
       }
     });
 

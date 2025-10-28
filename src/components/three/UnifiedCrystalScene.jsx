@@ -457,19 +457,6 @@ const UnifiedCrystalScene = forwardRef(({
       if (!slot || !baseMaterial) return;
 
       slot.originalMaterial = baseMaterial;
-      slot.originalOpacity = baseMaterial.opacity ?? 1;
-      slot.originalTransparent = baseMaterial.transparent ?? false;
-      slot.originalMap = baseMaterial.map || null;
-      slot.originalMapTransform = baseMaterial.map
-        ? {
-            offset: baseMaterial.map.offset.clone(),
-            repeat: baseMaterial.map.repeat.clone(),
-            rotation: baseMaterial.map.rotation ?? 0,
-            center: baseMaterial.map.center
-              ? baseMaterial.map.center.clone()
-              : new THREE.Vector2(0.5, 0.5),
-          }
-        : null;
     };
 
     const applyMaterial = (modelScene, material, facetKey = null) => {
@@ -520,22 +507,9 @@ const UnifiedCrystalScene = forwardRef(({
           const materialCount = existingMaterials.length;
           const updatedMaterials = new Array(materialCount).fill(material);
 
-          if (
-            overlayTargetsChild &&
-            overlayTargetsChild.isActive &&
-            overlayTargetsChild.materialIndex != null &&
-            overlayTargetsChild.materialIndex < materialCount
-          ) {
-            updatedMaterials[overlayTargetsChild.materialIndex] =
-              overlayTargetsChild.overlayMaterial;
-          }
-
           child.material = updatedMaterials;
         } else {
-          child.material =
-            overlayTargetsChild && overlayTargetsChild.isActive
-              ? overlayTargetsChild.overlayMaterial
-              : material;
+          child.material = material;
         }
 
         if (Array.isArray(child.material)) {
@@ -675,29 +649,10 @@ const UnifiedCrystalScene = forwardRef(({
     return () => {
       overlaySlots.forEach((slot) => {
         if (!slot?.mesh) return;
-
-        if (slot.isActive) {
-          const materials = Array.isArray(slot.mesh.material)
-            ? slot.mesh.material
-            : [slot.mesh.material];
-          const index = slot.materialIndex ?? 0;
-
-          if (materials[index] === slot.overlayMaterial) {
-            if (slot.materialIndex != null) {
-              const updated = materials.slice();
-              updated[index] = slot.originalMaterial;
-              slot.mesh.material = updated;
-            } else {
-              slot.mesh.material = slot.originalMaterial;
-            }
-          }
-        }
-
         slot.targetOpacity = 0;
         slot.currentOpacity = 0;
-        slot.isActive = false;
-        if (slot.overlayMaterial) {
-          slot.overlayMaterial.opacity = 0;
+        if (slot.overlayUniforms) {
+          slot.overlayUniforms.overlayOpacity.value = 0;
         }
       });
     };
