@@ -1,148 +1,560 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import * as THREE from 'three';
 import { getOverlayImageByFacetKey } from '../data/projects';
 
+const PROJECT_DISPLAY_SLOT = 'ProjectDisplay';
+const EPSILON = 1e-5;
+
+const ensureMaterialAssignment = (mesh, materialIndex, material) => {
+  if (!mesh) return;
+
+  if (materialIndex != null) {
+    const current = Array.isArray(mesh.material) ? mesh.material.slice() : [mesh.material];
+    current[materialIndex] = material;
+    mesh.material = current;
+    current.forEach((mat) => {
+      if (mat && typeof mat === 'object') {
+        mat.needsUpdate = true;
+      }
+    });
+  } else {
+    mesh.material = material;
+    if (material && typeof material === 'object') {
+      material.needsUpdate = true;
+    }
+  }
+};
+
+const computeSlotUVBounds = (geometry, materialIndex) => {
+  if (!geometry) return null;
+
+  const uvAttr = geometry.getAttribute('uv');
+  if (!uvAttr) return null;
+
+  const indexAttr = geometry.index;
+  const hasGroups = Array.isArray(geometry.groups) && geometry.groups.length > 0;
+
+  const groups = hasGroups
+    ? geometry.groups.filter((group) =>
+        materialIndex == null ? true : group.materialIndex === materialIndex
+      )
+    : [
+        {
+          start: 0,
+          count: indexAttr ? indexAttr.count : uvAttr.count,
+        },
+      ];
+
+  if (!groups.length) return null;
+
+  let minU = Infinity;
+  let minV = Infinity;
+  let maxU = -Infinity;
+  let maxV = -Infinity;
+
+  const pushVertex = (vertexIndex) => {
+    const u = uvAttr.getX(vertexIndex);
+    const v = uvAttr.getY(vertexIndex);
+
+    minU = Math.min(minU, u);
+    maxU = Math.max(maxU, u);
+    minV = Math.min(minV, v);
+    maxV = Math.max(maxV, v);
+  };
+
+  groups.forEach(({ start, count }) => {
+    if (indexAttr) {
+      for (let i = start; i < start + count; i += 1) {
+        const vertexIndex = indexAttr.array[i];
+        pushVertex(vertexIndex);
+      }
+    } else {
+      for (let i = start; i < start + count; i += 1) {
+        pushVertex(i);
+      }
+    }
+  });
+
+  if (!isFinite(minU) || !isFinite(minV) || !isFinite(maxU) || !isFinite(maxV)) {
+    return null;
+  }
+
+  const width = maxU - minU;
+  const height = maxV - minV;
+
+  if (width < EPSILON || height < EPSILON) {
+    return null;
+  }
+
+  return {
+    minU,
+    minV,
+    maxU,
+    maxV,
+    width,
+    height,
+    aspect: width / height,
+  };
+};
+
+const rotateImage90Clockwise = (image) => {
+  if (typeof document === 'undefined') return null;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = image.height;
+  canvas.height = image.width;
+
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+
+  ctx.translate(canvas.width, 0);
+  ctx.rotate(Math.PI / 2);
+  ctx.drawImage(image, 0, 0);
+
+  return canvas;
+};
+
+const MAX_OVERLAY_TEXTURE_SIZE = 2048;
+
+const createCoverCanvas = (rotatedCanvas, targetAspect) => {
+  if (!rotatedCanvas || typeof document === 'undefined') return null;
+
+  const overlayAspect = rotatedCanvas.width / rotatedCanvas.height;
+  const aspect = targetAspect > 0 ? targetAspect : overlayAspect;
+
+  let canvasWidth;
+  let canvasHeight;
+
+  if (overlayAspect >= aspect) {
+    canvasHeight = rotatedCanvas.height;
+    canvasWidth = Math.max(1, Math.round(canvasHeight * aspect));
+  } else {
+    canvasWidth = rotatedCanvas.width;
+    canvasHeight = Math.max(1, Math.round(canvasWidth / aspect));
+  }
+
+  const largestDimension = Math.max(canvasWidth, canvasHeight);
+  if (largestDimension > MAX_OVERLAY_TEXTURE_SIZE) {
+    const scaleDown = MAX_OVERLAY_TEXTURE_SIZE / largestDimension;
+    canvasWidth = Math.max(1, Math.round(canvasWidth * scaleDown));
+    canvasHeight = Math.max(1, Math.round(canvasHeight * scaleDown));
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = canvasWidth;
+  canvas.height = canvasHeight;
+
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const scale = Math.max(
+    canvas.width / rotatedCanvas.width,
+    canvas.height / rotatedCanvas.height
+  );
+  const drawWidth = rotatedCanvas.width * scale;
+  const drawHeight = rotatedCanvas.height * scale;
+  const offsetX = (canvas.width - drawWidth) / 2;
+  const offsetY = (canvas.height - drawHeight) / 2;
+
+  ctx.drawImage(rotatedCanvas, offsetX, offsetY, drawWidth, drawHeight);
+
+  return canvas;
+};
+
+const configureOverlayTexture = (texture, bounds, referenceMaterial) => {
+  texture.wrapS = THREE.ClampToEdgeWrapping;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
+  texture.flipY = false;
+  texture.colorSpace = THREE.SRGBColorSpace;
+
+  if (referenceMaterial?.map) {
+    texture.minFilter = referenceMaterial.map.minFilter;
+    texture.magFilter = referenceMaterial.map.magFilter;
+    texture.anisotropy = referenceMaterial.map.anisotropy;
+  } else {
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+  }
+
+  const repeatU = bounds.width > EPSILON ? 1 / bounds.width : 1;
+  const repeatV = bounds.height > EPSILON ? 1 / bounds.height : 1;
+  texture.repeat.set(repeatU, repeatV);
+  texture.offset.set(-bounds.minU * repeatU, -bounds.minV * repeatV);
+  texture.center.set(0, 0);
+  texture.rotation = 0;
+  texture.needsUpdate = true;
+};
+
 export const useFacetOverlayGeometry = (facetKeys) => {
-  const [overlayTextures, setOverlayTextures] = useState(new Map());
+  const [overlayImages, setOverlayImages] = useState(new Map());
   const [isReady, setIsReady] = useState(false);
-  const overlayMeshesRef = useRef(new Map());
-  const texturesLoadedRef = useRef(false);
+  const overlaySlotsRef = useRef(new Map());
+  const canvasCacheRef = useRef(new Map());
 
-  // Load all overlay images
+  const imageLoader = useMemo(() => {
+    const loader = new THREE.ImageLoader();
+    if (loader && loader.setCrossOrigin) {
+      loader.setCrossOrigin('anonymous');
+    }
+    return loader;
+  }, []);
+
   useEffect(() => {
-    if (texturesLoadedRef.current) return;
-    texturesLoadedRef.current = true;
+    let cancelled = false;
 
-    const loadTextures = async () => {
-      const loader = new THREE.TextureLoader();
-      const textureMap = new Map();
+    setIsReady(false);
+    setOverlayImages(new Map());
+    canvasCacheRef.current.clear();
+    overlaySlotsRef.current.clear();
 
-      for (const facetKey of facetKeys) {
-        const imagePath = getOverlayImageByFacetKey(facetKey);
-        if (imagePath) {
+    const loadImages = async () => {
+      const entries = await Promise.all(
+        facetKeys.map(async (facetKey) => {
+          const imagePath = getOverlayImageByFacetKey(facetKey);
+          if (!imagePath) return [facetKey, null];
+
           try {
-            const texture = await loader.loadAsync(imagePath);
+            const image = await new Promise((resolve, reject) => {
+              imageLoader.load(
+                imagePath,
+                (img) => resolve(img),
+                undefined,
+                (err) => reject(err)
+              );
+            });
 
-            // Configure texture
-            texture.wrapS = THREE.RepeatWrapping;
-            texture.wrapT = THREE.RepeatWrapping;
-            texture.repeat.set(2, 2);
-            texture.minFilter = THREE.LinearFilter;
-            texture.magFilter = THREE.LinearFilter;
-            texture.colorSpace = THREE.SRGBColorSpace;
-            texture.needsUpdate = true;
+            if (cancelled) return [facetKey, null];
 
-            textureMap.set(facetKey, texture);
-            console.log(`✅ Loaded overlay image for ${facetKey}`);
+            return [facetKey, image];
           } catch (error) {
             console.warn(`❌ Failed to load overlay image for ${facetKey}:`, error);
+            return [facetKey, null];
           }
-        }
-      }
+        })
+      );
 
-      setOverlayTextures(textureMap);
+      if (cancelled) return;
+
+      const map = new Map();
+      entries.forEach(([facetKey, image]) => {
+        if (image) {
+          map.set(facetKey, image);
+          console.log(`✅ Loaded overlay image for ${facetKey}`);
+        }
+      });
+
+      setOverlayImages(map);
       setIsReady(true);
     };
 
-    loadTextures();
-  }, [facetKeys]);
+    loadImages();
 
-  // Create overlay mesh for a facet
-  const createOverlayMesh = useCallback((facetRef, facetKey) => {
-    const texture = overlayTextures.get(facetKey);
-    if (!texture || !facetRef?.current) return null;
-
-    // Find first mesh inside facet
-    let sourceMesh = null;
-    facetRef.current.traverse((child) => {
-      if (!sourceMesh && child.isMesh) {
-        sourceMesh = child;
-      }
-    });
-
-    if (!sourceMesh) return null;
-
-    // Create overlay material
-    const overlayMaterial = new THREE.MeshBasicMaterial({
-      map: texture,
-      transparent: true,
-      opacity: 0,
-      side: THREE.FrontSide,
-      depthWrite: false,
-      depthTest: true,
-      blending: THREE.NormalBlending,
-      polygonOffset: true,
-      polygonOffsetFactor: -1,
-      polygonOffsetUnits: -1,
-    });
-
-    // Create mesh
-    const overlayMesh = new THREE.Mesh(sourceMesh.geometry.clone(), overlayMaterial);
-
-    // Align with source mesh and attach to facet group
-    overlayMesh.position.copy(sourceMesh.position);
-    overlayMesh.rotation.copy(sourceMesh.rotation);
-    overlayMesh.scale.copy(sourceMesh.scale);
-    overlayMesh.renderOrder = (sourceMesh.renderOrder || 0) + 1;
-    overlayMesh.visible = false;
-    facetRef.current.add(overlayMesh);
-
-    // Store reference for animation
-    overlayMesh.userData = {
-      facetKey,
-      targetOpacity: 0,
-      currentOpacity: 0,
-      isOverlay: true,
+    return () => {
+      cancelled = true;
     };
+  }, [facetKeys, imageLoader]);
 
-    overlayMeshesRef.current.set(facetKey, overlayMesh);
-    return overlayMesh;
-  }, [overlayTextures]);
+  const getOrCreateCanvas = useCallback((image, slotAspect) => {
+    const aspect = Number.isFinite(slotAspect) ? slotAspect : 1;
+    const cacheKey = `${image.src || image.currentSrc || ''}|${aspect.toFixed(4)}`;
+    if (canvasCacheRef.current.has(cacheKey)) {
+      return canvasCacheRef.current.get(cacheKey);
+    }
 
-  // Set target opacity for a facet overlay
+    const rotated = rotateImage90Clockwise(image);
+    if (!rotated) return null;
+
+    const canvas = createCoverCanvas(rotated, aspect);
+    if (canvas) {
+      canvasCacheRef.current.set(cacheKey, canvas);
+    }
+    return canvas;
+  }, []);
+
+  const registerOverlaySlot = useCallback(
+    (facetRef, facetKey) => {
+      if (!facetRef?.current) return null;
+
+      const image = overlayImages.get(facetKey);
+      if (!image) return null;
+
+      const existingSlot = overlaySlotsRef.current.get(facetKey) || null;
+      let candidate = null;
+
+      facetRef.current.traverse((child) => {
+        if (candidate || !child.isMesh) return;
+
+        const isArrayMaterial = Array.isArray(child.material);
+        const materials = isArrayMaterial ? child.material : [child.material];
+        const originalInfo = child.userData?.__originalMaterialInfo;
+        const originalSlots = originalInfo?.slots || [];
+        const materialCount = Math.max(originalSlots.length, materials.length);
+
+        const preferredIndices = originalSlots
+          .filter((slot) => (slot.name || slot.slotId) === PROJECT_DISPLAY_SLOT)
+          .map((slot) => slot.index);
+
+        const storedProjectDisplayIndex =
+          typeof originalInfo?.projectDisplayIndex === 'number'
+            ? originalInfo.projectDisplayIndex
+            : null;
+
+        if (
+          preferredIndices.length === 0 &&
+          storedProjectDisplayIndex !== null
+        ) {
+          preferredIndices.push(storedProjectDisplayIndex);
+        }
+
+        const indicesToCheck = preferredIndices.length
+          ? preferredIndices
+          : materials.map((_, index) => index);
+
+        indicesToCheck.some((index) => {
+          if (!isArrayMaterial && index > 0) {
+            return false;
+          }
+
+          const materialIndex = isArrayMaterial ? index : null;
+          const rawMaterial = isArrayMaterial ? materials[index] : materials[0];
+          const slotMeta = originalSlots.find((slot) => slot.index === index);
+          const fallbackName = rawMaterial?.name || rawMaterial?.userData?.slotId;
+          const slotName = slotMeta?.name || slotMeta?.slotId || fallbackName;
+
+          const nameMatches = slotName === PROJECT_DISPLAY_SLOT;
+          const indexMatchesStored = storedProjectDisplayIndex === index;
+
+          if (!nameMatches && !indexMatchesStored) {
+            return false;
+          }
+
+          const previousSlotMatches =
+            existingSlot &&
+            existingSlot.mesh === child &&
+            existingSlot.materialIndex === materialIndex;
+
+          const baseMaterial = previousSlotMatches
+            ? existingSlot.originalMaterial
+            : rawMaterial;
+
+          if (!baseMaterial) {
+            return false;
+          }
+
+          const bounds = computeSlotUVBounds(
+            child.geometry,
+            materialCount > 1 ? index : null
+          );
+
+          if (!bounds) {
+            console.warn(
+              `❌ Unable to compute UV bounds for ProjectDisplay slot on facet ${facetKey}`
+            );
+            return false;
+          }
+
+          candidate = {
+            mesh: child,
+            materialIndex,
+            baseMaterial,
+            bounds,
+          };
+
+          return true;
+        });
+      });
+
+      if (!candidate) {
+        console.warn(`❌ No ProjectDisplay slot found for facet ${facetKey}`);
+        return null;
+      }
+
+      const { mesh, materialIndex, baseMaterial, bounds } = candidate;
+
+      const canvas = getOrCreateCanvas(image, bounds.aspect || 1);
+      if (!canvas) {
+        console.warn(`❌ Unable to prepare overlay canvas for facet ${facetKey}`);
+        return null;
+      }
+
+      let overlayTexture = existingSlot?.overlayTexture || null;
+      let overlayMaterial = existingSlot?.overlayMaterial || null;
+      const previousOpacity = existingSlot?.currentOpacity ?? 0;
+      const previousTarget = existingSlot?.targetOpacity ?? 0;
+      const wasActive = existingSlot?.isActive ?? false;
+
+      const baseMaterialChanged = baseMaterial !== existingSlot?.originalMaterial;
+      const boundsChanged = existingSlot && existingSlot.bounds
+        ? Math.abs(existingSlot.bounds.minU - bounds.minU) > EPSILON ||
+          Math.abs(existingSlot.bounds.minV - bounds.minV) > EPSILON ||
+          Math.abs(existingSlot.bounds.maxU - bounds.maxU) > EPSILON ||
+          Math.abs(existingSlot.bounds.maxV - bounds.maxV) > EPSILON
+        : false;
+
+      if (!overlayTexture || baseMaterialChanged || boundsChanged) {
+        if (overlayTexture) {
+          overlayTexture.dispose();
+        }
+        overlayTexture = new THREE.CanvasTexture(canvas);
+      }
+
+      configureOverlayTexture(overlayTexture, bounds, baseMaterial);
+
+      if (!overlayMaterial || baseMaterialChanged || boundsChanged) {
+        if (overlayMaterial) {
+          if (wasActive) {
+            ensureMaterialAssignment(mesh, materialIndex, baseMaterial);
+          }
+          overlayMaterial.dispose();
+        }
+
+        overlayMaterial = new THREE.MeshBasicMaterial({
+          transparent: true,
+          opacity: wasActive ? previousOpacity : 0,
+          map: overlayTexture,
+        });
+
+        overlayMaterial.depthWrite = false;
+        overlayMaterial.depthTest = true;
+        overlayMaterial.toneMapped = false;
+        overlayMaterial.side = baseMaterial.side ?? THREE.FrontSide;
+      } else {
+        overlayMaterial.map = overlayTexture;
+      }
+
+      overlayMaterial.alphaMap = null;
+      overlayMaterial.opacity = wasActive ? previousOpacity : 0;
+      overlayMaterial.needsUpdate = true;
+
+      const slot = {
+        facetKey,
+        mesh,
+        materialIndex,
+        originalMaterial: baseMaterial,
+        originalOpacity: baseMaterial.opacity ?? 1,
+        originalTransparent: baseMaterial.transparent ?? false,
+        originalMap: baseMaterial.map || null,
+        originalMapTransform:
+          baseMaterial.map
+            ? {
+                offset: baseMaterial.map.offset.clone(),
+                repeat: baseMaterial.map.repeat.clone(),
+                rotation: baseMaterial.map.rotation ?? 0,
+                center: baseMaterial.map.center
+                  ? baseMaterial.map.center.clone()
+                  : new THREE.Vector2(0.5, 0.5),
+              }
+            : null,
+        overlayMaterial,
+        overlayTexture,
+        bounds,
+        targetOpacity: previousTarget,
+        currentOpacity: previousOpacity,
+        isActive: wasActive,
+      };
+
+      overlaySlotsRef.current.set(facetKey, slot);
+
+      if (slot.isActive) {
+        slot.overlayMaterial.opacity = slot.currentOpacity;
+        ensureMaterialAssignment(slot.mesh, slot.materialIndex, slot.overlayMaterial);
+      } else {
+        ensureMaterialAssignment(slot.mesh, slot.materialIndex, slot.originalMaterial);
+      }
+
+      return slot;
+    },
+    [getOrCreateCanvas, overlayImages]
+  );
+
   const setOverlayVisibility = useCallback((facetKey, visible) => {
-    const mesh = overlayMeshesRef.current.get(facetKey);
-    if (mesh) {
-      mesh.userData.targetOpacity = visible ? 0.6 : 0;
+    const slot = overlaySlotsRef.current.get(facetKey);
+    if (!slot) return;
+
+    slot.targetOpacity = visible ? 1 : 0;
+
+    if (visible && !slot.isActive) {
+      slot.overlayMaterial.opacity = slot.currentOpacity;
+      ensureMaterialAssignment(slot.mesh, slot.materialIndex, slot.overlayMaterial);
+      slot.isActive = true;
     }
   }, []);
 
-  // Animation update function (call in useFrame)
   const updateOverlays = useCallback((deltaTime) => {
-    overlayMeshesRef.current.forEach((mesh) => {
-      const { targetOpacity, currentOpacity } = mesh.userData;
+    overlaySlotsRef.current.forEach((slot) => {
+      if (!slot.mesh) return;
 
-      if (Math.abs(targetOpacity - currentOpacity) > 0.01) {
-        const speed = 3.0;
-        const newOpacity = THREE.MathUtils.lerp(currentOpacity, targetOpacity, deltaTime * speed);
+      if (!slot.isActive && slot.targetOpacity <= 0) {
+        slot.currentOpacity = 0;
+        return;
+      }
 
-        mesh.userData.currentOpacity = newOpacity;
-        mesh.material.opacity = newOpacity;
-        mesh.material.needsUpdate = true;
-        mesh.visible = newOpacity > 0.01;
+      if (!slot.isActive && slot.targetOpacity > 0) {
+        slot.overlayMaterial.opacity = slot.currentOpacity;
+        ensureMaterialAssignment(slot.mesh, slot.materialIndex, slot.overlayMaterial);
+        slot.isActive = true;
+      }
+
+      const speed = 3.0;
+      const lerpAlpha = Math.min(deltaTime * speed, 1);
+      const newOpacity = THREE.MathUtils.lerp(slot.currentOpacity, slot.targetOpacity, lerpAlpha);
+
+      slot.currentOpacity = newOpacity;
+
+      if (slot.isActive) {
+        slot.overlayMaterial.opacity = newOpacity;
+        slot.overlayMaterial.needsUpdate = true;
+      }
+
+      if (slot.isActive && slot.targetOpacity === 0 && newOpacity <= 0.01) {
+        ensureMaterialAssignment(slot.mesh, slot.materialIndex, slot.originalMaterial);
+        slot.overlayMaterial.opacity = 0;
+        slot.isActive = false;
+        slot.currentOpacity = 0;
+        slot.originalMaterial.transparent = slot.originalTransparent;
+        slot.originalMaterial.opacity = slot.originalOpacity;
+        slot.originalMaterial.needsUpdate = true;
+
+        if (slot.originalMaterial.map && slot.originalMapTransform) {
+          slot.originalMaterial.map.offset.copy(slot.originalMapTransform.offset);
+          slot.originalMaterial.map.repeat.copy(slot.originalMapTransform.repeat);
+          slot.originalMaterial.map.rotation = slot.originalMapTransform.rotation;
+          if (slot.originalMaterial.map.center && slot.originalMapTransform.center) {
+            slot.originalMaterial.map.center.copy(slot.originalMapTransform.center);
+          }
+          slot.originalMaterial.map.needsUpdate = true;
+        }
       }
     });
   }, []);
 
-  // Cleanup
   const cleanup = useCallback(() => {
-    overlayMeshesRef.current.forEach((mesh) => {
-      if (mesh.geometry) mesh.geometry.dispose();
-      if (mesh.material) mesh.material.dispose();
-    });
-    overlayMeshesRef.current.clear();
+    overlaySlotsRef.current.forEach((slot) => {
+      if (slot.isActive) {
+        ensureMaterialAssignment(slot.mesh, slot.materialIndex, slot.originalMaterial);
+      }
 
-    overlayTextures.forEach((texture) => {
-      texture.dispose();
+      if (slot.overlayMaterial) {
+        slot.overlayMaterial.dispose();
+      }
+
+      if (slot.overlayTexture) {
+        slot.overlayTexture.dispose();
+      }
     });
-  }, [overlayTextures]);
+
+    overlaySlotsRef.current.clear();
+    canvasCacheRef.current.clear();
+  }, []);
 
   return {
     isReady,
-    createOverlayMesh,
+    registerOverlaySlot,
     setOverlayVisibility,
     updateOverlays,
     cleanup,
-    overlayMeshes: overlayMeshesRef.current,
+    overlaySlots: overlaySlotsRef.current,
   };
 };
