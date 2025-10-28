@@ -97,7 +97,7 @@ const computeSlotUVBounds = (geometry, materialIndex) => {
   };
 };
 
-const rotateImage90CounterClockwise = (image) => {
+const rotateImage90Clockwise = (image) => {
   if (typeof document === 'undefined') return null;
 
   const canvas = document.createElement('canvas');
@@ -107,8 +107,8 @@ const rotateImage90CounterClockwise = (image) => {
   const ctx = canvas.getContext('2d');
   if (!ctx) return null;
 
-  ctx.translate(0, canvas.height);
-  ctx.rotate(-Math.PI / 2);
+  ctx.translate(canvas.width, 0);
+  ctx.rotate(Math.PI / 2);
   ctx.drawImage(image, 0, 0);
 
   return canvas;
@@ -263,7 +263,7 @@ export const useFacetOverlayGeometry = (facetKeys) => {
       return canvasCacheRef.current.get(cacheKey);
     }
 
-    const rotated = rotateImage90CounterClockwise(image);
+    const rotated = rotateImage90Clockwise(image);
     if (!rotated) return null;
 
     const canvas = createCoverCanvas(rotated, aspect);
