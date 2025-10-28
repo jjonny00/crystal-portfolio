@@ -591,7 +591,15 @@ const UnifiedCrystalScene = forwardRef(({
   ]);
 
   useEffect(() => {
-    if (!overlaysReady || !modelsLoaded) return;
+    if (!overlaysReady || !modelsLoaded || !showFacets) return;
+
+    const allFacetsReady =
+      facetRefs.current.length === facetKeys.length &&
+      facetRefs.current.every((ref) => ref?.current);
+
+    if (!allFacetsReady) {
+      return;
+    }
 
     facetRefs.current.forEach((facetRef, index) => {
       const facetKey = facetKeys[index];
@@ -640,6 +648,7 @@ const UnifiedCrystalScene = forwardRef(({
   }, [
     overlaysReady,
     modelsLoaded,
+    showFacets,
     registerOverlaySlot,
     overlaySlots,
     facetKeys,
