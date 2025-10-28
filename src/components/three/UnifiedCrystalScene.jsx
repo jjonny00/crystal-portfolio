@@ -495,6 +495,21 @@ const UnifiedCrystalScene = forwardRef(({
           return slotName === PROJECT_DISPLAY_SLOT;
         });
 
+        const originalProjectMaterial =
+          projectDisplayIndex !== -1 ? existingMaterials[projectDisplayIndex] : null;
+
+        const projectDisplayMap = originalProjectMaterial?.map || null;
+        const projectDisplayMapTransform = projectDisplayMap
+          ? {
+              offset: projectDisplayMap.offset.clone(),
+              repeat: projectDisplayMap.repeat.clone(),
+              rotation: projectDisplayMap.rotation ?? 0,
+              center: projectDisplayMap.center
+                ? projectDisplayMap.center.clone()
+                : new THREE.Vector2(0.5, 0.5),
+            }
+          : null;
+
         if (!child.userData.__originalMaterialInfo) {
           child.userData.__originalMaterialInfo = {
             isArray: Array.isArray(child.material),
@@ -504,6 +519,8 @@ const UnifiedCrystalScene = forwardRef(({
               slotId: mat?.userData?.slotId || null,
             })),
             projectDisplayIndex: projectDisplayIndex !== -1 ? projectDisplayIndex : null,
+            projectDisplayMap,
+            projectDisplayMapTransform,
           };
         } else if (
           child.userData.__originalMaterialInfo.projectDisplayIndex == null &&
@@ -512,7 +529,38 @@ const UnifiedCrystalScene = forwardRef(({
           child.userData.__originalMaterialInfo.projectDisplayIndex = projectDisplayIndex;
         }
 
+        if (
+          projectDisplayMap &&
+          !child.userData.__originalMaterialInfo.projectDisplayMap
+        ) {
+          child.userData.__originalMaterialInfo.projectDisplayMap = projectDisplayMap;
+          child.userData.__originalMaterialInfo.projectDisplayMapTransform =
+            projectDisplayMapTransform;
+        }
+
         if (overlayTargetsChild) {
+          const originalInfo = child.userData.__originalMaterialInfo || {};
+
+          if (!material.map && originalInfo.projectDisplayMap) {
+            material.map = originalInfo.projectDisplayMap;
+
+            if (originalInfo.projectDisplayMapTransform) {
+              const { offset, repeat, rotation, center } =
+                originalInfo.projectDisplayMapTransform;
+
+              material.map.offset.copy(offset);
+              material.map.repeat.copy(repeat);
+              material.map.rotation = rotation;
+
+              if (material.map.center && center) {
+                material.map.center.copy(center);
+              }
+            }
+
+            material.map.needsUpdate = true;
+            material.needsUpdate = true;
+          }
+
           updateOverlaySlotBase(overlayTargetsChild, material);
         }
 
