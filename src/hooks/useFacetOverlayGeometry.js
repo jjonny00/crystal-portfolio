@@ -41,6 +41,7 @@ const patchOverlayBlend = (material) => {
   };
 
   const previousOnBeforeCompile = material.onBeforeCompile;
+  const previousCustomProgramCacheKey = material.customProgramCacheKey;
 
   material.onBeforeCompile = function onBeforeCompile(shader, ...args) {
     if (typeof previousOnBeforeCompile === 'function') {
@@ -61,6 +62,15 @@ const patchOverlayBlend = (material) => {
         `#include <map_fragment>\n#ifdef USE_UV\n  if (overlayOpacity > 0.0) {\n    vec4 overlaySample = texture2D(overlayMap, vMapUv);\n    float overlayAlpha = overlaySample.a * overlayOpacity;\n    diffuseColor.rgb = mix(diffuseColor.rgb, overlaySample.rgb, overlayAlpha);\n  }\n#endif\n`
       );
     }
+  };
+
+  material.customProgramCacheKey = function customProgramCacheKey() {
+    const baseKey = typeof previousCustomProgramCacheKey === 'function'
+      ? previousCustomProgramCacheKey.call(this)
+      : typeof previousCustomProgramCacheKey === 'string'
+        ? previousCustomProgramCacheKey
+        : '';
+    return baseKey ? `${baseKey}|overlayBlend` : 'overlayBlend';
   };
 
   if (!material.userData) {
