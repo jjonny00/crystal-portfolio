@@ -308,14 +308,12 @@ const Fixed3DCanvas = forwardRef(({
 
     const updateViewportSize = () => {
       const viewport = window.visualViewport;
-      const canvasElement = gl.domElement;
-      const { width, height } = canvasElement?.getBoundingClientRect() || {};
-      const nextWidth = width && width > 0 ? width : viewport?.width ?? window.innerWidth;
-      const nextHeight = height && height > 0 ? height : viewport?.height ?? window.innerHeight;
-      const safeWidth = Math.max(1, nextWidth);
-      const safeHeight = Math.max(1, nextHeight);
+      const nextWidth = viewport?.width ?? window.innerWidth;
+      const nextHeight = viewport?.height ?? window.innerHeight;
+      const safeWidth = Math.max(1, Math.round(nextWidth));
+      const safeHeight = Math.max(1, Math.round(nextHeight));
 
-      gl.setSize(safeWidth, safeHeight, false);
+      gl.setSize(safeWidth, safeHeight, true);
       camera.aspect = safeWidth / safeHeight;
       camera.updateProjectionMatrix();
       setSize(safeWidth, safeHeight);
