@@ -36,14 +36,17 @@ const ControlsToggle = ({ showUI, toggleUI, disabled = false }) => {
   
   return (
     <animated.div
+      className="floating-ui"
       style={{
         ...springProps,
         position: 'fixed',
-        bottom: '20px',
-        left: '20px',
+        bottom: 'calc(20px + env(safe-area-inset-bottom))',
+        left: 'calc(20px + env(safe-area-inset-left))',
         backgroundColor: 'rgba(0, 0, 0, 0.7)',
         color: 'white',
         padding: '10px 12px',
+        paddingTop: 'calc(10px + env(safe-area-inset-top))',
+        paddingBottom: 'calc(10px + env(safe-area-inset-bottom))',
         borderRadius: '50%',
         cursor: disabled ? 'not-allowed' : 'pointer',
         boxShadow: '0 2px 10px rgba(0, 0, 0, 0.3)',

@@ -117,6 +117,7 @@ const Fixed3DCanvas = forwardRef(({
   const crystalSceneRef = useRef();
   const backgroundRef = useRef();
   const lastZoneRef = useRef(null);
+  const resizeHandlerRef = useRef(null);
 
   const handleFractureStart = useCallback(() => {
     backgroundRef.current?.flash(1, 0.5);
@@ -156,6 +157,13 @@ const Fixed3DCanvas = forwardRef(({
     sanitizePass?.dispose?.();
     sanitizePass?.material?.dispose?.();
   }, [sanitizePass]);
+
+  useEffect(() => () => {
+    if (resizeHandlerRef.current) {
+      window.removeEventListener('resize', resizeHandlerRef.current);
+      resizeHandlerRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -275,6 +283,56 @@ const Fixed3DCanvas = forwardRef(({
     return null;
   };
 
+  const {
+    onCreated: externalOnCreated,
+    resize: externalResize,
+    style: externalStyle,
+    dpr,
+    gl: externalGl,
+    ...restCanvasProps
+  } = canvasProps || {};
+
+  const canvasResizeOptions = useMemo(() => ({
+    scroll: false,
+    ...(externalResize || {})
+  }), [externalResize]);
+
+  const handleCanvasCreated = useCallback((state) => {
+    externalOnCreated?.(state);
+
+    const { gl, camera, setSize } = state;
+
+    const handleResize = () => {
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+
+      gl.setSize(width, height, false);
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      setSize(width, height);
+    };
+
+    if (resizeHandlerRef.current) {
+      window.removeEventListener('resize', resizeHandlerRef.current);
+    }
+
+    resizeHandlerRef.current = handleResize;
+    handleResize();
+
+    window.addEventListener('resize', handleResize);
+  }, [externalOnCreated]);
+
+  const canvasStyle = useMemo(() => ({
+    ...(externalStyle || {}),
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    width: '100vw',
+    height: '100dvh',
+    zIndex: 1,
+    pointerEvents: isMobile ? 'none' : 'auto'
+  }), [externalStyle, isMobile]);
+
   return (
     <>
       {/* Main 3D Canvas */}
@@ -283,31 +341,29 @@ const Fixed3DCanvas = forwardRef(({
         top: 0,
         left: 0,
         width: '100vw',
-        height: '100vh',
+        height: '100dvh',
         zIndex: 1, // Behind scrollable content (which is z-index 10)
         pointerEvents: 'none', // Don't block scrolling
       }}>
         <Canvas
-          key={Array.isArray(canvasProps.dpr) ? canvasProps.dpr.join('-') : canvasProps.dpr}
+          key={Array.isArray(dpr) ? dpr.join('-') : dpr ?? 'default'}
+          dpr={dpr}
           camera={{
             position: config?.camera?.startingPosition || [0, 0, 4.5],
             fov: config?.camera?.fov || 45
           }}
-          {...canvasProps}
+          {...restCanvasProps}
+          resize={canvasResizeOptions}
           gl={{
             toneMapping: THREE.ACESFilmicToneMapping,
             toneMappingExposure: 0.2,
             outputColorSpace: THREE.SRGBColorSpace,
             // UPDATED: Ensure depth sorting is enabled for proper render order
             sortObjects: true,
-            ...canvasProps.gl
+            ...(externalGl || {}),
           }}
-          style={{ 
-            width: '100%', 
-            height: '100%',
-            // Allow pointer events only for 3D interactions (disabled on mobile)
-            pointerEvents: isMobile ? 'none' : 'auto',
-          }}
+          style={canvasStyle}
+          onCreated={handleCanvasCreated}
         >
           
           <FPSCounter />

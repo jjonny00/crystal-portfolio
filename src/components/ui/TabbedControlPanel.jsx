@@ -50,13 +50,15 @@ const TabbedControlPanel = ({
   // Panel styles
   const panelStyle = {
     position: 'fixed',
-    bottom: '80px',
-    left: visible ? '20px' : '-340px',
+    bottom: 'calc(80px + env(safe-area-inset-bottom))',
+    left: visible ? 'calc(20px + env(safe-area-inset-left))' : '-340px',
     width: '320px',
     backgroundColor: 'rgba(20, 20, 30, 0.75)',
     backdropFilter: 'blur(10px)',
     color: 'white',
     padding: '5px',
+    paddingTop: 'calc(5px + env(safe-area-inset-top))',
+    paddingBottom: 'calc(5px + env(safe-area-inset-bottom))',
     borderRadius: '8px',
     boxShadow: '0 0 20px rgba(0, 0, 0, 0.5)',
     transition: 'left 0.3s ease',
@@ -108,7 +110,7 @@ const TabbedControlPanel = ({
   if (!visible) return null;
 
   return (
-    <div style={panelStyle}>
+    <div className="floating-ui" style={panelStyle}>
       {/* Tab Buttons */}
       <div 
         ref={tabsContainerRef} 

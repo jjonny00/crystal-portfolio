@@ -148,19 +148,32 @@ const FpsDisplay = ({
   const performance = getPerformanceLevel(fps);
   
   // Position styles
-  const positionStyles = {
-    'top-left': { top: '20px', left: '20px' },
-    'top-right': { top: '20px', right: '20px' },
-    'bottom-left': { bottom: '20px', left: '20px' },
-    'bottom-right': { bottom: '20px', right: '20px' }
+  const safeOffsets = {
+    top: 'calc(20px + env(safe-area-inset-top))',
+    bottom: 'calc(20px + env(safe-area-inset-bottom))',
+    left: 'calc(20px + env(safe-area-inset-left))',
+    right: 'calc(20px + env(safe-area-inset-right))'
   };
-  
+
+  const positionStyles = {
+    'top-left': { top: safeOffsets.top, left: safeOffsets.left },
+    'top-right': { top: safeOffsets.top, right: safeOffsets.right },
+    'bottom-left': { bottom: safeOffsets.bottom, left: safeOffsets.left },
+    'bottom-right': { bottom: safeOffsets.bottom, right: safeOffsets.right }
+  };
+
   const containerStyle = {
     position: 'fixed',
     zIndex: 10000,
     backgroundColor: 'rgba(0, 0, 0, 0.8)',
     color: 'white',
     padding: showExtended ? '12px 16px' : '8px 12px',
+    paddingTop: showExtended
+      ? 'calc(12px + env(safe-area-inset-top))'
+      : 'calc(8px + env(safe-area-inset-top))',
+    paddingBottom: showExtended
+      ? 'calc(12px + env(safe-area-inset-bottom))'
+      : 'calc(8px + env(safe-area-inset-bottom))',
     borderRadius: '8px',
     fontFamily: '"acumin-variable", monospace',
     fontSize: '14px',
@@ -178,7 +191,7 @@ const FpsDisplay = ({
   };
   
   return (
-    <div style={containerStyle} onClick={handleClick}>
+    <div className="floating-ui" style={containerStyle} onClick={handleClick}>
       {/* Main FPS Display */}
       <div style={{ 
         display: 'flex', 
@@ -359,23 +372,28 @@ export const PerformanceAlert = ({
   if (!visible || !showAlert || dismissed) return null;
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: '20px',
-      left: '50%',
-      transform: 'translateX(-50%)',
-      backgroundColor: 'rgba(244, 67, 54, 0.95)',
-      color: 'white',
-      padding: '12px 20px',
-      borderRadius: '8px',
-      fontFamily: '"acumin-variable", sans-serif',
-      fontSize: '13px',
-      zIndex: 10001,
-      textAlign: 'center',
-      boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
-      backdropFilter: 'blur(10px)',
-      maxWidth: '300px'
-    }}>
+    <div
+      className="floating-ui"
+      style={{
+        position: 'fixed',
+        top: 'calc(20px + env(safe-area-inset-top))',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        backgroundColor: 'rgba(244, 67, 54, 0.95)',
+        color: 'white',
+        padding: '12px 20px',
+        paddingTop: 'calc(12px + env(safe-area-inset-top))',
+        paddingBottom: 'calc(12px + env(safe-area-inset-bottom))',
+        borderRadius: '8px',
+        fontFamily: '"acumin-variable", sans-serif',
+        fontSize: '13px',
+        zIndex: 10001,
+        textAlign: 'center',
+        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
+        backdropFilter: 'blur(10px)',
+        maxWidth: '300px'
+      }}
+    >
       <div style={{ fontWeight: 'bold', marginBottom: '6px' }}>
         ⚠️ Low Performance: {avgFps}fps
       </div>
@@ -459,20 +477,25 @@ export const PerformanceSummary = ({ visible = true }) => {
   const performanceScore = Math.round((avgFps / 60) * 100);
   
   return (
-    <div style={{
-      position: 'fixed',
-      bottom: '20px',
-      right: '20px',
-      backgroundColor: 'rgba(0, 0, 0, 0.8)',
-      color: 'white',
-      padding: '12px',
-      borderRadius: '8px',
-      fontFamily: '"acumin-variable", monospace',
-      fontSize: '11px',
-      zIndex: 10000,
-      minWidth: '200px',
-      backdropFilter: 'blur(5px)'
-    }}>
+    <div
+      className="floating-ui"
+      style={{
+        position: 'fixed',
+        bottom: 'calc(20px + env(safe-area-inset-bottom))',
+        right: 'calc(20px + env(safe-area-inset-right))',
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        color: 'white',
+        padding: '12px',
+        paddingTop: 'calc(12px + env(safe-area-inset-top))',
+        paddingBottom: 'calc(12px + env(safe-area-inset-bottom))',
+        borderRadius: '8px',
+        fontFamily: '"acumin-variable", monospace',
+        fontSize: '11px',
+        zIndex: 10000,
+        minWidth: '200px',
+        backdropFilter: 'blur(5px)'
+      }}
+    >
       <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>
         Performance Summary
       </div>

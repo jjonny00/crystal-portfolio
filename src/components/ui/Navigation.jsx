@@ -10,6 +10,8 @@ const NAV_BASE_STYLE = {
   zIndex: 10000,
   transition: 'all 0.3s ease',
   backgroundColor: 'transparent',
+  paddingTop: 'env(safe-area-inset-top)',
+  paddingBottom: 'env(safe-area-inset-bottom)'
 };
 
 const NAV_INNER_STYLE = {
@@ -180,6 +182,7 @@ const Navigation = ({
 
   return (
     <nav
+      className="floating-ui"
       style={{
         ...NAV_BASE_STYLE,
         backdropFilter: isScrolled ? 'blur(20px)' : 'none',

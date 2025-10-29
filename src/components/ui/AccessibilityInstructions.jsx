@@ -60,8 +60,8 @@ const AccessibilityInstructions = ({ visible = true }) => {
   // Toggle button style with universal design principles
   const toggleButtonStyle = {
     position: 'fixed',
-    bottom: '20px',
-    right: '20px',
+    bottom: 'calc(20px + env(safe-area-inset-bottom))',
+    right: 'calc(20px + env(safe-area-inset-right))',
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
     color: 'white',
     width: '40px',
@@ -103,8 +103,9 @@ const AccessibilityInstructions = ({ visible = true }) => {
   return (
     <>
       {/* Toggle Button */}
-      <button 
-        style={toggleButtonStyle} 
+      <button
+        className="floating-ui"
+        style={toggleButtonStyle}
         onClick={() => setShowInstructions(!showInstructions)}
         aria-label="Toggle Keyboard Shortcuts"
         role="button"
@@ -144,14 +145,17 @@ const AccessibilityInstructions = ({ visible = true }) => {
       </button>
       
       {/* Instructions Panel */}
-      <animated.div 
+      <animated.div
+        className="floating-ui"
         style={{
           ...panelSpring,
           position: 'fixed',
-          bottom: '80px', // Position above the button
+          bottom: 'calc(80px + env(safe-area-inset-bottom))', // Position above the button
           backgroundColor: 'rgba(0, 0, 0, 0.8)',
           color: 'white',
           padding: '12px 16px',
+          paddingTop: 'calc(12px + env(safe-area-inset-top))',
+          paddingBottom: 'calc(12px + env(safe-area-inset-bottom))',
           borderRadius: '8px',
           fontSize: '13px',
           maxWidth: '280px',

@@ -73,24 +73,29 @@ const PerformanceDebugPanel = ({
   };
 
   return (
-    <div style={{
-      position: 'fixed',
-      bottom: '10px',
-      left: '50%',
-      transform: 'translateX(-50%)',
-      background: 'rgba(0, 128, 0, 0.95)',
-      color: 'white',
-      padding: '20px',
-      borderRadius: '8px',
-      fontSize: '11px',
-      fontFamily: 'monospace',
-      zIndex: 20000,
-      maxWidth: '1200px',
-      width: '90vw',
-      pointerEvents: 'auto',
-      maxHeight: '400px',
-      overflowY: 'auto'
-    }}>
+    <div
+      className="floating-ui"
+      style={{
+        position: 'fixed',
+        bottom: 'calc(10px + env(safe-area-inset-bottom))',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        background: 'rgba(0, 128, 0, 0.95)',
+        color: 'white',
+        padding: '20px',
+        paddingTop: 'calc(20px + env(safe-area-inset-top))',
+        paddingBottom: 'calc(20px + env(safe-area-inset-bottom))',
+        borderRadius: '8px',
+        fontSize: '11px',
+        fontFamily: 'monospace',
+        zIndex: 20000,
+        maxWidth: '1200px',
+        width: '90vw',
+        pointerEvents: 'auto',
+        maxHeight: '400px',
+        overflowY: 'auto'
+      }}
+    >
       <div style={{ fontWeight: 'bold', marginBottom: '15px', color: '#ffff00', textAlign: 'center' }}>
         🔧 FIXED PERFORMANCE SYSTEM - Debug Panel (Press P to toggle)
       </div>

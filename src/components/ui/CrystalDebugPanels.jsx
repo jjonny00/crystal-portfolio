@@ -28,23 +28,28 @@ const CrystalDebugPanels = ({
   return (
     <>
       {/* FIXED: Main Debug Panel - DOM based, stays fixed */}
-      <div style={{
-        position: 'fixed',
-        bottom: '10px',
-        left: '10px',
-        background: 'rgba(0, 0, 0, 0.95)',
-        color: 'white',
-        padding: '20px',
-        borderRadius: '8px',
-        fontSize: '12px',
-        fontFamily: 'monospace',
-        zIndex: 20000, // Very high z-index
-        pointerEvents: 'auto', // FIXED: Enable interactions
-        width: '500px', // FIXED: Doubled width
-        maxHeight: '60vh',
-        overflowY: 'auto',
-        border: '1px solid rgba(100, 255, 218, 0.3)'
-      }}>
+      <div
+        className="floating-ui"
+        style={{
+          position: 'fixed',
+          bottom: 'calc(10px + env(safe-area-inset-bottom))',
+          left: 'calc(10px + env(safe-area-inset-left))',
+          background: 'rgba(0, 0, 0, 0.95)',
+          color: 'white',
+          padding: '20px',
+          paddingTop: 'calc(20px + env(safe-area-inset-top))',
+          paddingBottom: 'calc(20px + env(safe-area-inset-bottom))',
+          borderRadius: '8px',
+          fontSize: '12px',
+          fontFamily: 'monospace',
+          zIndex: 20000, // Very high z-index
+          pointerEvents: 'auto', // FIXED: Enable interactions
+          width: '500px', // FIXED: Doubled width
+          maxHeight: '60vh',
+          overflowY: 'auto',
+          border: '1px solid rgba(100, 255, 218, 0.3)'
+        }}
+      >
         <div style={{ 
           fontWeight: 'bold', 
           marginBottom: '15px',
@@ -182,13 +187,17 @@ const CrystalDebugPanels = ({
       </div>
 
       {/* FIXED: Diagnostic Panel - DOM based, stays fixed */}
-      <div style={{
-        position: 'fixed',
-        top: '10px',
-        right: '10px',
+      <div
+        className="floating-ui"
+        style={{
+          position: 'fixed',
+          top: 'calc(10px + env(safe-area-inset-top))',
+          right: 'calc(10px + env(safe-area-inset-right))',
         background: 'rgba(255, 0, 0, 0.95)',
         color: 'white',
         padding: '20px',
+        paddingTop: 'calc(20px + env(safe-area-inset-top))',
+        paddingBottom: 'calc(20px + env(safe-area-inset-bottom))',
         borderRadius: '8px',
         fontSize: '12px',
         fontFamily: 'monospace',
