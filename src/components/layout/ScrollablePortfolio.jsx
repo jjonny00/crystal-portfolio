@@ -63,10 +63,41 @@ const ScrollablePortfolio = ({
     return () => window.removeEventListener('wheel', handleWheel);
   }, []);
 
+  // Keep the scroll container sized to the live visual viewport height on mobile Safari
+  useEffect(() => {
+    const container = document.querySelector('.scroll-container');
+    if (!container) return undefined;
+
+    const applyViewportHeight = () => {
+      const viewport = window.visualViewport;
+      const height = viewport?.height ?? window.innerHeight;
+      if (!height || Number.isNaN(height)) return;
+
+      const roundedHeight = Math.round(height * 1000) / 1000;
+      container.style.setProperty('--scroll-container-height', `${roundedHeight}px`);
+    };
+
+    applyViewportHeight();
+
+    const viewport = window.visualViewport;
+    viewport?.addEventListener('resize', applyViewportHeight);
+    viewport?.addEventListener('scroll', applyViewportHeight);
+    window.addEventListener('resize', applyViewportHeight);
+    window.addEventListener('orientationchange', applyViewportHeight);
+
+    return () => {
+      viewport?.removeEventListener('resize', applyViewportHeight);
+      viewport?.removeEventListener('scroll', applyViewportHeight);
+      window.removeEventListener('resize', applyViewportHeight);
+      window.removeEventListener('orientationchange', applyViewportHeight);
+      container.style.removeProperty('--scroll-container-height');
+    };
+  }, []);
+
   // Mobile scrolling uses native browser behavior
-  
+
   return (
-    <div 
+    <div
       className="scroll-container"
       style={{
         // CRITICAL: This div becomes the scroll parent
