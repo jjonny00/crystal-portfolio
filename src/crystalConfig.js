@@ -345,12 +345,12 @@ export const environment = {
 export const assets = {
   models: {
     crystalWhole: '/assets/models/CrystalWhole.glb',
-    facetEmpathy: '/assets/models/FacetEmpathy.glb',
-    facetNarrative: '/assets/models/FacetNarrative.glb',
-    facetCraft: '/assets/models/FacetCraft.glb',
-    facetSystem: '/assets/models/FacetSystem.glb',
-    facetLeadership: '/assets/models/FacetLeadership.glb',
-    facetExploration: '/assets/models/FacetExploration.glb'
+    project01: '/assets/models/Project01.glb',
+    project02: '/assets/models/Project02.glb',
+    project03: '/assets/models/Project03.glb',
+    project04: '/assets/models/Project04.glb',
+    project05: '/assets/models/Project05.glb',
+    project06: '/assets/models/Project06.glb'
   },
   textures: {
     normalMap: '/assets/textures/quartz-normal07_subtle.png'

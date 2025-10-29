@@ -7,12 +7,12 @@ import AssetLoaderV2 from '../utils/AssetLoaderV2.js';
 // Descriptors for all GLTF models used in the app
 const MODEL_DESCRIPTORS = [
   { key: 'crystalWhole', url: '/assets/models/CrystalWhole.glb' },
-  { key: 'facetEmpathy', url: '/assets/models/FacetEmpathy.glb' },
-  { key: 'facetNarrative', url: '/assets/models/FacetNarrative.glb' },
-  { key: 'facetCraft', url: '/assets/models/FacetCraft.glb' },
-  { key: 'facetSystem', url: '/assets/models/FacetSystem.glb' },
-  { key: 'facetLeadership', url: '/assets/models/FacetLeadership.glb' },
-  { key: 'facetExploration', url: '/assets/models/FacetExploration.glb' }
+  { key: 'project01', url: '/assets/models/Project01.glb' },
+  { key: 'project02', url: '/assets/models/Project02.glb' },
+  { key: 'project03', url: '/assets/models/Project03.glb' },
+  { key: 'project04', url: '/assets/models/Project04.glb' },
+  { key: 'project05', url: '/assets/models/Project05.glb' },
+  { key: 'project06', url: '/assets/models/Project06.glb' }
 ];
 
 export const useAssetLoaderV2 = (performanceProfile) => {

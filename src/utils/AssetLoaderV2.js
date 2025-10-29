@@ -70,12 +70,12 @@ export default class AssetLoaderV2 {
     
     const friendlyNames = {
       'CrystalWhole': 'Whole Crystal',
-      'FacetEmpathy': 'Empathy Facet',
-      'FacetNarrative': 'Narrative Facet',
-      'FacetCraft': 'Craft Facet',
-      'FacetSystem': 'System Facet',
-      'FacetLeadership': 'Leadership Facet',
-      'FacetExploration': 'Exploration Facet',
+      'Project01': 'Project 01 Facet',
+      'Project02': 'Project 02 Facet',
+      'Project03': 'Project 03 Facet',
+      'Project04': 'Project 04 Facet',
+      'Project05': 'Project 05 Facet',
+      'Project06': 'Project 06 Facet',
       'quartz-normal07_subtle': 'Normal Map Texture',
       'prismatic10-low': 'Environment (Low)',
       'prismatic10-medium': 'Environment (Medium)',

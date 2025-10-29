@@ -13,7 +13,7 @@ import MaterialManager from './MaterialManager'
 // Import enhanced sphere component
 import GlowingSphereImage, { BLENDING_MODES } from './GlowingSphereImage'
 import FractureRingImage from './FractureRingImage'
-import { getProjectColorByFacetKey } from '../../data/projects'
+import { getProjectColorByFacetKey, getProjectModelKeyByFacetKey } from '../../data/projects'
 import FacetLabels from './FacetLabels'
 import projects from '../../data/projects'
 import { effects } from '../../crystalConfig'
@@ -72,6 +72,12 @@ const UnifiedCrystalScene = forwardRef(({
   const facetKeys = useMemo(
     () => ['empathy', 'narrative', 'craft', 'system', 'leadership', 'exploration'],
     []
+  );
+
+  const facetModelKeys = useMemo(
+    () =>
+      facetKeys.map((facetKey) => getProjectModelKeyByFacetKey(facetKey) || facetKey),
+    [facetKeys]
   );
 
   // Individual facet materials and colors
@@ -260,14 +266,15 @@ const UnifiedCrystalScene = forwardRef(({
 
   // Load models
   const wholeCrystal = useGLTF(config.assets.models.crystalWhole);
-  const facetModels = [
-    useGLTF(config.assets.models.facetEmpathy),
-    useGLTF(config.assets.models.facetNarrative),
-    useGLTF(config.assets.models.facetCraft),
-    useGLTF(config.assets.models.facetSystem),
-    useGLTF(config.assets.models.facetLeadership),
-    useGLTF(config.assets.models.facetExploration)
-  ];
+  const facetModels = facetModelKeys.map((modelKey, index) => {
+    const modelUrl = config.assets.models[modelKey];
+
+    if (!modelUrl && import.meta.env.DEV) {
+      console.warn(`⚠️ Missing model URL for ${modelKey} (facet index ${index})`);
+    }
+
+    return useGLTF(modelUrl || config.assets.models.crystalWhole);
+  });
 
   // Mark models as loaded when all GLTF hooks resolve
   useEffect(() => {

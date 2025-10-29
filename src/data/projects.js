@@ -10,6 +10,7 @@ export const projects = [
   {
     id: "project1",
     facetKey: "empathy", // Maps to existing facet
+    modelKey: "project01",
     title: "User-Centered Dashboard",
     label: "GEC (Ascend Platform)",
     tagline: "Adaptive platform powering GE's global hubs",
@@ -31,6 +32,7 @@ export const projects = [
   {
     id: "project2",
     facetKey: "narrative",
+    modelKey: "project02",
     title: "Interactive Storytelling Platform",
     label: "FundSeeder",
     tagline: "Fintech platform linking traders to capital",
@@ -52,6 +54,7 @@ export const projects = [
   {
     id: "project3",
     facetKey: "craft",
+    modelKey: "project03",
     title: "Design System Implementation",
     label: "Mesa",
     tagline: "Asynchronous PvP built on Game Center",
@@ -73,6 +76,7 @@ export const projects = [
   {
     id: "project4",
     facetKey: "system",
+    modelKey: "project04",
     title: "Component Architecture",
     label: "Quantified",
     tagline: "Track what matters, beautifully on Apple",
@@ -94,6 +98,7 @@ export const projects = [
   {
     id: "project5",
     facetKey: "leadership",
+    modelKey: "project05",
     title: "Team Collaboration Platform",
     label: "Forest Giant",
     tagline: "Process, product, and team‑building at scale",
@@ -115,6 +120,7 @@ export const projects = [
   {
     id: "project6",
     facetKey: "exploration",
+    modelKey: "project06",
     title: "Experimental Interactions",
     label: "Experiments (XR/VR)",
     tagline: "Exploring VR interaction systems in Unreal",
@@ -142,6 +148,15 @@ export const projects = [
  */
 const getProjectByFacetKey = (facetKey) => {
   return projects.find(project => project.facetKey === facetKey) || null;
+};
+
+/**
+ * Get project model key by facet key
+ * Provides a lookup for 3D assets that now use generic names
+ */
+export const getProjectModelKeyByFacetKey = (facetKey) => {
+  const project = getProjectByFacetKey(facetKey);
+  return project?.modelKey || null;
 };
 
 /**
