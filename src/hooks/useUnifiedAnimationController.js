@@ -4,9 +4,37 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Vector3, Quaternion } from 'three';
 import { fracture as fractureConfig } from '../crystalConfig';
+import { orderedFacetKeys } from '../data/projects';
 
 // Percentage of explode distance facets travel during fracture
 const FRACTURE_DISTANCE = fractureConfig.distance;
+
+const PROJECT_SCROLL_START = 0.24;
+const PROJECT_SCROLL_END = 0.875;
+
+const buildProjectSections = (facetKeys) => {
+  if (!facetKeys?.length) {
+    return {};
+  }
+
+  const sectionSpan = (PROJECT_SCROLL_END - PROJECT_SCROLL_START) / facetKeys.length;
+
+  return facetKeys.reduce((sections, key, index) => {
+    const start = PROJECT_SCROLL_START + sectionSpan * index;
+    const end = index === facetKeys.length - 1
+      ? PROJECT_SCROLL_END
+      : PROJECT_SCROLL_START + sectionSpan * (index + 1);
+
+    sections[key] = {
+      start: parseFloat(start.toFixed(4)),
+      end: parseFloat(end.toFixed(4))
+    };
+
+    return sections;
+  }, {});
+};
+
+const PROJECT_SECTIONS = buildProjectSections(orderedFacetKeys);
 
 /**
  * SIMPLIFIED: Animation Configuration with immediate state changes
@@ -101,19 +129,12 @@ export const ANIMATION_CONFIG = {
 
   scrollZones: {
     hero: { start: 0, end: 0.12 },
-    overview: { start: 0.12, end: 0.24 },
-    projects: { start: 0.24, end: 0.875 },
-    about: { start: 0.875, end: 1.0 }
+    overview: { start: 0.12, end: PROJECT_SCROLL_START },
+    projects: { start: PROJECT_SCROLL_START, end: PROJECT_SCROLL_END },
+    about: { start: PROJECT_SCROLL_END, end: 1.0 }
   },
 
-  projectSections: {
-    empathy:    { start: 0.24,   end: 0.3433 },
-    narrative:  { start: 0.3433, end: 0.4466 },
-    craft:      { start: 0.4466, end: 0.5499 },
-    system:     { start: 0.5499, end: 0.6533 },
-    leadership: { start: 0.6533, end: 0.7566 },
-    exploration:{ start: 0.7566, end: 0.875 }
-  }
+  projectSections: PROJECT_SECTIONS
 };
 
 // Derive fracture positions based on percentage of explode distance

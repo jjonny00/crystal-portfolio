@@ -13,9 +13,8 @@ import MaterialManager from './MaterialManager'
 // Import enhanced sphere component
 import GlowingSphereImage, { BLENDING_MODES } from './GlowingSphereImage'
 import FractureRingImage from './FractureRingImage'
-import { getProjectColorByFacetKey, getProjectModelKeyByFacetKey } from '../../data/projects'
+import projects, { orderedFacetKeys, getProjectColorByFacetKey, getProjectModelKeyByFacetKey } from '../../data/projects'
 import FacetLabels from './FacetLabels'
-import projects from '../../data/projects'
 import { effects } from '../../crystalConfig'
 import { useFacetOverlayGeometry } from '../../hooks/useFacetOverlayGeometry'
 
@@ -69,10 +68,7 @@ const UnifiedCrystalScene = forwardRef(({
   const focusUpdateTimeoutRef = useRef();
 
   // Facet configuration
-  const facetKeys = useMemo(
-    () => ['empathy', 'narrative', 'craft', 'system', 'leadership', 'exploration'],
-    []
-  );
+  const facetKeys = orderedFacetKeys;
 
   const facetModelKeys = useMemo(
     () =>

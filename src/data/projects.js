@@ -9,7 +9,7 @@
 export const projects = [
   {
     id: "project1",
-    facetKey: "empathy", // Maps to existing facet
+    facetKey: "exploration", // Reversed facet mapping
     modelKey: "project01",
     title: "User-Centered Dashboard",
     label: "GEC (Ascend Platform)",
@@ -31,7 +31,7 @@ export const projects = [
   },
   {
     id: "project2",
-    facetKey: "narrative",
+    facetKey: "leadership",
     modelKey: "project02",
     title: "Interactive Storytelling Platform",
     label: "FundSeeder",
@@ -53,7 +53,7 @@ export const projects = [
   },
   {
     id: "project3",
-    facetKey: "craft",
+    facetKey: "system",
     modelKey: "project03",
     title: "Design System Implementation",
     label: "Mesa",
@@ -75,7 +75,7 @@ export const projects = [
   },
   {
     id: "project4",
-    facetKey: "system",
+    facetKey: "craft",
     modelKey: "project04",
     title: "Component Architecture",
     label: "Quantified",
@@ -97,7 +97,7 @@ export const projects = [
   },
   {
     id: "project5",
-    facetKey: "leadership",
+    facetKey: "narrative",
     modelKey: "project05",
     title: "Team Collaboration Platform",
     label: "Forest Giant",
@@ -119,7 +119,7 @@ export const projects = [
   },
   {
     id: "project6",
-    facetKey: "exploration",
+    facetKey: "empathy",
     modelKey: "project06",
     title: "Experimental Interactions",
     label: "Experiments (XR/VR)",
@@ -167,6 +167,12 @@ export const getProjectColorByFacetKey = (facetKey) => {
   const project = getProjectByFacetKey(facetKey);
   return project ? project.color : '#028700'; // Default color
 };
+
+/**
+ * Ordered facet keys derived from the project list
+ * Provides a single source of truth for facet iteration order
+ */
+export const orderedFacetKeys = Object.freeze(projects.map(project => project.facetKey));
 
 /**
  * Get overlay image path by facet key

@@ -2,7 +2,7 @@
 // FIXED: Enhanced version with better debugging and color application
 
 import { useEffect } from 'react';
-import { getProjectColorByFacetKey } from '../data/projects';
+import { getProjectColorByFacetKey, orderedFacetKeys } from '../data/projects';
 
 // Default headline color
 const DEFAULT_HEADLINE_COLOR = '#6200ff';
@@ -117,7 +117,7 @@ export default function useProjectHeadlineColor() {
         } else if (sectionId && sectionId.startsWith('project-')) {
           // Individual project section: "project-empathy" -> "empathy"
           facetKey = sectionId.replace('project-', '');
-        } else if (sectionId && ['empathy', 'narrative', 'craft', 'system', 'leadership', 'exploration'].includes(sectionId)) {
+        } else if (sectionId && orderedFacetKeys.includes(sectionId)) {
           // Direct facet key
           facetKey = sectionId;
         }
