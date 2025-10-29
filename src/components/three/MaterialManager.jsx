@@ -60,7 +60,7 @@ const MaterialManager = ({
         opacity: 0.99,
         
         // Standard material properties
-        side: THREE.FrontSide,               // Only render front faces (perf gain)
+        side: THREE.DoubleSide,              // Render both sides so overlays mirror crystal behavior
         fog: true,
         
         // CRITICAL: Enable depth writing for proper rendering
@@ -159,7 +159,7 @@ const MaterialManager = ({
         envMapIntensity: 1.0,
         transparent: true,
         opacity: 0.99,
-        side: THREE.FrontSide,
+        side: THREE.DoubleSide,
         fog: true,
         depthWrite: true,
         depthTest: true,

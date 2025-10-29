@@ -187,6 +187,46 @@ const configureOverlayTexture = (texture, bounds, referenceMaterial) => {
   texture.needsUpdate = true;
 };
 
+const snapshotTextureTransform = (texture) => {
+  if (!texture) {
+    return null;
+  }
+
+  return {
+    offset: texture.offset.clone(),
+    repeat: texture.repeat.clone(),
+    rotation: texture.rotation ?? 0,
+    center: texture.center ? texture.center.clone() : new THREE.Vector2(0.5, 0.5),
+  };
+};
+
+const cloneStoredTransform = (transform) => {
+  if (!transform) {
+    return null;
+  }
+
+  return {
+    offset: transform.offset.clone(),
+    repeat: transform.repeat.clone(),
+    rotation: transform.rotation ?? 0,
+    center: transform.center ? transform.center.clone() : new THREE.Vector2(0.5, 0.5),
+  };
+};
+
+const applyStoredTextureTransform = (texture, transform) => {
+  if (!texture || !transform) return;
+
+  texture.offset.copy(transform.offset);
+  texture.repeat.copy(transform.repeat);
+  texture.rotation = transform.rotation ?? 0;
+
+  if (texture.center && transform.center) {
+    texture.center.copy(transform.center);
+  }
+
+  texture.needsUpdate = true;
+};
+
 export const useFacetOverlayGeometry = (facetKeys) => {
   const [overlayImages, setOverlayImages] = useState(new Map());
   const [isReady, setIsReady] = useState(false);
@@ -291,6 +331,9 @@ export const useFacetOverlayGeometry = (facetKeys) => {
         const originalInfo = child.userData?.__originalMaterialInfo;
         const originalSlots = originalInfo?.slots || [];
         const materialCount = Math.max(originalSlots.length, materials.length);
+        const storedProjectMap = originalInfo?.projectDisplayMap || null;
+        const storedProjectTransform =
+          originalInfo?.projectDisplayMapTransform || null;
 
         const preferredIndices = originalSlots
           .filter((slot) => (slot.name || slot.slotId) === PROJECT_DISPLAY_SLOT)
@@ -343,6 +386,16 @@ export const useFacetOverlayGeometry = (facetKeys) => {
             return false;
           }
 
+          if (!baseMaterial.map && storedProjectMap) {
+            baseMaterial.map = storedProjectMap;
+            if (storedProjectTransform) {
+              applyStoredTextureTransform(baseMaterial.map, storedProjectTransform);
+            } else {
+              baseMaterial.map.needsUpdate = true;
+            }
+            baseMaterial.needsUpdate = true;
+          }
+
           const bounds = computeSlotUVBounds(
             child.geometry,
             materialCount > 1 ? index : null
@@ -360,6 +413,8 @@ export const useFacetOverlayGeometry = (facetKeys) => {
             materialIndex,
             baseMaterial,
             bounds,
+            storedProjectMap,
+            storedProjectTransform,
           };
 
           return true;
@@ -371,7 +426,14 @@ export const useFacetOverlayGeometry = (facetKeys) => {
         return null;
       }
 
-      const { mesh, materialIndex, baseMaterial, bounds } = candidate;
+      const {
+        mesh,
+        materialIndex,
+        baseMaterial,
+        bounds,
+        storedProjectMap,
+        storedProjectTransform,
+      } = candidate;
 
       const canvas = getOrCreateCanvas(image, bounds.aspect || 1);
       if (!canvas) {
@@ -428,6 +490,13 @@ export const useFacetOverlayGeometry = (facetKeys) => {
       overlayMaterial.opacity = wasActive ? previousOpacity : 0;
       overlayMaterial.needsUpdate = true;
 
+      const fallbackMap = baseMaterial.map || storedProjectMap || null;
+      const fallbackTransform = baseMaterial.map
+        ? snapshotTextureTransform(baseMaterial.map)
+        : storedProjectTransform
+        ? cloneStoredTransform(storedProjectTransform)
+        : null;
+
       const slot = {
         facetKey,
         mesh,
@@ -435,18 +504,8 @@ export const useFacetOverlayGeometry = (facetKeys) => {
         originalMaterial: baseMaterial,
         originalOpacity: baseMaterial.opacity ?? 1,
         originalTransparent: baseMaterial.transparent ?? false,
-        originalMap: baseMaterial.map || null,
-        originalMapTransform:
-          baseMaterial.map
-            ? {
-                offset: baseMaterial.map.offset.clone(),
-                repeat: baseMaterial.map.repeat.clone(),
-                rotation: baseMaterial.map.rotation ?? 0,
-                center: baseMaterial.map.center
-                  ? baseMaterial.map.center.clone()
-                  : new THREE.Vector2(0.5, 0.5),
-              }
-            : null,
+        originalMap: fallbackMap,
+        originalMapTransform: fallbackTransform,
         overlayMaterial,
         overlayTexture,
         bounds,
@@ -517,13 +576,16 @@ export const useFacetOverlayGeometry = (facetKeys) => {
         slot.originalMaterial.opacity = slot.originalOpacity;
         slot.originalMaterial.needsUpdate = true;
 
+        if (!slot.originalMaterial.map && slot.originalMap) {
+          slot.originalMaterial.map = slot.originalMap;
+        }
+
         if (slot.originalMaterial.map && slot.originalMapTransform) {
-          slot.originalMaterial.map.offset.copy(slot.originalMapTransform.offset);
-          slot.originalMaterial.map.repeat.copy(slot.originalMapTransform.repeat);
-          slot.originalMaterial.map.rotation = slot.originalMapTransform.rotation;
-          if (slot.originalMaterial.map.center && slot.originalMapTransform.center) {
-            slot.originalMaterial.map.center.copy(slot.originalMapTransform.center);
-          }
+          applyStoredTextureTransform(
+            slot.originalMaterial.map,
+            slot.originalMapTransform
+          );
+        } else if (slot.originalMaterial.map) {
           slot.originalMaterial.map.needsUpdate = true;
         }
       }
