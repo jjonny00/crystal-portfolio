@@ -310,6 +310,12 @@ const Fixed3DCanvas = forwardRef(({
       const canvasElement = gl?.domElement;
       const viewport = window.visualViewport;
 
+      const parseCssLength = (value) => {
+        if (!value) return undefined;
+        const parsed = parseFloat(value);
+        return Number.isFinite(parsed) ? parsed : undefined;
+      };
+
       let width = window.innerWidth ?? document.documentElement?.clientWidth ?? 1;
       let height = window.innerHeight ?? document.documentElement?.clientHeight ?? 1;
 
@@ -332,9 +338,23 @@ const Fixed3DCanvas = forwardRef(({
         }
       }
 
-      if ((!width || !height) && viewport) {
-        width = width || viewport.width || 1;
-        height = height || viewport.height || 1;
+      const container = document.querySelector('.scroll-container');
+      if (container) {
+        const inlineValue = container.style.getPropertyValue('--scroll-container-height');
+        const computedValue = inlineValue || getComputedStyle(container).getPropertyValue('--scroll-container-height');
+        const containerHeight = parseCssLength(computedValue);
+        if (containerHeight && containerHeight > height) {
+          height = containerHeight;
+        }
+      }
+
+      if (viewport) {
+        if (viewport.width && viewport.width > width) {
+          width = viewport.width;
+        }
+        if (viewport.height && viewport.height > height) {
+          height = viewport.height;
+        }
       }
 
       const safeWidth = Math.max(1, Math.round(width));
