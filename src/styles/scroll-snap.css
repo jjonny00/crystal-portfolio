@@ -6,12 +6,16 @@ html {
   /* Force scroll snapping */
   scroll-snap-type: y mandatory !important;
   scroll-behavior: smooth !important;
-  
+
   /* Ensure no conflicts */
-  height: 100% !important;
+  height: auto !important;
+  min-height: 100vh !important;
+  min-height: 100svh !important;
+  min-height: 100lvh !important;
+  min-height: 100dvh !important;
   overflow-x: hidden !important;
   overflow-y: auto !important;
-  
+
   /* Enhanced scroll snap properties */
   scroll-padding: 0 !important;
   scroll-padding-top: 0 !important;

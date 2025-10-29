@@ -25,7 +25,11 @@ html, body, canvas {
 /* CRITICAL: Clean document scroll setup */
 html {
   overflow-x: hidden;
-  height: 100%;
+  height: auto;
+  min-height: 100vh;
+  min-height: 100svh;
+  min-height: 100lvh;
+  min-height: 100dvh;
 }
 
 body {
@@ -97,7 +101,11 @@ html {
 @media (max-width: 768px) {
   html {
     -webkit-overflow-scrolling: touch;
-    height: 100%;
+    height: auto;
+    min-height: 100vh;
+    min-height: 100svh;
+    min-height: 100lvh;
+    min-height: 100dvh;
     overflow-x: hidden;
     overflow-y: auto;
   }
