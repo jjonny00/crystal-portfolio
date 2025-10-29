@@ -22,6 +22,7 @@ import GradientBackground from '../three/GradientBackground';
 import { projectBackgrounds } from '../../data/projectBackgrounds';
 import MistyLayerStack from '../MistyLayerStack';
 import { isIOS26 } from '../../utils/isIOS26';
+import { facetKeys as canonicalFacetKeys } from '../../data/projects';
 
 function createSanitizePass() {
   const material = new ShaderMaterial({
@@ -129,7 +130,7 @@ const Fixed3DCanvas = forwardRef(({
   
   // NEW: State for debug data
   const [debugData, setDebugData] = useState({
-    facetKeys: ['empathy', 'narrative', 'craft', 'system', 'leadership', 'exploration'],
+    facetKeys: [...canonicalFacetKeys],
     facetModels: [],
     facetRefs: { current: [] },
     showWholeCrystal: true,

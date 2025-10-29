@@ -13,9 +13,12 @@ import MaterialManager from './MaterialManager'
 // Import enhanced sphere component
 import GlowingSphereImage, { BLENDING_MODES } from './GlowingSphereImage'
 import FractureRingImage from './FractureRingImage'
-import { getProjectColorByFacetKey } from '../../data/projects'
+import projects, {
+  facetKeys as canonicalFacetKeys,
+  getProjectColorByFacetKey,
+  getProjectModelKeyByFacetKey
+} from '../../data/projects'
 import FacetLabels from './FacetLabels'
-import projects from '../../data/projects'
 import { effects } from '../../crystalConfig'
 import { useFacetOverlayGeometry } from '../../hooks/useFacetOverlayGeometry'
 
@@ -69,10 +72,7 @@ const UnifiedCrystalScene = forwardRef(({
   const focusUpdateTimeoutRef = useRef();
 
   // Facet configuration
-  const facetKeys = useMemo(
-    () => ['empathy', 'narrative', 'craft', 'system', 'leadership', 'exploration'],
-    []
-  );
+  const facetKeys = canonicalFacetKeys;
 
   // Individual facet materials and colors
   const facetMaterialsRef = useRef([]);
@@ -80,6 +80,11 @@ const UnifiedCrystalScene = forwardRef(({
   const defaultColorRef = useRef(new THREE.Color('#ffffff'));
   const projectColors = useMemo(
     () => facetKeys.map(key => new THREE.Color(getProjectColorByFacetKey(key))),
+    [facetKeys]
+  );
+
+  const facetModelKeys = useMemo(
+    () => facetKeys.map((key) => getProjectModelKeyByFacetKey(key)),
     [facetKeys]
   );
 
@@ -260,14 +265,15 @@ const UnifiedCrystalScene = forwardRef(({
 
   // Load models
   const wholeCrystal = useGLTF(config.assets.models.crystalWhole);
-  const facetModels = [
-    useGLTF(config.assets.models.facetEmpathy),
-    useGLTF(config.assets.models.facetNarrative),
-    useGLTF(config.assets.models.facetCraft),
-    useGLTF(config.assets.models.facetSystem),
-    useGLTF(config.assets.models.facetLeadership),
-    useGLTF(config.assets.models.facetExploration)
-  ];
+  const facetModels = facetModelKeys.map((modelKey, index) => {
+    const modelUrl = config.assets.models[modelKey];
+
+    if (!modelUrl) {
+      throw new Error(`Missing model URL for facet index ${index} (${modelKey ?? 'undefined'})`);
+    }
+
+    return useGLTF(modelUrl);
+  });
 
   // Mark models as loaded when all GLTF hooks resolve
   useEffect(() => {
