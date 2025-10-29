@@ -453,22 +453,72 @@ const UnifiedCrystalScene = forwardRef(({
     );
 
     // Apply material to whole crystal
-    const updateOverlaySlotBase = (slot, baseMaterial) => {
+    const applyStoredTextureTransform = (texture, transform) => {
+      if (!texture || !transform) return;
+
+      texture.offset.copy(transform.offset);
+      texture.repeat.copy(transform.repeat);
+      texture.rotation = transform.rotation ?? 0;
+
+      if (texture.center && transform.center) {
+        texture.center.copy(transform.center);
+      }
+
+      texture.needsUpdate = true;
+    };
+
+    const snapshotTextureTransform = (texture) => {
+      if (!texture) {
+        return null;
+      }
+
+      return {
+        offset: texture.offset.clone(),
+        repeat: texture.repeat.clone(),
+        rotation: texture.rotation ?? 0,
+        center: texture.center ? texture.center.clone() : new THREE.Vector2(0.5, 0.5),
+      };
+    };
+
+    const cloneStoredTransform = (transform) => {
+      if (!transform) {
+        return null;
+      }
+
+      return {
+        offset: transform.offset.clone(),
+        repeat: transform.repeat.clone(),
+        rotation: transform.rotation ?? 0,
+        center: transform.center ? transform.center.clone() : new THREE.Vector2(0.5, 0.5),
+      };
+    };
+
+    const updateOverlaySlotBase = (slot, baseMaterial, originalInfo = null) => {
       if (!slot || !baseMaterial) return;
+
+      const storedMap = originalInfo?.projectDisplayMap || null;
+      const storedTransform = originalInfo?.projectDisplayMapTransform || null;
+
+      if (!baseMaterial.map && storedMap) {
+        baseMaterial.map = storedMap;
+        if (storedTransform) {
+          applyStoredTextureTransform(baseMaterial.map, storedTransform);
+        } else {
+          baseMaterial.map.needsUpdate = true;
+        }
+        baseMaterial.needsUpdate = true;
+      }
+
+      const effectiveMap = baseMaterial.map || storedMap || null;
 
       slot.originalMaterial = baseMaterial;
       slot.originalOpacity = baseMaterial.opacity ?? 1;
       slot.originalTransparent = baseMaterial.transparent ?? false;
-      slot.originalMap = baseMaterial.map || null;
+      slot.originalMap = effectiveMap;
       slot.originalMapTransform = baseMaterial.map
-        ? {
-            offset: baseMaterial.map.offset.clone(),
-            repeat: baseMaterial.map.repeat.clone(),
-            rotation: baseMaterial.map.rotation ?? 0,
-            center: baseMaterial.map.center
-              ? baseMaterial.map.center.clone()
-              : new THREE.Vector2(0.5, 0.5),
-          }
+        ? snapshotTextureTransform(baseMaterial.map)
+        : storedTransform
+        ? cloneStoredTransform(storedTransform)
         : null;
     };
 
@@ -561,7 +611,7 @@ const UnifiedCrystalScene = forwardRef(({
             material.needsUpdate = true;
           }
 
-          updateOverlaySlotBase(overlayTargetsChild, material);
+          updateOverlaySlotBase(overlayTargetsChild, material, originalInfo);
         }
 
         if (existingMaterials.length > 1) {
