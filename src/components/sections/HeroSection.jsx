@@ -104,12 +104,11 @@ const HeroSection = ({
   };
 
   return (
-    <section 
+    <section
       id="hero"
       className="scroll-section project"
       data-headline-color='#e1d2bc'
       style={{
-        height: '100vh',
         scrollSnapAlign: 'start',
         scrollSnapStop: 'normal',
         position: 'relative',

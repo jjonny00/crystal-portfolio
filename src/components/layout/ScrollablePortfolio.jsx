@@ -74,9 +74,8 @@ const ScrollablePortfolio = ({
         top: 0,
         left: 0,
         right: 0,
-        
+
         // Force it to be full viewport height and scrollable
-        height: '100vh',
         overflowY: 'auto',
         overflowX: 'hidden',
         
@@ -105,7 +104,6 @@ const ScrollablePortfolio = ({
       <div style={{
         // This wrapper holds all the content
         width: '100%',
-        minHeight: '800vh', // 9 sections × 100vh each
         position: 'relative',
         
         // NEW: Make content invisible but keep structure for scrolling
@@ -113,17 +111,12 @@ const ScrollablePortfolio = ({
       }}>
         
         {/* HERO SECTION */}
-        <section 
-          id="hero" 
+        <section
+          id="hero"
           className="scroll-section"
           style={{
             // NOTE: scroll-snap properties now handled by CSS classes
-            
-            // Force exact height
-            height: '100vh',
-            minHeight: '100vh',
-            maxHeight: '100vh',
-            
+
             // Prevent internal scroll
             overflow: 'hidden',
             
@@ -145,15 +138,12 @@ const ScrollablePortfolio = ({
         </section>
         
         {/* PROJECTS OVERVIEW SECTION */}
-        <section 
-          id="projects-overview" 
+        <section
+          id="projects-overview"
           className="scroll-section"
           style={{
             scrollSnapAlign: 'start',
             scrollSnapStop: 'normal',
-            height: '100vh',
-            minHeight: '100vh',
-            maxHeight: '100vh',
             overflow: 'hidden',
             display: 'flex',
             alignItems: 'center',
@@ -176,9 +166,6 @@ const ScrollablePortfolio = ({
             className="scroll-section project"
             data-headline-color={project.color}
             style={{
-              height: '100vh',
-              minHeight: '100vh',
-              maxHeight: '100vh',
               overflow: 'hidden',
               display: 'flex',
               alignItems: 'center',
@@ -202,13 +189,10 @@ const ScrollablePortfolio = ({
         ))}
 
         {/* ABOUT SECTION */}
-        <section 
+        <section
           id="about"
           className="scroll-section"
           style={{
-            height: '100vh',
-            minHeight: '100vh',
-            maxHeight: '100vh',
             overflow: 'hidden',
             display: 'flex',
             alignItems: 'center',

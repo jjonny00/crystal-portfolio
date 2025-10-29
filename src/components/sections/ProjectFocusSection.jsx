@@ -95,12 +95,11 @@ const ProjectFocusSection = ({
   const glow2 = headlineColor;
 
   return (
-    <section 
+    <section
       id={`project-${project.facetKey}`}
       className="scroll-section project"
       data-headline-color={project.headlineColor || project.color}
       style={{
-        height: '100vh',
         scrollSnapAlign: 'start',
         scrollSnapStop: 'normal',
         padding: isMobile ? '2rem 1rem' : '4rem 2rem',
