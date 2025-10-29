@@ -307,18 +307,34 @@ const Fixed3DCanvas = forwardRef(({
     }
 
     const updateViewportSize = () => {
+      const canvasElement = gl?.domElement;
       const viewport = window.visualViewport;
-      const width = viewport?.width ?? window.innerWidth ?? document.documentElement.clientWidth ?? 1;
 
+      let width = window.innerWidth ?? document.documentElement?.clientWidth ?? 1;
       let height = window.innerHeight ?? document.documentElement?.clientHeight ?? 1;
 
-      if (viewport) {
-        const viewportHeight = viewport.height ?? 0;
-        const offsetTop = viewport.offsetTop ?? 0;
-        const offsetBottom = Math.max(0, height - (viewportHeight + offsetTop));
-        height = viewportHeight + offsetTop + offsetBottom;
-      } else if (!height && document.documentElement?.clientHeight) {
-        height = document.documentElement.clientHeight;
+      if (canvasElement) {
+        const rect = canvasElement.getBoundingClientRect?.();
+        if (rect) {
+          if (rect.width > 0) {
+            width = rect.width;
+          }
+          if (rect.height > 0) {
+            height = rect.height;
+          }
+        } else {
+          if (canvasElement.clientWidth > 0) {
+            width = canvasElement.clientWidth;
+          }
+          if (canvasElement.clientHeight > 0) {
+            height = canvasElement.clientHeight;
+          }
+        }
+      }
+
+      if ((!width || !height) && viewport) {
+        width = width || viewport.width || 1;
+        height = height || viewport.height || 1;
       }
 
       const safeWidth = Math.max(1, Math.round(width));
