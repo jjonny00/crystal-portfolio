@@ -37,6 +37,7 @@ import * as defaultConfig from './crystalConfig';
 // Cinematic Movie Titles Effects
 import './styles/glow-70s.css';
 import { isMobileDevice } from './utils/isMobileDevice.js';
+import useDynamicViewportHeightVariable from './hooks/useDynamicViewportHeightVariable';
 
 // Convert UI config into animation config
 const buildAnimationConfig = (uiConfig) => {
@@ -90,6 +91,8 @@ const buildAnimationConfig = (uiConfig) => {
 
 
 function App() {
+  useDynamicViewportHeightVariable();
+
   // ========================================
   // UPDATED: V2 Performance and Asset Loading System
   // ========================================

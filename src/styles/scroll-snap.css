@@ -13,6 +13,7 @@ html {
   min-height: 100svh !important;
   min-height: 100lvh !important;
   min-height: 100dvh !important;
+  min-height: var(--app-viewport-height, 100dvh) !important;
   overflow-x: hidden !important;
   overflow-y: auto !important;
 
@@ -44,6 +45,7 @@ body {
   min-height: 100svh !important;
   min-height: 100lvh !important;
   min-height: 100dvh !important;
+  min-height: var(--app-viewport-height, 100dvh) !important;
   
   /* Never set overflow on root */
   overflow: visible !important;
@@ -66,10 +68,8 @@ body {
   height: 100svh !important;
   height: 100lvh !important;
   height: 100dvh !important;
-  --scroll-container-height: 100vh;
-  --scroll-container-height: 100svh;
-  --scroll-container-height: 100lvh;
-  --scroll-container-height: 100dvh;
+  height: var(--app-viewport-height, 100dvh) !important;
+  --scroll-container-height: var(--app-viewport-height, 100dvh);
   min-height: var(--scroll-container-height) !important;
   height: var(--scroll-container-height) !important;
   max-height: var(--scroll-container-height) !important;
@@ -103,15 +103,18 @@ body {
   height: 100svh !important;
   height: 100lvh !important;
   height: 100dvh !important;
+  height: var(--app-viewport-height, 100dvh) !important;
   min-height: 100vh !important;
   min-height: 100svh !important;
   min-height: 100lvh !important;
   min-height: 100dvh !important;
+  min-height: var(--app-viewport-height, 100dvh) !important;
   max-height: 100vh !important;
   max-height: 100svh !important;
   max-height: 100lvh !important;
   max-height: 100dvh !important;
-  --scroll-section-height: var(--scroll-container-height, 100dvh);
+  max-height: var(--app-viewport-height, 100dvh) !important;
+  --scroll-section-height: var(--scroll-container-height, var(--app-viewport-height, 100dvh));
   min-height: var(--scroll-section-height) !important;
   height: var(--scroll-section-height) !important;
   max-height: var(--scroll-section-height) !important;
@@ -151,17 +154,20 @@ body {
   height: 100svh !important;
   height: 100lvh !important;
   height: 100dvh !important;
+  height: var(--app-viewport-height, 100dvh) !important;
   min-height: 100vh !important;
   min-height: 100svh !important;
   min-height: 100lvh !important;
   min-height: 100dvh !important;
+  min-height: var(--app-viewport-height, 100dvh) !important;
   max-height: 100vh !important;
   max-height: 100svh !important;
   max-height: 100lvh !important;
   max-height: 100dvh !important;
-  min-height: var(--scroll-container-height, 100dvh) !important;
-  height: var(--scroll-container-height, 100dvh) !important;
-  max-height: var(--scroll-container-height, 100dvh) !important;
+  max-height: var(--app-viewport-height, 100dvh) !important;
+  min-height: var(--scroll-container-height, var(--app-viewport-height, 100dvh)) !important;
+  height: var(--scroll-container-height, var(--app-viewport-height, 100dvh)) !important;
+  max-height: var(--scroll-container-height, var(--app-viewport-height, 100dvh)) !important;
   overflow: hidden !important;
   
   /* Center content */
@@ -249,6 +255,7 @@ html .scroll-container.no-snap .scroll-section {
     height: 100svh !important;
     height: 100lvh !important;
     height: 100dvh !important;
+    height: var(--app-viewport-height, 100dvh) !important;
     overflow-y: auto !important;
     scroll-snap-type: y proximity !important;
     pointer-events: auto !important;
@@ -281,16 +288,19 @@ html .scroll-container.no-snap .scroll-section {
     height: 100svh !important;
     height: 100lvh !important;
     height: 100dvh !important;
+    height: var(--app-viewport-height, 100dvh) !important;
     min-height: 100vh !important;
     min-height: 100svh !important;
     min-height: 100lvh !important;
     min-height: 100dvh !important;
+    min-height: var(--app-viewport-height, 100dvh) !important;
     max-height: 100vh !important;
     max-height: 100svh !important;
     max-height: 100lvh !important;
     max-height: 100dvh !important;
+    max-height: var(--app-viewport-height, 100dvh) !important;
   }
-  
+
   /* Mobile-specific fixes for iOS */
   @supports (-webkit-touch-callout: none) {
     .scroll-container {
@@ -299,6 +309,7 @@ html .scroll-container.no-snap .scroll-section {
       height: 100svh !important;
       height: 100lvh !important;
       height: 100dvh !important;
+      height: var(--app-viewport-height, 100dvh) !important;
     }
   }
 }

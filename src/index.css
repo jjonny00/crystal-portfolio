@@ -1,5 +1,9 @@
 /* index.css - FIXED: Remove static loading screen */
 
+:root {
+  --app-viewport-height: 100dvh;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -13,6 +17,7 @@ body {
   height: 100svh;
   height: 100lvh;
   height: 100dvh;
+  height: var(--app-viewport-height, 100dvh);
   margin: 0;
   padding: 0;
 }
@@ -23,6 +28,7 @@ canvas {
   height: 100svh;
   height: 100lvh;
   height: 100dvh;
+  height: var(--app-viewport-height, 100dvh);
   margin: 0;
   padding: 0;
   overflow: hidden;
@@ -42,6 +48,7 @@ html {
   min-height: 100svh;
   min-height: 100lvh;
   min-height: 100dvh;
+  min-height: var(--app-viewport-height, 100dvh);
 }
 
 body {
@@ -57,6 +64,7 @@ body {
   min-height: 100svh;
   min-height: 100lvh;
   min-height: 100dvh;
+  min-height: var(--app-viewport-height, 100dvh);
   height: auto;
   overflow-x: hidden;
   overflow-y: auto;
@@ -81,6 +89,7 @@ h6,
   min-height: 100svh;
   min-height: 100lvh;
   min-height: 100dvh;
+  min-height: var(--app-viewport-height, 100dvh);
   overflow-x: hidden;
   position: relative;
 }
@@ -118,14 +127,16 @@ html {
     min-height: 100svh;
     min-height: 100lvh;
     min-height: 100dvh;
+    min-height: var(--app-viewport-height, 100dvh);
     overflow-x: hidden;
     overflow-y: auto;
   }
-  
+
   body {
     -webkit-overflow-scrolling: touch;
     height: auto;
     min-height: 100vh;
+    min-height: var(--app-viewport-height, 100dvh);
     overflow-x: hidden;
     overflow-y: auto;
     touch-action: manipulation;
@@ -136,6 +147,7 @@ html {
   #root {
     width: 100%;
     min-height: 100vh;
+    min-height: var(--app-viewport-height, 100dvh);
     overflow-x: hidden;
     -webkit-backface-visibility: hidden;
     backface-visibility: hidden;
