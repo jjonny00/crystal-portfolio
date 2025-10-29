@@ -4,6 +4,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Vector3, Quaternion } from 'three';
 import { fracture as fractureConfig } from '../crystalConfig';
+import { orderedFacetKeys } from '../data/projects';
 
 // Percentage of explode distance facets travel during fracture
 const FRACTURE_DISTANCE = fractureConfig.distance;
@@ -106,15 +107,26 @@ export const ANIMATION_CONFIG = {
     about: { start: 0.875, end: 1.0 }
   },
 
-  projectSections: {
-    empathy:    { start: 0.24,   end: 0.3433 },
-    narrative:  { start: 0.3433, end: 0.4466 },
-    craft:      { start: 0.4466, end: 0.5499 },
-    system:     { start: 0.5499, end: 0.6533 },
-    leadership: { start: 0.6533, end: 0.7566 },
-    exploration:{ start: 0.7566, end: 0.875 }
-  }
+  projectSections: {}
 };
+
+const projectsZone = ANIMATION_CONFIG.scrollZones.projects;
+const sectionCount = Math.max(orderedFacetKeys.length, 1);
+const projectSectionSpan = (projectsZone.end - projectsZone.start) / sectionCount;
+
+ANIMATION_CONFIG.projectSections = orderedFacetKeys.reduce((acc, facetKey, index) => {
+  const start = projectsZone.start + projectSectionSpan * index;
+  const end = index === orderedFacetKeys.length - 1
+    ? projectsZone.end
+    : start + projectSectionSpan;
+
+  acc[facetKey] = {
+    start,
+    end
+  };
+
+  return acc;
+}, {});
 
 // Derive fracture positions based on percentage of explode distance
 ANIMATION_CONFIG.crystal.fracturePositions = Object.fromEntries(
@@ -384,7 +396,8 @@ export const useUnifiedAnimationController = (options = {}) => {
 
       if (shouldChangeZone) {
         if (currentZone.zone === 'projects') {
-          const initialProject = calculateActiveProject(scrollProgress, config).project || 'empathy';
+          const fallbackProject = orderedFacetKeys[0] || null;
+          const initialProject = calculateActiveProject(scrollProgress, config).project || fallbackProject;
           if (debugMode || import.meta.env.DEV) {
             console.log(`🗺️ Zone change confirmed: ${lastZone.current} → ${currentZone.zone} (progress: ${currentZone.progress.toFixed(3)})`);
             console.log(`🧭 Projects zone transition at scroll ${scrollProgress.toFixed(3)} initialProject=${initialProject}`);

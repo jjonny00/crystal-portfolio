@@ -3,6 +3,7 @@
 
 import React from 'react';
 import * as THREE from 'three';
+import { facetKeys as canonicalFacetKeys } from '../../data/projects';
 
 /**
  * FIXED: Crystal Debug Panels - Renders outside Three.js Canvas
@@ -10,7 +11,7 @@ import * as THREE from 'three';
 const CrystalDebugPanels = ({
   showCrystalDebug,
   animationData,
-  facetKeys = ['empathy', 'narrative', 'craft', 'system', 'leadership', 'exploration'],
+  facetKeys = canonicalFacetKeys,
   facetModels = [],
   facetRefs = { current: [] },
   showWholeCrystal,

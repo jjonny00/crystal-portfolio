@@ -4,6 +4,7 @@
 import { useRef, useEffect } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { facetKeys as canonicalFacetKeys } from '../../data/projects';
 
 const UnifiedCameraController = ({
   animationData,
@@ -55,8 +56,7 @@ const UnifiedCameraController = ({
       return null;
     }
     
-    const facetKeys = ['empathy', 'narrative', 'craft', 'system', 'leadership', 'exploration'];
-    const facetIndex = facetKeys.indexOf(facetKey);
+    const facetIndex = canonicalFacetKeys.indexOf(facetKey);
     
     if (facetIndex === -1) {
       if (import.meta.env.DEV) {
