@@ -3,7 +3,7 @@
 
 import React from 'react';
 import * as THREE from 'three';
-import { orderedFacetKeys } from '../../data/projects';
+import { facetKeys as crystalFacetKeys } from '../../data/projects';
 
 /**
  * FIXED: Crystal Debug Panels - Renders outside Three.js Canvas
@@ -11,7 +11,7 @@ import { orderedFacetKeys } from '../../data/projects';
 const CrystalDebugPanels = ({
   showCrystalDebug,
   animationData,
-  facetKeys = orderedFacetKeys,
+  facetKeys = crystalFacetKeys,
   facetModels = [],
   facetRefs = { current: [] },
   showWholeCrystal,

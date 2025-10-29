@@ -20,7 +20,7 @@ import { FPSCounter } from '../ui/FpsDisplay';
 import CrystalDebugPanels from '../ui/CrystalDebugPanels';
 import GradientBackground from '../three/GradientBackground';
 import { projectBackgrounds } from '../../data/projectBackgrounds';
-import { orderedFacetKeys } from '../../data/projects';
+import { facetKeys as crystalFacetKeys } from '../../data/projects';
 import MistyLayerStack from '../MistyLayerStack';
 import { isIOS26 } from '../../utils/isIOS26';
 
@@ -130,7 +130,7 @@ const Fixed3DCanvas = forwardRef(({
   
   // NEW: State for debug data
   const [debugData, setDebugData] = useState({
-    facetKeys: orderedFacetKeys,
+    facetKeys: crystalFacetKeys,
     facetModels: [],
     facetRefs: { current: [] },
     showWholeCrystal: true,

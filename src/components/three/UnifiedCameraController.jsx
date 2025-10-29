@@ -4,7 +4,7 @@
 import { useRef, useEffect } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { orderedFacetKeys } from '../../data/projects';
+import { facetKeys as crystalFacetKeys } from '../../data/projects';
 
 const UnifiedCameraController = ({
   animationData,
@@ -56,7 +56,7 @@ const UnifiedCameraController = ({
       return null;
     }
     
-    const facetKeys = orderedFacetKeys;
+    const facetKeys = crystalFacetKeys;
     const facetIndex = facetKeys.indexOf(facetKey);
     
     if (facetIndex === -1) {

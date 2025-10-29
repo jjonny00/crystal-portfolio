@@ -9,8 +9,8 @@
 export const projects = [
   {
     id: "project1",
-    facetKey: "exploration", // Reversed facet mapping
-    modelKey: "project01",
+    facetKey: "exploration", // Reassigned facet mapping (reversed order)
+    modelKey: "project06",
     title: "User-Centered Dashboard",
     label: "GEC (Ascend Platform)",
     tagline: "Adaptive platform powering GE's global hubs",
@@ -32,7 +32,7 @@ export const projects = [
   {
     id: "project2",
     facetKey: "leadership",
-    modelKey: "project02",
+    modelKey: "project05",
     title: "Interactive Storytelling Platform",
     label: "FundSeeder",
     tagline: "Fintech platform linking traders to capital",
@@ -54,7 +54,7 @@ export const projects = [
   {
     id: "project3",
     facetKey: "system",
-    modelKey: "project03",
+    modelKey: "project04",
     title: "Design System Implementation",
     label: "Mesa",
     tagline: "Asynchronous PvP built on Game Center",
@@ -76,7 +76,7 @@ export const projects = [
   {
     id: "project4",
     facetKey: "craft",
-    modelKey: "project04",
+    modelKey: "project03",
     title: "Component Architecture",
     label: "Quantified",
     tagline: "Track what matters, beautifully on Apple",
@@ -98,7 +98,7 @@ export const projects = [
   {
     id: "project5",
     facetKey: "narrative",
-    modelKey: "project05",
+    modelKey: "project02",
     title: "Team Collaboration Platform",
     label: "Forest Giant",
     tagline: "Process, product, and team‑building at scale",
@@ -120,7 +120,7 @@ export const projects = [
   {
     id: "project6",
     facetKey: "empathy",
-    modelKey: "project06",
+    modelKey: "project01",
     title: "Experimental Interactions",
     label: "Experiments (XR/VR)",
     tagline: "Exploring VR interaction systems in Unreal",
@@ -154,9 +154,18 @@ const getProjectByFacetKey = (facetKey) => {
  * Get project model key by facet key
  * Provides a lookup for 3D assets that now use generic names
  */
+const facetModelKeyFallback = {
+  empathy: 'project01',
+  narrative: 'project02',
+  craft: 'project03',
+  system: 'project04',
+  leadership: 'project05',
+  exploration: 'project06'
+};
+
 export const getProjectModelKeyByFacetKey = (facetKey) => {
   const project = getProjectByFacetKey(facetKey);
-  return project?.modelKey || null;
+  return project?.modelKey || facetModelKeyFallback[facetKey] || null;
 };
 
 /**
@@ -169,10 +178,21 @@ export const getProjectColorByFacetKey = (facetKey) => {
 };
 
 /**
- * Ordered facet keys derived from the project list
- * Provides a single source of truth for facet iteration order
+ * Canonical facet order matching the crystal geometry layout.
  */
-export const orderedFacetKeys = Object.freeze(projects.map(project => project.facetKey));
+export const facetKeys = Object.freeze([
+  'empathy',
+  'narrative',
+  'craft',
+  'system',
+  'leadership',
+  'exploration'
+]);
+
+/**
+ * Camera traversal order for project sections (reversed relative to the geometry).
+ */
+export const orderedFacetKeys = Object.freeze([...facetKeys].reverse());
 
 /**
  * Get overlay image path by facet key
