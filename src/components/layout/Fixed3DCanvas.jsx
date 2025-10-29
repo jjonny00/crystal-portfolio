@@ -117,7 +117,7 @@ const Fixed3DCanvas = forwardRef(({
   const crystalSceneRef = useRef();
   const backgroundRef = useRef();
   const lastZoneRef = useRef(null);
-  const resizeHandlerRef = useRef(null);
+  const resizeCleanupRef = useRef(null);
 
   const handleFractureStart = useCallback(() => {
     backgroundRef.current?.flash(1, 0.5);
@@ -159,9 +159,9 @@ const Fixed3DCanvas = forwardRef(({
   }, [sanitizePass]);
 
   useEffect(() => () => {
-    if (resizeHandlerRef.current) {
-      window.removeEventListener('resize', resizeHandlerRef.current);
-      resizeHandlerRef.current = null;
+    if (resizeCleanupRef.current) {
+      resizeCleanupRef.current();
+      resizeCleanupRef.current = null;
     }
   }, []);
 
@@ -302,24 +302,45 @@ const Fixed3DCanvas = forwardRef(({
 
     const { gl, camera, setSize } = state;
 
-    const handleResize = () => {
-      const width = window.innerWidth;
-      const height = window.innerHeight;
-
-      gl.setSize(width, height, false);
-      camera.aspect = width / height;
-      camera.updateProjectionMatrix();
-      setSize(width, height);
-    };
-
-    if (resizeHandlerRef.current) {
-      window.removeEventListener('resize', resizeHandlerRef.current);
+    if (resizeCleanupRef.current) {
+      resizeCleanupRef.current();
     }
 
-    resizeHandlerRef.current = handleResize;
-    handleResize();
+    const updateViewportSize = () => {
+      const viewport = window.visualViewport;
+      const canvasElement = gl.domElement;
+      const { width, height } = canvasElement?.getBoundingClientRect() || {};
+      const nextWidth = width && width > 0 ? width : viewport?.width ?? window.innerWidth;
+      const nextHeight = height && height > 0 ? height : viewport?.height ?? window.innerHeight;
+      const safeWidth = Math.max(1, nextWidth);
+      const safeHeight = Math.max(1, nextHeight);
 
-    window.addEventListener('resize', handleResize);
+      gl.setSize(safeWidth, safeHeight, false);
+      camera.aspect = safeWidth / safeHeight;
+      camera.updateProjectionMatrix();
+      setSize(safeWidth, safeHeight);
+    };
+
+    const viewport = window.visualViewport;
+
+    const cleanup = () => {
+      window.removeEventListener('resize', updateViewportSize);
+      window.removeEventListener('orientationchange', updateViewportSize);
+      if (viewport) {
+        viewport.removeEventListener('resize', updateViewportSize);
+        viewport.removeEventListener('scroll', updateViewportSize);
+      }
+    };
+
+    window.addEventListener('resize', updateViewportSize);
+    window.addEventListener('orientationchange', updateViewportSize);
+    if (viewport) {
+      viewport.addEventListener('resize', updateViewportSize);
+      viewport.addEventListener('scroll', updateViewportSize);
+    }
+
+    resizeCleanupRef.current = cleanup;
+    updateViewportSize();
   }, [externalOnCreated]);
 
   const canvasStyle = useMemo(() => ({
