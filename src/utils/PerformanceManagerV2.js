@@ -197,6 +197,7 @@ export default class PerformanceManagerV2 {
     canvas.style.position = 'absolute';
     canvas.style.top = '-9999px';
     canvas.style.pointerEvents = 'none';
+    canvas.style.webkitTransform = 'translateZ(0)';
     document.body.appendChild(canvas);
 
     const results = {};
@@ -284,10 +285,24 @@ export default class PerformanceManagerV2 {
     const THREE = await import('three');
 
     return new Promise(async (resolve) => {
+      const contextAttributes = {
+        antialias: profile.antialiasing !== false,
+        powerPreference: 'default',
+        preserveDrawingBuffer: true,
+        willReadFrequently: true
+      };
+      const context =
+        canvas.getContext('webgl2', contextAttributes) ||
+        canvas.getContext('webgl', contextAttributes) ||
+        canvas.getContext('experimental-webgl', contextAttributes) ||
+        undefined;
+
       const renderer = new THREE.WebGLRenderer({
         canvas,
+        context,
         antialias: profile.antialiasing !== false,
-        powerPreference: 'default'
+        powerPreference: 'default',
+        preserveDrawingBuffer: true
       });
 
       const actualWidth = width;
@@ -298,7 +313,7 @@ export default class PerformanceManagerV2 {
       } finally {
         cleanupLayoutHack?.();
       }
-      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.setPixelRatio(1);
 
       // Create scene that matches actual crystal complexity
       const scene = new THREE.Scene();
