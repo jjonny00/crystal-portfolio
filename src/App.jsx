@@ -155,6 +155,7 @@ function App() {
     vignette: true
   });
   const [postProcessingConfig, setPostProcessingConfig] = useState(config.postProcessing);
+  const [canvasElement, setCanvasElement] = useState(null);
 
   // Simulate application initialization progress for loader
   useEffect(() => {
@@ -193,6 +194,22 @@ function App() {
 
   // Detect if mobile
   const isMobile = isMobileDevice();
+
+  const handleFullscreenTest = useCallback(() => {
+    const element = canvasElement;
+    if (!element) {
+      console.warn('Fullscreen test button: canvas element not ready yet.');
+      return;
+    }
+
+    if (element.requestFullscreen) {
+      element.requestFullscreen().catch((error) => {
+        console.error('Failed to enter fullscreen for canvas:', error);
+      });
+    } else {
+      console.warn('Fullscreen API not supported on this canvas element.');
+    }
+  }, [canvasElement]);
 
   // ========================================
   // UPDATED: App ready detection with V2 system
@@ -451,6 +468,26 @@ function App() {
         {hideAllUI ? 'Show UI (U)' : 'Hide UI (U)'}
       </button>
 
+      <button
+        onClick={handleFullscreenTest}
+        style={{
+          position: 'fixed',
+          top: '10px',
+          left: '140px',
+          zIndex: 99999,
+          backgroundColor: '#1a1a1a',
+          color: '#fff',
+          border: '1px solid rgba(255, 255, 255, 0.2)',
+          padding: '8px 12px',
+          borderRadius: '4px',
+          fontSize: '12px',
+          cursor: 'pointer',
+          fontWeight: 'bold'
+        }}
+      >
+        Test Fullscreen
+      </button>
+
       {/* Navigation Bar */}
       {!hideAllUI && (
         <Navigation
@@ -498,6 +535,7 @@ function App() {
           canvasProps={getOptimalCanvasProps()}
           environmentProps={getOptimalEnvironmentProps()}
           isMobile={isMobile}
+          onCanvasReady={setCanvasElement}
         />
       </MasterAnimationCoordinator>
 

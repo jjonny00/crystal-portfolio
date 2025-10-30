@@ -98,7 +98,7 @@ const PulsingOmniLight = ({ simplified = false }) => {
 /**
  * UPDATED: Fixed3DCanvas with enhanced MistyLayerStack render order
  */
-const Fixed3DCanvas = forwardRef(({
+const Fixed3DCanvas = forwardRef(({ 
   // Animation data from MasterAnimationCoordinator
   animationData,
   
@@ -111,7 +111,8 @@ const Fixed3DCanvas = forwardRef(({
   canvasProps = {},
   environmentProps = {},
   isMobile = false,
-  scrollToProgress
+  scrollToProgress,
+  onCanvasReady
 }, ref) => {
   // NEW: Ref to access crystal scene for debug panels
   const crystalSceneRef = useRef();
@@ -302,8 +303,13 @@ const Fixed3DCanvas = forwardRef(({
             sortObjects: true,
             ...canvasProps.gl
           }}
-          style={{ 
-            width: '100%', 
+          onCreated={(state) => {
+            if (typeof onCanvasReady === 'function') {
+              onCanvasReady(state.gl?.domElement || state.canvas);
+            }
+          }}
+          style={{
+            width: '100%',
             height: '100%',
             // Allow pointer events only for 3D interactions (disabled on mobile)
             pointerEvents: isMobile ? 'none' : 'auto',
