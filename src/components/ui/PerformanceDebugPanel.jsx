@@ -13,11 +13,30 @@ const PerformanceDebugPanel = ({
   testResults,
   debugInfo,
   onForceRetest,
-  onClearCache
+  onClearCache,
+  safariLayoutMode = 'full',
+  safariLayoutModes = [],
+  safariDisableContainerSnap = false,
+  safariDisableAncestorSnap = false,
+  safariCanvasContain = false,
+  onSafariLayoutModeChange = () => {},
+  onToggleSafariContainerSnap = () => {},
+  onToggleSafariAncestorSnap = () => {},
+  onToggleSafariCanvasContain = () => {}
 }) => {
   if (!import.meta.env.DEV && !window.__PERF_DEBUG__) return null;
 
   const fileInputRef = useRef(null);
+  const layoutModes = safariLayoutModes && safariLayoutModes.length
+    ? safariLayoutModes
+    : [
+        { id: 'full', label: 'Full CSS' },
+        { id: 'canvas-only', label: 'Canvas only' },
+        { id: 'position-fixed', label: 'Position fixed' },
+        { id: 'overflow', label: 'Overflow' },
+        { id: 'scroll-snap', label: 'Scroll snap' },
+        { id: 'viewport-units', label: 'Viewport units' }
+      ];
 
   const exportProfile = () => {
     try {
@@ -243,6 +262,87 @@ const PerformanceDebugPanel = ({
           onChange={importProfile} 
           style={{ display: 'none' }} 
         />
+      </div>
+
+      <div style={{
+        marginTop: '20px',
+        padding: '12px',
+        background: 'rgba(0, 0, 0, 0.25)',
+        borderRadius: '6px',
+        border: '1px solid rgba(255, 255, 255, 0.15)'
+      }}>
+        <div style={{
+          color: '#00e5ff',
+          fontWeight: 'bold',
+          marginBottom: '8px',
+          textAlign: 'center'
+        }}>
+          🧪 Safari Safe Layout Experiment
+        </div>
+
+        <div style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: '6px',
+          justifyContent: 'center',
+          marginBottom: '10px'
+        }}>
+          {layoutModes.map((modeOption) => {
+            const isActive = safariLayoutMode === modeOption.id;
+            return (
+              <button
+                key={modeOption.id}
+                onClick={() => onSafariLayoutModeChange(modeOption.id)}
+                style={{
+                  padding: '6px 10px',
+                  fontSize: '11px',
+                  borderRadius: '4px',
+                  border: isActive ? '1px solid #00e5ff' : '1px solid rgba(255, 255, 255, 0.2)',
+                  backgroundColor: isActive ? 'rgba(0, 229, 255, 0.25)' : 'rgba(0, 0, 0, 0.35)',
+                  color: '#fff',
+                  cursor: 'pointer',
+                  fontWeight: isActive ? 'bold' : 'normal',
+                  letterSpacing: '0.02em'
+                }}
+              >
+                {modeOption.label}
+              </button>
+            );
+          })}
+        </div>
+
+        <div style={{
+          display: 'grid',
+          gap: '8px',
+          fontSize: '11px'
+        }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <input
+              type="checkbox"
+              checked={safariDisableContainerSnap}
+              onChange={onToggleSafariContainerSnap}
+            />
+            Disable scroll-container snap
+          </label>
+
+          <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <input
+              type="checkbox"
+              checked={safariDisableAncestorSnap}
+              onChange={onToggleSafariAncestorSnap}
+            />
+            Force ancestors to scroll-snap: none
+          </label>
+
+          <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <input
+              type="checkbox"
+              checked={safariCanvasContain}
+              onChange={onToggleSafariCanvasContain}
+            />
+            Apply <code>contain: layout size</code> to canvas wrapper
+          </label>
+        </div>
       </div>
 
       {/* Success Message */}

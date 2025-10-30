@@ -111,6 +111,7 @@ const Fixed3DCanvas = forwardRef(({
   canvasProps = {},
   environmentProps = {},
   isMobile = false,
+  layoutContain = false,
   scrollToProgress
 }, ref) => {
   // NEW: Ref to access crystal scene for debug panels
@@ -286,6 +287,7 @@ const Fixed3DCanvas = forwardRef(({
         height: '100vh',
         zIndex: 1, // Behind scrollable content (which is z-index 10)
         pointerEvents: 'none', // Don't block scrolling
+        contain: layoutContain ? 'layout size' : undefined
       }}>
         <Canvas
           key={Array.isArray(canvasProps.dpr) ? canvasProps.dpr.join('-') : canvasProps.dpr}

@@ -1,6 +1,6 @@
 // src/App.jsx - UPDATED: Integration with V2 performance and loading system
 
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import './styles/scroll-snap.css';
 
 // UPDATED: Import V2 systems
@@ -33,6 +33,7 @@ import PerformanceDebugPanel from './components/ui/PerformanceDebugPanel';
 
 // Configuration and utilities
 import * as defaultConfig from './crystalConfig';
+import useSafariLayoutExperiment, { SAFARI_LAYOUT_MODES } from './hooks/useSafariLayoutExperiment';
 
 // Cinematic Movie Titles Effects
 import './styles/glow-70s.css';
@@ -133,6 +134,10 @@ function App() {
   const [hideAllUI, setHideAllUI] = useState(false);
   const [perfDebug, setPerfDebug] = useState(false);
   const [snapSpeed, setSnapSpeed] = useState('medium');
+  const [safariLayoutMode, setSafariLayoutMode] = useState('full');
+  const [safariDisableContainerSnap, setSafariDisableContainerSnap] = useState(false);
+  const [safariDisableAncestorSnap, setSafariDisableAncestorSnap] = useState(false);
+  const [safariCanvasContain, setSafariCanvasContain] = useState(false);
   const [config, setConfig] = useState({
     ...defaultConfig,
     timing: {
@@ -193,6 +198,40 @@ function App() {
 
   // Detect if mobile
   const isMobile = isMobileDevice();
+
+  useSafariLayoutExperiment({
+    mode: safariLayoutMode,
+    disableAncestorSnap: safariDisableAncestorSnap,
+    disableContainerSnap: safariDisableContainerSnap
+  });
+
+  const safariExperimentConfig = useMemo(() => ({
+    mode: safariLayoutMode,
+    disableContainerSnap: safariDisableContainerSnap,
+    disableAncestorSnap: safariDisableAncestorSnap,
+    enableCanvasContain: safariCanvasContain
+  }), [
+    safariLayoutMode,
+    safariDisableContainerSnap,
+    safariDisableAncestorSnap,
+    safariCanvasContain
+  ]);
+
+  const handleSafariLayoutModeChange = useCallback((nextMode) => {
+    setSafariLayoutMode(nextMode);
+  }, []);
+
+  const handleToggleSafariContainerSnap = useCallback(() => {
+    setSafariDisableContainerSnap((prev) => !prev);
+  }, []);
+
+  const handleToggleSafariAncestorSnap = useCallback(() => {
+    setSafariDisableAncestorSnap((prev) => !prev);
+  }, []);
+
+  const handleToggleSafariCanvasContain = useCallback(() => {
+    setSafariCanvasContain((prev) => !prev);
+  }, []);
 
   // ========================================
   // UPDATED: App ready detection with V2 system
@@ -498,13 +537,15 @@ function App() {
           canvasProps={getOptimalCanvasProps()}
           environmentProps={getOptimalEnvironmentProps()}
           isMobile={isMobile}
+          layoutContain={safariCanvasContain}
         />
       </MasterAnimationCoordinator>
 
       {/* Scrollable Content */}
-      <ScrollablePortfolio 
+      <ScrollablePortfolio
         snapSpeed={snapSpeed}
         hideContent={hideAllUI}
+        layoutExperiment={safariExperimentConfig}
       />
 
       {/* UI Controls */}
@@ -617,6 +658,15 @@ function App() {
           debugInfo={debugInfo}
           onForceRetest={forceRetest}
           onClearCache={clearCache}
+          safariLayoutMode={safariLayoutMode}
+          safariLayoutModes={SAFARI_LAYOUT_MODES}
+          safariDisableContainerSnap={safariDisableContainerSnap}
+          safariDisableAncestorSnap={safariDisableAncestorSnap}
+          safariCanvasContain={safariCanvasContain}
+          onSafariLayoutModeChange={handleSafariLayoutModeChange}
+          onToggleSafariContainerSnap={handleToggleSafariContainerSnap}
+          onToggleSafariAncestorSnap={handleToggleSafariAncestorSnap}
+          onToggleSafariCanvasContain={handleToggleSafariCanvasContain}
         />
       )}
 
