@@ -2,7 +2,7 @@
 // UPDATED: Enhanced MistyLayerStack positioning and render order
 
 import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallback, useMemo } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Environment, OrbitControls } from '@react-three/drei';
 import { EffectComposer, Bloom, ChromaticAberration, Noise, Vignette } from '@react-three/postprocessing';
 import { BlendFunction } from 'postprocessing';
@@ -23,6 +23,43 @@ import { projectBackgrounds } from '../../data/projectBackgrounds';
 import MistyLayerStack from '../MistyLayerStack';
 import { isIOS26 } from '../../utils/isIOS26';
 import { facetKeys as canonicalFacetKeys } from '../../data/projects';
+
+const SAFARI_CHROME_OFFSET = 0;
+
+const RawPixelSizeManager = ({ safariChromeOffset = SAFARI_CHROME_OFFSET }) => {
+  const { gl } = useThree();
+
+  useEffect(() => {
+    if (!gl?.domElement) return;
+
+    const applyRawPixelDimensions = () => {
+      const dpr = window.devicePixelRatio || 1;
+      const screenHeight = window.screen?.height ?? window.innerHeight;
+      const targetPixelHeight = Math.max(1, Math.round(screenHeight * dpr - safariChromeOffset));
+
+      gl.setPixelRatio(dpr);
+      gl.setSize(window.innerWidth, targetPixelHeight, false);
+
+      const cssHeight = targetPixelHeight / dpr;
+      const canvasStyle = gl.domElement.style;
+      canvasStyle.width = `${window.innerWidth}px`;
+      canvasStyle.height = `${cssHeight}px`;
+      canvasStyle.maxHeight = `${cssHeight}px`;
+    };
+
+    applyRawPixelDimensions();
+
+    window.addEventListener('resize', applyRawPixelDimensions);
+    window.addEventListener('orientationchange', applyRawPixelDimensions);
+
+    return () => {
+      window.removeEventListener('resize', applyRawPixelDimensions);
+      window.removeEventListener('orientationchange', applyRawPixelDimensions);
+    };
+  }, [gl, safariChromeOffset]);
+
+  return null;
+};
 
 function createSanitizePass() {
   const material = new ShaderMaterial({
@@ -282,9 +319,9 @@ const Fixed3DCanvas = forwardRef(({
       <div style={{
         position: 'fixed',
         top: 0,
+        right: 0,
+        bottom: 0,
         left: 0,
-        width: '100vw',
-        height: '100vh',
         zIndex: 1, // Behind scrollable content (which is z-index 10)
         pointerEvents: 'none', // Don't block scrolling
       }}>
@@ -315,7 +352,9 @@ const Fixed3DCanvas = forwardRef(({
             pointerEvents: isMobile ? 'none' : 'auto',
           }}
         >
-          
+
+          <RawPixelSizeManager safariChromeOffset={SAFARI_CHROME_OFFSET} />
+
           <FPSCounter />
 
           {/* FIXED: Pass backgrounds to GradientBackground and use 'default' as initial */}
