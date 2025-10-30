@@ -133,6 +133,61 @@ export default class PerformanceManagerV2 {
     }
   }
 
+  async _ensureDomReadyForThreeInit(canvas) {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+
+    if (document.readyState === 'loading') {
+      await new Promise((resolve) => {
+        const handler = () => {
+          document.removeEventListener('DOMContentLoaded', handler);
+          resolve();
+        };
+        document.addEventListener('DOMContentLoaded', handler, { once: true });
+      });
+    }
+
+    await this._delay(100);
+    await this._waitForNestedRAFs(3);
+  }
+
+  _forceCanvasLayoutRecalc(canvas) {
+    if (!canvas || !canvas.style) {
+      return null;
+    }
+
+    void canvas.offsetHeight;
+
+    const originalTransform = canvas.style.transform;
+    const hadTransform = typeof originalTransform === 'string' && originalTransform.length > 0;
+    canvas.style.transform = `${hadTransform ? `${originalTransform} ` : ''}translateZ(0)`;
+
+    void canvas.offsetHeight;
+
+    return () => {
+      if (!canvas || !canvas.style) {
+        return;
+      }
+
+      if (hadTransform) {
+        canvas.style.transform = originalTransform;
+      } else {
+        canvas.style.removeProperty('transform');
+      }
+    };
+  }
+
+  async _waitForNestedRAFs(iterations = 2) {
+    if (typeof window === 'undefined') return;
+
+    for (let i = 0; i < iterations; i++) {
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+    }
+  }
+
+  _delay(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
   async _runSmartProgressiveTest() {
     this._testCanvas = document.createElement('canvas');
     const canvas = this._testCanvas;
@@ -223,6 +278,9 @@ export default class PerformanceManagerV2 {
 
   async _testWithRealisticScene(canvas, tier, width, height, testDuration = 2500, onProgress) {
     const profile = PERFORMANCE_PROFILES[tier];
+
+    await this._ensureDomReadyForThreeInit(canvas);
+
     const THREE = await import('three');
 
     return new Promise(async (resolve) => {
@@ -234,7 +292,12 @@ export default class PerformanceManagerV2 {
 
       const actualWidth = width;
       const actualHeight = height;
-      renderer.setSize(actualWidth, actualHeight);
+      const cleanupLayoutHack = this._forceCanvasLayoutRecalc(canvas);
+      try {
+        renderer.setSize(actualWidth, actualHeight);
+      } finally {
+        cleanupLayoutHack?.();
+      }
       renderer.setPixelRatio(window.devicePixelRatio);
 
       // Create scene that matches actual crystal complexity
