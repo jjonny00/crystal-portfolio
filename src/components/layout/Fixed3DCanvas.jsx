@@ -302,8 +302,11 @@ const Fixed3DCanvas = forwardRef(({
             sortObjects: true,
             ...canvasProps.gl
           }}
-          style={{ 
-            width: '100%', 
+          onCreated={({ gl }) => {
+            gl.setClearColor(0xff0000, 1);
+          }}
+          style={{
+            width: '100%',
             height: '100%',
             // Allow pointer events only for 3D interactions (disabled on mobile)
             pointerEvents: isMobile ? 'none' : 'auto',
