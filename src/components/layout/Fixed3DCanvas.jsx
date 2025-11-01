@@ -117,6 +117,7 @@ const Fixed3DCanvas = forwardRef(({
   const crystalSceneRef = useRef();
   const backgroundRef = useRef();
   const lastZoneRef = useRef(null);
+  const canvasContainerRef = useRef(null);
 
   const handleFractureStart = useCallback(() => {
     backgroundRef.current?.flash(1, 0.5);
@@ -275,18 +276,53 @@ const Fixed3DCanvas = forwardRef(({
     return null;
   };
 
+  useEffect(() => {
+    const node = canvasContainerRef.current;
+    if (!node) {
+      return;
+    }
+
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const checkHeights = () => {
+      const rect = node.getBoundingClientRect();
+      const containerHeight = rect.height;
+      const windowHeight = window.innerHeight;
+
+      if (Math.abs(containerHeight - windowHeight) > 1) {
+        console.log('[Fixed3DCanvas] Container height mismatch', {
+          containerHeight,
+          windowInnerHeight: windowHeight
+        });
+      }
+    };
+
+    checkHeights();
+    window.addEventListener('resize', checkHeights);
+
+    return () => {
+      window.removeEventListener('resize', checkHeights);
+    };
+  }, [canvasContainerRef]);
+
   return (
     <>
       {/* Main 3D Canvas */}
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        width: '100vw',
-        height: '100vh',
-        zIndex: 1, // Behind scrollable content (which is z-index 10)
-        pointerEvents: 'none', // Don't block scrolling
-      }}>
+      <div
+        ref={canvasContainerRef}
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          background: 'rgba(255,0,0,0.25)',
+          zIndex: 9999,
+          pointerEvents: 'none', // Don't block scrolling
+        }}
+      >
         <Canvas
           key={Array.isArray(canvasProps.dpr) ? canvasProps.dpr.join('-') : canvasProps.dpr}
           camera={{
@@ -476,6 +512,14 @@ const Fixed3DCanvas = forwardRef(({
           )}
         </Canvas>
       </div>
+      <div
+        style={{
+          position: 'relative',
+          width: '100%',
+          height: '100vh',
+          background: 'black'
+        }}
+      />
 
       {/* ADDED: External Debug Panels - Rendered outside Canvas */}
       {crystalSceneRef.current?.debugState && (
