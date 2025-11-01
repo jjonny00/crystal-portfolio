@@ -118,6 +118,11 @@ const Fixed3DCanvas = forwardRef(({
   const backgroundRef = useRef();
   const lastZoneRef = useRef(null);
   const canvasContainerRef = useRef(null);
+  const canvasElementRef = useRef(null);
+
+  const { onCreated: userCanvasOnCreated, ...canvasPropsWithoutOnCreated } = canvasProps;
+  const { gl: userGlProps, ...restCanvasProps } = canvasPropsWithoutOnCreated;
+  const canvasDpr = restCanvasProps.dpr;
 
   const handleFractureStart = useCallback(() => {
     backgroundRef.current?.flash(1, 0.5);
@@ -152,6 +157,25 @@ const Fixed3DCanvas = forwardRef(({
   });
 
   const sanitizePass = useMemo(() => createSanitizePass(), []);
+
+  const logCanvasMetrics = useCallback(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const canvas = canvasElementRef.current;
+    if (!canvas) {
+      return;
+    }
+
+    const computedStyles = window.getComputedStyle(canvas);
+    console.log('canvas:', {
+      offsetHeight: canvas.offsetHeight,
+      clientHeight: canvas.clientHeight,
+      styleHeight: computedStyles?.height,
+      innerHeight: window.innerHeight,
+    });
+  }, []);
 
   useEffect(() => () => {
     sanitizePass?.dispose?.();
@@ -307,6 +331,20 @@ const Fixed3DCanvas = forwardRef(({
     };
   }, [canvasContainerRef]);
 
+  const handleCanvasCreated = useCallback((state) => {
+    canvasElementRef.current = state?.gl?.domElement || null;
+
+    if (typeof window !== 'undefined') {
+      window.requestAnimationFrame(() => {
+        logCanvasMetrics();
+      });
+    } else {
+      logCanvasMetrics();
+    }
+
+    userCanvasOnCreated?.(state);
+  }, [logCanvasMetrics, userCanvasOnCreated]);
+
   return (
     <>
       {/* Main 3D Canvas */}
@@ -324,23 +362,25 @@ const Fixed3DCanvas = forwardRef(({
         }}
       >
         <Canvas
-          key={Array.isArray(canvasProps.dpr) ? canvasProps.dpr.join('-') : canvasProps.dpr}
+          key={Array.isArray(canvasDpr) ? canvasDpr.join('-') : canvasDpr}
           camera={{
             position: config?.camera?.startingPosition || [0, 0, 4.5],
             fov: config?.camera?.fov || 45
           }}
-          {...canvasProps}
+          {...restCanvasProps}
+          onCreated={handleCanvasCreated}
           gl={{
             toneMapping: THREE.ACESFilmicToneMapping,
             toneMappingExposure: 0.2,
             outputColorSpace: THREE.SRGBColorSpace,
             // UPDATED: Ensure depth sorting is enabled for proper render order
             sortObjects: true,
-            ...canvasProps.gl
+            ...userGlProps
           }}
-          style={{ 
-            width: '100%', 
+          style={{
+            width: '100%',
             height: '100%',
+            background: 'blue',
             // Allow pointer events only for 3D interactions (disabled on mobile)
             pointerEvents: isMobile ? 'none' : 'auto',
           }}
