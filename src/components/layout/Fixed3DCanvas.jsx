@@ -120,6 +120,7 @@ const Fixed3DCanvas = forwardRef(({
   const canvasContainerRef = useRef(null);
   const canvasElementRef = useRef(null);
   const rendererStateRef = useRef({ gl: null, camera: null });
+  const [jsViewportHeight, setJsViewportHeight] = useState(null);
 
   const { onCreated: userCanvasOnCreated, ...canvasPropsWithoutOnCreated } = canvasProps;
   const { gl: userGlProps, ...restCanvasProps } = canvasPropsWithoutOnCreated;
@@ -158,6 +159,8 @@ const Fixed3DCanvas = forwardRef(({
   });
 
   const sanitizePass = useMemo(() => createSanitizePass(), []);
+  const effectiveJsViewportHeight =
+    jsViewportHeight ?? (typeof window !== 'undefined' ? window.innerHeight : null);
 
   const logCanvasMetrics = useCallback(() => {
     if (typeof window === 'undefined') {
@@ -311,11 +314,19 @@ const Fixed3DCanvas = forwardRef(({
       return;
     }
 
+    setJsViewportHeight((previous) =>
+      previous === window.innerHeight ? previous : window.innerHeight
+    );
+
     const checkHeights = () => {
       const rect = node.getBoundingClientRect();
       const containerHeight = rect.height;
       const windowHeight = window.innerHeight;
       const { gl, camera } = rendererStateRef.current || {};
+
+      setJsViewportHeight((previous) =>
+        previous === windowHeight ? previous : windowHeight
+      );
 
       console.log({
         'window.innerHeight': window.innerHeight,
@@ -376,6 +387,18 @@ const Fixed3DCanvas = forwardRef(({
           pointerEvents: 'none', // Don't block scrolling
         }}
       >
+        <div style={{ height: '100vh', background: 'lime' }}>vh</div>
+        <div style={{ height: '100dvh', background: 'orange' }}>dvh</div>
+        {effectiveJsViewportHeight != null && (
+          <div
+            style={{
+              height: `${effectiveJsViewportHeight}px`,
+              background: 'purple',
+            }}
+          >
+            JS
+          </div>
+        )}
         <Canvas
           key={Array.isArray(canvasDpr) ? canvasDpr.join('-') : canvasDpr}
           camera={{
