@@ -117,6 +117,7 @@ const Fixed3DCanvas = forwardRef(({
   const crystalSceneRef = useRef();
   const backgroundRef = useRef();
   const lastZoneRef = useRef(null);
+  const [canvasElement, setCanvasElement] = useState(null);
 
   const handleFractureStart = useCallback(() => {
     backgroundRef.current?.flash(1, 0.5);
@@ -151,6 +152,63 @@ const Fixed3DCanvas = forwardRef(({
   });
 
   const sanitizePass = useMemo(() => createSanitizePass(), []);
+
+  const canvasDprKey = useMemo(() => {
+    if (Array.isArray(canvasProps?.dpr)) {
+      return canvasProps.dpr.join('-');
+    }
+    return canvasProps?.dpr;
+  }, [canvasProps?.dpr]);
+
+  const {
+    onCreated: externalOnCreated,
+    gl: externalGlProps,
+    style: externalCanvasStyle,
+    ...restCanvasProps
+  } = canvasProps;
+
+  const mergedGlProps = useMemo(() => ({
+    toneMapping: THREE.ACESFilmicToneMapping,
+    toneMappingExposure: 0.2,
+    outputColorSpace: THREE.SRGBColorSpace,
+    // UPDATED: Ensure depth sorting is enabled for proper render order
+    sortObjects: true,
+    ...externalGlProps
+  }), [externalGlProps]);
+
+  const canvasStyle = useMemo(() => ({
+    width: '100%',
+    height: '100%',
+    // Allow pointer events only for 3D interactions (disabled on mobile)
+    pointerEvents: isMobile ? 'none' : 'auto',
+    background: 'blue',
+    ...externalCanvasStyle
+  }), [externalCanvasStyle, isMobile]);
+
+  const handleCanvasCreated = useCallback((state) => {
+    if (state?.gl?.domElement) {
+      setCanvasElement(state.gl.domElement);
+    }
+    externalOnCreated?.(state);
+  }, [externalOnCreated]);
+
+  useEffect(() => {
+    const canvas = canvasElement;
+    if (!canvas || typeof window === 'undefined') {
+      return;
+    }
+
+    const computedStyle = window.getComputedStyle(canvas);
+
+    if (import.meta.env.DEV) {
+      console.log('canvas:', {
+        offsetHeight: canvas.offsetHeight,
+        clientHeight: canvas.clientHeight,
+        styleHeight: computedStyle?.height,
+        innerHeight: window.innerHeight
+      });
+    }
+  }, [canvasElement]);
 
   useEffect(() => () => {
     sanitizePass?.dispose?.();
@@ -288,26 +346,15 @@ const Fixed3DCanvas = forwardRef(({
         pointerEvents: 'none', // Don't block scrolling
       }}>
         <Canvas
-          key={Array.isArray(canvasProps.dpr) ? canvasProps.dpr.join('-') : canvasProps.dpr}
+          key={canvasDprKey}
           camera={{
             position: config?.camera?.startingPosition || [0, 0, 4.5],
             fov: config?.camera?.fov || 45
           }}
-          {...canvasProps}
-          gl={{
-            toneMapping: THREE.ACESFilmicToneMapping,
-            toneMappingExposure: 0.2,
-            outputColorSpace: THREE.SRGBColorSpace,
-            // UPDATED: Ensure depth sorting is enabled for proper render order
-            sortObjects: true,
-            ...canvasProps.gl
-          }}
-          style={{ 
-            width: '100%', 
-            height: '100%',
-            // Allow pointer events only for 3D interactions (disabled on mobile)
-            pointerEvents: isMobile ? 'none' : 'auto',
-          }}
+          {...restCanvasProps}
+          gl={mergedGlProps}
+          style={canvasStyle}
+          onCreated={handleCanvasCreated}
         >
           
           <FPSCounter />
