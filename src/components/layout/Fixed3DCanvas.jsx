@@ -115,6 +115,7 @@ const Fixed3DCanvas = forwardRef(({
 }, ref) => {
   // NEW: Ref to access crystal scene for debug panels
   const crystalSceneRef = useRef();
+  const canvasContainerRef = useRef(null);
   const backgroundRef = useRef();
   const lastZoneRef = useRef(null);
 
@@ -275,18 +276,51 @@ const Fixed3DCanvas = forwardRef(({
     return null;
   };
 
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const checkHeights = () => {
+      if (!canvasContainerRef.current) {
+        return;
+      }
+
+      const { height } = canvasContainerRef.current.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+
+      if (Math.abs(height - viewportHeight) > 1) {
+        console.log('[Fixed3DCanvas] Container height vs viewport', {
+          containerHeight: height,
+          viewportHeight,
+        });
+      }
+    };
+
+    checkHeights();
+    window.addEventListener('resize', checkHeights);
+
+    return () => {
+      window.removeEventListener('resize', checkHeights);
+    };
+  }, []);
+
   return (
     <>
       {/* Main 3D Canvas */}
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        width: '100vw',
-        height: '100vh',
-        zIndex: 1, // Behind scrollable content (which is z-index 10)
-        pointerEvents: 'none', // Don't block scrolling
-      }}>
+      <div
+        ref={canvasContainerRef}
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          background: 'rgba(255,0,0,0.25)',
+          zIndex: 9999,
+          pointerEvents: 'none', // Don't block scrolling
+        }}
+      >
         <Canvas
           key={Array.isArray(canvasProps.dpr) ? canvasProps.dpr.join('-') : canvasProps.dpr}
           camera={{
@@ -476,6 +510,8 @@ const Fixed3DCanvas = forwardRef(({
           )}
         </Canvas>
       </div>
+
+      <div style={{ background: 'black', height: '100vh', width: '100%' }} />
 
       {/* ADDED: External Debug Panels - Rendered outside Canvas */}
       {crystalSceneRef.current?.debugState && (
