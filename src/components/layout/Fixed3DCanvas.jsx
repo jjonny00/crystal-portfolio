@@ -162,6 +162,34 @@ const Fixed3DCanvas = forwardRef(({
   const effectiveJsViewportHeight =
     jsViewportHeight ?? (typeof window !== 'undefined' ? window.innerHeight : null);
 
+  const logAncestorStyles = useCallback(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const ancestors = [];
+    let node = canvasElementRef.current?.parentElement;
+
+    while (node) {
+      const computed = window.getComputedStyle(node);
+      ancestors.push({
+        node:
+          `${node.tagName?.toLowerCase() || 'unknown'}${
+            node.id ? `#${node.id}` : ''
+          }${node.className ? `.${String(node.className).replace(/\s+/g, '.')}` : ''}`,
+        position: computed?.position,
+        transform: computed?.transform,
+        overflow: computed?.overflow,
+        overflowX: computed?.overflowX,
+        overflowY: computed?.overflowY,
+      });
+
+      node = node.parentElement;
+    }
+
+    console.log('[Fixed3DCanvas] Canvas ancestor computed styles:', ancestors);
+  }, []);
+
   const logCanvasMetrics = useCallback(() => {
     if (typeof window === 'undefined') {
       return;
@@ -179,7 +207,9 @@ const Fixed3DCanvas = forwardRef(({
       styleHeight: computedStyles?.height,
       innerHeight: window.innerHeight,
     });
-  }, []);
+
+    logAncestorStyles();
+  }, [logAncestorStyles]);
 
   useEffect(() => () => {
     sanitizePass?.dispose?.();
@@ -340,6 +370,7 @@ const Fixed3DCanvas = forwardRef(({
           containerHeight,
           windowInnerHeight: windowHeight
         });
+        logAncestorStyles();
       }
     };
 
