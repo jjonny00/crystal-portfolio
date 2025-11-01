@@ -7,24 +7,21 @@
 }
 
 /* CRITICAL: Clean document scroll setup */
-html {
-  overflow-x: hidden;
-  height: 100%;
-}
-
+html,
 body {
   margin: 0;
   padding: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+}
+
+body {
   font-family: 'acumin-variable', sans-serif;
   font-weight: 300;
   font-stretch: 87.5%;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #050505;
-  min-height: 100vh;
-  height: auto;
-  overflow-x: hidden;
-  overflow-y: auto;
 }
 
 h1,
@@ -72,20 +69,14 @@ html {
 }
 
 /* MOBILE FIXES */
-@media (max-width: 768px) {
-  html {
-    -webkit-overflow-scrolling: touch;
-    height: 100%;
-    overflow-x: hidden;
-    overflow-y: auto;
-  }
+  @media (max-width: 768px) {
+    html {
+      -webkit-overflow-scrolling: touch;
+      height: 100%;
+      overflow: hidden;
+    }
   
   body {
-    -webkit-overflow-scrolling: touch;
-    height: auto;
-    min-height: 100vh;
-    overflow-x: hidden;
-    overflow-y: auto;
     touch-action: manipulation;
     -webkit-backface-visibility: hidden;
     backface-visibility: hidden;
@@ -125,8 +116,6 @@ html {
   body {
     -webkit-overflow-scrolling: touch;
     touch-action: manipulation;
-    overflow-x: hidden;
-    overflow-y: auto;
   }
   
   #root {
@@ -136,11 +125,6 @@ html {
 
 /* DESKTOP */
 @media (min-width: 1025px) {
-  html, body {
-    overflow-x: hidden;
-    overflow-y: auto;
-  }
-  
   #root {
     overflow-x: hidden;
   }

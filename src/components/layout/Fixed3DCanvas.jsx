@@ -24,6 +24,17 @@ import MistyLayerStack from '../MistyLayerStack';
 import { isIOS26 } from '../../utils/isIOS26';
 import { facetKeys as canonicalFacetKeys } from '../../data/projects';
 
+const containerStyle = {
+  position: 'fixed',
+  inset: 0,
+  width: '100%',
+  height: '100dvh',
+  minHeight: '100dvh',
+  background: 'black',
+  overflow: 'hidden',
+  touchAction: 'none',
+};
+
 function createSanitizePass() {
   const material = new ShaderMaterial({
     uniforms: { inputBuffer: { value: null } },
@@ -120,7 +131,45 @@ const Fixed3DCanvas = forwardRef(({
   const canvasContainerRef = useRef(null);
   const canvasElementRef = useRef(null);
   const rendererStateRef = useRef({ gl: null, camera: null });
-  const [jsViewportHeight, setJsViewportHeight] = useState(null);
+
+  const getHeight = useCallback(() => {
+    if (typeof window === 'undefined') {
+      return rendererStateRef.current?.gl?.domElement?.clientHeight || 0;
+    }
+
+    const documentElement = typeof document !== 'undefined' ? document.documentElement : null;
+
+    return Math.max(
+      window.visualViewport?.height || 0,
+      window.innerHeight || 0,
+      documentElement?.clientHeight || 0
+    );
+  }, []);
+
+  const handleResize = useCallback(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const width = window.innerWidth;
+    const height = getHeight();
+    const { gl, camera } = rendererStateRef.current || {};
+
+    if (gl && typeof gl.setSize === 'function') {
+      gl.setSize(width, height, false);
+    }
+
+    if (camera && height > 0) {
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+    }
+
+    console.log('Viewport test', {
+      innerHeight: window.innerHeight,
+      visualViewport: window.visualViewport?.height,
+      renderer: gl?.domElement?.height ?? null,
+    });
+  }, [getHeight]);
 
   const { onCreated: userCanvasOnCreated, ...canvasPropsWithoutOnCreated } = canvasProps;
   const { gl: userGlProps, ...restCanvasProps } = canvasPropsWithoutOnCreated;
@@ -159,9 +208,6 @@ const Fixed3DCanvas = forwardRef(({
   });
 
   const sanitizePass = useMemo(() => createSanitizePass(), []);
-  const effectiveJsViewportHeight =
-    jsViewportHeight ?? (typeof window !== 'undefined' ? window.innerHeight : null);
-
   const logAncestorStyles = useCallback(() => {
     if (typeof window === 'undefined') {
       return;
@@ -335,79 +381,24 @@ const Fixed3DCanvas = forwardRef(({
   };
 
   useEffect(() => {
-    const node = canvasContainerRef.current;
-    if (!node) {
-      return;
-    }
-
     if (typeof window === 'undefined') {
-      return;
+      return undefined;
     }
 
-    const getViewportHeight = () => window.visualViewport?.height || window.innerHeight;
-
-    setJsViewportHeight((previous) =>
-      previous === window.innerHeight ? previous : window.innerHeight
-    );
-
-    const checkHeights = () => {
-      const rect = node.getBoundingClientRect();
-      const containerHeight = rect.height;
-      const windowHeight = window.innerHeight;
-      const { gl, camera } = rendererStateRef.current || {};
-
-      setJsViewportHeight((previous) =>
-        previous === windowHeight ? previous : windowHeight
-      );
-
-      console.log({
-        'window.innerHeight': window.innerHeight,
-        'visualViewport.height': window.visualViewport?.height,
-        'renderer.domElement.height': gl?.domElement?.height ?? null,
-        'camera.aspect': camera?.aspect ?? null,
-      });
-
-      if (Math.abs(containerHeight - windowHeight) > 1) {
-        console.log('[Fixed3DCanvas] Container height mismatch', {
-          containerHeight,
-          windowInnerHeight: windowHeight
-        });
-        logAncestorStyles();
-      }
+    const resizeListener = () => {
+      handleResize();
     };
 
-    const handleResize = () => {
-      const { gl, camera } = rendererStateRef.current || {};
-      const width = window.innerWidth;
-      const height = getViewportHeight();
+    window.addEventListener('resize', resizeListener);
+    window.visualViewport?.addEventListener('resize', resizeListener);
 
-      if (gl) {
-        gl.setSize(width, height, false);
-      }
-
-      if (camera) {
-        camera.aspect = width / height;
-        camera.updateProjectionMatrix();
-      }
-
-      console.log('Viewport test', {
-        innerHeight: window.innerHeight,
-        visualViewport: window.visualViewport?.height,
-        renderer: gl?.domElement?.height ?? null,
-      });
-
-      checkHeights();
-    };
-
-    handleResize();
-    window.visualViewport?.addEventListener('resize', handleResize);
-    window.addEventListener('resize', handleResize);
+    resizeListener();
 
     return () => {
-      window.visualViewport?.removeEventListener('resize', handleResize);
-      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('resize', resizeListener);
+      window.visualViewport?.removeEventListener('resize', resizeListener);
     };
-  }, [canvasContainerRef, logAncestorStyles]);
+  }, [handleResize]);
 
   const handleCanvasCreated = useCallback((state) => {
     canvasElementRef.current = state?.gl?.domElement || null;
@@ -430,6 +421,8 @@ const Fixed3DCanvas = forwardRef(({
       };
     }
 
+    handleResize();
+
     if (typeof window !== 'undefined') {
       window.requestAnimationFrame(() => {
         logCanvasMetrics();
@@ -439,38 +432,15 @@ const Fixed3DCanvas = forwardRef(({
     }
 
     userCanvasOnCreated?.(state);
-  }, [logCanvasMetrics, userCanvasOnCreated]);
+  }, [handleResize, logCanvasMetrics, userCanvasOnCreated]);
 
   return (
     <>
       {/* Main 3D Canvas */}
       <div
         ref={canvasContainerRef}
-        style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '100vw',
-          height: '100vh',
-          backgroundColor: 'rgba(255,0,0,0.25)',
-          background: 'repeating-linear-gradient(\n            to bottom,\n            red 0,\n            red 1px,\n            transparent 1px,\n            transparent 10px\n          )',
-          paddingBottom: 'env(safe-area-inset-bottom)',
-          zIndex: 9999,
-          pointerEvents: 'none', // Don't block scrolling
-        }}
+        style={containerStyle}
       >
-        <div style={{ height: '100vh', background: 'lime' }}>vh</div>
-        <div style={{ height: '100dvh', background: 'orange' }}>dvh</div>
-        {effectiveJsViewportHeight != null && (
-          <div
-            style={{
-              height: `${effectiveJsViewportHeight}px`,
-              background: 'purple',
-            }}
-          >
-            JS
-          </div>
-        )}
         <Canvas
           key={Array.isArray(canvasDpr) ? canvasDpr.join('-') : canvasDpr}
           camera={{
@@ -490,7 +460,6 @@ const Fixed3DCanvas = forwardRef(({
           style={{
             width: '100%',
             height: '100%',
-            background: 'blue',
             // Allow pointer events only for 3D interactions (disabled on mobile)
             pointerEvents: isMobile ? 'none' : 'auto',
           }}
@@ -662,14 +631,6 @@ const Fixed3DCanvas = forwardRef(({
           )}
         </Canvas>
       </div>
-      <div
-        style={{
-          position: 'relative',
-          width: '100%',
-          height: '100vh',
-          background: 'black'
-        }}
-      />
 
       {/* ADDED: External Debug Panels - Rendered outside Canvas */}
       {crystalSceneRef.current?.debugState && (
