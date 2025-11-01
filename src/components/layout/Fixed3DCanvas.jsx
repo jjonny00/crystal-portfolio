@@ -391,6 +391,20 @@ const Fixed3DCanvas = forwardRef(({
       camera: state?.camera || null,
     };
 
+    if (state?.setSize && state?.gl) {
+      const originalSetSize = state.setSize.bind(state);
+      state.setSize = (width, height, updateStyle) => {
+        const result = originalSetSize(width, height, updateStyle);
+
+        const sizeVector = new THREE.Vector2();
+        const rendererSize = state.gl.getSize(sizeVector);
+        console.log('renderer.getSize', rendererSize);
+        console.log('canvas.offsetHeight', state.gl.domElement?.offsetHeight ?? null);
+
+        return result;
+      };
+    }
+
     if (typeof window !== 'undefined') {
       window.requestAnimationFrame(() => {
         logCanvasMetrics();
