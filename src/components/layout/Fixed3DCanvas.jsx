@@ -286,6 +286,8 @@ const Fixed3DCanvas = forwardRef(({
         height: '100vh',
         zIndex: 1, // Behind scrollable content (which is z-index 10)
         pointerEvents: 'none', // Don't block scrolling
+        background: 'rgba(255, 0, 0, 0.15)', // Temporary: visualize container bounds
+        overflow: 'visible',
       }}>
         <Canvas
           key={Array.isArray(canvasProps.dpr) ? canvasProps.dpr.join('-') : canvasProps.dpr}
