@@ -119,6 +119,7 @@ const Fixed3DCanvas = forwardRef(({
   const lastZoneRef = useRef(null);
   const canvasContainerRef = useRef(null);
   const canvasElementRef = useRef(null);
+  const rendererStateRef = useRef({ gl: null, camera: null });
 
   const { onCreated: userCanvasOnCreated, ...canvasPropsWithoutOnCreated } = canvasProps;
   const { gl: userGlProps, ...restCanvasProps } = canvasPropsWithoutOnCreated;
@@ -314,6 +315,14 @@ const Fixed3DCanvas = forwardRef(({
       const rect = node.getBoundingClientRect();
       const containerHeight = rect.height;
       const windowHeight = window.innerHeight;
+      const { gl, camera } = rendererStateRef.current || {};
+
+      console.log({
+        'window.innerHeight': window.innerHeight,
+        'visualViewport.height': window.visualViewport?.height,
+        'renderer.domElement.height': gl?.domElement?.height ?? null,
+        'camera.aspect': camera?.aspect ?? null,
+      });
 
       if (Math.abs(containerHeight - windowHeight) > 1) {
         console.log('[Fixed3DCanvas] Container height mismatch', {
@@ -325,14 +334,20 @@ const Fixed3DCanvas = forwardRef(({
 
     checkHeights();
     window.addEventListener('resize', checkHeights);
+    window.visualViewport?.addEventListener('resize', checkHeights);
 
     return () => {
       window.removeEventListener('resize', checkHeights);
+      window.visualViewport?.removeEventListener('resize', checkHeights);
     };
   }, [canvasContainerRef]);
 
   const handleCanvasCreated = useCallback((state) => {
     canvasElementRef.current = state?.gl?.domElement || null;
+    rendererStateRef.current = {
+      gl: state?.gl || null,
+      camera: state?.camera || null,
+    };
 
     if (typeof window !== 'undefined') {
       window.requestAnimationFrame(() => {
