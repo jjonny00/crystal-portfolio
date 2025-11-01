@@ -382,7 +382,9 @@ const Fixed3DCanvas = forwardRef(({
           left: 0,
           width: '100vw',
           height: '100vh',
-          background: 'rgba(255,0,0,0.25)',
+          backgroundColor: 'rgba(255,0,0,0.25)',
+          background: 'repeating-linear-gradient(\n            to bottom,\n            red 0,\n            red 1px,\n            transparent 1px,\n            transparent 10px\n          )',
+          paddingBottom: 'env(safe-area-inset-bottom)',
           zIndex: 9999,
           pointerEvents: 'none', // Don't block scrolling
         }}
