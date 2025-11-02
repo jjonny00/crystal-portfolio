@@ -24,6 +24,17 @@ import MistyLayerStack from '../MistyLayerStack';
 import { isIOS26 } from '../../utils/isIOS26';
 import { facetKeys as canonicalFacetKeys } from '../../data/projects';
 
+const isIOS26Safari = (() => {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  const isIOS = /iPhone|iPad|iPod/.test(ua);
+  const isSafari = /Safari/.test(ua) && !/Chrome|CriOS|FxiOS|EdgiOS/.test(ua);
+  const version26 = /Version\/26\./.test(ua);
+  return isIOS && isSafari && version26;
+})();
+
+const BG_COLOR = '#000';
+
 function createSanitizePass() {
   const material = new ShaderMaterial({
     uniforms: { inputBuffer: { value: null } },
@@ -118,6 +129,16 @@ const Fixed3DCanvas = forwardRef(({
   const backgroundRef = useRef();
   const lastZoneRef = useRef(null);
 
+  const {
+    onCreated: canvasOnCreated,
+    style: incomingCanvasStyle,
+    gl: incomingGlProps,
+    ...forwardCanvasProps
+  } = canvasProps || {};
+
+  const [glInstance, setGlInstance] = useState(null);
+  const [cameraInstance, setCameraInstance] = useState(null);
+
   const handleFractureStart = useCallback(() => {
     backgroundRef.current?.flash(1, 0.5);
   }, []);
@@ -147,10 +168,16 @@ const Fixed3DCanvas = forwardRef(({
     if (typeof navigator === 'undefined') {
       return false;
     }
-    return isIOS26();
+    return isIOS26() || isIOS26Safari;
   });
 
   const sanitizePass = useMemo(() => createSanitizePass(), []);
+
+  const handleCanvasCreated = useCallback((state) => {
+    setGlInstance(state.gl);
+    setCameraInstance(state.camera);
+    canvasOnCreated?.(state);
+  }, [canvasOnCreated]);
 
   useEffect(() => () => {
     sanitizePass?.dispose?.();
@@ -175,6 +202,31 @@ const Fixed3DCanvas = forwardRef(({
       window.removeEventListener('orientationchange', handleOrientationChange);
     };
   }, []);
+
+  useEffect(() => {
+    if (!glInstance || !cameraInstance) return;
+
+    const resize = () => {
+      const width = window.innerWidth;
+      const height = window.visualViewport?.height || window.innerHeight;
+      glInstance.setPixelRatio(window.devicePixelRatio || 1);
+      glInstance.setSize(width, height, false);
+      cameraInstance.aspect = width / height;
+      cameraInstance.updateProjectionMatrix();
+    };
+
+    resize();
+    window.addEventListener('resize', resize, { passive: true });
+    window.visualViewport?.addEventListener('resize', resize, { passive: true });
+
+    const t = setInterval(resize, 800);
+
+    return () => {
+      window.removeEventListener('resize', resize);
+      window.visualViewport?.removeEventListener('resize', resize);
+      clearInterval(t);
+    };
+  }, [glInstance, cameraInstance]);
 
   useEffect(() => {
     let isMounted = true;
@@ -294,218 +346,249 @@ const Fixed3DCanvas = forwardRef(({
     return null;
   };
 
+  const canvasKey = Array.isArray(forwardCanvasProps.dpr)
+    ? forwardCanvasProps.dpr.join('-')
+    : forwardCanvasProps.dpr || 'canvas';
+
+  const baseContainerStyle = {
+    position: 'fixed',
+    inset: 0,
+    width: '100%',
+    height: '100%',
+    backgroundColor: BG_COLOR,
+    overflow: 'hidden',
+    WebkitTouchCallout: 'none',
+    WebkitUserSelect: 'none',
+    userSelect: 'none',
+    touchAction: 'none',
+    zIndex: 1, // Behind scrollable content (which is z-index 10)
+  };
+
+  const overscanWrapperStyle = isIOS26Safari
+    ? {
+        position: 'fixed',
+        left: 0,
+        right: 0,
+        top: '-100px',
+        bottom: '-100px',
+        backgroundColor: BG_COLOR,
+        paddingTop: '100px',
+        paddingBottom: '100px',
+        zIndex: 0,
+      }
+    : null;
+
+  const canvasStyle = {
+    ...(incomingCanvasStyle || {}),
+    position: 'absolute',
+    inset: 0,
+    width: '100%',
+    height: '100%',
+    backgroundColor: BG_COLOR,
+    // Allow pointer events only for 3D interactions (disabled on mobile)
+    pointerEvents: isMobile ? 'none' : incomingCanvasStyle?.pointerEvents ?? 'auto',
+  };
+
+  const mergedGlProps = {
+    toneMapping: THREE.ACESFilmicToneMapping,
+    toneMappingExposure: 0.2,
+    outputColorSpace: THREE.SRGBColorSpace,
+    // UPDATED: Ensure depth sorting is enabled for proper render order
+    sortObjects: true,
+    ...incomingGlProps,
+  };
+
+  const canvasElement = (
+    <Canvas
+      key={canvasKey}
+      camera={{
+        position: config?.camera?.startingPosition || [0, 0, 4.5],
+        fov: config?.camera?.fov || 45
+      }}
+      {...forwardCanvasProps}
+      gl={mergedGlProps}
+      onCreated={handleCanvasCreated}
+      style={canvasStyle}
+    >
+
+      <FPSCounter />
+
+      {/* FIXED: Pass backgrounds to GradientBackground and use 'default' as initial */}
+      <GradientBackground
+        ref={backgroundRef}
+        backgrounds={projectBackgrounds}
+        initialKey="default"
+      />
+
+      {/* Persistent Dust System */}
+      {dustEnabled && (
+        <PersistentDustSystem count={particleCount} enabled={dustEnabled} />
+      )}
+
+      {/* UPDATED: Enhanced lighting setup with bottom directional light */}
+      <ambientLight intensity={config?.lighting?.ambient?.intensity || 0.4} />
+
+      {/* Main directional light (from above/side) */}
+      <directionalLight
+        position={config?.lighting?.directional?.position || [10, 8, 5]}
+        intensity={config?.lighting?.directional?.intensity || 1.0}
+        color={config?.lighting?.directional?.color || "#FFFFFF"}
+        castShadow={false}
+      />
+
+      {/* ADDED: Bottom directional light pointing upward */}
+      {config?.lighting?.directionalBottom && (
+        <directionalLight
+          position={config.lighting.directionalBottom.position || [0, -5, 0]}
+          target-position={config.lighting.directionalBottom.target || [0, 0, 0]}
+          intensity={config.lighting.directionalBottom.intensity || 0.2}
+          color={config.lighting.directionalBottom.color || "#e75c25ff"}
+          castShadow={false}
+        />
+      )}
+
+      {/* Point lights */}
+      {config?.lighting?.pointLights
+        ?.slice(0, performanceProfile?.maxLights || config?.lighting?.pointLights.length)
+        .map((light, index) => (
+          <pointLight
+            key={index}
+            position={light.position}
+            intensity={light.intensity}
+            color={light.color}
+            castShadow={false}
+          />
+        ))}
+
+      <PulsingOmniLight simplified={simplifiedAnimations} />
+
+      {/* Spot light */}
+      <spotLight
+        position={config?.lighting?.spotLight?.position || [0, 0, 10]}
+        intensity={config?.lighting?.spotLight?.intensity || 1.0}
+        angle={config?.lighting?.spotLight?.angle || Math.PI / 4}
+        penumbra={config?.lighting?.spotLight?.penumbra || 0.2}
+        color={config?.lighting?.spotLight?.color || "#ffffffff"}
+        castShadow={false}
+      />
+
+      {/* UPDATED: Enhanced Camera Controller with facet refs */}
+      <UnifiedCameraController
+        animationData={animationData}
+        config={config}
+        isMobile={isMobile}
+        simplifiedAnimations={simplifiedAnimations}
+        facetRefs={getFacetRefs()} // FIXED: Pass exposed facet refs for anchor targeting
+      />
+
+      {/* UPDATED: Crystal Scene with ref for accessing debug state */}
+      <UnifiedCrystalScene
+        ref={crystalSceneRef} // NEW: Ref to access debug state and methods
+        animationData={animationData}
+        config={config}
+        materialVariant={materialVariant}
+        performanceProfile={performanceProfile}
+        isMobile={isMobile}
+        simplifiedAnimations={simplifiedAnimations}
+        scrollToProgress={scrollToProgress}
+        onFractureStart={handleFractureStart}
+      />
+
+      {/* UPDATED: Enhanced MistyLayerStack with highest render order */}
+      <MistyLayerStack
+        y={0.4}              // Position above crystal
+        width={18}         // Wide coverage
+        height={9}      // 2:1 aspect ratio with new texture
+        layers={3}         // Multiple layers for depth
+        opacity={0.4}      // Semi-transparent
+        drift={{ x: 0.002, y: 0.0 }}  // Gentle drift
+        pulseAmp={0.007}   // Subtle pulsing
+        pulseFreq={0.1}    // Slow pulse frequency
+        renderOrder={3000} // UPDATED: Highest render order to be on top
+      />
+
+      {/* Environment used for reflections only */}
+      <Environment
+        files={environmentProps.files || config?.environment?.hdri || "/assets/environment/prismatic10-low.hdr"}
+        background={false}
+        rotation={config?.environment?.rotation || [0, Math.PI * 0.5, 0]}
+      />
+
+      {/* Post-processing effects (unchanged) */}
+      <EffectComposer
+        key={ios26 ? 'ios26-no-msaa' : 'default-msaa'}
+        enabled={true}
+        multisampling={ios26 ? 0 : 8}
+        frameBufferType={ios26 ? UnsignedByteType : HalfFloatType}
+      >
+        {/* Default minimal bloom when no effects are enabled */}
+        <Bloom
+          intensity={Object.values(effectsEnabled || {}).some(Boolean) ? 0 : 0.0001}
+          luminanceThreshold={1.0}
+          luminanceSmoothing={0.9}
+          radius={0.5}
+          enabled={!Object.values(effectsEnabled || {}).some(Boolean)}
+        />
+
+        {effectsEnabled?.bloom && (
+          <Bloom
+            luminanceThreshold={postProcessingConfig?.bloom?.luminanceThreshold || 0.05}
+            luminanceSmoothing={postProcessingConfig?.bloom?.luminanceSmoothing || 0.9}
+            intensity={postProcessingConfig?.bloom?.intensity || 1.0}
+            radius={postProcessingConfig?.bloom?.radius || 1.9}
+          />
+        )}
+        {effectsEnabled?.chromaticAberration && (
+          <ChromaticAberration
+            offset={postProcessingConfig?.chromaticAberration?.offset || [0.003, 0.003]}
+            radialModulation={postProcessingConfig?.chromaticAberration?.radialModulation !== false}
+            modulationOffset={postProcessingConfig?.chromaticAberration?.modulationOffset || 0.5}
+          />
+        )}
+
+        {/* Sanitize HDR data before any full-screen overlays */}
+        <primitive object={sanitizePass} />
+
+        {effectsEnabled?.noise && (
+          <Noise
+            opacity={postProcessingConfig?.noise?.opacity || 0.1}
+            blendFunction={BlendFunction.OVERLAY}
+          />
+        )}
+        {effectsEnabled?.vignette && (
+          <Vignette
+            eskil={postProcessingConfig?.vignette?.eskil || false}
+            offset={postProcessingConfig?.vignette?.offset || 0.1}
+            darkness={postProcessingConfig?.vignette?.darkness || 1.1}
+          />
+        )}
+      </EffectComposer>
+
+      {/* Orbit controls - explicitly disabled to prevent camera conflicts */}
+      {/* eslint-disable-next-line no-constant-binary-expression */}
+      {false && !isMobile && (
+        <OrbitControls
+          makeDefault
+          enabled={false}
+          enableZoom={false}
+          enablePan={false}
+          enableRotate={false}
+        />
+      )}
+    </Canvas>
+  );
+
   return (
     <>
       {/* Main 3D Canvas */}
-      <div
-        id="canvas-container"
-        style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '100vh',
-          height: '-webkit-fill-available',
-          backgroundColor: '#000',
-          overflow: 'hidden',
-          WebkitTouchCallout: 'none',
-          WebkitUserSelect: 'none',
-          userSelect: 'none',
-          touchAction: 'none',
-          zIndex: 1, // Behind scrollable content (which is z-index 10)
-        }}
-      >
-        <Canvas
-          key={Array.isArray(canvasProps.dpr) ? canvasProps.dpr.join('-') : canvasProps.dpr}
-          camera={{
-            position: config?.camera?.startingPosition || [0, 0, 4.5],
-            fov: config?.camera?.fov || 45
-          }}
-          {...canvasProps}
-          gl={{
-            toneMapping: THREE.ACESFilmicToneMapping,
-            toneMappingExposure: 0.2,
-            outputColorSpace: THREE.SRGBColorSpace,
-            // UPDATED: Ensure depth sorting is enabled for proper render order
-            sortObjects: true,
-            ...canvasProps.gl
-          }}
-          style={{
-            position: 'absolute',
-            inset: 0,
-            width: '100%',
-            height: '100%',
-            backgroundColor: '#000',
-            // Allow pointer events only for 3D interactions (disabled on mobile)
-            pointerEvents: isMobile ? 'none' : 'auto',
-          }}
-        >
-          
-          <FPSCounter />
-
-          {/* FIXED: Pass backgrounds to GradientBackground and use 'default' as initial */}
-          <GradientBackground 
-            ref={backgroundRef} 
-            backgrounds={projectBackgrounds} 
-            initialKey="default"
-          />
-
-          {/* Persistent Dust System */}
-          {dustEnabled && (
-            <PersistentDustSystem count={particleCount} enabled={dustEnabled} />
-          )}
-          
-          {/* UPDATED: Enhanced lighting setup with bottom directional light */}
-          <ambientLight intensity={config?.lighting?.ambient?.intensity || 0.4} />
-          
-          {/* Main directional light (from above/side) */}
-          <directionalLight
-            position={config?.lighting?.directional?.position || [10, 8, 5]}
-            intensity={config?.lighting?.directional?.intensity || 1.0}
-            color={config?.lighting?.directional?.color || "#FFFFFF"}
-            castShadow={false}
-          />
-          
-          {/* ADDED: Bottom directional light pointing upward */}
-          {config?.lighting?.directionalBottom && (
-            <directionalLight
-              position={config.lighting.directionalBottom.position || [0, -5, 0]}
-              target-position={config.lighting.directionalBottom.target || [0, 0, 0]}
-              intensity={config.lighting.directionalBottom.intensity || 0.2}
-              color={config.lighting.directionalBottom.color || "#e75c25ff"}
-              castShadow={false}
-            />
-          )}
-          
-          {/* Point lights */}
-          {config?.lighting?.pointLights
-            ?.slice(0, performanceProfile?.maxLights || config?.lighting?.pointLights.length)
-            .map((light, index) => (
-              <pointLight
-                key={index}
-                position={light.position}
-                intensity={light.intensity}
-                color={light.color}
-                castShadow={false}
-              />
-            ))}
-
-          <PulsingOmniLight simplified={simplifiedAnimations} />
-          
-          {/* Spot light */}
-          <spotLight
-            position={config?.lighting?.spotLight?.position || [0, 0, 10]}
-            intensity={config?.lighting?.spotLight?.intensity || 1.0}
-            angle={config?.lighting?.spotLight?.angle || Math.PI / 4}
-            penumbra={config?.lighting?.spotLight?.penumbra || 0.2}
-            color={config?.lighting?.spotLight?.color || "#ffffffff"}
-            castShadow={false}
-          />
-          
-          {/* UPDATED: Enhanced Camera Controller with facet refs */}
-          <UnifiedCameraController
-            animationData={animationData}
-            config={config}
-            isMobile={isMobile}
-            simplifiedAnimations={simplifiedAnimations}
-            facetRefs={getFacetRefs()} // FIXED: Pass exposed facet refs for anchor targeting
-          />
-          
-          {/* UPDATED: Crystal Scene with ref for accessing debug state */}
-          <UnifiedCrystalScene
-            ref={crystalSceneRef} // NEW: Ref to access debug state and methods
-            animationData={animationData}
-            config={config}
-            materialVariant={materialVariant}
-            performanceProfile={performanceProfile}
-            isMobile={isMobile}
-            simplifiedAnimations={simplifiedAnimations}
-            scrollToProgress={scrollToProgress}
-            onFractureStart={handleFractureStart}
-          />
-
-          {/* UPDATED: Enhanced MistyLayerStack with highest render order */}
-          <MistyLayerStack
-            y={0.4}              // Position above crystal
-            width={18}         // Wide coverage
-            height={9}      // 2:1 aspect ratio with new texture
-            layers={3}         // Multiple layers for depth
-            opacity={0.4}      // Semi-transparent
-            drift={{ x: 0.002, y: 0.0 }}  // Gentle drift
-            pulseAmp={0.007}   // Subtle pulsing
-            pulseFreq={0.1}    // Slow pulse frequency
-            renderOrder={3000} // UPDATED: Highest render order to be on top
-          />
-
-          {/* Environment used for reflections only */}
-          <Environment
-            files={environmentProps.files || config?.environment?.hdri || "/assets/environment/prismatic10-low.hdr"}
-            background={false}
-            rotation={config?.environment?.rotation || [0, Math.PI * 0.5, 0]}
-          />
-          
-          {/* Post-processing effects (unchanged) */}
-          <EffectComposer
-            key={ios26 ? 'ios26-no-msaa' : 'default-msaa'}
-            enabled={true}
-            multisampling={ios26 ? 0 : 8}
-            frameBufferType={ios26 ? UnsignedByteType : HalfFloatType}
-          >
-            {/* Default minimal bloom when no effects are enabled */}
-            <Bloom 
-              intensity={Object.values(effectsEnabled || {}).some(Boolean) ? 0 : 0.0001}
-              luminanceThreshold={1.0}
-              luminanceSmoothing={0.9}
-              radius={0.5}
-              enabled={!Object.values(effectsEnabled || {}).some(Boolean)}
-            />
-            
-            {effectsEnabled?.bloom && (
-              <Bloom 
-                luminanceThreshold={postProcessingConfig?.bloom?.luminanceThreshold || 0.05} 
-                luminanceSmoothing={postProcessingConfig?.bloom?.luminanceSmoothing || 0.9} 
-                intensity={postProcessingConfig?.bloom?.intensity || 1.0} 
-                radius={postProcessingConfig?.bloom?.radius || 1.9} 
-              />
-            )}
-            {effectsEnabled?.chromaticAberration && (
-              <ChromaticAberration
-                offset={postProcessingConfig?.chromaticAberration?.offset || [0.003, 0.003]}
-                radialModulation={postProcessingConfig?.chromaticAberration?.radialModulation !== false}
-                modulationOffset={postProcessingConfig?.chromaticAberration?.modulationOffset || 0.5}
-              />
-            )}
-
-            {/* Sanitize HDR data before any full-screen overlays */}
-            <primitive object={sanitizePass} />
-
-            {effectsEnabled?.noise && (
-              <Noise
-                opacity={postProcessingConfig?.noise?.opacity || 0.1}
-                blendFunction={BlendFunction.OVERLAY}
-              />
-            )}
-            {effectsEnabled?.vignette && (
-              <Vignette 
-                eskil={postProcessingConfig?.vignette?.eskil || false} 
-                offset={postProcessingConfig?.vignette?.offset || 0.1} 
-                darkness={postProcessingConfig?.vignette?.darkness || 1.1} 
-              />
-            )}
-          </EffectComposer>
-
-          {/* Orbit controls - explicitly disabled to prevent camera conflicts */}
-          {/* eslint-disable-next-line no-constant-binary-expression */}
-          {false && !isMobile && (
-            <OrbitControls
-              makeDefault
-              enabled={false}
-              enableZoom={false}
-              enablePan={false}
-              enableRotate={false}
-            />
-          )}
-        </Canvas>
+      <div id="canvas-root" style={baseContainerStyle}>
+        {isIOS26Safari ? (
+          <div style={overscanWrapperStyle}>
+            {canvasElement}
+          </div>
+        ) : (
+          canvasElement
+        )}
       </div>
 
       {/* ADDED: External Debug Panels - Rendered outside Canvas */}

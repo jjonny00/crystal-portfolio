@@ -21,8 +21,28 @@
         box-sizing: border-box;
       }
 
+      html,
       body {
-        background-color: #050505;
+        margin: 0;
+        background: #000;
+      }
+
+      @supports (height: 100dvh) {
+        html,
+        body {
+          height: 100dvh;
+        }
+      }
+
+      @supports (-webkit-touch-callout: none) {
+        html,
+        body {
+          height: -webkit-fill-available;
+        }
+      }
+
+      body {
+        background: #000;
         color: white;
         font-family: "acumin-variable", sans-serif;
         font-weight: 300;
