@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+      background: black;
+    }
+    canvas {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      display: block;
+      background: #111;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="test"></canvas>
+  <script>
+    const canvas = document.getElementById('test');
+    const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+
+    function resize() {
+      canvas.width = window.innerWidth * window.devicePixelRatio;
+      canvas.height = window.innerHeight * window.devicePixelRatio;
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.clearColor(1, 0, 1, 1);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      console.log('Viewport', canvas.width, canvas.height);
+    }
+
+    window.addEventListener('resize', resize);
+    resize();
+  </script>
+</body>
+</html>
