@@ -158,6 +158,25 @@ const Fixed3DCanvas = forwardRef(({
   }, [sanitizePass]);
 
   useEffect(() => {
+    const setViewportHeight = () => {
+      const vh = window.innerHeight * 0.01;
+      document.documentElement.style.setProperty('--vh', `${vh}px`);
+      document.body.style.height = `${window.innerHeight}px`;
+    };
+
+    const handleOrientationChange = () => setTimeout(setViewportHeight, 100);
+
+    setViewportHeight();
+    window.addEventListener('resize', setViewportHeight);
+    window.addEventListener('orientationchange', handleOrientationChange);
+
+    return () => {
+      window.removeEventListener('resize', setViewportHeight);
+      window.removeEventListener('orientationchange', handleOrientationChange);
+    };
+  }, []);
+
+  useEffect(() => {
     let isMounted = true;
 
     async function refineIOSDetection() {
@@ -278,15 +297,24 @@ const Fixed3DCanvas = forwardRef(({
   return (
     <>
       {/* Main 3D Canvas */}
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        width: '100vw',
-        height: '100vh',
-        zIndex: 1, // Behind scrollable content (which is z-index 10)
-        pointerEvents: 'none', // Don't block scrolling
-      }}>
+      <div
+        id="canvas-container"
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100vh',
+          height: '-webkit-fill-available',
+          backgroundColor: '#000',
+          overflow: 'hidden',
+          WebkitTouchCallout: 'none',
+          WebkitUserSelect: 'none',
+          userSelect: 'none',
+          touchAction: 'none',
+          zIndex: 1, // Behind scrollable content (which is z-index 10)
+        }}
+      >
         <Canvas
           key={Array.isArray(canvasProps.dpr) ? canvasProps.dpr.join('-') : canvasProps.dpr}
           camera={{
@@ -302,9 +330,12 @@ const Fixed3DCanvas = forwardRef(({
             sortObjects: true,
             ...canvasProps.gl
           }}
-          style={{ 
-            width: '100%', 
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
             height: '100%',
+            backgroundColor: '#000',
             // Allow pointer events only for 3D interactions (disabled on mobile)
             pointerEvents: isMobile ? 'none' : 'auto',
           }}
