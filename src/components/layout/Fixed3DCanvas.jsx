@@ -1,11 +1,31 @@
-import { Canvas } from '@react-three/fiber';
-import { useEffect, useState, useRef } from 'react';
+import { Canvas, useThree } from '@react-three/fiber';
+import { useEffect, useState } from 'react';
 
-console.log('[Fixed3DCanvas] module loaded');
+function ForceResize() {
+  const { gl, camera } = useThree();
+
+  useEffect(() => {
+    const resize = () => {
+      const h = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--app-height'));
+      const w = window.innerWidth;
+      gl.setSize(w, h, false);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+    };
+    resize();
+    window.addEventListener('resize', resize);
+    window.addEventListener('orientationchange', resize);
+    return () => {
+      window.removeEventListener('resize', resize);
+      window.removeEventListener('orientationchange', resize);
+    };
+  }, [gl, camera]);
+
+  return null;
+}
 
 export default function Fixed3DCanvas() {
   const [vh, setVh] = useState(window.innerHeight);
-  const containerRef = useRef();
 
   useEffect(() => {
     const updateHeight = () => {
@@ -23,30 +43,27 @@ export default function Fixed3DCanvas() {
 
   return (
     <div
-      ref={containerRef}
       style={{
         position: 'fixed',
         inset: 0,
-        height: 'var(--app-height)',
         width: '100vw',
-        background: '#8A2BE2',
+        height: 'var(--app-height)',
+        background: '#4B0082',
         overflow: 'hidden',
       }}
     >
       <Canvas
         style={{
           position: 'absolute',
-          top: 0,
-          left: 0,
+          inset: 0,
           width: '100vw',
           height: 'var(--app-height)',
-          border: '4px solid lime',
+          border: '4px solid cyan',
         }}
         gl={{ preserveDrawingBuffer: true }}
-        onCreated={({ gl }) => {
-          gl.setClearColor('#8A2BE2');
-        }}
-      />
+      >
+        <ForceResize />
+      </Canvas>
     </div>
   );
 }
