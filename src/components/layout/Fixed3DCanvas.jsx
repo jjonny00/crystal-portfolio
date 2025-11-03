@@ -1,10 +1,11 @@
 import { Canvas } from '@react-three/fiber';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 
 console.log('[Fixed3DCanvas] module loaded');
 
 export default function Fixed3DCanvas() {
   const [vh, setVh] = useState(window.innerHeight);
+  const containerRef = useRef();
 
   useEffect(() => {
     const updateHeight = () => {
@@ -20,30 +21,31 @@ export default function Fixed3DCanvas() {
     };
   }, []);
 
-  console.log('[Fixed3DCanvas] render called');
   return (
     <div
+      ref={containerRef}
       style={{
         position: 'fixed',
         inset: 0,
-        background: '#8A2BE2', // purple for visibility
         height: 'var(--app-height)',
+        width: '100vw',
+        background: '#8A2BE2',
         overflow: 'hidden',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: '#fff',
-        fontSize: '2rem',
       }}
     >
-      <p>Canvas test</p>
       <Canvas
         style={{
           position: 'absolute',
-          inset: 0,
-          border: '4px solid yellow',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: 'var(--app-height)',
+          border: '4px solid lime',
         }}
-        onCreated={() => console.log('[Fixed3DCanvas] Canvas mounted')}
+        gl={{ preserveDrawingBuffer: true }}
+        onCreated={({ gl }) => {
+          gl.setClearColor('#8A2BE2');
+        }}
       />
     </div>
   );
