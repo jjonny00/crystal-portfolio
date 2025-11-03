@@ -1,35 +1,38 @@
 import { Canvas, useThree } from '@react-three/fiber';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 
-function ForceResize() {
-  const { gl, camera } = useThree();
+function SyncCanvasSize() {
+  const { gl, camera, size } = useThree();
 
   useEffect(() => {
-    const resize = () => {
+    const update = () => {
       const h = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--app-height'));
       const w = window.innerWidth;
+      const canvas = gl.domElement;
+      // Force HTML attributes to match the physical viewport height
+      canvas.width = w * window.devicePixelRatio;
+      canvas.height = h * window.devicePixelRatio;
+      canvas.style.width = `${w}px`;
+      canvas.style.height = `${h}px`;
       gl.setSize(w, h, false);
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
     };
-    resize();
-    window.addEventListener('resize', resize);
-    window.addEventListener('orientationchange', resize);
+    update();
+    window.addEventListener('resize', update);
+    window.addEventListener('orientationchange', update);
     return () => {
-      window.removeEventListener('resize', resize);
-      window.removeEventListener('orientationchange', resize);
+      window.removeEventListener('resize', update);
+      window.removeEventListener('orientationchange', update);
     };
-  }, [gl, camera]);
+  }, [gl, camera, size]);
 
   return null;
 }
 
 export default function Fixed3DCanvas() {
-  const [vh, setVh] = useState(window.innerHeight);
-
   useEffect(() => {
     const updateHeight = () => {
-      setVh(window.innerHeight);
       document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
     };
     updateHeight();
@@ -48,7 +51,7 @@ export default function Fixed3DCanvas() {
         inset: 0,
         width: '100vw',
         height: 'var(--app-height)',
-        background: '#4B0082',
+        background: '#663399',
         overflow: 'hidden',
       }}
     >
@@ -58,11 +61,11 @@ export default function Fixed3DCanvas() {
           inset: 0,
           width: '100vw',
           height: 'var(--app-height)',
-          border: '4px solid cyan',
+          border: '4px solid orange',
         }}
         gl={{ preserveDrawingBuffer: true }}
       >
-        <ForceResize />
+        <SyncCanvasSize />
       </Canvas>
     </div>
   );
