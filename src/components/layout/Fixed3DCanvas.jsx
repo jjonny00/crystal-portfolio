@@ -1,31 +1,26 @@
 import { Canvas, useThree } from '@react-three/fiber';
 import { useEffect } from 'react';
 
-function SyncCanvasSize() {
-  const { gl, camera, size } = useThree();
+function ForceFiberSync() {
+  const { gl, camera, size, setSize } = useThree();
 
   useEffect(() => {
-    const update = () => {
+    const sync = () => {
       const h = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--app-height'));
       const w = window.innerWidth;
-      const canvas = gl.domElement;
-      // Force HTML attributes to match the physical viewport height
-      canvas.width = w * window.devicePixelRatio;
-      canvas.height = h * window.devicePixelRatio;
-      canvas.style.width = `${w}px`;
-      canvas.style.height = `${h}px`;
       gl.setSize(w, h, false);
+      setSize(w, h);
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
     };
-    update();
-    window.addEventListener('resize', update);
-    window.addEventListener('orientationchange', update);
+    sync();
+    window.addEventListener('resize', sync);
+    window.addEventListener('orientationchange', sync);
     return () => {
-      window.removeEventListener('resize', update);
-      window.removeEventListener('orientationchange', update);
+      window.removeEventListener('resize', sync);
+      window.removeEventListener('orientationchange', sync);
     };
-  }, [gl, camera, size]);
+  }, [gl, camera, setSize, size]);
 
   return null;
 }
@@ -51,7 +46,7 @@ export default function Fixed3DCanvas() {
         inset: 0,
         width: '100vw',
         height: 'var(--app-height)',
-        background: '#663399',
+        background: '#9370DB',
         overflow: 'hidden',
       }}
     >
@@ -61,11 +56,11 @@ export default function Fixed3DCanvas() {
           inset: 0,
           width: '100vw',
           height: 'var(--app-height)',
-          border: '4px solid orange',
+          border: '4px solid red',
         }}
         gl={{ preserveDrawingBuffer: true }}
       >
-        <SyncCanvasSize />
+        <ForceFiberSync />
       </Canvas>
     </div>
   );
