@@ -190,8 +190,8 @@ const UnifiedCameraController = ({
       const dy = event.clientY - lastPointerRef.current.y;
       lastPointerRef.current = { x: event.clientX, y: event.clientY, time: event.timeStamp };
 
-      const azimuthDelta = dx * 0.004;
-      const polarDelta = dy * 0.003;
+      const azimuthDelta = dx * 0.0018;
+      const polarDelta = dy * 0.0012;
 
       heroOrbitAngle.current -= azimuthDelta;
       heroPolarAngleRef.current = THREE.MathUtils.clamp(
@@ -201,6 +201,7 @@ const UnifiedCameraController = ({
       );
 
       orbitVelocityRef.current.set(-azimuthDelta, polarDelta);
+      orbitVelocityRef.current.clampLength(0, 0.009);
       userControlStrengthRef.current = 1;
     };
 
@@ -332,6 +333,9 @@ const UnifiedCameraController = ({
         description: enhancedConfig.description
       };
 
+      orbitVelocityRef.current.set(0, 0);
+      userControlStrengthRef.current = 0;
+
       // FIXED: Reset settle tracking when new config is applied
       settleFrameCount.current = 0;
       cameraSettledRef.current = false;
@@ -394,7 +398,7 @@ const UnifiedCameraController = ({
     // Orbit camera around crystal during hero state once settled
     if (animationData.state === 'hero' && animationData.cameraState === 'hero' && isOrbitingRef.current) {
       const deltaMultiplier = deltaTime * 60;
-      const speed = animationData.cameraConfig?.orbitSpeed || 0.0003;
+      const speed = animationData.cameraConfig?.orbitSpeed || 0.00018;
       const userActive = isDraggingRef.current || orbitVelocityRef.current.lengthSq() > 1e-6 ? 1 : 0;
       const influenceLerp = Math.min(Math.max(deltaTime * 5, 0.02), 0.2);
 
@@ -410,7 +414,7 @@ const UnifiedCameraController = ({
           -0.35,
           0.95
         );
-        const decay = Math.pow(0.92, deltaMultiplier);
+        const decay = Math.pow(0.88, deltaMultiplier);
         orbitVelocityRef.current.multiplyScalar(decay);
         if (orbitVelocityRef.current.lengthSq() < 1e-6) {
           orbitVelocityRef.current.set(0, 0);
@@ -430,7 +434,7 @@ const UnifiedCameraController = ({
       const parallaxGoal = isTouchDeviceRef.current ? zeroParallax.current : parallaxTarget.current;
       parallaxSmoothed.current.lerp(parallaxGoal, parallaxLerp);
 
-      const parallaxStrength = 0.25;
+      const parallaxStrength = 0.14;
       parallaxPositionOffset.current.set(
         parallaxSmoothed.current.x * parallaxStrength,
         parallaxSmoothed.current.y * parallaxStrength * 0.6,
@@ -516,22 +520,17 @@ const UnifiedCameraController = ({
         const finalLookAtCheck = currentDirection.angleTo(targetDirection);
         
         if (finalPositionCheck < SETTLE_EPSILON * 0.5 && finalLookAtCheck < SETTLE_EPSILON * 0.5) {
-          // Snap to the exact target position to eliminate any remaining interpolation
-          camera.position.copy(currentTarget.current.position);
-          camera.lookAt(currentTarget.current.lookAt);
-          camera.fov = currentTarget.current.fov;
-          camera.updateProjectionMatrix();
+          // Derive orbit parameters from the actual camera position to avoid visible jumps
+          const cameraDistance = camera.position.distanceTo(currentTarget.current.lookAt);
+          const horizontalRadius = Math.sqrt(
+            camera.position.x * camera.position.x + camera.position.z * camera.position.z
+          );
 
-          // Derive orbit parameters from the final position
-          heroOrbitAngle.current = Math.atan2(
-            currentTarget.current.position.x,
-            currentTarget.current.position.z
-          );
-          orbitRadiusRef.current = Math.sqrt(
-            currentTarget.current.position.x * currentTarget.current.position.x +
-            currentTarget.current.position.z * currentTarget.current.position.z
-          );
-          orbitHeightRef.current = currentTarget.current.position.y;
+          heroOrbitAngle.current = Math.atan2(camera.position.x, camera.position.z);
+          heroPolarAngleRef.current = Math.atan2(camera.position.y, Math.max(0.0001, horizontalRadius));
+          orbitRadiusRef.current = horizontalRadius;
+          orbitHeightRef.current = camera.position.y;
+          orbitDistanceRef.current = cameraDistance || orbitDistanceRef.current;
           isOrbitingRef.current = true;
           
           if (import.meta.env.DEV) {
