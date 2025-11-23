@@ -12,7 +12,28 @@ const UnifiedCameraController = ({
   simplifiedAnimations = false,
   facetRefs = null
 }) => {
-  const { camera } = useThree();
+  const { camera, gl } = useThree();
+
+  // Input context
+  const isTouchDeviceRef = useRef(false);
+
+  // Passive parallax tracking
+  const parallaxTarget = useRef(new THREE.Vector2(0, 0));
+  const parallaxSmoothed = useRef(new THREE.Vector2(0, 0));
+  const zeroParallax = useRef(new THREE.Vector2(0, 0));
+  const parallaxPositionOffset = useRef(new THREE.Vector3());
+  const parallaxLookAtOffset = useRef(new THREE.Vector3());
+  const tempLookAt = useRef(new THREE.Vector3());
+
+  // Drag orbit tracking
+  const isDraggingRef = useRef(false);
+  const lastPointerRef = useRef({ x: 0, y: 0, time: 0 });
+  const orbitVelocityRef = useRef(new THREE.Vector2(0, 0));
+  const userControlStrengthRef = useRef(0);
+
+  // Orbit angles
+  const heroPolarAngleRef = useRef(0);
+  const orbitDistanceRef = useRef(0);
 
   // Track orbital rotation around the crystal during hero state
   const heroOrbitAngle = useRef(0);
@@ -143,6 +164,73 @@ const UnifiedCameraController = ({
   }, [camera]);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const coarsePointer = window.matchMedia?.('(pointer: coarse)')?.matches;
+    isTouchDeviceRef.current = coarsePointer || 'ontouchstart' in window;
+  }, []);
+
+  useEffect(() => {
+    const element = gl?.domElement;
+
+    if (!element || isTouchDeviceRef.current) return undefined;
+
+    const handlePointerMove = (event) => {
+      const rect = element.getBoundingClientRect();
+      const nx = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      const ny = ((event.clientY - rect.top) / rect.height) * 2 - 1;
+
+      parallaxTarget.current.set(nx, ny);
+
+      if (!isDraggingRef.current || animationData?.state !== 'hero' || animationData?.cameraState !== 'hero') {
+        return;
+      }
+
+      const dx = event.clientX - lastPointerRef.current.x;
+      const dy = event.clientY - lastPointerRef.current.y;
+      lastPointerRef.current = { x: event.clientX, y: event.clientY, time: event.timeStamp };
+
+      const azimuthDelta = dx * 0.004;
+      const polarDelta = dy * 0.003;
+
+      heroOrbitAngle.current -= azimuthDelta;
+      heroPolarAngleRef.current = THREE.MathUtils.clamp(
+        heroPolarAngleRef.current + polarDelta,
+        -0.35,
+        0.95
+      );
+
+      orbitVelocityRef.current.set(-azimuthDelta, polarDelta);
+      userControlStrengthRef.current = 1;
+    };
+
+    const handlePointerDown = (event) => {
+      if (animationData?.state !== 'hero' || animationData?.cameraState !== 'hero') return;
+
+      isDraggingRef.current = true;
+      orbitVelocityRef.current.set(0, 0);
+      lastPointerRef.current = { x: event.clientX, y: event.clientY, time: event.timeStamp };
+      userControlStrengthRef.current = 1;
+    };
+
+    const handlePointerUp = () => {
+      isDraggingRef.current = false;
+    };
+
+    element.addEventListener('pointermove', handlePointerMove);
+    element.addEventListener('pointerdown', handlePointerDown);
+    window.addEventListener('pointerup', handlePointerUp);
+    element.addEventListener('pointerleave', handlePointerUp);
+
+    return () => {
+      element.removeEventListener('pointermove', handlePointerMove);
+      element.removeEventListener('pointerdown', handlePointerDown);
+      window.removeEventListener('pointerup', handlePointerUp);
+      element.removeEventListener('pointerleave', handlePointerUp);
+    };
+  }, [animationData?.cameraState, animationData?.state, gl]);
+
+  useEffect(() => {
     // FIXED: Reset orbit state when camera state changes
     if (animationData?.cameraState !== lastCameraStateRef.current) {
       isOrbitingRef.current = false;
@@ -259,6 +347,22 @@ const UnifiedCameraController = ({
         enhancedConfig.position.x,
         enhancedConfig.position.z
       );
+      const horizontalRadius = Math.sqrt(
+        enhancedConfig.position.x * enhancedConfig.position.x +
+        enhancedConfig.position.z * enhancedConfig.position.z
+      );
+      const totalRadius = Math.sqrt(
+        enhancedConfig.position.x * enhancedConfig.position.x +
+        enhancedConfig.position.y * enhancedConfig.position.y +
+        enhancedConfig.position.z * enhancedConfig.position.z
+      );
+      orbitRadiusRef.current = horizontalRadius;
+      orbitHeightRef.current = enhancedConfig.position.y;
+      orbitDistanceRef.current = totalRadius;
+      heroPolarAngleRef.current = Math.atan2(
+        enhancedConfig.position.y,
+        horizontalRadius || 0.0001
+      );
       // FIXED: Don't immediately set isOrbitingRef here
     } else {
       isOrbitingRef.current = false;
@@ -289,15 +393,58 @@ const UnifiedCameraController = ({
 
     // Orbit camera around crystal during hero state once settled
     if (animationData.state === 'hero' && animationData.cameraState === 'hero' && isOrbitingRef.current) {
+      const deltaMultiplier = deltaTime * 60;
       const speed = animationData.cameraConfig?.orbitSpeed || 0.0003;
-      heroOrbitAngle.current += speed * deltaTime * 60;
-      const radius = orbitRadiusRef.current;
-      const x = radius * Math.sin(heroOrbitAngle.current);
-      const z = radius * Math.cos(heroOrbitAngle.current);
-      const y = orbitHeightRef.current;
+      const userActive = isDraggingRef.current || orbitVelocityRef.current.lengthSq() > 1e-6 ? 1 : 0;
+      const influenceLerp = Math.min(Math.max(deltaTime * 5, 0.02), 0.2);
 
-      camera.position.set(x, y, z);
-      camera.lookAt(currentTarget.current.lookAt);
+      userControlStrengthRef.current += (userActive - userControlStrengthRef.current) * influenceLerp;
+      const autoOrbitStrength = 1 - Math.min(userControlStrengthRef.current, 1);
+
+      heroOrbitAngle.current += speed * deltaMultiplier * autoOrbitStrength;
+
+      if (!isDraggingRef.current && orbitVelocityRef.current.lengthSq() > 1e-6) {
+        heroOrbitAngle.current += orbitVelocityRef.current.x;
+        heroPolarAngleRef.current = THREE.MathUtils.clamp(
+          heroPolarAngleRef.current + orbitVelocityRef.current.y,
+          -0.35,
+          0.95
+        );
+        const decay = Math.pow(0.92, deltaMultiplier);
+        orbitVelocityRef.current.multiplyScalar(decay);
+        if (orbitVelocityRef.current.lengthSq() < 1e-6) {
+          orbitVelocityRef.current.set(0, 0);
+        }
+      }
+
+      const distance = orbitDistanceRef.current || Math.sqrt(
+        orbitRadiusRef.current * orbitRadiusRef.current +
+        orbitHeightRef.current * orbitHeightRef.current
+      );
+      const horizontal = Math.max(0.0001, Math.cos(heroPolarAngleRef.current)) * distance;
+      const y = Math.sin(heroPolarAngleRef.current) * distance;
+      const x = horizontal * Math.sin(heroOrbitAngle.current);
+      const z = horizontal * Math.cos(heroOrbitAngle.current);
+
+      const parallaxLerp = 1 - Math.exp(-6 * deltaTime);
+      const parallaxGoal = isTouchDeviceRef.current ? zeroParallax.current : parallaxTarget.current;
+      parallaxSmoothed.current.lerp(parallaxGoal, parallaxLerp);
+
+      const parallaxStrength = 0.25;
+      parallaxPositionOffset.current.set(
+        parallaxSmoothed.current.x * parallaxStrength,
+        parallaxSmoothed.current.y * parallaxStrength * 0.6,
+        -parallaxSmoothed.current.x * parallaxStrength * 0.4
+      );
+      parallaxLookAtOffset.current.set(
+        parallaxSmoothed.current.x * parallaxStrength * 0.3,
+        parallaxSmoothed.current.y * parallaxStrength * 0.3,
+        0
+      );
+
+      camera.position.set(x, y, z).add(parallaxPositionOffset.current);
+      tempLookAt.current.copy(currentTarget.current.lookAt).add(parallaxLookAtOffset.current);
+      camera.lookAt(tempLookAt.current);
       camera.fov = currentTarget.current.fov;
       camera.updateProjectionMatrix();
 
