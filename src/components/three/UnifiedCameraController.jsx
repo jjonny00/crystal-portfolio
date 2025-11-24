@@ -30,6 +30,9 @@ const UnifiedCameraController = ({
   const lastPointerRef = useRef({ x: 0, y: 0, time: 0 });
   const orbitVelocityRef = useRef(new THREE.Vector2(0, 0));
   const userControlStrengthRef = useRef(0);
+  const dragEngagementRef = useRef(0);
+  const dragTargetRef = useRef(0);
+  const DRAG_RESPONSE_TIME = 0.5; // Seconds for drag influence to fully apply/release
 
   // Orbit angles
   const heroPolarAngleRef = useRef(0);
@@ -191,8 +194,9 @@ const UnifiedCameraController = ({
       const dy = event.clientY - lastPointerRef.current.y;
       lastPointerRef.current = { x: event.clientX, y: event.clientY, time: event.timeStamp };
 
-      const azimuthDelta = dx * 0.00035;
-      const polarDelta = dy * 0.00022;
+      const dragEase = dragEngagementRef.current;
+      const azimuthDelta = dx * 0.00035 * dragEase;
+      const polarDelta = dy * 0.00022 * dragEase;
 
       heroOrbitAngle.current -= azimuthDelta;
       heroPolarAngleRef.current = THREE.MathUtils.clamp(
@@ -203,7 +207,7 @@ const UnifiedCameraController = ({
 
       orbitVelocityRef.current.set(-azimuthDelta, polarDelta);
       orbitVelocityRef.current.clampLength(0, 0.0025);
-      userControlStrengthRef.current = 1;
+      userControlStrengthRef.current = Math.max(userControlStrengthRef.current, dragEase);
     };
 
     const handlePointerDown = (event) => {
@@ -212,11 +216,13 @@ const UnifiedCameraController = ({
       isDraggingRef.current = true;
       orbitVelocityRef.current.set(0, 0);
       lastPointerRef.current = { x: event.clientX, y: event.clientY, time: event.timeStamp };
-      userControlStrengthRef.current = 1;
+      dragTargetRef.current = 1;
+      userControlStrengthRef.current = dragEngagementRef.current;
     };
 
     const handlePointerUp = () => {
       isDraggingRef.current = false;
+      dragTargetRef.current = 0;
     };
 
     element.addEventListener('pointermove', handlePointerMove);
@@ -240,7 +246,9 @@ const UnifiedCameraController = ({
       lastCameraStateRef.current = animationData?.cameraState;
       parallaxTarget.current.set(0, 0);
       parallaxSmoothed.current.set(0, 0);
-      
+      dragTargetRef.current = 0;
+      dragEngagementRef.current = 0;
+
       if (import.meta.env.DEV) {
         console.log('📹 Camera state changed, resetting orbit:', animationData?.cameraState);
       }
@@ -406,11 +414,15 @@ const UnifiedCameraController = ({
       return;
     }
 
+    const dragResponseLerp = Math.min(deltaTime / DRAG_RESPONSE_TIME, 1);
+    dragEngagementRef.current += (dragTargetRef.current - dragEngagementRef.current) * dragResponseLerp;
+
     // Orbit camera around crystal during hero state once settled
     if (animationData.state === 'hero' && animationData.cameraState === 'hero' && isOrbitingRef.current) {
       const deltaMultiplier = deltaTime * 60;
       const speed = animationData.cameraConfig?.orbitSpeed || 0.00018;
-      const userActive = isDraggingRef.current || orbitVelocityRef.current.lengthSq() > 1e-6 ? 1 : 0;
+      const velocityActive = orbitVelocityRef.current.lengthSq() > 1e-6 ? 0.35 : 0;
+      const userActive = Math.min(1, Math.max(dragEngagementRef.current, velocityActive));
       const influenceLerp = Math.min(Math.max(deltaTime * 5, 0.02), 0.2);
 
       userControlStrengthRef.current += (userActive - userControlStrengthRef.current) * influenceLerp;
