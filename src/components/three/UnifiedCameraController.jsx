@@ -191,8 +191,8 @@ const UnifiedCameraController = ({
       const dy = event.clientY - lastPointerRef.current.y;
       lastPointerRef.current = { x: event.clientX, y: event.clientY, time: event.timeStamp };
 
-      const azimuthDelta = dx * 0.0014;
-      const polarDelta = dy * 0.0009;
+      const azimuthDelta = dx * 0.00035;
+      const polarDelta = dy * 0.00022;
 
       heroOrbitAngle.current -= azimuthDelta;
       heroPolarAngleRef.current = THREE.MathUtils.clamp(
@@ -202,7 +202,7 @@ const UnifiedCameraController = ({
       );
 
       orbitVelocityRef.current.set(-azimuthDelta, polarDelta);
-      orbitVelocityRef.current.clampLength(0, 0.007);
+      orbitVelocityRef.current.clampLength(0, 0.0025);
       userControlStrengthRef.current = 1;
     };
 
