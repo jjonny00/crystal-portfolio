@@ -11,7 +11,7 @@ import LoaderV2 from './ui/LoaderV2';
 // Animation coordinator
 import MasterAnimationCoordinator from './components/three/MasterAnimationCoordinator';
 import { ANIMATION_CONFIG } from './hooks/useUnifiedAnimationController';
-import { Vector3 } from 'three';
+import { Euler, Quaternion, Vector3 } from 'three';
 
 // Layout components
 import ScrollablePortfolio from './components/layout/ScrollablePortfolio';
@@ -41,48 +41,147 @@ import { isMobileDevice } from './utils/isMobileDevice.js';
 // Convert UI config into animation config
 const buildAnimationConfig = (uiConfig) => {
   const toVec = (arr) => new Vector3(...arr);
+  const sumVec = (...arrs) =>
+    arrs.reduce((acc, arr) => acc.add(new Vector3(...(arr ?? [0, 0, 0]))), new Vector3(0, 0, 0));
+  const toQuatFromEulerDeg = (eulerDeg, fallback) => {
+    if (!Array.isArray(eulerDeg)) return fallback.clone();
+    const [x, y, z] = eulerDeg;
+    const euler = new Euler(
+      x * (Math.PI / 180),
+      y * (Math.PI / 180),
+      z * (Math.PI / 180),
+      'XYZ'
+    );
+    return new Quaternion().setFromEuler(euler);
+  };
+
   if (!uiConfig?.cameraPositions) return ANIMATION_CONFIG;
+
+  const globalOffsets = uiConfig.cameraOffsets?.global;
+  const zoneOffsets = uiConfig.cameraOffsets?.zones;
+  const projectOffsets = uiConfig.cameraOffsets?.projects;
+  const cameraTargets = uiConfig.cameraTargets;
 
   return {
     ...ANIMATION_CONFIG,
     camera: {
       hero: {
         ...ANIMATION_CONFIG.camera.hero,
-        position: toVec(uiConfig.cameraPositions.hero)
+        position: toVec(uiConfig.cameraPositions.hero),
+        target: toVec(cameraTargets?.hero ?? ANIMATION_CONFIG.camera.hero.target.toArray()),
+        offsetPosition: sumVec(globalOffsets?.position, zoneOffsets?.hero?.position),
+        offsetTarget: sumVec(globalOffsets?.target, zoneOffsets?.hero?.target)
       },
       overview: {
         ...ANIMATION_CONFIG.camera.overview,
-        position: toVec(uiConfig.cameraPositions.overview)
+        position: toVec(uiConfig.cameraPositions.overview),
+        target: toVec(cameraTargets?.overview ?? ANIMATION_CONFIG.camera.overview.target.toArray()),
+        offsetPosition: sumVec(globalOffsets?.position, zoneOffsets?.overview?.position),
+        offsetTarget: sumVec(globalOffsets?.target, zoneOffsets?.overview?.target)
       },
       about: {
         ...ANIMATION_CONFIG.camera.about,
-        position: toVec(uiConfig.cameraPositions.about)
+        position: toVec(uiConfig.cameraPositions.about),
+        target: toVec(cameraTargets?.about ?? ANIMATION_CONFIG.camera.about.target.toArray()),
+        offsetPosition: sumVec(globalOffsets?.position, zoneOffsets?.about?.position),
+        offsetTarget: sumVec(globalOffsets?.target, zoneOffsets?.about?.target)
       },
       projects: {
         empathy: {
           ...ANIMATION_CONFIG.camera.projects.empathy,
-          position: toVec(uiConfig.cameraPositions.projects.empathy)
+          position: toVec(uiConfig.cameraPositions.projects.empathy),
+          target: toVec(cameraTargets?.projects?.empathy ?? ANIMATION_CONFIG.camera.projects.empathy.target.toArray()),
+          offsetPosition: sumVec(globalOffsets?.position, projectOffsets?.empathy?.position),
+          offsetTarget: sumVec(globalOffsets?.target, projectOffsets?.empathy?.target)
         },
         narrative: {
           ...ANIMATION_CONFIG.camera.projects.narrative,
-          position: toVec(uiConfig.cameraPositions.projects.narrative)
+          position: toVec(uiConfig.cameraPositions.projects.narrative),
+          target: toVec(cameraTargets?.projects?.narrative ?? ANIMATION_CONFIG.camera.projects.narrative.target.toArray()),
+          offsetPosition: sumVec(globalOffsets?.position, projectOffsets?.narrative?.position),
+          offsetTarget: sumVec(globalOffsets?.target, projectOffsets?.narrative?.target)
         },
         craft: {
           ...ANIMATION_CONFIG.camera.projects.craft,
-          position: toVec(uiConfig.cameraPositions.projects.craft)
+          position: toVec(uiConfig.cameraPositions.projects.craft),
+          target: toVec(cameraTargets?.projects?.craft ?? ANIMATION_CONFIG.camera.projects.craft.target.toArray()),
+          offsetPosition: sumVec(globalOffsets?.position, projectOffsets?.craft?.position),
+          offsetTarget: sumVec(globalOffsets?.target, projectOffsets?.craft?.target)
         },
         system: {
           ...ANIMATION_CONFIG.camera.projects.system,
-          position: toVec(uiConfig.cameraPositions.projects.system)
+          position: toVec(uiConfig.cameraPositions.projects.system),
+          target: toVec(cameraTargets?.projects?.system ?? ANIMATION_CONFIG.camera.projects.system.target.toArray()),
+          offsetPosition: sumVec(globalOffsets?.position, projectOffsets?.system?.position),
+          offsetTarget: sumVec(globalOffsets?.target, projectOffsets?.system?.target)
         },
         leadership: {
           ...ANIMATION_CONFIG.camera.projects.leadership,
-          position: toVec(uiConfig.cameraPositions.projects.leadership)
+          position: toVec(uiConfig.cameraPositions.projects.leadership),
+          target: toVec(
+            cameraTargets?.projects?.leadership ?? ANIMATION_CONFIG.camera.projects.leadership.target.toArray()
+          ),
+          offsetPosition: sumVec(globalOffsets?.position, projectOffsets?.leadership?.position),
+          offsetTarget: sumVec(globalOffsets?.target, projectOffsets?.leadership?.target)
         },
         exploration: {
           ...ANIMATION_CONFIG.camera.projects.exploration,
-          position: toVec(uiConfig.cameraPositions.projects.exploration)
+          position: toVec(uiConfig.cameraPositions.projects.exploration),
+          target: toVec(
+            cameraTargets?.projects?.exploration ?? ANIMATION_CONFIG.camera.projects.exploration.target.toArray()
+          ),
+          offsetPosition: sumVec(globalOffsets?.position, projectOffsets?.exploration?.position),
+          offsetTarget: sumVec(globalOffsets?.target, projectOffsets?.exploration?.target)
         }
+      }
+    },
+    crystal: {
+      ...ANIMATION_CONFIG.crystal,
+      explodedPositions: {
+        empathy: toVec(
+          uiConfig.explodedPositions?.empathy ?? ANIMATION_CONFIG.crystal.explodedPositions.empathy.toArray()
+        ),
+        narrative: toVec(
+          uiConfig.explodedPositions?.narrative ?? ANIMATION_CONFIG.crystal.explodedPositions.narrative.toArray()
+        ),
+        craft: toVec(
+          uiConfig.explodedPositions?.craft ?? ANIMATION_CONFIG.crystal.explodedPositions.craft.toArray()
+        ),
+        system: toVec(
+          uiConfig.explodedPositions?.system ?? ANIMATION_CONFIG.crystal.explodedPositions.system.toArray()
+        ),
+        leadership: toVec(
+          uiConfig.explodedPositions?.leadership ?? ANIMATION_CONFIG.crystal.explodedPositions.leadership.toArray()
+        ),
+        exploration: toVec(
+          uiConfig.explodedPositions?.exploration ?? ANIMATION_CONFIG.crystal.explodedPositions.exploration.toArray()
+        )
+      },
+      explodedRotations: {
+        empathy: toQuatFromEulerDeg(
+          uiConfig.facetRotationsEulerDeg?.empathy,
+          ANIMATION_CONFIG.crystal.explodedRotations.empathy
+        ),
+        narrative: toQuatFromEulerDeg(
+          uiConfig.facetRotationsEulerDeg?.narrative,
+          ANIMATION_CONFIG.crystal.explodedRotations.narrative
+        ),
+        craft: toQuatFromEulerDeg(
+          uiConfig.facetRotationsEulerDeg?.craft,
+          ANIMATION_CONFIG.crystal.explodedRotations.craft
+        ),
+        system: toQuatFromEulerDeg(
+          uiConfig.facetRotationsEulerDeg?.system,
+          ANIMATION_CONFIG.crystal.explodedRotations.system
+        ),
+        leadership: toQuatFromEulerDeg(
+          uiConfig.facetRotationsEulerDeg?.leadership,
+          ANIMATION_CONFIG.crystal.explodedRotations.leadership
+        ),
+        exploration: toQuatFromEulerDeg(
+          uiConfig.facetRotationsEulerDeg?.exploration,
+          ANIMATION_CONFIG.crystal.explodedRotations.exploration
+        )
       }
     }
   };

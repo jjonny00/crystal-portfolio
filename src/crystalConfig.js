@@ -85,6 +85,76 @@ export const cameraPositions = {
   }
 }
 
+export const cameraTargets = {
+  hero: [0, 0.5, 0],
+  overview: [0, 0.3, 0],
+  about: [0, 0.2, 0],
+  projects: {
+    empathy: [0.3, -0.7, -0.2],
+    narrative: [0.3, -0.1, -0.7],
+    craft: [1.3, 0.8, 0.5],
+    system: [-0.5, 0.2, -1.8],
+    leadership: [0.4, 1.2, 0.9],
+    exploration: [-0.6, 0.7, 0.0]
+  }
+}
+
+export const cameraOffsets = {
+  global: {
+    position: [0, 0, 0],
+    target: [0, 0, 0]
+  },
+  zones: {
+    hero: {
+      position: [0, 0, 0],
+      target: [0, 0, 0]
+    },
+    overview: {
+      position: [0, 0, 0],
+      target: [0, 0, 0]
+    },
+    about: {
+      position: [0, 0, 0],
+      target: [0, 0, 0]
+    }
+  },
+  projects: {
+    empathy: {
+      position: [0, 0, 0],
+      target: [0, 0, 0]
+    },
+    narrative: {
+      position: [0, 0, 0],
+      target: [0, 0, 0]
+    },
+    craft: {
+      position: [0, 0, 0],
+      target: [0, 0, 0]
+    },
+    system: {
+      position: [0, 0, 0],
+      target: [0, 0, 0]
+    },
+    leadership: {
+      position: [0, 0, 0],
+      target: [0, 0, 0]
+    },
+    exploration: {
+      position: [0, 0, 0],
+      target: [0, 0, 0]
+    }
+  }
+}
+
+export const facetRotationsEulerDeg = {
+  empathy: [0, 0, 0],
+  narrative: [0, 0, 0],
+  craft: [0, 0, 0],
+  system: [0, 0, 0],
+  leadership: [0, 0, 0],
+  exploration: [0, 0, 0]
+}
+
 
 // === ANIMATION TIMING ===
 export const timing = {
