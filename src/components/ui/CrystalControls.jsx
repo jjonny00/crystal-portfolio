@@ -1,25 +1,14 @@
 // CrystalControls.jsx - Updated for tabbed interface
 import { useState } from 'react';
 import * as crystalConfig from '../../crystalConfig';
-import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController';
 
 const RAD2DEG = 180 / Math.PI;
 const DEG2RAD = Math.PI / 180;
 
-// Map camera targets to the same keys used for positions
-const cameraTargets = {
-  'camera.hero': ANIMATION_CONFIG.camera.hero.target.toArray(),
-  'camera.overview': ANIMATION_CONFIG.camera.overview.target.toArray(),
-  'camera.about': ANIMATION_CONFIG.camera.about.target.toArray(),
-  'camera.projects.empathy': ANIMATION_CONFIG.camera.projects.empathy.target.toArray(),
-  'camera.projects.narrative': ANIMATION_CONFIG.camera.projects.narrative.target.toArray(),
-  'camera.projects.craft': ANIMATION_CONFIG.camera.projects.craft.target.toArray(),
-  'camera.projects.system': ANIMATION_CONFIG.camera.projects.system.target.toArray(),
-  'camera.projects.leadership': ANIMATION_CONFIG.camera.projects.leadership.target.toArray(),
-  'camera.projects.exploration': ANIMATION_CONFIG.camera.projects.exploration.target.toArray(),
-};
+const zoneKeys = ['hero', 'overview', 'about'];
+const projectKeys = ['empathy', 'narrative', 'craft', 'system', 'leadership', 'exploration'];
 
-const CrystalControls = ({ onUpdate }) => {
+const CrystalControls = ({ config, onUpdate }) => {
   const [activeTab, setActiveTab] = useState('timing');
   
   // Timing state
@@ -39,6 +28,50 @@ const CrystalControls = ({ onUpdate }) => {
     'camera.projects.system': crystalConfig.cameraPositions.projects.system,
     'camera.projects.leadership': crystalConfig.cameraPositions.projects.leadership,
     'camera.projects.exploration': crystalConfig.cameraPositions.projects.exploration
+  });
+
+  const [cameraTargetValues, setCameraTargetValues] = useState({
+    'cameraTargets.hero': crystalConfig.cameraTargets.hero,
+    'cameraTargets.overview': crystalConfig.cameraTargets.overview,
+    'cameraTargets.about': crystalConfig.cameraTargets.about,
+    'cameraTargets.projects.empathy': crystalConfig.cameraTargets.projects.empathy,
+    'cameraTargets.projects.narrative': crystalConfig.cameraTargets.projects.narrative,
+    'cameraTargets.projects.craft': crystalConfig.cameraTargets.projects.craft,
+    'cameraTargets.projects.system': crystalConfig.cameraTargets.projects.system,
+    'cameraTargets.projects.leadership': crystalConfig.cameraTargets.projects.leadership,
+    'cameraTargets.projects.exploration': crystalConfig.cameraTargets.projects.exploration
+  });
+
+  const [cameraOffsetValues, setCameraOffsetValues] = useState({
+    'cameraOffsets.global.position': crystalConfig.cameraOffsets.global.position,
+    'cameraOffsets.global.target': crystalConfig.cameraOffsets.global.target,
+    'cameraOffsets.zones.hero.position': crystalConfig.cameraOffsets.zones.hero.position,
+    'cameraOffsets.zones.hero.target': crystalConfig.cameraOffsets.zones.hero.target,
+    'cameraOffsets.zones.overview.position': crystalConfig.cameraOffsets.zones.overview.position,
+    'cameraOffsets.zones.overview.target': crystalConfig.cameraOffsets.zones.overview.target,
+    'cameraOffsets.zones.about.position': crystalConfig.cameraOffsets.zones.about.position,
+    'cameraOffsets.zones.about.target': crystalConfig.cameraOffsets.zones.about.target,
+    'cameraOffsets.projects.empathy.position': crystalConfig.cameraOffsets.projects.empathy.position,
+    'cameraOffsets.projects.empathy.target': crystalConfig.cameraOffsets.projects.empathy.target,
+    'cameraOffsets.projects.narrative.position': crystalConfig.cameraOffsets.projects.narrative.position,
+    'cameraOffsets.projects.narrative.target': crystalConfig.cameraOffsets.projects.narrative.target,
+    'cameraOffsets.projects.craft.position': crystalConfig.cameraOffsets.projects.craft.position,
+    'cameraOffsets.projects.craft.target': crystalConfig.cameraOffsets.projects.craft.target,
+    'cameraOffsets.projects.system.position': crystalConfig.cameraOffsets.projects.system.position,
+    'cameraOffsets.projects.system.target': crystalConfig.cameraOffsets.projects.system.target,
+    'cameraOffsets.projects.leadership.position': crystalConfig.cameraOffsets.projects.leadership.position,
+    'cameraOffsets.projects.leadership.target': crystalConfig.cameraOffsets.projects.leadership.target,
+    'cameraOffsets.projects.exploration.position': crystalConfig.cameraOffsets.projects.exploration.position,
+    'cameraOffsets.projects.exploration.target': crystalConfig.cameraOffsets.projects.exploration.target
+  });
+
+  const [facetRotationValues, setFacetRotationValues] = useState({
+    'facetRotationsEulerDeg.empathy': crystalConfig.facetRotationsEulerDeg.empathy,
+    'facetRotationsEulerDeg.narrative': crystalConfig.facetRotationsEulerDeg.narrative,
+    'facetRotationsEulerDeg.craft': crystalConfig.facetRotationsEulerDeg.craft,
+    'facetRotationsEulerDeg.system': crystalConfig.facetRotationsEulerDeg.system,
+    'facetRotationsEulerDeg.leadership': crystalConfig.facetRotationsEulerDeg.leadership,
+    'facetRotationsEulerDeg.exploration': crystalConfig.facetRotationsEulerDeg.exploration
   });
 
   // Position state  
@@ -81,7 +114,8 @@ const CrystalControls = ({ onUpdate }) => {
     });
     
     // Create updated config
-    const updatedConfig = { ...crystalConfig };
+    const base = config ?? crystalConfig;
+    const updatedConfig = JSON.parse(JSON.stringify(base));
     const [section, property] = key.split('.');
     updatedConfig.timing[section][property] = numValue;
     
@@ -105,7 +139,8 @@ const CrystalControls = ({ onUpdate }) => {
     });
     
     // Create updated config
-    const updatedConfig = { ...crystalConfig };
+    const base = config ?? crystalConfig;
+    const updatedConfig = JSON.parse(JSON.stringify(base));
     updatedConfig[section][facet] = newPosition;
     
     // Notify parent component
@@ -119,18 +154,123 @@ const CrystalControls = ({ onUpdate }) => {
       [key]: newPosition
     });
 
-    const updatedConfig = { ...crystalConfig };
+    const base = config ?? crystalConfig;
+    const updatedConfig = JSON.parse(JSON.stringify(base));
 
     if (parts.length === 2) {
       updatedConfig.cameraPositions[parts[1]] = newPosition;
     } else if (parts.length === 3) {
       if (!updatedConfig.cameraPositions[parts[1]]) {
-        updatedConfig.cameraPositions[parts[1]] = { ...crystalConfig.cameraPositions[parts[1]] };
+        updatedConfig.cameraPositions[parts[1]] = { ...base.cameraPositions[parts[1]] };
       }
       updatedConfig.cameraPositions[parts[1]][parts[2]] = newPosition;
     }
 
     onUpdate(updatedConfig);
+  };
+
+  const getCameraTargetForKey = (cameraKey) => {
+    const targetKey = cameraKey.replace('camera.', 'cameraTargets.');
+    if (cameraTargetValues[targetKey]) {
+      return cameraTargetValues[targetKey];
+    }
+    const parts = targetKey.split('.');
+    const base = config ?? crystalConfig;
+    if (parts.length === 2) {
+      return base.cameraTargets[parts[1]] ?? [0, 0, 0];
+    }
+    if (parts.length === 3) {
+      return base.cameraTargets[parts[1]]?.[parts[2]] ?? [0, 0, 0];
+    }
+    return [0, 0, 0];
+  };
+
+  const updateCameraTarget = (key, newTarget) => {
+    const parts = key.split('.');
+    setCameraTargetValues({
+      ...cameraTargetValues,
+      [key]: newTarget
+    });
+
+    const base = config ?? crystalConfig;
+    const updatedConfig = JSON.parse(JSON.stringify(base));
+
+    if (parts.length === 2) {
+      updatedConfig.cameraTargets[parts[1]] = newTarget;
+    } else if (parts.length === 3) {
+      updatedConfig.cameraTargets[parts[1]] = {
+        ...base.cameraTargets[parts[1]]
+      };
+      updatedConfig.cameraTargets[parts[1]][parts[2]] = newTarget;
+    }
+
+    onUpdate(updatedConfig);
+  };
+
+  const handleCameraTargetChange = (key, index, value) => {
+    const numValue = parseFloat(value);
+    const newTarget = [...cameraTargetValues[key]];
+    newTarget[index] = numValue;
+    updateCameraTarget(key, newTarget);
+  };
+
+  const updateCameraOffset = (key, newOffset) => {
+    const parts = key.split('.');
+    setCameraOffsetValues({
+      ...cameraOffsetValues,
+      [key]: newOffset
+    });
+
+    const base = config ?? crystalConfig;
+    const updatedConfig = JSON.parse(JSON.stringify(base));
+
+    if (parts.length === 3) {
+      updatedConfig.cameraOffsets[parts[1]] = {
+        ...base.cameraOffsets[parts[1]]
+      };
+      updatedConfig.cameraOffsets[parts[1]][parts[2]] = newOffset;
+    } else if (parts.length === 4) {
+      updatedConfig.cameraOffsets[parts[1]] = {
+        ...base.cameraOffsets[parts[1]]
+      };
+      updatedConfig.cameraOffsets[parts[1]][parts[2]] = {
+        ...base.cameraOffsets[parts[1]][parts[2]]
+      };
+      updatedConfig.cameraOffsets[parts[1]][parts[2]][parts[3]] = newOffset;
+    }
+
+    onUpdate(updatedConfig);
+  };
+
+  const handleCameraOffsetChange = (key, index, value) => {
+    const numValue = parseFloat(value);
+    const newOffset = [...cameraOffsetValues[key]];
+    newOffset[index] = numValue;
+    updateCameraOffset(key, newOffset);
+  };
+
+  const updateFacetRotation = (key, newRotation) => {
+    const parts = key.split('.');
+    setFacetRotationValues({
+      ...facetRotationValues,
+      [key]: newRotation
+    });
+
+    const base = config ?? crystalConfig;
+    const updatedConfig = JSON.parse(JSON.stringify(base));
+
+    if (parts.length === 2) {
+      updatedConfig.facetRotationsEulerDeg[parts[1]] = newRotation;
+    }
+
+    onUpdate(updatedConfig);
+  };
+
+  const handleFacetRotationChange = (key, index, value) => {
+    const numValue = parseFloat(value);
+    const newRotation = [...facetRotationValues[key]];
+    newRotation[index] = numValue;
+    updateFacetRotation(key, newRotation);
   };
 
   // Handle camera position value changes for XYZ sliders
@@ -153,7 +293,7 @@ const CrystalControls = ({ onUpdate }) => {
   };
 
   const updateFromPolar = (key, { distance, yaw, pitch }) => {
-    const target = cameraTargets[key] || [0, 0, 0];
+    const target = getCameraTargetForKey(key);
     const horizontal = distance * Math.cos(pitch);
     const x = target[0] + horizontal * Math.sin(yaw);
     const z = target[2] + horizontal * Math.cos(yaw);
@@ -162,7 +302,7 @@ const CrystalControls = ({ onUpdate }) => {
   };
 
   const handleCameraRotationChange = (key, axis, value) => {
-    const target = cameraTargets[key] || [0, 0, 0];
+    const target = getCameraTargetForKey(key);
     const { distance, yaw, pitch } = getPolarCoords(cameraValues[key], target);
     if (axis === 'yaw') {
       updateFromPolar(key, { distance, yaw: parseFloat(value) * DEG2RAD, pitch });
@@ -172,7 +312,7 @@ const CrystalControls = ({ onUpdate }) => {
   };
 
   const handleCameraDistanceChange = (key, value) => {
-    const target = cameraTargets[key] || [0, 0, 0];
+    const target = getCameraTargetForKey(key);
     const { yaw, pitch } = getPolarCoords(cameraValues[key], target);
     updateFromPolar(key, { distance: parseFloat(value), yaw, pitch });
   };
@@ -186,7 +326,8 @@ const CrystalControls = ({ onUpdate }) => {
     });
     
     // Create a copy of the config - careful not to lose references to complex objects
-    const updatedConfig = { ...crystalConfig };
+    const base = config ?? crystalConfig;
+    const updatedConfig = JSON.parse(JSON.stringify(base));
     const parts = key.split('.');
     
     if (import.meta.env.DEV) console.log(`Updating effect: ${key} = ${numValue}`);
@@ -197,8 +338,8 @@ const CrystalControls = ({ onUpdate }) => {
       
       // Ensure the parent objects exist, but preserve references
       if (!updatedConfig[section]) updatedConfig[section] = {};
-      if (!updatedConfig[section][category]) updatedConfig[section][category] = { ...crystalConfig[section]?.[category] };
-      if (!updatedConfig[section][category][property]) updatedConfig[section][category][property] = { ...crystalConfig[section]?.[category]?.[property] };
+      if (!updatedConfig[section][category]) updatedConfig[section][category] = { ...base[section]?.[category] };
+      if (!updatedConfig[section][category][property]) updatedConfig[section][category][property] = { ...base[section]?.[category]?.[property] };
       
       // Update the value
       updatedConfig[section][category][property][subproperty] = numValue;
@@ -207,9 +348,9 @@ const CrystalControls = ({ onUpdate }) => {
       
       // Ensure the parent objects exist, but preserve references
       if (!updatedConfig[section]) updatedConfig[section] = {};
-      if (!updatedConfig[section][category]) updatedConfig[section][category] = { ...crystalConfig[section]?.[category] };
-      if (!updatedConfig[section][category][subCategory]) updatedConfig[section][category][subCategory] = { ...crystalConfig[section]?.[category]?.[subCategory] };
-      if (!updatedConfig[section][category][subCategory][property]) updatedConfig[section][category][subCategory][property] = { ...crystalConfig[section]?.[category]?.[subCategory]?.[property] };
+      if (!updatedConfig[section][category]) updatedConfig[section][category] = { ...base[section]?.[category] };
+      if (!updatedConfig[section][category][subCategory]) updatedConfig[section][category][subCategory] = { ...base[section]?.[category]?.[subCategory] };
+      if (!updatedConfig[section][category][subCategory][property]) updatedConfig[section][category][subCategory][property] = { ...base[section]?.[category]?.[subCategory]?.[property] };
       
       // Update the value
       updatedConfig[section][category][subCategory][property][subproperty] = numValue;
@@ -228,14 +369,15 @@ const CrystalControls = ({ onUpdate }) => {
     });
     
     // Create a copy of the config - preserve important references
-    const updatedConfig = { ...crystalConfig };
+    const base = config ?? crystalConfig;
+    const updatedConfig = JSON.parse(JSON.stringify(base));
     const [section, category, property] = key.split('.');
     
     if (import.meta.env.DEV) console.log(`Updating material: ${key} = ${numValue}`);
     
     // Ensure parent objects exist
     if (!updatedConfig[section]) updatedConfig[section] = {};
-    if (!updatedConfig[section][category]) updatedConfig[section][category] = { ...crystalConfig[section]?.[category] };
+    if (!updatedConfig[section][category]) updatedConfig[section][category] = { ...base[section]?.[category] };
     
     // Special handling for color properties - they are THREE.Color objects
     if (property === 'color' || property === 'emissive' || property === 'attenuationColor' || property === 'specularColor') {
@@ -267,6 +409,50 @@ const CrystalControls = ({ onUpdate }) => {
       'camera.projects.system': crystalConfig.cameraPositions.projects.system,
       'camera.projects.leadership': crystalConfig.cameraPositions.projects.leadership,
       'camera.projects.exploration': crystalConfig.cameraPositions.projects.exploration,
+    });
+
+    setCameraTargetValues({
+      'cameraTargets.hero': crystalConfig.cameraTargets.hero,
+      'cameraTargets.overview': crystalConfig.cameraTargets.overview,
+      'cameraTargets.about': crystalConfig.cameraTargets.about,
+      'cameraTargets.projects.empathy': crystalConfig.cameraTargets.projects.empathy,
+      'cameraTargets.projects.narrative': crystalConfig.cameraTargets.projects.narrative,
+      'cameraTargets.projects.craft': crystalConfig.cameraTargets.projects.craft,
+      'cameraTargets.projects.system': crystalConfig.cameraTargets.projects.system,
+      'cameraTargets.projects.leadership': crystalConfig.cameraTargets.projects.leadership,
+      'cameraTargets.projects.exploration': crystalConfig.cameraTargets.projects.exploration
+    });
+
+    setCameraOffsetValues({
+      'cameraOffsets.global.position': crystalConfig.cameraOffsets.global.position,
+      'cameraOffsets.global.target': crystalConfig.cameraOffsets.global.target,
+      'cameraOffsets.zones.hero.position': crystalConfig.cameraOffsets.zones.hero.position,
+      'cameraOffsets.zones.hero.target': crystalConfig.cameraOffsets.zones.hero.target,
+      'cameraOffsets.zones.overview.position': crystalConfig.cameraOffsets.zones.overview.position,
+      'cameraOffsets.zones.overview.target': crystalConfig.cameraOffsets.zones.overview.target,
+      'cameraOffsets.zones.about.position': crystalConfig.cameraOffsets.zones.about.position,
+      'cameraOffsets.zones.about.target': crystalConfig.cameraOffsets.zones.about.target,
+      'cameraOffsets.projects.empathy.position': crystalConfig.cameraOffsets.projects.empathy.position,
+      'cameraOffsets.projects.empathy.target': crystalConfig.cameraOffsets.projects.empathy.target,
+      'cameraOffsets.projects.narrative.position': crystalConfig.cameraOffsets.projects.narrative.position,
+      'cameraOffsets.projects.narrative.target': crystalConfig.cameraOffsets.projects.narrative.target,
+      'cameraOffsets.projects.craft.position': crystalConfig.cameraOffsets.projects.craft.position,
+      'cameraOffsets.projects.craft.target': crystalConfig.cameraOffsets.projects.craft.target,
+      'cameraOffsets.projects.system.position': crystalConfig.cameraOffsets.projects.system.position,
+      'cameraOffsets.projects.system.target': crystalConfig.cameraOffsets.projects.system.target,
+      'cameraOffsets.projects.leadership.position': crystalConfig.cameraOffsets.projects.leadership.position,
+      'cameraOffsets.projects.leadership.target': crystalConfig.cameraOffsets.projects.leadership.target,
+      'cameraOffsets.projects.exploration.position': crystalConfig.cameraOffsets.projects.exploration.position,
+      'cameraOffsets.projects.exploration.target': crystalConfig.cameraOffsets.projects.exploration.target
+    });
+
+    setFacetRotationValues({
+      'facetRotationsEulerDeg.empathy': crystalConfig.facetRotationsEulerDeg.empathy,
+      'facetRotationsEulerDeg.narrative': crystalConfig.facetRotationsEulerDeg.narrative,
+      'facetRotationsEulerDeg.craft': crystalConfig.facetRotationsEulerDeg.craft,
+      'facetRotationsEulerDeg.system': crystalConfig.facetRotationsEulerDeg.system,
+      'facetRotationsEulerDeg.leadership': crystalConfig.facetRotationsEulerDeg.leadership,
+      'facetRotationsEulerDeg.exploration': crystalConfig.facetRotationsEulerDeg.exploration
     });
     
     setPositionValues({
@@ -444,7 +630,7 @@ const CrystalControls = ({ onUpdate }) => {
       {Object.entries(cameraValues).map(([key, position]) => {
         const parts = key.split('.');
         const label = parts.length === 2 ? parts[1] : parts[2];
-        const target = cameraTargets[key] || [0, 0, 0];
+        const target = getCameraTargetForKey(key);
         const { distance, yaw, pitch } = getPolarCoords(position, target);
         const yawDeg = yaw * RAD2DEG;
         const pitchDeg = pitch * RAD2DEG;
@@ -519,6 +705,211 @@ const CrystalControls = ({ onUpdate }) => {
                 style={sliderStyle}
               />
             </div>
+          </div>
+        );
+      })}
+
+      <h3 style={{ fontSize: '14px', margin: '20px 0 15px' }}>Camera Targets (Zones)</h3>
+      {zoneKeys.map((zone) => {
+        const key = `cameraTargets.${zone}`;
+        const target = cameraTargetValues[key];
+        return (
+          <div key={key} style={sliderGroupStyle}>
+            <div style={{ fontSize: '13px', marginBottom: '8px', color: '#64ffda' }}>
+              {zone.charAt(0).toUpperCase() + zone.slice(1)}
+            </div>
+
+            {['X', 'Y', 'Z'].map((axis, index) => (
+              <div key={axis} style={{ marginBottom: '5px' }}>
+                <div style={sliderLabelStyle}>
+                  <span><span style={coordLabelStyle}>{axis}</span> Target</span>
+                  <span>{target[index].toFixed(2)}</span>
+                </div>
+                <input
+                  type="range"
+                  min="-5"
+                  max="5"
+                  step="0.1"
+                  value={target[index]}
+                  onChange={(e) => handleCameraTargetChange(key, index, e.target.value)}
+                  style={sliderStyle}
+                />
+              </div>
+            ))}
+          </div>
+        );
+      })}
+
+      <h3 style={{ fontSize: '14px', margin: '20px 0 15px' }}>Camera Targets (Projects)</h3>
+      {projectKeys.map((project) => {
+        const key = `cameraTargets.projects.${project}`;
+        const target = cameraTargetValues[key];
+        return (
+          <div key={key} style={sliderGroupStyle}>
+            <div style={{ fontSize: '13px', marginBottom: '8px', color: '#64ffda' }}>
+              {project.charAt(0).toUpperCase() + project.slice(1)}
+            </div>
+
+            {['X', 'Y', 'Z'].map((axis, index) => (
+              <div key={axis} style={{ marginBottom: '5px' }}>
+                <div style={sliderLabelStyle}>
+                  <span><span style={coordLabelStyle}>{axis}</span> Target</span>
+                  <span>{target[index].toFixed(2)}</span>
+                </div>
+                <input
+                  type="range"
+                  min="-5"
+                  max="5"
+                  step="0.1"
+                  value={target[index]}
+                  onChange={(e) => handleCameraTargetChange(key, index, e.target.value)}
+                  style={sliderStyle}
+                />
+              </div>
+            ))}
+          </div>
+        );
+      })}
+
+      <h3 style={{ fontSize: '14px', margin: '20px 0 15px' }}>Camera Offsets (Global)</h3>
+      {['position', 'target'].map((offsetType) => {
+        const key = `cameraOffsets.global.${offsetType}`;
+        const offset = cameraOffsetValues[key];
+        return (
+          <div key={key} style={sliderGroupStyle}>
+            <div style={{ fontSize: '13px', marginBottom: '8px', color: '#64ffda' }}>
+              Global {offsetType.charAt(0).toUpperCase() + offsetType.slice(1)}
+            </div>
+
+            {['X', 'Y', 'Z'].map((axis, index) => (
+              <div key={axis} style={{ marginBottom: '5px' }}>
+                <div style={sliderLabelStyle}>
+                  <span><span style={coordLabelStyle}>{axis}</span> Offset</span>
+                  <span>{offset[index].toFixed(2)}</span>
+                </div>
+                <input
+                  type="range"
+                  min="-2"
+                  max="2"
+                  step="0.05"
+                  value={offset[index]}
+                  onChange={(e) => handleCameraOffsetChange(key, index, e.target.value)}
+                  style={sliderStyle}
+                />
+              </div>
+            ))}
+          </div>
+        );
+      })}
+
+      <h3 style={{ fontSize: '14px', margin: '20px 0 15px' }}>Camera Offsets (Zones)</h3>
+      {zoneKeys.map((zone) => (
+        <div key={zone} style={sliderGroupStyle}>
+          <div style={{ fontSize: '13px', marginBottom: '8px', color: '#64ffda' }}>
+            {zone.charAt(0).toUpperCase() + zone.slice(1)}
+          </div>
+
+          {['position', 'target'].map((offsetType) => {
+            const key = `cameraOffsets.zones.${zone}.${offsetType}`;
+            const offset = cameraOffsetValues[key];
+            return (
+              <div key={key} style={{ marginBottom: '10px' }}>
+                <div style={{ fontSize: '12px', marginBottom: '6px', color: '#9fe8d8' }}>
+                  {offsetType.charAt(0).toUpperCase() + offsetType.slice(1)}
+                </div>
+                {['X', 'Y', 'Z'].map((axis, index) => (
+                  <div key={axis} style={{ marginBottom: '5px' }}>
+                    <div style={sliderLabelStyle}>
+                      <span><span style={coordLabelStyle}>{axis}</span> Offset</span>
+                      <span>{offset[index].toFixed(2)}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="-2"
+                      max="2"
+                      step="0.05"
+                      value={offset[index]}
+                      onChange={(e) => handleCameraOffsetChange(key, index, e.target.value)}
+                      style={sliderStyle}
+                    />
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      ))}
+
+      <h3 style={{ fontSize: '14px', margin: '20px 0 15px' }}>Camera Offsets (Projects)</h3>
+      {projectKeys.map((project) => (
+        <div key={project} style={sliderGroupStyle}>
+          <div style={{ fontSize: '13px', marginBottom: '8px', color: '#64ffda' }}>
+            {project.charAt(0).toUpperCase() + project.slice(1)}
+          </div>
+
+          {['position', 'target'].map((offsetType) => {
+            const key = `cameraOffsets.projects.${project}.${offsetType}`;
+            const offset = cameraOffsetValues[key];
+            return (
+              <div key={key} style={{ marginBottom: '10px' }}>
+                <div style={{ fontSize: '12px', marginBottom: '6px', color: '#9fe8d8' }}>
+                  {offsetType.charAt(0).toUpperCase() + offsetType.slice(1)}
+                </div>
+                {['X', 'Y', 'Z'].map((axis, index) => (
+                  <div key={axis} style={{ marginBottom: '5px' }}>
+                    <div style={sliderLabelStyle}>
+                      <span><span style={coordLabelStyle}>{axis}</span> Offset</span>
+                      <span>{offset[index].toFixed(2)}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="-2"
+                      max="2"
+                      step="0.05"
+                      value={offset[index]}
+                      onChange={(e) => handleCameraOffsetChange(key, index, e.target.value)}
+                      style={sliderStyle}
+                    />
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+
+  const renderFacetRotationControls = () => (
+    <div>
+      <h3 style={{ fontSize: '14px', marginBottom: '15px' }}>Facet Rotations (Euler Degrees)</h3>
+
+      {projectKeys.map((facet) => {
+        const key = `facetRotationsEulerDeg.${facet}`;
+        const rotation = facetRotationValues[key];
+        return (
+          <div key={key} style={sliderGroupStyle}>
+            <div style={{ fontSize: '13px', marginBottom: '8px', color: '#64ffda' }}>
+              {facet.charAt(0).toUpperCase() + facet.slice(1)}
+            </div>
+
+            {['X', 'Y', 'Z'].map((axis, index) => (
+              <div key={axis} style={{ marginBottom: '5px' }}>
+                <div style={sliderLabelStyle}>
+                  <span><span style={coordLabelStyle}>{axis}</span> Rotation</span>
+                  <span>{rotation[index].toFixed(0)}°</span>
+                </div>
+                <input
+                  type="range"
+                  min="-180"
+                  max="180"
+                  step="1"
+                  value={rotation[index]}
+                  onChange={(e) => handleFacetRotationChange(key, index, e.target.value)}
+                  style={sliderStyle}
+                />
+              </div>
+            ))}
           </div>
         );
       })}
@@ -790,6 +1181,12 @@ const CrystalControls = ({ onUpdate }) => {
         >
           Material
         </button>
+        <button
+          style={tabButtonStyle(activeTab === 'facets')}
+          onClick={() => setActiveTab('facets')}
+        >
+          Facets
+        </button>
       </div>
 
       {activeTab === 'timing' && renderTimingControls()}
@@ -797,6 +1194,7 @@ const CrystalControls = ({ onUpdate }) => {
       {activeTab === 'camera' && renderCameraControls()}
       {activeTab === 'effects' && renderEffectsControls()}
       {activeTab === 'material' && renderMaterialControls()}
+      {activeTab === 'facets' && renderFacetRotationControls()}
       
       <button 
         style={resetButtonStyle}

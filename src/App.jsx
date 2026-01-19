@@ -628,7 +628,7 @@ function App() {
             { label: 'Scroll' }
           ]}
         >
-          <CrystalControls onUpdate={handleConfigUpdate} />
+          <CrystalControls config={config} onUpdate={handleConfigUpdate} />
           
           <div>
             <MaterialSelector currentVariant={materialVariant} onChange={handleMaterialChange} />
