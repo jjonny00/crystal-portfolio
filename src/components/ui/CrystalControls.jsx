@@ -175,12 +175,11 @@ const CrystalControls = ({ config, onUpdate }) => {
       return cameraTargetValues[targetKey];
     }
     const parts = targetKey.split('.');
-    const base = config ?? crystalConfig;
     if (parts.length === 2) {
-      return base.cameraTargets[parts[1]] ?? [0, 0, 0];
+      return crystalConfig.cameraTargets[parts[1]] ?? [0, 0, 0];
     }
     if (parts.length === 3) {
-      return base.cameraTargets[parts[1]]?.[parts[2]] ?? [0, 0, 0];
+      return crystalConfig.cameraTargets[parts[1]]?.[parts[2]] ?? [0, 0, 0];
     }
     return [0, 0, 0];
   };
@@ -192,14 +191,14 @@ const CrystalControls = ({ config, onUpdate }) => {
       [key]: newTarget
     });
 
-    const base = config ?? crystalConfig;
-    const updatedConfig = JSON.parse(JSON.stringify(base));
+    const updatedConfig = { ...crystalConfig };
+    updatedConfig.cameraTargets = { ...crystalConfig.cameraTargets };
 
     if (parts.length === 2) {
       updatedConfig.cameraTargets[parts[1]] = newTarget;
     } else if (parts.length === 3) {
       updatedConfig.cameraTargets[parts[1]] = {
-        ...base.cameraTargets[parts[1]]
+        ...crystalConfig.cameraTargets[parts[1]]
       };
       updatedConfig.cameraTargets[parts[1]][parts[2]] = newTarget;
     }
@@ -221,20 +220,20 @@ const CrystalControls = ({ config, onUpdate }) => {
       [key]: newOffset
     });
 
-    const base = config ?? crystalConfig;
-    const updatedConfig = JSON.parse(JSON.stringify(base));
+    const updatedConfig = { ...crystalConfig };
+    updatedConfig.cameraOffsets = { ...crystalConfig.cameraOffsets };
 
     if (parts.length === 3) {
       updatedConfig.cameraOffsets[parts[1]] = {
-        ...base.cameraOffsets[parts[1]]
+        ...crystalConfig.cameraOffsets[parts[1]]
       };
       updatedConfig.cameraOffsets[parts[1]][parts[2]] = newOffset;
     } else if (parts.length === 4) {
       updatedConfig.cameraOffsets[parts[1]] = {
-        ...base.cameraOffsets[parts[1]]
+        ...crystalConfig.cameraOffsets[parts[1]]
       };
       updatedConfig.cameraOffsets[parts[1]][parts[2]] = {
-        ...base.cameraOffsets[parts[1]][parts[2]]
+        ...crystalConfig.cameraOffsets[parts[1]][parts[2]]
       };
       updatedConfig.cameraOffsets[parts[1]][parts[2]][parts[3]] = newOffset;
     }
@@ -256,8 +255,8 @@ const CrystalControls = ({ config, onUpdate }) => {
       [key]: newRotation
     });
 
-    const base = config ?? crystalConfig;
-    const updatedConfig = JSON.parse(JSON.stringify(base));
+    const updatedConfig = { ...crystalConfig };
+    updatedConfig.facetRotationsEulerDeg = { ...crystalConfig.facetRotationsEulerDeg };
 
     if (parts.length === 2) {
       updatedConfig.facetRotationsEulerDeg[parts[1]] = newRotation;
