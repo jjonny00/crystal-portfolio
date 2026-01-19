@@ -10,6 +10,7 @@ const projectKeys = ['empathy', 'narrative', 'craft', 'system', 'leadership', 'e
 
 const CrystalControls = ({ config, onUpdate }) => {
   const [activeTab, setActiveTab] = useState('timing');
+  const [exportStatus, setExportStatus] = useState('');
   
   // Timing state
   const [timingValues, setTimingValues] = useState({
@@ -486,6 +487,75 @@ const CrystalControls = ({ config, onUpdate }) => {
     onUpdate(crystalConfig);
   };
 
+  const getTuningPayload = () => {
+    const base = config ?? crystalConfig;
+    const payload = {
+      cameraPositions: base.cameraPositions,
+      cameraTargets: base.cameraTargets,
+      cameraOffsets: base.cameraOffsets,
+      explodedPositions: base.explodedPositions,
+      facetRotationsEulerDeg: base.facetRotationsEulerDeg
+    };
+
+    return JSON.stringify(payload, null, 2);
+  };
+
+  const setExportMessage = (message) => {
+    setExportStatus(message);
+    window.setTimeout(() => setExportStatus(''), 2500);
+  };
+
+  const fallbackCopyText = (text) => {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.top = '-9999px';
+    document.body.appendChild(textarea);
+    textarea.select();
+
+    let succeeded = false;
+    try {
+      succeeded = document.execCommand('copy');
+    } catch (error) {
+      succeeded = false;
+    }
+
+    document.body.removeChild(textarea);
+    return succeeded;
+  };
+
+  const handleCopyJson = async () => {
+    const payload = getTuningPayload();
+
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(payload);
+        setExportMessage('Copied!');
+        return;
+      }
+    } catch (error) {
+      // Fall through to fallback copy.
+    }
+
+    const success = fallbackCopyText(payload);
+    setExportMessage(success ? 'Copied!' : 'Copy failed');
+  };
+
+  const handleDownloadJson = () => {
+    const payload = getTuningPayload();
+    const blob = new Blob([payload], { type: 'application/json' });
+    const url = window.URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'crystal-tuning.json';
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    window.URL.revokeObjectURL(url);
+    setExportMessage('Download started');
+  };
+
   // Container style - no fixed positioning since parent handles that
   const containerStyle = {
     fontFamily: '"acumin-variable", sans-serif',
@@ -538,6 +608,32 @@ const CrystalControls = ({ config, onUpdate }) => {
     marginTop: '15px',
     width: '100%',
     fontWeight: 'bold'
+  };
+
+  const exportSectionStyle = {
+    marginTop: '20px',
+    padding: '12px',
+    border: '1px solid rgba(255, 255, 255, 0.15)',
+    borderRadius: '6px',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)'
+  };
+
+  const exportButtonStyle = {
+    backgroundColor: 'transparent',
+    color: '#64ffda',
+    border: '1px solid #64ffda',
+    padding: '6px 10px',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '12px',
+    flex: 1
+  };
+
+  const exportStatusStyle = {
+    marginTop: '8px',
+    fontSize: '11px',
+    color: '#9fe8d8',
+    minHeight: '14px'
   };
 
   const coordLabelStyle = {
@@ -1194,6 +1290,27 @@ const CrystalControls = ({ config, onUpdate }) => {
       {activeTab === 'effects' && renderEffectsControls()}
       {activeTab === 'material' && renderMaterialControls()}
       {activeTab === 'facets' && renderFacetRotationControls()}
+
+      <div style={exportSectionStyle}>
+        <h3 style={{ fontSize: '13px', margin: '0 0 10px 0' }}>Export / Copy Tuning JSON</h3>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            type="button"
+            style={exportButtonStyle}
+            onClick={handleCopyJson}
+          >
+            Copy JSON
+          </button>
+          <button
+            type="button"
+            style={exportButtonStyle}
+            onClick={handleDownloadJson}
+          >
+            Download JSON
+          </button>
+        </div>
+        <div style={exportStatusStyle}>{exportStatus}</div>
+      </div>
       
       <button 
         style={resetButtonStyle}
