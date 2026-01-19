@@ -8,7 +8,7 @@ const DEG2RAD = Math.PI / 180;
 const zoneKeys = ['hero', 'overview', 'about'];
 const projectKeys = ['empathy', 'narrative', 'craft', 'system', 'leadership', 'exploration'];
 
-const CrystalControls = ({ onUpdate }) => {
+const CrystalControls = ({ config, onUpdate }) => {
   const [activeTab, setActiveTab] = useState('timing');
   
   // Timing state
@@ -114,7 +114,8 @@ const CrystalControls = ({ onUpdate }) => {
     });
     
     // Create updated config
-    const updatedConfig = { ...crystalConfig };
+    const base = config ?? crystalConfig;
+    const updatedConfig = JSON.parse(JSON.stringify(base));
     const [section, property] = key.split('.');
     updatedConfig.timing[section][property] = numValue;
     
@@ -138,7 +139,8 @@ const CrystalControls = ({ onUpdate }) => {
     });
     
     // Create updated config
-    const updatedConfig = { ...crystalConfig };
+    const base = config ?? crystalConfig;
+    const updatedConfig = JSON.parse(JSON.stringify(base));
     updatedConfig[section][facet] = newPosition;
     
     // Notify parent component
@@ -152,13 +154,14 @@ const CrystalControls = ({ onUpdate }) => {
       [key]: newPosition
     });
 
-    const updatedConfig = { ...crystalConfig };
+    const base = config ?? crystalConfig;
+    const updatedConfig = JSON.parse(JSON.stringify(base));
 
     if (parts.length === 2) {
       updatedConfig.cameraPositions[parts[1]] = newPosition;
     } else if (parts.length === 3) {
       if (!updatedConfig.cameraPositions[parts[1]]) {
-        updatedConfig.cameraPositions[parts[1]] = { ...crystalConfig.cameraPositions[parts[1]] };
+        updatedConfig.cameraPositions[parts[1]] = { ...base.cameraPositions[parts[1]] };
       }
       updatedConfig.cameraPositions[parts[1]][parts[2]] = newPosition;
     }
@@ -322,7 +325,8 @@ const CrystalControls = ({ onUpdate }) => {
     });
     
     // Create a copy of the config - careful not to lose references to complex objects
-    const updatedConfig = { ...crystalConfig };
+    const base = config ?? crystalConfig;
+    const updatedConfig = JSON.parse(JSON.stringify(base));
     const parts = key.split('.');
     
     if (import.meta.env.DEV) console.log(`Updating effect: ${key} = ${numValue}`);
@@ -333,8 +337,8 @@ const CrystalControls = ({ onUpdate }) => {
       
       // Ensure the parent objects exist, but preserve references
       if (!updatedConfig[section]) updatedConfig[section] = {};
-      if (!updatedConfig[section][category]) updatedConfig[section][category] = { ...crystalConfig[section]?.[category] };
-      if (!updatedConfig[section][category][property]) updatedConfig[section][category][property] = { ...crystalConfig[section]?.[category]?.[property] };
+      if (!updatedConfig[section][category]) updatedConfig[section][category] = { ...base[section]?.[category] };
+      if (!updatedConfig[section][category][property]) updatedConfig[section][category][property] = { ...base[section]?.[category]?.[property] };
       
       // Update the value
       updatedConfig[section][category][property][subproperty] = numValue;
@@ -343,9 +347,9 @@ const CrystalControls = ({ onUpdate }) => {
       
       // Ensure the parent objects exist, but preserve references
       if (!updatedConfig[section]) updatedConfig[section] = {};
-      if (!updatedConfig[section][category]) updatedConfig[section][category] = { ...crystalConfig[section]?.[category] };
-      if (!updatedConfig[section][category][subCategory]) updatedConfig[section][category][subCategory] = { ...crystalConfig[section]?.[category]?.[subCategory] };
-      if (!updatedConfig[section][category][subCategory][property]) updatedConfig[section][category][subCategory][property] = { ...crystalConfig[section]?.[category]?.[subCategory]?.[property] };
+      if (!updatedConfig[section][category]) updatedConfig[section][category] = { ...base[section]?.[category] };
+      if (!updatedConfig[section][category][subCategory]) updatedConfig[section][category][subCategory] = { ...base[section]?.[category]?.[subCategory] };
+      if (!updatedConfig[section][category][subCategory][property]) updatedConfig[section][category][subCategory][property] = { ...base[section]?.[category]?.[subCategory]?.[property] };
       
       // Update the value
       updatedConfig[section][category][subCategory][property][subproperty] = numValue;
@@ -364,14 +368,15 @@ const CrystalControls = ({ onUpdate }) => {
     });
     
     // Create a copy of the config - preserve important references
-    const updatedConfig = { ...crystalConfig };
+    const base = config ?? crystalConfig;
+    const updatedConfig = JSON.parse(JSON.stringify(base));
     const [section, category, property] = key.split('.');
     
     if (import.meta.env.DEV) console.log(`Updating material: ${key} = ${numValue}`);
     
     // Ensure parent objects exist
     if (!updatedConfig[section]) updatedConfig[section] = {};
-    if (!updatedConfig[section][category]) updatedConfig[section][category] = { ...crystalConfig[section]?.[category] };
+    if (!updatedConfig[section][category]) updatedConfig[section][category] = { ...base[section]?.[category] };
     
     // Special handling for color properties - they are THREE.Color objects
     if (property === 'color' || property === 'emissive' || property === 'attenuationColor' || property === 'specularColor') {
