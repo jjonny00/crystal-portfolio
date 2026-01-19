@@ -160,7 +160,7 @@ const UnifiedCameraController = ({
       return new THREE.Vector3();
     }
     if (value.isVector3) {
-      return value.clone();
+      return value;
     }
     if (Array.isArray(value) && value.length >= 3) {
       return new THREE.Vector3(value[0], value[1], value[2]);
