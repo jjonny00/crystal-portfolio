@@ -11,6 +11,18 @@ const projectKeys = ['empathy', 'narrative', 'craft', 'system', 'leadership', 'e
 const CrystalControls = ({ config, onUpdate }) => {
   const [activeTab, setActiveTab] = useState('timing');
   const [exportStatus, setExportStatus] = useState('');
+  const [cameraAccordionState, setCameraAccordionState] = useState({
+    hero: true,
+    overview: false,
+    about: false,
+    projects: false
+  });
+  const [projectAccordionState, setProjectAccordionState] = useState(() =>
+    projectKeys.reduce((acc, key) => {
+      acc[key] = false;
+      return acc;
+    }, {})
+  );
   
   // Timing state
   const [timingValues, setTimingValues] = useState({
@@ -636,6 +648,44 @@ const CrystalControls = ({ config, onUpdate }) => {
     minHeight: '14px'
   };
 
+  const accordionHeaderStyle = (isOpen) => ({
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    backgroundColor: isOpen ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.04)',
+    border: '1px solid rgba(255, 255, 255, 0.12)',
+    color: 'white',
+    padding: '8px 10px',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    fontSize: '12px',
+    marginBottom: '10px',
+    textAlign: 'left'
+  });
+
+  const accordionContentStyle = {
+    padding: '0 4px 10px 4px'
+  };
+
+  const accordionSectionStyle = {
+    marginBottom: '12px',
+    paddingBottom: '12px',
+    borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
+  };
+
+  const accordionSubheadingStyle = {
+    fontSize: '12px',
+    marginBottom: '8px',
+    color: '#64ffda'
+  };
+
+  const accordionNoteStyle = {
+    fontSize: '11px',
+    color: '#9fe8d8',
+    marginBottom: '12px'
+  };
+
   const coordLabelStyle = {
     display: 'inline-block',
     width: '15px',
@@ -720,153 +770,50 @@ const CrystalControls = ({ config, onUpdate }) => {
 
   const renderCameraControls = () => (
     <div>
-      <h3 style={{ fontSize: '14px', marginBottom: '15px' }}>Camera Positions</h3>
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '15px' }}>
+        <button
+          type="button"
+          style={exportButtonStyle}
+          onClick={() => {
+            setCameraAccordionState({
+              hero: true,
+              overview: true,
+              about: true,
+              projects: true
+            });
+            setProjectAccordionState(
+              projectKeys.reduce((acc, key) => {
+                acc[key] = true;
+                return acc;
+              }, {})
+            );
+          }}
+        >
+          Expand all
+        </button>
+        <button
+          type="button"
+          style={exportButtonStyle}
+          onClick={() => {
+            setCameraAccordionState({
+              hero: false,
+              overview: false,
+              about: false,
+              projects: false
+            });
+            setProjectAccordionState(
+              projectKeys.reduce((acc, key) => {
+                acc[key] = false;
+                return acc;
+              }, {})
+            );
+          }}
+        >
+          Collapse all
+        </button>
+      </div>
 
-      {Object.entries(cameraValues).map(([key, position]) => {
-        const parts = key.split('.');
-        const label = parts.length === 2 ? parts[1] : parts[2];
-        const target = getCameraTargetForKey(key);
-        const { distance, yaw, pitch } = getPolarCoords(position, target);
-        const yawDeg = yaw * RAD2DEG;
-        const pitchDeg = pitch * RAD2DEG;
-        return (
-          <div key={key} style={sliderGroupStyle}>
-            <div style={{ fontSize: '13px', marginBottom: '8px', color: '#64ffda' }}>
-              {label.charAt(0).toUpperCase() + label.slice(1)}
-            </div>
-
-            {['X', 'Y', 'Z'].map((axis, index) => (
-              <div key={axis} style={{ marginBottom: '5px' }}>
-                <div style={sliderLabelStyle}>
-                  <span><span style={coordLabelStyle}>{axis}</span> Position</span>
-                  <span>{position[index].toFixed(2)}</span>
-                </div>
-                <input
-                  type="range"
-                  min="-5"
-                  max="5"
-                  step="0.1"
-                  value={position[index]}
-                  onChange={(e) => handleCameraPositionChange(key, index, e.target.value)}
-                  style={sliderStyle}
-                />
-              </div>
-            ))}
-
-            <div style={{ marginBottom: '5px' }}>
-              <div style={sliderLabelStyle}>
-                <span>Yaw</span>
-                <span>{yawDeg.toFixed(1)}°</span>
-              </div>
-              <input
-                type="range"
-                min="-180"
-                max="180"
-                step="1"
-                value={yawDeg}
-                onChange={(e) => handleCameraRotationChange(key, 'yaw', e.target.value)}
-                style={sliderStyle}
-              />
-            </div>
-
-            <div style={{ marginBottom: '5px' }}>
-              <div style={sliderLabelStyle}>
-                <span>Pitch</span>
-                <span>{pitchDeg.toFixed(1)}°</span>
-              </div>
-              <input
-                type="range"
-                min="-89"
-                max="89"
-                step="1"
-                value={pitchDeg}
-                onChange={(e) => handleCameraRotationChange(key, 'pitch', e.target.value)}
-                style={sliderStyle}
-              />
-            </div>
-
-            <div style={{ marginBottom: '5px' }}>
-              <div style={sliderLabelStyle}>
-                <span>Distance</span>
-                <span>{distance.toFixed(2)}</span>
-              </div>
-              <input
-                type="range"
-                min="0.5"
-                max="15"
-                step="0.1"
-                value={distance}
-                onChange={(e) => handleCameraDistanceChange(key, e.target.value)}
-                style={sliderStyle}
-              />
-            </div>
-          </div>
-        );
-      })}
-
-      <h3 style={{ fontSize: '14px', margin: '20px 0 15px' }}>Camera Targets (Zones)</h3>
-      {zoneKeys.map((zone) => {
-        const key = `cameraTargets.${zone}`;
-        const target = cameraTargetValues[key];
-        return (
-          <div key={key} style={sliderGroupStyle}>
-            <div style={{ fontSize: '13px', marginBottom: '8px', color: '#64ffda' }}>
-              {zone.charAt(0).toUpperCase() + zone.slice(1)}
-            </div>
-
-            {['X', 'Y', 'Z'].map((axis, index) => (
-              <div key={axis} style={{ marginBottom: '5px' }}>
-                <div style={sliderLabelStyle}>
-                  <span><span style={coordLabelStyle}>{axis}</span> Target</span>
-                  <span>{target[index].toFixed(2)}</span>
-                </div>
-                <input
-                  type="range"
-                  min="-5"
-                  max="5"
-                  step="0.1"
-                  value={target[index]}
-                  onChange={(e) => handleCameraTargetChange(key, index, e.target.value)}
-                  style={sliderStyle}
-                />
-              </div>
-            ))}
-          </div>
-        );
-      })}
-
-      <h3 style={{ fontSize: '14px', margin: '20px 0 15px' }}>Camera Targets (Projects)</h3>
-      {projectKeys.map((project) => {
-        const key = `cameraTargets.projects.${project}`;
-        const target = cameraTargetValues[key];
-        return (
-          <div key={key} style={sliderGroupStyle}>
-            <div style={{ fontSize: '13px', marginBottom: '8px', color: '#64ffda' }}>
-              {project.charAt(0).toUpperCase() + project.slice(1)}
-            </div>
-
-            {['X', 'Y', 'Z'].map((axis, index) => (
-              <div key={axis} style={{ marginBottom: '5px' }}>
-                <div style={sliderLabelStyle}>
-                  <span><span style={coordLabelStyle}>{axis}</span> Target</span>
-                  <span>{target[index].toFixed(2)}</span>
-                </div>
-                <input
-                  type="range"
-                  min="-5"
-                  max="5"
-                  step="0.1"
-                  value={target[index]}
-                  onChange={(e) => handleCameraTargetChange(key, index, e.target.value)}
-                  style={sliderStyle}
-                />
-              </div>
-            ))}
-          </div>
-        );
-      })}
-
-      <h3 style={{ fontSize: '14px', margin: '20px 0 15px' }}>Camera Offsets (Global)</h3>
+      <h3 style={{ fontSize: '14px', marginBottom: '15px' }}>Camera Offsets (Global)</h3>
       {['position', 'target'].map((offsetType) => {
         const key = `cameraOffsets.global.${offsetType}`;
         const offset = cameraOffsetValues[key];
@@ -897,81 +844,352 @@ const CrystalControls = ({ config, onUpdate }) => {
         );
       })}
 
-      <h3 style={{ fontSize: '14px', margin: '20px 0 15px' }}>Camera Offsets (Zones)</h3>
-      {zoneKeys.map((zone) => (
-        <div key={zone} style={sliderGroupStyle}>
-          <div style={{ fontSize: '13px', marginBottom: '8px', color: '#64ffda' }}>
-            {zone.charAt(0).toUpperCase() + zone.slice(1)}
-          </div>
+      {zoneKeys.map((zone) => {
+        const cameraKey = `camera.${zone}`;
+        const cameraPosition = cameraValues[cameraKey];
+        const targetKey = `cameraTargets.${zone}`;
+        const target = cameraTargetValues[targetKey];
+        const positionOffsetKey = `cameraOffsets.zones.${zone}.position`;
+        const targetOffsetKey = `cameraOffsets.zones.${zone}.target`;
+        const positionOffset = cameraOffsetValues[positionOffsetKey];
+        const targetOffset = cameraOffsetValues[targetOffsetKey];
+        const { distance, yaw, pitch } = getPolarCoords(cameraPosition, getCameraTargetForKey(cameraKey));
+        const yawDeg = yaw * RAD2DEG;
+        const pitchDeg = pitch * RAD2DEG;
+        const isOpen = cameraAccordionState[zone];
+        return (
+          <div key={zone} style={{ marginBottom: '15px' }}>
+            <button
+              type="button"
+              style={accordionHeaderStyle(isOpen)}
+              onClick={() =>
+                setCameraAccordionState({
+                  ...cameraAccordionState,
+                  [zone]: !isOpen
+                })
+              }
+            >
+              <span>{zone.charAt(0).toUpperCase() + zone.slice(1)}</span>
+              <span>{isOpen ? '−' : '+'}</span>
+            </button>
+            {isOpen && (
+              <div style={accordionContentStyle}>
+                <div style={accordionSectionStyle}>
+                  <div style={accordionSubheadingStyle}>Camera Position</div>
+                  {['X', 'Y', 'Z'].map((axis, index) => (
+                    <div key={axis} style={{ marginBottom: '5px' }}>
+                      <div style={sliderLabelStyle}>
+                        <span><span style={coordLabelStyle}>{axis}</span> Position</span>
+                        <span>{cameraPosition[index].toFixed(2)}</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="-5"
+                        max="5"
+                        step="0.1"
+                        value={cameraPosition[index]}
+                        onChange={(e) => handleCameraPositionChange(cameraKey, index, e.target.value)}
+                        style={sliderStyle}
+                      />
+                    </div>
+                  ))}
 
-          {['position', 'target'].map((offsetType) => {
-            const key = `cameraOffsets.zones.${zone}.${offsetType}`;
-            const offset = cameraOffsetValues[key];
-            return (
-              <div key={key} style={{ marginBottom: '10px' }}>
-                <div style={{ fontSize: '12px', marginBottom: '6px', color: '#9fe8d8' }}>
-                  {offsetType.charAt(0).toUpperCase() + offsetType.slice(1)}
-                </div>
-                {['X', 'Y', 'Z'].map((axis, index) => (
-                  <div key={axis} style={{ marginBottom: '5px' }}>
+                  <div style={{ marginBottom: '5px' }}>
                     <div style={sliderLabelStyle}>
-                      <span><span style={coordLabelStyle}>{axis}</span> Offset</span>
-                      <span>{offset[index].toFixed(2)}</span>
+                      <span>Yaw</span>
+                      <span>{yawDeg.toFixed(1)}°</span>
                     </div>
                     <input
                       type="range"
-                      min="-2"
-                      max="2"
-                      step="0.05"
-                      value={offset[index]}
-                      onChange={(e) => handleCameraOffsetChange(key, index, e.target.value)}
+                      min="-180"
+                      max="180"
+                      step="1"
+                      value={yawDeg}
+                      onChange={(e) => handleCameraRotationChange(cameraKey, 'yaw', e.target.value)}
                       style={sliderStyle}
                     />
                   </div>
-                ))}
-              </div>
-            );
-          })}
-        </div>
-      ))}
 
-      <h3 style={{ fontSize: '14px', margin: '20px 0 15px' }}>Camera Offsets (Projects)</h3>
-      {projectKeys.map((project) => (
-        <div key={project} style={sliderGroupStyle}>
-          <div style={{ fontSize: '13px', marginBottom: '8px', color: '#64ffda' }}>
-            {project.charAt(0).toUpperCase() + project.slice(1)}
-          </div>
-
-          {['position', 'target'].map((offsetType) => {
-            const key = `cameraOffsets.projects.${project}.${offsetType}`;
-            const offset = cameraOffsetValues[key];
-            return (
-              <div key={key} style={{ marginBottom: '10px' }}>
-                <div style={{ fontSize: '12px', marginBottom: '6px', color: '#9fe8d8' }}>
-                  {offsetType.charAt(0).toUpperCase() + offsetType.slice(1)}
-                </div>
-                {['X', 'Y', 'Z'].map((axis, index) => (
-                  <div key={axis} style={{ marginBottom: '5px' }}>
+                  <div style={{ marginBottom: '5px' }}>
                     <div style={sliderLabelStyle}>
-                      <span><span style={coordLabelStyle}>{axis}</span> Offset</span>
-                      <span>{offset[index].toFixed(2)}</span>
+                      <span>Pitch</span>
+                      <span>{pitchDeg.toFixed(1)}°</span>
                     </div>
                     <input
                       type="range"
-                      min="-2"
-                      max="2"
-                      step="0.05"
-                      value={offset[index]}
-                      onChange={(e) => handleCameraOffsetChange(key, index, e.target.value)}
+                      min="-89"
+                      max="89"
+                      step="1"
+                      value={pitchDeg}
+                      onChange={(e) => handleCameraRotationChange(cameraKey, 'pitch', e.target.value)}
                       style={sliderStyle}
                     />
                   </div>
-                ))}
+
+                  <div style={{ marginBottom: '5px' }}>
+                    <div style={sliderLabelStyle}>
+                      <span>Distance</span>
+                      <span>{distance.toFixed(2)}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.5"
+                      max="15"
+                      step="0.1"
+                      value={distance}
+                      onChange={(e) => handleCameraDistanceChange(cameraKey, e.target.value)}
+                      style={sliderStyle}
+                    />
+                  </div>
+                </div>
+
+                <div style={accordionSectionStyle}>
+                  <div style={accordionSubheadingStyle}>Camera Target</div>
+                  {['X', 'Y', 'Z'].map((axis, index) => (
+                    <div key={axis} style={{ marginBottom: '5px' }}>
+                      <div style={sliderLabelStyle}>
+                        <span><span style={coordLabelStyle}>{axis}</span> Target</span>
+                        <span>{target[index].toFixed(2)}</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="-5"
+                        max="5"
+                        step="0.1"
+                        value={target[index]}
+                        onChange={(e) => handleCameraTargetChange(targetKey, index, e.target.value)}
+                        style={sliderStyle}
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                <div style={accordionSectionStyle}>
+                  <div style={accordionSubheadingStyle}>Camera Offsets</div>
+                  <div style={{ marginBottom: '8px' }}>
+                    <div style={{ fontSize: '12px', marginBottom: '6px', color: '#9fe8d8' }}>
+                      Position Offset
+                    </div>
+                    {['X', 'Y', 'Z'].map((axis, index) => (
+                      <div key={axis} style={{ marginBottom: '5px' }}>
+                        <div style={sliderLabelStyle}>
+                          <span><span style={coordLabelStyle}>{axis}</span> Offset</span>
+                          <span>{positionOffset[index].toFixed(2)}</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="-2"
+                          max="2"
+                          step="0.05"
+                          value={positionOffset[index]}
+                          onChange={(e) => handleCameraOffsetChange(positionOffsetKey, index, e.target.value)}
+                          style={sliderStyle}
+                        />
+                      </div>
+                    ))}
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: '12px', marginBottom: '6px', color: '#9fe8d8' }}>
+                      Target Offset
+                    </div>
+                    {['X', 'Y', 'Z'].map((axis, index) => (
+                      <div key={axis} style={{ marginBottom: '5px' }}>
+                        <div style={sliderLabelStyle}>
+                          <span><span style={coordLabelStyle}>{axis}</span> Offset</span>
+                          <span>{targetOffset[index].toFixed(2)}</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="-2"
+                          max="2"
+                          step="0.05"
+                          value={targetOffset[index]}
+                          onChange={(e) => handleCameraOffsetChange(targetOffsetKey, index, e.target.value)}
+                          style={sliderStyle}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
-            );
-          })}
-        </div>
-      ))}
+            )}
+          </div>
+        );
+      })}
+
+      <div style={{ marginBottom: '15px' }}>
+        <button
+          type="button"
+          style={accordionHeaderStyle(cameraAccordionState.projects)}
+          onClick={() =>
+            setCameraAccordionState({
+              ...cameraAccordionState,
+              projects: !cameraAccordionState.projects
+            })
+          }
+        >
+          <span>Projects</span>
+          <span>{cameraAccordionState.projects ? '−' : '+'}</span>
+        </button>
+        {cameraAccordionState.projects && (
+          <div style={accordionContentStyle}>
+            <div style={accordionNoteStyle}>
+              Project camera targets are anchor-driven. Use Target Offset to fine-tune composition.
+            </div>
+            {projectKeys.map((project) => {
+              const cameraKey = `camera.projects.${project}`;
+              const cameraPosition = cameraValues[cameraKey];
+              const positionOffsetKey = `cameraOffsets.projects.${project}.position`;
+              const targetOffsetKey = `cameraOffsets.projects.${project}.target`;
+              const positionOffset = cameraOffsetValues[positionOffsetKey];
+              const targetOffset = cameraOffsetValues[targetOffsetKey];
+              const { distance, yaw, pitch } = getPolarCoords(cameraPosition, getCameraTargetForKey(cameraKey));
+              const yawDeg = yaw * RAD2DEG;
+              const pitchDeg = pitch * RAD2DEG;
+              const isOpen = projectAccordionState[project];
+              return (
+                <div key={project} style={{ marginBottom: '12px' }}>
+                  <button
+                    type="button"
+                    style={accordionHeaderStyle(isOpen)}
+                    onClick={() =>
+                      setProjectAccordionState({
+                        ...projectAccordionState,
+                        [project]: !isOpen
+                      })
+                    }
+                  >
+                    <span>{project.charAt(0).toUpperCase() + project.slice(1)}</span>
+                    <span>{isOpen ? '−' : '+'}</span>
+                  </button>
+                  {isOpen && (
+                    <div style={accordionContentStyle}>
+                      <div style={accordionSectionStyle}>
+                        <div style={accordionSubheadingStyle}>Camera Position</div>
+                        {['X', 'Y', 'Z'].map((axis, index) => (
+                          <div key={axis} style={{ marginBottom: '5px' }}>
+                            <div style={sliderLabelStyle}>
+                              <span><span style={coordLabelStyle}>{axis}</span> Position</span>
+                              <span>{cameraPosition[index].toFixed(2)}</span>
+                            </div>
+                            <input
+                              type="range"
+                              min="-5"
+                              max="5"
+                              step="0.1"
+                              value={cameraPosition[index]}
+                              onChange={(e) => handleCameraPositionChange(cameraKey, index, e.target.value)}
+                              style={sliderStyle}
+                            />
+                          </div>
+                        ))}
+
+                        <div style={{ marginBottom: '5px' }}>
+                          <div style={sliderLabelStyle}>
+                            <span>Yaw</span>
+                            <span>{yawDeg.toFixed(1)}°</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="-180"
+                            max="180"
+                            step="1"
+                            value={yawDeg}
+                            onChange={(e) => handleCameraRotationChange(cameraKey, 'yaw', e.target.value)}
+                            style={sliderStyle}
+                          />
+                        </div>
+
+                        <div style={{ marginBottom: '5px' }}>
+                          <div style={sliderLabelStyle}>
+                            <span>Pitch</span>
+                            <span>{pitchDeg.toFixed(1)}°</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="-89"
+                            max="89"
+                            step="1"
+                            value={pitchDeg}
+                            onChange={(e) => handleCameraRotationChange(cameraKey, 'pitch', e.target.value)}
+                            style={sliderStyle}
+                          />
+                        </div>
+
+                        <div style={{ marginBottom: '5px' }}>
+                          <div style={sliderLabelStyle}>
+                            <span>Distance</span>
+                            <span>{distance.toFixed(2)}</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0.5"
+                            max="15"
+                            step="0.1"
+                            value={distance}
+                            onChange={(e) => handleCameraDistanceChange(cameraKey, e.target.value)}
+                            style={sliderStyle}
+                          />
+                        </div>
+                      </div>
+
+                      <div style={accordionSectionStyle}>
+                        <div style={accordionSubheadingStyle}>Camera Offsets</div>
+                        <div style={{ marginBottom: '8px' }}>
+                          <div style={{ fontSize: '12px', marginBottom: '6px', color: '#9fe8d8' }}>
+                            Position Offset
+                          </div>
+                          {['X', 'Y', 'Z'].map((axis, index) => (
+                            <div key={axis} style={{ marginBottom: '5px' }}>
+                              <div style={sliderLabelStyle}>
+                                <span><span style={coordLabelStyle}>{axis}</span> Offset</span>
+                                <span>{positionOffset[index].toFixed(2)}</span>
+                              </div>
+                              <input
+                                type="range"
+                                min="-2"
+                                max="2"
+                                step="0.05"
+                                value={positionOffset[index]}
+                                onChange={(e) => handleCameraOffsetChange(positionOffsetKey, index, e.target.value)}
+                                style={sliderStyle}
+                              />
+                            </div>
+                          ))}
+                        </div>
+
+                        <div>
+                          <div style={{ fontSize: '12px', marginBottom: '6px', color: '#9fe8d8' }}>
+                            Target Offset
+                          </div>
+                          {['X', 'Y', 'Z'].map((axis, index) => (
+                            <div key={axis} style={{ marginBottom: '5px' }}>
+                              <div style={sliderLabelStyle}>
+                                <span><span style={coordLabelStyle}>{axis}</span> Offset</span>
+                                <span>{targetOffset[index].toFixed(2)}</span>
+                              </div>
+                              <input
+                                type="range"
+                                min="-2"
+                                max="2"
+                                step="0.05"
+                                value={targetOffset[index]}
+                                onChange={(e) => handleCameraOffsetChange(targetOffsetKey, index, e.target.value)}
+                                style={sliderStyle}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 
