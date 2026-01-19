@@ -155,6 +155,25 @@ const UnifiedCameraController = ({
     return cameraConfig;
   };
 
+  const toVector3 = (value) => {
+    if (!value) {
+      return new THREE.Vector3();
+    }
+    if (value.isVector3) {
+      return value.clone();
+    }
+    if (Array.isArray(value) && value.length >= 3) {
+      return new THREE.Vector3(value[0], value[1], value[2]);
+    }
+    return new THREE.Vector3();
+  };
+
+  const vectorsEqual = (left, right) => {
+    if (!left && !right) return true;
+    if (!left || !right) return false;
+    return left.equals(right);
+  };
+
   useEffect(() => {
     currentTarget.current.position.copy(camera.position);
     currentTarget.current.fov = camera.fov;
@@ -262,6 +281,12 @@ const UnifiedCameraController = ({
     const cameraState = animationData.cameraState;
     
     const enhancedConfig = getCameraTarget(baseConfig, focusedFacet, cameraState);
+    const offsetPosition = toVector3(enhancedConfig?.offsetPosition);
+    const offsetTarget = toVector3(enhancedConfig?.offsetTarget);
+    const basePosition = enhancedConfig?.position ? enhancedConfig.position.clone() : null;
+    const baseTarget = enhancedConfig?.target ? enhancedConfig.target.clone() : null;
+    const finalPosition = basePosition ? basePosition.add(offsetPosition) : null;
+    const finalTarget = baseTarget ? baseTarget.add(offsetTarget) : null;
 
     if (!enhancedConfig) {
       if (import.meta.env.DEV) {
@@ -271,8 +296,8 @@ const UnifiedCameraController = ({
     }
 
     const configChanged = !lastCameraConfig.current ||
-      !enhancedConfig.position?.equals(lastCameraConfig.current.position) ||
-      !enhancedConfig.target?.equals(lastCameraConfig.current.target) ||
+      !vectorsEqual(finalPosition, lastCameraConfig.current.position) ||
+      !vectorsEqual(finalTarget, lastCameraConfig.current.target) ||
       enhancedConfig.fov !== lastCameraConfig.current.fov ||
       enhancedConfig.description !== lastCameraConfig.current.description;
 
@@ -282,21 +307,21 @@ const UnifiedCameraController = ({
           state: animationData.state,
           cameraState: cameraState,
           focusedFacet: focusedFacet,
-          position: enhancedConfig.position?.toArray(),
-          target: enhancedConfig.target?.toArray(),
+          position: finalPosition?.toArray(),
+          target: finalTarget?.toArray(),
           fov: enhancedConfig.fov,
           description: enhancedConfig.description 
         });
       }
 
-      if (enhancedConfig.position) {
-        currentTarget.current.position.copy(enhancedConfig.position);
+      if (finalPosition) {
+        currentTarget.current.position.copy(finalPosition);
       }
       
-      if (enhancedConfig.target) {
-        currentTarget.current.lookAt.copy(enhancedConfig.target);
+      if (finalTarget) {
+        currentTarget.current.lookAt.copy(finalTarget);
         if (cameraState === 'hero') {
-          heroOrbitCenterRef.current.copy(enhancedConfig.target);
+          heroOrbitCenterRef.current.copy(finalTarget);
         }
       }
       
@@ -333,8 +358,8 @@ const UnifiedCameraController = ({
       }
 
       lastCameraConfig.current = {
-        position: enhancedConfig.position?.clone(),
-        target: enhancedConfig.target?.clone(),
+        position: finalPosition ? finalPosition.clone() : null,
+        target: finalTarget ? finalTarget.clone() : null,
         fov: enhancedConfig.fov,
         description: enhancedConfig.description
       };
@@ -352,13 +377,13 @@ const UnifiedCameraController = ({
     }
 
     // Reset orbit when switching camera states and derive starting angle for hero
-    if (cameraState === 'hero' && enhancedConfig.position) {
+    if (cameraState === 'hero' && finalPosition) {
       heroOrbitAngle.current = Math.atan2(
-        enhancedConfig.position.x,
-        enhancedConfig.position.z
+        finalPosition.x,
+        finalPosition.z
       );
       const relativeToCenter = new THREE.Vector3().subVectors(
-        enhancedConfig.position,
+        finalPosition,
         heroOrbitCenterRef.current
       );
 
