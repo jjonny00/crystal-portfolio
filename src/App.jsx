@@ -11,7 +11,7 @@ import LoaderV2 from './ui/LoaderV2';
 // Animation coordinator
 import MasterAnimationCoordinator from './components/three/MasterAnimationCoordinator';
 import { ANIMATION_CONFIG } from './hooks/useUnifiedAnimationController';
-import { Euler, Quaternion, Vector3 } from 'three';
+import { Vector3 } from 'three';
 
 // Layout components
 import ScrollablePortfolio from './components/layout/ScrollablePortfolio';
@@ -43,18 +43,6 @@ const buildAnimationConfig = (uiConfig) => {
   const toVec = (arr) => new Vector3(...arr);
   const sumVec = (...arrs) =>
     arrs.reduce((acc, arr) => acc.add(new Vector3(...(arr ?? [0, 0, 0]))), new Vector3(0, 0, 0));
-  const toQuatFromEulerDeg = (eulerDeg, fallback) => {
-    if (!Array.isArray(eulerDeg)) return fallback.clone();
-    const [x, y, z] = eulerDeg;
-    const euler = new Euler(
-      x * (Math.PI / 180),
-      y * (Math.PI / 180),
-      z * (Math.PI / 180),
-      'XYZ'
-    );
-    return new Quaternion().setFromEuler(euler);
-  };
-
   if (!uiConfig?.cameraPositions) return ANIMATION_CONFIG;
 
   const globalOffsets = uiConfig.cameraOffsets?.global;
@@ -64,6 +52,7 @@ const buildAnimationConfig = (uiConfig) => {
 
   return {
     ...ANIMATION_CONFIG,
+    facetRotationsEulerDeg: uiConfig.facetRotationsEulerDeg ?? {},
     camera: {
       hero: {
         ...ANIMATION_CONFIG.camera.hero,
@@ -157,32 +146,7 @@ const buildAnimationConfig = (uiConfig) => {
           uiConfig.explodedPositions?.exploration ?? ANIMATION_CONFIG.crystal.explodedPositions.exploration.toArray()
         )
       },
-      explodedRotations: {
-        empathy: toQuatFromEulerDeg(
-          uiConfig.facetRotationsEulerDeg?.empathy,
-          ANIMATION_CONFIG.crystal.explodedRotations.empathy
-        ),
-        narrative: toQuatFromEulerDeg(
-          uiConfig.facetRotationsEulerDeg?.narrative,
-          ANIMATION_CONFIG.crystal.explodedRotations.narrative
-        ),
-        craft: toQuatFromEulerDeg(
-          uiConfig.facetRotationsEulerDeg?.craft,
-          ANIMATION_CONFIG.crystal.explodedRotations.craft
-        ),
-        system: toQuatFromEulerDeg(
-          uiConfig.facetRotationsEulerDeg?.system,
-          ANIMATION_CONFIG.crystal.explodedRotations.system
-        ),
-        leadership: toQuatFromEulerDeg(
-          uiConfig.facetRotationsEulerDeg?.leadership,
-          ANIMATION_CONFIG.crystal.explodedRotations.leadership
-        ),
-        exploration: toQuatFromEulerDeg(
-          uiConfig.facetRotationsEulerDeg?.exploration,
-          ANIMATION_CONFIG.crystal.explodedRotations.exploration
-        )
-      }
+      explodedRotations: uiConfig.explodedRotations ?? ANIMATION_CONFIG.crystal.explodedRotations
     }
   };
 };

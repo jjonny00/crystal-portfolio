@@ -1,8 +1,8 @@
 // FIXED: src/hooks/useUnifiedAnimationController.js
 // Simplified animation system with immediate state changes + enhanced debugging for background issues
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { Vector3, Quaternion } from 'three';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { Vector3, Quaternion, Euler } from 'three';
 import { fracture as fractureConfig } from '../crystalConfig';
 import { orderedFacetKeys } from '../data/projects';
 
@@ -250,6 +250,32 @@ export const useUnifiedAnimationController = (options = {}) => {
   const lastProject = useRef(null);
   const updateTimeout = useRef(null);
   const cameraDelayTimeout = useRef(null);
+
+  const toQuaternionArray = useCallback((rotation) => {
+    if (Array.isArray(rotation)) return rotation;
+    if (rotation instanceof Quaternion) return rotation.toArray();
+    return [0, 0, 0, 1];
+  }, []);
+
+  const explodedRotations = useMemo(() => {
+    const eulerRotations = config?.facetRotationsEulerDeg;
+    return orderedFacetKeys.reduce((acc, facetKey) => {
+      const eulerDeg = eulerRotations?.[facetKey];
+      if (Array.isArray(eulerDeg)) {
+        const [x = 0, y = 0, z = 0] = eulerDeg;
+        const euler = new Euler(
+          x * (Math.PI / 180),
+          y * (Math.PI / 180),
+          z * (Math.PI / 180),
+          'XYZ'
+        );
+        acc[facetKey] = new Quaternion().setFromEuler(euler).toArray();
+      } else {
+        acc[facetKey] = toQuaternionArray(config?.crystal?.explodedRotations?.[facetKey]);
+      }
+      return acc;
+    }, {});
+  }, [config, toQuaternionArray]);
 
   /**
    * FIXED: Handle zone transitions with immediate state changes
@@ -528,9 +554,10 @@ export const useUnifiedAnimationController = (options = {}) => {
       fracturePause: config.crystal.fracturePause,
       explodeDuration: config.crystal.explodeDuration,
       explosionEase: config.crystal.explosionEase,
-      rotations: config.crystal.explodedRotations
+      explodedRotations,
+      rotations: explodedRotations
     };
-  }, [animationState.crystalForm, animationState.state, config]);
+  }, [animationState.crystalForm, animationState.state, config, explodedRotations]);
 
   /**
    * Cleanup on unmount

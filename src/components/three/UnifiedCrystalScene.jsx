@@ -23,6 +23,7 @@ import { effects } from '../../crystalConfig'
 import { useFacetOverlayGeometry } from '../../hooks/useFacetOverlayGeometry'
 
 const PROJECT_DISPLAY_SLOT = 'ProjectDisplay'
+const ROTATION_END_THRESHOLD = 0.05;
 
 const UnifiedCrystalScene = forwardRef(({ 
   animationData,
@@ -1130,6 +1131,7 @@ const UnifiedCrystalScene = forwardRef(({
               .normalize()
               .multiplyScalar(explodedPos.length() * fractureDistance);
             facetRef.current.position.copy(configured ? configured : fallback);
+            facetRef.current.quaternion.slerp(neutralQuat, Math.min(1, deltaTime * 6));
           }
         });
         return; // Skip other animations during fracture pause
@@ -1143,6 +1145,10 @@ const UnifiedCrystalScene = forwardRef(({
       animationData.state === 'project_focused' &&
       animationData.focusedFacet &&
       !animationData.isTransitioning;
+    const allowExplodedRotation =
+      animationData.crystalForm === 'exploded' &&
+      (animationData.state === 'overview' || animationData.state === 'project_focused');
+    const rotationLerp = Math.min(1, deltaTime * 6);
 
     // Handle whole crystal floating (no rotation)
     if (showWholeCrystal && wholeCrystalRef.current) {
@@ -1194,6 +1200,7 @@ const UnifiedCrystalScene = forwardRef(({
           if (start && end) {
             const interpolated = start.clone().lerp(end, eased);
             facetRef.current.position.copy(interpolated);
+            facetRef.current.quaternion.slerp(neutralQuat, rotationLerp);
           }
         });
 
@@ -1225,6 +1232,7 @@ const UnifiedCrystalScene = forwardRef(({
         if (!facetRef || !facetRef.current) return;
 
         const facetKey = facetKeys[index];
+        const explodedTarget = animationData.crystalConfig.positions[facetKey];
         let targetPos = animationData.crystalConfig.positions[facetKey];
 
         if (isReforming) {
@@ -1256,6 +1264,18 @@ const UnifiedCrystalScene = forwardRef(({
             }
             facetRef.current.position.lerp(finalTarget, lerpSpeed * deltaTime * 60);
           }
+        }
+
+        if (explodedTarget) {
+          const distanceToTarget = facetRef.current.position.distanceTo(explodedTarget);
+          const isAtEnd = distanceToTarget <= ROTATION_END_THRESHOLD;
+          const targetRotation = allowExplodedRotation && isAtEnd
+            ? animationData?.crystalConfig?.explodedRotations?.[facetKey]
+            : null;
+          const targetQuat = targetRotation
+            ? new THREE.Quaternion().fromArray(targetRotation)
+            : neutralQuat;
+          facetRef.current.quaternion.slerp(targetQuat, rotationLerp);
         }
       });
 
