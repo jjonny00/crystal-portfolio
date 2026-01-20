@@ -12,6 +12,7 @@ const CrystalControls = ({ config, onUpdate }) => {
   const [activeTab, setActiveTab] = useState('timing');
   const [exportStatus, setExportStatus] = useState('');
   const [cameraAccordionState, setCameraAccordionState] = useState({
+    globalOffsets: false,
     hero: true,
     overview: false,
     about: false,
@@ -118,6 +119,11 @@ const CrystalControls = ({ config, onUpdate }) => {
     'materials.crystal.roughness': crystalConfig.materials.crystal.roughness,
   });
 
+  const cloneConfig = () => {
+    const base = config ?? crystalConfig;
+    return JSON.parse(JSON.stringify(base));
+  };
+
   // Handle timing value changes
   const handleTimingChange = (key, value) => {
     const numValue = parseFloat(value);
@@ -127,8 +133,7 @@ const CrystalControls = ({ config, onUpdate }) => {
     });
     
     // Create updated config
-    const base = config ?? crystalConfig;
-    const updatedConfig = JSON.parse(JSON.stringify(base));
+    const updatedConfig = cloneConfig();
     const [section, property] = key.split('.');
     updatedConfig.timing[section][property] = numValue;
     
@@ -152,8 +157,7 @@ const CrystalControls = ({ config, onUpdate }) => {
     });
     
     // Create updated config
-    const base = config ?? crystalConfig;
-    const updatedConfig = JSON.parse(JSON.stringify(base));
+    const updatedConfig = cloneConfig();
     updatedConfig[section][facet] = newPosition;
     
     // Notify parent component
@@ -167,15 +171,11 @@ const CrystalControls = ({ config, onUpdate }) => {
       [key]: newPosition
     });
 
-    const base = config ?? crystalConfig;
-    const updatedConfig = JSON.parse(JSON.stringify(base));
+    const updatedConfig = cloneConfig();
 
     if (parts.length === 2) {
       updatedConfig.cameraPositions[parts[1]] = newPosition;
     } else if (parts.length === 3) {
-      if (!updatedConfig.cameraPositions[parts[1]]) {
-        updatedConfig.cameraPositions[parts[1]] = { ...base.cameraPositions[parts[1]] };
-      }
       updatedConfig.cameraPositions[parts[1]][parts[2]] = newPosition;
     }
 
@@ -204,15 +204,11 @@ const CrystalControls = ({ config, onUpdate }) => {
       [key]: newTarget
     });
 
-    const updatedConfig = { ...crystalConfig };
-    updatedConfig.cameraTargets = { ...crystalConfig.cameraTargets };
+    const updatedConfig = cloneConfig();
 
     if (parts.length === 2) {
       updatedConfig.cameraTargets[parts[1]] = newTarget;
     } else if (parts.length === 3) {
-      updatedConfig.cameraTargets[parts[1]] = {
-        ...crystalConfig.cameraTargets[parts[1]]
-      };
       updatedConfig.cameraTargets[parts[1]][parts[2]] = newTarget;
     }
 
@@ -233,21 +229,11 @@ const CrystalControls = ({ config, onUpdate }) => {
       [key]: newOffset
     });
 
-    const updatedConfig = { ...crystalConfig };
-    updatedConfig.cameraOffsets = { ...crystalConfig.cameraOffsets };
+    const updatedConfig = cloneConfig();
 
     if (parts.length === 3) {
-      updatedConfig.cameraOffsets[parts[1]] = {
-        ...crystalConfig.cameraOffsets[parts[1]]
-      };
       updatedConfig.cameraOffsets[parts[1]][parts[2]] = newOffset;
     } else if (parts.length === 4) {
-      updatedConfig.cameraOffsets[parts[1]] = {
-        ...crystalConfig.cameraOffsets[parts[1]]
-      };
-      updatedConfig.cameraOffsets[parts[1]][parts[2]] = {
-        ...crystalConfig.cameraOffsets[parts[1]][parts[2]]
-      };
       updatedConfig.cameraOffsets[parts[1]][parts[2]][parts[3]] = newOffset;
     }
 
@@ -268,8 +254,7 @@ const CrystalControls = ({ config, onUpdate }) => {
       [key]: newRotation
     });
 
-    const updatedConfig = { ...crystalConfig };
-    updatedConfig.facetRotationsEulerDeg = { ...crystalConfig.facetRotationsEulerDeg };
+    const updatedConfig = cloneConfig();
 
     if (parts.length === 2) {
       updatedConfig.facetRotationsEulerDeg[parts[1]] = newRotation;
@@ -337,9 +322,7 @@ const CrystalControls = ({ config, onUpdate }) => {
       [key]: numValue
     });
     
-    // Create a copy of the config - careful not to lose references to complex objects
-    const base = config ?? crystalConfig;
-    const updatedConfig = JSON.parse(JSON.stringify(base));
+    const updatedConfig = cloneConfig();
     const parts = key.split('.');
     
     if (import.meta.env.DEV) console.log(`Updating effect: ${key} = ${numValue}`);
@@ -347,24 +330,9 @@ const CrystalControls = ({ config, onUpdate }) => {
     // This is a bit complex due to nested structure
     if (parts.length === 4) {
       const [section, category, property, subproperty] = parts;
-      
-      // Ensure the parent objects exist, but preserve references
-      if (!updatedConfig[section]) updatedConfig[section] = {};
-      if (!updatedConfig[section][category]) updatedConfig[section][category] = { ...base[section]?.[category] };
-      if (!updatedConfig[section][category][property]) updatedConfig[section][category][property] = { ...base[section]?.[category]?.[property] };
-      
-      // Update the value
       updatedConfig[section][category][property][subproperty] = numValue;
     } else if (parts.length === 5) {
       const [section, category, subCategory, property, subproperty] = parts;
-      
-      // Ensure the parent objects exist, but preserve references
-      if (!updatedConfig[section]) updatedConfig[section] = {};
-      if (!updatedConfig[section][category]) updatedConfig[section][category] = { ...base[section]?.[category] };
-      if (!updatedConfig[section][category][subCategory]) updatedConfig[section][category][subCategory] = { ...base[section]?.[category]?.[subCategory] };
-      if (!updatedConfig[section][category][subCategory][property]) updatedConfig[section][category][subCategory][property] = { ...base[section]?.[category]?.[subCategory]?.[property] };
-      
-      // Update the value
       updatedConfig[section][category][subCategory][property][subproperty] = numValue;
     }
     
@@ -380,16 +348,10 @@ const CrystalControls = ({ config, onUpdate }) => {
       [key]: numValue
     });
     
-    // Create a copy of the config - preserve important references
-    const base = config ?? crystalConfig;
-    const updatedConfig = JSON.parse(JSON.stringify(base));
+    const updatedConfig = cloneConfig();
     const [section, category, property] = key.split('.');
     
     if (import.meta.env.DEV) console.log(`Updating material: ${key} = ${numValue}`);
-    
-    // Ensure parent objects exist
-    if (!updatedConfig[section]) updatedConfig[section] = {};
-    if (!updatedConfig[section][category]) updatedConfig[section][category] = { ...base[section]?.[category] };
     
     // Special handling for color properties - they are THREE.Color objects
     if (property === 'color' || property === 'emissive' || property === 'attenuationColor' || property === 'specularColor') {
@@ -776,6 +738,7 @@ const CrystalControls = ({ config, onUpdate }) => {
           style={exportButtonStyle}
           onClick={() => {
             setCameraAccordionState({
+              globalOffsets: true,
               hero: true,
               overview: true,
               about: true,
@@ -796,6 +759,7 @@ const CrystalControls = ({ config, onUpdate }) => {
           style={exportButtonStyle}
           onClick={() => {
             setCameraAccordionState({
+              globalOffsets: false,
               hero: false,
               overview: false,
               about: false,
@@ -813,36 +777,54 @@ const CrystalControls = ({ config, onUpdate }) => {
         </button>
       </div>
 
-      <h3 style={{ fontSize: '14px', marginBottom: '15px' }}>Camera Offsets (Global)</h3>
-      {['position', 'target'].map((offsetType) => {
-        const key = `cameraOffsets.global.${offsetType}`;
-        const offset = cameraOffsetValues[key];
-        return (
-          <div key={key} style={sliderGroupStyle}>
-            <div style={{ fontSize: '13px', marginBottom: '8px', color: '#64ffda' }}>
-              Global {offsetType.charAt(0).toUpperCase() + offsetType.slice(1)}
-            </div>
+      <div style={{ marginBottom: '15px' }}>
+        <button
+          type="button"
+          style={accordionHeaderStyle(cameraAccordionState.globalOffsets)}
+          onClick={() =>
+            setCameraAccordionState({
+              ...cameraAccordionState,
+              globalOffsets: !cameraAccordionState.globalOffsets
+            })
+          }
+        >
+          <span>Global Offsets</span>
+          <span>{cameraAccordionState.globalOffsets ? '−' : '+'}</span>
+        </button>
+        {cameraAccordionState.globalOffsets && (
+          <div style={accordionContentStyle}>
+            {['position', 'target'].map((offsetType) => {
+              const key = `cameraOffsets.global.${offsetType}`;
+              const offset = cameraOffsetValues[key];
+              return (
+                <div key={key} style={sliderGroupStyle}>
+                  <div style={{ fontSize: '13px', marginBottom: '8px', color: '#64ffda' }}>
+                    Global {offsetType.charAt(0).toUpperCase() + offsetType.slice(1)}
+                  </div>
 
-            {['X', 'Y', 'Z'].map((axis, index) => (
-              <div key={axis} style={{ marginBottom: '5px' }}>
-                <div style={sliderLabelStyle}>
-                  <span><span style={coordLabelStyle}>{axis}</span> Offset</span>
-                  <span>{offset[index].toFixed(2)}</span>
+                  {['X', 'Y', 'Z'].map((axis, index) => (
+                    <div key={axis} style={{ marginBottom: '5px' }}>
+                      <div style={sliderLabelStyle}>
+                        <span><span style={coordLabelStyle}>{axis}</span> Offset</span>
+                        <span>{offset[index].toFixed(2)}</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="-2"
+                        max="2"
+                        step="0.05"
+                        value={offset[index]}
+                        onChange={(e) => handleCameraOffsetChange(key, index, e.target.value)}
+                        style={sliderStyle}
+                      />
+                    </div>
+                  ))}
                 </div>
-                <input
-                  type="range"
-                  min="-2"
-                  max="2"
-                  step="0.05"
-                  value={offset[index]}
-                  onChange={(e) => handleCameraOffsetChange(key, index, e.target.value)}
-                  style={sliderStyle}
-                />
-              </div>
-            ))}
+              );
+            })}
           </div>
-        );
-      })}
+        )}
+      </div>
 
       {zoneKeys.map((zone) => {
         const cameraKey = `camera.${zone}`;
