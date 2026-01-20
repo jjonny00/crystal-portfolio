@@ -23,7 +23,6 @@ import { effects } from '../../crystalConfig'
 import { useFacetOverlayGeometry } from '../../hooks/useFacetOverlayGeometry'
 
 const PROJECT_DISPLAY_SLOT = 'ProjectDisplay'
-const ROTATION_END_THRESHOLD = 0.05;
 
 const UnifiedCrystalScene = forwardRef(({ 
   animationData,
@@ -1145,9 +1144,6 @@ const UnifiedCrystalScene = forwardRef(({
       animationData.state === 'project_focused' &&
       animationData.focusedFacet &&
       !animationData.isTransitioning;
-    const allowExplodedRotation =
-      animationData.crystalForm === 'exploded' &&
-      (animationData.state === 'overview' || animationData.state === 'project_focused');
     const rotationLerp = Math.min(1, deltaTime * 6);
 
     // Handle whole crystal floating (no rotation)
@@ -1200,7 +1196,11 @@ const UnifiedCrystalScene = forwardRef(({
           if (start && end) {
             const interpolated = start.clone().lerp(end, eased);
             facetRef.current.position.copy(interpolated);
-            facetRef.current.quaternion.slerp(neutralQuat, rotationLerp);
+            const targetRotation = animationData?.crystalConfig?.explodedRotations?.[facetKey];
+            const targetQuat = targetRotation
+              ? new THREE.Quaternion().fromArray(targetRotation)
+              : neutralQuat;
+            facetRef.current.quaternion.slerpQuaternions(neutralQuat, targetQuat, eased);
           }
         });
 
@@ -1232,7 +1232,6 @@ const UnifiedCrystalScene = forwardRef(({
         if (!facetRef || !facetRef.current) return;
 
         const facetKey = facetKeys[index];
-        const explodedTarget = animationData.crystalConfig.positions[facetKey];
         let targetPos = animationData.crystalConfig.positions[facetKey];
 
         if (isReforming) {
@@ -1266,17 +1265,11 @@ const UnifiedCrystalScene = forwardRef(({
           }
         }
 
-        if (explodedTarget) {
-          const distanceToTarget = facetRef.current.position.distanceTo(explodedTarget);
-          const isAtEnd = distanceToTarget <= ROTATION_END_THRESHOLD;
-          const targetRotation = allowExplodedRotation && isAtEnd
-            ? animationData?.crystalConfig?.explodedRotations?.[facetKey]
-            : null;
-          const targetQuat = targetRotation
-            ? new THREE.Quaternion().fromArray(targetRotation)
-            : neutralQuat;
-          facetRef.current.quaternion.slerp(targetQuat, rotationLerp);
-        }
+        const targetRotation = animationData?.crystalConfig?.explodedRotations?.[facetKey];
+        const targetQuat = animationData?.crystalForm === 'exploded' && targetRotation
+          ? new THREE.Quaternion().fromArray(targetRotation)
+          : neutralQuat;
+        facetRef.current.quaternion.slerp(targetQuat, rotationLerp);
       });
 
       if (isReforming && allFacetsAtCenter && !showWholeCrystal) {

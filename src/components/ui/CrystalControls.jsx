@@ -24,6 +24,12 @@ const CrystalControls = ({ config, onUpdate }) => {
       return acc;
     }, {})
   );
+  const [positionAccordionState, setPositionAccordionState] = useState(() =>
+    projectKeys.reduce((acc, key, index) => {
+      acc[key] = index === 0;
+      return acc;
+    }, {})
+  );
   
   // Timing state
   const [timingValues, setTimingValues] = useState({
@@ -697,33 +703,104 @@ const CrystalControls = ({ config, onUpdate }) => {
 
   const renderPositionsControls = () => (
     <div>
-      <h3 style={{ fontSize: '14px', marginBottom: '15px' }}>Exploded Positions</h3>
-      
-      {Object.entries(positionValues).map(([key, position]) => {
-        const facet = key.split('.')[1];
+      <h3 style={{ fontSize: '14px', marginBottom: '15px' }}>Exploded Transforms</h3>
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '15px' }}>
+        <button
+          type="button"
+          style={exportButtonStyle}
+          onClick={() =>
+            setPositionAccordionState(
+              projectKeys.reduce((acc, key) => {
+                acc[key] = true;
+                return acc;
+              }, {})
+            )
+          }
+        >
+          Expand all
+        </button>
+        <button
+          type="button"
+          style={exportButtonStyle}
+          onClick={() =>
+            setPositionAccordionState(
+              projectKeys.reduce((acc, key) => {
+                acc[key] = false;
+                return acc;
+              }, {})
+            )
+          }
+        >
+          Collapse all
+        </button>
+      </div>
+
+      {projectKeys.map((facet) => {
+        const positionKey = `explodedPositions.${facet}`;
+        const rotationKey = `facetRotationsEulerDeg.${facet}`;
+        const position = positionValues[positionKey];
+        const rotation = facetRotationValues[rotationKey];
+        const isOpen = positionAccordionState[facet];
         return (
-          <div key={key} style={sliderGroupStyle}>
-            <div style={{ fontSize: '13px', marginBottom: '8px', color: '#64ffda' }}>
-              {facet.charAt(0).toUpperCase() + facet.slice(1)}
-            </div>
-            
-            {['X', 'Y', 'Z'].map((axis, index) => (
-              <div key={axis} style={{ marginBottom: '5px' }}>
-                <div style={sliderLabelStyle}>
-                  <span><span style={coordLabelStyle}>{axis}</span> Position</span>
-                  <span>{position[index].toFixed(2)}</span>
+          <div key={facet} style={{ marginBottom: '15px' }}>
+            <button
+              type="button"
+              style={accordionHeaderStyle(isOpen)}
+              onClick={() =>
+                setPositionAccordionState({
+                  ...positionAccordionState,
+                  [facet]: !isOpen
+                })
+              }
+            >
+              <span>{facet.charAt(0).toUpperCase() + facet.slice(1)}</span>
+              <span>{isOpen ? '−' : '+'}</span>
+            </button>
+            {isOpen && (
+              <div style={accordionContentStyle}>
+                <div style={accordionSectionStyle}>
+                  <div style={accordionSubheadingStyle}>Exploded Position</div>
+                  {['X', 'Y', 'Z'].map((axis, index) => (
+                    <div key={axis} style={{ marginBottom: '5px' }}>
+                      <div style={sliderLabelStyle}>
+                        <span><span style={coordLabelStyle}>{axis}</span> Position</span>
+                        <span>{position[index].toFixed(2)}</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="-2"
+                        max="2"
+                        step="0.1"
+                        value={position[index]}
+                        onChange={(e) => handlePositionChange(positionKey, index, e.target.value)}
+                        style={sliderStyle}
+                      />
+                    </div>
+                  ))}
                 </div>
-                <input 
-                  type="range" 
-                  min="-2" 
-                  max="2" 
-                  step="0.1"
-                  value={position[index]} 
-                  onChange={(e) => handlePositionChange(key, index, e.target.value)}
-                  style={sliderStyle}
-                />
+
+                <div style={accordionSectionStyle}>
+                  <div style={accordionSubheadingStyle}>Exploded Rotation</div>
+                  {['X', 'Y', 'Z'].map((axis, index) => (
+                    <div key={axis} style={{ marginBottom: '5px' }}>
+                      <div style={sliderLabelStyle}>
+                        <span><span style={coordLabelStyle}>{axis}</span> Rotation</span>
+                        <span>{rotation[index].toFixed(0)}°</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="-180"
+                        max="180"
+                        step="1"
+                        value={rotation[index]}
+                        onChange={(e) => handleFacetRotationChange(rotationKey, index, e.target.value)}
+                        style={sliderStyle}
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
-            ))}
+            )}
           </div>
         );
       })}
@@ -1175,42 +1252,6 @@ const CrystalControls = ({ config, onUpdate }) => {
     </div>
   );
 
-  const renderFacetRotationControls = () => (
-    <div>
-      <h3 style={{ fontSize: '14px', marginBottom: '15px' }}>Facet Rotations (Euler Degrees)</h3>
-
-      {projectKeys.map((facet) => {
-        const key = `facetRotationsEulerDeg.${facet}`;
-        const rotation = facetRotationValues[key];
-        return (
-          <div key={key} style={sliderGroupStyle}>
-            <div style={{ fontSize: '13px', marginBottom: '8px', color: '#64ffda' }}>
-              {facet.charAt(0).toUpperCase() + facet.slice(1)}
-            </div>
-
-            {['X', 'Y', 'Z'].map((axis, index) => (
-              <div key={axis} style={{ marginBottom: '5px' }}>
-                <div style={sliderLabelStyle}>
-                  <span><span style={coordLabelStyle}>{axis}</span> Rotation</span>
-                  <span>{rotation[index].toFixed(0)}°</span>
-                </div>
-                <input
-                  type="range"
-                  min="-180"
-                  max="180"
-                  step="1"
-                  value={rotation[index]}
-                  onChange={(e) => handleFacetRotationChange(key, index, e.target.value)}
-                  style={sliderStyle}
-                />
-              </div>
-            ))}
-          </div>
-        );
-      })}
-    </div>
-  );
-
   const renderEffectsControls = () => (
     <div>
       <h3 style={{ fontSize: '14px', marginBottom: '15px' }}>Visual Effects</h3>
@@ -1476,12 +1517,6 @@ const CrystalControls = ({ config, onUpdate }) => {
         >
           Material
         </button>
-        <button
-          style={tabButtonStyle(activeTab === 'facets')}
-          onClick={() => setActiveTab('facets')}
-        >
-          Facets
-        </button>
       </div>
 
       {activeTab === 'timing' && renderTimingControls()}
@@ -1489,7 +1524,6 @@ const CrystalControls = ({ config, onUpdate }) => {
       {activeTab === 'camera' && renderCameraControls()}
       {activeTab === 'effects' && renderEffectsControls()}
       {activeTab === 'material' && renderMaterialControls()}
-      {activeTab === 'facets' && renderFacetRotationControls()}
 
       <div style={exportSectionStyle}>
         <h3 style={{ fontSize: '13px', margin: '0 0 10px 0' }}>Export / Copy Tuning JSON</h3>
