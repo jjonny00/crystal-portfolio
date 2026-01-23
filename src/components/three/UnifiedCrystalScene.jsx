@@ -65,7 +65,7 @@ const UnifiedCrystalScene = forwardRef(({
 
   // Track material updates so we can reapply when ready
   const [materialVersion, setMaterialVersion] = useState(0);
-  const { invalidate, gl, scene, camera } = useThree();
+  const { invalidate, scene } = useThree();
 
   // FIXED: Better tracking of focus changes
   const prevFocusedFacetRef = useRef(null);
@@ -145,20 +145,15 @@ const UnifiedCrystalScene = forwardRef(({
       });
     }
 
-    if (scene) {
-      if (scene.environment) {
-        scene.environment = scene.environment;
-      }
-
-      if (gl?.compile && camera) {
-        gl.compile(scene, camera);
-      }
+    if (scene && scene.environment) {
+      scene.environment = scene.environment;
     }
 
     if (invalidate) {
-      invalidate();
+      requestAnimationFrame(() => invalidate());
+      requestAnimationFrame(() => invalidate());
     }
-  }, [materialRefreshKey, invalidate, gl, scene, camera]);
+  }, [materialRefreshKey, invalidate, scene]);
 
   const {
     isReady: overlaysReady,
