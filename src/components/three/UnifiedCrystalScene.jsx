@@ -39,7 +39,6 @@ const UnifiedCrystalScene = forwardRef(({
   const facetRefs = useRef([]);
   const facetsGroupRef = useRef();
   const crystalMaterialRef = useRef();
-  const lastEnvMapRef = useRef(null);
 
   // Sphere state
   const [sphereVisible, setSphereVisible] = useState(false);
@@ -124,19 +123,6 @@ const UnifiedCrystalScene = forwardRef(({
   const handleMaterialReady = useCallback(() => {
     setMaterialVersion(v => v + 1);
   }, []);
-
-  useFrame(() => {
-    const baseMaterial = crystalMaterialRef.current;
-    const envMap = baseMaterial?.envMap;
-    if (!envMap || envMap === lastEnvMapRef.current) return;
-    lastEnvMapRef.current = envMap;
-    facetMaterialsRef.current.forEach((mat) => {
-      if (mat && mat.envMap !== envMap) {
-        mat.envMap = envMap;
-        mat.needsUpdate = true;
-      }
-    });
-  });
 
   const {
     isReady: overlaysReady,

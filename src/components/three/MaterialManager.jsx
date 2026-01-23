@@ -16,7 +16,8 @@ const MaterialManager = ({
   const crystalMaterialRef = useRef();
   const optimizedMobileRef = useRef();
   const mediumMaterialRef = useRef();
-  const { scene } = useThree(); // Get Three.js scene to access environment
+  const { scene, invalidate } = useThree(); // Get Three.js scene to access environment
+  const lastAppliedEnvRef = useRef(new WeakMap());
   
   // FIXED: Null safety with proper defaults
   const safePerformanceConfig = {
@@ -231,12 +232,20 @@ const MaterialManager = ({
       mediumMaterialRef.current
     ].filter(Boolean);
 
+    let didUpdate = false;
     materials.forEach((material) => {
-      if (material.envMap !== envMap) {
+      if (lastAppliedEnvRef.current.get(material) !== envMap) {
         material.envMap = envMap;
         material.needsUpdate = true;
+        lastAppliedEnvRef.current.set(material, envMap);
+        didUpdate = true;
       }
     });
+    if (didUpdate) {
+      if (onMaterialReady) onMaterialReady(materialRef.current);
+      requestAnimationFrame(() => invalidate());
+      requestAnimationFrame(() => invalidate());
+    }
   });
 
   // Update material when variant changes
@@ -296,8 +305,10 @@ const MaterialManager = ({
       // UPDATED: Ensure shadow settings are maintained
       material.shadowSide = THREE.DoubleSide;
       material.needsUpdate = true;
+      requestAnimationFrame(() => invalidate());
+      requestAnimationFrame(() => invalidate());
     }
-  }, [materialVariant, isLow, config.materials.crystal]);
+  }, [materialVariant, isLow, config.materials.crystal, invalidate]);
 
   // Update medium material when variant changes
   useEffect(() => {
@@ -346,8 +357,10 @@ const MaterialManager = ({
       
       material.shadowSide = THREE.DoubleSide;
       material.needsUpdate = true;
+      requestAnimationFrame(() => invalidate());
+      requestAnimationFrame(() => invalidate());
     }
-  }, [materialVariant, isMedium, config.materials.crystal]);
+  }, [materialVariant, isMedium, config.materials.crystal, invalidate]);
 
   // SIMPLIFIED: Normal map support for mobile (optional)
   useEffect(() => {
