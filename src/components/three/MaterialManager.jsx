@@ -2,9 +2,9 @@
 // Creates materials that perform well on mobile while maintaining crystal appearance
 
 import React, { useRef, useEffect } from 'react';
-import { useThree } from '@react-three/fiber';
 import CrystalMaterial from '../materials/CrystalMaterial';
 import * as THREE from 'three';
+import useStablePmremEnvMap from '../../hooks/useStablePmremEnvMap';
 
 const MaterialManager = ({
   materialVariant,
@@ -16,7 +16,9 @@ const MaterialManager = ({
   const crystalMaterialRef = useRef();
   const optimizedMobileRef = useRef();
   const mediumMaterialRef = useRef();
-  const { scene } = useThree(); // Get Three.js scene to access environment
+  const pmremEnvMapTexture = useStablePmremEnvMap();
+  const lastGoodEnvMapRef = useRef(null);
+  const lastMediumEnvMapUuidRef = useRef(null);
   
   // FIXED: Null safety with proper defaults
   const safePerformanceConfig = {
@@ -149,157 +151,132 @@ const MaterialManager = ({
 
   // MEDIUM: Create MeshPhysicalMaterial with higher reflectivity
   useEffect(() => {
-    if (isMedium && !mediumMaterialRef.current) {
-      if (import.meta.env.DEV) console.log('🚀 Creating MEDIUM quality crystal material');
+    if (!isMedium) return;
 
-      const materialProps = {
-        color: new THREE.Color('#1f2391'),
-        metalness: 0.0,
-        roughness: 0.05,
-        envMapIntensity: 1.0,
-        transparent: true,
-        opacity: 0.99,
-        side: THREE.DoubleSide,
-        fog: true,
-        depthWrite: true,
-        depthTest: true,
-        shadowSide: THREE.DoubleSide,
-        emissive: new THREE.Color('#a7ffdb'),
-        emissiveIntensity: 0.1,
-        clearcoat: 0,
-        iridescence: 0,
-        transmission: 0,
-        reflectivity: 1.9,
-        specularIntensity: 1,
-        specularColor: new THREE.Color('#ffffff'),
-        precision: safePerformanceConfig.highPrecision ? 'highp' : 'mediump'
-      };
+    const envMapToUse = pmremEnvMapTexture || lastGoodEnvMapRef.current;
+    const envMapUuid = envMapToUse?.uuid || null;
+    const shouldRecreate = !mediumMaterialRef.current || (envMapUuid && envMapUuid !== lastMediumEnvMapUuidRef.current);
 
-      switch(materialVariant) {
-        case 'glass':
-          materialProps.color.set('#f0f8ff');
-          materialProps.metalness = 0.3;
-          materialProps.roughness = 0.05;
-          materialProps.envMapIntensity = 5.0;
-          materialProps.emissive.set('#ffffff');
-          break;
-        case 'gem':
-          materialProps.color.set('#6644bb');
-          materialProps.metalness = 0.6;
-          materialProps.roughness = 0.08;
-          materialProps.envMapIntensity = 5.0;
-          materialProps.emissive.set('#220044');
-          break;
-        case 'holographic':
-          materialProps.color.set('#00dddd');
-          materialProps.metalness = 0.9;
-          materialProps.roughness = 0.02;
-          materialProps.envMapIntensity = 5.5;
-          materialProps.emissive.set('#004444');
-          break;
-        default:
-          if (config.materials.crystal.color) {
-            materialProps.color.copy(config.materials.crystal.color);
-          }
-          if (config.materials.crystal.emissive) {
-            materialProps.emissive.copy(config.materials.crystal.emissive);
-          }
-          materialProps.envMapIntensity = 5.0;
-          break;
+    if (!shouldRecreate) return;
+
+    if (mediumMaterialRef.current) {
+      if (import.meta.env.DEV) {
+        console.log('♻️ Recreating medium material due to envMap change');
       }
-
-      const mediumMat = new THREE.MeshPhysicalMaterial(materialProps);
-      mediumMaterialRef.current = mediumMat;
-
-      if (import.meta.env.DEV) console.log('✅ Medium material created:', {
-        variant: materialVariant,
-        metalness: mediumMat.metalness,
-        roughness: mediumMat.roughness,
-        envMapIntensity: mediumMat.envMapIntensity
-      });
-
-      if (onMaterialReady) onMaterialReady(mediumMat);
+      mediumMaterialRef.current.dispose();
+      mediumMaterialRef.current = null;
     }
-  }, [isMedium, materialVariant, config.materials.crystal, onMaterialReady]);
 
-  // CRITICAL: Set environment map for reflections
+    if (import.meta.env.DEV) console.log('🚀 Creating MEDIUM quality crystal material');
+
+    const materialProps = {
+      color: new THREE.Color('#1f2391'),
+      metalness: 0.0,
+      roughness: 0.05,
+      envMapIntensity: 1.0,
+      transparent: true,
+      opacity: 0.99,
+      side: THREE.DoubleSide,
+      fog: true,
+      depthWrite: true,
+      depthTest: true,
+      shadowSide: THREE.DoubleSide,
+      emissive: new THREE.Color('#a7ffdb'),
+      emissiveIntensity: 0.1,
+      clearcoat: 0,
+      iridescence: 0,
+      transmission: 0,
+      reflectivity: 1.9,
+      specularIntensity: 1,
+      specularColor: new THREE.Color('#ffffff'),
+      precision: safePerformanceConfig.highPrecision ? 'highp' : 'mediump'
+    };
+
+    switch(materialVariant) {
+      case 'glass':
+        materialProps.color.set('#f0f8ff');
+        materialProps.metalness = 0.3;
+        materialProps.roughness = 0.05;
+        materialProps.envMapIntensity = 5.0;
+        materialProps.emissive.set('#ffffff');
+        break;
+      case 'gem':
+        materialProps.color.set('#6644bb');
+        materialProps.metalness = 0.6;
+        materialProps.roughness = 0.08;
+        materialProps.envMapIntensity = 5.0;
+        materialProps.emissive.set('#220044');
+        break;
+      case 'holographic':
+        materialProps.color.set('#00dddd');
+        materialProps.metalness = 0.9;
+        materialProps.roughness = 0.02;
+        materialProps.envMapIntensity = 5.5;
+        materialProps.emissive.set('#004444');
+        break;
+      default:
+        if (config.materials.crystal.color) {
+          materialProps.color.copy(config.materials.crystal.color);
+        }
+        if (config.materials.crystal.emissive) {
+          materialProps.emissive.copy(config.materials.crystal.emissive);
+        }
+        materialProps.envMapIntensity = 5.0;
+        break;
+    }
+
+    const mediumMat = new THREE.MeshPhysicalMaterial(materialProps);
+    if (envMapToUse) {
+      mediumMat.envMap = envMapToUse;
+    }
+    mediumMaterialRef.current = mediumMat;
+    lastMediumEnvMapUuidRef.current = envMapToUse?.uuid || null;
+
+    if (import.meta.env.DEV) console.log('✅ Medium material created:', {
+      variant: materialVariant,
+      metalness: mediumMat.metalness,
+      roughness: mediumMat.roughness,
+      envMapIntensity: mediumMat.envMapIntensity
+    });
+
+    if (onMaterialReady) onMaterialReady(mediumMat);
+  }, [isMedium, materialVariant, config.materials.crystal, onMaterialReady, pmremEnvMapTexture]);
+
   useEffect(() => {
-    if (isLow && optimizedMobileRef.current && scene) {
-      // Check if scene has environment
-      if (scene.environment) {
-        if (import.meta.env.DEV) console.log('🌍 Setting environment map for mobile material');
-        optimizedMobileRef.current.envMap = scene.environment;
-        optimizedMobileRef.current.needsUpdate = true;
-        
-        // DEBUG: Log material properties to verify settings
-        if (import.meta.env.DEV) console.log('🔍 Mobile material debug:', {
-          hasEnvMap: !!optimizedMobileRef.current.envMap,
-          metalness: optimizedMobileRef.current.metalness,
-          roughness: optimizedMobileRef.current.roughness,
-          envMapIntensity: optimizedMobileRef.current.envMapIntensity,
-          color: optimizedMobileRef.current.color.getHexString(),
-          emissiveIntensity: optimizedMobileRef.current.emissiveIntensity,
-          shadowSide: optimizedMobileRef.current.shadowSide
-        });
-      } else {
-        if (import.meta.env.DEV) console.log('⏳ Waiting for environment to load...');
-        // Wait for environment to load
-        const checkEnvironment = () => {
-          if (scene.environment && optimizedMobileRef.current) {
-            if (import.meta.env.DEV) console.log('🌍 Environment loaded - applying to mobile material');
-            optimizedMobileRef.current.envMap = scene.environment;
-            optimizedMobileRef.current.needsUpdate = true;
-            
-            // DEBUG: Log material properties
-            if (import.meta.env.DEV) console.log('🔍 Mobile material debug (delayed):', {
-              hasEnvMap: !!optimizedMobileRef.current.envMap,
-              metalness: optimizedMobileRef.current.metalness,
-              roughness: optimizedMobileRef.current.roughness,
-              envMapIntensity: optimizedMobileRef.current.envMapIntensity
-            });
-          }
-        };
-        
-        // Check periodically for environment
-        const intervalId = setInterval(() => {
-          if (scene.environment) {
-            checkEnvironment();
-            clearInterval(intervalId);
-          }
-        }, 100);
-        
-        // Clean up after 5 seconds
-        setTimeout(() => {
-          clearInterval(intervalId);
-        }, 5000);
-      }
+    if (pmremEnvMapTexture) {
+      lastGoodEnvMapRef.current = pmremEnvMapTexture;
     }
-  }, [isLow, optimizedMobileRef.current, scene]);
+  }, [pmremEnvMapTexture]);
 
-  // Apply environment map for medium material
+  // CRITICAL: Set PMREM environment map for reflections
   useEffect(() => {
-    if (isMedium && mediumMaterialRef.current && scene) {
-      if (scene.environment) {
-        if (import.meta.env.DEV) console.log('🌍 Setting environment map for medium material');
-        mediumMaterialRef.current.envMap = scene.environment;
-        mediumMaterialRef.current.needsUpdate = true;
-      } else {
-        const checkEnv = () => {
-          if (scene.environment && mediumMaterialRef.current) {
-            mediumMaterialRef.current.envMap = scene.environment;
-            mediumMaterialRef.current.needsUpdate = true;
-          }
-        };
-        const intervalId = setInterval(() => {
-          if (scene.environment) {
-            checkEnv();
-            clearInterval(intervalId);
-          }
-        }, 100);
-        setTimeout(() => clearInterval(intervalId), 5000);
+    const envMapToApply = pmremEnvMapTexture || lastGoodEnvMapRef.current;
+
+    if (!envMapToApply) {
+      if (import.meta.env.DEV) {
+        console.warn('⚠️ MaterialManager: No PMREM envMap available yet. Keeping last known envMap.');
       }
+      return;
     }
-  }, [isMedium, mediumMaterialRef.current, scene]);
+
+    if (optimizedMobileRef.current) {
+      if (import.meta.env.DEV) console.log('🌍 Setting PMREM envMap for mobile material');
+      optimizedMobileRef.current.envMap = envMapToApply;
+      optimizedMobileRef.current.needsUpdate = true;
+    }
+
+    if (mediumMaterialRef.current) {
+      if (import.meta.env.DEV) console.log('🌍 Setting PMREM envMap for medium material');
+      mediumMaterialRef.current.envMap = envMapToApply;
+      mediumMaterialRef.current.needsUpdate = true;
+    }
+
+    if (crystalMaterialRef.current) {
+      if (import.meta.env.DEV) console.log('🌍 Setting PMREM envMap for high crystal material');
+      crystalMaterialRef.current.envMap = envMapToApply;
+      crystalMaterialRef.current.needsUpdate = true;
+    }
+  }, [pmremEnvMapTexture, isLow, isMedium, usePBR]);
 
   // Update material when variant changes
   useEffect(() => {
@@ -470,7 +447,7 @@ const MaterialManager = ({
     }
 
     if (onMaterialReady) onMaterialReady(materialRef.current);
-  }, [materialVariant, materialRef, isLow, isMedium, onMaterialReady]);
+  }, [materialVariant, materialRef, isLow, isMedium, onMaterialReady, pmremEnvMapTexture]);
   
   // Only render PBR material component if PBR is enabled
   if (!usePBR) {
