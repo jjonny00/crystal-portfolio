@@ -1,11 +1,10 @@
 // MaterialManager.jsx - UPDATED: Shadow improvements for mobile crystal material
 // Creates materials that perform well on mobile while maintaining crystal appearance
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useMemo } from 'react';
 import { useThree } from '@react-three/fiber';
 import CrystalMaterial from '../materials/CrystalMaterial';
 import * as THREE from 'three';
-import useStablePmremEnvMap from '../../hooks/useStablePmremEnvMap';
 
 const MaterialManager = ({
   materialVariant,
@@ -18,13 +17,9 @@ const MaterialManager = ({
   const crystalMaterialRef = useRef();
   const optimizedMobileRef = useRef();
   const mediumMaterialRef = useRef();
-  const { invalidate } = useThree(); // Renderer invalidation for demand frameloop
-  const pmremEnvMap = useStablePmremEnvMap();
-  const lastGoodPmremRef = useRef(null);
-  const lastAppliedPmremUuidRef = useRef(null);
-  const lastLowRefreshKeyRef = useRef(0);
-  const lastMediumRefreshKeyRef = useRef(0);
-  const lastMediumEnvUuidRef = useRef(null);
+  const { scene } = useThree(); // Scene for environment access
+  const lastLowKeyRef = useRef(null);
+  const lastMediumKeyRef = useRef(null);
   
   // FIXED: Null safety with proper defaults
   const safePerformanceConfig = {
@@ -40,6 +35,28 @@ const MaterialManager = ({
   const isLow = pbrQuality === 'low';
   const isMedium = pbrQuality === 'medium';
   const usePBR = pbrQuality === 'high';
+
+  const envKey = scene?.environment?.uuid ?? 'none';
+  const materialConfigKey = useMemo(
+    () =>
+      JSON.stringify({
+        color: config.materials.crystal.color?.getHex?.() ?? config.materials.crystal.color,
+        emissive: config.materials.crystal.emissive?.getHex?.() ?? config.materials.crystal.emissive,
+        roughness: config.materials.crystal.roughness,
+        metalness: config.materials.crystal.metalness,
+        envMapIntensity: config.materials.crystal.envMapIntensity,
+        opacity: config.materials.crystal.opacity,
+        transmission: config.materials.crystal.transmission,
+        ior: config.materials.crystal.ior,
+        clearcoat: config.materials.crystal.clearcoat,
+        iridescence: config.materials.crystal.iridescence,
+        thickness: config.materials.crystal.thickness
+      }),
+    [config.materials.crystal]
+  );
+
+  const lowKey = `${envKey}:${materialVariant}:${materialConfigKey}`;
+  const mediumKey = `${envKey}:${materialVariant}:${materialConfigKey}`;
 
   const toFiniteNumber = (value, fallback) => {
     if (value === null || value === undefined) return fallback;
@@ -120,21 +137,12 @@ const MaterialManager = ({
   
   if (import.meta.env.DEV) console.log('🎨 MaterialManager: PBR enabled?', usePBR, 'PBR quality:', pbrQuality, 'Performance config:', safePerformanceConfig);
 
-  useEffect(() => {
-    if (pmremEnvMap) {
-      lastGoodPmremRef.current = pmremEnvMap;
-    }
-  }, [pmremEnvMap]);
-
   // OPTIMIZED: Create high-performance mobile material using MeshStandardMaterial
   useEffect(() => {
     if (!isLow) return;
 
-    const shouldRecreate =
-      !optimizedMobileRef.current ||
-      materialRefreshKey !== lastLowRefreshKeyRef.current;
-
-    if (!shouldRecreate) return;
+    if (lowKey === lastLowKeyRef.current && optimizedMobileRef.current) return;
+    lastLowKeyRef.current = lowKey;
 
     if (optimizedMobileRef.current) {
       optimizedMobileRef.current.normalMap?.dispose?.();
@@ -232,10 +240,7 @@ const MaterialManager = ({
       
       // Create the optimized material
       const optimizedMaterial = new THREE.MeshStandardMaterial(materialProps);
-      const env = pmremEnvMap || lastGoodPmremRef.current;
-      if (env) {
-        optimizedMaterial.envMap = env;
-      }
+      optimizedMaterial.envMap = scene?.environment ?? null;
       
       // CRITICAL: We need to manually set the environment map
       // MeshStandardMaterial doesn't automatically pick it up from the scene
@@ -253,36 +258,28 @@ const MaterialManager = ({
       });
       
       sanitizeLowMaterial(optimizedMaterial, materialVariant);
-      lastLowRefreshKeyRef.current = materialRefreshKey;
+      materialRef.current = optimizedMaterial;
       if (onMaterialReady) onMaterialReady(optimizedMaterial);
     }
-  }, [
-    isLow,
-    materialVariant,
-    config.materials.crystal.color,
-    config.materials.crystal.emissive,
-    materialRefreshKey,
-    pmremEnvMap,
-    onMaterialReady
-  ]);
+  }, [isLow, lowKey, materialVariant, scene?.environment, materialRef, onMaterialReady]);
 
   // MEDIUM: Create MeshPhysicalMaterial with higher reflectivity
   useEffect(() => {
     if (!isMedium) return;
 
-    const env = pmremEnvMap || lastGoodPmremRef.current;
-    const envUuid = env?.uuid || null;
-    const refreshChanged = materialRefreshKey !== lastMediumRefreshKeyRef.current;
-    const envChanged = envUuid && envUuid !== lastMediumEnvUuidRef.current;
-    const shouldRecreate = !mediumMaterialRef.current || refreshChanged || envChanged;
-
-    if (!shouldRecreate) return;
-
-    if (import.meta.env.DEV && envChanged) {
-      console.log('🔄 Recreating medium material due to envMap change:', envUuid);
+    if (mediumKey === lastMediumKeyRef.current && mediumMaterialRef.current) return;
+    if (import.meta.env.DEV && mediumKey !== lastMediumKeyRef.current) {
+      console.log('🔄 Recreating medium material due to envKey change:', {
+        envKey,
+        materialVariant
+      });
     }
+    lastMediumKeyRef.current = mediumKey;
 
     if (mediumMaterialRef.current) {
+      if (import.meta.env.DEV) {
+        console.log('🧹 Disposing medium material for recreation', { envKey, materialVariant });
+      }
       mediumMaterialRef.current.normalMap?.dispose?.();
       mediumMaterialRef.current.dispose?.();
       mediumMaterialRef.current = null;
@@ -348,9 +345,7 @@ const MaterialManager = ({
       }
 
       const mediumMat = new THREE.MeshPhysicalMaterial(materialProps);
-      if (env) {
-        mediumMat.envMap = env;
-      }
+      mediumMat.envMap = scene?.environment ?? null;
       mediumMaterialRef.current = mediumMat;
 
       if (import.meta.env.DEV) console.log('✅ Medium material created:', {
@@ -361,44 +356,10 @@ const MaterialManager = ({
       });
 
       sanitizeMediumMaterial(mediumMat, materialVariant);
-      lastMediumEnvUuidRef.current = envUuid;
-      lastMediumRefreshKeyRef.current = materialRefreshKey;
+      materialRef.current = mediumMat;
       if (onMaterialReady) onMaterialReady(mediumMat);
     }
-  }, [
-    isMedium,
-    materialVariant,
-    config.materials.crystal,
-    pmremEnvMap,
-    materialRefreshKey,
-    onMaterialReady
-  ]);
-
-  useEffect(() => {
-    const env = pmremEnvMap || lastGoodPmremRef.current;
-    if (!env) {
-      if (import.meta.env.DEV && pmremEnvMap === null) {
-        console.warn('⚠️ PMREM envMap missing; retaining last good envMap.');
-      }
-      return;
-    }
-    if (env.uuid && env.uuid === lastAppliedPmremUuidRef.current) return;
-    lastAppliedPmremUuidRef.current = env.uuid || null;
-
-    let didUpdate = false;
-    [optimizedMobileRef.current, mediumMaterialRef.current, crystalMaterialRef.current].forEach((material) => {
-      if (material && material.envMap !== env) {
-        material.envMap = env;
-        material.needsUpdate = true;
-        didUpdate = true;
-      }
-    });
-
-    if (didUpdate) {
-      requestAnimationFrame(() => invalidate());
-      requestAnimationFrame(() => invalidate());
-    }
-  }, [pmremEnvMap, invalidate]);
+  }, [isMedium, mediumKey, materialVariant, scene?.environment, materialRef, onMaterialReady]);
 
   // Update material when variant changes
   useEffect(() => {
