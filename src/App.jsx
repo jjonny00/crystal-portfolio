@@ -245,7 +245,7 @@ function App() {
   });
   const [animationConfig, setAnimationConfig] = useState(buildAnimationConfig(defaultConfig));
   const [materialVariant, setMaterialVariant] = useState('default');
-  const [materialRefreshKey, setMaterialRefreshKey] = useState(0);
+  const [sceneRemountKey, setSceneRemountKey] = useState(0);
   const [showUI, setShowUI] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
   const [effectsEnabled, setEffectsEnabled] = useState({
@@ -255,7 +255,7 @@ function App() {
     vignette: true
   });
   const [postProcessingConfig, setPostProcessingConfig] = useState(config.postProcessing);
-  const materialRefreshTimeoutRef = useRef(null);
+  const sceneRemountTimeoutRef = useRef(null);
 
   // Simulate application initialization progress for loader
   useEffect(() => {
@@ -358,21 +358,21 @@ function App() {
   const handleConfigUpdate = useCallback((newConfig) => {
     setConfig(newConfig);
     setAnimationConfig(buildAnimationConfig(newConfig));
-    if (materialRefreshTimeoutRef.current) {
-      window.clearTimeout(materialRefreshTimeoutRef.current);
+    if (sceneRemountTimeoutRef.current) {
+      window.clearTimeout(sceneRemountTimeoutRef.current);
     }
-    materialRefreshTimeoutRef.current = window.setTimeout(() => {
-      setMaterialRefreshKey((prev) => prev + 1);
-      materialRefreshTimeoutRef.current = null;
-    }, 120);
+    sceneRemountTimeoutRef.current = window.setTimeout(() => {
+      setSceneRemountKey((prev) => prev + 1);
+      sceneRemountTimeoutRef.current = null;
+    }, 200);
   }, []);
 
-  const handleMaterialRefreshRequest = useCallback(() => {
-    if (materialRefreshTimeoutRef.current) {
-      window.clearTimeout(materialRefreshTimeoutRef.current);
-      materialRefreshTimeoutRef.current = null;
+  const handleSceneRemountRequest = useCallback(() => {
+    if (sceneRemountTimeoutRef.current) {
+      window.clearTimeout(sceneRemountTimeoutRef.current);
+      sceneRemountTimeoutRef.current = null;
     }
-    setMaterialRefreshKey((prev) => prev + 1);
+    setSceneRemountKey((prev) => prev + 1);
   }, []);
 
   const handleMaterialChange = useCallback((variant) => {
@@ -456,8 +456,8 @@ function App() {
   }, [isAppReady]);
 
   useEffect(() => () => {
-    if (materialRefreshTimeoutRef.current) {
-      window.clearTimeout(materialRefreshTimeoutRef.current);
+    if (sceneRemountTimeoutRef.current) {
+      window.clearTimeout(sceneRemountTimeoutRef.current);
     }
   }, []);
 
@@ -610,10 +610,9 @@ function App() {
       >
         {/* Fixed 3D Canvas */}
         <Fixed3DCanvas
-          key={performanceProfile?.renderScale}
+          key={`${performanceProfile?.renderScale ?? 'rs'}-${sceneRemountKey}`}
           ref={fixedCanvasRef}
           materialVariant={materialVariant}
-          materialRefreshKey={materialRefreshKey}
           effectsEnabled={effectsEnabled}
           postProcessingConfig={postProcessingConfig}
           performanceProfile={performanceProfile}
@@ -655,7 +654,7 @@ function App() {
           <CrystalControls
             config={config}
             onUpdate={handleConfigUpdate}
-            onMaterialRefreshRequest={handleMaterialRefreshRequest}
+            onSceneRemountRequest={handleSceneRemountRequest}
           />
           
           <div>

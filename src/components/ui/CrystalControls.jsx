@@ -8,7 +8,7 @@ const DEG2RAD = Math.PI / 180;
 const zoneKeys = ['hero', 'overview', 'about'];
 const projectKeys = ['empathy', 'narrative', 'craft', 'system', 'leadership', 'exploration'];
 
-const CrystalControls = ({ config, onUpdate, onMaterialRefreshRequest }) => {
+const CrystalControls = ({ config, onUpdate, onSceneRemountRequest }) => {
   const [activeTab, setActiveTab] = useState('timing');
   const [exportStatus, setExportStatus] = useState('');
   const fileInputRef = useRef(null);
@@ -675,6 +675,7 @@ const CrystalControls = ({ config, onUpdate, onMaterialRefreshRequest }) => {
     
     // Notify parent component
     onUpdate(crystalConfig);
+    onSceneRemountRequest?.();
   };
 
   const getTuningPayload = () => {
@@ -764,7 +765,7 @@ const CrystalControls = ({ config, onUpdate, onMaterialRefreshRequest }) => {
       const updatedConfig = applyTuningToConfig(config ?? crystalConfig, normalizedPayload);
       syncStateFromConfig(updatedConfig);
       onUpdate(updatedConfig);
-      onMaterialRefreshRequest?.();
+      onSceneRemountRequest?.();
       setExportMessage('Loaded preset ✅');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';

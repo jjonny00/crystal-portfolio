@@ -28,7 +28,6 @@ const UnifiedCrystalScene = forwardRef(({
   animationData,
   config,
   materialVariant = 'default',
-  materialRefreshKey = 0,
   performanceProfile = { useNormalMaps: true, textureQuality: 'high', pbrQuality: 'high', usePBR: true },
   simplifiedAnimations = false,
   scrollToProgress,
@@ -65,7 +64,7 @@ const UnifiedCrystalScene = forwardRef(({
 
   // Track material updates so we can reapply when ready
   const [materialVersion, setMaterialVersion] = useState(0);
-  const { invalidate, scene } = useThree();
+  const { invalidate } = useThree();
 
   // FIXED: Better tracking of focus changes
   const prevFocusedFacetRef = useRef(null);
@@ -127,33 +126,16 @@ const UnifiedCrystalScene = forwardRef(({
   }, []);
 
   useEffect(() => {
-    const markNeedsUpdate = (material) => {
-      if (!material) return;
-      material.needsUpdate = true;
-      if (material.envMap) {
-        material.envMap.needsUpdate = true;
-      }
-    };
-
-    if (crystalMaterialRef.current) {
-      markNeedsUpdate(crystalMaterialRef.current);
-    }
-
-    if (facetMaterialsRef.current?.length) {
-      facetMaterialsRef.current.forEach((mat) => {
-        markNeedsUpdate(mat);
-      });
-    }
-
-    if (scene && scene.environment) {
-      scene.environment = scene.environment;
-    }
-
-    if (invalidate) {
-      requestAnimationFrame(() => invalidate());
+    const material = crystalMaterialRef.current;
+    if (!material || !invalidate) return;
+    const needsEnvNudge =
+      material.isMeshPhysicalMaterial &&
+      material.transmission > 0.7 &&
+      !material.envMap;
+    if (needsEnvNudge) {
       requestAnimationFrame(() => invalidate());
     }
-  }, [materialRefreshKey, invalidate, scene]);
+  }, [materialVersion, invalidate]);
 
   const {
     isReady: overlaysReady,
