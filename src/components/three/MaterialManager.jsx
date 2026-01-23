@@ -2,7 +2,7 @@
 // Creates materials that perform well on mobile while maintaining crystal appearance
 
 import React, { useRef, useEffect } from 'react';
-import { useFrame, useThree } from '@react-three/fiber';
+import { useThree } from '@react-three/fiber';
 import CrystalMaterial from '../materials/CrystalMaterial';
 import * as THREE from 'three';
 
@@ -17,7 +17,7 @@ const MaterialManager = ({
   const optimizedMobileRef = useRef();
   const mediumMaterialRef = useRef();
   const { scene, invalidate } = useThree(); // Get Three.js scene to access environment
-  const lastAppliedEnvRef = useRef(new WeakMap());
+  const lastEnvIdRef = useRef(null);
   
   // FIXED: Null safety with proper defaults
   const safePerformanceConfig = {
@@ -223,30 +223,25 @@ const MaterialManager = ({
     }
   }, [isMedium, materialVariant, config.materials.crystal, onMaterialReady]);
 
-  useFrame(() => {
-    if (!scene?.environment) return;
-    const envMap = scene.environment;
-    const materials = [
-      crystalMaterialRef.current,
-      optimizedMobileRef.current,
-      mediumMaterialRef.current
-    ].filter(Boolean);
+  useEffect(() => {
+    const env = scene?.environment || null;
+    const envId = env?.uuid || env;
+    if (envId === lastEnvIdRef.current) return;
+    lastEnvIdRef.current = envId;
 
-    let didUpdate = false;
+    const materials = [optimizedMobileRef.current, mediumMaterialRef.current].filter(Boolean);
     materials.forEach((material) => {
-      if (lastAppliedEnvRef.current.get(material) !== envMap) {
-        material.envMap = envMap;
-        material.needsUpdate = true;
-        lastAppliedEnvRef.current.set(material, envMap);
-        didUpdate = true;
+      if (material.envMap) {
+        material.envMap = null;
       }
+      material.needsUpdate = true;
     });
-    if (didUpdate) {
-      if (onMaterialReady) onMaterialReady(materialRef.current);
+
+    if (materials.length) {
       requestAnimationFrame(() => invalidate());
       requestAnimationFrame(() => invalidate());
     }
-  });
+  }, [scene, scene?.environment, invalidate]);
 
   // Update material when variant changes
   useEffect(() => {
@@ -301,6 +296,9 @@ const MaterialManager = ({
           material.emissiveIntensity = Math.max(0.0, currentEmissiveIntensity);
           break;
       }
+
+      material.metalness = Math.min(material.metalness, 0.8);
+      material.roughness = Math.max(material.roughness, 0.02);
       
       // UPDATED: Ensure shadow settings are maintained
       material.shadowSide = THREE.DoubleSide;
