@@ -33,6 +33,83 @@ const MaterialManager = ({
   const isLow = pbrQuality === 'low';
   const isMedium = pbrQuality === 'medium';
   const usePBR = pbrQuality === 'high';
+
+  const toFiniteNumber = (value, fallback) => {
+    if (value === null || value === undefined) return fallback;
+    const parsed = typeof value === 'string' ? parseFloat(value) : value;
+    return Number.isFinite(parsed) ? parsed : fallback;
+  };
+
+  const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+
+  const sanitizeOpacity = (value, fallback) => {
+    const numeric = toFiniteNumber(value, fallback);
+    return clamp(numeric, 0, 1);
+  };
+
+  const sanitizeLowMaterial = (material, variant) => {
+    if (!material) return;
+    material.metalness = clamp(toFiniteNumber(material.metalness, 0.1), 0, 0.9);
+    material.roughness = clamp(toFiniteNumber(material.roughness, 0.05), 0.02, 1);
+    material.envMapIntensity = clamp(toFiniteNumber(material.envMapIntensity, 1.0), 0, 10);
+    material.emissiveIntensity = clamp(toFiniteNumber(material.emissiveIntensity, 0.03), 0, 10);
+    material.opacity = sanitizeOpacity(material.opacity, 0.99);
+    material.reflectivity = clamp(toFiniteNumber(material.reflectivity, 1.0), 0, 2);
+    material.transparent = material.opacity < 1;
+    material.needsUpdate = true;
+
+    if (import.meta.env.DEV && variant) {
+      console.log('🧪 Low material sanitized:', {
+        variant,
+        metalness: material.metalness,
+        roughness: material.roughness,
+        envMapIntensity: material.envMapIntensity,
+        emissiveIntensity: material.emissiveIntensity,
+        opacity: material.opacity,
+        transparent: material.transparent
+      });
+    }
+  };
+
+  const sanitizeMediumMaterial = (material, variant) => {
+    if (!material) return;
+    material.metalness = clamp(toFiniteNumber(material.metalness, 0.0), 0, 0.9);
+    material.roughness = clamp(toFiniteNumber(material.roughness, 0.05), 0.02, 1);
+    material.envMapIntensity = clamp(toFiniteNumber(material.envMapIntensity, 1.0), 0, 10);
+    material.emissiveIntensity = clamp(toFiniteNumber(material.emissiveIntensity, 0.1), 0, 10);
+    material.reflectivity = clamp(toFiniteNumber(material.reflectivity, 1.0), 0, 2);
+    material.opacity = sanitizeOpacity(material.opacity, 0.99);
+    material.clearcoat = clamp(toFiniteNumber(material.clearcoat, 0), 0, 1);
+    material.iridescence = clamp(toFiniteNumber(material.iridescence, 0), 0, 1);
+    material.transmission = clamp(toFiniteNumber(material.transmission, 0), 0, 1);
+    material.thickness = clamp(toFiniteNumber(material.thickness, 0), 0, 5);
+    material.ior = clamp(toFiniteNumber(material.ior, 1.5), 1, 3);
+    material.transparent = material.opacity < 1;
+    material.needsUpdate = true;
+
+    if (import.meta.env.DEV && variant) {
+      console.log('🧪 Medium material sanitized:', {
+        variant,
+        metalness: material.metalness,
+        roughness: material.roughness,
+        envMapIntensity: material.envMapIntensity,
+        emissiveIntensity: material.emissiveIntensity,
+        opacity: material.opacity,
+        transparent: material.transparent
+      });
+    }
+  };
+
+  const detectPoisonedFields = (material, fields) => {
+    const poisoned = [];
+    fields.forEach((field) => {
+      const value = material?.[field];
+      if (!Number.isFinite(value)) {
+        poisoned.push({ field, value });
+      }
+    });
+    return poisoned;
+  };
   
   if (import.meta.env.DEV) console.log('🎨 MaterialManager: PBR enabled?', usePBR, 'PBR quality:', pbrQuality, 'Performance config:', safePerformanceConfig);
 
@@ -144,6 +221,7 @@ const MaterialManager = ({
         shadowSide: optimizedMaterial.shadowSide
       });
       
+      sanitizeLowMaterial(optimizedMaterial, materialVariant);
       if (onMaterialReady) onMaterialReady(optimizedMaterial);
     }
   }, [isLow, config.materials.crystal.color, config.materials.crystal.emissive, materialVariant, onMaterialReady]);
@@ -219,6 +297,7 @@ const MaterialManager = ({
         envMapIntensity: mediumMat.envMapIntensity
       });
 
+      sanitizeMediumMaterial(mediumMat, materialVariant);
       if (onMaterialReady) onMaterialReady(mediumMat);
     }
   }, [isMedium, materialVariant, config.materials.crystal, onMaterialReady]);
@@ -241,7 +320,7 @@ const MaterialManager = ({
       requestAnimationFrame(() => invalidate());
       requestAnimationFrame(() => invalidate());
     }
-  }, [scene, scene?.environment, invalidate]);
+  }, [scene, invalidate]);
 
   // Update material when variant changes
   useEffect(() => {
@@ -302,7 +381,7 @@ const MaterialManager = ({
       
       // UPDATED: Ensure shadow settings are maintained
       material.shadowSide = THREE.DoubleSide;
-      material.needsUpdate = true;
+      sanitizeLowMaterial(material);
       requestAnimationFrame(() => invalidate());
       requestAnimationFrame(() => invalidate());
     }
@@ -354,11 +433,113 @@ const MaterialManager = ({
       material.opacity = 0.85;
       
       material.shadowSide = THREE.DoubleSide;
-      material.needsUpdate = true;
+      sanitizeMediumMaterial(material);
       requestAnimationFrame(() => invalidate());
       requestAnimationFrame(() => invalidate());
     }
   }, [materialVariant, isMedium, config.materials.crystal, invalidate]);
+
+  useEffect(() => {
+    if (!isLow || !optimizedMobileRef.current) return;
+    sanitizeLowMaterial(optimizedMobileRef.current);
+  }, [isLow, config.materials.crystal]);
+
+  useEffect(() => {
+    if (!isMedium || !mediumMaterialRef.current) return;
+    sanitizeMediumMaterial(mediumMaterialRef.current);
+  }, [isMedium, config.materials.crystal]);
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    const dump = () => {
+      const low = optimizedMobileRef.current;
+      const medium = mediumMaterialRef.current;
+      console.log('🧾 Material dump', {
+        pbrQuality,
+        low: low
+          ? {
+              metalness: low.metalness,
+              roughness: low.roughness,
+              envMapIntensity: low.envMapIntensity,
+              opacity: low.opacity,
+              transparent: low.transparent,
+              emissiveIntensity: low.emissiveIntensity,
+              finite: {
+                metalness: Number.isFinite(low.metalness),
+                roughness: Number.isFinite(low.roughness),
+                envMapIntensity: Number.isFinite(low.envMapIntensity),
+                opacity: Number.isFinite(low.opacity),
+                emissiveIntensity: Number.isFinite(low.emissiveIntensity)
+              }
+            }
+          : null,
+        medium: medium
+          ? {
+              metalness: medium.metalness,
+              roughness: medium.roughness,
+              envMapIntensity: medium.envMapIntensity,
+              opacity: medium.opacity,
+              transparent: medium.transparent,
+              emissiveIntensity: medium.emissiveIntensity,
+              finite: {
+                metalness: Number.isFinite(medium.metalness),
+                roughness: Number.isFinite(medium.roughness),
+                envMapIntensity: Number.isFinite(medium.envMapIntensity),
+                opacity: Number.isFinite(medium.opacity),
+                emissiveIntensity: Number.isFinite(medium.emissiveIntensity)
+              }
+            }
+          : null
+      });
+    };
+
+    window.__DUMP_MATERIALS__ = dump;
+    return () => {
+      if (window.__DUMP_MATERIALS__ === dump) {
+        delete window.__DUMP_MATERIALS__;
+      }
+    };
+  }, [pbrQuality]);
+
+  useEffect(() => {
+    if (isLow && optimizedMobileRef.current) {
+      const poisoned = detectPoisonedFields(optimizedMobileRef.current, [
+        'metalness',
+        'roughness',
+        'envMapIntensity',
+        'opacity',
+        'emissiveIntensity',
+        'reflectivity'
+      ]);
+      if (poisoned.length) {
+        if (import.meta.env.DEV) {
+          console.warn('⚠️ Low material poisoned; resetting fields:', poisoned);
+        }
+        sanitizeLowMaterial(optimizedMobileRef.current, materialVariant);
+      }
+    }
+    if (isMedium && mediumMaterialRef.current) {
+      const poisoned = detectPoisonedFields(mediumMaterialRef.current, [
+        'metalness',
+        'roughness',
+        'envMapIntensity',
+        'opacity',
+        'emissiveIntensity',
+        'reflectivity',
+        'clearcoat',
+        'iridescence',
+        'transmission',
+        'thickness',
+        'ior'
+      ]);
+      if (poisoned.length) {
+        if (import.meta.env.DEV) {
+          console.warn('⚠️ Medium material poisoned; resetting fields:', poisoned);
+        }
+        sanitizeMediumMaterial(mediumMaterialRef.current, materialVariant);
+      }
+    }
+  }, [isLow, isMedium, materialVariant, config.materials.crystal]);
 
   // SIMPLIFIED: Normal map support for mobile (optional)
   useEffect(() => {
