@@ -2,7 +2,7 @@
 // Fixed facet color conflicts between hover and scroll focus
 
 import React, { useRef, useState, useEffect, useCallback, forwardRef, useImperativeHandle, useMemo } from 'react'
-import { useFrame } from '@react-three/fiber'
+import { useFrame, useThree } from '@react-three/fiber'
 import { useGLTF, Html } from '@react-three/drei'
 import * as THREE from 'three'
 import FractureBurstParticles from './FractureBurstParticles'
@@ -28,6 +28,7 @@ const UnifiedCrystalScene = forwardRef(({
   animationData,
   config,
   materialVariant = 'default',
+  materialRefreshKey = 0,
   performanceProfile = { useNormalMaps: true, textureQuality: 'high', pbrQuality: 'high', usePBR: true },
   simplifiedAnimations = false,
   scrollToProgress,
@@ -64,6 +65,7 @@ const UnifiedCrystalScene = forwardRef(({
 
   // Track material updates so we can reapply when ready
   const [materialVersion, setMaterialVersion] = useState(0);
+  const { invalidate, gl, scene, camera } = useThree();
 
   // FIXED: Better tracking of focus changes
   const prevFocusedFacetRef = useRef(null);
@@ -123,6 +125,40 @@ const UnifiedCrystalScene = forwardRef(({
   const handleMaterialReady = useCallback(() => {
     setMaterialVersion(v => v + 1);
   }, []);
+
+  useEffect(() => {
+    const markNeedsUpdate = (material) => {
+      if (!material) return;
+      material.needsUpdate = true;
+      if (material.envMap) {
+        material.envMap.needsUpdate = true;
+      }
+    };
+
+    if (crystalMaterialRef.current) {
+      markNeedsUpdate(crystalMaterialRef.current);
+    }
+
+    if (facetMaterialsRef.current?.length) {
+      facetMaterialsRef.current.forEach((mat) => {
+        markNeedsUpdate(mat);
+      });
+    }
+
+    if (scene) {
+      if (scene.environment) {
+        scene.environment = scene.environment;
+      }
+
+      if (gl?.compile && camera) {
+        gl.compile(scene, camera);
+      }
+    }
+
+    if (invalidate) {
+      invalidate();
+    }
+  }, [materialRefreshKey, invalidate, gl, scene, camera]);
 
   const {
     isReady: overlaysReady,

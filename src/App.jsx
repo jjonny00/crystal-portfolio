@@ -245,6 +245,7 @@ function App() {
   });
   const [animationConfig, setAnimationConfig] = useState(buildAnimationConfig(defaultConfig));
   const [materialVariant, setMaterialVariant] = useState('default');
+  const [materialRefreshKey, setMaterialRefreshKey] = useState(0);
   const [showUI, setShowUI] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
   const [effectsEnabled, setEffectsEnabled] = useState({
@@ -254,6 +255,7 @@ function App() {
     vignette: true
   });
   const [postProcessingConfig, setPostProcessingConfig] = useState(config.postProcessing);
+  const materialRefreshTimeoutRef = useRef(null);
 
   // Simulate application initialization progress for loader
   useEffect(() => {
@@ -356,6 +358,21 @@ function App() {
   const handleConfigUpdate = useCallback((newConfig) => {
     setConfig(newConfig);
     setAnimationConfig(buildAnimationConfig(newConfig));
+    if (materialRefreshTimeoutRef.current) {
+      window.clearTimeout(materialRefreshTimeoutRef.current);
+    }
+    materialRefreshTimeoutRef.current = window.setTimeout(() => {
+      setMaterialRefreshKey((prev) => prev + 1);
+      materialRefreshTimeoutRef.current = null;
+    }, 120);
+  }, []);
+
+  const handleMaterialRefreshRequest = useCallback(() => {
+    if (materialRefreshTimeoutRef.current) {
+      window.clearTimeout(materialRefreshTimeoutRef.current);
+      materialRefreshTimeoutRef.current = null;
+    }
+    setMaterialRefreshKey((prev) => prev + 1);
   }, []);
 
   const handleMaterialChange = useCallback((variant) => {
@@ -437,6 +454,12 @@ function App() {
   useEffect(() => {
     document.body.style.overflow = isAppReady ? 'auto' : 'hidden';
   }, [isAppReady]);
+
+  useEffect(() => () => {
+    if (materialRefreshTimeoutRef.current) {
+      window.clearTimeout(materialRefreshTimeoutRef.current);
+    }
+  }, []);
 
   // UI Hide Toggle Keyboard Listener
   useEffect(() => {
@@ -590,6 +613,7 @@ function App() {
           key={performanceProfile?.renderScale}
           ref={fixedCanvasRef}
           materialVariant={materialVariant}
+          materialRefreshKey={materialRefreshKey}
           effectsEnabled={effectsEnabled}
           postProcessingConfig={postProcessingConfig}
           performanceProfile={performanceProfile}
@@ -628,7 +652,11 @@ function App() {
             { label: 'Scroll' }
           ]}
         >
-          <CrystalControls config={config} onUpdate={handleConfigUpdate} />
+          <CrystalControls
+            config={config}
+            onUpdate={handleConfigUpdate}
+            onMaterialRefreshRequest={handleMaterialRefreshRequest}
+          />
           
           <div>
             <MaterialSelector currentVariant={materialVariant} onChange={handleMaterialChange} />
