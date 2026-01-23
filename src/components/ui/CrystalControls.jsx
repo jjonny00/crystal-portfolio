@@ -1,5 +1,5 @@
 // CrystalControls.jsx - Updated for tabbed interface
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import * as crystalConfig from '../../crystalConfig';
 
 const RAD2DEG = 180 / Math.PI;
@@ -11,6 +11,7 @@ const projectKeys = ['empathy', 'narrative', 'craft', 'system', 'leadership', 'e
 const CrystalControls = ({ config, onUpdate }) => {
   const [activeTab, setActiveTab] = useState('timing');
   const [exportStatus, setExportStatus] = useState('');
+  const fileInputRef = useRef(null);
   const [cameraAccordionState, setCameraAccordionState] = useState({
     globalOffsets: false,
     hero: true,
@@ -128,6 +129,215 @@ const CrystalControls = ({ config, onUpdate }) => {
   const cloneConfig = () => {
     const base = config ?? crystalConfig;
     return JSON.parse(JSON.stringify(base));
+  };
+
+  const sanitizeNumber = (value, fallback = 0) => {
+    if (value === null || value === undefined) return fallback;
+    const parsed = typeof value === 'number' ? value : Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  };
+
+  const clampNumber = (value, min, max) => Math.min(Math.max(value, min), max);
+
+  const sanitizeVec3 = (value, options = {}) => {
+    if (!Array.isArray(value) || value.length !== 3) return null;
+    const numbers = value.map((entry) => sanitizeNumber(entry, 0));
+    if (options.clamp) {
+      return numbers.map((entry) => clampNumber(entry, options.clamp[0], options.clamp[1]));
+    }
+    return numbers;
+  };
+
+  const buildTuningPayload = (baseConfig) => {
+    const payload = {
+      version: 1,
+      tuning: {
+        cameraPositions: baseConfig.cameraPositions,
+        cameraTargets: baseConfig.cameraTargets,
+        cameraOffsets: baseConfig.cameraOffsets,
+        explodedPositions: baseConfig.explodedPositions,
+        facetRotationsEulerDeg: baseConfig.facetRotationsEulerDeg
+      }
+    };
+
+    if (baseConfig.timing?.camera) {
+      payload.tuning.timing = {
+        camera: baseConfig.timing.camera
+      };
+    }
+
+    return payload;
+  };
+
+  const applyTuningToConfig = (currentConfig, tuningPayload) => {
+    const base = currentConfig ?? crystalConfig;
+    const updatedConfig = JSON.parse(JSON.stringify(base));
+    const tuning = tuningPayload?.tuning ?? tuningPayload ?? {};
+
+    const updateCameraPositions = (positions) => {
+      if (!positions) return;
+      zoneKeys.forEach((zone) => {
+        const vec = sanitizeVec3(positions[zone]);
+        if (vec) updatedConfig.cameraPositions[zone] = vec;
+      });
+      if (positions.projects) {
+        projectKeys.forEach((project) => {
+          const vec = sanitizeVec3(positions.projects?.[project]);
+          if (vec) updatedConfig.cameraPositions.projects[project] = vec;
+        });
+      }
+    };
+
+    const updateCameraTargets = (targets) => {
+      if (!targets) return;
+      zoneKeys.forEach((zone) => {
+        const vec = sanitizeVec3(targets[zone]);
+        if (vec) updatedConfig.cameraTargets[zone] = vec;
+      });
+      if (targets.projects) {
+        projectKeys.forEach((project) => {
+          const vec = sanitizeVec3(targets.projects?.[project]);
+          if (vec) updatedConfig.cameraTargets.projects[project] = vec;
+        });
+      }
+    };
+
+    const updateCameraOffsets = (offsets) => {
+      if (!offsets) return;
+      const clamp = [-2, 2];
+      if (offsets.global) {
+        const position = sanitizeVec3(offsets.global.position, { clamp });
+        const target = sanitizeVec3(offsets.global.target, { clamp });
+        if (position) updatedConfig.cameraOffsets.global.position = position;
+        if (target) updatedConfig.cameraOffsets.global.target = target;
+      }
+      if (offsets.zones) {
+        zoneKeys.forEach((zone) => {
+          const zoneOffsets = offsets.zones?.[zone];
+          if (!zoneOffsets) return;
+          const position = sanitizeVec3(zoneOffsets.position, { clamp });
+          const target = sanitizeVec3(zoneOffsets.target, { clamp });
+          if (position) updatedConfig.cameraOffsets.zones[zone].position = position;
+          if (target) updatedConfig.cameraOffsets.zones[zone].target = target;
+        });
+      }
+      if (offsets.projects) {
+        projectKeys.forEach((project) => {
+          const projectOffsets = offsets.projects?.[project];
+          if (!projectOffsets) return;
+          const position = sanitizeVec3(projectOffsets.position, { clamp });
+          const target = sanitizeVec3(projectOffsets.target, { clamp });
+          if (position) updatedConfig.cameraOffsets.projects[project].position = position;
+          if (target) updatedConfig.cameraOffsets.projects[project].target = target;
+        });
+      }
+    };
+
+    const updateExplodedPositions = (positions) => {
+      if (!positions) return;
+      projectKeys.forEach((project) => {
+        const vec = sanitizeVec3(positions?.[project]);
+        if (vec) updatedConfig.explodedPositions[project] = vec;
+      });
+    };
+
+    const updateFacetRotations = (rotations) => {
+      if (!rotations) return;
+      projectKeys.forEach((project) => {
+        const vec = sanitizeVec3(rotations?.[project]);
+        if (vec) updatedConfig.facetRotationsEulerDeg[project] = vec;
+      });
+    };
+
+    const updateTiming = (timing) => {
+      if (!timing?.camera) return;
+      Object.entries(timing.camera).forEach(([key, value]) => {
+        const numericValue = sanitizeNumber(value, null);
+        if (numericValue === null) return;
+        updatedConfig.timing.camera[key] = numericValue;
+      });
+    };
+
+    updateCameraPositions(tuning.cameraPositions);
+    updateCameraTargets(tuning.cameraTargets);
+    updateCameraOffsets(tuning.cameraOffsets);
+    updateExplodedPositions(tuning.explodedPositions);
+    updateFacetRotations(tuning.facetRotationsEulerDeg);
+    updateTiming(tuning.timing);
+
+    return updatedConfig;
+  };
+
+  const syncStateFromConfig = (updatedConfig) => {
+    setTimingValues({
+      'camera.explodeDuration': updatedConfig.timing.camera.explodeDuration,
+      'camera.reformDuration': updatedConfig.timing.camera.reformDuration
+    });
+
+    setCameraValues({
+      'camera.hero': updatedConfig.cameraPositions.hero,
+      'camera.overview': updatedConfig.cameraPositions.overview,
+      'camera.about': updatedConfig.cameraPositions.about,
+      'camera.projects.empathy': updatedConfig.cameraPositions.projects.empathy,
+      'camera.projects.narrative': updatedConfig.cameraPositions.projects.narrative,
+      'camera.projects.craft': updatedConfig.cameraPositions.projects.craft,
+      'camera.projects.system': updatedConfig.cameraPositions.projects.system,
+      'camera.projects.leadership': updatedConfig.cameraPositions.projects.leadership,
+      'camera.projects.exploration': updatedConfig.cameraPositions.projects.exploration
+    });
+
+    setCameraTargetValues({
+      'cameraTargets.hero': updatedConfig.cameraTargets.hero,
+      'cameraTargets.overview': updatedConfig.cameraTargets.overview,
+      'cameraTargets.about': updatedConfig.cameraTargets.about,
+      'cameraTargets.projects.empathy': updatedConfig.cameraTargets.projects.empathy,
+      'cameraTargets.projects.narrative': updatedConfig.cameraTargets.projects.narrative,
+      'cameraTargets.projects.craft': updatedConfig.cameraTargets.projects.craft,
+      'cameraTargets.projects.system': updatedConfig.cameraTargets.projects.system,
+      'cameraTargets.projects.leadership': updatedConfig.cameraTargets.projects.leadership,
+      'cameraTargets.projects.exploration': updatedConfig.cameraTargets.projects.exploration
+    });
+
+    setCameraOffsetValues({
+      'cameraOffsets.global.position': updatedConfig.cameraOffsets.global.position,
+      'cameraOffsets.global.target': updatedConfig.cameraOffsets.global.target,
+      'cameraOffsets.zones.hero.position': updatedConfig.cameraOffsets.zones.hero.position,
+      'cameraOffsets.zones.hero.target': updatedConfig.cameraOffsets.zones.hero.target,
+      'cameraOffsets.zones.overview.position': updatedConfig.cameraOffsets.zones.overview.position,
+      'cameraOffsets.zones.overview.target': updatedConfig.cameraOffsets.zones.overview.target,
+      'cameraOffsets.zones.about.position': updatedConfig.cameraOffsets.zones.about.position,
+      'cameraOffsets.zones.about.target': updatedConfig.cameraOffsets.zones.about.target,
+      'cameraOffsets.projects.empathy.position': updatedConfig.cameraOffsets.projects.empathy.position,
+      'cameraOffsets.projects.empathy.target': updatedConfig.cameraOffsets.projects.empathy.target,
+      'cameraOffsets.projects.narrative.position': updatedConfig.cameraOffsets.projects.narrative.position,
+      'cameraOffsets.projects.narrative.target': updatedConfig.cameraOffsets.projects.narrative.target,
+      'cameraOffsets.projects.craft.position': updatedConfig.cameraOffsets.projects.craft.position,
+      'cameraOffsets.projects.craft.target': updatedConfig.cameraOffsets.projects.craft.target,
+      'cameraOffsets.projects.system.position': updatedConfig.cameraOffsets.projects.system.position,
+      'cameraOffsets.projects.system.target': updatedConfig.cameraOffsets.projects.system.target,
+      'cameraOffsets.projects.leadership.position': updatedConfig.cameraOffsets.projects.leadership.position,
+      'cameraOffsets.projects.leadership.target': updatedConfig.cameraOffsets.projects.leadership.target,
+      'cameraOffsets.projects.exploration.position': updatedConfig.cameraOffsets.projects.exploration.position,
+      'cameraOffsets.projects.exploration.target': updatedConfig.cameraOffsets.projects.exploration.target
+    });
+
+    setFacetRotationValues({
+      'facetRotationsEulerDeg.empathy': updatedConfig.facetRotationsEulerDeg.empathy,
+      'facetRotationsEulerDeg.narrative': updatedConfig.facetRotationsEulerDeg.narrative,
+      'facetRotationsEulerDeg.craft': updatedConfig.facetRotationsEulerDeg.craft,
+      'facetRotationsEulerDeg.system': updatedConfig.facetRotationsEulerDeg.system,
+      'facetRotationsEulerDeg.leadership': updatedConfig.facetRotationsEulerDeg.leadership,
+      'facetRotationsEulerDeg.exploration': updatedConfig.facetRotationsEulerDeg.exploration
+    });
+
+    setPositionValues({
+      'explodedPositions.empathy': updatedConfig.explodedPositions.empathy,
+      'explodedPositions.narrative': updatedConfig.explodedPositions.narrative,
+      'explodedPositions.craft': updatedConfig.explodedPositions.craft,
+      'explodedPositions.system': updatedConfig.explodedPositions.system,
+      'explodedPositions.leadership': updatedConfig.explodedPositions.leadership,
+      'explodedPositions.exploration': updatedConfig.explodedPositions.exploration
+    });
   };
 
   // Handle timing value changes
@@ -469,14 +679,7 @@ const CrystalControls = ({ config, onUpdate }) => {
 
   const getTuningPayload = () => {
     const base = config ?? crystalConfig;
-    const payload = {
-      cameraPositions: base.cameraPositions,
-      cameraTargets: base.cameraTargets,
-      cameraOffsets: base.cameraOffsets,
-      explodedPositions: base.explodedPositions,
-      facetRotationsEulerDeg: base.facetRotationsEulerDeg
-    };
-
+    const payload = buildTuningPayload(base);
     return JSON.stringify(payload, null, 2);
   };
 
@@ -511,7 +714,7 @@ const CrystalControls = ({ config, onUpdate }) => {
     try {
       if (navigator?.clipboard?.writeText) {
         await navigator.clipboard.writeText(payload);
-        setExportMessage('Copied!');
+        setExportMessage('Copied to clipboard ✅');
         return;
       }
     } catch (error) {
@@ -519,7 +722,7 @@ const CrystalControls = ({ config, onUpdate }) => {
     }
 
     const success = fallbackCopyText(payload);
-    setExportMessage(success ? 'Copied!' : 'Copy failed');
+    setExportMessage(success ? 'Copied to clipboard ✅' : 'Copy failed');
   };
 
   const handleDownloadJson = () => {
@@ -528,12 +731,44 @@ const CrystalControls = ({ config, onUpdate }) => {
     const url = window.URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = 'crystal-tuning.json';
+    anchor.download = 'tuning.json';
     document.body.appendChild(anchor);
     anchor.click();
     document.body.removeChild(anchor);
     window.URL.revokeObjectURL(url);
-    setExportMessage('Download started');
+    setExportMessage('Downloaded tuning.json ✅');
+  };
+
+  const handleLoadJson = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const rawPayload = JSON.parse(text);
+      const tuningData = rawPayload?.tuning ?? rawPayload;
+      const hasKnownKeys =
+        tuningData &&
+        (tuningData.cameraPositions ||
+          tuningData.cameraTargets ||
+          tuningData.cameraOffsets ||
+          tuningData.explodedPositions ||
+          tuningData.facetRotationsEulerDeg ||
+          tuningData.timing);
+
+      if (!hasKnownKeys) {
+        throw new Error('Missing tuning data');
+      }
+
+      const normalizedPayload = rawPayload?.tuning ? rawPayload : { version: 1, tuning: tuningData };
+      const updatedConfig = applyTuningToConfig(config ?? crystalConfig, normalizedPayload);
+      syncStateFromConfig(updatedConfig);
+      onUpdate(updatedConfig);
+      setExportMessage('Loaded preset ✅');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      setExportMessage(`Invalid JSON (${message})`);
+    }
   };
 
   // Container style - no fixed positioning since parent handles that
@@ -1542,8 +1777,22 @@ const CrystalControls = ({ config, onUpdate }) => {
           >
             Download JSON
           </button>
+          <button
+            type="button"
+            style={exportButtonStyle}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            Load JSON
+          </button>
         </div>
         <div style={exportStatusStyle}>{exportStatus}</div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="application/json,.json"
+          style={{ display: 'none' }}
+          onChange={handleLoadJson}
+        />
       </div>
       
       <button 
