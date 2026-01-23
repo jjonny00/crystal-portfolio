@@ -45,7 +45,7 @@ const buildAnimationConfig = (uiConfig) => {
     arrs.reduce((acc, arr) => acc.add(new Vector3(...(arr ?? [0, 0, 0]))), new Vector3(0, 0, 0));
   const toQuatFromEulerDeg = (eulerDeg, fallback) => {
     if (!Array.isArray(eulerDeg)) return fallback.clone();
-    const [x, y, z] = eulerDeg;
+    const [x = 0, y = 0, z = 0] = eulerDeg;
     const euler = new Euler(
       x * (Math.PI / 180),
       y * (Math.PI / 180),
@@ -54,7 +54,6 @@ const buildAnimationConfig = (uiConfig) => {
     );
     return new Quaternion().setFromEuler(euler);
   };
-
   if (!uiConfig?.cameraPositions) return ANIMATION_CONFIG;
 
   const globalOffsets = uiConfig.cameraOffsets?.global;
@@ -64,6 +63,7 @@ const buildAnimationConfig = (uiConfig) => {
 
   return {
     ...ANIMATION_CONFIG,
+    facetRotationsEulerDeg: uiConfig.facetRotationsEulerDeg ?? ANIMATION_CONFIG.facetRotationsEulerDeg ?? {},
     camera: {
       hero: {
         ...ANIMATION_CONFIG.camera.hero,

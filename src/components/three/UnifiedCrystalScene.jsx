@@ -1130,6 +1130,7 @@ const UnifiedCrystalScene = forwardRef(({
               .normalize()
               .multiplyScalar(explodedPos.length() * fractureDistance);
             facetRef.current.position.copy(configured ? configured : fallback);
+            facetRef.current.quaternion.slerp(neutralQuat, Math.min(1, deltaTime * 6));
           }
         });
         return; // Skip other animations during fracture pause
@@ -1143,6 +1144,7 @@ const UnifiedCrystalScene = forwardRef(({
       animationData.state === 'project_focused' &&
       animationData.focusedFacet &&
       !animationData.isTransitioning;
+    const rotationLerp = Math.min(1, deltaTime * 6);
 
     // Handle whole crystal floating (no rotation)
     if (showWholeCrystal && wholeCrystalRef.current) {
@@ -1194,6 +1196,11 @@ const UnifiedCrystalScene = forwardRef(({
           if (start && end) {
             const interpolated = start.clone().lerp(end, eased);
             facetRef.current.position.copy(interpolated);
+            const targetRotation = animationData?.crystalConfig?.explodedRotations?.[facetKey];
+            const targetQuat = targetRotation
+              ? new THREE.Quaternion().fromArray(targetRotation)
+              : neutralQuat;
+            facetRef.current.quaternion.slerpQuaternions(neutralQuat, targetQuat, eased);
           }
         });
 
@@ -1257,6 +1264,12 @@ const UnifiedCrystalScene = forwardRef(({
             facetRef.current.position.lerp(finalTarget, lerpSpeed * deltaTime * 60);
           }
         }
+
+        const targetRotation = animationData?.crystalConfig?.explodedRotations?.[facetKey];
+        const targetQuat = animationData?.crystalForm === 'exploded' && targetRotation
+          ? new THREE.Quaternion().fromArray(targetRotation)
+          : neutralQuat;
+        facetRef.current.quaternion.slerp(targetQuat, rotationLerp);
       });
 
       if (isReforming && allFacetsAtCenter && !showWholeCrystal) {
