@@ -2,7 +2,7 @@
 // Creates materials that perform well on mobile while maintaining crystal appearance
 
 import React, { useRef, useEffect } from 'react';
-import { useThree } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import CrystalMaterial from '../materials/CrystalMaterial';
 import * as THREE from 'three';
 
@@ -17,7 +17,8 @@ const MaterialManager = ({
   const optimizedMobileRef = useRef();
   const mediumMaterialRef = useRef();
   const { scene, invalidate } = useThree(); // Get Three.js scene to access environment
-  const lastEnvIdRef = useRef(null);
+  const lastGoodEnvRef = useRef(null);
+  const lastAppliedEnvUuidRef = useRef(null);
   
   // FIXED: Null safety with proper defaults
   const safePerformanceConfig = {
@@ -115,6 +116,12 @@ const MaterialManager = ({
 
   // OPTIMIZED: Create high-performance mobile material using MeshStandardMaterial
   useEffect(() => {
+    if (isLow && optimizedMobileRef.current) {
+      optimizedMobileRef.current.normalMap?.dispose?.();
+      optimizedMobileRef.current.dispose?.();
+      optimizedMobileRef.current = null;
+    }
+
     if (isLow && !optimizedMobileRef.current) {
       if (import.meta.env.DEV) console.log('🚀 Creating OPTIMIZED mobile crystal material with shadow improvements');
       
@@ -228,6 +235,12 @@ const MaterialManager = ({
 
   // MEDIUM: Create MeshPhysicalMaterial with higher reflectivity
   useEffect(() => {
+    if (isMedium && mediumMaterialRef.current) {
+      mediumMaterialRef.current.normalMap?.dispose?.();
+      mediumMaterialRef.current.dispose?.();
+      mediumMaterialRef.current = null;
+    }
+
     if (isMedium && !mediumMaterialRef.current) {
       if (import.meta.env.DEV) console.log('🚀 Creating MEDIUM quality crystal material');
 
@@ -302,25 +315,37 @@ const MaterialManager = ({
     }
   }, [isMedium, materialVariant, config.materials.crystal, onMaterialReady]);
 
-  useEffect(() => {
-    const env = scene?.environment || null;
-    const envId = env?.uuid || env;
-    if (envId === lastEnvIdRef.current) return;
-    lastEnvIdRef.current = envId;
-
-    const materials = [optimizedMobileRef.current, mediumMaterialRef.current].filter(Boolean);
-    materials.forEach((material) => {
-      if (material.envMap) {
-        material.envMap = null;
-      }
+  const applyEnv = (material) => {
+    if (!material) return false;
+    const env = scene?.environment || lastGoodEnvRef.current;
+    if (env && material.envMap !== env) {
+      material.envMap = env;
       material.needsUpdate = true;
-    });
+      return true;
+    }
+    return false;
+  };
 
-    if (materials.length) {
+  useFrame(() => {
+    const env = scene?.environment || null;
+    if (env) {
+      lastGoodEnvRef.current = env;
+    }
+    const envUuid = env?.uuid || null;
+    if (envUuid && envUuid === lastAppliedEnvUuidRef.current) return;
+    lastAppliedEnvUuidRef.current = envUuid;
+
+    const didUpdate = [
+      applyEnv(optimizedMobileRef.current),
+      applyEnv(mediumMaterialRef.current),
+      applyEnv(crystalMaterialRef.current)
+    ].some(Boolean);
+
+    if (didUpdate) {
       requestAnimationFrame(() => invalidate());
       requestAnimationFrame(() => invalidate());
     }
-  }, [scene, invalidate]);
+  });
 
   // Update material when variant changes
   useEffect(() => {
@@ -600,7 +625,7 @@ const MaterialManager = ({
     }
 
     if (onMaterialReady) onMaterialReady(materialRef.current);
-  }, [materialVariant, materialRef, isLow, isMedium, onMaterialReady]);
+  }, [pbrQuality, materialVariant, materialRef, isLow, isMedium, onMaterialReady]);
   
   // Only render PBR material component if PBR is enabled
   if (!usePBR) {
