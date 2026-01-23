@@ -348,6 +348,7 @@ function App() {
       const nextIndex = (currentIndex + 1) % variants.length;
       return variants[nextIndex];
     });
+    setMaterialRefreshKey((prev) => prev + 1);
   }, []);
 
   const handleContactClick = useCallback(() => {
