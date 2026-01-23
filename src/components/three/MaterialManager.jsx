@@ -10,6 +10,7 @@ const MaterialManager = ({
   materialVariant,
   config,
   materialRef,
+  materialRefreshKey = 0,
   performanceProfile = {},
   onMaterialReady = null
 }) => {
@@ -231,7 +232,7 @@ const MaterialManager = ({
       sanitizeLowMaterial(optimizedMaterial, materialVariant);
       if (onMaterialReady) onMaterialReady(optimizedMaterial);
     }
-  }, [isLow, config.materials.crystal.color, config.materials.crystal.emissive, materialVariant, onMaterialReady]);
+  }, [isLow, config.materials.crystal.color, config.materials.crystal.emissive, materialVariant, materialRefreshKey, onMaterialReady]);
 
   // MEDIUM: Create MeshPhysicalMaterial with higher reflectivity
   useEffect(() => {
@@ -313,7 +314,7 @@ const MaterialManager = ({
       sanitizeMediumMaterial(mediumMat, materialVariant);
       if (onMaterialReady) onMaterialReady(mediumMat);
     }
-  }, [isMedium, materialVariant, config.materials.crystal, onMaterialReady]);
+  }, [isMedium, materialVariant, config.materials.crystal, materialRefreshKey, onMaterialReady]);
 
   const applyEnv = (material) => {
     if (!material) return false;
@@ -625,7 +626,7 @@ const MaterialManager = ({
     }
 
     if (onMaterialReady) onMaterialReady(materialRef.current);
-  }, [pbrQuality, materialVariant, materialRef, isLow, isMedium, onMaterialReady]);
+  }, [materialRefreshKey, pbrQuality, materialVariant, materialRef, isLow, isMedium, onMaterialReady]);
   
   // Only render PBR material component if PBR is enabled
   if (!usePBR) {

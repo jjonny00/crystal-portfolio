@@ -28,6 +28,7 @@ const UnifiedCrystalScene = forwardRef(({
   animationData,
   config,
   materialVariant = 'default',
+  materialRefreshKey = 0,
   performanceProfile = { useNormalMaps: true, textureQuality: 'high', pbrQuality: 'high', usePBR: true },
   simplifiedAnimations = false,
   scrollToProgress,
@@ -123,6 +124,11 @@ const UnifiedCrystalScene = forwardRef(({
   const handleMaterialReady = useCallback(() => {
     setMaterialVersion(v => v + 1);
   }, []);
+
+  useEffect(() => {
+    if (materialRefreshKey === 0) return;
+    setMaterialVersion((v) => v + 1);
+  }, [materialRefreshKey]);
 
   const {
     isReady: overlaysReady,
@@ -1311,6 +1317,7 @@ const UnifiedCrystalScene = forwardRef(({
         config={config}
         materialRef={crystalMaterialRef}
         performanceProfile={performanceProfile}
+        materialRefreshKey={materialRefreshKey}
         onMaterialReady={handleMaterialReady}
       />
 

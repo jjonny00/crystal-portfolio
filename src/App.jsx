@@ -245,6 +245,7 @@ function App() {
   });
   const [animationConfig, setAnimationConfig] = useState(buildAnimationConfig(defaultConfig));
   const [materialVariant, setMaterialVariant] = useState('default');
+  const [materialRefreshKey, setMaterialRefreshKey] = useState(0);
   const [showUI, setShowUI] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
   const [effectsEnabled, setEffectsEnabled] = useState({
@@ -356,11 +357,13 @@ function App() {
   const handleConfigUpdate = useCallback((newConfig) => {
     setConfig(newConfig);
     setAnimationConfig(buildAnimationConfig(newConfig));
+    setMaterialRefreshKey((prev) => prev + 1);
   }, []);
 
   const handleMaterialChange = useCallback((variant) => {
     if (import.meta.env.DEV) console.log("Changing material variant to:", variant);
     setMaterialVariant(variant);
+    setMaterialRefreshKey((prev) => prev + 1);
   }, []);
   
   const handleToggleEffect = useCallback((effect, enabled, params = null) => {
@@ -383,6 +386,7 @@ function App() {
   // UPDATED: Performance config handler with V2 profile management
   const handlePerformanceConfigUpdate = useCallback((newConfig) => {
     if (import.meta.env.DEV) console.log("🔧 Performance config update:", newConfig);
+    setMaterialRefreshKey((prev) => prev + 1);
 
     // Update performance profile through the V2 manager
     if (newConfig.pbrQuality && newConfig.pbrQuality !== performanceProfile.pbrQuality) {
@@ -590,6 +594,7 @@ function App() {
           key={performanceProfile?.renderScale}
           ref={fixedCanvasRef}
           materialVariant={materialVariant}
+          materialRefreshKey={materialRefreshKey}
           effectsEnabled={effectsEnabled}
           postProcessingConfig={postProcessingConfig}
           performanceProfile={performanceProfile}
