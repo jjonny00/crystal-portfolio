@@ -289,7 +289,6 @@ const Fixed3DCanvas = forwardRef(({
         pointerEvents: 'none', // Don't block scrolling
       }}>
         <Canvas
-          key={Array.isArray(canvasProps.dpr) ? canvasProps.dpr.join('-') : canvasProps.dpr}
           camera={{
             position: config?.camera?.startingPosition || [0, 0, 4.5],
             fov: config?.camera?.fov || 45

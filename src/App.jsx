@@ -592,7 +592,6 @@ function App() {
       >
         {/* Fixed 3D Canvas */}
         <Fixed3DCanvas
-          key={performanceProfile?.renderScale}
           ref={fixedCanvasRef}
           materialVariant={materialVariant}
           materialRefreshKey={materialRefreshKey}

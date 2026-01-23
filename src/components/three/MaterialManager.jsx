@@ -421,10 +421,8 @@ const MaterialManager = ({
       // UPDATED: Ensure shadow settings are maintained
       material.shadowSide = THREE.DoubleSide;
       sanitizeLowMaterial(material);
-      requestAnimationFrame(() => invalidate());
-      requestAnimationFrame(() => invalidate());
     }
-  }, [materialVariant, isLow, config.materials.crystal, invalidate]);
+  }, [materialVariant, isLow, config.materials.crystal]);
 
   // Update medium material when variant changes
   useEffect(() => {
@@ -473,10 +471,8 @@ const MaterialManager = ({
       
       material.shadowSide = THREE.DoubleSide;
       sanitizeMediumMaterial(material);
-      requestAnimationFrame(() => invalidate());
-      requestAnimationFrame(() => invalidate());
     }
-  }, [materialVariant, isMedium, config.materials.crystal, invalidate]);
+  }, [materialVariant, isMedium, config.materials.crystal]);
 
   useEffect(() => {
     if (!isLow || !optimizedMobileRef.current) return;
