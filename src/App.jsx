@@ -245,7 +245,6 @@ function App() {
   });
   const [animationConfig, setAnimationConfig] = useState(buildAnimationConfig(defaultConfig));
   const [materialVariant, setMaterialVariant] = useState('default');
-  const [sceneRemountKey, setSceneRemountKey] = useState(0);
   const [showUI, setShowUI] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
   const [effectsEnabled, setEffectsEnabled] = useState({
@@ -255,7 +254,6 @@ function App() {
     vignette: true
   });
   const [postProcessingConfig, setPostProcessingConfig] = useState(config.postProcessing);
-  const sceneRemountTimeoutRef = useRef(null);
 
   // Simulate application initialization progress for loader
   useEffect(() => {
@@ -358,21 +356,6 @@ function App() {
   const handleConfigUpdate = useCallback((newConfig) => {
     setConfig(newConfig);
     setAnimationConfig(buildAnimationConfig(newConfig));
-    if (sceneRemountTimeoutRef.current) {
-      window.clearTimeout(sceneRemountTimeoutRef.current);
-    }
-    sceneRemountTimeoutRef.current = window.setTimeout(() => {
-      setSceneRemountKey((prev) => prev + 1);
-      sceneRemountTimeoutRef.current = null;
-    }, 200);
-  }, []);
-
-  const handleSceneRemountRequest = useCallback(() => {
-    if (sceneRemountTimeoutRef.current) {
-      window.clearTimeout(sceneRemountTimeoutRef.current);
-      sceneRemountTimeoutRef.current = null;
-    }
-    setSceneRemountKey((prev) => prev + 1);
   }, []);
 
   const handleMaterialChange = useCallback((variant) => {
@@ -454,12 +437,6 @@ function App() {
   useEffect(() => {
     document.body.style.overflow = isAppReady ? 'auto' : 'hidden';
   }, [isAppReady]);
-
-  useEffect(() => () => {
-    if (sceneRemountTimeoutRef.current) {
-      window.clearTimeout(sceneRemountTimeoutRef.current);
-    }
-  }, []);
 
   // UI Hide Toggle Keyboard Listener
   useEffect(() => {
@@ -610,7 +587,7 @@ function App() {
       >
         {/* Fixed 3D Canvas */}
         <Fixed3DCanvas
-          key={`${performanceProfile?.renderScale ?? 'rs'}-${sceneRemountKey}`}
+          key={performanceProfile?.renderScale}
           ref={fixedCanvasRef}
           materialVariant={materialVariant}
           effectsEnabled={effectsEnabled}
@@ -654,7 +631,6 @@ function App() {
           <CrystalControls
             config={config}
             onUpdate={handleConfigUpdate}
-            onSceneRemountRequest={handleSceneRemountRequest}
           />
           
           <div>

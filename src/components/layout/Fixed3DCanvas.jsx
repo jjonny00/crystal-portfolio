@@ -386,7 +386,6 @@ const Fixed3DCanvas = forwardRef(({
             animationData={animationData}
             config={config}
             materialVariant={materialVariant}
-            materialRefreshKey={materialRefreshKey}
             performanceProfile={performanceProfile}
             isMobile={isMobile}
             simplifiedAnimations={simplifiedAnimations}

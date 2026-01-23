@@ -2,7 +2,7 @@
 // Creates materials that perform well on mobile while maintaining crystal appearance
 
 import React, { useRef, useEffect } from 'react';
-import { useThree } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import CrystalMaterial from '../materials/CrystalMaterial';
 import * as THREE from 'three';
 
@@ -222,84 +222,22 @@ const MaterialManager = ({
     }
   }, [isMedium, materialVariant, config.materials.crystal, onMaterialReady]);
 
-  // CRITICAL: Set environment map for reflections
-  useEffect(() => {
-    if (isLow && optimizedMobileRef.current && scene) {
-      // Check if scene has environment
-      if (scene.environment) {
-        if (import.meta.env.DEV) console.log('🌍 Setting environment map for mobile material');
-        optimizedMobileRef.current.envMap = scene.environment;
-        optimizedMobileRef.current.needsUpdate = true;
-        
-        // DEBUG: Log material properties to verify settings
-        if (import.meta.env.DEV) console.log('🔍 Mobile material debug:', {
-          hasEnvMap: !!optimizedMobileRef.current.envMap,
-          metalness: optimizedMobileRef.current.metalness,
-          roughness: optimizedMobileRef.current.roughness,
-          envMapIntensity: optimizedMobileRef.current.envMapIntensity,
-          color: optimizedMobileRef.current.color.getHexString(),
-          emissiveIntensity: optimizedMobileRef.current.emissiveIntensity,
-          shadowSide: optimizedMobileRef.current.shadowSide
-        });
-      } else {
-        if (import.meta.env.DEV) console.log('⏳ Waiting for environment to load...');
-        // Wait for environment to load
-        const checkEnvironment = () => {
-          if (scene.environment && optimizedMobileRef.current) {
-            if (import.meta.env.DEV) console.log('🌍 Environment loaded - applying to mobile material');
-            optimizedMobileRef.current.envMap = scene.environment;
-            optimizedMobileRef.current.needsUpdate = true;
-            
-            // DEBUG: Log material properties
-            if (import.meta.env.DEV) console.log('🔍 Mobile material debug (delayed):', {
-              hasEnvMap: !!optimizedMobileRef.current.envMap,
-              metalness: optimizedMobileRef.current.metalness,
-              roughness: optimizedMobileRef.current.roughness,
-              envMapIntensity: optimizedMobileRef.current.envMapIntensity
-            });
-          }
-        };
-        
-        // Check periodically for environment
-        const intervalId = setInterval(() => {
-          if (scene.environment) {
-            checkEnvironment();
-            clearInterval(intervalId);
-          }
-        }, 100);
-        
-        // Clean up after 5 seconds
-        setTimeout(() => {
-          clearInterval(intervalId);
-        }, 5000);
-      }
-    }
-  }, [isLow, optimizedMobileRef.current, scene]);
+  useFrame(() => {
+    if (!scene?.environment) return;
+    const envMap = scene.environment;
+    const materials = [
+      crystalMaterialRef.current,
+      optimizedMobileRef.current,
+      mediumMaterialRef.current
+    ].filter(Boolean);
 
-  // Apply environment map for medium material
-  useEffect(() => {
-    if (isMedium && mediumMaterialRef.current && scene) {
-      if (scene.environment) {
-        if (import.meta.env.DEV) console.log('🌍 Setting environment map for medium material');
-        mediumMaterialRef.current.envMap = scene.environment;
-        mediumMaterialRef.current.needsUpdate = true;
-      } else {
-        const checkEnv = () => {
-          if (scene.environment && mediumMaterialRef.current) {
-            mediumMaterialRef.current.envMap = scene.environment;
-            mediumMaterialRef.current.needsUpdate = true;
-          }
-        };
-        const intervalId = setInterval(() => {
-          if (scene.environment) {
-            checkEnv();
-            clearInterval(intervalId);
-          }
-        }, 100);
-        setTimeout(() => clearInterval(intervalId), 5000);
+    materials.forEach((material) => {
+      if (material.envMap !== envMap) {
+        material.envMap = envMap;
+        material.needsUpdate = true;
       }
-    }
-  }, [isMedium, mediumMaterialRef.current, scene]);
+    });
+  });
 
   // Update material when variant changes
   useEffect(() => {

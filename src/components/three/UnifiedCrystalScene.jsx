@@ -2,7 +2,7 @@
 // Fixed facet color conflicts between hover and scroll focus
 
 import React, { useRef, useState, useEffect, useCallback, forwardRef, useImperativeHandle, useMemo } from 'react'
-import { useFrame, useThree } from '@react-three/fiber'
+import { useFrame } from '@react-three/fiber'
 import { useGLTF, Html } from '@react-three/drei'
 import * as THREE from 'three'
 import FractureBurstParticles from './FractureBurstParticles'
@@ -39,6 +39,7 @@ const UnifiedCrystalScene = forwardRef(({
   const facetRefs = useRef([]);
   const facetsGroupRef = useRef();
   const crystalMaterialRef = useRef();
+  const lastEnvMapRef = useRef(null);
 
   // Sphere state
   const [sphereVisible, setSphereVisible] = useState(false);
@@ -64,7 +65,6 @@ const UnifiedCrystalScene = forwardRef(({
 
   // Track material updates so we can reapply when ready
   const [materialVersion, setMaterialVersion] = useState(0);
-  const { invalidate } = useThree();
 
   // FIXED: Better tracking of focus changes
   const prevFocusedFacetRef = useRef(null);
@@ -125,17 +125,18 @@ const UnifiedCrystalScene = forwardRef(({
     setMaterialVersion(v => v + 1);
   }, []);
 
-  useEffect(() => {
-    const material = crystalMaterialRef.current;
-    if (!material || !invalidate) return;
-    const needsEnvNudge =
-      material.isMeshPhysicalMaterial &&
-      material.transmission > 0.7 &&
-      !material.envMap;
-    if (needsEnvNudge) {
-      requestAnimationFrame(() => invalidate());
-    }
-  }, [materialVersion, invalidate]);
+  useFrame(() => {
+    const baseMaterial = crystalMaterialRef.current;
+    const envMap = baseMaterial?.envMap;
+    if (!envMap || envMap === lastEnvMapRef.current) return;
+    lastEnvMapRef.current = envMap;
+    facetMaterialsRef.current.forEach((mat) => {
+      if (mat && mat.envMap !== envMap) {
+        mat.envMap = envMap;
+        mat.needsUpdate = true;
+      }
+    });
+  });
 
   const {
     isReady: overlaysReady,
