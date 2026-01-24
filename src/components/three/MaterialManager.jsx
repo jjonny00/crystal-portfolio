@@ -17,6 +17,7 @@ const MaterialManager = ({
   const optimizedMobileRef = useRef();
   const mediumMaterialRef = useRef();
   const { scene } = useThree(); // Get Three.js scene to access environment
+  const envUuid = scene?.environment?.uuid ?? null;
   
   // FIXED: Null safety with proper defaults
   const safePerformanceConfig = {
@@ -222,84 +223,50 @@ const MaterialManager = ({
     }
   }, [isMedium, materialVariant, config.materials.crystal, onMaterialReady]);
 
-  // CRITICAL: Set environment map for reflections
+  // CRITICAL: Rebind environment map for reflections whenever the env changes.
   useEffect(() => {
-    if (isLow && optimizedMobileRef.current && scene) {
-      // Check if scene has environment
-      if (scene.environment) {
-        if (import.meta.env.DEV) console.log('🌍 Setting environment map for mobile material');
-        optimizedMobileRef.current.envMap = scene.environment;
-        optimizedMobileRef.current.needsUpdate = true;
-        
-        // DEBUG: Log material properties to verify settings
-        if (import.meta.env.DEV) console.log('🔍 Mobile material debug:', {
-          hasEnvMap: !!optimizedMobileRef.current.envMap,
-          metalness: optimizedMobileRef.current.metalness,
-          roughness: optimizedMobileRef.current.roughness,
-          envMapIntensity: optimizedMobileRef.current.envMapIntensity,
-          color: optimizedMobileRef.current.color.getHexString(),
-          emissiveIntensity: optimizedMobileRef.current.emissiveIntensity,
-          shadowSide: optimizedMobileRef.current.shadowSide
-        });
-      } else {
-        if (import.meta.env.DEV) console.log('⏳ Waiting for environment to load...');
-        // Wait for environment to load
-        const checkEnvironment = () => {
-          if (scene.environment && optimizedMobileRef.current) {
-            if (import.meta.env.DEV) console.log('🌍 Environment loaded - applying to mobile material');
-            optimizedMobileRef.current.envMap = scene.environment;
-            optimizedMobileRef.current.needsUpdate = true;
-            
-            // DEBUG: Log material properties
-            if (import.meta.env.DEV) console.log('🔍 Mobile material debug (delayed):', {
-              hasEnvMap: !!optimizedMobileRef.current.envMap,
-              metalness: optimizedMobileRef.current.metalness,
-              roughness: optimizedMobileRef.current.roughness,
-              envMapIntensity: optimizedMobileRef.current.envMapIntensity
-            });
-          }
-        };
-        
-        // Check periodically for environment
-        const intervalId = setInterval(() => {
-          if (scene.environment) {
-            checkEnvironment();
-            clearInterval(intervalId);
-          }
-        }, 100);
-        
-        // Clean up after 5 seconds
-        setTimeout(() => {
-          clearInterval(intervalId);
-        }, 5000);
-      }
-    }
-  }, [isLow, optimizedMobileRef.current, scene]);
+    if (!scene) return;
 
-  // Apply environment map for medium material
-  useEffect(() => {
-    if (isMedium && mediumMaterialRef.current && scene) {
-      if (scene.environment) {
-        if (import.meta.env.DEV) console.log('🌍 Setting environment map for medium material');
-        mediumMaterialRef.current.envMap = scene.environment;
-        mediumMaterialRef.current.needsUpdate = true;
-      } else {
-        const checkEnv = () => {
-          if (scene.environment && mediumMaterialRef.current) {
-            mediumMaterialRef.current.envMap = scene.environment;
-            mediumMaterialRef.current.needsUpdate = true;
-          }
-        };
-        const intervalId = setInterval(() => {
-          if (scene.environment) {
-            checkEnv();
-            clearInterval(intervalId);
-          }
-        }, 100);
-        setTimeout(() => clearInterval(intervalId), 5000);
+    const envTexture = scene.environment || null;
+
+    if (optimizedMobileRef.current) {
+      if (envTexture) {
+        if (import.meta.env.DEV) console.log('🌍 Updating environment map for mobile material');
+        optimizedMobileRef.current.envMap = envTexture;
+        optimizedMobileRef.current.needsUpdate = true;
+      } else if (import.meta.env.DEV) {
+        console.log('⏳ Environment not ready for mobile material; keeping last envMap.');
       }
     }
-  }, [isMedium, mediumMaterialRef.current, scene]);
+
+    if (mediumMaterialRef.current) {
+      if (envTexture) {
+        if (import.meta.env.DEV) console.log('🌍 Updating environment map for medium material');
+        mediumMaterialRef.current.envMap = envTexture;
+        mediumMaterialRef.current.needsUpdate = true;
+      } else if (import.meta.env.DEV) {
+        console.log('⏳ Environment not ready for medium material; keeping last envMap.');
+      }
+    }
+  }, [envUuid, scene]);
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+
+    window.__dumpCrystalState = () => {
+      console.group('🔍 Crystal State Snapshot');
+      console.log('pbrQuality:', pbrQuality);
+      console.log('scene.environment.uuid:', envUuid);
+      console.log('low envMap uuid:', optimizedMobileRef.current?.envMap?.uuid ?? null);
+      console.log('medium envMap uuid:', mediumMaterialRef.current?.envMap?.uuid ?? null);
+      console.log('high envMap uuid:', crystalMaterialRef.current?.envMap?.uuid ?? null);
+      console.groupEnd();
+    };
+
+    return () => {
+      delete window.__dumpCrystalState;
+    };
+  }, [envUuid, pbrQuality]);
 
   // Update material when variant changes
   useEffect(() => {

@@ -2,7 +2,7 @@
 // Fixed facet color conflicts between hover and scroll focus
 
 import React, { useRef, useState, useEffect, useCallback, forwardRef, useImperativeHandle, useMemo } from 'react'
-import { useFrame } from '@react-three/fiber'
+import { useFrame, useThree } from '@react-three/fiber'
 import { useGLTF, Html } from '@react-three/drei'
 import * as THREE from 'three'
 import FractureBurstParticles from './FractureBurstParticles'
@@ -39,6 +39,8 @@ const UnifiedCrystalScene = forwardRef(({
   const facetRefs = useRef([]);
   const facetsGroupRef = useRef();
   const crystalMaterialRef = useRef();
+  const { scene } = useThree();
+  const envUuid = scene?.environment?.uuid ?? null;
 
   // Sphere state
   const [sphereVisible, setSphereVisible] = useState(false);
@@ -70,6 +72,7 @@ const UnifiedCrystalScene = forwardRef(({
   const prevMaterialVersionRef = useRef(materialVersion);
   const prevOverlaysReadyRef = useRef(false);
   const focusUpdateTimeoutRef = useRef();
+  const prevEnvUuidRef = useRef(null);
 
   // Facet configuration
   const facetKeys = canonicalFacetKeys;
@@ -123,6 +126,24 @@ const UnifiedCrystalScene = forwardRef(({
   const handleMaterialReady = useCallback(() => {
     setMaterialVersion(v => v + 1);
   }, []);
+
+  useEffect(() => {
+    if (!envUuid || envUuid === prevEnvUuidRef.current) {
+      prevEnvUuidRef.current = envUuid;
+      return;
+    }
+
+    if (import.meta.env.DEV) {
+      console.log('🌍 Environment changed; rebuilding facet materials to sync envMap.', {
+        previous: prevEnvUuidRef.current,
+        next: envUuid
+      });
+    }
+
+    // Rebuild facet clones so they inherit the current envMap.
+    setMaterialVersion((v) => v + 1);
+    prevEnvUuidRef.current = envUuid;
+  }, [envUuid]);
 
   const {
     isReady: overlaysReady,
