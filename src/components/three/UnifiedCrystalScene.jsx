@@ -2,7 +2,7 @@
 // Fixed facet color conflicts between hover and scroll focus
 
 import React, { useRef, useState, useEffect, useCallback, forwardRef, useImperativeHandle, useMemo } from 'react'
-import { useFrame } from '@react-three/fiber'
+import { useFrame, useThree } from '@react-three/fiber'
 import { useGLTF, Html } from '@react-three/drei'
 import * as THREE from 'three'
 import FractureBurstParticles from './FractureBurstParticles'
@@ -39,6 +39,7 @@ const UnifiedCrystalScene = forwardRef(({
   const facetRefs = useRef([]);
   const facetsGroupRef = useRef();
   const crystalMaterialRef = useRef();
+  const { gl, scene } = useThree();
 
   // Sphere state
   const [sphereVisible, setSphereVisible] = useState(false);
@@ -87,6 +88,137 @@ const UnifiedCrystalScene = forwardRef(({
     () => facetKeys.map((key) => getProjectModelKeyByFacetKey(key)),
     [facetKeys]
   );
+
+  const runCrystalProbe = useCallback(() => {
+    if (!import.meta.env.DEV) return;
+
+    const findFirstMesh = (root) => {
+      if (!root) return null;
+      if (root.isMesh) return root;
+      let found = null;
+      root.traverse((child) => {
+        if (!found && child.isMesh) {
+          found = child;
+        }
+      });
+      return found;
+    };
+
+    let targetMesh = findFirstMesh(wholeCrystalRef.current);
+    if (!targetMesh) {
+      const candidate = facetRefs.current?.[0]?.current;
+      if (candidate?.isMesh) {
+        targetMesh = candidate;
+      }
+    }
+    if (!targetMesh) {
+      targetMesh = findFirstMesh(facetsGroupRef.current);
+    }
+
+    const env = scene?.environment ?? null;
+    const envSummary = env
+      ? {
+          uuid: env.uuid,
+          type: env.type,
+          mapping: env.mapping ?? null
+        }
+      : null;
+
+    const programs = gl?.info?.programs;
+    const programsLength = Array.isArray(programs)
+      ? programs.length
+      : typeof programs === 'number'
+        ? programs
+        : programs?.length ?? null;
+
+    console.group('🧪 Crystal Probe');
+    console.log('scene.environment', envSummary);
+    console.log('renderer', {
+      toneMapping: gl?.toneMapping,
+      toneMappingExposure: gl?.toneMappingExposure,
+      outputColorSpace: gl?.outputColorSpace,
+      renderInfo: gl?.info?.render ?? null,
+      programsLength
+    });
+
+    if (targetMesh) {
+      console.log('mesh', {
+        name: targetMesh.name || '(unnamed)',
+        uuid: targetMesh.uuid,
+        visible: targetMesh.visible,
+        layersMask: targetMesh.layers?.mask ?? null
+      });
+
+      const materials = Array.isArray(targetMesh.material)
+        ? targetMesh.material
+        : targetMesh.material
+          ? [targetMesh.material]
+          : [];
+
+      materials.forEach((material, index) => {
+        const envMap = material?.envMap ?? null;
+        console.log(`material[${index}]`, {
+          type: material?.type ?? null,
+          uuid: material?.uuid ?? null,
+          name: material?.name ?? null,
+          transparent: material?.transparent ?? null,
+          opacity: material?.opacity ?? null,
+          depthWrite: material?.depthWrite ?? null,
+          depthTest: material?.depthTest ?? null,
+          side: material?.side ?? null,
+          metalness: material?.metalness ?? null,
+          roughness: material?.roughness ?? null,
+          transmission: material?.transmission ?? null,
+          thickness: material?.thickness ?? null,
+          ior: material?.ior ?? null,
+          envMapIntensity: material?.envMapIntensity ?? null,
+          envMap: envMap
+            ? {
+                uuid: envMap.uuid,
+                type: envMap.type,
+                mapping: envMap.mapping ?? null
+              }
+            : null,
+          colorHex: material?.color ? `#${material.color.getHexString()}` : null,
+          emissiveHex: material?.emissive ? `#${material.emissive.getHexString()}` : null,
+          emissiveIntensity: material?.emissiveIntensity ?? null
+        });
+      });
+    } else {
+      console.warn('No mesh found for probe.');
+    }
+
+    console.groupEnd();
+  }, [gl, scene]);
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) return undefined;
+
+    const handleKeyDown = (e) => {
+      const isInputField = e.target.tagName === 'INPUT' ||
+        e.target.tagName === 'TEXTAREA' ||
+        e.target.isContentEditable;
+
+      if (isInputField) return;
+
+      if (e.key === 'p' || e.key === 'P') {
+        if (!e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey) {
+          e.preventDefault();
+          runCrystalProbe();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.__CRYSTAL_PROBE__ = runCrystalProbe;
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      if (window.__CRYSTAL_PROBE__ === runCrystalProbe) {
+        delete window.__CRYSTAL_PROBE__;
+      }
+    };
+  }, [runCrystalProbe]);
 
   // Precompute random floating parameters for facets
   const floatParamsRef = useRef(
