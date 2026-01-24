@@ -2,7 +2,7 @@
 // Fixed facet color conflicts between hover and scroll focus
 
 import React, { useRef, useState, useEffect, useCallback, forwardRef, useImperativeHandle, useMemo } from 'react'
-import { useFrame } from '@react-three/fiber'
+import { useFrame, useThree } from '@react-three/fiber'
 import { useGLTF, Html } from '@react-three/drei'
 import * as THREE from 'three'
 import FractureBurstParticles from './FractureBurstParticles'
@@ -39,6 +39,7 @@ const UnifiedCrystalScene = forwardRef(({
   const facetRefs = useRef([]);
   const facetsGroupRef = useRef();
   const crystalMaterialRef = useRef();
+  const { scene } = useThree();
 
   // Sphere state
   const [sphereVisible, setSphereVisible] = useState(false);
@@ -64,6 +65,7 @@ const UnifiedCrystalScene = forwardRef(({
 
   // Track material updates so we can reapply when ready
   const [materialVersion, setMaterialVersion] = useState(0);
+  const lastEnvironmentUuidRef = useRef(null);
 
   // FIXED: Better tracking of focus changes
   const prevFocusedFacetRef = useRef(null);
@@ -123,6 +125,69 @@ const UnifiedCrystalScene = forwardRef(({
   const handleMaterialReady = useCallback(() => {
     setMaterialVersion(v => v + 1);
   }, []);
+
+  const applyEnvironmentToMaterial = useCallback((material, environment) => {
+    if (!material) return;
+    material.envMap = environment || null;
+    material.needsUpdate = true;
+  }, []);
+
+  const syncEnvironmentToMaterials = useCallback(
+    (environment) => {
+      if (!environment && environment !== null) return;
+      applyEnvironmentToMaterial(crystalMaterialRef.current, environment);
+      facetMaterialsRef.current.forEach((mat) =>
+        applyEnvironmentToMaterial(mat, environment)
+      );
+    },
+    [applyEnvironmentToMaterial]
+  );
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+
+    const snapshotMaterial = (material) => {
+      if (!material) return null;
+      return {
+        type: material.type,
+        uuid: material.uuid,
+        envMap: material.envMap?.uuid ?? null,
+        envMapIntensity: material.envMapIntensity,
+        roughness: material.roughness,
+        metalness: material.metalness,
+        transmission: material.transmission,
+        opacity: material.opacity,
+        transparent: material.transparent,
+        depthWrite: material.depthWrite
+      };
+    };
+
+    window.__dumpCrystalState = () => {
+      const environment = scene?.environment || null;
+      const facetSamples = facetMaterialsRef.current.slice(0, 3);
+
+      console.group('💎 Crystal State Dump');
+      console.log('Scene environment:', {
+        uuid: environment?.uuid ?? null,
+        type: environment?.type ?? null,
+        mapping: environment?.mapping ?? null
+      });
+      console.log('Base material:', snapshotMaterial(crystalMaterialRef.current));
+      console.log(
+        'Facet materials:',
+        facetSamples.map((mat, index) => ({
+          index,
+          facetKey: facetKeys[index],
+          material: snapshotMaterial(mat)
+        }))
+      );
+      console.groupEnd();
+    };
+
+    return () => {
+      delete window.__dumpCrystalState;
+    };
+  }, [scene, facetKeys]);
 
   const {
     isReady: overlaysReady,
@@ -751,6 +816,13 @@ const UnifiedCrystalScene = forwardRef(({
   ]);
 
   useEffect(() => {
+    if (!scene) return;
+    if (scene.environment !== undefined) {
+      syncEnvironmentToMaterials(scene.environment ?? null);
+    }
+  }, [materialVersion, scene, syncEnvironmentToMaterials]);
+
+  useEffect(() => {
     if (!overlaysReady || !modelsLoaded || !showFacets) return;
 
     const allFacetsReady =
@@ -1064,6 +1136,18 @@ const UnifiedCrystalScene = forwardRef(({
 
   // Main animation loop
   useFrame((state, deltaTime) => {
+    const currentEnvUuid = scene?.environment?.uuid ?? null;
+    if (currentEnvUuid !== lastEnvironmentUuidRef.current) {
+      if (import.meta.env.DEV) {
+        console.log('🌍 Environment change detected:', {
+          previous: lastEnvironmentUuidRef.current,
+          current: currentEnvUuid
+        });
+      }
+      lastEnvironmentUuidRef.current = currentEnvUuid;
+      syncEnvironmentToMaterials(scene?.environment ?? null);
+    }
+
     if (!animationData || !facetRefs.current.length || simplifiedAnimations) return;
 
     // Fade emissive glow timed with explosion
