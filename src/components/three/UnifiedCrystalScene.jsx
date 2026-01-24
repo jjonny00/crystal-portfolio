@@ -201,8 +201,9 @@ const UnifiedCrystalScene = forwardRef(({
 
       if (isInputField) return;
 
+      // Crystal Probe hotkey: Alt + Shift + P (avoid existing P performance toggle)
       if (e.key === 'p' || e.key === 'P') {
-        if (!e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey) {
+        if (!e.ctrlKey && e.altKey && !e.metaKey && e.shiftKey) {
           e.preventDefault();
           runCrystalProbe();
         }
