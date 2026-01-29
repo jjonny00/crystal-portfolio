@@ -1,7 +1,7 @@
 // MaterialManager.jsx - UPDATED: Shadow improvements for mobile crystal material
 // Creates materials that perform well on mobile while maintaining crystal appearance
 
-import React, { useRef, useEffect } from 'react';
+import React, { useMemo, useRef, useEffect } from 'react';
 import { useThree } from '@react-three/fiber';
 import CrystalMaterial from '../materials/CrystalMaterial';
 import * as THREE from 'three';
@@ -32,6 +32,17 @@ const MaterialManager = ({
   const isLow = pbrQuality === 'low';
   const isMedium = pbrQuality === 'medium';
   const usePBR = pbrQuality === 'high';
+
+  const materialKey = useMemo(() => {
+    const transparency = config.materials.crystal.transparent ? 'transparent' : 'opaque';
+    const transmissionMode = config.materials.crystal.transmission > 0 ? 'transmissive' : 'solid';
+    return [materialVariant, pbrQuality, transparency, transmissionMode].join('-');
+  }, [
+    materialVariant,
+    pbrQuality,
+    config.materials.crystal.transparent,
+    config.materials.crystal.transmission
+  ]);
   
   if (import.meta.env.DEV) console.log('🎨 MaterialManager: PBR enabled?', usePBR, 'PBR quality:', pbrQuality, 'Performance config:', safePerformanceConfig);
 
@@ -480,6 +491,7 @@ const MaterialManager = ({
 
   return (
     <CrystalMaterial 
+      key={materialKey}
       config={config} 
       materialRef={crystalMaterialRef} 
       variant={materialVariant === 'default' ||

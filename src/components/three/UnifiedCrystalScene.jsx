@@ -669,6 +669,9 @@ const UnifiedCrystalScene = forwardRef(({
     
     facetMaterialsRef.current = facetKeys.map((key, idx) => {
       const mat = crystalMaterialRef.current.clone();
+      mat.envMap = crystalMaterialRef.current.envMap;
+      mat.envMapIntensity = crystalMaterialRef.current.envMapIntensity;
+      mat.needsUpdate = true;
 
       // FIXED: Determine initial color based on current state
       let initialColor = defaultColorRef.current;
