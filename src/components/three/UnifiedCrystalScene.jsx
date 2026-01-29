@@ -64,6 +64,7 @@ const UnifiedCrystalScene = forwardRef(({
 
   // Track material updates so we can reapply when ready
   const [materialVersion, setMaterialVersion] = useState(0);
+  const frameCountRef = useRef(0);
 
   // FIXED: Better tracking of focus changes
   const prevFocusedFacetRef = useRef(null);
@@ -120,9 +121,17 @@ const UnifiedCrystalScene = forwardRef(({
   // Store precomputed anchor offsets for label placement
   const [anchorOffsets, setAnchorOffsets] = useState({});
 
-  const handleMaterialReady = useCallback(() => {
-    setMaterialVersion(v => v + 1);
-  }, []);
+  const handleMaterialReady = useCallback((material, version) => {
+    if (version !== undefined && version !== materialVersion) {
+      setMaterialVersion(version);
+      console.log('📦 Material version updated:', version);
+      return;
+    }
+
+    if (material) {
+      setMaterialVersion((current) => current + 1);
+    }
+  }, [materialVersion]);
 
   const {
     isReady: overlaysReady,
@@ -687,6 +696,7 @@ const UnifiedCrystalScene = forwardRef(({
       mat.color.copy(initialColor);
       mat.userData = {
         ...(mat.userData || {}),
+        isFacetMaterial: true,
         isFading: mat.userData?.isFading || false,
         targetColor: mat.color.clone(),
         startColor: mat.color.clone(),
@@ -752,6 +762,60 @@ const UnifiedCrystalScene = forwardRef(({
     animationData?.crystalConfig?.explodeDuration,
     config?.effects?.fracture?.initialGlow
   ]);
+
+  useEffect(() => {
+    if (!crystalMaterialRef.current || !wholeCrystal?.scene) return;
+
+    console.log('🔄 Forcing material reapplication, version:', materialVersion);
+
+    wholeCrystal.scene.traverse((child) => {
+      if (!child.isMesh) return;
+
+      if (import.meta.env.DEV) {
+        console.log('  → Updating mesh:', child.name, 'material:', child.material?.uuid);
+      }
+
+      if (child.material) {
+        child.material = crystalMaterialRef.current;
+        child.material.needsUpdate = true;
+      }
+    });
+
+    const hoveredKey = hoveredFacetRef.current;
+    const focusedKey = animationData?.focusedFacet;
+
+    facetMaterialsRef.current = facetKeys.map((key, idx) => {
+      const mat = crystalMaterialRef.current.clone();
+      mat.envMap = crystalMaterialRef.current.envMap;
+      mat.envMapIntensity = crystalMaterialRef.current.envMapIntensity;
+      mat.needsUpdate = true;
+
+      let initialColor = defaultColorRef.current;
+      if (hoveredKey === key) {
+        initialColor = projectColors[idx];
+      } else if (focusedKey === key && !hoveredKey) {
+        initialColor = projectColors[idx];
+      }
+
+      mat.color.copy(initialColor);
+      mat.userData = {
+        ...(mat.userData || {}),
+        isFacetMaterial: true,
+        isFading: mat.userData?.isFading || false,
+        targetColor: mat.color.clone(),
+        startColor: mat.color.clone(),
+        progress: 1,
+        baseEmissiveIntensity:
+          mat.userData?.baseEmissiveIntensity ?? mat.emissiveIntensity,
+        baseEmissiveColor:
+          mat.userData?.baseEmissiveColor?.clone?.() || mat.emissive.clone()
+      };
+
+      return mat;
+    });
+
+    console.log('✅ Material reapplication complete');
+  }, [materialVersion, wholeCrystal?.scene, facetKeys, projectColors, animationData?.focusedFacet]);
 
   useEffect(() => {
     if (!overlaysReady || !modelsLoaded || !showFacets) return;
@@ -1298,6 +1362,42 @@ const UnifiedCrystalScene = forwardRef(({
     if (overlaysReady) {
       updateOverlays(deltaTime);
     }
+  });
+
+  useFrame(() => {
+    if (!wholeCrystal?.scene) {
+      frameCountRef.current += 1;
+      return;
+    }
+
+    if (frameCountRef.current % 60 === 0) {
+      let hasBlackMaterial = false;
+
+      wholeCrystal.scene.traverse((child) => {
+        if (child.isMesh && child.material) {
+          const mat = child.material;
+
+          if (!mat.envMap && mat.envMapIntensity > 0) {
+            console.warn('⚠️ Mesh has no envMap but envMapIntensity > 0:', child.name);
+            hasBlackMaterial = true;
+          }
+
+          if (
+            mat.uuid !== crystalMaterialRef.current?.uuid &&
+            !mat.userData?.isFacetMaterial
+          ) {
+            console.warn('⚠️ Mesh using old material reference:', child.name);
+            hasBlackMaterial = true;
+          }
+        }
+      });
+
+      if (!hasBlackMaterial && import.meta.env.DEV) {
+        console.log('✅ All materials healthy at frame', frameCountRef.current);
+      }
+    }
+
+    frameCountRef.current += 1;
   });
 
   useEffect(() => {

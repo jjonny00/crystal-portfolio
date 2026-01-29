@@ -1,7 +1,7 @@
 // MaterialManager.jsx - UPDATED: Shadow improvements for mobile crystal material
 // Creates materials that perform well on mobile while maintaining crystal appearance
 
-import React, { useMemo, useRef, useEffect } from 'react';
+import React, { useMemo, useRef, useEffect, useState } from 'react';
 import { useThree } from '@react-three/fiber';
 import CrystalMaterial from '../materials/CrystalMaterial';
 import * as THREE from 'three';
@@ -16,6 +16,7 @@ const MaterialManager = ({
   const crystalMaterialRef = useRef();
   const optimizedMobileRef = useRef();
   const mediumMaterialRef = useRef();
+  const [materialVersion, setMaterialVersion] = useState(0);
   const { scene } = useThree(); // Get Three.js scene to access environment
   
   // FIXED: Null safety with proper defaults
@@ -43,6 +44,12 @@ const MaterialManager = ({
     config.materials.crystal.transparent,
     config.materials.crystal.transmission
   ]);
+
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      console.log('📦 MaterialManager version:', materialVersion);
+    }
+  }, [materialVersion]);
   
   if (import.meta.env.DEV) console.log('🎨 MaterialManager: PBR enabled?', usePBR, 'PBR quality:', pbrQuality, 'Performance config:', safePerformanceConfig);
 
@@ -461,14 +468,29 @@ const MaterialManager = ({
       previousMaterial: materialRef.current?.type
     });
 
-    if (isLow) {
+    if (isLow && optimizedMobileRef.current) {
       materialRef.current = optimizedMobileRef.current;
+      setMaterialVersion((version) => {
+        const nextVersion = version + 1;
+        if (onMaterialReady) onMaterialReady(materialRef.current, nextVersion);
+        return nextVersion;
+      });
       if (import.meta.env.DEV) console.log('✅ Using OPTIMIZED mobile material');
-    } else if (isMedium) {
+    } else if (isMedium && mediumMaterialRef.current) {
       materialRef.current = mediumMaterialRef.current;
+      setMaterialVersion((version) => {
+        const nextVersion = version + 1;
+        if (onMaterialReady) onMaterialReady(materialRef.current, nextVersion);
+        return nextVersion;
+      });
       if (import.meta.env.DEV) console.log('✅ Using MEDIUM quality material');
     } else {
       materialRef.current = crystalMaterialRef.current;
+      setMaterialVersion((version) => {
+        const nextVersion = version + 1;
+        if (onMaterialReady) onMaterialReady(materialRef.current, nextVersion);
+        return nextVersion;
+      });
       if (import.meta.env.DEV) console.log('✅ Using full PBR crystal material:', materialVariant);
     }
 
@@ -479,9 +501,7 @@ const MaterialManager = ({
         baseColor: materialRef.current.color.clone()
       };
     }
-
-    if (onMaterialReady) onMaterialReady(materialRef.current);
-  }, [materialVariant, materialRef, isLow, isMedium, onMaterialReady]);
+  }, [materialVariant, materialRef, isLow, isMedium, onMaterialReady, usePBR]);
   
   // Only render PBR material component if PBR is enabled
   if (!usePBR) {
