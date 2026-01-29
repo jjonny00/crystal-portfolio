@@ -63,12 +63,12 @@ const UnifiedCrystalScene = forwardRef(({
   const hoveredFacetRef = useRef(null);
 
   // Track material updates so we can reapply when ready
-  const [materialVersion, setMaterialVersion] = useState(0);
+  const [materialTimestamp, setMaterialTimestamp] = useState(0);
   const frameCountRef = useRef(0);
 
   // FIXED: Better tracking of focus changes
   const prevFocusedFacetRef = useRef(null);
-  const prevMaterialVersionRef = useRef(materialVersion);
+  const prevMaterialTimestampRef = useRef(materialTimestamp);
   const prevOverlaysReadyRef = useRef(false);
   const focusUpdateTimeoutRef = useRef();
 
@@ -121,17 +121,13 @@ const UnifiedCrystalScene = forwardRef(({
   // Store precomputed anchor offsets for label placement
   const [anchorOffsets, setAnchorOffsets] = useState({});
 
-  const handleMaterialReady = useCallback((material, version) => {
-    if (version !== undefined && version !== materialVersion) {
-      setMaterialVersion(version);
-      console.log('📦 Material version updated:', version);
-      return;
+  const handleMaterialReady = useCallback((material, timestamp) => {
+    console.log('📥 handleMaterialReady called with timestamp:', timestamp);
+    if (timestamp && timestamp !== materialTimestamp) {
+      console.log('📦 Material timestamp updated:', timestamp);
+      setMaterialTimestamp(timestamp);
     }
-
-    if (material) {
-      setMaterialVersion((current) => current + 1);
-    }
-  }, [materialVersion]);
+  }, [materialTimestamp]);
 
   const {
     isReady: overlaysReady,
@@ -754,7 +750,7 @@ const UnifiedCrystalScene = forwardRef(({
   }, [
     wholeCrystal,
     facetModels,
-    materialVersion,
+    materialTimestamp,
     facetKeys,
     projectColors,
     animationData?.focusedFacet,
@@ -766,7 +762,7 @@ const UnifiedCrystalScene = forwardRef(({
   useEffect(() => {
     if (!crystalMaterialRef.current || !wholeCrystal?.scene) return;
 
-    console.log('🔄 Forcing material reapplication, version:', materialVersion);
+    console.log('🔄 Forcing material reapplication, timestamp:', materialTimestamp);
 
     wholeCrystal.scene.traverse((child) => {
       if (!child.isMesh) return;
@@ -815,7 +811,7 @@ const UnifiedCrystalScene = forwardRef(({
     });
 
     console.log('✅ Material reapplication complete');
-  }, [materialVersion, wholeCrystal?.scene, facetKeys, projectColors, animationData?.focusedFacet]);
+  }, [materialTimestamp, wholeCrystal?.scene, facetKeys, projectColors, animationData?.focusedFacet]);
 
   useEffect(() => {
     if (!overlaysReady || !modelsLoaded || !showFacets) return;
@@ -879,7 +875,7 @@ const UnifiedCrystalScene = forwardRef(({
     registerOverlaySlot,
     overlaySlots,
     facetKeys,
-    materialVersion,
+    materialTimestamp,
     animationData?.focusedFacet
   ]);
 
@@ -940,7 +936,7 @@ const UnifiedCrystalScene = forwardRef(({
         currentFacet,
         currentHovered,
         prevFacet: prevFocusedFacetRef.current,
-        materialVersion
+        materialTimestamp
       });
     }
 
@@ -950,7 +946,7 @@ const UnifiedCrystalScene = forwardRef(({
     if (
       !overlaysJustBecameReady &&
       currentFacet === previousFacet &&
-      materialVersion === prevMaterialVersionRef.current
+      materialTimestamp === prevMaterialTimestampRef.current
     ) {
       if (import.meta.env.DEV) {
         console.log('🎨 Skipping focus effect - no change');
@@ -960,7 +956,7 @@ const UnifiedCrystalScene = forwardRef(({
     }
 
     prevFocusedFacetRef.current = currentFacet;
-    prevMaterialVersionRef.current = materialVersion;
+    prevMaterialTimestampRef.current = materialTimestamp;
     prevOverlaysReadyRef.current = overlaysReady;
 
     // Wait until materials have been created
@@ -1037,7 +1033,7 @@ const UnifiedCrystalScene = forwardRef(({
     return () => clearTimeout(focusUpdateTimeoutRef.current);
   }, [
     animationData?.focusedFacet,
-    materialVersion,
+    materialTimestamp,
     facetKeys,
     projectColors,
     overlaysReady,

@@ -1,7 +1,7 @@
 // MaterialManager.jsx - UPDATED: Shadow improvements for mobile crystal material
 // Creates materials that perform well on mobile while maintaining crystal appearance
 
-import React, { useMemo, useRef, useEffect, useState } from 'react';
+import React, { useMemo, useRef, useEffect } from 'react';
 import { useThree } from '@react-three/fiber';
 import CrystalMaterial from '../materials/CrystalMaterial';
 import * as THREE from 'three';
@@ -16,7 +16,6 @@ const MaterialManager = ({
   const crystalMaterialRef = useRef();
   const optimizedMobileRef = useRef();
   const mediumMaterialRef = useRef();
-  const [materialVersion, setMaterialVersion] = useState(0);
   const { scene } = useThree(); // Get Three.js scene to access environment
   
   // FIXED: Null safety with proper defaults
@@ -45,12 +44,6 @@ const MaterialManager = ({
     config.materials.crystal.transmission
   ]);
 
-  useEffect(() => {
-    if (import.meta.env.DEV) {
-      console.log('📦 MaterialManager version:', materialVersion);
-    }
-  }, [materialVersion]);
-  
   if (import.meta.env.DEV) console.log('🎨 MaterialManager: PBR enabled?', usePBR, 'PBR quality:', pbrQuality, 'Performance config:', safePerformanceConfig);
 
   // OPTIMIZED: Create high-performance mobile material using MeshStandardMaterial
@@ -465,43 +458,43 @@ const MaterialManager = ({
     if (import.meta.env.DEV) console.log('🔄 MaterialManager: Updating material reference', {
       variant: materialVariant,
       usePBR,
+      pbrQuality,
       previousMaterial: materialRef.current?.type
     });
 
+    let selectedMaterial = null;
+
     if (isLow && optimizedMobileRef.current) {
-      materialRef.current = optimizedMobileRef.current;
-      setMaterialVersion((version) => {
-        const nextVersion = version + 1;
-        if (onMaterialReady) onMaterialReady(materialRef.current, nextVersion);
-        return nextVersion;
-      });
+      selectedMaterial = optimizedMobileRef.current;
       if (import.meta.env.DEV) console.log('✅ Using OPTIMIZED mobile material');
     } else if (isMedium && mediumMaterialRef.current) {
-      materialRef.current = mediumMaterialRef.current;
-      setMaterialVersion((version) => {
-        const nextVersion = version + 1;
-        if (onMaterialReady) onMaterialReady(materialRef.current, nextVersion);
-        return nextVersion;
-      });
+      selectedMaterial = mediumMaterialRef.current;
       if (import.meta.env.DEV) console.log('✅ Using MEDIUM quality material');
-    } else {
-      materialRef.current = crystalMaterialRef.current;
-      setMaterialVersion((version) => {
-        const nextVersion = version + 1;
-        if (onMaterialReady) onMaterialReady(materialRef.current, nextVersion);
-        return nextVersion;
-      });
+    } else if (crystalMaterialRef.current) {
+      selectedMaterial = crystalMaterialRef.current;
       if (import.meta.env.DEV) console.log('✅ Using full PBR crystal material:', materialVariant);
     }
 
-    // Store the base color so clones can reference the original
-    if (materialRef.current) {
-      materialRef.current.userData = {
-        ...(materialRef.current.userData || {}),
-        baseColor: materialRef.current.color.clone()
+    if (selectedMaterial) {
+      materialRef.current = selectedMaterial;
+      
+      // Store the base color so clones can reference the original
+      selectedMaterial.userData = {
+        ...(selectedMaterial.userData || {}),
+        baseColor: selectedMaterial.color.clone()
       };
+
+      // Force needsUpdate
+      selectedMaterial.needsUpdate = true;
+
+      // Signal to parent with timestamp
+      if (onMaterialReady) {
+        const timestamp = Date.now();
+        console.log('📤 Calling onMaterialReady with timestamp:', timestamp);
+        onMaterialReady(selectedMaterial, timestamp);
+      }
     }
-  }, [materialVariant, materialRef, isLow, isMedium, onMaterialReady, usePBR]);
+  }, [materialVariant, materialRef, isLow, isMedium, usePBR, pbrQuality, onMaterialReady]);
   
   // Only render PBR material component if PBR is enabled
   if (!usePBR) {
