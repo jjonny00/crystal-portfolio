@@ -487,7 +487,6 @@ const MaterialManager = ({
                materialVariant === 'gem' ||
                materialVariant === 'holographic' ? materialVariant : 'default'}
       performanceConfig={safePerformanceConfig}
-      onMaterialReady={onMaterialReady}
     />
   );
 };
