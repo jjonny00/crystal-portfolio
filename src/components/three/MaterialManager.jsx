@@ -1,7 +1,7 @@
 // MaterialManager.jsx - UPDATED: Shadow improvements for mobile crystal material
 // Creates materials that perform well on mobile while maintaining crystal appearance
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import { useThree } from '@react-three/fiber';
 import CrystalMaterial from '../materials/CrystalMaterial';
 import DebugMount from '../ui/DebugMount';
@@ -17,6 +17,7 @@ const MaterialManager = ({
   const crystalMaterialRef = useRef();
   const optimizedMobileRef = useRef();
   const mediumMaterialRef = useRef();
+  const lastNotifiedMaterialRef = useRef(null);
   const { scene } = useThree(); // Get Three.js scene to access environment
   
   // FIXED: Null safety with proper defaults
@@ -35,6 +36,13 @@ const MaterialManager = ({
   const usePBR = pbrQuality === 'high';
   
   if (import.meta.env.DEV) console.log('🎨 MaterialManager: PBR enabled?', usePBR, 'PBR quality:', pbrQuality, 'Performance config:', safePerformanceConfig);
+
+  const notifyMaterialReady = useCallback((material, { force = false } = {}) => {
+    if (!onMaterialReady || !material || material.isMaterial !== true) return;
+    if (!force && lastNotifiedMaterialRef.current === material) return;
+    lastNotifiedMaterialRef.current = material;
+    onMaterialReady(material, performance.now());
+  }, [onMaterialReady]);
 
   // OPTIMIZED: Create high-performance mobile material using MeshStandardMaterial
   useEffect(() => {
@@ -144,9 +152,9 @@ const MaterialManager = ({
         shadowSide: optimizedMaterial.shadowSide
       });
       
-      if (onMaterialReady) onMaterialReady(optimizedMaterial);
+      notifyMaterialReady(optimizedMaterial);
     }
-  }, [isLow, config.materials.crystal.color, config.materials.crystal.emissive, materialVariant, onMaterialReady]);
+  }, [isLow, config.materials.crystal.color, config.materials.crystal.emissive, materialVariant, notifyMaterialReady]);
 
   // MEDIUM: Create MeshPhysicalMaterial with higher reflectivity
   useEffect(() => {
@@ -219,9 +227,9 @@ const MaterialManager = ({
         envMapIntensity: mediumMat.envMapIntensity
       });
 
-      if (onMaterialReady) onMaterialReady(mediumMat);
+      notifyMaterialReady(mediumMat);
     }
-  }, [isMedium, materialVariant, config.materials.crystal, onMaterialReady]);
+  }, [isMedium, materialVariant, config.materials.crystal, notifyMaterialReady]);
 
   // CRITICAL: Set environment map for reflections
   useEffect(() => {
@@ -231,6 +239,7 @@ const MaterialManager = ({
         if (import.meta.env.DEV) console.log('🌍 Setting environment map for mobile material');
         optimizedMobileRef.current.envMap = scene.environment;
         optimizedMobileRef.current.needsUpdate = true;
+        notifyMaterialReady(optimizedMobileRef.current, { force: true });
         
         // DEBUG: Log material properties to verify settings
         if (import.meta.env.DEV) console.log('🔍 Mobile material debug:', {
@@ -242,40 +251,9 @@ const MaterialManager = ({
           emissiveIntensity: optimizedMobileRef.current.emissiveIntensity,
           shadowSide: optimizedMobileRef.current.shadowSide
         });
-      } else {
-        if (import.meta.env.DEV) console.log('⏳ Waiting for environment to load...');
-        // Wait for environment to load
-        const checkEnvironment = () => {
-          if (scene.environment && optimizedMobileRef.current) {
-            if (import.meta.env.DEV) console.log('🌍 Environment loaded - applying to mobile material');
-            optimizedMobileRef.current.envMap = scene.environment;
-            optimizedMobileRef.current.needsUpdate = true;
-            
-            // DEBUG: Log material properties
-            if (import.meta.env.DEV) console.log('🔍 Mobile material debug (delayed):', {
-              hasEnvMap: !!optimizedMobileRef.current.envMap,
-              metalness: optimizedMobileRef.current.metalness,
-              roughness: optimizedMobileRef.current.roughness,
-              envMapIntensity: optimizedMobileRef.current.envMapIntensity
-            });
-          }
-        };
-        
-        // Check periodically for environment
-        const intervalId = setInterval(() => {
-          if (scene.environment) {
-            checkEnvironment();
-            clearInterval(intervalId);
-          }
-        }, 100);
-        
-        // Clean up after 5 seconds
-        setTimeout(() => {
-          clearInterval(intervalId);
-        }, 5000);
       }
     }
-  }, [isLow, optimizedMobileRef.current, scene]);
+  }, [isLow, scene, scene?.environment, notifyMaterialReady]);
 
   // Apply environment map for medium material
   useEffect(() => {
@@ -284,23 +262,10 @@ const MaterialManager = ({
         if (import.meta.env.DEV) console.log('🌍 Setting environment map for medium material');
         mediumMaterialRef.current.envMap = scene.environment;
         mediumMaterialRef.current.needsUpdate = true;
-      } else {
-        const checkEnv = () => {
-          if (scene.environment && mediumMaterialRef.current) {
-            mediumMaterialRef.current.envMap = scene.environment;
-            mediumMaterialRef.current.needsUpdate = true;
-          }
-        };
-        const intervalId = setInterval(() => {
-          if (scene.environment) {
-            checkEnv();
-            clearInterval(intervalId);
-          }
-        }, 100);
-        setTimeout(() => clearInterval(intervalId), 5000);
+        notifyMaterialReady(mediumMaterialRef.current, { force: true });
       }
     }
-  }, [isMedium, mediumMaterialRef.current, scene]);
+  }, [isMedium, scene, scene?.environment, notifyMaterialReady]);
 
   // Update material when variant changes
   useEffect(() => {
@@ -359,8 +324,9 @@ const MaterialManager = ({
       // UPDATED: Ensure shadow settings are maintained
       material.shadowSide = THREE.DoubleSide;
       material.needsUpdate = true;
+      notifyMaterialReady(material, { force: true });
     }
-  }, [materialVariant, isLow, config.materials.crystal]);
+  }, [materialVariant, isLow, config.materials.crystal, notifyMaterialReady]);
 
   // Update medium material when variant changes
   useEffect(() => {
@@ -409,8 +375,9 @@ const MaterialManager = ({
       
       material.shadowSide = THREE.DoubleSide;
       material.needsUpdate = true;
+      notifyMaterialReady(material, { force: true });
     }
-  }, [materialVariant, isMedium, config.materials.crystal]);
+  }, [materialVariant, isMedium, config.materials.crystal, notifyMaterialReady]);
 
   // SIMPLIFIED: Normal map support for mobile (optional)
   useEffect(() => {
@@ -470,8 +437,8 @@ const MaterialManager = ({
       };
     }
 
-    if (onMaterialReady) onMaterialReady(materialRef.current);
-  }, [materialVariant, materialRef, isLow, isMedium, onMaterialReady]);
+    notifyMaterialReady(materialRef.current);
+  }, [materialVariant, materialRef, isLow, isMedium, notifyMaterialReady]);
   
   // Only render PBR material component if PBR is enabled
   if (!usePBR) {
