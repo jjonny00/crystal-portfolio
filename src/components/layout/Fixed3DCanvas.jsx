@@ -25,6 +25,8 @@ import MistyLayerStack from '../MistyLayerStack';
 import { isIOS26 } from '../../utils/isIOS26';
 import { facetKeys as canonicalFacetKeys } from '../../data/projects';
 
+const DISABLE_POSTPROCESSING = false;
+
 function createSanitizePass() {
   const material = new ShaderMaterial({
     uniforms: { inputBuffer: { value: null } },
@@ -178,6 +180,7 @@ const Fixed3DCanvas = forwardRef(({
   });
 
   const sanitizePass = useMemo(() => createSanitizePass(), []);
+  const disablePostprocessing = DISABLE_POSTPROCESSING;
   const canvasKey = Array.isArray(canvasProps.dpr) ? canvasProps.dpr.join('-') : canvasProps.dpr;
   const lastCanvasKeyRef = useRef(canvasKey);
 
@@ -185,6 +188,12 @@ const Fixed3DCanvas = forwardRef(({
     lastCanvasKeyRef.current = canvasKey;
     console.log('[CanvasKey]', canvasKey);
   }
+
+  useEffect(() => {
+    if (disablePostprocessing) {
+      console.warn('⚠️ Postprocessing disabled (debug)');
+    }
+  }, [disablePostprocessing]);
 
   useEffect(() => () => {
     sanitizePass?.dispose?.();
@@ -451,54 +460,56 @@ const Fixed3DCanvas = forwardRef(({
           />
           
           {/* Post-processing effects (unchanged) */}
-          <EffectComposer
-            key={ios26 ? 'ios26-no-msaa' : 'default-msaa'}
-            enabled={true}
-            multisampling={ios26 ? 0 : 8}
-            frameBufferType={ios26 ? UnsignedByteType : HalfFloatType}
-          >
-            {/* Default minimal bloom when no effects are enabled */}
-            <Bloom 
-              intensity={Object.values(effectsEnabled || {}).some(Boolean) ? 0 : 0.0001}
-              luminanceThreshold={1.0}
-              luminanceSmoothing={0.9}
-              radius={0.5}
-              enabled={!Object.values(effectsEnabled || {}).some(Boolean)}
-            />
-            
-            {effectsEnabled?.bloom && (
+          {!disablePostprocessing && (
+            <EffectComposer
+              key={ios26 ? 'ios26-no-msaa' : 'default-msaa'}
+              enabled={true}
+              multisampling={ios26 ? 0 : 8}
+              frameBufferType={ios26 ? UnsignedByteType : HalfFloatType}
+            >
+              {/* Default minimal bloom when no effects are enabled */}
               <Bloom 
-                luminanceThreshold={postProcessingConfig?.bloom?.luminanceThreshold || 0.05} 
-                luminanceSmoothing={postProcessingConfig?.bloom?.luminanceSmoothing || 0.9} 
-                intensity={postProcessingConfig?.bloom?.intensity || 1.0} 
-                radius={postProcessingConfig?.bloom?.radius || 1.9} 
+                intensity={Object.values(effectsEnabled || {}).some(Boolean) ? 0 : 0.0001}
+                luminanceThreshold={1.0}
+                luminanceSmoothing={0.9}
+                radius={0.5}
+                enabled={!Object.values(effectsEnabled || {}).some(Boolean)}
               />
-            )}
-            {effectsEnabled?.chromaticAberration && (
-              <ChromaticAberration
-                offset={postProcessingConfig?.chromaticAberration?.offset || [0.003, 0.003]}
-                radialModulation={postProcessingConfig?.chromaticAberration?.radialModulation !== false}
-                modulationOffset={postProcessingConfig?.chromaticAberration?.modulationOffset || 0.5}
-              />
-            )}
+              
+              {effectsEnabled?.bloom && (
+                <Bloom 
+                  luminanceThreshold={postProcessingConfig?.bloom?.luminanceThreshold || 0.05} 
+                  luminanceSmoothing={postProcessingConfig?.bloom?.luminanceSmoothing || 0.9} 
+                  intensity={postProcessingConfig?.bloom?.intensity || 1.0} 
+                  radius={postProcessingConfig?.bloom?.radius || 1.9} 
+                />
+              )}
+              {effectsEnabled?.chromaticAberration && (
+                <ChromaticAberration
+                  offset={postProcessingConfig?.chromaticAberration?.offset || [0.003, 0.003]}
+                  radialModulation={postProcessingConfig?.chromaticAberration?.radialModulation !== false}
+                  modulationOffset={postProcessingConfig?.chromaticAberration?.modulationOffset || 0.5}
+                />
+              )}
 
-            {/* Sanitize HDR data before any full-screen overlays */}
-            <primitive object={sanitizePass} />
+              {/* Sanitize HDR data before any full-screen overlays */}
+              <primitive object={sanitizePass} />
 
-            {effectsEnabled?.noise && (
-              <Noise
-                opacity={postProcessingConfig?.noise?.opacity || 0.1}
-                blendFunction={BlendFunction.OVERLAY}
-              />
-            )}
-            {effectsEnabled?.vignette && (
-              <Vignette 
-                eskil={postProcessingConfig?.vignette?.eskil || false} 
-                offset={postProcessingConfig?.vignette?.offset || 0.1} 
-                darkness={postProcessingConfig?.vignette?.darkness || 1.1} 
-              />
-            )}
-          </EffectComposer>
+              {effectsEnabled?.noise && (
+                <Noise
+                  opacity={postProcessingConfig?.noise?.opacity || 0.1}
+                  blendFunction={BlendFunction.OVERLAY}
+                />
+              )}
+              {effectsEnabled?.vignette && (
+                <Vignette 
+                  eskil={postProcessingConfig?.vignette?.eskil || false} 
+                  offset={postProcessingConfig?.vignette?.offset || 0.1} 
+                  darkness={postProcessingConfig?.vignette?.darkness || 1.1} 
+                />
+              )}
+            </EffectComposer>
+          )}
 
           {/* Orbit controls - explicitly disabled to prevent camera conflicts */}
           {/* eslint-disable-next-line no-constant-binary-expression */}
