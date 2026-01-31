@@ -121,9 +121,17 @@ const UnifiedCrystalScene = forwardRef(({
   // Store precomputed anchor offsets for label placement
   const [anchorOffsets, setAnchorOffsets] = useState({});
 
-  const handleMaterialReady = useCallback(() => {
+  const handleMaterialReady = useCallback((material, timestamp) => {
+    if (timestamp === undefined) {
+      console.group('handleMaterialReady(undefined timestamp)');
+      console.log('material:', material);
+      console.log('qualityTier:', performanceProfile?.pbrQuality);
+      console.log('variant:', materialVariant);
+      console.trace('stack');
+      console.groupEnd();
+    }
     setMaterialVersion(v => v + 1);
-  }, []);
+  }, [materialVariant, performanceProfile?.pbrQuality]);
 
   const {
     isReady: overlaysReady,
