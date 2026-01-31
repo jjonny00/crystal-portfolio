@@ -120,15 +120,27 @@ const UnifiedCrystalScene = forwardRef(({
   const [modelsLoaded, setModelsLoaded] = useState(false);
   // Store precomputed anchor offsets for label placement
   const [anchorOffsets, setAnchorOffsets] = useState({});
+  const handleMaterialReadyLogRef = useRef({ lastLogAt: 0, callCount: 0 });
 
   const handleMaterialReady = useCallback((material, timestamp) => {
     if (timestamp === undefined) {
-      console.group('handleMaterialReady(undefined timestamp)');
-      console.log('material:', material);
-      console.log('qualityTier:', performanceProfile?.pbrQuality);
-      console.log('variant:', materialVariant);
-      console.trace('stack');
-      console.groupEnd();
+      const now = Date.now();
+      handleMaterialReadyLogRef.current.callCount += 1;
+      const shouldLog =
+        now - handleMaterialReadyLogRef.current.lastLogAt >= 1000 ||
+        handleMaterialReadyLogRef.current.callCount % 20 === 0;
+      if (shouldLog) {
+        handleMaterialReadyLogRef.current.lastLogAt = now;
+        const qualityTier = performanceProfile?.pbrQuality;
+        const variant = materialVariant;
+        console.group('handleMaterialReady(undefined timestamp)');
+        console.log('material:', material);
+        console.log('qualityTier:', qualityTier);
+        console.log('variant:', variant);
+        console.log('errorStack:', new Error('handleMaterialReady(undefined)').stack);
+        console.trace('trace');
+        console.groupEnd();
+      }
     }
     setMaterialVersion(v => v + 1);
   }, [materialVariant, performanceProfile?.pbrQuality]);
