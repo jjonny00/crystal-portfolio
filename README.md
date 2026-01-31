@@ -37,6 +37,8 @@ npm install
 npm run dev
 ```
 
+For actionable stack traces (including the `handleMaterialReady` debug trace), reproduce issues in the Vite dev server so the browser can map stack frames back to source.
+
 ## Building for production
 
 ```bash
