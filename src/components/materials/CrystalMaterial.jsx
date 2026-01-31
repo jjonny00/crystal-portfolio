@@ -150,7 +150,7 @@ const CrystalMaterial = ({
       
       // Store the material
       materialRef.current = material;
-      if (onMaterialReady) onMaterialReady(material);
+      if (onMaterialReady) onMaterialReady(material, performance.now());
       
       if (import.meta.env.DEV) console.log('✅ Enhanced crystal material created with improved shadow handling:', {
         variant,
@@ -319,7 +319,9 @@ const CrystalMaterial = ({
       createMaterial();
     }
     
-    if (onMaterialReady) onMaterialReady(materialRef.current);
+    if (onMaterialReady && materialRef.current) {
+      onMaterialReady(materialRef.current, performance.now());
+    }
     
   }, [config.materials.crystal, variant, materialRef, usePBR, isMedium, useNormalMaps]);
   
