@@ -15,6 +15,7 @@ import UnifiedCameraController from '../three/UnifiedCameraController';
 import UnifiedCrystalScene from '../three/UnifiedCrystalScene';
 import PersistentDustSystem from '../three/PersistentDustSystem';
 import { FPSCounter } from '../ui/FpsDisplay';
+import DebugMount from '../ui/DebugMount';
 
 // ADDED: Import the debug panels component
 import CrystalDebugPanels from '../ui/CrystalDebugPanels';
@@ -151,6 +152,9 @@ const Fixed3DCanvas = forwardRef(({
   });
 
   const sanitizePass = useMemo(() => createSanitizePass(), []);
+  const canvasKey = Array.isArray(canvasProps.dpr) ? canvasProps.dpr.join('-') : canvasProps.dpr;
+
+  console.log('[CanvasKey]', canvasKey);
 
   useEffect(() => () => {
     sanitizePass?.dispose?.();
@@ -288,7 +292,7 @@ const Fixed3DCanvas = forwardRef(({
         pointerEvents: 'none', // Don't block scrolling
       }}>
         <Canvas
-          key={Array.isArray(canvasProps.dpr) ? canvasProps.dpr.join('-') : canvasProps.dpr}
+          key={canvasKey}
           camera={{
             position: config?.camera?.startingPosition || [0, 0, 4.5],
             fov: config?.camera?.fov || 45
@@ -309,6 +313,7 @@ const Fixed3DCanvas = forwardRef(({
             pointerEvents: isMobile ? 'none' : 'auto',
           }}
         >
+          <DebugMount name="CanvasRoot" />
           
           <FPSCounter />
 
@@ -407,6 +412,7 @@ const Fixed3DCanvas = forwardRef(({
           />
 
           {/* Environment used for reflections only */}
+          <DebugMount name="Environment" />
           <Environment
             files={environmentProps.files || config?.environment?.hdri || "/assets/environment/prismatic10-low.hdr"}
             background={false}

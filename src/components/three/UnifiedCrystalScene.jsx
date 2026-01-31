@@ -9,6 +9,7 @@ import FractureBurstParticles from './FractureBurstParticles'
 
 // Import existing material manager
 import MaterialManager from './MaterialManager'
+import DebugMount from '../ui/DebugMount'
 
 // Import enhanced sphere component
 import GlowingSphereImage, { BLENDING_MODES } from './GlowingSphereImage'
@@ -1305,6 +1306,7 @@ const UnifiedCrystalScene = forwardRef(({
 
   return (
     <group ref={crystalGroupRef}>
+      <DebugMount name="UnifiedCrystalScene" />
       {/* Material Manager Component */}
       <MaterialManager
         materialVariant={materialVariant}

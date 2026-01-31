@@ -4,6 +4,7 @@
 import React, { useRef, useEffect } from 'react';
 import { useThree } from '@react-three/fiber';
 import CrystalMaterial from '../materials/CrystalMaterial';
+import DebugMount from '../ui/DebugMount';
 import * as THREE from 'three';
 
 const MaterialManager = ({
@@ -475,20 +476,23 @@ const MaterialManager = ({
   // Only render PBR material component if PBR is enabled
   if (!usePBR) {
     if (import.meta.env.DEV) console.log('🚫 Skipping PBR material component (using standard material instead)');
-    return null;
+    return <DebugMount name="MaterialManager" />;
   }
 
   return (
-    <CrystalMaterial 
-      config={config} 
-      materialRef={crystalMaterialRef} 
-      variant={materialVariant === 'default' ||
-               materialVariant === 'glass' ||
-               materialVariant === 'gem' ||
-               materialVariant === 'holographic' ? materialVariant : 'default'}
-      performanceConfig={safePerformanceConfig}
-      onMaterialReady={onMaterialReady}
-    />
+    <>
+      <DebugMount name="MaterialManager" />
+      <CrystalMaterial 
+        config={config} 
+        materialRef={crystalMaterialRef} 
+        variant={materialVariant === 'default' ||
+                 materialVariant === 'glass' ||
+                 materialVariant === 'gem' ||
+                 materialVariant === 'holographic' ? materialVariant : 'default'}
+        performanceConfig={safePerformanceConfig}
+        onMaterialReady={onMaterialReady}
+      />
+    </>
   );
 };
 
