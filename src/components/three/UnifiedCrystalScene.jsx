@@ -122,7 +122,15 @@ const UnifiedCrystalScene = forwardRef(({
   const [anchorOffsets, setAnchorOffsets] = useState({});
   const handleMaterialReadyLogRef = useRef({ lastLogAt: 0, callCount: 0 });
 
-  const handleMaterialReady = useCallback((material, timestamp) => {
+  const handleMaterialReady = useCallback((...args) => {
+    const material = args[0];
+    const timestamp = args[1];
+    const argc = args.length;
+    const potentialFromTag = args[argc - 1];
+    const fromTag =
+      typeof potentialFromTag === 'string' && potentialFromTag.startsWith('__from:')
+        ? potentialFromTag
+        : undefined;
     if (timestamp === undefined) {
       const now = Date.now();
       handleMaterialReadyLogRef.current.callCount += 1;
@@ -131,12 +139,19 @@ const UnifiedCrystalScene = forwardRef(({
         handleMaterialReadyLogRef.current.callCount % 20 === 0;
       if (shouldLog) {
         handleMaterialReadyLogRef.current.lastLogAt = now;
-        const qualityTier = performanceProfile?.pbrQuality;
-        const variant = materialVariant;
         console.group('handleMaterialReady(undefined timestamp)');
+        console.log('fromTag:', fromTag);
+        console.log('argc:', argc);
+        console.log('typeof args[0]:', typeof args[0]);
+        console.log('typeof args[1]:', typeof args[1]);
+        console.log('args[0]?.type:', args[0]?.type);
+        console.log('args[1]?.type:', args[1]?.type);
+        console.log('args[0]?.uuid:', args[0]?.uuid);
+        console.log('args[1]?.uuid:', args[1]?.uuid);
+        console.log('Array.isArray(args):', Array.isArray(args));
         console.log('material:', material);
-        console.log('qualityTier:', qualityTier);
-        console.log('variant:', variant);
+        console.log('qualityTier:', performanceProfile?.pbrQuality);
+        console.log('variant:', materialVariant);
         console.log('errorStack:', new Error('handleMaterialReady(undefined)').stack);
         console.trace('trace');
         console.groupEnd();
@@ -1333,7 +1348,7 @@ const UnifiedCrystalScene = forwardRef(({
         config={config}
         materialRef={crystalMaterialRef}
         performanceProfile={performanceProfile}
-        onMaterialReady={handleMaterialReady}
+        onMaterialReady={(...a) => handleMaterialReady(...a, '__from:MaterialManager')}
       />
 
       {/* Fracture expanding ring */}
