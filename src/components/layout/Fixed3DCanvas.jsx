@@ -2,7 +2,7 @@
 // UPDATED: Enhanced MistyLayerStack positioning and render order
 
 import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallback, useMemo } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Environment, OrbitControls } from '@react-three/drei';
 import { EffectComposer, Bloom, ChromaticAberration, Noise, Vignette } from '@react-three/postprocessing';
 import { BlendFunction } from 'postprocessing';
@@ -67,6 +67,32 @@ function createSanitizePass() {
   pass.enabled = true;
   return pass;
 }
+
+const EnvHealthProbe = () => {
+  const { scene, gl } = useThree();
+  const frameRef = useRef(0);
+  const lastStatusRef = useRef(null);
+
+  useFrame(() => {
+    frameRef.current += 1;
+    if (frameRef.current % 30 !== 0) return;
+    const env = scene.environment;
+    if (!env) return;
+    const handle = gl.properties.get(env)?.__webglTexture;
+    const hasImage = !!env.image;
+    const hasWebgl = !!handle;
+    const isAlive = hasImage && hasWebgl;
+    const status = isAlive ? 'alive' : 'dead';
+    if (lastStatusRef.current !== status) {
+      lastStatusRef.current = status;
+      console.log(
+        `[ENV HEALTH] ${status} uuid=${env.uuid} hasImage=${hasImage} hasWebgl=${hasWebgl}`
+      );
+    }
+  });
+
+  return null;
+};
 
 const PulsingOmniLight = ({ simplified = false }) => {
   const lightRef = useRef();
@@ -318,6 +344,7 @@ const Fixed3DCanvas = forwardRef(({
           }}
         >
           <DebugMount name="CanvasRoot" />
+          <EnvHealthProbe />
           
           <FPSCounter />
 
