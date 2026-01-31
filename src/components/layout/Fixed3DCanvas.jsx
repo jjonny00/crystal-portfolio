@@ -153,8 +153,12 @@ const Fixed3DCanvas = forwardRef(({
 
   const sanitizePass = useMemo(() => createSanitizePass(), []);
   const canvasKey = Array.isArray(canvasProps.dpr) ? canvasProps.dpr.join('-') : canvasProps.dpr;
+  const lastCanvasKeyRef = useRef(canvasKey);
 
-  console.log('[CanvasKey]', canvasKey);
+  if (canvasKey !== lastCanvasKeyRef.current) {
+    lastCanvasKeyRef.current = canvasKey;
+    console.log('[CanvasKey]', canvasKey);
+  }
 
   useEffect(() => () => {
     sanitizePass?.dispose?.();
