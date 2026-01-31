@@ -121,11 +121,20 @@ const UnifiedCrystalScene = forwardRef(({
   // Store precomputed anchor offsets for label placement
   const [anchorOffsets, setAnchorOffsets] = useState({});
   const handleMaterialReadyLogRef = useRef({ lastLogAt: 0 });
+  const invalidTimestampWarnedRef = useRef(new Set());
 
   const handleMaterialReady = useCallback((material, timestamp, fromTag) => {
-    const isInvalidTimestamp =
-      timestamp == null || typeof timestamp !== 'number' || !Number.isFinite(timestamp);
-    if (isInvalidTimestamp) {
+    const isValidTimestamp = Number.isFinite(timestamp);
+    if (!isValidTimestamp) {
+      const warningKey = fromTag || 'unknown';
+      if (!invalidTimestampWarnedRef.current.has(warningKey)) {
+        invalidTimestampWarnedRef.current.add(warningKey);
+        console.warn('handleMaterialReady: invalid timestamp', {
+          fromTag,
+          materialType: material?.type,
+          materialUuid: material?.uuid
+        });
+      }
       const now = Date.now();
       if (now - handleMaterialReadyLogRef.current.lastLogAt >= 1000) {
         handleMaterialReadyLogRef.current.lastLogAt = now;
@@ -141,6 +150,7 @@ const UnifiedCrystalScene = forwardRef(({
         );
         console.groupEnd();
       }
+      return;
     }
     setMaterialVersion(v => v + 1);
   }, [materialVariant, performanceProfile?.pbrQuality]);
