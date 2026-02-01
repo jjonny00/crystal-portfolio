@@ -25,6 +25,37 @@ import { useFacetOverlayGeometry } from '../../hooks/useFacetOverlayGeometry'
 
 const PROJECT_DISPLAY_SLOT = 'ProjectDisplay'
 
+const MaterialHealthProbe = ({ materialRef, label = 'CrystalWhole' }) => {
+  const frameRef = useRef(0);
+  const lastSnapshotRef = useRef(null);
+
+  useFrame(() => {
+    frameRef.current += 1;
+    if (frameRef.current % 30 !== 0) return;
+    const material = materialRef?.current;
+    if (!material) return;
+
+    const snapshot = {
+      label,
+      materialType: material.type,
+      materialUuid: material.uuid,
+      envMapUuid: material.envMap?.uuid || null,
+      envMapIntensity: material.envMapIntensity,
+      transmission: material.transmission,
+      opacity: material.opacity,
+      transparent: material.transparent,
+      roughness: material.roughness,
+      metalness: material.metalness,
+    };
+    const snapshotKey = JSON.stringify(snapshot);
+    if (snapshotKey === lastSnapshotRef.current) return;
+    lastSnapshotRef.current = snapshotKey;
+    console.log('[MATERIAL HEALTH]', snapshot);
+  });
+
+  return null;
+};
+
 const UnifiedCrystalScene = forwardRef(({ 
   animationData,
   config,
@@ -1345,6 +1376,7 @@ const UnifiedCrystalScene = forwardRef(({
         performanceProfile={performanceProfile}
         onMaterialReady={(m, t) => handleMaterialReady(m, t, '__from:MaterialManager')}
       />
+      <MaterialHealthProbe materialRef={crystalMaterialRef} label="CrystalWhole" />
 
       {/* Fracture expanding ring */}
       <FractureRingImage
