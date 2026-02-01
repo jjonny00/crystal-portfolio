@@ -12,6 +12,7 @@ import * as THREE from 'three';
 const CrystalMaterial = ({
   config,
   materialRef,
+  envTexture = null,
   variant = 'default',
   performanceConfig = {},
   onMaterialReady = null
@@ -28,6 +29,28 @@ const CrystalMaterial = ({
   
   // ENHANCED: Create material with better shadow handling for transparent objects
   useEffect(() => {
+    const applyEnvInvariant = (material) => {
+      if (!material) return;
+
+      const resolvedIntensity =
+        material.userData?.stableEnvMapIntensity ??
+        material.envMapIntensity ??
+        0;
+
+      material.userData = {
+        ...(material.userData || {}),
+        stableEnvMapIntensity: resolvedIntensity
+      };
+
+      if (envTexture) {
+        material.envMap = envTexture;
+        material.envMapIntensity = resolvedIntensity;
+      } else {
+        material.envMap = null;
+        material.envMapIntensity = 0;
+      }
+    };
+
     const createMaterial = () => {
       const baseConfig = { ...config.materials.crystal };
       
@@ -142,6 +165,7 @@ const CrystalMaterial = ({
       
       // Create the material
       const material = new THREE.MeshPhysicalMaterial(materialProps);
+      applyEnvInvariant(material);
       
       // ENHANCED: Add properties that might not be in the base config
       if (material.iridescenceThicknessRange) {
@@ -309,6 +333,7 @@ const CrystalMaterial = ({
         if (material.iridescence !== undefined) material.iridescence *= 0.5;
       }
       
+      applyEnvInvariant(material);
       material.needsUpdate = true;
     };
 
@@ -321,7 +346,7 @@ const CrystalMaterial = ({
     
     if (onMaterialReady) onMaterialReady(materialRef.current);
     
-  }, [config.materials.crystal, variant, materialRef, usePBR, isMedium, useNormalMaps]);
+  }, [config.materials.crystal, variant, materialRef, usePBR, isMedium, useNormalMaps, envTexture]);
   
   // ENHANCED: Separate effect for handling normal maps with better error handling
   useEffect(() => {

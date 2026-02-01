@@ -23,6 +23,7 @@ import { effects } from '../../crystalConfig'
 import { useFacetOverlayGeometry } from '../../hooks/useFacetOverlayGeometry'
 
 const PROJECT_DISPLAY_SLOT = 'ProjectDisplay'
+const NO_FACET_CLONES_MODE = true
 
 const UnifiedCrystalScene = forwardRef(({ 
   animationData,
@@ -667,37 +668,44 @@ const UnifiedCrystalScene = forwardRef(({
     const hoveredKey = hoveredFacetRef.current;
     const focusedKey = animationData?.focusedFacet;
     
-    facetMaterialsRef.current = facetKeys.map((key, idx) => {
-      const mat = crystalMaterialRef.current.clone();
+    if (NO_FACET_CLONES_MODE) {
+      facetMaterialsRef.current = facetKeys.map(() => crystalMaterialRef.current);
+      facetModels.forEach((model, idx) => {
+        applyMaterial(model.scene, crystalMaterialRef.current, facetKeys[idx]);
+      });
+    } else {
+      facetMaterialsRef.current = facetKeys.map((key, idx) => {
+        const mat = crystalMaterialRef.current.clone();
 
-      // FIXED: Determine initial color based on current state
-      let initialColor = defaultColorRef.current;
-      
-      if (hoveredKey === key) {
-        // This facet is currently hovered
-        initialColor = projectColors[idx];
-      } else if (focusedKey === key && !hoveredKey) {
-        // This facet is focused and no other facet is hovered
-        initialColor = projectColors[idx];
-      }
+        // FIXED: Determine initial color based on current state
+        let initialColor = defaultColorRef.current;
+        
+        if (hoveredKey === key) {
+          // This facet is currently hovered
+          initialColor = projectColors[idx];
+        } else if (focusedKey === key && !hoveredKey) {
+          // This facet is focused and no other facet is hovered
+          initialColor = projectColors[idx];
+        }
 
-      mat.color.copy(initialColor);
-      mat.userData = {
-        ...(mat.userData || {}),
-        isFading: mat.userData?.isFading || false,
-        targetColor: mat.color.clone(),
-        startColor: mat.color.clone(),
-        progress: 1,
-        baseEmissiveIntensity:
-          mat.userData?.baseEmissiveIntensity ?? mat.emissiveIntensity,
-        baseEmissiveColor:
-          mat.userData?.baseEmissiveColor?.clone?.() || mat.emissive.clone()
-      };
+        mat.color.copy(initialColor);
+        mat.userData = {
+          ...(mat.userData || {}),
+          isFading: mat.userData?.isFading || false,
+          targetColor: mat.color.clone(),
+          startColor: mat.color.clone(),
+          progress: 1,
+          baseEmissiveIntensity:
+            mat.userData?.baseEmissiveIntensity ?? mat.emissiveIntensity,
+          baseEmissiveColor:
+            mat.userData?.baseEmissiveColor?.clone?.() || mat.emissive.clone()
+        };
 
-      const model = facetModels[idx];
-      applyMaterial(model.scene, mat, facetKeys[idx]);
-      return mat;
-    });
+        const model = facetModels[idx];
+        applyMaterial(model.scene, mat, facetKeys[idx]);
+        return mat;
+      });
+    }
 
     // If fracture glow is active, apply current fade state to new materials
     if (fractureGlowStartRef.current) {
