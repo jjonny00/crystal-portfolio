@@ -1,5 +1,6 @@
 // CrystalControls.jsx - Updated for tabbed interface
 import { useRef, useState } from 'react';
+import * as THREE from 'three';
 import * as crystalConfig from '../../crystalConfig';
 
 const RAD2DEG = 180 / Math.PI;
@@ -128,7 +129,129 @@ const CrystalControls = ({ config, onUpdate }) => {
 
   const cloneConfig = () => {
     const base = config ?? crystalConfig;
-    return JSON.parse(JSON.stringify(base));
+    const cloneVec3 = (value) => (Array.isArray(value) ? [...value] : value);
+    const cloneOffsetGroup = (group) => Object.fromEntries(
+      Object.entries(group ?? {}).map(([key, value]) => [
+        key,
+        {
+          position: cloneVec3(value?.position),
+          target: cloneVec3(value?.target)
+        }
+      ])
+    );
+    const normalizeColor = (value) => {
+      if (!value) return value;
+      if (value.isColor && typeof value.clone === 'function') {
+        return value.clone();
+      }
+      try {
+        return new THREE.Color(value);
+      } catch {
+        if (typeof value === 'object' && 'r' in value && 'g' in value && 'b' in value) {
+          return new THREE.Color(value.r, value.g, value.b);
+        }
+      }
+      return value;
+    };
+    const cloneMaterials = (materials) => ({
+      ...materials,
+      crystal: {
+        ...materials.crystal,
+        color: normalizeColor(materials.crystal?.color),
+        emissive: normalizeColor(materials.crystal?.emissive),
+        attenuationColor: normalizeColor(materials.crystal?.attenuationColor),
+        specularColor: normalizeColor(materials.crystal?.specularColor)
+      },
+      textures: {
+        ...materials.textures,
+        normalMap: {
+          ...materials.textures?.normalMap,
+          repeat: Array.isArray(materials.textures?.normalMap?.repeat)
+            ? [...materials.textures.normalMap.repeat]
+            : materials.textures?.normalMap?.repeat
+        }
+      }
+    });
+
+    return {
+      ...base,
+      cameraPositions: {
+        ...base.cameraPositions,
+        hero: cloneVec3(base.cameraPositions?.hero),
+        overview: cloneVec3(base.cameraPositions?.overview),
+        about: cloneVec3(base.cameraPositions?.about),
+        projects: {
+          ...base.cameraPositions?.projects,
+          empathy: cloneVec3(base.cameraPositions?.projects?.empathy),
+          narrative: cloneVec3(base.cameraPositions?.projects?.narrative),
+          craft: cloneVec3(base.cameraPositions?.projects?.craft),
+          system: cloneVec3(base.cameraPositions?.projects?.system),
+          leadership: cloneVec3(base.cameraPositions?.projects?.leadership),
+          exploration: cloneVec3(base.cameraPositions?.projects?.exploration)
+        }
+      },
+      cameraTargets: {
+        ...base.cameraTargets,
+        hero: cloneVec3(base.cameraTargets?.hero),
+        overview: cloneVec3(base.cameraTargets?.overview),
+        about: cloneVec3(base.cameraTargets?.about),
+        projects: {
+          ...base.cameraTargets?.projects,
+          empathy: cloneVec3(base.cameraTargets?.projects?.empathy),
+          narrative: cloneVec3(base.cameraTargets?.projects?.narrative),
+          craft: cloneVec3(base.cameraTargets?.projects?.craft),
+          system: cloneVec3(base.cameraTargets?.projects?.system),
+          leadership: cloneVec3(base.cameraTargets?.projects?.leadership),
+          exploration: cloneVec3(base.cameraTargets?.projects?.exploration)
+        }
+      },
+      cameraOffsets: {
+        ...base.cameraOffsets,
+        global: {
+          position: cloneVec3(base.cameraOffsets?.global?.position),
+          target: cloneVec3(base.cameraOffsets?.global?.target)
+        },
+        zones: cloneOffsetGroup(base.cameraOffsets?.zones),
+        projects: cloneOffsetGroup(base.cameraOffsets?.projects)
+      },
+      explodedPositions: {
+        ...base.explodedPositions,
+        empathy: cloneVec3(base.explodedPositions?.empathy),
+        narrative: cloneVec3(base.explodedPositions?.narrative),
+        craft: cloneVec3(base.explodedPositions?.craft),
+        system: cloneVec3(base.explodedPositions?.system),
+        leadership: cloneVec3(base.explodedPositions?.leadership),
+        exploration: cloneVec3(base.explodedPositions?.exploration)
+      },
+      facetRotationsEulerDeg: {
+        ...base.facetRotationsEulerDeg,
+        empathy: cloneVec3(base.facetRotationsEulerDeg?.empathy),
+        narrative: cloneVec3(base.facetRotationsEulerDeg?.narrative),
+        craft: cloneVec3(base.facetRotationsEulerDeg?.craft),
+        system: cloneVec3(base.facetRotationsEulerDeg?.system),
+        leadership: cloneVec3(base.facetRotationsEulerDeg?.leadership),
+        exploration: cloneVec3(base.facetRotationsEulerDeg?.exploration)
+      },
+      timing: {
+        ...base.timing,
+        camera: { ...base.timing?.camera },
+        crystal: { ...base.timing?.crystal },
+        fracture: { ...base.timing?.fracture },
+        labels: { ...base.timing?.labels },
+        reform: { ...base.timing?.reform },
+        idle: { ...base.timing?.idle }
+      },
+      effects: {
+        ...base.effects,
+        idle: {
+          ...base.effects?.idle,
+          float: { ...base.effects?.idle?.float },
+          glow: { ...base.effects?.idle?.glow }
+        },
+        fracture: { ...base.effects?.fracture }
+      },
+      materials: cloneMaterials(base.materials)
+    };
   };
 
   const sanitizeNumber = (value, fallback = 0) => {
