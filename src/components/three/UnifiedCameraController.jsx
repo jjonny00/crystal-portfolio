@@ -66,6 +66,8 @@ const UnifiedCameraController = ({
   const POINTER_RETURN_DELAY = 0.25;
   const POINTER_RETURN_FADE = 0.7;
   const POINTER_DECAY = 0.985;
+  const POINTER_DEADZONE = 0.00012;
+  const POINTER_REVERSAL_THRESHOLD = 0.00035;
 
   const findAnchorInFacet = (facetKey) => {
     if (!facetRefs) {
@@ -209,8 +211,25 @@ const UnifiedCameraController = ({
       const azimuthDelta = dx * 0.00034;
       const polarDelta = dy * 0.00022;
 
-      targetOrbitVelocityRef.current.set(-azimuthDelta, polarDelta);
-      targetOrbitVelocityRef.current.clampLength(0, 0.0025);
+      const targetVelocity = targetOrbitVelocityRef.current;
+      const nextVelocity = new THREE.Vector2(-azimuthDelta, polarDelta);
+      const applyAxis = (value, current) => {
+        if (Math.abs(value) < POINTER_DEADZONE) {
+          return 0;
+        }
+        if (Math.sign(value) !== 0 && Math.sign(current) !== 0 && Math.sign(value) !== Math.sign(current)) {
+          if (Math.abs(value) < POINTER_REVERSAL_THRESHOLD) {
+            return 0;
+          }
+        }
+        return value;
+      };
+      nextVelocity.set(
+        applyAxis(nextVelocity.x, targetVelocity.x),
+        applyAxis(nextVelocity.y, targetVelocity.y)
+      );
+      targetVelocity.copy(nextVelocity);
+      targetVelocity.clampLength(0, 0.0025);
       lastPointerMoveTimeRef.current = event.timeStamp;
       userControlStrengthRef.current = 1;
     };
@@ -420,8 +439,10 @@ const UnifiedCameraController = ({
         }
       }
 
-      const responseLerp = Math.min(Math.max(1 - Math.exp(-12 * deltaTime), 0.06), 0.26);
+      const responseLerp = Math.min(Math.max(1 - Math.exp(-9 * deltaTime), 0.04), 0.2);
       orbitVelocityRef.current.lerp(targetOrbitVelocityRef.current, responseLerp);
+      const velocityDecay = Math.pow(0.995, deltaMultiplier);
+      orbitVelocityRef.current.multiplyScalar(velocityDecay);
       orbitVelocityRef.current.clampLength(0, 0.0025);
 
       const userActive = orbitVelocityRef.current.lengthSq() > 1e-6 ? 1 : 0;
