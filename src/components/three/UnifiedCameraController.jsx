@@ -20,7 +20,9 @@ const UnifiedCameraController = ({
   // Orbit tracking
   const lastPointerRef = useRef({ x: 0, y: 0, time: 0 });
   const orbitVelocityRef = useRef(new THREE.Vector2(0, 0));
+  const targetOrbitVelocityRef = useRef(new THREE.Vector2(0, 0));
   const userControlStrengthRef = useRef(0);
+  const lastPointerMoveTimeRef = useRef(0);
 
   // Orbit angles
   const heroPolarAngleRef = useRef(0);
@@ -60,6 +62,9 @@ const UnifiedCameraController = ({
   const orbitInitDelayRef = useRef(0);
   const ORBIT_DELAY_FRAMES = 30; // Wait 30 frames after settling before starting orbit
   const lastCameraStateRef = useRef(null);
+  const POINTER_IDLE_MS = 220;
+  const POINTER_RETURN_DELAY = 0.3;
+  const POINTER_RETURN_FADE = 0.8;
 
   const findAnchorInFacet = (facetKey) => {
     if (!facetRefs) {
@@ -200,18 +205,12 @@ const UnifiedCameraController = ({
       const dy = event.clientY - lastPointerRef.current.y;
       lastPointerRef.current = { x: event.clientX, y: event.clientY, time: event.timeStamp };
 
-      const azimuthDelta = dx * 0.00035;
-      const polarDelta = dy * 0.00022;
+      const azimuthDelta = dx * 0.00026;
+      const polarDelta = dy * 0.00018;
 
-      heroOrbitAngle.current -= azimuthDelta;
-      heroPolarAngleRef.current = THREE.MathUtils.clamp(
-        heroPolarAngleRef.current + polarDelta,
-        -0.35,
-        0.95
-      );
-
-      orbitVelocityRef.current.set(-azimuthDelta, polarDelta);
-      orbitVelocityRef.current.clampLength(0, 0.0025);
+      targetOrbitVelocityRef.current.set(-azimuthDelta, polarDelta);
+      targetOrbitVelocityRef.current.clampLength(0, 0.002);
+      lastPointerMoveTimeRef.current = event.timeStamp;
       userControlStrengthRef.current = 1;
     };
 
@@ -229,6 +228,9 @@ const UnifiedCameraController = ({
       orbitInitDelayRef.current = 0;
       lastCameraStateRef.current = animationData?.cameraState;
       lastPointerRef.current = { x: 0, y: 0, time: 0 };
+      lastPointerMoveTimeRef.current = 0;
+      targetOrbitVelocityRef.current.set(0, 0);
+      orbitVelocityRef.current.set(0, 0);
       
       if (import.meta.env.DEV) {
         console.log('📹 Camera state changed, resetting orbit:', animationData?.cameraState);
@@ -405,11 +407,29 @@ const UnifiedCameraController = ({
     if (animationData.state === 'hero' && animationData.cameraState === 'hero' && isOrbitingRef.current) {
       const deltaMultiplier = deltaTime * 60;
       const speed = animationData.cameraConfig?.orbitSpeed || 0.00018;
+      const nowMs = state.clock.elapsedTime * 1000;
+      const idleMs = lastPointerMoveTimeRef.current
+        ? nowMs - lastPointerMoveTimeRef.current
+        : Number.POSITIVE_INFINITY;
+      if (idleMs > POINTER_IDLE_MS) {
+        targetOrbitVelocityRef.current.set(0, 0);
+      }
+
+      const responseLerp = Math.min(Math.max(1 - Math.exp(-8 * deltaTime), 0.02), 0.18);
+      orbitVelocityRef.current.lerp(targetOrbitVelocityRef.current, responseLerp);
+      orbitVelocityRef.current.clampLength(0, 0.002);
+
       const userActive = orbitVelocityRef.current.lengthSq() > 1e-6 ? 1 : 0;
       const influenceLerp = Math.min(Math.max(deltaTime * 5, 0.02), 0.2);
 
       userControlStrengthRef.current += (userActive - userControlStrengthRef.current) * influenceLerp;
-      const autoOrbitStrength = 1 - Math.min(userControlStrengthRef.current, 1);
+      const idleSeconds = idleMs / 1000;
+      const idleBlend = THREE.MathUtils.clamp(
+        (idleSeconds - POINTER_RETURN_DELAY) / POINTER_RETURN_FADE,
+        0,
+        1
+      );
+      const autoOrbitStrength = (1 - Math.min(userControlStrengthRef.current, 1)) * idleBlend;
 
       heroOrbitAngle.current += speed * deltaMultiplier * autoOrbitStrength;
 
@@ -420,11 +440,6 @@ const UnifiedCameraController = ({
           -0.35,
           0.95
         );
-        const decay = Math.pow(0.992, deltaMultiplier);
-        orbitVelocityRef.current.multiplyScalar(decay);
-        if (orbitVelocityRef.current.lengthSq() < 1e-6) {
-          orbitVelocityRef.current.set(0, 0);
-        }
       }
 
       const distance = orbitDistanceRef.current || Math.sqrt(
