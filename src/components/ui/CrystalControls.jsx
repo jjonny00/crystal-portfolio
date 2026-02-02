@@ -127,8 +127,8 @@ const CrystalControls = ({ config, onUpdate }) => {
     'materials.crystal.roughness': crystalConfig.materials.crystal.roughness,
   });
 
-  const cloneConfig = () => {
-    const base = config ?? crystalConfig;
+  const normalizeCrystalConfig = (input) => {
+    const base = input ?? crystalConfig;
     const cloneVec3 = (value) => (Array.isArray(value) ? [...value] : value);
     const cloneOffsetGroup = (group) => Object.fromEntries(
       Object.entries(group ?? {}).map(([key, value]) => [
@@ -153,25 +153,28 @@ const CrystalControls = ({ config, onUpdate }) => {
       }
       return value;
     };
-    const cloneMaterials = (materials) => ({
-      ...materials,
-      crystal: {
-        ...materials.crystal,
-        color: normalizeColor(materials.crystal?.color),
-        emissive: normalizeColor(materials.crystal?.emissive),
-        attenuationColor: normalizeColor(materials.crystal?.attenuationColor),
-        specularColor: normalizeColor(materials.crystal?.specularColor)
-      },
-      textures: {
-        ...materials.textures,
-        normalMap: {
-          ...materials.textures?.normalMap,
-          repeat: Array.isArray(materials.textures?.normalMap?.repeat)
-            ? [...materials.textures.normalMap.repeat]
-            : materials.textures?.normalMap?.repeat
+    const cloneMaterials = (materials) => {
+      if (!materials) return materials;
+      return {
+        ...materials,
+        crystal: {
+          ...materials.crystal,
+          color: normalizeColor(materials.crystal?.color),
+          emissive: normalizeColor(materials.crystal?.emissive),
+          attenuationColor: normalizeColor(materials.crystal?.attenuationColor),
+          specularColor: normalizeColor(materials.crystal?.specularColor)
+        },
+        textures: {
+          ...materials.textures,
+          normalMap: {
+            ...materials.textures?.normalMap,
+            repeat: Array.isArray(materials.textures?.normalMap?.repeat)
+              ? [...materials.textures.normalMap.repeat]
+              : materials.textures?.normalMap?.repeat
+          }
         }
-      }
-    });
+      };
+    };
 
     return {
       ...base,
@@ -253,6 +256,8 @@ const CrystalControls = ({ config, onUpdate }) => {
       materials: cloneMaterials(base.materials)
     };
   };
+
+  const cloneConfig = () => normalizeCrystalConfig(config ?? crystalConfig);
 
   const sanitizeNumber = (value, fallback = 0) => {
     if (value === null || value === undefined) return fallback;
@@ -869,6 +874,13 @@ const CrystalControls = ({ config, onUpdate }) => {
     try {
       const text = await file.text();
       const rawPayload = JSON.parse(text);
+      const normalized = normalizeCrystalConfig(rawPayload);
+      console.log('[LOAD JSON] normalized colors:', {
+        color: normalized.materials?.crystal?.color?.isColor,
+        emissive: normalized.materials?.crystal?.emissive?.isColor,
+        attenuationColor: normalized.materials?.crystal?.attenuationColor?.isColor,
+        specularColor: normalized.materials?.crystal?.specularColor?.isColor
+      });
       const tuningData = rawPayload?.tuning ?? rawPayload;
       const hasKnownKeys =
         tuningData &&
@@ -883,10 +895,18 @@ const CrystalControls = ({ config, onUpdate }) => {
         throw new Error('Missing tuning data');
       }
 
-      const normalizedPayload = rawPayload?.tuning ? rawPayload : { version: 1, tuning: tuningData };
-      const updatedConfig = applyTuningToConfig(config ?? crystalConfig, normalizedPayload);
-      syncStateFromConfig(updatedConfig);
-      onUpdate(updatedConfig);
+      const isTuningPayload = Boolean(rawPayload?.tuning) || !rawPayload?.materials;
+
+      if (isTuningPayload) {
+        const normalizedPayload = rawPayload?.tuning ? rawPayload : { version: 1, tuning: tuningData };
+        const updatedConfig = applyTuningToConfig(config ?? crystalConfig, normalizedPayload);
+        const normalizedConfig = normalizeCrystalConfig(updatedConfig);
+        syncStateFromConfig(normalizedConfig);
+        onUpdate(normalizedConfig);
+      } else {
+        syncStateFromConfig(normalized);
+        onUpdate(normalized);
+      }
       setExportMessage('Loaded preset ✅');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
