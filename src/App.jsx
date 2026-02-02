@@ -254,6 +254,9 @@ function App() {
     vignette: true
   });
   const [postProcessingConfig, setPostProcessingConfig] = useState(config.postProcessing);
+  const [materialEpoch, setMaterialEpoch] = useState(0);
+  const materialEpochTimeoutRef = useRef(null);
+  const lastMaterialEpochLogRef = useRef(0);
 
   // Simulate application initialization progress for loader
   useEffect(() => {
@@ -353,15 +356,35 @@ function App() {
     if (import.meta.env.DEV) console.log('Navigate to contact section');
   }, []);
 
+  const bumpMaterialEpoch = useCallback(() => {
+    if (materialEpochTimeoutRef.current) {
+      clearTimeout(materialEpochTimeoutRef.current);
+    }
+
+    materialEpochTimeoutRef.current = setTimeout(() => {
+      setMaterialEpoch((n) => {
+        const next = n + 1;
+        const now = Date.now();
+        if (now - lastMaterialEpochLogRef.current > 200) {
+          console.log(`[NUCLEAR] materialEpoch bumped -> ${next}`);
+          lastMaterialEpochLogRef.current = now;
+        }
+        return next;
+      });
+    }, 150);
+  }, []);
+
   const handleConfigUpdate = useCallback((newConfig) => {
     setConfig(newConfig);
     setAnimationConfig(buildAnimationConfig(newConfig));
-  }, []);
+    bumpMaterialEpoch();
+  }, [bumpMaterialEpoch]);
 
   const handleMaterialChange = useCallback((variant) => {
     if (import.meta.env.DEV) console.log("Changing material variant to:", variant);
     setMaterialVariant(variant);
-  }, []);
+    bumpMaterialEpoch();
+  }, [bumpMaterialEpoch]);
   
   const handleToggleEffect = useCallback((effect, enabled, params = null) => {
     setEffectsEnabled(prev => ({
@@ -437,6 +460,14 @@ function App() {
   useEffect(() => {
     document.body.style.overflow = isAppReady ? 'auto' : 'hidden';
   }, [isAppReady]);
+
+  useEffect(() => {
+    return () => {
+      if (materialEpochTimeoutRef.current) {
+        clearTimeout(materialEpochTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // UI Hide Toggle Keyboard Listener
   useEffect(() => {
@@ -590,6 +621,7 @@ function App() {
           key={performanceProfile?.renderScale}
           ref={fixedCanvasRef}
           materialVariant={materialVariant}
+          materialEpoch={materialEpoch}
           effectsEnabled={effectsEnabled}
           postProcessingConfig={postProcessingConfig}
           performanceProfile={performanceProfile}

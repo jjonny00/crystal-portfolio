@@ -1,7 +1,8 @@
 // CrystalMaterial.jsx - UPDATED: Better shadow handling for transparent materials
 // Creates materials that look great whether PBR is enabled or disabled
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
+import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 
 /**
@@ -16,6 +17,11 @@ const CrystalMaterial = ({
   performanceConfig = {},
   onMaterialReady = null
 }) => {
+  const { scene } = useThree();
+  const envBindStateRef = useRef({ bound: false, framesChecked: 0 });
+  const envIntensityRef = useRef(null);
+  const envLogRef = useRef(false);
+
   // Set default performance settings if not provided
   const {
     useNormalMaps = true,
@@ -409,6 +415,39 @@ const CrystalMaterial = ({
     usePBR,
     materialRef.current
   ]);
+
+  useFrame(() => {
+    const material = materialRef.current;
+    if (!material) return;
+
+    if (envIntensityRef.current == null) {
+      envIntensityRef.current = material.envMapIntensity ?? 1;
+    }
+
+    if (envBindStateRef.current.bound) return;
+
+    envBindStateRef.current.framesChecked += 1;
+
+    if (scene.environment) {
+      if (material.envMap !== scene.environment) {
+        material.envMap = scene.environment;
+        material.envMapIntensity = envIntensityRef.current ?? material.envMapIntensity ?? 1;
+        material.needsUpdate = true;
+      }
+
+      if (material.envMap === scene.environment && !envBindStateRef.current.bound) {
+        envBindStateRef.current.bound = true;
+        if (!envLogRef.current) {
+          console.log(
+            `[NUCLEAR] env bound to material uuid=${material.uuid} env=${scene.environment.uuid || 'unknown'}`
+          );
+          envLogRef.current = true;
+        }
+      }
+    } else {
+      material.envMapIntensity = 0;
+    }
+  });
   
   return null; // This component doesn't render anything
 };

@@ -28,6 +28,7 @@ const UnifiedCrystalScene = forwardRef(({
   animationData,
   config,
   materialVariant = 'default',
+  materialEpoch = 0,
   performanceProfile = { useNormalMaps: true, textureQuality: 'high', pbrQuality: 'high', usePBR: true },
   simplifiedAnimations = false,
   scrollToProgress,
@@ -1309,6 +1310,7 @@ const UnifiedCrystalScene = forwardRef(({
       <MaterialManager
         materialVariant={materialVariant}
         config={config}
+        materialEpoch={materialEpoch}
         materialRef={crystalMaterialRef}
         performanceProfile={performanceProfile}
         onMaterialReady={handleMaterialReady}

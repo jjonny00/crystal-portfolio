@@ -9,6 +9,7 @@ import * as THREE from 'three';
 const MaterialManager = ({
   materialVariant,
   config,
+  materialEpoch = 0,
   materialRef,
   performanceProfile = {},
   onMaterialReady = null
@@ -479,7 +480,8 @@ const MaterialManager = ({
   }
 
   return (
-    <CrystalMaterial 
+    <CrystalMaterial
+      key={materialEpoch}
       config={config} 
       materialRef={crystalMaterialRef} 
       variant={materialVariant === 'default' ||
