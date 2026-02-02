@@ -62,10 +62,10 @@ const UnifiedCameraController = ({
   const orbitInitDelayRef = useRef(0);
   const ORBIT_DELAY_FRAMES = 30; // Wait 30 frames after settling before starting orbit
   const lastCameraStateRef = useRef(null);
-  const POINTER_IDLE_MS = 160;
+  const POINTER_IDLE_MS = 220;
   const POINTER_RETURN_DELAY = 0.25;
   const POINTER_RETURN_FADE = 0.7;
-  const POINTER_DECAY = 0.975;
+  const POINTER_DECAY = 0.985;
 
   const findAnchorInFacet = (facetKey) => {
     if (!facetRefs) {
@@ -206,11 +206,11 @@ const UnifiedCameraController = ({
       const dy = event.clientY - lastPointerRef.current.y;
       lastPointerRef.current = { x: event.clientX, y: event.clientY, time: event.timeStamp };
 
-      const azimuthDelta = dx * 0.0003;
-      const polarDelta = dy * 0.0002;
+      const azimuthDelta = dx * 0.00034;
+      const polarDelta = dy * 0.00022;
 
       targetOrbitVelocityRef.current.set(-azimuthDelta, polarDelta);
-      targetOrbitVelocityRef.current.clampLength(0, 0.0022);
+      targetOrbitVelocityRef.current.clampLength(0, 0.0025);
       lastPointerMoveTimeRef.current = event.timeStamp;
       userControlStrengthRef.current = 1;
     };
@@ -420,9 +420,9 @@ const UnifiedCameraController = ({
         }
       }
 
-      const responseLerp = Math.min(Math.max(1 - Math.exp(-10 * deltaTime), 0.04), 0.22);
+      const responseLerp = Math.min(Math.max(1 - Math.exp(-12 * deltaTime), 0.06), 0.26);
       orbitVelocityRef.current.lerp(targetOrbitVelocityRef.current, responseLerp);
-      orbitVelocityRef.current.clampLength(0, 0.0022);
+      orbitVelocityRef.current.clampLength(0, 0.0025);
 
       const userActive = orbitVelocityRef.current.lengthSq() > 1e-6 ? 1 : 0;
       const influenceLerp = Math.min(Math.max(deltaTime * 5, 0.02), 0.2);
