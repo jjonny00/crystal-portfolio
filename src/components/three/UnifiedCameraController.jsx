@@ -215,11 +215,11 @@ const UnifiedCameraController = ({
       const nextVelocity = new THREE.Vector2(-azimuthDelta, polarDelta);
       const applyAxis = (value, current) => {
         if (Math.abs(value) < POINTER_DEADZONE) {
-          return 0;
+          return current;
         }
         if (Math.sign(value) !== 0 && Math.sign(current) !== 0 && Math.sign(value) !== Math.sign(current)) {
           if (Math.abs(value) < POINTER_REVERSAL_THRESHOLD) {
-            return 0;
+            return current;
           }
         }
         return value;
