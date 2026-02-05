@@ -12,7 +12,7 @@ const UnifiedCameraController = ({
   simplifiedAnimations = false,
   facetRefs = null
 }) => {
-  const { camera, gl } = useThree();
+  const { camera } = useThree();
 
   // Input context
   const isTouchDeviceRef = useRef(false);
@@ -190,9 +190,7 @@ const UnifiedCameraController = ({
   }, []);
 
   useEffect(() => {
-    const element = gl?.domElement;
-
-    if (!element || isTouchDeviceRef.current) return undefined;
+    if (typeof window === 'undefined' || isTouchDeviceRef.current) return undefined;
 
     const handlePointerMove = (event) => {
       if (animationData?.state !== 'hero' || animationData?.cameraState !== 'hero') {
@@ -234,12 +232,12 @@ const UnifiedCameraController = ({
       userControlStrengthRef.current = 1;
     };
 
-    element.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointermove', handlePointerMove, { passive: true });
 
     return () => {
-      element.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointermove', handlePointerMove);
     };
-  }, [animationData?.cameraState, animationData?.state, gl]);
+  }, [animationData?.cameraState, animationData?.state]);
 
   useEffect(() => {
     // FIXED: Reset orbit state when camera state changes
