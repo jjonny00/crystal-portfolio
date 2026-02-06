@@ -420,6 +420,7 @@ const UnifiedCrystalScene = forwardRef(({
       mat.userData.startColor.copy(mat.color)
       mat.userData.targetColor.copy(targetColor)
       mat.userData.progress = 0
+      mat.userData.pendingColorUpdate = true
     },
     [facetKeys, projectColors, animationData?.focusedFacet]
   )
@@ -744,6 +745,7 @@ const UnifiedCrystalScene = forwardRef(({
         targetColor: mat.color.clone(),
         startColor: mat.color.clone(),
         progress: 1,
+        pendingColorUpdate: false,
         baseEmissiveIntensity:
           mat.userData?.baseEmissiveIntensity ?? mat.emissiveIntensity,
         baseEmissiveColor:
@@ -1001,6 +1003,7 @@ const UnifiedCrystalScene = forwardRef(({
         mat.userData.startColor.copy(mat.color);
         mat.userData.targetColor.copy(targetColor);
         mat.userData.progress = 0;
+        mat.userData.pendingColorUpdate = true;
       });
 
       activeFacetRef.current = currentFacet;
@@ -1339,12 +1342,21 @@ const UnifiedCrystalScene = forwardRef(({
 
     // Smooth color transitions for facet materials
     facetMaterialsRef.current.forEach((mat) => {
-      const { targetColor, startColor, progress = 1, isFading } = mat.userData || {};
+      const {
+        targetColor,
+        startColor,
+        progress = 1,
+        isFading,
+        pendingColorUpdate
+      } = mat.userData || {};
       if (isFading) return;
-      if (targetColor && startColor && progress < 1) {
+      if (targetColor && startColor && (pendingColorUpdate || progress < 1)) {
         const speed = 1.5; // seconds to fully transition
         mat.userData.progress = Math.min(progress + deltaTime * speed, 1);
         mat.color.lerpColors(startColor, targetColor, mat.userData.progress);
+        if (mat.userData.progress >= 1) {
+          mat.userData.pendingColorUpdate = false;
+        }
       }
     });
 
