@@ -21,6 +21,7 @@ import projects, {
 import FacetLabels from './FacetLabels'
 import { effects } from '../../crystalConfig'
 import { useFacetOverlayGeometry } from '../../hooks/useFacetOverlayGeometry'
+import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController'
 
 const PROJECT_DISPLAY_SLOT = 'ProjectDisplay'
 
@@ -64,12 +65,18 @@ const UnifiedCrystalScene = forwardRef(({
 
   // Track material updates so we can reapply when ready
   const [materialVersion, setMaterialVersion] = useState(0);
+  const hoverSourcesRef = useRef({});
 
   // FIXED: Better tracking of focus changes
   const prevFocusedFacetRef = useRef(null);
   const prevMaterialVersionRef = useRef(materialVersion);
   const prevOverlaysReadyRef = useRef(false);
   const focusUpdateTimeoutRef = useRef();
+  const inActiveOverview =
+    animationData?.currentZone === 'overview' &&
+    animationData?.crystalForm === 'exploded' &&
+    animationData?.isTransitioning === false &&
+    animationData?.cameraSettled === true;
 
   // Facet configuration
   const facetKeys = canonicalFacetKeys;
@@ -365,15 +372,11 @@ const UnifiedCrystalScene = forwardRef(({
   }, [modelsLoaded, facetKeys, facetModels, computeAnchorWorldPosition, animationData?.crystalConfig?.explodedPositions]);
 
   // FIXED: Improved handleLabelHover with better state management
-  const handleLabelHover = useCallback(
+  const applyHoverVisual = useCallback(
     (facetKey, hovering) => {
       if (import.meta.env.DEV) {
         console.log(`🎨 Label hover: ${facetKey}, hovering: ${hovering}, currentFocus: ${animationData?.focusedFacet}`);
       }
-
-      // Update hover state
-      setHoveredFacet(hovering ? facetKey : null);
-      hoveredFacetRef.current = hovering ? facetKey : null;
 
       const index = facetKeys.indexOf(facetKey)
       if (index === -1 || !facetMaterialsRef.current[index]) return;
@@ -420,6 +423,59 @@ const UnifiedCrystalScene = forwardRef(({
     },
     [facetKeys, projectColors, animationData?.focusedFacet]
   )
+
+  const updateHoverSources = useCallback(
+    (facetKey, source, hovering) => {
+      if (!inActiveOverview) return;
+      const currentSources = hoverSourcesRef.current[facetKey] || {
+        label: false,
+        facet: false,
+      };
+      const nextSources = {
+        ...currentSources,
+        [source]: hovering,
+      };
+
+      hoverSourcesRef.current = {
+        ...hoverSourcesRef.current,
+        [facetKey]: nextSources,
+      };
+
+      const activeFacetKey =
+        Object.entries(hoverSourcesRef.current).find(
+          ([, sources]) => sources?.label || sources?.facet
+        )?.[0] ?? null;
+
+      setHoveredFacet(activeFacetKey);
+      hoveredFacetRef.current = activeFacetKey;
+      applyHoverVisual(facetKey, nextSources.label || nextSources.facet);
+    },
+    [applyHoverVisual, inActiveOverview]
+  );
+
+  const handleLabelHover = useCallback(
+    (facetKey, hovering) => {
+      updateHoverSources(facetKey, 'label', hovering);
+    },
+    [updateHoverSources]
+  );
+
+  const handleFacetHover = useCallback(
+    (facetKey, hovering) => {
+      updateHoverSources(facetKey, 'facet', hovering);
+    },
+    [updateHoverSources]
+  );
+
+  const handleFacetClick = useCallback(
+    (facetKey) => {
+      if (!inActiveOverview) return;
+      const sectionStart = ANIMATION_CONFIG.projectSections?.[facetKey]?.start;
+      if (sectionStart === undefined) return;
+      scrollToProgress(sectionStart);
+    },
+    [inActiveOverview, scrollToProgress]
+  );
   
   // Keyboard listener for debug toggle
   useEffect(() => {
@@ -1365,7 +1421,18 @@ const UnifiedCrystalScene = forwardRef(({
                 ref={facetRefs.current[index]}
                 object={model.scene}
                 position={[0, 0, 0]} // Position will be animated via useFrame
-                pointerEvents="none"
+                onPointerEnter={(event) => {
+                  event.stopPropagation();
+                  handleFacetHover(facetKey, true);
+                }}
+                onPointerLeave={(event) => {
+                  event.stopPropagation();
+                  handleFacetHover(facetKey, false);
+                }}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  handleFacetClick(facetKey);
+                }}
               />
             );
           })}
