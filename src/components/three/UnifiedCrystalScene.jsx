@@ -371,6 +371,23 @@ const UnifiedCrystalScene = forwardRef(({
     setAnchorOffsets(offsets);
   }, [modelsLoaded, facetKeys, facetModels, computeAnchorWorldPosition, animationData?.crystalConfig?.explodedPositions]);
 
+  const startColorTransition = useCallback((mat, targetColor, duration = 0.35) => {
+    if (!mat || !targetColor) return;
+
+    if (!mat.userData) {
+      mat.userData = {};
+    }
+
+    mat.userData.startColor = mat.userData.startColor || mat.color.clone();
+    mat.userData.targetColor = mat.userData.targetColor || mat.color.clone();
+
+    mat.userData.startColor.copy(mat.color);
+    mat.userData.targetColor.copy(targetColor);
+    mat.userData.transitionStart = performance.now();
+    mat.userData.transitionDuration = duration;
+    mat.userData.progress = 0;
+  }, []);
+
   // FIXED: Improved handleLabelHover with better state management
   const applyHoverVisual = useCallback(
     (facetKey, hovering) => {
@@ -417,11 +434,9 @@ const UnifiedCrystalScene = forwardRef(({
       }
 
       // Set up material transition
-      mat.userData.startColor.copy(mat.color)
-      mat.userData.targetColor.copy(targetColor)
-      mat.userData.progress = 0
+      startColorTransition(mat, targetColor);
     },
-    [facetKeys, projectColors, animationData?.focusedFacet]
+    [facetKeys, projectColors, animationData?.focusedFacet, startColorTransition]
   )
 
   const updateHoverSources = useCallback(
@@ -998,9 +1013,7 @@ const UnifiedCrystalScene = forwardRef(({
           }
         }
 
-        mat.userData.startColor.copy(mat.color);
-        mat.userData.targetColor.copy(targetColor);
-        mat.userData.progress = 0;
+        startColorTransition(mat, targetColor);
       });
 
       activeFacetRef.current = currentFacet;
@@ -1030,7 +1043,8 @@ const UnifiedCrystalScene = forwardRef(({
     facetKeys,
     projectColors,
     overlaysReady,
-    setOverlayVisibility
+    setOverlayVisibility,
+    startColorTransition
   ]);
   
   // Crystal form change detection
@@ -1338,13 +1352,34 @@ const UnifiedCrystalScene = forwardRef(({
     }
 
     // Smooth color transitions for facet materials
+    const now = performance.now();
     facetMaterialsRef.current.forEach((mat) => {
-      const { targetColor, startColor, progress = 1, isFading } = mat.userData || {};
-      if (isFading) return;
-      if (targetColor && startColor && progress < 1) {
-        const speed = 1.5; // seconds to fully transition
-        mat.userData.progress = Math.min(progress + deltaTime * speed, 1);
-        mat.color.lerpColors(startColor, targetColor, mat.userData.progress);
+      const {
+        targetColor,
+        startColor,
+        progress = 1,
+        isFading,
+        transitionStart,
+        transitionDuration,
+      } = mat.userData || {};
+
+      if (isFading && transitionStart == null) return;
+
+      if (targetColor && startColor) {
+        if (transitionStart != null && transitionDuration) {
+          const elapsed = (now - transitionStart) / 1000;
+          const t = Math.min(elapsed / transitionDuration, 1);
+          const eased = t * t * (3 - 2 * t);
+          mat.color.lerpColors(startColor, targetColor, eased);
+          if (t >= 1 && mat.userData) {
+            mat.userData.transitionStart = null;
+            mat.userData.progress = 1;
+          }
+        } else if (progress < 1) {
+          const speed = 1.5; // seconds to fully transition
+          mat.userData.progress = Math.min(progress + deltaTime * speed, 1);
+          mat.color.lerpColors(startColor, targetColor, mat.userData.progress);
+        }
       }
     });
 
