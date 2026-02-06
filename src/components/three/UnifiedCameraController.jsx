@@ -70,9 +70,9 @@ const UnifiedCameraController = ({
   const POINTER_RETURN_FADE = 0.7;
   const POINTER_DECAY = 0.992;
   const POINTER_DEADZONE = 0.00008;
-  const POINTER_DIRECTION_DISTANCE = 0.0006;
-  const POINTER_DIRECTION_DOT = 0.45;
-  const POINTER_MAX_SPEED = 0.0016;
+  const POINTER_DIRECTION_DISTANCE = 0.00055;
+  const POINTER_DIRECTION_DOT = 0.48;
+  const POINTER_MAX_SPEED = 0.0021;
 
   const findAnchorInFacet = (facetKey) => {
     if (!facetRefs) {
@@ -211,8 +211,8 @@ const UnifiedCameraController = ({
       const dy = event.clientY - lastPointerRef.current.y;
       lastPointerRef.current = { x: event.clientX, y: event.clientY, time: event.timeStamp };
 
-      const azimuthDelta = dx * 0.00038;
-      const polarDelta = dy * 0.00025;
+      const azimuthDelta = dx * 0.00044;
+      const polarDelta = dy * 0.0003;
 
       const targetVelocity = targetOrbitVelocityRef.current;
       const nextVelocity = new THREE.Vector2(-azimuthDelta, polarDelta);
