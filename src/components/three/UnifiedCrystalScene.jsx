@@ -723,32 +723,55 @@ const UnifiedCrystalScene = forwardRef(({
     const hoveredKey = hoveredFacetRef.current;
     const focusedKey = animationData?.focusedFacet;
     
+    const previousFacetMaterials = facetMaterialsRef.current;
     facetMaterialsRef.current = facetKeys.map((key, idx) => {
       const mat = crystalMaterialRef.current.clone();
+      const existingMat = previousFacetMaterials[idx];
 
-      // FIXED: Determine initial color based on current state
-      let initialColor = defaultColorRef.current;
-      
-      if (hoveredKey === key) {
-        // This facet is currently hovered
-        initialColor = projectColors[idx];
-      } else if (focusedKey === key && !hoveredKey) {
-        // This facet is focused and no other facet is hovered
-        initialColor = projectColors[idx];
+      if (existingMat) {
+        mat.color.copy(existingMat.color);
+
+        const previousUserData = existingMat.userData ? { ...existingMat.userData } : {};
+        const previousTargetColor = previousUserData.targetColor?.clone?.();
+        const previousStartColor = previousUserData.startColor?.clone?.();
+        const previousBaseEmissiveColor =
+          previousUserData.baseEmissiveColor?.clone?.() || mat.emissive.clone();
+        const previousBaseEmissiveIntensity =
+          previousUserData.baseEmissiveIntensity ?? mat.emissiveIntensity;
+
+        mat.userData = {
+          ...(mat.userData || {}),
+          ...previousUserData,
+          targetColor: previousTargetColor || mat.color.clone(),
+          startColor: previousStartColor || mat.color.clone(),
+          baseEmissiveIntensity: previousBaseEmissiveIntensity,
+          baseEmissiveColor: previousBaseEmissiveColor,
+        };
+      } else {
+        // FIXED: Determine initial color based on current state
+        let initialColor = defaultColorRef.current;
+        
+        if (hoveredKey === key) {
+          // This facet is currently hovered
+          initialColor = projectColors[idx];
+        } else if (focusedKey === key && !hoveredKey) {
+          // This facet is focused and no other facet is hovered
+          initialColor = projectColors[idx];
+        }
+
+        mat.color.copy(initialColor);
+        mat.userData = {
+          ...(mat.userData || {}),
+          isFading: mat.userData?.isFading || false,
+          targetColor: mat.color.clone(),
+          startColor: mat.color.clone(),
+          progress: 1,
+          baseEmissiveIntensity:
+            mat.userData?.baseEmissiveIntensity ?? mat.emissiveIntensity,
+          baseEmissiveColor:
+            mat.userData?.baseEmissiveColor?.clone?.() || mat.emissive.clone()
+        };
       }
-
-      mat.color.copy(initialColor);
-      mat.userData = {
-        ...(mat.userData || {}),
-        isFading: mat.userData?.isFading || false,
-        targetColor: mat.color.clone(),
-        startColor: mat.color.clone(),
-        progress: 1,
-        baseEmissiveIntensity:
-          mat.userData?.baseEmissiveIntensity ?? mat.emissiveIntensity,
-        baseEmissiveColor:
-          mat.userData?.baseEmissiveColor?.clone?.() || mat.emissive.clone()
-      };
 
       const model = facetModels[idx];
       applyMaterial(model.scene, mat, facetKeys[idx]);
@@ -1343,8 +1366,11 @@ const UnifiedCrystalScene = forwardRef(({
       if (isFading) return;
       if (targetColor && startColor && progress < 1) {
         const speed = 1.5; // seconds to fully transition
-        mat.userData.progress = Math.min(progress + deltaTime * speed, 1);
-        mat.color.lerpColors(startColor, targetColor, mat.userData.progress);
+        const nextProgress = Math.min(progress + deltaTime * speed, 1);
+        const easedProgress = 1 - Math.pow(1 - nextProgress, 3);
+        mat.userData.progress = nextProgress;
+        mat.color.lerpColors(startColor, targetColor, easedProgress);
+        mat.needsUpdate = true;
       }
     });
 
