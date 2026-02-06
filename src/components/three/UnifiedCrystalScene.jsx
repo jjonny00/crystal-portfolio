@@ -371,7 +371,7 @@ const UnifiedCrystalScene = forwardRef(({
     setAnchorOffsets(offsets);
   }, [modelsLoaded, facetKeys, facetModels, computeAnchorWorldPosition, animationData?.crystalConfig?.explodedPositions]);
 
-  const setFacetColorTarget = useCallback((mat, targetColor, speed = 6) => {
+  const setFacetColorTarget = useCallback((mat, targetColor, speed = 3) => {
     if (!mat || !targetColor) return;
 
     if (!mat.userData) {
@@ -1346,8 +1346,8 @@ const UnifiedCrystalScene = forwardRef(({
 
     // Smooth color transitions for facet materials
     facetMaterialsRef.current.forEach((mat) => {
-      const { targetColor, isFading, colorTransitionSpeed } = mat.userData || {};
-      if (isFading || !targetColor) return;
+      const { targetColor, colorTransitionSpeed } = mat.userData || {};
+      if (!targetColor) return;
 
       const speed = colorTransitionSpeed ?? 6;
       const t = 1 - Math.exp(-deltaTime * speed);
