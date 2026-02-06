@@ -12,7 +12,7 @@ const UnifiedCameraController = ({
   simplifiedAnimations = false,
   facetRefs = null
 }) => {
-  const { camera, gl } = useThree();
+  const { camera } = useThree();
 
   // Input context
   const isTouchDeviceRef = useRef(false);
@@ -20,7 +20,12 @@ const UnifiedCameraController = ({
   // Orbit tracking
   const lastPointerRef = useRef({ x: 0, y: 0, time: 0 });
   const orbitVelocityRef = useRef(new THREE.Vector2(0, 0));
+  const targetOrbitVelocityRef = useRef(new THREE.Vector2(0, 0));
   const userControlStrengthRef = useRef(0);
+  const lastPointerMoveTimeRef = useRef(0);
+  const pointerDirectionRef = useRef(new THREE.Vector2(0, 0));
+  const pointerDirectionDistanceRef = useRef(0);
+  const pointerSwitchDistanceRef = useRef(0);
 
   // Orbit angles
   const heroPolarAngleRef = useRef(0);
@@ -60,6 +65,14 @@ const UnifiedCameraController = ({
   const orbitInitDelayRef = useRef(0);
   const ORBIT_DELAY_FRAMES = 30; // Wait 30 frames after settling before starting orbit
   const lastCameraStateRef = useRef(null);
+  const POINTER_IDLE_MS = 400;
+  const POINTER_RETURN_DELAY = 0.25;
+  const POINTER_RETURN_FADE = 0.7;
+  const POINTER_DECAY = 0.992;
+  const POINTER_DEADZONE = 0.00008;
+  const POINTER_DIRECTION_DISTANCE = 0.00055;
+  const POINTER_DIRECTION_DOT = 0.48;
+  const POINTER_MAX_SPEED = 0.0021;
 
   const findAnchorInFacet = (facetKey) => {
     if (!facetRefs) {
@@ -182,9 +195,7 @@ const UnifiedCameraController = ({
   }, []);
 
   useEffect(() => {
-    const element = gl?.domElement;
-
-    if (!element || isTouchDeviceRef.current) return undefined;
+    if (typeof window === 'undefined' || isTouchDeviceRef.current) return undefined;
 
     const handlePointerMove = (event) => {
       if (animationData?.state !== 'hero' || animationData?.cameraState !== 'hero') {
@@ -200,27 +211,48 @@ const UnifiedCameraController = ({
       const dy = event.clientY - lastPointerRef.current.y;
       lastPointerRef.current = { x: event.clientX, y: event.clientY, time: event.timeStamp };
 
-      const azimuthDelta = dx * 0.00035;
-      const polarDelta = dy * 0.00022;
+      const azimuthDelta = dx * 0.00044;
+      const polarDelta = dy * 0.0003;
 
-      heroOrbitAngle.current -= azimuthDelta;
-      heroPolarAngleRef.current = THREE.MathUtils.clamp(
-        heroPolarAngleRef.current + polarDelta,
-        -0.35,
-        0.95
-      );
+      const targetVelocity = targetOrbitVelocityRef.current;
+      const nextVelocity = new THREE.Vector2(-azimuthDelta, polarDelta);
+      const magnitude = nextVelocity.length();
 
-      orbitVelocityRef.current.set(-azimuthDelta, polarDelta);
-      orbitVelocityRef.current.clampLength(0, 0.0025);
+      if (magnitude > POINTER_DEADZONE) {
+        const nextDirection = nextVelocity.clone().normalize();
+        const currentDirection = pointerDirectionRef.current;
+        const hasDirection = currentDirection.lengthSq() > 1e-6;
+        const dot = hasDirection ? currentDirection.dot(nextDirection) : 1;
+
+        if (!hasDirection || dot >= POINTER_DIRECTION_DOT) {
+          currentDirection.copy(nextDirection);
+          pointerDirectionDistanceRef.current = 0;
+        } else {
+          pointerDirectionDistanceRef.current += magnitude;
+          if (pointerDirectionDistanceRef.current >= POINTER_DIRECTION_DISTANCE) {
+            currentDirection.copy(nextDirection);
+            pointerDirectionDistanceRef.current = 0;
+          }
+        }
+
+        const speed = Math.min(magnitude, POINTER_MAX_SPEED);
+        targetVelocity.copy(currentDirection).multiplyScalar(speed);
+        pointerSwitchDistanceRef.current = 0;
+      } else {
+        pointerSwitchDistanceRef.current += magnitude;
+      }
+
+      targetVelocity.clampLength(0, POINTER_MAX_SPEED);
+      lastPointerMoveTimeRef.current = event.timeStamp;
       userControlStrengthRef.current = 1;
     };
 
-    element.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointermove', handlePointerMove, { passive: true });
 
     return () => {
-      element.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointermove', handlePointerMove);
     };
-  }, [animationData?.cameraState, animationData?.state, gl]);
+  }, [animationData?.cameraState, animationData?.state]);
 
   useEffect(() => {
     // FIXED: Reset orbit state when camera state changes
@@ -229,6 +261,12 @@ const UnifiedCameraController = ({
       orbitInitDelayRef.current = 0;
       lastCameraStateRef.current = animationData?.cameraState;
       lastPointerRef.current = { x: 0, y: 0, time: 0 };
+      lastPointerMoveTimeRef.current = 0;
+      pointerDirectionRef.current.set(0, 0);
+      pointerDirectionDistanceRef.current = 0;
+      pointerSwitchDistanceRef.current = 0;
+      targetOrbitVelocityRef.current.set(0, 0);
+      orbitVelocityRef.current.set(0, 0);
       
       if (import.meta.env.DEV) {
         console.log('📹 Camera state changed, resetting orbit:', animationData?.cameraState);
@@ -405,27 +443,45 @@ const UnifiedCameraController = ({
     if (animationData.state === 'hero' && animationData.cameraState === 'hero' && isOrbitingRef.current) {
       const deltaMultiplier = deltaTime * 60;
       const speed = animationData.cameraConfig?.orbitSpeed || 0.00018;
+      const nowMs = state.clock.elapsedTime * 1000;
+      const idleMs = lastPointerMoveTimeRef.current
+        ? nowMs - lastPointerMoveTimeRef.current
+        : Number.POSITIVE_INFINITY;
+      if (idleMs > POINTER_IDLE_MS) {
+        const decay = Math.pow(POINTER_DECAY, deltaMultiplier);
+        targetOrbitVelocityRef.current.multiplyScalar(decay);
+        if (targetOrbitVelocityRef.current.lengthSq() < 1e-6) {
+          targetOrbitVelocityRef.current.set(0, 0);
+        }
+      }
+
+      const responseLerp = Math.min(Math.max(1 - Math.exp(-6 * deltaTime), 0.02), 0.12);
+      orbitVelocityRef.current.lerp(targetOrbitVelocityRef.current, responseLerp);
+      const velocityDecay = Math.pow(0.997, deltaMultiplier);
+      orbitVelocityRef.current.multiplyScalar(velocityDecay);
+      orbitVelocityRef.current.clampLength(0, POINTER_MAX_SPEED);
+
       const userActive = orbitVelocityRef.current.lengthSq() > 1e-6 ? 1 : 0;
       const influenceLerp = Math.min(Math.max(deltaTime * 5, 0.02), 0.2);
 
       userControlStrengthRef.current += (userActive - userControlStrengthRef.current) * influenceLerp;
-      const autoOrbitStrength = 1 - Math.min(userControlStrengthRef.current, 1);
+      const idleSeconds = idleMs / 1000;
+      const idleBlend = THREE.MathUtils.clamp(
+        (idleSeconds - POINTER_RETURN_DELAY) / POINTER_RETURN_FADE,
+        0,
+        1
+      );
+      const autoOrbitStrength = (1 - Math.min(userControlStrengthRef.current, 1)) * idleBlend;
 
-      heroOrbitAngle.current += speed * deltaMultiplier * autoOrbitStrength;
+      const baseOrbitSpeed = speed * deltaMultiplier;
+      heroOrbitAngle.current += baseOrbitSpeed * (0.4 + 0.6 * autoOrbitStrength);
 
-      if (orbitVelocityRef.current.lengthSq() > 1e-6) {
-        heroOrbitAngle.current += orbitVelocityRef.current.x;
-        heroPolarAngleRef.current = THREE.MathUtils.clamp(
-          heroPolarAngleRef.current + orbitVelocityRef.current.y,
-          -0.35,
-          0.95
-        );
-        const decay = Math.pow(0.992, deltaMultiplier);
-        orbitVelocityRef.current.multiplyScalar(decay);
-        if (orbitVelocityRef.current.lengthSq() < 1e-6) {
-          orbitVelocityRef.current.set(0, 0);
-        }
-      }
+      heroOrbitAngle.current += orbitVelocityRef.current.x;
+      heroPolarAngleRef.current = THREE.MathUtils.clamp(
+        heroPolarAngleRef.current + orbitVelocityRef.current.y,
+        -0.35,
+        0.95
+      );
 
       const distance = orbitDistanceRef.current || Math.sqrt(
         orbitRadiusRef.current * orbitRadiusRef.current +
