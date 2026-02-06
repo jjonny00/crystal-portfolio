@@ -65,6 +65,7 @@ const UnifiedCrystalScene = forwardRef(({
 
   // Track material updates so we can reapply when ready
   const [materialVersion, setMaterialVersion] = useState(0);
+  const hoverSourcesRef = useRef({});
 
   // FIXED: Better tracking of focus changes
   const prevFocusedFacetRef = useRef(null);
@@ -371,15 +372,11 @@ const UnifiedCrystalScene = forwardRef(({
   }, [modelsLoaded, facetKeys, facetModels, computeAnchorWorldPosition, animationData?.crystalConfig?.explodedPositions]);
 
   // FIXED: Improved handleLabelHover with better state management
-  const handleLabelHover = useCallback(
+  const applyHoverVisual = useCallback(
     (facetKey, hovering) => {
       if (import.meta.env.DEV) {
         console.log(`🎨 Label hover: ${facetKey}, hovering: ${hovering}, currentFocus: ${animationData?.focusedFacet}`);
       }
-
-      // Update hover state
-      setHoveredFacet(hovering ? facetKey : null);
-      hoveredFacetRef.current = hovering ? facetKey : null;
 
       const index = facetKeys.indexOf(facetKey)
       if (index === -1 || !facetMaterialsRef.current[index]) return;
@@ -427,12 +424,47 @@ const UnifiedCrystalScene = forwardRef(({
     [facetKeys, projectColors, animationData?.focusedFacet]
   )
 
+  const updateHoverSources = useCallback(
+    (facetKey, source, hovering) => {
+      if (!inActiveOverview) return;
+      const currentSources = hoverSourcesRef.current[facetKey] || {
+        label: false,
+        facet: false,
+      };
+      const nextSources = {
+        ...currentSources,
+        [source]: hovering,
+      };
+
+      hoverSourcesRef.current = {
+        ...hoverSourcesRef.current,
+        [facetKey]: nextSources,
+      };
+
+      const activeFacetKey =
+        Object.entries(hoverSourcesRef.current).find(
+          ([, sources]) => sources?.label || sources?.facet
+        )?.[0] ?? null;
+
+      setHoveredFacet(activeFacetKey);
+      hoveredFacetRef.current = activeFacetKey;
+      applyHoverVisual(facetKey, nextSources.label || nextSources.facet);
+    },
+    [applyHoverVisual, inActiveOverview]
+  );
+
+  const handleLabelHover = useCallback(
+    (facetKey, hovering) => {
+      updateHoverSources(facetKey, 'label', hovering);
+    },
+    [updateHoverSources]
+  );
+
   const handleFacetHover = useCallback(
     (facetKey, hovering) => {
-      if (!inActiveOverview) return;
-      handleLabelHover(facetKey, hovering);
+      updateHoverSources(facetKey, 'facet', hovering);
     },
-    [handleLabelHover, inActiveOverview]
+    [updateHoverSources]
   );
 
   const handleFacetClick = useCallback(
