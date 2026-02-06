@@ -278,15 +278,16 @@ const Fixed3DCanvas = forwardRef(({
   return (
     <>
       {/* Main 3D Canvas */}
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        width: '100vw',
-        height: '100vh',
-        zIndex: 1, // Behind scrollable content (which is z-index 10)
-        pointerEvents: 'none', // Don't block scrolling
-      }}>
+      <div
+        className="fixed-3d-canvas"
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          zIndex: 1, // Behind scrollable content (which is z-index 10)
+          pointerEvents: 'none', // Don't block scrolling
+        }}
+      >
         <Canvas
           key={Array.isArray(canvasProps.dpr) ? canvasProps.dpr.join('-') : canvasProps.dpr}
           camera={{
