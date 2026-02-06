@@ -50,13 +50,6 @@ h6,
   position: relative;
 }
 
-.fixed-3d-canvas {
-  width: 100vw;
-  width: 100dvw;
-  height: 100vh;
-  height: 100dvh;
-}
-
 /* Custom scrollbar styling */
 ::-webkit-scrollbar {
   width: 6px;
