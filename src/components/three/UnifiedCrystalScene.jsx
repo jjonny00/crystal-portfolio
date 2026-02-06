@@ -742,17 +742,36 @@ const UnifiedCrystalScene = forwardRef(({
       }
 
       mat.color.copy(initialColor);
+      const existingUserData = mat.userData || {};
+      const isMidTransition =
+        typeof existingUserData.progress === 'number' &&
+        existingUserData.progress < 1;
+      const targetMatchesInitial = existingUserData.targetColor?.equals?.(initialColor);
+      const shouldResetTransition = !isMidTransition || targetMatchesInitial;
+
+      let nextStartColor = existingUserData.startColor?.clone?.() ?? mat.color.clone();
+      let nextTargetColor = existingUserData.targetColor?.clone?.() ?? mat.color.clone();
+      let nextProgress = existingUserData.progress ?? 1;
+      let nextPendingColorUpdate = existingUserData.pendingColorUpdate ?? false;
+
+      if (shouldResetTransition) {
+        nextStartColor = mat.color.clone();
+        nextTargetColor = mat.color.clone();
+        nextProgress = 1;
+        nextPendingColorUpdate = false;
+      }
+
       mat.userData = {
-        ...(mat.userData || {}),
-        isFading: mat.userData?.isFading || false,
-        targetColor: mat.color.clone(),
-        startColor: mat.color.clone(),
-        progress: 1,
-        pendingColorUpdate: false,
+        ...(existingUserData || {}),
+        isFading: existingUserData?.isFading || false,
+        targetColor: nextTargetColor,
+        startColor: nextStartColor,
+        progress: nextProgress,
+        pendingColorUpdate: nextPendingColorUpdate,
         baseEmissiveIntensity:
-          mat.userData?.baseEmissiveIntensity ?? mat.emissiveIntensity,
+          existingUserData?.baseEmissiveIntensity ?? mat.emissiveIntensity,
         baseEmissiveColor:
-          mat.userData?.baseEmissiveColor?.clone?.() || mat.emissive.clone()
+          existingUserData?.baseEmissiveColor?.clone?.() || mat.emissive.clone()
       };
 
       const model = facetModels[idx];
