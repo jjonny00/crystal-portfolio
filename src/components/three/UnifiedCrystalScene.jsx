@@ -417,10 +417,13 @@ const UnifiedCrystalScene = forwardRef(({
       }
 
       // Set up material transition
-      mat.userData.startColor.copy(mat.color)
-      mat.userData.targetColor.copy(targetColor)
-      mat.userData.progress = 0
-      mat.userData.pendingColorUpdate = true
+      const existingTarget = mat.userData?.targetColor;
+      if (!existingTarget || !targetColor.equals(existingTarget)) {
+        mat.userData.startColor.copy(mat.color)
+        mat.userData.targetColor.copy(targetColor)
+        mat.userData.progress = 0
+        mat.userData.pendingColorUpdate = true
+      }
     },
     [facetKeys, projectColors, animationData?.focusedFacet]
   )
@@ -1000,10 +1003,13 @@ const UnifiedCrystalScene = forwardRef(({
           }
         }
 
-        mat.userData.startColor.copy(mat.color);
-        mat.userData.targetColor.copy(targetColor);
-        mat.userData.progress = 0;
-        mat.userData.pendingColorUpdate = true;
+        const existingTarget = mat.userData?.targetColor;
+        if (!existingTarget || !targetColor.equals(existingTarget)) {
+          mat.userData.startColor.copy(mat.color);
+          mat.userData.targetColor.copy(targetColor);
+          mat.userData.progress = 0;
+          mat.userData.pendingColorUpdate = true;
+        }
       });
 
       activeFacetRef.current = currentFacet;
