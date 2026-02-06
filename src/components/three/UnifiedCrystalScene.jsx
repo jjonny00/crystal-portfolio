@@ -371,21 +371,16 @@ const UnifiedCrystalScene = forwardRef(({
     setAnchorOffsets(offsets);
   }, [modelsLoaded, facetKeys, facetModels, computeAnchorWorldPosition, animationData?.crystalConfig?.explodedPositions]);
 
-  const startColorTransition = useCallback((mat, targetColor, duration = 0.35) => {
+  const setFacetColorTarget = useCallback((mat, targetColor, speed = 6) => {
     if (!mat || !targetColor) return;
 
     if (!mat.userData) {
       mat.userData = {};
     }
 
-    mat.userData.startColor = mat.userData.startColor || mat.color.clone();
     mat.userData.targetColor = mat.userData.targetColor || mat.color.clone();
-
-    mat.userData.startColor.copy(mat.color);
     mat.userData.targetColor.copy(targetColor);
-    mat.userData.transitionStart = performance.now();
-    mat.userData.transitionDuration = duration;
-    mat.userData.progress = 0;
+    mat.userData.colorTransitionSpeed = speed;
   }, []);
 
   // FIXED: Improved handleLabelHover with better state management
@@ -399,7 +394,7 @@ const UnifiedCrystalScene = forwardRef(({
       if (index === -1 || !facetMaterialsRef.current[index]) return;
       
       const mat = facetMaterialsRef.current[index];
-      if (!mat || mat.userData?.isFading) return;
+      if (!mat) return;
 
       // FIXED: Determine target color based on priority:
       // 1. Hover state (highest priority)
@@ -434,9 +429,9 @@ const UnifiedCrystalScene = forwardRef(({
       }
 
       // Set up material transition
-      startColorTransition(mat, targetColor);
+      setFacetColorTarget(mat, targetColor);
     },
-    [facetKeys, projectColors, animationData?.focusedFacet, startColorTransition]
+    [facetKeys, projectColors, animationData?.focusedFacet, setFacetColorTarget]
   )
 
   const updateHoverSources = useCallback(
@@ -987,8 +982,6 @@ const UnifiedCrystalScene = forwardRef(({
       facetMaterialsRef.current.forEach((mat, idx) => {
         const key = facetKeys[idx];
 
-        if (mat.userData?.isFading) return;
-
         // FIXED: Don't change color of hovered facets - let hover take precedence
         if (currentHovered === key) {
           if (import.meta.env.DEV) {
@@ -1013,7 +1006,7 @@ const UnifiedCrystalScene = forwardRef(({
           }
         }
 
-        startColorTransition(mat, targetColor);
+        setFacetColorTarget(mat, targetColor);
       });
 
       activeFacetRef.current = currentFacet;
@@ -1044,7 +1037,7 @@ const UnifiedCrystalScene = forwardRef(({
     projectColors,
     overlaysReady,
     setOverlayVisibility,
-    startColorTransition
+    setFacetColorTarget
   ]);
   
   // Crystal form change detection
@@ -1352,35 +1345,13 @@ const UnifiedCrystalScene = forwardRef(({
     }
 
     // Smooth color transitions for facet materials
-    const now = performance.now();
     facetMaterialsRef.current.forEach((mat) => {
-      const {
-        targetColor,
-        startColor,
-        progress = 1,
-        isFading,
-        transitionStart,
-        transitionDuration,
-      } = mat.userData || {};
+      const { targetColor, isFading, colorTransitionSpeed } = mat.userData || {};
+      if (isFading || !targetColor) return;
 
-      if (isFading && transitionStart == null) return;
-
-      if (targetColor && startColor) {
-        if (transitionStart != null && transitionDuration) {
-          const elapsed = (now - transitionStart) / 1000;
-          const t = Math.min(elapsed / transitionDuration, 1);
-          const eased = t * t * (3 - 2 * t);
-          mat.color.lerpColors(startColor, targetColor, eased);
-          if (t >= 1 && mat.userData) {
-            mat.userData.transitionStart = null;
-            mat.userData.progress = 1;
-          }
-        } else if (progress < 1) {
-          const speed = 1.5; // seconds to fully transition
-          mat.userData.progress = Math.min(progress + deltaTime * speed, 1);
-          mat.color.lerpColors(startColor, targetColor, mat.userData.progress);
-        }
-      }
+      const speed = colorTransitionSpeed ?? 6;
+      const t = 1 - Math.exp(-deltaTime * speed);
+      mat.color.lerp(targetColor, t);
     });
 
     if (overlaysReady) {
