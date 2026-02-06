@@ -307,51 +307,34 @@ const MaterialManager = ({
       if (import.meta.env.DEV) console.log('🔄 Updating optimized mobile material for variant:', materialVariant);
       
       const material = optimizedMobileRef.current;
-      
-      // Store current emissive intensity to preserve glow effects
-      const currentEmissiveIntensity = material.emissiveIntensity;
-      
+
+      // Note: Color transitions are handled in UnifiedCrystalScene.jsx.
+      // Avoid setting material.color or material.emissive here to prevent overrides.
       // Update material properties based on variant
       switch(materialVariant) {
         case 'glass':
-          material.color.set('#f0f8ff');
           material.metalness = 0.1;
           material.roughness = 0.02;
           material.envMapIntensity = 4.0;
-          material.emissive.set('#ffffff');
-          material.emissiveIntensity = Math.max(0.1, currentEmissiveIntensity);
           break;
           
         case 'gem':
-          material.color.set('#6644bb');
           material.metalness = 0.5;
           material.roughness = 0.02;
           material.envMapIntensity = 3.5;
-          material.emissive.set('#220044');
-          material.emissiveIntensity = Math.max(0.3, currentEmissiveIntensity);
           break;
           
         case 'holographic':
-          material.color.set('#00dddd');
           material.metalness = 0.9;
           material.roughness = 0.0;
           material.envMapIntensity = 5.0;
-          material.emissive.set('#004444');
-          material.emissiveIntensity = Math.max(0.4, currentEmissiveIntensity);
           break;
           
         default:
-          if (config.materials.crystal.color) {
-            material.color.copy(config.materials.crystal.color);
-          }
-          if (config.materials.crystal.emissive) {
-            material.emissive.copy(config.materials.crystal.emissive);
-          }
           // AGGRESSIVE: Use gem-like settings for strong reflections
           material.metalness = 0.8;              // High metallic
           material.roughness = 0.02;             // Very smooth
           material.envMapIntensity = 1.0;        // Strong reflections
-          material.emissiveIntensity = Math.max(0.0, currentEmissiveIntensity);
           break;
       }
       

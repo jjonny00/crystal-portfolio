@@ -1343,8 +1343,11 @@ const UnifiedCrystalScene = forwardRef(({
       if (isFading) return;
       if (targetColor && startColor && progress < 1) {
         const speed = 1.5; // seconds to fully transition
-        mat.userData.progress = Math.min(progress + deltaTime * speed, 1);
-        mat.color.lerpColors(startColor, targetColor, mat.userData.progress);
+        const nextProgress = Math.min(progress + deltaTime * speed, 1);
+        const easedProgress = 1 - Math.pow(1 - nextProgress, 3);
+        mat.userData.progress = nextProgress;
+        mat.color.lerpColors(startColor, targetColor, easedProgress);
+        mat.needsUpdate = true;
       }
     });
 
