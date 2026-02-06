@@ -423,7 +423,8 @@ const UnifiedCrystalScene = forwardRef(({
         mat.userData.targetColor = new THREE.Color().copy(targetColor);
         mat.userData.progress = 0
         mat.userData.pendingColorUpdate = true
-        console.log(
+        window.__fadeDebug = window.__fadeDebug || [];
+        window.__fadeDebug.push(
           `[FADE START] start=${mat.userData.startColor.getHexString()} target=${mat.userData.targetColor.getHexString()}`
         );
       }
@@ -1031,7 +1032,8 @@ const UnifiedCrystalScene = forwardRef(({
           mat.userData.targetColor = new THREE.Color().copy(targetColor);
           mat.userData.progress = 0;
           mat.userData.pendingColorUpdate = true;
-          console.log(
+          window.__fadeDebug = window.__fadeDebug || [];
+          window.__fadeDebug.push(
             `[FADE START] start=${mat.userData.startColor.getHexString()} target=${mat.userData.targetColor.getHexString()}`
           );
         }
@@ -1385,7 +1387,8 @@ const UnifiedCrystalScene = forwardRef(({
         const speed = 1.5; // seconds to fully transition
         mat.userData.progress = Math.min(progress + deltaTime * speed, 1);
         mat.color.lerpColors(startColor, targetColor, mat.userData.progress);
-        console.log(
+        window.__fadeDebug = window.__fadeDebug || [];
+        window.__fadeDebug.push(
           `[FADE STEP] color=${mat.color.getHexString()} progress=${mat.userData.progress}`
         );
         if (mat.userData.progress >= 1) {
