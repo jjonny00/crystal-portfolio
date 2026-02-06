@@ -418,7 +418,10 @@ const UnifiedCrystalScene = forwardRef(({
 
       // Set up material transition
       const existingTarget = mat.userData?.targetColor;
-      if (!existingTarget || !targetColor.equals(existingTarget)) {
+      const alreadyAtTarget =
+        mat.userData?.progress < 1 &&
+        targetColor.equals(mat.userData?.targetColor);
+      if (!alreadyAtTarget && (!existingTarget || !targetColor.equals(existingTarget))) {
         mat.userData.startColor = mat.color.clone();
         mat.userData.targetColor = new THREE.Color().copy(targetColor);
         mat.userData.progress = 0
@@ -1027,7 +1030,10 @@ const UnifiedCrystalScene = forwardRef(({
         }
 
         const existingTarget = mat.userData?.targetColor;
-        if (!existingTarget || !targetColor.equals(existingTarget)) {
+        const alreadyAtTarget =
+          mat.userData?.progress < 1 &&
+          targetColor.equals(mat.userData?.targetColor);
+        if (!alreadyAtTarget && (!existingTarget || !targetColor.equals(existingTarget))) {
           mat.userData.startColor = mat.color.clone();
           mat.userData.targetColor = new THREE.Color().copy(targetColor);
           mat.userData.progress = 0;
