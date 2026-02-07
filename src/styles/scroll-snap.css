@@ -75,8 +75,13 @@ body {
   
   /* Clean box model */
   margin: 0 !important;
-  padding: 0 !important;
   box-sizing: border-box !important;
+
+  /* ADDED: Safe area insets for iOS Safari floating UI */
+  padding-top: env(safe-area-inset-top) !important;
+  padding-bottom: env(safe-area-inset-bottom) !important;
+  padding-left: env(safe-area-inset-left) !important;
+  padding-right: env(safe-area-inset-right) !important;
 }
 
 /* FORCE: All sections to snap */
@@ -226,6 +231,12 @@ html .scroll-container.no-snap .scroll-section {
 
     /* Prevent bounce */
     overscroll-behavior: contain !important;
+
+    /* ADDED: Ensure safe area insets on mobile */
+    padding-top: env(safe-area-inset-top) !important;
+    padding-bottom: env(safe-area-inset-bottom) !important;
+    padding-left: env(safe-area-inset-left) !important;
+    padding-right: env(safe-area-inset-right) !important;
   }
   
   /* Mobile speed overrides */
