@@ -76,7 +76,8 @@ const ScrollablePortfolio = ({
         right: 0,
         
         // Force it to be full viewport height and scrollable
-        height: '100vh',
+        // Use CSS custom property for iOS 26 fix
+        height: 'calc(var(--vh, 1vh) * 100)',
         overflowY: 'auto',
         overflowX: 'hidden',
         
@@ -120,9 +121,10 @@ const ScrollablePortfolio = ({
             // NOTE: scroll-snap properties now handled by CSS classes
             
             // Force exact height
-            height: '100vh',
-            minHeight: '100vh',
-            maxHeight: '100vh',
+            // Use CSS custom property for iOS 26 fix
+            height: 'calc(var(--vh, 1vh) * 100)',
+            minHeight: 'calc(var(--vh, 1vh) * 100)',
+            maxHeight: 'calc(var(--vh, 1vh) * 100)',
             
             // Prevent internal scroll
             overflow: 'hidden',
@@ -151,9 +153,10 @@ const ScrollablePortfolio = ({
           style={{
             scrollSnapAlign: 'start',
             scrollSnapStop: 'normal',
-            height: '100vh',
-            minHeight: '100vh',
-            maxHeight: '100vh',
+            // Use CSS custom property for iOS 26 fix
+            height: 'calc(var(--vh, 1vh) * 100)',
+            minHeight: 'calc(var(--vh, 1vh) * 100)',
+            maxHeight: 'calc(var(--vh, 1vh) * 100)',
             overflow: 'hidden',
             display: 'flex',
             alignItems: 'center',
@@ -176,9 +179,10 @@ const ScrollablePortfolio = ({
             className="scroll-section project"
             data-headline-color={project.color}
             style={{
-              height: '100vh',
-              minHeight: '100vh',
-              maxHeight: '100vh',
+              // Use CSS custom property for iOS 26 fix
+              height: 'calc(var(--vh, 1vh) * 100)',
+              minHeight: 'calc(var(--vh, 1vh) * 100)',
+              maxHeight: 'calc(var(--vh, 1vh) * 100)',
               overflow: 'hidden',
               display: 'flex',
               alignItems: 'center',
@@ -206,9 +210,10 @@ const ScrollablePortfolio = ({
           id="about"
           className="scroll-section"
           style={{
-            height: '100vh',
-            minHeight: '100vh',
-            maxHeight: '100vh',
+            // Use CSS custom property for iOS 26 fix
+            height: 'calc(var(--vh, 1vh) * 100)',
+            minHeight: 'calc(var(--vh, 1vh) * 100)',
+            maxHeight: 'calc(var(--vh, 1vh) * 100)',
             overflow: 'hidden',
             display: 'flex',
             alignItems: 'center',
