@@ -339,15 +339,14 @@ const UnifiedCrystalScene = forwardRef(({
         anchor.updateMatrixWorld(true);
         const worldAnchor = new THREE.Vector3();
         anchor.getWorldPosition(worldAnchor);
-        const worldFacet = new THREE.Vector3();
-        model.scene.getWorldPosition(worldFacet);
-        const offset = worldAnchor.sub(worldFacet);
-        offsets[facetKey] = offset.toArray();
+        const localAnchor = model.scene.worldToLocal(worldAnchor.clone());
+        offsets[facetKey] = localAnchor.toArray();
 
         const rotation = animationData?.crystalConfig?.explodedRotations?.[facetKey];
         const worldPos = computeAnchorWorldPosition(facetKey, rotation);
         const exploded = animationData?.crystalConfig?.explodedPositions?.[facetKey];
         if (worldPos && exploded && import.meta.env.DEV) {
+          const offset = localAnchor;
           const rotQuat = rotation
             ? new THREE.Quaternion().fromArray(rotation)
             : model.scene.quaternion;
@@ -370,6 +369,18 @@ const UnifiedCrystalScene = forwardRef(({
     });
     setAnchorOffsets(offsets);
   }, [modelsLoaded, facetKeys, facetModels, computeAnchorWorldPosition, animationData?.crystalConfig?.explodedPositions]);
+
+  const getAnchorAdjustedPosition = useCallback(
+    (facetKey, basePosition, targetQuat) => {
+      if (!basePosition || !targetQuat) return basePosition;
+      const offsetArray = anchorOffsets?.[facetKey];
+      if (!offsetArray) return basePosition;
+      const offset = new THREE.Vector3().fromArray(offsetArray);
+      const rotatedOffset = offset.clone().applyQuaternion(targetQuat);
+      return basePosition.clone().add(offset).sub(rotatedOffset);
+    },
+    [anchorOffsets]
+  );
 
   // FIXED: Improved handleLabelHover with better state management
   const applyHoverVisual = useCallback(
@@ -1274,11 +1285,14 @@ const UnifiedCrystalScene = forwardRef(({
             end?.clone().normalize().multiplyScalar(end.length() * fractureDistance);
           if (start && end) {
             const interpolated = start.clone().lerp(end, eased);
-            facetRef.current.position.copy(interpolated);
             const targetRotation = animationData?.crystalConfig?.explodedRotations?.[facetKey];
             const targetQuat = targetRotation
               ? new THREE.Quaternion().fromArray(targetRotation)
               : neutralQuat;
+            const adjusted = animationData?.crystalForm === 'exploded'
+              ? getAnchorAdjustedPosition(facetKey, interpolated, targetQuat)
+              : interpolated;
+            facetRef.current.position.copy(adjusted);
             facetRef.current.quaternion.slerpQuaternions(neutralQuat, targetQuat, eased);
           }
         });
@@ -1340,7 +1354,14 @@ const UnifiedCrystalScene = forwardRef(({
               const fz = Math.sin(elapsed * floatConfig.zFrequency + params.phaseZ) * amp * floatConfig.zMultiplier;
               finalTarget = targetPos.clone().add(new THREE.Vector3(fx, fy, fz));
             }
-            facetRef.current.position.lerp(finalTarget, lerpSpeed * deltaTime * 60);
+            const targetRotation = animationData?.crystalConfig?.explodedRotations?.[facetKey];
+            const targetQuat = animationData?.crystalForm === 'exploded' && targetRotation
+              ? new THREE.Quaternion().fromArray(targetRotation)
+              : neutralQuat;
+            const anchorAdjusted = animationData?.crystalForm === 'exploded'
+              ? getAnchorAdjustedPosition(facetKey, finalTarget, targetQuat)
+              : finalTarget;
+            facetRef.current.position.lerp(anchorAdjusted, lerpSpeed * deltaTime * 60);
           }
         }
 
