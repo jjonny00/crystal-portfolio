@@ -25,6 +25,8 @@ const OptimizedLabel = React.memo(function OptimizedLabel({
         '--headline-ink': project.headlineColor,
         '--headline-glow1': glow1,
         '--headline-glow2': glow2,
+        textAlign: 'left',
+        width: '100%',
       }}
     >
       <div ref={titleRef}>
@@ -219,7 +221,7 @@ const FacetLabels = React.memo(function FacetLabels({
         <div
           style={{
             position: 'absolute',
-            width: activeLayout.labels.panelWidth,
+            width: '33.333vw',
             right: activeLayout.labels.right,
             top: activeLayout.labels.top,
             transform: activeLayout.labels.transform,
@@ -229,8 +231,8 @@ const FacetLabels = React.memo(function FacetLabels({
             display: 'flex',
             flexDirection: 'column',
             gap: activeLayout.labels.rowGap,
-            alignItems: 'flex-end',
-            textAlign: 'right',
+            alignItems: 'flex-start',
+            textAlign: 'left',
           }}
         >
           {projects.map((project) => (
