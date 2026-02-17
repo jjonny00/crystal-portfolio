@@ -4,7 +4,9 @@ import { useThree } from '@react-three/fiber';
 import Headline from '../ui/Headline';
 import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController';
 import { MQ_DESKTOP, MQ_HOVER_CAPABLE } from '../../config/breakpoints';
-import { OVERVIEW_LAYOUT } from '../../config/overviewLayout';
+import desktopLayoutJson from '../../config/layout/desktop.json';
+import mobileLayoutJson from '../../config/layout/mobile.json';
+import { parseLayout } from '../../lib/layout/parseLayout';
 
 const OptimizedLabel = React.memo(function OptimizedLabel({
   project,
@@ -69,10 +71,12 @@ const FacetLabels = React.memo(function FacetLabels({
     animationData?.isTransitioning === false &&
     animationData?.cameraSettled === true;
 
-  const activeLayout = useMemo(
-    () => OVERVIEW_LAYOUT[layoutMode] ?? OVERVIEW_LAYOUT.desktop,
-    [layoutMode],
-  );
+  const parsedLayouts = useMemo(() => ({
+    desktop: parseLayout(desktopLayoutJson),
+    mobile: parseLayout(mobileLayoutJson),
+  }), []);
+
+  const activeLayout = layoutMode === 'desktop' ? parsedLayouts.desktop : parsedLayouts.mobile;
 
   const calculateAnchorPositions = useCallback(() => {
     const positions = {};
@@ -222,15 +226,15 @@ const FacetLabels = React.memo(function FacetLabels({
           style={{
             position: 'absolute',
             width: '33.333vw',
-            right: activeLayout.labels.right,
-            top: activeLayout.labels.top,
-            transform: activeLayout.labels.transform,
+            right: '6%',
+            top: '50%',
+            transform: 'translateY(-50%)',
             opacity: visible ? 1 : 0,
             transition: `opacity ${fadeDuration}s`,
             pointerEvents: visible ? 'auto' : 'none',
             display: 'flex',
             flexDirection: 'column',
-            gap: activeLayout.labels.rowGap,
+            gap: layoutMode === 'desktop' ? '1.5rem' : '1rem',
             alignItems: 'flex-start',
             textAlign: 'left',
           }}
