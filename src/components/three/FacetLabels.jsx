@@ -1,12 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { useThree } from '@react-three/fiber';
 import Headline from '../ui/Headline';
 import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController';
-import { MQ_DESKTOP, MQ_HOVER_CAPABLE } from '../../config/breakpoints';
-import desktopLayoutJson from '../../config/layout/desktop.json';
-import mobileLayoutJson from '../../config/layout/mobile.json';
-import { parseLayout } from '../../lib/layout/parseLayout';
+import { MQ_HOVER_CAPABLE } from '../../config/breakpoints';
+import { useLayoutConfig } from '../../hooks/useLayoutConfig';
 
 const OptimizedLabel = React.memo(function OptimizedLabel({
   project,
@@ -56,7 +54,6 @@ const FacetLabels = React.memo(function FacetLabels({
   const [anchorScreenPositions, setAnchorScreenPositions] = useState({});
   const [visible, setVisible] = useState(false);
   const [fadeDuration, setFadeDuration] = useState(0.8);
-  const [layoutMode, setLayoutMode] = useState('desktop');
   const [hoverCapable, setHoverCapable] = useState(false);
   const [hoveredFacetKey, setHoveredFacetKey] = useState(null);
   const [hoverLine, setHoverLine] = useState(null);
@@ -71,16 +68,17 @@ const FacetLabels = React.memo(function FacetLabels({
     animationData?.isTransitioning === false &&
     animationData?.cameraSettled === true;
 
-  const parsedLayouts = useMemo(() => ({
-    desktop: parseLayout(desktopLayoutJson),
-    mobile: parseLayout(mobileLayoutJson),
-  }), []);
-
-  const activeLayout = layoutMode === 'desktop' ? parsedLayouts.desktop : parsedLayouts.mobile;
+  const { variant, layout, error } = useLayoutConfig();
+  const overviewWorld = layout?.anchors?.overviewWorld;
 
   const calculateAnchorPositions = useCallback(() => {
+    if (!overviewWorld) {
+      setAnchorScreenPositions({});
+      return;
+    }
+
     const positions = {};
-    Object.entries(activeLayout.anchors.overviewWorld).forEach(([facetKey, worldPos]) => {
+    Object.entries(overviewWorld).forEach(([facetKey, worldPos]) => {
       const projected = worldPos.clone().project(camera);
       positions[facetKey] = {
         x: (projected.x * 0.5 + 0.5) * size.width,
@@ -88,7 +86,7 @@ const FacetLabels = React.memo(function FacetLabels({
       };
     });
     setAnchorScreenPositions(positions);
-  }, [activeLayout, camera, size.height, size.width]);
+  }, [camera, overviewWorld, size.height, size.width]);
 
   const recalcHoverLine = useCallback((facetKey) => {
     if (!facetKey || !hoverCapable) {
@@ -113,21 +111,17 @@ const FacetLabels = React.memo(function FacetLabels({
   }, [anchorScreenPositions, hoverCapable]);
 
   useEffect(() => {
-    const desktopMq = window.matchMedia(MQ_DESKTOP);
     const hoverMq = window.matchMedia(MQ_HOVER_CAPABLE);
 
-    const syncMediaState = () => {
-      setLayoutMode(desktopMq.matches ? 'desktop' : 'mobile');
+    const syncHoverState = () => {
       setHoverCapable(hoverMq.matches);
     };
 
-    syncMediaState();
-    desktopMq.addEventListener('change', syncMediaState);
-    hoverMq.addEventListener('change', syncMediaState);
+    syncHoverState();
+    hoverMq.addEventListener('change', syncHoverState);
 
     return () => {
-      desktopMq.removeEventListener('change', syncMediaState);
-      hoverMq.removeEventListener('change', syncMediaState);
+      hoverMq.removeEventListener('change', syncHoverState);
     };
   }, []);
 
@@ -197,6 +191,10 @@ const FacetLabels = React.memo(function FacetLabels({
 
   useEffect(() => {
     if (!rootRef.current || !inActiveOverview) return;
+    if (!layout || error) {
+      rootRef.current.render(null);
+      return;
+    }
     if (
       performanceProfile?.simplifiedAnimations ||
       Object.keys(anchorScreenPositions).length === 0
@@ -234,7 +232,7 @@ const FacetLabels = React.memo(function FacetLabels({
             pointerEvents: visible ? 'auto' : 'none',
             display: 'flex',
             flexDirection: 'column',
-            gap: layoutMode === 'desktop' ? '1.5rem' : '1rem',
+            gap: variant === 'desktop' ? '1.5rem' : '1rem',
             alignItems: 'flex-start',
             textAlign: 'left',
           }}
@@ -289,10 +287,13 @@ const FacetLabels = React.memo(function FacetLabels({
     hoverCapable,
     hoverLine,
     inActiveOverview,
+    error,
+    layout,
     onHoverChange,
     performanceProfile?.simplifiedAnimations,
     projects,
     scrollToProgress,
+    variant,
     visible,
   ]);
 
