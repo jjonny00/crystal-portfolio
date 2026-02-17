@@ -284,7 +284,6 @@ const FacetLabels = React.memo(function FacetLabels({
       </>,
     );
   }, [
-    activeLayout,
     anchorScreenPositions,
     fadeDuration,
     hoverCapable,
