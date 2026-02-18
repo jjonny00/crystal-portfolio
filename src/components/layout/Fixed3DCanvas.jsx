@@ -23,6 +23,7 @@ import { projectBackgrounds } from '../../data/projectBackgrounds';
 import MistyLayerStack from '../MistyLayerStack';
 import { isIOS26 } from '../../utils/isIOS26';
 import { facetKeys as canonicalFacetKeys } from '../../data/projects';
+import { useLayoutConfig } from '../../hooks/useLayoutConfig';
 
 function createSanitizePass() {
   const material = new ShaderMaterial({
@@ -151,6 +152,57 @@ const Fixed3DCanvas = forwardRef(({
   });
 
   const sanitizePass = useMemo(() => createSanitizePass(), []);
+  const { layout } = useLayoutConfig();
+
+  const cameraMergedConfig = useMemo(() => {
+    const layoutCamera = layout?.camera;
+    if (!layoutCamera) return config;
+
+    const nextConfig = { ...config };
+
+    if (layoutCamera.positions) {
+      nextConfig.cameraPositions = {
+        ...(nextConfig.cameraPositions || {}),
+        ...layoutCamera.positions,
+        projects: {
+          ...(nextConfig.cameraPositions?.projects || {}),
+          ...(layoutCamera.positions.projects || {}),
+        },
+      };
+    }
+
+    if (layoutCamera.targets) {
+      nextConfig.cameraTargets = {
+        ...(nextConfig.cameraTargets || {}),
+        ...layoutCamera.targets,
+        projects: {
+          ...(nextConfig.cameraTargets?.projects || {}),
+          ...(layoutCamera.targets.projects || {}),
+        },
+      };
+    }
+
+    if (layoutCamera.offsets) {
+      nextConfig.cameraOffsets = {
+        ...(nextConfig.cameraOffsets || {}),
+        ...layoutCamera.offsets,
+        global: {
+          ...(nextConfig.cameraOffsets?.global || {}),
+          ...(layoutCamera.offsets.global || {}),
+        },
+        zones: {
+          ...(nextConfig.cameraOffsets?.zones || {}),
+          ...(layoutCamera.offsets.zones || {}),
+        },
+        projects: {
+          ...(nextConfig.cameraOffsets?.projects || {}),
+          ...(layoutCamera.offsets.projects || {}),
+        },
+      };
+    }
+
+    return nextConfig;
+  }, [config, layout?.camera]);
 
   useEffect(() => () => {
     sanitizePass?.dispose?.();
@@ -374,7 +426,7 @@ const Fixed3DCanvas = forwardRef(({
           {/* UPDATED: Enhanced Camera Controller with facet refs */}
           <UnifiedCameraController
             animationData={animationData}
-            config={config}
+            config={cameraMergedConfig}
             isMobile={isMobile}
             simplifiedAnimations={simplifiedAnimations}
             facetRefs={getFacetRefs()} // FIXED: Pass exposed facet refs for anchor targeting
