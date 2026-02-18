@@ -1,136 +1,86 @@
 import { Vector3 } from 'three';
 
-const FORMAT_HELP = 'Expected { schemaVersion: 1, anchors: { overviewWorld: { [facetKey]: [x, y, z] } }, camera?: { positions?, targets?, offsets? }, projects?: { explodedPositions?, facetRotationsEulerDeg? }, ... }';
+const FORMAT_HELP =
+  'Expected { schemaVersion: 1, anchors: { overviewWorld: { [facetKey]: [x, y, z] } } }';
 
-export const assertObject = (value, path) => {
+const assertObject = (value, path) => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new Error(`Invalid layout at ${path}: expected object. ${FORMAT_HELP}`);
   }
 };
 
-export const parseVec3 = (value, path) => {
+const assertVec3Array = (value, path) => {
   if (
     !Array.isArray(value) ||
     value.length !== 3 ||
     value.some((v) => typeof v !== 'number' || Number.isNaN(v))
   ) {
-    throw new Error(
-      `Invalid layout at ${path}: expected [x, y, z] numeric array of length 3. ${FORMAT_HELP}`,
-    );
+    throw new Error(`Invalid layout at ${path}: expected [x, y, z] numeric array. ${FORMAT_HELP}`);
   }
-
-  return new Vector3(value[0], value[1], value[2]);
 };
 
 const parseVec3Array = (value, path) => {
-  if (
-    !Array.isArray(value) ||
-    value.length !== 3 ||
-    value.some((v) => typeof v !== 'number' || Number.isNaN(v))
-  ) {
-    throw new Error(
-      `Invalid layout at ${path}: expected [x, y, z] numeric array of length 3. ${FORMAT_HELP}`,
-    );
-  }
-
+  assertVec3Array(value, path);
   return value;
 };
 
-export const parseVec3Map = (obj, pathPrefix) => {
-  assertObject(obj, pathPrefix);
+const parseVec3ToVector3 = (value, path) => {
+  assertVec3Array(value, path);
+  return new Vector3(value[0], value[1], value[2]);
+};
+
+const parseVec3ArrayMap = (map, path) => {
+  assertObject(map, path);
   return Object.fromEntries(
-    Object.entries(obj).map(([key, value]) => [key, parseVec3(value, `${pathPrefix}.${key}`)]),
+    Object.entries(map).map(([key, value]) => [key, parseVec3Array(value, `${path}.${key}`)]),
   );
 };
 
-const parseVec3ArrayMap = (obj, pathPrefix) => {
-  assertObject(obj, pathPrefix);
+const parseVec3VectorMap = (map, path) => {
+  assertObject(map, path);
   return Object.fromEntries(
-    Object.entries(obj).map(([key, value]) => [key, parseVec3Array(value, `${pathPrefix}.${key}`)]),
+    Object.entries(map).map(([key, value]) => [key, parseVec3ToVector3(value, `${path}.${key}`)]),
   );
 };
 
-export const parseOffsetsObject = (obj, pathPrefix) => {
-  assertObject(obj, pathPrefix);
-
-  const parsed = {};
-
-  if (obj.global !== undefined) {
-    assertObject(obj.global, `${pathPrefix}.global`);
-    parsed.global = {};
-    if (obj.global.position !== undefined) {
-      parsed.global.position = parseVec3Array(obj.global.position, `${pathPrefix}.global.position`);
-    }
-    if (obj.global.target !== undefined) {
-      parsed.global.target = parseVec3Array(obj.global.target, `${pathPrefix}.global.target`);
-    }
-  }
-
-  if (obj.zones !== undefined) {
-    assertObject(obj.zones, `${pathPrefix}.zones`);
-    parsed.zones = Object.fromEntries(
-      Object.entries(obj.zones).map(([zoneKey, zoneValue]) => {
-        assertObject(zoneValue, `${pathPrefix}.zones.${zoneKey}`);
-        const zoneParsed = {};
-
-        if (zoneValue.position !== undefined) {
-          zoneParsed.position = parseVec3Array(zoneValue.position, `${pathPrefix}.zones.${zoneKey}.position`);
-        }
-        if (zoneValue.target !== undefined) {
-          zoneParsed.target = parseVec3Array(zoneValue.target, `${pathPrefix}.zones.${zoneKey}.target`);
-        }
-
-        return [zoneKey, zoneParsed];
-      }),
+const parseOffsetsLeaf = (leaf, path) => {
+  assertObject(leaf, path);
+  if (leaf.position === undefined || leaf.target === undefined) {
+    throw new Error(
+      `Invalid layout at ${path}: expected { position:[x,y,z], target:[x,y,z] }. ${FORMAT_HELP}`,
     );
   }
-
-  if (obj.projects !== undefined) {
-    assertObject(obj.projects, `${pathPrefix}.projects`);
-    parsed.projects = Object.fromEntries(
-      Object.entries(obj.projects).map(([facetKey, facetValue]) => {
-        assertObject(facetValue, `${pathPrefix}.projects.${facetKey}`);
-        const facetParsed = {};
-
-        if (facetValue.position !== undefined) {
-          facetParsed.position = parseVec3Array(
-            facetValue.position,
-            `${pathPrefix}.projects.${facetKey}.position`,
-          );
-        }
-        if (facetValue.target !== undefined) {
-          facetParsed.target = parseVec3Array(
-            facetValue.target,
-            `${pathPrefix}.projects.${facetKey}.target`,
-          );
-        }
-
-        return [facetKey, facetParsed];
-      }),
-    );
-  }
-
-  return parsed;
+  return {
+    position: parseVec3Array(leaf.position, `${path}.position`),
+    target: parseVec3Array(leaf.target, `${path}.target`),
+  };
 };
 
-const parseRotationsMap = (obj, pathPrefix) => {
-  assertObject(obj, pathPrefix);
-
+const parseOffsetsSectionMap = (map, path) => {
+  assertObject(map, path);
   return Object.fromEntries(
-    Object.entries(obj).map(([key, value]) => {
-      if (
-        !Array.isArray(value) ||
-        value.length !== 3 ||
-        value.some((v) => typeof v !== 'number' || Number.isNaN(v))
-      ) {
-        throw new Error(
-          `Invalid layout at ${pathPrefix}.${key}: expected [x, y, z] numeric array of length 3. ${FORMAT_HELP}`,
-        );
-      }
-
-      return [key, value];
-    }),
+    Object.entries(map).map(([key, leaf]) => [key, parseOffsetsLeaf(leaf, `${path}.${key}`)]),
   );
+};
+
+const parseOffsetsObject = (offsets, path) => {
+  assertObject(offsets, path);
+
+  const out = {};
+
+  if (offsets.global !== undefined) {
+    out.global = parseOffsetsLeaf(offsets.global, `${path}.global`);
+  }
+
+  if (offsets.zones !== undefined) {
+    out.zones = parseOffsetsSectionMap(offsets.zones, `${path}.zones`);
+  }
+
+  if (offsets.projects !== undefined) {
+    out.projects = parseOffsetsSectionMap(offsets.projects, `${path}.projects`);
+  }
+
+  return out;
 };
 
 export const parseLayout = (rawLayout) => {
@@ -138,37 +88,38 @@ export const parseLayout = (rawLayout) => {
 
   if (rawLayout.schemaVersion !== 1) {
     throw new Error(
-      `Invalid layout schemaVersion: expected 1, received ${String(rawLayout.schemaVersion)}. ${FORMAT_HELP}`,
+      `Invalid layout schemaVersion: expected 1, received ${String(
+        rawLayout.schemaVersion,
+      )}. ${FORMAT_HELP}`,
     );
   }
 
   assertObject(rawLayout.anchors, 'anchors');
-  assertObject(rawLayout.anchors.overviewWorld, 'anchors.overviewWorld');
+  if (rawLayout.anchors.overviewWorld === undefined) {
+    throw new Error(`Invalid layout at anchors.overviewWorld: required. ${FORMAT_HELP}`);
+  }
 
-  const overviewWorld = parseVec3Map(rawLayout.anchors.overviewWorld, 'anchors.overviewWorld');
+  const overviewWorld = parseVec3VectorMap(rawLayout.anchors.overviewWorld, 'anchors.overviewWorld');
 
-  let camera;
-  let projects;
+  const parsed = {
+    anchors: { overviewWorld },
+  };
 
+  // Optional camera
   if (rawLayout.camera !== undefined) {
     assertObject(rawLayout.camera, 'camera');
-    camera = {};
+    const camera = {};
 
     if (rawLayout.camera.positions !== undefined) {
       assertObject(rawLayout.camera.positions, 'camera.positions');
-      const positions = {};
+      const positions = { ...parseVec3ArrayMap(rawLayout.camera.positions, 'camera.positions') };
 
-      if (rawLayout.camera.positions.hero !== undefined) {
-        positions.hero = parseVec3Array(rawLayout.camera.positions.hero, 'camera.positions.hero');
-      }
-      if (rawLayout.camera.positions.overview !== undefined) {
-        positions.overview = parseVec3Array(rawLayout.camera.positions.overview, 'camera.positions.overview');
-      }
-      if (rawLayout.camera.positions.about !== undefined) {
-        positions.about = parseVec3Array(rawLayout.camera.positions.about, 'camera.positions.about');
-      }
+      // Nested projects positions are allowed
       if (rawLayout.camera.positions.projects !== undefined) {
-        positions.projects = parseVec3ArrayMap(rawLayout.camera.positions.projects, 'camera.positions.projects');
+        positions.projects = parseVec3ArrayMap(
+          rawLayout.camera.positions.projects,
+          'camera.positions.projects',
+        );
       }
 
       camera.positions = positions;
@@ -176,19 +127,14 @@ export const parseLayout = (rawLayout) => {
 
     if (rawLayout.camera.targets !== undefined) {
       assertObject(rawLayout.camera.targets, 'camera.targets');
-      const targets = {};
+      const targets = { ...parseVec3ArrayMap(rawLayout.camera.targets, 'camera.targets') };
 
-      if (rawLayout.camera.targets.hero !== undefined) {
-        targets.hero = parseVec3Array(rawLayout.camera.targets.hero, 'camera.targets.hero');
-      }
-      if (rawLayout.camera.targets.overview !== undefined) {
-        targets.overview = parseVec3Array(rawLayout.camera.targets.overview, 'camera.targets.overview');
-      }
-      if (rawLayout.camera.targets.about !== undefined) {
-        targets.about = parseVec3Array(rawLayout.camera.targets.about, 'camera.targets.about');
-      }
+      // Nested projects targets are allowed
       if (rawLayout.camera.targets.projects !== undefined) {
-        targets.projects = parseVec3ArrayMap(rawLayout.camera.targets.projects, 'camera.targets.projects');
+        targets.projects = parseVec3ArrayMap(
+          rawLayout.camera.targets.projects,
+          'camera.targets.projects',
+        );
       }
 
       camera.targets = targets;
@@ -198,35 +144,32 @@ export const parseLayout = (rawLayout) => {
       camera.offsets = parseOffsetsObject(rawLayout.camera.offsets, 'camera.offsets');
     }
 
+    parsed.camera = camera;
   }
 
+  // Optional projects
   if (rawLayout.projects !== undefined) {
     assertObject(rawLayout.projects, 'projects');
-    projects = {};
+    const projects = {};
 
     if (rawLayout.projects.explodedPositions !== undefined) {
-      projects.explodedPositions = parseVec3ArrayMap(
+      projects.explodedPositions = parseVec3VectorMap(
         rawLayout.projects.explodedPositions,
         'projects.explodedPositions',
       );
     }
 
     if (rawLayout.projects.facetRotationsEulerDeg !== undefined) {
-      projects.facetRotationsEulerDeg = parseRotationsMap(
+      projects.facetRotationsEulerDeg = parseVec3ArrayMap(
         rawLayout.projects.facetRotationsEulerDeg,
         'projects.facetRotationsEulerDeg',
       );
     }
 
+    parsed.projects = projects;
   }
 
-  return {
-    ...(camera ? { camera } : {}),
-    ...(projects ? { projects } : {}),
-    anchors: {
-      overviewWorld,
-    },
-  };
+  return parsed;
 };
 
 export default parseLayout;
