@@ -56,7 +56,6 @@ const FacetLabels = React.memo(function FacetLabels({
   const [fadeDuration, setFadeDuration] = useState(0.8);
   const [hoverCapable, setHoverCapable] = useState(false);
   const [hoveredFacetKey, setHoveredFacetKey] = useState(null);
-  const [hoverLine, setHoverLine] = useState(null);
   const titleRefs = useRef(new Map());
   const layerRef = useRef(null);
   const rootRef = useRef(null);
@@ -88,28 +87,6 @@ const FacetLabels = React.memo(function FacetLabels({
     setAnchorScreenPositions(positions);
   }, [camera, overviewWorld, size.height, size.width]);
 
-  const recalcHoverLine = useCallback((facetKey) => {
-    if (!facetKey || !hoverCapable) {
-      setHoverLine(null);
-      return;
-    }
-
-    const anchorPos = anchorScreenPositions[facetKey];
-    const titleEl = titleRefs.current.get(facetKey);
-    if (!anchorPos || !titleEl) {
-      setHoverLine(null);
-      return;
-    }
-
-    const rect = titleEl.getBoundingClientRect();
-    setHoverLine({
-      x1: anchorPos.x,
-      y1: anchorPos.y,
-      x2: rect.left,
-      y2: rect.top + rect.height * 0.5,
-    });
-  }, [anchorScreenPositions, hoverCapable]);
-
   useEffect(() => {
     const hoverMq = window.matchMedia(MQ_HOVER_CAPABLE);
 
@@ -130,7 +107,6 @@ const FacetLabels = React.memo(function FacetLabels({
       setFadeDuration(0.2);
       setVisible(false);
       setHoveredFacetKey(null);
-      setHoverLine(null);
       clearTimeout(fadeTimeoutRef.current);
       fadeTimeoutRef.current = setTimeout(() => {
         rootRef.current?.render(null);
@@ -147,7 +123,7 @@ const FacetLabels = React.memo(function FacetLabels({
     if (!rootRef.current) {
       const layer = document.createElement('div');
       layer.style.cssText =
-        'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:auto;z-index:20';
+        'position:fixed;width:33.333vw;right:6%;top:50%;transform:translateY(-50%);height:auto;pointer-events:auto;z-index:20';
       document.body.appendChild(layer);
       layerRef.current = layer;
       rootRef.current = createRoot(layer);
@@ -168,7 +144,6 @@ const FacetLabels = React.memo(function FacetLabels({
           setFadeDuration(0.2);
           setVisible(false);
           setHoveredFacetKey(null);
-          setHoverLine(null);
         } else {
           setFadeDuration(0.8);
           setVisible(true);
@@ -182,12 +157,8 @@ const FacetLabels = React.memo(function FacetLabels({
   }, [inActiveOverview, projects]);
 
   useEffect(() => {
-    if (!visible || !hoverCapable) {
-      setHoverLine(null);
-      return;
-    }
-    recalcHoverLine(hoveredFacetKey);
-  }, [recalcHoverLine, hoveredFacetKey, visible, hoverCapable]);
+    if (!visible || !hoverCapable) return;
+  }, [hoveredFacetKey, visible, hoverCapable]);
 
   useEffect(() => {
     if (!rootRef.current || !inActiveOverview) return;
@@ -208,14 +179,10 @@ const FacetLabels = React.memo(function FacetLabels({
 
       if (!hoverCapable) {
         setHoveredFacetKey(null);
-        setHoverLine(null);
         return;
       }
 
       setHoveredFacetKey(isHovering ? facetKey : null);
-      if (!isHovering) {
-        setHoverLine(null);
-      }
     };
 
     rootRef.current.render(
@@ -258,34 +225,12 @@ const FacetLabels = React.memo(function FacetLabels({
           ))}
         </div>
 
-        {hoverCapable && hoverLine && visible && (
-          <svg
-            width="100%"
-            height="100%"
-            style={{
-              position: 'absolute',
-              inset: 0,
-              pointerEvents: 'none',
-              overflow: 'visible',
-            }}
-          >
-            <line
-              x1={hoverLine.x1}
-              y1={hoverLine.y1}
-              x2={hoverLine.x2}
-              y2={hoverLine.y2}
-              stroke="rgba(255, 255, 255, 0.72)"
-              strokeWidth="1.5"
-            />
-          </svg>
-        )}
       </>,
     );
   }, [
     anchorScreenPositions,
     fadeDuration,
     hoverCapable,
-    hoverLine,
     inActiveOverview,
     error,
     layout,
