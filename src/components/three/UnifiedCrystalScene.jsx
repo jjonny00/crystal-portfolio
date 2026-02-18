@@ -19,9 +19,12 @@ import projects, {
   getProjectModelKeyByFacetKey
 } from '../../data/projects'
 import FacetLabels from './FacetLabels'
+import HoverConnectorLine from './HoverConnectorLine'
 import { effects } from '../../crystalConfig'
 import { useFacetOverlayGeometry } from '../../hooks/useFacetOverlayGeometry'
 import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController'
+import { useLayoutConfig } from '../../hooks/useLayoutConfig'
+import { useHoverCapable } from '../../hooks/useHoverCapable'
 
 const PROJECT_DISPLAY_SLOT = 'ProjectDisplay'
 
@@ -77,6 +80,12 @@ const UnifiedCrystalScene = forwardRef(({
     animationData?.crystalForm === 'exploded' &&
     animationData?.isTransitioning === false &&
     animationData?.cameraSettled === true;
+
+  const [hoveredLabelFacetKey, setHoveredLabelFacetKey] = useState(null);
+  const [domAnchorClient, setDomAnchorClient] = useState(null);
+  const { layout } = useLayoutConfig();
+  const hoverCapable = useHoverCapable();
+  const overviewWorldAnchors = layout?.anchors?.overviewWorld;
 
   // Facet configuration
   const facetKeys = canonicalFacetKeys;
@@ -471,6 +480,18 @@ const UnifiedCrystalScene = forwardRef(({
     [updateHoverSources]
   );
 
+  const handleDomAnchorChange = useCallback((facetKey, clientPointOrNull) => {
+    if (!clientPointOrNull) {
+      setHoveredLabelFacetKey(null);
+      setDomAnchorClient(null);
+      return;
+    }
+
+    setHoveredLabelFacetKey(facetKey);
+    setDomAnchorClient(clientPointOrNull);
+  }, []);
+
+
   const handleFacetHover = useCallback(
     (facetKey, hovering) => {
       updateHoverSources(facetKey, 'facet', hovering);
@@ -487,6 +508,13 @@ const UnifiedCrystalScene = forwardRef(({
     },
     [inActiveOverview, scrollToProgress]
   );
+
+  useEffect(() => {
+    if (inActiveOverview) return;
+    setHoveredLabelFacetKey(null);
+    setDomAnchorClient(null);
+  }, [inActiveOverview]);
+
   
   // Keyboard listener for debug toggle
   useEffect(() => {
@@ -1493,6 +1521,14 @@ const UnifiedCrystalScene = forwardRef(({
         animationData={animationData}
         performanceProfile={performanceProfile}
         anchorOffsets={anchorOffsets}
+        onDomAnchorChange={handleDomAnchorChange}
+      />
+
+      <HoverConnectorLine
+        enabled={inActiveOverview && hoverCapable}
+        hoveredFacetKey={hoveredLabelFacetKey}
+        domAnchorClient={domAnchorClient}
+        overviewWorldAnchors={overviewWorldAnchors}
       />
 
       {/* Debug visualization when enabled */}
