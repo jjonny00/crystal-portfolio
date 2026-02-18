@@ -11,6 +11,7 @@ const OptimizedLabel = React.memo(function OptimizedLabel({
   titleRef,
   onHover,
   onClick,
+  visible,
 }) {
   const glow1 = project.headlineColor;
   const glow2 = project.headlineColor;
@@ -27,6 +28,7 @@ const OptimizedLabel = React.memo(function OptimizedLabel({
         '--headline-glow2': glow2,
         textAlign: 'left',
         width: '100%',
+        pointerEvents: visible ? 'auto' : 'none',
       }}
     >
       <div ref={titleRef}>
@@ -225,7 +227,7 @@ const FacetLabels = React.memo(function FacetLabels({
             transform: 'translateY(-50%)',
             opacity: visible ? 1 : 0,
             transition: `opacity ${fadeDuration}s`,
-            pointerEvents: visible ? 'auto' : 'none',
+            pointerEvents: 'none',
             display: 'flex',
             flexDirection: 'column',
             gap: variant === 'desktop' ? '1.5rem' : '1rem',
@@ -250,6 +252,7 @@ const FacetLabels = React.memo(function FacetLabels({
                   ANIMATION_CONFIG.projectSections[project.facetKey].start,
                 )
               }
+              visible={visible}
             />
           ))}
         </div>
