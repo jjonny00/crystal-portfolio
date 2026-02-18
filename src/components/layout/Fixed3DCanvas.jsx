@@ -112,7 +112,8 @@ const Fixed3DCanvas = forwardRef(({
   canvasProps = {},
   environmentProps = {},
   isMobile = false,
-  scrollToProgress
+  scrollToProgress,
+  cameraRuntimeOverrides = null
 }, ref) => {
   // NEW: Ref to access crystal scene for debug panels
   const crystalSceneRef = useRef();
@@ -155,54 +156,79 @@ const Fixed3DCanvas = forwardRef(({
   const { layout } = useLayoutConfig();
 
   const cameraMergedConfig = useMemo(() => {
-    const layoutCamera = layout?.camera;
-    if (!layoutCamera) return config;
-
     const nextConfig = { ...config };
 
-    if (layoutCamera.positions) {
-      nextConfig.cameraPositions = {
-        ...(nextConfig.cameraPositions || {}),
-        ...layoutCamera.positions,
-        projects: {
-          ...(nextConfig.cameraPositions?.projects || {}),
-          ...(layoutCamera.positions.projects || {}),
-        },
-      };
-    }
+    const mergeCameraLayer = (cameraLayer) => {
+      if (!cameraLayer) return;
 
-    if (layoutCamera.targets) {
-      nextConfig.cameraTargets = {
-        ...(nextConfig.cameraTargets || {}),
-        ...layoutCamera.targets,
-        projects: {
-          ...(nextConfig.cameraTargets?.projects || {}),
-          ...(layoutCamera.targets.projects || {}),
-        },
-      };
-    }
+      if (cameraLayer.positions) {
+        nextConfig.cameraPositions = {
+          ...(nextConfig.cameraPositions || {}),
+          ...cameraLayer.positions,
+          projects: {
+            ...(nextConfig.cameraPositions?.projects || {}),
+            ...(cameraLayer.positions.projects || {}),
+          },
+        };
+      }
 
-    if (layoutCamera.offsets) {
-      nextConfig.cameraOffsets = {
-        ...(nextConfig.cameraOffsets || {}),
-        ...layoutCamera.offsets,
-        global: {
-          ...(nextConfig.cameraOffsets?.global || {}),
-          ...(layoutCamera.offsets.global || {}),
-        },
-        zones: {
-          ...(nextConfig.cameraOffsets?.zones || {}),
-          ...(layoutCamera.offsets.zones || {}),
-        },
-        projects: {
-          ...(nextConfig.cameraOffsets?.projects || {}),
-          ...(layoutCamera.offsets.projects || {}),
-        },
-      };
-    }
+      if (cameraLayer.targets) {
+        nextConfig.cameraTargets = {
+          ...(nextConfig.cameraTargets || {}),
+          ...cameraLayer.targets,
+          projects: {
+            ...(nextConfig.cameraTargets?.projects || {}),
+            ...(cameraLayer.targets.projects || {}),
+          },
+        };
+      }
+
+      if (cameraLayer.offsets) {
+        nextConfig.cameraOffsets = {
+          ...(nextConfig.cameraOffsets || {}),
+          ...cameraLayer.offsets,
+          global: {
+            ...(nextConfig.cameraOffsets?.global || {}),
+            ...(cameraLayer.offsets.global || {}),
+          },
+          zones: {
+            ...(nextConfig.cameraOffsets?.zones || {}),
+            ...(cameraLayer.offsets.zones || {}),
+          },
+          projects: {
+            ...(nextConfig.cameraOffsets?.projects || {}),
+            ...(cameraLayer.offsets.projects || {}),
+          },
+        };
+      }
+    };
+
+    mergeCameraLayer(layout?.camera);
+    mergeCameraLayer(cameraRuntimeOverrides);
 
     return nextConfig;
-  }, [config, layout?.camera]);
+  }, [cameraRuntimeOverrides, config, layout?.camera]);
+
+  const runtimeOverrideLogShownRef = useRef(false);
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+
+    const hasRuntimeOverrides = Boolean(
+      cameraRuntimeOverrides?.positions ||
+      cameraRuntimeOverrides?.targets ||
+      cameraRuntimeOverrides?.offsets
+    );
+
+    if (hasRuntimeOverrides && !runtimeOverrideLogShownRef.current) {
+      runtimeOverrideLogShownRef.current = true;
+      console.log('[camera] runtime overrides active');
+    }
+
+    if (!hasRuntimeOverrides) {
+      runtimeOverrideLogShownRef.current = false;
+    }
+  }, [cameraRuntimeOverrides]);
 
   useEffect(() => () => {
     sanitizePass?.dispose?.();

@@ -38,6 +38,116 @@ import * as defaultConfig from './crystalConfig';
 import './styles/glow-70s.css';
 import { isMobileDevice } from './utils/isMobileDevice.js';
 
+const projectKeys = ['empathy', 'narrative', 'craft', 'system', 'leadership', 'exploration'];
+const zoneKeys = ['hero', 'overview', 'about'];
+
+const toVecOrNull = (value) => (
+  Array.isArray(value) && value.length === 3 && value.every((entry) => Number.isFinite(entry))
+    ? [...value]
+    : null
+);
+
+const vecChanged = (baseVec, nextVec) => {
+  const base = toVecOrNull(baseVec);
+  const next = toVecOrNull(nextVec);
+  if (!base || !next) return false;
+  return base.some((value, index) => value !== next[index]);
+};
+
+const getCameraRuntimeOverrides = (baseConfig, nextConfig) => {
+  const overrides = {};
+
+  zoneKeys.forEach((zone) => {
+    if (vecChanged(baseConfig?.cameraPositions?.[zone], nextConfig?.cameraPositions?.[zone])) {
+      overrides.positions = {
+        ...(overrides.positions || {}),
+        [zone]: [...nextConfig.cameraPositions[zone]]
+      };
+    }
+  });
+
+  projectKeys.forEach((project) => {
+    if (vecChanged(baseConfig?.cameraPositions?.projects?.[project], nextConfig?.cameraPositions?.projects?.[project])) {
+      overrides.positions = {
+        ...(overrides.positions || {}),
+        projects: {
+          ...(overrides.positions?.projects || {}),
+          [project]: [...nextConfig.cameraPositions.projects[project]]
+        }
+      };
+    }
+  });
+
+  zoneKeys.forEach((zone) => {
+    if (vecChanged(baseConfig?.cameraTargets?.[zone], nextConfig?.cameraTargets?.[zone])) {
+      overrides.targets = {
+        ...(overrides.targets || {}),
+        [zone]: [...nextConfig.cameraTargets[zone]]
+      };
+    }
+  });
+
+  projectKeys.forEach((project) => {
+    if (vecChanged(baseConfig?.cameraTargets?.projects?.[project], nextConfig?.cameraTargets?.projects?.[project])) {
+      overrides.targets = {
+        ...(overrides.targets || {}),
+        projects: {
+          ...(overrides.targets?.projects || {}),
+          [project]: [...nextConfig.cameraTargets.projects[project]]
+        }
+      };
+    }
+  });
+
+  ['position', 'target'].forEach((offsetKey) => {
+    if (vecChanged(baseConfig?.cameraOffsets?.global?.[offsetKey], nextConfig?.cameraOffsets?.global?.[offsetKey])) {
+      overrides.offsets = {
+        ...(overrides.offsets || {}),
+        global: {
+          ...(overrides.offsets?.global || {}),
+          [offsetKey]: [...nextConfig.cameraOffsets.global[offsetKey]]
+        }
+      };
+    }
+  });
+
+  zoneKeys.forEach((zone) => {
+    ['position', 'target'].forEach((offsetKey) => {
+      if (vecChanged(baseConfig?.cameraOffsets?.zones?.[zone]?.[offsetKey], nextConfig?.cameraOffsets?.zones?.[zone]?.[offsetKey])) {
+        overrides.offsets = {
+          ...(overrides.offsets || {}),
+          zones: {
+            ...(overrides.offsets?.zones || {}),
+            [zone]: {
+              ...(overrides.offsets?.zones?.[zone] || {}),
+              [offsetKey]: [...nextConfig.cameraOffsets.zones[zone][offsetKey]]
+            }
+          }
+        };
+      }
+    });
+  });
+
+  projectKeys.forEach((project) => {
+    ['position', 'target'].forEach((offsetKey) => {
+      if (vecChanged(baseConfig?.cameraOffsets?.projects?.[project]?.[offsetKey], nextConfig?.cameraOffsets?.projects?.[project]?.[offsetKey])) {
+        overrides.offsets = {
+          ...(overrides.offsets || {}),
+          projects: {
+            ...(overrides.offsets?.projects || {}),
+            [project]: {
+              ...(overrides.offsets?.projects?.[project] || {}),
+              [offsetKey]: [...nextConfig.cameraOffsets.projects[project][offsetKey]]
+            }
+          }
+        };
+      }
+    });
+  });
+
+  return overrides;
+};
+
 // Convert UI config into animation config
 const buildAnimationConfig = (uiConfig) => {
   const toVec = (arr) => new Vector3(...arr);
@@ -244,6 +354,7 @@ function App() {
     }
   });
   const [animationConfig, setAnimationConfig] = useState(buildAnimationConfig(defaultConfig));
+  const [cameraRuntimeOverrides, setCameraRuntimeOverrides] = useState({});
   const [materialVariant, setMaterialVariant] = useState('default');
   const [showUI, setShowUI] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
@@ -356,6 +467,7 @@ function App() {
   const handleConfigUpdate = useCallback((newConfig) => {
     setConfig(newConfig);
     setAnimationConfig(buildAnimationConfig(newConfig));
+    setCameraRuntimeOverrides(getCameraRuntimeOverrides(defaultConfig, newConfig));
   }, []);
 
   const handleMaterialChange = useCallback((variant) => {
@@ -594,6 +706,7 @@ function App() {
           postProcessingConfig={postProcessingConfig}
           performanceProfile={performanceProfile}
           config={config}
+          cameraRuntimeOverrides={cameraRuntimeOverrides}
           canvasProps={getOptimalCanvasProps()}
           environmentProps={getOptimalEnvironmentProps()}
           isMobile={isMobile}
