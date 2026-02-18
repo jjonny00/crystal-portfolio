@@ -8,6 +8,7 @@ import { facetKeys as canonicalFacetKeys } from '../../data/projects';
 
 const UnifiedCameraController = ({
   animationData,
+  config,
   isMobile = false,
   simplifiedAnimations = false,
   facetRefs = null
@@ -178,6 +179,48 @@ const UnifiedCameraController = ({
     return left.equals(right);
   };
 
+  const getConfigCameraState = (cameraState, focusedFacet) => {
+    if (!config?.cameraPositions) return null;
+
+    if (cameraState === 'hero') {
+      return {
+        position: toVector3(config.cameraPositions.hero),
+        target: toVector3(config.cameraTargets?.hero),
+        fov: animationData?.cameraConfig?.fov,
+        description: 'hero (layout/config)'
+      };
+    }
+
+    if (cameraState === 'overview') {
+      return {
+        position: toVector3(config.cameraPositions.overview),
+        target: toVector3(config.cameraTargets?.overview),
+        fov: animationData?.cameraConfig?.fov,
+        description: 'overview (layout/config)'
+      };
+    }
+
+    if (cameraState === 'about') {
+      return {
+        position: toVector3(config.cameraPositions.about),
+        target: toVector3(config.cameraTargets?.about),
+        fov: animationData?.cameraConfig?.fov,
+        description: 'about (layout/config)'
+      };
+    }
+
+    if (cameraState === 'project' && focusedFacet) {
+      return {
+        position: toVector3(config.cameraPositions?.projects?.[focusedFacet]),
+        target: toVector3(config.cameraTargets?.projects?.[focusedFacet]),
+        fov: animationData?.cameraConfig?.fov,
+        description: `${focusedFacet} project (layout/config)`
+      };
+    }
+
+    return null;
+  };
+
   useEffect(() => {
     currentTarget.current.position.copy(camera.position);
     currentTarget.current.fov = camera.fov;
@@ -282,15 +325,26 @@ const UnifiedCameraController = ({
       return;
     }
 
-    if (!animationData?.cameraConfig) return;
+    if (!animationData?.cameraConfig && !config?.cameraPositions) return;
 
-    const baseConfig = animationData.cameraConfig;
     const focusedFacet = animationData.focusedFacet;
     const cameraState = animationData.cameraState;
+    const configCameraState = getConfigCameraState(cameraState, focusedFacet);
+    const baseConfig = configCameraState || animationData.cameraConfig;
+    if (!baseConfig) return;
     
     const enhancedConfig = getCameraTarget(baseConfig, focusedFacet, cameraState);
-    const offsetPosition = toVector3(enhancedConfig?.offsetPosition);
-    const offsetTarget = toVector3(enhancedConfig?.offsetTarget);
+    const configuredOffsetPosition = cameraState === 'project' && focusedFacet
+      ? config?.cameraOffsets?.projects?.[focusedFacet]?.position
+      : config?.cameraOffsets?.zones?.[cameraState]?.position;
+    const configuredOffsetTarget = cameraState === 'project' && focusedFacet
+      ? config?.cameraOffsets?.projects?.[focusedFacet]?.target
+      : config?.cameraOffsets?.zones?.[cameraState]?.target;
+
+    const offsetPosition = toVector3(configuredOffsetPosition ?? enhancedConfig?.offsetPosition);
+    const offsetTarget = toVector3(configuredOffsetTarget ?? enhancedConfig?.offsetTarget);
+    offsetPosition.add(toVector3(config?.cameraOffsets?.global?.position));
+    offsetTarget.add(toVector3(config?.cameraOffsets?.global?.target));
     const basePosition = enhancedConfig?.position ? enhancedConfig.position.clone() : null;
     const baseTarget = enhancedConfig?.target ? enhancedConfig.target.clone() : null;
     const finalPosition = basePosition ? basePosition.add(offsetPosition) : null;
@@ -319,6 +373,16 @@ const UnifiedCameraController = ({
           target: finalTarget?.toArray(),
           fov: enhancedConfig.fov,
           description: enhancedConfig.description 
+        });
+        console.log('📷 Effective hero/overview from config:', {
+          hero: {
+            position: config?.cameraPositions?.hero,
+            target: config?.cameraTargets?.hero,
+          },
+          overview: {
+            position: config?.cameraPositions?.overview,
+            target: config?.cameraTargets?.overview,
+          },
         });
       }
 
@@ -420,6 +484,9 @@ const UnifiedCameraController = ({
     animationData?.state,
     animationData?.cameraState,
     animationData?.focusedFacet,
+    config?.cameraPositions,
+    config?.cameraTargets,
+    config?.cameraOffsets,
     facetRefs,
     camera
   ]);
