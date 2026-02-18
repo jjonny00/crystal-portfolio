@@ -86,6 +86,94 @@ const UnifiedCrystalScene = forwardRef(({
   const { layout } = useLayoutConfig();
   const hoverCapable = useHoverCapable();
   const overviewWorldAnchors = layout?.anchors?.overviewWorld;
+  const layoutCamera = layout?.camera;
+  const layoutProjects = layout?.projects;
+
+  const mergedConfig = useMemo(() => {
+    const nextConfig = { ...config };
+
+    if (layoutCamera?.positions) {
+      nextConfig.cameraPositions = {
+        ...(nextConfig.cameraPositions || {}),
+        ...layoutCamera.positions,
+        projects: {
+          ...(nextConfig.cameraPositions?.projects || {}),
+          ...(layoutCamera.positions.projects || {}),
+        },
+      };
+    }
+
+    if (layoutCamera?.targets) {
+      nextConfig.cameraTargets = {
+        ...(nextConfig.cameraTargets || {}),
+        ...layoutCamera.targets,
+        projects: {
+          ...(nextConfig.cameraTargets?.projects || {}),
+          ...(layoutCamera.targets.projects || {}),
+        },
+      };
+    }
+
+    if (layoutCamera?.offsets) {
+      nextConfig.cameraOffsets = {
+        ...(nextConfig.cameraOffsets || {}),
+        ...layoutCamera.offsets,
+        global: {
+          ...(nextConfig.cameraOffsets?.global || {}),
+          ...(layoutCamera.offsets.global || {}),
+        },
+        zones: {
+          ...(nextConfig.cameraOffsets?.zones || {}),
+          ...(layoutCamera.offsets.zones || {}),
+        },
+        projects: {
+          ...(nextConfig.cameraOffsets?.projects || {}),
+          ...(layoutCamera.offsets.projects || {}),
+        },
+      };
+    }
+
+    if (layoutProjects?.explodedPositions) {
+      nextConfig.explodedPositions = {
+        ...(nextConfig.explodedPositions || {}),
+        ...Object.fromEntries(
+          Object.entries(layoutProjects.explodedPositions).map(([key, value]) => [key, value.toArray()]),
+        ),
+      };
+    }
+
+    if (layoutProjects?.facetRotationsEulerDeg) {
+      nextConfig.facetRotationsEulerDeg = {
+        ...(nextConfig.facetRotationsEulerDeg || {}),
+        ...layoutProjects.facetRotationsEulerDeg,
+      };
+    }
+
+    return nextConfig;
+  }, [config, layoutCamera, layoutProjects]);
+
+  const crystalConfig = useMemo(() => {
+    const baseCrystalConfig = animationData?.crystalConfig;
+    if (!baseCrystalConfig) return baseCrystalConfig;
+
+    const nextCrystalConfig = { ...baseCrystalConfig };
+
+    if (layoutProjects?.explodedPositions) {
+      nextCrystalConfig.explodedPositions = {
+        ...(baseCrystalConfig.explodedPositions || {}),
+        ...layoutProjects.explodedPositions,
+      };
+    }
+
+    if (layoutProjects?.facetRotationsEulerDeg) {
+      nextCrystalConfig.facetRotationsEulerDeg = {
+        ...(baseCrystalConfig.facetRotationsEulerDeg || {}),
+        ...layoutProjects.facetRotationsEulerDeg,
+      };
+    }
+
+    return nextCrystalConfig;
+  }, [animationData?.crystalConfig, layoutProjects]);
 
   // Facet configuration
   const facetKeys = canonicalFacetKeys;
@@ -119,7 +207,7 @@ const UnifiedCrystalScene = forwardRef(({
   const fractureGlowStartRef = useRef(null);
 
   const triggerFractureGlow = useCallback(() => {
-    const delay = config?.fracture?.emissive?.delay ?? 0;
+    const delay = mergedConfig?.fracture?.emissive?.delay ?? 0;
     fractureGlowStartRef.current = performance.now() + delay * 1000;
     facetMaterialsRef.current.forEach((mat) => {
       // Start from no glow and fade in during the fracture pause
@@ -129,7 +217,7 @@ const UnifiedCrystalScene = forwardRef(({
       mat.needsUpdate = true;
     });
     onFractureStart?.();
-  }, [config, onFractureStart]);
+  }, [mergedConfig, onFractureStart]);
 
   // Track when GLTF models have loaded
   const [modelsLoaded, setModelsLoaded] = useState(false);
@@ -256,7 +344,7 @@ const UnifiedCrystalScene = forwardRef(({
           console.group('📐 Verifying exploded facet positions');
           facetRefs.current.forEach((facetRef, index) => {
             const facetKey = facetKeys[index];
-            const expected = animationData?.crystalConfig?.explodedPositions?.[facetKey];
+            const expected = crystalConfig?.explodedPositions?.[facetKey];
             if (!facetRef?.current || !expected) {
               console.warn(`Facet ${facetKey}: missing ref or expected position`);
               return;
@@ -280,9 +368,9 @@ const UnifiedCrystalScene = forwardRef(({
   }), [facetKeys, showWholeCrystal, showFacets, sphereVisible, showCrystalDebug, modelsLoaded, animationData]);
 
   // Load models
-  const wholeCrystal = useGLTF(config.assets.models.crystalWhole);
+  const wholeCrystal = useGLTF(mergedConfig.assets.models.crystalWhole);
   const facetModels = facetModelKeys.map((modelKey, index) => {
-    const modelUrl = config.assets.models[modelKey];
+    const modelUrl = mergedConfig.assets.models[modelKey];
 
     if (!modelUrl) {
       throw new Error(`Missing model URL for facet index ${index} (${modelKey ?? 'undefined'})`);
@@ -307,7 +395,7 @@ const UnifiedCrystalScene = forwardRef(({
       if (index === -1) return null;
 
       const model = facetModels[index];
-      const exploded = animationData?.crystalConfig?.explodedPositions?.[facetKey];
+      const exploded = crystalConfig?.explodedPositions?.[facetKey];
       if (!model?.scene || !exploded) return null;
 
       const anchor = model.scene.getObjectByName(`anchor_${facetKey}`);
@@ -333,7 +421,7 @@ const UnifiedCrystalScene = forwardRef(({
 
       return anchor.position.clone().applyMatrix4(matrixWorld);
     },
-    [facetKeys, facetModels, animationData?.crystalConfig?.explodedPositions]
+    [facetKeys, facetModels, crystalConfig?.explodedPositions]
   );
 
   // Calculate anchor offsets relative to facet centers once models are ready
@@ -351,9 +439,9 @@ const UnifiedCrystalScene = forwardRef(({
         const localAnchor = model.scene.worldToLocal(worldAnchor.clone());
         offsets[facetKey] = localAnchor.toArray();
 
-        const rotation = animationData?.crystalConfig?.explodedRotations?.[facetKey];
+        const rotation = crystalConfig?.explodedRotations?.[facetKey];
         const worldPos = computeAnchorWorldPosition(facetKey, rotation);
-        const exploded = animationData?.crystalConfig?.explodedPositions?.[facetKey];
+        const exploded = crystalConfig?.explodedPositions?.[facetKey];
         if (worldPos && exploded && import.meta.env.DEV) {
           const offset = localAnchor;
           const rotQuat = rotation
@@ -377,7 +465,7 @@ const UnifiedCrystalScene = forwardRef(({
       }
     });
     setAnchorOffsets(offsets);
-  }, [modelsLoaded, facetKeys, facetModels, computeAnchorWorldPosition, animationData?.crystalConfig?.explodedPositions]);
+  }, [modelsLoaded, facetKeys, facetModels, computeAnchorWorldPosition, crystalConfig?.explodedPositions]);
 
   const getAnchorAdjustedPosition = useCallback(
     (facetKey, basePosition, targetQuat) => {
@@ -820,8 +908,8 @@ const UnifiedCrystalScene = forwardRef(({
     // If fracture glow is active, apply current fade state to new materials
     if (fractureGlowStartRef.current) {
       const elapsedGlow = (performance.now() - fractureGlowStartRef.current) / 1000;
-      const rawDuration = animationData?.crystalConfig?.explodeDuration || 1.2;
-      const fracturePause = animationData?.crystalConfig?.fracturePause || 0.5;
+      const rawDuration = crystalConfig?.explodeDuration || 1.2;
+      const fracturePause = crystalConfig?.fracturePause || 0.5;
       const totalDuration = rawDuration > 10 ? rawDuration / 1000 : rawDuration;
       const explosionDuration = Math.max(totalDuration - fracturePause, 0);
       const fadeOutDuration = explosionDuration * 2;
@@ -831,7 +919,7 @@ const UnifiedCrystalScene = forwardRef(({
 
       facetMaterialsRef.current.forEach((mat, idx) => {
         const baseIntensity = mat.userData?.baseEmissiveIntensity ?? 0.02;
-        const startIntensity = (config?.fracture?.emissive?.intensity ?? 2.0) * 0.15;
+        const startIntensity = (mergedConfig?.fracture?.emissive?.intensity ?? 2.0) * 0.15;
         const baseColor = mat.userData?.baseEmissiveColor || defaultColorRef.current;
         const startColor = projectColors[idx];
 
@@ -863,9 +951,9 @@ const UnifiedCrystalScene = forwardRef(({
     facetKeys,
     projectColors,
     animationData?.focusedFacet,
-    animationData?.crystalConfig?.fracturePause,
-    animationData?.crystalConfig?.explodeDuration,
-    config?.effects?.fracture?.initialGlow
+    crystalConfig?.fracturePause,
+    crystalConfig?.explodeDuration,
+    mergedConfig?.effects?.fracture?.initialGlow
   ]);
 
   useEffect(() => {
@@ -1129,12 +1217,12 @@ const UnifiedCrystalScene = forwardRef(({
           }
 
           // Snap facets immediately to fracture positions (small initial offset)
-          const fractureDistance = animationData?.crystalConfig?.fractureDistance ?? 0.3;
-          const fracture = animationData?.crystalConfig?.fracturePositions;
+          const fractureDistance = crystalConfig?.fractureDistance ?? 0.3;
+          const fracture = crystalConfig?.fracturePositions;
           if (fracture || fractureDistance) {
             facetRefs.current.forEach((facetRef, idx) => {
               const facetKey = facetKeys[idx];
-              const explodedPos = animationData?.crystalConfig?.positions?.[facetKey];
+              const explodedPos = crystalConfig?.positions?.[facetKey];
               const configuredFracture = fracture?.[facetKey];
               if (facetRef?.current && explodedPos) {
                 const fallback = explodedPos
@@ -1187,8 +1275,8 @@ const UnifiedCrystalScene = forwardRef(({
     // Fade emissive glow timed with explosion
     if (fractureGlowStartRef.current && facetMaterialsRef.current.length) {
       const elapsedGlow = (performance.now() - fractureGlowStartRef.current) / 1000;
-      const rawDuration = animationData?.crystalConfig?.explodeDuration || 1.2;
-      const fracturePause = animationData?.crystalConfig?.fracturePause || 0.5;
+      const rawDuration = crystalConfig?.explodeDuration || 1.2;
+      const fracturePause = crystalConfig?.fracturePause || 0.5;
       const totalDuration = rawDuration > 10 ? rawDuration / 1000 : rawDuration;
       const explosionDuration = Math.max(totalDuration - fracturePause, 0);
       const fadeOutDuration = explosionDuration * 2;
@@ -1198,7 +1286,7 @@ const UnifiedCrystalScene = forwardRef(({
 
       facetMaterialsRef.current.forEach((mat, idx) => {
         const baseIntensity = mat.userData?.baseEmissiveIntensity ?? 0.02;
-        const startIntensity = (config?.effects?.fracture?.initialGlow ?? 2.0) * 0.15;
+        const startIntensity = (mergedConfig?.effects?.fracture?.initialGlow ?? 2.0) * 0.15;
         const baseColor = mat.userData?.baseEmissiveColor || defaultColorRef.current;
         const startColor = projectColors[idx];
 
@@ -1233,14 +1321,14 @@ const UnifiedCrystalScene = forwardRef(({
 
     // Hold facets at fracture positions before the explosion resumes
     if (animationData.crystalForm === 'exploded' && explosionStartRef.current) {
-      const fracturePause = animationData.crystalConfig?.fracturePause || 0.5;
+      const fracturePause = crystalConfig?.fracturePause || 0.5;
       const elapsedExplosion = (performance.now() - explosionStartRef.current) / 1000;
       if (elapsedExplosion < fracturePause) {
-        const fracture = animationData.crystalConfig?.fracturePositions;
-        const fractureDistance = animationData.crystalConfig?.fractureDistance ?? 0.3;
+        const fracture = crystalConfig?.fracturePositions;
+        const fractureDistance = crystalConfig?.fractureDistance ?? 0.3;
         facetRefs.current.forEach((facetRef, idx) => {
           const facetKey = facetKeys[idx];
-          const explodedPos = animationData.crystalConfig.positions[facetKey];
+          const explodedPos = crystalConfig?.positions?.[facetKey];
           const configured = fracture?.[facetKey];
           if (facetRef?.current && explodedPos) {
             const fallback = explodedPos
@@ -1282,18 +1370,18 @@ const UnifiedCrystalScene = forwardRef(({
     }
 
     // Handle facet animations
-    if (showFacets && animationData.crystalConfig?.positions) {
+    if (showFacets && crystalConfig?.positions) {
       // Custom fracture/explosion timing
       if (animationData.crystalForm === 'exploded' && explosionStartRef.current) {
-        const fracturePause = animationData.crystalConfig.fracturePause || 0.5;
-        const totalDuration = animationData.crystalConfig.explodeDuration || 1.2;
+        const fracturePause = crystalConfig?.fracturePause || 0.5;
+        const totalDuration = crystalConfig?.explodeDuration || 1.2;
         const elapsedExplosion = (performance.now() - explosionStartRef.current) / 1000;
 
         const progress = Math.min((elapsedExplosion - fracturePause) / (totalDuration - fracturePause), 1);
-        const fracture = animationData.crystalConfig.fracturePositions;
-        const fractureDistance = animationData.crystalConfig.fractureDistance ?? 0.3;
-        const eased = animationData.crystalConfig.explosionEase
-          ? animationData.crystalConfig.explosionEase(progress)
+        const fracture = crystalConfig?.fracturePositions;
+        const fractureDistance = crystalConfig?.fractureDistance ?? 0.3;
+        const eased = crystalConfig?.explosionEase
+          ? crystalConfig?.explosionEase(progress)
           : progress;
 
         if (facetsGroupRef.current) {
@@ -1308,12 +1396,12 @@ const UnifiedCrystalScene = forwardRef(({
           if (!facetRef || !facetRef.current) return;
 
           const facetKey = facetKeys[index];
-          const end = animationData.crystalConfig.positions[facetKey];
+          const end = crystalConfig?.positions?.[facetKey];
           const start = fracture?.[facetKey] ||
             end?.clone().normalize().multiplyScalar(end.length() * fractureDistance);
           if (start && end) {
             const interpolated = start.clone().lerp(end, eased);
-            const targetRotation = animationData?.crystalConfig?.explodedRotations?.[facetKey];
+            const targetRotation = crystalConfig?.explodedRotations?.[facetKey];
             const targetQuat = targetRotation
               ? new THREE.Quaternion().fromArray(targetRotation)
               : neutralQuat;
@@ -1353,7 +1441,7 @@ const UnifiedCrystalScene = forwardRef(({
         if (!facetRef || !facetRef.current) return;
 
         const facetKey = facetKeys[index];
-        let targetPos = animationData.crystalConfig.positions[facetKey];
+        let targetPos = crystalConfig?.positions?.[facetKey];
 
         if (isReforming) {
           targetPos = origin;
@@ -1382,7 +1470,7 @@ const UnifiedCrystalScene = forwardRef(({
               const fz = Math.sin(elapsed * floatConfig.zFrequency + params.phaseZ) * amp * floatConfig.zMultiplier;
               finalTarget = targetPos.clone().add(new THREE.Vector3(fx, fy, fz));
             }
-            const targetRotation = animationData?.crystalConfig?.explodedRotations?.[facetKey];
+            const targetRotation = crystalConfig?.explodedRotations?.[facetKey];
             const targetQuat = animationData?.crystalForm === 'exploded' && targetRotation
               ? new THREE.Quaternion().fromArray(targetRotation)
               : neutralQuat;
@@ -1393,7 +1481,7 @@ const UnifiedCrystalScene = forwardRef(({
           }
         }
 
-        const targetRotation = animationData?.crystalConfig?.explodedRotations?.[facetKey];
+        const targetRotation = crystalConfig?.explodedRotations?.[facetKey];
         const targetQuat = animationData?.crystalForm === 'exploded' && targetRotation
           ? new THREE.Quaternion().fromArray(targetRotation)
           : neutralQuat;
@@ -1439,7 +1527,7 @@ const UnifiedCrystalScene = forwardRef(({
       {/* Material Manager Component */}
       <MaterialManager
         materialVariant={materialVariant}
-        config={config}
+        config={mergedConfig}
         materialRef={crystalMaterialRef}
         performanceProfile={performanceProfile}
         onMaterialReady={handleMaterialReady}
@@ -1447,7 +1535,7 @@ const UnifiedCrystalScene = forwardRef(({
 
       {/* Fracture expanding ring */}
       <FractureRingImage
-        {...config.fracture.image}
+        {...mergedConfig.fracture.image}
         visible={ringVisible}
         animationData={animationData}
         simplifiedAnimations={simplifiedAnimations}
@@ -1474,7 +1562,7 @@ const UnifiedCrystalScene = forwardRef(({
       {!simplifiedAnimations && (
         <FractureBurstParticles
           trigger={burstId}
-          {...config.fracture.particles}
+          {...mergedConfig.fracture.particles}
         />
       )}
 
