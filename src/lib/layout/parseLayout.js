@@ -1,6 +1,6 @@
 import { Vector3 } from 'three';
 
-const FORMAT_HELP = 'Expected { schemaVersion: 1, anchors: { overviewWorld: { [facetKey]: [x, y, z] } }, camera?: { positions?, targets?, offsets? }, projects?: { explodedPositions?, facetRotationsEulerDeg? } }';
+const FORMAT_HELP = 'Expected { schemaVersion: 1, anchors: { overviewWorld: { [facetKey]: [x, y, z] } }, camera?: { positions?, targets?, offsets? }, projects?: { explodedPositions?, facetRotationsEulerDeg? }, ... }';
 
 export const assertObject = (value, path) => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -22,10 +22,31 @@ export const parseVec3 = (value, path) => {
   return new Vector3(value[0], value[1], value[2]);
 };
 
+const parseVec3Array = (value, path) => {
+  if (
+    !Array.isArray(value) ||
+    value.length !== 3 ||
+    value.some((v) => typeof v !== 'number' || Number.isNaN(v))
+  ) {
+    throw new Error(
+      `Invalid layout at ${path}: expected [x, y, z] numeric array of length 3. ${FORMAT_HELP}`,
+    );
+  }
+
+  return value;
+};
+
 export const parseVec3Map = (obj, pathPrefix) => {
   assertObject(obj, pathPrefix);
   return Object.fromEntries(
     Object.entries(obj).map(([key, value]) => [key, parseVec3(value, `${pathPrefix}.${key}`)]),
+  );
+};
+
+const parseVec3ArrayMap = (obj, pathPrefix) => {
+  assertObject(obj, pathPrefix);
+  return Object.fromEntries(
+    Object.entries(obj).map(([key, value]) => [key, parseVec3Array(value, `${pathPrefix}.${key}`)]),
   );
 };
 
@@ -38,10 +59,10 @@ export const parseOffsetsObject = (obj, pathPrefix) => {
     assertObject(obj.global, `${pathPrefix}.global`);
     parsed.global = {};
     if (obj.global.position !== undefined) {
-      parsed.global.position = parseVec3(obj.global.position, `${pathPrefix}.global.position`);
+      parsed.global.position = parseVec3Array(obj.global.position, `${pathPrefix}.global.position`);
     }
     if (obj.global.target !== undefined) {
-      parsed.global.target = parseVec3(obj.global.target, `${pathPrefix}.global.target`);
+      parsed.global.target = parseVec3Array(obj.global.target, `${pathPrefix}.global.target`);
     }
   }
 
@@ -53,10 +74,10 @@ export const parseOffsetsObject = (obj, pathPrefix) => {
         const zoneParsed = {};
 
         if (zoneValue.position !== undefined) {
-          zoneParsed.position = parseVec3(zoneValue.position, `${pathPrefix}.zones.${zoneKey}.position`);
+          zoneParsed.position = parseVec3Array(zoneValue.position, `${pathPrefix}.zones.${zoneKey}.position`);
         }
         if (zoneValue.target !== undefined) {
-          zoneParsed.target = parseVec3(zoneValue.target, `${pathPrefix}.zones.${zoneKey}.target`);
+          zoneParsed.target = parseVec3Array(zoneValue.target, `${pathPrefix}.zones.${zoneKey}.target`);
         }
 
         return [zoneKey, zoneParsed];
@@ -72,13 +93,13 @@ export const parseOffsetsObject = (obj, pathPrefix) => {
         const facetParsed = {};
 
         if (facetValue.position !== undefined) {
-          facetParsed.position = parseVec3(
+          facetParsed.position = parseVec3Array(
             facetValue.position,
             `${pathPrefix}.projects.${facetKey}.position`,
           );
         }
         if (facetValue.target !== undefined) {
-          facetParsed.target = parseVec3(
+          facetParsed.target = parseVec3Array(
             facetValue.target,
             `${pathPrefix}.projects.${facetKey}.target`,
           );
@@ -141,16 +162,16 @@ export const parseLayout = (rawLayout) => {
       const positions = {};
 
       if (rawLayout.camera.positions.hero !== undefined) {
-        positions.hero = parseVec3(rawLayout.camera.positions.hero, 'camera.positions.hero');
+        positions.hero = parseVec3Array(rawLayout.camera.positions.hero, 'camera.positions.hero');
       }
       if (rawLayout.camera.positions.overview !== undefined) {
-        positions.overview = parseVec3(rawLayout.camera.positions.overview, 'camera.positions.overview');
+        positions.overview = parseVec3Array(rawLayout.camera.positions.overview, 'camera.positions.overview');
       }
       if (rawLayout.camera.positions.about !== undefined) {
-        positions.about = parseVec3(rawLayout.camera.positions.about, 'camera.positions.about');
+        positions.about = parseVec3Array(rawLayout.camera.positions.about, 'camera.positions.about');
       }
       if (rawLayout.camera.positions.projects !== undefined) {
-        positions.projects = parseVec3Map(rawLayout.camera.positions.projects, 'camera.positions.projects');
+        positions.projects = parseVec3ArrayMap(rawLayout.camera.positions.projects, 'camera.positions.projects');
       }
 
       camera.positions = positions;
@@ -161,16 +182,16 @@ export const parseLayout = (rawLayout) => {
       const targets = {};
 
       if (rawLayout.camera.targets.hero !== undefined) {
-        targets.hero = parseVec3(rawLayout.camera.targets.hero, 'camera.targets.hero');
+        targets.hero = parseVec3Array(rawLayout.camera.targets.hero, 'camera.targets.hero');
       }
       if (rawLayout.camera.targets.overview !== undefined) {
-        targets.overview = parseVec3(rawLayout.camera.targets.overview, 'camera.targets.overview');
+        targets.overview = parseVec3Array(rawLayout.camera.targets.overview, 'camera.targets.overview');
       }
       if (rawLayout.camera.targets.about !== undefined) {
-        targets.about = parseVec3(rawLayout.camera.targets.about, 'camera.targets.about');
+        targets.about = parseVec3Array(rawLayout.camera.targets.about, 'camera.targets.about');
       }
       if (rawLayout.camera.targets.projects !== undefined) {
-        targets.projects = parseVec3Map(rawLayout.camera.targets.projects, 'camera.targets.projects');
+        targets.projects = parseVec3ArrayMap(rawLayout.camera.targets.projects, 'camera.targets.projects');
       }
 
       camera.targets = targets;
@@ -188,7 +209,7 @@ export const parseLayout = (rawLayout) => {
     const projects = {};
 
     if (rawLayout.projects.explodedPositions !== undefined) {
-      projects.explodedPositions = parseVec3Map(
+      projects.explodedPositions = parseVec3ArrayMap(
         rawLayout.projects.explodedPositions,
         'projects.explodedPositions',
       );

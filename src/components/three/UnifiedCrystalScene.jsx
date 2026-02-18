@@ -136,9 +136,7 @@ const UnifiedCrystalScene = forwardRef(({
     if (layoutProjects?.explodedPositions) {
       nextConfig.explodedPositions = {
         ...(nextConfig.explodedPositions || {}),
-        ...Object.fromEntries(
-          Object.entries(layoutProjects.explodedPositions).map(([key, value]) => [key, value.toArray()]),
-        ),
+        ...layoutProjects.explodedPositions,
       };
     }
 
