@@ -147,15 +147,12 @@ export const parseLayout = (rawLayout) => {
 
   const overviewWorld = parseVec3Map(rawLayout.anchors.overviewWorld, 'anchors.overviewWorld');
 
-  const parsed = {
-    anchors: {
-      overviewWorld,
-    },
-  };
+  let camera;
+  let projects;
 
   if (rawLayout.camera !== undefined) {
     assertObject(rawLayout.camera, 'camera');
-    const camera = {};
+    camera = {};
 
     if (rawLayout.camera.positions !== undefined) {
       assertObject(rawLayout.camera.positions, 'camera.positions');
@@ -201,12 +198,11 @@ export const parseLayout = (rawLayout) => {
       camera.offsets = parseOffsetsObject(rawLayout.camera.offsets, 'camera.offsets');
     }
 
-    parsed.camera = camera;
   }
 
   if (rawLayout.projects !== undefined) {
     assertObject(rawLayout.projects, 'projects');
-    const projects = {};
+    projects = {};
 
     if (rawLayout.projects.explodedPositions !== undefined) {
       projects.explodedPositions = parseVec3ArrayMap(
@@ -222,10 +218,15 @@ export const parseLayout = (rawLayout) => {
       );
     }
 
-    parsed.projects = projects;
   }
 
-  return parsed;
+  return {
+    ...(camera ? { camera } : {}),
+    ...(projects ? { projects } : {}),
+    anchors: {
+      overviewWorld,
+    },
+  };
 };
 
 export default parseLayout;
