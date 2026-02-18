@@ -1,5 +1,6 @@
 {
   "schemaVersion": 1,
+  "__forceUpdate": true,
   "camera": {
     "positions": {
       "hero": [0.55, 0.92, 3.94],
