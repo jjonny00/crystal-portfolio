@@ -136,7 +136,9 @@ const UnifiedCrystalScene = forwardRef(({
     if (layoutProjects?.explodedPositions) {
       nextConfig.explodedPositions = {
         ...(nextConfig.explodedPositions || {}),
-        ...layoutProjects.explodedPositions,
+        ...Object.fromEntries(
+          Object.entries(layoutProjects.explodedPositions).map(([key, value]) => [key, value.toArray()]),
+        ),
       };
     }
 
@@ -149,6 +151,13 @@ const UnifiedCrystalScene = forwardRef(({
 
     return nextConfig;
   }, [config, layoutCamera, layoutProjects]);
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    const hero = mergedConfig?.cameraPositions?.hero;
+    const overview = mergedConfig?.cameraPositions?.overview;
+    console.log('📷 Effective layout camera positions', { hero, overview });
+  }, [mergedConfig?.cameraPositions?.hero, mergedConfig?.cameraPositions?.overview]);
 
   const crystalConfig = useMemo(() => {
     const baseCrystalConfig = animationData?.crystalConfig;
