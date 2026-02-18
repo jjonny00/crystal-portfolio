@@ -137,7 +137,7 @@ const FacetLabels = React.memo(function FacetLabels({
     if (!rootRef.current) {
       const layer = document.createElement('div');
       layer.style.cssText =
-        'position:fixed;width:33.333vw;right:6%;top:50%;transform:translateY(-50%);height:auto;pointer-events:auto;z-index:20';
+        'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:20';
       document.body.appendChild(layer);
       layerRef.current = layer;
       rootRef.current = createRoot(layer);
