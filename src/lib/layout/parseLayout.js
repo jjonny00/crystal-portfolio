@@ -1,0 +1,166 @@
+import { Vector3 } from 'three';
+
+const FORMAT_HELP =
+  'Expected { schemaVersion: 1, anchors: { overviewWorld: { [facetKey]: [x, y, z] } }, camera?: { positions?, targets?, offsets? }, projects?: { explodedPositions?, facetRotationsEulerDeg? }, ... }';
+
+const assertObject = (value, path) => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error(`Invalid layout at ${path}: expected object. ${FORMAT_HELP}`);
+  }
+};
+
+const assertVec3Array = (value, path) => {
+  if (
+    !Array.isArray(value) ||
+    value.length !== 3 ||
+    value.some((v) => typeof v !== 'number' || Number.isNaN(v))
+  ) {
+    throw new Error(`Invalid layout at ${path}: expected [x, y, z] numeric array. ${FORMAT_HELP}`);
+  }
+};
+
+const parseVec3Array = (value, path) => {
+  assertVec3Array(value, path);
+  return value;
+};
+
+const parseVec3ToVector3 = (value, path) => {
+  assertVec3Array(value, path);
+  return new Vector3(value[0], value[1], value[2]);
+};
+
+const parseVec3ArrayMap = (map, path) => {
+  assertObject(map, path);
+  return Object.fromEntries(
+    Object.entries(map).map(([key, value]) => [key, parseVec3Array(value, `${path}.${key}`)]),
+  );
+};
+
+const parseVec3VectorMap = (map, path) => {
+  assertObject(map, path);
+  return Object.fromEntries(
+    Object.entries(map).map(([key, value]) => [key, parseVec3ToVector3(value, `${path}.${key}`)]),
+  );
+};
+
+const parseCameraVectorSection = (section, path) => {
+  assertObject(section, path);
+  const parsed = {};
+
+  if (section.hero !== undefined) parsed.hero = parseVec3Array(section.hero, `${path}.hero`);
+  if (section.overview !== undefined) {
+    parsed.overview = parseVec3Array(section.overview, `${path}.overview`);
+  }
+  if (section.about !== undefined) parsed.about = parseVec3Array(section.about, `${path}.about`);
+  if (section.projects !== undefined) {
+    parsed.projects = parseVec3ArrayMap(section.projects, `${path}.projects`);
+  }
+
+  return parsed;
+};
+
+const parseOffsetsLeaf = (leaf, path) => {
+  assertObject(leaf, path);
+  const parsed = {};
+
+  if (leaf.position !== undefined) {
+    parsed.position = parseVec3Array(leaf.position, `${path}.position`);
+  }
+  if (leaf.target !== undefined) {
+    parsed.target = parseVec3Array(leaf.target, `${path}.target`);
+  }
+
+  return parsed;
+};
+
+const parseOffsetsSectionMap = (map, path) => {
+  assertObject(map, path);
+  return Object.fromEntries(
+    Object.entries(map).map(([key, leaf]) => [key, parseOffsetsLeaf(leaf, `${path}.${key}`)]),
+  );
+};
+
+const parseOffsetsObject = (offsets, path) => {
+  assertObject(offsets, path);
+
+  const out = {};
+
+  if (offsets.global !== undefined) {
+    out.global = parseOffsetsLeaf(offsets.global, `${path}.global`);
+  }
+
+  if (offsets.zones !== undefined) {
+    out.zones = parseOffsetsSectionMap(offsets.zones, `${path}.zones`);
+  }
+
+  if (offsets.projects !== undefined) {
+    out.projects = parseOffsetsSectionMap(offsets.projects, `${path}.projects`);
+  }
+
+  return out;
+};
+
+export const parseLayout = (rawLayout) => {
+  assertObject(rawLayout, 'root');
+
+  if (rawLayout.schemaVersion !== 1) {
+    throw new Error(
+      `Invalid layout schemaVersion: expected 1, received ${String(rawLayout.schemaVersion)}. ${FORMAT_HELP}`,
+    );
+  }
+
+  assertObject(rawLayout.anchors, 'anchors');
+  if (rawLayout.anchors.overviewWorld === undefined) {
+    throw new Error(`Invalid layout at anchors.overviewWorld: required. ${FORMAT_HELP}`);
+  }
+
+  const overviewWorld = parseVec3VectorMap(rawLayout.anchors.overviewWorld, 'anchors.overviewWorld');
+
+  const parsed = {
+    anchors: { overviewWorld },
+  };
+
+  if (rawLayout.camera !== undefined) {
+    assertObject(rawLayout.camera, 'camera');
+    const camera = {};
+
+    if (rawLayout.camera.positions !== undefined) {
+      camera.positions = parseCameraVectorSection(rawLayout.camera.positions, 'camera.positions');
+    }
+
+    if (rawLayout.camera.targets !== undefined) {
+      camera.targets = parseCameraVectorSection(rawLayout.camera.targets, 'camera.targets');
+    }
+
+    if (rawLayout.camera.offsets !== undefined) {
+      camera.offsets = parseOffsetsObject(rawLayout.camera.offsets, 'camera.offsets');
+    }
+
+    parsed.camera = camera;
+  }
+
+  if (rawLayout.projects !== undefined) {
+    assertObject(rawLayout.projects, 'projects');
+    const projects = {};
+
+    if (rawLayout.projects.explodedPositions !== undefined) {
+      projects.explodedPositions = parseVec3VectorMap(
+        rawLayout.projects.explodedPositions,
+        'projects.explodedPositions',
+      );
+    }
+
+    if (rawLayout.projects.facetRotationsEulerDeg !== undefined) {
+      projects.facetRotationsEulerDeg = parseVec3ArrayMap(
+        rawLayout.projects.facetRotationsEulerDeg,
+        'projects.facetRotationsEulerDeg',
+      );
+    }
+
+    parsed.projects = projects;
+  }
+
+  return parsed;
+};
+
+export default parseLayout;
