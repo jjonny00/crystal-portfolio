@@ -101,12 +101,18 @@ const MasterAnimationCoordinator = ({
     scrollToProgress: scrollData.scrollToProgress,
     scrollToZone: (zoneName) =>
       scrollData.scrollToZone?.(zoneName, animationController.config.scrollZones),
+    scrollToProject: (projectKey, behavior = 'smooth') => {
+      const projectStart = animationController.getProjectSectionStart?.(projectKey);
+      if (projectStart === null || projectStart === undefined) return;
+      scrollData.scrollToProgress(projectStart, behavior);
+    },
     directSelectProject: (projectKey) =>
       animationController.setDirectProjectOverride?.(projectKey)
   }), [
     scrollData.scrollToProgress,
     scrollData.scrollToZone,
     animationController.config?.scrollZones,
+    animationController.getProjectSectionStart,
     animationController.setDirectProjectOverride
   ]);
 
@@ -150,6 +156,7 @@ const MasterAnimationCoordinator = ({
       return React.cloneElement(child, {
         animationData,
         scrollToProgress: scrollControls.scrollToProgress,
+        scrollToProject: scrollControls.scrollToProject,
         onDirectProjectSelect: scrollControls.directSelectProject
       });
     }

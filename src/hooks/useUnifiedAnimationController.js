@@ -223,13 +223,22 @@ const calculateActiveProject = (scrollProgress, config = ANIMATION_CONFIG) => {
   return { project: null, progress: 0 };
 };
 
+const PROJECT_BOUNDARY_EPSILON = 0.0005;
+
 const calculateActiveProjectFromSections = (scrollProgress, sections) => {
   if (!sections || sections.length === 0) {
     return { project: null, progress: 0 };
   }
 
-  for (const section of sections) {
-    if (scrollProgress >= section.start && scrollProgress < section.end) {
+  for (let index = 0; index < sections.length; index += 1) {
+    const section = sections[index];
+    const isLastSection = index === sections.length - 1;
+    const withinStart = scrollProgress >= (section.start - PROJECT_BOUNDARY_EPSILON);
+    const withinEnd = isLastSection
+      ? scrollProgress <= (section.end + PROJECT_BOUNDARY_EPSILON)
+      : scrollProgress < (section.end - PROJECT_BOUNDARY_EPSILON);
+
+    if (withinStart && withinEnd) {
       const span = Math.max(section.end - section.start, 0.00001);
       const progress = (scrollProgress - section.start) / span;
       return {
@@ -271,6 +280,21 @@ export const useUnifiedAnimationController = (options = {}) => {
   const cameraDelayTimeout = useRef(null);
   const directProjectOverrideRef = useRef(null);
   const runtimeProjectSectionsRef = useRef([]);
+
+  const getRuntimeProjectSection = useCallback((projectKey) => {
+    if (!projectKey) return null;
+    return runtimeProjectSectionsRef.current.find((section) => section.project === projectKey) || null;
+  }, []);
+
+  const getProjectSectionStart = useCallback((projectKey) => {
+    const runtimeSection = getRuntimeProjectSection(projectKey);
+    if (runtimeSection) {
+      return runtimeSection.start;
+    }
+
+    const fallbackSection = config?.projectSections?.[projectKey];
+    return fallbackSection?.start ?? null;
+  }, [config, getRuntimeProjectSection]);
 
   const measureProjectSectionsFromDom = useCallback(() => {
     if (typeof document === 'undefined') return;
@@ -535,7 +559,7 @@ export const useUnifiedAnimationController = (options = {}) => {
         if (currentZone.zone === 'projects') {
           const fallbackProject = orderedFacetKeys[0] || null;
           const initialProject = directOverrideProject
-            || calculateActiveProject(scrollProgress, config).project
+            || activeProject.project
             || fallbackProject;
           if (debugMode || import.meta.env.DEV) {
             console.log(`🗺️ Zone change confirmed: ${lastZone.current} → ${currentZone.zone} (progress: ${currentZone.progress.toFixed(3)})`);
@@ -710,6 +734,7 @@ export const useUnifiedAnimationController = (options = {}) => {
     updateFromScrollProgress,
     setCameraSettled,
     setDirectProjectOverride,
+    getProjectSectionStart,
     
     // Current configs for 3D components
     cameraConfig: getCurrentCameraConfig(),
