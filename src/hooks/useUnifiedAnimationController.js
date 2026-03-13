@@ -223,6 +223,25 @@ const calculateActiveProject = (scrollProgress, config = ANIMATION_CONFIG) => {
   return { project: null, progress: 0 };
 };
 
+const calculateActiveProjectFromSections = (scrollProgress, sections) => {
+  if (!sections || sections.length === 0) {
+    return { project: null, progress: 0 };
+  }
+
+  for (const section of sections) {
+    if (scrollProgress >= section.start && scrollProgress < section.end) {
+      const span = Math.max(section.end - section.start, 0.00001);
+      const progress = (scrollProgress - section.start) / span;
+      return {
+        project: section.project,
+        progress: Math.max(0, Math.min(progress, 1))
+      };
+    }
+  }
+
+  return { project: null, progress: 0 };
+};
+
 /**
  * SIMPLIFIED: Main controller with immediate state changes + enhanced debugging
  */
@@ -251,6 +270,48 @@ export const useUnifiedAnimationController = (options = {}) => {
   const updateTimeout = useRef(null);
   const cameraDelayTimeout = useRef(null);
   const directProjectOverrideRef = useRef(null);
+  const runtimeProjectSectionsRef = useRef([]);
+
+  const measureProjectSectionsFromDom = useCallback(() => {
+    if (typeof document === 'undefined') return;
+
+    const container = document.querySelector('.scroll-container');
+    if (!container) return;
+
+    const maxScroll = Math.max(container.scrollHeight - container.clientHeight, 1);
+    const projectNodes = Array.from(
+      container.querySelectorAll(':scope > div > section.scroll-section.project[id^="project-"]')
+    );
+
+    if (projectNodes.length === 0) return;
+
+    const measuredSections = projectNodes
+      .map((node) => {
+        const id = node.id || '';
+        const project = id.startsWith('project-') ? id.slice('project-'.length) : null;
+        if (!project) return null;
+
+        const start = Math.min(Math.max(node.offsetTop / maxScroll, 0), 1);
+        const end = Math.min(Math.max((node.offsetTop + node.offsetHeight) / maxScroll, 0), 1);
+
+        return {
+          project,
+          start,
+          end: Math.max(end, start + 0.00001)
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.start - b.start);
+
+    if (measuredSections.length === 0) return;
+
+    // Make boundaries contiguous to avoid tiny dead zones from rounding.
+    for (let i = 0; i < measuredSections.length - 1; i += 1) {
+      measuredSections[i].end = Math.max(measuredSections[i].end, measuredSections[i + 1].start);
+    }
+
+    runtimeProjectSectionsRef.current = measuredSections;
+  }, []);
 
   const clearDirectProjectOverride = useCallback(() => {
     directProjectOverrideRef.current = null;
@@ -278,6 +339,17 @@ export const useUnifiedAnimationController = (options = {}) => {
 
     lastProject.current = projectKey;
   }, [clearDirectProjectOverride, config]);
+
+  useEffect(() => {
+    measureProjectSectionsFromDom();
+
+    const handleResize = () => {
+      measureProjectSectionsFromDom();
+    };
+
+    window.addEventListener('resize', handleResize, { passive: true });
+    return () => window.removeEventListener('resize', handleResize);
+  }, [measureProjectSectionsFromDom]);
 
   const toQuaternionArray = useCallback((rotation) => {
     if (Array.isArray(rotation)) return rotation;
@@ -406,8 +478,18 @@ export const useUnifiedAnimationController = (options = {}) => {
    * FIXED: Main scroll update with hysteresis to prevent boundary flickering + enhanced debugging
    */
   const updateFromScrollProgress = useCallback((scrollProgress) => {
+    if (runtimeProjectSectionsRef.current.length === 0) {
+      measureProjectSectionsFromDom();
+    }
+
+    const activeProjectFromDom = calculateActiveProjectFromSections(
+      scrollProgress,
+      runtimeProjectSectionsRef.current
+    );
     const currentZone = calculateCurrentZone(scrollProgress, config);
-    const activeProject = calculateActiveProject(scrollProgress, config);
+    const activeProject = activeProjectFromDom.project
+      ? activeProjectFromDom
+      : calculateActiveProject(scrollProgress, config);
     const directOverrideProject = directProjectOverrideRef.current?.projectKey ?? null;
     
     // ENHANCED: Log scroll updates for background debugging
@@ -550,6 +632,7 @@ export const useUnifiedAnimationController = (options = {}) => {
     }
   }, [
     config,
+    measureProjectSectionsFromDom,
     handleZoneTransition,
     handleProjectFocus,
     clearDirectProjectOverride,

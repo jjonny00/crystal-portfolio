@@ -62,16 +62,23 @@ const MasterAnimationCoordinator = ({
 
   // SIMPLIFIED: Direct scroll updates with minimal debouncing
   useEffect(() => {
+    const animationDriverProgress =
+      scrollData.rawScrollProgress ?? scrollData.scrollProgress;
+
     // Only update if scroll progress actually changed significantly
     const significantChange = Math.abs(
-      scrollData.scrollProgress - (animationController.animationState.scrollProgress || 0)
+      animationDriverProgress - (animationController.animationState.scrollProgress || 0)
     ) > 0.001;
     
     if (significantChange) {
       // Direct update - no complex timing coordination needed
-      animationController.updateFromScrollProgress(scrollData.scrollProgress);
+      animationController.updateFromScrollProgress(animationDriverProgress);
     }
-  }, [scrollData.scrollProgress, animationController]);
+  }, [
+    scrollData.rawScrollProgress,
+    scrollData.scrollProgress,
+    animationController
+  ]);
 
   // Memoize scroll metrics separately so components that don't care about
   // scrolling won't re-render on every scroll tick

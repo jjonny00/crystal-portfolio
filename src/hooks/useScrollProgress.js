@@ -17,6 +17,7 @@ export const useScrollProgress = (options = {}) => {
 
   // State
   const [scrollProgress, setScrollProgress] = useState(0);
+  const [rawScrollProgress, setRawScrollProgress] = useState(0);
   const [isScrolling, setIsScrolling] = useState(false);
   const [containerHeight, setContainerHeight] = useState(0);
   const [contentHeight, setContentHeight] = useState(0);
@@ -146,6 +147,15 @@ export const useScrollProgress = (options = {}) => {
     return progress;
   }, [isSnapping, debugMode]);
 
+  const calculateRawScrollProgress = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return 0;
+
+    const scrollTop = container.scrollTop;
+    const maxScroll = Math.max(container.scrollHeight - container.clientHeight, 1);
+    return Math.min(Math.max(scrollTop / maxScroll, 0), 1);
+  }, []);
+
   /**
    * Update velocity calculation
    */
@@ -196,9 +206,11 @@ export const useScrollProgress = (options = {}) => {
    * FIXED: Handle scroll events on the container
    */
   const handleScroll = useCallback(() => {
+    const rawProgress = calculateRawScrollProgress();
     const progress = calculateScrollProgress();
     const sectionId = determineCurrentSection();
     
+    setRawScrollProgress(rawProgress);
     setScrollProgress(progress);
     setIsScrolling(true);
     
@@ -222,6 +234,7 @@ export const useScrollProgress = (options = {}) => {
     // }
   }, [
     calculateScrollProgress,
+    calculateRawScrollProgress,
     determineCurrentSection,
     currentSection,
     includeVelocity,
@@ -254,8 +267,10 @@ export const useScrollProgress = (options = {}) => {
     
     // Recalculate progress after resize
     const progress = calculateScrollProgress();
+    const rawProgress = calculateRawScrollProgress();
+    setRawScrollProgress(rawProgress);
     setScrollProgress(progress);
-  }, [updateContainerDimensions, calculateScrollProgress]);
+  }, [updateContainerDimensions, calculateRawScrollProgress, calculateScrollProgress]);
 
   /**
    * FIXED: Set up event listeners on the scroll container
@@ -395,6 +410,7 @@ export const useScrollProgress = (options = {}) => {
   return {
     // Current state
     scrollProgress,
+    rawScrollProgress,
     isScrolling,
     velocity: includeVelocity ? velocity : 0,
     isSnapping,
