@@ -250,6 +250,34 @@ export const useUnifiedAnimationController = (options = {}) => {
   const lastProject = useRef(null);
   const updateTimeout = useRef(null);
   const cameraDelayTimeout = useRef(null);
+  const directProjectOverrideRef = useRef(null);
+
+  const clearDirectProjectOverride = useCallback(() => {
+    directProjectOverrideRef.current = null;
+  }, []);
+
+  const setDirectProjectOverride = useCallback((projectKey) => {
+    if (!projectKey || !config?.camera?.projects?.[projectKey]) {
+      clearDirectProjectOverride();
+      return;
+    }
+
+    directProjectOverrideRef.current = {
+      projectKey,
+      createdAt: Date.now()
+    };
+
+    setAnimationState(prev => ({
+      ...prev,
+      state: ANIMATION_STATES.PROJECT_FOCUSED,
+      crystalForm: 'exploded',
+      cameraState: 'project',
+      focusedFacet: projectKey,
+      isTransitioning: false
+    }));
+
+    lastProject.current = projectKey;
+  }, [clearDirectProjectOverride, config]);
 
   const toQuaternionArray = useCallback((rotation) => {
     if (Array.isArray(rotation)) return rotation;
@@ -380,6 +408,7 @@ export const useUnifiedAnimationController = (options = {}) => {
   const updateFromScrollProgress = useCallback((scrollProgress) => {
     const currentZone = calculateCurrentZone(scrollProgress, config);
     const activeProject = calculateActiveProject(scrollProgress, config);
+    const directOverrideProject = directProjectOverrideRef.current?.projectKey ?? null;
     
     // ENHANCED: Log scroll updates for background debugging
     if (import.meta.env.DEV && Math.random() < 0.05) { // Sample 5% of updates
@@ -423,7 +452,9 @@ export const useUnifiedAnimationController = (options = {}) => {
       if (shouldChangeZone) {
         if (currentZone.zone === 'projects') {
           const fallbackProject = orderedFacetKeys[0] || null;
-          const initialProject = calculateActiveProject(scrollProgress, config).project || fallbackProject;
+          const initialProject = directOverrideProject
+            || calculateActiveProject(scrollProgress, config).project
+            || fallbackProject;
           if (debugMode || import.meta.env.DEV) {
             console.log(`🗺️ Zone change confirmed: ${lastZone.current} → ${currentZone.zone} (progress: ${currentZone.progress.toFixed(3)})`);
             console.log(`🧭 Projects zone transition at scroll ${scrollProgress.toFixed(3)} initialProject=${initialProject}`);
@@ -443,6 +474,12 @@ export const useUnifiedAnimationController = (options = {}) => {
 
     // FIXED: Handle project changes within projects zone
     if (currentZone.zone === 'projects') {
+      if (directOverrideProject && activeProject.project === directOverrideProject) {
+        clearDirectProjectOverride();
+      }
+
+      const overrideActive = Boolean(directProjectOverrideRef.current?.projectKey);
+
       // First, ensure we're in project state when entering projects zone
       if (animationState.state !== ANIMATION_STATES.PROJECT_FOCUSED) {
         if (debugMode || import.meta.env.DEV) {
@@ -459,7 +496,7 @@ export const useUnifiedAnimationController = (options = {}) => {
       }
       
       // Then handle project focus changes
-      if (projectChanged && activeProject.project) {
+      if (!overrideActive && projectChanged && activeProject.project) {
         // Reduce hysteresis for projects since they're working well
         const projectHysteresis = 0.05; // 5% into project section
         if (activeProject.progress > projectHysteresis) {
@@ -473,7 +510,7 @@ export const useUnifiedAnimationController = (options = {}) => {
       }
       
       // Set initial project if none is set but we have an active project
-      if (!animationState.focusedFacet && activeProject.project && activeProject.progress > 0.05) {
+      if (!overrideActive && !animationState.focusedFacet && activeProject.project && activeProject.progress > 0.05) {
         if (import.meta.env.DEV) {
           console.log(`🎯 Setting initial project: ${activeProject.project}`);
           console.log(`🎨 Background trigger: Initial project set to "${activeProject.project}"`);
@@ -481,7 +518,12 @@ export const useUnifiedAnimationController = (options = {}) => {
         handleProjectFocus(activeProject.project);
         lastProject.current = activeProject.project;
       }
-    } else if (currentZone.zone !== 'projects' && lastProject.current) {
+    } else if (directProjectOverrideRef.current?.projectKey && (currentZone.zone === 'hero' || currentZone.zone === 'about')) {
+      clearDirectProjectOverride();
+    } else if (currentZone.zone !== 'projects' && lastProject.current && !directProjectOverrideRef.current?.projectKey) {
+      if (currentZone.zone === 'about') {
+        clearDirectProjectOverride();
+      }
       if (import.meta.env.DEV) {
         console.log('🎯 Clearing project focus - left projects zone');
         console.log('🎨 Background trigger: Left projects zone, clearing project focus');
@@ -510,6 +552,7 @@ export const useUnifiedAnimationController = (options = {}) => {
     config,
     handleZoneTransition,
     handleProjectFocus,
+    clearDirectProjectOverride,
     onStateChange,
     animationState,
     debugMode
@@ -583,6 +626,7 @@ export const useUnifiedAnimationController = (options = {}) => {
     // Update functions
     updateFromScrollProgress,
     setCameraSettled,
+    setDirectProjectOverride,
     
     // Current configs for 3D components
     cameraConfig: getCurrentCameraConfig(),
@@ -595,7 +639,8 @@ export const useUnifiedAnimationController = (options = {}) => {
       lastZone: lastZone.current,
       lastProject: lastProject.current,
       cameraState: animationState.cameraState,
-      crystalForm: animationState.crystalForm
+      crystalForm: animationState.crystalForm,
+      directProjectOverride: directProjectOverrideRef.current?.projectKey || null
     } : null
   };
 };

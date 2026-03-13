@@ -93,11 +93,14 @@ const MasterAnimationCoordinator = ({
   const scrollControls = useMemo(() => ({
     scrollToProgress: scrollData.scrollToProgress,
     scrollToZone: (zoneName) =>
-      scrollData.scrollToZone?.(zoneName, animationController.config.scrollZones)
+      scrollData.scrollToZone?.(zoneName, animationController.config.scrollZones),
+    directSelectProject: (projectKey) =>
+      animationController.setDirectProjectOverride?.(projectKey)
   }), [
     scrollData.scrollToProgress,
     scrollData.scrollToZone,
-    animationController.config?.scrollZones
+    animationController.config?.scrollZones,
+    animationController.setDirectProjectOverride
   ]);
 
   // Core animation data consumed by 3D components
@@ -139,7 +142,8 @@ const MasterAnimationCoordinator = ({
     if (React.isValidElement(child)) {
       return React.cloneElement(child, {
         animationData,
-        scrollToProgress: scrollControls.scrollToProgress
+        scrollToProgress: scrollControls.scrollToProgress,
+        onDirectProjectSelect: scrollControls.directSelectProject
       });
     }
     return child;

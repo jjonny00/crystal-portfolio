@@ -48,6 +48,7 @@ const OptimizedLabel = React.memo(function OptimizedLabel({
 const FacetLabels = React.memo(function FacetLabels({
   projects = [],
   scrollToProgress,
+  onDirectProjectSelect,
   onHoverChange,
   animationData,
   performanceProfile,
@@ -248,9 +249,12 @@ const FacetLabels = React.memo(function FacetLabels({
               }}
               onHover={handleHover}
               onClick={() =>
-                scrollToProgress(
-                  ANIMATION_CONFIG.projectSections[project.facetKey].start,
-                )
+                {
+                  onDirectProjectSelect?.(project.facetKey);
+                  scrollToProgress(
+                    ANIMATION_CONFIG.projectSections[project.facetKey].start,
+                  );
+                }
               }
               visible={visible}
             />
@@ -268,6 +272,7 @@ const FacetLabels = React.memo(function FacetLabels({
     error,
     layout,
     onDomAnchorChange,
+    onDirectProjectSelect,
     onHoverChange,
     performanceProfile?.simplifiedAnimations,
     projects,

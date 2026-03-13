@@ -113,6 +113,7 @@ const Fixed3DCanvas = forwardRef(({
   environmentProps = {},
   isMobile = false,
   scrollToProgress,
+  onDirectProjectSelect,
   cameraRuntimeOverrides = null
 }, ref) => {
   // NEW: Ref to access crystal scene for debug panels
@@ -468,6 +469,7 @@ const Fixed3DCanvas = forwardRef(({
             isMobile={isMobile}
             simplifiedAnimations={simplifiedAnimations}
             scrollToProgress={scrollToProgress}
+            onDirectProjectSelect={onDirectProjectSelect}
             onFractureStart={handleFractureStart}
           />
 
