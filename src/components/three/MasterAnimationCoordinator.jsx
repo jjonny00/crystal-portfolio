@@ -100,6 +100,22 @@ const MasterAnimationCoordinator = ({
     animationController.config?.scrollZones
   ]);
 
+
+  const selectProjectFocus = useMemo(() => (projectId) => {
+    const projectSection = animationController.config?.projectSectionsById?.[projectId];
+    if (!projectSection) return false;
+
+    const didSelect = animationController.selectProjectFocusById?.(projectId);
+    if (!didSelect) return false;
+
+    scrollData.scrollToProgress?.(projectSection.start, 'auto');
+    return true;
+  }, [
+    animationController.config?.projectSectionsById,
+    animationController.selectProjectFocusById,
+    scrollData.scrollToProgress
+  ]);
+
   // Core animation data consumed by 3D components
   const animationData = useMemo(() => {
     const zone = animationController.animationState.zoneInfo?.zone;
@@ -112,7 +128,7 @@ const MasterAnimationCoordinator = ({
       // Only expose a focused project when actually in the projects zone
       focusedProject:
         zone === 'projects'
-          ? animationController.animationState.projectInfo?.project
+          ? animationController.animationState.projectInfo?.facetKey
           : null,
       projectProgress: animationController.animationState.projectInfo?.progress,
       isTransitioning: animationController.animationState.isTransitioning,
@@ -139,7 +155,8 @@ const MasterAnimationCoordinator = ({
     if (React.isValidElement(child)) {
       return React.cloneElement(child, {
         animationData,
-        scrollToProgress: scrollControls.scrollToProgress
+        scrollToProgress: scrollControls.scrollToProgress,
+        selectProjectFocus
       });
     }
     return child;

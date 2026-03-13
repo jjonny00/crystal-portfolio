@@ -4,7 +4,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Vector3, Quaternion, Euler } from 'three';
 import { fracture as fractureConfig } from '../crystalConfig';
-import { orderedFacetKeys } from '../data/projects';
+import { orderedFacetKeys, getFacetKeyByProjectId, getProjectById, getProjectIdByFacetKey } from '../data/projects';
 
 // Percentage of explode distance facets travel during fracture
 const FRACTURE_DISTANCE = fractureConfig.distance;
@@ -128,6 +128,14 @@ ANIMATION_CONFIG.projectSections = orderedFacetKeys.reduce((acc, facetKey, index
   return acc;
 }, {});
 
+ANIMATION_CONFIG.projectSectionsById = orderedFacetKeys.reduce((acc, facetKey) => {
+  const projectId = getProjectIdByFacetKey(facetKey);
+  if (projectId) {
+    acc[projectId] = ANIMATION_CONFIG.projectSections[facetKey];
+  }
+  return acc;
+}, {});
+
 // Derive fracture positions based on percentage of explode distance
 ANIMATION_CONFIG.crystal.fracturePositions = Object.fromEntries(
   Object.entries(ANIMATION_CONFIG.crystal.explodedPositions).map(([key, vec]) => {
@@ -199,28 +207,27 @@ const calculateCurrentZone = (scrollProgress, config = ANIMATION_CONFIG) => {
 
 const calculateActiveProject = (scrollProgress, config = ANIMATION_CONFIG) => {
   if (scrollProgress < config.scrollZones.projects.start) {
-    return { project: null, progress: 0 };
+    return { projectId: null, facetKey: null, progress: 0 };
   }
-  
-  const projectSections = config.projectSections;
-  
-  for (const [projectKey, section] of Object.entries(projectSections)) {
+
+  const projectSectionsById = config.projectSectionsById || {};
+
+  for (const [projectId, section] of Object.entries(projectSectionsById)) {
     if (scrollProgress >= section.start && scrollProgress < section.end) {
       const progress = (scrollProgress - section.start) / (section.end - section.start);
-      
-      // ENHANCED: Debug logging for project detection and background updates
-      if (import.meta.env.DEV && Math.random() < 0.1) {
-        console.log(`🎯 Project detected: ${projectKey}, progress: ${progress.toFixed(3)}, scroll: ${scrollProgress.toFixed(3)}`);
-      }
-      
+      const facetKey = getFacetKeyByProjectId(projectId);
+
+      if (!facetKey) continue;
+
       return {
-        project: projectKey,
+        projectId,
+        facetKey,
         progress: Math.max(0, Math.min(progress, 1))
       };
     }
   }
-  
-  return { project: null, progress: 0 };
+
+  return { projectId: null, facetKey: null, progress: 0 };
 };
 
 /**
@@ -241,7 +248,7 @@ export const useUnifiedAnimationController = (options = {}) => {
     isTransitioning: false, // Will be managed by individual components
     scrollProgress: 0,
     zoneInfo: { zone: 'hero', progress: 0 },
-    projectInfo: { project: null, progress: 0 },
+    projectInfo: { projectId: null, facetKey: null, progress: 0 },
     cameraSettled: false
   });
 
@@ -374,6 +381,44 @@ export const useUnifiedAnimationController = (options = {}) => {
     }));
   }, [debugMode]);
 
+
+
+  const selectProjectFocusById = useCallback((projectId) => {
+    const project = getProjectById(projectId);
+    if (!project) {
+      return false;
+    }
+
+    const facetKey = project.facetKey;
+
+    if (lastZone.current !== 'projects') {
+      handleZoneTransition(lastZone.current, 'projects', facetKey);
+      lastZone.current = 'projects';
+    } else {
+      handleProjectFocus(facetKey);
+    }
+
+    lastProject.current = facetKey;
+    setAnimationState((prev) => ({
+      ...prev,
+      state: ANIMATION_STATES.PROJECT_FOCUSED,
+      crystalForm: 'exploded',
+      cameraState: 'project',
+      focusedFacet: facetKey,
+      zoneInfo: {
+        ...(prev.zoneInfo || {}),
+        zone: 'projects'
+      },
+      projectInfo: {
+        projectId,
+        facetKey,
+        progress: 0
+      },
+      isTransitioning: false
+    }));
+
+    return true;
+  }, [handleProjectFocus, handleZoneTransition]);
   /**
    * FIXED: Main scroll update with hysteresis to prevent boundary flickering + enhanced debugging
    */
@@ -387,7 +432,7 @@ export const useUnifiedAnimationController = (options = {}) => {
         scrollProgress: scrollProgress.toFixed(3),
         currentZone: currentZone.zone,
         zoneProgress: currentZone.progress.toFixed(3),
-        activeProject: activeProject.project,
+        activeProject: activeProject.projectId,
         projectProgress: activeProject.progress.toFixed(3),
         lastZone: lastZone.current,
         lastProject: lastProject.current
@@ -396,7 +441,7 @@ export const useUnifiedAnimationController = (options = {}) => {
     
     // FIXED: Add hysteresis to prevent boundary flickering
     const zoneChanged = currentZone.zone !== lastZone.current;
-    const projectChanged = activeProject.project !== lastProject.current;
+    const projectChanged = activeProject.facetKey !== lastProject.current;
 
     // Only change zones if we're clearly in the new zone (not at boundary)
     if (zoneChanged) {
@@ -423,7 +468,7 @@ export const useUnifiedAnimationController = (options = {}) => {
       if (shouldChangeZone) {
         if (currentZone.zone === 'projects') {
           const fallbackProject = orderedFacetKeys[0] || null;
-          const initialProject = calculateActiveProject(scrollProgress, config).project || fallbackProject;
+          const initialProject = calculateActiveProject(scrollProgress, config).facetKey || fallbackProject;
           if (debugMode || import.meta.env.DEV) {
             console.log(`🗺️ Zone change confirmed: ${lastZone.current} → ${currentZone.zone} (progress: ${currentZone.progress.toFixed(3)})`);
             console.log(`🧭 Projects zone transition at scroll ${scrollProgress.toFixed(3)} initialProject=${initialProject}`);
@@ -459,27 +504,27 @@ export const useUnifiedAnimationController = (options = {}) => {
       }
       
       // Then handle project focus changes
-      if (projectChanged && activeProject.project) {
+      if (projectChanged && activeProject.facetKey) {
         // Reduce hysteresis for projects since they're working well
         const projectHysteresis = 0.05; // 5% into project section
         if (activeProject.progress > projectHysteresis) {
           if (import.meta.env.DEV) {
-            console.log(`🎯 Project changed: ${lastProject.current} → ${activeProject.project}`);
-            console.log(`🎨 Background trigger: Project changed to "${activeProject.project}"`);
+            console.log(`🎯 Project changed: ${lastProject.current} → ${activeProject.facetKey}`);
+            console.log(`🎨 Background trigger: Project changed to "${activeProject.facetKey}"`);
           }
-          handleProjectFocus(activeProject.project);
-          lastProject.current = activeProject.project;
+          handleProjectFocus(activeProject.facetKey);
+          lastProject.current = activeProject.facetKey;
         }
       }
       
       // Set initial project if none is set but we have an active project
-      if (!animationState.focusedFacet && activeProject.project && activeProject.progress > 0.05) {
+      if (!animationState.focusedFacet && activeProject.facetKey && activeProject.progress > 0.05) {
         if (import.meta.env.DEV) {
-          console.log(`🎯 Setting initial project: ${activeProject.project}`);
-          console.log(`🎨 Background trigger: Initial project set to "${activeProject.project}"`);
+          console.log(`🎯 Setting initial project: ${activeProject.facetKey}`);
+          console.log(`🎨 Background trigger: Initial project set to "${activeProject.facetKey}"`);
         }
-        handleProjectFocus(activeProject.project);
-        lastProject.current = activeProject.project;
+        handleProjectFocus(activeProject.facetKey);
+        lastProject.current = activeProject.facetKey;
       }
     } else if (currentZone.zone !== 'projects' && lastProject.current) {
       if (import.meta.env.DEV) {
@@ -582,6 +627,7 @@ export const useUnifiedAnimationController = (options = {}) => {
 
     // Update functions
     updateFromScrollProgress,
+    selectProjectFocusById,
     setCameraSettled,
     
     // Current configs for 3D components

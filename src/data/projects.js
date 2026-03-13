@@ -146,6 +146,7 @@ export const facetKeys = projects.map(project => project.facetKey);
 export const orderedFacetKeys = [...facetKeys];
 
 const projectByFacetKey = new Map(projects.map(project => [project.facetKey, project]));
+const projectById = new Map(projects.map((project) => [project.id, project]));
 
 /**
  * Helper function to get project by facet key
@@ -154,6 +155,18 @@ const projectByFacetKey = new Map(projects.map(project => [project.facetKey, pro
  */
 const getProjectByFacetKey = (facetKey) => {
   return projectByFacetKey.get(facetKey) || null;
+};
+
+export const getProjectById = (projectId) => {
+  return projectById.get(projectId) || null;
+};
+
+export const getProjectIdByFacetKey = (facetKey) => {
+  return getProjectByFacetKey(facetKey)?.id || null;
+};
+
+export const getFacetKeyByProjectId = (projectId) => {
+  return getProjectById(projectId)?.facetKey || null;
 };
 
 export const getProjectModelKeyByFacetKey = (facetKey) => {

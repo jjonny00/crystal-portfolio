@@ -5,6 +5,7 @@ import Headline from '../ui/Headline';
 import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController';
 import { MQ_HOVER_CAPABLE } from '../../config/breakpoints';
 import { useLayoutConfig } from '../../hooks/useLayoutConfig';
+import { getProjectIdByFacetKey } from '../../data/projects';
 
 const OptimizedLabel = React.memo(function OptimizedLabel({
   project,
@@ -48,6 +49,7 @@ const OptimizedLabel = React.memo(function OptimizedLabel({
 const FacetLabels = React.memo(function FacetLabels({
   projects = [],
   scrollToProgress,
+  selectProjectFocus,
   onHoverChange,
   animationData,
   performanceProfile,
@@ -247,11 +249,17 @@ const FacetLabels = React.memo(function FacetLabels({
                 }
               }}
               onHover={handleHover}
-              onClick={() =>
+              onClick={() => {
+                const projectId = getProjectIdByFacetKey(project.facetKey);
+                if (projectId && selectProjectFocus?.(projectId)) {
+                  return;
+                }
+
                 scrollToProgress(
                   ANIMATION_CONFIG.projectSections[project.facetKey].start,
-                )
-              }
+                  'auto',
+                );
+              }}
               visible={visible}
             />
           ))}
@@ -272,6 +280,7 @@ const FacetLabels = React.memo(function FacetLabels({
     performanceProfile?.simplifiedAnimations,
     projects,
     scrollToProgress,
+    selectProjectFocus,
     variant,
     visible,
   ]);

@@ -16,6 +16,7 @@ import FractureRingImage from './FractureRingImage'
 import projects, {
   facetKeys as canonicalFacetKeys,
   getProjectColorByFacetKey,
+  getProjectIdByFacetKey,
   getProjectModelKeyByFacetKey
 } from '../../data/projects'
 import FacetLabels from './FacetLabels'
@@ -35,6 +36,7 @@ const UnifiedCrystalScene = forwardRef(({
   performanceProfile = { useNormalMaps: true, textureQuality: 'high', pbrQuality: 'high', usePBR: true },
   simplifiedAnimations = false,
   scrollToProgress,
+  selectProjectFocus,
   onFractureStart
 }, ref) => {
   // Component refs for crystal animation
@@ -597,11 +599,18 @@ const UnifiedCrystalScene = forwardRef(({
   const handleFacetClick = useCallback(
     (facetKey) => {
       if (!inActiveOverview) return;
+
+      const projectId = getProjectIdByFacetKey(facetKey);
+      if (!projectId) return;
+
+      const selected = selectProjectFocus?.(projectId);
+      if (selected) return;
+
       const sectionStart = ANIMATION_CONFIG.projectSections?.[facetKey]?.start;
       if (sectionStart === undefined) return;
-      scrollToProgress(sectionStart);
+      scrollToProgress(sectionStart, 'auto');
     },
-    [inActiveOverview, scrollToProgress]
+    [inActiveOverview, scrollToProgress, selectProjectFocus]
   );
 
   useEffect(() => {
@@ -1612,6 +1621,7 @@ const UnifiedCrystalScene = forwardRef(({
       <FacetLabels
         projects={projects}
         scrollToProgress={scrollToProgress}
+        selectProjectFocus={selectProjectFocus}
         onHoverChange={handleLabelHover}
         animationData={animationData}
         performanceProfile={performanceProfile}
