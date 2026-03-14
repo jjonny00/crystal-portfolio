@@ -1,21 +1,13 @@
 import React from 'react';
-import Headline from '../ui/Headline';
-
-const CONTENT_COLUMN_STYLE = {
-  position: 'relative',
-  zIndex: 2,
-  width: 'min(34vw, 700px)',
-  minWidth: '460px',
-  marginLeft: '11vw',
-  marginRight: 0,
-  color: 'rgba(255,255,255,0.95)'
-};
 
 const ProjectFocusSection = ({ project, isMobile = false }) => {
   if (!project) return null;
 
   const headlineColor = project.headlineColor || project.color || '#ffffff';
   const sectionIdKey = project.crystalKey || project.facetKey;
+
+  const horizontalPadding = isMobile ? '24px' : 'clamp(80px, 9vw, 170px)';
+  const contentWidth = isMobile ? '100%' : 'min(36vw, 640px)';
 
   return (
     <section
@@ -24,79 +16,135 @@ const ProjectFocusSection = ({ project, isMobile = false }) => {
       data-headline-color={headlineColor}
       style={{
         height: '100vh',
+        width: '100%',
         position: 'relative',
         overflow: 'hidden',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'flex-start',
-        background: 'transparent'
+        background: 'transparent',
+        paddingLeft: horizontalPadding,
+        paddingRight: horizontalPadding,
+        boxSizing: 'border-box'
       }}
     >
       <div
-        style={
-          isMobile
-            ? {
-                ...CONTENT_COLUMN_STYLE,
-                width: 'min(92vw, 680px)',
-                minWidth: 'unset',
-                marginLeft: '5vw',
-                marginRight: '5vw'
-              }
-            : CONTENT_COLUMN_STYLE
-        }
+        style={{
+          width: contentWidth,
+          maxWidth: '100%'
+        }}
       >
-        <Headline
-          as="h1"
+        <h1
           style={{
             margin: 0,
-            fontSize: isMobile ? 'clamp(3rem, 10vw, 4rem)' : 'clamp(4.1rem, 7.2vw, 6.4rem)',
-            lineHeight: 0.95,
-            fontFamily: '"ivypresto-display", "Playfair Display", Georgia, serif',
-            '--headline-ink': headlineColor,
-            '--headline-glow1': headlineColor,
-            '--headline-glow2': headlineColor
+            color: headlineColor,
+            fontFamily: '"ivypresto-display", "IvyPresto Display", "Playfair Display", Georgia, serif',
+            fontSize: isMobile ? '44px' : '64px',
+            fontStyle: 'normal',
+            fontWeight: 400,
+            lineHeight: 'normal',
+            textTransform: 'uppercase'
           }}
         >
           {project.title}
-        </Headline>
+        </h1>
 
         <p
           style={{
-            margin: '10px 0 28px',
-            fontFamily: '"acumin-variable", sans-serif',
-            textTransform: 'uppercase',
-            letterSpacing: '0.04em',
-            fontSize: isMobile ? '14px' : '32px',
-            color: 'rgba(255,255,255,0.7)'
+            margin: '8px 0 18px',
+            color: '#E2DCC3',
+            fontFamily: '"acumin-variable", "Acumin VF", sans-serif',
+            fontSize: '16px',
+            fontStyle: 'normal',
+            fontWeight: 400,
+            lineHeight: '30px',
+            letterSpacing: '-0.32px',
+            textTransform: 'uppercase'
           }}
         >
           {project.subtitle}
         </p>
 
-        <p style={{ fontSize: isMobile ? '21px' : '50px', lineHeight: 1.28, margin: 0 }}>
+        <p
+          style={{
+            margin: 0,
+            color: '#E2DCC3',
+            fontFamily: '"acumin-variable", "Acumin VF", sans-serif',
+            fontSize: isMobile ? '22px' : '24px',
+            fontStyle: 'normal',
+            fontWeight: 300,
+            lineHeight: '30px',
+            letterSpacing: '-0.48px'
+          }}
+        >
           {project.description}
         </p>
 
         {project.secondaryCopy && (
-          <p style={{ fontSize: isMobile ? '21px' : '50px', lineHeight: 1.28, margin: '40px 0 0' }}>
+          <p
+            style={{
+              margin: '30px 0 0',
+              color: '#E2DCC3',
+              fontFamily: '"acumin-variable", "Acumin VF", sans-serif',
+              fontSize: isMobile ? '22px' : '24px',
+              fontStyle: 'normal',
+              fontWeight: 300,
+              lineHeight: '30px',
+              letterSpacing: '-0.48px'
+            }}
+          >
             {project.secondaryCopy}
           </p>
         )}
 
         {project.metrics && (
-          <p style={{ fontSize: isMobile ? '21px' : '42px', margin: '22px 0 0', lineHeight: 1.2 }}>
+          <p
+            style={{
+              margin: '30px 0 0',
+              color: '#E2DCC3',
+              fontFamily: '"acumin-variable", "Acumin VF", sans-serif',
+              fontSize: isMobile ? '22px' : '24px',
+              fontStyle: 'normal',
+              fontWeight: 300,
+              lineHeight: '30px',
+              letterSpacing: '-0.48px'
+            }}
+          >
             {project.metrics}
           </p>
         )}
 
         {project.roles && (
-          <p style={{ fontSize: isMobile ? '21px' : '42px', margin: '22px 0 0', color: 'rgba(255,255,255,0.85)' }}>
+          <p
+            style={{
+              margin: '0',
+              color: '#E2DCC3',
+              fontFamily: '"acumin-variable", "Acumin VF", sans-serif',
+              fontSize: isMobile ? '22px' : '24px',
+              fontStyle: 'normal',
+              fontWeight: 300,
+              lineHeight: '30px',
+              letterSpacing: '-0.48px'
+            }}
+          >
             {project.roles}
           </p>
         )}
 
         {project.cta && (
-          <p style={{ fontSize: isMobile ? '22px' : '50px', margin: '54px 0 0', color: '#ece93e', fontWeight: 600 }}>
+          <p
+            style={{
+              margin: '46px 0 0',
+              color: headlineColor,
+              textAlign: 'center',
+              fontFamily: '"acumin-variable", "Acumin VF", sans-serif',
+              fontSize: '24px',
+              fontStyle: 'normal',
+              fontWeight: 600,
+              lineHeight: '30px',
+              letterSpacing: '-0.48px'
+            }}
+          >
             {project.cta}
           </p>
         )}

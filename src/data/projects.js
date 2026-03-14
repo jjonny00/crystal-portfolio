@@ -5,7 +5,62 @@ export const projects = [
     id: 'project01',
     facetKey: 'project01',
     modelKey: 'project01',
+    crystalKey: 'exploration',
+    runtimeModelKey: 'project06',
+    title: 'PROJECT 01',
+    subtitle: 'Placeholder Category · Platform',
+    description:
+      'Dummy project content while details are being finalized. This section is intentionally neutral and ready to be replaced.',
+    secondaryCopy: 'Add final narrative, outcomes, and role details here.',
+    cta: 'View Case Study →',
+    technologies: ['TBD', 'TBD', 'TBD'],
+    color: '#ff7043',
+    headlineColor: '#ff7043',
+    imageUrl: '/assets/projects/experimental-interactions.jpg',
+    overlayImage: '/assets/projects/experimental-interactions.jpg'
+  },
+  {
+    id: 'project02',
+    facetKey: 'project02',
+    modelKey: 'project02',
+    crystalKey: 'leadership',
+    runtimeModelKey: 'project05',
+    title: 'PROJECT 02',
+    subtitle: 'Placeholder Category · Platform',
+    description:
+      'Dummy project content while details are being finalized. This section is intentionally neutral and ready to be replaced.',
+    secondaryCopy: 'Add final narrative, outcomes, and role details here.',
+    cta: 'View Case Study →',
+    technologies: ['TBD', 'TBD', 'TBD'],
+    color: '#ffd600',
+    headlineColor: '#ffd600',
+    imageUrl: '/assets/projects/collaboration-platform.jpg',
+    overlayImage: '/assets/projects/collaboration-platform.jpg'
+  },
+  {
+    id: 'project03',
+    facetKey: 'project03',
+    modelKey: 'project03',
+    crystalKey: 'system',
+    runtimeModelKey: 'project04',
+    title: 'PROJECT 03',
+    subtitle: 'Placeholder Category · Platform',
+    description:
+      'Dummy project content while details are being finalized. This section is intentionally neutral and ready to be replaced.',
+    secondaryCopy: 'Add final narrative, outcomes, and role details here.',
+    cta: 'View Case Study →',
+    technologies: ['TBD', 'TBD', 'TBD'],
+    color: '#cf6679',
+    headlineColor: '#cf6679',
+    imageUrl: '/assets/projects/component-architecture.jpg',
+    overlayImage: '/assets/projects/component-architecture.jpg'
+  },
+  {
+    id: 'project04',
+    facetKey: 'project04',
+    modelKey: 'project04',
     crystalKey: 'craft',
+    runtimeModelKey: 'project03',
     title: 'MESA',
     subtitle: 'Asynchronous Multiplayer · iOS',
     description:
@@ -21,10 +76,11 @@ export const projects = [
     overlayImage: '/assets/projects/design-system.jpg'
   },
   {
-    id: 'project02',
-    facetKey: 'project02',
-    modelKey: 'project02',
+    id: 'project05',
+    facetKey: 'project05',
+    modelKey: 'project05',
     crystalKey: 'narrative',
+    runtimeModelKey: 'project02',
     title: 'FUNDSEEDER',
     subtitle: 'Competitive Platform · Web',
     description:
@@ -39,10 +95,11 @@ export const projects = [
     overlayImage: '/assets/projects/storytelling-platform.jpg'
   },
   {
-    id: 'project03',
-    facetKey: 'project03',
-    modelKey: 'project03',
+    id: 'project06',
+    facetKey: 'project06',
+    modelKey: 'project06',
     crystalKey: 'empathy',
+    runtimeModelKey: 'project01',
     title: 'GE EXPERIENCE CENTERS',
     subtitle: 'Spatial Platform · Global Installations',
     description:
@@ -55,57 +112,6 @@ export const projects = [
     headlineColor: '#64ffda',
     imageUrl: '/assets/projects/user-dashboard.jpg',
     overlayImage: '/assets/projects/user-dashboard.jpg'
-  },
-  {
-    id: 'project04',
-    facetKey: 'project04',
-    modelKey: 'project04',
-    crystalKey: 'system',
-    title: 'PROJECT 04',
-    subtitle: 'Placeholder Category · Platform',
-    description:
-      'Dummy project content while details are being finalized. This section is intentionally neutral and ready to be replaced.',
-    secondaryCopy: 'Add final narrative, outcomes, and role details here.',
-    cta: 'View Case Study →',
-    technologies: ['TBD', 'TBD', 'TBD'],
-    color: '#cf6679',
-    headlineColor: '#cf6679',
-    imageUrl: '/assets/projects/component-architecture.jpg',
-    overlayImage: '/assets/projects/component-architecture.jpg'
-  },
-  {
-    id: 'project05',
-    facetKey: 'project05',
-    modelKey: 'project05',
-    crystalKey: 'leadership',
-    title: 'PROJECT 05',
-    subtitle: 'Placeholder Category · Platform',
-    description:
-      'Dummy project content while details are being finalized. This section is intentionally neutral and ready to be replaced.',
-    secondaryCopy: 'Add final narrative, outcomes, and role details here.',
-    cta: 'View Case Study →',
-    technologies: ['TBD', 'TBD', 'TBD'],
-    color: '#ffd600',
-    headlineColor: '#ffd600',
-    imageUrl: '/assets/projects/collaboration-platform.jpg',
-    overlayImage: '/assets/projects/collaboration-platform.jpg'
-  },
-  {
-    id: 'project06',
-    facetKey: 'project06',
-    modelKey: 'project06',
-    crystalKey: 'exploration',
-    title: 'PROJECT 06',
-    subtitle: 'Placeholder Category · Platform',
-    description:
-      'Dummy project content while details are being finalized. This section is intentionally neutral and ready to be replaced.',
-    secondaryCopy: 'Add final narrative, outcomes, and role details here.',
-    cta: 'View Case Study →',
-    technologies: ['TBD', 'TBD', 'TBD'],
-    color: '#ff7043',
-    headlineColor: '#ff7043',
-    imageUrl: '/assets/projects/experimental-interactions.jpg',
-    overlayImage: '/assets/projects/experimental-interactions.jpg'
   }
 ];
 
@@ -123,7 +129,7 @@ const getProjectByFacetKey = (facetKey) => projectByAnyFacetKey.get(facetKey) ||
 
 export const getProjectModelKeyByFacetKey = (facetKey) => {
   const project = getProjectByFacetKey(facetKey);
-  return project ? project.modelKey : null;
+  return project ? (project.runtimeModelKey || project.modelKey) : null;
 };
 
 export const getProjectColorByFacetKey = (facetKey) => {
