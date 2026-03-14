@@ -236,7 +236,7 @@ const calculateActiveProjectFromSections = (scrollProgress, sections) => {
     const withinStart = scrollProgress >= (section.start - PROJECT_BOUNDARY_EPSILON);
     const withinEnd = isLastSection
       ? scrollProgress <= (section.end + PROJECT_BOUNDARY_EPSILON)
-      : scrollProgress < (section.end - PROJECT_BOUNDARY_EPSILON);
+      : scrollProgress < (section.end + PROJECT_BOUNDARY_EPSILON);
 
     if (withinStart && withinEnd) {
       const span = Math.max(section.end - section.start, 0.00001);
@@ -603,20 +603,16 @@ export const useUnifiedAnimationController = (options = {}) => {
       
       // Then handle project focus changes
       if (!overrideActive && projectChanged && activeProject.project) {
-        // Reduce hysteresis for projects since they're working well
-        const projectHysteresis = 0.05; // 5% into project section
-        if (activeProject.progress > projectHysteresis) {
-          if (import.meta.env.DEV) {
-            console.log(`🎯 Project changed: ${lastProject.current} → ${activeProject.project}`);
-            console.log(`🎨 Background trigger: Project changed to "${activeProject.project}"`);
-          }
-          handleProjectFocus(activeProject.project);
-          lastProject.current = activeProject.project;
+        if (import.meta.env.DEV) {
+          console.log(`🎯 Project changed: ${lastProject.current} → ${activeProject.project}`);
+          console.log(`🎨 Background trigger: Project changed to "${activeProject.project}"`);
         }
+        handleProjectFocus(activeProject.project);
+        lastProject.current = activeProject.project;
       }
       
       // Set initial project if none is set but we have an active project
-      if (!overrideActive && !animationState.focusedFacet && activeProject.project && activeProject.progress > 0.05) {
+      if (!overrideActive && !animationState.focusedFacet && activeProject.project) {
         if (import.meta.env.DEV) {
           console.log(`🎯 Setting initial project: ${activeProject.project}`);
           console.log(`🎨 Background trigger: Initial project set to "${activeProject.project}"`);
