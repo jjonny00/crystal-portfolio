@@ -306,33 +306,50 @@ export const useUnifiedAnimationController = (options = {}) => {
     const projectNodes = Array.from(
       container.querySelectorAll(':scope > div > section.scroll-section.project[id^="project-"]')
     );
+    const aboutNode = container.querySelector(':scope > div > section#about.scroll-section');
 
     if (projectNodes.length === 0) return;
 
-    const measuredSections = projectNodes
+    const projectStarts = projectNodes
       .map((node) => {
         const id = node.id || '';
         const project = id.startsWith('project-') ? id.slice('project-'.length) : null;
         if (!project) return null;
 
         const start = Math.min(Math.max(node.offsetTop / maxScroll, 0), 1);
-        const end = Math.min(Math.max((node.offsetTop + node.offsetHeight) / maxScroll, 0), 1);
 
         return {
           project,
-          start,
-          end: Math.max(end, start + 0.00001)
+          start
         };
       })
       .filter(Boolean)
       .sort((a, b) => a.start - b.start);
 
-    if (measuredSections.length === 0) return;
+    if (projectStarts.length === 0) return;
 
-    // Make boundaries contiguous to avoid tiny dead zones from rounding.
-    for (let i = 0; i < measuredSections.length - 1; i += 1) {
-      measuredSections[i].end = Math.max(measuredSections[i].end, measuredSections[i + 1].start);
-    }
+    const aboutStart = aboutNode
+      ? Math.min(Math.max(aboutNode.offsetTop / maxScroll, 0), 1)
+      : ANIMATION_CONFIG.scrollZones.about.start;
+
+    const measuredSections = projectStarts.map((entry, index) => {
+      const nextStart = projectStarts[index + 1]?.start;
+      const rawEnd = nextStart ?? aboutStart;
+      const end = Math.max(rawEnd, entry.start + 0.00001);
+
+      return {
+        project: entry.project,
+        start: entry.start,
+        end,
+      };
+    });
+
+    // Ensure the last project ends no later than about-start to avoid overlap drift.
+    const lastIndex = measuredSections.length - 1;
+    measuredSections[lastIndex].end = Math.max(
+      Math.min(measuredSections[lastIndex].end, aboutStart),
+      measuredSections[lastIndex].start + 0.00001
+    );
 
     runtimeProjectSectionsRef.current = measuredSections;
   }, []);
