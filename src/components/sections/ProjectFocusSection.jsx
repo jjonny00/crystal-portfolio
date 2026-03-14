@@ -36,13 +36,16 @@ const ProjectFocusSection = ({ project, isMobile = false }) => {
                 boxSizing: 'border-box'
               }
             : {
-                width: '50%',
-                height: '100%',
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                width: '50vw',
+                height: '100vh',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                paddingLeft: 'clamp(24px, 3vw, 64px)',
-                paddingRight: 'clamp(24px, 3vw, 64px)',
+                paddingLeft: 'clamp(20px, 2.5vw, 52px)',
+                paddingRight: 'clamp(20px, 2.5vw, 52px)',
                 boxSizing: 'border-box'
               }
         }
