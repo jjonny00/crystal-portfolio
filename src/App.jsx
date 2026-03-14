@@ -457,14 +457,17 @@ function App() {
   }, []);
 
   const handleHomeClick = useCallback(() => {
+    fixedCanvasRef.current?.directSelectZone?.('hero');
     scrollToSection('hero');
   }, [scrollToSection]);
 
   const handleWorkClick = useCallback(() => {
+    fixedCanvasRef.current?.directSelectZone?.('overview');
     scrollToSection('overview');
   }, [scrollToSection]);
 
   const handleAboutClick = useCallback(() => {
+    fixedCanvasRef.current?.directSelectZone?.('about');
     scrollToSection('about');
   }, [scrollToSection]);
 

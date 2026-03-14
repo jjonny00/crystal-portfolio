@@ -115,6 +115,7 @@ const Fixed3DCanvas = forwardRef(({
   scrollToProgress,
   scrollToProject,
   onDirectProjectSelect,
+  onDirectZoneSelect,
   cameraRuntimeOverrides = null
 }, ref) => {
   // NEW: Ref to access crystal scene for debug panels
@@ -129,8 +130,9 @@ const Fixed3DCanvas = forwardRef(({
   // Expose internal state to parent components
   useImperativeHandle(ref, () => ({
     modelsLoaded: crystalSceneRef.current?.modelsLoaded || false,
-    updateBackground: (key) => backgroundRef.current?.updateBackground(key)
-  }), [crystalSceneRef.current?.modelsLoaded]);
+    updateBackground: (key) => backgroundRef.current?.updateBackground(key),
+    directSelectZone: (zoneKey) => onDirectZoneSelect?.(zoneKey)
+  }), [onDirectZoneSelect, crystalSceneRef.current?.modelsLoaded]);
   
   // NEW: State for debug data
   const [debugData, setDebugData] = useState({
