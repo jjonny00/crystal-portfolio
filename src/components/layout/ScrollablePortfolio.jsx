@@ -77,6 +77,7 @@ const ScrollablePortfolio = ({
         
         // Force it to be full viewport height and scrollable
         height: '100vh',
+        height: '100dvh',
         overflowY: 'auto',
         overflowX: 'hidden',
         
@@ -94,8 +95,13 @@ const ScrollablePortfolio = ({
         
         // Clean box model
         margin: 0,
-        padding: 0,
         boxSizing: 'border-box',
+
+        // ADDED: Safe area insets for iOS Safari floating UI
+        paddingTop: 'env(safe-area-inset-top)',
+        paddingBottom: 'env(safe-area-inset-bottom)',
+        paddingLeft: 'env(safe-area-inset-left)',
+        paddingRight: 'env(safe-area-inset-right)',
         
         // NEW: Hide content when needed for screenshots
         opacity: hideContent ? 0 : 1
