@@ -251,6 +251,30 @@ const calculateActiveProjectFromSections = (scrollProgress, sections) => {
   return { project: null, progress: 0 };
 };
 
+const calculateActiveProjectFromTriggerPx = (triggerPx, sections) => {
+  if (!Number.isFinite(triggerPx) || !sections || sections.length === 0) {
+    return { project: null, progress: 0 };
+  }
+
+  for (const section of sections) {
+    const startPx = section.startPx ?? 0;
+    const endPx = section.endPx ?? startPx + 1;
+    const withinStart = triggerPx >= (startPx - 1);
+    const withinEnd = triggerPx < (endPx + 1);
+
+    if (withinStart && withinEnd) {
+      const span = Math.max(endPx - startPx, 1);
+      const progress = (triggerPx - startPx) / span;
+      return {
+        project: section.project,
+        progress: Math.max(0, Math.min(progress, 1))
+      };
+    }
+  }
+
+  return { project: null, progress: 0 };
+};
+
 /**
  * SIMPLIFIED: Main controller with immediate state changes + enhanced debugging
  */
@@ -320,7 +344,8 @@ export const useUnifiedAnimationController = (options = {}) => {
 
         return {
           project,
-          start
+          start,
+          startPx: node.offsetTop
         };
       })
       .filter(Boolean)
@@ -331,16 +356,22 @@ export const useUnifiedAnimationController = (options = {}) => {
     const aboutStart = aboutNode
       ? Math.min(Math.max(aboutNode.offsetTop / maxScroll, 0), 1)
       : ANIMATION_CONFIG.scrollZones.about.start;
+    const aboutStartPx = aboutNode ? aboutNode.offsetTop : Math.round(aboutStart * maxScroll);
 
     const measuredSections = projectStarts.map((entry, index) => {
       const nextStart = projectStarts[index + 1]?.start;
+      const nextStartPx = projectStarts[index + 1]?.startPx;
       const rawEnd = nextStart ?? aboutStart;
+      const rawEndPx = nextStartPx ?? aboutStartPx;
       const end = Math.max(rawEnd, entry.start + 0.00001);
+      const endPx = Math.max(rawEndPx, entry.startPx + 1);
 
       return {
         project: entry.project,
         start: entry.start,
         end,
+        startPx: entry.startPx,
+        endPx,
       };
     });
 
@@ -349,6 +380,10 @@ export const useUnifiedAnimationController = (options = {}) => {
     measuredSections[lastIndex].end = Math.max(
       Math.min(measuredSections[lastIndex].end, aboutStart),
       measuredSections[lastIndex].start + 0.00001
+    );
+    measuredSections[lastIndex].endPx = Math.max(
+      Math.min(measuredSections[lastIndex].endPx, aboutStartPx),
+      measuredSections[lastIndex].startPx + 1
     );
 
     runtimeProjectSectionsRef.current = measuredSections;
@@ -523,8 +558,14 @@ export const useUnifiedAnimationController = (options = {}) => {
       measureProjectSectionsFromDom();
     }
 
-    const activeProjectFromDom = calculateActiveProjectFromSections(
-      scrollProgress,
+    const container = typeof document !== 'undefined'
+      ? document.querySelector('.scroll-container')
+      : null;
+    const triggerPx = container
+      ? container.scrollTop + container.clientHeight * 0.5
+      : Number.NaN;
+    const activeProjectFromDom = calculateActiveProjectFromTriggerPx(
+      triggerPx,
       runtimeProjectSectionsRef.current
     );
     const currentZone = calculateCurrentZone(scrollProgress, config);
@@ -640,20 +681,32 @@ export const useUnifiedAnimationController = (options = {}) => {
     } else if (directProjectOverrideRef.current?.projectKey && (currentZone.zone === 'hero' || currentZone.zone === 'about')) {
       clearDirectProjectOverride();
     } else if (currentZone.zone !== 'projects' && lastProject.current && !directProjectOverrideRef.current?.projectKey) {
-      if (currentZone.zone === 'about') {
-        clearDirectProjectOverride();
+      if (currentZone.zone === 'about' && activeProject.project) {
+        setAnimationState(prev => ({
+          ...prev,
+          state: ANIMATION_STATES.PROJECT_FOCUSED,
+          crystalForm: 'exploded',
+          cameraState: 'project',
+          focusedFacet: activeProject.project,
+          isTransitioning: false
+        }));
+        lastProject.current = activeProject.project;
+      } else {
+        if (currentZone.zone === 'about') {
+          clearDirectProjectOverride();
+        }
+        if (import.meta.env.DEV) {
+          console.log('🎯 Clearing project focus - left projects zone');
+          console.log('🎨 Background trigger: Left projects zone, clearing project focus');
+        }
+        setAnimationState(prev => ({
+          ...prev,
+          focusedFacet: null,
+          // Ensure camera snaps back to the proper zone camera instead of hero fallback
+          cameraState: currentZone.zone
+        }));
+        lastProject.current = null;
       }
-      if (import.meta.env.DEV) {
-        console.log('🎯 Clearing project focus - left projects zone');
-        console.log('🎨 Background trigger: Left projects zone, clearing project focus');
-      }
-      setAnimationState(prev => ({
-        ...prev,
-        focusedFacet: null,
-        // Ensure camera snaps back to the proper zone camera instead of hero fallback
-        cameraState: currentZone.zone
-      }));
-      lastProject.current = null;
     }
 
     // Always update scroll progress and zone info
