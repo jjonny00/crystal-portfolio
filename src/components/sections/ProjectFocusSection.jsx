@@ -1,13 +1,30 @@
 import React from 'react';
+import { animated, useSpring } from '@react-spring/web';
 import Headline from '../ui/Headline';
 
-const ProjectFocusSection = ({ project, isMobile = false }) => {
+const ProjectFocusSection = ({ project, isMobile = false, visible = true }) => {
   if (!project) return null;
 
   const headlineColor = project.headlineColor || project.color || '#ffffff';
   const sectionIdKey = project.crystalKey || project.facetKey;
 
   const contentWidth = isMobile ? '100%' : 'min(34vw, 640px)';
+
+  const contentSpring = useSpring({
+    from: {
+      opacity: 0,
+      transform: 'translateY(20px)'
+    },
+    to: {
+      opacity: visible ? 1 : 0,
+      transform: visible ? 'translateY(0px)' : 'translateY(20px)'
+    },
+    delay: visible ? 180 : 0,
+    config: {
+      tension: 270,
+      friction: 28
+    }
+  });
 
   return (
     <section
@@ -26,29 +43,21 @@ const ProjectFocusSection = ({ project, isMobile = false }) => {
         boxSizing: 'border-box'
       }}
     >
-      <div
-        style={
-          isMobile
-            ? {
-                width: '100%',
-                paddingLeft: '22px',
-                paddingRight: '22px',
-                boxSizing: 'border-box'
-              }
-            : {
-                position: 'absolute',
-                left: 0,
-                top: 0,
-                width: '50vw',
-                height: '100vh',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                paddingLeft: 'clamp(20px, 2.5vw, 52px)',
-                paddingRight: 'clamp(20px, 2.5vw, 52px)',
-                boxSizing: 'border-box'
-              }
-        }
+      <animated.div
+        style={{
+          ...contentSpring,
+          width: isMobile ? '100%' : '50vw',
+          height: isMobile ? 'auto' : '100vh',
+          position: isMobile ? 'static' : 'absolute',
+          left: isMobile ? 'auto' : 0,
+          top: isMobile ? 'auto' : 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingLeft: isMobile ? '22px' : 'clamp(20px, 2.5vw, 52px)',
+          paddingRight: isMobile ? '22px' : 'clamp(20px, 2.5vw, 52px)',
+          boxSizing: 'border-box'
+        }}
       >
         <div
           style={{
@@ -175,7 +184,7 @@ const ProjectFocusSection = ({ project, isMobile = false }) => {
             </p>
           )}
         </div>
-      </div>
+      </animated.div>
     </section>
   );
 };
