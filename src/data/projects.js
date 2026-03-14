@@ -1,180 +1,122 @@
 // src/data/projects.js
-// UPDATED: Added headlineColor property for 1970s glow effect
-// Project data structure that maps to crystal facets
 
-/**
- * Projects collection
- * Each project maps to a facet in the crystal
- */
 export const projects = [
   {
-    id: "project1",
-    facetKey: "exploration",
-    modelKey: "project06",
-    title: "Experimental Interactions",
-    label: "Experiments (XR/VR)",
-    tagline: "Exploring VR interaction systems in Unreal",
-    shortDescription: "Experimental prototypes exploring novel interface ideas",
-    logo: "/assets/logos/exploration.svg",
-    description: "A collection of experimental interaction prototypes exploring new paradigms. Pushes boundaries with cutting-edge techniques and technologies to discover novel ways of engaging users.",
-    technologies: ["WebGL", "React Three Fiber", "Shaders", "Motion Design"],
-    color: "#ff7043", // Match the facet color
-    headlineColor: "#ff7043", // Color for 1970s glow headlines
-    overlayImage: "/assets/projects/experimental-interactions.jpg",
-    imageUrl: "/assets/projects/experimental-interactions.jpg",
-    demoUrl: "https://demo-url.com/experiments",
-    githubUrl: "https://github.com/yourusername/experimental-interactions",
-    role: "Lead UX Designer",
-    timeline: "4 months",
-    teamSize: "5 people",
-    platform: "Web Dashboard"
+    id: 'project01',
+    facetKey: 'project01',
+    modelKey: 'project01',
+    title: 'MESA',
+    subtitle: 'Asynchronous Multiplayer · iOS',
+    description:
+      'An asynchronous competitive strategy game built around one idea: turns should create tension. Stronger powers hit softer, so each move forces a choice between pressing the advantage now or playing for control. The match opens up mid-game, then tightens until every tile matters.',
+    secondaryCopy: 'Paper prototyped. Full matches tested before production.',
+    metrics: '150K downloads in week one · Top 5 iOS App Store Free Games in 3 days',
+    roles: 'Creator · Game Design · Systems + UI/UX',
+    cta: 'How Turns Create Tension →',
+    technologies: ['Gameplay Systems', 'UX Design', 'Balancing'],
+    color: '#ece93e',
+    headlineColor: '#ece93e',
+    imageUrl: '/assets/projects/design-system.jpg',
+    overlayImage: '/assets/projects/design-system.jpg'
   },
   {
-    id: "project2",
-    facetKey: "leadership",
-    modelKey: "project05",
-    title: "Team Collaboration Platform",
-    label: "Forest Giant",
-    tagline: "Process, product, and team‑building at scale",
-    shortDescription: "Collaboration platform aligning cross-discipline teams",
-    logo: "/assets/logos/leadership.svg",
-    description: "A tool designed to empower teams and facilitate collaboration across disciplines. Streamlines communication and workflow between design, development, and product teams.",
-    technologies: ["Next.js", "Firebase", "Tailwind CSS", "User Testing"],
-    color: "#ffd600", // Match the facet color
-    headlineColor: "#ffd600", // Color for 1970s glow headlines
-    overlayImage: "/assets/projects/collaboration-platform.jpg",
-    imageUrl: "/assets/projects/collaboration-platform.jpg",
-    demoUrl: "https://demo-url.com/collaboration",
-    githubUrl: "https://github.com/yourusername/collaboration-platform",
-    role: "Lead UX Designer",
-    timeline: "4 months",
-    teamSize: "5 people",
-    platform: "Web Dashboard"
+    id: 'project02',
+    facetKey: 'project02',
+    modelKey: 'project02',
+    title: 'FUNDSEEDER',
+    subtitle: 'Competitive Platform · Web',
+    description:
+      'A competitive platform for traders, built around trust, progression, and real opportunity. Traders connect their strategies, track performance, and compete for a shot at real allocation. I helped define the system that makes that climb feel credible, from early business validation and MVP scope to the ladder, tiers, and internal tools that surface high-potential traders.',
+    metrics: '9 traders seeded in year one · 1,800 traders on platform',
+    roles: 'Principal Product Designer · Strategy, Systems + Brand',
+    cta: 'Designing the Ladder →',
+    technologies: ['Product Strategy', 'UX Systems', 'Platform Design'],
+    color: '#bb86fc',
+    headlineColor: '#bb86fc',
+    imageUrl: '/assets/projects/storytelling-platform.jpg',
+    overlayImage: '/assets/projects/storytelling-platform.jpg'
   },
   {
-    id: "project3",
-    facetKey: "system",
-    modelKey: "project04",
-    title: "Component Architecture",
-    label: "Quantified",
-    tagline: "Track what matters, beautifully on Apple",
-    shortDescription: "Reusable component architecture backed by thorough docs",
-    logo: "/assets/logos/system.svg",
-    description: "A comprehensive component library with scalable architecture and documentation. Built for maximum reusability and maintainability across multiple applications and teams.",
-    technologies: ["React", "TypeScript", "Monorepo", "CI/CD"],
-    color: "#cf6679", // Match the facet color
-    headlineColor: "#cf6679", // Color for 1970s glow headlines
-    overlayImage: "/assets/projects/component-architecture.jpg",
-    imageUrl: "/assets/projects/component-architecture.jpg",
-    demoUrl: "https://demo-url.com/components",
-    githubUrl: "https://github.com/yourusername/component-architecture",
-    role: "Lead UX Designer",
-    timeline: "4 months",
-    teamSize: "5 people",
-    platform: "Web Dashboard"
+    id: 'project03',
+    facetKey: 'project03',
+    modelKey: 'project03',
+    title: 'GE EXPERIENCE CENTERS',
+    subtitle: 'Spatial Platform · Global Installations',
+    description:
+      'A spatial platform that transformed with the audience and the work at hand. Each center could welcome visitors with tailored partner content or shift into a secure environment for teams using live data and specialized tools. Built as a modular system, the same framework launched across Austin, Dubai, and Shanghai.',
+    secondaryCopy: 'Led the platform team, aligning stakeholders across three continents.',
+    roles: 'Creative Direction · Systems Design · Production Leadership',
+    cta: 'Built to Transform →',
+    technologies: ['Spatial UX', 'Modular Platform Architecture', 'Production'],
+    color: '#64ffda',
+    headlineColor: '#64ffda',
+    imageUrl: '/assets/projects/user-dashboard.jpg',
+    overlayImage: '/assets/projects/user-dashboard.jpg'
   },
   {
-    id: "project4",
-    facetKey: "craft",
-    modelKey: "project03",
-    title: "Design System Implementation",
-    label: "Mesa",
-    tagline: "Asynchronous PvP built on Game Center",
-    shortDescription: "Design system enabling scalable, polished UI patterns",
-    logo: "/assets/logos/craft.svg",
-    description: "A meticulously crafted design system with attention to detail and consistency. Provides a foundation for scalable product development with precision-engineered components.",
-    technologies: ["Styled Components", "Storybook", "Figma", "Design Tokens"],
-    color: "#03dac6", // Match the facet color
-    headlineColor: "#03dac6", // Color for 1970s glow headlines
-    overlayImage: "/assets/projects/design-system.jpg",
-    imageUrl: "/assets/projects/design-system.jpg",
-    demoUrl: "https://demo-url.com/design-system",
-    githubUrl: "https://github.com/yourusername/design-system",
-    role: "Lead UX Designer",
-    timeline: "4 months",
-    teamSize: "5 people",
-    platform: "Web Dashboard"
+    id: 'project04',
+    facetKey: 'project04',
+    modelKey: 'project04',
+    title: 'PROJECT 04',
+    subtitle: 'Placeholder Category · Platform',
+    description: 'Dummy project content while details are being finalized. This section is intentionally neutral and ready to be replaced.',
+    secondaryCopy: 'Add final narrative, outcomes, and role details here.',
+    cta: 'View Case Study →',
+    technologies: ['TBD', 'TBD', 'TBD'],
+    color: '#cf6679',
+    headlineColor: '#cf6679',
+    imageUrl: '/assets/projects/component-architecture.jpg',
+    overlayImage: '/assets/projects/component-architecture.jpg'
   },
   {
-    id: "project5",
-    facetKey: "narrative",
-    modelKey: "project02",
-    title: "Interactive Storytelling Platform",
-    label: "FundSeeder",
-    tagline: "Fintech platform linking traders to capital",
-    shortDescription: "Interactive platform weaving narratives with rich visuals",
-    logo: "/assets/logos/narrative.svg",
-    description: "A platform that guides users through narratives with compelling visuals and interaction. Creates immersive experiences that communicate complex ideas through story-driven interfaces.",
-    technologies: ["Three.js", "GSAP", "React", "Storyboarding"],
-    color: "#bb86fc", // Match the facet color
-    headlineColor: "#bb86fc", // Color for 1970s glow headlines
-    overlayImage: "/assets/projects/storytelling-platform.jpg",
-    imageUrl: "/assets/projects/storytelling-platform.jpg",
-    demoUrl: "https://demo-url.com/storytelling",
-    githubUrl: "https://github.com/yourusername/storytelling-platform",
-    role: "Lead UX Designer",
-    timeline: "4 months",
-    teamSize: "5 people",
-    platform: "Web Dashboard"
+    id: 'project05',
+    facetKey: 'project05',
+    modelKey: 'project05',
+    title: 'PROJECT 05',
+    subtitle: 'Placeholder Category · Platform',
+    description: 'Dummy project content while details are being finalized. This section is intentionally neutral and ready to be replaced.',
+    secondaryCopy: 'Add final narrative, outcomes, and role details here.',
+    cta: 'View Case Study →',
+    technologies: ['TBD', 'TBD', 'TBD'],
+    color: '#ffd600',
+    headlineColor: '#ffd600',
+    imageUrl: '/assets/projects/collaboration-platform.jpg',
+    overlayImage: '/assets/projects/collaboration-platform.jpg'
   },
   {
-    id: "project6",
-    facetKey: "empathy",
-    modelKey: "project01",
-    title: "User-Centered Dashboard",
-    label: "GEC (Ascend Platform)",
-    tagline: "Adaptive platform powering GE's global hubs",
-    shortDescription: "User-focused dashboard simplifying complex data",
-    logo: "/assets/logos/empathy.svg",
-    description: "A dashboard designed with user needs at the forefront, featuring intuitive navigation and data visualization. Uses research-driven design to simplify complex data for quick decision making.",
-    technologies: ["React", "D3.js", "Figma", "User Research"],
-    color: "#64ffda", // Match the facet color
-    headlineColor: "#64ffda", // Color for 1970s glow headlines
-    overlayImage: "/assets/projects/user-dashboard.jpg",
-    imageUrl: "/assets/projects/user-dashboard.jpg",
-    demoUrl: "https://demo-url.com/dashboard",
-    githubUrl: "https://github.com/yourusername/user-dashboard",
-    role: "Lead UX Designer",
-    timeline: "4 months",
-    teamSize: "5 people",
-    platform: "Web Dashboard"
+    id: 'project06',
+    facetKey: 'project06',
+    modelKey: 'project06',
+    title: 'PROJECT 06',
+    subtitle: 'Placeholder Category · Platform',
+    description: 'Dummy project content while details are being finalized. This section is intentionally neutral and ready to be replaced.',
+    secondaryCopy: 'Add final narrative, outcomes, and role details here.',
+    cta: 'View Case Study →',
+    technologies: ['TBD', 'TBD', 'TBD'],
+    color: '#ff7043',
+    headlineColor: '#ff7043',
+    imageUrl: '/assets/projects/experimental-interactions.jpg',
+    overlayImage: '/assets/projects/experimental-interactions.jpg'
   }
 ];
 
-export const facetKeys = projects.map(project => project.facetKey);
-
+export const facetKeys = projects.map((project) => project.facetKey);
 export const orderedFacetKeys = [...facetKeys];
 
-const projectByFacetKey = new Map(projects.map(project => [project.facetKey, project]));
+const projectByFacetKey = new Map(projects.map((project) => [project.facetKey, project]));
 
-/**
- * Helper function to get project by facet key
- * @param {string} facetKey - The facet key to lookup
- * @returns {Object|null} Project object or null if not found
- */
-const getProjectByFacetKey = (facetKey) => {
-  return projectByFacetKey.get(facetKey) || null;
-};
+const getProjectByFacetKey = (facetKey) => projectByFacetKey.get(facetKey) || null;
 
 export const getProjectModelKeyByFacetKey = (facetKey) => {
   const project = getProjectByFacetKey(facetKey);
   return project ? project.modelKey : null;
 };
 
-/**
- * Get project color by facet key
- * Useful for maintaining consistent colors
- */
 export const getProjectColorByFacetKey = (facetKey) => {
   const project = getProjectByFacetKey(facetKey);
-  return project ? project.color : '#028700'; // Default color
+  return project ? project.color : '#028700';
 };
 
-/**
- * Get overlay image path by facet key
- * @param {string} facetKey - The facet key to lookup
- * @returns {string|null} Overlay image path or null if not found
-*/
 export const getOverlayImageByFacetKey = (facetKey) => {
   const project = getProjectByFacetKey(facetKey);
   return project?.overlayImage || null;

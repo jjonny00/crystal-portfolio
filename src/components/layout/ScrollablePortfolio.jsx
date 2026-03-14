@@ -146,7 +146,7 @@ const ScrollablePortfolio = ({
         
         {/* PROJECTS OVERVIEW SECTION */}
         <section 
-          id="projects-overview" 
+          id="overview" 
           className="scroll-section"
           style={{
             scrollSnapAlign: 'start',
