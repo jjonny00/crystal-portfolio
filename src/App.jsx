@@ -449,12 +449,24 @@ function App() {
 
     const scrollContainer = document.querySelector('.scroll-container');
     if (scrollContainer) {
+      const speedClass = snapSpeed === 'no-snap' ? 'no-snap' : `${snapSpeed}-snap`;
+
+      // Temporarily disable snap stops so nav clicks can move directly to target
+      // instead of stepping through every section in between.
+      scrollContainer.classList.add('no-snap');
+      scrollContainer.classList.remove('fast-snap', 'medium-snap', 'slow-snap', 'extra-slow-snap');
+
       scrollContainer.scrollTo({ top: target.offsetTop, behavior: 'smooth' });
+
+      window.setTimeout(() => {
+        scrollContainer.classList.remove('no-snap', 'fast-snap', 'medium-snap', 'slow-snap', 'extra-slow-snap');
+        scrollContainer.classList.add(speedClass);
+      }, 700);
       return;
     }
 
     target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, []);
+  }, [snapSpeed]);
 
   const handleHomeClick = useCallback(() => {
     scrollToSection('hero');
