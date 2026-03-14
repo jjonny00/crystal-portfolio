@@ -35,6 +35,8 @@ const UnifiedCrystalScene = forwardRef(({
   performanceProfile = { useNormalMaps: true, textureQuality: 'high', pbrQuality: 'high', usePBR: true },
   simplifiedAnimations = false,
   scrollToProgress,
+  scrollToProject,
+  onDirectProjectSelect,
   onFractureStart
 }, ref) => {
   // Component refs for crystal animation
@@ -597,11 +599,19 @@ const UnifiedCrystalScene = forwardRef(({
   const handleFacetClick = useCallback(
     (facetKey) => {
       if (!inActiveOverview) return;
-      const sectionStart = ANIMATION_CONFIG.projectSections?.[facetKey]?.start;
+      const sectionStart = scrollToProject
+        ? null
+        : ANIMATION_CONFIG.projectSections?.[facetKey]?.start;
+      if (scrollToProject) {
+        onDirectProjectSelect?.(facetKey);
+        scrollToProject(facetKey);
+        return;
+      }
       if (sectionStart === undefined) return;
+      onDirectProjectSelect?.(facetKey);
       scrollToProgress(sectionStart);
     },
-    [inActiveOverview, scrollToProgress]
+    [inActiveOverview, onDirectProjectSelect, scrollToProgress, scrollToProject]
   );
 
   useEffect(() => {
@@ -1612,6 +1622,8 @@ const UnifiedCrystalScene = forwardRef(({
       <FacetLabels
         projects={projects}
         scrollToProgress={scrollToProgress}
+        scrollToProject={scrollToProject}
+        onDirectProjectSelect={onDirectProjectSelect}
         onHoverChange={handleLabelHover}
         animationData={animationData}
         performanceProfile={performanceProfile}

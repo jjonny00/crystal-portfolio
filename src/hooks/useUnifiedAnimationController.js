@@ -223,6 +223,58 @@ const calculateActiveProject = (scrollProgress, config = ANIMATION_CONFIG) => {
   return { project: null, progress: 0 };
 };
 
+const PROJECT_BOUNDARY_EPSILON = 0.0005;
+
+const calculateActiveProjectFromSections = (scrollProgress, sections) => {
+  if (!sections || sections.length === 0) {
+    return { project: null, progress: 0 };
+  }
+
+  for (let index = 0; index < sections.length; index += 1) {
+    const section = sections[index];
+    const isLastSection = index === sections.length - 1;
+    const withinStart = scrollProgress >= (section.start - PROJECT_BOUNDARY_EPSILON);
+    const withinEnd = isLastSection
+      ? scrollProgress <= (section.end + PROJECT_BOUNDARY_EPSILON)
+      : scrollProgress < (section.end + PROJECT_BOUNDARY_EPSILON);
+
+    if (withinStart && withinEnd) {
+      const span = Math.max(section.end - section.start, 0.00001);
+      const progress = (scrollProgress - section.start) / span;
+      return {
+        project: section.project,
+        progress: Math.max(0, Math.min(progress, 1))
+      };
+    }
+  }
+
+  return { project: null, progress: 0 };
+};
+
+const calculateActiveProjectFromTriggerPx = (triggerPx, sections) => {
+  if (!Number.isFinite(triggerPx) || !sections || sections.length === 0) {
+    return { project: null, progress: 0 };
+  }
+
+  for (const section of sections) {
+    const startPx = section.startPx ?? 0;
+    const endPx = section.endPx ?? startPx + 1;
+    const withinStart = triggerPx >= (startPx - 1);
+    const withinEnd = triggerPx < (endPx + 1);
+
+    if (withinStart && withinEnd) {
+      const span = Math.max(endPx - startPx, 1);
+      const progress = (triggerPx - startPx) / span;
+      return {
+        project: section.project,
+        progress: Math.max(0, Math.min(progress, 1))
+      };
+    }
+  }
+
+  return { project: null, progress: 0 };
+};
+
 /**
  * SIMPLIFIED: Main controller with immediate state changes + enhanced debugging
  */
@@ -250,6 +302,130 @@ export const useUnifiedAnimationController = (options = {}) => {
   const lastProject = useRef(null);
   const updateTimeout = useRef(null);
   const cameraDelayTimeout = useRef(null);
+  const directProjectOverrideRef = useRef(null);
+  const runtimeProjectSectionsRef = useRef([]);
+
+  const getRuntimeProjectSection = useCallback((projectKey) => {
+    if (!projectKey) return null;
+    return runtimeProjectSectionsRef.current.find((section) => section.project === projectKey) || null;
+  }, []);
+
+  const getProjectSectionStart = useCallback((projectKey) => {
+    const runtimeSection = getRuntimeProjectSection(projectKey);
+    if (runtimeSection) {
+      return runtimeSection.start;
+    }
+
+    const fallbackSection = config?.projectSections?.[projectKey];
+    return fallbackSection?.start ?? null;
+  }, [config, getRuntimeProjectSection]);
+
+  const measureProjectSectionsFromDom = useCallback(() => {
+    if (typeof document === 'undefined') return;
+
+    const container = document.querySelector('.scroll-container');
+    if (!container) return;
+
+    const maxScroll = Math.max(container.scrollHeight - container.clientHeight, 1);
+    const projectNodes = Array.from(
+      container.querySelectorAll(':scope > div > section.scroll-section.project[id^="project-"]')
+    );
+    const aboutNode = container.querySelector(':scope > div > section#about.scroll-section');
+
+    if (projectNodes.length === 0) return;
+
+    const projectStarts = projectNodes
+      .map((node) => {
+        const id = node.id || '';
+        const project = id.startsWith('project-') ? id.slice('project-'.length) : null;
+        if (!project) return null;
+
+        const start = Math.min(Math.max(node.offsetTop / maxScroll, 0), 1);
+
+        return {
+          project,
+          start,
+          startPx: node.offsetTop
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.start - b.start);
+
+    if (projectStarts.length === 0) return;
+
+    const aboutStart = aboutNode
+      ? Math.min(Math.max(aboutNode.offsetTop / maxScroll, 0), 1)
+      : ANIMATION_CONFIG.scrollZones.about.start;
+    const aboutStartPx = aboutNode ? aboutNode.offsetTop : Math.round(aboutStart * maxScroll);
+
+    const measuredSections = projectStarts.map((entry, index) => {
+      const nextStart = projectStarts[index + 1]?.start;
+      const nextStartPx = projectStarts[index + 1]?.startPx;
+      const rawEnd = nextStart ?? aboutStart;
+      const rawEndPx = nextStartPx ?? aboutStartPx;
+      const end = Math.max(rawEnd, entry.start + 0.00001);
+      const endPx = Math.max(rawEndPx, entry.startPx + 1);
+
+      return {
+        project: entry.project,
+        start: entry.start,
+        end,
+        startPx: entry.startPx,
+        endPx,
+      };
+    });
+
+    // Ensure the last project ends no later than about-start to avoid overlap drift.
+    const lastIndex = measuredSections.length - 1;
+    measuredSections[lastIndex].end = Math.max(
+      Math.min(measuredSections[lastIndex].end, aboutStart),
+      measuredSections[lastIndex].start + 0.00001
+    );
+    measuredSections[lastIndex].endPx = Math.max(
+      Math.min(measuredSections[lastIndex].endPx, aboutStartPx),
+      measuredSections[lastIndex].startPx + 1
+    );
+
+    runtimeProjectSectionsRef.current = measuredSections;
+  }, []);
+
+  const clearDirectProjectOverride = useCallback(() => {
+    directProjectOverrideRef.current = null;
+  }, []);
+
+  const setDirectProjectOverride = useCallback((projectKey) => {
+    if (!projectKey || !config?.camera?.projects?.[projectKey]) {
+      clearDirectProjectOverride();
+      return;
+    }
+
+    directProjectOverrideRef.current = {
+      projectKey,
+      createdAt: Date.now()
+    };
+
+    setAnimationState(prev => ({
+      ...prev,
+      state: ANIMATION_STATES.PROJECT_FOCUSED,
+      crystalForm: 'exploded',
+      cameraState: 'project',
+      focusedFacet: projectKey,
+      isTransitioning: false
+    }));
+
+    lastProject.current = projectKey;
+  }, [clearDirectProjectOverride, config]);
+
+  useEffect(() => {
+    measureProjectSectionsFromDom();
+
+    const handleResize = () => {
+      measureProjectSectionsFromDom();
+    };
+
+    window.addEventListener('resize', handleResize, { passive: true });
+    return () => window.removeEventListener('resize', handleResize);
+  }, [measureProjectSectionsFromDom]);
 
   const toQuaternionArray = useCallback((rotation) => {
     if (Array.isArray(rotation)) return rotation;
@@ -378,8 +554,25 @@ export const useUnifiedAnimationController = (options = {}) => {
    * FIXED: Main scroll update with hysteresis to prevent boundary flickering + enhanced debugging
    */
   const updateFromScrollProgress = useCallback((scrollProgress) => {
+    if (runtimeProjectSectionsRef.current.length === 0) {
+      measureProjectSectionsFromDom();
+    }
+
+    const container = typeof document !== 'undefined'
+      ? document.querySelector('.scroll-container')
+      : null;
+    const triggerPx = container
+      ? container.scrollTop + container.clientHeight * 0.5
+      : Number.NaN;
+    const activeProjectFromDom = calculateActiveProjectFromTriggerPx(
+      triggerPx,
+      runtimeProjectSectionsRef.current
+    );
     const currentZone = calculateCurrentZone(scrollProgress, config);
-    const activeProject = calculateActiveProject(scrollProgress, config);
+    const activeProject = activeProjectFromDom.project
+      ? activeProjectFromDom
+      : calculateActiveProject(scrollProgress, config);
+    const directOverrideProject = directProjectOverrideRef.current?.projectKey ?? null;
     
     // ENHANCED: Log scroll updates for background debugging
     if (import.meta.env.DEV && Math.random() < 0.05) { // Sample 5% of updates
@@ -423,7 +616,9 @@ export const useUnifiedAnimationController = (options = {}) => {
       if (shouldChangeZone) {
         if (currentZone.zone === 'projects') {
           const fallbackProject = orderedFacetKeys[0] || null;
-          const initialProject = calculateActiveProject(scrollProgress, config).project || fallbackProject;
+          const initialProject = directOverrideProject
+            || activeProject.project
+            || fallbackProject;
           if (debugMode || import.meta.env.DEV) {
             console.log(`🗺️ Zone change confirmed: ${lastZone.current} → ${currentZone.zone} (progress: ${currentZone.progress.toFixed(3)})`);
             console.log(`🧭 Projects zone transition at scroll ${scrollProgress.toFixed(3)} initialProject=${initialProject}`);
@@ -443,6 +638,12 @@ export const useUnifiedAnimationController = (options = {}) => {
 
     // FIXED: Handle project changes within projects zone
     if (currentZone.zone === 'projects') {
+      if (directOverrideProject && activeProject.project === directOverrideProject) {
+        clearDirectProjectOverride();
+      }
+
+      const overrideActive = Boolean(directProjectOverrideRef.current?.projectKey);
+
       // First, ensure we're in project state when entering projects zone
       if (animationState.state !== ANIMATION_STATES.PROJECT_FOCUSED) {
         if (debugMode || import.meta.env.DEV) {
@@ -459,21 +660,17 @@ export const useUnifiedAnimationController = (options = {}) => {
       }
       
       // Then handle project focus changes
-      if (projectChanged && activeProject.project) {
-        // Reduce hysteresis for projects since they're working well
-        const projectHysteresis = 0.05; // 5% into project section
-        if (activeProject.progress > projectHysteresis) {
-          if (import.meta.env.DEV) {
-            console.log(`🎯 Project changed: ${lastProject.current} → ${activeProject.project}`);
-            console.log(`🎨 Background trigger: Project changed to "${activeProject.project}"`);
-          }
-          handleProjectFocus(activeProject.project);
-          lastProject.current = activeProject.project;
+      if (!overrideActive && projectChanged && activeProject.project) {
+        if (import.meta.env.DEV) {
+          console.log(`🎯 Project changed: ${lastProject.current} → ${activeProject.project}`);
+          console.log(`🎨 Background trigger: Project changed to "${activeProject.project}"`);
         }
+        handleProjectFocus(activeProject.project);
+        lastProject.current = activeProject.project;
       }
       
       // Set initial project if none is set but we have an active project
-      if (!animationState.focusedFacet && activeProject.project && activeProject.progress > 0.05) {
+      if (!overrideActive && !animationState.focusedFacet && activeProject.project) {
         if (import.meta.env.DEV) {
           console.log(`🎯 Setting initial project: ${activeProject.project}`);
           console.log(`🎨 Background trigger: Initial project set to "${activeProject.project}"`);
@@ -481,18 +678,35 @@ export const useUnifiedAnimationController = (options = {}) => {
         handleProjectFocus(activeProject.project);
         lastProject.current = activeProject.project;
       }
-    } else if (currentZone.zone !== 'projects' && lastProject.current) {
-      if (import.meta.env.DEV) {
-        console.log('🎯 Clearing project focus - left projects zone');
-        console.log('🎨 Background trigger: Left projects zone, clearing project focus');
+    } else if (directProjectOverrideRef.current?.projectKey && (currentZone.zone === 'hero' || currentZone.zone === 'about')) {
+      clearDirectProjectOverride();
+    } else if (currentZone.zone !== 'projects' && lastProject.current && !directProjectOverrideRef.current?.projectKey) {
+      if (currentZone.zone === 'about' && activeProject.project) {
+        setAnimationState(prev => ({
+          ...prev,
+          state: ANIMATION_STATES.PROJECT_FOCUSED,
+          crystalForm: 'exploded',
+          cameraState: 'project',
+          focusedFacet: activeProject.project,
+          isTransitioning: false
+        }));
+        lastProject.current = activeProject.project;
+      } else {
+        if (currentZone.zone === 'about') {
+          clearDirectProjectOverride();
+        }
+        if (import.meta.env.DEV) {
+          console.log('🎯 Clearing project focus - left projects zone');
+          console.log('🎨 Background trigger: Left projects zone, clearing project focus');
+        }
+        setAnimationState(prev => ({
+          ...prev,
+          focusedFacet: null,
+          // Ensure camera snaps back to the proper zone camera instead of hero fallback
+          cameraState: currentZone.zone
+        }));
+        lastProject.current = null;
       }
-      setAnimationState(prev => ({
-        ...prev,
-        focusedFacet: null,
-        // Ensure camera snaps back to the proper zone camera instead of hero fallback
-        cameraState: currentZone.zone
-      }));
-      lastProject.current = null;
     }
 
     // Always update scroll progress and zone info
@@ -508,8 +722,10 @@ export const useUnifiedAnimationController = (options = {}) => {
     }
   }, [
     config,
+    measureProjectSectionsFromDom,
     handleZoneTransition,
     handleProjectFocus,
+    clearDirectProjectOverride,
     onStateChange,
     animationState,
     debugMode
@@ -583,6 +799,8 @@ export const useUnifiedAnimationController = (options = {}) => {
     // Update functions
     updateFromScrollProgress,
     setCameraSettled,
+    setDirectProjectOverride,
+    getProjectSectionStart,
     
     // Current configs for 3D components
     cameraConfig: getCurrentCameraConfig(),
@@ -595,7 +813,8 @@ export const useUnifiedAnimationController = (options = {}) => {
       lastZone: lastZone.current,
       lastProject: lastProject.current,
       cameraState: animationState.cameraState,
-      crystalForm: animationState.crystalForm
+      crystalForm: animationState.crystalForm,
+      directProjectOverride: directProjectOverrideRef.current?.projectKey || null
     } : null
   };
 };
