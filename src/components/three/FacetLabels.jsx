@@ -5,6 +5,7 @@ import Headline from '../ui/Headline';
 import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController';
 import { MQ_HOVER_CAPABLE } from '../../config/breakpoints';
 import { useLayoutConfig } from '../../hooks/useLayoutConfig';
+import '../../styles/facet-label.css';
 
 const OptimizedLabel = React.memo(function OptimizedLabel({
   project,
@@ -36,7 +37,7 @@ const OptimizedLabel = React.memo(function OptimizedLabel({
         <Headline
           as="h3"
           className="label-title"
-          style={{ margin: 0, fontSize: '1.6rem' }}
+          style={{ margin: 0 }}
         >
           {project.label}
         </Headline>
