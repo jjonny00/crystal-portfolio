@@ -11,7 +11,7 @@ const NAV_BASE_STYLE = {
 };
 
 const NAV_INNER_STYLE = {
-  maxWidth: '1400px',
+  maxWidth: '1480px',
   margin: '0 auto',
   padding: '0 32px',
   display: 'flex',
@@ -23,28 +23,30 @@ const NAV_INNER_STYLE = {
 const NAME_BUTTON_STYLE = {
   background: 'none',
   border: 'none',
-  color: 'white',
-  fontFamily: '"ivypresto-display", "Playfair Display", Georgia, serif',
-  fontSize: '44px',
-  fontWeight: '400',
-  letterSpacing: '0.5px',
+  color: '#FFFAE3',
+  fontFamily: '"ivypresto-text", "IvyPresto Text", "ivypresto-display", Georgia, serif',
+  fontSize: '36px',
+  fontStyle: 'normal',
+  fontWeight: 400,
+  lineHeight: 'normal',
+  letterSpacing: '-2.88px',
+  textTransform: 'uppercase',
   cursor: 'pointer',
-  padding: 0,
-  lineHeight: 1,
-  textTransform: 'uppercase'
+  padding: 0
 };
 
 const NAV_ITEM_BASE_STYLE = {
   background: 'none',
   border: 'none',
-  color: 'white',
-  fontSize: '34px',
-  fontWeight: '500',
-  letterSpacing: '0.5px',
-  padding: 0,
-  fontFamily: '"acumin-variable", sans-serif',
+  color: '#FEFFDE',
+  fontFamily: '"acumin-variable", "Acumin VF", sans-serif',
+  fontSize: '24px',
+  fontStyle: 'normal',
+  fontWeight: 500,
+  lineHeight: 'normal',
   textTransform: 'uppercase',
-  cursor: 'pointer'
+  cursor: 'pointer',
+  padding: 0
 };
 
 const Navigation = ({ onHomeClick, onWorkClick, onAboutClick, onContactClick, isTransitioning = false }) => {
@@ -82,7 +84,7 @@ const Navigation = ({ onHomeClick, onWorkClick, onAboutClick, onContactClick, is
           onClick={onHomeClick}
           style={{
             ...NAME_BUTTON_STYLE,
-            fontSize: isDesktop ? '56px' : '34px',
+            fontSize: isDesktop ? '36px' : '28px',
             opacity: isTransitioning ? 0.6 : 1
           }}
           disabled={isTransitioning}
@@ -91,7 +93,7 @@ const Navigation = ({ onHomeClick, onWorkClick, onAboutClick, onContactClick, is
           JONSHAW
         </button>
 
-        <div style={{ display: 'flex', gap: isDesktop ? '32px' : '16px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: isDesktop ? '34px' : '16px', alignItems: 'center' }}>
           {navItems.map((item) => (
             <button
               key={item.label}
@@ -99,7 +101,7 @@ const Navigation = ({ onHomeClick, onWorkClick, onAboutClick, onContactClick, is
               disabled={isTransitioning}
               style={{
                 ...NAV_ITEM_BASE_STYLE,
-                fontSize: isDesktop ? '34px' : '20px',
+                fontSize: isDesktop ? '24px' : '18px',
                 opacity: isTransitioning ? 0.6 : 1
               }}
             >

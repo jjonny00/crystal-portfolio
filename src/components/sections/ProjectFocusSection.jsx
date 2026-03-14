@@ -1,4 +1,5 @@
 import React from 'react';
+import Headline from '../ui/Headline';
 
 const ProjectFocusSection = ({ project, isMobile = false }) => {
   if (!project) return null;
@@ -6,8 +7,8 @@ const ProjectFocusSection = ({ project, isMobile = false }) => {
   const headlineColor = project.headlineColor || project.color || '#ffffff';
   const sectionIdKey = project.crystalKey || project.facetKey;
 
-  const horizontalPadding = isMobile ? '24px' : 'clamp(80px, 9vw, 170px)';
-  const contentWidth = isMobile ? '100%' : 'min(36vw, 640px)';
+  const horizontalPadding = isMobile ? '22px' : 'clamp(56px, 7vw, 120px)';
+  const contentWidth = isMobile ? '100%' : 'min(34vw, 640px)';
 
   return (
     <section
@@ -34,7 +35,8 @@ const ProjectFocusSection = ({ project, isMobile = false }) => {
           maxWidth: '100%'
         }}
       >
-        <h1
+        <Headline
+          as="h1"
           style={{
             margin: 0,
             color: headlineColor,
@@ -43,16 +45,19 @@ const ProjectFocusSection = ({ project, isMobile = false }) => {
             fontStyle: 'normal',
             fontWeight: 400,
             lineHeight: 'normal',
-            textTransform: 'uppercase'
+            textTransform: 'uppercase',
+            '--headline-ink': headlineColor,
+            '--headline-glow1': headlineColor,
+            '--headline-glow2': headlineColor
           }}
         >
           {project.title}
-        </h1>
+        </Headline>
 
         <p
           style={{
             margin: '8px 0 18px',
-            color: '#E2DCC3',
+            color: 'rgb(from #E2DCC3 r g b / 0.6)',
             fontFamily: '"acumin-variable", "Acumin VF", sans-serif',
             fontSize: '16px',
             fontStyle: 'normal',
@@ -68,7 +73,7 @@ const ProjectFocusSection = ({ project, isMobile = false }) => {
         <p
           style={{
             margin: 0,
-            color: '#E2DCC3',
+            color: 'rgb(from #E2DCC3 r g b / 0.85)',
             fontFamily: '"acumin-variable", "Acumin VF", sans-serif',
             fontSize: isMobile ? '22px' : '24px',
             fontStyle: 'normal',
@@ -84,7 +89,7 @@ const ProjectFocusSection = ({ project, isMobile = false }) => {
           <p
             style={{
               margin: '30px 0 0',
-              color: '#E2DCC3',
+              color: 'rgb(from #E2DCC3 r g b / 0.85)',
               fontFamily: '"acumin-variable", "Acumin VF", sans-serif',
               fontSize: isMobile ? '22px' : '24px',
               fontStyle: 'normal',
@@ -101,7 +106,7 @@ const ProjectFocusSection = ({ project, isMobile = false }) => {
           <p
             style={{
               margin: '30px 0 0',
-              color: '#E2DCC3',
+              color: 'rgb(from #E2DCC3 r g b / 0.85)',
               fontFamily: '"acumin-variable", "Acumin VF", sans-serif',
               fontSize: isMobile ? '22px' : '24px',
               fontStyle: 'normal',
@@ -117,8 +122,8 @@ const ProjectFocusSection = ({ project, isMobile = false }) => {
         {project.roles && (
           <p
             style={{
-              margin: '0',
-              color: '#E2DCC3',
+              margin: 0,
+              color: 'rgb(from #E2DCC3 r g b / 0.85)',
               fontFamily: '"acumin-variable", "Acumin VF", sans-serif',
               fontSize: isMobile ? '22px' : '24px',
               fontStyle: 'normal',
