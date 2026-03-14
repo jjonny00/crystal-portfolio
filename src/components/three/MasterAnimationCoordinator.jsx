@@ -107,13 +107,16 @@ const MasterAnimationCoordinator = ({
       scrollData.scrollToProgress(projectStart, behavior);
     },
     directSelectProject: (projectKey) =>
-      animationController.setDirectProjectOverride?.(projectKey)
+      animationController.setDirectProjectOverride?.(projectKey),
+    directSelectZone: (zoneKey) =>
+      animationController.setDirectZoneOverride?.(zoneKey)
   }), [
     scrollData.scrollToProgress,
     scrollData.scrollToZone,
     animationController.config?.scrollZones,
     animationController.getProjectSectionStart,
-    animationController.setDirectProjectOverride
+    animationController.setDirectProjectOverride,
+    animationController.setDirectZoneOverride
   ]);
 
   // Core animation data consumed by 3D components
@@ -157,7 +160,8 @@ const MasterAnimationCoordinator = ({
         animationData,
         scrollToProgress: scrollControls.scrollToProgress,
         scrollToProject: scrollControls.scrollToProject,
-        onDirectProjectSelect: scrollControls.directSelectProject
+        onDirectProjectSelect: scrollControls.directSelectProject,
+        onDirectZoneSelect: scrollControls.directSelectZone
       });
     }
     return child;

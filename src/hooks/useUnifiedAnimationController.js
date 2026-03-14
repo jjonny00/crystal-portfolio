@@ -303,6 +303,7 @@ export const useUnifiedAnimationController = (options = {}) => {
   const updateTimeout = useRef(null);
   const cameraDelayTimeout = useRef(null);
   const directProjectOverrideRef = useRef(null);
+  const directZoneOverrideRef = useRef(null);
   const runtimeProjectSectionsRef = useRef([]);
 
   const getRuntimeProjectSection = useCallback((projectKey) => {
@@ -415,6 +416,59 @@ export const useUnifiedAnimationController = (options = {}) => {
 
     lastProject.current = projectKey;
   }, [clearDirectProjectOverride, config]);
+
+  const clearDirectZoneOverride = useCallback(() => {
+    directZoneOverrideRef.current = null;
+  }, []);
+
+  const setDirectZoneOverride = useCallback((zoneKey) => {
+    if (!zoneKey || !config?.camera?.[zoneKey]) {
+      clearDirectZoneOverride();
+      return;
+    }
+
+    directZoneOverrideRef.current = {
+      zoneKey,
+      createdAt: Date.now()
+    };
+
+    setAnimationState(prev => {
+      if (zoneKey === 'hero') {
+        return {
+          ...prev,
+          state: ANIMATION_STATES.HERO,
+          crystalForm: 'whole',
+          cameraState: 'hero',
+          focusedFacet: null,
+          isTransitioning: false
+        };
+      }
+
+      if (zoneKey === 'overview') {
+        return {
+          ...prev,
+          state: ANIMATION_STATES.OVERVIEW,
+          crystalForm: 'exploded',
+          cameraState: 'overview',
+          focusedFacet: null,
+          isTransitioning: false
+        };
+      }
+
+      if (zoneKey === 'about') {
+        return {
+          ...prev,
+          state: ANIMATION_STATES.ABOUT,
+          crystalForm: 'whole',
+          cameraState: 'about',
+          focusedFacet: null,
+          isTransitioning: false
+        };
+      }
+
+      return prev;
+    });
+  }, [clearDirectZoneOverride, config]);
 
   useEffect(() => {
     measureProjectSectionsFromDom();
@@ -573,6 +627,25 @@ export const useUnifiedAnimationController = (options = {}) => {
       ? activeProjectFromDom
       : calculateActiveProject(scrollProgress, config);
     const directOverrideProject = directProjectOverrideRef.current?.projectKey ?? null;
+    const directOverrideZone = directZoneOverrideRef.current?.zoneKey ?? null;
+
+    if (directOverrideZone && currentZone.zone !== directOverrideZone) {
+      setAnimationState(prev => ({
+        ...prev,
+        scrollProgress: scrollProgress,
+        zoneInfo: currentZone,
+        projectInfo: activeProject
+      }));
+
+      if (onStateChange) {
+        onStateChange(animationState);
+      }
+      return;
+    }
+
+    if (directOverrideZone && currentZone.zone === directOverrideZone) {
+      clearDirectZoneOverride();
+    }
     
     // ENHANCED: Log scroll updates for background debugging
     if (import.meta.env.DEV && Math.random() < 0.05) { // Sample 5% of updates
@@ -726,6 +799,7 @@ export const useUnifiedAnimationController = (options = {}) => {
     handleZoneTransition,
     handleProjectFocus,
     clearDirectProjectOverride,
+    clearDirectZoneOverride,
     onStateChange,
     animationState,
     debugMode
@@ -800,6 +874,7 @@ export const useUnifiedAnimationController = (options = {}) => {
     updateFromScrollProgress,
     setCameraSettled,
     setDirectProjectOverride,
+    setDirectZoneOverride,
     getProjectSectionStart,
     
     // Current configs for 3D components
@@ -814,7 +889,8 @@ export const useUnifiedAnimationController = (options = {}) => {
       lastProject: lastProject.current,
       cameraState: animationState.cameraState,
       crystalForm: animationState.crystalForm,
-      directProjectOverride: directProjectOverrideRef.current?.projectKey || null
+      directProjectOverride: directProjectOverrideRef.current?.projectKey || null,
+      directZoneOverride: directZoneOverrideRef.current?.zoneKey || null
     } : null
   };
 };
