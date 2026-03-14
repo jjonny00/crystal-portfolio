@@ -5,6 +5,7 @@ import Headline from '../ui/Headline';
 import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController';
 import { MQ_HOVER_CAPABLE } from '../../config/breakpoints';
 import { useLayoutConfig } from '../../hooks/useLayoutConfig';
+import '../../styles/facet-label.css';
 
 const OptimizedLabel = React.memo(function OptimizedLabel({
   project,
@@ -15,12 +16,13 @@ const OptimizedLabel = React.memo(function OptimizedLabel({
 }) {
   const glow1 = project.headlineColor;
   const glow2 = project.headlineColor;
+  const runtimeKey = project.crystalKey || project.facetKey;
 
   return (
     <div
       className="facet-label-optimized"
-      onPointerEnter={() => onHover?.(project.facetKey, true)}
-      onPointerLeave={() => onHover?.(project.facetKey, false)}
+      onPointerEnter={() => onHover?.(runtimeKey, true)}
+      onPointerLeave={() => onHover?.(runtimeKey, false)}
       onClick={onClick}
       style={{
         '--headline-ink': project.headlineColor,
@@ -35,7 +37,7 @@ const OptimizedLabel = React.memo(function OptimizedLabel({
         <Headline
           as="h3"
           className="label-title"
-          style={{ margin: 0, fontSize: '1.6rem' }}
+          style={{ margin: 0 }}
         >
           {project.label}
         </Headline>
@@ -152,7 +154,7 @@ const FacetLabels = React.memo(function FacetLabels({
 
   useEffect(() => {
     if (!inActiveOverview || !projects?.length) return;
-    const firstFacetKey = projects[0].facetKey;
+    const firstFacetKey = projects[0].crystalKey || projects[0].facetKey;
     const section = document.getElementById(`project-${firstFacetKey}`);
     if (!section) return;
 
@@ -239,25 +241,25 @@ const FacetLabels = React.memo(function FacetLabels({
         >
           {projects.map((project) => (
             <OptimizedLabel
-              key={project.facetKey}
+              key={project.id || project.facetKey}
               project={project}
               titleRef={(el) => {
                 if (el) {
-                  titleRefs.current.set(project.facetKey, el);
+                  titleRefs.current.set(project.crystalKey || project.facetKey, el);
                 } else {
-                  titleRefs.current.delete(project.facetKey);
+                  titleRefs.current.delete(project.crystalKey || project.facetKey);
                 }
               }}
               onHover={handleHover}
               onClick={() =>
                 {
-                  onDirectProjectSelect?.(project.facetKey);
+                  onDirectProjectSelect?.(project.crystalKey || project.facetKey);
                   if (scrollToProject) {
-                    scrollToProject(project.facetKey);
+                    scrollToProject(project.crystalKey || project.facetKey);
                     return;
                   }
                   scrollToProgress(
-                    ANIMATION_CONFIG.projectSections[project.facetKey].start,
+                    ANIMATION_CONFIG.projectSections[project.crystalKey || project.facetKey].start,
                   );
                 }
               }

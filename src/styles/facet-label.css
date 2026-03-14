@@ -9,13 +9,21 @@
 
 .label-title {
   margin: 0;
-  font-size: 1rem;
+  font-family: "ivypresto-display", "IvyPresto Display", "Playfair Display", Georgia, serif;
+  font-size: 36px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: normal;
+  text-transform: uppercase;
 }
 
 .label-description {
   margin-top: 0.25rem;
-  font-size: 1.25rem;
+  font-family: "acumin-variable", "Acumin VF", sans-serif;
+  font-size: 24px;
+  font-style: normal;
+  font-weight: 300;
+  line-height: normal;
   color: rgba(255, 255, 255, 0.85);
   text-shadow: 0 0 4px rgba(0, 0, 0, 0.7);
 }
-

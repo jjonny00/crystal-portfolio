@@ -443,26 +443,32 @@ function App() {
     }
   }, []);
 
-  const handleWorkClick = useCallback(() => {
-    if (import.meta.env.DEV) console.log('Navigate to work section');
+  const scrollToSection = useCallback((sectionId) => {
+    const target = document.getElementById(sectionId);
+    if (!target) return;
+
+    const scrollContainer = document.querySelector('.scroll-container');
+    if (scrollContainer) {
+      scrollContainer.scrollTo({ top: target.offsetTop, behavior: 'smooth' });
+      return;
+    }
+
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, []);
+
+  const handleHomeClick = useCallback(() => {
+    scrollToSection('hero');
+  }, [scrollToSection]);
+
+  const handleWorkClick = useCallback(() => {
+    scrollToSection('overview');
+  }, [scrollToSection]);
 
   const handleAboutClick = useCallback(() => {
-    if (import.meta.env.DEV) console.log('Navigate to about section');
-  }, []);
+    scrollToSection('about');
+  }, [scrollToSection]);
 
-  const handleProcessClick = useCallback(() => {
-    setMaterialVariant(prev => {
-      const variants = ['default', 'glass', 'gem', 'holographic'];
-      const currentIndex = variants.indexOf(prev);
-      const nextIndex = (currentIndex + 1) % variants.length;
-      return variants[nextIndex];
-    });
-  }, []);
-
-  const handleContactClick = useCallback(() => {
-    if (import.meta.env.DEV) console.log('Navigate to contact section');
-  }, []);
+  const handleContactClick = useCallback(() => {}, []);
 
   const handleConfigUpdate = useCallback((newConfig) => {
     setConfig(newConfig);
@@ -665,9 +671,9 @@ function App() {
       {/* Navigation Bar */}
       {!hideAllUI && (
         <Navigation
+          onHomeClick={handleHomeClick}
           onWorkClick={handleWorkClick}
           onAboutClick={handleAboutClick}
-          onProcessClick={handleProcessClick}
           onContactClick={handleContactClick}
         />
       )}

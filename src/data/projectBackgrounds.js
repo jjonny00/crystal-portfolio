@@ -1,52 +1,60 @@
-// ENHANCED: src/data/projectBackgrounds.js
-// Define color schemes for background gradients per project with better contrast and visual distinctiveness
-
 export const projectBackgrounds = {
-  // Default - Deep purple to gold (elegant, professional)
   default: {
-    colorA: '#28212e', // deeper purple  
-    colorB: '#3d2400'  // darker gold
+    colorA: '#28212e',
+    colorB: '#3d2400'
   },
-  
-  // Overview - Bright contrast for projects overview
   overview: {
-    colorA: '#29396b', // deep red-orange
-    colorB: '#0c0b0c'  // deep teal
+    colorA: '#29396b',
+    colorB: '#0c0b0c'
   },
-  
-  // Empathy - Warm and inviting (red to cyan)
-  empathy: {
-    colorA: '#08004d', // deep red
-    colorB: '#00a67f'  // deep cyan
+  // neutral keys in the same order as projects.js
+  project01: {
+    colorA: '#004d26',
+    colorB: '#4d0026'
   },
-  
-  // Narrative - Creative and inspiring (green to magenta) 
-  narrative: {
-    colorA: '#1a4d00', // deep forest green
-    colorB: '#4d004d'  // deep magenta
+  project02: {
+    colorA: '#001a4d',
+    colorB: '#4d4d00'
   },
-  
-  // Craft - Precision and focus (blue to yellow)
-  craft: {
-    colorA: '#001a4d', // deep navy blue
-    colorB: '#4d4d00'  // deep golden yellow
+  project03: {
+    colorA: '#1a4d00',
+    colorB: '#4d004d'
   },
-  
-  // System - Technical and structured (orange to azure)
-  system: {
-    colorA: '#4d2600', // deep orange
-    colorB: '#00264d'  // deep azure
+  project04: {
+    colorA: '#4d2600',
+    colorB: '#00264d'
   },
-  
-  // Leadership - Authority and vision (violet to chartreuse)
-  leadership: {
-    colorA: '#2d004d', // deep violet
-    colorB: '#334d00'  // deep chartreuse  
+  project05: {
+    colorA: '#2d004d',
+    colorB: '#334d00'
   },
-  
-  // Exploration - Discovery and innovation (spring green to fuchsia)
+  project06: {
+    colorA: '#08004d',
+    colorB: '#00a67f'
+  },
+  // runtime crystal keys
   exploration: {
-    colorA: '#004d26', // deep spring green
-    colorB: '#4d0026'  // deep fuchsia
+    colorA: '#004d26',
+    colorB: '#4d0026'
+  },
+  craft: {
+    colorA: '#001a4d',
+    colorB: '#4d4d00'
+  },
+  narrative: {
+    colorA: '#1a4d00',
+    colorB: '#4d004d'
+  },
+  system: {
+    colorA: '#4d2600',
+    colorB: '#00264d'
+  },
+  leadership: {
+    colorA: '#2d004d',
+    colorB: '#334d00'
+  },
+  empathy: {
+    colorA: '#08004d',
+    colorB: '#00a67f'
   }
 };

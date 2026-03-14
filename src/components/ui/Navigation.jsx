@@ -1,7 +1,5 @@
-// src/components/ui/Navigation.jsx
 import React, { useState, useEffect } from 'react';
 
-// Shared style constants to avoid recreation on each render
 const NAV_BASE_STYLE = {
   position: 'fixed',
   top: 0,
@@ -9,306 +7,105 @@ const NAV_BASE_STYLE = {
   right: 0,
   zIndex: 10000,
   transition: 'all 0.3s ease',
-  backgroundColor: 'transparent',
+  backgroundColor: 'transparent'
 };
 
 const NAV_INNER_STYLE = {
-  maxWidth: '1280px',
+  maxWidth: '1480px',
   margin: '0 auto',
-  padding: '0 24px',
+  padding: '0 32px',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
-  height: '80px',
+  height: '88px'
 };
 
-const LOGO_BUTTON_STYLE = {
+const NAME_BUTTON_STYLE = {
   background: 'none',
   border: 'none',
+  color: '#FFFAE3',
+  fontFamily: '"ivypresto-text", "IvyPresto Text", "ivypresto-display", Georgia, serif',
+  fontSize: '36px',
+  fontStyle: 'normal',
+  fontWeight: 400,
+  lineHeight: 'normal',
+  letterSpacing: '-2.88px',
+  textTransform: 'uppercase',
   cursor: 'pointer',
-  padding: '0',
-  display: 'flex',
-  alignItems: 'center',
-};
-
-const DESKTOP_NAV_CONTAINER_STYLE = {
-  alignItems: 'center',
-  gap: '2rem',
-  marginLeft: 'auto',
+  padding: 0
 };
 
 const NAV_ITEM_BASE_STYLE = {
   background: 'none',
   border: 'none',
-  color: 'white',
-  fontSize: '14px',
-  fontWeight: '500',
-  letterSpacing: '0.5px',
-  padding: '8px 0',
-  position: 'relative',
-  transition: 'all 0.2s ease',
-  fontFamily: '"acumin-variable", sans-serif',
+  color: '#FEFFDE',
+  fontFamily: '"acumin-variable", "Acumin VF", sans-serif',
+  fontSize: '24px',
+  fontStyle: 'normal',
+  fontWeight: 500,
+  lineHeight: 'normal',
   textTransform: 'uppercase',
+  cursor: 'pointer',
+  padding: 0
 };
 
-const MOBILE_MENU_BUTTON_BASE_STYLE = {
-  background: 'none',
-  border: 'none',
-  color: 'white',
-  padding: '8px',
-  borderRadius: '8px',
-  transition: 'background-color 0.2s ease',
-  marginLeft: '16px',
-};
-
-const MOBILE_NAV_CONTAINER_BASE_STYLE = {
-  overflow: 'hidden',
-  transition: 'all 0.3s ease',
-  borderTop: '1px solid rgba(100, 255, 218, 0.1)',
-  backgroundColor: 'rgba(5, 5, 5, 0.95)',
-  backdropFilter: 'blur(20px)',
-};
-
-const MOBILE_NAV_ITEM_STYLE = {
-  display: 'block',
-  width: '100%',
-  background: 'none',
-  border: 'none',
-  color: 'white',
-  fontSize: '16px',
-  fontWeight: '500',
-  padding: '12px 16px',
-  borderRadius: '8px',
-  transition: 'all 0.2s ease',
-  marginBottom: '4px',
-  textAlign: 'left',
-  fontFamily: '"acumin-variable", sans-serif',
-};
-
-const Navigation = ({
-  onWorkClick,
-  onAboutClick,
-  onProcessClick,
-  onContactClick,
-  isTransitioning = false,
-  crystalState = 'WHOLE'
-}) => {
+const Navigation = ({ onHomeClick, onWorkClick, onAboutClick, onContactClick, isTransitioning = false }) => {
   const [isScrolled, setIsScrolled] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(true);
 
   useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 20);
-    };
-
+    const handleScroll = () => setIsScrolled(window.scrollY > 20);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Track viewport width for responsive logic
   useEffect(() => {
-    const handleResize = () => {
-      setIsDesktop(window.innerWidth >= 1024);
-    };
-
+    const handleResize = () => setIsDesktop(window.innerWidth >= 1024);
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Handle mobile menu close when transitioning states
-  useEffect(() => {
-    if (isTransitioning) {
-      setIsMobileMenuOpen(false);
-    }
-  }, [isTransitioning]);
-
-  // Simple SVG icons to replace lucide-react dependency
-  const MenuIcon = () => (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M4 6H20M4 12H20M4 18H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-  );
-
-  const XIcon = () => (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-  );
-
-  // Your custom logo
-  const Logo = () => (
-    <img 
-      src="/assets/images/jonshaw.svg" 
-      alt="Jon Shaw Logo" 
-      width="100" 
-      height="auto"
-      style={{
-        display: 'block'
-      }}
-      onError={(e) => {
-        // Fallback if SVG doesn't load
-        if (import.meta.env.DEV) console.warn('Logo failed to load, check path: /assets/logo/jonshaw.svg');
-        e.target.style.display = 'none';
-      }}
-    />
-  );
-
   const navItems = [
-    { 
-      label: 'Work', 
-      onClick: onWorkClick,
-      description: 'View my projects and case studies'
-    },
-    { 
-      label: 'About', 
-      onClick: onAboutClick,
-      description: 'Learn about my design approach'
-    },
-    { 
-      label: 'Process', 
-      onClick: onProcessClick,
-      description: 'Explore my design methodology'
-    },
-    { 
-      label: 'Contact', 
-      onClick: onContactClick,
-      description: 'Let\'s work together'
-    }
+    { label: 'WORK', onClick: onWorkClick },
+    { label: 'ABOUT', onClick: onAboutClick },
+    { label: 'CONTACT', onClick: onContactClick }
   ];
 
   return (
     <nav
       style={{
         ...NAV_BASE_STYLE,
-        backdropFilter: isScrolled ? 'blur(20px)' : 'none',
-        borderBottom: isScrolled
-          ? '1px solid rgba(100, 255, 218, 0.1)'
-          : '1px solid transparent',
-        boxShadow: isScrolled
-          ? '0 4px 20px rgba(0, 0, 0, 0.3)'
-          : 'none'
+        backdropFilter: isScrolled ? 'blur(8px)' : 'none'
       }}
     >
       <div style={NAV_INNER_STYLE}>
-        
-        {/* Logo - Left aligned */}
-        <div style={{ flex: '0 0 auto' }}>
-          <button
-            onClick={() => window.location.reload()} // Reset to home state
-            style={LOGO_BUTTON_STYLE}
-            aria-label="Home"
-            disabled={isTransitioning}
-          >
-            <Logo />
-          </button>
-        </div>
-
-        {/* Desktop Navigation */}
-        <div
+        <button
+          onClick={onHomeClick}
           style={{
-            ...DESKTOP_NAV_CONTAINER_STYLE,
-            display: isDesktop ? 'flex' : 'none'
+            ...NAME_BUTTON_STYLE,
+            fontSize: isDesktop ? '36px' : '28px',
+            opacity: isTransitioning ? 0.6 : 1
           }}
+          disabled={isTransitioning}
+          aria-label="Go to hero section"
         >
-          {navItems.map((item, index) => (
+          JONSHAW
+        </button>
+
+        <div style={{ display: 'flex', gap: isDesktop ? '34px' : '16px', alignItems: 'center' }}>
+          {navItems.map((item) => (
             <button
               key={item.label}
               onClick={item.onClick}
               disabled={isTransitioning}
               style={{
                 ...NAV_ITEM_BASE_STYLE,
-                cursor: isTransitioning ? 'not-allowed' : 'pointer',
-                opacity: isTransitioning ? 0.5 : 1
+                fontSize: isDesktop ? '24px' : '18px',
+                opacity: isTransitioning ? 0.6 : 1
               }}
-              onMouseEnter={(e) => {
-                if (!isTransitioning) {
-                  e.currentTarget.style.color = '#64ffda';
-                  // Add glow effect
-                  e.currentTarget.style.textShadow = '0 0 8px rgba(100, 255, 218, 0.6)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color = 'white';
-                e.currentTarget.style.textShadow = 'none';
-              }}
-              title={item.description}
             >
               {item.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Mobile Menu Button */}
-        <button
-          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          disabled={isTransitioning}
-          style={{
-            ...MOBILE_MENU_BUTTON_BASE_STYLE,
-            display: isDesktop ? 'none' : 'block',
-            cursor: isTransitioning ? 'not-allowed' : 'pointer',
-            opacity: isTransitioning ? 0.5 : 1
-          }}
-          onMouseEnter={(e) => {
-            if (!isTransitioning) {
-              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
-            }
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = 'transparent';
-          }}
-          aria-label="Toggle menu"
-        >
-          {isMobileMenuOpen ? <XIcon /> : <MenuIcon />}
-        </button>
-      </div>
-
-      {/* Mobile Navigation Menu - Keep existing blur for dropdown */}
-      <div
-        style={{
-          ...MOBILE_NAV_CONTAINER_BASE_STYLE,
-          display: isDesktop ? 'none' : 'block',
-          maxHeight: isMobileMenuOpen ? '256px' : '0',
-          opacity: isMobileMenuOpen ? 1 : 0,
-          borderTop: isMobileMenuOpen ? '1px solid rgba(100, 255, 218, 0.1)' : 'none'
-        }}
-      >
-        <div style={{ padding: '16px 24px' }}>
-          {navItems.map((item) => (
-            <button
-              key={item.label}
-              onClick={() => {
-                setIsMobileMenuOpen(false);
-                item.onClick?.();
-              }}
-              disabled={isTransitioning}
-              style={{
-                ...MOBILE_NAV_ITEM_STYLE,
-                cursor: isTransitioning ? 'not-allowed' : 'pointer',
-                opacity: isTransitioning ? 0.5 : 1
-              }}
-              onMouseEnter={(e) => {
-                if (!isTransitioning) {
-                  e.currentTarget.style.backgroundColor = 'rgba(100, 255, 218, 0.1)';
-                  e.currentTarget.style.color = '#64ffda';
-                }
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'transparent';
-                e.currentTarget.style.color = 'white';
-              }}
-            >
-              <div style={{ fontWeight: '600', marginBottom: '2px' }}>
-                {item.label}
-              </div>
-              <div style={{ 
-                fontSize: '12px', 
-                opacity: 0.7, 
-                color: 'rgba(255, 255, 255, 0.6)' 
-              }}>
-                {item.description}
-              </div>
             </button>
           ))}
         </div>
