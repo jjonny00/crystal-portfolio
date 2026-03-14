@@ -172,7 +172,7 @@ const ScrollablePortfolio = ({
         {projects.map((project, index) => (
           <section
             key={project.id}
-            id={`project-${project.facetKey}`}
+            id={`project-${project.crystalKey}`}
             className="scroll-section project"
             data-headline-color={project.color}
             style={{

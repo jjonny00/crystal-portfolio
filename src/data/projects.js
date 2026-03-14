@@ -5,6 +5,7 @@ export const projects = [
     id: 'project01',
     facetKey: 'project01',
     modelKey: 'project01',
+    crystalKey: 'craft',
     title: 'MESA',
     subtitle: 'Asynchronous Multiplayer · iOS',
     description:
@@ -23,6 +24,7 @@ export const projects = [
     id: 'project02',
     facetKey: 'project02',
     modelKey: 'project02',
+    crystalKey: 'narrative',
     title: 'FUNDSEEDER',
     subtitle: 'Competitive Platform · Web',
     description:
@@ -40,6 +42,7 @@ export const projects = [
     id: 'project03',
     facetKey: 'project03',
     modelKey: 'project03',
+    crystalKey: 'empathy',
     title: 'GE EXPERIENCE CENTERS',
     subtitle: 'Spatial Platform · Global Installations',
     description:
@@ -57,9 +60,11 @@ export const projects = [
     id: 'project04',
     facetKey: 'project04',
     modelKey: 'project04',
+    crystalKey: 'system',
     title: 'PROJECT 04',
     subtitle: 'Placeholder Category · Platform',
-    description: 'Dummy project content while details are being finalized. This section is intentionally neutral and ready to be replaced.',
+    description:
+      'Dummy project content while details are being finalized. This section is intentionally neutral and ready to be replaced.',
     secondaryCopy: 'Add final narrative, outcomes, and role details here.',
     cta: 'View Case Study →',
     technologies: ['TBD', 'TBD', 'TBD'],
@@ -72,9 +77,11 @@ export const projects = [
     id: 'project05',
     facetKey: 'project05',
     modelKey: 'project05',
+    crystalKey: 'leadership',
     title: 'PROJECT 05',
     subtitle: 'Placeholder Category · Platform',
-    description: 'Dummy project content while details are being finalized. This section is intentionally neutral and ready to be replaced.',
+    description:
+      'Dummy project content while details are being finalized. This section is intentionally neutral and ready to be replaced.',
     secondaryCopy: 'Add final narrative, outcomes, and role details here.',
     cta: 'View Case Study →',
     technologies: ['TBD', 'TBD', 'TBD'],
@@ -87,9 +94,11 @@ export const projects = [
     id: 'project06',
     facetKey: 'project06',
     modelKey: 'project06',
+    crystalKey: 'exploration',
     title: 'PROJECT 06',
     subtitle: 'Placeholder Category · Platform',
-    description: 'Dummy project content while details are being finalized. This section is intentionally neutral and ready to be replaced.',
+    description:
+      'Dummy project content while details are being finalized. This section is intentionally neutral and ready to be replaced.',
     secondaryCopy: 'Add final narrative, outcomes, and role details here.',
     cta: 'View Case Study →',
     technologies: ['TBD', 'TBD', 'TBD'],
@@ -100,12 +109,17 @@ export const projects = [
   }
 ];
 
-export const facetKeys = projects.map((project) => project.facetKey);
+export const facetKeys = projects.map((project) => project.crystalKey);
 export const orderedFacetKeys = [...facetKeys];
 
-const projectByFacetKey = new Map(projects.map((project) => [project.facetKey, project]));
+const projectByAnyFacetKey = new Map(
+  projects.flatMap((project) => [
+    [project.facetKey, project],
+    [project.crystalKey, project]
+  ])
+);
 
-const getProjectByFacetKey = (facetKey) => projectByFacetKey.get(facetKey) || null;
+const getProjectByFacetKey = (facetKey) => projectByAnyFacetKey.get(facetKey) || null;
 
 export const getProjectModelKeyByFacetKey = (facetKey) => {
   const project = getProjectByFacetKey(facetKey);

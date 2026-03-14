@@ -1,14 +1,25 @@
 import React from 'react';
 import Headline from '../ui/Headline';
 
+const CONTENT_COLUMN_STYLE = {
+  position: 'relative',
+  zIndex: 2,
+  width: 'min(34vw, 700px)',
+  minWidth: '460px',
+  marginLeft: '11vw',
+  marginRight: 0,
+  color: 'rgba(255,255,255,0.95)'
+};
+
 const ProjectFocusSection = ({ project, isMobile = false }) => {
   if (!project) return null;
 
   const headlineColor = project.headlineColor || project.color || '#ffffff';
+  const sectionIdKey = project.crystalKey || project.facetKey;
 
   return (
     <section
-      id={`project-${project.facetKey}`}
+      id={`project-${sectionIdKey}`}
       className="scroll-section project"
       data-headline-color={headlineColor}
       style={{
@@ -16,46 +27,29 @@ const ProjectFocusSection = ({ project, isMobile = false }) => {
         position: 'relative',
         overflow: 'hidden',
         display: 'flex',
-        alignItems: 'center'
+        alignItems: 'center',
+        justifyContent: 'flex-start',
+        background: 'transparent'
       }}
     >
-      {project.imageUrl && (
-        <img
-          src={project.imageUrl}
-          alt={project.title}
-          style={{
-            position: 'absolute',
-            inset: 0,
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover'
-          }}
-        />
-      )}
-
       <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          background: 'linear-gradient(90deg, rgba(18, 10, 28, 0.86) 0%, rgba(25, 14, 35, 0.74) 42%, rgba(11, 8, 20, 0.1) 100%)'
-        }}
-      />
-
-      <div
-        style={{
-          position: 'relative',
-          zIndex: 2,
-          width: 'min(760px, 92vw)',
-          marginLeft: isMobile ? '4vw' : '12vw',
-          marginRight: isMobile ? '4vw' : 0,
-          color: 'rgba(255,255,255,0.95)'
-        }}
+        style={
+          isMobile
+            ? {
+                ...CONTENT_COLUMN_STYLE,
+                width: 'min(92vw, 680px)',
+                minWidth: 'unset',
+                marginLeft: '5vw',
+                marginRight: '5vw'
+              }
+            : CONTENT_COLUMN_STYLE
+        }
       >
         <Headline
           as="h1"
           style={{
             margin: 0,
-            fontSize: isMobile ? 'clamp(3rem, 10vw, 4rem)' : 'clamp(4rem, 8vw, 6.2rem)',
+            fontSize: isMobile ? 'clamp(3rem, 10vw, 4rem)' : 'clamp(4.1rem, 7.2vw, 6.4rem)',
             lineHeight: 0.95,
             fontFamily: '"ivypresto-display", "Playfair Display", Georgia, serif',
             '--headline-ink': headlineColor,
