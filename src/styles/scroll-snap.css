@@ -55,7 +55,8 @@ body {
   right: 0 !important;
   
   /* Force it to be the scroll container */
-  height: 100vh !important;
+  /* Use CSS custom property for iOS 26 fix */
+  height: calc(var(--vh, 1vh) * 100) !important;
   overflow-y: auto !important;
   overflow-x: hidden !important;
   
@@ -82,9 +83,10 @@ body {
   scroll-snap-stop: always !important;
   
   /* Force exact viewport height */
-  height: 100vh !important;
-  min-height: 100vh !important;
-  max-height: 100vh !important;
+  /* Use CSS custom property for iOS 26 fix */
+  height: calc(var(--vh, 1vh) * 100) !important;
+  min-height: calc(var(--vh, 1vh) * 100) !important;
+  max-height: calc(var(--vh, 1vh) * 100) !important;
   
   /* Prevent internal scrolling */
   overflow: hidden !important;
@@ -117,9 +119,10 @@ body {
   /* Force these critical properties */
   scroll-snap-align: start !important;
   scroll-snap-stop: always !important;
-  height: 100vh !important;
-  min-height: 100vh !important;
-  max-height: 100vh !important;
+  /* Use CSS custom property for iOS 26 fix */
+  height: calc(var(--vh, 1vh) * 100) !important;
+  min-height: calc(var(--vh, 1vh) * 100) !important;
+  max-height: calc(var(--vh, 1vh) * 100) !important;
   overflow: hidden !important;
   
   /* Center content */
@@ -203,7 +206,8 @@ html .scroll-container.no-snap .scroll-section {
   
   .scroll-container {
     /* Keep scroll container approach on mobile */
-    height: 100vh !important;
+    /* Use CSS custom property for iOS 26 fix */
+    height: calc(var(--vh, 1vh) * 100) !important;
     overflow-y: auto !important;
     scroll-snap-type: y proximity !important;
     pointer-events: auto !important;
@@ -232,13 +236,10 @@ html .scroll-container.no-snap .scroll-section {
   .scroll-section {
     /* Mobile sections */
     scroll-snap-align: start !important;
-    height: 100vh !important;
-    min-height: 100vh !important;
-    max-height: 100vh !important;
-    
-    /* Use iOS safe areas if available */
-    height: 100vh !important;
-    min-height: 100vh !important;
+    /* Use CSS custom property for iOS 26 fix */
+    height: calc(var(--vh, 1vh) * 100) !important;
+    min-height: calc(var(--vh, 1vh) * 100) !important;
+    max-height: calc(var(--vh, 1vh) * 100) !important;
   }
   
   /* Mobile-specific fixes for iOS */

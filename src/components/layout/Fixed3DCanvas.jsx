@@ -363,7 +363,9 @@ const Fixed3DCanvas = forwardRef(({
         top: 0,
         left: 0,
         width: '100vw',
-        height: '100vh',
+        width: '100dvw',
+        // Use CSS custom property for iOS 26 fix, fallback to dvh, then vh
+        height: 'calc(var(--vh, 1vh) * 100)',
         zIndex: 1, // Behind scrollable content (which is z-index 10)
         pointerEvents: 'none', // Don't block scrolling
       }}>
