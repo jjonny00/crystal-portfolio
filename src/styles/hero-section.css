@@ -18,6 +18,7 @@
 }
 
 .hero-section__title {
+  --headline-ink: #ff1e00;
   font-family: 'ivypresto-display', 'IvyPresto Display', 'Playfair Display', Georgia, serif;
   font-style: normal;
   font-size: clamp(5.5rem, 14vw, 12.5rem);
@@ -28,6 +29,7 @@
   margin: 0;
   max-inline-size: min(100%, 7ch);
   text-wrap: balance;
+  color: #ff1e00;
   text-shadow: none;
   animation: none;
 }
