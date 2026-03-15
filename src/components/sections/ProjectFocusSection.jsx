@@ -6,8 +6,6 @@ const ProjectFocusSection = ({ project, isMobile = false, visible = true }) => {
   if (!project) return null;
 
   const headlineColor = project.headlineColor || project.color || '#ffffff';
-  const sectionIdKey = project.crystalKey || project.facetKey;
-
   const contentWidth = isMobile ? '100%' : 'min(34vw, 640px)';
 
   const contentSpring = useSpring({
@@ -27,10 +25,7 @@ const ProjectFocusSection = ({ project, isMobile = false, visible = true }) => {
   });
 
   return (
-    <section
-      id={`project-${sectionIdKey}`}
-      className="scroll-section project"
-      data-headline-color={headlineColor}
+    <div
       style={{
         height: '100vh',
         width: '100%',
@@ -189,7 +184,7 @@ const ProjectFocusSection = ({ project, isMobile = false, visible = true }) => {
           )}
         </div>
       </animated.div>
-    </section>
+    </div>
   );
 };
 

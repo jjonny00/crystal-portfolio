@@ -6,6 +6,7 @@ import ProjectFocusSection from '../sections/ProjectFocusSection';
 import AboutSection from '../sections/AboutSection';
 import { projects } from '../../data/projects';
 import { isMobileDevice } from '../../utils/isMobileDevice.js';
+import { MQ_MOBILE } from '../../config/breakpoints';
 
 const SECTION_SETTLE_DELAY_MS = 220;
 
@@ -13,12 +14,34 @@ const ScrollablePortfolio = ({
   snapSpeed = 'medium',
   hideContent = false
 }) => {
-  const isMobile = isMobileDevice();
+  const [isMobileViewport, setIsMobileViewport] = useState(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return isMobileDevice();
+    }
+
+    return window.matchMedia(MQ_MOBILE).matches || isMobileDevice();
+  });
   const containerRef = useRef(null);
   const settleTimeoutRef = useRef(null);
 
   const [settledSectionId, setSettledSectionId] = useState('hero');
 
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return undefined;
+
+    const mobileMq = window.matchMedia(MQ_MOBILE);
+    const syncViewport = (event) => {
+      setIsMobileViewport(event.matches || isMobileDevice());
+    };
+
+    syncViewport(mobileMq);
+    mobileMq.addEventListener('change', syncViewport);
+
+    return () => {
+      mobileMq.removeEventListener('change', syncViewport);
+    };
+  }, []);
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -121,7 +144,7 @@ const ScrollablePortfolio = ({
         zIndex: 10,
         WebkitOverflowScrolling: 'touch',
         backgroundColor: 'transparent',
-        pointerEvents: isMobile ? 'auto' : 'none',
+        pointerEvents: isMobileViewport ? 'auto' : 'none',
         margin: 0,
         padding: 0,
         boxSizing: 'border-box',
@@ -139,6 +162,7 @@ const ScrollablePortfolio = ({
         <section
           id="hero"
           className="scroll-section"
+          data-headline-color="#e1d2bc"
           style={{
             height: '100vh',
             minHeight: '100vh',
@@ -206,7 +230,7 @@ const ScrollablePortfolio = ({
             >
               <ProjectFocusSection
                 project={project}
-                isMobile={isMobile}
+                isMobile={isMobileViewport}
                 visible={settledSectionId === sectionId}
               />
             </section>

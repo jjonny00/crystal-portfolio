@@ -229,6 +229,17 @@ html .scroll-container.no-snap .scroll-section {
     scroll-snap-type: y proximity !important;
   }
   
+
+
+  #hero,
+  #overview,
+  [id^="project-"],
+  #about {
+    padding: 0 !important;
+    align-items: stretch !important;
+    justify-content: flex-start !important;
+  }
+
   .scroll-section {
     /* Mobile sections */
     scroll-snap-align: start !important;
