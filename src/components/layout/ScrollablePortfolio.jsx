@@ -5,8 +5,7 @@ import HeroSection from '../sections/HeroSection';
 import ProjectFocusSection from '../sections/ProjectFocusSection';
 import AboutSection from '../sections/AboutSection';
 import { projects } from '../../data/projects';
-import { isMobileDevice } from '../../utils/isMobileDevice.js';
-import { MQ_MOBILE } from '../../config/breakpoints';
+import { useLayoutConfig } from '../../hooks/useLayoutConfig';
 
 const SECTION_SETTLE_DELAY_MS = 220;
 
@@ -14,34 +13,12 @@ const ScrollablePortfolio = ({
   snapSpeed = 'medium',
   hideContent = false
 }) => {
-  const [isMobileViewport, setIsMobileViewport] = useState(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-      return isMobileDevice();
-    }
-
-    return window.matchMedia(MQ_MOBILE).matches || isMobileDevice();
-  });
+  const { variant } = useLayoutConfig();
+  const isMobileViewport = variant === 'mobile';
   const containerRef = useRef(null);
   const settleTimeoutRef = useRef(null);
 
   const [settledSectionId, setSettledSectionId] = useState('hero');
-
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return undefined;
-
-    const mobileMq = window.matchMedia(MQ_MOBILE);
-    const syncViewport = (event) => {
-      setIsMobileViewport(event.matches || isMobileDevice());
-    };
-
-    syncViewport(mobileMq);
-    mobileMq.addEventListener('change', syncViewport);
-
-    return () => {
-      mobileMq.removeEventListener('change', syncViewport);
-    };
-  }, []);
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
