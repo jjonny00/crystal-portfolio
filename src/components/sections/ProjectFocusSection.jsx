@@ -6,7 +6,6 @@ const ProjectFocusSection = ({ project, isMobile = false, visible = true }) => {
   if (!project) return null;
 
   const headlineColor = project.headlineColor || project.color || '#ffffff';
-  const isGeoProject = project.id === 'project06' || project.title === 'GE EXPERIENCE CENTERS';
   const contentWidth = isMobile ? '100%' : 'min(34vw, 640px)';
 
   const contentSpring = useSpring({
@@ -63,7 +62,7 @@ const ProjectFocusSection = ({ project, isMobile = false, visible = true }) => {
             display: 'grid',
             gridTemplateColumns: '1fr',
             gap: isMobile ? '0.9rem' : '0',
-            textAlign: isGeoProject ? 'center' : 'left'
+            textAlign: 'left'
           }}
         >
           <Headline
@@ -172,7 +171,7 @@ const ProjectFocusSection = ({ project, isMobile = false, visible = true }) => {
               style={{
                 margin: isMobile ? '1rem 0 0' : '46px 0 0',
                 color: headlineColor,
-                textAlign: isGeoProject ? 'center' : (isMobile ? 'left' : 'center'),
+                textAlign: isMobile ? 'left' : 'center',
                 fontFamily: '"acumin-variable", "Acumin VF", sans-serif',
                 fontSize: isMobile ? '20px' : '24px',
                 fontStyle: 'normal',

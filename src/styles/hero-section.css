@@ -136,6 +136,7 @@
 
   .hero-section__content {
     width: 100%;
+    text-align: center;
   }
 
   .hero-section__title {
@@ -146,7 +147,8 @@
 
   .hero-section__body-block {
     margin-top: clamp(1.1rem, 3.5vh, 1.8rem);
-    max-inline-size: 100%;
+    max-inline-size: min(100%, 40rem);
+    margin-inline: auto;
   }
 
   .hero-section__body-copy {
