@@ -6,6 +6,7 @@ const ProjectFocusSection = ({ project, isMobile = false, visible = true }) => {
   if (!project) return null;
 
   const headlineColor = project.headlineColor || project.color || '#ffffff';
+  const isGeoProject = project.id === 'project06' || project.title === 'GE EXPERIENCE CENTERS';
   const contentWidth = isMobile ? '100%' : 'min(34vw, 640px)';
 
   const contentSpring = useSpring({
@@ -61,7 +62,8 @@ const ProjectFocusSection = ({ project, isMobile = false, visible = true }) => {
             maxWidth: '100%',
             display: 'grid',
             gridTemplateColumns: '1fr',
-            gap: isMobile ? '0.9rem' : '0'
+            gap: isMobile ? '0.9rem' : '0',
+            textAlign: isGeoProject ? 'center' : 'left'
           }}
         >
           <Headline
@@ -107,7 +109,7 @@ const ProjectFocusSection = ({ project, isMobile = false, visible = true }) => {
               fontSize: isMobile ? '18px' : '24px',
               fontStyle: 'normal',
               fontWeight: 300,
-              lineHeight: isMobile ? '1.45' : '30px',
+              lineHeight: isMobile ? '1.38' : '30px',
               letterSpacing: isMobile ? '-0.24px' : '-0.48px'
             }}
           >
@@ -123,7 +125,7 @@ const ProjectFocusSection = ({ project, isMobile = false, visible = true }) => {
                 fontSize: isMobile ? '18px' : '24px',
                 fontStyle: 'normal',
                 fontWeight: 300,
-                lineHeight: isMobile ? '1.45' : '30px',
+                lineHeight: isMobile ? '1.38' : '30px',
                 letterSpacing: isMobile ? '-0.24px' : '-0.48px'
               }}
             >
@@ -140,7 +142,7 @@ const ProjectFocusSection = ({ project, isMobile = false, visible = true }) => {
                 fontSize: isMobile ? '18px' : '24px',
                 fontStyle: 'normal',
                 fontWeight: 300,
-                lineHeight: isMobile ? '1.45' : '30px',
+                lineHeight: isMobile ? '1.38' : '30px',
                 letterSpacing: isMobile ? '-0.24px' : '-0.48px'
               }}
             >
@@ -157,7 +159,7 @@ const ProjectFocusSection = ({ project, isMobile = false, visible = true }) => {
                 fontSize: isMobile ? '18px' : '24px',
                 fontStyle: 'normal',
                 fontWeight: 300,
-                lineHeight: isMobile ? '1.45' : '30px',
+                lineHeight: isMobile ? '1.38' : '30px',
                 letterSpacing: isMobile ? '-0.24px' : '-0.48px'
               }}
             >
@@ -170,7 +172,7 @@ const ProjectFocusSection = ({ project, isMobile = false, visible = true }) => {
               style={{
                 margin: isMobile ? '1rem 0 0' : '46px 0 0',
                 color: headlineColor,
-                textAlign: isMobile ? 'left' : 'center',
+                textAlign: isGeoProject ? 'center' : (isMobile ? 'left' : 'center'),
                 fontFamily: '"acumin-variable", "Acumin VF", sans-serif',
                 fontSize: isMobile ? '20px' : '24px',
                 fontStyle: 'normal',
