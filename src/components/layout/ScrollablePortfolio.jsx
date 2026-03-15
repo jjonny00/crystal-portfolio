@@ -206,6 +206,7 @@ const ScrollablePortfolio = ({
             >
               <ProjectFocusSection
                 project={project}
+                isMobile={isMobile}
                 visible={settledSectionId === sectionId}
               />
             </section>

@@ -124,3 +124,38 @@
     max-inline-size: min(100%, 38rem);
   }
 }
+
+
+@media (max-width: 767px) {
+  .hero-section {
+    width: 100%;
+    align-items: flex-end;
+    justify-content: flex-start;
+    padding: clamp(4.5rem, 12vh, 6.5rem) 16px calc(5.5rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .hero-section__content {
+    width: 100%;
+  }
+
+  .hero-section__title {
+    max-inline-size: 100%;
+    font-size: clamp(3rem, 14vw, 4.5rem);
+    line-height: 0.92;
+  }
+
+  .hero-section__body-block {
+    margin-top: clamp(1.1rem, 3.5vh, 1.8rem);
+    max-inline-size: 100%;
+  }
+
+  .hero-section__body-copy {
+    font-size: clamp(1rem, 4.7vw, 1.18rem);
+    line-height: 1.4;
+    letter-spacing: -0.02em;
+  }
+
+  .hero-section__scroll-hint {
+    bottom: calc(0.9rem + env(safe-area-inset-bottom, 0px));
+  }
+}
