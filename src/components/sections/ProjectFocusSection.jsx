@@ -6,6 +6,7 @@ const ProjectFocusSection = ({ project, isMobile = false, visible = true }) => {
   if (!project) return null;
 
   const headlineColor = project.headlineColor || project.color || '#ffffff';
+  const displayProject = isMobile && project.mobile ? { ...project, ...project.mobile } : project;
   const contentWidth = isMobile ? '100%' : 'min(34vw, 640px)';
 
   const contentSpring = useSpring({
@@ -81,7 +82,7 @@ const ProjectFocusSection = ({ project, isMobile = false, visible = true }) => {
               '--headline-glow2': headlineColor
             }}
           >
-            {project.title}
+            {displayProject.title}
           </Headline>
 
           <p
@@ -97,7 +98,7 @@ const ProjectFocusSection = ({ project, isMobile = false, visible = true }) => {
               textTransform: 'uppercase'
             }}
           >
-            {project.subtitle}
+            {displayProject.subtitle}
           </p>
 
           <p
@@ -112,10 +113,10 @@ const ProjectFocusSection = ({ project, isMobile = false, visible = true }) => {
               letterSpacing: isMobile ? '-0.24px' : '-0.48px'
             }}
           >
-            {project.description}
+            {displayProject.description}
           </p>
 
-          {project.secondaryCopy && (
+          {displayProject.secondaryCopy && (
             <p
               style={{
                 margin: isMobile ? '0.2rem 0 0' : '30px 0 0',
@@ -128,11 +129,11 @@ const ProjectFocusSection = ({ project, isMobile = false, visible = true }) => {
                 letterSpacing: isMobile ? '-0.24px' : '-0.48px'
               }}
             >
-              {project.secondaryCopy}
+              {displayProject.secondaryCopy}
             </p>
           )}
 
-          {project.metrics && (
+          {displayProject.metrics && (
             <p
               style={{
                 margin: isMobile ? '0.2rem 0 0' : '30px 0 0',
@@ -145,11 +146,11 @@ const ProjectFocusSection = ({ project, isMobile = false, visible = true }) => {
                 letterSpacing: isMobile ? '-0.24px' : '-0.48px'
               }}
             >
-              {project.metrics}
+              {displayProject.metrics}
             </p>
           )}
 
-          {project.roles && (
+          {displayProject.roles && (
             <p
               style={{
                 margin: 0,
@@ -162,11 +163,11 @@ const ProjectFocusSection = ({ project, isMobile = false, visible = true }) => {
                 letterSpacing: isMobile ? '-0.24px' : '-0.48px'
               }}
             >
-              {project.roles}
+              {displayProject.roles}
             </p>
           )}
 
-          {project.cta && (
+          {displayProject.cta && (
             <p
               style={{
                 margin: isMobile ? '1rem 0 0' : '46px 0 0',
@@ -180,7 +181,7 @@ const ProjectFocusSection = ({ project, isMobile = false, visible = true }) => {
                 letterSpacing: '-0.48px'
               }}
             >
-              {project.cta}
+              {displayProject.cta}
             </p>
           )}
         </div>
