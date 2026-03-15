@@ -129,9 +129,9 @@
 @media (max-width: 767px) {
   .hero-section {
     width: 100%;
-    align-items: flex-end;
+    align-items: center;
     justify-content: flex-start;
-    padding: clamp(4.5rem, 12vh, 6.5rem) 16px calc(5.5rem + env(safe-area-inset-bottom, 0px));
+    padding: clamp(4rem, 10vh, 6rem) 16px calc(2.75rem + env(safe-area-inset-bottom, 0px));
   }
 
   .hero-section__content {
