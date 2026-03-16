@@ -183,6 +183,12 @@ export const getProjectModelKeyByFacetKey = (facetKey) => {
 };
 
 
+
+export const getProjectCrystalKeyByFacetKey = (facetKey) => {
+  const project = getProjectByFacetKey(facetKey);
+  return project?.crystalKey || facetKey;
+};
+
 export const getProjectPlacementKeyByFacetKey = (facetKey) => {
   const project = getProjectByFacetKey(facetKey);
   return project?.placementKey || project?.crystalKey || facetKey;

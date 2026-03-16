@@ -17,7 +17,8 @@ import projects, {
   facetKeys as canonicalFacetKeys,
   getProjectColorByFacetKey,
   getProjectModelKeyByFacetKey,
-  getProjectPlacementKeyByFacetKey
+  getProjectPlacementKeyByFacetKey,
+  getProjectCrystalKeyByFacetKey
 } from '../../data/projects'
 import FacetLabels from './FacetLabels'
 import HoverConnectorLine from './HoverConnectorLine'
@@ -204,6 +205,15 @@ const UnifiedCrystalScene = forwardRef(({
 
   const facetPlacementKeys = useMemo(
     () => Object.fromEntries(facetKeys.map((key) => [key, getProjectPlacementKeyByFacetKey(key)])),
+    [facetKeys]
+  );
+
+
+  const resolveSceneFacetKey = useCallback(
+    (facetKey) => {
+      const candidate = getProjectCrystalKeyByFacetKey(facetKey);
+      return facetKeys.includes(candidate) ? candidate : facetKey;
+    },
     [facetKeys]
   );
 
@@ -578,9 +588,9 @@ const UnifiedCrystalScene = forwardRef(({
 
   const handleLabelHover = useCallback(
     (facetKey, hovering) => {
-      updateHoverSources(facetKey, 'label', hovering);
+      updateHoverSources(resolveSceneFacetKey(facetKey), 'label', hovering);
     },
-    [updateHoverSources]
+    [updateHoverSources, resolveSceneFacetKey]
   );
 
   const handleDomAnchorChange = useCallback((facetKey, clientPointOrNull) => {
@@ -590,34 +600,41 @@ const UnifiedCrystalScene = forwardRef(({
       return;
     }
 
-    setHoveredLabelFacetKey(facetKey);
+    setHoveredLabelFacetKey(resolveSceneFacetKey(facetKey));
     setDomAnchorClient(clientPointOrNull);
-  }, []);
+  }, [resolveSceneFacetKey]);
 
 
   const handleFacetHover = useCallback(
     (facetKey, hovering) => {
-      updateHoverSources(facetKey, 'facet', hovering);
+      updateHoverSources(resolveSceneFacetKey(facetKey), 'facet', hovering);
     },
-    [updateHoverSources]
+    [updateHoverSources, resolveSceneFacetKey]
+  );
+
+
+  const getProjectByAnyFacetKeySafe = useCallback(
+    (facetKey) => projects.find((project) => project.facetKey === facetKey || project.crystalKey === facetKey)?.facetKey || facetKey,
+    []
   );
 
   const handleFacetClick = useCallback(
     (facetKey) => {
       if (!inActiveOverview) return;
+      const projectFacetKey = getProjectByAnyFacetKeySafe(facetKey);
       const sectionStart = scrollToProject
         ? null
-        : ANIMATION_CONFIG.projectSections?.[facetKey]?.start;
+        : ANIMATION_CONFIG.projectSections?.[projectFacetKey]?.start;
       if (scrollToProject) {
-        onDirectProjectSelect?.(facetKey);
-        scrollToProject(facetKey);
+        onDirectProjectSelect?.(projectFacetKey);
+        scrollToProject(projectFacetKey);
         return;
       }
       if (sectionStart === undefined) return;
-      onDirectProjectSelect?.(facetKey);
+      onDirectProjectSelect?.(projectFacetKey);
       scrollToProgress(sectionStart);
     },
-    [inActiveOverview, onDirectProjectSelect, scrollToProgress, scrollToProject]
+    [inActiveOverview, onDirectProjectSelect, scrollToProgress, scrollToProject, getProjectByAnyFacetKeySafe]
   );
 
   useEffect(() => {

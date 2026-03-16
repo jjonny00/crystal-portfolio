@@ -282,21 +282,35 @@ const Fixed3DCanvas = forwardRef(({
     );
   }, [ios26]);
 
-  // NEW: Update debug data when crystal scene changes
+  // Keep debug data in sync with scene state (including keyboard toggles inside the scene)
   useEffect(() => {
-    if (crystalSceneRef.current) {
-      const sceneDebugState = crystalSceneRef.current.debugState;
-      const debugMethods = crystalSceneRef.current.debugMethods;
-      
-      if (sceneDebugState) {
-        setDebugData(prev => ({
-          ...prev,
-          ...sceneDebugState,
-          debugMethods
-        }));
+    let rafId = null;
+
+    const syncDebugData = () => {
+      if (crystalSceneRef.current) {
+        const sceneDebugState = crystalSceneRef.current.debugState;
+        const debugMethods = crystalSceneRef.current.debugMethods;
+
+        if (sceneDebugState) {
+          setDebugData((prev) => ({
+            ...prev,
+            ...sceneDebugState,
+            debugMethods,
+          }));
+        }
       }
-    }
-  }, [crystalSceneRef]);
+
+      rafId = window.requestAnimationFrame(syncDebugData);
+    };
+
+    rafId = window.requestAnimationFrame(syncDebugData);
+
+    return () => {
+      if (rafId) {
+        window.cancelAnimationFrame(rafId);
+      }
+    };
+  }, []);
 
   // Update gradient background based on project focus or zone changes
   const bg = backgroundRef.current;
