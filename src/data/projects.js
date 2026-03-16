@@ -1,5 +1,11 @@
 // src/data/projects.js
 
+import {
+  buildProjectFacetAssignment,
+  getFacetSlotByProjectId as getFacetSlotByProjectIdFromAssignment,
+  getProjectIdByFacetSlot as getProjectIdByFacetSlotFromAssignment,
+} from './facetSystem';
+
 export const projects = [
   {
     id: 'project01',
@@ -164,6 +170,15 @@ export const projects = [
     overlayImage: '/assets/projects/user-dashboard.jpg'
   }
 ];
+
+
+export const projectFacetAssignment = buildProjectFacetAssignment(projects);
+
+export const getFacetSlotByProjectId = (projectId) =>
+  getFacetSlotByProjectIdFromAssignment(projectId, projectFacetAssignment);
+
+export const getProjectIdByFacetSlot = (facetSlot) =>
+  getProjectIdByFacetSlotFromAssignment(facetSlot, projectFacetAssignment);
 
 export const facetKeys = projects.map((project) => project.crystalKey);
 export const orderedFacetKeys = [...facetKeys];
