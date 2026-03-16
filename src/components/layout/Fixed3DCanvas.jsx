@@ -145,6 +145,7 @@ const Fixed3DCanvas = forwardRef(({
     showCrystalDebug: false,
     lastCrystalForm: 'whole'
   });
+  const lastDebugSignatureRef = useRef('');
 
   const simplifiedAnimations = performanceProfile?.simplifiedAnimations;
   const dustEnabled = !performanceProfile?.reducedParticles;
@@ -284,31 +285,40 @@ const Fixed3DCanvas = forwardRef(({
 
   // Keep debug data in sync with scene state (including keyboard toggles inside the scene)
   useEffect(() => {
-    let rafId = null;
-
     const syncDebugData = () => {
-      if (crystalSceneRef.current) {
-        const sceneDebugState = crystalSceneRef.current.debugState;
-        const debugMethods = crystalSceneRef.current.debugMethods;
+      if (!crystalSceneRef.current) return;
 
-        if (sceneDebugState) {
-          setDebugData((prev) => ({
-            ...prev,
-            ...sceneDebugState,
-            debugMethods,
-          }));
-        }
-      }
+      const sceneDebugState = crystalSceneRef.current.getDebugSnapshot?.()
+        || crystalSceneRef.current.debugState;
+      const debugMethods = crystalSceneRef.current.debugMethods;
 
-      rafId = window.requestAnimationFrame(syncDebugData);
+      if (!sceneDebugState) return;
+
+      const signature = JSON.stringify({
+        showWholeCrystal: sceneDebugState.showWholeCrystal,
+        showFacets: sceneDebugState.showFacets,
+        sphereVisible: sceneDebugState.sphereVisible,
+        showCrystalDebug: sceneDebugState.showCrystalDebug,
+        lastCrystalForm: sceneDebugState.lastCrystalForm,
+        focusedSceneFacetKey: sceneDebugState.focusedSceneFacetKey,
+        focusedProjectKey: sceneDebugState.focusedProjectKey,
+      });
+
+      if (signature === lastDebugSignatureRef.current) return;
+      lastDebugSignatureRef.current = signature;
+
+      setDebugData((prev) => ({
+        ...prev,
+        ...sceneDebugState,
+        debugMethods,
+      }));
     };
 
-    rafId = window.requestAnimationFrame(syncDebugData);
+    syncDebugData();
+    const intervalId = window.setInterval(syncDebugData, 120);
 
     return () => {
-      if (rafId) {
-        window.cancelAnimationFrame(rafId);
-      }
+      window.clearInterval(intervalId);
     };
   }, []);
 
@@ -592,6 +602,8 @@ const Fixed3DCanvas = forwardRef(({
           onForceShowWhole={debugData.debugMethods?.forceShowWhole}
           onInspectModels={debugData.debugMethods?.inspectModels}
           lastCrystalForm={debugData.lastCrystalForm}
+          focusedSceneFacetKey={debugData.focusedSceneFacetKey}
+          focusedProjectKey={debugData.focusedProjectKey}
         />
       )}
     </>

@@ -19,7 +19,8 @@ import projects, {
   getProjectModelKeyByFacetKey,
   getProjectPlacementKeyByFacetKey,
   getSceneFacetKeyByProjectId,
-  getProjectIdByAnyKey
+  getProjectIdByAnyKey,
+  getProjectIdBySceneFacetKey
 } from '../../data/projects'
 import FacetLabels from './FacetLabels'
 import HoverConnectorLine from './HoverConnectorLine'
@@ -270,6 +271,12 @@ const UnifiedCrystalScene = forwardRef(({
     }
   }, [facetKeys]);
 
+  const focusedSceneFacetKey = animationData?.focusedFacet || null;
+  const focusedProjectKey =
+    animationData?.focusedProject
+    || getProjectIdBySceneFacetKey(focusedSceneFacetKey)
+    || null;
+
   
   useImperativeHandle(ref, () => ({
     // Expose the refs array directly (this is what Fixed3DCanvas expects)
@@ -292,6 +299,19 @@ const UnifiedCrystalScene = forwardRef(({
     },
     
     // Expose debug state for debug panels
+    getDebugSnapshot: () => ({
+      facetKeys,
+      facetModels: [],
+      facetRefs: { current: facetRefs.current },
+      showWholeCrystal,
+      showFacets,
+      sphereVisible,
+      showCrystalDebug,
+      lastCrystalForm: lastCrystalForm.current,
+      focusedSceneFacetKey,
+      focusedProjectKey,
+    }),
+
     debugState: {
       facetKeys,
       facetModels: [], // Will be populated as needed
@@ -300,7 +320,9 @@ const UnifiedCrystalScene = forwardRef(({
       showFacets,
       sphereVisible,
       showCrystalDebug,
-      lastCrystalForm: lastCrystalForm.current
+      lastCrystalForm: lastCrystalForm.current,
+      focusedSceneFacetKey,
+      focusedProjectKey
     },
     
     // Expose debug methods for debug panels
@@ -392,7 +414,7 @@ const UnifiedCrystalScene = forwardRef(({
         }
       }
     }
-  }), [facetKeys, showWholeCrystal, showFacets, sphereVisible, showCrystalDebug, modelsLoaded, animationData]);
+  }), [facetKeys, showWholeCrystal, showFacets, sphereVisible, showCrystalDebug, modelsLoaded, animationData, focusedSceneFacetKey, focusedProjectKey]);
 
   // Load models
   const wholeCrystal = useGLTF(mergedConfig.assets.models.crystalWhole);

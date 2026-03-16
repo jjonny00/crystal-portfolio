@@ -20,7 +20,9 @@ const CrystalDebugPanels = ({
   onForceShowFacets,
   onForceShowWhole,
   onInspectModels,
-  lastCrystalForm
+  lastCrystalForm,
+  focusedSceneFacetKey,
+  focusedProjectKey
 }) => {
   
   if (!showCrystalDebug) return null;
@@ -67,7 +69,8 @@ const CrystalDebugPanels = ({
           <div style={{ color: showFacets ? '#4CAF50' : '#F44336', fontWeight: 'bold' }}>
             Show Facets: {showFacets ? 'YES' : 'NO'}
           </div>
-          <div>Focused: {animationData?.focusedFacet || 'none'}</div>
+          <div>Focused Scene Facet: {focusedSceneFacetKey || animationData?.focusedFacet || 'none'}</div>
+          <div>Focused Project: {focusedProjectKey || animationData?.focusedProject || 'none'}</div>
           <div>Camera State: {animationData?.cameraState || 'undefined'}</div>
         </div>
 
