@@ -205,10 +205,18 @@ export const facetKeys = projects.map((project) => project.crystalKey);
 export const orderedFacetKeys = [...facetKeys];
 
 const projectByAnyFacetKey = new Map(
-  projects.flatMap((project) => [
-    [project.facetKey, project],
-    [project.crystalKey, project]
-  ])
+  projects.flatMap((project) => {
+    const projectId = project.facetKey || project.id;
+    const sceneFacetKey = getSceneFacetKeyByProjectId(projectId) || project.placementKey || project.crystalKey;
+
+    return [
+      [projectId, project],
+      [project.id, project],
+      [project.crystalKey, project],
+      [project.placementKey, project],
+      [sceneFacetKey, project]
+    ].filter(([key]) => Boolean(key));
+  })
 );
 
 const getProjectByFacetKey = (facetKey) => projectByAnyFacetKey.get(facetKey) || null;
