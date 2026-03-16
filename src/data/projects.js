@@ -204,22 +204,28 @@ export const orderedProjectKeys = [...projectKeys];
 export const facetKeys = projects.map((project) => project.crystalKey);
 export const orderedFacetKeys = [...facetKeys];
 
-const projectByAnyFacetKey = new Map(
-  projects.flatMap((project) => {
-    const projectId = project.facetKey || project.id;
-    const sceneFacetKey = getSceneFacetKeyByProjectId(projectId) || project.placementKey || project.crystalKey;
-
-    return [
-      [projectId, project],
-      [project.id, project],
-      [project.crystalKey, project],
-      [project.placementKey, project],
-      [sceneFacetKey, project]
-    ].filter(([key]) => Boolean(key));
-  })
+const projectById = new Map(
+  projects.map((project) => [project.facetKey || project.id, project])
 );
 
-const getProjectByFacetKey = (facetKey) => projectByAnyFacetKey.get(facetKey) || null;
+const crystalKeyToProject = new Map(
+  projects.map((project) => [project.crystalKey, project])
+);
+
+const getProjectByFacetKey = (facetKey) => {
+  if (!facetKey) return null;
+
+  const byId = projectById.get(facetKey);
+  if (byId) return byId;
+
+  const bySceneProjectId = getProjectIdBySceneFacetKey(facetKey);
+  if (bySceneProjectId) {
+    const project = projectById.get(bySceneProjectId);
+    if (project) return project;
+  }
+
+  return crystalKeyToProject.get(facetKey) || null;
+};
 
 export const getProjectModelKeyByFacetKey = (facetKey) => {
   const project = getProjectByFacetKey(facetKey);
