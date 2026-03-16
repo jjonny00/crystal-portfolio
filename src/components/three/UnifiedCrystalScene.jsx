@@ -1245,8 +1245,8 @@ const UnifiedCrystalScene = forwardRef(({
           if (fracture || fractureDistance) {
             facetRefs.current.forEach((facetRef, idx) => {
               const facetKey = facetKeys[idx];
-              const explodedPos = crystalConfig?.positions?.[facetKey];
-              const configuredFracture = fracture?.[facetKey];
+              const explodedPos = crystalConfig?.positions?.[facetPlacementKeys[facetKey] || facetKey];
+              const configuredFracture = fracture?.[facetPlacementKeys[facetKey] || facetKey];
               if (facetRef?.current && explodedPos) {
                 const fallback = explodedPos
                   .clone()
@@ -1351,8 +1351,8 @@ const UnifiedCrystalScene = forwardRef(({
         const fractureDistance = crystalConfig?.fractureDistance ?? 0.3;
         facetRefs.current.forEach((facetRef, idx) => {
           const facetKey = facetKeys[idx];
-          const explodedPos = crystalConfig?.positions?.[facetKey];
-          const configured = fracture?.[facetKey];
+          const explodedPos = crystalConfig?.positions?.[facetPlacementKeys[facetKey] || facetKey];
+          const configured = fracture?.[facetPlacementKeys[facetKey] || facetKey];
           if (facetRef?.current && explodedPos) {
             const fallback = explodedPos
               .clone()
@@ -1419,8 +1419,8 @@ const UnifiedCrystalScene = forwardRef(({
           if (!facetRef || !facetRef.current) return;
 
           const facetKey = facetKeys[index];
-          const end = crystalConfig?.positions?.[facetKey];
-          const start = fracture?.[facetKey] ||
+          const end = crystalConfig?.positions?.[facetPlacementKeys[facetKey] || facetKey];
+          const start = fracture?.[facetPlacementKeys[facetKey] || facetKey] ||
             end?.clone().normalize().multiplyScalar(end.length() * fractureDistance);
           if (start && end) {
             const interpolated = start.clone().lerp(end, eased);
@@ -1464,7 +1464,7 @@ const UnifiedCrystalScene = forwardRef(({
         if (!facetRef || !facetRef.current) return;
 
         const facetKey = facetKeys[index];
-        let targetPos = crystalConfig?.positions?.[facetKey];
+        let targetPos = crystalConfig?.positions?.[facetPlacementKeys[facetKey] || facetKey];
 
         if (isReforming) {
           targetPos = origin;
