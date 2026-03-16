@@ -38,3 +38,13 @@ export const getFacetSlotByProjectId = (projectId, assignment) => assignment?.[p
 
 export const getProjectIdByFacetSlot = (slot, assignment) =>
   Object.entries(assignment || {}).find(([, assignedSlot]) => assignedSlot === slot)?.[0] || null;
+
+export const getSceneKeyByProjectId = (projectId, assignment) => {
+  const slot = getFacetSlotByProjectId(projectId, assignment);
+  return getSceneKeyByFacetSlot(slot);
+};
+
+export const getProjectIdBySceneKey = (sceneKey, assignment) => {
+  const slot = getFacetSlotBySceneKey(sceneKey);
+  return getProjectIdByFacetSlot(slot, assignment);
+};

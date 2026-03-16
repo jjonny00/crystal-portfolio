@@ -16,7 +16,7 @@ const OptimizedLabel = React.memo(function OptimizedLabel({
 }) {
   const glow1 = project.headlineColor;
   const glow2 = project.headlineColor;
-  const runtimeKey = project.facetKey || project.crystalKey;
+  const runtimeKey = project.facetKey || project.id || project.crystalKey;
 
   return (
     <div
@@ -250,21 +250,21 @@ const FacetLabels = React.memo(function FacetLabels({
               project={project}
               titleRef={(el) => {
                 if (el) {
-                  titleRefs.current.set(project.facetKey || project.crystalKey, el);
+                  titleRefs.current.set(project.facetKey || project.id || project.crystalKey, el);
                 } else {
-                  titleRefs.current.delete(project.facetKey || project.crystalKey);
+                  titleRefs.current.delete(project.facetKey || project.id || project.crystalKey);
                 }
               }}
               onHover={handleHover}
               onClick={() =>
                 {
-                  onDirectProjectSelect?.(project.facetKey || project.crystalKey);
+                  onDirectProjectSelect?.(project.facetKey || project.id || project.crystalKey);
                   if (scrollToProject) {
-                    scrollToProject(project.facetKey || project.crystalKey);
+                    scrollToProject(project.facetKey || project.id || project.crystalKey);
                     return;
                   }
                   scrollToProgress(
-                    ANIMATION_CONFIG.projectSections[project.facetKey || project.crystalKey].start,
+                    ANIMATION_CONFIG.projectSections[project.facetKey || project.id || project.crystalKey].start,
                   );
                 }
               }

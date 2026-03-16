@@ -18,7 +18,7 @@ import projects, {
   getProjectColorByFacetKey,
   getProjectModelKeyByFacetKey,
   getProjectPlacementKeyByFacetKey,
-  getProjectCrystalKeyByFacetKey
+  getSceneFacetKeyByProjectId
 } from '../../data/projects'
 import FacetLabels from './FacetLabels'
 import HoverConnectorLine from './HoverConnectorLine'
@@ -210,9 +210,10 @@ const UnifiedCrystalScene = forwardRef(({
 
 
   const resolveSceneFacetKey = useCallback(
-    (facetKey) => {
-      const candidate = getProjectCrystalKeyByFacetKey(facetKey);
-      return facetKeys.includes(candidate) ? candidate : facetKey;
+    (projectOrSceneKey) => {
+      const projectMappedKey = getSceneFacetKeyByProjectId(projectOrSceneKey);
+      const candidate = projectMappedKey || projectOrSceneKey;
+      return facetKeys.includes(candidate) ? candidate : projectOrSceneKey;
     },
     [facetKeys]
   );
