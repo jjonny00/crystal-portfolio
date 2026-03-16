@@ -16,7 +16,8 @@ import FractureRingImage from './FractureRingImage'
 import projects, {
   facetKeys as canonicalFacetKeys,
   getProjectColorByFacetKey,
-  getProjectModelKeyByFacetKey
+  getProjectModelKeyByFacetKey,
+  getProjectPlacementKeyByFacetKey
 } from '../../data/projects'
 import FacetLabels from './FacetLabels'
 import HoverConnectorLine from './HoverConnectorLine'
@@ -201,6 +202,11 @@ const UnifiedCrystalScene = forwardRef(({
     [facetKeys]
   );
 
+  const facetPlacementKeys = useMemo(
+    () => Object.fromEntries(facetKeys.map((key) => [key, getProjectPlacementKeyByFacetKey(key)])),
+    [facetKeys]
+  );
+
   // Precompute random floating parameters for facets
   const floatParamsRef = useRef(
     facetKeys.map(() => ({
@@ -353,7 +359,7 @@ const UnifiedCrystalScene = forwardRef(({
           console.group('📐 Verifying exploded facet positions');
           facetRefs.current.forEach((facetRef, index) => {
             const facetKey = facetKeys[index];
-            const expected = crystalConfig?.explodedPositions?.[facetKey];
+            const expected = crystalConfig?.explodedPositions?.[facetPlacementKeys[facetKey] || facetKey];
             if (!facetRef?.current || !expected) {
               console.warn(`Facet ${facetKey}: missing ref or expected position`);
               return;
@@ -404,7 +410,7 @@ const UnifiedCrystalScene = forwardRef(({
       if (index === -1) return null;
 
       const model = facetModels[index];
-      const exploded = crystalConfig?.explodedPositions?.[facetKey];
+      const exploded = crystalConfig?.explodedPositions?.[facetPlacementKeys[facetKey] || facetKey];
       if (!model?.scene || !exploded) return null;
 
       const anchor = model.scene.getObjectByName(`anchor_${facetKey}`);
@@ -430,7 +436,7 @@ const UnifiedCrystalScene = forwardRef(({
 
       return anchor.position.clone().applyMatrix4(matrixWorld);
     },
-    [facetKeys, facetModels, crystalConfig?.explodedPositions]
+    [facetKeys, facetModels, crystalConfig?.explodedPositions, facetPlacementKeys]
   );
 
   // Calculate anchor offsets relative to facet centers once models are ready
@@ -448,9 +454,9 @@ const UnifiedCrystalScene = forwardRef(({
         const localAnchor = model.scene.worldToLocal(worldAnchor.clone());
         offsets[facetKey] = localAnchor.toArray();
 
-        const rotation = crystalConfig?.explodedRotations?.[facetKey];
+        const rotation = crystalConfig?.explodedRotations?.[facetPlacementKeys[facetKey] || facetKey];
         const worldPos = computeAnchorWorldPosition(facetKey, rotation);
-        const exploded = crystalConfig?.explodedPositions?.[facetKey];
+        const exploded = crystalConfig?.explodedPositions?.[facetPlacementKeys[facetKey] || facetKey];
         if (worldPos && exploded && import.meta.env.DEV) {
           const offset = localAnchor;
           const rotQuat = rotation
@@ -474,7 +480,7 @@ const UnifiedCrystalScene = forwardRef(({
       }
     });
     setAnchorOffsets(offsets);
-  }, [modelsLoaded, facetKeys, facetModels, computeAnchorWorldPosition, crystalConfig?.explodedPositions]);
+  }, [modelsLoaded, facetKeys, facetModels, computeAnchorWorldPosition, crystalConfig?.explodedPositions, facetPlacementKeys]);
 
   const getAnchorAdjustedPosition = useCallback(
     (facetKey, basePosition, targetQuat) => {
@@ -1418,7 +1424,7 @@ const UnifiedCrystalScene = forwardRef(({
             end?.clone().normalize().multiplyScalar(end.length() * fractureDistance);
           if (start && end) {
             const interpolated = start.clone().lerp(end, eased);
-            const targetRotation = crystalConfig?.explodedRotations?.[facetKey];
+            const targetRotation = crystalConfig?.explodedRotations?.[facetPlacementKeys[facetKey] || facetKey];
             const targetQuat = targetRotation
               ? new THREE.Quaternion().fromArray(targetRotation)
               : neutralQuat;
@@ -1487,7 +1493,7 @@ const UnifiedCrystalScene = forwardRef(({
               const fz = Math.sin(elapsed * floatConfig.zFrequency + params.phaseZ) * amp * floatConfig.zMultiplier;
               finalTarget = targetPos.clone().add(new THREE.Vector3(fx, fy, fz));
             }
-            const targetRotation = crystalConfig?.explodedRotations?.[facetKey];
+            const targetRotation = crystalConfig?.explodedRotations?.[facetPlacementKeys[facetKey] || facetKey];
             const targetQuat = animationData?.crystalForm === 'exploded' && targetRotation
               ? new THREE.Quaternion().fromArray(targetRotation)
               : neutralQuat;
@@ -1498,7 +1504,7 @@ const UnifiedCrystalScene = forwardRef(({
           }
         }
 
-        const targetRotation = crystalConfig?.explodedRotations?.[facetKey];
+        const targetRotation = crystalConfig?.explodedRotations?.[facetPlacementKeys[facetKey] || facetKey];
         const targetQuat = animationData?.crystalForm === 'exploded' && targetRotation
           ? new THREE.Quaternion().fromArray(targetRotation)
           : neutralQuat;

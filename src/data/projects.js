@@ -6,6 +6,7 @@ export const projects = [
     facetKey: 'project01',
     modelKey: 'project01',
     crystalKey: 'leadership',
+    placementKey: 'exploration',
     runtimeModelKey: 'project06',
     title: 'SLIPSTREAM',
     label: 'Slipstream',
@@ -26,6 +27,7 @@ export const projects = [
     facetKey: 'project02',
     modelKey: 'project02',
     crystalKey: 'exploration',
+    placementKey: 'craft',
     runtimeModelKey: 'project03',
     title: 'MESA',
     label: 'Mesa',
@@ -58,6 +60,7 @@ export const projects = [
     facetKey: 'project03',
     modelKey: 'project03',
     crystalKey: 'system',
+    placementKey: 'narrative',
     runtimeModelKey: 'project02',
     title: 'FUNDSEEDER',
     label: 'FundSeeder',
@@ -90,6 +93,7 @@ export const projects = [
     facetKey: 'project04',
     modelKey: 'project04',
     crystalKey: 'narrative',
+    placementKey: 'system',
     runtimeModelKey: 'project04',
     title: 'QUANTIFIED',
     label: 'Quantified',
@@ -110,6 +114,7 @@ export const projects = [
     facetKey: 'project05',
     modelKey: 'project05',
     crystalKey: 'empathy',
+    placementKey: 'leadership',
     runtimeModelKey: 'project05',
     title: 'FOREST GIANT',
     label: 'Forest Giant',
@@ -130,6 +135,7 @@ export const projects = [
     facetKey: 'project06',
     modelKey: 'project06',
     crystalKey: 'craft',
+    placementKey: 'empathy',
     runtimeModelKey: 'project01',
     title: 'GE EXPERIENCE CENTERS',
     label: 'GE Experience Centers',
@@ -174,6 +180,12 @@ const getProjectByFacetKey = (facetKey) => projectByAnyFacetKey.get(facetKey) ||
 export const getProjectModelKeyByFacetKey = (facetKey) => {
   const project = getProjectByFacetKey(facetKey);
   return project ? (project.runtimeModelKey || project.modelKey) : null;
+};
+
+
+export const getProjectPlacementKeyByFacetKey = (facetKey) => {
+  const project = getProjectByFacetKey(facetKey);
+  return project?.placementKey || project?.crystalKey || facetKey;
 };
 
 export const getProjectColorByFacetKey = (facetKey) => {
