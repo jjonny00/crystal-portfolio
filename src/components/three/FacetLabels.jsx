@@ -154,7 +154,7 @@ const FacetLabels = React.memo(function FacetLabels({
 
   useEffect(() => {
     if (!inActiveOverview || !projects?.length) return;
-    const firstFacetKey = projects[0].crystalKey || projects[0].facetKey;
+    const firstFacetKey = projects[0].facetKey || projects[0].id || projects[0].crystalKey;
     const section = document.getElementById(`project-${firstFacetKey}`);
     if (!section) return;
 

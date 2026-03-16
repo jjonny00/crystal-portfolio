@@ -4,7 +4,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Vector3, Quaternion, Euler } from 'three';
 import { fracture as fractureConfig } from '../crystalConfig';
-import { orderedFacetKeys } from '../data/projects';
+import { orderedProjectKeys, getSceneFacetKeyByProjectId } from '../data/projects';
 
 // Percentage of explode distance facets travel during fracture
 const FRACTURE_DISTANCE = fractureConfig.distance;
@@ -111,16 +111,16 @@ export const ANIMATION_CONFIG = {
 };
 
 const projectsZone = ANIMATION_CONFIG.scrollZones.projects;
-const sectionCount = Math.max(orderedFacetKeys.length, 1);
+const sectionCount = Math.max(orderedProjectKeys.length, 1);
 const projectSectionSpan = (projectsZone.end - projectsZone.start) / sectionCount;
 
-ANIMATION_CONFIG.projectSections = orderedFacetKeys.reduce((acc, facetKey, index) => {
+ANIMATION_CONFIG.projectSections = orderedProjectKeys.reduce((acc, projectKey, index) => {
   const start = projectsZone.start + projectSectionSpan * index;
-  const end = index === orderedFacetKeys.length - 1
+  const end = index === orderedProjectKeys.length - 1
     ? projectsZone.end
     : start + projectSectionSpan;
 
-  acc[facetKey] = {
+  acc[projectKey] = {
     start,
     end
   };
@@ -395,23 +395,27 @@ export const useUnifiedAnimationController = (options = {}) => {
   }, []);
 
   const setDirectProjectOverride = useCallback((projectKey) => {
-    if (!projectKey || !config?.camera?.projects?.[projectKey]) {
+    const sceneFacetKey = getSceneFacetKeyByProjectId(projectKey) || projectKey;
+
+    if (!projectKey || !sceneFacetKey || !config?.camera?.projects?.[sceneFacetKey]) {
       clearDirectProjectOverride();
       return;
     }
 
     directProjectOverrideRef.current = {
       projectKey,
+      sceneFacetKey,
       createdAt: Date.now()
     };
 
-    setAnimationState(prev => ({
+    setAnimationState((prev) => ({
       ...prev,
       state: ANIMATION_STATES.PROJECT_FOCUSED,
       crystalForm: 'exploded',
       cameraState: 'project',
-      focusedFacet: projectKey,
-      isTransitioning: false
+      focusedFacet: sceneFacetKey,
+      isTransitioning: false,
+      projectInfo: { ...prev.projectInfo, project: projectKey },
     }));
 
     lastProject.current = projectKey;
@@ -489,7 +493,8 @@ export const useUnifiedAnimationController = (options = {}) => {
 
   const explodedRotations = useMemo(() => {
     const eulerRotations = config?.facetRotationsEulerDeg;
-    return orderedFacetKeys.reduce((acc, facetKey) => {
+    const sceneFacetKeys = Object.keys(config?.crystal?.explodedPositions || {});
+    return sceneFacetKeys.reduce((acc, facetKey) => {
       const eulerDeg = eulerRotations?.[facetKey];
       if (Array.isArray(eulerDeg)) {
         const [x = 0, y = 0, z = 0] = eulerDeg;
@@ -565,7 +570,7 @@ export const useUnifiedAnimationController = (options = {}) => {
         state: ANIMATION_STATES.PROJECT_FOCUSED,
         crystalForm: 'exploded',     // Immediate
         cameraState: 'project',      // Immediate - this enables project camera positioning
-        focusedFacet: initialProject,
+        focusedFacet: getSceneFacetKeyByProjectId(initialProject) || initialProject,
         isTransitioning: false
       }));
       lastProject.current = initialProject;
@@ -586,21 +591,22 @@ export const useUnifiedAnimationController = (options = {}) => {
    * SIMPLIFIED: Handle project focus (same pattern as before - it works!)
    */
   const handleProjectFocus = useCallback((projectKey) => {
+    const sceneFacetKey = getSceneFacetKeyByProjectId(projectKey) || projectKey;
+
     if (debugMode) {
-      if (import.meta.env.DEV) console.log('🎯 IMMEDIATE Project focus:', projectKey);
+      if (import.meta.env.DEV) console.log('🎯 IMMEDIATE Project focus:', projectKey, '->', sceneFacetKey);
     }
 
-    // ENHANCED: Log when project focus changes for background debugging
     if (import.meta.env.DEV) {
       console.log(`🎨 Background trigger: Project focus changed to "${projectKey}"`);
     }
 
-    // Immediate state change - same pattern as working projects
-    setAnimationState(prev => ({
+    setAnimationState((prev) => ({
       ...prev,
-      focusedFacet: projectKey,
-      cameraState: 'project',  // This triggers camera to move to projects[projectKey]
-      isTransitioning: false   // Let camera component handle smooth transition
+      focusedFacet: sceneFacetKey,
+      cameraState: 'project',
+      isTransitioning: false,
+      projectInfo: { ...prev.projectInfo, project: projectKey },
     }));
   }, [debugMode]);
 
@@ -688,7 +694,7 @@ export const useUnifiedAnimationController = (options = {}) => {
 
       if (shouldChangeZone) {
         if (currentZone.zone === 'projects') {
-          const fallbackProject = orderedFacetKeys[0] || null;
+          const fallbackProject = orderedProjectKeys[0] || null;
           const initialProject = directOverrideProject
             || activeProject.project
             || fallbackProject;
@@ -760,7 +766,7 @@ export const useUnifiedAnimationController = (options = {}) => {
           state: ANIMATION_STATES.PROJECT_FOCUSED,
           crystalForm: 'exploded',
           cameraState: 'project',
-          focusedFacet: activeProject.project,
+          focusedFacet: getSceneFacetKeyByProjectId(activeProject.project) || activeProject.project,
           isTransitioning: false
         }));
         lastProject.current = activeProject.project;

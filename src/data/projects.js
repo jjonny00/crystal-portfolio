@@ -188,6 +188,9 @@ export const getSceneFacetKeyByProjectId = (projectId) =>
 export const getProjectIdBySceneFacetKey = (sceneFacetKey) =>
   getProjectIdBySceneKeyFromAssignment(sceneFacetKey, projectFacetAssignment);
 
+export const projectKeys = projects.map((project) => project.facetKey || project.id);
+export const orderedProjectKeys = [...projectKeys];
+
 export const facetKeys = projects.map((project) => project.crystalKey);
 export const orderedFacetKeys = [...facetKeys];
 
