@@ -22,7 +22,7 @@ import GradientBackground from '../three/GradientBackground';
 import { projectBackgrounds } from '../../data/projectBackgrounds';
 import MistyLayerStack from '../MistyLayerStack';
 import { isIOS26 } from '../../utils/isIOS26';
-import { facetKeys as canonicalFacetKeys } from '../../data/projects';
+import { facetKeys as canonicalFacetKeys, getProjectIdBySceneFacetKey } from '../../data/projects';
 import { useLayoutConfig } from '../../hooks/useLayoutConfig';
 
 function createSanitizePass() {
@@ -330,7 +330,9 @@ const Fixed3DCanvas = forwardRef(({
 
     // Project-specific backgrounds only apply inside the projects zone
     if (zone === 'projects' && (animationData.focusedProject || animationData.focusedFacet)) {
-      const projectKey = animationData.focusedProject || animationData.focusedFacet;
+      const projectKey = animationData.focusedProject
+        || getProjectIdBySceneFacetKey(animationData.focusedFacet)
+        || animationData.focusedFacet;
       bg.updateBackground(projectKey);
       lastZoneRef.current = zone;
       return;
