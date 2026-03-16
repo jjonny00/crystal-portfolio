@@ -27,3 +27,17 @@
   color: rgba(255, 255, 255, 0.85);
   text-shadow: 0 0 4px rgba(0, 0, 0, 0.7);
 }
+
+
+@media (max-width: 767px) {
+  .label-title {
+    font-size: clamp(1.13rem, 5.67vw, 1.47rem);
+    line-height: 1;
+  }
+
+  .label-description {
+    margin-top: 0.1rem;
+    font-size: clamp(1rem, 4.2vw, 1.15rem);
+    line-height: 1.35;
+  }
+}

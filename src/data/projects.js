@@ -37,6 +37,16 @@ export const projects = [
     metrics: '150K downloads in week one · Top 5 iOS App Store Free Games in 3 days',
     roles: 'Creator · Game Design · Systems + UI/UX',
     cta: 'How Turns Create Tension',
+    mobile: {
+      title: 'MESA',
+      subtitle: 'Asynchronous Multiplayer · iOS',
+      description:
+        'An asynchronous competitive strategy game built around one idea: turns should create tension. Stronger powers hit softer, so every move becomes a choice between pressing now or playing for control.',
+      secondaryCopy: 'Built on Game Center to cut multiplayer friction and scope. 150K downloads in week one.',
+      metrics: null,
+      roles: null,
+      cta: 'How Turns Create Tension'
+    },
     technologies: ['Gameplay Systems', 'UX Design', 'Balancing'],
     color: '#ece93e',
     headlineColor: '#ece93e',
@@ -58,6 +68,17 @@ export const projects = [
     metrics: '9 traders seeded in year one · 1,800 traders on platform',
     roles: 'Principal Product Designer · Strategy, Systems + Brand',
     cta: 'Designing the Ladder',
+    mobile: {
+      title: 'FundSeeder',
+      subtitle: 'Competitive Platform · Web',
+      description:
+        'A competitive platform for traders, built around trust, progression, and real opportunity. Traders connect strategies, track performance, and compete for a shot at real allocation.',
+      secondaryCopy:
+        'I helped define the ladder, tiers, and systems that make that climb credible. 9 traders seeded in year one.',
+      metrics: null,
+      roles: null,
+      cta: 'Designing the Ladder'
+    },
     technologies: ['Product Strategy', 'UX Systems', 'Platform Design'],
     color: '#bb86fc',
     headlineColor: '#bb86fc',
@@ -119,6 +140,17 @@ export const projects = [
     secondaryCopy: 'Led the platform team, aligning stakeholders across three continents.',
     roles: 'Creative Direction · Systems Design · Production Leadership',
     cta: 'Built to Transform',
+    mobile: {
+      title: 'GE Experience Centers',
+      subtitle: 'Spatial Platform · Global Installations',
+      description:
+        'A spatial platform that transformed with the audience and the work at hand. The same space could welcome partners with tailored content or shift into secure collaboration using live data and specialized tools.',
+      secondaryCopy:
+        'Scaled across Austin, Dubai, and Shanghai. Led the platform team across three continents.',
+      metrics: null,
+      roles: null,
+      cta: 'Built to Transform'
+    },
     technologies: ['Spatial UX', 'Modular Platform Architecture', 'Production'],
     color: '#64ffda',
     headlineColor: '#64ffda',

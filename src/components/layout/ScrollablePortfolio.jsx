@@ -5,7 +5,7 @@ import HeroSection from '../sections/HeroSection';
 import ProjectFocusSection from '../sections/ProjectFocusSection';
 import AboutSection from '../sections/AboutSection';
 import { projects } from '../../data/projects';
-import { isMobileDevice } from '../../utils/isMobileDevice.js';
+import { useLayoutConfig } from '../../hooks/useLayoutConfig';
 
 const SECTION_SETTLE_DELAY_MS = 220;
 
@@ -13,12 +13,12 @@ const ScrollablePortfolio = ({
   snapSpeed = 'medium',
   hideContent = false
 }) => {
-  const isMobile = isMobileDevice();
+  const { variant } = useLayoutConfig();
+  const isMobileViewport = variant === 'mobile';
   const containerRef = useRef(null);
   const settleTimeoutRef = useRef(null);
 
   const [settledSectionId, setSettledSectionId] = useState('hero');
-
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -121,7 +121,7 @@ const ScrollablePortfolio = ({
         zIndex: 10,
         WebkitOverflowScrolling: 'touch',
         backgroundColor: 'transparent',
-        pointerEvents: isMobile ? 'auto' : 'none',
+        pointerEvents: isMobileViewport ? 'auto' : 'none',
         margin: 0,
         padding: 0,
         boxSizing: 'border-box',
@@ -139,6 +139,7 @@ const ScrollablePortfolio = ({
         <section
           id="hero"
           className="scroll-section"
+          data-headline-color="#e1d2bc"
           style={{
             height: '100vh',
             minHeight: '100vh',
@@ -206,6 +207,7 @@ const ScrollablePortfolio = ({
             >
               <ProjectFocusSection
                 project={project}
+                isMobile={isMobileViewport}
                 visible={settledSectionId === sectionId}
               />
             </section>

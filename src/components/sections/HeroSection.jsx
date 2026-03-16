@@ -92,11 +92,7 @@ const HeroSection = ({
   };
 
   return (
-    <section
-      id="hero"
-      className="scroll-section project hero-section"
-      data-headline-color="#e1d2bc"
-    >
+    <div className="hero-section">
       <div className="hero-section__content">
         <animated.div style={contentSpring}>
           <Headline as="h1" className="hero-section__title">
@@ -137,7 +133,7 @@ const HeroSection = ({
         </animated.div>
         <span className="hero-section__scroll-line" />
       </animated.button>
-    </section>
+    </div>
   );
 };
 

@@ -225,18 +225,23 @@ const FacetLabels = React.memo(function FacetLabels({
         <div
           style={{
             position: 'absolute',
-            width: '33.333vw',
-            right: '6%',
-            top: '50%',
-            transform: 'translateY(-50%)',
+            width: variant === 'desktop' ? '33.333vw' : '100%',
+            right: variant === 'desktop' ? '6%' : 0,
+            left: variant === 'desktop' ? 'auto' : 0,
+            top: variant === 'desktop' ? '50%' : 'auto',
+            bottom: variant === 'desktop' ? 'auto' : 'calc(4.75rem + env(safe-area-inset-bottom, 0px))',
+            transform: variant === 'desktop' ? 'translateY(-50%)' : 'none',
+            paddingLeft: variant === 'desktop' ? 0 : '16px',
+            paddingRight: variant === 'desktop' ? 0 : '16px',
             opacity: visible ? 1 : 0,
             transition: `opacity ${fadeDuration}s`,
             pointerEvents: 'none',
             display: 'flex',
             flexDirection: 'column',
-            gap: variant === 'desktop' ? '1.5rem' : '1rem',
+            gap: variant === 'desktop' ? '1.5rem' : '0.8rem',
             alignItems: 'flex-start',
             textAlign: 'left',
+            boxSizing: 'border-box',
           }}
         >
           {projects.map((project) => (

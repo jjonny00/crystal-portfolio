@@ -6,8 +6,7 @@ const ProjectFocusSection = ({ project, isMobile = false, visible = true }) => {
   if (!project) return null;
 
   const headlineColor = project.headlineColor || project.color || '#ffffff';
-  const sectionIdKey = project.crystalKey || project.facetKey;
-
+  const displayProject = isMobile && project.mobile ? { ...project, ...project.mobile } : project;
   const contentWidth = isMobile ? '100%' : 'min(34vw, 640px)';
 
   const contentSpring = useSpring({
@@ -27,20 +26,18 @@ const ProjectFocusSection = ({ project, isMobile = false, visible = true }) => {
   });
 
   return (
-    <section
-      id={`project-${sectionIdKey}`}
-      className="scroll-section project"
-      data-headline-color={headlineColor}
+    <div
       style={{
         height: '100vh',
         width: '100%',
         position: 'relative',
         overflow: 'hidden',
         display: 'flex',
-        alignItems: 'center',
+        alignItems: isMobile ? 'flex-end' : 'center',
         justifyContent: 'flex-start',
         background: 'transparent',
-        boxSizing: 'border-box'
+        boxSizing: 'border-box',
+        paddingBottom: isMobile ? 'calc(4.75rem + env(safe-area-inset-bottom, 0px))' : 0
       }}
     >
       <animated.div
@@ -52,17 +49,21 @@ const ProjectFocusSection = ({ project, isMobile = false, visible = true }) => {
           left: isMobile ? 'auto' : 0,
           top: isMobile ? 'auto' : 0,
           display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          paddingLeft: isMobile ? '22px' : 'clamp(20px, 2.5vw, 52px)',
-          paddingRight: isMobile ? '22px' : 'clamp(20px, 2.5vw, 52px)',
+          alignItems: isMobile ? 'flex-end' : 'center',
+          justifyContent: isMobile ? 'flex-start' : 'center',
+          paddingLeft: isMobile ? '16px' : 'clamp(20px, 2.5vw, 52px)',
+          paddingRight: isMobile ? '16px' : 'clamp(20px, 2.5vw, 52px)',
           boxSizing: 'border-box'
         }}
       >
         <div
           style={{
-            width: contentWidth,
-            maxWidth: '100%'
+            width: isMobile ? '100%' : contentWidth,
+            maxWidth: '100%',
+            display: 'grid',
+            gridTemplateColumns: '1fr',
+            gap: isMobile ? '0.9rem' : '0',
+            textAlign: 'left'
           }}
         >
           <Headline
@@ -71,7 +72,7 @@ const ProjectFocusSection = ({ project, isMobile = false, visible = true }) => {
               margin: 0,
               color: headlineColor,
               fontFamily: '"ivypresto-display", "IvyPresto Display", "Playfair Display", Georgia, serif',
-              fontSize: isMobile ? '44px' : '64px',
+              fontSize: isMobile ? 'clamp(2.2rem, 11vw, 2.9rem)' : '64px',
               fontStyle: 'normal',
               fontWeight: 400,
               lineHeight: 'normal',
@@ -81,23 +82,23 @@ const ProjectFocusSection = ({ project, isMobile = false, visible = true }) => {
               '--headline-glow2': headlineColor
             }}
           >
-            {project.title}
+            {displayProject.title}
           </Headline>
 
           <p
             style={{
-              margin: '8px 0 18px',
+              margin: isMobile ? '0 0 0.2rem' : '8px 0 18px',
               color: 'rgb(from #E2DCC3 r g b / 0.6)',
               fontFamily: '"acumin-variable", "Acumin VF", sans-serif',
-              fontSize: '16px',
+              fontSize: isMobile ? '14px' : '16px',
               fontStyle: 'normal',
               fontWeight: 400,
-              lineHeight: '30px',
-              letterSpacing: '-0.32px',
+              lineHeight: isMobile ? '1.35' : '30px',
+              letterSpacing: isMobile ? '-0.2px' : '-0.32px',
               textTransform: 'uppercase'
             }}
           >
-            {project.subtitle}
+            {displayProject.subtitle}
           </p>
 
           <p
@@ -105,87 +106,87 @@ const ProjectFocusSection = ({ project, isMobile = false, visible = true }) => {
               margin: 0,
               color: 'rgb(from #E2DCC3 r g b / 0.85)',
               fontFamily: '"acumin-variable", "Acumin VF", sans-serif',
-              fontSize: isMobile ? '22px' : '24px',
+              fontSize: isMobile ? '18px' : '24px',
               fontStyle: 'normal',
               fontWeight: 300,
-              lineHeight: '30px',
-              letterSpacing: '-0.48px'
+              lineHeight: isMobile ? '1.38' : '30px',
+              letterSpacing: isMobile ? '-0.24px' : '-0.48px'
             }}
           >
-            {project.description}
+            {displayProject.description}
           </p>
 
-          {project.secondaryCopy && (
+          {displayProject.secondaryCopy && (
             <p
               style={{
-                margin: '30px 0 0',
+                margin: isMobile ? '0.2rem 0 0' : '30px 0 0',
                 color: 'rgb(from #E2DCC3 r g b / 0.85)',
                 fontFamily: '"acumin-variable", "Acumin VF", sans-serif',
-                fontSize: isMobile ? '22px' : '24px',
+                fontSize: isMobile ? '18px' : '24px',
                 fontStyle: 'normal',
                 fontWeight: 300,
-                lineHeight: '30px',
-                letterSpacing: '-0.48px'
+                lineHeight: isMobile ? '1.38' : '30px',
+                letterSpacing: isMobile ? '-0.24px' : '-0.48px'
               }}
             >
-              {project.secondaryCopy}
+              {displayProject.secondaryCopy}
             </p>
           )}
 
-          {project.metrics && (
+          {displayProject.metrics && (
             <p
               style={{
-                margin: '30px 0 0',
+                margin: isMobile ? '0.2rem 0 0' : '30px 0 0',
                 color: 'rgb(from #E2DCC3 r g b / 0.85)',
                 fontFamily: '"acumin-variable", "Acumin VF", sans-serif',
-                fontSize: isMobile ? '22px' : '24px',
+                fontSize: isMobile ? '18px' : '24px',
                 fontStyle: 'normal',
                 fontWeight: 300,
-                lineHeight: '30px',
-                letterSpacing: '-0.48px'
+                lineHeight: isMobile ? '1.38' : '30px',
+                letterSpacing: isMobile ? '-0.24px' : '-0.48px'
               }}
             >
-              {project.metrics}
+              {displayProject.metrics}
             </p>
           )}
 
-          {project.roles && (
+          {displayProject.roles && (
             <p
               style={{
                 margin: 0,
                 color: 'rgb(from #E2DCC3 r g b / 0.85)',
                 fontFamily: '"acumin-variable", "Acumin VF", sans-serif',
-                fontSize: isMobile ? '22px' : '24px',
+                fontSize: isMobile ? '18px' : '24px',
                 fontStyle: 'normal',
                 fontWeight: 300,
-                lineHeight: '30px',
-                letterSpacing: '-0.48px'
+                lineHeight: isMobile ? '1.38' : '30px',
+                letterSpacing: isMobile ? '-0.24px' : '-0.48px'
               }}
             >
-              {project.roles}
+              {displayProject.roles}
             </p>
           )}
 
-          {project.cta && (
+          {displayProject.cta && (
             <p
               style={{
-                margin: '46px 0 0',
+                margin: isMobile ? '1rem 0 0' : '46px 0 0',
                 color: headlineColor,
-                textAlign: 'center',
+                textAlign: isMobile ? 'left' : 'center',
                 fontFamily: '"acumin-variable", "Acumin VF", sans-serif',
-                fontSize: '24px',
+                fontSize: isMobile ? '20px' : '24px',
                 fontStyle: 'normal',
                 fontWeight: 600,
-                lineHeight: '30px',
+                lineHeight: isMobile ? '1.35' : '30px',
                 letterSpacing: '-0.48px'
               }}
             >
-              {project.cta}
+              {displayProject.cta}
             </p>
           )}
         </div>
       </animated.div>
-    </section>
+    </div>
   );
 };
 
