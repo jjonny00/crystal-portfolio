@@ -20,7 +20,9 @@ import projects, {
   getProjectPlacementKeyByFacetKey,
   getSceneFacetKeyByProjectId,
   getProjectIdByAnyKey,
-  getProjectIdBySceneFacetKey
+  getProjectIdBySceneFacetKey,
+  getFacetSlotByProjectId,
+  getFacetSlotBySceneFacetKey
 } from '../../data/projects'
 import FacetLabels from './FacetLabels'
 import HoverConnectorLine from './HoverConnectorLine'
@@ -277,6 +279,11 @@ const UnifiedCrystalScene = forwardRef(({
     || getProjectIdBySceneFacetKey(focusedSceneFacetKey)
     || null;
 
+  const focusedFacetSlot =
+    (focusedProjectKey && getFacetSlotByProjectId(focusedProjectKey))
+    || getFacetSlotBySceneFacetKey(focusedSceneFacetKey)
+    || null;
+
   
   useImperativeHandle(ref, () => ({
     // Expose the refs array directly (this is what Fixed3DCanvas expects)
@@ -310,6 +317,7 @@ const UnifiedCrystalScene = forwardRef(({
       lastCrystalForm: lastCrystalForm.current,
       focusedSceneFacetKey,
       focusedProjectKey,
+      focusedFacetSlot,
     }),
 
     debugState: {
@@ -322,7 +330,8 @@ const UnifiedCrystalScene = forwardRef(({
       showCrystalDebug,
       lastCrystalForm: lastCrystalForm.current,
       focusedSceneFacetKey,
-      focusedProjectKey
+      focusedProjectKey,
+      focusedFacetSlot
     },
     
     // Expose debug methods for debug panels
@@ -414,7 +423,7 @@ const UnifiedCrystalScene = forwardRef(({
         }
       }
     }
-  }), [facetKeys, showWholeCrystal, showFacets, sphereVisible, showCrystalDebug, modelsLoaded, animationData, focusedSceneFacetKey, focusedProjectKey]);
+  }), [facetKeys, showWholeCrystal, showFacets, sphereVisible, showCrystalDebug, modelsLoaded, animationData, focusedSceneFacetKey, focusedProjectKey, focusedFacetSlot]);
 
   // Load models
   const wholeCrystal = useGLTF(mergedConfig.assets.models.crystalWhole);

@@ -604,6 +604,7 @@ const Fixed3DCanvas = forwardRef(({
           lastCrystalForm={debugData.lastCrystalForm}
           focusedSceneFacetKey={debugData.focusedSceneFacetKey}
           focusedProjectKey={debugData.focusedProjectKey}
+          focusedFacetSlot={debugData.focusedFacetSlot}
         />
       )}
     </>

@@ -6,6 +6,7 @@ import {
   getProjectIdByFacetSlot as getProjectIdByFacetSlotFromAssignment,
   getSceneKeyByProjectId as getSceneKeyByProjectIdFromAssignment,
   getProjectIdBySceneKey as getProjectIdBySceneKeyFromAssignment,
+  getFacetSlotBySceneKey as getFacetSlotBySceneKeyFromFacetSystem,
 } from './facetSystem';
 
 export const projects = [
@@ -187,6 +188,9 @@ export const getSceneFacetKeyByProjectId = (projectId) =>
 
 export const getProjectIdBySceneFacetKey = (sceneFacetKey) =>
   getProjectIdBySceneKeyFromAssignment(sceneFacetKey, projectFacetAssignment);
+
+export const getFacetSlotBySceneFacetKey = (sceneFacetKey) =>
+  getFacetSlotBySceneKeyFromFacetSystem(sceneFacetKey);
 
 
 export const getProjectIdByAnyKey = (key) => {
