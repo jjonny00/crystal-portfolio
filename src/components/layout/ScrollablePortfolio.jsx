@@ -182,7 +182,7 @@ const ScrollablePortfolio = ({
         />
 
         {projects.map((project) => {
-          const sectionId = `project-${project.facetKey || project.id || project.crystalKey}`;
+          const sectionId = `project-${project.facetKey || project.id}`;
           return (
             <section
               key={project.id}
