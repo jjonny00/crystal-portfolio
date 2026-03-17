@@ -648,13 +648,16 @@ export const useUnifiedAnimationController = (options = {}) => {
       : calculateActiveProject(scrollProgress, config);
     const directOverrideProject = directProjectOverrideRef.current?.projectKey ?? null;
     const directOverrideZone = directZoneOverrideRef.current?.zoneKey ?? null;
+    const lockedProjectInfo = directOverrideProject
+      ? { ...activeProject, project: directOverrideProject }
+      : activeProject;
 
     if (directOverrideZone && currentZone.zone !== directOverrideZone) {
       setAnimationState(prev => ({
         ...prev,
         scrollProgress: scrollProgress,
         zoneInfo: currentZone,
-        projectInfo: activeProject
+        projectInfo: lockedProjectInfo
       }));
 
       if (onStateChange) {
@@ -822,7 +825,7 @@ export const useUnifiedAnimationController = (options = {}) => {
       ...prev,
       scrollProgress: scrollProgress,
       zoneInfo: currentZone,
-      projectInfo: activeProject
+      projectInfo: lockedProjectInfo
     }));
 
     if (onStateChange) {
