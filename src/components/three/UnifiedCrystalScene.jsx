@@ -93,6 +93,8 @@ const UnifiedCrystalScene = forwardRef(({
   const [domAnchorClient, setDomAnchorClient] = useState(null);
   const { layout } = useLayoutConfig();
   const hoverCapable = useHoverCapable();
+  const energyConnectorPrototypeEnabled = effects?.hoverEnergyConnector?.enabled !== false;
+  const connectorFacetShimmerBoost = effects?.hoverEnergyConnector?.facetShimmerBoost ?? 0.06;
   const overviewWorldAnchors = layout?.anchors?.overviewWorld;
   const layoutCamera = layout?.camera;
   const layoutProjects = layout?.projects;
@@ -1392,6 +1394,20 @@ const UnifiedCrystalScene = forwardRef(({
       }
     }
 
+    if (energyConnectorPrototypeEnabled && inActiveOverview && hoveredLabelFacetKey) {
+      const shimmer = (Math.sin(state.clock.elapsedTime * 9) * 0.5 + 0.5) * connectorFacetShimmerBoost;
+      facetMaterialsRef.current.forEach((mat, idx) => {
+        const facetKey = facetKeys[idx];
+        if (facetKey !== hoveredLabelFacetKey) return;
+        if (mat.userData?.isFading) return;
+        const baseIntensity = mat.userData?.baseEmissiveIntensity ?? 0.02;
+        const baseColor = mat.userData?.baseEmissiveColor || defaultColorRef.current;
+        const shimmerColor = projectColors[idx].clone().lerp(baseColor, 0.35);
+        mat.emissive.copy(shimmerColor);
+        mat.emissiveIntensity = baseIntensity + shimmer;
+      });
+    }
+
     // Hold facets at fracture positions before the explosion resumes
     if (animationData.crystalForm === 'exploded' && explosionStartRef.current) {
       const fracturePause = crystalConfig?.fracturePause || 0.5;
@@ -1692,6 +1708,7 @@ const UnifiedCrystalScene = forwardRef(({
         hoveredFacetKey={hoveredLabelFacetKey}
         domAnchorClient={domAnchorClient}
         overviewWorldAnchors={overviewWorldAnchors}
+        prototypeEnabled={energyConnectorPrototypeEnabled}
       />
 
       {/* Debug visualization when enabled */}

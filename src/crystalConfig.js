@@ -275,7 +275,13 @@ export const effects = {
       phaseOffset: 0.5       // Phase difference between facets
     }
   },
-  
+
+  // Lightweight prototype for hovered label -> facet optical connector
+  hoverEnergyConnector: {
+    enabled: true,
+    facetShimmerBoost: 0.06,
+  },
+
   // Fracture effect
   fracture: {
     maxScaleFactor: 0.1,     // Maximum scale increase during fracture (10%)
