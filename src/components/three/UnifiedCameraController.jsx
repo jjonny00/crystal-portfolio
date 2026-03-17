@@ -4,7 +4,7 @@
 import { useRef, useEffect } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { facetKeys as canonicalFacetKeys } from '../../data/projects';
+import { facetKeys as canonicalFacetKeys, getSceneFacetKeyByProjectId } from '../../data/projects';
 
 const UnifiedCameraController = ({
   animationData,
@@ -327,18 +327,22 @@ const UnifiedCameraController = ({
 
     if (!animationData?.cameraConfig && !config?.cameraPositions) return;
 
+    const focusedProject = animationData.focusedProject ?? null;
     const focusedFacet = animationData.focusedFacet;
+    const resolvedFocusedFacet = focusedProject
+      ? (getSceneFacetKeyByProjectId(focusedProject) || focusedFacet)
+      : focusedFacet;
     const cameraState = animationData.cameraState;
-    const configCameraState = getConfigCameraState(cameraState, focusedFacet);
+    const configCameraState = getConfigCameraState(cameraState, resolvedFocusedFacet);
     const baseConfig = configCameraState || animationData.cameraConfig;
     if (!baseConfig) return;
     
-    const enhancedConfig = getCameraTarget(baseConfig, focusedFacet, cameraState);
-    const configuredOffsetPosition = cameraState === 'project' && focusedFacet
-      ? config?.cameraOffsets?.projects?.[focusedFacet]?.position
+    const enhancedConfig = getCameraTarget(baseConfig, resolvedFocusedFacet, cameraState);
+    const configuredOffsetPosition = cameraState === 'project' && resolvedFocusedFacet
+      ? config?.cameraOffsets?.projects?.[resolvedFocusedFacet]?.position
       : config?.cameraOffsets?.zones?.[cameraState]?.position;
-    const configuredOffsetTarget = cameraState === 'project' && focusedFacet
-      ? config?.cameraOffsets?.projects?.[focusedFacet]?.target
+    const configuredOffsetTarget = cameraState === 'project' && resolvedFocusedFacet
+      ? config?.cameraOffsets?.projects?.[resolvedFocusedFacet]?.target
       : config?.cameraOffsets?.zones?.[cameraState]?.target;
 
     const offsetPosition = toVector3(configuredOffsetPosition ?? enhancedConfig?.offsetPosition);
@@ -368,7 +372,7 @@ const UnifiedCameraController = ({
         console.log('📹 Camera Controller: Enhanced camera target updated:', {
           state: animationData.state,
           cameraState: cameraState,
-          focusedFacet: focusedFacet,
+          focusedFacet: resolvedFocusedFacet,
           position: finalPosition?.toArray(),
           target: finalTarget?.toArray(),
           fov: enhancedConfig.fov,
@@ -415,13 +419,13 @@ const UnifiedCameraController = ({
         animationSpeed.current.position = 0.02;
         animationSpeed.current.lookAt = 0.02;
         animationSpeed.current.fov = 0.02;
-      } else if (cameraState === 'project' && focusedFacet) {
+      } else if (cameraState === 'project' && resolvedFocusedFacet) {
         animationSpeed.current.position = 0.05;
         animationSpeed.current.lookAt = 0.05;
         animationSpeed.current.fov = 0.05;
         
         if (import.meta.env.DEV) {
-          console.log(`📹 Camera Controller: Project focus camera update: ${focusedFacet}, distance: ${positionDistance.toFixed(2)}, using anchor: ${enhancedConfig.description?.includes('anchor')}`);
+          console.log(`📹 Camera Controller: Project focus camera update: ${resolvedFocusedFacet}, distance: ${positionDistance.toFixed(2)}, using anchor: ${enhancedConfig.description?.includes('anchor')}`);
         }
       } else {
         animationSpeed.current.position = 0.03;
@@ -484,6 +488,7 @@ const UnifiedCameraController = ({
     animationData?.state,
     animationData?.cameraState,
     animationData?.focusedFacet,
+    animationData?.focusedProject,
     config?.cameraPositions,
     config?.cameraTargets,
     config?.cameraOffsets,

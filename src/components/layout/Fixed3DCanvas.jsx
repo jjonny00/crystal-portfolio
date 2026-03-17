@@ -22,7 +22,7 @@ import GradientBackground from '../three/GradientBackground';
 import { projectBackgrounds } from '../../data/projectBackgrounds';
 import MistyLayerStack from '../MistyLayerStack';
 import { isIOS26 } from '../../utils/isIOS26';
-import { facetKeys as canonicalFacetKeys } from '../../data/projects';
+import { facetKeys as canonicalFacetKeys, getProjectIdBySceneFacetKey } from '../../data/projects';
 import { useLayoutConfig } from '../../hooks/useLayoutConfig';
 
 function createSanitizePass() {
@@ -145,6 +145,7 @@ const Fixed3DCanvas = forwardRef(({
     showCrystalDebug: false,
     lastCrystalForm: 'whole'
   });
+  const lastDebugSignatureRef = useRef('');
 
   const simplifiedAnimations = performanceProfile?.simplifiedAnimations;
   const dustEnabled = !performanceProfile?.reducedParticles;
@@ -282,21 +283,44 @@ const Fixed3DCanvas = forwardRef(({
     );
   }, [ios26]);
 
-  // NEW: Update debug data when crystal scene changes
+  // Keep debug data in sync with scene state (including keyboard toggles inside the scene)
   useEffect(() => {
-    if (crystalSceneRef.current) {
-      const sceneDebugState = crystalSceneRef.current.debugState;
+    const syncDebugData = () => {
+      if (!crystalSceneRef.current) return;
+
+      const sceneDebugState = crystalSceneRef.current.getDebugSnapshot?.()
+        || crystalSceneRef.current.debugState;
       const debugMethods = crystalSceneRef.current.debugMethods;
-      
-      if (sceneDebugState) {
-        setDebugData(prev => ({
-          ...prev,
-          ...sceneDebugState,
-          debugMethods
-        }));
-      }
-    }
-  }, [crystalSceneRef]);
+
+      if (!sceneDebugState) return;
+
+      const signature = JSON.stringify({
+        showWholeCrystal: sceneDebugState.showWholeCrystal,
+        showFacets: sceneDebugState.showFacets,
+        sphereVisible: sceneDebugState.sphereVisible,
+        showCrystalDebug: sceneDebugState.showCrystalDebug,
+        lastCrystalForm: sceneDebugState.lastCrystalForm,
+        focusedSceneFacetKey: sceneDebugState.focusedSceneFacetKey,
+        focusedProjectKey: sceneDebugState.focusedProjectKey,
+      });
+
+      if (signature === lastDebugSignatureRef.current) return;
+      lastDebugSignatureRef.current = signature;
+
+      setDebugData((prev) => ({
+        ...prev,
+        ...sceneDebugState,
+        debugMethods,
+      }));
+    };
+
+    syncDebugData();
+    const intervalId = window.setInterval(syncDebugData, 120);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, []);
 
   // Update gradient background based on project focus or zone changes
   const bg = backgroundRef.current;
@@ -316,7 +340,9 @@ const Fixed3DCanvas = forwardRef(({
 
     // Project-specific backgrounds only apply inside the projects zone
     if (zone === 'projects' && (animationData.focusedProject || animationData.focusedFacet)) {
-      const projectKey = animationData.focusedProject || animationData.focusedFacet;
+      const projectKey = animationData.focusedProject
+        || getProjectIdBySceneFacetKey(animationData.focusedFacet)
+        || animationData.focusedFacet;
       bg.updateBackground(projectKey);
       lastZoneRef.current = zone;
       return;
@@ -576,6 +602,9 @@ const Fixed3DCanvas = forwardRef(({
           onForceShowWhole={debugData.debugMethods?.forceShowWhole}
           onInspectModels={debugData.debugMethods?.inspectModels}
           lastCrystalForm={debugData.lastCrystalForm}
+          focusedSceneFacetKey={debugData.focusedSceneFacetKey}
+          focusedProjectKey={debugData.focusedProjectKey}
+          focusedFacetSlot={debugData.focusedFacetSlot}
         />
       )}
     </>

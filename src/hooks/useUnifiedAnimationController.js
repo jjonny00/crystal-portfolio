@@ -4,7 +4,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Vector3, Quaternion, Euler } from 'three';
 import { fracture as fractureConfig } from '../crystalConfig';
-import { orderedFacetKeys } from '../data/projects';
+import { orderedProjectKeys, getSceneFacetKeyByProjectId } from '../data/projects';
 
 // Percentage of explode distance facets travel during fracture
 const FRACTURE_DISTANCE = fractureConfig.distance;
@@ -111,16 +111,16 @@ export const ANIMATION_CONFIG = {
 };
 
 const projectsZone = ANIMATION_CONFIG.scrollZones.projects;
-const sectionCount = Math.max(orderedFacetKeys.length, 1);
+const sectionCount = Math.max(orderedProjectKeys.length, 1);
 const projectSectionSpan = (projectsZone.end - projectsZone.start) / sectionCount;
 
-ANIMATION_CONFIG.projectSections = orderedFacetKeys.reduce((acc, facetKey, index) => {
+ANIMATION_CONFIG.projectSections = orderedProjectKeys.reduce((acc, projectKey, index) => {
   const start = projectsZone.start + projectSectionSpan * index;
-  const end = index === orderedFacetKeys.length - 1
+  const end = index === orderedProjectKeys.length - 1
     ? projectsZone.end
     : start + projectSectionSpan;
 
-  acc[facetKey] = {
+  acc[projectKey] = {
     start,
     end
   };
@@ -304,6 +304,7 @@ export const useUnifiedAnimationController = (options = {}) => {
   const cameraDelayTimeout = useRef(null);
   const directProjectOverrideRef = useRef(null);
   const directZoneOverrideRef = useRef(null);
+  const directProjectReleaseTimeoutRef = useRef(null);
   const runtimeProjectSectionsRef = useRef([]);
 
   const getRuntimeProjectSection = useCallback((projectKey) => {
@@ -391,27 +392,44 @@ export const useUnifiedAnimationController = (options = {}) => {
   }, []);
 
   const clearDirectProjectOverride = useCallback(() => {
+    if (directProjectReleaseTimeoutRef.current) {
+      clearTimeout(directProjectReleaseTimeoutRef.current);
+      directProjectReleaseTimeoutRef.current = null;
+    }
     directProjectOverrideRef.current = null;
   }, []);
 
   const setDirectProjectOverride = useCallback((projectKey) => {
-    if (!projectKey || !config?.camera?.projects?.[projectKey]) {
+    const sceneFacetKey = getSceneFacetKeyByProjectId(projectKey) || projectKey;
+
+    if (!projectKey || !sceneFacetKey || !config?.camera?.projects?.[sceneFacetKey]) {
       clearDirectProjectOverride();
       return;
     }
 
+    const createdAt = Date.now();
+
     directProjectOverrideRef.current = {
       projectKey,
-      createdAt: Date.now()
+      sceneFacetKey,
+      createdAt
     };
 
-    setAnimationState(prev => ({
+    // Lock zone to projects while programmatic scrolling is in-flight so we
+    // don't replay hero/overview transitions before reaching the target section.
+    directZoneOverrideRef.current = {
+      zoneKey: 'projects',
+      createdAt,
+    };
+
+    setAnimationState((prev) => ({
       ...prev,
       state: ANIMATION_STATES.PROJECT_FOCUSED,
       crystalForm: 'exploded',
       cameraState: 'project',
-      focusedFacet: projectKey,
-      isTransitioning: false
+      focusedFacet: sceneFacetKey,
+      isTransitioning: false,
+      projectInfo: { ...prev.projectInfo, project: projectKey },
     }));
 
     lastProject.current = projectKey;
@@ -489,7 +507,8 @@ export const useUnifiedAnimationController = (options = {}) => {
 
   const explodedRotations = useMemo(() => {
     const eulerRotations = config?.facetRotationsEulerDeg;
-    return orderedFacetKeys.reduce((acc, facetKey) => {
+    const sceneFacetKeys = Object.keys(config?.crystal?.explodedPositions || {});
+    return sceneFacetKeys.reduce((acc, facetKey) => {
       const eulerDeg = eulerRotations?.[facetKey];
       if (Array.isArray(eulerDeg)) {
         const [x = 0, y = 0, z = 0] = eulerDeg;
@@ -565,7 +584,7 @@ export const useUnifiedAnimationController = (options = {}) => {
         state: ANIMATION_STATES.PROJECT_FOCUSED,
         crystalForm: 'exploded',     // Immediate
         cameraState: 'project',      // Immediate - this enables project camera positioning
-        focusedFacet: initialProject,
+        focusedFacet: getSceneFacetKeyByProjectId(initialProject) || initialProject,
         isTransitioning: false
       }));
       lastProject.current = initialProject;
@@ -586,21 +605,22 @@ export const useUnifiedAnimationController = (options = {}) => {
    * SIMPLIFIED: Handle project focus (same pattern as before - it works!)
    */
   const handleProjectFocus = useCallback((projectKey) => {
+    const sceneFacetKey = getSceneFacetKeyByProjectId(projectKey) || projectKey;
+
     if (debugMode) {
-      if (import.meta.env.DEV) console.log('🎯 IMMEDIATE Project focus:', projectKey);
+      if (import.meta.env.DEV) console.log('🎯 IMMEDIATE Project focus:', projectKey, '->', sceneFacetKey);
     }
 
-    // ENHANCED: Log when project focus changes for background debugging
     if (import.meta.env.DEV) {
       console.log(`🎨 Background trigger: Project focus changed to "${projectKey}"`);
     }
 
-    // Immediate state change - same pattern as working projects
-    setAnimationState(prev => ({
+    setAnimationState((prev) => ({
       ...prev,
-      focusedFacet: projectKey,
-      cameraState: 'project',  // This triggers camera to move to projects[projectKey]
-      isTransitioning: false   // Let camera component handle smooth transition
+      focusedFacet: sceneFacetKey,
+      cameraState: 'project',
+      isTransitioning: false,
+      projectInfo: { ...prev.projectInfo, project: projectKey },
     }));
   }, [debugMode]);
 
@@ -628,13 +648,16 @@ export const useUnifiedAnimationController = (options = {}) => {
       : calculateActiveProject(scrollProgress, config);
     const directOverrideProject = directProjectOverrideRef.current?.projectKey ?? null;
     const directOverrideZone = directZoneOverrideRef.current?.zoneKey ?? null;
+    const lockedProjectInfo = directOverrideProject
+      ? { ...activeProject, project: directOverrideProject }
+      : activeProject;
 
     if (directOverrideZone && currentZone.zone !== directOverrideZone) {
       setAnimationState(prev => ({
         ...prev,
         scrollProgress: scrollProgress,
         zoneInfo: currentZone,
-        projectInfo: activeProject
+        projectInfo: lockedProjectInfo
       }));
 
       if (onStateChange) {
@@ -688,7 +711,7 @@ export const useUnifiedAnimationController = (options = {}) => {
 
       if (shouldChangeZone) {
         if (currentZone.zone === 'projects') {
-          const fallbackProject = orderedFacetKeys[0] || null;
+          const fallbackProject = orderedProjectKeys[0] || null;
           const initialProject = directOverrideProject
             || activeProject.project
             || fallbackProject;
@@ -712,7 +735,22 @@ export const useUnifiedAnimationController = (options = {}) => {
     // FIXED: Handle project changes within projects zone
     if (currentZone.zone === 'projects') {
       if (directOverrideProject && activeProject.project === directOverrideProject) {
-        clearDirectProjectOverride();
+        // IMPORTANT: Keep direct override active until the scroll has settled on
+        // the target project, otherwise intermediate section crossings can
+        // briefly retarget focus/camera and create visible "bounce".
+        if (!directProjectReleaseTimeoutRef.current) {
+          directProjectReleaseTimeoutRef.current = setTimeout(() => {
+            directProjectReleaseTimeoutRef.current = null;
+
+            // Only release if we are still on the intended target project.
+            if (directProjectOverrideRef.current?.projectKey === activeProject.project) {
+              clearDirectProjectOverride();
+            }
+          }, 320);
+        }
+      } else if (directProjectReleaseTimeoutRef.current) {
+        clearTimeout(directProjectReleaseTimeoutRef.current);
+        directProjectReleaseTimeoutRef.current = null;
       }
 
       const overrideActive = Boolean(directProjectOverrideRef.current?.projectKey);
@@ -760,7 +798,7 @@ export const useUnifiedAnimationController = (options = {}) => {
           state: ANIMATION_STATES.PROJECT_FOCUSED,
           crystalForm: 'exploded',
           cameraState: 'project',
-          focusedFacet: activeProject.project,
+          focusedFacet: getSceneFacetKeyByProjectId(activeProject.project) || activeProject.project,
           isTransitioning: false
         }));
         lastProject.current = activeProject.project;
@@ -787,7 +825,7 @@ export const useUnifiedAnimationController = (options = {}) => {
       ...prev,
       scrollProgress: scrollProgress,
       zoneInfo: currentZone,
-      projectInfo: activeProject
+      projectInfo: lockedProjectInfo
     }));
 
     if (onStateChange) {

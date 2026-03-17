@@ -1,11 +1,23 @@
 // src/data/projects.js
 
+import {
+  buildProjectFacetAssignment,
+  getFacetSlotByProjectId as getFacetSlotByProjectIdFromAssignment,
+  getProjectIdByFacetSlot as getProjectIdByFacetSlotFromAssignment,
+  getSceneKeyByProjectId as getSceneKeyByProjectIdFromAssignment,
+  getProjectIdBySceneKey as getProjectIdBySceneKeyFromAssignment,
+  getFacetSlotBySceneKey as getFacetSlotBySceneKeyFromFacetSystem,
+  facetSlotOrder,
+  getSceneKeyByFacetSlot,
+} from './facetSystem';
+
 export const projects = [
   {
     id: 'project01',
     facetKey: 'project01',
     modelKey: 'project01',
-    crystalKey: 'exploration',
+    crystalKey: 'leadership',
+    placementKey: 'exploration',
     runtimeModelKey: 'project06',
     title: 'SLIPSTREAM',
     label: 'Slipstream',
@@ -25,7 +37,8 @@ export const projects = [
     id: 'project02',
     facetKey: 'project02',
     modelKey: 'project02',
-    crystalKey: 'craft',
+    crystalKey: 'exploration',
+    placementKey: 'craft',
     runtimeModelKey: 'project03',
     title: 'MESA',
     label: 'Mesa',
@@ -57,7 +70,8 @@ export const projects = [
     id: 'project03',
     facetKey: 'project03',
     modelKey: 'project03',
-    crystalKey: 'narrative',
+    crystalKey: 'craft',
+    placementKey: 'narrative',
     runtimeModelKey: 'project02',
     title: 'FUNDSEEDER',
     label: 'FundSeeder',
@@ -90,6 +104,7 @@ export const projects = [
     facetKey: 'project04',
     modelKey: 'project04',
     crystalKey: 'system',
+    placementKey: 'system',
     runtimeModelKey: 'project04',
     title: 'QUANTIFIED',
     label: 'Quantified',
@@ -109,7 +124,8 @@ export const projects = [
     id: 'project05',
     facetKey: 'project05',
     modelKey: 'project05',
-    crystalKey: 'leadership',
+    crystalKey: 'narrative',
+    placementKey: 'leadership',
     runtimeModelKey: 'project05',
     title: 'FOREST GIANT',
     label: 'Forest Giant',
@@ -130,6 +146,7 @@ export const projects = [
     facetKey: 'project06',
     modelKey: 'project06',
     crystalKey: 'empathy',
+    placementKey: 'empathy',
     runtimeModelKey: 'project01',
     title: 'GE EXPERIENCE CENTERS',
     label: 'GE Experience Centers',
@@ -159,21 +176,88 @@ export const projects = [
   }
 ];
 
-export const facetKeys = projects.map((project) => project.crystalKey);
+
+export const projectFacetAssignment = buildProjectFacetAssignment(projects);
+
+export const getFacetSlotByProjectId = (projectId) =>
+  getFacetSlotByProjectIdFromAssignment(projectId, projectFacetAssignment);
+
+export const getProjectIdByFacetSlot = (facetSlot) =>
+  getProjectIdByFacetSlotFromAssignment(facetSlot, projectFacetAssignment);
+
+export const getSceneFacetKeyByProjectId = (projectId) =>
+  getSceneKeyByProjectIdFromAssignment(projectId, projectFacetAssignment);
+
+export const getProjectIdBySceneFacetKey = (sceneFacetKey) =>
+  getProjectIdBySceneKeyFromAssignment(sceneFacetKey, projectFacetAssignment);
+
+export const getFacetSlotBySceneFacetKey = (sceneFacetKey) =>
+  getFacetSlotBySceneKeyFromFacetSystem(sceneFacetKey);
+
+
+export const getProjectIdByAnyKey = (key) => {
+  const project = getProjectByFacetKey(key) || projects.find((item) => item.id === key);
+  return project?.facetKey || project?.id || key;
+};
+
+export const projectKeys = projects.map((project) => project.facetKey || project.id);
+export const orderedProjectKeys = [...projectKeys];
+
+export const facetKeys = facetSlotOrder
+  .map((slot) => getSceneKeyByFacetSlot(slot))
+  .filter(Boolean);
 export const orderedFacetKeys = [...facetKeys];
 
-const projectByAnyFacetKey = new Map(
-  projects.flatMap((project) => [
-    [project.facetKey, project],
-    [project.crystalKey, project]
-  ])
+const projectById = new Map(
+  projects.map((project) => [project.facetKey || project.id, project])
 );
 
-const getProjectByFacetKey = (facetKey) => projectByAnyFacetKey.get(facetKey) || null;
+const crystalKeyToProject = new Map(
+  projects.map((project) => [project.crystalKey, project])
+);
+
+const placementKeyToProject = new Map(
+  projects.map((project) => [project.placementKey || project.crystalKey, project])
+);
+
+const getProjectByFacetKey = (facetKey) => {
+  if (!facetKey) return null;
+
+  const byId = projectById.get(facetKey);
+  if (byId) return byId;
+
+  const bySceneProjectId = getProjectIdBySceneFacetKey(facetKey);
+  if (bySceneProjectId) {
+    const project = projectById.get(bySceneProjectId);
+    if (project) return project;
+  }
+
+  return crystalKeyToProject.get(facetKey) || null;
+};
 
 export const getProjectModelKeyByFacetKey = (facetKey) => {
-  const project = getProjectByFacetKey(facetKey);
+  const isSceneFacetKey = Boolean(getFacetSlotBySceneKeyFromFacetSystem(facetKey));
+  const project = isSceneFacetKey
+    ? placementKeyToProject.get(facetKey)
+    : getProjectByFacetKey(facetKey);
+
   return project ? (project.runtimeModelKey || project.modelKey) : null;
+};
+
+
+
+export const getProjectCrystalKeyByFacetKey = (facetKey) => {
+  const project = getProjectByFacetKey(facetKey);
+  return project?.crystalKey || facetKey;
+};
+
+export const getProjectPlacementKeyByFacetKey = (facetKey) => {
+  if (getFacetSlotBySceneKeyFromFacetSystem(facetKey)) {
+    return facetKey;
+  }
+
+  const project = getProjectByFacetKey(facetKey);
+  return project?.placementKey || project?.crystalKey || facetKey;
 };
 
 export const getProjectColorByFacetKey = (facetKey) => {
