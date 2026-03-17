@@ -29,7 +29,7 @@ export const buildProjectFacetAssignment = (projects = []) =>
   Object.fromEntries(
     projects.map((project) => {
       const projectId = project.facetKey || project.id;
-      const sceneKey = project.placementKey || project.crystalKey;
+      const sceneKey = project.crystalKey || project.placementKey;
       const slot = getFacetSlotBySceneKey(sceneKey);
       return [projectId, slot];
     })
