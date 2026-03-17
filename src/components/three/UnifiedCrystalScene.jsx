@@ -1692,6 +1692,7 @@ const UnifiedCrystalScene = forwardRef(({
         hoveredFacetKey={hoveredLabelFacetKey}
         domAnchorClient={domAnchorClient}
         overviewWorldAnchors={overviewWorldAnchors}
+        hybridPrototypeEnabled={performanceProfile?.enableHybridHoverConnector === true}
       />
 
       {/* Debug visualization when enabled */}

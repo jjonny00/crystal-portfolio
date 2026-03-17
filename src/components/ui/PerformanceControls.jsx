@@ -18,6 +18,7 @@ const PerformanceControls = ({
   const [pbrQuality, setPbrQuality] = useState(performanceConfig?.pbrQuality ?? 'high');
   const [renderScale, setRenderScale] = useState(performanceConfig?.renderScale ?? 1.0);
   const [simplifiedAnimations, setSimplifiedAnimations] = useState(performanceConfig?.simplifiedAnimations ?? false);
+  const [enableHybridHoverConnector, setEnableHybridHoverConnector] = useState(performanceConfig?.enableHybridHoverConnector ?? false);
   
   // Update local state when config changes externally
   useEffect(() => {
@@ -27,6 +28,7 @@ const PerformanceControls = ({
       if (performanceConfig.pbrQuality !== undefined) setPbrQuality(performanceConfig.pbrQuality);
       if (performanceConfig.renderScale !== undefined) setRenderScale(performanceConfig.renderScale);
       if (performanceConfig.simplifiedAnimations !== undefined) setSimplifiedAnimations(performanceConfig.simplifiedAnimations);
+      if (performanceConfig.enableHybridHoverConnector !== undefined) setEnableHybridHoverConnector(performanceConfig.enableHybridHoverConnector);
     }
   }, [performanceConfig]);
 
@@ -55,6 +57,18 @@ const PerformanceControls = ({
     }
   };
   
+
+  const handleHybridConnectorToggle = () => {
+    const newValue = !enableHybridHoverConnector;
+    setEnableHybridHoverConnector(newValue);
+
+    if (onConfigUpdate) {
+      onConfigUpdate({
+        ...performanceConfig,
+        enableHybridHoverConnector: newValue,
+      });
+    }
+  };
   const handlePbrQualityChange = (value) => {
     setPbrQuality(value);
 
@@ -162,7 +176,19 @@ const PerformanceControls = ({
           onChange={handleSimplifiedToggle}
         />
       </div>
-      
+
+      <div
+        style={{
+          ...styles.toggleContainer,
+          backgroundColor: enableHybridHoverConnector ? 'rgba(100, 255, 218, 0.1)' : 'rgba(0, 0, 0, 0.2)'
+        }}
+      >
+        <div style={styles.toggleLabel}>Hybrid Hover Connector Prototype</div>
+        <ToggleSwitch
+          checked={enableHybridHoverConnector}
+          onChange={handleHybridConnectorToggle}
+        />
+      </div>
 
       {/* Material Quality */}
       <div style={styles.radioContainer}>
