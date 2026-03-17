@@ -304,6 +304,7 @@ export const useUnifiedAnimationController = (options = {}) => {
   const cameraDelayTimeout = useRef(null);
   const directProjectOverrideRef = useRef(null);
   const directZoneOverrideRef = useRef(null);
+  const directProjectReleaseTimeoutRef = useRef(null);
   const runtimeProjectSectionsRef = useRef([]);
 
   const getRuntimeProjectSection = useCallback((projectKey) => {
@@ -391,6 +392,10 @@ export const useUnifiedAnimationController = (options = {}) => {
   }, []);
 
   const clearDirectProjectOverride = useCallback(() => {
+    if (directProjectReleaseTimeoutRef.current) {
+      clearTimeout(directProjectReleaseTimeoutRef.current);
+      directProjectReleaseTimeoutRef.current = null;
+    }
     directProjectOverrideRef.current = null;
   }, []);
 
@@ -727,7 +732,22 @@ export const useUnifiedAnimationController = (options = {}) => {
     // FIXED: Handle project changes within projects zone
     if (currentZone.zone === 'projects') {
       if (directOverrideProject && activeProject.project === directOverrideProject) {
-        clearDirectProjectOverride();
+        // IMPORTANT: Keep direct override active until the scroll has settled on
+        // the target project, otherwise intermediate section crossings can
+        // briefly retarget focus/camera and create visible "bounce".
+        if (!directProjectReleaseTimeoutRef.current) {
+          directProjectReleaseTimeoutRef.current = setTimeout(() => {
+            directProjectReleaseTimeoutRef.current = null;
+
+            // Only release if we are still on the intended target project.
+            if (directProjectOverrideRef.current?.projectKey === activeProject.project) {
+              clearDirectProjectOverride();
+            }
+          }, 320);
+        }
+      } else if (directProjectReleaseTimeoutRef.current) {
+        clearTimeout(directProjectReleaseTimeoutRef.current);
+        directProjectReleaseTimeoutRef.current = null;
       }
 
       const overrideActive = Boolean(directProjectOverrideRef.current?.projectKey);
