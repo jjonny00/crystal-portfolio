@@ -216,6 +216,10 @@ const crystalKeyToProject = new Map(
   projects.map((project) => [project.crystalKey, project])
 );
 
+const placementKeyToProject = new Map(
+  projects.map((project) => [project.placementKey || project.crystalKey, project])
+);
+
 const getProjectByFacetKey = (facetKey) => {
   if (!facetKey) return null;
 
@@ -232,7 +236,11 @@ const getProjectByFacetKey = (facetKey) => {
 };
 
 export const getProjectModelKeyByFacetKey = (facetKey) => {
-  const project = getProjectByFacetKey(facetKey);
+  const isSceneFacetKey = Boolean(getFacetSlotBySceneKeyFromFacetSystem(facetKey));
+  const project = isSceneFacetKey
+    ? placementKeyToProject.get(facetKey)
+    : getProjectByFacetKey(facetKey);
+
   return project ? (project.runtimeModelKey || project.modelKey) : null;
 };
 
@@ -244,6 +252,10 @@ export const getProjectCrystalKeyByFacetKey = (facetKey) => {
 };
 
 export const getProjectPlacementKeyByFacetKey = (facetKey) => {
+  if (getFacetSlotBySceneKeyFromFacetSystem(facetKey)) {
+    return facetKey;
+  }
+
   const project = getProjectByFacetKey(facetKey);
   return project?.placementKey || project?.crystalKey || facetKey;
 };
