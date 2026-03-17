@@ -91,6 +91,10 @@ const UnifiedCrystalScene = forwardRef(({
 
   const [hoveredLabelFacetKey, setHoveredLabelFacetKey] = useState(null);
   const [domAnchorClient, setDomAnchorClient] = useState(null);
+  const [connectorPrototypeEnabled, setConnectorPrototypeEnabled] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return window.localStorage.getItem('hoverConnectorPrototype') !== 'off';
+  });
   const { layout } = useLayoutConfig();
   const hoverCapable = useHoverCapable();
   const overviewWorldAnchors = layout?.anchors?.overviewWorld;
@@ -676,7 +680,23 @@ const UnifiedCrystalScene = forwardRef(({
     setDomAnchorClient(null);
   }, [inActiveOverview]);
 
-  
+  useEffect(() => {
+    const handleToggle = (event) => {
+      if (event.key !== 'k' && event.key !== 'K') return;
+      const isInputField = event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA' || event.target.isContentEditable;
+      if (isInputField) return;
+
+      setConnectorPrototypeEnabled((prev) => {
+        const next = !prev;
+        window.localStorage.setItem('hoverConnectorPrototype', next ? 'on' : 'off');
+        return next;
+      });
+    };
+
+    window.addEventListener('keydown', handleToggle);
+    return () => window.removeEventListener('keydown', handleToggle);
+  }, []);
+
   // Keyboard listener for debug toggle
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -1688,7 +1708,7 @@ const UnifiedCrystalScene = forwardRef(({
       />
 
       <HoverConnectorLine
-        enabled={inActiveOverview && hoverCapable}
+        enabled={connectorPrototypeEnabled && inActiveOverview && hoverCapable}
         hoveredFacetKey={hoveredLabelFacetKey}
         domAnchorClient={domAnchorClient}
         overviewWorldAnchors={overviewWorldAnchors}
