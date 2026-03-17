@@ -7,6 +7,8 @@ import {
   getSceneKeyByProjectId as getSceneKeyByProjectIdFromAssignment,
   getProjectIdBySceneKey as getProjectIdBySceneKeyFromAssignment,
   getFacetSlotBySceneKey as getFacetSlotBySceneKeyFromFacetSystem,
+  facetSlotOrder,
+  getSceneKeyByFacetSlot,
 } from './facetSystem';
 
 export const projects = [
@@ -201,7 +203,9 @@ export const getProjectIdByAnyKey = (key) => {
 export const projectKeys = projects.map((project) => project.facetKey || project.id);
 export const orderedProjectKeys = [...projectKeys];
 
-export const facetKeys = projects.map((project) => project.crystalKey);
+export const facetKeys = facetSlotOrder
+  .map((slot) => getSceneKeyByFacetSlot(slot))
+  .filter(Boolean);
 export const orderedFacetKeys = [...facetKeys];
 
 const projectById = new Map(
