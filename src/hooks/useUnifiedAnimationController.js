@@ -402,10 +402,19 @@ export const useUnifiedAnimationController = (options = {}) => {
       return;
     }
 
+    const createdAt = Date.now();
+
     directProjectOverrideRef.current = {
       projectKey,
       sceneFacetKey,
-      createdAt: Date.now()
+      createdAt
+    };
+
+    // Lock zone to projects while programmatic scrolling is in-flight so we
+    // don't replay hero/overview transitions before reaching the target section.
+    directZoneOverrideRef.current = {
+      zoneKey: 'projects',
+      createdAt,
     };
 
     setAnimationState((prev) => ({
