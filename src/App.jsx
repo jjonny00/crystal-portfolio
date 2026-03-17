@@ -341,6 +341,7 @@ function App() {
   // Basic state hooks
   const [hideAllUI, setHideAllUI] = useState(false);
   const [perfDebug, setPerfDebug] = useState(false);
+  const [ambientConnectorPrototypeEnabled, setAmbientConnectorPrototypeEnabled] = useState(true);
   const [snapSpeed, setSnapSpeed] = useState('medium');
   const [config, setConfig] = useState({
     ...defaultConfig,
@@ -579,6 +580,17 @@ function App() {
         }
       }
 
+      if (e.key === 'o' || e.key === 'O') {
+        if (!e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey) {
+          e.preventDefault();
+          setAmbientConnectorPrototypeEnabled((prev) => {
+            const next = !prev;
+            if (import.meta.env.DEV) console.log(`✨ Connector particle prototype ${next ? 'enabled' : 'disabled'}`);
+            return next;
+          });
+        }
+      }
+
       if (e.key === 'p' || e.key === 'P') {
         if (!e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey) {
           e.preventDefault();
@@ -671,6 +683,26 @@ function App() {
         {hideAllUI ? 'Show UI (U)' : 'Hide UI (U)'}
       </button>
 
+      <button
+        onClick={() => setAmbientConnectorPrototypeEnabled((prev) => !prev)}
+        style={{
+          position: 'fixed',
+          top: '10px',
+          left: '132px',
+          zIndex: 99999,
+          backgroundColor: ambientConnectorPrototypeEnabled ? '#3a4f66' : 'rgba(0, 0, 0, 0.7)',
+          color: 'white',
+          border: 'none',
+          padding: '8px 12px',
+          borderRadius: '4px',
+          fontSize: '12px',
+          cursor: 'pointer',
+          fontWeight: 'bold'
+        }}
+      >
+        {ambientConnectorPrototypeEnabled ? 'Connector Prototype: ON (O)' : 'Connector Prototype: OFF (O)'}
+      </button>
+
       {/* Navigation Bar */}
       {!hideAllUI && (
         <Navigation
@@ -719,6 +751,7 @@ function App() {
           canvasProps={getOptimalCanvasProps()}
           environmentProps={getOptimalEnvironmentProps()}
           isMobile={isMobile}
+          ambientConnectorPrototypeEnabled={ambientConnectorPrototypeEnabled}
         />
       </MasterAnimationCoordinator>
 
