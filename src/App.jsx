@@ -671,8 +671,6 @@ function App() {
         {hideAllUI ? 'Show UI (U)' : 'Hide UI (U)'}
       </button>
 
-      <div className="blend-debug">BLEND TEST</div>
-
       {/* Navigation Bar */}
       {!hideAllUI && (
         <Navigation

@@ -86,6 +86,7 @@ const ProjectFocusSection = ({ project, isMobile = false, visible = true }) => {
           </Headline>
 
           <p
+            className="blend-force"
             style={{
               margin: isMobile ? '0 0 0.2rem' : '8px 0 18px',
               color: 'rgb(from #E2DCC3 r g b / 0.6)',
@@ -102,6 +103,7 @@ const ProjectFocusSection = ({ project, isMobile = false, visible = true }) => {
           </p>
 
           <p
+            className="blend-force"
             style={{
               margin: 0,
               color: 'rgb(from #E2DCC3 r g b / 0.85)',
@@ -118,6 +120,7 @@ const ProjectFocusSection = ({ project, isMobile = false, visible = true }) => {
 
           {displayProject.secondaryCopy && (
             <p
+              className="blend-force"
               style={{
                 margin: isMobile ? '0.2rem 0 0' : '30px 0 0',
                 color: 'rgb(from #E2DCC3 r g b / 0.85)',
@@ -135,6 +138,7 @@ const ProjectFocusSection = ({ project, isMobile = false, visible = true }) => {
 
           {displayProject.metrics && (
             <p
+              className="blend-force"
               style={{
                 margin: isMobile ? '0.2rem 0 0' : '30px 0 0',
                 color: 'rgb(from #E2DCC3 r g b / 0.85)',
@@ -152,6 +156,7 @@ const ProjectFocusSection = ({ project, isMobile = false, visible = true }) => {
 
           {displayProject.roles && (
             <p
+              className="blend-force"
               style={{
                 margin: 0,
                 color: 'rgb(from #E2DCC3 r g b / 0.85)',
@@ -169,6 +174,7 @@ const ProjectFocusSection = ({ project, isMobile = false, visible = true }) => {
 
           {displayProject.cta && (
             <p
+              className="blend-force"
               style={{
                 margin: isMobile ? '1rem 0 0' : '46px 0 0',
                 color: headlineColor,

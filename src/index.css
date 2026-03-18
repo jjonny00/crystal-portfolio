@@ -27,10 +27,6 @@ body {
   overflow-y: auto;
 }
 
-:root {
-  --blend-text-color: #fff;
-}
-
 h1,
 h2,
 h3,
@@ -42,26 +38,6 @@ h6,
 .title {
   font-family: 'ivypresto-display', serif;
   font-weight: 400;
-}
-
-body :where(
-  p,
-  span,
-  a,
-  li,
-  label,
-  small,
-  strong,
-  em,
-  cite,
-  blockquote,
-  figcaption,
-  dd,
-  dt,
-  time
-):not(.no-blend):not(.ivy-presto) {
-  mix-blend-mode: difference;
-  color: var(--blend-text-color);
 }
 
 .no-blend,
@@ -80,16 +56,9 @@ h6,
   mix-blend-mode: normal !important;
 }
 
-.blend-debug {
+.blend-force {
   color: #fff !important;
   mix-blend-mode: difference !important;
-  font-size: 80px !important;
-  line-height: 1 !important;
-  position: fixed !important;
-  top: 120px !important;
-  left: 40px !important;
-  z-index: 99999 !important;
-  pointer-events: none !important;
 }
 
 #root {
