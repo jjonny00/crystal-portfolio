@@ -33,7 +33,7 @@ const HeroSection = ({
     },
     to: {
       opacity: visible ? 1 : 0,
-      transform: visible ? 'translateY(0px)' : 'translateY(40px)'
+      transform: visible ? 'none' : 'translateY(40px)'
     },
     config: { tension: 280, friction: 24 },
     delay: visible ? 200 : 0
@@ -46,7 +46,7 @@ const HeroSection = ({
     },
     to: {
       opacity: visible ? 1 : 0,
-      transform: visible ? 'translateY(0px)' : 'translateY(20px)'
+      transform: visible ? 'none' : 'translateY(20px)'
     },
     config: { tension: 300, friction: 26 },
     delay: visible ? 600 : 0

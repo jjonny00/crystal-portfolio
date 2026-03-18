@@ -80,6 +80,18 @@ h6,
   mix-blend-mode: normal !important;
 }
 
+.blend-debug {
+  color: #fff !important;
+  mix-blend-mode: difference !important;
+  font-size: 80px !important;
+  line-height: 1 !important;
+  position: fixed !important;
+  top: 120px !important;
+  left: 40px !important;
+  z-index: 99999 !important;
+  pointer-events: none !important;
+}
+
 #root {
   width: 100%;
   min-height: 100vh;

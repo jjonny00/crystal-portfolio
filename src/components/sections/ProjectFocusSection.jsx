@@ -16,7 +16,7 @@ const ProjectFocusSection = ({ project, isMobile = false, visible = true }) => {
     },
     to: {
       opacity: visible ? 1 : 0,
-      transform: visible ? 'translateY(0px)' : 'translateY(20px)'
+      transform: visible ? 'none' : 'translateY(20px)'
     },
     delay: visible ? 180 : 0,
     config: {
