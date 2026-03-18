@@ -27,6 +27,10 @@ body {
   overflow-y: auto;
 }
 
+:root {
+  --blend-text-color: #fff;
+}
+
 h1,
 h2,
 h3,
@@ -38,6 +42,42 @@ h6,
 .title {
   font-family: 'ivypresto-display', serif;
   font-weight: 400;
+}
+
+body :where(
+  p,
+  span,
+  a,
+  li,
+  label,
+  small,
+  strong,
+  em,
+  cite,
+  blockquote,
+  figcaption,
+  dd,
+  dt,
+  time
+):not(.no-blend):not(.ivy-presto) {
+  mix-blend-mode: difference;
+  color: var(--blend-text-color);
+}
+
+.no-blend,
+.ivy-presto,
+.top-nav,
+.top-nav *,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.headline,
+.subhead,
+.title {
+  mix-blend-mode: normal !important;
 }
 
 #root {

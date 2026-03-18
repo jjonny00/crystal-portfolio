@@ -74,6 +74,7 @@ const Navigation = ({ onHomeClick, onWorkClick, onAboutClick, onContactClick, is
 
   return (
     <nav
+      className="top-nav no-blend"
       style={{
         ...NAV_BASE_STYLE,
         backdropFilter: isScrolled ? 'blur(8px)' : 'none'
