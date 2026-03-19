@@ -291,10 +291,6 @@ html:not(:has(.scroll-container)) .scroll-section {
 /* Chrome/Safari scroll snap fixes */
 @supports (-webkit-appearance: none) {
   .scroll-container {
-    /* Force hardware acceleration */
-    -webkit-transform: translateZ(0) !important;
-    transform: translateZ(0) !important;
-    
     /* Improve scroll performance */
     -webkit-backface-visibility: hidden !important;
     backface-visibility: hidden !important;
