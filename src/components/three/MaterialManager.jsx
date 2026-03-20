@@ -6,7 +6,7 @@ import { useThree } from '@react-three/fiber';
 import CrystalMaterial from '../materials/CrystalMaterial';
 import * as THREE from 'three';
 
-const LOW_TIER_COLOR_LIFT = new THREE.Color('#ffffff');
+const LOW_TIER_COLOR_HSL = { h: 0, s: 0, l: 0 };
 
 const MaterialManager = ({
   materialVariant,
@@ -35,8 +35,13 @@ const MaterialManager = ({
   const isMedium = pbrQuality === 'medium';
   const usePBR = pbrQuality === 'high';
 
-  const applyLowTierColorLift = (color, amount = 0.12) => {
-    color.lerp(LOW_TIER_COLOR_LIFT, amount);
+  const boostLowTierColor = (color, { saturationBoost = 0.1, lightnessBoost = 0.05 } = {}) => {
+    color.getHSL(LOW_TIER_COLOR_HSL);
+    color.setHSL(
+      LOW_TIER_COLOR_HSL.h,
+      Math.min(1, LOW_TIER_COLOR_HSL.s + saturationBoost),
+      Math.min(0.72, LOW_TIER_COLOR_HSL.l + lightnessBoost)
+    );
     return color;
   };
   
@@ -66,7 +71,7 @@ const MaterialManager = ({
 
         // Slight lift to avoid crushed blacks on low-tier lighting
         emissive: new THREE.Color('#a7ffdb'),
-        emissiveIntensity: 0.05,
+        emissiveIntensity: 0.04,
 
         precision: safePerformanceConfig.highPrecision ? 'highp' : 'mediump'
       };
@@ -74,36 +79,36 @@ const MaterialManager = ({
       // Apply variant-specific properties (optimized versions)
       switch(materialVariant) {
         case 'glass':
-          applyLowTierColorLift(materialProps.color.set('#f0f8ff'), 0.02);
+          boostLowTierColor(materialProps.color.set('#f0f8ff'), { saturationBoost: 0, lightnessBoost: 0.015 });
           materialProps.specular.set('#ffffff');
           materialProps.shininess = 120;
           materialProps.reflectivity = 0.8;
           materialProps.emissive.set('#ffffff');
-          materialProps.emissiveIntensity = 0.07;
+          materialProps.emissiveIntensity = 0.05;
           break;
           
         case 'gem':
-          applyLowTierColorLift(materialProps.color.set('#6644bb'), 0.14);
+          boostLowTierColor(materialProps.color.set('#6644bb'), { saturationBoost: 0.12, lightnessBoost: 0.05 });
           materialProps.specular.set('#ffffff');
           materialProps.shininess = 110;
           materialProps.reflectivity = 0.76;
           materialProps.emissive.set('#220044');
-          materialProps.emissiveIntensity = 0.1;
+          materialProps.emissiveIntensity = 0.08;
           break;
           
         case 'holographic':
-          applyLowTierColorLift(materialProps.color.set('#00dddd'), 0.1);
+          boostLowTierColor(materialProps.color.set('#00dddd'), { saturationBoost: 0.08, lightnessBoost: 0.04 });
           materialProps.specular.set('#ffffff');
           materialProps.shininess = 115;
           materialProps.reflectivity = 0.78;
           materialProps.emissive.set('#004444');
-          materialProps.emissiveIntensity = 0.11;
+          materialProps.emissiveIntensity = 0.09;
           break;
           
         default:
           if (config.materials.crystal.color) {
             materialProps.color.copy(config.materials.crystal.color);
-            applyLowTierColorLift(materialProps.color, 0.14);
+            boostLowTierColor(materialProps.color, { saturationBoost: 0.1, lightnessBoost: 0.05 });
           }
           if (config.materials.crystal.specularColor) {
             materialProps.specular.copy(config.materials.crystal.specularColor);
@@ -113,7 +118,7 @@ const MaterialManager = ({
           }
           materialProps.shininess = 100;
           materialProps.reflectivity = 0.72;
-          materialProps.emissiveIntensity = Math.max(materialProps.emissiveIntensity, 0.06);
+          materialProps.emissiveIntensity = Math.max(materialProps.emissiveIntensity, 0.05);
           break;
       }
       
