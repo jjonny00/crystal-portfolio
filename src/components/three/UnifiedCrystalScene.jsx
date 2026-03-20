@@ -1500,7 +1500,8 @@ const UnifiedCrystalScene = forwardRef(({
     const floatFocused =
       animationData.state === 'project_focused' &&
       animationData.focusedFacet &&
-      !animationData.isTransitioning;
+      !animationData.isTransitioning &&
+      animationData.cameraSettled === true;
     const rotationLerp = Math.min(1, deltaTime * 6);
 
     // Handle whole crystal floating (no rotation)
@@ -1628,7 +1629,12 @@ const UnifiedCrystalScene = forwardRef(({
             const anchorAdjusted = animationData?.crystalForm === 'exploded'
               ? getAnchorAdjustedPosition(facetKey, finalTarget, targetQuat)
               : finalTarget;
-            facetRef.current.position.lerp(anchorAdjusted, lerpSpeed * deltaTime * 60);
+
+            if (animationData?.focusedFacet === facetKey && animationData?.cameraState === 'project') {
+              facetRef.current.position.copy(anchorAdjusted);
+            } else {
+              facetRef.current.position.lerp(anchorAdjusted, lerpSpeed * deltaTime * 60);
+            }
           }
         }
 
