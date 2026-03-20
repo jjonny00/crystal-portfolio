@@ -285,6 +285,7 @@ const UnifiedCrystalScene = forwardRef(({
       phaseZ: Math.random() * Math.PI * 2
     }))
   );
+  const focusedFloatBlendRef = useRef(0);
 
   // Track explosion timing so we can implement fracture pause
   const explosionStartRef = useRef(null);
@@ -1507,6 +1508,11 @@ const UnifiedCrystalScene = forwardRef(({
       !animationData.isTransitioning &&
       animationData.cameraSettled === true;
     const rotationLerp = Math.min(1, deltaTime * 6);
+    focusedFloatBlendRef.current = THREE.MathUtils.lerp(
+      focusedFloatBlendRef.current,
+      floatFocused ? 1 : 0,
+      Math.min(1, deltaTime * 8)
+    );
 
     // Handle whole crystal floating (no rotation)
     if (showWholeCrystal && wholeCrystalRef.current) {
@@ -1617,7 +1623,11 @@ const UnifiedCrystalScene = forwardRef(({
             let finalTarget = targetPos;
             if (floatAll || (floatFocused && animationData.focusedFacet === facetKey)) {
               const params = floatParamsRef.current[index];
-              const amp = params.amp * (floatAll ? floatConfig.overviewMultiplier : 1);
+              const amp = params.amp * (
+                floatAll
+                  ? floatConfig.overviewMultiplier
+                  : focusedFloatBlendRef.current
+              );
               const fx = Math.sin(elapsed * floatConfig.xFrequency + params.phaseX) * amp * floatConfig.xMultiplier;
               const fy = Math.sin(elapsed * floatConfig.yFrequency + params.phaseY) * amp;
               const fz = Math.sin(elapsed * floatConfig.zFrequency + params.phaseZ) * amp * floatConfig.zMultiplier;

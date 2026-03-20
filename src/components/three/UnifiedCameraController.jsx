@@ -645,7 +645,11 @@ const UnifiedCameraController = ({
     if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = monotonicProgress;
     animationData?.setCameraMoveProgress?.(monotonicProgress);
 
-    if (positionDiff < SETTLE_EPSILON && lookAtDiff < SETTLE_EPSILON) {
+    if (
+      positionDiff < SETTLE_EPSILON &&
+      lookAtDiff < SETTLE_EPSILON &&
+      fovDistance < SETTLE_EPSILON
+    ) {
       settleFrameCount.current += 1;
       if (settleFrameCount.current >= SETTLE_FRAMES && !cameraSettledRef.current) {
         cameraSettledRef.current = true;
