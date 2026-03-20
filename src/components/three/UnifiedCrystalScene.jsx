@@ -33,6 +33,7 @@ import { useLayoutConfig } from '../../hooks/useLayoutConfig'
 import { useHoverCapable } from '../../hooks/useHoverCapable'
 
 const PROJECT_DISPLAY_SLOT = 'ProjectDisplay'
+const FOCUS_ROTATION_PROGRESS_LEAD = 0.94
 
 const UnifiedCrystalScene = forwardRef(({ 
   animationData,
@@ -1621,7 +1622,11 @@ const UnifiedCrystalScene = forwardRef(({
             }
             const baseQuat = baseFacetTargetQuats[facetKey] || neutralQuat;
             const selectedQuat = selectedFacetTargetQuats[facetKey] || baseQuat;
-            const focusRotationProgress = THREE.MathUtils.clamp(animationData?.cameraMoveProgress ?? 1, 0, 1);
+            const focusRotationProgress = THREE.MathUtils.clamp(
+              (animationData?.cameraMoveProgress ?? 1) / FOCUS_ROTATION_PROGRESS_LEAD,
+              0,
+              1
+            );
             const focusQuat = baseQuat.clone().slerp(selectedQuat, focusRotationProgress);
             const targetQuat = animationData?.crystalForm === 'exploded'
               ? (animationData?.focusedFacet === facetKey ? focusQuat : baseQuat)
@@ -1640,7 +1645,11 @@ const UnifiedCrystalScene = forwardRef(({
 
         const baseQuat = baseFacetTargetQuats[facetKey] || neutralQuat;
         const selectedQuat = selectedFacetTargetQuats[facetKey] || baseQuat;
-        const focusRotationProgress = THREE.MathUtils.clamp(animationData?.cameraMoveProgress ?? 1, 0, 1);
+        const focusRotationProgress = THREE.MathUtils.clamp(
+          (animationData?.cameraMoveProgress ?? 1) / FOCUS_ROTATION_PROGRESS_LEAD,
+          0,
+          1
+        );
         const focusQuat = baseQuat.clone().slerp(selectedQuat, focusRotationProgress);
         const targetQuat = animationData?.crystalForm === 'exploded'
           ? (animationData?.focusedFacet === facetKey ? focusQuat : baseQuat)
