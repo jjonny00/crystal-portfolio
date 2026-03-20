@@ -56,6 +56,7 @@ const UnifiedCameraController = ({
   // Track last camera config to detect changes
   const lastCameraConfig = useRef(null);
   const cameraMoveBaselineRef = useRef({ position: 0, lookAt: 0, fov: 0 });
+  const cameraMoveProgressRef = useRef(1);
 
   // Track when camera has reached its target
   const settleFrameCount = useRef(0);
@@ -460,6 +461,7 @@ const UnifiedCameraController = ({
       settleFrameCount.current = 0;
       cameraSettledRef.current = false;
       orbitInitDelayRef.current = 0; // ADDED: Reset orbit delay
+      cameraMoveProgressRef.current = 0;
       animationData?.setCameraMoveProgress?.(0);
       if (animationData?.cameraSettled) {
         animationData.setCameraSettled(false);
@@ -517,7 +519,9 @@ const UnifiedCameraController = ({
         camera.lookAt(currentTarget.current.lookAt);
         camera.fov = currentTarget.current.fov;
         camera.updateProjectionMatrix();
-        animationData?.setCameraMoveProgress?.(1);
+        cameraMoveProgressRef.current = 1;
+        cameraMoveProgressRef.current = 1;
+      animationData?.setCameraMoveProgress?.(1);
         if (!cameraSettledRef.current) {
           cameraSettledRef.current = true;
           animationData?.setCameraSettled?.(true);
@@ -633,12 +637,17 @@ const UnifiedCameraController = ({
     const lookAtProgress = 1 - Math.min(lookAtDiff / baselineLookAt, 1);
     const fovProgress = 1 - Math.min(fovDistance / baselineFov, 1);
     const moveProgress = Math.min(positionProgress, lookAtProgress, fovProgress);
-    animationData?.setCameraMoveProgress?.(Number.isFinite(moveProgress) ? moveProgress : 1);
+    const monotonicProgress = Number.isFinite(moveProgress)
+      ? Math.max(cameraMoveProgressRef.current, THREE.MathUtils.clamp(moveProgress, 0, 1))
+      : 1;
+    cameraMoveProgressRef.current = monotonicProgress;
+    animationData?.setCameraMoveProgress?.(monotonicProgress);
 
     if (positionDiff < SETTLE_EPSILON && lookAtDiff < SETTLE_EPSILON) {
       settleFrameCount.current += 1;
       if (settleFrameCount.current >= SETTLE_FRAMES && !cameraSettledRef.current) {
         cameraSettledRef.current = true;
+        cameraMoveProgressRef.current = 1;
         animationData?.setCameraMoveProgress?.(1);
         animationData?.setCameraSettled?.(true);
       }
