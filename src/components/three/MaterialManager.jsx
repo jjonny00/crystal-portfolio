@@ -6,6 +6,8 @@ import { useThree } from '@react-three/fiber';
 import CrystalMaterial from '../materials/CrystalMaterial';
 import * as THREE from 'three';
 
+const LOW_TIER_COLOR_LIFT = new THREE.Color('#ffffff');
+
 const MaterialManager = ({
   materialVariant,
   config,
@@ -32,6 +34,11 @@ const MaterialManager = ({
   const isLow = pbrQuality === 'low';
   const isMedium = pbrQuality === 'medium';
   const usePBR = pbrQuality === 'high';
+
+  const applyLowTierColorLift = (color, amount = 0.12) => {
+    color.lerp(LOW_TIER_COLOR_LIFT, amount);
+    return color;
+  };
   
   if (import.meta.env.DEV) console.log('🎨 MaterialManager: PBR enabled?', usePBR, 'PBR quality:', pbrQuality, 'Performance config:', safePerformanceConfig);
 
@@ -59,7 +66,7 @@ const MaterialManager = ({
 
         // Slight lift to avoid crushed blacks on low-tier lighting
         emissive: new THREE.Color('#a7ffdb'),
-        emissiveIntensity: 0.04,
+        emissiveIntensity: 0.05,
 
         precision: safePerformanceConfig.highPrecision ? 'highp' : 'mediump'
       };
@@ -67,35 +74,36 @@ const MaterialManager = ({
       // Apply variant-specific properties (optimized versions)
       switch(materialVariant) {
         case 'glass':
-          materialProps.color.set('#f0f8ff');
+          applyLowTierColorLift(materialProps.color.set('#f0f8ff'), 0.02);
           materialProps.specular.set('#ffffff');
           materialProps.shininess = 120;
           materialProps.reflectivity = 0.8;
           materialProps.emissive.set('#ffffff');
-          materialProps.emissiveIntensity = 0.06;
+          materialProps.emissiveIntensity = 0.07;
           break;
           
         case 'gem':
-          materialProps.color.set('#6644bb');
+          applyLowTierColorLift(materialProps.color.set('#6644bb'), 0.14);
           materialProps.specular.set('#ffffff');
           materialProps.shininess = 110;
           materialProps.reflectivity = 0.76;
           materialProps.emissive.set('#220044');
-          materialProps.emissiveIntensity = 0.08;
+          materialProps.emissiveIntensity = 0.1;
           break;
           
         case 'holographic':
-          materialProps.color.set('#00dddd');
+          applyLowTierColorLift(materialProps.color.set('#00dddd'), 0.1);
           materialProps.specular.set('#ffffff');
           materialProps.shininess = 115;
           materialProps.reflectivity = 0.78;
           materialProps.emissive.set('#004444');
-          materialProps.emissiveIntensity = 0.1;
+          materialProps.emissiveIntensity = 0.11;
           break;
           
         default:
           if (config.materials.crystal.color) {
             materialProps.color.copy(config.materials.crystal.color);
+            applyLowTierColorLift(materialProps.color, 0.14);
           }
           if (config.materials.crystal.specularColor) {
             materialProps.specular.copy(config.materials.crystal.specularColor);
@@ -105,7 +113,7 @@ const MaterialManager = ({
           }
           materialProps.shininess = 100;
           materialProps.reflectivity = 0.72;
-          materialProps.emissiveIntensity = Math.max(materialProps.emissiveIntensity, 0.04);
+          materialProps.emissiveIntensity = Math.max(materialProps.emissiveIntensity, 0.06);
           break;
       }
       
