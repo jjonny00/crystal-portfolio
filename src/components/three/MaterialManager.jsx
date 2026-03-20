@@ -35,110 +35,90 @@ const MaterialManager = ({
   
   if (import.meta.env.DEV) console.log('🎨 MaterialManager: PBR enabled?', usePBR, 'PBR quality:', pbrQuality, 'Performance config:', safePerformanceConfig);
 
-  // OPTIMIZED: Create high-performance mobile material using MeshStandardMaterial
+  // OPTIMIZED: Create high-performance mobile material using MeshPhongMaterial
   useEffect(() => {
     if (isLow && !optimizedMobileRef.current) {
-      if (import.meta.env.DEV) console.log('🚀 Creating OPTIMIZED mobile crystal material with shadow improvements');
+      if (import.meta.env.DEV) console.log('🚀 Creating OPTIMIZED mobile crystal material with MeshPhong highlights');
       
-      // Use MeshStandardMaterial instead of MeshPhysicalMaterial for mobile
-      // This removes expensive features like transmission, clearcoat, iridescence
       let materialProps = {
-        // AGGRESSIVE: Settings similar to gem variant for strong reflections
-        color: new THREE.Color('#1f2391'),   // Purple like gem (shows reflections better than blue)
-        metalness: 0.1,                      // MUCH higher metallic (like gem variant)
-        roughness: 0.05,                     // VERY smooth (like gem variant)
-        
-        // Environment mapping for reflections (key for crystal look!)
-        envMapIntensity: 1.0,                // VERY strong environment reflections
+        // Keep the low tier inexpensive, but restore crystal cues with Phong highlights/reflections
+        color: new THREE.Color('#1f2391'),
+        specular: new THREE.Color('#f7fbff'),
+        shininess: 100,
+        reflectivity: 0.72,
+        combine: THREE.MixOperation,
 
-        specularIntensity: 1.0,                    // Bright highlights
-        specularColor: new THREE.Color('#ffffff'), // White highlights
-        reflectivity: 1.8,                        // High reflectiveness
-        
-        // NO transparency - major performance gain!
         transparent: true,
         opacity: 0.99,
-        
-        // Standard material properties
-        side: THREE.DoubleSide,              // Render both sides so overlays mirror crystal behavior
+
+        side: THREE.DoubleSide,
         fog: true,
-        
-        // CRITICAL: Enable depth writing for proper rendering
         depthWrite: true,
         depthTest: true,
-        
-        // UPDATED: Enhanced shadow settings for better transparent lighting simulation
-        shadowSide: THREE.DoubleSide,        // Render shadows on both sides when needed
-        
-        // Emissive glow to simulate internal light
-        emissive: new THREE.Color('#a7ffdb'), // Purple emissive (like gem)
-        emissiveIntensity: 0.03,              // More pronounced glow
-        
-        // Use higher precision only when needed
+        shadowSide: THREE.DoubleSide,
+
+        // Slight lift to avoid crushed blacks on low-tier lighting
+        emissive: new THREE.Color('#a7ffdb'),
+        emissiveIntensity: 0.04,
+
         precision: safePerformanceConfig.highPrecision ? 'highp' : 'mediump'
-
-
       };
 
       // Apply variant-specific properties (optimized versions)
       switch(materialVariant) {
         case 'glass':
-          materialProps.color.set('#f0f8ff');        // Very light blue
-          materialProps.metalness = 0.1;             // Slight metallic for reflections
-          materialProps.roughness = 0.02;            // Very smooth
-          materialProps.envMapIntensity = 4.0;       // Very strong reflections
-          materialProps.emissive.set('#ffffff');     // White emissive
-          materialProps.emissiveIntensity = 0.1;     // Subtle
+          materialProps.color.set('#f0f8ff');
+          materialProps.specular.set('#ffffff');
+          materialProps.shininess = 120;
+          materialProps.reflectivity = 0.8;
+          materialProps.emissive.set('#ffffff');
+          materialProps.emissiveIntensity = 0.06;
           break;
           
         case 'gem':
-          materialProps.color.set('#6644bb');        // Purple gem
-          materialProps.metalness = 0.5;             // More metallic
-          materialProps.roughness = 0.02;            // Very smooth
-          materialProps.envMapIntensity = 3.5;       // Strong reflections
-          materialProps.emissive.set('#220044');     // Purple emissive
-          materialProps.emissiveIntensity = 0.3;     // More pronounced
+          materialProps.color.set('#6644bb');
+          materialProps.specular.set('#ffffff');
+          materialProps.shininess = 110;
+          materialProps.reflectivity = 0.76;
+          materialProps.emissive.set('#220044');
+          materialProps.emissiveIntensity = 0.08;
           break;
           
         case 'holographic':
-          materialProps.color.set('#00dddd');        // Cyan
-          materialProps.metalness = 0.9;             // Very metallic
-          materialProps.roughness = 0.0;             // Mirror-like
-          materialProps.envMapIntensity = 5.0;       // Maximum reflections
-          materialProps.emissive.set('#004444');     // Cyan emissive
-          materialProps.emissiveIntensity = 0.4;     // Strong glow
+          materialProps.color.set('#00dddd');
+          materialProps.specular.set('#ffffff');
+          materialProps.shininess = 115;
+          materialProps.reflectivity = 0.78;
+          materialProps.emissive.set('#004444');
+          materialProps.emissiveIntensity = 0.1;
           break;
           
         default:
-          // Use config colors if available, but keep gem-like settings
           if (config.materials.crystal.color) {
             materialProps.color.copy(config.materials.crystal.color);
+          }
+          if (config.materials.crystal.specularColor) {
+            materialProps.specular.copy(config.materials.crystal.specularColor);
           }
           if (config.materials.crystal.emissive) {
             materialProps.emissive.copy(config.materials.crystal.emissive);
           }
-          // KEEP these high values for visible reflections
-          materialProps.metalness = 0.08;        // High metallic
-          materialProps.roughness = 0.02;       // Very smooth
-          materialProps.envMapIntensity = 1.0;   // Strong reflections
-          materialProps.emissiveIntensity = 0.3; // Visible glow
+          materialProps.shininess = 100;
+          materialProps.reflectivity = 0.72;
+          materialProps.emissiveIntensity = Math.max(materialProps.emissiveIntensity, 0.04);
           break;
       }
       
-      // Create the optimized material
-      const optimizedMaterial = new THREE.MeshStandardMaterial(materialProps);
+      const optimizedMaterial = new THREE.MeshPhongMaterial(materialProps);
       
-      // CRITICAL: We need to manually set the environment map
-      // MeshStandardMaterial doesn't automatically pick it up from the scene
-      // We'll set it when the component mounts and environment is available
       optimizedMobileRef.current = optimizedMaterial;
       
       if (import.meta.env.DEV) console.log('✅ OPTIMIZED mobile material created with shadow improvements:', {
         variant: materialVariant,
         transparent: optimizedMaterial.transparent,
-        metalness: optimizedMaterial.metalness,
-        roughness: optimizedMaterial.roughness,
-        envMapIntensity: optimizedMaterial.envMapIntensity,
+        shininess: optimizedMaterial.shininess,
+        reflectivity: optimizedMaterial.reflectivity,
+        specular: optimizedMaterial.specular.getHexString(),
         emissiveIntensity: optimizedMaterial.emissiveIntensity,
         shadowSide: optimizedMaterial.shadowSide
       });
@@ -234,9 +214,9 @@ const MaterialManager = ({
         // DEBUG: Log material properties to verify settings
         if (import.meta.env.DEV) console.log('🔍 Mobile material debug:', {
           hasEnvMap: !!optimizedMobileRef.current.envMap,
-          metalness: optimizedMobileRef.current.metalness,
-          roughness: optimizedMobileRef.current.roughness,
-          envMapIntensity: optimizedMobileRef.current.envMapIntensity,
+          shininess: optimizedMobileRef.current.shininess,
+          reflectivity: optimizedMobileRef.current.reflectivity,
+          specular: optimizedMobileRef.current.specular.getHexString(),
           color: optimizedMobileRef.current.color.getHexString(),
           emissiveIntensity: optimizedMobileRef.current.emissiveIntensity,
           shadowSide: optimizedMobileRef.current.shadowSide
@@ -253,9 +233,9 @@ const MaterialManager = ({
             // DEBUG: Log material properties
             if (import.meta.env.DEV) console.log('🔍 Mobile material debug (delayed):', {
               hasEnvMap: !!optimizedMobileRef.current.envMap,
-              metalness: optimizedMobileRef.current.metalness,
-              roughness: optimizedMobileRef.current.roughness,
-              envMapIntensity: optimizedMobileRef.current.envMapIntensity
+              shininess: optimizedMobileRef.current.shininess,
+              reflectivity: optimizedMobileRef.current.reflectivity,
+              specular: optimizedMobileRef.current.specular.getHexString()
             });
           }
         };
@@ -313,28 +293,34 @@ const MaterialManager = ({
       // Update material properties based on variant
       switch(materialVariant) {
         case 'glass':
-          material.metalness = 0.1;
-          material.roughness = 0.02;
-          material.envMapIntensity = 4.0;
+          material.specular.set('#ffffff');
+          material.shininess = 120;
+          material.reflectivity = 0.8;
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.06);
           break;
           
         case 'gem':
-          material.metalness = 0.5;
-          material.roughness = 0.02;
-          material.envMapIntensity = 3.5;
+          material.specular.set('#ffffff');
+          material.shininess = 110;
+          material.reflectivity = 0.76;
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.08);
           break;
           
         case 'holographic':
-          material.metalness = 0.9;
-          material.roughness = 0.0;
-          material.envMapIntensity = 5.0;
+          material.specular.set('#ffffff');
+          material.shininess = 115;
+          material.reflectivity = 0.78;
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.1);
           break;
           
         default:
-          // AGGRESSIVE: Use gem-like settings for strong reflections
-          material.metalness = 0.8;              // High metallic
-          material.roughness = 0.02;             // Very smooth
-          material.envMapIntensity = 1.0;        // Strong reflections
+          if (config.materials.crystal.specularColor) {
+            material.specular.copy(config.materials.crystal.specularColor);
+          } else {
+            material.specular.set('#f7fbff');
+          }
+          material.shininess = 100;
+          material.reflectivity = 0.72;
           break;
       }
       
