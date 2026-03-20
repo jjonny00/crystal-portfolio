@@ -33,7 +33,8 @@ import { useLayoutConfig } from '../../hooks/useLayoutConfig'
 import { useHoverCapable } from '../../hooks/useHoverCapable'
 
 const PROJECT_DISPLAY_SLOT = 'ProjectDisplay'
-const FOCUS_ROTATION_PROGRESS_LEAD = 0.94
+const FOCUS_ROTATION_PROGRESS_LEAD = 1
+const ISOLATE_FOCUSED_ROTATION_FROM_POSITION = true
 
 const UnifiedCrystalScene = forwardRef(({ 
   animationData,
@@ -1631,14 +1632,20 @@ const UnifiedCrystalScene = forwardRef(({
             const targetQuat = animationData?.crystalForm === 'exploded'
               ? (animationData?.focusedFacet === facetKey ? focusQuat : baseQuat)
               : neutralQuat;
-            const anchorAdjusted = animationData?.crystalForm === 'exploded'
-              ? getAnchorAdjustedPosition(facetKey, finalTarget, targetQuat)
-              : finalTarget;
+            const useIsolatedFocusTransform =
+              ISOLATE_FOCUSED_ROTATION_FROM_POSITION &&
+              animationData?.focusedFacet === facetKey &&
+              animationData?.cameraState === 'project';
+            const targetPosition = useIsolatedFocusTransform
+              ? finalTarget
+              : (animationData?.crystalForm === 'exploded'
+                  ? getAnchorAdjustedPosition(facetKey, finalTarget, targetQuat)
+                  : finalTarget);
 
             if (animationData?.focusedFacet === facetKey && animationData?.cameraState === 'project') {
-              facetRef.current.position.copy(anchorAdjusted);
+              facetRef.current.position.copy(targetPosition);
             } else {
-              facetRef.current.position.lerp(anchorAdjusted, lerpSpeed * deltaTime * 60);
+              facetRef.current.position.lerp(targetPosition, lerpSpeed * deltaTime * 60);
             }
           }
         }
