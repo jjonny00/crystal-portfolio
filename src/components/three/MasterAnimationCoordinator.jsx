@@ -142,13 +142,16 @@ const MasterAnimationCoordinator = ({
       isEnteringZone: animationController.animationState.zoneInfo?.isEntering,
       isLeavingZone: animationController.animationState.zoneInfo?.isLeaving,
       cameraSettled: animationController.animationState.cameraSettled,
-      setCameraSettled: animationController.setCameraSettled
+      cameraMoveProgress: animationController.animationState.cameraMoveProgress,
+      setCameraSettled: animationController.setCameraSettled,
+      setCameraMoveProgress: animationController.setCameraMoveProgress
     };
   }, [
     animationController.animationState,
     animationController.cameraConfig,
     animationController.crystalConfig,
-    animationController.setCameraSettled
+    animationController.setCameraSettled,
+    animationController.setCameraMoveProgress
   ]);
 
   exportedAnimationData = animationData;

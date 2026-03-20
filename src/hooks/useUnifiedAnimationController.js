@@ -294,7 +294,8 @@ export const useUnifiedAnimationController = (options = {}) => {
     scrollProgress: 0,
     zoneInfo: { zone: 'hero', progress: 0 },
     projectInfo: { project: null, progress: 0 },
-    cameraSettled: false
+    cameraSettled: false,
+    cameraMoveProgress: 1
   });
 
   // Simplified refs for tracking changes
@@ -850,6 +851,11 @@ export const useUnifiedAnimationController = (options = {}) => {
     setAnimationState(prev => ({ ...prev, cameraSettled: value }));
   }, []);
 
+  const setCameraMoveProgress = useCallback((value) => {
+    const clamped = Math.max(0, Math.min(1, value));
+    setAnimationState(prev => ({ ...prev, cameraMoveProgress: clamped }));
+  }, []);
+
   /**
    * Get current camera configuration (same as before)
    */
@@ -911,6 +917,7 @@ export const useUnifiedAnimationController = (options = {}) => {
     // Update functions
     updateFromScrollProgress,
     setCameraSettled,
+    setCameraMoveProgress,
     setDirectProjectOverride,
     setDirectZoneOverride,
     getProjectSectionStart,

@@ -55,6 +55,7 @@ const UnifiedCameraController = ({
 
   // Track last camera config to detect changes
   const lastCameraConfig = useRef(null);
+  const cameraMoveBaselineRef = useRef({ position: 0, lookAt: 0, fov: 0 });
 
   // Track when camera has reached its target
   const settleFrameCount = useRef(0);
@@ -433,6 +434,18 @@ const UnifiedCameraController = ({
         animationSpeed.current.fov = 0.03;
       }
 
+      const currentViewDirection = new THREE.Vector3();
+      camera.getWorldDirection(currentViewDirection);
+      const targetViewDirection = finalTarget
+        ? new THREE.Vector3().subVectors(finalTarget, camera.position).normalize()
+        : currentViewDirection.clone();
+
+      cameraMoveBaselineRef.current = {
+        position: finalPosition ? camera.position.distanceTo(finalPosition) : 0,
+        lookAt: currentViewDirection.angleTo(targetViewDirection),
+        fov: Math.abs((enhancedConfig.fov ?? camera.fov) - camera.fov)
+      };
+
       lastCameraConfig.current = {
         position: finalPosition ? finalPosition.clone() : null,
         target: finalTarget ? finalTarget.clone() : null,
@@ -447,6 +460,7 @@ const UnifiedCameraController = ({
       settleFrameCount.current = 0;
       cameraSettledRef.current = false;
       orbitInitDelayRef.current = 0; // ADDED: Reset orbit delay
+      animationData?.setCameraMoveProgress?.(0);
       if (animationData?.cameraSettled) {
         animationData.setCameraSettled(false);
       }
@@ -503,6 +517,7 @@ const UnifiedCameraController = ({
         camera.lookAt(currentTarget.current.lookAt);
         camera.fov = currentTarget.current.fov;
         camera.updateProjectionMatrix();
+        animationData?.setCameraMoveProgress?.(1);
         if (!cameraSettledRef.current) {
           cameraSettledRef.current = true;
           animationData?.setCameraSettled?.(true);
@@ -575,6 +590,7 @@ const UnifiedCameraController = ({
 
       currentTarget.current.position.copy(camera.position);
 
+      animationData?.setCameraMoveProgress?.(1);
       animationData?.setCameraSettled?.(false);
       return;
     }
@@ -609,11 +625,21 @@ const UnifiedCameraController = ({
     // Check if camera has settled at target
     const positionDiff = camera.position.distanceTo(currentTarget.current.position);
     const lookAtDiff = currentDirection.angleTo(targetDirection);
+    const fovDistance = Math.abs(currentTarget.current.fov - camera.fov);
+    const baselinePosition = Math.max(cameraMoveBaselineRef.current.position, SETTLE_EPSILON);
+    const baselineLookAt = Math.max(cameraMoveBaselineRef.current.lookAt, SETTLE_EPSILON);
+    const baselineFov = Math.max(cameraMoveBaselineRef.current.fov, SETTLE_EPSILON);
+    const positionProgress = 1 - Math.min(positionDiff / baselinePosition, 1);
+    const lookAtProgress = 1 - Math.min(lookAtDiff / baselineLookAt, 1);
+    const fovProgress = 1 - Math.min(fovDistance / baselineFov, 1);
+    const moveProgress = Math.min(positionProgress, lookAtProgress, fovProgress);
+    animationData?.setCameraMoveProgress?.(Number.isFinite(moveProgress) ? moveProgress : 1);
 
     if (positionDiff < SETTLE_EPSILON && lookAtDiff < SETTLE_EPSILON) {
       settleFrameCount.current += 1;
       if (settleFrameCount.current >= SETTLE_FRAMES && !cameraSettledRef.current) {
         cameraSettledRef.current = true;
+        animationData?.setCameraMoveProgress?.(1);
         animationData?.setCameraSettled?.(true);
       }
     } else {

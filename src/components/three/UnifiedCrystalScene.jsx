@@ -1620,8 +1620,10 @@ const UnifiedCrystalScene = forwardRef(({
             }
             const baseQuat = baseFacetTargetQuats[facetKey] || neutralQuat;
             const selectedQuat = selectedFacetTargetQuats[facetKey] || baseQuat;
+            const focusRotationProgress = THREE.MathUtils.clamp(animationData?.cameraMoveProgress ?? 1, 0, 1);
+            const focusQuat = baseQuat.clone().slerp(selectedQuat, focusRotationProgress);
             const targetQuat = animationData?.crystalForm === 'exploded'
-              ? (animationData?.focusedFacet === facetKey ? selectedQuat : baseQuat)
+              ? (animationData?.focusedFacet === facetKey ? focusQuat : baseQuat)
               : neutralQuat;
             const anchorAdjusted = animationData?.crystalForm === 'exploded'
               ? getAnchorAdjustedPosition(facetKey, finalTarget, targetQuat)
@@ -1632,10 +1634,17 @@ const UnifiedCrystalScene = forwardRef(({
 
         const baseQuat = baseFacetTargetQuats[facetKey] || neutralQuat;
         const selectedQuat = selectedFacetTargetQuats[facetKey] || baseQuat;
+        const focusRotationProgress = THREE.MathUtils.clamp(animationData?.cameraMoveProgress ?? 1, 0, 1);
+        const focusQuat = baseQuat.clone().slerp(selectedQuat, focusRotationProgress);
         const targetQuat = animationData?.crystalForm === 'exploded'
-          ? (animationData?.focusedFacet === facetKey ? selectedQuat : baseQuat)
+          ? (animationData?.focusedFacet === facetKey ? focusQuat : baseQuat)
           : neutralQuat;
-        facetRef.current.quaternion.slerp(targetQuat, rotationLerp);
+
+        if (animationData?.focusedFacet === facetKey && animationData?.cameraState === 'project') {
+          facetRef.current.quaternion.copy(targetQuat);
+        } else {
+          facetRef.current.quaternion.slerp(targetQuat, rotationLerp);
+        }
       });
 
       if (isReforming && allFacetsAtCenter && !showWholeCrystal) {
