@@ -26,6 +26,7 @@ import projects, {
 } from '../../data/projects'
 import FacetLabels from './FacetLabels'
 import HoverConnectorLine from './HoverConnectorLine'
+import AmbientConnectorParticles from './AmbientConnectorParticles'
 import { effects } from '../../crystalConfig'
 import { useFacetOverlayGeometry } from '../../hooks/useFacetOverlayGeometry'
 import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController'
@@ -35,6 +36,7 @@ import { useHoverCapable } from '../../hooks/useHoverCapable'
 const PROJECT_DISPLAY_SLOT = 'ProjectDisplay'
 
 const UnifiedCrystalScene = forwardRef(({ 
+  ambientConnectorPrototypeEnabled = false,
   animationData,
   config,
   materialVariant = 'default',
@@ -1687,12 +1689,21 @@ const UnifiedCrystalScene = forwardRef(({
         onDomAnchorChange={handleDomAnchorChange}
       />
 
-      <HoverConnectorLine
-        enabled={inActiveOverview && hoverCapable}
-        hoveredFacetKey={hoveredLabelFacetKey}
-        domAnchorClient={domAnchorClient}
-        overviewWorldAnchors={overviewWorldAnchors}
-      />
+      {ambientConnectorPrototypeEnabled ? (
+        <AmbientConnectorParticles
+          enabled={inActiveOverview && hoverCapable}
+          hoveredFacetKey={hoveredLabelFacetKey}
+          domAnchorClient={domAnchorClient}
+          overviewWorldAnchors={overviewWorldAnchors}
+        />
+      ) : (
+        <HoverConnectorLine
+          enabled={inActiveOverview && hoverCapable}
+          hoveredFacetKey={hoveredLabelFacetKey}
+          domAnchorClient={domAnchorClient}
+          overviewWorldAnchors={overviewWorldAnchors}
+        />
+      )}
 
       {/* Debug visualization when enabled */}
       {showCrystalDebug && showFacets && !simplifiedAnimations && (

@@ -116,7 +116,8 @@ const Fixed3DCanvas = forwardRef(({
   scrollToProject,
   onDirectProjectSelect,
   onDirectZoneSelect,
-  cameraRuntimeOverrides = null
+  cameraRuntimeOverrides = null,
+  ambientConnectorPrototypeEnabled = false
 }, ref) => {
   // NEW: Ref to access crystal scene for debug panels
   const crystalSceneRef = useRef();
@@ -501,6 +502,7 @@ const Fixed3DCanvas = forwardRef(({
             scrollToProject={scrollToProject}
             onDirectProjectSelect={onDirectProjectSelect}
             onFractureStart={handleFractureStart}
+            ambientConnectorPrototypeEnabled={ambientConnectorPrototypeEnabled}
           />
 
           {/* UPDATED: Enhanced MistyLayerStack with highest render order */}
