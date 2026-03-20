@@ -54,6 +54,39 @@ const vecChanged = (baseVec, nextVec) => {
   return base.some((value, index) => value !== next[index]);
 };
 
+
+const getProjectRuntimeOverrides = (baseConfig, nextConfig) => {
+  const overrides = {};
+
+  projectKeys.forEach((project) => {
+    if (vecChanged(baseConfig?.explodedPositions?.[project], nextConfig?.explodedPositions?.[project])) {
+      overrides.explodedPositions = {
+        ...(overrides.explodedPositions || {}),
+        [project]: [...nextConfig.explodedPositions[project]]
+      };
+    }
+
+    if (vecChanged(baseConfig?.facetRotationsEulerDeg?.[project], nextConfig?.facetRotationsEulerDeg?.[project])) {
+      overrides.facetRotationsEulerDeg = {
+        ...(overrides.facetRotationsEulerDeg || {}),
+        [project]: [...nextConfig.facetRotationsEulerDeg[project]]
+      };
+    }
+
+    if (vecChanged(
+      baseConfig?.selectedFacetRotationsEulerDeg?.[project],
+      nextConfig?.selectedFacetRotationsEulerDeg?.[project]
+    )) {
+      overrides.selectedFacetRotationsEulerDeg = {
+        ...(overrides.selectedFacetRotationsEulerDeg || {}),
+        [project]: [...nextConfig.selectedFacetRotationsEulerDeg[project]]
+      };
+    }
+  });
+
+  return overrides;
+};
+
 const getCameraRuntimeOverrides = (baseConfig, nextConfig) => {
   const overrides = {};
 
@@ -355,6 +388,7 @@ function App() {
   });
   const [animationConfig, setAnimationConfig] = useState(buildAnimationConfig(defaultConfig));
   const [cameraRuntimeOverrides, setCameraRuntimeOverrides] = useState({});
+  const [projectRuntimeOverrides, setProjectRuntimeOverrides] = useState({});
   const [materialVariant, setMaterialVariant] = useState('default');
   const [showUI, setShowUI] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
@@ -477,6 +511,7 @@ function App() {
     setConfig(newConfig);
     setAnimationConfig(buildAnimationConfig(newConfig));
     setCameraRuntimeOverrides(getCameraRuntimeOverrides(defaultConfig, newConfig));
+    setProjectRuntimeOverrides(getProjectRuntimeOverrides(defaultConfig, newConfig));
   }, []);
 
   const handleMaterialChange = useCallback((variant) => {
@@ -716,6 +751,7 @@ function App() {
           performanceProfile={performanceProfile}
           config={config}
           cameraRuntimeOverrides={cameraRuntimeOverrides}
+          projectRuntimeOverrides={projectRuntimeOverrides}
           canvasProps={getOptimalCanvasProps()}
           environmentProps={getOptimalEnvironmentProps()}
           isMobile={isMobile}

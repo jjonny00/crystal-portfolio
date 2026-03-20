@@ -116,7 +116,8 @@ const Fixed3DCanvas = forwardRef(({
   scrollToProject,
   onDirectProjectSelect,
   onDirectZoneSelect,
-  cameraRuntimeOverrides = null
+  cameraRuntimeOverrides = null,
+  projectRuntimeOverrides = null
 }, ref) => {
   // NEW: Ref to access crystal scene for debug panels
   const crystalSceneRef = useRef();
@@ -490,6 +491,7 @@ const Fixed3DCanvas = forwardRef(({
           
           {/* UPDATED: Crystal Scene with ref for accessing debug state */}
           <UnifiedCrystalScene
+            projectRuntimeOverrides={projectRuntimeOverrides}
             ref={crystalSceneRef} // NEW: Ref to access debug state and methods
             animationData={animationData}
             config={config}

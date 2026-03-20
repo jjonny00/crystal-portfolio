@@ -43,7 +43,8 @@ const UnifiedCrystalScene = forwardRef(({
   scrollToProgress,
   scrollToProject,
   onDirectProjectSelect,
-  onFractureStart
+  onFractureStart,
+  projectRuntimeOverrides = null
 }, ref) => {
   // Component refs for crystal animation
   const crystalGroupRef = useRef();
@@ -143,29 +144,47 @@ const UnifiedCrystalScene = forwardRef(({
 
     if (layoutProjects?.explodedPositions) {
       nextConfig.explodedPositions = {
-        ...(nextConfig.explodedPositions || {}),
         ...Object.fromEntries(
           Object.entries(layoutProjects.explodedPositions).map(([key, value]) => [key, value.toArray()]),
         ),
+        ...(nextConfig.explodedPositions || {}),
+        ...(projectRuntimeOverrides?.explodedPositions || {}),
+      };
+    } else if (projectRuntimeOverrides?.explodedPositions) {
+      nextConfig.explodedPositions = {
+        ...(nextConfig.explodedPositions || {}),
+        ...projectRuntimeOverrides.explodedPositions,
       };
     }
 
     if (layoutProjects?.facetRotationsEulerDeg) {
       nextConfig.facetRotationsEulerDeg = {
-        ...(nextConfig.facetRotationsEulerDeg || {}),
         ...layoutProjects.facetRotationsEulerDeg,
+        ...(nextConfig.facetRotationsEulerDeg || {}),
+        ...(projectRuntimeOverrides?.facetRotationsEulerDeg || {}),
+      };
+    } else if (projectRuntimeOverrides?.facetRotationsEulerDeg) {
+      nextConfig.facetRotationsEulerDeg = {
+        ...(nextConfig.facetRotationsEulerDeg || {}),
+        ...projectRuntimeOverrides.facetRotationsEulerDeg,
       };
     }
 
     if (layoutProjects?.selectedFacetRotationsEulerDeg) {
       nextConfig.selectedFacetRotationsEulerDeg = {
-        ...(nextConfig.selectedFacetRotationsEulerDeg || {}),
         ...layoutProjects.selectedFacetRotationsEulerDeg,
+        ...(nextConfig.selectedFacetRotationsEulerDeg || {}),
+        ...(projectRuntimeOverrides?.selectedFacetRotationsEulerDeg || {}),
+      };
+    } else if (projectRuntimeOverrides?.selectedFacetRotationsEulerDeg) {
+      nextConfig.selectedFacetRotationsEulerDeg = {
+        ...(nextConfig.selectedFacetRotationsEulerDeg || {}),
+        ...projectRuntimeOverrides.selectedFacetRotationsEulerDeg,
       };
     }
 
     return nextConfig;
-  }, [config, layoutCamera, layoutProjects]);
+  }, [config, layoutCamera, layoutProjects, projectRuntimeOverrides]);
 
   useEffect(() => {
     if (!import.meta.env.DEV) return;
@@ -182,27 +201,45 @@ const UnifiedCrystalScene = forwardRef(({
 
     if (layoutProjects?.explodedPositions) {
       nextCrystalConfig.explodedPositions = {
-        ...(baseCrystalConfig.explodedPositions || {}),
         ...layoutProjects.explodedPositions,
+        ...(baseCrystalConfig.explodedPositions || {}),
+        ...(projectRuntimeOverrides?.explodedPositions || {}),
+      };
+    } else if (projectRuntimeOverrides?.explodedPositions) {
+      nextCrystalConfig.explodedPositions = {
+        ...(baseCrystalConfig.explodedPositions || {}),
+        ...projectRuntimeOverrides.explodedPositions,
       };
     }
 
     if (layoutProjects?.facetRotationsEulerDeg) {
       nextCrystalConfig.facetRotationsEulerDeg = {
-        ...(baseCrystalConfig.facetRotationsEulerDeg || {}),
         ...layoutProjects.facetRotationsEulerDeg,
+        ...(baseCrystalConfig.facetRotationsEulerDeg || {}),
+        ...(projectRuntimeOverrides?.facetRotationsEulerDeg || {}),
+      };
+    } else if (projectRuntimeOverrides?.facetRotationsEulerDeg) {
+      nextCrystalConfig.facetRotationsEulerDeg = {
+        ...(baseCrystalConfig.facetRotationsEulerDeg || {}),
+        ...projectRuntimeOverrides.facetRotationsEulerDeg,
       };
     }
 
     if (layoutProjects?.selectedFacetRotationsEulerDeg) {
       nextCrystalConfig.selectedFacetRotationsEulerDeg = {
-        ...(baseCrystalConfig.selectedFacetRotationsEulerDeg || {}),
         ...layoutProjects.selectedFacetRotationsEulerDeg,
+        ...(baseCrystalConfig.selectedFacetRotationsEulerDeg || {}),
+        ...(projectRuntimeOverrides?.selectedFacetRotationsEulerDeg || {}),
+      };
+    } else if (projectRuntimeOverrides?.selectedFacetRotationsEulerDeg) {
+      nextCrystalConfig.selectedFacetRotationsEulerDeg = {
+        ...(baseCrystalConfig.selectedFacetRotationsEulerDeg || {}),
+        ...projectRuntimeOverrides.selectedFacetRotationsEulerDeg,
       };
     }
 
     return nextCrystalConfig;
-  }, [animationData?.crystalConfig, layoutProjects]);
+  }, [animationData?.crystalConfig, layoutProjects, projectRuntimeOverrides]);
 
   // Facet configuration
   const facetKeys = canonicalFacetKeys;
