@@ -157,6 +157,13 @@ const UnifiedCrystalScene = forwardRef(({
       };
     }
 
+    if (layoutProjects?.selectedFacetRotationsEulerDeg) {
+      nextConfig.selectedFacetRotationsEulerDeg = {
+        ...(nextConfig.selectedFacetRotationsEulerDeg || {}),
+        ...layoutProjects.selectedFacetRotationsEulerDeg,
+      };
+    }
+
     return nextConfig;
   }, [config, layoutCamera, layoutProjects]);
 
@@ -184,6 +191,13 @@ const UnifiedCrystalScene = forwardRef(({
       nextCrystalConfig.facetRotationsEulerDeg = {
         ...(baseCrystalConfig.facetRotationsEulerDeg || {}),
         ...layoutProjects.facetRotationsEulerDeg,
+      };
+    }
+
+    if (layoutProjects?.selectedFacetRotationsEulerDeg) {
+      nextCrystalConfig.selectedFacetRotationsEulerDeg = {
+        ...(baseCrystalConfig.selectedFacetRotationsEulerDeg || {}),
+        ...layoutProjects.selectedFacetRotationsEulerDeg,
       };
     }
 
@@ -536,6 +550,33 @@ const UnifiedCrystalScene = forwardRef(({
     },
     [anchorOffsets]
   );
+
+  const eulerDegreesToQuaternion = useCallback((eulerDeg) => {
+    if (!Array.isArray(eulerDeg)) return neutralQuat.clone();
+    const [x = 0, y = 0, z = 0] = eulerDeg;
+    return new THREE.Quaternion().setFromEuler(
+      new THREE.Euler(
+        THREE.MathUtils.degToRad(x),
+        THREE.MathUtils.degToRad(y),
+        THREE.MathUtils.degToRad(z),
+        'XYZ'
+      )
+    );
+  }, [neutralQuat]);
+
+  const baseFacetTargetQuats = useMemo(() => Object.fromEntries(
+    facetKeys.map((facetKey) => [
+      facetKey,
+      eulerDegreesToQuaternion(mergedConfig?.facetRotationsEulerDeg?.[facetPlacementKeys[facetKey] || facetKey])
+    ])
+  ), [eulerDegreesToQuaternion, facetKeys, facetPlacementKeys, mergedConfig?.facetRotationsEulerDeg]);
+
+  const selectedFacetTargetQuats = useMemo(() => Object.fromEntries(
+    facetKeys.map((facetKey) => [
+      facetKey,
+      eulerDegreesToQuaternion(mergedConfig?.selectedFacetRotationsEulerDeg?.[facetPlacementKeys[facetKey] || facetKey])
+    ])
+  ), [eulerDegreesToQuaternion, facetKeys, facetPlacementKeys, mergedConfig?.selectedFacetRotationsEulerDeg]);
 
   // FIXED: Improved handleLabelHover with better state management
   const applyHoverVisual = useCallback(
@@ -1474,10 +1515,7 @@ const UnifiedCrystalScene = forwardRef(({
             end?.clone().normalize().multiplyScalar(end.length() * fractureDistance);
           if (start && end) {
             const interpolated = start.clone().lerp(end, eased);
-            const targetRotation = crystalConfig?.explodedRotations?.[facetPlacementKeys[facetKey] || facetKey];
-            const targetQuat = targetRotation
-              ? new THREE.Quaternion().fromArray(targetRotation)
-              : neutralQuat;
+            const targetQuat = baseFacetTargetQuats[facetKey] || neutralQuat;
             const adjusted = animationData?.crystalForm === 'exploded'
               ? getAnchorAdjustedPosition(facetKey, interpolated, targetQuat)
               : interpolated;
@@ -1543,9 +1581,10 @@ const UnifiedCrystalScene = forwardRef(({
               const fz = Math.sin(elapsed * floatConfig.zFrequency + params.phaseZ) * amp * floatConfig.zMultiplier;
               finalTarget = targetPos.clone().add(new THREE.Vector3(fx, fy, fz));
             }
-            const targetRotation = crystalConfig?.explodedRotations?.[facetPlacementKeys[facetKey] || facetKey];
-            const targetQuat = animationData?.crystalForm === 'exploded' && targetRotation
-              ? new THREE.Quaternion().fromArray(targetRotation)
+            const baseQuat = baseFacetTargetQuats[facetKey] || neutralQuat;
+            const selectedQuat = selectedFacetTargetQuats[facetKey] || baseQuat;
+            const targetQuat = animationData?.crystalForm === 'exploded'
+              ? (animationData?.focusedFacet === facetKey ? selectedQuat : baseQuat)
               : neutralQuat;
             const anchorAdjusted = animationData?.crystalForm === 'exploded'
               ? getAnchorAdjustedPosition(facetKey, finalTarget, targetQuat)
@@ -1554,9 +1593,10 @@ const UnifiedCrystalScene = forwardRef(({
           }
         }
 
-        const targetRotation = crystalConfig?.explodedRotations?.[facetPlacementKeys[facetKey] || facetKey];
-        const targetQuat = animationData?.crystalForm === 'exploded' && targetRotation
-          ? new THREE.Quaternion().fromArray(targetRotation)
+        const baseQuat = baseFacetTargetQuats[facetKey] || neutralQuat;
+        const selectedQuat = selectedFacetTargetQuats[facetKey] || baseQuat;
+        const targetQuat = animationData?.crystalForm === 'exploded'
+          ? (animationData?.focusedFacet === facetKey ? selectedQuat : baseQuat)
           : neutralQuat;
         facetRef.current.quaternion.slerp(targetQuat, rotationLerp);
       });

@@ -290,6 +290,38 @@
         0,
         0
       ]
+    },
+    "selectedFacetRotationsEulerDeg": {
+      "empathy": [
+        0,
+        0,
+        0
+      ],
+      "narrative": [
+        0,
+        0,
+        0
+      ],
+      "craft": [
+        0,
+        0,
+        0
+      ],
+      "system": [
+        0,
+        0,
+        0
+      ],
+      "leadership": [
+        0,
+        0,
+        0
+      ],
+      "exploration": [
+        0,
+        0,
+        0
+      ]
     }
   },
   "anchors": {
