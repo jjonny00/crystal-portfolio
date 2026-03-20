@@ -46,7 +46,8 @@ const UnifiedCrystalScene = forwardRef(({
   scrollToProject,
   onDirectProjectSelect,
   onFractureStart,
-  projectRuntimeOverrides = null
+  projectRuntimeOverrides = null,
+  sharedCameraMoveProgressRef = null
 }, ref) => {
   // Component refs for crystal animation
   const crystalGroupRef = useRef();
@@ -1497,6 +1498,7 @@ const UnifiedCrystalScene = forwardRef(({
     }
 
     const elapsed = state.clock.elapsedTime;
+    const cameraMoveProgress = sharedCameraMoveProgressRef?.current ?? animationData?.cameraMoveProgress ?? 1;
     const floatConfig = effects.idle.float;
     const floatAll = animationData.state === 'overview' && !animationData.isTransitioning;
     const floatFocused =
@@ -1624,7 +1626,7 @@ const UnifiedCrystalScene = forwardRef(({
             const baseQuat = baseFacetTargetQuats[facetKey] || neutralQuat;
             const selectedQuat = selectedFacetTargetQuats[facetKey] || baseQuat;
             const focusRotationProgress = THREE.MathUtils.clamp(
-              (animationData?.cameraMoveProgress ?? 1) / FOCUS_ROTATION_PROGRESS_LEAD,
+              cameraMoveProgress / FOCUS_ROTATION_PROGRESS_LEAD,
               0,
               1
             );
@@ -1653,7 +1655,7 @@ const UnifiedCrystalScene = forwardRef(({
         const baseQuat = baseFacetTargetQuats[facetKey] || neutralQuat;
         const selectedQuat = selectedFacetTargetQuats[facetKey] || baseQuat;
         const focusRotationProgress = THREE.MathUtils.clamp(
-          (animationData?.cameraMoveProgress ?? 1) / FOCUS_ROTATION_PROGRESS_LEAD,
+          cameraMoveProgress / FOCUS_ROTATION_PROGRESS_LEAD,
           0,
           1
         );

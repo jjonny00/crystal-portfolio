@@ -11,7 +11,8 @@ const UnifiedCameraController = ({
   config,
   isMobile = false,
   simplifiedAnimations = false,
-  facetRefs = null
+  facetRefs = null,
+  sharedCameraMoveProgressRef = null
 }) => {
   const { camera } = useThree();
 
@@ -461,7 +462,7 @@ const UnifiedCameraController = ({
       settleFrameCount.current = 0;
       cameraSettledRef.current = false;
       orbitInitDelayRef.current = 0; // ADDED: Reset orbit delay
-      cameraMoveProgressRef.current = 0;
+      if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = 0;
       animationData?.setCameraMoveProgress?.(0);
       if (animationData?.cameraSettled) {
         animationData.setCameraSettled(false);
@@ -520,7 +521,7 @@ const UnifiedCameraController = ({
         camera.fov = currentTarget.current.fov;
         camera.updateProjectionMatrix();
         cameraMoveProgressRef.current = 1;
-        cameraMoveProgressRef.current = 1;
+        if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = 1;
       animationData?.setCameraMoveProgress?.(1);
         if (!cameraSettledRef.current) {
           cameraSettledRef.current = true;
@@ -641,6 +642,7 @@ const UnifiedCameraController = ({
       ? Math.max(cameraMoveProgressRef.current, THREE.MathUtils.clamp(moveProgress, 0, 1))
       : 1;
     cameraMoveProgressRef.current = monotonicProgress;
+    if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = monotonicProgress;
     animationData?.setCameraMoveProgress?.(monotonicProgress);
 
     if (positionDiff < SETTLE_EPSILON && lookAtDiff < SETTLE_EPSILON) {
@@ -648,6 +650,7 @@ const UnifiedCameraController = ({
       if (settleFrameCount.current >= SETTLE_FRAMES && !cameraSettledRef.current) {
         cameraSettledRef.current = true;
         cameraMoveProgressRef.current = 1;
+        if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = 1;
         animationData?.setCameraMoveProgress?.(1);
         animationData?.setCameraSettled?.(true);
       }

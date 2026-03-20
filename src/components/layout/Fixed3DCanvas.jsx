@@ -123,6 +123,7 @@ const Fixed3DCanvas = forwardRef(({
   const crystalSceneRef = useRef();
   const backgroundRef = useRef();
   const lastZoneRef = useRef(null);
+  const cameraMoveProgressRef = useRef(1);
 
   const handleFractureStart = useCallback(() => {
     backgroundRef.current?.flash(1, 0.5);
@@ -487,11 +488,13 @@ const Fixed3DCanvas = forwardRef(({
             isMobile={isMobile}
             simplifiedAnimations={simplifiedAnimations}
             facetRefs={getFacetRefs()} // FIXED: Pass exposed facet refs for anchor targeting
+            sharedCameraMoveProgressRef={cameraMoveProgressRef}
           />
           
           {/* UPDATED: Crystal Scene with ref for accessing debug state */}
           <UnifiedCrystalScene
             projectRuntimeOverrides={projectRuntimeOverrides}
+            sharedCameraMoveProgressRef={cameraMoveProgressRef}
             ref={crystalSceneRef} // NEW: Ref to access debug state and methods
             animationData={animationData}
             config={config}
