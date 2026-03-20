@@ -1508,6 +1508,7 @@ const UnifiedCrystalScene = forwardRef(({
       !animationData.isTransitioning &&
       animationData.cameraSettled === true;
     const rotationLerp = Math.min(1, deltaTime * 6);
+    const focusedRotationLerp = Math.min(1, deltaTime * 4);
     focusedFloatBlendRef.current = THREE.MathUtils.lerp(
       focusedFloatBlendRef.current,
       floatFocused ? 1 : 0,
@@ -1675,7 +1676,7 @@ const UnifiedCrystalScene = forwardRef(({
           : neutralQuat;
 
         if (animationData?.focusedFacet === facetKey && animationData?.cameraState === 'project') {
-          facetRef.current.quaternion.copy(targetQuat);
+          facetRef.current.quaternion.slerp(targetQuat, focusedRotationLerp);
         } else {
           facetRef.current.quaternion.slerp(targetQuat, rotationLerp);
         }
