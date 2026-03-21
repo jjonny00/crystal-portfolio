@@ -293,34 +293,34 @@
     },
     "selectedFacetRotationsEulerDeg": {
       "empathy": [
-        0,
-        0,
-        0
+        25,
+        121,
+        13
       ],
       "narrative": [
-        0,
-        0,
+        10,
+        -16,
         0
       ],
       "craft": [
-        0,
-        0,
-        0
+        -2,
+        65,
+        45
       ],
       "system": [
-        0,
-        0,
-        0
+        -25,
+        -19,
+        1
       ],
       "leadership": [
-        0,
-        0,
-        0
+        18,
+        112,
+        4
       ],
       "exploration": [
-        0,
-        0,
-        0
+        -15,
+        -13,
+        -17
       ]
     }
   },
