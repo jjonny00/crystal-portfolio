@@ -58,6 +58,11 @@ const UnifiedCameraController = ({
   const lastCameraConfig = useRef(null);
   const cameraMoveBaselineRef = useRef({ position: 0, lookAt: 0, fov: 0 });
   const cameraMoveProgressRef = useRef(1);
+  const projectTargetLockRef = useRef({
+    facetKey: null,
+    target: null,
+    source: 'config'
+  });
 
   // Track when camera has reached its target
   const settleFrameCount = useRef(0);
@@ -141,24 +146,51 @@ const UnifiedCameraController = ({
 
   const getCameraTarget = (cameraConfig, focusedFacet, cameraState) => {
     if (cameraState === 'project' && focusedFacet && facetRefs) {
-      const anchorPosition = findAnchorInFacet(focusedFacet);
-      
-      if (anchorPosition) {
-        return {
-          ...cameraConfig,
-          target: anchorPosition,
-          description: `${focusedFacet} project (anchor targeted)` 
-        };
-      } else {
-        if (import.meta.env.DEV) {
-          console.warn(`⚠️ Camera Controller: No anchor found for ${focusedFacet}, using default target`);
+      const lockedTarget = projectTargetLockRef.current;
+      const shouldRefreshProjectTarget =
+        lockedTarget.facetKey !== focusedFacet || !lockedTarget.target;
+
+      if (shouldRefreshProjectTarget) {
+        const anchorPosition = findAnchorInFacet(focusedFacet);
+
+        if (anchorPosition) {
+          projectTargetLockRef.current = {
+            facetKey: focusedFacet,
+            target: anchorPosition.clone(),
+            source: 'anchor'
+          };
+        } else {
+          if (import.meta.env.DEV) {
+            console.warn(`⚠️ Camera Controller: No anchor found for ${focusedFacet}, freezing config target for this move`);
+          }
+
+          projectTargetLockRef.current = {
+            facetKey: focusedFacet,
+            target: cameraConfig?.target ? cameraConfig.target.clone() : null,
+            source: 'config'
+          };
         }
+      }
+
+      if (projectTargetLockRef.current.target) {
         return {
           ...cameraConfig,
-          description: `${focusedFacet} project (default target)`
+          target: projectTargetLockRef.current.target.clone(),
+          description: `${focusedFacet} project (${projectTargetLockRef.current.source} locked)` 
         };
       }
+
+      return {
+        ...cameraConfig,
+        description: `${focusedFacet} project (default target)`
+      };
     }
+
+    projectTargetLockRef.current = {
+      facetKey: null,
+      target: null,
+      source: 'config'
+    };
     
     return cameraConfig;
   };
