@@ -162,8 +162,8 @@ const UnifiedCrystalScene = forwardRef(({
 
     if (layoutProjects?.facetRotationsEulerDeg) {
       nextConfig.facetRotationsEulerDeg = {
-        ...layoutProjects.facetRotationsEulerDeg,
         ...(nextConfig.facetRotationsEulerDeg || {}),
+        ...layoutProjects.facetRotationsEulerDeg,
         ...(projectRuntimeOverrides?.facetRotationsEulerDeg || {}),
       };
     } else if (projectRuntimeOverrides?.facetRotationsEulerDeg) {
@@ -175,8 +175,8 @@ const UnifiedCrystalScene = forwardRef(({
 
     if (layoutProjects?.selectedFacetRotationsEulerDeg) {
       nextConfig.selectedFacetRotationsEulerDeg = {
-        ...layoutProjects.selectedFacetRotationsEulerDeg,
         ...(nextConfig.selectedFacetRotationsEulerDeg || {}),
+        ...layoutProjects.selectedFacetRotationsEulerDeg,
         ...(projectRuntimeOverrides?.selectedFacetRotationsEulerDeg || {}),
       };
     } else if (projectRuntimeOverrides?.selectedFacetRotationsEulerDeg) {
@@ -217,8 +217,8 @@ const UnifiedCrystalScene = forwardRef(({
 
     if (layoutProjects?.facetRotationsEulerDeg) {
       nextCrystalConfig.facetRotationsEulerDeg = {
-        ...layoutProjects.facetRotationsEulerDeg,
         ...(baseCrystalConfig.facetRotationsEulerDeg || {}),
+        ...layoutProjects.facetRotationsEulerDeg,
         ...(projectRuntimeOverrides?.facetRotationsEulerDeg || {}),
       };
     } else if (projectRuntimeOverrides?.facetRotationsEulerDeg) {
@@ -230,8 +230,8 @@ const UnifiedCrystalScene = forwardRef(({
 
     if (layoutProjects?.selectedFacetRotationsEulerDeg) {
       nextCrystalConfig.selectedFacetRotationsEulerDeg = {
-        ...layoutProjects.selectedFacetRotationsEulerDeg,
         ...(baseCrystalConfig.selectedFacetRotationsEulerDeg || {}),
+        ...layoutProjects.selectedFacetRotationsEulerDeg,
         ...(projectRuntimeOverrides?.selectedFacetRotationsEulerDeg || {}),
       };
     } else if (projectRuntimeOverrides?.selectedFacetRotationsEulerDeg) {
