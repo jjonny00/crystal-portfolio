@@ -1,7 +1,7 @@
 import { Vector3 } from 'three';
 
 const FORMAT_HELP =
-  'Expected { schemaVersion: 1, anchors: { overviewWorld: { [facetKey]: [x, y, z] } }, camera?: { positions?, targets?, offsets? }, projects?: { explodedPositions?, facetRotationsEulerDeg? }, ... }';
+  'Expected { schemaVersion: 1, anchors: { overviewWorld: { [facetKey]: [x, y, z] } }, camera?: { positions?, targets?, offsets? }, projects?: { explodedPositions?, facetRotationsEulerDeg?, selectedFacetRotationsEulerDeg? }, ... }';
 
 const assertObject = (value, path) => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -154,6 +154,13 @@ export const parseLayout = (rawLayout) => {
       projects.facetRotationsEulerDeg = parseVec3ArrayMap(
         rawLayout.projects.facetRotationsEulerDeg,
         'projects.facetRotationsEulerDeg',
+      );
+    }
+
+    if (rawLayout.projects.selectedFacetRotationsEulerDeg !== undefined) {
+      projects.selectedFacetRotationsEulerDeg = parseVec3ArrayMap(
+        rawLayout.projects.selectedFacetRotationsEulerDeg,
+        'projects.selectedFacetRotationsEulerDeg',
       );
     }
 

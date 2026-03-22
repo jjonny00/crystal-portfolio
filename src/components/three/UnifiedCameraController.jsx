@@ -11,7 +11,8 @@ const UnifiedCameraController = ({
   config,
   isMobile = false,
   simplifiedAnimations = false,
-  facetRefs = null
+  facetRefs = null,
+  sharedCameraMoveProgressRef = null
 }) => {
   const { camera } = useThree();
 
@@ -55,6 +56,13 @@ const UnifiedCameraController = ({
 
   // Track last camera config to detect changes
   const lastCameraConfig = useRef(null);
+  const cameraMoveBaselineRef = useRef({ position: 0, lookAt: 0, fov: 0 });
+  const cameraMoveProgressRef = useRef(1);
+  const projectTargetLockRef = useRef({
+    facetKey: null,
+    target: null,
+    source: 'config'
+  });
 
   // Track when camera has reached its target
   const settleFrameCount = useRef(0);
@@ -138,24 +146,51 @@ const UnifiedCameraController = ({
 
   const getCameraTarget = (cameraConfig, focusedFacet, cameraState) => {
     if (cameraState === 'project' && focusedFacet && facetRefs) {
-      const anchorPosition = findAnchorInFacet(focusedFacet);
-      
-      if (anchorPosition) {
-        return {
-          ...cameraConfig,
-          target: anchorPosition,
-          description: `${focusedFacet} project (anchor targeted)` 
-        };
-      } else {
-        if (import.meta.env.DEV) {
-          console.warn(`⚠️ Camera Controller: No anchor found for ${focusedFacet}, using default target`);
+      const lockedTarget = projectTargetLockRef.current;
+      const shouldRefreshProjectTarget =
+        lockedTarget.facetKey !== focusedFacet || !lockedTarget.target;
+
+      if (shouldRefreshProjectTarget) {
+        const anchorPosition = findAnchorInFacet(focusedFacet);
+
+        if (anchorPosition) {
+          projectTargetLockRef.current = {
+            facetKey: focusedFacet,
+            target: anchorPosition.clone(),
+            source: 'anchor'
+          };
+        } else {
+          if (import.meta.env.DEV) {
+            console.warn(`⚠️ Camera Controller: No anchor found for ${focusedFacet}, freezing config target for this move`);
+          }
+
+          projectTargetLockRef.current = {
+            facetKey: focusedFacet,
+            target: cameraConfig?.target ? cameraConfig.target.clone() : null,
+            source: 'config'
+          };
         }
+      }
+
+      if (projectTargetLockRef.current.target) {
         return {
           ...cameraConfig,
-          description: `${focusedFacet} project (default target)`
+          target: projectTargetLockRef.current.target.clone(),
+          description: `${focusedFacet} project (${projectTargetLockRef.current.source} locked)` 
         };
       }
+
+      return {
+        ...cameraConfig,
+        description: `${focusedFacet} project (default target)`
+      };
     }
+
+    projectTargetLockRef.current = {
+      facetKey: null,
+      target: null,
+      source: 'config'
+    };
     
     return cameraConfig;
   };
@@ -433,6 +468,18 @@ const UnifiedCameraController = ({
         animationSpeed.current.fov = 0.03;
       }
 
+      const currentViewDirection = new THREE.Vector3();
+      camera.getWorldDirection(currentViewDirection);
+      const targetViewDirection = finalTarget
+        ? new THREE.Vector3().subVectors(finalTarget, camera.position).normalize()
+        : currentViewDirection.clone();
+
+      cameraMoveBaselineRef.current = {
+        position: finalPosition ? camera.position.distanceTo(finalPosition) : 0,
+        lookAt: currentViewDirection.angleTo(targetViewDirection),
+        fov: Math.abs((enhancedConfig.fov ?? camera.fov) - camera.fov)
+      };
+
       lastCameraConfig.current = {
         position: finalPosition ? finalPosition.clone() : null,
         target: finalTarget ? finalTarget.clone() : null,
@@ -447,6 +494,8 @@ const UnifiedCameraController = ({
       settleFrameCount.current = 0;
       cameraSettledRef.current = false;
       orbitInitDelayRef.current = 0; // ADDED: Reset orbit delay
+      if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = 0;
+      animationData?.setCameraMoveProgress?.(0);
       if (animationData?.cameraSettled) {
         animationData.setCameraSettled(false);
       }
@@ -503,6 +552,9 @@ const UnifiedCameraController = ({
         camera.lookAt(currentTarget.current.lookAt);
         camera.fov = currentTarget.current.fov;
         camera.updateProjectionMatrix();
+        cameraMoveProgressRef.current = 1;
+        if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = 1;
+      animationData?.setCameraMoveProgress?.(1);
         if (!cameraSettledRef.current) {
           cameraSettledRef.current = true;
           animationData?.setCameraSettled?.(true);
@@ -575,6 +627,7 @@ const UnifiedCameraController = ({
 
       currentTarget.current.position.copy(camera.position);
 
+      animationData?.setCameraMoveProgress?.(1);
       animationData?.setCameraSettled?.(false);
       return;
     }
@@ -609,11 +662,32 @@ const UnifiedCameraController = ({
     // Check if camera has settled at target
     const positionDiff = camera.position.distanceTo(currentTarget.current.position);
     const lookAtDiff = currentDirection.angleTo(targetDirection);
+    const fovDistance = Math.abs(currentTarget.current.fov - camera.fov);
+    const baselinePosition = Math.max(cameraMoveBaselineRef.current.position, SETTLE_EPSILON);
+    const baselineLookAt = Math.max(cameraMoveBaselineRef.current.lookAt, SETTLE_EPSILON);
+    const baselineFov = Math.max(cameraMoveBaselineRef.current.fov, SETTLE_EPSILON);
+    const positionProgress = 1 - Math.min(positionDiff / baselinePosition, 1);
+    const lookAtProgress = 1 - Math.min(lookAtDiff / baselineLookAt, 1);
+    const fovProgress = 1 - Math.min(fovDistance / baselineFov, 1);
+    const moveProgress = Math.min(positionProgress, lookAtProgress, fovProgress);
+    const monotonicProgress = Number.isFinite(moveProgress)
+      ? Math.max(cameraMoveProgressRef.current, THREE.MathUtils.clamp(moveProgress, 0, 1))
+      : 1;
+    cameraMoveProgressRef.current = monotonicProgress;
+    if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = monotonicProgress;
+    animationData?.setCameraMoveProgress?.(monotonicProgress);
 
-    if (positionDiff < SETTLE_EPSILON && lookAtDiff < SETTLE_EPSILON) {
+    if (
+      positionDiff < SETTLE_EPSILON &&
+      lookAtDiff < SETTLE_EPSILON &&
+      fovDistance < SETTLE_EPSILON
+    ) {
       settleFrameCount.current += 1;
       if (settleFrameCount.current >= SETTLE_FRAMES && !cameraSettledRef.current) {
         cameraSettledRef.current = true;
+        cameraMoveProgressRef.current = 1;
+        if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = 1;
+        animationData?.setCameraMoveProgress?.(1);
         animationData?.setCameraSettled?.(true);
       }
     } else {

@@ -96,6 +96,15 @@ const CrystalControls = ({ config, onUpdate }) => {
     'facetRotationsEulerDeg.exploration': crystalConfig.facetRotationsEulerDeg.exploration
   });
 
+  const [selectedFacetRotationValues, setSelectedFacetRotationValues] = useState({
+    'selectedFacetRotationsEulerDeg.empathy': crystalConfig.selectedFacetRotationsEulerDeg.empathy,
+    'selectedFacetRotationsEulerDeg.narrative': crystalConfig.selectedFacetRotationsEulerDeg.narrative,
+    'selectedFacetRotationsEulerDeg.craft': crystalConfig.selectedFacetRotationsEulerDeg.craft,
+    'selectedFacetRotationsEulerDeg.system': crystalConfig.selectedFacetRotationsEulerDeg.system,
+    'selectedFacetRotationsEulerDeg.leadership': crystalConfig.selectedFacetRotationsEulerDeg.leadership,
+    'selectedFacetRotationsEulerDeg.exploration': crystalConfig.selectedFacetRotationsEulerDeg.exploration
+  });
+
   // Position state  
   const [positionValues, setPositionValues] = useState({
     'explodedPositions.empathy': crystalConfig.explodedPositions.empathy,
@@ -235,6 +244,15 @@ const CrystalControls = ({ config, onUpdate }) => {
         leadership: cloneVec3(base.facetRotationsEulerDeg?.leadership),
         exploration: cloneVec3(base.facetRotationsEulerDeg?.exploration)
       },
+      selectedFacetRotationsEulerDeg: {
+        ...base.selectedFacetRotationsEulerDeg,
+        empathy: cloneVec3(base.selectedFacetRotationsEulerDeg?.empathy),
+        narrative: cloneVec3(base.selectedFacetRotationsEulerDeg?.narrative),
+        craft: cloneVec3(base.selectedFacetRotationsEulerDeg?.craft),
+        system: cloneVec3(base.selectedFacetRotationsEulerDeg?.system),
+        leadership: cloneVec3(base.selectedFacetRotationsEulerDeg?.leadership),
+        exploration: cloneVec3(base.selectedFacetRotationsEulerDeg?.exploration)
+      },
       timing: {
         ...base.timing,
         camera: { ...base.timing?.camera },
@@ -284,7 +302,8 @@ const CrystalControls = ({ config, onUpdate }) => {
         cameraTargets: baseConfig.cameraTargets,
         cameraOffsets: baseConfig.cameraOffsets,
         explodedPositions: baseConfig.explodedPositions,
-        facetRotationsEulerDeg: baseConfig.facetRotationsEulerDeg
+        facetRotationsEulerDeg: baseConfig.facetRotationsEulerDeg,
+        selectedFacetRotationsEulerDeg: baseConfig.selectedFacetRotationsEulerDeg
       }
     };
 
@@ -377,6 +396,14 @@ const CrystalControls = ({ config, onUpdate }) => {
       });
     };
 
+    const updateSelectedFacetRotations = (rotations) => {
+      if (!rotations) return;
+      projectKeys.forEach((project) => {
+        const vec = sanitizeVec3(rotations?.[project]);
+        if (vec) updatedConfig.selectedFacetRotationsEulerDeg[project] = vec;
+      });
+    };
+
     const updateTiming = (timing) => {
       if (!timing?.camera) return;
       Object.entries(timing.camera).forEach(([key, value]) => {
@@ -391,6 +418,7 @@ const CrystalControls = ({ config, onUpdate }) => {
     updateCameraOffsets(tuning.cameraOffsets);
     updateExplodedPositions(tuning.explodedPositions);
     updateFacetRotations(tuning.facetRotationsEulerDeg);
+    updateSelectedFacetRotations(tuning.selectedFacetRotationsEulerDeg);
     updateTiming(tuning.timing);
 
     return updatedConfig;
@@ -465,6 +493,15 @@ const CrystalControls = ({ config, onUpdate }) => {
       'explodedPositions.system': updatedConfig.explodedPositions.system,
       'explodedPositions.leadership': updatedConfig.explodedPositions.leadership,
       'explodedPositions.exploration': updatedConfig.explodedPositions.exploration
+    });
+
+    setSelectedFacetRotationValues({
+      'selectedFacetRotationsEulerDeg.empathy': updatedConfig.selectedFacetRotationsEulerDeg.empathy,
+      'selectedFacetRotationsEulerDeg.narrative': updatedConfig.selectedFacetRotationsEulerDeg.narrative,
+      'selectedFacetRotationsEulerDeg.craft': updatedConfig.selectedFacetRotationsEulerDeg.craft,
+      'selectedFacetRotationsEulerDeg.system': updatedConfig.selectedFacetRotationsEulerDeg.system,
+      'selectedFacetRotationsEulerDeg.leadership': updatedConfig.selectedFacetRotationsEulerDeg.leadership,
+      'selectedFacetRotationsEulerDeg.exploration': updatedConfig.selectedFacetRotationsEulerDeg.exploration
     });
   };
 
@@ -612,6 +649,29 @@ const CrystalControls = ({ config, onUpdate }) => {
     const newRotation = [...facetRotationValues[key]];
     newRotation[index] = numValue;
     updateFacetRotation(key, newRotation);
+  };
+
+  const updateSelectedFacetRotation = (key, newRotation) => {
+    const parts = key.split('.');
+    setSelectedFacetRotationValues({
+      ...selectedFacetRotationValues,
+      [key]: newRotation
+    });
+
+    const updatedConfig = cloneConfig();
+
+    if (parts.length === 2) {
+      updatedConfig.selectedFacetRotationsEulerDeg[parts[1]] = newRotation;
+    }
+
+    onUpdate(updatedConfig);
+  };
+
+  const handleSelectedFacetRotationChange = (key, index, value) => {
+    const numValue = parseFloat(value);
+    const newRotation = [...selectedFacetRotationValues[key]];
+    newRotation[index] = numValue;
+    updateSelectedFacetRotation(key, newRotation);
   };
 
   // Handle camera position value changes for XYZ sliders
@@ -772,6 +832,15 @@ const CrystalControls = ({ config, onUpdate }) => {
       'facetRotationsEulerDeg.leadership': crystalConfig.facetRotationsEulerDeg.leadership,
       'facetRotationsEulerDeg.exploration': crystalConfig.facetRotationsEulerDeg.exploration
     });
+
+    setSelectedFacetRotationValues({
+      'selectedFacetRotationsEulerDeg.empathy': crystalConfig.selectedFacetRotationsEulerDeg.empathy,
+      'selectedFacetRotationsEulerDeg.narrative': crystalConfig.selectedFacetRotationsEulerDeg.narrative,
+      'selectedFacetRotationsEulerDeg.craft': crystalConfig.selectedFacetRotationsEulerDeg.craft,
+      'selectedFacetRotationsEulerDeg.system': crystalConfig.selectedFacetRotationsEulerDeg.system,
+      'selectedFacetRotationsEulerDeg.leadership': crystalConfig.selectedFacetRotationsEulerDeg.leadership,
+      'selectedFacetRotationsEulerDeg.exploration': crystalConfig.selectedFacetRotationsEulerDeg.exploration
+    });
     
     setPositionValues({
       'explodedPositions.empathy': crystalConfig.explodedPositions.empathy,
@@ -889,6 +958,7 @@ const CrystalControls = ({ config, onUpdate }) => {
           tuningData.cameraOffsets ||
           tuningData.explodedPositions ||
           tuningData.facetRotationsEulerDeg ||
+          tuningData.selectedFacetRotationsEulerDeg ||
           tuningData.timing);
 
       if (!hasKnownKeys) {
@@ -1118,6 +1188,8 @@ const CrystalControls = ({ config, onUpdate }) => {
         const rotationKey = `facetRotationsEulerDeg.${facet}`;
         const position = positionValues[positionKey];
         const rotation = facetRotationValues[rotationKey];
+        const selectedRotationKey = `selectedFacetRotationsEulerDeg.${facet}`;
+        const selectedRotation = selectedFacetRotationValues[selectedRotationKey];
         const isOpen = positionAccordionState[facet];
         return (
           <div key={facet} style={{ marginBottom: '15px' }}>
@@ -1172,6 +1244,28 @@ const CrystalControls = ({ config, onUpdate }) => {
                         step="1"
                         value={rotation[index]}
                         onChange={(e) => handleFacetRotationChange(rotationKey, index, e.target.value)}
+                        style={sliderStyle}
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                <div style={accordionSectionStyle}>
+                  <div style={accordionSubheadingStyle}>Selected Rotation</div>
+                  <div style={accordionNoteStyle}>Applies while this project facet is focused during the camera move.</div>
+                  {['X', 'Y', 'Z'].map((axis, index) => (
+                    <div key={axis} style={{ marginBottom: '5px' }}>
+                      <div style={sliderLabelStyle}>
+                        <span><span style={coordLabelStyle}>{axis}</span> Selected Rotation</span>
+                        <span>{selectedRotation[index].toFixed(0)}°</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="-180"
+                        max="180"
+                        step="1"
+                        value={selectedRotation[index]}
+                        onChange={(e) => handleSelectedFacetRotationChange(selectedRotationKey, index, e.target.value)}
                         style={sliderStyle}
                       />
                     </div>

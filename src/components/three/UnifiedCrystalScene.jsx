@@ -33,6 +33,8 @@ import { useLayoutConfig } from '../../hooks/useLayoutConfig'
 import { useHoverCapable } from '../../hooks/useHoverCapable'
 
 const PROJECT_DISPLAY_SLOT = 'ProjectDisplay'
+const FOCUS_ROTATION_PROGRESS_LEAD = 1
+const ISOLATE_FOCUSED_ROTATION_FROM_POSITION = true
 
 const UnifiedCrystalScene = forwardRef(({ 
   animationData,
@@ -43,7 +45,9 @@ const UnifiedCrystalScene = forwardRef(({
   scrollToProgress,
   scrollToProject,
   onDirectProjectSelect,
-  onFractureStart
+  onFractureStart,
+  projectRuntimeOverrides = null,
+  sharedCameraMoveProgressRef = null
 }, ref) => {
   // Component refs for crystal animation
   const crystalGroupRef = useRef();
@@ -143,10 +147,16 @@ const UnifiedCrystalScene = forwardRef(({
 
     if (layoutProjects?.explodedPositions) {
       nextConfig.explodedPositions = {
-        ...(nextConfig.explodedPositions || {}),
         ...Object.fromEntries(
           Object.entries(layoutProjects.explodedPositions).map(([key, value]) => [key, value.toArray()]),
         ),
+        ...(nextConfig.explodedPositions || {}),
+        ...(projectRuntimeOverrides?.explodedPositions || {}),
+      };
+    } else if (projectRuntimeOverrides?.explodedPositions) {
+      nextConfig.explodedPositions = {
+        ...(nextConfig.explodedPositions || {}),
+        ...projectRuntimeOverrides.explodedPositions,
       };
     }
 
@@ -154,11 +164,30 @@ const UnifiedCrystalScene = forwardRef(({
       nextConfig.facetRotationsEulerDeg = {
         ...(nextConfig.facetRotationsEulerDeg || {}),
         ...layoutProjects.facetRotationsEulerDeg,
+        ...(projectRuntimeOverrides?.facetRotationsEulerDeg || {}),
+      };
+    } else if (projectRuntimeOverrides?.facetRotationsEulerDeg) {
+      nextConfig.facetRotationsEulerDeg = {
+        ...(nextConfig.facetRotationsEulerDeg || {}),
+        ...projectRuntimeOverrides.facetRotationsEulerDeg,
+      };
+    }
+
+    if (layoutProjects?.selectedFacetRotationsEulerDeg) {
+      nextConfig.selectedFacetRotationsEulerDeg = {
+        ...(nextConfig.selectedFacetRotationsEulerDeg || {}),
+        ...layoutProjects.selectedFacetRotationsEulerDeg,
+        ...(projectRuntimeOverrides?.selectedFacetRotationsEulerDeg || {}),
+      };
+    } else if (projectRuntimeOverrides?.selectedFacetRotationsEulerDeg) {
+      nextConfig.selectedFacetRotationsEulerDeg = {
+        ...(nextConfig.selectedFacetRotationsEulerDeg || {}),
+        ...projectRuntimeOverrides.selectedFacetRotationsEulerDeg,
       };
     }
 
     return nextConfig;
-  }, [config, layoutCamera, layoutProjects]);
+  }, [config, layoutCamera, layoutProjects, projectRuntimeOverrides]);
 
   useEffect(() => {
     if (!import.meta.env.DEV) return;
@@ -175,8 +204,14 @@ const UnifiedCrystalScene = forwardRef(({
 
     if (layoutProjects?.explodedPositions) {
       nextCrystalConfig.explodedPositions = {
-        ...(baseCrystalConfig.explodedPositions || {}),
         ...layoutProjects.explodedPositions,
+        ...(baseCrystalConfig.explodedPositions || {}),
+        ...(projectRuntimeOverrides?.explodedPositions || {}),
+      };
+    } else if (projectRuntimeOverrides?.explodedPositions) {
+      nextCrystalConfig.explodedPositions = {
+        ...(baseCrystalConfig.explodedPositions || {}),
+        ...projectRuntimeOverrides.explodedPositions,
       };
     }
 
@@ -184,11 +219,30 @@ const UnifiedCrystalScene = forwardRef(({
       nextCrystalConfig.facetRotationsEulerDeg = {
         ...(baseCrystalConfig.facetRotationsEulerDeg || {}),
         ...layoutProjects.facetRotationsEulerDeg,
+        ...(projectRuntimeOverrides?.facetRotationsEulerDeg || {}),
+      };
+    } else if (projectRuntimeOverrides?.facetRotationsEulerDeg) {
+      nextCrystalConfig.facetRotationsEulerDeg = {
+        ...(baseCrystalConfig.facetRotationsEulerDeg || {}),
+        ...projectRuntimeOverrides.facetRotationsEulerDeg,
+      };
+    }
+
+    if (layoutProjects?.selectedFacetRotationsEulerDeg) {
+      nextCrystalConfig.selectedFacetRotationsEulerDeg = {
+        ...(baseCrystalConfig.selectedFacetRotationsEulerDeg || {}),
+        ...layoutProjects.selectedFacetRotationsEulerDeg,
+        ...(projectRuntimeOverrides?.selectedFacetRotationsEulerDeg || {}),
+      };
+    } else if (projectRuntimeOverrides?.selectedFacetRotationsEulerDeg) {
+      nextCrystalConfig.selectedFacetRotationsEulerDeg = {
+        ...(baseCrystalConfig.selectedFacetRotationsEulerDeg || {}),
+        ...projectRuntimeOverrides.selectedFacetRotationsEulerDeg,
       };
     }
 
     return nextCrystalConfig;
-  }, [animationData?.crystalConfig, layoutProjects]);
+  }, [animationData?.crystalConfig, layoutProjects, projectRuntimeOverrides]);
 
   // Facet configuration
   const facetKeys = canonicalFacetKeys;
@@ -231,6 +285,7 @@ const UnifiedCrystalScene = forwardRef(({
       phaseZ: Math.random() * Math.PI * 2
     }))
   );
+  const focusedFloatBlendRef = useRef(0);
 
   // Track explosion timing so we can implement fracture pause
   const explosionStartRef = useRef(null);
@@ -536,6 +591,33 @@ const UnifiedCrystalScene = forwardRef(({
     },
     [anchorOffsets]
   );
+
+  const eulerDegreesToQuaternion = useCallback((eulerDeg) => {
+    if (!Array.isArray(eulerDeg)) return neutralQuat.clone();
+    const [x = 0, y = 0, z = 0] = eulerDeg;
+    return new THREE.Quaternion().setFromEuler(
+      new THREE.Euler(
+        THREE.MathUtils.degToRad(x),
+        THREE.MathUtils.degToRad(y),
+        THREE.MathUtils.degToRad(z),
+        'XYZ'
+      )
+    );
+  }, [neutralQuat]);
+
+  const baseFacetTargetQuats = useMemo(() => Object.fromEntries(
+    facetKeys.map((facetKey) => [
+      facetKey,
+      eulerDegreesToQuaternion(mergedConfig?.facetRotationsEulerDeg?.[facetPlacementKeys[facetKey] || facetKey])
+    ])
+  ), [eulerDegreesToQuaternion, facetKeys, facetPlacementKeys, mergedConfig?.facetRotationsEulerDeg]);
+
+  const selectedFacetTargetQuats = useMemo(() => Object.fromEntries(
+    facetKeys.map((facetKey) => [
+      facetKey,
+      eulerDegreesToQuaternion(mergedConfig?.selectedFacetRotationsEulerDeg?.[facetPlacementKeys[facetKey] || facetKey])
+    ])
+  ), [eulerDegreesToQuaternion, facetKeys, facetPlacementKeys, mergedConfig?.selectedFacetRotationsEulerDeg]);
 
   // FIXED: Improved handleLabelHover with better state management
   const applyHoverVisual = useCallback(
@@ -1417,13 +1499,21 @@ const UnifiedCrystalScene = forwardRef(({
     }
 
     const elapsed = state.clock.elapsedTime;
+    const cameraMoveProgress = sharedCameraMoveProgressRef?.current ?? animationData?.cameraMoveProgress ?? 1;
     const floatConfig = effects.idle.float;
     const floatAll = animationData.state === 'overview' && !animationData.isTransitioning;
     const floatFocused =
       animationData.state === 'project_focused' &&
       animationData.focusedFacet &&
-      !animationData.isTransitioning;
+      !animationData.isTransitioning &&
+      animationData.cameraSettled === true;
     const rotationLerp = Math.min(1, deltaTime * 6);
+    const focusedRotationLerp = Math.min(1, deltaTime * 4);
+    focusedFloatBlendRef.current = THREE.MathUtils.lerp(
+      focusedFloatBlendRef.current,
+      floatFocused ? 1 : 0,
+      Math.min(1, deltaTime * 8)
+    );
 
     // Handle whole crystal floating (no rotation)
     if (showWholeCrystal && wholeCrystalRef.current) {
@@ -1474,10 +1564,7 @@ const UnifiedCrystalScene = forwardRef(({
             end?.clone().normalize().multiplyScalar(end.length() * fractureDistance);
           if (start && end) {
             const interpolated = start.clone().lerp(end, eased);
-            const targetRotation = crystalConfig?.explodedRotations?.[facetPlacementKeys[facetKey] || facetKey];
-            const targetQuat = targetRotation
-              ? new THREE.Quaternion().fromArray(targetRotation)
-              : neutralQuat;
+            const targetQuat = baseFacetTargetQuats[facetKey] || neutralQuat;
             const adjusted = animationData?.crystalForm === 'exploded'
               ? getAnchorAdjustedPosition(facetKey, interpolated, targetQuat)
               : interpolated;
@@ -1537,28 +1624,62 @@ const UnifiedCrystalScene = forwardRef(({
             let finalTarget = targetPos;
             if (floatAll || (floatFocused && animationData.focusedFacet === facetKey)) {
               const params = floatParamsRef.current[index];
-              const amp = params.amp * (floatAll ? floatConfig.overviewMultiplier : 1);
+              const amp = params.amp * (
+                floatAll
+                  ? floatConfig.overviewMultiplier
+                  : focusedFloatBlendRef.current
+              );
               const fx = Math.sin(elapsed * floatConfig.xFrequency + params.phaseX) * amp * floatConfig.xMultiplier;
               const fy = Math.sin(elapsed * floatConfig.yFrequency + params.phaseY) * amp;
               const fz = Math.sin(elapsed * floatConfig.zFrequency + params.phaseZ) * amp * floatConfig.zMultiplier;
               finalTarget = targetPos.clone().add(new THREE.Vector3(fx, fy, fz));
             }
-            const targetRotation = crystalConfig?.explodedRotations?.[facetPlacementKeys[facetKey] || facetKey];
-            const targetQuat = animationData?.crystalForm === 'exploded' && targetRotation
-              ? new THREE.Quaternion().fromArray(targetRotation)
+            const baseQuat = baseFacetTargetQuats[facetKey] || neutralQuat;
+            const selectedQuat = selectedFacetTargetQuats[facetKey] || baseQuat;
+            const focusRotationProgress = THREE.MathUtils.clamp(
+              cameraMoveProgress / FOCUS_ROTATION_PROGRESS_LEAD,
+              0,
+              1
+            );
+            const focusQuat = baseQuat.clone().slerp(selectedQuat, focusRotationProgress);
+            const targetQuat = animationData?.crystalForm === 'exploded'
+              ? (animationData?.focusedFacet === facetKey ? focusQuat : baseQuat)
               : neutralQuat;
-            const anchorAdjusted = animationData?.crystalForm === 'exploded'
-              ? getAnchorAdjustedPosition(facetKey, finalTarget, targetQuat)
-              : finalTarget;
-            facetRef.current.position.lerp(anchorAdjusted, lerpSpeed * deltaTime * 60);
+            const useIsolatedFocusTransform =
+              ISOLATE_FOCUSED_ROTATION_FROM_POSITION &&
+              animationData?.focusedFacet === facetKey &&
+              animationData?.cameraState === 'project';
+            const targetPosition = useIsolatedFocusTransform
+              ? finalTarget
+              : (animationData?.crystalForm === 'exploded'
+                  ? getAnchorAdjustedPosition(facetKey, finalTarget, targetQuat)
+                  : finalTarget);
+
+            if (animationData?.focusedFacet === facetKey && animationData?.cameraState === 'project') {
+              facetRef.current.position.copy(targetPosition);
+            } else {
+              facetRef.current.position.lerp(targetPosition, lerpSpeed * deltaTime * 60);
+            }
           }
         }
 
-        const targetRotation = crystalConfig?.explodedRotations?.[facetPlacementKeys[facetKey] || facetKey];
-        const targetQuat = animationData?.crystalForm === 'exploded' && targetRotation
-          ? new THREE.Quaternion().fromArray(targetRotation)
+        const baseQuat = baseFacetTargetQuats[facetKey] || neutralQuat;
+        const selectedQuat = selectedFacetTargetQuats[facetKey] || baseQuat;
+        const focusRotationProgress = THREE.MathUtils.clamp(
+          cameraMoveProgress / FOCUS_ROTATION_PROGRESS_LEAD,
+          0,
+          1
+        );
+        const focusQuat = baseQuat.clone().slerp(selectedQuat, focusRotationProgress);
+        const targetQuat = animationData?.crystalForm === 'exploded'
+          ? (animationData?.focusedFacet === facetKey ? focusQuat : baseQuat)
           : neutralQuat;
-        facetRef.current.quaternion.slerp(targetQuat, rotationLerp);
+
+        if (animationData?.focusedFacet === facetKey && animationData?.cameraState === 'project') {
+          facetRef.current.quaternion.slerp(targetQuat, focusedRotationLerp);
+        } else {
+          facetRef.current.quaternion.slerp(targetQuat, rotationLerp);
+        }
       });
 
       if (isReforming && allFacetsAtCenter && !showWholeCrystal) {
