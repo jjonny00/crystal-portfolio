@@ -16,7 +16,7 @@ const FractureBurstParticles = ({
   const linesRef = useRef();
   const startTimeRef = useRef(0);
   const velocitiesRef = useRef();
-  const delayRef = useRef();
+  const delayRef = useRef(null);
 
   const { geometry, velocities } = useMemo(() => {
     const positions = new Float32Array(count * 6);
@@ -65,9 +65,24 @@ const FractureBurstParticles = ({
   );
 
   useEffect(() => {
-    if (!geometry) return;
+    if (!geometry) return undefined;
+
+    if (delayRef.current) {
+      clearTimeout(delayRef.current);
+      delayRef.current = null;
+    }
+
+    if (!trigger) {
+      material.opacity = 0;
+      startTimeRef.current = 0;
+      return undefined;
+    }
+
+    let isCancelled = false;
 
     const reset = () => {
+      if (isCancelled) return;
+
       // Reset positions and regenerate velocities
       const positions = geometry.attributes.position.array;
       const velocities = velocitiesRef.current;
@@ -98,12 +113,16 @@ const FractureBurstParticles = ({
     };
 
     if (delay > 0) {
-      delayRef.current = setTimeout(reset, delay * 1000);
+      delayRef.current = setTimeout(() => {
+        delayRef.current = null;
+        reset();
+      }, delay * 1000);
     } else {
       reset();
     }
 
     return () => {
+      isCancelled = true;
       if (delayRef.current) {
         clearTimeout(delayRef.current);
         delayRef.current = null;
