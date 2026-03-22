@@ -15,6 +15,13 @@ const FRACTURE_DISTANCE = fractureConfig.distance;
 export const ANIMATION_CONFIG = {
   // Camera positions for immediate transitions
   camera: {
+    intro: {
+      position: new Vector3(0.18, 1.08, 2.46),
+      target: new Vector3(0, 0.35, 0),
+      fov: 32,
+      description: 'Intro dramatic close view',
+      orbitSpeed: 0.0003
+    },
     hero: {
       position: new Vector3(0, 3.2, 2.4),
       target: new Vector3(0, 0.5, 0),

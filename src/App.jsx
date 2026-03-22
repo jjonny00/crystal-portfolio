@@ -39,7 +39,7 @@ import './styles/glow-70s.css';
 import { isMobileDevice } from './utils/isMobileDevice.js';
 
 const projectKeys = ['empathy', 'narrative', 'craft', 'system', 'leadership', 'exploration'];
-const zoneKeys = ['hero', 'overview', 'about'];
+const zoneKeys = ['intro', 'hero', 'overview', 'about'];
 
 const toVecOrNull = (value) => (
   Array.isArray(value) && value.length === 3 && value.every((entry) => Number.isFinite(entry))
@@ -208,6 +208,13 @@ const buildAnimationConfig = (uiConfig) => {
     ...ANIMATION_CONFIG,
     facetRotationsEulerDeg: uiConfig.facetRotationsEulerDeg ?? ANIMATION_CONFIG.facetRotationsEulerDeg ?? {},
     camera: {
+      intro: {
+        ...(ANIMATION_CONFIG.camera.intro || ANIMATION_CONFIG.camera.hero),
+        position: toVec(uiConfig.cameraPositions.intro ?? uiConfig.cameraPositions.hero),
+        target: toVec(cameraTargets?.intro ?? ANIMATION_CONFIG.camera.intro?.target?.toArray?.() ?? ANIMATION_CONFIG.camera.hero.target.toArray()),
+        offsetPosition: sumVec(globalOffsets?.position, zoneOffsets?.intro?.position),
+        offsetTarget: sumVec(globalOffsets?.target, zoneOffsets?.intro?.target)
+      },
       hero: {
         ...ANIMATION_CONFIG.camera.hero,
         position: toVec(uiConfig.cameraPositions.hero),

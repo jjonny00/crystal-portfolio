@@ -72,6 +72,7 @@ export const explodedRotations = {
 
 // === CAMERA POSITIONS ===
 export const cameraPositions = {
+  intro: [0.18, 1.08, 2.46],
   hero: [0.55, 0.92, 3.94],
   overview: [0.23, 0.53, 6.57],
   about: [1.74, 1.34, 1.87],
@@ -86,6 +87,7 @@ export const cameraPositions = {
 }
 
 export const cameraTargets = {
+  intro: [0, 0.35, 0],
   hero: [0, 0.5, 0],
   overview: [0, 0.3, 0],
   about: [0, 0.2, 0],
@@ -105,6 +107,10 @@ export const cameraOffsets = {
     target: [0, 0, 0]
   },
   zones: {
+    intro: {
+      position: [0, 0, 0],
+      target: [0, 0, 0]
+    },
     hero: {
       position: [0, 0, 0],
       target: [0, 0, 0]

@@ -6,7 +6,7 @@ import * as crystalConfig from '../../crystalConfig';
 const RAD2DEG = 180 / Math.PI;
 const DEG2RAD = Math.PI / 180;
 
-const zoneKeys = ['hero', 'overview', 'about'];
+const zoneKeys = ['intro', 'hero', 'overview', 'about'];
 const projectKeys = ['empathy', 'narrative', 'craft', 'system', 'leadership', 'exploration'];
 
 const CrystalControls = ({ config, onUpdate }) => {
@@ -15,7 +15,8 @@ const CrystalControls = ({ config, onUpdate }) => {
   const fileInputRef = useRef(null);
   const [cameraAccordionState, setCameraAccordionState] = useState({
     globalOffsets: false,
-    hero: true,
+    intro: true,
+    hero: false,
     overview: false,
     about: false,
     projects: false
@@ -41,6 +42,7 @@ const CrystalControls = ({ config, onUpdate }) => {
 
   // Camera position state
   const [cameraValues, setCameraValues] = useState({
+    'camera.intro': crystalConfig.cameraPositions.intro,
     'camera.hero': crystalConfig.cameraPositions.hero,
     'camera.overview': crystalConfig.cameraPositions.overview,
     'camera.about': crystalConfig.cameraPositions.about,
@@ -53,6 +55,7 @@ const CrystalControls = ({ config, onUpdate }) => {
   });
 
   const [cameraTargetValues, setCameraTargetValues] = useState({
+    'cameraTargets.intro': crystalConfig.cameraTargets.intro,
     'cameraTargets.hero': crystalConfig.cameraTargets.hero,
     'cameraTargets.overview': crystalConfig.cameraTargets.overview,
     'cameraTargets.about': crystalConfig.cameraTargets.about,
@@ -67,7 +70,9 @@ const CrystalControls = ({ config, onUpdate }) => {
   const [cameraOffsetValues, setCameraOffsetValues] = useState({
     'cameraOffsets.global.position': crystalConfig.cameraOffsets.global.position,
     'cameraOffsets.global.target': crystalConfig.cameraOffsets.global.target,
+    'cameraOffsets.zones.intro.position': crystalConfig.cameraOffsets.zones.intro.position,
     'cameraOffsets.zones.hero.position': crystalConfig.cameraOffsets.zones.hero.position,
+    'cameraOffsets.zones.intro.target': crystalConfig.cameraOffsets.zones.intro.target,
     'cameraOffsets.zones.hero.target': crystalConfig.cameraOffsets.zones.hero.target,
     'cameraOffsets.zones.overview.position': crystalConfig.cameraOffsets.zones.overview.position,
     'cameraOffsets.zones.overview.target': crystalConfig.cameraOffsets.zones.overview.target,
@@ -189,6 +194,7 @@ const CrystalControls = ({ config, onUpdate }) => {
       ...base,
       cameraPositions: {
         ...base.cameraPositions,
+        intro: cloneVec3(base.cameraPositions?.intro),
         hero: cloneVec3(base.cameraPositions?.hero),
         overview: cloneVec3(base.cameraPositions?.overview),
         about: cloneVec3(base.cameraPositions?.about),
@@ -204,6 +210,7 @@ const CrystalControls = ({ config, onUpdate }) => {
       },
       cameraTargets: {
         ...base.cameraTargets,
+        intro: cloneVec3(base.cameraTargets?.intro),
         hero: cloneVec3(base.cameraTargets?.hero),
         overview: cloneVec3(base.cameraTargets?.overview),
         about: cloneVec3(base.cameraTargets?.about),
@@ -431,6 +438,7 @@ const CrystalControls = ({ config, onUpdate }) => {
     });
 
     setCameraValues({
+      'camera.intro': updatedConfig.cameraPositions.intro,
       'camera.hero': updatedConfig.cameraPositions.hero,
       'camera.overview': updatedConfig.cameraPositions.overview,
       'camera.about': updatedConfig.cameraPositions.about,
@@ -443,6 +451,7 @@ const CrystalControls = ({ config, onUpdate }) => {
     });
 
     setCameraTargetValues({
+      'cameraTargets.intro': updatedConfig.cameraTargets.intro,
       'cameraTargets.hero': updatedConfig.cameraTargets.hero,
       'cameraTargets.overview': updatedConfig.cameraTargets.overview,
       'cameraTargets.about': updatedConfig.cameraTargets.about,
@@ -457,7 +466,9 @@ const CrystalControls = ({ config, onUpdate }) => {
     setCameraOffsetValues({
       'cameraOffsets.global.position': updatedConfig.cameraOffsets.global.position,
       'cameraOffsets.global.target': updatedConfig.cameraOffsets.global.target,
+      'cameraOffsets.zones.intro.position': updatedConfig.cameraOffsets.zones.intro.position,
       'cameraOffsets.zones.hero.position': updatedConfig.cameraOffsets.zones.hero.position,
+      'cameraOffsets.zones.intro.target': updatedConfig.cameraOffsets.zones.intro.target,
       'cameraOffsets.zones.hero.target': updatedConfig.cameraOffsets.zones.hero.target,
       'cameraOffsets.zones.overview.position': updatedConfig.cameraOffsets.zones.overview.position,
       'cameraOffsets.zones.overview.target': updatedConfig.cameraOffsets.zones.overview.target,
@@ -778,6 +789,7 @@ const CrystalControls = ({ config, onUpdate }) => {
     });
 
     setCameraValues({
+      'camera.intro': crystalConfig.cameraPositions.intro,
       'camera.hero': crystalConfig.cameraPositions.hero,
       'camera.overview': crystalConfig.cameraPositions.overview,
       'camera.about': crystalConfig.cameraPositions.about,
@@ -790,6 +802,7 @@ const CrystalControls = ({ config, onUpdate }) => {
     });
 
     setCameraTargetValues({
+      'cameraTargets.intro': crystalConfig.cameraTargets.intro,
       'cameraTargets.hero': crystalConfig.cameraTargets.hero,
       'cameraTargets.overview': crystalConfig.cameraTargets.overview,
       'cameraTargets.about': crystalConfig.cameraTargets.about,
@@ -804,7 +817,9 @@ const CrystalControls = ({ config, onUpdate }) => {
     setCameraOffsetValues({
       'cameraOffsets.global.position': crystalConfig.cameraOffsets.global.position,
       'cameraOffsets.global.target': crystalConfig.cameraOffsets.global.target,
+      'cameraOffsets.zones.intro.position': crystalConfig.cameraOffsets.zones.intro.position,
       'cameraOffsets.zones.hero.position': crystalConfig.cameraOffsets.zones.hero.position,
+      'cameraOffsets.zones.intro.target': crystalConfig.cameraOffsets.zones.intro.target,
       'cameraOffsets.zones.hero.target': crystalConfig.cameraOffsets.zones.hero.target,
       'cameraOffsets.zones.overview.position': crystalConfig.cameraOffsets.zones.overview.position,
       'cameraOffsets.zones.overview.target': crystalConfig.cameraOffsets.zones.overview.target,
