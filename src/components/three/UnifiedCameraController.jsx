@@ -96,7 +96,7 @@ const UnifiedCameraController = ({
   const POINTER_DIRECTION_DISTANCE = 0.00055;
   const POINTER_DIRECTION_DOT = 0.48;
   const POINTER_MAX_SPEED = 0.0021;
-  const INTRO_DURATION_MS = 3400;
+  const INTRO_DURATION_MS = 4400;
 
   const findAnchorInFacet = (facetKey) => {
     if (!facetRefs) {
@@ -378,6 +378,33 @@ const UnifiedCameraController = ({
       pointerSwitchDistanceRef.current = 0;
       targetOrbitVelocityRef.current.set(0, 0);
       orbitVelocityRef.current.set(0, 0);
+
+      if (animationData?.cameraState === 'intro' && config?.cameraPositions?.intro && config?.cameraTargets?.intro) {
+        const introPosition = toVector3(config.cameraPositions.intro);
+        const introTarget = toVector3(config.cameraTargets.intro);
+        const introFov = animationData?.cameraConfig?.fov ?? currentTarget.current.fov ?? camera.fov;
+
+        introStartedRef.current = false;
+        introPlayedRef.current = false;
+        introActiveRef.current = false;
+        lastCameraConfig.current = null;
+        cameraSettledRef.current = false;
+        settleFrameCount.current = 0;
+        cameraMoveProgressRef.current = 0;
+        if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = 0;
+        animationData?.setCameraMoveProgress?.(0);
+        animationData?.setCameraSettled?.(false);
+
+        camera.position.copy(introPosition);
+        camera.lookAt(introTarget);
+        camera.fov = introFov;
+        camera.updateProjectionMatrix();
+
+        currentTarget.current.position.copy(introPosition);
+        currentTarget.current.lookAt.copy(introTarget);
+        currentTarget.current.fov = introFov;
+        heroOrbitCenterRef.current.copy(introTarget);
+      }
       
       if (import.meta.env.DEV) {
         console.log('📹 Camera state changed, resetting orbit:', animationData?.cameraState);
@@ -627,6 +654,9 @@ const UnifiedCameraController = ({
       const elapsed = performance.now() - introStartTimeRef.current;
       const progress = THREE.MathUtils.clamp(elapsed / INTRO_DURATION_MS, 0, 1);
       const easedProgress = 1 - Math.pow(1 - progress, 3);
+      const positionProgress = progress < 0.5
+        ? (progress / 0.5) * 0.08
+        : 0.08 + 0.92 * (1 - Math.pow(1 - ((progress - 0.5) / 0.5), 3));
       const introLookAt = new THREE.Vector3().lerpVectors(
         introFromRef.current.lookAt,
         introToRef.current.lookAt,
@@ -636,7 +666,7 @@ const UnifiedCameraController = ({
       camera.position.lerpVectors(
         introFromRef.current.position,
         introToRef.current.position,
-        easedProgress
+        positionProgress
       );
       camera.lookAt(introLookAt);
       camera.fov = THREE.MathUtils.lerp(
