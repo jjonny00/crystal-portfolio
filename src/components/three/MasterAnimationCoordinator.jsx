@@ -145,6 +145,11 @@ const MasterAnimationCoordinator = ({
       isLeavingZone: animationController.animationState.zoneInfo?.isLeaving,
       cameraSettled: animationController.animationState.cameraSettled,
       cameraMoveProgress: animationController.animationState.cameraMoveProgress,
+      transitionPhase: animationController.animationState.transitionPhase,
+      transitionGlow: animationController.animationState.transitionGlow,
+      transitionDirection: animationController.animationState.transitionDirection,
+      transitionProgress: animationController.animationState.transitionProgress,
+      wholeCrystalGlow: animationController.animationState.wholeCrystalGlow,
       setCameraSettled: animationController.setCameraSettled,
       setCameraMoveProgress: animationController.setCameraMoveProgress
     };
