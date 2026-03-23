@@ -520,6 +520,10 @@ export const useUnifiedAnimationController = (options = {}) => {
     }
 
     if ((zoneKey === 'hero' || zoneKey === 'overview') && handleZoneTransitionRef.current) {
+      directZoneOverrideRef.current = {
+        zoneKey,
+        createdAt: Date.now(),
+      };
       handleZoneTransitionRef.current(lastZone.current, zoneKey);
       lastZone.current = zoneKey;
       return;
