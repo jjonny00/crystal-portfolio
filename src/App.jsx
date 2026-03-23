@@ -570,10 +570,10 @@ function App() {
 
     setShowLoader(true);
     setExitLoader(false);
-    setSceneRestartToken((prev) => prev + 1);
 
     loaderStartFadeTimeoutRef.current = setTimeout(() => {
       loaderStartFadeTimeoutRef.current = null;
+      setSceneRestartToken((prev) => prev + 1);
       beginLoaderFadeOut();
     }, 60);
   }, [beginLoaderFadeOut]);

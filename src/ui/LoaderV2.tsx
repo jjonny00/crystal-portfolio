@@ -1,7 +1,7 @@
 // src/ui/LoaderV2.tsx
 // Radial loader showing initialization, asset loading, and performance testing
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import styles from './LoaderV2.module.css';
 
 const clamp = (v: number) => Math.min(1, Math.max(0, v));
@@ -37,6 +37,7 @@ const LoaderV2: React.FC<LoaderProps> = ({
   const [outer, setOuter] = useState(() => clamp(initProgress) * 100);
   const [middle, setMiddle] = useState(() => clamp(assetProgress) * 100);
   const [inner, setInner] = useState(() => clamp(testProgress) * 100);
+  const [isFadingOut, setIsFadingOut] = useState(false);
 
   useEffect(() => {
     if (exiting) {
@@ -50,6 +51,26 @@ const LoaderV2: React.FC<LoaderProps> = ({
     }
   }, [initProgress, assetProgress, testProgress, exiting]);
 
+  useEffect(() => {
+    if (!exiting) {
+      setIsFadingOut(false);
+      return undefined;
+    }
+
+    let frame = requestAnimationFrame(() => {
+      setIsFadingOut(true);
+    });
+
+    return () => {
+      cancelAnimationFrame(frame);
+    };
+  }, [exiting]);
+
+  const overlayClassName = useMemo(
+    () => `${styles.overlay} ${isFadingOut ? styles.fadeOut : ''}`.trim(),
+    [isFadingOut]
+  );
+
   const overall = Math.round(
     clamp(initProgress) * 33 +
     clamp(testProgress) * 33 +
@@ -62,7 +83,7 @@ const LoaderV2: React.FC<LoaderProps> = ({
   const box = safeRadius * 2.2; // safeRadius*1.1*2
 
   return (
-    <div className={`${styles.overlay} ${exiting ? styles.fadeOut : ''}`}>
+    <div className={overlayClassName}>
       <h1 className={styles.headline}>
         Multifaceted Designer
         <span className={styles.subhead}></span>
