@@ -292,6 +292,7 @@ const UnifiedCrystalScene = forwardRef(({
   const explosionStartRef = useRef(null);
   const fractureGlowStartRef = useRef(null);
   const reformStartRef = useRef(null);
+  const wholeCrystalReformFadeStartRef = useRef(null);
   const wholeCrystalBaseColorRef = useRef(new THREE.Color('#ffffff'));
   const wholeCrystalBaseEmissiveRef = useRef(new THREE.Color('#ffffff'));
   const wholeCrystalBaseEmissiveIntensityRef = useRef(0.03);
@@ -1431,12 +1432,14 @@ const UnifiedCrystalScene = forwardRef(({
         crystalMaterialRef.current.color.copy(wholeCrystalBaseColorRef.current);
         crystalMaterialRef.current.emissive.copy(wholeCrystalBaseEmissiveRef.current);
       }
+      wholeCrystalReformFadeStartRef.current = performance.now();
       reformStartRef.current = null;
     }
 
     if (currentPhase === 'idle') {
       setSphereVisible(false);
       setRingVisible(false);
+      wholeCrystalReformFadeStartRef.current = null;
       if (crystalMaterialRef.current) {
         crystalMaterialRef.current.color.copy(wholeCrystalBaseColorRef.current);
         crystalMaterialRef.current.emissive.copy(wholeCrystalBaseEmissiveRef.current);
@@ -1469,16 +1472,22 @@ const UnifiedCrystalScene = forwardRef(({
     const transitionGlow = animationData.transitionGlow ?? 0;
     const transitionGlowBlend = Math.min(Math.max(transitionGlow, 0), 1);
     const whiteGlow = new THREE.Color('#ffffff');
-    const preserveWholeCrystalColor = animationData.transitionPhase === 'reform_complete';
+    const reformFadeDurationMs = 140;
+    const isWholeCrystalReforming = animationData.transitionPhase === 'reform_complete';
 
     if (crystalMaterialRef.current) {
-      if (preserveWholeCrystalColor) {
+      if (isWholeCrystalReforming && wholeCrystalReformFadeStartRef.current) {
+        const reformFadeElapsed = performance.now() - wholeCrystalReformFadeStartRef.current;
+        const reformFadeProgress = Math.min(Math.max(reformFadeElapsed / reformFadeDurationMs, 0), 1);
+        const reformFadeGlow = 1 - Math.pow(reformFadeProgress, 1.6);
+
         crystalMaterialRef.current.color.copy(wholeCrystalBaseColorRef.current);
         crystalMaterialRef.current.emissive.copy(wholeCrystalBaseEmissiveRef.current);
+        crystalMaterialRef.current.emissiveIntensity = wholeCrystalBaseEmissiveIntensityRef.current + reformFadeGlow * 4.2;
       } else {
         crystalMaterialRef.current.emissive.copy(wholeCrystalBaseEmissiveRef.current).lerp(whiteGlow, transitionGlowBlend);
+        crystalMaterialRef.current.emissiveIntensity = wholeCrystalBaseEmissiveIntensityRef.current + transitionGlowBlend * 4.2;
       }
-      crystalMaterialRef.current.emissiveIntensity = wholeCrystalBaseEmissiveIntensityRef.current + transitionGlowBlend * 4.2;
       crystalMaterialRef.current.needsUpdate = true;
     }
 
