@@ -338,6 +338,8 @@ const buildAnimationConfig = (uiConfig) => {
 };
 
 
+const LOADER_EXIT_FADE_MS = 3200;
+
 function App() {
   // ========================================
   // UPDATED: V2 Performance and Asset Loading System
@@ -346,6 +348,7 @@ function App() {
   const [initProgress, setInitProgress] = useState(0);
   const [exitLoader, setExitLoader] = useState(false);
   const [showLoader, setShowLoader] = useState(true);
+  const loaderHideTimeoutRef = useRef(null);
   // Progress is now provided directly by hooks
 
   // UPDATED: Use V2 performance hook
@@ -464,10 +467,25 @@ function App() {
       }
       setIsAppReady(true);
       setInitProgress(100);
-      setTimeout(() => setExitLoader(true), 800);
-      setTimeout(() => setShowLoader(false), 1400);
+      setExitLoader(true);
+
+      if (loaderHideTimeoutRef.current) {
+        clearTimeout(loaderHideTimeoutRef.current);
+      }
+
+      loaderHideTimeoutRef.current = setTimeout(() => {
+        setShowLoader(false);
+        loaderHideTimeoutRef.current = null;
+      }, LOADER_EXIT_FADE_MS);
     }
   }, [performanceReady, assetsReady, initProgress, exitLoader, performanceTier, performanceProfile]);
+
+  useEffect(() => () => {
+    if (loaderHideTimeoutRef.current) {
+      clearTimeout(loaderHideTimeoutRef.current);
+      loaderHideTimeoutRef.current = null;
+    }
+  }, []);
 
   // ========================================
   // Enhanced callbacks with better logging
