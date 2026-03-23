@@ -1457,9 +1457,14 @@ const UnifiedCrystalScene = forwardRef(({
     const transitionGlow = animationData.transitionGlow ?? 0;
     const transitionGlowBlend = Math.min(Math.max(transitionGlow, 0), 1);
     const whiteGlow = new THREE.Color('#ffffff');
+    const preserveWholeCrystalColor = animationData.transitionPhase === 'reform_complete';
 
     if (crystalMaterialRef.current) {
-      crystalMaterialRef.current.emissive.copy(wholeCrystalBaseEmissiveRef.current).lerp(whiteGlow, transitionGlowBlend);
+      if (preserveWholeCrystalColor) {
+        crystalMaterialRef.current.emissive.copy(wholeCrystalBaseEmissiveRef.current);
+      } else {
+        crystalMaterialRef.current.emissive.copy(wholeCrystalBaseEmissiveRef.current).lerp(whiteGlow, transitionGlowBlend);
+      }
       crystalMaterialRef.current.emissiveIntensity = wholeCrystalBaseEmissiveIntensityRef.current + transitionGlowBlend * 4.2;
       crystalMaterialRef.current.needsUpdate = true;
     }
