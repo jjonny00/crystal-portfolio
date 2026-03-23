@@ -1423,7 +1423,7 @@ const UnifiedCrystalScene = forwardRef(({
     if (currentPhase === 'reform_complete') {
       setShowWholeCrystal(true);
       setShowFacets(false);
-      setSphereVisible(true);
+      setSphereVisible(false);
       setRingVisible(false);
       reformStartRef.current = null;
     }
