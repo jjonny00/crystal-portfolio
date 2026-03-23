@@ -519,11 +519,6 @@ export const useUnifiedAnimationController = (options = {}) => {
       return;
     }
 
-    directZoneOverrideRef.current = {
-      zoneKey,
-      createdAt: Date.now()
-    };
-
     if ((zoneKey === 'hero' || zoneKey === 'overview') && handleZoneTransitionRef.current) {
       handleZoneTransitionRef.current(lastZone.current, zoneKey);
       lastZone.current = zoneKey;
@@ -748,7 +743,7 @@ export const useUnifiedAnimationController = (options = {}) => {
       ((config.crystal.explodeDuration || 1.6) - (config.crystal.fracturePause || 0.5)) * 1000,
       0
     );
-    const hiddenSwapMs = Math.min(120, fracturePauseMs * 0.28);
+    const hiddenSwapMs = Math.min(45, fracturePauseMs * 0.18);
     const chargeMs = Math.max(fracturePauseMs - hiddenSwapMs, 0);
 
     if (toZone === 'hero') {

@@ -1760,6 +1760,7 @@ const UnifiedCrystalScene = forwardRef(({
       {/* Fracture expanding ring */}
       <FractureRingImage
         {...mergedConfig.fracture.image}
+        triggerDelay={0}
         visible={ringVisible}
         animationData={animationData}
         simplifiedAnimations={simplifiedAnimations}
@@ -1787,6 +1788,7 @@ const UnifiedCrystalScene = forwardRef(({
         <FractureBurstParticles
           trigger={burstId}
           {...mergedConfig.fracture.particles}
+          delay={0}
         />
       )}
 

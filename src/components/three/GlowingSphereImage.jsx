@@ -190,6 +190,8 @@ const GlowingSphereImage = ({
     
     const transitionGlow = animationData?.transitionGlow ?? 0;
 
+    const isPersistentCore = animationData?.transitionPhase === 'selected' || animationData?.state === 'project_focused';
+
     if (transitionGlow > 0) {
       const clampedGlow = Math.min(Math.max(transitionGlow, 0), 1);
       const scale = baseWorldSize + (maxWorldSize - baseWorldSize) * (0.22 + clampedGlow * 0.78);
@@ -206,6 +208,9 @@ const GlowingSphereImage = ({
       meshRef.current.scale.setScalar(scale);
       material.opacity = opacity;
       
+    } else if (isPersistentCore) {
+      meshRef.current.scale.setScalar(baseWorldSize + (maxWorldSize - baseWorldSize) * 0.18);
+      material.opacity = Math.max(material.opacity, 0.38);
     } else {
       const currentOpacity = material.opacity;
       if (currentOpacity > 0) {
