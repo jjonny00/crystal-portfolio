@@ -833,6 +833,7 @@ function App() {
         <Fixed3DCanvas
           key={performanceProfile?.renderScale}
           ref={fixedCanvasRef}
+          restartToken={sceneRestartToken}
           materialVariant={materialVariant}
           effectsEnabled={effectsEnabled}
           postProcessingConfig={postProcessingConfig}

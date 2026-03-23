@@ -9,6 +9,7 @@ import { facetKeys as canonicalFacetKeys, getSceneFacetKeyByProjectId } from '..
 const UnifiedCameraController = ({
   animationData,
   config,
+  restartToken = 0,
   isMobile = false,
   simplifiedAnimations = false,
   facetRefs = null,
@@ -88,6 +89,7 @@ const UnifiedCameraController = ({
     lookAt: new THREE.Vector3(),
     fov: 45
   });
+  const lastRestartTokenRef = useRef(0);
   const POINTER_IDLE_MS = 400;
   const POINTER_RETURN_DELAY = 0.25;
   const POINTER_RETURN_FADE = 0.7;
@@ -304,6 +306,61 @@ const UnifiedCameraController = ({
     const coarsePointer = window.matchMedia?.('(pointer: coarse)')?.matches;
     isTouchDeviceRef.current = coarsePointer || 'ontouchstart' in window;
   }, []);
+
+  useEffect(() => {
+    if (
+      !restartToken ||
+      restartToken === lastRestartTokenRef.current ||
+      !config?.cameraPositions?.intro ||
+      !config?.cameraTargets?.intro
+    ) {
+      return;
+    }
+
+    lastRestartTokenRef.current = restartToken;
+
+    const introPosition = toVector3(config.cameraPositions.intro)
+      .add(toVector3(config?.cameraOffsets?.global?.position))
+      .add(toVector3(config?.cameraOffsets?.zones?.intro?.position));
+    const introTarget = toVector3(config.cameraTargets.intro)
+      .add(toVector3(config?.cameraOffsets?.global?.target))
+      .add(toVector3(config?.cameraOffsets?.zones?.intro?.target));
+    const heroPosition = currentTarget.current.position.clone();
+    const heroTarget = currentTarget.current.lookAt.clone();
+    const heroFov = currentTarget.current.fov ?? animationData?.cameraConfig?.fov ?? camera.fov;
+
+    introStartedRef.current = true;
+    introPlayedRef.current = false;
+    introActiveRef.current = true;
+    introStartTimeRef.current = performance.now();
+    isOrbitingRef.current = false;
+    orbitInitDelayRef.current = 0;
+    cameraSettledRef.current = false;
+    settleFrameCount.current = 0;
+
+    introFromRef.current.position.copy(introPosition);
+    introFromRef.current.lookAt.copy(introTarget);
+    introFromRef.current.fov = heroFov;
+    introToRef.current.position.copy(heroPosition);
+    introToRef.current.lookAt.copy(heroTarget);
+    introToRef.current.fov = heroFov;
+
+    camera.position.copy(introPosition);
+    camera.lookAt(introTarget);
+    camera.fov = heroFov;
+    camera.updateProjectionMatrix();
+
+    currentTarget.current.position.copy(heroPosition);
+    currentTarget.current.lookAt.copy(heroTarget);
+    currentTarget.current.fov = heroFov;
+    heroOrbitCenterRef.current.copy(heroTarget);
+
+    cameraMoveProgressRef.current = 0;
+    if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = 0;
+    animationData?.setCameraMoveProgress?.(0);
+    animationData?.setCameraSettled?.(false);
+  }, [animationData, camera, config, restartToken, sharedCameraMoveProgressRef]);
+
 
   useEffect(() => {
     if (typeof window === 'undefined' || isTouchDeviceRef.current) return undefined;

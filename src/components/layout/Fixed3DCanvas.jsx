@@ -116,6 +116,7 @@ const InitialCameraLookAt = ({ target }) => {
 const Fixed3DCanvas = forwardRef(({
   // Animation data from MasterAnimationCoordinator
   animationData,
+  restartToken = 0,
   
   // Material and effects (unchanged)
   materialVariant = 'default',
@@ -505,6 +506,7 @@ const Fixed3DCanvas = forwardRef(({
           <UnifiedCameraController
             animationData={animationData}
             config={cameraMergedConfig}
+            restartToken={restartToken}
             isMobile={isMobile}
             simplifiedAnimations={simplifiedAnimations}
             facetRefs={getFacetRefs()} // FIXED: Pass exposed facet refs for anchor targeting
