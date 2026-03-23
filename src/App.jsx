@@ -6,7 +6,10 @@ import './styles/scroll-snap.css';
 // UPDATED: Import V2 systems
 import { useAssetLoaderV2 } from './hooks/useAssetLoaderV2';
 import { usePerformanceV2 } from './hooks/usePerformanceV2';
-import LoaderV2 from './ui/LoaderV2';
+import LoaderV2, {
+  LOADER_OVERLAY_FADE_MS,
+  LOADER_SCENE_REVEAL_DELAY_MS
+} from './ui/LoaderV2';
 
 // Animation coordinator
 import MasterAnimationCoordinator from './components/three/MasterAnimationCoordinator';
@@ -338,7 +341,7 @@ const buildAnimationConfig = (uiConfig) => {
 };
 
 
-const LOADER_EXIT_FADE_MS = 3200;
+const LOADER_EXIT_FADE_MS = LOADER_SCENE_REVEAL_DELAY_MS + LOADER_OVERLAY_FADE_MS;
 
 function App() {
   // ========================================
@@ -350,6 +353,7 @@ function App() {
   const [showLoader, setShowLoader] = useState(true);
   const loaderHideTimeoutRef = useRef(null);
   const loaderStartFadeTimeoutRef = useRef(null);
+  const loaderRevealTimeoutRef = useRef(null);
   // Progress is now provided directly by hooks
 
   // UPDATED: Use V2 performance hook
@@ -447,11 +451,21 @@ function App() {
   }, [performanceProfile]);
 
 
-  const beginLoaderFadeOut = useCallback(() => {
+  const beginLoaderFadeOut = useCallback((onReveal = null) => {
     setExitLoader(true);
 
     if (loaderHideTimeoutRef.current) {
       clearTimeout(loaderHideTimeoutRef.current);
+    }
+    if (loaderRevealTimeoutRef.current) {
+      clearTimeout(loaderRevealTimeoutRef.current);
+    }
+
+    if (onReveal) {
+      loaderRevealTimeoutRef.current = setTimeout(() => {
+        loaderRevealTimeoutRef.current = null;
+        onReveal();
+      }, LOADER_SCENE_REVEAL_DELAY_MS);
     }
 
     loaderHideTimeoutRef.current = setTimeout(() => {
@@ -494,6 +508,10 @@ function App() {
     if (loaderStartFadeTimeoutRef.current) {
       clearTimeout(loaderStartFadeTimeoutRef.current);
       loaderStartFadeTimeoutRef.current = null;
+    }
+    if (loaderRevealTimeoutRef.current) {
+      clearTimeout(loaderRevealTimeoutRef.current);
+      loaderRevealTimeoutRef.current = null;
     }
   }, []);
 
@@ -567,14 +585,19 @@ function App() {
       clearTimeout(loaderStartFadeTimeoutRef.current);
       loaderStartFadeTimeoutRef.current = null;
     }
+    if (loaderRevealTimeoutRef.current) {
+      clearTimeout(loaderRevealTimeoutRef.current);
+      loaderRevealTimeoutRef.current = null;
+    }
 
     setShowLoader(true);
     setExitLoader(false);
 
     loaderStartFadeTimeoutRef.current = setTimeout(() => {
       loaderStartFadeTimeoutRef.current = null;
-      setSceneRestartToken((prev) => prev + 1);
-      beginLoaderFadeOut();
+      beginLoaderFadeOut(() => {
+        setSceneRestartToken((prev) => prev + 1);
+      });
     }, 60);
   }, [beginLoaderFadeOut]);
 
