@@ -53,6 +53,10 @@ const GlowingSphereImage = ({
   position = [0, 0, 0],
   visible = false,
   
+  // Optional manual pulse trigger for transition masking
+  pulseTrigger = 0,
+  pulseProfile = null,
+  
   // Animation state
   animationData = null,
 
@@ -65,7 +69,9 @@ const GlowingSphereImage = ({
   // Simple state
   const [isExploding, setIsExploding] = useState(false);
   const [startTime, setStartTime] = useState(0);
+  const pulseMetaRef = useRef(null);
   const lastCrystalForm = useRef('whole');
+  const lastPulseTrigger = useRef(pulseTrigger);
 
   const texture = getGlowingSphereTexture();
   const { px } = usePxToWorld();
@@ -176,6 +182,23 @@ const GlowingSphereImage = ({
     }
   }, [animationData?.crystalForm, debugMode]);
   
+
+  useEffect(() => {
+    if (pulseTrigger === lastPulseTrigger.current) return;
+
+    lastPulseTrigger.current = pulseTrigger;
+    pulseMetaRef.current = {
+      ...pulseProfile,
+      mode: pulseProfile?.mode || 'manual'
+    };
+    setIsExploding(true);
+    setStartTime(Date.now());
+
+    if (debugMode && import.meta.env.DEV) {
+      console.log('🌟 Enhanced sphere: Manual pulse trigger', pulseMetaRef.current);
+    }
+  }, [pulseTrigger, pulseProfile, debugMode]);
+
   // Animation loop
   const baseWorldSize = px(baseSize);
   const maxWorldSize = px(maxScale);
@@ -192,14 +215,46 @@ const GlowingSphereImage = ({
     
     if (isExploding) {
       const elapsed = (Date.now() - startTime) / 1000;
-      const explosionProgress = Math.min(elapsed / explosionDuration, 1);
-      const fadeProgress = Math.min(elapsed / fadeInDuration, 1);
-      
-      const scale = baseWorldSize + (maxWorldSize - baseWorldSize) * explosionProgress;
-      const opacity = fadeProgress;
+      const pulseMeta = pulseMetaRef.current;
 
-      meshRef.current.scale.setScalar(scale);
-      material.opacity = opacity;
+      if (pulseMeta?.mode === 'manual') {
+        const rampIn = pulseMeta.rampIn ?? fadeInDuration;
+        const hold = pulseMeta.hold ?? 0;
+        const fadeOut = pulseMeta.fadeOut ?? 0.2;
+        const totalDuration = Math.max(rampIn + hold + fadeOut, 0.001);
+        const scaleOut = pulseMeta.scaleOut ?? 1;
+        const peakOpacity = pulseMeta.peakOpacity ?? 1;
+
+        let opacity = 0;
+        if (elapsed <= rampIn) {
+          opacity = rampIn > 0 ? (elapsed / rampIn) * peakOpacity : peakOpacity;
+        } else if (elapsed <= rampIn + hold) {
+          opacity = peakOpacity;
+        } else {
+          const fadeElapsed = elapsed - rampIn - hold;
+          const fadeProgress = fadeOut > 0 ? Math.min(fadeElapsed / fadeOut, 1) : 1;
+          opacity = peakOpacity * (1 - fadeProgress);
+        }
+
+        const scaleProgress = Math.min(elapsed / totalDuration, 1);
+        const scale = baseWorldSize + (maxWorldSize * scaleOut - baseWorldSize) * scaleProgress;
+        meshRef.current.scale.setScalar(scale);
+        material.opacity = Math.max(0, opacity);
+
+        if (elapsed >= totalDuration) {
+          setIsExploding(false);
+          pulseMetaRef.current = null;
+        }
+      } else {
+        const explosionProgress = Math.min(elapsed / explosionDuration, 1);
+        const fadeProgress = Math.min(elapsed / fadeInDuration, 1);
+        
+        const scale = baseWorldSize + (maxWorldSize - baseWorldSize) * explosionProgress;
+        const opacity = fadeProgress;
+
+        meshRef.current.scale.setScalar(scale);
+        material.opacity = opacity;
+      }
       
     } else {
       const currentOpacity = material.opacity;
