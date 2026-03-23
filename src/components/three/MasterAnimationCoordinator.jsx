@@ -149,6 +149,7 @@ const MasterAnimationCoordinator = ({
       transitionGlow: animationController.animationState.transitionGlow,
       transitionDirection: animationController.animationState.transitionDirection,
       transitionProgress: animationController.animationState.transitionProgress,
+      wholeCrystalGlow: animationController.animationState.wholeCrystalGlow,
       setCameraSettled: animationController.setCameraSettled,
       setCameraMoveProgress: animationController.setCameraMoveProgress
     };

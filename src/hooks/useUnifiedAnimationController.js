@@ -311,6 +311,7 @@ export const useUnifiedAnimationController = (options = {}) => {
     transitionGlow: 0,
     transitionDirection: null,
     transitionProgress: 1,
+    wholeCrystalGlow: 0,
     focusedFacet: null,
     isTransitioning: false, // Will be managed by individual components
     scrollProgress: 0,
@@ -328,6 +329,7 @@ export const useUnifiedAnimationController = (options = {}) => {
   const transitionTimeoutsRef = useRef([]);
   const transitionPhaseMetaRef = useRef({ phase: TRANSITION_PHASES.IDLE, startedAt: 0, durationMs: 0 });
   const transitionAnimationFrameRef = useRef(null);
+  const wholeCrystalGlowAnimationRef = useRef(null);
   const handleZoneTransitionRef = useRef(null);
   const introPreviewTimeout = useRef(null);
   const introPreviewActiveRef = useRef(false);
@@ -473,6 +475,46 @@ export const useUnifiedAnimationController = (options = {}) => {
     transitionTimeoutsRef.current = [];
   }, []);
 
+  const clearWholeCrystalGlowAnimation = useCallback(() => {
+    if (wholeCrystalGlowAnimationRef.current) {
+      cancelAnimationFrame(wholeCrystalGlowAnimationRef.current);
+      wholeCrystalGlowAnimationRef.current = null;
+    }
+  }, []);
+
+  const startWholeCrystalGlowFade = useCallback((durationMs = 180) => {
+    clearWholeCrystalGlowAnimation();
+
+    const startedAt = performance.now();
+    setAnimationState((prev) => ({
+      ...prev,
+      wholeCrystalGlow: 1,
+    }));
+
+    const animate = () => {
+      const elapsed = performance.now() - startedAt;
+      const progress = Math.max(0, Math.min(elapsed / durationMs, 1));
+      const glow = 1 - Math.pow(progress, 1.8);
+
+      setAnimationState((prev) => ({
+        ...prev,
+        wholeCrystalGlow: glow,
+      }));
+
+      if (progress < 1) {
+        wholeCrystalGlowAnimationRef.current = requestAnimationFrame(animate);
+      } else {
+        wholeCrystalGlowAnimationRef.current = null;
+        setAnimationState((prev) => ({
+          ...prev,
+          wholeCrystalGlow: 0,
+        }));
+      }
+    };
+
+    wholeCrystalGlowAnimationRef.current = requestAnimationFrame(animate);
+  }, [clearWholeCrystalGlowAnimation]);
+
   const scheduleTransitionStep = useCallback((delayMs, callback) => {
     const timeoutId = setTimeout(() => {
       transitionTimeoutsRef.current = transitionTimeoutsRef.current.filter((id) => id !== timeoutId);
@@ -539,6 +581,7 @@ export const useUnifiedAnimationController = (options = {}) => {
           transitionPhase: TRANSITION_PHASES.IDLE,
           transitionGlow: 0,
           transitionDirection: null,
+          wholeCrystalGlow: 0,
           focusedFacet: null,
           isTransitioning: false
         };
@@ -553,6 +596,7 @@ export const useUnifiedAnimationController = (options = {}) => {
           transitionPhase: TRANSITION_PHASES.SELECTED,
           transitionGlow: 0,
           transitionDirection: null,
+          wholeCrystalGlow: 0,
           focusedFacet: null,
           isTransitioning: false
         };
@@ -567,6 +611,7 @@ export const useUnifiedAnimationController = (options = {}) => {
           transitionPhase: TRANSITION_PHASES.IDLE,
           transitionGlow: 0,
           transitionDirection: null,
+          wholeCrystalGlow: 0,
           focusedFacet: null,
           isTransitioning: false
         };
@@ -779,6 +824,7 @@ export const useUnifiedAnimationController = (options = {}) => {
           crystalForm: 'whole',
           cameraState: 'hero'
         }));
+        startWholeCrystalGlowFade();
         setTransitionPhaseState(TRANSITION_PHASES.REFORM_COMPLETE, {
           durationMs: 140,
           direction: 'reverse'
@@ -842,6 +888,7 @@ export const useUnifiedAnimationController = (options = {}) => {
         transitionPhase: TRANSITION_PHASES.SELECTED,
         transitionGlow: 0,
         transitionDirection: null,
+        wholeCrystalGlow: 0,
         focusedFacet: getSceneFacetKeyByProjectId(initialProject) || initialProject,
         isTransitioning: false
       }));
@@ -856,6 +903,7 @@ export const useUnifiedAnimationController = (options = {}) => {
         transitionPhase: TRANSITION_PHASES.IDLE,
         transitionGlow: 0,
         transitionDirection: null,
+        wholeCrystalGlow: 0,
         focusedFacet: null,
         isTransitioning: false
       }));
@@ -1047,6 +1095,7 @@ export const useUnifiedAnimationController = (options = {}) => {
           transitionPhase: TRANSITION_PHASES.SELECTED,
           transitionGlow: 0,
           transitionDirection: null,
+          wholeCrystalGlow: 0,
           isTransitioning: false
         }));
       }
@@ -1082,6 +1131,7 @@ export const useUnifiedAnimationController = (options = {}) => {
           transitionPhase: TRANSITION_PHASES.SELECTED,
           transitionGlow: 0,
           transitionDirection: null,
+          wholeCrystalGlow: 0,
           focusedFacet: getSceneFacetKeyByProjectId(activeProject.project) || activeProject.project,
           isTransitioning: false
         }));
@@ -1189,8 +1239,9 @@ export const useUnifiedAnimationController = (options = {}) => {
          clearTimeout(cameraDelayTimeout.current);
       }
       clearTransitionTimeouts();
+      clearWholeCrystalGlowAnimation();
     };
-  }, [clearIntroPreview, clearTransitionTimeouts]);
+  }, [clearIntroPreview, clearTransitionTimeouts, clearWholeCrystalGlowAnimation]);
 
   return {
     // Current state
