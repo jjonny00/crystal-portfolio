@@ -9,6 +9,7 @@ import { facetKeys as canonicalFacetKeys, getSceneFacetKeyByProjectId } from '..
 const UnifiedCameraController = ({
   animationData,
   config,
+  restartToken = 0,
   isMobile = false,
   simplifiedAnimations = false,
   facetRefs = null,
@@ -74,6 +75,21 @@ const UnifiedCameraController = ({
   const orbitInitDelayRef = useRef(0);
   const ORBIT_DELAY_FRAMES = 30; // Wait 30 frames after settling before starting orbit
   const lastCameraStateRef = useRef(null);
+  const introStartedRef = useRef(false);
+  const introPlayedRef = useRef(false);
+  const introActiveRef = useRef(false);
+  const introStartTimeRef = useRef(0);
+  const introFromRef = useRef({
+    position: new THREE.Vector3(),
+    lookAt: new THREE.Vector3(),
+    fov: 45
+  });
+  const introToRef = useRef({
+    position: new THREE.Vector3(),
+    lookAt: new THREE.Vector3(),
+    fov: 45
+  });
+  const lastRestartTokenRef = useRef(0);
   const POINTER_IDLE_MS = 400;
   const POINTER_RETURN_DELAY = 0.25;
   const POINTER_RETURN_FADE = 0.7;
@@ -82,6 +98,7 @@ const UnifiedCameraController = ({
   const POINTER_DIRECTION_DISTANCE = 0.00055;
   const POINTER_DIRECTION_DOT = 0.48;
   const POINTER_MAX_SPEED = 0.0021;
+  const INTRO_DURATION_MS = 4400;
 
   const findAnchorInFacet = (facetKey) => {
     if (!facetRefs) {
@@ -217,6 +234,15 @@ const UnifiedCameraController = ({
   const getConfigCameraState = (cameraState, focusedFacet) => {
     if (!config?.cameraPositions) return null;
 
+    if (cameraState === 'intro') {
+      return {
+        position: toVector3(config.cameraPositions.intro),
+        target: toVector3(config.cameraTargets?.intro),
+        fov: animationData?.cameraConfig?.fov,
+        description: 'intro (layout/config)'
+      };
+    }
+
     if (cameraState === 'hero') {
       return {
         position: toVector3(config.cameraPositions.hero),
@@ -266,11 +292,75 @@ const UnifiedCameraController = ({
   }, [camera]);
 
   useEffect(() => {
+    if (
+      introActiveRef.current &&
+      (animationData?.state !== 'hero' || animationData?.cameraState !== 'hero')
+    ) {
+      introActiveRef.current = false;
+    }
+  }, [animationData?.cameraState, animationData?.state]);
+
+  useEffect(() => {
     if (typeof window === 'undefined') return;
 
     const coarsePointer = window.matchMedia?.('(pointer: coarse)')?.matches;
     isTouchDeviceRef.current = coarsePointer || 'ontouchstart' in window;
   }, []);
+
+  useEffect(() => {
+    if (
+      !restartToken ||
+      restartToken === lastRestartTokenRef.current ||
+      !config?.cameraPositions?.intro ||
+      !config?.cameraTargets?.intro
+    ) {
+      return;
+    }
+
+    lastRestartTokenRef.current = restartToken;
+
+    const introPosition = toVector3(config.cameraPositions.intro)
+      .add(toVector3(config?.cameraOffsets?.global?.position))
+      .add(toVector3(config?.cameraOffsets?.zones?.intro?.position));
+    const introTarget = toVector3(config.cameraTargets.intro)
+      .add(toVector3(config?.cameraOffsets?.global?.target))
+      .add(toVector3(config?.cameraOffsets?.zones?.intro?.target));
+    const heroPosition = currentTarget.current.position.clone();
+    const heroTarget = currentTarget.current.lookAt.clone();
+    const heroFov = currentTarget.current.fov ?? animationData?.cameraConfig?.fov ?? camera.fov;
+
+    introStartedRef.current = true;
+    introPlayedRef.current = false;
+    introActiveRef.current = true;
+    introStartTimeRef.current = performance.now();
+    isOrbitingRef.current = false;
+    orbitInitDelayRef.current = 0;
+    cameraSettledRef.current = false;
+    settleFrameCount.current = 0;
+
+    introFromRef.current.position.copy(introPosition);
+    introFromRef.current.lookAt.copy(introTarget);
+    introFromRef.current.fov = heroFov;
+    introToRef.current.position.copy(heroPosition);
+    introToRef.current.lookAt.copy(heroTarget);
+    introToRef.current.fov = heroFov;
+
+    camera.position.copy(introPosition);
+    camera.lookAt(introTarget);
+    camera.fov = heroFov;
+    camera.updateProjectionMatrix();
+
+    currentTarget.current.position.copy(heroPosition);
+    currentTarget.current.lookAt.copy(heroTarget);
+    currentTarget.current.fov = heroFov;
+    heroOrbitCenterRef.current.copy(heroTarget);
+
+    cameraMoveProgressRef.current = 0;
+    if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = 0;
+    animationData?.setCameraMoveProgress?.(0);
+    animationData?.setCameraSettled?.(false);
+  }, [animationData, camera, config, restartToken, sharedCameraMoveProgressRef]);
+
 
   useEffect(() => {
     if (typeof window === 'undefined' || isTouchDeviceRef.current) return undefined;
@@ -345,6 +435,33 @@ const UnifiedCameraController = ({
       pointerSwitchDistanceRef.current = 0;
       targetOrbitVelocityRef.current.set(0, 0);
       orbitVelocityRef.current.set(0, 0);
+
+      if (animationData?.cameraState === 'intro' && config?.cameraPositions?.intro && config?.cameraTargets?.intro) {
+        const introPosition = toVector3(config.cameraPositions.intro);
+        const introTarget = toVector3(config.cameraTargets.intro);
+        const introFov = animationData?.cameraConfig?.fov ?? currentTarget.current.fov ?? camera.fov;
+
+        introStartedRef.current = false;
+        introPlayedRef.current = false;
+        introActiveRef.current = false;
+        lastCameraConfig.current = null;
+        cameraSettledRef.current = false;
+        settleFrameCount.current = 0;
+        cameraMoveProgressRef.current = 0;
+        if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = 0;
+        animationData?.setCameraMoveProgress?.(0);
+        animationData?.setCameraSettled?.(false);
+
+        camera.position.copy(introPosition);
+        camera.lookAt(introTarget);
+        camera.fov = introFov;
+        camera.updateProjectionMatrix();
+
+        currentTarget.current.position.copy(introPosition);
+        currentTarget.current.lookAt.copy(introTarget);
+        currentTarget.current.fov = introFov;
+        heroOrbitCenterRef.current.copy(introTarget);
+      }
       
       if (import.meta.env.DEV) {
         console.log('📹 Camera state changed, resetting orbit:', animationData?.cameraState);
@@ -440,6 +557,31 @@ const UnifiedCameraController = ({
         currentTarget.current.fov = enhancedConfig.fov;
       }
 
+      const shouldRunIntro =
+        !introStartedRef.current &&
+        !introPlayedRef.current &&
+        animationData?.state === 'hero' &&
+        cameraState === 'hero' &&
+        config?.cameraPositions?.intro &&
+        config?.cameraTargets?.intro &&
+        finalPosition &&
+        finalTarget;
+
+      if (shouldRunIntro) {
+        const currentDirection = new THREE.Vector3();
+        camera.getWorldDirection(currentDirection);
+
+        introStartedRef.current = true;
+        introActiveRef.current = true;
+        introStartTimeRef.current = performance.now();
+        introFromRef.current.position.copy(camera.position);
+        introFromRef.current.lookAt.copy(camera.position).add(currentDirection);
+        introFromRef.current.fov = camera.fov;
+        introToRef.current.position.copy(finalPosition);
+        introToRef.current.lookAt.copy(finalTarget);
+        introToRef.current.fov = enhancedConfig.fov ?? camera.fov;
+      }
+
       const positionDistance = camera.position.distanceTo(currentTarget.current.position);
       
       if (animationData.state === 'hero' && positionDistance > 3) {
@@ -489,6 +631,7 @@ const UnifiedCameraController = ({
 
       orbitVelocityRef.current.set(0, 0);
       userControlStrengthRef.current = 0;
+      isOrbitingRef.current = false;
 
       // FIXED: Reset settle tracking when new config is applied
       settleFrameCount.current = 0;
@@ -564,6 +707,55 @@ const UnifiedCameraController = ({
     }
 
     // Orbit camera around crystal during hero state once settled
+    if (introActiveRef.current) {
+      const elapsed = performance.now() - introStartTimeRef.current;
+      const progress = THREE.MathUtils.clamp(elapsed / INTRO_DURATION_MS, 0, 1);
+      const easedProgress = 1 - Math.pow(1 - progress, 3);
+      const positionProgress = progress < 0.5
+        ? 4 * Math.pow(progress, 3)
+        : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+      const introLookAt = new THREE.Vector3().lerpVectors(
+        introFromRef.current.lookAt,
+        introToRef.current.lookAt,
+        easedProgress
+      );
+
+      camera.position.lerpVectors(
+        introFromRef.current.position,
+        introToRef.current.position,
+        positionProgress
+      );
+      camera.lookAt(introLookAt);
+      camera.fov = THREE.MathUtils.lerp(
+        introFromRef.current.fov,
+        introToRef.current.fov,
+        easedProgress
+      );
+      camera.updateProjectionMatrix();
+
+      cameraMoveProgressRef.current = progress;
+      if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = progress;
+      animationData?.setCameraMoveProgress?.(progress);
+      animationData?.setCameraSettled?.(false);
+
+      if (progress >= 1) {
+        introActiveRef.current = false;
+        introPlayedRef.current = true;
+        camera.position.copy(introToRef.current.position);
+        camera.lookAt(introToRef.current.lookAt);
+        camera.fov = introToRef.current.fov;
+        camera.updateProjectionMatrix();
+        currentTarget.current.position.copy(introToRef.current.position);
+        currentTarget.current.lookAt.copy(introToRef.current.lookAt);
+        currentTarget.current.fov = introToRef.current.fov;
+        cameraMoveProgressRef.current = 1;
+        if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = 1;
+        animationData?.setCameraMoveProgress?.(1);
+      }
+
+      return;
+    }
+
     if (animationData.state === 'hero' && animationData.cameraState === 'hero' && isOrbitingRef.current) {
       const deltaMultiplier = deltaTime * 60;
       const speed = animationData.cameraConfig?.orbitSpeed || 0.00018;
@@ -704,7 +896,8 @@ const UnifiedCameraController = ({
       animationData.state === 'hero' &&
       animationData.cameraState === 'hero' &&
       cameraSettledRef.current &&
-      !isOrbitingRef.current
+      !isOrbitingRef.current &&
+      !introActiveRef.current
     ) {
       // ADDED: Additional delay after camera settles to prevent jumps
       orbitInitDelayRef.current += 1;

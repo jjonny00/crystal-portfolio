@@ -1,10 +1,14 @@
 // src/ui/LoaderV2.tsx
 // Radial loader showing initialization, asset loading, and performance testing
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import styles from './LoaderV2.module.css';
 
 const clamp = (v: number) => Math.min(1, Math.max(0, v));
+
+export const LOADER_CONTENT_FADE_MS = 420;
+export const LOADER_SCENE_REVEAL_DELAY_MS = 520;
+export const LOADER_OVERLAY_FADE_MS = 1680;
 
 interface LoaderProps {
   initProgress?: number;   // 0..1 initialization progress
@@ -37,6 +41,8 @@ const LoaderV2: React.FC<LoaderProps> = ({
   const [outer, setOuter] = useState(() => clamp(initProgress) * 100);
   const [middle, setMiddle] = useState(() => clamp(assetProgress) * 100);
   const [inner, setInner] = useState(() => clamp(testProgress) * 100);
+  const [isContentFadingOut, setIsContentFadingOut] = useState(false);
+  const [isOverlayFadingOut, setIsOverlayFadingOut] = useState(false);
 
   useEffect(() => {
     if (exiting) {
@@ -50,6 +56,37 @@ const LoaderV2: React.FC<LoaderProps> = ({
     }
   }, [initProgress, assetProgress, testProgress, exiting]);
 
+  useEffect(() => {
+    if (!exiting) {
+      setIsContentFadingOut(false);
+      setIsOverlayFadingOut(false);
+      return undefined;
+    }
+
+    let frame = requestAnimationFrame(() => {
+      setIsContentFadingOut(true);
+    });
+
+    const overlayTimer = window.setTimeout(() => {
+      setIsOverlayFadingOut(true);
+    }, LOADER_SCENE_REVEAL_DELAY_MS);
+
+    return () => {
+      cancelAnimationFrame(frame);
+      window.clearTimeout(overlayTimer);
+    };
+  }, [exiting]);
+
+  const overlayClassName = useMemo(
+    () => `${styles.overlay} ${isOverlayFadingOut ? styles.fadeOut : ''}`.trim(),
+    [isOverlayFadingOut]
+  );
+
+  const contentClassName = useMemo(
+    () => `${styles.content} ${isContentFadingOut ? styles.contentFadeOut : ''}`.trim(),
+    [isContentFadingOut]
+  );
+
   const overall = Math.round(
     clamp(initProgress) * 33 +
     clamp(testProgress) * 33 +
@@ -62,7 +99,8 @@ const LoaderV2: React.FC<LoaderProps> = ({
   const box = safeRadius * 2.2; // safeRadius*1.1*2
 
   return (
-    <div className={`${styles.overlay} ${exiting ? styles.fadeOut : ''}`}>
+    <div className={overlayClassName}>
+      <div className={contentClassName}>
       <h1 className={styles.headline}>
         Multifaceted Designer
         <span className={styles.subhead}></span>
@@ -136,6 +174,7 @@ const LoaderV2: React.FC<LoaderProps> = ({
           <i />
         </span>
       </p>
+      </div>
     </div>
   );
 };

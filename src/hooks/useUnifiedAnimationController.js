@@ -15,6 +15,13 @@ const FRACTURE_DISTANCE = fractureConfig.distance;
 export const ANIMATION_CONFIG = {
   // Camera positions for immediate transitions
   camera: {
+    intro: {
+      position: new Vector3(0.16359952088021784, -2.0376618037026195, 1.1719674768510127),
+      target: new Vector3(0.6, -2.9, 0),
+      fov: 32,
+      description: 'Intro dramatic close view',
+      orbitSpeed: 0.0003
+    },
     hero: {
       position: new Vector3(0, 3.2, 2.4),
       target: new Vector3(0, 0.5, 0),
@@ -282,7 +289,8 @@ export const useUnifiedAnimationController = (options = {}) => {
   const {
     config = ANIMATION_CONFIG,
     debugMode = false,
-    onStateChange = null
+    onStateChange = null,
+    introReplayToken = 0
   } = options;
 
   const [animationState, setAnimationState] = useState({
@@ -303,6 +311,8 @@ export const useUnifiedAnimationController = (options = {}) => {
   const lastProject = useRef(null);
   const updateTimeout = useRef(null);
   const cameraDelayTimeout = useRef(null);
+  const introPreviewTimeout = useRef(null);
+  const introPreviewActiveRef = useRef(false);
   const directProjectOverrideRef = useRef(null);
   const directZoneOverrideRef = useRef(null);
   const directProjectReleaseTimeoutRef = useRef(null);
@@ -440,6 +450,14 @@ export const useUnifiedAnimationController = (options = {}) => {
     directZoneOverrideRef.current = null;
   }, []);
 
+  const clearIntroPreview = useCallback(() => {
+    introPreviewActiveRef.current = false;
+    if (introPreviewTimeout.current) {
+      clearTimeout(introPreviewTimeout.current);
+      introPreviewTimeout.current = null;
+    }
+  }, []);
+
   const setDirectZoneOverride = useCallback((zoneKey) => {
     if (!zoneKey || !config?.camera?.[zoneKey]) {
       clearDirectZoneOverride();
@@ -488,6 +506,44 @@ export const useUnifiedAnimationController = (options = {}) => {
       return prev;
     });
   }, [clearDirectZoneOverride, config]);
+
+  useEffect(() => {
+    if (!introReplayToken || !config?.camera?.intro) return;
+
+    clearIntroPreview();
+    clearDirectProjectOverride();
+    clearDirectZoneOverride();
+
+    if (cameraDelayTimeout.current) {
+      clearTimeout(cameraDelayTimeout.current);
+      cameraDelayTimeout.current = null;
+    }
+
+    introPreviewActiveRef.current = true;
+    lastZone.current = 'hero';
+    lastProject.current = null;
+
+    setAnimationState((prev) => ({
+      ...prev,
+      state: ANIMATION_STATES.HERO,
+      crystalForm: 'whole',
+      cameraState: 'intro',
+      focusedFacet: null,
+      isTransitioning: false,
+      scrollProgress: 0,
+      zoneInfo: { zone: 'hero', progress: 0, isEntering: false, isLeaving: false },
+      projectInfo: { ...prev.projectInfo, project: null, progress: 0 }
+    }));
+
+    introPreviewTimeout.current = setTimeout(() => {
+      introPreviewActiveRef.current = false;
+      introPreviewTimeout.current = null;
+      setAnimationState((prev) => ({
+        ...prev,
+        cameraState: 'hero'
+      }));
+    }, 1400);
+  }, [clearDirectProjectOverride, clearDirectZoneOverride, clearIntroPreview, config, introReplayToken]);
 
   useEffect(() => {
     measureProjectSectionsFromDom();
@@ -647,6 +703,20 @@ export const useUnifiedAnimationController = (options = {}) => {
     const activeProject = activeProjectFromDom.project
       ? activeProjectFromDom
       : calculateActiveProject(scrollProgress, config);
+
+    if (introPreviewActiveRef.current) {
+      const withinHeroZone = scrollProgress <= (config.scrollZones?.hero?.end ?? 0.12);
+      if (withinHeroZone) {
+        setAnimationState((prev) => ({
+          ...prev,
+          scrollProgress,
+          zoneInfo: currentZone,
+          projectInfo: activeProject
+        }));
+        return;
+      }
+      clearIntroPreview();
+    }
     const directOverrideProject = directProjectOverrideRef.current?.projectKey ?? null;
     const directOverrideZone = directZoneOverrideRef.current?.zoneKey ?? null;
     const lockedProjectInfo = directOverrideProject
@@ -898,6 +968,7 @@ export const useUnifiedAnimationController = (options = {}) => {
    */
   useEffect(() => {
     return () => {
+      clearIntroPreview();
       if (updateTimeout.current) {
         clearTimeout(updateTimeout.current);
       }
@@ -905,7 +976,7 @@ export const useUnifiedAnimationController = (options = {}) => {
          clearTimeout(cameraDelayTimeout.current);
       }
     };
-  }, []);
+  }, [clearIntroPreview]);
 
   return {
     // Current state

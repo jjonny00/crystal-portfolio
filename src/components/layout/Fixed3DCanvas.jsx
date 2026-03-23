@@ -2,7 +2,7 @@
 // UPDATED: Enhanced MistyLayerStack positioning and render order
 
 import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallback, useMemo } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Environment, OrbitControls } from '@react-three/drei';
 import { EffectComposer, Bloom, ChromaticAberration, Noise, Vignette } from '@react-three/postprocessing';
 import { BlendFunction } from 'postprocessing';
@@ -96,12 +96,27 @@ const PulsingOmniLight = ({ simplified = false }) => {
   );
 };
 
+
+const InitialCameraLookAt = ({ target }) => {
+  const { camera } = useThree();
+
+  useEffect(() => {
+    if (!Array.isArray(target) || target.length !== 3) return;
+
+    camera.lookAt(target[0], target[1], target[2]);
+    camera.updateMatrixWorld();
+  }, []);
+
+  return null;
+};
+
 /**
  * UPDATED: Fixed3DCanvas with enhanced MistyLayerStack render order
  */
 const Fixed3DCanvas = forwardRef(({
   // Animation data from MasterAnimationCoordinator
   animationData,
+  restartToken = 0,
   
   // Material and effects (unchanged)
   materialVariant = 'default',
@@ -372,6 +387,11 @@ const Fixed3DCanvas = forwardRef(({
   ]);
 
   // FIXED: Function to get facet refs from crystal scene with proper access
+  const initialCameraPosition =
+    cameraMergedConfig?.cameraPositions?.intro || config?.camera?.startingPosition || [0, 0, 4.5];
+  const initialCameraTarget =
+    cameraMergedConfig?.cameraTargets?.intro || cameraMergedConfig?.cameraTargets?.hero || [0, 0, 0];
+
   const getFacetRefs = () => {
     if (crystalSceneRef.current && crystalSceneRef.current.facetRefs) {
       if (import.meta.env.DEV) {
@@ -400,7 +420,7 @@ const Fixed3DCanvas = forwardRef(({
         <Canvas
           key={Array.isArray(canvasProps.dpr) ? canvasProps.dpr.join('-') : canvasProps.dpr}
           camera={{
-            position: config?.camera?.startingPosition || [0, 0, 4.5],
+            position: initialCameraPosition,
             fov: config?.camera?.fov || 45
           }}
           {...canvasProps}
@@ -419,7 +439,8 @@ const Fixed3DCanvas = forwardRef(({
             pointerEvents: isMobile ? 'none' : 'auto',
           }}
         >
-          
+          <InitialCameraLookAt target={initialCameraTarget} />
+
           <FPSCounter />
 
           {/* FIXED: Pass backgrounds to GradientBackground and use 'default' as initial */}
@@ -485,6 +506,7 @@ const Fixed3DCanvas = forwardRef(({
           <UnifiedCameraController
             animationData={animationData}
             config={cameraMergedConfig}
+            restartToken={restartToken}
             isMobile={isMobile}
             simplifiedAnimations={simplifiedAnimations}
             facetRefs={getFacetRefs()} // FIXED: Pass exposed facet refs for anchor targeting

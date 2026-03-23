@@ -6,7 +6,10 @@ import './styles/scroll-snap.css';
 // UPDATED: Import V2 systems
 import { useAssetLoaderV2 } from './hooks/useAssetLoaderV2';
 import { usePerformanceV2 } from './hooks/usePerformanceV2';
-import LoaderV2 from './ui/LoaderV2';
+import LoaderV2, {
+  LOADER_OVERLAY_FADE_MS,
+  LOADER_SCENE_REVEAL_DELAY_MS
+} from './ui/LoaderV2';
 
 // Animation coordinator
 import MasterAnimationCoordinator from './components/three/MasterAnimationCoordinator';
@@ -39,7 +42,7 @@ import './styles/glow-70s.css';
 import { isMobileDevice } from './utils/isMobileDevice.js';
 
 const projectKeys = ['empathy', 'narrative', 'craft', 'system', 'leadership', 'exploration'];
-const zoneKeys = ['hero', 'overview', 'about'];
+const zoneKeys = ['intro', 'hero', 'overview', 'about'];
 
 const toVecOrNull = (value) => (
   Array.isArray(value) && value.length === 3 && value.every((entry) => Number.isFinite(entry))
@@ -208,6 +211,13 @@ const buildAnimationConfig = (uiConfig) => {
     ...ANIMATION_CONFIG,
     facetRotationsEulerDeg: uiConfig.facetRotationsEulerDeg ?? ANIMATION_CONFIG.facetRotationsEulerDeg ?? {},
     camera: {
+      intro: {
+        ...(ANIMATION_CONFIG.camera.intro || ANIMATION_CONFIG.camera.hero),
+        position: toVec(uiConfig.cameraPositions.intro ?? uiConfig.cameraPositions.hero),
+        target: toVec(cameraTargets?.intro ?? ANIMATION_CONFIG.camera.intro?.target?.toArray?.() ?? ANIMATION_CONFIG.camera.hero.target.toArray()),
+        offsetPosition: sumVec(globalOffsets?.position, zoneOffsets?.intro?.position),
+        offsetTarget: sumVec(globalOffsets?.target, zoneOffsets?.intro?.target)
+      },
       hero: {
         ...ANIMATION_CONFIG.camera.hero,
         position: toVec(uiConfig.cameraPositions.hero),
@@ -331,6 +341,8 @@ const buildAnimationConfig = (uiConfig) => {
 };
 
 
+const LOADER_EXIT_FADE_MS = LOADER_SCENE_REVEAL_DELAY_MS + LOADER_OVERLAY_FADE_MS;
+
 function App() {
   // ========================================
   // UPDATED: V2 Performance and Asset Loading System
@@ -339,6 +351,9 @@ function App() {
   const [initProgress, setInitProgress] = useState(0);
   const [exitLoader, setExitLoader] = useState(false);
   const [showLoader, setShowLoader] = useState(true);
+  const loaderHideTimeoutRef = useRef(null);
+  const loaderStartFadeTimeoutRef = useRef(null);
+  const loaderRevealTimeoutRef = useRef(null);
   // Progress is now provided directly by hooks
 
   // UPDATED: Use V2 performance hook
@@ -389,6 +404,7 @@ function App() {
   const [animationConfig, setAnimationConfig] = useState(buildAnimationConfig(defaultConfig));
   const [cameraRuntimeOverrides, setCameraRuntimeOverrides] = useState({});
   const [projectRuntimeOverrides, setProjectRuntimeOverrides] = useState({});
+  const [sceneRestartToken, setSceneRestartToken] = useState(0);
   const [materialVariant, setMaterialVariant] = useState('default');
   const [showUI, setShowUI] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
@@ -435,6 +451,30 @@ function App() {
     }
   }, [performanceProfile]);
 
+
+  const beginLoaderFadeOut = useCallback((onReveal = null) => {
+    setExitLoader(true);
+
+    if (loaderHideTimeoutRef.current) {
+      clearTimeout(loaderHideTimeoutRef.current);
+    }
+    if (loaderRevealTimeoutRef.current) {
+      clearTimeout(loaderRevealTimeoutRef.current);
+    }
+
+    if (onReveal) {
+      loaderRevealTimeoutRef.current = setTimeout(() => {
+        loaderRevealTimeoutRef.current = null;
+        onReveal();
+      }, LOADER_SCENE_REVEAL_DELAY_MS);
+    }
+
+    loaderHideTimeoutRef.current = setTimeout(() => {
+      setShowLoader(false);
+      loaderHideTimeoutRef.current = null;
+    }, LOADER_EXIT_FADE_MS);
+  }, []);
+
   // Detect if mobile
   const isMobile = isMobileDevice();
 
@@ -457,10 +497,24 @@ function App() {
       }
       setIsAppReady(true);
       setInitProgress(100);
-      setTimeout(() => setExitLoader(true), 800);
-      setTimeout(() => setShowLoader(false), 1400);
+      beginLoaderFadeOut();
     }
-  }, [performanceReady, assetsReady, initProgress, exitLoader, performanceTier, performanceProfile]);
+  }, [beginLoaderFadeOut, performanceReady, assetsReady, initProgress, exitLoader, performanceTier, performanceProfile]);
+
+  useEffect(() => () => {
+    if (loaderHideTimeoutRef.current) {
+      clearTimeout(loaderHideTimeoutRef.current);
+      loaderHideTimeoutRef.current = null;
+    }
+    if (loaderStartFadeTimeoutRef.current) {
+      clearTimeout(loaderStartFadeTimeoutRef.current);
+      loaderStartFadeTimeoutRef.current = null;
+    }
+    if (loaderRevealTimeoutRef.current) {
+      clearTimeout(loaderRevealTimeoutRef.current);
+      loaderRevealTimeoutRef.current = null;
+    }
+  }, []);
 
   // ========================================
   // Enhanced callbacks with better logging
@@ -513,6 +567,40 @@ function App() {
     setCameraRuntimeOverrides(getCameraRuntimeOverrides(defaultConfig, newConfig));
     setProjectRuntimeOverrides(getProjectRuntimeOverrides(defaultConfig, newConfig));
   }, []);
+
+
+  const handleRestartScene = useCallback(() => {
+    const scrollContainer = document.querySelector('.scroll-container');
+
+    if (scrollContainer) {
+      scrollContainer.scrollTo({ top: 0, behavior: 'auto' });
+    } else {
+      window.scrollTo({ top: 0, behavior: 'auto' });
+    }
+
+    if (loaderHideTimeoutRef.current) {
+      clearTimeout(loaderHideTimeoutRef.current);
+      loaderHideTimeoutRef.current = null;
+    }
+    if (loaderStartFadeTimeoutRef.current) {
+      clearTimeout(loaderStartFadeTimeoutRef.current);
+      loaderStartFadeTimeoutRef.current = null;
+    }
+    if (loaderRevealTimeoutRef.current) {
+      clearTimeout(loaderRevealTimeoutRef.current);
+      loaderRevealTimeoutRef.current = null;
+    }
+
+    setShowLoader(true);
+    setExitLoader(false);
+
+    loaderStartFadeTimeoutRef.current = setTimeout(() => {
+      loaderStartFadeTimeoutRef.current = null;
+      beginLoaderFadeOut(() => {
+        setSceneRestartToken((prev) => prev + 1);
+      });
+    }, 60);
+  }, [beginLoaderFadeOut]);
 
   const handleMaterialChange = useCallback((variant) => {
     if (import.meta.env.DEV) console.log("Changing material variant to:", variant);
@@ -740,11 +828,13 @@ function App() {
         debugMode={import.meta.env.DEV}
         onAnimationStateChange={handleAnimationStateChange}
         config={animationConfig}
+        restartToken={sceneRestartToken}
       >
         {/* Fixed 3D Canvas */}
         <Fixed3DCanvas
-          key={performanceProfile?.renderScale}
+          key={`${performanceProfile?.renderScale ?? 'default'}-${sceneRestartToken}`}
           ref={fixedCanvasRef}
+          restartToken={sceneRestartToken}
           materialVariant={materialVariant}
           effectsEnabled={effectsEnabled}
           postProcessingConfig={postProcessingConfig}
@@ -786,7 +876,7 @@ function App() {
             { label: 'Scroll' }
           ]}
         >
-          <CrystalControls config={config} onUpdate={handleConfigUpdate} />
+          <CrystalControls config={config} onUpdate={handleConfigUpdate} onRestartScene={handleRestartScene} />
           
           <div>
             <MaterialSelector currentVariant={materialVariant} onChange={handleMaterialChange} />
