@@ -1072,12 +1072,11 @@ const UnifiedCrystalScene = forwardRef(({
     if (fractureGlowStartRef.current) {
       const elapsedGlow = (performance.now() - fractureGlowStartRef.current) / 1000;
       const rawDuration = crystalConfig?.explodeDuration || 1.2;
-      const fracturePause = crystalConfig?.fracturePause || 0.5;
       const totalDuration = rawDuration > 10 ? rawDuration / 1000 : rawDuration;
-      const explosionDuration = Math.max(totalDuration - fracturePause, 0);
-      const fadeOutDuration = explosionDuration * 2;
-      const elapsedExplosion = elapsedGlow - fracturePause;
-      const rampDuration = explosionDuration * 0.15;
+      const explosionDuration = Math.max(totalDuration - (crystalConfig?.fracturePause || 0.5), 0);
+      const fadeOutDuration = explosionDuration * 0.8;
+      const elapsedExplosion = elapsedGlow;
+      const rampDuration = Math.max(explosionDuration * 0.08, 0.04);
       const totalFadeDuration = explosionDuration + fadeOutDuration;
 
       facetMaterialsRef.current.forEach((mat, idx) => {
@@ -1086,14 +1085,10 @@ const UnifiedCrystalScene = forwardRef(({
         const baseColor = mat.userData?.baseEmissiveColor || defaultColorRef.current;
         const startColor = projectColors[idx];
 
-        if (elapsedExplosion < 0) {
-          mat.emissive.set(0, 0, 0);
-          mat.emissiveIntensity = 0;
-          mat.userData.isFading = true;
-        } else if (elapsedExplosion < rampDuration) {
+        if (elapsedExplosion < rampDuration) {
           const t = Math.min(elapsedExplosion / rampDuration, 1);
-          mat.emissive.copy(startColor).multiplyScalar(t);
-          mat.emissiveIntensity = THREE.MathUtils.lerp(0, startIntensity, t);
+          mat.emissive.copy(startColor).lerp(baseColor, t * 0.2);
+          mat.emissiveIntensity = THREE.MathUtils.lerp(startIntensity, startIntensity * 0.8, t);
           mat.userData.isFading = true;
         } else {
           const fadeElapsed = elapsedExplosion - rampDuration;
@@ -1473,12 +1468,11 @@ const UnifiedCrystalScene = forwardRef(({
     if (fractureGlowStartRef.current && facetMaterialsRef.current.length) {
       const elapsedGlow = (performance.now() - fractureGlowStartRef.current) / 1000;
       const rawDuration = crystalConfig?.explodeDuration || 1.2;
-      const fracturePause = crystalConfig?.fracturePause || 0.5;
       const totalDuration = rawDuration > 10 ? rawDuration / 1000 : rawDuration;
-      const explosionDuration = Math.max(totalDuration - fracturePause, 0);
-      const fadeOutDuration = explosionDuration * 2;
-      const elapsedExplosion = elapsedGlow - fracturePause;
-      const rampDuration = explosionDuration * 0.15;
+      const explosionDuration = Math.max(totalDuration - (crystalConfig?.fracturePause || 0.5), 0);
+      const fadeOutDuration = explosionDuration * 0.8;
+      const elapsedExplosion = elapsedGlow;
+      const rampDuration = Math.max(explosionDuration * 0.08, 0.04);
       const totalFadeDuration = explosionDuration + fadeOutDuration;
 
       facetMaterialsRef.current.forEach((mat, idx) => {
@@ -1487,14 +1481,10 @@ const UnifiedCrystalScene = forwardRef(({
         const baseColor = mat.userData?.baseEmissiveColor || defaultColorRef.current;
         const startColor = projectColors[idx];
 
-        if (elapsedExplosion < 0) {
-          mat.emissive.set(0, 0, 0);
-          mat.emissiveIntensity = 0;
-          mat.userData.isFading = true;
-        } else if (elapsedExplosion < rampDuration) {
+        if (elapsedExplosion < rampDuration) {
           const t = Math.min(elapsedExplosion / rampDuration, 1);
-          mat.emissive.copy(startColor).multiplyScalar(t);
-          mat.emissiveIntensity = THREE.MathUtils.lerp(0, startIntensity, t);
+          mat.emissive.copy(startColor).lerp(baseColor, t * 0.2);
+          mat.emissiveIntensity = THREE.MathUtils.lerp(startIntensity, startIntensity * 0.8, t);
           mat.userData.isFading = true;
         } else {
           const fadeElapsed = elapsedExplosion - rampDuration;
@@ -1541,30 +1531,6 @@ const UnifiedCrystalScene = forwardRef(({
       }
     });
 
-    // Hold facets at fracture positions before the explosion resumes
-    if (animationData.crystalForm === 'exploded' && explosionStartRef.current) {
-      const fracturePause = crystalConfig?.fracturePause || 0.5;
-      const elapsedExplosion = (performance.now() - explosionStartRef.current) / 1000;
-      if (elapsedExplosion < fracturePause) {
-        const fracture = crystalConfig?.fracturePositions;
-        const fractureDistance = crystalConfig?.fractureDistance ?? 0.3;
-        facetRefs.current.forEach((facetRef, idx) => {
-          const facetKey = facetKeys[idx];
-          const explodedPos = crystalConfig?.positions?.[facetPlacementKeys[facetKey] || facetKey];
-          const configured = fracture?.[facetPlacementKeys[facetKey] || facetKey];
-          if (facetRef?.current && explodedPos) {
-            const fallback = explodedPos
-              .clone()
-              .normalize()
-              .multiplyScalar(explodedPos.length() * fractureDistance);
-            facetRef.current.position.copy(configured ? configured : fallback);
-            facetRef.current.quaternion.slerp(neutralQuat, Math.min(1, deltaTime * 6));
-          }
-        });
-        return; // Skip other animations during fracture pause
-      }
-    }
-
     const elapsed = state.clock.elapsedTime;
     const cameraMoveProgress = sharedCameraMoveProgressRef?.current ?? animationData?.cameraMoveProgress ?? 1;
     const floatConfig = effects.idle.float;
@@ -1603,11 +1569,11 @@ const UnifiedCrystalScene = forwardRef(({
     if (showFacets && crystalConfig?.positions) {
       // Custom fracture/explosion timing
       if (animationData.crystalForm === 'exploded' && explosionStartRef.current) {
-        const fracturePause = crystalConfig?.fracturePause || 0.5;
         const totalDuration = crystalConfig?.explodeDuration || 1.2;
+        const motionDuration = Math.max(totalDuration - (crystalConfig?.fracturePause || 0.5), 0.0001);
         const elapsedExplosion = (performance.now() - explosionStartRef.current) / 1000;
 
-        const progress = Math.min((elapsedExplosion - fracturePause) / (totalDuration - fracturePause), 1);
+        const progress = Math.min(elapsedExplosion / motionDuration, 1);
         const fracture = crystalConfig?.fracturePositions;
         const fractureDistance = crystalConfig?.fractureDistance ?? 0.3;
         const eased = crystalConfig?.explosionEase

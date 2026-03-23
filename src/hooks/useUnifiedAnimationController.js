@@ -647,7 +647,7 @@ export const useUnifiedAnimationController = (options = {}) => {
         crystalForm: 'exploded',
         cameraState: 'overview',
         transitionPhase: TRANSITION_PHASES.REFORM_CHARGE,
-        transitionGlow: 0.35,
+        transitionGlow: 0.18,
         transitionDirection: 'reverse',
         focusedFacet: null,
         isTransitioning: false
@@ -667,7 +667,7 @@ export const useUnifiedAnimationController = (options = {}) => {
           crystalForm: 'whole',
           cameraState: 'hero',
           transitionPhase: TRANSITION_PHASES.REFORM_COMPLETE,
-          transitionGlow: 0.55,
+          transitionGlow: 0.18,
           transitionDirection: 'reverse'
         }));
 
@@ -709,7 +709,7 @@ export const useUnifiedAnimationController = (options = {}) => {
           crystalForm: 'exploded',
           cameraState: 'overview',
           transitionPhase: TRANSITION_PHASES.EXPLODE,
-          transitionGlow: 0.8,
+          transitionGlow: 0.55,
           transitionDirection: 'forward'
         }));
 
