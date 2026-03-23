@@ -650,13 +650,13 @@ export const useUnifiedAnimationController = (options = {}) => {
           glow = 0.97 + linearProgress * 0.03;
           break;
         case TRANSITION_PHASES.REFORM_SWAP_HIDDEN:
-          glow = (1 - linearProgress) * 0.97;
+          glow = 0.97 + linearProgress * 0.03;
           break;
         case TRANSITION_PHASES.EXPLODE:
           glow = 1 - easeOut;
           break;
         case TRANSITION_PHASES.REFORM_COMPLETE:
-          glow = 0;
+          glow = 1 - easeOut;
           break;
         default:
           glow = 0;
@@ -776,11 +776,11 @@ export const useUnifiedAnimationController = (options = {}) => {
           cameraState: 'hero'
         }));
         setTransitionPhaseState(TRANSITION_PHASES.REFORM_COMPLETE, {
-          durationMs: 220,
+          durationMs: 140,
           direction: 'reverse'
         });
 
-        scheduleTransitionStep(220, () => {
+        scheduleTransitionStep(140, () => {
           setTransitionPhaseState(TRANSITION_PHASES.IDLE, {
             glow: 0,
             direction: null
