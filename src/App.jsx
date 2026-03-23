@@ -404,6 +404,7 @@ function App() {
   const [animationConfig, setAnimationConfig] = useState(buildAnimationConfig(defaultConfig));
   const [cameraRuntimeOverrides, setCameraRuntimeOverrides] = useState({});
   const [projectRuntimeOverrides, setProjectRuntimeOverrides] = useState({});
+  const [sceneRestartToken, setSceneRestartToken] = useState(0);
   const [materialVariant, setMaterialVariant] = useState('default');
   const [showUI, setShowUI] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
