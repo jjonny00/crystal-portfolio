@@ -1350,10 +1350,17 @@ const UnifiedCrystalScene = forwardRef(({
 
     const currentPhase = animationData.transitionPhase || 'idle';
     const previousPhase = lastTransitionPhaseRef.current;
-    if (currentPhase === previousPhase) return;
+    const currentCrystalForm = animationData.crystalForm;
+    const previousCrystalForm = lastCrystalForm.current;
+
+    if (currentCrystalForm === 'whole' && previousCrystalForm === 'exploded') {
+      wholeCrystalReformFadeStartRef.current = performance.now();
+    }
+
+    if (currentPhase === previousPhase && currentCrystalForm === previousCrystalForm) return;
 
     if (import.meta.env.DEV) {
-      console.log('💎 Crystal: Transition phase change', { from: previousPhase, to: currentPhase });
+      console.log('💎 Crystal: Transition phase change', { from: previousPhase, to: currentPhase, crystalForm: currentCrystalForm });
     }
 
     if (currentPhase === 'charge') {
@@ -1432,14 +1439,12 @@ const UnifiedCrystalScene = forwardRef(({
         crystalMaterialRef.current.color.copy(wholeCrystalBaseColorRef.current);
         crystalMaterialRef.current.emissive.copy(wholeCrystalBaseEmissiveRef.current);
       }
-      wholeCrystalReformFadeStartRef.current = performance.now();
       reformStartRef.current = null;
     }
 
     if (currentPhase === 'idle') {
       setSphereVisible(false);
       setRingVisible(false);
-      wholeCrystalReformFadeStartRef.current = null;
       if (crystalMaterialRef.current) {
         crystalMaterialRef.current.color.copy(wholeCrystalBaseColorRef.current);
         crystalMaterialRef.current.emissive.copy(wholeCrystalBaseEmissiveRef.current);
@@ -1473,13 +1478,17 @@ const UnifiedCrystalScene = forwardRef(({
     const transitionGlowBlend = Math.min(Math.max(transitionGlow, 0), 1);
     const whiteGlow = new THREE.Color('#ffffff');
     const reformFadeDurationMs = 140;
-    const isWholeCrystalReforming = animationData.transitionPhase === 'reform_complete';
+    const isWholeCrystalVisible = animationData.crystalForm === 'whole';
 
     if (crystalMaterialRef.current) {
-      if (isWholeCrystalReforming && wholeCrystalReformFadeStartRef.current) {
+      if (isWholeCrystalVisible && wholeCrystalReformFadeStartRef.current) {
         const reformFadeElapsed = performance.now() - wholeCrystalReformFadeStartRef.current;
         const reformFadeProgress = Math.min(Math.max(reformFadeElapsed / reformFadeDurationMs, 0), 1);
         const reformFadeGlow = 1 - Math.pow(reformFadeProgress, 1.6);
+
+        if (reformFadeProgress >= 1) {
+          wholeCrystalReformFadeStartRef.current = null;
+        }
 
         crystalMaterialRef.current.color.copy(wholeCrystalBaseColorRef.current);
         crystalMaterialRef.current.emissive.copy(wholeCrystalBaseEmissiveRef.current);
