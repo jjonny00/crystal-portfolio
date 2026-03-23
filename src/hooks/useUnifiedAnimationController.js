@@ -231,6 +231,16 @@ const calculateActiveProject = (scrollProgress, config = ANIMATION_CONFIG) => {
 };
 
 const PROJECT_BOUNDARY_EPSILON = 0.0005;
+const TRANSITION_PHASES = {
+  IDLE: 'idle',
+  CHARGE: 'charge',
+  SWAP_HIDDEN: 'swap_hidden',
+  EXPLODE: 'explode',
+  SELECTED: 'selected',
+  REFORM_CHARGE: 'reform_charge',
+  REFORM_SWAP_HIDDEN: 'reform_swap_hidden',
+  REFORM_COMPLETE: 'reform_complete'
+};
 
 const calculateActiveProjectFromSections = (scrollProgress, sections) => {
   if (!sections || sections.length === 0) {
@@ -297,6 +307,9 @@ export const useUnifiedAnimationController = (options = {}) => {
     state: ANIMATION_STATES.HERO,
     crystalForm: 'whole',
     cameraState: 'hero',
+    transitionPhase: TRANSITION_PHASES.IDLE,
+    transitionGlow: 0,
+    transitionDirection: null,
     focusedFacet: null,
     isTransitioning: false, // Will be managed by individual components
     scrollProgress: 0,
@@ -311,6 +324,7 @@ export const useUnifiedAnimationController = (options = {}) => {
   const lastProject = useRef(null);
   const updateTimeout = useRef(null);
   const cameraDelayTimeout = useRef(null);
+  const transitionTimeoutsRef = useRef([]);
   const introPreviewTimeout = useRef(null);
   const introPreviewActiveRef = useRef(false);
   const directProjectOverrideRef = useRef(null);
@@ -450,6 +464,19 @@ export const useUnifiedAnimationController = (options = {}) => {
     directZoneOverrideRef.current = null;
   }, []);
 
+  const clearTransitionTimeouts = useCallback(() => {
+    transitionTimeoutsRef.current.forEach((timeoutId) => clearTimeout(timeoutId));
+    transitionTimeoutsRef.current = [];
+  }, []);
+
+  const scheduleTransitionStep = useCallback((delayMs, callback) => {
+    const timeoutId = setTimeout(() => {
+      transitionTimeoutsRef.current = transitionTimeoutsRef.current.filter((id) => id !== timeoutId);
+      callback();
+    }, delayMs);
+    transitionTimeoutsRef.current.push(timeoutId);
+  }, []);
+
   const clearIntroPreview = useCallback(() => {
     introPreviewActiveRef.current = false;
     if (introPreviewTimeout.current) {
@@ -476,6 +503,9 @@ export const useUnifiedAnimationController = (options = {}) => {
           state: ANIMATION_STATES.HERO,
           crystalForm: 'whole',
           cameraState: 'hero',
+          transitionPhase: TRANSITION_PHASES.IDLE,
+          transitionGlow: 0,
+          transitionDirection: null,
           focusedFacet: null,
           isTransitioning: false
         };
@@ -487,6 +517,9 @@ export const useUnifiedAnimationController = (options = {}) => {
           state: ANIMATION_STATES.OVERVIEW,
           crystalForm: 'exploded',
           cameraState: 'overview',
+          transitionPhase: TRANSITION_PHASES.SELECTED,
+          transitionGlow: 0,
+          transitionDirection: null,
           focusedFacet: null,
           isTransitioning: false
         };
@@ -498,6 +531,9 @@ export const useUnifiedAnimationController = (options = {}) => {
           state: ANIMATION_STATES.ABOUT,
           crystalForm: 'whole',
           cameraState: 'about',
+          transitionPhase: TRANSITION_PHASES.IDLE,
+          transitionGlow: 0,
+          transitionDirection: null,
           focusedFacet: null,
           isTransitioning: false
         };
@@ -528,6 +564,9 @@ export const useUnifiedAnimationController = (options = {}) => {
       state: ANIMATION_STATES.HERO,
       crystalForm: 'whole',
       cameraState: 'intro',
+      transitionPhase: TRANSITION_PHASES.IDLE,
+      transitionGlow: 0,
+      transitionDirection: null,
       focusedFacet: null,
       isTransitioning: false,
       scrollProgress: 0,
@@ -543,7 +582,7 @@ export const useUnifiedAnimationController = (options = {}) => {
         cameraState: 'hero'
       }));
     }, 1400);
-  }, [clearDirectProjectOverride, clearDirectZoneOverride, clearIntroPreview, config, introReplayToken]);
+  }, [clearDirectProjectOverride, clearDirectZoneOverride, clearIntroPreview, clearTransitionTimeouts, config, introReplayToken]);
 
   useEffect(() => {
     measureProjectSectionsFromDom();
@@ -591,56 +630,108 @@ export const useUnifiedAnimationController = (options = {}) => {
       if (import.meta.env.DEV) console.log(`🗺️ IMMEDIATE Zone transition: ${fromZone} → ${toZone}`);
     }
 
-    // Clear any pending delayed camera transitions when switching zones
     if (cameraDelayTimeout.current) {
       clearTimeout(cameraDelayTimeout.current);
       cameraDelayTimeout.current = null;
     }
+    clearTransitionTimeouts();
 
-    // IMMEDIATE state changes - no complex sequences
+    const fracturePauseMs = (config.crystal.fracturePause || 0.5) * 1000;
+    const hiddenSwapMs = Math.min(120, fracturePauseMs * 0.28);
+    const chargeMs = Math.max(fracturePauseMs - hiddenSwapMs, 0);
+
     if (toZone === 'hero') {
-      // Reform crystal immediately but keep camera at overview until fracture pause completes
       setAnimationState(prev => ({
         ...prev,
         state: ANIMATION_STATES.HERO,
-        crystalForm: 'whole',
-        cameraState: 'overview', // Hold camera during reform pause
+        crystalForm: 'exploded',
+        cameraState: 'overview',
+        transitionPhase: TRANSITION_PHASES.REFORM_CHARGE,
+        transitionGlow: 0.35,
+        transitionDirection: 'reverse',
         focusedFacet: null,
         isTransitioning: false
       }));
 
+      scheduleTransitionStep(chargeMs, () => {
+        setAnimationState(prev => ({
+          ...prev,
+          transitionPhase: TRANSITION_PHASES.REFORM_SWAP_HIDDEN,
+          transitionGlow: 1
+        }));
+      });
+
       cameraDelayTimeout.current = setTimeout(() => {
         setAnimationState(prev => ({
           ...prev,
-          cameraState: 'hero'
+          crystalForm: 'whole',
+          cameraState: 'hero',
+          transitionPhase: TRANSITION_PHASES.REFORM_COMPLETE,
+          transitionGlow: 0.55,
+          transitionDirection: 'reverse'
         }));
-      }, (config.crystal.fracturePause || 0.5) * 1000);
+
+        scheduleTransitionStep(240, () => {
+          setAnimationState(prev => ({
+            ...prev,
+            transitionPhase: TRANSITION_PHASES.IDLE,
+            transitionGlow: 0,
+            transitionDirection: null
+          }));
+        });
+      }, fracturePauseMs);
     }
     else if (toZone === 'overview') {
-      // Start explosion immediately but delay camera move until fracture pause completes
       setAnimationState(prev => ({
         ...prev,
         state: ANIMATION_STATES.OVERVIEW,
-        crystalForm: 'exploded',     // Immediate
-        cameraState: 'hero',         // Hold camera during fracture pause
+        crystalForm: 'whole',
+        cameraState: 'hero',
+        transitionPhase: TRANSITION_PHASES.CHARGE,
+        transitionGlow: 0.35,
+        transitionDirection: 'forward',
         focusedFacet: null,
         isTransitioning: false
       }));
 
+      scheduleTransitionStep(chargeMs, () => {
+        setAnimationState(prev => ({
+          ...prev,
+          transitionPhase: TRANSITION_PHASES.SWAP_HIDDEN,
+          transitionGlow: 1
+        }));
+      });
+
       cameraDelayTimeout.current = setTimeout(() => {
         setAnimationState(prev => ({
           ...prev,
-          cameraState: 'overview'
+          state: ANIMATION_STATES.OVERVIEW,
+          crystalForm: 'exploded',
+          cameraState: 'overview',
+          transitionPhase: TRANSITION_PHASES.EXPLODE,
+          transitionGlow: 0.8,
+          transitionDirection: 'forward'
         }));
-      }, (config.crystal.fracturePause || 0.5) * 1000);
+
+        scheduleTransitionStep(320, () => {
+          setAnimationState(prev => ({
+            ...prev,
+            transitionPhase: TRANSITION_PHASES.SELECTED,
+            transitionGlow: 0,
+            transitionDirection: null
+          }));
+        });
+      }, fracturePauseMs);
     }
     else if (toZone === 'projects') {
-      // Immediately enter project state and set initial facet
       setAnimationState(prev => ({
         ...prev,
         state: ANIMATION_STATES.PROJECT_FOCUSED,
-        crystalForm: 'exploded',     // Immediate
-        cameraState: 'project',      // Immediate - this enables project camera positioning
+        crystalForm: 'exploded',
+        cameraState: 'project',
+        transitionPhase: TRANSITION_PHASES.SELECTED,
+        transitionGlow: 0,
+        transitionDirection: null,
         focusedFacet: getSceneFacetKeyByProjectId(initialProject) || initialProject,
         isTransitioning: false
       }));
@@ -650,13 +741,16 @@ export const useUnifiedAnimationController = (options = {}) => {
       setAnimationState(prev => ({
         ...prev,
         state: ANIMATION_STATES.ABOUT,
-        crystalForm: 'whole',        // Immediate
-        cameraState: 'about',        // Immediate
+        crystalForm: 'whole',
+        cameraState: 'about',
+        transitionPhase: TRANSITION_PHASES.IDLE,
+        transitionGlow: 0,
+        transitionDirection: null,
         focusedFacet: null,
         isTransitioning: false
       }));
     }
-  }, [debugMode, config]);
+  }, [clearTransitionTimeouts, config, debugMode, scheduleTransitionStep]);
 
   /**
    * SIMPLIFIED: Handle project focus (same pattern as before - it works!)
@@ -676,6 +770,9 @@ export const useUnifiedAnimationController = (options = {}) => {
       ...prev,
       focusedFacet: sceneFacetKey,
       cameraState: 'project',
+      transitionPhase: TRANSITION_PHASES.SELECTED,
+      transitionGlow: 0,
+      transitionDirection: null,
       isTransitioning: false,
       projectInfo: { ...prev.projectInfo, project: projectKey },
     }));
@@ -837,6 +934,9 @@ export const useUnifiedAnimationController = (options = {}) => {
           state: ANIMATION_STATES.PROJECT_FOCUSED,
           crystalForm: 'exploded',
           cameraState: 'project',
+          transitionPhase: TRANSITION_PHASES.SELECTED,
+          transitionGlow: 0,
+          transitionDirection: null,
           isTransitioning: false
         }));
       }
@@ -869,6 +969,9 @@ export const useUnifiedAnimationController = (options = {}) => {
           state: ANIMATION_STATES.PROJECT_FOCUSED,
           crystalForm: 'exploded',
           cameraState: 'project',
+          transitionPhase: TRANSITION_PHASES.SELECTED,
+          transitionGlow: 0,
+          transitionDirection: null,
           focusedFacet: getSceneFacetKeyByProjectId(activeProject.project) || activeProject.project,
           isTransitioning: false
         }));
@@ -975,8 +1078,9 @@ export const useUnifiedAnimationController = (options = {}) => {
       if (cameraDelayTimeout.current) {
          clearTimeout(cameraDelayTimeout.current);
       }
+      clearTransitionTimeouts();
     };
-  }, [clearIntroPreview]);
+  }, [clearIntroPreview, clearTransitionTimeouts]);
 
   return {
     // Current state

@@ -190,7 +190,14 @@ const GlowingSphereImage = ({
     // Face camera
     meshRef.current.lookAt(state.camera.position);
     
-    if (isExploding) {
+    const transitionGlow = animationData?.transitionGlow ?? 0;
+
+    if (transitionGlow > 0) {
+      const clampedGlow = Math.min(Math.max(transitionGlow, 0), 1);
+      const scale = baseWorldSize + (maxWorldSize - baseWorldSize) * (0.22 + clampedGlow * 0.78);
+      meshRef.current.scale.setScalar(scale);
+      material.opacity = Math.max(material.opacity, clampedGlow * 0.92);
+    } else if (isExploding) {
       const elapsed = (Date.now() - startTime) / 1000;
       const explosionProgress = Math.min(elapsed / explosionDuration, 1);
       const fadeProgress = Math.min(elapsed / fadeInDuration, 1);
