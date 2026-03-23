@@ -65,7 +65,7 @@ const GlowingSphereImage = ({
   // Simple state
   const [isExploding, setIsExploding] = useState(false);
   const [startTime, setStartTime] = useState(0);
-  const lastCrystalForm = useRef('whole');
+  const lastTransitionPhase = useRef(animationData?.transitionPhase || 'idle');
 
   const texture = getGlowingSphereTexture();
   const { px } = usePxToWorld();
@@ -155,26 +155,24 @@ const GlowingSphereImage = ({
     return mat;
   }, [texture, blendingMode, blendSrc, blendDst, blendEquation, enableDithering]);
   
-  // Detect explosion start/stop
+  // Detect forward explosion start/stop from the explicit transition phase
   useEffect(() => {
     if (!animationData) return;
-    
-    const currentForm = animationData.crystalForm;
-    if (currentForm !== lastCrystalForm.current) {
-      
-      if (currentForm === 'exploded' && lastCrystalForm.current === 'whole') {
-        setIsExploding(true);
-        setStartTime(Date.now());
-        if (debugMode) if (import.meta.env.DEV) console.log('🌟 Enhanced sphere: Start explosion with anti-banding');
-        
-      } else if (currentForm === 'whole' && lastCrystalForm.current === 'exploded') {
-        setIsExploding(false);
-        if (debugMode) if (import.meta.env.DEV) console.log('🌟 Enhanced sphere: Stop explosion');
-      }
-      
-      lastCrystalForm.current = currentForm;
+
+    const currentPhase = animationData.transitionPhase || 'idle';
+    const previousPhase = lastTransitionPhase.current;
+
+    if (currentPhase === 'explode' && previousPhase !== 'explode') {
+      setIsExploding(true);
+      setStartTime(Date.now());
+      if (debugMode && import.meta.env.DEV) console.log('🌟 Enhanced sphere: Start explosion pulse');
+    } else if (currentPhase !== 'explode' && previousPhase === 'explode') {
+      setIsExploding(false);
+      if (debugMode && import.meta.env.DEV) console.log('🌟 Enhanced sphere: Stop explosion pulse');
     }
-  }, [animationData?.crystalForm, debugMode]);
+
+    lastTransitionPhase.current = currentPhase;
+  }, [animationData?.transitionPhase, debugMode]);
   
   // Animation loop
   const baseWorldSize = px(baseSize);

@@ -40,7 +40,7 @@ const FractureRingImage = ({
   const [isAnimating, setIsAnimating] = useState(false);
   const [startTime, setStartTime] = useState(0);
   const [delayTimer, setDelayTimer] = useState(null);
-  const lastForm = useRef('whole');
+  const lastPhase = useRef(animationData?.transitionPhase || 'idle');
 
   const texture = getFractureRingTexture();
 
@@ -75,52 +75,39 @@ const FractureRingImage = ({
     }
   };
 
-  // Enhanced trigger logic with delay support
+  // Trigger the ring only for the explicit forward explosion phase
   useEffect(() => {
     if (!animationData) return;
-    
-    const currentForm = animationData.crystalForm;
-    
-    if (currentForm !== lastForm.current) {
-      // Clear any existing delay timer
-      if (delayTimer) {
-        clearTimeout(delayTimer);
-        setDelayTimer(null);
+
+    const currentPhase = animationData.transitionPhase || 'idle';
+    const previousPhase = lastPhase.current;
+
+    if (delayTimer) {
+      clearTimeout(delayTimer);
+      setDelayTimer(null);
+    }
+
+    if (currentPhase === 'explode' && previousPhase !== 'explode') {
+      if (debugMode && import.meta.env.DEV) {
+        console.log(`🌀 Fracture ring: explode detected, delay: ${triggerDelay}s`);
       }
-      
-      if (currentForm === triggerOnState && lastForm.current !== triggerOnState) {
-        if (debugMode && import.meta.env.DEV) {
-          console.log(`🌀 Fracture ring: ${triggerOnState} detected, delay: ${triggerDelay}s`);
-        }
-        
-        if (triggerDelay > 0) {
-          // Set up delayed trigger
-          const timer = setTimeout(() => {
-            setIsAnimating(true);
-            setStartTime(Date.now());
-            if (debugMode && import.meta.env.DEV) {
-              console.log('🌀 Fracture ring: Animation started after delay');
-            }
-          }, triggerDelay * 1000);
-          setDelayTimer(timer);
-        } else {
-          // Immediate trigger
+
+      if (triggerDelay > 0) {
+        const timer = setTimeout(() => {
           setIsAnimating(true);
           setStartTime(Date.now());
-          if (debugMode && import.meta.env.DEV) {
-            console.log('🌀 Fracture ring: Animation started immediately');
-          }
-        }
-      } else if (currentForm !== triggerOnState) {
-        setIsAnimating(false);
-        if (debugMode && import.meta.env.DEV) {
-          console.log('🌀 Fracture ring: Animation stopped');
-        }
+        }, triggerDelay * 1000);
+        setDelayTimer(timer);
+      } else {
+        setIsAnimating(true);
+        setStartTime(Date.now());
       }
-      
-      lastForm.current = currentForm;
+    } else if (currentPhase !== 'explode' && previousPhase === 'explode') {
+      setIsAnimating(false);
     }
-  }, [animationData?.crystalForm, triggerDelay, triggerOnState, delayTimer, debugMode]);
+
+    lastPhase.current = currentPhase;
+  }, [animationData?.transitionPhase, triggerDelay, delayTimer, debugMode]);
 
   // Enhanced animation loop
   useFrame((state, delta) => {

@@ -1460,9 +1460,12 @@ const UnifiedCrystalScene = forwardRef(({
     if (!animationData || !facetRefs.current.length || simplifiedAnimations) return;
 
     const transitionGlow = animationData.transitionGlow ?? 0;
+    const transitionGlowBlend = Math.min(Math.max(transitionGlow, 0), 1);
+    const whiteGlow = new THREE.Color('#ffffff');
+
     if (crystalMaterialRef.current) {
-      crystalMaterialRef.current.emissive.copy(wholeCrystalBaseEmissiveRef.current).lerp(new THREE.Color('#ffffff'), Math.min(transitionGlow, 1));
-      crystalMaterialRef.current.emissiveIntensity = wholeCrystalBaseEmissiveIntensityRef.current + transitionGlow * 4.2;
+      crystalMaterialRef.current.emissive.copy(wholeCrystalBaseEmissiveRef.current).lerp(whiteGlow, transitionGlowBlend);
+      crystalMaterialRef.current.emissiveIntensity = wholeCrystalBaseEmissiveIntensityRef.current + transitionGlowBlend * 4.2;
       crystalMaterialRef.current.needsUpdate = true;
     }
 
@@ -1507,17 +1510,33 @@ const UnifiedCrystalScene = forwardRef(({
 
       if (elapsedExplosion >= totalFadeDuration) {
         fractureGlowStartRef.current = null;
-        facetMaterialsRef.current.forEach(mat => {
+        facetMaterialsRef.current.forEach((mat) => {
+          const baseColor = mat.userData?.baseEmissiveColor || defaultColorRef.current;
+          const baseIntensity = mat.userData?.baseEmissiveIntensity ?? 0.02;
           if (mat.userData) mat.userData.isFading = false;
+          mat.emissive.copy(baseColor.clone().lerp(new THREE.Color('#ffffff'), transitionGlowBlend));
+          mat.emissiveIntensity = baseIntensity + transitionGlowBlend * 3.6;
+          mat.needsUpdate = true;
         });
       }
     }
 
     facetMaterialsRef.current.forEach((mat) => {
-      const glowFloor = transitionGlow * 3.6;
-      if ((mat.emissiveIntensity ?? 0) < glowFloor) {
-        mat.emissive.lerpColors(mat.userData?.baseEmissiveColor || defaultColorRef.current, new THREE.Color('#ffffff'), Math.min(transitionGlow, 1));
-        mat.emissiveIntensity = glowFloor;
+      const baseColor = mat.userData?.baseEmissiveColor || defaultColorRef.current;
+      const baseIntensity = mat.userData?.baseEmissiveIntensity ?? 0.02;
+      const transitionColor = baseColor.clone().lerp(whiteGlow, transitionGlowBlend);
+      const transitionIntensity = baseIntensity + transitionGlowBlend * 3.6;
+
+      if (!fractureGlowStartRef.current) {
+        mat.emissive.copy(transitionColor);
+        mat.emissiveIntensity = transitionIntensity;
+        mat.needsUpdate = true;
+        return;
+      }
+
+      if (transitionIntensity > (mat.emissiveIntensity ?? 0)) {
+        mat.emissive.copy(transitionColor);
+        mat.emissiveIntensity = transitionIntensity;
         mat.needsUpdate = true;
       }
     });
