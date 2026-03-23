@@ -292,6 +292,7 @@ const UnifiedCrystalScene = forwardRef(({
   const explosionStartRef = useRef(null);
   const fractureGlowStartRef = useRef(null);
   const reformStartRef = useRef(null);
+  const wholeCrystalBaseColorRef = useRef(new THREE.Color('#ffffff'));
   const wholeCrystalBaseEmissiveRef = useRef(new THREE.Color('#ffffff'));
   const wholeCrystalBaseEmissiveIntensityRef = useRef(0.03);
 
@@ -1005,6 +1006,7 @@ const UnifiedCrystalScene = forwardRef(({
 
     applyMaterial(wholeCrystal.scene, crystalMaterialRef.current);
     if (crystalMaterialRef.current) {
+      wholeCrystalBaseColorRef.current = crystalMaterialRef.current.color.clone();
       wholeCrystalBaseEmissiveRef.current = crystalMaterialRef.current.emissive.clone();
       wholeCrystalBaseEmissiveIntensityRef.current = crystalMaterialRef.current.emissiveIntensity ?? 0.03;
     }
@@ -1425,12 +1427,22 @@ const UnifiedCrystalScene = forwardRef(({
       setShowFacets(false);
       setSphereVisible(false);
       setRingVisible(false);
+      if (crystalMaterialRef.current) {
+        crystalMaterialRef.current.color.copy(wholeCrystalBaseColorRef.current);
+        crystalMaterialRef.current.emissive.copy(wholeCrystalBaseEmissiveRef.current);
+      }
       reformStartRef.current = null;
     }
 
     if (currentPhase === 'idle') {
       setSphereVisible(false);
       setRingVisible(false);
+      if (crystalMaterialRef.current) {
+        crystalMaterialRef.current.color.copy(wholeCrystalBaseColorRef.current);
+        crystalMaterialRef.current.emissive.copy(wholeCrystalBaseEmissiveRef.current);
+        crystalMaterialRef.current.emissiveIntensity = wholeCrystalBaseEmissiveIntensityRef.current;
+        crystalMaterialRef.current.needsUpdate = true;
+      }
       if (animationData.crystalForm === 'whole') {
         setShowWholeCrystal(true);
         setShowFacets(false);
@@ -1461,6 +1473,7 @@ const UnifiedCrystalScene = forwardRef(({
 
     if (crystalMaterialRef.current) {
       if (preserveWholeCrystalColor) {
+        crystalMaterialRef.current.color.copy(wholeCrystalBaseColorRef.current);
         crystalMaterialRef.current.emissive.copy(wholeCrystalBaseEmissiveRef.current);
       } else {
         crystalMaterialRef.current.emissive.copy(wholeCrystalBaseEmissiveRef.current).lerp(whiteGlow, transitionGlowBlend);
