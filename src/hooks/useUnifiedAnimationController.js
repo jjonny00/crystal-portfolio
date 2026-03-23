@@ -328,6 +328,7 @@ export const useUnifiedAnimationController = (options = {}) => {
   const transitionTimeoutsRef = useRef([]);
   const transitionPhaseMetaRef = useRef({ phase: TRANSITION_PHASES.IDLE, startedAt: 0, durationMs: 0 });
   const transitionAnimationFrameRef = useRef(null);
+  const handleZoneTransitionRef = useRef(null);
   const introPreviewTimeout = useRef(null);
   const introPreviewActiveRef = useRef(false);
   const directProjectOverrideRef = useRef(null);
@@ -523,6 +524,12 @@ export const useUnifiedAnimationController = (options = {}) => {
       createdAt: Date.now()
     };
 
+    if ((zoneKey === 'hero' || zoneKey === 'overview') && handleZoneTransitionRef.current) {
+      handleZoneTransitionRef.current(lastZone.current, zoneKey);
+      lastZone.current = zoneKey;
+      return;
+    }
+
     setAnimationState(prev => {
       if (zoneKey === 'hero') {
         return {
@@ -632,23 +639,27 @@ export const useUnifiedAnimationController = (options = {}) => {
 
       const elapsed = performance.now() - meta.startedAt;
       const linearProgress = Math.max(0, Math.min(elapsed / meta.durationMs, 1));
-      const eased = 1 - Math.pow(1 - linearProgress, 3);
+      const easeOut = 1 - Math.pow(1 - linearProgress, 3);
+      const easeIn = Math.pow(linearProgress, 3.4);
+      const easeInSoft = Math.pow(linearProgress, 2.2);
 
       let glow = 0;
       switch (meta.phase) {
         case TRANSITION_PHASES.CHARGE:
+          glow = easeIn * 0.97;
+          break;
         case TRANSITION_PHASES.REFORM_CHARGE:
-          glow = eased * 0.9;
+          glow = easeInSoft * 0.97;
           break;
         case TRANSITION_PHASES.SWAP_HIDDEN:
         case TRANSITION_PHASES.REFORM_SWAP_HIDDEN:
-          glow = 0.9 + linearProgress * 0.1;
+          glow = 0.97 + linearProgress * 0.03;
           break;
         case TRANSITION_PHASES.EXPLODE:
-          glow = 1 - eased * 0.82;
+          glow = 1 - easeOut;
           break;
         case TRANSITION_PHASES.REFORM_COMPLETE:
-          glow = 1 - eased;
+          glow = 1 - easeOut;
           break;
         default:
           glow = 0;
