@@ -74,6 +74,20 @@ const UnifiedCameraController = ({
   const orbitInitDelayRef = useRef(0);
   const ORBIT_DELAY_FRAMES = 30; // Wait 30 frames after settling before starting orbit
   const lastCameraStateRef = useRef(null);
+  const introStartedRef = useRef(false);
+  const introPlayedRef = useRef(false);
+  const introActiveRef = useRef(false);
+  const introStartTimeRef = useRef(0);
+  const introFromRef = useRef({
+    position: new THREE.Vector3(),
+    lookAt: new THREE.Vector3(),
+    fov: 45
+  });
+  const introToRef = useRef({
+    position: new THREE.Vector3(),
+    lookAt: new THREE.Vector3(),
+    fov: 45
+  });
   const POINTER_IDLE_MS = 400;
   const POINTER_RETURN_DELAY = 0.25;
   const POINTER_RETURN_FADE = 0.7;
@@ -82,6 +96,7 @@ const UnifiedCameraController = ({
   const POINTER_DIRECTION_DISTANCE = 0.00055;
   const POINTER_DIRECTION_DOT = 0.48;
   const POINTER_MAX_SPEED = 0.0021;
+  const INTRO_DURATION_MS = 3400;
 
   const findAnchorInFacet = (facetKey) => {
     if (!facetRefs) {
@@ -266,6 +281,15 @@ const UnifiedCameraController = ({
   }, [camera]);
 
   useEffect(() => {
+    if (
+      introActiveRef.current &&
+      (animationData?.state !== 'hero' || animationData?.cameraState !== 'hero')
+    ) {
+      introActiveRef.current = false;
+    }
+  }, [animationData?.cameraState, animationData?.state]);
+
+  useEffect(() => {
     if (typeof window === 'undefined') return;
 
     const coarsePointer = window.matchMedia?.('(pointer: coarse)')?.matches;
@@ -440,6 +464,31 @@ const UnifiedCameraController = ({
         currentTarget.current.fov = enhancedConfig.fov;
       }
 
+      const shouldRunIntro =
+        !introStartedRef.current &&
+        !introPlayedRef.current &&
+        animationData?.state === 'hero' &&
+        cameraState === 'hero' &&
+        config?.cameraPositions?.intro &&
+        config?.cameraTargets?.intro &&
+        finalPosition &&
+        finalTarget;
+
+      if (shouldRunIntro) {
+        const currentDirection = new THREE.Vector3();
+        camera.getWorldDirection(currentDirection);
+
+        introStartedRef.current = true;
+        introActiveRef.current = true;
+        introStartTimeRef.current = performance.now();
+        introFromRef.current.position.copy(camera.position);
+        introFromRef.current.lookAt.copy(camera.position).add(currentDirection);
+        introFromRef.current.fov = camera.fov;
+        introToRef.current.position.copy(finalPosition);
+        introToRef.current.lookAt.copy(finalTarget);
+        introToRef.current.fov = enhancedConfig.fov ?? camera.fov;
+      }
+
       const positionDistance = camera.position.distanceTo(currentTarget.current.position);
       
       if (animationData.state === 'hero' && positionDistance > 3) {
@@ -489,6 +538,7 @@ const UnifiedCameraController = ({
 
       orbitVelocityRef.current.set(0, 0);
       userControlStrengthRef.current = 0;
+      isOrbitingRef.current = false;
 
       // FIXED: Reset settle tracking when new config is applied
       settleFrameCount.current = 0;
@@ -564,6 +614,52 @@ const UnifiedCameraController = ({
     }
 
     // Orbit camera around crystal during hero state once settled
+    if (introActiveRef.current) {
+      const elapsed = performance.now() - introStartTimeRef.current;
+      const progress = THREE.MathUtils.clamp(elapsed / INTRO_DURATION_MS, 0, 1);
+      const easedProgress = 1 - Math.pow(1 - progress, 3);
+      const introLookAt = new THREE.Vector3().lerpVectors(
+        introFromRef.current.lookAt,
+        introToRef.current.lookAt,
+        easedProgress
+      );
+
+      camera.position.lerpVectors(
+        introFromRef.current.position,
+        introToRef.current.position,
+        easedProgress
+      );
+      camera.lookAt(introLookAt);
+      camera.fov = THREE.MathUtils.lerp(
+        introFromRef.current.fov,
+        introToRef.current.fov,
+        easedProgress
+      );
+      camera.updateProjectionMatrix();
+
+      cameraMoveProgressRef.current = progress;
+      if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = progress;
+      animationData?.setCameraMoveProgress?.(progress);
+      animationData?.setCameraSettled?.(false);
+
+      if (progress >= 1) {
+        introActiveRef.current = false;
+        introPlayedRef.current = true;
+        camera.position.copy(introToRef.current.position);
+        camera.lookAt(introToRef.current.lookAt);
+        camera.fov = introToRef.current.fov;
+        camera.updateProjectionMatrix();
+        currentTarget.current.position.copy(introToRef.current.position);
+        currentTarget.current.lookAt.copy(introToRef.current.lookAt);
+        currentTarget.current.fov = introToRef.current.fov;
+        cameraMoveProgressRef.current = 1;
+        if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = 1;
+        animationData?.setCameraMoveProgress?.(1);
+      }
+
+      return;
+    }
+
     if (animationData.state === 'hero' && animationData.cameraState === 'hero' && isOrbitingRef.current) {
       const deltaMultiplier = deltaTime * 60;
       const speed = animationData.cameraConfig?.orbitSpeed || 0.00018;
@@ -704,7 +800,8 @@ const UnifiedCameraController = ({
       animationData.state === 'hero' &&
       animationData.cameraState === 'hero' &&
       cameraSettledRef.current &&
-      !isOrbitingRef.current
+      !isOrbitingRef.current &&
+      !introActiveRef.current
     ) {
       // ADDED: Additional delay after camera settles to prevent jumps
       orbitInitDelayRef.current += 1;
