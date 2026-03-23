@@ -310,6 +310,7 @@ export const useUnifiedAnimationController = (options = {}) => {
     transitionPhase: TRANSITION_PHASES.IDLE,
     transitionGlow: 0,
     transitionDirection: null,
+    transitionProgress: 1,
     focusedFacet: null,
     isTransitioning: false, // Will be managed by individual components
     scrollProgress: 0,
@@ -325,6 +326,8 @@ export const useUnifiedAnimationController = (options = {}) => {
   const updateTimeout = useRef(null);
   const cameraDelayTimeout = useRef(null);
   const transitionTimeoutsRef = useRef([]);
+  const transitionPhaseMetaRef = useRef({ phase: TRANSITION_PHASES.IDLE, startedAt: 0, durationMs: 0 });
+  const transitionAnimationFrameRef = useRef(null);
   const introPreviewTimeout = useRef(null);
   const introPreviewActiveRef = useRef(false);
   const directProjectOverrideRef = useRef(null);
@@ -477,6 +480,30 @@ export const useUnifiedAnimationController = (options = {}) => {
     transitionTimeoutsRef.current.push(timeoutId);
   }, []);
 
+  const setTransitionPhaseState = useCallback((phase, options = {}) => {
+    const {
+      durationMs = 0,
+      glow = null,
+      direction = null,
+      extra = null
+    } = options;
+
+    transitionPhaseMetaRef.current = {
+      phase,
+      startedAt: performance.now(),
+      durationMs
+    };
+
+    setAnimationState((prev) => ({
+      ...prev,
+      transitionPhase: phase,
+      transitionDirection: direction ?? prev.transitionDirection,
+      transitionGlow: glow ?? prev.transitionGlow,
+      transitionProgress: durationMs > 0 ? 0 : 1,
+      ...(extra || {})
+    }));
+  }, []);
+
   const clearIntroPreview = useCallback(() => {
     introPreviewActiveRef.current = false;
     if (introPreviewTimeout.current) {
@@ -595,6 +622,75 @@ export const useUnifiedAnimationController = (options = {}) => {
     return () => window.removeEventListener('resize', handleResize);
   }, [measureProjectSectionsFromDom]);
 
+  useEffect(() => {
+    const animateTransition = () => {
+      const meta = transitionPhaseMetaRef.current;
+      if (!meta?.phase || meta.phase === TRANSITION_PHASES.IDLE || meta.durationMs <= 0) {
+        transitionAnimationFrameRef.current = null;
+        return;
+      }
+
+      const elapsed = performance.now() - meta.startedAt;
+      const linearProgress = Math.max(0, Math.min(elapsed / meta.durationMs, 1));
+      const eased = 1 - Math.pow(1 - linearProgress, 3);
+
+      let glow = 0;
+      switch (meta.phase) {
+        case TRANSITION_PHASES.CHARGE:
+        case TRANSITION_PHASES.REFORM_CHARGE:
+          glow = eased * 0.9;
+          break;
+        case TRANSITION_PHASES.SWAP_HIDDEN:
+        case TRANSITION_PHASES.REFORM_SWAP_HIDDEN:
+          glow = 0.9 + linearProgress * 0.1;
+          break;
+        case TRANSITION_PHASES.EXPLODE:
+          glow = 1 - eased * 0.82;
+          break;
+        case TRANSITION_PHASES.REFORM_COMPLETE:
+          glow = 1 - eased;
+          break;
+        default:
+          glow = 0;
+      }
+
+      setAnimationState((prev) => {
+        if (prev.transitionPhase !== meta.phase) {
+          return prev;
+        }
+        return {
+          ...prev,
+          transitionGlow: glow,
+          transitionProgress: linearProgress
+        };
+      });
+
+      if (linearProgress < 1) {
+        transitionAnimationFrameRef.current = requestAnimationFrame(animateTransition);
+      } else {
+        transitionAnimationFrameRef.current = null;
+      }
+    };
+
+    const phase = animationState.transitionPhase;
+    if (
+      phase !== TRANSITION_PHASES.IDLE &&
+      transitionPhaseMetaRef.current.durationMs > 0
+    ) {
+      if (transitionAnimationFrameRef.current) {
+        cancelAnimationFrame(transitionAnimationFrameRef.current);
+      }
+      transitionAnimationFrameRef.current = requestAnimationFrame(animateTransition);
+    }
+
+    return () => {
+      if (transitionAnimationFrameRef.current) {
+        cancelAnimationFrame(transitionAnimationFrameRef.current);
+        transitionAnimationFrameRef.current = null;
+      }
+    };
+  }, [animationState.transitionPhase]);
+
   const toQuaternionArray = useCallback((rotation) => {
     if (Array.isArray(rotation)) return rotation;
     if (rotation instanceof Quaternion) return rotation.toArray();
@@ -637,6 +733,10 @@ export const useUnifiedAnimationController = (options = {}) => {
     clearTransitionTimeouts();
 
     const fracturePauseMs = (config.crystal.fracturePause || 0.5) * 1000;
+    const explodeMotionMs = Math.max(
+      ((config.crystal.explodeDuration || 1.6) - (config.crystal.fracturePause || 0.5)) * 1000,
+      0
+    );
     const hiddenSwapMs = Math.min(120, fracturePauseMs * 0.28);
     const chargeMs = Math.max(fracturePauseMs - hiddenSwapMs, 0);
 
@@ -645,41 +745,40 @@ export const useUnifiedAnimationController = (options = {}) => {
         ...prev,
         state: ANIMATION_STATES.HERO,
         crystalForm: 'exploded',
-        cameraState: 'overview',
-        transitionPhase: TRANSITION_PHASES.REFORM_CHARGE,
-        transitionGlow: 0.18,
-        transitionDirection: 'reverse',
+        cameraState: 'hero',
         focusedFacet: null,
         isTransitioning: false
       }));
+      setTransitionPhaseState(TRANSITION_PHASES.REFORM_CHARGE, {
+        durationMs: explodeMotionMs,
+        direction: 'reverse'
+      });
 
-      scheduleTransitionStep(chargeMs, () => {
-        setAnimationState(prev => ({
-          ...prev,
-          transitionPhase: TRANSITION_PHASES.REFORM_SWAP_HIDDEN,
-          transitionGlow: 1
-        }));
+      scheduleTransitionStep(explodeMotionMs, () => {
+        setTransitionPhaseState(TRANSITION_PHASES.REFORM_SWAP_HIDDEN, {
+          durationMs: hiddenSwapMs,
+          direction: 'reverse'
+        });
       });
 
       cameraDelayTimeout.current = setTimeout(() => {
         setAnimationState(prev => ({
           ...prev,
           crystalForm: 'whole',
-          cameraState: 'hero',
-          transitionPhase: TRANSITION_PHASES.REFORM_COMPLETE,
-          transitionGlow: 0.18,
-          transitionDirection: 'reverse'
+          cameraState: 'hero'
         }));
-
-        scheduleTransitionStep(240, () => {
-          setAnimationState(prev => ({
-            ...prev,
-            transitionPhase: TRANSITION_PHASES.IDLE,
-            transitionGlow: 0,
-            transitionDirection: null
-          }));
+        setTransitionPhaseState(TRANSITION_PHASES.REFORM_COMPLETE, {
+          durationMs: 220,
+          direction: 'reverse'
         });
-      }, fracturePauseMs);
+
+        scheduleTransitionStep(220, () => {
+          setTransitionPhaseState(TRANSITION_PHASES.IDLE, {
+            glow: 0,
+            direction: null
+          });
+        });
+      }, explodeMotionMs + hiddenSwapMs);
     }
     else if (toZone === 'overview') {
       setAnimationState(prev => ({
@@ -687,19 +786,19 @@ export const useUnifiedAnimationController = (options = {}) => {
         state: ANIMATION_STATES.OVERVIEW,
         crystalForm: 'whole',
         cameraState: 'hero',
-        transitionPhase: TRANSITION_PHASES.CHARGE,
-        transitionGlow: 0.35,
-        transitionDirection: 'forward',
         focusedFacet: null,
         isTransitioning: false
       }));
+      setTransitionPhaseState(TRANSITION_PHASES.CHARGE, {
+        durationMs: chargeMs,
+        direction: 'forward'
+      });
 
       scheduleTransitionStep(chargeMs, () => {
-        setAnimationState(prev => ({
-          ...prev,
-          transitionPhase: TRANSITION_PHASES.SWAP_HIDDEN,
-          transitionGlow: 1
-        }));
+        setTransitionPhaseState(TRANSITION_PHASES.SWAP_HIDDEN, {
+          durationMs: hiddenSwapMs,
+          direction: 'forward'
+        });
       });
 
       cameraDelayTimeout.current = setTimeout(() => {
@@ -707,21 +806,20 @@ export const useUnifiedAnimationController = (options = {}) => {
           ...prev,
           state: ANIMATION_STATES.OVERVIEW,
           crystalForm: 'exploded',
-          cameraState: 'overview',
-          transitionPhase: TRANSITION_PHASES.EXPLODE,
-          transitionGlow: 0.55,
-          transitionDirection: 'forward'
+          cameraState: 'overview'
         }));
-
-        scheduleTransitionStep(320, () => {
-          setAnimationState(prev => ({
-            ...prev,
-            transitionPhase: TRANSITION_PHASES.SELECTED,
-            transitionGlow: 0,
-            transitionDirection: null
-          }));
+        setTransitionPhaseState(TRANSITION_PHASES.EXPLODE, {
+          durationMs: explodeMotionMs,
+          direction: 'forward'
         });
-      }, fracturePauseMs);
+
+        scheduleTransitionStep(explodeMotionMs, () => {
+          setTransitionPhaseState(TRANSITION_PHASES.SELECTED, {
+            glow: 0,
+            direction: null
+          });
+        });
+      }, chargeMs + hiddenSwapMs);
     }
     else if (toZone === 'projects') {
       setAnimationState(prev => ({

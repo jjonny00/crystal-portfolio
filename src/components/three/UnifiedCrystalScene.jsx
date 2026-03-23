@@ -1568,12 +1568,8 @@ const UnifiedCrystalScene = forwardRef(({
     // Handle facet animations
     if (showFacets && crystalConfig?.positions) {
       // Custom fracture/explosion timing
-      if (animationData.crystalForm === 'exploded' && explosionStartRef.current) {
-        const totalDuration = crystalConfig?.explodeDuration || 1.2;
-        const motionDuration = Math.max(totalDuration - (crystalConfig?.fracturePause || 0.5), 0.0001);
-        const elapsedExplosion = (performance.now() - explosionStartRef.current) / 1000;
-
-        const progress = Math.min(elapsedExplosion / motionDuration, 1);
+      if (animationData.transitionPhase === 'explode') {
+        const progress = animationData.transitionProgress ?? 0;
         const fracture = crystalConfig?.fracturePositions;
         const fractureDistance = crystalConfig?.fractureDistance ?? 0.3;
         const eased = crystalConfig?.explosionEase
@@ -1606,9 +1602,6 @@ const UnifiedCrystalScene = forwardRef(({
           }
         });
 
-        if (progress >= 1) {
-          explosionStartRef.current = null; // Animation finished
-        }
         return;
       }
 
@@ -1642,16 +1635,24 @@ const UnifiedCrystalScene = forwardRef(({
 
         if (targetPos) {
           if (isReforming) {
-            const distanceToCenter = facetRef.current.position.length();
-            const maxDistance = 3;
-            const progress = Math.min(1 - (distanceToCenter / maxDistance), 1);
-            const clampedProgress = Math.max(0, progress);
+            const fracture = crystalConfig?.fracturePositions;
+            const fractureDistance = crystalConfig?.fractureDistance ?? 0.3;
+            const end = fracture?.[facetPlacementKeys[facetKey] || facetKey]
+              || targetPos?.clone().normalize().multiplyScalar(targetPos.length() * fractureDistance);
+            const start = crystalConfig?.positions?.[facetPlacementKeys[facetKey] || facetKey];
+            const reformProgress = animationData.transitionPhase === 'reform_charge'
+              ? (animationData.transitionProgress ?? 0)
+              : 1;
+            const easedReform = crystalConfig?.explosionEase
+              ? crystalConfig.explosionEase(reformProgress)
+              : reformProgress;
 
-            const facetSpeed = 0.02 + (clampedProgress * clampedProgress * 0.16);
-            facetRef.current.position.lerp(targetPos, facetSpeed * deltaTime * 60);
-
-            if (distanceToCenter > 0.05) {
-              allFacetsAtCenter = false;
+            if (start && end) {
+              const interpolated = start.clone().lerp(end, easedReform);
+              facetRef.current.position.copy(interpolated);
+              if (facetRef.current.position.distanceTo(end) > 0.02) {
+                allFacetsAtCenter = false;
+              }
             }
           } else {
             let finalTarget = targetPos;

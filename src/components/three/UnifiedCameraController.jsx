@@ -64,6 +64,11 @@ const UnifiedCameraController = ({
     target: null,
     source: 'config'
   });
+  const transitionFromRef = useRef({
+    position: new THREE.Vector3(),
+    lookAt: new THREE.Vector3(),
+    fov: 45
+  });
 
   // Track when camera has reached its target
   const settleFrameCount = useRef(0);
@@ -543,10 +548,14 @@ const UnifiedCameraController = ({
       }
 
       if (finalPosition) {
+        transitionFromRef.current.position.copy(camera.position);
         currentTarget.current.position.copy(finalPosition);
       }
       
       if (finalTarget) {
+        const currentDirection = new THREE.Vector3();
+        camera.getWorldDirection(currentDirection);
+        transitionFromRef.current.lookAt.copy(camera.position).add(currentDirection);
         currentTarget.current.lookAt.copy(finalTarget);
         if (cameraState === 'hero') {
           heroOrbitCenterRef.current.copy(finalTarget);
@@ -554,6 +563,7 @@ const UnifiedCameraController = ({
       }
       
       if (enhancedConfig.fov !== undefined) {
+        transitionFromRef.current.fov = camera.fov;
         currentTarget.current.fov = enhancedConfig.fov;
       }
 
@@ -821,6 +831,37 @@ const UnifiedCameraController = ({
 
       animationData?.setCameraMoveProgress?.(1);
       animationData?.setCameraSettled?.(false);
+      return;
+    }
+
+    const syncedTransitionPhase = animationData?.transitionPhase;
+    if (
+      syncedTransitionPhase === 'explode' ||
+      syncedTransitionPhase === 'reform_charge'
+    ) {
+      const linearProgress = animationData?.transitionProgress ?? 0;
+      const easedProgress = 1 - Math.pow(1 - linearProgress, 3);
+      camera.position.lerpVectors(
+        transitionFromRef.current.position,
+        currentTarget.current.position,
+        easedProgress
+      );
+      const syncedLookAt = new THREE.Vector3().lerpVectors(
+        transitionFromRef.current.lookAt,
+        currentTarget.current.lookAt,
+        easedProgress
+      );
+      camera.lookAt(syncedLookAt);
+      camera.fov = THREE.MathUtils.lerp(
+        transitionFromRef.current.fov,
+        currentTarget.current.fov,
+        easedProgress
+      );
+      camera.updateProjectionMatrix();
+      cameraMoveProgressRef.current = linearProgress;
+      if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = linearProgress;
+      animationData?.setCameraMoveProgress?.(linearProgress);
+      animationData?.setCameraSettled?.(linearProgress >= 1);
       return;
     }
 
