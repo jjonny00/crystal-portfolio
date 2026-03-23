@@ -349,6 +349,7 @@ function App() {
   const [exitLoader, setExitLoader] = useState(false);
   const [showLoader, setShowLoader] = useState(true);
   const loaderHideTimeoutRef = useRef(null);
+  const loaderStartFadeTimeoutRef = useRef(null);
   // Progress is now provided directly by hooks
 
   // UPDATED: Use V2 performance hook
@@ -445,6 +446,20 @@ function App() {
     }
   }, [performanceProfile]);
 
+
+  const beginLoaderFadeOut = useCallback(() => {
+    setExitLoader(true);
+
+    if (loaderHideTimeoutRef.current) {
+      clearTimeout(loaderHideTimeoutRef.current);
+    }
+
+    loaderHideTimeoutRef.current = setTimeout(() => {
+      setShowLoader(false);
+      loaderHideTimeoutRef.current = null;
+    }, LOADER_EXIT_FADE_MS);
+  }, []);
+
   // Detect if mobile
   const isMobile = isMobileDevice();
 
@@ -467,23 +482,18 @@ function App() {
       }
       setIsAppReady(true);
       setInitProgress(100);
-      setExitLoader(true);
-
-      if (loaderHideTimeoutRef.current) {
-        clearTimeout(loaderHideTimeoutRef.current);
-      }
-
-      loaderHideTimeoutRef.current = setTimeout(() => {
-        setShowLoader(false);
-        loaderHideTimeoutRef.current = null;
-      }, LOADER_EXIT_FADE_MS);
+      beginLoaderFadeOut();
     }
-  }, [performanceReady, assetsReady, initProgress, exitLoader, performanceTier, performanceProfile]);
+  }, [beginLoaderFadeOut, performanceReady, assetsReady, initProgress, exitLoader, performanceTier, performanceProfile]);
 
   useEffect(() => () => {
     if (loaderHideTimeoutRef.current) {
       clearTimeout(loaderHideTimeoutRef.current);
       loaderHideTimeoutRef.current = null;
+    }
+    if (loaderStartFadeTimeoutRef.current) {
+      clearTimeout(loaderStartFadeTimeoutRef.current);
+      loaderStartFadeTimeoutRef.current = null;
     }
   }, []);
 
@@ -549,8 +559,24 @@ function App() {
       window.scrollTo({ top: 0, behavior: 'auto' });
     }
 
+    if (loaderHideTimeoutRef.current) {
+      clearTimeout(loaderHideTimeoutRef.current);
+      loaderHideTimeoutRef.current = null;
+    }
+    if (loaderStartFadeTimeoutRef.current) {
+      clearTimeout(loaderStartFadeTimeoutRef.current);
+      loaderStartFadeTimeoutRef.current = null;
+    }
+
+    setShowLoader(true);
+    setExitLoader(false);
     setSceneRestartToken((prev) => prev + 1);
-  }, []);
+
+    loaderStartFadeTimeoutRef.current = setTimeout(() => {
+      loaderStartFadeTimeoutRef.current = null;
+      beginLoaderFadeOut();
+    }, 60);
+  }, [beginLoaderFadeOut]);
 
   const handleMaterialChange = useCallback((variant) => {
     if (import.meta.env.DEV) console.log("Changing material variant to:", variant);

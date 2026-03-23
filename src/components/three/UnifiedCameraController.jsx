@@ -654,9 +654,7 @@ const UnifiedCameraController = ({
       const elapsed = performance.now() - introStartTimeRef.current;
       const progress = THREE.MathUtils.clamp(elapsed / INTRO_DURATION_MS, 0, 1);
       const easedProgress = 1 - Math.pow(1 - progress, 3);
-      const positionProgress = progress < 0.5
-        ? (progress / 0.5) * 0.08
-        : 0.08 + 0.92 * (1 - Math.pow(1 - ((progress - 0.5) / 0.5), 3));
+      const positionProgress = Math.pow(progress, 2.6);
       const introLookAt = new THREE.Vector3().lerpVectors(
         introFromRef.current.lookAt,
         introToRef.current.lookAt,
