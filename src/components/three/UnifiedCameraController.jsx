@@ -232,6 +232,15 @@ const UnifiedCameraController = ({
   const getConfigCameraState = (cameraState, focusedFacet) => {
     if (!config?.cameraPositions) return null;
 
+    if (cameraState === 'intro') {
+      return {
+        position: toVector3(config.cameraPositions.intro),
+        target: toVector3(config.cameraTargets?.intro),
+        fov: animationData?.cameraConfig?.fov,
+        description: 'intro (layout/config)'
+      };
+    }
+
     if (cameraState === 'hero') {
       return {
         position: toVector3(config.cameraPositions.hero),

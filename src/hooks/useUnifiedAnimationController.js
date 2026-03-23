@@ -16,8 +16,8 @@ export const ANIMATION_CONFIG = {
   // Camera positions for immediate transitions
   camera: {
     intro: {
-      position: new Vector3(0.18, 1.08, 2.46),
-      target: new Vector3(0, 0.35, 0),
+      position: new Vector3(0.16359952088021784, -2.0376618037026195, 1.1719674768510127),
+      target: new Vector3(0.6, -2.9, 0),
       fov: 32,
       description: 'Intro dramatic close view',
       orbitSpeed: 0.0003
