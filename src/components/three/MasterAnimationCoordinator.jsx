@@ -14,7 +14,8 @@ const MasterAnimationCoordinator = ({
   children,
   debugMode = false,
   onAnimationStateChange = null,
-  config = null
+  config = null,
+  restartToken = 0
 }) => {
   const [showAnimationDebug, setShowAnimationDebug] = useState(false);
 
@@ -29,7 +30,8 @@ const MasterAnimationCoordinator = ({
   const animationController = useUnifiedAnimationController({
     debugMode: debugMode,
     onStateChange: onAnimationStateChange,
-    config: config || undefined
+    config: config || undefined,
+    introReplayToken: restartToken
   });
 
   useEffect(() => {

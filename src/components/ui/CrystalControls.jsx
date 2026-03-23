@@ -9,7 +9,7 @@ const DEG2RAD = Math.PI / 180;
 const zoneKeys = ['intro', 'hero', 'overview', 'about'];
 const projectKeys = ['empathy', 'narrative', 'craft', 'system', 'leadership', 'exploration'];
 
-const CrystalControls = ({ config, onUpdate }) => {
+const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
   const [activeTab, setActiveTab] = useState('timing');
   const [exportStatus, setExportStatus] = useState('');
   const fileInputRef = useRef(null);
@@ -935,6 +935,11 @@ const CrystalControls = ({ config, onUpdate }) => {
 
     const success = fallbackCopyText(payload);
     setExportMessage(success ? 'Copied to clipboard ✅' : 'Copy failed');
+  };
+
+  const handleRestartSceneClick = () => {
+    onRestartScene?.();
+    setExportMessage('Scene restarted ✅');
   };
 
   const handleDownloadJson = () => {
@@ -2047,12 +2052,22 @@ const CrystalControls = ({ config, onUpdate }) => {
         />
       </div>
       
-      <button 
-        style={resetButtonStyle}
-        onClick={handleReset}
-      >
-        Reset to Defaults
-      </button>
+      <div style={{ display: 'flex', gap: '8px' }}>
+        <button
+          type="button"
+          style={{ ...resetButtonStyle, flex: 1, marginTop: 0 }}
+          onClick={handleRestartSceneClick}
+        >
+          Restart Scene
+        </button>
+        <button 
+          type="button"
+          style={{ ...resetButtonStyle, flex: 1, marginTop: 0 }}
+          onClick={handleReset}
+        >
+          Reset to Defaults
+        </button>
+      </div>
     </div>
   );
 };

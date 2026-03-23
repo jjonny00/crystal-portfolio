@@ -521,6 +521,19 @@ function App() {
     setProjectRuntimeOverrides(getProjectRuntimeOverrides(defaultConfig, newConfig));
   }, []);
 
+
+  const handleRestartScene = useCallback(() => {
+    const scrollContainer = document.querySelector('.scroll-container');
+
+    if (scrollContainer) {
+      scrollContainer.scrollTo({ top: 0, behavior: 'auto' });
+    } else {
+      window.scrollTo({ top: 0, behavior: 'auto' });
+    }
+
+    setSceneRestartToken((prev) => prev + 1);
+  }, []);
+
   const handleMaterialChange = useCallback((variant) => {
     if (import.meta.env.DEV) console.log("Changing material variant to:", variant);
     setMaterialVariant(variant);
@@ -747,6 +760,7 @@ function App() {
         debugMode={import.meta.env.DEV}
         onAnimationStateChange={handleAnimationStateChange}
         config={animationConfig}
+        restartToken={sceneRestartToken}
       >
         {/* Fixed 3D Canvas */}
         <Fixed3DCanvas
@@ -793,7 +807,7 @@ function App() {
             { label: 'Scroll' }
           ]}
         >
-          <CrystalControls config={config} onUpdate={handleConfigUpdate} />
+          <CrystalControls config={config} onUpdate={handleConfigUpdate} onRestartScene={handleRestartScene} />
           
           <div>
             <MaterialSelector currentVariant={materialVariant} onChange={handleMaterialChange} />
