@@ -831,7 +831,7 @@ function App() {
       >
         {/* Fixed 3D Canvas */}
         <Fixed3DCanvas
-          key={performanceProfile?.renderScale}
+          key={`${performanceProfile?.renderScale ?? 'default'}-${sceneRestartToken}`}
           ref={fixedCanvasRef}
           restartToken={sceneRestartToken}
           materialVariant={materialVariant}
