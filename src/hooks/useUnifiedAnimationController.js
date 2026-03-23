@@ -644,17 +644,19 @@ export const useUnifiedAnimationController = (options = {}) => {
           glow = easeIn * 0.97;
           break;
         case TRANSITION_PHASES.REFORM_CHARGE:
-          glow = easeInSoft * 0.97;
+          glow = (1 - easeOut) * 0.97;
           break;
         case TRANSITION_PHASES.SWAP_HIDDEN:
-        case TRANSITION_PHASES.REFORM_SWAP_HIDDEN:
           glow = 0.97 + linearProgress * 0.03;
+          break;
+        case TRANSITION_PHASES.REFORM_SWAP_HIDDEN:
+          glow = (1 - linearProgress) * 0.06;
           break;
         case TRANSITION_PHASES.EXPLODE:
           glow = 1 - easeOut;
           break;
         case TRANSITION_PHASES.REFORM_COMPLETE:
-          glow = 1 - easeOut;
+          glow = 0;
           break;
         default:
           glow = 0;
