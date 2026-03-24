@@ -374,7 +374,6 @@ const UnifiedCrystalScene = forwardRef(({
 
   const runReformSwap = useCallback(() => {
     pendingReformSwapAtRef.current = null;
-    setShowWholeCrystal(true);
     pendingFacetHideAtRef.current = performance.now() + REFORM_SWAP_OVERLAP_MS;
   }, []);
 
