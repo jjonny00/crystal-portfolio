@@ -100,6 +100,8 @@ const UnifiedCameraController = ({
   const POINTER_MAX_SPEED = 0.0021;
   const INTRO_DURATION_MS = 4400;
   const FRACTURE_TILT_RADIANS = 0.055;
+  const FRACTURE_YAW_LEFT_RADIANS = 0.02;
+  const FRACTURE_PITCH_UP_RADIANS = -0.024;
   const FRACTURE_TILT_RELEASE_DISTANCE = 0.015;
   const fractureTiltRef = useRef(0);
   const fractureTiltActiveRef = useRef(false);
@@ -109,7 +111,13 @@ const UnifiedCameraController = ({
   const applyFractureTilt = () => {
     if (!fractureTiltActiveRef.current) return;
 
-    if (Math.abs(fractureTiltRef.current) > 0.00001) {
+    if (
+      Math.abs(fractureTiltRef.current) > 0.00001 ||
+      Math.abs(FRACTURE_YAW_LEFT_RADIANS) > 0.00001 ||
+      Math.abs(FRACTURE_PITCH_UP_RADIANS) > 0.00001
+    ) {
+      camera.rotateY(FRACTURE_YAW_LEFT_RADIANS);
+      camera.rotateX(FRACTURE_PITCH_UP_RADIANS);
       camera.rotateZ(fractureTiltRef.current);
     }
 
