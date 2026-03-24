@@ -470,6 +470,10 @@ const UnifiedCrystalScene = forwardRef(({
   }, [facetKeys]);
 
   const focusedSceneFacetKey = animationData?.focusedFacet || null;
+  const hideFacetMeshesDuringReformOverlap =
+    animationData?.crystalForm === 'whole'
+    && showWholeCrystal
+    && pendingFacetHideAtRef.current != null;
   const focusedProjectKey =
     animationData?.focusedProject
     || getProjectIdBySceneFacetKey(focusedSceneFacetKey)
@@ -2024,7 +2028,7 @@ const UnifiedCrystalScene = forwardRef(({
       )}
       
       {showFacets && !simplifiedAnimations && (
-        <group ref={facetsGroupRef}>
+        <group ref={facetsGroupRef} visible={!hideFacetMeshesDuringReformOverlap}>
           {facetModels.map((model, index) => {
             const facetKey = facetKeys[index];
 
