@@ -40,7 +40,7 @@ export const fracture = {
     imagePath: '/assets/textures/fractureRing03.jpg',
     baseSize: 0.1,
     maxScale: 16,
-    opacity: 1.25,
+    opacity: 0.75,
     duration: 0.4,
     triggerDelay: 0.45,
     fadeInDuration: 0.1,
@@ -48,7 +48,7 @@ export const fracture = {
     scaleEasing: 'linear'
   },
   emissive: {
-    intensity: 3.0,       // Bright glow intensity at fracture
+    intensity: 2.0,       // Bright glow intensity at fracture
     delay: 0              // Delay before emissive glow starts (seconds)
   }
 };

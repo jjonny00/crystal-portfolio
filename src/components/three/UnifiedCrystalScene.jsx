@@ -1998,13 +1998,13 @@ const UnifiedCrystalScene = forwardRef(({
 
       {/* Enhanced Glowing Sphere */}
       <GlowingSphereImage
-        blendStyle={BLEND_STYLES.COLOR_DODGE}
+        blendStyle={BLEND_STYLES.OVERLAY}
         enableDithering={true}
         enableAntialiasing={true}
         textureFiltering="enhanced"
         baseSize={256}
         maxScale={1280}
-        maxOpacity={0.6}
+        maxOpacity={0.25}
         explosionDuration={0.05}
         fadeInDuration={0.02}
         position={[0, 0, 0]}
