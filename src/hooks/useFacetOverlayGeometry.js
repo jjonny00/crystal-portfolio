@@ -551,17 +551,9 @@ export const useFacetOverlayGeometry = (facetKeys) => {
         slot.currentOpacity = 0;
 
         if (slot.isActive) {
-          // CRITICAL: restore original material so emissive masking works
-          ensureMaterialAssignment(
-            slot.mesh,
-            slot.materialIndex,
-            slot.originalMaterial
-          );
-
+          // Keep overlay material assigned, just hide it visually
           slot.overlayMaterial.opacity = 0;
           slot.overlayMaterial.needsUpdate = true;
-
-          slot.isActive = false;
         }
 
         return;
