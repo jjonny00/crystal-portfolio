@@ -232,6 +232,7 @@ export const useFacetOverlayGeometry = (facetKeys) => {
   const [isReady, setIsReady] = useState(false);
   const overlaySlotsRef = useRef(new Map());
   const canvasCacheRef = useRef(new Map());
+  const suppressOverlayOpacityRef = useRef(false);
 
   const imageLoader = useMemo(() => {
     const loader = new THREE.ImageLoader();
@@ -541,9 +542,24 @@ export const useFacetOverlayGeometry = (facetKeys) => {
     }
   }, []);
 
+  const setOverlaySuppressed = useCallback((suppressed) => {
+    suppressOverlayOpacityRef.current = Boolean(suppressed);
+  }, []);
+
   const updateOverlays = useCallback((deltaTime) => {
+    const suppressOverlays = suppressOverlayOpacityRef.current;
+
     overlaySlotsRef.current.forEach((slot) => {
       if (!slot.mesh) return;
+
+      if (suppressOverlays) {
+        slot.currentOpacity = 0;
+        if (slot.isActive) {
+          slot.overlayMaterial.opacity = 0;
+          slot.overlayMaterial.needsUpdate = true;
+        }
+        return;
+      }
 
       if (!slot.isActive && slot.targetOpacity <= 0) {
         slot.currentOpacity = 0;
@@ -615,6 +631,7 @@ export const useFacetOverlayGeometry = (facetKeys) => {
     isReady,
     registerOverlaySlot,
     setOverlayVisibility,
+    setOverlaySuppressed,
     updateOverlays,
     cleanup,
     overlaySlots: overlaySlotsRef.current,

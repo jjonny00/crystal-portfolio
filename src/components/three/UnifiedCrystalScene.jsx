@@ -456,6 +456,7 @@ const UnifiedCrystalScene = forwardRef(({
     isReady: overlaysReady,
     registerOverlaySlot,
     setOverlayVisibility,
+    setOverlaySuppressed,
     updateOverlays,
     cleanup: cleanupOverlays,
     overlaySlots
@@ -1911,7 +1912,13 @@ const UnifiedCrystalScene = forwardRef(({
       }
     });
 
+    const reformOverlaySuppressionActive =
+      showFacets &&
+      animationData.crystalForm === 'whole' &&
+      (pendingReformSwapAtRef.current != null || swapMaskGlowModeRef.current === 'reform');
+
     if (overlaysReady) {
+      setOverlaySuppressed(reformOverlaySuppressionActive);
       updateOverlays(deltaTime);
     }
 
@@ -1920,7 +1927,7 @@ const UnifiedCrystalScene = forwardRef(({
     if (
       showFacets &&
       animationData.crystalForm === 'whole' &&
-      (pendingReformSwapAtRef.current != null || swapMaskGlowModeRef.current === 'reform')
+      reformOverlaySuppressionActive
     ) {
       applyReformFacetMaskGlow(1);
     }
