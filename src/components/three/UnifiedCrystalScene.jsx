@@ -37,11 +37,11 @@ const FOCUS_ROTATION_PROGRESS_LEAD = 1
 const ISOLATE_FOCUSED_ROTATION_FROM_POSITION = true
 const FORWARD_PRE_SWAP_WINDOW_MS = 120
 const FORWARD_MASK_GLOW_DURATION_S = 0.22
-const FORWARD_MASK_GLOW_PEAK_INTENSITY = 1.2
+const FORWARD_MASK_GLOW_PEAK_INTENSITY = 0.45
 const REFORM_PRE_SWAP_WINDOW_MS = 110
 const REFORM_MASK_GLOW_DURATION_S = 0.2
-const REFORM_MASK_GLOW_PEAK_INTENSITY = 1.35
-const REFORM_FACET_MASK_GLOW_PEAK_INTENSITY = 1.1
+const REFORM_MASK_GLOW_PEAK_INTENSITY = 0.55
+const REFORM_FACET_MASK_GLOW_PEAK_INTENSITY = 0.5
 const REFORM_SWAP_OVERLAP_MS = 100
 
 const UnifiedCrystalScene = forwardRef(({ 
@@ -78,7 +78,7 @@ const UnifiedCrystalScene = forwardRef(({
   const fractureStartQuatRef = useRef(new THREE.Quaternion());
   const neutralQuat = useMemo(() => new THREE.Quaternion(), []);
   const origin = useMemo(() => new THREE.Vector3(0, 0, 0), []);
-  const swapMaskGlowColor = useMemo(() => new THREE.Color('#f4fbff'), []);
+  const swapMaskGlowColor = useMemo(() => new THREE.Color('#66cfff'), []);
   
   // Debug panel state
   const [showCrystalDebug, setShowCrystalDebug] = useState(false);
@@ -1998,13 +1998,13 @@ const UnifiedCrystalScene = forwardRef(({
 
       {/* Enhanced Glowing Sphere */}
       <GlowingSphereImage
-        blendStyle={BLEND_STYLES.OVERLAY}
+        blendStyle={BLEND_STYLES.ADDITIVE}
         enableDithering={true}
         enableAntialiasing={true}
         textureFiltering="enhanced"
         baseSize={256}
         maxScale={1280}
-        maxOpacity={0.25}
+        maxOpacity={1.0}
         explosionDuration={0.05}
         fadeInDuration={0.02}
         position={[0, 0, 0]}

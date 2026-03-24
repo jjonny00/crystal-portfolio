@@ -48,7 +48,7 @@ export const fracture = {
     scaleEasing: 'linear'
   },
   emissive: {
-    intensity: 2.0,       // Bright glow intensity at fracture
+    intensity: 0.9,       // Bright glow intensity at fracture
     delay: 0              // Delay before emissive glow starts (seconds)
   }
 };
@@ -297,7 +297,7 @@ export const effects = {
   fracture: {
     maxScaleFactor: 0.1,     // Maximum scale increase during fracture (10%)
     initialGlow: fracture.emissive.intensity, // Initial bright glow
-    secondaryGlow: 1.0       // Secondary glow after initial pulse
+    secondaryGlow: 0.35      // Secondary glow after initial pulse
   }
 }
 
