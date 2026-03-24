@@ -99,6 +99,28 @@ const UnifiedCameraController = ({
   const POINTER_DIRECTION_DOT = 0.48;
   const POINTER_MAX_SPEED = 0.0021;
   const INTRO_DURATION_MS = 4400;
+  const FRACTURE_TILT_RADIANS = -0.055;
+  const FRACTURE_TILT_DECAY_SECONDS = 0.45;
+  const fractureTiltRef = useRef(0);
+  const fractureTiltStartRef = useRef(null);
+  const lastCrystalFormRef = useRef(animationData?.crystalForm ?? 'whole');
+
+  const applyFractureTilt = () => {
+    if (fractureTiltStartRef.current !== null) {
+      const elapsed = (performance.now() - fractureTiltStartRef.current) / 1000;
+      const decayProgress = THREE.MathUtils.clamp(elapsed / FRACTURE_TILT_DECAY_SECONDS, 0, 1);
+      fractureTiltRef.current = THREE.MathUtils.lerp(FRACTURE_TILT_RADIANS, 0, decayProgress);
+
+      if (decayProgress >= 1) {
+        fractureTiltRef.current = 0;
+        fractureTiltStartRef.current = null;
+      }
+    }
+
+    if (Math.abs(fractureTiltRef.current) > 0.00001) {
+      camera.rotateZ(fractureTiltRef.current);
+    }
+  };
 
   const findAnchorInFacet = (facetKey) => {
     if (!facetRefs) {
@@ -361,6 +383,18 @@ const UnifiedCameraController = ({
     animationData?.setCameraSettled?.(false);
   }, [animationData, camera, config, restartToken, sharedCameraMoveProgressRef]);
 
+
+  useEffect(() => {
+    const currentCrystalForm = animationData?.crystalForm ?? 'whole';
+    const previousCrystalForm = lastCrystalFormRef.current;
+
+    if (previousCrystalForm !== 'exploded' && currentCrystalForm === 'exploded') {
+      fractureTiltRef.current = FRACTURE_TILT_RADIANS;
+      fractureTiltStartRef.current = performance.now();
+    }
+
+    lastCrystalFormRef.current = currentCrystalForm;
+  }, [animationData?.crystalForm]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || isTouchDeviceRef.current) return undefined;
@@ -693,6 +727,7 @@ const UnifiedCameraController = ({
       if (simplifiedAnimations) {
         camera.position.copy(currentTarget.current.position);
         camera.lookAt(currentTarget.current.lookAt);
+        applyFractureTilt();
         camera.fov = currentTarget.current.fov;
         camera.updateProjectionMatrix();
         cameraMoveProgressRef.current = 1;
@@ -726,6 +761,7 @@ const UnifiedCameraController = ({
         positionProgress
       );
       camera.lookAt(introLookAt);
+      applyFractureTilt();
       camera.fov = THREE.MathUtils.lerp(
         introFromRef.current.fov,
         introToRef.current.fov,
@@ -743,6 +779,7 @@ const UnifiedCameraController = ({
         introPlayedRef.current = true;
         camera.position.copy(introToRef.current.position);
         camera.lookAt(introToRef.current.lookAt);
+        applyFractureTilt();
         camera.fov = introToRef.current.fov;
         camera.updateProjectionMatrix();
         currentTarget.current.position.copy(introToRef.current.position);
@@ -814,6 +851,7 @@ const UnifiedCameraController = ({
         .set(x, y, z)
         .add(orbitCenter);
       camera.lookAt(orbitCenter);
+      applyFractureTilt();
       camera.fov = currentTarget.current.fov;
       camera.updateProjectionMatrix();
 
@@ -845,6 +883,7 @@ const UnifiedCameraController = ({
       .addVectors(camera.position, currentDirection);
 
     camera.lookAt(newLookAt);
+    applyFractureTilt();
 
     // Smooth FOV interpolation
     const fovDiff = currentTarget.current.fov - camera.fov;
