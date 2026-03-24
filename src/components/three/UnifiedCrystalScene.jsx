@@ -1912,7 +1912,11 @@ const UnifiedCrystalScene = forwardRef(({
     });
 
     if (overlaysReady) {
-      updateOverlays(deltaTime);
+      const suppressOverlaysForReformMask =
+        showFacets &&
+        animationData.crystalForm === 'whole' &&
+        pendingReformSwapAtRef.current != null;
+      updateOverlays(deltaTime, { forceHide: suppressOverlaysForReformMask });
     }
 
     // Final authoritative pass for reform pending window:
