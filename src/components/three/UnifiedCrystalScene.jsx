@@ -42,6 +42,7 @@ const REFORM_PRE_SWAP_WINDOW_MS = 110
 const REFORM_MASK_GLOW_DURATION_S = 0.2
 const REFORM_MASK_GLOW_PEAK_INTENSITY = 1.35
 const REFORM_FACET_MASK_GLOW_PEAK_INTENSITY = 1.1
+const REFORM_SWAP_OVERLAP_MS = 100
 
 const UnifiedCrystalScene = forwardRef(({ 
   animationData,
@@ -300,6 +301,7 @@ const UnifiedCrystalScene = forwardRef(({
   const fractureGlowStartRef = useRef(null);
   const pendingExplodeSwapAtRef = useRef(null);
   const pendingReformSwapAtRef = useRef(null);
+  const pendingFacetHideAtRef = useRef(null);
   const swapMaskGlowStartRef = useRef(null);
   const swapMaskGlowModeRef = useRef(null);
   const reformProgressGlowRef = useRef(0);
@@ -372,8 +374,8 @@ const UnifiedCrystalScene = forwardRef(({
 
   const runReformSwap = useCallback(() => {
     pendingReformSwapAtRef.current = null;
-    setShowFacets(false);
     setShowWholeCrystal(true);
+    pendingFacetHideAtRef.current = performance.now() + REFORM_SWAP_OVERLAP_MS;
   }, []);
 
   const applyReformFacetMaskGlow = useCallback((strength) => {
@@ -1498,6 +1500,7 @@ const UnifiedCrystalScene = forwardRef(({
         }
         if (!simplifiedAnimations) {
           pendingReformSwapAtRef.current = null;
+          pendingFacetHideAtRef.current = null;
           setShowWholeCrystal(true);
           setShowFacets(false);
           setSphereVisible(false);
@@ -1518,6 +1521,7 @@ const UnifiedCrystalScene = forwardRef(({
         }
         pendingExplodeSwapAtRef.current = null;
         pendingReformSwapAtRef.current = null;
+        pendingFacetHideAtRef.current = null;
         if (swapMaskGlowModeRef.current !== 'reform') {
           swapMaskGlowStartRef.current = null;
           swapMaskGlowModeRef.current = null;
@@ -1556,10 +1560,16 @@ const UnifiedCrystalScene = forwardRef(({
     if (
       animationData.crystalForm === 'whole' &&
       pendingReformSwapAtRef.current != null &&
-      now >= pendingReformSwapAtRef.current &&
-      animationData.cameraSettled === true
+      now >= pendingReformSwapAtRef.current
     ) {
       runReformSwap();
+    }
+    if (
+      pendingFacetHideAtRef.current != null &&
+      now >= pendingFacetHideAtRef.current
+    ) {
+      pendingFacetHideAtRef.current = null;
+      setShowFacets(false);
     }
 
     if (swapMaskGlowStartRef.current != null) {
@@ -1592,7 +1602,11 @@ const UnifiedCrystalScene = forwardRef(({
       const holdReformMaskWhileFacetsVisible =
         glowMode === 'reform'
         && showFacets
-        && (animationData.crystalForm === 'whole' || pendingReformSwapAtRef.current != null);
+        && (
+          animationData.crystalForm === 'whole'
+          || pendingReformSwapAtRef.current != null
+          || pendingFacetHideAtRef.current != null
+        );
 
       if (holdReformMaskWhileFacetsVisible) {
         applyReformFacetMaskGlow(1);
@@ -1917,7 +1931,7 @@ const UnifiedCrystalScene = forwardRef(({
         forceHide:
           showFacets &&
           animationData.crystalForm === 'whole' &&
-          pendingReformSwapAtRef.current != null
+          (pendingReformSwapAtRef.current != null || pendingFacetHideAtRef.current != null)
       });
     }
 
@@ -1926,7 +1940,11 @@ const UnifiedCrystalScene = forwardRef(({
     if (
       showFacets &&
       animationData.crystalForm === 'whole' &&
-      (pendingReformSwapAtRef.current != null || swapMaskGlowModeRef.current === 'reform')
+      (
+        pendingReformSwapAtRef.current != null
+        || pendingFacetHideAtRef.current != null
+        || swapMaskGlowModeRef.current === 'reform'
+      )
     ) {
       // DEBUG: force unmistakable visual override
       facetRefs.current.forEach((facet) => {
@@ -1966,6 +1984,7 @@ const UnifiedCrystalScene = forwardRef(({
       resetRenderedFacetMaskGlow();
       pendingExplodeSwapAtRef.current = null;
       pendingReformSwapAtRef.current = null;
+      pendingFacetHideAtRef.current = null;
       swapMaskGlowStartRef.current = null;
       swapMaskGlowModeRef.current = null;
       reformProgressGlowRef.current = 0;
