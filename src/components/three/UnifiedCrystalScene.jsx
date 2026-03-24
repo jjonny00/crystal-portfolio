@@ -1556,7 +1556,8 @@ const UnifiedCrystalScene = forwardRef(({
     if (
       animationData.crystalForm === 'whole' &&
       pendingReformSwapAtRef.current != null &&
-      now >= pendingReformSwapAtRef.current
+      now >= pendingReformSwapAtRef.current &&
+      animationData.cameraSettled === true
     ) {
       runReformSwap();
     }
