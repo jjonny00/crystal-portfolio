@@ -1926,7 +1926,26 @@ const UnifiedCrystalScene = forwardRef(({
       animationData.crystalForm === 'whole' &&
       (pendingReformSwapAtRef.current != null || swapMaskGlowModeRef.current === 'reform')
     ) {
-      applyReformFacetMaskGlow(1);
+      // DEBUG: force unmistakable visual override
+      facetRefs.current.forEach((facet) => {
+        facet.traverse((child) => {
+          if (!child.isMesh) return;
+
+          const mats = Array.isArray(child.material)
+            ? child.material
+            : [child.material];
+
+          mats.forEach((mat) => {
+            if (!mat) return;
+
+            if (mat.color) mat.color.setRGB(1, 0, 0); // bright red
+            if (mat.emissive) mat.emissive.setRGB(1, 0, 0);
+            if (mat.emissiveIntensity !== undefined) mat.emissiveIntensity = 10;
+
+            mat.needsUpdate = true;
+          });
+        });
+      });
     }
 
   });
