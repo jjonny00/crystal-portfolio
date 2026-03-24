@@ -11,7 +11,7 @@ import FractureBurstParticles from './FractureBurstParticles'
 import MaterialManager from './MaterialManager'
 
 // Import enhanced sphere component
-import GlowingSphereImage, { BLENDING_MODES } from './GlowingSphereImage'
+import GlowingSphereImage, { BLEND_STYLES } from './GlowingSphereImage'
 import FractureRingImage from './FractureRingImage'
 import projects, {
   facetKeys as canonicalFacetKeys,
@@ -1998,7 +1998,7 @@ const UnifiedCrystalScene = forwardRef(({
 
       {/* Enhanced Glowing Sphere */}
       <GlowingSphereImage
-        blendingMode={BLENDING_MODES.ADDITIVE}
+        blendStyle={BLEND_STYLES.COLOR_DODGE}
         enableDithering={true}
         enableAntialiasing={true}
         textureFiltering="enhanced"

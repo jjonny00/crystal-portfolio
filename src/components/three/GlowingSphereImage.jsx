@@ -25,6 +25,18 @@ export const BLENDING_MODES = {
 };
 
 /**
+ * Higher-level blend styles for fracture glow tuning.
+ */
+export const BLEND_STYLES = {
+  ADDITIVE: 'additive',
+  OVERLAY: 'overlay',
+  COLOR_DODGE: 'colorDodge',
+  NORMAL: 'normal',
+  MULTIPLY: 'multiply',
+  CUSTOM: 'custom'
+};
+
+/**
  * Enhanced Plane-Based Sphere with Anti-Banding Support
  */
 const GlowingSphereImage = ({
@@ -38,6 +50,7 @@ const GlowingSphereImage = ({
   
   // BLENDING MODES
   blendingMode = BLENDING_MODES.ADDITIVE,  // Default to Additive mode
+  blendStyle = BLEND_STYLES.ADDITIVE,
   
   // Advanced blending options (for custom blending)
   blendSrc = THREE.SrcAlphaFactor,
@@ -125,6 +138,41 @@ const GlowingSphereImage = ({
   
   // ENHANCED: Create material with anti-banding features
   const material = useMemo(() => {
+    const resolveBlendConfig = () => {
+      switch (blendStyle) {
+        case BLEND_STYLES.NORMAL:
+          return { blending: THREE.NormalBlending };
+        case BLEND_STYLES.MULTIPLY:
+          return { blending: THREE.MultiplyBlending };
+        case BLEND_STYLES.OVERLAY:
+          return {
+            blending: THREE.CustomBlending,
+            blendSrc: THREE.DstColorFactor,
+            blendDst: THREE.OneMinusSrcAlphaFactor,
+            blendEquation: THREE.AddEquation
+          };
+        case BLEND_STYLES.COLOR_DODGE:
+          return {
+            blending: THREE.CustomBlending,
+            blendSrc: THREE.OneFactor,
+            blendDst: THREE.OneMinusSrcColorFactor,
+            blendEquation: THREE.AddEquation
+          };
+        case BLEND_STYLES.CUSTOM:
+          return {
+            blending: THREE.CustomBlending,
+            blendSrc,
+            blendDst,
+            blendEquation
+          };
+        case BLEND_STYLES.ADDITIVE:
+        default:
+          return { blending: THREE.AdditiveBlending };
+      }
+    };
+
+    const blendConfig = resolveBlendConfig();
+
     const mat = new THREE.MeshBasicMaterial({
       map: texture,
       transparent: true,
@@ -136,7 +184,7 @@ const GlowingSphereImage = ({
       fog: false,
       
       // BLENDING CONFIGURATION
-      blending: blendingMode,
+      blending: blendConfig.blending ?? blendingMode,
       
       // ANTI-BANDING: Enable dithering
       dithering: enableDithering,
@@ -145,15 +193,14 @@ const GlowingSphereImage = ({
       precision: 'highp'
     });
     
-    // If using custom blending, set additional parameters
-    if (blendingMode === THREE.CustomBlending) {
-      mat.blendSrc = blendSrc;
-      mat.blendDst = blendDst;
-      mat.blendEquation = blendEquation;
+    if ((blendConfig.blending ?? blendingMode) === THREE.CustomBlending) {
+      mat.blendSrc = blendConfig.blendSrc ?? blendSrc;
+      mat.blendDst = blendConfig.blendDst ?? blendDst;
+      mat.blendEquation = blendConfig.blendEquation ?? blendEquation;
     }
     
     return mat;
-  }, [texture, blendingMode, blendSrc, blendDst, blendEquation, enableDithering]);
+  }, [texture, blendingMode, blendStyle, blendSrc, blendDst, blendEquation, enableDithering]);
   
   // Detect explosion start/stop
   useEffect(() => {
