@@ -302,6 +302,7 @@ const UnifiedCrystalScene = forwardRef(({
   const pendingReformSwapAtRef = useRef(null);
   const swapMaskGlowStartRef = useRef(null);
   const swapMaskGlowModeRef = useRef(null);
+  const reformProgressGlowRef = useRef(0);
   const wholeCrystalBaseEmissiveIntensityRef = useRef(0);
   const wholeCrystalBaseEmissiveColorRef = useRef(new THREE.Color('#000000'));
 
@@ -374,6 +375,22 @@ const UnifiedCrystalScene = forwardRef(({
     setShowFacets(false);
     setShowWholeCrystal(true);
   }, []);
+
+  const applyReformFacetMaskGlow = useCallback((strength) => {
+    if (!facetMaterialsRef.current.length) return;
+    const clampedStrength = THREE.MathUtils.clamp(strength, 0, 1);
+    facetMaterialsRef.current.forEach((facetMat) => {
+      const baseFacetColor = facetMat.userData?.baseEmissiveColor || defaultColorRef.current;
+      const baseFacetIntensity = facetMat.userData?.baseEmissiveIntensity ?? 0.02;
+      facetMat.emissive.copy(baseFacetColor).lerp(swapMaskGlowColor, clampedStrength * 0.9);
+      facetMat.emissiveIntensity = THREE.MathUtils.lerp(
+        baseFacetIntensity,
+        REFORM_FACET_MASK_GLOW_PEAK_INTENSITY,
+        clampedStrength
+      );
+      facetMat.needsUpdate = true;
+    });
+  }, [swapMaskGlowColor]);
 
   // Track when GLTF models have loaded
   const [modelsLoaded, setModelsLoaded] = useState(false);
@@ -1516,17 +1533,8 @@ const UnifiedCrystalScene = forwardRef(({
       }
 
       if (glowMode === 'reform' && facetMaterialsRef.current.length) {
-        facetMaterialsRef.current.forEach((facetMat) => {
-          const baseFacetColor = facetMat.userData?.baseEmissiveColor || defaultColorRef.current;
-          const baseFacetIntensity = facetMat.userData?.baseEmissiveIntensity ?? 0.02;
-          facetMat.emissive.copy(baseFacetColor).lerp(swapMaskGlowColor, strength * 0.9);
-          facetMat.emissiveIntensity = THREE.MathUtils.lerp(
-            baseFacetIntensity,
-            REFORM_FACET_MASK_GLOW_PEAK_INTENSITY,
-            strength
-          );
-          facetMat.needsUpdate = true;
-        });
+        const reformMaskStrength = Math.max(strength, reformProgressGlowRef.current);
+        applyReformFacetMaskGlow(reformMaskStrength);
       }
 
       if (glowProgress >= 1) {
@@ -1714,6 +1722,7 @@ const UnifiedCrystalScene = forwardRef(({
       }
 
       let allFacetsAtCenter = true;
+      let reformConvergenceProgress = 1;
 
       facetRefs.current.forEach((facetRef, index) => {
         if (!facetRef || !facetRef.current) return;
@@ -1731,6 +1740,7 @@ const UnifiedCrystalScene = forwardRef(({
             const maxDistance = 3;
             const progress = Math.min(1 - (distanceToCenter / maxDistance), 1);
             const clampedProgress = Math.max(0, progress);
+            reformConvergenceProgress = Math.min(reformConvergenceProgress, clampedProgress);
 
             const facetSpeed = 0.02 + (clampedProgress * clampedProgress * 0.16);
             facetRef.current.position.lerp(targetPos, facetSpeed * deltaTime * 60);
@@ -1800,6 +1810,16 @@ const UnifiedCrystalScene = forwardRef(({
         }
       });
 
+      if (isReforming) {
+        const easedReformGlow = Math.pow(THREE.MathUtils.clamp(reformConvergenceProgress, 0, 1), 1.8);
+        reformProgressGlowRef.current = easedReformGlow;
+        if (swapMaskGlowModeRef.current !== 'reform') {
+          applyReformFacetMaskGlow(easedReformGlow);
+        }
+      } else if (reformProgressGlowRef.current > 0 && swapMaskGlowModeRef.current !== 'reform') {
+        reformProgressGlowRef.current = 0;
+      }
+
       if (isReforming && allFacetsAtCenter && !showWholeCrystal) {
         if (pendingReformSwapAtRef.current == null) {
           if (import.meta.env.DEV) {
@@ -1845,6 +1865,7 @@ const UnifiedCrystalScene = forwardRef(({
       pendingReformSwapAtRef.current = null;
       swapMaskGlowStartRef.current = null;
       swapMaskGlowModeRef.current = null;
+      reformProgressGlowRef.current = 0;
     };
   }, [cleanupOverlays]);
 
