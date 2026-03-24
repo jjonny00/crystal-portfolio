@@ -390,7 +390,58 @@ const UnifiedCrystalScene = forwardRef(({
       );
       facetMat.needsUpdate = true;
     });
+
+    // Also apply to the live rendered facet mesh materials (including any non-standard assignments)
+    facetRefs.current.forEach((facetRef) => {
+      const root = facetRef?.current;
+      if (!root) return;
+      root.traverse((child) => {
+        if (!child?.isMesh || !child.material) return;
+        const materials = Array.isArray(child.material) ? child.material : [child.material];
+        materials.forEach((mat) => {
+          if (!mat || typeof mat !== 'object' || !mat.emissive) return;
+          if (!mat.userData) mat.userData = {};
+          if (!mat.userData.__reformMaskBaseEmissiveColor) {
+            mat.userData.__reformMaskBaseEmissiveColor = mat.emissive.clone();
+          }
+          if (mat.userData.__reformMaskBaseEmissiveIntensity == null) {
+            mat.userData.__reformMaskBaseEmissiveIntensity = mat.emissiveIntensity ?? 0;
+          }
+          const baseColor = mat.userData.__reformMaskBaseEmissiveColor;
+          const baseIntensity = mat.userData.__reformMaskBaseEmissiveIntensity;
+          mat.emissive.copy(baseColor).lerp(swapMaskGlowColor, clampedStrength * 0.9);
+          mat.emissiveIntensity = THREE.MathUtils.lerp(
+            baseIntensity,
+            REFORM_FACET_MASK_GLOW_PEAK_INTENSITY,
+            clampedStrength
+          );
+          mat.needsUpdate = true;
+        });
+      });
+    });
   }, [swapMaskGlowColor]);
+
+  const resetRenderedFacetMaskGlow = useCallback(() => {
+    facetRefs.current.forEach((facetRef) => {
+      const root = facetRef?.current;
+      if (!root) return;
+      root.traverse((child) => {
+        if (!child?.isMesh || !child.material) return;
+        const materials = Array.isArray(child.material) ? child.material : [child.material];
+        materials.forEach((mat) => {
+          if (!mat || typeof mat !== 'object' || !mat.emissive || !mat.userData) return;
+          const baseColor = mat.userData.__reformMaskBaseEmissiveColor;
+          const baseIntensity = mat.userData.__reformMaskBaseEmissiveIntensity;
+          if (!baseColor || baseIntensity == null) return;
+          mat.emissive.copy(baseColor);
+          mat.emissiveIntensity = baseIntensity;
+          mat.needsUpdate = true;
+          delete mat.userData.__reformMaskBaseEmissiveColor;
+          delete mat.userData.__reformMaskBaseEmissiveIntensity;
+        });
+      });
+    });
+  }, []);
 
   // Track when GLTF models have loaded
   const [modelsLoaded, setModelsLoaded] = useState(false);
@@ -1562,6 +1613,7 @@ const UnifiedCrystalScene = forwardRef(({
             facetMat.needsUpdate = true;
           });
         }
+        resetRenderedFacetMaskGlow();
       }
     }
 
@@ -1876,13 +1928,14 @@ const UnifiedCrystalScene = forwardRef(({
   useEffect(() => {
     return () => {
       cleanupOverlays();
+      resetRenderedFacetMaskGlow();
       pendingExplodeSwapAtRef.current = null;
       pendingReformSwapAtRef.current = null;
       swapMaskGlowStartRef.current = null;
       swapMaskGlowModeRef.current = null;
       reformProgressGlowRef.current = 0;
     };
-  }, [cleanupOverlays]);
+  }, [cleanupOverlays, resetRenderedFacetMaskGlow]);
 
   return (
     <group ref={crystalGroupRef}>
