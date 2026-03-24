@@ -542,65 +542,7 @@ export const useFacetOverlayGeometry = (facetKeys) => {
   }, []);
 
   const updateOverlays = useCallback((deltaTime, options = {}) => {
-    const forceHide = options?.forceHide === true;
-
-    overlaySlotsRef.current.forEach((slot) => {
-      if (!slot.mesh) return;
-
-      if (forceHide) {
-        slot.currentOpacity = 0;
-        if (slot.isActive) {
-          slot.overlayMaterial.opacity = 0;
-          slot.overlayMaterial.needsUpdate = true;
-        }
-        return;
-      }
-
-      if (!slot.isActive && slot.targetOpacity <= 0) {
-        slot.currentOpacity = 0;
-        return;
-      }
-
-      if (!slot.isActive && slot.targetOpacity > 0) {
-        slot.overlayMaterial.opacity = slot.currentOpacity;
-        ensureMaterialAssignment(slot.mesh, slot.materialIndex, slot.overlayMaterial);
-        slot.isActive = true;
-      }
-
-      const speed = 3.0;
-      const lerpAlpha = Math.min(deltaTime * speed, 1);
-      const newOpacity = THREE.MathUtils.lerp(slot.currentOpacity, slot.targetOpacity, lerpAlpha);
-
-      slot.currentOpacity = newOpacity;
-
-      if (slot.isActive) {
-        slot.overlayMaterial.opacity = newOpacity;
-        slot.overlayMaterial.needsUpdate = true;
-      }
-
-      if (slot.isActive && slot.targetOpacity === 0 && newOpacity <= 0.01) {
-        ensureMaterialAssignment(slot.mesh, slot.materialIndex, slot.originalMaterial);
-        slot.overlayMaterial.opacity = 0;
-        slot.isActive = false;
-        slot.currentOpacity = 0;
-        slot.originalMaterial.transparent = slot.originalTransparent;
-        slot.originalMaterial.opacity = slot.originalOpacity;
-        slot.originalMaterial.needsUpdate = true;
-
-        if (!slot.originalMaterial.map && slot.originalMap) {
-          slot.originalMaterial.map = slot.originalMap;
-        }
-
-        if (slot.originalMaterial.map && slot.originalMapTransform) {
-          applyStoredTextureTransform(
-            slot.originalMaterial.map,
-            slot.originalMapTransform
-          );
-        } else if (slot.originalMaterial.map) {
-          slot.originalMaterial.map.needsUpdate = true;
-        }
-      }
-    });
+    return;
   }, []);
 
   const cleanup = useCallback(() => {
