@@ -99,13 +99,14 @@ const UnifiedCameraController = ({
   const POINTER_DIRECTION_DOT = 0.48;
   const POINTER_MAX_SPEED = 0.0021;
   const INTRO_DURATION_MS = 4400;
-  const FRACTURE_TILT_RADIANS = 0.036;
-  const FRACTURE_PITCH_UP_RADIANS = -0.01;
+  const FRACTURE_TILT_RADIANS = 0.045;
+  const FRACTURE_PITCH_UP_RADIANS = -0.007;
   const FRACTURE_TILT_RELEASE_DISTANCE = 0.015;
   const fractureTiltRef = useRef(0);
   const fractureTiltActiveRef = useRef(false);
   const fractureTiltAnchorPositionRef = useRef(new THREE.Vector3());
   const lastCrystalFormRef = useRef(animationData?.crystalForm ?? 'whole');
+  const fractureJumpFrameRef = useRef(false);
 
   const applyFractureTilt = () => {
     if (!fractureTiltActiveRef.current) return;
@@ -138,9 +139,11 @@ const UnifiedCameraController = ({
       fractureTiltRef.current = FRACTURE_TILT_RADIANS;
       fractureTiltActiveRef.current = true;
       fractureTiltAnchorPositionRef.current.copy(camera.position);
+      fractureJumpFrameRef.current = true;
     } else if (currentCrystalForm === 'whole') {
       fractureTiltActiveRef.current = false;
       fractureTiltRef.current = 0;
+      fractureJumpFrameRef.current = false;
     }
 
     lastCrystalFormRef.current = currentCrystalForm;
@@ -736,6 +739,14 @@ const UnifiedCameraController = ({
 
   useFrame((state, deltaTime) => {
     syncFractureTiltState();
+
+    if (fractureJumpFrameRef.current) {
+      fractureJumpFrameRef.current = false;
+      camera.fov = currentTarget.current.fov;
+      camera.updateProjectionMatrix();
+      applyFractureTilt();
+      return;
+    }
 
     if (!currentTarget.current || simplifiedAnimations) {
       if (simplifiedAnimations) {
