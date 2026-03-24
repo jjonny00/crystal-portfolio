@@ -1812,9 +1812,12 @@ const UnifiedCrystalScene = forwardRef(({
 
       if (isReforming) {
         const easedReformGlow = Math.pow(THREE.MathUtils.clamp(reformConvergenceProgress, 0, 1), 1.8);
-        reformProgressGlowRef.current = easedReformGlow;
+        const shouldHoldMaxReformGlow =
+          allFacetsAtCenter || pendingReformSwapAtRef.current != null;
+        const targetReformGlow = shouldHoldMaxReformGlow ? 1 : easedReformGlow;
+        reformProgressGlowRef.current = targetReformGlow;
         if (swapMaskGlowModeRef.current !== 'reform') {
-          applyReformFacetMaskGlow(easedReformGlow);
+          applyReformFacetMaskGlow(targetReformGlow);
         }
       } else if (reformProgressGlowRef.current > 0 && swapMaskGlowModeRef.current !== 'reform') {
         reformProgressGlowRef.current = 0;
