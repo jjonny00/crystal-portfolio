@@ -105,6 +105,7 @@ const UnifiedCameraController = ({
   const fractureTiltRef = useRef(0);
   const fractureTiltActiveRef = useRef(false);
   const fractureTiltAnchorPositionRef = useRef(new THREE.Vector3());
+  const fractureTiltAnchorLookAtRef = useRef(new THREE.Vector3());
   const lastCrystalFormRef = useRef(animationData?.crystalForm ?? 'whole');
   const fractureJumpFrameRef = useRef(false);
 
@@ -139,6 +140,7 @@ const UnifiedCameraController = ({
       fractureTiltRef.current = FRACTURE_TILT_RADIANS;
       fractureTiltActiveRef.current = true;
       fractureTiltAnchorPositionRef.current.copy(camera.position);
+      fractureTiltAnchorLookAtRef.current.copy(currentTarget.current.lookAt);
       fractureJumpFrameRef.current = true;
     } else if (currentCrystalForm === 'whole') {
       fractureTiltActiveRef.current = false;
@@ -742,6 +744,21 @@ const UnifiedCameraController = ({
 
     if (fractureJumpFrameRef.current) {
       fractureJumpFrameRef.current = false;
+      camera.fov = currentTarget.current.fov;
+      camera.updateProjectionMatrix();
+      applyFractureTilt();
+      return;
+    }
+
+    if (
+      fractureTiltActiveRef.current &&
+      animationData?.crystalForm === 'exploded' &&
+      animationData?.cameraState === 'hero'
+    ) {
+      camera.position.copy(fractureTiltAnchorPositionRef.current);
+      currentTarget.current.position.copy(fractureTiltAnchorPositionRef.current);
+      camera.lookAt(fractureTiltAnchorLookAtRef.current);
+      currentTarget.current.lookAt.copy(fractureTiltAnchorLookAtRef.current);
       camera.fov = currentTarget.current.fov;
       camera.updateProjectionMatrix();
       applyFractureTilt();
