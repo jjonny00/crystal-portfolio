@@ -40,6 +40,7 @@ export const fracture = {
     imagePath: '/assets/textures/fractureRing03.jpg',
     baseSize: 0.1,
     maxScale: 16,
+    opacity: 1.25,
     duration: 0.4,
     triggerDelay: 0.45,
     fadeInDuration: 0.1,

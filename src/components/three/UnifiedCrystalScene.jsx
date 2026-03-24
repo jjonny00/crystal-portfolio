@@ -2004,6 +2004,7 @@ const UnifiedCrystalScene = forwardRef(({
         textureFiltering="enhanced"
         baseSize={256}
         maxScale={1280}
+        maxOpacity={0.6}
         explosionDuration={0.05}
         fadeInDuration={0.02}
         position={[0, 0, 0]}

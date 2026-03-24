@@ -47,6 +47,7 @@ const GlowingSphereImage = ({
   // Animation timing
   explosionDuration = 1.6,
   fadeInDuration = 0.8,
+  maxOpacity = 1.0,
   
   // BLENDING MODES
   blendingMode = BLENDING_MODES.ADDITIVE,  // Default to Additive mode
@@ -243,7 +244,7 @@ const GlowingSphereImage = ({
       const fadeProgress = Math.min(elapsed / fadeInDuration, 1);
       
       const scale = baseWorldSize + (maxWorldSize - baseWorldSize) * explosionProgress;
-      const opacity = fadeProgress;
+      const opacity = fadeProgress * maxOpacity;
 
       meshRef.current.scale.setScalar(scale);
       material.opacity = opacity;
