@@ -541,9 +541,23 @@ export const useFacetOverlayGeometry = (facetKeys) => {
     }
   }, []);
 
-  const updateOverlays = useCallback((deltaTime) => {
+  const updateOverlays = useCallback((deltaTime, options = {}) => {
+    const forceHide = options?.forceHide === true;
+
     overlaySlotsRef.current.forEach((slot) => {
       if (!slot.mesh) return;
+
+      if (forceHide) {
+        slot.currentOpacity = 0;
+
+        if (slot.isActive) {
+          // Keep overlay material assigned, just hide it visually
+          slot.overlayMaterial.opacity = 0;
+          slot.overlayMaterial.needsUpdate = true;
+        }
+
+        return;
+      }
 
       if (!slot.isActive && slot.targetOpacity <= 0) {
         slot.currentOpacity = 0;
