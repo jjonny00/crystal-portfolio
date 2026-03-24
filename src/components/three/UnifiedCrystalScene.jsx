@@ -305,7 +305,6 @@ const UnifiedCrystalScene = forwardRef(({
   const swapMaskGlowStartRef = useRef(null);
   const swapMaskGlowModeRef = useRef(null);
   const reformProgressGlowRef = useRef(0);
-  const lastReformDiagLogAtRef = useRef(0);
   const wholeCrystalBaseEmissiveIntensityRef = useRef(0);
   const wholeCrystalBaseEmissiveColorRef = useRef(new THREE.Color('#000000'));
 
@@ -377,20 +376,7 @@ const UnifiedCrystalScene = forwardRef(({
     pendingReformSwapAtRef.current = null;
     setShowWholeCrystal(true);
     pendingFacetHideAtRef.current = performance.now() + REFORM_SWAP_OVERLAP_MS;
-    if (import.meta.env.DEV) {
-      console.log('[REFORM_DIAG] runReformSwap fired', {
-        now: performance.now(),
-        crystalForm: animationData?.crystalForm,
-        cameraState: animationData?.cameraState,
-        cameraSettled: animationData?.cameraSettled,
-        cameraMoveProgress: animationData?.cameraMoveProgress,
-        pendingReformSwapAt: pendingReformSwapAtRef.current,
-        pendingFacetHideAt: pendingFacetHideAtRef.current,
-        showWholeCrystal,
-        showFacets
-      });
-    }
-  }, [animationData, showFacets, showWholeCrystal]);
+  }, []);
 
   const applyReformFacetMaskGlow = useCallback((strength) => {
     if (!facetMaterialsRef.current.length) return;
@@ -1584,42 +1570,6 @@ const UnifiedCrystalScene = forwardRef(({
     ) {
       pendingFacetHideAtRef.current = null;
       setShowFacets(false);
-      if (import.meta.env.DEV) {
-        console.log('[REFORM_DIAG] delayed facet hide fired', {
-          now,
-          crystalForm: animationData?.crystalForm,
-          cameraState: animationData?.cameraState,
-          cameraSettled: animationData?.cameraSettled,
-          cameraMoveProgress: animationData?.cameraMoveProgress,
-          pendingReformSwapAt: pendingReformSwapAtRef.current,
-          pendingFacetHideAt: pendingFacetHideAtRef.current,
-          showWholeCrystal,
-          showFacets
-        });
-      }
-    }
-
-    const inReformWindow =
-      animationData?.crystalForm === 'whole'
-      && (
-        pendingReformSwapAtRef.current != null
-        || pendingFacetHideAtRef.current != null
-        || swapMaskGlowModeRef.current === 'reform'
-      );
-
-    if (import.meta.env.DEV && inReformWindow && now - lastReformDiagLogAtRef.current >= 120) {
-      lastReformDiagLogAtRef.current = now;
-      console.log('[REFORM_DIAG] reform window state', {
-        now,
-        crystalForm: animationData?.crystalForm,
-        cameraState: animationData?.cameraState,
-        cameraSettled: animationData?.cameraSettled,
-        cameraMoveProgress: animationData?.cameraMoveProgress,
-        pendingReformSwapAt: pendingReformSwapAtRef.current,
-        pendingFacetHideAt: pendingFacetHideAtRef.current,
-        showWholeCrystal,
-        showFacets
-      });
     }
 
     if (swapMaskGlowStartRef.current != null) {
@@ -1996,26 +1946,7 @@ const UnifiedCrystalScene = forwardRef(({
         || swapMaskGlowModeRef.current === 'reform'
       )
     ) {
-      // DEBUG: force unmistakable visual override
-      facetRefs.current.forEach((facet) => {
-        facet.traverse((child) => {
-          if (!child.isMesh) return;
-
-          const mats = Array.isArray(child.material)
-            ? child.material
-            : [child.material];
-
-          mats.forEach((mat) => {
-            if (!mat) return;
-
-            if (mat.color) mat.color.setRGB(1, 0, 0); // bright red
-            if (mat.emissive) mat.emissive.setRGB(1, 0, 0);
-            if (mat.emissiveIntensity !== undefined) mat.emissiveIntensity = 10;
-
-            mat.needsUpdate = true;
-          });
-        });
-      });
+      applyReformFacetMaskGlow(1);
     }
 
   });
