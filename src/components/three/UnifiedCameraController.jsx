@@ -99,9 +99,9 @@ const UnifiedCameraController = ({
   const POINTER_DIRECTION_DOT = 0.48;
   const POINTER_MAX_SPEED = 0.0021;
   const INTRO_DURATION_MS = 4400;
-  const FRACTURE_TILT_RADIANS = 0.055;
-  const FRACTURE_YAW_LEFT_RADIANS = 0.02;
-  const FRACTURE_PITCH_UP_RADIANS = -0.024;
+  const FRACTURE_TILT_RADIANS = 0.025;
+  const FRACTURE_YAW_LEFT_RADIANS = 0.008;
+  const FRACTURE_PITCH_UP_RADIANS = -0.01;
   const FRACTURE_TILT_RELEASE_DISTANCE = 0.015;
   const fractureTiltRef = useRef(0);
   const fractureTiltActiveRef = useRef(false);
@@ -128,6 +128,22 @@ const UnifiedCameraController = ({
         fractureTiltRef.current = 0;
       }
     }
+  };
+
+  const syncFractureTiltState = () => {
+    const currentCrystalForm = animationData?.crystalForm ?? 'whole';
+    const previousCrystalForm = lastCrystalFormRef.current;
+
+    if (previousCrystalForm !== 'exploded' && currentCrystalForm === 'exploded') {
+      fractureTiltRef.current = FRACTURE_TILT_RADIANS;
+      fractureTiltActiveRef.current = true;
+      fractureTiltAnchorPositionRef.current.copy(camera.position);
+    } else if (currentCrystalForm === 'whole') {
+      fractureTiltActiveRef.current = false;
+      fractureTiltRef.current = 0;
+    }
+
+    lastCrystalFormRef.current = currentCrystalForm;
   };
 
   const findAnchorInFacet = (facetKey) => {
@@ -391,24 +407,6 @@ const UnifiedCameraController = ({
     animationData?.setCameraSettled?.(false);
   }, [animationData, camera, config, restartToken, sharedCameraMoveProgressRef]);
 
-
-  useEffect(() => {
-    const currentCrystalForm = animationData?.crystalForm ?? 'whole';
-    const previousCrystalForm = lastCrystalFormRef.current;
-
-    if (previousCrystalForm !== 'exploded' && currentCrystalForm === 'exploded') {
-      fractureTiltRef.current = FRACTURE_TILT_RADIANS;
-      fractureTiltActiveRef.current = true;
-      fractureTiltAnchorPositionRef.current.copy(camera.position);
-    }
-
-    if (currentCrystalForm === 'whole') {
-      fractureTiltActiveRef.current = false;
-      fractureTiltRef.current = 0;
-    }
-
-    lastCrystalFormRef.current = currentCrystalForm;
-  }, [animationData?.crystalForm, camera]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || isTouchDeviceRef.current) return undefined;
@@ -737,6 +735,8 @@ const UnifiedCameraController = ({
   ]);
 
   useFrame((state, deltaTime) => {
+    syncFractureTiltState();
+
     if (!currentTarget.current || simplifiedAnimations) {
       if (simplifiedAnimations) {
         camera.position.copy(currentTarget.current.position);
