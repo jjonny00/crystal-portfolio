@@ -38,6 +38,10 @@ const ISOLATE_FOCUSED_ROTATION_FROM_POSITION = true
 const FORWARD_PRE_SWAP_WINDOW_MS = 120
 const FORWARD_MASK_GLOW_DURATION_S = 0.22
 const FORWARD_MASK_GLOW_PEAK_INTENSITY = 1.2
+const REFORM_PRE_SWAP_WINDOW_MS = 110
+const REFORM_MASK_GLOW_DURATION_S = 0.2
+const REFORM_MASK_GLOW_PEAK_INTENSITY = 1.35
+const REFORM_FACET_MASK_GLOW_PEAK_INTENSITY = 1.1
 
 const UnifiedCrystalScene = forwardRef(({ 
   animationData,
@@ -295,11 +299,14 @@ const UnifiedCrystalScene = forwardRef(({
   const explosionStartRef = useRef(null);
   const fractureGlowStartRef = useRef(null);
   const pendingExplodeSwapAtRef = useRef(null);
+  const pendingReformSwapAtRef = useRef(null);
   const swapMaskGlowStartRef = useRef(null);
+  const swapMaskGlowModeRef = useRef(null);
   const wholeCrystalBaseEmissiveIntensityRef = useRef(0);
   const wholeCrystalBaseEmissiveColorRef = useRef(new THREE.Color('#000000'));
 
-  const triggerSwapMaskGlow = useCallback(() => {
+  const triggerSwapMaskGlow = useCallback((mode = 'forward') => {
+    swapMaskGlowModeRef.current = mode;
     swapMaskGlowStartRef.current = performance.now();
   }, []);
 
@@ -361,6 +368,12 @@ const UnifiedCrystalScene = forwardRef(({
 
     triggerFractureGlow();
   }, [crystalConfig, facetKeys, facetPlacementKeys, triggerFractureGlow]);
+
+  const runReformSwap = useCallback(() => {
+    pendingReformSwapAtRef.current = null;
+    setShowFacets(false);
+    setShowWholeCrystal(true);
+  }, []);
 
   // Track when GLTF models have loaded
   const [modelsLoaded, setModelsLoaded] = useState(false);
@@ -1416,6 +1429,7 @@ const UnifiedCrystalScene = forwardRef(({
           console.log('💎 Crystal: Explosion - charging whole crystal before swap');
         }
         if (!simplifiedAnimations) {
+          pendingReformSwapAtRef.current = null;
           setShowWholeCrystal(true);
           setShowFacets(false);
           setSphereVisible(false);
@@ -1435,7 +1449,11 @@ const UnifiedCrystalScene = forwardRef(({
           console.log('💎 Crystal: Reform detected - hiding sphere');
         }
         pendingExplodeSwapAtRef.current = null;
-        swapMaskGlowStartRef.current = null;
+        pendingReformSwapAtRef.current = null;
+        if (swapMaskGlowModeRef.current !== 'reform') {
+          swapMaskGlowStartRef.current = null;
+          swapMaskGlowModeRef.current = null;
+        }
         setSphereVisible(false);
         setRingVisible(false);
         if (simplifiedAnimations) {
@@ -1467,10 +1485,20 @@ const UnifiedCrystalScene = forwardRef(({
       pendingExplodeSwapAtRef.current = null;
       runExplodeSwap();
     }
+    if (
+      animationData.crystalForm === 'whole' &&
+      pendingReformSwapAtRef.current != null &&
+      now >= pendingReformSwapAtRef.current
+    ) {
+      runReformSwap();
+    }
 
     if (swapMaskGlowStartRef.current != null) {
+      const glowMode = swapMaskGlowModeRef.current || 'forward';
       const elapsed = (now - swapMaskGlowStartRef.current) / 1000;
-      const glowProgress = Math.min(elapsed / FORWARD_MASK_GLOW_DURATION_S, 1);
+      const glowDuration = glowMode === 'reform' ? REFORM_MASK_GLOW_DURATION_S : FORWARD_MASK_GLOW_DURATION_S;
+      const peakIntensity = glowMode === 'reform' ? REFORM_MASK_GLOW_PEAK_INTENSITY : FORWARD_MASK_GLOW_PEAK_INTENSITY;
+      const glowProgress = Math.min(elapsed / glowDuration, 1);
       const attack = 0.55;
       const envelope = glowProgress < attack
         ? glowProgress / attack
@@ -1481,15 +1509,39 @@ const UnifiedCrystalScene = forwardRef(({
         mat.emissive.copy(wholeCrystalBaseEmissiveColorRef.current).lerp(swapMaskGlowColor, strength * 0.85);
         mat.emissiveIntensity = THREE.MathUtils.lerp(
           wholeCrystalBaseEmissiveIntensityRef.current,
-          FORWARD_MASK_GLOW_PEAK_INTENSITY,
+          peakIntensity,
           strength
         );
         mat.needsUpdate = true;
       }
 
+      if (glowMode === 'reform' && facetMaterialsRef.current.length) {
+        facetMaterialsRef.current.forEach((facetMat) => {
+          const baseFacetColor = facetMat.userData?.baseEmissiveColor || defaultColorRef.current;
+          const baseFacetIntensity = facetMat.userData?.baseEmissiveIntensity ?? 0.02;
+          facetMat.emissive.copy(baseFacetColor).lerp(swapMaskGlowColor, strength * 0.9);
+          facetMat.emissiveIntensity = THREE.MathUtils.lerp(
+            baseFacetIntensity,
+            REFORM_FACET_MASK_GLOW_PEAK_INTENSITY,
+            strength
+          );
+          facetMat.needsUpdate = true;
+        });
+      }
+
       if (glowProgress >= 1) {
         swapMaskGlowStartRef.current = null;
+        swapMaskGlowModeRef.current = null;
         resetWholeCrystalMaskGlow();
+        if (facetMaterialsRef.current.length) {
+          facetMaterialsRef.current.forEach((facetMat) => {
+            const baseFacetColor = facetMat.userData?.baseEmissiveColor || defaultColorRef.current;
+            const baseFacetIntensity = facetMat.userData?.baseEmissiveIntensity ?? 0.02;
+            facetMat.emissive.copy(baseFacetColor);
+            facetMat.emissiveIntensity = baseFacetIntensity;
+            facetMat.needsUpdate = true;
+          });
+        }
       }
     }
 
@@ -1749,11 +1801,13 @@ const UnifiedCrystalScene = forwardRef(({
       });
 
       if (isReforming && allFacetsAtCenter && !showWholeCrystal) {
-        if (import.meta.env.DEV) {
-          console.log('💎 Reform complete - swapping to whole crystal');
+        if (pendingReformSwapAtRef.current == null) {
+          if (import.meta.env.DEV) {
+            console.log('💎 Reform complete - starting masked swap to whole crystal');
+          }
+          triggerSwapMaskGlow('reform');
+          pendingReformSwapAtRef.current = performance.now() + REFORM_PRE_SWAP_WINDOW_MS;
         }
-        setShowFacets(false);
-        setShowWholeCrystal(true);
       }
     }
 
@@ -1788,7 +1842,9 @@ const UnifiedCrystalScene = forwardRef(({
     return () => {
       cleanupOverlays();
       pendingExplodeSwapAtRef.current = null;
+      pendingReformSwapAtRef.current = null;
       swapMaskGlowStartRef.current = null;
+      swapMaskGlowModeRef.current = null;
     };
   }, [cleanupOverlays]);
 
