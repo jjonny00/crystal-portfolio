@@ -152,6 +152,8 @@ ANIMATION_CONFIG.crystal.fracturePause = fractureConfig.duration;
 ANIMATION_CONFIG.crystal.explodeDuration = 1.6;
 
 // SIMPLIFIED: Only essential states (no intermediate transition states)
+const ZONE_CAMERA_MASK_LEAD_MS = 140;
+
 const ANIMATION_STATES = {
   HERO: 'hero',
   OVERVIEW: 'overview',
@@ -614,7 +616,7 @@ export const useUnifiedAnimationController = (options = {}) => {
           ...prev,
           cameraState: 'hero'
         }));
-      }, (config.crystal.fracturePause || 0.5) * 1000);
+      }, (config.crystal.fracturePause || 0.5) * 1000 + ZONE_CAMERA_MASK_LEAD_MS);
     }
     else if (toZone === 'overview') {
       // Start explosion immediately but delay camera move until fracture pause completes
@@ -632,7 +634,7 @@ export const useUnifiedAnimationController = (options = {}) => {
           ...prev,
           cameraState: 'overview'
         }));
-      }, (config.crystal.fracturePause || 0.5) * 1000);
+      }, (config.crystal.fracturePause || 0.5) * 1000 + ZONE_CAMERA_MASK_LEAD_MS);
     }
     else if (toZone === 'projects') {
       // Immediately enter project state and set initial facet
