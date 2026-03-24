@@ -99,8 +99,7 @@ const UnifiedCameraController = ({
   const POINTER_DIRECTION_DOT = 0.48;
   const POINTER_MAX_SPEED = 0.0021;
   const INTRO_DURATION_MS = 4400;
-  const FRACTURE_TILT_RADIANS = 0.025;
-  const FRACTURE_YAW_LEFT_RADIANS = 0.008;
+  const FRACTURE_TILT_RADIANS = 0.036;
   const FRACTURE_PITCH_UP_RADIANS = -0.01;
   const FRACTURE_TILT_RELEASE_DISTANCE = 0.015;
   const fractureTiltRef = useRef(0);
@@ -113,10 +112,8 @@ const UnifiedCameraController = ({
 
     if (
       Math.abs(fractureTiltRef.current) > 0.00001 ||
-      Math.abs(FRACTURE_YAW_LEFT_RADIANS) > 0.00001 ||
       Math.abs(FRACTURE_PITCH_UP_RADIANS) > 0.00001
     ) {
-      camera.rotateY(FRACTURE_YAW_LEFT_RADIANS);
       camera.rotateX(FRACTURE_PITCH_UP_RADIANS);
       camera.rotateZ(fractureTiltRef.current);
     }
@@ -135,6 +132,9 @@ const UnifiedCameraController = ({
     const previousCrystalForm = lastCrystalFormRef.current;
 
     if (previousCrystalForm !== 'exploded' && currentCrystalForm === 'exploded') {
+      // Snap to the current target immediately when fracture starts so the off-kilter pose is instant.
+      camera.position.copy(currentTarget.current.position);
+      camera.lookAt(currentTarget.current.lookAt);
       fractureTiltRef.current = FRACTURE_TILT_RADIANS;
       fractureTiltActiveRef.current = true;
       fractureTiltAnchorPositionRef.current.copy(camera.position);
