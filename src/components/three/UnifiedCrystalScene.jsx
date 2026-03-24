@@ -1537,7 +1537,19 @@ const UnifiedCrystalScene = forwardRef(({
         applyReformFacetMaskGlow(reformMaskStrength);
       }
 
+      const holdReformMaskWhileFacetsVisible =
+        glowMode === 'reform'
+        && showFacets
+        && (animationData.crystalForm === 'whole' || pendingReformSwapAtRef.current != null);
+
+      if (holdReformMaskWhileFacetsVisible) {
+        applyReformFacetMaskGlow(1);
+      }
+
       if (glowProgress >= 1) {
+        if (holdReformMaskWhileFacetsVisible) {
+          return;
+        }
         swapMaskGlowStartRef.current = null;
         swapMaskGlowModeRef.current = null;
         resetWholeCrystalMaskGlow();
