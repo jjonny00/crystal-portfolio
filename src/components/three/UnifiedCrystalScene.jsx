@@ -1599,21 +1599,22 @@ const UnifiedCrystalScene = forwardRef(({
 
       if (glowProgress >= 1) {
         if (holdReformMaskWhileFacetsVisible) {
-          return;
+          // Keep running the rest of the frame so late-stage passes can still enforce mask writes.
+        } else {
+          swapMaskGlowStartRef.current = null;
+          swapMaskGlowModeRef.current = null;
+          resetWholeCrystalMaskGlow();
+          if (facetMaterialsRef.current.length) {
+            facetMaterialsRef.current.forEach((facetMat) => {
+              const baseFacetColor = facetMat.userData?.baseEmissiveColor || defaultColorRef.current;
+              const baseFacetIntensity = facetMat.userData?.baseEmissiveIntensity ?? 0.02;
+              facetMat.emissive.copy(baseFacetColor);
+              facetMat.emissiveIntensity = baseFacetIntensity;
+              facetMat.needsUpdate = true;
+            });
+          }
+          resetRenderedFacetMaskGlow();
         }
-        swapMaskGlowStartRef.current = null;
-        swapMaskGlowModeRef.current = null;
-        resetWholeCrystalMaskGlow();
-        if (facetMaterialsRef.current.length) {
-          facetMaterialsRef.current.forEach((facetMat) => {
-            const baseFacetColor = facetMat.userData?.baseEmissiveColor || defaultColorRef.current;
-            const baseFacetIntensity = facetMat.userData?.baseEmissiveIntensity ?? 0.02;
-            facetMat.emissive.copy(baseFacetColor);
-            facetMat.emissiveIntensity = baseFacetIntensity;
-            facetMat.needsUpdate = true;
-          });
-        }
-        resetRenderedFacetMaskGlow();
       }
     }
 
@@ -1880,9 +1881,7 @@ const UnifiedCrystalScene = forwardRef(({
           allFacetsAtCenter || pendingReformSwapAtRef.current != null;
         const targetReformGlow = shouldHoldMaxReformGlow ? 1 : easedReformGlow;
         reformProgressGlowRef.current = targetReformGlow;
-        if (swapMaskGlowModeRef.current !== 'reform') {
-          applyReformFacetMaskGlow(targetReformGlow);
-        }
+        applyReformFacetMaskGlow(targetReformGlow);
       } else if (reformProgressGlowRef.current > 0 && swapMaskGlowModeRef.current !== 'reform') {
         reformProgressGlowRef.current = 0;
       }
@@ -1914,6 +1913,16 @@ const UnifiedCrystalScene = forwardRef(({
 
     if (overlaysReady) {
       updateOverlays(deltaTime);
+    }
+
+    // Final authoritative pass for reform pending window:
+    // if facets are still visible, keep them fully masked.
+    if (
+      showFacets &&
+      animationData.crystalForm === 'whole' &&
+      (pendingReformSwapAtRef.current != null || swapMaskGlowModeRef.current === 'reform')
+    ) {
+      applyReformFacetMaskGlow(1);
     }
   });
 
