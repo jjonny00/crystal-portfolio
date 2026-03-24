@@ -35,6 +35,9 @@ import { useHoverCapable } from '../../hooks/useHoverCapable'
 const PROJECT_DISPLAY_SLOT = 'ProjectDisplay'
 const FOCUS_ROTATION_PROGRESS_LEAD = 1
 const ISOLATE_FOCUSED_ROTATION_FROM_POSITION = true
+const FORWARD_PRE_SWAP_WINDOW_MS = 120
+const FORWARD_MASK_GLOW_DURATION_S = 0.22
+const FORWARD_MASK_GLOW_PEAK_INTENSITY = 1.2
 
 const UnifiedCrystalScene = forwardRef(({ 
   animationData,
@@ -70,6 +73,7 @@ const UnifiedCrystalScene = forwardRef(({
   const fractureStartQuatRef = useRef(new THREE.Quaternion());
   const neutralQuat = useMemo(() => new THREE.Quaternion(), []);
   const origin = useMemo(() => new THREE.Vector3(0, 0, 0), []);
+  const swapMaskGlowColor = useMemo(() => new THREE.Color('#f4fbff'), []);
   
   // Debug panel state
   const [showCrystalDebug, setShowCrystalDebug] = useState(false);
@@ -290,6 +294,22 @@ const UnifiedCrystalScene = forwardRef(({
   // Track explosion timing so we can implement fracture pause
   const explosionStartRef = useRef(null);
   const fractureGlowStartRef = useRef(null);
+  const pendingExplodeSwapAtRef = useRef(null);
+  const swapMaskGlowStartRef = useRef(null);
+  const wholeCrystalBaseEmissiveIntensityRef = useRef(0);
+  const wholeCrystalBaseEmissiveColorRef = useRef(new THREE.Color('#000000'));
+
+  const triggerSwapMaskGlow = useCallback(() => {
+    swapMaskGlowStartRef.current = performance.now();
+  }, []);
+
+  const resetWholeCrystalMaskGlow = useCallback(() => {
+    const mat = crystalMaterialRef.current;
+    if (!mat) return;
+    mat.emissive.copy(wholeCrystalBaseEmissiveColorRef.current);
+    mat.emissiveIntensity = wholeCrystalBaseEmissiveIntensityRef.current;
+    mat.needsUpdate = true;
+  }, []);
 
   const triggerFractureGlow = useCallback(() => {
     const delay = mergedConfig?.fracture?.emissive?.delay ?? 0;
@@ -303,6 +323,44 @@ const UnifiedCrystalScene = forwardRef(({
     });
     onFractureStart?.();
   }, [mergedConfig, onFractureStart]);
+
+  const runExplodeSwap = useCallback(() => {
+    setShowWholeCrystal(false);
+    setShowFacets(true);
+    setSphereVisible(true);
+    setRingVisible(true);
+    explosionStartRef.current = performance.now() - FORWARD_PRE_SWAP_WINDOW_MS;
+    setBurstId(id => id + 1);
+
+    // Capture hero rotation so facets start from same orientation
+    if (wholeCrystalRef.current && facetsGroupRef.current) {
+      fractureStartQuatRef.current.copy(wholeCrystalRef.current.quaternion);
+      facetsGroupRef.current.quaternion.copy(wholeCrystalRef.current.quaternion);
+    }
+
+    // Snap facets immediately to fracture positions (small initial offset)
+    const fractureDistance = crystalConfig?.fractureDistance ?? 0.3;
+    const fracture = crystalConfig?.fracturePositions;
+    if (fracture || fractureDistance) {
+      facetRefs.current.forEach((facetRef, idx) => {
+        const facetKey = facetKeys[idx];
+        const explodedPos = crystalConfig?.positions?.[facetPlacementKeys[facetKey] || facetKey];
+        const configuredFracture = fracture?.[facetPlacementKeys[facetKey] || facetKey];
+        if (facetRef?.current && explodedPos) {
+          const fallback = explodedPos
+            .clone()
+            .normalize()
+            .multiplyScalar(explodedPos.length() * fractureDistance);
+          const fracturePos = configuredFracture ? configuredFracture.clone() : fallback;
+          facetRef.current.position.copy(fracturePos);
+
+          console.log(`💥 ${facetKey} fracture:`, fracturePos.toArray());
+        }
+      });
+    }
+
+    triggerFractureGlow();
+  }, [crystalConfig, facetKeys, facetPlacementKeys, triggerFractureGlow]);
 
   // Track when GLTF models have loaded
   const [modelsLoaded, setModelsLoaded] = useState(false);
@@ -1355,45 +1413,15 @@ const UnifiedCrystalScene = forwardRef(({
 
       if (currentForm === 'exploded') {
         if (import.meta.env.DEV) {
-          console.log('💎 Crystal: Explosion - hiding whole, showing facets, showing sphere');
+          console.log('💎 Crystal: Explosion - charging whole crystal before swap');
         }
         if (!simplifiedAnimations) {
-          setShowWholeCrystal(false);
-          setShowFacets(true);
-          setSphereVisible(true);
-          setRingVisible(true);
-          explosionStartRef.current = performance.now();
-          setBurstId(id => id + 1);
-
-          // Capture hero rotation so facets start from same orientation
-          if (wholeCrystalRef.current && facetsGroupRef.current) {
-            fractureStartQuatRef.current.copy(wholeCrystalRef.current.quaternion);
-            facetsGroupRef.current.quaternion.copy(wholeCrystalRef.current.quaternion);
-          }
-
-          // Snap facets immediately to fracture positions (small initial offset)
-          const fractureDistance = crystalConfig?.fractureDistance ?? 0.3;
-          const fracture = crystalConfig?.fracturePositions;
-          if (fracture || fractureDistance) {
-            facetRefs.current.forEach((facetRef, idx) => {
-              const facetKey = facetKeys[idx];
-              const explodedPos = crystalConfig?.positions?.[facetPlacementKeys[facetKey] || facetKey];
-              const configuredFracture = fracture?.[facetPlacementKeys[facetKey] || facetKey];
-              if (facetRef?.current && explodedPos) {
-                const fallback = explodedPos
-                  .clone()
-                  .normalize()
-                  .multiplyScalar(explodedPos.length() * fractureDistance);
-                const fracturePos = configuredFracture ? configuredFracture.clone() : fallback;
-                facetRef.current.position.copy(fracturePos);
-
-                console.log(`💥 ${facetKey} fracture:`, fracturePos.toArray());
-              }
-            });
-          }
-
-          // Trigger bright emissive glow for each facet
-          triggerFractureGlow();
+          setShowWholeCrystal(true);
+          setShowFacets(false);
+          setSphereVisible(false);
+          setRingVisible(false);
+          triggerSwapMaskGlow();
+          pendingExplodeSwapAtRef.current = performance.now() + FORWARD_PRE_SWAP_WINDOW_MS;
         } else {
           // In simplified mode keep the whole crystal visible
           setShowWholeCrystal(true);
@@ -1406,6 +1434,8 @@ const UnifiedCrystalScene = forwardRef(({
         if (import.meta.env.DEV) {
           console.log('💎 Crystal: Reform detected - hiding sphere');
         }
+        pendingExplodeSwapAtRef.current = null;
+        swapMaskGlowStartRef.current = null;
         setSphereVisible(false);
         setRingVisible(false);
         if (simplifiedAnimations) {
@@ -1413,6 +1443,7 @@ const UnifiedCrystalScene = forwardRef(({
           setShowFacets(false);
         }
         explosionStartRef.current = null;
+        resetWholeCrystalMaskGlow();
         if (facetsGroupRef.current) {
           facetsGroupRef.current.quaternion.copy(neutralQuat);
         }
@@ -1421,11 +1452,46 @@ const UnifiedCrystalScene = forwardRef(({
     }
 
     lastCrystalForm.current = currentForm;
-  }, [animationData?.crystalForm, triggerFractureGlow]);
+  }, [animationData?.crystalForm, resetWholeCrystalMaskGlow, triggerSwapMaskGlow, simplifiedAnimations, neutralQuat]);
 
   // Main animation loop
   useFrame((state, deltaTime) => {
     if (!animationData || !facetRefs.current.length || simplifiedAnimations) return;
+    const now = performance.now();
+
+    if (
+      animationData.crystalForm === 'exploded' &&
+      pendingExplodeSwapAtRef.current != null &&
+      now >= pendingExplodeSwapAtRef.current
+    ) {
+      pendingExplodeSwapAtRef.current = null;
+      runExplodeSwap();
+    }
+
+    if (swapMaskGlowStartRef.current != null) {
+      const elapsed = (now - swapMaskGlowStartRef.current) / 1000;
+      const glowProgress = Math.min(elapsed / FORWARD_MASK_GLOW_DURATION_S, 1);
+      const attack = 0.55;
+      const envelope = glowProgress < attack
+        ? glowProgress / attack
+        : 1 - (glowProgress - attack) / (1 - attack);
+      const strength = Math.max(0, envelope);
+      const mat = crystalMaterialRef.current;
+      if (mat) {
+        mat.emissive.copy(wholeCrystalBaseEmissiveColorRef.current).lerp(swapMaskGlowColor, strength * 0.85);
+        mat.emissiveIntensity = THREE.MathUtils.lerp(
+          wholeCrystalBaseEmissiveIntensityRef.current,
+          FORWARD_MASK_GLOW_PEAK_INTENSITY,
+          strength
+        );
+        mat.needsUpdate = true;
+      }
+
+      if (glowProgress >= 1) {
+        swapMaskGlowStartRef.current = null;
+        resetWholeCrystalMaskGlow();
+      }
+    }
 
     // Fade emissive glow timed with explosion
     if (fractureGlowStartRef.current && facetMaterialsRef.current.length) {
@@ -1711,8 +1777,18 @@ const UnifiedCrystalScene = forwardRef(({
   });
 
   useEffect(() => {
+    if (!crystalMaterialRef.current) return;
+    wholeCrystalBaseEmissiveIntensityRef.current = crystalMaterialRef.current.emissiveIntensity ?? 0;
+    wholeCrystalBaseEmissiveColorRef.current.copy(
+      crystalMaterialRef.current.emissive || new THREE.Color('#000000')
+    );
+  }, [materialVersion]);
+
+  useEffect(() => {
     return () => {
       cleanupOverlays();
+      pendingExplodeSwapAtRef.current = null;
+      swapMaskGlowStartRef.current = null;
     };
   }, [cleanupOverlays]);
 
