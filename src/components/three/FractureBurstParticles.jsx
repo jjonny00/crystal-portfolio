@@ -31,6 +31,7 @@ const FractureBurstParticles = ({
     g.setAttribute('aAlpha', new THREE.BufferAttribute(new Float32Array(count), 1));
     g.setAttribute('aSize', new THREE.BufferAttribute(new Float32Array(count), 1));
     g.setAttribute('aFlicker', new THREE.BufferAttribute(new Float32Array(count), 1));
+    g.setAttribute('aBrightness', new THREE.BufferAttribute(new Float32Array(count), 1));
     return g;
   }, [count]);
 
@@ -42,17 +43,20 @@ const FractureBurstParticles = ({
       uniforms: {
         uColor: { value: new THREE.Color(color) },
         uTime: { value: 0 },
-        uBrightness: { value: 1.85 },
+        uBrightness: { value: 1.0 },
       },
       vertexShader: `
         attribute float aAlpha;
         attribute float aSize;
         attribute float aFlicker;
+        attribute float aBrightness;
         varying float vAlpha;
         varying float vFlicker;
+        varying float vBrightness;
         void main() {
           vAlpha = aAlpha;
           vFlicker = aFlicker;
+          vBrightness = aBrightness;
           vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
           gl_PointSize = aSize * (90.0 / max(-mvPosition.z, 0.1));
           gl_Position = projectionMatrix * mvPosition;
@@ -64,12 +68,13 @@ const FractureBurstParticles = ({
         uniform float uBrightness;
         varying float vAlpha;
         varying float vFlicker;
+        varying float vBrightness;
         void main() {
           vec2 uv = gl_PointCoord - vec2(0.5);
           float d = length(uv);
           float sparkle = smoothstep(0.5, 0.0, d);
           float flicker = 0.55 + 0.45 * sin(uTime * 22.0 + vFlicker);
-          vec3 brightColor = uColor * uBrightness;
+          vec3 brightColor = uColor * uBrightness * vBrightness;
           gl_FragColor = vec4(brightColor, vAlpha * sparkle * flicker);
         }
       `,
@@ -109,6 +114,7 @@ const FractureBurstParticles = ({
       const alphas = geometry.attributes.aAlpha.array;
       const sizes = geometry.attributes.aSize.array;
       const flickers = geometry.attributes.aFlicker.array;
+      const brightnesses = geometry.attributes.aBrightness.array;
       const velocities = velocitiesRef.current;
       const lifetimes = lifetimesRef.current;
       const seeds = seedsRef.current;
@@ -119,32 +125,34 @@ const FractureBurstParticles = ({
 
         const angle = Math.random() * Math.PI * 2;
         const radial = Math.random() * spread;
-        const burstRadial = 0.18 + Math.random() * 0.3;
+        const burstRadial = 0.05 + Math.random() * 0.9;
         positions[i3] = Math.cos(angle) * radial;
-        const emitterHeight = 0.3;
+        const emitterHeight = 0.6;
         const emitterDepthOffset = 1.7;
         positions[i3 + 1] = emitterHeight + (Math.random() - 0.5) * spread * 0.2;
         positions[i3 + 2] = emitterDepthOffset + Math.sin(angle) * radial;
 
         const lateralSpeed = burstRadial;
         velocities[i3] = Math.cos(angle) * lateralSpeed;
-        velocities[i3 + 1] = 0.12 + Math.random() * 0.35;
+        velocities[i3 + 1] = 0.05 + Math.random() * 0.9;
         velocities[i3 + 2] = Math.sin(angle) * lateralSpeed;
 
-        lifetimes[i] = duration * (0.8 + Math.random() * 0.8);
+        lifetimes[i] = duration * (0.45 + Math.random() * 1.8);
         seeds[i] = Math.random() * Math.PI * 2;
         turbulence[i3] = (Math.random() - 0.5) * VORTEX_TURBULENCE_STRENGTH;
         turbulence[i3 + 1] = (Math.random() - 0.5) * VORTEX_TURBULENCE_STRENGTH * 0.3;
         turbulence[i3 + 2] = (Math.random() - 0.5) * VORTEX_TURBULENCE_STRENGTH;
         alphas[i] = 1;
-        sizes[i] = 0.25 + Math.random() * 0.25;
+        sizes[i] = 0.12 + Math.random() * 0.83;
         flickers[i] = Math.random() * Math.PI * 2;
+        brightnesses[i] = 0.6 + Math.random() * 1.8;
       }
 
       geometry.attributes.position.needsUpdate = true;
       geometry.attributes.aAlpha.needsUpdate = true;
       geometry.attributes.aSize.needsUpdate = true;
       geometry.attributes.aFlicker.needsUpdate = true;
+      geometry.attributes.aBrightness.needsUpdate = true;
       startTimeRef.current = performance.now();
     };
 
