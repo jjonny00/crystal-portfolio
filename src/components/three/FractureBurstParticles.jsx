@@ -11,7 +11,7 @@ const FractureBurstParticles = ({
   count = 260,
   duration = 0.55,
   color = '#9af8ff',
-  spread = 0.08,
+  spread = 0.16,
 }) => {
   const pointsRef = useRef();
   const startTimeRef = useRef(0);
@@ -44,7 +44,7 @@ const FractureBurstParticles = ({
         void main() {
           vAlpha = aAlpha;
           vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-          gl_PointSize = aSize * (220.0 / max(-mvPosition.z, 0.1));
+          gl_PointSize = aSize * (120.0 / max(-mvPosition.z, 0.1));
           gl_Position = projectionMatrix * mvPosition;
         }
       `,
@@ -115,7 +115,7 @@ const FractureBurstParticles = ({
         lifetimes[i] = duration * (0.65 + Math.random() * 0.5);
         seeds[i] = Math.random() * Math.PI * 2;
         alphas[i] = 1;
-        sizes[i] = 12 + Math.random() * 18;
+        sizes[i] = 0.8 + Math.random() * 0.8;
       }
 
       geometry.attributes.position.needsUpdate = true;
