@@ -109,9 +109,10 @@ const FractureBurstParticles = ({
         const radial = Math.random() * spread;
         const burstRadial = 0.18 + Math.random() * 0.3;
         positions[i3] = Math.cos(angle) * radial;
-        const emitterHeight = 0.1;
+        const emitterHeight = 1.8;
+        const emitterDepthOffset = -1.7;
         positions[i3 + 1] = emitterHeight + (Math.random() - 0.5) * spread * 0.2;
-        positions[i3 + 2] = Math.sin(angle) * radial;
+        positions[i3 + 2] = emitterDepthOffset + Math.sin(angle) * radial;
 
         const lateralSpeed = burstRadial;
         velocities[i3] = Math.cos(angle) * lateralSpeed;
