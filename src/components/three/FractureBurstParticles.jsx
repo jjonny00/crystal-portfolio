@@ -2,6 +2,9 @@ import React, { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
+const VORTEX_TURBULENCE_STRENGTH = 0.9;
+const VORTEX_TURBULENCE_SPEED = 0.5;
+
 /**
  * Glitter gust that emits from crystal center on fracture.
  */
@@ -20,6 +23,7 @@ const FractureBurstParticles = ({
   const velocitiesRef = useRef(new Float32Array(count * 3));
   const lifetimesRef = useRef(new Float32Array(count));
   const seedsRef = useRef(new Float32Array(count));
+  const turbulenceRef = useRef(new Float32Array(count * 3));
 
   const geometry = useMemo(() => {
     const g = new THREE.BufferGeometry();
@@ -96,6 +100,7 @@ const FractureBurstParticles = ({
       const velocities = velocitiesRef.current;
       const lifetimes = lifetimesRef.current;
       const seeds = seedsRef.current;
+      const turbulence = turbulenceRef.current;
 
       for (let i = 0; i < count; i += 1) {
         const i3 = i * 3;
@@ -114,6 +119,9 @@ const FractureBurstParticles = ({
 
         lifetimes[i] = duration * (0.8 + Math.random() * 0.8);
         seeds[i] = Math.random() * Math.PI * 2;
+        turbulence[i3] = (Math.random() - 0.5) * VORTEX_TURBULENCE_STRENGTH;
+        turbulence[i3 + 1] = (Math.random() - 0.5) * VORTEX_TURBULENCE_STRENGTH * 0.3;
+        turbulence[i3 + 2] = (Math.random() - 0.5) * VORTEX_TURBULENCE_STRENGTH;
         alphas[i] = 1;
         sizes[i] = 0.3 + Math.random() * 0.4;
       }
@@ -152,6 +160,7 @@ const FractureBurstParticles = ({
     const velocities = velocitiesRef.current;
     const lifetimes = lifetimesRef.current;
     const seeds = seedsRef.current;
+    const turbulence = turbulenceRef.current;
 
     let aliveCount = 0;
 
@@ -167,13 +176,13 @@ const FractureBurstParticles = ({
 
       aliveCount += 1;
 
-      const gust = 3.2 * (1 - t);
-      const swirlX = Math.sin(elapsed * 18 + seeds[i] * 2.4) * gust;
-      const swirlZ = Math.cos(elapsed * 14 + seeds[i] * 1.9) * gust;
+      const turbulentX = Math.sin(elapsed * 2 * VORTEX_TURBULENCE_SPEED + seeds[i]) * turbulence[i3];
+      const turbulentY = Math.sin(elapsed * 1.5 * VORTEX_TURBULENCE_SPEED + seeds[i] * 1.3) * turbulence[i3 + 1];
+      const turbulentZ = Math.cos(elapsed * 1.8 * VORTEX_TURBULENCE_SPEED + seeds[i] * 0.8) * turbulence[i3 + 2];
 
-      velocities[i3] += swirlX * dt;
-      velocities[i3 + 2] += swirlZ * dt;
-      velocities[i3 + 1] += 1.4 * dt;
+      velocities[i3] += turbulentX * dt;
+      velocities[i3 + 1] += (1.4 + turbulentY) * dt;
+      velocities[i3 + 2] += turbulentZ * dt;
 
       velocities[i3] *= 0.9;
       velocities[i3 + 1] *= 0.988;
