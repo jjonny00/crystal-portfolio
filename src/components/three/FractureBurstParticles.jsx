@@ -4,6 +4,7 @@ import * as THREE from 'three';
 
 const VORTEX_TURBULENCE_STRENGTH = 0.9;
 const VORTEX_TURBULENCE_SPEED = 0.5;
+const EMITTER_START_LEAD_S = 0.08;
 
 /**
  * Glitter gust that emits from crystal center on fracture.
@@ -126,6 +127,7 @@ const FractureBurstParticles = ({
         const emitterScaleX = 0.6;
         const emitterScaleY = 1.8;
         const emitterScaleZ = 0.6;
+        const emitterOffsetZ = -0.6;
 
         const direction = new THREE.Vector3(
           Math.random() * 2 - 1,
@@ -136,7 +138,7 @@ const FractureBurstParticles = ({
 
         positions[i3] = direction.x * radius * emitterScaleX;
         positions[i3 + 1] = direction.y * radius * emitterScaleY;
-        positions[i3 + 2] = direction.z * radius * emitterScaleZ;
+        positions[i3 + 2] = emitterOffsetZ + direction.z * radius * emitterScaleZ;
 
         const burstSpeed = 0.05 + Math.random() * 0.9;
         velocities[i3] = direction.x * burstSpeed;
@@ -159,14 +161,16 @@ const FractureBurstParticles = ({
       geometry.attributes.aSize.needsUpdate = true;
       geometry.attributes.aFlicker.needsUpdate = true;
       geometry.attributes.aBrightness.needsUpdate = true;
-      startTimeRef.current = performance.now();
+      startTimeRef.current = performance.now() - EMITTER_START_LEAD_S * 1000;
     };
 
-    if (delay > 0) {
+    const effectiveDelay = Math.max(delay - EMITTER_START_LEAD_S, 0);
+
+    if (effectiveDelay > 0) {
       delayRef.current = setTimeout(() => {
         delayRef.current = null;
         reset();
-      }, delay * 1000);
+      }, effectiveDelay * 1000);
     } else {
       reset();
     }
