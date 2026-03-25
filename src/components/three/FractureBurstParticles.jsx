@@ -40,6 +40,7 @@ const FractureBurstParticles = ({
     const shaderMaterial = new THREE.ShaderMaterial({
       transparent: true,
       depthWrite: false,
+      depthTest: false,
       blending: THREE.AdditiveBlending,
       uniforms: {
         uColor: { value: new THREE.Color(color) },
@@ -124,10 +125,10 @@ const FractureBurstParticles = ({
       for (let i = 0; i < count; i += 1) {
         const i3 = i * 3;
 
-        const emitterScaleX = 0.6;
-        const emitterScaleY = 1.8;
-        const emitterScaleZ = 0.6;
-        const emitterOffsetZ = -0.6;
+        const emitterScaleX = 1.0;
+        const emitterScaleY = 2.4;
+        const emitterScaleZ = 1.0;
+        const emitterOffsetZ = 0.6;
 
         const direction = new THREE.Vector3(
           Math.random() * 2 - 1,
@@ -241,7 +242,7 @@ const FractureBurstParticles = ({
     }
   });
 
-  return <points ref={pointsRef} geometry={geometry} material={material} renderOrder={-1} />;
+  return <points ref={pointsRef} geometry={geometry} material={material} renderOrder={5} />;
 };
 
 export default FractureBurstParticles;
