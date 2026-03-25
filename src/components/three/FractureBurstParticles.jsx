@@ -5,6 +5,9 @@ import * as THREE from 'three';
 const VORTEX_TURBULENCE_STRENGTH = 0.9;
 const VORTEX_TURBULENCE_SPEED = 0.5;
 const EMITTER_START_LEAD_S = 0.08;
+const PRE_RISE_TIME_S = 0.14;
+const INITIAL_TRAVEL_BOOST_X = 1.8;
+const INITIAL_TRAVEL_BOOST_Y = 1.5;
 
 /**
  * Glitter gust that emits from crystal center on fracture.
@@ -142,8 +145,8 @@ const FractureBurstParticles = ({
         positions[i3 + 2] = emitterOffsetZ + direction.z * radius * emitterScaleZ;
 
         const burstSpeed = 0.05 + Math.random() * 0.9;
-        velocities[i3] = direction.x * burstSpeed;
-        velocities[i3 + 1] = Math.max(direction.y * burstSpeed, 0) + 0.05 + Math.random() * 0.55;
+        velocities[i3] = direction.x * burstSpeed * INITIAL_TRAVEL_BOOST_X;
+        velocities[i3 + 1] = direction.y * burstSpeed * INITIAL_TRAVEL_BOOST_Y + 0.02 + Math.random() * 0.18;
         velocities[i3 + 2] = direction.z * burstSpeed;
 
         lifetimes[i] = duration * (0.45 + Math.random() * 1.8);
@@ -216,8 +219,10 @@ const FractureBurstParticles = ({
       const turbulentY = Math.sin(elapsed * 1.5 * VORTEX_TURBULENCE_SPEED + seeds[i] * 1.3) * turbulence[i3 + 1];
       const turbulentZ = Math.cos(elapsed * 1.8 * VORTEX_TURBULENCE_SPEED + seeds[i] * 0.8) * turbulence[i3 + 2];
 
+      const riseBlend = elapsed > PRE_RISE_TIME_S ? 1 : 0.15;
+
       velocities[i3] += turbulentX * dt;
-      velocities[i3 + 1] += (1.4 + turbulentY) * dt;
+      velocities[i3 + 1] += (1.4 + turbulentY) * dt * riseBlend;
       velocities[i3 + 2] += turbulentZ * dt;
 
       velocities[i3] *= 0.78;
