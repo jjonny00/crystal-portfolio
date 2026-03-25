@@ -14,7 +14,7 @@ const FractureBurstParticles = ({
   count = 260,
   duration = 1.2,
   color = '#9af8ff',
-  spread = 1.0,
+  spread = 0.5,
 }) => {
   const pointsRef = useRef();
   const startTimeRef = useRef(0);
@@ -48,7 +48,7 @@ const FractureBurstParticles = ({
         void main() {
           vAlpha = aAlpha;
           vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-          gl_PointSize = aSize * (140.0 / max(-mvPosition.z, 0.1));
+          gl_PointSize = aSize * (110.0 / max(-mvPosition.z, 0.1));
           gl_Position = projectionMatrix * mvPosition;
         }
       `,
@@ -109,7 +109,8 @@ const FractureBurstParticles = ({
         const radial = Math.random() * spread;
         const burstRadial = 0.45 + Math.random() * 0.75;
         positions[i3] = Math.cos(angle) * radial;
-        positions[i3 + 1] = (Math.random() - 0.5) * spread * 0.35;
+        const emitterHeight = 0.18;
+        positions[i3 + 1] = emitterHeight + (Math.random() - 0.5) * spread * 0.2;
         positions[i3 + 2] = Math.sin(angle) * radial;
 
         const lateralSpeed = burstRadial;
@@ -123,7 +124,7 @@ const FractureBurstParticles = ({
         turbulence[i3 + 1] = (Math.random() - 0.5) * VORTEX_TURBULENCE_STRENGTH * 0.3;
         turbulence[i3 + 2] = (Math.random() - 0.5) * VORTEX_TURBULENCE_STRENGTH;
         alphas[i] = 1;
-        sizes[i] = 0.9 + Math.random() * 0.9;
+        sizes[i] = 0.45 + Math.random() * 0.45;
       }
 
       geometry.attributes.position.needsUpdate = true;
