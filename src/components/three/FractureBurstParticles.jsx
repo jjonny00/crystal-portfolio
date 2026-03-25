@@ -11,7 +11,7 @@ const FractureBurstParticles = ({
   count = 260,
   duration = 0.55,
   color = '#9af8ff',
-  spread = 0.03,
+  spread = 0.08,
 }) => {
   const pointsRef = useRef();
   const startTimeRef = useRef(0);
@@ -102,13 +102,14 @@ const FractureBurstParticles = ({
 
         const angle = Math.random() * Math.PI * 2;
         const radial = Math.random() * spread;
+        const burstRadial = 1.1 + Math.random() * 2.4;
         positions[i3] = Math.cos(angle) * radial;
         positions[i3 + 1] = (Math.random() - 0.5) * spread * 0.35;
         positions[i3 + 2] = Math.sin(angle) * radial;
 
-        const lateralSpeed = 0.3 + Math.random() * 1.2;
+        const lateralSpeed = burstRadial;
         velocities[i3] = Math.cos(angle) * lateralSpeed;
-        velocities[i3 + 1] = 4.8 + Math.random() * 4.4;
+        velocities[i3 + 1] = 5.6 + Math.random() * 4.8;
         velocities[i3 + 2] = Math.sin(angle) * lateralSpeed;
 
         lifetimes[i] = duration * (0.65 + Math.random() * 0.5);
@@ -166,7 +167,7 @@ const FractureBurstParticles = ({
 
       aliveCount += 1;
 
-      const gust = 3.0 * (1 - t);
+      const gust = 4.4 * (1 - t);
       const swirlX = Math.sin(elapsed * 12 + seeds[i]) * gust;
       const swirlZ = Math.cos(elapsed * 10 + seeds[i] * 1.7) * gust;
 

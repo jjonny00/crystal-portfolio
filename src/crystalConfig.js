@@ -34,7 +34,7 @@ export const fracture = {
     count: 200,           // Number of burst particles
     color: '#66ffcc',     // Particle color
     duration: 0.55,       // Short-lived glitter fade duration (seconds)
-    spread: 0.03           // Tight center-origin burst radius
+    spread: 0.08           // Wider source radius for broader upward plume
   },
   image: {
     imagePath: '/assets/textures/fractureRing03.jpg',
