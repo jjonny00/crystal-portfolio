@@ -107,7 +107,7 @@ const FractureBurstParticles = ({
 
         const angle = Math.random() * Math.PI * 2;
         const radial = Math.random() * spread;
-        const burstRadial = 0.45 + Math.random() * 0.75;
+        const burstRadial = 0.18 + Math.random() * 0.3;
         positions[i3] = Math.cos(angle) * radial;
         const emitterHeight = 0.18;
         positions[i3 + 1] = emitterHeight + (Math.random() - 0.5) * spread * 0.2;
@@ -185,16 +185,16 @@ const FractureBurstParticles = ({
       velocities[i3 + 1] += (1.4 + turbulentY) * dt;
       velocities[i3 + 2] += turbulentZ * dt;
 
-      velocities[i3] *= 0.9;
+      velocities[i3] *= 0.78;
       velocities[i3 + 1] *= 0.988;
-      velocities[i3 + 2] *= 0.9;
+      velocities[i3 + 2] *= 0.78;
 
-      const vortexOrbitX = Math.cos(elapsed * 0.9 + seeds[i]) * 0.06 * (1 - t);
-      const vortexOrbitZ = Math.sin(elapsed * 0.9 + seeds[i]) * 0.06 * (1 - t);
+      const vortexOrbitX = Math.cos(elapsed * 0.9 + seeds[i]) * 0.025 * (1 - t);
+      const vortexOrbitZ = Math.sin(elapsed * 0.9 + seeds[i]) * 0.025 * (1 - t);
 
-      positions[i3] += velocities[i3] * dt + turbulentX * 0.35 + vortexOrbitX;
+      positions[i3] += velocities[i3] * dt + turbulentX * 0.16 + vortexOrbitX;
       positions[i3 + 1] += velocities[i3 + 1] * dt + turbulentY * 0.2;
-      positions[i3 + 2] += velocities[i3 + 2] * dt + turbulentZ * 0.35 + vortexOrbitZ;
+      positions[i3 + 2] += velocities[i3 + 2] * dt + turbulentZ * 0.16 + vortexOrbitZ;
 
       alphas[i] = (1 - t) * (1 - t);
     }
