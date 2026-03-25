@@ -42,6 +42,7 @@ const FractureBurstParticles = ({
       uniforms: {
         uColor: { value: new THREE.Color(color) },
         uTime: { value: 0 },
+        uBrightness: { value: 1.85 },
       },
       vertexShader: `
         attribute float aAlpha;
@@ -53,13 +54,14 @@ const FractureBurstParticles = ({
           vAlpha = aAlpha;
           vFlicker = aFlicker;
           vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-          gl_PointSize = aSize * (110.0 / max(-mvPosition.z, 0.1));
+          gl_PointSize = aSize * (90.0 / max(-mvPosition.z, 0.1));
           gl_Position = projectionMatrix * mvPosition;
         }
       `,
       fragmentShader: `
         uniform vec3 uColor;
         uniform float uTime;
+        uniform float uBrightness;
         varying float vAlpha;
         varying float vFlicker;
         void main() {
@@ -67,7 +69,8 @@ const FractureBurstParticles = ({
           float d = length(uv);
           float sparkle = smoothstep(0.5, 0.0, d);
           float flicker = 0.55 + 0.45 * sin(uTime * 22.0 + vFlicker);
-          gl_FragColor = vec4(uColor, vAlpha * sparkle * flicker);
+          vec3 brightColor = uColor * uBrightness;
+          gl_FragColor = vec4(brightColor, vAlpha * sparkle * flicker);
         }
       `,
     });
@@ -118,7 +121,7 @@ const FractureBurstParticles = ({
         const radial = Math.random() * spread;
         const burstRadial = 0.18 + Math.random() * 0.3;
         positions[i3] = Math.cos(angle) * radial;
-        const emitterHeight = -0.2;
+        const emitterHeight = 0.3;
         const emitterDepthOffset = 1.7;
         positions[i3 + 1] = emitterHeight + (Math.random() - 0.5) * spread * 0.2;
         positions[i3 + 2] = emitterDepthOffset + Math.sin(angle) * radial;
@@ -134,7 +137,7 @@ const FractureBurstParticles = ({
         turbulence[i3 + 1] = (Math.random() - 0.5) * VORTEX_TURBULENCE_STRENGTH * 0.3;
         turbulence[i3 + 2] = (Math.random() - 0.5) * VORTEX_TURBULENCE_STRENGTH;
         alphas[i] = 1;
-        sizes[i] = 0.45 + Math.random() * 0.45;
+        sizes[i] = 0.25 + Math.random() * 0.25;
         flickers[i] = Math.random() * Math.PI * 2;
       }
 
