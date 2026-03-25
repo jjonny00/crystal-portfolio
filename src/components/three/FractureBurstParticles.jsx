@@ -48,7 +48,7 @@ const FractureBurstParticles = ({
         void main() {
           vAlpha = aAlpha;
           vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-          gl_PointSize = aSize * (80.0 / max(-mvPosition.z, 0.1));
+          gl_PointSize = aSize * (140.0 / max(-mvPosition.z, 0.1));
           gl_Position = projectionMatrix * mvPosition;
         }
       `,
@@ -123,7 +123,7 @@ const FractureBurstParticles = ({
         turbulence[i3 + 1] = (Math.random() - 0.5) * VORTEX_TURBULENCE_STRENGTH * 0.3;
         turbulence[i3 + 2] = (Math.random() - 0.5) * VORTEX_TURBULENCE_STRENGTH;
         alphas[i] = 1;
-        sizes[i] = 0.3 + Math.random() * 0.4;
+        sizes[i] = 0.9 + Math.random() * 0.9;
       }
 
       geometry.attributes.position.needsUpdate = true;
@@ -188,9 +188,12 @@ const FractureBurstParticles = ({
       velocities[i3 + 1] *= 0.988;
       velocities[i3 + 2] *= 0.9;
 
-      positions[i3] += velocities[i3] * dt;
-      positions[i3 + 1] += velocities[i3 + 1] * dt;
-      positions[i3 + 2] += velocities[i3 + 2] * dt;
+      const vortexOrbitX = Math.cos(elapsed * 0.9 + seeds[i]) * 0.06 * (1 - t);
+      const vortexOrbitZ = Math.sin(elapsed * 0.9 + seeds[i]) * 0.06 * (1 - t);
+
+      positions[i3] += velocities[i3] * dt + turbulentX * 0.35 + vortexOrbitX;
+      positions[i3 + 1] += velocities[i3 + 1] * dt + turbulentY * 0.2;
+      positions[i3 + 2] += velocities[i3 + 2] * dt + turbulentZ * 0.35 + vortexOrbitZ;
 
       alphas[i] = (1 - t) * (1 - t);
     }
