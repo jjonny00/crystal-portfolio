@@ -33,7 +33,7 @@ export const fracture = {
     delay: 0.0,          // Trigger exactly at fracture swap (seconds)
     count: 200,           // Number of burst particles
     color: '#66ffcc',     // Particle color
-    duration: 0.55,       // Short-lived glitter fade duration (seconds)
+    duration: 1.2,        // Longer-lived glitter fade duration (seconds)
     spread: 1.0            // Very wide emitter radius
   },
   image: {

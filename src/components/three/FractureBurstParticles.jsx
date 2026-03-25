@@ -9,7 +9,7 @@ const FractureBurstParticles = ({
   trigger,
   delay = 0,
   count = 260,
-  duration = 0.55,
+  duration = 1.2,
   color = '#9af8ff',
   spread = 1.0,
 }) => {
@@ -44,7 +44,7 @@ const FractureBurstParticles = ({
         void main() {
           vAlpha = aAlpha;
           vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-          gl_PointSize = aSize * (120.0 / max(-mvPosition.z, 0.1));
+          gl_PointSize = aSize * (80.0 / max(-mvPosition.z, 0.1));
           gl_Position = projectionMatrix * mvPosition;
         }
       `,
@@ -112,10 +112,10 @@ const FractureBurstParticles = ({
         velocities[i3 + 1] = 0.12 + Math.random() * 0.35;
         velocities[i3 + 2] = Math.sin(angle) * lateralSpeed;
 
-        lifetimes[i] = duration * (0.65 + Math.random() * 0.5);
+        lifetimes[i] = duration * (0.8 + Math.random() * 0.8);
         seeds[i] = Math.random() * Math.PI * 2;
         alphas[i] = 1;
-        sizes[i] = 0.8 + Math.random() * 0.8;
+        sizes[i] = 0.3 + Math.random() * 0.4;
       }
 
       geometry.attributes.position.needsUpdate = true;
@@ -167,17 +167,17 @@ const FractureBurstParticles = ({
 
       aliveCount += 1;
 
-      const gust = 1.1 * (1 - t);
-      const swirlX = Math.sin(elapsed * 12 + seeds[i]) * gust;
-      const swirlZ = Math.cos(elapsed * 10 + seeds[i] * 1.7) * gust;
+      const gust = 3.2 * (1 - t);
+      const swirlX = Math.sin(elapsed * 18 + seeds[i] * 2.4) * gust;
+      const swirlZ = Math.cos(elapsed * 14 + seeds[i] * 1.9) * gust;
 
       velocities[i3] += swirlX * dt;
       velocities[i3 + 2] += swirlZ * dt;
-      velocities[i3 + 1] += 0.95 * dt;
+      velocities[i3 + 1] += 1.4 * dt;
 
-      velocities[i3] *= 0.84;
-      velocities[i3 + 1] *= 0.985;
-      velocities[i3 + 2] *= 0.84;
+      velocities[i3] *= 0.9;
+      velocities[i3 + 1] *= 0.988;
+      velocities[i3 + 2] *= 0.9;
 
       positions[i3] += velocities[i3] * dt;
       positions[i3 + 1] += velocities[i3 + 1] * dt;
