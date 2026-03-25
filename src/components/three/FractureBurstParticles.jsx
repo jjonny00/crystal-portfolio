@@ -123,19 +123,25 @@ const FractureBurstParticles = ({
       for (let i = 0; i < count; i += 1) {
         const i3 = i * 3;
 
-        const angle = Math.random() * Math.PI * 2;
-        const radial = Math.random() * spread;
-        const burstRadial = 0.05 + Math.random() * 0.9;
-        positions[i3] = Math.cos(angle) * radial;
-        const emitterHeight = 0.6;
-        const emitterDepthOffset = 1.7;
-        positions[i3 + 1] = emitterHeight + (Math.random() - 0.5) * spread * 0.2;
-        positions[i3 + 2] = emitterDepthOffset + Math.sin(angle) * radial;
+        const emitterScaleX = 0.6;
+        const emitterScaleY = 1.8;
+        const emitterScaleZ = 0.6;
 
-        const lateralSpeed = burstRadial;
-        velocities[i3] = Math.cos(angle) * lateralSpeed;
-        velocities[i3 + 1] = 0.05 + Math.random() * 0.9;
-        velocities[i3 + 2] = Math.sin(angle) * lateralSpeed;
+        const direction = new THREE.Vector3(
+          Math.random() * 2 - 1,
+          Math.random() * 2 - 1,
+          Math.random() * 2 - 1
+        ).normalize();
+        const radius = Math.cbrt(Math.random()) * spread;
+
+        positions[i3] = direction.x * radius * emitterScaleX;
+        positions[i3 + 1] = direction.y * radius * emitterScaleY;
+        positions[i3 + 2] = direction.z * radius * emitterScaleZ;
+
+        const burstSpeed = 0.05 + Math.random() * 0.9;
+        velocities[i3] = direction.x * burstSpeed;
+        velocities[i3 + 1] = Math.max(direction.y * burstSpeed, 0) + 0.05 + Math.random() * 0.55;
+        velocities[i3 + 2] = direction.z * burstSpeed;
 
         lifetimes[i] = duration * (0.45 + Math.random() * 1.8);
         seeds[i] = Math.random() * Math.PI * 2;
