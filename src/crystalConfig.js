@@ -30,11 +30,11 @@ export const fracture = {
   duration: 0.5,          // Seconds facets remain in fractured state
   distance: 0.03,          // Percentage of explode distance applied during fracture
   particles: {
-    delay: 0.6,          // Delay before particle burst (seconds)
+    delay: 0.0,          // Trigger exactly at fracture swap (seconds)
     count: 200,           // Number of burst particles
     color: '#66ffcc',     // Particle color
-    duration: 0.8,        // Particle fade duration (seconds)
-    spread: 0.02           // How far particles initially spread from origin
+    duration: 0.55,       // Short-lived glitter fade duration (seconds)
+    spread: 0.03           // Tight center-origin burst radius
   },
   image: {
     imagePath: '/assets/textures/fractureRing03.jpg',

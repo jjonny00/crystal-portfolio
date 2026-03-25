@@ -3,112 +3,123 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
 /**
- * Particle burst that erupts from the crystal center when triggered.
+ * Glitter gust that emits from crystal center on fracture.
  */
 const FractureBurstParticles = ({
   trigger,
   delay = 0,
-  count = 200,
-  duration = 1.2,
-  color = '#66ffcc',
-  spread = 0.5
+  count = 260,
+  duration = 0.55,
+  color = '#9af8ff',
+  spread = 0.03,
 }) => {
-  const linesRef = useRef();
+  const pointsRef = useRef();
   const startTimeRef = useRef(0);
-  const velocitiesRef = useRef();
   const delayRef = useRef(null);
 
-  const { geometry, velocities } = useMemo(() => {
-    const positions = new Float32Array(count * 6);
-    const velocities = new Float32Array(count * 3);
+  const velocitiesRef = useRef(new Float32Array(count * 3));
+  const lifetimesRef = useRef(new Float32Array(count));
+  const seedsRef = useRef(new Float32Array(count));
 
-    for (let i = 0; i < count; i++) {
-      const i6 = i * 6;
-      const i3 = i * 3;
+  const geometry = useMemo(() => {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(count * 3), 3));
+    g.setAttribute('aAlpha', new THREE.BufferAttribute(new Float32Array(count), 1));
+    g.setAttribute('aSize', new THREE.BufferAttribute(new Float32Array(count), 1));
+    return g;
+  }, [count]);
 
-      const dir = new THREE.Vector3(
-        Math.random() - 0.5,
-        Math.random() - 0.5,
-        Math.random() - 0.5
-      ).normalize();
+  const material = useMemo(() => {
+    const shaderMaterial = new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      uniforms: {
+        uColor: { value: new THREE.Color(color) },
+      },
+      vertexShader: `
+        attribute float aAlpha;
+        attribute float aSize;
+        varying float vAlpha;
+        void main() {
+          vAlpha = aAlpha;
+          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+          gl_PointSize = aSize * (220.0 / max(-mvPosition.z, 0.1));
+          gl_Position = projectionMatrix * mvPosition;
+        }
+      `,
+      fragmentShader: `
+        uniform vec3 uColor;
+        varying float vAlpha;
+        void main() {
+          vec2 uv = gl_PointCoord - vec2(0.5);
+          float d = length(uv);
+          float sparkle = smoothstep(0.5, 0.0, d);
+          gl_FragColor = vec4(uColor, vAlpha * sparkle);
+        }
+      `,
+    });
 
-      const speed = 20 + Math.random() * 10;
-      velocities[i3] = dir.x * speed;
-      velocities[i3 + 1] = dir.y * speed;
-      velocities[i3 + 2] = dir.z * speed;
-
-      const length = 1 + Math.random() * spread;
-      positions[i6] = positions[i6 + 1] = positions[i6 + 2] = 0;
-      positions[i6 + 3] = dir.x * length;
-      positions[i6 + 4] = dir.y * length;
-      positions[i6 + 5] = dir.z * length;
-    }
-
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-
-    return { geometry, velocities };
-  }, [count, spread]);
-
-  velocitiesRef.current = velocities;
-
-  const material = useMemo(
-    () =>
-      new THREE.LineBasicMaterial({
-        transparent: true,
-        depthWrite: false,
-        blending: THREE.AdditiveBlending,
-        color,
-        opacity: 0,
-      }),
-    [color]
-  );
+    return shaderMaterial;
+  }, [color]);
 
   useEffect(() => {
-    if (!geometry) return undefined;
+    if (material.uniforms?.uColor) {
+      material.uniforms.uColor.value.set(color);
+    }
+  }, [material, color]);
 
+  useEffect(() => () => {
+    geometry.dispose();
+    material.dispose();
+  }, [geometry, material]);
+
+  useEffect(() => {
     if (delayRef.current) {
       clearTimeout(delayRef.current);
       delayRef.current = null;
     }
 
     if (!trigger) {
-      material.opacity = 0;
       startTimeRef.current = 0;
-      return undefined;
+      return;
     }
 
-    let isCancelled = false;
+    let cancelled = false;
 
     const reset = () => {
-      if (isCancelled) return;
+      if (cancelled) return;
 
-      // Reset positions and regenerate velocities
       const positions = geometry.attributes.position.array;
+      const alphas = geometry.attributes.aAlpha.array;
+      const sizes = geometry.attributes.aSize.array;
       const velocities = velocitiesRef.current;
-      for (let i = 0; i < count; i++) {
-        const i6 = i * 6;
+      const lifetimes = lifetimesRef.current;
+      const seeds = seedsRef.current;
+
+      for (let i = 0; i < count; i += 1) {
         const i3 = i * 3;
 
-        const dir = new THREE.Vector3(
-          Math.random() - 0.5,
-          Math.random() - 0.5,
-          Math.random() - 0.5
-        ).normalize();
+        const angle = Math.random() * Math.PI * 2;
+        const radial = Math.random() * spread;
+        positions[i3] = Math.cos(angle) * radial;
+        positions[i3 + 1] = (Math.random() - 0.5) * spread * 0.35;
+        positions[i3 + 2] = Math.sin(angle) * radial;
 
-        const speed = 20 + Math.random() * 10;
-        velocities[i3] = dir.x * speed;
-        velocities[i3 + 1] = dir.y * speed;
-        velocities[i3 + 2] = dir.z * speed;
+        const lateralSpeed = 0.3 + Math.random() * 1.2;
+        velocities[i3] = Math.cos(angle) * lateralSpeed;
+        velocities[i3 + 1] = 4.8 + Math.random() * 4.4;
+        velocities[i3 + 2] = Math.sin(angle) * lateralSpeed;
 
-        const length = 1 + Math.random() * spread;
-        positions[i6] = positions[i6 + 1] = positions[i6 + 2] = 0;
-        positions[i6 + 3] = dir.x * length;
-        positions[i6 + 4] = dir.y * length;
-        positions[i6 + 5] = dir.z * length;
+        lifetimes[i] = duration * (0.65 + Math.random() * 0.5);
+        seeds[i] = Math.random() * Math.PI * 2;
+        alphas[i] = 1;
+        sizes[i] = 12 + Math.random() * 18;
       }
+
       geometry.attributes.position.needsUpdate = true;
-      material.opacity = 1;
+      geometry.attributes.aAlpha.needsUpdate = true;
+      geometry.attributes.aSize.needsUpdate = true;
       startTimeRef.current = performance.now();
     };
 
@@ -122,47 +133,67 @@ const FractureBurstParticles = ({
     }
 
     return () => {
-      isCancelled = true;
+      cancelled = true;
       if (delayRef.current) {
         clearTimeout(delayRef.current);
         delayRef.current = null;
       }
     };
-  }, [trigger, geometry, material, count, delay, spread]);
+  }, [trigger, delay, count, duration, spread, geometry]);
 
   useFrame((_, dt) => {
     if (!startTimeRef.current) return;
-    const elapsed = (performance.now() - startTimeRef.current) / 1000;
+
+    const now = performance.now();
+    const elapsed = (now - startTimeRef.current) / 1000;
     const positions = geometry.attributes.position.array;
+    const alphas = geometry.attributes.aAlpha.array;
     const velocities = velocitiesRef.current;
+    const lifetimes = lifetimesRef.current;
+    const seeds = seedsRef.current;
 
-    for (let i = 0; i < count; i++) {
-      const i6 = i * 6;
+    let aliveCount = 0;
+
+    for (let i = 0; i < count; i += 1) {
       const i3 = i * 3;
+      const life = lifetimes[i] || duration;
+      const t = Math.min(elapsed / life, 1);
 
-      positions[i6] += velocities[i3] * dt;
-      positions[i6 + 1] += velocities[i3 + 1] * dt;
-      positions[i6 + 2] += velocities[i3 + 2] * dt;
-      positions[i6 + 3] += velocities[i3] * dt;
-      positions[i6 + 4] += velocities[i3 + 1] * dt;
-      positions[i6 + 5] += velocities[i3 + 2] * dt;
+      if (t >= 1) {
+        alphas[i] = 0;
+        continue;
+      }
+
+      aliveCount += 1;
+
+      const gust = 3.0 * (1 - t);
+      const swirlX = Math.sin(elapsed * 12 + seeds[i]) * gust;
+      const swirlZ = Math.cos(elapsed * 10 + seeds[i] * 1.7) * gust;
+
+      velocities[i3] += swirlX * dt;
+      velocities[i3 + 2] += swirlZ * dt;
+      velocities[i3 + 1] += 8.5 * dt;
+
+      velocities[i3] *= 0.91;
+      velocities[i3 + 1] *= 0.97;
+      velocities[i3 + 2] *= 0.91;
+
+      positions[i3] += velocities[i3] * dt;
+      positions[i3 + 1] += velocities[i3 + 1] * dt;
+      positions[i3 + 2] += velocities[i3 + 2] * dt;
+
+      alphas[i] = (1 - t) * (1 - t);
     }
-    geometry.attributes.position.needsUpdate = true;
 
-    material.opacity = Math.max(1 - elapsed / duration, 0);
-    if (elapsed > duration) {
+    geometry.attributes.position.needsUpdate = true;
+    geometry.attributes.aAlpha.needsUpdate = true;
+
+    if (aliveCount === 0) {
       startTimeRef.current = 0;
     }
   });
 
-  return (
-    <lineSegments
-      ref={linesRef}
-      geometry={geometry}
-      material={material}
-      renderOrder={-1}
-    />
-  );
+  return <points ref={pointsRef} geometry={geometry} material={material} renderOrder={-1} />;
 };
 
 export default FractureBurstParticles;
