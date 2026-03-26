@@ -4,8 +4,8 @@ import * as THREE from 'three';
 
 const EMITTER_START_LEAD_S = 0.08;
 const PARTICLE_FADE_IN_END = 0.04;
-const PARTICLE_FADE_OUT_START = 0.18;
-const PARTICLE_FADE_OUT_END = 0.78;
+const PARTICLE_FADE_OUT_START = 0.55;
+const PARTICLE_FADE_OUT_END = 0.92;
 
 const smoothstep = (edge0, edge1, x) => {
   const t = Math.min(Math.max((x - edge0) / (edge1 - edge0), 0), 1);
@@ -349,10 +349,8 @@ const FractureBurstParticles = ({
       alphas[i] = smoothstep(0.0, PARTICLE_FADE_IN_END, lifeT) * (1.0 - smoothstep(PARTICLE_FADE_OUT_START, PARTICLE_FADE_OUT_END, lifeT));
 
       if (i < 3) {
-        console.log('[fade check]', i, {
-          age: ages[i],
-          lifetime: life,
-          t: ages[i] / life,
+        console.log('[fade timing]', i, {
+          t: lifeT,
           alpha: alphas[i],
         });
       }
