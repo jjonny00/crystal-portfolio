@@ -2017,6 +2017,7 @@ const UnifiedCrystalScene = forwardRef(({
       {!simplifiedAnimations && (
         <FractureBurstParticles
           trigger={burstId}
+          emitterPosition={[0, 0, 0]}
           {...mergedConfig.fracture.particles}
         />
       )}
