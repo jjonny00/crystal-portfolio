@@ -6,6 +6,7 @@ const VORTEX_TURBULENCE_STRENGTH = 0.08;
 const VORTEX_TURBULENCE_SPEED = 0.45;
 const EMITTER_START_LEAD_S = 0.08;
 const PRE_RISE_TIME_S = 0.2;
+const DEBUG_PARTICLES = false;
 
 const smoothstep = (edge0, edge1, x) => {
   const t = Math.min(Math.max((x - edge0) / (edge1 - edge0), 0), 1);
@@ -36,24 +37,50 @@ const FractureBurstParticles = ({
   const upwardTargetRef = useRef(new THREE.Vector3(0, 1.2, 0));
 
   const emitterBounds = useMemo(() => {
+    if (import.meta.env.DEV) {
+      console.log('crystalMesh', crystalMesh);
+    }
+
     if (!crystalMesh) {
+      if (import.meta.env.DEV) {
+        console.warn('Invalid crystal bounds for particle emitter, falling back to fixed emitter size');
+      }
       return {
-        width: spread,
-        height: spread * 1.2,
-        depth: spread,
+        width: 0.6,
+        height: 1.0,
+        depth: 0.6,
       };
     }
 
     const bounds = new THREE.Box3().setFromObject(crystalMesh);
     const size = new THREE.Vector3();
+    const center = new THREE.Vector3();
     bounds.getSize(size);
+    bounds.getCenter(center);
+
+    if (import.meta.env.DEV) {
+      console.log('particle bounds size', size.x, size.y, size.z);
+      console.log('particle bounds center', center.x, center.y, center.z);
+    }
+
+    if (
+      !Number.isFinite(size.x) || !Number.isFinite(size.y) || !Number.isFinite(size.z) ||
+      size.x <= 0 || size.y <= 0 || size.z <= 0
+    ) {
+      console.warn('Invalid crystal bounds for particle emitter, falling back to fixed emitter size');
+      return {
+        width: 0.6,
+        height: 1.0,
+        depth: 0.6,
+      };
+    }
 
     return {
       width: size.x * 1.35,
       height: size.y * 1.6,
       depth: size.z * 1.35,
     };
-  }, [crystalMesh, spread]);
+  }, [crystalMesh]);
 
   const geometry = useMemo(() => {
     const g = new THREE.BufferGeometry();
@@ -152,7 +179,9 @@ const FractureBurstParticles = ({
       const turbulence = turbulenceRef.current;
       const baseSizes = baseSizesRef.current;
 
-      for (let i = 0; i < count; i += 1) {
+      const particleCount = DEBUG_PARTICLES ? Math.min(count, 32) : count;
+
+      for (let i = 0; i < particleCount; i += 1) {
         const i3 = i * 3;
 
         const direction = new THREE.Vector3().randomDirection();
@@ -169,17 +198,26 @@ const FractureBurstParticles = ({
         velocities[i3 + 1] = direction.y * burstSpeed;
         velocities[i3 + 2] = direction.z * burstSpeed;
 
-        lifetimes[i] = duration * (1.0 + Math.random() * 0.8);
+        lifetimes[i] = DEBUG_PARTICLES ? 2.0 : duration * (1.0 + Math.random() * 0.8);
         seeds[i] = Math.random() * Math.PI * 2;
         turbulence[i3] = (Math.random() - 0.5) * VORTEX_TURBULENCE_STRENGTH;
         turbulence[i3 + 1] = (Math.random() - 0.5) * VORTEX_TURBULENCE_STRENGTH * 0.2;
         turbulence[i3 + 2] = (Math.random() - 0.5) * VORTEX_TURBULENCE_STRENGTH;
         alphas[i] = 1;
-        const baseSize = 0.003 + Math.random() * 0.007;
+        const baseSize = DEBUG_PARTICLES ? 0.03 : (0.003 + Math.random() * 0.007);
         baseSizes[i] = baseSize;
         sizes[i] = baseSize;
-        flickers[i] = Math.random() * Math.PI * 2;
-        brightnesses[i] = 0.85 + Math.random() * 0.35;
+        flickers[i] = DEBUG_PARTICLES ? 0 : Math.random() * Math.PI * 2;
+        brightnesses[i] = DEBUG_PARTICLES ? 1.2 : (0.85 + Math.random() * 0.35);
+      }
+
+      for (let i = particleCount; i < count; i += 1) {
+        const i3 = i * 3;
+        positions[i3] = positions[i3 + 1] = positions[i3 + 2] = 0;
+        velocities[i3] = velocities[i3 + 1] = velocities[i3 + 2] = 0;
+        alphas[i] = 0;
+        sizes[i] = 0;
+        lifetimes[i] = 0;
       }
 
       geometry.attributes.position.needsUpdate = true;
@@ -264,7 +302,7 @@ const FractureBurstParticles = ({
       positions[i3 + 2] += velocities[i3 + 2] * dt;
 
       sizes[i] = baseSizes[i] * (1 - t * 0.6);
-      alphas[i] = smoothstep(0.0, 0.1, t) * (1 - smoothstep(0.6, 1.0, t));
+      alphas[i] = DEBUG_PARTICLES ? 1.0 : smoothstep(0.0, 0.1, t) * (1 - smoothstep(0.6, 1.0, t));
     }
 
     geometry.attributes.position.needsUpdate = true;
