@@ -9,9 +9,22 @@ const smoothstep = (edge0, edge1, x) => {
   return t * t * (3 - 2 * t);
 };
 
-/**
- * Fracture glitter dust (debug-verified render path).
- */
+const swapScalar = (arr, a, b) => {
+  const tmp = arr[a];
+  arr[a] = arr[b];
+  arr[b] = tmp;
+};
+
+const swapVec3 = (arr, a, b) => {
+  const a3 = a * 3;
+  const b3 = b * 3;
+  for (let k = 0; k < 3; k += 1) {
+    const tmp = arr[a3 + k];
+    arr[a3 + k] = arr[b3 + k];
+    arr[b3 + k] = tmp;
+  }
+};
+
 const FractureBurstParticles = ({
   trigger,
   delay = 0,
@@ -108,6 +121,7 @@ const FractureBurstParticles = ({
         const ringThickness = -0.14 + Math.random() * 0.28;
         const yOffset = -0.22 + Math.random() * 0.5;
         const radial = ringRadius + ringThickness;
+
         const emitterWidth = 1.0;
         const emitterHeight = 0.7;
         const emitterDepth = 1.0;
@@ -131,18 +145,19 @@ const FractureBurstParticles = ({
         velocities[i3 + 2] = velocity.z;
 
         ages[i] = 0;
-        lifetimes[i] = 0.28 + Math.random() * 0.27;
+        lifetimes[i] = 0.45 + Math.random() * 0.35;
+
         const isAccent = Math.random() > 0.86;
-        const baseSize = isAccent
-          ? (0.018 + Math.random() * 0.01)
-          : (0.009 + Math.random() * 0.008);
+        const baseSize = isAccent ? (0.018 + Math.random() * 0.01) : (0.009 + Math.random() * 0.008);
         baseSizes[i] = baseSize;
         sizes[i] = baseSize;
+
         drags[i] = 0.87 + Math.random() * 0.06;
         buoyancies[i] = 0.004 + Math.random() * 0.006;
         turbulences[i] = 0.004 + Math.random() * 0.008;
         swirls[i] = 0.002 + Math.random() * 0.006;
         phases[i] = Math.random() * Math.PI * 2;
+
         alphas[i] = 1;
       }
 
@@ -152,6 +167,7 @@ const FractureBurstParticles = ({
         velocities[i3] = velocities[i3 + 1] = velocities[i3 + 2] = 0;
         ages[i] = 0;
         lifetimes[i] = 0;
+        baseSizes[i] = 0;
         drags[i] = 0;
         buoyancies[i] = 0;
         turbulences[i] = 0;
@@ -215,7 +231,6 @@ const FractureBurstParticles = ({
   useFrame((_, dt) => {
     if (!startTimeRef.current) return;
 
-    const elapsed = (performance.now() - startTimeRef.current) / 1000;
     const positions = geometry.attributes.position.array;
     const alphas = geometry.attributes.aAlpha.array;
     const sizes = geometry.attributes.aSize.array;
@@ -229,23 +244,59 @@ const FractureBurstParticles = ({
     const swirls = swirlsRef.current;
     const phases = phasesRef.current;
 
-    const activeCount = activeCountRef.current;
+    let activeCount = activeCountRef.current;
+    const activeBefore = activeCount;
+    let expiredThisFrame = 0;
 
     for (let i = 0; i < activeCount; i += 1) {
-      const i3 = i * 3;
       const life = lifetimes[i];
       if (!life) continue;
 
-      ages[i] = elapsed;
-      const t = Math.min(ages[i] / life, 1);
+      ages[i] += dt;
+      const lifeT = THREE.MathUtils.clamp(ages[i] / life, 0, 1);
 
+      if (i < 3) {
+        console.log('[particle update]', i, {
+          age: ages[i],
+          lifetime: life,
+          normalized: lifeT,
+        });
+      }
+
+      if (lifeT >= 1 || ages[i] >= life) {
+        alphas[i] = 0;
+        sizes[i] = 0;
+
+        const last = activeCount - 1;
+        if (i !== last) {
+          swapVec3(positions, i, last);
+          swapVec3(velocities, i, last);
+          swapScalar(lifetimes, i, last);
+          swapScalar(ages, i, last);
+          swapScalar(baseSizes, i, last);
+          swapScalar(drags, i, last);
+          swapScalar(buoyancies, i, last);
+          swapScalar(turbulences, i, last);
+          swapScalar(swirls, i, last);
+          swapScalar(phases, i, last);
+          swapScalar(alphas, i, last);
+          swapScalar(sizes, i, last);
+        }
+
+        activeCount -= 1;
+        expiredThisFrame += 1;
+        i -= 1;
+        continue;
+      }
+
+      const i3 = i * 3;
       if (ages[i] < 0.09) {
         velocities[i3] *= 0.965;
         velocities[i3 + 1] *= 0.965;
         velocities[i3 + 2] *= 0.965;
       } else {
-        const swirlX = Math.sin(elapsed * 8.0 + phases[i]) * swirls[i];
-        const swirlZ = Math.cos(elapsed * 7.0 + phases[i] * 1.3) * swirls[i];
+        const swirlX = Math.sin(ages[i] * 8.0 + phases[i]) * swirls[i];
+        const swirlZ = Math.cos(ages[i] * 7.0 + phases[i] * 1.3) * swirls[i];
 
         const turbX = (Math.random() - 0.5) * turbulences[i];
         const turbY = (Math.random() - 0.5) * turbulences[i] * 0.35;
@@ -264,9 +315,16 @@ const FractureBurstParticles = ({
       positions[i3 + 1] += velocities[i3 + 1] * dt;
       positions[i3 + 2] += velocities[i3 + 2] * dt;
 
-      sizes[i] = baseSizes[i] * (1.0 - t * 0.45);
-      alphas[i] = smoothstep(0.0, 0.02, t) * (1.0 - smoothstep(0.18, 0.5, t));
+      sizes[i] = baseSizes[i] * (1.0 - lifeT * 0.45);
+      alphas[i] = smoothstep(0.0, 0.03, lifeT) * (1.0 - smoothstep(0.22, 0.68, lifeT));
     }
+
+    activeCountRef.current = activeCount;
+    console.log('[particles]', {
+      activeBefore,
+      expiredThisFrame,
+      activeAfter: activeCount,
+    });
 
     geometry.setDrawRange(0, activeCount);
     geometry.attributes.position.needsUpdate = true;
