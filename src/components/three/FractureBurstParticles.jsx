@@ -123,15 +123,15 @@ const FractureBurstParticles = ({
           -0.35 + Math.random() * 0.7,
         );
         const velocity = radialDir.add(burstJitter).normalize();
-        velocity.multiplyScalar(3.6 + Math.random() * 2.0);
-        velocity.y += 0.2 + Math.random() * 0.6;
+        velocity.multiplyScalar(5.2 + Math.random() * 2.0);
+        velocity.y += 0.3 + Math.random() * 0.7;
 
         velocities[i3] = velocity.x;
         velocities[i3 + 1] = velocity.y;
         velocities[i3 + 2] = velocity.z;
 
         ages[i] = 0;
-        lifetimes[i] = 0.5 + Math.random() * 0.45;
+        lifetimes[i] = 0.28 + Math.random() * 0.27;
         const isAccent = Math.random() > 0.86;
         const baseSize = isAccent
           ? (0.018 + Math.random() * 0.01)
@@ -240,9 +240,9 @@ const FractureBurstParticles = ({
       const t = Math.min(ages[i] / life, 1);
 
       if (ages[i] < 0.09) {
-        velocities[i3] *= 0.985;
-        velocities[i3 + 1] *= 0.985;
-        velocities[i3 + 2] *= 0.985;
+        velocities[i3] *= 0.965;
+        velocities[i3 + 1] *= 0.965;
+        velocities[i3 + 2] *= 0.965;
       } else {
         const swirlX = Math.sin(elapsed * 8.0 + phases[i]) * swirls[i];
         const swirlZ = Math.cos(elapsed * 7.0 + phases[i] * 1.3) * swirls[i];
@@ -265,7 +265,7 @@ const FractureBurstParticles = ({
       positions[i3 + 2] += velocities[i3 + 2] * dt;
 
       sizes[i] = baseSizes[i] * (1.0 - t * 0.45);
-      alphas[i] = smoothstep(0.0, 0.03, t) * (1.0 - smoothstep(0.28, 0.72, t));
+      alphas[i] = smoothstep(0.0, 0.02, t) * (1.0 - smoothstep(0.18, 0.5, t));
     }
 
     geometry.setDrawRange(0, activeCount);
