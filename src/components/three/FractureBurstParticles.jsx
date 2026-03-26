@@ -99,38 +99,37 @@ const FractureBurstParticles = ({
       for (let i = 0; i < spawnCount; i += 1) {
         const i3 = i * 3;
 
-        const dir = new THREE.Vector3().randomDirection();
-        dir.y = Math.max(dir.y, -0.1);
-        dir.normalize();
+        const angle = Math.random() * Math.PI * 2;
+        const ringRadius = 0.45 + Math.random() * 0.27;
+        const ringThickness = -0.08 + Math.random() * 0.16;
+        const yOffset = -0.12 + Math.random() * 0.36;
+        const radial = ringRadius + ringThickness;
+        const emitterWidth = 0.95;
+        const emitterHeight = 0.55;
+        const emitterDepth = 0.95;
 
-        const shellT = Math.pow(Math.random(), 0.35);
-        const r = THREE.MathUtils.lerp(0.72, 1.0, shellT);
-        const emitterWidth = 0.75;
-        const emitterHeight = 1.0;
-        const emitterDepth = 0.75;
-
-        positions[i3] = dir.x * emitterWidth * r;
-        positions[i3 + 1] = dir.y * emitterHeight * r;
-        positions[i3 + 2] = dir.z * emitterDepth * r;
+        positions[i3] = Math.cos(angle) * emitterWidth * radial;
+        positions[i3 + 1] = yOffset * emitterHeight;
+        positions[i3 + 2] = Math.sin(angle) * emitterDepth * radial;
 
         const velocity = new THREE.Vector3(positions[i3], positions[i3 + 1], positions[i3 + 2]).normalize();
-        velocity.multiplyScalar(2.4 + Math.random() * 1.6);
-        velocity.y += 0.2 + Math.random() * 0.35;
+        velocity.multiplyScalar(3.2 + Math.random() * 1.6);
+        velocity.y += 0.25 + Math.random() * 0.4;
 
         velocities[i3] = velocity.x;
         velocities[i3 + 1] = velocity.y;
         velocities[i3 + 2] = velocity.z;
 
         ages[i] = 0;
-        lifetimes[i] = 1.4 + Math.random() * 1.0;
-        const isAccent = Math.random() > 0.82;
+        lifetimes[i] = 0.65 + Math.random() * 0.5;
+        const isAccent = Math.random() > 0.84;
         const baseSize = isAccent
-          ? (0.022 + Math.random() * 0.01)
-          : (0.01 + Math.random() * 0.01);
+          ? (0.02 + Math.random() * 0.01)
+          : (0.01 + Math.random() * 0.008);
         baseSizes[i] = baseSize;
         sizes[i] = baseSize;
-        drags[i] = 0.9 + Math.random() * 0.06;
-        buoyancies[i] = 0.003 + Math.random() * 0.005;
+        drags[i] = 0.88 + Math.random() * 0.06;
+        buoyancies[i] = 0.0025 + Math.random() * 0.0035;
         alphas[i] = 1;
       }
 
@@ -221,18 +220,18 @@ const FractureBurstParticles = ({
       ages[i] = elapsed;
       const t = Math.min(ages[i] / life, 1);
 
-      if (ages[i] < 0.14) {
-        velocities[i3] *= 0.975;
-        velocities[i3 + 1] *= 0.975;
-        velocities[i3 + 2] *= 0.975;
+      if (ages[i] < 0.10) {
+        velocities[i3] *= 0.98;
+        velocities[i3 + 1] *= 0.98;
+        velocities[i3 + 2] *= 0.98;
       } else {
         const currentVel = new THREE.Vector3(velocities[i3], velocities[i3 + 1], velocities[i3 + 2]);
         currentVel.lerp(upwardTargetRef.current, 0.06);
         velocities[i3] = currentVel.x * drags[i];
         velocities[i3 + 2] = currentVel.z * drags[i];
-        velocities[i3 + 1] = currentVel.y * 0.987 + buoyancies[i];
-        velocities[i3] += (Math.random() - 0.5) * 0.0015;
-        velocities[i3 + 2] += (Math.random() - 0.5) * 0.0015;
+        velocities[i3 + 1] = currentVel.y * 0.975 + buoyancies[i];
+        velocities[i3] += (Math.random() - 0.5) * 0.0012;
+        velocities[i3 + 2] += (Math.random() - 0.5) * 0.0012;
       }
 
       positions[i3] += velocities[i3] * dt;
@@ -240,7 +239,7 @@ const FractureBurstParticles = ({
       positions[i3 + 2] += velocities[i3 + 2] * dt;
 
       sizes[i] = baseSizes[i];
-      alphas[i] = smoothstep(0.0, 0.05, t) * (1.0 - smoothstep(0.72, 1.0, t));
+      alphas[i] = smoothstep(0.0, 0.04, t) * (1.0 - smoothstep(0.38, 0.82, t));
     }
 
     geometry.setDrawRange(0, activeCount);
