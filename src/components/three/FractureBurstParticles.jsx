@@ -30,8 +30,9 @@ const FractureBurstParticles = ({
   const baseSizesRef = useRef(new Float32Array(count));
   const dragsRef = useRef(new Float32Array(count));
   const buoyanciesRef = useRef(new Float32Array(count));
-
-  const upwardTargetRef = useRef(new THREE.Vector3(0, 0.9, 0));
+  const turbulencesRef = useRef(new Float32Array(count));
+  const swirlsRef = useRef(new Float32Array(count));
+  const phasesRef = useRef(new Float32Array(count));
 
   const geometry = useMemo(() => {
     const g = new THREE.BufferGeometry();
@@ -91,45 +92,57 @@ const FractureBurstParticles = ({
       const baseSizes = baseSizesRef.current;
       const drags = dragsRef.current;
       const buoyancies = buoyanciesRef.current;
+      const turbulences = turbulencesRef.current;
+      const swirls = swirlsRef.current;
+      const phases = phasesRef.current;
 
       console.log('[particles] before spawn activeCount=', activeCountRef.current);
-      const spawnCount = Math.min(count, 120);
+      const spawnCount = Math.min(count, 130);
       console.log('[particles] spawning count=', spawnCount);
 
       for (let i = 0; i < spawnCount; i += 1) {
         const i3 = i * 3;
 
-        const angle = Math.random() * Math.PI * 2;
-        const ringRadius = 0.45 + Math.random() * 0.27;
-        const ringThickness = -0.08 + Math.random() * 0.16;
-        const yOffset = -0.12 + Math.random() * 0.36;
+        const angle = Math.random() * Math.PI * 2 + (Math.random() - 0.5) * 0.35;
+        const ringRadius = 0.38 + Math.random() * 0.44;
+        const ringThickness = -0.14 + Math.random() * 0.28;
+        const yOffset = -0.22 + Math.random() * 0.5;
         const radial = ringRadius + ringThickness;
-        const emitterWidth = 0.95;
-        const emitterHeight = 0.55;
-        const emitterDepth = 0.95;
+        const emitterWidth = 1.0;
+        const emitterHeight = 0.7;
+        const emitterDepth = 1.0;
 
         positions[i3] = Math.cos(angle) * emitterWidth * radial;
         positions[i3 + 1] = yOffset * emitterHeight;
         positions[i3 + 2] = Math.sin(angle) * emitterDepth * radial;
 
-        const velocity = new THREE.Vector3(positions[i3], positions[i3 + 1], positions[i3 + 2]).normalize();
-        velocity.multiplyScalar(3.2 + Math.random() * 1.6);
-        velocity.y += 0.25 + Math.random() * 0.4;
+        const radialDir = new THREE.Vector3(positions[i3], positions[i3 + 1], positions[i3 + 2]).normalize();
+        const burstJitter = new THREE.Vector3(
+          -0.35 + Math.random() * 0.7,
+          -0.12 + Math.random() * 0.4,
+          -0.35 + Math.random() * 0.7,
+        );
+        const velocity = radialDir.add(burstJitter).normalize();
+        velocity.multiplyScalar(3.6 + Math.random() * 2.0);
+        velocity.y += 0.2 + Math.random() * 0.6;
 
         velocities[i3] = velocity.x;
         velocities[i3 + 1] = velocity.y;
         velocities[i3 + 2] = velocity.z;
 
         ages[i] = 0;
-        lifetimes[i] = 0.65 + Math.random() * 0.5;
-        const isAccent = Math.random() > 0.84;
+        lifetimes[i] = 0.5 + Math.random() * 0.45;
+        const isAccent = Math.random() > 0.86;
         const baseSize = isAccent
-          ? (0.02 + Math.random() * 0.01)
-          : (0.01 + Math.random() * 0.008);
+          ? (0.018 + Math.random() * 0.01)
+          : (0.009 + Math.random() * 0.008);
         baseSizes[i] = baseSize;
         sizes[i] = baseSize;
-        drags[i] = 0.88 + Math.random() * 0.06;
-        buoyancies[i] = 0.0025 + Math.random() * 0.0035;
+        drags[i] = 0.87 + Math.random() * 0.06;
+        buoyancies[i] = 0.004 + Math.random() * 0.006;
+        turbulences[i] = 0.004 + Math.random() * 0.008;
+        swirls[i] = 0.002 + Math.random() * 0.006;
+        phases[i] = Math.random() * Math.PI * 2;
         alphas[i] = 1;
       }
 
@@ -141,6 +154,9 @@ const FractureBurstParticles = ({
         lifetimes[i] = 0;
         drags[i] = 0;
         buoyancies[i] = 0;
+        turbulences[i] = 0;
+        swirls[i] = 0;
+        phases[i] = 0;
         sizes[i] = 0;
         alphas[i] = 0;
       }
@@ -209,6 +225,9 @@ const FractureBurstParticles = ({
     const baseSizes = baseSizesRef.current;
     const drags = dragsRef.current;
     const buoyancies = buoyanciesRef.current;
+    const turbulences = turbulencesRef.current;
+    const swirls = swirlsRef.current;
+    const phases = phasesRef.current;
 
     const activeCount = activeCountRef.current;
 
@@ -220,26 +239,33 @@ const FractureBurstParticles = ({
       ages[i] = elapsed;
       const t = Math.min(ages[i] / life, 1);
 
-      if (ages[i] < 0.10) {
-        velocities[i3] *= 0.98;
-        velocities[i3 + 1] *= 0.98;
-        velocities[i3 + 2] *= 0.98;
+      if (ages[i] < 0.09) {
+        velocities[i3] *= 0.985;
+        velocities[i3 + 1] *= 0.985;
+        velocities[i3 + 2] *= 0.985;
       } else {
-        const currentVel = new THREE.Vector3(velocities[i3], velocities[i3 + 1], velocities[i3 + 2]);
-        currentVel.lerp(upwardTargetRef.current, 0.06);
-        velocities[i3] = currentVel.x * drags[i];
-        velocities[i3 + 2] = currentVel.z * drags[i];
-        velocities[i3 + 1] = currentVel.y * 0.975 + buoyancies[i];
-        velocities[i3] += (Math.random() - 0.5) * 0.0012;
-        velocities[i3 + 2] += (Math.random() - 0.5) * 0.0012;
+        const swirlX = Math.sin(elapsed * 8.0 + phases[i]) * swirls[i];
+        const swirlZ = Math.cos(elapsed * 7.0 + phases[i] * 1.3) * swirls[i];
+
+        const turbX = (Math.random() - 0.5) * turbulences[i];
+        const turbY = (Math.random() - 0.5) * turbulences[i] * 0.35;
+        const turbZ = (Math.random() - 0.5) * turbulences[i];
+
+        velocities[i3] *= drags[i];
+        velocities[i3 + 2] *= drags[i];
+        velocities[i3 + 1] *= 0.975;
+
+        velocities[i3] += swirlX + turbX;
+        velocities[i3 + 1] += buoyancies[i] + turbY;
+        velocities[i3 + 2] += swirlZ + turbZ;
       }
 
       positions[i3] += velocities[i3] * dt;
       positions[i3 + 1] += velocities[i3 + 1] * dt;
       positions[i3 + 2] += velocities[i3 + 2] * dt;
 
-      sizes[i] = baseSizes[i];
-      alphas[i] = smoothstep(0.0, 0.04, t) * (1.0 - smoothstep(0.38, 0.82, t));
+      sizes[i] = baseSizes[i] * (1.0 - t * 0.45);
+      alphas[i] = smoothstep(0.0, 0.03, t) * (1.0 - smoothstep(0.28, 0.72, t));
     }
 
     geometry.setDrawRange(0, activeCount);
