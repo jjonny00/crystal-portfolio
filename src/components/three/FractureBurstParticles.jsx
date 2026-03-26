@@ -177,8 +177,13 @@ const FractureBurstParticles = ({
         ages[i] = 0;
         lifetimes[i] = 0.9 + Math.random() * 0.7;
 
-        const isAccent = Math.random() > 0.86;
-        const baseSize = isAccent ? (0.018 + Math.random() * 0.01) : (0.009 + Math.random() * 0.008);
+        const sizeBiasT = Math.pow(Math.random(), 1.6);
+        let baseSize = THREE.MathUtils.lerp(0.012, 0.028, sizeBiasT);
+        const isAccent = Math.random() > 0.88;
+        if (isAccent) {
+          baseSize = 0.026 + Math.random() * 0.014;
+        }
+        baseSize *= 0.9 + Math.random() * 0.25;
         baseSizes[i] = baseSize;
         sizes[i] = baseSize;
 
