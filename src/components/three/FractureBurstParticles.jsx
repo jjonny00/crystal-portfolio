@@ -163,12 +163,12 @@ const FractureBurstParticles = ({
         const radialDir = new THREE.Vector3(positions[i3], positions[i3 + 1], positions[i3 + 2]).normalize();
         const burstJitter = new THREE.Vector3(
           -0.35 + Math.random() * 0.7,
-          -0.12 + Math.random() * 0.4,
+          -0.22 + Math.random() * 0.3,
           -0.35 + Math.random() * 0.7,
         );
-        const velocity = radialDir.add(burstJitter).normalize();
-        velocity.multiplyScalar(5.2 + Math.random() * 2.0);
-        velocity.y += 0.3 + Math.random() * 0.7;
+        const burstDir = radialDir.add(burstJitter).normalize();
+        const velocity = burstDir.multiplyScalar(3.8 + Math.random() * 2.0);
+        velocity.y += -0.65 + Math.random() * 0.47;
 
         velocities[i3] = velocity.x;
         velocities[i3 + 1] = velocity.y;
@@ -178,17 +178,16 @@ const FractureBurstParticles = ({
         lifetimes[i] = 0.9 + Math.random() * 0.7;
 
         const sizeBiasT = Math.pow(Math.random(), 1.6);
-        let baseSize = THREE.MathUtils.lerp(0.012, 0.028, sizeBiasT);
-        const isAccent = Math.random() > 0.88;
+        let baseSize = THREE.MathUtils.lerp(0.018, 0.034, sizeBiasT);
+        const isAccent = Math.random() > 0.86;
         if (isAccent) {
-          baseSize = 0.026 + Math.random() * 0.014;
+          baseSize = 0.032 + Math.random() * 0.018;
         }
-        baseSize *= (0.9 + Math.random() * 0.25) * 2.0;
         baseSizes[i] = baseSize;
         sizes[i] = baseSize;
 
         drags[i] = 0.87 + Math.random() * 0.06;
-        buoyancies[i] = 0.004 + Math.random() * 0.006;
+        buoyancies[i] = 0.006 + Math.random() * 0.007;
         turbulences[i] = 0.004 + Math.random() * 0.008;
         swirls[i] = 0.002 + Math.random() * 0.006;
         phases[i] = Math.random() * Math.PI * 2;
@@ -325,10 +324,11 @@ const FractureBurstParticles = ({
       }
 
       const i3 = i * 3;
-      if (ages[i] < 0.09) {
-        velocities[i3] *= 0.965;
-        velocities[i3 + 1] *= 0.965;
-        velocities[i3 + 2] *= 0.965;
+      if (ages[i] < 0.12) {
+        velocities[i3] *= 0.982;
+        velocities[i3 + 1] *= 0.982;
+        velocities[i3 + 2] *= 0.982;
+        velocities[i3 + 1] -= 0.01;
       } else {
         const swirlX = Math.sin(ages[i] * 8.0 + phases[i]) * swirls[i];
         const swirlZ = Math.cos(ages[i] * 7.0 + phases[i] * 1.3) * swirls[i];
