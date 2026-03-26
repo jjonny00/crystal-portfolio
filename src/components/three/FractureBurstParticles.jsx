@@ -145,7 +145,7 @@ const FractureBurstParticles = ({
         velocities[i3 + 2] = velocity.z;
 
         ages[i] = 0;
-        lifetimes[i] = 0.45 + Math.random() * 0.35;
+        lifetimes[i] = 0.9 + Math.random() * 0.7;
 
         const isAccent = Math.random() > 0.86;
         const baseSize = isAccent ? (0.018 + Math.random() * 0.01) : (0.009 + Math.random() * 0.008);
