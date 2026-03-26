@@ -183,6 +183,7 @@ const FractureBurstParticles = ({
         if (isAccent) {
           baseSize = 0.032 + Math.random() * 0.018;
         }
+        baseSize *= 2.0;
         baseSizes[i] = baseSize;
         sizes[i] = baseSize;
 
