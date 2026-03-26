@@ -2,12 +2,15 @@ import React, { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
-const VORTEX_TURBULENCE_STRENGTH = 0.9;
-const VORTEX_TURBULENCE_SPEED = 0.5;
+const VORTEX_TURBULENCE_STRENGTH = 0.08;
+const VORTEX_TURBULENCE_SPEED = 0.45;
 const EMITTER_START_LEAD_S = 0.08;
-const PRE_RISE_TIME_S = 0.14;
-const INITIAL_TRAVEL_BOOST_X = 1.8;
-const INITIAL_TRAVEL_BOOST_Y = 1.5;
+const PRE_RISE_TIME_S = 0.2;
+
+const smoothstep = (edge0, edge1, x) => {
+  const t = Math.min(Math.max((x - edge0) / (edge1 - edge0), 0), 1);
+  return t * t * (3 - 2 * t);
+};
 
 /**
  * Glitter gust that emits from crystal center on fracture.
@@ -28,6 +31,7 @@ const FractureBurstParticles = ({
   const lifetimesRef = useRef(new Float32Array(count));
   const seedsRef = useRef(new Float32Array(count));
   const turbulenceRef = useRef(new Float32Array(count * 3));
+  const baseSizesRef = useRef(new Float32Array(count));
 
   const geometry = useMemo(() => {
     const g = new THREE.BufferGeometry();
@@ -63,7 +67,7 @@ const FractureBurstParticles = ({
           vFlicker = aFlicker;
           vBrightness = aBrightness;
           vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-          gl_PointSize = aSize * (90.0 / max(-mvPosition.z, 0.1));
+          gl_PointSize = aSize * (120.0 / max(-mvPosition.z, 0.1));
           gl_Position = projectionMatrix * mvPosition;
         }
       `,
@@ -78,7 +82,7 @@ const FractureBurstParticles = ({
           vec2 uv = gl_PointCoord - vec2(0.5);
           float d = length(uv);
           float sparkle = smoothstep(0.5, 0.0, d);
-          float flicker = 0.55 + 0.45 * sin(uTime * 22.0 + vFlicker);
+          float flicker = 0.7 + 0.3 * sin(uTime * 20.0 + vFlicker);
           vec3 brightColor = uColor * uBrightness * vBrightness;
           gl_FragColor = vec4(brightColor, vAlpha * sparkle * flicker);
         }
@@ -124,40 +128,41 @@ const FractureBurstParticles = ({
       const lifetimes = lifetimesRef.current;
       const seeds = seedsRef.current;
       const turbulence = turbulenceRef.current;
+      const baseSizes = baseSizesRef.current;
 
       for (let i = 0; i < count; i += 1) {
         const i3 = i * 3;
 
-        const emitterScaleX = 1.0;
-        const emitterScaleY = 2.4;
-        const emitterScaleZ = 1.0;
+        const emitterScaleX = 0.5;
+        const emitterScaleY = 1.2;
+        const emitterScaleZ = 0.5;
         const emitterOffsetZ = 0.6;
 
-        const direction = new THREE.Vector3(
-          Math.random() * 2 - 1,
-          Math.random() * 2 - 1,
-          Math.random() * 2 - 1
-        ).normalize();
-        const radius = Math.cbrt(Math.random()) * spread;
+        const direction = new THREE.Vector3().randomDirection();
+        direction.y = Math.abs(direction.y) * 0.7 + 0.3;
+        direction.normalize();
+        const radius = Math.cbrt(Math.random()) * spread * 0.6;
 
         positions[i3] = direction.x * radius * emitterScaleX;
         positions[i3 + 1] = direction.y * radius * emitterScaleY;
         positions[i3 + 2] = emitterOffsetZ + direction.z * radius * emitterScaleZ;
 
-        const burstSpeed = 0.05 + Math.random() * 0.9;
-        velocities[i3] = direction.x * burstSpeed * INITIAL_TRAVEL_BOOST_X;
-        velocities[i3 + 1] = direction.y * burstSpeed * INITIAL_TRAVEL_BOOST_Y + 0.02 + Math.random() * 0.18;
+        const burstSpeed = 0.8 + Math.random() * 0.6;
+        velocities[i3] = direction.x * burstSpeed;
+        velocities[i3 + 1] = direction.y * burstSpeed;
         velocities[i3 + 2] = direction.z * burstSpeed;
 
-        lifetimes[i] = duration * (0.45 + Math.random() * 1.8);
+        lifetimes[i] = duration * (1.0 + Math.random() * 0.8);
         seeds[i] = Math.random() * Math.PI * 2;
         turbulence[i3] = (Math.random() - 0.5) * VORTEX_TURBULENCE_STRENGTH;
-        turbulence[i3 + 1] = (Math.random() - 0.5) * VORTEX_TURBULENCE_STRENGTH * 0.3;
+        turbulence[i3 + 1] = (Math.random() - 0.5) * VORTEX_TURBULENCE_STRENGTH * 0.2;
         turbulence[i3 + 2] = (Math.random() - 0.5) * VORTEX_TURBULENCE_STRENGTH;
         alphas[i] = 1;
-        sizes[i] = 0.12 + Math.random() * 0.83;
+        const baseSize = 0.003 + Math.random() * 0.007;
+        baseSizes[i] = baseSize;
+        sizes[i] = baseSize;
         flickers[i] = Math.random() * Math.PI * 2;
-        brightnesses[i] = 0.6 + Math.random() * 1.8;
+        brightnesses[i] = 0.85 + Math.random() * 0.35;
       }
 
       geometry.attributes.position.needsUpdate = true;
@@ -196,10 +201,12 @@ const FractureBurstParticles = ({
     if (material.uniforms?.uTime) material.uniforms.uTime.value = elapsed;
     const positions = geometry.attributes.position.array;
     const alphas = geometry.attributes.aAlpha.array;
+    const sizes = geometry.attributes.aSize.array;
     const velocities = velocitiesRef.current;
     const lifetimes = lifetimesRef.current;
     const seeds = seedsRef.current;
     const turbulence = turbulenceRef.current;
+    const baseSizes = baseSizesRef.current;
 
     let aliveCount = 0;
 
@@ -216,31 +223,44 @@ const FractureBurstParticles = ({
       aliveCount += 1;
 
       const turbulentX = Math.sin(elapsed * 2 * VORTEX_TURBULENCE_SPEED + seeds[i]) * turbulence[i3];
-      const turbulentY = Math.sin(elapsed * 1.5 * VORTEX_TURBULENCE_SPEED + seeds[i] * 1.3) * turbulence[i3 + 1];
+      const turbulentY = Math.sin(elapsed * 1.6 * VORTEX_TURBULENCE_SPEED + seeds[i] * 1.2) * turbulence[i3 + 1];
       const turbulentZ = Math.cos(elapsed * 1.8 * VORTEX_TURBULENCE_SPEED + seeds[i] * 0.8) * turbulence[i3 + 2];
 
-      const riseBlend = elapsed > PRE_RISE_TIME_S ? 1 : 0.15;
+      const preRise = elapsed <= PRE_RISE_TIME_S;
+      if (!preRise) {
+        const upwardTarget = new THREE.Vector3(0, 1.25, 0);
+        const currentVel = new THREE.Vector3(velocities[i3], velocities[i3 + 1], velocities[i3 + 2]);
+        currentVel.lerp(upwardTarget, 0.08);
+        velocities[i3] = currentVel.x;
+        velocities[i3 + 1] = currentVel.y;
+        velocities[i3 + 2] = currentVel.z;
+      }
 
-      velocities[i3] += turbulentX * dt;
-      velocities[i3 + 1] += (1.4 + turbulentY) * dt * riseBlend;
-      velocities[i3 + 2] += turbulentZ * dt;
+      velocities[i3] += turbulentX + (Math.random() - 0.5) * 0.01;
+      velocities[i3 + 1] += turbulentY + 0.002;
+      velocities[i3 + 2] += turbulentZ + (Math.random() - 0.5) * 0.01;
 
-      velocities[i3] *= 0.78;
-      velocities[i3 + 1] *= 0.988;
-      velocities[i3 + 2] *= 0.78;
+      velocities[i3] *= 0.96;
+      velocities[i3 + 1] *= 0.96;
+      velocities[i3 + 2] *= 0.96;
 
-      const vortexOrbitX = Math.cos(elapsed * 0.9 + seeds[i]) * 0.025 * (1 - t);
-      const vortexOrbitZ = Math.sin(elapsed * 0.9 + seeds[i]) * 0.025 * (1 - t);
+      if (elapsed > 0.25) {
+        velocities[i3] *= 0.92;
+        velocities[i3 + 1] *= 0.92;
+        velocities[i3 + 2] *= 0.92;
+      }
 
-      positions[i3] += velocities[i3] * dt + turbulentX * 0.16 + vortexOrbitX;
-      positions[i3 + 1] += velocities[i3 + 1] * dt + turbulentY * 0.2;
-      positions[i3 + 2] += velocities[i3 + 2] * dt + turbulentZ * 0.16 + vortexOrbitZ;
+      positions[i3] += velocities[i3] * dt;
+      positions[i3 + 1] += velocities[i3 + 1] * dt;
+      positions[i3 + 2] += velocities[i3 + 2] * dt;
 
-      alphas[i] = (1 - t) * (1 - t);
+      sizes[i] = baseSizes[i] * (1 - t * 0.6);
+      alphas[i] = smoothstep(0.0, 0.1, t) * (1 - smoothstep(0.6, 1.0, t));
     }
 
     geometry.attributes.position.needsUpdate = true;
     geometry.attributes.aAlpha.needsUpdate = true;
+    geometry.attributes.aSize.needsUpdate = true;
 
     if (aliveCount === 0) {
       startTimeRef.current = 0;
