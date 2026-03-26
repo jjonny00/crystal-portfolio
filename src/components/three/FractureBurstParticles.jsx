@@ -2,11 +2,7 @@ import React, { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
-const VORTEX_TURBULENCE_STRENGTH = 0.08;
-const VORTEX_TURBULENCE_SPEED = 0.45;
 const EMITTER_START_LEAD_S = 0.08;
-const PRE_RISE_TIME_S = 0.2;
-const DEBUG_PARTICLES = true;
 
 const smoothstep = (edge0, edge1, x) => {
   const t = Math.min(Math.max((x - edge0) / (edge1 - edge0), 0), 1);
@@ -14,16 +10,14 @@ const smoothstep = (edge0, edge1, x) => {
 };
 
 /**
- * Glitter gust that emits from crystal center on fracture.
+ * Fracture glitter dust (debug-verified render path).
  */
 const FractureBurstParticles = ({
   trigger,
   delay = 0,
   count = 260,
-  duration = 1.2,
   color = '#9af8ff',
-  spread = 0.5,
-  crystalMesh = null,
+  emitterPosition = [0, 0, 0],
 }) => {
   const pointsRef = useRef();
   const startTimeRef = useRef(0);
@@ -33,119 +27,34 @@ const FractureBurstParticles = ({
   const velocitiesRef = useRef(new Float32Array(count * 3));
   const lifetimesRef = useRef(new Float32Array(count));
   const agesRef = useRef(new Float32Array(count));
-  const seedsRef = useRef(new Float32Array(count));
-  const turbulenceRef = useRef(new Float32Array(count * 3));
   const baseSizesRef = useRef(new Float32Array(count));
-  const upwardTargetRef = useRef(new THREE.Vector3(0, 1.2, 0));
 
-  const emitterBounds = useMemo(() => {
-    console.log('crystalMesh', crystalMesh);
-
-    if (!crystalMesh) {
-      console.warn('Invalid crystal bounds for particle emitter, falling back to fixed emitter size');
-      return { width: 0.6, height: 1.0, depth: 0.6 };
-    }
-
-    const bounds = new THREE.Box3().setFromObject(crystalMesh);
-    const size = new THREE.Vector3();
-    const center = new THREE.Vector3();
-    bounds.getSize(size);
-    bounds.getCenter(center);
-
-    console.log('particle bounds size', size.x, size.y, size.z);
-    console.log('particle bounds center', center.x, center.y, center.z);
-
-    if (
-      !Number.isFinite(size.x) || !Number.isFinite(size.y) || !Number.isFinite(size.z) ||
-      size.x <= 0 || size.y <= 0 || size.z <= 0
-    ) {
-      console.warn('Invalid crystal bounds for particle emitter, falling back to fixed emitter size');
-      return { width: 0.6, height: 1.0, depth: 0.6 };
-    }
-
-    return {
-      width: size.x * 1.35,
-      height: size.y * 1.6,
-      depth: size.z * 1.35,
-    };
-  }, [crystalMesh]);
+  const upwardTargetRef = useRef(new THREE.Vector3(0, 0.9, 0));
 
   const geometry = useMemo(() => {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(count * 3), 3));
     g.setAttribute('aAlpha', new THREE.BufferAttribute(new Float32Array(count), 1));
     g.setAttribute('aSize', new THREE.BufferAttribute(new Float32Array(count), 1));
-    g.setAttribute('aFlicker', new THREE.BufferAttribute(new Float32Array(count), 1));
-    g.setAttribute('aBrightness', new THREE.BufferAttribute(new Float32Array(count), 1));
     return g;
   }, [count]);
 
-  const material = useMemo(() => {
-    if (DEBUG_PARTICLES) {
-      return new THREE.PointsMaterial({
-        size: 0.05,
-        color: 0xffffff,
+  const material = useMemo(
+    () =>
+      new THREE.PointsMaterial({
+        size: 0.012,
+        color,
         transparent: true,
-        opacity: 1,
+        opacity: 0.9,
+        blending: THREE.AdditiveBlending,
         depthWrite: false,
-      });
-    }
-
-    return new THREE.ShaderMaterial({
-      transparent: true,
-      depthWrite: false,
-      depthTest: false,
-      blending: THREE.AdditiveBlending,
-      uniforms: {
-        uColor: { value: new THREE.Color(color) },
-        uTime: { value: 0 },
-        uBrightness: { value: 1.0 },
-      },
-      vertexShader: `
-        attribute float aAlpha;
-        attribute float aSize;
-        attribute float aFlicker;
-        attribute float aBrightness;
-        varying float vAlpha;
-        varying float vFlicker;
-        varying float vBrightness;
-        void main() {
-          vAlpha = aAlpha;
-          vFlicker = aFlicker;
-          vBrightness = aBrightness;
-          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-          gl_PointSize = aSize * (120.0 / max(-mvPosition.z, 0.1));
-          gl_Position = projectionMatrix * mvPosition;
-        }
-      `,
-      fragmentShader: `
-        uniform vec3 uColor;
-        uniform float uTime;
-        uniform float uBrightness;
-        varying float vAlpha;
-        varying float vFlicker;
-        varying float vBrightness;
-        void main() {
-          vec2 uv = gl_PointCoord - vec2(0.5);
-          float d = length(uv);
-          float sparkle = smoothstep(0.5, 0.0, d);
-          float flicker = 0.7 + 0.3 * sin(uTime * 20.0 + vFlicker);
-          vec3 brightColor = uColor * uBrightness * vBrightness;
-          gl_FragColor = vec4(brightColor, vAlpha * sparkle * flicker);
-        }
-      `,
-    });
-  }, [color]);
+      }),
+    [color],
+  );
 
   useEffect(() => {
     console.log('geometry attributes', Object.keys(geometry.attributes));
   }, [geometry]);
-
-  useEffect(() => {
-    if (material.uniforms?.uColor) {
-      material.uniforms.uColor.value.set(color);
-    }
-  }, [material, color]);
 
   useEffect(() => () => {
     geometry.dispose();
@@ -174,81 +83,58 @@ const FractureBurstParticles = ({
       const positions = geometry.attributes.position.array;
       const alphas = geometry.attributes.aAlpha.array;
       const sizes = geometry.attributes.aSize.array;
-      const flickers = geometry.attributes.aFlicker.array;
-      const brightnesses = geometry.attributes.aBrightness.array;
       const velocities = velocitiesRef.current;
       const lifetimes = lifetimesRef.current;
       const ages = agesRef.current;
-      const seeds = seedsRef.current;
-      const turbulence = turbulenceRef.current;
       const baseSizes = baseSizesRef.current;
 
       console.log('[particles] before spawn activeCount=', activeCountRef.current);
-      const particleCount = DEBUG_PARTICLES ? 20 : count;
-      console.log('[particles] spawning count=', particleCount);
+      const spawnCount = Math.min(count, 80);
+      console.log('[particles] spawning count=', spawnCount);
 
-      if (DEBUG_PARTICLES) {
-        for (let i = 0; i < particleCount; i += 1) {
-          const i3 = i * 3;
-          positions[i3] = (Math.random() - 0.5) * 0.5;
-          positions[i3 + 1] = (Math.random() - 0.5) * 0.5;
-          positions[i3 + 2] = (Math.random() - 0.5) * 0.5;
-          velocities[i3] = 0;
-          velocities[i3 + 1] = 0.02;
-          velocities[i3 + 2] = 0;
-          ages[i] = 0;
-          lifetimes[i] = 5;
-          baseSizes[i] = 0.05;
-          sizes[i] = 0.05;
-          alphas[i] = 1;
-          flickers[i] = 0;
-          brightnesses[i] = 1.3;
-          seeds[i] = i;
-          turbulence[i3] = turbulence[i3 + 1] = turbulence[i3 + 2] = 0;
-        }
-      } else {
-        for (let i = 0; i < particleCount; i += 1) {
-          const i3 = i * 3;
-          const direction = new THREE.Vector3().randomDirection();
-          direction.y = Math.max(direction.y, -0.15);
-          direction.normalize();
-          const radius = Math.cbrt(Math.random());
+      for (let i = 0; i < spawnCount; i += 1) {
+        const i3 = i * 3;
 
-          positions[i3] = direction.x * emitterBounds.width * radius;
-          positions[i3 + 1] = direction.y * emitterBounds.height * radius;
-          positions[i3 + 2] = direction.z * emitterBounds.depth * radius;
+        const dir = new THREE.Vector3().randomDirection();
+        dir.y = Math.max(dir.y, -0.1);
+        dir.normalize();
 
-          const burstSpeed = 0.9 + Math.random() * 0.6;
-          velocities[i3] = direction.x * burstSpeed;
-          velocities[i3 + 1] = direction.y * burstSpeed;
-          velocities[i3 + 2] = direction.z * burstSpeed;
+        const r = Math.cbrt(Math.random());
+        const emitterWidth = 0.35;
+        const emitterHeight = 0.55;
+        const emitterDepth = 0.35;
 
-          ages[i] = 0;
-          lifetimes[i] = duration * (1.0 + Math.random() * 0.8);
-          seeds[i] = Math.random() * Math.PI * 2;
-          turbulence[i3] = (Math.random() - 0.5) * VORTEX_TURBULENCE_STRENGTH;
-          turbulence[i3 + 1] = (Math.random() - 0.5) * VORTEX_TURBULENCE_STRENGTH * 0.2;
-          turbulence[i3 + 2] = (Math.random() - 0.5) * VORTEX_TURBULENCE_STRENGTH;
-          alphas[i] = 1;
-          const baseSize = 0.003 + Math.random() * 0.007;
-          baseSizes[i] = baseSize;
-          sizes[i] = baseSize;
-          flickers[i] = Math.random() * Math.PI * 2;
-          brightnesses[i] = 0.85 + Math.random() * 0.35;
-        }
+        positions[i3] = dir.x * emitterWidth * r;
+        positions[i3 + 1] = dir.y * emitterHeight * r;
+        positions[i3 + 2] = dir.z * emitterDepth * r;
+
+        const velocity = new THREE.Vector3(positions[i3], positions[i3 + 1], positions[i3 + 2]).normalize();
+        velocity.multiplyScalar(1.2 + Math.random() * 0.8);
+        velocity.y += 0.15 + Math.random() * 0.2;
+
+        velocities[i3] = velocity.x;
+        velocities[i3 + 1] = velocity.y;
+        velocities[i3 + 2] = velocity.z;
+
+        ages[i] = 0;
+        lifetimes[i] = 1.4 + Math.random() * 1.0;
+        const baseSize = 0.006 + Math.random() * 0.01;
+        baseSizes[i] = baseSize;
+        sizes[i] = baseSize;
+        alphas[i] = 1;
       }
 
-      for (let i = particleCount; i < count; i += 1) {
+      for (let i = spawnCount; i < count; i += 1) {
         const i3 = i * 3;
         positions[i3] = positions[i3 + 1] = positions[i3 + 2] = 0;
         velocities[i3] = velocities[i3 + 1] = velocities[i3 + 2] = 0;
         ages[i] = 0;
-        alphas[i] = 0;
-        sizes[i] = 0;
         lifetimes[i] = 0;
+        sizes[i] = 0;
+        alphas[i] = 0;
       }
 
-      activeCountRef.current = particleCount;
+      activeCountRef.current = spawnCount;
       console.log('[particles] after spawn activeCount=', activeCountRef.current);
 
       for (let i = 0; i < Math.min(5, activeCountRef.current); i += 1) {
@@ -270,8 +156,7 @@ const FractureBurstParticles = ({
       geometry.attributes.position.needsUpdate = true;
       geometry.attributes.aAlpha.needsUpdate = true;
       geometry.attributes.aSize.needsUpdate = true;
-      geometry.attributes.aFlicker.needsUpdate = true;
-      geometry.attributes.aBrightness.needsUpdate = true;
+
       startTimeRef.current = performance.now() - EMITTER_START_LEAD_S * 1000;
     };
 
@@ -292,7 +177,7 @@ const FractureBurstParticles = ({
         delayRef.current = null;
       }
     };
-  }, [trigger, delay, count, duration, geometry, emitterBounds]);
+  }, [trigger, delay, count, geometry]);
 
   useEffect(() => {
     if (pointsRef.current) {
@@ -303,81 +188,67 @@ const FractureBurstParticles = ({
   useFrame((_, dt) => {
     if (!startTimeRef.current) return;
 
-    const now = performance.now();
-    const elapsed = (now - startTimeRef.current) / 1000;
-    if (material.uniforms?.uTime) material.uniforms.uTime.value = elapsed;
-
+    const elapsed = (performance.now() - startTimeRef.current) / 1000;
     const positions = geometry.attributes.position.array;
     const alphas = geometry.attributes.aAlpha.array;
     const sizes = geometry.attributes.aSize.array;
     const velocities = velocitiesRef.current;
     const lifetimes = lifetimesRef.current;
     const ages = agesRef.current;
-    const seeds = seedsRef.current;
-    const turbulence = turbulenceRef.current;
     const baseSizes = baseSizesRef.current;
 
     const activeCount = activeCountRef.current;
 
     for (let i = 0; i < activeCount; i += 1) {
       const i3 = i * 3;
+      const life = lifetimes[i];
+      if (!life) continue;
+
       ages[i] = elapsed;
-
-      if (DEBUG_PARTICLES) {
-        positions[i3 + 1] += velocities[i3 + 1] * dt;
-        alphas[i] = 1;
-        sizes[i] = 0.05;
-        continue;
-      }
-
-      const life = lifetimes[i] || duration;
-      const t = Math.min(elapsed / life, 1);
-      if (t >= 1) {
-        alphas[i] = 0;
-        continue;
-      }
-
-      const turbulentX = Math.sin(elapsed * 2 * VORTEX_TURBULENCE_SPEED + seeds[i]) * turbulence[i3];
-      const turbulentY = Math.sin(elapsed * 1.6 * VORTEX_TURBULENCE_SPEED + seeds[i] * 1.2) * turbulence[i3 + 1];
-      const turbulentZ = Math.cos(elapsed * 1.8 * VORTEX_TURBULENCE_SPEED + seeds[i] * 0.8) * turbulence[i3 + 2];
+      const t = Math.min(ages[i] / life, 1);
 
       const currentVel = new THREE.Vector3(velocities[i3], velocities[i3 + 1], velocities[i3 + 2]);
-      currentVel.lerp(upwardTargetRef.current, 0.08);
-      velocities[i3] = currentVel.x + turbulentX * 0.15 + (Math.random() - 0.5) * 0.01;
-      velocities[i3 + 1] = currentVel.y + turbulentY * 0.15 + 0.002;
-      velocities[i3 + 2] = currentVel.z + turbulentZ * 0.15 + (Math.random() - 0.5) * 0.01;
+      currentVel.lerp(upwardTargetRef.current, 0.06);
+      velocities[i3] = currentVel.x;
+      velocities[i3 + 1] = currentVel.y;
+      velocities[i3 + 2] = currentVel.z;
 
-      if (elapsed < PRE_RISE_TIME_S) {
-        velocities[i3] *= 0.97;
-        velocities[i3 + 1] *= 0.97;
-        velocities[i3 + 2] *= 0.97;
+      if (ages[i] < 0.18) {
+        velocities[i3] *= 0.96;
+        velocities[i3 + 1] *= 0.96;
+        velocities[i3 + 2] *= 0.96;
       } else {
-        velocities[i3] *= 0.93;
-        velocities[i3 + 1] *= 0.93;
-        velocities[i3 + 2] *= 0.93;
+        velocities[i3] *= 0.92;
+        velocities[i3 + 1] *= 0.92;
+        velocities[i3 + 2] *= 0.92;
       }
+
+      velocities[i3] += (Math.random() - 0.5) * 0.003;
+      velocities[i3 + 2] += (Math.random() - 0.5) * 0.003;
 
       positions[i3] += velocities[i3] * dt;
       positions[i3 + 1] += velocities[i3 + 1] * dt;
       positions[i3 + 2] += velocities[i3 + 2] * dt;
 
-      sizes[i] = baseSizes[i] * (1 - t * 0.6);
-      alphas[i] = smoothstep(0.0, 0.1, t) * (1 - smoothstep(0.6, 1.0, t));
+      sizes[i] = baseSizes[i];
+      alphas[i] = smoothstep(0.0, 0.08, t) * (1.0 - smoothstep(0.55, 1.0, t));
     }
 
     geometry.setDrawRange(0, activeCount);
     geometry.attributes.position.needsUpdate = true;
     geometry.attributes.aAlpha.needsUpdate = true;
     geometry.attributes.aSize.needsUpdate = true;
-    if (geometry.attributes.aLife) geometry.attributes.aLife.needsUpdate = true;
-
-    if (!DEBUG_PARTICLES && elapsed > duration * 2.2) {
-      activeCountRef.current = 0;
-      startTimeRef.current = 0;
-    }
   });
 
-  return <points ref={pointsRef} geometry={geometry} material={material} renderOrder={5} />;
+  return (
+    <points
+      ref={pointsRef}
+      geometry={geometry}
+      material={material}
+      position={emitterPosition}
+      renderOrder={5}
+    />
+  );
 };
 
 export default FractureBurstParticles;
