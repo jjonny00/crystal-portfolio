@@ -133,21 +133,22 @@ const FractureBurstParticles = ({
       for (let i = 0; i < count; i += 1) {
         const i3 = i * 3;
 
-        const emitterScaleX = 0.5;
-        const emitterScaleY = 1.2;
-        const emitterScaleZ = 0.5;
+        const emitterScaleX = 0.8;
+        const emitterScaleY = 1.4;
+        const emitterScaleZ = 0.8;
         const emitterOffsetZ = 0.6;
 
         const direction = new THREE.Vector3().randomDirection();
         direction.y = Math.abs(direction.y) * 0.7 + 0.3;
         direction.normalize();
-        const radius = Math.cbrt(Math.random()) * spread * 0.6;
+        const isOuter = Math.random() > 0.7;
+        const radius = Math.cbrt(Math.random()) * spread * (isOuter ? 1.4 : 0.6);
 
         positions[i3] = direction.x * radius * emitterScaleX;
         positions[i3 + 1] = direction.y * radius * emitterScaleY;
         positions[i3 + 2] = emitterOffsetZ + direction.z * radius * emitterScaleZ;
 
-        const burstSpeed = 0.8 + Math.random() * 0.6;
+        const burstSpeed = 1.0 + Math.random() * 0.8;
         velocities[i3] = direction.x * burstSpeed;
         velocities[i3 + 1] = direction.y * burstSpeed;
         velocities[i3 + 2] = direction.z * burstSpeed;
