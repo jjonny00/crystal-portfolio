@@ -31,7 +31,7 @@ export const fracture = {
   distance: 0.03,          // Percentage of explode distance applied during fracture
   particles: {
     delay: 0.0,          // Trigger exactly at fracture swap (seconds)
-    count: 200,           // Number of burst particles
+    count: 260,           // Number of burst particles
     color: '#66ffcc',     // Particle color
     duration: 1.2,        // Longer-lived glitter fade duration (seconds)
     spread: 0.5            // Half-width emitter radius

@@ -4,11 +4,6 @@ import * as THREE from 'three';
 
 const EMITTER_START_LEAD_S = 0.08;
 
-const smoothstep = (edge0, edge1, x) => {
-  const t = Math.min(Math.max((x - edge0) / (edge1 - edge0), 0), 1);
-  return t * t * (3 - 2 * t);
-};
-
 const swapScalar = (arr, a, b) => {
   const tmp = arr[a];
   arr[a] = arr[b];
@@ -110,7 +105,7 @@ const FractureBurstParticles = ({
       const phases = phasesRef.current;
 
       console.log('[particles] before spawn activeCount=', activeCountRef.current);
-      const spawnCount = Math.min(count, 130);
+      const spawnCount = Math.min(count, 260);
       console.log('[particles] spawning count=', spawnCount);
 
       for (let i = 0; i < spawnCount; i += 1) {
@@ -316,7 +311,7 @@ const FractureBurstParticles = ({
       positions[i3 + 2] += velocities[i3 + 2] * dt;
 
       sizes[i] = baseSizes[i] * (1.0 - lifeT * 0.45);
-      alphas[i] = smoothstep(0.0, 0.03, lifeT) * (1.0 - smoothstep(0.22, 0.68, lifeT));
+      alphas[i] = 1.0 - lifeT;
     }
 
     activeCountRef.current = activeCount;
