@@ -3,6 +3,14 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
 const EMITTER_START_LEAD_S = 0.08;
+const PARTICLE_FADE_IN_END = 0.04;
+const PARTICLE_FADE_OUT_START = 0.18;
+const PARTICLE_FADE_OUT_END = 0.78;
+
+const smoothstep = (edge0, edge1, x) => {
+  const t = Math.min(Math.max((x - edge0) / (edge1 - edge0), 0), 1);
+  return t * t * (3 - 2 * t);
+};
 
 const swapScalar = (arr, a, b) => {
   const tmp = arr[a];
@@ -52,11 +60,38 @@ const FractureBurstParticles = ({
 
   const material = useMemo(
     () =>
-      new THREE.PointsMaterial({
-        size: 0.012,
-        color,
+      new THREE.ShaderMaterial({
+        uniforms: {
+          uColor: { value: new THREE.Color(color) },
+          uPixelRatio: {
+            value: typeof window !== 'undefined' ? Math.min(window.devicePixelRatio || 1, 2) : 1,
+          },
+        },
+        vertexShader: `
+          attribute float aSize;
+          attribute float aAlpha;
+          uniform float uPixelRatio;
+          varying float vAlpha;
+
+          void main() {
+            vAlpha = aAlpha;
+            vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+            gl_PointSize = aSize * uPixelRatio * (300.0 / -mvPosition.z);
+            gl_Position = projectionMatrix * mvPosition;
+          }
+        `,
+        fragmentShader: `
+          uniform vec3 uColor;
+          varying float vAlpha;
+
+          void main() {
+            vec2 uv = gl_PointCoord - 0.5;
+            float d = length(uv);
+            float soft = 1.0 - smoothstep(0.25, 0.5, d);
+            gl_FragColor = vec4(uColor, vAlpha * soft);
+          }
+        `,
         transparent: true,
-        opacity: 0.9,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
       }),
@@ -258,7 +293,7 @@ const FractureBurstParticles = ({
         });
       }
 
-      if (lifeT >= 1 || ages[i] >= life) {
+      if (ages[i] >= life) {
         alphas[i] = 0;
         sizes[i] = 0;
 
@@ -310,8 +345,17 @@ const FractureBurstParticles = ({
       positions[i3 + 1] += velocities[i3 + 1] * dt;
       positions[i3 + 2] += velocities[i3 + 2] * dt;
 
-      sizes[i] = baseSizes[i] * (1.0 - lifeT * 0.45);
-      alphas[i] = 1.0 - lifeT;
+      sizes[i] = baseSizes[i];
+      alphas[i] = smoothstep(0.0, PARTICLE_FADE_IN_END, lifeT) * (1.0 - smoothstep(PARTICLE_FADE_OUT_START, PARTICLE_FADE_OUT_END, lifeT));
+
+      if (i < 3) {
+        console.log('[fade check]', i, {
+          age: ages[i],
+          lifetime: life,
+          t: ages[i] / life,
+          alpha: alphas[i],
+        });
+      }
     }
 
     activeCountRef.current = activeCount;
