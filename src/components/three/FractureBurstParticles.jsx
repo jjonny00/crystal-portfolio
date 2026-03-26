@@ -22,6 +22,7 @@ const FractureBurstParticles = ({
   duration = 1.2,
   color = '#9af8ff',
   spread = 0.5,
+  crystalMesh = null,
 }) => {
   const pointsRef = useRef();
   const startTimeRef = useRef(0);
@@ -32,6 +33,27 @@ const FractureBurstParticles = ({
   const seedsRef = useRef(new Float32Array(count));
   const turbulenceRef = useRef(new Float32Array(count * 3));
   const baseSizesRef = useRef(new Float32Array(count));
+  const upwardTargetRef = useRef(new THREE.Vector3(0, 1.2, 0));
+
+  const emitterBounds = useMemo(() => {
+    if (!crystalMesh) {
+      return {
+        width: spread,
+        height: spread * 1.2,
+        depth: spread,
+      };
+    }
+
+    const bounds = new THREE.Box3().setFromObject(crystalMesh);
+    const size = new THREE.Vector3();
+    bounds.getSize(size);
+
+    return {
+      width: size.x * 1.35,
+      height: size.y * 1.6,
+      depth: size.z * 1.35,
+    };
+  }, [crystalMesh, spread]);
 
   const geometry = useMemo(() => {
     const g = new THREE.BufferGeometry();
@@ -133,22 +155,16 @@ const FractureBurstParticles = ({
       for (let i = 0; i < count; i += 1) {
         const i3 = i * 3;
 
-        const emitterScaleX = 0.8;
-        const emitterScaleY = 1.4;
-        const emitterScaleZ = 0.8;
-        const emitterOffsetZ = 0.6;
-
         const direction = new THREE.Vector3().randomDirection();
-        direction.y = Math.abs(direction.y) * 0.7 + 0.3;
+        direction.y = Math.max(direction.y, -0.15);
         direction.normalize();
-        const isOuter = Math.random() > 0.7;
-        const radius = Math.cbrt(Math.random()) * spread * (isOuter ? 1.4 : 0.6);
+        const radius = Math.cbrt(Math.random());
 
-        positions[i3] = direction.x * radius * emitterScaleX;
-        positions[i3 + 1] = direction.y * radius * emitterScaleY;
-        positions[i3 + 2] = emitterOffsetZ + direction.z * radius * emitterScaleZ;
+        positions[i3] = direction.x * emitterBounds.width * radius;
+        positions[i3 + 1] = direction.y * emitterBounds.height * radius;
+        positions[i3 + 2] = direction.z * emitterBounds.depth * radius;
 
-        const burstSpeed = 1.0 + Math.random() * 0.8;
+        const burstSpeed = 0.9 + Math.random() * 0.6;
         velocities[i3] = direction.x * burstSpeed;
         velocities[i3 + 1] = direction.y * burstSpeed;
         velocities[i3 + 2] = direction.z * burstSpeed;
@@ -192,7 +208,7 @@ const FractureBurstParticles = ({
         delayRef.current = null;
       }
     };
-  }, [trigger, delay, count, duration, spread, geometry]);
+  }, [trigger, delay, count, duration, spread, geometry, emitterBounds]);
 
   useFrame((_, dt) => {
     if (!startTimeRef.current) return;
@@ -227,28 +243,20 @@ const FractureBurstParticles = ({
       const turbulentY = Math.sin(elapsed * 1.6 * VORTEX_TURBULENCE_SPEED + seeds[i] * 1.2) * turbulence[i3 + 1];
       const turbulentZ = Math.cos(elapsed * 1.8 * VORTEX_TURBULENCE_SPEED + seeds[i] * 0.8) * turbulence[i3 + 2];
 
-      const preRise = elapsed <= PRE_RISE_TIME_S;
-      if (!preRise) {
-        const upwardTarget = new THREE.Vector3(0, 1.25, 0);
-        const currentVel = new THREE.Vector3(velocities[i3], velocities[i3 + 1], velocities[i3 + 2]);
-        currentVel.lerp(upwardTarget, 0.08);
-        velocities[i3] = currentVel.x;
-        velocities[i3 + 1] = currentVel.y;
-        velocities[i3 + 2] = currentVel.z;
-      }
+      const currentVel = new THREE.Vector3(velocities[i3], velocities[i3 + 1], velocities[i3 + 2]);
+      currentVel.lerp(upwardTargetRef.current, 0.08);
+      velocities[i3] = currentVel.x + turbulentX * 0.15 + (Math.random() - 0.5) * 0.01;
+      velocities[i3 + 1] = currentVel.y + turbulentY * 0.15 + 0.002;
+      velocities[i3 + 2] = currentVel.z + turbulentZ * 0.15 + (Math.random() - 0.5) * 0.01;
 
-      velocities[i3] += turbulentX + (Math.random() - 0.5) * 0.01;
-      velocities[i3 + 1] += turbulentY + 0.002;
-      velocities[i3 + 2] += turbulentZ + (Math.random() - 0.5) * 0.01;
-
-      velocities[i3] *= 0.96;
-      velocities[i3 + 1] *= 0.96;
-      velocities[i3 + 2] *= 0.96;
-
-      if (elapsed > 0.25) {
-        velocities[i3] *= 0.92;
-        velocities[i3 + 1] *= 0.92;
-        velocities[i3 + 2] *= 0.92;
+      if (elapsed < PRE_RISE_TIME_S) {
+        velocities[i3] *= 0.97;
+        velocities[i3 + 1] *= 0.97;
+        velocities[i3 + 2] *= 0.97;
+      } else {
+        velocities[i3] *= 0.93;
+        velocities[i3 + 1] *= 0.93;
+        velocities[i3 + 2] *= 0.93;
       }
 
       positions[i3] += velocities[i3] * dt;
