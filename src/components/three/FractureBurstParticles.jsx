@@ -28,6 +28,8 @@ const FractureBurstParticles = ({
   const lifetimesRef = useRef(new Float32Array(count));
   const agesRef = useRef(new Float32Array(count));
   const baseSizesRef = useRef(new Float32Array(count));
+  const dragsRef = useRef(new Float32Array(count));
+  const buoyanciesRef = useRef(new Float32Array(count));
 
   const upwardTargetRef = useRef(new THREE.Vector3(0, 0.9, 0));
 
@@ -87,9 +89,11 @@ const FractureBurstParticles = ({
       const lifetimes = lifetimesRef.current;
       const ages = agesRef.current;
       const baseSizes = baseSizesRef.current;
+      const drags = dragsRef.current;
+      const buoyancies = buoyanciesRef.current;
 
       console.log('[particles] before spawn activeCount=', activeCountRef.current);
-      const spawnCount = Math.min(count, 80);
+      const spawnCount = Math.min(count, 120);
       console.log('[particles] spawning count=', spawnCount);
 
       for (let i = 0; i < spawnCount; i += 1) {
@@ -99,18 +103,19 @@ const FractureBurstParticles = ({
         dir.y = Math.max(dir.y, -0.1);
         dir.normalize();
 
-        const r = Math.cbrt(Math.random());
-        const emitterWidth = 0.35;
-        const emitterHeight = 0.55;
-        const emitterDepth = 0.35;
+        const shellT = Math.pow(Math.random(), 0.35);
+        const r = THREE.MathUtils.lerp(0.72, 1.0, shellT);
+        const emitterWidth = 0.75;
+        const emitterHeight = 1.0;
+        const emitterDepth = 0.75;
 
         positions[i3] = dir.x * emitterWidth * r;
         positions[i3 + 1] = dir.y * emitterHeight * r;
         positions[i3 + 2] = dir.z * emitterDepth * r;
 
         const velocity = new THREE.Vector3(positions[i3], positions[i3 + 1], positions[i3 + 2]).normalize();
-        velocity.multiplyScalar(1.2 + Math.random() * 0.8);
-        velocity.y += 0.15 + Math.random() * 0.2;
+        velocity.multiplyScalar(2.4 + Math.random() * 1.6);
+        velocity.y += 0.2 + Math.random() * 0.35;
 
         velocities[i3] = velocity.x;
         velocities[i3 + 1] = velocity.y;
@@ -118,9 +123,14 @@ const FractureBurstParticles = ({
 
         ages[i] = 0;
         lifetimes[i] = 1.4 + Math.random() * 1.0;
-        const baseSize = 0.006 + Math.random() * 0.01;
+        const isAccent = Math.random() > 0.82;
+        const baseSize = isAccent
+          ? (0.022 + Math.random() * 0.01)
+          : (0.01 + Math.random() * 0.01);
         baseSizes[i] = baseSize;
         sizes[i] = baseSize;
+        drags[i] = 0.9 + Math.random() * 0.06;
+        buoyancies[i] = 0.003 + Math.random() * 0.005;
         alphas[i] = 1;
       }
 
@@ -130,6 +140,8 @@ const FractureBurstParticles = ({
         velocities[i3] = velocities[i3 + 1] = velocities[i3 + 2] = 0;
         ages[i] = 0;
         lifetimes[i] = 0;
+        drags[i] = 0;
+        buoyancies[i] = 0;
         sizes[i] = 0;
         alphas[i] = 0;
       }
@@ -196,6 +208,8 @@ const FractureBurstParticles = ({
     const lifetimes = lifetimesRef.current;
     const ages = agesRef.current;
     const baseSizes = baseSizesRef.current;
+    const drags = dragsRef.current;
+    const buoyancies = buoyanciesRef.current;
 
     const activeCount = activeCountRef.current;
 
@@ -207,31 +221,26 @@ const FractureBurstParticles = ({
       ages[i] = elapsed;
       const t = Math.min(ages[i] / life, 1);
 
-      const currentVel = new THREE.Vector3(velocities[i3], velocities[i3 + 1], velocities[i3 + 2]);
-      currentVel.lerp(upwardTargetRef.current, 0.06);
-      velocities[i3] = currentVel.x;
-      velocities[i3 + 1] = currentVel.y;
-      velocities[i3 + 2] = currentVel.z;
-
-      if (ages[i] < 0.18) {
-        velocities[i3] *= 0.96;
-        velocities[i3 + 1] *= 0.96;
-        velocities[i3 + 2] *= 0.96;
+      if (ages[i] < 0.14) {
+        velocities[i3] *= 0.975;
+        velocities[i3 + 1] *= 0.975;
+        velocities[i3 + 2] *= 0.975;
       } else {
-        velocities[i3] *= 0.92;
-        velocities[i3 + 1] *= 0.92;
-        velocities[i3 + 2] *= 0.92;
+        const currentVel = new THREE.Vector3(velocities[i3], velocities[i3 + 1], velocities[i3 + 2]);
+        currentVel.lerp(upwardTargetRef.current, 0.06);
+        velocities[i3] = currentVel.x * drags[i];
+        velocities[i3 + 2] = currentVel.z * drags[i];
+        velocities[i3 + 1] = currentVel.y * 0.987 + buoyancies[i];
+        velocities[i3] += (Math.random() - 0.5) * 0.0015;
+        velocities[i3 + 2] += (Math.random() - 0.5) * 0.0015;
       }
-
-      velocities[i3] += (Math.random() - 0.5) * 0.003;
-      velocities[i3 + 2] += (Math.random() - 0.5) * 0.003;
 
       positions[i3] += velocities[i3] * dt;
       positions[i3 + 1] += velocities[i3 + 1] * dt;
       positions[i3 + 2] += velocities[i3 + 2] * dt;
 
       sizes[i] = baseSizes[i];
-      alphas[i] = smoothstep(0.0, 0.08, t) * (1.0 - smoothstep(0.55, 1.0, t));
+      alphas[i] = smoothstep(0.0, 0.05, t) * (1.0 - smoothstep(0.72, 1.0, t));
     }
 
     geometry.setDrawRange(0, activeCount);
