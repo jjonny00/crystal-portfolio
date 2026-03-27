@@ -192,7 +192,7 @@ const FractureBurstParticles = ({
         sizes[i] = baseSize;
 
         drags[i] = 0.86 + Math.random() * 0.08;
-        buoyancies[i] = 0.004 + Math.random() * 0.008;
+        buoyancies[i] = 0.01 + Math.random() * 0.012;
         turbulences[i] = 0.008 + Math.random() * 0.017;
         swirls[i] = 0.004 + Math.random() * 0.008;
         phases[i] = Math.random() * Math.PI * 2;
@@ -337,7 +337,7 @@ const FractureBurstParticles = ({
       }
 
       const i3 = i * 3;
-      if (ages[i] < 0.12) {
+      if (ages[i] < 0.1) {
         velocities[i3] *= 0.982;
         velocities[i3 + 1] *= 0.982;
         velocities[i3 + 2] *= 0.982;
@@ -349,22 +349,22 @@ const FractureBurstParticles = ({
         const flowX = Math.sin(flowT) * flowAmp;
         const flowZ = Math.cos(flowT * 1.2) * flowAmp;
         const flowY = Math.sin(flowT * 0.6) * flowAmp * 0.4;
+        const riseRamp = smoothstep(0.18, 0.55, lifeT);
+        const turbulenceFade = 1.0 - smoothstep(0.28, 0.75, lifeT);
+        const lateralDrag = THREE.MathUtils.lerp(drags[i], drags[i] * 0.82, smoothstep(0.35, 0.85, lifeT));
 
         const swirlStrength = swirls[i] * 1.5;
         const swirlX = -positions[i3 + 2] * swirlStrength;
         const swirlZ = positions[i3] * swirlStrength;
-        const buoyancy = ages[i] < 0.18 ? 0 : buoyancies[i];
 
-        velocities[i3] *= drags[i];
-        velocities[i3 + 2] *= drags[i];
-        velocities[i3 + 1] *= 0.975;
-        if (ages[i] < 0.18) {
-          velocities[i3 + 1] *= 0.96;
-        }
+        velocities[i3] *= lateralDrag;
+        velocities[i3 + 2] *= lateralDrag;
+        velocities[i3 + 1] *= 0.985;
 
-        velocities[i3] += flowX + swirlX;
-        velocities[i3 + 1] += flowY + buoyancy;
-        velocities[i3 + 2] += flowZ + swirlZ;
+        velocities[i3] += (flowX + swirlX) * turbulenceFade;
+        velocities[i3 + 1] += flowY * turbulenceFade;
+        velocities[i3 + 2] += (flowZ + swirlZ) * turbulenceFade;
+        velocities[i3 + 1] += buoyancies[i] * riseRamp;
       }
 
       positions[i3] += velocities[i3] * dt;
