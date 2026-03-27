@@ -153,11 +153,11 @@ const FractureBurstParticles = ({
         const angle = Math.random() * Math.PI * 2 + (Math.random() - 0.5) * 0.35;
         const ringRadius = 0.38 + Math.random() * 0.44;
         const ringThickness = -0.14 + Math.random() * 0.28;
-        const yOffset = -0.24 + Math.random() * 0.54;
+        const yOffset = -0.3 + Math.random() * 0.66;
         const radial = ringRadius + ringThickness;
 
         const emitterWidth = 1.0;
-        const emitterHeight = 0.85;
+        const emitterHeight = 1.0;
         const emitterDepth = 1.0;
 
         positions[i3] = Math.cos(angle) * emitterWidth * radial;
