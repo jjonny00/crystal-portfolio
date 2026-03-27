@@ -351,7 +351,9 @@ const FractureBurstParticles = ({
         const flowY = Math.sin(flowT * 0.6) * flowAmp * 0.4;
         const riseRamp = smoothstep(0.14, 0.48, lifeT);
         const turbulenceFade = 1.0 - smoothstep(0.24, 0.64, lifeT);
+        const verticalTurbulenceFade = 1.0 - smoothstep(0.18, 0.45, lifeT);
         const lateralDrag = THREE.MathUtils.lerp(drags[i], drags[i] * 0.82, smoothstep(0.35, 0.85, lifeT));
+        const minRise = THREE.MathUtils.lerp(0.002, 0.03, riseRamp);
 
         const swirlStrength = swirls[i] * 1.5;
         const swirlX = -positions[i3 + 2] * swirlStrength;
@@ -362,9 +364,16 @@ const FractureBurstParticles = ({
         velocities[i3 + 1] *= 0.985;
 
         velocities[i3] += (flowX + swirlX) * turbulenceFade;
-        velocities[i3 + 1] += flowY * turbulenceFade;
+        velocities[i3 + 1] += Math.max(flowY, -0.001) * verticalTurbulenceFade;
         velocities[i3 + 2] += (flowZ + swirlZ) * turbulenceFade;
         velocities[i3 + 1] += buoyancies[i] * riseRamp * 1.12;
+        if (velocities[i3 + 1] < 0) {
+          velocities[i3 + 1] += buoyancies[i] * 1.6;
+        }
+        velocities[i3 + 1] = Math.max(velocities[i3 + 1], minRise);
+        if (lifeT > 0.45) {
+          velocities[i3 + 1] = Math.max(velocities[i3 + 1], 0.012);
+        }
       }
 
       positions[i3] += velocities[i3] * dt;
