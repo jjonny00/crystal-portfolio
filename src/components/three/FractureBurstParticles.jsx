@@ -3,9 +3,9 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
 const EMITTER_START_LEAD_S = 0.08;
-const PARTICLE_FADE_IN_END = 0.04;
-const PARTICLE_FADE_OUT_START = 0.55;
-const PARTICLE_FADE_OUT_END = 0.92;
+const PARTICLE_FADE_IN_END = 0.03;
+const PARTICLE_FADE_OUT_START = 0.42;
+const PARTICLE_FADE_OUT_END = 0.76;
 
 const smoothstep = (edge0, edge1, x) => {
   const t = Math.min(Math.max((x - edge0) / (edge1 - edge0), 0), 1);
@@ -192,7 +192,7 @@ const FractureBurstParticles = ({
         sizes[i] = baseSize;
 
         drags[i] = 0.86 + Math.random() * 0.08;
-        buoyancies[i] = 0.01 + Math.random() * 0.012;
+        buoyancies[i] = 0.013 + Math.random() * 0.013;
         turbulences[i] = 0.008 + Math.random() * 0.017;
         swirls[i] = 0.004 + Math.random() * 0.008;
         phases[i] = Math.random() * Math.PI * 2;
@@ -349,8 +349,8 @@ const FractureBurstParticles = ({
         const flowX = Math.sin(flowT) * flowAmp;
         const flowZ = Math.cos(flowT * 1.2) * flowAmp;
         const flowY = Math.sin(flowT * 0.6) * flowAmp * 0.4;
-        const riseRamp = smoothstep(0.18, 0.55, lifeT);
-        const turbulenceFade = 1.0 - smoothstep(0.28, 0.75, lifeT);
+        const riseRamp = smoothstep(0.14, 0.48, lifeT);
+        const turbulenceFade = 1.0 - smoothstep(0.24, 0.64, lifeT);
         const lateralDrag = THREE.MathUtils.lerp(drags[i], drags[i] * 0.82, smoothstep(0.35, 0.85, lifeT));
 
         const swirlStrength = swirls[i] * 1.5;
@@ -364,7 +364,7 @@ const FractureBurstParticles = ({
         velocities[i3] += (flowX + swirlX) * turbulenceFade;
         velocities[i3 + 1] += flowY * turbulenceFade;
         velocities[i3 + 2] += (flowZ + swirlZ) * turbulenceFade;
-        velocities[i3 + 1] += buoyancies[i] * riseRamp;
+        velocities[i3 + 1] += buoyancies[i] * riseRamp * 1.12;
       }
 
       positions[i3] += velocities[i3] * dt;
