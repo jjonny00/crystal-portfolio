@@ -49,6 +49,8 @@ const FractureBurstParticles = ({
   const turbulencesRef = useRef(new Float32Array(count));
   const swirlsRef = useRef(new Float32Array(count));
   const phasesRef = useRef(new Float32Array(count));
+  const flowFreqsRef = useRef(new Float32Array(count));
+  const flowAmpsRef = useRef(new Float32Array(count));
 
   const geometry = useMemo(() => {
     const g = new THREE.BufferGeometry();
@@ -138,6 +140,8 @@ const FractureBurstParticles = ({
       const turbulences = turbulencesRef.current;
       const swirls = swirlsRef.current;
       const phases = phasesRef.current;
+      const flowFreqs = flowFreqsRef.current;
+      const flowAmps = flowAmpsRef.current;
 
       console.log('[particles] before spawn activeCount=', activeCountRef.current);
       const spawnCount = Math.min(count, 260);
@@ -167,7 +171,7 @@ const FractureBurstParticles = ({
           -0.35 + Math.random() * 0.7,
         );
         const burstDir = radialDir.add(burstJitter).normalize();
-        const velocity = burstDir.multiplyScalar(3.8 + Math.random() * 2.0);
+        const velocity = burstDir.multiplyScalar(4.2 + Math.random() * 2.0);
         velocity.y += -0.65 + Math.random() * 0.47;
 
         velocities[i3] = velocity.x;
@@ -187,11 +191,13 @@ const FractureBurstParticles = ({
         baseSizes[i] = baseSize;
         sizes[i] = baseSize;
 
-        drags[i] = 0.87 + Math.random() * 0.06;
-        buoyancies[i] = 0.006 + Math.random() * 0.007;
-        turbulences[i] = 0.004 + Math.random() * 0.008;
-        swirls[i] = 0.002 + Math.random() * 0.006;
+        drags[i] = 0.86 + Math.random() * 0.08;
+        buoyancies[i] = 0.004 + Math.random() * 0.008;
+        turbulences[i] = 0.008 + Math.random() * 0.017;
+        swirls[i] = 0.004 + Math.random() * 0.008;
         phases[i] = Math.random() * Math.PI * 2;
+        flowFreqs[i] = 6.0 + Math.random() * 8.0;
+        flowAmps[i] = 0.01 + Math.random() * 0.025;
 
         alphas[i] = 1;
       }
@@ -208,6 +214,8 @@ const FractureBurstParticles = ({
         turbulences[i] = 0;
         swirls[i] = 0;
         phases[i] = 0;
+        flowFreqs[i] = 0;
+        flowAmps[i] = 0;
         sizes[i] = 0;
         alphas[i] = 0;
       }
@@ -278,6 +286,8 @@ const FractureBurstParticles = ({
     const turbulences = turbulencesRef.current;
     const swirls = swirlsRef.current;
     const phases = phasesRef.current;
+    const flowFreqs = flowFreqsRef.current;
+    const flowAmps = flowAmpsRef.current;
 
     let activeCount = activeCountRef.current;
     const activeBefore = activeCount;
@@ -314,6 +324,8 @@ const FractureBurstParticles = ({
           swapScalar(turbulences, i, last);
           swapScalar(swirls, i, last);
           swapScalar(phases, i, last);
+          swapScalar(flowFreqs, i, last);
+          swapScalar(flowAmps, i, last);
           swapScalar(alphas, i, last);
           swapScalar(sizes, i, last);
         }
@@ -331,20 +343,28 @@ const FractureBurstParticles = ({
         velocities[i3 + 2] *= 0.982;
         velocities[i3 + 1] -= 0.01;
       } else {
-        const swirlX = Math.sin(ages[i] * 8.0 + phases[i]) * swirls[i];
-        const swirlZ = Math.cos(ages[i] * 7.0 + phases[i] * 1.3) * swirls[i];
+        const time = ages[i];
+        const flowT = time * flowFreqs[i] + phases[i];
+        const flowAmp = flowAmps[i] + turbulences[i];
+        const flowX = Math.sin(flowT) * flowAmp;
+        const flowZ = Math.cos(flowT * 1.2) * flowAmp;
+        const flowY = Math.sin(flowT * 0.6) * flowAmp * 0.4;
 
-        const turbX = (Math.random() - 0.5) * turbulences[i];
-        const turbY = (Math.random() - 0.5) * turbulences[i] * 0.35;
-        const turbZ = (Math.random() - 0.5) * turbulences[i];
+        const swirlStrength = swirls[i] * 1.5;
+        const swirlX = -positions[i3 + 2] * swirlStrength;
+        const swirlZ = positions[i3] * swirlStrength;
+        const buoyancy = ages[i] < 0.18 ? 0 : buoyancies[i];
 
         velocities[i3] *= drags[i];
         velocities[i3 + 2] *= drags[i];
         velocities[i3 + 1] *= 0.975;
+        if (ages[i] < 0.18) {
+          velocities[i3 + 1] *= 0.96;
+        }
 
-        velocities[i3] += swirlX + turbX;
-        velocities[i3 + 1] += buoyancies[i] + turbY;
-        velocities[i3 + 2] += swirlZ + turbZ;
+        velocities[i3] += flowX + swirlX;
+        velocities[i3 + 1] += flowY + buoyancy;
+        velocities[i3 + 2] += flowZ + swirlZ;
       }
 
       positions[i3] += velocities[i3] * dt;
