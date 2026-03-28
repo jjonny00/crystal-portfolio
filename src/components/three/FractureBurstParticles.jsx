@@ -31,7 +31,7 @@ const swapVec3 = (arr, a, b) => {
 const FractureBurstParticles = ({
   trigger,
   delay = 0,
-  count = 260,
+  count = 360,
   color = '#9af8ff',
   emitterPosition = [0, 0, 0],
 }) => {
@@ -144,7 +144,7 @@ const FractureBurstParticles = ({
       const flowAmps = flowAmpsRef.current;
 
       console.log('[particles] before spawn activeCount=', activeCountRef.current);
-      const spawnCount = Math.min(count, 260);
+      const spawnCount = Math.min(count, 360);
       console.log('[particles] spawning count=', spawnCount);
 
       for (let i = 0; i < spawnCount; i += 1) {
