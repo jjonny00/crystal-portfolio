@@ -153,26 +153,27 @@ const FractureBurstParticles = ({
         const angle = Math.random() * Math.PI * 2 + (Math.random() - 0.5) * 0.35;
         const ringRadius = 0.38 + Math.random() * 0.44;
         const ringThickness = -0.14 + Math.random() * 0.28;
-        const yOffset = -0.3 + Math.random() * 0.66;
+        const yOffset = -0.48 + Math.random() * 1.0;
         const radial = ringRadius + ringThickness;
+        const ringYOffset = -0.24;
 
         const emitterWidth = 1.0;
-        const emitterHeight = 1.0;
+        const emitterHeight = 1.15;
         const emitterDepth = 1.0;
 
         positions[i3] = Math.cos(angle) * emitterWidth * radial;
-        positions[i3 + 1] = yOffset * emitterHeight;
+        positions[i3 + 1] = yOffset * emitterHeight + ringYOffset;
         positions[i3 + 2] = Math.sin(angle) * emitterDepth * radial;
 
         const radialDir = new THREE.Vector3(positions[i3], positions[i3 + 1], positions[i3 + 2]).normalize();
         const burstJitter = new THREE.Vector3(
-          -0.35 + Math.random() * 0.7,
-          -0.22 + Math.random() * 0.3,
-          -0.35 + Math.random() * 0.7,
+          -0.48 + Math.random() * 0.96,
+          -0.26 + Math.random() * 0.38,
+          -0.48 + Math.random() * 0.96,
         );
         const burstDir = radialDir.add(burstJitter).normalize();
-        const velocity = burstDir.multiplyScalar(4.2 + Math.random() * 2.0);
-        velocity.y += -0.65 + Math.random() * 0.47;
+        const velocity = burstDir.multiplyScalar(4.4 + Math.random() * 2.2);
+        velocity.y += -0.7 + Math.random() * 0.54;
 
         velocities[i3] = velocity.x;
         velocities[i3 + 1] = velocity.y;
@@ -181,23 +182,25 @@ const FractureBurstParticles = ({
         ages[i] = 0;
         lifetimes[i] = 0.9 + Math.random() * 0.7;
 
-        const sizeBiasT = Math.pow(Math.random(), 1.6);
-        let baseSize = THREE.MathUtils.lerp(0.018, 0.034, sizeBiasT);
-        const isAccent = Math.random() > 0.86;
-        if (isAccent) {
-          baseSize = 0.032 + Math.random() * 0.018;
+        const tierRoll = Math.random();
+        let baseSize;
+        if (tierRoll > 0.9) {
+          baseSize = 0.045 + Math.random() * 0.025;
+        } else if (tierRoll > 0.65) {
+          baseSize = 0.028 + Math.random() * 0.02;
+        } else {
+          baseSize = 0.018 + Math.random() * 0.014;
         }
-        baseSize *= 2.0;
         baseSizes[i] = baseSize;
         sizes[i] = baseSize;
 
-        drags[i] = 0.86 + Math.random() * 0.08;
+        drags[i] = 0.84 + Math.random() * 0.08;
         buoyancies[i] = 0.013 + Math.random() * 0.013;
-        turbulences[i] = 0.008 + Math.random() * 0.017;
-        swirls[i] = 0.004 + Math.random() * 0.008;
+        turbulences[i] = 0.014 + Math.random() * 0.021;
+        swirls[i] = 0.008 + Math.random() * 0.012;
         phases[i] = Math.random() * Math.PI * 2;
-        flowFreqs[i] = 6.0 + Math.random() * 8.0;
-        flowAmps[i] = 0.01 + Math.random() * 0.025;
+        flowFreqs[i] = 8.0 + Math.random() * 10.0;
+        flowAmps[i] = 0.018 + Math.random() * 0.032;
 
         alphas[i] = 1;
       }
@@ -347,15 +350,16 @@ const FractureBurstParticles = ({
         const flowT = time * flowFreqs[i] + phases[i];
         const flowAmp = flowAmps[i] + turbulences[i];
         const flowX = Math.sin(flowT) * flowAmp;
-        const flowZ = Math.cos(flowT * 1.2) * flowAmp;
-        const flowY = Math.sin(flowT * 0.6) * flowAmp * 0.4;
+        const flowZ = Math.cos(flowT * 1.17) * flowAmp;
+        const flowY = Math.sin(flowT * 0.72) * flowAmp * 0.28;
         const riseRamp = smoothstep(0.14, 0.48, lifeT);
         const turbulenceFade = 1.0 - smoothstep(0.24, 0.64, lifeT);
         const verticalTurbulenceFade = 1.0 - smoothstep(0.18, 0.45, lifeT);
         const lateralDrag = THREE.MathUtils.lerp(drags[i], drags[i] * 0.82, smoothstep(0.35, 0.85, lifeT));
-        const minRise = THREE.MathUtils.lerp(0.002, 0.03, riseRamp);
+        const minRise = THREE.MathUtils.lerp(0.003, 0.038, riseRamp);
+        const phaseTurbulenceScale = lifeT >= 0.5 ? 0.7 : 1.0;
 
-        const swirlStrength = swirls[i] * 1.5;
+        const swirlStrength = swirls[i] * 2.1;
         const swirlX = -positions[i3 + 2] * swirlStrength;
         const swirlZ = positions[i3] * swirlStrength;
 
@@ -363,9 +367,9 @@ const FractureBurstParticles = ({
         velocities[i3 + 2] *= lateralDrag;
         velocities[i3 + 1] *= 0.985;
 
-        velocities[i3] += (flowX + swirlX) * turbulenceFade;
+        velocities[i3] += (flowX + swirlX) * turbulenceFade * phaseTurbulenceScale;
         velocities[i3 + 1] += Math.max(flowY, -0.001) * verticalTurbulenceFade;
-        velocities[i3 + 2] += (flowZ + swirlZ) * turbulenceFade;
+        velocities[i3 + 2] += (flowZ + swirlZ) * turbulenceFade * phaseTurbulenceScale;
         velocities[i3 + 1] += buoyancies[i] * riseRamp * 1.12;
         if (velocities[i3 + 1] < 0) {
           velocities[i3 + 1] += buoyancies[i] * 1.6;
