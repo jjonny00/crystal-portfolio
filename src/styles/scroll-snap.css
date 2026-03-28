@@ -48,14 +48,27 @@ body {
 
 /* AGGRESSIVE: Force scroll container to be the scroll parent */
 .scroll-container {
-  position: relative !important;
-  min-height: 100svh !important;
-  overflow: visible !important;
-  overflow-x: clip !important;
+  /* This is now the main scroll container */
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  
+  /* Force it to be the scroll container */
+  height: 100vh !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  
+  /* Apply scroll snap here instead of html */
+  scroll-snap-type: y mandatory !important;
+  scroll-behavior: smooth !important;
   
   /* Ensure it's above 3D canvas */
   z-index: 10 !important;
-
+  
+  /* Mobile scroll support */
+  -webkit-overflow-scrolling: touch;
+  
   /* Clean box model */
   margin: 0 !important;
   padding: 0 !important;
@@ -68,8 +81,10 @@ body {
   scroll-snap-align: start !important;
   scroll-snap-stop: always !important;
   
+  /* Force exact viewport height */
+  height: 100vh !important;
   min-height: 100vh !important;
-  min-height: 100svh !important;
+  max-height: 100vh !important;
   
   /* Prevent internal scrolling */
   overflow: hidden !important;
@@ -102,8 +117,9 @@ body {
   /* Force these critical properties */
   scroll-snap-align: start !important;
   scroll-snap-stop: always !important;
+  height: 100vh !important;
   min-height: 100vh !important;
-  min-height: 100svh !important;
+  max-height: 100vh !important;
   overflow: hidden !important;
   
   /* Center content */
@@ -114,6 +130,15 @@ body {
   /* Padding for content */
   padding: 2rem !important;
   box-sizing: border-box !important;
+}
+
+/* Hero-specific overflow guard: allow content to scale without creating an internal scroller */
+#hero.scroll-section {
+  height: auto !important;
+  min-height: 100vh !important;
+  min-height: 100svh !important;
+  max-height: none !important;
+  overflow: hidden !important;
 }
 
 /* ========================================= */
@@ -186,8 +211,18 @@ html .scroll-container.no-snap .scroll-section {
   }
   
   .scroll-container {
-    min-height: 100svh !important;
+    /* Keep scroll container approach on mobile */
+    height: 100vh !important;
+    overflow-y: auto !important;
+    scroll-snap-type: y proximity !important;
     pointer-events: auto !important;
+    touch-action: pan-y !important;
+
+    /* Enhanced mobile scrolling */
+    -webkit-overflow-scrolling: touch !important;
+
+    /* Prevent bounce */
+    overscroll-behavior: contain !important;
   }
   
   /* Mobile speed overrides */
@@ -217,17 +252,20 @@ html .scroll-container.no-snap .scroll-section {
   .scroll-section {
     /* Mobile sections */
     scroll-snap-align: start !important;
+    height: 100vh !important;
     min-height: 100vh !important;
-    min-height: 100svh !important;
+    max-height: 100vh !important;
     
     /* Use iOS safe areas if available */
-    min-height: 100svh !important;
+    height: 100vh !important;
+    min-height: 100vh !important;
   }
   
   /* Mobile-specific fixes for iOS */
   @supports (-webkit-touch-callout: none) {
     .scroll-container {
-      min-height: -webkit-fill-available !important;
+      /* iOS-specific height fix */
+      height: -webkit-fill-available !important;
     }
   }
 }

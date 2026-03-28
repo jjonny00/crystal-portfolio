@@ -46,7 +46,8 @@ const ScrollablePortfolio = ({
     if (!sections.length) return undefined;
 
     const getClosestSectionId = () => {
-      const viewportMidpoint = window.innerHeight / 2;
+      const containerRect = container.getBoundingClientRect();
+      const viewportMidpoint = containerRect.top + containerRect.height / 2;
 
       let closestId = sections[0].id;
       let closestDistance = Number.POSITIVE_INFINITY;
@@ -81,16 +82,28 @@ const ScrollablePortfolio = ({
 
     scheduleSettle();
 
-    window.addEventListener('scroll', scheduleSettle, { passive: true });
-    window.addEventListener('resize', scheduleSettle, { passive: true });
+    container.addEventListener('scroll', scheduleSettle, { passive: true });
 
     return () => {
-      window.removeEventListener('scroll', scheduleSettle);
-      window.removeEventListener('resize', scheduleSettle);
+      container.removeEventListener('scroll', scheduleSettle);
       if (settleTimeoutRef.current) {
         clearTimeout(settleTimeoutRef.current);
       }
     };
+  }, []);
+
+  useEffect(() => {
+    const container = document.querySelector('.scroll-container');
+    if (!container) return;
+
+    const handleWheel = (e) => {
+      if (!e.target.closest('.scroll-container')) {
+        container.scrollBy({ top: e.deltaY });
+      }
+    };
+
+    window.addEventListener('wheel', handleWheel, { passive: true });
+    return () => window.removeEventListener('wheel', handleWheel);
   }, []);
 
   return (
@@ -98,13 +111,15 @@ const ScrollablePortfolio = ({
       ref={containerRef}
       className="scroll-container"
       style={{
-        position: 'relative',
-        width: '100%',
-        minHeight: '100svh',
-        height: 'auto',
-        overflow: 'visible',
-        overflowX: 'clip',
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: '100vh',
+        overflowY: 'auto',
+        overflowX: 'hidden',
         zIndex: 10,
+        WebkitOverflowScrolling: 'touch',
         backgroundColor: 'transparent',
         pointerEvents: isMobileViewport ? 'auto' : 'none',
         margin: 0,
@@ -127,6 +142,8 @@ const ScrollablePortfolio = ({
           data-headline-color="#e1d2bc"
           style={{
             minHeight: '100svh',
+            height: 'auto',
+            maxHeight: 'none',
             overflow: 'hidden',
             display: 'flex',
             alignItems: 'center',
@@ -148,7 +165,9 @@ const ScrollablePortfolio = ({
           style={{
             scrollSnapAlign: 'start',
             scrollSnapStop: 'normal',
-            minHeight: '100svh',
+            height: '100vh',
+            minHeight: '100vh',
+            maxHeight: '100vh',
             overflow: 'hidden',
             display: 'flex',
             alignItems: 'center',
@@ -171,7 +190,9 @@ const ScrollablePortfolio = ({
               className="scroll-section project"
               data-headline-color={project.color}
               style={{
-                minHeight: '100svh',
+                height: '100vh',
+                minHeight: '100vh',
+                maxHeight: '100vh',
                 overflow: 'hidden',
                 display: 'flex',
                 alignItems: 'center',
@@ -197,7 +218,9 @@ const ScrollablePortfolio = ({
           id="about"
           className="scroll-section"
           style={{
-            minHeight: '100svh',
+            height: '100vh',
+            minHeight: '100vh',
+            maxHeight: '100vh',
             overflow: 'hidden',
             display: 'flex',
             alignItems: 'center',

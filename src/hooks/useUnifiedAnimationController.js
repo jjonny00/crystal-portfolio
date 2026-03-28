@@ -337,15 +337,13 @@ export const useUnifiedAnimationController = (options = {}) => {
     if (typeof document === 'undefined') return;
 
     const container = document.querySelector('.scroll-container');
-    const scrollingEl = document.scrollingElement || document.documentElement;
-    const useWindowScroll = !container || container.scrollHeight <= container.clientHeight + 1;
-    const maxScroll = useWindowScroll
-      ? Math.max(scrollingEl.scrollHeight - window.innerHeight, 1)
-      : Math.max(container.scrollHeight - container.clientHeight, 1);
+    if (!container) return;
+
+    const maxScroll = Math.max(container.scrollHeight - container.clientHeight, 1);
     const projectNodes = Array.from(
-      document.querySelectorAll('section.scroll-section.project[id^="project-"]')
+      container.querySelectorAll(':scope > div > section.scroll-section.project[id^="project-"]')
     );
-    const aboutNode = document.querySelector('section#about.scroll-section');
+    const aboutNode = container.querySelector(':scope > div > section#about.scroll-section');
 
     if (projectNodes.length === 0) return;
 
@@ -694,13 +692,9 @@ export const useUnifiedAnimationController = (options = {}) => {
     const container = typeof document !== 'undefined'
       ? document.querySelector('.scroll-container')
       : null;
-    const scrollingEl = typeof document !== 'undefined'
-      ? (document.scrollingElement || document.documentElement)
-      : null;
-    const useWindowScroll = !container || container.scrollHeight <= container.clientHeight + 1;
-    const triggerPx = useWindowScroll
-      ? (window.scrollY + window.innerHeight * 0.5)
-      : (container.scrollTop + container.clientHeight * 0.5);
+    const triggerPx = container
+      ? container.scrollTop + container.clientHeight * 0.5
+      : Number.NaN;
     const activeProjectFromDom = calculateActiveProjectFromTriggerPx(
       triggerPx,
       runtimeProjectSectionsRef.current
