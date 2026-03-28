@@ -536,7 +536,11 @@ function App() {
     if (!target) return;
 
     const scrollContainer = document.querySelector('.scroll-container');
-    if (scrollContainer) {
+    const containerIsScrollable = scrollContainer
+      ? scrollContainer.scrollHeight > scrollContainer.clientHeight + 1
+      : false;
+
+    if (scrollContainer && containerIsScrollable) {
       scrollContainer.scrollTo({ top: target.offsetTop, behavior: 'smooth' });
       return;
     }
@@ -571,8 +575,11 @@ function App() {
 
   const handleRestartScene = useCallback(() => {
     const scrollContainer = document.querySelector('.scroll-container');
+    const containerIsScrollable = scrollContainer
+      ? scrollContainer.scrollHeight > scrollContainer.clientHeight + 1
+      : false;
 
-    if (scrollContainer) {
+    if (scrollContainer && containerIsScrollable) {
       scrollContainer.scrollTo({ top: 0, behavior: 'auto' });
     } else {
       window.scrollTo({ top: 0, behavior: 'auto' });

@@ -27,10 +27,33 @@ export const useScrollProgress = (options = {}) => {
 
   // Refs
   const scrollContainerRef = useRef(null);
+  const usesWindowScrollRef = useRef(false);
   const lastScrollTop = useRef(0);
   const lastTimestamp = useRef(Date.now());
   const scrollListenerRef = useRef(null);
   const resizeListenerRef = useRef(null);
+
+  const getScrollMetrics = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (!container) {
+      return { scrollTop: 0, clientHeight: 1, scrollHeight: 1 };
+    }
+
+    if (usesWindowScrollRef.current) {
+      const scrollingEl = document.scrollingElement || document.documentElement;
+      return {
+        scrollTop: window.scrollY || scrollingEl.scrollTop || 0,
+        clientHeight: window.innerHeight || scrollingEl.clientHeight || 1,
+        scrollHeight: scrollingEl.scrollHeight || 1
+      };
+    }
+
+    return {
+      scrollTop: container.scrollTop,
+      clientHeight: container.clientHeight || 1,
+      scrollHeight: container.scrollHeight || 1
+    };
+  }, []);
 
   /**
    * Throttle function optimized for container scrolling
@@ -67,13 +90,8 @@ export const useScrollProgress = (options = {}) => {
    * Calculate container dimensions
    */
   const updateContainerDimensions = useCallback(() => {
-    const container = scrollContainerRef.current;
-    if (!container) return;
-    
-    const containerRect = container.getBoundingClientRect();
-    const scrollHeight = container.scrollHeight;
-    
-    setContainerHeight(containerRect.height);
+    const { clientHeight, scrollHeight } = getScrollMetrics();
+    setContainerHeight(clientHeight);
     setContentHeight(scrollHeight);
     
     // if (debugMode) {
@@ -83,7 +101,7 @@ export const useScrollProgress = (options = {}) => {
     //     scrollableHeight: scrollHeight - containerRect.height
     //   });
     // }
-  }, [debugMode]);
+  }, [debugMode, getScrollMetrics]);
 
   /**
    * FIXED: Calculate scroll progress relative to container
@@ -91,9 +109,9 @@ export const useScrollProgress = (options = {}) => {
   const calculateScrollProgress = useCallback(() => {
     const container = scrollContainerRef.current;
     if (!container) return 0;
-    
-    const scrollTop = container.scrollTop;
-    const maxScroll = Math.max(container.scrollHeight - container.clientHeight, 1);
+
+    const { scrollTop, scrollHeight, clientHeight } = getScrollMetrics();
+    const maxScroll = Math.max(scrollHeight - clientHeight, 1);
     let progress = Math.min(Math.max(scrollTop / maxScroll, 0), 1);
     
     // DEBUG: Log scroll calculation
@@ -113,7 +131,7 @@ export const useScrollProgress = (options = {}) => {
     
     if (isLikelySnapped && !isSnapping) {
       // Quantize progress to clean values when snapped
-      const sections = container.querySelectorAll('.scroll-section');
+      const sections = document.querySelectorAll('.scroll-section');
       if (sections.length > 0) {
         let closestSectionIndex = 0;
         let minDistance = Infinity;
@@ -145,16 +163,16 @@ export const useScrollProgress = (options = {}) => {
     }
     
     return progress;
-  }, [isSnapping, debugMode]);
+  }, [isSnapping, debugMode, getScrollMetrics]);
 
   const calculateRawScrollProgress = useCallback(() => {
     const container = scrollContainerRef.current;
     if (!container) return 0;
 
-    const scrollTop = container.scrollTop;
-    const maxScroll = Math.max(container.scrollHeight - container.clientHeight, 1);
+    const { scrollTop, scrollHeight, clientHeight } = getScrollMetrics();
+    const maxScroll = Math.max(scrollHeight - clientHeight, 1);
     return Math.min(Math.max(scrollTop / maxScroll, 0), 1);
-  }, []);
+  }, [getScrollMetrics]);
 
   /**
    * Update velocity calculation
@@ -162,8 +180,8 @@ export const useScrollProgress = (options = {}) => {
   const updateVelocity = useCallback(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
-    
-    const currentScrollTop = container.scrollTop;
+
+    const { scrollTop: currentScrollTop } = getScrollMetrics();
     const currentTime = Date.now();
     
     const deltaY = Math.abs(currentScrollTop - lastScrollTop.current);
@@ -174,7 +192,7 @@ export const useScrollProgress = (options = {}) => {
 
     lastScrollTop.current = currentScrollTop;
     lastTimestamp.current = currentTime;
-  }, []);
+  }, [getScrollMetrics]);
 
   /**
    * Determine current section
@@ -182,9 +200,9 @@ export const useScrollProgress = (options = {}) => {
   const determineCurrentSection = useCallback(() => {
     const container = scrollContainerRef.current;
     if (!container) return null;
-    
-    const sections = container.querySelectorAll('.scroll-section');
-    const scrollTop = container.scrollTop;
+
+    const sections = document.querySelectorAll('.scroll-section');
+    const { scrollTop } = getScrollMetrics();
     
     let currentSectionId = null;
     let minDistance = Infinity;
@@ -200,7 +218,7 @@ export const useScrollProgress = (options = {}) => {
     });
     
     return currentSectionId;
-  }, []);
+  }, [getScrollMetrics]);
 
   /**
    * FIXED: Handle scroll events on the container
@@ -282,7 +300,13 @@ export const useScrollProgress = (options = {}) => {
       if (import.meta.env.DEV) console.error(`Scroll container not found: ${containerSelector}`);
       return;
     }
-    
+
+    const styles = window.getComputedStyle(container);
+    const hasOwnVerticalScroll =
+      container.scrollHeight > container.clientHeight + 1 &&
+      /(auto|scroll)/.test(styles.overflowY);
+
+    usesWindowScrollRef.current = !hasOwnVerticalScroll;
     scrollContainerRef.current = container;
     
     // Initial setup
@@ -300,7 +324,8 @@ export const useScrollProgress = (options = {}) => {
     const throttledResize = throttle(handleResize, 100);
     
     // Add listeners
-    container.addEventListener('scroll', scrollHandler, { passive: true });
+    const scrollTarget = usesWindowScrollRef.current ? window : container;
+    scrollTarget.addEventListener('scroll', scrollHandler, { passive: true });
     window.addEventListener('resize', throttledResize, { passive: true });
     
     // Store refs for cleanup
@@ -317,7 +342,11 @@ export const useScrollProgress = (options = {}) => {
     // Cleanup
     return () => {
       if (container && scrollListenerRef.current) {
-        container.removeEventListener('scroll', scrollListenerRef.current);
+        if (usesWindowScrollRef.current) {
+          window.removeEventListener('scroll', scrollListenerRef.current);
+        } else {
+          container.removeEventListener('scroll', scrollListenerRef.current);
+        }
       }
       if (resizeListenerRef.current) {
         window.removeEventListener('resize', resizeListenerRef.current);
@@ -384,15 +413,24 @@ export const useScrollProgress = (options = {}) => {
   const scrollToProgress = useCallback((targetProgress, behavior = 'smooth') => {
     const container = scrollContainerRef.current;
     if (!container) return;
-    
-    const maxScroll = container.scrollHeight - container.clientHeight;
+
+    const { scrollHeight, clientHeight } = getScrollMetrics();
+    const maxScroll = scrollHeight - clientHeight;
     const targetScrollTop = targetProgress * maxScroll;
-    
+
+    if (usesWindowScrollRef.current) {
+      window.scrollTo({
+        top: targetScrollTop,
+        behavior
+      });
+      return;
+    }
+
     container.scrollTo({
       top: targetScrollTop,
-      behavior: behavior
+      behavior
     });
-  }, []);
+  }, [getScrollMetrics]);
 
   /**
    * Scroll to zone
@@ -437,7 +475,7 @@ export const useScrollProgress = (options = {}) => {
     
     // Debug info
     debugInfo: debugMode ? {
-      scrollTop: scrollContainerRef.current?.scrollTop || 0,
+      scrollTop: getScrollMetrics().scrollTop || 0,
       progress: Math.round(scrollProgress * 100) + '%',
       velocity: Math.round(velocity * 1000) / 1000,
       containerHeight,
@@ -445,7 +483,8 @@ export const useScrollProgress = (options = {}) => {
       isScrolling,
       isSnapping,
       currentSection,
-      hasContainer: !!scrollContainerRef.current
+      hasContainer: !!scrollContainerRef.current,
+      usesWindowScroll: usesWindowScrollRef.current
     } : null
   };
 };
