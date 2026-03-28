@@ -191,6 +191,7 @@ const FractureBurstParticles = ({
         } else {
           baseSize = 0.028 + Math.random() * 0.022;
         }
+        baseSize *= 2.0;
         baseSizes[i] = baseSize;
         sizes[i] = baseSize;
 
