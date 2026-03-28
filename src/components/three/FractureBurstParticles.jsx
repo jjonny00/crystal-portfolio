@@ -185,11 +185,11 @@ const FractureBurstParticles = ({
         const tierRoll = Math.random();
         let baseSize;
         if (tierRoll > 0.9) {
-          baseSize = 0.045 + Math.random() * 0.025;
-        } else if (tierRoll > 0.65) {
-          baseSize = 0.028 + Math.random() * 0.02;
+          baseSize = 0.07 + Math.random() * 0.04;
+        } else if (tierRoll > 0.62) {
+          baseSize = 0.045 + Math.random() * 0.03;
         } else {
-          baseSize = 0.018 + Math.random() * 0.014;
+          baseSize = 0.028 + Math.random() * 0.022;
         }
         baseSizes[i] = baseSize;
         sizes[i] = baseSize;
