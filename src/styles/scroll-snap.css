@@ -132,6 +132,15 @@ body {
   box-sizing: border-box !important;
 }
 
+/* Hero-specific overflow guard: allow content to scale without creating an internal scroller */
+#hero.scroll-section {
+  height: auto !important;
+  min-height: 100vh !important;
+  min-height: 100svh !important;
+  max-height: none !important;
+  overflow: hidden !important;
+}
+
 /* ========================================= */
 /* SNAP SPEED CONTROLS - NEW SECTION */
 /* ========================================= */

@@ -141,9 +141,9 @@ const ScrollablePortfolio = ({
           className="scroll-section"
           data-headline-color="#e1d2bc"
           style={{
-            height: '100vh',
-            minHeight: '100vh',
-            maxHeight: '100vh',
+            minHeight: '100svh',
+            height: 'auto',
+            maxHeight: 'none',
             overflow: 'hidden',
             display: 'flex',
             alignItems: 'center',

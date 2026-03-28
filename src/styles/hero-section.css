@@ -1,20 +1,25 @@
 .hero-section {
   min-height: 100vh;
+  min-height: 100svh;
   position: relative;
   display: flex;
   align-items: flex-start;
   justify-content: flex-start;
-  padding: clamp(6rem, 12vh, 11rem) clamp(1.5rem, 5.2vw, 6rem) clamp(6rem, 10vh, 8rem);
+  padding: clamp(4.5rem, 10vh, 11rem) clamp(1.5rem, 5.2vw, 6rem) clamp(4.5rem, 9vh, 8rem);
   background-color: transparent;
   overflow: hidden;
 }
 
 .hero-section__content {
   width: min(100%, 74rem);
+  max-width: 100%;
+  max-height: calc(100vh - 8rem);
+  max-height: calc(100svh - 8rem);
   color: #fff;
   z-index: 10;
   position: relative;
   text-align: left;
+  overflow: visible;
 }
 
 .hero-section__title {
@@ -23,9 +28,9 @@
   --headline-glow2: #c4bc2b;
   font-family: 'ivypresto-display', 'IvyPresto Display', 'Playfair Display', Georgia, serif;
   font-style: normal;
-  font-size: clamp(5.5rem, 14vw, 12.5rem);
+  font-size: clamp(3rem, min(12vw, 14svh), 200px);
   font-weight: 300;
-  line-height: clamp(5rem, 12.8vw, 11.5rem);
+  line-height: clamp(2.75rem, min(11vw, 12.5svh), 184px);
   text-transform: uppercase;
   letter-spacing: 0;
   margin: 0;
@@ -41,16 +46,16 @@
 }
 
 .hero-section__body-block {
-  margin-top: clamp(2rem, 6.5vh, 5.5rem);
+  margin-top: clamp(1rem, 3.5vh, 3.5rem);
   max-inline-size: min(100%, 45rem);
 }
 
 .hero-section__body-copy {
   font-family: 'acumin-variable', 'Acumin VF', sans-serif;
   font-style: normal;
-  font-size: clamp(1.2rem, 2.2vw, 1.75rem);
+  font-size: clamp(1rem, min(1.8vw, 2.3svh), 28px);
   font-weight: 200;
-  line-height: clamp(1.65rem, 2.6vw, 2.0625rem);
+  line-height: clamp(1.35rem, min(2.2vw, 2.8svh), 33px);
   letter-spacing: clamp(-0.02em, -0.015vw, -0.01em);
   color: #fcf5eb;
   margin: 0;
@@ -96,19 +101,6 @@
   opacity: 0.6;
 }
 
-@media (min-width: 1200px) {
-  .hero-section__title {
-    font-size: 200px;
-    line-height: 184px;
-  }
-
-  .hero-section__body-copy {
-    font-size: 28px;
-    line-height: 33px;
-    letter-spacing: -0.28px;
-  }
-}
-
 @media (max-width: 1024px) {
   .hero-section {
     padding-top: clamp(5rem, 10vh, 7rem);
@@ -131,7 +123,7 @@
     width: 100%;
     align-items: center;
     justify-content: flex-start;
-    padding: clamp(4rem, 10vh, 6rem) 16px calc(2.75rem + env(safe-area-inset-bottom, 0px));
+    padding: clamp(3rem, 8.5vh, 5.25rem) 16px calc(2.75rem + env(safe-area-inset-bottom, 0px));
   }
 
   .hero-section__content {
@@ -141,8 +133,8 @@
 
   .hero-section__title {
     max-inline-size: 100%;
-    font-size: clamp(3rem, 14vw, 4.5rem);
-    line-height: 0.92;
+    font-size: clamp(2.45rem, min(11.5vw, 8.4svh), 4.5rem);
+    line-height: clamp(2.25rem, min(10.8vw, 7.8svh), 4.1rem);
   }
 
   .hero-section__body-block {
