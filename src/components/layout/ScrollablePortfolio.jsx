@@ -153,7 +153,7 @@ const ScrollablePortfolio = ({
             margin: 0,
             padding: 0,
             boxSizing: 'border-box',
-            pointerEvents: 'none'
+            pointerEvents: 'auto'
           }}
         >
           <HeroSection visible={settledSectionId === 'hero'} />
