@@ -121,7 +121,7 @@ const ScrollablePortfolio = ({
         zIndex: 10,
         WebkitOverflowScrolling: 'touch',
         backgroundColor: 'transparent',
-        pointerEvents: isMobileViewport ? 'auto' : 'none',
+        pointerEvents: 'auto',
         margin: 0,
         padding: 0,
         boxSizing: 'border-box',

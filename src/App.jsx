@@ -769,7 +769,7 @@ function App() {
 
   // Toggle body scrolling based on app readiness
   useEffect(() => {
-    document.body.style.overflow = isAppReady ? 'auto' : 'hidden';
+    document.body.style.overflow = 'hidden';
   }, [isAppReady]);
 
   // UI Hide Toggle Keyboard Listener
