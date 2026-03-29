@@ -3,7 +3,7 @@
 
 import React, { useRef, useState, useEffect, useCallback, forwardRef, useImperativeHandle, useMemo } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { useGLTF, Html } from '@react-three/drei'
+import { useGLTF, Html, useCursor } from '@react-three/drei'
 import * as THREE from 'three'
 import FractureBurstParticles from './FractureBurstParticles'
 
@@ -84,7 +84,7 @@ const UnifiedCrystalScene = forwardRef(({
   const [showCrystalDebug, setShowCrystalDebug] = useState(false);
   
   // FIXED: Better hover state tracking
-  const [, setHoveredFacet] = useState(null);
+  const [hoveredFacet, setHoveredFacet] = useState(null);
   const hoveredFacetRef = useRef(null);
 
   // Track material updates so we can reapply when ready
@@ -106,6 +106,7 @@ const UnifiedCrystalScene = forwardRef(({
   const [domAnchorClient, setDomAnchorClient] = useState(null);
   const { layout } = useLayoutConfig();
   const hoverCapable = useHoverCapable();
+  useCursor(Boolean(hoverCapable && hoveredFacet));
   const overviewWorldAnchors = layout?.anchors?.overviewWorld;
   const layoutCamera = layout?.camera;
   const layoutProjects = layout?.projects;
