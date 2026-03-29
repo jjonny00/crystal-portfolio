@@ -478,6 +478,96 @@ function App() {
   // Detect if mobile
   const isMobile = isMobileDevice();
 
+  // TEMP DEBUG: identify real scrolling owner on iPad/tablet touch devices.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const debugFlag = params.get('scrollDebug') === '1' || window.__SCROLL_DEBUG_IPAD__ === true;
+    const isTabletTouchViewport =
+      window.matchMedia('(any-pointer: coarse)').matches &&
+      window.innerWidth >= 769 &&
+      window.innerWidth <= 1366;
+
+    if (!debugFlag && !isTabletTouchViewport) return undefined;
+
+    const candidates = [
+      { name: 'window', node: window },
+      { name: 'document.scrollingElement', node: document.scrollingElement },
+      { name: '.scroll-container', node: document.querySelector('.scroll-container') },
+      { name: '#hero', node: document.getElementById('hero') },
+      { name: '.hero-section', node: document.querySelector('.hero-section') },
+      { name: '.hero-section__content', node: document.querySelector('.hero-section__content') },
+      { name: '.scroll-container > div (section stack)', node: document.querySelector('.scroll-container > div') },
+      { name: '#root (app shell)', node: document.getElementById('root') },
+      { name: 'nav', node: document.querySelector('nav') }
+    ].filter((entry) => entry.node);
+
+    const readSnapshot = (entry, latest = false) => {
+      if (entry.name === 'window') {
+        const scrollEl = document.scrollingElement;
+        const overflowY = scrollEl ? getComputedStyle(scrollEl).overflowY : 'n/a';
+        const scrollTop = window.pageYOffset ?? window.scrollY ?? 0;
+        const clientHeight = scrollEl?.clientHeight ?? window.innerHeight;
+        const scrollHeight = scrollEl?.scrollHeight ?? document.body.scrollHeight;
+        return {
+          element: entry.name,
+          latestEvent: latest,
+          overflowY,
+          clientHeight,
+          scrollHeight,
+          scrollTop,
+          isScrollable: /auto|scroll|overlay/.test(overflowY) && scrollHeight > clientHeight
+        };
+      }
+
+      const el = entry.node;
+      const style = getComputedStyle(el);
+      const overflowY = style.overflowY;
+      return {
+        element: entry.name,
+        latestEvent: latest,
+        overflowY,
+        clientHeight: el.clientHeight,
+        scrollHeight: el.scrollHeight,
+        scrollTop: el.scrollTop,
+        isScrollable: /auto|scroll|overlay/.test(overflowY) && el.scrollHeight > el.clientHeight
+      };
+    };
+
+    const printSnapshot = (latestName = null) => {
+      console.groupCollapsed('[scroll-debug] scroll ownership snapshot');
+      console.table(
+        candidates.map((entry) => readSnapshot(entry, latestName === entry.name))
+      );
+      console.log('window.scrollY', window.scrollY, 'pageYOffset', window.pageYOffset);
+      console.groupEnd();
+    };
+
+    let rafId = null;
+    const handleScroll = (name) => {
+      if (rafId) return;
+      rafId = window.requestAnimationFrame(() => {
+        rafId = null;
+        printSnapshot(name);
+      });
+    };
+
+    const listeners = candidates.map((entry) => {
+      const target = entry.name === 'window' ? window : entry.node;
+      const listener = () => handleScroll(entry.name);
+      target.addEventListener('scroll', listener, { passive: true });
+      return { target, listener };
+    });
+
+    printSnapshot();
+
+    return () => {
+      if (rafId) window.cancelAnimationFrame(rafId);
+      listeners.forEach(({ target, listener }) => {
+        target.removeEventListener('scroll', listener);
+      });
+    };
+  }, []);
+
   // ========================================
   // UPDATED: App ready detection with V2 system
   // ========================================
