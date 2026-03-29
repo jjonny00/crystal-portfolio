@@ -391,6 +391,7 @@ const Fixed3DCanvas = forwardRef(({
     cameraMergedConfig?.cameraPositions?.intro || config?.camera?.startingPosition || [0, 0, 4.5];
   const initialCameraTarget =
     cameraMergedConfig?.cameraTargets?.intro || cameraMergedConfig?.cameraTargets?.hero || [0, 0, 0];
+  const touchFacetTapEnabled = isMobile && animationData?.currentZone === 'overview';
 
   const getFacetRefs = () => {
     if (crystalSceneRef.current && crystalSceneRef.current.facetRefs) {
@@ -435,8 +436,9 @@ const Fixed3DCanvas = forwardRef(({
           style={{ 
             width: '100%', 
             height: '100%',
-            // Allow pointer events only for 3D interactions (disabled on mobile)
-            pointerEvents: isMobile ? 'none' : 'auto',
+            // Allow touch tap selection only in overview while keeping mobile scroll behavior elsewhere.
+            pointerEvents: (isMobile && !touchFacetTapEnabled) ? 'none' : 'auto',
+            touchAction: touchFacetTapEnabled ? 'pan-y' : 'auto',
           }}
         >
           <InitialCameraLookAt target={initialCameraTarget} />
