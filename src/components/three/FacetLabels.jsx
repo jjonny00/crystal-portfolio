@@ -7,6 +7,8 @@ import { MQ_HOVER_CAPABLE } from '../../config/breakpoints';
 import { useLayoutConfig } from '../../hooks/useLayoutConfig';
 import '../../styles/facet-label.css';
 
+const TOUCH_TAP_MAX_MOVE_PX = 14;
+
 const OptimizedLabel = React.memo(function OptimizedLabel({
   project,
   titleRef,
@@ -67,6 +69,7 @@ const FacetLabels = React.memo(function FacetLabels({
   const layerRef = useRef(null);
   const rootRef = useRef(null);
   const fadeTimeoutRef = useRef(null);
+  const touchStartRef = useRef(new Map());
 
   const inActiveOverview =
     animationData?.currentZone === 'overview' &&
@@ -220,6 +223,36 @@ const FacetLabels = React.memo(function FacetLabels({
       }
     };
 
+    const selectProject = (projectKey) => {
+      onDirectProjectSelect?.(projectKey);
+      if (scrollToProject) {
+        scrollToProject(projectKey);
+        return;
+      }
+      scrollToProgress(ANIMATION_CONFIG.projectSections[projectKey].start);
+    };
+
+    const handleTouchTargetPointerDown = (event, projectKey) => {
+      if (event.pointerType !== 'touch' && event.pointerType !== 'pen') return;
+      touchStartRef.current.set(event.pointerId, {
+        x: event.clientX,
+        y: event.clientY,
+        projectKey
+      });
+    };
+
+    const handleTouchTargetPointerUp = (event, projectKey) => {
+      if (event.pointerType !== 'touch' && event.pointerType !== 'pen') return;
+      const start = touchStartRef.current.get(event.pointerId);
+      touchStartRef.current.delete(event.pointerId);
+      if (!start) return;
+
+      const travel = Math.hypot(event.clientX - start.x, event.clientY - start.y);
+      if (travel <= TOUCH_TAP_MAX_MOVE_PX) {
+        selectProject(projectKey);
+      }
+    };
+
     rootRef.current.render(
       <>
         <div
@@ -256,22 +289,54 @@ const FacetLabels = React.memo(function FacetLabels({
                 }
               }}
               onHover={handleHover}
-              onClick={() =>
-                {
-                  onDirectProjectSelect?.(project.facetKey || project.id);
-                  if (scrollToProject) {
-                    scrollToProject(project.facetKey || project.id);
-                    return;
-                  }
-                  scrollToProgress(
-                    ANIMATION_CONFIG.projectSections[project.facetKey || project.id].start,
-                  );
-                }
-              }
+              onClick={() => selectProject(project.facetKey || project.id)}
               visible={visible}
             />
           ))}
         </div>
+        {!hoverCapable && (
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              pointerEvents: 'none',
+              zIndex: 21
+            }}
+          >
+            {projects.map((project) => {
+              const projectKey = project.facetKey || project.id;
+              const anchor = anchorScreenPositions[projectKey];
+              if (!anchor || !visible) return null;
+
+              return (
+                <button
+                  key={`touch-hit-${projectKey}`}
+                  type="button"
+                  aria-label={`Open ${project.label}`}
+                  onPointerDown={(event) => handleTouchTargetPointerDown(event, projectKey)}
+                  onPointerUp={(event) => handleTouchTargetPointerUp(event, projectKey)}
+                  style={{
+                    position: 'absolute',
+                    left: `${anchor.x}px`,
+                    top: `${anchor.y}px`,
+                    width: 'clamp(64px, 12vw, 120px)',
+                    height: 'clamp(64px, 12vw, 120px)',
+                    transform: 'translate(-50%, -50%)',
+                    border: '0',
+                    borderRadius: '999px',
+                    padding: 0,
+                    margin: 0,
+                    background: 'transparent',
+                    opacity: import.meta.env.DEV && window.__TOUCH_HIT_DEBUG__ ? 0.2 : 0,
+                    pointerEvents: 'auto',
+                    touchAction: 'pan-y',
+                    cursor: 'pointer'
+                  }}
+                />
+              );
+            })}
+          </div>
+        )}
 
       </>,
     );
