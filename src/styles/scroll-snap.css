@@ -261,6 +261,13 @@ html .scroll-container.no-snap .scroll-section {
   }
 }
 
+/* TABLET: match mobile touch panning so iPad can hand off vertical swipes */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .scroll-container {
+    touch-action: pan-y !important;
+  }
+}
+
 /* DESKTOP: Maximum snap control */
 @media (min-width: 1025px) {
   html {
