@@ -15,8 +15,8 @@ const ScrollablePortfolio = ({
 }) => {
   const { variant } = useLayoutConfig();
   const isMobileViewport = variant === 'mobile';
-  const [isCoarsePointer, setIsCoarsePointer] = useState(() => (
-    typeof window !== 'undefined' && window.matchMedia('(any-pointer: coarse)').matches
+  const [isFineHoverPointer, setIsFineHoverPointer] = useState(() => (
+    typeof window !== 'undefined' && window.matchMedia('(hover: hover) and (pointer: fine)').matches
   ));
   const containerRef = useRef(null);
   const settleTimeoutRef = useRef(null);
@@ -25,8 +25,16 @@ const ScrollablePortfolio = ({
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
-    const mediaQuery = window.matchMedia('(any-pointer: coarse)');
-    const updatePointerType = () => setIsCoarsePointer(mediaQuery.matches);
+    const mediaQuery = window.matchMedia('(hover: hover) and (pointer: fine)');
+    const updatePointerType = () => {
+      setIsFineHoverPointer(mediaQuery.matches);
+      if (import.meta.env.DEV) {
+        console.log('🖱️ Pointer capability', {
+          fineHover: mediaQuery.matches,
+          anyPointerCoarse: window.matchMedia('(any-pointer: coarse)').matches
+        });
+      }
+    };
     updatePointerType();
     mediaQuery.addEventListener('change', updatePointerType);
     return () => mediaQuery.removeEventListener('change', updatePointerType);
@@ -133,7 +141,7 @@ const ScrollablePortfolio = ({
         zIndex: 10,
         WebkitOverflowScrolling: 'touch',
         backgroundColor: 'transparent',
-        pointerEvents: isCoarsePointer ? 'auto' : 'none',
+        pointerEvents: isFineHoverPointer ? 'none' : 'auto',
         margin: 0,
         padding: 0,
         boxSizing: 'border-box',
