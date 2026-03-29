@@ -15,10 +15,22 @@ const ScrollablePortfolio = ({
 }) => {
   const { variant } = useLayoutConfig();
   const isMobileViewport = variant === 'mobile';
+  const [isCoarsePointer, setIsCoarsePointer] = useState(() => (
+    typeof window !== 'undefined' && window.matchMedia('(any-pointer: coarse)').matches
+  ));
   const containerRef = useRef(null);
   const settleTimeoutRef = useRef(null);
 
   const [settledSectionId, setSettledSectionId] = useState('hero');
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const mediaQuery = window.matchMedia('(any-pointer: coarse)');
+    const updatePointerType = () => setIsCoarsePointer(mediaQuery.matches);
+    updatePointerType();
+    mediaQuery.addEventListener('change', updatePointerType);
+    return () => mediaQuery.removeEventListener('change', updatePointerType);
+  }, []);
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -121,7 +133,7 @@ const ScrollablePortfolio = ({
         zIndex: 10,
         WebkitOverflowScrolling: 'touch',
         backgroundColor: 'transparent',
-        pointerEvents: 'auto',
+        pointerEvents: isCoarsePointer ? 'auto' : 'none',
         margin: 0,
         padding: 0,
         boxSizing: 'border-box',
