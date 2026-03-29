@@ -261,6 +261,29 @@ html .scroll-container.no-snap .scroll-section {
   }
 }
 
+/* TOUCH DEVICES (iPad/tablet): let the document own vertical scrolling */
+@media (hover: none) and (pointer: coarse) {
+  html,
+  body {
+    overflow-y: auto !important;
+    overscroll-behavior-y: auto !important;
+  }
+
+  .scroll-container {
+    position: relative !important;
+    height: auto !important;
+    min-height: 100vh !important;
+    overflow: visible !important;
+    -webkit-overflow-scrolling: auto !important;
+    pointer-events: auto !important;
+    touch-action: auto !important;
+  }
+
+  #hero {
+    pointer-events: auto !important;
+  }
+}
+
 /* DESKTOP: Maximum snap control */
 @media (min-width: 1025px) {
   html {
