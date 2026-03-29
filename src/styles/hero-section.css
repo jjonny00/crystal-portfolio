@@ -9,6 +9,7 @@
   box-sizing: border-box;
   background-color: transparent;
   overflow: clip;
+  touch-action: pan-y;
 }
 
 .hero-section__content {
