@@ -50,14 +50,7 @@ const NAV_ITEM_BASE_STYLE = {
 };
 
 const Navigation = ({ onHomeClick, onWorkClick, onAboutClick, onContactClick, isTransitioning = false }) => {
-  const [isScrolled, setIsScrolled] = useState(false);
   const [isDesktop, setIsDesktop] = useState(true);
-
-  useEffect(() => {
-    const handleScroll = () => setIsScrolled(window.scrollY > 20);
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
 
   useEffect(() => {
     const handleResize = () => setIsDesktop(window.innerWidth >= 1024);
@@ -75,8 +68,7 @@ const Navigation = ({ onHomeClick, onWorkClick, onAboutClick, onContactClick, is
   return (
     <nav
       style={{
-        ...NAV_BASE_STYLE,
-        backdropFilter: isScrolled ? 'blur(8px)' : 'none'
+        ...NAV_BASE_STYLE
       }}
     >
       <div style={NAV_INNER_STYLE}>
