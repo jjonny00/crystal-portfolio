@@ -1,12 +1,14 @@
 .hero-section {
-  min-height: 100vh;
+  min-height: 100svh;
+  height: auto;
   position: relative;
   display: flex;
   align-items: flex-start;
   justify-content: flex-start;
-  padding: clamp(6rem, 12vh, 11rem) clamp(1.5rem, 5.2vw, 6rem) clamp(6rem, 10vh, 8rem);
+  padding: clamp(6rem, 12svh, 11rem) clamp(1.5rem, 5.2vw, 6rem) clamp(5rem, 10svh, 8rem);
+  box-sizing: border-box;
   background-color: transparent;
-  overflow: hidden;
+  overflow: clip;
 }
 
 .hero-section__content {
@@ -23,9 +25,9 @@
   --headline-glow2: #c4bc2b;
   font-family: 'ivypresto-display', 'IvyPresto Display', 'Playfair Display', Georgia, serif;
   font-style: normal;
-  font-size: clamp(5.5rem, 14vw, 12.5rem);
+  font-size: clamp(3.25rem, min(12vw, 12svh), 12.5rem);
   font-weight: 300;
-  line-height: clamp(5rem, 12.8vw, 11.5rem);
+  line-height: clamp(3rem, min(11vw, 11svh), 11.5rem);
   text-transform: uppercase;
   letter-spacing: 0;
   margin: 0;
@@ -41,23 +43,23 @@
 }
 
 .hero-section__body-block {
-  margin-top: clamp(2rem, 6.5vh, 5.5rem);
+  margin-top: clamp(2rem, 6.5svh, 5.5rem);
   max-inline-size: min(100%, 45rem);
 }
 
 .hero-section__body-copy {
   font-family: 'acumin-variable', 'Acumin VF', sans-serif;
   font-style: normal;
-  font-size: clamp(1.2rem, 2.2vw, 1.75rem);
+  font-size: clamp(1rem, min(1.9vw, 2.35svh), 1.75rem);
   font-weight: 200;
-  line-height: clamp(1.65rem, 2.6vw, 2.0625rem);
+  line-height: clamp(1.45rem, min(2.25vw, 2.8svh), 2.0625rem);
   letter-spacing: clamp(-0.02em, -0.015vw, -0.01em);
   color: #fcf5eb;
   margin: 0;
 }
 
 .hero-section__body-copy + .hero-section__body-copy {
-  margin-top: clamp(1.1rem, 2.8vh, 2rem);
+  margin-top: clamp(1.1rem, 2.8svh, 2rem);
 }
 
 .hero-section__scroll-hint {
@@ -96,22 +98,9 @@
   opacity: 0.6;
 }
 
-@media (min-width: 1200px) {
-  .hero-section__title {
-    font-size: 200px;
-    line-height: 184px;
-  }
-
-  .hero-section__body-copy {
-    font-size: 28px;
-    line-height: 33px;
-    letter-spacing: -0.28px;
-  }
-}
-
 @media (max-width: 1024px) {
   .hero-section {
-    padding-top: clamp(5rem, 10vh, 7rem);
+    padding-top: clamp(5rem, 10svh, 7rem);
     padding-right: clamp(1.5rem, 5vw, 3.5rem);
     padding-left: clamp(1.5rem, 5vw, 3.5rem);
   }
@@ -131,7 +120,7 @@
     width: 100%;
     align-items: center;
     justify-content: flex-start;
-    padding: clamp(4rem, 10vh, 6rem) 16px calc(2.75rem + env(safe-area-inset-bottom, 0px));
+    padding: clamp(4rem, 10svh, 6rem) 16px calc(2.75rem + env(safe-area-inset-bottom, 0px));
   }
 
   .hero-section__content {
@@ -141,12 +130,10 @@
 
   .hero-section__title {
     max-inline-size: 100%;
-    font-size: clamp(3rem, 14vw, 4.5rem);
-    line-height: 0.92;
   }
 
   .hero-section__body-block {
-    margin-top: clamp(1.1rem, 3.5vh, 1.8rem);
+    margin-top: clamp(1.1rem, 3.5svh, 1.8rem);
     max-inline-size: min(100%, 40rem);
     margin-inline: auto;
   }
