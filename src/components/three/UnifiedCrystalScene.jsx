@@ -43,7 +43,6 @@ const REFORM_MASK_GLOW_DURATION_S = 0.2
 const REFORM_MASK_GLOW_PEAK_INTENSITY = 1.5
 const REFORM_FACET_MASK_GLOW_PEAK_INTENSITY = 1.3
 const REFORM_SWAP_OVERLAP_MS = 100
-const TOUCH_TAP_MAX_MOVE_PX = 14
 
 const UnifiedCrystalScene = forwardRef(({ 
   animationData,
@@ -91,7 +90,6 @@ const UnifiedCrystalScene = forwardRef(({
   // Track material updates so we can reapply when ready
   const [materialVersion, setMaterialVersion] = useState(0);
   const hoverSourcesRef = useRef({});
-  const touchPointerStartRef = useRef(new Map());
 
   // FIXED: Better tracking of focus changes
   const prevFocusedFacetRef = useRef(null);
@@ -874,39 +872,6 @@ const UnifiedCrystalScene = forwardRef(({
     },
     [updateHoverSources, resolveSceneFacetKey]
   );
-
-  const handleFacetPointerDown = useCallback((event, facetKey) => {
-    if (event.pointerType !== 'touch' && event.pointerType !== 'pen') return;
-    touchPointerStartRef.current.set(event.pointerId, {
-      x: event.clientX,
-      y: event.clientY,
-      facetKey
-    });
-    if (import.meta.env.DEV) {
-      console.log('👆 facet pointerdown', { facetKey, pointerType: event.pointerType, x: event.clientX, y: event.clientY });
-    }
-  }, []);
-
-  const handleFacetPointerUp = useCallback((event, facetKey) => {
-    if (event.pointerType !== 'touch' && event.pointerType !== 'pen') return;
-    const start = touchPointerStartRef.current.get(event.pointerId);
-    touchPointerStartRef.current.delete(event.pointerId);
-    if (!start) return;
-
-    const dx = event.clientX - start.x;
-    const dy = event.clientY - start.y;
-    const travel = Math.hypot(dx, dy);
-    const isTap = travel <= TOUCH_TAP_MAX_MOVE_PX;
-
-    if (import.meta.env.DEV) {
-      console.log('👆 facet pointerup', { facetKey, travel, isTap, threshold: TOUCH_TAP_MAX_MOVE_PX });
-    }
-
-    if (isTap) {
-      handleFacetClick(facetKey);
-    }
-  }, [handleFacetClick]);
-
 
   const getProjectByAnyFacetKeySafe = useCallback(
     (facetKey) => getProjectIdByAnyKey(facetKey),
@@ -2079,24 +2044,12 @@ const UnifiedCrystalScene = forwardRef(({
                   event.stopPropagation();
                   handleFacetHover(facetKey, true);
                 }}
-                onPointerDown={(event) => {
-                  handleFacetPointerDown(event, facetKey);
-                }}
-                onPointerMove={(event) => {
-                  if (import.meta.env.DEV && (event.pointerType === 'touch' || event.pointerType === 'pen')) {
-                    console.log('👆 facet pointermove', { facetKey, pointerType: event.pointerType });
-                  }
-                }}
-                onPointerUp={(event) => {
-                  handleFacetPointerUp(event, facetKey);
-                }}
                 onPointerLeave={(event) => {
                   event.stopPropagation();
                   handleFacetHover(facetKey, false);
                 }}
                 onClick={(event) => {
                   event.stopPropagation();
-                  if (event.pointerType === 'touch' || event.pointerType === 'pen') return;
                   handleFacetClick(facetKey);
                 }}
               />
