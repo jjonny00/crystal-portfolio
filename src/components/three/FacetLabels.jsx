@@ -31,6 +31,8 @@ const OptimizedLabel = React.memo(function OptimizedLabel({
         textAlign: 'left',
         width: '100%',
         pointerEvents: visible ? 'auto' : 'none',
+        cursor: 'pointer',
+        WebkitTapHighlightColor: 'rgba(255,255,255,0.18)'
       }}
     >
       <div ref={titleRef}>
@@ -270,60 +272,6 @@ const FacetLabels = React.memo(function FacetLabels({
             />
           ))}
         </div>
-        {!hoverCapable && (
-          <div
-            style={{
-              position: 'fixed',
-              left: 0,
-              right: 0,
-              bottom: `calc(0.75rem + env(safe-area-inset-bottom, 0px))`,
-              pointerEvents: 'none',
-              zIndex: 21
-            }}
-          >
-            {visible && (
-              <div
-                style={{
-                  display: 'flex',
-                  gap: '0.5rem',
-                  overflowX: 'auto',
-                  padding: '0 12px',
-                  pointerEvents: 'auto',
-                  WebkitOverflowScrolling: 'touch',
-                  touchAction: 'pan-x'
-                }}
-              >
-                {projects.map((project) => {
-                  const projectKey = project.facetKey || project.id;
-                  return (
-                <button
-                  key={`touch-chip-${projectKey}`}
-                  type="button"
-                  aria-label={`Open project ${project.label}`}
-                  onClick={() => selectProject(projectKey)}
-                  style={{
-                    flex: '0 0 auto',
-                    borderRadius: '999px',
-                    border: '1px solid rgba(255,255,255,0.45)',
-                    background: 'rgba(0, 0, 0, 0.45)',
-                    color: '#fff',
-                    fontSize: '0.78rem',
-                    fontWeight: 600,
-                    letterSpacing: '0.02em',
-                    padding: '0.5rem 0.75rem',
-                    textTransform: 'uppercase',
-                    touchAction: 'manipulation',
-                    whiteSpace: 'nowrap'
-                  }}
-                >
-                  {project.label}
-                </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
 
       </>,
     );
