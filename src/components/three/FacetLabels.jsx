@@ -7,13 +7,6 @@ import { MQ_HOVER_CAPABLE } from '../../config/breakpoints';
 import { useLayoutConfig } from '../../hooks/useLayoutConfig';
 import '../../styles/facet-label.css';
 
-const TOUCH_TAP_MAX_MOVE_PX = 14;
-const isTouchHitDebugEnabled = () => {
-  if (typeof window === 'undefined') return false;
-  if (window.__TOUCH_HIT_DEBUG__ === true) return true;
-  return new URLSearchParams(window.location.search).get('touchHitDebug') === '1';
-};
-
 const OptimizedLabel = React.memo(function OptimizedLabel({
   project,
   titleRef,
@@ -70,12 +63,10 @@ const FacetLabels = React.memo(function FacetLabels({
   const [fadeDuration, setFadeDuration] = useState(0.8);
   const [hoverCapable, setHoverCapable] = useState(false);
   const [hoveredFacetKey, setHoveredFacetKey] = useState(null);
-  const [touchDebugEvent, setTouchDebugEvent] = useState('idle');
   const titleRefs = useRef(new Map());
   const layerRef = useRef(null);
   const rootRef = useRef(null);
   const fadeTimeoutRef = useRef(null);
-  const touchStartRef = useRef(new Map());
 
   const inActiveOverview =
     animationData?.currentZone === 'overview' &&
@@ -85,7 +76,6 @@ const FacetLabels = React.memo(function FacetLabels({
 
   const { variant, layout, error } = useLayoutConfig();
   const overviewWorld = layout?.anchors?.overviewWorld;
-  const touchHitDebugEnabled = isTouchHitDebugEnabled();
 
   const emitDomAnchorPoint = useCallback((facetKey) => {
     if (!hoverCapable || !onDomAnchorChange || !facetKey) return;
@@ -239,36 +229,6 @@ const FacetLabels = React.memo(function FacetLabels({
       scrollToProgress(ANIMATION_CONFIG.projectSections[projectKey].start);
     };
 
-    const handleTouchTargetPointerDown = (event, projectKey) => {
-      if (event.pointerType !== 'touch' && event.pointerType !== 'pen') return;
-      if (touchHitDebugEnabled) {
-        setTouchDebugEvent(`down:${projectKey} (${Math.round(event.clientX)}, ${Math.round(event.clientY)})`);
-      }
-      touchStartRef.current.set(event.pointerId, {
-        x: event.clientX,
-        y: event.clientY,
-        projectKey
-      });
-    };
-
-    const handleTouchTargetPointerUp = (event, projectKey) => {
-      if (event.pointerType !== 'touch' && event.pointerType !== 'pen') return;
-      const start = touchStartRef.current.get(event.pointerId);
-      touchStartRef.current.delete(event.pointerId);
-      if (!start) return;
-
-      const travel = Math.hypot(event.clientX - start.x, event.clientY - start.y);
-      if (touchHitDebugEnabled) {
-        setTouchDebugEvent(`up:${projectKey} travel=${travel.toFixed(1)}px`);
-      }
-      if (travel <= TOUCH_TAP_MAX_MOVE_PX) {
-        if (touchHitDebugEnabled) {
-          setTouchDebugEvent(`activate:${projectKey} <= ${TOUCH_TAP_MAX_MOVE_PX}px`);
-        }
-        selectProject(projectKey);
-      }
-    };
-
     rootRef.current.render(
       <>
         <div
@@ -314,103 +274,53 @@ const FacetLabels = React.memo(function FacetLabels({
           <div
             style={{
               position: 'fixed',
-              inset: 0,
-              pointerEvents: touchHitDebugEnabled ? 'auto' : 'none',
-              background: touchHitDebugEnabled ? 'rgba(255, 40, 40, 0.12)' : 'transparent',
+              left: 0,
+              right: 0,
+              bottom: `calc(0.75rem + env(safe-area-inset-bottom, 0px))`,
+              pointerEvents: 'none',
               zIndex: 21
             }}
           >
-            {touchHitDebugEnabled && (
+            {visible && (
               <div
                 style={{
-                  position: 'fixed',
-                  top: 12,
-                  left: 12,
-                  color: '#fff',
-                  fontSize: '12px',
-                  padding: '8px 10px',
-                  borderRadius: '8px',
-                  background: 'rgba(0, 0, 0, 0.75)',
-                  border: '1px solid rgba(255,255,255,0.4)',
-                  pointerEvents: 'none'
+                  display: 'flex',
+                  gap: '0.5rem',
+                  overflowX: 'auto',
+                  padding: '0 12px',
+                  pointerEvents: 'auto',
+                  WebkitOverflowScrolling: 'touch',
+                  touchAction: 'pan-x'
                 }}
               >
-                touch overlay mounted · {touchDebugEvent}
-              </div>
-            )}
-            {projects.map((project) => {
-              const projectKey = project.facetKey || project.id;
-              const anchor = anchorScreenPositions[projectKey];
-              if (!anchor || !visible) return null;
-
-              return (
+                {projects.map((project) => {
+                  const projectKey = project.facetKey || project.id;
+                  return (
                 <button
-                  key={`touch-hit-${projectKey}`}
+                  key={`touch-chip-${projectKey}`}
                   type="button"
-                  aria-label={`Open ${project.label}`}
-                  onPointerDown={(event) => handleTouchTargetPointerDown(event, projectKey)}
-                  onPointerUp={(event) => handleTouchTargetPointerUp(event, projectKey)}
-                  onTouchStart={() => {
-                    if (touchHitDebugEnabled) setTouchDebugEvent(`touchstart:${projectKey}`);
-                  }}
-                  onTouchEnd={() => {
-                    if (touchHitDebugEnabled) setTouchDebugEvent(`touchend:${projectKey}`);
-                  }}
+                  aria-label={`Open project ${project.label}`}
+                  onClick={() => selectProject(projectKey)}
                   style={{
-                    position: 'absolute',
-                    left: `${anchor.x}px`,
-                    top: `${anchor.y}px`,
-                    width: 'clamp(64px, 12vw, 120px)',
-                    height: 'clamp(64px, 12vw, 120px)',
-                    transform: 'translate(-50%, -50%)',
+                    flex: '0 0 auto',
                     borderRadius: '999px',
-                    padding: 0,
-                    margin: 0,
-                    background: touchHitDebugEnabled ? 'rgba(45, 212, 191, 0.35)' : 'transparent',
-                    opacity: touchHitDebugEnabled ? 1 : 0,
-                    pointerEvents: 'auto',
-                    touchAction: 'pan-y',
-                    cursor: 'pointer',
-                    border: touchHitDebugEnabled ? '2px solid #14b8a6' : '0',
-                    color: touchHitDebugEnabled ? '#fff' : 'transparent',
-                    fontSize: touchHitDebugEnabled ? '11px' : '0',
-                    fontWeight: 700
+                    border: '1px solid rgba(255,255,255,0.45)',
+                    background: 'rgba(0, 0, 0, 0.45)',
+                    color: '#fff',
+                    fontSize: '0.78rem',
+                    fontWeight: 600,
+                    letterSpacing: '0.02em',
+                    padding: '0.5rem 0.75rem',
+                    textTransform: 'uppercase',
+                    touchAction: 'manipulation',
+                    whiteSpace: 'nowrap'
                   }}
                 >
-                  {touchHitDebugEnabled ? projectKey : null}
+                  {project.label}
                 </button>
-              );
-            })}
-            {touchHitDebugEnabled && projects[0] && (
-              <button
-                type="button"
-                onPointerDown={() => setTouchDebugEvent('debug button down')}
-                onPointerUp={() => {
-                  const projectKey = projects[0].facetKey || projects[0].id;
-                  setTouchDebugEvent(`debug select:${projectKey}`);
-                  selectProject(projectKey);
-                }}
-                onTouchStart={() => setTouchDebugEvent('debug touchstart')}
-                onTouchEnd={() => setTouchDebugEvent('debug touchend')}
-                style={{
-                  position: 'fixed',
-                  right: 16,
-                  bottom: 16,
-                  width: 160,
-                  height: 56,
-                  borderRadius: 12,
-                  border: '2px solid #fff',
-                  background: '#2563eb',
-                  color: '#fff',
-                  fontSize: 12,
-                  fontWeight: 700,
-                  pointerEvents: 'auto',
-                  touchAction: 'manipulation',
-                  zIndex: 22
-                }}
-              >
-                DEBUG SELECT {projects[0].facetKey || projects[0].id}
-              </button>
+                  );
+                })}
+              </div>
             )}
           </div>
         )}
@@ -432,8 +342,6 @@ const FacetLabels = React.memo(function FacetLabels({
     projects,
     scrollToProgress,
     scrollToProject,
-    touchHitDebugEnabled,
-    touchDebugEvent,
     variant,
     visible,
   ]);
