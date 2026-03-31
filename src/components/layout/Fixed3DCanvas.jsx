@@ -148,8 +148,12 @@ const Fixed3DCanvas = forwardRef(({
   useImperativeHandle(ref, () => ({
     modelsLoaded: crystalSceneRef.current?.modelsLoaded || false,
     updateBackground: (key) => backgroundRef.current?.updateBackground(key),
-    directSelectZone: (zoneKey) => onDirectZoneSelect?.(zoneKey)
-  }), [onDirectZoneSelect, crystalSceneRef.current?.modelsLoaded]);
+    directSelectZone: (zoneKey) => onDirectZoneSelect?.(zoneKey),
+    directSelectProject: (projectKey) => {
+      onDirectProjectSelect?.(projectKey);
+      scrollToProject?.(projectKey);
+    }
+  }), [onDirectProjectSelect, onDirectZoneSelect, scrollToProject, crystalSceneRef.current?.modelsLoaded]);
   
   // NEW: State for debug data
   const [debugData, setDebugData] = useState({

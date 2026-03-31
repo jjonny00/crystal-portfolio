@@ -7,9 +7,6 @@ import { MQ_HOVER_CAPABLE } from '../../config/breakpoints';
 import { useLayoutConfig } from '../../hooks/useLayoutConfig';
 import '../../styles/facet-label.css';
 
-const TOUCH_TAP_MAX_MOVE_PX = 14;
-const TOUCH_CLICK_SUPPRESS_MS = 700;
-
 const OptimizedLabel = React.memo(function OptimizedLabel({
   project,
   titleRef,
@@ -72,8 +69,6 @@ const FacetLabels = React.memo(function FacetLabels({
   const layerRef = useRef(null);
   const rootRef = useRef(null);
   const fadeTimeoutRef = useRef(null);
-  const touchStartRef = useRef(null);
-  const lastTouchSelectAtRef = useRef(0);
 
   const inActiveOverview =
     animationData?.currentZone === 'overview' &&
@@ -209,53 +204,6 @@ const FacetLabels = React.memo(function FacetLabels({
   }, [emitDomAnchorPoint, hoverCapable, hoveredFacetKey]);
 
   useEffect(() => {
-    if (hoverCapable) return undefined;
-    if (!inActiveOverview || !visible) return undefined;
-    if (!projects?.length) return undefined;
-
-    const handleTouchStart = (e) => {
-      const t = e.touches?.[0];
-      if (!t) return;
-      touchStartRef.current = { x: t.clientX, y: t.clientY };
-    };
-
-    const handleTouchEnd = (e) => {
-      const start = touchStartRef.current;
-      const t = e.changedTouches?.[0];
-      if (!start || !t) return;
-
-      const dx = t.clientX - start.x;
-      const dy = t.clientY - start.y;
-      if (Math.hypot(dx, dy) > TOUCH_TAP_MAX_MOVE_PX) return;
-
-      const x = t.clientX;
-      const y = t.clientY;
-
-      for (const project of projects) {
-        const key = project.facetKey || project.id;
-        const titleEl = titleRefs.current.get(key);
-        const labelEl = titleEl?.closest?.('.facet-label-optimized') || titleEl;
-        if (!labelEl) continue;
-
-        const rect = labelEl.getBoundingClientRect();
-        if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
-          lastTouchSelectAtRef.current = performance.now();
-          selectProject(key);
-          break;
-        }
-      }
-    };
-
-    document.addEventListener('touchstart', handleTouchStart, { passive: true });
-    document.addEventListener('touchend', handleTouchEnd, { passive: true });
-
-    return () => {
-      document.removeEventListener('touchstart', handleTouchStart);
-      document.removeEventListener('touchend', handleTouchEnd);
-    };
-  }, [hoverCapable, inActiveOverview, projects, selectProject, visible]);
-
-  useEffect(() => {
     if (!rootRef.current || !inActiveOverview) return;
     if (!layout || error) {
       rootRef.current.render(null);
@@ -322,13 +270,7 @@ const FacetLabels = React.memo(function FacetLabels({
                 }
               }}
               onHover={handleHover}
-              onClick={() => {
-                if (!hoverCapable) {
-                  const now = performance.now();
-                  if (now - lastTouchSelectAtRef.current < TOUCH_CLICK_SUPPRESS_MS) return;
-                }
-                selectProject(project.facetKey || project.id);
-              }}
+              onClick={() => selectProject(project.facetKey || project.id)}
               visible={visible}
             />
           ))}

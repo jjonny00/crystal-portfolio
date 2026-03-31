@@ -11,7 +11,8 @@ const SECTION_SETTLE_DELAY_MS = 220;
 
 const ScrollablePortfolio = ({
   snapSpeed = 'medium',
-  hideContent = false
+  hideContent = false,
+  onTouchProjectSelect = null
 }) => {
   const { variant } = useLayoutConfig();
   const isMobileViewport = variant === 'mobile';
@@ -199,7 +200,53 @@ const ScrollablePortfolio = ({
             boxSizing: 'border-box',
             pointerEvents: 'none'
           }}
-        />
+        >
+          {!isFineHoverPointer && (
+            <div
+              style={{
+                position: 'absolute',
+                left: 0,
+                right: 0,
+                bottom: `calc(0.75rem + env(safe-area-inset-bottom, 0px))`,
+                display: 'flex',
+                gap: '0.5rem',
+                overflowX: 'auto',
+                padding: '0 12px',
+                pointerEvents: 'auto',
+                WebkitOverflowScrolling: 'touch',
+                touchAction: 'pan-x',
+                zIndex: 2
+              }}
+            >
+              {projects.map((project) => {
+                const projectKey = project.facetKey || project.id;
+                return (
+                  <button
+                    key={`overview-touch-chip-${projectKey}`}
+                    type="button"
+                    onClick={() => onTouchProjectSelect?.(projectKey)}
+                    style={{
+                      flex: '0 0 auto',
+                      borderRadius: '999px',
+                      border: '1px solid rgba(255,255,255,0.45)',
+                      background: 'rgba(0, 0, 0, 0.45)',
+                      color: '#fff',
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                      letterSpacing: '0.02em',
+                      padding: '0.5rem 0.75rem',
+                      textTransform: 'uppercase',
+                      touchAction: 'manipulation',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {project.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </section>
 
         {projects.map((project) => {
           const sectionId = `project-${project.facetKey || project.id}`;

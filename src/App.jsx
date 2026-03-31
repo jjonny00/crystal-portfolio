@@ -649,6 +649,10 @@ function App() {
     scrollToSection('about');
   }, [scrollToSection]);
 
+  const handleTouchProjectSelect = useCallback((projectKey) => {
+    fixedCanvasRef.current?.directSelectProject?.(projectKey);
+  }, []);
+
   const handleContactClick = useCallback(() => {}, []);
 
   const handleConfigUpdate = useCallback((newConfig) => {
@@ -942,6 +946,7 @@ function App() {
       <ScrollablePortfolio 
         snapSpeed={snapSpeed}
         hideContent={hideAllUI}
+        onTouchProjectSelect={handleTouchProjectSelect}
       />
 
       {/* UI Controls */}
