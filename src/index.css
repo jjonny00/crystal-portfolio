@@ -40,6 +40,27 @@ h6,
   font-weight: 400;
 }
 
+.no-blend,
+.ivy-presto,
+.top-nav,
+.top-nav *,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.headline,
+.subhead,
+.title {
+  mix-blend-mode: normal !important;
+}
+
+.blend-force {
+  color: #fff !important;
+  mix-blend-mode: difference !important;
+}
+
 #root {
   width: 100%;
   min-height: 100vh;
