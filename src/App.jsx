@@ -531,31 +531,32 @@ function App() {
     }
   }, []);
 
-  const scrollToSection = useCallback((sectionId) => {
+  const scrollToSection = useCallback((sectionId, behavior = 'smooth') => {
     const target = document.getElementById(sectionId);
     if (!target) return;
 
     const scrollContainer = document.querySelector('.scroll-container');
     if (scrollContainer) {
-      scrollContainer.scrollTo({ top: target.offsetTop, behavior: 'smooth' });
+      scrollContainer.scrollTo({ top: target.offsetTop, behavior });
       return;
     }
 
-    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    target.scrollIntoView({ behavior, block: 'start' });
   }, []);
 
   const handleHomeClick = useCallback(() => {
-    scrollToSection('hero');
+    fixedCanvasRef.current?.directSelectZone?.('hero');
+    scrollToSection('hero', 'auto');
   }, [scrollToSection]);
 
   const handleWorkClick = useCallback(() => {
-    // Let scroll-driven state own camera transitions so nav jumps don't
-    // fight zone detection while the container is still animating.
-    scrollToSection('overview');
+    fixedCanvasRef.current?.directSelectZone?.('overview');
+    scrollToSection('overview', 'auto');
   }, [scrollToSection]);
 
   const handleAboutClick = useCallback(() => {
-    scrollToSection('about');
+    fixedCanvasRef.current?.directSelectZone?.('about');
+    scrollToSection('about', 'auto');
   }, [scrollToSection]);
 
   const handleContactClick = useCallback(() => {}, []);
