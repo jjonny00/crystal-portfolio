@@ -704,17 +704,50 @@ export const useUnifiedAnimationController = (options = {}) => {
       ? activeProjectFromDom
       : calculateActiveProject(scrollProgress, config);
 
-    // Prefer DOM-measured project sections over static zone boundaries near
-    // the about/projects edge so camera state doesn't oscillate at the bottom.
+    // Resolve zone from the actual nearest DOM section first so camera and
+    // focus logic don't fight static progress thresholds at section boundaries.
+    if (container) {
+      const sections = Array.from(container.querySelectorAll('.scroll-section[id]'));
+      let nearestSection = null;
+      let minDistance = Number.POSITIVE_INFINITY;
+
+      sections.forEach((section) => {
+        const distance = Math.abs(container.scrollTop - section.offsetTop);
+        if (distance < minDistance) {
+          minDistance = distance;
+          nearestSection = section;
+        }
+      });
+
+      const nearestSectionId = nearestSection?.id ?? null;
+      const domZone = nearestSectionId === 'hero'
+        ? 'hero'
+        : nearestSectionId === 'overview'
+          ? 'overview'
+          : nearestSectionId === 'about'
+            ? 'about'
+            : nearestSectionId?.startsWith('project-')
+              ? 'projects'
+              : null;
+
+      if (domZone) {
+        currentZone = {
+          ...currentZone,
+          zone: domZone,
+        };
+      }
+    }
+
+    // When DOM clearly indicates a project section, keep projects-zone progress
+    // aligned to DOM section bounds so transitions stay stable.
     const runtimeSections = runtimeProjectSectionsRef.current;
     const firstRuntimeSection = runtimeSections[0];
     const lastRuntimeSection = runtimeSections[runtimeSections.length - 1];
-    if (activeProjectFromDom.project && currentZone.zone === 'about' && firstRuntimeSection && lastRuntimeSection) {
+    if (activeProjectFromDom.project && currentZone.zone === 'projects' && firstRuntimeSection && lastRuntimeSection) {
       const span = Math.max(lastRuntimeSection.end - firstRuntimeSection.start, 0.00001);
       const domProjectsProgress = (scrollProgress - firstRuntimeSection.start) / span;
       currentZone = {
         ...currentZone,
-        zone: 'projects',
         progress: Math.max(0, Math.min(domProjectsProgress, 1)),
         isEntering: false,
         isLeaving: false
