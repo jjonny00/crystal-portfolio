@@ -545,17 +545,16 @@ function App() {
   }, []);
 
   const handleHomeClick = useCallback(() => {
-    fixedCanvasRef.current?.directSelectZone?.('hero');
     scrollToSection('hero');
   }, [scrollToSection]);
 
   const handleWorkClick = useCallback(() => {
-    fixedCanvasRef.current?.directSelectZone?.('overview');
+    // Let scroll-driven state own camera transitions so nav jumps don't
+    // fight zone detection while the container is still animating.
     scrollToSection('overview');
   }, [scrollToSection]);
 
   const handleAboutClick = useCallback(() => {
-    fixedCanvasRef.current?.directSelectZone?.('about');
     scrollToSection('about');
   }, [scrollToSection]);
 
