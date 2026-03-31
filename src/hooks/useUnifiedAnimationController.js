@@ -699,10 +699,27 @@ export const useUnifiedAnimationController = (options = {}) => {
       triggerPx,
       runtimeProjectSectionsRef.current
     );
-    const currentZone = calculateCurrentZone(scrollProgress, config);
+    let currentZone = calculateCurrentZone(scrollProgress, config);
     const activeProject = activeProjectFromDom.project
       ? activeProjectFromDom
       : calculateActiveProject(scrollProgress, config);
+
+    // Prefer DOM-measured project sections over static zone boundaries near
+    // the about/projects edge so camera state doesn't oscillate at the bottom.
+    const runtimeSections = runtimeProjectSectionsRef.current;
+    const firstRuntimeSection = runtimeSections[0];
+    const lastRuntimeSection = runtimeSections[runtimeSections.length - 1];
+    if (activeProjectFromDom.project && currentZone.zone === 'about' && firstRuntimeSection && lastRuntimeSection) {
+      const span = Math.max(lastRuntimeSection.end - firstRuntimeSection.start, 0.00001);
+      const domProjectsProgress = (scrollProgress - firstRuntimeSection.start) / span;
+      currentZone = {
+        ...currentZone,
+        zone: 'projects',
+        progress: Math.max(0, Math.min(domProjectsProgress, 1)),
+        isEntering: false,
+        isLeaving: false
+      };
+    }
 
     if (introPreviewActiveRef.current) {
       const withinHeroZone = scrollProgress <= (config.scrollZones?.hero?.end ?? 0.12);
