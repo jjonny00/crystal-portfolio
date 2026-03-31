@@ -878,24 +878,23 @@ const UnifiedCrystalScene = forwardRef(({
     []
   );
 
-  const handleFacetClick = useCallback(
-    (facetKey) => {
-      if (!inActiveOverview) return;
-      const projectFacetKey = getProjectByAnyFacetKeySafe(facetKey);
-      const sectionStart = scrollToProject
-        ? null
-        : ANIMATION_CONFIG.projectSections?.[projectFacetKey]?.start;
-      if (scrollToProject) {
-        onDirectProjectSelect?.(projectFacetKey);
-        scrollToProject(projectFacetKey);
-        return;
-      }
-      if (sectionStart === undefined) return;
-      onDirectProjectSelect?.(projectFacetKey);
-      scrollToProgress(sectionStart);
-    },
-    [inActiveOverview, onDirectProjectSelect, scrollToProgress, scrollToProject, getProjectByAnyFacetKeySafe]
-  );
+  const selectProjectAndNavigate = useCallback((projectKey) => {
+    if (!projectKey) return;
+    onDirectProjectSelect?.(projectKey);
+    if (scrollToProject) {
+      scrollToProject(projectKey);
+      return;
+    }
+    const sectionStart = ANIMATION_CONFIG.projectSections?.[projectKey]?.start;
+    if (sectionStart === undefined || sectionStart === null) return;
+    scrollToProgress?.(sectionStart);
+  }, [onDirectProjectSelect, scrollToProgress, scrollToProject]);
+
+  const handleFacetClick = useCallback((facetKey) => {
+    if (!inActiveOverview) return;
+    const projectFacetKey = getProjectByAnyFacetKeySafe(facetKey);
+    selectProjectAndNavigate(projectFacetKey);
+  }, [getProjectByAnyFacetKeySafe, inActiveOverview, selectProjectAndNavigate]);
 
   useEffect(() => {
     if (inActiveOverview) return;
@@ -2060,9 +2059,7 @@ const UnifiedCrystalScene = forwardRef(({
 
       <FacetLabels
         projects={projects}
-        scrollToProgress={scrollToProgress}
-        scrollToProject={scrollToProject}
-        onDirectProjectSelect={onDirectProjectSelect}
+        onSelectProject={selectProjectAndNavigate}
         onHoverChange={handleLabelHover}
         animationData={animationData}
         performanceProfile={performanceProfile}

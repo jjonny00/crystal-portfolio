@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { useThree } from '@react-three/fiber';
 import Headline from '../ui/Headline';
-import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController';
 import { MQ_HOVER_CAPABLE } from '../../config/breakpoints';
 import { useLayoutConfig } from '../../hooks/useLayoutConfig';
 import '../../styles/facet-label.css';
@@ -50,9 +49,7 @@ const OptimizedLabel = React.memo(function OptimizedLabel({
 
 const FacetLabels = React.memo(function FacetLabels({
   projects = [],
-  scrollToProgress,
-  scrollToProject,
-  onDirectProjectSelect,
+  onSelectProject,
   onHoverChange,
   animationData,
   performanceProfile,
@@ -77,18 +74,6 @@ const FacetLabels = React.memo(function FacetLabels({
 
   const { variant, layout, error } = useLayoutConfig();
   const overviewWorld = layout?.anchors?.overviewWorld;
-
-  const selectProject = useCallback((projectKey) => {
-    if (!projectKey) return;
-    onDirectProjectSelect?.(projectKey);
-    if (scrollToProject) {
-      scrollToProject(projectKey);
-      return;
-    }
-    const start = ANIMATION_CONFIG.projectSections?.[projectKey]?.start;
-    if (start === undefined || start === null) return;
-    scrollToProgress?.(start);
-  }, [onDirectProjectSelect, scrollToProject, scrollToProgress]);
 
   const emitDomAnchorPoint = useCallback((facetKey) => {
     if (!hoverCapable || !onDomAnchorChange || !facetKey) return;
@@ -269,10 +254,7 @@ const FacetLabels = React.memo(function FacetLabels({
                 }
               }}
               onHover={handleHover}
-              onClick={() => {
-                if (!hoverCapable) return;
-                selectProject(project.facetKey || project.id);
-              }}
+              onClick={() => onSelectProject?.(project.facetKey || project.id)}
               visible={visible}
             />
           ))}
@@ -289,13 +271,10 @@ const FacetLabels = React.memo(function FacetLabels({
     error,
     layout,
     onDomAnchorChange,
-    onDirectProjectSelect,
+    onSelectProject,
     onHoverChange,
     performanceProfile?.simplifiedAnimations,
     projects,
-    scrollToProgress,
-    scrollToProject,
-    selectProject,
     variant,
     visible,
   ]);
