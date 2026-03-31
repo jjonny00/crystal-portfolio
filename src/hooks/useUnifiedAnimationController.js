@@ -317,6 +317,7 @@ export const useUnifiedAnimationController = (options = {}) => {
   const directZoneOverrideRef = useRef(null);
   const directProjectReleaseTimeoutRef = useRef(null);
   const runtimeProjectSectionsRef = useRef([]);
+  const aboutToProjectsLockUntilRef = useRef(0);
 
   const getRuntimeProjectSection = useCallback((projectKey) => {
     if (!projectKey) return null;
@@ -706,6 +707,26 @@ export const useUnifiedAnimationController = (options = {}) => {
       ? activeProjectFromDom
       : calculateActiveProject(scrollProgress, config);
 
+
+    const now = Date.now();
+    const aboutToProjectsLockActive = now < aboutToProjectsLockUntilRef.current;
+    if (aboutToProjectsLockActive && (currentZone.zone === 'about' || currentZone.zone === 'projects')) {
+      currentZone = {
+        ...currentZone,
+        zone: 'projects'
+      };
+
+      if (!activeProject.project) {
+        const lastProjectKey = orderedProjectKeys[orderedProjectKeys.length - 1] || null;
+        if (lastProjectKey) {
+          activeProject = {
+            project: lastProjectKey,
+            progress: activeProject.progress ?? 0
+          };
+        }
+      }
+    }
+
     // Resolve zone from the actual nearest DOM section first so camera and
     // focus logic don't fight static progress thresholds at section boundaries.
     if (container) {
@@ -847,6 +868,9 @@ export const useUnifiedAnimationController = (options = {}) => {
 
       if (shouldChangeZone) {
         if (currentZone.zone === 'projects') {
+          if (lastZone.current === 'about') {
+            aboutToProjectsLockUntilRef.current = Date.now() + 500;
+          }
           const fallbackProject = lastZone.current === 'about'
             ? (orderedProjectKeys[orderedProjectKeys.length - 1] || null)
             : (orderedProjectKeys[0] || null);
