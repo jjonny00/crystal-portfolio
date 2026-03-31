@@ -702,7 +702,7 @@ export const useUnifiedAnimationController = (options = {}) => {
       runtimeProjectSectionsRef.current
     );
     let currentZone = calculateCurrentZone(scrollProgress, config);
-    const activeProject = activeProjectFromDom.project
+    let activeProject = activeProjectFromDom.project
       ? activeProjectFromDom
       : calculateActiveProject(scrollProgress, config);
 
@@ -736,6 +736,19 @@ export const useUnifiedAnimationController = (options = {}) => {
         currentZone = {
           ...currentZone,
           zone: domZone,
+        };
+      }
+
+      if (nearestSectionId?.startsWith('project-')) {
+        const sectionProject = nearestSectionId.replace('project-', '');
+        const sectionBounds = runtimeProjectSectionsRef.current.find((entry) => entry.project === sectionProject);
+        const sectionProgress = sectionBounds
+          ? (scrollProgress - sectionBounds.start) / Math.max(sectionBounds.end - sectionBounds.start, 0.00001)
+          : activeProject.progress;
+
+        activeProject = {
+          project: sectionProject,
+          progress: Math.max(0, Math.min(sectionProgress, 1))
         };
       }
     }
