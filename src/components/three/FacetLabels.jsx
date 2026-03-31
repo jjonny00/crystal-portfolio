@@ -29,7 +29,6 @@ const OptimizedLabel = React.memo(function OptimizedLabel({
         '--headline-glow2': glow2,
         textAlign: 'left',
         width: '100%',
-        pointerEvents: visible ? 'auto' : 'none',
         cursor: 'pointer'
       }}
     >
@@ -69,8 +68,7 @@ const FacetLabels = React.memo(function FacetLabels({
   const inActiveOverview =
     animationData?.currentZone === 'overview' &&
     animationData?.crystalForm === 'exploded' &&
-    animationData?.isTransitioning === false &&
-    animationData?.cameraSettled === true;
+    animationData?.isTransitioning === false;
 
   const { variant, layout, error } = useLayoutConfig();
   const overviewWorld = layout?.anchors?.overviewWorld;
@@ -233,13 +231,13 @@ const FacetLabels = React.memo(function FacetLabels({
             paddingRight: variant === 'desktop' ? 0 : '16px',
             opacity: visible ? 1 : 0,
             transition: `opacity ${fadeDuration}s`,
-            pointerEvents: 'none',
             display: 'flex',
             flexDirection: 'column',
             gap: variant === 'desktop' ? '1.5rem' : '0.8rem',
             alignItems: 'flex-start',
             textAlign: 'left',
             boxSizing: 'border-box',
+            pointerEvents: visible ? 'auto' : 'none',
           }}
         >
           {projects.map((project) => (

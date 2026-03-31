@@ -19,6 +19,7 @@ const ScrollablePortfolio = ({
   const settleTimeoutRef = useRef(null);
 
   const [settledSectionId, setSettledSectionId] = useState('hero');
+  const overviewInteractionMode = settledSectionId === 'overview';
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -121,7 +122,7 @@ const ScrollablePortfolio = ({
         zIndex: 10,
         WebkitOverflowScrolling: 'touch',
         backgroundColor: 'transparent',
-        pointerEvents: 'auto',
+        pointerEvents: overviewInteractionMode ? 'none' : 'auto',
         margin: 0,
         padding: 0,
         boxSizing: 'border-box',
