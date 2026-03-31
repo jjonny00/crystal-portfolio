@@ -863,32 +863,20 @@ export const useUnifiedAnimationController = (options = {}) => {
     } else if (directProjectOverrideRef.current?.projectKey && (currentZone.zone === 'hero' || currentZone.zone === 'about')) {
       clearDirectProjectOverride();
     } else if (currentZone.zone !== 'projects' && lastProject.current && !directProjectOverrideRef.current?.projectKey) {
-      if (currentZone.zone === 'about' && activeProject.project) {
-        setAnimationState(prev => ({
-          ...prev,
-          state: ANIMATION_STATES.PROJECT_FOCUSED,
-          crystalForm: 'exploded',
-          cameraState: 'project',
-          focusedFacet: getSceneFacetKeyByProjectId(activeProject.project) || activeProject.project,
-          isTransitioning: false
-        }));
-        lastProject.current = activeProject.project;
-      } else {
-        if (currentZone.zone === 'about') {
-          clearDirectProjectOverride();
-        }
-        if (import.meta.env.DEV) {
-          console.log('🎯 Clearing project focus - left projects zone');
-          console.log('🎨 Background trigger: Left projects zone, clearing project focus');
-        }
-        setAnimationState(prev => ({
-          ...prev,
-          focusedFacet: null,
-          // Ensure camera snaps back to the proper zone camera instead of hero fallback
-          cameraState: currentZone.zone
-        }));
-        lastProject.current = null;
+      if (currentZone.zone === 'about') {
+        clearDirectProjectOverride();
       }
+      if (import.meta.env.DEV) {
+        console.log('🎯 Clearing project focus - left projects zone');
+        console.log('🎨 Background trigger: Left projects zone, clearing project focus');
+      }
+      setAnimationState(prev => ({
+        ...prev,
+        focusedFacet: null,
+        // Ensure camera snaps back to the proper zone camera instead of hero fallback
+        cameraState: currentZone.zone
+      }));
+      lastProject.current = null;
     }
 
     // Always update scroll progress and zone info
