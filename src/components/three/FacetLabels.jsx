@@ -31,8 +31,7 @@ const OptimizedLabel = React.memo(function OptimizedLabel({
         textAlign: 'left',
         width: '100%',
         pointerEvents: visible ? 'auto' : 'none',
-        cursor: 'pointer',
-        WebkitTapHighlightColor: 'rgba(255,255,255,0.18)'
+        cursor: 'pointer'
       }}
     >
       <div ref={titleRef}>
@@ -270,7 +269,10 @@ const FacetLabels = React.memo(function FacetLabels({
                 }
               }}
               onHover={handleHover}
-              onClick={() => selectProject(project.facetKey || project.id)}
+              onClick={() => {
+                if (!hoverCapable) return;
+                selectProject(project.facetKey || project.id);
+              }}
               visible={visible}
             />
           ))}
