@@ -537,7 +537,13 @@ function App() {
 
     const scrollContainer = document.querySelector('.scroll-container');
     if (scrollContainer) {
-      scrollContainer.scrollTo({ top: target.offsetTop, behavior });
+      if (behavior === 'auto') {
+        // CSS forces smooth scroll on the container, so set scrollTop directly
+        // when we need an immediate jump without traversing intermediate zones.
+        scrollContainer.scrollTop = target.offsetTop;
+      } else {
+        scrollContainer.scrollTo({ top: target.offsetTop, behavior });
+      }
       return;
     }
 
