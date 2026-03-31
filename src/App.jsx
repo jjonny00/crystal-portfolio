@@ -655,6 +655,11 @@ function App() {
       newConfig.useNormalMaps !== performanceProfile.useNormalMaps
     ) {
       updateProfile(performanceTier, { useNormalMaps: newConfig.useNormalMaps });
+    } else if (
+      typeof newConfig.enableHybridHoverConnector === 'boolean' &&
+      newConfig.enableHybridHoverConnector !== performanceProfile.enableHybridHoverConnector
+    ) {
+      updateProfile(performanceTier, { enableHybridHoverConnector: newConfig.enableHybridHoverConnector });
     } else {
       // For other config changes, update local effects
       if (newConfig.postProcessing) {

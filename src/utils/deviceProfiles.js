@@ -29,6 +29,7 @@ export const PERFORMANCE_PROFILES = {
     
     // Animations
     simplifiedAnimations: false,
+    enableHybridHoverConnector: false,
     
     // Post-processing
     postProcessing: {
@@ -72,6 +73,7 @@ export const PERFORMANCE_PROFILES = {
 
     // Animations
     simplifiedAnimations: false,
+    enableHybridHoverConnector: false,
     
     // Post-processing (noise and vignette enabled for consistency)
     postProcessing: {
@@ -115,6 +117,7 @@ export const PERFORMANCE_PROFILES = {
 
     // Animations
     simplifiedAnimations: false,
+    enableHybridHoverConnector: false,
     
     // Post-processing (bloom/CA vary, noise and vignette always on)
     postProcessing: {
@@ -152,6 +155,7 @@ export const PERFORMANCE_PROFILES = {
     particleCount: 32,
     reducedParticles: false,
     simplifiedAnimations: false,
+    enableHybridHoverConnector: false,
     
     postProcessing: {
       bloom: true,
