@@ -834,7 +834,9 @@ export const useUnifiedAnimationController = (options = {}) => {
 
       if (shouldChangeZone) {
         if (currentZone.zone === 'projects') {
-          const fallbackProject = orderedProjectKeys[0] || null;
+          const fallbackProject = lastZone.current === 'about'
+            ? (orderedProjectKeys[orderedProjectKeys.length - 1] || null)
+            : (orderedProjectKeys[0] || null);
           const initialProject = directOverrideProject
             || activeProject.project
             || fallbackProject;
