@@ -693,7 +693,9 @@ export const useUnifiedAnimationController = (options = {}) => {
       ? document.querySelector('.scroll-container')
       : null;
     const triggerPx = container
-      ? container.scrollTop + container.clientHeight * 0.5
+      // Use top-of-viewport anchoring for section/project detection so
+      // about/projects boundary logic matches snap alignment exactly.
+      ? container.scrollTop + 1
       : Number.NaN;
     const activeProjectFromDom = calculateActiveProjectFromTriggerPx(
       triggerPx,
