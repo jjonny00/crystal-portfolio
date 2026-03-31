@@ -99,8 +99,7 @@ const UnifiedCrystalScene = forwardRef(({
   const inActiveOverview =
     animationData?.currentZone === 'overview' &&
     animationData?.crystalForm === 'exploded' &&
-    animationData?.isTransitioning === false &&
-    animationData?.cameraSettled === true;
+    animationData?.isTransitioning === false;
 
   const [hoveredLabelFacetKey, setHoveredLabelFacetKey] = useState(null);
   const [domAnchorClient, setDomAnchorClient] = useState(null);
