@@ -10,7 +10,7 @@ html {
   /* Ensure no conflicts */
   height: 100% !important;
   overflow-x: hidden !important;
-  overflow-y: auto !important;
+  overflow-y: hidden !important;
   
   /* Enhanced scroll snap properties */
   scroll-padding: 0 !important;
@@ -21,8 +21,8 @@ html {
 /* Ensure body doesn't interfere */
 body {
   /* Critical: body must not have scroll properties */
-  overflow: visible !important;
-  height: auto !important;
+  overflow: hidden !important;
+  height: 100% !important;
   
   /* Mobile scroll support */
   -webkit-overflow-scrolling: touch;
@@ -35,11 +35,11 @@ body {
 /* CRITICAL: Root container must not interfere with scroll */
 #root {
   /* Allow natural content flow */
-  height: auto !important;
+  height: 100% !important;
   min-height: 100vh !important;
   
   /* Never set overflow on root */
-  overflow: visible !important;
+  overflow: hidden !important;
   
   /* Clean width */
   width: 100% !important;
@@ -258,6 +258,13 @@ html .scroll-container.no-snap .scroll-section {
       /* iOS-specific height fix */
       height: -webkit-fill-available !important;
     }
+  }
+}
+
+/* TABLET: match mobile touch panning so iPad can hand off vertical swipes */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .scroll-container {
+    touch-action: pan-y !important;
   }
 }
 

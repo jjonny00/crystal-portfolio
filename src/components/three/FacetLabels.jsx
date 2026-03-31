@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { useThree } from '@react-three/fiber';
 import Headline from '../ui/Headline';
-import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController';
 import { MQ_HOVER_CAPABLE } from '../../config/breakpoints';
 import { useLayoutConfig } from '../../hooks/useLayoutConfig';
 import '../../styles/facet-label.css';
@@ -31,6 +30,7 @@ const OptimizedLabel = React.memo(function OptimizedLabel({
         textAlign: 'left',
         width: '100%',
         pointerEvents: visible ? 'auto' : 'none',
+        cursor: 'pointer'
       }}
     >
       <div ref={titleRef}>
@@ -49,9 +49,7 @@ const OptimizedLabel = React.memo(function OptimizedLabel({
 
 const FacetLabels = React.memo(function FacetLabels({
   projects = [],
-  scrollToProgress,
-  scrollToProject,
-  onDirectProjectSelect,
+  onSelectProject,
   onHoverChange,
   animationData,
   performanceProfile,
@@ -256,18 +254,7 @@ const FacetLabels = React.memo(function FacetLabels({
                 }
               }}
               onHover={handleHover}
-              onClick={() =>
-                {
-                  onDirectProjectSelect?.(project.facetKey || project.id);
-                  if (scrollToProject) {
-                    scrollToProject(project.facetKey || project.id);
-                    return;
-                  }
-                  scrollToProgress(
-                    ANIMATION_CONFIG.projectSections[project.facetKey || project.id].start,
-                  );
-                }
-              }
+              onClick={() => onSelectProject?.(project.facetKey || project.id)}
               visible={visible}
             />
           ))}
@@ -284,12 +271,10 @@ const FacetLabels = React.memo(function FacetLabels({
     error,
     layout,
     onDomAnchorChange,
-    onDirectProjectSelect,
+    onSelectProject,
     onHoverChange,
     performanceProfile?.simplifiedAnimations,
     projects,
-    scrollToProgress,
-    scrollToProject,
     variant,
     visible,
   ]);

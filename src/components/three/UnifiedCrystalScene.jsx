@@ -3,7 +3,7 @@
 
 import React, { useRef, useState, useEffect, useCallback, forwardRef, useImperativeHandle, useMemo } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { useGLTF, Html } from '@react-three/drei'
+import { useGLTF, Html, useCursor } from '@react-three/drei'
 import * as THREE from 'three'
 import FractureBurstParticles from './FractureBurstParticles'
 
@@ -84,7 +84,7 @@ const UnifiedCrystalScene = forwardRef(({
   const [showCrystalDebug, setShowCrystalDebug] = useState(false);
   
   // FIXED: Better hover state tracking
-  const [, setHoveredFacet] = useState(null);
+  const [hoveredFacet, setHoveredFacet] = useState(null);
   const hoveredFacetRef = useRef(null);
 
   // Track material updates so we can reapply when ready
@@ -106,6 +106,7 @@ const UnifiedCrystalScene = forwardRef(({
   const [domAnchorClient, setDomAnchorClient] = useState(null);
   const { layout } = useLayoutConfig();
   const hoverCapable = useHoverCapable();
+  useCursor(Boolean(hoverCapable && hoveredFacet));
   const overviewWorldAnchors = layout?.anchors?.overviewWorld;
   const layoutCamera = layout?.camera;
   const layoutProjects = layout?.projects;
@@ -872,30 +873,28 @@ const UnifiedCrystalScene = forwardRef(({
     [updateHoverSources, resolveSceneFacetKey]
   );
 
-
   const getProjectByAnyFacetKeySafe = useCallback(
     (facetKey) => getProjectIdByAnyKey(facetKey),
     []
   );
 
-  const handleFacetClick = useCallback(
-    (facetKey) => {
-      if (!inActiveOverview) return;
-      const projectFacetKey = getProjectByAnyFacetKeySafe(facetKey);
-      const sectionStart = scrollToProject
-        ? null
-        : ANIMATION_CONFIG.projectSections?.[projectFacetKey]?.start;
-      if (scrollToProject) {
-        onDirectProjectSelect?.(projectFacetKey);
-        scrollToProject(projectFacetKey);
-        return;
-      }
-      if (sectionStart === undefined) return;
-      onDirectProjectSelect?.(projectFacetKey);
-      scrollToProgress(sectionStart);
-    },
-    [inActiveOverview, onDirectProjectSelect, scrollToProgress, scrollToProject, getProjectByAnyFacetKeySafe]
-  );
+  const selectProjectAndNavigate = useCallback((projectKey) => {
+    if (!projectKey) return;
+    onDirectProjectSelect?.(projectKey);
+    if (scrollToProject) {
+      scrollToProject(projectKey);
+      return;
+    }
+    const sectionStart = ANIMATION_CONFIG.projectSections?.[projectKey]?.start;
+    if (sectionStart === undefined || sectionStart === null) return;
+    scrollToProgress?.(sectionStart);
+  }, [onDirectProjectSelect, scrollToProgress, scrollToProject]);
+
+  const handleFacetClick = useCallback((facetKey) => {
+    if (!inActiveOverview) return;
+    const projectFacetKey = getProjectByAnyFacetKeySafe(facetKey);
+    selectProjectAndNavigate(projectFacetKey);
+  }, [getProjectByAnyFacetKeySafe, inActiveOverview, selectProjectAndNavigate]);
 
   useEffect(() => {
     if (inActiveOverview) return;
@@ -2060,9 +2059,7 @@ const UnifiedCrystalScene = forwardRef(({
 
       <FacetLabels
         projects={projects}
-        scrollToProgress={scrollToProgress}
-        scrollToProject={scrollToProject}
-        onDirectProjectSelect={onDirectProjectSelect}
+        onSelectProject={selectProjectAndNavigate}
         onHoverChange={handleLabelHover}
         animationData={animationData}
         performanceProfile={performanceProfile}
