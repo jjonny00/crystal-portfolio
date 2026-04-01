@@ -976,7 +976,13 @@ export const useUnifiedAnimationController = (options = {}) => {
         handleProjectFocus(activeProject.project);
         lastProject.current = activeProject.project;
       }
-    } else if (directProjectOverrideRef.current?.projectKey && (currentZone.zone === 'hero' || currentZone.zone === 'about')) {
+    } else if (
+      directProjectOverrideRef.current?.projectKey &&
+      (
+        currentZone.zone === 'hero' ||
+        (currentZone.zone === 'about' && !nearestSectionId?.startsWith('project-'))
+      )
+    ) {
       clearDirectProjectOverride();
     } else if (currentZone.zone !== 'projects' && lastProject.current && !directProjectOverrideRef.current?.projectKey) {
       if (currentZone.zone === 'about') {
