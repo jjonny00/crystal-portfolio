@@ -808,14 +808,24 @@ export const useUnifiedAnimationController = (options = {}) => {
     }
 
     const lastProjectKey = orderedProjectKeys[orderedProjectKeys.length - 1] || null;
-    const enteredLastProjectFromAbout =
-      previousNearestSectionId === 'about' &&
-      lastProjectKey &&
-      nearestSectionId === `project-${lastProjectKey}`;
-
     const directZoneOverride = directZoneOverrideRef.current?.zoneKey ?? null;
-    if (enteredLastProjectFromAbout && (!directZoneOverride || directZoneOverride === 'projects')) {
-      setDirectProjectOverride(lastProjectKey);
+
+    if (container && lastProjectKey && (!directZoneOverride || directZoneOverride === 'projects')) {
+      const lastProjectSection = document.getElementById(`project-${lastProjectKey}`);
+      const aboutSection = document.getElementById('about');
+      const withinLastProjectScrollBand =
+        lastProjectSection &&
+        aboutSection &&
+        container.scrollTop >= (lastProjectSection.offsetTop - 1) &&
+        container.scrollTop < (aboutSection.offsetTop - 1);
+
+      const enteringBandFromAbout =
+        previousNearestSectionId === 'about' &&
+        nearestSectionId === `project-${lastProjectKey}`;
+
+      if (withinLastProjectScrollBand && enteringBandFromAbout) {
+        setDirectProjectOverride(lastProjectKey);
+      }
     }
 
     // When DOM clearly indicates a project section, keep projects-zone progress
