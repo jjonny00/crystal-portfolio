@@ -101,6 +101,7 @@ const UnifiedCrystalScene = forwardRef(({
     animationData?.crystalForm === 'exploded' &&
     animationData?.isTransitioning === false;
 
+  const [hoveredLabelFacetKey, setHoveredLabelFacetKey] = useState(null);
   const [domAnchorClient, setDomAnchorClient] = useState(null);
   const { layout } = useLayoutConfig();
   const hoverCapable = useHoverCapable();
@@ -108,10 +109,6 @@ const UnifiedCrystalScene = forwardRef(({
   const overviewWorldAnchors = layout?.anchors?.overviewWorld;
   const layoutCamera = layout?.camera;
   const layoutProjects = layout?.projects;
-  const connectorProjectColors = useMemo(
-    () => Object.fromEntries(projects.map((project) => [project.facetKey || project.id, project.headlineColor])),
-    []
-  );
 
   const mergedConfig = useMemo(() => {
     const nextConfig = { ...config };
@@ -856,6 +853,17 @@ const UnifiedCrystalScene = forwardRef(({
     [updateHoverSources, resolveSceneFacetKey]
   );
 
+  const handleDomAnchorChange = useCallback((facetKey, clientPointOrNull) => {
+    if (!clientPointOrNull) {
+      setHoveredLabelFacetKey(null);
+      setDomAnchorClient(null);
+      return;
+    }
+
+    setHoveredLabelFacetKey(resolveSceneFacetKey(facetKey));
+    setDomAnchorClient(clientPointOrNull);
+  }, [resolveSceneFacetKey]);
+
   const handleFacetHover = useCallback(
     (facetKey, hovering) => {
       updateHoverSources(resolveSceneFacetKey(facetKey), 'facet', hovering);
@@ -901,6 +909,7 @@ const UnifiedCrystalScene = forwardRef(({
 
   useEffect(() => {
     if (inActiveOverview) return;
+    setHoveredLabelFacetKey(null);
     setDomAnchorClient(null);
   }, [inActiveOverview]);
 
@@ -2063,25 +2072,17 @@ const UnifiedCrystalScene = forwardRef(({
         projects={projects}
         onSelectProject={selectProjectAndNavigate}
         onHoverChange={handleLabelHover}
-        hoveredFacetKey={hoveredFacet}
         animationData={animationData}
         performanceProfile={performanceProfile}
         anchorOffsets={anchorOffsets}
-        onDomAnchorChange={(facetKey, clientPointOrNull) => {
-          if (!clientPointOrNull) {
-            setDomAnchorClient(null);
-            return;
-          }
-          setDomAnchorClient(clientPointOrNull);
-        }}
+        onDomAnchorChange={handleDomAnchorChange}
       />
 
       <HoverConnectorLine
-        enabled={inActiveOverview}
-        hoveredFacetKey={hoveredFacet}
+        enabled={inActiveOverview && hoverCapable}
+        hoveredFacetKey={hoveredLabelFacetKey}
         domAnchorClient={domAnchorClient}
         overviewWorldAnchors={overviewWorldAnchors}
-        projectColors={connectorProjectColors}
       />
 
       {/* Debug visualization when enabled */}
