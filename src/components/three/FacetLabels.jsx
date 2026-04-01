@@ -26,7 +26,6 @@ const OptimizedLabel = React.memo(function OptimizedLabel({
       onClick={onClick}
       data-active={isActiveFromSceneHover ? 'true' : 'false'}
       style={{
-        '--title-fill-color': project.headlineColor,
         textAlign: 'left',
         width: '100%',
         cursor: 'pointer'
@@ -34,8 +33,9 @@ const OptimizedLabel = React.memo(function OptimizedLabel({
     >
       <div
         ref={titleRef}
-        className="label-title-wrap"
+        className="label-title-stack"
         data-scene-facet-key={sceneFacetKey}
+        style={{ '--title-fill-color': project.headlineColor }}
       >
         <Headline
           as="h3"
@@ -44,9 +44,14 @@ const OptimizedLabel = React.memo(function OptimizedLabel({
         >
           {project.label}
         </Headline>
-        <span className="label-title label-title-fill" aria-hidden="true">
+        <Headline
+          as="h3"
+          className="label-title label-title-overlay"
+          style={{ margin: 0 }}
+          aria-hidden="true"
+        >
           {project.label}
-        </span>
+        </Headline>
       </div>
       <div className="label-description">{project.tagline}</div>
     </div>

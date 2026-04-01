@@ -17,11 +17,16 @@
   text-transform: uppercase;
 }
 
-.label-title-wrap {
+.label-title-stack {
+  display: inline-grid;
+  grid-template-areas: "stack";
   position: relative;
-  display: inline-block;
-  line-height: inherit;
+  place-items: start;
   isolation: isolate;
+}
+
+.label-title-stack > * {
+  grid-area: stack;
 }
 
 .label-title-base {
@@ -30,15 +35,9 @@
   --headline-glow2: rgba(255, 255, 255, 0.28);
 }
 
-.label-title-fill {
-  position: absolute;
-  inset: 0;
+.label-title-overlay {
   z-index: 3;
   pointer-events: none;
-  user-select: none;
-  text-shadow: none;
-  filter: none;
-  mix-blend-mode: normal;
   color: transparent;
   -webkit-text-fill-color: transparent;
   background-image: linear-gradient(
@@ -47,24 +46,36 @@
     var(--title-fill-color) 100%
   );
   background-repeat: no-repeat;
-  background-position: left center;
-  background-size: 0% 100%;
+  background-size: 100% 100%;
   -webkit-background-clip: text;
   background-clip: text;
-  opacity: 0;
-  transition-property: background-size, opacity;
+  clip-path: inset(0 100% 0 0);
+  transition-property: clip-path;
   transition-duration: var(--title-fill-out-ms, 900ms);
   transition-timing-function: var(
     --title-fill-out-ease,
     cubic-bezier(0.16, 1, 0.3, 1)
   );
-  will-change: background-size, opacity;
+  will-change: clip-path;
 }
 
-.facet-label-optimized:hover .label-title-fill,
-.facet-label-optimized[data-active="true"] .label-title-fill {
-  background-size: 100% 100%;
-  opacity: 1;
+.label-title-overlay,
+.label-title-overlay.headline-70s,
+.label-title-overlay.headline-70s::before,
+.label-title-overlay.headline-70s::after {
+  text-shadow: none !important;
+  filter: none !important;
+  mix-blend-mode: normal !important;
+}
+
+.label-title-overlay.headline-70s::before,
+.label-title-overlay.headline-70s::after {
+  content: none !important;
+}
+
+.facet-label-optimized:hover .label-title-overlay,
+.facet-label-optimized[data-active="true"] .label-title-overlay {
+  clip-path: inset(0 0 0 0);
   transition-duration: var(--title-fill-in-ms, 160ms);
   transition-timing-function: var(
     --title-fill-in-ease,
@@ -73,15 +84,10 @@
 }
 
 @supports (mask-image: linear-gradient(black, transparent)) {
-  .label-title-fill {
+  .label-title-overlay {
     mask-image: linear-gradient(90deg, #000 0%, #000 92%, transparent 100%);
     mask-repeat: no-repeat;
     mask-position: left center;
-    mask-size: 0% 100%;
-  }
-
-  .facet-label-optimized:hover .label-title-fill,
-  .facet-label-optimized[data-active="true"] .label-title-fill {
     mask-size: 100% 100%;
   }
 }
@@ -112,7 +118,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .label-title-fill {
+  .label-title-overlay {
     transition-duration: 0ms;
   }
 }
