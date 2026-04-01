@@ -2099,7 +2099,6 @@ const UnifiedCrystalScene = forwardRef(({
           enabled={inActiveOverview && labelsReady}
           domAnchorsClient={domAnchorsClient}
           overviewWorldAnchors={overviewWorldAnchors}
-          inActiveOverview={inActiveOverview}
           labelsReady={labelsReady}
           featureFlagEnabled={ENABLE_OVERVIEW_ALL_CONNECTORS}
         />
