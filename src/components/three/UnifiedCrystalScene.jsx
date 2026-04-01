@@ -889,13 +889,8 @@ const UnifiedCrystalScene = forwardRef(({
 
     if (sectionNode && scrollContainer) {
       scrollContainer.scrollTop = sectionNode.offsetTop;
-      requestAnimationFrame(() => {
-        onDirectProjectSelect?.(projectKey);
-      });
       return;
     }
-
-    onDirectProjectSelect?.(projectKey);
 
     if (scrollToProject) {
       scrollToProject(projectKey, 'auto');
@@ -905,7 +900,7 @@ const UnifiedCrystalScene = forwardRef(({
     const sectionStart = ANIMATION_CONFIG.projectSections?.[projectKey]?.start;
     if (sectionStart === undefined || sectionStart === null) return;
     scrollToProgress?.(sectionStart, 'auto');
-  }, [onDirectProjectSelect, scrollToProgress, scrollToProject]);
+  }, [scrollToProgress, scrollToProject]);
 
   const handleFacetClick = useCallback((facetKey) => {
     if (!inActiveOverview) return;
