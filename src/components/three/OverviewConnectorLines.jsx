@@ -17,8 +17,13 @@ const OverviewConnectorLines = ({
 
   const IDLE_DROOP = 0.52;
   const ACTIVE_DROOP = 0;
-  const STRAIGHTEN_DURATION = 0.34;
-  const RELAX_DURATION = 0.5;
+  const STRAIGHTEN_SNAP_DURATION = 0.2;
+  const STRAIGHTEN_OVERSHOOT_DURATION = 0.08;
+  const STRAIGHTEN_REBOUND_DURATION = 0.11;
+  const STRAIGHTEN_SETTLE_DURATION = 0.1;
+  const RELAX_DURATION = 0.58;
+  const STRAIGHT_OVERSHOOT_PROGRESS = 1.08;
+  const STRAIGHT_REBOUND_PROGRESS = 0.985;
   const MAX_DROOP_WORLD_UNITS = 0.3;
   const MIN_DROOP_WORLD_UNITS = 0.02;
   const CONTROL_POINT_DROOP_MULTIPLIER = 1.85;
@@ -53,7 +58,34 @@ const OverviewConnectorLines = ({
 
       switch (state.phase) {
         case 'straightening': {
-          state.progress = Math.min(1, state.progress + delta / STRAIGHTEN_DURATION);
+          state.progress = Math.min(1, state.progress + delta / STRAIGHTEN_SNAP_DURATION);
+          if (state.progress >= 1) {
+            state.phase = 'overshoot';
+          }
+          break;
+        }
+        case 'overshoot': {
+          state.progress = Math.min(
+            STRAIGHT_OVERSHOOT_PROGRESS,
+            state.progress + delta / STRAIGHTEN_OVERSHOOT_DURATION,
+          );
+          if (state.progress >= STRAIGHT_OVERSHOOT_PROGRESS) {
+            state.phase = 'rebound';
+          }
+          break;
+        }
+        case 'rebound': {
+          state.progress = Math.max(
+            STRAIGHT_REBOUND_PROGRESS,
+            state.progress - delta / STRAIGHTEN_REBOUND_DURATION,
+          );
+          if (state.progress <= STRAIGHT_REBOUND_PROGRESS) {
+            state.phase = 'settle';
+          }
+          break;
+        }
+        case 'settle': {
+          state.progress = Math.min(1, state.progress + delta / STRAIGHTEN_SETTLE_DURATION);
           if (state.progress >= 1) {
             state.phase = state.isHovered ? 'holding' : 'relaxing';
           }
@@ -175,11 +207,17 @@ const OverviewConnectorLines = ({
       const cameraRight = new THREE.Vector3().crossVectors(planeNormal, camera.up).normalize();
       const droopDirection = new THREE.Vector3().crossVectors(cameraRight, planeNormal).normalize().negate();
 
-      const sagDistance = THREE.MathUtils.clamp(
-        distance * droopTension,
-        MIN_DROOP_WORLD_UNITS,
-        MAX_DROOP_WORLD_UNITS,
-      );
+      const rawSagDistance = distance * droopTension;
+      const absSagDistance = Math.abs(rawSagDistance);
+      let sagDistance = 0;
+      if (absSagDistance > Number.EPSILON) {
+        const clampedMagnitude = THREE.MathUtils.clamp(
+          absSagDistance,
+          MIN_DROOP_WORLD_UNITS,
+          MAX_DROOP_WORLD_UNITS,
+        );
+        sagDistance = Math.sign(rawSagDistance) * clampedMagnitude;
+      }
       const midpoint = start.clone().lerp(end, 0.5);
       const controlPoint = midpoint.addScaledVector(
         droopDirection,
