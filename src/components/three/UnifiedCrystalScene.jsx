@@ -101,7 +101,8 @@ const UnifiedCrystalScene = forwardRef(({
     animationData?.crystalForm === 'exploded' &&
     animationData?.isTransitioning === false;
 
-  const [domAnchorsClient, setDomAnchorsClient] = useState({});
+  const [hoveredLabelFacetKey, setHoveredLabelFacetKey] = useState(null);
+  const [domAnchorClient, setDomAnchorClient] = useState(null);
   const [labelsReady, setLabelsReady] = useState(false);
   const { layout } = useLayoutConfig();
   const hoverCapable = useHoverCapable();
@@ -853,7 +854,16 @@ const UnifiedCrystalScene = forwardRef(({
     [updateHoverSources, resolveSceneFacetKey]
   );
 
-  const handleDomAnchorChange = useCallback(() => {}, []);
+  const handleDomAnchorChange = useCallback((facetKey, clientPointOrNull) => {
+    if (!clientPointOrNull) {
+      setHoveredLabelFacetKey(null);
+      setDomAnchorClient(null);
+      return;
+    }
+
+    setHoveredLabelFacetKey(resolveSceneFacetKey(facetKey));
+    setDomAnchorClient(clientPointOrNull);
+  }, [resolveSceneFacetKey]);
 
   const handleFacetHover = useCallback(
     (facetKey, hovering) => {
@@ -900,7 +910,8 @@ const UnifiedCrystalScene = forwardRef(({
 
   useEffect(() => {
     if (inActiveOverview) return;
-    setDomAnchorsClient({});
+    setHoveredLabelFacetKey(null);
+    setDomAnchorClient(null);
     setLabelsReady(false);
   }, [inActiveOverview]);
 
@@ -2068,13 +2079,13 @@ const UnifiedCrystalScene = forwardRef(({
         performanceProfile={performanceProfile}
         anchorOffsets={anchorOffsets}
         onDomAnchorChange={handleDomAnchorChange}
-        onDomAnchorsChange={setDomAnchorsClient}
         onLabelsReadyChange={setLabelsReady}
       />
 
       <HoverConnectorLine
-        enabled={inActiveOverview && labelsReady}
-        domAnchorsClient={domAnchorsClient}
+        enabled={inActiveOverview && labelsReady && hoverCapable}
+        hoveredFacetKey={hoveredLabelFacetKey}
+        domAnchorClient={domAnchorClient}
         overviewWorldAnchors={overviewWorldAnchors}
       />
 

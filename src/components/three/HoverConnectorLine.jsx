@@ -5,59 +5,49 @@ import * as THREE from 'three';
 
 const HoverConnectorLine = ({
   enabled,
-  domAnchorsClient,
+  hoveredFacetKey,
+  domAnchorClient,
   overviewWorldAnchors,
-  color = '#ff6a6a',
+  color = 'rgba(255,255,255,0.72)',
 }) => {
   const { camera, size } = useThree();
 
-  const connectorPoints = useMemo(() => {
-    if (!enabled || !domAnchorsClient || !overviewWorldAnchors) return [];
+  const points = useMemo(() => {
+    if (!enabled || !hoveredFacetKey || !domAnchorClient || !overviewWorldAnchors) return null;
+
+    const start = overviewWorldAnchors[hoveredFacetKey];
+    if (!start) return null;
 
     const width = size.width || 1;
     const height = size.height || 1;
+    const ndc = new THREE.Vector2(
+      (domAnchorClient.x / width) * 2 - 1,
+      -(domAnchorClient.y / height) * 2 + 1,
+    );
 
-    return Object.entries(domAnchorsClient).flatMap(([facetKey, domAnchorClient]) => {
-      const start = overviewWorldAnchors[facetKey];
-      if (!start || !domAnchorClient) return [];
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(ndc, camera);
 
-      const ndc = new THREE.Vector2(
-        (domAnchorClient.x / width) * 2 - 1,
-        -(domAnchorClient.y / height) * 2 + 1,
-      );
+    const planeNormal = new THREE.Vector3();
+    camera.getWorldDirection(planeNormal);
+    const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(planeNormal, start);
 
-      const raycaster = new THREE.Raycaster();
-      raycaster.setFromCamera(ndc, camera);
+    const end = new THREE.Vector3();
+    const intersected = raycaster.ray.intersectPlane(plane, end);
+    if (!intersected) return null;
 
-      const planeNormal = new THREE.Vector3();
-      camera.getWorldDirection(planeNormal);
-      const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(planeNormal, start);
+    return [start.clone(), end.clone()];
+  }, [enabled, hoveredFacetKey, domAnchorClient, overviewWorldAnchors, camera, size.width, size.height]);
 
-      const end = new THREE.Vector3();
-      const intersected = raycaster.ray.intersectPlane(plane, end);
-      if (!intersected) return [];
-
-      return [{
-        facetKey,
-        points: [start.clone(), end.clone()],
-      }];
-    });
-  }, [enabled, domAnchorsClient, overviewWorldAnchors, camera, size.width, size.height]);
-
-  if (!connectorPoints.length) return null;
+  if (!points) return null;
 
   return (
-    <group>
-      {connectorPoints.map((connector) => (
-        <Line
-          key={connector.facetKey}
-          points={connector.points}
-          color={color}
-          lineWidth={1.2}
-          depthTest={false}
-        />
-      ))}
-    </group>
+    <Line
+      points={points}
+      color={color}
+      lineWidth={1}
+      depthTest={false}
+    />
   );
 };
 
