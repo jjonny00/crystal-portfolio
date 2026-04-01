@@ -224,7 +224,9 @@ const UnifiedCameraController = ({
     if (cameraState === 'project' && focusedFacet && facetRefs) {
       const lockedTarget = projectTargetLockRef.current;
       const shouldRefreshProjectTarget =
-        lockedTarget.facetKey !== focusedFacet || !lockedTarget.target;
+        lockedTarget.facetKey !== focusedFacet ||
+        !lockedTarget.target ||
+        lockedTarget.source === 'config';
 
       if (shouldRefreshProjectTarget) {
         const anchorPosition = findAnchorInFacet(focusedFacet);
