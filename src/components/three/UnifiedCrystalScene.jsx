@@ -101,13 +101,17 @@ const UnifiedCrystalScene = forwardRef(({
     animationData?.crystalForm === 'exploded' &&
     animationData?.isTransitioning === false;
 
-  const [domAnchorsClient, setDomAnchorsClient] = useState({});
+  const [domAnchorClient, setDomAnchorClient] = useState(null);
   const { layout } = useLayoutConfig();
   const hoverCapable = useHoverCapable();
   useCursor(Boolean(hoverCapable && hoveredFacet));
   const overviewWorldAnchors = layout?.anchors?.overviewWorld;
   const layoutCamera = layout?.camera;
   const layoutProjects = layout?.projects;
+  const connectorProjectColors = useMemo(
+    () => Object.fromEntries(projects.map((project) => [project.facetKey || project.id, project.headlineColor])),
+    []
+  );
 
   const mergedConfig = useMemo(() => {
     const nextConfig = { ...config };
@@ -852,11 +856,6 @@ const UnifiedCrystalScene = forwardRef(({
     [updateHoverSources, resolveSceneFacetKey]
   );
 
-  const handleDomAnchorsChange = useCallback((anchorPoints) => {
-    setDomAnchorsClient(anchorPoints || {});
-  }, []);
-
-
   const handleFacetHover = useCallback(
     (facetKey, hovering) => {
       updateHoverSources(resolveSceneFacetKey(facetKey), 'facet', hovering);
@@ -902,7 +901,7 @@ const UnifiedCrystalScene = forwardRef(({
 
   useEffect(() => {
     if (inActiveOverview) return;
-    setDomAnchorsClient({});
+    setDomAnchorClient(null);
   }, [inActiveOverview]);
 
   
@@ -2068,14 +2067,21 @@ const UnifiedCrystalScene = forwardRef(({
         animationData={animationData}
         performanceProfile={performanceProfile}
         anchorOffsets={anchorOffsets}
-        onDomAnchorsChange={handleDomAnchorsChange}
+        onDomAnchorChange={(facetKey, clientPointOrNull) => {
+          if (!clientPointOrNull) {
+            setDomAnchorClient(null);
+            return;
+          }
+          setDomAnchorClient(clientPointOrNull);
+        }}
       />
 
       <HoverConnectorLine
         enabled={inActiveOverview}
         hoveredFacetKey={hoveredFacet}
-        domAnchorsClient={domAnchorsClient}
+        domAnchorClient={domAnchorClient}
         overviewWorldAnchors={overviewWorldAnchors}
+        projectColors={connectorProjectColors}
       />
 
       {/* Debug visualization when enabled */}

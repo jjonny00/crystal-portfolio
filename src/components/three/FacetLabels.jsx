@@ -61,6 +61,7 @@ const OptimizedLabel = React.memo(function OptimizedLabel({
   return (
     <div
       className="facet-label-optimized"
+      data-facet-key={runtimeKey}
       data-active={isDisplayActive ? 'true' : 'false'}
       onPointerEnter={() => onHover?.(runtimeKey, true)}
       onPointerLeave={() => onHover?.(runtimeKey, false)}
@@ -98,7 +99,6 @@ const FacetLabels = React.memo(function FacetLabels({
   animationData,
   performanceProfile,
   onDomAnchorChange,
-  onDomAnchorsChange,
 }) {
   const { camera, size } = useThree();
   const [anchorScreenPositions, setAnchorScreenPositions] = useState({});
@@ -130,39 +130,6 @@ const FacetLabels = React.memo(function FacetLabels({
       y: rect.top + rect.height * 0.5,
     });
   }, [hoverCapable, onDomAnchorChange]);
-
-  const emitAllDomAnchorPoints = useCallback(() => {
-    if (!onDomAnchorsChange) return;
-    const points = {};
-
-    projects.forEach((project) => {
-      const runtimeKey = project.facetKey || project.id;
-      const titleEl = titleRefs.current.get(runtimeKey);
-      if (!titleEl) return;
-
-      const rect = titleEl.getBoundingClientRect();
-      points[runtimeKey] = {
-        x: rect.left,
-        y: rect.top + rect.height * 0.5,
-      };
-
-      if (import.meta.env.DEV) {
-        console.log('🔗 Label anchor measured', {
-          runtimeKey,
-          point: points[runtimeKey],
-          hasOverviewAnchor: Boolean(overviewWorld?.[runtimeKey]),
-        });
-      }
-    });
-
-    if (import.meta.env.DEV) {
-      console.log('🔗 onDomAnchorsChange emit', {
-        count: Object.keys(points).length,
-        keys: Object.keys(points),
-      });
-    }
-    onDomAnchorsChange(points);
-  }, [onDomAnchorsChange, projects, overviewWorld]);
 
   const calculateAnchorPositions = useCallback(() => {
     if (!overviewWorld) {
@@ -202,7 +169,6 @@ const FacetLabels = React.memo(function FacetLabels({
       setVisible(false);
       setLabelHoveredFacetKey(null);
       onDomAnchorChange?.(null, null);
-      onDomAnchorsChange?.({});
       clearTimeout(fadeTimeoutRef.current);
       fadeTimeoutRef.current = setTimeout(() => {
         rootRef.current?.render(null);
@@ -226,7 +192,7 @@ const FacetLabels = React.memo(function FacetLabels({
     }
 
     calculateAnchorPositions();
-  }, [calculateAnchorPositions, inActiveOverview, onDomAnchorChange, onDomAnchorsChange]);
+  }, [calculateAnchorPositions, inActiveOverview, onDomAnchorChange]);
 
   useEffect(() => {
     if (!inActiveOverview || !projects?.length) return;
@@ -257,14 +223,13 @@ const FacetLabels = React.memo(function FacetLabels({
 
     const handleResize = () => {
       emitDomAnchorPoint(labelHoveredFacetKey);
-      emitAllDomAnchorPoints();
     };
 
     window.addEventListener('resize', handleResize);
     return () => {
       window.removeEventListener('resize', handleResize);
     };
-  }, [emitAllDomAnchorPoints, emitDomAnchorPoint, hoverCapable, labelHoveredFacetKey]);
+  }, [emitDomAnchorPoint, hoverCapable, labelHoveredFacetKey]);
 
   useEffect(() => {
     if (!rootRef.current || !inActiveOverview) return;
@@ -346,19 +311,6 @@ const FacetLabels = React.memo(function FacetLabels({
 
       </>,
     );
-
-    const rafId = window.requestAnimationFrame(() => {
-      emitAllDomAnchorPoints();
-    });
-
-    const rafIdSecond = window.requestAnimationFrame(() => {
-      emitAllDomAnchorPoints();
-    });
-
-    return () => {
-      window.cancelAnimationFrame(rafId);
-      window.cancelAnimationFrame(rafIdSecond);
-    };
   }, [
     anchorScreenPositions,
     fadeDuration,
@@ -368,7 +320,6 @@ const FacetLabels = React.memo(function FacetLabels({
     error,
     layout,
     onDomAnchorChange,
-    onDomAnchorsChange,
     onSelectProject,
     onHoverChange,
     performanceProfile?.simplifiedAnimations,
@@ -377,7 +328,6 @@ const FacetLabels = React.memo(function FacetLabels({
     labelHoveredFacetKey,
     variant,
     visible,
-    emitAllDomAnchorPoints,
   ]);
 
   return null;
