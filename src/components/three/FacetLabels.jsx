@@ -11,11 +11,52 @@ const OptimizedLabel = React.memo(function OptimizedLabel({
   titleRef,
   onHover,
   onClick,
-  visible,
+  isTargetActive = false,
 }) {
-  const glow1 = project.headlineColor;
-  const glow2 = project.headlineColor;
+  const FADE_IN_MS = 320;
+  const FADE_OUT_MS = 1300;
   const runtimeKey = project.facetKey || project.id;
+  const [isDisplayActive, setIsDisplayActive] = useState(false);
+  const [transitionMs, setTransitionMs] = useState(FADE_OUT_MS);
+  const fadeInTimeoutRef = useRef(null);
+  const pendingFadeOutRef = useRef(false);
+
+  useEffect(() => {
+    if (isTargetActive) {
+      pendingFadeOutRef.current = false;
+      if (fadeInTimeoutRef.current) {
+        clearTimeout(fadeInTimeoutRef.current);
+      }
+
+      setTransitionMs(FADE_IN_MS);
+      setIsDisplayActive(true);
+
+      fadeInTimeoutRef.current = setTimeout(() => {
+        fadeInTimeoutRef.current = null;
+        if (pendingFadeOutRef.current) {
+          pendingFadeOutRef.current = false;
+          setTransitionMs(FADE_OUT_MS);
+          setIsDisplayActive(false);
+        }
+      }, FADE_IN_MS);
+      return;
+    }
+
+    if (fadeInTimeoutRef.current) {
+      pendingFadeOutRef.current = true;
+      return;
+    }
+
+    pendingFadeOutRef.current = false;
+    setTransitionMs(FADE_OUT_MS);
+    setIsDisplayActive(false);
+  }, [isTargetActive]);
+
+  useEffect(() => () => {
+    if (fadeInTimeoutRef.current) {
+      clearTimeout(fadeInTimeoutRef.current);
+    }
+  }, []);
 
   return (
     <div
@@ -24,15 +65,17 @@ const OptimizedLabel = React.memo(function OptimizedLabel({
       onPointerLeave={() => onHover?.(runtimeKey, false)}
       onClick={onClick}
       style={{
-        '--headline-ink': project.headlineColor,
-        '--headline-glow1': glow1,
-        '--headline-glow2': glow2,
+        '--headline-ink': isDisplayActive ? project.headlineColor : '#ffffff',
+        '--headline-glow1': isDisplayActive ? project.headlineColor : '#ffffff',
+        '--headline-glow2': isDisplayActive ? project.headlineColor : '#ffffff',
+        '--headline-glow-strength': isDisplayActive ? 0.38 : 0.2,
+        '--headline-transition-out': `${transitionMs}ms`,
         textAlign: 'left',
         width: '100%',
         cursor: 'pointer'
       }}
     >
-      <div ref={titleRef}>
+      <div ref={titleRef} data-facet-key={runtimeKey}>
         <Headline
           as="h3"
           className="label-title"
@@ -50,20 +93,25 @@ const FacetLabels = React.memo(function FacetLabels({
   projects = [],
   onSelectProject,
   onHoverChange,
+  hoveredFacetKey: externallyHoveredFacetKey = null,
   animationData,
   performanceProfile,
   onDomAnchorChange,
+  alwaysOnFacetKey,
+  onAlwaysOnDomAnchorChange,
+  onLabelsReadyChange,
 }) {
   const { camera, size } = useThree();
   const [anchorScreenPositions, setAnchorScreenPositions] = useState({});
   const [visible, setVisible] = useState(false);
   const [fadeDuration, setFadeDuration] = useState(0.8);
   const [hoverCapable, setHoverCapable] = useState(false);
-  const [hoveredFacetKey, setHoveredFacetKey] = useState(null);
+  const [labelHoveredFacetKey, setLabelHoveredFacetKey] = useState(null);
   const titleRefs = useRef(new Map());
   const layerRef = useRef(null);
   const rootRef = useRef(null);
   const fadeTimeoutRef = useRef(null);
+  const labelLayerContentRef = useRef(null);
 
   const inActiveOverview =
     animationData?.currentZone === 'overview' &&
@@ -84,6 +132,18 @@ const FacetLabels = React.memo(function FacetLabels({
       y: rect.top + rect.height * 0.5,
     });
   }, [hoverCapable, onDomAnchorChange]);
+
+  const emitAlwaysOnDomAnchorPoint = useCallback((facetKey) => {
+    if (!onAlwaysOnDomAnchorChange || !facetKey) return;
+    const titleEl = titleRefs.current.get(facetKey);
+    if (!titleEl) return;
+
+    const rect = titleEl.getBoundingClientRect();
+    onAlwaysOnDomAnchorChange(facetKey, {
+      x: rect.left,
+      y: rect.top + rect.height * 0.5,
+    });
+  }, [onAlwaysOnDomAnchorChange]);
 
   const calculateAnchorPositions = useCallback(() => {
     if (!overviewWorld) {
@@ -121,8 +181,10 @@ const FacetLabels = React.memo(function FacetLabels({
     if (!inActiveOverview) {
       setFadeDuration(0.2);
       setVisible(false);
-      setHoveredFacetKey(null);
+      setLabelHoveredFacetKey(null);
       onDomAnchorChange?.(null, null);
+      onAlwaysOnDomAnchorChange?.(null, null);
+      onLabelsReadyChange?.(false);
       clearTimeout(fadeTimeoutRef.current);
       fadeTimeoutRef.current = setTimeout(() => {
         rootRef.current?.render(null);
@@ -146,7 +208,7 @@ const FacetLabels = React.memo(function FacetLabels({
     }
 
     calculateAnchorPositions();
-  }, [calculateAnchorPositions, inActiveOverview, onDomAnchorChange]);
+  }, [calculateAnchorPositions, inActiveOverview, onAlwaysOnDomAnchorChange, onDomAnchorChange, onLabelsReadyChange]);
 
   useEffect(() => {
     if (!inActiveOverview || !projects?.length) return;
@@ -159,10 +221,12 @@ const FacetLabels = React.memo(function FacetLabels({
         if (entry.intersectionRatio >= 0.1) {
           setFadeDuration(0.2);
           setVisible(false);
-          setHoveredFacetKey(null);
+          setLabelHoveredFacetKey(null);
+          onLabelsReadyChange?.(false);
         } else {
           setFadeDuration(0.8);
           setVisible(true);
+          onLabelsReadyChange?.(false);
         }
       },
       { threshold: 0.1 },
@@ -170,20 +234,57 @@ const FacetLabels = React.memo(function FacetLabels({
 
     observer.observe(section);
     return () => observer.disconnect();
-  }, [inActiveOverview, projects]);
+  }, [inActiveOverview, onLabelsReadyChange, projects]);
 
   useEffect(() => {
-    if (!hoverCapable || !hoveredFacetKey) return undefined;
+    if (!inActiveOverview || !visible) return;
+    onLabelsReadyChange?.(false);
+
+    const rafA = requestAnimationFrame(() => {
+      const node = labelLayerContentRef.current;
+      if (!node) return;
+      requestAnimationFrame(() => {
+        const computed = window.getComputedStyle(node);
+        if (computed.opacity === '1') {
+          const alwaysOnKey = alwaysOnFacetKey || projects[0]?.facetKey || projects[0]?.id;
+          if (alwaysOnKey) {
+            emitAlwaysOnDomAnchorPoint(alwaysOnKey);
+          }
+          onLabelsReadyChange?.(true);
+        }
+      });
+    });
+
+    return () => cancelAnimationFrame(rafA);
+  }, [alwaysOnFacetKey, emitAlwaysOnDomAnchorPoint, inActiveOverview, onLabelsReadyChange, projects, visible]);
+
+  useEffect(() => {
+    if (!inActiveOverview || !visible) return undefined;
+    const alwaysOnKey = alwaysOnFacetKey || projects[0]?.facetKey || projects[0]?.id;
+    if (!alwaysOnKey) return undefined;
 
     const handleResize = () => {
-      emitDomAnchorPoint(hoveredFacetKey);
+      emitAlwaysOnDomAnchorPoint(alwaysOnKey);
     };
 
     window.addEventListener('resize', handleResize);
     return () => {
       window.removeEventListener('resize', handleResize);
     };
-  }, [emitDomAnchorPoint, hoverCapable, hoveredFacetKey]);
+  }, [alwaysOnFacetKey, emitAlwaysOnDomAnchorPoint, inActiveOverview, projects, visible]);
+
+  useEffect(() => {
+    if (!hoverCapable || !labelHoveredFacetKey) return undefined;
+
+    const handleResize = () => {
+      emitDomAnchorPoint(labelHoveredFacetKey);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [emitDomAnchorPoint, hoverCapable, labelHoveredFacetKey]);
 
   useEffect(() => {
     if (!rootRef.current || !inActiveOverview) return;
@@ -203,12 +304,12 @@ const FacetLabels = React.memo(function FacetLabels({
       onHoverChange?.(facetKey, isHovering);
 
       if (!hoverCapable) {
-        setHoveredFacetKey(null);
+        setLabelHoveredFacetKey(null);
         onDomAnchorChange?.(facetKey, null);
         return;
       }
 
-      setHoveredFacetKey(isHovering ? facetKey : null);
+      setLabelHoveredFacetKey(isHovering ? facetKey : null);
       if (isHovering) {
         emitDomAnchorPoint(facetKey);
       } else {
@@ -219,6 +320,18 @@ const FacetLabels = React.memo(function FacetLabels({
     rootRef.current.render(
       <>
         <div
+          ref={labelLayerContentRef}
+          onTransitionEnd={(event) => {
+            if (event.propertyName !== 'opacity') return;
+            if (!visible) return;
+            requestAnimationFrame(() => {
+              const alwaysOnKey = alwaysOnFacetKey || projects[0]?.facetKey || projects[0]?.id;
+              if (alwaysOnKey) {
+                emitAlwaysOnDomAnchorPoint(alwaysOnKey);
+              }
+              onLabelsReadyChange?.(true);
+            });
+          }}
           style={{
             position: 'absolute',
             width: variant === 'desktop' ? '33.333vw' : '100%',
@@ -240,22 +353,27 @@ const FacetLabels = React.memo(function FacetLabels({
             pointerEvents: visible ? 'auto' : 'none',
           }}
         >
-          {projects.map((project) => (
+          {projects.map((project) => {
+            const runtimeKey = project.facetKey || project.id;
+            const isActive =
+              externallyHoveredFacetKey === runtimeKey || labelHoveredFacetKey === runtimeKey;
+            return (
             <OptimizedLabel
-              key={project.id || project.facetKey}
+              key={runtimeKey}
               project={project}
               titleRef={(el) => {
                 if (el) {
-                  titleRefs.current.set(project.facetKey || project.id, el);
+                  titleRefs.current.set(runtimeKey, el);
                 } else {
-                  titleRefs.current.delete(project.facetKey || project.id);
+                  titleRefs.current.delete(runtimeKey);
                 }
               }}
               onHover={handleHover}
-              onClick={() => onSelectProject?.(project.facetKey || project.id)}
-              visible={visible}
+              onClick={() => onSelectProject?.(runtimeKey)}
+              isTargetActive={isActive}
             />
-          ))}
+            );
+          })}
         </div>
 
       </>,
@@ -265,6 +383,8 @@ const FacetLabels = React.memo(function FacetLabels({
     fadeDuration,
     hoverCapable,
     inActiveOverview,
+    alwaysOnFacetKey,
+    emitAlwaysOnDomAnchorPoint,
     emitDomAnchorPoint,
     error,
     layout,
@@ -273,6 +393,9 @@ const FacetLabels = React.memo(function FacetLabels({
     onHoverChange,
     performanceProfile?.simplifiedAnimations,
     projects,
+    onAlwaysOnDomAnchorChange,
+    externallyHoveredFacetKey,
+    labelHoveredFacetKey,
     variant,
     visible,
   ]);

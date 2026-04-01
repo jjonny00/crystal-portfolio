@@ -25,7 +25,7 @@ import projects, {
   getFacetSlotBySceneFacetKey
 } from '../../data/projects'
 import FacetLabels from './FacetLabels'
-import HoverConnectorLine from './HoverConnectorLine'
+import OverviewConnectorLines from './OverviewConnectorLines'
 import { effects } from '../../crystalConfig'
 import { useFacetOverlayGeometry } from '../../hooks/useFacetOverlayGeometry'
 import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController'
@@ -43,6 +43,7 @@ const REFORM_MASK_GLOW_DURATION_S = 0.2
 const REFORM_MASK_GLOW_PEAK_INTENSITY = 1.5
 const REFORM_FACET_MASK_GLOW_PEAK_INTENSITY = 1.3
 const REFORM_SWAP_OVERLAP_MS = 100
+const ENABLE_OVERVIEW_ALL_CONNECTORS = true
 
 const UnifiedCrystalScene = forwardRef(({ 
   animationData,
@@ -100,15 +101,30 @@ const UnifiedCrystalScene = forwardRef(({
     animationData?.currentZone === 'overview' &&
     animationData?.crystalForm === 'exploded' &&
     animationData?.isTransitioning === false;
+  const cameraSettled = animationData?.cameraSettled === true;
 
-  const [hoveredLabelFacetKey, setHoveredLabelFacetKey] = useState(null);
-  const [domAnchorClient, setDomAnchorClient] = useState(null);
+  const [alwaysOnDomAnchorsByRuntimeKey, setAlwaysOnDomAnchorsByRuntimeKey] = useState({});
+  const [labelsReady, setLabelsReady] = useState(false);
+  const [facetsSettled, setFacetsSettled] = useState(false);
+  const facetsSettledRef = useRef(false);
   const { layout } = useLayoutConfig();
   const hoverCapable = useHoverCapable();
   useCursor(Boolean(hoverCapable && hoveredFacet));
   const overviewWorldAnchors = layout?.anchors?.overviewWorld;
   const layoutCamera = layout?.camera;
   const layoutProjects = layout?.projects;
+  const resolvedConnectorPairs = useMemo(() => {
+    const pairs = projects
+      .map((project) => {
+        const runtimeDomKey = project.facetKey || project.id;
+        const sceneWorldKey = getSceneFacetKeyByProjectId(runtimeDomKey);
+        if (!runtimeDomKey || !sceneWorldKey) return null;
+        return { runtimeDomKey, sceneWorldKey };
+      })
+      .filter(Boolean);
+
+    return pairs;
+  }, []);
 
   const mergedConfig = useMemo(() => {
     const nextConfig = { ...config };
@@ -853,18 +869,6 @@ const UnifiedCrystalScene = forwardRef(({
     [updateHoverSources, resolveSceneFacetKey]
   );
 
-  const handleDomAnchorChange = useCallback((facetKey, clientPointOrNull) => {
-    if (!clientPointOrNull) {
-      setHoveredLabelFacetKey(null);
-      setDomAnchorClient(null);
-      return;
-    }
-
-    setHoveredLabelFacetKey(resolveSceneFacetKey(facetKey));
-    setDomAnchorClient(clientPointOrNull);
-  }, [resolveSceneFacetKey]);
-
-
   const handleFacetHover = useCallback(
     (facetKey, hovering) => {
       updateHoverSources(resolveSceneFacetKey(facetKey), 'facet', hovering);
@@ -879,6 +883,8 @@ const UnifiedCrystalScene = forwardRef(({
 
   const selectProjectAndNavigate = useCallback((projectKey) => {
     if (!projectKey) return;
+
+    onDirectProjectSelect?.(projectKey);
 
     const sectionNode = typeof document !== 'undefined'
       ? document.getElementById(`project-${projectKey}`)
@@ -900,7 +906,7 @@ const UnifiedCrystalScene = forwardRef(({
     const sectionStart = ANIMATION_CONFIG.projectSections?.[projectKey]?.start;
     if (sectionStart === undefined || sectionStart === null) return;
     scrollToProgress?.(sectionStart, 'auto');
-  }, [scrollToProgress, scrollToProject]);
+  }, [onDirectProjectSelect, scrollToProgress, scrollToProject]);
 
   const handleFacetClick = useCallback((facetKey) => {
     if (!inActiveOverview) return;
@@ -910,9 +916,53 @@ const UnifiedCrystalScene = forwardRef(({
 
   useEffect(() => {
     if (inActiveOverview) return;
-    setHoveredLabelFacetKey(null);
-    setDomAnchorClient(null);
+    setAlwaysOnDomAnchorsByRuntimeKey({});
+    setLabelsReady(false);
+    facetsSettledRef.current = false;
+    setFacetsSettled(false);
   }, [inActiveOverview]);
+
+  useEffect(() => {
+    if (!inActiveOverview || !labelsReady || !cameraSettled) return undefined;
+
+    const measureAllAnchors = () => {
+      const nextAnchors = {};
+      let domFoundCount = 0;
+      let worldFoundCount = 0;
+
+      resolvedConnectorPairs.forEach(({ runtimeDomKey, sceneWorldKey }) => {
+        const node = document.querySelector(`[data-facet-key="${runtimeDomKey}"]`);
+        if (node) {
+          const rect = node.getBoundingClientRect();
+          nextAnchors[runtimeDomKey] = {
+            x: rect.left,
+            y: rect.top + rect.height * 0.5,
+          };
+          domFoundCount += 1;
+        }
+        if (overviewWorldAnchors?.[sceneWorldKey]) {
+          worldFoundCount += 1;
+        }
+      });
+
+      setAlwaysOnDomAnchorsByRuntimeKey(nextAnchors);
+      console.groupCollapsed('[overview connector pairs]');
+      console.log('resolvedConnectorPairs', resolvedConnectorPairs);
+      console.log('resolvedPairCount', resolvedConnectorPairs.length);
+      console.log('domAnchorsMeasuredCount', Object.keys(nextAnchors).length);
+      console.log('worldAnchorsFoundCount', worldFoundCount);
+      console.log('domNodesFoundCount', domFoundCount);
+      console.log('cameraSettled', cameraSettled);
+      console.groupEnd();
+    };
+
+    const raf = requestAnimationFrame(measureAllAnchors);
+    window.addEventListener('resize', measureAllAnchors);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('resize', measureAllAnchors);
+    };
+  }, [cameraSettled, inActiveOverview, labelsReady, overviewWorldAnchors, resolvedConnectorPairs]);
 
   
   // Keyboard listener for debug toggle
@@ -1572,6 +1622,17 @@ const UnifiedCrystalScene = forwardRef(({
       pendingExplodeSwapAtRef.current = null;
       runExplodeSwap();
     }
+
+    const explodedOverviewSettled =
+      inActiveOverview &&
+      animationData.crystalForm === 'exploded' &&
+      showFacets &&
+      pendingExplodeSwapAtRef.current == null &&
+      explosionStartRef.current == null;
+    if (facetsSettledRef.current !== explodedOverviewSettled) {
+      facetsSettledRef.current = explodedOverviewSettled;
+      setFacetsSettled(explodedOverviewSettled);
+    }
     if (
       animationData.crystalForm === 'whole' &&
       pendingReformSwapAtRef.current != null &&
@@ -2073,18 +2134,28 @@ const UnifiedCrystalScene = forwardRef(({
         projects={projects}
         onSelectProject={selectProjectAndNavigate}
         onHoverChange={handleLabelHover}
+        hoveredFacetKey={hoveredFacet}
         animationData={animationData}
         performanceProfile={performanceProfile}
         anchorOffsets={anchorOffsets}
-        onDomAnchorChange={handleDomAnchorChange}
+        alwaysOnFacetKey={resolvedConnectorPairs[0]?.runtimeDomKey}
+        onLabelsReadyChange={setLabelsReady}
       />
 
-      <HoverConnectorLine
-        enabled={inActiveOverview && hoverCapable}
-        hoveredFacetKey={hoveredLabelFacetKey}
-        domAnchorClient={domAnchorClient}
-        overviewWorldAnchors={overviewWorldAnchors}
-      />
+      {ENABLE_OVERVIEW_ALL_CONNECTORS && inActiveOverview && (
+        <OverviewConnectorLines
+          enabled={
+            inActiveOverview &&
+            labelsReady &&
+            facetsSettled &&
+            cameraSettled &&
+            Object.keys(alwaysOnDomAnchorsByRuntimeKey).length > 0
+          }
+          resolvedConnectorPairs={resolvedConnectorPairs}
+          alwaysOnDomAnchorsByRuntimeKey={alwaysOnDomAnchorsByRuntimeKey}
+          overviewWorldAnchors={overviewWorldAnchors}
+        />
+      )}
 
       {/* Debug visualization when enabled */}
       {showCrystalDebug && showFacets && !simplifiedAnimations && (

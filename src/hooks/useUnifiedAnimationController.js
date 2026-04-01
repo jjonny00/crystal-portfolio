@@ -950,14 +950,6 @@ export const useUnifiedAnimationController = (options = {}) => {
 
     // FIXED: Handle project changes within projects zone
     if (currentZone.zone === 'projects') {
-      if (
-        directOverrideProject &&
-        activeProject.project &&
-        activeProject.project !== directOverrideProject
-      ) {
-        clearDirectProjectOverride();
-      }
-
       if (directOverrideProject && activeProject.project === directOverrideProject) {
         // IMPORTANT: Keep direct override active until the scroll has settled on
         // the target project, otherwise intermediate section crossings can
