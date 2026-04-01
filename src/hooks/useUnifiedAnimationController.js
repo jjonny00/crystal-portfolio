@@ -317,6 +317,8 @@ export const useUnifiedAnimationController = (options = {}) => {
   const directZoneOverrideRef = useRef(null);
   const directProjectReleaseTimeoutRef = useRef(null);
   const runtimeProjectSectionsRef = useRef([]);
+  const aboutToProjectsLockUntilRef = useRef(0);
+  const lastNearestSectionIdRef = useRef(null);
 
   const getRuntimeProjectSection = useCallback((projectKey) => {
     if (!projectKey) return null;
@@ -635,15 +637,40 @@ export const useUnifiedAnimationController = (options = {}) => {
       }, (config.crystal.fracturePause || 0.5) * 1000);
     }
     else if (toZone === 'projects') {
-      // Immediately enter project state and set initial facet
-      setAnimationState(prev => ({
-        ...prev,
-        state: ANIMATION_STATES.PROJECT_FOCUSED,
-        crystalForm: 'exploded',     // Immediate
-        cameraState: 'project',      // Immediate - this enables project camera positioning
-        focusedFacet: getSceneFacetKeyByProjectId(initialProject) || initialProject,
-        isTransitioning: false
-      }));
+      const targetFacet = getSceneFacetKeyByProjectId(initialProject) || initialProject;
+
+      if (fromZone === 'about') {
+        // From about, let the fracture settle first; then move camera to project.
+        setAnimationState(prev => ({
+          ...prev,
+          state: ANIMATION_STATES.PROJECT_FOCUSED,
+          crystalForm: 'exploded',
+          cameraState: 'about',
+          focusedFacet: null,
+          isTransitioning: false
+        }));
+
+        cameraDelayTimeout.current = setTimeout(() => {
+          setAnimationState(prev => ({
+            ...prev,
+            cameraState: 'project',
+            focusedFacet: targetFacet,
+            isTransitioning: false,
+            projectInfo: { ...prev.projectInfo, project: initialProject }
+          }));
+        }, (config.crystal.fracturePause || 0.5) * 1000);
+      } else {
+        // Immediately enter project state and set initial facet
+        setAnimationState(prev => ({
+          ...prev,
+          state: ANIMATION_STATES.PROJECT_FOCUSED,
+          crystalForm: 'exploded',
+          cameraState: 'project',
+          focusedFacet: targetFacet,
+          isTransitioning: false
+        }));
+      }
+
       lastProject.current = initialProject;
     }
     else if (toZone === 'about') {
@@ -693,16 +720,129 @@ export const useUnifiedAnimationController = (options = {}) => {
       ? document.querySelector('.scroll-container')
       : null;
     const triggerPx = container
-      ? container.scrollTop + container.clientHeight * 0.5
+      // Use top-of-viewport anchoring for section/project detection so
+      // about/projects boundary logic matches snap alignment exactly.
+      ? container.scrollTop + 1
       : Number.NaN;
     const activeProjectFromDom = calculateActiveProjectFromTriggerPx(
       triggerPx,
       runtimeProjectSectionsRef.current
     );
-    const currentZone = calculateCurrentZone(scrollProgress, config);
-    const activeProject = activeProjectFromDom.project
+    let currentZone = calculateCurrentZone(scrollProgress, config);
+    let activeProject = activeProjectFromDom.project
       ? activeProjectFromDom
       : calculateActiveProject(scrollProgress, config);
+    let nearestSectionId = null;
+    let nearestSectionTop = null;
+
+    const now = Date.now();
+    const aboutToProjectsLockActive = now < aboutToProjectsLockUntilRef.current;
+    if (aboutToProjectsLockActive && (currentZone.zone === 'about' || currentZone.zone === 'projects')) {
+      currentZone = {
+        ...currentZone,
+        zone: 'projects'
+      };
+
+      if (!activeProject.project) {
+        const lastProjectKey = orderedProjectKeys[orderedProjectKeys.length - 1] || null;
+        if (lastProjectKey) {
+          activeProject = {
+            project: lastProjectKey,
+            progress: activeProject.progress ?? 0
+          };
+        }
+      }
+    }
+
+    // Resolve zone from the actual nearest DOM section first so camera and
+    // focus logic don't fight static progress thresholds at section boundaries.
+    if (container) {
+      const sections = Array.from(container.querySelectorAll('.scroll-section[id]'));
+      let nearestSection = null;
+      let minDistance = Number.POSITIVE_INFINITY;
+
+      sections.forEach((section) => {
+        const distance = Math.abs(container.scrollTop - section.offsetTop);
+        if (distance < minDistance) {
+          minDistance = distance;
+          nearestSection = section;
+        }
+      });
+
+      nearestSectionId = nearestSection?.id ?? null;
+      nearestSectionTop = nearestSection?.offsetTop ?? null;
+      const domZone = nearestSectionId === 'hero'
+        ? 'hero'
+        : nearestSectionId === 'overview'
+          ? 'overview'
+          : nearestSectionId === 'about'
+            ? 'about'
+            : nearestSectionId?.startsWith('project-')
+              ? 'projects'
+              : null;
+
+      if (domZone) {
+        currentZone = {
+          ...currentZone,
+          zone: domZone,
+        };
+      }
+
+      if (nearestSectionId?.startsWith('project-')) {
+        const sectionProject = nearestSectionId.replace('project-', '');
+        const sectionBounds = runtimeProjectSectionsRef.current.find((entry) => entry.project === sectionProject);
+        const sectionProgress = sectionBounds
+          ? (scrollProgress - sectionBounds.start) / Math.max(sectionBounds.end - sectionBounds.start, 0.00001)
+          : activeProject.progress;
+
+        activeProject = {
+          project: sectionProject,
+          progress: Math.max(0, Math.min(sectionProgress, 1))
+        };
+      }
+    }
+
+    const previousNearestSectionId = lastNearestSectionIdRef.current;
+    if (nearestSectionId) {
+      lastNearestSectionIdRef.current = nearestSectionId;
+    }
+
+    const lastProjectKey = orderedProjectKeys[orderedProjectKeys.length - 1] || null;
+    const directZoneOverride = directZoneOverrideRef.current?.zoneKey ?? null;
+
+    if (container && lastProjectKey && (!directZoneOverride || directZoneOverride === 'projects')) {
+      const lastProjectSection = document.getElementById(`project-${lastProjectKey}`);
+      const aboutSection = document.getElementById('about');
+      const withinLastProjectScrollBand =
+        lastProjectSection &&
+        aboutSection &&
+        container.scrollTop >= (lastProjectSection.offsetTop - 1) &&
+        container.scrollTop < (aboutSection.offsetTop - 1);
+
+      const enteringBandFromAbout =
+        previousNearestSectionId === 'about' &&
+        nearestSectionId === `project-${lastProjectKey}`;
+
+      if (withinLastProjectScrollBand && enteringBandFromAbout) {
+        setDirectProjectOverride(lastProjectKey);
+      }
+    }
+
+    // When DOM clearly indicates a project section, keep projects-zone progress
+    // aligned to DOM section bounds so transitions stay stable.
+    const runtimeSections = runtimeProjectSectionsRef.current;
+    const firstRuntimeSection = runtimeSections[0];
+    const lastRuntimeSection = runtimeSections[runtimeSections.length - 1];
+    if (activeProjectFromDom.project && currentZone.zone === 'projects' && firstRuntimeSection && lastRuntimeSection) {
+      const span = Math.max(lastRuntimeSection.end - firstRuntimeSection.start, 0.00001);
+      const domProjectsProgress = (scrollProgress - firstRuntimeSection.start) / span;
+      currentZone = {
+        ...currentZone,
+        progress: Math.max(0, Math.min(domProjectsProgress, 1)),
+        isEntering: false,
+        isLeaving: false
+      };
+    }
 
     if (introPreviewActiveRef.current) {
       const withinHeroZone = scrollProgress <= (config.scrollZones?.hero?.end ?? 0.12);
@@ -774,7 +914,7 @@ export const useUnifiedAnimationController = (options = {}) => {
           // Coming from projects and we're right at the boundary—still transition
           shouldChangeZone = true;
         }
-      } else if (currentZone.zone === 'projects' && currentZone.progress >= projectsZoneHysteresis && currentZone.progress < (1 - projectsZoneHysteresis)) {
+      } else if (currentZone.zone === 'projects' && currentZone.progress >= projectsZoneHysteresis && currentZone.progress <= (1 - projectsZoneHysteresis)) {
         shouldChangeZone = true;
       } else if (currentZone.zone === 'about' && currentZone.progress > hysteresis) {
         shouldChangeZone = true;
@@ -782,7 +922,12 @@ export const useUnifiedAnimationController = (options = {}) => {
 
       if (shouldChangeZone) {
         if (currentZone.zone === 'projects') {
-          const fallbackProject = orderedProjectKeys[0] || null;
+          if (lastZone.current === 'about') {
+            aboutToProjectsLockUntilRef.current = Date.now() + 500;
+          }
+          const fallbackProject = lastZone.current === 'about'
+            ? (orderedProjectKeys[orderedProjectKeys.length - 1] || null)
+            : (orderedProjectKeys[0] || null);
           const initialProject = directOverrideProject
             || activeProject.project
             || fallbackProject;
@@ -805,6 +950,14 @@ export const useUnifiedAnimationController = (options = {}) => {
 
     // FIXED: Handle project changes within projects zone
     if (currentZone.zone === 'projects') {
+      if (
+        directOverrideProject &&
+        activeProject.project &&
+        activeProject.project !== directOverrideProject
+      ) {
+        clearDirectProjectOverride();
+      }
+
       if (directOverrideProject && activeProject.project === directOverrideProject) {
         // IMPORTANT: Keep direct override active until the scroll has settled on
         // the target project, otherwise intermediate section crossings can
@@ -860,35 +1013,29 @@ export const useUnifiedAnimationController = (options = {}) => {
         handleProjectFocus(activeProject.project);
         lastProject.current = activeProject.project;
       }
-    } else if (directProjectOverrideRef.current?.projectKey && (currentZone.zone === 'hero' || currentZone.zone === 'about')) {
+    } else if (
+      directProjectOverrideRef.current?.projectKey &&
+      (
+        currentZone.zone === 'hero' ||
+        (currentZone.zone === 'about' && !nearestSectionId?.startsWith('project-'))
+      )
+    ) {
       clearDirectProjectOverride();
     } else if (currentZone.zone !== 'projects' && lastProject.current && !directProjectOverrideRef.current?.projectKey) {
-      if (currentZone.zone === 'about' && activeProject.project) {
-        setAnimationState(prev => ({
-          ...prev,
-          state: ANIMATION_STATES.PROJECT_FOCUSED,
-          crystalForm: 'exploded',
-          cameraState: 'project',
-          focusedFacet: getSceneFacetKeyByProjectId(activeProject.project) || activeProject.project,
-          isTransitioning: false
-        }));
-        lastProject.current = activeProject.project;
-      } else {
-        if (currentZone.zone === 'about') {
-          clearDirectProjectOverride();
-        }
-        if (import.meta.env.DEV) {
-          console.log('🎯 Clearing project focus - left projects zone');
-          console.log('🎨 Background trigger: Left projects zone, clearing project focus');
-        }
-        setAnimationState(prev => ({
-          ...prev,
-          focusedFacet: null,
-          // Ensure camera snaps back to the proper zone camera instead of hero fallback
-          cameraState: currentZone.zone
-        }));
-        lastProject.current = null;
+      if (currentZone.zone === 'about') {
+        clearDirectProjectOverride();
       }
+      if (import.meta.env.DEV) {
+        console.log('🎯 Clearing project focus - left projects zone');
+        console.log('🎨 Background trigger: Left projects zone, clearing project focus');
+      }
+      setAnimationState(prev => ({
+        ...prev,
+        focusedFacet: null,
+        // Ensure camera snaps back to the proper zone camera instead of hero fallback
+        cameraState: currentZone.zone
+      }));
+      lastProject.current = null;
     }
 
     // Always update scroll progress and zone info
@@ -907,6 +1054,7 @@ export const useUnifiedAnimationController = (options = {}) => {
     measureProjectSectionsFromDom,
     handleZoneTransition,
     handleProjectFocus,
+    setDirectProjectOverride,
     clearDirectProjectOverride,
     clearDirectZoneOverride,
     onStateChange,
@@ -975,6 +1123,7 @@ export const useUnifiedAnimationController = (options = {}) => {
       if (cameraDelayTimeout.current) {
          clearTimeout(cameraDelayTimeout.current);
       }
+      lastNearestSectionIdRef.current = null;
     };
   }, [clearIntroPreview]);
 

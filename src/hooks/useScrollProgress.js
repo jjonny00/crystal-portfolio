@@ -388,6 +388,12 @@ export const useScrollProgress = (options = {}) => {
     const maxScroll = container.scrollHeight - container.clientHeight;
     const targetScrollTop = targetProgress * maxScroll;
     
+    if (behavior === 'auto') {
+      // CSS can force smooth scrolling; set scrollTop directly for instant jumps.
+      container.scrollTop = targetScrollTop;
+      return;
+    }
+
     container.scrollTo({
       top: targetScrollTop,
       behavior: behavior

@@ -531,32 +531,38 @@ function App() {
     }
   }, []);
 
-  const scrollToSection = useCallback((sectionId) => {
+  const scrollToSection = useCallback((sectionId, behavior = 'smooth') => {
     const target = document.getElementById(sectionId);
     if (!target) return;
 
     const scrollContainer = document.querySelector('.scroll-container');
     if (scrollContainer) {
-      scrollContainer.scrollTo({ top: target.offsetTop, behavior: 'smooth' });
+      if (behavior === 'auto') {
+        // CSS forces smooth scroll on the container, so set scrollTop directly
+        // when we need an immediate jump without traversing intermediate zones.
+        scrollContainer.scrollTop = target.offsetTop;
+      } else {
+        scrollContainer.scrollTo({ top: target.offsetTop, behavior });
+      }
       return;
     }
 
-    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    target.scrollIntoView({ behavior, block: 'start' });
   }, []);
 
   const handleHomeClick = useCallback(() => {
     fixedCanvasRef.current?.directSelectZone?.('hero');
-    scrollToSection('hero');
+    scrollToSection('hero', 'auto');
   }, [scrollToSection]);
 
   const handleWorkClick = useCallback(() => {
     fixedCanvasRef.current?.directSelectZone?.('overview');
-    scrollToSection('overview');
+    scrollToSection('overview', 'auto');
   }, [scrollToSection]);
 
   const handleAboutClick = useCallback(() => {
     fixedCanvasRef.current?.directSelectZone?.('about');
-    scrollToSection('about');
+    scrollToSection('about', 'auto');
   }, [scrollToSection]);
 
   const handleContactClick = useCallback(() => {}, []);
