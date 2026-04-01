@@ -556,8 +556,7 @@ function App() {
   }, [scrollToSection]);
 
   const handleWorkClick = useCallback(() => {
-    // Avoid forcing a direct overview camera state here: when coming from
-    // hero/about it can compete with project/zone reconciliation and jitter.
+    fixedCanvasRef.current?.directSelectZone?.('overview');
     scrollToSection('overview', 'auto');
   }, [scrollToSection]);
 

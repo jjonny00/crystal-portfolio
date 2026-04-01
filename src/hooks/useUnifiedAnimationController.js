@@ -318,6 +318,7 @@ export const useUnifiedAnimationController = (options = {}) => {
   const directProjectReleaseTimeoutRef = useRef(null);
   const runtimeProjectSectionsRef = useRef([]);
   const aboutToProjectsLockUntilRef = useRef(0);
+  const lastNearestSectionIdRef = useRef(null);
 
   const getRuntimeProjectSection = useCallback((projectKey) => {
     if (!projectKey) return null;
@@ -801,6 +802,21 @@ export const useUnifiedAnimationController = (options = {}) => {
       }
     }
 
+    const previousNearestSectionId = lastNearestSectionIdRef.current;
+    if (nearestSectionId) {
+      lastNearestSectionIdRef.current = nearestSectionId;
+    }
+
+    const lastProjectKey = orderedProjectKeys[orderedProjectKeys.length - 1] || null;
+    const enteredLastProjectFromAbout =
+      previousNearestSectionId === 'about' &&
+      lastProjectKey &&
+      nearestSectionId === `project-${lastProjectKey}`;
+
+    const directZoneOverride = directZoneOverrideRef.current?.zoneKey ?? null;
+    if (enteredLastProjectFromAbout && (!directZoneOverride || directZoneOverride === 'projects')) {
+      setDirectProjectOverride(lastProjectKey);
+    }
 
     // When DOM clearly indicates a project section, keep projects-zone progress
     // aligned to DOM section bounds so transitions stay stable.
@@ -1097,6 +1113,7 @@ export const useUnifiedAnimationController = (options = {}) => {
       if (cameraDelayTimeout.current) {
          clearTimeout(cameraDelayTimeout.current);
       }
+      lastNearestSectionIdRef.current = null;
     };
   }, [clearIntroPreview]);
 
