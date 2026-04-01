@@ -97,7 +97,6 @@ const FacetLabels = React.memo(function FacetLabels({
   animationData,
   performanceProfile,
   onDomAnchorChange,
-  onDomAnchorsChange,
   onLabelsReadyChange,
 }) {
   const { camera, size } = useThree();
@@ -131,25 +130,6 @@ const FacetLabels = React.memo(function FacetLabels({
       y: rect.top + rect.height * 0.5,
     });
   }, [hoverCapable, onDomAnchorChange]);
-
-  const emitAllDomAnchorPoints = useCallback(() => {
-    if (!onDomAnchorsChange) return;
-
-    const points = {};
-    projects.forEach((project) => {
-      const runtimeKey = project.facetKey || project.id;
-      const titleEl = titleRefs.current.get(runtimeKey);
-      if (!titleEl) return;
-
-      const rect = titleEl.getBoundingClientRect();
-      points[runtimeKey] = {
-        x: rect.left,
-        y: rect.top + rect.height * 0.5,
-      };
-    });
-
-    onDomAnchorsChange(points);
-  }, [onDomAnchorsChange, projects]);
 
   const calculateAnchorPositions = useCallback(() => {
     if (!overviewWorld) {
@@ -189,7 +169,6 @@ const FacetLabels = React.memo(function FacetLabels({
       setVisible(false);
       setLabelHoveredFacetKey(null);
       onDomAnchorChange?.(null, null);
-      onDomAnchorsChange?.({});
       onLabelsReadyChange?.(false);
       clearTimeout(fadeTimeoutRef.current);
       fadeTimeoutRef.current = setTimeout(() => {
@@ -214,7 +193,7 @@ const FacetLabels = React.memo(function FacetLabels({
     }
 
     calculateAnchorPositions();
-  }, [calculateAnchorPositions, inActiveOverview, onDomAnchorChange, onDomAnchorsChange, onLabelsReadyChange]);
+  }, [calculateAnchorPositions, inActiveOverview, onDomAnchorChange, onLabelsReadyChange]);
 
   useEffect(() => {
     if (!inActiveOverview || !projects?.length) return;
@@ -252,28 +231,30 @@ const FacetLabels = React.memo(function FacetLabels({
       requestAnimationFrame(() => {
         const computed = window.getComputedStyle(node);
         if (computed.opacity === '1') {
-          emitAllDomAnchorPoints();
+          const initialKey = projects[0]?.facetKey || projects[0]?.id;
+          if (initialKey) {
+            emitDomAnchorPoint(initialKey);
+          }
           onLabelsReadyChange?.(true);
         }
       });
     });
 
     return () => cancelAnimationFrame(rafA);
-  }, [emitAllDomAnchorPoints, inActiveOverview, onLabelsReadyChange, visible]);
+  }, [emitDomAnchorPoint, inActiveOverview, onLabelsReadyChange, projects, visible]);
 
   useEffect(() => {
     if (!hoverCapable || !labelHoveredFacetKey) return undefined;
 
     const handleResize = () => {
       emitDomAnchorPoint(labelHoveredFacetKey);
-      emitAllDomAnchorPoints();
     };
 
     window.addEventListener('resize', handleResize);
     return () => {
       window.removeEventListener('resize', handleResize);
     };
-  }, [emitAllDomAnchorPoints, emitDomAnchorPoint, hoverCapable, labelHoveredFacetKey]);
+  }, [emitDomAnchorPoint, hoverCapable, labelHoveredFacetKey]);
 
   useEffect(() => {
     if (!rootRef.current || !inActiveOverview) return;
@@ -314,7 +295,6 @@ const FacetLabels = React.memo(function FacetLabels({
             if (event.propertyName !== 'opacity') return;
             if (!visible) return;
             requestAnimationFrame(() => {
-              emitAllDomAnchorPoints();
               onLabelsReadyChange?.(true);
             });
           }}
@@ -377,7 +357,6 @@ const FacetLabels = React.memo(function FacetLabels({
     onHoverChange,
     performanceProfile?.simplifiedAnimations,
     projects,
-    onDomAnchorsChange,
     externallyHoveredFacetKey,
     labelHoveredFacetKey,
     variant,

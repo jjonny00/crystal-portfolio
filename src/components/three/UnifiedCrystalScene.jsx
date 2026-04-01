@@ -45,6 +45,7 @@ const REFORM_MASK_GLOW_PEAK_INTENSITY = 1.5
 const REFORM_FACET_MASK_GLOW_PEAK_INTENSITY = 1.3
 const REFORM_SWAP_OVERLAP_MS = 100
 const ENABLE_OVERVIEW_ALL_CONNECTORS = true
+const OVERVIEW_DEBUG_CONNECTOR_KEY = 'empathy'
 
 const UnifiedCrystalScene = forwardRef(({ 
   animationData,
@@ -105,7 +106,6 @@ const UnifiedCrystalScene = forwardRef(({
 
   const [hoveredLabelFacetKey, setHoveredLabelFacetKey] = useState(null);
   const [domAnchorClient, setDomAnchorClient] = useState(null);
-  const [domAnchorsClient, setDomAnchorsClient] = useState({});
   const [labelsReady, setLabelsReady] = useState(false);
   const { layout } = useLayoutConfig();
   const hoverCapable = useHoverCapable();
@@ -915,7 +915,6 @@ const UnifiedCrystalScene = forwardRef(({
     if (inActiveOverview) return;
     setHoveredLabelFacetKey(null);
     setDomAnchorClient(null);
-    setDomAnchorsClient({});
     setLabelsReady(false);
   }, [inActiveOverview]);
 
@@ -2083,7 +2082,6 @@ const UnifiedCrystalScene = forwardRef(({
         performanceProfile={performanceProfile}
         anchorOffsets={anchorOffsets}
         onDomAnchorChange={handleDomAnchorChange}
-        onDomAnchorsChange={setDomAnchorsClient}
         onLabelsReadyChange={setLabelsReady}
       />
 
@@ -2097,10 +2095,9 @@ const UnifiedCrystalScene = forwardRef(({
       {ENABLE_OVERVIEW_ALL_CONNECTORS && inActiveOverview && (
         <OverviewConnectorLines
           enabled={inActiveOverview && labelsReady}
-          domAnchorsClient={domAnchorsClient}
+          connectorFacetKey={OVERVIEW_DEBUG_CONNECTOR_KEY}
+          domAnchorClient={domAnchorClient}
           overviewWorldAnchors={overviewWorldAnchors}
-          labelsReady={labelsReady}
-          featureFlagEnabled={ENABLE_OVERVIEW_ALL_CONNECTORS}
         />
       )}
 
