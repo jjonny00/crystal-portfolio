@@ -781,18 +781,13 @@ export const useUnifiedAnimationController = (options = {}) => {
       nearestSectionId === `project-${lastProjectKey}`;
 
     if (aboutToLastProjectDomHandoff) {
-      const sceneFacetKey = getSceneFacetKeyByProjectId(lastProjectKey) || lastProjectKey;
-
+      // Mirror the exact behavior used by project-label clicks so this path
+      // gets the same camera/focus locking semantics.
+      setDirectProjectOverride(lastProjectKey);
       lastZone.current = 'projects';
-      lastProject.current = lastProjectKey;
 
       setAnimationState((prev) => ({
         ...prev,
-        state: ANIMATION_STATES.PROJECT_FOCUSED,
-        crystalForm: 'exploded',
-        cameraState: 'project',
-        focusedFacet: sceneFacetKey,
-        isTransitioning: false,
         scrollProgress,
         zoneInfo: { ...currentZone, zone: 'projects' },
         projectInfo: {
@@ -1016,6 +1011,7 @@ export const useUnifiedAnimationController = (options = {}) => {
     measureProjectSectionsFromDom,
     handleZoneTransition,
     handleProjectFocus,
+    setDirectProjectOverride,
     clearDirectProjectOverride,
     clearDirectZoneOverride,
     onStateChange,
