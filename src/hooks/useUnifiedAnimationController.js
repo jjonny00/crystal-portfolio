@@ -807,7 +807,11 @@ export const useUnifiedAnimationController = (options = {}) => {
       lastProjectKey &&
       nearestSectionId === `project-${lastProjectKey}`;
 
-    if (enteringLastProjectSection) {
+    const directZoneOverride = directZoneOverrideRef.current?.zoneKey ?? null;
+    const allowLastProjectHandoff =
+      !directZoneOverride || directZoneOverride === 'projects';
+
+    if (enteringLastProjectSection && allowLastProjectHandoff) {
       const lastProjectSceneFacet = getSceneFacetKeyByProjectId(lastProjectKey) || lastProjectKey;
       const alreadyFocusedLastProject = animationState.focusedFacet === lastProjectSceneFacet;
 
