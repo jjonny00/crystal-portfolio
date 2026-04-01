@@ -1,12 +1,14 @@
 import React, { useMemo } from 'react';
 import { useThree } from '@react-three/fiber';
-import { Html, Line } from '@react-three/drei';
+import { Line } from '@react-three/drei';
+import { createPortal } from 'react-dom';
 import * as THREE from 'three';
 
 const OverviewConnectorLines = ({
   enabled,
   domAnchorsClient,
   overviewWorldAnchors,
+  inActiveOverview = false,
   labelsReady = false,
   featureFlagEnabled = false,
   color = 'rgba(255,255,255,0.72)',
@@ -106,58 +108,54 @@ const OverviewConnectorLines = ({
   const firstConnector = connectorDebug.validPairs[0] || null;
   const formatPoint = (point) => (point ? `${point.x.toFixed(2)}, ${point.y.toFixed(2)}, ${point.z.toFixed(2)}` : 'n/a');
 
+  const debugPanel = inActiveOverview && typeof document !== 'undefined'
+    ? createPortal(
+      <div
+        style={{
+          position: 'fixed',
+          top: '16px',
+          right: '16px',
+          zIndex: 9999,
+          background: 'rgba(0,0,0,0.8)',
+          color: '#fff',
+          fontSize: '12px',
+          padding: '8px',
+          pointerEvents: 'none',
+          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+          lineHeight: 1.35,
+          whiteSpace: 'pre-wrap',
+          borderRadius: 6,
+        }}
+      >
+        <div><strong>OverviewConnectorLines Debug</strong></div>
+        <div>mounted: {String(debugSnapshot.mounted)}</div>
+        <div>labelsReady: {String(debugSnapshot.labelsReady)}</div>
+        <div>featureFlagEnabled: {String(debugSnapshot.featureFlagEnabled)}</div>
+        <div>domAnchorCount: {debugSnapshot.domAnchorCount}</div>
+        <div>worldAnchorCount: {debugSnapshot.worldAnchorCount}</div>
+        <div>validConnectorPairs: {debugSnapshot.validConnectorPairs}</div>
+        <div>attemptedRenderLines: {debugSnapshot.attemptedRenderLines}</div>
+        <div>forcedSingleDebugConnectorActive: {String(debugSnapshot.forcedSingleDebugConnectorActive)}</div>
+        {firstConnector ? (
+          <>
+            <div style={{ marginTop: 6 }}>firstValidKey: {firstConnector.facetKey}</div>
+            <div>start: {formatPoint(firstConnector.points?.[0])}</div>
+            <div>end: {formatPoint(firstConnector.points?.[1])}</div>
+            <div>projectedEndpointValid: true</div>
+          </>
+        ) : (
+          <div style={{ marginTop: 6 }}>
+            firstFailureReason: {debugSnapshot.skipped[0]?.reason || 'no valid pairs'}
+          </div>
+        )}
+      </div>,
+      document.body,
+    )
+    : null;
+
   return (
     <>
-      {import.meta.env.DEV && (
-        <Html
-          fullscreen
-          style={{
-            position: 'fixed',
-            top: '12px',
-            right: '12px',
-            pointerEvents: 'none',
-            zIndex: 9999,
-          }}
-        >
-          <div
-            style={{
-              minWidth: 290,
-              maxWidth: 360,
-              background: 'rgba(0,0,0,0.82)',
-              color: '#f7f7f7',
-              border: '1px solid rgba(255,255,255,0.25)',
-              borderRadius: 8,
-              padding: '10px 12px',
-              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-              fontSize: 11,
-              lineHeight: 1.35,
-              whiteSpace: 'pre-wrap',
-            }}
-          >
-            <div><strong>OverviewConnectorLines Debug</strong></div>
-            <div>mounted: {String(debugSnapshot.mounted)}</div>
-            <div>labelsReady: {String(debugSnapshot.labelsReady)}</div>
-            <div>featureFlagEnabled: {String(debugSnapshot.featureFlagEnabled)}</div>
-            <div>domAnchorCount: {debugSnapshot.domAnchorCount}</div>
-            <div>worldAnchorCount: {debugSnapshot.worldAnchorCount}</div>
-            <div>validConnectorPairs: {debugSnapshot.validConnectorPairs}</div>
-            <div>attemptedRenderLines: {debugSnapshot.attemptedRenderLines}</div>
-            <div>forcedSingleDebugConnectorActive: {String(debugSnapshot.forcedSingleDebugConnectorActive)}</div>
-            {firstConnector ? (
-              <>
-                <div style={{ marginTop: 6 }}>firstValidKey: {firstConnector.facetKey}</div>
-                <div>start: {formatPoint(firstConnector.points?.[0])}</div>
-                <div>end: {formatPoint(firstConnector.points?.[1])}</div>
-                <div>projectedEndpointValid: true</div>
-              </>
-            ) : (
-              <div style={{ marginTop: 6 }}>
-                firstFailureReason: {debugSnapshot.skipped[0]?.reason || 'no valid pairs'}
-              </div>
-            )}
-          </div>
-        </Html>
-      )}
+      {debugPanel}
 
       {firstConnector && (
         <Line
