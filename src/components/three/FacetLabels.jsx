@@ -33,13 +33,21 @@ const OptimizedLabel = React.memo(function OptimizedLabel({
       }}
     >
       <div ref={titleRef}>
-        <Headline
-          as="h3"
-          className="label-title"
-          style={{ margin: 0 }}
-        >
-          {project.label}
-        </Headline>
+        <div className="label-title-stack">
+          <Headline
+            as="h3"
+            className="label-title"
+            style={{ margin: 0 }}
+          >
+            {project.label}
+          </Headline>
+          <span
+            className="label-title-fill-overlay"
+            aria-hidden="true"
+          >
+            {project.label}
+          </span>
+        </div>
       </div>
       <div className="label-description">{project.tagline}</div>
     </div>
