@@ -2077,6 +2077,7 @@ const UnifiedCrystalScene = forwardRef(({
         performanceProfile={performanceProfile}
         anchorOffsets={anchorOffsets}
         onDomAnchorChange={handleDomAnchorChange}
+        activeSceneFacetKey={hoveredFacet}
       />
 
       <HoverConnectorLine

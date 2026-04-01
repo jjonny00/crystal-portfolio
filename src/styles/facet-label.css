@@ -17,6 +17,81 @@
   text-transform: uppercase;
 }
 
+.label-title-stack {
+  display: inline-grid;
+  grid-template-areas: "stack";
+  position: relative;
+  place-items: start;
+  isolation: isolate;
+}
+
+.label-title-stack > * {
+  grid-area: stack;
+}
+
+.label-title-base {
+  --headline-ink: #ffffff;
+  --headline-glow1: rgba(255, 255, 255, 0.55);
+  --headline-glow2: rgba(255, 255, 255, 0.28);
+}
+
+.label-title-overlay {
+  z-index: 3;
+  pointer-events: none;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  background-image: linear-gradient(
+    90deg,
+    var(--title-fill-color) 0%,
+    var(--title-fill-color) 100%
+  );
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  clip-path: inset(0 100% 0 0);
+  transition-property: clip-path;
+  transition-duration: var(--title-fill-out-ms, 900ms);
+  transition-timing-function: var(
+    --title-fill-out-ease,
+    cubic-bezier(0.16, 1, 0.3, 1)
+  );
+  will-change: clip-path;
+}
+
+.label-title-overlay,
+.label-title-overlay.headline-70s,
+.label-title-overlay.headline-70s::before,
+.label-title-overlay.headline-70s::after {
+  text-shadow: none !important;
+  filter: none !important;
+  mix-blend-mode: normal !important;
+}
+
+.label-title-overlay.headline-70s::before,
+.label-title-overlay.headline-70s::after {
+  content: none !important;
+}
+
+.facet-label-optimized:hover .label-title-overlay,
+.facet-label-optimized[data-active="true"] .label-title-overlay {
+  clip-path: inset(0 0 0 0);
+  transition-duration: var(--title-fill-in-ms, 160ms);
+  transition-timing-function: var(
+    --title-fill-in-ease,
+    cubic-bezier(0.22, 1, 0.36, 1)
+  );
+}
+
+@supports (mask-image: linear-gradient(black, transparent)) {
+  .label-title-overlay {
+    mask-image: linear-gradient(90deg, #000 0%, #000 92%, transparent 100%);
+    mask-repeat: no-repeat;
+    mask-position: left center;
+    mask-size: 100% 100%;
+  }
+}
+
 .label-description {
   margin-top: 0.25rem;
   font-family: "acumin-variable", "Acumin VF", sans-serif;
@@ -39,5 +114,11 @@
     margin-top: 0.1rem;
     font-size: clamp(1rem, 4.2vw, 1.15rem);
     line-height: 1.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .label-title-overlay {
+    transition-duration: 0ms;
   }
 }
