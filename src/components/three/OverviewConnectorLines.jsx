@@ -21,6 +21,7 @@ const OverviewConnectorLines = ({
   const RELAX_DURATION = 0.5;
   const MAX_DROOP_WORLD_UNITS = 0.3;
   const MIN_DROOP_WORLD_UNITS = 0.02;
+  const CONTROL_POINT_DROOP_MULTIPLIER = 1.85;
   const CURVE_SAMPLES = 14;
 
   useEffect(() => {
@@ -180,7 +181,10 @@ const OverviewConnectorLines = ({
         MAX_DROOP_WORLD_UNITS,
       );
       const midpoint = start.clone().lerp(end, 0.5);
-      const controlPoint = midpoint.addScaledVector(droopDirection, sagDistance);
+      const controlPoint = midpoint.addScaledVector(
+        droopDirection,
+        sagDistance * CONTROL_POINT_DROOP_MULTIPLIER,
+      );
 
       const curvePoints = [];
       for (let i = 0; i <= CURVE_SAMPLES; i += 1) {
