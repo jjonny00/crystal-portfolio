@@ -5,121 +5,68 @@ import * as THREE from 'three';
 
 const OverviewConnectorLines = ({
   enabled,
-  connectorFacetKey,
-  alwaysOnDomAnchorClient,
+  resolvedConnectorPairs,
+  alwaysOnDomAnchorsByRuntimeKey,
   overviewWorldAnchors,
   color = '#ff0000',
-  onDiagnosticChange,
 }) => {
   const { camera, size } = useThree();
 
   useEffect(() => {
     console.log('[OverviewConnectorLines mounted]', {
       enabled,
-      connectorFacetKey,
-      alwaysOnDomAnchorClientExists: Boolean(alwaysOnDomAnchorClient),
+      resolvedConnectorPairsCount: resolvedConnectorPairs?.length ?? 0,
+      alwaysOnDomAnchorsCount: Object.keys(alwaysOnDomAnchorsByRuntimeKey || {}).length,
       overviewWorldAnchorsExists: Boolean(overviewWorldAnchors),
     });
   }, []);
 
-  const points = useMemo(() => {
-    if (!enabled || !connectorFacetKey || !alwaysOnDomAnchorClient || !overviewWorldAnchors) {
-      onDiagnosticChange?.({
-        connectorFacetKey,
-        worldAnchorFound: Boolean(connectorFacetKey && overviewWorldAnchors?.[connectorFacetKey]),
-        projectedEndpointValid: false,
-      });
-      if (import.meta.env.DEV) {
-        console.log('🔗 overview connector status', {
-          connectorFacetKey,
-          labelDomNodeFound: Boolean(alwaysOnDomAnchorClient),
-          alwaysOnDomAnchorMeasured: Boolean(alwaysOnDomAnchorClient),
-          worldAnchorFound: Boolean(connectorFacetKey && overviewWorldAnchors?.[connectorFacetKey]),
-          projectedEndpointValid: false,
-        });
-      }
-      return null;
-    }
-    const start = overviewWorldAnchors[connectorFacetKey];
-    if (!start) {
-      onDiagnosticChange?.({
-        connectorFacetKey,
-        worldAnchorFound: false,
-        projectedEndpointValid: false,
-      });
-      if (import.meta.env.DEV) {
-        console.log('🔗 overview connector status', {
-          connectorFacetKey,
-          labelDomNodeFound: true,
-          alwaysOnDomAnchorMeasured: true,
-          worldAnchorFound: false,
-          projectedEndpointValid: false,
-        });
-      }
-      return null;
-    }
+  const connectors = useMemo(() => {
+    if (!enabled || !resolvedConnectorPairs?.length || !overviewWorldAnchors) return [];
+
     const width = size.width || 1;
     const height = size.height || 1;
-    const ndc = new THREE.Vector2(
-      (alwaysOnDomAnchorClient.x / width) * 2 - 1,
-      -(alwaysOnDomAnchorClient.y / height) * 2 + 1,
-    );
-
     const raycaster = new THREE.Raycaster();
-    raycaster.setFromCamera(ndc, camera);
-
     const planeNormal = new THREE.Vector3();
     camera.getWorldDirection(planeNormal);
-    const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(planeNormal, start);
 
-    const end = new THREE.Vector3();
-    const intersected = raycaster.ray.intersectPlane(plane, end);
-    if (!intersected) {
-      onDiagnosticChange?.({
-        connectorFacetKey,
-        worldAnchorFound: true,
-        projectedEndpointValid: false,
-      });
-      if (import.meta.env.DEV) {
-        console.log('🔗 overview connector status', {
-          connectorFacetKey,
-          labelDomNodeFound: true,
-          alwaysOnDomAnchorMeasured: true,
-          worldAnchorFound: true,
-          projectedEndpointValid: false,
-        });
-      }
-      return null;
-    }
+    return resolvedConnectorPairs.flatMap(({ runtimeDomKey, sceneWorldKey }) => {
+      const domAnchor = alwaysOnDomAnchorsByRuntimeKey?.[runtimeDomKey];
+      const start = overviewWorldAnchors?.[sceneWorldKey];
+      if (!domAnchor || !start) return [];
 
-    onDiagnosticChange?.({
-      connectorFacetKey,
-      worldAnchorFound: true,
-      projectedEndpointValid: true,
+      const ndc = new THREE.Vector2(
+        (domAnchor.x / width) * 2 - 1,
+        -(domAnchor.y / height) * 2 + 1,
+      );
+      raycaster.setFromCamera(ndc, camera);
+      const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(planeNormal, start);
+      const end = new THREE.Vector3();
+      const intersected = raycaster.ray.intersectPlane(plane, end);
+      if (!intersected) return [];
+
+      return [{
+        key: `${runtimeDomKey}__${sceneWorldKey}`,
+        points: [start.clone(), end.clone()],
+      }];
     });
-    if (import.meta.env.DEV) {
-      console.log('🔗 overview connector status', {
-        connectorFacetKey,
-        labelDomNodeFound: true,
-        alwaysOnDomAnchorMeasured: true,
-        worldAnchorFound: true,
-        projectedEndpointValid: true,
-      });
-    }
+  }, [enabled, resolvedConnectorPairs, alwaysOnDomAnchorsByRuntimeKey, overviewWorldAnchors, camera, size.width, size.height]);
 
-    return [start.clone(), end.clone()];
-  }, [enabled, connectorFacetKey, alwaysOnDomAnchorClient, overviewWorldAnchors, camera, size.width, size.height, onDiagnosticChange]);
-
-  if (!points) return null;
+  if (!connectors.length) return null;
 
   return (
-    <Line
-      points={points}
-      color={color}
-      lineWidth={1.8}
-      depthTest={false}
-      transparent={false}
-    />
+    <>
+      {connectors.map((connector) => (
+        <Line
+          key={connector.key}
+          points={connector.points}
+          color={color}
+          lineWidth={1.8}
+          depthTest={false}
+          transparent={false}
+        />
+      ))}
+    </>
   );
 };
 

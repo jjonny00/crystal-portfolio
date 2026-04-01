@@ -44,7 +44,6 @@ const REFORM_MASK_GLOW_PEAK_INTENSITY = 1.5
 const REFORM_FACET_MASK_GLOW_PEAK_INTENSITY = 1.3
 const REFORM_SWAP_OVERLAP_MS = 100
 const ENABLE_OVERVIEW_ALL_CONNECTORS = true
-const OVERVIEW_DEBUG_CONNECTOR_KEY = 'empathy'
 
 const UnifiedCrystalScene = forwardRef(({ 
   animationData,
@@ -103,10 +102,9 @@ const UnifiedCrystalScene = forwardRef(({
     animationData?.crystalForm === 'exploded' &&
     animationData?.isTransitioning === false;
 
-  const [alwaysOnDomAnchorClient, setAlwaysOnDomAnchorClient] = useState(null);
+  const [alwaysOnDomAnchorsByRuntimeKey, setAlwaysOnDomAnchorsByRuntimeKey] = useState({});
   const [labelsReady, setLabelsReady] = useState(false);
   const [facetsSettled, setFacetsSettled] = useState(false);
-  const [connectorProjectedEndpointValid, setConnectorProjectedEndpointValid] = useState(false);
   const facetsSettledRef = useRef(false);
   const { layout } = useLayoutConfig();
   const hoverCapable = useHoverCapable();
@@ -114,8 +112,18 @@ const UnifiedCrystalScene = forwardRef(({
   const overviewWorldAnchors = layout?.anchors?.overviewWorld;
   const layoutCamera = layout?.camera;
   const layoutProjects = layout?.projects;
-  const overviewDebugSceneKey = OVERVIEW_DEBUG_CONNECTOR_KEY;
-  const overviewDebugRuntimeKey = getProjectIdBySceneFacetKey(overviewDebugSceneKey) || overviewDebugSceneKey;
+  const resolvedConnectorPairs = useMemo(() => {
+    const pairs = projects
+      .map((project) => {
+        const runtimeDomKey = project.facetKey || project.id;
+        const sceneWorldKey = getSceneFacetKeyByProjectId(runtimeDomKey);
+        if (!runtimeDomKey || !sceneWorldKey) return null;
+        return { runtimeDomKey, sceneWorldKey };
+      })
+      .filter(Boolean);
+
+    return pairs;
+  }, []);
 
   const mergedConfig = useMemo(() => {
     const nextConfig = { ...config };
@@ -905,7 +913,7 @@ const UnifiedCrystalScene = forwardRef(({
 
   useEffect(() => {
     if (inActiveOverview) return;
-    setAlwaysOnDomAnchorClient(null);
+    setAlwaysOnDomAnchorsByRuntimeKey({});
     setLabelsReady(false);
     facetsSettledRef.current = false;
     setFacetsSettled(false);
@@ -914,151 +922,43 @@ const UnifiedCrystalScene = forwardRef(({
   useEffect(() => {
     if (!inActiveOverview || !labelsReady) return undefined;
 
-    const connectorSceneKey = overviewDebugSceneKey;
-    const connectorRuntimeKey = overviewDebugRuntimeKey;
-    const selector = `[data-facet-key="${connectorRuntimeKey}"]`;
+    const measureAllAnchors = () => {
+      const nextAnchors = {};
+      let domFoundCount = 0;
+      let worldFoundCount = 0;
 
-    const measureAlwaysOnAnchor = () => {
-      const labelNode = document.querySelector(selector);
-      const hasLabelNode = Boolean(labelNode);
-      const worldAnchor = overviewWorldAnchors?.[connectorSceneKey];
-      const hasWorldAnchor = Boolean(worldAnchor);
-
-      if (!labelNode) {
-        setAlwaysOnDomAnchorClient(null);
-        if (import.meta.env.DEV) {
-          console.log('🔗 always-on connector anchor measure', {
-            runtimeDomKey: connectorRuntimeKey,
-            connectorFacetKey: connectorSceneKey,
-            labelDomNodeFound: false,
-            alwaysOnDomAnchorMeasured: false,
-            worldAnchorFound: hasWorldAnchor,
-          });
+      resolvedConnectorPairs.forEach(({ runtimeDomKey, sceneWorldKey }) => {
+        const node = document.querySelector(`[data-facet-key="${runtimeDomKey}"]`);
+        if (node) {
+          const rect = node.getBoundingClientRect();
+          nextAnchors[runtimeDomKey] = {
+            x: rect.left,
+            y: rect.top + rect.height * 0.5,
+          };
+          domFoundCount += 1;
         }
-        return;
-      }
-
-      const rect = labelNode.getBoundingClientRect();
-      const anchor = {
-        x: rect.left,
-        y: rect.top + rect.height * 0.5,
-      };
-      setAlwaysOnDomAnchorClient(anchor);
-      console.log('[always-on anchor set]', {
-        runtimeDomKey: connectorRuntimeKey,
-        sceneKey: connectorSceneKey,
-        anchor,
+        if (overviewWorldAnchors?.[sceneWorldKey]) {
+          worldFoundCount += 1;
+        }
       });
-      if (import.meta.env.DEV) {
-        console.log('🔗 always-on connector anchor measure', {
-          runtimeDomKey: connectorRuntimeKey,
-          connectorFacetKey: connectorSceneKey,
-          labelDomNodeFound: hasLabelNode,
-          alwaysOnDomAnchorMeasured: true,
-          worldAnchorFound: hasWorldAnchor,
-          anchor,
-        });
-      }
+
+      setAlwaysOnDomAnchorsByRuntimeKey(nextAnchors);
+      console.groupCollapsed('[overview connector pairs]');
+      console.log('resolvedConnectorPairs', resolvedConnectorPairs);
+      console.log('resolvedPairCount', resolvedConnectorPairs.length);
+      console.log('domAnchorsMeasuredCount', Object.keys(nextAnchors).length);
+      console.log('worldAnchorsFoundCount', worldFoundCount);
+      console.log('domNodesFoundCount', domFoundCount);
+      console.groupEnd();
     };
 
-    const raf = requestAnimationFrame(measureAlwaysOnAnchor);
-    window.addEventListener('resize', measureAlwaysOnAnchor);
+    const raf = requestAnimationFrame(measureAllAnchors);
+    window.addEventListener('resize', measureAllAnchors);
     return () => {
       cancelAnimationFrame(raf);
-      window.removeEventListener('resize', measureAlwaysOnAnchor);
+      window.removeEventListener('resize', measureAllAnchors);
     };
-  }, [inActiveOverview, labelsReady, overviewDebugRuntimeKey, overviewDebugSceneKey, overviewWorldAnchors]);
-
-  useEffect(() => {
-    if (!inActiveOverview) return;
-
-    const connectorSceneKey = overviewDebugSceneKey;
-    const connectorRuntimeKey = overviewDebugRuntimeKey;
-    const domKeyEls = Array.from(document.querySelectorAll('[data-facet-key]'));
-    const domKeys = domKeyEls
-      .map((el) => el.getAttribute('data-facet-key'))
-      .filter(Boolean);
-    const worldKeys = Object.keys(overviewWorldAnchors || {});
-    const domNodeFoundForChosenKey = Boolean(
-      document.querySelector(`[data-facet-key="${connectorRuntimeKey}"]`),
-    );
-
-    console.groupCollapsed('[always-on connector preflight]');
-    console.log('inActiveOverview', inActiveOverview);
-    console.log('labelsReady', labelsReady);
-    console.log('facetsSettled', facetsSettled);
-    console.log('alwaysOnDomAnchorClient exists', Boolean(alwaysOnDomAnchorClient));
-    console.log('chosen debug key pair', {
-      runtimeDomKey: connectorRuntimeKey,
-      sceneWorldKey: connectorSceneKey,
-    });
-    console.log('DOM node found for chosen key', domNodeFoundForChosenKey);
-    console.log('DOM keys array', domKeys);
-    console.log('world anchor keys array', worldKeys);
-    console.log('chosen key present in DOM keys', domKeys.includes(connectorRuntimeKey));
-    console.log('chosen key present in world anchor keys', worldKeys.includes(connectorSceneKey));
-    console.log('resolved pair lookup', {
-      runtimeDomKey: connectorRuntimeKey,
-      sceneWorldKey: connectorSceneKey,
-      domNodeFound: domNodeFoundForChosenKey,
-      worldAnchorFound: worldKeys.includes(connectorSceneKey),
-    });
-    console.groupEnd();
-  }, [
-    alwaysOnDomAnchorClient,
-    facetsSettled,
-    inActiveOverview,
-    labelsReady,
-    overviewDebugRuntimeKey,
-    overviewDebugSceneKey,
-    overviewWorldAnchors,
-  ]);
-
-  useEffect(() => {
-    if (!inActiveOverview || !labelsReady) return;
-
-    const connectorSceneKey = overviewDebugSceneKey;
-    const connectorRuntimeKey = overviewDebugRuntimeKey;
-    const domKeyEls = Array.from(document.querySelectorAll('[data-facet-key]'));
-    const domKeys = domKeyEls
-      .map((el) => el.getAttribute('data-facet-key'))
-      .filter(Boolean);
-    const worldKeys = Object.keys(overviewWorldAnchors || {});
-    const labelDomNodeFound = domKeys.includes(connectorRuntimeKey);
-    const worldAnchorFound = worldKeys.includes(connectorSceneKey);
-
-    console.groupCollapsed('🔎 Overview connector diagnostic');
-    console.log('DOM keys', domKeys);
-    console.log('World anchor keys', worldKeys);
-    console.log('Chosen key pair', {
-      runtimeDomKey: connectorRuntimeKey,
-      sceneWorldKey: connectorSceneKey,
-    });
-    console.log('Chosen key exists', {
-      inDomKeys: labelDomNodeFound,
-      inWorldAnchorKeys: worldAnchorFound,
-    });
-    console.log('Missing-link status', {
-      labelsReady,
-      facetsSettled,
-      labelDomNodeFound,
-      alwaysOnDomAnchorClient,
-      runtimeDomKey: connectorRuntimeKey,
-      connectorFacetKey: connectorSceneKey,
-      worldAnchorFound,
-      projectedEndpointValid: connectorProjectedEndpointValid,
-    });
-    console.groupEnd();
-  }, [
-    alwaysOnDomAnchorClient,
-    connectorProjectedEndpointValid,
-    facetsSettled,
-    inActiveOverview,
-    labelsReady,
-    overviewDebugRuntimeKey,
-    overviewDebugSceneKey,
-    overviewWorldAnchors,
-  ]);
+  }, [inActiveOverview, labelsReady, overviewWorldAnchors, resolvedConnectorPairs]);
 
   
   // Keyboard listener for debug toggle
@@ -2234,7 +2134,7 @@ const UnifiedCrystalScene = forwardRef(({
         animationData={animationData}
         performanceProfile={performanceProfile}
         anchorOffsets={anchorOffsets}
-        alwaysOnFacetKey={overviewDebugRuntimeKey}
+        alwaysOnFacetKey={resolvedConnectorPairs[0]?.runtimeDomKey}
         onLabelsReadyChange={setLabelsReady}
       />
 
@@ -2243,14 +2143,11 @@ const UnifiedCrystalScene = forwardRef(({
           enabled={
             inActiveOverview &&
             labelsReady &&
-            Boolean(alwaysOnDomAnchorClient)
+            Object.keys(alwaysOnDomAnchorsByRuntimeKey).length > 0
           }
-          connectorFacetKey={overviewDebugSceneKey}
-          alwaysOnDomAnchorClient={alwaysOnDomAnchorClient}
+          resolvedConnectorPairs={resolvedConnectorPairs}
+          alwaysOnDomAnchorsByRuntimeKey={alwaysOnDomAnchorsByRuntimeKey}
           overviewWorldAnchors={overviewWorldAnchors}
-          onDiagnosticChange={({ projectedEndpointValid }) => {
-            setConnectorProjectedEndpointValid(Boolean(projectedEndpointValid));
-          }}
         />
       )}
 
