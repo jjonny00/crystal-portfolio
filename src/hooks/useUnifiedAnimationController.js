@@ -803,31 +803,35 @@ export const useUnifiedAnimationController = (options = {}) => {
 
 
     const lastProjectKey = orderedProjectKeys[orderedProjectKeys.length - 1] || null;
-    const aboutToLastProjectHandoff =
-      lastZone.current === 'about' &&
+    const enteringLastProjectSection =
       lastProjectKey &&
       nearestSectionId === `project-${lastProjectKey}`;
 
-    if (aboutToLastProjectHandoff) {
-      if (container && Number.isFinite(nearestSectionTop)) {
-        container.scrollTop = nearestSectionTop;
+    if (enteringLastProjectSection) {
+      const lastProjectSceneFacet = getSceneFacetKeyByProjectId(lastProjectKey) || lastProjectKey;
+      const alreadyFocusedLastProject = animationState.focusedFacet === lastProjectSceneFacet;
+
+      if (!alreadyFocusedLastProject) {
+        if (container && Number.isFinite(nearestSectionTop)) {
+          container.scrollTop = nearestSectionTop;
+        }
+
+        setDirectProjectOverride(lastProjectKey);
+        lastZone.current = 'projects';
+        lastProject.current = lastProjectKey;
+
+        setAnimationState((prev) => ({
+          ...prev,
+          scrollProgress,
+          zoneInfo: { ...currentZone, zone: 'projects' },
+          projectInfo: {
+            project: lastProjectKey,
+            progress: activeProject.progress ?? prev.projectInfo?.progress ?? 0,
+          },
+        }));
+
+        return;
       }
-
-      setDirectProjectOverride(lastProjectKey);
-      lastZone.current = 'projects';
-      lastProject.current = lastProjectKey;
-
-      setAnimationState((prev) => ({
-        ...prev,
-        scrollProgress,
-        zoneInfo: { ...currentZone, zone: 'projects' },
-        projectInfo: {
-          project: lastProjectKey,
-          progress: activeProject.progress ?? prev.projectInfo?.progress ?? 0,
-        },
-      }));
-
-      return;
     }
 
     // When DOM clearly indicates a project section, keep projects-zone progress
