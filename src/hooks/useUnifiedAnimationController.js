@@ -318,6 +318,7 @@ export const useUnifiedAnimationController = (options = {}) => {
   const directProjectReleaseTimeoutRef = useRef(null);
   const runtimeProjectSectionsRef = useRef([]);
   const aboutToProjectsLockUntilRef = useRef(0);
+  const lastProjectHandoffTimeoutRef = useRef(null);
 
   const getRuntimeProjectSection = useCallback((projectKey) => {
     if (!projectKey) return null;
@@ -820,12 +821,22 @@ export const useUnifiedAnimationController = (options = {}) => {
           container.scrollTop = nearestSectionTop;
         }
 
-        setDirectProjectOverride(lastProjectKey);
-        lastZone.current = 'projects';
-        lastProject.current = lastProjectKey;
+        const delayMs = (config.crystal.fracturePause || 0.5) * 1000;
+
+        if (!lastProjectHandoffTimeoutRef.current) {
+          lastProjectHandoffTimeoutRef.current = setTimeout(() => {
+            lastProjectHandoffTimeoutRef.current = null;
+            setDirectProjectOverride(lastProjectKey);
+          }, delayMs);
+        }
 
         setAnimationState((prev) => ({
           ...prev,
+          state: ANIMATION_STATES.PROJECT_FOCUSED,
+          crystalForm: 'exploded',
+          cameraState: 'about',
+          focusedFacet: null,
+          isTransitioning: false,
           scrollProgress,
           zoneInfo: { ...currentZone, zone: 'projects' },
           projectInfo: {
@@ -836,6 +847,9 @@ export const useUnifiedAnimationController = (options = {}) => {
 
         return;
       }
+    } else if (lastProjectHandoffTimeoutRef.current) {
+      clearTimeout(lastProjectHandoffTimeoutRef.current);
+      lastProjectHandoffTimeoutRef.current = null;
     }
 
     // When DOM clearly indicates a project section, keep projects-zone progress
@@ -1124,6 +1138,9 @@ export const useUnifiedAnimationController = (options = {}) => {
       }
       if (cameraDelayTimeout.current) {
          clearTimeout(cameraDelayTimeout.current);
+      }
+      if (lastProjectHandoffTimeoutRef.current) {
+        clearTimeout(lastProjectHandoffTimeoutRef.current);
       }
     };
   }, [clearIntroPreview]);
