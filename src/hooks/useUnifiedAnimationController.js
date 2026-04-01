@@ -860,7 +860,7 @@ export const useUnifiedAnimationController = (options = {}) => {
           // Coming from projects and we're right at the boundary—still transition
           shouldChangeZone = true;
         }
-      } else if (currentZone.zone === 'projects' && currentZone.progress >= projectsZoneHysteresis && currentZone.progress < (1 - projectsZoneHysteresis)) {
+      } else if (currentZone.zone === 'projects' && currentZone.progress >= projectsZoneHysteresis && currentZone.progress <= (1 - projectsZoneHysteresis)) {
         shouldChangeZone = true;
       } else if (currentZone.zone === 'about' && currentZone.progress > hysteresis) {
         shouldChangeZone = true;
