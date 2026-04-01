@@ -101,6 +101,7 @@ const UnifiedCrystalScene = forwardRef(({
     animationData?.currentZone === 'overview' &&
     animationData?.crystalForm === 'exploded' &&
     animationData?.isTransitioning === false;
+  const cameraSettled = animationData?.cameraSettled === true;
 
   const [alwaysOnDomAnchorsByRuntimeKey, setAlwaysOnDomAnchorsByRuntimeKey] = useState({});
   const [labelsReady, setLabelsReady] = useState(false);
@@ -922,7 +923,7 @@ const UnifiedCrystalScene = forwardRef(({
   }, [inActiveOverview]);
 
   useEffect(() => {
-    if (!inActiveOverview || !labelsReady) return undefined;
+    if (!inActiveOverview || !labelsReady || !cameraSettled) return undefined;
 
     const measureAllAnchors = () => {
       const nextAnchors = {};
@@ -951,6 +952,7 @@ const UnifiedCrystalScene = forwardRef(({
       console.log('domAnchorsMeasuredCount', Object.keys(nextAnchors).length);
       console.log('worldAnchorsFoundCount', worldFoundCount);
       console.log('domNodesFoundCount', domFoundCount);
+      console.log('cameraSettled', cameraSettled);
       console.groupEnd();
     };
 
@@ -960,7 +962,7 @@ const UnifiedCrystalScene = forwardRef(({
       cancelAnimationFrame(raf);
       window.removeEventListener('resize', measureAllAnchors);
     };
-  }, [inActiveOverview, labelsReady, overviewWorldAnchors, resolvedConnectorPairs]);
+  }, [cameraSettled, inActiveOverview, labelsReady, overviewWorldAnchors, resolvedConnectorPairs]);
 
   
   // Keyboard listener for debug toggle
@@ -2145,6 +2147,8 @@ const UnifiedCrystalScene = forwardRef(({
           enabled={
             inActiveOverview &&
             labelsReady &&
+            facetsSettled &&
+            cameraSettled &&
             Object.keys(alwaysOnDomAnchorsByRuntimeKey).length > 0
           }
           resolvedConnectorPairs={resolvedConnectorPairs}
