@@ -15,7 +15,7 @@ const OverviewConnectorLines = ({
   const [geometryVersion, setGeometryVersion] = useState(0);
   const connectorAnimationRef = useRef({});
 
-  const IDLE_DROOP = 0.4;
+  const IDLE_DROOP = 0.52;
   const ACTIVE_DROOP = 0;
   const STRAIGHTEN_DURATION = 0.34;
   const RELAX_DURATION = 0.5;
