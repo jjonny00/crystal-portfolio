@@ -732,6 +732,7 @@ export const useUnifiedAnimationController = (options = {}) => {
       ? activeProjectFromDom
       : calculateActiveProject(scrollProgress, config);
     let nearestSectionId = null;
+    let nearestSectionTop = null;
 
     const now = Date.now();
     const aboutToProjectsLockActive = now < aboutToProjectsLockUntilRef.current;
@@ -768,6 +769,7 @@ export const useUnifiedAnimationController = (options = {}) => {
       });
 
       nearestSectionId = nearestSection?.id ?? null;
+      nearestSectionTop = nearestSection?.offsetTop ?? null;
       const domZone = nearestSectionId === 'hero'
         ? 'hero'
         : nearestSectionId === 'overview'
@@ -799,6 +801,34 @@ export const useUnifiedAnimationController = (options = {}) => {
       }
     }
 
+
+    const lastProjectKey = orderedProjectKeys[orderedProjectKeys.length - 1] || null;
+    const aboutToLastProjectHandoff =
+      lastZone.current === 'about' &&
+      lastProjectKey &&
+      nearestSectionId === `project-${lastProjectKey}`;
+
+    if (aboutToLastProjectHandoff) {
+      if (container && Number.isFinite(nearestSectionTop)) {
+        container.scrollTop = nearestSectionTop;
+      }
+
+      setDirectProjectOverride(lastProjectKey);
+      lastZone.current = 'projects';
+      lastProject.current = lastProjectKey;
+
+      setAnimationState((prev) => ({
+        ...prev,
+        scrollProgress,
+        zoneInfo: { ...currentZone, zone: 'projects' },
+        projectInfo: {
+          project: lastProjectKey,
+          progress: activeProject.progress ?? prev.projectInfo?.progress ?? 0,
+        },
+      }));
+
+      return;
+    }
 
     // When DOM clearly indicates a project section, keep projects-zone progress
     // aligned to DOM section bounds so transitions stay stable.
