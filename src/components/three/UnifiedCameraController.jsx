@@ -238,15 +238,27 @@ const UnifiedCameraController = ({
             source: 'anchor'
           };
         } else {
-          if (import.meta.env.DEV) {
-            console.warn(`⚠️ Camera Controller: No anchor found for ${focusedFacet}, freezing config target for this move`);
-          }
+          const canSafelyFallbackToConfig = animationData?.crystalForm === 'exploded';
 
-          projectTargetLockRef.current = {
-            facetKey: focusedFacet,
-            target: cameraConfig?.target ? cameraConfig.target.clone() : null,
-            source: 'config'
-          };
+          if (canSafelyFallbackToConfig) {
+            if (import.meta.env.DEV) {
+              console.warn(`⚠️ Camera Controller: No anchor found for ${focusedFacet}, freezing config target for this move`);
+            }
+
+            projectTargetLockRef.current = {
+              facetKey: focusedFacet,
+              target: cameraConfig?.target ? cameraConfig.target.clone() : null,
+              source: 'config'
+            };
+          } else {
+            // During whole->exploded transitions, avoid freezing a config target.
+            // Keep retrying anchor lookup until facets are in exploded state.
+            projectTargetLockRef.current = {
+              facetKey: focusedFacet,
+              target: null,
+              source: 'pending'
+            };
+          }
         }
       }
 
