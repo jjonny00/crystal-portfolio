@@ -706,7 +706,7 @@ export const useUnifiedAnimationController = (options = {}) => {
     let activeProject = activeProjectFromDom.project
       ? activeProjectFromDom
       : calculateActiveProject(scrollProgress, config);
-
+    let nearestSectionId = null;
 
     const now = Date.now();
     const aboutToProjectsLockActive = now < aboutToProjectsLockUntilRef.current;
@@ -742,7 +742,7 @@ export const useUnifiedAnimationController = (options = {}) => {
         }
       });
 
-      const nearestSectionId = nearestSection?.id ?? null;
+      nearestSectionId = nearestSection?.id ?? null;
       const domZone = nearestSectionId === 'hero'
         ? 'hero'
         : nearestSectionId === 'overview'
@@ -772,6 +772,36 @@ export const useUnifiedAnimationController = (options = {}) => {
           progress: Math.max(0, Math.min(sectionProgress, 1))
         };
       }
+    }
+
+    const lastProjectKey = orderedProjectKeys[orderedProjectKeys.length - 1] || null;
+    const aboutToLastProjectDomHandoff =
+      lastZone.current === 'about' &&
+      lastProjectKey &&
+      nearestSectionId === `project-${lastProjectKey}`;
+
+    if (aboutToLastProjectDomHandoff) {
+      const sceneFacetKey = getSceneFacetKeyByProjectId(lastProjectKey) || lastProjectKey;
+
+      lastZone.current = 'projects';
+      lastProject.current = lastProjectKey;
+
+      setAnimationState((prev) => ({
+        ...prev,
+        state: ANIMATION_STATES.PROJECT_FOCUSED,
+        crystalForm: 'exploded',
+        cameraState: 'project',
+        focusedFacet: sceneFacetKey,
+        isTransitioning: false,
+        scrollProgress,
+        zoneInfo: { ...currentZone, zone: 'projects' },
+        projectInfo: {
+          project: lastProjectKey,
+          progress: activeProject.progress ?? prev.projectInfo?.progress ?? 0,
+        },
+      }));
+
+      return;
     }
 
     // When DOM clearly indicates a project section, keep projects-zone progress
