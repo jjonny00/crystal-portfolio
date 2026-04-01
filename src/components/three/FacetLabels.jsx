@@ -14,11 +14,11 @@ const OptimizedLabel = React.memo(function OptimizedLabel({
   isActive = false,
 }) {
   const runtimeKey = project.facetKey || project.id;
-  const transitionDuration = isActive ? '180ms' : '800ms';
 
   return (
     <div
       className="facet-label-optimized"
+      data-active={isActive ? 'true' : 'false'}
       onPointerEnter={() => onHover?.(runtimeKey, true)}
       onPointerLeave={() => onHover?.(runtimeKey, false)}
       onClick={onClick}
@@ -27,7 +27,8 @@ const OptimizedLabel = React.memo(function OptimizedLabel({
         '--headline-glow1': isActive ? project.headlineColor : '#ffffff',
         '--headline-glow2': isActive ? project.headlineColor : '#ffffff',
         '--headline-glow-strength': isActive ? 0.38 : 0.2,
-        '--headline-transition-duration': transitionDuration,
+        '--headline-transition-in': '180ms',
+        '--headline-transition-out': '800ms',
         textAlign: 'left',
         width: '100%',
         cursor: 'pointer'
