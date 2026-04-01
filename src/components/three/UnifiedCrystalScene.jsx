@@ -106,6 +106,7 @@ const UnifiedCrystalScene = forwardRef(({
 
   const [hoveredLabelFacetKey, setHoveredLabelFacetKey] = useState(null);
   const [domAnchorClient, setDomAnchorClient] = useState(null);
+  const [alwaysOnDomAnchorClient, setAlwaysOnDomAnchorClient] = useState(null);
   const [labelsReady, setLabelsReady] = useState(false);
   const { layout } = useLayoutConfig();
   const hoverCapable = useHoverCapable();
@@ -868,6 +869,15 @@ const UnifiedCrystalScene = forwardRef(({
     setDomAnchorClient(clientPointOrNull);
   }, [resolveSceneFacetKey]);
 
+  const handleAlwaysOnDomAnchorChange = useCallback((facetKey, clientPointOrNull) => {
+    if (!clientPointOrNull || resolveSceneFacetKey(facetKey) !== OVERVIEW_DEBUG_CONNECTOR_KEY) {
+      setAlwaysOnDomAnchorClient(null);
+      return;
+    }
+
+    setAlwaysOnDomAnchorClient(clientPointOrNull);
+  }, [resolveSceneFacetKey]);
+
   const handleFacetHover = useCallback(
     (facetKey, hovering) => {
       updateHoverSources(resolveSceneFacetKey(facetKey), 'facet', hovering);
@@ -915,6 +925,7 @@ const UnifiedCrystalScene = forwardRef(({
     if (inActiveOverview) return;
     setHoveredLabelFacetKey(null);
     setDomAnchorClient(null);
+    setAlwaysOnDomAnchorClient(null);
     setLabelsReady(false);
   }, [inActiveOverview]);
 
@@ -2082,6 +2093,8 @@ const UnifiedCrystalScene = forwardRef(({
         performanceProfile={performanceProfile}
         anchorOffsets={anchorOffsets}
         onDomAnchorChange={handleDomAnchorChange}
+        alwaysOnFacetKey={OVERVIEW_DEBUG_CONNECTOR_KEY}
+        onAlwaysOnDomAnchorChange={handleAlwaysOnDomAnchorChange}
         onLabelsReadyChange={setLabelsReady}
       />
 
@@ -2094,9 +2107,9 @@ const UnifiedCrystalScene = forwardRef(({
 
       {ENABLE_OVERVIEW_ALL_CONNECTORS && inActiveOverview && (
         <OverviewConnectorLines
-          enabled={inActiveOverview && labelsReady}
+          enabled={inActiveOverview && labelsReady && Boolean(alwaysOnDomAnchorClient)}
           connectorFacetKey={OVERVIEW_DEBUG_CONNECTOR_KEY}
-          domAnchorClient={domAnchorClient}
+          alwaysOnDomAnchorClient={alwaysOnDomAnchorClient}
           overviewWorldAnchors={overviewWorldAnchors}
         />
       )}

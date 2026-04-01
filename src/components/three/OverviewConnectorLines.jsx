@@ -6,21 +6,21 @@ import * as THREE from 'three';
 const OverviewConnectorLines = ({
   enabled,
   connectorFacetKey,
-  domAnchorClient,
+  alwaysOnDomAnchorClient,
   overviewWorldAnchors,
   color = '#ff0000',
 }) => {
   const { camera, size } = useThree();
 
   const points = useMemo(() => {
-    if (!enabled || !connectorFacetKey || !domAnchorClient || !overviewWorldAnchors) return null;
+    if (!enabled || !connectorFacetKey || !alwaysOnDomAnchorClient || !overviewWorldAnchors) return null;
     const start = overviewWorldAnchors[connectorFacetKey];
     if (!start) return null;
     const width = size.width || 1;
     const height = size.height || 1;
     const ndc = new THREE.Vector2(
-      (domAnchorClient.x / width) * 2 - 1,
-      -(domAnchorClient.y / height) * 2 + 1,
+      (alwaysOnDomAnchorClient.x / width) * 2 - 1,
+      -(alwaysOnDomAnchorClient.y / height) * 2 + 1,
     );
 
     const raycaster = new THREE.Raycaster();
@@ -35,7 +35,7 @@ const OverviewConnectorLines = ({
     if (!intersected) return null;
 
     return [start.clone(), end.clone()];
-  }, [enabled, connectorFacetKey, domAnchorClient, overviewWorldAnchors, camera, size.width, size.height]);
+  }, [enabled, connectorFacetKey, alwaysOnDomAnchorClient, overviewWorldAnchors, camera, size.width, size.height]);
 
   if (!points) return null;
 

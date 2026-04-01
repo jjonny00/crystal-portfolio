@@ -97,6 +97,8 @@ const FacetLabels = React.memo(function FacetLabels({
   animationData,
   performanceProfile,
   onDomAnchorChange,
+  alwaysOnFacetKey,
+  onAlwaysOnDomAnchorChange,
   onLabelsReadyChange,
 }) {
   const { camera, size } = useThree();
@@ -130,6 +132,18 @@ const FacetLabels = React.memo(function FacetLabels({
       y: rect.top + rect.height * 0.5,
     });
   }, [hoverCapable, onDomAnchorChange]);
+
+  const emitAlwaysOnDomAnchorPoint = useCallback((facetKey) => {
+    if (!onAlwaysOnDomAnchorChange || !facetKey) return;
+    const titleEl = titleRefs.current.get(facetKey);
+    if (!titleEl) return;
+
+    const rect = titleEl.getBoundingClientRect();
+    onAlwaysOnDomAnchorChange(facetKey, {
+      x: rect.left,
+      y: rect.top + rect.height * 0.5,
+    });
+  }, [onAlwaysOnDomAnchorChange]);
 
   const calculateAnchorPositions = useCallback(() => {
     if (!overviewWorld) {
@@ -169,6 +183,7 @@ const FacetLabels = React.memo(function FacetLabels({
       setVisible(false);
       setLabelHoveredFacetKey(null);
       onDomAnchorChange?.(null, null);
+      onAlwaysOnDomAnchorChange?.(null, null);
       onLabelsReadyChange?.(false);
       clearTimeout(fadeTimeoutRef.current);
       fadeTimeoutRef.current = setTimeout(() => {
@@ -193,7 +208,7 @@ const FacetLabels = React.memo(function FacetLabels({
     }
 
     calculateAnchorPositions();
-  }, [calculateAnchorPositions, inActiveOverview, onDomAnchorChange, onLabelsReadyChange]);
+  }, [calculateAnchorPositions, inActiveOverview, onAlwaysOnDomAnchorChange, onDomAnchorChange, onLabelsReadyChange]);
 
   useEffect(() => {
     if (!inActiveOverview || !projects?.length) return;
@@ -231,9 +246,9 @@ const FacetLabels = React.memo(function FacetLabels({
       requestAnimationFrame(() => {
         const computed = window.getComputedStyle(node);
         if (computed.opacity === '1') {
-          const initialKey = projects[0]?.facetKey || projects[0]?.id;
-          if (initialKey) {
-            emitDomAnchorPoint(initialKey);
+          const alwaysOnKey = alwaysOnFacetKey || projects[0]?.facetKey || projects[0]?.id;
+          if (alwaysOnKey) {
+            emitAlwaysOnDomAnchorPoint(alwaysOnKey);
           }
           onLabelsReadyChange?.(true);
         }
@@ -241,7 +256,22 @@ const FacetLabels = React.memo(function FacetLabels({
     });
 
     return () => cancelAnimationFrame(rafA);
-  }, [emitDomAnchorPoint, inActiveOverview, onLabelsReadyChange, projects, visible]);
+  }, [alwaysOnFacetKey, emitAlwaysOnDomAnchorPoint, inActiveOverview, onLabelsReadyChange, projects, visible]);
+
+  useEffect(() => {
+    if (!inActiveOverview || !visible) return undefined;
+    const alwaysOnKey = alwaysOnFacetKey || projects[0]?.facetKey || projects[0]?.id;
+    if (!alwaysOnKey) return undefined;
+
+    const handleResize = () => {
+      emitAlwaysOnDomAnchorPoint(alwaysOnKey);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [alwaysOnFacetKey, emitAlwaysOnDomAnchorPoint, inActiveOverview, projects, visible]);
 
   useEffect(() => {
     if (!hoverCapable || !labelHoveredFacetKey) return undefined;
@@ -295,6 +325,10 @@ const FacetLabels = React.memo(function FacetLabels({
             if (event.propertyName !== 'opacity') return;
             if (!visible) return;
             requestAnimationFrame(() => {
+              const alwaysOnKey = alwaysOnFacetKey || projects[0]?.facetKey || projects[0]?.id;
+              if (alwaysOnKey) {
+                emitAlwaysOnDomAnchorPoint(alwaysOnKey);
+              }
               onLabelsReadyChange?.(true);
             });
           }}
@@ -349,6 +383,8 @@ const FacetLabels = React.memo(function FacetLabels({
     fadeDuration,
     hoverCapable,
     inActiveOverview,
+    alwaysOnFacetKey,
+    emitAlwaysOnDomAnchorPoint,
     emitDomAnchorPoint,
     error,
     layout,
@@ -357,6 +393,7 @@ const FacetLabels = React.memo(function FacetLabels({
     onHoverChange,
     performanceProfile?.simplifiedAnimations,
     projects,
+    onAlwaysOnDomAnchorChange,
     externallyHoveredFacetKey,
     labelHoveredFacetKey,
     variant,
