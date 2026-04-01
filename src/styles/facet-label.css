@@ -17,6 +17,75 @@
   text-transform: uppercase;
 }
 
+.label-title-wrap {
+  position: relative;
+  display: inline-block;
+  line-height: inherit;
+  isolation: isolate;
+}
+
+.label-title-base {
+  --headline-ink: #ffffff;
+  --headline-glow1: rgba(255, 255, 255, 0.55);
+  --headline-glow2: rgba(255, 255, 255, 0.28);
+}
+
+.label-title-fill {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  user-select: none;
+  text-shadow: none;
+  filter: none;
+  mix-blend-mode: normal;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  background-image: linear-gradient(
+    90deg,
+    var(--title-fill-color) 0%,
+    var(--title-fill-color) 100%
+  );
+  background-repeat: no-repeat;
+  background-position: left center;
+  background-size: 0% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  opacity: 0;
+  transition-property: background-size, opacity;
+  transition-duration: var(--title-fill-out-ms, 900ms);
+  transition-timing-function: var(
+    --title-fill-out-ease,
+    cubic-bezier(0.16, 1, 0.3, 1)
+  );
+  will-change: background-size, opacity;
+}
+
+.facet-label-optimized:hover .label-title-fill,
+.facet-label-optimized[data-active="true"] .label-title-fill {
+  background-size: 100% 100%;
+  opacity: 1;
+  transition-duration: var(--title-fill-in-ms, 160ms);
+  transition-timing-function: var(
+    --title-fill-in-ease,
+    cubic-bezier(0.22, 1, 0.36, 1)
+  );
+}
+
+@supports (mask-image: linear-gradient(black, transparent)) {
+  .label-title-fill {
+    mask-image: linear-gradient(90deg, #000 0%, #000 92%, transparent 100%);
+    mask-repeat: no-repeat;
+    mask-position: left center;
+    mask-size: 0% 100%;
+  }
+
+  .facet-label-optimized:hover .label-title-fill,
+  .facet-label-optimized[data-active="true"] .label-title-fill {
+    mask-size: 100% 100%;
+  }
+}
+
 .label-description {
   margin-top: 0.25rem;
   font-family: "acumin-variable", "Acumin VF", sans-serif;
@@ -39,5 +108,11 @@
     margin-top: 0.1rem;
     font-size: clamp(1rem, 4.2vw, 1.15rem);
     line-height: 1.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .label-title-fill {
+    transition-duration: 0ms;
   }
 }

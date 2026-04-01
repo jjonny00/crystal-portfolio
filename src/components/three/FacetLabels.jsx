@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { useThree } from '@react-three/fiber';
 import Headline from '../ui/Headline';
+import { getSceneFacetKeyByProjectId } from '../../data/projects';
 import { MQ_HOVER_CAPABLE } from '../../config/breakpoints';
 import { useLayoutConfig } from '../../hooks/useLayoutConfig';
 import '../../styles/facet-label.css';
@@ -12,10 +13,10 @@ const OptimizedLabel = React.memo(function OptimizedLabel({
   onHover,
   onClick,
   visible,
+  isActiveFromSceneHover = false,
 }) {
-  const glow1 = project.headlineColor;
-  const glow2 = project.headlineColor;
   const runtimeKey = project.facetKey || project.id;
+  const sceneFacetKey = getSceneFacetKeyByProjectId(project.id) || runtimeKey;
 
   return (
     <div
@@ -23,23 +24,29 @@ const OptimizedLabel = React.memo(function OptimizedLabel({
       onPointerEnter={() => onHover?.(runtimeKey, true)}
       onPointerLeave={() => onHover?.(runtimeKey, false)}
       onClick={onClick}
+      data-active={isActiveFromSceneHover ? 'true' : 'false'}
       style={{
-        '--headline-ink': project.headlineColor,
-        '--headline-glow1': glow1,
-        '--headline-glow2': glow2,
+        '--title-fill-color': project.headlineColor,
         textAlign: 'left',
         width: '100%',
         cursor: 'pointer'
       }}
     >
-      <div ref={titleRef}>
+      <div
+        ref={titleRef}
+        className="label-title-wrap"
+        data-scene-facet-key={sceneFacetKey}
+      >
         <Headline
           as="h3"
-          className="label-title"
+          className="label-title label-title-base"
           style={{ margin: 0 }}
         >
           {project.label}
         </Headline>
+        <span className="label-title label-title-fill" aria-hidden="true">
+          {project.label}
+        </span>
       </div>
       <div className="label-description">{project.tagline}</div>
     </div>
@@ -53,6 +60,7 @@ const FacetLabels = React.memo(function FacetLabels({
   animationData,
   performanceProfile,
   onDomAnchorChange,
+  activeSceneFacetKey = null,
 }) {
   const { camera, size } = useThree();
   const [anchorScreenPositions, setAnchorScreenPositions] = useState({});
@@ -219,7 +227,12 @@ const FacetLabels = React.memo(function FacetLabels({
     rootRef.current.render(
       <>
         <div
+          className="facet-labels-container"
           style={{
+            '--title-fill-in-ms': '160ms',
+            '--title-fill-out-ms': '900ms',
+            '--title-fill-in-ease': 'cubic-bezier(0.22, 1, 0.36, 1)',
+            '--title-fill-out-ease': 'cubic-bezier(0.16, 1, 0.3, 1)',
             position: 'absolute',
             width: variant === 'desktop' ? '33.333vw' : '100%',
             right: variant === 'desktop' ? '6%' : 0,
@@ -254,6 +267,10 @@ const FacetLabels = React.memo(function FacetLabels({
               onHover={handleHover}
               onClick={() => onSelectProject?.(project.facetKey || project.id)}
               visible={visible}
+              isActiveFromSceneHover={Boolean(
+                activeSceneFacetKey &&
+                activeSceneFacetKey === getSceneFacetKeyByProjectId(project.id)
+              )}
             />
           ))}
         </div>
@@ -273,6 +290,7 @@ const FacetLabels = React.memo(function FacetLabels({
     onHoverChange,
     performanceProfile?.simplifiedAnimations,
     projects,
+    activeSceneFacetKey,
     variant,
     visible,
   ]);
