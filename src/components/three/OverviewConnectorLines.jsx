@@ -18,12 +18,17 @@ const OverviewConnectorLines = ({
   const IDLE_DROOP = 0.52;
   const ACTIVE_DROOP = 0;
   const STRAIGHTEN_SNAP_DURATION = 0.2;
-  const STRAIGHTEN_OVERSHOOT_DURATION = 0.08;
-  const STRAIGHTEN_REBOUND_DURATION = 0.11;
-  const STRAIGHTEN_SETTLE_DURATION = 0.1;
-  const RELAX_DURATION = 0.58;
+  const STRAIGHTEN_OVERSHOOT_DURATION = 0.1;
+  const STRAIGHTEN_REBOUND_DURATION = 0.14;
+  const STRAIGHTEN_SETTLE_DURATION = 0.12;
+  const RELAX_DURATION = 0.62;
+  const RELAX_OVERSHOOT_DURATION = 0.16;
+  const RELAX_REBOUND_DURATION = 0.18;
+  const RELAX_SETTLE_DURATION = 0.2;
   const STRAIGHT_OVERSHOOT_PROGRESS = 1.08;
   const STRAIGHT_REBOUND_PROGRESS = 0.985;
+  const RELAX_OVERSHOOT_PROGRESS = -0.045;
+  const RELAX_REBOUND_PROGRESS = 0.012;
   const MAX_DROOP_WORLD_UNITS = 0.3;
   const MIN_DROOP_WORLD_UNITS = 0.02;
   const CONTROL_POINT_DROOP_MULTIPLIER = 1.85;
@@ -101,6 +106,33 @@ const OverviewConnectorLines = ({
         case 'relaxing': {
           state.progress = Math.max(0, state.progress - delta / RELAX_DURATION);
           if (state.progress <= 0) {
+            state.phase = 'relaxOvershoot';
+          }
+          break;
+        }
+        case 'relaxOvershoot': {
+          state.progress = Math.max(
+            RELAX_OVERSHOOT_PROGRESS,
+            state.progress - delta / RELAX_OVERSHOOT_DURATION,
+          );
+          if (state.progress <= RELAX_OVERSHOOT_PROGRESS) {
+            state.phase = 'relaxRebound';
+          }
+          break;
+        }
+        case 'relaxRebound': {
+          state.progress = Math.min(
+            RELAX_REBOUND_PROGRESS,
+            state.progress + delta / RELAX_REBOUND_DURATION,
+          );
+          if (state.progress >= RELAX_REBOUND_PROGRESS) {
+            state.phase = 'relaxSettle';
+          }
+          break;
+        }
+        case 'relaxSettle': {
+          state.progress = Math.max(0, state.progress - delta / RELAX_SETTLE_DURATION);
+          if (state.progress <= 0) {
             state.phase = 'idle';
           }
           break;
@@ -146,7 +178,13 @@ const OverviewConnectorLines = ({
       state.isHovered = nextHovered;
 
       if (!wasHovered && nextHovered) {
-        if (state.phase === 'idle' || state.phase === 'relaxing') {
+        if (
+          state.phase === 'idle' ||
+          state.phase === 'relaxing' ||
+          state.phase === 'relaxOvershoot' ||
+          state.phase === 'relaxRebound' ||
+          state.phase === 'relaxSettle'
+        ) {
           state.phase = 'straightening';
         }
       }
