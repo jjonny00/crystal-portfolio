@@ -132,7 +132,7 @@ const FacetLabels = React.memo(function FacetLabels({
   }, [hoverCapable, onDomAnchorChange]);
 
   const emitAllDomAnchorPoints = useCallback(() => {
-    if (!onDomAnchorsChange || !hoverCapable) return;
+    if (!onDomAnchorsChange) return;
     const points = {};
 
     projects.forEach((project) => {
@@ -145,10 +145,24 @@ const FacetLabels = React.memo(function FacetLabels({
         x: rect.left,
         y: rect.top + rect.height * 0.5,
       };
+
+      if (import.meta.env.DEV) {
+        console.log('🔗 Label anchor measured', {
+          runtimeKey,
+          point: points[runtimeKey],
+          hasOverviewAnchor: Boolean(overviewWorld?.[runtimeKey]),
+        });
+      }
     });
 
+    if (import.meta.env.DEV) {
+      console.log('🔗 onDomAnchorsChange emit', {
+        count: Object.keys(points).length,
+        keys: Object.keys(points),
+      });
+    }
     onDomAnchorsChange(points);
-  }, [hoverCapable, onDomAnchorsChange, projects]);
+  }, [onDomAnchorsChange, projects, overviewWorld]);
 
   const calculateAnchorPositions = useCallback(() => {
     if (!overviewWorld) {
@@ -337,8 +351,13 @@ const FacetLabels = React.memo(function FacetLabels({
       emitAllDomAnchorPoints();
     });
 
+    const rafIdSecond = window.requestAnimationFrame(() => {
+      emitAllDomAnchorPoints();
+    });
+
     return () => {
       window.cancelAnimationFrame(rafId);
+      window.cancelAnimationFrame(rafIdSecond);
     };
   }, [
     anchorScreenPositions,

@@ -108,10 +108,6 @@ const UnifiedCrystalScene = forwardRef(({
   const overviewWorldAnchors = layout?.anchors?.overviewWorld;
   const layoutCamera = layout?.camera;
   const layoutProjects = layout?.projects;
-  const connectorProjectColors = useMemo(
-    () => Object.fromEntries(projects.map((project) => [project.facetKey || project.id, project.headlineColor])),
-    []
-  );
 
   const mergedConfig = useMemo(() => {
     const nextConfig = { ...config };
@@ -2076,11 +2072,10 @@ const UnifiedCrystalScene = forwardRef(({
       />
 
       <HoverConnectorLine
-        enabled={inActiveOverview && hoverCapable}
+        enabled={inActiveOverview}
         hoveredFacetKey={hoveredFacet}
         domAnchorsClient={domAnchorsClient}
         overviewWorldAnchors={overviewWorldAnchors}
-        projectColors={connectorProjectColors}
       />
 
       {/* Debug visualization when enabled */}
