@@ -13,12 +13,13 @@ const OverviewConnectorLines = ({
 }) => {
   const { camera, size } = useThree();
   const [geometryVersion, setGeometryVersion] = useState(0);
-  const tensionByConnectorRef = useRef({});
+  const connectorAnimationRef = useRef({});
 
-  const IDLE_DROOP = 0.26;
+  const IDLE_DROOP = 0.4;
   const ACTIVE_DROOP = 0;
-  const DROOP_LERP_SPEED = 8.5;
-  const MAX_DROOP_WORLD_UNITS = 0.22;
+  const STRAIGHTEN_DURATION = 0.34;
+  const RELAX_DURATION = 0.5;
+  const MAX_DROOP_WORLD_UNITS = 0.3;
   const MIN_DROOP_WORLD_UNITS = 0.02;
   const CURVE_SAMPLES = 14;
 
@@ -35,23 +36,95 @@ const OverviewConnectorLines = ({
     if (!enabled || !resolvedConnectorPairs?.length) return;
 
     let changed = false;
+    const liveConnectorKeys = new Set();
 
     resolvedConnectorPairs.forEach(({ runtimeDomKey, sceneWorldKey }) => {
       const connectorKey = `${runtimeDomKey}__${sceneWorldKey}`;
-      const current = tensionByConnectorRef.current[connectorKey] ?? IDLE_DROOP;
-      const target = hoveredSceneFacetKey === sceneWorldKey ? ACTIVE_DROOP : IDLE_DROOP;
-      const next = THREE.MathUtils.damp(current, target, DROOP_LERP_SPEED, delta);
+      liveConnectorKeys.add(connectorKey);
 
-      if (Math.abs(next - current) > 0.0006) {
+      const state = connectorAnimationRef.current[connectorKey] || {
+        phase: 'idle',
+        progress: 0,
+        isHovered: false,
+      };
+      const previousProgress = state.progress;
+      const previousPhase = state.phase;
+
+      switch (state.phase) {
+        case 'straightening': {
+          state.progress = Math.min(1, state.progress + delta / STRAIGHTEN_DURATION);
+          if (state.progress >= 1) {
+            state.phase = state.isHovered ? 'holding' : 'relaxing';
+          }
+          break;
+        }
+        case 'holding': {
+          state.progress = 1;
+          if (!state.isHovered) {
+            state.phase = 'relaxing';
+          }
+          break;
+        }
+        case 'relaxing': {
+          state.progress = Math.max(0, state.progress - delta / RELAX_DURATION);
+          if (state.progress <= 0) {
+            state.phase = 'idle';
+          }
+          break;
+        }
+        default: {
+          state.progress = 0;
+          state.phase = state.isHovered ? 'straightening' : 'idle';
+        }
+      }
+
+      if (
+        Math.abs(state.progress - previousProgress) > 0.0006 ||
+        state.phase !== previousPhase
+      ) {
         changed = true;
       }
-      tensionByConnectorRef.current[connectorKey] = next;
+      connectorAnimationRef.current[connectorKey] = state;
+    });
+
+    Object.keys(connectorAnimationRef.current).forEach((connectorKey) => {
+      if (liveConnectorKeys.has(connectorKey)) return;
+      delete connectorAnimationRef.current[connectorKey];
+      changed = true;
     });
 
     if (changed) {
       setGeometryVersion((version) => version + 1);
     }
   });
+
+  useEffect(() => {
+    if (!resolvedConnectorPairs?.length) return;
+
+    resolvedConnectorPairs.forEach(({ runtimeDomKey, sceneWorldKey }) => {
+      const connectorKey = `${runtimeDomKey}__${sceneWorldKey}`;
+      const state = connectorAnimationRef.current[connectorKey] || {
+        phase: 'idle',
+        progress: 0,
+        isHovered: false,
+      };
+      const nextHovered = hoveredSceneFacetKey === sceneWorldKey;
+      const wasHovered = state.isHovered;
+      state.isHovered = nextHovered;
+
+      if (!wasHovered && nextHovered) {
+        if (state.phase === 'idle' || state.phase === 'relaxing') {
+          state.phase = 'straightening';
+        }
+      }
+
+      if (wasHovered && !nextHovered && state.phase === 'holding') {
+        state.phase = 'relaxing';
+      }
+
+      connectorAnimationRef.current[connectorKey] = state;
+    });
+  }, [hoveredSceneFacetKey, resolvedConnectorPairs]);
 
   const connectors = useMemo(() => {
     if (!enabled || !resolvedConnectorPairs?.length || !overviewWorldAnchors) return [];
@@ -78,7 +151,16 @@ const OverviewConnectorLines = ({
       if (!intersected) return [];
 
       const connectorKey = `${runtimeDomKey}__${sceneWorldKey}`;
-      const droopTension = tensionByConnectorRef.current[connectorKey] ?? IDLE_DROOP;
+      const animationState = connectorAnimationRef.current[connectorKey] || {
+        phase: 'idle',
+        progress: 0,
+        isHovered: false,
+      };
+      const droopTension = THREE.MathUtils.lerp(
+        IDLE_DROOP,
+        ACTIVE_DROOP,
+        animationState.progress,
+      );
       const straightVec = end.clone().sub(start);
       const distance = straightVec.length();
 
