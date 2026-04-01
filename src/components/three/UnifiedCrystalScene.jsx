@@ -26,6 +26,7 @@ import projects, {
 } from '../../data/projects'
 import FacetLabels from './FacetLabels'
 import HoverConnectorLine from './HoverConnectorLine'
+import OverviewConnectorLines from './OverviewConnectorLines'
 import { effects } from '../../crystalConfig'
 import { useFacetOverlayGeometry } from '../../hooks/useFacetOverlayGeometry'
 import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController'
@@ -43,6 +44,7 @@ const REFORM_MASK_GLOW_DURATION_S = 0.2
 const REFORM_MASK_GLOW_PEAK_INTENSITY = 1.5
 const REFORM_FACET_MASK_GLOW_PEAK_INTENSITY = 1.3
 const REFORM_SWAP_OVERLAP_MS = 100
+const ENABLE_OVERVIEW_ALL_CONNECTORS = false
 
 const UnifiedCrystalScene = forwardRef(({ 
   animationData,
@@ -2089,9 +2091,16 @@ const UnifiedCrystalScene = forwardRef(({
         enabled={inActiveOverview && labelsReady && hoverCapable}
         hoveredFacetKey={hoveredLabelFacetKey}
         domAnchorClient={domAnchorClient}
-        domAnchorsClient={domAnchorsClient}
         overviewWorldAnchors={overviewWorldAnchors}
       />
+
+      {ENABLE_OVERVIEW_ALL_CONNECTORS && (
+        <OverviewConnectorLines
+          enabled={inActiveOverview && labelsReady}
+          domAnchorsClient={domAnchorsClient}
+          overviewWorldAnchors={overviewWorldAnchors}
+        />
+      )}
 
       {/* Debug visualization when enabled */}
       {showCrystalDebug && showFacets && !simplifiedAnimations && (
