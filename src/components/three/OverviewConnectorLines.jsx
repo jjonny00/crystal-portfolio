@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useThree } from '@react-three/fiber';
 import { Line } from '@react-three/drei';
 import * as THREE from 'three';
@@ -12,6 +12,15 @@ const OverviewConnectorLines = ({
   onDiagnosticChange,
 }) => {
   const { camera, size } = useThree();
+
+  useEffect(() => {
+    console.log('[OverviewConnectorLines mounted]', {
+      enabled,
+      connectorFacetKey,
+      alwaysOnDomAnchorClientExists: Boolean(alwaysOnDomAnchorClient),
+      overviewWorldAnchorsExists: Boolean(overviewWorldAnchors),
+    });
+  }, []);
 
   const points = useMemo(() => {
     if (!enabled || !connectorFacetKey || !alwaysOnDomAnchorClient || !overviewWorldAnchors) {

@@ -940,6 +940,10 @@ const UnifiedCrystalScene = forwardRef(({
         y: rect.top + rect.height * 0.5,
       };
       setAlwaysOnDomAnchorClient(anchor);
+      console.log('[always-on anchor set]', {
+        key: connectorKey,
+        anchor,
+      });
       if (import.meta.env.DEV) {
         console.log('🔗 always-on connector anchor measure', {
           connectorFacetKey: connectorKey,
@@ -958,6 +962,39 @@ const UnifiedCrystalScene = forwardRef(({
       window.removeEventListener('resize', measureAlwaysOnAnchor);
     };
   }, [facetsSettled, inActiveOverview, labelsReady, overviewWorldAnchors]);
+
+  useEffect(() => {
+    if (!inActiveOverview) return;
+
+    const connectorKey = OVERVIEW_DEBUG_CONNECTOR_KEY;
+    const domKeyEls = Array.from(document.querySelectorAll('[data-facet-key]'));
+    const domKeys = domKeyEls
+      .map((el) => el.getAttribute('data-facet-key'))
+      .filter(Boolean);
+    const worldKeys = Object.keys(overviewWorldAnchors || {});
+    const domNodeFoundForChosenKey = Boolean(
+      document.querySelector(`[data-facet-key="${connectorKey}"]`),
+    );
+
+    console.groupCollapsed('[always-on connector preflight]');
+    console.log('inActiveOverview', inActiveOverview);
+    console.log('labelsReady', labelsReady);
+    console.log('facetsSettled', facetsSettled);
+    console.log('alwaysOnDomAnchorClient exists', Boolean(alwaysOnDomAnchorClient));
+    console.log('chosen debug key', connectorKey);
+    console.log('DOM node found for chosen key', domNodeFoundForChosenKey);
+    console.log('DOM keys array', domKeys);
+    console.log('world anchor keys array', worldKeys);
+    console.log('chosen key present in DOM keys', domKeys.includes(connectorKey));
+    console.log('chosen key present in world anchor keys', worldKeys.includes(connectorKey));
+    console.groupEnd();
+  }, [
+    alwaysOnDomAnchorClient,
+    facetsSettled,
+    inActiveOverview,
+    labelsReady,
+    overviewWorldAnchors,
+  ]);
 
   useEffect(() => {
     if (!inActiveOverview || !labelsReady) return;
