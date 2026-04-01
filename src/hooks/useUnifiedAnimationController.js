@@ -774,17 +774,32 @@ export const useUnifiedAnimationController = (options = {}) => {
       }
     }
 
-    const domSectionProjectKey = nearestSectionId?.startsWith('project-')
-      ? nearestSectionId.replace('project-', '')
-      : null;
+    const lastProjectKey = orderedProjectKeys[orderedProjectKeys.length - 1] || null;
+    const aboutToLastProjectDomHandoff =
+      lastZone.current === 'about' &&
+      lastProjectKey &&
+      nearestSectionId === `project-${lastProjectKey}`;
 
     if (
-      domSectionProjectKey &&
-      directProjectOverrideRef.current?.projectKey !== domSectionProjectKey
+      aboutToLastProjectDomHandoff &&
+      directProjectOverrideRef.current?.projectKey !== lastProjectKey
     ) {
-      // Reuse the exact label-click camera/focus path whenever scroll lands on
-      // a concrete project section, including the about -> last project handoff.
-      setDirectProjectOverride(domSectionProjectKey);
+      // Use the same project-label click semantics, but only for the
+      // about -> last project edge case.
+      setDirectProjectOverride(lastProjectKey);
+      lastZone.current = 'projects';
+
+      setAnimationState((prev) => ({
+        ...prev,
+        scrollProgress,
+        zoneInfo: { ...currentZone, zone: 'projects' },
+        projectInfo: {
+          project: lastProjectKey,
+          progress: activeProject.progress ?? prev.projectInfo?.progress ?? 0,
+        },
+      }));
+
+      return;
     }
 
     // When DOM clearly indicates a project section, keep projects-zone progress
