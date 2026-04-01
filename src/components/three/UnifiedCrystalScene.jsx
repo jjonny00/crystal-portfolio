@@ -885,11 +885,6 @@ const UnifiedCrystalScene = forwardRef(({
 
     onDirectProjectSelect?.(projectKey);
 
-    if (scrollToProject) {
-      scrollToProject(projectKey, 'auto');
-      return;
-    }
-
     const sectionNode = typeof document !== 'undefined'
       ? document.getElementById(`project-${projectKey}`)
       : null;
@@ -899,6 +894,11 @@ const UnifiedCrystalScene = forwardRef(({
 
     if (sectionNode && scrollContainer) {
       scrollContainer.scrollTop = sectionNode.offsetTop;
+      return;
+    }
+
+    if (scrollToProject) {
+      scrollToProject(projectKey, 'auto');
       return;
     }
 
