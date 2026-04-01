@@ -103,6 +103,7 @@ const UnifiedCrystalScene = forwardRef(({
 
   const [hoveredLabelFacetKey, setHoveredLabelFacetKey] = useState(null);
   const [domAnchorClient, setDomAnchorClient] = useState(null);
+  const [domAnchorsClient, setDomAnchorsClient] = useState({});
   const [labelsReady, setLabelsReady] = useState(false);
   const { layout } = useLayoutConfig();
   const hoverCapable = useHoverCapable();
@@ -912,6 +913,7 @@ const UnifiedCrystalScene = forwardRef(({
     if (inActiveOverview) return;
     setHoveredLabelFacetKey(null);
     setDomAnchorClient(null);
+    setDomAnchorsClient({});
     setLabelsReady(false);
   }, [inActiveOverview]);
 
@@ -2079,6 +2081,7 @@ const UnifiedCrystalScene = forwardRef(({
         performanceProfile={performanceProfile}
         anchorOffsets={anchorOffsets}
         onDomAnchorChange={handleDomAnchorChange}
+        onDomAnchorsChange={setDomAnchorsClient}
         onLabelsReadyChange={setLabelsReady}
       />
 
@@ -2086,6 +2089,7 @@ const UnifiedCrystalScene = forwardRef(({
         enabled={inActiveOverview && labelsReady && hoverCapable}
         hoveredFacetKey={hoveredLabelFacetKey}
         domAnchorClient={domAnchorClient}
+        domAnchorsClient={domAnchorsClient}
         overviewWorldAnchors={overviewWorldAnchors}
       />
 

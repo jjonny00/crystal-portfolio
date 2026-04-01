@@ -7,47 +7,64 @@ const HoverConnectorLine = ({
   enabled,
   hoveredFacetKey,
   domAnchorClient,
+  domAnchorsClient,
   overviewWorldAnchors,
   color = 'rgba(255,255,255,0.72)',
 }) => {
   const { camera, size } = useThree();
 
-  const points = useMemo(() => {
-    if (!enabled || !hoveredFacetKey || !domAnchorClient || !overviewWorldAnchors) return null;
-
-    const start = overviewWorldAnchors[hoveredFacetKey];
-    if (!start) return null;
-
+  const connectorPoints = useMemo(() => {
+    if (!enabled || !overviewWorldAnchors) return [];
     const width = size.width || 1;
     const height = size.height || 1;
-    const ndc = new THREE.Vector2(
-      (domAnchorClient.x / width) * 2 - 1,
-      -(domAnchorClient.y / height) * 2 + 1,
-    );
 
-    const raycaster = new THREE.Raycaster();
-    raycaster.setFromCamera(ndc, camera);
+    const buildPoints = (facetKey, anchorClient) => {
+      const start = overviewWorldAnchors[facetKey];
+      if (!start || !anchorClient) return null;
 
-    const planeNormal = new THREE.Vector3();
-    camera.getWorldDirection(planeNormal);
-    const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(planeNormal, start);
+      const ndc = new THREE.Vector2(
+        (anchorClient.x / width) * 2 - 1,
+        -(anchorClient.y / height) * 2 + 1,
+      );
 
-    const end = new THREE.Vector3();
-    const intersected = raycaster.ray.intersectPlane(plane, end);
-    if (!intersected) return null;
+      const raycaster = new THREE.Raycaster();
+      raycaster.setFromCamera(ndc, camera);
 
-    return [start.clone(), end.clone()];
-  }, [enabled, hoveredFacetKey, domAnchorClient, overviewWorldAnchors, camera, size.width, size.height]);
+      const planeNormal = new THREE.Vector3();
+      camera.getWorldDirection(planeNormal);
+      const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(planeNormal, start);
 
-  if (!points) return null;
+      const end = new THREE.Vector3();
+      const intersected = raycaster.ray.intersectPlane(plane, end);
+      if (!intersected) return null;
+
+      return [start.clone(), end.clone()];
+    };
+
+    const allAnchors = domAnchorsClient && Object.keys(domAnchorsClient).length > 0
+      ? Object.entries(domAnchorsClient)
+      : (hoveredFacetKey && domAnchorClient ? [[hoveredFacetKey, domAnchorClient]] : []);
+
+    return allAnchors.flatMap(([facetKey, anchorClient]) => {
+      const points = buildPoints(facetKey, anchorClient);
+      return points ? [{ facetKey, points }] : [];
+    });
+  }, [enabled, hoveredFacetKey, domAnchorClient, domAnchorsClient, overviewWorldAnchors, camera, size.width, size.height]);
+
+  if (!connectorPoints.length) return null;
 
   return (
-    <Line
-      points={points}
-      color={color}
-      lineWidth={1}
-      depthTest={false}
-    />
+    <group>
+      {connectorPoints.map((connector) => (
+        <Line
+          key={connector.facetKey}
+          points={connector.points}
+          color={color}
+          lineWidth={1}
+          depthTest={false}
+        />
+      ))}
+    </group>
   );
 };
 
