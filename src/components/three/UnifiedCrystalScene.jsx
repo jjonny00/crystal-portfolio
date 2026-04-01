@@ -881,12 +881,12 @@ const UnifiedCrystalScene = forwardRef(({
     if (!projectKey) return;
     onDirectProjectSelect?.(projectKey);
     if (scrollToProject) {
-      scrollToProject(projectKey);
+      scrollToProject(projectKey, 'auto');
       return;
     }
     const sectionStart = ANIMATION_CONFIG.projectSections?.[projectKey]?.start;
     if (sectionStart === undefined || sectionStart === null) return;
-    scrollToProgress?.(sectionStart);
+    scrollToProgress?.(sectionStart, 'auto');
   }, [onDirectProjectSelect, scrollToProgress, scrollToProject]);
 
   const handleFacetClick = useCallback((facetKey) => {
