@@ -101,8 +101,8 @@ const UnifiedCrystalScene = forwardRef(({
     animationData?.crystalForm === 'exploded' &&
     animationData?.isTransitioning === false;
 
-  const [hoveredLabelFacetKey, setHoveredLabelFacetKey] = useState(null);
-  const [domAnchorClient, setDomAnchorClient] = useState(null);
+  const [domAnchorsClient, setDomAnchorsClient] = useState({});
+  const [labelsReady, setLabelsReady] = useState(false);
   const { layout } = useLayoutConfig();
   const hoverCapable = useHoverCapable();
   useCursor(Boolean(hoverCapable && hoveredFacet));
@@ -853,16 +853,7 @@ const UnifiedCrystalScene = forwardRef(({
     [updateHoverSources, resolveSceneFacetKey]
   );
 
-  const handleDomAnchorChange = useCallback((facetKey, clientPointOrNull) => {
-    if (!clientPointOrNull) {
-      setHoveredLabelFacetKey(null);
-      setDomAnchorClient(null);
-      return;
-    }
-
-    setHoveredLabelFacetKey(resolveSceneFacetKey(facetKey));
-    setDomAnchorClient(clientPointOrNull);
-  }, [resolveSceneFacetKey]);
+  const handleDomAnchorChange = useCallback(() => {}, []);
 
   const handleFacetHover = useCallback(
     (facetKey, hovering) => {
@@ -909,8 +900,8 @@ const UnifiedCrystalScene = forwardRef(({
 
   useEffect(() => {
     if (inActiveOverview) return;
-    setHoveredLabelFacetKey(null);
-    setDomAnchorClient(null);
+    setDomAnchorsClient({});
+    setLabelsReady(false);
   }, [inActiveOverview]);
 
   
@@ -2077,12 +2068,13 @@ const UnifiedCrystalScene = forwardRef(({
         performanceProfile={performanceProfile}
         anchorOffsets={anchorOffsets}
         onDomAnchorChange={handleDomAnchorChange}
+        onDomAnchorsChange={setDomAnchorsClient}
+        onLabelsReadyChange={setLabelsReady}
       />
 
       <HoverConnectorLine
-        enabled={inActiveOverview && hoverCapable}
-        hoveredFacetKey={hoveredLabelFacetKey}
-        domAnchorClient={domAnchorClient}
+        enabled={inActiveOverview && labelsReady}
+        domAnchorsClient={domAnchorsClient}
         overviewWorldAnchors={overviewWorldAnchors}
       />
 

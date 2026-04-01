@@ -97,6 +97,8 @@ const FacetLabels = React.memo(function FacetLabels({
   animationData,
   performanceProfile,
   onDomAnchorChange,
+  onDomAnchorsChange,
+  onLabelsReadyChange,
 }) {
   const { camera, size } = useThree();
   const [anchorScreenPositions, setAnchorScreenPositions] = useState({});
@@ -108,6 +110,7 @@ const FacetLabels = React.memo(function FacetLabels({
   const layerRef = useRef(null);
   const rootRef = useRef(null);
   const fadeTimeoutRef = useRef(null);
+  const labelsReadyTimeoutRef = useRef(null);
 
   const inActiveOverview =
     animationData?.currentZone === 'overview' &&
@@ -128,6 +131,24 @@ const FacetLabels = React.memo(function FacetLabels({
       y: rect.top + rect.height * 0.5,
     });
   }, [hoverCapable, onDomAnchorChange]);
+
+  const emitAllDomAnchorPoints = useCallback(() => {
+    if (!onDomAnchorsChange) return;
+    const points = {};
+
+    projects.forEach((project) => {
+      const runtimeKey = project.facetKey || project.id;
+      const titleEl = titleRefs.current.get(runtimeKey);
+      if (!titleEl) return;
+      const rect = titleEl.getBoundingClientRect();
+      points[runtimeKey] = {
+        x: rect.left,
+        y: rect.top + rect.height * 0.5,
+      };
+    });
+
+    onDomAnchorsChange(points);
+  }, [onDomAnchorsChange, projects]);
 
   const calculateAnchorPositions = useCallback(() => {
     if (!overviewWorld) {
@@ -167,6 +188,9 @@ const FacetLabels = React.memo(function FacetLabels({
       setVisible(false);
       setLabelHoveredFacetKey(null);
       onDomAnchorChange?.(null, null);
+      onDomAnchorsChange?.({});
+      onLabelsReadyChange?.(false);
+      clearTimeout(labelsReadyTimeoutRef.current);
       clearTimeout(fadeTimeoutRef.current);
       fadeTimeoutRef.current = setTimeout(() => {
         rootRef.current?.render(null);
@@ -190,7 +214,7 @@ const FacetLabels = React.memo(function FacetLabels({
     }
 
     calculateAnchorPositions();
-  }, [calculateAnchorPositions, inActiveOverview, onDomAnchorChange]);
+  }, [calculateAnchorPositions, inActiveOverview, onDomAnchorChange, onDomAnchorsChange, onLabelsReadyChange]);
 
   useEffect(() => {
     if (!inActiveOverview || !projects?.length) return;
@@ -204,9 +228,14 @@ const FacetLabels = React.memo(function FacetLabels({
           setFadeDuration(0.2);
           setVisible(false);
           setLabelHoveredFacetKey(null);
+          onLabelsReadyChange?.(false);
+          onDomAnchorsChange?.({});
+          clearTimeout(labelsReadyTimeoutRef.current);
         } else {
           setFadeDuration(0.8);
           setVisible(true);
+          onLabelsReadyChange?.(false);
+          clearTimeout(labelsReadyTimeoutRef.current);
         }
       },
       { threshold: 0.1 },
@@ -214,20 +243,50 @@ const FacetLabels = React.memo(function FacetLabels({
 
     observer.observe(section);
     return () => observer.disconnect();
-  }, [inActiveOverview, projects]);
+  }, [inActiveOverview, onDomAnchorsChange, onLabelsReadyChange, projects]);
+
+  useEffect(() => {
+    if (!inActiveOverview || !visible) return;
+
+    clearTimeout(labelsReadyTimeoutRef.current);
+    labelsReadyTimeoutRef.current = setTimeout(() => {
+      requestAnimationFrame(() => {
+        emitAllDomAnchorPoints();
+        onLabelsReadyChange?.(true);
+      });
+    }, Math.max(0, Math.round(fadeDuration * 1000)));
+
+    return () => {
+      clearTimeout(labelsReadyTimeoutRef.current);
+    };
+  }, [emitAllDomAnchorPoints, fadeDuration, inActiveOverview, onLabelsReadyChange, visible]);
 
   useEffect(() => {
     if (!hoverCapable || !labelHoveredFacetKey) return undefined;
 
     const handleResize = () => {
       emitDomAnchorPoint(labelHoveredFacetKey);
+      emitAllDomAnchorPoints();
     };
 
     window.addEventListener('resize', handleResize);
     return () => {
       window.removeEventListener('resize', handleResize);
     };
-  }, [emitDomAnchorPoint, hoverCapable, labelHoveredFacetKey]);
+  }, [emitAllDomAnchorPoints, emitDomAnchorPoint, hoverCapable, labelHoveredFacetKey]);
+
+  useEffect(() => {
+    if (!visible || !inActiveOverview) return undefined;
+
+    const handleResize = () => {
+      emitAllDomAnchorPoints();
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [emitAllDomAnchorPoints, inActiveOverview, visible]);
 
   useEffect(() => {
     if (!rootRef.current || !inActiveOverview) return;
