@@ -11,24 +11,66 @@ const OptimizedLabel = React.memo(function OptimizedLabel({
   titleRef,
   onHover,
   onClick,
-  isActive = false,
+  isTargetActive = false,
 }) {
+  const FADE_IN_MS = 320;
+  const FADE_OUT_MS = 1300;
   const runtimeKey = project.facetKey || project.id;
+  const [isDisplayActive, setIsDisplayActive] = useState(false);
+  const [transitionMs, setTransitionMs] = useState(FADE_OUT_MS);
+  const fadeInTimeoutRef = useRef(null);
+  const pendingFadeOutRef = useRef(false);
+
+  useEffect(() => {
+    if (isTargetActive) {
+      pendingFadeOutRef.current = false;
+      if (fadeInTimeoutRef.current) {
+        clearTimeout(fadeInTimeoutRef.current);
+      }
+
+      setTransitionMs(FADE_IN_MS);
+      setIsDisplayActive(true);
+
+      fadeInTimeoutRef.current = setTimeout(() => {
+        fadeInTimeoutRef.current = null;
+        if (pendingFadeOutRef.current) {
+          pendingFadeOutRef.current = false;
+          setTransitionMs(FADE_OUT_MS);
+          setIsDisplayActive(false);
+        }
+      }, FADE_IN_MS);
+      return;
+    }
+
+    if (fadeInTimeoutRef.current) {
+      pendingFadeOutRef.current = true;
+      return;
+    }
+
+    pendingFadeOutRef.current = false;
+    setTransitionMs(FADE_OUT_MS);
+    setIsDisplayActive(false);
+  }, [isTargetActive]);
+
+  useEffect(() => () => {
+    if (fadeInTimeoutRef.current) {
+      clearTimeout(fadeInTimeoutRef.current);
+    }
+  }, []);
 
   return (
     <div
       className="facet-label-optimized"
-      data-active={isActive ? 'true' : 'false'}
+      data-active={isDisplayActive ? 'true' : 'false'}
       onPointerEnter={() => onHover?.(runtimeKey, true)}
       onPointerLeave={() => onHover?.(runtimeKey, false)}
       onClick={onClick}
       style={{
-        '--headline-ink': isActive ? project.headlineColor : '#ffffff',
-        '--headline-glow1': isActive ? project.headlineColor : '#ffffff',
-        '--headline-glow2': isActive ? project.headlineColor : '#ffffff',
-        '--headline-glow-strength': isActive ? 0.38 : 0.2,
-        '--headline-transition-in': '180ms',
-        '--headline-transition-out': '800ms',
+        '--headline-ink': isDisplayActive ? project.headlineColor : '#ffffff',
+        '--headline-glow1': isDisplayActive ? project.headlineColor : '#ffffff',
+        '--headline-glow2': isDisplayActive ? project.headlineColor : '#ffffff',
+        '--headline-glow-strength': isDisplayActive ? 0.38 : 0.2,
+        '--headline-transition-out': `${transitionMs}ms`,
         textAlign: 'left',
         width: '100%',
         cursor: 'pointer'
@@ -260,7 +302,7 @@ const FacetLabels = React.memo(function FacetLabels({
               }}
               onHover={handleHover}
               onClick={() => onSelectProject?.(runtimeKey)}
-              isActive={isActive}
+              isTargetActive={isActive}
             />
             );
           })}

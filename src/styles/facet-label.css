@@ -7,11 +7,6 @@
   text-shadow: 0 0 4px rgba(0, 0, 0, 0.7);
 }
 
-.facet-label-optimized[data-active='true'] .headline-70s {
-  transition-duration: var(--headline-transition-in, 180ms), var(--headline-transition-in, 180ms);
-  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1), cubic-bezier(0.22, 1, 0.36, 1);
-}
-
 .label-title {
   margin: 0;
   font-family: "ivypresto-display", "IvyPresto Display", "Playfair Display", Georgia, serif;
