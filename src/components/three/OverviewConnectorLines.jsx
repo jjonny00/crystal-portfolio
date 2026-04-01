@@ -9,11 +9,17 @@ const OverviewConnectorLines = ({
   alwaysOnDomAnchorClient,
   overviewWorldAnchors,
   color = '#ff0000',
+  onDiagnosticChange,
 }) => {
   const { camera, size } = useThree();
 
   const points = useMemo(() => {
     if (!enabled || !connectorFacetKey || !alwaysOnDomAnchorClient || !overviewWorldAnchors) {
+      onDiagnosticChange?.({
+        connectorFacetKey,
+        worldAnchorFound: Boolean(connectorFacetKey && overviewWorldAnchors?.[connectorFacetKey]),
+        projectedEndpointValid: false,
+      });
       if (import.meta.env.DEV) {
         console.log('🔗 overview connector status', {
           connectorFacetKey,
@@ -27,6 +33,11 @@ const OverviewConnectorLines = ({
     }
     const start = overviewWorldAnchors[connectorFacetKey];
     if (!start) {
+      onDiagnosticChange?.({
+        connectorFacetKey,
+        worldAnchorFound: false,
+        projectedEndpointValid: false,
+      });
       if (import.meta.env.DEV) {
         console.log('🔗 overview connector status', {
           connectorFacetKey,
@@ -55,6 +66,11 @@ const OverviewConnectorLines = ({
     const end = new THREE.Vector3();
     const intersected = raycaster.ray.intersectPlane(plane, end);
     if (!intersected) {
+      onDiagnosticChange?.({
+        connectorFacetKey,
+        worldAnchorFound: true,
+        projectedEndpointValid: false,
+      });
       if (import.meta.env.DEV) {
         console.log('🔗 overview connector status', {
           connectorFacetKey,
@@ -67,6 +83,11 @@ const OverviewConnectorLines = ({
       return null;
     }
 
+    onDiagnosticChange?.({
+      connectorFacetKey,
+      worldAnchorFound: true,
+      projectedEndpointValid: true,
+    });
     if (import.meta.env.DEV) {
       console.log('🔗 overview connector status', {
         connectorFacetKey,
@@ -78,7 +99,7 @@ const OverviewConnectorLines = ({
     }
 
     return [start.clone(), end.clone()];
-  }, [enabled, connectorFacetKey, alwaysOnDomAnchorClient, overviewWorldAnchors, camera, size.width, size.height]);
+  }, [enabled, connectorFacetKey, alwaysOnDomAnchorClient, overviewWorldAnchors, camera, size.width, size.height, onDiagnosticChange]);
 
   if (!points) return null;
 

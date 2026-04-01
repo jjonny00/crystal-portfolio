@@ -106,6 +106,7 @@ const UnifiedCrystalScene = forwardRef(({
   const [alwaysOnDomAnchorClient, setAlwaysOnDomAnchorClient] = useState(null);
   const [labelsReady, setLabelsReady] = useState(false);
   const [facetsSettled, setFacetsSettled] = useState(false);
+  const [connectorProjectedEndpointValid, setConnectorProjectedEndpointValid] = useState(false);
   const facetsSettledRef = useRef(false);
   const { layout } = useLayoutConfig();
   const hoverCapable = useHoverCapable();
@@ -957,6 +958,45 @@ const UnifiedCrystalScene = forwardRef(({
       window.removeEventListener('resize', measureAlwaysOnAnchor);
     };
   }, [facetsSettled, inActiveOverview, labelsReady, overviewWorldAnchors]);
+
+  useEffect(() => {
+    if (!inActiveOverview || !labelsReady) return;
+
+    const connectorKey = OVERVIEW_DEBUG_CONNECTOR_KEY;
+    const domKeyEls = Array.from(document.querySelectorAll('[data-facet-key]'));
+    const domKeys = domKeyEls
+      .map((el) => el.getAttribute('data-facet-key'))
+      .filter(Boolean);
+    const worldKeys = Object.keys(overviewWorldAnchors || {});
+    const labelDomNodeFound = domKeys.includes(connectorKey);
+    const worldAnchorFound = worldKeys.includes(connectorKey);
+
+    console.groupCollapsed('🔎 Overview connector diagnostic');
+    console.log('DOM keys', domKeys);
+    console.log('World anchor keys', worldKeys);
+    console.log('Chosen key', connectorKey);
+    console.log('Chosen key exists', {
+      inDomKeys: labelDomNodeFound,
+      inWorldAnchorKeys: worldAnchorFound,
+    });
+    console.log('Missing-link status', {
+      labelsReady,
+      facetsSettled,
+      labelDomNodeFound,
+      alwaysOnDomAnchorClient,
+      connectorFacetKey: connectorKey,
+      worldAnchorFound,
+      projectedEndpointValid: connectorProjectedEndpointValid,
+    });
+    console.groupEnd();
+  }, [
+    alwaysOnDomAnchorClient,
+    connectorProjectedEndpointValid,
+    facetsSettled,
+    inActiveOverview,
+    labelsReady,
+    overviewWorldAnchors,
+  ]);
 
   
   // Keyboard listener for debug toggle
@@ -2147,6 +2187,9 @@ const UnifiedCrystalScene = forwardRef(({
           connectorFacetKey={OVERVIEW_DEBUG_CONNECTOR_KEY}
           alwaysOnDomAnchorClient={alwaysOnDomAnchorClient}
           overviewWorldAnchors={overviewWorldAnchors}
+          onDiagnosticChange={({ projectedEndpointValid }) => {
+            setConnectorProjectedEndpointValid(Boolean(projectedEndpointValid));
+          }}
         />
       )}
 
