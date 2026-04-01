@@ -1,12 +1,14 @@
 import React, { useMemo } from 'react';
 import { useThree } from '@react-three/fiber';
-import { Line } from '@react-three/drei';
+import { Html, Line } from '@react-three/drei';
 import * as THREE from 'three';
 
 const OverviewConnectorLines = ({
   enabled,
   domAnchorsClient,
   overviewWorldAnchors,
+  labelsReady = false,
+  featureFlagEnabled = false,
   color = 'rgba(255,255,255,0.72)',
 }) => {
   const { camera, size } = useThree();
@@ -87,27 +89,87 @@ const OverviewConnectorLines = ({
     };
   }, [enabled, domAnchorsClient, overviewWorldAnchors, camera, size.width, size.height]);
 
-  console.log('🔎 OverviewConnectorLines runtime', {
+  const debugSnapshot = {
     mounted: true,
+    labelsReady,
+    featureFlagEnabled,
     domAnchorCount: connectorDebug.domAnchorCount,
     worldAnchorCount: connectorDebug.worldAnchorCount,
     validConnectorPairs: connectorDebug.validPairs.length,
     attemptedRenderLines: connectorDebug.validPairs.length > 0 ? 1 : 0,
+    forcedSingleDebugConnectorActive: connectorDebug.validPairs.length > 0,
     skipped: connectorDebug.skipped,
-  });
+  };
+
+  console.log('🔎 OverviewConnectorLines runtime', debugSnapshot);
 
   const firstConnector = connectorDebug.validPairs[0] || null;
-  if (!firstConnector) return null;
+  const formatPoint = (point) => (point ? `${point.x.toFixed(2)}, ${point.y.toFixed(2)}, ${point.z.toFixed(2)}` : 'n/a');
 
   return (
-    <Line
-      key={firstConnector.facetKey}
-      points={firstConnector.points}
-      color="#ff0000"
-      lineWidth={1.8}
-      depthTest={false}
-      transparent={false}
-    />
+    <>
+      {import.meta.env.DEV && (
+        <Html
+          fullscreen
+          style={{
+            position: 'fixed',
+            top: '12px',
+            right: '12px',
+            pointerEvents: 'none',
+            zIndex: 9999,
+          }}
+        >
+          <div
+            style={{
+              minWidth: 290,
+              maxWidth: 360,
+              background: 'rgba(0,0,0,0.82)',
+              color: '#f7f7f7',
+              border: '1px solid rgba(255,255,255,0.25)',
+              borderRadius: 8,
+              padding: '10px 12px',
+              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+              fontSize: 11,
+              lineHeight: 1.35,
+              whiteSpace: 'pre-wrap',
+            }}
+          >
+            <div><strong>OverviewConnectorLines Debug</strong></div>
+            <div>mounted: {String(debugSnapshot.mounted)}</div>
+            <div>labelsReady: {String(debugSnapshot.labelsReady)}</div>
+            <div>featureFlagEnabled: {String(debugSnapshot.featureFlagEnabled)}</div>
+            <div>domAnchorCount: {debugSnapshot.domAnchorCount}</div>
+            <div>worldAnchorCount: {debugSnapshot.worldAnchorCount}</div>
+            <div>validConnectorPairs: {debugSnapshot.validConnectorPairs}</div>
+            <div>attemptedRenderLines: {debugSnapshot.attemptedRenderLines}</div>
+            <div>forcedSingleDebugConnectorActive: {String(debugSnapshot.forcedSingleDebugConnectorActive)}</div>
+            {firstConnector ? (
+              <>
+                <div style={{ marginTop: 6 }}>firstValidKey: {firstConnector.facetKey}</div>
+                <div>start: {formatPoint(firstConnector.points?.[0])}</div>
+                <div>end: {formatPoint(firstConnector.points?.[1])}</div>
+                <div>projectedEndpointValid: true</div>
+              </>
+            ) : (
+              <div style={{ marginTop: 6 }}>
+                firstFailureReason: {debugSnapshot.skipped[0]?.reason || 'no valid pairs'}
+              </div>
+            )}
+          </div>
+        </Html>
+      )}
+
+      {firstConnector && (
+        <Line
+          key={firstConnector.facetKey}
+          points={firstConnector.points}
+          color="#ff0000"
+          lineWidth={1.8}
+          depthTest={false}
+          transparent={false}
+        />
+      )}
+    </>
   );
 };
 

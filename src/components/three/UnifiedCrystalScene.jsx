@@ -2094,11 +2094,13 @@ const UnifiedCrystalScene = forwardRef(({
         overviewWorldAnchors={overviewWorldAnchors}
       />
 
-      {ENABLE_OVERVIEW_ALL_CONNECTORS && Object.keys(domAnchorsClient).length > 0 && (
+      {ENABLE_OVERVIEW_ALL_CONNECTORS && inActiveOverview && (
         <OverviewConnectorLines
           enabled={inActiveOverview && labelsReady}
           domAnchorsClient={domAnchorsClient}
           overviewWorldAnchors={overviewWorldAnchors}
+          labelsReady={labelsReady}
+          featureFlagEnabled={ENABLE_OVERVIEW_ALL_CONNECTORS}
         />
       )}
 
