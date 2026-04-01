@@ -15,6 +15,55 @@
   font-weight: 400;
   line-height: normal;
   text-transform: uppercase;
+  color: #ffffff;
+}
+
+.label-title-stack {
+  --title-hover-in-duration: 160ms;
+  --title-hover-out-duration: 820ms;
+  --title-fill-softness: 14%;
+  --title-fill-overlay-opacity: 1;
+  position: relative;
+  display: inline-block;
+}
+
+.label-title-fill-overlay {
+  position: absolute;
+  inset: 0;
+  font-family: inherit;
+  font-size: inherit;
+  font-style: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  white-space: pre;
+  pointer-events: none;
+  user-select: none;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  background-image: linear-gradient(
+    90deg,
+    var(--headline-ink) 0%,
+    var(--headline-ink) calc(100% - var(--title-fill-softness)),
+    rgba(255, 255, 255, 0.32) 100%
+  );
+  background-size: 0% 100%;
+  background-position: left center;
+  background-repeat: no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  opacity: var(--title-fill-overlay-opacity);
+  transition-property: background-size;
+  transition-duration: var(--title-hover-out-duration);
+  transition-timing-function: cubic-bezier(0.25, 0.1, 0.25, 1);
+  will-change: background-size;
+}
+
+.facet-label-optimized:hover .label-title-fill-overlay {
+  background-size: 100% 100%;
+  transition-duration: var(--title-hover-in-duration);
+  transition-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .label-description {
