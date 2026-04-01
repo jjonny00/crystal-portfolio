@@ -134,14 +134,22 @@ const UnifiedCameraController = ({
     const previousCrystalForm = lastCrystalFormRef.current;
 
     if (previousCrystalForm !== 'exploded' && currentCrystalForm === 'exploded') {
-      // Snap to the current target immediately when fracture starts so the off-kilter pose is instant.
-      camera.position.copy(currentTarget.current.position);
-      camera.lookAt(currentTarget.current.lookAt);
-      fractureTiltRef.current = FRACTURE_TILT_RADIANS;
-      fractureTiltActiveRef.current = true;
-      fractureTiltAnchorPositionRef.current.copy(camera.position);
-      fractureTiltAnchorLookAtRef.current.copy(currentTarget.current.lookAt);
-      fractureJumpFrameRef.current = true;
+      const shouldApplyHeroFractureTilt = animationData?.cameraState === 'hero';
+
+      if (shouldApplyHeroFractureTilt) {
+        // Snap to the current target immediately when fracture starts so the off-kilter pose is instant.
+        camera.position.copy(currentTarget.current.position);
+        camera.lookAt(currentTarget.current.lookAt);
+        fractureTiltRef.current = FRACTURE_TILT_RADIANS;
+        fractureTiltActiveRef.current = true;
+        fractureTiltAnchorPositionRef.current.copy(camera.position);
+        fractureTiltAnchorLookAtRef.current.copy(currentTarget.current.lookAt);
+        fractureJumpFrameRef.current = true;
+      } else {
+        fractureTiltActiveRef.current = false;
+        fractureTiltRef.current = 0;
+        fractureJumpFrameRef.current = false;
+      }
     } else if (currentCrystalForm === 'whole') {
       fractureTiltActiveRef.current = false;
       fractureTiltRef.current = 0;
