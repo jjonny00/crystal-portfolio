@@ -636,15 +636,40 @@ export const useUnifiedAnimationController = (options = {}) => {
       }, (config.crystal.fracturePause || 0.5) * 1000);
     }
     else if (toZone === 'projects') {
-      // Immediately enter project state and set initial facet
-      setAnimationState(prev => ({
-        ...prev,
-        state: ANIMATION_STATES.PROJECT_FOCUSED,
-        crystalForm: 'exploded',     // Immediate
-        cameraState: 'project',      // Immediate - this enables project camera positioning
-        focusedFacet: getSceneFacetKeyByProjectId(initialProject) || initialProject,
-        isTransitioning: false
-      }));
+      const targetFacet = getSceneFacetKeyByProjectId(initialProject) || initialProject;
+
+      if (fromZone === 'about') {
+        // From about, let the fracture settle first; then move camera to project.
+        setAnimationState(prev => ({
+          ...prev,
+          state: ANIMATION_STATES.PROJECT_FOCUSED,
+          crystalForm: 'exploded',
+          cameraState: 'about',
+          focusedFacet: null,
+          isTransitioning: false
+        }));
+
+        cameraDelayTimeout.current = setTimeout(() => {
+          setAnimationState(prev => ({
+            ...prev,
+            cameraState: 'project',
+            focusedFacet: targetFacet,
+            isTransitioning: false,
+            projectInfo: { ...prev.projectInfo, project: initialProject }
+          }));
+        }, (config.crystal.fracturePause || 0.5) * 1000);
+      } else {
+        // Immediately enter project state and set initial facet
+        setAnimationState(prev => ({
+          ...prev,
+          state: ANIMATION_STATES.PROJECT_FOCUSED,
+          crystalForm: 'exploded',
+          cameraState: 'project',
+          focusedFacet: targetFacet,
+          isTransitioning: false
+        }));
+      }
+
       lastProject.current = initialProject;
     }
     else if (toZone === 'about') {
@@ -774,33 +799,6 @@ export const useUnifiedAnimationController = (options = {}) => {
       }
     }
 
-    const lastProjectKey = orderedProjectKeys[orderedProjectKeys.length - 1] || null;
-    const aboutToLastProjectDomHandoff =
-      lastZone.current === 'about' &&
-      lastProjectKey &&
-      nearestSectionId === `project-${lastProjectKey}`;
-
-    if (
-      aboutToLastProjectDomHandoff &&
-      directProjectOverrideRef.current?.projectKey !== lastProjectKey
-    ) {
-      // Use the same project-label click semantics, but only for the
-      // about -> last project edge case.
-      setDirectProjectOverride(lastProjectKey);
-      lastZone.current = 'projects';
-
-      setAnimationState((prev) => ({
-        ...prev,
-        scrollProgress,
-        zoneInfo: { ...currentZone, zone: 'projects' },
-        projectInfo: {
-          project: lastProjectKey,
-          progress: activeProject.progress ?? prev.projectInfo?.progress ?? 0,
-        },
-      }));
-
-      return;
-    }
 
     // When DOM clearly indicates a project section, keep projects-zone progress
     // aligned to DOM section bounds so transitions stay stable.
