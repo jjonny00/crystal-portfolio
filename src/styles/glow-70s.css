@@ -24,43 +24,12 @@
   text-shadow:
     0 0 0.1px rgba(0,0,0,.2),
     0 0.2px 0 rgba(0,0,0,.01),
-    0 0 0.7px  var(--headline-glow1, #40e0d0),
     0 0 0.8px var(--headline-glow1, #40e0d0),
-    0 0 7px rgb(from var(--headline-glow2, #008080) r g b / 0.4),
-    0 0 40px rgb(from var(--headline-glow2, #008080) r g b / 0.3);
-}
-
-/* Bloom duplicate behind the text - FIXED */
-.headline-70s::after {
-  content: attr(data-text);
-  position: absolute; 
-  inset: 0;
-  
-  /* CRITICAL: Use the CSS variable here too */
-  color: var(--headline-ink, #64ffda);
-  
-  mix-blend-mode: screen;
-  filter: blur(6px) saturate(105%);
-  opacity: .25;
-  z-index: -1;
-  pointer-events: none;
-}
-
-/* Chromatic fringe - FIXED */
-.headline-70s::before {
-  content: attr(data-text);
-  position: absolute; 
-  inset: 0;
-  
-  /* CRITICAL: Use the CSS variable here too */
-  color: var(--headline-ink, #64ffda);
-  
-  text-shadow:
-    2px 0 rgba(186, 59, 47, 0.1),
-   -1.2px 0 rgba(182, 239, 255, 0.3);
-  opacity: .6;
-  mix-blend-mode: screen;
-  pointer-events: none;
+    0 0 3px rgb(from var(--headline-glow2, #008080) r g b / calc(var(--headline-glow-strength, 0.28) * 0.8)),
+    0 0 14px rgb(from var(--headline-glow2, #008080) r g b / var(--headline-glow-strength, 0.28));
+  transition:
+    color var(--headline-transition-duration, 280ms) cubic-bezier(0.22, 1, 0.36, 1),
+    text-shadow var(--headline-transition-duration, 280ms) cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* Micro flicker animation */

@@ -2073,6 +2073,7 @@ const UnifiedCrystalScene = forwardRef(({
         projects={projects}
         onSelectProject={selectProjectAndNavigate}
         onHoverChange={handleLabelHover}
+        hoveredFacetKey={hoveredFacet}
         animationData={animationData}
         performanceProfile={performanceProfile}
         anchorOffsets={anchorOffsets}
