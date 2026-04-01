@@ -44,7 +44,7 @@ const REFORM_MASK_GLOW_DURATION_S = 0.2
 const REFORM_MASK_GLOW_PEAK_INTENSITY = 1.5
 const REFORM_FACET_MASK_GLOW_PEAK_INTENSITY = 1.3
 const REFORM_SWAP_OVERLAP_MS = 100
-const ENABLE_OVERVIEW_ALL_CONNECTORS = false
+const ENABLE_OVERVIEW_ALL_CONNECTORS = true
 
 const UnifiedCrystalScene = forwardRef(({ 
   animationData,
@@ -2094,7 +2094,7 @@ const UnifiedCrystalScene = forwardRef(({
         overviewWorldAnchors={overviewWorldAnchors}
       />
 
-      {ENABLE_OVERVIEW_ALL_CONNECTORS && (
+      {ENABLE_OVERVIEW_ALL_CONNECTORS && Object.keys(domAnchorsClient).length > 0 && (
         <OverviewConnectorLines
           enabled={inActiveOverview && labelsReady}
           domAnchorsClient={domAnchorsClient}
