@@ -318,7 +318,6 @@ export const useUnifiedAnimationController = (options = {}) => {
   const directProjectReleaseTimeoutRef = useRef(null);
   const runtimeProjectSectionsRef = useRef([]);
   const aboutToProjectsLockUntilRef = useRef(0);
-  const lastProjectHandoffTimeoutRef = useRef(null);
 
   const getRuntimeProjectSection = useCallback((projectKey) => {
     if (!projectKey) return null;
@@ -803,55 +802,6 @@ export const useUnifiedAnimationController = (options = {}) => {
     }
 
 
-    const lastProjectKey = orderedProjectKeys[orderedProjectKeys.length - 1] || null;
-    const enteringLastProjectSection =
-      lastProjectKey &&
-      nearestSectionId === `project-${lastProjectKey}`;
-
-    const directZoneOverride = directZoneOverrideRef.current?.zoneKey ?? null;
-    const allowLastProjectHandoff =
-      !directZoneOverride || directZoneOverride === 'projects';
-
-    if (enteringLastProjectSection && allowLastProjectHandoff) {
-      const lastProjectSceneFacet = getSceneFacetKeyByProjectId(lastProjectKey) || lastProjectKey;
-      const alreadyFocusedLastProject = animationState.focusedFacet === lastProjectSceneFacet;
-
-      if (!alreadyFocusedLastProject) {
-        if (container && Number.isFinite(nearestSectionTop)) {
-          container.scrollTop = nearestSectionTop;
-        }
-
-        const delayMs = (config.crystal.fracturePause || 0.5) * 1000;
-
-        if (!lastProjectHandoffTimeoutRef.current) {
-          lastProjectHandoffTimeoutRef.current = setTimeout(() => {
-            lastProjectHandoffTimeoutRef.current = null;
-            setDirectProjectOverride(lastProjectKey);
-          }, delayMs);
-        }
-
-        setAnimationState((prev) => ({
-          ...prev,
-          state: ANIMATION_STATES.PROJECT_FOCUSED,
-          crystalForm: 'exploded',
-          cameraState: 'about',
-          focusedFacet: null,
-          isTransitioning: false,
-          scrollProgress,
-          zoneInfo: { ...currentZone, zone: 'projects' },
-          projectInfo: {
-            project: lastProjectKey,
-            progress: activeProject.progress ?? prev.projectInfo?.progress ?? 0,
-          },
-        }));
-
-        return;
-      }
-    } else if (lastProjectHandoffTimeoutRef.current) {
-      clearTimeout(lastProjectHandoffTimeoutRef.current);
-      lastProjectHandoffTimeoutRef.current = null;
-    }
-
     // When DOM clearly indicates a project section, keep projects-zone progress
     // aligned to DOM section bounds so transitions stay stable.
     const runtimeSections = runtimeProjectSectionsRef.current;
@@ -1146,9 +1096,6 @@ export const useUnifiedAnimationController = (options = {}) => {
       }
       if (cameraDelayTimeout.current) {
          clearTimeout(cameraDelayTimeout.current);
-      }
-      if (lastProjectHandoffTimeoutRef.current) {
-        clearTimeout(lastProjectHandoffTimeoutRef.current);
       }
     };
   }, [clearIntroPreview]);
