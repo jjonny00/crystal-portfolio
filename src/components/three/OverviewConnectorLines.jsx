@@ -13,9 +13,31 @@ const OverviewConnectorLines = ({
   const { camera, size } = useThree();
 
   const points = useMemo(() => {
-    if (!enabled || !connectorFacetKey || !alwaysOnDomAnchorClient || !overviewWorldAnchors) return null;
+    if (!enabled || !connectorFacetKey || !alwaysOnDomAnchorClient || !overviewWorldAnchors) {
+      if (import.meta.env.DEV) {
+        console.log('🔗 overview connector status', {
+          connectorFacetKey,
+          labelDomNodeFound: Boolean(alwaysOnDomAnchorClient),
+          alwaysOnDomAnchorMeasured: Boolean(alwaysOnDomAnchorClient),
+          worldAnchorFound: Boolean(connectorFacetKey && overviewWorldAnchors?.[connectorFacetKey]),
+          projectedEndpointValid: false,
+        });
+      }
+      return null;
+    }
     const start = overviewWorldAnchors[connectorFacetKey];
-    if (!start) return null;
+    if (!start) {
+      if (import.meta.env.DEV) {
+        console.log('🔗 overview connector status', {
+          connectorFacetKey,
+          labelDomNodeFound: true,
+          alwaysOnDomAnchorMeasured: true,
+          worldAnchorFound: false,
+          projectedEndpointValid: false,
+        });
+      }
+      return null;
+    }
     const width = size.width || 1;
     const height = size.height || 1;
     const ndc = new THREE.Vector2(
@@ -32,7 +54,28 @@ const OverviewConnectorLines = ({
 
     const end = new THREE.Vector3();
     const intersected = raycaster.ray.intersectPlane(plane, end);
-    if (!intersected) return null;
+    if (!intersected) {
+      if (import.meta.env.DEV) {
+        console.log('🔗 overview connector status', {
+          connectorFacetKey,
+          labelDomNodeFound: true,
+          alwaysOnDomAnchorMeasured: true,
+          worldAnchorFound: true,
+          projectedEndpointValid: false,
+        });
+      }
+      return null;
+    }
+
+    if (import.meta.env.DEV) {
+      console.log('🔗 overview connector status', {
+        connectorFacetKey,
+        labelDomNodeFound: true,
+        alwaysOnDomAnchorMeasured: true,
+        worldAnchorFound: true,
+        projectedEndpointValid: true,
+      });
+    }
 
     return [start.clone(), end.clone()];
   }, [enabled, connectorFacetKey, alwaysOnDomAnchorClient, overviewWorldAnchors, camera, size.width, size.height]);

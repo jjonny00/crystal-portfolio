@@ -75,7 +75,7 @@ const OptimizedLabel = React.memo(function OptimizedLabel({
         cursor: 'pointer'
       }}
     >
-      <div ref={titleRef}>
+      <div ref={titleRef} data-facet-key={runtimeKey}>
         <Headline
           as="h3"
           className="label-title"

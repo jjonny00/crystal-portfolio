@@ -857,15 +857,6 @@ const UnifiedCrystalScene = forwardRef(({
     [updateHoverSources, resolveSceneFacetKey]
   );
 
-  const handleAlwaysOnDomAnchorChange = useCallback((facetKey, clientPointOrNull) => {
-    if (!clientPointOrNull || resolveSceneFacetKey(facetKey) !== OVERVIEW_DEBUG_CONNECTOR_KEY) {
-      setAlwaysOnDomAnchorClient(null);
-      return;
-    }
-
-    setAlwaysOnDomAnchorClient(clientPointOrNull);
-  }, [resolveSceneFacetKey]);
-
   const handleFacetHover = useCallback(
     (facetKey, hovering) => {
       updateHoverSources(resolveSceneFacetKey(facetKey), 'facet', hovering);
@@ -916,6 +907,56 @@ const UnifiedCrystalScene = forwardRef(({
     facetsSettledRef.current = false;
     setFacetsSettled(false);
   }, [inActiveOverview]);
+
+  useEffect(() => {
+    if (!inActiveOverview || !labelsReady || !facetsSettled) return undefined;
+
+    const connectorKey = OVERVIEW_DEBUG_CONNECTOR_KEY;
+    const selector = `[data-facet-key="${connectorKey}"]`;
+
+    const measureAlwaysOnAnchor = () => {
+      const labelNode = document.querySelector(selector);
+      const hasLabelNode = Boolean(labelNode);
+      const worldAnchor = overviewWorldAnchors?.[connectorKey];
+      const hasWorldAnchor = Boolean(worldAnchor);
+
+      if (!labelNode) {
+        setAlwaysOnDomAnchorClient(null);
+        if (import.meta.env.DEV) {
+          console.log('🔗 always-on connector anchor measure', {
+            connectorFacetKey: connectorKey,
+            labelDomNodeFound: false,
+            alwaysOnDomAnchorMeasured: false,
+            worldAnchorFound: hasWorldAnchor,
+          });
+        }
+        return;
+      }
+
+      const rect = labelNode.getBoundingClientRect();
+      const anchor = {
+        x: rect.left,
+        y: rect.top + rect.height * 0.5,
+      };
+      setAlwaysOnDomAnchorClient(anchor);
+      if (import.meta.env.DEV) {
+        console.log('🔗 always-on connector anchor measure', {
+          connectorFacetKey: connectorKey,
+          labelDomNodeFound: hasLabelNode,
+          alwaysOnDomAnchorMeasured: true,
+          worldAnchorFound: hasWorldAnchor,
+          anchor,
+        });
+      }
+    };
+
+    const raf = requestAnimationFrame(measureAlwaysOnAnchor);
+    window.addEventListener('resize', measureAlwaysOnAnchor);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('resize', measureAlwaysOnAnchor);
+    };
+  }, [facetsSettled, inActiveOverview, labelsReady, overviewWorldAnchors]);
 
   
   // Keyboard listener for debug toggle
@@ -2092,7 +2133,6 @@ const UnifiedCrystalScene = forwardRef(({
         performanceProfile={performanceProfile}
         anchorOffsets={anchorOffsets}
         alwaysOnFacetKey={OVERVIEW_DEBUG_CONNECTOR_KEY}
-        onAlwaysOnDomAnchorChange={handleAlwaysOnDomAnchorChange}
         onLabelsReadyChange={setLabelsReady}
       />
 
