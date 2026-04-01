@@ -912,7 +912,7 @@ const UnifiedCrystalScene = forwardRef(({
   }, [inActiveOverview]);
 
   useEffect(() => {
-    if (!inActiveOverview || !labelsReady || !facetsSettled) return undefined;
+    if (!inActiveOverview || !labelsReady) return undefined;
 
     const connectorSceneKey = overviewDebugSceneKey;
     const connectorRuntimeKey = overviewDebugRuntimeKey;
@@ -967,7 +967,7 @@ const UnifiedCrystalScene = forwardRef(({
       cancelAnimationFrame(raf);
       window.removeEventListener('resize', measureAlwaysOnAnchor);
     };
-  }, [facetsSettled, inActiveOverview, labelsReady, overviewDebugRuntimeKey, overviewDebugSceneKey, overviewWorldAnchors]);
+  }, [inActiveOverview, labelsReady, overviewDebugRuntimeKey, overviewDebugSceneKey, overviewWorldAnchors]);
 
   useEffect(() => {
     if (!inActiveOverview) return;
@@ -2243,7 +2243,6 @@ const UnifiedCrystalScene = forwardRef(({
           enabled={
             inActiveOverview &&
             labelsReady &&
-            facetsSettled &&
             Boolean(alwaysOnDomAnchorClient)
           }
           connectorFacetKey={overviewDebugSceneKey}
