@@ -512,9 +512,17 @@ export const useFacetOverlayGeometry = (facetKeys) => {
         targetOpacity: previousTarget,
         currentOpacity: previousOpacity,
         isActive: wasActive,
+        keepBaseMapDetached: true,
       };
 
       overlaySlotsRef.current.set(facetKey, slot);
+
+      // Ensure project artwork is rendered only by overlayMaterial so it can
+      // fade independently from the base tinted facet.
+      if (slot.keepBaseMapDetached && slot.originalMaterial?.map) {
+        slot.originalMaterial.map = null;
+        slot.originalMaterial.needsUpdate = true;
+      }
 
       if (slot.isActive) {
         slot.overlayMaterial.opacity = slot.currentOpacity;
@@ -543,6 +551,7 @@ export const useFacetOverlayGeometry = (facetKeys) => {
 
   const updateOverlays = useCallback((deltaTime, options = {}) => {
     const forceHide = options?.forceHide === true;
+    const forceHiddenFacetKey = options?.forceHiddenFacetKey || null;
 
     overlaySlotsRef.current.forEach((slot) => {
       if (!slot.mesh) return;
@@ -557,6 +566,10 @@ export const useFacetOverlayGeometry = (facetKeys) => {
         }
 
         return;
+      }
+
+      if (forceHiddenFacetKey && slot.facetKey === forceHiddenFacetKey) {
+        slot.targetOpacity = 0;
       }
 
       if (!slot.isActive && slot.targetOpacity <= 0) {
@@ -588,20 +601,23 @@ export const useFacetOverlayGeometry = (facetKeys) => {
         slot.currentOpacity = 0;
         slot.originalMaterial.transparent = slot.originalTransparent;
         slot.originalMaterial.opacity = slot.originalOpacity;
-        slot.originalMaterial.needsUpdate = true;
+        if (!slot.keepBaseMapDetached) {
+          if (!slot.originalMaterial.map && slot.originalMap) {
+            slot.originalMaterial.map = slot.originalMap;
+          }
 
-        if (!slot.originalMaterial.map && slot.originalMap) {
-          slot.originalMaterial.map = slot.originalMap;
-        }
-
-        if (slot.originalMaterial.map && slot.originalMapTransform) {
-          applyStoredTextureTransform(
-            slot.originalMaterial.map,
-            slot.originalMapTransform
-          );
+          if (slot.originalMaterial.map && slot.originalMapTransform) {
+            applyStoredTextureTransform(
+              slot.originalMaterial.map,
+              slot.originalMapTransform
+            );
+          } else if (slot.originalMaterial.map) {
+            slot.originalMaterial.map.needsUpdate = true;
+          }
         } else if (slot.originalMaterial.map) {
-          slot.originalMaterial.map.needsUpdate = true;
+          slot.originalMaterial.map = null;
         }
+        slot.originalMaterial.needsUpdate = true;
       }
     });
   }, []);
@@ -618,6 +634,16 @@ export const useFacetOverlayGeometry = (facetKeys) => {
 
       if (slot.overlayTexture) {
         slot.overlayTexture.dispose();
+      }
+
+      if (slot.originalMaterial && slot.originalMap) {
+        slot.originalMaterial.map = slot.originalMap;
+        if (slot.originalMapTransform) {
+          applyStoredTextureTransform(slot.originalMaterial.map, slot.originalMapTransform);
+        } else {
+          slot.originalMaterial.map.needsUpdate = true;
+        }
+        slot.originalMaterial.needsUpdate = true;
       }
     });
 

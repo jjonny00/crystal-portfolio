@@ -2028,11 +2028,16 @@ const UnifiedCrystalScene = forwardRef(({
     });
 
     if (overlaysReady) {
+      const forceHiddenFacetKey =
+        animationData?.viewMode === 'caseStudy'
+          ? animationData?.focusedFacet ?? null
+          : null;
       updateOverlays(deltaTime, {
         forceHide:
           showFacets &&
           animationData.crystalForm === 'whole' &&
-          (pendingReformSwapAtRef.current != null || pendingFacetHideAtRef.current != null)
+          (pendingReformSwapAtRef.current != null || pendingFacetHideAtRef.current != null),
+        forceHiddenFacetKey
       });
     }
 
