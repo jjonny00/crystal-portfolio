@@ -18,7 +18,7 @@ const OverviewConnectorLines = ({
   const IDLE_DROOP = 0.52;
   const ACTIVE_DROOP = 0;
   const ENTRANCE_DRAW_DURATION = 0.3;
-  const ENTRANCE_STAGGER_STEP = 0.045;
+  const ENTRANCE_STAGGER_STEP = 0.14;
   const STRAIGHTEN_SNAP_DURATION = 0.2;
   const STRAIGHTEN_OVERSHOOT_DURATION = 0.1;
   const STRAIGHTEN_REBOUND_DURATION = 0.14;
@@ -232,9 +232,11 @@ const OverviewConnectorLines = ({
   useEffect(() => {
     if (!resolvedConnectorPairs?.length) return;
 
-    resolvedConnectorPairs.forEach(({ runtimeDomKey, sceneWorldKey }) => {
+    resolvedConnectorPairs.forEach(({ runtimeDomKey, sceneWorldKey }, pairIndex) => {
       const connectorKey = `${runtimeDomKey}__${sceneWorldKey}`;
-      const state = connectorAnimationRef.current[connectorKey] || makeInitialConnectorState();
+      const entranceOrderIndex = getEntranceOrderIndex(runtimeDomKey, pairIndex);
+      const startDelay = entranceOrderIndex * ENTRANCE_STAGGER_STEP;
+      const state = connectorAnimationRef.current[connectorKey] || makeInitialConnectorState(startDelay);
       const nextHovered = hoveredSceneFacetKey === sceneWorldKey;
       const wasHovered = state.isHovered;
       state.isHovered = nextHovered;
@@ -269,7 +271,7 @@ const OverviewConnectorLines = ({
     const planeNormal = new THREE.Vector3();
     camera.getWorldDirection(planeNormal);
 
-    return resolvedConnectorPairs.flatMap(({ runtimeDomKey, sceneWorldKey }) => {
+    return resolvedConnectorPairs.flatMap(({ runtimeDomKey, sceneWorldKey }, pairIndex) => {
       const domAnchor = alwaysOnDomAnchorsByRuntimeKey?.[runtimeDomKey];
       const start = overviewWorldAnchors?.[sceneWorldKey];
       if (!domAnchor || !start) return [];
@@ -285,7 +287,9 @@ const OverviewConnectorLines = ({
       if (!intersected) return [];
 
       const connectorKey = `${runtimeDomKey}__${sceneWorldKey}`;
-      const animationState = connectorAnimationRef.current[connectorKey] || makeInitialConnectorState();
+      const entranceOrderIndex = getEntranceOrderIndex(runtimeDomKey, pairIndex);
+      const startDelay = entranceOrderIndex * ENTRANCE_STAGGER_STEP;
+      const animationState = connectorAnimationRef.current[connectorKey] || makeInitialConnectorState(startDelay);
       const animationPhase = animationState.phase;
       const droopTension = THREE.MathUtils.lerp(
         IDLE_DROOP,
