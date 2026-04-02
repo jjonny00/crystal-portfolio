@@ -794,6 +794,28 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
     onUpdate(updatedConfig);
   };
 
+  const getProjectCameraVec3 = (project, mode, field) =>
+    config?.projectCameraSettings?.[project]?.[editDeviceKey]?.[mode]?.[field] || [0, 0, 0];
+
+  const updateProjectCameraPositionFromPolar = (project, mode, nextPolar) => {
+    const target = getProjectCameraVec3(project, mode, 'target');
+    const currentPosition = getProjectCameraVec3(project, mode, 'position');
+    const { distance, yaw, pitch } = getPolarCoords(currentPosition, target);
+
+    const resolvedDistance = nextPolar.distance ?? distance;
+    const resolvedYaw = nextPolar.yaw ?? yaw;
+    const resolvedPitch = nextPolar.pitch ?? pitch;
+
+    const horizontal = resolvedDistance * Math.cos(resolvedPitch);
+    const x = target[0] + horizontal * Math.sin(resolvedYaw);
+    const z = target[2] + horizontal * Math.cos(resolvedYaw);
+    const y = target[1] + resolvedDistance * Math.sin(resolvedPitch);
+
+    const updatedConfig = cloneConfig();
+    updatedConfig.projectCameraSettings[project][editDeviceKey][mode].position = [x, y, z];
+    onUpdate(updatedConfig);
+  };
+
   // Handle effect value changes
   const handleEffectChange = (key, value) => {
     const numValue = parseFloat(value);
@@ -1664,13 +1686,13 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
             <div style={accordionNoteStyle}>Editing {editDeviceKey} branch: {projectCameraMode}</div>
             {projectCameraKeys.map((project) => {
               const sceneKey = getSceneFacetKeyByProjectId(project) || project;
-              const cameraKey = `camera.projects.${sceneKey}`;
-              const cameraPosition = cameraValues[cameraKey];
+              const modeCameraPosition = getProjectCameraVec3(project, projectCameraMode, 'position');
+              const modeCameraTarget = getProjectCameraVec3(project, projectCameraMode, 'target');
               const positionOffsetKey = `cameraOffsets.projects.${sceneKey}.position`;
               const targetOffsetKey = `cameraOffsets.projects.${sceneKey}.target`;
               const positionOffset = cameraOffsetValues[positionOffsetKey];
               const targetOffset = cameraOffsetValues[targetOffsetKey];
-              const { distance, yaw, pitch } = getPolarCoords(cameraPosition, getCameraTargetForKey(cameraKey));
+              const { distance, yaw, pitch } = getPolarCoords(modeCameraPosition, modeCameraTarget);
               const yawDeg = yaw * RAD2DEG;
               const pitchDeg = pitch * RAD2DEG;
               const isOpen = projectAccordionState[project];
@@ -1697,15 +1719,15 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
                           <div key={axis} style={{ marginBottom: '5px' }}>
                             <div style={sliderLabelStyle}>
                               <span><span style={coordLabelStyle}>{axis}</span> Position</span>
-                              <span>{cameraPosition[index].toFixed(2)}</span>
+                              <span>{modeCameraPosition[index].toFixed(2)}</span>
                             </div>
                             <input
                               type="range"
                               min="-5"
                               max="5"
                               step="0.1"
-                              value={cameraPosition[index]}
-                              onChange={(e) => handleCameraPositionChange(cameraKey, index, e.target.value)}
+                              value={modeCameraPosition[index]}
+                              onChange={(e) => updateProjectCameraSettingVec3(project, projectCameraMode, 'position', index, e.target.value)}
                               style={sliderStyle}
                             />
                           </div>
@@ -1722,7 +1744,11 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
                             max="180"
                             step="1"
                             value={yawDeg}
-                            onChange={(e) => handleCameraRotationChange(cameraKey, 'yaw', e.target.value)}
+                            onChange={(e) =>
+                              updateProjectCameraPositionFromPolar(project, projectCameraMode, {
+                                yaw: parseFloat(e.target.value) * DEG2RAD
+                              })
+                            }
                             style={sliderStyle}
                           />
                         </div>
@@ -1738,7 +1764,11 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
                             max="89"
                             step="1"
                             value={pitchDeg}
-                            onChange={(e) => handleCameraRotationChange(cameraKey, 'pitch', e.target.value)}
+                            onChange={(e) =>
+                              updateProjectCameraPositionFromPolar(project, projectCameraMode, {
+                                pitch: parseFloat(e.target.value) * DEG2RAD
+                              })
+                            }
                             style={sliderStyle}
                           />
                         </div>
@@ -1754,7 +1784,11 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
                             max="15"
                             step="0.1"
                             value={distance}
-                            onChange={(e) => handleCameraDistanceChange(cameraKey, e.target.value)}
+                            onChange={(e) =>
+                              updateProjectCameraPositionFromPolar(project, projectCameraMode, {
+                                distance: parseFloat(e.target.value)
+                              })
+                            }
                             style={sliderStyle}
                           />
                         </div>
