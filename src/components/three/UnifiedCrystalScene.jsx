@@ -474,7 +474,6 @@ const UnifiedCrystalScene = forwardRef(({
     isReady: overlaysReady,
     registerOverlaySlot,
     setOverlayVisibility,
-    setOverlayOpacity,
     updateOverlays,
     cleanup: cleanupOverlays,
     overlaySlots
@@ -1534,22 +1533,10 @@ const UnifiedCrystalScene = forwardRef(({
       const activeSceneFacetKey = animationData?.focusedProject
         ? (getSceneFacetKeyByProjectId(animationData.focusedProject) || currentFacet)
         : currentFacet;
-      const shouldHideActiveArtwork =
-        animationData?.viewMode === 'caseStudy' &&
-        animationData?.focusedProject != null;
 
       facetKeys.forEach((key) => {
-        const isActiveFacet = key === activeSceneFacetKey;
-        if (isActiveFacet) {
-          setOverlayOpacity(key, shouldHideActiveArtwork ? 0 : 1, {
-            // Keep the same overlay material assignment for active project artwork
-            // and drive transitions purely via opacity.
-            persistAssigned: true
-          });
-          return;
-        }
-
-        setOverlayVisibility(key, false);
+        const shouldShow = key === activeSceneFacetKey;
+        setOverlayVisibility(key, shouldShow);
       });
     }
 
@@ -1561,7 +1548,6 @@ const UnifiedCrystalScene = forwardRef(({
     projectColors,
     overlaysReady,
     setOverlayVisibility,
-    setOverlayOpacity,
     animationData?.viewMode,
     animationData?.focusedProject
   ]);
@@ -2053,6 +2039,46 @@ const UnifiedCrystalScene = forwardRef(({
     });
 
     if (overlaysReady) {
+      const activeProjectId = animationData?.focusedProject ?? null;
+      const activeFacetKey = activeProjectId
+        ? getSceneFacetKeyByProjectId(activeProjectId)
+        : null;
+      const activeProjectSlot = activeFacetKey ? overlaySlots.get(activeFacetKey) : null;
+
+      if (activeProjectSlot?.mesh && activeProjectSlot?.overlayMaterial) {
+        const isCaseStudyActiveProject =
+          animationData?.viewMode === 'caseStudy' &&
+          activeProjectId != null &&
+          getProjectIdBySceneFacetKey(activeProjectSlot.facetKey) === activeProjectId;
+        const targetOpacity = isCaseStudyActiveProject ? 0 : 1;
+        const lerpAlpha = Math.min(deltaTime * 4, 1);
+        const nextOpacity = THREE.MathUtils.lerp(
+          activeProjectSlot.overlayMaterial.opacity ?? activeProjectSlot.currentOpacity ?? 1,
+          targetOpacity,
+          lerpAlpha
+        );
+
+        if (!activeProjectSlot.isActive) {
+          const materials = Array.isArray(activeProjectSlot.mesh.material)
+            ? activeProjectSlot.mesh.material.slice()
+            : [activeProjectSlot.mesh.material];
+          const materialIndex = activeProjectSlot.materialIndex ?? 0;
+          materials[materialIndex] = activeProjectSlot.overlayMaterial;
+          activeProjectSlot.mesh.material =
+            activeProjectSlot.materialIndex != null ? materials : activeProjectSlot.overlayMaterial;
+          activeProjectSlot.isActive = true;
+        }
+
+        if (activeProjectSlot.overlayMaterial.transparent !== true) {
+          activeProjectSlot.overlayMaterial.transparent = true;
+          activeProjectSlot.overlayMaterial.needsUpdate = true;
+        }
+
+        activeProjectSlot.overlayMaterial.opacity = nextOpacity;
+        activeProjectSlot.currentOpacity = nextOpacity;
+        activeProjectSlot.targetOpacity = nextOpacity;
+      }
+
       updateOverlays(deltaTime, {
         forceHide:
           showFacets &&

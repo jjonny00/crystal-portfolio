@@ -513,7 +513,6 @@ export const useFacetOverlayGeometry = (facetKeys) => {
         currentOpacity: previousOpacity,
         isActive: wasActive,
         keepBaseMapDetached: true,
-        persistAssignment: false,
       };
 
       overlaySlotsRef.current.set(facetKey, slot);
@@ -543,27 +542,9 @@ export const useFacetOverlayGeometry = (facetKeys) => {
     const slot = overlaySlotsRef.current.get(facetKey);
     if (!slot) return;
 
-    slot.persistAssignment = false;
     slot.targetOpacity = visible ? 1 : 0;
 
     if (visible && !slot.isActive) {
-      slot.overlayMaterial.opacity = slot.currentOpacity;
-      ensureMaterialAssignment(slot.mesh, slot.materialIndex, slot.overlayMaterial);
-      slot.isActive = true;
-    }
-  }, []);
-
-  const setOverlayOpacity = useCallback((facetKey, opacity, options = {}) => {
-    const slot = overlaySlotsRef.current.get(facetKey);
-    if (!slot) return;
-
-    const clampedOpacity = THREE.MathUtils.clamp(opacity, 0, 1);
-    const persistAssigned = options?.persistAssigned !== false;
-
-    slot.persistAssignment = persistAssigned;
-    slot.targetOpacity = clampedOpacity;
-
-    if (!slot.isActive) {
       slot.overlayMaterial.opacity = slot.currentOpacity;
       ensureMaterialAssignment(slot.mesh, slot.materialIndex, slot.overlayMaterial);
       slot.isActive = true;
@@ -610,7 +591,7 @@ export const useFacetOverlayGeometry = (facetKeys) => {
         slot.overlayMaterial.needsUpdate = true;
       }
 
-      if (slot.isActive && slot.targetOpacity === 0 && newOpacity <= 0.01 && !slot.persistAssignment) {
+      if (slot.isActive && slot.targetOpacity === 0 && newOpacity <= 0.01) {
         ensureMaterialAssignment(slot.mesh, slot.materialIndex, slot.originalMaterial);
         slot.overlayMaterial.opacity = 0;
         slot.isActive = false;
@@ -676,7 +657,6 @@ export const useFacetOverlayGeometry = (facetKeys) => {
     isReady,
     registerOverlaySlot,
     setOverlayVisibility,
-    setOverlayOpacity,
     updateOverlays,
     cleanup,
     overlaySlots: overlaySlotsRef.current,
