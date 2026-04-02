@@ -521,6 +521,8 @@ export const useFacetOverlayGeometry = (facetKeys) => {
       // fade independently from the base tinted facet.
       if (slot.keepBaseMapDetached && slot.originalMaterial?.map) {
         slot.originalMaterial.map = null;
+        slot.originalMaterial.transparent = false;
+        slot.originalMaterial.opacity = 1;
         slot.originalMaterial.needsUpdate = true;
       }
 
@@ -599,8 +601,12 @@ export const useFacetOverlayGeometry = (facetKeys) => {
         slot.overlayMaterial.opacity = 0;
         slot.isActive = false;
         slot.currentOpacity = 0;
-        slot.originalMaterial.transparent = slot.originalTransparent;
-        slot.originalMaterial.opacity = slot.originalOpacity;
+        slot.originalMaterial.transparent = slot.keepBaseMapDetached
+          ? false
+          : slot.originalTransparent;
+        slot.originalMaterial.opacity = slot.keepBaseMapDetached
+          ? 1
+          : slot.originalOpacity;
         if (!slot.keepBaseMapDetached) {
           if (!slot.originalMaterial.map && slot.originalMap) {
             slot.originalMaterial.map = slot.originalMap;
