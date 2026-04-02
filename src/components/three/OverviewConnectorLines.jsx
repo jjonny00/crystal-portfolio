@@ -21,14 +21,15 @@ const OverviewConnectorLines = ({
   const STRAIGHTEN_OVERSHOOT_DURATION = 0.1;
   const STRAIGHTEN_REBOUND_DURATION = 0.14;
   const STRAIGHTEN_SETTLE_DURATION = 0.12;
-  const RELAX_DURATION = 0.58;
-  const RELAX_OVERSHOOT_DURATION = 0.16;
-  const RELAX_REBOUND_DURATION = 0.18;
-  const RELAX_SETTLE_DURATION = 0.24;
+  const RELAX_DECAY = 4.8;
+  const RELAX_OSC_FREQ = 10.5;
+  const RELAX_SIN_WEIGHT = 0.24;
+  const RELAX_MIN_TIME = 0.42;
+  const RELAX_MAX_TIME = 1.35;
+  const RELAX_STOP_POS = 0.003;
+  const RELAX_STOP_VEL = 0.02;
   const STRAIGHT_OVERSHOOT_PROGRESS = 1.08;
   const STRAIGHT_REBOUND_PROGRESS = 0.985;
-  const RELAX_OVERSHOOT_PROGRESS = -0.018;
-  const RELAX_REBOUND_PROGRESS = 0.004;
   const MAX_DROOP_WORLD_UNITS = 0.3;
   const CONTROL_POINT_DROOP_MULTIPLIER = 1.85;
   const CURVE_SAMPLES = 14;
@@ -56,6 +57,7 @@ const OverviewConnectorLines = ({
         phase: 'idle',
         progress: 0,
         isHovered: false,
+        releaseTime: 0,
       };
       const previousProgress = state.progress;
       const previousPhase = state.phase;
@@ -92,6 +94,7 @@ const OverviewConnectorLines = ({
           state.progress = Math.min(1, state.progress + delta / STRAIGHTEN_SETTLE_DURATION);
           if (state.progress >= 1) {
             state.phase = state.isHovered ? 'holding' : 'relaxing';
+            state.releaseTime = 0;
           }
           break;
         }
@@ -99,46 +102,41 @@ const OverviewConnectorLines = ({
           state.progress = 1;
           if (!state.isHovered) {
             state.phase = 'relaxing';
+            state.releaseTime = 0;
           }
           break;
         }
         case 'relaxing': {
-          state.progress = Math.max(0, state.progress - delta / RELAX_DURATION);
-          if (state.progress <= 0) {
-            state.phase = 'relaxOvershoot';
-          }
-          break;
-        }
-        case 'relaxOvershoot': {
-          state.progress = Math.max(
-            RELAX_OVERSHOOT_PROGRESS,
-            state.progress - delta / RELAX_OVERSHOOT_DURATION,
+          state.releaseTime = (state.releaseTime || 0) + delta;
+          const t = state.releaseTime;
+          const decay = Math.exp(-RELAX_DECAY * t);
+          const cosTerm = Math.cos(RELAX_OSC_FREQ * t);
+          const sinTerm = Math.sin(RELAX_OSC_FREQ * t);
+          const composite = cosTerm + RELAX_SIN_WEIGHT * sinTerm;
+
+          state.progress = decay * composite;
+
+          const velocity = decay * (
+            (-RELAX_DECAY * composite) +
+            (-RELAX_OSC_FREQ * sinTerm + RELAX_SIN_WEIGHT * RELAX_OSC_FREQ * cosTerm)
           );
-          if (state.progress <= RELAX_OVERSHOOT_PROGRESS) {
-            state.phase = 'relaxRebound';
-          }
-          break;
-        }
-        case 'relaxRebound': {
-          state.progress = Math.min(
-            RELAX_REBOUND_PROGRESS,
-            state.progress + delta / RELAX_REBOUND_DURATION,
-          );
-          if (state.progress >= RELAX_REBOUND_PROGRESS) {
-            state.phase = 'relaxSettle';
-          }
-          break;
-        }
-        case 'relaxSettle': {
-          state.progress = Math.max(0, state.progress - delta / RELAX_SETTLE_DURATION);
-          if (state.progress <= 0) {
+
+          const settled =
+            t >= RELAX_MIN_TIME &&
+            Math.abs(state.progress) <= RELAX_STOP_POS &&
+            Math.abs(velocity) <= RELAX_STOP_VEL;
+
+          if (settled || t >= RELAX_MAX_TIME) {
             state.phase = 'idle';
+            state.progress = 0;
+            state.releaseTime = 0;
           }
           break;
         }
         default: {
           state.progress = 0;
           state.phase = state.isHovered ? 'straightening' : 'idle';
+          state.releaseTime = 0;
         }
       }
 
@@ -171,6 +169,7 @@ const OverviewConnectorLines = ({
         phase: 'idle',
         progress: 0,
         isHovered: false,
+        releaseTime: 0,
       };
       const nextHovered = hoveredSceneFacetKey === sceneWorldKey;
       const wasHovered = state.isHovered;
@@ -179,12 +178,10 @@ const OverviewConnectorLines = ({
       if (!wasHovered && nextHovered) {
         if (
           state.phase === 'idle' ||
-          state.phase === 'relaxing' ||
-          state.phase === 'relaxOvershoot' ||
-          state.phase === 'relaxRebound' ||
-          state.phase === 'relaxSettle'
+          state.phase === 'relaxing'
         ) {
           state.phase = 'straightening';
+          state.releaseTime = 0;
         }
       }
 
@@ -225,6 +222,7 @@ const OverviewConnectorLines = ({
         phase: 'idle',
         progress: 0,
         isHovered: false,
+        releaseTime: 0,
       };
       const animationPhase = animationState.phase;
       const droopTension = THREE.MathUtils.lerp(
@@ -261,16 +259,11 @@ const OverviewConnectorLines = ({
         );
 
         let releaseTailBlend = 0;
-        if (animationPhase === 'relaxOvershoot') {
-          releaseTailBlend = 0.22;
-        } else if (animationPhase === 'relaxRebound') {
-          releaseTailBlend = 0.14;
-        } else if (animationPhase === 'relaxSettle') {
-          releaseTailBlend = THREE.MathUtils.clamp(
-            animationState.progress / Math.max(RELAX_REBOUND_PROGRESS, 0.0001),
-            0,
-            1,
-          ) * 0.08;
+        if (animationPhase === 'relaxing') {
+          const releaseTime = animationState.releaseTime || 0;
+          const nearDroopWeight = Math.exp(-Math.abs(animationState.progress) * 12);
+          const decayWeight = Math.exp(-releaseTime * 1.8);
+          releaseTailBlend = 0.24 * nearDroopWeight * decayWeight;
         }
 
         sagDistance = THREE.MathUtils.lerp(
