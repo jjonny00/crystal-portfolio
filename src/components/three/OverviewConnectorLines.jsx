@@ -226,6 +226,7 @@ const OverviewConnectorLines = ({
         progress: 0,
         isHovered: false,
       };
+      const useAnimatedSagPath = animationState.phase !== 'idle';
       const droopTension = THREE.MathUtils.lerp(
         IDLE_DROOP,
         ACTIVE_DROOP,
@@ -247,7 +248,10 @@ const OverviewConnectorLines = ({
       const rawSagDistance = distance * droopTension;
       const absSagDistance = Math.abs(rawSagDistance);
       let sagDistance = 0;
-      if (absSagDistance > Number.EPSILON) {
+      if (absSagDistance > Number.EPSILON && useAnimatedSagPath) {
+        const animatedSagCap = MAX_DROOP_WORLD_UNITS * 2.4;
+        sagDistance = THREE.MathUtils.clamp(rawSagDistance, -animatedSagCap, animatedSagCap);
+      } else if (absSagDistance > Number.EPSILON) {
         const compressedMagnitude =
           MAX_DROOP_WORLD_UNITS * Math.tanh(absSagDistance / MAX_DROOP_WORLD_UNITS);
         sagDistance = Math.sign(rawSagDistance) * compressedMagnitude;
