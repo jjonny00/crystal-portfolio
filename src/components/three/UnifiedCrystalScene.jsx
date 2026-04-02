@@ -1956,7 +1956,7 @@ const UnifiedCrystalScene = forwardRef(({
               : neutralQuat;
             const useIsolatedFocusTransform =
               ISOLATE_FOCUSED_ROTATION_FROM_POSITION &&
-              (isCaseStudyOwner || animationData?.focusedFacet === facetKey) &&
+              (isCaseStudyOwner || (animationData?.viewMode !== 'caseStudy' && animationData?.focusedFacet === facetKey)) &&
               (animationData?.cameraState === 'project' || animationData?.cameraState === 'caseStudy');
             const targetPosition = useIsolatedFocusTransform
               ? finalTarget
@@ -1964,21 +1964,12 @@ const UnifiedCrystalScene = forwardRef(({
                   ? getAnchorAdjustedPosition(facetKey, finalTarget, targetQuat)
                   : finalTarget);
 
-            if ((isCaseStudyOwner || animationData?.focusedFacet === facetKey) && (animationData?.cameraState === 'project' || animationData?.cameraState === 'caseStudy')) {
+            if ((isCaseStudyOwner || (animationData?.viewMode !== 'caseStudy' && animationData?.focusedFacet === facetKey)) && (animationData?.cameraState === 'project' || animationData?.cameraState === 'caseStudy')) {
               facetRef.current.position.copy(targetPosition);
             } else {
               facetRef.current.position.lerp(targetPosition, lerpSpeed * deltaTime * 60);
             }
 
-            if (import.meta.env.DEV && animationData?.viewMode === 'caseStudy') {
-              console.log('[caseStudy/rotation-source]', {
-                facetKey,
-                activeProjectId: animationData?.focusedProject ?? null,
-                isCaseStudyOwner,
-                source: isCaseStudyOwner ? 'caseStudy-owner' : 'non-owner-base',
-                targetQuat: targetQuat.toArray(),
-              });
-            }
           }
         }
 
@@ -2004,17 +1995,10 @@ const UnifiedCrystalScene = forwardRef(({
           : neutralQuat;
 
         if (animationData?.viewMode === 'caseStudy' && !isCaseStudyOwner) {
-          if (import.meta.env.DEV) {
-            console.log('[caseStudy/rotation-guarded]', {
-              facetKey,
-              activeProjectId: animationData?.focusedProject ?? null,
-              reason: 'non-active facet guarded from caseStudy rotation updates'
-            });
-          }
           return;
         }
 
-        if ((isCaseStudyOwner || animationData?.focusedFacet === facetKey) && (animationData?.cameraState === 'project' || animationData?.cameraState === 'caseStudy')) {
+        if ((isCaseStudyOwner || (animationData?.viewMode !== 'caseStudy' && animationData?.focusedFacet === facetKey)) && (animationData?.cameraState === 'project' || animationData?.cameraState === 'caseStudy')) {
           facetRef.current.quaternion.slerp(targetQuat, focusedRotationLerp);
         } else {
           facetRef.current.quaternion.slerp(targetQuat, rotationLerp);
@@ -2058,25 +2042,19 @@ const UnifiedCrystalScene = forwardRef(({
     });
 
     if (overlaysReady) {
-      const debugActiveFacetKey = animationData?.focusedProject
+      const activeArtworkFacetKey = animationData?.focusedProject
         ? (getSceneFacetKeyByProjectId(animationData.focusedProject) || animationData?.focusedFacet || null)
         : (animationData?.focusedFacet || null);
       const forceHiddenFacetKey =
         animationData?.viewMode === 'caseStudy'
-          ? (debugActiveFacetKey ?? null)
+          ? (activeArtworkFacetKey ?? null)
           : null;
       updateOverlays(deltaTime, {
         forceHide:
           showFacets &&
           animationData.crystalForm === 'whole' &&
           (pendingReformSwapAtRef.current != null || pendingFacetHideAtRef.current != null),
-        forceHiddenFacetKey,
-        debugContext: {
-          activeProjectId: animationData?.focusedProject ?? null,
-          activeFacetKey: debugActiveFacetKey,
-          viewMode: animationData?.viewMode ?? null,
-          brutalHideArtwork: true
-        }
+        forceHiddenFacetKey
       });
     }
 
