@@ -21,14 +21,14 @@ const OverviewConnectorLines = ({
   const STRAIGHTEN_OVERSHOOT_DURATION = 0.1;
   const STRAIGHTEN_REBOUND_DURATION = 0.14;
   const STRAIGHTEN_SETTLE_DURATION = 0.12;
-  const RELAX_DURATION = 0.52;
-  const RELAX_OVERSHOOT_DURATION = 0.12;
-  const RELAX_REBOUND_DURATION = 0.14;
-  const RELAX_SETTLE_DURATION = 0.18;
+  const RELAX_DURATION = 0.58;
+  const RELAX_OVERSHOOT_DURATION = 0.16;
+  const RELAX_REBOUND_DURATION = 0.18;
+  const RELAX_SETTLE_DURATION = 0.24;
   const STRAIGHT_OVERSHOOT_PROGRESS = 1.08;
   const STRAIGHT_REBOUND_PROGRESS = 0.985;
-  const RELAX_OVERSHOOT_PROGRESS = -0.05;
-  const RELAX_REBOUND_PROGRESS = 0.015;
+  const RELAX_OVERSHOOT_PROGRESS = -0.018;
+  const RELAX_REBOUND_PROGRESS = 0.004;
   const MAX_DROOP_WORLD_UNITS = 0.3;
   const CONTROL_POINT_DROOP_MULTIPLIER = 1.85;
   const CURVE_SAMPLES = 14;
@@ -262,15 +262,15 @@ const OverviewConnectorLines = ({
 
         let releaseTailBlend = 0;
         if (animationPhase === 'relaxOvershoot') {
-          releaseTailBlend = 1;
+          releaseTailBlend = 0.22;
         } else if (animationPhase === 'relaxRebound') {
-          releaseTailBlend = 0.65;
+          releaseTailBlend = 0.14;
         } else if (animationPhase === 'relaxSettle') {
           releaseTailBlend = THREE.MathUtils.clamp(
             animationState.progress / Math.max(RELAX_REBOUND_PROGRESS, 0.0001),
             0,
             1,
-          ) * 0.35;
+          ) * 0.08;
         }
 
         sagDistance = THREE.MathUtils.lerp(
