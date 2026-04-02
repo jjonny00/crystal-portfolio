@@ -226,7 +226,7 @@ const OverviewConnectorLines = ({
         progress: 0,
         isHovered: false,
       };
-      const useAnimatedSagPath = animationState.phase !== 'idle';
+      const animationPhase = animationState.phase;
       const droopTension = THREE.MathUtils.lerp(
         IDLE_DROOP,
         ACTIVE_DROOP,
@@ -248,13 +248,36 @@ const OverviewConnectorLines = ({
       const rawSagDistance = distance * droopTension;
       const absSagDistance = Math.abs(rawSagDistance);
       let sagDistance = 0;
-      if (absSagDistance > Number.EPSILON && useAnimatedSagPath) {
-        const animatedSagCap = MAX_DROOP_WORLD_UNITS * 2.4;
-        sagDistance = THREE.MathUtils.clamp(rawSagDistance, -animatedSagCap, animatedSagCap);
-      } else if (absSagDistance > Number.EPSILON) {
+      if (absSagDistance > Number.EPSILON) {
         const compressedMagnitude =
           MAX_DROOP_WORLD_UNITS * Math.tanh(absSagDistance / MAX_DROOP_WORLD_UNITS);
-        sagDistance = Math.sign(rawSagDistance) * compressedMagnitude;
+        const compressedSagDistance = Math.sign(rawSagDistance) * compressedMagnitude;
+
+        const animatedSagCap = MAX_DROOP_WORLD_UNITS * 2.4;
+        const expandedSagDistance = THREE.MathUtils.clamp(
+          rawSagDistance,
+          -animatedSagCap,
+          animatedSagCap,
+        );
+
+        let releaseTailBlend = 0;
+        if (animationPhase === 'relaxOvershoot') {
+          releaseTailBlend = 1;
+        } else if (animationPhase === 'relaxRebound') {
+          releaseTailBlend = 0.65;
+        } else if (animationPhase === 'relaxSettle') {
+          releaseTailBlend = THREE.MathUtils.clamp(
+            animationState.progress / Math.max(RELAX_REBOUND_PROGRESS, 0.0001),
+            0,
+            1,
+          ) * 0.35;
+        }
+
+        sagDistance = THREE.MathUtils.lerp(
+          compressedSagDistance,
+          expandedSagDistance,
+          releaseTailBlend,
+        );
       }
       const midpoint = start.clone().lerp(end, 0.5);
       const controlPoint = midpoint.addScaledVector(
