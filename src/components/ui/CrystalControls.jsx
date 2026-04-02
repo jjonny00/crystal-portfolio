@@ -791,6 +791,14 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
     const next = [...current];
     next[axisIndex] = parseFloat(value);
     updatedConfig.projectCameraSettings[project][editDeviceKey][mode][field] = next;
+    if (field === 'target') {
+      updatedConfig.__cameraTargetEdit = {
+        projectId: project,
+        mode: mode === 'selected' ? 'project' : mode,
+        deviceKey: editDeviceKey,
+        updatedAt: Date.now()
+      };
+    }
     onUpdate(updatedConfig);
   };
 

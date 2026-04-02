@@ -220,7 +220,27 @@ const UnifiedCameraController = ({
     }
   };
 
-  const getCameraTarget = (cameraConfig, focusedFacet, cameraState) => {
+  const getCameraTarget = (cameraConfig, focusedFacet, cameraState, focusedProjectId) => {
+    const liveTargetEdit = config?.__cameraTargetEdit || null;
+    const activeTargetEdit =
+      liveTargetEdit &&
+      Date.now() - Number(liveTargetEdit.updatedAt || 0) < 750 &&
+      liveTargetEdit.projectId === focusedProjectId &&
+      liveTargetEdit.deviceKey === (isMobile ? 'mobile' : 'desktop') &&
+      liveTargetEdit.mode === cameraState;
+
+    if (activeTargetEdit) {
+      projectTargetLockRef.current = {
+        facetKey: null,
+        target: null,
+        source: 'config'
+      };
+      return {
+        ...cameraConfig,
+        description: `${focusedFacet} ${cameraState} (live target edit)`
+      };
+    }
+
     if ((cameraState === 'project' || cameraState === 'caseStudy') && focusedFacet && facetRefs) {
       const lockedTarget = projectTargetLockRef.current;
       const shouldRefreshProjectTarget =
@@ -620,7 +640,7 @@ const UnifiedCameraController = ({
     const baseConfig = configCameraState || animationData.cameraConfig;
     if (!baseConfig) return;
     
-    const enhancedConfig = getCameraTarget(baseConfig, resolvedFocusedFacet, cameraState);
+    const enhancedConfig = getCameraTarget(baseConfig, resolvedFocusedFacet, cameraState, focusedProject);
     const isProjectLikeCameraState = (cameraState === 'project' || cameraState === 'caseStudy');
     const configuredOffsetPosition = isProjectLikeCameraState && resolvedFocusedFacet
       ? config?.cameraOffsets?.projects?.[resolvedFocusedFacet]?.position
