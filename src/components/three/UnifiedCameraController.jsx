@@ -326,14 +326,9 @@ const UnifiedCameraController = ({
       // Temporary debug behavior: force caseStudy noticeably closer unless clearly authored.
       const selectedDirection = new THREE.Vector3().subVectors(selectedPosition, selectedTarget);
       const selectedDistance = Math.max(selectedDirection.length(), 0.0001);
-      const authoredDistance = authoredCaseStudyPosition && authoredCaseStudyTarget
-        ? authoredCaseStudyPosition.distanceTo(authoredCaseStudyTarget)
-        : null;
       const shouldForceCloserCaseStudy =
         !authoredCaseStudyPosition ||
-        !authoredCaseStudyTarget ||
-        authoredDistance == null ||
-        Math.abs(authoredDistance - selectedDistance) < 0.35;
+        !authoredCaseStudyTarget;
 
       let caseStudyPosition = authoredCaseStudyPosition;
       let caseStudyTarget = authoredCaseStudyTarget;
