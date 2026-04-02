@@ -304,14 +304,14 @@ const UnifiedCameraController = ({
     return left.equals(right);
   };
 
-  const getConfigCameraState = (cameraState, focusedFacet) => {
+  const getConfigCameraState = (cameraState, focusedFacet, focusedProjectId) => {
     if (!config?.cameraPositions) return null;
     const deviceKey = isMobile ? 'mobile' : 'desktop';
     const resolveProjectViewSettings = () => {
       const selectedFallbackPosition = toVector3(config.cameraPositions?.projects?.[focusedFacet]);
       const selectedFallbackTarget = toVector3(config.cameraTargets?.projects?.[focusedFacet]);
-      const selectedFromConfig = config?.projectCameraSettings?.[focusedFacet]?.[deviceKey]?.selected;
-      const caseStudyFromConfig = config?.projectCameraSettings?.[focusedFacet]?.[deviceKey]?.caseStudy;
+      const selectedFromConfig = config?.projectCameraSettings?.[focusedProjectId]?.[deviceKey]?.selected;
+      const caseStudyFromConfig = config?.projectCameraSettings?.[focusedProjectId]?.[deviceKey]?.caseStudy;
 
       const selectedPosition = toVector3(selectedFromConfig?.position || selectedFallbackPosition);
       const selectedTarget = toVector3(selectedFromConfig?.target || selectedFallbackTarget);
@@ -621,7 +621,7 @@ const UnifiedCameraController = ({
       ? (getSceneFacetKeyByProjectId(focusedProject) || focusedFacet)
       : focusedFacet;
     const cameraState = animationData.cameraState;
-    const configCameraState = getConfigCameraState(cameraState, resolvedFocusedFacet);
+    const configCameraState = getConfigCameraState(cameraState, resolvedFocusedFacet, focusedProject);
     const baseConfig = configCameraState || animationData.cameraConfig;
     if (!baseConfig) return;
     
@@ -660,16 +660,16 @@ const UnifiedCameraController = ({
       if (import.meta.env.DEV) {
         const deviceMode = isMobile ? 'mobile' : 'desktop';
         const selectedConfigPosition =
-          config?.projectCameraSettings?.[resolvedFocusedFacet]?.[deviceMode]?.selected?.position
+          config?.projectCameraSettings?.[focusedProject]?.[deviceMode]?.selected?.position
           || config?.cameraPositions?.projects?.[resolvedFocusedFacet]
           || null;
         const caseStudyConfigPosition =
-          config?.projectCameraSettings?.[resolvedFocusedFacet]?.[deviceMode]?.caseStudy?.position
+          config?.projectCameraSettings?.[focusedProject]?.[deviceMode]?.caseStudy?.position
           || null;
         console.log('📹 Camera Controller: Enhanced camera target updated:', {
           state: animationData.state,
           cameraState: cameraState,
-          viewMode: cameraState,
+          viewMode: animationData?.viewMode ?? cameraState,
           activeProjectId: animationData?.focusedProject ?? null,
           deviceMode,
           focusedFacet: resolvedFocusedFacet,

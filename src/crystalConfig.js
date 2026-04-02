@@ -172,116 +172,44 @@ export const selectedFacetRotationsEulerDeg = {
   exploration: [-15, -13, -17]
 }
 
-export const projectCameraSettings = {
-  empathy: {
-    desktop: {
-      selected: { position: [...cameraPositions.projects.empathy], target: [...cameraTargets.projects.empathy] },
-      caseStudy: {
-        position: [...cameraPositions.projects.empathy],
-        target: [...cameraTargets.projects.empathy],
-        facetRotation: [...selectedFacetRotationsEulerDeg.empathy]
-      }
-    },
-    mobile: {
-      selected: { position: [...cameraPositions.projects.empathy], target: [...cameraTargets.projects.empathy] },
-      caseStudy: {
-        position: [...cameraPositions.projects.empathy],
-        target: [...cameraTargets.projects.empathy],
-        facetRotation: [...selectedFacetRotationsEulerDeg.empathy]
-      }
-    }
-  },
-  narrative: {
-    desktop: {
-      selected: { position: [...cameraPositions.projects.narrative], target: [...cameraTargets.projects.narrative] },
-      caseStudy: {
-        position: [...cameraPositions.projects.narrative],
-        target: [...cameraTargets.projects.narrative],
-        facetRotation: [...selectedFacetRotationsEulerDeg.narrative]
-      }
-    },
-    mobile: {
-      selected: { position: [...cameraPositions.projects.narrative], target: [...cameraTargets.projects.narrative] },
-      caseStudy: {
-        position: [...cameraPositions.projects.narrative],
-        target: [...cameraTargets.projects.narrative],
-        facetRotation: [...selectedFacetRotationsEulerDeg.narrative]
-      }
-    }
-  },
-  craft: {
-    desktop: {
-      selected: { position: [...cameraPositions.projects.craft], target: [...cameraTargets.projects.craft] },
-      caseStudy: {
-        position: [...cameraPositions.projects.craft],
-        target: [...cameraTargets.projects.craft],
-        facetRotation: [...selectedFacetRotationsEulerDeg.craft]
-      }
-    },
-    mobile: {
-      selected: { position: [...cameraPositions.projects.craft], target: [...cameraTargets.projects.craft] },
-      caseStudy: {
-        position: [...cameraPositions.projects.craft],
-        target: [...cameraTargets.projects.craft],
-        facetRotation: [...selectedFacetRotationsEulerDeg.craft]
+const projectSceneKeyById = {
+  project01: 'leadership',
+  project02: 'exploration',
+  project03: 'craft',
+  project04: 'system',
+  project05: 'narrative',
+  project06: 'empathy'
+};
+
+export const projectCameraSettings = Object.fromEntries(
+  Object.entries(projectSceneKeyById).map(([projectId, sceneKey]) => [
+    projectId,
+    {
+      desktop: {
+        selected: {
+          position: [...cameraPositions.projects[sceneKey]],
+          target: [...cameraTargets.projects[sceneKey]]
+        },
+        caseStudy: {
+          position: [...cameraPositions.projects[sceneKey]],
+          target: [...cameraTargets.projects[sceneKey]],
+          facetRotation: [...selectedFacetRotationsEulerDeg[sceneKey]]
+        }
+      },
+      mobile: {
+        selected: {
+          position: [...cameraPositions.projects[sceneKey]],
+          target: [...cameraTargets.projects[sceneKey]]
+        },
+        caseStudy: {
+          position: [...cameraPositions.projects[sceneKey]],
+          target: [...cameraTargets.projects[sceneKey]],
+          facetRotation: [...selectedFacetRotationsEulerDeg[sceneKey]]
+        }
       }
     }
-  },
-  system: {
-    desktop: {
-      selected: { position: [...cameraPositions.projects.system], target: [...cameraTargets.projects.system] },
-      caseStudy: {
-        position: [...cameraPositions.projects.system],
-        target: [...cameraTargets.projects.system],
-        facetRotation: [...selectedFacetRotationsEulerDeg.system]
-      }
-    },
-    mobile: {
-      selected: { position: [...cameraPositions.projects.system], target: [...cameraTargets.projects.system] },
-      caseStudy: {
-        position: [...cameraPositions.projects.system],
-        target: [...cameraTargets.projects.system],
-        facetRotation: [...selectedFacetRotationsEulerDeg.system]
-      }
-    }
-  },
-  leadership: {
-    desktop: {
-      selected: { position: [...cameraPositions.projects.leadership], target: [...cameraTargets.projects.leadership] },
-      caseStudy: {
-        position: [...cameraPositions.projects.leadership],
-        target: [...cameraTargets.projects.leadership],
-        facetRotation: [...selectedFacetRotationsEulerDeg.leadership]
-      }
-    },
-    mobile: {
-      selected: { position: [...cameraPositions.projects.leadership], target: [...cameraTargets.projects.leadership] },
-      caseStudy: {
-        position: [...cameraPositions.projects.leadership],
-        target: [...cameraTargets.projects.leadership],
-        facetRotation: [...selectedFacetRotationsEulerDeg.leadership]
-      }
-    }
-  },
-  exploration: {
-    desktop: {
-      selected: { position: [...cameraPositions.projects.exploration], target: [...cameraTargets.projects.exploration] },
-      caseStudy: {
-        position: [...cameraPositions.projects.exploration],
-        target: [...cameraTargets.projects.exploration],
-        facetRotation: [...selectedFacetRotationsEulerDeg.exploration]
-      }
-    },
-    mobile: {
-      selected: { position: [...cameraPositions.projects.exploration], target: [...cameraTargets.projects.exploration] },
-      caseStudy: {
-        position: [...cameraPositions.projects.exploration],
-        target: [...cameraTargets.projects.exploration],
-        facetRotation: [...selectedFacetRotationsEulerDeg.exploration]
-      }
-    }
-  }
-}
+  ])
+)
 
 
 // === ANIMATION TIMING ===

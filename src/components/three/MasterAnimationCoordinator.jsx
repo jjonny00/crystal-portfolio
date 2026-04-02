@@ -144,6 +144,7 @@ const MasterAnimationCoordinator = ({
       state: animationController.animationState.state,
       crystalForm: animationController.animationState.crystalForm,
       cameraState: effectiveCameraState,
+      viewMode,
       // Normalize undefined to null so consumers can rely on explicit null check
       focusedFacet: animationController.animationState.focusedFacet ?? fallbackFocusedFacet ?? null,
       focusedProject: effectiveFocusedProject,

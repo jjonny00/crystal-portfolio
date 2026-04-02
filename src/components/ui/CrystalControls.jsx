@@ -3,13 +3,14 @@ import { useRef, useState } from 'react';
 import * as THREE from 'three';
 import * as crystalConfig from '../../crystalConfig';
 import { isMobileDevice } from '../../utils/isMobileDevice';
-import { getProjectIdBySceneFacetKey } from '../../data/projects';
+import { getProjectIdBySceneFacetKey, getSceneFacetKeyByProjectId } from '../../data/projects';
 
 const RAD2DEG = 180 / Math.PI;
 const DEG2RAD = Math.PI / 180;
 
 const zoneKeys = ['intro', 'hero', 'overview', 'about'];
 const projectKeys = ['empathy', 'narrative', 'craft', 'system', 'leadership', 'exploration'];
+const projectCameraKeys = ['project01', 'project02', 'project03', 'project04', 'project05', 'project06'];
 const getProjectDisplayLabel = (sceneFacetKey) => getProjectIdBySceneFacetKey(sceneFacetKey) || sceneFacetKey;
 
 const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
@@ -25,7 +26,7 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
     projects: false
   });
   const [projectAccordionState, setProjectAccordionState] = useState(() =>
-    projectKeys.reduce((acc, key) => {
+    projectCameraKeys.reduce((acc, key) => {
       acc[key] = false;
       return acc;
     }, {})
@@ -266,7 +267,7 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
         exploration: cloneVec3(base.selectedFacetRotationsEulerDeg?.exploration)
       },
       projectCameraSettings: Object.fromEntries(
-        projectKeys.map((project) => [
+        projectCameraKeys.map((project) => [
           project,
           {
             desktop: {
@@ -448,7 +449,7 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
 
     const updateProjectCameraSettings = (settings) => {
       if (!settings) return;
-      projectKeys.forEach((project) => {
+      projectCameraKeys.forEach((project) => {
         ['desktop', 'mobile'].forEach((device) => {
           const selectedPosition = sanitizeVec3(settings?.[project]?.[device]?.selected?.position);
           const selectedTarget = sanitizeVec3(settings?.[project]?.[device]?.selected?.target);
@@ -1378,7 +1379,7 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
               projects: true
             });
             setProjectAccordionState(
-              projectKeys.reduce((acc, key) => {
+              projectCameraKeys.reduce((acc, key) => {
                 acc[key] = true;
                 return acc;
               }, {})
@@ -1399,7 +1400,7 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
               projects: false
             });
             setProjectAccordionState(
-              projectKeys.reduce((acc, key) => {
+              projectCameraKeys.reduce((acc, key) => {
                 acc[key] = false;
                 return acc;
               }, {})
@@ -1661,11 +1662,12 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
               </button>
             </div>
             <div style={accordionNoteStyle}>Editing {editDeviceKey} branch: {projectCameraMode}</div>
-            {projectKeys.map((project) => {
-              const cameraKey = `camera.projects.${project}`;
+            {projectCameraKeys.map((project) => {
+              const sceneKey = getSceneFacetKeyByProjectId(project) || project;
+              const cameraKey = `camera.projects.${sceneKey}`;
               const cameraPosition = cameraValues[cameraKey];
-              const positionOffsetKey = `cameraOffsets.projects.${project}.position`;
-              const targetOffsetKey = `cameraOffsets.projects.${project}.target`;
+              const positionOffsetKey = `cameraOffsets.projects.${sceneKey}.position`;
+              const targetOffsetKey = `cameraOffsets.projects.${sceneKey}.target`;
               const positionOffset = cameraOffsetValues[positionOffsetKey];
               const targetOffset = cameraOffsetValues[targetOffsetKey];
               const { distance, yaw, pitch } = getPolarCoords(cameraPosition, getCameraTargetForKey(cameraKey));
@@ -1684,7 +1686,7 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
                       })
                     }
                   >
-                    <span>{getProjectDisplayLabel(project)}</span>
+                    <span>{project}</span>
                     <span>{isOpen ? '−' : '+'}</span>
                   </button>
                   {isOpen && (

@@ -784,8 +784,9 @@ const UnifiedCrystalScene = forwardRef(({
     const deviceKey = variant === 'mobile' ? 'mobile' : 'desktop';
     return Object.fromEntries(
       facetKeys.map((facetKey) => {
-        const projectKey = facetPlacementKeys[facetKey] || facetKey;
-        const caseStudyRotation = mergedConfig?.projectCameraSettings?.[projectKey]?.[deviceKey]?.caseStudy?.facetRotation;
+        const sceneKey = facetPlacementKeys[facetKey] || facetKey;
+        const projectId = getProjectIdBySceneFacetKey(sceneKey);
+        const caseStudyRotation = mergedConfig?.projectCameraSettings?.[projectId]?.[deviceKey]?.caseStudy?.facetRotation;
         return [facetKey, eulerDegreesToQuaternion(caseStudyRotation)];
       })
     );
@@ -1532,9 +1533,10 @@ const UnifiedCrystalScene = forwardRef(({
       const focusChanged = currentFacet !== previousFacet;
 
       if (focusChanged) {
+        const hideArtworkForCaseStudy = animationData?.viewMode === 'caseStudy';
         facetKeys.forEach((key) => {
           const shouldShow =
-            animationData?.cameraState !== 'caseStudy' &&
+            !hideArtworkForCaseStudy &&
             currentFacet != null &&
             key === currentFacet;
           setOverlayVisibility(key, shouldShow);
@@ -1544,7 +1546,7 @@ const UnifiedCrystalScene = forwardRef(({
           console.log(`📄 Showing overlay for ${currentFacet}`);
         }
       } else if (currentFacet) {
-        setOverlayVisibility(currentFacet, animationData?.cameraState !== 'caseStudy');
+        setOverlayVisibility(currentFacet, animationData?.viewMode !== 'caseStudy');
       }
     }
 
@@ -1556,7 +1558,7 @@ const UnifiedCrystalScene = forwardRef(({
     projectColors,
     overlaysReady,
     setOverlayVisibility,
-    animationData?.cameraState
+    animationData?.viewMode
   ]);
   
   // Crystal form change detection
