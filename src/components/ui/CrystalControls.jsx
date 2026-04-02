@@ -3,12 +3,14 @@ import { useRef, useState } from 'react';
 import * as THREE from 'three';
 import * as crystalConfig from '../../crystalConfig';
 import { isMobileDevice } from '../../utils/isMobileDevice';
+import { getProjectIdBySceneFacetKey } from '../../data/projects';
 
 const RAD2DEG = 180 / Math.PI;
 const DEG2RAD = Math.PI / 180;
 
 const zoneKeys = ['intro', 'hero', 'overview', 'about'];
 const projectKeys = ['empathy', 'narrative', 'craft', 'system', 'leadership', 'exploration'];
+const getProjectDisplayLabel = (sceneFacetKey) => getProjectIdBySceneFacetKey(sceneFacetKey) || sceneFacetKey;
 
 const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
   const [activeTab, setActiveTab] = useState('timing');
@@ -1285,7 +1287,7 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
                 })
               }
             >
-              <span>{facet.charAt(0).toUpperCase() + facet.slice(1)}</span>
+              <span>{getProjectDisplayLabel(facet)}</span>
               <span>{isOpen ? '−' : '+'}</span>
             </button>
             {isOpen && (
@@ -1682,7 +1684,7 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
                       })
                     }
                   >
-                    <span>{project.charAt(0).toUpperCase() + project.slice(1)}</span>
+                    <span>{getProjectDisplayLabel(project)}</span>
                     <span>{isOpen ? '−' : '+'}</span>
                   </button>
                   {isOpen && (
