@@ -474,6 +474,7 @@ const UnifiedCrystalScene = forwardRef(({
     isReady: overlaysReady,
     registerOverlaySlot,
     setOverlayVisibility,
+    setOverlayOpacity,
     updateOverlays,
     cleanup: cleanupOverlays,
     overlaySlots
@@ -1538,8 +1539,17 @@ const UnifiedCrystalScene = forwardRef(({
         animationData?.focusedProject != null;
 
       facetKeys.forEach((key) => {
-        const shouldShow = key === activeSceneFacetKey && !shouldHideActiveArtwork;
-        setOverlayVisibility(key, shouldShow);
+        const isActiveFacet = key === activeSceneFacetKey;
+        if (isActiveFacet) {
+          setOverlayOpacity(key, shouldHideActiveArtwork ? 0 : 1, {
+            // Keep the same overlay material assignment for active project artwork
+            // and drive transitions purely via opacity.
+            persistAssigned: true
+          });
+          return;
+        }
+
+        setOverlayVisibility(key, false);
       });
     }
 
@@ -1551,6 +1561,7 @@ const UnifiedCrystalScene = forwardRef(({
     projectColors,
     overlaysReady,
     setOverlayVisibility,
+    setOverlayOpacity,
     animationData?.viewMode,
     animationData?.focusedProject
   ]);
