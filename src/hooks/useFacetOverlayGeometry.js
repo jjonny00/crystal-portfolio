@@ -513,7 +513,25 @@ export const useFacetOverlayGeometry = (facetKeys) => {
         currentOpacity: previousOpacity,
         isActive: wasActive,
         keepBaseMapDetached: true,
+        debugLastVisible: null,
+        debugLastOpacity: null,
       };
+
+      if (import.meta.env.DEV) {
+        const materialRefCount = Array.from(overlaySlotsRef.current.values()).filter(
+          (existing) => existing.originalMaterial === baseMaterial
+        ).length;
+        console.log('[overlay-slot/register]', {
+          facetKey: slot.facetKey,
+          meshName: slot.mesh?.name || '(unnamed)',
+          materialUuid: slot.originalMaterial?.uuid,
+          materialName: slot.originalMaterial?.name,
+          materialType: slot.originalMaterial?.type,
+          sharedMaterialRefCount: materialRefCount,
+          originalOpacity: slot.originalMaterial?.opacity,
+          originalTransparent: slot.originalMaterial?.transparent,
+        });
+      }
 
       overlaySlotsRef.current.set(facetKey, slot);
 
@@ -554,6 +572,7 @@ export const useFacetOverlayGeometry = (facetKeys) => {
   const updateOverlays = useCallback((deltaTime, options = {}) => {
     const forceHide = options?.forceHide === true;
     const forceHiddenFacetKey = options?.forceHiddenFacetKey || null;
+    const debugContext = options?.debugContext || null;
 
     overlaySlotsRef.current.forEach((slot) => {
       if (!slot.mesh) return;
@@ -572,6 +591,21 @@ export const useFacetOverlayGeometry = (facetKeys) => {
 
       if (forceHiddenFacetKey && slot.facetKey === forceHiddenFacetKey) {
         slot.targetOpacity = 0;
+      }
+
+      const isActiveDebugFacet = debugContext?.activeFacetKey === slot.facetKey;
+      if (isActiveDebugFacet && import.meta.env.DEV) {
+        const shouldBrutalHide = debugContext?.viewMode === 'caseStudy' && debugContext?.brutalHideArtwork === true;
+        slot.mesh.visible = !shouldBrutalHide;
+        if (slot.overlayMaterial?.color) {
+          if (debugContext?.viewMode === 'project') {
+            slot.overlayMaterial.color.set('#ff00ff');
+          } else {
+            slot.overlayMaterial.color.set('#ffffff');
+          }
+        }
+      } else if (slot.mesh.visible === false) {
+        slot.mesh.visible = true;
       }
 
       if (!slot.isActive && slot.targetOpacity <= 0) {
@@ -624,6 +658,28 @@ export const useFacetOverlayGeometry = (facetKeys) => {
           slot.originalMaterial.map = null;
         }
         slot.originalMaterial.needsUpdate = true;
+      }
+
+      if (import.meta.env.DEV && isActiveDebugFacet) {
+        const nextVisible = slot.mesh.visible;
+        const nextOpacity = slot.isActive ? slot.overlayMaterial.opacity : slot.originalMaterial.opacity;
+        if (slot.debugLastVisible !== nextVisible || Math.abs((slot.debugLastOpacity ?? -1) - nextOpacity) > 0.01) {
+          console.log('[overlay-slot/frame]', {
+            activeProjectId: debugContext?.activeProjectId ?? null,
+            facetKey: slot.facetKey,
+            viewMode: debugContext?.viewMode,
+            meshName: slot.mesh?.name,
+            meshVisible: nextVisible,
+            overlayActive: slot.isActive,
+            targetOpacity: slot.targetOpacity,
+            overlayOpacity: slot.overlayMaterial?.opacity,
+            originalOpacity: slot.originalMaterial?.opacity,
+            materialUuid: slot.originalMaterial?.uuid,
+            overlayMaterialUuid: slot.overlayMaterial?.uuid,
+          });
+          slot.debugLastVisible = nextVisible;
+          slot.debugLastOpacity = nextOpacity;
+        }
       }
     });
   }, []);
