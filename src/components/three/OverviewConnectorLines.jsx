@@ -30,7 +30,6 @@ const OverviewConnectorLines = ({
   const RELAX_OVERSHOOT_PROGRESS = -0.075;
   const RELAX_REBOUND_PROGRESS = 0.022;
   const MAX_DROOP_WORLD_UNITS = 0.3;
-  const MIN_DROOP_WORLD_UNITS = 0.02;
   const CONTROL_POINT_DROOP_MULTIPLIER = 1.85;
   const CURVE_SAMPLES = 14;
 
@@ -249,12 +248,9 @@ const OverviewConnectorLines = ({
       const absSagDistance = Math.abs(rawSagDistance);
       let sagDistance = 0;
       if (absSagDistance > Number.EPSILON) {
-        const clampedMagnitude = THREE.MathUtils.clamp(
-          absSagDistance,
-          MIN_DROOP_WORLD_UNITS,
-          MAX_DROOP_WORLD_UNITS,
-        );
-        sagDistance = Math.sign(rawSagDistance) * clampedMagnitude;
+        const compressedMagnitude =
+          MAX_DROOP_WORLD_UNITS * Math.tanh(absSagDistance / MAX_DROOP_WORLD_UNITS);
+        sagDistance = Math.sign(rawSagDistance) * compressedMagnitude;
       }
       const midpoint = start.clone().lerp(end, 0.5);
       const controlPoint = midpoint.addScaledVector(
