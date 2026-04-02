@@ -2,13 +2,13 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Line } from '@react-three/drei';
 import * as THREE from 'three';
+import { getProjectColorByFacetKey } from '../../data/projects';
 
 const OverviewConnectorLines = ({
   enabled,
   resolvedConnectorPairs,
   alwaysOnDomAnchorsByRuntimeKey,
   overviewWorldAnchors,
-  color = '#ff0000',
   hoveredSceneFacetKey = null,
 }) => {
   const { camera, size } = useThree();
@@ -33,6 +33,9 @@ const OverviewConnectorLines = ({
   const MAX_DROOP_WORLD_UNITS = 0.3;
   const CONTROL_POINT_DROOP_MULTIPLIER = 1.85;
   const CURVE_SAMPLES = 14;
+  const IDLE_CONNECTOR_COLOR = '#170607';
+  const COLOR_HOVER_IN_DURATION = 0.2;
+  const COLOR_HOVER_OUT_DURATION = 0.24;
 
   useEffect(() => {
     console.log('[OverviewConnectorLines mounted]', {
@@ -58,9 +61,11 @@ const OverviewConnectorLines = ({
         progress: 0,
         isHovered: false,
         releaseTime: 0,
+        colorMix: 0,
       };
       const previousProgress = state.progress;
       const previousPhase = state.phase;
+      const previousColorMix = state.colorMix || 0;
 
       switch (state.phase) {
         case 'straightening': {
@@ -140,9 +145,19 @@ const OverviewConnectorLines = ({
         }
       }
 
+      const targetColorMix = state.isHovered ? 1 : 0;
+      const colorDuration = state.isHovered ? COLOR_HOVER_IN_DURATION : COLOR_HOVER_OUT_DURATION;
+      state.colorMix = THREE.MathUtils.damp(
+        state.colorMix || 0,
+        targetColorMix,
+        8 / Math.max(colorDuration, 0.001),
+        delta,
+      );
+
       if (
         Math.abs(state.progress - previousProgress) > 0.0006 ||
-        state.phase !== previousPhase
+        state.phase !== previousPhase ||
+        Math.abs(state.colorMix - previousColorMix) > 0.0006
       ) {
         changed = true;
       }
@@ -170,6 +185,7 @@ const OverviewConnectorLines = ({
         progress: 0,
         isHovered: false,
         releaseTime: 0,
+        colorMix: 0,
       };
       const nextHovered = hoveredSceneFacetKey === sceneWorldKey;
       const wasHovered = state.isHovered;
@@ -223,6 +239,7 @@ const OverviewConnectorLines = ({
         progress: 0,
         isHovered: false,
         releaseTime: 0,
+        colorMix: 0,
       };
       const animationPhase = animationState.phase;
       const droopTension = THREE.MathUtils.lerp(
@@ -237,6 +254,9 @@ const OverviewConnectorLines = ({
         return [{
           key: connectorKey,
           points: [start.clone(), end.clone()],
+          color: new THREE.Color(IDLE_CONNECTOR_COLOR)
+            .lerp(new THREE.Color(getProjectColorByFacetKey(sceneWorldKey)), THREE.MathUtils.clamp(animationState.colorMix || 0, 0, 1))
+            .getStyle(),
         }];
       }
 
@@ -292,6 +312,9 @@ const OverviewConnectorLines = ({
       return [{
         key: connectorKey,
         points: curvePoints,
+        color: new THREE.Color(IDLE_CONNECTOR_COLOR)
+          .lerp(new THREE.Color(getProjectColorByFacetKey(sceneWorldKey)), THREE.MathUtils.clamp(animationState.colorMix || 0, 0, 1))
+          .getStyle(),
       }];
     });
   }, [enabled, resolvedConnectorPairs, alwaysOnDomAnchorsByRuntimeKey, overviewWorldAnchors, camera, size.width, size.height, geometryVersion]);
@@ -304,7 +327,7 @@ const OverviewConnectorLines = ({
         <Line
           key={connector.key}
           points={connector.points}
-          color={color}
+          color={connector.color}
           lineWidth={1.8}
           depthTest={false}
           transparent={false}
