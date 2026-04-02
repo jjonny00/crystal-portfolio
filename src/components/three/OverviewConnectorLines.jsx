@@ -18,6 +18,7 @@ const OverviewConnectorLines = ({
   const IDLE_DROOP = 0.52;
   const ACTIVE_DROOP = 0;
   const ENTRANCE_DRAW_DURATION = 0.36;
+  const ENTRANCE_STAGGER_STEP = 0.045;
   const STRAIGHTEN_SNAP_DURATION = 0.2;
   const STRAIGHTEN_OVERSHOOT_DURATION = 0.1;
   const STRAIGHTEN_REBOUND_DURATION = 0.14;
@@ -37,14 +38,30 @@ const OverviewConnectorLines = ({
   const IDLE_CONNECTOR_COLOR = '#170607';
   const COLOR_HOVER_IN_DURATION = 0.2;
   const COLOR_HOVER_OUT_DURATION = 0.24;
-  const makeInitialConnectorState = () => ({
+  const makeInitialConnectorState = (startDelay = 0) => ({
     phase: 'enter-draw',
     progress: 1,
     drawProgress: 0,
+    enterElapsed: 0,
+    startDelay,
     isHovered: false,
     releaseTime: 0,
     colorMix: 0,
   });
+
+  const easeInOutQuart = (t) => (
+    t < 0.5
+      ? 8 * t * t * t * t
+      : 1 - (Math.pow(-2 * t + 2, 4) / 2)
+  );
+
+  const getEntranceOrderIndex = (runtimeDomKey, fallbackIndex) => {
+    const match = /^project(\d+)$/i.exec(runtimeDomKey || '');
+    if (!match) return fallbackIndex;
+    const parsed = Number.parseInt(match[1], 10);
+    if (!Number.isFinite(parsed)) return fallbackIndex;
+    return Math.max(0, parsed - 1);
+  };
 
   useEffect(() => {
     console.log('[OverviewConnectorLines mounted]', {
@@ -61,11 +78,13 @@ const OverviewConnectorLines = ({
     let changed = false;
     const liveConnectorKeys = new Set();
 
-    resolvedConnectorPairs.forEach(({ runtimeDomKey, sceneWorldKey }) => {
+    resolvedConnectorPairs.forEach(({ runtimeDomKey, sceneWorldKey }, pairIndex) => {
       const connectorKey = `${runtimeDomKey}__${sceneWorldKey}`;
       liveConnectorKeys.add(connectorKey);
+      const entranceOrderIndex = getEntranceOrderIndex(runtimeDomKey, pairIndex);
+      const startDelay = entranceOrderIndex * ENTRANCE_STAGGER_STEP;
 
-      const state = connectorAnimationRef.current[connectorKey] || makeInitialConnectorState();
+      const state = connectorAnimationRef.current[connectorKey] || makeInitialConnectorState(startDelay);
       const previousProgress = state.progress;
       const previousPhase = state.phase;
       const previousDrawProgress = state.drawProgress || 0;
@@ -73,10 +92,14 @@ const OverviewConnectorLines = ({
 
       switch (state.phase) {
         case 'enter-draw': {
-          state.drawProgress = Math.min(
+          state.enterElapsed = (state.enterElapsed || 0) + delta;
+          const elapsedAfterDelay = Math.max(0, state.enterElapsed - (state.startDelay || 0));
+          const linearProgress = THREE.MathUtils.clamp(
+            elapsedAfterDelay / ENTRANCE_DRAW_DURATION,
+            0,
             1,
-            (state.drawProgress || 0) + delta / ENTRANCE_DRAW_DURATION,
           );
+          state.drawProgress = easeInOutQuart(linearProgress);
           state.progress = 1;
           if (state.drawProgress >= 1) {
             state.phase = state.isHovered ? 'holding' : 'relaxing';
@@ -86,6 +109,7 @@ const OverviewConnectorLines = ({
         }
         case 'straightening': {
           state.drawProgress = 1;
+          state.enterElapsed = state.startDelay || 0;
           state.progress = Math.min(1, state.progress + delta / STRAIGHTEN_SNAP_DURATION);
           if (state.progress >= 1) {
             state.phase = 'overshoot';
@@ -94,6 +118,7 @@ const OverviewConnectorLines = ({
         }
         case 'overshoot': {
           state.drawProgress = 1;
+          state.enterElapsed = state.startDelay || 0;
           state.progress = Math.min(
             STRAIGHT_OVERSHOOT_PROGRESS,
             state.progress + delta / STRAIGHTEN_OVERSHOOT_DURATION,
@@ -105,6 +130,7 @@ const OverviewConnectorLines = ({
         }
         case 'rebound': {
           state.drawProgress = 1;
+          state.enterElapsed = state.startDelay || 0;
           state.progress = Math.max(
             STRAIGHT_REBOUND_PROGRESS,
             state.progress - delta / STRAIGHTEN_REBOUND_DURATION,
@@ -116,6 +142,7 @@ const OverviewConnectorLines = ({
         }
         case 'settle': {
           state.drawProgress = 1;
+          state.enterElapsed = state.startDelay || 0;
           state.progress = Math.min(1, state.progress + delta / STRAIGHTEN_SETTLE_DURATION);
           if (state.progress >= 1) {
             state.phase = state.isHovered ? 'holding' : 'relaxing';
@@ -125,6 +152,7 @@ const OverviewConnectorLines = ({
         }
         case 'holding': {
           state.drawProgress = 1;
+          state.enterElapsed = state.startDelay || 0;
           state.progress = 1;
           if (!state.isHovered) {
             state.phase = 'relaxing';
@@ -134,6 +162,7 @@ const OverviewConnectorLines = ({
         }
         case 'relaxing': {
           state.drawProgress = 1;
+          state.enterElapsed = state.startDelay || 0;
           state.releaseTime = (state.releaseTime || 0) + delta;
           const t = state.releaseTime;
           const decay = Math.exp(-RELAX_DECAY * t);
@@ -162,6 +191,7 @@ const OverviewConnectorLines = ({
         }
         default: {
           state.drawProgress = 1;
+          state.enterElapsed = state.startDelay || 0;
           state.progress = 0;
           state.phase = state.isHovered ? 'straightening' : 'idle';
           state.releaseTime = 0;
@@ -216,6 +246,7 @@ const OverviewConnectorLines = ({
           state.phase === 'relaxing'
         ) {
           state.drawProgress = 1;
+          state.enterElapsed = state.startDelay || 0;
           state.phase = 'straightening';
           state.releaseTime = 0;
         }
