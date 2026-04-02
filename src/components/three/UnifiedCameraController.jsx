@@ -221,7 +221,7 @@ const UnifiedCameraController = ({
   };
 
   const getCameraTarget = (cameraConfig, focusedFacet, cameraState) => {
-    if (cameraState === 'project' && focusedFacet && facetRefs) {
+    if ((cameraState === 'project' || cameraState === 'caseStudy') && focusedFacet && facetRefs) {
       const lockedTarget = projectTargetLockRef.current;
       const shouldRefreshProjectTarget =
         lockedTarget.facetKey !== focusedFacet ||
@@ -306,6 +306,10 @@ const UnifiedCameraController = ({
 
   const getConfigCameraState = (cameraState, focusedFacet) => {
     if (!config?.cameraPositions) return null;
+    const deviceKey = isMobile ? 'mobile' : 'desktop';
+    const projectViewSettings = focusedFacet
+      ? config?.projectCameraSettings?.[focusedFacet]?.[deviceKey]
+      : null;
 
     if (cameraState === 'intro') {
       return {
@@ -344,11 +348,38 @@ const UnifiedCameraController = ({
     }
 
     if (cameraState === 'project' && focusedFacet) {
+      if (projectViewSettings?.selected) {
+        return {
+          position: toVector3(projectViewSettings.selected.position),
+          target: toVector3(projectViewSettings.selected.target),
+          fov: animationData?.cameraConfig?.fov,
+          description: `${focusedFacet} project.selected (layout/config)`
+        };
+      }
+
       return {
         position: toVector3(config.cameraPositions?.projects?.[focusedFacet]),
         target: toVector3(config.cameraTargets?.projects?.[focusedFacet]),
         fov: animationData?.cameraConfig?.fov,
         description: `${focusedFacet} project (layout/config)`
+      };
+    }
+
+    if (cameraState === 'caseStudy' && focusedFacet) {
+      if (projectViewSettings?.caseStudy) {
+        return {
+          position: toVector3(projectViewSettings.caseStudy.position),
+          target: toVector3(projectViewSettings.caseStudy.target),
+          fov: animationData?.cameraConfig?.fov,
+          description: `${focusedFacet} caseStudy (layout/config)`
+        };
+      }
+
+      return {
+        position: toVector3(config.cameraPositions?.projects?.[focusedFacet]),
+        target: toVector3(config.cameraTargets?.projects?.[focusedFacet]),
+        fov: animationData?.cameraConfig?.fov,
+        description: `${focusedFacet} caseStudy fallback (layout/config)`
       };
     }
 
@@ -563,10 +594,11 @@ const UnifiedCameraController = ({
     if (!baseConfig) return;
     
     const enhancedConfig = getCameraTarget(baseConfig, resolvedFocusedFacet, cameraState);
-    const configuredOffsetPosition = cameraState === 'project' && resolvedFocusedFacet
+    const isProjectLikeCameraState = (cameraState === 'project' || cameraState === 'caseStudy');
+    const configuredOffsetPosition = isProjectLikeCameraState && resolvedFocusedFacet
       ? config?.cameraOffsets?.projects?.[resolvedFocusedFacet]?.position
       : config?.cameraOffsets?.zones?.[cameraState]?.position;
-    const configuredOffsetTarget = cameraState === 'project' && resolvedFocusedFacet
+    const configuredOffsetTarget = isProjectLikeCameraState && resolvedFocusedFacet
       ? config?.cameraOffsets?.projects?.[resolvedFocusedFacet]?.target
       : config?.cameraOffsets?.zones?.[cameraState]?.target;
 
@@ -669,7 +701,7 @@ const UnifiedCameraController = ({
         animationSpeed.current.position = 0.02;
         animationSpeed.current.lookAt = 0.02;
         animationSpeed.current.fov = 0.02;
-      } else if (cameraState === 'project' && resolvedFocusedFacet) {
+      } else if (isProjectLikeCameraState && resolvedFocusedFacet) {
         animationSpeed.current.position = 0.05;
         animationSpeed.current.lookAt = 0.05;
         animationSpeed.current.fov = 0.05;
@@ -757,7 +789,9 @@ const UnifiedCameraController = ({
     config?.cameraPositions,
     config?.cameraTargets,
     config?.cameraOffsets,
+    config?.projectCameraSettings,
     facetRefs,
+    isMobile,
     camera
   ]);
 

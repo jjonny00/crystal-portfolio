@@ -2,6 +2,7 @@
 import { useRef, useState } from 'react';
 import * as THREE from 'three';
 import * as crystalConfig from '../../crystalConfig';
+import { isMobileDevice } from '../../utils/isMobileDevice';
 
 const RAD2DEG = 180 / Math.PI;
 const DEG2RAD = Math.PI / 180;
@@ -33,6 +34,8 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
       return acc;
     }, {})
   );
+  const [projectCameraMode, setProjectCameraMode] = useState('selected');
+  const editDeviceKey = isMobileDevice() ? 'mobile' : 'desktop';
   
   // Timing state
   const [timingValues, setTimingValues] = useState({
@@ -260,6 +263,35 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
         leadership: cloneVec3(base.selectedFacetRotationsEulerDeg?.leadership),
         exploration: cloneVec3(base.selectedFacetRotationsEulerDeg?.exploration)
       },
+      projectCameraSettings: Object.fromEntries(
+        projectKeys.map((project) => [
+          project,
+          {
+            desktop: {
+              selected: {
+                position: cloneVec3(base.projectCameraSettings?.[project]?.desktop?.selected?.position),
+                target: cloneVec3(base.projectCameraSettings?.[project]?.desktop?.selected?.target)
+              },
+              caseStudy: {
+                position: cloneVec3(base.projectCameraSettings?.[project]?.desktop?.caseStudy?.position),
+                target: cloneVec3(base.projectCameraSettings?.[project]?.desktop?.caseStudy?.target),
+                facetRotation: cloneVec3(base.projectCameraSettings?.[project]?.desktop?.caseStudy?.facetRotation)
+              }
+            },
+            mobile: {
+              selected: {
+                position: cloneVec3(base.projectCameraSettings?.[project]?.mobile?.selected?.position),
+                target: cloneVec3(base.projectCameraSettings?.[project]?.mobile?.selected?.target)
+              },
+              caseStudy: {
+                position: cloneVec3(base.projectCameraSettings?.[project]?.mobile?.caseStudy?.position),
+                target: cloneVec3(base.projectCameraSettings?.[project]?.mobile?.caseStudy?.target),
+                facetRotation: cloneVec3(base.projectCameraSettings?.[project]?.mobile?.caseStudy?.facetRotation)
+              }
+            }
+          }
+        ])
+      ),
       timing: {
         ...base.timing,
         camera: { ...base.timing?.camera },
@@ -310,7 +342,8 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
         cameraOffsets: baseConfig.cameraOffsets,
         explodedPositions: baseConfig.explodedPositions,
         facetRotationsEulerDeg: baseConfig.facetRotationsEulerDeg,
-        selectedFacetRotationsEulerDeg: baseConfig.selectedFacetRotationsEulerDeg
+        selectedFacetRotationsEulerDeg: baseConfig.selectedFacetRotationsEulerDeg,
+        projectCameraSettings: baseConfig.projectCameraSettings
       }
     };
 
@@ -411,6 +444,25 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
       });
     };
 
+    const updateProjectCameraSettings = (settings) => {
+      if (!settings) return;
+      projectKeys.forEach((project) => {
+        ['desktop', 'mobile'].forEach((device) => {
+          const selectedPosition = sanitizeVec3(settings?.[project]?.[device]?.selected?.position);
+          const selectedTarget = sanitizeVec3(settings?.[project]?.[device]?.selected?.target);
+          const caseStudyPosition = sanitizeVec3(settings?.[project]?.[device]?.caseStudy?.position);
+          const caseStudyTarget = sanitizeVec3(settings?.[project]?.[device]?.caseStudy?.target);
+          const caseStudyFacetRotation = sanitizeVec3(settings?.[project]?.[device]?.caseStudy?.facetRotation);
+
+          if (selectedPosition) updatedConfig.projectCameraSettings[project][device].selected.position = selectedPosition;
+          if (selectedTarget) updatedConfig.projectCameraSettings[project][device].selected.target = selectedTarget;
+          if (caseStudyPosition) updatedConfig.projectCameraSettings[project][device].caseStudy.position = caseStudyPosition;
+          if (caseStudyTarget) updatedConfig.projectCameraSettings[project][device].caseStudy.target = caseStudyTarget;
+          if (caseStudyFacetRotation) updatedConfig.projectCameraSettings[project][device].caseStudy.facetRotation = caseStudyFacetRotation;
+        });
+      });
+    };
+
     const updateTiming = (timing) => {
       if (!timing?.camera) return;
       Object.entries(timing.camera).forEach(([key, value]) => {
@@ -426,6 +478,7 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
     updateExplodedPositions(tuning.explodedPositions);
     updateFacetRotations(tuning.facetRotationsEulerDeg);
     updateSelectedFacetRotations(tuning.selectedFacetRotationsEulerDeg);
+    updateProjectCameraSettings(tuning.projectCameraSettings);
     updateTiming(tuning.timing);
 
     return updatedConfig;
@@ -727,6 +780,15 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
     const target = getCameraTargetForKey(key);
     const { yaw, pitch } = getPolarCoords(cameraValues[key], target);
     updateFromPolar(key, { distance: parseFloat(value), yaw, pitch });
+  };
+
+  const updateProjectCameraSettingVec3 = (project, mode, field, axisIndex, value) => {
+    const updatedConfig = cloneConfig();
+    const current = updatedConfig.projectCameraSettings?.[project]?.[editDeviceKey]?.[mode]?.[field] || [0, 0, 0];
+    const next = [...current];
+    next[axisIndex] = parseFloat(value);
+    updatedConfig.projectCameraSettings[project][editDeviceKey][mode][field] = next;
+    onUpdate(updatedConfig);
   };
 
   // Handle effect value changes
@@ -1588,6 +1650,15 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
             <div style={accordionNoteStyle}>
               Project camera targets are anchor-driven. Use Target Offset to fine-tune composition.
             </div>
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+              <button type="button" style={exportButtonStyle} onClick={() => setProjectCameraMode('selected')}>
+                Selected View
+              </button>
+              <button type="button" style={exportButtonStyle} onClick={() => setProjectCameraMode('caseStudy')}>
+                Case Study View
+              </button>
+            </div>
+            <div style={accordionNoteStyle}>Editing {editDeviceKey} branch: {projectCameraMode}</div>
             {projectKeys.map((project) => {
               const cameraKey = `camera.projects.${project}`;
               const cameraPosition = cameraValues[cameraKey];
@@ -1682,6 +1753,60 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
                             onChange={(e) => handleCameraDistanceChange(cameraKey, e.target.value)}
                             style={sliderStyle}
                           />
+                        </div>
+
+                        <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.12)' }}>
+                          <div style={accordionSubheadingStyle}>Per-device {projectCameraMode} camera</div>
+                          {['position', 'target'].map((field) => (
+                            <div key={field} style={{ marginBottom: '8px' }}>
+                              <div style={{ fontSize: '12px', marginBottom: '6px', color: '#9fe8d8', textTransform: 'capitalize' }}>{field}</div>
+                              {['X', 'Y', 'Z'].map((axis, axisIndex) => {
+                                const vec = config?.projectCameraSettings?.[project]?.[editDeviceKey]?.[projectCameraMode]?.[field] || [0, 0, 0];
+                                return (
+                                  <div key={`${field}-${axis}`} style={{ marginBottom: '5px' }}>
+                                    <div style={sliderLabelStyle}>
+                                      <span><span style={coordLabelStyle}>{axis}</span> {field}</span>
+                                      <span>{vec[axisIndex].toFixed(2)}</span>
+                                    </div>
+                                    <input
+                                      type="range"
+                                      min="-5"
+                                      max="5"
+                                      step="0.1"
+                                      value={vec[axisIndex]}
+                                      onChange={(e) => updateProjectCameraSettingVec3(project, projectCameraMode, field, axisIndex, e.target.value)}
+                                      style={sliderStyle}
+                                    />
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ))}
+                          {projectCameraMode === 'caseStudy' && (
+                            <div>
+                              <div style={{ fontSize: '12px', marginBottom: '6px', color: '#9fe8d8' }}>facetRotation</div>
+                              {['X', 'Y', 'Z'].map((axis, axisIndex) => {
+                                const vec = config?.projectCameraSettings?.[project]?.[editDeviceKey]?.caseStudy?.facetRotation || [0, 0, 0];
+                                return (
+                                  <div key={`facetRotation-${axis}`} style={{ marginBottom: '5px' }}>
+                                    <div style={sliderLabelStyle}>
+                                      <span><span style={coordLabelStyle}>{axis}</span> Rotation</span>
+                                      <span>{vec[axisIndex].toFixed(1)}°</span>
+                                    </div>
+                                    <input
+                                      type="range"
+                                      min="-180"
+                                      max="180"
+                                      step="1"
+                                      value={vec[axisIndex]}
+                                      onChange={(e) => updateProjectCameraSettingVec3(project, 'caseStudy', 'facetRotation', axisIndex, e.target.value)}
+                                      style={sliderStyle}
+                                    />
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                       </div>
 
