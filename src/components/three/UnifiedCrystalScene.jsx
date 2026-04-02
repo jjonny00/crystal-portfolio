@@ -2154,6 +2154,7 @@ const UnifiedCrystalScene = forwardRef(({
           resolvedConnectorPairs={resolvedConnectorPairs}
           alwaysOnDomAnchorsByRuntimeKey={alwaysOnDomAnchorsByRuntimeKey}
           overviewWorldAnchors={overviewWorldAnchors}
+          hoveredSceneFacetKey={hoveredFacet}
         />
       )}
 
