@@ -553,7 +553,6 @@ export const useFacetOverlayGeometry = (facetKeys) => {
 
   const updateOverlays = useCallback((deltaTime, options = {}) => {
     const forceHide = options?.forceHide === true;
-    const forceHiddenFacetKey = options?.forceHiddenFacetKey || null;
 
     overlaySlotsRef.current.forEach((slot) => {
       if (!slot.mesh) return;
@@ -568,10 +567,6 @@ export const useFacetOverlayGeometry = (facetKeys) => {
         }
 
         return;
-      }
-
-      if (forceHiddenFacetKey && slot.facetKey === forceHiddenFacetKey) {
-        slot.targetOpacity = 0;
       }
 
       if (!slot.isActive && slot.targetOpacity <= 0) {
