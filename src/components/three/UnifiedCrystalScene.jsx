@@ -31,6 +31,7 @@ import { useFacetOverlayGeometry } from '../../hooks/useFacetOverlayGeometry'
 import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController'
 import { useLayoutConfig } from '../../hooks/useLayoutConfig'
 import { useHoverCapable } from '../../hooks/useHoverCapable'
+import { createLogger } from '../../utils/logger'
 
 const PROJECT_DISPLAY_SLOT = 'ProjectDisplay'
 const FOCUS_ROTATION_PROGRESS_LEAD = 1
@@ -44,6 +45,8 @@ const REFORM_MASK_GLOW_PEAK_INTENSITY = 1.5
 const REFORM_FACET_MASK_GLOW_PEAK_INTENSITY = 1.3
 const REFORM_SWAP_OVERLAP_MS = 100
 const ENABLE_OVERVIEW_ALL_CONNECTORS = true
+
+const logger = createLogger('unified-crystal-scene');
 
 const UnifiedCrystalScene = forwardRef(({ 
   animationData,
@@ -218,7 +221,7 @@ const UnifiedCrystalScene = forwardRef(({
     if (!import.meta.env.DEV) return;
     const hero = mergedConfig?.cameraPositions?.hero;
     const overview = mergedConfig?.cameraPositions?.overview;
-    console.log('📷 Effective layout camera positions', { hero, overview });
+    logger.debug('📷 Effective layout camera positions', { hero, overview });
   }, [mergedConfig?.cameraPositions?.hero, mergedConfig?.cameraPositions?.overview]);
 
   const crystalConfig = useMemo(() => {
@@ -380,7 +383,7 @@ const UnifiedCrystalScene = forwardRef(({
           const fracturePos = configuredFracture ? configuredFracture.clone() : fallback;
           facetRef.current.position.copy(fracturePos);
 
-          console.log(`💥 ${facetKey} fracture:`, fracturePos.toArray());
+          logger.debug(`💥 ${facetKey} fracture:`, fracturePos.toArray());
         }
       });
     }
@@ -554,7 +557,7 @@ const UnifiedCrystalScene = forwardRef(({
     debugMethods: {
       forceShowFacets: () => {
         if (import.meta.env.DEV) {
-          console.log('🔥 Debug: Force showing facets');
+          logger.debug('🔥 Debug: Force showing facets');
         }
         setShowWholeCrystal(false);
         setShowFacets(true);
@@ -564,7 +567,7 @@ const UnifiedCrystalScene = forwardRef(({
       },
       forceShowWhole: () => {
         if (import.meta.env.DEV) {
-          console.log('🔄 Debug: Force showing whole crystal');
+          logger.debug('🔄 Debug: Force showing whole crystal');
         }
         setShowFacets(false);
         setShowWholeCrystal(true);
@@ -574,48 +577,47 @@ const UnifiedCrystalScene = forwardRef(({
       },
       inspectModels: () => {
         if (import.meta.env.DEV) {
-          console.group('🔍 Manual Facet Inspection');
+          logger.debug('🔍 Manual Facet Inspection');
           facetModels.forEach((model, index) => {
             const facetKey = facetKeys[index];
-            if (import.meta.env.DEV) console.log(`\n=== ${facetKey.toUpperCase()} MODEL ===`);
-            if (import.meta.env.DEV) console.log('Model:', model);
-            if (import.meta.env.DEV) console.log('Scene:', model.scene);
+            if (import.meta.env.DEV) logger.debug(`\n=== ${facetKey.toUpperCase()} MODEL ===`);
+            if (import.meta.env.DEV) logger.debug('Model:', model);
+            if (import.meta.env.DEV) logger.debug('Scene:', model.scene);
 
             if (model.scene) {
-              if (import.meta.env.DEV) console.log('Scene children:', model.scene.children.length);
+              if (import.meta.env.DEV) logger.debug('Scene children:', model.scene.children.length);
               model.scene.traverse((child) => {
                 if (child.name) {
-                  if (import.meta.env.DEV) console.log(`  - ${child.name} (${child.type})`);
+                  if (import.meta.env.DEV) logger.debug(`  - ${child.name} (${child.type})`);
                 }
               });
 
               const anchor = model.scene.getObjectByName(`anchor_${facetKey}`);
-              if (import.meta.env.DEV) console.log(`Anchor "anchor_${facetKey}":`, anchor);
+              if (import.meta.env.DEV) logger.debug(`Anchor "anchor_${facetKey}":`, anchor);
             }
           });
-          if (import.meta.env.DEV) console.groupEnd();
         }
       },
       inspectAnchors: () => {
         if (import.meta.env.DEV) {
-          console.group('🔍 Anchor Check');
+          logger.debug('🔍 Anchor Check');
           facetModels.forEach((model, index) => {
             const facetKey = facetKeys[index];
             const anchorName = `anchor_${facetKey}`;
             const anchor = model?.scene?.getObjectByName(anchorName);
             if (anchor) {
               const pos = anchor.position.toArray().map(n => Number(n.toFixed(3)));
-              console.log(`${anchorName} exists at`, pos);
+              logger.debug(`${anchorName} exists at`, pos);
             } else {
               console.warn(`${anchorName} missing`);
             }
           });
-          console.groupEnd();
+          
         }
       },
       verifyExplodedPositions: () => {
         if (import.meta.env.DEV) {
-          console.group('📐 Verifying exploded facet positions');
+          logger.debug('📐 Verifying exploded facet positions');
           facetRefs.current.forEach((facetRef, index) => {
             const facetKey = facetKeys[index];
             const expected = crystalConfig?.explodedPositions?.[facetPlacementKeys[facetKey] || facetKey];
@@ -632,10 +634,10 @@ const UnifiedCrystalScene = forwardRef(({
                 `❌ ${facetKey} discrepancy: expected [${expectedVec.x.toFixed(3)}, ${expectedVec.y.toFixed(3)}, ${expectedVec.z.toFixed(3)}], actual [${actual.x.toFixed(3)}, ${actual.y.toFixed(3)}, ${actual.z.toFixed(3)}], delta ${distance.toFixed(3)}`
               );
             } else {
-              console.log(`✅ ${facetKey} position verified`);
+              logger.debug(`✅ ${facetKey} position verified`);
             }
           });
-          console.groupEnd();
+          
         }
       }
     }
@@ -733,7 +735,7 @@ const UnifiedCrystalScene = forwardRef(({
               delta: diff.toArray()
             });
           } else {
-            console.log(`✅ Anchor match for ${facetKey}`, worldPos.toArray());
+            logger.debug(`✅ Anchor match for ${facetKey}`, worldPos.toArray());
           }
         }
       }
@@ -796,7 +798,7 @@ const UnifiedCrystalScene = forwardRef(({
   const applyHoverVisual = useCallback(
     (facetKey, hovering) => {
       if (import.meta.env.DEV) {
-        console.log(`🎨 Label hover: ${facetKey}, hovering: ${hovering}, currentFocus: ${animationData?.focusedFacet}`);
+        logger.debug(`🎨 Label hover: ${facetKey}, hovering: ${hovering}, currentFocus: ${animationData?.focusedFacet}`);
       }
 
       const index = facetKeys.indexOf(facetKey)
@@ -815,7 +817,7 @@ const UnifiedCrystalScene = forwardRef(({
         // Hovering takes precedence
         targetColor = projectColors[index];
         if (import.meta.env.DEV) {
-          console.log(`🎨 Setting hover color for ${facetKey}`);
+          logger.debug(`🎨 Setting hover color for ${facetKey}`);
         }
       } else {
         // Not hovering - check if this facet is focused or if another facet is hovered
@@ -826,13 +828,13 @@ const UnifiedCrystalScene = forwardRef(({
           // This facet is focused and no other facet is hovered
           targetColor = projectColors[index];
           if (import.meta.env.DEV) {
-            console.log(`🎨 Maintaining focus color for ${facetKey}`);
+            logger.debug(`🎨 Maintaining focus color for ${facetKey}`);
           }
         } else {
           // Default color
           targetColor = defaultColorRef.current;
           if (import.meta.env.DEV) {
-            console.log(`🎨 Resetting to default color for ${facetKey}`);
+            logger.debug(`🎨 Resetting to default color for ${facetKey}`);
           }
         }
       }
@@ -958,14 +960,14 @@ const UnifiedCrystalScene = forwardRef(({
       });
 
       setAlwaysOnDomAnchorsByRuntimeKey(nextAnchors);
-      console.groupCollapsed('[overview connector pairs]');
-      console.log('resolvedConnectorPairs', resolvedConnectorPairs);
-      console.log('resolvedPairCount', resolvedConnectorPairs.length);
-      console.log('domAnchorsMeasuredCount', Object.keys(nextAnchors).length);
-      console.log('worldAnchorsFoundCount', worldFoundCount);
-      console.log('domNodesFoundCount', domFoundCount);
-      console.log('cameraSettled', cameraSettled);
-      console.groupEnd();
+      logger.debug('[overview connector pairs]');
+      logger.debug('resolvedConnectorPairs', resolvedConnectorPairs);
+      logger.debug('resolvedPairCount', resolvedConnectorPairs.length);
+      logger.debug('domAnchorsMeasuredCount', Object.keys(nextAnchors).length);
+      logger.debug('worldAnchorsFoundCount', worldFoundCount);
+      logger.debug('domNodesFoundCount', domFoundCount);
+      logger.debug('cameraSettled', cameraSettled);
+      
     };
 
     const raf = requestAnimationFrame(measureAllAnchors);
@@ -992,7 +994,7 @@ const UnifiedCrystalScene = forwardRef(({
           setShowCrystalDebug(prev => {
             const newState = !prev;
             if (import.meta.env.DEV) {
-              console.log(`💎 Crystal Debug Panel: ${newState ? 'ON' : 'OFF'}`);
+              logger.debug(`💎 Crystal Debug Panel: ${newState ? 'ON' : 'OFF'}`);
             }
             return newState;
           });
@@ -1212,7 +1214,7 @@ const UnifiedCrystalScene = forwardRef(({
         child.receiveShadow = false;
 
         if (import.meta.env.DEV) {
-          console.log(`💡 Disabled shadows for crystal mesh: ${child.name}`);
+          logger.debug(`💡 Disabled shadows for crystal mesh: ${child.name}`);
         }
       });
     };
@@ -1345,7 +1347,7 @@ const UnifiedCrystalScene = forwardRef(({
       if (facetRef?.current) {
         const overlaySlot = registerOverlaySlot(facetRef, facetKey);
         if (overlaySlot) {
-          console.log(`📄 Registered overlay slot for ${facetKey}`);
+          logger.debug(`📄 Registered overlay slot for ${facetKey}`);
         }
       }
     });
@@ -1398,7 +1400,7 @@ const UnifiedCrystalScene = forwardRef(({
   // Debug anchor positions when facets are loaded
   useEffect(() => {
     if (import.meta.env.DEV && showCrystalDebug && facetRefs.current.length > 0) {
-      console.group('🎯 Anchor Detection Report');
+      logger.debug('🎯 Anchor Detection Report');
       
       facetKeys.forEach((facetKey, index) => {
         const facetRef = facetRefs.current[index];
@@ -1409,7 +1411,7 @@ const UnifiedCrystalScene = forwardRef(({
           if (anchor) {
             const worldPos = new THREE.Vector3();
             anchor.getWorldPosition(worldPos);
-            if (import.meta.env.DEV) console.log(`✅ ${anchorName}:`, {
+            if (import.meta.env.DEV) logger.debug(`✅ ${anchorName}:`, {
               localPosition: anchor.position.toArray(),
               worldPosition: worldPos.toArray(),
               parent: anchor.parent?.name || 'root'
@@ -1420,14 +1422,13 @@ const UnifiedCrystalScene = forwardRef(({
             facetRef.current.traverse((child) => {
               if (child.name) availableNames.push(child.name);
             });
-            if (import.meta.env.DEV) console.log(`Available objects in ${facetKey}:`, availableNames);
+            if (import.meta.env.DEV) logger.debug(`Available objects in ${facetKey}:`, availableNames);
           }
         } else {
           if (import.meta.env.DEV) console.warn(`❌ Facet ref for ${facetKey} is null`);
         }
       });
       
-      if (import.meta.env.DEV) console.groupEnd();
     }
     }, [showCrystalDebug, showFacets, facetKeys]);
 
@@ -1448,7 +1449,7 @@ const UnifiedCrystalScene = forwardRef(({
       const currentHovered = hoveredFacetRef.current;
 
     if (import.meta.env.DEV) {
-      console.log('🎨 Focus change effect:', {
+      logger.debug('🎨 Focus change effect:', {
         currentFacet,
         currentHovered,
         prevFacet: prevFocusedFacetRef.current,
@@ -1465,7 +1466,7 @@ const UnifiedCrystalScene = forwardRef(({
       materialVersion === prevMaterialVersionRef.current
     ) {
       if (import.meta.env.DEV) {
-        console.log('🎨 Skipping focus effect - no change');
+        logger.debug('🎨 Skipping focus effect - no change');
       }
       prevOverlaysReadyRef.current = overlaysReady;
       return;
@@ -1478,7 +1479,7 @@ const UnifiedCrystalScene = forwardRef(({
     // Wait until materials have been created
     if (!facetMaterialsRef.current.length) {
       if (import.meta.env.DEV) {
-        console.log('🎨 Skipping focus effect - materials not ready');
+        logger.debug('🎨 Skipping focus effect - materials not ready');
       }
       return;
     }
@@ -1489,7 +1490,7 @@ const UnifiedCrystalScene = forwardRef(({
 
     focusUpdateTimeoutRef.current = setTimeout(() => {
       if (import.meta.env.DEV) {
-        console.log('🎨 Applying focus changes with hover respect');
+        logger.debug('🎨 Applying focus changes with hover respect');
       }
 
       facetMaterialsRef.current.forEach((mat, idx) => {
@@ -1500,7 +1501,7 @@ const UnifiedCrystalScene = forwardRef(({
         // FIXED: Don't change color of hovered facets - let hover take precedence
         if (currentHovered === key) {
           if (import.meta.env.DEV) {
-            console.log(`🎨 Skipping ${key} - currently hovered`);
+            logger.debug(`🎨 Skipping ${key} - currently hovered`);
           }
           return;
         }
@@ -1511,13 +1512,13 @@ const UnifiedCrystalScene = forwardRef(({
           // This facet is focused and not hovered by another
           targetColor = projectColors[idx];
           if (import.meta.env.DEV) {
-            console.log(`🎨 Setting focus color for ${key}`);
+            logger.debug(`🎨 Setting focus color for ${key}`);
           }
         } else {
           // Default color
           targetColor = defaultColorRef.current;
           if (import.meta.env.DEV) {
-            console.log(`🎨 Resetting ${key} to default`);
+            logger.debug(`🎨 Resetting ${key} to default`);
           }
         }
 
@@ -1561,7 +1562,7 @@ const UnifiedCrystalScene = forwardRef(({
     
     if (formChanged) {
       if (import.meta.env.DEV) {
-        console.log('💎 Crystal: Form change detected:', {
+        logger.debug('💎 Crystal: Form change detected:', {
           from: lastCrystalForm.current,
           to: currentForm
         });
@@ -1569,7 +1570,7 @@ const UnifiedCrystalScene = forwardRef(({
 
       if (currentForm === 'exploded') {
         if (import.meta.env.DEV) {
-          console.log('💎 Crystal: Explosion - charging whole crystal before swap');
+          logger.debug('💎 Crystal: Explosion - charging whole crystal before swap');
         }
         if (!simplifiedAnimations) {
           pendingReformSwapAtRef.current = null;
@@ -1590,7 +1591,7 @@ const UnifiedCrystalScene = forwardRef(({
 
       } else if (currentForm === 'whole') {
         if (import.meta.env.DEV) {
-          console.log('💎 Crystal: Reform detected - hiding sphere');
+          logger.debug('💎 Crystal: Reform detected - hiding sphere');
         }
         pendingExplodeSwapAtRef.current = null;
         pendingReformSwapAtRef.current = null;
@@ -2016,7 +2017,7 @@ const UnifiedCrystalScene = forwardRef(({
       if (isReforming && allFacetsAtCenter && !showWholeCrystal) {
         if (pendingReformSwapAtRef.current == null) {
           if (import.meta.env.DEV) {
-            console.log('💎 Reform complete - starting masked swap to whole crystal');
+            logger.debug('💎 Reform complete - starting masked swap to whole crystal');
           }
           triggerSwapMaskGlow('reform');
           pendingReformSwapAtRef.current = performance.now() + REFORM_PRE_SWAP_WINDOW_MS;
