@@ -221,23 +221,26 @@ const UnifiedCameraController = ({
   };
 
   const getCameraTarget = (cameraConfig, focusedFacet, cameraState, focusedProjectId) => {
-    const liveTargetEdit = config?.__cameraTargetEdit || null;
-    const activeTargetEdit =
-      liveTargetEdit &&
-      Date.now() - Number(liveTargetEdit.updatedAt || 0) < 750 &&
-      liveTargetEdit.projectId === focusedProjectId &&
-      liveTargetEdit.deviceKey === (isMobile ? 'mobile' : 'desktop') &&
-      liveTargetEdit.mode === cameraState;
+    const deviceKey = isMobile ? 'mobile' : 'desktop';
+    const projectModeKey = cameraState === 'caseStudy' ? 'caseStudy' : 'selected';
+    const authoredTarget =
+      config?.projectCameraSettings?.[focusedProjectId]?.[deviceKey]?.[projectModeKey]?.target;
+    const hasAuthoredTarget =
+      Array.isArray(authoredTarget) &&
+      authoredTarget.length === 3 &&
+      authoredTarget.every((value) => Number.isFinite(Number(value)));
 
-    if (activeTargetEdit) {
+    if ((cameraState === 'project' || cameraState === 'caseStudy') && hasAuthoredTarget) {
       projectTargetLockRef.current = {
         facetKey: null,
         target: null,
         source: 'config'
       };
+
       return {
         ...cameraConfig,
-        description: `${focusedFacet} ${cameraState} (live target edit)`
+        target: toVector3(authoredTarget),
+        description: `${focusedFacet} ${cameraState} (authored target)`
       };
     }
 
