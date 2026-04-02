@@ -17,7 +17,7 @@ const OverviewConnectorLines = ({
 
   const IDLE_DROOP = 0.52;
   const ACTIVE_DROOP = 0;
-  const ENTRANCE_DRAW_DURATION = 0.36;
+  const ENTRANCE_DRAW_DURATION = 0.3;
   const ENTRANCE_STAGGER_STEP = 0.045;
   const STRAIGHTEN_SNAP_DURATION = 0.2;
   const STRAIGHTEN_OVERSHOOT_DURATION = 0.1;
