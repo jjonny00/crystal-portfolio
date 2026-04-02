@@ -230,7 +230,7 @@ const UnifiedCameraController = ({
       authoredTarget.length === 3 &&
       authoredTarget.every((value) => Number.isFinite(Number(value)));
 
-    if ((cameraState === 'project' || cameraState === 'caseStudy') && hasAuthoredTarget) {
+    if (cameraState === 'caseStudy' && hasAuthoredTarget) {
       projectTargetLockRef.current = {
         facetKey: null,
         target: null,
