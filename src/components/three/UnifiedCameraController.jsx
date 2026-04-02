@@ -5,6 +5,9 @@ import { useRef, useEffect } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { facetKeys as canonicalFacetKeys, getSceneFacetKeyByProjectId } from '../../data/projects';
+import { createLogger } from '../../utils/logger';
+
+const logger = createLogger('unified-camera-controller');
 
 const UnifiedCameraController = ({
   animationData,
@@ -203,7 +206,7 @@ const UnifiedCameraController = ({
       anchorObject.getWorldPosition(worldPosition);
       
       if (import.meta.env.DEV) {
-        console.log(`🎯 Camera Controller: Fresh anchor position for ${facetKey}:`, {
+        logger.debug(`🎯 Camera Controller: Fresh anchor position for ${facetKey}:`, {
           anchorName,
           worldPosition: worldPosition.toArray(),
           facetPosition: facetRef.current.position.toArray(),
@@ -617,7 +620,7 @@ const UnifiedCameraController = ({
       }
       
       if (import.meta.env.DEV) {
-        console.log('📹 Camera state changed, resetting orbit:', animationData?.cameraState);
+        logger.debug('📹 Camera state changed, resetting orbit:', animationData?.cameraState);
       }
     }
 
@@ -683,7 +686,7 @@ const UnifiedCameraController = ({
         const caseStudyConfigPosition =
           config?.projectCameraSettings?.[focusedProject]?.[deviceMode]?.caseStudy?.position
           || null;
-        console.log('📹 Camera Controller: Enhanced camera target updated:', {
+        logger.debug('📹 Camera Controller: Enhanced camera target updated:', {
           state: animationData.state,
           cameraState: cameraState,
           viewMode: animationData?.viewMode ?? cameraState,
@@ -698,7 +701,7 @@ const UnifiedCameraController = ({
           fov: enhancedConfig.fov,
           description: enhancedConfig.description 
         });
-        console.log('📷 Effective hero/overview from config:', {
+        logger.debug('📷 Effective hero/overview from config:', {
           hero: {
             position: config?.cameraPositions?.hero,
             target: config?.cameraTargets?.hero,
@@ -770,7 +773,7 @@ const UnifiedCameraController = ({
         animationSpeed.current.fov = 0.05;
         
         if (import.meta.env.DEV) {
-          console.log(`📹 Camera Controller: Project focus camera update: ${resolvedFocusedFacet}, distance: ${positionDistance.toFixed(2)}, using anchor: ${enhancedConfig.description?.includes('anchor')}`);
+          logger.debug(`📹 Camera Controller: Project focus camera update: ${resolvedFocusedFacet}, distance: ${positionDistance.toFixed(2)}, using anchor: ${enhancedConfig.description?.includes('anchor')}`);
         }
       } else {
         animationSpeed.current.position = 0.03;
@@ -1122,7 +1125,7 @@ const UnifiedCameraController = ({
           isOrbitingRef.current = true;
           
           if (import.meta.env.DEV) {
-            console.log('📹 Hero orbit initiated after delay:', {
+            logger.debug('📹 Hero orbit initiated after delay:', {
               delay: orbitInitDelayRef.current,
               radius: orbitRadiusRef.current,
               height: orbitHeightRef.current,

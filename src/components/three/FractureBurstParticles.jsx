@@ -1,11 +1,14 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { createLogger } from '../../utils/logger';
 
 const EMITTER_START_LEAD_S = 0.08;
 const PARTICLE_FADE_IN_END = 0.03;
 const PARTICLE_FADE_OUT_START = 0.42;
 const PARTICLE_FADE_OUT_END = 0.76;
+
+const logger = createLogger('fracture-burst-particles');
 
 const smoothstep = (edge0, edge1, x) => {
   const t = Math.min(Math.max((x - edge0) / (edge1 - edge0), 0), 1);
@@ -101,7 +104,7 @@ const FractureBurstParticles = ({
   );
 
   useEffect(() => {
-    console.log('geometry attributes', Object.keys(geometry.attributes));
+    logger.debug('geometry attributes', Object.keys(geometry.attributes));
   }, [geometry]);
 
   useEffect(() => () => {
@@ -121,7 +124,7 @@ const FractureBurstParticles = ({
       return;
     }
 
-    console.log('[fracture] trigger fired');
+    logger.debug('[fracture] trigger fired');
 
     let cancelled = false;
 
@@ -143,9 +146,9 @@ const FractureBurstParticles = ({
       const flowFreqs = flowFreqsRef.current;
       const flowAmps = flowAmpsRef.current;
 
-      console.log('[particles] before spawn activeCount=', activeCountRef.current);
+      logger.debug('[particles] before spawn activeCount=', activeCountRef.current);
       const spawnCount = Math.min(count, 360);
-      console.log('[particles] spawning count=', spawnCount);
+      logger.debug('[particles] spawning count=', spawnCount);
 
       for (let i = 0; i < spawnCount; i += 1) {
         const i3 = i * 3;
@@ -225,11 +228,11 @@ const FractureBurstParticles = ({
       }
 
       activeCountRef.current = spawnCount;
-      console.log('[particles] after spawn activeCount=', activeCountRef.current);
+      logger.debug('[particles] after spawn activeCount=', activeCountRef.current);
 
       for (let i = 0; i < Math.min(5, activeCountRef.current); i += 1) {
         const i3 = i * 3;
-        console.log('[particle]', i, {
+        logger.debug('[particle]', i, {
           position: [positions[i3], positions[i3 + 1], positions[i3 + 2]],
           velocity: [velocities[i3], velocities[i3 + 1], velocities[i3 + 2]],
           life: lifetimes[i],
@@ -240,8 +243,8 @@ const FractureBurstParticles = ({
       }
 
       geometry.setDrawRange(0, activeCountRef.current);
-      console.log('drawRange', geometry.drawRange);
-      console.log('activeCount', activeCountRef.current);
+      logger.debug('drawRange', geometry.drawRange);
+      logger.debug('activeCount', activeCountRef.current);
 
       geometry.attributes.position.needsUpdate = true;
       geometry.attributes.aAlpha.needsUpdate = true;
@@ -305,7 +308,7 @@ const FractureBurstParticles = ({
       const lifeT = THREE.MathUtils.clamp(ages[i] / life, 0, 1);
 
       if (i < 3) {
-        console.log('[particle update]', i, {
+        logger.debug('[particle update]', i, {
           age: ages[i],
           lifetime: life,
           normalized: lifeT,
@@ -389,7 +392,7 @@ const FractureBurstParticles = ({
       alphas[i] = smoothstep(0.0, PARTICLE_FADE_IN_END, lifeT) * (1.0 - smoothstep(PARTICLE_FADE_OUT_START, PARTICLE_FADE_OUT_END, lifeT));
 
       if (i < 3) {
-        console.log('[fade timing]', i, {
+        logger.debug('[fade timing]', i, {
           t: lifeT,
           alpha: alphas[i],
         });
@@ -397,7 +400,7 @@ const FractureBurstParticles = ({
     }
 
     activeCountRef.current = activeCount;
-    console.log('[particles]', {
+    logger.debug('[particles]', {
       activeBefore,
       expiredThisFrame,
       activeAfter: activeCount,
