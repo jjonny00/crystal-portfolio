@@ -415,6 +415,8 @@ function App() {
     vignette: true
   });
   const [postProcessingConfig, setPostProcessingConfig] = useState(config.postProcessing);
+  const [viewMode, setViewMode] = useState('overview');
+  const [activeProjectId, setActiveProjectId] = useState(null);
 
   // Simulate application initialization progress for loader
   useEffect(() => {
@@ -566,6 +568,25 @@ function App() {
   }, [scrollToSection]);
 
   const handleContactClick = useCallback(() => {}, []);
+
+  const handleActiveProjectChange = useCallback((nextProjectId) => {
+    setActiveProjectId(nextProjectId);
+    setViewMode((prev) => {
+      if (!nextProjectId) return 'overview';
+      if (prev === 'caseStudy') return prev;
+      return 'project';
+    });
+  }, []);
+
+  const handleOpenCaseStudy = useCallback((projectId) => {
+    if (!projectId) return;
+    setActiveProjectId(projectId);
+    setViewMode('caseStudy');
+  }, []);
+
+  const handleBackToProject = useCallback(() => {
+    setViewMode((prev) => (prev === 'caseStudy' ? 'project' : prev));
+  }, []);
 
   const handleConfigUpdate = useCallback((newConfig) => {
     setConfig(newConfig);
@@ -835,6 +856,8 @@ function App() {
         onAnimationStateChange={handleAnimationStateChange}
         config={animationConfig}
         restartToken={sceneRestartToken}
+        viewMode={viewMode}
+        activeProjectId={activeProjectId}
       >
         {/* Fixed 3D Canvas */}
         <Fixed3DCanvas
@@ -858,6 +881,11 @@ function App() {
       <ScrollablePortfolio 
         snapSpeed={snapSpeed}
         hideContent={hideAllUI}
+        viewMode={viewMode}
+        activeProjectId={activeProjectId}
+        onActiveProjectChange={handleActiveProjectChange}
+        onOpenCaseStudy={handleOpenCaseStudy}
+        onBackToProject={handleBackToProject}
       />
 
       {/* UI Controls */}

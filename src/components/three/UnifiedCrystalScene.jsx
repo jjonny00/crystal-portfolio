@@ -107,7 +107,7 @@ const UnifiedCrystalScene = forwardRef(({
   const [labelsReady, setLabelsReady] = useState(false);
   const [facetsSettled, setFacetsSettled] = useState(false);
   const facetsSettledRef = useRef(false);
-  const { layout } = useLayoutConfig();
+  const { layout, variant } = useLayoutConfig();
   const hoverCapable = useHoverCapable();
   useCursor(Boolean(hoverCapable && hoveredFacet));
   const overviewWorldAnchors = layout?.anchors?.overviewWorld;
@@ -779,6 +779,18 @@ const UnifiedCrystalScene = forwardRef(({
       eulerDegreesToQuaternion(mergedConfig?.selectedFacetRotationsEulerDeg?.[facetPlacementKeys[facetKey] || facetKey])
     ])
   ), [eulerDegreesToQuaternion, facetKeys, facetPlacementKeys, mergedConfig?.selectedFacetRotationsEulerDeg]);
+
+  const caseStudyFacetTargetQuats = useMemo(() => {
+    const deviceKey = variant === 'mobile' ? 'mobile' : 'desktop';
+    return Object.fromEntries(
+      facetKeys.map((facetKey) => {
+        const sceneKey = facetPlacementKeys[facetKey] || facetKey;
+        const projectId = getProjectIdBySceneFacetKey(sceneKey);
+        const caseStudyRotation = mergedConfig?.projectCameraSettings?.[projectId]?.[deviceKey]?.caseStudy?.facetRotation;
+        return [facetKey, eulerDegreesToQuaternion(caseStudyRotation)];
+      })
+    );
+  }, [eulerDegreesToQuaternion, facetKeys, facetPlacementKeys, mergedConfig?.projectCameraSettings, variant]);
 
   // FIXED: Improved handleLabelHover with better state management
   const applyHoverVisual = useCallback(
@@ -1518,20 +1530,14 @@ const UnifiedCrystalScene = forwardRef(({
     }, 50);
 
     if (overlaysReady) {
-      const focusChanged = currentFacet !== previousFacet;
+      const activeSceneFacetKey = animationData?.focusedProject
+        ? (getSceneFacetKeyByProjectId(animationData.focusedProject) || currentFacet)
+        : currentFacet;
 
-      if (focusChanged) {
-        facetKeys.forEach((key) => {
-          const shouldShow = currentFacet != null && key === currentFacet;
-          setOverlayVisibility(key, shouldShow);
-        });
-
-        if (currentFacet) {
-          console.log(`📄 Showing overlay for ${currentFacet}`);
-        }
-      } else if (currentFacet) {
-        setOverlayVisibility(currentFacet, true);
-      }
+      facetKeys.forEach((key) => {
+        const shouldShow = key === activeSceneFacetKey;
+        setOverlayVisibility(key, shouldShow);
+      });
     }
 
     return () => clearTimeout(focusUpdateTimeoutRef.current);
@@ -1541,7 +1547,9 @@ const UnifiedCrystalScene = forwardRef(({
     facetKeys,
     projectColors,
     overlaysReady,
-    setOverlayVisibility
+    setOverlayVisibility,
+    animationData?.viewMode,
+    animationData?.focusedProject
   ]);
   
   // Crystal form change detection
@@ -1920,46 +1928,74 @@ const UnifiedCrystalScene = forwardRef(({
             }
             const baseQuat = baseFacetTargetQuats[facetKey] || neutralQuat;
             const selectedQuat = selectedFacetTargetQuats[facetKey] || baseQuat;
+            const caseStudyQuat = caseStudyFacetTargetQuats[facetKey] || selectedQuat;
+            const sceneKey = facetPlacementKeys[facetKey] || facetKey;
+            const projectId = getProjectIdBySceneFacetKey(sceneKey);
+            const isCaseStudyActiveProject =
+              animationData?.viewMode === 'caseStudy' &&
+              Boolean(projectId && animationData?.focusedProject && projectId === animationData.focusedProject) &&
+              animationData?.cameraState === 'caseStudy';
+            const isProjectFocusedFacet =
+              animationData?.viewMode !== 'caseStudy' &&
+              animationData?.focusedFacet === facetKey &&
+              animationData?.cameraState === 'project';
             const focusRotationProgress = THREE.MathUtils.clamp(
               cameraMoveProgress / FOCUS_ROTATION_PROGRESS_LEAD,
               0,
               1
             );
-            const focusQuat = baseQuat.clone().slerp(selectedQuat, focusRotationProgress);
+            const projectFocusQuat = baseQuat.clone().slerp(selectedQuat, focusRotationProgress);
+            const caseStudyFocusQuat = selectedQuat.clone().slerp(caseStudyQuat, focusRotationProgress);
             const targetQuat = animationData?.crystalForm === 'exploded'
-              ? (animationData?.focusedFacet === facetKey ? focusQuat : baseQuat)
+              ? (isCaseStudyActiveProject
+                  ? caseStudyFocusQuat
+                  : (isProjectFocusedFacet ? projectFocusQuat : baseQuat))
               : neutralQuat;
             const useIsolatedFocusTransform =
               ISOLATE_FOCUSED_ROTATION_FROM_POSITION &&
-              animationData?.focusedFacet === facetKey &&
-              animationData?.cameraState === 'project';
+              (isProjectFocusedFacet || isCaseStudyActiveProject);
             const targetPosition = useIsolatedFocusTransform
               ? finalTarget
               : (animationData?.crystalForm === 'exploded'
                   ? getAnchorAdjustedPosition(facetKey, finalTarget, targetQuat)
                   : finalTarget);
 
-            if (animationData?.focusedFacet === facetKey && animationData?.cameraState === 'project') {
+            if (isProjectFocusedFacet || isCaseStudyActiveProject) {
               facetRef.current.position.copy(targetPosition);
             } else {
               facetRef.current.position.lerp(targetPosition, lerpSpeed * deltaTime * 60);
             }
+
           }
         }
 
         const baseQuat = baseFacetTargetQuats[facetKey] || neutralQuat;
         const selectedQuat = selectedFacetTargetQuats[facetKey] || baseQuat;
+        const caseStudyQuat = caseStudyFacetTargetQuats[facetKey] || selectedQuat;
+        const sceneKey = facetPlacementKeys[facetKey] || facetKey;
+        const projectId = getProjectIdBySceneFacetKey(sceneKey);
+        const isCaseStudyActiveProject =
+          animationData?.viewMode === 'caseStudy' &&
+          Boolean(projectId && animationData?.focusedProject && projectId === animationData.focusedProject) &&
+          animationData?.cameraState === 'caseStudy';
+        const isProjectFocusedFacet =
+          animationData?.viewMode !== 'caseStudy' &&
+          animationData?.focusedFacet === facetKey &&
+          animationData?.cameraState === 'project';
         const focusRotationProgress = THREE.MathUtils.clamp(
           cameraMoveProgress / FOCUS_ROTATION_PROGRESS_LEAD,
           0,
           1
         );
-        const focusQuat = baseQuat.clone().slerp(selectedQuat, focusRotationProgress);
+        const projectFocusQuat = baseQuat.clone().slerp(selectedQuat, focusRotationProgress);
+        const caseStudyFocusQuat = selectedQuat.clone().slerp(caseStudyQuat, focusRotationProgress);
         const targetQuat = animationData?.crystalForm === 'exploded'
-          ? (animationData?.focusedFacet === facetKey ? focusQuat : baseQuat)
+          ? (isCaseStudyActiveProject
+              ? caseStudyFocusQuat
+              : (isProjectFocusedFacet ? projectFocusQuat : baseQuat))
           : neutralQuat;
 
-        if (animationData?.focusedFacet === facetKey && animationData?.cameraState === 'project') {
+        if (isProjectFocusedFacet || isCaseStudyActiveProject) {
           facetRef.current.quaternion.slerp(targetQuat, focusedRotationLerp);
         } else {
           facetRef.current.quaternion.slerp(targetQuat, rotationLerp);
@@ -2003,6 +2039,46 @@ const UnifiedCrystalScene = forwardRef(({
     });
 
     if (overlaysReady) {
+      const activeProjectId = animationData?.focusedProject ?? null;
+      const activeFacetKey = activeProjectId
+        ? getSceneFacetKeyByProjectId(activeProjectId)
+        : null;
+      const activeProjectSlot = activeFacetKey ? overlaySlots.get(activeFacetKey) : null;
+
+      if (activeProjectSlot?.mesh && activeProjectSlot?.overlayMaterial) {
+        const isCaseStudyActiveProject =
+          animationData?.viewMode === 'caseStudy' &&
+          activeProjectId != null &&
+          getProjectIdBySceneFacetKey(activeProjectSlot.facetKey) === activeProjectId;
+        const targetOpacity = isCaseStudyActiveProject ? 0 : 1;
+        const lerpAlpha = Math.min(deltaTime * 4, 1);
+        const nextOpacity = THREE.MathUtils.lerp(
+          activeProjectSlot.overlayMaterial.opacity ?? activeProjectSlot.currentOpacity ?? 1,
+          targetOpacity,
+          lerpAlpha
+        );
+
+        if (!activeProjectSlot.isActive) {
+          const materials = Array.isArray(activeProjectSlot.mesh.material)
+            ? activeProjectSlot.mesh.material.slice()
+            : [activeProjectSlot.mesh.material];
+          const materialIndex = activeProjectSlot.materialIndex ?? 0;
+          materials[materialIndex] = activeProjectSlot.overlayMaterial;
+          activeProjectSlot.mesh.material =
+            activeProjectSlot.materialIndex != null ? materials : activeProjectSlot.overlayMaterial;
+          activeProjectSlot.isActive = true;
+        }
+
+        if (activeProjectSlot.overlayMaterial.transparent !== true) {
+          activeProjectSlot.overlayMaterial.transparent = true;
+          activeProjectSlot.overlayMaterial.needsUpdate = true;
+        }
+
+        activeProjectSlot.overlayMaterial.opacity = nextOpacity;
+        activeProjectSlot.currentOpacity = nextOpacity;
+        activeProjectSlot.targetOpacity = nextOpacity;
+      }
+
       updateOverlays(deltaTime, {
         forceHide:
           showFacets &&

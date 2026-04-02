@@ -11,7 +11,12 @@ const SECTION_SETTLE_DELAY_MS = 220;
 
 const ScrollablePortfolio = ({
   snapSpeed = 'medium',
-  hideContent = false
+  hideContent = false,
+  viewMode = 'overview',
+  activeProjectId = null,
+  onActiveProjectChange = null,
+  onOpenCaseStudy = null,
+  onBackToProject = null
 }) => {
   const { variant } = useLayoutConfig();
   const isMobileViewport = variant === 'mobile';
@@ -92,6 +97,18 @@ const ScrollablePortfolio = ({
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!onActiveProjectChange) return;
+    if (!settledSectionId || settledSectionId === 'hero' || settledSectionId === 'overview' || settledSectionId === 'about') {
+      onActiveProjectChange(null);
+      return;
+    }
+
+    if (settledSectionId.startsWith('project-')) {
+      onActiveProjectChange(settledSectionId.replace('project-', ''));
+    }
+  }, [onActiveProjectChange, settledSectionId]);
 
   useEffect(() => {
     const container = document.querySelector('.scroll-container');
@@ -210,6 +227,10 @@ const ScrollablePortfolio = ({
                 project={project}
                 isMobile={isMobileViewport}
                 visible={settledSectionId === sectionId}
+                viewMode={viewMode}
+                isActiveProject={activeProjectId === (project.facetKey || project.id)}
+                onOpenCaseStudy={onOpenCaseStudy}
+                onBackToProject={onBackToProject}
               />
             </section>
           );

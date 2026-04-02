@@ -172,6 +172,45 @@ export const selectedFacetRotationsEulerDeg = {
   exploration: [-15, -13, -17]
 }
 
+const projectSceneKeyById = {
+  project01: 'leadership',
+  project02: 'exploration',
+  project03: 'craft',
+  project04: 'system',
+  project05: 'narrative',
+  project06: 'empathy'
+};
+
+export const projectCameraSettings = Object.fromEntries(
+  Object.entries(projectSceneKeyById).map(([projectId, sceneKey]) => [
+    projectId,
+    {
+      desktop: {
+        selected: {
+          position: [...cameraPositions.projects[sceneKey]],
+          target: [...cameraTargets.projects[sceneKey]]
+        },
+        caseStudy: {
+          position: [...cameraPositions.projects[sceneKey]],
+          target: [...cameraTargets.projects[sceneKey]],
+          facetRotation: [...selectedFacetRotationsEulerDeg[sceneKey]]
+        }
+      },
+      mobile: {
+        selected: {
+          position: [...cameraPositions.projects[sceneKey]],
+          target: [...cameraTargets.projects[sceneKey]]
+        },
+        caseStudy: {
+          position: [...cameraPositions.projects[sceneKey]],
+          target: [...cameraTargets.projects[sceneKey]],
+          facetRotation: [...selectedFacetRotationsEulerDeg[sceneKey]]
+        }
+      }
+    }
+  ])
+)
+
 
 // === ANIMATION TIMING ===
 export const timing = {

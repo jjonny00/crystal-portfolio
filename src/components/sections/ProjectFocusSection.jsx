@@ -2,12 +2,22 @@ import React from 'react';
 import { animated, useSpring } from '@react-spring/web';
 import Headline from '../ui/Headline';
 
-const ProjectFocusSection = ({ project, isMobile = false, visible = true }) => {
+const ProjectFocusSection = ({
+  project,
+  isMobile = false,
+  visible = true,
+  viewMode = 'overview',
+  isActiveProject = false,
+  onOpenCaseStudy = null,
+  onBackToProject = null
+}) => {
   if (!project) return null;
 
   const headlineColor = project.headlineColor || project.color || '#ffffff';
   const displayProject = isMobile && project.mobile ? { ...project, ...project.mobile } : project;
   const contentWidth = isMobile ? '100%' : 'min(34vw, 640px)';
+  const isCaseStudy = visible && isActiveProject && viewMode === 'caseStudy';
+  const isProjectView = visible && !isCaseStudy;
 
   const contentSpring = useSpring({
     from: {
@@ -15,10 +25,26 @@ const ProjectFocusSection = ({ project, isMobile = false, visible = true }) => {
       transform: 'translateY(20px)'
     },
     to: {
-      opacity: visible ? 1 : 0,
-      transform: visible ? 'translateY(0px)' : 'translateY(20px)'
+      opacity: isProjectView ? 1 : 0,
+      transform: isProjectView ? 'translateY(0px)' : 'translateY(20px)'
     },
-    delay: visible ? 180 : 0,
+    delay: isProjectView ? 180 : 0,
+    config: {
+      tension: 270,
+      friction: 28
+    }
+  });
+
+  const caseStudySpring = useSpring({
+    from: {
+      opacity: 0,
+      transform: 'translateY(12px)'
+    },
+    to: {
+      opacity: isCaseStudy ? 1 : 0,
+      transform: isCaseStudy ? 'translateY(0px)' : 'translateY(12px)'
+    },
+    delay: isCaseStudy ? 520 : 0,
     config: {
       tension: 270,
       friction: 28
@@ -43,6 +69,7 @@ const ProjectFocusSection = ({ project, isMobile = false, visible = true }) => {
       <animated.div
         style={{
           ...contentSpring,
+          pointerEvents: isProjectView ? 'auto' : 'none',
           width: isMobile ? '100%' : '50vw',
           height: isMobile ? 'auto' : '100vh',
           position: isMobile ? 'static' : 'absolute',
@@ -168,7 +195,9 @@ const ProjectFocusSection = ({ project, isMobile = false, visible = true }) => {
           )}
 
           {displayProject.cta && (
-            <p
+            <button
+              type="button"
+              onClick={() => onOpenCaseStudy?.(project.facetKey || project.id)}
               style={{
                 margin: isMobile ? '1rem 0 0' : '46px 0 0',
                 color: headlineColor,
@@ -178,12 +207,63 @@ const ProjectFocusSection = ({ project, isMobile = false, visible = true }) => {
                 fontStyle: 'normal',
                 fontWeight: 600,
                 lineHeight: isMobile ? '1.35' : '30px',
-                letterSpacing: '-0.48px'
+                letterSpacing: '-0.48px',
+                background: 'transparent',
+                border: `1px solid ${headlineColor}`,
+                borderRadius: '999px',
+                padding: isMobile ? '10px 16px' : '12px 22px',
+                cursor: 'pointer'
               }}
             >
               {displayProject.cta}
-            </p>
+            </button>
           )}
+        </div>
+      </animated.div>
+
+      <animated.div
+        style={{
+          ...caseStudySpring,
+          position: 'absolute',
+          inset: 0,
+          pointerEvents: isCaseStudy ? 'auto' : 'none',
+          padding: isMobile ? '1rem' : '2rem',
+          display: 'flex',
+          alignItems: 'stretch',
+          justifyContent: 'center'
+        }}
+      >
+        <div
+          style={{
+            width: '100%',
+            maxWidth: 'min(900px, 92vw)',
+            background: 'rgba(8, 10, 15, 0.72)',
+            border: `1px solid rgb(from ${headlineColor} r g b / 0.45)`,
+            borderRadius: '16px',
+            padding: isMobile ? '1rem' : '1.5rem'
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => onBackToProject?.()}
+            style={{
+              position: 'sticky',
+              top: 0,
+              marginBottom: '1rem',
+              background: 'transparent',
+              border: `1px solid ${headlineColor}`,
+              color: headlineColor,
+              borderRadius: '999px',
+              padding: '8px 14px',
+              cursor: 'pointer'
+            }}
+          >
+            Back to Project
+          </button>
+          <h2 style={{ margin: '0 0 0.5rem', color: headlineColor }}>{displayProject.title} Case Study</h2>
+          <p style={{ margin: 0, color: 'rgb(from #E2DCC3 r g b / 0.92)' }}>
+            {displayProject.description}
+          </p>
         </div>
       </animated.div>
     </div>

@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useScrollProgress } from '../../hooks/useScrollProgress';
 import { useUnifiedAnimationController } from '../../hooks/useUnifiedAnimationController';
+import { getSceneFacetKeyByProjectId } from '../../data/projects';
 
 let exportedAnimationData = {};
 let exportedScrollMetrics = {};
@@ -15,7 +16,9 @@ const MasterAnimationCoordinator = ({
   debugMode = false,
   onAnimationStateChange = null,
   config = null,
-  restartToken = 0
+  restartToken = 0,
+  viewMode = 'overview',
+  activeProjectId = null
 }) => {
   const [showAnimationDebug, setShowAnimationDebug] = useState(false);
 
@@ -124,17 +127,27 @@ const MasterAnimationCoordinator = ({
   // Core animation data consumed by 3D components
   const animationData = useMemo(() => {
     const zone = animationController.animationState.zoneInfo?.zone;
+    const isProjectViewMode = viewMode === 'project' || viewMode === 'caseStudy';
+    const effectiveFocusedProject =
+      isProjectViewMode
+        ? (activeProjectId ?? animationController.animationState.projectInfo?.project ?? null)
+        : (zone === 'projects' ? animationController.animationState.projectInfo?.project : null);
+    const effectiveCameraState = viewMode === 'caseStudy'
+      ? 'caseStudy'
+      : animationController.animationState.cameraState;
+
+    const fallbackFocusedFacet = effectiveFocusedProject
+      ? getSceneFacetKeyByProjectId(effectiveFocusedProject)
+      : null;
+
     return {
       state: animationController.animationState.state,
       crystalForm: animationController.animationState.crystalForm,
-      cameraState: animationController.animationState.cameraState,
+      cameraState: effectiveCameraState,
+      viewMode,
       // Normalize undefined to null so consumers can rely on explicit null check
-      focusedFacet: animationController.animationState.focusedFacet ?? null,
-      // Only expose a focused project when actually in the projects zone
-      focusedProject:
-        zone === 'projects'
-          ? animationController.animationState.projectInfo?.project
-          : null,
+      focusedFacet: animationController.animationState.focusedFacet ?? fallbackFocusedFacet ?? null,
+      focusedProject: effectiveFocusedProject,
       projectProgress: animationController.animationState.projectInfo?.progress,
       isTransitioning: animationController.animationState.isTransitioning,
       cameraConfig: animationController.cameraConfig,
@@ -153,7 +166,9 @@ const MasterAnimationCoordinator = ({
     animationController.cameraConfig,
     animationController.crystalConfig,
     animationController.setCameraSettled,
-    animationController.setCameraMoveProgress
+    animationController.setCameraMoveProgress,
+    viewMode,
+    activeProjectId
   ]);
 
   exportedAnimationData = animationData;
