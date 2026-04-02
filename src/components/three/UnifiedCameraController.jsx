@@ -229,29 +229,7 @@ const UnifiedCameraController = ({
       Array.isArray(authoredTarget) &&
       authoredTarget.length === 3 &&
       authoredTarget.every((value) => Number.isFinite(Number(value)));
-    const liveTargetEdit = config?.__cameraTargetEdit;
-    const activeTargetEdit =
-      liveTargetEdit &&
-      Date.now() - Number(liveTargetEdit.updatedAt || 0) < 900 &&
-      liveTargetEdit.projectId === focusedProjectId &&
-      liveTargetEdit.deviceKey === deviceKey &&
-      liveTargetEdit.mode === cameraState;
-
-    if ((cameraState === 'project' || cameraState === 'caseStudy') && activeTargetEdit && hasAuthoredTarget) {
-      projectTargetLockRef.current = {
-        facetKey: null,
-        target: null,
-        source: 'config'
-      };
-
-      return {
-        ...cameraConfig,
-        target: toVector3(authoredTarget),
-        description: `${focusedFacet} ${cameraState} (authored target edit)`
-      };
-    }
-
-    if (cameraState === 'caseStudy' && hasAuthoredTarget) {
+    if ((cameraState === 'project' || cameraState === 'caseStudy') && hasAuthoredTarget) {
       projectTargetLockRef.current = {
         facetKey: null,
         target: null,
