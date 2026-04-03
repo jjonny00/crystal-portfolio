@@ -4,7 +4,11 @@
 import { useRef, useEffect } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { facetKeys as canonicalFacetKeys, getSceneFacetKeyByProjectId } from '../../data/projects';
+import {
+  facetKeys as canonicalFacetKeys,
+  getSceneFacetKeyByProjectId,
+  getProjectIdBySceneFacetKey
+} from '../../data/projects';
 import { createLogger } from '../../utils/logger';
 
 const logger = createLogger('unified-camera-controller');
@@ -246,61 +250,6 @@ const UnifiedCameraController = ({
       };
     }
 
-    if ((cameraState === 'project' || cameraState === 'caseStudy') && focusedFacet && facetRefs) {
-      const lockedTarget = projectTargetLockRef.current;
-      const shouldRefreshProjectTarget =
-        lockedTarget.facetKey !== focusedFacet ||
-        !lockedTarget.target ||
-        lockedTarget.source === 'config';
-
-      if (shouldRefreshProjectTarget) {
-        const anchorPosition = findAnchorInFacet(focusedFacet);
-
-        if (anchorPosition) {
-          projectTargetLockRef.current = {
-            facetKey: focusedFacet,
-            target: anchorPosition.clone(),
-            source: 'anchor'
-          };
-        } else {
-          const canSafelyFallbackToConfig = animationData?.crystalForm === 'exploded';
-
-          if (canSafelyFallbackToConfig) {
-            if (import.meta.env.DEV) {
-              console.warn(`⚠️ Camera Controller: No anchor found for ${focusedFacet}, freezing config target for this move`);
-            }
-
-            projectTargetLockRef.current = {
-              facetKey: focusedFacet,
-              target: cameraConfig?.target ? cameraConfig.target.clone() : null,
-              source: 'config'
-            };
-          } else {
-            // During whole->exploded transitions, avoid freezing a config target.
-            // Keep retrying anchor lookup until facets are in exploded state.
-            projectTargetLockRef.current = {
-              facetKey: focusedFacet,
-              target: null,
-              source: 'pending'
-            };
-          }
-        }
-      }
-
-      if (projectTargetLockRef.current.target) {
-        return {
-          ...cameraConfig,
-          target: projectTargetLockRef.current.target.clone(),
-          description: `${focusedFacet} project (${projectTargetLockRef.current.source} locked)` 
-        };
-      }
-
-      return {
-        ...cameraConfig,
-        description: `${focusedFacet} project (default target)`
-      };
-    }
-
     projectTargetLockRef.current = {
       facetKey: null,
       target: null,
@@ -333,10 +282,14 @@ const UnifiedCameraController = ({
     if (!config?.cameraPositions) return null;
     const deviceKey = isMobile ? 'mobile' : 'desktop';
     const resolveProjectViewSettings = () => {
+      const resolvedProjectId =
+        focusedProjectId ||
+        getProjectIdBySceneFacetKey(focusedFacet) ||
+        focusedFacet;
       const selectedFallbackPosition = toVector3(config.cameraPositions?.projects?.[focusedFacet]);
       const selectedFallbackTarget = toVector3(config.cameraTargets?.projects?.[focusedFacet]);
-      const selectedFromConfig = config?.projectCameraSettings?.[focusedProjectId]?.[deviceKey]?.selected;
-      const caseStudyFromConfig = config?.projectCameraSettings?.[focusedProjectId]?.[deviceKey]?.caseStudy;
+      const selectedFromConfig = config?.projectCameraSettings?.[resolvedProjectId]?.[deviceKey]?.selected;
+      const caseStudyFromConfig = config?.projectCameraSettings?.[resolvedProjectId]?.[deviceKey]?.caseStudy;
 
       const selectedPosition = toVector3(selectedFromConfig?.position || selectedFallbackPosition);
       const selectedTarget = toVector3(selectedFromConfig?.target || selectedFallbackTarget);
@@ -647,11 +600,11 @@ const UnifiedCameraController = ({
     
     const enhancedConfig = getCameraTarget(baseConfig, resolvedFocusedFacet, cameraState, focusedProject);
     const isProjectLikeCameraState = (cameraState === 'project' || cameraState === 'caseStudy');
-    const configuredOffsetPosition = isProjectLikeCameraState && resolvedFocusedFacet
-      ? config?.cameraOffsets?.projects?.[resolvedFocusedFacet]?.position
+    const configuredOffsetPosition = isProjectLikeCameraState
+      ? enhancedConfig?.offsetPosition
       : config?.cameraOffsets?.zones?.[cameraState]?.position;
-    const configuredOffsetTarget = isProjectLikeCameraState && resolvedFocusedFacet
-      ? config?.cameraOffsets?.projects?.[resolvedFocusedFacet]?.target
+    const configuredOffsetTarget = isProjectLikeCameraState
+      ? enhancedConfig?.offsetTarget
       : config?.cameraOffsets?.zones?.[cameraState]?.target;
 
     const offsetPosition = toVector3(configuredOffsetPosition ?? enhancedConfig?.offsetPosition);
