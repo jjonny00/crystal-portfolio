@@ -36,6 +36,8 @@ import PerformanceDebugPanel from './components/ui/PerformanceDebugPanel';
 
 // Configuration and utilities
 import * as defaultConfig from './crystalConfig';
+import cameraTuningJson from './config/tuning/cameraTuning.json';
+import { applyCameraTuningToConfig, deepFreeze } from './lib/tuning/cameraTuning';
 
 // Cinematic Movie Titles Effects
 import './styles/glow-70s.css';
@@ -43,6 +45,8 @@ import { isMobileDevice } from './utils/isMobileDevice.js';
 
 const projectKeys = ['empathy', 'narrative', 'craft', 'system', 'leadership', 'exploration'];
 const zoneKeys = ['intro', 'hero', 'overview', 'about'];
+const { config: baseTunedConfig, payload: baseTuningPayload } = applyCameraTuningToConfig(defaultConfig, cameraTuningJson);
+deepFreeze(baseTuningPayload);
 
 const toVecOrNull = (value) => (
   Array.isArray(value) && value.length === 3 && value.every((entry) => Number.isFinite(entry))
@@ -391,17 +395,17 @@ function App() {
   const [perfDebug, setPerfDebug] = useState(false);
   const [snapSpeed, setSnapSpeed] = useState('medium');
   const [config, setConfig] = useState({
-    ...defaultConfig,
+    ...baseTunedConfig,
     timing: {
-      ...defaultConfig.timing,
+      ...baseTunedConfig.timing,
       camera: {
-        ...defaultConfig.timing.camera,
+        ...baseTunedConfig.timing.camera,
         facetZoomDuration: 1000,
         facetReturnDuration: 1200
       }
     }
   });
-  const [animationConfig, setAnimationConfig] = useState(buildAnimationConfig(defaultConfig));
+  const [animationConfig, setAnimationConfig] = useState(buildAnimationConfig(baseTunedConfig));
   const [cameraRuntimeOverrides, setCameraRuntimeOverrides] = useState({});
   const [projectRuntimeOverrides, setProjectRuntimeOverrides] = useState({});
   const [sceneRestartToken, setSceneRestartToken] = useState(0);
@@ -591,8 +595,8 @@ function App() {
   const handleConfigUpdate = useCallback((newConfig) => {
     setConfig(newConfig);
     setAnimationConfig(buildAnimationConfig(newConfig));
-    setCameraRuntimeOverrides(getCameraRuntimeOverrides(defaultConfig, newConfig));
-    setProjectRuntimeOverrides(getProjectRuntimeOverrides(defaultConfig, newConfig));
+    setCameraRuntimeOverrides(getCameraRuntimeOverrides(baseTunedConfig, newConfig));
+    setProjectRuntimeOverrides(getProjectRuntimeOverrides(baseTunedConfig, newConfig));
   }, []);
 
 

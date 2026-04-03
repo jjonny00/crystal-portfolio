@@ -333,46 +333,34 @@ const UnifiedCameraController = ({
     if (!config?.cameraPositions) return null;
     const deviceKey = isMobile ? 'mobile' : 'desktop';
     const resolveProjectViewSettings = () => {
-      const selectedFallbackPosition = toVector3(config.cameraPositions?.projects?.[focusedFacet]);
-      const selectedFallbackTarget = toVector3(config.cameraTargets?.projects?.[focusedFacet]);
       const selectedFromConfig = config?.projectCameraSettings?.[focusedProjectId]?.[deviceKey]?.selected;
       const caseStudyFromConfig = config?.projectCameraSettings?.[focusedProjectId]?.[deviceKey]?.caseStudy;
 
-      const selectedPosition = toVector3(selectedFromConfig?.position || selectedFallbackPosition);
-      const selectedTarget = toVector3(selectedFromConfig?.target || selectedFallbackTarget);
-
-      const authoredCaseStudyPosition = caseStudyFromConfig?.position
-        ? toVector3(caseStudyFromConfig.position)
-        : null;
-      const authoredCaseStudyTarget = caseStudyFromConfig?.target
-        ? toVector3(caseStudyFromConfig.target)
-        : null;
-
-      // Temporary debug behavior: force caseStudy noticeably closer unless clearly authored.
-      const selectedDirection = new THREE.Vector3().subVectors(selectedPosition, selectedTarget);
-      const selectedDistance = Math.max(selectedDirection.length(), 0.0001);
-      const shouldForceCloserCaseStudy =
-        !authoredCaseStudyPosition ||
-        !authoredCaseStudyTarget;
-
-      let caseStudyPosition = authoredCaseStudyPosition;
-      let caseStudyTarget = authoredCaseStudyTarget;
-
-      if (shouldForceCloserCaseStudy) {
-        const closerDistance = Math.max(selectedDistance * 0.42, 0.55);
-        const direction = selectedDirection.normalize();
-        caseStudyTarget = selectedTarget.clone();
-        caseStudyPosition = selectedTarget.clone().add(direction.multiplyScalar(closerDistance));
+      if (
+        !selectedFromConfig?.position
+        || !selectedFromConfig?.target
+        || !caseStudyFromConfig?.position
+        || !caseStudyFromConfig?.target
+      ) {
+        if (import.meta.env.DEV) {
+          logger.error('Missing strict projectCameraSettings branch', {
+            focusedProjectId,
+            deviceKey,
+            selectedPresent: Boolean(selectedFromConfig),
+            caseStudyPresent: Boolean(caseStudyFromConfig)
+          });
+        }
+        return null;
       }
 
       return {
         selected: {
-          position: selectedPosition,
-          target: selectedTarget
+          position: toVector3(selectedFromConfig.position),
+          target: toVector3(selectedFromConfig.target)
         },
         caseStudy: {
-          position: caseStudyPosition || selectedPosition.clone(),
-          target: caseStudyTarget || selectedTarget.clone()
+          position: toVector3(caseStudyFromConfig.position),
+          target: toVector3(caseStudyFromConfig.target)
         }
       };
     };
@@ -415,6 +403,7 @@ const UnifiedCameraController = ({
 
     if (cameraState === 'project' && focusedFacet) {
       const projectViewSettings = resolveProjectViewSettings();
+      if (!projectViewSettings) return null;
 
       return {
         position: projectViewSettings.selected.position,
@@ -426,6 +415,7 @@ const UnifiedCameraController = ({
 
     if (cameraState === 'caseStudy' && focusedFacet) {
       const projectViewSettings = resolveProjectViewSettings();
+      if (!projectViewSettings) return null;
 
       return {
         position: projectViewSettings.caseStudy.position,
@@ -681,7 +671,6 @@ const UnifiedCameraController = ({
         const deviceMode = isMobile ? 'mobile' : 'desktop';
         const selectedConfigPosition =
           config?.projectCameraSettings?.[focusedProject]?.[deviceMode]?.selected?.position
-          || config?.cameraPositions?.projects?.[resolvedFocusedFacet]
           || null;
         const caseStudyConfigPosition =
           config?.projectCameraSettings?.[focusedProject]?.[deviceMode]?.caseStudy?.position

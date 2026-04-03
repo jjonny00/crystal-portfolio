@@ -4,6 +4,11 @@ import * as THREE from 'three';
 import * as crystalConfig from '../../crystalConfig';
 import { isMobileDevice } from '../../utils/isMobileDevice';
 import { getProjectIdBySceneFacetKey, getSceneFacetKeyByProjectId } from '../../data/projects';
+import {
+  applyCameraTuningToConfig,
+  buildCameraTuningPayloadFromConfig,
+  stringifyCameraTuningPayload
+} from '../../lib/tuning/cameraTuning';
 
 const RAD2DEG = 180 / Math.PI;
 const DEG2RAD = Math.PI / 180;
@@ -318,174 +323,6 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
   };
 
   const cloneConfig = () => normalizeCrystalConfig(config ?? crystalConfig);
-
-  const sanitizeNumber = (value, fallback = 0) => {
-    if (value === null || value === undefined) return fallback;
-    const parsed = typeof value === 'number' ? value : Number(value);
-    return Number.isFinite(parsed) ? parsed : fallback;
-  };
-
-  const clampNumber = (value, min, max) => Math.min(Math.max(value, min), max);
-
-  const sanitizeVec3 = (value, options = {}) => {
-    if (!Array.isArray(value) || value.length !== 3) return null;
-    const numbers = value.map((entry) => sanitizeNumber(entry, 0));
-    if (options.clamp) {
-      return numbers.map((entry) => clampNumber(entry, options.clamp[0], options.clamp[1]));
-    }
-    return numbers;
-  };
-
-  const buildTuningPayload = (baseConfig) => {
-    const payload = {
-      version: 1,
-      tuning: {
-        cameraPositions: baseConfig.cameraPositions,
-        cameraTargets: baseConfig.cameraTargets,
-        cameraOffsets: baseConfig.cameraOffsets,
-        explodedPositions: baseConfig.explodedPositions,
-        facetRotationsEulerDeg: baseConfig.facetRotationsEulerDeg,
-        selectedFacetRotationsEulerDeg: baseConfig.selectedFacetRotationsEulerDeg,
-        projectCameraSettings: baseConfig.projectCameraSettings
-      }
-    };
-
-    if (baseConfig.timing?.camera) {
-      payload.tuning.timing = {
-        camera: baseConfig.timing.camera
-      };
-    }
-
-    return payload;
-  };
-
-  const applyTuningToConfig = (currentConfig, tuningPayload) => {
-    const base = currentConfig ?? crystalConfig;
-    const updatedConfig = JSON.parse(JSON.stringify(base));
-    const tuning = tuningPayload?.tuning ?? tuningPayload ?? {};
-
-    const updateCameraPositions = (positions) => {
-      if (!positions) return;
-      zoneKeys.forEach((zone) => {
-        const vec = sanitizeVec3(positions[zone]);
-        if (vec) updatedConfig.cameraPositions[zone] = vec;
-      });
-      if (positions.projects) {
-        projectKeys.forEach((project) => {
-          const vec = sanitizeVec3(positions.projects?.[project]);
-          if (vec) updatedConfig.cameraPositions.projects[project] = vec;
-        });
-      }
-    };
-
-    const updateCameraTargets = (targets) => {
-      if (!targets) return;
-      zoneKeys.forEach((zone) => {
-        const vec = sanitizeVec3(targets[zone]);
-        if (vec) updatedConfig.cameraTargets[zone] = vec;
-      });
-      if (targets.projects) {
-        projectKeys.forEach((project) => {
-          const vec = sanitizeVec3(targets.projects?.[project]);
-          if (vec) updatedConfig.cameraTargets.projects[project] = vec;
-        });
-      }
-    };
-
-    const updateCameraOffsets = (offsets) => {
-      if (!offsets) return;
-      const clamp = [-2, 2];
-      if (offsets.global) {
-        const position = sanitizeVec3(offsets.global.position, { clamp });
-        const target = sanitizeVec3(offsets.global.target, { clamp });
-        if (position) updatedConfig.cameraOffsets.global.position = position;
-        if (target) updatedConfig.cameraOffsets.global.target = target;
-      }
-      if (offsets.zones) {
-        zoneKeys.forEach((zone) => {
-          const zoneOffsets = offsets.zones?.[zone];
-          if (!zoneOffsets) return;
-          const position = sanitizeVec3(zoneOffsets.position, { clamp });
-          const target = sanitizeVec3(zoneOffsets.target, { clamp });
-          if (position) updatedConfig.cameraOffsets.zones[zone].position = position;
-          if (target) updatedConfig.cameraOffsets.zones[zone].target = target;
-        });
-      }
-      if (offsets.projects) {
-        projectKeys.forEach((project) => {
-          const projectOffsets = offsets.projects?.[project];
-          if (!projectOffsets) return;
-          const position = sanitizeVec3(projectOffsets.position, { clamp });
-          const target = sanitizeVec3(projectOffsets.target, { clamp });
-          if (position) updatedConfig.cameraOffsets.projects[project].position = position;
-          if (target) updatedConfig.cameraOffsets.projects[project].target = target;
-        });
-      }
-    };
-
-    const updateExplodedPositions = (positions) => {
-      if (!positions) return;
-      projectKeys.forEach((project) => {
-        const vec = sanitizeVec3(positions?.[project]);
-        if (vec) updatedConfig.explodedPositions[project] = vec;
-      });
-    };
-
-    const updateFacetRotations = (rotations) => {
-      if (!rotations) return;
-      projectKeys.forEach((project) => {
-        const vec = sanitizeVec3(rotations?.[project]);
-        if (vec) updatedConfig.facetRotationsEulerDeg[project] = vec;
-      });
-    };
-
-    const updateSelectedFacetRotations = (rotations) => {
-      if (!rotations) return;
-      projectKeys.forEach((project) => {
-        const vec = sanitizeVec3(rotations?.[project]);
-        if (vec) updatedConfig.selectedFacetRotationsEulerDeg[project] = vec;
-      });
-    };
-
-    const updateProjectCameraSettings = (settings) => {
-      if (!settings) return;
-      projectCameraKeys.forEach((project) => {
-        ['desktop', 'mobile'].forEach((device) => {
-          const selectedPosition = sanitizeVec3(settings?.[project]?.[device]?.selected?.position);
-          const selectedTarget = sanitizeVec3(settings?.[project]?.[device]?.selected?.target);
-          const caseStudyPosition = sanitizeVec3(settings?.[project]?.[device]?.caseStudy?.position);
-          const caseStudyTarget = sanitizeVec3(settings?.[project]?.[device]?.caseStudy?.target);
-          const caseStudyFacetRotation = sanitizeVec3(settings?.[project]?.[device]?.caseStudy?.facetRotation);
-
-          if (selectedPosition) updatedConfig.projectCameraSettings[project][device].selected.position = selectedPosition;
-          if (selectedTarget) updatedConfig.projectCameraSettings[project][device].selected.target = selectedTarget;
-          if (caseStudyPosition) updatedConfig.projectCameraSettings[project][device].caseStudy.position = caseStudyPosition;
-          if (caseStudyTarget) updatedConfig.projectCameraSettings[project][device].caseStudy.target = caseStudyTarget;
-          if (caseStudyFacetRotation) updatedConfig.projectCameraSettings[project][device].caseStudy.facetRotation = caseStudyFacetRotation;
-        });
-      });
-    };
-
-    const updateTiming = (timing) => {
-      if (!timing?.camera) return;
-      Object.entries(timing.camera).forEach(([key, value]) => {
-        const numericValue = sanitizeNumber(value, null);
-        if (numericValue === null) return;
-        updatedConfig.timing.camera[key] = numericValue;
-      });
-    };
-
-    updateCameraPositions(tuning.cameraPositions);
-    updateCameraTargets(tuning.cameraTargets);
-    updateCameraOffsets(tuning.cameraOffsets);
-    updateExplodedPositions(tuning.explodedPositions);
-    updateFacetRotations(tuning.facetRotationsEulerDeg);
-    updateSelectedFacetRotations(tuning.selectedFacetRotationsEulerDeg);
-    updateProjectCameraSettings(tuning.projectCameraSettings);
-    updateTiming(tuning.timing);
-
-    return updatedConfig;
-  };
 
   const syncStateFromConfig = (updatedConfig) => {
     setTimingValues({
@@ -978,8 +815,8 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
 
   const getTuningPayload = () => {
     const base = config ?? crystalConfig;
-    const payload = buildTuningPayload(base);
-    return JSON.stringify(payload, null, 2);
+    const payload = buildCameraTuningPayloadFromConfig(base);
+    return stringifyCameraTuningPayload(payload);
   };
 
   const setExportMessage = (message) => {
@@ -1050,40 +887,10 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
     try {
       const text = await file.text();
       const rawPayload = JSON.parse(text);
-      const normalized = normalizeCrystalConfig(rawPayload);
-      console.log('[LOAD JSON] normalized colors:', {
-        color: normalized.materials?.crystal?.color?.isColor,
-        emissive: normalized.materials?.crystal?.emissive?.isColor,
-        attenuationColor: normalized.materials?.crystal?.attenuationColor?.isColor,
-        specularColor: normalized.materials?.crystal?.specularColor?.isColor
-      });
-      const tuningData = rawPayload?.tuning ?? rawPayload;
-      const hasKnownKeys =
-        tuningData &&
-        (tuningData.cameraPositions ||
-          tuningData.cameraTargets ||
-          tuningData.cameraOffsets ||
-          tuningData.explodedPositions ||
-          tuningData.facetRotationsEulerDeg ||
-          tuningData.selectedFacetRotationsEulerDeg ||
-          tuningData.timing);
-
-      if (!hasKnownKeys) {
-        throw new Error('Missing tuning data');
-      }
-
-      const isTuningPayload = Boolean(rawPayload?.tuning) || !rawPayload?.materials;
-
-      if (isTuningPayload) {
-        const normalizedPayload = rawPayload?.tuning ? rawPayload : { version: 1, tuning: tuningData };
-        const updatedConfig = applyTuningToConfig(config ?? crystalConfig, normalizedPayload);
-        const normalizedConfig = normalizeCrystalConfig(updatedConfig);
-        syncStateFromConfig(normalizedConfig);
-        onUpdate(normalizedConfig);
-      } else {
-        syncStateFromConfig(normalized);
-        onUpdate(normalized);
-      }
+      const { config: updatedConfig } = applyCameraTuningToConfig(config ?? crystalConfig, rawPayload);
+      const normalizedConfig = normalizeCrystalConfig(updatedConfig);
+      syncStateFromConfig(normalizedConfig);
+      onUpdate(normalizedConfig);
       setExportMessage('Loaded preset ✅');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
