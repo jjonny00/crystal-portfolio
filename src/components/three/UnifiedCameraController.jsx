@@ -4,7 +4,11 @@
 import { useRef, useEffect } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { facetKeys as canonicalFacetKeys, getSceneFacetKeyByProjectId } from '../../data/projects';
+import {
+  facetKeys as canonicalFacetKeys,
+  getSceneFacetKeyByProjectId,
+  getProjectIdBySceneFacetKey
+} from '../../data/projects';
 import { createLogger } from '../../utils/logger';
 
 const logger = createLogger('unified-camera-controller');
@@ -333,10 +337,14 @@ const UnifiedCameraController = ({
     if (!config?.cameraPositions) return null;
     const deviceKey = isMobile ? 'mobile' : 'desktop';
     const resolveProjectViewSettings = () => {
+      const resolvedProjectId =
+        focusedProjectId ||
+        getProjectIdBySceneFacetKey(focusedFacet) ||
+        focusedFacet;
       const selectedFallbackPosition = toVector3(config.cameraPositions?.projects?.[focusedFacet]);
       const selectedFallbackTarget = toVector3(config.cameraTargets?.projects?.[focusedFacet]);
-      const selectedFromConfig = config?.projectCameraSettings?.[focusedProjectId]?.[deviceKey]?.selected;
-      const caseStudyFromConfig = config?.projectCameraSettings?.[focusedProjectId]?.[deviceKey]?.caseStudy;
+      const selectedFromConfig = config?.projectCameraSettings?.[resolvedProjectId]?.[deviceKey]?.selected;
+      const caseStudyFromConfig = config?.projectCameraSettings?.[resolvedProjectId]?.[deviceKey]?.caseStudy;
 
       const selectedPosition = toVector3(selectedFromConfig?.position || selectedFallbackPosition);
       const selectedTarget = toVector3(selectedFromConfig?.target || selectedFallbackTarget);
