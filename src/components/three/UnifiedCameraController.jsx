@@ -250,61 +250,6 @@ const UnifiedCameraController = ({
       };
     }
 
-    if ((cameraState === 'project' || cameraState === 'caseStudy') && focusedFacet && facetRefs) {
-      const lockedTarget = projectTargetLockRef.current;
-      const shouldRefreshProjectTarget =
-        lockedTarget.facetKey !== focusedFacet ||
-        !lockedTarget.target ||
-        lockedTarget.source === 'config';
-
-      if (shouldRefreshProjectTarget) {
-        const anchorPosition = findAnchorInFacet(focusedFacet);
-
-        if (anchorPosition) {
-          projectTargetLockRef.current = {
-            facetKey: focusedFacet,
-            target: anchorPosition.clone(),
-            source: 'anchor'
-          };
-        } else {
-          const canSafelyFallbackToConfig = animationData?.crystalForm === 'exploded';
-
-          if (canSafelyFallbackToConfig) {
-            if (import.meta.env.DEV) {
-              console.warn(`⚠️ Camera Controller: No anchor found for ${focusedFacet}, freezing config target for this move`);
-            }
-
-            projectTargetLockRef.current = {
-              facetKey: focusedFacet,
-              target: cameraConfig?.target ? cameraConfig.target.clone() : null,
-              source: 'config'
-            };
-          } else {
-            // During whole->exploded transitions, avoid freezing a config target.
-            // Keep retrying anchor lookup until facets are in exploded state.
-            projectTargetLockRef.current = {
-              facetKey: focusedFacet,
-              target: null,
-              source: 'pending'
-            };
-          }
-        }
-      }
-
-      if (projectTargetLockRef.current.target) {
-        return {
-          ...cameraConfig,
-          target: projectTargetLockRef.current.target.clone(),
-          description: `${focusedFacet} project (${projectTargetLockRef.current.source} locked)` 
-        };
-      }
-
-      return {
-        ...cameraConfig,
-        description: `${focusedFacet} project (default target)`
-      };
-    }
-
     projectTargetLockRef.current = {
       facetKey: null,
       target: null,
