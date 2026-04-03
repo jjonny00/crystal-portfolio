@@ -164,7 +164,7 @@ export const facetRotationsEulerDeg = {
 
 // Per-project focused rotations (Euler degrees) used while a facet is selected.
 export const selectedFacetRotationsEulerDeg = {
-  empathy: [12, -177, 15],
+  empathy: [25, 121, 13],
   narrative: [10, -16, 0],
   craft: [-2, 65, 45],
   system: [-25, -19, 1],
@@ -326,8 +326,6 @@ export const timing = {
   camera: {
     explodeDuration: 1600, // ms
     reformDuration: 900,   // ms
-    facetZoomDuration: 1000, // ms
-    facetReturnDuration: 1200, // ms
   },
   
   // Crystal animation phases
