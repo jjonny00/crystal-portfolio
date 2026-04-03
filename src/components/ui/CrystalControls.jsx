@@ -378,16 +378,13 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
               sceneKey,
               {
                 selected: {
-                  position: selected?.position ?? baseConfig.cameraPositions?.projects?.[sceneKey] ?? [0, 0, 0],
-                  target: selected?.target ?? baseConfig.cameraTargets?.projects?.[sceneKey] ?? [0, 0, 0]
+                  position: selected?.position ?? [0, 0, 0],
+                  target: selected?.target ?? [0, 0, 0]
                 },
                 caseStudy: {
-                  position: caseStudy?.position ?? selected?.position ?? baseConfig.cameraPositions?.projects?.[sceneKey] ?? [0, 0, 0],
-                  target: caseStudy?.target ?? selected?.target ?? baseConfig.cameraTargets?.projects?.[sceneKey] ?? [0, 0, 0],
-                  facetRotation:
-                    caseStudy?.facetRotation
-                    ?? baseConfig.selectedFacetRotationsEulerDeg?.[sceneKey]
-                    ?? [0, 0, 0]
+                  position: caseStudy?.position ?? [0, 0, 0],
+                  target: caseStudy?.target ?? [0, 0, 0],
+                  facetRotation: caseStudy?.facetRotation ?? [0, 0, 0]
                 }
               }
             ];
