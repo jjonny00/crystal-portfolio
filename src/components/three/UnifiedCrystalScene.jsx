@@ -53,6 +53,7 @@ const UnifiedCrystalScene = forwardRef(({
   config,
   materialVariant = 'default',
   performanceProfile = { useNormalMaps: true, textureQuality: 'high', pbrQuality: 'high', usePBR: true },
+  isMobile = false,
   simplifiedAnimations = false,
   scrollToProgress,
   scrollToProject,
