@@ -164,7 +164,7 @@ export const facetRotationsEulerDeg = {
 
 // Per-project focused rotations (Euler degrees) used while a facet is selected.
 export const selectedFacetRotationsEulerDeg = {
-  empathy: [5, 121, 13],
+  empathy: [25, 121, 13],
   narrative: [10, -16, 0],
   craft: [-2, 65, 45],
   system: [-25, -19, 1],

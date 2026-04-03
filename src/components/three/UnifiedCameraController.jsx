@@ -323,15 +323,6 @@ const UnifiedCameraController = ({
     return new THREE.Vector3();
   };
 
-  const sumOffsets = (...offsets) => {
-    const result = new THREE.Vector3();
-    offsets.forEach((offset) => {
-      if (!offset) return;
-      result.add(toVector3(offset));
-    });
-    return result;
-  };
-
   const vectorsEqual = (left, right) => {
     if (!left && !right) return true;
     if (!left || !right) return false;
@@ -342,29 +333,22 @@ const UnifiedCameraController = ({
     if (!config?.cameraPositions) return null;
     const deviceKey = isMobile ? 'mobile' : 'desktop';
     const resolveProjectViewSettings = () => {
-      const globalPositionOffset = config?.cameraOffsets?.global?.position;
-      const globalTargetOffset = config?.cameraOffsets?.global?.target;
-      const projectPositionOffset = config?.cameraOffsets?.projects?.[focusedFacet]?.position;
-      const projectTargetOffset = config?.cameraOffsets?.projects?.[focusedFacet]?.target;
-      const totalPositionOffset = sumOffsets(globalPositionOffset, projectPositionOffset);
-      const totalTargetOffset = sumOffsets(globalTargetOffset, projectTargetOffset);
-
       const selectedFallbackPosition = toVector3(config.cameraPositions?.projects?.[focusedFacet]);
       const selectedFallbackTarget = toVector3(config.cameraTargets?.projects?.[focusedFacet]);
       const selectedFromConfig = config?.projectCameraSettings?.[focusedProjectId]?.[deviceKey]?.selected;
       const caseStudyFromConfig = config?.projectCameraSettings?.[focusedProjectId]?.[deviceKey]?.caseStudy;
 
-      const selectedPosition = toVector3(selectedFromConfig?.position || selectedFallbackPosition)
-        .add(totalPositionOffset);
-      const selectedTarget = toVector3(selectedFromConfig?.target || selectedFallbackTarget)
-        .add(totalTargetOffset);
+      const selectedPosition = toVector3(selectedFromConfig?.position || selectedFallbackPosition);
+      const selectedTarget = toVector3(selectedFromConfig?.target || selectedFallbackTarget);
 
       const authoredCaseStudyPosition = caseStudyFromConfig?.position
-        ? toVector3(caseStudyFromConfig.position).add(totalPositionOffset)
+        ? toVector3(caseStudyFromConfig.position)
         : null;
       const authoredCaseStudyTarget = caseStudyFromConfig?.target
-        ? toVector3(caseStudyFromConfig.target).add(totalTargetOffset)
+        ? toVector3(caseStudyFromConfig.target)
         : null;
+
+      // Temporary debug behavior: force caseStudy noticeably closer unless clearly authored.
       const selectedDirection = new THREE.Vector3().subVectors(selectedPosition, selectedTarget);
       const selectedDistance = Math.max(selectedDirection.length(), 0.0001);
       const shouldForceCloserCaseStudy =
