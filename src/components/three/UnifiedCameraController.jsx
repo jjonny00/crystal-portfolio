@@ -333,10 +333,21 @@ const UnifiedCameraController = ({
     if (!config?.cameraPositions) return null;
     const deviceKey = isMobile ? 'mobile' : 'desktop';
     const resolveProjectViewSettings = () => {
-      const selectedFallbackPosition = toVector3(config.cameraPositions?.projects?.[focusedFacet]);
-      const selectedFallbackTarget = toVector3(config.cameraTargets?.projects?.[focusedFacet]);
       const selectedFromConfig = config?.projectCameraSettings?.[focusedProjectId]?.[deviceKey]?.selected;
       const caseStudyFromConfig = config?.projectCameraSettings?.[focusedProjectId]?.[deviceKey]?.caseStudy;
+      const hasSelectedAuthoredPosition =
+        Array.isArray(selectedFromConfig?.position) && selectedFromConfig.position.length === 3;
+      const hasSelectedAuthoredTarget =
+        Array.isArray(selectedFromConfig?.target) && selectedFromConfig.target.length === 3;
+      const shouldUseLegacyEmergencyFallback =
+        !hasSelectedAuthoredPosition || !hasSelectedAuthoredTarget;
+
+      const selectedFallbackPosition = shouldUseLegacyEmergencyFallback
+        ? toVector3(config.cameraPositions?.projects?.[focusedFacet])
+        : null;
+      const selectedFallbackTarget = shouldUseLegacyEmergencyFallback
+        ? toVector3(config.cameraTargets?.projects?.[focusedFacet])
+        : null;
 
       const selectedPosition = toVector3(selectedFromConfig?.position || selectedFallbackPosition);
       const selectedTarget = toVector3(selectedFromConfig?.target || selectedFallbackTarget);
@@ -681,7 +692,6 @@ const UnifiedCameraController = ({
         const deviceMode = isMobile ? 'mobile' : 'desktop';
         const selectedConfigPosition =
           config?.projectCameraSettings?.[focusedProject]?.[deviceMode]?.selected?.position
-          || config?.cameraPositions?.projects?.[resolvedFocusedFacet]
           || null;
         const caseStudyConfigPosition =
           config?.projectCameraSettings?.[focusedProject]?.[deviceMode]?.caseStudy?.position

@@ -1,7 +1,7 @@
 import { Vector3 } from 'three';
 
 const FORMAT_HELP =
-  'Expected { schemaVersion: 1, anchors: { overviewWorld: { [facetKey]: [x, y, z] } }, camera?: { positions?, targets?, offsets? }, projects?: { explodedPositions?, facetRotationsEulerDeg?, selectedFacetRotationsEulerDeg? }, ... }';
+  'Expected { schemaVersion: 2, anchors: { overviewWorld: { [facetKey]: [x, y, z] } }, camera?: { positions?, targets?, offsets?, projects? }, projects?: { explodedPositions?, facetRotationsEulerDeg?, selectedFacetRotationsEulerDeg? }, ... }';
 
 const assertObject = (value, path) => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -47,6 +47,7 @@ const parseCameraVectorSection = (section, path) => {
   assertObject(section, path);
   const parsed = {};
 
+  if (section.intro !== undefined) parsed.intro = parseVec3Array(section.intro, `${path}.intro`);
   if (section.hero !== undefined) parsed.hero = parseVec3Array(section.hero, `${path}.hero`);
   if (section.overview !== undefined) {
     parsed.overview = parseVec3Array(section.overview, `${path}.overview`);
@@ -100,12 +101,64 @@ const parseOffsetsObject = (offsets, path) => {
   return out;
 };
 
+const parseCameraProjects = (projects, path) => {
+  assertObject(projects, path);
+  return Object.fromEntries(
+    Object.entries(projects).map(([projectKey, value]) => {
+      assertObject(value, `${path}.${projectKey}`);
+      const parsedProject = {};
+
+      if (value.selected !== undefined) {
+        assertObject(value.selected, `${path}.${projectKey}.selected`);
+        parsedProject.selected = {};
+        if (value.selected.position !== undefined) {
+          parsedProject.selected.position = parseVec3Array(
+            value.selected.position,
+            `${path}.${projectKey}.selected.position`,
+          );
+        }
+        if (value.selected.target !== undefined) {
+          parsedProject.selected.target = parseVec3Array(
+            value.selected.target,
+            `${path}.${projectKey}.selected.target`,
+          );
+        }
+      }
+
+      if (value.caseStudy !== undefined) {
+        assertObject(value.caseStudy, `${path}.${projectKey}.caseStudy`);
+        parsedProject.caseStudy = {};
+        if (value.caseStudy.position !== undefined) {
+          parsedProject.caseStudy.position = parseVec3Array(
+            value.caseStudy.position,
+            `${path}.${projectKey}.caseStudy.position`,
+          );
+        }
+        if (value.caseStudy.target !== undefined) {
+          parsedProject.caseStudy.target = parseVec3Array(
+            value.caseStudy.target,
+            `${path}.${projectKey}.caseStudy.target`,
+          );
+        }
+        if (value.caseStudy.facetRotation !== undefined) {
+          parsedProject.caseStudy.facetRotation = parseVec3Array(
+            value.caseStudy.facetRotation,
+            `${path}.${projectKey}.caseStudy.facetRotation`,
+          );
+        }
+      }
+
+      return [projectKey, parsedProject];
+    }),
+  );
+};
+
 export const parseLayout = (rawLayout) => {
   assertObject(rawLayout, 'root');
 
-  if (rawLayout.schemaVersion !== 1) {
+  if (rawLayout.schemaVersion !== 2) {
     throw new Error(
-      `Invalid layout schemaVersion: expected 1, received ${String(rawLayout.schemaVersion)}. ${FORMAT_HELP}`,
+      `Invalid layout schemaVersion: expected 2, received ${String(rawLayout.schemaVersion)}. ${FORMAT_HELP}`,
     );
   }
 
@@ -134,6 +187,10 @@ export const parseLayout = (rawLayout) => {
 
     if (rawLayout.camera.offsets !== undefined) {
       camera.offsets = parseOffsetsObject(rawLayout.camera.offsets, 'camera.offsets');
+    }
+
+    if (rawLayout.camera.projects !== undefined) {
+      camera.projects = parseCameraProjects(rawLayout.camera.projects, 'camera.projects');
     }
 
     parsed.camera = camera;

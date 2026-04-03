@@ -4,6 +4,8 @@ import * as THREE from 'three';
 import * as crystalConfig from '../../crystalConfig';
 import { isMobileDevice } from '../../utils/isMobileDevice';
 import { getProjectIdBySceneFacetKey, getSceneFacetKeyByProjectId } from '../../data/projects';
+import desktopLayoutJson from '../../config/layout/desktop.json';
+import mobileLayoutJson from '../../config/layout/mobile.json';
 
 const RAD2DEG = 180 / Math.PI;
 const DEG2RAD = Math.PI / 180;
@@ -336,33 +338,87 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
     return numbers;
   };
 
-  const buildTuningPayload = (baseConfig) => {
+  const buildLayoutPayload = (baseConfig, deviceKey) => {
+    const baseLayout = JSON.parse(
+      JSON.stringify(deviceKey === 'mobile' ? mobileLayoutJson : desktopLayoutJson)
+    );
     const payload = {
-      version: 1,
-      tuning: {
-        cameraPositions: baseConfig.cameraPositions,
-        cameraTargets: baseConfig.cameraTargets,
-        cameraOffsets: baseConfig.cameraOffsets,
+      ...baseLayout,
+      schemaVersion: 2,
+      camera: {
+        ...(baseLayout.camera || {}),
+        positions: {
+          ...(baseLayout.camera?.positions || {}),
+          intro: baseConfig.cameraPositions?.intro,
+          hero: baseConfig.cameraPositions?.hero,
+          overview: baseConfig.cameraPositions?.overview,
+          about: baseConfig.cameraPositions?.about,
+          projects: baseConfig.cameraPositions?.projects
+        },
+        targets: {
+          ...(baseLayout.camera?.targets || {}),
+          intro: baseConfig.cameraTargets?.intro,
+          hero: baseConfig.cameraTargets?.hero,
+          overview: baseConfig.cameraTargets?.overview,
+          about: baseConfig.cameraTargets?.about,
+          projects: baseConfig.cameraTargets?.projects
+        },
+        offsets: {
+          ...(baseLayout.camera?.offsets || {}),
+          global: baseConfig.cameraOffsets?.global,
+          zones: baseConfig.cameraOffsets?.zones,
+          projects: baseConfig.cameraOffsets?.projects
+        },
+        projects: Object.fromEntries(
+          projectKeys.map((sceneKey) => {
+            const projectId = getProjectIdBySceneFacetKey(sceneKey);
+            const selected = baseConfig.projectCameraSettings?.[projectId]?.[deviceKey]?.selected;
+            const caseStudy = baseConfig.projectCameraSettings?.[projectId]?.[deviceKey]?.caseStudy;
+            return [
+              sceneKey,
+              {
+                selected: {
+                  position: selected?.position ?? baseConfig.cameraPositions?.projects?.[sceneKey] ?? [0, 0, 0],
+                  target: selected?.target ?? baseConfig.cameraTargets?.projects?.[sceneKey] ?? [0, 0, 0]
+                },
+                caseStudy: {
+                  position: caseStudy?.position ?? selected?.position ?? baseConfig.cameraPositions?.projects?.[sceneKey] ?? [0, 0, 0],
+                  target: caseStudy?.target ?? selected?.target ?? baseConfig.cameraTargets?.projects?.[sceneKey] ?? [0, 0, 0],
+                  facetRotation:
+                    caseStudy?.facetRotation
+                    ?? baseConfig.selectedFacetRotationsEulerDeg?.[sceneKey]
+                    ?? [0, 0, 0]
+                }
+              }
+            ];
+          })
+        )
+      },
+      projects: {
+        ...(baseLayout.projects || {}),
         explodedPositions: baseConfig.explodedPositions,
         facetRotationsEulerDeg: baseConfig.facetRotationsEulerDeg,
-        selectedFacetRotationsEulerDeg: baseConfig.selectedFacetRotationsEulerDeg,
-        projectCameraSettings: baseConfig.projectCameraSettings
+        selectedFacetRotationsEulerDeg: baseConfig.selectedFacetRotationsEulerDeg
+      },
+      timing: {
+        ...(baseLayout.timing || {}),
+        camera: {
+          ...(baseLayout.timing?.camera || {}),
+          ...(baseConfig.timing?.camera || {})
+        }
       }
     };
-
-    if (baseConfig.timing?.camera) {
-      payload.tuning.timing = {
-        camera: baseConfig.timing.camera
-      };
-    }
 
     return payload;
   };
 
-  const applyTuningToConfig = (currentConfig, tuningPayload) => {
+  const applyLayoutToConfig = (currentConfig, layoutPayload) => {
     const base = currentConfig ?? crystalConfig;
     const updatedConfig = JSON.parse(JSON.stringify(base));
-    const tuning = tuningPayload?.tuning ?? tuningPayload ?? {};
+    const layout = layoutPayload ?? {};
+    const camera = layout?.camera ?? {};
+    const projects = layout?.projects ?? {};
+    const timing = layout?.timing ?? {};
 
     const updateCameraPositions = (positions) => {
       if (!positions) return;
@@ -450,7 +506,7 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
     const updateProjectCameraSettings = (settings) => {
       if (!settings) return;
       projectCameraKeys.forEach((project) => {
-        ['desktop', 'mobile'].forEach((device) => {
+        [editDeviceKey].forEach((device) => {
           const selectedPosition = sanitizeVec3(settings?.[project]?.[device]?.selected?.position);
           const selectedTarget = sanitizeVec3(settings?.[project]?.[device]?.selected?.target);
           const caseStudyPosition = sanitizeVec3(settings?.[project]?.[device]?.caseStudy?.position);
@@ -475,14 +531,33 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
       });
     };
 
-    updateCameraPositions(tuning.cameraPositions);
-    updateCameraTargets(tuning.cameraTargets);
-    updateCameraOffsets(tuning.cameraOffsets);
-    updateExplodedPositions(tuning.explodedPositions);
-    updateFacetRotations(tuning.facetRotationsEulerDeg);
-    updateSelectedFacetRotations(tuning.selectedFacetRotationsEulerDeg);
-    updateProjectCameraSettings(tuning.projectCameraSettings);
-    updateTiming(tuning.timing);
+    updateCameraPositions(camera.positions);
+    updateCameraTargets(camera.targets);
+    updateCameraOffsets(camera.offsets);
+    updateExplodedPositions(projects.explodedPositions);
+    updateFacetRotations(projects.facetRotationsEulerDeg);
+    updateSelectedFacetRotations(projects.selectedFacetRotationsEulerDeg);
+    updateTiming(timing);
+
+    if (camera.projects) {
+      projectKeys.forEach((sceneKey) => {
+        const projectId = getProjectIdBySceneFacetKey(sceneKey);
+        if (!projectId) return;
+        ['desktop', 'mobile'].forEach((device) => {
+          const selectedPosition = sanitizeVec3(camera.projects?.[sceneKey]?.selected?.position);
+          const selectedTarget = sanitizeVec3(camera.projects?.[sceneKey]?.selected?.target);
+          const caseStudyPosition = sanitizeVec3(camera.projects?.[sceneKey]?.caseStudy?.position);
+          const caseStudyTarget = sanitizeVec3(camera.projects?.[sceneKey]?.caseStudy?.target);
+          const caseStudyFacetRotation = sanitizeVec3(camera.projects?.[sceneKey]?.caseStudy?.facetRotation);
+
+          if (selectedPosition) updatedConfig.projectCameraSettings[projectId][device].selected.position = selectedPosition;
+          if (selectedTarget) updatedConfig.projectCameraSettings[projectId][device].selected.target = selectedTarget;
+          if (caseStudyPosition) updatedConfig.projectCameraSettings[projectId][device].caseStudy.position = caseStudyPosition;
+          if (caseStudyTarget) updatedConfig.projectCameraSettings[projectId][device].caseStudy.target = caseStudyTarget;
+          if (caseStudyFacetRotation) updatedConfig.projectCameraSettings[projectId][device].caseStudy.facetRotation = caseStudyFacetRotation;
+        });
+      });
+    }
 
     return updatedConfig;
   };
@@ -976,9 +1051,9 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
     onUpdate(crystalConfig);
   };
 
-  const getTuningPayload = () => {
+  const getLayoutPayload = () => {
     const base = config ?? crystalConfig;
-    const payload = buildTuningPayload(base);
+    const payload = buildLayoutPayload(base, editDeviceKey);
     return JSON.stringify(payload, null, 2);
   };
 
@@ -1008,7 +1083,7 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
   };
 
   const handleCopyJson = async () => {
-    const payload = getTuningPayload();
+    const payload = getLayoutPayload();
 
     try {
       if (navigator?.clipboard?.writeText) {
@@ -1030,17 +1105,17 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
   };
 
   const handleDownloadJson = () => {
-    const payload = getTuningPayload();
+    const payload = getLayoutPayload();
     const blob = new Blob([payload], { type: 'application/json' });
     const url = window.URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = 'tuning.json';
+    anchor.download = `${editDeviceKey}.json`;
     document.body.appendChild(anchor);
     anchor.click();
     document.body.removeChild(anchor);
     window.URL.revokeObjectURL(url);
-    setExportMessage('Downloaded tuning.json ✅');
+    setExportMessage(`Downloaded ${editDeviceKey}.json ✅`);
   };
 
   const handleLoadJson = async (event) => {
@@ -1057,33 +1132,20 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
         attenuationColor: normalized.materials?.crystal?.attenuationColor?.isColor,
         specularColor: normalized.materials?.crystal?.specularColor?.isColor
       });
-      const tuningData = rawPayload?.tuning ?? rawPayload;
-      const hasKnownKeys =
-        tuningData &&
-        (tuningData.cameraPositions ||
-          tuningData.cameraTargets ||
-          tuningData.cameraOffsets ||
-          tuningData.explodedPositions ||
-          tuningData.facetRotationsEulerDeg ||
-          tuningData.selectedFacetRotationsEulerDeg ||
-          tuningData.timing);
+      const isLayoutPayload =
+        rawPayload?.schemaVersion === 2 &&
+        rawPayload?.camera &&
+        rawPayload?.projects &&
+        rawPayload?.anchors;
 
-      if (!hasKnownKeys) {
+      if (!isLayoutPayload) {
         throw new Error('Missing tuning data');
       }
 
-      const isTuningPayload = Boolean(rawPayload?.tuning) || !rawPayload?.materials;
-
-      if (isTuningPayload) {
-        const normalizedPayload = rawPayload?.tuning ? rawPayload : { version: 1, tuning: tuningData };
-        const updatedConfig = applyTuningToConfig(config ?? crystalConfig, normalizedPayload);
-        const normalizedConfig = normalizeCrystalConfig(updatedConfig);
-        syncStateFromConfig(normalizedConfig);
-        onUpdate(normalizedConfig);
-      } else {
-        syncStateFromConfig(normalized);
-        onUpdate(normalized);
-      }
+      const updatedConfig = applyLayoutToConfig(config ?? crystalConfig, rawPayload);
+      const normalizedConfig = normalizeCrystalConfig(updatedConfig);
+      syncStateFromConfig(normalizedConfig);
+      onUpdate(normalizedConfig);
       setExportMessage('Loaded preset ✅');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';

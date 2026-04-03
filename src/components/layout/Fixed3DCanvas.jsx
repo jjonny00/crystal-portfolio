@@ -175,10 +175,12 @@ const Fixed3DCanvas = forwardRef(({
   });
 
   const sanitizePass = useMemo(() => createSanitizePass(), []);
-  const { layout } = useLayoutConfig();
+  const { layout, variant } = useLayoutConfig();
 
   const cameraMergedConfig = useMemo(() => {
     const nextConfig = { ...config };
+    const layoutProjects = layout?.projects;
+    const deviceKey = variant === 'mobile' ? 'mobile' : 'desktop';
 
     const mergeCameraLayer = (cameraLayer) => {
       if (!cameraLayer) return;
@@ -223,13 +225,73 @@ const Fixed3DCanvas = forwardRef(({
           },
         };
       }
+
+      if (cameraLayer.projects) {
+        const nextProjectCameraSettings = { ...(nextConfig.projectCameraSettings || {}) };
+        Object.entries(cameraLayer.projects).forEach(([sceneKey, projectCameraModes]) => {
+          const projectId = getProjectIdBySceneFacetKey(sceneKey);
+          if (!projectId) return;
+          nextProjectCameraSettings[projectId] = {
+            ...(nextProjectCameraSettings[projectId] || {}),
+            [deviceKey]: {
+              ...(nextProjectCameraSettings[projectId]?.[deviceKey] || {}),
+              ...(projectCameraModes || {}),
+            },
+          };
+        });
+        nextConfig.projectCameraSettings = nextProjectCameraSettings;
+      }
     };
 
     mergeCameraLayer(layout?.camera);
     mergeCameraLayer(cameraRuntimeOverrides);
 
+    if (layoutProjects?.explodedPositions) {
+      nextConfig.explodedPositions = {
+        ...(nextConfig.explodedPositions || {}),
+        ...Object.fromEntries(
+          Object.entries(layoutProjects.explodedPositions).map(([key, value]) => [key, value.toArray()]),
+        ),
+      };
+    }
+
+    if (layoutProjects?.facetRotationsEulerDeg) {
+      nextConfig.facetRotationsEulerDeg = {
+        ...(nextConfig.facetRotationsEulerDeg || {}),
+        ...layoutProjects.facetRotationsEulerDeg,
+      };
+    }
+
+    if (layoutProjects?.selectedFacetRotationsEulerDeg) {
+      nextConfig.selectedFacetRotationsEulerDeg = {
+        ...(nextConfig.selectedFacetRotationsEulerDeg || {}),
+        ...layoutProjects.selectedFacetRotationsEulerDeg,
+      };
+    }
+
+    if (projectRuntimeOverrides?.explodedPositions) {
+      nextConfig.explodedPositions = {
+        ...(nextConfig.explodedPositions || {}),
+        ...projectRuntimeOverrides.explodedPositions,
+      };
+    }
+
+    if (projectRuntimeOverrides?.facetRotationsEulerDeg) {
+      nextConfig.facetRotationsEulerDeg = {
+        ...(nextConfig.facetRotationsEulerDeg || {}),
+        ...projectRuntimeOverrides.facetRotationsEulerDeg,
+      };
+    }
+
+    if (projectRuntimeOverrides?.selectedFacetRotationsEulerDeg) {
+      nextConfig.selectedFacetRotationsEulerDeg = {
+        ...(nextConfig.selectedFacetRotationsEulerDeg || {}),
+        ...projectRuntimeOverrides.selectedFacetRotationsEulerDeg,
+      };
+    }
+
     return nextConfig;
-  }, [cameraRuntimeOverrides, config, layout?.camera]);
+  }, [cameraRuntimeOverrides, config, layout?.camera, layout?.projects, projectRuntimeOverrides, variant]);
 
   const runtimeOverrideLogShownRef = useRef(false);
 
@@ -515,11 +577,10 @@ const Fixed3DCanvas = forwardRef(({
           
           {/* UPDATED: Crystal Scene with ref for accessing debug state */}
           <UnifiedCrystalScene
-            projectRuntimeOverrides={projectRuntimeOverrides}
             sharedCameraMoveProgressRef={cameraMoveProgressRef}
             ref={crystalSceneRef} // NEW: Ref to access debug state and methods
             animationData={animationData}
-            config={config}
+            config={cameraMergedConfig}
             materialVariant={materialVariant}
             performanceProfile={performanceProfile}
             isMobile={isMobile}
