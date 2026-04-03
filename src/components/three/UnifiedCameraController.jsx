@@ -600,11 +600,11 @@ const UnifiedCameraController = ({
     
     const enhancedConfig = getCameraTarget(baseConfig, resolvedFocusedFacet, cameraState, focusedProject);
     const isProjectLikeCameraState = (cameraState === 'project' || cameraState === 'caseStudy');
-    const configuredOffsetPosition = isProjectLikeCameraState && resolvedFocusedFacet
-      ? config?.cameraOffsets?.projects?.[resolvedFocusedFacet]?.position
+    const configuredOffsetPosition = isProjectLikeCameraState
+      ? enhancedConfig?.offsetPosition
       : config?.cameraOffsets?.zones?.[cameraState]?.position;
-    const configuredOffsetTarget = isProjectLikeCameraState && resolvedFocusedFacet
-      ? config?.cameraOffsets?.projects?.[resolvedFocusedFacet]?.target
+    const configuredOffsetTarget = isProjectLikeCameraState
+      ? enhancedConfig?.offsetTarget
       : config?.cameraOffsets?.zones?.[cameraState]?.target;
 
     const offsetPosition = toVector3(configuredOffsetPosition ?? enhancedConfig?.offsetPosition);
