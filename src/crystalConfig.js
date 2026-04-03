@@ -187,12 +187,12 @@ export const projectCameraSettings = {
     },
     mobile: {
       selected: {
-        position: [-0.09, 0.38, 2.87],
-        target: [0.4, 1.2, 0.9]
+        position: [-0.09, 0.38, 5],
+        target: [0.6, 1.3, 0.9]
       },
       caseStudy: {
-        position: [-0.09, 0.38, 2.87],
-        target: [0.4, 1.2, 0.9],
+        position: [-0.09, 0.38, 0.8],
+        target: [0.7, 2.4, 0.9],
         facetRotation: [18, 112, 4]
       }
     }
@@ -211,12 +211,12 @@ export const projectCameraSettings = {
     },
     mobile: {
       selected: {
-        position: [-0.05, 0.28, 3.94],
-        target: [-0.6, 0.7, 0]
+        position: [1.1, 0, 5],
+        target: [-0.3, 1.6, 0]
       },
       caseStudy: {
-        position: [-0.05, 0.28, 3.94],
-        target: [-0.6, 0.7, 0],
+        position: [-0.5, 0.28, 0.1],
+        target: [-0.6, 2, 0],
         facetRotation: [-15, -13, -17]
       }
     }
@@ -235,12 +235,12 @@ export const projectCameraSettings = {
     },
     mobile: {
       selected: {
-        position: [-0.88, -0.85, 2.53],
-        target: [1.3, 0.8, 0.5]
+        position: [-2.4, -0.85, 5],
+        target: [0.6, 0.8, 0.5]
       },
       caseStudy: {
-        position: [-0.88, -0.85, 2.53],
-        target: [1.3, 0.8, 0.5],
+        position: [-0.1, -0.4, 0.6],
+        target: [0.7, 1.4, 0.3],
         facetRotation: [-2, 65, 45]
       }
     }
@@ -259,12 +259,12 @@ export const projectCameraSettings = {
     },
     mobile: {
       selected: {
-        position: [-1.28, -0.23, 1.58],
-        target: [-0.5, 0.2, -1.8]
+        position: [-1.28, -0.23, 3.7],
+        target: [-0.8, 0.3, -1.8]
       },
       caseStudy: {
-        position: [-1.28, -0.23, 1.58],
-        target: [-0.5, 0.2, -1.8],
+        position: [-1.28, -0.2, -0.9],
+        target: [-0.9, 1.1, -1.8],
         facetRotation: [-25, -19, 1]
       }
     }
@@ -283,12 +283,12 @@ export const projectCameraSettings = {
     },
     mobile: {
       selected: {
-        position: [-0.66, -1.37, 1.1],
-        target: [0.3, -0.1, -0.7]
+        position: [-0.66, -1.37, 4.1],
+        target: [0.1, -0.5, -0.7]
       },
       caseStudy: {
-        position: [-0.66, -1.37, 1.1],
-        target: [0.3, -0.1, -0.7],
+        position: [-0.4, -1.2, 0.1],
+        target: [0.1, 0, -0.7],
         facetRotation: [10, -16, 0]
       }
     }
@@ -307,12 +307,12 @@ export const projectCameraSettings = {
     },
     mobile: {
       selected: {
-        position: [0.16, -1.85, 1.79],
-        target: [0.3, -0.7, -0.2]
+        position: [0.2, -0.1, 2.9],
+        target: [0.2, -1.7, -0.2]
       },
       caseStudy: {
-        position: [0.16, -1.85, 1.79],
-        target: [0.3, -0.7, -0.2],
+        position: [0, -2.1, -0.4],
+        target: [0.1, -1.1, -1.7],
         facetRotation: [25, 121, 13]
       }
     }
