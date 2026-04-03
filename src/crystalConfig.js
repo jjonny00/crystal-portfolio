@@ -164,7 +164,7 @@ export const facetRotationsEulerDeg = {
 
 // Per-project focused rotations (Euler degrees) used while a facet is selected.
 export const selectedFacetRotationsEulerDeg = {
-  empathy: [25, 121, 13],
+  empathy: [9, 140, 13],
   narrative: [10, -16, 0],
   craft: [-2, 65, 45],
   system: [-25, -19, 1],
@@ -313,7 +313,7 @@ export const projectCameraSettings = {
       caseStudy: {
         position: [0, -2.1, -0.4],
         target: [0.1, -1.1, -1.7],
-        facetRotation: [25, 121, 13]
+        facetRotation: [9, 140, 13]
       }
     }
   }
