@@ -114,8 +114,6 @@ const UnifiedCrystalScene = forwardRef(({
   const hoverCapable = useHoverCapable();
   useCursor(Boolean(hoverCapable && hoveredFacet));
   const overviewWorldAnchors = layout?.anchors?.overviewWorld;
-  const layoutCamera = layout?.camera;
-  const layoutProjects = layout?.projects;
   const resolvedConnectorPairs = useMemo(() => {
     const pairs = projects
       .map((project) => {
@@ -129,93 +127,7 @@ const UnifiedCrystalScene = forwardRef(({
     return pairs;
   }, []);
 
-  const mergedConfig = useMemo(() => {
-    const nextConfig = { ...config };
-
-    if (layoutCamera?.positions) {
-      nextConfig.cameraPositions = {
-        ...(nextConfig.cameraPositions || {}),
-        ...layoutCamera.positions,
-        projects: {
-          ...(nextConfig.cameraPositions?.projects || {}),
-          ...(layoutCamera.positions.projects || {}),
-        },
-      };
-    }
-
-    if (layoutCamera?.targets) {
-      nextConfig.cameraTargets = {
-        ...(nextConfig.cameraTargets || {}),
-        ...layoutCamera.targets,
-        projects: {
-          ...(nextConfig.cameraTargets?.projects || {}),
-          ...(layoutCamera.targets.projects || {}),
-        },
-      };
-    }
-
-    if (layoutCamera?.offsets) {
-      nextConfig.cameraOffsets = {
-        ...(nextConfig.cameraOffsets || {}),
-        ...layoutCamera.offsets,
-        global: {
-          ...(nextConfig.cameraOffsets?.global || {}),
-          ...(layoutCamera.offsets.global || {}),
-        },
-        zones: {
-          ...(nextConfig.cameraOffsets?.zones || {}),
-          ...(layoutCamera.offsets.zones || {}),
-        },
-        projects: {
-          ...(nextConfig.cameraOffsets?.projects || {}),
-          ...(layoutCamera.offsets.projects || {}),
-        },
-      };
-    }
-
-    if (layoutProjects?.explodedPositions) {
-      nextConfig.explodedPositions = {
-        ...Object.fromEntries(
-          Object.entries(layoutProjects.explodedPositions).map(([key, value]) => [key, value.toArray()]),
-        ),
-        ...(nextConfig.explodedPositions || {}),
-        ...(projectRuntimeOverrides?.explodedPositions || {}),
-      };
-    } else if (projectRuntimeOverrides?.explodedPositions) {
-      nextConfig.explodedPositions = {
-        ...(nextConfig.explodedPositions || {}),
-        ...projectRuntimeOverrides.explodedPositions,
-      };
-    }
-
-    if (layoutProjects?.facetRotationsEulerDeg) {
-      nextConfig.facetRotationsEulerDeg = {
-        ...(nextConfig.facetRotationsEulerDeg || {}),
-        ...layoutProjects.facetRotationsEulerDeg,
-        ...(projectRuntimeOverrides?.facetRotationsEulerDeg || {}),
-      };
-    } else if (projectRuntimeOverrides?.facetRotationsEulerDeg) {
-      nextConfig.facetRotationsEulerDeg = {
-        ...(nextConfig.facetRotationsEulerDeg || {}),
-        ...projectRuntimeOverrides.facetRotationsEulerDeg,
-      };
-    }
-
-    if (layoutProjects?.selectedFacetRotationsEulerDeg) {
-      nextConfig.selectedFacetRotationsEulerDeg = {
-        ...(nextConfig.selectedFacetRotationsEulerDeg || {}),
-        ...layoutProjects.selectedFacetRotationsEulerDeg,
-        ...(projectRuntimeOverrides?.selectedFacetRotationsEulerDeg || {}),
-      };
-    } else if (projectRuntimeOverrides?.selectedFacetRotationsEulerDeg) {
-      nextConfig.selectedFacetRotationsEulerDeg = {
-        ...(nextConfig.selectedFacetRotationsEulerDeg || {}),
-        ...projectRuntimeOverrides.selectedFacetRotationsEulerDeg,
-      };
-    }
-
-    return nextConfig;
-  }, [config, layoutCamera, layoutProjects, projectRuntimeOverrides]);
+  const mergedConfig = useMemo(() => config, [config]);
 
   useEffect(() => {
     if (!import.meta.env.DEV) return;
@@ -224,53 +136,7 @@ const UnifiedCrystalScene = forwardRef(({
     logger.debug('📷 Effective layout camera positions', { hero, overview });
   }, [mergedConfig?.cameraPositions?.hero, mergedConfig?.cameraPositions?.overview]);
 
-  const crystalConfig = useMemo(() => {
-    const baseCrystalConfig = animationData?.crystalConfig;
-    if (!baseCrystalConfig) return baseCrystalConfig;
-
-    const nextCrystalConfig = { ...baseCrystalConfig };
-
-    if (layoutProjects?.explodedPositions) {
-      nextCrystalConfig.explodedPositions = {
-        ...layoutProjects.explodedPositions,
-        ...(baseCrystalConfig.explodedPositions || {}),
-        ...(projectRuntimeOverrides?.explodedPositions || {}),
-      };
-    } else if (projectRuntimeOverrides?.explodedPositions) {
-      nextCrystalConfig.explodedPositions = {
-        ...(baseCrystalConfig.explodedPositions || {}),
-        ...projectRuntimeOverrides.explodedPositions,
-      };
-    }
-
-    if (layoutProjects?.facetRotationsEulerDeg) {
-      nextCrystalConfig.facetRotationsEulerDeg = {
-        ...(baseCrystalConfig.facetRotationsEulerDeg || {}),
-        ...layoutProjects.facetRotationsEulerDeg,
-        ...(projectRuntimeOverrides?.facetRotationsEulerDeg || {}),
-      };
-    } else if (projectRuntimeOverrides?.facetRotationsEulerDeg) {
-      nextCrystalConfig.facetRotationsEulerDeg = {
-        ...(baseCrystalConfig.facetRotationsEulerDeg || {}),
-        ...projectRuntimeOverrides.facetRotationsEulerDeg,
-      };
-    }
-
-    if (layoutProjects?.selectedFacetRotationsEulerDeg) {
-      nextCrystalConfig.selectedFacetRotationsEulerDeg = {
-        ...(baseCrystalConfig.selectedFacetRotationsEulerDeg || {}),
-        ...layoutProjects.selectedFacetRotationsEulerDeg,
-        ...(projectRuntimeOverrides?.selectedFacetRotationsEulerDeg || {}),
-      };
-    } else if (projectRuntimeOverrides?.selectedFacetRotationsEulerDeg) {
-      nextCrystalConfig.selectedFacetRotationsEulerDeg = {
-        ...(baseCrystalConfig.selectedFacetRotationsEulerDeg || {}),
-        ...projectRuntimeOverrides.selectedFacetRotationsEulerDeg,
-      };
-    }
-
-    return nextCrystalConfig;
-  }, [animationData?.crystalConfig, layoutProjects, projectRuntimeOverrides]);
+  const crystalConfig = useMemo(() => animationData?.crystalConfig, [animationData?.crystalConfig]);
 
   // Facet configuration
   const facetKeys = canonicalFacetKeys;
