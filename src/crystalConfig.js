@@ -164,7 +164,7 @@ export const facetRotationsEulerDeg = {
 
 // Per-project focused rotations (Euler degrees) used while a facet is selected.
 export const selectedFacetRotationsEulerDeg = {
-  empathy: [25, 121, 13],
+  empathy: [12, -177, 15],
   narrative: [10, -16, 0],
   craft: [-2, 65, 45],
   system: [-25, -19, 1],
@@ -172,44 +172,152 @@ export const selectedFacetRotationsEulerDeg = {
   exploration: [-15, -13, -17]
 }
 
-const projectSceneKeyById = {
-  project01: 'leadership',
-  project02: 'exploration',
-  project03: 'craft',
-  project04: 'system',
-  project05: 'narrative',
-  project06: 'empathy'
-};
-
-export const projectCameraSettings = Object.fromEntries(
-  Object.entries(projectSceneKeyById).map(([projectId, sceneKey]) => [
-    projectId,
-    {
-      desktop: {
-        selected: {
-          position: [...cameraPositions.projects[sceneKey]],
-          target: [...cameraTargets.projects[sceneKey]]
-        },
-        caseStudy: {
-          position: [...cameraPositions.projects[sceneKey]],
-          target: [...cameraTargets.projects[sceneKey]],
-          facetRotation: [...selectedFacetRotationsEulerDeg[sceneKey]]
-        }
+export const projectCameraSettings = {
+  project01: {
+    desktop: {
+      selected: {
+        position: [-0.09, 0.38, 3.1],
+        target: [0.4, 1.9, 0.9]
       },
-      mobile: {
-        selected: {
-          position: [...cameraPositions.projects[sceneKey]],
-          target: [...cameraTargets.projects[sceneKey]]
-        },
-        caseStudy: {
-          position: [...cameraPositions.projects[sceneKey]],
-          target: [...cameraTargets.projects[sceneKey]],
-          facetRotation: [...selectedFacetRotationsEulerDeg[sceneKey]]
-        }
+      caseStudy: {
+        position: [0.2, 1.3, 1.6],
+        target: [0.8, 2.2, 0.9],
+        facetRotation: [18, 112, 4]
+      }
+    },
+    mobile: {
+      selected: {
+        position: [-0.09, 0.38, 2.87],
+        target: [0.4, 1.2, 0.9]
+      },
+      caseStudy: {
+        position: [-0.09, 0.38, 2.87],
+        target: [0.4, 1.2, 0.9],
+        facetRotation: [18, 112, 4]
       }
     }
-  ])
-)
+  },
+  project02: {
+    desktop: {
+      selected: {
+        position: [-0.20128114869355945, 0.39552378627508233, 2.6],
+        target: [-0.8, 1.4, 0]
+      },
+      caseStudy: {
+        position: [-0.3, 1.3, 0.6],
+        target: [-0.1, 1.4, 0],
+        facetRotation: [-15, -13, -17]
+      }
+    },
+    mobile: {
+      selected: {
+        position: [-0.05, 0.28, 3.94],
+        target: [-0.6, 0.7, 0]
+      },
+      caseStudy: {
+        position: [-0.05, 0.28, 3.94],
+        target: [-0.6, 0.7, 0],
+        facetRotation: [-15, -13, -17]
+      }
+    }
+  },
+  project03: {
+    desktop: {
+      selected: {
+        position: [-0.88, -0.85, 2.53],
+        target: [0.9, 0.7, 0.5]
+      },
+      caseStudy: {
+        position: [1.1, 0, 0.6],
+        target: [2.1, 1.2, 0],
+        facetRotation: [-2, 65, 45]
+      }
+    },
+    mobile: {
+      selected: {
+        position: [-0.88, -0.85, 2.53],
+        target: [1.3, 0.8, 0.5]
+      },
+      caseStudy: {
+        position: [-0.88, -0.85, 2.53],
+        target: [1.3, 0.8, 0.5],
+        facetRotation: [-2, 65, 45]
+      }
+    }
+  },
+  project04: {
+    desktop: {
+      selected: {
+        position: [-1.28, -0.23, 0.8],
+        target: [-0.5, -0.1, -1.8]
+      },
+      caseStudy: {
+        position: [-1.1, 0.1, -1.2],
+        target: [-0.3, 0, -1.8],
+        facetRotation: [-25, -19, 1]
+      }
+    },
+    mobile: {
+      selected: {
+        position: [-1.28, -0.23, 1.58],
+        target: [-0.5, 0.2, -1.8]
+      },
+      caseStudy: {
+        position: [-1.28, -0.23, 1.58],
+        target: [-0.5, 0.2, -1.8],
+        facetRotation: [-25, -19, 1]
+      }
+    }
+  },
+  project05: {
+    desktop: {
+      selected: {
+        position: [-0.66, -1.37, 1.1],
+        target: [0.3, -1, -0.7]
+      },
+      caseStudy: {
+        position: [-0.2, -1.37, -0.2],
+        target: [0.7, -1, -1.4],
+        facetRotation: [10, -16, 0]
+      }
+    },
+    mobile: {
+      selected: {
+        position: [-0.66, -1.37, 1.1],
+        target: [0.3, -0.1, -0.7]
+      },
+      caseStudy: {
+        position: [-0.66, -1.37, 1.1],
+        target: [0.3, -0.1, -0.7],
+        facetRotation: [10, -16, 0]
+      }
+    }
+  },
+  project06: {
+    desktop: {
+      selected: {
+        position: [0.2, -1.5, 1.2],
+        target: [0.1, -2, -0.2]
+      },
+      caseStudy: {
+        position: [0.2, -2, -0.3],
+        target: [1.8, -2.9, -1.4],
+        facetRotation: [25, 121, -16]
+      }
+    },
+    mobile: {
+      selected: {
+        position: [0.16, -1.85, 1.79],
+        target: [0.3, -0.7, -0.2]
+      },
+      caseStudy: {
+        position: [0.16, -1.85, 1.79],
+        target: [0.3, -0.7, -0.2],
+        facetRotation: [25, 121, 13]
+      }
+    }
+  }
+}
 
 
 // === ANIMATION TIMING ===
@@ -218,6 +326,8 @@ export const timing = {
   camera: {
     explodeDuration: 1600, // ms
     reformDuration: 900,   // ms
+    facetZoomDuration: 1000, // ms
+    facetReturnDuration: 1200, // ms
   },
   
   // Crystal animation phases
