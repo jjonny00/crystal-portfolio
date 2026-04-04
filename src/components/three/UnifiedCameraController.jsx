@@ -228,10 +228,7 @@ const UnifiedCameraController = ({
     const projectModeKey = cameraState === 'caseStudy' ? 'caseStudy' : 'selected';
     const authoredTarget =
       config?.projectCameraSettings?.[focusedProjectId]?.[deviceKey]?.[projectModeKey]?.target;
-    const hasAuthoredTarget =
-      Array.isArray(authoredTarget) &&
-      authoredTarget.length === 3 &&
-      authoredTarget.every((value) => Number.isFinite(Number(value)));
+    const hasAuthoredTarget = authoredTarget !== undefined && authoredTarget !== null;
     if ((cameraState === 'project' || cameraState === 'caseStudy') && hasAuthoredTarget) {
       projectTargetLockRef.current = {
         facetKey: null,
