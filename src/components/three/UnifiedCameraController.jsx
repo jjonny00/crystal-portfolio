@@ -422,6 +422,18 @@ const UnifiedCameraController = ({
     }
 
     if (cameraState === 'project' && focusedFacet) {
+      if (isMobile) {
+        const mobileSelected = config?.projectCameraSettings?.[focusedProjectId]?.mobile?.selected;
+        if (mobileSelected?.position && mobileSelected?.target) {
+          return {
+            position: toVector3(mobileSelected.position),
+            target: toVector3(mobileSelected.target),
+            fov: animationData?.cameraConfig?.fov,
+            description: `${focusedFacet} project.selected (mobile authored)`
+          };
+        }
+      }
+
       const projectViewSettings = resolveProjectViewSettings();
 
       return {
@@ -433,6 +445,18 @@ const UnifiedCameraController = ({
     }
 
     if (cameraState === 'caseStudy' && focusedFacet) {
+      if (isMobile) {
+        const mobileCaseStudy = config?.projectCameraSettings?.[focusedProjectId]?.mobile?.caseStudy;
+        if (mobileCaseStudy?.position && mobileCaseStudy?.target) {
+          return {
+            position: toVector3(mobileCaseStudy.position),
+            target: toVector3(mobileCaseStudy.target),
+            fov: animationData?.cameraConfig?.fov,
+            description: `${focusedFacet} caseStudy (mobile authored)`
+          };
+        }
+      }
+
       const projectViewSettings = resolveProjectViewSettings();
 
       return {
@@ -653,10 +677,18 @@ const UnifiedCameraController = ({
     const baseConfig = configCameraState || animationData.cameraConfig;
     if (!baseConfig) return;
     
-    const enhancedConfig = getCameraTarget(baseConfig, resolvedFocusedFacet, cameraState, focusedProject);
     const isProjectLikeCameraState = (cameraState === 'project' || cameraState === 'caseStudy');
+    const shouldBypassProjectTargetProcessing =
+      isMobile &&
+      isProjectLikeCameraState &&
+      Boolean(focusedProject) &&
+      baseConfig?.position &&
+      baseConfig?.target;
+    const enhancedConfig = shouldBypassProjectTargetProcessing
+      ? baseConfig
+      : getCameraTarget(baseConfig, resolvedFocusedFacet, cameraState, focusedProject);
     const configuredOffsetPosition = isProjectLikeCameraState && resolvedFocusedFacet
-      ? config?.cameraOffsets?.projects?.[resolvedFocusedFacet]?.position
+      ? (isMobile ? null : config?.cameraOffsets?.projects?.[resolvedFocusedFacet]?.position)
       : config?.cameraOffsets?.zones?.[cameraState]?.position;
     const configuredOffsetTarget = isProjectLikeCameraState && resolvedFocusedFacet
       ? (isMobile ? null : config?.cameraOffsets?.projects?.[resolvedFocusedFacet]?.target)
