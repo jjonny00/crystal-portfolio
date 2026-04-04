@@ -662,7 +662,7 @@ const UnifiedCameraController = ({
       ? config?.cameraOffsets?.projects?.[resolvedFocusedFacet]?.position
       : config?.cameraOffsets?.zones?.[cameraState]?.position;
     const configuredOffsetTarget = isProjectLikeCameraState && resolvedFocusedFacet
-      ? config?.cameraOffsets?.projects?.[resolvedFocusedFacet]?.target
+      ? (isMobile ? null : config?.cameraOffsets?.projects?.[resolvedFocusedFacet]?.target)
       : config?.cameraOffsets?.zones?.[cameraState]?.target;
 
     const offsetPosition = toVector3(configuredOffsetPosition ?? enhancedConfig?.offsetPosition);
