@@ -858,11 +858,36 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
   };
 
   const updateProjectCameraSettingVec3 = (project, mode, field, axisIndex, value) => {
-    const updatedConfig = cloneConfig();
-    const current = updatedConfig.projectCameraSettings?.[project]?.[editDeviceKey]?.[mode]?.[field] || [0, 0, 0];
+    const previousConfig = config ?? crystalConfig;
+    const previousProjectCameraSettings = previousConfig.projectCameraSettings || {};
+    const previousProject = previousProjectCameraSettings[project] || {};
+    const previousDevice = previousProject[editDeviceKey] || {};
+    const previousMode = previousDevice[mode] || {};
+    const current = previousMode[field] || [0, 0, 0];
     const next = [...current];
     next[axisIndex] = parseFloat(value);
-    updatedConfig.projectCameraSettings[project][editDeviceKey][mode][field] = next;
+
+    const nextMode = {
+      ...previousMode,
+      [field]: next
+    };
+    const nextDevice = {
+      ...previousDevice,
+      [mode]: nextMode
+    };
+    const nextProject = {
+      ...previousProject,
+      [editDeviceKey]: nextDevice
+    };
+    const nextProjectCameraSettings = {
+      ...previousProjectCameraSettings,
+      [project]: nextProject
+    };
+    const updatedConfig = {
+      ...previousConfig,
+      projectCameraSettings: nextProjectCameraSettings
+    };
+
     if (import.meta.env.DEV) {
       console.groupCollapsed('🛠️ [ProjectCameraControl Write]');
       console.log('projectId:', project);
@@ -870,6 +895,20 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
       console.log('mode:', mode);
       console.log('field:', field);
       console.log('newValue:', updatedConfig.projectCameraSettings[project][editDeviceKey][mode][field]);
+      console.log('refChanged.updatedConfig:', updatedConfig !== previousConfig);
+      console.log('refChanged.projectCameraSettings:', updatedConfig.projectCameraSettings !== previousProjectCameraSettings);
+      console.log(
+        'refChanged.project:',
+        updatedConfig.projectCameraSettings[project] !== previousProject
+      );
+      console.log(
+        'refChanged.device:',
+        updatedConfig.projectCameraSettings[project]?.[editDeviceKey] !== previousDevice
+      );
+      console.log(
+        'refChanged.mode:',
+        updatedConfig.projectCameraSettings[project]?.[editDeviceKey]?.[mode] !== previousMode
+      );
       console.groupEnd();
     }
     onUpdate(updatedConfig);
