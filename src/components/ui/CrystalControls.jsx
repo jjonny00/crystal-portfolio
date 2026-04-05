@@ -3,7 +3,7 @@ import { useRef, useState } from 'react';
 import * as THREE from 'three';
 import * as crystalConfig from '../../crystalConfig';
 import { isMobileDevice } from '../../utils/isMobileDevice';
-import { getProjectIdBySceneFacetKey, getSceneFacetKeyByProjectId } from '../../data/projects';
+import { getProjectIdBySceneFacetKey } from '../../data/projects';
 import desktopLayoutJson from '../../config/layout/desktop.json';
 import mobileLayoutJson from '../../config/layout/mobile.json';
 
@@ -878,34 +878,6 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
   const getProjectCameraVec3 = (project, mode, field) =>
     config?.projectCameraSettings?.[project]?.[editDeviceKey]?.[mode]?.[field] || [0, 0, 0];
 
-  const updateProjectCameraPositionFromPolar = (project, mode, nextPolar) => {
-    const target = getProjectCameraVec3(project, mode, 'target');
-    const currentPosition = getProjectCameraVec3(project, mode, 'position');
-    const { distance, yaw, pitch } = getPolarCoords(currentPosition, target);
-
-    const resolvedDistance = nextPolar.distance ?? distance;
-    const resolvedYaw = nextPolar.yaw ?? yaw;
-    const resolvedPitch = nextPolar.pitch ?? pitch;
-
-    const horizontal = resolvedDistance * Math.cos(resolvedPitch);
-    const x = target[0] + horizontal * Math.sin(resolvedYaw);
-    const z = target[2] + horizontal * Math.cos(resolvedYaw);
-    const y = target[1] + resolvedDistance * Math.sin(resolvedPitch);
-
-    const updatedConfig = cloneConfig();
-    updatedConfig.projectCameraSettings[project][editDeviceKey][mode].position = [x, y, z];
-    if (import.meta.env.DEV) {
-      console.groupCollapsed('🛠️ [ProjectCameraControl Write]');
-      console.log('projectId:', project);
-      console.log('editDeviceKey:', editDeviceKey);
-      console.log('mode:', mode);
-      console.log('field:', 'position');
-      console.log('newValue:', updatedConfig.projectCameraSettings[project][editDeviceKey][mode].position);
-      console.groupEnd();
-    }
-    onUpdate(updatedConfig);
-  };
-
   // Handle effect value changes
   const handleEffectChange = (key, value) => {
     const numValue = parseFloat(value);
@@ -1762,14 +1734,6 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
             </div>
             <div style={accordionNoteStyle}>Editing {editDeviceKey} branch: {projectCameraMode}</div>
             {projectCameraKeys.map((project) => {
-              const sceneKey = getSceneFacetKeyByProjectId(project) || project;
-              const modeCameraPosition = getProjectCameraVec3(project, projectCameraMode, 'position');
-              const modeCameraTarget = getProjectCameraVec3(project, projectCameraMode, 'target');
-              const positionOffsetKey = `cameraOffsets.projects.${sceneKey}.position`;
-              const positionOffset = cameraOffsetValues[positionOffsetKey];
-              const { distance, yaw, pitch } = getPolarCoords(modeCameraPosition, modeCameraTarget);
-              const yawDeg = yaw * RAD2DEG;
-              const pitchDeg = pitch * RAD2DEG;
               const isOpen = projectAccordionState[project];
               return (
                 <div key={project} style={{ marginBottom: '12px' }}>
@@ -1789,187 +1753,93 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
                   {isOpen && (
                     <div style={accordionContentStyle}>
                       <div style={accordionSectionStyle}>
-                        <div style={accordionSubheadingStyle}>Camera Position</div>
-                        {['X', 'Y', 'Z'].map((axis, index) => (
-                          <div key={axis} style={{ marginBottom: '5px' }}>
-                            <div style={sliderLabelStyle}>
-                              <span><span style={coordLabelStyle}>{axis}</span> Position</span>
-                              <span>{modeCameraPosition[index].toFixed(2)}</span>
-                            </div>
-                            <input
-                              type="range"
-                              min="-5"
-                              max="5"
-                              step="0.1"
-                              value={modeCameraPosition[index]}
-                              onChange={(e) => updateProjectCameraSettingVec3(project, projectCameraMode, 'position', index, e.target.value)}
-                              style={sliderStyle}
-                            />
-                          </div>
-                        ))}
-
-                        <div style={{ marginBottom: '5px' }}>
-                          <div style={sliderLabelStyle}>
-                            <span>Yaw</span>
-                            <span>{yawDeg.toFixed(1)}°</span>
-                          </div>
-                          <input
-                            type="range"
-                            min="-180"
-                            max="180"
-                            step="1"
-                            value={yawDeg}
-                            onChange={(e) =>
-                              updateProjectCameraPositionFromPolar(project, projectCameraMode, {
-                                yaw: parseFloat(e.target.value) * DEG2RAD
-                              })
-                            }
-                            style={sliderStyle}
-                          />
-                        </div>
-
-                        <div style={{ marginBottom: '5px' }}>
-                          <div style={sliderLabelStyle}>
-                            <span>Pitch</span>
-                            <span>{pitchDeg.toFixed(1)}°</span>
-                          </div>
-                          <input
-                            type="range"
-                            min="-89"
-                            max="89"
-                            step="1"
-                            value={pitchDeg}
-                            onChange={(e) =>
-                              updateProjectCameraPositionFromPolar(project, projectCameraMode, {
-                                pitch: parseFloat(e.target.value) * DEG2RAD
-                              })
-                            }
-                            style={sliderStyle}
-                          />
-                        </div>
-
-                        <div style={{ marginBottom: '5px' }}>
-                          <div style={sliderLabelStyle}>
-                            <span>Distance</span>
-                            <span>{distance.toFixed(2)}</span>
-                          </div>
-                          <input
-                            type="range"
-                            min="0.5"
-                            max="15"
-                            step="0.1"
-                            value={distance}
-                            onChange={(e) =>
-                              updateProjectCameraPositionFromPolar(project, projectCameraMode, {
-                                distance: parseFloat(e.target.value)
-                              })
-                            }
-                            style={sliderStyle}
-                          />
-                        </div>
-
-                        <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.12)' }}>
-                          <div style={accordionSubheadingStyle}>Per-device {projectCameraMode} camera</div>
-                          {['position', 'target'].map((field) => (
-                            <div key={field} style={{ marginBottom: '8px' }}>
-                              <div style={{ fontSize: '12px', marginBottom: '6px', color: '#9fe8d8', textTransform: 'capitalize' }}>{field}</div>
-                              {['X', 'Y', 'Z'].map((axis, axisIndex) => {
-                                const vec = config?.projectCameraSettings?.[project]?.[editDeviceKey]?.[projectCameraMode]?.[field] || [0, 0, 0];
-                                return (
-                                  <div key={`${field}-${axis}`} style={{ marginBottom: '5px' }}>
-                                    <div style={sliderLabelStyle}>
-                                      <span><span style={coordLabelStyle}>{axis}</span> {field}</span>
-                                      <span>{vec[axisIndex].toFixed(2)}</span>
-                                    </div>
-                                    <input
-                                      type="range"
-                                      min="-5"
-                                      max="5"
-                                      step="0.1"
-                                      value={vec[axisIndex]}
-                                      onChange={(e) => updateProjectCameraSettingVec3(project, projectCameraMode, field, axisIndex, e.target.value)}
-                                      style={sliderStyle}
-                                    />
+                        {(() => {
+                          const labelPrefix = projectCameraMode === 'caseStudy' ? 'Case Study' : 'Selected';
+                          const positionVec = config?.projectCameraSettings?.[project]?.[editDeviceKey]?.[projectCameraMode]?.position || [0, 0, 0];
+                          const targetVec = config?.projectCameraSettings?.[project]?.[editDeviceKey]?.[projectCameraMode]?.target || [0, 0, 0];
+                          return (
+                            <>
+                              <div style={accordionSubheadingStyle}>{labelPrefix} Camera Position</div>
+                              {['X', 'Y', 'Z'].map((axis, axisIndex) => (
+                                <div key={`live-position-${axis}`} style={{ marginBottom: '5px' }}>
+                                  <div style={sliderLabelStyle}>
+                                    <span><span style={coordLabelStyle}>{axis}</span> Position</span>
+                                    <span>{positionVec[axisIndex].toFixed(2)}</span>
                                   </div>
-                                );
-                              })}
-                            </div>
-                          ))}
-                          {projectCameraMode === 'caseStudy' && (
-                            <div>
-                              <div style={{ fontSize: '12px', marginBottom: '6px', color: '#9fe8d8' }}>facetRotation</div>
-                              {['X', 'Y', 'Z'].map((axis, axisIndex) => {
-                                const vec = config?.projectCameraSettings?.[project]?.[editDeviceKey]?.caseStudy?.facetRotation || [0, 0, 0];
-                                return (
-                                  <div key={`facetRotation-${axis}`} style={{ marginBottom: '5px' }}>
-                                    <div style={sliderLabelStyle}>
-                                      <span><span style={coordLabelStyle}>{axis}</span> Rotation</span>
-                                      <span>{vec[axisIndex].toFixed(1)}°</span>
-                                    </div>
-                                    <input
-                                      type="range"
-                                      min="-180"
-                                      max="180"
-                                      step="1"
-                                      value={vec[axisIndex]}
-                                      onChange={(e) => updateProjectCameraSettingVec3(project, 'caseStudy', 'facetRotation', axisIndex, e.target.value)}
-                                      style={sliderStyle}
-                                    />
+                                  <input
+                                    type="range"
+                                    min="-5"
+                                    max="5"
+                                    step="0.1"
+                                    value={positionVec[axisIndex]}
+                                    onChange={(e) => updateProjectCameraSettingVec3(project, projectCameraMode, 'position', axisIndex, e.target.value)}
+                                    style={sliderStyle}
+                                  />
+                                </div>
+                              ))}
+
+                              <div style={{ fontSize: '12px', marginTop: '10px', marginBottom: '6px', color: '#9fe8d8' }}>
+                                {labelPrefix} Camera Target
+                              </div>
+                              {['X', 'Y', 'Z'].map((axis, axisIndex) => (
+                                <div key={`live-target-${axis}`} style={{ marginBottom: '5px' }}>
+                                  <div style={sliderLabelStyle}>
+                                    <span><span style={coordLabelStyle}>{axis}</span> Target</span>
+                                    <span>{targetVec[axisIndex].toFixed(2)}</span>
                                   </div>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      </div>
+                                  <input
+                                    type="range"
+                                    min="-5"
+                                    max="5"
+                                    step="0.1"
+                                    value={targetVec[axisIndex]}
+                                    onChange={(e) => {
+                                      if (import.meta.env.DEV) {
+                                        console.log('🎯 [Visible Project Target Slider]', {
+                                          projectId: project,
+                                          editDeviceKey,
+                                          mode: projectCameraMode,
+                                          axis,
+                                          value: e.target.value
+                                        });
+                                      }
+                                      updateProjectCameraSettingVec3(project, projectCameraMode, 'target', axisIndex, e.target.value);
+                                    }}
+                                    style={sliderStyle}
+                                  />
+                                </div>
+                              ))}
 
-                      <div style={accordionSectionStyle}>
-                        <div style={accordionSubheadingStyle}>Camera Offsets</div>
-                        <div style={{ marginBottom: '8px' }}>
-                          <div style={{ fontSize: '12px', marginBottom: '6px', color: '#9fe8d8' }}>
-                            Position Offset
-                          </div>
-                          {['X', 'Y', 'Z'].map((axis, index) => (
-                            <div key={axis} style={{ marginBottom: '5px' }}>
-                              <div style={sliderLabelStyle}>
-                                <span><span style={coordLabelStyle}>{axis}</span> Offset</span>
-                                <span>{positionOffset[index].toFixed(2)}</span>
-                              </div>
-                              <input
-                                type="range"
-                                min="-2"
-                                max="2"
-                                step="0.05"
-                                value={positionOffset[index]}
-                                onChange={(e) => handleCameraOffsetChange(positionOffsetKey, index, e.target.value)}
-                                style={sliderStyle}
-                              />
-                            </div>
-                          ))}
-                        </div>
-
-                        <div>
-                          <div style={{ fontSize: '12px', marginBottom: '6px', color: '#9fe8d8' }}>
-                            Camera Target
-                          </div>
-                          {['X', 'Y', 'Z'].map((axis, index) => (
-                            <div key={axis} style={{ marginBottom: '5px' }}>
-                              <div style={sliderLabelStyle}>
-                                <span><span style={coordLabelStyle}>{axis}</span> Target</span>
-                                <span>{modeCameraTarget[index].toFixed(2)}</span>
-                              </div>
-                              <input
-                                type="range"
-                                min="-5"
-                                max="5"
-                                step="0.1"
-                                value={modeCameraTarget[index]}
-                                onChange={(e) => updateProjectCameraSettingVec3(project, projectCameraMode, 'target', index, e.target.value)}
-                                style={sliderStyle}
-                              />
-                            </div>
-                          ))}
-                        </div>
+                              {projectCameraMode === 'caseStudy' && (
+                                <>
+                                  <div style={{ fontSize: '12px', marginTop: '10px', marginBottom: '6px', color: '#9fe8d8' }}>
+                                    Case Study Facet Rotation
+                                  </div>
+                                  {['X', 'Y', 'Z'].map((axis, axisIndex) => {
+                                    const vec = config?.projectCameraSettings?.[project]?.[editDeviceKey]?.caseStudy?.facetRotation || [0, 0, 0];
+                                    return (
+                                      <div key={`live-facetRotation-${axis}`} style={{ marginBottom: '5px' }}>
+                                        <div style={sliderLabelStyle}>
+                                          <span><span style={coordLabelStyle}>{axis}</span> Rotation</span>
+                                          <span>{vec[axisIndex].toFixed(1)}°</span>
+                                        </div>
+                                        <input
+                                          type="range"
+                                          min="-180"
+                                          max="180"
+                                          step="1"
+                                          value={vec[axisIndex]}
+                                          onChange={(e) => updateProjectCameraSettingVec3(project, 'caseStudy', 'facetRotation', axisIndex, e.target.value)}
+                                          style={sliderStyle}
+                                        />
+                                      </div>
+                                    );
+                                  })}
+                                </>
+                              )}
+                            </>
+                          );
+                        })()}
                       </div>
                     </div>
                   )}
