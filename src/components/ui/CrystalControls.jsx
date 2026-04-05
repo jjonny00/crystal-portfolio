@@ -1748,10 +1748,10 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
           <span>{cameraAccordionState.projects ? '−' : '+'}</span>
         </button>
         {cameraAccordionState.projects && (
-          <div style={accordionContentStyle}>
-            <div style={accordionNoteStyle}>
-              Project camera targets are anchor-driven. Use Target Offset to fine-tune composition.
-            </div>
+            <div style={accordionContentStyle}>
+              <div style={accordionNoteStyle}>
+                Project camera sliders below write directly to projectCameraSettings for the active device.
+              </div>
             <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
               <button type="button" style={exportButtonStyle} onClick={() => setProjectCameraMode('selected')}>
                 Selected View
@@ -1766,9 +1766,7 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
               const modeCameraPosition = getProjectCameraVec3(project, projectCameraMode, 'position');
               const modeCameraTarget = getProjectCameraVec3(project, projectCameraMode, 'target');
               const positionOffsetKey = `cameraOffsets.projects.${sceneKey}.position`;
-              const targetOffsetKey = `cameraOffsets.projects.${sceneKey}.target`;
               const positionOffset = cameraOffsetValues[positionOffsetKey];
-              const targetOffset = cameraOffsetValues[targetOffsetKey];
               const { distance, yaw, pitch } = getPolarCoords(modeCameraPosition, modeCameraTarget);
               const yawDeg = yaw * RAD2DEG;
               const pitchDeg = pitch * RAD2DEG;
@@ -1952,21 +1950,21 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
 
                         <div>
                           <div style={{ fontSize: '12px', marginBottom: '6px', color: '#9fe8d8' }}>
-                            Target Offset
+                            Camera Target
                           </div>
                           {['X', 'Y', 'Z'].map((axis, index) => (
                             <div key={axis} style={{ marginBottom: '5px' }}>
                               <div style={sliderLabelStyle}>
-                                <span><span style={coordLabelStyle}>{axis}</span> Offset</span>
-                                <span>{targetOffset[index].toFixed(2)}</span>
+                                <span><span style={coordLabelStyle}>{axis}</span> Target</span>
+                                <span>{modeCameraTarget[index].toFixed(2)}</span>
                               </div>
                               <input
                                 type="range"
-                                min="-2"
-                                max="2"
-                                step="0.05"
-                                value={targetOffset[index]}
-                                onChange={(e) => handleCameraOffsetChange(targetOffsetKey, index, e.target.value)}
+                                min="-5"
+                                max="5"
+                                step="0.1"
+                                value={modeCameraTarget[index]}
+                                onChange={(e) => updateProjectCameraSettingVec3(project, projectCameraMode, 'target', index, e.target.value)}
                                 style={sliderStyle}
                               />
                             </div>
