@@ -863,6 +863,15 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
     const next = [...current];
     next[axisIndex] = parseFloat(value);
     updatedConfig.projectCameraSettings[project][editDeviceKey][mode][field] = next;
+    if (import.meta.env.DEV) {
+      console.groupCollapsed('🛠️ [ProjectCameraControl Write]');
+      console.log('projectId:', project);
+      console.log('editDeviceKey:', editDeviceKey);
+      console.log('mode:', mode);
+      console.log('field:', field);
+      console.log('newValue:', updatedConfig.projectCameraSettings[project][editDeviceKey][mode][field]);
+      console.groupEnd();
+    }
     onUpdate(updatedConfig);
   };
 
@@ -885,6 +894,15 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
 
     const updatedConfig = cloneConfig();
     updatedConfig.projectCameraSettings[project][editDeviceKey][mode].position = [x, y, z];
+    if (import.meta.env.DEV) {
+      console.groupCollapsed('🛠️ [ProjectCameraControl Write]');
+      console.log('projectId:', project);
+      console.log('editDeviceKey:', editDeviceKey);
+      console.log('mode:', mode);
+      console.log('field:', 'position');
+      console.log('newValue:', updatedConfig.projectCameraSettings[project][editDeviceKey][mode].position);
+      console.groupEnd();
+    }
     onUpdate(updatedConfig);
   };
 

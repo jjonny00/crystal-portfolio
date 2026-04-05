@@ -425,6 +425,17 @@ const UnifiedCameraController = ({
       if (isMobile) {
         const mobileSelected = config?.projectCameraSettings?.[focusedProjectId]?.mobile?.selected;
         if (mobileSelected?.position && mobileSelected?.target) {
+          if (import.meta.env.DEV) {
+            logger.debug('📹 [ProjectCamera Resolve]', {
+              focusedProjectId,
+              deviceKey,
+              cameraState,
+              selectedBranch: config?.projectCameraSettings?.[focusedProjectId]?.[deviceKey]?.selected || null,
+              caseStudyBranch: config?.projectCameraSettings?.[focusedProjectId]?.[deviceKey]?.caseStudy || null,
+              finalPosition: toVector3(mobileSelected.position).toArray(),
+              finalTarget: toVector3(mobileSelected.target).toArray()
+            });
+          }
           return {
             position: toVector3(mobileSelected.position),
             target: toVector3(mobileSelected.target),
@@ -435,6 +446,17 @@ const UnifiedCameraController = ({
       }
 
       const projectViewSettings = resolveProjectViewSettings();
+      if (import.meta.env.DEV) {
+        logger.debug('📹 [ProjectCamera Resolve]', {
+          focusedProjectId,
+          deviceKey,
+          cameraState,
+          selectedBranch: config?.projectCameraSettings?.[focusedProjectId]?.[deviceKey]?.selected || null,
+          caseStudyBranch: config?.projectCameraSettings?.[focusedProjectId]?.[deviceKey]?.caseStudy || null,
+          finalPosition: projectViewSettings.selected.position?.toArray?.() || null,
+          finalTarget: projectViewSettings.selected.target?.toArray?.() || null
+        });
+      }
 
       return {
         position: projectViewSettings.selected.position,
@@ -448,6 +470,17 @@ const UnifiedCameraController = ({
       if (isMobile) {
         const mobileCaseStudy = config?.projectCameraSettings?.[focusedProjectId]?.mobile?.caseStudy;
         if (mobileCaseStudy?.position && mobileCaseStudy?.target) {
+          if (import.meta.env.DEV) {
+            logger.debug('📹 [ProjectCamera Resolve]', {
+              focusedProjectId,
+              deviceKey,
+              cameraState,
+              selectedBranch: config?.projectCameraSettings?.[focusedProjectId]?.[deviceKey]?.selected || null,
+              caseStudyBranch: config?.projectCameraSettings?.[focusedProjectId]?.[deviceKey]?.caseStudy || null,
+              finalPosition: toVector3(mobileCaseStudy.position).toArray(),
+              finalTarget: toVector3(mobileCaseStudy.target).toArray()
+            });
+          }
           return {
             position: toVector3(mobileCaseStudy.position),
             target: toVector3(mobileCaseStudy.target),
@@ -458,6 +491,17 @@ const UnifiedCameraController = ({
       }
 
       const projectViewSettings = resolveProjectViewSettings();
+      if (import.meta.env.DEV) {
+        logger.debug('📹 [ProjectCamera Resolve]', {
+          focusedProjectId,
+          deviceKey,
+          cameraState,
+          selectedBranch: config?.projectCameraSettings?.[focusedProjectId]?.[deviceKey]?.selected || null,
+          caseStudyBranch: config?.projectCameraSettings?.[focusedProjectId]?.[deviceKey]?.caseStudy || null,
+          finalPosition: projectViewSettings.caseStudy.position?.toArray?.() || null,
+          finalTarget: projectViewSettings.caseStudy.target?.toArray?.() || null
+        });
+      }
 
       return {
         position: projectViewSettings.caseStudy.position,

@@ -660,6 +660,22 @@ const UnifiedCrystalScene = forwardRef(({
     );
   }, [eulerDegreesToQuaternion, facetKeys, facetPlacementKeys, isMobile, mergedConfig?.projectCameraSettings]);
 
+  useEffect(() => {
+    if (!import.meta.env.DEV || animationData?.cameraState !== 'caseStudy') return;
+    const deviceKey = isMobile ? 'mobile' : 'desktop';
+    logger.debug('🔄 [CaseStudy FacetRotation Resolve]', {
+      deviceKey,
+      entries: facetKeys.map((facetKey) => {
+        const sceneKey = facetPlacementKeys[facetKey] || facetKey;
+        const projectId = getProjectIdBySceneFacetKey(sceneKey);
+        return {
+          projectId,
+          caseStudyFacetRotation: mergedConfig?.projectCameraSettings?.[projectId]?.[deviceKey]?.caseStudy?.facetRotation ?? null
+        };
+      })
+    });
+  }, [animationData?.cameraState, facetKeys, facetPlacementKeys, isMobile, mergedConfig?.projectCameraSettings]);
+
   // FIXED: Improved handleLabelHover with better state management
   const applyHoverVisual = useCallback(
     (facetKey, hovering) => {

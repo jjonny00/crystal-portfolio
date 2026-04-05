@@ -454,6 +454,22 @@ const Fixed3DCanvas = forwardRef(({
   const initialCameraTarget =
     cameraMergedConfig?.cameraTargets?.intro || cameraMergedConfig?.cameraTargets?.hero || [0, 0, 0];
 
+  useEffect(() => {
+    if (!import.meta.env.DEV || !cameraMergedConfig) return;
+    const activeProjectId = animationData?.focusedProject
+      || getProjectIdBySceneFacetKey(animationData?.focusedFacet)
+      || null;
+    const deviceKey = isMobile ? 'mobile' : 'desktop';
+    console.groupCollapsed('🎛️ [Fixed3DCanvas Merged Camera Config]');
+    console.log('activeProjectId:', activeProjectId);
+    console.log('isMobile:', isMobile);
+    console.log(
+      'projectCameraSettings(activeProject/device):',
+      activeProjectId ? cameraMergedConfig?.projectCameraSettings?.[activeProjectId]?.[deviceKey] : null
+    );
+    console.groupEnd();
+  }, [animationData?.focusedFacet, animationData?.focusedProject, cameraMergedConfig, isMobile]);
+
   const getFacetRefs = () => {
     if (crystalSceneRef.current && crystalSceneRef.current.facetRefs) {
       if (import.meta.env.DEV) {
