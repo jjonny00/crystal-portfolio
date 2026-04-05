@@ -3,7 +3,7 @@ import { useRef, useState } from 'react';
 import * as THREE from 'three';
 import * as crystalConfig from '../../crystalConfig';
 import { isMobileDevice } from '../../utils/isMobileDevice';
-import { getProjectIdBySceneFacetKey } from '../../data/projects';
+import { getProjectIdBySceneFacetKey, getSceneFacetKeyByProjectId } from '../../data/projects';
 import desktopLayoutJson from '../../config/layout/desktop.json';
 import mobileLayoutJson from '../../config/layout/mobile.json';
 
@@ -858,9 +858,12 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
   };
 
   const updateProjectCameraSettingVec3 = (project, mode, field, axisIndex, value) => {
+    const visibleSceneKey = getSceneFacetKeyByProjectId(project) || project;
+    const resolvedProjectId = getProjectIdBySceneFacetKey(project) || project;
+    const writeProjectKey = resolvedProjectId;
     const previousConfig = config ?? crystalConfig;
     const previousProjectCameraSettings = previousConfig.projectCameraSettings || {};
-    const previousProject = previousProjectCameraSettings[project] || {};
+    const previousProject = previousProjectCameraSettings[writeProjectKey] || {};
     const previousDevice = previousProject[editDeviceKey] || {};
     const previousMode = previousDevice[mode] || {};
     const current = previousMode[field] || [0, 0, 0];
@@ -881,7 +884,7 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
     };
     const nextProjectCameraSettings = {
       ...previousProjectCameraSettings,
-      [project]: nextProject
+      [writeProjectKey]: nextProject
     };
     const updatedConfig = {
       ...previousConfig,
@@ -890,24 +893,26 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
 
     if (import.meta.env.DEV) {
       console.groupCollapsed('🛠️ [ProjectCameraControl Write]');
-      console.log('projectId:', project);
+      console.log('visibleSceneKey:', visibleSceneKey);
+      console.log('resolvedProjectId:', resolvedProjectId);
+      console.log('finalWriteKey:', writeProjectKey);
       console.log('editDeviceKey:', editDeviceKey);
       console.log('mode:', mode);
       console.log('field:', field);
-      console.log('newValue:', updatedConfig.projectCameraSettings[project][editDeviceKey][mode][field]);
+      console.log('newValue:', updatedConfig.projectCameraSettings[writeProjectKey][editDeviceKey][mode][field]);
       console.log('refChanged.updatedConfig:', updatedConfig !== previousConfig);
       console.log('refChanged.projectCameraSettings:', updatedConfig.projectCameraSettings !== previousProjectCameraSettings);
       console.log(
         'refChanged.project:',
-        updatedConfig.projectCameraSettings[project] !== previousProject
+        updatedConfig.projectCameraSettings[writeProjectKey] !== previousProject
       );
       console.log(
         'refChanged.device:',
-        updatedConfig.projectCameraSettings[project]?.[editDeviceKey] !== previousDevice
+        updatedConfig.projectCameraSettings[writeProjectKey]?.[editDeviceKey] !== previousDevice
       );
       console.log(
         'refChanged.mode:',
-        updatedConfig.projectCameraSettings[project]?.[editDeviceKey]?.[mode] !== previousMode
+        updatedConfig.projectCameraSettings[writeProjectKey]?.[editDeviceKey]?.[mode] !== previousMode
       );
       console.groupEnd();
     }
@@ -1834,8 +1839,12 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
                                     value={targetVec[axisIndex]}
                                     onChange={(e) => {
                                       if (import.meta.env.DEV) {
+                                        const visibleSceneKey = getSceneFacetKeyByProjectId(project) || project;
+                                        const resolvedProjectId = getProjectIdBySceneFacetKey(project) || project;
                                         console.log('🎯 [Visible Project Target Slider]', {
-                                          projectId: project,
+                                          visibleSceneKey,
+                                          resolvedProjectId,
+                                          finalWriteKey: resolvedProjectId,
                                           editDeviceKey,
                                           mode: projectCameraMode,
                                           axis,
