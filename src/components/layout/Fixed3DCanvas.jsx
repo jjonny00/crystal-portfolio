@@ -182,48 +182,83 @@ const Fixed3DCanvas = forwardRef(({
     const layoutProjects = layout?.projects;
     const deviceKey = variant === 'mobile' ? 'mobile' : 'desktop';
 
-    const mergeCameraLayer = (cameraLayer) => {
+    const mergeCameraLayer = (cameraLayer, sourceWins = true) => {
       if (!cameraLayer) return;
 
       if (cameraLayer.positions) {
-        nextConfig.cameraPositions = {
-          ...(nextConfig.cameraPositions || {}),
-          ...cameraLayer.positions,
-          projects: {
-            ...(nextConfig.cameraPositions?.projects || {}),
-            ...(cameraLayer.positions.projects || {}),
-          },
-        };
+        nextConfig.cameraPositions = sourceWins
+          ? {
+            ...(nextConfig.cameraPositions || {}),
+            ...cameraLayer.positions,
+            projects: {
+              ...(nextConfig.cameraPositions?.projects || {}),
+              ...(cameraLayer.positions.projects || {}),
+            },
+          }
+          : {
+            ...cameraLayer.positions,
+            ...(nextConfig.cameraPositions || {}),
+            projects: {
+              ...(cameraLayer.positions.projects || {}),
+              ...(nextConfig.cameraPositions?.projects || {}),
+            },
+          };
       }
 
       if (cameraLayer.targets) {
-        nextConfig.cameraTargets = {
-          ...(nextConfig.cameraTargets || {}),
-          ...cameraLayer.targets,
-          projects: {
-            ...(nextConfig.cameraTargets?.projects || {}),
-            ...(cameraLayer.targets.projects || {}),
-          },
-        };
+        nextConfig.cameraTargets = sourceWins
+          ? {
+            ...(nextConfig.cameraTargets || {}),
+            ...cameraLayer.targets,
+            projects: {
+              ...(nextConfig.cameraTargets?.projects || {}),
+              ...(cameraLayer.targets.projects || {}),
+            },
+          }
+          : {
+            ...cameraLayer.targets,
+            ...(nextConfig.cameraTargets || {}),
+            projects: {
+              ...(cameraLayer.targets.projects || {}),
+              ...(nextConfig.cameraTargets?.projects || {}),
+            },
+          };
       }
 
       if (cameraLayer.offsets) {
-        nextConfig.cameraOffsets = {
-          ...(nextConfig.cameraOffsets || {}),
-          ...cameraLayer.offsets,
-          global: {
-            ...(nextConfig.cameraOffsets?.global || {}),
-            ...(cameraLayer.offsets.global || {}),
-          },
-          zones: {
-            ...(nextConfig.cameraOffsets?.zones || {}),
-            ...(cameraLayer.offsets.zones || {}),
-          },
-          projects: {
-            ...(nextConfig.cameraOffsets?.projects || {}),
-            ...(cameraLayer.offsets.projects || {}),
-          },
-        };
+        nextConfig.cameraOffsets = sourceWins
+          ? {
+            ...(nextConfig.cameraOffsets || {}),
+            ...cameraLayer.offsets,
+            global: {
+              ...(nextConfig.cameraOffsets?.global || {}),
+              ...(cameraLayer.offsets.global || {}),
+            },
+            zones: {
+              ...(nextConfig.cameraOffsets?.zones || {}),
+              ...(cameraLayer.offsets.zones || {}),
+            },
+            projects: {
+              ...(nextConfig.cameraOffsets?.projects || {}),
+              ...(cameraLayer.offsets.projects || {}),
+            },
+          }
+          : {
+            ...cameraLayer.offsets,
+            ...(nextConfig.cameraOffsets || {}),
+            global: {
+              ...(cameraLayer.offsets.global || {}),
+              ...(nextConfig.cameraOffsets?.global || {}),
+            },
+            zones: {
+              ...(cameraLayer.offsets.zones || {}),
+              ...(nextConfig.cameraOffsets?.zones || {}),
+            },
+            projects: {
+              ...(cameraLayer.offsets.projects || {}),
+              ...(nextConfig.cameraOffsets?.projects || {}),
+            },
+          };
       }
 
       if (cameraLayer.projects) {
@@ -231,20 +266,45 @@ const Fixed3DCanvas = forwardRef(({
         Object.entries(cameraLayer.projects).forEach(([sceneKey, projectCameraModes]) => {
           const projectId = getProjectIdBySceneFacetKey(sceneKey);
           if (!projectId) return;
+          const existingDeviceConfig = nextProjectCameraSettings[projectId]?.[deviceKey] || {};
+          const incomingSelected = projectCameraModes?.selected || {};
+          const incomingCaseStudy = projectCameraModes?.caseStudy || {};
+          const mergedDeviceConfig = sourceWins
+            ? {
+              ...existingDeviceConfig,
+              ...(projectCameraModes || {}),
+              selected: {
+                ...(existingDeviceConfig.selected || {}),
+                ...incomingSelected,
+              },
+              caseStudy: {
+                ...(existingDeviceConfig.caseStudy || {}),
+                ...incomingCaseStudy,
+              },
+            }
+            : {
+              ...(projectCameraModes || {}),
+              ...existingDeviceConfig,
+              selected: {
+                ...incomingSelected,
+                ...(existingDeviceConfig.selected || {}),
+              },
+              caseStudy: {
+                ...incomingCaseStudy,
+                ...(existingDeviceConfig.caseStudy || {}),
+              },
+            };
           nextProjectCameraSettings[projectId] = {
             ...(nextProjectCameraSettings[projectId] || {}),
-            [deviceKey]: {
-              ...(nextProjectCameraSettings[projectId]?.[deviceKey] || {}),
-              ...(projectCameraModes || {}),
-            },
+            [deviceKey]: mergedDeviceConfig,
           };
         });
         nextConfig.projectCameraSettings = nextProjectCameraSettings;
       }
     };
 
-    mergeCameraLayer(layout?.camera);
-    mergeCameraLayer(cameraRuntimeOverrides);
+    mergeCameraLayer(layout?.camera, false);
+    mergeCameraLayer(cameraRuntimeOverrides, true);
 
     if (layoutProjects?.explodedPositions) {
       nextConfig.explodedPositions = {
