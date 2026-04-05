@@ -540,7 +540,7 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
       projectKeys.forEach((sceneKey) => {
         const projectId = getProjectIdBySceneFacetKey(sceneKey);
         if (!projectId) return;
-        ['desktop', 'mobile'].forEach((device) => {
+        [editDeviceKey].forEach((device) => {
           const selectedPosition = sanitizeVec3(camera.projects?.[sceneKey]?.selected?.position);
           const selectedTarget = sanitizeVec3(camera.projects?.[sceneKey]?.selected?.target);
           const caseStudyPosition = sanitizeVec3(camera.projects?.[sceneKey]?.caseStudy?.position);
