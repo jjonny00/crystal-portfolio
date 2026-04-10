@@ -887,6 +887,24 @@ export const useUnifiedAnimationController = (options = {}) => {
     if (directOverrideZone && currentZone.zone === directOverrideZone) {
       clearDirectZoneOverride();
     }
+
+    // Keep camera/focus stable while a direct project selection is active.
+    // During programmatic scroll, nearest-section detection can briefly report
+    // non-project zones around boundaries; letting those transitions run can
+    // fight the direct project camera target.
+    if (directOverrideProject && currentZone.zone !== 'projects') {
+      setAnimationState((prev) => ({
+        ...prev,
+        scrollProgress,
+        zoneInfo: currentZone,
+        projectInfo: lockedProjectInfo,
+      }));
+
+      if (onStateChange) {
+        onStateChange(animationState);
+      }
+      return;
+    }
     
     // ENHANCED: Log scroll updates for background debugging
     if (import.meta.env.DEV && Math.random() < 0.05) { // Sample 5% of updates
