@@ -303,7 +303,7 @@ const Fixed3DCanvas = forwardRef(({
       }
     };
 
-    mergeCameraLayer(layout?.camera, false);
+    mergeCameraLayer(layout?.camera, true);
     mergeCameraLayer(cameraRuntimeOverrides, true);
 
     if (layoutProjects?.explodedPositions) {
