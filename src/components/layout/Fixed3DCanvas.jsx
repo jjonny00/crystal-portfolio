@@ -350,6 +350,18 @@ const Fixed3DCanvas = forwardRef(({
       };
     }
 
+    if (import.meta.env.DEV) {
+      const deviceKey = variant === 'mobile' ? 'mobile' : 'desktop';
+      console.log('[camera-merge] runtime config fields', {
+        variant,
+        'camera.positions.hero': nextConfig?.cameraPositions?.hero ?? null,
+        'camera.projects.leadership.selected.position':
+          nextConfig?.projectCameraSettings?.project01?.[deviceKey]?.selected?.position ?? null,
+        'camera.projects.leadership.caseStudy.target':
+          nextConfig?.projectCameraSettings?.project01?.[deviceKey]?.caseStudy?.target ?? null
+      });
+    }
+
     return nextConfig;
   }, [cameraRuntimeOverrides, config, layout?.camera, layout?.projects, projectRuntimeOverrides, variant]);
 
@@ -513,31 +525,6 @@ const Fixed3DCanvas = forwardRef(({
     cameraMergedConfig?.cameraPositions?.intro || config?.camera?.startingPosition || [0, 0, 4.5];
   const initialCameraTarget =
     cameraMergedConfig?.cameraTargets?.intro || cameraMergedConfig?.cameraTargets?.hero || [0, 0, 0];
-
-  useEffect(() => {
-    if (!import.meta.env.DEV || !cameraMergedConfig) return;
-    const activeProjectId = animationData?.focusedProject
-      || getProjectIdBySceneFacetKey(animationData?.focusedFacet)
-      || null;
-    const deviceKey = isMobile ? 'mobile' : 'desktop';
-    console.groupCollapsed('🎛️ [Fixed3DCanvas Merged Camera Config]');
-    console.log('activeProjectId:', activeProjectId);
-    console.log('isMobile:', isMobile);
-    console.log(
-      'projectCameraSettings(activeProject/device):',
-      activeProjectId ? cameraMergedConfig?.projectCameraSettings?.[activeProjectId]?.[deviceKey] : null
-    );
-    console.log('merged.camera.positions.hero:', cameraMergedConfig?.cameraPositions?.hero ?? null);
-    console.log(
-      'merged.camera.projects.leadership.selected.position:',
-      cameraMergedConfig?.projectCameraSettings?.project01?.[deviceKey]?.selected?.position ?? null
-    );
-    console.log(
-      'merged.camera.projects.leadership.caseStudy.target:',
-      cameraMergedConfig?.projectCameraSettings?.project01?.[deviceKey]?.caseStudy?.target ?? null
-    );
-    console.groupEnd();
-  }, [animationData?.focusedFacet, animationData?.focusedProject, cameraMergedConfig, isMobile]);
 
   const getFacetRefs = () => {
     if (crystalSceneRef.current && crystalSceneRef.current.facetRefs) {

@@ -1088,9 +1088,11 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
     if (import.meta.env.DEV) {
       console.log('[layout-export] payload fields', {
         editDeviceKey,
-        cameraPositionsHero: payload?.camera?.positions?.hero ?? null,
-        leadershipSelectedPosition: payload?.camera?.projects?.leadership?.selected?.position ?? null,
-        leadershipCaseStudyTarget: payload?.camera?.projects?.leadership?.caseStudy?.target ?? null
+        'camera.positions.hero': payload?.camera?.positions?.hero ?? null,
+        'camera.projects.leadership.selected.position':
+          payload?.camera?.projects?.leadership?.selected?.position ?? null,
+        'camera.projects.leadership.caseStudy.target':
+          payload?.camera?.projects?.leadership?.caseStudy?.target ?? null
       });
     }
     return JSON.stringify(payload, null, 2);
@@ -1186,9 +1188,11 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
       if (import.meta.env.DEV) {
         console.log('[layout-import] applied config fields', {
           editDeviceKey,
-          cameraPositionsHero: normalizedConfig?.cameraPositions?.hero ?? null,
-          leadershipSelectedPosition: normalizedConfig?.projectCameraSettings?.project01?.[editDeviceKey]?.selected?.position ?? null,
-          leadershipCaseStudyTarget: normalizedConfig?.projectCameraSettings?.project01?.[editDeviceKey]?.caseStudy?.target ?? null
+          'camera.positions.hero': normalizedConfig?.cameraPositions?.hero ?? null,
+          'camera.projects.leadership.selected.position':
+            normalizedConfig?.projectCameraSettings?.project01?.[editDeviceKey]?.selected?.position ?? null,
+          'camera.projects.leadership.caseStudy.target':
+            normalizedConfig?.projectCameraSettings?.project01?.[editDeviceKey]?.caseStudy?.target ?? null
         });
       }
       syncStateFromConfig(normalizedConfig);

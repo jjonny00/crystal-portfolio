@@ -715,9 +715,11 @@ const UnifiedCameraController = ({
       const deviceKey = isMobile ? 'mobile' : 'desktop';
       logger.debug('[controller-preuse] config fields', {
         deviceKey,
-        cameraPositionsHero: config?.cameraPositions?.hero ?? null,
-        leadershipSelectedPosition: config?.projectCameraSettings?.project01?.[deviceKey]?.selected?.position ?? null,
-        leadershipCaseStudyTarget: config?.projectCameraSettings?.project01?.[deviceKey]?.caseStudy?.target ?? null
+        'camera.positions.hero': config?.cameraPositions?.hero ?? null,
+        'camera.projects.leadership.selected.position':
+          config?.projectCameraSettings?.project01?.[deviceKey]?.selected?.position ?? null,
+        'camera.projects.leadership.caseStudy.target':
+          config?.projectCameraSettings?.project01?.[deviceKey]?.caseStudy?.target ?? null
       });
     }
 

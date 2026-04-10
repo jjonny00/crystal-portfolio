@@ -38,9 +38,11 @@ export const useLayoutConfig = () => {
       if (import.meta.env.DEV) {
         console.log('[layout-source] parsed layout fields', {
           variant,
-          cameraPositionsHero: rawLayout?.camera?.positions?.hero ?? null,
-          leadershipSelectedPosition: rawLayout?.camera?.projects?.leadership?.selected?.position ?? null,
-          leadershipCaseStudyTarget: rawLayout?.camera?.projects?.leadership?.caseStudy?.target ?? null
+          'camera.positions.hero': rawLayout?.camera?.positions?.hero ?? null,
+          'camera.projects.leadership.selected.position':
+            rawLayout?.camera?.projects?.leadership?.selected?.position ?? null,
+          'camera.projects.leadership.caseStudy.target':
+            rawLayout?.camera?.projects?.leadership?.caseStudy?.target ?? null
         });
       }
       return { variant, layout, error: null };
