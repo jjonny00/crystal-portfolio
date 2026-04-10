@@ -541,13 +541,7 @@ const Fixed3DCanvas = forwardRef(({
 
   const getFacetRefs = () => {
     if (crystalSceneRef.current && crystalSceneRef.current.facetRefs) {
-      if (import.meta.env.DEV) {
-        console.log('📍 Fixed3DCanvas: Retrieved facet refs from crystal scene');
-      }
       return crystalSceneRef.current.facetRefs; // Access the exposed refs directly
-    }
-    if (import.meta.env.DEV) {
-      console.warn('📍 Fixed3DCanvas: No facet refs available from crystal scene');
     }
     return null;
   };
