@@ -527,6 +527,15 @@ const Fixed3DCanvas = forwardRef(({
       'projectCameraSettings(activeProject/device):',
       activeProjectId ? cameraMergedConfig?.projectCameraSettings?.[activeProjectId]?.[deviceKey] : null
     );
+    console.log('merged.camera.positions.hero:', cameraMergedConfig?.cameraPositions?.hero ?? null);
+    console.log(
+      'merged.camera.projects.leadership.selected.position:',
+      cameraMergedConfig?.projectCameraSettings?.project01?.[deviceKey]?.selected?.position ?? null
+    );
+    console.log(
+      'merged.camera.projects.leadership.caseStudy.target:',
+      cameraMergedConfig?.projectCameraSettings?.project01?.[deviceKey]?.caseStudy?.target ?? null
+    );
     console.groupEnd();
   }, [animationData?.focusedFacet, animationData?.focusedProject, cameraMergedConfig, isMobile]);
 

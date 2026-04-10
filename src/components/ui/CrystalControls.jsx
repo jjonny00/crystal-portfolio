@@ -1085,6 +1085,14 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
   const getLayoutPayload = () => {
     const base = config ?? crystalConfig;
     const payload = buildLayoutPayload(base, editDeviceKey);
+    if (import.meta.env.DEV) {
+      console.log('[layout-export] payload fields', {
+        editDeviceKey,
+        cameraPositionsHero: payload?.camera?.positions?.hero ?? null,
+        leadershipSelectedPosition: payload?.camera?.projects?.leadership?.selected?.position ?? null,
+        leadershipCaseStudyTarget: payload?.camera?.projects?.leadership?.caseStudy?.target ?? null
+      });
+    }
     return JSON.stringify(payload, null, 2);
   };
 

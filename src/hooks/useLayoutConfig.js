@@ -35,6 +35,14 @@ export const useLayoutConfig = () => {
     try {
       const rawLayout = variant === 'desktop' ? desktopLayoutJson : mobileLayoutJson;
       const layout = parseLayout(rawLayout);
+      if (import.meta.env.DEV) {
+        console.log('[layout-source] parsed layout fields', {
+          variant,
+          cameraPositionsHero: rawLayout?.camera?.positions?.hero ?? null,
+          leadershipSelectedPosition: rawLayout?.camera?.projects?.leadership?.selected?.position ?? null,
+          leadershipCaseStudyTarget: rawLayout?.camera?.projects?.leadership?.caseStudy?.target ?? null
+        });
+      }
       return { variant, layout, error: null };
     } catch (error) {
       const parsedError = error instanceof Error ? error : new Error(String(error));
