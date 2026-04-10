@@ -420,6 +420,13 @@ export const useUnifiedAnimationController = (options = {}) => {
       return;
     }
 
+    // Cancel any delayed zone camera handoff (hero↔overview / about→project)
+    // before forcing a direct project focus so camera targets don't compete.
+    if (cameraDelayTimeout.current) {
+      clearTimeout(cameraDelayTimeout.current);
+      cameraDelayTimeout.current = null;
+    }
+
     const createdAt = Date.now();
 
     directProjectOverrideRef.current = {
