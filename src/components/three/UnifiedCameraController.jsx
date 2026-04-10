@@ -228,10 +228,7 @@ const UnifiedCameraController = ({
     const projectModeKey = cameraState === 'caseStudy' ? 'caseStudy' : 'selected';
     const authoredTarget =
       config?.projectCameraSettings?.[focusedProjectId]?.[deviceKey]?.[projectModeKey]?.target;
-    const hasAuthoredTarget =
-      Array.isArray(authoredTarget) &&
-      authoredTarget.length === 3 &&
-      authoredTarget.every((value) => Number.isFinite(Number(value)));
+    const hasAuthoredTarget = authoredTarget !== undefined && authoredTarget !== null;
     if ((cameraState === 'project' || cameraState === 'caseStudy') && hasAuthoredTarget) {
       projectTargetLockRef.current = {
         facetKey: null,
@@ -333,10 +330,21 @@ const UnifiedCameraController = ({
     if (!config?.cameraPositions) return null;
     const deviceKey = isMobile ? 'mobile' : 'desktop';
     const resolveProjectViewSettings = () => {
-      const selectedFallbackPosition = toVector3(config.cameraPositions?.projects?.[focusedFacet]);
-      const selectedFallbackTarget = toVector3(config.cameraTargets?.projects?.[focusedFacet]);
       const selectedFromConfig = config?.projectCameraSettings?.[focusedProjectId]?.[deviceKey]?.selected;
       const caseStudyFromConfig = config?.projectCameraSettings?.[focusedProjectId]?.[deviceKey]?.caseStudy;
+      const hasSelectedAuthoredPosition =
+        Array.isArray(selectedFromConfig?.position) && selectedFromConfig.position.length === 3;
+      const hasSelectedAuthoredTarget =
+        Array.isArray(selectedFromConfig?.target) && selectedFromConfig.target.length === 3;
+      const shouldUseLegacyEmergencyFallback =
+        !hasSelectedAuthoredPosition || !hasSelectedAuthoredTarget;
+
+      const selectedFallbackPosition = shouldUseLegacyEmergencyFallback
+        ? toVector3(config.cameraPositions?.projects?.[focusedFacet])
+        : null;
+      const selectedFallbackTarget = shouldUseLegacyEmergencyFallback
+        ? toVector3(config.cameraTargets?.projects?.[focusedFacet])
+        : null;
 
       const selectedPosition = toVector3(selectedFromConfig?.position || selectedFallbackPosition);
       const selectedTarget = toVector3(selectedFromConfig?.target || selectedFallbackTarget);
@@ -414,7 +422,41 @@ const UnifiedCameraController = ({
     }
 
     if (cameraState === 'project' && focusedFacet) {
+      if (isMobile) {
+        const mobileSelected = config?.projectCameraSettings?.[focusedProjectId]?.mobile?.selected;
+        if (mobileSelected?.position && mobileSelected?.target) {
+          if (import.meta.env.DEV) {
+            logger.debug('📹 [ProjectCamera Resolve]', {
+              focusedProjectId,
+              deviceKey,
+              cameraState,
+              selectedBranch: config?.projectCameraSettings?.[focusedProjectId]?.[deviceKey]?.selected || null,
+              caseStudyBranch: config?.projectCameraSettings?.[focusedProjectId]?.[deviceKey]?.caseStudy || null,
+              finalPosition: toVector3(mobileSelected.position).toArray(),
+              finalTarget: toVector3(mobileSelected.target).toArray()
+            });
+          }
+          return {
+            position: toVector3(mobileSelected.position),
+            target: toVector3(mobileSelected.target),
+            fov: animationData?.cameraConfig?.fov,
+            description: `${focusedFacet} project.selected (mobile authored)`
+          };
+        }
+      }
+
       const projectViewSettings = resolveProjectViewSettings();
+      if (import.meta.env.DEV) {
+        logger.debug('📹 [ProjectCamera Resolve]', {
+          focusedProjectId,
+          deviceKey,
+          cameraState,
+          selectedBranch: config?.projectCameraSettings?.[focusedProjectId]?.[deviceKey]?.selected || null,
+          caseStudyBranch: config?.projectCameraSettings?.[focusedProjectId]?.[deviceKey]?.caseStudy || null,
+          finalPosition: projectViewSettings.selected.position?.toArray?.() || null,
+          finalTarget: projectViewSettings.selected.target?.toArray?.() || null
+        });
+      }
 
       return {
         position: projectViewSettings.selected.position,
@@ -425,7 +467,41 @@ const UnifiedCameraController = ({
     }
 
     if (cameraState === 'caseStudy' && focusedFacet) {
+      if (isMobile) {
+        const mobileCaseStudy = config?.projectCameraSettings?.[focusedProjectId]?.mobile?.caseStudy;
+        if (mobileCaseStudy?.position && mobileCaseStudy?.target) {
+          if (import.meta.env.DEV) {
+            logger.debug('📹 [ProjectCamera Resolve]', {
+              focusedProjectId,
+              deviceKey,
+              cameraState,
+              selectedBranch: config?.projectCameraSettings?.[focusedProjectId]?.[deviceKey]?.selected || null,
+              caseStudyBranch: config?.projectCameraSettings?.[focusedProjectId]?.[deviceKey]?.caseStudy || null,
+              finalPosition: toVector3(mobileCaseStudy.position).toArray(),
+              finalTarget: toVector3(mobileCaseStudy.target).toArray()
+            });
+          }
+          return {
+            position: toVector3(mobileCaseStudy.position),
+            target: toVector3(mobileCaseStudy.target),
+            fov: animationData?.cameraConfig?.fov,
+            description: `${focusedFacet} caseStudy (mobile authored)`
+          };
+        }
+      }
+
       const projectViewSettings = resolveProjectViewSettings();
+      if (import.meta.env.DEV) {
+        logger.debug('📹 [ProjectCamera Resolve]', {
+          focusedProjectId,
+          deviceKey,
+          cameraState,
+          selectedBranch: config?.projectCameraSettings?.[focusedProjectId]?.[deviceKey]?.selected || null,
+          caseStudyBranch: config?.projectCameraSettings?.[focusedProjectId]?.[deviceKey]?.caseStudy || null,
+          finalPosition: projectViewSettings.caseStudy.position?.toArray?.() || null,
+          finalTarget: projectViewSettings.caseStudy.target?.toArray?.() || null
+        });
+      }
 
       return {
         position: projectViewSettings.caseStudy.position,
@@ -635,6 +711,18 @@ const UnifiedCameraController = ({
 
     if (!animationData?.cameraConfig && !config?.cameraPositions) return;
 
+    if (import.meta.env.DEV) {
+      const deviceKey = isMobile ? 'mobile' : 'desktop';
+      logger.debug('[controller-preuse] config fields', {
+        deviceKey,
+        'camera.positions.hero': config?.cameraPositions?.hero ?? null,
+        'camera.projects.leadership.selected.position':
+          config?.projectCameraSettings?.project01?.[deviceKey]?.selected?.position ?? null,
+        'camera.projects.leadership.caseStudy.target':
+          config?.projectCameraSettings?.project01?.[deviceKey]?.caseStudy?.target ?? null
+      });
+    }
+
     const focusedProject = animationData.focusedProject ?? null;
     const focusedFacet = animationData.focusedFacet;
     const resolvedFocusedFacet = focusedProject
@@ -645,13 +733,21 @@ const UnifiedCameraController = ({
     const baseConfig = configCameraState || animationData.cameraConfig;
     if (!baseConfig) return;
     
-    const enhancedConfig = getCameraTarget(baseConfig, resolvedFocusedFacet, cameraState, focusedProject);
     const isProjectLikeCameraState = (cameraState === 'project' || cameraState === 'caseStudy');
+    const shouldBypassProjectTargetProcessing =
+      isMobile &&
+      isProjectLikeCameraState &&
+      Boolean(focusedProject) &&
+      baseConfig?.position &&
+      baseConfig?.target;
+    const enhancedConfig = shouldBypassProjectTargetProcessing
+      ? baseConfig
+      : getCameraTarget(baseConfig, resolvedFocusedFacet, cameraState, focusedProject);
     const configuredOffsetPosition = isProjectLikeCameraState && resolvedFocusedFacet
-      ? config?.cameraOffsets?.projects?.[resolvedFocusedFacet]?.position
+      ? (isMobile ? null : config?.cameraOffsets?.projects?.[resolvedFocusedFacet]?.position)
       : config?.cameraOffsets?.zones?.[cameraState]?.position;
     const configuredOffsetTarget = isProjectLikeCameraState && resolvedFocusedFacet
-      ? config?.cameraOffsets?.projects?.[resolvedFocusedFacet]?.target
+      ? (isMobile ? null : config?.cameraOffsets?.projects?.[resolvedFocusedFacet]?.target)
       : config?.cameraOffsets?.zones?.[cameraState]?.target;
 
     const offsetPosition = toVector3(configuredOffsetPosition ?? enhancedConfig?.offsetPosition);
@@ -681,7 +777,6 @@ const UnifiedCameraController = ({
         const deviceMode = isMobile ? 'mobile' : 'desktop';
         const selectedConfigPosition =
           config?.projectCameraSettings?.[focusedProject]?.[deviceMode]?.selected?.position
-          || config?.cameraPositions?.projects?.[resolvedFocusedFacet]
           || null;
         const caseStudyConfigPosition =
           config?.projectCameraSettings?.[focusedProject]?.[deviceMode]?.caseStudy?.position

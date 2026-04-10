@@ -24,7 +24,7 @@
 }
 
 .hero-section__title {
-  --headline-ink: #ddd436;
+  --headline-ink: #FF5A00;
   --headline-glow1: #e4dc56;
   --headline-glow2: #c4bc2b;
   font-family: 'ivypresto-display', 'IvyPresto Display', 'Playfair Display', Georgia, serif;
@@ -37,7 +37,7 @@
   margin: 0;
   max-inline-size: min(100%, 7ch);
   text-wrap: balance;
-  color: #ddd436;
+  color: #FF5A00;
   mix-blend-mode: color-dodge;
 }
 
