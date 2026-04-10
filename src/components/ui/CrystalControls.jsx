@@ -1183,6 +1183,14 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
 
       const updatedConfig = applyLayoutToConfig(config ?? crystalConfig, rawPayload);
       const normalizedConfig = normalizeCrystalConfig(updatedConfig);
+      if (import.meta.env.DEV) {
+        console.log('[layout-import] applied config fields', {
+          editDeviceKey,
+          cameraPositionsHero: normalizedConfig?.cameraPositions?.hero ?? null,
+          leadershipSelectedPosition: normalizedConfig?.projectCameraSettings?.project01?.[editDeviceKey]?.selected?.position ?? null,
+          leadershipCaseStudyTarget: normalizedConfig?.projectCameraSettings?.project01?.[editDeviceKey]?.caseStudy?.target ?? null
+        });
+      }
       syncStateFromConfig(normalizedConfig);
       onUpdate(normalizedConfig);
       setExportMessage('Loaded preset ✅');

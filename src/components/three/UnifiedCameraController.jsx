@@ -711,6 +711,16 @@ const UnifiedCameraController = ({
 
     if (!animationData?.cameraConfig && !config?.cameraPositions) return;
 
+    if (import.meta.env.DEV) {
+      const deviceKey = isMobile ? 'mobile' : 'desktop';
+      logger.debug('[controller-preuse] config fields', {
+        deviceKey,
+        cameraPositionsHero: config?.cameraPositions?.hero ?? null,
+        leadershipSelectedPosition: config?.projectCameraSettings?.project01?.[deviceKey]?.selected?.position ?? null,
+        leadershipCaseStudyTarget: config?.projectCameraSettings?.project01?.[deviceKey]?.caseStudy?.target ?? null
+      });
+    }
+
     const focusedProject = animationData.focusedProject ?? null;
     const focusedFacet = animationData.focusedFacet;
     const resolvedFocusedFacet = focusedProject
