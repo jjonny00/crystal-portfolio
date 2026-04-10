@@ -63,8 +63,8 @@ export const projects = [
     technologies: ['Gameplay Systems', 'UX Design', 'Balancing'],
     color: '#ece93e',
     headlineColor: '#ece93e',
-    imageUrl: '/assets/projects/design-system.jpg',
-    overlayImage: '/assets/projects/design-system.jpg'
+    imageUrl: '/assets/projects/preview-mesa.webp',
+    overlayImage: '/assets/projects/preview-mesa.webp'
   },
   {
     id: 'project03',
