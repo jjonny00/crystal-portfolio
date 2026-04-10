@@ -975,7 +975,19 @@ export const useUnifiedAnimationController = (options = {}) => {
 
     // FIXED: Handle project changes within projects zone
     if (currentZone.zone === 'projects') {
-      if (directOverrideProject && activeProject.project === directOverrideProject) {
+      const directOverrideSectionId = directOverrideProject
+        ? `project-${directOverrideProject}`
+        : null;
+      const isAtDirectOverrideSection =
+        Boolean(
+          directOverrideSectionId &&
+          nearestSectionId === directOverrideSectionId &&
+          typeof nearestSectionTop === 'number' &&
+          container &&
+          Math.abs(container.scrollTop - nearestSectionTop) <= 2
+        );
+
+      if (directOverrideProject && activeProject.project === directOverrideProject && isAtDirectOverrideSection) {
         // IMPORTANT: Keep direct override active until the scroll has settled on
         // the target project, otherwise intermediate section crossings can
         // briefly retarget focus/camera and create visible "bounce".
@@ -987,7 +999,7 @@ export const useUnifiedAnimationController = (options = {}) => {
             if (directProjectOverrideRef.current?.projectKey === activeProject.project) {
               clearDirectProjectOverride();
             }
-          }, 320);
+          }, 420);
         }
       } else if (directProjectReleaseTimeoutRef.current) {
         clearTimeout(directProjectReleaseTimeoutRef.current);
