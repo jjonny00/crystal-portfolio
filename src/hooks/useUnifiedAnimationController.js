@@ -865,6 +865,7 @@ export const useUnifiedAnimationController = (options = {}) => {
       clearIntroPreview();
     }
     const directOverrideProject = directProjectOverrideRef.current?.projectKey ?? null;
+    const directOverrideSceneFacet = directProjectOverrideRef.current?.sceneFacetKey ?? null;
     const directOverrideZone = directZoneOverrideRef.current?.zoneKey ?? null;
     const lockedProjectInfo = directOverrideProject
       ? { ...activeProject, project: directOverrideProject }
@@ -875,7 +876,11 @@ export const useUnifiedAnimationController = (options = {}) => {
         ...prev,
         scrollProgress: scrollProgress,
         zoneInfo: currentZone,
-        projectInfo: lockedProjectInfo
+        projectInfo: lockedProjectInfo,
+        state: ANIMATION_STATES.PROJECT_FOCUSED,
+        cameraState: 'project',
+        focusedFacet: directOverrideSceneFacet ?? prev.focusedFacet,
+        isTransitioning: false,
       }));
 
       if (onStateChange) {
@@ -898,6 +903,10 @@ export const useUnifiedAnimationController = (options = {}) => {
         scrollProgress,
         zoneInfo: currentZone,
         projectInfo: lockedProjectInfo,
+        state: ANIMATION_STATES.PROJECT_FOCUSED,
+        cameraState: 'project',
+        focusedFacet: directOverrideSceneFacet ?? prev.focusedFacet,
+        isTransitioning: false,
       }));
 
       if (onStateChange) {
