@@ -316,6 +316,7 @@ export const useUnifiedAnimationController = (options = {}) => {
   const directProjectOverrideRef = useRef(null);
   const directZoneOverrideRef = useRef(null);
   const directProjectReleaseTimeoutRef = useRef(null);
+  const directOverrideReachedTargetRef = useRef(false);
   const runtimeProjectSectionsRef = useRef([]);
   const aboutToProjectsLockUntilRef = useRef(0);
   const lastNearestSectionIdRef = useRef(null);
@@ -409,6 +410,7 @@ export const useUnifiedAnimationController = (options = {}) => {
       clearTimeout(directProjectReleaseTimeoutRef.current);
       directProjectReleaseTimeoutRef.current = null;
     }
+    directOverrideReachedTargetRef.current = false;
     directProjectOverrideRef.current = null;
   }, []);
 
@@ -420,6 +422,13 @@ export const useUnifiedAnimationController = (options = {}) => {
       return;
     }
 
+    // Cancel any delayed zone camera handoff (hero↔overview / about→project)
+    // before forcing a direct project focus so camera targets don't compete.
+    if (cameraDelayTimeout.current) {
+      clearTimeout(cameraDelayTimeout.current);
+      cameraDelayTimeout.current = null;
+    }
+
     const createdAt = Date.now();
 
     directProjectOverrideRef.current = {
@@ -427,6 +436,7 @@ export const useUnifiedAnimationController = (options = {}) => {
       sceneFacetKey,
       createdAt
     };
+    directOverrideReachedTargetRef.current = false;
 
     // Lock zone to projects while programmatic scrolling is in-flight so we
     // don't replay hero/overview transitions before reaching the target section.
@@ -464,6 +474,12 @@ export const useUnifiedAnimationController = (options = {}) => {
     if (!zoneKey || !config?.camera?.[zoneKey]) {
       clearDirectZoneOverride();
       return;
+    }
+
+    // Direct zone nav (hero/overview/about) should not carry a project lock,
+    // otherwise project override state can fight the requested zone camera.
+    if (zoneKey !== 'projects') {
+      clearDirectProjectOverride();
     }
 
     directZoneOverrideRef.current = {
@@ -507,7 +523,7 @@ export const useUnifiedAnimationController = (options = {}) => {
 
       return prev;
     });
-  }, [clearDirectZoneOverride, config]);
+  }, [clearDirectProjectOverride, clearDirectZoneOverride, config]);
 
   useEffect(() => {
     if (!introReplayToken || !config?.camera?.intro) return;
@@ -862,12 +878,16 @@ export const useUnifiedAnimationController = (options = {}) => {
     const lockedProjectInfo = directOverrideProject
       ? { ...activeProject, project: directOverrideProject }
       : activeProject;
+    const forcedProjectsZoneInfo =
+      directOverrideProject && directOverrideZone === 'projects'
+        ? { ...currentZone, zone: 'projects', isEntering: false, isLeaving: false }
+        : currentZone;
 
     if (directOverrideZone && currentZone.zone !== directOverrideZone) {
       setAnimationState(prev => ({
         ...prev,
         scrollProgress: scrollProgress,
-        zoneInfo: currentZone,
+        zoneInfo: forcedProjectsZoneInfo,
         projectInfo: lockedProjectInfo
       }));
 
@@ -879,6 +899,83 @@ export const useUnifiedAnimationController = (options = {}) => {
 
     if (directOverrideZone && currentZone.zone === directOverrideZone) {
       clearDirectZoneOverride();
+    }
+
+    // Keep direct project navigation single-path: while override is active,
+    // hold project camera/focus and skip normal zone/project transition logic.
+    if (directOverrideProject) {
+      const directOverrideAgeMs = Date.now() - (directProjectOverrideRef.current?.createdAt ?? Date.now());
+      const directOverrideSectionId = `project-${directOverrideProject}`;
+      const hasReachedTargetSection =
+        currentZone.zone === 'projects' &&
+        activeProject.project === directOverrideProject &&
+        nearestSectionId === directOverrideSectionId &&
+        typeof nearestSectionTop === 'number' &&
+        container &&
+        Math.abs(container.scrollTop - nearestSectionTop) <= 2;
+
+      if (hasReachedTargetSection) {
+        directOverrideReachedTargetRef.current = true;
+      }
+
+      const movedToDifferentProject =
+        directOverrideReachedTargetRef.current &&
+        currentZone.zone === 'projects' &&
+        Boolean(activeProject.project) &&
+        activeProject.project !== directOverrideProject &&
+        nearestSectionId?.startsWith('project-') &&
+        nearestSectionId !== `project-${directOverrideProject}` &&
+        directOverrideAgeMs > 260;
+
+      if (movedToDifferentProject) {
+        handleProjectFocus(activeProject.project);
+        lastProject.current = activeProject.project;
+        clearDirectProjectOverride();
+      } else {
+      const isAtDirectOverrideSection = Boolean(
+        nearestSectionId === directOverrideSectionId &&
+        typeof nearestSectionTop === 'number' &&
+        container &&
+        Math.abs(container.scrollTop - nearestSectionTop) <= 2
+      );
+      const directOverrideCameraSettled =
+        animationState.cameraSettled === true ||
+        (animationState.cameraMoveProgress ?? 0) >= 0.995;
+      const shouldReleaseDirectOverride =
+        currentZone.zone === 'projects' &&
+        activeProject.project === directOverrideProject &&
+        isAtDirectOverrideSection &&
+        directOverrideCameraSettled;
+      const shouldForceReleaseByAge = directOverrideAgeMs > 3000;
+
+      if (shouldReleaseDirectOverride || shouldForceReleaseByAge) {
+        if (!directProjectReleaseTimeoutRef.current) {
+          directProjectReleaseTimeoutRef.current = setTimeout(() => {
+            directProjectReleaseTimeoutRef.current = null;
+            clearDirectProjectOverride();
+          }, shouldForceReleaseByAge ? 0 : 420);
+        }
+      } else if (directProjectReleaseTimeoutRef.current) {
+        clearTimeout(directProjectReleaseTimeoutRef.current);
+        directProjectReleaseTimeoutRef.current = null;
+      }
+
+      setAnimationState((prev) => ({
+        ...prev,
+        scrollProgress,
+        zoneInfo: forcedProjectsZoneInfo,
+        projectInfo: lockedProjectInfo,
+        state: ANIMATION_STATES.PROJECT_FOCUSED,
+        cameraState: 'project',
+        focusedFacet: directProjectOverrideRef.current?.sceneFacetKey ?? prev.focusedFacet,
+        isTransitioning: false,
+      }));
+
+      if (onStateChange) {
+        onStateChange(animationState);
+      }
+      return;
+      }
     }
     
     // ENHANCED: Log scroll updates for background debugging
@@ -950,25 +1047,6 @@ export const useUnifiedAnimationController = (options = {}) => {
 
     // FIXED: Handle project changes within projects zone
     if (currentZone.zone === 'projects') {
-      if (directOverrideProject && activeProject.project === directOverrideProject) {
-        // IMPORTANT: Keep direct override active until the scroll has settled on
-        // the target project, otherwise intermediate section crossings can
-        // briefly retarget focus/camera and create visible "bounce".
-        if (!directProjectReleaseTimeoutRef.current) {
-          directProjectReleaseTimeoutRef.current = setTimeout(() => {
-            directProjectReleaseTimeoutRef.current = null;
-
-            // Only release if we are still on the intended target project.
-            if (directProjectOverrideRef.current?.projectKey === activeProject.project) {
-              clearDirectProjectOverride();
-            }
-          }, 320);
-        }
-      } else if (directProjectReleaseTimeoutRef.current) {
-        clearTimeout(directProjectReleaseTimeoutRef.current);
-        directProjectReleaseTimeoutRef.current = null;
-      }
-
       const overrideActive = Boolean(directProjectOverrideRef.current?.projectKey);
 
       // First, ensure we're in project state when entering projects zone
@@ -1009,6 +1087,7 @@ export const useUnifiedAnimationController = (options = {}) => {
       directProjectOverrideRef.current?.projectKey &&
       (
         currentZone.zone === 'hero' ||
+        currentZone.zone === 'overview' ||
         (currentZone.zone === 'about' && !nearestSectionId?.startsWith('project-'))
       )
     ) {

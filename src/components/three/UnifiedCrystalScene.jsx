@@ -780,8 +780,6 @@ const UnifiedCrystalScene = forwardRef(({
   const selectProjectAndNavigate = useCallback((projectKey) => {
     if (!projectKey) return;
 
-    onDirectProjectSelect?.(projectKey);
-
     const sectionNode = typeof document !== 'undefined'
       ? document.getElementById(`project-${projectKey}`)
       : null;
@@ -791,14 +789,17 @@ const UnifiedCrystalScene = forwardRef(({
 
     if (sectionNode && scrollContainer) {
       scrollContainer.scrollTop = sectionNode.offsetTop;
+      onDirectProjectSelect?.(projectKey);
       return;
     }
 
     if (scrollToProject) {
       scrollToProject(projectKey, 'auto');
+      onDirectProjectSelect?.(projectKey);
       return;
     }
 
+    onDirectProjectSelect?.(projectKey);
     const sectionStart = ANIMATION_CONFIG.projectSections?.[projectKey]?.start;
     if (sectionStart === undefined || sectionStart === null) return;
     scrollToProgress?.(sectionStart, 'auto');
