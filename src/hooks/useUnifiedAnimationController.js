@@ -904,7 +904,12 @@ export const useUnifiedAnimationController = (options = {}) => {
       const movedToDifferentProject =
         currentZone.zone === 'projects' &&
         Boolean(activeProject.project) &&
-        activeProject.project !== directOverrideProject;
+        activeProject.project !== directOverrideProject &&
+        nearestSectionId?.startsWith('project-') &&
+        nearestSectionId !== `project-${directOverrideProject}` &&
+        typeof nearestSectionTop === 'number' &&
+        container &&
+        Math.abs(container.scrollTop - nearestSectionTop) <= 2;
 
       if (movedToDifferentProject) {
         clearDirectProjectOverride();
