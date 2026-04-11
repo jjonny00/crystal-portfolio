@@ -869,12 +869,16 @@ export const useUnifiedAnimationController = (options = {}) => {
     const lockedProjectInfo = directOverrideProject
       ? { ...activeProject, project: directOverrideProject }
       : activeProject;
+    const forcedProjectsZoneInfo =
+      directOverrideProject && directOverrideZone === 'projects'
+        ? { ...currentZone, zone: 'projects', isEntering: false, isLeaving: false }
+        : currentZone;
 
     if (directOverrideZone && currentZone.zone !== directOverrideZone) {
       setAnimationState(prev => ({
         ...prev,
         scrollProgress: scrollProgress,
-        zoneInfo: currentZone,
+        zoneInfo: forcedProjectsZoneInfo,
         projectInfo: lockedProjectInfo
       }));
 
@@ -924,7 +928,7 @@ export const useUnifiedAnimationController = (options = {}) => {
       setAnimationState((prev) => ({
         ...prev,
         scrollProgress,
-        zoneInfo: currentZone,
+        zoneInfo: forcedProjectsZoneInfo,
         projectInfo: lockedProjectInfo,
         state: ANIMATION_STATES.PROJECT_FOCUSED,
         cameraState: 'project',
