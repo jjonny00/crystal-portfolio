@@ -901,15 +901,14 @@ export const useUnifiedAnimationController = (options = {}) => {
     // Keep direct project navigation single-path: while override is active,
     // hold project camera/focus and skip normal zone/project transition logic.
     if (directOverrideProject) {
+      const directOverrideAgeMs = Date.now() - (directProjectOverrideRef.current?.createdAt ?? Date.now());
       const movedToDifferentProject =
         currentZone.zone === 'projects' &&
         Boolean(activeProject.project) &&
         activeProject.project !== directOverrideProject &&
         nearestSectionId?.startsWith('project-') &&
         nearestSectionId !== `project-${directOverrideProject}` &&
-        typeof nearestSectionTop === 'number' &&
-        container &&
-        Math.abs(container.scrollTop - nearestSectionTop) <= 2;
+        directOverrideAgeMs > 260;
 
       if (movedToDifferentProject) {
         handleProjectFocus(activeProject.project);
@@ -926,7 +925,6 @@ export const useUnifiedAnimationController = (options = {}) => {
       const directOverrideCameraSettled =
         animationState.cameraSettled === true ||
         (animationState.cameraMoveProgress ?? 0) >= 0.995;
-      const directOverrideAgeMs = Date.now() - (directProjectOverrideRef.current?.createdAt ?? Date.now());
       const shouldReleaseDirectOverride =
         currentZone.zone === 'projects' &&
         activeProject.project === directOverrideProject &&
