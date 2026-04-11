@@ -987,9 +987,19 @@ export const useUnifiedAnimationController = (options = {}) => {
           Math.abs(container.scrollTop - nearestSectionTop) <= 2
         );
 
-      if (directOverrideProject && activeProject.project === directOverrideProject && isAtDirectOverrideSection) {
+      const directOverrideCameraSettled =
+        animationState.cameraSettled === true ||
+        (animationState.cameraMoveProgress ?? 0) >= 0.995;
+
+      if (
+        directOverrideProject &&
+        activeProject.project === directOverrideProject &&
+        isAtDirectOverrideSection &&
+        directOverrideCameraSettled
+      ) {
         // IMPORTANT: Keep direct override active until the scroll has settled on
-        // the target project, otherwise intermediate section crossings can
+        // the target project *and* the camera has settled, otherwise
+        // intermediate section crossings can
         // briefly retarget focus/camera and create visible "bounce".
         if (!directProjectReleaseTimeoutRef.current) {
           directProjectReleaseTimeoutRef.current = setTimeout(() => {
