@@ -901,6 +901,14 @@ export const useUnifiedAnimationController = (options = {}) => {
     // Keep direct project navigation single-path: while override is active,
     // hold project camera/focus and skip normal zone/project transition logic.
     if (directOverrideProject) {
+      const movedToDifferentProject =
+        currentZone.zone === 'projects' &&
+        Boolean(activeProject.project) &&
+        activeProject.project !== directOverrideProject;
+
+      if (movedToDifferentProject) {
+        clearDirectProjectOverride();
+      } else {
       const directOverrideSectionId = `project-${directOverrideProject}`;
       const isAtDirectOverrideSection = Boolean(
         nearestSectionId === directOverrideSectionId &&
@@ -946,6 +954,7 @@ export const useUnifiedAnimationController = (options = {}) => {
         onStateChange(animationState);
       }
       return;
+      }
     }
     
     // ENHANCED: Log scroll updates for background debugging
