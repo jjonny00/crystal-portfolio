@@ -45,8 +45,6 @@ const MaterialManager = ({
     return color;
   };
   
-  if (import.meta.env.DEV) console.log('🎨 MaterialManager: PBR enabled?', usePBR, 'PBR quality:', pbrQuality, 'Performance config:', safePerformanceConfig);
-
   // OPTIMIZED: Create high-performance mobile material using MeshPhongMaterial
   useEffect(() => {
     if (isLow && !optimizedMobileRef.current) {

@@ -1137,12 +1137,18 @@ export const useUnifiedAnimationController = (options = {}) => {
    * Track when the camera has fully reached its target
    */
   const setCameraSettled = useCallback((value) => {
-    setAnimationState(prev => ({ ...prev, cameraSettled: value }));
+    setAnimationState((prev) => {
+      if (prev.cameraSettled === value) return prev;
+      return { ...prev, cameraSettled: value };
+    });
   }, []);
 
   const setCameraMoveProgress = useCallback((value) => {
     const clamped = Math.max(0, Math.min(1, value));
-    setAnimationState(prev => ({ ...prev, cameraMoveProgress: clamped }));
+    setAnimationState((prev) => {
+      if (prev.cameraMoveProgress === clamped) return prev;
+      return { ...prev, cameraMoveProgress: clamped };
+    });
   }, []);
 
   /**
