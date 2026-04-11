@@ -57,7 +57,6 @@ const UnifiedCrystalScene = forwardRef(({
   simplifiedAnimations = false,
   scrollToProgress,
   scrollToProject,
-  onDirectProjectSelect,
   onFractureStart,
   sharedCameraMoveProgressRef = null
 }, ref) => {
@@ -189,7 +188,6 @@ const UnifiedCrystalScene = forwardRef(({
   const pendingFacetHideAtRef = useRef(null);
   const swapMaskGlowStartRef = useRef(null);
   const swapMaskGlowModeRef = useRef(null);
-  const pendingDirectSelectRafRef = useRef(null);
   const reformProgressGlowRef = useRef(0);
   const wholeCrystalBaseEmissiveIntensityRef = useRef(0);
   const wholeCrystalBaseEmissiveColorRef = useRef(new THREE.Color('#000000'));
@@ -788,34 +786,20 @@ const UnifiedCrystalScene = forwardRef(({
       ? document.querySelector('.scroll-container')
       : null;
 
-    const applyDirectSelection = () => {
-      if (pendingDirectSelectRafRef.current) {
-        cancelAnimationFrame(pendingDirectSelectRafRef.current);
-        pendingDirectSelectRafRef.current = null;
-      }
-      pendingDirectSelectRafRef.current = requestAnimationFrame(() => {
-        pendingDirectSelectRafRef.current = null;
-        onDirectProjectSelect?.(projectKey);
-      });
-    };
-
     if (sectionNode && scrollContainer) {
       scrollContainer.scrollTop = sectionNode.offsetTop;
-      applyDirectSelection();
       return;
     }
 
     if (scrollToProject) {
       scrollToProject(projectKey, 'auto');
-      applyDirectSelection();
       return;
     }
 
-    onDirectProjectSelect?.(projectKey);
     const sectionStart = ANIMATION_CONFIG.projectSections?.[projectKey]?.start;
     if (sectionStart === undefined || sectionStart === null) return;
     scrollToProgress?.(sectionStart, 'auto');
-  }, [onDirectProjectSelect, scrollToProgress, scrollToProject]);
+  }, [scrollToProgress, scrollToProject]);
 
   const handleFacetClick = useCallback((facetKey) => {
     if (!inActiveOverview) return;
@@ -830,13 +814,6 @@ const UnifiedCrystalScene = forwardRef(({
     facetsSettledRef.current = false;
     setFacetsSettled(false);
   }, [inActiveOverview]);
-
-  useEffect(() => () => {
-    if (pendingDirectSelectRafRef.current) {
-      cancelAnimationFrame(pendingDirectSelectRafRef.current);
-      pendingDirectSelectRafRef.current = null;
-    }
-  }, []);
 
   useEffect(() => {
     if (!inActiveOverview || !labelsReady || !cameraSettled) return undefined;
