@@ -316,6 +316,7 @@ export const useUnifiedAnimationController = (options = {}) => {
   const directProjectOverrideRef = useRef(null);
   const directZoneOverrideRef = useRef(null);
   const directProjectReleaseTimeoutRef = useRef(null);
+  const directOverrideReachedTargetRef = useRef(false);
   const runtimeProjectSectionsRef = useRef([]);
   const aboutToProjectsLockUntilRef = useRef(0);
   const lastNearestSectionIdRef = useRef(null);
@@ -409,6 +410,7 @@ export const useUnifiedAnimationController = (options = {}) => {
       clearTimeout(directProjectReleaseTimeoutRef.current);
       directProjectReleaseTimeoutRef.current = null;
     }
+    directOverrideReachedTargetRef.current = false;
     directProjectOverrideRef.current = null;
   }, []);
 
@@ -434,6 +436,7 @@ export const useUnifiedAnimationController = (options = {}) => {
       sceneFacetKey,
       createdAt
     };
+    directOverrideReachedTargetRef.current = false;
 
     // Lock zone to projects while programmatic scrolling is in-flight so we
     // don't replay hero/overview transitions before reaching the target section.
@@ -902,7 +905,21 @@ export const useUnifiedAnimationController = (options = {}) => {
     // hold project camera/focus and skip normal zone/project transition logic.
     if (directOverrideProject) {
       const directOverrideAgeMs = Date.now() - (directProjectOverrideRef.current?.createdAt ?? Date.now());
+      const directOverrideSectionId = `project-${directOverrideProject}`;
+      const hasReachedTargetSection =
+        currentZone.zone === 'projects' &&
+        activeProject.project === directOverrideProject &&
+        nearestSectionId === directOverrideSectionId &&
+        typeof nearestSectionTop === 'number' &&
+        container &&
+        Math.abs(container.scrollTop - nearestSectionTop) <= 2;
+
+      if (hasReachedTargetSection) {
+        directOverrideReachedTargetRef.current = true;
+      }
+
       const movedToDifferentProject =
+        directOverrideReachedTargetRef.current &&
         currentZone.zone === 'projects' &&
         Boolean(activeProject.project) &&
         activeProject.project !== directOverrideProject &&
@@ -915,7 +932,6 @@ export const useUnifiedAnimationController = (options = {}) => {
         lastProject.current = activeProject.project;
         clearDirectProjectOverride();
       } else {
-      const directOverrideSectionId = `project-${directOverrideProject}`;
       const isAtDirectOverrideSection = Boolean(
         nearestSectionId === directOverrideSectionId &&
         typeof nearestSectionTop === 'number' &&
