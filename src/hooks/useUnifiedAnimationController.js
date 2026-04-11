@@ -1051,6 +1051,7 @@ export const useUnifiedAnimationController = (options = {}) => {
       directProjectOverrideRef.current?.projectKey &&
       (
         currentZone.zone === 'hero' ||
+        currentZone.zone === 'overview' ||
         (currentZone.zone === 'about' && !nearestSectionId?.startsWith('project-'))
       )
     ) {
