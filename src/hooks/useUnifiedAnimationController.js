@@ -912,6 +912,8 @@ export const useUnifiedAnimationController = (options = {}) => {
         Math.abs(container.scrollTop - nearestSectionTop) <= 2;
 
       if (movedToDifferentProject) {
+        handleProjectFocus(activeProject.project);
+        lastProject.current = activeProject.project;
         clearDirectProjectOverride();
       } else {
       const directOverrideSectionId = `project-${directOverrideProject}`;
