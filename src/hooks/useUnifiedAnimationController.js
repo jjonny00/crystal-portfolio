@@ -473,6 +473,12 @@ export const useUnifiedAnimationController = (options = {}) => {
       return;
     }
 
+    // Direct zone nav (hero/overview/about) should not carry a project lock,
+    // otherwise project override state can fight the requested zone camera.
+    if (zoneKey !== 'projects') {
+      clearDirectProjectOverride();
+    }
+
     directZoneOverrideRef.current = {
       zoneKey,
       createdAt: Date.now()
@@ -514,7 +520,7 @@ export const useUnifiedAnimationController = (options = {}) => {
 
       return prev;
     });
-  }, [clearDirectZoneOverride, config]);
+  }, [clearDirectProjectOverride, clearDirectZoneOverride, config]);
 
   useEffect(() => {
     if (!introReplayToken || !config?.camera?.intro) return;
