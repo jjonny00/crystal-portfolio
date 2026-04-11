@@ -888,16 +888,48 @@ export const useUnifiedAnimationController = (options = {}) => {
       clearDirectZoneOverride();
     }
 
-    // Keep camera/focus stable while a direct project selection is active.
-    // During programmatic scroll, nearest-section detection can briefly report
-    // non-project zones around boundaries; letting those transitions run can
-    // fight the direct project camera target.
-    if (directOverrideProject && currentZone.zone !== 'projects') {
+    // Keep direct project navigation single-path: while override is active,
+    // hold project camera/focus and skip normal zone/project transition logic.
+    if (directOverrideProject) {
+      const directOverrideSectionId = `project-${directOverrideProject}`;
+      const isAtDirectOverrideSection = Boolean(
+        nearestSectionId === directOverrideSectionId &&
+        typeof nearestSectionTop === 'number' &&
+        container &&
+        Math.abs(container.scrollTop - nearestSectionTop) <= 2
+      );
+      const directOverrideCameraSettled =
+        animationState.cameraSettled === true ||
+        (animationState.cameraMoveProgress ?? 0) >= 0.995;
+      const directOverrideAgeMs = Date.now() - (directProjectOverrideRef.current?.createdAt ?? Date.now());
+      const shouldReleaseDirectOverride =
+        currentZone.zone === 'projects' &&
+        activeProject.project === directOverrideProject &&
+        isAtDirectOverrideSection &&
+        directOverrideCameraSettled;
+      const shouldForceReleaseByAge = directOverrideAgeMs > 3000;
+
+      if (shouldReleaseDirectOverride || shouldForceReleaseByAge) {
+        if (!directProjectReleaseTimeoutRef.current) {
+          directProjectReleaseTimeoutRef.current = setTimeout(() => {
+            directProjectReleaseTimeoutRef.current = null;
+            clearDirectProjectOverride();
+          }, shouldForceReleaseByAge ? 0 : 420);
+        }
+      } else if (directProjectReleaseTimeoutRef.current) {
+        clearTimeout(directProjectReleaseTimeoutRef.current);
+        directProjectReleaseTimeoutRef.current = null;
+      }
+
       setAnimationState((prev) => ({
         ...prev,
         scrollProgress,
         zoneInfo: currentZone,
         projectInfo: lockedProjectInfo,
+        state: ANIMATION_STATES.PROJECT_FOCUSED,
+        cameraState: 'project',
+        focusedFacet: directProjectOverrideRef.current?.sceneFacetKey ?? prev.focusedFacet,
+        isTransitioning: false,
       }));
 
       if (onStateChange) {
@@ -975,47 +1007,6 @@ export const useUnifiedAnimationController = (options = {}) => {
 
     // FIXED: Handle project changes within projects zone
     if (currentZone.zone === 'projects') {
-      const directOverrideSectionId = directOverrideProject
-        ? `project-${directOverrideProject}`
-        : null;
-      const isAtDirectOverrideSection =
-        Boolean(
-          directOverrideSectionId &&
-          nearestSectionId === directOverrideSectionId &&
-          typeof nearestSectionTop === 'number' &&
-          container &&
-          Math.abs(container.scrollTop - nearestSectionTop) <= 2
-        );
-
-      const directOverrideCameraSettled =
-        animationState.cameraSettled === true ||
-        (animationState.cameraMoveProgress ?? 0) >= 0.995;
-
-      if (
-        directOverrideProject &&
-        activeProject.project === directOverrideProject &&
-        isAtDirectOverrideSection &&
-        directOverrideCameraSettled
-      ) {
-        // IMPORTANT: Keep direct override active until the scroll has settled on
-        // the target project *and* the camera has settled, otherwise
-        // intermediate section crossings can
-        // briefly retarget focus/camera and create visible "bounce".
-        if (!directProjectReleaseTimeoutRef.current) {
-          directProjectReleaseTimeoutRef.current = setTimeout(() => {
-            directProjectReleaseTimeoutRef.current = null;
-
-            // Only release if we are still on the intended target project.
-            if (directProjectOverrideRef.current?.projectKey === activeProject.project) {
-              clearDirectProjectOverride();
-            }
-          }, 420);
-        }
-      } else if (directProjectReleaseTimeoutRef.current) {
-        clearTimeout(directProjectReleaseTimeoutRef.current);
-        directProjectReleaseTimeoutRef.current = null;
-      }
-
       const overrideActive = Boolean(directProjectOverrideRef.current?.projectKey);
 
       // First, ensure we're in project state when entering projects zone
