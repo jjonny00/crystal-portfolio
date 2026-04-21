@@ -38,6 +38,19 @@ h6,
 .title {
   font-family: 'ivypresto-display', serif;
   font-weight: 400;
+  mix-blend-mode: normal !important;
+}
+
+.blend-force {
+  color: #fff !important;
+  mix-blend-mode: difference !important;
+}
+
+.no-blend,
+.no-blend *,
+.top-nav,
+.top-nav * {
+  mix-blend-mode: normal !important;
 }
 
 #root {
