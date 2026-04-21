@@ -26,7 +26,7 @@ const ProjectFocusSection = ({
     },
     to: {
       opacity: isProjectView ? 1 : 0,
-      transform: isProjectView ? 'translateY(0px)' : 'translateY(20px)'
+      transform: isProjectView ? 'none' : 'translateY(20px)'
     },
     delay: isProjectView ? 180 : 0,
     config: {
@@ -42,7 +42,7 @@ const ProjectFocusSection = ({
     },
     to: {
       opacity: isCaseStudy ? 1 : 0,
-      transform: isCaseStudy ? 'translateY(0px)' : 'translateY(12px)'
+      transform: isCaseStudy ? 'none' : 'translateY(12px)'
     },
     delay: isCaseStudy ? 520 : 0,
     config: {
