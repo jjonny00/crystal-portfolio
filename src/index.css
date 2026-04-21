@@ -47,9 +47,7 @@ h6,
 }
 
 .no-blend,
-.no-blend *,
-.top-nav,
-.top-nav * {
+.no-blend * {
   mix-blend-mode: normal !important;
 }
 

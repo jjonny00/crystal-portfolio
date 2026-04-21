@@ -101,11 +101,11 @@ const HeroSection = ({
         </animated.div>
 
         <animated.div style={subtitleSpring} className="hero-section__body-block">
-          <p className="hero-section__body-copy">
+          <p className="hero-section__body-copy blend-force">
             Across products, platforms, and industries, I’ve worked with teams to solve complex
             problems through systems thinking, clear communication, and stubborn optimism.
           </p>
-          <p className="hero-section__body-copy">
+          <p className="hero-section__body-copy blend-force">
             Each facet of this crystal reflects a moment that shaped how I design.
           </p>
         </animated.div>

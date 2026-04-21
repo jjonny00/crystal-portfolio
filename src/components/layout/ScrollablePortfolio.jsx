@@ -75,8 +75,6 @@ const ScrollablePortfolio = ({
     const scheduleSettle = () => {
       const candidateId = getClosestSectionId();
 
-      setSettledSectionId(null);
-
       if (settleTimeoutRef.current) {
         clearTimeout(settleTimeoutRef.current);
       }
