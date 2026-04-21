@@ -4,6 +4,7 @@ import { useThree } from '@react-three/fiber';
 import Headline from '../ui/Headline';
 import { MQ_HOVER_CAPABLE } from '../../config/breakpoints';
 import { useLayoutConfig } from '../../hooks/useLayoutConfig';
+import { getProjectIdBySceneFacetKey } from '../../data/projects';
 import '../../styles/facet-label.css';
 
 const OptimizedLabel = React.memo(function OptimizedLabel({
@@ -355,8 +356,10 @@ const FacetLabels = React.memo(function FacetLabels({
         >
           {projects.map((project) => {
             const runtimeKey = project.facetKey || project.id;
+            const externallyHoveredRuntimeKey =
+              getProjectIdBySceneFacetKey(externallyHoveredFacetKey) || externallyHoveredFacetKey;
             const isActive =
-              externallyHoveredFacetKey === runtimeKey || labelHoveredFacetKey === runtimeKey;
+              externallyHoveredRuntimeKey === runtimeKey || labelHoveredFacetKey === runtimeKey;
             return (
             <OptimizedLabel
               key={runtimeKey}
