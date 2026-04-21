@@ -63,15 +63,6 @@ const OverviewConnectorLines = ({
     return Math.max(0, parsed - 1);
   };
 
-  useEffect(() => {
-    console.log('[OverviewConnectorLines mounted]', {
-      enabled,
-      resolvedConnectorPairsCount: resolvedConnectorPairs?.length ?? 0,
-      alwaysOnDomAnchorsCount: Object.keys(alwaysOnDomAnchorsByRuntimeKey || {}).length,
-      overviewWorldAnchorsExists: Boolean(overviewWorldAnchors),
-    });
-  }, []);
-
   useFrame((_, delta) => {
     if (!enabled || !resolvedConnectorPairs?.length) return;
 

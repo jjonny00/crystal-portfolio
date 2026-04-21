@@ -466,12 +466,17 @@ const Fixed3DCanvas = forwardRef(({
     };
 
     syncDebugData();
+    const debugVisible = Boolean(debugData.showCrystalDebug);
+    if (!debugVisible) {
+      return undefined;
+    }
+
     const intervalId = window.setInterval(syncDebugData, 120);
 
     return () => {
       window.clearInterval(intervalId);
     };
-  }, []);
+  }, [debugData.showCrystalDebug]);
 
   // Update gradient background based on project focus or zone changes
   const bg = backgroundRef.current;

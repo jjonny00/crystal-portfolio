@@ -109,6 +109,10 @@ const UnifiedCameraController = ({
   const fractureTiltActiveRef = useRef(false);
   const fractureTiltAnchorPositionRef = useRef(new THREE.Vector3());
   const fractureTiltAnchorLookAtRef = useRef(new THREE.Vector3());
+  const introLookAtTempRef = useRef(new THREE.Vector3());
+  const currentDirectionTempRef = useRef(new THREE.Vector3());
+  const targetDirectionTempRef = useRef(new THREE.Vector3());
+  const newLookAtTempRef = useRef(new THREE.Vector3());
   const lastCrystalFormRef = useRef(animationData?.crystalForm ?? 'whole');
   const fractureJumpFrameRef = useRef(false);
 
@@ -1013,7 +1017,7 @@ const UnifiedCameraController = ({
       const positionProgress = progress < 0.5
         ? 4 * Math.pow(progress, 3)
         : 1 - Math.pow(-2 * progress + 2, 3) / 2;
-      const introLookAt = new THREE.Vector3().lerpVectors(
+      const introLookAt = introLookAtTempRef.current.lerpVectors(
         introFromRef.current.lookAt,
         introToRef.current.lookAt,
         easedProgress
@@ -1134,16 +1138,16 @@ const UnifiedCameraController = ({
     camera.position.lerp(currentTarget.current.position, clampedSmoothing);
 
     // Smooth look-at interpolation
-    const currentDirection = new THREE.Vector3();
+    const currentDirection = currentDirectionTempRef.current;
     camera.getWorldDirection(currentDirection);
 
-    const targetDirection = new THREE.Vector3()
+    const targetDirection = targetDirectionTempRef.current
       .subVectors(currentTarget.current.lookAt, camera.position)
       .normalize();
 
     currentDirection.lerp(targetDirection, clampedSmoothing).normalize();
 
-    const newLookAt = new THREE.Vector3()
+    const newLookAt = newLookAtTempRef.current
       .addVectors(camera.position, currentDirection);
 
     camera.lookAt(newLookAt);
