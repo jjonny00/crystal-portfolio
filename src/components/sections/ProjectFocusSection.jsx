@@ -22,11 +22,11 @@ const ProjectFocusSection = ({
   const contentSpring = useSpring({
     from: {
       opacity: 0,
-      transform: 'translateY(20px)'
+      transform: 'none'
     },
     to: {
       opacity: isProjectView ? 1 : 0,
-      transform: isProjectView ? 'none' : 'translateY(20px)'
+      transform: 'none'
     },
     delay: isProjectView ? 180 : 0,
     config: {

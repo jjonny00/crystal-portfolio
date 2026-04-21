@@ -42,11 +42,11 @@ const HeroSection = ({
   const subtitleSpring = useSpring({
     from: {
       opacity: 0,
-      transform: 'translateY(20px)'
+      transform: 'none'
     },
     to: {
       opacity: visible ? 1 : 0,
-      transform: visible ? 'none' : 'translateY(20px)'
+      transform: 'none'
     },
     config: { tension: 300, friction: 26 },
     delay: visible ? 600 : 0

@@ -67,6 +67,7 @@ const Navigation = ({ onHomeClick, onWorkClick, onAboutClick, onContactClick, is
 
   return (
     <nav
+      className="blend-force"
       style={{
         ...NAV_BASE_STYLE
       }}
