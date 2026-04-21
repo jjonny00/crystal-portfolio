@@ -75,6 +75,8 @@ const ScrollablePortfolio = ({
     const scheduleSettle = () => {
       const candidateId = getClosestSectionId();
 
+      setSettledSectionId(null);
+
       if (settleTimeoutRef.current) {
         clearTimeout(settleTimeoutRef.current);
       }
@@ -134,6 +136,7 @@ const ScrollablePortfolio = ({
         height: '100vh',
         overflowY: 'auto',
         overflowX: 'hidden',
+        zIndex: 10,
         WebkitOverflowScrolling: 'touch',
         backgroundColor: 'transparent',
         pointerEvents: overviewInteractionMode ? 'none' : 'auto',

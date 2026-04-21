@@ -67,7 +67,6 @@ const Navigation = ({ onHomeClick, onWorkClick, onAboutClick, onContactClick, is
 
   return (
     <nav
-      className="top-nav"
       style={{
         ...NAV_BASE_STYLE
       }}

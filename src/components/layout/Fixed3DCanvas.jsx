@@ -547,6 +547,7 @@ const Fixed3DCanvas = forwardRef(({
         left: 0,
         width: '100vw',
         height: '100vh',
+        zIndex: 1, // Behind scrollable content (which is z-index 10)
         pointerEvents: 'none', // Don't block scrolling
       }}>
         <Canvas
