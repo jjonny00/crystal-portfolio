@@ -21,14 +21,14 @@ const ProjectFocusSection = ({
 
   const contentSpring = useSpring({
     from: {
-      opacity: 0,
+      opacity: 1,
       transform: 'none'
     },
     to: {
-      opacity: isProjectView ? 1 : 0,
+      opacity: isProjectView ? 1 : 1,
       transform: 'none'
     },
-    delay: isProjectView ? 180 : 0,
+    delay: 0,
     config: {
       tension: 270,
       friction: 28
