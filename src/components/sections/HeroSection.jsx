@@ -41,15 +41,15 @@ const HeroSection = ({
 
   const subtitleSpring = useSpring({
     from: {
-      opacity: 0,
+      opacity: 1,
       transform: 'none'
     },
     to: {
-      opacity: visible ? 1 : 0,
+      opacity: visible ? 1 : 1,
       transform: 'none'
     },
     config: { tension: 300, friction: 26 },
-    delay: visible ? 600 : 0
+    delay: 0
   });
 
   const scrollHintSpring = useSpring({
