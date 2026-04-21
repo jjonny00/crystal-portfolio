@@ -63,9 +63,6 @@ body {
   scroll-snap-type: y mandatory !important;
   scroll-behavior: smooth !important;
   
-  /* Ensure it's above 3D canvas */
-  z-index: 10 !important;
-  
   /* Mobile scroll support */
   -webkit-overflow-scrolling: touch;
   

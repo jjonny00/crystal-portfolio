@@ -136,7 +136,6 @@ const ScrollablePortfolio = ({
         height: '100vh',
         overflowY: 'auto',
         overflowX: 'hidden',
-        zIndex: 10,
         WebkitOverflowScrolling: 'touch',
         backgroundColor: 'transparent',
         pointerEvents: overviewInteractionMode ? 'none' : 'auto',
