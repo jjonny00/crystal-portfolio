@@ -692,7 +692,7 @@ const UnifiedCrystalScene = forwardRef(({
       if (index === -1 || !facetMaterialsRef.current[index]) return;
       
       const mat = facetMaterialsRef.current[index];
-      if (!mat || mat.userData?.isFading) return;
+      if (!mat) return;
 
       // FIXED: Determine target color based on priority:
       // 1. Hover state (highest priority)
@@ -1400,8 +1400,6 @@ const UnifiedCrystalScene = forwardRef(({
       facetMaterialsRef.current.forEach((mat, idx) => {
         const key = facetKeys[idx];
 
-        if (mat.userData?.isFading) return;
-
         // FIXED: Don't change color of hovered facets - let hover take precedence
         if (currentHovered === key) {
           if (import.meta.env.DEV) {
@@ -1931,8 +1929,7 @@ const UnifiedCrystalScene = forwardRef(({
 
     // Smooth color transitions for facet materials
     facetMaterialsRef.current.forEach((mat) => {
-      const { targetColor, startColor, progress = 1, isFading } = mat.userData || {};
-      if (isFading) return;
+      const { targetColor, startColor, progress = 1 } = mat.userData || {};
       if (targetColor && startColor && progress < 1) {
         const speed = 4; // Faster response so hover color is active right as camera settles
         const nextProgress = Math.min(progress + deltaTime * speed, 1);
