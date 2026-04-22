@@ -734,9 +734,23 @@ const UnifiedCrystalScene = forwardRef(({
     [facetKeys, projectColors, animationData?.focusedFacet]
   )
 
+  const syncActiveHoverFromSources = useCallback(() => {
+    const activeFacetKey =
+      Object.entries(hoverSourcesRef.current).find(
+        ([, sources]) => sources?.label || sources?.facet
+      )?.[0] ?? null;
+
+    hoveredFacetRef.current = activeFacetKey;
+    setHoveredFacet(activeFacetKey);
+
+    facetKeys.forEach((key) => {
+      const sources = hoverSourcesRef.current[key];
+      applyHoverVisual(key, Boolean(sources?.label || sources?.facet));
+    });
+  }, [applyHoverVisual, facetKeys]);
+
   const updateHoverSources = useCallback(
     (facetKey, source, hovering) => {
-      if (!hoverInteractionReady) return;
       const currentSources = hoverSourcesRef.current[facetKey] || {
         label: false,
         facet: false,
@@ -751,17 +765,16 @@ const UnifiedCrystalScene = forwardRef(({
         [facetKey]: nextSources,
       };
 
-      const activeFacetKey =
-        Object.entries(hoverSourcesRef.current).find(
-          ([, sources]) => sources?.label || sources?.facet
-        )?.[0] ?? null;
-
-      setHoveredFacet(activeFacetKey);
-      hoveredFacetRef.current = activeFacetKey;
-      applyHoverVisual(facetKey, nextSources.label || nextSources.facet);
+      if (!hoverInteractionReady) return;
+      syncActiveHoverFromSources();
     },
-    [applyHoverVisual, hoverInteractionReady]
+    [hoverInteractionReady, syncActiveHoverFromSources]
   );
+
+  useEffect(() => {
+    if (!hoverInteractionReady) return;
+    syncActiveHoverFromSources();
+  }, [hoverInteractionReady, syncActiveHoverFromSources]);
 
   const handleLabelHover = useCallback(
     (facetKey, hovering) => {
