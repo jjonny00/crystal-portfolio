@@ -14,7 +14,7 @@ const OptimizedLabel = React.memo(function OptimizedLabel({
   onClick,
   isTargetActive = false,
 }) {
-  const FADE_IN_MS = 320;
+  const FADE_IN_MS = 120;
   const FADE_OUT_MS = 1300;
   const runtimeKey = project.facetKey || project.id;
   const [isDisplayActive, setIsDisplayActive] = useState(false);

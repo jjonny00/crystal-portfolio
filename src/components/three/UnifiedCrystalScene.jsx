@@ -105,6 +105,11 @@ const UnifiedCrystalScene = forwardRef(({
     animationData?.crystalForm === 'exploded' &&
     animationData?.isTransitioning === false;
   const cameraSettled = animationData?.cameraSettled === true;
+  const cameraMoveProgress = sharedCameraMoveProgressRef?.current ?? animationData?.cameraMoveProgress ?? 1;
+  const hoverInteractionReady =
+    animationData?.currentZone === 'overview' &&
+    animationData?.crystalForm === 'exploded' &&
+    (animationData?.isTransitioning === false || cameraSettled || cameraMoveProgress >= 0.995);
 
   const [alwaysOnDomAnchorsByRuntimeKey, setAlwaysOnDomAnchorsByRuntimeKey] = useState({});
   const [labelsReady, setLabelsReady] = useState(false);
@@ -731,7 +736,7 @@ const UnifiedCrystalScene = forwardRef(({
 
   const updateHoverSources = useCallback(
     (facetKey, source, hovering) => {
-      if (!inActiveOverview) return;
+      if (!hoverInteractionReady) return;
       const currentSources = hoverSourcesRef.current[facetKey] || {
         label: false,
         facet: false,
@@ -755,7 +760,7 @@ const UnifiedCrystalScene = forwardRef(({
       hoveredFacetRef.current = activeFacetKey;
       applyHoverVisual(facetKey, nextSources.label || nextSources.facet);
     },
-    [applyHoverVisual, inActiveOverview]
+    [applyHoverVisual, hoverInteractionReady]
   );
 
   const handleLabelHover = useCallback(
@@ -1916,7 +1921,7 @@ const UnifiedCrystalScene = forwardRef(({
       const { targetColor, startColor, progress = 1, isFading } = mat.userData || {};
       if (isFading) return;
       if (targetColor && startColor && progress < 1) {
-        const speed = 1.5; // seconds to fully transition
+        const speed = 4; // Faster response so hover color is active right as camera settles
         const nextProgress = Math.min(progress + deltaTime * speed, 1);
         const easedProgress = 1 - Math.pow(1 - nextProgress, 3);
         mat.userData.progress = nextProgress;
