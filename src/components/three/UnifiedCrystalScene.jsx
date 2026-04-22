@@ -813,6 +813,9 @@ const UnifiedCrystalScene = forwardRef(({
 
   useEffect(() => {
     if (inActiveOverview) return;
+    hoverSourcesRef.current = {};
+    hoveredFacetRef.current = null;
+    setHoveredFacet(null);
     setAlwaysOnDomAnchorsByRuntimeKey({});
     setLabelsReady(false);
     facetsSettledRef.current = false;
