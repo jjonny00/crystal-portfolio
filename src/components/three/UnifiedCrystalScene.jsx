@@ -557,8 +557,7 @@ const UnifiedCrystalScene = forwardRef(({
           facetKey,
           startTarget,
           endTarget,
-          direction: endTarget.clone().sub(startTarget).normalize(),
-          radialDirection: endTarget.clone().normalize()
+          direction: endTarget.clone().sub(startTarget).normalize()
         };
       });
     const directionPool = explodedFacetEntries.length
@@ -590,19 +589,12 @@ const UnifiedCrystalScene = forwardRef(({
       const clusterEnd = clusterEntry?.endTarget || clusterDirection.clone().multiplyScalar(avgFacetDistance);
       const clusterTravelVector = clusterEnd.clone().sub(clusterStart);
       const clusterTravelDistance = Math.max(clusterTravelVector.length(), 0.001);
-      const radialDirection = clusterEntry?.radialDirection || clusterEnd.clone().normalize();
       let direction = clusterDirection.clone();
       let startPosition = clusterStart.clone();
       let explodedPosition = clusterStart.clone();
       const resolvedScale = resolveScaleForIndex(index, clusterLocalIndex);
       const sampleSeed = index * 97 + clusterLocalIndex * 13;
-      const azimuth = (hash(sampleSeed + 11) - 0.5) * 0.5;
-      const elevation = (hash(sampleSeed + 23) - 0.5) * 0.42;
-      direction = clusterDirection
-        .clone()
-        .applyAxisAngle(new THREE.Vector3(0, 1, 0), azimuth)
-        .applyAxisAngle(new THREE.Vector3(1, 0, 0), elevation)
-        .normalize();
+      direction = clusterDirection.clone().normalize();
 
       const tangentAxis = Math.abs(direction.y) < 0.92
         ? new THREE.Vector3(0, 1, 0).cross(direction).normalize()
@@ -610,20 +602,19 @@ const UnifiedCrystalScene = forwardRef(({
       const bitangentAxis = direction.clone().cross(tangentAxis).normalize();
 
       const tierDistanceRange = resolvedScale.tier === 'large'
-        ? [0.82, 0.98]
+        ? [0.85, 0.95]
         : resolvedScale.tier === 'medium'
-        ? [0.45, 0.76]
-        : [0.18, 0.52];
+        ? [0.52, 0.68]
+        : [0.22, 0.38];
       const distanceRatio = tierDistanceRange[0] + hash(sampleSeed + 31) * (tierDistanceRange[1] - tierDistanceRange[0]);
 
-      const startSpread = 0.18 + hash(sampleSeed + 41) * 0.34;
+      const startSpread = 0.28 + hash(sampleSeed + 41) * 0.44;
       const endSpreadMultiplier = resolvedScale.tier === 'large'
-        ? 0.55
+        ? 0.72
         : resolvedScale.tier === 'medium'
-        ? 0.48
-        : 0.42;
-      const endSpread = (0.3 + hash(sampleSeed + 47) * 0.56) * endSpreadMultiplier;
-      const outwardBias = (0.1 + hash(sampleSeed + 53) * 0.24) * endSpreadMultiplier;
+        ? 0.62
+        : 0.52;
+      const endSpread = (0.38 + hash(sampleSeed + 47) * 0.74) * endSpreadMultiplier;
       const startOffset = tangentAxis
         .clone()
         .multiplyScalar((hash(sampleSeed + 59) - 0.5) * startSpread)
@@ -631,14 +622,13 @@ const UnifiedCrystalScene = forwardRef(({
       const endOffset = tangentAxis
         .clone()
         .multiplyScalar((hash(sampleSeed + 67) - 0.5) * endSpread)
-        .add(bitangentAxis.clone().multiplyScalar((hash(sampleSeed + 71) - 0.5) * endSpread))
-        .add(radialDirection.clone().multiplyScalar(outwardBias));
+        .add(bitangentAxis.clone().multiplyScalar((hash(sampleSeed + 71) - 0.5) * endSpread));
 
       startPosition = clusterStart.clone().add(startOffset);
       const targetAlongFacet = clusterStart
         .clone()
         .add(clusterDirection.clone().multiplyScalar(clusterTravelDistance * distanceRatio));
-      const endOffsetScale = 0.7 + Math.sqrt(clusterTravelDistance) * 0.75;
+      const endOffsetScale = 1.2 + Math.sqrt(clusterTravelDistance) * 0.95;
       explodedPosition = targetAlongFacet
         .clone()
         .add(endOffset.multiplyScalar(endOffsetScale));
