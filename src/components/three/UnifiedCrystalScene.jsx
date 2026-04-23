@@ -79,6 +79,7 @@ const UnifiedCrystalScene = forwardRef(({
   const facetsGroupRef = useRef();
   const shardGroupRef = useRef();
   const crystalMaterialRef = useRef();
+  const shardMaterialRef = useRef(null);
 
   // Sphere state
   const [sphereVisible, setSphereVisible] = useState(false);
@@ -617,6 +618,13 @@ const UnifiedCrystalScene = forwardRef(({
   useEffect(() => {
     const sharedMaterial = crystalMaterialRef.current;
     if (!sharedMaterial) return;
+    if (shardMaterialRef.current?.dispose) {
+      shardMaterialRef.current.dispose();
+    }
+    const shardMaterial = sharedMaterial.clone();
+    shardMaterial.depthWrite = false;
+    shardMaterial.needsUpdate = true;
+    shardMaterialRef.current = shardMaterial;
 
     fragmentScenes.forEach((scene) => {
       if (!scene) return;
@@ -625,9 +633,9 @@ const UnifiedCrystalScene = forwardRef(({
         if (!child?.isMesh || child.userData?.isOverlay) return;
         const currentMaterial = child.material;
         if (Array.isArray(currentMaterial)) {
-          child.material = currentMaterial.map(() => sharedMaterial);
+          child.material = currentMaterial.map(() => shardMaterial);
         } else {
-          child.material = sharedMaterial;
+          child.material = shardMaterial;
         }
         child.renderOrder = 40 + meshOrder;
         meshOrder += 1;
@@ -2162,6 +2170,10 @@ const UnifiedCrystalScene = forwardRef(({
 
   useEffect(() => {
     return () => {
+      if (shardMaterialRef.current?.dispose) {
+        shardMaterialRef.current.dispose();
+      }
+      shardMaterialRef.current = null;
       cleanupOverlays();
       resetRenderedFacetMaskGlow();
       pendingExplodeSwapAtRef.current = null;
