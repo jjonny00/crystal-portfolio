@@ -1259,6 +1259,12 @@ const UnifiedCrystalScene = forwardRef(({
       return mat;
     });
 
+    fragmentModels.forEach((model) => {
+      if (!model?.scene) return;
+      const fragmentMaterial = crystalMaterialRef.current.clone();
+      applyMaterial(model.scene, fragmentMaterial);
+    });
+
     // If fracture glow is active, apply current fade state to new materials
     if (fractureGlowStartRef.current) {
       const elapsedGlow = (performance.now() - fractureGlowStartRef.current) / 1000;
@@ -1301,6 +1307,7 @@ const UnifiedCrystalScene = forwardRef(({
   }, [
     wholeCrystal,
     facetModels,
+    fragmentModels,
     materialVersion,
     facetKeys,
     projectColors,
