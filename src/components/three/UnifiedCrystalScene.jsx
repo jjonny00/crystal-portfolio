@@ -556,9 +556,13 @@ const UnifiedCrystalScene = forwardRef(({
       );
     const resolveScaleForIndex = (index) => {
       const tierRoll = hash(index + 83);
-      if (tierRoll < 0.76) return 0.022 + hash(index + 84) * 0.05; // tiny chips
-      if (tierRoll < 0.91) return 0.07 + hash(index + 85) * 0.09;  // medium chips (reduced share)
-      return 0.16 + hash(index + 86) * 0.18;                        // few larger shards
+      if (tierRoll < 0.76) {
+        return { tier: 'small', scale: 0.022 + hash(index + 84) * 0.05 };
+      }
+      if (tierRoll < 0.91) {
+        return { tier: 'medium', scale: 0.07 + hash(index + 85) * 0.09 };
+      }
+      return { tier: 'large', scale: 0.16 + hash(index + 86) * 0.18 };
     };
 
     return Array.from({ length: FRAGMENT_INSTANCE_COUNT }, (_, index) => {
@@ -591,8 +595,8 @@ const UnifiedCrystalScene = forwardRef(({
 
         if (
           !intersectsFacetDirection &&
-          !intersectsFacetVolumes(startPosition, resolvedScale) &&
-          !intersectsFacetVolumes(explodedPosition, resolvedScale)
+          !intersectsFacetVolumes(startPosition, resolvedScale.scale) &&
+          !intersectsFacetVolumes(explodedPosition, resolvedScale.scale)
         ) {
           break;
         }
@@ -619,13 +623,18 @@ const UnifiedCrystalScene = forwardRef(({
 
       return {
         key: `fragment-instance-${index}`,
-        geometryIndex: Math.floor(hash(index + 101) * 30),
+        geometryIndex:
+          resolvedScale.tier === 'small'
+            ? Math.floor(hash(index + 101) * 14) // 0..13
+            : resolvedScale.tier === 'medium'
+            ? 14 + Math.floor(hash(index + 103) * 10) // 14..23
+            : 24 + Math.floor(hash(index + 107) * 6), // 24..29
         startPosition,
         explodedPosition,
         startQuaternion: new THREE.Quaternion().setFromEuler(baseEuler),
         explodedQuaternion: new THREE.Quaternion().setFromEuler(explodedEuler),
         startRotation: [baseEuler.x, baseEuler.y, baseEuler.z],
-        scale: resolvedScale,
+        scale: resolvedScale.scale,
         reformLerp: 0.02 + hash(index + 89) * 0.08
       };
     });
@@ -642,43 +651,38 @@ const UnifiedCrystalScene = forwardRef(({
       const value = Math.sin(seed * 17.731 + 5.192) * 43758.5453;
       return value - Math.floor(value);
     };
-    const jitterVertices = (geometry, seed) => {
-      const position = geometry.attributes.position;
-      if (!position) return geometry;
-      for (let i = 0; i < position.count; i += 1) {
-        const x = position.getX(i);
-        const y = position.getY(i);
-        const z = position.getZ(i);
-        const xJitter = (hash(seed * 97 + i * 13) - 0.5) * 0.18;
-        const yJitter = (hash(seed * 103 + i * 17) - 0.5) * 0.22;
-        const zJitter = (hash(seed * 109 + i * 19) - 0.5) * 0.18;
-        const asymX = (hash(seed * 113) - 0.5) * 0.08;
-        const asymZ = (hash(seed * 127) - 0.5) * 0.08;
-        position.setXYZ(
-          i,
-          x * (1 + xJitter) + asymX,
-          y * (1 + yJitter),
-          z * (1 + zJitter) + asymZ
-        );
-      }
-      position.needsUpdate = true;
-      return geometry;
-    };
     const make = (geometry, scale = [1, 1, 1]) => {
       geometry.scale(scale[0], scale[1], scale[2]);
       geometry.rotateX(Math.PI * (0.2 + hash(scale[0] * 13.7) * 0.8));
       geometry.rotateY(Math.PI * (0.1 + hash(scale[1] * 19.3) * 0.6));
-      jitterVertices(geometry, scale[0] * 31.7 + scale[1] * 17.3 + scale[2] * 11.9);
       geometry.computeVertexNormals();
       return geometry;
     };
     return Array.from({ length: 30 }, (_, i) => {
       const seed = i + 1;
-      const sx = 0.35 + hash(seed + 11) * 0.9;
-      const sy = 0.7 + hash(seed + 13) * 1.6;
-      const sz = 0.25 + hash(seed + 17) * 0.8;
-      const radial = 0.12 + hash(seed + 19) * 0.22;
-      const height = 0.36 + hash(seed + 23) * 0.66;
+      const isSmall = i < 14;
+      const isMedium = i >= 14 && i < 24;
+      const sx = isSmall
+        ? 0.55 + hash(seed + 11) * 0.45
+        : isMedium
+        ? 0.45 + hash(seed + 11) * 0.7
+        : 0.35 + hash(seed + 11) * 1.0;
+      const sy = isSmall
+        ? 0.65 + hash(seed + 13) * 0.55
+        : isMedium
+        ? 0.9 + hash(seed + 13) * 1.0
+        : 1.2 + hash(seed + 13) * 1.35;
+      const sz = isSmall
+        ? 0.5 + hash(seed + 17) * 0.45
+        : isMedium
+        ? 0.35 + hash(seed + 17) * 0.75
+        : 0.25 + hash(seed + 17) * 0.9;
+      const radial = 0.1 + hash(seed + 19) * 0.2;
+      const height = isSmall
+        ? 0.22 + hash(seed + 23) * 0.28
+        : isMedium
+        ? 0.3 + hash(seed + 23) * 0.45
+        : 0.42 + hash(seed + 23) * 0.68;
       const sides = 3 + Math.floor(hash(seed + 29) * 4); // 3..6
 
       if (i % 5 === 0) {
