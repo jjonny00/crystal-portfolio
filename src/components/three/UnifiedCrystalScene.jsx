@@ -627,6 +627,10 @@ const UnifiedCrystalScene = forwardRef(({
     () => fragmentInstances.map((instance) => fragmentModels[instance.modelIndex]?.scene?.clone(true) ?? null),
     [fragmentInstances, fragmentModels]
   );
+  const diagnosticShardGeometry = useMemo(
+    () => new THREE.IcosahedronGeometry(1, 0),
+    []
+  );
 
   useEffect(() => {
     const sharedMaterial = crystalMaterialRef.current;
@@ -2191,6 +2195,7 @@ const UnifiedCrystalScene = forwardRef(({
 
   useEffect(() => {
     return () => {
+      diagnosticShardGeometry.dispose();
       if (shardMaterialRef.current?.dispose) {
         shardMaterialRef.current.dispose();
       }
@@ -2204,7 +2209,7 @@ const UnifiedCrystalScene = forwardRef(({
       swapMaskGlowModeRef.current = null;
       reformProgressGlowRef.current = 0;
     };
-  }, [cleanupOverlays, resetRenderedFacetMaskGlow]);
+  }, [cleanupOverlays, resetRenderedFacetMaskGlow, diagnosticShardGeometry]);
 
   return (
     <group ref={crystalGroupRef}>
@@ -2263,6 +2268,19 @@ const UnifiedCrystalScene = forwardRef(({
         <>
           <group ref={shardGroupRef} renderOrder={1200} visible={!hideFacetMeshesDuringReformOverlap}>
             {fragmentInstances.map((instance, index) => {
+              if (SHARD_DIAGNOSTIC.enabled) {
+                return (
+                  <mesh
+                    key={instance.key}
+                    ref={fragmentRefs.current[index]}
+                    geometry={diagnosticShardGeometry}
+                    material={shardMaterialRef.current || undefined}
+                    position={instance.startPosition.toArray()}
+                    rotation={instance.startRotation}
+                    scale={[instance.scale, instance.scale, instance.scale]}
+                  />
+                );
+              }
               const object = fragmentScenes[index];
               if (!object) return null;
               return (
