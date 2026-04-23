@@ -77,6 +77,7 @@ const UnifiedCrystalScene = forwardRef(({
   const wholeCrystalRef = useRef();
   const facetRefs = useRef([]);
   const facetsGroupRef = useRef();
+  const shardGroupRef = useRef();
   const crystalMaterialRef = useRef();
 
   // Sphere state
@@ -596,7 +597,7 @@ const UnifiedCrystalScene = forwardRef(({
         startQuaternion: new THREE.Quaternion().setFromEuler(baseEuler),
         explodedQuaternion: new THREE.Quaternion().setFromEuler(explodedEuler),
         startRotation: [baseEuler.x, baseEuler.y, baseEuler.z],
-        scale: 0.28 + hash(index + 83) * 0.34,
+        scale: 0.45 + hash(index + 83) * 0.65,
         reformLerp: 0.02 + hash(index + 89) * 0.08
       };
     });
@@ -619,6 +620,7 @@ const UnifiedCrystalScene = forwardRef(({
 
     fragmentScenes.forEach((scene) => {
       if (!scene) return;
+      let meshOrder = 0;
       scene.traverse((child) => {
         if (!child?.isMesh || child.userData?.isOverlay) return;
         const currentMaterial = child.material;
@@ -627,6 +629,8 @@ const UnifiedCrystalScene = forwardRef(({
         } else {
           child.material = sharedMaterial;
         }
+        child.renderOrder = 40 + meshOrder;
+        meshOrder += 1;
         child.castShadow = false;
         child.receiveShadow = false;
       });
@@ -2224,7 +2228,7 @@ const UnifiedCrystalScene = forwardRef(({
       
       {showFacets && !simplifiedAnimations && (
         <>
-          <group visible={!hideFacetMeshesDuringReformOverlap}>
+          <group ref={shardGroupRef} renderOrder={40} visible={!hideFacetMeshesDuringReformOverlap}>
             {fragmentInstances.map((instance, index) => {
               const object = fragmentScenes[index];
               if (!object) return null;
