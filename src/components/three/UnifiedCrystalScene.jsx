@@ -596,7 +596,7 @@ const UnifiedCrystalScene = forwardRef(({
         startQuaternion: new THREE.Quaternion().setFromEuler(baseEuler),
         explodedQuaternion: new THREE.Quaternion().setFromEuler(explodedEuler),
         startRotation: [baseEuler.x, baseEuler.y, baseEuler.z],
-        scale: 0.07 + hash(index + 83) * 0.11,
+        scale: 0.18 + hash(index + 83) * 0.24,
         reformLerp: 0.02 + hash(index + 89) * 0.08
       };
     });
