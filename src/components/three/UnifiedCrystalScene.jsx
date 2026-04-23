@@ -45,6 +45,17 @@ const REFORM_MASK_GLOW_PEAK_INTENSITY = 1.5
 const REFORM_FACET_MASK_GLOW_PEAK_INTENSITY = 1.3
 const REFORM_SWAP_OVERLAP_MS = 100
 const ENABLE_OVERVIEW_ALL_CONNECTORS = true
+const FRAGMENT_MODEL_URLS = [
+  '/assets/models/fragment01.glb',
+  '/assets/models/fragment02.glb',
+  '/assets/models/fragment03.glb',
+  '/assets/models/fragment04.glb',
+  '/assets/models/fragment05.glb',
+  '/assets/models/fragment06.glb',
+  '/assets/models/fragment07.glb',
+  '/assets/models/fragment08.glb'
+]
+const FRAGMENT_INSTANCE_COUNT = 24
 
 const logger = createLogger('unified-crystal-scene');
 
@@ -525,6 +536,82 @@ const UnifiedCrystalScene = forwardRef(({
 
     return useGLTF(modelUrl);
   });
+  const fragmentModels = FRAGMENT_MODEL_URLS.map((modelUrl) => useGLTF(modelUrl));
+
+  const fragmentInstances = useMemo(() => {
+    const hash = (seed) => {
+      const value = Math.sin(seed * 12.9898 + 78.233) * 43758.5453;
+      return value - Math.floor(value);
+    };
+
+    const explodedTargets = facetKeys
+      .map((facetKey) => crystalConfig?.positions?.[facetPlacementKeys[facetKey] || facetKey])
+      .filter(Boolean);
+    const directionPool = explodedTargets.length
+      ? explodedTargets.map((target) => target.clone().normalize())
+      : [new THREE.Vector3(1, 0, 0)];
+
+    const avgFacetDistance = explodedTargets.length
+      ? explodedTargets.reduce((sum, vec) => sum + vec.length(), 0) / explodedTargets.length
+      : 1.2;
+
+    return Array.from({ length: FRAGMENT_INSTANCE_COUNT }, (_, index) => {
+      const baseDirection = directionPool[index % directionPool.length].clone();
+      const azimuth = (hash(index + 11) - 0.5) * 0.8;
+      const elevation = (hash(index + 23) - 0.5) * 0.6;
+      const direction = baseDirection
+        .applyAxisAngle(new THREE.Vector3(0, 1, 0), azimuth)
+        .applyAxisAngle(new THREE.Vector3(1, 0, 0), elevation)
+        .normalize();
+
+      const startRadius = 0.08 + hash(index + 31) * 0.22;
+      const travelDistance = avgFacetDistance * (0.7 + hash(index + 43) * 0.9);
+      const startPosition = direction.clone().multiplyScalar(startRadius);
+      const explodedPosition = startPosition.clone().add(direction.clone().multiplyScalar(travelDistance));
+
+      const baseEuler = new THREE.Euler(
+        hash(index + 59) * Math.PI * 2,
+        hash(index + 61) * Math.PI * 2,
+        hash(index + 67) * Math.PI * 2,
+        'XYZ'
+      );
+      const spinEuler = new THREE.Euler(
+        (hash(index + 71) - 0.5) * Math.PI * 3.2,
+        (hash(index + 73) - 0.5) * Math.PI * 3.2,
+        (hash(index + 79) - 0.5) * Math.PI * 3.2,
+        'XYZ'
+      );
+      const explodedEuler = new THREE.Euler(
+        baseEuler.x + spinEuler.x,
+        baseEuler.y + spinEuler.y,
+        baseEuler.z + spinEuler.z,
+        'XYZ'
+      );
+
+      return {
+        key: `fragment-instance-${index}`,
+        modelIndex: index % FRAGMENT_MODEL_URLS.length,
+        startPosition,
+        explodedPosition,
+        startQuaternion: new THREE.Quaternion().setFromEuler(baseEuler),
+        explodedQuaternion: new THREE.Quaternion().setFromEuler(explodedEuler),
+        startRotation: [baseEuler.x, baseEuler.y, baseEuler.z],
+        scale: 0.07 + hash(index + 83) * 0.11,
+        reformLerp: 0.02 + hash(index + 89) * 0.08
+      };
+    });
+  }, [crystalConfig?.positions, facetKeys, facetPlacementKeys]);
+
+  const fragmentRefs = useRef([]);
+  useEffect(() => {
+    if (fragmentRefs.current.length === fragmentInstances.length) return;
+    fragmentRefs.current = fragmentInstances.map((_, index) => fragmentRefs.current[index] || React.createRef());
+  }, [fragmentInstances]);
+
+  const fragmentScenes = useMemo(
+    () => fragmentInstances.map((instance) => fragmentModels[instance.modelIndex]?.scene?.clone(true) ?? null),
+    [fragmentInstances, fragmentModels]
+  );
 
   // Mark models as loaded when all GLTF hooks resolve
   useEffect(() => {
@@ -1727,6 +1814,22 @@ const UnifiedCrystalScene = forwardRef(({
 
     // Handle facet animations
     if (showFacets && crystalConfig?.positions) {
+      const setFragmentProgress = (progressValue) => {
+        const clampedProgress = THREE.MathUtils.clamp(progressValue, 0, 1);
+        fragmentRefs.current.forEach((fragmentRef, index) => {
+          if (!fragmentRef?.current) return;
+          const instance = fragmentInstances[index];
+          fragmentRef.current.position
+            .copy(instance.startPosition)
+            .lerp(instance.explodedPosition, clampedProgress);
+          fragmentRef.current.quaternion.slerpQuaternions(
+            instance.startQuaternion,
+            instance.explodedQuaternion,
+            clampedProgress
+          );
+        });
+      };
+
       // Custom fracture/explosion timing
       if (animationData.crystalForm === 'exploded' && explosionStartRef.current) {
         const fracturePause = crystalConfig?.fracturePause || 0.5;
@@ -1739,6 +1842,7 @@ const UnifiedCrystalScene = forwardRef(({
         const eased = crystalConfig?.explosionEase
           ? crystalConfig?.explosionEase(progress)
           : progress;
+        setFragmentProgress(eased);
 
         if (facetsGroupRef.current) {
           facetsGroupRef.current.quaternion.slerpQuaternions(
@@ -1904,6 +2008,25 @@ const UnifiedCrystalScene = forwardRef(({
           facetRef.current.quaternion.slerp(targetQuat, rotationLerp);
         }
       });
+
+      if (isReforming) {
+        fragmentRefs.current.forEach((fragmentRef, index) => {
+          if (!fragmentRef?.current) return;
+          const instance = fragmentInstances[index];
+          const step = instance.reformLerp * deltaTime * 60;
+          fragmentRef.current.position.lerp(instance.startPosition, step);
+          fragmentRef.current.quaternion.slerp(instance.startQuaternion, step);
+
+          if (fragmentRef.current.position.distanceTo(instance.startPosition) < 0.003) {
+            fragmentRef.current.position.copy(instance.startPosition);
+          }
+          if (fragmentRef.current.quaternion.angleTo(instance.startQuaternion) < 0.003) {
+            fragmentRef.current.quaternion.copy(instance.startQuaternion);
+          }
+        });
+      } else if (animationData.crystalForm === 'exploded') {
+        setFragmentProgress(1);
+      }
 
       if (isReforming) {
         const easedReformGlow = Math.pow(THREE.MathUtils.clamp(reformConvergenceProgress, 0, 1), 1.8);
@@ -2080,32 +2203,50 @@ const UnifiedCrystalScene = forwardRef(({
       )}
       
       {showFacets && !simplifiedAnimations && (
-        <group ref={facetsGroupRef} visible={!hideFacetMeshesDuringReformOverlap}>
-          {facetModels.map((model, index) => {
-            const facetKey = facetKeys[index];
+        <>
+          <group visible={!hideFacetMeshesDuringReformOverlap}>
+            {fragmentInstances.map((instance, index) => {
+              const object = fragmentScenes[index];
+              if (!object) return null;
+              return (
+                <primitive
+                  key={instance.key}
+                  ref={fragmentRefs.current[index]}
+                  object={object}
+                  position={instance.startPosition.toArray()}
+                  rotation={instance.startRotation}
+                  scale={[instance.scale, instance.scale, instance.scale]}
+                />
+              );
+            })}
+          </group>
+          <group ref={facetsGroupRef} visible={!hideFacetMeshesDuringReformOverlap}>
+            {facetModels.map((model, index) => {
+              const facetKey = facetKeys[index];
 
-            return (
-              <primitive
-                key={facetKey}
-                ref={facetRefs.current[index]}
-                object={model.scene}
-                position={[0, 0, 0]} // Position will be animated via useFrame
-                onPointerEnter={(event) => {
-                  event.stopPropagation();
-                  handleFacetHover(facetKey, true);
-                }}
-                onPointerLeave={(event) => {
-                  event.stopPropagation();
-                  handleFacetHover(facetKey, false);
-                }}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  handleFacetClick(facetKey);
-                }}
-              />
-            );
-          })}
-        </group>
+              return (
+                <primitive
+                  key={facetKey}
+                  ref={facetRefs.current[index]}
+                  object={model.scene}
+                  position={[0, 0, 0]} // Position will be animated via useFrame
+                  onPointerEnter={(event) => {
+                    event.stopPropagation();
+                    handleFacetHover(facetKey, true);
+                  }}
+                  onPointerLeave={(event) => {
+                    event.stopPropagation();
+                    handleFacetHover(facetKey, false);
+                  }}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    handleFacetClick(facetKey);
+                  }}
+                />
+              );
+            })}
+          </group>
+        </>
       )}
 
       <FacetLabels
