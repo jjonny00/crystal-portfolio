@@ -544,20 +544,34 @@ const UnifiedCrystalScene = forwardRef(({
     const avgFacetDistance = explodedTargets.length
       ? explodedTargets.reduce((sum, vec) => sum + vec.length(), 0) / explodedTargets.length
       : 1.2;
+    const facetExclusionRadius = avgFacetDistance * 0.35;
+    const intersectsFacetVolumes = (position) =>
+      explodedTargets.some((target) => target.distanceTo(position) < facetExclusionRadius);
 
     return Array.from({ length: FRAGMENT_INSTANCE_COUNT }, (_, index) => {
-      const baseDirection = directionPool[index % directionPool.length].clone();
-      const azimuth = (hash(index + 11) - 0.5) * 0.8;
-      const elevation = (hash(index + 23) - 0.5) * 0.6;
-      const direction = baseDirection
-        .applyAxisAngle(new THREE.Vector3(0, 1, 0), azimuth)
-        .applyAxisAngle(new THREE.Vector3(1, 0, 0), elevation)
-        .normalize();
+      let direction = directionPool[index % directionPool.length].clone();
+      let startPosition = direction.clone().multiplyScalar(0.16);
+      let explodedPosition = direction.clone().multiplyScalar(avgFacetDistance * 1.2);
 
-      const startRadius = 0.18 + hash(index + 31) * 0.28;
-      const travelDistance = avgFacetDistance * (1.05 + hash(index + 43) * 1.05);
-      const startPosition = direction.clone().multiplyScalar(startRadius);
-      const explodedPosition = startPosition.clone().add(direction.clone().multiplyScalar(travelDistance));
+      for (let attempt = 0; attempt < 6; attempt += 1) {
+        const sampleSeed = index + attempt * 97;
+        const baseDirection = directionPool[sampleSeed % directionPool.length].clone();
+        const azimuth = (hash(sampleSeed + 11) - 0.5) * 1.05;
+        const elevation = (hash(sampleSeed + 23) - 0.5) * 0.9;
+        direction = baseDirection
+          .applyAxisAngle(new THREE.Vector3(0, 1, 0), azimuth)
+          .applyAxisAngle(new THREE.Vector3(1, 0, 0), elevation)
+          .normalize();
+
+        const startRadius = 0.12 + hash(sampleSeed + 31) * 0.48;
+        const travelDistance = avgFacetDistance * (1.0 + hash(sampleSeed + 43) * 1.2);
+        startPosition = direction.clone().multiplyScalar(startRadius);
+        explodedPosition = startPosition.clone().add(direction.clone().multiplyScalar(travelDistance));
+
+        if (!intersectsFacetVolumes(startPosition) && !intersectsFacetVolumes(explodedPosition)) {
+          break;
+        }
+      }
 
       const baseEuler = new THREE.Euler(
         hash(index + 59) * Math.PI * 2,
@@ -580,13 +594,19 @@ const UnifiedCrystalScene = forwardRef(({
 
       return {
         key: `fragment-instance-${index}`,
-        geometryIndex: index % 6,
+        geometryIndex: Math.floor(hash(index + 101) * 18),
         startPosition,
         explodedPosition,
         startQuaternion: new THREE.Quaternion().setFromEuler(baseEuler),
         explodedQuaternion: new THREE.Quaternion().setFromEuler(explodedEuler),
         startRotation: [baseEuler.x, baseEuler.y, baseEuler.z],
-        scale: 0.08 + hash(index + 83) * 0.14,
+        scale:
+          (() => {
+            const tierRoll = hash(index + 83);
+            if (tierRoll < 0.68) return 0.022 + hash(index + 84) * 0.05; // tiny chips
+            if (tierRoll < 0.94) return 0.07 + hash(index + 85) * 0.1;   // medium chips
+            return 0.16 + hash(index + 86) * 0.18;                        // few larger shards
+          })(),
         reformLerp: 0.02 + hash(index + 89) * 0.08
       };
     });
@@ -599,20 +619,37 @@ const UnifiedCrystalScene = forwardRef(({
   }, [fragmentInstances]);
 
   const proceduralShardGeometries = useMemo(() => {
+    const hash = (seed) => {
+      const value = Math.sin(seed * 17.731 + 5.192) * 43758.5453;
+      return value - Math.floor(value);
+    };
     const make = (geometry, scale = [1, 1, 1]) => {
       geometry.scale(scale[0], scale[1], scale[2]);
-      geometry.rotateX(Math.PI * 0.5);
+      geometry.rotateX(Math.PI * (0.2 + hash(scale[0] * 13.7) * 0.8));
+      geometry.rotateY(Math.PI * (0.1 + hash(scale[1] * 19.3) * 0.6));
       geometry.computeVertexNormals();
       return geometry;
     };
-    return [
-      make(new THREE.TetrahedronGeometry(0.32, 0), [0.7, 1.3, 0.6]),
-      make(new THREE.OctahedronGeometry(0.30, 0), [0.6, 1.5, 0.7]),
-      make(new THREE.ConeGeometry(0.24, 0.72, 4, 1), [0.9, 1.0, 0.6]),
-      make(new THREE.CylinderGeometry(0.08, 0.3, 0.64, 4, 1), [0.9, 1.1, 0.6]),
-      make(new THREE.ConeGeometry(0.22, 0.56, 3, 1), [1.0, 1.0, 0.8]),
-      make(new THREE.OctahedronGeometry(0.28, 0), [0.5, 1.7, 0.5]),
-    ];
+    return Array.from({ length: 18 }, (_, i) => {
+      const seed = i + 1;
+      const sx = 0.35 + hash(seed + 11) * 0.9;
+      const sy = 0.7 + hash(seed + 13) * 1.6;
+      const sz = 0.25 + hash(seed + 17) * 0.8;
+      const radial = 0.12 + hash(seed + 19) * 0.22;
+      const height = 0.36 + hash(seed + 23) * 0.66;
+      const sides = 3 + Math.floor(hash(seed + 29) * 3); // 3..5
+
+      if (i % 4 === 0) {
+        return make(new THREE.ConeGeometry(radial, height, sides, 1), [sx, sy, sz]);
+      }
+      if (i % 4 === 1) {
+        return make(new THREE.CylinderGeometry(radial * 0.25, radial, height, sides, 1), [sx, sy, sz]);
+      }
+      if (i % 4 === 2) {
+        return make(new THREE.OctahedronGeometry(0.16 + hash(seed + 31) * 0.2, 0), [sx, sy, sz]);
+      }
+      return make(new THREE.TetrahedronGeometry(0.15 + hash(seed + 37) * 0.2, 0), [sx, sy, sz]);
+    });
   }, []);
 
   useEffect(() => {
