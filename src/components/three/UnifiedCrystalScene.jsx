@@ -609,9 +609,21 @@ const UnifiedCrystalScene = forwardRef(({
         : new THREE.Vector3(1, 0, 0).cross(direction).normalize();
       const bitangentAxis = direction.clone().cross(tangentAxis).normalize();
 
-      const startSpread = (0.04 + hash(sampleSeed + 41) * 0.08) * 3;
-      const endSpread = (0.08 + hash(sampleSeed + 47) * 0.14) * 3;
-      const outwardBias = (0.04 + hash(sampleSeed + 53) * 0.08) * 3;
+      const tierDistanceRange = resolvedScale.tier === 'large'
+        ? [0.82, 0.98]
+        : resolvedScale.tier === 'medium'
+        ? [0.45, 0.76]
+        : [0.18, 0.52];
+      const distanceRatio = tierDistanceRange[0] + hash(sampleSeed + 31) * (tierDistanceRange[1] - tierDistanceRange[0]);
+
+      const startSpread = 0.12 + hash(sampleSeed + 41) * 0.22;
+      const endSpreadMultiplier = resolvedScale.tier === 'large'
+        ? 0.42
+        : resolvedScale.tier === 'medium'
+        ? 0.34
+        : 0.28;
+      const endSpread = (0.24 + hash(sampleSeed + 47) * 0.42) * endSpreadMultiplier;
+      const outwardBias = (0.08 + hash(sampleSeed + 53) * 0.18) * endSpreadMultiplier;
       const startOffset = tangentAxis
         .clone()
         .multiplyScalar((hash(sampleSeed + 59) - 0.5) * startSpread)
@@ -623,10 +635,12 @@ const UnifiedCrystalScene = forwardRef(({
         .add(radialDirection.clone().multiplyScalar(outwardBias));
 
       startPosition = clusterStart.clone().add(startOffset);
-      const tierPullback = resolvedScale.tier === 'large' ? 0.03 : resolvedScale.tier === 'medium' ? 0.08 : 0.14;
-      explodedPosition = clusterEnd
+      const targetAlongFacet = clusterStart
         .clone()
-        .add(endOffset.multiplyScalar(clusterTravelDistance * (1 - tierPullback)));
+        .add(clusterDirection.clone().multiplyScalar(clusterTravelDistance * distanceRatio));
+      explodedPosition = targetAlongFacet
+        .clone()
+        .add(endOffset.multiplyScalar(clusterTravelDistance));
 
       const baseEuler = new THREE.Euler(
         hash(index + 59) * Math.PI * 2,
