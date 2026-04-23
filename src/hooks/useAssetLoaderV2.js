@@ -12,7 +12,15 @@ const MODEL_DESCRIPTORS = [
   { key: 'project03', url: '/assets/models/Project03.glb' },
   { key: 'project04', url: '/assets/models/Project04.glb' },
   { key: 'project05', url: '/assets/models/Project05.glb' },
-  { key: 'project06', url: '/assets/models/Project06.glb' }
+  { key: 'project06', url: '/assets/models/Project06.glb' },
+  { key: 'fragment01', url: '/assets/models/fragment01.glb' },
+  { key: 'fragment02', url: '/assets/models/fragment02.glb' },
+  { key: 'fragment03', url: '/assets/models/fragment03.glb' },
+  { key: 'fragment04', url: '/assets/models/fragment04.glb' },
+  { key: 'fragment05', url: '/assets/models/fragment05.glb' },
+  { key: 'fragment06', url: '/assets/models/fragment06.glb' },
+  { key: 'fragment07', url: '/assets/models/fragment07.glb' },
+  { key: 'fragment08', url: '/assets/models/fragment08.glb' }
 ];
 
 export const useAssetLoaderV2 = (performanceProfile) => {

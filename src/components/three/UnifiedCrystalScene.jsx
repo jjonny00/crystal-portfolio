@@ -65,7 +65,9 @@ const UnifiedCrystalScene = forwardRef(({
   const crystalGroupRef = useRef();
   const wholeCrystalRef = useRef();
   const facetRefs = useRef([]);
+  const fragmentRefs = useRef([]);
   const facetsGroupRef = useRef();
+  const fragmentsGroupRef = useRef();
   const crystalMaterialRef = useRef();
 
   // Sphere state
@@ -158,6 +160,13 @@ const UnifiedCrystalScene = forwardRef(({
   const facetModelKeys = useMemo(
     () => facetKeys.map((key) => getProjectModelKeyByFacetKey(key)),
     [facetKeys]
+  );
+
+  const fragmentModelKeys = useMemo(
+    () => Object.keys(mergedConfig?.assets?.models || {})
+      .filter((key) => key.startsWith('fragment'))
+      .sort(),
+    [mergedConfig?.assets?.models]
   );
 
   const facetPlacementKeys = useMemo(
@@ -259,8 +268,20 @@ const UnifiedCrystalScene = forwardRef(({
       });
     }
 
+    const fragmentFractureDistance = mergedConfig?.fragments?.fractureDistance ?? fractureDistance;
+    fragmentRefs.current.forEach((fragmentRef, idx) => {
+      const fragmentKey = fragmentModelKeys[idx];
+      const explodedPos = fragmentExplodedPositions?.[fragmentKey];
+      if (!fragmentRef?.current || !explodedPos) return;
+      const fractureStart = explodedPos
+        .clone()
+        .normalize()
+        .multiplyScalar(explodedPos.length() * fragmentFractureDistance);
+      fragmentRef.current.position.copy(fractureStart);
+    });
+
     triggerFractureGlow();
-  }, [crystalConfig, facetKeys, facetPlacementKeys, triggerFractureGlow]);
+  }, [crystalConfig, facetKeys, facetPlacementKeys, fragmentExplodedPositions, fragmentModelKeys, mergedConfig?.fragments?.fractureDistance, triggerFractureGlow]);
 
   const runReformSwap = useCallback(() => {
     pendingReformSwapAtRef.current = null;
@@ -358,6 +379,12 @@ const UnifiedCrystalScene = forwardRef(({
       facetRefs.current = facetKeys.map(() => React.createRef());
     }
   }, [facetKeys]);
+
+  useEffect(() => {
+    if (fragmentRefs.current.length !== fragmentModelKeys.length) {
+      fragmentRefs.current = fragmentModelKeys.map((_, index) => fragmentRefs.current[index] || React.createRef());
+    }
+  }, [fragmentModelKeys]);
 
   const focusedSceneFacetKey = animationData?.focusedFacet || null;
   const hideFacetMeshesDuringReformOverlap =
@@ -526,14 +553,37 @@ const UnifiedCrystalScene = forwardRef(({
     return useGLTF(modelUrl);
   });
 
+  const fragmentModels = fragmentModelKeys.map((modelKey, index) => {
+    const modelUrl = mergedConfig.assets.models[modelKey];
+
+    if (!modelUrl) {
+      throw new Error(`Missing model URL for fragment index ${index} (${modelKey ?? 'undefined'})`);
+    }
+
+    return useGLTF(modelUrl);
+  });
+
+  const fragmentAuthoredStartsRef = useRef({});
+
   // Mark models as loaded when all GLTF hooks resolve
   useEffect(() => {
     const allLoaded =
-      wholeCrystal && facetModels.every((m) => m && m.scene);
+      wholeCrystal &&
+      facetModels.every((m) => m && m.scene) &&
+      fragmentModels.every((m) => m && m.scene);
     if (allLoaded) {
       setModelsLoaded(true);
     }
-  }, [wholeCrystal, ...facetModels]);
+  }, [wholeCrystal, ...facetModels, ...fragmentModels]);
+
+  useEffect(() => {
+    fragmentModels.forEach((model, index) => {
+      if (!model?.scene) return;
+      const fragmentKey = fragmentModelKeys[index];
+      if (!fragmentKey || fragmentAuthoredStartsRef.current[fragmentKey]) return;
+      fragmentAuthoredStartsRef.current[fragmentKey] = model.scene.position.clone();
+    });
+  }, [fragmentModels, fragmentModelKeys]);
 
   // Compute anchor world position using matrix transforms
   const computeAnchorWorldPosition = useCallback(
@@ -664,6 +714,28 @@ const UnifiedCrystalScene = forwardRef(({
       })
     );
   }, [eulerDegreesToQuaternion, facetKeys, facetPlacementKeys, isMobile, mergedConfig?.projectCameraSettings]);
+
+  const fragmentStartPositions = useMemo(() => Object.fromEntries(
+    fragmentModelKeys.map((fragmentKey) => {
+      const configured = mergedConfig?.fragments?.items?.[fragmentKey]?.start;
+      if (Array.isArray(configured) && configured.length === 3) {
+        return [fragmentKey, new THREE.Vector3().fromArray(configured)];
+      }
+      const authored = fragmentAuthoredStartsRef.current?.[fragmentKey];
+      return [fragmentKey, authored ? authored.clone() : new THREE.Vector3(0, 0, 0)];
+    })
+  ), [fragmentModelKeys, mergedConfig?.fragments?.items, modelsLoaded]);
+
+  const fragmentExplodedPositions = useMemo(() => Object.fromEntries(
+    fragmentModelKeys.map((fragmentKey) => {
+      const configured = mergedConfig?.fragments?.items?.[fragmentKey]?.exploded;
+      if (Array.isArray(configured) && configured.length === 3) {
+        return [fragmentKey, new THREE.Vector3().fromArray(configured)];
+      }
+      const start = fragmentStartPositions[fragmentKey] || new THREE.Vector3(0, 0, 0);
+      return [fragmentKey, start.clone()];
+    })
+  ), [fragmentModelKeys, mergedConfig?.fragments?.items, fragmentStartPositions]);
 
   useEffect(() => {
     if (!import.meta.env.DEV || animationData?.cameraState !== 'caseStudy') return;
@@ -1674,6 +1746,7 @@ const UnifiedCrystalScene = forwardRef(({
       if (elapsedExplosion < fracturePause) {
         const fracture = crystalConfig?.fracturePositions;
         const fractureDistance = crystalConfig?.fractureDistance ?? 0.3;
+        const fragmentFractureDistance = mergedConfig?.fragments?.fractureDistance ?? fractureDistance;
         facetRefs.current.forEach((facetRef, idx) => {
           const facetKey = facetKeys[idx];
           const explodedPos = crystalConfig?.positions?.[facetPlacementKeys[facetKey] || facetKey];
@@ -1686,6 +1759,16 @@ const UnifiedCrystalScene = forwardRef(({
             facetRef.current.position.copy(configured ? configured : fallback);
             facetRef.current.quaternion.slerp(neutralQuat, Math.min(1, deltaTime * 6));
           }
+        });
+        fragmentRefs.current.forEach((fragmentRef, idx) => {
+          const fragmentKey = fragmentModelKeys[idx];
+          const explodedPos = fragmentExplodedPositions?.[fragmentKey];
+          if (!fragmentRef?.current || !explodedPos) return;
+          const fractureStart = explodedPos
+            .clone()
+            .normalize()
+            .multiplyScalar(explodedPos.length() * fragmentFractureDistance);
+          fragmentRef.current.position.copy(fractureStart);
         });
         return; // Skip other animations during fracture pause
       }
@@ -1736,6 +1819,7 @@ const UnifiedCrystalScene = forwardRef(({
         const progress = Math.min((elapsedExplosion - fracturePause) / (totalDuration - fracturePause), 1);
         const fracture = crystalConfig?.fracturePositions;
         const fractureDistance = crystalConfig?.fractureDistance ?? 0.3;
+        const fragmentFractureDistance = mergedConfig?.fragments?.fractureDistance ?? fractureDistance;
         const eased = crystalConfig?.explosionEase
           ? crystalConfig?.explosionEase(progress)
           : progress;
@@ -1764,6 +1848,16 @@ const UnifiedCrystalScene = forwardRef(({
             facetRef.current.position.copy(adjusted);
             facetRef.current.quaternion.slerpQuaternions(neutralQuat, targetQuat, eased);
           }
+        });
+
+        fragmentRefs.current.forEach((fragmentRef, index) => {
+          if (!fragmentRef?.current) return;
+          const fragmentKey = fragmentModelKeys[index];
+          const end = fragmentExplodedPositions?.[fragmentKey];
+          if (!end) return;
+          const start = end.clone().normalize().multiplyScalar(end.length() * fragmentFractureDistance);
+          const interpolated = start.clone().lerp(end, eased);
+          fragmentRef.current.position.copy(interpolated);
         });
 
         if (progress >= 1) {
@@ -1903,6 +1997,17 @@ const UnifiedCrystalScene = forwardRef(({
         } else {
           facetRef.current.quaternion.slerp(targetQuat, rotationLerp);
         }
+      });
+
+      fragmentRefs.current.forEach((fragmentRef, index) => {
+        if (!fragmentRef?.current) return;
+        const fragmentKey = fragmentModelKeys[index];
+        const explodedTarget = fragmentExplodedPositions?.[fragmentKey];
+        const startTarget = fragmentStartPositions?.[fragmentKey] || origin;
+        const targetPos = isReforming ? origin : (explodedTarget || startTarget);
+        if (!targetPos) return;
+        const lerpMultiplier = isReforming ? 0.06 : lerpSpeed;
+        fragmentRef.current.position.lerp(targetPos, lerpMultiplier * deltaTime * 60);
       });
 
       if (isReforming) {
@@ -2102,6 +2207,23 @@ const UnifiedCrystalScene = forwardRef(({
                   event.stopPropagation();
                   handleFacetClick(facetKey);
                 }}
+              />
+            );
+          })}
+        </group>
+      )}
+
+      {showFacets && !simplifiedAnimations && fragmentModels.length > 0 && (
+        <group ref={fragmentsGroupRef} visible={!hideFacetMeshesDuringReformOverlap}>
+          {fragmentModels.map((model, index) => {
+            const fragmentKey = fragmentModelKeys[index];
+            const configuredScale = mergedConfig?.fragments?.items?.[fragmentKey]?.scale ?? 1;
+            return (
+              <primitive
+                key={fragmentKey}
+                ref={fragmentRefs.current[index]}
+                object={model.scene}
+                scale={[configuredScale, configuredScale, configuredScale]}
               />
             );
           })}
