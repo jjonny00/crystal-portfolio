@@ -534,25 +534,32 @@ const UnifiedCrystalScene = forwardRef(({
       return value - Math.floor(value);
     };
 
-    const explodedTargets = facetKeys
-      .map((facetKey) => crystalConfig?.positions?.[facetPlacementKeys[facetKey] || facetKey])
+    const explodedFacetEntries = facetKeys
+      .map((facetKey) => {
+        const target = crystalConfig?.positions?.[facetPlacementKeys[facetKey] || facetKey];
+        if (!target) return null;
+        return {
+          facetKey,
+          target,
+          direction: target.clone().normalize()
+        };
+      })
       .filter(Boolean);
-    const directionPool = explodedTargets.length
-      ? explodedTargets.map((target) => target.clone().normalize())
+    const explodedTargets = explodedFacetEntries.map((entry) => entry.target);
+    const directionPool = explodedFacetEntries.length
+      ? explodedFacetEntries.map((entry) => entry.direction.clone())
       : [new THREE.Vector3(1, 0, 0)];
 
     const avgFacetDistance = explodedTargets.length
       ? explodedTargets.reduce((sum, vec) => sum + vec.length(), 0) / explodedTargets.length
       : 1.2;
-    const facetDirections = explodedTargets.length
-      ? explodedTargets.map((target) => target.clone().normalize())
-      : [new THREE.Vector3(0, 1, 0)];
     const facetExclusionRadius = avgFacetDistance * 0.31;
+    const clusterCount = Math.max(explodedFacetEntries.length, 1);
     const toPillSpace = (vector) =>
       new THREE.Vector3(vector.x * 1.44, vector.y * 1.6, vector.z * 1.44);
-    const intersectsFacetVolumes = (position, sizeScale) =>
-      explodedTargets.some((target) =>
-        target.distanceTo(position) < (facetExclusionRadius + sizeScale * 0.2)
+    const intersectsNonClusterFacetVolumes = (position, sizeScale, clusterIndex) =>
+      explodedFacetEntries.some((entry, index) =>
+        index !== clusterIndex && entry.target.distanceTo(position) < (facetExclusionRadius + sizeScale * 0.2)
       );
     const resolveScaleForIndex = (index) => {
       const tierRoll = hash(index + 83);
@@ -566,37 +573,47 @@ const UnifiedCrystalScene = forwardRef(({
     };
 
     return Array.from({ length: FRAGMENT_INSTANCE_COUNT }, (_, index) => {
-      let direction = directionPool[index % directionPool.length].clone();
+      const clusterIndex = index % clusterCount;
+      const clusterEntry = explodedFacetEntries[clusterIndex];
+      const clusterDirection = clusterEntry?.direction || directionPool[index % directionPool.length].clone();
+      const clusterTargetDistance = clusterEntry?.target?.length?.() || avgFacetDistance;
+      let direction = clusterDirection.clone();
       let startPosition = direction.clone().multiplyScalar(0.16);
       let explodedPosition = direction.clone().multiplyScalar(avgFacetDistance * 1.2);
       const resolvedScale = resolveScaleForIndex(index);
 
       for (let attempt = 0; attempt < 8; attempt += 1) {
         const sampleSeed = index + attempt * 97;
-        const baseDirection = directionPool[sampleSeed % directionPool.length].clone();
-        const azimuth = (hash(sampleSeed + 11) - 0.5) * 1.05;
-        const elevation = (hash(sampleSeed + 23) - 0.5) * 0.9;
+        const baseDirection = clusterDirection.clone();
+        const azimuth = (hash(sampleSeed + 11) - 0.5) * 0.52;
+        const elevation = (hash(sampleSeed + 23) - 0.5) * 0.44;
         direction = baseDirection
           .applyAxisAngle(new THREE.Vector3(0, 1, 0), azimuth)
           .applyAxisAngle(new THREE.Vector3(1, 0, 0), elevation)
           .multiply(new THREE.Vector3(1.44, 1.6, 1.44))
           .normalize();
 
-        const startRadius = 0.1 + hash(sampleSeed + 31) * 0.34;
-        const travelDistance = avgFacetDistance * (0.72 + hash(sampleSeed + 43) * 0.62);
+        const startRadius = clusterTargetDistance * (0.16 + hash(sampleSeed + 31) * 0.22);
+        const travelDistance = clusterTargetDistance * (0.66 + hash(sampleSeed + 43) * 0.48);
+        const lateralJitterDistance = 0.03 + hash(sampleSeed + 47) * 0.16;
+        const tangentAxis = Math.abs(direction.y) < 0.92
+          ? new THREE.Vector3(0, 1, 0).cross(direction).normalize()
+          : new THREE.Vector3(1, 0, 0).cross(direction).normalize();
+        const bitangentAxis = direction.clone().cross(tangentAxis).normalize();
+        const lateralJitter = tangentAxis
+          .multiplyScalar((hash(sampleSeed + 53) - 0.5) * lateralJitterDistance)
+          .add(bitangentAxis.multiplyScalar((hash(sampleSeed + 59) - 0.5) * lateralJitterDistance));
         startPosition = toPillSpace(direction.clone().multiplyScalar(startRadius));
         explodedPosition = toPillSpace(
-          startPosition.clone().add(direction.clone().multiplyScalar(travelDistance))
-        );
-
-        const intersectsFacetDirection = facetDirections.some(
-          (facetDirection) => direction.dot(facetDirection) > 0.78
+          direction
+            .clone()
+            .multiplyScalar(travelDistance)
+            .add(lateralJitter)
         );
 
         if (
-          !intersectsFacetDirection &&
-          !intersectsFacetVolumes(startPosition, resolvedScale.scale) &&
-          !intersectsFacetVolumes(explodedPosition, resolvedScale.scale)
+          !intersectsNonClusterFacetVolumes(startPosition, resolvedScale.scale, clusterIndex) &&
+          !intersectsNonClusterFacetVolumes(explodedPosition, resolvedScale.scale, clusterIndex)
         ) {
           break;
         }
@@ -623,6 +640,7 @@ const UnifiedCrystalScene = forwardRef(({
 
       return {
         key: `fragment-instance-${index}`,
+        facetKey: clusterEntry?.facetKey || facetKeys[index % facetKeys.length],
         geometryIndex:
           resolvedScale.tier === 'small'
             ? Math.floor(hash(index + 101) * 14) // 0..13
