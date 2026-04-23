@@ -45,23 +45,7 @@ const REFORM_MASK_GLOW_PEAK_INTENSITY = 1.5
 const REFORM_FACET_MASK_GLOW_PEAK_INTENSITY = 1.3
 const REFORM_SWAP_OVERLAP_MS = 100
 const ENABLE_OVERVIEW_ALL_CONNECTORS = true
-const FRAGMENT_MODEL_URLS = [
-  '/assets/models/fragment01.glb',
-  '/assets/models/fragment02.glb',
-  '/assets/models/fragment03.glb',
-  '/assets/models/fragment04.glb',
-  '/assets/models/fragment05.glb',
-  '/assets/models/fragment06.glb',
-  '/assets/models/fragment07.glb',
-  '/assets/models/fragment08.glb'
-]
 const FRAGMENT_INSTANCE_COUNT = 48
-const SHARD_DIAGNOSTIC = {
-  enabled: true,
-  singleInstance: true,
-  sourceInstanceIndex: 0,
-  freezeMotion: true
-}
 
 const logger = createLogger('unified-crystal-scene');
 
@@ -544,8 +528,6 @@ const UnifiedCrystalScene = forwardRef(({
 
     return useGLTF(modelUrl);
   });
-  const fragmentModels = FRAGMENT_MODEL_URLS.map((modelUrl) => useGLTF(modelUrl));
-
   const fragmentInstances = useMemo(() => {
     const hash = (seed) => {
       const value = Math.sin(seed * 12.9898 + 78.233) * 43758.5453;
@@ -563,37 +545,30 @@ const UnifiedCrystalScene = forwardRef(({
       ? explodedTargets.reduce((sum, vec) => sum + vec.length(), 0) / explodedTargets.length
       : 1.2;
 
-    const fragmentCount = SHARD_DIAGNOSTIC.enabled && SHARD_DIAGNOSTIC.singleInstance
-      ? 1
-      : FRAGMENT_INSTANCE_COUNT;
-
-    return Array.from({ length: fragmentCount }, (_, index) => {
-      const sourceIndex = SHARD_DIAGNOSTIC.enabled && SHARD_DIAGNOSTIC.singleInstance
-        ? SHARD_DIAGNOSTIC.sourceInstanceIndex
-        : index;
-      const baseDirection = directionPool[sourceIndex % directionPool.length].clone();
-      const azimuth = (hash(sourceIndex + 11) - 0.5) * 0.8;
-      const elevation = (hash(sourceIndex + 23) - 0.5) * 0.6;
+    return Array.from({ length: FRAGMENT_INSTANCE_COUNT }, (_, index) => {
+      const baseDirection = directionPool[index % directionPool.length].clone();
+      const azimuth = (hash(index + 11) - 0.5) * 0.8;
+      const elevation = (hash(index + 23) - 0.5) * 0.6;
       const direction = baseDirection
         .applyAxisAngle(new THREE.Vector3(0, 1, 0), azimuth)
         .applyAxisAngle(new THREE.Vector3(1, 0, 0), elevation)
         .normalize();
 
-      const startRadius = 0.18 + hash(sourceIndex + 31) * 0.28;
-      const travelDistance = avgFacetDistance * (1.05 + hash(sourceIndex + 43) * 1.05);
+      const startRadius = 0.18 + hash(index + 31) * 0.28;
+      const travelDistance = avgFacetDistance * (1.05 + hash(index + 43) * 1.05);
       const startPosition = direction.clone().multiplyScalar(startRadius);
       const explodedPosition = startPosition.clone().add(direction.clone().multiplyScalar(travelDistance));
 
       const baseEuler = new THREE.Euler(
-        hash(sourceIndex + 59) * Math.PI * 2,
-        hash(sourceIndex + 61) * Math.PI * 2,
-        hash(sourceIndex + 67) * Math.PI * 2,
+        hash(index + 59) * Math.PI * 2,
+        hash(index + 61) * Math.PI * 2,
+        hash(index + 67) * Math.PI * 2,
         'XYZ'
       );
       const spinEuler = new THREE.Euler(
-        (hash(sourceIndex + 71) - 0.5) * Math.PI * 3.2,
-        (hash(sourceIndex + 73) - 0.5) * Math.PI * 3.2,
-        (hash(sourceIndex + 79) - 0.5) * Math.PI * 3.2,
+        (hash(index + 71) - 0.5) * Math.PI * 3.2,
+        (hash(index + 73) - 0.5) * Math.PI * 3.2,
+        (hash(index + 79) - 0.5) * Math.PI * 3.2,
         'XYZ'
       );
       const explodedEuler = new THREE.Euler(
@@ -604,15 +579,15 @@ const UnifiedCrystalScene = forwardRef(({
       );
 
       return {
-        key: `fragment-instance-${index}-${sourceIndex}`,
-        modelIndex: sourceIndex % FRAGMENT_MODEL_URLS.length,
+        key: `fragment-instance-${index}`,
+        geometryIndex: index % 6,
         startPosition,
         explodedPosition,
         startQuaternion: new THREE.Quaternion().setFromEuler(baseEuler),
         explodedQuaternion: new THREE.Quaternion().setFromEuler(explodedEuler),
         startRotation: [baseEuler.x, baseEuler.y, baseEuler.z],
-        scale: 0.45 + hash(sourceIndex + 83) * 0.65,
-        reformLerp: 0.02 + hash(sourceIndex + 89) * 0.08
+        scale: 0.45 + hash(index + 83) * 0.65,
+        reformLerp: 0.02 + hash(index + 89) * 0.08
       };
     });
   }, [crystalConfig?.positions, facetKeys, facetPlacementKeys]);
@@ -623,14 +598,22 @@ const UnifiedCrystalScene = forwardRef(({
     fragmentRefs.current = fragmentInstances.map((_, index) => fragmentRefs.current[index] || React.createRef());
   }, [fragmentInstances]);
 
-  const fragmentScenes = useMemo(
-    () => fragmentInstances.map((instance) => fragmentModels[instance.modelIndex]?.scene?.clone(true) ?? null),
-    [fragmentInstances, fragmentModels]
-  );
-  const diagnosticShardGeometry = useMemo(
-    () => new THREE.IcosahedronGeometry(1, 0),
-    []
-  );
+  const proceduralShardGeometries = useMemo(() => {
+    const make = (geometry, scale = [1, 1, 1]) => {
+      geometry.scale(scale[0], scale[1], scale[2]);
+      geometry.rotateX(Math.PI * 0.5);
+      geometry.computeVertexNormals();
+      return geometry;
+    };
+    return [
+      make(new THREE.TetrahedronGeometry(1, 0), [0.8, 1.4, 0.7]),
+      make(new THREE.OctahedronGeometry(1, 0), [0.6, 1.6, 0.7]),
+      make(new THREE.ConeGeometry(0.7, 1.6, 4, 1), [0.9, 1.0, 0.7]),
+      make(new THREE.CylinderGeometry(0.2, 0.9, 1.5, 4, 1), [0.9, 1.2, 0.7]),
+      make(new THREE.ConeGeometry(0.6, 1.3, 3, 1), [1.0, 1.1, 0.8]),
+      make(new THREE.OctahedronGeometry(1, 0), [0.5, 1.8, 0.5]),
+    ];
+  }, []);
 
   useEffect(() => {
     const sharedMaterial = crystalMaterialRef.current;
@@ -638,35 +621,11 @@ const UnifiedCrystalScene = forwardRef(({
     if (shardMaterialRef.current?.dispose) {
       shardMaterialRef.current.dispose();
     }
-    const shardMaterial = new THREE.MeshBasicMaterial({
-      color: new THREE.Color('#ff0000'),
-      side: THREE.FrontSide,
-      transparent: false,
-      opacity: 1,
-      depthWrite: false,
-      depthTest: false,
-      fog: false
-    });
+    const shardMaterial = sharedMaterial.clone();
+    shardMaterial.side = THREE.FrontSide;
+    shardMaterial.needsUpdate = true;
     shardMaterialRef.current = shardMaterial;
-
-    fragmentScenes.forEach((scene, sceneIndex) => {
-      if (!scene) return;
-      let meshOrder = 0;
-      scene.traverse((child) => {
-        if (!child?.isMesh || child.userData?.isOverlay) return;
-        const currentMaterial = child.material;
-        if (Array.isArray(currentMaterial)) {
-          child.material = currentMaterial.map(() => shardMaterial);
-        } else {
-          child.material = shardMaterial;
-        }
-        child.renderOrder = 1200 + sceneIndex * 4 + meshOrder;
-        meshOrder += 1;
-        child.castShadow = false;
-        child.receiveShadow = false;
-      });
-    });
-  }, [fragmentScenes, materialVersion]);
+  }, [materialVersion]);
 
   // Mark models as loaded when all GLTF hooks resolve
   useEffect(() => {
@@ -1869,9 +1828,7 @@ const UnifiedCrystalScene = forwardRef(({
 
     // Handle facet animations
     if (showFacets && crystalConfig?.positions) {
-      const freezeShardMotion = SHARD_DIAGNOSTIC.enabled && SHARD_DIAGNOSTIC.freezeMotion;
       const setFragmentProgress = (progressValue) => {
-        if (freezeShardMotion) return;
         const clampedProgress = THREE.MathUtils.clamp(progressValue, 0, 1);
         fragmentRefs.current.forEach((fragmentRef, index) => {
           if (!fragmentRef?.current) return;
@@ -2066,7 +2023,7 @@ const UnifiedCrystalScene = forwardRef(({
         }
       });
 
-      if (isReforming && !freezeShardMotion) {
+      if (isReforming) {
         fragmentRefs.current.forEach((fragmentRef, index) => {
           if (!fragmentRef?.current) return;
           const instance = fragmentInstances[index];
@@ -2081,7 +2038,7 @@ const UnifiedCrystalScene = forwardRef(({
             fragmentRef.current.quaternion.copy(instance.startQuaternion);
           }
         });
-      } else if (animationData.crystalForm === 'exploded' && !freezeShardMotion) {
+      } else if (animationData.crystalForm === 'exploded') {
         setFragmentProgress(1);
       }
 
@@ -2195,7 +2152,7 @@ const UnifiedCrystalScene = forwardRef(({
 
   useEffect(() => {
     return () => {
-      diagnosticShardGeometry.dispose();
+      proceduralShardGeometries.forEach((geometry) => geometry.dispose());
       if (shardMaterialRef.current?.dispose) {
         shardMaterialRef.current.dispose();
       }
@@ -2209,7 +2166,7 @@ const UnifiedCrystalScene = forwardRef(({
       swapMaskGlowModeRef.current = null;
       reformProgressGlowRef.current = 0;
     };
-  }, [cleanupOverlays, resetRenderedFacetMaskGlow, diagnosticShardGeometry]);
+  }, [cleanupOverlays, resetRenderedFacetMaskGlow, proceduralShardGeometries]);
 
   return (
     <group ref={crystalGroupRef}>
@@ -2268,29 +2225,17 @@ const UnifiedCrystalScene = forwardRef(({
         <>
           <group ref={shardGroupRef} renderOrder={1200} visible={!hideFacetMeshesDuringReformOverlap}>
             {fragmentInstances.map((instance, index) => {
-              if (SHARD_DIAGNOSTIC.enabled) {
-                return (
-                  <mesh
-                    key={instance.key}
-                    ref={fragmentRefs.current[index]}
-                    geometry={diagnosticShardGeometry}
-                    material={shardMaterialRef.current || undefined}
-                    position={instance.startPosition.toArray()}
-                    rotation={instance.startRotation}
-                    scale={[instance.scale, instance.scale, instance.scale]}
-                  />
-                );
-              }
-              const object = fragmentScenes[index];
-              if (!object) return null;
+              const geometry = proceduralShardGeometries[instance.geometryIndex] || proceduralShardGeometries[0];
               return (
-                <primitive
+                <mesh
                   key={instance.key}
                   ref={fragmentRefs.current[index]}
-                  object={object}
+                  geometry={geometry}
+                  material={shardMaterialRef.current || undefined}
                   position={instance.startPosition.toArray()}
                   rotation={instance.startRotation}
                   scale={[instance.scale, instance.scale, instance.scale]}
+                  renderOrder={1200 + index}
                 />
               );
             })}
