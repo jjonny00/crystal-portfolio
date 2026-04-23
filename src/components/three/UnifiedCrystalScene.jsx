@@ -632,7 +632,7 @@ const UnifiedCrystalScene = forwardRef(({
     });
     shardMaterialRef.current = shardMaterial;
 
-    fragmentScenes.forEach((scene) => {
+    fragmentScenes.forEach((scene, sceneIndex) => {
       if (!scene) return;
       let meshOrder = 0;
       scene.traverse((child) => {
@@ -643,7 +643,7 @@ const UnifiedCrystalScene = forwardRef(({
         } else {
           child.material = shardMaterial;
         }
-        child.renderOrder = 1200 + meshOrder;
+        child.renderOrder = 1200 + sceneIndex * 4 + meshOrder;
         meshOrder += 1;
         child.castShadow = false;
         child.receiveShadow = false;
