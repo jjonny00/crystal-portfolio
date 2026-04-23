@@ -534,18 +534,25 @@ const UnifiedCrystalScene = forwardRef(({
       return value - Math.floor(value);
     };
 
-    const fractureTargets = crystalConfig?.fracturePositions;
-    const fractureDistance = crystalConfig?.fractureDistance ?? 0.3;
+    const configuredPositions = crystalConfig?.positions || {};
+    const knownTargets = facetKeys
+      .map((facetKey) => configuredPositions[facetPlacementKeys[facetKey] || facetKey] || configuredPositions[facetKey])
+      .filter(Boolean);
+    const fallbackDistance = knownTargets.length
+      ? knownTargets.reduce((sum, vec) => sum + vec.length(), 0) / knownTargets.length
+      : 1.2;
     const explodedFacetEntries = facetKeys
-      .map((facetKey) => {
+      .map((facetKey, facetIndex) => {
         const placementKey = facetPlacementKeys[facetKey] || facetKey;
-        const endTarget = crystalConfig?.positions?.[placementKey];
-        if (!endTarget) return null;
-        const fallbackStart = endTarget
-          .clone()
-          .normalize()
-          .multiplyScalar(endTarget.length() * fractureDistance);
-        const startTarget = fractureTargets?.[placementKey]?.clone() || fallbackStart;
+        const configuredEnd = configuredPositions[placementKey] || configuredPositions[facetKey];
+        const syntheticAngle = (facetIndex / Math.max(facetKeys.length, 1)) * Math.PI * 2;
+        const syntheticTilt = (hash(facetIndex + 907) - 0.5) * 0.8;
+        const endTarget = configuredEnd?.clone() || new THREE.Vector3(
+          Math.cos(syntheticAngle) * fallbackDistance,
+          syntheticTilt * fallbackDistance * 0.55,
+          Math.sin(syntheticAngle) * fallbackDistance
+        );
+        const startTarget = new THREE.Vector3(0, 0, 0);
         return {
           facetKey,
           startTarget,
@@ -553,8 +560,7 @@ const UnifiedCrystalScene = forwardRef(({
           direction: endTarget.clone().sub(startTarget).normalize(),
           radialDirection: endTarget.clone().normalize()
         };
-      })
-      .filter(Boolean);
+      });
     const directionPool = explodedFacetEntries.length
       ? explodedFacetEntries.map((entry) => entry.direction.clone())
       : [new THREE.Vector3(1, 0, 0)];
@@ -563,8 +569,6 @@ const UnifiedCrystalScene = forwardRef(({
       ? explodedFacetEntries.reduce((sum, entry) => sum + entry.endTarget.length(), 0) / explodedFacetEntries.length
       : 1.2;
     const clusterCount = Math.max(explodedFacetEntries.length, 1);
-    const toPillSpace = (vector) =>
-      new THREE.Vector3(vector.x * 1.44, vector.y * 1.6, vector.z * 1.44);
     const tierPattern = ['small', 'medium', 'small', 'large'];
     const resolveScaleForIndex = (index, clusterLocalIndex) => {
       const tier = tierPattern[clusterLocalIndex % tierPattern.length];
@@ -605,17 +609,9 @@ const UnifiedCrystalScene = forwardRef(({
         : new THREE.Vector3(1, 0, 0).cross(direction).normalize();
       const bitangentAxis = direction.clone().cross(tangentAxis).normalize();
 
-      const travelRatioRange = resolvedScale.tier === 'large'
-        ? [0.8, 0.9]
-        : resolvedScale.tier === 'medium'
-        ? [0.65, 0.78]
-        : [0.5, 0.64];
-      const travelRatio = travelRatioRange[0] + hash(sampleSeed + 31) * (travelRatioRange[1] - travelRatioRange[0]);
-      const clampedTravelRatio = Math.min(travelRatio, 0.9);
-
-      const startSpread = 0.04 + hash(sampleSeed + 41) * 0.08;
-      const endSpread = 0.08 + hash(sampleSeed + 47) * 0.14;
-      const outwardBias = 0.04 + hash(sampleSeed + 53) * 0.08;
+      const startSpread = (0.04 + hash(sampleSeed + 41) * 0.08) * 3;
+      const endSpread = (0.08 + hash(sampleSeed + 47) * 0.14) * 3;
+      const outwardBias = (0.04 + hash(sampleSeed + 53) * 0.08) * 3;
       const startOffset = tangentAxis
         .clone()
         .multiplyScalar((hash(sampleSeed + 59) - 0.5) * startSpread)
@@ -626,13 +622,11 @@ const UnifiedCrystalScene = forwardRef(({
         .add(bitangentAxis.clone().multiplyScalar((hash(sampleSeed + 71) - 0.5) * endSpread))
         .add(radialDirection.clone().multiplyScalar(outwardBias));
 
-      startPosition = toPillSpace(clusterStart.clone().add(startOffset));
-      explodedPosition = toPillSpace(
-        clusterStart
-          .clone()
-          .add(clusterTravelVector.clone().multiplyScalar(clampedTravelRatio))
-          .add(endOffset.multiplyScalar(clusterTravelDistance))
-      );
+      startPosition = clusterStart.clone().add(startOffset);
+      const tierPullback = resolvedScale.tier === 'large' ? 0.03 : resolvedScale.tier === 'medium' ? 0.08 : 0.14;
+      explodedPosition = clusterEnd
+        .clone()
+        .add(endOffset.multiplyScalar(clusterTravelDistance * (1 - tierPullback)));
 
       const baseEuler = new THREE.Euler(
         hash(index + 59) * Math.PI * 2,
