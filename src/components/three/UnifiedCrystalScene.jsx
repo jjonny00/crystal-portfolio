@@ -622,6 +622,9 @@ const UnifiedCrystalScene = forwardRef(({
       shardMaterialRef.current.dispose();
     }
     const shardMaterial = sharedMaterial.clone();
+    if (shardMaterial.side === THREE.DoubleSide) {
+      shardMaterial.side = THREE.FrontSide;
+    }
     shardMaterial.depthWrite = false;
     shardMaterial.needsUpdate = true;
     shardMaterialRef.current = shardMaterial;
