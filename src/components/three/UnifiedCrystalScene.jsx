@@ -625,9 +625,10 @@ const UnifiedCrystalScene = forwardRef(({
     if (shardMaterial.side === THREE.DoubleSide) {
       shardMaterial.side = THREE.FrontSide;
     }
-    shardMaterial.transparent = false;
-    shardMaterial.opacity = 1;
-    shardMaterial.depthWrite = true;
+    shardMaterial.transparent = true;
+    shardMaterial.opacity = sharedMaterial.opacity ?? 1;
+    shardMaterial.depthWrite = false;
+    shardMaterial.depthTest = false;
     shardMaterial.needsUpdate = true;
     shardMaterialRef.current = shardMaterial;
 
@@ -642,7 +643,7 @@ const UnifiedCrystalScene = forwardRef(({
         } else {
           child.material = shardMaterial;
         }
-        child.renderOrder = 40 + meshOrder;
+        child.renderOrder = 1200 + meshOrder;
         meshOrder += 1;
         child.castShadow = false;
         child.receiveShadow = false;
@@ -2245,7 +2246,7 @@ const UnifiedCrystalScene = forwardRef(({
       
       {showFacets && !simplifiedAnimations && (
         <>
-          <group ref={shardGroupRef} renderOrder={40} visible={!hideFacetMeshesDuringReformOverlap}>
+          <group ref={shardGroupRef} renderOrder={1200} visible={!hideFacetMeshesDuringReformOverlap}>
             {fragmentInstances.map((instance, index) => {
               const object = fragmentScenes[index];
               if (!object) return null;
