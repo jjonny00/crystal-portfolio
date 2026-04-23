@@ -561,26 +561,28 @@ const UnifiedCrystalScene = forwardRef(({
       explodedFacetEntries.some((entry, index) =>
         index !== clusterIndex && entry.target.distanceTo(position) < (facetExclusionRadius + sizeScale * 0.2)
       );
-    const resolveScaleForIndex = (index) => {
-      const tierRoll = hash(index + 83);
-      if (tierRoll < 0.76) {
-        return { tier: 'small', scale: 0.022 + hash(index + 84) * 0.05 };
+    const tierPattern = ['small', 'medium', 'small', 'large'];
+    const resolveScaleForIndex = (index, clusterLocalIndex) => {
+      const tier = tierPattern[clusterLocalIndex % tierPattern.length];
+      if (tier === 'small') {
+        return { tier, scale: 0.022 + hash(index + 84) * 0.05 };
       }
-      if (tierRoll < 0.91) {
-        return { tier: 'medium', scale: 0.07 + hash(index + 85) * 0.09 };
+      if (tier === 'medium') {
+        return { tier, scale: 0.07 + hash(index + 85) * 0.09 };
       }
-      return { tier: 'large', scale: 0.16 + hash(index + 86) * 0.18 };
+      return { tier, scale: 0.16 + hash(index + 86) * 0.18 };
     };
 
     return Array.from({ length: FRAGMENT_INSTANCE_COUNT }, (_, index) => {
       const clusterIndex = index % clusterCount;
+      const clusterLocalIndex = Math.floor(index / clusterCount);
       const clusterEntry = explodedFacetEntries[clusterIndex];
       const clusterDirection = clusterEntry?.direction || directionPool[index % directionPool.length].clone();
       const clusterTargetDistance = clusterEntry?.target?.length?.() || avgFacetDistance;
       let direction = clusterDirection.clone();
       let startPosition = direction.clone().multiplyScalar(0.16);
       let explodedPosition = direction.clone().multiplyScalar(avgFacetDistance * 1.2);
-      const resolvedScale = resolveScaleForIndex(index);
+      const resolvedScale = resolveScaleForIndex(index, clusterLocalIndex);
 
       for (let attempt = 0; attempt < 8; attempt += 1) {
         const sampleSeed = index + attempt * 97;
