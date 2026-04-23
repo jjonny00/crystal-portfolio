@@ -569,7 +569,7 @@ const UnifiedCrystalScene = forwardRef(({
       ? explodedFacetEntries.reduce((sum, entry) => sum + entry.endTarget.length(), 0) / explodedFacetEntries.length
       : 1.2;
     const clusterCount = Math.max(explodedFacetEntries.length, 1);
-    const tierPattern = ['small', 'medium', 'small', 'large'];
+    const tierPattern = ['small', 'medium', 'large', 'medium', 'small', 'large'];
     const resolveScaleForIndex = (index, clusterLocalIndex) => {
       const tier = tierPattern[clusterLocalIndex % tierPattern.length];
       if (tier === 'small') {
@@ -616,14 +616,14 @@ const UnifiedCrystalScene = forwardRef(({
         : [0.18, 0.52];
       const distanceRatio = tierDistanceRange[0] + hash(sampleSeed + 31) * (tierDistanceRange[1] - tierDistanceRange[0]);
 
-      const startSpread = 0.12 + hash(sampleSeed + 41) * 0.22;
+      const startSpread = 0.18 + hash(sampleSeed + 41) * 0.34;
       const endSpreadMultiplier = resolvedScale.tier === 'large'
-        ? 0.42
+        ? 0.55
         : resolvedScale.tier === 'medium'
-        ? 0.34
-        : 0.28;
-      const endSpread = (0.24 + hash(sampleSeed + 47) * 0.42) * endSpreadMultiplier;
-      const outwardBias = (0.08 + hash(sampleSeed + 53) * 0.18) * endSpreadMultiplier;
+        ? 0.48
+        : 0.42;
+      const endSpread = (0.3 + hash(sampleSeed + 47) * 0.56) * endSpreadMultiplier;
+      const outwardBias = (0.1 + hash(sampleSeed + 53) * 0.24) * endSpreadMultiplier;
       const startOffset = tangentAxis
         .clone()
         .multiplyScalar((hash(sampleSeed + 59) - 0.5) * startSpread)
@@ -638,9 +638,10 @@ const UnifiedCrystalScene = forwardRef(({
       const targetAlongFacet = clusterStart
         .clone()
         .add(clusterDirection.clone().multiplyScalar(clusterTravelDistance * distanceRatio));
+      const endOffsetScale = 0.7 + Math.sqrt(clusterTravelDistance) * 0.75;
       explodedPosition = targetAlongFacet
         .clone()
-        .add(endOffset.multiplyScalar(clusterTravelDistance));
+        .add(endOffset.multiplyScalar(endOffsetScale));
 
       const baseEuler = new THREE.Euler(
         hash(index + 59) * Math.PI * 2,
