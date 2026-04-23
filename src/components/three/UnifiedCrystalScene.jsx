@@ -586,7 +586,7 @@ const UnifiedCrystalScene = forwardRef(({
         startQuaternion: new THREE.Quaternion().setFromEuler(baseEuler),
         explodedQuaternion: new THREE.Quaternion().setFromEuler(explodedEuler),
         startRotation: [baseEuler.x, baseEuler.y, baseEuler.z],
-        scale: 0.45 + hash(index + 83) * 0.65,
+        scale: 0.08 + hash(index + 83) * 0.14,
         reformLerp: 0.02 + hash(index + 89) * 0.08
       };
     });
@@ -606,12 +606,12 @@ const UnifiedCrystalScene = forwardRef(({
       return geometry;
     };
     return [
-      make(new THREE.TetrahedronGeometry(1, 0), [0.8, 1.4, 0.7]),
-      make(new THREE.OctahedronGeometry(1, 0), [0.6, 1.6, 0.7]),
-      make(new THREE.ConeGeometry(0.7, 1.6, 4, 1), [0.9, 1.0, 0.7]),
-      make(new THREE.CylinderGeometry(0.2, 0.9, 1.5, 4, 1), [0.9, 1.2, 0.7]),
-      make(new THREE.ConeGeometry(0.6, 1.3, 3, 1), [1.0, 1.1, 0.8]),
-      make(new THREE.OctahedronGeometry(1, 0), [0.5, 1.8, 0.5]),
+      make(new THREE.TetrahedronGeometry(0.32, 0), [0.7, 1.3, 0.6]),
+      make(new THREE.OctahedronGeometry(0.30, 0), [0.6, 1.5, 0.7]),
+      make(new THREE.ConeGeometry(0.24, 0.72, 4, 1), [0.9, 1.0, 0.6]),
+      make(new THREE.CylinderGeometry(0.08, 0.3, 0.64, 4, 1), [0.9, 1.1, 0.6]),
+      make(new THREE.ConeGeometry(0.22, 0.56, 3, 1), [1.0, 1.0, 0.8]),
+      make(new THREE.OctahedronGeometry(0.28, 0), [0.5, 1.7, 0.5]),
     ];
   }, []);
 
@@ -622,7 +622,39 @@ const UnifiedCrystalScene = forwardRef(({
       shardMaterialRef.current.dispose();
     }
     const shardMaterial = sharedMaterial.clone();
+    const clearTextureSlot = (slotName) => {
+      if (slotName in shardMaterial) {
+        shardMaterial[slotName] = null;
+      }
+    };
+    [
+      'map',
+      'normalMap',
+      'roughnessMap',
+      'metalnessMap',
+      'aoMap',
+      'emissiveMap',
+      'alphaMap',
+      'specularMap',
+      'bumpMap',
+      'displacementMap',
+      'clearcoatMap',
+      'clearcoatNormalMap',
+      'clearcoatRoughnessMap',
+      'iridescenceMap',
+      'iridescenceThicknessMap',
+      'thicknessMap',
+      'transmissionMap',
+      'sheenColorMap',
+      'sheenRoughnessMap'
+    ].forEach(clearTextureSlot);
     shardMaterial.side = THREE.FrontSide;
+    if ('flatShading' in shardMaterial) {
+      shardMaterial.flatShading = true;
+    }
+    if ('envMapIntensity' in shardMaterial) {
+      shardMaterial.envMapIntensity = Math.min(shardMaterial.envMapIntensity ?? 1, 0.5);
+    }
     shardMaterial.needsUpdate = true;
     shardMaterialRef.current = shardMaterial;
   }, [materialVersion]);
