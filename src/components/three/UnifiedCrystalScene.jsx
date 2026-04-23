@@ -621,15 +621,15 @@ const UnifiedCrystalScene = forwardRef(({
     if (shardMaterialRef.current?.dispose) {
       shardMaterialRef.current.dispose();
     }
-    const shardMaterial = sharedMaterial.clone();
-    if (shardMaterial.side === THREE.DoubleSide) {
-      shardMaterial.side = THREE.FrontSide;
-    }
-    shardMaterial.transparent = true;
-    shardMaterial.opacity = sharedMaterial.opacity ?? 1;
-    shardMaterial.depthWrite = false;
-    shardMaterial.depthTest = false;
-    shardMaterial.needsUpdate = true;
+    const shardMaterial = new THREE.MeshBasicMaterial({
+      color: new THREE.Color('#ff0000'),
+      side: THREE.FrontSide,
+      transparent: false,
+      opacity: 1,
+      depthWrite: true,
+      depthTest: true,
+      fog: false
+    });
     shardMaterialRef.current = shardMaterial;
 
     fragmentScenes.forEach((scene) => {
