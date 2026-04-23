@@ -626,8 +626,8 @@ const UnifiedCrystalScene = forwardRef(({
       side: THREE.FrontSide,
       transparent: false,
       opacity: 1,
-      depthWrite: true,
-      depthTest: true,
+      depthWrite: false,
+      depthTest: false,
       fog: false
     });
     shardMaterialRef.current = shardMaterial;
