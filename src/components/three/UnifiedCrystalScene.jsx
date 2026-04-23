@@ -544,16 +544,30 @@ const UnifiedCrystalScene = forwardRef(({
     const avgFacetDistance = explodedTargets.length
       ? explodedTargets.reduce((sum, vec) => sum + vec.length(), 0) / explodedTargets.length
       : 1.2;
-    const facetExclusionRadius = avgFacetDistance * 0.35;
-    const intersectsFacetVolumes = (position) =>
-      explodedTargets.some((target) => target.distanceTo(position) < facetExclusionRadius);
+    const facetDirections = explodedTargets.length
+      ? explodedTargets.map((target) => target.clone().normalize())
+      : [new THREE.Vector3(0, 1, 0)];
+    const facetExclusionRadius = avgFacetDistance * 0.31;
+    const toPillSpace = (vector) =>
+      new THREE.Vector3(vector.x * 0.72, vector.y * 1.35, vector.z * 0.72);
+    const intersectsFacetVolumes = (position, sizeScale) =>
+      explodedTargets.some((target) =>
+        target.distanceTo(position) < (facetExclusionRadius + sizeScale * 0.2)
+      );
+    const resolveScaleForIndex = (index) => {
+      const tierRoll = hash(index + 83);
+      if (tierRoll < 0.68) return 0.022 + hash(index + 84) * 0.05; // tiny chips
+      if (tierRoll < 0.94) return 0.07 + hash(index + 85) * 0.1;   // medium chips
+      return 0.16 + hash(index + 86) * 0.18;                        // few larger shards
+    };
 
     return Array.from({ length: FRAGMENT_INSTANCE_COUNT }, (_, index) => {
       let direction = directionPool[index % directionPool.length].clone();
       let startPosition = direction.clone().multiplyScalar(0.16);
       let explodedPosition = direction.clone().multiplyScalar(avgFacetDistance * 1.2);
+      const resolvedScale = resolveScaleForIndex(index);
 
-      for (let attempt = 0; attempt < 6; attempt += 1) {
+      for (let attempt = 0; attempt < 8; attempt += 1) {
         const sampleSeed = index + attempt * 97;
         const baseDirection = directionPool[sampleSeed % directionPool.length].clone();
         const azimuth = (hash(sampleSeed + 11) - 0.5) * 1.05;
@@ -561,14 +575,25 @@ const UnifiedCrystalScene = forwardRef(({
         direction = baseDirection
           .applyAxisAngle(new THREE.Vector3(0, 1, 0), azimuth)
           .applyAxisAngle(new THREE.Vector3(1, 0, 0), elevation)
+          .multiply(new THREE.Vector3(0.72, 1.35, 0.72))
           .normalize();
 
-        const startRadius = 0.12 + hash(sampleSeed + 31) * 0.48;
-        const travelDistance = avgFacetDistance * (1.0 + hash(sampleSeed + 43) * 1.2);
-        startPosition = direction.clone().multiplyScalar(startRadius);
-        explodedPosition = startPosition.clone().add(direction.clone().multiplyScalar(travelDistance));
+        const startRadius = 0.1 + hash(sampleSeed + 31) * 0.34;
+        const travelDistance = avgFacetDistance * (0.72 + hash(sampleSeed + 43) * 0.62);
+        startPosition = toPillSpace(direction.clone().multiplyScalar(startRadius));
+        explodedPosition = toPillSpace(
+          startPosition.clone().add(direction.clone().multiplyScalar(travelDistance))
+        );
 
-        if (!intersectsFacetVolumes(startPosition) && !intersectsFacetVolumes(explodedPosition)) {
+        const intersectsFacetDirection = facetDirections.some(
+          (facetDirection) => direction.dot(facetDirection) > 0.78
+        );
+
+        if (
+          !intersectsFacetDirection &&
+          !intersectsFacetVolumes(startPosition, resolvedScale) &&
+          !intersectsFacetVolumes(explodedPosition, resolvedScale)
+        ) {
           break;
         }
       }
@@ -600,13 +625,7 @@ const UnifiedCrystalScene = forwardRef(({
         startQuaternion: new THREE.Quaternion().setFromEuler(baseEuler),
         explodedQuaternion: new THREE.Quaternion().setFromEuler(explodedEuler),
         startRotation: [baseEuler.x, baseEuler.y, baseEuler.z],
-        scale:
-          (() => {
-            const tierRoll = hash(index + 83);
-            if (tierRoll < 0.68) return 0.022 + hash(index + 84) * 0.05; // tiny chips
-            if (tierRoll < 0.94) return 0.07 + hash(index + 85) * 0.1;   // medium chips
-            return 0.16 + hash(index + 86) * 0.18;                        // few larger shards
-          })(),
+        scale: resolvedScale,
         reformLerp: 0.02 + hash(index + 89) * 0.08
       };
     });
