@@ -56,6 +56,12 @@ const FRAGMENT_MODEL_URLS = [
   '/assets/models/fragment08.glb'
 ]
 const FRAGMENT_INSTANCE_COUNT = 48
+const SHARD_DIAGNOSTIC = {
+  enabled: true,
+  singleInstance: true,
+  sourceInstanceIndex: 0,
+  freezeMotion: true
+}
 
 const logger = createLogger('unified-crystal-scene');
 
@@ -557,30 +563,37 @@ const UnifiedCrystalScene = forwardRef(({
       ? explodedTargets.reduce((sum, vec) => sum + vec.length(), 0) / explodedTargets.length
       : 1.2;
 
-    return Array.from({ length: FRAGMENT_INSTANCE_COUNT }, (_, index) => {
-      const baseDirection = directionPool[index % directionPool.length].clone();
-      const azimuth = (hash(index + 11) - 0.5) * 0.8;
-      const elevation = (hash(index + 23) - 0.5) * 0.6;
+    const fragmentCount = SHARD_DIAGNOSTIC.enabled && SHARD_DIAGNOSTIC.singleInstance
+      ? 1
+      : FRAGMENT_INSTANCE_COUNT;
+
+    return Array.from({ length: fragmentCount }, (_, index) => {
+      const sourceIndex = SHARD_DIAGNOSTIC.enabled && SHARD_DIAGNOSTIC.singleInstance
+        ? SHARD_DIAGNOSTIC.sourceInstanceIndex
+        : index;
+      const baseDirection = directionPool[sourceIndex % directionPool.length].clone();
+      const azimuth = (hash(sourceIndex + 11) - 0.5) * 0.8;
+      const elevation = (hash(sourceIndex + 23) - 0.5) * 0.6;
       const direction = baseDirection
         .applyAxisAngle(new THREE.Vector3(0, 1, 0), azimuth)
         .applyAxisAngle(new THREE.Vector3(1, 0, 0), elevation)
         .normalize();
 
-      const startRadius = 0.18 + hash(index + 31) * 0.28;
-      const travelDistance = avgFacetDistance * (1.05 + hash(index + 43) * 1.05);
+      const startRadius = 0.18 + hash(sourceIndex + 31) * 0.28;
+      const travelDistance = avgFacetDistance * (1.05 + hash(sourceIndex + 43) * 1.05);
       const startPosition = direction.clone().multiplyScalar(startRadius);
       const explodedPosition = startPosition.clone().add(direction.clone().multiplyScalar(travelDistance));
 
       const baseEuler = new THREE.Euler(
-        hash(index + 59) * Math.PI * 2,
-        hash(index + 61) * Math.PI * 2,
-        hash(index + 67) * Math.PI * 2,
+        hash(sourceIndex + 59) * Math.PI * 2,
+        hash(sourceIndex + 61) * Math.PI * 2,
+        hash(sourceIndex + 67) * Math.PI * 2,
         'XYZ'
       );
       const spinEuler = new THREE.Euler(
-        (hash(index + 71) - 0.5) * Math.PI * 3.2,
-        (hash(index + 73) - 0.5) * Math.PI * 3.2,
-        (hash(index + 79) - 0.5) * Math.PI * 3.2,
+        (hash(sourceIndex + 71) - 0.5) * Math.PI * 3.2,
+        (hash(sourceIndex + 73) - 0.5) * Math.PI * 3.2,
+        (hash(sourceIndex + 79) - 0.5) * Math.PI * 3.2,
         'XYZ'
       );
       const explodedEuler = new THREE.Euler(
@@ -591,15 +604,15 @@ const UnifiedCrystalScene = forwardRef(({
       );
 
       return {
-        key: `fragment-instance-${index}`,
-        modelIndex: index % FRAGMENT_MODEL_URLS.length,
+        key: `fragment-instance-${index}-${sourceIndex}`,
+        modelIndex: sourceIndex % FRAGMENT_MODEL_URLS.length,
         startPosition,
         explodedPosition,
         startQuaternion: new THREE.Quaternion().setFromEuler(baseEuler),
         explodedQuaternion: new THREE.Quaternion().setFromEuler(explodedEuler),
         startRotation: [baseEuler.x, baseEuler.y, baseEuler.z],
-        scale: 0.45 + hash(index + 83) * 0.65,
-        reformLerp: 0.02 + hash(index + 89) * 0.08
+        scale: 0.45 + hash(sourceIndex + 83) * 0.65,
+        reformLerp: 0.02 + hash(sourceIndex + 89) * 0.08
       };
     });
   }, [crystalConfig?.positions, facetKeys, facetPlacementKeys]);
@@ -1852,7 +1865,9 @@ const UnifiedCrystalScene = forwardRef(({
 
     // Handle facet animations
     if (showFacets && crystalConfig?.positions) {
+      const freezeShardMotion = SHARD_DIAGNOSTIC.enabled && SHARD_DIAGNOSTIC.freezeMotion;
       const setFragmentProgress = (progressValue) => {
+        if (freezeShardMotion) return;
         const clampedProgress = THREE.MathUtils.clamp(progressValue, 0, 1);
         fragmentRefs.current.forEach((fragmentRef, index) => {
           if (!fragmentRef?.current) return;
@@ -2047,7 +2062,7 @@ const UnifiedCrystalScene = forwardRef(({
         }
       });
 
-      if (isReforming) {
+      if (isReforming && !freezeShardMotion) {
         fragmentRefs.current.forEach((fragmentRef, index) => {
           if (!fragmentRef?.current) return;
           const instance = fragmentInstances[index];
@@ -2062,7 +2077,7 @@ const UnifiedCrystalScene = forwardRef(({
             fragmentRef.current.quaternion.copy(instance.startQuaternion);
           }
         });
-      } else if (animationData.crystalForm === 'exploded') {
+      } else if (animationData.crystalForm === 'exploded' && !freezeShardMotion) {
         setFragmentProgress(1);
       }
 
