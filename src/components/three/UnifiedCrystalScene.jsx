@@ -55,7 +55,7 @@ const FRAGMENT_MODEL_URLS = [
   '/assets/models/fragment07.glb',
   '/assets/models/fragment08.glb'
 ]
-const FRAGMENT_INSTANCE_COUNT = 24
+const FRAGMENT_INSTANCE_COUNT = 48
 
 const logger = createLogger('unified-crystal-scene');
 
@@ -564,8 +564,8 @@ const UnifiedCrystalScene = forwardRef(({
         .applyAxisAngle(new THREE.Vector3(1, 0, 0), elevation)
         .normalize();
 
-      const startRadius = 0.08 + hash(index + 31) * 0.22;
-      const travelDistance = avgFacetDistance * (0.7 + hash(index + 43) * 0.9);
+      const startRadius = 0.18 + hash(index + 31) * 0.28;
+      const travelDistance = avgFacetDistance * (1.05 + hash(index + 43) * 1.05);
       const startPosition = direction.clone().multiplyScalar(startRadius);
       const explodedPosition = startPosition.clone().add(direction.clone().multiplyScalar(travelDistance));
 
@@ -596,7 +596,7 @@ const UnifiedCrystalScene = forwardRef(({
         startQuaternion: new THREE.Quaternion().setFromEuler(baseEuler),
         explodedQuaternion: new THREE.Quaternion().setFromEuler(explodedEuler),
         startRotation: [baseEuler.x, baseEuler.y, baseEuler.z],
-        scale: 0.18 + hash(index + 83) * 0.24,
+        scale: 0.28 + hash(index + 83) * 0.34,
         reformLerp: 0.02 + hash(index + 89) * 0.08
       };
     });
@@ -612,6 +612,26 @@ const UnifiedCrystalScene = forwardRef(({
     () => fragmentInstances.map((instance) => fragmentModels[instance.modelIndex]?.scene?.clone(true) ?? null),
     [fragmentInstances, fragmentModels]
   );
+
+  useEffect(() => {
+    const sharedMaterial = crystalMaterialRef.current;
+    if (!sharedMaterial) return;
+
+    fragmentScenes.forEach((scene) => {
+      if (!scene) return;
+      scene.traverse((child) => {
+        if (!child?.isMesh || child.userData?.isOverlay) return;
+        const currentMaterial = child.material;
+        if (Array.isArray(currentMaterial)) {
+          child.material = currentMaterial.map(() => sharedMaterial);
+        } else {
+          child.material = sharedMaterial;
+        }
+        child.castShadow = false;
+        child.receiveShadow = false;
+      });
+    });
+  }, [fragmentScenes, materialVersion]);
 
   // Mark models as loaded when all GLTF hooks resolve
   useEffect(() => {
