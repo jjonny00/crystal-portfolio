@@ -271,7 +271,10 @@ const UnifiedCrystalScene = forwardRef(({
     const fragmentFractureDistance = mergedConfig?.fragments?.fractureDistance ?? fractureDistance;
     fragmentRefs.current.forEach((fragmentRef, idx) => {
       const fragmentKey = fragmentModelKeys[idx];
-      const explodedPos = fragmentExplodedPositions?.[fragmentKey];
+      const explodedConfig = mergedConfig?.fragments?.items?.[fragmentKey]?.exploded;
+      const explodedPos = Array.isArray(explodedConfig) && explodedConfig.length === 3
+        ? new THREE.Vector3().fromArray(explodedConfig)
+        : null;
       if (!fragmentRef?.current || !explodedPos) return;
       const fractureStart = explodedPos
         .clone()
@@ -281,7 +284,7 @@ const UnifiedCrystalScene = forwardRef(({
     });
 
     triggerFractureGlow();
-  }, [crystalConfig, facetKeys, facetPlacementKeys, fragmentExplodedPositions, fragmentModelKeys, mergedConfig?.fragments?.fractureDistance, triggerFractureGlow]);
+  }, [crystalConfig, facetKeys, facetPlacementKeys, fragmentModelKeys, mergedConfig?.fragments?.fractureDistance, mergedConfig?.fragments?.items, triggerFractureGlow]);
 
   const runReformSwap = useCallback(() => {
     pendingReformSwapAtRef.current = null;
