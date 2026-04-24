@@ -800,11 +800,18 @@ const UnifiedCrystalScene = forwardRef(({
     );
     const makeChunk = (seed, sx, sy, sz) => make(
       carveShard(
-        new THREE.DodecahedronGeometry(0.2 + hash(seed + 101) * 0.2, 0),
+        new THREE.BoxGeometry(
+          0.22 + hash(seed + 101) * 0.18,
+          0.2 + hash(seed + 103) * 0.22,
+          0.2 + hash(seed + 107) * 0.2,
+          1,
+          1,
+          1
+        ),
         seed,
-        { taper: 0.1, jitter: 0.14, bend: 0.03 }
+        { taper: 0.08, jitter: 0.09, bend: 0.02 }
       ),
-      [sx * 1.02, sy * 0.92, sz * 0.98]
+      [sx * 1.0, sy * 0.9, sz * 0.96]
     );
     const makeWedge = (seed, sx, sy, sz, radial, height, sides) => make(
       carveShard(
@@ -890,9 +897,9 @@ const UnifiedCrystalScene = forwardRef(({
       'sheenColorMap',
       'sheenRoughnessMap'
     ].forEach(clearTextureSlot);
-    shardMaterial.side = THREE.FrontSide;
+    shardMaterial.side = THREE.DoubleSide;
     if ('flatShading' in shardMaterial) {
-      shardMaterial.flatShading = true;
+      shardMaterial.flatShading = false;
     }
     if ('envMapIntensity' in shardMaterial) {
       shardMaterial.envMapIntensity = Math.min(shardMaterial.envMapIntensity ?? 1, 0.5);
