@@ -15,20 +15,20 @@ const projectKeys = ['empathy', 'narrative', 'craft', 'system', 'leadership', 'e
 const projectCameraKeys = ['project01', 'project02', 'project03', 'project04', 'project05', 'project06'];
 const getProjectDisplayLabel = (sceneFacetKey) => getProjectIdBySceneFacetKey(sceneFacetKey) || sceneFacetKey;
 const DEFAULT_SHARD_TUNING = {
-  spreadMultiplier: 1.45,
-  largeDistanceCenter: 0.86,
-  mediumDistanceCenter: 0.82,
-  smallDistanceCenter: 0.7,
+  spreadMultiplier: 1.5,
+  largeDistanceCenter: 0.64,
+  mediumDistanceCenter: 0.51,
+  smallDistanceCenter: 0.6,
   distanceJitter: 0.3,
   opacityMultiplier: 0.97,
   smallScaleBase: 0.02,
-  mediumScaleBase: 0.12,
-  largeScaleBase: 0.5,
+  mediumScaleBase: 0.07,
+  largeScaleBase: 0.34,
   smallScaleJitter: 0.01,
-  mediumScaleJitter: 0.09,
-  largeScaleJitter: 0.06,
-  rotationBaseDeg: 58,
-  rotationJitterDeg: 117
+  mediumScaleJitter: 0.01,
+  largeScaleJitter: 0.07,
+  rotationBaseDeg: 67,
+  rotationJitterDeg: 0
 };
 
 const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {

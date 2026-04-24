@@ -94,20 +94,20 @@ const UnifiedCrystalScene = forwardRef(({
   const [hoveredFacet, setHoveredFacet] = useState(null);
   const hoveredFacetRef = useRef(null);
   const [shardTuning, setShardTuning] = useState({
-    spreadMultiplier: 1.45,
-    largeDistanceCenter: 0.86,
-    mediumDistanceCenter: 0.82,
-    smallDistanceCenter: 0.7,
+    spreadMultiplier: 1.5,
+    largeDistanceCenter: 0.64,
+    mediumDistanceCenter: 0.51,
+    smallDistanceCenter: 0.6,
     distanceJitter: 0.3,
     opacityMultiplier: 0.97,
     smallScaleBase: 0.02,
-    mediumScaleBase: 0.12,
-    largeScaleBase: 0.5,
+    mediumScaleBase: 0.07,
+    largeScaleBase: 0.34,
     smallScaleJitter: 0.01,
-    mediumScaleJitter: 0.09,
-    largeScaleJitter: 0.06,
-    rotationBaseDeg: 58,
-    rotationJitterDeg: 117
+    mediumScaleJitter: 0.01,
+    largeScaleJitter: 0.07,
+    rotationBaseDeg: 67,
+    rotationJitterDeg: 0
   });
 
   // Track material updates so we can reapply when ready
@@ -823,6 +823,21 @@ const UnifiedCrystalScene = forwardRef(({
       ),
       [sx * 1.05, sy * 0.86, sz * 0.92]
     );
+    const makeChunkLite = (seed, sx, sy, sz) => make(
+      carveShard(
+        new THREE.BoxGeometry(
+          0.2 + hash(seed + 301) * 0.16,
+          0.16 + hash(seed + 307) * 0.18,
+          0.22 + hash(seed + 311) * 0.18,
+          1,
+          1,
+          1
+        ),
+        seed,
+        { taper: 0.1, jitter: 0.08, bend: 0.025 }
+      ),
+      [sx * 1.0, sy * 0.8, sz * 0.9]
+    );
     const makeWedge = (seed, sx, sy, sz, radial, height, sides) => make(
       carveShard(
         new THREE.ConeGeometry(radial * 0.78, height * 1.0, Math.max(4, sides - 1), 1),
@@ -891,7 +906,7 @@ const UnifiedCrystalScene = forwardRef(({
         return makeChunk(seed, sx, sy, sz);
       }
       if (familyRoll < 0.34) return makeNeedle(seed, sx, sy, sz, radial, height, sides);
-      if (familyRoll < 0.57) return makeChunk(seed, sx, sy, sz);
+      if (familyRoll < 0.57) return makeChunkLite(seed, sx, sy, sz);
       if (familyRoll < 0.76) return makeWedge(seed, sx, sy, sz, radial, height, sides);
       if (familyRoll < 0.9) return makeObelisk(seed, sx, sy, sz, radial, height, sides);
       return makeCrown(seed, sx, sy, sz, radial, height, sides);
