@@ -2418,7 +2418,7 @@ const UnifiedCrystalScene = forwardRef(({
                   material={shardMaterialRef.current || undefined}
                   position={instance.startPosition.toArray()}
                   rotation={instance.startRotation}
-                  scale={[instance.scale, instance.scale, instance.scale]}
+                  scale={[instance.scale * 2, instance.scale * 2, instance.scale * 2]}
                   renderOrder={1200 + index}
                 />
               );
