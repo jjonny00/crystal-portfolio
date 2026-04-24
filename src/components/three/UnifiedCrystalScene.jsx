@@ -748,9 +748,9 @@ const UnifiedCrystalScene = forwardRef(({
     const carveShard = (geometry, seed, profile = {}) => {
       const position = geometry.getAttribute('position');
       if (!position) return geometry;
-      const profileTaper = profile.taper ?? 0.35;
-      const profileJitter = profile.jitter ?? 0.22;
-      const profileBend = profile.bend ?? 0.16;
+      const profileTaper = profile.taper ?? 0.2;
+      const profileJitter = profile.jitter ?? 0.1;
+      const profileBend = profile.bend ?? 0.06;
       for (let i = 0; i < position.count; i += 1) {
         const x = position.getX(i);
         const y = position.getY(i);
@@ -761,13 +761,13 @@ const UnifiedCrystalScene = forwardRef(({
         const jitterY = (hash(seed * 37 + i * 2.11) - 0.5) * profileJitter * 0.65;
         const jitterZ = (hash(seed * 41 + i * 2.47) - 0.5) * profileJitter;
         const bend = Math.sin(t * Math.PI) * (hash(seed * 53 + i * 3.07) - 0.5) * profileBend;
-        let nextX = (x + jitterX + bend) * taper;
+        let nextX = x * taper + jitterX + bend * 0.5;
         let nextY = y + jitterY;
-        let nextZ = (z + jitterZ) * taper;
-        if (t > 0.75 && hash(seed * 59 + i * 4.13) > 0.68) {
-          nextX *= 0.35 + hash(seed * 61 + i * 5.19) * 0.45;
-          nextZ *= 0.35 + hash(seed * 67 + i * 5.83) * 0.45;
-          nextY += hash(seed * 71 + i * 6.23) * 0.12;
+        let nextZ = z * taper + jitterZ;
+        if (t > 0.82 && hash(seed * 59 + i * 4.13) > 0.86) {
+          nextX *= 0.6 + hash(seed * 61 + i * 5.19) * 0.3;
+          nextZ *= 0.6 + hash(seed * 67 + i * 5.83) * 0.3;
+          nextY += hash(seed * 71 + i * 6.23) * 0.04;
         }
         position.setXYZ(i, nextX, nextY, nextZ);
       }
@@ -784,35 +784,35 @@ const UnifiedCrystalScene = forwardRef(({
     };
     const makeNeedle = (seed, sx, sy, sz, radial, height, sides) => make(
       carveShard(
-        new THREE.CylinderGeometry(radial * 0.05, radial * 0.42, height * 1.9, Math.max(5, sides), 1),
+        new THREE.CylinderGeometry(radial * 0.16, radial * 0.5, height * 1.35, Math.max(5, sides), 1),
         seed,
-        { taper: 0.62, jitter: 0.16, bend: 0.13 }
+        { taper: 0.36, jitter: 0.08, bend: 0.05 }
       ),
-      [sx * 0.62, sy * 1.55, sz * 0.62]
+      [sx * 0.82, sy * 1.15, sz * 0.82]
     );
     const makePlate = (seed, sx, sy, sz, radial, height, sides) => make(
       carveShard(
-        new THREE.CylinderGeometry(radial * 1.1, radial * 1.35, height * 0.26, Math.max(5, sides + 1), 1),
+        new THREE.CylinderGeometry(radial * 1.0, radial * 1.2, height * 0.4, Math.max(5, sides + 1), 1),
         seed,
-        { taper: 0.18, jitter: 0.3, bend: 0.08 }
+        { taper: 0.14, jitter: 0.13, bend: 0.04 }
       ),
-      [sx * 1.25, sy * 0.36, sz * 1.05]
+      [sx * 1.1, sy * 0.52, sz * 0.95]
     );
     const makeChunk = (seed, sx, sy, sz) => make(
       carveShard(
         new THREE.DodecahedronGeometry(0.2 + hash(seed + 101) * 0.2, 0),
         seed,
-        { taper: 0.12, jitter: 0.34, bend: 0.07 }
+        { taper: 0.1, jitter: 0.14, bend: 0.03 }
       ),
-      [sx * 1.08, sy * 0.88, sz * 1.02]
+      [sx * 1.02, sy * 0.92, sz * 0.98]
     );
     const makeWedge = (seed, sx, sy, sz, radial, height, sides) => make(
       carveShard(
-        new THREE.ConeGeometry(radial * 0.95, height * 1.15, Math.max(4, sides - 1), 1),
+        new THREE.ConeGeometry(radial * 0.78, height * 1.0, Math.max(4, sides - 1), 1),
         seed,
-        { taper: 0.44, jitter: 0.24, bend: 0.12 }
+        { taper: 0.24, jitter: 0.1, bend: 0.05 }
       ),
-      [sx * 0.92, sy * 1.18, sz * 0.74]
+      [sx * 0.92, sy * 1.04, sz * 0.84]
     );
     return Array.from({ length: 60 }, (_, i) => {
       const seed = i + 1;
