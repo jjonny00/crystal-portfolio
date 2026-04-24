@@ -20,6 +20,8 @@ const CrystalDebugPanels = ({
   onForceShowFacets,
   onForceShowWhole,
   onInspectModels,
+  shardTuning,
+  onUpdateShardTuning,
   lastCrystalForm,
   focusedSceneFacetKey,
   focusedProjectKey,
@@ -58,6 +60,41 @@ const CrystalDebugPanels = ({
         }}>
           💎 Crystal Debug (Press 'C' to toggle)
         </div>
+
+        {/* Shard Controls */}
+        {shardTuning && onUpdateShardTuning && (
+          <div style={{
+            marginBottom: '15px',
+            borderTop: '1px solid rgba(100, 255, 218, 0.3)',
+            paddingTop: '10px'
+          }}>
+            <div style={{ color: '#64ffda', fontWeight: 'bold', marginBottom: '8px' }}>🪨 Shard Controls:</div>
+            {[
+              { key: 'spreadMultiplier', label: 'Spread', min: 0.2, max: 4, step: 0.05 },
+              { key: 'largeDistanceCenter', label: 'Large Dist', min: 0.5, max: 1, step: 0.01 },
+              { key: 'mediumDistanceCenter', label: 'Medium Dist', min: 0.2, max: 0.9, step: 0.01 },
+              { key: 'smallDistanceCenter', label: 'Small Dist', min: 0.05, max: 0.7, step: 0.01 },
+              { key: 'distanceJitter', label: 'Dist Jitter', min: 0, max: 0.3, step: 0.01 },
+              { key: 'opacityMultiplier', label: 'Opacity', min: 0.1, max: 1, step: 0.01 }
+            ].map(({ key, label, min, max, step }) => (
+              <label key={key} style={{ display: 'block', marginBottom: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
+                  <span>{label}</span>
+                  <span>{Number(shardTuning[key]).toFixed(2)}</span>
+                </div>
+                <input
+                  type="range"
+                  min={min}
+                  max={max}
+                  step={step}
+                  value={shardTuning[key]}
+                  onChange={(event) => onUpdateShardTuning({ [key]: Number(event.target.value) })}
+                  style={{ width: '100%' }}
+                />
+              </label>
+            ))}
+          </div>
+        )}
         
         {/* Crystal State */}
         <div style={{ marginBottom: '15px' }}>

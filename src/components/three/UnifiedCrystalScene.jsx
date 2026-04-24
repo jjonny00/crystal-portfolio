@@ -93,6 +93,14 @@ const UnifiedCrystalScene = forwardRef(({
   // FIXED: Better hover state tracking
   const [hoveredFacet, setHoveredFacet] = useState(null);
   const hoveredFacetRef = useRef(null);
+  const [shardTuning, setShardTuning] = useState({
+    spreadMultiplier: 1.0,
+    largeDistanceCenter: 0.9,
+    mediumDistanceCenter: 0.6,
+    smallDistanceCenter: 0.3,
+    distanceJitter: 0.08,
+    opacityMultiplier: 0.8
+  });
 
   // Track material updates so we can reapply when ready
   const [materialVersion, setMaterialVersion] = useState(0);
@@ -411,6 +419,7 @@ const UnifiedCrystalScene = forwardRef(({
       focusedSceneFacetKey,
       focusedProjectKey,
       focusedFacetSlot,
+      shardTuning
     }),
 
     debugState: {
@@ -424,7 +433,8 @@ const UnifiedCrystalScene = forwardRef(({
       lastCrystalForm: lastCrystalForm.current,
       focusedSceneFacetKey,
       focusedProjectKey,
-      focusedFacetSlot
+      focusedFacetSlot,
+      shardTuning
     },
     
     // Expose debug methods for debug panels
@@ -513,9 +523,12 @@ const UnifiedCrystalScene = forwardRef(({
           });
           
         }
+      },
+      updateShardTuning: (patch) => {
+        setShardTuning((prev) => ({ ...prev, ...patch }));
       }
     }
-  }), [facetKeys, showWholeCrystal, showFacets, sphereVisible, showCrystalDebug, modelsLoaded, animationData, focusedSceneFacetKey, focusedProjectKey, focusedFacetSlot]);
+  }), [facetKeys, showWholeCrystal, showFacets, sphereVisible, showCrystalDebug, modelsLoaded, animationData, focusedSceneFacetKey, focusedProjectKey, focusedFacetSlot, shardTuning]);
 
   // Load models
   const wholeCrystal = useGLTF(mergedConfig.assets.models.crystalWhole);
@@ -625,20 +638,26 @@ const UnifiedCrystalScene = forwardRef(({
         : new THREE.Vector3(1, 0, 0).cross(direction).normalize();
       const bitangentAxis = direction.clone().cross(tangentAxis).normalize();
 
-      const tierDistanceRange = resolvedScale.tier === 'large'
-        ? [0.85, 0.95]
+      const distanceCenter = resolvedScale.tier === 'large'
+        ? shardTuning.largeDistanceCenter
         : resolvedScale.tier === 'medium'
-        ? [0.52, 0.68]
-        : [0.22, 0.38];
+        ? shardTuning.mediumDistanceCenter
+        : shardTuning.smallDistanceCenter;
+      const distanceJitter = THREE.MathUtils.clamp(shardTuning.distanceJitter, 0, 0.45);
+      const tierDistanceRange = [
+        THREE.MathUtils.clamp(distanceCenter - distanceJitter, 0, 1),
+        THREE.MathUtils.clamp(distanceCenter + distanceJitter, 0, 1)
+      ];
       const distanceRatio = tierDistanceRange[0] + hash(sampleSeed + 31) * (tierDistanceRange[1] - tierDistanceRange[0]);
 
-      const startSpread = 0.28 + hash(sampleSeed + 41) * 0.44;
+      const spreadScale = THREE.MathUtils.clamp(shardTuning.spreadMultiplier, 0.2, 4);
+      const startSpread = (0.28 + hash(sampleSeed + 41) * 0.44) * spreadScale;
       const endSpreadMultiplier = resolvedScale.tier === 'large'
         ? 0.72
         : resolvedScale.tier === 'medium'
         ? 0.62
         : 0.52;
-      const endSpread = (0.38 + hash(sampleSeed + 47) * 0.74) * endSpreadMultiplier;
+      const endSpread = (0.38 + hash(sampleSeed + 47) * 0.74) * endSpreadMultiplier * spreadScale;
       const startOffset = tangentAxis
         .clone()
         .multiplyScalar((hash(sampleSeed + 59) - 0.5) * startSpread)
@@ -678,7 +697,7 @@ const UnifiedCrystalScene = forwardRef(({
         reformLerp: 0.02 + hash(index + 89) * 0.08
       };
     });
-  }, [crystalConfig?.positions, crystalConfig?.fracturePositions, crystalConfig?.fractureDistance, facetKeys, facetPlacementKeys, overviewWorldAnchors]);
+  }, [crystalConfig?.positions, crystalConfig?.fracturePositions, crystalConfig?.fractureDistance, facetKeys, facetPlacementKeys, overviewWorldAnchors, shardTuning]);
 
   const fragmentRefs = useRef([]);
   useEffect(() => {
@@ -792,10 +811,13 @@ const UnifiedCrystalScene = forwardRef(({
       shardMaterial.envMapIntensity = Math.min(shardMaterial.envMapIntensity ?? 1, 0.5);
     }
     shardMaterial.transparent = true;
-    shardMaterial.opacity = Math.max(0.08, Math.min(1, (shardMaterial.opacity ?? 1) * 0.5));
+    shardMaterial.opacity = Math.max(
+      0.12,
+      Math.min(1, (shardMaterial.opacity ?? 1) * THREE.MathUtils.clamp(shardTuning.opacityMultiplier, 0.1, 1))
+    );
     shardMaterial.needsUpdate = true;
     shardMaterialRef.current = shardMaterial;
-  }, [materialVersion]);
+  }, [materialVersion, shardTuning.opacityMultiplier]);
 
   // Mark models as loaded when all GLTF hooks resolve
   useEffect(() => {
