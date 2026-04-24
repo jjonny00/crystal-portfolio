@@ -722,7 +722,7 @@ const UnifiedCrystalScene = forwardRef(({
             ? Math.floor(hash(index + 101) * 64) // 0..63
             : resolvedScale.tier === 'medium'
             ? 64 + Math.floor(hash(index + 103) * 20) // 64..83
-            : 84 + Math.floor(hash(index + 107) * 8), // 84..91
+            : 84 + Math.floor(hash(index + 107) * 20), // 84..103
         startPosition,
         explodedPosition,
         startQuaternion: new THREE.Quaternion().setFromEuler(baseEuler),
@@ -831,7 +831,29 @@ const UnifiedCrystalScene = forwardRef(({
       ),
       [sx * 0.92, sy * 1.04, sz * 0.84]
     );
-    return Array.from({ length: 92 }, (_, i) => {
+    const makeObelisk = (seed, sx, sy, sz, radial, height, sides) => make(
+      carveShard(
+        new THREE.CylinderGeometry(
+          radial * (0.24 + hash(seed + 211) * 0.12),
+          radial * (0.5 + hash(seed + 223) * 0.22),
+          height * (0.8 + hash(seed + 227) * 0.32),
+          Math.max(5, sides + 1),
+          1
+        ),
+        seed,
+        { taper: 0.26, jitter: 0.11, bend: 0.05 }
+      ),
+      [sx * 0.9, sy * 0.86, sz * 0.82]
+    );
+    const makeCrown = (seed, sx, sy, sz, radial, height, sides) => make(
+      carveShard(
+        new THREE.OctahedronGeometry(Math.max(0.08, radial * 0.95), 0),
+        seed,
+        { taper: 0.18, jitter: 0.13, bend: 0.06 }
+      ),
+      [sx * 1.08, sy * 0.74, sz * 0.92]
+    );
+    return Array.from({ length: 104 }, (_, i) => {
       const seed = i + 1;
       const isSmall = i < 64;
       const isMedium = i >= 64 && i < 84;
@@ -868,9 +890,11 @@ const UnifiedCrystalScene = forwardRef(({
         if (familyRoll < 0.68) return makeWedge(seed, sx, sy, sz, radial, height, sides);
         return makeChunk(seed, sx, sy, sz);
       }
-      if (familyRoll < 0.55) return makeNeedle(seed, sx, sy, sz, radial, height, sides);
-      if (familyRoll < 0.82) return makeChunk(seed, sx, sy, sz);
-      return makeWedge(seed, sx, sy, sz, radial, height, sides);
+      if (familyRoll < 0.34) return makeNeedle(seed, sx, sy, sz, radial, height, sides);
+      if (familyRoll < 0.57) return makeChunk(seed, sx, sy, sz);
+      if (familyRoll < 0.76) return makeWedge(seed, sx, sy, sz, radial, height, sides);
+      if (familyRoll < 0.9) return makeObelisk(seed, sx, sy, sz, radial, height, sides);
+      return makeCrown(seed, sx, sy, sz, radial, height, sides);
     });
   }, []);
 
