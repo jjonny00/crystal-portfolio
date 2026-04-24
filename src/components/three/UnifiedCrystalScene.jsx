@@ -751,23 +751,33 @@ const UnifiedCrystalScene = forwardRef(({
       const profileTaper = profile.taper ?? 0.2;
       const profileJitter = profile.jitter ?? 0.1;
       const profileBend = profile.bend ?? 0.06;
+      const stableNoise = (x, y, z, salt) => {
+        const value = Math.sin(
+          x * 12.9898 +
+          y * 78.233 +
+          z * 37.719 +
+          seed * 19.913 +
+          salt * 17.173
+        ) * 43758.5453;
+        return value - Math.floor(value);
+      };
       for (let i = 0; i < position.count; i += 1) {
         const x = position.getX(i);
         const y = position.getY(i);
         const z = position.getZ(i);
         const t = (y + 1) * 0.5;
         const taper = 1 - t * profileTaper;
-        const jitterX = (hash(seed * 31 + i * 1.71) - 0.5) * profileJitter;
-        const jitterY = (hash(seed * 37 + i * 2.11) - 0.5) * profileJitter * 0.65;
-        const jitterZ = (hash(seed * 41 + i * 2.47) - 0.5) * profileJitter;
-        const bend = Math.sin(t * Math.PI) * (hash(seed * 53 + i * 3.07) - 0.5) * profileBend;
+        const jitterX = (stableNoise(x, y, z, 11) - 0.5) * profileJitter;
+        const jitterY = (stableNoise(x, y, z, 17) - 0.5) * profileJitter * 0.65;
+        const jitterZ = (stableNoise(x, y, z, 23) - 0.5) * profileJitter;
+        const bend = Math.sin(t * Math.PI) * (stableNoise(x, y, z, 31) - 0.5) * profileBend;
         let nextX = x * taper + jitterX + bend * 0.5;
         let nextY = y + jitterY;
         let nextZ = z * taper + jitterZ;
-        if (t > 0.82 && hash(seed * 59 + i * 4.13) > 0.86) {
-          nextX *= 0.6 + hash(seed * 61 + i * 5.19) * 0.3;
-          nextZ *= 0.6 + hash(seed * 67 + i * 5.83) * 0.3;
-          nextY += hash(seed * 71 + i * 6.23) * 0.04;
+        if (t > 0.82 && stableNoise(x, y, z, 41) > 0.88) {
+          nextX *= 0.7 + stableNoise(x, y, z, 47) * 0.2;
+          nextZ *= 0.7 + stableNoise(x, y, z, 53) * 0.2;
+          nextY += stableNoise(x, y, z, 59) * 0.02;
         }
         position.setXYZ(i, nextX, nextY, nextZ);
       }
@@ -897,14 +907,15 @@ const UnifiedCrystalScene = forwardRef(({
       'sheenColorMap',
       'sheenRoughnessMap'
     ].forEach(clearTextureSlot);
-    shardMaterial.side = THREE.DoubleSide;
+    shardMaterial.side = THREE.FrontSide;
     if ('flatShading' in shardMaterial) {
-      shardMaterial.flatShading = false;
+      shardMaterial.flatShading = true;
     }
     if ('envMapIntensity' in shardMaterial) {
       shardMaterial.envMapIntensity = Math.min(shardMaterial.envMapIntensity ?? 1, 0.5);
     }
     shardMaterial.transparent = true;
+    shardMaterial.depthWrite = true;
     shardMaterial.opacity = Math.max(
       0.12,
       Math.min(1, (shardMaterial.opacity ?? 1) * THREE.MathUtils.clamp(shardTuning.opacityMultiplier, 0.1, 1))
