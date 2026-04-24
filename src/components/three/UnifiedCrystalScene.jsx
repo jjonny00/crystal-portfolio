@@ -548,10 +548,10 @@ const UnifiedCrystalScene = forwardRef(({
       .map((facetKey) => {
         const placementKey = facetPlacementKeys[facetKey] || facetKey;
         return (
-          configuredPositions[placementKey] ||
-          configuredPositions[facetKey] ||
           resolveAnchorVector(placementKey) ||
-          resolveAnchorVector(facetKey)
+          resolveAnchorVector(facetKey) ||
+          configuredPositions[placementKey] ||
+          configuredPositions[facetKey]
         );
       })
       .filter(Boolean);
@@ -562,10 +562,13 @@ const UnifiedCrystalScene = forwardRef(({
       .map((facetKey, facetIndex) => {
         const placementKey = facetPlacementKeys[facetKey] || facetKey;
         const configuredEnd =
-          configuredPositions[placementKey] ||
-          configuredPositions[facetKey] ||
           resolveAnchorVector(placementKey) ||
-          resolveAnchorVector(facetKey);
+          resolveAnchorVector(facetKey) ||
+          configuredPositions[placementKey] ||
+          configuredPositions[facetKey];
+        if (!configuredEnd && import.meta.env.DEV) {
+          logger.warn('Missing shard anchor target; using synthetic fallback', { facetKey, placementKey });
+        }
         const syntheticAngle = (facetIndex / Math.max(facetKeys.length, 1)) * Math.PI * 2;
         const syntheticTilt = (hash(facetIndex + 907) - 0.5) * 0.8;
         const endTarget = configuredEnd?.clone() || new THREE.Vector3(
