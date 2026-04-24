@@ -657,24 +657,8 @@ const UnifiedCrystalScene = forwardRef(({
         .clone()
         .add(endOffset.multiplyScalar(endOffsetScale));
 
-      const baseEuler = new THREE.Euler(
-        hash(index + 59) * Math.PI * 2,
-        hash(index + 61) * Math.PI * 2,
-        hash(index + 67) * Math.PI * 2,
-        'XYZ'
-      );
-      const spinEuler = new THREE.Euler(
-        (hash(index + 71) - 0.5) * Math.PI * 3.2,
-        (hash(index + 73) - 0.5) * Math.PI * 3.2,
-        (hash(index + 79) - 0.5) * Math.PI * 3.2,
-        'XYZ'
-      );
-      const explodedEuler = new THREE.Euler(
-        baseEuler.x + spinEuler.x,
-        baseEuler.y + spinEuler.y,
-        baseEuler.z + spinEuler.z,
-        'XYZ'
-      );
+      const baseEuler = new THREE.Euler(0, 0, 0, 'XYZ');
+      const explodedEuler = new THREE.Euler(0, 0, 0, 'XYZ');
 
       return {
         key: `fragment-instance-${index}`,
@@ -807,6 +791,8 @@ const UnifiedCrystalScene = forwardRef(({
     if ('envMapIntensity' in shardMaterial) {
       shardMaterial.envMapIntensity = Math.min(shardMaterial.envMapIntensity ?? 1, 0.5);
     }
+    shardMaterial.transparent = true;
+    shardMaterial.opacity = Math.max(0.08, Math.min(1, (shardMaterial.opacity ?? 1) * 0.5));
     shardMaterial.needsUpdate = true;
     shardMaterialRef.current = shardMaterial;
   }, [materialVersion]);
