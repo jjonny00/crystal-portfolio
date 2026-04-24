@@ -99,7 +99,15 @@ const UnifiedCrystalScene = forwardRef(({
     mediumDistanceCenter: 0.6,
     smallDistanceCenter: 0.3,
     distanceJitter: 0.08,
-    opacityMultiplier: 0.8
+    opacityMultiplier: 0.8,
+    smallScaleBase: 0.022,
+    mediumScaleBase: 0.07,
+    largeScaleBase: 0.16,
+    smallScaleJitter: 0.05,
+    mediumScaleJitter: 0.09,
+    largeScaleJitter: 0.18,
+    rotationBaseDeg: 0,
+    rotationJitterDeg: 35
   });
 
   // Track material updates so we can reapply when ready
@@ -617,12 +625,21 @@ const UnifiedCrystalScene = forwardRef(({
     const resolveScaleForIndex = (index, clusterLocalIndex) => {
       const tier = tierPattern[clusterLocalIndex % tierPattern.length];
       if (tier === 'small') {
-        return { tier, scale: 0.022 + hash(index + 84) * 0.05 };
+        return {
+          tier,
+          scale: shardTuning.smallScaleBase + hash(index + 84) * shardTuning.smallScaleJitter
+        };
       }
       if (tier === 'medium') {
-        return { tier, scale: 0.07 + hash(index + 85) * 0.09 };
+        return {
+          tier,
+          scale: shardTuning.mediumScaleBase + hash(index + 85) * shardTuning.mediumScaleJitter
+        };
       }
-      return { tier, scale: 0.16 + hash(index + 86) * 0.18 };
+      return {
+        tier,
+        scale: shardTuning.largeScaleBase + hash(index + 86) * shardTuning.largeScaleJitter
+      };
     };
 
     return Array.from({ length: FRAGMENT_INSTANCE_COUNT }, (_, index) => {
@@ -684,8 +701,18 @@ const UnifiedCrystalScene = forwardRef(({
         .clone()
         .add(endOffset.multiplyScalar(endOffsetScale));
 
-      const baseEuler = new THREE.Euler(0, 0, 0, 'XYZ');
-      const explodedEuler = new THREE.Euler(0, 0, 0, 'XYZ');
+      const rotationBase = THREE.MathUtils.degToRad(shardTuning.rotationBaseDeg || 0);
+      const rotationJitter = THREE.MathUtils.degToRad(shardTuning.rotationJitterDeg || 0);
+      const xAmp = rotationBase + hash(index + 171) * rotationJitter;
+      const yAmp = rotationBase + hash(index + 173) * rotationJitter;
+      const zAmp = rotationBase + hash(index + 179) * rotationJitter;
+      const baseEuler = new THREE.Euler(
+        (hash(index + 59) - 0.5) * 2 * xAmp,
+        (hash(index + 61) - 0.5) * 2 * yAmp,
+        (hash(index + 67) - 0.5) * 2 * zAmp,
+        'XYZ'
+      );
+      const explodedEuler = baseEuler.clone();
 
       return {
         key: `fragment-instance-${index}`,

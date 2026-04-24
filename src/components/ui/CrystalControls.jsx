@@ -20,7 +20,15 @@ const DEFAULT_SHARD_TUNING = {
   mediumDistanceCenter: 0.6,
   smallDistanceCenter: 0.3,
   distanceJitter: 0.08,
-  opacityMultiplier: 0.8
+  opacityMultiplier: 0.8,
+  smallScaleBase: 0.022,
+  mediumScaleBase: 0.07,
+  largeScaleBase: 0.16,
+  smallScaleJitter: 0.05,
+  mediumScaleJitter: 0.09,
+  largeScaleJitter: 0.18,
+  rotationBaseDeg: 0,
+  rotationJitterDeg: 35
 };
 
 const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
@@ -2193,6 +2201,14 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
         ['mediumDistanceCenter', 'Medium Distance', 0.2, 0.9, 0.01],
         ['smallDistanceCenter', 'Small Distance', 0.05, 0.7, 0.01],
         ['distanceJitter', 'Distance Jitter', 0, 0.3, 0.01],
+        ['smallScaleBase', 'Small Scale Base', 0.005, 0.08, 0.001],
+        ['smallScaleJitter', 'Small Scale Jitter', 0, 0.15, 0.001],
+        ['mediumScaleBase', 'Medium Scale Base', 0.02, 0.2, 0.001],
+        ['mediumScaleJitter', 'Medium Scale Jitter', 0, 0.2, 0.001],
+        ['largeScaleBase', 'Large Scale Base', 0.05, 0.5, 0.001],
+        ['largeScaleJitter', 'Large Scale Jitter', 0, 0.35, 0.001],
+        ['rotationBaseDeg', 'Rotation Base°', 0, 90, 1],
+        ['rotationJitterDeg', 'Rotation Jitter°', 0, 180, 1],
         ['opacityMultiplier', 'Shard Opacity', 0.1, 1, 0.01]
       ].map(([key, label, min, max, step]) => (
         <div style={sliderGroupStyle} key={key}>
