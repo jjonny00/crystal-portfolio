@@ -146,6 +146,14 @@ const UnifiedCrystalScene = forwardRef(({
   const mergedConfig = config;
 
   useEffect(() => {
+    if (!mergedConfig?.shardTuning) return;
+    setShardTuning((prev) => ({
+      ...prev,
+      ...mergedConfig.shardTuning
+    }));
+  }, [mergedConfig?.shardTuning]);
+
+  useEffect(() => {
     if (!import.meta.env.DEV) return;
     const hero = mergedConfig?.cameraPositions?.hero;
     const overview = mergedConfig?.cameraPositions?.overview;

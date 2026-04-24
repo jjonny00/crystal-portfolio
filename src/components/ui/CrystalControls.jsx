@@ -14,6 +14,14 @@ const zoneKeys = ['intro', 'hero', 'overview', 'about'];
 const projectKeys = ['empathy', 'narrative', 'craft', 'system', 'leadership', 'exploration'];
 const projectCameraKeys = ['project01', 'project02', 'project03', 'project04', 'project05', 'project06'];
 const getProjectDisplayLabel = (sceneFacetKey) => getProjectIdBySceneFacetKey(sceneFacetKey) || sceneFacetKey;
+const DEFAULT_SHARD_TUNING = {
+  spreadMultiplier: 1.0,
+  largeDistanceCenter: 0.9,
+  mediumDistanceCenter: 0.6,
+  smallDistanceCenter: 0.3,
+  distanceJitter: 0.08,
+  opacityMultiplier: 0.8
+};
 
 const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
   const [activeTab, setActiveTab] = useState('timing');
@@ -147,6 +155,10 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
     'materials.crystal.ior': crystalConfig.materials.crystal.ior,
     'materials.crystal.iridescence': crystalConfig.materials.crystal.iridescence,
     'materials.crystal.roughness': crystalConfig.materials.crystal.roughness,
+  });
+  const [shardValues, setShardValues] = useState({
+    ...DEFAULT_SHARD_TUNING,
+    ...(config?.shardTuning || {})
   });
 
   const normalizeCrystalConfig = (input) => {
@@ -642,6 +654,11 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
       'selectedFacetRotationsEulerDeg.leadership': updatedConfig.selectedFacetRotationsEulerDeg.leadership,
       'selectedFacetRotationsEulerDeg.exploration': updatedConfig.selectedFacetRotationsEulerDeg.exploration
     });
+
+    setShardValues({
+      ...DEFAULT_SHARD_TUNING,
+      ...(updatedConfig.shardTuning || {})
+    });
   };
 
   // Handle timing value changes
@@ -948,6 +965,23 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
     onUpdate(updatedConfig);
   };
 
+  const handleShardChange = (key, value) => {
+    const numValue = parseFloat(value);
+    const nextValues = {
+      ...shardValues,
+      [key]: numValue
+    };
+    setShardValues(nextValues);
+
+    const updatedConfig = cloneConfig();
+    updatedConfig.shardTuning = {
+      ...DEFAULT_SHARD_TUNING,
+      ...(updatedConfig.shardTuning || {}),
+      ...nextValues
+    };
+    onUpdate(updatedConfig);
+  };
+
   // Handle material value changes  
   const handleMaterialChange = (key, value) => {
     const numValue = parseFloat(value);
@@ -1077,9 +1111,13 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
       'materials.crystal.iridescence': crystalConfig.materials.crystal.iridescence, 
       'materials.crystal.roughness': crystalConfig.materials.crystal.roughness,
     });
+    setShardValues({ ...DEFAULT_SHARD_TUNING });
     
     // Notify parent component
-    onUpdate(crystalConfig);
+    onUpdate({
+      ...crystalConfig,
+      shardTuning: { ...DEFAULT_SHARD_TUNING }
+    });
   };
 
   const getLayoutPayload = () => {
@@ -2146,6 +2184,36 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
     </div>
   );
 
+  const renderShardControls = () => (
+    <div>
+      <h3 style={{ fontSize: '14px', marginBottom: '15px' }}>Shard Controls</h3>
+      {[
+        ['spreadMultiplier', 'Spread', 0.2, 4, 0.05],
+        ['largeDistanceCenter', 'Large Distance', 0.5, 1, 0.01],
+        ['mediumDistanceCenter', 'Medium Distance', 0.2, 0.9, 0.01],
+        ['smallDistanceCenter', 'Small Distance', 0.05, 0.7, 0.01],
+        ['distanceJitter', 'Distance Jitter', 0, 0.3, 0.01],
+        ['opacityMultiplier', 'Shard Opacity', 0.1, 1, 0.01]
+      ].map(([key, label, min, max, step]) => (
+        <div style={sliderGroupStyle} key={key}>
+          <div style={sliderLabelStyle}>
+            <span>{label}</span>
+            <span>{Number(shardValues[key]).toFixed(2)}</span>
+          </div>
+          <input
+            type="range"
+            min={min}
+            max={max}
+            step={step}
+            value={shardValues[key]}
+            onChange={(e) => handleShardChange(key, e.target.value)}
+            style={sliderStyle}
+          />
+        </div>
+      ))}
+    </div>
+  );
+
   // Updated return statement for tabbed interface
   return (
     <div style={containerStyle}>
@@ -2185,6 +2253,12 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
         >
           Material
         </button>
+        <button
+          style={tabButtonStyle(activeTab === 'shards')}
+          onClick={() => setActiveTab('shards')}
+        >
+          Shards
+        </button>
       </div>
 
       {activeTab === 'timing' && renderTimingControls()}
@@ -2192,6 +2266,7 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
       {activeTab === 'camera' && renderCameraControls()}
       {activeTab === 'effects' && renderEffectsControls()}
       {activeTab === 'material' && renderMaterialControls()}
+      {activeTab === 'shards' && renderShardControls()}
 
       <div style={exportSectionStyle}>
         <h3 style={{ fontSize: '13px', margin: '0 0 10px 0' }}>Export / Copy Tuning JSON</h3>
