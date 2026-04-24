@@ -933,42 +933,15 @@ const UnifiedCrystalScene = forwardRef(({
     ].forEach(clearTextureSlot);
     shardMaterial.customProgramCacheKey = () => 'shard-polish-v1';
     shardMaterial.onBeforeCompile = (shader) => {
-      shader.uniforms.uShardFresnelStrength = { value: 0.24 };
-      shader.uniforms.uShardFresnelPower = { value: 2.6 };
-      shader.uniforms.uShardEdgeBoost = { value: 0.3 };
-      shader.uniforms.uShardRoughnessVariance = { value: 0.08 };
-      shader.uniforms.uShardNoiseScale = { value: 6.5 };
-
-      shader.vertexShader = `
-        varying vec3 vShardWorldPos;
-      ${shader.vertexShader}`.replace(
-        '#include <worldpos_vertex>',
-        `#include <worldpos_vertex>
-        vShardWorldPos = worldPosition.xyz;`
-      );
+      shader.uniforms.uShardFresnelStrength = { value: 0.28 };
+      shader.uniforms.uShardFresnelPower = { value: 2.2 };
+      shader.uniforms.uShardEdgeBoost = { value: 0.36 };
 
       shader.fragmentShader = `
-        varying vec3 vShardWorldPos;
         uniform float uShardFresnelStrength;
         uniform float uShardFresnelPower;
         uniform float uShardEdgeBoost;
-        uniform float uShardRoughnessVariance;
-        uniform float uShardNoiseScale;
-
-        float shardNoise(vec3 p) {
-          return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
-        }
       ${shader.fragmentShader}`
-        .replace(
-          '#include <roughnessmap_fragment>',
-          `#include <roughnessmap_fragment>
-          float shardN = shardNoise(vShardWorldPos * uShardNoiseScale);
-          roughnessFactor = clamp(
-            roughnessFactor + (shardN - 0.5) * uShardRoughnessVariance,
-            0.03,
-            1.0
-          );`
-        )
         .replace(
           '#include <output_fragment>',
           `
@@ -987,7 +960,13 @@ const UnifiedCrystalScene = forwardRef(({
       shardMaterial.flatShading = true;
     }
     if ('envMapIntensity' in shardMaterial) {
-      shardMaterial.envMapIntensity = Math.min(shardMaterial.envMapIntensity ?? 1, 0.5);
+      shardMaterial.envMapIntensity = Math.max(shardMaterial.envMapIntensity ?? 1, 1.25);
+    }
+    if ('roughness' in shardMaterial) {
+      shardMaterial.roughness = Math.min(shardMaterial.roughness ?? 0.6, 0.22);
+    }
+    if ('metalness' in shardMaterial) {
+      shardMaterial.metalness = Math.max(shardMaterial.metalness ?? 0, 0.16);
     }
     shardMaterial.transparent = true;
     shardMaterial.depthWrite = true;
