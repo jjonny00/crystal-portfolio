@@ -45,7 +45,7 @@ const REFORM_MASK_GLOW_PEAK_INTENSITY = 1.5
 const REFORM_FACET_MASK_GLOW_PEAK_INTENSITY = 1.3
 const REFORM_SWAP_OVERLAP_MS = 100
 const ENABLE_OVERVIEW_ALL_CONNECTORS = true
-const FRAGMENT_INSTANCE_COUNT = 48
+const FRAGMENT_INSTANCE_COUNT = 96
 
 const logger = createLogger('unified-crystal-scene');
 
@@ -621,7 +621,7 @@ const UnifiedCrystalScene = forwardRef(({
       ? explodedFacetEntries.reduce((sum, entry) => sum + entry.endTarget.length(), 0) / explodedFacetEntries.length
       : 1.2;
     const clusterCount = Math.max(explodedFacetEntries.length, 1);
-    const tierPattern = ['small', 'medium', 'large', 'medium', 'small', 'large'];
+    const tierPattern = ['small', 'small', 'medium', 'small', 'small', 'large', 'small', 'medium'];
     const resolveScaleForIndex = (index, clusterLocalIndex) => {
       const tier = tierPattern[clusterLocalIndex % tierPattern.length];
       if (tier === 'small') {
@@ -719,10 +719,10 @@ const UnifiedCrystalScene = forwardRef(({
         facetKey: clusterEntry?.facetKey || facetKeys[index % facetKeys.length],
         geometryIndex:
           resolvedScale.tier === 'small'
-            ? Math.floor(hash(index + 101) * 28) // 0..27
+            ? Math.floor(hash(index + 101) * 44) // 0..43
             : resolvedScale.tier === 'medium'
-            ? 28 + Math.floor(hash(index + 103) * 20) // 28..47
-            : 48 + Math.floor(hash(index + 107) * 12), // 48..59
+            ? 44 + Math.floor(hash(index + 103) * 24) // 44..67
+            : 68 + Math.floor(hash(index + 107) * 16), // 68..83
         startPosition,
         explodedPosition,
         startQuaternion: new THREE.Quaternion().setFromEuler(baseEuler),
@@ -811,17 +811,17 @@ const UnifiedCrystalScene = forwardRef(({
     const makeChunk = (seed, sx, sy, sz) => make(
       carveShard(
         new THREE.BoxGeometry(
-          0.22 + hash(seed + 101) * 0.18,
-          0.2 + hash(seed + 103) * 0.22,
-          0.2 + hash(seed + 107) * 0.2,
-          1,
-          1,
-          1
+          0.18 + hash(seed + 101) * 0.18,
+          0.14 + hash(seed + 103) * 0.24,
+          0.22 + hash(seed + 107) * 0.2,
+          2,
+          2,
+          2
         ),
         seed,
-        { taper: 0.08, jitter: 0.09, bend: 0.02 }
+        { taper: 0.14, jitter: 0.12, bend: 0.035 }
       ),
-      [sx * 1.0, sy * 0.9, sz * 0.96]
+      [sx * 1.05, sy * 0.86, sz * 0.92]
     );
     const makeWedge = (seed, sx, sy, sz, radial, height, sides) => make(
       carveShard(
@@ -831,10 +831,10 @@ const UnifiedCrystalScene = forwardRef(({
       ),
       [sx * 0.92, sy * 1.04, sz * 0.84]
     );
-    return Array.from({ length: 60 }, (_, i) => {
+    return Array.from({ length: 84 }, (_, i) => {
       const seed = i + 1;
-      const isSmall = i < 28;
-      const isMedium = i >= 28 && i < 48;
+      const isSmall = i < 44;
+      const isMedium = i >= 44 && i < 68;
       const sx = isSmall
         ? 0.55 + hash(seed + 11) * 0.45
         : isMedium
