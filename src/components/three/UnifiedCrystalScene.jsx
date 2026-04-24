@@ -745,6 +745,36 @@ const UnifiedCrystalScene = forwardRef(({
       const value = Math.sin(seed * 17.731 + 5.192) * 43758.5453;
       return value - Math.floor(value);
     };
+    const carveShard = (geometry, seed, profile = {}) => {
+      const position = geometry.getAttribute('position');
+      if (!position) return geometry;
+      const profileTaper = profile.taper ?? 0.35;
+      const profileJitter = profile.jitter ?? 0.22;
+      const profileBend = profile.bend ?? 0.16;
+      for (let i = 0; i < position.count; i += 1) {
+        const x = position.getX(i);
+        const y = position.getY(i);
+        const z = position.getZ(i);
+        const t = (y + 1) * 0.5;
+        const taper = 1 - t * profileTaper;
+        const jitterX = (hash(seed * 31 + i * 1.71) - 0.5) * profileJitter;
+        const jitterY = (hash(seed * 37 + i * 2.11) - 0.5) * profileJitter * 0.65;
+        const jitterZ = (hash(seed * 41 + i * 2.47) - 0.5) * profileJitter;
+        const bend = Math.sin(t * Math.PI) * (hash(seed * 53 + i * 3.07) - 0.5) * profileBend;
+        let nextX = (x + jitterX + bend) * taper;
+        let nextY = y + jitterY;
+        let nextZ = (z + jitterZ) * taper;
+        if (t > 0.75 && hash(seed * 59 + i * 4.13) > 0.68) {
+          nextX *= 0.35 + hash(seed * 61 + i * 5.19) * 0.45;
+          nextZ *= 0.35 + hash(seed * 67 + i * 5.83) * 0.45;
+          nextY += hash(seed * 71 + i * 6.23) * 0.12;
+        }
+        position.setXYZ(i, nextX, nextY, nextZ);
+      }
+      position.needsUpdate = true;
+      geometry.computeVertexNormals();
+      return geometry;
+    };
     const make = (geometry, scale = [1, 1, 1]) => {
       geometry.scale(scale[0], scale[1], scale[2]);
       geometry.rotateX(Math.PI * (0.2 + hash(scale[0] * 13.7) * 0.8));
@@ -752,6 +782,38 @@ const UnifiedCrystalScene = forwardRef(({
       geometry.computeVertexNormals();
       return geometry;
     };
+    const makeNeedle = (seed, sx, sy, sz, radial, height, sides) => make(
+      carveShard(
+        new THREE.CylinderGeometry(radial * 0.05, radial * 0.42, height * 1.9, Math.max(5, sides), 1),
+        seed,
+        { taper: 0.62, jitter: 0.16, bend: 0.13 }
+      ),
+      [sx * 0.62, sy * 1.55, sz * 0.62]
+    );
+    const makePlate = (seed, sx, sy, sz, radial, height, sides) => make(
+      carveShard(
+        new THREE.CylinderGeometry(radial * 1.1, radial * 1.35, height * 0.26, Math.max(5, sides + 1), 1),
+        seed,
+        { taper: 0.18, jitter: 0.3, bend: 0.08 }
+      ),
+      [sx * 1.25, sy * 0.36, sz * 1.05]
+    );
+    const makeChunk = (seed, sx, sy, sz) => make(
+      carveShard(
+        new THREE.DodecahedronGeometry(0.2 + hash(seed + 101) * 0.2, 0),
+        seed,
+        { taper: 0.12, jitter: 0.34, bend: 0.07 }
+      ),
+      [sx * 1.08, sy * 0.88, sz * 1.02]
+    );
+    const makeWedge = (seed, sx, sy, sz, radial, height, sides) => make(
+      carveShard(
+        new THREE.ConeGeometry(radial * 0.95, height * 1.15, Math.max(4, sides - 1), 1),
+        seed,
+        { taper: 0.44, jitter: 0.24, bend: 0.12 }
+      ),
+      [sx * 0.92, sy * 1.18, sz * 0.74]
+    );
     return Array.from({ length: 60 }, (_, i) => {
       const seed = i + 1;
       const isSmall = i < 28;
@@ -778,30 +840,20 @@ const UnifiedCrystalScene = forwardRef(({
         ? 0.3 + hash(seed + 23) * 0.45
         : 0.42 + hash(seed + 23) * 0.68;
       const sides = 3 + Math.floor(hash(seed + 29) * 6); // 3..8
-      const variant = i % 8;
-
-      if (variant === 0) {
-        return make(new THREE.ConeGeometry(radial, height, sides, 1), [sx, sy, sz]);
+      const familyRoll = hash(seed + 131);
+      if (isSmall) {
+        if (familyRoll < 0.42) return makePlate(seed, sx, sy, sz, radial, height, sides);
+        if (familyRoll < 0.78) return makeWedge(seed, sx, sy, sz, radial, height, sides);
+        return makeChunk(seed, sx, sy, sz);
       }
-      if (variant === 1) {
-        return make(new THREE.CylinderGeometry(radial * 0.25, radial, height, sides, 1), [sx, sy, sz]);
+      if (isMedium) {
+        if (familyRoll < 0.35) return makeNeedle(seed, sx, sy, sz, radial, height, sides);
+        if (familyRoll < 0.68) return makeWedge(seed, sx, sy, sz, radial, height, sides);
+        return makeChunk(seed, sx, sy, sz);
       }
-      if (variant === 2) {
-        return make(new THREE.OctahedronGeometry(0.16 + hash(seed + 31) * 0.2, 0), [sx, sy, sz]);
-      }
-      if (variant === 3) {
-        return make(new THREE.TetrahedronGeometry(0.15 + hash(seed + 37) * 0.2, 0), [sx, sy, sz]);
-      }
-      if (variant === 4) {
-        return make(new THREE.DodecahedronGeometry(0.14 + hash(seed + 41) * 0.18, 0), [sx, sy, sz]);
-      }
-      if (variant === 5) {
-        return make(new THREE.IcosahedronGeometry(0.14 + hash(seed + 43) * 0.22, 0), [sx, sy, sz]);
-      }
-      if (variant === 6) {
-        return make(new THREE.CylinderGeometry(radial * 0.12, radial * 0.8, height * 0.9, sides, 1), [sx, sy, sz]);
-      }
-      return make(new THREE.CapsuleGeometry(radial * 0.42, height * 0.65, 2, Math.max(4, sides)), [sx, sy, sz]);
+      if (familyRoll < 0.55) return makeNeedle(seed, sx, sy, sz, radial, height, sides);
+      if (familyRoll < 0.82) return makeChunk(seed, sx, sy, sz);
+      return makeWedge(seed, sx, sy, sz, radial, height, sides);
     });
   }, []);
 
