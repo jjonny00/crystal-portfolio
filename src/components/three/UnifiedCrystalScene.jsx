@@ -94,20 +94,20 @@ const UnifiedCrystalScene = forwardRef(({
   const [hoveredFacet, setHoveredFacet] = useState(null);
   const hoveredFacetRef = useRef(null);
   const [shardTuning, setShardTuning] = useState({
-    spreadMultiplier: 1.0,
-    largeDistanceCenter: 0.9,
+    spreadMultiplier: 1.45,
+    largeDistanceCenter: 0.6,
     mediumDistanceCenter: 0.6,
-    smallDistanceCenter: 0.3,
-    distanceJitter: 0.08,
-    opacityMultiplier: 0.8,
-    smallScaleBase: 0.022,
-    mediumScaleBase: 0.07,
-    largeScaleBase: 0.16,
+    smallDistanceCenter: 0.58,
+    distanceJitter: 0.3,
+    opacityMultiplier: 0.9,
+    smallScaleBase: 0.02,
+    mediumScaleBase: 0.03,
+    largeScaleBase: 0.13,
     smallScaleJitter: 0.05,
     mediumScaleJitter: 0.09,
-    largeScaleJitter: 0.18,
-    rotationBaseDeg: 0,
-    rotationJitterDeg: 35
+    largeScaleJitter: 0.06,
+    rotationBaseDeg: 32,
+    rotationJitterDeg: 0
   });
 
   // Track material updates so we can reapply when ready
