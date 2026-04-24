@@ -534,9 +534,26 @@ const UnifiedCrystalScene = forwardRef(({
       return value - Math.floor(value);
     };
 
+    const resolveAnchorVector = (key) => {
+      const candidate = overviewWorldAnchors?.[key];
+      if (!candidate) return null;
+      if (candidate instanceof THREE.Vector3) return candidate.clone();
+      if (Array.isArray(candidate) && candidate.length >= 3) {
+        return new THREE.Vector3(candidate[0], candidate[1], candidate[2]);
+      }
+      return null;
+    };
     const configuredPositions = crystalConfig?.positions || {};
     const knownTargets = facetKeys
-      .map((facetKey) => configuredPositions[facetPlacementKeys[facetKey] || facetKey] || configuredPositions[facetKey])
+      .map((facetKey) => {
+        const placementKey = facetPlacementKeys[facetKey] || facetKey;
+        return (
+          configuredPositions[placementKey] ||
+          configuredPositions[facetKey] ||
+          resolveAnchorVector(placementKey) ||
+          resolveAnchorVector(facetKey)
+        );
+      })
       .filter(Boolean);
     const fallbackDistance = knownTargets.length
       ? knownTargets.reduce((sum, vec) => sum + vec.length(), 0) / knownTargets.length
@@ -544,7 +561,11 @@ const UnifiedCrystalScene = forwardRef(({
     const explodedFacetEntries = facetKeys
       .map((facetKey, facetIndex) => {
         const placementKey = facetPlacementKeys[facetKey] || facetKey;
-        const configuredEnd = configuredPositions[placementKey] || configuredPositions[facetKey];
+        const configuredEnd =
+          configuredPositions[placementKey] ||
+          configuredPositions[facetKey] ||
+          resolveAnchorVector(placementKey) ||
+          resolveAnchorVector(facetKey);
         const syntheticAngle = (facetIndex / Math.max(facetKeys.length, 1)) * Math.PI * 2;
         const syntheticTilt = (hash(facetIndex + 907) - 0.5) * 0.8;
         const endTarget = configuredEnd?.clone() || new THREE.Vector3(
@@ -657,10 +678,10 @@ const UnifiedCrystalScene = forwardRef(({
         facetKey: clusterEntry?.facetKey || facetKeys[index % facetKeys.length],
         geometryIndex:
           resolvedScale.tier === 'small'
-            ? Math.floor(hash(index + 101) * 14) // 0..13
+            ? Math.floor(hash(index + 101) * 28) // 0..27
             : resolvedScale.tier === 'medium'
-            ? 14 + Math.floor(hash(index + 103) * 10) // 14..23
-            : 24 + Math.floor(hash(index + 107) * 6), // 24..29
+            ? 28 + Math.floor(hash(index + 103) * 20) // 28..47
+            : 48 + Math.floor(hash(index + 107) * 12), // 48..59
         startPosition,
         explodedPosition,
         startQuaternion: new THREE.Quaternion().setFromEuler(baseEuler),
@@ -670,7 +691,7 @@ const UnifiedCrystalScene = forwardRef(({
         reformLerp: 0.02 + hash(index + 89) * 0.08
       };
     });
-  }, [crystalConfig?.positions, crystalConfig?.fracturePositions, crystalConfig?.fractureDistance, facetKeys, facetPlacementKeys]);
+  }, [crystalConfig?.positions, crystalConfig?.fracturePositions, crystalConfig?.fractureDistance, facetKeys, facetPlacementKeys, overviewWorldAnchors]);
 
   const fragmentRefs = useRef([]);
   useEffect(() => {
@@ -690,10 +711,10 @@ const UnifiedCrystalScene = forwardRef(({
       geometry.computeVertexNormals();
       return geometry;
     };
-    return Array.from({ length: 30 }, (_, i) => {
+    return Array.from({ length: 60 }, (_, i) => {
       const seed = i + 1;
-      const isSmall = i < 14;
-      const isMedium = i >= 14 && i < 24;
+      const isSmall = i < 28;
+      const isMedium = i >= 28 && i < 48;
       const sx = isSmall
         ? 0.55 + hash(seed + 11) * 0.45
         : isMedium
@@ -715,21 +736,31 @@ const UnifiedCrystalScene = forwardRef(({
         : isMedium
         ? 0.3 + hash(seed + 23) * 0.45
         : 0.42 + hash(seed + 23) * 0.68;
-      const sides = 3 + Math.floor(hash(seed + 29) * 4); // 3..6
+      const sides = 3 + Math.floor(hash(seed + 29) * 6); // 3..8
+      const variant = i % 8;
 
-      if (i % 5 === 0) {
+      if (variant === 0) {
         return make(new THREE.ConeGeometry(radial, height, sides, 1), [sx, sy, sz]);
       }
-      if (i % 5 === 1) {
+      if (variant === 1) {
         return make(new THREE.CylinderGeometry(radial * 0.25, radial, height, sides, 1), [sx, sy, sz]);
       }
-      if (i % 5 === 2) {
+      if (variant === 2) {
         return make(new THREE.OctahedronGeometry(0.16 + hash(seed + 31) * 0.2, 0), [sx, sy, sz]);
       }
-      if (i % 5 === 3) {
+      if (variant === 3) {
         return make(new THREE.TetrahedronGeometry(0.15 + hash(seed + 37) * 0.2, 0), [sx, sy, sz]);
       }
-      return make(new THREE.CylinderGeometry(radial * 0.12, radial * 0.8, height * 0.9, sides, 1), [sx, sy, sz]);
+      if (variant === 4) {
+        return make(new THREE.DodecahedronGeometry(0.14 + hash(seed + 41) * 0.18, 0), [sx, sy, sz]);
+      }
+      if (variant === 5) {
+        return make(new THREE.IcosahedronGeometry(0.14 + hash(seed + 43) * 0.22, 0), [sx, sy, sz]);
+      }
+      if (variant === 6) {
+        return make(new THREE.CylinderGeometry(radial * 0.12, radial * 0.8, height * 0.9, sides, 1), [sx, sy, sz]);
+      }
+      return make(new THREE.CapsuleGeometry(radial * 0.42, height * 0.65, 2, Math.max(4, sides)), [sx, sy, sz]);
     });
   }, []);
 
