@@ -28,8 +28,8 @@ export const projects = [
     secondaryCopy: 'Add final narrative, outcomes, and role details here.',
     cta: 'Explore the Prototype',
     technologies: ['TBD', 'TBD', 'TBD'],
-    color: '#ff7043',
-    headlineColor: '#ff7043',
+    color: '#952cff',
+    headlineColor: '#952cff',
     imageUrl: '/assets/projects/experimental-interactions.jpg',
     overlayImage: '/assets/projects/experimental-interactions.jpg'
   },
@@ -61,8 +61,8 @@ export const projects = [
       cta: 'How Turns Create Tension'
     },
     technologies: ['Gameplay Systems', 'UX Design', 'Balancing'],
-    color: '#ece93e',
-    headlineColor: '#ece93e',
+    color: '#EAFF00',
+    headlineColor: '#EAFF00',
     imageUrl: '/assets/projects/preview-mesa.webp',
     overlayImage: '/assets/projects/preview-mesa.webp'
   },
@@ -94,8 +94,8 @@ export const projects = [
       cta: 'Designing the Ladder'
     },
     technologies: ['Product Strategy', 'UX Systems', 'Platform Design'],
-    color: '#bb86fc',
-    headlineColor: '#bb86fc',
+    color: '#58E0B2',
+    headlineColor: '#58E0B2',
     imageUrl: '/assets/projects/storytelling-platform.jpg',
     overlayImage: '/assets/projects/storytelling-platform.jpg'
   },
@@ -106,8 +106,8 @@ export const projects = [
     crystalKey: 'system',
     placementKey: 'system',
     runtimeModelKey: 'project04',
-    title: 'QUANTIFIED',
-    label: 'Quantified',
+    title: 'FLYING AXES',
+    label: 'Flying Axes',
     subtitle: 'Personal Analytics · iOS + Apple Watch',
     tagline: 'Personal Analytics · iOS + Apple Watch',
     description:
@@ -115,8 +115,8 @@ export const projects = [
     secondaryCopy: 'Add final narrative, outcomes, and role details here.',
     cta: 'View Case Study',
     technologies: ['TBD', 'TBD', 'TBD'],
-    color: '#cf6679',
-    headlineColor: '#cf6679',
+    color: '#d22222',
+    headlineColor: '#d22222',
     imageUrl: '/assets/projects/component-architecture.jpg',
     overlayImage: '/assets/projects/component-architecture.jpg'
   },
@@ -136,8 +136,8 @@ export const projects = [
     secondaryCopy: 'Add final narrative, outcomes, and role details here.',
     cta: 'View Case Study',
     technologies: ['TBD', 'TBD', 'TBD'],
-    color: '#ffd600',
-    headlineColor: '#ffd600',
+    color: '#e35d30',
+    headlineColor: '#e35d30',
     imageUrl: '/assets/projects/collaboration-platform.jpg',
     overlayImage: '/assets/projects/collaboration-platform.jpg'
   },
@@ -169,8 +169,8 @@ export const projects = [
       cta: 'Built to Transform'
     },
     technologies: ['Spatial UX', 'Modular Platform Architecture', 'Production'],
-    color: '#64ffda',
-    headlineColor: '#64ffda',
+    color: '#265cff',
+    headlineColor: '#265cff',
     imageUrl: '/assets/projects/user-dashboard.jpg',
     overlayImage: '/assets/projects/user-dashboard.jpg'
   }

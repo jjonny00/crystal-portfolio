@@ -1,11 +1,11 @@
 export const projectBackgrounds = {
   default: {
-    colorA: '#28212e',
-    colorB: '#3d2400'
+    colorA: '#212124',
+    colorB: '#070015'
   },
   overview: {
-    colorA: '#29396b',
-    colorB: '#0c0b0c'
+    colorA: '#11182f',
+    colorB: '#16102c'
   },
   // neutral keys in the same order as projects.js
   project01: {
