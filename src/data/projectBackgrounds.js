@@ -10,27 +10,27 @@ export const projectBackgrounds = {
   // neutral keys in the same order as projects.js
   project01: {
     colorA: '#004d26',
-    colorB: '#4d0026'
+    colorB: '#2e1851'
   },
   project02: {
-    colorA: '#001a4d',
-    colorB: '#4d4d00'
+    colorA: '#16283e',
+    colorB: '#00364d'
   },
   project03: {
-    colorA: '#1a4d00',
-    colorB: '#4d004d'
+    colorA: '#45afa9',
+    colorB: '#2079b8'
   },
   project04: {
-    colorA: '#4d2600',
-    colorB: '#00264d'
+    colorA: '#00034d',
+    colorB: '#00364d'
   },
   project05: {
-    colorA: '#2d004d',
-    colorB: '#334d00'
+    colorA: '#050022',
+    colorB: '#602000'
   },
   project06: {
-    colorA: '#08004d',
-    colorB: '#00a67f'
+    colorA: '#2c53a1',
+    colorB: '#373c4a'
   },
   // runtime crystal keys
   exploration: {

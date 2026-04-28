@@ -28,8 +28,8 @@ export const projects = [
     secondaryCopy: 'Add final narrative, outcomes, and role details here.',
     cta: 'Explore the Prototype',
     technologies: ['TBD', 'TBD', 'TBD'],
-    color: '#952cff',
-    headlineColor: '#952cff',
+    color: '#a56dff',
+    headlineColor: '#873cff',
     imageUrl: '/assets/projects/experimental-interactions.jpg',
     overlayImage: '/assets/projects/experimental-interactions.jpg'
   },
@@ -115,7 +115,7 @@ export const projects = [
     secondaryCopy: 'Add final narrative, outcomes, and role details here.',
     cta: 'View Case Study',
     technologies: ['TBD', 'TBD', 'TBD'],
-    color: '#d22222',
+    color: '#ff0000',
     headlineColor: '#d22222',
     imageUrl: '/assets/projects/component-architecture.jpg',
     overlayImage: '/assets/projects/component-architecture.jpg'
@@ -138,8 +138,8 @@ export const projects = [
     technologies: ['TBD', 'TBD', 'TBD'],
     color: '#e35d30',
     headlineColor: '#e35d30',
-    imageUrl: '/assets/projects/collaboration-platform.jpg',
-    overlayImage: '/assets/projects/collaboration-platform.jpg'
+    imageUrl: '/assets/projects/preview-fg.webp',
+    overlayImage: '/assets/projects/preview-fg.webp'
   },
   {
     id: 'project06',
