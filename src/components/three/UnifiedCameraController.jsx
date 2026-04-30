@@ -125,6 +125,8 @@ const UnifiedCameraController = ({
   const lastHeroOrbitDebugSecondRef = useRef(-1);
   const lastBranchDebugSecondRef = useRef(-1);
   const introFinalTargetDebugRef = useRef(new THREE.Vector3());
+  const lastCameraWriteSecondRef = useRef(-1);
+  const lastCameraWriterRef = useRef('none');
 
   const applyFractureTilt = () => {
     if (!fractureTiltActiveRef.current) return;
@@ -738,6 +740,7 @@ const UnifiedCameraController = ({
         camera.lookAt(introTarget);
         camera.fov = introFov;
         camera.updateProjectionMatrix();
+      logCameraWrite(state, "HERO_ORBIT", "hero-orbit-active", heroLookAtTarget, true, true);
 
         currentTarget.current.position.copy(introPosition);
         currentTarget.current.lookAt.copy(introTarget);
@@ -1028,6 +1031,31 @@ const UnifiedCameraController = ({
     camera
   ]);
 
+
+  const logCameraWrite = (state, branch, reason, lookAtTarget = null, projectionUpdated = false, returns = false) => {
+    const debugSecond = Math.floor(state.clock.elapsedTime);
+    if (debugSecond % 2 !== 0 || debugSecond === lastCameraWriteSecondRef.current) return;
+    lastCameraWriteSecondRef.current = debugSecond;
+    lastCameraWriterRef.current = branch;
+    console.log(`[UCC CAMERA WRITE] ${branch}`, {
+      elapsed: state.clock.elapsedTime,
+      reason,
+      state: animationData?.state,
+      cameraState: animationData?.cameraState,
+      focusedProject: animationData?.focusedProject ?? null,
+      focusedFacet: animationData?.focusedFacet ?? null,
+      introActive: introActiveRef.current,
+      introStarted: introStartedRef.current,
+      introPlayed: introPlayedRef.current,
+      cameraPosition: camera.position.toArray(),
+      lookAtTarget: lookAtTarget?.toArray?.() || null,
+      filmOffset: camera.filmOffset,
+      fov: camera.fov,
+      projectionUpdated,
+      returns
+    });
+  };
+
   useFrame((state, deltaTime) => {
     syncFractureTiltState();
 
@@ -1089,7 +1117,9 @@ const UnifiedCameraController = ({
       currentTarget.current.lookAt.copy(fractureTiltAnchorLookAtRef.current);
       camera.fov = currentTarget.current.fov;
       camera.updateProjectionMatrix();
+      logCameraWrite(state, "TRANSITION", "fracture-tilt-lock", fractureTiltAnchorLookAtRef.current, true, true);
       applyFractureTilt();
+      console.log('[UCC EARLY RETURN]', { branch: "TRANSITION", reason: "fracture-tilt-lock", finalCameraPosition: camera.position.toArray(), finalFilmOffset: camera.filmOffset });
       if (shouldLogBranch) console.log('[UCC RETURN] reason: fracture-tilt-lock');
       return;
     }
@@ -1109,6 +1139,8 @@ const UnifiedCameraController = ({
           animationData?.setCameraSettled?.(true);
         }
       }
+      logCameraWrite(state, "FALLBACK", "simplified-or-missing-target", currentTarget.current.lookAt, simplifiedAnimations, true);
+      console.log('[UCC EARLY RETURN]', { branch: "FALLBACK", reason: "simplified-or-missing-target", finalCameraPosition: camera.position.toArray(), finalFilmOffset: camera.filmOffset });
       if (shouldLogBranch) console.log('[UCC RETURN] reason: simplified-or-missing-target', { simplifiedAnimations });
       return;
     }
@@ -1167,6 +1199,7 @@ const UnifiedCameraController = ({
         easedProgress
       );
       camera.updateProjectionMatrix();
+      logCameraWrite(state, "INTRO", "intro-interpolation", introLookAt, true, true);
 
       cameraMoveProgressRef.current = progress;
       if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = progress;
@@ -1190,6 +1223,7 @@ const UnifiedCameraController = ({
         animationData?.setCameraMoveProgress?.(1);
       }
 
+      console.log('[UCC EARLY RETURN]', { branch: "INTRO", reason: "intro-active", finalCameraPosition: camera.position.toArray(), finalFilmOffset: camera.filmOffset });
       if (shouldLogBranch) console.log('[UCC RETURN] reason: intro-active');
       return;
     }
@@ -1282,6 +1316,7 @@ const UnifiedCameraController = ({
 
       animationData?.setCameraMoveProgress?.(1);
       animationData?.setCameraSettled?.(false);
+      console.log('[UCC EARLY RETURN]', { branch: "HERO_ORBIT", reason: "hero-orbit-active", finalCameraPosition: camera.position.toArray(), finalFilmOffset: camera.filmOffset });
       if (shouldLogBranch) console.log('[UCC RETURN] reason: hero-orbit-active');
       return;
     }
@@ -1290,6 +1325,7 @@ const UnifiedCameraController = ({
     if (!isHeroCameraPath && camera.filmOffset !== 0) {
       camera.filmOffset = 0;
       camera.updateProjectionMatrix();
+      logCameraWrite(state, "CLEANUP_FILM_OFFSET", "non-hero-path", null, true, false);
       if (shouldLogBranch) console.log('[UCC FILM] cleared for non-hero path');
     }
 
@@ -1333,6 +1369,8 @@ const UnifiedCameraController = ({
     const fovDiff = currentTarget.current.fov - camera.fov;
     camera.fov += fovDiff * clampedSmoothing;
     camera.updateProjectionMatrix();
+    logCameraWrite(state, animationData?.cameraState === "hero" ? "HERO_IDLE" : "FALLBACK", "smoothed-update", newLookAt, true, false);
+    console.log('[UCC END FRAME]', { elapsed: state.clock.elapsedTime, finalCameraPosition: camera.position.toArray(), finalFilmOffset: camera.filmOffset, finalWriter: lastCameraWriterRef.current });
 
     // Check if camera has settled at target
     const positionDiff = camera.position.distanceTo(currentTarget.current.position);
