@@ -18,7 +18,7 @@ const UnifiedCameraController = ({
   facetRefs = null,
   sharedCameraMoveProgressRef = null
 }) => {
-  const { camera, size } = useThree();
+  const { camera } = useThree();
   console.log('[UnifiedCameraController] mounted/rendered');
 
   // Input context
@@ -115,6 +115,7 @@ const UnifiedCameraController = ({
   const targetDirectionTempRef = useRef(new THREE.Vector3());
   const heroCompositionOffsetRef = useRef(new THREE.Vector3());
   const heroCompositionLateralRef = useRef(0);
+  const heroVerticalOffsetRef = useRef(0);
   const newLookAtTempRef = useRef(new THREE.Vector3());
   const lastCrystalFormRef = useRef(animationData?.crystalForm ?? 'whole');
   const fractureJumpFrameRef = useRef(false);
@@ -345,6 +346,20 @@ const UnifiedCameraController = ({
       return centerValue.clone();
     }
     return heroOrbitCenterRef.current.clone();
+  };
+
+
+  const getHeroVerticalOffset = (center) => {
+    const authoredHeroTarget = toVector3(config?.cameraTargets?.hero);
+    return authoredHeroTarget.y - center.y;
+  };
+
+  const applyHeroFilmOffset = (center) => {
+    const distanceToCenter = Math.max(0.0001, camera.position.distanceTo(center));
+    const halfFrustumWidth = Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5)) * distanceToCenter * camera.aspect;
+    const ndcOffsetX = heroCompositionLateralRef.current / Math.max(0.0001, halfFrustumWidth);
+    const filmWidth = camera.getFilmWidth ? camera.getFilmWidth() : 35;
+    camera.filmOffset = (THREE.MathUtils.clamp(ndcOffsetX, -1.5, 1.5) * filmWidth) * 0.5;
   };
 
   const vectorsEqual = (left, right) => {
@@ -617,6 +632,7 @@ const UnifiedCameraController = ({
     heroOrbitCenterRef.current.copy(heroOrbitCenter);
     heroCompositionOffsetRef.current.copy(heroTarget).sub(heroOrbitCenter);
     heroCompositionLateralRef.current = heroCompositionOffsetRef.current.x;
+    heroVerticalOffsetRef.current = getHeroVerticalOffset(heroOrbitCenter);
 
     cameraMoveProgressRef.current = 0;
     if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = 0;
@@ -727,6 +743,8 @@ const UnifiedCameraController = ({
         heroOrbitCenterRef.current.copy(heroOrbitCenter);
         heroCompositionOffsetRef.current.copy(currentTarget.current.lookAt).sub(heroOrbitCenter);
         heroCompositionLateralRef.current = heroCompositionOffsetRef.current.x;
+        heroVerticalOffsetRef.current = getHeroVerticalOffset(heroOrbitCenter);
+    heroVerticalOffsetRef.current = getHeroVerticalOffset(heroOrbitCenter);
       }
       
       if (import.meta.env.DEV) {
@@ -852,9 +870,11 @@ const UnifiedCameraController = ({
       if (finalTarget) {
         currentTarget.current.lookAt.copy(finalTarget);
         if (cameraState === 'hero') {
-          heroOrbitCenterRef.current.copy(orbitCenterTarget || finalTarget);
+          const heroOrbitCenter = getHeroOrbitCenter();
+          heroOrbitCenterRef.current.copy(heroOrbitCenter);
           heroCompositionOffsetRef.current.copy(finalTarget).sub(heroOrbitCenterRef.current);
           heroCompositionLateralRef.current = heroCompositionOffsetRef.current.x;
+          heroVerticalOffsetRef.current = getHeroVerticalOffset(heroOrbitCenterRef.current);
         }
       }
       
@@ -879,7 +899,6 @@ const UnifiedCameraController = ({
 
         introStartedRef.current = true;
         introActiveRef.current = true;
-    if (import.meta.env.DEV) console.log('[UCC INTRO] set active true', { reason: 'restart-token', restartToken });
         introStartTimeRef.current = performance.now();
         introFromRef.current.position.copy(camera.position);
         introFromRef.current.lookAt.copy(camera.position).add(currentDirection);
@@ -887,10 +906,13 @@ const UnifiedCameraController = ({
         const heroOrbitCenter = getHeroOrbitCenter();
         introToRef.current.position.copy(finalPosition);
         introToRef.current.lookAt.copy(heroOrbitCenter);
+        introToRef.current.lookAt.y += getHeroVerticalOffset(heroOrbitCenter);
         introFinalTargetDebugRef.current.copy(finalTarget);
         heroOrbitCenterRef.current.copy(heroOrbitCenter);
         heroCompositionOffsetRef.current.copy(finalTarget).sub(heroOrbitCenter);
         heroCompositionLateralRef.current = heroCompositionOffsetRef.current.x;
+        heroVerticalOffsetRef.current = getHeroVerticalOffset(heroOrbitCenter);
+    heroVerticalOffsetRef.current = getHeroVerticalOffset(heroOrbitCenter);
         introToRef.current.fov = enhancedConfig.fov ?? camera.fov;
         if (import.meta.env.DEV) console.log('[UCC INTRO] set active true', { reason: 'config-change shouldRunIntro', finalTarget: finalTarget?.toArray?.(), heroOrbitCenter: heroOrbitCenter.toArray() });
       }
@@ -1128,12 +1150,7 @@ const UnifiedCameraController = ({
         positionProgress
       );
       camera.lookAt(introLookAt);
-      const introCenterForComposition = introToRef.current.lookAt;
-      const introDistanceToCenter = Math.max(0.0001, camera.position.distanceTo(introCenterForComposition));
-      const introHalfFrustumWidth = Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5)) * introDistanceToCenter * camera.aspect;
-      const introNdcOffsetX = heroCompositionLateralRef.current / Math.max(0.0001, introHalfFrustumWidth);
-      const introFilmWidth = camera.getFilmWidth ? camera.getFilmWidth() : 35;
-      camera.filmOffset = (THREE.MathUtils.clamp(introNdcOffsetX, -1.5, 1.5) * introFilmWidth) * 0.5;
+      applyHeroFilmOffset(introToRef.current.lookAt);
       applyFractureTilt();
       camera.fov = THREE.MathUtils.lerp(
         introFromRef.current.fov,
@@ -1227,20 +1244,10 @@ const UnifiedCameraController = ({
         .set(x, y, z)
         .add(orbitCenter);
 
-      camera.lookAt(orbitCenter);
-      if (size?.width && size?.height) {
-        const distanceToCenter = Math.max(0.0001, camera.position.distanceTo(orbitCenter));
-        const halfFrustumWidth = Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5)) * distanceToCenter * camera.aspect;
-        const ndcOffsetX = heroCompositionLateralRef.current / Math.max(0.0001, halfFrustumWidth);
-        const viewOffsetPx = (ndcOffsetX * size.width) * 0.5;
-        if (Math.abs(viewOffsetPx) > 0.5) {
-          const ndcOffsetX = THREE.MathUtils.clamp(viewOffsetPx / (size.width * 0.5), -1.5, 1.5);
-          const filmWidth = camera.getFilmWidth ? camera.getFilmWidth() : 35;
-          camera.filmOffset = (ndcOffsetX * filmWidth) * 0.5;
-        } else {
-          camera.filmOffset = 0;
-        }
-      }
+      const heroLookAtTarget = newLookAtTempRef.current.copy(orbitCenter);
+      heroLookAtTarget.y += heroVerticalOffsetRef.current;
+      camera.lookAt(heroLookAtTarget);
+      applyHeroFilmOffset(heroLookAtTarget);
       applyFractureTilt();
       camera.fov = currentTarget.current.fov;
       camera.updateProjectionMatrix();
@@ -1264,9 +1271,11 @@ const UnifiedCameraController = ({
       return;
     }
 
-    if (camera.filmOffset !== 0) {
+    const isHeroCameraPath = (animationData?.state === 'hero' && animationData?.cameraState === 'hero') || introActiveRef.current;
+    if (!isHeroCameraPath && camera.filmOffset !== 0) {
       camera.filmOffset = 0;
       camera.updateProjectionMatrix();
+      if (shouldLogBranch) console.log('[UCC FILM] cleared for non-hero path');
     }
 
     if (shouldLogBranch) {
@@ -1296,6 +1305,11 @@ const UnifiedCameraController = ({
 
     const newLookAt = newLookAtTempRef.current
       .addVectors(camera.position, currentDirection);
+
+    if (animationData?.state === 'hero' && animationData?.cameraState === 'hero') {
+      newLookAt.y = currentTarget.current.lookAt.y;
+      applyHeroFilmOffset(newLookAt);
+    }
 
     camera.lookAt(newLookAt);
     applyFractureTilt();
