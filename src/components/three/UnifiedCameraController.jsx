@@ -18,7 +18,7 @@ const UnifiedCameraController = ({
   facetRefs = null,
   sharedCameraMoveProgressRef = null
 }) => {
-  const { camera, size } = useThree();
+  const { camera } = useThree();
 
   // Input context
   const isTouchDeviceRef = useRef(false);
@@ -113,9 +113,6 @@ const UnifiedCameraController = ({
   const currentDirectionTempRef = useRef(new THREE.Vector3());
   const targetDirectionTempRef = useRef(new THREE.Vector3());
   const heroCompositionOffsetRef = useRef(new THREE.Vector3());
-  const heroForwardTempRef = useRef(new THREE.Vector3());
-  const heroRightTempRef = useRef(new THREE.Vector3());
-  const heroViewOffsetPxRef = useRef(0);
   const newLookAtTempRef = useRef(new THREE.Vector3());
   const lastCrystalFormRef = useRef(animationData?.crystalForm ?? 'whole');
   const fractureJumpFrameRef = useRef(false);
@@ -1026,11 +1023,6 @@ const UnifiedCameraController = ({
       return;
     }
 
-    if (!(animationData.state === 'hero' && animationData.cameraState === 'hero' && isOrbitingRef.current)) {
-      heroViewOffsetPxRef.current = 0;
-      camera.clearViewOffset();
-    }
-
     // Orbit camera around crystal during hero state once settled
     if (introActiveRef.current) {
       const elapsed = performance.now() - introStartTimeRef.current;
@@ -1141,29 +1133,10 @@ const UnifiedCameraController = ({
         .set(x, y, z)
         .add(orbitCenter);
 
-      const compositionOffset = heroCompositionOffsetRef.current;
-      let viewOffsetPx = 0;
-      if (compositionOffset.lengthSq() > 0 && size?.width && size?.height) {
-        const forward = heroForwardTempRef.current
-          .subVectors(orbitCenter, camera.position)
-          .normalize();
-        const right = heroRightTempRef.current
-          .crossVectors(forward, camera.up)
-          .normalize();
-        const lateralOffsetWorld = compositionOffset.dot(right);
-        const distanceToCenter = Math.max(0.0001, camera.position.distanceTo(orbitCenter));
-        const halfFrustumWidth = Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5)) * distanceToCenter * camera.aspect;
-        const ndcOffsetX = lateralOffsetWorld / Math.max(0.0001, halfFrustumWidth);
-        viewOffsetPx = (ndcOffsetX * size.width) * 0.5;
-      }
-
-      camera.lookAt(orbitCenter);
-      heroViewOffsetPxRef.current = viewOffsetPx;
-      if (Math.abs(viewOffsetPx) > 0.5) {
-        camera.setViewOffset(size.width, size.height, viewOffsetPx, 0, size.width, size.height);
-      } else {
-        camera.clearViewOffset();
-      }
+      const heroLookAtTarget = newLookAtTempRef.current
+        .copy(orbitCenter)
+        .add(heroCompositionOffsetRef.current);
+      camera.lookAt(heroLookAtTarget);
       applyFractureTilt();
       camera.fov = currentTarget.current.fov;
       camera.updateProjectionMatrix();
