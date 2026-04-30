@@ -18,7 +18,7 @@ const UnifiedCameraController = ({
   facetRefs = null,
   sharedCameraMoveProgressRef = null
 }) => {
-  const { camera } = useThree();
+  const { camera, size } = useThree();
 
   // Input context
   const isTouchDeviceRef = useRef(false);
@@ -113,6 +113,7 @@ const UnifiedCameraController = ({
   const currentDirectionTempRef = useRef(new THREE.Vector3());
   const targetDirectionTempRef = useRef(new THREE.Vector3());
   const heroCompositionOffsetRef = useRef(new THREE.Vector3());
+  const heroCompositionLateralRef = useRef(0);
   const newLookAtTempRef = useRef(new THREE.Vector3());
   const lastCrystalFormRef = useRef(animationData?.crystalForm ?? 'whole');
   const fractureJumpFrameRef = useRef(false);
@@ -608,6 +609,7 @@ const UnifiedCameraController = ({
     currentTarget.current.fov = heroFov;
     heroOrbitCenterRef.current.copy(heroOrbitCenter);
     heroCompositionOffsetRef.current.copy(heroTarget).sub(heroOrbitCenter);
+    heroCompositionLateralRef.current = heroCompositionOffsetRef.current.x;
 
     cameraMoveProgressRef.current = 0;
     if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = 0;
@@ -717,6 +719,7 @@ const UnifiedCameraController = ({
         const heroOrbitCenter = getHeroOrbitCenter();
         heroOrbitCenterRef.current.copy(heroOrbitCenter);
         heroCompositionOffsetRef.current.copy(currentTarget.current.lookAt).sub(heroOrbitCenter);
+        heroCompositionLateralRef.current = heroCompositionOffsetRef.current.x;
       }
       
       if (import.meta.env.DEV) {
@@ -844,6 +847,7 @@ const UnifiedCameraController = ({
         if (cameraState === 'hero') {
           heroOrbitCenterRef.current.copy(orbitCenterTarget || finalTarget);
           heroCompositionOffsetRef.current.copy(finalTarget).sub(heroOrbitCenterRef.current);
+          heroCompositionLateralRef.current = heroCompositionOffsetRef.current.x;
         }
       }
       
@@ -1138,10 +1142,18 @@ const UnifiedCameraController = ({
         .set(x, y, z)
         .add(orbitCenter);
 
-      const heroLookAtTarget = newLookAtTempRef.current
-        .copy(orbitCenter)
-        .add(heroCompositionOffsetRef.current);
-      camera.lookAt(heroLookAtTarget);
+      camera.lookAt(orbitCenter);
+      if (size?.width && size?.height) {
+        const distanceToCenter = Math.max(0.0001, camera.position.distanceTo(orbitCenter));
+        const halfFrustumWidth = Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5)) * distanceToCenter * camera.aspect;
+        const ndcOffsetX = heroCompositionLateralRef.current / Math.max(0.0001, halfFrustumWidth);
+        const viewOffsetPx = (ndcOffsetX * size.width) * 0.5;
+        if (Math.abs(viewOffsetPx) > 0.5) {
+          camera.setViewOffset(size.width, size.height, viewOffsetPx, 0, size.width, size.height);
+        } else {
+          camera.clearViewOffset();
+        }
+      }
       applyFractureTilt();
       camera.fov = currentTarget.current.fov;
       camera.updateProjectionMatrix();
@@ -1152,6 +1164,8 @@ const UnifiedCameraController = ({
       animationData?.setCameraSettled?.(false);
       return;
     }
+
+    camera.clearViewOffset();
 
     // FIXED: Use exponential smoothing with clamping
     const smoothingFactor = 1 - Math.exp(-6 * deltaTime);
