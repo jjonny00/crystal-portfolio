@@ -374,12 +374,13 @@ const UnifiedCameraController = ({
     const heroPosition = toVector3(config?.cameraPositions?.hero)
       .add(toVector3(config?.cameraOffsets?.global?.position))
       .add(toVector3(config?.cameraOffsets?.zones?.hero?.position));
-    const authoredHeroTarget = toVector3(config?.cameraTargets?.hero)
-      .add(toVector3(config?.cameraOffsets?.global?.target))
+    const heroTargetOffset = toVector3(config?.cameraOffsets?.global?.target)
       .add(toVector3(config?.cameraOffsets?.zones?.hero?.target));
+    const authoredHeroTarget = toVector3(config?.cameraTargets?.hero)
+      .add(heroTargetOffset);
 
     heroOrbitCenterRef.current.copy(heroCenter);
-    heroCompositionOffsetRef.current.copy(authoredHeroTarget).sub(heroCenter);
+    heroCompositionOffsetRef.current.copy(heroTargetOffset);
     heroCompositionLateralRef.current = heroCompositionOffsetRef.current.x;
     heroVerticalOffsetRef.current = getHeroVerticalOffset(heroCenter);
 
@@ -763,7 +764,7 @@ const UnifiedCameraController = ({
       orbitVelocityRef.current.set(0, 0);
 
       if (animationData?.cameraState === 'hero' && previousCameraState !== 'hero') {
-        syncHeroCameraRefs('cameraState-transition-to-hero', { resetPosition: false });
+        syncHeroCameraRefs('cameraState-transition-to-hero', { resetPosition: true });
       }
 
       if (animationData?.cameraState === 'intro' && config?.cameraPositions?.intro && config?.cameraTargets?.intro) {
@@ -1294,7 +1295,6 @@ const UnifiedCameraController = ({
         cameraMoveProgressRef.current = 1;
         if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = 1;
         animationData?.setCameraMoveProgress?.(1);
-        syncHeroCameraRefs('intro-complete', { resetPosition: false });
       }
 
       console.log('[UCC EARLY RETURN]', { branch: "INTRO", reason: "intro-active", finalCameraPosition: camera.position.toArray(), finalFilmOffset: camera.filmOffset, heroOrbitCenter: heroOrbitCenterRef.current.toArray(), lookAt: introLookAt.toArray() });
