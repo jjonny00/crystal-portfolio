@@ -37,8 +37,6 @@ import PerformanceDebugPanel from './components/ui/PerformanceDebugPanel';
 // Configuration and utilities
 import * as defaultConfig from './crystalConfig';
 
-// Cinematic Movie Titles Effects
-import './styles/glow-70s.css';
 import { isMobileDevice } from './utils/isMobileDevice.js';
 
 const projectKeys = ['empathy', 'narrative', 'craft', 'system', 'leadership', 'exploration'];

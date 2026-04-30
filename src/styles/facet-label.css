@@ -9,11 +9,14 @@
 
 .label-title {
   margin: 0;
-  font-family: "ivypresto-display", "IvyPresto Display", "Playfair Display", Georgia, serif;
-  font-size: 36px;
+  color: #FFFCEE;
+  font-family: "acumin-variable", "Acumin VF", sans-serif;
+  font-size: 48px;
   font-style: normal;
-  font-weight: 400;
-  line-height: normal;
+  font-stretch: 68%;
+  font-weight: 600;
+  line-height: 48px;
+  letter-spacing: -0.96px;
   text-transform: uppercase;
 }
 
