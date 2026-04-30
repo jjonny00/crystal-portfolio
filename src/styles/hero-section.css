@@ -1,6 +1,6 @@
 .hero-section {
   min-height: 100svh;
-  height: auto;
+  height: 100svh;
   position: relative;
   display: flex;
   align-items: center;
@@ -20,10 +20,11 @@
   z-index: 10;
   position: relative;
   text-align: left;
-  height: auto;
+  height: 100%;
   max-height: none;
   overflow-y: visible;
   display: grid;
+  align-content: center;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   column-gap: clamp(1.5rem, 4vw, 5rem);
 }
