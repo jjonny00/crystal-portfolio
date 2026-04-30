@@ -9,7 +9,7 @@
   position: relative;
   display: inline-block;
   color: var(--headline-ink, #ffffff);
-  letter-spacing: 0.01em;
+  letter-spacing: inherit;
   line-height: inherit;
   text-shadow: none;
   animation: none;
