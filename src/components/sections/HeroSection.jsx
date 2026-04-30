@@ -94,7 +94,7 @@ const HeroSection = ({
   return (
     <div className="hero-section">
       <div className="hero-section__content">
-        <animated.div style={contentSpring}>
+        <animated.div style={contentSpring} className="hero-section__headline-block">
           <Headline as="h1" className="hero-section__title">
             Shaped through iteration.
           </Headline>

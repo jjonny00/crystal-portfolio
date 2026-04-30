@@ -13,8 +13,7 @@
 }
 
 .hero-section__content {
-  width: min(100%, 36rem);
-  margin-left: auto;
+  width: 100%;
   color: #fff;
   z-index: 10;
   position: relative;
@@ -22,6 +21,14 @@
   height: auto;
   max-height: none;
   overflow-y: visible;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: clamp(1.5rem, 4vw, 5rem);
+}
+
+.hero-section__headline-block,
+.hero-section__body-block {
+  grid-column: 2;
 }
 
 .hero-section__title {
@@ -123,6 +130,7 @@
   .hero-section__content {
     width: 100%;
     text-align: center;
+    display: block;
   }
 
   .hero-section__title {
