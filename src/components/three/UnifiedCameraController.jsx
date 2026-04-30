@@ -121,6 +121,7 @@ const UnifiedCameraController = ({
   const lastDebugSecondRef = useRef(-1);
   const lastHeroOrbitDebugSecondRef = useRef(-1);
   const lastBranchDebugSecondRef = useRef(-1);
+  const introFinalTargetDebugRef = useRef(new THREE.Vector3());
 
   const applyFractureTilt = () => {
     if (!fractureTiltActiveRef.current) return;
@@ -591,6 +592,7 @@ const UnifiedCameraController = ({
     introStartedRef.current = true;
     introPlayedRef.current = false;
     introActiveRef.current = true;
+    if (import.meta.env.DEV) console.log('[UCC INTRO] set active true', { reason: 'restart-token', restartToken });
     introStartTimeRef.current = performance.now();
     isOrbitingRef.current = false;
     orbitInitDelayRef.current = 0;
@@ -863,6 +865,7 @@ const UnifiedCameraController = ({
       const shouldRunIntro =
         !introStartedRef.current &&
         !introPlayedRef.current &&
+        !introActiveRef.current &&
         animationData?.state === 'hero' &&
         cameraState === 'hero' &&
         config?.cameraPositions?.intro &&
@@ -876,13 +879,20 @@ const UnifiedCameraController = ({
 
         introStartedRef.current = true;
         introActiveRef.current = true;
+    if (import.meta.env.DEV) console.log('[UCC INTRO] set active true', { reason: 'restart-token', restartToken });
         introStartTimeRef.current = performance.now();
         introFromRef.current.position.copy(camera.position);
         introFromRef.current.lookAt.copy(camera.position).add(currentDirection);
         introFromRef.current.fov = camera.fov;
+        const heroOrbitCenter = getHeroOrbitCenter();
         introToRef.current.position.copy(finalPosition);
-        introToRef.current.lookAt.copy(finalTarget);
+        introToRef.current.lookAt.copy(heroOrbitCenter);
+        introFinalTargetDebugRef.current.copy(finalTarget);
+        heroOrbitCenterRef.current.copy(heroOrbitCenter);
+        heroCompositionOffsetRef.current.copy(finalTarget).sub(heroOrbitCenter);
+        heroCompositionLateralRef.current = heroCompositionOffsetRef.current.x;
         introToRef.current.fov = enhancedConfig.fov ?? camera.fov;
+        if (import.meta.env.DEV) console.log('[UCC INTRO] set active true', { reason: 'config-change shouldRunIntro', finalTarget: finalTarget?.toArray?.(), heroOrbitCenter: heroOrbitCenter.toArray() });
       }
 
       const positionDistance = camera.position.distanceTo(currentTarget.current.position);
@@ -1083,6 +1093,25 @@ const UnifiedCameraController = ({
       if (shouldLogBranch) console.log('[UCC BRANCH] INTRO');
       const elapsed = performance.now() - introStartTimeRef.current;
       const progress = THREE.MathUtils.clamp(elapsed / INTRO_DURATION_MS, 0, 1);
+      if (shouldLogBranch) {
+        console.log('[UCC INTRO DIAG]', {
+          introActive: introActiveRef.current,
+          introStarted: introStartedRef.current,
+          introPlayed: introPlayedRef.current,
+          introStartTime: introStartTimeRef.current,
+          elapsed,
+          introDuration: INTRO_DURATION_MS,
+          progress,
+          state: animationData?.state,
+          cameraState: animationData?.cameraState,
+          reachesCompletion: progress >= 1,
+          introToPosition: introToRef.current.position.toArray(),
+          introToLookAt: introToRef.current.lookAt.toArray(),
+          finalTargetUsedToCreateIntroTo: introFinalTargetDebugRef.current.toArray(),
+          configHeroTarget: config?.cameraTargets?.hero ?? null,
+          offsetTarget: config?.cameraOffsets?.zones?.hero?.target ?? null,
+        });
+      }
       const easedProgress = 1 - Math.pow(1 - progress, 3);
       const positionProgress = progress < 0.5
         ? 4 * Math.pow(progress, 3)
@@ -1099,6 +1128,12 @@ const UnifiedCameraController = ({
         positionProgress
       );
       camera.lookAt(introLookAt);
+      const introCenterForComposition = introToRef.current.lookAt;
+      const introDistanceToCenter = Math.max(0.0001, camera.position.distanceTo(introCenterForComposition));
+      const introHalfFrustumWidth = Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5)) * introDistanceToCenter * camera.aspect;
+      const introNdcOffsetX = heroCompositionLateralRef.current / Math.max(0.0001, introHalfFrustumWidth);
+      const introFilmWidth = camera.getFilmWidth ? camera.getFilmWidth() : 35;
+      camera.filmOffset = (THREE.MathUtils.clamp(introNdcOffsetX, -1.5, 1.5) * introFilmWidth) * 0.5;
       applyFractureTilt();
       camera.fov = THREE.MathUtils.lerp(
         introFromRef.current.fov,
@@ -1113,6 +1148,7 @@ const UnifiedCameraController = ({
       animationData?.setCameraSettled?.(false);
 
       if (progress >= 1) {
+        if (import.meta.env.DEV) console.log('[UCC INTRO] set active false', { progress, elapsed, prevIntroActive: true, nextIntroActive: false, introPlayedNext: true });
         introActiveRef.current = false;
         introPlayedRef.current = true;
         camera.position.copy(introToRef.current.position);
