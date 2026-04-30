@@ -18,7 +18,7 @@ const UnifiedCameraController = ({
   facetRefs = null,
   sharedCameraMoveProgressRef = null
 }) => {
-  const { camera } = useThree();
+  const { camera, size } = useThree();
 
   // Input context
   const isTouchDeviceRef = useRef(false);
@@ -115,6 +115,7 @@ const UnifiedCameraController = ({
   const heroCompositionOffsetRef = useRef(new THREE.Vector3());
   const heroForwardTempRef = useRef(new THREE.Vector3());
   const heroRightTempRef = useRef(new THREE.Vector3());
+  const heroViewOffsetPxRef = useRef(0);
   const newLookAtTempRef = useRef(new THREE.Vector3());
   const lastCrystalFormRef = useRef(animationData?.crystalForm ?? 'whole');
   const fractureJumpFrameRef = useRef(false);
@@ -1016,6 +1017,11 @@ const UnifiedCameraController = ({
       return;
     }
 
+    if (!(animationData.state === 'hero' && animationData.cameraState === 'hero' && isOrbitingRef.current)) {
+      heroViewOffsetPxRef.current = 0;
+      camera.clearViewOffset();
+    }
+
     // Orbit camera around crystal during hero state once settled
     if (introActiveRef.current) {
       const elapsed = performance.now() - introStartTimeRef.current;
@@ -1127,18 +1133,28 @@ const UnifiedCameraController = ({
         .add(orbitCenter);
 
       const compositionOffset = heroCompositionOffsetRef.current;
-      if (compositionOffset.lengthSq() > 0) {
+      let viewOffsetPx = 0;
+      if (compositionOffset.lengthSq() > 0 && size?.width && size?.height) {
         const forward = heroForwardTempRef.current
           .subVectors(orbitCenter, camera.position)
           .normalize();
         const right = heroRightTempRef.current
           .crossVectors(forward, camera.up)
           .normalize();
-        const lateralOffset = compositionOffset.dot(right);
-        camera.position.addScaledVector(right, lateralOffset);
+        const lateralOffsetWorld = compositionOffset.dot(right);
+        const distanceToCenter = Math.max(0.0001, camera.position.distanceTo(orbitCenter));
+        const halfFrustumWidth = Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5)) * distanceToCenter * camera.aspect;
+        const ndcOffsetX = lateralOffsetWorld / Math.max(0.0001, halfFrustumWidth);
+        viewOffsetPx = (ndcOffsetX * size.width) * 0.5;
       }
 
       camera.lookAt(orbitCenter);
+      heroViewOffsetPxRef.current = viewOffsetPx;
+      if (Math.abs(viewOffsetPx) > 0.5) {
+        camera.setViewOffset(size.width, size.height, viewOffsetPx, 0, size.width, size.height);
+      } else {
+        camera.clearViewOffset();
+      }
       applyFractureTilt();
       camera.fov = currentTarget.current.fov;
       camera.updateProjectionMatrix();
