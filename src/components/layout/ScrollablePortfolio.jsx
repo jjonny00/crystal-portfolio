@@ -157,7 +157,7 @@ const ScrollablePortfolio = ({
         <section
           id="hero"
           className="scroll-section"
-          data-headline-color="#e1d2bc"
+          data-headline-color="#FFFCEE"
           style={{
             height: '100vh',
             minHeight: '100vh',

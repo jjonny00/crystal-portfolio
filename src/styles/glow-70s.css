@@ -1,62 +1,17 @@
-/* FIXED: src/styles/glow-70s.css */
+/* src/styles/glow-70s.css */
 
 :root {
-  /* IMPORTANT: These are fallbacks - JavaScript should override them */
-  --headline-ink: #64ffda;
-  --headline-glow1: #40e0d0;
-  --headline-glow2: #008080;
-  --headline-bg: #000;
+  --headline-ink: #ffffff;
 }
 
-/* Reusable headline class - FIXED to properly use CSS variables */
+/* Neutral headline style (removed 70s glow + flicker effects) */
 .headline-70s {
   position: relative;
   display: inline-block;
-  
-  /* CRITICAL: Use the CSS variable directly */
-  color: var(--headline-ink, #64ffda);
-  
-  /* text-transform: uppercase; */
+  color: var(--headline-ink, #ffffff);
   letter-spacing: 0.01em;
   line-height: 1;
-  
-  /* FIXED: Use CSS variables in text-shadow */
-  text-shadow:
-    0 0 0.1px rgba(0,0,0,.2),
-    0 0.2px 0 rgba(0,0,0,.01),
-    0 0 0.8px var(--headline-glow1, #40e0d0),
-    0 0 3px rgb(from var(--headline-glow2, #008080) r g b / calc(var(--headline-glow-strength, 0.28) * 0.8)),
-    0 0 14px rgb(from var(--headline-glow2, #008080) r g b / var(--headline-glow-strength, 0.28));
-  transition:
-    color var(--headline-transition-out, 800ms) cubic-bezier(0.2, 0.7, 0.2, 1),
-    text-shadow var(--headline-transition-out, 800ms) cubic-bezier(0.2, 0.7, 0.2, 1);
-}
-
-/* Micro flicker animation */
-@keyframes projectorFlicker {
-  0%,100%{ filter: brightness(1); }
-  50%{ filter: brightness(1.03); }
-}
-
-.headline-70s { 
-  animation: projectorFlicker 0.5s steps(2,end) infinite; 
-}
-
-@media (prefers-reduced-motion: reduce){
-  .headline-70s { 
-    animation: none; 
-  }
-}
-
-/* DEBUG: Force update class for testing */
-.headline-70s.force-red {
-  --headline-ink: #ff0000 !important;
-  --headline-glow1: #ff6666 !important;
-  --headline-glow2: #ff9999 !important;
-}
-
-.headline-70s.force-green {
-  --headline-ink: #00ff00 !important;
-  --headline-glow1: #66ff66 !important;
-  --headline-glow2: #99ff99 !important;
+  text-shadow: none;
+  animation: none;
+  transition: color var(--headline-transition-out, 800ms) cubic-bezier(0.2, 0.7, 0.2, 1);
 }
