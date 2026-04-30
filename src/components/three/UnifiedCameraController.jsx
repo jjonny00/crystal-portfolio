@@ -103,6 +103,8 @@ const UnifiedCameraController = ({
   const POINTER_DIRECTION_DOT = 0.48;
   const POINTER_MAX_SPEED = 0.0021;
   const INTRO_DURATION_MS = 4400;
+  const HERO_VERTICAL_FRAMING_SCALE = 0; // Temporary isolate: disable authored Y framing
+  const HERO_VERTICAL_FRAMING_SIGN = 1;
   const FRACTURE_TILT_RADIANS = 0.045;
   const FRACTURE_PITCH_UP_RADIANS = -0.012;
   const FRACTURE_TILT_RELEASE_DISTANCE = 0.015;
@@ -351,7 +353,8 @@ const UnifiedCameraController = ({
 
   const getHeroVerticalOffset = (center) => {
     const authoredHeroTarget = toVector3(config?.cameraTargets?.hero);
-    return authoredHeroTarget.y - center.y;
+    const rawVerticalOffsetY = authoredHeroTarget.y - center.y;
+    return rawVerticalOffsetY * HERO_VERTICAL_FRAMING_SCALE * HERO_VERTICAL_FRAMING_SIGN;
   };
 
   const applyHeroFilmOffset = (center) => {
@@ -1131,6 +1134,12 @@ const UnifiedCameraController = ({
           introToLookAt: introToRef.current.lookAt.toArray(),
           finalTargetUsedToCreateIntroTo: introFinalTargetDebugRef.current.toArray(),
           configHeroTarget: config?.cameraTargets?.hero ?? null,
+          centerY: introToRef.current.lookAt.y - heroVerticalOffsetRef.current,
+          authoredHeroTargetY: toVector3(config?.cameraTargets?.hero).y,
+          rawVerticalOffsetY: toVector3(config?.cameraTargets?.hero).y - (introToRef.current.lookAt.y - heroVerticalOffsetRef.current),
+          appliedVerticalOffsetY: heroVerticalOffsetRef.current,
+          lookAtTargetY: introToRef.current.lookAt.y,
+          cameraPositionY: camera.position.y,
           offsetTarget: config?.cameraOffsets?.zones?.hero?.target ?? null,
         });
       }
@@ -1259,6 +1268,12 @@ const UnifiedCameraController = ({
           lookAtTarget: orbitCenter.toArray(),
           desktopHeroTargetUsedInOrbit: false,
           filmOffset: camera.filmOffset,
+          centerY: orbitCenter.y,
+          authoredHeroTargetY: toVector3(config?.cameraTargets?.hero).y,
+          rawVerticalOffsetY: toVector3(config?.cameraTargets?.hero).y - orbitCenter.y,
+          appliedVerticalOffsetY: heroVerticalOffsetRef.current,
+          lookAtTargetY: heroLookAtTarget.y,
+          cameraPositionY: camera.position.y,
           fov: camera.fov
         });
       }
