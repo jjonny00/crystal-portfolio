@@ -331,6 +331,12 @@ const UnifiedCameraController = ({
   };
 
   const getHeroOrbitCenter = () => {
+    const crystalCenter = toVector3(animationData?.crystalConfig?.positions?.center);
+    const hasCrystalCenter = crystalCenter.lengthSq() > 0 || Array.isArray(animationData?.crystalConfig?.positions?.center);
+    if (hasCrystalCenter) {
+      return crystalCenter.add(toVector3(config?.cameraOffsets?.global?.target));
+    }
+
     return toVector3(config?.cameraTargets?.hero)
       .add(toVector3(config?.cameraOffsets?.global?.target));
   };
