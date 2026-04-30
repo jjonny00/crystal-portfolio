@@ -33,13 +33,14 @@
 
 .hero-section__title {
   --headline-ink: #FFFCEE;
-  font-family: 'ivypresto-display', 'IvyPresto Display', 'Playfair Display', Georgia, serif;
+  font-family: 'acumin-variable', 'Acumin VF', sans-serif;
   font-style: normal;
-  font-size: clamp(3.25rem, min(12vw, 12svh), 12.5rem);
-  font-weight: 300;
-  line-height: clamp(3rem, min(11vw, 11svh), 11.5rem);
+  font-stretch: extra-condensed;
+  font-size: 200px;
+  font-weight: 700;
+  line-height: 160px;
   text-transform: uppercase;
-  letter-spacing: 0;
+  letter-spacing: -0.02em;
   margin: 0;
   max-inline-size: min(100%, 7ch);
   text-wrap: balance;
