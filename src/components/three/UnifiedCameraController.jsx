@@ -332,13 +332,14 @@ const UnifiedCameraController = ({
   };
 
   const getHeroOrbitCenter = () => {
-    const crystalCenter = toVector3(animationData?.crystalConfig?.positions?.center);
-    const hasCrystalCenter = crystalCenter.lengthSq() > 0 || Array.isArray(animationData?.crystalConfig?.positions?.center);
-    if (hasCrystalCenter) {
-      return crystalCenter;
+    const centerValue = animationData?.crystalConfig?.positions?.center;
+    if (Array.isArray(centerValue) && centerValue.length >= 3) {
+      return new THREE.Vector3(centerValue[0], centerValue[1], centerValue[2]);
     }
-
-    return toVector3(config?.cameraTargets?.hero);
+    if (centerValue?.isVector3) {
+      return centerValue.clone();
+    }
+    return heroOrbitCenterRef.current.clone();
   };
 
   const vectorsEqual = (left, right) => {
