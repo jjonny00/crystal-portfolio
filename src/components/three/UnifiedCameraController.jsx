@@ -19,6 +19,7 @@ const UnifiedCameraController = ({
   sharedCameraMoveProgressRef = null
 }) => {
   const { camera, size } = useThree();
+  console.log('[UnifiedCameraController] mounted/rendered');
 
   // Input context
   const isTouchDeviceRef = useRef(false);
@@ -117,6 +118,8 @@ const UnifiedCameraController = ({
   const newLookAtTempRef = useRef(new THREE.Vector3());
   const lastCrystalFormRef = useRef(animationData?.crystalForm ?? 'whole');
   const fractureJumpFrameRef = useRef(false);
+  const lastDebugSecondRef = useRef(-1);
+  const lastHeroOrbitDebugSecondRef = useRef(-1);
 
   const applyFractureTilt = () => {
     if (!fractureTiltActiveRef.current) return;
@@ -992,10 +995,28 @@ const UnifiedCameraController = ({
   useFrame((state, deltaTime) => {
     syncFractureTiltState();
 
+    const debugSecond = Math.floor(state.clock.elapsedTime);
+    if (debugSecond !== lastDebugSecondRef.current && debugSecond % 2 === 0) {
+      lastDebugSecondRef.current = debugSecond;
+      console.log('[UnifiedCameraController] useFrame running', {
+        elapsed: state.clock.elapsedTime,
+        cameraPosition: camera.position.toArray(),
+        cameraFilmOffset: camera.filmOffset,
+      });
+    }
+
     if (fractureJumpFrameRef.current) {
       fractureJumpFrameRef.current = false;
       camera.fov = currentTarget.current.fov;
       camera.updateProjectionMatrix();
+      if (debugSecond !== lastHeroOrbitDebugSecondRef.current && debugSecond % 2 === 0) {
+        lastHeroOrbitDebugSecondRef.current = debugSecond;
+        console.log('[UnifiedCameraController] HERO ORBIT BRANCH ACTIVE', {
+          finalFilmOffset: camera.filmOffset,
+          cameraPosition: camera.position.toArray(),
+        });
+      }
+
       applyFractureTilt();
       return;
     }
