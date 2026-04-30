@@ -112,6 +112,9 @@ const UnifiedCameraController = ({
   const introLookAtTempRef = useRef(new THREE.Vector3());
   const currentDirectionTempRef = useRef(new THREE.Vector3());
   const targetDirectionTempRef = useRef(new THREE.Vector3());
+  const heroCompositionOffsetRef = useRef(new THREE.Vector3());
+  const heroForwardTempRef = useRef(new THREE.Vector3());
+  const heroRightTempRef = useRef(new THREE.Vector3());
   const newLookAtTempRef = useRef(new THREE.Vector3());
   const lastCrystalFormRef = useRef(animationData?.crystalForm ?? 'whole');
   const fractureJumpFrameRef = useRef(false);
@@ -767,6 +770,9 @@ const UnifiedCameraController = ({
     const baseTarget = enhancedConfig?.target ? enhancedConfig.target.clone() : null;
     const finalPosition = basePosition ? basePosition.add(offsetPosition) : null;
     const finalTarget = baseTarget ? baseTarget.add(offsetTarget) : null;
+    const orbitCenterTarget = baseTarget
+      ? baseTarget.clone().add(toVector3(config?.cameraOffsets?.global?.target))
+      : null;
 
     if (!enhancedConfig) {
       if (import.meta.env.DEV) {
@@ -824,7 +830,8 @@ const UnifiedCameraController = ({
       if (finalTarget) {
         currentTarget.current.lookAt.copy(finalTarget);
         if (cameraState === 'hero') {
-          heroOrbitCenterRef.current.copy(finalTarget);
+          heroOrbitCenterRef.current.copy(orbitCenterTarget || finalTarget);
+          heroCompositionOffsetRef.current.copy(finalTarget).sub(heroOrbitCenterRef.current);
         }
       }
       
@@ -1118,6 +1125,19 @@ const UnifiedCameraController = ({
       camera.position
         .set(x, y, z)
         .add(orbitCenter);
+
+      const compositionOffset = heroCompositionOffsetRef.current;
+      if (compositionOffset.lengthSq() > 0) {
+        const forward = heroForwardTempRef.current
+          .subVectors(orbitCenter, camera.position)
+          .normalize();
+        const right = heroRightTempRef.current
+          .crossVectors(forward, camera.up)
+          .normalize();
+        const lateralOffset = compositionOffset.dot(right);
+        camera.position.addScaledVector(right, lateralOffset);
+      }
+
       camera.lookAt(orbitCenter);
       applyFractureTilt();
       camera.fov = currentTarget.current.fov;
