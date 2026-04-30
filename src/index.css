@@ -40,6 +40,11 @@ h6,
   font-weight: 400;
 }
 
+.blend-force {
+  color: #fff !important;
+  mix-blend-mode: difference !important;
+}
+
 #root {
   width: 100%;
   min-height: 100vh;

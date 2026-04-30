@@ -67,6 +67,7 @@ const Navigation = ({ onHomeClick, onWorkClick, onAboutClick, onContactClick, is
 
   return (
     <nav
+      className="blend-force"
       style={{
         ...NAV_BASE_STYLE
       }}
@@ -74,6 +75,7 @@ const Navigation = ({ onHomeClick, onWorkClick, onAboutClick, onContactClick, is
       <div style={NAV_INNER_STYLE}>
         <button
           onClick={onHomeClick}
+          className="blend-force"
           style={{
             ...NAME_BUTTON_STYLE,
             fontSize: isDesktop ? '36px' : '28px',
@@ -90,6 +92,7 @@ const Navigation = ({ onHomeClick, onWorkClick, onAboutClick, onContactClick, is
             <button
               key={item.label}
               onClick={item.onClick}
+              className="blend-force"
               disabled={isTransitioning}
               style={{
                 ...NAV_ITEM_BASE_STYLE,

@@ -21,14 +21,14 @@ const ProjectFocusSection = ({
 
   const contentSpring = useSpring({
     from: {
-      opacity: 0,
-      transform: 'translateY(20px)'
+      opacity: 1,
+      transform: 'none'
     },
     to: {
-      opacity: isProjectView ? 1 : 0,
-      transform: isProjectView ? 'translateY(0px)' : 'translateY(20px)'
+      opacity: isProjectView ? 1 : 1,
+      transform: 'none'
     },
-    delay: isProjectView ? 180 : 0,
+    delay: 0,
     config: {
       tension: 270,
       friction: 28
@@ -42,7 +42,7 @@ const ProjectFocusSection = ({
     },
     to: {
       opacity: isCaseStudy ? 1 : 0,
-      transform: isCaseStudy ? 'translateY(0px)' : 'translateY(12px)'
+      transform: isCaseStudy ? 'none' : 'translateY(12px)'
     },
     delay: isCaseStudy ? 520 : 0,
     config: {
@@ -113,6 +113,7 @@ const ProjectFocusSection = ({
           </Headline>
 
           <p
+            className="blend-force"
             style={{
               margin: isMobile ? '0 0 0.2rem' : '8px 0 18px',
               color: 'rgb(from #E2DCC3 r g b / 0.6)',
@@ -129,6 +130,7 @@ const ProjectFocusSection = ({
           </p>
 
           <p
+            className="blend-force"
             style={{
               margin: 0,
               color: 'rgb(from #E2DCC3 r g b / 0.85)',
@@ -145,6 +147,7 @@ const ProjectFocusSection = ({
 
           {displayProject.secondaryCopy && (
             <p
+              className="blend-force"
               style={{
                 margin: isMobile ? '0.2rem 0 0' : '30px 0 0',
                 color: 'rgb(from #E2DCC3 r g b / 0.85)',
@@ -162,6 +165,7 @@ const ProjectFocusSection = ({
 
           {displayProject.metrics && (
             <p
+              className="blend-force"
               style={{
                 margin: isMobile ? '0.2rem 0 0' : '30px 0 0',
                 color: 'rgb(from #E2DCC3 r g b / 0.85)',
@@ -179,6 +183,7 @@ const ProjectFocusSection = ({
 
           {displayProject.roles && (
             <p
+              className="blend-force"
               style={{
                 margin: 0,
                 color: 'rgb(from #E2DCC3 r g b / 0.85)',
@@ -215,7 +220,7 @@ const ProjectFocusSection = ({
                 cursor: 'pointer'
               }}
             >
-              {displayProject.cta}
+              <span className="blend-force">{displayProject.cta}</span>
             </button>
           )}
         </div>

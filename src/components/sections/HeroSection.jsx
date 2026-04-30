@@ -33,7 +33,7 @@ const HeroSection = ({
     },
     to: {
       opacity: visible ? 1 : 0,
-      transform: visible ? 'translateY(0px)' : 'translateY(40px)'
+      transform: visible ? 'none' : 'translateY(40px)'
     },
     config: { tension: 280, friction: 24 },
     delay: visible ? 200 : 0
@@ -41,15 +41,15 @@ const HeroSection = ({
 
   const subtitleSpring = useSpring({
     from: {
-      opacity: 0,
-      transform: 'translateY(20px)'
+      opacity: 1,
+      transform: 'none'
     },
     to: {
-      opacity: visible ? 1 : 0,
-      transform: visible ? 'translateY(0px)' : 'translateY(20px)'
+      opacity: visible ? 1 : 1,
+      transform: 'none'
     },
     config: { tension: 300, friction: 26 },
-    delay: visible ? 600 : 0
+    delay: 0
   });
 
   const scrollHintSpring = useSpring({
@@ -59,7 +59,7 @@ const HeroSection = ({
     },
     to: {
       opacity: visible && !hasScrolled ? 1 : 0,
-      transform: visible && !hasScrolled ? 'translateY(0px)' : 'translateY(20px)'
+      transform: visible && !hasScrolled ? 'none' : 'translateY(20px)'
     },
     config: { tension: 200, friction: 20 },
     delay: visible ? 1200 : 0
@@ -101,11 +101,11 @@ const HeroSection = ({
         </animated.div>
 
         <animated.div style={subtitleSpring} className="hero-section__body-block">
-          <p className="hero-section__body-copy">
+          <p className="hero-section__body-copy blend-force">
             Across products, platforms, and industries, I’ve worked with teams to solve complex
             problems through systems thinking, clear communication, and stubborn optimism.
           </p>
-          <p className="hero-section__body-copy">
+          <p className="hero-section__body-copy blend-force">
             Each facet of this crystal reflects a moment that shaped how I design.
           </p>
         </animated.div>

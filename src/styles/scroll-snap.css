@@ -63,9 +63,6 @@ body {
   scroll-snap-type: y mandatory !important;
   scroll-behavior: smooth !important;
   
-  /* Ensure it's above 3D canvas */
-  z-index: 10 !important;
-  
   /* Mobile scroll support */
   -webkit-overflow-scrolling: touch;
   
@@ -301,10 +298,6 @@ html:not(:has(.scroll-container)) .scroll-section {
 /* Chrome/Safari scroll snap fixes */
 @supports (-webkit-appearance: none) {
   .scroll-container {
-    /* Force hardware acceleration */
-    -webkit-transform: translateZ(0) !important;
-    transform: translateZ(0) !important;
-    
     /* Improve scroll performance */
     -webkit-backface-visibility: hidden !important;
     backface-visibility: hidden !important;
