@@ -120,6 +120,7 @@ const UnifiedCameraController = ({
   const fractureJumpFrameRef = useRef(false);
   const lastDebugSecondRef = useRef(-1);
   const lastHeroOrbitDebugSecondRef = useRef(-1);
+  const lastBranchDebugSecondRef = useRef(-1);
 
   const applyFractureTilt = () => {
     if (!fractureTiltActiveRef.current) return;
@@ -1004,6 +1005,26 @@ const UnifiedCameraController = ({
         cameraFilmOffset: camera.filmOffset,
       });
     }
+    const isEvenDebugSecond = debugSecond % 2 === 0;
+    const shouldLogBranch = isEvenDebugSecond && debugSecond !== lastBranchDebugSecondRef.current;
+    if (shouldLogBranch) {
+      lastBranchDebugSecondRef.current = debugSecond;
+      console.log('[UCC STATE SNAPSHOT]', {
+        elapsed: state.clock.elapsedTime,
+        state: animationData?.state,
+        cameraState: animationData?.cameraState,
+        focusedProject: animationData?.focusedProject ?? null,
+        focusedFacet: animationData?.focusedFacet ?? null,
+        isIntroActive: introActiveRef.current,
+        introStarted: introStartedRef.current,
+        introPlayed: introPlayedRef.current,
+        isOrbiting: isOrbitingRef.current,
+        fractureTiltActive: fractureTiltActiveRef.current,
+        simplifiedAnimations,
+        hasCurrentTarget: Boolean(currentTarget.current),
+        cameraFilmOffset: camera.filmOffset,
+      });
+    }
 
     if (fractureJumpFrameRef.current) {
       fractureJumpFrameRef.current = false;
@@ -1018,6 +1039,7 @@ const UnifiedCameraController = ({
       }
 
       applyFractureTilt();
+      if (shouldLogBranch) console.log('[UCC RETURN] reason: fracture-jump-frame');
       return;
     }
 
@@ -1033,6 +1055,7 @@ const UnifiedCameraController = ({
       camera.fov = currentTarget.current.fov;
       camera.updateProjectionMatrix();
       applyFractureTilt();
+      if (shouldLogBranch) console.log('[UCC RETURN] reason: fracture-tilt-lock');
       return;
     }
 
@@ -1051,11 +1074,13 @@ const UnifiedCameraController = ({
           animationData?.setCameraSettled?.(true);
         }
       }
+      if (shouldLogBranch) console.log('[UCC RETURN] reason: simplified-or-missing-target', { simplifiedAnimations });
       return;
     }
 
     // Orbit camera around crystal during hero state once settled
     if (introActiveRef.current) {
+      if (shouldLogBranch) console.log('[UCC BRANCH] INTRO');
       const elapsed = performance.now() - introStartTimeRef.current;
       const progress = THREE.MathUtils.clamp(elapsed / INTRO_DURATION_MS, 0, 1);
       const easedProgress = 1 - Math.pow(1 - progress, 3);
@@ -1103,10 +1128,12 @@ const UnifiedCameraController = ({
         animationData?.setCameraMoveProgress?.(1);
       }
 
+      if (shouldLogBranch) console.log('[UCC RETURN] reason: intro-active');
       return;
     }
 
     if (animationData.state === 'hero' && animationData.cameraState === 'hero' && isOrbitingRef.current) {
+      if (shouldLogBranch) console.log('[UCC BRANCH] HERO_ORBIT');
       const deltaMultiplier = deltaTime * 60;
       const speed = animationData.cameraConfig?.orbitSpeed || 0.00018;
       const nowMs = state.clock.elapsedTime * 1000;
@@ -1197,12 +1224,21 @@ const UnifiedCameraController = ({
 
       animationData?.setCameraMoveProgress?.(1);
       animationData?.setCameraSettled?.(false);
+      if (shouldLogBranch) console.log('[UCC RETURN] reason: hero-orbit-active');
       return;
     }
 
     if (camera.filmOffset !== 0) {
       camera.filmOffset = 0;
       camera.updateProjectionMatrix();
+    }
+
+    if (shouldLogBranch) {
+      if (animationData?.cameraState === 'overview') console.log('[UCC BRANCH] OVERVIEW');
+      else if (animationData?.cameraState === 'project' && animationData?.state === 'project_focused') console.log('[UCC BRANCH] SELECTED_PROJECT');
+      else if (animationData?.cameraState === 'caseStudy') console.log('[UCC BRANCH] CASE_STUDY');
+      else if (animationData?.cameraState === 'hero') console.log('[UCC BRANCH] HERO_IDLE');
+      else console.log('[UCC BRANCH] FALLBACK', { cameraState: animationData?.cameraState, state: animationData?.state });
     }
 
     // FIXED: Use exponential smoothing with clamping
