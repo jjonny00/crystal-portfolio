@@ -369,6 +369,45 @@ const UnifiedCameraController = ({
     camera.filmOffset = (THREE.MathUtils.clamp(ndcOffsetX, -1.5, 1.5) * filmWidth) * 0.5;
   };
 
+  const syncHeroCameraRefs = (reason, { resetPosition = false } = {}) => {
+    const heroCenter = getHeroOrbitCenter();
+    const heroPosition = toVector3(config?.cameraPositions?.hero)
+      .add(toVector3(config?.cameraOffsets?.global?.position))
+      .add(toVector3(config?.cameraOffsets?.zones?.hero?.position));
+    const authoredHeroTarget = toVector3(config?.cameraTargets?.hero)
+      .add(toVector3(config?.cameraOffsets?.global?.target))
+      .add(toVector3(config?.cameraOffsets?.zones?.hero?.target));
+
+    heroOrbitCenterRef.current.copy(heroCenter);
+    heroCompositionOffsetRef.current.copy(authoredHeroTarget).sub(heroCenter);
+    heroCompositionLateralRef.current = heroCompositionOffsetRef.current.x;
+    heroVerticalOffsetRef.current = getHeroVerticalOffset(heroCenter);
+
+    const heroLookAt = newLookAtTempRef.current.copy(heroCenter);
+    heroLookAt.y += heroVerticalOffsetRef.current;
+    currentTarget.current.lookAt.copy(heroLookAt);
+
+    if (resetPosition) {
+      currentTarget.current.position.copy(heroPosition);
+      camera.position.copy(heroPosition);
+      camera.lookAt(heroLookAt);
+      camera.fov = currentTarget.current.fov ?? camera.fov;
+      camera.updateProjectionMatrix();
+    }
+
+    if (import.meta.env.DEV) {
+      console.log('[UCC HERO SYNC]', {
+        reason,
+        resetPosition,
+        heroCenter: heroCenter.toArray(),
+        heroPosition: heroPosition.toArray(),
+        authoredHeroTarget: authoredHeroTarget.toArray(),
+        heroLookAt: heroLookAt.toArray(),
+        compositionLateral: heroCompositionLateralRef.current,
+      });
+    }
+  };
+
   const vectorsEqual = (left, right) => {
     if (!left && !right) return true;
     if (!left || !right) return false;
@@ -711,6 +750,7 @@ const UnifiedCameraController = ({
   useEffect(() => {
     // FIXED: Reset orbit state when camera state changes
     if (animationData?.cameraState !== lastCameraStateRef.current) {
+      const previousCameraState = lastCameraStateRef.current;
       isOrbitingRef.current = false;
       orbitInitDelayRef.current = 0;
       lastCameraStateRef.current = animationData?.cameraState;
@@ -721,6 +761,10 @@ const UnifiedCameraController = ({
       pointerSwitchDistanceRef.current = 0;
       targetOrbitVelocityRef.current.set(0, 0);
       orbitVelocityRef.current.set(0, 0);
+
+      if (animationData?.cameraState === 'hero' && previousCameraState !== 'hero') {
+        syncHeroCameraRefs('cameraState-transition-to-hero', { resetPosition: false });
+      }
 
       if (animationData?.cameraState === 'intro' && config?.cameraPositions?.intro && config?.cameraTargets?.intro) {
         const introPosition = toVector3(config.cameraPositions.intro);
@@ -742,8 +786,6 @@ const UnifiedCameraController = ({
         camera.lookAt(introTarget);
         camera.fov = introFov;
         camera.updateProjectionMatrix();
-      logCameraWrite(state, "HERO_ORBIT", "hero-orbit-active", heroLookAtTarget, true, true);
-
         currentTarget.current.position.copy(introPosition);
         currentTarget.current.lookAt.copy(introTarget);
         currentTarget.current.fov = introFov;
@@ -752,7 +794,6 @@ const UnifiedCameraController = ({
         heroCompositionOffsetRef.current.copy(currentTarget.current.lookAt).sub(heroOrbitCenter);
         heroCompositionLateralRef.current = heroCompositionOffsetRef.current.x;
         heroVerticalOffsetRef.current = getHeroVerticalOffset(heroOrbitCenter);
-    heroVerticalOffsetRef.current = getHeroVerticalOffset(heroOrbitCenter);
       }
       
       if (import.meta.env.DEV) {
@@ -885,11 +926,7 @@ const UnifiedCameraController = ({
             desktopHeroTarget: config?.cameraTargets?.hero ?? null,
             usingHeroCenterAsPivot: true,
           });
-          const heroOrbitCenter = getHeroOrbitCenter();
-          heroOrbitCenterRef.current.copy(heroOrbitCenter);
-          heroCompositionOffsetRef.current.copy(finalTarget).sub(heroOrbitCenterRef.current);
-          heroCompositionLateralRef.current = heroCompositionOffsetRef.current.x;
-          heroVerticalOffsetRef.current = getHeroVerticalOffset(heroOrbitCenterRef.current);
+          syncHeroCameraRefs('config-changed-hero', { resetPosition: false });
         }
       }
       
@@ -927,7 +964,6 @@ const UnifiedCameraController = ({
         heroCompositionOffsetRef.current.copy(finalTarget).sub(heroOrbitCenter);
         heroCompositionLateralRef.current = heroCompositionOffsetRef.current.x;
         heroVerticalOffsetRef.current = getHeroVerticalOffset(heroOrbitCenter);
-    heroVerticalOffsetRef.current = getHeroVerticalOffset(heroOrbitCenter);
         introToRef.current.fov = enhancedConfig.fov ?? camera.fov;
         if (import.meta.env.DEV) console.log('[UCC INTRO] set active true', { reason: 'config-change shouldRunIntro', finalTarget: finalTarget?.toArray?.(), heroOrbitCenter: heroOrbitCenter.toArray() });
       }
@@ -1258,6 +1294,7 @@ const UnifiedCameraController = ({
         cameraMoveProgressRef.current = 1;
         if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = 1;
         animationData?.setCameraMoveProgress?.(1);
+        syncHeroCameraRefs('intro-complete', { resetPosition: false });
       }
 
       console.log('[UCC EARLY RETURN]', { branch: "INTRO", reason: "intro-active", finalCameraPosition: camera.position.toArray(), finalFilmOffset: camera.filmOffset, heroOrbitCenter: heroOrbitCenterRef.current.toArray(), lookAt: introLookAt.toArray() });
