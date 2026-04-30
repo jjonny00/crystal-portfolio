@@ -1150,14 +1150,27 @@ const UnifiedCameraController = ({
         const ndcOffsetX = heroCompositionLateralRef.current / Math.max(0.0001, halfFrustumWidth);
         const viewOffsetPx = (ndcOffsetX * size.width) * 0.5;
         if (Math.abs(viewOffsetPx) > 0.5) {
-          camera.setViewOffset(size.width, size.height, viewOffsetPx, 0, size.width, size.height);
+          const ndcOffsetX = THREE.MathUtils.clamp(viewOffsetPx / (size.width * 0.5), -1.5, 1.5);
+          const filmWidth = camera.getFilmWidth ? camera.getFilmWidth() : 35;
+          camera.filmOffset = (ndcOffsetX * filmWidth) * 0.5;
         } else {
-          camera.clearViewOffset();
+          camera.filmOffset = 0;
         }
       }
       applyFractureTilt();
       camera.fov = currentTarget.current.fov;
       camera.updateProjectionMatrix();
+      if (import.meta.env.DEV && (state.clock.frame % 60 === 0)) {
+        logger.debug('🎯 Hero orbit diagnostic', {
+          branch: 'hero-orbit-active',
+          crystalCenter: orbitCenter.toArray(),
+          cameraPosition: camera.position.toArray(),
+          lookAtTarget: orbitCenter.toArray(),
+          desktopHeroTargetUsedInOrbit: false,
+          filmOffset: camera.filmOffset,
+          fov: camera.fov
+        });
+      }
 
       currentTarget.current.position.copy(camera.position);
 
@@ -1166,7 +1179,10 @@ const UnifiedCameraController = ({
       return;
     }
 
-    camera.clearViewOffset();
+    if (camera.filmOffset !== 0) {
+      camera.filmOffset = 0;
+      camera.updateProjectionMatrix();
+    }
 
     // FIXED: Use exponential smoothing with clamping
     const smoothingFactor = 1 - Math.exp(-6 * deltaTime);
