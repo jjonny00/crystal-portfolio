@@ -333,6 +333,11 @@ const UnifiedCameraController = ({
     return new THREE.Vector3();
   };
 
+  const getHeroOrbitCenter = () => {
+    return toVector3(config?.cameraTargets?.hero)
+      .add(toVector3(config?.cameraOffsets?.global?.target));
+  };
+
   const vectorsEqual = (left, right) => {
     if (!left && !right) return true;
     if (!left || !right) return false;
@@ -572,6 +577,7 @@ const UnifiedCameraController = ({
       .add(toVector3(config?.cameraOffsets?.zones?.intro?.target));
     const heroPosition = currentTarget.current.position.clone();
     const heroTarget = currentTarget.current.lookAt.clone();
+    const heroOrbitCenter = getHeroOrbitCenter();
     const heroFov = currentTarget.current.fov ?? animationData?.cameraConfig?.fov ?? camera.fov;
 
     introStartedRef.current = true;
@@ -598,7 +604,8 @@ const UnifiedCameraController = ({
     currentTarget.current.position.copy(heroPosition);
     currentTarget.current.lookAt.copy(heroTarget);
     currentTarget.current.fov = heroFov;
-    heroOrbitCenterRef.current.copy(heroTarget);
+    heroOrbitCenterRef.current.copy(heroOrbitCenter);
+    heroCompositionOffsetRef.current.copy(heroTarget).sub(heroOrbitCenter);
 
     cameraMoveProgressRef.current = 0;
     if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = 0;
@@ -705,7 +712,9 @@ const UnifiedCameraController = ({
         currentTarget.current.position.copy(introPosition);
         currentTarget.current.lookAt.copy(introTarget);
         currentTarget.current.fov = introFov;
-        heroOrbitCenterRef.current.copy(introTarget);
+        const heroOrbitCenter = getHeroOrbitCenter();
+        heroOrbitCenterRef.current.copy(heroOrbitCenter);
+        heroCompositionOffsetRef.current.copy(currentTarget.current.lookAt).sub(heroOrbitCenter);
       }
       
       if (import.meta.env.DEV) {
