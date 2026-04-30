@@ -105,6 +105,9 @@ const UnifiedCameraController = ({
   const INTRO_DURATION_MS = 4400;
   const HERO_VERTICAL_FRAMING_SCALE = 0; // Temporary isolate: disable authored Y framing
   const HERO_VERTICAL_FRAMING_SIGN = 1;
+  const HERO_TEST_FILM_OFFSET = 5;
+  const HERO_FILM_OFFSET_MIN = -10;
+  const HERO_FILM_OFFSET_MAX = 10;
   const FRACTURE_TILT_RADIANS = 0.045;
   const FRACTURE_PITCH_UP_RADIANS = -0.012;
   const FRACTURE_TILT_RELEASE_DISTANCE = 0.015;
@@ -127,6 +130,7 @@ const UnifiedCameraController = ({
   const introFinalTargetDebugRef = useRef(new THREE.Vector3());
   const lastCameraWriteSecondRef = useRef(-1);
   const lastCameraWriterRef = useRef('none');
+  const heroFilmOffsetDebugRef = useRef({ raw: 0, applied: 0 });
 
   const applyFractureTilt = () => {
     if (!fractureTiltActiveRef.current) return;
@@ -364,7 +368,12 @@ const UnifiedCameraController = ({
     const halfFrustumWidth = Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5)) * distanceToCenter * camera.aspect;
     const ndcOffsetX = heroCompositionLateralRef.current / Math.max(0.0001, halfFrustumWidth);
     const filmWidth = camera.getFilmWidth ? camera.getFilmWidth() : 35;
-    camera.filmOffset = (THREE.MathUtils.clamp(ndcOffsetX, -1.5, 1.5) * filmWidth) * 0.5;
+    const derivedRawFilmOffset = (THREE.MathUtils.clamp(ndcOffsetX, -1.5, 1.5) * filmWidth) * 0.5;
+
+    const rawFilmOffset = HERO_TEST_FILM_OFFSET;
+    const appliedFilmOffset = THREE.MathUtils.clamp(rawFilmOffset, HERO_FILM_OFFSET_MIN, HERO_FILM_OFFSET_MAX);
+    heroFilmOffsetDebugRef.current = { raw: derivedRawFilmOffset, applied: appliedFilmOffset };
+    camera.filmOffset = appliedFilmOffset;
   };
 
   const vectorsEqual = (left, right) => {
@@ -1057,6 +1066,7 @@ const UnifiedCameraController = ({
   };
 
   useFrame((state, deltaTime) => {
+    lastCameraWriterRef.current = null;
     syncFractureTiltState();
 
     const debugSecond = Math.floor(state.clock.elapsedTime);
@@ -1302,6 +1312,8 @@ const UnifiedCameraController = ({
           lookAtTarget: orbitCenter.toArray(),
           desktopHeroTargetUsedInOrbit: false,
           filmOffset: camera.filmOffset,
+          rawFilmOffset: heroFilmOffsetDebugRef.current.raw,
+          appliedFilmOffset: heroFilmOffsetDebugRef.current.applied,
           centerY: orbitCenter.y,
           authoredHeroTargetY: toVector3(config?.cameraTargets?.hero).y,
           rawVerticalOffsetY: toVector3(config?.cameraTargets?.hero).y - orbitCenter.y,
@@ -1370,7 +1382,7 @@ const UnifiedCameraController = ({
     camera.fov += fovDiff * clampedSmoothing;
     camera.updateProjectionMatrix();
     logCameraWrite(state, animationData?.cameraState === "hero" ? "HERO_IDLE" : "FALLBACK", "smoothed-update", newLookAt, true, false);
-    console.log('[UCC END FRAME]', { elapsed: state.clock.elapsedTime, finalCameraPosition: camera.position.toArray(), finalFilmOffset: camera.filmOffset, finalWriter: lastCameraWriterRef.current });
+    console.log('[UCC END FRAME]', { elapsed: state.clock.elapsedTime, finalCameraPosition: camera.position.toArray(), finalFilmOffset: camera.filmOffset, rawFilmOffset: heroFilmOffsetDebugRef.current.raw, appliedFilmOffset: heroFilmOffsetDebugRef.current.applied, finalWriter: lastCameraWriterRef.current });
 
     // Check if camera has settled at target
     const positionDiff = camera.position.distanceTo(currentTarget.current.position);
