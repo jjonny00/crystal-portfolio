@@ -42,6 +42,7 @@ const NAV_ITEM_BASE_STYLE = {
   fontFamily: '"acumin-variable", "Acumin VF", sans-serif',
   fontSize: '24px',
   fontStyle: 'normal',
+  fontStretch: 'condensed',
   fontWeight: 500,
   lineHeight: 'normal',
   textTransform: 'uppercase',

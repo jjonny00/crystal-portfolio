@@ -96,17 +96,13 @@ const HeroSection = ({
       <div className="hero-section__content">
         <animated.div style={contentSpring} className="hero-section__headline-block">
           <Headline as="h1" className="hero-section__title">
-            Shaped through iteration.
+            THE SYSTEMS BENEATH THE SURFACE
           </Headline>
         </animated.div>
 
         <animated.div style={subtitleSpring} className="hero-section__body-block">
           <p className="hero-section__body-copy">
-            Across products, platforms, and industries, I’ve worked with teams to solve complex
-            problems through systems thinking, clear communication, and stubborn optimism.
-          </p>
-          <p className="hero-section__body-copy">
-            Each facet of this crystal reflects a moment that shaped how I design.
+            I've spent twenty years designing systems that shape how people decide, play, and engage. My work focuses on the mechanics underneath the experience: rules, feedback, and tradeoffs that give interaction depth. The six systems below span products and games, each one shaped how I think.
           </p>
         </animated.div>
       </div>
