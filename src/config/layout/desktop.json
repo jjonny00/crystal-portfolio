@@ -437,15 +437,15 @@
     },
     "composition": {
       "hero": {
-        "filmOffsetX": 0
+        "filmOffsetX": 9
       }
     },
     "heroTuning": {
-      "radius": 7,
-      "height": 0.8,
-      "orbitSpeed": 0.08,
+      "radius": 2.75,
+      "height": 0.4,
+      "orbitSpeed": 0.03,
       "baseAngle": 0,
-      "lookAtYOffset": 0
+      "lookAtYOffset": 0.55
     }
   },
   "projects": {

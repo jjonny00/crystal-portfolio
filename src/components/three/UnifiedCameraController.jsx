@@ -420,22 +420,27 @@ const UnifiedCameraController = ({
 
 
   const updateAuthoritativeHeroCamera = ({ elapsed, center, filmOffsetX = 0, tuning }) => {
-    const angle = tuning.baseAngle + elapsed * tuning.orbitSpeed;
+    const snapshot = getAuthoritativeHeroCameraSnapshot({ elapsed, center, tuning, filmOffsetX });
+    camera.position.copy(snapshot.position);
+    camera.lookAt(snapshot.lookAtTarget);
+    camera.filmOffset = snapshot.filmOffsetX;
+    camera.updateProjectionMatrix();
+    return snapshot;
+  };
 
-    camera.position.set(
+  const getAuthoritativeHeroCameraSnapshot = ({ elapsed, center, tuning, filmOffsetX }) => {
+    const angle = tuning.baseAngle + elapsed * tuning.orbitSpeed;
+    const position = new THREE.Vector3(
       center.x + Math.sin(angle) * tuning.radius,
       center.y + tuning.height,
       center.z + Math.cos(angle) * tuning.radius,
     );
-
-    const lookAtTarget = newLookAtTempRef.current.copy(center);
-    lookAtTarget.y += tuning.lookAtYOffset;
-
-    camera.lookAt(lookAtTarget);
-    camera.filmOffset = Number.isFinite(filmOffsetX) ? filmOffsetX : 0;
-    camera.updateProjectionMatrix();
-
-    return lookAtTarget;
+    const lookAtTarget = new THREE.Vector3(center.x, center.y + tuning.lookAtYOffset, center.z);
+    return {
+      position,
+      lookAtTarget,
+      filmOffsetX: Number.isFinite(filmOffsetX) ? filmOffsetX : 0,
+    };
   };
 
   const syncHeroCameraRefs = (reason, { resetPosition = false } = {}) => {
@@ -1252,12 +1257,68 @@ const UnifiedCameraController = ({
       !animationData?.focusedProject &&
       !animationData?.focusedFacet;
 
+    if (isAuthoritativePlainHero && introActiveRef.current) {
+      const center = getHeroOrbitCenter();
+      const { tuning } = resolveHeroTuning(config);
+      const configuredFilmOffsetX = config?.cameraComposition?.hero?.filmOffsetX;
+      const resolvedFilmOffsetX = Number.isFinite(configuredFilmOffsetX) ? configuredFilmOffsetX : 0;
+      const destination = getAuthoritativeHeroCameraSnapshot({
+        elapsed: state.clock.elapsedTime,
+        center,
+        tuning,
+        filmOffsetX: resolvedFilmOffsetX,
+      });
+      const elapsedMs = performance.now() - introStartTimeRef.current;
+      const progress = THREE.MathUtils.clamp(elapsedMs / INTRO_DURATION_MS, 0, 1);
+      const easedProgress = 1 - Math.pow(1 - progress, 3);
+      const positionProgress = progress < 0.5
+        ? 4 * Math.pow(progress, 3)
+        : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+      const introLookAt = introLookAtTempRef.current.lerpVectors(
+        introFromRef.current.lookAt,
+        destination.lookAtTarget,
+        easedProgress,
+      );
+      camera.position.lerpVectors(
+        introFromRef.current.position,
+        destination.position,
+        positionProgress,
+      );
+      camera.lookAt(introLookAt);
+      camera.filmOffset = destination.filmOffsetX;
+      camera.fov = THREE.MathUtils.lerp(introFromRef.current.fov, introToRef.current.fov, easedProgress);
+      camera.updateProjectionMatrix();
+      const completedThisFrame = progress >= 1;
+      if (shouldLogBranch) {
+        console.log('[UCC AUTHORITATIVE HERO INTRO]', {
+          progress,
+          introStartPosition: introFromRef.current.position.toArray(),
+          introDestinationPosition: destination.position.toArray(),
+          currentInterpolatedPosition: camera.position.toArray(),
+          introDestinationLookAtTarget: destination.lookAtTarget.toArray(),
+          currentLookAtTarget: introLookAt.toArray(),
+          filmOffsetX: destination.filmOffsetX,
+          completedThisFrame,
+        });
+      }
+      if (completedThisFrame) {
+        introActiveRef.current = false;
+        introPlayedRef.current = true;
+        camera.position.copy(destination.position);
+        camera.lookAt(destination.lookAtTarget);
+        camera.filmOffset = destination.filmOffsetX;
+        camera.fov = introToRef.current.fov;
+        camera.updateProjectionMatrix();
+      }
+      return;
+    }
+
     if (isAuthoritativePlainHero) {
       const center = getHeroOrbitCenter();
       const { tuning, source: tuningSource } = resolveHeroTuning(config);
       const configuredFilmOffsetX = config?.cameraComposition?.hero?.filmOffsetX;
       const resolvedFilmOffsetX = Number.isFinite(configuredFilmOffsetX) ? configuredFilmOffsetX : 0;
-      const lookAtTarget = updateAuthoritativeHeroCamera({
+      const snapshot = updateAuthoritativeHeroCamera({
         elapsed: state.clock.elapsedTime,
         center,
         filmOffsetX: resolvedFilmOffsetX,
@@ -1274,7 +1335,7 @@ const UnifiedCameraController = ({
           filmOffsetX: resolvedFilmOffsetX,
           center: center.toArray(),
           cameraPosition: camera.position.toArray(),
-          lookAtTarget: lookAtTarget.toArray(),
+          lookAtTarget: snapshot.lookAtTarget.toArray(),
           state: animationData?.state,
           cameraState: animationData?.cameraState,
         });
@@ -1340,7 +1401,7 @@ const UnifiedCameraController = ({
     }
 
     // Orbit camera around crystal during hero state once settled
-    if (introActiveRef.current) {
+    if (introActiveRef.current && !isAuthoritativePlainHero) {
       if (shouldLogBranch) console.log('[UCC BRANCH] INTRO');
       const elapsed = performance.now() - introStartTimeRef.current;
       const progress = THREE.MathUtils.clamp(elapsed / INTRO_DURATION_MS, 0, 1);
