@@ -148,6 +148,17 @@ const UnifiedCameraController = ({
   const firstPostHeroExplosionWriteLoggedRef = useRef(false);
   const lastAuthoritativeHeroSnapshotRef = useRef(null);
   const fractureTiltLockSeededRef = useRef(false);
+  const heroExplosionTransitionRef = useRef({
+    active: false,
+    startedAt: 0,
+    duration: 0.7,
+    startPosition: new THREE.Vector3(),
+    startLookAt: new THREE.Vector3(),
+    destinationPosition: new THREE.Vector3(),
+    destinationLookAt: new THREE.Vector3(),
+    startFilmOffset: 0,
+    destinationFilmOffset: 0,
+  });
   const lastCameraWriteSecondRef = useRef(-1);
   const lastCameraWriterRef = useRef('none');
   const prevStateRef = useRef(animationData?.state ?? null);
@@ -1568,6 +1579,70 @@ const UnifiedCameraController = ({
       applyFractureTilt();
       console.log('[UCC EARLY RETURN]', { branch: "TRANSITION", reason: "fracture-tilt-lock", finalCameraPosition: camera.position.toArray(), finalFilmOffset: camera.filmOffset });
       if (shouldLogBranch) console.log('[UCC RETURN] reason: fracture-tilt-lock');
+      return;
+    }
+
+    if (
+      fractureTiltActiveRef.current &&
+      animationData?.crystalForm === 'exploded' &&
+      animationData?.cameraState !== 'hero'
+    ) {
+      if (!heroExplosionTransitionRef.current.active) {
+        const transition = heroExplosionTransitionRef.current;
+        transition.active = true;
+        transition.startedAt = state.clock.elapsedTime;
+        transition.startPosition.copy(camera.position);
+        transition.startLookAt.copy(fractureTiltAnchorLookAtRef.current);
+        transition.destinationPosition.copy(currentTarget.current.position);
+        transition.destinationLookAt.copy(currentTarget.current.lookAt);
+        transition.startFilmOffset = camera.filmOffset;
+        transition.destinationFilmOffset = 0;
+      }
+
+      const transition = heroExplosionTransitionRef.current;
+      const elapsed = state.clock.elapsedTime - transition.startedAt;
+      const progress = THREE.MathUtils.clamp(elapsed / transition.duration, 0, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      camera.position.lerpVectors(transition.startPosition, transition.destinationPosition, eased);
+      const transitionLookAt = introLookAtTempRef.current.lerpVectors(
+        transition.startLookAt,
+        transition.destinationLookAt,
+        eased,
+      );
+      camera.lookAt(transitionLookAt);
+      camera.filmOffset = THREE.MathUtils.lerp(transition.startFilmOffset, transition.destinationFilmOffset, eased);
+      camera.updateProjectionMatrix();
+      logCameraWrite(state, "TRANSITION", "hero-explosion-to-destination", transitionLookAt, true, true);
+      if (shouldLogBranch) {
+        console.log('[UCC HERO EXPLOSION TRANSITION]', {
+          progress,
+          startPosition: transition.startPosition.toArray(),
+          destinationPosition: transition.destinationPosition.toArray(),
+          currentInterpolatedPosition: camera.position.toArray(),
+          startLookAt: transition.startLookAt.toArray(),
+          destinationLookAt: transition.destinationLookAt.toArray(),
+          currentLookAt: transitionLookAt.toArray(),
+          filmOffset: camera.filmOffset,
+          fallbackBypassed: true,
+        });
+      }
+      if (progress >= 1) {
+        transition.active = false;
+        fractureTiltActiveRef.current = false;
+        fractureTiltRef.current = 0;
+        camera.position.copy(transition.destinationPosition);
+        camera.lookAt(transition.destinationLookAt);
+        camera.filmOffset = transition.destinationFilmOffset;
+        camera.updateProjectionMatrix();
+        currentTarget.current.position.copy(transition.destinationPosition);
+        currentTarget.current.lookAt.copy(transition.destinationLookAt);
+        console.log('[UCC HERO EXPLOSION TRANSITION COMPLETE]', {
+          finalPosition: camera.position.toArray(),
+          finalLookAt: transition.destinationLookAt.toArray(),
+          finalFilmOffset: camera.filmOffset,
+          nextBranchExpected: animationData?.cameraState,
+        });
+      }
       return;
     }
 
