@@ -183,6 +183,7 @@ const UnifiedCameraController = ({
     from: null,
     to: null,
   });
+  const HERO_TO_OVERVIEW_HANDOFF_LOCK_FRAMES = 2;
   const heroToOverviewHandoffPendingRef = useRef(null);
   const heroToOverviewHandoffLockFramesRef = useRef(0);
   const heroToOverviewTraceRef = useRef([]);
@@ -1891,7 +1892,7 @@ const UnifiedCameraController = ({
           finalLookAt: transition.to.lookAtTarget.clone(),
           finalFilmOffset: camera.filmOffset,
         };
-        heroToOverviewHandoffLockFramesRef.current = 2;
+        heroToOverviewHandoffLockFramesRef.current = HERO_TO_OVERVIEW_HANDOFF_LOCK_FRAMES;
         console.log('[UCC FORCE HERO TO OVERVIEW COMPLETE]', {
           finalPosition: camera.position.toArray(),
           finalLookAt: transition.to.lookAtTarget.toArray(),
