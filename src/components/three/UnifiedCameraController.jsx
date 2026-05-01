@@ -78,6 +78,7 @@ const UnifiedCameraController = ({
   // ADDED: Additional tracking for orbit initiation
   const orbitInitDelayRef = useRef(0);
   const ORBIT_DELAY_FRAMES = 30; // Wait 30 frames after settling before starting orbit
+  const FORCE_AUTHORITATIVE_HERO_TO_OVERVIEW_TRANSITION = true;
   const DEFAULT_HERO_TUNING = {
     radius: 7,
     height: 0.8,
@@ -162,6 +163,13 @@ const UnifiedCameraController = ({
     destinationLookAt: new THREE.Vector3(),
     startFilmOffset: 0,
     destinationFilmOffset: 0,
+  });
+  const authoritativeHeroToOverviewTransitionRef = useRef({
+    active: false,
+    startTime: 0,
+    duration: 1.0,
+    from: null,
+    to: null,
   });
   const lastCameraWriteSecondRef = useRef(-1);
   const lastCameraWriterRef = useRef('none');
@@ -1481,6 +1489,50 @@ const UnifiedCameraController = ({
     }
     previousWasPlainHeroRef.current = isAuthoritativePlainHero;
 
+    const shouldForceHeroToOverviewTransition =
+      FORCE_AUTHORITATIVE_HERO_TO_OVERVIEW_TRANSITION &&
+      wasPlainHero &&
+      !isAuthoritativePlainHero &&
+      (animationData?.cameraState === 'overview' || animationData?.state === 'overview');
+    if (shouldForceHeroToOverviewTransition && !authoritativeHeroToOverviewTransitionRef.current.active) {
+      const fromSnapshot = heroExitSnapshotRef.current || latestAuthoritativeHeroSnapshotRef.current;
+      if (!fromSnapshot) {
+        console.warn('[UCC FORCE HERO TO OVERVIEW START] Missing hero snapshot; skipping forced transition start');
+      } else {
+      const overviewPosition = toVector3(config?.cameraPositions?.overview)
+        .add(toVector3(config?.cameraOffsets?.global?.position))
+        .add(toVector3(config?.cameraOffsets?.zones?.overview?.position));
+      const overviewLookAt = toVector3(config?.cameraTargets?.overview)
+        .add(toVector3(config?.cameraOffsets?.global?.target))
+        .add(toVector3(config?.cameraOffsets?.zones?.overview?.target));
+      authoritativeHeroToOverviewTransitionRef.current = {
+        active: true,
+        startTime: state.clock.elapsedTime,
+        duration: 1.0,
+        from: {
+          position: fromSnapshot.position.clone(),
+          lookAtTarget: fromSnapshot.lookAtTarget.clone(),
+          filmOffsetX: Number.isFinite(fromSnapshot.filmOffsetX) ? fromSnapshot.filmOffsetX : camera.filmOffset,
+          source: heroExitSnapshotRef.current ? 'heroExitSnapshot' : 'latestAuthoritativeHeroSnapshot',
+        },
+        to: {
+          position: overviewPosition.clone(),
+          lookAtTarget: overviewLookAt.clone(),
+          filmOffsetX: 0,
+        },
+      };
+      console.log('[UCC FORCE HERO TO OVERVIEW START]', {
+        fromSource: authoritativeHeroToOverviewTransitionRef.current.from.source,
+        fromPosition: authoritativeHeroToOverviewTransitionRef.current.from.position.toArray(),
+        fromLookAt: authoritativeHeroToOverviewTransitionRef.current.from.lookAtTarget.toArray(),
+        fromFilmOffset: authoritativeHeroToOverviewTransitionRef.current.from.filmOffsetX,
+        toPosition: authoritativeHeroToOverviewTransitionRef.current.to.position.toArray(),
+        toLookAt: authoritativeHeroToOverviewTransitionRef.current.to.lookAtTarget.toArray(),
+        toFilmOffset: authoritativeHeroToOverviewTransitionRef.current.to.filmOffsetX,
+      });
+      }
+    }
+
     if (isReturnToHero && isAuthoritativePlainHero) {
       heroOrbitStartTimeRef.current = state.clock.elapsedTime;
     }
@@ -1582,6 +1634,46 @@ const UnifiedCameraController = ({
           lookAtTarget: snapshot.lookAtTarget.toArray(),
           state: animationData?.state,
           cameraState: animationData?.cameraState,
+        });
+      }
+      return;
+    }
+
+    if (authoritativeHeroToOverviewTransitionRef.current.active) {
+      const transition = authoritativeHeroToOverviewTransitionRef.current;
+      const progress = THREE.MathUtils.clamp(
+        (state.clock.elapsedTime - transition.startTime) / transition.duration,
+        0,
+        1,
+      );
+      const eased = 1 - Math.pow(1 - progress, 3);
+      camera.position.lerpVectors(transition.from.position, transition.to.position, eased);
+      const forcedLookAt = introLookAtTempRef.current.lerpVectors(
+        transition.from.lookAtTarget,
+        transition.to.lookAtTarget,
+        eased,
+      );
+      camera.lookAt(forcedLookAt);
+      camera.filmOffset = THREE.MathUtils.lerp(transition.from.filmOffsetX, transition.to.filmOffsetX, eased);
+      camera.updateProjectionMatrix();
+      console.log('[UCC FORCE HERO TO OVERVIEW FRAME]', {
+        progress,
+        currentPosition: camera.position.toArray(),
+        currentLookAt: forcedLookAt.toArray(),
+        filmOffset: camera.filmOffset,
+      });
+      if (progress >= 1) {
+        camera.position.copy(transition.to.position);
+        camera.lookAt(transition.to.lookAtTarget);
+        camera.filmOffset = transition.to.filmOffsetX;
+        camera.updateProjectionMatrix();
+        authoritativeHeroToOverviewTransitionRef.current.active = false;
+        console.log('[UCC FORCE HERO TO OVERVIEW COMPLETE]', {
+          finalPosition: camera.position.toArray(),
+          finalLookAt: transition.to.lookAtTarget.toArray(),
+          finalFilmOffset: camera.filmOffset,
+          nextState: animationData?.state,
+          nextCameraState: animationData?.cameraState,
         });
       }
       return;
