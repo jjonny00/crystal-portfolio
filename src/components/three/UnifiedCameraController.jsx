@@ -147,6 +147,7 @@ const UnifiedCameraController = ({
   const explosionCameraTraceUntilRef = useRef(0);
   const firstPostHeroExplosionWriteLoggedRef = useRef(false);
   const lastAuthoritativeHeroSnapshotRef = useRef(null);
+  const fractureTiltLockSeededRef = useRef(false);
   const lastCameraWriteSecondRef = useRef(-1);
   const lastCameraWriterRef = useRef('none');
   const prevStateRef = useRef(animationData?.state ?? null);
@@ -1499,7 +1500,6 @@ const UnifiedCameraController = ({
         lastHeroOrbitDebugSecondRef.current = debugSecond;
         console.log('[UnifiedCameraController] HERO ORBIT BRANCH ACTIVE', {
           finalFilmOffset: camera.filmOffset,
-        legacyFallbackRan: resolved.legacyFallbackRan,
           cameraPosition: camera.position.toArray(),
         });
       }
@@ -1514,6 +1514,26 @@ const UnifiedCameraController = ({
       animationData?.crystalForm === 'exploded' &&
       animationData?.cameraState === 'hero'
     ) {
+      const isPlainHero =
+        animationData?.state === 'hero' &&
+        !animationData?.focusedProject &&
+        !animationData?.focusedFacet;
+      let authoritativeSnapshot = null;
+      if (isPlainHero && !fractureTiltLockSeededRef.current) {
+        const center = getHeroOrbitCenter();
+        const { tuning } = resolveHeroTuning(config);
+        const filmOffsetX = resolveHeroFilmOffsetX(center).value;
+        authoritativeSnapshot = getCurrentAuthoritativeHeroSnapshot({
+          elapsed: state.clock.elapsedTime,
+          center,
+          tuning,
+          filmOffsetX,
+          orbitStartTime: heroOrbitStartTimeRef.current,
+        });
+        fractureTiltAnchorPositionRef.current.copy(authoritativeSnapshot.position);
+        fractureTiltAnchorLookAtRef.current.copy(authoritativeSnapshot.lookAtTarget);
+        fractureTiltLockSeededRef.current = true;
+      }
       if (!explosionFirstFrameLoggedRef.current && explosionSyncStartRef.current) {
         explosionFirstFrameLoggedRef.current = true;
         const start = explosionSyncStartRef.current;
@@ -1526,6 +1546,7 @@ const UnifiedCameraController = ({
           destinationPosition: start.destinationPosition.toArray(),
         });
       }
+      const beforePosition = camera.position.clone();
       camera.position.copy(fractureTiltAnchorPositionRef.current);
       currentTarget.current.position.copy(fractureTiltAnchorPositionRef.current);
       camera.lookAt(fractureTiltAnchorLookAtRef.current);
@@ -1533,10 +1554,25 @@ const UnifiedCameraController = ({
       camera.fov = currentTarget.current.fov;
       camera.updateProjectionMatrix();
       logCameraWrite(state, "TRANSITION", "fracture-tilt-lock", fractureTiltAnchorLookAtRef.current, true, true);
+      console.log('[UCC FRACTURE TILT LOCK CAMERA]', {
+        cameraPositionBeforeWrite: beforePosition.toArray(),
+        cameraPositionAfterWrite: camera.position.toArray(),
+        lookAtTarget: fractureTiltAnchorLookAtRef.current.toArray(),
+        sourceUsed: 'fractureTiltAnchorRefs',
+        authoritativeHeroSnapshotPosition: authoritativeSnapshot?.position?.toArray?.() || fractureTiltAnchorPositionRef.current.toArray(),
+        authoritativeHeroSnapshotLookAt: authoritativeSnapshot?.lookAtTarget?.toArray?.() || fractureTiltAnchorLookAtRef.current.toArray(),
+        finalFilmOffset: camera.filmOffset,
+        state: animationData?.state,
+        cameraState: animationData?.cameraState,
+      });
       applyFractureTilt();
       console.log('[UCC EARLY RETURN]', { branch: "TRANSITION", reason: "fracture-tilt-lock", finalCameraPosition: camera.position.toArray(), finalFilmOffset: camera.filmOffset });
       if (shouldLogBranch) console.log('[UCC RETURN] reason: fracture-tilt-lock');
       return;
+    }
+
+    if (!fractureTiltActiveRef.current) {
+      fractureTiltLockSeededRef.current = false;
     }
 
     if (!currentTarget.current || simplifiedAnimations) {
