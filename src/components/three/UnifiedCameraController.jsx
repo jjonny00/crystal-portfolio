@@ -1996,9 +1996,71 @@ const UnifiedCameraController = ({
           if ((s.positionDeltaFromForcedFinal ?? 0) > 0.01 || (s.lookAtDeltaFromForcedFinal ?? 0) > 0.01 || (s.filmOffsetDeltaFromForcedFinal ?? 0) > 0.01) out.push({ i, t: s.t, type: 'handoff_mismatch' });
           return out;
         });
+        const firstWarningIndex = warnings.length > 0 ? warnings[0].i : null;
+        const firstWarningGroup = firstWarningIndex === null
+          ? []
+          : warnings.filter((w) => w.i === firstWarningIndex);
+        const detailRows = firstWarningIndex === null
+          ? []
+          : heroToOverviewTraceRef.current
+            .slice(Math.max(0, firstWarningIndex - 4), firstWarningIndex + 5)
+            .map((row, idx) => {
+              const absoluteIndex = Math.max(0, firstWarningIndex - 4) + idx;
+              return {
+                i: absoluteIndex,
+                t: row.t ?? null,
+                phase: row.phase ?? null,
+                progress: row.progress ?? null,
+                positionProgress: row.positionProgress ?? null,
+                lookAtProgress: row.lookAtProgress ?? null,
+                filmOffsetProgress: row.filmOffsetProgress ?? null,
+                moveProgress: row.moveProgress ?? null,
+                isHolding: row.isHolding ?? null,
+                state: row.state ?? null,
+                cameraState: row.cameraState ?? null,
+                writer: row.activeWriter ?? null,
+                branch: row.phase ?? null,
+                forcedTransitionActive: row.forcedActive ?? null,
+                cameraPositionX: row.cameraPosition?.x ?? null,
+                cameraPositionY: row.cameraPosition?.y ?? null,
+                cameraPositionZ: row.cameraPosition?.z ?? null,
+                currentLookAtX: row.currentLookAt?.x ?? null,
+                currentLookAtY: row.currentLookAt?.y ?? null,
+                currentLookAtZ: row.currentLookAt?.z ?? null,
+                quaternionX: row.quaternion?.x ?? null,
+                quaternionY: row.quaternion?.y ?? null,
+                quaternionZ: row.quaternion?.z ?? null,
+                quaternionW: row.quaternion?.w ?? null,
+                cameraUpX: row.up?.x ?? null,
+                cameraUpY: row.up?.y ?? null,
+                cameraUpZ: row.up?.z ?? null,
+                filmOffset: row.filmOffset ?? null,
+                fov: row.fov ?? null,
+                zoom: row.zoom ?? null,
+                aspect: row.aspect ?? null,
+                deltaPositionFromPreviousFrame: row.deltaPositionFromPreviousFrame ?? null,
+                deltaQuaternionAngleFromPreviousFrame: row.deltaQuaternionAngleFromPreviousFrame ?? null,
+                deltaLookAtFromPreviousFrame: row.deltaLookAtFromPreviousFrame ?? null,
+                deltaFilmOffsetFromPreviousFrame: row.deltaFilmOffsetFromPreviousFrame ?? null,
+                startPositionX: row.startPosition?.x ?? null,
+                startPositionY: row.startPosition?.y ?? null,
+                startPositionZ: row.startPosition?.z ?? null,
+                destinationPositionX: row.destinationPosition?.x ?? null,
+                destinationPositionY: row.destinationPosition?.y ?? null,
+                destinationPositionZ: row.destinationPosition?.z ?? null,
+                startLookAtX: row.startLookAt?.x ?? null,
+                startLookAtY: row.startLookAt?.y ?? null,
+                startLookAtZ: row.startLookAt?.z ?? null,
+                destinationLookAtX: row.destinationLookAt?.x ?? null,
+                destinationLookAtY: row.destinationLookAt?.y ?? null,
+                destinationLookAtZ: row.destinationLookAt?.z ?? null,
+              };
+            });
         console.groupCollapsed('[UCC HERO TO OVERVIEW TRACE SUMMARY]');
         console.table(heroToOverviewTraceRef.current);
         console.log('[UCC HERO TO OVERVIEW TRACE WARNINGS]', warnings);
+        console.log('[UCC HERO TO OVERVIEW FIRST JUMP WARNINGS JSON]', JSON.stringify(firstWarningGroup, null, 2));
+        console.log('[UCC HERO TO OVERVIEW FIRST JUMP DETAIL JSON]', JSON.stringify(detailRows, null, 2));
         console.groupEnd();
         heroToOverviewTraceMetaRef.current = { active: false, endTime: 0, forcedFinal: null, prevSample: null };
       }
