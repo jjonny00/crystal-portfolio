@@ -1622,28 +1622,30 @@ const UnifiedCameraController = ({
         0,
         1,
       );
-      const eased = 1 - Math.pow(1 - progress, 3);
-      const lookAtProgressRaw = THREE.MathUtils.clamp((progress - 0.72) / 0.28, 0, 1);
-      const lookAtProgress = lookAtProgressRaw * lookAtProgressRaw * (3 - 2 * lookAtProgressRaw);
-      camera.position.lerpVectors(transition.from.position, transition.to.position, eased);
+      const easedProgress = progress * progress * (3 - 2 * progress);
+      const positionProgress = easedProgress;
+      const lookAtProgress = easedProgress;
+      const filmOffsetProgress = easedProgress;
+      camera.position.lerpVectors(transition.from.position, transition.to.position, positionProgress);
       const forcedLookAt = introLookAtTempRef.current.lerpVectors(
         transition.from.lookAtTarget,
         transition.to.lookAtTarget,
         lookAtProgress,
       );
       camera.lookAt(forcedLookAt);
-      camera.filmOffset = THREE.MathUtils.lerp(transition.from.filmOffsetX, transition.to.filmOffsetX, eased);
+      camera.filmOffset = THREE.MathUtils.lerp(transition.from.filmOffsetX, transition.to.filmOffsetX, filmOffsetProgress);
       camera.updateProjectionMatrix();
       logCameraWrite(state, "FORCED_OVERVIEW_TO_HERO", "forced-overview-to-hero-frame", forcedLookAt, true, true);
       console.log('[UCC FORCE OVERVIEW TO HERO FRAME]', {
         progress,
-        positionProgress: eased,
+        positionProgress,
         lookAtProgress,
+        filmOffsetProgress,
         currentPosition: camera.position.toArray(),
         currentLookAt: forcedLookAt.toArray(),
+        currentFilmOffset: camera.filmOffset,
         startLookAt: transition.from.lookAtTarget.toArray(),
         destinationLookAt: transition.to.lookAtTarget.toArray(),
-        filmOffset: camera.filmOffset,
       });
       if (progress >= 1) {
         camera.position.copy(transition.to.position);
@@ -1776,17 +1778,18 @@ const UnifiedCameraController = ({
         0,
         1,
       );
-      const eased = 1 - Math.pow(1 - progress, 3);
-      const lookAtProgressRaw = THREE.MathUtils.clamp((progress - 0.35) / 0.65, 0, 1);
-      const lookAtProgress = lookAtProgressRaw * lookAtProgressRaw * (3 - 2 * lookAtProgressRaw);
-      camera.position.lerpVectors(transition.from.position, transition.to.position, eased);
+      const easedProgress = progress * progress * (3 - 2 * progress);
+      const positionProgress = easedProgress;
+      const lookAtProgress = easedProgress;
+      const filmOffsetProgress = easedProgress;
+      camera.position.lerpVectors(transition.from.position, transition.to.position, positionProgress);
       const forcedLookAt = introLookAtTempRef.current.lerpVectors(
         transition.from.lookAtTarget,
         transition.to.lookAtTarget,
         lookAtProgress,
       );
       camera.lookAt(forcedLookAt);
-      camera.filmOffset = THREE.MathUtils.lerp(transition.from.filmOffsetX, transition.to.filmOffsetX, eased);
+      camera.filmOffset = THREE.MathUtils.lerp(transition.from.filmOffsetX, transition.to.filmOffsetX, filmOffsetProgress);
       camera.updateProjectionMatrix();
       logCameraWrite(state, "FORCED_HERO_TO_OVERVIEW", "forced-hero-to-overview-frame", forcedLookAt, true, true);
       if (progress < 0.05 || (progress >= 0.64 && progress <= 0.68) || progress >= 0.99) {
@@ -1800,13 +1803,14 @@ const UnifiedCameraController = ({
       }
       console.log('[UCC FORCE HERO TO OVERVIEW FRAME]', {
         progress,
-        positionProgress: eased,
+        positionProgress,
         lookAtProgress,
+        filmOffsetProgress,
         currentPosition: camera.position.toArray(),
         currentLookAt: forcedLookAt.toArray(),
+        currentFilmOffset: camera.filmOffset,
         startLookAt: transition.from.lookAtTarget.toArray(),
         destinationLookAt: transition.to.lookAtTarget.toArray(),
-        filmOffset: camera.filmOffset,
       });
       if (progress >= 1) {
         camera.position.copy(transition.to.position);
