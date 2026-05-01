@@ -80,6 +80,7 @@ const UnifiedCameraController = ({
   const ORBIT_DELAY_FRAMES = 30; // Wait 30 frames after settling before starting orbit
   const FORCE_AUTHORITATIVE_HERO_TO_OVERVIEW_TRANSITION = true;
   const FORCE_AUTHORITATIVE_OVERVIEW_TO_HERO_TRANSITION = true;
+  const TRACE_HERO_TO_OVERVIEW_CAMERA_STATE = true;
   const DEFAULT_HERO_TUNING = {
     radius: 7,
     height: 0.8,
@@ -180,6 +181,8 @@ const UnifiedCameraController = ({
     to: null,
   });
   const heroToOverviewHandoffPendingRef = useRef(null);
+  const heroToOverviewTraceRef = useRef([]);
+  const heroToOverviewTraceMetaRef = useRef({ active: false, endTime: 0, forcedFinal: null, prevSample: null });
   const lastCameraWriteSecondRef = useRef(-1);
   const lastCameraWriterRef = useRef('none');
   const prevStateRef = useRef(animationData?.state ?? null);
@@ -1423,6 +1426,11 @@ const UnifiedCameraController = ({
       }
     }
   };
+  const round4 = (n) => (Number.isFinite(n) ? Number(n.toFixed(4)) : null);
+  const vectorToPlain = (v) => ({ x: round4(v?.x), y: round4(v?.y), z: round4(v?.z) });
+  const quaternionToPlain = (q) => ({ x: round4(q?.x), y: round4(q?.y), z: round4(q?.z), w: round4(q?.w) });
+  const safeDistance = (a, b) => (a && b ? round4(a.distanceTo(b)) : null);
+  const quaternionAngleDelta = (q1, q2) => (q1 && q2 ? round4(q1.angleTo(q2)) : null);
 
   useFrame((state, deltaTime) => {
     syncFractureTiltState(state.clock.elapsedTime);
@@ -1562,6 +1570,15 @@ const UnifiedCameraController = ({
           toLookAt: authoritativeHeroToOverviewTransitionRef.current.to.lookAtTarget.toArray(),
           toFilmOffset: authoritativeHeroToOverviewTransitionRef.current.to.filmOffsetX,
         });
+        if (TRACE_HERO_TO_OVERVIEW_CAMERA_STATE) {
+          heroToOverviewTraceRef.current = [];
+          heroToOverviewTraceMetaRef.current = {
+            active: true,
+            endTime: 0,
+            forcedFinal: null,
+            prevSample: null,
+          };
+        }
       }
     }
 
@@ -1821,12 +1838,75 @@ const UnifiedCameraController = ({
         startLookAt: transition.from.lookAtTarget.toArray(),
         destinationLookAt: transition.to.lookAtTarget.toArray(),
       });
+      if (TRACE_HERO_TO_OVERVIEW_CAMERA_STATE && heroToOverviewTraceMetaRef.current.active) {
+        const meta = heroToOverviewTraceMetaRef.current;
+        const prev = meta.prevSample;
+        const sampleLookAt = forcedLookAt?.clone?.() || null;
+        const sample = {
+          t: round4(state.clock.elapsedTime),
+          phase: 'forced-transition',
+          progress: round4(progress),
+          positionProgress: round4(moveProgress),
+          lookAtProgress: round4(moveProgress),
+          filmOffsetProgress: round4(moveProgress),
+          moveProgress: round4(moveProgress),
+          isHolding,
+          state: animationData?.state ?? null,
+          cameraState: animationData?.cameraState ?? null,
+          activeWriter: 'FORCED_HERO_TO_OVERVIEW',
+          forcedActive: true,
+          cameraPosition: vectorToPlain(camera.position),
+          currentLookAt: vectorToPlain(sampleLookAt),
+          rotation: vectorToPlain(camera.rotation),
+          quaternion: quaternionToPlain(camera.quaternion),
+          up: vectorToPlain(camera.up),
+          filmOffset: round4(camera.filmOffset),
+          fov: round4(camera.fov),
+          zoom: round4(camera.zoom),
+          aspect: round4(camera.aspect),
+          near: round4(camera.near),
+          far: round4(camera.far),
+          distanceToLookAt: safeDistance(camera.position, sampleLookAt),
+          forward: sampleLookAt ? vectorToPlain(new THREE.Vector3().subVectors(sampleLookAt, camera.position).normalize()) : null,
+          deltaPositionFromPreviousFrame: prev ? safeDistance(prev.cameraPosVec, camera.position) : null,
+          deltaQuaternionAngleFromPreviousFrame: prev ? quaternionAngleDelta(prev.quat, camera.quaternion) : null,
+          deltaLookAtFromPreviousFrame: prev ? safeDistance(prev.lookAtVec, sampleLookAt) : null,
+          deltaFilmOffsetFromPreviousFrame: prev ? round4(Math.abs((prev.filmOffset ?? 0) - (camera.filmOffset ?? 0))) : null,
+          deltaFovFromPreviousFrame: prev ? round4(Math.abs((prev.fov ?? 0) - (camera.fov ?? 0))) : null,
+          deltaZoomFromPreviousFrame: prev ? round4(Math.abs((prev.zoom ?? 0) - (camera.zoom ?? 0))) : null,
+          deltaUpFromPreviousFrame: prev ? safeDistance(prev.upVec, camera.up) : null,
+          startPosition: vectorToPlain(transition.from.position),
+          destinationPosition: vectorToPlain(transition.to.position),
+          startLookAt: vectorToPlain(transition.from.lookAtTarget),
+          destinationLookAt: vectorToPlain(transition.to.lookAtTarget),
+          startFilmOffset: round4(transition.from.filmOffsetX),
+          destinationFilmOffset: round4(transition.to.filmOffsetX),
+        };
+        heroToOverviewTraceRef.current.push(sample);
+        meta.prevSample = {
+          cameraPosVec: camera.position.clone(),
+          quat: camera.quaternion.clone(),
+          lookAtVec: sampleLookAt?.clone?.() || null,
+          upVec: camera.up.clone(),
+          filmOffset: camera.filmOffset,
+          fov: camera.fov,
+          zoom: camera.zoom,
+        };
+      }
       if (progress >= 1) {
         camera.position.copy(transition.to.position);
         camera.lookAt(transition.to.lookAtTarget);
         camera.filmOffset = transition.to.filmOffsetX;
         camera.updateProjectionMatrix();
         authoritativeHeroToOverviewTransitionRef.current.active = false;
+        if (TRACE_HERO_TO_OVERVIEW_CAMERA_STATE) {
+          heroToOverviewTraceMetaRef.current.endTime = state.clock.elapsedTime + 0.5;
+          heroToOverviewTraceMetaRef.current.forcedFinal = {
+            position: camera.position.clone(),
+            lookAt: transition.to.lookAtTarget.clone(),
+            filmOffset: camera.filmOffset,
+          };
+        }
         heroToOverviewHandoffPendingRef.current = {
           finalPosition: camera.position.clone(),
           finalLookAt: transition.to.lookAtTarget.clone(),
@@ -1841,6 +1921,87 @@ const UnifiedCameraController = ({
         });
       }
       return;
+    }
+
+    if (TRACE_HERO_TO_OVERVIEW_CAMERA_STATE && heroToOverviewTraceMetaRef.current.active) {
+      const meta = heroToOverviewTraceMetaRef.current;
+      const currentLookAt = currentTarget.current?.lookAt?.clone?.() || null;
+      const prev = meta.prevSample;
+      const sample = {
+        t: round4(state.clock.elapsedTime),
+        phase: animationData?.cameraState === 'overview' ? 'overview-branch' : (animationData?.cameraState ? 'other' : 'fallback'),
+        progress: null,
+        positionProgress: null,
+        lookAtProgress: null,
+        filmOffsetProgress: null,
+        moveProgress: null,
+        isHolding: null,
+        state: animationData?.state ?? null,
+        cameraState: animationData?.cameraState ?? null,
+        scrollProgress: round4(animationData?.scrollProgress ?? null),
+        activeWriter: lastCameraWriterRef.current,
+        forcedActive: authoritativeHeroToOverviewTransitionRef.current.active,
+        fallbackActive: animationData?.cameraState !== 'overview',
+        cameraPosition: vectorToPlain(camera.position),
+        currentLookAt: vectorToPlain(currentLookAt),
+        rotation: vectorToPlain(camera.rotation),
+        quaternion: quaternionToPlain(camera.quaternion),
+        up: vectorToPlain(camera.up),
+        filmOffset: round4(camera.filmOffset),
+        fov: round4(camera.fov),
+        zoom: round4(camera.zoom),
+        aspect: round4(camera.aspect),
+        near: round4(camera.near),
+        far: round4(camera.far),
+        distanceToLookAt: safeDistance(camera.position, currentLookAt),
+        forward: currentLookAt ? vectorToPlain(new THREE.Vector3().subVectors(currentLookAt, camera.position).normalize()) : null,
+        deltaPositionFromPreviousFrame: prev ? safeDistance(prev.cameraPosVec, camera.position) : null,
+        deltaQuaternionAngleFromPreviousFrame: prev ? quaternionAngleDelta(prev.quat, camera.quaternion) : null,
+        deltaLookAtFromPreviousFrame: prev ? safeDistance(prev.lookAtVec, currentLookAt) : null,
+        deltaFilmOffsetFromPreviousFrame: prev ? round4(Math.abs((prev.filmOffset ?? 0) - (camera.filmOffset ?? 0))) : null,
+        deltaFovFromPreviousFrame: prev ? round4(Math.abs((prev.fov ?? 0) - (camera.fov ?? 0))) : null,
+        deltaZoomFromPreviousFrame: prev ? round4(Math.abs((prev.zoom ?? 0) - (camera.zoom ?? 0))) : null,
+        deltaUpFromPreviousFrame: prev ? safeDistance(prev.upVec, camera.up) : null,
+      };
+      if (meta.forcedFinal) {
+        sample.forcedFinalPosition = vectorToPlain(meta.forcedFinal.position);
+        sample.nextBranchPosition = vectorToPlain(camera.position);
+        sample.positionDeltaFromForcedFinal = safeDistance(meta.forcedFinal.position, camera.position);
+        sample.forcedFinalLookAt = vectorToPlain(meta.forcedFinal.lookAt);
+        sample.nextBranchLookAt = vectorToPlain(currentLookAt);
+        sample.lookAtDeltaFromForcedFinal = safeDistance(meta.forcedFinal.lookAt, currentLookAt);
+        sample.forcedFinalFilmOffset = round4(meta.forcedFinal.filmOffset);
+        sample.nextBranchFilmOffset = round4(camera.filmOffset);
+        sample.filmOffsetDeltaFromForcedFinal = round4(Math.abs((meta.forcedFinal.filmOffset ?? 0) - (camera.filmOffset ?? 0)));
+      }
+      heroToOverviewTraceRef.current.push(sample);
+      meta.prevSample = {
+        cameraPosVec: camera.position.clone(),
+        quat: camera.quaternion.clone(),
+        lookAtVec: currentLookAt?.clone?.() || null,
+        upVec: camera.up.clone(),
+        filmOffset: camera.filmOffset,
+        fov: camera.fov,
+        zoom: camera.zoom,
+      };
+      if (meta.endTime > 0 && state.clock.elapsedTime >= meta.endTime) {
+        const warnings = heroToOverviewTraceRef.current.flatMap((s, i) => {
+          const out = [];
+          if ((s.deltaPositionFromPreviousFrame ?? 0) > 0.05) out.push({ i, t: s.t, type: 'position_jump' });
+          if ((s.deltaQuaternionAngleFromPreviousFrame ?? 0) > 0.02) out.push({ i, t: s.t, type: 'rotation_jump' });
+          if ((s.deltaLookAtFromPreviousFrame ?? 0) > 0.05) out.push({ i, t: s.t, type: 'lookat_jump' });
+          if ((s.deltaFilmOffsetFromPreviousFrame ?? 0) > 0.25) out.push({ i, t: s.t, type: 'film_offset_snap' });
+          if ((s.deltaFovFromPreviousFrame ?? 0) !== 0 || (s.deltaZoomFromPreviousFrame ?? 0) !== 0) out.push({ i, t: s.t, type: 'fov_zoom_change' });
+          if ((s.deltaUpFromPreviousFrame ?? 0) > 0.001) out.push({ i, t: s.t, type: 'up_change' });
+          if ((s.positionDeltaFromForcedFinal ?? 0) > 0.01 || (s.lookAtDeltaFromForcedFinal ?? 0) > 0.01 || (s.filmOffsetDeltaFromForcedFinal ?? 0) > 0.01) out.push({ i, t: s.t, type: 'handoff_mismatch' });
+          return out;
+        });
+        console.groupCollapsed('[UCC HERO TO OVERVIEW TRACE SUMMARY]');
+        console.table(heroToOverviewTraceRef.current);
+        console.log('[UCC HERO TO OVERVIEW TRACE WARNINGS]', warnings);
+        console.groupEnd();
+        heroToOverviewTraceMetaRef.current = { active: false, endTime: 0, forcedFinal: null, prevSample: null };
+      }
     }
 
     if (fractureJumpFrameRef.current) {
