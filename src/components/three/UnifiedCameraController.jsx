@@ -1542,6 +1542,9 @@ const UnifiedCameraController = ({
       if (!fromSnapshot) {
         console.warn('[UCC FORCE HERO TO OVERVIEW START] Missing hero snapshot; skipping forced transition start');
       } else {
+        const liveLookAtAtStart =
+          currentTarget.current?.lookAt?.clone?.() ||
+          fromSnapshot.lookAtTarget.clone();
         const overviewPosition = toVector3(config?.cameraPositions?.overview)
           .add(toVector3(config?.cameraOffsets?.global?.position))
           .add(toVector3(config?.cameraOffsets?.zones?.overview?.position));
@@ -1554,10 +1557,10 @@ const UnifiedCameraController = ({
           startTime: state.clock.elapsedTime,
           duration: 1.0,
           from: {
-            position: fromSnapshot.position.clone(),
-            lookAtTarget: fromSnapshot.lookAtTarget.clone(),
-            filmOffsetX: Number.isFinite(fromSnapshot.filmOffsetX) ? fromSnapshot.filmOffsetX : camera.filmOffset,
-            source: heroExitSnapshotRef.current ? 'heroExitSnapshot' : 'latestAuthoritativeHeroSnapshot',
+            position: camera.position.clone(),
+            lookAtTarget: liveLookAtAtStart,
+            filmOffsetX: Number.isFinite(camera.filmOffset) ? camera.filmOffset : (Number.isFinite(fromSnapshot.filmOffsetX) ? fromSnapshot.filmOffsetX : 0),
+            source: 'liveCameraAtTransitionStart',
           },
           to: {
             position: overviewPosition.clone(),
