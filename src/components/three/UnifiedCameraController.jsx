@@ -141,9 +141,7 @@ const UnifiedCameraController = ({
     elapsed: 0,
   });
   const authoritativeHeroIntroCapturedRef = useRef(false);
-  const authoritativeHeroAngleOffsetRef = useRef(0);
-  const lastIntroCompletionSnapshotRef = useRef(null);
-  const pendingFirstPostIntroVerifyRef = useRef(false);
+  const heroOrbitStartTimeRef = useRef(0);
   const lastCameraWriteSecondRef = useRef(-1);
   const lastCameraWriterRef = useRef('none');
   const prevStateRef = useRef(animationData?.state ?? null);
@@ -431,12 +429,12 @@ const UnifiedCameraController = ({
 
 
   const updateAuthoritativeHeroCamera = ({ elapsed, center, filmOffsetX = 0, tuning }) => {
+    const orbitElapsed = elapsed - heroOrbitStartTimeRef.current;
     const snapshot = getAuthoritativeHeroCameraSnapshot({
-      elapsed,
+      elapsed: orbitElapsed,
       center,
       tuning,
       filmOffsetX,
-      angleOffset: authoritativeHeroAngleOffsetRef.current,
     });
     camera.position.copy(snapshot.position);
     camera.lookAt(snapshot.lookAtTarget);
@@ -445,8 +443,10 @@ const UnifiedCameraController = ({
     return snapshot;
   };
 
-  const getAuthoritativeHeroCameraSnapshot = ({ elapsed, center, tuning, filmOffsetX, angleOffset = 0 }) => {
-    const angle = tuning.baseAngle + (elapsed + angleOffset) * tuning.orbitSpeed;
+  const getAuthoritativeHeroCameraSnapshot = ({ elapsed = 0, center, tuning, filmOffsetX, angleOverride }) => {
+    const angle = Number.isFinite(angleOverride)
+      ? angleOverride
+      : tuning.baseAngle + elapsed * tuning.orbitSpeed;
     const position = new THREE.Vector3(
       center.x + Math.sin(angle) * tuning.radius,
       center.y + tuning.height,
@@ -1278,25 +1278,32 @@ const UnifiedCameraController = ({
       !animationData?.focusedProject &&
       !animationData?.focusedFacet;
 
+    if (isReturnToHero && isAuthoritativePlainHero) {
+      heroOrbitStartTimeRef.current = state.clock.elapsedTime;
+    }
+
     if (isAuthoritativePlainHero && introActiveRef.current) {
       const center = getHeroOrbitCenter();
       const { tuning } = resolveHeroTuning(config);
       const resolvedFilmOffsetX = resolveHeroFilmOffsetX(center).value;
-      const liveSnapshot = getAuthoritativeHeroCameraSnapshot({
-        elapsed: state.clock.elapsedTime,
-        center,
-        tuning,
-        filmOffsetX: resolvedFilmOffsetX,
-        angleOffset: authoritativeHeroAngleOffsetRef.current,
-      });
+
       if (!authoritativeHeroIntroCapturedRef.current) {
         authoritativeHeroIntroCapturedRef.current = true;
-        authoritativeHeroIntroToRef.current.position.copy(liveSnapshot.position);
-        authoritativeHeroIntroToRef.current.lookAtTarget.copy(liveSnapshot.lookAtTarget);
-        authoritativeHeroIntroToRef.current.filmOffsetX = liveSnapshot.filmOffsetX;
-        authoritativeHeroIntroToRef.current.angle = liveSnapshot.angle;
-        authoritativeHeroIntroToRef.current.elapsed = liveSnapshot.elapsed;
+        const introDestination = getAuthoritativeHeroCameraSnapshot({
+          center,
+          tuning,
+          filmOffsetX: resolvedFilmOffsetX,
+          angleOverride: tuning.baseAngle,
+        });
+        authoritativeHeroIntroToRef.current.position.copy(introDestination.position);
+        authoritativeHeroIntroToRef.current.lookAtTarget.copy(introDestination.lookAtTarget);
+        authoritativeHeroIntroToRef.current.filmOffsetX = introDestination.filmOffsetX;
+        authoritativeHeroIntroToRef.current.angle = introDestination.angle;
+        authoritativeHeroIntroToRef.current.elapsed = introDestination.elapsed;
+        introFromRef.current.position.copy(camera.position);
+        introFromRef.current.lookAt.copy(currentTarget.current?.lookAt || center);
       }
+
       const destination = authoritativeHeroIntroToRef.current;
       const elapsedMs = performance.now() - introStartTimeRef.current;
       const progress = THREE.MathUtils.clamp(elapsedMs / INTRO_DURATION_MS, 0, 1);
@@ -1316,92 +1323,18 @@ const UnifiedCameraController = ({
       );
       camera.lookAt(introLookAt);
       camera.filmOffset = destination.filmOffsetX;
-      camera.fov = THREE.MathUtils.lerp(introFromRef.current.fov, introToRef.current.fov, easedProgress);
       camera.updateProjectionMatrix();
+
       const completedThisFrame = progress >= 1;
-      if (shouldLogBranch) {
-        console.log('[UCC AUTHORITATIVE HERO INTRO]', {
-          progress,
-          introStartPosition: introFromRef.current.position.toArray(),
-          introDestinationPosition: destination.position.toArray(),
-          currentInterpolatedPosition: camera.position.toArray(),
-          introDestinationLookAtTarget: destination.lookAtTarget.toArray(),
-          currentLookAtTarget: introLookAt.toArray(),
-          introDestinationCaptured: authoritativeHeroIntroCapturedRef.current,
-          destinationAngle: destination.angle,
-          liveAngle: liveSnapshot.angle,
-          radius: tuning.radius,
-          height: tuning.height,
-          filmOffsetX: destination.filmOffsetX,
-          completedThisFrame,
-        });
-      }
       if (completedThisFrame) {
         introActiveRef.current = false;
         introPlayedRef.current = true;
-        const completionLookAt = introLookAt.clone();
         camera.position.copy(destination.position);
         camera.lookAt(destination.lookAtTarget);
         camera.filmOffset = destination.filmOffsetX;
-        camera.fov = introToRef.current.fov;
         camera.updateProjectionMatrix();
-        if (Math.abs(tuning.orbitSpeed) > 0.000001) {
-          authoritativeHeroAngleOffsetRef.current =
-            (destination.angle - tuning.baseAngle) / tuning.orbitSpeed - state.clock.elapsedTime;
-        }
+        heroOrbitStartTimeRef.current = state.clock.elapsedTime;
         authoritativeHeroIntroCapturedRef.current = false;
-        pendingFirstPostIntroVerifyRef.current = true;
-        const intendedDistanceToCenter = destination.position.distanceTo(center);
-        const completionDistanceToCenter = camera.position.distanceTo(center);
-        const lookAtDelta = completionLookAt.distanceTo(destination.lookAtTarget);
-        const positionDelta = camera.position.distanceTo(destination.position);
-        lastIntroCompletionSnapshotRef.current = {
-          position: camera.position.clone(),
-          lookAtTarget: completionLookAt.clone(),
-          intendedLookAtTarget: destination.lookAtTarget.clone(),
-          fov: camera.fov,
-          filmOffset: camera.filmOffset,
-          zoom: camera.zoom,
-          near: camera.near,
-          far: camera.far,
-          aspect: camera.aspect,
-          projectionMatrix: camera.projectionMatrix.elements.slice(),
-          center: center.clone(),
-          elapsed: state.clock.elapsedTime,
-          destinationAngle: destination.angle,
-          liveAngle: liveSnapshot.angle,
-          intendedPosition: destination.position.clone(),
-          positionDelta,
-          lookAtDelta,
-          completionDistanceToCenter,
-          intendedDistanceToCenter,
-          tuning: { ...tuning },
-          intendedFilmOffset: destination.filmOffsetX,
-        };
-        console.log('[UCC INTRO COMPLETION VERIFY]', {
-          completionPosition: camera.position.toArray(),
-          intendedAuthoritativeDestinationPosition: destination.position.toArray(),
-          positionDeltaDistance: positionDelta,
-          cameraFov: camera.fov,
-          intendedLiveAuthoritativeFov: introToRef.current.fov,
-          cameraFilmOffset: camera.filmOffset,
-          intendedFilmOffset: destination.filmOffsetX,
-          cameraZoom: camera.zoom,
-          cameraNear: camera.near,
-          cameraFar: camera.far,
-          cameraAspect: camera.aspect,
-          projectionMatrixElements: camera.projectionMatrix.elements,
-          completionLookAtTarget: completionLookAt.toArray(),
-          intendedAuthoritativeLookAtTarget: destination.lookAtTarget.toArray(),
-          lookAtDeltaDistance: lookAtDelta,
-          radius: tuning.radius,
-          distanceToCenterFromCompletionPosition: completionDistanceToCenter,
-          distanceToCenterFromIntendedPosition: intendedDistanceToCenter,
-          center: center.toArray(),
-          elapsed: state.clock.elapsedTime,
-          destinationAngle: destination.angle,
-          liveAngle: liveSnapshot.angle,
-        });
       }
       return;
     }
@@ -1417,42 +1350,6 @@ const UnifiedCameraController = ({
         filmOffsetX: resolvedFilmOffsetX,
         tuning,
       });
-      if (pendingFirstPostIntroVerifyRef.current) {
-        pendingFirstPostIntroVerifyRef.current = false;
-        const prior = lastIntroCompletionSnapshotRef.current;
-        const liveLookAtTarget = snapshot.lookAtTarget.clone();
-        const liveDistanceToCenter = camera.position.distanceTo(center);
-        const priorPosition = prior?.position || null;
-        const priorLookAt = prior?.lookAtTarget || null;
-        console.log('[UCC FIRST POST INTRO HERO VERIFY]', {
-          liveAuthoritativePosition: camera.position.toArray(),
-          priorIntroCompletionPosition: priorPosition?.toArray?.() || null,
-          positionDeltaDistance: priorPosition ? camera.position.distanceTo(priorPosition) : null,
-          liveFov: camera.fov,
-          priorFov: prior?.fov ?? null,
-          liveFilmOffset: camera.filmOffset,
-          priorFilmOffset: prior?.filmOffset ?? null,
-          liveZoom: camera.zoom,
-          priorZoom: prior?.zoom ?? null,
-          liveNear: camera.near,
-          liveFar: camera.far,
-          liveAspect: camera.aspect,
-          distanceToCenter: liveDistanceToCenter,
-          liveLookAtTarget: liveLookAtTarget.toArray(),
-          priorIntroLookAtTarget: priorLookAt?.toArray?.() || null,
-          lookAtDeltaDistance: priorLookAt ? liveLookAtTarget.distanceTo(priorLookAt) : null,
-          radius: tuning.radius,
-          height: tuning.height,
-          orbitSpeed: tuning.orbitSpeed,
-          baseAngle: tuning.baseAngle,
-          lookAtYOffset: tuning.lookAtYOffset,
-          center: center.toArray(),
-          elapsed: state.clock.elapsedTime,
-          destinationAngle: prior?.destinationAngle ?? null,
-          liveAngle: snapshot.angle,
-          projectionMatrixElements: camera.projectionMatrix.elements,
-        });
-      }
       if (shouldLogBranch) {
         console.log('[UCC AUTHORITATIVE HERO]', {
           radius: tuning.radius,
