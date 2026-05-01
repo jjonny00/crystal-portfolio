@@ -144,6 +144,9 @@ const UnifiedCameraController = ({
   const heroOrbitStartTimeRef = useRef(0);
   const explosionSyncStartRef = useRef(null);
   const explosionFirstFrameLoggedRef = useRef(false);
+  const explosionCameraTraceUntilRef = useRef(0);
+  const firstPostHeroExplosionWriteLoggedRef = useRef(false);
+  const lastAuthoritativeHeroSnapshotRef = useRef(null);
   const lastCameraWriteSecondRef = useRef(-1);
   const lastCameraWriterRef = useRef('none');
   const prevStateRef = useRef(animationData?.state ?? null);
@@ -212,6 +215,8 @@ const UnifiedCameraController = ({
             destinationLookAt: currentTarget.current.lookAt.clone(),
           };
           explosionFirstFrameLoggedRef.current = false;
+          explosionCameraTraceUntilRef.current = elapsedSeconds + 1.5;
+          firstPostHeroExplosionWriteLoggedRef.current = false;
           console.log('[UCC EXPLOSION SYNC START]', {
             state: animationData?.state,
             cameraState: animationData?.cameraState,
@@ -1272,6 +1277,54 @@ const UnifiedCameraController = ({
       projectionUpdated,
       returns
     });
+
+    const inExplosionTraceWindow = state.clock.elapsedTime <= explosionCameraTraceUntilRef.current;
+    if (inExplosionTraceWindow) {
+      console.log('[UCC EXPLOSION CAMERA WRITE TRACE]', {
+        elapsed: state.clock.elapsedTime,
+        branch,
+        reason,
+        state: animationData?.state,
+        cameraState: animationData?.cameraState,
+        focusedProject: animationData?.focusedProject ?? null,
+        focusedFacet: animationData?.focusedFacet ?? null,
+        crystalForm: animationData?.crystalForm ?? null,
+        cameraPositionAfter: camera.position.toArray(),
+        lookAtTargetUsed: lookAtTarget?.toArray?.() || null,
+        filmOffset: camera.filmOffset,
+        fov: camera.fov,
+        transitionProgress: cameraMoveProgressRef.current,
+        sourceRefs: {
+          currentTargetPosition: currentTarget.current?.position?.toArray?.() || null,
+          currentTargetLookAt: currentTarget.current?.lookAt?.toArray?.() || null,
+          fractureTiltAnchorPosition: fractureTiltAnchorPositionRef.current?.toArray?.() || null,
+          fractureTiltAnchorLookAt: fractureTiltAnchorLookAtRef.current?.toArray?.() || null,
+          explosionSyncStartPosition: explosionSyncStartRef.current?.startPosition?.toArray?.() || null,
+          explosionSyncStartLookAt: explosionSyncStartRef.current?.startLookAt?.toArray?.() || null,
+          explosionSyncDestinationPosition: explosionSyncStartRef.current?.destinationPosition?.toArray?.() || null,
+          explosionSyncDestinationLookAt: explosionSyncStartRef.current?.destinationLookAt?.toArray?.() || null,
+          finalTarget: lastCameraConfig.current?.target?.toArray?.() || null,
+          baseTarget: config?.cameraTargets?.hero ?? null,
+          offsetTarget: config?.cameraOffsets?.zones?.hero?.target ?? null,
+        },
+      });
+
+      if (!firstPostHeroExplosionWriteLoggedRef.current && branch !== 'AUTHORITATIVE_HERO') {
+        firstPostHeroExplosionWriteLoggedRef.current = true;
+        console.log('[UCC FIRST POST-HERO EXPLOSION CAMERA WRITE]', {
+          branch,
+          reason,
+          previousAuthoritativeHeroSnapshotPosition:
+            lastAuthoritativeHeroSnapshotRef.current?.position?.toArray?.() || null,
+          previousAuthoritativeHeroSnapshotLookAt:
+            lastAuthoritativeHeroSnapshotRef.current?.lookAtTarget?.toArray?.() || null,
+          cameraPositionImmediatelyAfterWrite: camera.position.toArray(),
+          lookAtAfterWrite: lookAtTarget?.toArray?.() || null,
+          sourceCurrentTargetPosition: currentTarget.current?.position?.toArray?.() || null,
+          sourceCurrentTargetLookAt: currentTarget.current?.lookAt?.toArray?.() || null,
+        });
+      }
+    }
   };
 
   useFrame((state, deltaTime) => {
@@ -1413,6 +1466,11 @@ const UnifiedCameraController = ({
         filmOffsetX: resolvedFilmOffsetX,
         tuning,
       });
+      lastAuthoritativeHeroSnapshotRef.current = {
+        position: snapshot.position.clone(),
+        lookAtTarget: snapshot.lookAtTarget.clone(),
+      };
+      logCameraWrite(state, "AUTHORITATIVE_HERO", "authoritative-hero-update", snapshot.lookAtTarget, true, true);
       if (shouldLogBranch) {
         console.log('[UCC AUTHORITATIVE HERO]', {
           radius: tuning.radius,
@@ -1436,6 +1494,7 @@ const UnifiedCameraController = ({
       fractureJumpFrameRef.current = false;
       camera.fov = currentTarget.current.fov;
       camera.updateProjectionMatrix();
+      logCameraWrite(state, "TRANSITION", "fracture-jump-frame", fractureTiltAnchorLookAtRef.current, true, true);
       if (debugSecond !== lastHeroOrbitDebugSecondRef.current && debugSecond % 2 === 0) {
         lastHeroOrbitDebugSecondRef.current = debugSecond;
         console.log('[UnifiedCameraController] HERO ORBIT BRANCH ACTIVE', {
