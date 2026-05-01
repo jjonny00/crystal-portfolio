@@ -147,6 +147,9 @@ const UnifiedCameraController = ({
   const explosionCameraTraceUntilRef = useRef(0);
   const firstPostHeroExplosionWriteLoggedRef = useRef(false);
   const lastAuthoritativeHeroSnapshotRef = useRef(null);
+  const latestAuthoritativeHeroSnapshotRef = useRef(null);
+  const heroExitSnapshotRef = useRef(null);
+  const previousWasPlainHeroRef = useRef(false);
   const fractureTiltLockSeededRef = useRef(false);
   const fractureTiltAnchorSeededFromLiveHeroRef = useRef(false);
   const heroExplosionTransitionRef = useRef({
@@ -216,11 +219,22 @@ const UnifiedCameraController = ({
           });
           const orbitElapsed = elapsedSeconds - heroOrbitStartTimeRef.current;
           const seedPositionDelta = beforeSyncPosition.distanceTo(authoritativeSnapshot.position);
-          fractureTiltAnchorPositionRef.current.copy(beforeSyncPosition);
-          fractureTiltAnchorLookAtRef.current.copy(authoritativeSnapshot.lookAtTarget);
+          const fractureStartSource = heroExitSnapshotRef.current
+            || latestAuthoritativeHeroSnapshotRef.current
+            || null;
+          const sourceType = heroExitSnapshotRef.current
+            ? 'heroExitSnapshot'
+            : (latestAuthoritativeHeroSnapshotRef.current ? 'latestAuthoritativeHeroSnapshot' : 'currentCameraFallback');
+          const sourcePosition = fractureStartSource?.position || beforeSyncPosition;
+          const sourceLookAt = fractureStartSource?.lookAtTarget || authoritativeSnapshot.lookAtTarget;
+          const sourceFilmOffset = Number.isFinite(fractureStartSource?.filmOffsetX)
+            ? fractureStartSource.filmOffsetX
+            : filmOffsetX;
+          fractureTiltAnchorPositionRef.current.copy(sourcePosition);
+          fractureTiltAnchorLookAtRef.current.copy(sourceLookAt);
           camera.position.copy(beforeSyncPosition);
-          camera.lookAt(authoritativeSnapshot.lookAtTarget);
-          camera.filmOffset = filmOffsetX;
+          camera.lookAt(sourceLookAt);
+          camera.filmOffset = sourceFilmOffset;
           camera.updateProjectionMatrix();
           currentTarget.current.position.copy(beforeSyncPosition);
           currentTarget.current.lookAt.copy(authoritativeSnapshot.lookAtTarget);
@@ -264,6 +278,17 @@ const UnifiedCameraController = ({
             filmOffset: camera.filmOffset,
             orbitElapsed,
             angle: authoritativeSnapshot.angle,
+          });
+          console.log('[UCC FRACTURE START SOURCE]', {
+            sourceUsed: sourceType,
+            sourceAge: fractureStartSource?.elapsed !== undefined
+              ? Math.max(0, elapsedSeconds - fractureStartSource.elapsed)
+              : null,
+            sourcePosition: sourcePosition.toArray(),
+            sourceLookAt: sourceLookAt.toArray(),
+            sourceFilmOffset,
+            currentCameraPositionAtFractureStart: beforeSyncPosition.toArray(),
+            deltaSourceVsCurrentCamera: sourcePosition.distanceTo(beforeSyncPosition),
           });
           if (seedPositionDelta > 0.001) {
             console.warn('[UCC FRACTURE LIVE HERO START] Seed differs from live authoritative snapshot', {
@@ -1433,6 +1458,28 @@ const UnifiedCameraController = ({
       animationData?.cameraState === 'hero' &&
       !animationData?.focusedProject &&
       !animationData?.focusedFacet;
+    const wasPlainHero = previousWasPlainHeroRef.current;
+    if (wasPlainHero && !isAuthoritativePlainHero && latestAuthoritativeHeroSnapshotRef.current) {
+      heroExitSnapshotRef.current = {
+        ...latestAuthoritativeHeroSnapshotRef.current,
+        position: latestAuthoritativeHeroSnapshotRef.current.position.clone(),
+        lookAtTarget: latestAuthoritativeHeroSnapshotRef.current.lookAtTarget.clone(),
+        center: latestAuthoritativeHeroSnapshotRef.current.center.clone(),
+        tuning: { ...(latestAuthoritativeHeroSnapshotRef.current.tuning || {}) },
+      };
+      console.log('[UCC HERO EXIT SNAPSHOT]', {
+        previousState: prevStateRef.current,
+        previousCameraState: prevCameraStateRef.current,
+        currentState: animationData?.state,
+        currentCameraState: animationData?.cameraState,
+        snapshotPosition: heroExitSnapshotRef.current.position.toArray(),
+        snapshotLookAt: heroExitSnapshotRef.current.lookAtTarget.toArray(),
+        snapshotFilmOffset: heroExitSnapshotRef.current.filmOffsetX,
+        elapsed: state.clock.elapsedTime,
+        reason: 'plain-hero-exit',
+      });
+    }
+    previousWasPlainHeroRef.current = isAuthoritativePlainHero;
 
     if (isReturnToHero && isAuthoritativePlainHero) {
       heroOrbitStartTimeRef.current = state.clock.elapsedTime;
@@ -1509,6 +1556,16 @@ const UnifiedCameraController = ({
       lastAuthoritativeHeroSnapshotRef.current = {
         position: snapshot.position.clone(),
         lookAtTarget: snapshot.lookAtTarget.clone(),
+      };
+      latestAuthoritativeHeroSnapshotRef.current = {
+        position: snapshot.position.clone(),
+        lookAtTarget: snapshot.lookAtTarget.clone(),
+        filmOffsetX: snapshot.filmOffsetX,
+        angle: snapshot.angle,
+        elapsed: state.clock.elapsedTime,
+        orbitElapsed: state.clock.elapsedTime - heroOrbitStartTimeRef.current,
+        tuning: { ...tuning },
+        center: center.clone(),
       };
       logCameraWrite(state, "AUTHORITATIVE_HERO", "authoritative-hero-update", snapshot.lookAtTarget, true, true);
       if (shouldLogBranch) {
