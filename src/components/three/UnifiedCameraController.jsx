@@ -142,6 +142,8 @@ const UnifiedCameraController = ({
   });
   const authoritativeHeroIntroCapturedRef = useRef(false);
   const authoritativeHeroAngleOffsetRef = useRef(0);
+  const lastIntroCompletionSnapshotRef = useRef(null);
+  const pendingFirstPostIntroVerifyRef = useRef(false);
   const lastCameraWriteSecondRef = useRef(-1);
   const lastCameraWriterRef = useRef('none');
   const prevStateRef = useRef(animationData?.state ?? null);
@@ -1337,6 +1339,7 @@ const UnifiedCameraController = ({
       if (completedThisFrame) {
         introActiveRef.current = false;
         introPlayedRef.current = true;
+        const completionLookAt = introLookAt.clone();
         camera.position.copy(destination.position);
         camera.lookAt(destination.lookAtTarget);
         camera.filmOffset = destination.filmOffsetX;
@@ -1347,6 +1350,58 @@ const UnifiedCameraController = ({
             (destination.angle - tuning.baseAngle) / tuning.orbitSpeed - state.clock.elapsedTime;
         }
         authoritativeHeroIntroCapturedRef.current = false;
+        pendingFirstPostIntroVerifyRef.current = true;
+        const intendedDistanceToCenter = destination.position.distanceTo(center);
+        const completionDistanceToCenter = camera.position.distanceTo(center);
+        const lookAtDelta = completionLookAt.distanceTo(destination.lookAtTarget);
+        const positionDelta = camera.position.distanceTo(destination.position);
+        lastIntroCompletionSnapshotRef.current = {
+          position: camera.position.clone(),
+          lookAtTarget: completionLookAt.clone(),
+          intendedLookAtTarget: destination.lookAtTarget.clone(),
+          fov: camera.fov,
+          filmOffset: camera.filmOffset,
+          zoom: camera.zoom,
+          near: camera.near,
+          far: camera.far,
+          aspect: camera.aspect,
+          projectionMatrix: camera.projectionMatrix.elements.slice(),
+          center: center.clone(),
+          elapsed: state.clock.elapsedTime,
+          destinationAngle: destination.angle,
+          liveAngle: liveSnapshot.angle,
+          intendedPosition: destination.position.clone(),
+          positionDelta,
+          lookAtDelta,
+          completionDistanceToCenter,
+          intendedDistanceToCenter,
+          tuning: { ...tuning },
+          intendedFilmOffset: destination.filmOffsetX,
+        };
+        console.log('[UCC INTRO COMPLETION VERIFY]', {
+          completionPosition: camera.position.toArray(),
+          intendedAuthoritativeDestinationPosition: destination.position.toArray(),
+          positionDeltaDistance: positionDelta,
+          cameraFov: camera.fov,
+          intendedLiveAuthoritativeFov: introToRef.current.fov,
+          cameraFilmOffset: camera.filmOffset,
+          intendedFilmOffset: destination.filmOffsetX,
+          cameraZoom: camera.zoom,
+          cameraNear: camera.near,
+          cameraFar: camera.far,
+          cameraAspect: camera.aspect,
+          projectionMatrixElements: camera.projectionMatrix.elements,
+          completionLookAtTarget: completionLookAt.toArray(),
+          intendedAuthoritativeLookAtTarget: destination.lookAtTarget.toArray(),
+          lookAtDeltaDistance: lookAtDelta,
+          radius: tuning.radius,
+          distanceToCenterFromCompletionPosition: completionDistanceToCenter,
+          distanceToCenterFromIntendedPosition: intendedDistanceToCenter,
+          center: center.toArray(),
+          elapsed: state.clock.elapsedTime,
+          destinationAngle: destination.angle,
+          liveAngle: liveSnapshot.angle,
+        });
       }
       return;
     }
@@ -1362,6 +1417,42 @@ const UnifiedCameraController = ({
         filmOffsetX: resolvedFilmOffsetX,
         tuning,
       });
+      if (pendingFirstPostIntroVerifyRef.current) {
+        pendingFirstPostIntroVerifyRef.current = false;
+        const prior = lastIntroCompletionSnapshotRef.current;
+        const liveLookAtTarget = snapshot.lookAtTarget.clone();
+        const liveDistanceToCenter = camera.position.distanceTo(center);
+        const priorPosition = prior?.position || null;
+        const priorLookAt = prior?.lookAtTarget || null;
+        console.log('[UCC FIRST POST INTRO HERO VERIFY]', {
+          liveAuthoritativePosition: camera.position.toArray(),
+          priorIntroCompletionPosition: priorPosition?.toArray?.() || null,
+          positionDeltaDistance: priorPosition ? camera.position.distanceTo(priorPosition) : null,
+          liveFov: camera.fov,
+          priorFov: prior?.fov ?? null,
+          liveFilmOffset: camera.filmOffset,
+          priorFilmOffset: prior?.filmOffset ?? null,
+          liveZoom: camera.zoom,
+          priorZoom: prior?.zoom ?? null,
+          liveNear: camera.near,
+          liveFar: camera.far,
+          liveAspect: camera.aspect,
+          distanceToCenter: liveDistanceToCenter,
+          liveLookAtTarget: liveLookAtTarget.toArray(),
+          priorIntroLookAtTarget: priorLookAt?.toArray?.() || null,
+          lookAtDeltaDistance: priorLookAt ? liveLookAtTarget.distanceTo(priorLookAt) : null,
+          radius: tuning.radius,
+          height: tuning.height,
+          orbitSpeed: tuning.orbitSpeed,
+          baseAngle: tuning.baseAngle,
+          lookAtYOffset: tuning.lookAtYOffset,
+          center: center.toArray(),
+          elapsed: state.clock.elapsedTime,
+          destinationAngle: prior?.destinationAngle ?? null,
+          liveAngle: snapshot.angle,
+          projectionMatrixElements: camera.projectionMatrix.elements,
+        });
+      }
       if (shouldLogBranch) {
         console.log('[UCC AUTHORITATIVE HERO]', {
           radius: tuning.radius,
