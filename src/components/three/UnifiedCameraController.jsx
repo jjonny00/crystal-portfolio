@@ -148,6 +148,7 @@ const UnifiedCameraController = ({
   const firstPostHeroExplosionWriteLoggedRef = useRef(false);
   const lastAuthoritativeHeroSnapshotRef = useRef(null);
   const fractureTiltLockSeededRef = useRef(false);
+  const fractureTiltAnchorSeededFromLiveHeroRef = useRef(false);
   const heroExplosionTransitionRef = useRef({
     active: false,
     startedAt: 0,
@@ -213,15 +214,21 @@ const UnifiedCameraController = ({
             filmOffsetX,
             orbitStartTime: heroOrbitStartTimeRef.current,
           });
-          camera.position.copy(authoritativeSnapshot.position);
+          const orbitElapsed = elapsedSeconds - heroOrbitStartTimeRef.current;
+          const seedPositionDelta = beforeSyncPosition.distanceTo(authoritativeSnapshot.position);
+          fractureTiltAnchorPositionRef.current.copy(beforeSyncPosition);
+          fractureTiltAnchorLookAtRef.current.copy(authoritativeSnapshot.lookAtTarget);
+          camera.position.copy(beforeSyncPosition);
           camera.lookAt(authoritativeSnapshot.lookAtTarget);
-          camera.filmOffset = authoritativeSnapshot.filmOffsetX;
+          camera.filmOffset = filmOffsetX;
           camera.updateProjectionMatrix();
-          currentTarget.current.position.copy(authoritativeSnapshot.position);
+          currentTarget.current.position.copy(beforeSyncPosition);
           currentTarget.current.lookAt.copy(authoritativeSnapshot.lookAtTarget);
           seededFromAuthoritative = true;
+          fractureTiltLockSeededRef.current = true;
+          fractureTiltAnchorSeededFromLiveHeroRef.current = true;
           explosionSyncStartRef.current = {
-            startPosition: authoritativeSnapshot.position.clone(),
+            startPosition: beforeSyncPosition.clone(),
             startLookAt: authoritativeSnapshot.lookAtTarget.clone(),
             destinationPosition: currentTarget.current.position.clone(),
             destinationLookAt: currentTarget.current.lookAt.clone(),
@@ -244,6 +251,25 @@ const UnifiedCameraController = ({
             transitionDestinationLookAt: currentTarget.current.lookAt.toArray(),
             legacyHeroStartUsed: false,
           });
+          console.log('[UCC FRACTURE LIVE HERO START]', {
+            elapsed: elapsedSeconds,
+            cameraPositionBeforeSeed: beforeSyncPosition.toArray(),
+            liveAuthoritativeSnapshotPosition: authoritativeSnapshot.position.toArray(),
+            seededFractureAnchorPosition: fractureTiltAnchorPositionRef.current.toArray(),
+            previousLatestAuthoritativeSnapshotPosition:
+              lastAuthoritativeHeroSnapshotRef.current?.position?.toArray?.() || null,
+            deltaCameraBeforeVsSeed: beforeSyncPosition.distanceTo(fractureTiltAnchorPositionRef.current),
+            deltaAuthoritativeVsSeed: authoritativeSnapshot.position.distanceTo(fractureTiltAnchorPositionRef.current),
+            lookAtTarget: fractureTiltAnchorLookAtRef.current.toArray(),
+            filmOffset: camera.filmOffset,
+            orbitElapsed,
+            angle: authoritativeSnapshot.angle,
+          });
+          if (seedPositionDelta > 0.001) {
+            console.warn('[UCC FRACTURE LIVE HERO START] Seed differs from live authoritative snapshot', {
+              delta: seedPositionDelta,
+            });
+          }
         }
         if (!seededFromAuthoritative) {
           // Snap to the current target immediately when fracture starts so the off-kilter pose is instant.
@@ -264,6 +290,8 @@ const UnifiedCameraController = ({
       fractureTiltActiveRef.current = false;
       fractureTiltRef.current = 0;
       fractureJumpFrameRef.current = false;
+      fractureTiltLockSeededRef.current = false;
+      fractureTiltAnchorSeededFromLiveHeroRef.current = false;
     }
 
     lastCrystalFormRef.current = currentCrystalForm;
@@ -1648,6 +1676,7 @@ const UnifiedCameraController = ({
 
     if (!fractureTiltActiveRef.current) {
       fractureTiltLockSeededRef.current = false;
+      fractureTiltAnchorSeededFromLiveHeroRef.current = false;
     }
 
     if (!currentTarget.current || simplifiedAnimations) {
