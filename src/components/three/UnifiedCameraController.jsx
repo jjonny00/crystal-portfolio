@@ -764,7 +764,7 @@ const UnifiedCameraController = ({
       orbitVelocityRef.current.set(0, 0);
 
       if (animationData?.cameraState === 'hero' && previousCameraState !== 'hero') {
-        syncHeroCameraRefs('cameraState-transition-to-hero', { resetPosition: true });
+        syncHeroCameraRefs('cameraState-transition-to-hero', { resetPosition: false });
       }
 
       if (animationData?.cameraState === 'intro' && config?.cameraPositions?.intro && config?.cameraTargets?.intro) {
