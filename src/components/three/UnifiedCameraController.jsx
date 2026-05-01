@@ -1639,15 +1639,9 @@ const UnifiedCameraController = ({
 
     if (authoritativeOverviewToHeroTransitionRef.current.active) {
       const transition = authoritativeOverviewToHeroTransitionRef.current;
-      const frameDelta = Number.isFinite(deltaTime) ? deltaTime : 0;
-      const safeDelta = Math.min(frameDelta, MAX_FORCED_TRANSITION_DELTA);
+      const safeDelta = Math.min(Number.isFinite(deltaTime) ? deltaTime : 0, MAX_FORCED_TRANSITION_DELTA);
       transition.progress = Math.min(1, transition.progress + (safeDelta / transition.duration));
       const progress = THREE.MathUtils.clamp(transition.progress, 0, 1);
-      const rawElapsedProgress = THREE.MathUtils.clamp(
-        (state.clock.elapsedTime - transition.startTime) / transition.duration,
-        0,
-        1,
-      );
       const p = THREE.MathUtils.clamp(progress, 0, 1);
       const easedProgress = p * p * p * (p * (p * 6 - 15) + 10);
       const positionProgress = easedProgress;
@@ -1663,28 +1657,14 @@ const UnifiedCameraController = ({
       camera.filmOffset = THREE.MathUtils.lerp(transition.from.filmOffsetX, transition.to.filmOffsetX, filmOffsetProgress);
       camera.updateProjectionMatrix();
       logCameraWrite(state, "FORCED_OVERVIEW_TO_HERO", "forced-overview-to-hero-frame", forcedLookAt, true, true);
-      console.log('[UCC FORCE OVERVIEW TO HERO FRAME]', {
-        progress,
-        rawElapsedProgress,
-        accumulatedProgress: transition.progress,
-        frameDelta,
-        safeDelta,
-        maxDelta: MAX_FORCED_TRANSITION_DELTA,
-        easedProgress,
-        positionProgress,
-        lookAtProgress,
-        filmOffsetProgress,
-        currentPosition: camera.position.toArray(),
-        currentLookAt: forcedLookAt.toArray(),
-        currentFilmOffset: camera.filmOffset,
-        startLookAt: transition.from.lookAtTarget.toArray(),
-        destinationLookAt: transition.to.lookAtTarget.toArray(),
-      });
       if (progress >= 1) {
         camera.position.copy(transition.to.position);
         camera.lookAt(transition.to.lookAtTarget);
         camera.filmOffset = transition.to.filmOffsetX;
         camera.updateProjectionMatrix();
+        currentTarget.current.position.copy(transition.to.position);
+        currentTarget.current.lookAt.copy(transition.to.lookAtTarget);
+        currentTarget.current.fov = camera.fov;
         heroOrbitStartTimeRef.current = state.clock.elapsedTime;
         authoritativeOverviewToHeroTransitionRef.current.active = false;
         console.log('[UCC FORCE OVERVIEW TO HERO COMPLETE]', {
@@ -1806,15 +1786,9 @@ const UnifiedCameraController = ({
 
     if (authoritativeHeroToOverviewTransitionRef.current.active) {
       const transition = authoritativeHeroToOverviewTransitionRef.current;
-      const frameDelta = Number.isFinite(deltaTime) ? deltaTime : 0;
-      const safeDelta = Math.min(frameDelta, MAX_FORCED_TRANSITION_DELTA);
+      const safeDelta = Math.min(Number.isFinite(deltaTime) ? deltaTime : 0, MAX_FORCED_TRANSITION_DELTA);
       transition.progress = Math.min(1, transition.progress + (safeDelta / transition.duration));
       const progress = THREE.MathUtils.clamp(transition.progress, 0, 1);
-      const rawElapsedProgress = THREE.MathUtils.clamp(
-        (state.clock.elapsedTime - transition.startTime) / transition.duration,
-        0,
-        1,
-      );
       const p = THREE.MathUtils.clamp(progress, 0, 1);
       const easedProgress = p * p * p * (p * (p * 6 - 15) + 10);
       camera.position.lerpVectors(transition.from.position, transition.to.position, easedProgress);
@@ -1827,29 +1801,6 @@ const UnifiedCameraController = ({
       camera.filmOffset = THREE.MathUtils.lerp(transition.from.filmOffsetX, transition.to.filmOffsetX, easedProgress);
       camera.updateProjectionMatrix();
       logCameraWrite(state, "FORCED_HERO_TO_OVERVIEW", "forced-hero-to-overview-frame", forcedLookAt, true, true);
-      if (progress < 0.05 || (progress >= 0.64 && progress <= 0.68) || progress >= 0.99) {
-        console.log('[UCC HERO TO OVERVIEW PROJECTION CHECK]', {
-          progress,
-          filmOffset: camera.filmOffset,
-          fov: camera.fov,
-          zoom: camera.zoom,
-          aspect: camera.aspect,
-        });
-      }
-      console.log('[UCC FORCE HERO TO OVERVIEW FRAME]', {
-        progress,
-        rawElapsedProgress,
-        accumulatedProgress: transition.progress,
-        frameDelta,
-        safeDelta,
-        maxDelta: MAX_FORCED_TRANSITION_DELTA,
-        easedProgress,
-        currentPosition: camera.position.toArray(),
-        currentLookAt: forcedLookAt.toArray(),
-        currentFilmOffset: camera.filmOffset,
-        startLookAt: transition.from.lookAtTarget.toArray(),
-        destinationLookAt: transition.to.lookAtTarget.toArray(),
-      });
       if (TRACE_HERO_TO_OVERVIEW_CAMERA_STATE && heroToOverviewTraceMetaRef.current.active) {
         const meta = heroToOverviewTraceMetaRef.current;
         const prev = meta.prevSample;
@@ -1919,6 +1870,9 @@ const UnifiedCameraController = ({
         camera.lookAt(transition.to.lookAtTarget);
         camera.filmOffset = transition.to.filmOffsetX;
         camera.updateProjectionMatrix();
+        currentTarget.current.position.copy(transition.to.position);
+        currentTarget.current.lookAt.copy(transition.to.lookAtTarget);
+        currentTarget.current.fov = camera.fov;
         authoritativeHeroToOverviewTransitionRef.current.active = false;
         if (TRACE_HERO_TO_OVERVIEW_CAMERA_STATE) {
           heroToOverviewTraceMetaRef.current.endTime = state.clock.elapsedTime + 0.5;
@@ -2476,20 +2430,22 @@ const UnifiedCameraController = ({
     if (heroToOverviewHandoffPendingRef.current && animationData?.cameraState === 'overview') {
       const pending = heroToOverviewHandoffPendingRef.current;
       const nextOverviewLookAt = currentTarget.current?.lookAt?.clone?.() || null;
-      console.log('[UCC HERO TO OVERVIEW HANDOFF VERIFY]', {
-        forcedFinalPosition: pending.finalPosition.toArray(),
-        forcedFinalLookAt: pending.finalLookAt.toArray(),
-        forcedFinalFilmOffset: pending.finalFilmOffset,
-        nextOverviewPosition: camera.position.toArray(),
-        nextOverviewLookAt: nextOverviewLookAt?.toArray?.() || null,
-        nextOverviewFilmOffset: camera.filmOffset,
-        positionDelta: pending.finalPosition.distanceTo(camera.position),
-        lookAtDelta: nextOverviewLookAt ? pending.finalLookAt.distanceTo(nextOverviewLookAt) : null,
-        filmOffsetDelta: Math.abs((pending.finalFilmOffset ?? 0) - (camera.filmOffset ?? 0)),
-        fov: camera.fov,
-        zoom: camera.zoom,
-        aspect: camera.aspect,
-      });
+      const positionDelta = pending.finalPosition.distanceTo(camera.position);
+      const lookAtDelta = nextOverviewLookAt ? pending.finalLookAt.distanceTo(nextOverviewLookAt) : null;
+      const filmOffsetDelta = Math.abs((pending.finalFilmOffset ?? 0) - (camera.filmOffset ?? 0));
+      if (positionDelta > 0.01 || (lookAtDelta ?? 0) > 0.01 || filmOffsetDelta > 0.01) {
+        console.warn('[UCC HERO TO OVERVIEW HANDOFF MISMATCH]', {
+          positionDelta,
+          lookAtDelta,
+          filmOffsetDelta,
+          forcedFinalPosition: pending.finalPosition.toArray(),
+          nextOverviewPosition: camera.position.toArray(),
+          forcedFinalLookAt: pending.finalLookAt.toArray(),
+          nextOverviewLookAt: nextOverviewLookAt?.toArray?.() || null,
+          forcedFinalFilmOffset: pending.finalFilmOffset,
+          nextOverviewFilmOffset: camera.filmOffset,
+        });
+      }
       heroToOverviewHandoffPendingRef.current = null;
     }
 
