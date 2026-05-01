@@ -129,6 +129,7 @@ const UnifiedCameraController = ({
   const lastCameraWriterRef = useRef('none');
   const prevStateRef = useRef(animationData?.state ?? null);
   const prevCameraStateRef = useRef(animationData?.cameraState ?? null);
+  const configCheckLoggedRef = useRef(false);
 
   const applyFractureTilt = () => {
     if (!fractureTiltActiveRef.current) return;
