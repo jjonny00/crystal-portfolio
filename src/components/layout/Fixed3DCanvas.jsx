@@ -226,6 +226,16 @@ const Fixed3DCanvas = forwardRef(({
       }
 
       if (cameraLayer.offsets) {
+        nextConfig.cameraComposition = sourceWins
+          ? {
+              ...(nextConfig.cameraComposition || {}),
+              ...(config?.camera?.composition || {}),
+            }
+          : {
+              ...(config?.camera?.composition || {}),
+              ...(nextConfig.cameraComposition || {}),
+            };
+
         nextConfig.cameraOffsets = sourceWins
           ? {
             ...(nextConfig.cameraOffsets || {}),

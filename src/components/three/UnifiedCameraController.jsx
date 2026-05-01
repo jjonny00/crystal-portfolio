@@ -361,12 +361,34 @@ const UnifiedCameraController = ({
     return rawVerticalOffsetY * HERO_VERTICAL_FRAMING_SCALE * HERO_VERTICAL_FRAMING_SIGN;
   };
 
-  const applyHeroFilmOffset = (center) => {
+  const resolveHeroFilmOffsetX = (center) => {
+    const configuredFilmOffsetX = config?.cameraComposition?.hero?.filmOffsetX;
+    if (typeof configuredFilmOffsetX === "number" && Number.isFinite(configuredFilmOffsetX)) {
+      return { value: configuredFilmOffsetX, source: "composition.hero.filmOffsetX" };
+    }
+
     const distanceToCenter = Math.max(0.0001, camera.position.distanceTo(center));
     const halfFrustumWidth = Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5)) * distanceToCenter * camera.aspect;
     const ndcOffsetX = heroCompositionLateralRef.current / Math.max(0.0001, halfFrustumWidth);
     const filmWidth = camera.getFilmWidth ? camera.getFilmWidth() : 35;
-    camera.filmOffset = (THREE.MathUtils.clamp(ndcOffsetX, -1.5, 1.5) * filmWidth) * 0.5;
+    const fallbackFilmOffsetX = (THREE.MathUtils.clamp(ndcOffsetX, -1.5, 1.5) * filmWidth) * 0.5;
+    return { value: fallbackFilmOffsetX, source: "legacy fallback" };
+  };
+
+  const applyHeroFilmOffset = (center, branch = "hero") => {
+    const resolved = resolveHeroFilmOffsetX(center);
+    camera.filmOffset = resolved.value;
+    if (import.meta.env.DEV) {
+      console.log("[UCC HERO FILM OFFSET]", {
+        branch,
+        resolvedHeroFilmOffsetX: resolved.value,
+        source: resolved.source,
+        heroOrbitCenter: heroOrbitCenterRef.current.toArray(),
+        heroLookAtTarget: center.toArray(),
+        ignoreHeroTargetXForHorizontal: resolved.source === "composition.hero.filmOffsetX",
+        finalFilmOffset: camera.filmOffset,
+      });
+    }
   };
 
   const syncHeroCameraRefs = (reason, { resetPosition = false } = {}) => {
@@ -1265,7 +1287,7 @@ const UnifiedCameraController = ({
         positionProgress
       );
       camera.lookAt(introLookAt);
-      applyHeroFilmOffset(introToRef.current.lookAt);
+      applyHeroFilmOffset(introToRef.current.lookAt, "INTRO");
       applyFractureTilt();
       camera.fov = THREE.MathUtils.lerp(
         introFromRef.current.fov,
@@ -1364,7 +1386,7 @@ const UnifiedCameraController = ({
       const heroLookAtTarget = newLookAtTempRef.current.copy(orbitCenter);
       heroLookAtTarget.y += heroVerticalOffsetRef.current;
       camera.lookAt(heroLookAtTarget);
-      applyHeroFilmOffset(heroLookAtTarget);
+      applyHeroFilmOffset(heroLookAtTarget, "HERO_ORBIT");
       applyFractureTilt();
       camera.fov = currentTarget.current.fov;
       camera.updateProjectionMatrix();
@@ -1433,7 +1455,7 @@ const UnifiedCameraController = ({
 
     if (animationData?.state === 'hero' && animationData?.cameraState === 'hero') {
       newLookAt.y = currentTarget.current.lookAt.y;
-      applyHeroFilmOffset(newLookAt);
+      applyHeroFilmOffset(newLookAt, "HERO_IDLE");
     }
 
     camera.lookAt(newLookAt);

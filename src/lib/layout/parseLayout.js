@@ -81,6 +81,21 @@ const parseOffsetsSectionMap = (map, path) => {
   );
 };
 
+const parseComposition = (composition, path) => {
+  assertObject(composition, path);
+  const parsed = {};
+  if (composition.hero !== undefined) {
+    assertObject(composition.hero, `${path}.hero`);
+    if (composition.hero.filmOffsetX !== undefined) {
+      if (typeof composition.hero.filmOffsetX !== 'number' || Number.isNaN(composition.hero.filmOffsetX)) {
+        throw new Error(`Invalid layout at ${path}.hero.filmOffsetX: expected number. ${FORMAT_HELP}`);
+      }
+      parsed.hero = { filmOffsetX: composition.hero.filmOffsetX };
+    }
+  }
+  return parsed;
+};
+
 const parseOffsetsObject = (offsets, path) => {
   assertObject(offsets, path);
 
@@ -191,6 +206,10 @@ export const parseLayout = (rawLayout) => {
 
     if (rawLayout.camera.projects !== undefined) {
       camera.projects = parseCameraProjects(rawLayout.camera.projects, 'camera.projects');
+    }
+
+    if (rawLayout.camera.composition !== undefined) {
+      camera.composition = parseComposition(rawLayout.camera.composition, 'camera.composition');
     }
 
     parsed.camera = camera;
