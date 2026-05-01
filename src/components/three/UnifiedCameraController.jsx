@@ -364,7 +364,7 @@ const UnifiedCameraController = ({
   const resolveHeroFilmOffsetX = (center) => {
     const configuredFilmOffsetX = config?.cameraComposition?.hero?.filmOffsetX;
     if (typeof configuredFilmOffsetX === "number" && Number.isFinite(configuredFilmOffsetX)) {
-      return { value: configuredFilmOffsetX, source: "composition.hero.filmOffsetX" };
+      return { value: configuredFilmOffsetX, source: "composition.hero.filmOffsetX", legacyFallbackRan: false };
     }
 
     const distanceToCenter = Math.max(0.0001, camera.position.distanceTo(center));
@@ -372,7 +372,7 @@ const UnifiedCameraController = ({
     const ndcOffsetX = heroCompositionLateralRef.current / Math.max(0.0001, halfFrustumWidth);
     const filmWidth = camera.getFilmWidth ? camera.getFilmWidth() : 35;
     const fallbackFilmOffsetX = (THREE.MathUtils.clamp(ndcOffsetX, -1.5, 1.5) * filmWidth) * 0.5;
-    return { value: fallbackFilmOffsetX, source: "legacy fallback" };
+    return { value: fallbackFilmOffsetX, source: "legacy fallback", legacyFallbackRan: true };
   };
 
   const applyHeroFilmOffset = (center, branch = "hero") => {
@@ -387,6 +387,7 @@ const UnifiedCameraController = ({
         heroLookAtTarget: center.toArray(),
         ignoreHeroTargetXForHorizontal: resolved.source === "composition.hero.filmOffsetX",
         finalFilmOffset: camera.filmOffset,
+        legacyFallbackRan: resolved.legacyFallbackRan,
       });
     }
   };
@@ -1193,6 +1194,7 @@ const UnifiedCameraController = ({
         lastHeroOrbitDebugSecondRef.current = debugSecond;
         console.log('[UnifiedCameraController] HERO ORBIT BRANCH ACTIVE', {
           finalFilmOffset: camera.filmOffset,
+        legacyFallbackRan: resolved.legacyFallbackRan,
           cameraPosition: camera.position.toArray(),
         });
       }
@@ -1306,8 +1308,31 @@ const UnifiedCameraController = ({
         if (import.meta.env.DEV) console.log('[UCC INTRO] set active false', { progress, elapsed, prevIntroActive: true, nextIntroActive: false, introPlayedNext: true });
         introActiveRef.current = false;
         introPlayedRef.current = true;
+        const introBeforePosition = camera.position.clone();
         camera.position.copy(introToRef.current.position);
         camera.lookAt(introToRef.current.lookAt);
+        if (import.meta.env.DEV) {
+          console.log("[UCC JUMP DIAG] INTRO_COMPLETE_WRITE", {
+            branch: "INTRO",
+            cameraPositionBefore: introBeforePosition.toArray(),
+            cameraPositionAfter: camera.position.toArray(),
+            lookAtTarget: introToRef.current.lookAt.toArray(),
+            heroOrbitCenterRef: heroOrbitCenterRef.current.toArray(),
+            resolvedHeroCenter: getHeroOrbitCenter().toArray(),
+            introToPosition: introToRef.current.position.toArray(),
+            introToLookAt: introToRef.current.lookAt.toArray(),
+            currentPositionRef: null,
+            targetPositionRef: null,
+            currentTargetPosition: currentTarget.current.position.toArray(),
+            currentTargetLookAt: currentTarget.current.lookAt.toArray(),
+            finalTarget: lastCameraConfig.current?.target?.toArray?.() || null,
+            baseTarget: config?.cameraTargets?.hero ?? null,
+            offsetTarget: config?.cameraOffsets?.zones?.hero?.target ?? null,
+            configCameraPositionHero: config?.cameraPositions?.hero ?? null,
+            configCameraTargetHero: config?.cameraTargets?.hero ?? null,
+            configHeroFilmOffsetX: config?.cameraComposition?.hero?.filmOffsetX ?? null,
+          });
+        }
         applyFractureTilt();
         camera.fov = introToRef.current.fov;
         camera.updateProjectionMatrix();
@@ -1458,7 +1483,30 @@ const UnifiedCameraController = ({
       applyHeroFilmOffset(newLookAt, "HERO_IDLE");
     }
 
+    const heroIdleBeforePosition = camera.position.clone();
     camera.lookAt(newLookAt);
+    if (import.meta.env.DEV && animationData?.state === "hero" && animationData?.cameraState === "hero") {
+      console.log("[UCC JUMP DIAG] HERO_IDLE_WRITE", {
+        branch: "HERO_IDLE",
+        cameraPositionBefore: heroIdleBeforePosition.toArray(),
+        cameraPositionAfter: camera.position.toArray(),
+        lookAtTarget: newLookAt.toArray(),
+        heroOrbitCenterRef: heroOrbitCenterRef.current.toArray(),
+        resolvedHeroCenter: getHeroOrbitCenter().toArray(),
+        introToPosition: introToRef.current.position.toArray(),
+        introToLookAt: introToRef.current.lookAt.toArray(),
+        currentPositionRef: null,
+        targetPositionRef: null,
+        currentTargetPosition: currentTarget.current.position.toArray(),
+        currentTargetLookAt: currentTarget.current.lookAt.toArray(),
+        finalTarget: lastCameraConfig.current?.target?.toArray?.() || null,
+        baseTarget: config?.cameraTargets?.hero ?? null,
+        offsetTarget: config?.cameraOffsets?.zones?.hero?.target ?? null,
+        configCameraPositionHero: config?.cameraPositions?.hero ?? null,
+        configCameraTargetHero: config?.cameraTargets?.hero ?? null,
+        configHeroFilmOffsetX: config?.cameraComposition?.hero?.filmOffsetX ?? null,
+      });
+    }
     applyFractureTilt();
 
     // Smooth FOV interpolation

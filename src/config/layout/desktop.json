@@ -18,11 +18,11 @@
         1.87
       ],
       "composition": {
-      "hero": {
-        "filmOffsetX": 0
-      }
-    },
-    "projects": {
+        "hero": {
+          "filmOffsetX": 0
+        }
+      },
+      "projects": {
         "empathy": [
           0.16,
           -1.85,
@@ -438,6 +438,11 @@
             -23
           ]
         }
+      }
+    },
+    "composition": {
+      "hero": {
+        "filmOffsetX": 0
       }
     }
   },
