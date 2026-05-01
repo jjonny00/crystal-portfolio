@@ -229,10 +229,10 @@ const Fixed3DCanvas = forwardRef(({
         nextConfig.cameraComposition = sourceWins
           ? {
               ...(nextConfig.cameraComposition || {}),
-              ...(config?.camera?.composition || {}),
+              ...(cameraLayer.composition || {}),
             }
           : {
-              ...(config?.camera?.composition || {}),
+              ...(cameraLayer.composition || {}),
               ...(nextConfig.cameraComposition || {}),
             };
 

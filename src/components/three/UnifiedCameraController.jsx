@@ -367,12 +367,10 @@ const UnifiedCameraController = ({
       return { value: configuredFilmOffsetX, source: "composition.hero.filmOffsetX", legacyFallbackRan: false };
     }
 
-    const distanceToCenter = Math.max(0.0001, camera.position.distanceTo(center));
-    const halfFrustumWidth = Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5)) * distanceToCenter * camera.aspect;
-    const ndcOffsetX = heroCompositionLateralRef.current / Math.max(0.0001, halfFrustumWidth);
-    const filmWidth = camera.getFilmWidth ? camera.getFilmWidth() : 35;
-    const fallbackFilmOffsetX = (THREE.MathUtils.clamp(ndcOffsetX, -1.5, 1.5) * filmWidth) * 0.5;
-    return { value: fallbackFilmOffsetX, source: "legacy fallback", legacyFallbackRan: true };
+    if (import.meta.env.DEV) {
+      console.warn("[UCC HERO FILM OFFSET] Missing composition.hero.filmOffsetX; forcing 0 for test");
+    }
+    return { value: 0, source: "composition.hero.filmOffsetX missing (forced 0)", legacyFallbackRan: false };
   };
 
   const applyHeroFilmOffset = (center, branch = "hero") => {
@@ -1102,10 +1100,24 @@ const UnifiedCameraController = ({
 
 
   const logCameraWrite = (state, branch, reason, lookAtTarget = null, projectionUpdated = false, returns = false) => {
+    lastCameraWriterRef.current = branch;
+    if (!configCheckLoggedRef.current) {
+      configCheckLoggedRef.current = true;
+      const filmOffsetX = config?.cameraComposition?.hero?.filmOffsetX;
+      console.log('[UCC CONFIG CHECK]', {
+        cameraComposition: config?.cameraComposition ?? null,
+        cameraDotComposition: config?.camera?.composition ?? null,
+        heroComposition: config?.cameraComposition?.hero ?? null,
+        heroFilmOffsetX: filmOffsetX,
+        heroFilmOffsetXIsFinite: Number.isFinite(filmOffsetX),
+        layoutVariant: config?.layoutVariant ?? null,
+        desktopFilmOffsetPresent: config?.cameraComposition?.hero?.filmOffsetX ?? null,
+      });
+    }
+
     const debugSecond = Math.floor(state.clock.elapsedTime);
     if (debugSecond % 2 !== 0 || debugSecond === lastCameraWriteSecondRef.current) return;
     lastCameraWriteSecondRef.current = debugSecond;
-    lastCameraWriterRef.current = branch;
     console.log(`[UCC CAMERA WRITE] ${branch}`, {
       elapsed: state.clock.elapsedTime,
       reason,
