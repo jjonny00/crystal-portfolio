@@ -1829,10 +1829,13 @@ const UnifiedCameraController = ({
         const meta = heroToOverviewTraceMetaRef.current;
         const prev = meta.prevSample;
         const sampleLookAt = forcedLookAt?.clone?.() || null;
+        const sampleTime = round4(state.clock.elapsedTime);
+        const previousSampleTime = prev?.t ?? null;
         const sample = {
-          t: round4(state.clock.elapsedTime),
+          t: sampleTime,
           phase: 'forced-transition',
           progress: round4(progress),
+          easedProgress: round4(easedProgress),
           positionProgress: round4(easedProgress),
           lookAtProgress: round4(easedProgress),
           filmOffsetProgress: round4(easedProgress),
@@ -1868,9 +1871,15 @@ const UnifiedCameraController = ({
           destinationLookAt: vectorToPlain(transition.to.lookAtTarget),
           startFilmOffset: round4(transition.from.filmOffsetX),
           destinationFilmOffset: round4(transition.to.filmOffsetX),
+          previousSampleTime,
+          deltaTimeFromPreviousSample: previousSampleTime === null ? null : round4(sampleTime - previousSampleTime),
+          transitionStartTime: round4(transition.startTime),
+          transitionElapsed: round4(state.clock.elapsedTime - transition.startTime),
+          duration: round4(transition.duration),
         };
         heroToOverviewTraceRef.current.push(sample);
         meta.prevSample = {
+          t: sampleTime,
           cameraPosVec: camera.position.clone(),
           quat: camera.quaternion.clone(),
           lookAtVec: sampleLookAt?.clone?.() || null,
@@ -1914,10 +1923,13 @@ const UnifiedCameraController = ({
       const meta = heroToOverviewTraceMetaRef.current;
       const currentLookAt = currentTarget.current?.lookAt?.clone?.() || null;
       const prev = meta.prevSample;
+      const sampleTime = round4(state.clock.elapsedTime);
+      const previousSampleTime = prev?.t ?? null;
       const sample = {
-        t: round4(state.clock.elapsedTime),
+        t: sampleTime,
         phase: animationData?.cameraState === 'overview' ? 'overview-branch' : (animationData?.cameraState ? 'other' : 'fallback'),
         progress: null,
+        easedProgress: null,
         positionProgress: null,
         lookAtProgress: null,
         filmOffsetProgress: null,
@@ -1949,6 +1961,11 @@ const UnifiedCameraController = ({
         deltaFovFromPreviousFrame: prev ? round4(Math.abs((prev.fov ?? 0) - (camera.fov ?? 0))) : null,
         deltaZoomFromPreviousFrame: prev ? round4(Math.abs((prev.zoom ?? 0) - (camera.zoom ?? 0))) : null,
         deltaUpFromPreviousFrame: prev ? safeDistance(prev.upVec, camera.up) : null,
+        previousSampleTime,
+        deltaTimeFromPreviousSample: previousSampleTime === null ? null : round4(sampleTime - previousSampleTime),
+        transitionStartTime: null,
+        transitionElapsed: null,
+        duration: null,
       };
       if (meta.forcedFinal) {
         sample.forcedFinalPosition = vectorToPlain(meta.forcedFinal.position);
@@ -1963,6 +1980,7 @@ const UnifiedCameraController = ({
       }
       heroToOverviewTraceRef.current.push(sample);
       meta.prevSample = {
+        t: sampleTime,
         cameraPosVec: camera.position.clone(),
         quat: camera.quaternion.clone(),
         lookAtVec: currentLookAt?.clone?.() || null,
@@ -1987,67 +2005,67 @@ const UnifiedCameraController = ({
         const firstWarningGroup = firstWarningIndex === null
           ? []
           : warnings.filter((w) => w.i === firstWarningIndex);
-        const detailRows = firstWarningIndex === null
-          ? []
-          : heroToOverviewTraceRef.current
-            .slice(Math.max(0, firstWarningIndex - 4), firstWarningIndex + 5)
-            .map((row, idx) => {
-              const absoluteIndex = Math.max(0, firstWarningIndex - 4) + idx;
-              return {
-                i: absoluteIndex,
-                t: row.t ?? null,
-                phase: row.phase ?? null,
-                progress: row.progress ?? null,
-                positionProgress: row.positionProgress ?? null,
-                lookAtProgress: row.lookAtProgress ?? null,
-                filmOffsetProgress: row.filmOffsetProgress ?? null,
-                moveProgress: row.moveProgress ?? null,
-                isHolding: row.isHolding ?? null,
-                state: row.state ?? null,
-                cameraState: row.cameraState ?? null,
-                writer: row.activeWriter ?? null,
-                branch: row.phase ?? null,
-                forcedTransitionActive: row.forcedActive ?? null,
-                cameraPositionX: row.cameraPosition?.x ?? null,
-                cameraPositionY: row.cameraPosition?.y ?? null,
-                cameraPositionZ: row.cameraPosition?.z ?? null,
-                currentLookAtX: row.currentLookAt?.x ?? null,
-                currentLookAtY: row.currentLookAt?.y ?? null,
-                currentLookAtZ: row.currentLookAt?.z ?? null,
-                quaternionX: row.quaternion?.x ?? null,
-                quaternionY: row.quaternion?.y ?? null,
-                quaternionZ: row.quaternion?.z ?? null,
-                quaternionW: row.quaternion?.w ?? null,
-                cameraUpX: row.up?.x ?? null,
-                cameraUpY: row.up?.y ?? null,
-                cameraUpZ: row.up?.z ?? null,
-                filmOffset: row.filmOffset ?? null,
-                fov: row.fov ?? null,
-                zoom: row.zoom ?? null,
-                aspect: row.aspect ?? null,
-                deltaPositionFromPreviousFrame: row.deltaPositionFromPreviousFrame ?? null,
-                deltaQuaternionAngleFromPreviousFrame: row.deltaQuaternionAngleFromPreviousFrame ?? null,
-                deltaLookAtFromPreviousFrame: row.deltaLookAtFromPreviousFrame ?? null,
-                deltaFilmOffsetFromPreviousFrame: row.deltaFilmOffsetFromPreviousFrame ?? null,
-                startPositionX: row.startPosition?.x ?? null,
-                startPositionY: row.startPosition?.y ?? null,
-                startPositionZ: row.startPosition?.z ?? null,
-                destinationPositionX: row.destinationPosition?.x ?? null,
-                destinationPositionY: row.destinationPosition?.y ?? null,
-                destinationPositionZ: row.destinationPosition?.z ?? null,
-                startLookAtX: row.startLookAt?.x ?? null,
-                startLookAtY: row.startLookAt?.y ?? null,
-                startLookAtZ: row.startLookAt?.z ?? null,
-                destinationLookAtX: row.destinationLookAt?.x ?? null,
-                destinationLookAtY: row.destinationLookAt?.y ?? null,
-                destinationLookAtZ: row.destinationLookAt?.z ?? null,
-              };
-            });
+        const detailRows = heroToOverviewTraceRef.current
+          .map((row, absoluteIndex) => ({ row, absoluteIndex }))
+          .filter(({ absoluteIndex }) => absoluteIndex >= 6 && absoluteIndex <= 13)
+          .map(({ row, absoluteIndex }) => ({
+            i: absoluteIndex,
+            t: row.t ?? null,
+            phase: row.phase ?? null,
+            progress: row.progress ?? null,
+            easedProgress: row.easedProgress ?? null,
+            positionProgress: row.positionProgress ?? null,
+            lookAtProgress: row.lookAtProgress ?? null,
+            filmOffsetProgress: row.filmOffsetProgress ?? null,
+            state: row.state ?? null,
+            cameraState: row.cameraState ?? null,
+            writer: row.activeWriter ?? null,
+            branch: row.phase ?? null,
+            forcedTransitionActive: row.forcedActive ?? null,
+            cameraPositionX: row.cameraPosition?.x ?? null,
+            cameraPositionY: row.cameraPosition?.y ?? null,
+            cameraPositionZ: row.cameraPosition?.z ?? null,
+            deltaPositionFromPreviousFrame: row.deltaPositionFromPreviousFrame ?? null,
+            currentLookAtX: row.currentLookAt?.x ?? null,
+            currentLookAtY: row.currentLookAt?.y ?? null,
+            currentLookAtZ: row.currentLookAt?.z ?? null,
+            deltaLookAtFromPreviousFrame: row.deltaLookAtFromPreviousFrame ?? null,
+            quaternionX: row.quaternion?.x ?? null,
+            quaternionY: row.quaternion?.y ?? null,
+            quaternionZ: row.quaternion?.z ?? null,
+            quaternionW: row.quaternion?.w ?? null,
+            deltaQuaternionAngleFromPreviousFrame: row.deltaQuaternionAngleFromPreviousFrame ?? null,
+            filmOffset: row.filmOffset ?? null,
+            deltaFilmOffsetFromPreviousFrame: row.deltaFilmOffsetFromPreviousFrame ?? null,
+            startPositionX: row.startPosition?.x ?? null,
+            startPositionY: row.startPosition?.y ?? null,
+            startPositionZ: row.startPosition?.z ?? null,
+            destinationPositionX: row.destinationPosition?.x ?? null,
+            destinationPositionY: row.destinationPosition?.y ?? null,
+            destinationPositionZ: row.destinationPosition?.z ?? null,
+            startLookAtX: row.startLookAt?.x ?? null,
+            startLookAtY: row.startLookAt?.y ?? null,
+            startLookAtZ: row.startLookAt?.z ?? null,
+            destinationLookAtX: row.destinationLookAt?.x ?? null,
+            destinationLookAtY: row.destinationLookAt?.y ?? null,
+            destinationLookAtZ: row.destinationLookAt?.z ?? null,
+            previousSampleTime: row.previousSampleTime ?? null,
+            deltaTimeFromPreviousSample: row.deltaTimeFromPreviousSample ?? null,
+            transitionStartTime: row.transitionStartTime ?? null,
+            transitionElapsed: row.transitionElapsed ?? null,
+            duration: row.duration ?? null,
+          }));
         console.groupCollapsed('[UCC HERO TO OVERVIEW TRACE SUMMARY]');
         console.table(heroToOverviewTraceRef.current);
         console.log('[UCC HERO TO OVERVIEW TRACE WARNINGS]', warnings);
-        console.log('[UCC HERO TO OVERVIEW FIRST JUMP WARNINGS JSON]', JSON.stringify(firstWarningGroup, null, 2));
-        console.log('[UCC HERO TO OVERVIEW FIRST JUMP DETAIL JSON]', JSON.stringify(detailRows, null, 2));
+        console.log(
+          '[UCC HERO TO OVERVIEW FIRST JUMP WARNINGS JSON STRING]\n' +
+          JSON.stringify(firstWarningGroup, null, 2)
+        );
+        console.log(
+          '[UCC HERO TO OVERVIEW FIRST JUMP DETAIL JSON STRING]\n' +
+          JSON.stringify(detailRows, null, 2)
+        );
         console.groupEnd();
         heroToOverviewTraceMetaRef.current = { active: false, endTime: 0, forcedFinal: null, prevSample: null };
       }
