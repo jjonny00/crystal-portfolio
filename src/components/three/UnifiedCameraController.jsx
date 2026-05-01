@@ -78,6 +78,7 @@ const UnifiedCameraController = ({
   // ADDED: Additional tracking for orbit initiation
   const orbitInitDelayRef = useRef(0);
   const ORBIT_DELAY_FRAMES = 30; // Wait 30 frames after settling before starting orbit
+  const FORCE_STABLE_HERO_CAMERA = true;
   const lastCameraStateRef = useRef(null);
   const introStartedRef = useRef(false);
   const introPlayedRef = useRef(false);
@@ -130,6 +131,7 @@ const UnifiedCameraController = ({
   const prevStateRef = useRef(animationData?.state ?? null);
   const prevCameraStateRef = useRef(animationData?.cameraState ?? null);
   const configCheckLoggedRef = useRef(false);
+  const stableHeroPositionRef = useRef(new THREE.Vector3(0, 0.8, 7));
 
   const applyFractureTilt = () => {
     if (!fractureTiltActiveRef.current) return;
@@ -1197,6 +1199,31 @@ const UnifiedCameraController = ({
         hasCurrentTarget: Boolean(currentTarget.current),
         cameraFilmOffset: camera.filmOffset,
       });
+    }
+
+    const forceStableHeroCondition =
+      FORCE_STABLE_HERO_CAMERA &&
+      animationData?.state === 'hero' &&
+      animationData?.cameraState === 'hero' &&
+      !animationData?.focusedProject &&
+      !animationData?.focusedFacet;
+
+    if (forceStableHeroCondition) {
+      const center = getHeroOrbitCenter();
+      const stablePosition = stableHeroPositionRef.current;
+      camera.position.copy(stablePosition);
+      camera.lookAt(center);
+      camera.filmOffset = 0;
+      camera.updateProjectionMatrix();
+      if (shouldLogBranch) {
+        console.log('[UCC FORCE STABLE HERO CAMERA]', {
+          cameraPosition: camera.position.toArray(),
+          lookAtTarget: center.toArray(),
+          state: animationData?.state,
+          cameraState: animationData?.cameraState,
+        });
+      }
+      return;
     }
 
     if (fractureJumpFrameRef.current) {
