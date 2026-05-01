@@ -80,6 +80,7 @@ const UnifiedCameraController = ({
   const ORBIT_DELAY_FRAMES = 30; // Wait 30 frames after settling before starting orbit
   const FORCE_AUTHORITATIVE_HERO_TO_OVERVIEW_TRANSITION = true;
   const FORCE_AUTHORITATIVE_OVERVIEW_TO_HERO_TRANSITION = true;
+  const MAX_FORCED_TRANSITION_DELTA = 1 / 30;
   const TRACE_HERO_TO_OVERVIEW_CAMERA_STATE = true;
   const DEFAULT_HERO_TUNING = {
     radius: 7,
@@ -168,6 +169,7 @@ const UnifiedCameraController = ({
   });
   const authoritativeHeroToOverviewTransitionRef = useRef({
     active: false,
+    progress: 0,
     startTime: 0,
     duration: 1.0,
     from: null,
@@ -175,6 +177,7 @@ const UnifiedCameraController = ({
   });
   const authoritativeOverviewToHeroTransitionRef = useRef({
     active: false,
+    progress: 0,
     startTime: 0,
     duration: 1.0,
     from: null,
@@ -1547,6 +1550,7 @@ const UnifiedCameraController = ({
           .add(toVector3(config?.cameraOffsets?.zones?.overview?.target));
         authoritativeHeroToOverviewTransitionRef.current = {
           active: true,
+          progress: 0,
           startTime: state.clock.elapsedTime,
           duration: 1.0,
           from: {
@@ -1605,6 +1609,7 @@ const UnifiedCameraController = ({
           .add(toVector3(config?.cameraOffsets?.zones?.overview?.target));
       authoritativeOverviewToHeroTransitionRef.current = {
         active: true,
+        progress: 0,
         startTime: state.clock.elapsedTime,
         duration: 1.0,
         from: {
@@ -1634,12 +1639,17 @@ const UnifiedCameraController = ({
 
     if (authoritativeOverviewToHeroTransitionRef.current.active) {
       const transition = authoritativeOverviewToHeroTransitionRef.current;
-      const progress = THREE.MathUtils.clamp(
+      const frameDelta = Number.isFinite(deltaTime) ? deltaTime : 0;
+      const safeDelta = Math.min(frameDelta, MAX_FORCED_TRANSITION_DELTA);
+      transition.progress = Math.min(1, transition.progress + (safeDelta / transition.duration));
+      const progress = THREE.MathUtils.clamp(transition.progress, 0, 1);
+      const rawElapsedProgress = THREE.MathUtils.clamp(
         (state.clock.elapsedTime - transition.startTime) / transition.duration,
         0,
         1,
       );
-      const easedProgress = progress * progress * (3 - 2 * progress);
+      const p = THREE.MathUtils.clamp(progress, 0, 1);
+      const easedProgress = p * p * p * (p * (p * 6 - 15) + 10);
       const positionProgress = easedProgress;
       const lookAtProgress = easedProgress;
       const filmOffsetProgress = easedProgress;
@@ -1655,6 +1665,12 @@ const UnifiedCameraController = ({
       logCameraWrite(state, "FORCED_OVERVIEW_TO_HERO", "forced-overview-to-hero-frame", forcedLookAt, true, true);
       console.log('[UCC FORCE OVERVIEW TO HERO FRAME]', {
         progress,
+        rawElapsedProgress,
+        accumulatedProgress: transition.progress,
+        frameDelta,
+        safeDelta,
+        maxDelta: MAX_FORCED_TRANSITION_DELTA,
+        easedProgress,
         positionProgress,
         lookAtProgress,
         filmOffsetProgress,
@@ -1790,7 +1806,11 @@ const UnifiedCameraController = ({
 
     if (authoritativeHeroToOverviewTransitionRef.current.active) {
       const transition = authoritativeHeroToOverviewTransitionRef.current;
-      const progress = THREE.MathUtils.clamp(
+      const frameDelta = Number.isFinite(deltaTime) ? deltaTime : 0;
+      const safeDelta = Math.min(frameDelta, MAX_FORCED_TRANSITION_DELTA);
+      transition.progress = Math.min(1, transition.progress + (safeDelta / transition.duration));
+      const progress = THREE.MathUtils.clamp(transition.progress, 0, 1);
+      const rawElapsedProgress = THREE.MathUtils.clamp(
         (state.clock.elapsedTime - transition.startTime) / transition.duration,
         0,
         1,
@@ -1818,6 +1838,11 @@ const UnifiedCameraController = ({
       }
       console.log('[UCC FORCE HERO TO OVERVIEW FRAME]', {
         progress,
+        rawElapsedProgress,
+        accumulatedProgress: transition.progress,
+        frameDelta,
+        safeDelta,
+        maxDelta: MAX_FORCED_TRANSITION_DELTA,
         easedProgress,
         currentPosition: camera.position.toArray(),
         currentLookAt: forcedLookAt.toArray(),
