@@ -78,7 +78,7 @@ const UnifiedCameraController = ({
   // ADDED: Additional tracking for orbit initiation
   const orbitInitDelayRef = useRef(0);
   const ORBIT_DELAY_FRAMES = 30; // Wait 30 frames after settling before starting orbit
-  const FORCE_STABLE_HERO_CAMERA = true;
+  const FORCE_STABLE_HERO_CAMERA = false;
   const lastCameraStateRef = useRef(null);
   const introStartedRef = useRef(false);
   const introPlayedRef = useRef(false);
@@ -391,6 +391,23 @@ const UnifiedCameraController = ({
         legacyFallbackRan: resolved.legacyFallbackRan,
       });
     }
+  };
+
+
+  const updateAuthoritativeHeroCamera = ({ elapsed, center, filmOffsetX = 0 }) => {
+    const radius = 7;
+    const height = 0.8;
+    const angle = elapsed * 0.08;
+
+    camera.position.set(
+      center.x + Math.sin(angle) * radius,
+      center.y + height,
+      center.z + Math.cos(angle) * radius,
+    );
+
+    camera.lookAt(center);
+    camera.filmOffset = Number.isFinite(filmOffsetX) ? filmOffsetX : 0;
+    camera.updateProjectionMatrix();
   };
 
   const syncHeroCameraRefs = (reason, { resetPosition = false } = {}) => {
@@ -1201,26 +1218,27 @@ const UnifiedCameraController = ({
       });
     }
 
-    const forceStableHeroCondition =
-      FORCE_STABLE_HERO_CAMERA &&
+    const isAuthoritativePlainHero =
       animationData?.state === 'hero' &&
       animationData?.cameraState === 'hero' &&
       !animationData?.focusedProject &&
       !animationData?.focusedFacet;
 
-    if (forceStableHeroCondition) {
+    if (isAuthoritativePlainHero) {
       const center = getHeroOrbitCenter();
-      const stablePosition = stableHeroPositionRef.current;
-      camera.position.copy(stablePosition);
-      camera.lookAt(center);
-      camera.filmOffset = 0;
-      camera.updateProjectionMatrix();
+      const configuredFilmOffsetX = config?.cameraComposition?.hero?.filmOffsetX;
+      updateAuthoritativeHeroCamera({
+        elapsed: state.clock.elapsedTime,
+        center,
+        filmOffsetX: Number.isFinite(configuredFilmOffsetX) ? configuredFilmOffsetX : 0,
+      });
       if (shouldLogBranch) {
-        console.log('[UCC FORCE STABLE HERO CAMERA]', {
+        console.log('[UCC AUTHORITATIVE HERO]', {
           cameraPosition: camera.position.toArray(),
           lookAtTarget: center.toArray(),
           state: animationData?.state,
           cameraState: animationData?.cameraState,
+          filmOffsetX: Number.isFinite(configuredFilmOffsetX) ? configuredFilmOffsetX : 0,
         });
       }
       return;
