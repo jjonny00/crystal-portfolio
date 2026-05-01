@@ -1790,32 +1790,21 @@ const UnifiedCameraController = ({
 
     if (authoritativeHeroToOverviewTransitionRef.current.active) {
       const transition = authoritativeHeroToOverviewTransitionRef.current;
-      const HOLD_PORTION = 0.22;
       const progress = THREE.MathUtils.clamp(
         (state.clock.elapsedTime - transition.startTime) / transition.duration,
         0,
         1,
       );
-      const isHolding = progress < HOLD_PORTION;
-      const moveProgressRaw = isHolding
-        ? 0
-        : THREE.MathUtils.clamp((progress - HOLD_PORTION) / (1 - HOLD_PORTION), 0, 1);
-      const moveProgress = moveProgressRaw * moveProgressRaw * (3 - 2 * moveProgressRaw);
-      let forcedLookAt = transition.from.lookAtTarget;
-      if (isHolding) {
-        camera.position.copy(transition.from.position);
-        camera.lookAt(transition.from.lookAtTarget);
-        camera.filmOffset = transition.from.filmOffsetX;
-      } else {
-        camera.position.lerpVectors(transition.from.position, transition.to.position, moveProgress);
-        forcedLookAt = introLookAtTempRef.current.lerpVectors(
-          transition.from.lookAtTarget,
-          transition.to.lookAtTarget,
-          moveProgress,
-        );
-        camera.lookAt(forcedLookAt);
-        camera.filmOffset = THREE.MathUtils.lerp(transition.from.filmOffsetX, transition.to.filmOffsetX, moveProgress);
-      }
+      const p = THREE.MathUtils.clamp(progress, 0, 1);
+      const easedProgress = p * p * p * (p * (p * 6 - 15) + 10);
+      camera.position.lerpVectors(transition.from.position, transition.to.position, easedProgress);
+      const forcedLookAt = introLookAtTempRef.current.lerpVectors(
+        transition.from.lookAtTarget,
+        transition.to.lookAtTarget,
+        easedProgress,
+      );
+      camera.lookAt(forcedLookAt);
+      camera.filmOffset = THREE.MathUtils.lerp(transition.from.filmOffsetX, transition.to.filmOffsetX, easedProgress);
       camera.updateProjectionMatrix();
       logCameraWrite(state, "FORCED_HERO_TO_OVERVIEW", "forced-hero-to-overview-frame", forcedLookAt, true, true);
       if (progress < 0.05 || (progress >= 0.64 && progress <= 0.68) || progress >= 0.99) {
@@ -1829,9 +1818,7 @@ const UnifiedCameraController = ({
       }
       console.log('[UCC FORCE HERO TO OVERVIEW FRAME]', {
         progress,
-        holdPortion: HOLD_PORTION,
-        isHolding,
-        moveProgress,
+        easedProgress,
         currentPosition: camera.position.toArray(),
         currentLookAt: forcedLookAt.toArray(),
         currentFilmOffset: camera.filmOffset,
@@ -1846,11 +1833,11 @@ const UnifiedCameraController = ({
           t: round4(state.clock.elapsedTime),
           phase: 'forced-transition',
           progress: round4(progress),
-          positionProgress: round4(moveProgress),
-          lookAtProgress: round4(moveProgress),
-          filmOffsetProgress: round4(moveProgress),
-          moveProgress: round4(moveProgress),
-          isHolding,
+          positionProgress: round4(easedProgress),
+          lookAtProgress: round4(easedProgress),
+          filmOffsetProgress: round4(easedProgress),
+          moveProgress: round4(easedProgress),
+          isHolding: null,
           state: animationData?.state ?? null,
           cameraState: animationData?.cameraState ?? null,
           activeWriter: 'FORCED_HERO_TO_OVERVIEW',
