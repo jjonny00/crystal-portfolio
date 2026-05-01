@@ -17,11 +17,6 @@
         1.34,
         1.87
       ],
-      "composition": {
-        "hero": {
-          "filmOffsetX": 0
-        }
-      },
       "projects": {
         "empathy": [
           0.16,
@@ -444,6 +439,13 @@
       "hero": {
         "filmOffsetX": 0
       }
+    },
+    "heroTuning": {
+      "radius": 7,
+      "height": 0.8,
+      "orbitSpeed": 0.08,
+      "baseAngle": 0,
+      "lookAtYOffset": 0
     }
   },
   "projects": {

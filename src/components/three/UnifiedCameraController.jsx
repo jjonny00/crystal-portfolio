@@ -78,11 +78,13 @@ const UnifiedCameraController = ({
   // ADDED: Additional tracking for orbit initiation
   const orbitInitDelayRef = useRef(0);
   const ORBIT_DELAY_FRAMES = 30; // Wait 30 frames after settling before starting orbit
-  const HERO_AUTH_RADIUS = 7;
-  const HERO_AUTH_HEIGHT = 0.8;
-  const HERO_AUTH_ORBIT_SPEED = 0.08;
-  const HERO_AUTH_BASE_ANGLE = 0;
-  const HERO_AUTH_LOOK_AT_Y_OFFSET = 0;
+  const DEFAULT_HERO_TUNING = {
+    radius: 7,
+    height: 0.8,
+    orbitSpeed: 0.08,
+    baseAngle: 0,
+    lookAtYOffset: 0,
+  };
   const FORCE_STABLE_HERO_CAMERA = false;
   const lastCameraStateRef = useRef(null);
   const introStartedRef = useRef(false);
@@ -369,6 +371,24 @@ const UnifiedCameraController = ({
     return rawVerticalOffsetY * HERO_VERTICAL_FRAMING_SCALE * HERO_VERTICAL_FRAMING_SIGN;
   };
 
+  const resolveHeroTuning = (cameraConfig) => {
+    const configured = cameraConfig?.cameraHeroTuning || cameraConfig?.camera?.heroTuning;
+    const tuning = { ...DEFAULT_HERO_TUNING };
+    let source = 'defaults';
+
+    if (configured && typeof configured === 'object') {
+      Object.keys(DEFAULT_HERO_TUNING).forEach((key) => {
+        const value = configured[key];
+        if (typeof value === 'number' && Number.isFinite(value)) {
+          tuning[key] = value;
+          source = 'camera.heroTuning';
+        }
+      });
+    }
+
+    return { tuning, source };
+  };
+
   const resolveHeroFilmOffsetX = (center) => {
     const configuredFilmOffsetX = config?.cameraComposition?.hero?.filmOffsetX;
     if (typeof configuredFilmOffsetX === "number" && Number.isFinite(configuredFilmOffsetX)) {
@@ -399,17 +419,17 @@ const UnifiedCameraController = ({
   };
 
 
-  const updateAuthoritativeHeroCamera = ({ elapsed, center, filmOffsetX = 0 }) => {
-    const angle = HERO_AUTH_BASE_ANGLE + elapsed * HERO_AUTH_ORBIT_SPEED;
+  const updateAuthoritativeHeroCamera = ({ elapsed, center, filmOffsetX = 0, tuning }) => {
+    const angle = tuning.baseAngle + elapsed * tuning.orbitSpeed;
 
     camera.position.set(
-      center.x + Math.sin(angle) * HERO_AUTH_RADIUS,
-      center.y + HERO_AUTH_HEIGHT,
-      center.z + Math.cos(angle) * HERO_AUTH_RADIUS,
+      center.x + Math.sin(angle) * tuning.radius,
+      center.y + tuning.height,
+      center.z + Math.cos(angle) * tuning.radius,
     );
 
     const lookAtTarget = newLookAtTempRef.current.copy(center);
-    lookAtTarget.y += HERO_AUTH_LOOK_AT_Y_OFFSET;
+    lookAtTarget.y += tuning.lookAtYOffset;
 
     camera.lookAt(lookAtTarget);
     camera.filmOffset = Number.isFinite(filmOffsetX) ? filmOffsetX : 0;
@@ -1234,20 +1254,23 @@ const UnifiedCameraController = ({
 
     if (isAuthoritativePlainHero) {
       const center = getHeroOrbitCenter();
+      const { tuning, source: tuningSource } = resolveHeroTuning(config);
       const configuredFilmOffsetX = config?.cameraComposition?.hero?.filmOffsetX;
       const resolvedFilmOffsetX = Number.isFinite(configuredFilmOffsetX) ? configuredFilmOffsetX : 0;
       const lookAtTarget = updateAuthoritativeHeroCamera({
         elapsed: state.clock.elapsedTime,
         center,
         filmOffsetX: resolvedFilmOffsetX,
+        tuning,
       });
       if (shouldLogBranch) {
         console.log('[UCC AUTHORITATIVE HERO]', {
-          radius: HERO_AUTH_RADIUS,
-          height: HERO_AUTH_HEIGHT,
-          orbitSpeed: HERO_AUTH_ORBIT_SPEED,
-          baseAngle: HERO_AUTH_BASE_ANGLE,
-          lookAtYOffset: HERO_AUTH_LOOK_AT_Y_OFFSET,
+          radius: tuning.radius,
+          height: tuning.height,
+          orbitSpeed: tuning.orbitSpeed,
+          baseAngle: tuning.baseAngle,
+          lookAtYOffset: tuning.lookAtYOffset,
+          tuningSource,
           filmOffsetX: resolvedFilmOffsetX,
           center: center.toArray(),
           cameraPosition: camera.position.toArray(),

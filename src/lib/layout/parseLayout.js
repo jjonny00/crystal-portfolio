@@ -1,5 +1,14 @@
 import { Vector3 } from 'three';
 
+
+const DEFAULT_HERO_TUNING = {
+  radius: 7,
+  height: 0.8,
+  orbitSpeed: 0.08,
+  baseAngle: 0,
+  lookAtYOffset: 0,
+};
+
 const FORMAT_HELP =
   'Expected { schemaVersion: 2, anchors: { overviewWorld: { [facetKey]: [x, y, z] } }, camera?: { positions?, targets?, offsets?, projects? }, projects?: { explodedPositions?, facetRotationsEulerDeg?, selectedFacetRotationsEulerDeg? }, ... }';
 
@@ -93,6 +102,22 @@ const parseComposition = (composition, path) => {
       parsed.hero = { filmOffsetX: composition.hero.filmOffsetX };
     }
   }
+  return parsed;
+};
+
+const parseHeroTuning = (heroTuning, path) => {
+  assertObject(heroTuning, path);
+  const parsed = {};
+
+  Object.keys(DEFAULT_HERO_TUNING).forEach((key) => {
+    if (heroTuning[key] !== undefined) {
+      if (typeof heroTuning[key] !== 'number' || !Number.isFinite(heroTuning[key])) {
+        throw new Error(`Invalid layout at ${path}.${key}: expected finite number. ${FORMAT_HELP}`);
+      }
+      parsed[key] = heroTuning[key];
+    }
+  });
+
   return parsed;
 };
 
@@ -210,6 +235,10 @@ export const parseLayout = (rawLayout) => {
 
     if (rawLayout.camera.composition !== undefined) {
       camera.composition = parseComposition(rawLayout.camera.composition, 'camera.composition');
+    }
+
+    if (rawLayout.camera.heroTuning !== undefined) {
+      camera.heroTuning = parseHeroTuning(rawLayout.camera.heroTuning, 'camera.heroTuning');
     }
 
     parsed.camera = camera;
