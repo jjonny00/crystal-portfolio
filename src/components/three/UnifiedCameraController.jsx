@@ -184,6 +184,7 @@ const UnifiedCameraController = ({
     to: null,
   });
   const heroToOverviewHandoffPendingRef = useRef(null);
+  const heroToOverviewHandoffLockFramesRef = useRef(0);
   const heroToOverviewTraceRef = useRef([]);
   const heroToOverviewTraceMetaRef = useRef({ active: false, endTime: 0, forcedFinal: null, prevSample: null });
   const lastCameraWriteSecondRef = useRef(-1);
@@ -1890,6 +1891,7 @@ const UnifiedCameraController = ({
           finalLookAt: transition.to.lookAtTarget.clone(),
           finalFilmOffset: camera.filmOffset,
         };
+        heroToOverviewHandoffLockFramesRef.current = 2;
         console.log('[UCC FORCE HERO TO OVERVIEW COMPLETE]', {
           finalPosition: camera.position.toArray(),
           finalLookAt: transition.to.lookAtTarget.toArray(),
@@ -2449,6 +2451,27 @@ const UnifiedCameraController = ({
           nextOverviewFilmOffset: camera.filmOffset,
         });
       }
+    }
+
+    if (heroToOverviewHandoffLockFramesRef.current > 0 && animationData?.cameraState === 'overview') {
+      heroToOverviewHandoffLockFramesRef.current -= 1;
+      const pending = heroToOverviewHandoffPendingRef.current;
+      if (pending) {
+        camera.position.copy(pending.finalPosition);
+        camera.lookAt(pending.finalLookAt);
+        camera.filmOffset = pending.finalFilmOffset;
+        camera.updateProjectionMatrix();
+        currentTarget.current.position.copy(pending.finalPosition);
+        currentTarget.current.lookAt.copy(pending.finalLookAt);
+        currentTarget.current.fov = camera.fov;
+        logCameraWrite(state, "FORCED_HERO_TO_OVERVIEW", "handoff-lock-frame", pending.finalLookAt, true, true);
+        if (heroToOverviewHandoffLockFramesRef.current <= 0) {
+          heroToOverviewHandoffPendingRef.current = null;
+        }
+        return;
+      }
+    } else if (heroToOverviewHandoffLockFramesRef.current > 0) {
+      heroToOverviewHandoffLockFramesRef.current = 0;
       heroToOverviewHandoffPendingRef.current = null;
     }
 
