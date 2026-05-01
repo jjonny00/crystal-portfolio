@@ -142,6 +142,8 @@ const UnifiedCameraController = ({
   });
   const authoritativeHeroIntroCapturedRef = useRef(false);
   const heroOrbitStartTimeRef = useRef(0);
+  const explosionSyncStartRef = useRef(null);
+  const explosionFirstFrameLoggedRef = useRef(false);
   const lastCameraWriteSecondRef = useRef(-1);
   const lastCameraWriterRef = useRef('none');
   const prevStateRef = useRef(animationData?.state ?? null);
@@ -169,7 +171,7 @@ const UnifiedCameraController = ({
     }
   };
 
-  const syncFractureTiltState = () => {
+  const syncFractureTiltState = (elapsedSeconds = 0) => {
     const currentCrystalForm = animationData?.crystalForm ?? 'whole';
     const previousCrystalForm = lastCrystalFormRef.current;
 
@@ -177,9 +179,60 @@ const UnifiedCameraController = ({
       const shouldApplyHeroFractureTilt = animationData?.cameraState === 'hero';
 
       if (shouldApplyHeroFractureTilt) {
-        // Snap to the current target immediately when fracture starts so the off-kilter pose is instant.
-        camera.position.copy(currentTarget.current.position);
-        camera.lookAt(currentTarget.current.lookAt);
+        const isPlainHero =
+          animationData?.state === 'hero' &&
+          animationData?.cameraState === 'hero' &&
+          !animationData?.focusedProject &&
+          !animationData?.focusedFacet;
+        let seededFromAuthoritative = false;
+        let authoritativeSnapshot = null;
+        if (isPlainHero) {
+          const beforeSyncPosition = camera.position.clone();
+          const center = getHeroOrbitCenter();
+          const { tuning } = resolveHeroTuning(config);
+          const filmOffsetX = resolveHeroFilmOffsetX(center).value;
+          authoritativeSnapshot = getCurrentAuthoritativeHeroSnapshot({
+            elapsed: elapsedSeconds,
+            center,
+            tuning,
+            filmOffsetX,
+            orbitStartTime: heroOrbitStartTimeRef.current,
+          });
+          camera.position.copy(authoritativeSnapshot.position);
+          camera.lookAt(authoritativeSnapshot.lookAtTarget);
+          camera.filmOffset = authoritativeSnapshot.filmOffsetX;
+          camera.updateProjectionMatrix();
+          currentTarget.current.position.copy(authoritativeSnapshot.position);
+          currentTarget.current.lookAt.copy(authoritativeSnapshot.lookAtTarget);
+          seededFromAuthoritative = true;
+          explosionSyncStartRef.current = {
+            startPosition: authoritativeSnapshot.position.clone(),
+            startLookAt: authoritativeSnapshot.lookAtTarget.clone(),
+            destinationPosition: currentTarget.current.position.clone(),
+            destinationLookAt: currentTarget.current.lookAt.clone(),
+          };
+          explosionFirstFrameLoggedRef.current = false;
+          console.log('[UCC EXPLOSION SYNC START]', {
+            state: animationData?.state,
+            cameraState: animationData?.cameraState,
+            focusedProject: animationData?.focusedProject ?? null,
+            focusedFacet: animationData?.focusedFacet ?? null,
+            cameraPositionBeforeSync: beforeSyncPosition.toArray(),
+            authoritativeSnapshotPosition: authoritativeSnapshot.position.toArray(),
+            authoritativeSnapshotLookAtTarget: authoritativeSnapshot.lookAtTarget.toArray(),
+            authoritativeSnapshotFilmOffsetX: authoritativeSnapshot.filmOffsetX,
+            transitionStartPositionAfterSync: camera.position.toArray(),
+            transitionStartLookAtAfterSync: currentTarget.current.lookAt.toArray(),
+            transitionDestinationPosition: currentTarget.current.position.toArray(),
+            transitionDestinationLookAt: currentTarget.current.lookAt.toArray(),
+            legacyHeroStartUsed: false,
+          });
+        }
+        if (!seededFromAuthoritative) {
+          // Snap to the current target immediately when fracture starts so the off-kilter pose is instant.
+          camera.position.copy(currentTarget.current.position);
+          camera.lookAt(currentTarget.current.lookAt);
+        }
         fractureTiltRef.current = FRACTURE_TILT_RADIANS;
         fractureTiltActiveRef.current = true;
         fractureTiltAnchorPositionRef.current.copy(camera.position);
@@ -460,6 +513,16 @@ const UnifiedCameraController = ({
       angle,
       elapsed,
     };
+  };
+
+  const getCurrentAuthoritativeHeroSnapshot = ({ elapsed, center, tuning, filmOffsetX, orbitStartTime }) => {
+    const orbitElapsed = elapsed - orbitStartTime;
+    return getAuthoritativeHeroCameraSnapshot({
+      elapsed: orbitElapsed,
+      center,
+      tuning,
+      filmOffsetX,
+    });
   };
 
   const syncHeroCameraRefs = (reason, { resetPosition = false } = {}) => {
@@ -1212,7 +1275,7 @@ const UnifiedCameraController = ({
   };
 
   useFrame((state, deltaTime) => {
-    syncFractureTiltState();
+    syncFractureTiltState(state.clock.elapsedTime);
 
     const debugSecond = Math.floor(state.clock.elapsedTime);
 
@@ -1392,6 +1455,18 @@ const UnifiedCameraController = ({
       animationData?.crystalForm === 'exploded' &&
       animationData?.cameraState === 'hero'
     ) {
+      if (!explosionFirstFrameLoggedRef.current && explosionSyncStartRef.current) {
+        explosionFirstFrameLoggedRef.current = true;
+        const start = explosionSyncStartRef.current;
+        console.log('[UCC EXPLOSION FIRST FRAME]', {
+          cameraPosition: camera.position.toArray(),
+          lookAtTarget: fractureTiltAnchorLookAtRef.current.toArray(),
+          filmOffset: camera.filmOffset,
+          transitionProgress: 0,
+          startPosition: start.startPosition.toArray(),
+          destinationPosition: start.destinationPosition.toArray(),
+        });
+      }
       camera.position.copy(fractureTiltAnchorPositionRef.current);
       currentTarget.current.position.copy(fractureTiltAnchorPositionRef.current);
       camera.lookAt(fractureTiltAnchorLookAtRef.current);
