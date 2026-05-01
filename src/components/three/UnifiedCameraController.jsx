@@ -79,6 +79,7 @@ const UnifiedCameraController = ({
   const orbitInitDelayRef = useRef(0);
   const ORBIT_DELAY_FRAMES = 30; // Wait 30 frames after settling before starting orbit
   const FORCE_AUTHORITATIVE_HERO_TO_OVERVIEW_TRANSITION = true;
+  const FORCE_AUTHORITATIVE_OVERVIEW_TO_HERO_TRANSITION = true;
   const DEFAULT_HERO_TUNING = {
     radius: 7,
     height: 0.8,
@@ -165,6 +166,13 @@ const UnifiedCameraController = ({
     destinationFilmOffset: 0,
   });
   const authoritativeHeroToOverviewTransitionRef = useRef({
+    active: false,
+    startTime: 0,
+    duration: 1.0,
+    from: null,
+    to: null,
+  });
+  const authoritativeOverviewToHeroTransitionRef = useRef({
     active: false,
     startTime: 0,
     duration: 1.0,
@@ -1499,38 +1507,129 @@ const UnifiedCameraController = ({
       if (!fromSnapshot) {
         console.warn('[UCC FORCE HERO TO OVERVIEW START] Missing hero snapshot; skipping forced transition start');
       } else {
-      const overviewPosition = toVector3(config?.cameraPositions?.overview)
-        .add(toVector3(config?.cameraOffsets?.global?.position))
-        .add(toVector3(config?.cameraOffsets?.zones?.overview?.position));
-      const overviewLookAt = toVector3(config?.cameraTargets?.overview)
-        .add(toVector3(config?.cameraOffsets?.global?.target))
-        .add(toVector3(config?.cameraOffsets?.zones?.overview?.target));
-      authoritativeHeroToOverviewTransitionRef.current = {
+        const overviewPosition = toVector3(config?.cameraPositions?.overview)
+          .add(toVector3(config?.cameraOffsets?.global?.position))
+          .add(toVector3(config?.cameraOffsets?.zones?.overview?.position));
+        const overviewLookAt = toVector3(config?.cameraTargets?.overview)
+          .add(toVector3(config?.cameraOffsets?.global?.target))
+          .add(toVector3(config?.cameraOffsets?.zones?.overview?.target));
+        authoritativeHeroToOverviewTransitionRef.current = {
+          active: true,
+          startTime: state.clock.elapsedTime,
+          duration: 1.0,
+          from: {
+            position: fromSnapshot.position.clone(),
+            lookAtTarget: fromSnapshot.lookAtTarget.clone(),
+            filmOffsetX: Number.isFinite(fromSnapshot.filmOffsetX) ? fromSnapshot.filmOffsetX : camera.filmOffset,
+            source: heroExitSnapshotRef.current ? 'heroExitSnapshot' : 'latestAuthoritativeHeroSnapshot',
+          },
+          to: {
+            position: overviewPosition.clone(),
+            lookAtTarget: overviewLookAt.clone(),
+            filmOffsetX: 0,
+          },
+        };
+        console.log('[UCC FORCE HERO TO OVERVIEW START]', {
+          fromSource: authoritativeHeroToOverviewTransitionRef.current.from.source,
+          fromPosition: authoritativeHeroToOverviewTransitionRef.current.from.position.toArray(),
+          fromLookAt: authoritativeHeroToOverviewTransitionRef.current.from.lookAtTarget.toArray(),
+          fromFilmOffset: authoritativeHeroToOverviewTransitionRef.current.from.filmOffsetX,
+          toPosition: authoritativeHeroToOverviewTransitionRef.current.to.position.toArray(),
+          toLookAt: authoritativeHeroToOverviewTransitionRef.current.to.lookAtTarget.toArray(),
+          toFilmOffset: authoritativeHeroToOverviewTransitionRef.current.to.filmOffsetX,
+        });
+      }
+    }
+
+    const cameFromNonHeroState = prevState !== 'hero' || prevCameraState !== 'hero';
+    const shouldForceOverviewToHeroTransition =
+      FORCE_AUTHORITATIVE_OVERVIEW_TO_HERO_TRANSITION &&
+      !wasPlainHero &&
+      isAuthoritativePlainHero &&
+      cameFromNonHeroState;
+    if (shouldForceOverviewToHeroTransition && !authoritativeOverviewToHeroTransitionRef.current.active) {
+      const center = getHeroOrbitCenter();
+      const { tuning } = resolveHeroTuning(config);
+      const resolvedHeroFilmOffsetX = resolveHeroFilmOffsetX(center).value;
+      const heroDestination = getAuthoritativeHeroCameraSnapshot({
+        center,
+        tuning,
+        filmOffsetX: resolvedHeroFilmOffsetX,
+        angleOverride: tuning.baseAngle,
+      });
+      const fromLookAt =
+        currentTarget.current?.lookAt?.clone?.() ||
+        toVector3(config?.cameraTargets?.overview)
+          .add(toVector3(config?.cameraOffsets?.global?.target))
+          .add(toVector3(config?.cameraOffsets?.zones?.overview?.target));
+      authoritativeOverviewToHeroTransitionRef.current = {
         active: true,
         startTime: state.clock.elapsedTime,
         duration: 1.0,
         from: {
-          position: fromSnapshot.position.clone(),
-          lookAtTarget: fromSnapshot.lookAtTarget.clone(),
-          filmOffsetX: Number.isFinite(fromSnapshot.filmOffsetX) ? fromSnapshot.filmOffsetX : camera.filmOffset,
-          source: heroExitSnapshotRef.current ? 'heroExitSnapshot' : 'latestAuthoritativeHeroSnapshot',
+          position: camera.position.clone(),
+          lookAtTarget: fromLookAt,
+          filmOffsetX: Number.isFinite(camera.filmOffset) ? camera.filmOffset : 0,
+          source: currentTarget.current?.lookAt ? 'currentTarget.lookAt' : 'overviewDestinationFallback',
         },
         to: {
-          position: overviewPosition.clone(),
-          lookAtTarget: overviewLookAt.clone(),
-          filmOffsetX: 0,
+          position: heroDestination.position.clone(),
+          lookAtTarget: heroDestination.lookAtTarget.clone(),
+          filmOffsetX: Number.isFinite(heroDestination.filmOffsetX) ? heroDestination.filmOffsetX : 0,
+          source: 'authoritativeHeroSnapshot(baseAngle)',
         },
       };
-      console.log('[UCC FORCE HERO TO OVERVIEW START]', {
-        fromSource: authoritativeHeroToOverviewTransitionRef.current.from.source,
-        fromPosition: authoritativeHeroToOverviewTransitionRef.current.from.position.toArray(),
-        fromLookAt: authoritativeHeroToOverviewTransitionRef.current.from.lookAtTarget.toArray(),
-        fromFilmOffset: authoritativeHeroToOverviewTransitionRef.current.from.filmOffsetX,
-        toPosition: authoritativeHeroToOverviewTransitionRef.current.to.position.toArray(),
-        toLookAt: authoritativeHeroToOverviewTransitionRef.current.to.lookAtTarget.toArray(),
-        toFilmOffset: authoritativeHeroToOverviewTransitionRef.current.to.filmOffsetX,
+      console.log('[UCC FORCE OVERVIEW TO HERO START]', {
+        fromPosition: authoritativeOverviewToHeroTransitionRef.current.from.position.toArray(),
+        fromLookAt: authoritativeOverviewToHeroTransitionRef.current.from.lookAtTarget.toArray(),
+        fromFilmOffset: authoritativeOverviewToHeroTransitionRef.current.from.filmOffsetX,
+        toPosition: authoritativeOverviewToHeroTransitionRef.current.to.position.toArray(),
+        toLookAt: authoritativeOverviewToHeroTransitionRef.current.to.lookAtTarget.toArray(),
+        toFilmOffset: authoritativeOverviewToHeroTransitionRef.current.to.filmOffsetX,
+        fromSource: authoritativeOverviewToHeroTransitionRef.current.from.source,
+        toSource: authoritativeOverviewToHeroTransitionRef.current.to.source,
       });
+    }
+
+    if (authoritativeOverviewToHeroTransitionRef.current.active) {
+      const transition = authoritativeOverviewToHeroTransitionRef.current;
+      const progress = THREE.MathUtils.clamp(
+        (state.clock.elapsedTime - transition.startTime) / transition.duration,
+        0,
+        1,
+      );
+      const eased = 1 - Math.pow(1 - progress, 3);
+      camera.position.lerpVectors(transition.from.position, transition.to.position, eased);
+      const forcedLookAt = introLookAtTempRef.current.lerpVectors(
+        transition.from.lookAtTarget,
+        transition.to.lookAtTarget,
+        eased,
+      );
+      camera.lookAt(forcedLookAt);
+      camera.filmOffset = THREE.MathUtils.lerp(transition.from.filmOffsetX, transition.to.filmOffsetX, eased);
+      camera.updateProjectionMatrix();
+      console.log('[UCC FORCE OVERVIEW TO HERO FRAME]', {
+        progress,
+        currentPosition: camera.position.toArray(),
+        currentLookAt: forcedLookAt.toArray(),
+        filmOffset: camera.filmOffset,
+      });
+      if (progress >= 1) {
+        camera.position.copy(transition.to.position);
+        camera.lookAt(transition.to.lookAtTarget);
+        camera.filmOffset = transition.to.filmOffsetX;
+        camera.updateProjectionMatrix();
+        heroOrbitStartTimeRef.current = state.clock.elapsedTime;
+        authoritativeOverviewToHeroTransitionRef.current.active = false;
+        console.log('[UCC FORCE OVERVIEW TO HERO COMPLETE]', {
+          finalPosition: camera.position.toArray(),
+          finalLookAt: transition.to.lookAtTarget.toArray(),
+          finalFilmOffset: camera.filmOffset,
+          nextState: animationData?.state,
+          nextCameraState: animationData?.cameraState,
+        });
       }
+      return;
     }
 
     if (isReturnToHero && isAuthoritativePlainHero) {
