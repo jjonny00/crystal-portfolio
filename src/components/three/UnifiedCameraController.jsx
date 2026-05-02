@@ -1560,7 +1560,7 @@ const UnifiedCameraController = ({
           progress: 0,
           divergenceWarned: false,
           startTime: state.clock.elapsedTime,
-          duration: 1.0,
+          duration: 1.45,
           from: {
             position: camera.position.clone(),
             lookAtTarget: liveLookAtAtStart,
