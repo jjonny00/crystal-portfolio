@@ -174,7 +174,6 @@ const UnifiedCameraController = ({
     startTime: 0,
     duration: 1.0,
     from: null,
-    waypoint: null,
     to: null,
   });
   const authoritativeOverviewToHeroTransitionRef = useRef({
@@ -1569,11 +1568,6 @@ const UnifiedCameraController = ({
             filmOffsetX: authoritativeFromFilmOffset,
             source: 'authoritativeHeroSnapshot',
           },
-          waypoint: {
-            position: authoritativeFromPosition.clone().add(new THREE.Vector3(0, 0, 0.75)),
-            lookAtTarget: authoritativeFromLookAt.clone(),
-            filmOffsetX: authoritativeFromFilmOffset,
-          },
           to: {
             position: overviewPosition.clone(),
             lookAtTarget: overviewLookAt.clone(),
@@ -1875,40 +1869,21 @@ const UnifiedCameraController = ({
 
     if (authoritativeHeroToOverviewTransitionRef.current.active) {
       const transition = authoritativeHeroToOverviewTransitionRef.current;
-      const SPLIT = 0.58;
-      const PULLBACK_DISTANCE = 0.75;
       const frameDelta = Number.isFinite(delta) ? delta : 0;
       const safeDelta = Math.min(frameDelta, MAX_FORCED_TRANSITION_DELTA);
       transition.progress = Math.min(1, transition.progress + (safeDelta / transition.duration));
       const accumulatedProgress = THREE.MathUtils.clamp(transition.progress, 0, 1);
       const elapsedProgress = THREE.MathUtils.clamp((state.clock.elapsedTime - transition.startTime) / transition.duration, 0, 1);
-      const smoothstep = (v) => {
-        const p = THREE.MathUtils.clamp(v, 0, 1);
-        return p * p * p * (p * (p * 6 - 15) + 10);
-      };
-      const waypoint = transition.waypoint || {
-        position: transition.from.position.clone().add(new THREE.Vector3(0, 0, PULLBACK_DISTANCE)),
-        lookAtTarget: transition.from.lookAtTarget,
-        filmOffsetX: transition.from.filmOffsetX,
-      };
-      const isPullbackPhase = accumulatedProgress <= SPLIT;
-      const localRawProgress = isPullbackPhase
-        ? (SPLIT <= 0 ? 1 : (accumulatedProgress / SPLIT))
-        : ((1 - SPLIT) <= 0 ? 1 : ((accumulatedProgress - SPLIT) / (1 - SPLIT)));
-      const localProgress = smoothstep(localRawProgress);
-      const easedProgress = localProgress;
-      if (isPullbackPhase) {
-        camera.position.lerpVectors(transition.from.position, waypoint.position, localProgress);
-      } else {
-        camera.position.lerpVectors(waypoint.position, transition.to.position, localProgress);
-      }
-      const forcedLookAt = isPullbackPhase
-        ? introLookAtTempRef.current.copy(transition.from.lookAtTarget)
-        : introLookAtTempRef.current.lerpVectors(waypoint.lookAtTarget, transition.to.lookAtTarget, localProgress);
+      const p = THREE.MathUtils.clamp(accumulatedProgress, 0, 1);
+      const easedProgress = p * p * p * (p * (p * 6 - 15) + 10);
+      camera.position.lerpVectors(transition.from.position, transition.to.position, easedProgress);
+      const forcedLookAt = introLookAtTempRef.current.lerpVectors(
+        transition.from.lookAtTarget,
+        transition.to.lookAtTarget,
+        easedProgress,
+      );
       camera.lookAt(forcedLookAt);
-      camera.filmOffset = isPullbackPhase
-        ? waypoint.filmOffsetX
-        : THREE.MathUtils.lerp(waypoint.filmOffsetX, transition.to.filmOffsetX, localProgress);
+      camera.filmOffset = THREE.MathUtils.lerp(transition.from.filmOffsetX, transition.to.filmOffsetX, easedProgress);
       camera.updateProjectionMatrix();
       logCameraWrite(state, "FORCED_HERO_TO_OVERVIEW", "forced-hero-to-overview-frame", forcedLookAt, true, true);
       if (!transition.divergenceWarned && Math.abs(accumulatedProgress - elapsedProgress) > 0.05) {
@@ -1923,26 +1898,6 @@ const UnifiedCameraController = ({
           easedProgress: round4(easedProgress),
         });
       }
-      if (shouldLogBranch) {
-        console.log('[UCC FORCED HERO TO OVERVIEW PROGRESS]', {
-          elapsedProgress: round4(elapsedProgress),
-          accumulatedProgress: round4(accumulatedProgress),
-          split: round4(SPLIT),
-          pullbackDistance: round4(PULLBACK_DISTANCE),
-          phase: isPullbackPhase ? 'pullback' : 'settle',
-          localProgress: round4(localProgress),
-          frameDelta: round4(frameDelta),
-          safeDelta: round4(safeDelta),
-          maxDelta: round4(MAX_FORCED_TRANSITION_DELTA),
-          easedProgress: round4(easedProgress),
-          currentPosition: camera.position.toArray(),
-          currentLookAt: forcedLookAt.toArray(),
-          currentFilmOffset: round4(camera.filmOffset),
-          waypointPosition: waypoint.position.toArray(),
-          waypointLookAt: waypoint.lookAtTarget.toArray(),
-          waypointFilmOffset: round4(waypoint.filmOffsetX),
-        });
-      }
       if (TRACE_HERO_TO_OVERVIEW_CAMERA_STATE && heroToOverviewTraceMetaRef.current.active) {
         const meta = heroToOverviewTraceMetaRef.current;
         const prev = meta.prevSample;
@@ -1951,13 +1906,13 @@ const UnifiedCameraController = ({
         const previousSampleTime = prev?.t ?? null;
         const sample = {
           t: sampleTime,
-          phase: isPullbackPhase ? 'pullback' : 'settle',
+          phase: 'forced-transition',
           progress: round4(accumulatedProgress),
           elapsedProgress: round4(elapsedProgress),
           easedProgress: round4(easedProgress),
-          positionProgress: round4(localProgress),
-          lookAtProgress: round4(isPullbackPhase ? 0 : localProgress),
-          filmOffsetProgress: round4(isPullbackPhase ? 0 : localProgress),
+          positionProgress: round4(easedProgress),
+          lookAtProgress: round4(easedProgress),
+          filmOffsetProgress: round4(easedProgress),
           moveProgress: round4(easedProgress),
           isHolding: null,
           state: animationData?.state ?? null,
