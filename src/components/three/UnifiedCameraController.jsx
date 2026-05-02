@@ -2509,7 +2509,7 @@ const UnifiedCameraController = ({
 
     if (animationData.state === 'hero' && animationData.cameraState === 'hero' && isOrbitingRef.current) {
       if (shouldLogBranch) console.log('[UCC BRANCH] HERO_ORBIT');
-      const deltaMultiplier = deltaTime * 60;
+      const deltaMultiplier = delta * 60;
       const speed = animationData.cameraConfig?.orbitSpeed || 0.00018;
       const nowMs = state.clock.elapsedTime * 1000;
       const idleMs = lastPointerMoveTimeRef.current
@@ -2523,14 +2523,14 @@ const UnifiedCameraController = ({
         }
       }
 
-      const responseLerp = Math.min(Math.max(1 - Math.exp(-6 * deltaTime), 0.02), 0.12);
+      const responseLerp = Math.min(Math.max(1 - Math.exp(-6 * delta), 0.02), 0.12);
       orbitVelocityRef.current.lerp(targetOrbitVelocityRef.current, responseLerp);
       const velocityDecay = Math.pow(0.997, deltaMultiplier);
       orbitVelocityRef.current.multiplyScalar(velocityDecay);
       orbitVelocityRef.current.clampLength(0, POINTER_MAX_SPEED);
 
       const userActive = orbitVelocityRef.current.lengthSq() > 1e-6 ? 1 : 0;
-      const influenceLerp = Math.min(Math.max(deltaTime * 5, 0.02), 0.2);
+      const influenceLerp = Math.min(Math.max(delta * 5, 0.02), 0.2);
 
       userControlStrengthRef.current += (userActive - userControlStrengthRef.current) * influenceLerp;
       const idleSeconds = idleMs / 1000;
@@ -2660,7 +2660,7 @@ const UnifiedCameraController = ({
     }
 
     // FIXED: Use exponential smoothing with clamping
-    const smoothingFactor = 1 - Math.exp(-6 * deltaTime);
+    const smoothingFactor = 1 - Math.exp(-6 * delta);
     const clampedSmoothing = Math.min(Math.max(smoothingFactor, 0.01), 0.15);
 
     // Smooth position interpolation
