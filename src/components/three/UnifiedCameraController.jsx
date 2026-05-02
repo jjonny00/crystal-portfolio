@@ -81,6 +81,7 @@ const UnifiedCameraController = ({
   const FORCE_AUTHORITATIVE_HERO_TO_OVERVIEW_TRANSITION = true;
   const FORCE_AUTHORITATIVE_OVERVIEW_TO_HERO_TRANSITION = true;
   const FORCE_LOCK_HERO_TO_OVERVIEW_CAMERA = false;
+  const HERO_TO_OVERVIEW_PRE_DELAY = 0.25;
   const MAX_FORCED_TRANSITION_DELTA = 1 / 60;
   const TRACE_HERO_TO_OVERVIEW_CAMERA_STATE = true;
   const DEFAULT_HERO_TUNING = {
@@ -172,6 +173,8 @@ const UnifiedCameraController = ({
     active: false,
     progress: 0,
     divergenceWarned: false,
+    delayElapsed: 0,
+    delayStartLogged: false,
     startTime: 0,
     duration: 1.0,
     from: null,
@@ -1561,6 +1564,8 @@ const UnifiedCameraController = ({
           active: true,
           progress: 0,
           divergenceWarned: false,
+          delayElapsed: 0,
+          delayStartLogged: false,
           startTime: state.clock.elapsedTime,
           duration: 1.45,
           from: {
@@ -1873,6 +1878,36 @@ const UnifiedCameraController = ({
       const COMPOSITION_DELAY = 0.38;
       const frameDelta = Number.isFinite(delta) ? delta : 0;
       const safeDelta = Math.min(frameDelta, MAX_FORCED_TRANSITION_DELTA);
+      if (transition.delayElapsed < HERO_TO_OVERVIEW_PRE_DELAY) {
+        transition.delayElapsed = Math.min(HERO_TO_OVERVIEW_PRE_DELAY, transition.delayElapsed + safeDelta);
+        camera.position.copy(transition.from.position);
+        const delayLookAt = introLookAtTempRef.current.copy(transition.from.lookAtTarget);
+        camera.lookAt(delayLookAt);
+        camera.filmOffset = transition.from.filmOffsetX;
+        camera.updateProjectionMatrix();
+        if (shouldLogBranch) {
+          console.log('[UCC HERO TO OVERVIEW PRE DELAY]', {
+            delayElapsed: round4(transition.delayElapsed),
+            delayDuration: round4(HERO_TO_OVERVIEW_PRE_DELAY),
+            lockedPosition: camera.position.toArray(),
+            lockedLookAt: delayLookAt.toArray(),
+            lockedFilmOffset: round4(camera.filmOffset),
+          });
+        }
+        return;
+      }
+      if (!transition.delayStartLogged) {
+        transition.delayStartLogged = true;
+        console.log('[UCC HERO TO OVERVIEW TRANSITION START AFTER DELAY]', {
+          progress: round4(transition.progress),
+          fromPosition: transition.from.position.toArray(),
+          fromLookAt: transition.from.lookAtTarget.toArray(),
+          fromFilmOffset: round4(transition.from.filmOffsetX),
+          toPosition: transition.to.position.toArray(),
+          toLookAt: transition.to.lookAtTarget.toArray(),
+          toFilmOffset: round4(transition.to.filmOffsetX),
+        });
+      }
       transition.progress = Math.min(1, transition.progress + (safeDelta / transition.duration));
       const accumulatedProgress = THREE.MathUtils.clamp(transition.progress, 0, 1);
       const elapsedProgress = THREE.MathUtils.clamp((state.clock.elapsedTime - transition.startTime) / transition.duration, 0, 1);
