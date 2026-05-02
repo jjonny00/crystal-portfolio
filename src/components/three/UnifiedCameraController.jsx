@@ -2093,10 +2093,26 @@ const UnifiedCameraController = ({
         const firstWarningGroup = firstWarningIndex === null
           ? []
           : warnings.filter((w) => w.i === firstWarningIndex);
+        const detailCenterIndex = firstWarningIndex ?? 19;
+        const detailStartIndex = Math.max(0, detailCenterIndex - 4);
+        const detailEndIndex = detailCenterIndex + 4;
         const detailRows = heroToOverviewTraceRef.current
           .map((row, absoluteIndex) => ({ row, absoluteIndex }))
-          .filter(({ absoluteIndex }) => absoluteIndex >= 6 && absoluteIndex <= 13)
-          .map(({ row, absoluteIndex }) => ({
+          .filter(({ absoluteIndex }) => absoluteIndex >= detailStartIndex && absoluteIndex <= detailEndIndex)
+          .map(({ row, absoluteIndex }) => {
+            const previousRow = absoluteIndex > 0 ? heroToOverviewTraceRef.current[absoluteIndex - 1] : null;
+            const rotationOrOrientationDiscontinuity = (row.deltaQuaternionAngleFromPreviousFrame ?? 0) > 0.05;
+            const lookAtDiscontinuity = (row.deltaLookAtFromPreviousFrame ?? 0) > 0.05;
+            const filmOffsetDiscontinuity = (row.deltaFilmOffsetFromPreviousFrame ?? 0) > 0.05;
+            const writerDiscontinuity = previousRow ? row.activeWriter !== previousRow.activeWriter : false;
+            const branchDiscontinuity = previousRow ? row.phase !== previousRow.phase : false;
+            const isLikelyCameraDiscontinuity =
+              rotationOrOrientationDiscontinuity ||
+              lookAtDiscontinuity ||
+              filmOffsetDiscontinuity ||
+              writerDiscontinuity ||
+              branchDiscontinuity;
+            return ({
             i: absoluteIndex,
             t: row.t ?? null,
             phase: row.phase ?? null,
@@ -2139,10 +2155,11 @@ const UnifiedCameraController = ({
             destinationLookAtZ: row.destinationLookAt?.z ?? null,
             previousSampleTime: row.previousSampleTime ?? null,
             deltaTimeFromPreviousSample: row.deltaTimeFromPreviousSample ?? null,
-            transitionStartTime: row.transitionStartTime ?? null,
             transitionElapsed: row.transitionElapsed ?? null,
             duration: row.duration ?? null,
-          }));
+            isLikelyCameraDiscontinuity,
+          });
+          });
         console.groupCollapsed('[UCC HERO TO OVERVIEW TRACE SUMMARY]');
         console.table(heroToOverviewTraceRef.current);
         console.log('[UCC HERO TO OVERVIEW TRACE WARNINGS]', warnings);
@@ -2151,7 +2168,7 @@ const UnifiedCameraController = ({
           JSON.stringify(firstWarningGroup, null, 2)
         );
         console.log(
-          '[UCC HERO TO OVERVIEW FIRST JUMP DETAIL JSON STRING]\n' +
+          '[UCC HERO TO OVERVIEW CURRENT FIRST JUMP DETAIL JSON STRING]\n' +
           JSON.stringify(detailRows, null, 2)
         );
         console.groupEnd();
