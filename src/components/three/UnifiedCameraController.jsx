@@ -1546,10 +1546,21 @@ const UnifiedCameraController = ({
       });
     }
     if (shouldForceHeroToOverviewTransition && !authoritativeHeroToOverviewTransitionRef.current.active) {
-      const fromSnapshot = heroExitSnapshotRef.current || latestAuthoritativeHeroSnapshotRef.current;
-      if (!fromSnapshot) {
-        console.warn('[UCC FORCE HERO TO OVERVIEW START] Missing hero snapshot; skipping forced transition start');
-      } else {
+      const heroExitSnapshot = heroExitSnapshotRef.current || null;
+      const latestAuthoritativeSnapshot = latestAuthoritativeHeroSnapshotRef.current || null;
+      const currentCameraFallback = {
+        position: camera.position.clone(),
+        lookAtTarget: currentTarget.current?.lookAt?.clone?.() || newLookAtTempRef.current.copy(camera.position).add(new THREE.Vector3(0, 0, -1)),
+        filmOffsetX: Number.isFinite(camera.filmOffset) ? camera.filmOffset : 0,
+      };
+      const fromSnapshot = heroExitSnapshot || latestAuthoritativeSnapshot || currentCameraFallback;
+      const fromSource = heroExitSnapshot
+        ? 'heroExitSnapshot'
+        : (latestAuthoritativeSnapshot ? 'latestAuthoritativeHeroSnapshot' : 'currentCameraFallback');
+      if (fromSource === 'currentCameraFallback') {
+        console.warn('[UCC FORCE HERO TO OVERVIEW START] Missing hero snapshots; using current camera fallback');
+      }
+      {
         const authoritativeFromPosition = fromSnapshot.position.clone();
         const authoritativeFromLookAt = fromSnapshot.lookAtTarget.clone();
         const authoritativeFromFilmOffset =
@@ -1574,7 +1585,7 @@ const UnifiedCameraController = ({
             position: authoritativeFromPosition,
             lookAtTarget: authoritativeFromLookAt,
             filmOffsetX: authoritativeFromFilmOffset,
-            source: 'authoritativeHeroSnapshot',
+            source: fromSource,
           },
           waypoint: {
             position: authoritativeFromPosition.clone().addScaledVector(dollyViewDir, DOLLY_DISTANCE),
@@ -1598,7 +1609,7 @@ const UnifiedCameraController = ({
         const forcedFromPosition = forcedFrom.position.clone();
         const forcedFromLookAt = forcedFrom.lookAtTarget.clone();
         const forcedFromFilmOffset = forcedFrom.filmOffsetX;
-        const lastAuthoritativeSnapshot = latestAuthoritativeHeroSnapshotRef.current || null;
+        const lastAuthoritativeSnapshot = latestAuthoritativeSnapshot;
         const lastAuthoritativePosition = lastAuthoritativeSnapshot?.position?.clone?.() || null;
         const lastAuthoritativeLookAt = lastAuthoritativeSnapshot?.lookAtTarget?.clone?.() || null;
         const lastAuthoritativeFilmOffset = lastAuthoritativeSnapshot?.filmOffsetX ?? null;
@@ -1632,10 +1643,25 @@ const UnifiedCameraController = ({
           currentState: animationData?.state ?? null,
           currentCameraState: animationData?.cameraState ?? null,
         };
-        console.log(
-          '[UCC HERO TO OVERVIEW START SOURCE VERIFY JSON STRING]\n' +
-          JSON.stringify(startSourceVerify, null, 2)
-        );
+        console.log('[UCC HERO TO OVERVIEW START SOURCE VERIFY JSON STRING]\n' + JSON.stringify(startSourceVerify, null, 2));
+        const heroExitPosition = heroExitSnapshot?.position?.clone?.() || null;
+        const captureVsStart = {
+          heroExitSnapshotPosition: heroExitPosition?.toArray?.() || null,
+          latestAuthoritativeHeroPosition: lastAuthoritativePosition?.toArray?.() || null,
+          currentCameraPositionAtForcedStart: currentCameraPositionAtStart.toArray(),
+          forcedFromPosition: forcedFromPosition.toArray(),
+          forcedFromSource: fromSource,
+          deltaHeroExitToForcedFrom: heroExitPosition ? round4(heroExitPosition.distanceTo(forcedFromPosition)) : null,
+          deltaLatestAuthoritativeToForcedFrom: lastAuthoritativePosition ? round4(lastAuthoritativePosition.distanceTo(forcedFromPosition)) : null,
+          deltaCurrentCameraToForcedFrom: round4(currentCameraPositionAtStart.distanceTo(forcedFromPosition)),
+          previousState: prevState ?? null,
+          previousCameraState: prevCameraState ?? null,
+          currentState: animationData?.state ?? null,
+          currentCameraState: animationData?.cameraState ?? null,
+          dollyDistance: 1.25,
+          dollySplit: 0.35,
+        };
+        console.log('[UCC HERO TO OVERVIEW CAPTURE VS START JSON STRING]\n' + JSON.stringify(captureVsStart, null, 2));
         console.log('[UCC FORCE HERO TO OVERVIEW START]', {
           fromSource: authoritativeHeroToOverviewTransitionRef.current.from.source,
           fromPosition: authoritativeHeroToOverviewTransitionRef.current.from.position.toArray(),
