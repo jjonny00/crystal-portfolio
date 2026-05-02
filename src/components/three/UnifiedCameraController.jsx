@@ -192,6 +192,7 @@ const UnifiedCameraController = ({
   const HERO_TO_OVERVIEW_HANDOFF_LOCK_FRAMES = 2;
   const heroToOverviewHandoffPendingRef = useRef(null);
   const heroToOverviewHandoffLockFramesRef = useRef(0);
+  const heroToOverviewTransitionStartedForExitRef = useRef(false);
   const heroToOverviewTraceRef = useRef([]);
   const heroToOverviewTraceMetaRef = useRef({ active: false, endTime: 0, forcedFinal: null, prevSample: null });
   const lastCameraWriteSecondRef = useRef(-1);
@@ -1530,12 +1531,39 @@ const UnifiedCameraController = ({
         reason: 'plain-hero-exit',
       });
     }
+    if (isAuthoritativePlainHero) {
+      heroToOverviewTransitionStartedForExitRef.current = false;
+    }
     previousWasPlainHeroRef.current = isAuthoritativePlainHero;
 
-    const shouldForceHeroToOverviewTransition =
+    const attemptedHeroToOverviewInit =
       FORCE_AUTHORITATIVE_HERO_TO_OVERVIEW_TRANSITION &&
       wasPlainHero &&
       !isAuthoritativePlainHero;
+    const alreadyActiveHeroToOverview = Boolean(authoritativeHeroToOverviewTransitionRef.current?.active);
+    const startedForExit = heroToOverviewTransitionStartedForExitRef.current;
+    const shouldForceHeroToOverviewTransition =
+      attemptedHeroToOverviewInit &&
+      !alreadyActiveHeroToOverview &&
+      !startedForExit;
+    if (attemptedHeroToOverviewInit && shouldLogBranch) {
+      console.log(
+        '[UCC HERO TO OVERVIEW INIT GUARD JSON STRING]\n' +
+        JSON.stringify({
+          attemptedInit: attemptedHeroToOverviewInit,
+          initialized: shouldForceHeroToOverviewTransition,
+          alreadyActive: alreadyActiveHeroToOverview,
+          startedForExit,
+          wasPlainHero,
+          isAuthoritativePlainHero,
+          previousWasPlainHeroRef: previousWasPlainHeroRef.current,
+          progress: round4(authoritativeHeroToOverviewTransitionRef.current?.progress),
+          delayElapsed: round4(authoritativeHeroToOverviewTransitionRef.current?.delayElapsed),
+          state: animationData?.state ?? null,
+          cameraState: animationData?.cameraState ?? null,
+        }, null, 2)
+      );
+    }
     if (shouldForceHeroToOverviewTransition && authoritativeHeroToOverviewTransitionRef.current.active) {
       console.warn('[UCC FORCED TRANSITION RETRIGGER WARNING]', {
         previousStartTime: authoritativeHeroToOverviewTransitionRef.current.startTime,
@@ -1559,6 +1587,7 @@ const UnifiedCameraController = ({
       if (fromSource === 'currentCameraFallback') {
         console.warn('[UCC FORCE HERO TO OVERVIEW START] Missing hero snapshots; using current camera fallback');
       }
+      heroToOverviewTransitionStartedForExitRef.current = true;
       {
         const authoritativeFromPosition = fromSnapshot.position.clone();
         const authoritativeFromLookAt = fromSnapshot.lookAtTarget.clone();
