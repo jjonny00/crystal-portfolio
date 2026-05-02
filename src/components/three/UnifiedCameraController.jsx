@@ -80,6 +80,7 @@ const UnifiedCameraController = ({
   const ORBIT_DELAY_FRAMES = 30; // Wait 30 frames after settling before starting orbit
   const FORCE_AUTHORITATIVE_HERO_TO_OVERVIEW_TRANSITION = true;
   const FORCE_AUTHORITATIVE_OVERVIEW_TO_HERO_TRANSITION = true;
+  const FORCE_LOCK_HERO_TO_OVERVIEW_CAMERA = true;
   const MAX_FORCED_TRANSITION_DELTA = 1 / 60;
   const TRACE_HERO_TO_OVERVIEW_CAMERA_STATE = true;
   const DEFAULT_HERO_TUNING = {
@@ -1882,15 +1883,35 @@ const UnifiedCameraController = ({
       const compositionProgress = compositionRaw * compositionRaw * (3 - 2 * compositionRaw);
       const lookAtProgress = compositionProgress;
       const filmOffsetProgress = compositionProgress;
-      camera.position.lerpVectors(transition.from.position, transition.to.position, positionProgress);
-      const forcedLookAt = introLookAtTempRef.current.lerpVectors(
-        transition.from.lookAtTarget,
-        transition.to.lookAtTarget,
-        lookAtProgress,
-      );
-      camera.lookAt(forcedLookAt);
-      camera.filmOffset = THREE.MathUtils.lerp(transition.from.filmOffsetX, transition.to.filmOffsetX, filmOffsetProgress);
-      camera.updateProjectionMatrix();
+      let forcedLookAt;
+      if (FORCE_LOCK_HERO_TO_OVERVIEW_CAMERA) {
+        camera.position.copy(transition.from.position);
+        forcedLookAt = introLookAtTempRef.current.copy(transition.from.lookAtTarget);
+        camera.lookAt(forcedLookAt);
+        camera.filmOffset = transition.from.filmOffsetX;
+        camera.updateProjectionMatrix();
+        if (shouldLogBranch) {
+          console.log('[UCC HERO TO OVERVIEW CAMERA LOCK TEST]', {
+            progress: round4(accumulatedProgress),
+            lockedPosition: camera.position.toArray(),
+            lockedLookAt: forcedLookAt.toArray(),
+            lockedFilmOffset: round4(camera.filmOffset),
+            state: animationData?.state ?? null,
+            cameraState: animationData?.cameraState ?? null,
+            writer: 'FORCED_HERO_TO_OVERVIEW',
+          });
+        }
+      } else {
+        camera.position.lerpVectors(transition.from.position, transition.to.position, positionProgress);
+        forcedLookAt = introLookAtTempRef.current.lerpVectors(
+          transition.from.lookAtTarget,
+          transition.to.lookAtTarget,
+          lookAtProgress,
+        );
+        camera.lookAt(forcedLookAt);
+        camera.filmOffset = THREE.MathUtils.lerp(transition.from.filmOffsetX, transition.to.filmOffsetX, filmOffsetProgress);
+        camera.updateProjectionMatrix();
+      }
       logCameraWrite(state, "FORCED_HERO_TO_OVERVIEW", "forced-hero-to-overview-frame", forcedLookAt, true, true);
       if (!transition.divergenceWarned && Math.abs(accumulatedProgress - elapsedProgress) > 0.05) {
         transition.divergenceWarned = true;
