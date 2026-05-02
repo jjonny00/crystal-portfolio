@@ -1581,34 +1581,40 @@ const UnifiedCameraController = ({
         const lastAuthoritativePosition = lastAuthoritativeSnapshot?.position?.clone?.() || null;
         const lastAuthoritativeLookAt = lastAuthoritativeSnapshot?.lookAtTarget?.clone?.() || null;
         const lastAuthoritativeFilmOffset = lastAuthoritativeSnapshot?.filmOffsetX ?? null;
+        const lastAuthoritativeAngle = lastAuthoritativeSnapshot?.angle ?? null;
+        const lastAuthoritativeElapsed = lastAuthoritativeSnapshot?.elapsed ?? null;
         const currentCameraPositionAtStart = camera.position.clone();
+        const currentCameraFilmOffsetAtStart = Number.isFinite(camera.filmOffset) ? camera.filmOffset : null;
         const currentLookAtAtStart = currentTarget.current?.lookAt?.clone?.() || null;
         const lastAuthoritativeTuning = lastAuthoritativeSnapshot?.tuning || null;
-        console.log('[UCC HERO TO OVERVIEW START SOURCE VERIFY]', {
-          lastAuthoritativeHeroSnapshotPosition: lastAuthoritativePosition?.toArray?.() || null,
-          lastAuthoritativeHeroSnapshotLookAt: lastAuthoritativeLookAt?.toArray?.() || null,
-          lastAuthoritativeHeroSnapshotFilmOffset: lastAuthoritativeFilmOffset,
+        const startSourceVerify = {
+          lastAuthoritativeHeroPosition: lastAuthoritativePosition?.toArray?.() || null,
+          lastAuthoritativeHeroLookAt: lastAuthoritativeLookAt?.toArray?.() || null,
+          lastAuthoritativeHeroFilmOffset: round4(lastAuthoritativeFilmOffset),
+          lastAuthoritativeHeroAngle: round4(lastAuthoritativeAngle),
+          lastAuthoritativeHeroElapsed: round4(lastAuthoritativeElapsed),
           currentCameraPositionAtTransitionStart: currentCameraPositionAtStart.toArray(),
-          currentLookAtAtTransitionStart: currentLookAtAtStart?.toArray?.() || null,
+          currentCameraFilmOffsetAtTransitionStart: round4(currentCameraFilmOffsetAtStart),
           forcedFromPosition: forcedFromPosition.toArray(),
           forcedFromLookAt: forcedFromLookAt.toArray(),
-          forcedFromFilmOffset,
-          deltaLastAuthoritativePositionToForcedFrom: (lastAuthoritativePosition ? round4(lastAuthoritativePosition.distanceTo(forcedFromPosition)) : null),
-          deltaLastAuthoritativeLookAtToForcedFromLookAt: (lastAuthoritativeLookAt ? round4(lastAuthoritativeLookAt.distanceTo(forcedFromLookAt)) : null),
-          deltaCurrentCameraPositionToForcedFrom: round4(currentCameraPositionAtStart.distanceTo(forcedFromPosition)),
-          deltaCurrentLookAtToForcedFromLookAt: (currentLookAtAtStart ? round4(currentLookAtAtStart.distanceTo(forcedFromLookAt)) : null),
-          authoritativeHeroTuning: lastAuthoritativeTuning ? {
-            radius: lastAuthoritativeTuning.radius,
-            height: lastAuthoritativeTuning.height,
-            orbitSpeed: lastAuthoritativeTuning.orbitSpeed,
-            baseAngle: lastAuthoritativeTuning.baseAngle,
-            lookAtYOffset: lastAuthoritativeTuning.lookAtYOffset,
-          } : null,
-          prevState,
-          prevCameraState,
-          nextState: animationData?.state ?? null,
-          nextCameraState: animationData?.cameraState ?? null,
-        });
+          forcedFromFilmOffset: round4(forcedFromFilmOffset),
+          deltaLastHeroToForcedPosition: (lastAuthoritativePosition ? round4(lastAuthoritativePosition.distanceTo(forcedFromPosition)) : null),
+          deltaLastHeroToForcedLookAt: (lastAuthoritativeLookAt ? round4(lastAuthoritativeLookAt.distanceTo(forcedFromLookAt)) : null),
+          deltaCurrentCameraToForcedPosition: round4(currentCameraPositionAtStart.distanceTo(forcedFromPosition)),
+          heroTuningRadius: round4(lastAuthoritativeTuning?.radius),
+          heroTuningHeight: round4(lastAuthoritativeTuning?.height),
+          heroTuningBaseAngle: round4(lastAuthoritativeTuning?.baseAngle),
+          heroTuningLookAtYOffset: round4(lastAuthoritativeTuning?.lookAtYOffset),
+          heroFilmOffsetX: round4(lastAuthoritativeFilmOffset),
+          previousState: prevState ?? null,
+          previousCameraState: prevCameraState ?? null,
+          currentState: animationData?.state ?? null,
+          currentCameraState: animationData?.cameraState ?? null,
+        };
+        console.log(
+          '[UCC HERO TO OVERVIEW START SOURCE VERIFY JSON STRING]\n' +
+          JSON.stringify(startSourceVerify, null, 2)
+        );
         console.log('[UCC FORCE HERO TO OVERVIEW START]', {
           fromSource: authoritativeHeroToOverviewTransitionRef.current.from.source,
           fromPosition: authoritativeHeroToOverviewTransitionRef.current.from.position.toArray(),
