@@ -81,7 +81,7 @@ const UnifiedCameraController = ({
   const FORCE_AUTHORITATIVE_HERO_TO_OVERVIEW_TRANSITION = true;
   const FORCE_AUTHORITATIVE_OVERVIEW_TO_HERO_TRANSITION = true;
   const FORCE_LOCK_HERO_TO_OVERVIEW_CAMERA = false;
-  const HERO_TO_OVERVIEW_PRE_DELAY = 0.25;
+  const HERO_TO_OVERVIEW_PRE_DELAY = 0;
   const MAX_FORCED_TRANSITION_DELTA = 1 / 60;
   const TRACE_HERO_TO_OVERVIEW_CAMERA_STATE = true;
   const DEFAULT_HERO_TUNING = {
@@ -1560,6 +1560,8 @@ const UnifiedCameraController = ({
         const overviewLookAt = toVector3(config?.cameraTargets?.overview)
           .add(toVector3(config?.cameraOffsets?.global?.target))
           .add(toVector3(config?.cameraOffsets?.zones?.overview?.target));
+        const dollyViewDir = authoritativeFromPosition.clone().sub(authoritativeFromLookAt).normalize();
+        const DOLLY_DISTANCE = 1.25;
         authoritativeHeroToOverviewTransitionRef.current = {
           active: true,
           progress: 0,
@@ -1573,6 +1575,11 @@ const UnifiedCameraController = ({
             lookAtTarget: authoritativeFromLookAt,
             filmOffsetX: authoritativeFromFilmOffset,
             source: 'authoritativeHeroSnapshot',
+          },
+          waypoint: {
+            position: authoritativeFromPosition.clone().addScaledVector(dollyViewDir, DOLLY_DISTANCE),
+            lookAtTarget: authoritativeFromLookAt.clone(),
+            filmOffsetX: authoritativeFromFilmOffset,
           },
           to: {
             position: overviewPosition.clone(),
@@ -1875,49 +1882,25 @@ const UnifiedCameraController = ({
 
     if (authoritativeHeroToOverviewTransitionRef.current.active) {
       const transition = authoritativeHeroToOverviewTransitionRef.current;
-      const COMPOSITION_DELAY = 0.38;
+      const DOLLY_SPLIT = 0.35;
+      const DOLLY_DISTANCE = 1.25;
       const frameDelta = Number.isFinite(delta) ? delta : 0;
       const safeDelta = Math.min(frameDelta, MAX_FORCED_TRANSITION_DELTA);
-      if (transition.delayElapsed < HERO_TO_OVERVIEW_PRE_DELAY) {
-        transition.delayElapsed = Math.min(HERO_TO_OVERVIEW_PRE_DELAY, transition.delayElapsed + safeDelta);
-        camera.position.copy(transition.from.position);
-        const delayLookAt = introLookAtTempRef.current.copy(transition.from.lookAtTarget);
-        camera.lookAt(delayLookAt);
-        camera.filmOffset = transition.from.filmOffsetX;
-        camera.updateProjectionMatrix();
-        if (shouldLogBranch) {
-          console.log('[UCC HERO TO OVERVIEW PRE DELAY]', {
-            delayElapsed: round4(transition.delayElapsed),
-            delayDuration: round4(HERO_TO_OVERVIEW_PRE_DELAY),
-            lockedPosition: camera.position.toArray(),
-            lockedLookAt: delayLookAt.toArray(),
-            lockedFilmOffset: round4(camera.filmOffset),
-          });
-        }
-        return;
-      }
-      if (!transition.delayStartLogged) {
-        transition.delayStartLogged = true;
-        console.log('[UCC HERO TO OVERVIEW TRANSITION START AFTER DELAY]', {
-          progress: round4(transition.progress),
-          fromPosition: transition.from.position.toArray(),
-          fromLookAt: transition.from.lookAtTarget.toArray(),
-          fromFilmOffset: round4(transition.from.filmOffsetX),
-          toPosition: transition.to.position.toArray(),
-          toLookAt: transition.to.lookAtTarget.toArray(),
-          toFilmOffset: round4(transition.to.filmOffsetX),
-        });
-      }
       transition.progress = Math.min(1, transition.progress + (safeDelta / transition.duration));
       const accumulatedProgress = THREE.MathUtils.clamp(transition.progress, 0, 1);
       const elapsedProgress = THREE.MathUtils.clamp((state.clock.elapsedTime - transition.startTime) / transition.duration, 0, 1);
-      const p = THREE.MathUtils.clamp(accumulatedProgress, 0, 1);
-      const easedProgress = p * p * p * (p * (p * 6 - 15) + 10);
-      const positionProgress = easedProgress;
-      const compositionRaw = THREE.MathUtils.clamp((accumulatedProgress - COMPOSITION_DELAY) / (1 - COMPOSITION_DELAY), 0, 1);
-      const compositionProgress = compositionRaw * compositionRaw * (3 - 2 * compositionRaw);
-      const lookAtProgress = compositionProgress;
-      const filmOffsetProgress = compositionProgress;
+      const smoothstep = (v) => {
+        const p = THREE.MathUtils.clamp(v, 0, 1);
+        return p * p * p * (p * (p * 6 - 15) + 10);
+      };
+      const waypoint = transition.waypoint;
+      const isDollyPhase = accumulatedProgress <= DOLLY_SPLIT;
+      const localProgress = isDollyPhase
+        ? smoothstep(THREE.MathUtils.clamp(accumulatedProgress / DOLLY_SPLIT, 0, 1))
+        : smoothstep(THREE.MathUtils.clamp((accumulatedProgress - DOLLY_SPLIT) / (1 - DOLLY_SPLIT), 0, 1));
+      const positionProgress = localProgress;
+      const lookAtProgress = isDollyPhase ? 0 : localProgress;
+      const filmOffsetProgress = isDollyPhase ? 0 : localProgress;
       let forcedLookAt;
       if (FORCE_LOCK_HERO_TO_OVERVIEW_CAMERA) {
         camera.position.copy(transition.from.position);
@@ -1937,14 +1920,21 @@ const UnifiedCameraController = ({
           });
         }
       } else {
-        camera.position.lerpVectors(transition.from.position, transition.to.position, positionProgress);
-        forcedLookAt = introLookAtTempRef.current.lerpVectors(
-          transition.from.lookAtTarget,
-          transition.to.lookAtTarget,
-          lookAtProgress,
-        );
+        if (isDollyPhase) {
+          camera.position.lerpVectors(transition.from.position, waypoint.position, positionProgress);
+          forcedLookAt = introLookAtTempRef.current.copy(transition.from.lookAtTarget);
+        } else {
+          camera.position.lerpVectors(waypoint.position, transition.to.position, positionProgress);
+          forcedLookAt = introLookAtTempRef.current.lerpVectors(
+            waypoint.lookAtTarget,
+            transition.to.lookAtTarget,
+            lookAtProgress,
+          );
+        }
         camera.lookAt(forcedLookAt);
-        camera.filmOffset = THREE.MathUtils.lerp(transition.from.filmOffsetX, transition.to.filmOffsetX, filmOffsetProgress);
+        camera.filmOffset = isDollyPhase
+          ? transition.from.filmOffsetX
+          : THREE.MathUtils.lerp(waypoint.filmOffsetX, transition.to.filmOffsetX, filmOffsetProgress);
         camera.updateProjectionMatrix();
       }
       logCameraWrite(state, "FORCED_HERO_TO_OVERVIEW", "forced-hero-to-overview-frame", forcedLookAt, true, true);
@@ -1957,7 +1947,20 @@ const UnifiedCameraController = ({
           frameDelta: round4(frameDelta),
           safeDelta: round4(safeDelta),
           maxDelta: round4(MAX_FORCED_TRANSITION_DELTA),
-          easedProgress: round4(easedProgress),
+          easedProgress: round4(localProgress),
+        });
+      }
+      if (shouldLogBranch) {
+        const viewDir = transition.from.position.clone().sub(transition.from.lookAtTarget).normalize();
+        console.log('[UCC FORCED HERO TO OVERVIEW PROGRESS]', {
+          phase: isDollyPhase ? 'dolly' : 'settle',
+          dollyDistance: round4(DOLLY_DISTANCE),
+          dollySplit: round4(DOLLY_SPLIT),
+          waypointPosition: waypoint.position.toArray(),
+          viewDir: viewDir.toArray(),
+          positionProgress: round4(positionProgress),
+          lookAtProgress: round4(lookAtProgress),
+          filmOffsetProgress: round4(filmOffsetProgress),
         });
       }
       if (TRACE_HERO_TO_OVERVIEW_CAMERA_STATE && heroToOverviewTraceMetaRef.current.active) {
@@ -1968,17 +1971,17 @@ const UnifiedCameraController = ({
         const previousSampleTime = prev?.t ?? null;
         const sample = {
           t: sampleTime,
-          phase: 'forced-transition',
+          phase: isDollyPhase ? 'dolly' : 'settle',
           progress: round4(accumulatedProgress),
           elapsedProgress: round4(elapsedProgress),
-          easedProgress: round4(easedProgress),
+          easedProgress: round4(localProgress),
           positionProgress: round4(positionProgress),
           compositionProgress: round4(compositionProgress),
           lookAtProgress: round4(lookAtProgress),
           filmOffsetProgress: round4(filmOffsetProgress),
           currentPosition: vectorToPlain(camera.position),
           currentFilmOffset: round4(camera.filmOffset),
-          moveProgress: round4(easedProgress),
+          moveProgress: round4(localProgress),
           isHolding: null,
           state: animationData?.state ?? null,
           cameraState: animationData?.cameraState ?? null,
