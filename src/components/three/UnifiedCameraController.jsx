@@ -1869,6 +1869,7 @@ const UnifiedCameraController = ({
 
     if (authoritativeHeroToOverviewTransitionRef.current.active) {
       const transition = authoritativeHeroToOverviewTransitionRef.current;
+      const COMPOSITION_DELAY = 0.38;
       const frameDelta = Number.isFinite(delta) ? delta : 0;
       const safeDelta = Math.min(frameDelta, MAX_FORCED_TRANSITION_DELTA);
       transition.progress = Math.min(1, transition.progress + (safeDelta / transition.duration));
@@ -1876,14 +1877,19 @@ const UnifiedCameraController = ({
       const elapsedProgress = THREE.MathUtils.clamp((state.clock.elapsedTime - transition.startTime) / transition.duration, 0, 1);
       const p = THREE.MathUtils.clamp(accumulatedProgress, 0, 1);
       const easedProgress = p * p * p * (p * (p * 6 - 15) + 10);
-      camera.position.lerpVectors(transition.from.position, transition.to.position, easedProgress);
+      const positionProgress = easedProgress;
+      const compositionRaw = THREE.MathUtils.clamp((accumulatedProgress - COMPOSITION_DELAY) / (1 - COMPOSITION_DELAY), 0, 1);
+      const compositionProgress = compositionRaw * compositionRaw * (3 - 2 * compositionRaw);
+      const lookAtProgress = compositionProgress;
+      const filmOffsetProgress = compositionProgress;
+      camera.position.lerpVectors(transition.from.position, transition.to.position, positionProgress);
       const forcedLookAt = introLookAtTempRef.current.lerpVectors(
         transition.from.lookAtTarget,
         transition.to.lookAtTarget,
-        easedProgress,
+        lookAtProgress,
       );
       camera.lookAt(forcedLookAt);
-      camera.filmOffset = THREE.MathUtils.lerp(transition.from.filmOffsetX, transition.to.filmOffsetX, easedProgress);
+      camera.filmOffset = THREE.MathUtils.lerp(transition.from.filmOffsetX, transition.to.filmOffsetX, filmOffsetProgress);
       camera.updateProjectionMatrix();
       logCameraWrite(state, "FORCED_HERO_TO_OVERVIEW", "forced-hero-to-overview-frame", forcedLookAt, true, true);
       if (!transition.divergenceWarned && Math.abs(accumulatedProgress - elapsedProgress) > 0.05) {
@@ -1910,9 +1916,12 @@ const UnifiedCameraController = ({
           progress: round4(accumulatedProgress),
           elapsedProgress: round4(elapsedProgress),
           easedProgress: round4(easedProgress),
-          positionProgress: round4(easedProgress),
-          lookAtProgress: round4(easedProgress),
-          filmOffsetProgress: round4(easedProgress),
+          positionProgress: round4(positionProgress),
+          compositionProgress: round4(compositionProgress),
+          lookAtProgress: round4(lookAtProgress),
+          filmOffsetProgress: round4(filmOffsetProgress),
+          currentPosition: vectorToPlain(camera.position),
+          currentFilmOffset: round4(camera.filmOffset),
           moveProgress: round4(easedProgress),
           isHolding: null,
           state: animationData?.state ?? null,
