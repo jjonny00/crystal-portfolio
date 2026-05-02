@@ -1536,7 +1536,7 @@ const UnifiedCameraController = ({
       FORCE_AUTHORITATIVE_HERO_TO_OVERVIEW_TRANSITION &&
       wasPlainHero &&
       !isAuthoritativePlainHero &&
-      (animationData?.cameraState === 'overview' || animationData?.state === 'overview');
+      animationData?.cameraState === 'overview';
     if (shouldForceHeroToOverviewTransition && authoritativeHeroToOverviewTransitionRef.current.active) {
       console.warn('[UCC FORCED TRANSITION RETRIGGER WARNING]', {
         previousStartTime: authoritativeHeroToOverviewTransitionRef.current.startTime,
