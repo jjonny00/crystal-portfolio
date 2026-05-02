@@ -2046,7 +2046,7 @@ const UnifiedCameraController = ({
           elapsedProgress: round4(elapsedProgress),
           easedProgress: round4(localProgress),
           positionProgress: round4(positionProgress),
-          compositionProgress: round4(compositionProgress),
+          compositionProgress: round4(lookAtProgress),
           lookAtProgress: round4(lookAtProgress),
           filmOffsetProgress: round4(filmOffsetProgress),
           currentPosition: vectorToPlain(camera.position),
