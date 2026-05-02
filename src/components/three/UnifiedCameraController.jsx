@@ -1546,9 +1546,10 @@ const UnifiedCameraController = ({
       if (!fromSnapshot) {
         console.warn('[UCC FORCE HERO TO OVERVIEW START] Missing hero snapshot; skipping forced transition start');
       } else {
-        const liveLookAtAtStart =
-          currentTarget.current?.lookAt?.clone?.() ||
-          fromSnapshot.lookAtTarget.clone();
+        const authoritativeFromPosition = fromSnapshot.position.clone();
+        const authoritativeFromLookAt = fromSnapshot.lookAtTarget.clone();
+        const authoritativeFromFilmOffset =
+          Number.isFinite(fromSnapshot.filmOffsetX) ? fromSnapshot.filmOffsetX : 0;
         const overviewPosition = toVector3(config?.cameraPositions?.overview)
           .add(toVector3(config?.cameraOffsets?.global?.position))
           .add(toVector3(config?.cameraOffsets?.zones?.overview?.position));
@@ -1562,10 +1563,10 @@ const UnifiedCameraController = ({
           startTime: state.clock.elapsedTime,
           duration: 1.45,
           from: {
-            position: camera.position.clone(),
-            lookAtTarget: liveLookAtAtStart,
-            filmOffsetX: Number.isFinite(camera.filmOffset) ? camera.filmOffset : (Number.isFinite(fromSnapshot.filmOffsetX) ? fromSnapshot.filmOffsetX : 0),
-            source: 'liveCameraAtTransitionStart',
+            position: authoritativeFromPosition,
+            lookAtTarget: authoritativeFromLookAt,
+            filmOffsetX: authoritativeFromFilmOffset,
+            source: 'authoritativeHeroSnapshot',
           },
           to: {
             position: overviewPosition.clone(),
@@ -1573,6 +1574,13 @@ const UnifiedCameraController = ({
             filmOffsetX: 0,
           },
         };
+        camera.position.copy(authoritativeHeroToOverviewTransitionRef.current.from.position);
+        camera.lookAt(authoritativeHeroToOverviewTransitionRef.current.from.lookAtTarget);
+        camera.filmOffset = authoritativeHeroToOverviewTransitionRef.current.from.filmOffsetX;
+        camera.updateProjectionMatrix();
+        currentTarget.current.position.copy(authoritativeHeroToOverviewTransitionRef.current.from.position);
+        currentTarget.current.lookAt.copy(authoritativeHeroToOverviewTransitionRef.current.from.lookAtTarget);
+        currentTarget.current.fov = camera.fov;
         const forcedFrom = authoritativeHeroToOverviewTransitionRef.current.from;
         const forcedFromPosition = forcedFrom.position.clone();
         const forcedFromLookAt = forcedFrom.lookAtTarget.clone();
