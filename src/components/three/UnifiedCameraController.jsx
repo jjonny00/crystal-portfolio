@@ -193,6 +193,8 @@ const UnifiedCameraController = ({
   const heroToOverviewHandoffPendingRef = useRef(null);
   const heroToOverviewHandoffLockFramesRef = useRef(0);
   const heroToOverviewTransitionStartedForExitRef = useRef(false);
+  const heroToOverviewLastForcedFinalRef = useRef(null);
+  const heroToOverviewAwaitFirstNormalFrameRef = useRef(false);
   const heroToOverviewTraceRef = useRef([]);
   const heroToOverviewTraceMetaRef = useRef({ active: false, endTime: 0, forcedFinal: null, prevSample: null });
   const lastCameraWriteSecondRef = useRef(-1);
@@ -2106,9 +2108,52 @@ const UnifiedCameraController = ({
         camera.lookAt(transition.to.lookAtTarget);
         camera.filmOffset = transition.to.filmOffsetX;
         camera.updateProjectionMatrix();
+        const currentTargetPositionBeforeSync = currentTarget.current.position.clone();
+        const currentTargetLookAtBeforeSync = currentTarget.current.lookAt.clone();
         currentTarget.current.position.copy(transition.to.position);
         currentTarget.current.lookAt.copy(transition.to.lookAtTarget);
         currentTarget.current.fov = camera.fov;
+        const overviewResolvedPosition = toVector3(config?.cameraPositions?.overview)
+          .add(toVector3(config?.cameraOffsets?.global?.position))
+          .add(toVector3(config?.cameraOffsets?.zones?.overview?.position));
+        const overviewResolvedLookAt = toVector3(config?.cameraTargets?.overview)
+          .add(toVector3(config?.cameraOffsets?.global?.target))
+          .add(toVector3(config?.cameraOffsets?.zones?.overview?.target));
+        console.log(
+          '[UCC HERO TO OVERVIEW COMPLETE VERIFY JSON STRING]\n' +
+          JSON.stringify({
+            forcedFinalPosition: camera.position.toArray(),
+            forcedFinalLookAt: transition.to.lookAtTarget.toArray(),
+            forcedFinalFilmOffset: round4(camera.filmOffset),
+            forcedFinalQuaternion: quaternionToPlain(camera.quaternion),
+            forcedDestinationPosition: transition.to.position.toArray(),
+            forcedDestinationLookAt: transition.to.lookAtTarget.toArray(),
+            forcedDestinationFilmOffset: round4(transition.to.filmOffsetX),
+            currentTargetPositionBeforeSync: currentTargetPositionBeforeSync.toArray(),
+            currentTargetLookAtBeforeSync: currentTargetLookAtBeforeSync.toArray(),
+            currentTargetPositionAfterSync: currentTarget.current.position.toArray(),
+            currentTargetLookAtAfterSync: currentTarget.current.lookAt.toArray(),
+            overviewResolvedPosition: overviewResolvedPosition.toArray(),
+            overviewResolvedLookAt: overviewResolvedLookAt.toArray(),
+            deltaForcedFinalToOverviewResolvedPosition: round4(camera.position.distanceTo(overviewResolvedPosition)),
+            deltaForcedFinalToOverviewResolvedLookAt: round4(transition.to.lookAtTarget.distanceTo(overviewResolvedLookAt)),
+            deltaForcedFinalToCurrentTargetAfterSyncPosition: round4(camera.position.distanceTo(currentTarget.current.position)),
+            deltaForcedFinalToCurrentTargetAfterSyncLookAt: round4(transition.to.lookAtTarget.distanceTo(currentTarget.current.lookAt)),
+            cameraFov: round4(camera.fov),
+            cameraZoom: round4(camera.zoom),
+            cameraFilmOffset: round4(camera.filmOffset),
+            cameraAspect: round4(camera.aspect),
+            state: animationData?.state ?? null,
+            cameraState: animationData?.cameraState ?? null,
+          }, null, 2)
+        );
+        heroToOverviewLastForcedFinalRef.current = {
+          position: camera.position.clone(),
+          lookAt: transition.to.lookAtTarget.clone(),
+          filmOffset: camera.filmOffset,
+          quaternion: camera.quaternion.clone(),
+        };
+        heroToOverviewAwaitFirstNormalFrameRef.current = true;
         authoritativeHeroToOverviewTransitionRef.current.active = false;
         if (TRACE_HERO_TO_OVERVIEW_CAMERA_STATE) {
           heroToOverviewTraceMetaRef.current.endTime = state.clock.elapsedTime + 0.5;
@@ -2722,6 +2767,32 @@ const UnifiedCameraController = ({
     } else if (heroToOverviewHandoffLockFramesRef.current > 0) {
       heroToOverviewHandoffLockFramesRef.current = 0;
       heroToOverviewHandoffPendingRef.current = null;
+    }
+
+    if (heroToOverviewAwaitFirstNormalFrameRef.current && animationData?.cameraState === 'overview') {
+      const forcedFinal = heroToOverviewLastForcedFinalRef.current;
+      const currentLookAt = currentTarget.current?.lookAt?.clone?.() || null;
+      console.log(
+        '[UCC HERO TO OVERVIEW FIRST NORMAL FRAME VERIFY JSON STRING]\n' +
+        JSON.stringify({
+          firstNormalWriter: lastCameraWriterRef.current,
+          firstNormalBranch: animationData?.cameraState === 'overview' ? 'overview-branch' : 'other',
+          cameraPosition: camera.position.toArray(),
+          cameraLookAt: currentLookAt?.toArray?.() || null,
+          cameraFilmOffset: round4(camera.filmOffset),
+          cameraQuaternion: quaternionToPlain(camera.quaternion),
+          previousForcedFinalPosition: forcedFinal?.position?.toArray?.() || null,
+          previousForcedFinalLookAt: forcedFinal?.lookAt?.toArray?.() || null,
+          previousForcedFinalFilmOffset: round4(forcedFinal?.filmOffset),
+          deltaPositionFromForcedFinal: forcedFinal?.position ? round4(camera.position.distanceTo(forcedFinal.position)) : null,
+          deltaLookAtFromForcedFinal: (forcedFinal?.lookAt && currentLookAt) ? round4(currentLookAt.distanceTo(forcedFinal.lookAt)) : null,
+          deltaFilmOffsetFromForcedFinal: forcedFinal?.filmOffset !== undefined ? round4(Math.abs((camera.filmOffset ?? 0) - forcedFinal.filmOffset)) : null,
+          deltaQuaternionFromForcedFinal: forcedFinal?.quaternion ? round4(forcedFinal.quaternion.angleTo(camera.quaternion)) : null,
+          state: animationData?.state ?? null,
+          cameraState: animationData?.cameraState ?? null,
+        }, null, 2)
+      );
+      heroToOverviewAwaitFirstNormalFrameRef.current = false;
     }
 
     if (shouldLogBranch) {
