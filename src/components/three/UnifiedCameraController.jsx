@@ -80,7 +80,7 @@ const UnifiedCameraController = ({
   const ORBIT_DELAY_FRAMES = 30; // Wait 30 frames after settling before starting orbit
   const FORCE_AUTHORITATIVE_HERO_TO_OVERVIEW_TRANSITION = true;
   const FORCE_AUTHORITATIVE_OVERVIEW_TO_HERO_TRANSITION = true;
-  const MAX_FORCED_TRANSITION_DELTA = 1 / 30;
+  const MAX_FORCED_TRANSITION_DELTA = 1 / 60;
   const TRACE_HERO_TO_OVERVIEW_CAMERA_STATE = true;
   const DEFAULT_HERO_TUNING = {
     radius: 7,
@@ -170,6 +170,7 @@ const UnifiedCameraController = ({
   const authoritativeHeroToOverviewTransitionRef = useRef({
     active: false,
     progress: 0,
+    divergenceWarned: false,
     startTime: 0,
     duration: 1.0,
     from: null,
@@ -178,6 +179,7 @@ const UnifiedCameraController = ({
   const authoritativeOverviewToHeroTransitionRef = useRef({
     active: false,
     progress: 0,
+    divergenceWarned: false,
     startTime: 0,
     duration: 1.0,
     from: null,
@@ -1437,7 +1439,7 @@ const UnifiedCameraController = ({
   const safeDistance = (a, b) => (a && b ? round4(a.distanceTo(b)) : null);
   const quaternionAngleDelta = (q1, q2) => (q1 && q2 ? round4(q1.angleTo(q2)) : null);
 
-  useFrame((state, deltaTime) => {
+  useFrame((state, delta) => {
     syncFractureTiltState(state.clock.elapsedTime);
 
     const debugSecond = Math.floor(state.clock.elapsedTime);
@@ -1556,6 +1558,7 @@ const UnifiedCameraController = ({
         authoritativeHeroToOverviewTransitionRef.current = {
           active: true,
           progress: 0,
+          divergenceWarned: false,
           startTime: state.clock.elapsedTime,
           duration: 1.0,
           from: {
@@ -1615,6 +1618,7 @@ const UnifiedCameraController = ({
       authoritativeOverviewToHeroTransitionRef.current = {
         active: true,
         progress: 0,
+        divergenceWarned: false,
         startTime: state.clock.elapsedTime,
         duration: 1.0,
         from: {
@@ -1644,10 +1648,12 @@ const UnifiedCameraController = ({
 
     if (authoritativeOverviewToHeroTransitionRef.current.active) {
       const transition = authoritativeOverviewToHeroTransitionRef.current;
-      const safeDelta = Math.min(Number.isFinite(deltaTime) ? deltaTime : 0, MAX_FORCED_TRANSITION_DELTA);
+      const frameDelta = Number.isFinite(delta) ? delta : 0;
+      const safeDelta = Math.min(frameDelta, MAX_FORCED_TRANSITION_DELTA);
       transition.progress = Math.min(1, transition.progress + (safeDelta / transition.duration));
-      const progress = THREE.MathUtils.clamp(transition.progress, 0, 1);
-      const p = THREE.MathUtils.clamp(progress, 0, 1);
+      const accumulatedProgress = THREE.MathUtils.clamp(transition.progress, 0, 1);
+      const elapsedProgress = THREE.MathUtils.clamp((state.clock.elapsedTime - transition.startTime) / transition.duration, 0, 1);
+      const p = THREE.MathUtils.clamp(accumulatedProgress, 0, 1);
       const easedProgress = p * p * p * (p * (p * 6 - 15) + 10);
       const positionProgress = easedProgress;
       const lookAtProgress = easedProgress;
@@ -1662,7 +1668,29 @@ const UnifiedCameraController = ({
       camera.filmOffset = THREE.MathUtils.lerp(transition.from.filmOffsetX, transition.to.filmOffsetX, filmOffsetProgress);
       camera.updateProjectionMatrix();
       logCameraWrite(state, "FORCED_OVERVIEW_TO_HERO", "forced-overview-to-hero-frame", forcedLookAt, true, true);
-      if (progress >= 1) {
+      if (!transition.divergenceWarned && Math.abs(accumulatedProgress - elapsedProgress) > 0.05) {
+        transition.divergenceWarned = true;
+        console.warn('[UCC FORCED TRANSITION ELAPSED VS ACCUMULATED DIVERGENCE]', {
+          direction: 'overview_to_hero',
+          elapsedProgress: round4(elapsedProgress),
+          accumulatedProgress: round4(accumulatedProgress),
+          frameDelta: round4(frameDelta),
+          safeDelta: round4(safeDelta),
+          maxDelta: round4(MAX_FORCED_TRANSITION_DELTA),
+          easedProgress: round4(easedProgress),
+        });
+      }
+      if (shouldLogBranch) {
+        console.log('[UCC FORCED OVERVIEW TO HERO PROGRESS]', {
+          elapsedProgress: round4(elapsedProgress),
+          accumulatedProgress: round4(accumulatedProgress),
+          frameDelta: round4(frameDelta),
+          safeDelta: round4(safeDelta),
+          maxDelta: round4(MAX_FORCED_TRANSITION_DELTA),
+          easedProgress: round4(easedProgress),
+        });
+      }
+      if (accumulatedProgress >= 1) {
         camera.position.copy(transition.to.position);
         camera.lookAt(transition.to.lookAtTarget);
         camera.filmOffset = transition.to.filmOffsetX;
@@ -1791,10 +1819,12 @@ const UnifiedCameraController = ({
 
     if (authoritativeHeroToOverviewTransitionRef.current.active) {
       const transition = authoritativeHeroToOverviewTransitionRef.current;
-      const safeDelta = Math.min(Number.isFinite(deltaTime) ? deltaTime : 0, MAX_FORCED_TRANSITION_DELTA);
+      const frameDelta = Number.isFinite(delta) ? delta : 0;
+      const safeDelta = Math.min(frameDelta, MAX_FORCED_TRANSITION_DELTA);
       transition.progress = Math.min(1, transition.progress + (safeDelta / transition.duration));
-      const progress = THREE.MathUtils.clamp(transition.progress, 0, 1);
-      const p = THREE.MathUtils.clamp(progress, 0, 1);
+      const accumulatedProgress = THREE.MathUtils.clamp(transition.progress, 0, 1);
+      const elapsedProgress = THREE.MathUtils.clamp((state.clock.elapsedTime - transition.startTime) / transition.duration, 0, 1);
+      const p = THREE.MathUtils.clamp(accumulatedProgress, 0, 1);
       const easedProgress = p * p * p * (p * (p * 6 - 15) + 10);
       camera.position.lerpVectors(transition.from.position, transition.to.position, easedProgress);
       const forcedLookAt = introLookAtTempRef.current.lerpVectors(
@@ -1806,6 +1836,28 @@ const UnifiedCameraController = ({
       camera.filmOffset = THREE.MathUtils.lerp(transition.from.filmOffsetX, transition.to.filmOffsetX, easedProgress);
       camera.updateProjectionMatrix();
       logCameraWrite(state, "FORCED_HERO_TO_OVERVIEW", "forced-hero-to-overview-frame", forcedLookAt, true, true);
+      if (!transition.divergenceWarned && Math.abs(accumulatedProgress - elapsedProgress) > 0.05) {
+        transition.divergenceWarned = true;
+        console.warn('[UCC FORCED TRANSITION ELAPSED VS ACCUMULATED DIVERGENCE]', {
+          direction: 'hero_to_overview',
+          elapsedProgress: round4(elapsedProgress),
+          accumulatedProgress: round4(accumulatedProgress),
+          frameDelta: round4(frameDelta),
+          safeDelta: round4(safeDelta),
+          maxDelta: round4(MAX_FORCED_TRANSITION_DELTA),
+          easedProgress: round4(easedProgress),
+        });
+      }
+      if (shouldLogBranch) {
+        console.log('[UCC FORCED HERO TO OVERVIEW PROGRESS]', {
+          elapsedProgress: round4(elapsedProgress),
+          accumulatedProgress: round4(accumulatedProgress),
+          frameDelta: round4(frameDelta),
+          safeDelta: round4(safeDelta),
+          maxDelta: round4(MAX_FORCED_TRANSITION_DELTA),
+          easedProgress: round4(easedProgress),
+        });
+      }
       if (TRACE_HERO_TO_OVERVIEW_CAMERA_STATE && heroToOverviewTraceMetaRef.current.active) {
         const meta = heroToOverviewTraceMetaRef.current;
         const prev = meta.prevSample;
@@ -1815,7 +1867,8 @@ const UnifiedCameraController = ({
         const sample = {
           t: sampleTime,
           phase: 'forced-transition',
-          progress: round4(progress),
+          progress: round4(accumulatedProgress),
+          elapsedProgress: round4(elapsedProgress),
           easedProgress: round4(easedProgress),
           positionProgress: round4(easedProgress),
           lookAtProgress: round4(easedProgress),
@@ -1870,7 +1923,7 @@ const UnifiedCameraController = ({
           zoom: camera.zoom,
         };
       }
-      if (progress >= 1) {
+      if (accumulatedProgress >= 1) {
         camera.position.copy(transition.to.position);
         camera.lookAt(transition.to.lookAtTarget);
         camera.filmOffset = transition.to.filmOffsetX;
