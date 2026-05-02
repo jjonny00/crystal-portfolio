@@ -1535,8 +1535,7 @@ const UnifiedCameraController = ({
     const shouldForceHeroToOverviewTransition =
       FORCE_AUTHORITATIVE_HERO_TO_OVERVIEW_TRANSITION &&
       wasPlainHero &&
-      !isAuthoritativePlainHero &&
-      animationData?.cameraState === 'overview';
+      !isAuthoritativePlainHero;
     if (shouldForceHeroToOverviewTransition && authoritativeHeroToOverviewTransitionRef.current.active) {
       console.warn('[UCC FORCED TRANSITION RETRIGGER WARNING]', {
         previousStartTime: authoritativeHeroToOverviewTransitionRef.current.startTime,
@@ -1546,7 +1545,7 @@ const UnifiedCameraController = ({
       });
     }
     if (shouldForceHeroToOverviewTransition && !authoritativeHeroToOverviewTransitionRef.current.active) {
-      const heroExitSnapshot = heroExitSnapshotRef.current || null;
+      const heroExitSnapshot = heroExitSnapshotRef.current || latestAuthoritativeHeroSnapshotRef.current || null;
       const latestAuthoritativeSnapshot = latestAuthoritativeHeroSnapshotRef.current || null;
       const currentCameraFallback = {
         position: camera.position.clone(),
@@ -1605,6 +1604,22 @@ const UnifiedCameraController = ({
         currentTarget.current.position.copy(authoritativeHeroToOverviewTransitionRef.current.from.position);
         currentTarget.current.lookAt.copy(authoritativeHeroToOverviewTransitionRef.current.from.lookAtTarget);
         currentTarget.current.fov = camera.fov;
+        const ownershipStart = {
+          capturedFromPosition: authoritativeHeroToOverviewTransitionRef.current.from.position.toArray(),
+          currentCameraPositionAtOwnershipStart: camera.position.toArray(),
+          forcedTransitionActive: authoritativeHeroToOverviewTransitionRef.current.active,
+          progress: round4(authoritativeHeroToOverviewTransitionRef.current.progress),
+          delayElapsed: round4(authoritativeHeroToOverviewTransitionRef.current.delayElapsed),
+          previousState: prevState ?? null,
+          previousCameraState: prevCameraState ?? null,
+          currentState: animationData?.state ?? null,
+          currentCameraState: animationData?.cameraState ?? null,
+          ownsCameraBeforeFractureBranches: true,
+          fromSource,
+          dollyDistance: 1.25,
+          dollySplit: 0.35,
+        };
+        console.log('[UCC HERO TO OVERVIEW IMMEDIATE OWNERSHIP JSON STRING]\n' + JSON.stringify(ownershipStart, null, 2));
         const forcedFrom = authoritativeHeroToOverviewTransitionRef.current.from;
         const forcedFromPosition = forcedFrom.position.clone();
         const forcedFromLookAt = forcedFrom.lookAtTarget.clone();
