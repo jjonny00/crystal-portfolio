@@ -1570,7 +1570,7 @@ const UnifiedCameraController = ({
             source: 'authoritativeHeroSnapshot',
           },
           waypoint: {
-            position: authoritativeFromPosition.clone().add(new THREE.Vector3(0, 0, 1.8)),
+            position: authoritativeFromPosition.clone().add(new THREE.Vector3(0, 0, 0.75)),
             lookAtTarget: authoritativeFromLookAt.clone(),
             filmOffsetX: authoritativeFromFilmOffset,
           },
@@ -1875,7 +1875,8 @@ const UnifiedCameraController = ({
 
     if (authoritativeHeroToOverviewTransitionRef.current.active) {
       const transition = authoritativeHeroToOverviewTransitionRef.current;
-      const SPLIT = 0.45;
+      const SPLIT = 0.58;
+      const PULLBACK_DISTANCE = 0.75;
       const frameDelta = Number.isFinite(delta) ? delta : 0;
       const safeDelta = Math.min(frameDelta, MAX_FORCED_TRANSITION_DELTA);
       transition.progress = Math.min(1, transition.progress + (safeDelta / transition.duration));
@@ -1886,7 +1887,7 @@ const UnifiedCameraController = ({
         return p * p * p * (p * (p * 6 - 15) + 10);
       };
       const waypoint = transition.waypoint || {
-        position: transition.from.position,
+        position: transition.from.position.clone().add(new THREE.Vector3(0, 0, PULLBACK_DISTANCE)),
         lookAtTarget: transition.from.lookAtTarget,
         filmOffsetX: transition.from.filmOffsetX,
       };
@@ -1926,6 +1927,8 @@ const UnifiedCameraController = ({
         console.log('[UCC FORCED HERO TO OVERVIEW PROGRESS]', {
           elapsedProgress: round4(elapsedProgress),
           accumulatedProgress: round4(accumulatedProgress),
+          split: round4(SPLIT),
+          pullbackDistance: round4(PULLBACK_DISTANCE),
           phase: isPullbackPhase ? 'pullback' : 'settle',
           localProgress: round4(localProgress),
           frameDelta: round4(frameDelta),
