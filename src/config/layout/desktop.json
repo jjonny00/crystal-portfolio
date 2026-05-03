@@ -434,6 +434,18 @@
           ]
         }
       }
+    },
+    "composition": {
+      "hero": {
+        "filmOffsetX": 9
+      }
+    },
+    "heroTuning": {
+      "radius": 2.75,
+      "height": 0.4,
+      "orbitSpeed": 0.03,
+      "baseAngle": 0,
+      "lookAtYOffset": 0.55
     }
   },
   "projects": {

@@ -225,6 +225,30 @@ const Fixed3DCanvas = forwardRef(({
           };
       }
 
+      if (cameraLayer.composition) {
+        nextConfig.cameraComposition = sourceWins
+          ? {
+              ...(nextConfig.cameraComposition || {}),
+              ...cameraLayer.composition,
+            }
+          : {
+              ...cameraLayer.composition,
+              ...(nextConfig.cameraComposition || {}),
+            };
+      }
+
+      if (cameraLayer.heroTuning) {
+        nextConfig.cameraHeroTuning = sourceWins
+          ? {
+              ...(nextConfig.cameraHeroTuning || {}),
+              ...cameraLayer.heroTuning,
+            }
+          : {
+              ...cameraLayer.heroTuning,
+              ...(nextConfig.cameraHeroTuning || {}),
+            };
+      }
+
       if (cameraLayer.offsets) {
         nextConfig.cameraOffsets = sourceWins
           ? {
