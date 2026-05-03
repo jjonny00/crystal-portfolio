@@ -2258,6 +2258,10 @@ const UnifiedCameraController = ({
           finalLookAt: transition.to.lookAtTarget.clone(),
           finalFilmOffset: camera.filmOffset,
         };
+        // Prevent post-handoff fracture branch from re-owning camera and introducing a second jump.
+        fractureTiltActiveRef.current = false;
+        fractureTiltRef.current = 0;
+        heroExplosionTransitionRef.current.active = false;
         heroToOverviewHandoffLockFramesRef.current = HERO_TO_OVERVIEW_HANDOFF_LOCK_FRAMES;
         console.log('[UCC FORCE HERO TO OVERVIEW COMPLETE]', {
           finalPosition: camera.position.toArray(),
