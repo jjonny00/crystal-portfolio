@@ -197,6 +197,8 @@ const UnifiedCameraController = ({
   const heroToOverviewAwaitFirstNormalFrameRef = useRef(false);
   const heroToOverviewTraceRef = useRef([]);
   const heroToOverviewTraceMetaRef = useRef({ active: false, endTime: 0, forcedFinal: null, prevSample: null });
+  const heroToOverviewPhaseBoundaryTraceRef = useRef([]);
+  const heroToOverviewPhaseBoundaryMetaRef = useRef({ switchIndex: null, printed: false });
   const lastCameraWriteSecondRef = useRef(-1);
   const lastCameraWriterRef = useRef('none');
   const prevStateRef = useRef(animationData?.state ?? null);
@@ -1725,6 +1727,8 @@ const UnifiedCameraController = ({
             forcedFinal: null,
             prevSample: null,
           };
+          heroToOverviewPhaseBoundaryTraceRef.current = [];
+          heroToOverviewPhaseBoundaryMetaRef.current = { switchIndex: null, printed: false };
         }
       }
     }
@@ -2092,6 +2096,69 @@ const UnifiedCameraController = ({
           duration: round4(transition.duration),
         };
         heroToOverviewTraceRef.current.push(sample);
+        const previousPhase = prev?.phase ?? null;
+        const phaseChangedThisFrame = previousPhase !== null && previousPhase !== sample.phase;
+        const boundarySample = {
+          i: heroToOverviewPhaseBoundaryTraceRef.current.length,
+          t: sample.t ?? null,
+          phase: sample.phase ?? null,
+          progress: sample.progress ?? null,
+          dollySplit: 0.35,
+          localProgress: sample.moveProgress ?? null,
+          positionProgress: sample.positionProgress ?? null,
+          lookAtProgress: sample.lookAtProgress ?? null,
+          filmOffsetProgress: sample.filmOffsetProgress ?? null,
+          cameraPosition: sample.cameraPosition ?? null,
+          deltaPositionFromPreviousFrame: sample.deltaPositionFromPreviousFrame ?? null,
+          currentLookAt: sample.currentLookAt ?? null,
+          deltaLookAtFromPreviousFrame: sample.deltaLookAtFromPreviousFrame ?? null,
+          filmOffset: sample.filmOffset ?? null,
+          deltaFilmOffsetFromPreviousFrame: sample.deltaFilmOffsetFromPreviousFrame ?? null,
+          quaternion: sample.quaternion ?? null,
+          deltaQuaternionAngleFromPreviousFrame: sample.deltaQuaternionAngleFromPreviousFrame ?? null,
+          startPosition: sample.startPosition ?? null,
+          waypointPosition: vectorToPlain(transition.waypoint?.position),
+          destinationPosition: sample.destinationPosition ?? null,
+          startLookAt: sample.startLookAt ?? null,
+          waypointLookAt: vectorToPlain(transition.waypoint?.lookAtTarget),
+          destinationLookAt: sample.destinationLookAt ?? null,
+          previousPhase,
+          phaseChangedThisFrame,
+          state: sample.state ?? null,
+          cameraState: sample.cameraState ?? null,
+          writer: sample.activeWriter ?? null,
+          branch: sample.phase ?? null,
+        };
+        heroToOverviewPhaseBoundaryTraceRef.current.push(boundarySample);
+        const boundaryMeta = heroToOverviewPhaseBoundaryMetaRef.current;
+        if (boundaryMeta.switchIndex === null && phaseChangedThisFrame && sample.phase === 'settle') {
+          boundaryMeta.switchIndex = boundarySample.i;
+        }
+        if (
+          boundaryMeta.switchIndex !== null &&
+          !boundaryMeta.printed &&
+          boundarySample.i >= (boundaryMeta.switchIndex + 8)
+        ) {
+          const startIdx = Math.max(0, boundaryMeta.switchIndex - 5);
+          const endIdx = boundaryMeta.switchIndex + 8;
+          const windowRows = heroToOverviewPhaseBoundaryTraceRef.current
+            .filter((row) => row.i >= startIdx && row.i <= endIdx);
+          const maxDeltaPositionInWindow = windowRows.reduce((max, row) => Math.max(max, row.deltaPositionFromPreviousFrame ?? 0), 0);
+          const maxDeltaLookAtInWindow = windowRows.reduce((max, row) => Math.max(max, row.deltaLookAtFromPreviousFrame ?? 0), 0);
+          const maxDeltaFilmOffsetInWindow = windowRows.reduce((max, row) => Math.max(max, row.deltaFilmOffsetFromPreviousFrame ?? 0), 0);
+          const maxDeltaQuaternionInWindow = windowRows.reduce((max, row) => Math.max(max, row.deltaQuaternionAngleFromPreviousFrame ?? 0), 0);
+          console.log(
+            '[UCC HERO TO OVERVIEW PHASE BOUNDARY DETAIL JSON STRING]\n' +
+            JSON.stringify({
+              samples: windowRows,
+              maxDeltaPositionInWindow: round4(maxDeltaPositionInWindow),
+              maxDeltaLookAtInWindow: round4(maxDeltaLookAtInWindow),
+              maxDeltaFilmOffsetInWindow: round4(maxDeltaFilmOffsetInWindow),
+              maxDeltaQuaternionInWindow: round4(maxDeltaQuaternionInWindow),
+            }, null, 2)
+          );
+          boundaryMeta.printed = true;
+        }
         meta.prevSample = {
           t: sampleTime,
           cameraPosVec: camera.position.clone(),
