@@ -2131,14 +2131,18 @@ const UnifiedCameraController = ({
         };
         heroToOverviewPhaseBoundaryTraceRef.current.push(boundarySample);
         const boundaryMeta = heroToOverviewPhaseBoundaryMetaRef.current;
-        if (boundaryMeta.switchIndex === null && phaseChangedThisFrame && sample.phase === 'settle') {
+        const boundaryCrossed = (sample.progress ?? 0) >= 0.35;
+        if (boundaryMeta.switchIndex === null && boundaryCrossed) {
           boundaryMeta.switchIndex = boundarySample.i;
         }
-        if (
-          boundaryMeta.switchIndex !== null &&
+        const shouldEmitBoundaryDetail =
           !boundaryMeta.printed &&
-          boundarySample.i >= (boundaryMeta.switchIndex + 8)
-        ) {
+          boundaryMeta.switchIndex !== null &&
+          (
+            (sample.progress ?? 0) >= (0.35 + 0.08) ||
+            accumulatedProgress >= 1
+          );
+        if (shouldEmitBoundaryDetail) {
           const startIdx = Math.max(0, boundaryMeta.switchIndex - 5);
           const endIdx = boundaryMeta.switchIndex + 8;
           const windowRows = heroToOverviewPhaseBoundaryTraceRef.current
@@ -2155,6 +2159,24 @@ const UnifiedCameraController = ({
               maxDeltaLookAtInWindow: round4(maxDeltaLookAtInWindow),
               maxDeltaFilmOffsetInWindow: round4(maxDeltaFilmOffsetInWindow),
               maxDeltaQuaternionInWindow: round4(maxDeltaQuaternionInWindow),
+            }, null, 2)
+          );
+          boundaryMeta.printed = true;
+        }
+        if (!boundaryMeta.printed && accumulatedProgress >= 1 && boundaryMeta.switchIndex === null) {
+          const allRows = heroToOverviewPhaseBoundaryTraceRef.current;
+          console.log(
+            '[UCC HERO TO OVERVIEW PHASE BOUNDARY TRACE FAILED JSON STRING]\n' +
+            JSON.stringify({
+              sampleCount: allRows.length,
+              firstProgress: allRows[0]?.progress ?? null,
+              lastProgress: allRows[allRows.length - 1]?.progress ?? null,
+              dollySplit: 0.35,
+              firstPhase: allRows[0]?.phase ?? null,
+              lastPhase: allRows[allRows.length - 1]?.phase ?? null,
+              forcedTransitionActive: authoritativeHeroToOverviewTransitionRef.current.active,
+              completed: accumulatedProgress >= 1,
+              reason: 'boundary-not-detected-by-progress-crossing',
             }, null, 2)
           );
           boundaryMeta.printed = true;
