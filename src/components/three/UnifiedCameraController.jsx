@@ -1447,6 +1447,11 @@ const UnifiedCameraController = ({
   const quaternionToPlain = (q) => ({ x: round4(q?.x), y: round4(q?.y), z: round4(q?.z), w: round4(q?.w) });
   const safeDistance = (a, b) => (a && b ? round4(a.distanceTo(b)) : null);
   const quaternionAngleDelta = (q1, q2) => (q1 && q2 ? round4(q1.angleTo(q2)) : null);
+  const getCameraLookAtFromTransform = (distance = 10) => {
+    const forward = new THREE.Vector3();
+    camera.getWorldDirection(forward);
+    return camera.position.clone().addScaledVector(forward, distance);
+  };
 
   useFrame((state, delta) => {
     syncFractureTiltState(state.clock.elapsedTime);
@@ -1581,7 +1586,7 @@ const UnifiedCameraController = ({
       const latestAuthoritativeSnapshot = latestAuthoritativeHeroSnapshotRef.current || null;
       const currentCameraFallback = {
         position: camera.position.clone(),
-        lookAtTarget: currentTarget.current?.lookAt?.clone?.() || newLookAtTempRef.current.copy(camera.position).add(new THREE.Vector3(0, 0, -1)),
+        lookAtTarget: getCameraLookAtFromTransform(),
         filmOffsetX: Number.isFinite(camera.filmOffset) ? camera.filmOffset : 0,
       };
       const fromSnapshot = heroExitSnapshot || latestAuthoritativeSnapshot || currentCameraFallback;
@@ -1749,11 +1754,7 @@ const UnifiedCameraController = ({
         filmOffsetX: resolvedHeroFilmOffsetX,
         angleOverride: tuning.baseAngle,
       });
-      const fromLookAt =
-        currentTarget.current?.lookAt?.clone?.() ||
-        toVector3(config?.cameraTargets?.overview)
-          .add(toVector3(config?.cameraOffsets?.global?.target))
-          .add(toVector3(config?.cameraOffsets?.zones?.overview?.target));
+      const fromLookAt = getCameraLookAtFromTransform();
       authoritativeOverviewToHeroTransitionRef.current = {
         active: true,
         progress: 0,
@@ -2257,6 +2258,10 @@ const UnifiedCameraController = ({
           finalLookAt: transition.to.lookAtTarget.clone(),
           finalFilmOffset: camera.filmOffset,
         };
+        // Prevent post-handoff fracture branch from re-owning camera and introducing a second jump.
+        fractureTiltActiveRef.current = false;
+        fractureTiltRef.current = 0;
+        heroExplosionTransitionRef.current.active = false;
         heroToOverviewHandoffLockFramesRef.current = HERO_TO_OVERVIEW_HANDOFF_LOCK_FRAMES;
         console.log('[UCC FORCE HERO TO OVERVIEW COMPLETE]', {
           finalPosition: camera.position.toArray(),
