@@ -354,6 +354,8 @@ export const useUnifiedAnimationController = (options = {}) => {
     introReplayToken = 0
   } = options;
 
+  const [slowdownGateTick, setSlowdownGateTick] = useState(0);
+
   const [animationState, setAnimationState] = useState({
     state: ANIMATION_STATES.HERO,
     crystalForm: 'whole',
@@ -954,6 +956,9 @@ export const useUnifiedAnimationController = (options = {}) => {
           slowdownElapsedMs,
           requiredSlowdownMs
         });
+      } else {
+        const timer = setTimeout(() => setSlowdownGateTick((tick) => tick + 1), 50);
+        return () => clearTimeout(timer);
       }
       return;
     }
@@ -986,7 +991,8 @@ export const useUnifiedAnimationController = (options = {}) => {
     config,
     isTransitionPhaseDebugVerboseEnabled,
     logTransitionPhaseDebug,
-    setTransitionPhase
+    setTransitionPhase,
+    slowdownGateTick
   ]);
 
   /**
