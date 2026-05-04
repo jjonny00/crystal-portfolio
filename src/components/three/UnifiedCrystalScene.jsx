@@ -281,7 +281,7 @@ const UnifiedCrystalScene = forwardRef(({
     setSphereVisible(true);
     setRingVisible(true);
     explosionStartRef.current = performance.now() - FORWARD_PRE_SWAP_WINDOW_MS;
-    setBurstId(id => id + 1);
+    setBurstId(id => id + 1 + Math.max(0, Math.round((crystalConfig?.heroToOverviewExplosionSettings?.explosionParticleBurstStrength ?? 1) - 1)));
 
     triggerFractureGlow();
     if (
@@ -1877,9 +1877,15 @@ const UnifiedCrystalScene = forwardRef(({
         }
         const fracture = crystalConfig?.fracturePositions;
         const fractureDistance = crystalConfig?.fractureDistance ?? 0.3;
+        const impulseDistance = crystalConfig?.heroToOverviewExplosionSettings?.explosionImpulseDistance ?? 0.32;
+        const impulseStrength = crystalConfig?.heroToOverviewExplosionSettings?.explosionImpulseStrength ?? 1.35;
+        const rotationStrength = crystalConfig?.heroToOverviewExplosionSettings?.explosionRotationStrength ?? 1.15;
+        const impulseBlend = THREE.MathUtils.clamp(progress / Math.max(impulseThreshold, 0.0001), 0, 1);
+        const impulseEase = 1 - Math.pow(1 - impulseBlend, 4);
         const eased = crystalConfig?.explosionEase
           ? crystalConfig?.explosionEase(progress)
           : progress;
+        const outwardBoost = impulseDistance * impulseStrength * (1 - impulseBlend) * 0.35;
 
         if (facetsGroupRef.current) {
           facetsGroupRef.current.quaternion.slerpQuaternions(
@@ -1897,13 +1903,14 @@ const UnifiedCrystalScene = forwardRef(({
           const start = fracture?.[facetPlacementKeys[facetKey] || facetKey] ||
             end?.clone().normalize().multiplyScalar(end.length() * fractureDistance);
           if (start && end) {
-            const interpolated = start.clone().lerp(end, eased);
+            const boostedProgress = THREE.MathUtils.clamp(eased + (impulseEase * outwardBoost), 0, 1);
+            const interpolated = start.clone().lerp(end, boostedProgress);
             const targetQuat = baseFacetTargetQuats[facetKey] || neutralQuat;
             const adjusted = animationData?.crystalForm === 'exploded'
               ? getAnchorAdjustedPosition(facetKey, interpolated, targetQuat)
               : interpolated;
             facetRef.current.position.copy(adjusted);
-            facetRef.current.quaternion.slerpQuaternions(neutralQuat, targetQuat, eased);
+            facetRef.current.quaternion.slerpQuaternions(neutralQuat, targetQuat, THREE.MathUtils.clamp(boostedProgress * rotationStrength, 0, 1));
           }
         });
 

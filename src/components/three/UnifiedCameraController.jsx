@@ -278,6 +278,7 @@ const UnifiedCameraController = ({
           fractureTiltLockSeededRef.current = true;
           fractureTiltAnchorSeededFromLiveHeroRef.current = true;
           explosionSyncStartRef.current = {
+            startedAt: elapsedSeconds,
             startPosition: beforeSyncPosition.clone(),
             startLookAt: authoritativeSnapshot.lookAtTarget.clone(),
             destinationPosition: currentTarget.current.position.clone(),
@@ -2499,7 +2500,19 @@ const UnifiedCameraController = ({
         });
       }
       const beforePosition = camera.position.clone();
+      const explosionSettings = animationData?.crystalConfig?.heroToOverviewExplosionSettings || {};
+      const transitionPhase = animationData?.transitionPhase;
+      const isExplosionImpulsePhase = transitionPhase === 'explosionImpulse';
+      const pushbackDistance = (explosionSettings.explosionCameraPushbackDistance ?? 0.55) * (explosionSettings.explosionCameraPushbackStrength ?? 1);
+      const pushDuration = Math.max(explosionSettings.explosionImpulseDuration ?? 0.25, 0.0001);
+      const explosionStartedAt = explosionSyncStartRef.current?.startedAt ?? state.clock.elapsedTime;
+      const pushT = THREE.MathUtils.clamp((state.clock.elapsedTime - explosionStartedAt) / pushDuration, 0, 1);
+      const pushEase = 1 - Math.pow(1 - pushT, 4);
       camera.position.copy(fractureTiltAnchorPositionRef.current);
+      if (isExplosionImpulsePhase) {
+        const backward = new THREE.Vector3().subVectors(fractureTiltAnchorPositionRef.current, fractureTiltAnchorLookAtRef.current).normalize();
+        camera.position.addScaledVector(backward, pushbackDistance * pushEase);
+      }
       currentTarget.current.position.copy(fractureTiltAnchorPositionRef.current);
       camera.lookAt(fractureTiltAnchorLookAtRef.current);
       currentTarget.current.lookAt.copy(fractureTiltAnchorLookAtRef.current);
