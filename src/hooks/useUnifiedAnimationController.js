@@ -138,6 +138,14 @@ export const ANIMATION_CONFIG = {
     explosionEase: (t) => 1 - Math.pow(1 - t, 3), // starts fast, smooth stop
     heroToOverviewExplosionSettings: {
       fractureChargeDuration: fractureConfig.duration,
+      fractureSpread: 0.08,
+      fractureJitterStrength: 0.02,
+      fractureRotationStrength: 0.08,
+      fractureGlowIntensity: fractureConfig.emissive?.intensity ?? 2.3,
+      fractureParticleLeakRate: 1.0,
+      fractureParticleLeakStrength: 0.2,
+      fractureCameraReactionStrength: 0.0,
+      fractureCameraLookAtTightening: 0.0,
       explosionImpulseDuration: 0.25,
       bulletTimeSlowdownDuration: 0.85,
       overviewHandoffDuration: 0.5,
