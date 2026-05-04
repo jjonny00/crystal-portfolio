@@ -142,7 +142,7 @@ export const ANIMATION_CONFIG = {
       fractureJitterStrength: 0.02,
       fractureRotationStrength: 0.08,
       fractureGlowIntensity: fractureConfig.emissive?.intensity ?? 2.3,
-      fractureParticleLeakRate: 1.0,
+      fractureParticleLeakRate: 1,
       fractureParticleLeakStrength: 0.2,
       fractureCameraReactionStrength: 0.0,
       fractureCameraLookAtTightening: 0.0,
