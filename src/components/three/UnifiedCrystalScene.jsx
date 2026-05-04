@@ -190,6 +190,7 @@ const UnifiedCrystalScene = forwardRef(({
   const fractureChargeActiveRef = useRef(false);
   const fractureChargePhaseRef = useRef(0);
   const fractureChargeStartPositionsRef = useRef([]);
+  const fractureChargeHandoffLoggedRef = useRef(false);
 
   // Track explosion timing so we can implement fracture pause
   const explosionStartRef = useRef(null);
@@ -262,11 +263,21 @@ const UnifiedCrystalScene = forwardRef(({
     }
 
     // Snap facets to the same fracture target pose used by charge, preventing handoff pops
+    const phaseDebugEnabled =
+      (typeof globalThis !== 'undefined' && globalThis.__CRYSTAL_DEBUG_TRANSITION_PHASES__ === true)
+      || (typeof window !== 'undefined' && window.__CRYSTAL_DEBUG_TRANSITION_PHASES__ === true);
+
     facetRefs.current.forEach((facetRef, idx) => {
       const facetKey = facetKeys[idx];
       const fracturePos = getFractureTargetPosition(facetKey);
       if (facetRef?.current && fracturePos) {
         facetRef.current.position.copy(fracturePos);
+        if (idx === 0 && phaseDebugEnabled) {
+          console.log('[transition-phase-debug] runExplodeSwap facet0', {
+            position: facetRef.current.position.toArray(),
+            rotation: [facetRef.current.rotation.x, facetRef.current.rotation.y, facetRef.current.rotation.z]
+          });
+        }
         logger.debug(`💥 ${facetKey} fracture:`, fracturePos.toArray());
       }
     });
@@ -1506,6 +1517,7 @@ const UnifiedCrystalScene = forwardRef(({
           fractureChargeActiveRef.current = true;
           fractureChargeStartRef.current = performance.now();
           fractureChargePhaseRef.current = 0;
+          fractureChargeHandoffLoggedRef.current = false;
           facetRefs.current.forEach((facetRef) => {
             if (!facetRef?.current) return;
             facetRef.current.position.set(0, 0, 0);
@@ -1545,6 +1557,7 @@ const UnifiedCrystalScene = forwardRef(({
         fractureChargeActiveRef.current = false;
         fractureChargeStartRef.current = null;
         fractureChargeStartPositionsRef.current = [];
+        fractureChargeHandoffLoggedRef.current = false;
         resetWholeCrystalMaskGlow();
         if (facetsGroupRef.current) {
           facetsGroupRef.current.quaternion.copy(neutralQuat);
@@ -1568,7 +1581,10 @@ const UnifiedCrystalScene = forwardRef(({
       animationData?.transitionPhase === HERO_TO_OVERVIEW_PHASES.FRACTURE_CHARGE
     ) {
       const settings = crystalConfig?.heroToOverviewExplosionSettings || {};
-      const chargeDuration = Math.max(settings.fractureChargeDuration ?? 0.5, 0.0001);
+      const configuredDuration = Math.max(settings.fractureChargeDuration ?? 0.5, 0.0001);
+      const swapAt = pendingExplodeSwapAtRef.current ?? now;
+      const availableDuration = Math.max((swapAt - fractureChargeStartRef.current) / 1000, 0.0001);
+      const chargeDuration = Math.min(configuredDuration, availableDuration);
       const elapsedCharge = (now - fractureChargeStartRef.current) / 1000;
       const t = Math.min(Math.max(elapsedCharge / chargeDuration, 0), 1);
       fractureChargePhaseRef.current = t;
@@ -1578,7 +1594,11 @@ const UnifiedCrystalScene = forwardRef(({
       const rotationStrength = settings.fractureRotationStrength ?? 0.08;
       const glowIntensity = settings.fractureGlowIntensity ?? 2.3;
 
-      facetRefs.current.forEach((facetRef, idx) => {
+      const phaseDebugEnabled =
+      (typeof globalThis !== 'undefined' && globalThis.__CRYSTAL_DEBUG_TRANSITION_PHASES__ === true)
+      || (typeof window !== 'undefined' && window.__CRYSTAL_DEBUG_TRANSITION_PHASES__ === true);
+
+    facetRefs.current.forEach((facetRef, idx) => {
         const facetKey = facetKeys[idx];
         const fractureTarget = getFractureTargetPosition(facetKey);
         if (!facetRef?.current || !fractureTarget) return;
@@ -1588,11 +1608,7 @@ const UnifiedCrystalScene = forwardRef(({
         const jitterY = ((((hash * 29) % 1000) / 1000) - 0.5) * jitterStrength;
         const jitterZ = ((((hash * 47) % 1000) / 1000) - 0.5) * jitterStrength;
         const jitterFade = 1 - t;
-        const targetWithJitter = fractureTarget.clone();
-        targetWithJitter.x += jitterX * spread * pressure * jitterFade;
-        targetWithJitter.y += jitterY * spread * pressure * jitterFade;
-        targetWithJitter.z += jitterZ * spread * pressure * jitterFade;
-        facetRef.current.position.copy(startPos.clone().lerp(targetWithJitter, pressure));
+        facetRef.current.position.copy(startPos.clone().lerp(fractureTarget, pressure));
         facetRef.current.rotation.set(
           jitterY * rotationStrength * pressure * jitterFade,
           jitterX * rotationStrength * pressure * jitterFade,
@@ -1600,8 +1616,23 @@ const UnifiedCrystalScene = forwardRef(({
         );
       });
 
-      if (facetMaterialsRef.current.length) {
-        facetMaterialsRef.current.forEach((mat) => {
+      if (
+        t >= 0.999 &&
+        !fractureChargeHandoffLoggedRef.current &&
+        ((typeof globalThis !== 'undefined' && globalThis.__CRYSTAL_DEBUG_TRANSITION_PHASES__ === true)
+          || (typeof window !== 'undefined' && window.__CRYSTAL_DEBUG_TRANSITION_PHASES__ === true))
+      ) {
+        const firstFacet = facetRefs.current[0]?.current;
+        if (firstFacet) {
+          console.log('[transition-phase-debug] fractureCharge handoff facet0', {
+            position: firstFacet.position.toArray(),
+            rotation: [firstFacet.rotation.x, firstFacet.rotation.y, firstFacet.rotation.z]
+          });
+        }
+        fractureChargeHandoffLoggedRef.current = true;
+      }
+
+      if (facetMaterialsRef.current.length) {        facetMaterialsRef.current.forEach((mat) => {
           const baseIntensity = mat.userData?.baseEmissiveIntensity ?? 0.02;
           const targetIntensity = baseIntensity + (glowIntensity - baseIntensity) * pressure;
           mat.emissiveIntensity = targetIntensity;
@@ -1691,8 +1722,23 @@ const UnifiedCrystalScene = forwardRef(({
           swapMaskGlowStartRef.current = null;
           swapMaskGlowModeRef.current = null;
           resetWholeCrystalMaskGlow();
-          if (facetMaterialsRef.current.length) {
-            facetMaterialsRef.current.forEach((facetMat) => {
+          if (
+        t >= 0.999 &&
+        !fractureChargeHandoffLoggedRef.current &&
+        ((typeof globalThis !== 'undefined' && globalThis.__CRYSTAL_DEBUG_TRANSITION_PHASES__ === true)
+          || (typeof window !== 'undefined' && window.__CRYSTAL_DEBUG_TRANSITION_PHASES__ === true))
+      ) {
+        const firstFacet = facetRefs.current[0]?.current;
+        if (firstFacet) {
+          console.log('[transition-phase-debug] fractureCharge handoff facet0', {
+            position: firstFacet.position.toArray(),
+            rotation: [firstFacet.rotation.x, firstFacet.rotation.y, firstFacet.rotation.z]
+          });
+        }
+        fractureChargeHandoffLoggedRef.current = true;
+      }
+
+      if (facetMaterialsRef.current.length) {            facetMaterialsRef.current.forEach((facetMat) => {
               const baseFacetColor = facetMat.userData?.baseEmissiveColor || defaultColorRef.current;
               const baseFacetIntensity = facetMat.userData?.baseEmissiveIntensity ?? 0.02;
               facetMat.emissive.copy(baseFacetColor);
@@ -1759,7 +1805,11 @@ const UnifiedCrystalScene = forwardRef(({
       if (elapsedExplosion < fracturePause) {
         const fracture = crystalConfig?.fracturePositions;
         const fractureDistance = crystalConfig?.fractureDistance ?? 0.3;
-        facetRefs.current.forEach((facetRef, idx) => {
+        const phaseDebugEnabled =
+      (typeof globalThis !== 'undefined' && globalThis.__CRYSTAL_DEBUG_TRANSITION_PHASES__ === true)
+      || (typeof window !== 'undefined' && window.__CRYSTAL_DEBUG_TRANSITION_PHASES__ === true);
+
+    facetRefs.current.forEach((facetRef, idx) => {
           const facetKey = facetKeys[idx];
           const explodedPos = crystalConfig?.positions?.[facetPlacementKeys[facetKey] || facetKey];
           const configured = fracture?.[facetPlacementKeys[facetKey] || facetKey];
