@@ -486,6 +486,21 @@ export const useUnifiedAnimationController = (options = {}) => {
     });
   }, [animationState.cameraState, animationState.crystalForm, animationState.state, isTransitionPhaseDebugEnabled, isTransitionPhaseDebugVerboseEnabled, logTransitionPhaseDebug]);
 
+
+  const resetHeroToOverviewTransitionPhase = useCallback((reason = 'unspecified') => {
+    const previousPhase = transitionPhaseRef.current ?? HERO_TO_OVERVIEW_PHASES.IDLE;
+    if (previousPhase === HERO_TO_OVERVIEW_PHASES.IDLE) return;
+    transitionPhaseRef.current = HERO_TO_OVERVIEW_PHASES.IDLE;
+    setAnimationState((prev) => {
+      if (prev.transitionPhase === HERO_TO_OVERVIEW_PHASES.IDLE) return prev;
+      return { ...prev, transitionPhase: HERO_TO_OVERVIEW_PHASES.IDLE };
+    });
+    logTransitionPhaseDebug('[transition-phase-debug] reset hero→overview phase', {
+      previousPhase,
+      reason
+    });
+  }, [logTransitionPhaseDebug]);
+
   const getRuntimeProjectSection = useCallback((projectKey) => {
     if (!projectKey) return null;
     return runtimeProjectSectionsRef.current.find((section) => section.project === projectKey) || null;
@@ -788,6 +803,7 @@ export const useUnifiedAnimationController = (options = {}) => {
 
     // IMMEDIATE state changes - no complex sequences
     if (toZone === 'hero') {
+      resetHeroToOverviewTransitionPhase('zone-transition-to-hero');
       // Reform crystal immediately but keep camera at overview until fracture pause completes
       setAnimationState(prev => ({
         ...prev,
@@ -810,6 +826,9 @@ export const useUnifiedAnimationController = (options = {}) => {
         fromZone,
         toZone
       });
+      if (transitionPhaseRef.current === HERO_TO_OVERVIEW_PHASES.COMPLETE) {
+        resetHeroToOverviewTransitionPhase('new-overview-cycle-from-complete');
+      }
       // Start explosion immediately but delay camera move until fracture pause completes
       setAnimationState(prev => ({
         ...prev,
@@ -877,7 +896,7 @@ export const useUnifiedAnimationController = (options = {}) => {
         isTransitioning: false
       }));
     }
-  }, [debugMode, config, setTransitionPhase]);
+  }, [debugMode, config, resetHeroToOverviewTransitionPhase, setTransitionPhase]);
 
   useEffect(() => {
     if (
