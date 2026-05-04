@@ -374,6 +374,7 @@ export const useUnifiedAnimationController = (options = {}) => {
   const lastProject = useRef(null);
   const updateTimeout = useRef(null);
   const cameraDelayTimeout = useRef(null);
+  const bulletTimeSlowdownStartRef = useRef(null);
   const introPreviewTimeout = useRef(null);
   const introPreviewActiveRef = useRef(false);
   const directProjectOverrideRef = useRef(null);
@@ -463,6 +464,12 @@ export const useUnifiedAnimationController = (options = {}) => {
       return;
     }
     const previousPhase = currentRefPhase;
+    const phaseTimestamp = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    if (nextPhase === HERO_TO_OVERVIEW_PHASES.BULLET_TIME_SLOWDOWN) {
+      bulletTimeSlowdownStartRef.current = phaseTimestamp;
+    } else if (nextPhase === HERO_TO_OVERVIEW_PHASES.IDLE || nextPhase === HERO_TO_OVERVIEW_PHASES.COMPLETE) {
+      bulletTimeSlowdownStartRef.current = null;
+    }
     logTransitionPhaseDebug('[transition-phase-debug] setTransitionPhase called', {
       previousPhase,
       nextPhase,
@@ -491,6 +498,7 @@ export const useUnifiedAnimationController = (options = {}) => {
     const previousPhase = transitionPhaseRef.current ?? HERO_TO_OVERVIEW_PHASES.IDLE;
     if (previousPhase === HERO_TO_OVERVIEW_PHASES.IDLE) return;
     transitionPhaseRef.current = HERO_TO_OVERVIEW_PHASES.IDLE;
+    bulletTimeSlowdownStartRef.current = null;
     setAnimationState((prev) => {
       if (prev.transitionPhase === HERO_TO_OVERVIEW_PHASES.IDLE) return prev;
       return { ...prev, transitionPhase: HERO_TO_OVERVIEW_PHASES.IDLE };
@@ -905,9 +913,30 @@ export const useUnifiedAnimationController = (options = {}) => {
       animationState.crystalForm === 'exploded' &&
       animationState.state === ANIMATION_STATES.OVERVIEW
     ) {
-      setTransitionPhase(HERO_TO_OVERVIEW_PHASES.OVERVIEW_HANDOFF, {
-        reason: 'camera-overview-after-slowdown'
-      });
+      const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      const slowdownStartedAt = bulletTimeSlowdownStartRef.current ?? now;
+      const slowdownElapsedMs = Math.max(now - slowdownStartedAt, 0);
+      const requiredSlowdownMs = Math.max(
+        (config?.crystal?.heroToOverviewExplosionSettings?.bulletTimeSlowdownDuration ?? 0.85) * 1000,
+        0
+      );
+      const cameraReady = animationState.cameraSettled === true || (animationState.cameraMoveProgress ?? 0) >= 0.995;
+      if (slowdownElapsedMs >= requiredSlowdownMs && cameraReady) {
+        setTransitionPhase(HERO_TO_OVERVIEW_PHASES.OVERVIEW_HANDOFF, {
+          reason: 'camera-overview-after-slowdown-duration',
+          slowdownElapsedMs,
+          requiredSlowdownMs
+        });
+      } else if (isTransitionPhaseDebugVerboseEnabled()) {
+        logTransitionPhaseDebug('[transition-phase-debug] overview handoff gated', {
+          reason: 'slowdown-or-camera-not-ready',
+          slowdownElapsedMs,
+          requiredSlowdownMs,
+          cameraReady,
+          cameraSettled: animationState.cameraSettled,
+          cameraMoveProgress: animationState.cameraMoveProgress
+        });
+      }
       return;
     }
 
@@ -936,6 +965,9 @@ export const useUnifiedAnimationController = (options = {}) => {
     animationState.state,
     animationState.cameraSettled,
     animationState.cameraMoveProgress,
+    config,
+    isTransitionPhaseDebugVerboseEnabled,
+    logTransitionPhaseDebug,
     setTransitionPhase
   ]);
 
