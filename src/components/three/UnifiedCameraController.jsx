@@ -152,6 +152,10 @@ const UnifiedCameraController = ({
   const explosionFirstFrameLoggedRef = useRef(false);
   const explosionCameraTraceUntilRef = useRef(0);
   const explosionPushbackSamplesRef = useRef({ start: false, quarter: false, half: false, full: false });
+  const explosionPhaseObservedLoggedRef = useRef(false);
+  const explosionSyncSeedLoggedRef = useRef(false);
+  const explosionPushbackSkipLoggedRef = useRef(new Set());
+  const explosionPushbackOverwriteSamplesRef = useRef({ quarter: false, half: false, full: false });
   const firstPostHeroExplosionWriteLoggedRef = useRef(false);
   const lastAuthoritativeHeroSnapshotRef = useRef(null);
   const latestAuthoritativeHeroSnapshotRef = useRef(null);
@@ -287,8 +291,24 @@ const UnifiedCameraController = ({
           };
           explosionFirstFrameLoggedRef.current = false;
           explosionPushbackSamplesRef.current = { start: false, quarter: false, half: false, full: false };
+          explosionPushbackOverwriteSamplesRef.current = { quarter: false, half: false, full: false };
+          explosionPhaseObservedLoggedRef.current = false;
+          explosionSyncSeedLoggedRef.current = false;
+          explosionPushbackSkipLoggedRef.current = new Set();
           explosionCameraTraceUntilRef.current = elapsedSeconds + 1.5;
           firstPostHeroExplosionWriteLoggedRef.current = false;
+          const phaseDebugEnabled =
+            (typeof globalThis !== 'undefined' && globalThis.__CRYSTAL_DEBUG_TRANSITION_PHASES__ === true)
+            || (typeof window !== 'undefined' && window.__CRYSTAL_DEBUG_TRANSITION_PHASES__ === true);
+          if (phaseDebugEnabled && !explosionSyncSeedLoggedRef.current) {
+            explosionSyncSeedLoggedRef.current = true;
+            console.log('[explosion-camera-debug] explosion sync seeded', {
+              cameraPosition: beforeSyncPosition.toArray(),
+              lookAtTarget: sourceLookAt.toArray(),
+              timestamp: elapsedSeconds,
+              transitionPhase: animationData?.transitionPhase ?? null
+            });
+          }
           console.log('[UCC EXPLOSION SYNC START]', {
             state: animationData?.state,
             cameraState: animationData?.cameraState,
@@ -2505,19 +2525,46 @@ const UnifiedCameraController = ({
       const explosionSettings = animationData?.crystalConfig?.heroToOverviewExplosionSettings || {};
       const transitionPhase = animationData?.transitionPhase;
       const isExplosionImpulsePhase = transitionPhase === 'explosionImpulse';
+      const phaseDebugEnabled =
+        (typeof globalThis !== 'undefined' && globalThis.__CRYSTAL_DEBUG_TRANSITION_PHASES__ === true)
+        || (typeof window !== 'undefined' && window.__CRYSTAL_DEBUG_TRANSITION_PHASES__ === true);
+      if (phaseDebugEnabled && isExplosionImpulsePhase && !explosionPhaseObservedLoggedRef.current) {
+        explosionPhaseObservedLoggedRef.current = true;
+        console.log('[explosion-camera-debug] explosionImpulse observed by camera', {
+          transitionPhase,
+          cameraState: animationData?.cameraState ?? null,
+          state: animationData?.state ?? null,
+          crystalForm: animationData?.crystalForm ?? null,
+          forcedTransitionOwnerActive: fractureTiltActiveRef.current,
+          hasExplosionSyncStart: Boolean(explosionSyncStartRef.current)
+        });
+      }
       const pushbackDistance = (explosionSettings.explosionCameraPushbackDistance ?? 0.55) * (explosionSettings.explosionCameraPushbackStrength ?? 1);
       const pushDuration = Math.max(explosionSettings.explosionImpulseDuration ?? 0.25, 0.0001);
       const explosionStartedAt = explosionSyncStartRef.current?.startedAt ?? state.clock.elapsedTime;
       const pushT = THREE.MathUtils.clamp((state.clock.elapsedTime - explosionStartedAt) / pushDuration, 0, 1);
       const pushEase = 1 - Math.pow(1 - pushT, 4);
+      if (phaseDebugEnabled && isExplosionImpulsePhase && pushT >= 1 && !explosionPushbackSkipLoggedRef.current.has('elapsed-outside-impulse')) {
+        explosionPushbackSkipLoggedRef.current.add('elapsed-outside-impulse');
+        console.log('[explosion-camera-debug] pushback skipped', { reason: 'elapsed outside impulse window', pushT });
+      }
       camera.position.copy(fractureTiltAnchorPositionRef.current);
+      if (phaseDebugEnabled && !isExplosionImpulsePhase && !explosionPushbackSkipLoggedRef.current.has('not-impulse-phase')) {
+        explosionPushbackSkipLoggedRef.current.add('not-impulse-phase');
+        console.log('[explosion-camera-debug] pushback skipped', { reason: 'transitionPhase is not explosionImpulse', transitionPhase });
+      }
+      if (phaseDebugEnabled && !explosionSyncStartRef.current && !explosionPushbackSkipLoggedRef.current.has('no-sync-start')) {
+        explosionPushbackSkipLoggedRef.current.add('no-sync-start');
+        console.log('[explosion-camera-debug] pushback skipped', { reason: 'no explosionSyncStartRef' });
+      }
+      if (phaseDebugEnabled && !fractureTiltActiveRef.current && !explosionPushbackSkipLoggedRef.current.has('forced-owner-inactive')) {
+        explosionPushbackSkipLoggedRef.current.add('forced-owner-inactive');
+        console.log('[explosion-camera-debug] pushback skipped', { reason: 'forced transition owner inactive' });
+      }
       if (isExplosionImpulsePhase) {
         const backward = new THREE.Vector3().subVectors(fractureTiltAnchorPositionRef.current, fractureTiltAnchorLookAtRef.current).normalize();
         const pushOffset = pushbackDistance * pushEase;
         camera.position.addScaledVector(backward, pushOffset);
-        const phaseDebugEnabled =
-          (typeof globalThis !== 'undefined' && globalThis.__CRYSTAL_DEBUG_TRANSITION_PHASES__ === true)
-          || (typeof window !== 'undefined' && window.__CRYSTAL_DEBUG_TRANSITION_PHASES__ === true);
         if (phaseDebugEnabled) {
           if (!explosionPushbackSamplesRef.current.start) {
             explosionPushbackSamplesRef.current.start = true;
@@ -2545,6 +2592,25 @@ const UnifiedCameraController = ({
           sample('quarter', 0.25);
           sample('half', 0.5);
           sample('full', 0.99);
+          const pushSample = (key, threshold) => {
+            if (!explosionPushbackOverwriteSamplesRef.current[key] && pushT >= threshold) {
+              explosionPushbackOverwriteSamplesRef.current[key] = true;
+              console.log('[explosion-camera-debug] pushback applied', {
+                sample: key,
+                elapsed: state.clock.elapsedTime - explosionStartedAt,
+                t: pushT,
+                pushbackDistance: explosionSettings.explosionCameraPushbackDistance ?? 0.55,
+                pushbackStrength: explosionSettings.explosionCameraPushbackStrength ?? 1,
+                pushbackOffset: pushOffset,
+                cameraPositionBefore: beforePosition.toArray(),
+                cameraPositionAfter: camera.position.toArray(),
+                lastCameraWriter: lastCameraWriterRef.current
+              });
+            }
+          };
+          pushSample('quarter', 0.25);
+          pushSample('half', 0.5);
+          pushSample('full', 0.99);
         }
       }
       currentTarget.current.position.copy(fractureTiltAnchorPositionRef.current);
