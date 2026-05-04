@@ -378,6 +378,7 @@ export const useUnifiedAnimationController = (options = {}) => {
   const cameraDelayTimeout = useRef(null);
   const bulletTimeSlowdownStartRef = useRef(null);
   const overviewHandoffStartRef = useRef(null);
+  const overviewCycleCooldownUntilRef = useRef(0);
   const introPreviewTimeout = useRef(null);
   const introPreviewActiveRef = useRef(false);
   const directProjectOverrideRef = useRef(null);
@@ -529,6 +530,9 @@ export const useUnifiedAnimationController = (options = {}) => {
     if (nextPhase === HERO_TO_OVERVIEW_PHASES.IDLE || nextPhase === HERO_TO_OVERVIEW_PHASES.COMPLETE) {
       bulletTimeSlowdownStartRef.current = null;
       overviewHandoffStartRef.current = null;
+      if (nextPhase === HERO_TO_OVERVIEW_PHASES.COMPLETE) {
+        overviewCycleCooldownUntilRef.current = phaseTimestamp + 1200;
+      }
     }
     transitionPhaseRef.current = nextPhase;
     setAnimationState((prev) => (prev.transitionPhase === nextPhase ? prev : { ...prev, transitionPhase: nextPhase }));
@@ -853,6 +857,18 @@ export const useUnifiedAnimationController = (options = {}) => {
         crystalForm: animationState.crystalForm
       });
       return;
+    }
+
+    if (toZone === 'overview') {
+      const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      if (now < overviewCycleCooldownUntilRef.current) {
+        logTransitionPhaseDebug('[transition-phase-debug] handleZoneTransition skipped', {
+          reason: 'overview-cooldown-active',
+          cooldownUntil: overviewCycleCooldownUntilRef.current,
+          now
+        });
+        return;
+      }
     }
 
     // Clear any pending delayed camera transitions when switching zones
