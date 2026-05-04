@@ -157,6 +157,7 @@ const UnifiedCameraController = ({
   const explosionPushbackSkipLoggedRef = useRef(new Set());
   const explosionPushbackOverwriteSamplesRef = useRef({ quarter: false, half: false, full: false });
   const cameraOwnerSamplesRef = useRef({ impulseStart: false, impulseMid: false, slowdownStart: false, handoffStart: false });
+  const cameraOwnerSkipLogsRef = useRef(new Set());
   const firstPostHeroExplosionWriteLoggedRef = useRef(false);
   const lastAuthoritativeHeroSnapshotRef = useRef(null);
   const latestAuthoritativeHeroSnapshotRef = useRef(null);
@@ -297,6 +298,7 @@ const UnifiedCameraController = ({
           explosionSyncSeedLoggedRef.current = false;
           explosionPushbackSkipLoggedRef.current = new Set();
           cameraOwnerSamplesRef.current = { impulseStart: false, impulseMid: false, slowdownStart: false, handoffStart: false };
+          cameraOwnerSkipLogsRef.current = new Set();
           explosionCameraTraceUntilRef.current = elapsedSeconds + 1.5;
           firstPostHeroExplosionWriteLoggedRef.current = false;
           const phaseDebugEnabled =
@@ -2481,13 +2483,34 @@ const UnifiedCameraController = ({
         });
       }
 
+      if (phaseDebugEnabled && !cameraOwnerSkipLogsRef.current.has('owner-active-hero')) {
+        cameraOwnerSkipLogsRef.current.add('owner-active-hero');
+        console.log('[visual-owner-debug] camera owner active', {
+          phase: transitionPhase,
+          branch: 'hero-overview-cinematic-owner(hero-lock)',
+          cameraPositionBefore: beforePosition.toArray(),
+          cameraPositionAfter: camera.position.toArray(),
+          returnedEarly: true
+        });
+        console.log('[visual-owner-debug] camera write skipped', {
+          skippedBranch: 'default-smoothing',
+          reason: 'hero-overview cinematic owner active',
+          activeOwnerPhase: transitionPhase
+        });
+      }
       applyFractureTilt();
       if (shouldLogBranch) console.log('[UCC RETURN] reason: fracture-jump-frame');
       return;
     }
 
+    const ownerPhase = animationData?.transitionPhase;
+    const heroOverviewCinematicOwnerActive =
+      (ownerPhase === 'fractureCharge' || ownerPhase === 'explosionImpulse' || ownerPhase === 'bulletTimeSlowdown' || ownerPhase === 'overviewHandoff')
+      && animationData?.state === 'overview'
+      && animationData?.crystalForm === 'exploded';
+
     if (
-      fractureTiltActiveRef.current &&
+      (fractureTiltActiveRef.current || heroOverviewCinematicOwnerActive) &&
       animationData?.crystalForm === 'exploded' &&
       animationData?.cameraState === 'hero'
     ) {
@@ -2651,6 +2674,21 @@ const UnifiedCameraController = ({
         state: animationData?.state,
         cameraState: animationData?.cameraState,
       });
+      if (phaseDebugEnabled && !cameraOwnerSkipLogsRef.current.has('owner-active-hero')) {
+        cameraOwnerSkipLogsRef.current.add('owner-active-hero');
+        console.log('[visual-owner-debug] camera owner active', {
+          phase: transitionPhase,
+          branch: 'hero-overview-cinematic-owner(hero-lock)',
+          cameraPositionBefore: beforePosition.toArray(),
+          cameraPositionAfter: camera.position.toArray(),
+          returnedEarly: true
+        });
+        console.log('[visual-owner-debug] camera write skipped', {
+          skippedBranch: 'default-smoothing',
+          reason: 'hero-overview cinematic owner active',
+          activeOwnerPhase: transitionPhase
+        });
+      }
       applyFractureTilt();
       console.log('[UCC EARLY RETURN]', { branch: "TRANSITION", reason: "fracture-tilt-lock", finalCameraPosition: camera.position.toArray(), finalFilmOffset: camera.filmOffset });
       if (shouldLogBranch) console.log('[UCC RETURN] reason: fracture-tilt-lock');
@@ -2658,7 +2696,7 @@ const UnifiedCameraController = ({
     }
 
     if (
-      fractureTiltActiveRef.current &&
+      (fractureTiltActiveRef.current || heroOverviewCinematicOwnerActive) &&
       animationData?.crystalForm === 'exploded' &&
       animationData?.cameraState !== 'hero'
     ) {
@@ -2688,6 +2726,21 @@ const UnifiedCameraController = ({
       camera.filmOffset = THREE.MathUtils.lerp(transition.startFilmOffset, transition.destinationFilmOffset, eased);
       camera.updateProjectionMatrix();
       logCameraWrite(state, "TRANSITION", "hero-explosion-to-destination", transitionLookAt, true, true);
+      if (phaseDebugEnabled && !cameraOwnerSkipLogsRef.current.has('owner-active-transition')) {
+        cameraOwnerSkipLogsRef.current.add('owner-active-transition');
+        console.log('[visual-owner-debug] camera owner active', {
+          phase: ownerPhase,
+          branch: 'hero-overview-cinematic-owner(transition)',
+          cameraPositionBefore: transition.startPosition.toArray(),
+          cameraPositionAfter: camera.position.toArray(),
+          returnedEarly: true
+        });
+        console.log('[visual-owner-debug] camera write skipped', {
+          skippedBranch: 'default-smoothing',
+          reason: 'hero-overview cinematic owner active',
+          activeOwnerPhase: ownerPhase
+        });
+      }
       if (shouldLogBranch) {
         console.log('[UCC HERO EXPLOSION TRANSITION]', {
           progress,
@@ -2730,7 +2783,22 @@ const UnifiedCameraController = ({
       if (simplifiedAnimations) {
         camera.position.copy(currentTarget.current.position);
         camera.lookAt(currentTarget.current.lookAt);
-        applyFractureTilt();
+        if (phaseDebugEnabled && !cameraOwnerSkipLogsRef.current.has('owner-active-hero')) {
+        cameraOwnerSkipLogsRef.current.add('owner-active-hero');
+        console.log('[visual-owner-debug] camera owner active', {
+          phase: transitionPhase,
+          branch: 'hero-overview-cinematic-owner(hero-lock)',
+          cameraPositionBefore: beforePosition.toArray(),
+          cameraPositionAfter: camera.position.toArray(),
+          returnedEarly: true
+        });
+        console.log('[visual-owner-debug] camera write skipped', {
+          skippedBranch: 'default-smoothing',
+          reason: 'hero-overview cinematic owner active',
+          activeOwnerPhase: transitionPhase
+        });
+      }
+      applyFractureTilt();
         camera.fov = currentTarget.current.fov;
         camera.updateProjectionMatrix();
         cameraMoveProgressRef.current = 1;
@@ -2794,6 +2862,21 @@ const UnifiedCameraController = ({
       );
       camera.lookAt(introLookAt);
       applyHeroFilmOffset(introToRef.current.lookAt, "INTRO");
+      if (phaseDebugEnabled && !cameraOwnerSkipLogsRef.current.has('owner-active-hero')) {
+        cameraOwnerSkipLogsRef.current.add('owner-active-hero');
+        console.log('[visual-owner-debug] camera owner active', {
+          phase: transitionPhase,
+          branch: 'hero-overview-cinematic-owner(hero-lock)',
+          cameraPositionBefore: beforePosition.toArray(),
+          cameraPositionAfter: camera.position.toArray(),
+          returnedEarly: true
+        });
+        console.log('[visual-owner-debug] camera write skipped', {
+          skippedBranch: 'default-smoothing',
+          reason: 'hero-overview cinematic owner active',
+          activeOwnerPhase: transitionPhase
+        });
+      }
       applyFractureTilt();
       camera.fov = THREE.MathUtils.lerp(
         introFromRef.current.fov,
@@ -2837,7 +2920,22 @@ const UnifiedCameraController = ({
             configHeroFilmOffsetX: config?.cameraComposition?.hero?.filmOffsetX ?? null,
           });
         }
-        applyFractureTilt();
+        if (phaseDebugEnabled && !cameraOwnerSkipLogsRef.current.has('owner-active-hero')) {
+        cameraOwnerSkipLogsRef.current.add('owner-active-hero');
+        console.log('[visual-owner-debug] camera owner active', {
+          phase: transitionPhase,
+          branch: 'hero-overview-cinematic-owner(hero-lock)',
+          cameraPositionBefore: beforePosition.toArray(),
+          cameraPositionAfter: camera.position.toArray(),
+          returnedEarly: true
+        });
+        console.log('[visual-owner-debug] camera write skipped', {
+          skippedBranch: 'default-smoothing',
+          reason: 'hero-overview cinematic owner active',
+          activeOwnerPhase: transitionPhase
+        });
+      }
+      applyFractureTilt();
         camera.fov = introToRef.current.fov;
         camera.updateProjectionMatrix();
         currentTarget.current.position.copy(introToRef.current.position);
@@ -2916,6 +3014,21 @@ const UnifiedCameraController = ({
       heroLookAtTarget.y += heroVerticalOffsetRef.current;
       camera.lookAt(heroLookAtTarget);
       applyHeroFilmOffset(heroLookAtTarget, "HERO_ORBIT");
+      if (phaseDebugEnabled && !cameraOwnerSkipLogsRef.current.has('owner-active-hero')) {
+        cameraOwnerSkipLogsRef.current.add('owner-active-hero');
+        console.log('[visual-owner-debug] camera owner active', {
+          phase: transitionPhase,
+          branch: 'hero-overview-cinematic-owner(hero-lock)',
+          cameraPositionBefore: beforePosition.toArray(),
+          cameraPositionAfter: camera.position.toArray(),
+          returnedEarly: true
+        });
+        console.log('[visual-owner-debug] camera write skipped', {
+          skippedBranch: 'default-smoothing',
+          reason: 'hero-overview cinematic owner active',
+          activeOwnerPhase: transitionPhase
+        });
+      }
       applyFractureTilt();
       camera.fov = currentTarget.current.fov;
       camera.updateProjectionMatrix();
