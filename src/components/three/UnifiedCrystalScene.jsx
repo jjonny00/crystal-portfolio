@@ -28,7 +28,7 @@ import FacetLabels from './FacetLabels'
 import OverviewConnectorLines from './OverviewConnectorLines'
 import { effects } from '../../crystalConfig'
 import { useFacetOverlayGeometry } from '../../hooks/useFacetOverlayGeometry'
-import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController'
+import { ANIMATION_CONFIG, HERO_TO_OVERVIEW_PHASES } from '../../hooks/useUnifiedAnimationController'
 import { useLayoutConfig } from '../../hooks/useLayoutConfig'
 import { useHoverCapable } from '../../hooks/useHoverCapable'
 import { createLogger } from '../../utils/logger'
@@ -260,7 +260,10 @@ const UnifiedCrystalScene = forwardRef(({
     }
 
     triggerFractureGlow();
-  }, [crystalConfig, facetKeys, facetPlacementKeys, triggerFractureGlow]);
+    animationData?.setTransitionPhase?.(HERO_TO_OVERVIEW_PHASES.EXPLOSION_IMPULSE, {
+      reason: 'run-explode-swap'
+    });
+  }, [animationData, crystalConfig, facetKeys, facetPlacementKeys, triggerFractureGlow]);
 
   const runReformSwap = useCallback(() => {
     pendingReformSwapAtRef.current = null;
@@ -1734,6 +1737,14 @@ const UnifiedCrystalScene = forwardRef(({
         const elapsedExplosion = (performance.now() - explosionStartRef.current) / 1000;
 
         const progress = Math.min((elapsedExplosion - fracturePause) / (totalDuration - fracturePause), 1);
+        const impulseThreshold =
+          crystalConfig?.heroToOverviewExplosionSettings?.explosionImpulseDuration ?? 0.25;
+        if (progress >= impulseThreshold) {
+          animationData?.setTransitionPhase?.(HERO_TO_OVERVIEW_PHASES.BULLET_TIME_SLOWDOWN, {
+            reason: 'explosion-progress-threshold',
+            progress
+          });
+        }
         const fracture = crystalConfig?.fracturePositions;
         const fractureDistance = crystalConfig?.fractureDistance ?? 0.3;
         const eased = crystalConfig?.explosionEase

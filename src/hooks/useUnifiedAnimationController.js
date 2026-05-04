@@ -8,6 +8,16 @@ import { orderedProjectKeys, getSceneFacetKeyByProjectId } from '../data/project
 
 // Percentage of explode distance facets travel during fracture
 const FRACTURE_DISTANCE = fractureConfig.distance;
+const DEBUG_TRANSITION_PHASES = false;
+
+export const HERO_TO_OVERVIEW_PHASES = {
+  IDLE: 'idle',
+  FRACTURE_CHARGE: 'fractureCharge',
+  EXPLOSION_IMPULSE: 'explosionImpulse',
+  BULLET_TIME_SLOWDOWN: 'bulletTimeSlowdown',
+  OVERVIEW_HANDOFF: 'overviewHandoff',
+  COMPLETE: 'complete'
+};
 
 /**
  * SIMPLIFIED: Animation Configuration with immediate state changes
@@ -99,7 +109,19 @@ export const ANIMATION_CONFIG = {
       exploration: new Quaternion(0, 0, 0, 1)
     },
     wholePosition: new Vector3(0, 0, 0),
-    explosionEase: (t) => 1 - Math.pow(1 - t, 3) // starts fast, smooth stop
+    explosionEase: (t) => 1 - Math.pow(1 - t, 3), // starts fast, smooth stop
+    heroToOverviewExplosionSettings: {
+      fractureChargeDuration: fractureConfig.duration,
+      explosionImpulseDuration: 0.25,
+      bulletTimeSlowdownDuration: 0.85,
+      overviewHandoffDuration: 0.5,
+      impulseDistance: 0.25,
+      impulseStrength: 1.0,
+      slowdownDistance: 0.75,
+      glowPeakIntensity: fractureConfig.emissive?.intensity ?? 2.3,
+      particleBurstStrength: 1.0,
+      particleLeakRate: 0.0
+    }
   },
 
   // SIMPLIFIED: No complex timing - just smooth transition speeds
@@ -303,8 +325,10 @@ export const useUnifiedAnimationController = (options = {}) => {
     zoneInfo: { zone: 'hero', progress: 0 },
     projectInfo: { project: null, progress: 0 },
     cameraSettled: false,
-    cameraMoveProgress: 1
+    cameraMoveProgress: 1,
+    transitionPhase: HERO_TO_OVERVIEW_PHASES.IDLE
   });
+  const transitionPhaseRef = useRef(HERO_TO_OVERVIEW_PHASES.IDLE);
 
   // Simplified refs for tracking changes
   const lastZone = useRef('hero');
@@ -320,6 +344,27 @@ export const useUnifiedAnimationController = (options = {}) => {
   const runtimeProjectSectionsRef = useRef([]);
   const aboutToProjectsLockUntilRef = useRef(0);
   const lastNearestSectionIdRef = useRef(null);
+
+  const setTransitionPhase = useCallback((nextPhase, meta = {}) => {
+    if (!nextPhase || transitionPhaseRef.current === nextPhase) return;
+    setAnimationState((prev) => {
+      if (prev.transitionPhase === nextPhase) return prev;
+      const previousPhase = prev.transitionPhase ?? HERO_TO_OVERVIEW_PHASES.IDLE;
+      if (DEBUG_TRANSITION_PHASES) {
+        console.log('[transition-phase]', {
+          previousPhase,
+          nextPhase,
+          elapsed: typeof performance !== 'undefined' ? performance.now() : Date.now(),
+          state: prev.state,
+          crystalForm: prev.crystalForm,
+          cameraState: prev.cameraState,
+          ...meta
+        });
+      }
+      transitionPhaseRef.current = nextPhase;
+      return { ...prev, transitionPhase: nextPhase };
+    });
+  }, []);
 
   const getRuntimeProjectSection = useCallback((projectKey) => {
     if (!projectKey) return null;
@@ -644,8 +689,14 @@ export const useUnifiedAnimationController = (options = {}) => {
         focusedFacet: null,
         isTransitioning: false
       }));
+      setTransitionPhase(HERO_TO_OVERVIEW_PHASES.FRACTURE_CHARGE, {
+        reason: 'zone-transition-to-overview'
+      });
 
       cameraDelayTimeout.current = setTimeout(() => {
+        setTransitionPhase(HERO_TO_OVERVIEW_PHASES.OVERVIEW_HANDOFF, {
+          reason: 'pre-camera-overview-switch'
+        });
         setAnimationState(prev => ({
           ...prev,
           cameraState: 'overview'
@@ -699,7 +750,36 @@ export const useUnifiedAnimationController = (options = {}) => {
         isTransitioning: false
       }));
     }
-  }, [debugMode, config]);
+  }, [debugMode, config, setTransitionPhase]);
+
+  useEffect(() => {
+    if (
+      animationState.transitionPhase === HERO_TO_OVERVIEW_PHASES.OVERVIEW_HANDOFF &&
+      animationState.cameraState === 'overview' &&
+      animationState.crystalForm === 'exploded' &&
+      animationState.state === ANIMATION_STATES.OVERVIEW &&
+      (animationState.cameraSettled === true || (animationState.cameraMoveProgress ?? 0) >= 0.995)
+    ) {
+      setTransitionPhase(HERO_TO_OVERVIEW_PHASES.COMPLETE, {
+        reason: 'overview-camera-active'
+      });
+      return;
+    }
+
+    if (animationState.state !== ANIMATION_STATES.OVERVIEW) {
+      setTransitionPhase(HERO_TO_OVERVIEW_PHASES.IDLE, {
+        reason: 'left-overview-state'
+      });
+    }
+  }, [
+    animationState.transitionPhase,
+    animationState.cameraState,
+    animationState.crystalForm,
+    animationState.state,
+    animationState.cameraSettled,
+    animationState.cameraMoveProgress,
+    setTransitionPhase
+  ]);
 
   /**
    * SIMPLIFIED: Handle project focus (same pattern as before - it works!)
@@ -1218,6 +1298,7 @@ export const useUnifiedAnimationController = (options = {}) => {
     setDirectProjectOverride,
     setDirectZoneOverride,
     getProjectSectionStart,
+    setTransitionPhase,
     
     // Current configs for 3D components
     cameraConfig: getCurrentCameraConfig(),
@@ -1231,6 +1312,7 @@ export const useUnifiedAnimationController = (options = {}) => {
       lastProject: lastProject.current,
       cameraState: animationState.cameraState,
       crystalForm: animationState.crystalForm,
+      transitionPhase: animationState.transitionPhase,
       directProjectOverride: directProjectOverrideRef.current?.projectKey || null,
       directZoneOverride: directZoneOverrideRef.current?.zoneKey || null
     } : null
