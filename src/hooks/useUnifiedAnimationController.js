@@ -377,6 +377,7 @@ export const useUnifiedAnimationController = (options = {}) => {
   const updateTimeout = useRef(null);
   const cameraDelayTimeout = useRef(null);
   const bulletTimeSlowdownStartRef = useRef(null);
+  const overviewHandoffStartRef = useRef(null);
   const introPreviewTimeout = useRef(null);
   const introPreviewActiveRef = useRef(false);
   const directProjectOverrideRef = useRef(null);
@@ -469,8 +470,14 @@ export const useUnifiedAnimationController = (options = {}) => {
     const phaseTimestamp = typeof performance !== 'undefined' ? performance.now() : Date.now();
     if (nextPhase === HERO_TO_OVERVIEW_PHASES.BULLET_TIME_SLOWDOWN) {
       bulletTimeSlowdownStartRef.current = phaseTimestamp;
-    } else if (nextPhase === HERO_TO_OVERVIEW_PHASES.IDLE || nextPhase === HERO_TO_OVERVIEW_PHASES.COMPLETE) {
+    }
+    if (nextPhase === HERO_TO_OVERVIEW_PHASES.OVERVIEW_HANDOFF) {
+      overviewHandoffStartRef.current = phaseTimestamp;
+    }
+    if (nextPhase === HERO_TO_OVERVIEW_PHASES.IDLE || nextPhase === HERO_TO_OVERVIEW_PHASES.COMPLETE) {
       bulletTimeSlowdownStartRef.current = null;
+    overviewHandoffStartRef.current = null;
+      overviewHandoffStartRef.current = null;
     }
     logTransitionPhaseDebug('[transition-phase-debug] setTransitionPhase called', {
       previousPhase,
@@ -501,6 +508,7 @@ export const useUnifiedAnimationController = (options = {}) => {
     if (previousPhase === HERO_TO_OVERVIEW_PHASES.IDLE) return;
     transitionPhaseRef.current = HERO_TO_OVERVIEW_PHASES.IDLE;
     bulletTimeSlowdownStartRef.current = null;
+    overviewHandoffStartRef.current = null;
     setAnimationState((prev) => {
       if (prev.transitionPhase === HERO_TO_OVERVIEW_PHASES.IDLE) return prev;
       return { ...prev, transitionPhase: HERO_TO_OVERVIEW_PHASES.IDLE };
@@ -967,12 +975,25 @@ export const useUnifiedAnimationController = (options = {}) => {
       animationState.transitionPhase === HERO_TO_OVERVIEW_PHASES.OVERVIEW_HANDOFF &&
       animationState.cameraState === 'overview' &&
       animationState.crystalForm === 'exploded' &&
-      animationState.state === ANIMATION_STATES.OVERVIEW &&
-      (animationState.cameraSettled === true || (animationState.cameraMoveProgress ?? 0) >= 0.995)
+      animationState.state === ANIMATION_STATES.OVERVIEW
     ) {
-      setTransitionPhase(HERO_TO_OVERVIEW_PHASES.COMPLETE, {
-        reason: 'overview-camera-active'
-      });
+      const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      const handoffStartedAt = overviewHandoffStartRef.current ?? now;
+      const handoffElapsedMs = Math.max(now - handoffStartedAt, 0);
+      const requiredHandoffMs = Math.max((config?.crystal?.heroToOverviewExplosionSettings?.overviewHandoffDuration ?? 0.5) * 1000, 0);
+      const cameraReady = animationState.cameraSettled === true || (animationState.cameraMoveProgress ?? 0) >= 0.995;
+      const cinematicOwnerActive = animationState.cameraState === 'overview' && animationState.crystalForm === 'exploded';
+      const completeAllowed = handoffElapsedMs >= requiredHandoffMs && (cameraReady || cinematicOwnerActive);
+      if (completeAllowed) {
+        setTransitionPhase(HERO_TO_OVERVIEW_PHASES.COMPLETE, {
+          reason: cameraReady ? 'overview-camera-active' : 'overview-handoff-duration-met-cinematic-owner',
+          handoffElapsedMs,
+          requiredHandoffMs
+        });
+      } else {
+        const timer = setTimeout(() => setSlowdownGateTick((tick) => tick + 1), 50);
+        return () => clearTimeout(timer);
+      }
       return;
     }
 
