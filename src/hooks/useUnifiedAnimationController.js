@@ -921,20 +921,27 @@ export const useUnifiedAnimationController = (options = {}) => {
         0
       );
       const cameraReady = animationState.cameraSettled === true || (animationState.cameraMoveProgress ?? 0) >= 0.995;
-      if (slowdownElapsedMs >= requiredSlowdownMs && cameraReady) {
+      const phaseDebugEnabled = isTransitionPhaseDebugEnabled();
+      const handoffAllowed = slowdownElapsedMs >= requiredSlowdownMs && cameraReady;
+      if (phaseDebugEnabled) {
+        console.log('[scene-freeze-debug] slowdown gate', {
+          slowdownElapsedMs,
+          requiredSlowdownMs,
+          cameraReady,
+          phase: animationState.transitionPhase,
+          cameraState: animationState.cameraState,
+          state: animationState.state,
+          crystalForm: animationState.crystalForm,
+          cinematicOwnerActive: animationState.cameraState === 'overview' && animationState.crystalForm === 'exploded',
+          handoffAllowed,
+          blockReason: handoffAllowed ? null : (slowdownElapsedMs < requiredSlowdownMs ? 'slowdown-duration-not-reached' : 'camera-not-ready')
+        });
+      }
+      if (handoffAllowed) {
         setTransitionPhase(HERO_TO_OVERVIEW_PHASES.OVERVIEW_HANDOFF, {
           reason: 'camera-overview-after-slowdown-duration',
           slowdownElapsedMs,
           requiredSlowdownMs
-        });
-      } else if (isTransitionPhaseDebugVerboseEnabled()) {
-        logTransitionPhaseDebug('[transition-phase-debug] overview handoff gated', {
-          reason: 'slowdown-or-camera-not-ready',
-          slowdownElapsedMs,
-          requiredSlowdownMs,
-          cameraReady,
-          cameraSettled: animationState.cameraSettled,
-          cameraMoveProgress: animationState.cameraMoveProgress
         });
       }
       return;

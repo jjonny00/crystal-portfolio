@@ -158,6 +158,8 @@ const UnifiedCameraController = ({
   const explosionPushbackOverwriteSamplesRef = useRef({ quarter: false, half: false, full: false });
   const cameraOwnerSamplesRef = useRef({ impulseStart: false, impulseMid: false, slowdownStart: false, handoffStart: false });
   const cameraOwnerSkipLogsRef = useRef(new Set());
+  const cinematicOwnerReleaseLoggedRef = useRef(false);
+  const overviewNormalResumedLoggedRef = useRef(false);
   const firstPostHeroExplosionWriteLoggedRef = useRef(false);
   const lastAuthoritativeHeroSnapshotRef = useRef(null);
   const latestAuthoritativeHeroSnapshotRef = useRef(null);
@@ -299,6 +301,8 @@ const UnifiedCameraController = ({
           explosionPushbackSkipLoggedRef.current = new Set();
           cameraOwnerSamplesRef.current = { impulseStart: false, impulseMid: false, slowdownStart: false, handoffStart: false };
           cameraOwnerSkipLogsRef.current = new Set();
+          cinematicOwnerReleaseLoggedRef.current = false;
+          overviewNormalResumedLoggedRef.current = false;
           explosionCameraTraceUntilRef.current = elapsedSeconds + 1.5;
           firstPostHeroExplosionWriteLoggedRef.current = false;
           const phaseDebugEnabled =
@@ -2504,10 +2508,21 @@ const UnifiedCameraController = ({
     }
 
     const ownerPhase = animationData?.transitionPhase;
+    const ownerActiveBefore = fractureTiltActiveRef.current;
     const heroOverviewCinematicOwnerActive =
       (ownerPhase === 'fractureCharge' || ownerPhase === 'explosionImpulse' || ownerPhase === 'bulletTimeSlowdown' || ownerPhase === 'overviewHandoff')
       && animationData?.state === 'overview'
       && animationData?.crystalForm === 'exploded';
+    if (phaseDebugEnabled && !heroOverviewCinematicOwnerActive && ownerActiveBefore && !cinematicOwnerReleaseLoggedRef.current) {
+      cinematicOwnerReleaseLoggedRef.current = true;
+      console.log('[scene-freeze-debug] cinematic owner release', {
+        previousPhase: ownerPhase,
+        currentPhase: animationData?.transitionPhase,
+        cameraState: animationData?.cameraState,
+        ownerActiveBefore,
+        ownerActiveAfter: heroOverviewCinematicOwnerActive
+      });
+    }
 
     if (
       (fractureTiltActiveRef.current || heroOverviewCinematicOwnerActive) &&
@@ -2690,6 +2705,10 @@ const UnifiedCameraController = ({
         });
       }
       applyFractureTilt();
+      if (animationData?.cameraState === 'overview') {
+        animationData?.setCameraMoveProgress?.(1);
+        animationData?.setCameraSettled?.(true);
+      }
       console.log('[UCC EARLY RETURN]', { branch: "TRANSITION", reason: "fracture-tilt-lock", finalCameraPosition: camera.position.toArray(), finalFilmOffset: camera.filmOffset });
       if (shouldLogBranch) console.log('[UCC RETURN] reason: fracture-tilt-lock');
       return;
@@ -2753,6 +2772,10 @@ const UnifiedCameraController = ({
           filmOffset: camera.filmOffset,
           fallbackBypassed: true,
         });
+      }
+      if (animationData?.cameraState === 'overview') {
+        animationData?.setCameraMoveProgress?.(Math.max(progress, 0.995));
+        animationData?.setCameraSettled?.(progress >= 0.995);
       }
       if (progress >= 1) {
         transition.active = false;
@@ -2891,6 +2914,10 @@ const UnifiedCameraController = ({
       animationData?.setCameraMoveProgress?.(progress);
       animationData?.setCameraSettled?.(false);
 
+      if (animationData?.cameraState === 'overview') {
+        animationData?.setCameraMoveProgress?.(Math.max(progress, 0.995));
+        animationData?.setCameraSettled?.(progress >= 0.995);
+      }
       if (progress >= 1) {
         if (import.meta.env.DEV) console.log('[UCC INTRO] set active false', { progress, elapsed, prevIntroActive: true, nextIntroActive: false, introPlayedNext: true });
         introActiveRef.current = false;
@@ -3149,6 +3176,13 @@ const UnifiedCameraController = ({
     const clampedSmoothing = Math.min(Math.max(smoothingFactor, 0.01), 0.15);
 
     // Smooth position interpolation
+    if (phaseDebugEnabled && animationData?.cameraState === 'overview' && animationData?.transitionPhase === 'complete' && !overviewNormalResumedLoggedRef.current) {
+      overviewNormalResumedLoggedRef.current = true;
+      console.log('[scene-freeze-debug] overview normal behavior resumed', {
+        phase: animationData?.transitionPhase,
+        cameraState: animationData?.cameraState
+      });
+    }
     camera.position.lerp(currentTarget.current.position, clampedSmoothing);
 
     // Smooth look-at interpolation
