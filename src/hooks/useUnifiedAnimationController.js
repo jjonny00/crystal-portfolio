@@ -840,6 +840,21 @@ export const useUnifiedAnimationController = (options = {}) => {
       return;
     }
 
+    if (
+      toZone === 'overview' &&
+      animationState.state === ANIMATION_STATES.OVERVIEW &&
+      animationState.crystalForm === 'exploded' &&
+      animationState.transitionPhase !== HERO_TO_OVERVIEW_PHASES.IDLE
+    ) {
+      logTransitionPhaseDebug('[transition-phase-debug] handleZoneTransition skipped', {
+        reason: 'overview-transition-already-active',
+        currentPhase: animationState.transitionPhase,
+        state: animationState.state,
+        crystalForm: animationState.crystalForm
+      });
+      return;
+    }
+
     // Clear any pending delayed camera transitions when switching zones
     if (cameraDelayTimeout.current) {
       clearTimeout(cameraDelayTimeout.current);
@@ -941,7 +956,7 @@ export const useUnifiedAnimationController = (options = {}) => {
         isTransitioning: false
       }));
     }
-  }, [debugMode, config, resetHeroToOverviewTransitionPhase, setTransitionPhase]);
+  }, [animationState.crystalForm, animationState.state, animationState.transitionPhase, debugMode, config, resetHeroToOverviewTransitionPhase, setTransitionPhase]);
 
   useEffect(() => {
     if (
