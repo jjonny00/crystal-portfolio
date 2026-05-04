@@ -248,12 +248,6 @@ const UnifiedCrystalScene = forwardRef(({
     fractureChargeActiveRef.current = false;
     fractureChargeStartRef.current = null;
     fractureChargePhaseRef.current = 0;
-    setShowWholeCrystal(false);
-    setShowFacets(true);
-    setSphereVisible(true);
-    setRingVisible(true);
-    explosionStartRef.current = performance.now() - FORWARD_PRE_SWAP_WINDOW_MS;
-    setBurstId(id => id + 1);
 
     // Capture hero rotation so facets start from same orientation
     if (wholeCrystalRef.current && facetsGroupRef.current) {
@@ -261,7 +255,7 @@ const UnifiedCrystalScene = forwardRef(({
       facetsGroupRef.current.quaternion.copy(wholeCrystalRef.current.quaternion);
     }
 
-    // Snap facets to the same fracture target pose used by charge, preventing handoff pops
+    // Snap facets to the fracture start pose before making facets visible
     const phaseDebugEnabled =
       (typeof globalThis !== 'undefined' && globalThis.__CRYSTAL_DEBUG_TRANSITION_PHASES__ === true)
       || (typeof window !== 'undefined' && window.__CRYSTAL_DEBUG_TRANSITION_PHASES__ === true);
@@ -271,6 +265,7 @@ const UnifiedCrystalScene = forwardRef(({
       const fracturePos = getFractureTargetPosition(facetKey);
       if (facetRef?.current && fracturePos) {
         facetRef.current.position.copy(fracturePos);
+        facetRef.current.rotation.set(0, 0, 0);
         if (idx === 0 && phaseDebugEnabled) {
           console.log('[transition-phase-debug] runExplodeSwap facet0', {
             position: facetRef.current.position.toArray(),
@@ -280,6 +275,13 @@ const UnifiedCrystalScene = forwardRef(({
         logger.debug(`💥 ${facetKey} fracture:`, fracturePos.toArray());
       }
     });
+
+    setShowFacets(true);
+    setShowWholeCrystal(false);
+    setSphereVisible(true);
+    setRingVisible(true);
+    explosionStartRef.current = performance.now() - FORWARD_PRE_SWAP_WINDOW_MS;
+    setBurstId(id => id + 1);
 
     triggerFractureGlow();
     if (
@@ -1509,7 +1511,7 @@ const UnifiedCrystalScene = forwardRef(({
           pendingReformSwapAtRef.current = null;
           pendingFacetHideAtRef.current = null;
           setShowWholeCrystal(true);
-          setShowFacets(true);
+          setShowFacets(false);
           setSphereVisible(false);
           setRingVisible(false);
           triggerSwapMaskGlow();
@@ -1544,9 +1546,9 @@ const UnifiedCrystalScene = forwardRef(({
         }
         setSphereVisible(false);
         setRingVisible(false);
+        setShowFacets(false);
         if (simplifiedAnimations) {
           setShowWholeCrystal(true);
-          setShowFacets(false);
         }
         explosionStartRef.current = null;
         fractureChargeActiveRef.current = false;
