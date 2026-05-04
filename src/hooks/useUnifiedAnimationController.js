@@ -999,10 +999,29 @@ export const useUnifiedAnimationController = (options = {}) => {
       const requiredHandoffMs = Math.max((config?.crystal?.heroToOverviewExplosionSettings?.overviewHandoffDuration ?? 0.5) * 1000, 0);
       const cameraReady = animationState.cameraSettled === true || (animationState.cameraMoveProgress ?? 0) >= 0.995;
       const cinematicOwnerActive = animationState.cameraState === 'overview' && animationState.crystalForm === 'exploded';
-      const completeAllowed = handoffElapsedMs >= requiredHandoffMs && (cameraReady || cinematicOwnerActive);
+      const completeAllowed = handoffElapsedMs >= requiredHandoffMs;
+      if (isTransitionPhaseDebugEnabled()) {
+        if (completeAllowed) {
+          console.log('[scene-freeze-debug] handoff complete allowed', {
+            handoffElapsedMs,
+            requiredHandoffMs,
+            cameraReady,
+            cinematicOwnerActive,
+            reason: 'handoff-duration-met'
+          });
+        } else {
+          console.log('[scene-freeze-debug] handoff complete blocked', {
+            handoffElapsedMs,
+            requiredHandoffMs,
+            cameraReady,
+            cinematicOwnerActive,
+            blockReason: 'handoff-duration-not-reached'
+          });
+        }
+      }
       if (completeAllowed) {
         forceTransitionPhase(HERO_TO_OVERVIEW_PHASES.COMPLETE, {
-          reason: cameraReady ? 'overview-camera-active' : 'overview-handoff-duration-met-cinematic-owner',
+          reason: 'handoff-duration-met',
           handoffElapsedMs,
           requiredHandoffMs
         });
