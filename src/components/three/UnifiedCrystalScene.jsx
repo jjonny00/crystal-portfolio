@@ -188,6 +188,7 @@ const UnifiedCrystalScene = forwardRef(({
   const focusedFloatBlendRef = useRef(0);
   const fractureChargeStartRef = useRef(null);
   const fractureChargeActiveRef = useRef(false);
+  const fractureChargePhaseRef = useRef(0);
 
   // Track explosion timing so we can implement fracture pause
   const explosionStartRef = useRef(null);
@@ -230,6 +231,7 @@ const UnifiedCrystalScene = forwardRef(({
   const runExplodeSwap = useCallback(() => {
     fractureChargeActiveRef.current = false;
     fractureChargeStartRef.current = null;
+    fractureChargePhaseRef.current = 0;
     setShowWholeCrystal(false);
     setShowFacets(true);
     setSphereVisible(true);
@@ -1498,6 +1500,7 @@ const UnifiedCrystalScene = forwardRef(({
           triggerSwapMaskGlow();
           fractureChargeActiveRef.current = true;
           fractureChargeStartRef.current = performance.now();
+          fractureChargePhaseRef.current = 0;
           setFractureLeakBurstId((id) => id + 1);
           pendingExplodeSwapAtRef.current = performance.now() + FORWARD_PRE_SWAP_WINDOW_MS;
         } else {
@@ -1554,6 +1557,7 @@ const UnifiedCrystalScene = forwardRef(({
       const chargeDuration = Math.max(settings.fractureChargeDuration ?? 0.5, 0.0001);
       const elapsedCharge = (now - fractureChargeStartRef.current) / 1000;
       const t = Math.min(Math.max(elapsedCharge / chargeDuration, 0), 1);
+      fractureChargePhaseRef.current = t;
       const pressure = t * t * t;
       const spread = settings.fractureSpread ?? 0.08;
       const jitterStrength = settings.fractureJitterStrength ?? 0.02;
