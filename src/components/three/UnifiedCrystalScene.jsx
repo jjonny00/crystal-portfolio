@@ -1546,9 +1546,12 @@ const UnifiedCrystalScene = forwardRef(({
         }
         setSphereVisible(false);
         setRingVisible(false);
-        setShowWholeCrystal(true);
         if (simplifiedAnimations) {
+          setShowWholeCrystal(true);
           setShowFacets(false);
+        } else {
+          setShowWholeCrystal(false);
+          setShowFacets(true);
         }
         explosionStartRef.current = null;
         fractureChargeActiveRef.current = false;
