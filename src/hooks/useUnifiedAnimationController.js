@@ -9,6 +9,8 @@ import { orderedProjectKeys, getSceneFacetKeyByProjectId } from '../data/project
 // Percentage of explode distance facets travel during fracture
 const FRACTURE_DISTANCE = fractureConfig.distance;
 const DEBUG_TRANSITION_PHASES = false;
+const TRANSITION_PHASE_DEBUG_WINDOW_FLAG = '__CRYSTAL_DEBUG_TRANSITION_PHASES__';
+const TRANSITION_PHASE_DEBUG_WINDOW_HELPER = '__setCrystalTransitionDebug';
 
 export const HERO_TO_OVERVIEW_PHASES = {
   IDLE: 'idle',
@@ -345,12 +347,35 @@ export const useUnifiedAnimationController = (options = {}) => {
   const aboutToProjectsLockUntilRef = useRef(0);
   const lastNearestSectionIdRef = useRef(null);
 
+  const isTransitionPhaseDebugEnabled = useCallback(() => {
+    if (DEBUG_TRANSITION_PHASES) return true;
+    if (typeof window === 'undefined') return false;
+    return window[TRANSITION_PHASE_DEBUG_WINDOW_FLAG] === true;
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const previousHelper = window[TRANSITION_PHASE_DEBUG_WINDOW_HELPER];
+    window[TRANSITION_PHASE_DEBUG_WINDOW_HELPER] = (enabled) => {
+      window[TRANSITION_PHASE_DEBUG_WINDOW_FLAG] = enabled === true;
+      return window[TRANSITION_PHASE_DEBUG_WINDOW_FLAG];
+    };
+
+    return () => {
+      if (previousHelper) {
+        window[TRANSITION_PHASE_DEBUG_WINDOW_HELPER] = previousHelper;
+      } else {
+        delete window[TRANSITION_PHASE_DEBUG_WINDOW_HELPER];
+      }
+    };
+  }, []);
+
   const setTransitionPhase = useCallback((nextPhase, meta = {}) => {
     if (!nextPhase || transitionPhaseRef.current === nextPhase) return;
     setAnimationState((prev) => {
       if (prev.transitionPhase === nextPhase) return prev;
       const previousPhase = prev.transitionPhase ?? HERO_TO_OVERVIEW_PHASES.IDLE;
-      if (DEBUG_TRANSITION_PHASES) {
+      if (isTransitionPhaseDebugEnabled()) {
         console.log('[transition-phase]', {
           previousPhase,
           nextPhase,
@@ -364,7 +389,7 @@ export const useUnifiedAnimationController = (options = {}) => {
       transitionPhaseRef.current = nextPhase;
       return { ...prev, transitionPhase: nextPhase };
     });
-  }, []);
+  }, [isTransitionPhaseDebugEnabled]);
 
   const getRuntimeProjectSection = useCallback((projectKey) => {
     if (!projectKey) return null;
