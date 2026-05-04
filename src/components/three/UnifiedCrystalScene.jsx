@@ -189,7 +189,6 @@ const UnifiedCrystalScene = forwardRef(({
   const fractureChargeStartRef = useRef(null);
   const fractureChargeActiveRef = useRef(false);
   const fractureChargePhaseRef = useRef(0);
-  const fractureChargeStartPositionsRef = useRef([]);
   const fractureChargeHandoffLoggedRef = useRef(false);
 
   // Track explosion timing so we can implement fracture pause
@@ -1520,12 +1519,8 @@ const UnifiedCrystalScene = forwardRef(({
           fractureChargeHandoffLoggedRef.current = false;
           facetRefs.current.forEach((facetRef) => {
             if (!facetRef?.current) return;
-            facetRef.current.position.set(0, 0, 0);
             facetRef.current.rotation.set(0, 0, 0);
           });
-          fractureChargeStartPositionsRef.current = facetRefs.current.map((facetRef) =>
-            facetRef?.current?.position?.clone?.() || new THREE.Vector3()
-          );
           setFractureLeakBurstId((id) => id + 1);
           pendingExplodeSwapAtRef.current = performance.now() + FORWARD_PRE_SWAP_WINDOW_MS;
         } else {
@@ -1556,7 +1551,6 @@ const UnifiedCrystalScene = forwardRef(({
         explosionStartRef.current = null;
         fractureChargeActiveRef.current = false;
         fractureChargeStartRef.current = null;
-        fractureChargeStartPositionsRef.current = [];
         fractureChargeHandoffLoggedRef.current = false;
         resetWholeCrystalMaskGlow();
         if (facetsGroupRef.current) {
@@ -1589,7 +1583,6 @@ const UnifiedCrystalScene = forwardRef(({
       const t = Math.min(Math.max(elapsedCharge / chargeDuration, 0), 1);
       fractureChargePhaseRef.current = t;
       const pressure = t * t * t;
-      const spread = settings.fractureSpread ?? 0.08;
       const jitterStrength = settings.fractureJitterStrength ?? 0.02;
       const rotationStrength = settings.fractureRotationStrength ?? 0.08;
       const glowIntensity = settings.fractureGlowIntensity ?? 2.3;
@@ -1600,15 +1593,12 @@ const UnifiedCrystalScene = forwardRef(({
 
     facetRefs.current.forEach((facetRef, idx) => {
         const facetKey = facetKeys[idx];
-        const fractureTarget = getFractureTargetPosition(facetKey);
-        if (!facetRef?.current || !fractureTarget) return;
-        const startPos = fractureChargeStartPositionsRef.current[idx] || origin;
+        if (!facetRef?.current) return;
         const hash = facetKey.split('').reduce((acc, ch) => (acc * 31 + ch.charCodeAt(0)) % 9973, 17);
         const jitterX = ((((hash * 13) % 1000) / 1000) - 0.5) * jitterStrength;
         const jitterY = ((((hash * 29) % 1000) / 1000) - 0.5) * jitterStrength;
         const jitterZ = ((((hash * 47) % 1000) / 1000) - 0.5) * jitterStrength;
         const jitterFade = 1 - t;
-        facetRef.current.position.copy(startPos.clone().lerp(fractureTarget, pressure));
         facetRef.current.rotation.set(
           jitterY * rotationStrength * pressure * jitterFade,
           jitterX * rotationStrength * pressure * jitterFade,
