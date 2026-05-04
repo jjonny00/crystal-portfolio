@@ -187,7 +187,7 @@ const UnifiedCrystalScene = forwardRef(({
   );
   const focusedFloatBlendRef = useRef(0);
   const fractureChargeStartRef = useRef(null);
-  const fractureChargePhaseRef = useRef(false);
+  const fractureChargeActiveRef = useRef(false);
 
   // Track explosion timing so we can implement fracture pause
   const explosionStartRef = useRef(null);
@@ -228,7 +228,7 @@ const UnifiedCrystalScene = forwardRef(({
   }, [mergedConfig, onFractureStart]);
 
   const runExplodeSwap = useCallback(() => {
-    fractureChargePhaseRef.current = false;
+    fractureChargeActiveRef.current = false;
     fractureChargeStartRef.current = null;
     setShowWholeCrystal(false);
     setShowFacets(true);
@@ -1496,7 +1496,7 @@ const UnifiedCrystalScene = forwardRef(({
           setSphereVisible(false);
           setRingVisible(false);
           triggerSwapMaskGlow();
-          fractureChargePhaseRef.current = true;
+          fractureChargeActiveRef.current = true;
           fractureChargeStartRef.current = performance.now();
           setFractureLeakBurstId((id) => id + 1);
           pendingExplodeSwapAtRef.current = performance.now() + FORWARD_PRE_SWAP_WINDOW_MS;
@@ -1526,7 +1526,7 @@ const UnifiedCrystalScene = forwardRef(({
           setShowFacets(false);
         }
         explosionStartRef.current = null;
-        fractureChargePhaseRef.current = false;
+        fractureChargeActiveRef.current = false;
         fractureChargeStartRef.current = null;
         resetWholeCrystalMaskGlow();
         if (facetsGroupRef.current) {
@@ -1543,6 +1543,52 @@ const UnifiedCrystalScene = forwardRef(({
   useFrame((state, deltaTime) => {
     if (!animationData || !facetRefs.current.length || simplifiedAnimations) return;
     const now = performance.now();
+    if (
+      fractureChargeActiveRef.current &&
+      fractureChargeStartRef.current &&
+      pendingExplodeSwapAtRef.current != null &&
+      showFacets &&
+      animationData?.transitionPhase === HERO_TO_OVERVIEW_PHASES.FRACTURE_CHARGE
+    ) {
+      const settings = crystalConfig?.heroToOverviewExplosionSettings || {};
+      const chargeDuration = Math.max(settings.fractureChargeDuration ?? 0.5, 0.0001);
+      const elapsedCharge = (now - fractureChargeStartRef.current) / 1000;
+      const t = Math.min(Math.max(elapsedCharge / chargeDuration, 0), 1);
+      const pressure = t * t * t;
+      const spread = settings.fractureSpread ?? 0.08;
+      const jitterStrength = settings.fractureJitterStrength ?? 0.02;
+      const rotationStrength = settings.fractureRotationStrength ?? 0.08;
+      const glowIntensity = settings.fractureGlowIntensity ?? 2.3;
+
+      facetRefs.current.forEach((facetRef, idx) => {
+        const facetKey = facetKeys[idx];
+        const explodedPos = crystalConfig?.positions?.[facetPlacementKeys[facetKey] || facetKey];
+        if (!facetRef?.current || !explodedPos) return;
+        const hash = facetKey.split('').reduce((acc, ch) => (acc * 31 + ch.charCodeAt(0)) % 9973, 17);
+        const jitterX = ((((hash * 13) % 1000) / 1000) - 0.5) * jitterStrength;
+        const jitterY = ((((hash * 29) % 1000) / 1000) - 0.5) * jitterStrength;
+        const jitterZ = ((((hash * 47) % 1000) / 1000) - 0.5) * jitterStrength;
+        const baseOffset = explodedPos.clone().normalize().multiplyScalar(explodedPos.length() * spread * pressure);
+        baseOffset.x += jitterX * pressure;
+        baseOffset.y += jitterY * pressure;
+        baseOffset.z += jitterZ * pressure;
+        facetRef.current.position.copy(baseOffset);
+        facetRef.current.rotation.set(
+          jitterY * rotationStrength * pressure,
+          jitterX * rotationStrength * pressure,
+          jitterZ * rotationStrength * pressure
+        );
+      });
+
+      if (facetMaterialsRef.current.length) {
+        facetMaterialsRef.current.forEach((mat) => {
+          const baseIntensity = mat.userData?.baseEmissiveIntensity ?? 0.02;
+          const targetIntensity = baseIntensity + (glowIntensity - baseIntensity) * pressure;
+          mat.emissiveIntensity = targetIntensity;
+          mat.needsUpdate = true;
+        });
+      }
+    }
 
     if (
       animationData.crystalForm === 'exploded' &&
@@ -2240,49 +2286,3 @@ const UnifiedCrystalScene = forwardRef(({
 UnifiedCrystalScene.displayName = 'UnifiedCrystalScene';
 
 export default React.memo(UnifiedCrystalScene);
-    if (
-      fractureChargePhaseRef.current &&
-      fractureChargeStartRef.current &&
-      pendingExplodeSwapAtRef.current != null &&
-      showFacets &&
-      animationData?.transitionPhase === HERO_TO_OVERVIEW_PHASES.FRACTURE_CHARGE
-    ) {
-      const settings = crystalConfig?.heroToOverviewExplosionSettings || {};
-      const chargeDuration = Math.max(settings.fractureChargeDuration ?? 0.5, 0.0001);
-      const elapsedCharge = (now - fractureChargeStartRef.current) / 1000;
-      const t = Math.min(Math.max(elapsedCharge / chargeDuration, 0), 1);
-      const pressure = t * t * t;
-      const spread = settings.fractureSpread ?? 0.08;
-      const jitterStrength = settings.fractureJitterStrength ?? 0.02;
-      const rotationStrength = settings.fractureRotationStrength ?? 0.08;
-      const glowIntensity = settings.fractureGlowIntensity ?? 2.3;
-
-      facetRefs.current.forEach((facetRef, idx) => {
-        const facetKey = facetKeys[idx];
-        const explodedPos = crystalConfig?.positions?.[facetPlacementKeys[facetKey] || facetKey];
-        if (!facetRef?.current || !explodedPos) return;
-        const hash = facetKey.split('').reduce((acc, ch) => (acc * 31 + ch.charCodeAt(0)) % 9973, 17);
-        const jitterX = ((((hash * 13) % 1000) / 1000) - 0.5) * jitterStrength;
-        const jitterY = ((((hash * 29) % 1000) / 1000) - 0.5) * jitterStrength;
-        const jitterZ = ((((hash * 47) % 1000) / 1000) - 0.5) * jitterStrength;
-        const baseOffset = explodedPos.clone().normalize().multiplyScalar(explodedPos.length() * spread * pressure);
-        baseOffset.x += jitterX * pressure;
-        baseOffset.y += jitterY * pressure;
-        baseOffset.z += jitterZ * pressure;
-        facetRef.current.position.copy(baseOffset);
-        facetRef.current.rotation.set(
-          jitterY * rotationStrength * pressure,
-          jitterX * rotationStrength * pressure,
-          jitterZ * rotationStrength * pressure
-        );
-      });
-
-      if (facetMaterialsRef.current.length) {
-        facetMaterialsRef.current.forEach((mat) => {
-          const baseIntensity = mat.userData?.baseEmissiveIntensity ?? 0.02;
-          const targetIntensity = baseIntensity + (glowIntensity - baseIntensity) * pressure;
-          mat.emissiveIntensity = targetIntensity;
-          mat.needsUpdate = true;
-        });
-      }
-    }
