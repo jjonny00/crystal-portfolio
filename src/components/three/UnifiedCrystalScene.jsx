@@ -260,6 +260,12 @@ const UnifiedCrystalScene = forwardRef(({
     }
 
     triggerFractureGlow();
+    if (
+      (typeof globalThis !== 'undefined' && globalThis.__CRYSTAL_DEBUG_TRANSITION_PHASES__ === true)
+      || (typeof window !== 'undefined' && window.__CRYSTAL_DEBUG_TRANSITION_PHASES__ === true)
+    ) {
+      console.log('[transition-phase-debug] runExplodeSwap reached');
+    }
     animationData?.setTransitionPhase?.(HERO_TO_OVERVIEW_PHASES.EXPLOSION_IMPULSE, {
       reason: 'run-explode-swap'
     });

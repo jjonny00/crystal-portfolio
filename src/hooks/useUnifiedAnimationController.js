@@ -360,6 +360,15 @@ export const useUnifiedAnimationController = (options = {}) => {
     return debugGlobal[TRANSITION_PHASE_DEBUG_WINDOW_FLAG] === true;
   }, [getDebugGlobal]);
 
+  const logTransitionPhaseDebug = useCallback((message, payload = null) => {
+    if (!isTransitionPhaseDebugEnabled()) return;
+    if (payload) {
+      console.log(message, payload);
+      return;
+    }
+    console.log(message);
+  }, [isTransitionPhaseDebugEnabled]);
+
   useEffect(() => {
     const debugGlobal = getDebugGlobal();
     if (!debugGlobal) return undefined;
@@ -379,8 +388,21 @@ export const useUnifiedAnimationController = (options = {}) => {
   }, [getDebugGlobal]);
 
   const setTransitionPhase = useCallback((nextPhase, meta = {}) => {
-    if (!nextPhase || transitionPhaseRef.current === nextPhase) return;
+    if (!nextPhase || transitionPhaseRef.current === nextPhase) {
+      logTransitionPhaseDebug('[transition-phase-debug] setTransitionPhase skipped', {
+        reason: !nextPhase ? 'missing-next-phase' : 'same-as-current-ref',
+        currentRefPhase: transitionPhaseRef.current,
+        nextPhase,
+        meta
+      });
+      return;
+    }
     const previousPhase = transitionPhaseRef.current ?? HERO_TO_OVERVIEW_PHASES.IDLE;
+    logTransitionPhaseDebug('[transition-phase-debug] setTransitionPhase called', {
+      previousPhase,
+      nextPhase,
+      meta
+    });
     if (isTransitionPhaseDebugEnabled()) {
       console.log('[transition-phase]', {
         previousPhase,
@@ -397,7 +419,7 @@ export const useUnifiedAnimationController = (options = {}) => {
       transitionPhaseRef.current = nextPhase;
       return { ...prev, transitionPhase: nextPhase };
     });
-  }, [animationState.cameraState, animationState.crystalForm, animationState.state, isTransitionPhaseDebugEnabled]);
+  }, [animationState.cameraState, animationState.crystalForm, animationState.state, isTransitionPhaseDebugEnabled, logTransitionPhaseDebug]);
 
   const getRuntimeProjectSection = useCallback((projectKey) => {
     if (!projectKey) return null;
@@ -564,6 +586,12 @@ export const useUnifiedAnimationController = (options = {}) => {
       zoneKey,
       createdAt: Date.now()
     };
+    if (zoneKey === 'overview') {
+      logTransitionPhaseDebug('[transition-phase-debug] directSelectZone overview reached');
+      setTransitionPhase(HERO_TO_OVERVIEW_PHASES.FRACTURE_CHARGE, {
+        reason: 'direct-zone-override-overview'
+      });
+    }
 
     setAnimationState(prev => {
       if (zoneKey === 'hero') {
@@ -601,7 +629,7 @@ export const useUnifiedAnimationController = (options = {}) => {
 
       return prev;
     });
-  }, [clearDirectProjectOverride, clearDirectZoneOverride, config]);
+  }, [clearDirectProjectOverride, clearDirectZoneOverride, config, logTransitionPhaseDebug, setTransitionPhase]);
 
   useEffect(() => {
     if (!introReplayToken || !config?.camera?.intro) return;
@@ -713,6 +741,10 @@ export const useUnifiedAnimationController = (options = {}) => {
       }, (config.crystal.fracturePause || 0.5) * 1000);
     }
     else if (toZone === 'overview') {
+      logTransitionPhaseDebug('[transition-phase-debug] handleZoneTransition overview reached', {
+        fromZone,
+        toZone
+      });
       // Start explosion immediately but delay camera move until fracture pause completes
       setAnimationState(prev => ({
         ...prev,
