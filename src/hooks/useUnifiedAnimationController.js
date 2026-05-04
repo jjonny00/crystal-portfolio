@@ -921,25 +921,36 @@ export const useUnifiedAnimationController = (options = {}) => {
         0
       );
       const cameraReady = animationState.cameraSettled === true || (animationState.cameraMoveProgress ?? 0) >= 0.995;
+      const cinematicOwnerActive =
+        animationState.cameraState === 'overview' &&
+        animationState.crystalForm === 'exploded' &&
+        (animationState.transitionPhase === HERO_TO_OVERVIEW_PHASES.BULLET_TIME_SLOWDOWN || animationState.transitionPhase === HERO_TO_OVERVIEW_PHASES.OVERVIEW_HANDOFF);
       const phaseDebugEnabled = isTransitionPhaseDebugEnabled();
-      const handoffAllowed = slowdownElapsedMs >= requiredSlowdownMs && cameraReady;
+      const durationMet = slowdownElapsedMs >= requiredSlowdownMs;
+      const handoffAllowed = durationMet && (cameraReady || cinematicOwnerActive);
+      const handoffReason = cameraReady ? 'duration-met-camera-ready' : 'duration-met-cinematic-owner';
       if (phaseDebugEnabled) {
-        console.log('[scene-freeze-debug] slowdown gate', {
-          slowdownElapsedMs,
-          requiredSlowdownMs,
-          cameraReady,
-          phase: animationState.transitionPhase,
-          cameraState: animationState.cameraState,
-          state: animationState.state,
-          crystalForm: animationState.crystalForm,
-          cinematicOwnerActive: animationState.cameraState === 'overview' && animationState.crystalForm === 'exploded',
-          handoffAllowed,
-          blockReason: handoffAllowed ? null : (slowdownElapsedMs < requiredSlowdownMs ? 'slowdown-duration-not-reached' : 'camera-not-ready')
-        });
+        if (handoffAllowed) {
+          console.log('[scene-freeze-debug] slowdown handoff allowed', {
+            slowdownElapsedMs,
+            requiredSlowdownMs,
+            cameraReady,
+            cinematicOwnerActive,
+            reason: handoffReason
+          });
+        } else {
+          console.log('[scene-freeze-debug] slowdown handoff blocked', {
+            slowdownElapsedMs,
+            requiredSlowdownMs,
+            cameraReady,
+            cinematicOwnerActive,
+            blockReason: !durationMet ? 'slowdown-duration-not-reached' : 'camera-not-ready-and-no-cinematic-owner'
+          });
+        }
       }
       if (handoffAllowed) {
         setTransitionPhase(HERO_TO_OVERVIEW_PHASES.OVERVIEW_HANDOFF, {
-          reason: 'camera-overview-after-slowdown-duration',
+          reason: handoffReason,
           slowdownElapsedMs,
           requiredSlowdownMs
         });
