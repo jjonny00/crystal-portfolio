@@ -519,6 +519,22 @@ export const useUnifiedAnimationController = (options = {}) => {
     });
   }, [logTransitionPhaseDebug]);
 
+  const forceTransitionPhase = useCallback((nextPhase, meta = {}) => {
+    if (!nextPhase) return;
+    const previousPhase = transitionPhaseRef.current ?? HERO_TO_OVERVIEW_PHASES.IDLE;
+    if (previousPhase === nextPhase) return;
+    const phaseTimestamp = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    if (nextPhase === HERO_TO_OVERVIEW_PHASES.BULLET_TIME_SLOWDOWN) bulletTimeSlowdownStartRef.current = phaseTimestamp;
+    if (nextPhase === HERO_TO_OVERVIEW_PHASES.OVERVIEW_HANDOFF) overviewHandoffStartRef.current = phaseTimestamp;
+    if (nextPhase === HERO_TO_OVERVIEW_PHASES.IDLE || nextPhase === HERO_TO_OVERVIEW_PHASES.COMPLETE) {
+      bulletTimeSlowdownStartRef.current = null;
+      overviewHandoffStartRef.current = null;
+    }
+    transitionPhaseRef.current = nextPhase;
+    setAnimationState((prev) => (prev.transitionPhase === nextPhase ? prev : { ...prev, transitionPhase: nextPhase }));
+    logTransitionPhaseDebug('[transition-phase-debug] forceTransitionPhase applied', { previousPhase, nextPhase, meta });
+  }, [logTransitionPhaseDebug]);
+
   const getRuntimeProjectSection = useCallback((projectKey) => {
     if (!projectKey) return null;
     return runtimeProjectSectionsRef.current.find((section) => section.project === projectKey) || null;
@@ -959,7 +975,7 @@ export const useUnifiedAnimationController = (options = {}) => {
         }
       }
       if (handoffAllowed) {
-        setTransitionPhase(HERO_TO_OVERVIEW_PHASES.OVERVIEW_HANDOFF, {
+        forceTransitionPhase(HERO_TO_OVERVIEW_PHASES.OVERVIEW_HANDOFF, {
           reason: handoffReason,
           slowdownElapsedMs,
           requiredSlowdownMs
@@ -985,7 +1001,7 @@ export const useUnifiedAnimationController = (options = {}) => {
       const cinematicOwnerActive = animationState.cameraState === 'overview' && animationState.crystalForm === 'exploded';
       const completeAllowed = handoffElapsedMs >= requiredHandoffMs && (cameraReady || cinematicOwnerActive);
       if (completeAllowed) {
-        setTransitionPhase(HERO_TO_OVERVIEW_PHASES.COMPLETE, {
+        forceTransitionPhase(HERO_TO_OVERVIEW_PHASES.COMPLETE, {
           reason: cameraReady ? 'overview-camera-active' : 'overview-handoff-duration-met-cinematic-owner',
           handoffElapsedMs,
           requiredHandoffMs
@@ -1013,6 +1029,7 @@ export const useUnifiedAnimationController = (options = {}) => {
     isTransitionPhaseDebugVerboseEnabled,
     logTransitionPhaseDebug,
     setTransitionPhase,
+    forceTransitionPhase,
     slowdownGateTick
   ]);
 
