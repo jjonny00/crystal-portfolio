@@ -347,49 +347,57 @@ export const useUnifiedAnimationController = (options = {}) => {
   const aboutToProjectsLockUntilRef = useRef(0);
   const lastNearestSectionIdRef = useRef(null);
 
-  const isTransitionPhaseDebugEnabled = useCallback(() => {
-    if (DEBUG_TRANSITION_PHASES) return true;
-    if (typeof window === 'undefined') return false;
-    return window[TRANSITION_PHASE_DEBUG_WINDOW_FLAG] === true;
+  const getDebugGlobal = useCallback(() => {
+    if (typeof globalThis !== 'undefined') return globalThis;
+    if (typeof window !== 'undefined') return window;
+    return null;
   }, []);
 
+  const isTransitionPhaseDebugEnabled = useCallback(() => {
+    if (DEBUG_TRANSITION_PHASES) return true;
+    const debugGlobal = getDebugGlobal();
+    if (!debugGlobal) return false;
+    return debugGlobal[TRANSITION_PHASE_DEBUG_WINDOW_FLAG] === true;
+  }, [getDebugGlobal]);
+
   useEffect(() => {
-    if (typeof window === 'undefined') return undefined;
-    const previousHelper = window[TRANSITION_PHASE_DEBUG_WINDOW_HELPER];
-    window[TRANSITION_PHASE_DEBUG_WINDOW_HELPER] = (enabled) => {
-      window[TRANSITION_PHASE_DEBUG_WINDOW_FLAG] = enabled === true;
-      return window[TRANSITION_PHASE_DEBUG_WINDOW_FLAG];
+    const debugGlobal = getDebugGlobal();
+    if (!debugGlobal) return undefined;
+    const previousHelper = debugGlobal[TRANSITION_PHASE_DEBUG_WINDOW_HELPER];
+    debugGlobal[TRANSITION_PHASE_DEBUG_WINDOW_HELPER] = (enabled) => {
+      debugGlobal[TRANSITION_PHASE_DEBUG_WINDOW_FLAG] = enabled === true;
+      return debugGlobal[TRANSITION_PHASE_DEBUG_WINDOW_FLAG];
     };
 
     return () => {
       if (previousHelper) {
-        window[TRANSITION_PHASE_DEBUG_WINDOW_HELPER] = previousHelper;
+        debugGlobal[TRANSITION_PHASE_DEBUG_WINDOW_HELPER] = previousHelper;
       } else {
-        delete window[TRANSITION_PHASE_DEBUG_WINDOW_HELPER];
+        delete debugGlobal[TRANSITION_PHASE_DEBUG_WINDOW_HELPER];
       }
     };
-  }, []);
+  }, [getDebugGlobal]);
 
   const setTransitionPhase = useCallback((nextPhase, meta = {}) => {
     if (!nextPhase || transitionPhaseRef.current === nextPhase) return;
+    const previousPhase = transitionPhaseRef.current ?? HERO_TO_OVERVIEW_PHASES.IDLE;
+    if (isTransitionPhaseDebugEnabled()) {
+      console.log('[transition-phase]', {
+        previousPhase,
+        nextPhase,
+        elapsed: typeof performance !== 'undefined' ? performance.now() : Date.now(),
+        state: animationState.state,
+        crystalForm: animationState.crystalForm,
+        cameraState: animationState.cameraState,
+        ...meta
+      });
+    }
     setAnimationState((prev) => {
       if (prev.transitionPhase === nextPhase) return prev;
-      const previousPhase = prev.transitionPhase ?? HERO_TO_OVERVIEW_PHASES.IDLE;
-      if (isTransitionPhaseDebugEnabled()) {
-        console.log('[transition-phase]', {
-          previousPhase,
-          nextPhase,
-          elapsed: typeof performance !== 'undefined' ? performance.now() : Date.now(),
-          state: prev.state,
-          crystalForm: prev.crystalForm,
-          cameraState: prev.cameraState,
-          ...meta
-        });
-      }
       transitionPhaseRef.current = nextPhase;
       return { ...prev, transitionPhase: nextPhase };
     });
-  }, [isTransitionPhaseDebugEnabled]);
+  }, [animationState.cameraState, animationState.crystalForm, animationState.state, isTransitionPhaseDebugEnabled]);
 
   const getRuntimeProjectSection = useCallback((projectKey) => {
     if (!projectKey) return null;
