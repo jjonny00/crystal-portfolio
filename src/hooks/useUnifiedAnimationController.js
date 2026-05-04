@@ -829,6 +829,17 @@ export const useUnifiedAnimationController = (options = {}) => {
       if (import.meta.env.DEV) console.log(`🗺️ IMMEDIATE Zone transition: ${fromZone} → ${toZone}`);
     }
 
+    if (fromZone === toZone) {
+      if (isTransitionPhaseDebugVerboseEnabled()) {
+        logTransitionPhaseDebug('[transition-phase-debug] handleZoneTransition skipped', {
+          reason: 'same-zone',
+          fromZone,
+          toZone
+        });
+      }
+      return;
+    }
+
     // Clear any pending delayed camera transitions when switching zones
     if (cameraDelayTimeout.current) {
       clearTimeout(cameraDelayTimeout.current);
