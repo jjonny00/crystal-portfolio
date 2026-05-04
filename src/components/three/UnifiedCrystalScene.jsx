@@ -1506,6 +1506,11 @@ const UnifiedCrystalScene = forwardRef(({
           fractureChargeActiveRef.current = true;
           fractureChargeStartRef.current = performance.now();
           fractureChargePhaseRef.current = 0;
+          facetRefs.current.forEach((facetRef) => {
+            if (!facetRef?.current) return;
+            facetRef.current.position.set(0, 0, 0);
+            facetRef.current.rotation.set(0, 0, 0);
+          });
           fractureChargeStartPositionsRef.current = facetRefs.current.map((facetRef) =>
             facetRef?.current?.position?.clone?.() || new THREE.Vector3()
           );
@@ -1539,6 +1544,7 @@ const UnifiedCrystalScene = forwardRef(({
         explosionStartRef.current = null;
         fractureChargeActiveRef.current = false;
         fractureChargeStartRef.current = null;
+        fractureChargeStartPositionsRef.current = [];
         resetWholeCrystalMaskGlow();
         if (facetsGroupRef.current) {
           facetsGroupRef.current.quaternion.copy(neutralQuat);
