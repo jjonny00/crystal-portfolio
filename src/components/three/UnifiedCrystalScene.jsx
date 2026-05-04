@@ -1869,6 +1869,18 @@ const UnifiedCrystalScene = forwardRef(({
         const currentPhase = animationData?.transitionPhase ?? HERO_TO_OVERVIEW_PHASES.IDLE;
         const canAdvanceToSlowdown = canAdvanceTransitionPhase(currentPhase, HERO_TO_OVERVIEW_PHASES.BULLET_TIME_SLOWDOWN)
           && currentPhase !== HERO_TO_OVERVIEW_PHASES.BULLET_TIME_SLOWDOWN;
+        const phaseDebugEnabled =
+          (typeof globalThis !== 'undefined' && globalThis.__CRYSTAL_DEBUG_TRANSITION_PHASES__ === true)
+          || (typeof window !== 'undefined' && window.__CRYSTAL_DEBUG_TRANSITION_PHASES__ === true);
+        if (phaseDebugEnabled && progress >= impulseThreshold && !canAdvanceToSlowdown) {
+          console.log('[explosion-camera-debug] bulletTimeSlowdown skipped guard', {
+            currentPhase,
+            progress,
+            impulseThreshold,
+            crystalForm: animationData?.crystalForm,
+            state: animationData?.state
+          });
+        }
         if (progress >= impulseThreshold && canAdvanceToSlowdown) {
           animationData?.setTransitionPhase?.(HERO_TO_OVERVIEW_PHASES.BULLET_TIME_SLOWDOWN, {
             reason: 'explosion-progress-threshold',

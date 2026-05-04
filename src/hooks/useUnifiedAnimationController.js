@@ -824,9 +824,6 @@ export const useUnifiedAnimationController = (options = {}) => {
       });
 
       cameraDelayTimeout.current = setTimeout(() => {
-        setTransitionPhase(HERO_TO_OVERVIEW_PHASES.OVERVIEW_HANDOFF, {
-          reason: 'pre-camera-overview-switch'
-        });
         setAnimationState(prev => ({
           ...prev,
           cameraState: 'overview'
@@ -883,6 +880,18 @@ export const useUnifiedAnimationController = (options = {}) => {
   }, [debugMode, config, setTransitionPhase]);
 
   useEffect(() => {
+    if (
+      animationState.transitionPhase === HERO_TO_OVERVIEW_PHASES.BULLET_TIME_SLOWDOWN &&
+      animationState.cameraState === 'overview' &&
+      animationState.crystalForm === 'exploded' &&
+      animationState.state === ANIMATION_STATES.OVERVIEW
+    ) {
+      setTransitionPhase(HERO_TO_OVERVIEW_PHASES.OVERVIEW_HANDOFF, {
+        reason: 'camera-overview-after-slowdown'
+      });
+      return;
+    }
+
     if (
       animationState.transitionPhase === HERO_TO_OVERVIEW_PHASES.OVERVIEW_HANDOFF &&
       animationState.cameraState === 'overview' &&
