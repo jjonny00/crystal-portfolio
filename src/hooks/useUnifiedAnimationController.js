@@ -11,6 +11,7 @@ const FRACTURE_DISTANCE = fractureConfig.distance;
 const DEBUG_TRANSITION_PHASES = false;
 const TRANSITION_PHASE_DEBUG_WINDOW_FLAG = '__CRYSTAL_DEBUG_TRANSITION_PHASES__';
 const TRANSITION_PHASE_DEBUG_WINDOW_HELPER = '__setCrystalTransitionDebug';
+const TRANSITION_PHASE_DEBUG_WINDOW_VERBOSE_FLAG = '__CRYSTAL_DEBUG_TRANSITION_PHASES_VERBOSE__';
 
 export const HERO_TO_OVERVIEW_PHASES = {
   IDLE: 'idle',
@@ -19,6 +20,29 @@ export const HERO_TO_OVERVIEW_PHASES = {
   BULLET_TIME_SLOWDOWN: 'bulletTimeSlowdown',
   OVERVIEW_HANDOFF: 'overviewHandoff',
   COMPLETE: 'complete'
+};
+
+const HERO_TO_OVERVIEW_PHASE_ORDER = {
+  [HERO_TO_OVERVIEW_PHASES.IDLE]: 0,
+  [HERO_TO_OVERVIEW_PHASES.FRACTURE_CHARGE]: 1,
+  [HERO_TO_OVERVIEW_PHASES.EXPLOSION_IMPULSE]: 2,
+  [HERO_TO_OVERVIEW_PHASES.BULLET_TIME_SLOWDOWN]: 3,
+  [HERO_TO_OVERVIEW_PHASES.OVERVIEW_HANDOFF]: 4,
+  [HERO_TO_OVERVIEW_PHASES.COMPLETE]: 5
+};
+
+const getPhaseRank = (phase) => {
+  if (!phase) return -1;
+  const rank = HERO_TO_OVERVIEW_PHASE_ORDER[phase];
+  return Number.isFinite(rank) ? rank : -1;
+};
+
+export const canAdvanceTransitionPhase = (currentPhase, nextPhase) => {
+  const currentRank = getPhaseRank(currentPhase);
+  const nextRank = getPhaseRank(nextPhase);
+  if (nextRank < 0) return false;
+  if (currentRank < 0) return true;
+  return nextRank >= currentRank;
 };
 
 /**
@@ -369,6 +393,13 @@ export const useUnifiedAnimationController = (options = {}) => {
     console.log(message);
   }, [isTransitionPhaseDebugEnabled]);
 
+  const isTransitionPhaseDebugVerboseEnabled = useCallback(() => {
+    if (!isTransitionPhaseDebugEnabled()) return false;
+    const debugGlobal = getDebugGlobal();
+    if (!debugGlobal) return false;
+    return debugGlobal[TRANSITION_PHASE_DEBUG_WINDOW_VERBOSE_FLAG] === true;
+  }, [getDebugGlobal, isTransitionPhaseDebugEnabled]);
+
   useEffect(() => {
     const debugGlobal = getDebugGlobal();
     if (!debugGlobal) return undefined;
@@ -388,16 +419,37 @@ export const useUnifiedAnimationController = (options = {}) => {
   }, [getDebugGlobal]);
 
   const setTransitionPhase = useCallback((nextPhase, meta = {}) => {
-    if (!nextPhase || transitionPhaseRef.current === nextPhase) {
+    if (!nextPhase) {
       logTransitionPhaseDebug('[transition-phase-debug] setTransitionPhase skipped', {
-        reason: !nextPhase ? 'missing-next-phase' : 'same-as-current-ref',
+        reason: 'missing-next-phase',
         currentRefPhase: transitionPhaseRef.current,
         nextPhase,
         meta
       });
       return;
     }
-    const previousPhase = transitionPhaseRef.current ?? HERO_TO_OVERVIEW_PHASES.IDLE;
+    const currentRefPhase = transitionPhaseRef.current ?? HERO_TO_OVERVIEW_PHASES.IDLE;
+    if (!canAdvanceTransitionPhase(currentRefPhase, nextPhase)) {
+      logTransitionPhaseDebug('[transition-phase-debug] setTransitionPhase skipped', {
+        reason: 'backward-transition-rejected',
+        currentRefPhase,
+        nextPhase,
+        meta
+      });
+      return;
+    }
+    if (currentRefPhase === nextPhase) {
+      if (isTransitionPhaseDebugVerboseEnabled()) {
+        logTransitionPhaseDebug('[transition-phase-debug] setTransitionPhase skipped', {
+          reason: 'same-as-current-ref',
+          currentRefPhase,
+          nextPhase,
+          meta
+        });
+      }
+      return;
+    }
+    const previousPhase = currentRefPhase;
     logTransitionPhaseDebug('[transition-phase-debug] setTransitionPhase called', {
       previousPhase,
       nextPhase,
@@ -419,7 +471,7 @@ export const useUnifiedAnimationController = (options = {}) => {
       transitionPhaseRef.current = nextPhase;
       return { ...prev, transitionPhase: nextPhase };
     });
-  }, [animationState.cameraState, animationState.crystalForm, animationState.state, isTransitionPhaseDebugEnabled, logTransitionPhaseDebug]);
+  }, [animationState.cameraState, animationState.crystalForm, animationState.state, isTransitionPhaseDebugEnabled, isTransitionPhaseDebugVerboseEnabled, logTransitionPhaseDebug]);
 
   const getRuntimeProjectSection = useCallback((projectKey) => {
     if (!projectKey) return null;

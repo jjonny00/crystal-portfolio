@@ -28,7 +28,7 @@ import FacetLabels from './FacetLabels'
 import OverviewConnectorLines from './OverviewConnectorLines'
 import { effects } from '../../crystalConfig'
 import { useFacetOverlayGeometry } from '../../hooks/useFacetOverlayGeometry'
-import { ANIMATION_CONFIG, HERO_TO_OVERVIEW_PHASES } from '../../hooks/useUnifiedAnimationController'
+import { ANIMATION_CONFIG, HERO_TO_OVERVIEW_PHASES, canAdvanceTransitionPhase } from '../../hooks/useUnifiedAnimationController'
 import { useLayoutConfig } from '../../hooks/useLayoutConfig'
 import { useHoverCapable } from '../../hooks/useHoverCapable'
 import { createLogger } from '../../utils/logger'
@@ -1745,7 +1745,10 @@ const UnifiedCrystalScene = forwardRef(({
         const progress = Math.min((elapsedExplosion - fracturePause) / (totalDuration - fracturePause), 1);
         const impulseThreshold =
           crystalConfig?.heroToOverviewExplosionSettings?.explosionImpulseDuration ?? 0.25;
-        if (progress >= impulseThreshold) {
+        const currentPhase = animationData?.transitionPhase ?? HERO_TO_OVERVIEW_PHASES.IDLE;
+        const canAdvanceToSlowdown = canAdvanceTransitionPhase(currentPhase, HERO_TO_OVERVIEW_PHASES.BULLET_TIME_SLOWDOWN)
+          && currentPhase !== HERO_TO_OVERVIEW_PHASES.BULLET_TIME_SLOWDOWN;
+        if (progress >= impulseThreshold && canAdvanceToSlowdown) {
           animationData?.setTransitionPhase?.(HERO_TO_OVERVIEW_PHASES.BULLET_TIME_SLOWDOWN, {
             reason: 'explosion-progress-threshold',
             progress
