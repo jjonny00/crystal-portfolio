@@ -156,6 +156,7 @@ const UnifiedCameraController = ({
   const explosionSyncSeedLoggedRef = useRef(false);
   const explosionPushbackSkipLoggedRef = useRef(new Set());
   const explosionPushbackOverwriteSamplesRef = useRef({ quarter: false, half: false, full: false });
+  const cameraOwnerSamplesRef = useRef({ impulseStart: false, impulseMid: false, slowdownStart: false, handoffStart: false });
   const firstPostHeroExplosionWriteLoggedRef = useRef(false);
   const lastAuthoritativeHeroSnapshotRef = useRef(null);
   const latestAuthoritativeHeroSnapshotRef = useRef(null);
@@ -295,6 +296,7 @@ const UnifiedCameraController = ({
           explosionPhaseObservedLoggedRef.current = false;
           explosionSyncSeedLoggedRef.current = false;
           explosionPushbackSkipLoggedRef.current = new Set();
+          cameraOwnerSamplesRef.current = { impulseStart: false, impulseMid: false, slowdownStart: false, handoffStart: false };
           explosionCameraTraceUntilRef.current = elapsedSeconds + 1.5;
           firstPostHeroExplosionWriteLoggedRef.current = false;
           const phaseDebugEnabled =
@@ -2619,6 +2621,25 @@ const UnifiedCameraController = ({
       camera.fov = currentTarget.current.fov;
       camera.updateProjectionMatrix();
       logCameraWrite(state, "TRANSITION", "fracture-tilt-lock", fractureTiltAnchorLookAtRef.current, true, true);
+      if (phaseDebugEnabled) {
+        const logSample = (key, shouldLog) => {
+          if (!shouldLog || cameraOwnerSamplesRef.current[key]) return;
+          cameraOwnerSamplesRef.current[key] = true;
+          console.log('[visual-owner-debug] camera writer', {
+            phase: transitionPhase,
+            writer: 'fracture-tilt-lock',
+            cameraPositionBefore: beforePosition.toArray(),
+            cameraPositionAfter: camera.position.toArray(),
+            lookAtBefore: fractureTiltAnchorLookAtRef.current.toArray(),
+            lookAtAfter: fractureTiltAnchorLookAtRef.current.toArray(),
+            returnsEarly: true
+          });
+        };
+        logSample('impulseStart', transitionPhase === 'explosionImpulse' && pushT <= 0.05);
+        logSample('impulseMid', transitionPhase === 'explosionImpulse' && pushT >= 0.5);
+        logSample('slowdownStart', transitionPhase === 'bulletTimeSlowdown');
+        logSample('handoffStart', transitionPhase === 'overviewHandoff');
+      }
       console.log('[UCC FRACTURE TILT LOCK CAMERA]', {
         cameraPositionBeforeWrite: beforePosition.toArray(),
         cameraPositionAfterWrite: camera.position.toArray(),

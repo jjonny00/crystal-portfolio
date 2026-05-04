@@ -190,6 +190,7 @@ const UnifiedCrystalScene = forwardRef(({
   const fractureChargeActiveRef = useRef(false);
   const fractureChargePhaseRef = useRef(0);
   const fractureChargeHandoffLoggedRef = useRef(false);
+  const visualOwnerSamplesRef = useRef({ impulseStart: false, impulseMid: false, slowdownStart: false, handoffStart: false });
 
   // Track explosion timing so we can implement fracture pause
   const explosionStartRef = useRef(null);
@@ -248,6 +249,7 @@ const UnifiedCrystalScene = forwardRef(({
     fractureChargeActiveRef.current = false;
     fractureChargeStartRef.current = null;
     fractureChargePhaseRef.current = 0;
+    visualOwnerSamplesRef.current = { impulseStart: false, impulseMid: false, slowdownStart: false, handoffStart: false };
 
     // Capture hero rotation so facets start from same orientation
     if (wholeCrystalRef.current && facetsGroupRef.current) {
@@ -522,7 +524,13 @@ const UnifiedCrystalScene = forwardRef(({
       verifyExplodedPositions: () => {
         if (import.meta.env.DEV) {
           logger.debug('📐 Verifying exploded facet positions');
-          facetRefs.current.forEach((facetRef, index) => {
+  
+        const phaseDebugEnabled =
+          (typeof globalThis !== 'undefined' && globalThis.__CRYSTAL_DEBUG_TRANSITION_PHASES__ === true)
+          || (typeof window !== 'undefined' && window.__CRYSTAL_DEBUG_TRANSITION_PHASES__ === true);
+        const firstFacetBefore = facetRefs.current[0]?.current?.position?.clone?.() || null;
+
+        facetRefs.current.forEach((facetRef, index) => {
             const facetKey = facetKeys[index];
             const expected = crystalConfig?.explodedPositions?.[facetPlacementKeys[facetKey] || facetKey];
             if (!facetRef?.current || !expected) {
@@ -1907,6 +1915,9 @@ const UnifiedCrystalScene = forwardRef(({
           );
         }
 
+
+        const firstFacetBefore = facetRefs.current[0]?.current?.position?.clone?.() || null;
+
         facetRefs.current.forEach((facetRef, index) => {
           if (!facetRef || !facetRef.current) return;
 
@@ -1925,6 +1936,36 @@ const UnifiedCrystalScene = forwardRef(({
             facetRef.current.quaternion.slerpQuaternions(neutralQuat, targetQuat, THREE.MathUtils.clamp(boostedProgress * rotationStrength, 0, 1));
           }
         });
+
+
+        if (phaseDebugEnabled) {
+          const firstFacetAfter = facetRefs.current[0]?.current?.position?.clone?.() || null;
+          const sampleLog = (key, shouldLog, writerName, extra = {}) => {
+            if (!shouldLog || visualOwnerSamplesRef.current[key]) return;
+            visualOwnerSamplesRef.current[key] = true;
+            console.log('[visual-owner-debug] facet writer', {
+              phase: currentPhase,
+              writer: writerName,
+              firstFacetBefore: firstFacetBefore?.toArray?.() || null,
+              firstFacetAfter: firstFacetAfter?.toArray?.() || null,
+              finalWriteInFrame: true,
+              ...extra
+            });
+          };
+          sampleLog('impulseStart', currentPhase === HERO_TO_OVERVIEW_PHASES.EXPLOSION_IMPULSE && progress <= 0.05, 'explosion-interpolation');
+          sampleLog('impulseMid', currentPhase === HERO_TO_OVERVIEW_PHASES.EXPLOSION_IMPULSE && progress >= 0.5, 'explosion-interpolation', { impulseBlend, outwardBoost });
+          sampleLog('slowdownStart', currentPhase === HERO_TO_OVERVIEW_PHASES.BULLET_TIME_SLOWDOWN, 'explosion-interpolation');
+          sampleLog('handoffStart', currentPhase === HERO_TO_OVERVIEW_PHASES.OVERVIEW_HANDOFF, 'explosion-interpolation');
+          if ((currentPhase === HERO_TO_OVERVIEW_PHASES.EXPLOSION_IMPULSE || currentPhase === HERO_TO_OVERVIEW_PHASES.BULLET_TIME_SLOWDOWN) && firstFacetBefore && firstFacetAfter) {
+            console.log('[explosion-fragment-debug] impulse applied or skipped', {
+              phase: currentPhase,
+              impulseT: impulseBlend,
+              boostAmount: outwardBoost,
+              firstFacetBefore: firstFacetBefore.toArray(),
+              firstFacetAfter: firstFacetAfter.toArray()
+            });
+          }
+        }
 
         if (progress >= 1) {
           explosionStartRef.current = null; // Animation finished
