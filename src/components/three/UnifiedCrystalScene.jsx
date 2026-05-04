@@ -189,6 +189,7 @@ const UnifiedCrystalScene = forwardRef(({
   const fractureChargeStartRef = useRef(null);
   const fractureChargeActiveRef = useRef(false);
   const fractureChargePhaseRef = useRef(0);
+  const fractureChargeStartPositionsRef = useRef([]);
 
   // Track explosion timing so we can implement fracture pause
   const explosionStartRef = useRef(null);
@@ -228,6 +229,21 @@ const UnifiedCrystalScene = forwardRef(({
     onFractureStart?.();
   }, [mergedConfig, onFractureStart]);
 
+
+  const getFractureTargetPosition = useCallback((facetKey) => {
+    const placementKey = facetPlacementKeys[facetKey] || facetKey;
+    const explodedPos = crystalConfig?.positions?.[placementKey];
+    if (!explodedPos) return null;
+    const fractureDistance = crystalConfig?.fractureDistance ?? 0.3;
+    const fracture = crystalConfig?.fracturePositions;
+    const configuredFracture = fracture?.[placementKey];
+    const fallback = explodedPos
+      .clone()
+      .normalize()
+      .multiplyScalar(explodedPos.length() * fractureDistance);
+    return configuredFracture ? configuredFracture.clone() : fallback;
+  }, [crystalConfig, facetPlacementKeys]);
+
   const runExplodeSwap = useCallback(() => {
     fractureChargeActiveRef.current = false;
     fractureChargeStartRef.current = null;
@@ -245,26 +261,15 @@ const UnifiedCrystalScene = forwardRef(({
       facetsGroupRef.current.quaternion.copy(wholeCrystalRef.current.quaternion);
     }
 
-    // Snap facets immediately to fracture positions (small initial offset)
-    const fractureDistance = crystalConfig?.fractureDistance ?? 0.3;
-    const fracture = crystalConfig?.fracturePositions;
-    if (fracture || fractureDistance) {
-      facetRefs.current.forEach((facetRef, idx) => {
-        const facetKey = facetKeys[idx];
-        const explodedPos = crystalConfig?.positions?.[facetPlacementKeys[facetKey] || facetKey];
-        const configuredFracture = fracture?.[facetPlacementKeys[facetKey] || facetKey];
-        if (facetRef?.current && explodedPos) {
-          const fallback = explodedPos
-            .clone()
-            .normalize()
-            .multiplyScalar(explodedPos.length() * fractureDistance);
-          const fracturePos = configuredFracture ? configuredFracture.clone() : fallback;
-          facetRef.current.position.copy(fracturePos);
-
-          logger.debug(`💥 ${facetKey} fracture:`, fracturePos.toArray());
-        }
-      });
-    }
+    // Snap facets to the same fracture target pose used by charge, preventing handoff pops
+    facetRefs.current.forEach((facetRef, idx) => {
+      const facetKey = facetKeys[idx];
+      const fracturePos = getFractureTargetPosition(facetKey);
+      if (facetRef?.current && fracturePos) {
+        facetRef.current.position.copy(fracturePos);
+        logger.debug(`💥 ${facetKey} fracture:`, fracturePos.toArray());
+      }
+    });
 
     triggerFractureGlow();
     if (
@@ -276,7 +281,7 @@ const UnifiedCrystalScene = forwardRef(({
     animationData?.setTransitionPhase?.(HERO_TO_OVERVIEW_PHASES.EXPLOSION_IMPULSE, {
       reason: 'run-explode-swap'
     });
-  }, [animationData, crystalConfig, facetKeys, facetPlacementKeys, triggerFractureGlow]);
+  }, [animationData, facetKeys, getFractureTargetPosition, triggerFractureGlow]);
 
   const runReformSwap = useCallback(() => {
     pendingReformSwapAtRef.current = null;
@@ -1501,6 +1506,9 @@ const UnifiedCrystalScene = forwardRef(({
           fractureChargeActiveRef.current = true;
           fractureChargeStartRef.current = performance.now();
           fractureChargePhaseRef.current = 0;
+          fractureChargeStartPositionsRef.current = facetRefs.current.map((facetRef) =>
+            facetRef?.current?.position?.clone?.() || new THREE.Vector3()
+          );
           setFractureLeakBurstId((id) => id + 1);
           pendingExplodeSwapAtRef.current = performance.now() + FORWARD_PRE_SWAP_WINDOW_MS;
         } else {
@@ -1566,21 +1574,23 @@ const UnifiedCrystalScene = forwardRef(({
 
       facetRefs.current.forEach((facetRef, idx) => {
         const facetKey = facetKeys[idx];
-        const explodedPos = crystalConfig?.positions?.[facetPlacementKeys[facetKey] || facetKey];
-        if (!facetRef?.current || !explodedPos) return;
+        const fractureTarget = getFractureTargetPosition(facetKey);
+        if (!facetRef?.current || !fractureTarget) return;
+        const startPos = fractureChargeStartPositionsRef.current[idx] || origin;
         const hash = facetKey.split('').reduce((acc, ch) => (acc * 31 + ch.charCodeAt(0)) % 9973, 17);
         const jitterX = ((((hash * 13) % 1000) / 1000) - 0.5) * jitterStrength;
         const jitterY = ((((hash * 29) % 1000) / 1000) - 0.5) * jitterStrength;
         const jitterZ = ((((hash * 47) % 1000) / 1000) - 0.5) * jitterStrength;
-        const baseOffset = explodedPos.clone().normalize().multiplyScalar(explodedPos.length() * spread * pressure);
-        baseOffset.x += jitterX * pressure;
-        baseOffset.y += jitterY * pressure;
-        baseOffset.z += jitterZ * pressure;
-        facetRef.current.position.copy(baseOffset);
+        const jitterFade = 1 - t;
+        const targetWithJitter = fractureTarget.clone();
+        targetWithJitter.x += jitterX * spread * pressure * jitterFade;
+        targetWithJitter.y += jitterY * spread * pressure * jitterFade;
+        targetWithJitter.z += jitterZ * spread * pressure * jitterFade;
+        facetRef.current.position.copy(startPos.clone().lerp(targetWithJitter, pressure));
         facetRef.current.rotation.set(
-          jitterY * rotationStrength * pressure,
-          jitterX * rotationStrength * pressure,
-          jitterZ * rotationStrength * pressure
+          jitterY * rotationStrength * pressure * jitterFade,
+          jitterX * rotationStrength * pressure * jitterFade,
+          jitterZ * rotationStrength * pressure * jitterFade
         );
       });
 
