@@ -56,6 +56,7 @@ async function requestHighEntropyValues(uaData) {
     return cachedEntropy;
   } catch (error) {
     console.debug('[isIOS26] Failed to retrieve high entropy UA data', error);
+    entropyRequested = false;
     return null;
   }
 }

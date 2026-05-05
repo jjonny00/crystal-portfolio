@@ -158,8 +158,10 @@ const MasterAnimationCoordinator = ({
       isLeavingZone: animationController.animationState.zoneInfo?.isLeaving,
       cameraSettled: animationController.animationState.cameraSettled,
       cameraMoveProgress: animationController.animationState.cameraMoveProgress,
+      transitionPhase: animationController.animationState.transitionPhase,
       setCameraSettled: animationController.setCameraSettled,
-      setCameraMoveProgress: animationController.setCameraMoveProgress
+      setCameraMoveProgress: animationController.setCameraMoveProgress,
+      setTransitionPhase: animationController.setTransitionPhase
     };
   }, [
     animationController.animationState,

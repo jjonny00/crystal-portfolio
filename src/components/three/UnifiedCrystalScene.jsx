@@ -28,7 +28,7 @@ import FacetLabels from './FacetLabels'
 import OverviewConnectorLines from './OverviewConnectorLines'
 import { effects } from '../../crystalConfig'
 import { useFacetOverlayGeometry } from '../../hooks/useFacetOverlayGeometry'
-import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController'
+import { ANIMATION_CONFIG, HERO_TO_OVERVIEW_PHASES, canAdvanceTransitionPhase } from '../../hooks/useUnifiedAnimationController'
 import { useLayoutConfig } from '../../hooks/useLayoutConfig'
 import { useHoverCapable } from '../../hooks/useHoverCapable'
 import { createLogger } from '../../utils/logger'
@@ -72,6 +72,7 @@ const UnifiedCrystalScene = forwardRef(({
   const [sphereVisible, setSphereVisible] = useState(false);
   const [ringVisible, setRingVisible] = useState(false);
   const [burstId, setBurstId] = useState(0);
+  const [fractureLeakBurstId, setFractureLeakBurstId] = useState(0);
   
   // Crystal state tracking
   const [showWholeCrystal, setShowWholeCrystal] = useState(true);
@@ -185,6 +186,13 @@ const UnifiedCrystalScene = forwardRef(({
     }))
   );
   const focusedFloatBlendRef = useRef(0);
+  const fractureChargeStartRef = useRef(null);
+  const fractureChargeActiveRef = useRef(false);
+  const fractureChargePhaseRef = useRef(0);
+  const fractureChargeHandoffLoggedRef = useRef(false);
+  const visualOwnerSamplesRef = useRef({ impulseStart: false, impulseMid: false, slowdownStart: false, handoffStart: false });
+  const freezeRootSceneResumedLoggedRef = useRef(false);
+  const freezeRootSceneBlockedLogsRef = useRef(new Set());
 
   // Track explosion timing so we can implement fracture pause
   const explosionStartRef = useRef(null);
@@ -224,13 +232,26 @@ const UnifiedCrystalScene = forwardRef(({
     onFractureStart?.();
   }, [mergedConfig, onFractureStart]);
 
+
+  const getFractureTargetPosition = useCallback((facetKey) => {
+    const placementKey = facetPlacementKeys[facetKey] || facetKey;
+    const explodedPos = crystalConfig?.positions?.[placementKey];
+    if (!explodedPos) return null;
+    const fractureDistance = crystalConfig?.fractureDistance ?? 0.3;
+    const fracture = crystalConfig?.fracturePositions;
+    const configuredFracture = fracture?.[placementKey];
+    const fallback = explodedPos
+      .clone()
+      .normalize()
+      .multiplyScalar(explodedPos.length() * fractureDistance);
+    return configuredFracture ? configuredFracture.clone() : fallback;
+  }, [crystalConfig, facetPlacementKeys]);
+
   const runExplodeSwap = useCallback(() => {
-    setShowWholeCrystal(false);
-    setShowFacets(true);
-    setSphereVisible(true);
-    setRingVisible(true);
-    explosionStartRef.current = performance.now() - FORWARD_PRE_SWAP_WINDOW_MS;
-    setBurstId(id => id + 1);
+    fractureChargeActiveRef.current = false;
+    fractureChargeStartRef.current = null;
+    fractureChargePhaseRef.current = 0;
+    visualOwnerSamplesRef.current = { impulseStart: false, impulseMid: false, slowdownStart: false, handoffStart: false };
 
     // Capture hero rotation so facets start from same orientation
     if (wholeCrystalRef.current && facetsGroupRef.current) {
@@ -238,29 +259,45 @@ const UnifiedCrystalScene = forwardRef(({
       facetsGroupRef.current.quaternion.copy(wholeCrystalRef.current.quaternion);
     }
 
-    // Snap facets immediately to fracture positions (small initial offset)
-    const fractureDistance = crystalConfig?.fractureDistance ?? 0.3;
-    const fracture = crystalConfig?.fracturePositions;
-    if (fracture || fractureDistance) {
-      facetRefs.current.forEach((facetRef, idx) => {
-        const facetKey = facetKeys[idx];
-        const explodedPos = crystalConfig?.positions?.[facetPlacementKeys[facetKey] || facetKey];
-        const configuredFracture = fracture?.[facetPlacementKeys[facetKey] || facetKey];
-        if (facetRef?.current && explodedPos) {
-          const fallback = explodedPos
-            .clone()
-            .normalize()
-            .multiplyScalar(explodedPos.length() * fractureDistance);
-          const fracturePos = configuredFracture ? configuredFracture.clone() : fallback;
-          facetRef.current.position.copy(fracturePos);
+    // Snap facets to the fracture start pose before making facets visible
+    const phaseDebugEnabled =
+      (typeof globalThis !== 'undefined' && globalThis.__CRYSTAL_DEBUG_TRANSITION_PHASES__ === true)
+      || (typeof window !== 'undefined' && window.__CRYSTAL_DEBUG_TRANSITION_PHASES__ === true);
 
-          logger.debug(`💥 ${facetKey} fracture:`, fracturePos.toArray());
+    facetRefs.current.forEach((facetRef, idx) => {
+      const facetKey = facetKeys[idx];
+      const fracturePos = getFractureTargetPosition(facetKey);
+      if (facetRef?.current && fracturePos) {
+        facetRef.current.position.copy(fracturePos);
+        facetRef.current.rotation.set(0, 0, 0);
+        if (idx === 0 && phaseDebugEnabled) {
+          console.log('[transition-phase-debug] runExplodeSwap facet0', {
+            position: facetRef.current.position.toArray(),
+            rotation: [facetRef.current.rotation.x, facetRef.current.rotation.y, facetRef.current.rotation.z]
+          });
         }
-      });
-    }
+        logger.debug(`💥 ${facetKey} fracture:`, fracturePos.toArray());
+      }
+    });
+
+    setShowFacets(true);
+    setShowWholeCrystal(false);
+    setSphereVisible(true);
+    setRingVisible(true);
+    explosionStartRef.current = performance.now() - FORWARD_PRE_SWAP_WINDOW_MS;
+    setBurstId(id => id + 1 + Math.max(0, Math.round((crystalConfig?.heroToOverviewExplosionSettings?.explosionParticleBurstStrength ?? 1) - 1)));
 
     triggerFractureGlow();
-  }, [crystalConfig, facetKeys, facetPlacementKeys, triggerFractureGlow]);
+    if (
+      (typeof globalThis !== 'undefined' && globalThis.__CRYSTAL_DEBUG_TRANSITION_PHASES__ === true)
+      || (typeof window !== 'undefined' && window.__CRYSTAL_DEBUG_TRANSITION_PHASES__ === true)
+    ) {
+      console.log('[transition-phase-debug] runExplodeSwap reached');
+    }
+    animationData?.setTransitionPhase?.(HERO_TO_OVERVIEW_PHASES.EXPLOSION_IMPULSE, {
+      reason: 'run-explode-swap'
+    });
+  }, [animationData, facetKeys, getFractureTargetPosition, triggerFractureGlow]);
 
   const runReformSwap = useCallback(() => {
     pendingReformSwapAtRef.current = null;
@@ -489,7 +526,13 @@ const UnifiedCrystalScene = forwardRef(({
       verifyExplodedPositions: () => {
         if (import.meta.env.DEV) {
           logger.debug('📐 Verifying exploded facet positions');
-          facetRefs.current.forEach((facetRef, index) => {
+  
+        const phaseDebugEnabled =
+          (typeof globalThis !== 'undefined' && globalThis.__CRYSTAL_DEBUG_TRANSITION_PHASES__ === true)
+          || (typeof window !== 'undefined' && window.__CRYSTAL_DEBUG_TRANSITION_PHASES__ === true);
+        const firstFacetBefore = facetRefs.current[0]?.current?.position?.clone?.() || null;
+
+        facetRefs.current.forEach((facetRef, index) => {
             const facetKey = facetKeys[index];
             const expected = crystalConfig?.explodedPositions?.[facetPlacementKeys[facetKey] || facetKey];
             if (!facetRef?.current || !expected) {
@@ -1482,6 +1525,15 @@ const UnifiedCrystalScene = forwardRef(({
           setSphereVisible(false);
           setRingVisible(false);
           triggerSwapMaskGlow();
+          fractureChargeActiveRef.current = true;
+          fractureChargeStartRef.current = performance.now();
+          fractureChargePhaseRef.current = 0;
+          fractureChargeHandoffLoggedRef.current = false;
+          facetRefs.current.forEach((facetRef) => {
+            if (!facetRef?.current) return;
+            facetRef.current.rotation.set(0, 0, 0);
+          });
+          setFractureLeakBurstId((id) => id + 1);
           pendingExplodeSwapAtRef.current = performance.now() + FORWARD_PRE_SWAP_WINDOW_MS;
         } else {
           // In simplified mode keep the whole crystal visible
@@ -1507,8 +1559,14 @@ const UnifiedCrystalScene = forwardRef(({
         if (simplifiedAnimations) {
           setShowWholeCrystal(true);
           setShowFacets(false);
+        } else {
+          setShowWholeCrystal(false);
+          setShowFacets(true);
         }
         explosionStartRef.current = null;
+        fractureChargeActiveRef.current = false;
+        fractureChargeStartRef.current = null;
+        fractureChargeHandoffLoggedRef.current = false;
         resetWholeCrystalMaskGlow();
         if (facetsGroupRef.current) {
           facetsGroupRef.current.quaternion.copy(neutralQuat);
@@ -1524,6 +1582,69 @@ const UnifiedCrystalScene = forwardRef(({
   useFrame((state, deltaTime) => {
     if (!animationData || !facetRefs.current.length || simplifiedAnimations) return;
     const now = performance.now();
+    if (
+      fractureChargeActiveRef.current &&
+      fractureChargeStartRef.current &&
+      pendingExplodeSwapAtRef.current != null &&
+      showFacets &&
+      animationData?.transitionPhase === HERO_TO_OVERVIEW_PHASES.FRACTURE_CHARGE
+    ) {
+      const settings = crystalConfig?.heroToOverviewExplosionSettings || {};
+      const configuredDuration = Math.max(settings.fractureChargeDuration ?? 0.5, 0.0001);
+      const swapAt = pendingExplodeSwapAtRef.current ?? now;
+      const availableDuration = Math.max((swapAt - fractureChargeStartRef.current) / 1000, 0.0001);
+      const chargeDuration = Math.min(configuredDuration, availableDuration);
+      const elapsedCharge = (now - fractureChargeStartRef.current) / 1000;
+      const t = Math.min(Math.max(elapsedCharge / chargeDuration, 0), 1);
+      fractureChargePhaseRef.current = t;
+      const pressure = t * t * t;
+      const jitterStrength = settings.fractureJitterStrength ?? 0.02;
+      const rotationStrength = settings.fractureRotationStrength ?? 0.08;
+      const glowIntensity = settings.fractureGlowIntensity ?? 2.3;
+
+      const phaseDebugEnabled =
+      (typeof globalThis !== 'undefined' && globalThis.__CRYSTAL_DEBUG_TRANSITION_PHASES__ === true)
+      || (typeof window !== 'undefined' && window.__CRYSTAL_DEBUG_TRANSITION_PHASES__ === true);
+
+    facetRefs.current.forEach((facetRef, idx) => {
+        const facetKey = facetKeys[idx];
+        if (!facetRef?.current) return;
+        const hash = facetKey.split('').reduce((acc, ch) => (acc * 31 + ch.charCodeAt(0)) % 9973, 17);
+        const jitterX = ((((hash * 13) % 1000) / 1000) - 0.5) * jitterStrength;
+        const jitterY = ((((hash * 29) % 1000) / 1000) - 0.5) * jitterStrength;
+        const jitterZ = ((((hash * 47) % 1000) / 1000) - 0.5) * jitterStrength;
+        const jitterFade = 1 - t;
+        facetRef.current.rotation.set(
+          jitterY * rotationStrength * pressure * jitterFade,
+          jitterX * rotationStrength * pressure * jitterFade,
+          jitterZ * rotationStrength * pressure * jitterFade
+        );
+      });
+
+      if (
+        t >= 0.999 &&
+        !fractureChargeHandoffLoggedRef.current &&
+        ((typeof globalThis !== 'undefined' && globalThis.__CRYSTAL_DEBUG_TRANSITION_PHASES__ === true)
+          || (typeof window !== 'undefined' && window.__CRYSTAL_DEBUG_TRANSITION_PHASES__ === true))
+      ) {
+        const firstFacet = facetRefs.current[0]?.current;
+        if (firstFacet) {
+          console.log('[transition-phase-debug] fractureCharge handoff facet0', {
+            position: firstFacet.position.toArray(),
+            rotation: [firstFacet.rotation.x, firstFacet.rotation.y, firstFacet.rotation.z]
+          });
+        }
+        fractureChargeHandoffLoggedRef.current = true;
+      }
+
+      if (facetMaterialsRef.current.length) {        facetMaterialsRef.current.forEach((mat) => {
+          const baseIntensity = mat.userData?.baseEmissiveIntensity ?? 0.02;
+          const targetIntensity = baseIntensity + (glowIntensity - baseIntensity) * pressure;
+          mat.emissiveIntensity = targetIntensity;
+          mat.needsUpdate = true;
+        });
+      }
+    }
 
     if (
       animationData.crystalForm === 'exploded' &&
@@ -1606,8 +1727,23 @@ const UnifiedCrystalScene = forwardRef(({
           swapMaskGlowStartRef.current = null;
           swapMaskGlowModeRef.current = null;
           resetWholeCrystalMaskGlow();
-          if (facetMaterialsRef.current.length) {
-            facetMaterialsRef.current.forEach((facetMat) => {
+          if (
+        t >= 0.999 &&
+        !fractureChargeHandoffLoggedRef.current &&
+        ((typeof globalThis !== 'undefined' && globalThis.__CRYSTAL_DEBUG_TRANSITION_PHASES__ === true)
+          || (typeof window !== 'undefined' && window.__CRYSTAL_DEBUG_TRANSITION_PHASES__ === true))
+      ) {
+        const firstFacet = facetRefs.current[0]?.current;
+        if (firstFacet) {
+          console.log('[transition-phase-debug] fractureCharge handoff facet0', {
+            position: firstFacet.position.toArray(),
+            rotation: [firstFacet.rotation.x, firstFacet.rotation.y, firstFacet.rotation.z]
+          });
+        }
+        fractureChargeHandoffLoggedRef.current = true;
+      }
+
+      if (facetMaterialsRef.current.length) {            facetMaterialsRef.current.forEach((facetMat) => {
               const baseFacetColor = facetMat.userData?.baseEmissiveColor || defaultColorRef.current;
               const baseFacetIntensity = facetMat.userData?.baseEmissiveIntensity ?? 0.02;
               facetMat.emissive.copy(baseFacetColor);
@@ -1669,12 +1805,19 @@ const UnifiedCrystalScene = forwardRef(({
 
     // Hold facets at fracture positions before the explosion resumes
     if (animationData.crystalForm === 'exploded' && explosionStartRef.current) {
-      const fracturePause = crystalConfig?.fracturePause || 0.5;
+      const currentPhase = animationData?.transitionPhase ?? HERO_TO_OVERVIEW_PHASES.IDLE;
+      const phaseHasCinematicHandoff = currentPhase === HERO_TO_OVERVIEW_PHASES.OVERVIEW_HANDOFF || currentPhase === HERO_TO_OVERVIEW_PHASES.COMPLETE;
+      const configuredFracturePause = crystalConfig?.fracturePause || 0.5;
+      const fracturePause = phaseHasCinematicHandoff ? 0 : configuredFracturePause;
       const elapsedExplosion = (performance.now() - explosionStartRef.current) / 1000;
       if (elapsedExplosion < fracturePause) {
         const fracture = crystalConfig?.fracturePositions;
         const fractureDistance = crystalConfig?.fractureDistance ?? 0.3;
-        facetRefs.current.forEach((facetRef, idx) => {
+        const phaseDebugEnabled =
+      (typeof globalThis !== 'undefined' && globalThis.__CRYSTAL_DEBUG_TRANSITION_PHASES__ === true)
+      || (typeof window !== 'undefined' && window.__CRYSTAL_DEBUG_TRANSITION_PHASES__ === true);
+
+    facetRefs.current.forEach((facetRef, idx) => {
           const facetKey = facetKeys[idx];
           const explodedPos = crystalConfig?.positions?.[facetPlacementKeys[facetKey] || facetKey];
           const configured = fracture?.[facetPlacementKeys[facetKey] || facetKey];
@@ -1687,8 +1830,33 @@ const UnifiedCrystalScene = forwardRef(({
             facetRef.current.quaternion.slerp(neutralQuat, Math.min(1, deltaTime * 6));
           }
         });
+        if (phaseDebugEnabled && animationData?.transitionPhase === HERO_TO_OVERVIEW_PHASES.COMPLETE && !freezeRootSceneBlockedLogsRef.current.has('fracture-pause-return')) {
+          freezeRootSceneBlockedLogsRef.current.add('fracture-pause-return');
+          console.log('[freeze-root-debug] post-complete branch still blocked', {
+            branch: 'fracture-pause-return',
+            reason: 'elapsedExplosion < fracturePause',
+            elapsedExplosion,
+            fracturePause
+          });
+        }
         return; // Skip other animations during fracture pause
       }
+    }
+
+    if (
+      (typeof globalThis !== 'undefined' && globalThis.__CRYSTAL_DEBUG_TRANSITION_PHASES__ === true || typeof window !== 'undefined' && window.__CRYSTAL_DEBUG_TRANSITION_PHASES__ === true)
+      && animationData?.transitionPhase === HERO_TO_OVERVIEW_PHASES.COMPLETE
+      && animationData?.state === 'overview'
+      && !freezeRootSceneResumedLoggedRef.current
+    ) {
+      freezeRootSceneResumedLoggedRef.current = true;
+      console.log('[freeze-root-debug] normal overview scene branch resumed', {
+        phase: animationData?.transitionPhase,
+        state: animationData?.state,
+        crystalForm: animationData?.crystalForm,
+        showFacets,
+        showWholeCrystal
+      });
     }
 
     const elapsed = state.clock.elapsedTime;
@@ -1729,16 +1897,48 @@ const UnifiedCrystalScene = forwardRef(({
     if (showFacets && crystalConfig?.positions) {
       // Custom fracture/explosion timing
       if (animationData.crystalForm === 'exploded' && explosionStartRef.current) {
-        const fracturePause = crystalConfig?.fracturePause || 0.5;
+        const currentPhase = animationData?.transitionPhase ?? HERO_TO_OVERVIEW_PHASES.IDLE;
+        const phaseHasCinematicHandoff = currentPhase === HERO_TO_OVERVIEW_PHASES.OVERVIEW_HANDOFF || currentPhase === HERO_TO_OVERVIEW_PHASES.COMPLETE;
+        const configuredFracturePause = crystalConfig?.fracturePause || 0.5;
+        const fracturePause = phaseHasCinematicHandoff ? 0 : configuredFracturePause;
         const totalDuration = crystalConfig?.explodeDuration || 1.2;
         const elapsedExplosion = (performance.now() - explosionStartRef.current) / 1000;
 
         const progress = Math.min((elapsedExplosion - fracturePause) / (totalDuration - fracturePause), 1);
+        const impulseThreshold =
+          crystalConfig?.heroToOverviewExplosionSettings?.explosionImpulseDuration ?? 0.25;
+        const phaseForSlowdown = animationData?.transitionPhase ?? HERO_TO_OVERVIEW_PHASES.IDLE;
+        const canAdvanceToSlowdown = canAdvanceTransitionPhase(phaseForSlowdown, HERO_TO_OVERVIEW_PHASES.BULLET_TIME_SLOWDOWN)
+          && phaseForSlowdown !== HERO_TO_OVERVIEW_PHASES.BULLET_TIME_SLOWDOWN;
+        const phaseDebugEnabled =
+          (typeof globalThis !== 'undefined' && globalThis.__CRYSTAL_DEBUG_TRANSITION_PHASES__ === true)
+          || (typeof window !== 'undefined' && window.__CRYSTAL_DEBUG_TRANSITION_PHASES__ === true);
+        if (phaseDebugEnabled && progress >= impulseThreshold && !canAdvanceToSlowdown) {
+          console.log('[explosion-camera-debug] bulletTimeSlowdown skipped guard', {
+            currentPhase: phaseForSlowdown,
+            progress,
+            impulseThreshold,
+            crystalForm: animationData?.crystalForm,
+            state: animationData?.state
+          });
+        }
+        if (progress >= impulseThreshold && canAdvanceToSlowdown) {
+          animationData?.setTransitionPhase?.(HERO_TO_OVERVIEW_PHASES.BULLET_TIME_SLOWDOWN, {
+            reason: 'explosion-progress-threshold',
+            progress
+          });
+        }
         const fracture = crystalConfig?.fracturePositions;
         const fractureDistance = crystalConfig?.fractureDistance ?? 0.3;
+        const impulseDistance = crystalConfig?.heroToOverviewExplosionSettings?.explosionImpulseDistance ?? 0.32;
+        const impulseStrength = crystalConfig?.heroToOverviewExplosionSettings?.explosionImpulseStrength ?? 1.35;
+        const rotationStrength = crystalConfig?.heroToOverviewExplosionSettings?.explosionRotationStrength ?? 1.15;
+        const impulseBlend = THREE.MathUtils.clamp(progress / Math.max(impulseThreshold, 0.0001), 0, 1);
+        const impulseEase = 1 - Math.pow(1 - impulseBlend, 4);
         const eased = crystalConfig?.explosionEase
           ? crystalConfig?.explosionEase(progress)
           : progress;
+        const outwardBoost = impulseDistance * impulseStrength * (1 - impulseBlend) * 0.35;
 
         if (facetsGroupRef.current) {
           facetsGroupRef.current.quaternion.slerpQuaternions(
@@ -1748,6 +1948,9 @@ const UnifiedCrystalScene = forwardRef(({
           );
         }
 
+
+        const firstFacetBefore = facetRefs.current[0]?.current?.position?.clone?.() || null;
+
         facetRefs.current.forEach((facetRef, index) => {
           if (!facetRef || !facetRef.current) return;
 
@@ -1756,15 +1959,46 @@ const UnifiedCrystalScene = forwardRef(({
           const start = fracture?.[facetPlacementKeys[facetKey] || facetKey] ||
             end?.clone().normalize().multiplyScalar(end.length() * fractureDistance);
           if (start && end) {
-            const interpolated = start.clone().lerp(end, eased);
+            const boostedProgress = THREE.MathUtils.clamp(eased + (impulseEase * outwardBoost), 0, 1);
+            const interpolated = start.clone().lerp(end, boostedProgress);
             const targetQuat = baseFacetTargetQuats[facetKey] || neutralQuat;
             const adjusted = animationData?.crystalForm === 'exploded'
               ? getAnchorAdjustedPosition(facetKey, interpolated, targetQuat)
               : interpolated;
             facetRef.current.position.copy(adjusted);
-            facetRef.current.quaternion.slerpQuaternions(neutralQuat, targetQuat, eased);
+            facetRef.current.quaternion.slerpQuaternions(neutralQuat, targetQuat, THREE.MathUtils.clamp(boostedProgress * rotationStrength, 0, 1));
           }
         });
+
+
+        if (phaseDebugEnabled) {
+          const firstFacetAfter = facetRefs.current[0]?.current?.position?.clone?.() || null;
+          const sampleLog = (key, shouldLog, writerName, extra = {}) => {
+            if (!shouldLog || visualOwnerSamplesRef.current[key]) return;
+            visualOwnerSamplesRef.current[key] = true;
+            console.log('[visual-owner-debug] facet writer', {
+              phase: currentPhase,
+              writer: writerName,
+              firstFacetBefore: firstFacetBefore?.toArray?.() || null,
+              firstFacetAfter: firstFacetAfter?.toArray?.() || null,
+              finalWriteInFrame: true,
+              ...extra
+            });
+          };
+          sampleLog('impulseStart', currentPhase === HERO_TO_OVERVIEW_PHASES.EXPLOSION_IMPULSE && progress <= 0.05, 'explosion-interpolation');
+          sampleLog('impulseMid', currentPhase === HERO_TO_OVERVIEW_PHASES.EXPLOSION_IMPULSE && progress >= 0.5, 'explosion-interpolation', { impulseBlend, outwardBoost });
+          sampleLog('slowdownStart', currentPhase === HERO_TO_OVERVIEW_PHASES.BULLET_TIME_SLOWDOWN, 'explosion-interpolation');
+          sampleLog('handoffStart', currentPhase === HERO_TO_OVERVIEW_PHASES.OVERVIEW_HANDOFF, 'explosion-interpolation');
+          if ((currentPhase === HERO_TO_OVERVIEW_PHASES.EXPLOSION_IMPULSE || currentPhase === HERO_TO_OVERVIEW_PHASES.BULLET_TIME_SLOWDOWN) && firstFacetBefore && firstFacetAfter) {
+            console.log('[explosion-fragment-debug] impulse applied or skipped', {
+              phase: currentPhase,
+              impulseT: impulseBlend,
+              boostAmount: outwardBoost,
+              firstFacetBefore: firstFacetBefore.toArray(),
+              firstFacetAfter: firstFacetAfter.toArray()
+            });
+          }
+        }
 
         if (progress >= 1) {
           explosionStartRef.current = null; // Animation finished
@@ -2069,6 +2303,14 @@ const UnifiedCrystalScene = forwardRef(({
           trigger={burstId}
           emitterPosition={[0, 0, 0]}
           {...mergedConfig.fracture.particles}
+        />
+      )}
+      {!simplifiedAnimations && (
+        <FractureBurstParticles
+          trigger={fractureLeakBurstId}
+          count={Math.max(12, Math.floor((crystalConfig?.heroToOverviewExplosionSettings?.fractureParticleLeakStrength ?? 0.2) * 80))}
+          color="#b6f6ff"
+          emitterPosition={[0, 0, 0]}
         />
       )}
 

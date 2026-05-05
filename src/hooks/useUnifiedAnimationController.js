@@ -8,6 +8,42 @@ import { orderedProjectKeys, getSceneFacetKeyByProjectId } from '../data/project
 
 // Percentage of explode distance facets travel during fracture
 const FRACTURE_DISTANCE = fractureConfig.distance;
+const DEBUG_TRANSITION_PHASES = false;
+const TRANSITION_PHASE_DEBUG_WINDOW_FLAG = '__CRYSTAL_DEBUG_TRANSITION_PHASES__';
+const TRANSITION_PHASE_DEBUG_WINDOW_HELPER = '__setCrystalTransitionDebug';
+const TRANSITION_PHASE_DEBUG_WINDOW_VERBOSE_FLAG = '__CRYSTAL_DEBUG_TRANSITION_PHASES_VERBOSE__';
+
+export const HERO_TO_OVERVIEW_PHASES = {
+  IDLE: 'idle',
+  FRACTURE_CHARGE: 'fractureCharge',
+  EXPLOSION_IMPULSE: 'explosionImpulse',
+  BULLET_TIME_SLOWDOWN: 'bulletTimeSlowdown',
+  OVERVIEW_HANDOFF: 'overviewHandoff',
+  COMPLETE: 'complete'
+};
+
+const HERO_TO_OVERVIEW_PHASE_ORDER = {
+  [HERO_TO_OVERVIEW_PHASES.IDLE]: 0,
+  [HERO_TO_OVERVIEW_PHASES.FRACTURE_CHARGE]: 1,
+  [HERO_TO_OVERVIEW_PHASES.EXPLOSION_IMPULSE]: 2,
+  [HERO_TO_OVERVIEW_PHASES.BULLET_TIME_SLOWDOWN]: 3,
+  [HERO_TO_OVERVIEW_PHASES.OVERVIEW_HANDOFF]: 4,
+  [HERO_TO_OVERVIEW_PHASES.COMPLETE]: 5
+};
+
+const getPhaseRank = (phase) => {
+  if (!phase) return -1;
+  const rank = HERO_TO_OVERVIEW_PHASE_ORDER[phase];
+  return Number.isFinite(rank) ? rank : -1;
+};
+
+export const canAdvanceTransitionPhase = (currentPhase, nextPhase) => {
+  const currentRank = getPhaseRank(currentPhase);
+  const nextRank = getPhaseRank(nextPhase);
+  if (nextRank < 0) return false;
+  if (currentRank < 0) return true;
+  return nextRank >= currentRank;
+};
 
 /**
  * SIMPLIFIED: Animation Configuration with immediate state changes
@@ -99,7 +135,32 @@ export const ANIMATION_CONFIG = {
       exploration: new Quaternion(0, 0, 0, 1)
     },
     wholePosition: new Vector3(0, 0, 0),
-    explosionEase: (t) => 1 - Math.pow(1 - t, 3) // starts fast, smooth stop
+    explosionEase: (t) => 1 - Math.pow(1 - t, 3), // starts fast, smooth stop
+    heroToOverviewExplosionSettings: {
+      fractureChargeDuration: fractureConfig.duration,
+      fractureSpread: 0.08,
+      fractureJitterStrength: 0.02,
+      fractureRotationStrength: 0.08,
+      fractureGlowIntensity: fractureConfig.emissive?.intensity ?? 2.3,
+      fractureParticleLeakRate: 1,
+      fractureParticleLeakStrength: 0.2,
+      fractureCameraReactionStrength: 0.0,
+      fractureCameraLookAtTightening: 0.0,
+      explosionImpulseDuration: 0.25,
+      explosionImpulseDistance: 0.32,
+      explosionImpulseStrength: 1.35,
+      explosionRotationStrength: 1.15,
+      explosionCameraPushbackDistance: 0.55,
+      explosionCameraPushbackStrength: 1.0,
+      explosionCameraShakeStrength: 0.0,
+      explosionCameraShakeDuration: 0.12,
+      explosionParticleBurstStrength: 1.0,
+      bulletTimeSlowdownDuration: 0.85,
+      overviewHandoffDuration: 0.5,
+      slowdownDistance: 0.75,
+      glowPeakIntensity: fractureConfig.emissive?.intensity ?? 2.3,
+      particleLeakRate: 0.0
+    }
   },
 
   // SIMPLIFIED: No complex timing - just smooth transition speeds
@@ -293,6 +354,8 @@ export const useUnifiedAnimationController = (options = {}) => {
     introReplayToken = 0
   } = options;
 
+  const [slowdownGateTick, setSlowdownGateTick] = useState(0);
+
   const [animationState, setAnimationState] = useState({
     state: ANIMATION_STATES.HERO,
     crystalForm: 'whole',
@@ -303,14 +366,19 @@ export const useUnifiedAnimationController = (options = {}) => {
     zoneInfo: { zone: 'hero', progress: 0 },
     projectInfo: { project: null, progress: 0 },
     cameraSettled: false,
-    cameraMoveProgress: 1
+    cameraMoveProgress: 1,
+    transitionPhase: HERO_TO_OVERVIEW_PHASES.IDLE
   });
+  const transitionPhaseRef = useRef(HERO_TO_OVERVIEW_PHASES.IDLE);
 
   // Simplified refs for tracking changes
   const lastZone = useRef('hero');
   const lastProject = useRef(null);
   const updateTimeout = useRef(null);
   const cameraDelayTimeout = useRef(null);
+  const bulletTimeSlowdownStartRef = useRef(null);
+  const overviewHandoffStartRef = useRef(null);
+  const overviewCycleCooldownUntilRef = useRef(0);
   const introPreviewTimeout = useRef(null);
   const introPreviewActiveRef = useRef(false);
   const directProjectOverrideRef = useRef(null);
@@ -320,6 +388,156 @@ export const useUnifiedAnimationController = (options = {}) => {
   const runtimeProjectSectionsRef = useRef([]);
   const aboutToProjectsLockUntilRef = useRef(0);
   const lastNearestSectionIdRef = useRef(null);
+
+  const getDebugGlobal = useCallback(() => {
+    if (typeof globalThis !== 'undefined') return globalThis;
+    if (typeof window !== 'undefined') return window;
+    return null;
+  }, []);
+
+  const isTransitionPhaseDebugEnabled = useCallback(() => {
+    if (DEBUG_TRANSITION_PHASES) return true;
+    const debugGlobal = getDebugGlobal();
+    if (!debugGlobal) return false;
+    return debugGlobal[TRANSITION_PHASE_DEBUG_WINDOW_FLAG] === true;
+  }, [getDebugGlobal]);
+
+  const logTransitionPhaseDebug = useCallback((message, payload = null) => {
+    if (!isTransitionPhaseDebugEnabled()) return;
+    if (payload) {
+      console.log(message, payload);
+      return;
+    }
+    console.log(message);
+  }, [isTransitionPhaseDebugEnabled]);
+
+  const isTransitionPhaseDebugVerboseEnabled = useCallback(() => {
+    if (!isTransitionPhaseDebugEnabled()) return false;
+    const debugGlobal = getDebugGlobal();
+    if (!debugGlobal) return false;
+    return debugGlobal[TRANSITION_PHASE_DEBUG_WINDOW_VERBOSE_FLAG] === true;
+  }, [getDebugGlobal, isTransitionPhaseDebugEnabled]);
+
+  useEffect(() => {
+    const debugGlobal = getDebugGlobal();
+    if (!debugGlobal) return undefined;
+    const previousHelper = debugGlobal[TRANSITION_PHASE_DEBUG_WINDOW_HELPER];
+    debugGlobal[TRANSITION_PHASE_DEBUG_WINDOW_HELPER] = (enabled) => {
+      debugGlobal[TRANSITION_PHASE_DEBUG_WINDOW_FLAG] = enabled === true;
+      return debugGlobal[TRANSITION_PHASE_DEBUG_WINDOW_FLAG];
+    };
+
+    return () => {
+      if (previousHelper) {
+        debugGlobal[TRANSITION_PHASE_DEBUG_WINDOW_HELPER] = previousHelper;
+      } else {
+        delete debugGlobal[TRANSITION_PHASE_DEBUG_WINDOW_HELPER];
+      }
+    };
+  }, [getDebugGlobal]);
+
+  const setTransitionPhase = useCallback((nextPhase, meta = {}) => {
+    if (!nextPhase) {
+      logTransitionPhaseDebug('[transition-phase-debug] setTransitionPhase skipped', {
+        reason: 'missing-next-phase',
+        currentRefPhase: transitionPhaseRef.current,
+        nextPhase,
+        meta
+      });
+      return;
+    }
+    const currentRefPhase = transitionPhaseRef.current ?? HERO_TO_OVERVIEW_PHASES.IDLE;
+    if (!canAdvanceTransitionPhase(currentRefPhase, nextPhase)) {
+      logTransitionPhaseDebug('[transition-phase-debug] setTransitionPhase skipped', {
+        reason: 'backward-transition-rejected',
+        currentRefPhase,
+        nextPhase,
+        meta
+      });
+      return;
+    }
+    if (currentRefPhase === nextPhase) {
+      if (isTransitionPhaseDebugVerboseEnabled()) {
+        logTransitionPhaseDebug('[transition-phase-debug] setTransitionPhase skipped', {
+          reason: 'same-as-current-ref',
+          currentRefPhase,
+          nextPhase,
+          meta
+        });
+      }
+      return;
+    }
+    const previousPhase = currentRefPhase;
+    const phaseTimestamp = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    if (nextPhase === HERO_TO_OVERVIEW_PHASES.BULLET_TIME_SLOWDOWN) {
+      bulletTimeSlowdownStartRef.current = phaseTimestamp;
+    }
+    if (nextPhase === HERO_TO_OVERVIEW_PHASES.OVERVIEW_HANDOFF) {
+      overviewHandoffStartRef.current = phaseTimestamp;
+    }
+    if (nextPhase === HERO_TO_OVERVIEW_PHASES.IDLE || nextPhase === HERO_TO_OVERVIEW_PHASES.COMPLETE) {
+      bulletTimeSlowdownStartRef.current = null;
+    overviewHandoffStartRef.current = null;
+      overviewHandoffStartRef.current = null;
+    }
+    logTransitionPhaseDebug('[transition-phase-debug] setTransitionPhase called', {
+      previousPhase,
+      nextPhase,
+      meta
+    });
+    if (isTransitionPhaseDebugEnabled()) {
+      console.log('[transition-phase]', {
+        previousPhase,
+        nextPhase,
+        elapsed: typeof performance !== 'undefined' ? performance.now() : Date.now(),
+        state: animationState.state,
+        crystalForm: animationState.crystalForm,
+        cameraState: animationState.cameraState,
+        ...meta
+      });
+    }
+    setAnimationState((prev) => {
+      if (prev.transitionPhase === nextPhase) return prev;
+      transitionPhaseRef.current = nextPhase;
+      return { ...prev, transitionPhase: nextPhase };
+    });
+  }, [animationState.cameraState, animationState.crystalForm, animationState.state, isTransitionPhaseDebugEnabled, isTransitionPhaseDebugVerboseEnabled, logTransitionPhaseDebug]);
+
+
+  const resetHeroToOverviewTransitionPhase = useCallback((reason = 'unspecified') => {
+    const previousPhase = transitionPhaseRef.current ?? HERO_TO_OVERVIEW_PHASES.IDLE;
+    if (previousPhase === HERO_TO_OVERVIEW_PHASES.IDLE) return;
+    transitionPhaseRef.current = HERO_TO_OVERVIEW_PHASES.IDLE;
+    bulletTimeSlowdownStartRef.current = null;
+    overviewHandoffStartRef.current = null;
+    setAnimationState((prev) => {
+      if (prev.transitionPhase === HERO_TO_OVERVIEW_PHASES.IDLE) return prev;
+      return { ...prev, transitionPhase: HERO_TO_OVERVIEW_PHASES.IDLE };
+    });
+    logTransitionPhaseDebug('[transition-phase-debug] reset hero→overview phase', {
+      previousPhase,
+      reason
+    });
+  }, [logTransitionPhaseDebug]);
+
+  const forceTransitionPhase = useCallback((nextPhase, meta = {}) => {
+    if (!nextPhase) return;
+    const previousPhase = transitionPhaseRef.current ?? HERO_TO_OVERVIEW_PHASES.IDLE;
+    if (previousPhase === nextPhase) return;
+    const phaseTimestamp = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    if (nextPhase === HERO_TO_OVERVIEW_PHASES.BULLET_TIME_SLOWDOWN) bulletTimeSlowdownStartRef.current = phaseTimestamp;
+    if (nextPhase === HERO_TO_OVERVIEW_PHASES.OVERVIEW_HANDOFF) overviewHandoffStartRef.current = phaseTimestamp;
+    if (nextPhase === HERO_TO_OVERVIEW_PHASES.IDLE || nextPhase === HERO_TO_OVERVIEW_PHASES.COMPLETE) {
+      bulletTimeSlowdownStartRef.current = null;
+      overviewHandoffStartRef.current = null;
+      if (nextPhase === HERO_TO_OVERVIEW_PHASES.COMPLETE) {
+        overviewCycleCooldownUntilRef.current = phaseTimestamp + 1200;
+      }
+    }
+    transitionPhaseRef.current = nextPhase;
+    setAnimationState((prev) => (prev.transitionPhase === nextPhase ? prev : { ...prev, transitionPhase: nextPhase }));
+    logTransitionPhaseDebug('[transition-phase-debug] forceTransitionPhase applied', { previousPhase, nextPhase, meta });
+  }, [logTransitionPhaseDebug]);
 
   const getRuntimeProjectSection = useCallback((projectKey) => {
     if (!projectKey) return null;
@@ -486,6 +704,12 @@ export const useUnifiedAnimationController = (options = {}) => {
       zoneKey,
       createdAt: Date.now()
     };
+    if (zoneKey === 'overview') {
+      logTransitionPhaseDebug('[transition-phase-debug] directSelectZone overview reached');
+      setTransitionPhase(HERO_TO_OVERVIEW_PHASES.FRACTURE_CHARGE, {
+        reason: 'direct-zone-override-overview'
+      });
+    }
 
     setAnimationState(prev => {
       if (zoneKey === 'hero') {
@@ -523,7 +747,7 @@ export const useUnifiedAnimationController = (options = {}) => {
 
       return prev;
     });
-  }, [clearDirectProjectOverride, clearDirectZoneOverride, config]);
+  }, [clearDirectProjectOverride, clearDirectZoneOverride, config, logTransitionPhaseDebug, setTransitionPhase]);
 
   useEffect(() => {
     if (!introReplayToken || !config?.camera?.intro) return;
@@ -609,6 +833,44 @@ export const useUnifiedAnimationController = (options = {}) => {
       if (import.meta.env.DEV) console.log(`🗺️ IMMEDIATE Zone transition: ${fromZone} → ${toZone}`);
     }
 
+    if (fromZone === toZone) {
+      if (isTransitionPhaseDebugVerboseEnabled()) {
+        logTransitionPhaseDebug('[transition-phase-debug] handleZoneTransition skipped', {
+          reason: 'same-zone',
+          fromZone,
+          toZone
+        });
+      }
+      return;
+    }
+
+    if (
+      toZone === 'overview' &&
+      animationState.state === ANIMATION_STATES.OVERVIEW &&
+      animationState.crystalForm === 'exploded' &&
+      animationState.transitionPhase !== HERO_TO_OVERVIEW_PHASES.IDLE
+    ) {
+      logTransitionPhaseDebug('[transition-phase-debug] handleZoneTransition skipped', {
+        reason: 'overview-transition-already-active',
+        currentPhase: animationState.transitionPhase,
+        state: animationState.state,
+        crystalForm: animationState.crystalForm
+      });
+      return;
+    }
+
+    if (toZone === 'overview') {
+      const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      if (now < overviewCycleCooldownUntilRef.current) {
+        logTransitionPhaseDebug('[transition-phase-debug] handleZoneTransition skipped', {
+          reason: 'overview-cooldown-active',
+          cooldownUntil: overviewCycleCooldownUntilRef.current,
+          now
+        });
+        return;
+      }
+    }
+
     // Clear any pending delayed camera transitions when switching zones
     if (cameraDelayTimeout.current) {
       clearTimeout(cameraDelayTimeout.current);
@@ -617,6 +879,7 @@ export const useUnifiedAnimationController = (options = {}) => {
 
     // IMMEDIATE state changes - no complex sequences
     if (toZone === 'hero') {
+      resetHeroToOverviewTransitionPhase('zone-transition-to-hero');
       // Reform crystal immediately but keep camera at overview until fracture pause completes
       setAnimationState(prev => ({
         ...prev,
@@ -635,22 +898,26 @@ export const useUnifiedAnimationController = (options = {}) => {
       }, (config.crystal.fracturePause || 0.5) * 1000);
     }
     else if (toZone === 'overview') {
-      // Start explosion immediately but delay camera move until fracture pause completes
+      logTransitionPhaseDebug('[transition-phase-debug] handleZoneTransition overview reached', {
+        fromZone,
+        toZone
+      });
+      if (transitionPhaseRef.current === HERO_TO_OVERVIEW_PHASES.COMPLETE) {
+        resetHeroToOverviewTransitionPhase('new-overview-cycle-from-complete');
+      }
+      // Start explosion and switch camera state to overview immediately to avoid stall windows
       setAnimationState(prev => ({
         ...prev,
         state: ANIMATION_STATES.OVERVIEW,
-        crystalForm: 'exploded',     // Immediate
-        cameraState: 'hero',         // Hold camera during fracture pause
+        crystalForm: 'exploded',
+        cameraState: 'overview',
         focusedFacet: null,
         isTransitioning: false
       }));
+      setTransitionPhase(HERO_TO_OVERVIEW_PHASES.FRACTURE_CHARGE, {
+        reason: 'zone-transition-to-overview'
+      });
 
-      cameraDelayTimeout.current = setTimeout(() => {
-        setAnimationState(prev => ({
-          ...prev,
-          cameraState: 'overview'
-        }));
-      }, (config.crystal.fracturePause || 0.5) * 1000);
     }
     else if (toZone === 'projects') {
       const targetFacet = getSceneFacetKeyByProjectId(initialProject) || initialProject;
@@ -699,7 +966,137 @@ export const useUnifiedAnimationController = (options = {}) => {
         isTransitioning: false
       }));
     }
-  }, [debugMode, config]);
+  }, [animationState.crystalForm, animationState.state, animationState.transitionPhase, debugMode, config, resetHeroToOverviewTransitionPhase, setTransitionPhase]);
+
+  useEffect(() => {
+    if (
+      animationState.transitionPhase === HERO_TO_OVERVIEW_PHASES.BULLET_TIME_SLOWDOWN &&
+      animationState.cameraState === 'overview' &&
+      animationState.crystalForm === 'exploded' &&
+      animationState.state === ANIMATION_STATES.OVERVIEW
+    ) {
+      const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      const slowdownStartedAt = bulletTimeSlowdownStartRef.current ?? now;
+      const slowdownElapsedMs = Math.max(now - slowdownStartedAt, 0);
+      const requiredSlowdownMs = Math.max(
+        (config?.crystal?.heroToOverviewExplosionSettings?.bulletTimeSlowdownDuration ?? 0.85) * 1000,
+        0
+      );
+      const cameraReady = animationState.cameraSettled === true || (animationState.cameraMoveProgress ?? 0) >= 0.995;
+      const cinematicOwnerActive =
+        animationState.cameraState === 'overview' &&
+        animationState.crystalForm === 'exploded' &&
+        (animationState.transitionPhase === HERO_TO_OVERVIEW_PHASES.BULLET_TIME_SLOWDOWN || animationState.transitionPhase === HERO_TO_OVERVIEW_PHASES.OVERVIEW_HANDOFF);
+      const phaseDebugEnabled = isTransitionPhaseDebugEnabled();
+      const cinematicOwnerFastTrackMs = 0;
+      const durationMet = slowdownElapsedMs >= requiredSlowdownMs;
+      const cinematicOwnerFastTrack = cinematicOwnerActive && !cameraReady && slowdownElapsedMs >= cinematicOwnerFastTrackMs;
+      const handoffAllowed = (durationMet || cinematicOwnerFastTrack) && (cameraReady || cinematicOwnerActive);
+      const handoffReason = cameraReady
+        ? 'duration-met-camera-ready'
+        : (cinematicOwnerFastTrack ? 'cinematic-owner-fast-track' : 'duration-met-cinematic-owner');
+      if (phaseDebugEnabled) {
+        if (handoffAllowed) {
+          console.log('[scene-freeze-debug] slowdown handoff allowed', {
+            slowdownElapsedMs,
+            requiredSlowdownMs,
+            cinematicOwnerFastTrackMs,
+            cameraReady,
+            cinematicOwnerActive,
+            reason: handoffReason
+          });
+        } else {
+          console.log('[scene-freeze-debug] slowdown handoff blocked', {
+            slowdownElapsedMs,
+            requiredSlowdownMs,
+            cinematicOwnerFastTrackMs,
+            cameraReady,
+            cinematicOwnerActive,
+            blockReason: (!durationMet && !cinematicOwnerFastTrack) ? 'slowdown-duration-not-reached' : 'camera-not-ready-and-no-cinematic-owner'
+          });
+        }
+      }
+      if (handoffAllowed) {
+        forceTransitionPhase(HERO_TO_OVERVIEW_PHASES.OVERVIEW_HANDOFF, {
+          reason: handoffReason,
+          slowdownElapsedMs,
+          requiredSlowdownMs
+        });
+      } else {
+        const timer = setTimeout(() => setSlowdownGateTick((tick) => tick + 1), 50);
+        return () => clearTimeout(timer);
+      }
+      return;
+    }
+
+    if (
+      animationState.transitionPhase === HERO_TO_OVERVIEW_PHASES.OVERVIEW_HANDOFF &&
+      animationState.cameraState === 'overview' &&
+      animationState.crystalForm === 'exploded' &&
+      animationState.state === ANIMATION_STATES.OVERVIEW
+    ) {
+      const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      const handoffStartedAt = overviewHandoffStartRef.current ?? now;
+      const handoffElapsedMs = Math.max(now - handoffStartedAt, 0);
+      const requiredHandoffMs = Math.max((config?.crystal?.heroToOverviewExplosionSettings?.overviewHandoffDuration ?? 0.5) * 1000, 0);
+      const cameraReady = animationState.cameraSettled === true || (animationState.cameraMoveProgress ?? 0) >= 0.995;
+      const cinematicOwnerActive = animationState.cameraState === 'overview' && animationState.crystalForm === 'exploded';
+      const cinematicOwnerFastTrackMs = 0;
+      const cinematicOwnerFastTrack = cinematicOwnerActive && !cameraReady && handoffElapsedMs >= cinematicOwnerFastTrackMs;
+      const completeAllowed = handoffElapsedMs >= requiredHandoffMs || cinematicOwnerFastTrack;
+      if (isTransitionPhaseDebugEnabled()) {
+        if (completeAllowed) {
+          console.log('[scene-freeze-debug] handoff complete allowed', {
+            handoffElapsedMs,
+            requiredHandoffMs,
+            cinematicOwnerFastTrackMs,
+            cameraReady,
+            cinematicOwnerActive,
+            reason: cinematicOwnerFastTrack ? 'handoff-cinematic-owner-fast-track' : 'handoff-duration-met'
+          });
+        } else {
+          console.log('[scene-freeze-debug] handoff complete blocked', {
+            handoffElapsedMs,
+            requiredHandoffMs,
+            cinematicOwnerFastTrackMs,
+            cameraReady,
+            cinematicOwnerActive,
+            blockReason: 'handoff-duration-not-reached'
+          });
+        }
+      }
+      if (completeAllowed) {
+        forceTransitionPhase(HERO_TO_OVERVIEW_PHASES.COMPLETE, {
+          reason: cinematicOwnerFastTrack ? 'handoff-cinematic-owner-fast-track' : 'handoff-duration-met',
+          handoffElapsedMs,
+          requiredHandoffMs
+        });
+      } else {
+        const timer = setTimeout(() => setSlowdownGateTick((tick) => tick + 1), 50);
+        return () => clearTimeout(timer);
+      }
+      return;
+    }
+
+    if (animationState.state !== ANIMATION_STATES.OVERVIEW) {
+      setTransitionPhase(HERO_TO_OVERVIEW_PHASES.IDLE, {
+        reason: 'left-overview-state'
+      });
+    }
+  }, [
+    animationState.transitionPhase,
+    animationState.cameraState,
+    animationState.crystalForm,
+    animationState.state,
+    animationState.cameraSettled,
+    animationState.cameraMoveProgress,
+    config,
+    isTransitionPhaseDebugVerboseEnabled,
+    logTransitionPhaseDebug,
+    setTransitionPhase,
+    forceTransitionPhase,
+    slowdownGateTick
+  ]);
 
   /**
    * SIMPLIFIED: Handle project focus (same pattern as before - it works!)
@@ -1218,6 +1615,7 @@ export const useUnifiedAnimationController = (options = {}) => {
     setDirectProjectOverride,
     setDirectZoneOverride,
     getProjectSectionStart,
+    setTransitionPhase,
     
     // Current configs for 3D components
     cameraConfig: getCurrentCameraConfig(),
@@ -1231,6 +1629,7 @@ export const useUnifiedAnimationController = (options = {}) => {
       lastProject: lastProject.current,
       cameraState: animationState.cameraState,
       crystalForm: animationState.crystalForm,
+      transitionPhase: animationState.transitionPhase,
       directProjectOverride: directProjectOverrideRef.current?.projectKey || null,
       directZoneOverride: directZoneOverrideRef.current?.zoneKey || null
     } : null
