@@ -24,6 +24,7 @@ import MistyLayerStack from '../MistyLayerStack';
 import { isIOS26 } from '../../utils/isIOS26';
 import { facetKeys as canonicalFacetKeys, getProjectIdBySceneFacetKey } from '../../data/projects';
 import { useLayoutConfig } from '../../hooks/useLayoutConfig';
+import { useHeroOverviewRuntime } from '../../hooks/useHeroOverviewRuntime';
 
 function createSanitizePass() {
   const material = new ShaderMaterial({
@@ -96,6 +97,14 @@ const PulsingOmniLight = ({ simplified = false }) => {
   );
 };
 
+
+const HeroOverviewRuntimeTicker = ({ runtime }) => {
+  useFrame(() => {
+    runtime?.update?.();
+  });
+
+  return null;
+};
 
 const InitialCameraLookAt = ({ target }) => {
   const { camera } = useThree();
@@ -176,6 +185,9 @@ const Fixed3DCanvas = forwardRef(({
 
   const sanitizePass = useMemo(() => createSanitizePass(), []);
   const { layout, variant } = useLayoutConfig();
+  const heroOverviewRuntime = useHeroOverviewRuntime();
+  const lastHeroOverviewStartRef = useRef('');
+  const lastHeroOverviewZoneRef = useRef(null);
 
   const cameraMergedConfig = useMemo(() => {
     const nextConfig = { ...config };
@@ -549,6 +561,22 @@ const Fixed3DCanvas = forwardRef(({
     bg
   ]);
 
+  useEffect(() => {
+    const fromZone = lastHeroOverviewZoneRef.current;
+    const toZone = animationData?.currentZone ?? null;
+
+    if (fromZone === 'hero' && toZone === 'overview') {
+      const startKey = `${fromZone}->${toZone}:${Date.now()}`;
+
+      if (lastHeroOverviewStartRef.current !== startKey) {
+        lastHeroOverviewStartRef.current = startKey;
+        heroOverviewRuntime.start({ source: 'zone-transition' });
+      }
+    }
+
+    lastHeroOverviewZoneRef.current = toZone;
+  }, [animationData?.currentZone, heroOverviewRuntime]);
+
   // FIXED: Function to get facet refs from crystal scene with proper access
   const initialCameraPosition =
     cameraMergedConfig?.cameraPositions?.intro || config?.camera?.startingPosition || [0, 0, 4.5];
@@ -659,6 +687,8 @@ const Fixed3DCanvas = forwardRef(({
             castShadow={false}
           />
           
+          <HeroOverviewRuntimeTicker runtime={heroOverviewRuntime} />
+
           {/* UPDATED: Enhanced Camera Controller with facet refs */}
           <UnifiedCameraController
             animationData={animationData}
@@ -668,6 +698,7 @@ const Fixed3DCanvas = forwardRef(({
             simplifiedAnimations={simplifiedAnimations}
             facetRefs={getFacetRefs()} // FIXED: Pass exposed facet refs for anchor targeting
             sharedCameraMoveProgressRef={cameraMoveProgressRef}
+            heroOverviewRuntime={heroOverviewRuntime}
           />
           
           {/* UPDATED: Crystal Scene with ref for accessing debug state */}
@@ -684,6 +715,7 @@ const Fixed3DCanvas = forwardRef(({
             scrollToProject={scrollToProject}
             onDirectProjectSelect={onDirectProjectSelect}
             onFractureStart={handleFractureStart}
+            heroOverviewRuntime={heroOverviewRuntime}
           />
 
           {/* UPDATED: Enhanced MistyLayerStack with highest render order */}
