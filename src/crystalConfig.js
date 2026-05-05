@@ -211,6 +211,21 @@ export const projectCameraSettings = Object.fromEntries(
   ])
 )
 
+export const fragments = {
+  enabled: true,
+  fractureDistance: 0.18,
+  items: {
+    fragment01: { start: [0, 0, 0], exploded: [0.55, -0.2, -0.35], scale: 1 },
+    fragment02: { start: [0, 0, 0], exploded: [-0.4, 0.25, -0.45], scale: 1 },
+    fragment03: { start: [0, 0, 0], exploded: [0.7, 0.35, 0.15], scale: 1 },
+    fragment04: { start: [0, 0, 0], exploded: [-0.65, -0.35, 0.2], scale: 1 },
+    fragment05: { start: [0, 0, 0], exploded: [0.25, 0.55, -0.25], scale: 1 },
+    fragment06: { start: [0, 0, 0], exploded: [-0.25, -0.6, -0.1], scale: 1 },
+    fragment07: { start: [0, 0, 0], exploded: [0.5, 0.1, 0.5], scale: 1 },
+    fragment08: { start: [0, 0, 0], exploded: [-0.5, 0.15, 0.45], scale: 1 }
+  }
+}
+
 
 // === ANIMATION TIMING ===
 export const timing = {
@@ -476,7 +491,15 @@ export const assets = {
     project03: '/assets/models/Project03.glb',
     project04: '/assets/models/Project04.glb',
     project05: '/assets/models/Project05.glb',
-    project06: '/assets/models/Project06.glb'
+    project06: '/assets/models/Project06.glb',
+    fragment01: '/assets/models/fragment01.glb',
+    fragment02: '/assets/models/fragment02.glb',
+    fragment03: '/assets/models/fragment03.glb',
+    fragment04: '/assets/models/fragment04.glb',
+    fragment05: '/assets/models/fragment05.glb',
+    fragment06: '/assets/models/fragment06.glb',
+    fragment07: '/assets/models/fragment07.glb',
+    fragment08: '/assets/models/fragment08.glb'
   },
   textures: {
     normalMap: '/assets/textures/quartz-normal07_subtle.png'

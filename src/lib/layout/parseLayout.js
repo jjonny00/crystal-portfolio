@@ -10,7 +10,7 @@ const DEFAULT_HERO_TUNING = {
 };
 
 const FORMAT_HELP =
-  'Expected { schemaVersion: 2, anchors: { overviewWorld: { [facetKey]: [x, y, z] } }, camera?: { positions?, targets?, offsets?, projects? }, projects?: { explodedPositions?, facetRotationsEulerDeg?, selectedFacetRotationsEulerDeg? }, ... }';
+  'Expected { schemaVersion: 2, anchors: { overviewWorld: { [facetKey]: [x, y, z] } }, camera?: { positions?, targets?, offsets?, projects? }, projects?: { explodedPositions?, facetRotationsEulerDeg?, selectedFacetRotationsEulerDeg? }, fragments?: { items: { [fragmentKey]: { start?: [x,y,z], exploded?: [x,y,z], scale?: number } }, fractureDistance?: number }, ... }';
 
 const assertObject = (value, path) => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -193,6 +193,51 @@ const parseCameraProjects = (projects, path) => {
   );
 };
 
+const parseFragments = (fragments, path) => {
+  assertObject(fragments, path);
+
+  const parsed = {};
+  if (fragments.fractureDistance !== undefined) {
+    if (typeof fragments.fractureDistance !== 'number' || Number.isNaN(fragments.fractureDistance)) {
+      throw new Error(`Invalid layout at ${path}.fractureDistance: expected number. ${FORMAT_HELP}`);
+    }
+    parsed.fractureDistance = fragments.fractureDistance;
+  }
+
+  if (fragments.items !== undefined) {
+    assertObject(fragments.items, `${path}.items`);
+    parsed.items = Object.fromEntries(
+      Object.entries(fragments.items).map(([fragmentKey, fragmentValue]) => {
+        assertObject(fragmentValue, `${path}.items.${fragmentKey}`);
+        const parsedFragment = {};
+        if (fragmentValue.start !== undefined) {
+          parsedFragment.start = parseVec3Array(
+            fragmentValue.start,
+            `${path}.items.${fragmentKey}.start`,
+          );
+        }
+        if (fragmentValue.exploded !== undefined) {
+          parsedFragment.exploded = parseVec3Array(
+            fragmentValue.exploded,
+            `${path}.items.${fragmentKey}.exploded`,
+          );
+        }
+        if (fragmentValue.scale !== undefined) {
+          if (typeof fragmentValue.scale !== 'number' || Number.isNaN(fragmentValue.scale)) {
+            throw new Error(
+              `Invalid layout at ${path}.items.${fragmentKey}.scale: expected number. ${FORMAT_HELP}`,
+            );
+          }
+          parsedFragment.scale = fragmentValue.scale;
+        }
+        return [fragmentKey, parsedFragment];
+      }),
+    );
+  }
+
+  return parsed;
+};
+
 export const parseLayout = (rawLayout) => {
   assertObject(rawLayout, 'root');
 
@@ -270,6 +315,10 @@ export const parseLayout = (rawLayout) => {
     }
 
     parsed.projects = projects;
+  }
+
+  if (rawLayout.fragments !== undefined) {
+    parsed.fragments = parseFragments(rawLayout.fragments, 'fragments');
   }
 
   return parsed;

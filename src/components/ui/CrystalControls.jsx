@@ -13,6 +13,7 @@ const DEG2RAD = Math.PI / 180;
 const zoneKeys = ['intro', 'hero', 'overview', 'about'];
 const projectKeys = ['empathy', 'narrative', 'craft', 'system', 'leadership', 'exploration'];
 const projectCameraKeys = ['project01', 'project02', 'project03', 'project04', 'project05', 'project06'];
+const fragmentKeys = ['fragment01', 'fragment02', 'fragment03', 'fragment04', 'fragment05', 'fragment06', 'fragment07', 'fragment08'];
 const getProjectDisplayLabel = (sceneFacetKey) => getProjectIdBySceneFacetKey(sceneFacetKey) || sceneFacetKey;
 
 const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
@@ -35,6 +36,12 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
   );
   const [positionAccordionState, setPositionAccordionState] = useState(() =>
     projectKeys.reduce((acc, key, index) => {
+      acc[key] = index === 0;
+      return acc;
+    }, {})
+  );
+  const [fragmentAccordionState, setFragmentAccordionState] = useState(() =>
+    fragmentKeys.reduce((acc, key, index) => {
       acc[key] = index === 0;
       return acc;
     }, {})
@@ -127,6 +134,17 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
     'explodedPositions.leadership': crystalConfig.explodedPositions.leadership,
     'explodedPositions.exploration': crystalConfig.explodedPositions.exploration,
   });
+
+  const [fragmentValues, setFragmentValues] = useState(() => Object.fromEntries(
+    fragmentKeys.map((key) => [
+      key,
+      {
+        start: crystalConfig.fragments?.items?.[key]?.start ?? [0, 0, 0],
+        exploded: crystalConfig.fragments?.items?.[key]?.exploded ?? [0, 0, 0],
+        scale: crystalConfig.fragments?.items?.[key]?.scale ?? 1
+      }
+    ])
+  ));
 
   // Effects state
   const [effectValues, setEffectValues] = useState({
@@ -315,6 +333,19 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
         },
         fracture: { ...base.effects?.fracture }
       },
+      fragments: {
+        ...base.fragments,
+        items: Object.fromEntries(
+          fragmentKeys.map((key) => [
+            key,
+            {
+              start: cloneVec3(base.fragments?.items?.[key]?.start) ?? [0, 0, 0],
+              exploded: cloneVec3(base.fragments?.items?.[key]?.exploded) ?? [0, 0, 0],
+              scale: sanitizeNumber(base.fragments?.items?.[key]?.scale, 1)
+            }
+          ])
+        )
+      },
       materials: cloneMaterials(base.materials)
     };
   };
@@ -397,6 +428,20 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
         facetRotationsEulerDeg: baseConfig.facetRotationsEulerDeg,
         selectedFacetRotationsEulerDeg: baseConfig.selectedFacetRotationsEulerDeg
       },
+      fragments: {
+        ...(baseLayout.fragments || {}),
+        fractureDistance: sanitizeNumber(baseConfig.fragments?.fractureDistance, 0.18),
+        items: Object.fromEntries(
+          fragmentKeys.map((key) => [
+            key,
+            {
+              start: baseConfig.fragments?.items?.[key]?.start ?? [0, 0, 0],
+              exploded: baseConfig.fragments?.items?.[key]?.exploded ?? [0, 0, 0],
+              scale: sanitizeNumber(baseConfig.fragments?.items?.[key]?.scale, 1)
+            }
+          ])
+        )
+      },
       timing: {
         ...(baseLayout.timing || {}),
         camera: {
@@ -416,6 +461,7 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
     const camera = layout?.camera ?? {};
     const projects = layout?.projects ?? {};
     const timing = layout?.timing ?? {};
+    const fragments = layout?.fragments ?? {};
 
     const updateCameraPositions = (positions) => {
       if (!positions) return;
@@ -519,6 +565,31 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
       });
     };
 
+    const updateFragments = (fragmentLayout) => {
+      if (!fragmentLayout) return;
+      if (!updatedConfig.fragments) updatedConfig.fragments = { items: {} };
+      if (!updatedConfig.fragments.items) updatedConfig.fragments.items = {};
+
+      const fractureDistance = sanitizeNumber(fragmentLayout?.fractureDistance, null);
+      if (fractureDistance !== null) {
+        updatedConfig.fragments.fractureDistance = fractureDistance;
+      }
+
+      Object.entries(fragmentLayout?.items || {}).forEach(([key, value]) => {
+        if (!updatedConfig.fragments.items[key]) {
+          updatedConfig.fragments.items[key] = { start: [0, 0, 0], exploded: [0, 0, 0], scale: 1 };
+        }
+
+        const start = sanitizeVec3(value?.start);
+        const exploded = sanitizeVec3(value?.exploded);
+        const scale = sanitizeNumber(value?.scale, null);
+
+        if (start) updatedConfig.fragments.items[key].start = start;
+        if (exploded) updatedConfig.fragments.items[key].exploded = exploded;
+        if (scale !== null) updatedConfig.fragments.items[key].scale = scale;
+      });
+    };
+
     const updateTiming = (timing) => {
       if (!timing?.camera) return;
       Object.entries(timing.camera).forEach(([key, value]) => {
@@ -534,6 +605,7 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
     updateExplodedPositions(projects.explodedPositions);
     updateFacetRotations(projects.facetRotationsEulerDeg);
     updateSelectedFacetRotations(projects.selectedFacetRotationsEulerDeg);
+    updateFragments(fragments);
     updateTiming(timing);
 
     if (camera.projects) {
@@ -633,6 +705,17 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
       'explodedPositions.leadership': updatedConfig.explodedPositions.leadership,
       'explodedPositions.exploration': updatedConfig.explodedPositions.exploration
     });
+
+    setFragmentValues(Object.fromEntries(
+      fragmentKeys.map((key) => [
+        key,
+        {
+          start: updatedConfig.fragments?.items?.[key]?.start ?? [0, 0, 0],
+          exploded: updatedConfig.fragments?.items?.[key]?.exploded ?? [0, 0, 0],
+          scale: sanitizeNumber(updatedConfig.fragments?.items?.[key]?.scale, 1)
+        }
+      ])
+    ));
 
     setSelectedFacetRotationValues({
       'selectedFacetRotationsEulerDeg.empathy': updatedConfig.selectedFacetRotationsEulerDeg.empathy,
@@ -1920,6 +2003,181 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
     </div>
   );
 
+  const handleFragmentVec3Change = (fragmentKey, vectorType, axisIndex, value) => {
+    const numericValue = parseFloat(value);
+    const updatedFragment = {
+      ...(fragmentValues[fragmentKey] || { start: [0, 0, 0], exploded: [0, 0, 0], scale: 1 }),
+      [vectorType]: [...(fragmentValues[fragmentKey]?.[vectorType] || [0, 0, 0])]
+    };
+
+    updatedFragment[vectorType][axisIndex] = numericValue;
+
+    const nextValues = {
+      ...fragmentValues,
+      [fragmentKey]: updatedFragment
+    };
+    setFragmentValues(nextValues);
+
+    const updatedConfig = cloneConfig();
+    if (!updatedConfig.fragments) updatedConfig.fragments = { items: {} };
+    if (!updatedConfig.fragments.items) updatedConfig.fragments.items = {};
+    updatedConfig.fragments.items[fragmentKey] = {
+      ...(updatedConfig.fragments.items[fragmentKey] || {}),
+      start: updatedFragment.start,
+      exploded: updatedFragment.exploded,
+      scale: updatedFragment.scale
+    };
+
+    onUpdate(updatedConfig);
+  };
+
+  const handleFragmentScaleChange = (fragmentKey, value) => {
+    const numericValue = parseFloat(value);
+    const updatedFragment = {
+      ...(fragmentValues[fragmentKey] || { start: [0, 0, 0], exploded: [0, 0, 0], scale: 1 }),
+      scale: numericValue
+    };
+
+    const nextValues = {
+      ...fragmentValues,
+      [fragmentKey]: updatedFragment
+    };
+    setFragmentValues(nextValues);
+
+    const updatedConfig = cloneConfig();
+    if (!updatedConfig.fragments) updatedConfig.fragments = { items: {} };
+    if (!updatedConfig.fragments.items) updatedConfig.fragments.items = {};
+    updatedConfig.fragments.items[fragmentKey] = {
+      ...(updatedConfig.fragments.items[fragmentKey] || {}),
+      start: updatedFragment.start,
+      exploded: updatedFragment.exploded,
+      scale: updatedFragment.scale
+    };
+
+    onUpdate(updatedConfig);
+  };
+
+  const renderFragmentControls = () => (
+    <div>
+      <h3 style={{ fontSize: '14px', marginBottom: '15px' }}>Fragments</h3>
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '15px' }}>
+        <button
+          type="button"
+          style={exportButtonStyle}
+          onClick={() =>
+            setFragmentAccordionState(
+              fragmentKeys.reduce((acc, key) => {
+                acc[key] = true;
+                return acc;
+              }, {})
+            )
+          }
+        >
+          Expand all
+        </button>
+        <button
+          type="button"
+          style={exportButtonStyle}
+          onClick={() =>
+            setFragmentAccordionState(
+              fragmentKeys.reduce((acc, key) => {
+                acc[key] = false;
+                return acc;
+              }, {})
+            )
+          }
+        >
+          Collapse all
+        </button>
+      </div>
+
+      {fragmentKeys.map((fragmentKey) => {
+        const fragment = fragmentValues[fragmentKey] || { start: [0, 0, 0], exploded: [0, 0, 0], scale: 1 };
+        const isOpen = fragmentAccordionState[fragmentKey];
+
+        return (
+          <div key={fragmentKey} style={{ marginBottom: '15px' }}>
+            <button
+              type="button"
+              style={accordionHeaderStyle(isOpen)}
+              onClick={() =>
+                setFragmentAccordionState({
+                  ...fragmentAccordionState,
+                  [fragmentKey]: !isOpen
+                })
+              }
+            >
+              <span>{fragmentKey}</span>
+              <span>{isOpen ? '−' : '+'}</span>
+            </button>
+
+            {isOpen && (
+              <div style={accordionContentStyle}>
+                <div style={accordionSectionStyle}>
+                  <div style={accordionSubheadingStyle}>Start Position</div>
+                  {['X', 'Y', 'Z'].map((axis, axisIndex) => (
+                    <div key={`${fragmentKey}-start-${axis}`} style={{ marginBottom: '5px' }}>
+                      <div style={sliderLabelStyle}>
+                        <span><span style={coordLabelStyle}>{axis}</span> Start</span>
+                        <span>{fragment.start[axisIndex].toFixed(2)}</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="-2"
+                        max="2"
+                        step="0.05"
+                        value={fragment.start[axisIndex]}
+                        onChange={(e) => handleFragmentVec3Change(fragmentKey, 'start', axisIndex, e.target.value)}
+                        style={sliderStyle}
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                <div style={accordionSectionStyle}>
+                  <div style={accordionSubheadingStyle}>Exploded Position</div>
+                  {['X', 'Y', 'Z'].map((axis, axisIndex) => (
+                    <div key={`${fragmentKey}-exploded-${axis}`} style={{ marginBottom: '5px' }}>
+                      <div style={sliderLabelStyle}>
+                        <span><span style={coordLabelStyle}>{axis}</span> Exploded</span>
+                        <span>{fragment.exploded[axisIndex].toFixed(2)}</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="-2"
+                        max="2"
+                        step="0.05"
+                        value={fragment.exploded[axisIndex]}
+                        onChange={(e) => handleFragmentVec3Change(fragmentKey, 'exploded', axisIndex, e.target.value)}
+                        style={sliderStyle}
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                <div style={accordionSectionStyle}>
+                  <div style={sliderLabelStyle}>
+                    <span>Scale</span>
+                    <span>{fragment.scale.toFixed(2)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.1"
+                    max="2"
+                    step="0.01"
+                    value={fragment.scale}
+                    onChange={(e) => handleFragmentScaleChange(fragmentKey, e.target.value)}
+                    style={sliderStyle}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+
   const renderEffectsControls = () => (
     <div>
       <h3 style={{ fontSize: '14px', marginBottom: '15px' }}>Visual Effects</h3>
@@ -2174,6 +2432,12 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
           Camera
         </button>
         <button
+          style={tabButtonStyle(activeTab === 'fragments')}
+          onClick={() => setActiveTab('fragments')}
+        >
+          Fragments
+        </button>
+        <button
           style={tabButtonStyle(activeTab === 'effects')}
           onClick={() => setActiveTab('effects')}
         >
@@ -2190,6 +2454,7 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
       {activeTab === 'timing' && renderTimingControls()}
       {activeTab === 'positions' && renderPositionsControls()}
       {activeTab === 'camera' && renderCameraControls()}
+      {activeTab === 'fragments' && renderFragmentControls()}
       {activeTab === 'effects' && renderEffectsControls()}
       {activeTab === 'material' && renderMaterialControls()}
 

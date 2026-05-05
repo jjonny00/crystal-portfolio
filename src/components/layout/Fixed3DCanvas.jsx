@@ -374,6 +374,17 @@ const Fixed3DCanvas = forwardRef(({
       };
     }
 
+    if (layout?.fragments) {
+      nextConfig.fragments = {
+        ...(nextConfig.fragments || {}),
+        ...layout.fragments,
+        items: {
+          ...(nextConfig.fragments?.items || {}),
+          ...(layout.fragments?.items || {}),
+        },
+      };
+    }
+
     if (import.meta.env.DEV) {
       const deviceKey = variant === 'mobile' ? 'mobile' : 'desktop';
       console.log('[camera-merge] runtime config fields', {
@@ -387,7 +398,7 @@ const Fixed3DCanvas = forwardRef(({
     }
 
     return nextConfig;
-  }, [cameraRuntimeOverrides, config, layout?.camera, layout?.projects, projectRuntimeOverrides, variant]);
+  }, [cameraRuntimeOverrides, config, layout?.camera, layout?.projects, layout?.fragments, projectRuntimeOverrides, variant]);
 
   const runtimeOverrideLogShownRef = useRef(false);
 
