@@ -905,12 +905,12 @@ export const useUnifiedAnimationController = (options = {}) => {
       if (transitionPhaseRef.current === HERO_TO_OVERVIEW_PHASES.COMPLETE) {
         resetHeroToOverviewTransitionPhase('new-overview-cycle-from-complete');
       }
-      // Start explosion immediately but delay camera move until fracture pause completes
+      // Start explosion and switch camera state to overview immediately to avoid stall windows
       setAnimationState(prev => ({
         ...prev,
         state: ANIMATION_STATES.OVERVIEW,
-        crystalForm: 'exploded',     // Immediate
-        cameraState: 'hero',         // Hold camera during fracture pause
+        crystalForm: 'exploded',
+        cameraState: 'overview',
         focusedFacet: null,
         isTransitioning: false
       }));
@@ -918,12 +918,6 @@ export const useUnifiedAnimationController = (options = {}) => {
         reason: 'zone-transition-to-overview'
       });
 
-      cameraDelayTimeout.current = setTimeout(() => {
-        setAnimationState(prev => ({
-          ...prev,
-          cameraState: 'overview'
-        }));
-      }, (config.crystal.fracturePause || 0.5) * 1000);
     }
     else if (toZone === 'projects') {
       const targetFacet = getSceneFacetKeyByProjectId(initialProject) || initialProject;
