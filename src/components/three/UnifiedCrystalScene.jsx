@@ -191,6 +191,8 @@ const UnifiedCrystalScene = forwardRef(({
   const fractureChargePhaseRef = useRef(0);
   const fractureChargeHandoffLoggedRef = useRef(false);
   const visualOwnerSamplesRef = useRef({ impulseStart: false, impulseMid: false, slowdownStart: false, handoffStart: false });
+  const freezeRootSceneResumedLoggedRef = useRef(false);
+  const freezeRootSceneBlockedLogsRef = useRef(new Set());
 
   // Track explosion timing so we can implement fracture pause
   const explosionStartRef = useRef(null);
@@ -1828,8 +1830,33 @@ const UnifiedCrystalScene = forwardRef(({
             facetRef.current.quaternion.slerp(neutralQuat, Math.min(1, deltaTime * 6));
           }
         });
+        if (phaseDebugEnabled && animationData?.transitionPhase === HERO_TO_OVERVIEW_PHASES.COMPLETE && !freezeRootSceneBlockedLogsRef.current.has('fracture-pause-return')) {
+          freezeRootSceneBlockedLogsRef.current.add('fracture-pause-return');
+          console.log('[freeze-root-debug] post-complete branch still blocked', {
+            branch: 'fracture-pause-return',
+            reason: 'elapsedExplosion < fracturePause',
+            elapsedExplosion,
+            fracturePause
+          });
+        }
         return; // Skip other animations during fracture pause
       }
+    }
+
+    if (
+      (typeof globalThis !== 'undefined' && globalThis.__CRYSTAL_DEBUG_TRANSITION_PHASES__ === true || typeof window !== 'undefined' && window.__CRYSTAL_DEBUG_TRANSITION_PHASES__ === true)
+      && animationData?.transitionPhase === HERO_TO_OVERVIEW_PHASES.COMPLETE
+      && animationData?.state === 'overview'
+      && !freezeRootSceneResumedLoggedRef.current
+    ) {
+      freezeRootSceneResumedLoggedRef.current = true;
+      console.log('[freeze-root-debug] normal overview scene branch resumed', {
+        phase: animationData?.transitionPhase,
+        state: animationData?.state,
+        crystalForm: animationData?.crystalForm,
+        showFacets,
+        showWholeCrystal
+      });
     }
 
     const elapsed = state.clock.elapsedTime;

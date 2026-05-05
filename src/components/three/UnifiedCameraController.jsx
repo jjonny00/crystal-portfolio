@@ -160,6 +160,9 @@ const UnifiedCameraController = ({
   const cameraOwnerSkipLogsRef = useRef(new Set());
   const cinematicOwnerReleaseLoggedRef = useRef(false);
   const overviewNormalResumedLoggedRef = useRef(false);
+  const freezeRootCompleteSnapshotLoggedRef = useRef(false);
+  const freezeRootNormalOverviewLoggedRef = useRef(false);
+  const freezeRootPostCompleteBlockedLogsRef = useRef(new Set());
   const firstPostHeroExplosionWriteLoggedRef = useRef(false);
   const lastAuthoritativeHeroSnapshotRef = useRef(null);
   const latestAuthoritativeHeroSnapshotRef = useRef(null);
@@ -2514,6 +2517,34 @@ const UnifiedCameraController = ({
       : Number.POSITIVE_INFINITY;
     const keepCinematicTailOnComplete = ownerPhase === 'complete' && cinematicTailElapsed < 0.9;
     const heroOverviewCinematicOwnerActive = false;
+    if (phaseDebugEnabled && animationData?.transitionPhase === 'complete' && animationData?.state === 'overview' && !freezeRootCompleteSnapshotLoggedRef.current) {
+      freezeRootCompleteSnapshotLoggedRef.current = true;
+      console.log('[freeze-root-debug] complete state snapshot', {
+        transitionPhase: animationData?.transitionPhase,
+        state: animationData?.state,
+        cameraState: animationData?.cameraState,
+        crystalForm: animationData?.crystalForm,
+        fractureTiltActive: fractureTiltActiveRef.current,
+        fractureTilt: fractureTiltRef.current,
+        heroExplosionTransitionActive: heroExplosionTransitionRef.current?.active === true,
+        authoritativeHeroToOverviewActive: authoritativeHeroToOverviewTransitionRef.current?.active === true,
+        explosionSyncStartExists: Boolean(explosionSyncStartRef.current),
+        handoffPendingExists: Boolean(heroToOverviewHandoffPendingRef.current),
+        handoffLockFrames: heroToOverviewHandoffLockFramesRef.current,
+        awaitFirstNormalFrame: heroToOverviewAwaitFirstNormalFrameRef.current
+      });
+    }
+
+    if (animationData?.transitionPhase === 'complete' && animationData?.state === 'overview' && animationData?.cameraState === 'overview') {
+      if (fractureTiltActiveRef.current && heroToOverviewHandoffLockFramesRef.current <= 0) {
+        fractureTiltActiveRef.current = false;
+        fractureTiltRef.current = 0;
+      }
+      if (heroExplosionTransitionRef.current?.active) {
+        heroExplosionTransitionRef.current.active = false;
+      }
+    }
+
     if (phaseDebugEnabled && !heroOverviewCinematicOwnerActive && ownerActiveBefore && !cinematicOwnerReleaseLoggedRef.current) {
       cinematicOwnerReleaseLoggedRef.current = true;
       console.log('[scene-freeze-debug] cinematic owner release', {
@@ -2711,6 +2742,10 @@ const UnifiedCameraController = ({
         animationData?.setCameraSettled?.(true);
       }
       console.log('[UCC EARLY RETURN]', { branch: "TRANSITION", reason: "fracture-tilt-lock", finalCameraPosition: camera.position.toArray(), finalFilmOffset: camera.filmOffset });
+      if (phaseDebugEnabled && animationData?.transitionPhase === 'complete' && !freezeRootPostCompleteBlockedLogsRef.current.has('fracture-tilt-lock')) {
+        freezeRootPostCompleteBlockedLogsRef.current.add('fracture-tilt-lock');
+        console.log('[freeze-root-debug] post-complete branch still blocked', { branch: 'fracture-tilt-lock', reason: 'fractureTiltActiveRef', fractureTiltActive: fractureTiltActiveRef.current });
+      }
       if (shouldLogBranch) console.log('[UCC RETURN] reason: fracture-tilt-lock');
       return;
     }
@@ -3182,6 +3217,15 @@ const UnifiedCameraController = ({
       console.log('[stability-debug] overview normal behavior resumed', {
         phase: animationData?.transitionPhase,
         cameraState: animationData?.cameraState
+      });
+    }
+    if (phaseDebugEnabled && animationData?.cameraState === 'overview' && animationData?.transitionPhase === 'complete' && !freezeRootNormalOverviewLoggedRef.current) {
+      freezeRootNormalOverviewLoggedRef.current = true;
+      console.log('[freeze-root-debug] normal overview camera branch resumed', {
+        phase: animationData?.transitionPhase,
+        cameraState: animationData?.cameraState,
+        fractureTiltActive: fractureTiltActiveRef.current,
+        heroExplosionTransitionActive: heroExplosionTransitionRef.current?.active === true
       });
     }
     camera.position.lerp(currentTarget.current.position, clampedSmoothing);
