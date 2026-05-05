@@ -2513,10 +2513,7 @@ const UnifiedCameraController = ({
       ? Math.max(state.clock.elapsedTime - (explosionSyncStartRef.current?.startedAt ?? state.clock.elapsedTime), 0)
       : Number.POSITIVE_INFINITY;
     const keepCinematicTailOnComplete = ownerPhase === 'complete' && cinematicTailElapsed < 0.9;
-    const heroOverviewCinematicOwnerActive =
-      (ownerPhase === 'fractureCharge' || ownerPhase === 'explosionImpulse' || ownerPhase === 'bulletTimeSlowdown' || ownerPhase === 'overviewHandoff' || keepCinematicTailOnComplete)
-      && animationData?.state === 'overview'
-      && animationData?.crystalForm === 'exploded';
+    const heroOverviewCinematicOwnerActive = false;
     if (phaseDebugEnabled && !heroOverviewCinematicOwnerActive && ownerActiveBefore && !cinematicOwnerReleaseLoggedRef.current) {
       cinematicOwnerReleaseLoggedRef.current = true;
       console.log('[scene-freeze-debug] cinematic owner release', {
@@ -2529,7 +2526,7 @@ const UnifiedCameraController = ({
     }
 
     if (
-      (fractureTiltActiveRef.current || heroOverviewCinematicOwnerActive) &&
+      fractureTiltActiveRef.current &&
       animationData?.crystalForm === 'exploded' &&
       animationData?.cameraState === 'hero'
     ) {
@@ -2719,7 +2716,7 @@ const UnifiedCameraController = ({
     }
 
     if (
-      (fractureTiltActiveRef.current || heroOverviewCinematicOwnerActive) &&
+      fractureTiltActiveRef.current &&
       animationData?.crystalForm === 'exploded' &&
       animationData?.cameraState !== 'hero'
     ) {
@@ -3182,7 +3179,7 @@ const UnifiedCameraController = ({
     // Smooth position interpolation
     if (phaseDebugEnabled && animationData?.cameraState === 'overview' && animationData?.transitionPhase === 'complete' && !overviewNormalResumedLoggedRef.current) {
       overviewNormalResumedLoggedRef.current = true;
-      console.log('[scene-freeze-debug] overview normal behavior resumed', {
+      console.log('[stability-debug] overview normal behavior resumed', {
         phase: animationData?.transitionPhase,
         cameraState: animationData?.cameraState
       });
