@@ -994,7 +994,7 @@ export const useUnifiedAnimationController = (options = {}) => {
         animationState.crystalForm === 'exploded' &&
         (animationState.transitionPhase === HERO_TO_OVERVIEW_PHASES.BULLET_TIME_SLOWDOWN || animationState.transitionPhase === HERO_TO_OVERVIEW_PHASES.OVERVIEW_HANDOFF);
       const phaseDebugEnabled = isTransitionPhaseDebugEnabled();
-      const cinematicOwnerFastTrackMs = 140;
+      const cinematicOwnerFastTrackMs = 0;
       const durationMet = slowdownElapsedMs >= requiredSlowdownMs;
       const cinematicOwnerFastTrack = cinematicOwnerActive && !cameraReady && slowdownElapsedMs >= cinematicOwnerFastTrackMs;
       const handoffAllowed = (durationMet || cinematicOwnerFastTrack) && (cameraReady || cinematicOwnerActive);
@@ -1047,7 +1047,7 @@ export const useUnifiedAnimationController = (options = {}) => {
       const requiredHandoffMs = Math.max((config?.crystal?.heroToOverviewExplosionSettings?.overviewHandoffDuration ?? 0.5) * 1000, 0);
       const cameraReady = animationState.cameraSettled === true || (animationState.cameraMoveProgress ?? 0) >= 0.995;
       const cinematicOwnerActive = animationState.cameraState === 'overview' && animationState.crystalForm === 'exploded';
-      const cinematicOwnerFastTrackMs = 120;
+      const cinematicOwnerFastTrackMs = 0;
       const cinematicOwnerFastTrack = cinematicOwnerActive && !cameraReady && handoffElapsedMs >= cinematicOwnerFastTrackMs;
       const completeAllowed = handoffElapsedMs >= requiredHandoffMs || cinematicOwnerFastTrack;
       if (isTransitionPhaseDebugEnabled()) {
