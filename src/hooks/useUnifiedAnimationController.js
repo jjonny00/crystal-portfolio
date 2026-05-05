@@ -994,14 +994,19 @@ export const useUnifiedAnimationController = (options = {}) => {
         animationState.crystalForm === 'exploded' &&
         (animationState.transitionPhase === HERO_TO_OVERVIEW_PHASES.BULLET_TIME_SLOWDOWN || animationState.transitionPhase === HERO_TO_OVERVIEW_PHASES.OVERVIEW_HANDOFF);
       const phaseDebugEnabled = isTransitionPhaseDebugEnabled();
+      const cinematicOwnerFastTrackMs = 140;
       const durationMet = slowdownElapsedMs >= requiredSlowdownMs;
-      const handoffAllowed = durationMet && (cameraReady || cinematicOwnerActive);
-      const handoffReason = cameraReady ? 'duration-met-camera-ready' : 'duration-met-cinematic-owner';
+      const cinematicOwnerFastTrack = cinematicOwnerActive && !cameraReady && slowdownElapsedMs >= cinematicOwnerFastTrackMs;
+      const handoffAllowed = (durationMet || cinematicOwnerFastTrack) && (cameraReady || cinematicOwnerActive);
+      const handoffReason = cameraReady
+        ? 'duration-met-camera-ready'
+        : (cinematicOwnerFastTrack ? 'cinematic-owner-fast-track' : 'duration-met-cinematic-owner');
       if (phaseDebugEnabled) {
         if (handoffAllowed) {
           console.log('[scene-freeze-debug] slowdown handoff allowed', {
             slowdownElapsedMs,
             requiredSlowdownMs,
+            cinematicOwnerFastTrackMs,
             cameraReady,
             cinematicOwnerActive,
             reason: handoffReason
@@ -1010,9 +1015,10 @@ export const useUnifiedAnimationController = (options = {}) => {
           console.log('[scene-freeze-debug] slowdown handoff blocked', {
             slowdownElapsedMs,
             requiredSlowdownMs,
+            cinematicOwnerFastTrackMs,
             cameraReady,
             cinematicOwnerActive,
-            blockReason: !durationMet ? 'slowdown-duration-not-reached' : 'camera-not-ready-and-no-cinematic-owner'
+            blockReason: (!durationMet && !cinematicOwnerFastTrack) ? 'slowdown-duration-not-reached' : 'camera-not-ready-and-no-cinematic-owner'
           });
         }
       }
@@ -1041,20 +1047,24 @@ export const useUnifiedAnimationController = (options = {}) => {
       const requiredHandoffMs = Math.max((config?.crystal?.heroToOverviewExplosionSettings?.overviewHandoffDuration ?? 0.5) * 1000, 0);
       const cameraReady = animationState.cameraSettled === true || (animationState.cameraMoveProgress ?? 0) >= 0.995;
       const cinematicOwnerActive = animationState.cameraState === 'overview' && animationState.crystalForm === 'exploded';
-      const completeAllowed = handoffElapsedMs >= requiredHandoffMs;
+      const cinematicOwnerFastTrackMs = 120;
+      const cinematicOwnerFastTrack = cinematicOwnerActive && !cameraReady && handoffElapsedMs >= cinematicOwnerFastTrackMs;
+      const completeAllowed = handoffElapsedMs >= requiredHandoffMs || cinematicOwnerFastTrack;
       if (isTransitionPhaseDebugEnabled()) {
         if (completeAllowed) {
           console.log('[scene-freeze-debug] handoff complete allowed', {
             handoffElapsedMs,
             requiredHandoffMs,
+            cinematicOwnerFastTrackMs,
             cameraReady,
             cinematicOwnerActive,
-            reason: 'handoff-duration-met'
+            reason: cinematicOwnerFastTrack ? 'handoff-cinematic-owner-fast-track' : 'handoff-duration-met'
           });
         } else {
           console.log('[scene-freeze-debug] handoff complete blocked', {
             handoffElapsedMs,
             requiredHandoffMs,
+            cinematicOwnerFastTrackMs,
             cameraReady,
             cinematicOwnerActive,
             blockReason: 'handoff-duration-not-reached'
@@ -1063,7 +1073,7 @@ export const useUnifiedAnimationController = (options = {}) => {
       }
       if (completeAllowed) {
         forceTransitionPhase(HERO_TO_OVERVIEW_PHASES.COMPLETE, {
-          reason: 'handoff-duration-met',
+          reason: cinematicOwnerFastTrack ? 'handoff-cinematic-owner-fast-track' : 'handoff-duration-met',
           handoffElapsedMs,
           requiredHandoffMs
         });
