@@ -1803,7 +1803,10 @@ const UnifiedCrystalScene = forwardRef(({
 
     // Hold facets at fracture positions before the explosion resumes
     if (animationData.crystalForm === 'exploded' && explosionStartRef.current) {
-      const fracturePause = crystalConfig?.fracturePause || 0.5;
+      const currentPhase = animationData?.transitionPhase ?? HERO_TO_OVERVIEW_PHASES.IDLE;
+      const phaseHasCinematicHandoff = currentPhase === HERO_TO_OVERVIEW_PHASES.OVERVIEW_HANDOFF || currentPhase === HERO_TO_OVERVIEW_PHASES.COMPLETE;
+      const configuredFracturePause = crystalConfig?.fracturePause || 0.5;
+      const fracturePause = phaseHasCinematicHandoff ? 0 : configuredFracturePause;
       const elapsedExplosion = (performance.now() - explosionStartRef.current) / 1000;
       if (elapsedExplosion < fracturePause) {
         const fracture = crystalConfig?.fracturePositions;
@@ -1867,22 +1870,25 @@ const UnifiedCrystalScene = forwardRef(({
     if (showFacets && crystalConfig?.positions) {
       // Custom fracture/explosion timing
       if (animationData.crystalForm === 'exploded' && explosionStartRef.current) {
-        const fracturePause = crystalConfig?.fracturePause || 0.5;
+        const currentPhase = animationData?.transitionPhase ?? HERO_TO_OVERVIEW_PHASES.IDLE;
+        const phaseHasCinematicHandoff = currentPhase === HERO_TO_OVERVIEW_PHASES.OVERVIEW_HANDOFF || currentPhase === HERO_TO_OVERVIEW_PHASES.COMPLETE;
+        const configuredFracturePause = crystalConfig?.fracturePause || 0.5;
+        const fracturePause = phaseHasCinematicHandoff ? 0 : configuredFracturePause;
         const totalDuration = crystalConfig?.explodeDuration || 1.2;
         const elapsedExplosion = (performance.now() - explosionStartRef.current) / 1000;
 
         const progress = Math.min((elapsedExplosion - fracturePause) / (totalDuration - fracturePause), 1);
         const impulseThreshold =
           crystalConfig?.heroToOverviewExplosionSettings?.explosionImpulseDuration ?? 0.25;
-        const currentPhase = animationData?.transitionPhase ?? HERO_TO_OVERVIEW_PHASES.IDLE;
-        const canAdvanceToSlowdown = canAdvanceTransitionPhase(currentPhase, HERO_TO_OVERVIEW_PHASES.BULLET_TIME_SLOWDOWN)
-          && currentPhase !== HERO_TO_OVERVIEW_PHASES.BULLET_TIME_SLOWDOWN;
+        const phaseForSlowdown = animationData?.transitionPhase ?? HERO_TO_OVERVIEW_PHASES.IDLE;
+        const canAdvanceToSlowdown = canAdvanceTransitionPhase(phaseForSlowdown, HERO_TO_OVERVIEW_PHASES.BULLET_TIME_SLOWDOWN)
+          && phaseForSlowdown !== HERO_TO_OVERVIEW_PHASES.BULLET_TIME_SLOWDOWN;
         const phaseDebugEnabled =
           (typeof globalThis !== 'undefined' && globalThis.__CRYSTAL_DEBUG_TRANSITION_PHASES__ === true)
           || (typeof window !== 'undefined' && window.__CRYSTAL_DEBUG_TRANSITION_PHASES__ === true);
         if (phaseDebugEnabled && progress >= impulseThreshold && !canAdvanceToSlowdown) {
           console.log('[explosion-camera-debug] bulletTimeSlowdown skipped guard', {
-            currentPhase,
+            currentPhase: phaseForSlowdown,
             progress,
             impulseThreshold,
             crystalForm: animationData?.crystalForm,
