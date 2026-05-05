@@ -2509,8 +2509,12 @@ const UnifiedCameraController = ({
 
     const ownerPhase = animationData?.transitionPhase;
     const ownerActiveBefore = fractureTiltActiveRef.current;
+    const cinematicTailElapsed = explosionSyncStartRef.current
+      ? Math.max(state.clock.elapsedTime - (explosionSyncStartRef.current?.startedAt ?? state.clock.elapsedTime), 0)
+      : Number.POSITIVE_INFINITY;
+    const keepCinematicTailOnComplete = ownerPhase === 'complete' && cinematicTailElapsed < 0.9;
     const heroOverviewCinematicOwnerActive =
-      (ownerPhase === 'fractureCharge' || ownerPhase === 'explosionImpulse' || ownerPhase === 'bulletTimeSlowdown' || ownerPhase === 'overviewHandoff')
+      (ownerPhase === 'fractureCharge' || ownerPhase === 'explosionImpulse' || ownerPhase === 'bulletTimeSlowdown' || ownerPhase === 'overviewHandoff' || keepCinematicTailOnComplete)
       && animationData?.state === 'overview'
       && animationData?.crystalForm === 'exploded';
     if (phaseDebugEnabled && !heroOverviewCinematicOwnerActive && ownerActiveBefore && !cinematicOwnerReleaseLoggedRef.current) {
