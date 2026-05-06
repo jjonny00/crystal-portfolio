@@ -202,6 +202,8 @@ const UnifiedCameraController = ({
   const heroToOverviewPhaseBoundaryMetaRef = useRef({ switchIndex: null, printed: false });
   const heroOverviewCameraHookBranchLoggedRef = useRef(false);
   const heroOverviewCameraHookPhaseLoggedRef = useRef(new Set());
+  const heroOverviewCameraTimingResolvedLoggedRef = useRef(false);
+  const heroOverviewCameraCurveSampleLoggedRef = useRef(new Set());
   const lastCameraWriteSecondRef = useRef(-1);
   const lastCameraWriterRef = useRef('none');
   const prevStateRef = useRef(animationData?.state ?? null);
@@ -1642,6 +1644,8 @@ const UnifiedCameraController = ({
       heroToOverviewTransitionStartedForExitRef.current = true;
       heroOverviewCameraHookPhaseLoggedRef.current.clear();
       heroOverviewCameraHookBranchLoggedRef.current = false;
+      heroOverviewCameraTimingResolvedLoggedRef.current = false;
+      heroOverviewCameraCurveSampleLoggedRef.current.clear();
       {
         const authoritativeFromPosition = fromSnapshot.position.clone();
         const authoritativeFromLookAt = fromSnapshot.lookAtTarget.clone();
@@ -2077,6 +2081,18 @@ const UnifiedCameraController = ({
         camera.updateProjectionMatrix();
 
         if (typeof globalThis !== 'undefined' && globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__) {
+          if (!heroOverviewCameraTimingResolvedLoggedRef.current) {
+            heroOverviewCameraTimingResolvedLoggedRef.current = true;
+            const resolvedTiming = runtimeSnapshot?.timing || config?.timing?.heroOverviewRuntime || {};
+            console.log('[hero-overview-sync] resolved camera timing config', {
+              cameraPushbackApplyScale: Number(resolvedTiming.cameraPushbackApplyScale ?? 2),
+              cameraPushbackDistance: Number(resolvedTiming.cameraPushbackDistance ?? 0.18),
+              cameraPushbackStrength: Number(resolvedTiming.cameraPushbackStrength ?? 1.4),
+              cameraPushbackDecayStart: Number(resolvedTiming.cameraPushbackDecayStart ?? 0.2),
+              cameraPushbackDecayEnd: Number(resolvedTiming.cameraPushbackDecayEnd ?? 0.58),
+              configSource: runtimeSnapshot?.timing ? 'runtimeSnapshot.timing' : 'config.timing.heroOverviewRuntime',
+            });
+          }
           if (!heroOverviewCameraHookBranchLoggedRef.current) {
             heroOverviewCameraHookBranchLoggedRef.current = true;
             console.log('[hero-overview-camera-hook] branch identified', {
@@ -2104,6 +2120,22 @@ const UnifiedCameraController = ({
                   : false,
             });
             globalThis.__HERO_OVERVIEW_CAMERA_APPLIED_OFFSET_LENGTH__ = appliedOffsetLength;
+          }
+          const runtimeCheckpointTargets = [0.08, 0.12, 0.20, 0.35, 0.58, 0.72, 1.00];
+          const sampleCheckpoint = runtimeCheckpointTargets.find((cp) => Math.abs(runtimeProgress - cp) <= 0.015);
+          if (sampleCheckpoint != null && !heroOverviewCameraCurveSampleLoggedRef.current.has(sampleCheckpoint)) {
+            heroOverviewCameraCurveSampleLoggedRef.current.add(sampleCheckpoint);
+            console.log('[hero-overview-sync] camera curve sample', {
+              runtimeProgress: Number(runtimeProgress.toFixed?.(3) ?? runtimeProgress),
+              runtimePhase,
+              cameraAppliedOffsetLength: Number(appliedOffset.length().toFixed(4)),
+              cameraPushbackDecayStart: Number((runtimeSnapshot?.timing?.cameraPushbackDecayStart ?? config?.timing?.heroOverviewRuntime?.cameraPushbackDecayStart ?? 0.2).toFixed(3)),
+              cameraPushbackDecayEnd: Number((runtimeSnapshot?.timing?.cameraPushbackDecayEnd ?? config?.timing?.heroOverviewRuntime?.cameraPushbackDecayEnd ?? 0.58).toFixed(3)),
+              offsetZeroByOverviewSettle:
+                runtimePhase === 'overviewSettle' || runtimePhase === 'complete'
+                  ? appliedOffset.length() <= 0.000001
+                  : false,
+            });
           }
         }
       }

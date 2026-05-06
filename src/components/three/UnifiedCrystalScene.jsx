@@ -96,6 +96,8 @@ const UnifiedCrystalScene = forwardRef(({
   const heroOverviewFragmentTravelLoggedRef = useRef(new Set());
   const heroOverviewFragmentPreviousTravelProgressRef = useRef(new Map());
   const heroOverviewPostCompleteWriterLoggedRef = useRef(new Set());
+  const heroOverviewFragmentCurveSampleLoggedRef = useRef(new Set());
+  const heroOverviewFragmentTimingResolvedLoggedRef = useRef(false);
 
   const deriveFragmentVisualTiming = (runtimeState, explosionProgress) => {
     const timing = runtimeState?.timing || {};
@@ -1931,6 +1933,19 @@ const UnifiedCrystalScene = forwardRef(({
                     });
                   }
                 }
+                if (!heroOverviewFragmentTimingResolvedLoggedRef.current) {
+                  heroOverviewFragmentTimingResolvedLoggedRef.current = true;
+                  const resolvedTiming = runtimeSnapshot?.timing || config?.timing?.heroOverviewRuntime || {};
+                  console.log('[hero-overview-sync] resolved fragment timing config', {
+                    fragmentBlastPortion: Number(resolvedTiming.fragmentBlastPortion ?? 0.08),
+                    fragmentBlastTravel: Number(resolvedTiming.fragmentBlastTravel ?? 0.76),
+                    fragmentSlowPortionEnd: Number(resolvedTiming.fragmentSlowPortionEnd ?? 0.25),
+                    fragmentSlowTravelEnd: Number(resolvedTiming.fragmentSlowTravelEnd ?? 0.92),
+                    fragmentTravelCurveStrength: Number(resolvedTiming.fragmentTravelCurveStrength ?? 2.8),
+                    fragmentSettleCurveStrength: Number(resolvedTiming.fragmentSettleCurveStrength ?? 3.1),
+                    configSource: runtimeSnapshot?.timing ? 'runtimeSnapshot.timing' : 'config.timing.heroOverviewRuntime',
+                  });
+                }
                 const sampledProgressBucket = Math.round(fragmentVisualProgress * 20) / 20;
                 const shouldLogTravelSample = !heroOverviewFragmentTravelLoggedRef.current.has(sampledProgressBucket);
                 if (shouldLogTravelSample) {
@@ -1973,6 +1988,37 @@ const UnifiedCrystalScene = forwardRef(({
                     cameraAppliedOffsetLength: Number(cameraAppliedOffsetLength.toFixed(4)),
                     cameraNearFinal,
                     fragmentNearFinal,
+                  });
+                }
+                const curveCheckpoints = [0.02, 0.05, 0.08, 0.10, 0.25, 0.50, 0.75, 1.00];
+                const checkpoint = curveCheckpoints.find((cp) => Math.abs(fragmentVisualProgress - cp) <= 0.015);
+                if (checkpoint != null && !heroOverviewFragmentCurveSampleLoggedRef.current.has(checkpoint)) {
+                  heroOverviewFragmentCurveSampleLoggedRef.current.add(checkpoint);
+                  const expectedRange = checkpoint === 0.08
+                    ? 'near 0.76'
+                    : checkpoint === 0.25
+                      ? 'near 0.92'
+                      : checkpoint === 0.5
+                        ? '>0.92 and <1'
+                        : checkpoint === 1
+                          ? 'exactly 1.0'
+                          : 'front-loaded monotonic crawl';
+                  const activeTiming = runtimeSnapshot?.timing || config?.timing?.heroOverviewRuntime || {};
+                  console.log('[hero-overview-sync] fragment curve sample', {
+                    fragmentVisualProgress: Number(fragmentVisualProgress.toFixed(4)),
+                    fragmentVisualPhase,
+                    travelProgress: travelProgress == null ? null : Number(travelProgress.toFixed(4)),
+                    targetExpectedRange: expectedRange,
+                    configValuesUsed: {
+                      fragmentBlastPortion: Number(activeTiming.fragmentBlastPortion ?? 0.08),
+                      fragmentBlastTravel: Number(activeTiming.fragmentBlastTravel ?? 0.76),
+                      fragmentSlowPortionEnd: Number(activeTiming.fragmentSlowPortionEnd ?? 0.25),
+                      fragmentSlowTravelEnd: Number(activeTiming.fragmentSlowTravelEnd ?? 0.92),
+                      fragmentTravelCurveStrength: Number(activeTiming.fragmentTravelCurveStrength ?? 2.8),
+                      fragmentSettleCurveStrength: Number(activeTiming.fragmentSettleCurveStrength ?? 3.1),
+                    },
+                    monotonic,
+                    overshoot,
                   });
                 }
 
