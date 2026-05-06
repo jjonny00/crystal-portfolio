@@ -91,6 +91,8 @@ const UnifiedCrystalScene = forwardRef(({
   const heroOverviewFragmentPhaseLoggedRef = useRef(new Set());
   const heroOverviewFragmentObservedPhaseLoggedRef = useRef(new Set());
   const heroOverviewFragmentAlignmentPhaseLoggedRef = useRef(new Set());
+  const heroOverviewFragmentResolvedConfigLoggedRef = useRef(new Set());
+  const heroOverviewFragmentFinalTransformLoggedRef = useRef(new Set());
 
   const deriveFragmentVisualTiming = (runtimeState, explosionProgress) => {
     const timing = runtimeState?.timing || {};
@@ -1949,6 +1951,20 @@ const UnifiedCrystalScene = forwardRef(({
               }
               if (index === 0 && !heroOverviewFragmentPhaseLoggedRef.current.has(fragmentVisualPhase)) {
                 heroOverviewFragmentPhaseLoggedRef.current.add(fragmentVisualPhase);
+                const resolvedTiming = runtimeSnapshot?.timing || config?.timing?.heroOverviewRuntime || {};
+                if (!heroOverviewFragmentResolvedConfigLoggedRef.current.has(fragmentVisualPhase)) {
+                  heroOverviewFragmentResolvedConfigLoggedRef.current.add(fragmentVisualPhase);
+                  console.log('[hero-overview-fragment-hook] resolved config', {
+                    fragmentVisualPhase,
+                    fragmentImpulseDistance: Number(resolvedTiming.fragmentImpulseDistance ?? 0.45),
+                    fragmentImpulseStrength: Number(resolvedTiming.fragmentImpulseStrength ?? 1),
+                    fragmentRotationStrength: Number(resolvedTiming.fragmentRotationStrength ?? 0.35),
+                    fragmentImpulseApplyScale: Number(resolvedTiming.fragmentImpulseApplyScale ?? 0.15),
+                    fragmentImpulseDecayStart: Number(resolvedTiming.fragmentImpulseDecayStart ?? 0.36),
+                    fragmentImpulseDecayEnd: Number(resolvedTiming.fragmentImpulseDecayEnd ?? 0.72),
+                    configSource: runtimeSnapshot?.timing ? 'runtimeSnapshot.timing' : 'config.timing.heroOverviewRuntime',
+                  });
+                }
                 const computedPositionOffsetLength = computedPositionOffset.length();
                 const computedRotationOffsetLength = Math.sqrt(
                   (computedRotationOffset.x ** 2) +
@@ -2009,6 +2025,36 @@ const UnifiedCrystalScene = forwardRef(({
                       ? (appliedPositionOffsetLength <= 0.000001 && appliedRotationOffsetLength <= 0.000001)
                       : false,
                 });
+
+                if (!heroOverviewFragmentFinalTransformLoggedRef.current.has(fragmentVisualPhase)) {
+                  heroOverviewFragmentFinalTransformLoggedRef.current.add(fragmentVisualPhase);
+                  const actualMeshPositionAfterWrite = facetRef.current.position.toArray();
+                  const actualMeshRotationAfterWriteEuler = new THREE.Euler().setFromQuaternion(facetRef.current.quaternion, 'XYZ');
+                  const actualMeshRotationAfterWrite = [
+                    actualMeshRotationAfterWriteEuler.x,
+                    actualMeshRotationAfterWriteEuler.y,
+                    actualMeshRotationAfterWriteEuler.z,
+                  ];
+                  const positionDifferenceFromIntended = facetRef.current.position.clone().sub(finalPosition).toArray();
+                  const rotationDifferenceFromIntended = [
+                    actualMeshRotationAfterWriteEuler.x - finalEuler.x,
+                    actualMeshRotationAfterWriteEuler.y - finalEuler.y,
+                    actualMeshRotationAfterWriteEuler.z - finalEuler.z,
+                  ];
+                  const overwritten = positionDifferenceFromIntended.some((v) => Math.abs(v) > 0.0001) ||
+                    rotationDifferenceFromIntended.some((v) => Math.abs(v) > 0.0001);
+                  console.log('[hero-overview-fragment-hook] final fragment transform check', {
+                    facetKey,
+                    fragmentVisualPhase,
+                    intendedFinalPosition: finalPosition.toArray(),
+                    actualMeshPositionAfterWrite,
+                    positionDifferenceFromIntended,
+                    intendedFinalRotation: [finalEuler.x, finalEuler.y, finalEuler.z],
+                    actualMeshRotationAfterWrite,
+                    rotationDifferenceFromIntended,
+                    overwritten,
+                  });
+                }
               }
             }
           }

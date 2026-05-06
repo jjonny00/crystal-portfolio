@@ -187,8 +187,8 @@ const Fixed3DCanvas = forwardRef(({
   const { layout, variant } = useLayoutConfig();
   const heroOverviewRuntimeTimingConfig = useMemo(
     () => ({
-      ...(config?.timing?.heroOverviewRuntime || {}),
       ...(layout?.timing?.heroOverviewRuntime || {}),
+      ...(config?.timing?.heroOverviewRuntime || {}),
     }),
     [config?.timing?.heroOverviewRuntime, layout?.timing?.heroOverviewRuntime],
   );
