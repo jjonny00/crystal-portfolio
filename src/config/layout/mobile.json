@@ -586,10 +586,10 @@
       "cameraPushbackDecayStart": 0.36,
       "cameraPushbackDecayEnd": 0.72,
       "cameraPushbackApplyScale": 2,
-      "fragmentImpulseDistance": 0.45,
-      "fragmentImpulseStrength": 1,
-      "fragmentRotationStrength": 0.35,
-      "fragmentImpulseApplyScale": 0.15,
+      "fragmentImpulseDistance": 1.8,
+      "fragmentImpulseStrength": 3,
+      "fragmentRotationStrength": 1.2,
+      "fragmentImpulseApplyScale": 10,
       "fragmentImpulseDecayStart": 0.36,
       "fragmentImpulseDecayEnd": 0.72
     }
