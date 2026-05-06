@@ -565,12 +565,17 @@ const Fixed3DCanvas = forwardRef(({
     const fromZone = lastHeroOverviewZoneRef.current;
     const toZone = animationData?.currentZone ?? null;
 
-    if (fromZone === 'hero' && toZone === 'overview') {
-      const startKey = `${fromZone}->${toZone}:${Date.now()}`;
+    if (toZone === 'hero') {
+      heroOverviewRuntime.resetToIdle({ reason: 'returned-to-hero' });
+      lastHeroOverviewStartRef.current = '';
+    }
 
+    const isHeroToOverview = fromZone === 'hero' && toZone === 'overview';
+    if (isHeroToOverview) {
+      const startKey = `${fromZone}->${toZone}`;
       if (lastHeroOverviewStartRef.current !== startKey) {
         lastHeroOverviewStartRef.current = startKey;
-        heroOverviewRuntime.start({ source: 'zone-transition' });
+        heroOverviewRuntime.start({ source: 'hero-to-overview-zone-transition' });
       }
     }
 

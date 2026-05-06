@@ -61,6 +61,16 @@ export const createHeroOverviewRuntime = (durationOverrides = {}) => {
 
   return {
     start: ({ startedAt = performance.now(), source = 'unknown' } = {}) => {
+      if (state.active) {
+        runtimeDebug('duplicate start ignored', {
+          source,
+          startedAt: Math.round(startedAt),
+          activePhase: state.phase,
+          progress: Number(state.progress.toFixed(3)),
+        });
+        return false;
+      }
+
       state.active = true;
       state.startedAt = startedAt;
       state.progress = 0;
@@ -71,6 +81,8 @@ export const createHeroOverviewRuntime = (durationOverrides = {}) => {
         startedAt: Math.round(startedAt),
         totalDurationMs: state.totalDurationMs,
       });
+      runtimeDebug('trigger source', { source });
+      return true;
     },
     update: (now = performance.now()) => {
       if (!state.active) return;
@@ -110,6 +122,18 @@ export const createHeroOverviewRuntime = (durationOverrides = {}) => {
       durations: state.durations,
       totalDurationMs: state.totalDurationMs,
     }),
+    resetToIdle: ({ reason = 'manual-reset' } = {}) => {
+      const wasActive = state.active;
+      state.active = false;
+      state.startedAt = 0;
+      state.progress = 0;
+      state.phase = PHASES.IDLE;
+      state.lastPhaseLogged = PHASES.IDLE;
+      runtimeDebug('reset to idle', {
+        reason,
+        wasActive,
+      });
+    },
   };
 };
 
