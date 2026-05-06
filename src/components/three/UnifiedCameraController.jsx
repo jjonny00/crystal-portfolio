@@ -202,6 +202,8 @@ const UnifiedCameraController = ({
   const heroToOverviewPhaseBoundaryMetaRef = useRef({ switchIndex: null, printed: false });
   const heroOverviewCameraHookBranchLoggedRef = useRef(false);
   const heroOverviewCameraHookPhaseLoggedRef = useRef(new Set());
+  const heroOverviewCameraHookConfigLoggedRef = useRef(new Set());
+  const heroOverviewIntendedFinalRef = useRef(null);
   const lastCameraWriteSecondRef = useRef(-1);
   const lastCameraWriterRef = useRef('none');
   const prevStateRef = useRef(animationData?.state ?? null);
@@ -268,6 +270,27 @@ const UnifiedCameraController = ({
     const pushbackDirection = viewDirection.normalize().multiplyScalar(-1);
     return pushbackDirection.multiplyScalar(pushbackAmount);
   };
+
+  useFrame(() => {
+    if (!(typeof globalThis !== 'undefined' && globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__)) return;
+    const pending = heroOverviewIntendedFinalRef.current;
+    if (!pending) return;
+
+    const cameraPositionAtEndOfFrame = camera.position.clone();
+    const differenceFromIntended = cameraPositionAtEndOfFrame.distanceTo(pending.intendedFinalPosition);
+    const overwritten = differenceFromIntended > 0.00001;
+
+    console.log('[hero-overview-camera-hook] camera position at end of frame', {
+      runtimePhase: pending.runtimePhase,
+      intendedFinalPosition: pending.intendedFinalPosition.toArray(),
+      cameraPositionAtEndOfFrame: cameraPositionAtEndOfFrame.toArray(),
+      differenceFromIntended: Number(differenceFromIntended.toFixed(6)),
+      overwritten,
+      suspectedOverwriteBranch: overwritten ? lastCameraWriterRef.current : null,
+    });
+
+    heroOverviewIntendedFinalRef.current = null;
+  }, 1000);
 
   const syncFractureTiltState = (elapsedSeconds = 0) => {
     const currentCrystalForm = animationData?.crystalForm ?? 'whole';
@@ -2064,12 +2087,14 @@ const UnifiedCameraController = ({
           0,
           1,
         );
+        const resolvedTiming = runtimeSnapshot?.timing ?? config?.timing?.heroOverviewRuntime ?? null;
         const isFiniteComputedOffset = computedOffset.toArray().every(Number.isFinite);
         const appliedOffset = isFiniteComputedOffset
           ? computedOffset.clone().multiplyScalar(applyScale)
           : new THREE.Vector3(0, 0, 0);
         const finalPosition = basePosition.clone().add(appliedOffset);
         camera.position.copy(finalPosition);
+        const cameraPositionImmediatelyAfterWrite = camera.position.clone();
         camera.lookAt(forcedLookAt);
         camera.filmOffset = isDollyPhase
           ? transition.from.filmOffsetX
@@ -2087,6 +2112,32 @@ const UnifiedCameraController = ({
             heroOverviewCameraHookPhaseLoggedRef.current.add(runtimePhase);
             const computedOffsetLength = computedOffset.length();
             const appliedOffsetLength = appliedOffset.length();
+            const differenceFromIntended = cameraPositionImmediatelyAfterWrite.distanceTo(finalPosition);
+            const differenceFromBase = cameraPositionImmediatelyAfterWrite.distanceTo(basePosition);
+
+            if (!heroOverviewCameraHookConfigLoggedRef.current.has(runtimePhase)) {
+              heroOverviewCameraHookConfigLoggedRef.current.add(runtimePhase);
+              console.log('[hero-overview-camera-hook] resolved config', {
+                cameraPushbackApplyScale: applyScale,
+                cameraPushbackDistance: resolvedTiming?.cameraPushbackDistance ?? null,
+                cameraPushbackStrength: resolvedTiming?.cameraPushbackStrength ?? null,
+                configSource: runtimeSnapshot?.timing ? 'runtimeSnapshot.timing' : 'config.timing.heroOverviewRuntime',
+              });
+            }
+
+            console.log('[hero-overview-camera-hook] camera position after hook write', {
+              runtimePhase,
+              basePosition: basePosition.toArray(),
+              computedOffset: computedOffset.toArray(),
+              computedOffsetLength: Number(computedOffsetLength.toFixed(4)),
+              appliedOffset: appliedOffset.toArray(),
+              appliedOffsetLength: Number(appliedOffsetLength.toFixed(4)),
+              intendedFinalPosition: finalPosition.toArray(),
+              cameraPositionImmediatelyAfterWrite: cameraPositionImmediatelyAfterWrite.toArray(),
+              differenceFromIntended: Number(differenceFromIntended.toFixed(6)),
+              differenceFromBase: Number(differenceFromBase.toFixed(6)),
+            });
+
             console.log('[hero-overview-camera-hook] visual offset applied', {
               runtimePhase,
               runtimeProgress: Number(runtimeProgress.toFixed?.(3) ?? runtimeProgress),
@@ -2102,6 +2153,11 @@ const UnifiedCameraController = ({
                   ? appliedOffsetLength <= 0.000001
                   : false,
             });
+
+            heroOverviewIntendedFinalRef.current = {
+              runtimePhase,
+              intendedFinalPosition: finalPosition.clone(),
+            };
           }
         }
       }
