@@ -90,8 +90,39 @@ const UnifiedCrystalScene = forwardRef(({
   const heroOverviewFragmentWriterLoggedRef = useRef(false);
   const heroOverviewFragmentPhaseLoggedRef = useRef(new Set());
   const heroOverviewFragmentObservedPhaseLoggedRef = useRef(new Set());
+  const heroOverviewFragmentAlignmentPhaseLoggedRef = useRef(new Set());
 
-  const resolveHeroOverviewFragmentOffset = (facetKey, facetIndex, runtimeState, runtimeSettings, basePosition) => {
+  const deriveFragmentVisualTiming = (runtimeState, explosionProgress) => {
+    const timing = runtimeState?.timing || {};
+    const fractureChargeEnd = THREE.MathUtils.clamp(timing.fractureChargeEnd ?? 0.0933333333, 0, 1);
+    const explosionImpulseEnd = THREE.MathUtils.clamp(timing.explosionImpulseEnd ?? 0.24, fractureChargeEnd, 1);
+    const bulletTimeSlowdownEnd = THREE.MathUtils.clamp(timing.bulletTimeSlowdownEnd ?? 0.72, explosionImpulseEnd, 1);
+    const overviewSettleEnd = THREE.MathUtils.clamp(timing.overviewSettleEnd ?? 1, bulletTimeSlowdownEnd, 1);
+    const clampedExplosionProgress = THREE.MathUtils.clamp(explosionProgress, 0, 1);
+    const mappedMainProgress = THREE.MathUtils.lerp(fractureChargeEnd, 1, clampedExplosionProgress);
+
+    let fragmentVisualPhase = 'complete';
+    if (mappedMainProgress < explosionImpulseEnd) fragmentVisualPhase = 'explosionImpulse';
+    else if (mappedMainProgress < bulletTimeSlowdownEnd) fragmentVisualPhase = 'bulletTimeSlowdown';
+    else if (mappedMainProgress < overviewSettleEnd) fragmentVisualPhase = 'overviewSettle';
+
+    const fragmentVisualProgress = clampedExplosionProgress;
+
+    return {
+      fragmentVisualPhase,
+      fragmentVisualProgress,
+    };
+  };
+
+  const resolveHeroOverviewFragmentOffset = (
+    facetKey,
+    facetIndex,
+    runtimeState,
+    runtimeSettings,
+    basePosition,
+    fragmentVisualPhase,
+    fragmentVisualProgress,
+  ) => {
     const zeroPositionOffset = new THREE.Vector3(0, 0, 0);
     const zeroRotationOffset = new THREE.Euler(0, 0, 0, 'XYZ');
     if (!runtimeState || !runtimeState.active) {
@@ -104,8 +135,8 @@ const UnifiedCrystalScene = forwardRef(({
     }
 
     const timing = runtimeState.timing || runtimeSettings || {};
-    const phase = runtimeState.phase;
-    const progress = THREE.MathUtils.clamp(runtimeState.progress ?? 0, 0, 1);
+    const phase = fragmentVisualPhase;
+    const progress = THREE.MathUtils.clamp(fragmentVisualProgress ?? 0, 0, 1);
     if (phase !== 'explosionImpulse' && phase !== 'bulletTimeSlowdown') {
       return {
         computedPositionOffset: zeroPositionOffset,
@@ -1811,6 +1842,7 @@ const UnifiedCrystalScene = forwardRef(({
         const fracturePause = crystalConfig?.fracturePause || 0.5;
         const totalDuration = crystalConfig?.explodeDuration || 1.2;
         const elapsedExplosion = (performance.now() - explosionStartRef.current) / 1000;
+        const explosionElapsedMs = elapsedExplosion * 1000;
 
         const progress = Math.min((elapsedExplosion - fracturePause) / (totalDuration - fracturePause), 1);
         const fracture = crystalConfig?.fracturePositions;
@@ -1845,6 +1877,7 @@ const UnifiedCrystalScene = forwardRef(({
             const runtimeSnapshot = heroOverviewRuntime?.getSnapshot?.() ?? null;
             const runtimePhase = runtimeSnapshot?.phase ?? 'idle';
             const runtimeProgress = runtimeSnapshot?.progress ?? 0;
+            const { fragmentVisualPhase, fragmentVisualProgress } = deriveFragmentVisualTiming(runtimeSnapshot, progress);
             const {
               computedPositionOffset,
               computedRotationOffset,
@@ -1856,6 +1889,8 @@ const UnifiedCrystalScene = forwardRef(({
               runtimeSnapshot,
               config?.timing?.heroOverviewRuntime,
               basePosition,
+              fragmentVisualPhase,
+              fragmentVisualProgress,
             );
             const finalPosition = basePosition.clone().add(appliedPositionOffset);
             const finalEuler = new THREE.Euler(
@@ -1883,8 +1918,20 @@ const UnifiedCrystalScene = forwardRef(({
                   runtimeProgress: Number(runtimeProgress.toFixed?.(3) ?? runtimeProgress),
                 });
               }
-              if (index === 0 && !heroOverviewFragmentPhaseLoggedRef.current.has(runtimePhase)) {
-                heroOverviewFragmentPhaseLoggedRef.current.add(runtimePhase);
+              if (!heroOverviewFragmentAlignmentPhaseLoggedRef.current.has(fragmentVisualPhase)) {
+                heroOverviewFragmentAlignmentPhaseLoggedRef.current.add(fragmentVisualPhase);
+                console.log('[hero-overview-fragment-hook] timing alignment', {
+                  runtimePhase,
+                  runtimeProgress: Number(runtimeProgress.toFixed?.(3) ?? runtimeProgress),
+                  explosionElapsedMs: Number(explosionElapsedMs.toFixed(2)),
+                  explosionProgress: Number(progress.toFixed(4)),
+                  fragmentVisualPhase,
+                  fragmentVisualProgress: Number(fragmentVisualProgress.toFixed(4)),
+                  reason: 'explosionStartRef-derived',
+                });
+              }
+              if (index === 0 && !heroOverviewFragmentPhaseLoggedRef.current.has(fragmentVisualPhase)) {
+                heroOverviewFragmentPhaseLoggedRef.current.add(fragmentVisualPhase);
                 const computedPositionOffsetLength = computedPositionOffset.length();
                 const computedRotationOffsetLength = Math.sqrt(
                   (computedRotationOffset.x ** 2) +
@@ -1898,6 +1945,8 @@ const UnifiedCrystalScene = forwardRef(({
                   Number.isFinite(computedRotationOffset.z);
                 console.log('[hero-overview-fragment-hook] impulse computed', {
                   runtimePhase,
+                  fragmentVisualPhase,
+                  fragmentVisualProgress: Number(fragmentVisualProgress.toFixed(4)),
                   runtimeProgress: Number(runtimeProgress.toFixed?.(3) ?? runtimeProgress),
                   facetKey,
                   facetIndex: index,
