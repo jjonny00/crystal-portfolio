@@ -592,7 +592,11 @@
       "fractureChargeEnd": 0.0933333333,
       "explosionImpulseEnd": 0.24,
       "bulletTimeSlowdownEnd": 0.72,
-      "overviewSettleEnd": 1
+      "overviewSettleEnd": 1,
+      "cameraPushbackDistance": 0.12,
+      "cameraPushbackStrength": 1,
+      "cameraPushbackDecayStart": 0.42,
+      "cameraPushbackDecayEnd": 0.72
     }
   }
 }

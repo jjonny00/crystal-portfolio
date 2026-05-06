@@ -6,6 +6,10 @@ const DEFAULT_TIMING = {
   explosionImpulseEnd: 0.24,
   bulletTimeSlowdownEnd: 0.72,
   overviewSettleEnd: 1.0,
+  cameraPushbackDistance: 0.12,
+  cameraPushbackStrength: 1.0,
+  cameraPushbackDecayStart: 0.42,
+  cameraPushbackDecayEnd: 0.72,
 };
 
 const PHASES = {
@@ -52,6 +56,26 @@ export const resolveHeroOverviewRuntimeTiming = (timingOverrides = {}) => {
     1,
   );
   const overviewSettleEnd = clamp(merged.overviewSettleEnd, DEFAULT_TIMING.overviewSettleEnd, bulletTimeSlowdownEnd, 1);
+  const cameraPushbackDistance =
+    typeof merged.cameraPushbackDistance === 'number' && Number.isFinite(merged.cameraPushbackDistance)
+      ? Math.max(0, merged.cameraPushbackDistance)
+      : DEFAULT_TIMING.cameraPushbackDistance;
+  const cameraPushbackStrength =
+    typeof merged.cameraPushbackStrength === 'number' && Number.isFinite(merged.cameraPushbackStrength)
+      ? Math.max(0, merged.cameraPushbackStrength)
+      : DEFAULT_TIMING.cameraPushbackStrength;
+  const cameraPushbackDecayStart = clamp(
+    merged.cameraPushbackDecayStart,
+    DEFAULT_TIMING.cameraPushbackDecayStart,
+    explosionImpulseEnd,
+    1,
+  );
+  const cameraPushbackDecayEnd = clamp(
+    merged.cameraPushbackDecayEnd,
+    DEFAULT_TIMING.cameraPushbackDecayEnd,
+    cameraPushbackDecayStart,
+    1,
+  );
 
   return {
     totalDurationMs,
@@ -59,6 +83,10 @@ export const resolveHeroOverviewRuntimeTiming = (timingOverrides = {}) => {
     explosionImpulseEnd,
     bulletTimeSlowdownEnd,
     overviewSettleEnd,
+    cameraPushbackDistance,
+    cameraPushbackStrength,
+    cameraPushbackDecayStart,
+    cameraPushbackDecayEnd,
   };
 };
 

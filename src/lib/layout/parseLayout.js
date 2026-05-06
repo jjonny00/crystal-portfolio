@@ -130,6 +130,10 @@ const parseHeroOverviewRuntimeTiming = (timing, path) => {
     'explosionImpulseEnd',
     'bulletTimeSlowdownEnd',
     'overviewSettleEnd',
+    'cameraPushbackDistance',
+    'cameraPushbackStrength',
+    'cameraPushbackDecayStart',
+    'cameraPushbackDecayEnd',
   ];
 
   numericKeys.forEach((key) => {
