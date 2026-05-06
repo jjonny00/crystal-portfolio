@@ -141,6 +141,12 @@ const parseHeroOverviewRuntimeTiming = (timing, path) => {
     'fragmentImpulseApplyScale',
     'fragmentImpulseDecayStart',
     'fragmentImpulseDecayEnd',
+    'fragmentBlastPortion',
+    'fragmentBlastTravel',
+    'fragmentSlowPortionEnd',
+    'fragmentSlowTravelEnd',
+    'fragmentTravelCurveStrength',
+    'fragmentSettleCurveStrength',
   ];
 
   numericKeys.forEach((key) => {
