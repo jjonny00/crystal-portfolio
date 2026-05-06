@@ -188,12 +188,29 @@ const UnifiedCrystalScene = forwardRef(({
       axisZ * rotationMagnitude,
       'XYZ',
     );
+    const impulseApplyScale = THREE.MathUtils.clamp(Number(timing.fragmentImpulseApplyScale ?? 0.15), 0, 200);
+    const isFiniteComputedOffset = computedPositionOffset.toArray().every(Number.isFinite);
+    const isFiniteComputedRotation =
+      Number.isFinite(computedRotationOffset.x) &&
+      Number.isFinite(computedRotationOffset.y) &&
+      Number.isFinite(computedRotationOffset.z);
+    const appliedPositionOffset = isFiniteComputedOffset
+      ? computedPositionOffset.clone().multiplyScalar(impulseApplyScale)
+      : zeroPositionOffset;
+    const appliedRotationOffset = isFiniteComputedRotation
+      ? new THREE.Euler(
+        computedRotationOffset.x * impulseApplyScale,
+        computedRotationOffset.y * impulseApplyScale,
+        computedRotationOffset.z * impulseApplyScale,
+        'XYZ',
+      )
+      : zeroRotationOffset;
 
     return {
       computedPositionOffset,
       computedRotationOffset,
-      appliedPositionOffset: zeroPositionOffset,
-      appliedRotationOffset: zeroRotationOffset,
+      appliedPositionOffset,
+      appliedRotationOffset,
     };
   };
   
@@ -1943,6 +1960,12 @@ const UnifiedCrystalScene = forwardRef(({
                   Number.isFinite(computedRotationOffset.x) &&
                   Number.isFinite(computedRotationOffset.y) &&
                   Number.isFinite(computedRotationOffset.z);
+                const appliedPositionOffsetLength = appliedPositionOffset.length();
+                const appliedRotationOffsetLength = Math.sqrt(
+                  (appliedRotationOffset.x ** 2) +
+                  (appliedRotationOffset.y ** 2) +
+                  (appliedRotationOffset.z ** 2)
+                );
                 console.log('[hero-overview-fragment-hook] impulse computed', {
                   runtimePhase,
                   fragmentVisualPhase,
@@ -1963,8 +1986,28 @@ const UnifiedCrystalScene = forwardRef(({
                   isFiniteComputedOffset,
                   isFiniteComputedRotation,
                   offsetZeroByOverviewSettle:
-                    runtimePhase === 'overviewSettle' || runtimePhase === 'complete',
-                  reasonAppliedOffsetIsZero: 'diagnostic-only',
+                    fragmentVisualPhase === 'overviewSettle' || fragmentVisualPhase === 'complete',
+                });
+                console.log('[hero-overview-fragment-hook] visual impulse applied', {
+                  facetKey,
+                  facetIndex: index,
+                  runtimePhase,
+                  fragmentVisualPhase,
+                  fragmentVisualProgress: Number(fragmentVisualProgress.toFixed(4)),
+                  basePosition: basePosition.toArray(),
+                  computedPositionOffset: computedPositionOffset.toArray(),
+                  appliedPositionOffset: appliedPositionOffset.toArray(),
+                  appliedPositionOffsetLength: Number(appliedPositionOffsetLength.toFixed(4)),
+                  finalPosition: finalPosition.toArray(),
+                  baseRotation: [baseEuler.x, baseEuler.y, baseEuler.z],
+                  computedRotationOffset: [computedRotationOffset.x, computedRotationOffset.y, computedRotationOffset.z],
+                  appliedRotationOffset: [appliedRotationOffset.x, appliedRotationOffset.y, appliedRotationOffset.z],
+                  appliedRotationOffsetLength: Number(appliedRotationOffsetLength.toFixed(4)),
+                  finalRotation: [finalEuler.x, finalEuler.y, finalEuler.z],
+                  offsetZeroByOverviewSettle:
+                    fragmentVisualPhase === 'overviewSettle' || fragmentVisualPhase === 'complete'
+                      ? (appliedPositionOffsetLength <= 0.000001 && appliedRotationOffsetLength <= 0.000001)
+                      : false,
                 });
               }
             }

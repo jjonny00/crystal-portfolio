@@ -266,7 +266,7 @@ export const timing = {
     fragmentImpulseDistance: 0.45,
     fragmentImpulseStrength: 1.0,
     fragmentRotationStrength: 0.35,
-    fragmentImpulseApplyScale: 1.0,
+    fragmentImpulseApplyScale: 0.15,
     fragmentImpulseDecayStart: 0.36,
     fragmentImpulseDecayEnd: 0.72,
   },
