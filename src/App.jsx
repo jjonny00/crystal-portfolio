@@ -334,7 +334,19 @@ const buildAnimationConfig = (uiConfig) => {
           ANIMATION_CONFIG.crystal.explodedRotations.exploration
         )
       }
-    }
+    },
+    timing: {
+      ...(ANIMATION_CONFIG.timing || {}),
+      ...(uiConfig.timing || {}),
+      camera: {
+        ...(ANIMATION_CONFIG.timing?.camera || {}),
+        ...(uiConfig.timing?.camera || {}),
+      },
+      heroOverviewRuntime: {
+        ...(ANIMATION_CONFIG.timing?.heroOverviewRuntime || {}),
+        ...(uiConfig.timing?.heroOverviewRuntime || {}),
+      },
+    },
   };
 };
 

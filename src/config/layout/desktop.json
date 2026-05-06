@@ -586,6 +586,13 @@
       "reformDuration": 900,
       "facetZoomDuration": 1000,
       "facetReturnDuration": 1200
+    },
+    "heroOverviewRuntime": {
+      "totalDurationMs": 1500,
+      "fractureChargeEnd": 0.0933333333,
+      "explosionImpulseEnd": 0.24,
+      "bulletTimeSlowdownEnd": 0.72,
+      "overviewSettleEnd": 1
     }
   }
 }

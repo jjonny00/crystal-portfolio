@@ -249,7 +249,16 @@ export const timing = {
     transitionStartTime: 0.8, // seconds - when idle animation blend starts
     transitionEndTime: 1.5,   // seconds - when idle animation blend completes
     settlingDuration: 5,      // seconds - how long the settling effect lasts
-  }
+  },
+
+  // Hero -> overview no-op runtime timeline scaffolding
+  heroOverviewRuntime: {
+    totalDurationMs: 1500,
+    fractureChargeEnd: 0.0933333333,
+    explosionImpulseEnd: 0.24,
+    bulletTimeSlowdownEnd: 0.72,
+    overviewSettleEnd: 1.0,
+  },
 }
 
 // === SPRING PHYSICS CONFIGURATIONS ===

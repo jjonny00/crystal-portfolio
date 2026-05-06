@@ -121,6 +121,28 @@ const parseHeroTuning = (heroTuning, path) => {
   return parsed;
 };
 
+const parseHeroOverviewRuntimeTiming = (timing, path) => {
+  assertObject(timing, path);
+  const parsed = {};
+  const numericKeys = [
+    'totalDurationMs',
+    'fractureChargeEnd',
+    'explosionImpulseEnd',
+    'bulletTimeSlowdownEnd',
+    'overviewSettleEnd',
+  ];
+
+  numericKeys.forEach((key) => {
+    if (timing[key] === undefined) return;
+    if (typeof timing[key] !== 'number' || !Number.isFinite(timing[key])) {
+      throw new Error(`Invalid layout at ${path}.${key}: expected finite number.`);
+    }
+    parsed[key] = timing[key];
+  });
+
+  return parsed;
+};
+
 const parseOffsetsObject = (offsets, path) => {
   assertObject(offsets, path);
 
@@ -270,6 +292,20 @@ export const parseLayout = (rawLayout) => {
     }
 
     parsed.projects = projects;
+  }
+
+  if (rawLayout.timing !== undefined) {
+    assertObject(rawLayout.timing, 'timing');
+    const timing = {};
+    if (rawLayout.timing.heroOverviewRuntime !== undefined) {
+      timing.heroOverviewRuntime = parseHeroOverviewRuntimeTiming(
+        rawLayout.timing.heroOverviewRuntime,
+        'timing.heroOverviewRuntime',
+      );
+    }
+    if (Object.keys(timing).length > 0) {
+      parsed.timing = timing;
+    }
   }
 
   return parsed;

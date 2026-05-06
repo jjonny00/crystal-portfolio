@@ -185,7 +185,14 @@ const Fixed3DCanvas = forwardRef(({
 
   const sanitizePass = useMemo(() => createSanitizePass(), []);
   const { layout, variant } = useLayoutConfig();
-  const heroOverviewRuntime = useHeroOverviewRuntime();
+  const heroOverviewRuntimeTimingConfig = useMemo(
+    () => ({
+      ...(config?.timing?.heroOverviewRuntime || {}),
+      ...(layout?.timing?.heroOverviewRuntime || {}),
+    }),
+    [config?.timing?.heroOverviewRuntime, layout?.timing?.heroOverviewRuntime],
+  );
+  const heroOverviewRuntime = useHeroOverviewRuntime(heroOverviewRuntimeTimingConfig);
   const lastHeroOverviewStartRef = useRef('');
   const lastHeroOverviewZoneRef = useRef(null);
 
@@ -386,6 +393,16 @@ const Fixed3DCanvas = forwardRef(({
       };
     }
 
+    if (layout?.timing?.heroOverviewRuntime) {
+      nextConfig.timing = {
+        ...(nextConfig.timing || {}),
+        heroOverviewRuntime: {
+          ...(nextConfig.timing?.heroOverviewRuntime || {}),
+          ...layout.timing.heroOverviewRuntime,
+        },
+      };
+    }
+
     if (import.meta.env.DEV) {
       const deviceKey = variant === 'mobile' ? 'mobile' : 'desktop';
       console.log('[camera-merge] runtime config fields', {
@@ -399,7 +416,7 @@ const Fixed3DCanvas = forwardRef(({
     }
 
     return nextConfig;
-  }, [cameraRuntimeOverrides, config, layout?.camera, layout?.projects, projectRuntimeOverrides, variant]);
+  }, [cameraRuntimeOverrides, config, layout?.camera, layout?.projects, layout?.timing, projectRuntimeOverrides, variant]);
 
   const runtimeOverrideLogShownRef = useRef(false);
 
