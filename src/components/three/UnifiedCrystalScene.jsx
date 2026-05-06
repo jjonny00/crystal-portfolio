@@ -98,6 +98,8 @@ const UnifiedCrystalScene = forwardRef(({
   const heroOverviewPostCompleteWriterLoggedRef = useRef(new Set());
   const heroOverviewFragmentCurveSampleLoggedRef = useRef(new Set());
   const heroOverviewFragmentTimingResolvedLoggedRef = useRef(false);
+  const heroOverviewTravelDistanceAuditLoggedRef = useRef(false);
+  const heroOverviewVisibleTravelSampleLoggedRef = useRef(new Set());
 
   const deriveFragmentVisualTiming = (runtimeState, explosionProgress) => {
     const timing = runtimeState?.timing || {};
@@ -313,6 +315,8 @@ const UnifiedCrystalScene = forwardRef(({
   }, [mergedConfig, onFractureStart]);
 
   const runExplodeSwap = useCallback(() => {
+    heroOverviewTravelDistanceAuditLoggedRef.current = false;
+    heroOverviewVisibleTravelSampleLoggedRef.current.clear();
     setShowWholeCrystal(false);
     setShowFacets(true);
     setSphereVisible(true);
@@ -2052,6 +2056,135 @@ const UnifiedCrystalScene = forwardRef(({
             }
           }
         });
+
+        if (typeof globalThis !== 'undefined' && globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__) {
+          const visibleCheckpoints = [0.02, 0.05, 0.10, 0.25, 0.50, 0.75, 1.00];
+          const sampleCheckpoint = visibleCheckpoints.find((cp) => Math.abs(progress - cp) <= 0.015);
+          let minStartEndDistance = Number.POSITIVE_INFINITY;
+          let maxStartEndDistance = 0;
+          let sumStartEndDistance = 0;
+          let facetCount = 0;
+          let largestMovingFacetKey = null;
+          let largestMovingFacetDistance = -1;
+          let smallestMovingFacetKey = null;
+          let smallestMovingFacetDistance = Number.POSITIVE_INFINITY;
+          let firstFacetStartEndDistance = 0;
+          let firstFacetDistanceToFinal = 0;
+          let largestFacetDistanceToFinal = 0;
+          let fragmentAvgDistanceToFinal = 0;
+          let firstFacetSample = null;
+          let largestFacetSample = null;
+
+          facetRefs.current.forEach((facetRef2, idx) => {
+            const facetKey2 = facetKeys[idx];
+            const end2 = crystalConfig?.positions?.[facetPlacementKeys[facetKey2] || facetKey2];
+            if (!facetRef2?.current || !end2) return;
+            const start2 = (crystalConfig?.fracturePositions?.[facetPlacementKeys[facetKey2] || facetKey2])
+              || end2.clone().normalize().multiplyScalar(end2.length() * (crystalConfig?.fractureDistance ?? 0.3));
+            const targetQuat2 = baseFacetTargetQuats[facetKey2] || neutralQuat;
+            const adjustedStart2 = getAnchorAdjustedPosition(facetKey2, start2, targetQuat2);
+            const adjustedEnd2 = getAnchorAdjustedPosition(facetKey2, end2, targetQuat2);
+            const dist = adjustedStart2.distanceTo(adjustedEnd2);
+            const currentPos = facetRef2.current.position.clone();
+            const remaining = currentPos.distanceTo(adjustedEnd2);
+            fragmentAvgDistanceToFinal += remaining;
+            facetCount += 1;
+            minStartEndDistance = Math.min(minStartEndDistance, dist);
+            maxStartEndDistance = Math.max(maxStartEndDistance, dist);
+            sumStartEndDistance += dist;
+            if (dist > largestMovingFacetDistance) {
+              largestMovingFacetDistance = dist;
+              largestMovingFacetKey = facetKey2;
+              largestFacetDistanceToFinal = remaining;
+              largestFacetSample = {
+                facetKey: facetKey2,
+                startPosition: adjustedStart2.toArray(),
+                endPosition: adjustedEnd2.toArray(),
+                currentPosition: currentPos.toArray(),
+                totalTravelDistance: Number(dist.toFixed(4)),
+                remainingDistanceToEnd: Number(remaining.toFixed(4)),
+                percentDistanceRemaining: dist > 0 ? Number((remaining / dist).toFixed(4)) : 0,
+                actualWorldPosition: facetRef2.current.getWorldPosition(new THREE.Vector3()).toArray(),
+                positionDifferenceFromIntended: currentPos.clone().sub(adjustedStart2.clone().lerp(adjustedEnd2, travelProgress)).toArray(),
+              };
+            }
+            if (dist < smallestMovingFacetDistance) {
+              smallestMovingFacetDistance = dist;
+              smallestMovingFacetKey = facetKey2;
+            }
+            if (idx === 0) {
+              firstFacetStartEndDistance = dist;
+              firstFacetDistanceToFinal = remaining;
+              firstFacetSample = {
+                facetKey: facetKey2,
+                startPosition: adjustedStart2.toArray(),
+                endPosition: adjustedEnd2.toArray(),
+                currentPosition: currentPos.toArray(),
+                totalTravelDistance: Number(dist.toFixed(4)),
+                remainingDistanceToEnd: Number(remaining.toFixed(4)),
+                percentDistanceRemaining: dist > 0 ? Number((remaining / dist).toFixed(4)) : 0,
+                actualWorldPosition: facetRef2.current.getWorldPosition(new THREE.Vector3()).toArray(),
+                positionDifferenceFromIntended: currentPos.clone().sub(adjustedStart2.clone().lerp(adjustedEnd2, travelProgress)).toArray(),
+              };
+            }
+          });
+          fragmentAvgDistanceToFinal = facetCount > 0 ? fragmentAvgDistanceToFinal / facetCount : 0;
+          if (!heroOverviewTravelDistanceAuditLoggedRef.current && facetCount > 0) {
+            heroOverviewTravelDistanceAuditLoggedRef.current = true;
+            console.log('[hero-overview-fragment-hook] travel distance audit', {
+              facetCount,
+              minStartEndDistance: Number(minStartEndDistance.toFixed(4)),
+              maxStartEndDistance: Number(maxStartEndDistance.toFixed(4)),
+              avgStartEndDistance: Number((sumStartEndDistance / facetCount).toFixed(4)),
+              firstFacetStartEndDistance: Number(firstFacetStartEndDistance.toFixed(4)),
+              largestMovingFacetKey,
+              largestMovingFacetDistance: Number(largestMovingFacetDistance.toFixed(4)),
+              smallestMovingFacetKey,
+              smallestMovingFacetDistance: Number(smallestMovingFacetDistance.toFixed(4)),
+            });
+          }
+          if (sampleCheckpoint != null && !heroOverviewVisibleTravelSampleLoggedRef.current.has(sampleCheckpoint)) {
+            heroOverviewVisibleTravelSampleLoggedRef.current.add(sampleCheckpoint);
+            const runtimeSnapshotForSample = heroOverviewRuntime?.getSnapshot?.() ?? null;
+            const { travelProgress: fragmentTravelProgressRaw } = resolveHeroOverviewFragmentTravel(
+              runtimeSnapshotForSample,
+              config?.timing?.heroOverviewRuntime,
+              progress,
+            );
+            const fragmentTravelProgress = progress >= 1 ? 1 : Number((fragmentTravelProgressRaw ?? 1).toFixed(4));
+            if (firstFacetSample) {
+              console.log('[hero-overview-fragment-hook] visible travel sample', {
+                ...firstFacetSample,
+                fragmentVisualProgress: Number(progress.toFixed(4)),
+                fragmentVisualPhase: deriveFragmentVisualTiming(runtimeSnapshotForSample, progress).fragmentVisualPhase,
+                travelProgress: fragmentTravelProgress,
+                overwritten: firstFacetSample.positionDifferenceFromIntended.some((v) => Math.abs(v) > 0.0001),
+              });
+            }
+            if (largestFacetSample && largestFacetSample.facetKey !== firstFacetSample?.facetKey) {
+              console.log('[hero-overview-fragment-hook] visible travel sample', {
+                ...largestFacetSample,
+                fragmentVisualProgress: Number(progress.toFixed(4)),
+                fragmentVisualPhase: deriveFragmentVisualTiming(runtimeSnapshotForSample, progress).fragmentVisualPhase,
+                travelProgress: fragmentTravelProgress,
+                overwritten: largestFacetSample.positionDifferenceFromIntended.some((v) => Math.abs(v) > 0.0001),
+              });
+            }
+            const cameraAppliedOffsetLength = Number(globalThis.__HERO_OVERVIEW_CAMERA_APPLIED_OFFSET_LENGTH__ ?? 0);
+            console.log('[hero-overview-sync] camera vs fragment finish audit', {
+              runtimeProgress: Number((runtimeSnapshotForSample?.progress ?? progress).toFixed(4)),
+              fragmentVisualProgress: Number(progress.toFixed(4)),
+              fragmentTravelProgress,
+              cameraAppliedOffsetLength: Number(cameraAppliedOffsetLength.toFixed(4)),
+              cameraDistanceToFinal: null,
+              fragmentAvgDistanceToFinal: Number(fragmentAvgDistanceToFinal.toFixed(4)),
+              firstFacetDistanceToFinal: Number(firstFacetDistanceToFinal.toFixed(4)),
+              largestFacetDistanceToFinal: Number(largestFacetDistanceToFinal.toFixed(4)),
+              cameraNearFinal: cameraAppliedOffsetLength <= 0.01,
+              fragmentsNearFinal: fragmentAvgDistanceToFinal <= 0.01,
+            });
+          }
+        }
 
         if (progress >= 1) {
           explosionStartRef.current = null; // Animation finished
