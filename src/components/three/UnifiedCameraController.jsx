@@ -2085,7 +2085,7 @@ const UnifiedCameraController = ({
         const applyScale = THREE.MathUtils.clamp(
           Number(runtimeSnapshot?.timing?.cameraPushbackApplyScale ?? config?.timing?.heroOverviewRuntime?.cameraPushbackApplyScale ?? 0.15),
           0,
-          1,
+          200,
         );
         const resolvedTiming = runtimeSnapshot?.timing ?? config?.timing?.heroOverviewRuntime ?? null;
         const isFiniteComputedOffset = computedOffset.toArray().every(Number.isFinite);

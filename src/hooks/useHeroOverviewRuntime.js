@@ -80,7 +80,8 @@ export const resolveHeroOverviewRuntimeTiming = (timingOverrides = {}) => {
   );
   const cameraPushbackApplyScale =
     typeof merged.cameraPushbackApplyScale === 'number' && Number.isFinite(merged.cameraPushbackApplyScale)
-      ? Math.min(Math.max(merged.cameraPushbackApplyScale, 0), 1)
+      // Keep uncapped above 1 so temporary diagnostic scales (e.g. 100) survive resolution.
+      ? Math.min(Math.max(merged.cameraPushbackApplyScale, 0), 200)
       : DEFAULT_TIMING.cameraPushbackApplyScale;
 
   return {
