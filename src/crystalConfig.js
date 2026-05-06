@@ -258,9 +258,9 @@ export const timing = {
     explosionImpulseEnd: 0.24,
     bulletTimeSlowdownEnd: 0.72,
     overviewSettleEnd: 1.0,
-    cameraPushbackDistance: 0.12,
-    cameraPushbackStrength: 1.0,
-    cameraPushbackDecayStart: 0.42,
+    cameraPushbackDistance: 0.18,
+    cameraPushbackStrength: 1.4,
+    cameraPushbackDecayStart: 0.36,
     cameraPushbackDecayEnd: 0.72,
   },
 }

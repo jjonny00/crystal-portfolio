@@ -254,7 +254,7 @@ const UnifiedCameraController = ({
       const phaseStart = THREE.MathUtils.clamp(timing.fractureChargeEnd ?? 0, 0, 1);
       const phaseEnd = THREE.MathUtils.clamp(timing.explosionImpulseEnd ?? phaseStart, phaseStart, 1);
       const local = phaseEnd > phaseStart ? (progress - phaseStart) / (phaseEnd - phaseStart) : 1;
-      phaseAmount = smoothstep(local);
+      phaseAmount = Math.max(0.4, smoothstep(local));
     } else if (progress >= decayStart) {
       const decayT = decayEnd > decayStart ? (progress - decayStart) / (decayEnd - decayStart) : 1;
       phaseAmount = 1 - smoothstep(decayT);
@@ -2089,9 +2089,10 @@ const UnifiedCameraController = ({
               finalPosition: finalPosition.toArray(),
               isFiniteComputedOffset,
               computedOffsetLength: Number(computedOffsetLength.toFixed(4)),
-              wouldBeZeroByOverviewSettle: runtimePhase === 'overviewSettle' || runtimePhase === 'complete'
-                ? computedOffsetLength <= 0.000001
-                : null,
+              wouldBeZeroByOverviewSettle:
+                runtimePhase === 'overviewSettle' || runtimePhase === 'complete'
+                  ? computedOffsetLength <= 0.000001
+                  : true,
               reasonAppliedOffsetIsZero: 'diagnostic-only',
             });
           }
