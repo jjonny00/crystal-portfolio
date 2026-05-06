@@ -10,7 +10,8 @@ const DEFAULT_TIMING = {
   cameraPushbackStrength: 1.4,
   cameraPushbackDecayStart: 0.36,
   cameraPushbackDecayEnd: 0.72,
-  cameraPushbackApplyScale: 0.35,
+  // DIAGNOSTIC ONLY: intentionally extreme scale for temporary visual verification.
+  cameraPushbackApplyScale: 2.0,
 };
 
 const PHASES = {
