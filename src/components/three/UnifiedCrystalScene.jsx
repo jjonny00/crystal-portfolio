@@ -127,7 +127,8 @@ const UnifiedCrystalScene = forwardRef(({
     const zeroRotationOffset = new THREE.Euler(0, 0, 0, 'XYZ');
     if (!runtimeState || !runtimeState.active) {
       return {
-        travelProgress: 0,
+        travelProgress: null,
+        useBaseInterpolation: true,
         computedRotationOffset: zeroRotationOffset,
         appliedRotationOffset: zeroRotationOffset,
       };
@@ -165,6 +166,7 @@ const UnifiedCrystalScene = forwardRef(({
 
     return {
       travelProgress: clampedTravelProgress,
+      useBaseInterpolation: false,
       computedRotationOffset,
       appliedRotationOffset,
     };
@@ -1859,6 +1861,7 @@ const UnifiedCrystalScene = forwardRef(({
             const { fragmentVisualPhase, fragmentVisualProgress } = deriveFragmentVisualTiming(runtimeSnapshot, progress);
             const {
               travelProgress,
+              useBaseInterpolation,
               computedRotationOffset,
               appliedRotationOffset,
             } = resolveHeroOverviewFragmentTravel(
@@ -1866,7 +1869,13 @@ const UnifiedCrystalScene = forwardRef(({
               config?.timing?.heroOverviewRuntime,
               fragmentVisualProgress,
             );
-            const finalPosition = start.clone().lerp(end, travelProgress);
+            const anchorAdjustedStartPosition = getAnchorAdjustedPosition(facetKey, start, targetQuat);
+            const anchorAdjustedEndPosition = getAnchorAdjustedPosition(facetKey, end, targetQuat);
+            const runtimeFinalPosition = useBaseInterpolation
+              ? basePosition.clone()
+              : anchorAdjustedStartPosition.clone().lerp(anchorAdjustedEndPosition, travelProgress);
+            const steadyStateExplodedPosition = anchorAdjustedEndPosition.clone();
+            const finalPosition = runtimeFinalPosition;
             const finalEuler = new THREE.Euler(
               baseEuler.x + appliedRotationOffset.x,
               baseEuler.y + appliedRotationOffset.y,
@@ -1927,16 +1936,25 @@ const UnifiedCrystalScene = forwardRef(({
                 if (shouldLogTravelSample) {
                   heroOverviewFragmentTravelLoggedRef.current.add(sampledProgressBucket);
                   const previousTravelProgress = heroOverviewFragmentPreviousTravelProgressRef.current.get(facetKey);
-                  const monotonic = previousTravelProgress == null || travelProgress >= previousTravelProgress;
-                  const overshoot = travelProgress < 0 || travelProgress > 1;
-                  heroOverviewFragmentPreviousTravelProgressRef.current.set(facetKey, travelProgress);
+                  const monotonic = travelProgress == null
+                    ? true
+                    : (previousTravelProgress == null || travelProgress >= previousTravelProgress);
+                  const overshoot = travelProgress == null ? false : (travelProgress < 0 || travelProgress > 1);
+                  if (travelProgress != null) {
+                    heroOverviewFragmentPreviousTravelProgressRef.current.set(facetKey, travelProgress);
+                  }
                   console.log('[hero-overview-fragment-hook] travel model', {
                     facetKey,
                     fragmentVisualPhase,
                     fragmentVisualProgress: Number(fragmentVisualProgress.toFixed(4)),
                     startPosition: start.toArray(),
                     endPosition: end.toArray(),
-                    travelProgress: Number(travelProgress.toFixed(4)),
+                    anchorAdjustedStartPosition: anchorAdjustedStartPosition.toArray(),
+                    anchorAdjustedEndPosition: anchorAdjustedEndPosition.toArray(),
+                    runtimeFinalPosition: runtimeFinalPosition.toArray(),
+                    steadyStateExplodedPosition: steadyStateExplodedPosition.toArray(),
+                    differenceToSteadyState: runtimeFinalPosition.clone().sub(steadyStateExplodedPosition).toArray(),
+                    travelProgress: travelProgress == null ? null : Number(travelProgress.toFixed(4)),
                     previousTravelProgress: previousTravelProgress == null ? null : Number(previousTravelProgress.toFixed(4)),
                     monotonic,
                     overshoot,
