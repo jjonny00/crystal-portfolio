@@ -230,7 +230,43 @@ const UnifiedCameraController = ({
   };
 
   const resolveHeroOverviewCameraOffset = (runtimeState, runtimeSettings, basePosition, lookAtTarget) => {
-    return new THREE.Vector3(0, 0, 0);
+    const zeroOffset = new THREE.Vector3(0, 0, 0);
+    if (!runtimeState || !runtimeState.active) return zeroOffset;
+
+    const phase = runtimeState.phase;
+    const progress = THREE.MathUtils.clamp(runtimeState.progress ?? 0, 0, 1);
+    const timing = runtimeState.timing || runtimeSettings || {};
+    const pushbackDistance = Math.max(0, Number(timing.cameraPushbackDistance ?? 0));
+    const pushbackStrength = Math.max(0, Number(timing.cameraPushbackStrength ?? 0));
+    const decayStart = THREE.MathUtils.clamp(Number(timing.cameraPushbackDecayStart ?? 0.42), 0, 1);
+    const decayEnd = THREE.MathUtils.clamp(Number(timing.cameraPushbackDecayEnd ?? 0.72), decayStart, 1);
+
+    if (pushbackDistance <= 0 || pushbackStrength <= 0) return zeroOffset;
+    if (phase !== 'explosionImpulse' && phase !== 'bulletTimeSlowdown') return zeroOffset;
+
+    const smoothstep = (v) => {
+      const p = THREE.MathUtils.clamp(v, 0, 1);
+      return p * p * (3 - 2 * p);
+    };
+
+    let phaseAmount = 1;
+    if (phase === 'explosionImpulse') {
+      const phaseStart = THREE.MathUtils.clamp(timing.fractureChargeEnd ?? 0, 0, 1);
+      const phaseEnd = THREE.MathUtils.clamp(timing.explosionImpulseEnd ?? phaseStart, phaseStart, 1);
+      const local = phaseEnd > phaseStart ? (progress - phaseStart) / (phaseEnd - phaseStart) : 1;
+      phaseAmount = smoothstep(local);
+    } else if (progress >= decayStart) {
+      const decayT = decayEnd > decayStart ? (progress - decayStart) / (decayEnd - decayStart) : 1;
+      phaseAmount = 1 - smoothstep(decayT);
+    }
+
+    const pushbackAmount = Math.max(0, pushbackDistance * pushbackStrength * phaseAmount);
+    if (pushbackAmount <= 0.000001) return zeroOffset;
+
+    const viewDirection = new THREE.Vector3().subVectors(lookAtTarget, basePosition);
+    if (viewDirection.lengthSq() <= 0.0000001) return zeroOffset;
+    const pushbackDirection = viewDirection.normalize().multiplyScalar(-1);
+    return pushbackDirection.multiplyScalar(pushbackAmount);
   };
 
   const syncFractureTiltState = (elapsedSeconds = 0) => {
@@ -2022,8 +2058,9 @@ const UnifiedCameraController = ({
             lookAtProgress,
           );
         }
-        const runtimeOffset = resolveHeroOverviewCameraOffset(runtimeSnapshot, config?.timing?.heroOverviewRuntime);
-        const finalPosition = basePosition.clone().add(runtimeOffset);
+        const computedOffset = resolveHeroOverviewCameraOffset(runtimeSnapshot, config?.timing?.heroOverviewRuntime, basePosition, forcedLookAt);
+        const appliedOffset = new THREE.Vector3(0, 0, 0);
+        const finalPosition = basePosition.clone().add(appliedOffset);
         camera.position.copy(finalPosition);
         camera.lookAt(forcedLookAt);
         camera.filmOffset = isDollyPhase
@@ -2040,16 +2077,22 @@ const UnifiedCameraController = ({
           }
           if (!heroOverviewCameraHookPhaseLoggedRef.current.has(runtimePhase)) {
             heroOverviewCameraHookPhaseLoggedRef.current.add(runtimePhase);
-            console.log('[hero-overview-camera-hook] offset applied', {
+            const computedOffsetLength = computedOffset.length();
+            const computedOffsetArray = computedOffset.toArray();
+            const isFiniteComputedOffset = computedOffsetArray.every(Number.isFinite);
+            console.log('[hero-overview-camera-hook] offset computed', {
               runtimePhase,
               runtimeProgress: Number(runtimeProgress.toFixed?.(3) ?? runtimeProgress),
-              pushbackAmount: Number(runtimeOffset.length().toFixed(4)),
-              pushbackDirection: runtimeOffset.length() > 0.000001
-                ? runtimeOffset.clone().normalize().toArray()
-                : [0, 0, 0],
+              computedOffset: computedOffsetArray,
+              appliedOffset: appliedOffset.toArray(),
               basePosition: basePosition.toArray(),
-              offset: runtimeOffset.toArray(),
               finalPosition: finalPosition.toArray(),
+              isFiniteComputedOffset,
+              computedOffsetLength: Number(computedOffsetLength.toFixed(4)),
+              wouldBeZeroByOverviewSettle: runtimePhase === 'overviewSettle' || runtimePhase === 'complete'
+                ? computedOffsetLength <= 0.000001
+                : null,
+              reasonAppliedOffsetIsZero: 'diagnostic-only',
             });
           }
         }
