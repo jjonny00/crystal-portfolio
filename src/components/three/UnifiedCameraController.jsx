@@ -2103,6 +2103,7 @@ const UnifiedCameraController = ({
                   ? appliedOffsetLength <= 0.000001
                   : false,
             });
+            globalThis.__HERO_OVERVIEW_CAMERA_APPLIED_OFFSET_LENGTH__ = appliedOffsetLength;
           }
         }
       }

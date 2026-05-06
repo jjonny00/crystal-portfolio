@@ -1961,6 +1961,19 @@ const UnifiedCrystalScene = forwardRef(({
                     finalPosition: finalPosition.toArray(),
                     appliedRotationOffset: [appliedRotationOffset.x, appliedRotationOffset.y, appliedRotationOffset.z],
                   });
+                  const cameraAppliedOffsetLength = Number(globalThis.__HERO_OVERVIEW_CAMERA_APPLIED_OFFSET_LENGTH__ ?? 0);
+                  const cameraNearFinal = cameraAppliedOffsetLength <= 0.01;
+                  const fragmentNearFinal = steadyStateExplodedPosition.distanceTo(runtimeFinalPosition) <= 0.01;
+                  console.log('[hero-overview-sync] timing sample', {
+                    runtimeProgress: Number(runtimeProgress.toFixed?.(3) ?? runtimeProgress),
+                    runtimePhase,
+                    fragmentVisualProgress: Number(fragmentVisualProgress.toFixed(4)),
+                    fragmentVisualPhase,
+                    fragmentTravelProgress: travelProgress == null ? null : Number(travelProgress.toFixed(4)),
+                    cameraAppliedOffsetLength: Number(cameraAppliedOffsetLength.toFixed(4)),
+                    cameraNearFinal,
+                    fragmentNearFinal,
+                  });
                 }
 
                 if (!heroOverviewFragmentFinalTransformLoggedRef.current.has(fragmentVisualPhase)) {
