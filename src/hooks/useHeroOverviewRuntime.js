@@ -12,10 +12,11 @@ const DEFAULT_TIMING = {
   cameraPushbackDecayEnd: 0.72,
   // Practical starter scale; keep >1 support for iterative tuning.
   cameraPushbackApplyScale: 2,
-  fragmentImpulseDistance: 0.45,
-  fragmentImpulseStrength: 1.0,
-  fragmentRotationStrength: 0.35,
-  fragmentImpulseApplyScale: 0.15,
+  // DIAGNOSTIC ONLY: intentionally extreme fragment impulse defaults for visibility validation.
+  fragmentImpulseDistance: 1.8,
+  fragmentImpulseStrength: 3.0,
+  fragmentRotationStrength: 1.2,
+  fragmentImpulseApplyScale: 10,
   fragmentImpulseDecayStart: 0.36,
   fragmentImpulseDecayEnd: 0.72,
 };
