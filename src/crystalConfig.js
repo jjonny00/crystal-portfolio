@@ -269,12 +269,12 @@ export const timing = {
     fragmentImpulseApplyScale: 1.0,
     fragmentImpulseDecayStart: 0.36,
     fragmentImpulseDecayEnd: 0.72,
-    fragmentBlastPortion: 0.06,
-    fragmentBlastTravel: 0.68,
-    fragmentSlowPortionEnd: 0.32,
+    fragmentBlastPortion: 0.05,
+    fragmentBlastTravel: 0.50,
+    fragmentSlowPortionEnd: 0.75,
     fragmentSlowTravelEnd: 0.90,
-    fragmentTravelCurveStrength: 3.2,
-    fragmentSettleCurveStrength: 4.0,
+    fragmentTravelCurveStrength: 4.0,
+    fragmentSettleCurveStrength: 5.0,
   },
 }
 
