@@ -263,6 +263,12 @@ export const timing = {
     cameraPushbackDecayStart: 0.36,
     cameraPushbackDecayEnd: 0.72,
     cameraPushbackApplyScale: 2,
+    fragmentImpulseDistance: 0.45,
+    fragmentImpulseStrength: 1.0,
+    fragmentRotationStrength: 0.35,
+    fragmentImpulseApplyScale: 1.0,
+    fragmentImpulseDecayStart: 0.36,
+    fragmentImpulseDecayEnd: 0.72,
   },
 }
 

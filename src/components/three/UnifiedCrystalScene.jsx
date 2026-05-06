@@ -89,11 +89,82 @@ const UnifiedCrystalScene = forwardRef(({
   const [showCrystalDebug, setShowCrystalDebug] = useState(false);
   const heroOverviewFragmentWriterLoggedRef = useRef(false);
   const heroOverviewFragmentPhaseLoggedRef = useRef(new Set());
+  const heroOverviewFragmentObservedPhaseLoggedRef = useRef(new Set());
 
-  const resolveHeroOverviewFragmentOffset = () => ({
-    positionOffset: new THREE.Vector3(0, 0, 0),
-    rotationOffset: new THREE.Euler(0, 0, 0),
-  });
+  const resolveHeroOverviewFragmentOffset = (facetKey, facetIndex, runtimeState, runtimeSettings, basePosition) => {
+    const zeroPositionOffset = new THREE.Vector3(0, 0, 0);
+    const zeroRotationOffset = new THREE.Euler(0, 0, 0, 'XYZ');
+    if (!runtimeState || !runtimeState.active) {
+      return {
+        computedPositionOffset: zeroPositionOffset,
+        computedRotationOffset: zeroRotationOffset,
+        appliedPositionOffset: zeroPositionOffset,
+        appliedRotationOffset: zeroRotationOffset,
+      };
+    }
+
+    const timing = runtimeState.timing || runtimeSettings || {};
+    const phase = runtimeState.phase;
+    const progress = THREE.MathUtils.clamp(runtimeState.progress ?? 0, 0, 1);
+    if (phase !== 'explosionImpulse' && phase !== 'bulletTimeSlowdown') {
+      return {
+        computedPositionOffset: zeroPositionOffset,
+        computedRotationOffset: zeroRotationOffset,
+        appliedPositionOffset: zeroPositionOffset,
+        appliedRotationOffset: zeroRotationOffset,
+      };
+    }
+
+    const smoothstep = (v) => {
+      const p = THREE.MathUtils.clamp(v, 0, 1);
+      return p * p * (3 - 2 * p);
+    };
+
+    const decayStart = THREE.MathUtils.clamp(Number(timing.fragmentImpulseDecayStart ?? 0.36), 0, 1);
+    const decayEnd = THREE.MathUtils.clamp(Number(timing.fragmentImpulseDecayEnd ?? 0.72), decayStart, 1);
+    let phaseAmount = 1;
+    if (phase === 'explosionImpulse') {
+      const phaseStart = THREE.MathUtils.clamp(timing.fractureChargeEnd ?? 0, 0, 1);
+      const phaseEnd = THREE.MathUtils.clamp(timing.explosionImpulseEnd ?? phaseStart, phaseStart, 1);
+      const local = phaseEnd > phaseStart ? (progress - phaseStart) / (phaseEnd - phaseStart) : 1;
+      phaseAmount = Math.max(0.4, smoothstep(local));
+    } else if (progress >= decayStart) {
+      const decayT = decayEnd > decayStart ? (progress - decayStart) / (decayEnd - decayStart) : 1;
+      phaseAmount = 1 - smoothstep(decayT);
+    }
+
+    const impulseMagnitude = Math.max(
+      0,
+      Number(timing.fragmentImpulseDistance ?? 0.45) *
+      Number(timing.fragmentImpulseStrength ?? 1) *
+      Number(timing.fragmentImpulseApplyScale ?? 1) *
+      phaseAmount,
+    );
+
+    const outwardDirection = basePosition.lengthSq() > 0.000001
+      ? basePosition.clone().normalize()
+      : new THREE.Vector3(0, 1, 0);
+    const computedPositionOffset = outwardDirection.multiplyScalar(impulseMagnitude);
+
+    const seed = facetKey.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0) + facetIndex * 17;
+    const axisX = Math.sin(seed * 0.27);
+    const axisY = Math.cos(seed * 0.19);
+    const axisZ = Math.sin(seed * 0.13 + 1.7);
+    const rotationMagnitude = Math.max(0, Number(timing.fragmentRotationStrength ?? 0.35)) * phaseAmount;
+    const computedRotationOffset = new THREE.Euler(
+      axisX * rotationMagnitude,
+      axisY * rotationMagnitude,
+      axisZ * rotationMagnitude,
+      'XYZ',
+    );
+
+    return {
+      computedPositionOffset,
+      computedRotationOffset,
+      appliedPositionOffset: zeroPositionOffset,
+      appliedRotationOffset: zeroRotationOffset,
+    };
+  };
   
   // FIXED: Better hover state tracking
   const [hoveredFacet, setHoveredFacet] = useState(null);
@@ -1774,17 +1845,23 @@ const UnifiedCrystalScene = forwardRef(({
             const runtimeSnapshot = heroOverviewRuntime?.getSnapshot?.() ?? null;
             const runtimePhase = runtimeSnapshot?.phase ?? 'idle';
             const runtimeProgress = runtimeSnapshot?.progress ?? 0;
-            const { positionOffset, rotationOffset } = resolveHeroOverviewFragmentOffset(
+            const {
+              computedPositionOffset,
+              computedRotationOffset,
+              appliedPositionOffset,
+              appliedRotationOffset,
+            } = resolveHeroOverviewFragmentOffset(
               facetKey,
               index,
               runtimeSnapshot,
               config?.timing?.heroOverviewRuntime,
+              basePosition,
             );
-            const finalPosition = basePosition.clone().add(positionOffset);
+            const finalPosition = basePosition.clone().add(appliedPositionOffset);
             const finalEuler = new THREE.Euler(
-              baseEuler.x + rotationOffset.x,
-              baseEuler.y + rotationOffset.y,
-              baseEuler.z + rotationOffset.z,
+              baseEuler.x + appliedRotationOffset.x,
+              baseEuler.y + appliedRotationOffset.y,
+              baseEuler.z + appliedRotationOffset.z,
               'XYZ',
             );
             const finalQuat = new THREE.Quaternion().setFromEuler(finalEuler);
@@ -1799,19 +1876,46 @@ const UnifiedCrystalScene = forwardRef(({
                   branch: 'crystalForm=exploded && explosionStartRef.current active',
                 });
               }
+              if (!heroOverviewFragmentObservedPhaseLoggedRef.current.has(runtimePhase)) {
+                heroOverviewFragmentObservedPhaseLoggedRef.current.add(runtimePhase);
+                console.log('[hero-overview-fragment-hook] phase observed', {
+                  runtimePhase,
+                  runtimeProgress: Number(runtimeProgress.toFixed?.(3) ?? runtimeProgress),
+                });
+              }
               if (index === 0 && !heroOverviewFragmentPhaseLoggedRef.current.has(runtimePhase)) {
                 heroOverviewFragmentPhaseLoggedRef.current.add(runtimePhase);
-                console.log('[hero-overview-fragment-hook] offset applied', {
+                const computedPositionOffsetLength = computedPositionOffset.length();
+                const computedRotationOffsetLength = Math.sqrt(
+                  (computedRotationOffset.x ** 2) +
+                  (computedRotationOffset.y ** 2) +
+                  (computedRotationOffset.z ** 2)
+                );
+                const isFiniteComputedOffset = computedPositionOffset.toArray().every(Number.isFinite);
+                const isFiniteComputedRotation =
+                  Number.isFinite(computedRotationOffset.x) &&
+                  Number.isFinite(computedRotationOffset.y) &&
+                  Number.isFinite(computedRotationOffset.z);
+                console.log('[hero-overview-fragment-hook] impulse computed', {
                   runtimePhase,
                   runtimeProgress: Number(runtimeProgress.toFixed?.(3) ?? runtimeProgress),
                   facetKey,
                   facetIndex: index,
                   basePosition: basePosition.toArray(),
-                  positionOffset: positionOffset.toArray(),
+                  computedPositionOffset: computedPositionOffset.toArray(),
+                  computedPositionOffsetLength: Number(computedPositionOffsetLength.toFixed(4)),
+                  appliedPositionOffset: appliedPositionOffset.toArray(),
                   finalPosition: finalPosition.toArray(),
                   baseRotation: [baseEuler.x, baseEuler.y, baseEuler.z],
-                  rotationOffset: [rotationOffset.x, rotationOffset.y, rotationOffset.z],
+                  computedRotationOffset: [computedRotationOffset.x, computedRotationOffset.y, computedRotationOffset.z],
+                  computedRotationOffsetLength: Number(computedRotationOffsetLength.toFixed(4)),
+                  appliedRotationOffset: [appliedRotationOffset.x, appliedRotationOffset.y, appliedRotationOffset.z],
                   finalRotation: [finalEuler.x, finalEuler.y, finalEuler.z],
+                  isFiniteComputedOffset,
+                  isFiniteComputedRotation,
+                  offsetZeroByOverviewSettle:
+                    runtimePhase === 'overviewSettle' || runtimePhase === 'complete',
+                  reasonAppliedOffsetIsZero: 'diagnostic-only',
                 });
               }
             }

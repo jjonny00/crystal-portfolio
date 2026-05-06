@@ -12,6 +12,12 @@ const DEFAULT_TIMING = {
   cameraPushbackDecayEnd: 0.72,
   // Practical starter scale; keep >1 support for iterative tuning.
   cameraPushbackApplyScale: 2,
+  fragmentImpulseDistance: 0.45,
+  fragmentImpulseStrength: 1.0,
+  fragmentRotationStrength: 0.35,
+  fragmentImpulseApplyScale: 1.0,
+  fragmentImpulseDecayStart: 0.36,
+  fragmentImpulseDecayEnd: 0.72,
 };
 
 const PHASES = {
@@ -83,6 +89,34 @@ export const resolveHeroOverviewRuntimeTiming = (timingOverrides = {}) => {
       // Keep uncapped above 1 so temporary diagnostic scales (e.g. 100) survive resolution.
       ? Math.min(Math.max(merged.cameraPushbackApplyScale, 0), 200)
       : DEFAULT_TIMING.cameraPushbackApplyScale;
+  const fragmentImpulseDistance =
+    typeof merged.fragmentImpulseDistance === 'number' && Number.isFinite(merged.fragmentImpulseDistance)
+      ? Math.max(0, merged.fragmentImpulseDistance)
+      : DEFAULT_TIMING.fragmentImpulseDistance;
+  const fragmentImpulseStrength =
+    typeof merged.fragmentImpulseStrength === 'number' && Number.isFinite(merged.fragmentImpulseStrength)
+      ? Math.max(0, merged.fragmentImpulseStrength)
+      : DEFAULT_TIMING.fragmentImpulseStrength;
+  const fragmentRotationStrength =
+    typeof merged.fragmentRotationStrength === 'number' && Number.isFinite(merged.fragmentRotationStrength)
+      ? Math.max(0, merged.fragmentRotationStrength)
+      : DEFAULT_TIMING.fragmentRotationStrength;
+  const fragmentImpulseApplyScale =
+    typeof merged.fragmentImpulseApplyScale === 'number' && Number.isFinite(merged.fragmentImpulseApplyScale)
+      ? Math.min(Math.max(merged.fragmentImpulseApplyScale, 0), 200)
+      : DEFAULT_TIMING.fragmentImpulseApplyScale;
+  const fragmentImpulseDecayStart = clamp(
+    merged.fragmentImpulseDecayStart,
+    DEFAULT_TIMING.fragmentImpulseDecayStart,
+    explosionImpulseEnd,
+    1,
+  );
+  const fragmentImpulseDecayEnd = clamp(
+    merged.fragmentImpulseDecayEnd,
+    DEFAULT_TIMING.fragmentImpulseDecayEnd,
+    fragmentImpulseDecayStart,
+    1,
+  );
 
   return {
     totalDurationMs,
@@ -95,6 +129,12 @@ export const resolveHeroOverviewRuntimeTiming = (timingOverrides = {}) => {
     cameraPushbackDecayStart,
     cameraPushbackDecayEnd,
     cameraPushbackApplyScale,
+    fragmentImpulseDistance,
+    fragmentImpulseStrength,
+    fragmentRotationStrength,
+    fragmentImpulseApplyScale,
+    fragmentImpulseDecayStart,
+    fragmentImpulseDecayEnd,
   };
 };
 

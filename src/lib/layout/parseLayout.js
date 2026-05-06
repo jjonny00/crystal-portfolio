@@ -135,6 +135,12 @@ const parseHeroOverviewRuntimeTiming = (timing, path) => {
     'cameraPushbackDecayStart',
     'cameraPushbackDecayEnd',
     'cameraPushbackApplyScale',
+    'fragmentImpulseDistance',
+    'fragmentImpulseStrength',
+    'fragmentRotationStrength',
+    'fragmentImpulseApplyScale',
+    'fragmentImpulseDecayStart',
+    'fragmentImpulseDecayEnd',
   ];
 
   numericKeys.forEach((key) => {
