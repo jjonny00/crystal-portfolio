@@ -129,7 +129,7 @@ const UnifiedCrystalScene = forwardRef(({
     const zeroRotationOffset = new THREE.Euler(0, 0, 0, 'XYZ');
     if (!runtimeState || !runtimeState.active) {
       return {
-        travelProgress: null,
+        travelProgress: 1,
         useBaseInterpolation: true,
         computedRotationOffset: zeroRotationOffset,
         appliedRotationOffset: zeroRotationOffset,
@@ -1951,13 +1951,10 @@ const UnifiedCrystalScene = forwardRef(({
                 if (shouldLogTravelSample) {
                   heroOverviewFragmentTravelLoggedRef.current.add(sampledProgressBucket);
                   const previousTravelProgress = heroOverviewFragmentPreviousTravelProgressRef.current.get(facetKey);
-                  const monotonic = travelProgress == null
-                    ? true
-                    : (previousTravelProgress == null || travelProgress >= previousTravelProgress);
-                  const overshoot = travelProgress == null ? false : (travelProgress < 0 || travelProgress > 1);
-                  if (travelProgress != null) {
-                    heroOverviewFragmentPreviousTravelProgressRef.current.set(facetKey, travelProgress);
-                  }
+                  const resolvedTravelProgress = fragmentVisualPhase === 'complete' ? 1 : travelProgress;
+                  const monotonic = previousTravelProgress == null || resolvedTravelProgress >= previousTravelProgress;
+                  const overshoot = resolvedTravelProgress < 0 || resolvedTravelProgress > 1;
+                  heroOverviewFragmentPreviousTravelProgressRef.current.set(facetKey, resolvedTravelProgress);
                   console.log('[hero-overview-fragment-hook] travel model', {
                     facetKey,
                     fragmentVisualPhase,
@@ -1969,7 +1966,7 @@ const UnifiedCrystalScene = forwardRef(({
                     runtimeFinalPosition: runtimeFinalPosition.toArray(),
                     steadyStateExplodedPosition: steadyStateExplodedPosition.toArray(),
                     differenceToSteadyState: runtimeFinalPosition.clone().sub(steadyStateExplodedPosition).toArray(),
-                    travelProgress: travelProgress == null ? null : Number(travelProgress.toFixed(4)),
+                    travelProgress: Number(resolvedTravelProgress.toFixed(4)),
                     previousTravelProgress: previousTravelProgress == null ? null : Number(previousTravelProgress.toFixed(4)),
                     monotonic,
                     overshoot,
@@ -1984,7 +1981,7 @@ const UnifiedCrystalScene = forwardRef(({
                     runtimePhase,
                     fragmentVisualProgress: Number(fragmentVisualProgress.toFixed(4)),
                     fragmentVisualPhase,
-                    fragmentTravelProgress: travelProgress == null ? null : Number(travelProgress.toFixed(4)),
+                    fragmentTravelProgress: Number(resolvedTravelProgress.toFixed(4)),
                     cameraAppliedOffsetLength: Number(cameraAppliedOffsetLength.toFixed(4)),
                     cameraNearFinal,
                     fragmentNearFinal,
@@ -2007,7 +2004,7 @@ const UnifiedCrystalScene = forwardRef(({
                   console.log('[hero-overview-sync] fragment curve sample', {
                     fragmentVisualProgress: Number(fragmentVisualProgress.toFixed(4)),
                     fragmentVisualPhase,
-                    travelProgress: travelProgress == null ? null : Number(travelProgress.toFixed(4)),
+                    travelProgress: Number(resolvedTravelProgress.toFixed(4)),
                     targetExpectedRange: expectedRange,
                     configValuesUsed: {
                       fragmentBlastPortion: Number(activeTiming.fragmentBlastPortion ?? 0.08),

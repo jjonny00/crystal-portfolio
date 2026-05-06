@@ -595,8 +595,8 @@
       "overviewSettleEnd": 1,
       "cameraPushbackDistance": 0.18,
       "cameraPushbackStrength": 1.4,
-      "cameraPushbackDecayStart": 0.2,
-      "cameraPushbackDecayEnd": 0.58,
+      "cameraPushbackDecayStart": 0.28,
+      "cameraPushbackDecayEnd": 0.78,
       "cameraPushbackApplyScale": 2,
       "fragmentImpulseDistance": 0.65,
       "fragmentImpulseStrength": 1.4,
@@ -604,12 +604,12 @@
       "fragmentImpulseApplyScale": 1.0,
       "fragmentImpulseDecayStart": 0.36,
       "fragmentImpulseDecayEnd": 0.72,
-      "fragmentBlastPortion": 0.08,
-      "fragmentBlastTravel": 0.76,
-      "fragmentSlowPortionEnd": 0.25,
-      "fragmentSlowTravelEnd": 0.92,
-      "fragmentTravelCurveStrength": 2.8,
-      "fragmentSettleCurveStrength": 3.1
+      "fragmentBlastPortion": 0.06,
+      "fragmentBlastTravel": 0.68,
+      "fragmentSlowPortionEnd": 0.32,
+      "fragmentSlowTravelEnd": 0.9,
+      "fragmentTravelCurveStrength": 3.2,
+      "fragmentSettleCurveStrength": 4
     }
   }
 }
