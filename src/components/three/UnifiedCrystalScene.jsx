@@ -95,6 +95,7 @@ const UnifiedCrystalScene = forwardRef(({
   const heroOverviewFragmentFinalTransformLoggedRef = useRef(new Set());
   const heroOverviewFragmentTravelLoggedRef = useRef(new Set());
   const heroOverviewFragmentPreviousTravelProgressRef = useRef(new Map());
+  const heroOverviewPostCompleteWriterLoggedRef = useRef(new Set());
 
   const deriveFragmentVisualTiming = (runtimeState, explosionProgress) => {
     const timing = runtimeState?.timing || {};
@@ -272,6 +273,7 @@ const UnifiedCrystalScene = forwardRef(({
   const explosionStartRef = useRef(null);
   const fractureGlowStartRef = useRef(null);
   const pendingExplodeSwapAtRef = useRef(null);
+  const explosionCycleCompleteRef = useRef(false);
   const pendingReformSwapAtRef = useRef(null);
   const pendingFacetHideAtRef = useRef(null);
   const swapMaskGlowStartRef = useRef(null);
@@ -1556,7 +1558,7 @@ const UnifiedCrystalScene = forwardRef(({
         if (import.meta.env.DEV) {
           logger.debug('💎 Crystal: Explosion - charging whole crystal before swap');
         }
-        if (!simplifiedAnimations) {
+        if (!simplifiedAnimations && !explosionCycleCompleteRef.current) {
           pendingReformSwapAtRef.current = null;
           pendingFacetHideAtRef.current = null;
           setShowWholeCrystal(true);
@@ -1591,6 +1593,7 @@ const UnifiedCrystalScene = forwardRef(({
           setShowFacets(false);
         }
         explosionStartRef.current = null;
+        explosionCycleCompleteRef.current = false;
         resetWholeCrystalMaskGlow();
         if (facetsGroupRef.current) {
           facetsGroupRef.current.quaternion.copy(neutralQuat);
@@ -1612,8 +1615,12 @@ const UnifiedCrystalScene = forwardRef(({
       pendingExplodeSwapAtRef.current != null &&
       now >= pendingExplodeSwapAtRef.current
     ) {
+      if (explosionCycleCompleteRef.current) {
+        pendingExplodeSwapAtRef.current = null;
+      } else {
       pendingExplodeSwapAtRef.current = null;
       runExplodeSwap();
+      }
     }
 
     const explodedOverviewSettled =
@@ -1974,6 +1981,7 @@ const UnifiedCrystalScene = forwardRef(({
 
         if (progress >= 1) {
           explosionStartRef.current = null; // Animation finished
+          explosionCycleCompleteRef.current = true;
         }
         return;
       }
@@ -2108,6 +2116,48 @@ const UnifiedCrystalScene = forwardRef(({
           facetRef.current.quaternion.slerp(targetQuat, focusedRotationLerp);
         } else {
           facetRef.current.quaternion.slerp(targetQuat, rotationLerp);
+        }
+        if (
+          index === 0 &&
+          typeof globalThis !== 'undefined' &&
+          globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__ &&
+          animationData?.crystalForm === 'exploded' &&
+          explosionCycleCompleteRef.current
+        ) {
+          const runtimeSnapshot = heroOverviewRuntime?.getSnapshot?.() ?? null;
+          const runtimePhase = runtimeSnapshot?.phase ?? 'idle';
+          const { fragmentVisualPhase } = deriveFragmentVisualTiming(runtimeSnapshot, 1);
+          const firstFacetPositionAfter = facetRef.current.position.clone();
+          const resolvedFracture = crystalConfig?.fracturePositions?.[facetPlacementKeys[facetKey] || facetKey];
+          const writerBranch = 'overviewIdle';
+          const logBucket = `${runtimePhase}:${Math.round((animationData?.cameraMoveProgress ?? 1) * 10) / 10}`;
+          if (!heroOverviewPostCompleteWriterLoggedRef.current.has(logBucket)) {
+            heroOverviewPostCompleteWriterLoggedRef.current.add(logBucket);
+            console.log('[hero-overview-fragment-hook] post-complete writer check', {
+              crystalForm: animationData?.crystalForm,
+              runtimePhase,
+              fragmentVisualPhase,
+              explosionStartRef: { active: Boolean(explosionStartRef.current), value: explosionStartRef.current },
+              explosionProgress: 1,
+              writerBranch,
+              positionSource: 'overviewIdle',
+              firstFacetPositionBefore: null,
+              firstFacetPositionAfter: firstFacetPositionAfter.toArray(),
+            });
+          }
+          if (resolvedFracture && firstFacetPositionAfter.distanceTo(resolvedFracture) < 0.05) {
+            console.warn('[hero-overview-fragment-hook] duplicate explosion replay detected', {
+              crystalForm: animationData?.crystalForm,
+              runtimePhase,
+              fragmentVisualPhase,
+              explosionStartRef: { active: Boolean(explosionStartRef.current), value: explosionStartRef.current },
+              writerBranch,
+              positionSource: 'fracturePositionReset',
+              firstFacetPositionBefore: null,
+              firstFacetPositionAfter: firstFacetPositionAfter.toArray(),
+              fracturePosition: resolvedFracture.toArray(),
+            });
+          }
         }
       });
 
