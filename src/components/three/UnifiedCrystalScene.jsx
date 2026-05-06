@@ -59,7 +59,8 @@ const UnifiedCrystalScene = forwardRef(({
   scrollToProject,
   onDirectProjectSelect,
   onFractureStart,
-  sharedCameraMoveProgressRef = null
+  sharedCameraMoveProgressRef = null,
+  heroOverviewRuntime = null,
 }, ref) => {
   // Component refs for crystal animation
   const crystalGroupRef = useRef();
@@ -86,6 +87,134 @@ const UnifiedCrystalScene = forwardRef(({
   
   // Debug panel state
   const [showCrystalDebug, setShowCrystalDebug] = useState(false);
+  const heroOverviewFragmentWriterLoggedRef = useRef(false);
+  const heroOverviewFragmentPhaseLoggedRef = useRef(new Set());
+  const heroOverviewFragmentObservedPhaseLoggedRef = useRef(new Set());
+  const heroOverviewFragmentAlignmentPhaseLoggedRef = useRef(new Set());
+  const heroOverviewFragmentResolvedConfigLoggedRef = useRef(new Set());
+  const heroOverviewFragmentFinalTransformLoggedRef = useRef(new Set());
+
+  const deriveFragmentVisualTiming = (runtimeState, explosionProgress) => {
+    const timing = runtimeState?.timing || {};
+    const fractureChargeEnd = THREE.MathUtils.clamp(timing.fractureChargeEnd ?? 0.0933333333, 0, 1);
+    const explosionImpulseEnd = THREE.MathUtils.clamp(timing.explosionImpulseEnd ?? 0.24, fractureChargeEnd, 1);
+    const bulletTimeSlowdownEnd = THREE.MathUtils.clamp(timing.bulletTimeSlowdownEnd ?? 0.72, explosionImpulseEnd, 1);
+    const overviewSettleEnd = THREE.MathUtils.clamp(timing.overviewSettleEnd ?? 1, bulletTimeSlowdownEnd, 1);
+    const clampedExplosionProgress = THREE.MathUtils.clamp(explosionProgress, 0, 1);
+    const mappedMainProgress = THREE.MathUtils.lerp(fractureChargeEnd, 1, clampedExplosionProgress);
+
+    let fragmentVisualPhase = 'complete';
+    if (mappedMainProgress < explosionImpulseEnd) fragmentVisualPhase = 'explosionImpulse';
+    else if (mappedMainProgress < bulletTimeSlowdownEnd) fragmentVisualPhase = 'bulletTimeSlowdown';
+    else if (mappedMainProgress < overviewSettleEnd) fragmentVisualPhase = 'overviewSettle';
+
+    const fragmentVisualProgress = clampedExplosionProgress;
+
+    return {
+      fragmentVisualPhase,
+      fragmentVisualProgress,
+    };
+  };
+
+  const resolveHeroOverviewFragmentOffset = (
+    facetKey,
+    facetIndex,
+    runtimeState,
+    runtimeSettings,
+    basePosition,
+    fragmentVisualPhase,
+    fragmentVisualProgress,
+  ) => {
+    const zeroPositionOffset = new THREE.Vector3(0, 0, 0);
+    const zeroRotationOffset = new THREE.Euler(0, 0, 0, 'XYZ');
+    if (!runtimeState || !runtimeState.active) {
+      return {
+        computedPositionOffset: zeroPositionOffset,
+        computedRotationOffset: zeroRotationOffset,
+        appliedPositionOffset: zeroPositionOffset,
+        appliedRotationOffset: zeroRotationOffset,
+      };
+    }
+
+    const timing = runtimeState.timing || runtimeSettings || {};
+    const phase = fragmentVisualPhase;
+    const progress = THREE.MathUtils.clamp(fragmentVisualProgress ?? 0, 0, 1);
+    if (phase !== 'explosionImpulse' && phase !== 'bulletTimeSlowdown') {
+      return {
+        computedPositionOffset: zeroPositionOffset,
+        computedRotationOffset: zeroRotationOffset,
+        appliedPositionOffset: zeroPositionOffset,
+        appliedRotationOffset: zeroRotationOffset,
+      };
+    }
+
+    const smoothstep = (v) => {
+      const p = THREE.MathUtils.clamp(v, 0, 1);
+      return p * p * (3 - 2 * p);
+    };
+
+    const decayStart = THREE.MathUtils.clamp(Number(timing.fragmentImpulseDecayStart ?? 0.36), 0, 1);
+    const decayEnd = THREE.MathUtils.clamp(Number(timing.fragmentImpulseDecayEnd ?? 0.72), decayStart, 1);
+    let phaseAmount = 1;
+    if (phase === 'explosionImpulse') {
+      const phaseStart = THREE.MathUtils.clamp(timing.fractureChargeEnd ?? 0, 0, 1);
+      const phaseEnd = THREE.MathUtils.clamp(timing.explosionImpulseEnd ?? phaseStart, phaseStart, 1);
+      const local = phaseEnd > phaseStart ? (progress - phaseStart) / (phaseEnd - phaseStart) : 1;
+      phaseAmount = Math.max(0.4, smoothstep(local));
+    } else if (progress >= decayStart) {
+      const decayT = decayEnd > decayStart ? (progress - decayStart) / (decayEnd - decayStart) : 1;
+      phaseAmount = 1 - smoothstep(decayT);
+    }
+
+    const impulseMagnitude = Math.max(
+      0,
+      Number(timing.fragmentImpulseDistance ?? 0.45) *
+      Number(timing.fragmentImpulseStrength ?? 1) *
+      Number(timing.fragmentImpulseApplyScale ?? 1) *
+      phaseAmount,
+    );
+
+    const outwardDirection = basePosition.lengthSq() > 0.000001
+      ? basePosition.clone().normalize()
+      : new THREE.Vector3(0, 1, 0);
+    const computedPositionOffset = outwardDirection.multiplyScalar(impulseMagnitude);
+
+    const seed = facetKey.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0) + facetIndex * 17;
+    const axisX = Math.sin(seed * 0.27);
+    const axisY = Math.cos(seed * 0.19);
+    const axisZ = Math.sin(seed * 0.13 + 1.7);
+    const rotationMagnitude = Math.max(0, Number(timing.fragmentRotationStrength ?? 0.35)) * phaseAmount;
+    const computedRotationOffset = new THREE.Euler(
+      axisX * rotationMagnitude,
+      axisY * rotationMagnitude,
+      axisZ * rotationMagnitude,
+      'XYZ',
+    );
+    const impulseApplyScale = THREE.MathUtils.clamp(Number(timing.fragmentImpulseApplyScale ?? 0.15), 0, 200);
+    const isFiniteComputedOffset = computedPositionOffset.toArray().every(Number.isFinite);
+    const isFiniteComputedRotation =
+      Number.isFinite(computedRotationOffset.x) &&
+      Number.isFinite(computedRotationOffset.y) &&
+      Number.isFinite(computedRotationOffset.z);
+    const appliedPositionOffset = isFiniteComputedOffset
+      ? computedPositionOffset.clone().multiplyScalar(impulseApplyScale)
+      : zeroPositionOffset;
+    const appliedRotationOffset = isFiniteComputedRotation
+      ? new THREE.Euler(
+        computedRotationOffset.x * impulseApplyScale,
+        computedRotationOffset.y * impulseApplyScale,
+        computedRotationOffset.z * impulseApplyScale,
+        'XYZ',
+      )
+      : zeroRotationOffset;
+
+    return {
+      computedPositionOffset,
+      computedRotationOffset,
+      appliedPositionOffset,
+      appliedRotationOffset,
+    };
+  };
   
   // FIXED: Better hover state tracking
   const [hoveredFacet, setHoveredFacet] = useState(null);
@@ -1732,6 +1861,7 @@ const UnifiedCrystalScene = forwardRef(({
         const fracturePause = crystalConfig?.fracturePause || 0.5;
         const totalDuration = crystalConfig?.explodeDuration || 1.2;
         const elapsedExplosion = (performance.now() - explosionStartRef.current) / 1000;
+        const explosionElapsedMs = elapsedExplosion * 1000;
 
         const progress = Math.min((elapsedExplosion - fracturePause) / (totalDuration - fracturePause), 1);
         const fracture = crystalConfig?.fracturePositions;
@@ -1761,8 +1891,172 @@ const UnifiedCrystalScene = forwardRef(({
             const adjusted = animationData?.crystalForm === 'exploded'
               ? getAnchorAdjustedPosition(facetKey, interpolated, targetQuat)
               : interpolated;
-            facetRef.current.position.copy(adjusted);
-            facetRef.current.quaternion.slerpQuaternions(neutralQuat, targetQuat, eased);
+            const basePosition = adjusted.clone();
+            const baseEuler = new THREE.Euler().setFromQuaternion(targetQuat.clone(), 'XYZ');
+            const runtimeSnapshot = heroOverviewRuntime?.getSnapshot?.() ?? null;
+            const runtimePhase = runtimeSnapshot?.phase ?? 'idle';
+            const runtimeProgress = runtimeSnapshot?.progress ?? 0;
+            const { fragmentVisualPhase, fragmentVisualProgress } = deriveFragmentVisualTiming(runtimeSnapshot, progress);
+            const {
+              computedPositionOffset,
+              computedRotationOffset,
+              appliedPositionOffset,
+              appliedRotationOffset,
+            } = resolveHeroOverviewFragmentOffset(
+              facetKey,
+              index,
+              runtimeSnapshot,
+              config?.timing?.heroOverviewRuntime,
+              basePosition,
+              fragmentVisualPhase,
+              fragmentVisualProgress,
+            );
+            const finalPosition = basePosition.clone().add(appliedPositionOffset);
+            const finalEuler = new THREE.Euler(
+              baseEuler.x + appliedRotationOffset.x,
+              baseEuler.y + appliedRotationOffset.y,
+              baseEuler.z + appliedRotationOffset.z,
+              'XYZ',
+            );
+            const finalQuat = new THREE.Quaternion().setFromEuler(finalEuler);
+
+            facetRef.current.position.copy(finalPosition);
+            facetRef.current.quaternion.slerpQuaternions(neutralQuat, finalQuat, eased);
+
+            if (typeof globalThis !== 'undefined' && globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__) {
+              if (!heroOverviewFragmentWriterLoggedRef.current) {
+                heroOverviewFragmentWriterLoggedRef.current = true;
+                console.log('[hero-overview-fragment-hook] writer identified', {
+                  branch: 'crystalForm=exploded && explosionStartRef.current active',
+                });
+              }
+              if (!heroOverviewFragmentObservedPhaseLoggedRef.current.has(runtimePhase)) {
+                heroOverviewFragmentObservedPhaseLoggedRef.current.add(runtimePhase);
+                console.log('[hero-overview-fragment-hook] phase observed', {
+                  runtimePhase,
+                  runtimeProgress: Number(runtimeProgress.toFixed?.(3) ?? runtimeProgress),
+                });
+              }
+              if (!heroOverviewFragmentAlignmentPhaseLoggedRef.current.has(fragmentVisualPhase)) {
+                heroOverviewFragmentAlignmentPhaseLoggedRef.current.add(fragmentVisualPhase);
+                console.log('[hero-overview-fragment-hook] timing alignment', {
+                  runtimePhase,
+                  runtimeProgress: Number(runtimeProgress.toFixed?.(3) ?? runtimeProgress),
+                  explosionElapsedMs: Number(explosionElapsedMs.toFixed(2)),
+                  explosionProgress: Number(progress.toFixed(4)),
+                  fragmentVisualPhase,
+                  fragmentVisualProgress: Number(fragmentVisualProgress.toFixed(4)),
+                  reason: 'explosionStartRef-derived',
+                });
+              }
+              if (index === 0 && !heroOverviewFragmentPhaseLoggedRef.current.has(fragmentVisualPhase)) {
+                heroOverviewFragmentPhaseLoggedRef.current.add(fragmentVisualPhase);
+                const resolvedTiming = runtimeSnapshot?.timing || config?.timing?.heroOverviewRuntime || {};
+                if (!heroOverviewFragmentResolvedConfigLoggedRef.current.has(fragmentVisualPhase)) {
+                  heroOverviewFragmentResolvedConfigLoggedRef.current.add(fragmentVisualPhase);
+                  console.log('[hero-overview-fragment-hook] resolved config', {
+                    fragmentVisualPhase,
+                    fragmentImpulseDistance: Number(resolvedTiming.fragmentImpulseDistance ?? 0.45),
+                    fragmentImpulseStrength: Number(resolvedTiming.fragmentImpulseStrength ?? 1),
+                    fragmentRotationStrength: Number(resolvedTiming.fragmentRotationStrength ?? 0.35),
+                    fragmentImpulseApplyScale: Number(resolvedTiming.fragmentImpulseApplyScale ?? 0.15),
+                    fragmentImpulseDecayStart: Number(resolvedTiming.fragmentImpulseDecayStart ?? 0.36),
+                    fragmentImpulseDecayEnd: Number(resolvedTiming.fragmentImpulseDecayEnd ?? 0.72),
+                    configSource: runtimeSnapshot?.timing ? 'runtimeSnapshot.timing' : 'config.timing.heroOverviewRuntime',
+                  });
+                }
+                const computedPositionOffsetLength = computedPositionOffset.length();
+                const computedRotationOffsetLength = Math.sqrt(
+                  (computedRotationOffset.x ** 2) +
+                  (computedRotationOffset.y ** 2) +
+                  (computedRotationOffset.z ** 2)
+                );
+                const isFiniteComputedOffset = computedPositionOffset.toArray().every(Number.isFinite);
+                const isFiniteComputedRotation =
+                  Number.isFinite(computedRotationOffset.x) &&
+                  Number.isFinite(computedRotationOffset.y) &&
+                  Number.isFinite(computedRotationOffset.z);
+                const appliedPositionOffsetLength = appliedPositionOffset.length();
+                const appliedRotationOffsetLength = Math.sqrt(
+                  (appliedRotationOffset.x ** 2) +
+                  (appliedRotationOffset.y ** 2) +
+                  (appliedRotationOffset.z ** 2)
+                );
+                console.log('[hero-overview-fragment-hook] impulse computed', {
+                  runtimePhase,
+                  fragmentVisualPhase,
+                  fragmentVisualProgress: Number(fragmentVisualProgress.toFixed(4)),
+                  runtimeProgress: Number(runtimeProgress.toFixed?.(3) ?? runtimeProgress),
+                  facetKey,
+                  facetIndex: index,
+                  basePosition: basePosition.toArray(),
+                  computedPositionOffset: computedPositionOffset.toArray(),
+                  computedPositionOffsetLength: Number(computedPositionOffsetLength.toFixed(4)),
+                  appliedPositionOffset: appliedPositionOffset.toArray(),
+                  finalPosition: finalPosition.toArray(),
+                  baseRotation: [baseEuler.x, baseEuler.y, baseEuler.z],
+                  computedRotationOffset: [computedRotationOffset.x, computedRotationOffset.y, computedRotationOffset.z],
+                  computedRotationOffsetLength: Number(computedRotationOffsetLength.toFixed(4)),
+                  appliedRotationOffset: [appliedRotationOffset.x, appliedRotationOffset.y, appliedRotationOffset.z],
+                  finalRotation: [finalEuler.x, finalEuler.y, finalEuler.z],
+                  isFiniteComputedOffset,
+                  isFiniteComputedRotation,
+                  offsetZeroByOverviewSettle:
+                    fragmentVisualPhase === 'overviewSettle' || fragmentVisualPhase === 'complete',
+                });
+                console.log('[hero-overview-fragment-hook] visual impulse applied', {
+                  facetKey,
+                  facetIndex: index,
+                  runtimePhase,
+                  fragmentVisualPhase,
+                  fragmentVisualProgress: Number(fragmentVisualProgress.toFixed(4)),
+                  basePosition: basePosition.toArray(),
+                  computedPositionOffset: computedPositionOffset.toArray(),
+                  appliedPositionOffset: appliedPositionOffset.toArray(),
+                  appliedPositionOffsetLength: Number(appliedPositionOffsetLength.toFixed(4)),
+                  finalPosition: finalPosition.toArray(),
+                  baseRotation: [baseEuler.x, baseEuler.y, baseEuler.z],
+                  computedRotationOffset: [computedRotationOffset.x, computedRotationOffset.y, computedRotationOffset.z],
+                  appliedRotationOffset: [appliedRotationOffset.x, appliedRotationOffset.y, appliedRotationOffset.z],
+                  appliedRotationOffsetLength: Number(appliedRotationOffsetLength.toFixed(4)),
+                  finalRotation: [finalEuler.x, finalEuler.y, finalEuler.z],
+                  offsetZeroByOverviewSettle:
+                    fragmentVisualPhase === 'overviewSettle' || fragmentVisualPhase === 'complete'
+                      ? (appliedPositionOffsetLength <= 0.000001 && appliedRotationOffsetLength <= 0.000001)
+                      : false,
+                });
+
+                if (!heroOverviewFragmentFinalTransformLoggedRef.current.has(fragmentVisualPhase)) {
+                  heroOverviewFragmentFinalTransformLoggedRef.current.add(fragmentVisualPhase);
+                  const actualMeshPositionAfterWrite = facetRef.current.position.toArray();
+                  const actualMeshRotationAfterWriteEuler = new THREE.Euler().setFromQuaternion(facetRef.current.quaternion, 'XYZ');
+                  const actualMeshRotationAfterWrite = [
+                    actualMeshRotationAfterWriteEuler.x,
+                    actualMeshRotationAfterWriteEuler.y,
+                    actualMeshRotationAfterWriteEuler.z,
+                  ];
+                  const positionDifferenceFromIntended = facetRef.current.position.clone().sub(finalPosition).toArray();
+                  const rotationDifferenceFromIntended = [
+                    actualMeshRotationAfterWriteEuler.x - finalEuler.x,
+                    actualMeshRotationAfterWriteEuler.y - finalEuler.y,
+                    actualMeshRotationAfterWriteEuler.z - finalEuler.z,
+                  ];
+                  const overwritten = positionDifferenceFromIntended.some((v) => Math.abs(v) > 0.0001) ||
+                    rotationDifferenceFromIntended.some((v) => Math.abs(v) > 0.0001);
+                  console.log('[hero-overview-fragment-hook] final fragment transform check', {
+                    facetKey,
+                    fragmentVisualPhase,
+                    intendedFinalPosition: finalPosition.toArray(),
+                    actualMeshPositionAfterWrite,
+                    positionDifferenceFromIntended,
+                    intendedFinalRotation: [finalEuler.x, finalEuler.y, finalEuler.z],
+                    actualMeshRotationAfterWrite,
+                    rotationDifferenceFromIntended,
+                    overwritten,
+                  });
+                }
+              }
+            }
           }
         });
 

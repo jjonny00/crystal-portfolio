@@ -402,7 +402,11 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
         camera: {
           ...(baseLayout.timing?.camera || {}),
           ...(baseConfig.timing?.camera || {})
-        }
+        },
+        heroOverviewRuntime: {
+          ...(baseLayout.timing?.heroOverviewRuntime || {}),
+          ...(baseConfig.timing?.heroOverviewRuntime || {}),
+        },
       }
     };
 
@@ -520,12 +524,24 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
     };
 
     const updateTiming = (timing) => {
-      if (!timing?.camera) return;
-      Object.entries(timing.camera).forEach(([key, value]) => {
-        const numericValue = sanitizeNumber(value, null);
-        if (numericValue === null) return;
-        updatedConfig.timing.camera[key] = numericValue;
-      });
+      if (timing?.camera) {
+        Object.entries(timing.camera).forEach(([key, value]) => {
+          const numericValue = sanitizeNumber(value, null);
+          if (numericValue === null) return;
+          updatedConfig.timing.camera[key] = numericValue;
+        });
+      }
+
+      if (timing?.heroOverviewRuntime) {
+        if (!updatedConfig.timing.heroOverviewRuntime) {
+          updatedConfig.timing.heroOverviewRuntime = {};
+        }
+        Object.entries(timing.heroOverviewRuntime).forEach(([key, value]) => {
+          const numericValue = sanitizeNumber(value, null);
+          if (numericValue === null) return;
+          updatedConfig.timing.heroOverviewRuntime[key] = numericValue;
+        });
+      }
     };
 
     updateCameraPositions(camera.positions);
