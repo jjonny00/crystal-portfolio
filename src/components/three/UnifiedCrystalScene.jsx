@@ -59,7 +59,8 @@ const UnifiedCrystalScene = forwardRef(({
   scrollToProject,
   onDirectProjectSelect,
   onFractureStart,
-  sharedCameraMoveProgressRef = null
+  sharedCameraMoveProgressRef = null,
+  heroOverviewRuntime = null,
 }, ref) => {
   // Component refs for crystal animation
   const crystalGroupRef = useRef();
@@ -86,6 +87,13 @@ const UnifiedCrystalScene = forwardRef(({
   
   // Debug panel state
   const [showCrystalDebug, setShowCrystalDebug] = useState(false);
+  const heroOverviewFragmentWriterLoggedRef = useRef(false);
+  const heroOverviewFragmentPhaseLoggedRef = useRef(new Set());
+
+  const resolveHeroOverviewFragmentOffset = () => ({
+    positionOffset: new THREE.Vector3(0, 0, 0),
+    rotationOffset: new THREE.Euler(0, 0, 0),
+  });
   
   // FIXED: Better hover state tracking
   const [hoveredFacet, setHoveredFacet] = useState(null);
@@ -1761,8 +1769,52 @@ const UnifiedCrystalScene = forwardRef(({
             const adjusted = animationData?.crystalForm === 'exploded'
               ? getAnchorAdjustedPosition(facetKey, interpolated, targetQuat)
               : interpolated;
-            facetRef.current.position.copy(adjusted);
-            facetRef.current.quaternion.slerpQuaternions(neutralQuat, targetQuat, eased);
+            const basePosition = adjusted.clone();
+            const baseEuler = new THREE.Euler().setFromQuaternion(targetQuat.clone(), 'XYZ');
+            const runtimeSnapshot = heroOverviewRuntime?.getSnapshot?.() ?? null;
+            const runtimePhase = runtimeSnapshot?.phase ?? 'idle';
+            const runtimeProgress = runtimeSnapshot?.progress ?? 0;
+            const { positionOffset, rotationOffset } = resolveHeroOverviewFragmentOffset(
+              facetKey,
+              index,
+              runtimeSnapshot,
+              config?.timing?.heroOverviewRuntime,
+            );
+            const finalPosition = basePosition.clone().add(positionOffset);
+            const finalEuler = new THREE.Euler(
+              baseEuler.x + rotationOffset.x,
+              baseEuler.y + rotationOffset.y,
+              baseEuler.z + rotationOffset.z,
+              'XYZ',
+            );
+            const finalQuat = new THREE.Quaternion().setFromEuler(finalEuler);
+
+            facetRef.current.position.copy(finalPosition);
+            facetRef.current.quaternion.slerpQuaternions(neutralQuat, finalQuat, eased);
+
+            if (typeof globalThis !== 'undefined' && globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__) {
+              if (!heroOverviewFragmentWriterLoggedRef.current) {
+                heroOverviewFragmentWriterLoggedRef.current = true;
+                console.log('[hero-overview-fragment-hook] writer identified', {
+                  branch: 'crystalForm=exploded && explosionStartRef.current active',
+                });
+              }
+              if (index === 0 && !heroOverviewFragmentPhaseLoggedRef.current.has(runtimePhase)) {
+                heroOverviewFragmentPhaseLoggedRef.current.add(runtimePhase);
+                console.log('[hero-overview-fragment-hook] offset applied', {
+                  runtimePhase,
+                  runtimeProgress: Number(runtimeProgress.toFixed?.(3) ?? runtimeProgress),
+                  facetKey,
+                  facetIndex: index,
+                  basePosition: basePosition.toArray(),
+                  positionOffset: positionOffset.toArray(),
+                  finalPosition: finalPosition.toArray(),
+                  baseRotation: [baseEuler.x, baseEuler.y, baseEuler.z],
+                  rotationOffset: [rotationOffset.x, rotationOffset.y, rotationOffset.z],
+                  finalRotation: [finalEuler.x, finalEuler.y, finalEuler.z],
+                });
+              }
+            }
           }
         });
 
