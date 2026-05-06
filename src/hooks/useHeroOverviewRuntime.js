@@ -10,6 +10,7 @@ const DEFAULT_TIMING = {
   cameraPushbackStrength: 1.4,
   cameraPushbackDecayStart: 0.36,
   cameraPushbackDecayEnd: 0.72,
+  cameraPushbackApplyScale: 0.15,
 };
 
 const PHASES = {
@@ -76,6 +77,10 @@ export const resolveHeroOverviewRuntimeTiming = (timingOverrides = {}) => {
     cameraPushbackDecayStart,
     1,
   );
+  const cameraPushbackApplyScale =
+    typeof merged.cameraPushbackApplyScale === 'number' && Number.isFinite(merged.cameraPushbackApplyScale)
+      ? Math.min(Math.max(merged.cameraPushbackApplyScale, 0), 1)
+      : DEFAULT_TIMING.cameraPushbackApplyScale;
 
   return {
     totalDurationMs,
@@ -87,6 +92,7 @@ export const resolveHeroOverviewRuntimeTiming = (timingOverrides = {}) => {
     cameraPushbackStrength,
     cameraPushbackDecayStart,
     cameraPushbackDecayEnd,
+    cameraPushbackApplyScale,
   };
 };
 

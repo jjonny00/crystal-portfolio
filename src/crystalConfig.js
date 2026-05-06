@@ -262,6 +262,7 @@ export const timing = {
     cameraPushbackStrength: 1.4,
     cameraPushbackDecayStart: 0.36,
     cameraPushbackDecayEnd: 0.72,
+    cameraPushbackApplyScale: 0.15,
   },
 }
 

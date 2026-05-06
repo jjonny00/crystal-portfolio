@@ -2059,7 +2059,15 @@ const UnifiedCameraController = ({
           );
         }
         const computedOffset = resolveHeroOverviewCameraOffset(runtimeSnapshot, config?.timing?.heroOverviewRuntime, basePosition, forcedLookAt);
-        const appliedOffset = new THREE.Vector3(0, 0, 0);
+        const applyScale = THREE.MathUtils.clamp(
+          Number(runtimeSnapshot?.timing?.cameraPushbackApplyScale ?? config?.timing?.heroOverviewRuntime?.cameraPushbackApplyScale ?? 0.15),
+          0,
+          1,
+        );
+        const isFiniteComputedOffset = computedOffset.toArray().every(Number.isFinite);
+        const appliedOffset = isFiniteComputedOffset
+          ? computedOffset.clone().multiplyScalar(applyScale)
+          : new THREE.Vector3(0, 0, 0);
         const finalPosition = basePosition.clone().add(appliedOffset);
         camera.position.copy(finalPosition);
         camera.lookAt(forcedLookAt);
@@ -2078,22 +2086,21 @@ const UnifiedCameraController = ({
           if (!heroOverviewCameraHookPhaseLoggedRef.current.has(runtimePhase)) {
             heroOverviewCameraHookPhaseLoggedRef.current.add(runtimePhase);
             const computedOffsetLength = computedOffset.length();
-            const computedOffsetArray = computedOffset.toArray();
-            const isFiniteComputedOffset = computedOffsetArray.every(Number.isFinite);
-            console.log('[hero-overview-camera-hook] offset computed', {
+            const appliedOffsetLength = appliedOffset.length();
+            console.log('[hero-overview-camera-hook] visual offset applied', {
               runtimePhase,
               runtimeProgress: Number(runtimeProgress.toFixed?.(3) ?? runtimeProgress),
-              computedOffset: computedOffsetArray,
+              computedOffsetLength: Number(computedOffsetLength.toFixed(4)),
+              cameraPushbackApplyScale: Number(applyScale.toFixed(3)),
               appliedOffset: appliedOffset.toArray(),
+              appliedOffsetLength: Number(appliedOffsetLength.toFixed(4)),
               basePosition: basePosition.toArray(),
               finalPosition: finalPosition.toArray(),
               isFiniteComputedOffset,
-              computedOffsetLength: Number(computedOffsetLength.toFixed(4)),
-              wouldBeZeroByOverviewSettle:
+              offsetZeroByOverviewSettle:
                 runtimePhase === 'overviewSettle' || runtimePhase === 'complete'
-                  ? computedOffsetLength <= 0.000001
-                  : true,
-              reasonAppliedOffsetIsZero: 'diagnostic-only',
+                  ? appliedOffsetLength <= 0.000001
+                  : false,
             });
           }
         }

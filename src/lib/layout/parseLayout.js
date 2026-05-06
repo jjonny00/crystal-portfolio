@@ -134,6 +134,7 @@ const parseHeroOverviewRuntimeTiming = (timing, path) => {
     'cameraPushbackStrength',
     'cameraPushbackDecayStart',
     'cameraPushbackDecayEnd',
+    'cameraPushbackApplyScale',
   ];
 
   numericKeys.forEach((key) => {
