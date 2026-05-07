@@ -2082,10 +2082,11 @@ const UnifiedCameraController = ({
           sharedEased,
         );
         const appliedOffset = new THREE.Vector3(0, 0, 0);
+        const isFiniteComputedOffset = true;
+        const finalPosition = basePosition.clone().add(appliedOffset);
         globalThis.__HERO_OVERVIEW_CAMERA_TIMING_SOURCE__ = cameraTimingSource;
         globalThis.__HERO_OVERVIEW_CAMERA_PROGRESS__ = sharedEased;
         globalThis.__HERO_OVERVIEW_CAMERA_POSITION__ = finalPosition.toArray();
-        const finalPosition = basePosition.clone().add(appliedOffset);
         camera.position.copy(finalPosition);
         camera.lookAt(forcedLookAt);
         camera.filmOffset = THREE.MathUtils.lerp(transition.from.filmOffsetX, transition.to.filmOffsetX, sharedEased);
