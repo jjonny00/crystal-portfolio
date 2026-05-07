@@ -3200,7 +3200,20 @@ const UnifiedCameraController = ({
     camera.fov += fovDiff * clampedSmoothing;
     camera.updateProjectionMatrix();
     logCameraWrite(state, animationData?.cameraState === "hero" ? "HERO_IDLE" : "FALLBACK", "smoothed-update", newLookAt, true, false);
-    console.log('[UCC END FRAME]', { elapsed: state.clock.elapsedTime, finalCameraPosition: camera.position.toArray(), finalFilmOffset: camera.filmOffset, finalWriter: lastCameraWriterRef.current });
+    const endFrameDebugEnabled =
+      typeof globalThis !== 'undefined' && globalThis.__UCC_END_FRAME_DEBUG__ === true;
+    if (endFrameDebugEnabled) {
+      const secondBucket = Math.floor(state.clock.elapsedTime);
+      if (lastCameraWriteSecondRef.current !== secondBucket) {
+        lastCameraWriteSecondRef.current = secondBucket;
+        console.log('[UCC END FRAME]', {
+          elapsed: state.clock.elapsedTime,
+          finalCameraPosition: camera.position.toArray(),
+          finalFilmOffset: camera.filmOffset,
+          finalWriter: lastCameraWriterRef.current,
+        });
+      }
+    }
 
     // Check if camera has settled at target
     const positionDiff = camera.position.distanceTo(currentTarget.current.position);
