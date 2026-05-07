@@ -103,6 +103,7 @@ const UnifiedCrystalScene = forwardRef(({
   const heroOverviewFragmentTimingResolvedLoggedRef = useRef(false);
   const heroOverviewTravelDistanceAuditLoggedRef = useRef(false);
   const heroOverviewVisibleTravelSampleLoggedRef = useRef(new Set());
+  const heroOverviewFragmentWriterAuditRef = useRef({ frameWriters: new Map(), writers: new Set(), multiple: false });
 
   const deriveFragmentVisualTiming = (runtimeState, explosionProgress) => {
     const timing = runtimeState?.timing || {};
@@ -1788,6 +1789,21 @@ const UnifiedCrystalScene = forwardRef(({
               .multiplyScalar(explodedPos.length() * fractureDistance);
             facetRef.current.position.copy(configured ? configured : fallback);
             facetRef.current.quaternion.slerp(neutralQuat, Math.min(1, deltaTime * 6));
+            if (typeof globalThis !== 'undefined' && globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__) {
+              const frameId = Math.floor(state.clock.elapsedTime * 1000);
+              const frameWriters = heroOverviewFragmentWriterAuditRef.current.frameWriters.get(frameId) || [];
+              frameWriters.push('fracturePauseLegacy');
+              heroOverviewFragmentWriterAuditRef.current.frameWriters.set(frameId, frameWriters);
+              heroOverviewFragmentWriterAuditRef.current.writers.add('fracturePauseLegacy');
+              if (frameWriters.length > 1) heroOverviewFragmentWriterAuditRef.current.multiple = true;
+              if (idx === 0) console.log('[hero-overview-writer-audit] fragment writer', {
+                frameId, runtimePhase: heroOverviewRuntime?.getSnapshot?.()?.phase ?? 'idle', fragmentVisualPhase: 'fractureCharge',
+                crystalForm: animationData?.crystalForm ?? null, writerBranch: 'fracturePauseLegacy', facetKey,
+                positionBefore: null, positionAfter: facetRef.current.position.toArray(), rotationBefore: null,
+                rotationAfter: new THREE.Euler().setFromQuaternion(facetRef.current.quaternion, 'XYZ').toArray(),
+                isRuntimeTravelWriter: false, isLegacyWriter: true, isPostCompleteWriter: false, writeOrderIndex: frameWriters.length - 1,
+              });
+            }
           }
         });
         return; // Skip other animations during fracture pause
@@ -1941,6 +1957,24 @@ const UnifiedCrystalScene = forwardRef(({
 
             facetRef.current.position.copy(finalPosition);
             facetRef.current.quaternion.slerpQuaternions(neutralQuat, finalQuat, eased);
+            if (typeof globalThis !== 'undefined' && globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__) {
+              const frameId = Math.floor(state.clock.elapsedTime * 1000);
+              const frameWriters = heroOverviewFragmentWriterAuditRef.current.frameWriters.get(frameId) || [];
+              frameWriters.push('heroOverviewRuntimeTravel');
+              heroOverviewFragmentWriterAuditRef.current.frameWriters.set(frameId, frameWriters);
+              heroOverviewFragmentWriterAuditRef.current.writers.add('heroOverviewRuntimeTravel');
+              if (frameWriters.length > 1) heroOverviewFragmentWriterAuditRef.current.multiple = true;
+              if (index === 0 && !heroOverviewFragmentPhaseLoggedRef.current.has(`audit-${fragmentVisualPhase}`)) {
+                heroOverviewFragmentPhaseLoggedRef.current.add(`audit-${fragmentVisualPhase}`);
+                console.log('[hero-overview-writer-audit] fragment writer', {
+                  frameId, runtimePhase, fragmentVisualPhase,
+                  crystalForm: animationData?.crystalForm ?? null, writerBranch: 'heroOverviewRuntimeTravel', facetKey,
+                  positionBefore: null, positionAfter: facetRef.current.position.toArray(), rotationBefore: null,
+                  rotationAfter: new THREE.Euler().setFromQuaternion(facetRef.current.quaternion, 'XYZ').toArray(),
+                  isRuntimeTravelWriter: true, isLegacyWriter: false, isPostCompleteWriter: false, writeOrderIndex: frameWriters.length - 1,
+                });
+              }
+            }
 
             if (typeof globalThis !== 'undefined' && globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__) {
               if (!heroOverviewFragmentWriterLoggedRef.current) {

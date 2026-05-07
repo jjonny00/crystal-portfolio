@@ -213,6 +213,14 @@ const UnifiedCameraController = ({
   const prevCameraStateRef = useRef(animationData?.cameraState ?? null);
   const configCheckLoggedRef = useRef(false);
   const stableHeroPositionRef = useRef(new THREE.Vector3(0, 0.8, 7));
+  const writerAuditRef = useRef({
+    transitionActive: false,
+    cameraWritersSeen: new Set(),
+    frameWriters: new Map(),
+    multipleCameraWritersSameFrame: false,
+    fallbackWriterAfterRuntimeWriter: false,
+    legacyWriterAfterRuntimeWriter: false,
+  });
 
   const applyFractureTilt = () => {
     if (!fractureTiltActiveRef.current) return;
@@ -1451,6 +1459,54 @@ const UnifiedCameraController = ({
 
 
   const logCameraWrite = (state, branch, reason, lookAtTarget = null, projectionUpdated = false, returns = false) => {
+    const runtimePhase = heroOverviewRuntime?.getSnapshot?.()?.phase ?? 'idle';
+    const isRuntimeWriter = branch === 'FORCED_HERO_TO_OVERVIEW';
+    const isFallbackWriter = branch === 'FALLBACK';
+    const isLegacyWriter = !isRuntimeWriter && !isFallbackWriter;
+    const frameId = Math.floor((state.clock.elapsedTime || 0) * 1000);
+    const wa = writerAuditRef.current;
+    if (animationData?.cameraState === 'transitioning' || runtimePhase !== 'idle') {
+      wa.transitionActive = true;
+      wa.cameraWritersSeen.add(branch);
+      const arr = wa.frameWriters.get(frameId) || [];
+      if (arr.length > 0) wa.multipleCameraWritersSameFrame = true;
+      if (arr.includes('FORCED_HERO_TO_OVERVIEW') && isFallbackWriter) wa.fallbackWriterAfterRuntimeWriter = true;
+      if (arr.includes('FORCED_HERO_TO_OVERVIEW') && isLegacyWriter) wa.legacyWriterAfterRuntimeWriter = true;
+      arr.push(branch);
+      wa.frameWriters.set(frameId, arr);
+      if (typeof globalThis !== 'undefined' && globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__) {
+        console.log('[hero-overview-writer-audit] camera writer', {
+          frameId,
+          runtimePhase,
+          cameraState: animationData?.cameraState ?? null,
+          state: animationData?.state ?? null,
+          writerBranch: branch,
+          positionBefore: null,
+          positionAfter: camera.position.toArray(),
+          targetBefore: null,
+          targetAfter: lookAtTarget?.toArray?.() || null,
+          isRuntimeWriter,
+          isLegacyWriter,
+          isFallbackWriter,
+          writeOrderIndex: arr.length - 1,
+        });
+      }
+    } else if (wa.transitionActive && typeof globalThis !== 'undefined' && globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__) {
+      console.log('[hero-overview-writer-audit] transition writer summary', {
+        fragmentWritersSeen: [],
+        cameraWritersSeen: Array.from(wa.cameraWritersSeen),
+        multipleFragmentWritersSameFrame: null,
+        multipleCameraWritersSameFrame: wa.multipleCameraWritersSameFrame,
+        legacyWriterAfterRuntimeWriter: wa.legacyWriterAfterRuntimeWriter,
+        fallbackWriterAfterRuntimeWriter: wa.fallbackWriterAfterRuntimeWriter,
+        suspectedOverwrite: wa.legacyWriterAfterRuntimeWriter || wa.fallbackWriterAfterRuntimeWriter,
+        suspectedBranches: Array.from(wa.cameraWritersSeen),
+      });
+      writerAuditRef.current = {
+        transitionActive: false, cameraWritersSeen: new Set(), frameWriters: new Map(),
+        multipleCameraWritersSameFrame: false, fallbackWriterAfterRuntimeWriter: false, legacyWriterAfterRuntimeWriter: false,
+      };
+    }
     const forcedHeroToOverviewActive = authoritativeHeroToOverviewTransitionRef.current.active;
     const forcedOverviewToHeroActive = authoritativeOverviewToHeroTransitionRef.current.active;
     if ((forcedHeroToOverviewActive || forcedOverviewToHeroActive) &&
