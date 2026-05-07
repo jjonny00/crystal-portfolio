@@ -18,6 +18,7 @@ const UnifiedCameraController = ({
   facetRefs = null,
   sharedCameraMoveProgressRef = null,
   heroOverviewRuntime = null,
+  heroOverviewExplosionClockRef = null,
 }) => {
   const { camera } = useThree();
   console.log('[UnifiedCameraController] mounted/rendered');
@@ -269,6 +270,22 @@ const UnifiedCameraController = ({
     if (viewDirection.lengthSq() <= 0.0000001) return zeroOffset;
     const pushbackDirection = viewDirection.normalize().multiplyScalar(-1);
     return pushbackDirection.multiplyScalar(pushbackAmount);
+  };
+
+  const deriveExplosionClockRuntimeState = (explosionClock, runtimeTiming) => {
+    if (!explosionClock?.active) return null;
+    const timing = runtimeTiming || {};
+    const fractureChargeEnd = THREE.MathUtils.clamp(timing.fractureChargeEnd ?? 0.0933333333, 0, 1);
+    const explosionImpulseEnd = THREE.MathUtils.clamp(timing.explosionImpulseEnd ?? 0.24, fractureChargeEnd, 1);
+    const bulletTimeSlowdownEnd = THREE.MathUtils.clamp(timing.bulletTimeSlowdownEnd ?? 0.72, explosionImpulseEnd, 1);
+    const overviewSettleEnd = THREE.MathUtils.clamp(timing.overviewSettleEnd ?? 1, bulletTimeSlowdownEnd, 1);
+    const progress = THREE.MathUtils.clamp(explosionClock.progress ?? 0, 0, 1);
+    const mappedMainProgress = THREE.MathUtils.lerp(fractureChargeEnd, 1, progress);
+    let phase = 'complete';
+    if (mappedMainProgress < explosionImpulseEnd) phase = 'explosionImpulse';
+    else if (mappedMainProgress < bulletTimeSlowdownEnd) phase = 'bulletTimeSlowdown';
+    else if (mappedMainProgress < overviewSettleEnd) phase = 'overviewSettle';
+    return { active: true, progress, phase, timing, startedAt: explosionClock.startedAt, elapsedMs: explosionClock.elapsedMs };
   };
 
   const syncFractureTiltState = (elapsedSeconds = 0) => {
@@ -2047,6 +2064,13 @@ const UnifiedCameraController = ({
         }
       } else {
         const runtimeSnapshot = heroOverviewRuntime?.getSnapshot?.() ?? null;
+        const explosionClock = heroOverviewExplosionClockRef?.current ?? null;
+        const sharedClockRuntimeState = deriveExplosionClockRuntimeState(
+          explosionClock,
+          runtimeSnapshot?.timing || config?.timing?.heroOverviewRuntime,
+        );
+        const cameraTimingState = sharedClockRuntimeState || runtimeSnapshot;
+        const cameraTimingSource = sharedClockRuntimeState ? 'sharedExplosionClock' : 'runtime';
         const runtimePhase = runtimeSnapshot?.phase ?? 'idle';
         const runtimeProgress = runtimeSnapshot?.progress ?? 0;
         const basePosition = new THREE.Vector3();
@@ -2062,9 +2086,9 @@ const UnifiedCameraController = ({
             lookAtProgress,
           );
         }
-        const computedOffset = resolveHeroOverviewCameraOffset(runtimeSnapshot, config?.timing?.heroOverviewRuntime, basePosition, forcedLookAt);
+        const computedOffset = resolveHeroOverviewCameraOffset(cameraTimingState, config?.timing?.heroOverviewRuntime, basePosition, forcedLookAt);
         const applyScale = THREE.MathUtils.clamp(
-          Number(runtimeSnapshot?.timing?.cameraPushbackApplyScale ?? config?.timing?.heroOverviewRuntime?.cameraPushbackApplyScale ?? 0.15),
+          Number(cameraTimingState?.timing?.cameraPushbackApplyScale ?? config?.timing?.heroOverviewRuntime?.cameraPushbackApplyScale ?? 0.15),
           0,
           200,
         );
@@ -2072,6 +2096,8 @@ const UnifiedCameraController = ({
         const appliedOffset = isFiniteComputedOffset
           ? computedOffset.clone().multiplyScalar(applyScale)
           : new THREE.Vector3(0, 0, 0);
+        globalThis.__HERO_OVERVIEW_CAMERA_TIMING_SOURCE__ = cameraTimingSource;
+        globalThis.__HERO_OVERVIEW_CAMERA_PROGRESS__ = cameraTimingState?.progress ?? 0;
         const finalPosition = basePosition.clone().add(appliedOffset);
         camera.position.copy(finalPosition);
         camera.lookAt(forcedLookAt);
@@ -2085,6 +2111,7 @@ const UnifiedCameraController = ({
             heroOverviewCameraTimingResolvedLoggedRef.current = true;
             const resolvedTiming = runtimeSnapshot?.timing || config?.timing?.heroOverviewRuntime || {};
             console.log('[hero-overview-sync] resolved camera timing config', {
+              cameraTimingSource,
               cameraPushbackApplyScale: Number(resolvedTiming.cameraPushbackApplyScale ?? 2),
               cameraPushbackDistance: Number(resolvedTiming.cameraPushbackDistance ?? 0.18),
               cameraPushbackStrength: Number(resolvedTiming.cameraPushbackStrength ?? 1.4),
@@ -2128,6 +2155,7 @@ const UnifiedCameraController = ({
             console.log('[hero-overview-sync] camera curve sample', {
               runtimeProgress: Number(runtimeProgress.toFixed?.(3) ?? runtimeProgress),
               runtimePhase,
+              cameraPushbackProgress: Number((cameraTimingState?.progress ?? runtimeProgress).toFixed(4)),
               cameraAppliedOffsetLength: Number(appliedOffset.length().toFixed(4)),
               cameraPushbackDecayStart: Number((runtimeSnapshot?.timing?.cameraPushbackDecayStart ?? config?.timing?.heroOverviewRuntime?.cameraPushbackDecayStart ?? 0.18).toFixed(3)),
               cameraPushbackDecayEnd: Number((runtimeSnapshot?.timing?.cameraPushbackDecayEnd ?? config?.timing?.heroOverviewRuntime?.cameraPushbackDecayEnd ?? 0.68).toFixed(3)),
@@ -2136,6 +2164,17 @@ const UnifiedCameraController = ({
                   ? appliedOffset.length() <= 0.000001
                   : false,
             });
+            if (explosionClock?.active) {
+              console.log('[hero-overview-sync] shared explosion clock', {
+                explosionProgress: Number((explosionClock.progress ?? 0).toFixed(4)),
+                fragmentVisualProgress: Number((explosionClock.progress ?? 0).toFixed(4)),
+                cameraPushbackProgress: Number((cameraTimingState?.progress ?? 0).toFixed(4)),
+                fragmentTravelProgress: Number(globalThis.__HERO_OVERVIEW_FRAGMENT_TRAVEL_PROGRESS__ ?? 0),
+                cameraAppliedOffsetLength: Number(appliedOffset.length().toFixed(4)),
+                cameraNearFinal: appliedOffset.length() <= 0.01,
+                fragmentNearFinal: Boolean(globalThis.__HERO_OVERVIEW_FRAGMENT_NEAR_FINAL__),
+              });
+            }
           }
         }
       }

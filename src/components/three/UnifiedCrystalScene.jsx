@@ -61,6 +61,7 @@ const UnifiedCrystalScene = forwardRef(({
   onFractureStart,
   sharedCameraMoveProgressRef = null,
   heroOverviewRuntime = null,
+  heroOverviewExplosionClockRef = null,
 }, ref) => {
   // Component refs for crystal animation
   const crystalGroupRef = useRef();
@@ -1607,6 +1608,7 @@ const UnifiedCrystalScene = forwardRef(({
           setShowFacets(false);
         }
         explosionStartRef.current = null;
+        if (heroOverviewExplosionClockRef) heroOverviewExplosionClockRef.current = null;
         explosionCycleCompleteRef.current = false;
         resetWholeCrystalMaskGlow();
         if (facetsGroupRef.current) {
@@ -1838,6 +1840,19 @@ const UnifiedCrystalScene = forwardRef(({
         const explosionElapsedMs = elapsedExplosion * 1000;
 
         const progress = Math.min((elapsedExplosion - fracturePause) / (totalDuration - fracturePause), 1);
+        const runtimeSnapshotForClock = heroOverviewRuntime?.getSnapshot?.() ?? null;
+        const { fragmentVisualPhase: explosionVisualPhase, fragmentVisualProgress: explosionVisualProgress } =
+          deriveFragmentVisualTiming(runtimeSnapshotForClock, progress);
+        if (heroOverviewExplosionClockRef) {
+          heroOverviewExplosionClockRef.current = {
+            active: true,
+            startedAt: explosionStartRef.current,
+            elapsedMs: explosionElapsedMs,
+            progress: explosionVisualProgress,
+            phase: explosionVisualPhase,
+            source: 'runExplodeSwap/explosionStartRef',
+          };
+        }
         const fracture = crystalConfig?.fracturePositions;
         const fractureDistance = crystalConfig?.fractureDistance ?? 0.3;
         const eased = crystalConfig?.explosionEase
@@ -2006,6 +2021,8 @@ const UnifiedCrystalScene = forwardRef(({
                   const cameraAppliedOffsetLength = Number(globalThis.__HERO_OVERVIEW_CAMERA_APPLIED_OFFSET_LENGTH__ ?? 0);
                   const cameraNearFinal = cameraAppliedOffsetLength <= 0.01;
                   const fragmentNearFinal = steadyStateExplodedPosition.distanceTo(runtimeFinalPosition) <= 0.01;
+                  globalThis.__HERO_OVERVIEW_FRAGMENT_TRAVEL_PROGRESS__ = resolvedTravelProgress;
+                  globalThis.__HERO_OVERVIEW_FRAGMENT_NEAR_FINAL__ = fragmentNearFinal;
                   console.log('[hero-overview-sync] timing sample', {
                     runtimeProgress: Number(runtimeProgress.toFixed?.(3) ?? runtimeProgress),
                     runtimePhase,
@@ -2015,6 +2032,28 @@ const UnifiedCrystalScene = forwardRef(({
                     cameraAppliedOffsetLength: Number(cameraAppliedOffsetLength.toFixed(4)),
                     cameraNearFinal,
                     fragmentNearFinal,
+                  });
+                  const runtimeStartedAt = runtimeSnapshot?.startedAt ?? null;
+                  const runtimeElapsedMs = runtimeSnapshot?.elapsedMs ?? null;
+                  const cameraProgress = Number(globalThis.__HERO_OVERVIEW_CAMERA_PROGRESS__ ?? 0);
+                  const cameraTimingSource = globalThis.__HERO_OVERVIEW_CAMERA_TIMING_SOURCE__ ?? 'runtime';
+                  const explosionStartedAt = explosionStartRef.current ?? null;
+                  const timingDeltaMs = runtimeStartedAt != null && explosionStartedAt != null
+                    ? Number((explosionStartedAt - runtimeStartedAt).toFixed(2))
+                    : null;
+                  console.log('[hero-overview-sync] clock alignment', {
+                    runtimeStartedAt,
+                    runtimeElapsedMs: runtimeElapsedMs == null ? null : Number(runtimeElapsedMs.toFixed(2)),
+                    runtimeProgress: Number(runtimeProgress.toFixed?.(4) ?? runtimeProgress),
+                    runtimePhase,
+                    explosionStartedAt,
+                    explosionElapsedMs: Number(explosionElapsedMs.toFixed(2)),
+                    explosionProgress: Number(progress.toFixed(4)),
+                    fragmentVisualProgress: Number(fragmentVisualProgress.toFixed(4)),
+                    fragmentVisualPhase,
+                    cameraTimingSource,
+                    cameraProgress,
+                    timingDeltaMs,
                   });
                 }
                 const curveCheckpoints = [0.02, 0.05, 0.08, 0.10, 0.25, 0.50, 0.75, 1.00];
@@ -2217,6 +2256,7 @@ const UnifiedCrystalScene = forwardRef(({
 
         if (progress >= 1) {
           explosionStartRef.current = null; // Animation finished
+          if (heroOverviewExplosionClockRef) heroOverviewExplosionClockRef.current = null;
           explosionCycleCompleteRef.current = true;
         }
         return;
