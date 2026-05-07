@@ -275,7 +275,9 @@ export const timing = {
     fragmentMidTravel: 0.60,
     fragmentSlowPortionEnd: 0.75,
     fragmentSlowTravelEnd: 0.90,
-    fragmentTravelCurveStrength: 5.0,
+    fragmentTravelEaseType: 'powerOut',
+    fragmentTravelEaseStrength: 2.4,
+    fragmentTravelCurveStrength: 2.4,
     fragmentSettleCurveStrength: 4.0,
   },
 }

@@ -46,3 +46,15 @@ npm run preview
 ```
 
 The build output is placed in `dist/`.
+
+## Quality checks
+
+Before committing changes, run:
+
+```bash
+npm run build
+npm run preview
+```
+
+`npm run build` verifies the production bundle compiles, and `npm run preview` serves the generated `dist/` output for a quick smoke test.
+

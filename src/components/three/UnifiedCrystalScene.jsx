@@ -140,8 +140,19 @@ const UnifiedCrystalScene = forwardRef(({
 
     const timing = runtimeState.timing || runtimeSettings || {};
     const progress = THREE.MathUtils.clamp(fragmentVisualProgress ?? 0, 0, 1);
-    const travelCurveStrength = Math.max(1, Number(timing.fragmentTravelCurveStrength ?? 5.0));
-    const travelProgress = 1 - ((1 - progress) ** travelCurveStrength);
+    const easeOutPower = (t, strength) => {
+      const clampedT = THREE.MathUtils.clamp(t, 0, 1);
+      const clampedStrength = Math.max(1, Number(strength ?? 2.4));
+      return THREE.MathUtils.clamp(1 - ((1 - clampedT) ** clampedStrength), 0, 1);
+    };
+    const travelEaseType = timing.fragmentTravelEaseType ?? 'powerOut';
+    const travelEaseStrength = Math.max(
+      1,
+      Number(timing.fragmentTravelEaseStrength ?? timing.fragmentTravelCurveStrength ?? 2.4),
+    );
+    const travelProgress = travelEaseType === 'powerOut'
+      ? easeOutPower(progress, travelEaseStrength)
+      : easeOutPower(progress, travelEaseStrength);
 
     const clampedTravelProgress = THREE.MathUtils.clamp(travelProgress, 0, 1);
     const appliedRotationOffset = zeroRotationOffset.clone();
@@ -149,6 +160,8 @@ const UnifiedCrystalScene = forwardRef(({
 
     return {
       travelProgress: clampedTravelProgress,
+      travelEaseType,
+      travelEaseStrength,
       useBaseInterpolation: false,
       computedRotationOffset,
       appliedRotationOffset,
@@ -1846,6 +1859,8 @@ const UnifiedCrystalScene = forwardRef(({
             const { fragmentVisualPhase, fragmentVisualProgress } = deriveFragmentVisualTiming(runtimeSnapshot, progress);
             const {
               travelProgress,
+              travelEaseType,
+              travelEaseStrength,
               useBaseInterpolation,
               computedRotationOffset,
               appliedRotationOffset,
@@ -1913,6 +1928,8 @@ const UnifiedCrystalScene = forwardRef(({
                       fragmentSlowPortionEnd: Number(resolvedTiming.fragmentSlowPortionEnd ?? 0.35),
                       fragmentSlowTravelEnd: Number(resolvedTiming.fragmentSlowTravelEnd ?? 0.95),
                       fragmentTravelCurveStrength: Number(resolvedTiming.fragmentTravelCurveStrength ?? 2.4),
+                      fragmentTravelEaseType: resolvedTiming.fragmentTravelEaseType ?? 'powerOut',
+                      fragmentTravelEaseStrength: Number(resolvedTiming.fragmentTravelEaseStrength ?? resolvedTiming.fragmentTravelCurveStrength ?? 2.4),
                       fragmentSettleCurveStrength: Number(resolvedTiming.fragmentSettleCurveStrength ?? 2.2),
                       configSource: runtimeSnapshot?.timing ? 'runtimeSnapshot.timing' : 'config.timing.heroOverviewRuntime',
                     });
@@ -1929,6 +1946,8 @@ const UnifiedCrystalScene = forwardRef(({
                     fragmentSlowPortionEnd: Number(resolvedTiming.fragmentSlowPortionEnd ?? 0.25),
                     fragmentSlowTravelEnd: Number(resolvedTiming.fragmentSlowTravelEnd ?? 0.92),
                     fragmentTravelCurveStrength: Number(resolvedTiming.fragmentTravelCurveStrength ?? 2.8),
+                    fragmentTravelEaseType: resolvedTiming.fragmentTravelEaseType ?? 'powerOut',
+                    fragmentTravelEaseStrength: Number(resolvedTiming.fragmentTravelEaseStrength ?? resolvedTiming.fragmentTravelCurveStrength ?? 2.4),
                     fragmentSettleCurveStrength: Number(resolvedTiming.fragmentSettleCurveStrength ?? 3.1),
                     configSource: runtimeSnapshot?.timing ? 'runtimeSnapshot.timing' : 'config.timing.heroOverviewRuntime',
                   });
@@ -1957,6 +1976,8 @@ const UnifiedCrystalScene = forwardRef(({
                     previousTravelProgress: previousTravelProgress == null ? null : Number(previousTravelProgress.toFixed(4)),
                     monotonic,
                     overshoot,
+                    fragmentTravelEaseType: travelEaseType,
+                    fragmentTravelEaseStrength: Number(travelEaseStrength.toFixed(4)),
                     finalPosition: finalPosition.toArray(),
                     appliedRotationOffset: [appliedRotationOffset.x, appliedRotationOffset.y, appliedRotationOffset.z],
                   });

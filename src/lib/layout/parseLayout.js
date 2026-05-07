@@ -147,6 +147,7 @@ const parseHeroOverviewRuntimeTiming = (timing, path) => {
     'fragmentMidTravel',
     'fragmentSlowPortionEnd',
     'fragmentSlowTravelEnd',
+    'fragmentTravelEaseStrength',
     'fragmentTravelCurveStrength',
     'fragmentSettleCurveStrength',
   ];
@@ -158,6 +159,13 @@ const parseHeroOverviewRuntimeTiming = (timing, path) => {
     }
     parsed[key] = timing[key];
   });
+
+  if (timing.fragmentTravelEaseType !== undefined) {
+    if (timing.fragmentTravelEaseType !== 'powerOut') {
+      throw new Error(`Invalid layout at ${path}.fragmentTravelEaseType: expected "powerOut".`);
+    }
+    parsed.fragmentTravelEaseType = timing.fragmentTravelEaseType;
+  }
 
   return parsed;
 };

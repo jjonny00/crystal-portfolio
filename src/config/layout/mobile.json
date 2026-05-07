@@ -598,7 +598,9 @@
       "fragmentMidTravel": 0.6,
       "fragmentSlowPortionEnd": 0.7,
       "fragmentSlowTravelEnd": 0.9,
-      "fragmentTravelCurveStrength": 5,
+      "fragmentTravelEaseType": "powerOut",
+      "fragmentTravelEaseStrength": 2.4,
+      "fragmentTravelCurveStrength": 2.4,
       "fragmentSettleCurveStrength": 4
     }
   }
