@@ -24,6 +24,7 @@ import MistyLayerStack from '../MistyLayerStack';
 import { isIOS26 } from '../../utils/isIOS26';
 import { facetKeys as canonicalFacetKeys, getProjectIdBySceneFacetKey } from '../../data/projects';
 import { useLayoutConfig } from '../../hooks/useLayoutConfig';
+import { useHeroOverviewRuntime } from '../../hooks/useHeroOverviewRuntime';
 
 function createSanitizePass() {
   const material = new ShaderMaterial({
@@ -96,6 +97,14 @@ const PulsingOmniLight = ({ simplified = false }) => {
   );
 };
 
+
+const HeroOverviewRuntimeTicker = ({ runtime }) => {
+  useFrame(() => {
+    runtime?.update?.();
+  });
+
+  return null;
+};
 
 const InitialCameraLookAt = ({ target }) => {
   const { camera } = useThree();
@@ -176,6 +185,17 @@ const Fixed3DCanvas = forwardRef(({
 
   const sanitizePass = useMemo(() => createSanitizePass(), []);
   const { layout, variant } = useLayoutConfig();
+  const heroOverviewRuntimeTimingConfig = useMemo(
+    () => ({
+      ...(layout?.timing?.heroOverviewRuntime || {}),
+      ...(config?.timing?.heroOverviewRuntime || {}),
+    }),
+    [config?.timing?.heroOverviewRuntime, layout?.timing?.heroOverviewRuntime],
+  );
+  const heroOverviewRuntime = useHeroOverviewRuntime(heroOverviewRuntimeTimingConfig);
+  const heroOverviewExplosionClockRef = useRef(null);
+  const lastHeroOverviewStartRef = useRef('');
+  const lastHeroOverviewZoneRef = useRef(null);
 
   const cameraMergedConfig = useMemo(() => {
     const nextConfig = { ...config };
@@ -374,6 +394,16 @@ const Fixed3DCanvas = forwardRef(({
       };
     }
 
+    if (layout?.timing?.heroOverviewRuntime) {
+      nextConfig.timing = {
+        ...(nextConfig.timing || {}),
+        heroOverviewRuntime: {
+          ...(nextConfig.timing?.heroOverviewRuntime || {}),
+          ...layout.timing.heroOverviewRuntime,
+        },
+      };
+    }
+
     if (import.meta.env.DEV) {
       const deviceKey = variant === 'mobile' ? 'mobile' : 'desktop';
       console.log('[camera-merge] runtime config fields', {
@@ -387,7 +417,7 @@ const Fixed3DCanvas = forwardRef(({
     }
 
     return nextConfig;
-  }, [cameraRuntimeOverrides, config, layout?.camera, layout?.projects, projectRuntimeOverrides, variant]);
+  }, [cameraRuntimeOverrides, config, layout?.camera, layout?.projects, layout?.timing, projectRuntimeOverrides, variant]);
 
   const runtimeOverrideLogShownRef = useRef(false);
 
@@ -549,6 +579,27 @@ const Fixed3DCanvas = forwardRef(({
     bg
   ]);
 
+  useEffect(() => {
+    const fromZone = lastHeroOverviewZoneRef.current;
+    const toZone = animationData?.currentZone ?? null;
+
+    if (toZone === 'hero') {
+      heroOverviewRuntime.resetToIdle({ reason: 'returned-to-hero' });
+      lastHeroOverviewStartRef.current = '';
+    }
+
+    const isHeroToOverview = fromZone === 'hero' && toZone === 'overview';
+    if (isHeroToOverview) {
+      const startKey = `${fromZone}->${toZone}`;
+      if (lastHeroOverviewStartRef.current !== startKey) {
+        lastHeroOverviewStartRef.current = startKey;
+        heroOverviewRuntime.start({ source: 'hero-to-overview-zone-transition' });
+      }
+    }
+
+    lastHeroOverviewZoneRef.current = toZone;
+  }, [animationData?.currentZone, heroOverviewRuntime]);
+
   // FIXED: Function to get facet refs from crystal scene with proper access
   const initialCameraPosition =
     cameraMergedConfig?.cameraPositions?.intro || config?.camera?.startingPosition || [0, 0, 4.5];
@@ -659,6 +710,8 @@ const Fixed3DCanvas = forwardRef(({
             castShadow={false}
           />
           
+          <HeroOverviewRuntimeTicker runtime={heroOverviewRuntime} />
+
           {/* UPDATED: Enhanced Camera Controller with facet refs */}
           <UnifiedCameraController
             animationData={animationData}
@@ -668,6 +721,8 @@ const Fixed3DCanvas = forwardRef(({
             simplifiedAnimations={simplifiedAnimations}
             facetRefs={getFacetRefs()} // FIXED: Pass exposed facet refs for anchor targeting
             sharedCameraMoveProgressRef={cameraMoveProgressRef}
+            heroOverviewRuntime={heroOverviewRuntime}
+            heroOverviewExplosionClockRef={heroOverviewExplosionClockRef}
           />
           
           {/* UPDATED: Crystal Scene with ref for accessing debug state */}
@@ -684,6 +739,8 @@ const Fixed3DCanvas = forwardRef(({
             scrollToProject={scrollToProject}
             onDirectProjectSelect={onDirectProjectSelect}
             onFractureStart={handleFractureStart}
+            heroOverviewRuntime={heroOverviewRuntime}
+            heroOverviewExplosionClockRef={heroOverviewExplosionClockRef}
           />
 
           {/* UPDATED: Enhanced MistyLayerStack with highest render order */}

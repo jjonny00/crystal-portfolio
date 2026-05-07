@@ -16,7 +16,9 @@ const UnifiedCameraController = ({
   isMobile = false,
   simplifiedAnimations = false,
   facetRefs = null,
-  sharedCameraMoveProgressRef = null
+  sharedCameraMoveProgressRef = null,
+  heroOverviewRuntime = null,
+  heroOverviewExplosionClockRef = null,
 }) => {
   const { camera } = useThree();
   console.log('[UnifiedCameraController] mounted/rendered');
@@ -199,6 +201,10 @@ const UnifiedCameraController = ({
   const heroToOverviewTraceMetaRef = useRef({ active: false, endTime: 0, forcedFinal: null, prevSample: null });
   const heroToOverviewPhaseBoundaryTraceRef = useRef([]);
   const heroToOverviewPhaseBoundaryMetaRef = useRef({ switchIndex: null, printed: false });
+  const heroOverviewCameraHookBranchLoggedRef = useRef(false);
+  const heroOverviewCameraHookPhaseLoggedRef = useRef(new Set());
+  const heroOverviewCameraTimingResolvedLoggedRef = useRef(false);
+  const heroOverviewCameraCurveSampleLoggedRef = useRef(new Set());
   const lastCameraWriteSecondRef = useRef(-1);
   const lastCameraWriterRef = useRef('none');
   const prevStateRef = useRef(animationData?.state ?? null);
@@ -224,6 +230,62 @@ const UnifiedCameraController = ({
         fractureTiltRef.current = 0;
       }
     }
+  };
+
+  const resolveHeroOverviewCameraOffset = (runtimeState, runtimeSettings, basePosition, lookAtTarget) => {
+    const zeroOffset = new THREE.Vector3(0, 0, 0);
+    if (!runtimeState || !runtimeState.active) return zeroOffset;
+
+    const phase = runtimeState.phase;
+    const progress = THREE.MathUtils.clamp(runtimeState.progress ?? 0, 0, 1);
+    const timing = runtimeState.timing || runtimeSettings || {};
+    const pushbackDistance = Math.max(0, Number(timing.cameraPushbackDistance ?? 0));
+    const pushbackStrength = Math.max(0, Number(timing.cameraPushbackStrength ?? 0));
+    const decayStart = THREE.MathUtils.clamp(Number(timing.cameraPushbackDecayStart ?? 0.18), 0, 1);
+    const decayEnd = THREE.MathUtils.clamp(Number(timing.cameraPushbackDecayEnd ?? 0.68), decayStart, 1);
+
+    if (pushbackDistance <= 0 || pushbackStrength <= 0) return zeroOffset;
+    if (phase !== 'explosionImpulse' && phase !== 'bulletTimeSlowdown') return zeroOffset;
+
+    const smoothstep = (v) => {
+      const p = THREE.MathUtils.clamp(v, 0, 1);
+      return p * p * (3 - 2 * p);
+    };
+
+    let phaseAmount = 1;
+    if (phase === 'explosionImpulse') {
+      const phaseStart = THREE.MathUtils.clamp(timing.fractureChargeEnd ?? 0, 0, 1);
+      const phaseEnd = THREE.MathUtils.clamp(timing.explosionImpulseEnd ?? phaseStart, phaseStart, 1);
+      const local = phaseEnd > phaseStart ? (progress - phaseStart) / (phaseEnd - phaseStart) : 1;
+      phaseAmount = Math.max(0.6, smoothstep(local));
+    } else if (progress >= decayStart) {
+      const decayT = decayEnd > decayStart ? (progress - decayStart) / (decayEnd - decayStart) : 1;
+      phaseAmount = 1 - smoothstep(decayT);
+    }
+
+    const pushbackAmount = Math.max(0, pushbackDistance * pushbackStrength * phaseAmount);
+    if (pushbackAmount <= 0.000001) return zeroOffset;
+
+    const viewDirection = new THREE.Vector3().subVectors(lookAtTarget, basePosition);
+    if (viewDirection.lengthSq() <= 0.0000001) return zeroOffset;
+    const pushbackDirection = viewDirection.normalize().multiplyScalar(-1);
+    return pushbackDirection.multiplyScalar(pushbackAmount);
+  };
+
+  const deriveExplosionClockRuntimeState = (explosionClock, runtimeTiming) => {
+    if (!explosionClock?.active) return null;
+    const timing = runtimeTiming || {};
+    const fractureChargeEnd = THREE.MathUtils.clamp(timing.fractureChargeEnd ?? 0.0933333333, 0, 1);
+    const explosionImpulseEnd = THREE.MathUtils.clamp(timing.explosionImpulseEnd ?? 0.24, fractureChargeEnd, 1);
+    const bulletTimeSlowdownEnd = THREE.MathUtils.clamp(timing.bulletTimeSlowdownEnd ?? 0.72, explosionImpulseEnd, 1);
+    const overviewSettleEnd = THREE.MathUtils.clamp(timing.overviewSettleEnd ?? 1, bulletTimeSlowdownEnd, 1);
+    const progress = THREE.MathUtils.clamp(explosionClock.progress ?? 0, 0, 1);
+    const mappedMainProgress = THREE.MathUtils.lerp(fractureChargeEnd, 1, progress);
+    let phase = 'complete';
+    if (mappedMainProgress < explosionImpulseEnd) phase = 'explosionImpulse';
+    else if (mappedMainProgress < bulletTimeSlowdownEnd) phase = 'bulletTimeSlowdown';
+    else if (mappedMainProgress < overviewSettleEnd) phase = 'overviewSettle';
+    return { active: true, progress, phase, timing, startedAt: explosionClock.startedAt, elapsedMs: explosionClock.elapsedMs };
   };
 
   const syncFractureTiltState = (elapsedSeconds = 0) => {
@@ -1597,6 +1659,10 @@ const UnifiedCameraController = ({
         console.warn('[UCC FORCE HERO TO OVERVIEW START] Missing hero snapshots; using current camera fallback');
       }
       heroToOverviewTransitionStartedForExitRef.current = true;
+      heroOverviewCameraHookPhaseLoggedRef.current.clear();
+      heroOverviewCameraHookBranchLoggedRef.current = false;
+      heroOverviewCameraTimingResolvedLoggedRef.current = false;
+      heroOverviewCameraCurveSampleLoggedRef.current.clear();
       {
         const authoritativeFromPosition = fromSnapshot.position.clone();
         const authoritativeFromLookAt = fromSnapshot.lookAtTarget.clone();
@@ -1997,22 +2063,105 @@ const UnifiedCameraController = ({
           });
         }
       } else {
-        if (isDollyPhase) {
-          camera.position.lerpVectors(transition.from.position, waypoint.position, positionProgress);
-          forcedLookAt = introLookAtTempRef.current.copy(transition.from.lookAtTarget);
-        } else {
-          camera.position.lerpVectors(waypoint.position, transition.to.position, positionProgress);
-          forcedLookAt = introLookAtTempRef.current.lerpVectors(
-            waypoint.lookAtTarget,
-            transition.to.lookAtTarget,
-            lookAtProgress,
-          );
-        }
+        const runtimeSnapshot = heroOverviewRuntime?.getSnapshot?.() ?? null;
+        const explosionClock = heroOverviewExplosionClockRef?.current ?? null;
+        const sharedClockRuntimeState = deriveExplosionClockRuntimeState(
+          explosionClock,
+          runtimeSnapshot?.timing || config?.timing?.heroOverviewRuntime,
+        );
+        const cameraTimingState = sharedClockRuntimeState || runtimeSnapshot;
+        const cameraTimingSource = sharedClockRuntimeState ? 'sharedExplosionClock' : 'runtime';
+        const runtimePhase = runtimeSnapshot?.phase ?? 'idle';
+        const runtimeProgress = runtimeSnapshot?.progress ?? 0;
+        const sharedRaw = THREE.MathUtils.clamp(explosionClock?.progress ?? 0, 0, 1);
+        const sharedEased = THREE.MathUtils.clamp(sharedRaw >= 1 ? 1 : 1 - (2 ** (-10 * sharedRaw)), 0, 1);
+        const basePosition = new THREE.Vector3().lerpVectors(transition.from.position, transition.to.position, sharedEased);
+        forcedLookAt = introLookAtTempRef.current.lerpVectors(
+          transition.from.lookAtTarget,
+          transition.to.lookAtTarget,
+          sharedEased,
+        );
+        const appliedOffset = new THREE.Vector3(0, 0, 0);
+        const isFiniteComputedOffset = true;
+        const finalPosition = basePosition.clone().add(appliedOffset);
+        globalThis.__HERO_OVERVIEW_CAMERA_TIMING_SOURCE__ = cameraTimingSource;
+        globalThis.__HERO_OVERVIEW_CAMERA_PROGRESS__ = sharedEased;
+        globalThis.__HERO_OVERVIEW_CAMERA_POSITION__ = finalPosition.toArray();
+        camera.position.copy(finalPosition);
         camera.lookAt(forcedLookAt);
-        camera.filmOffset = isDollyPhase
-          ? transition.from.filmOffsetX
-          : THREE.MathUtils.lerp(waypoint.filmOffsetX, transition.to.filmOffsetX, filmOffsetProgress);
+        camera.filmOffset = THREE.MathUtils.lerp(transition.from.filmOffsetX, transition.to.filmOffsetX, sharedEased);
         camera.updateProjectionMatrix();
+
+        if (typeof globalThis !== 'undefined' && globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__) {
+          if (!heroOverviewCameraTimingResolvedLoggedRef.current) {
+            heroOverviewCameraTimingResolvedLoggedRef.current = true;
+            const resolvedTiming = runtimeSnapshot?.timing || config?.timing?.heroOverviewRuntime || {};
+            console.log('[hero-overview-sync] resolved camera timing config', {
+              cameraTimingSource,
+              cameraPushbackApplyScale: Number(resolvedTiming.cameraPushbackApplyScale ?? 2),
+              cameraPushbackDistance: Number(resolvedTiming.cameraPushbackDistance ?? 0.18),
+              cameraPushbackStrength: Number(resolvedTiming.cameraPushbackStrength ?? 1.4),
+              cameraPushbackDecayStart: Number(resolvedTiming.cameraPushbackDecayStart ?? 0.18),
+              cameraPushbackDecayEnd: Number(resolvedTiming.cameraPushbackDecayEnd ?? 0.68),
+              configSource: runtimeSnapshot?.timing ? 'runtimeSnapshot.timing' : 'config.timing.heroOverviewRuntime',
+            });
+          }
+          if (!heroOverviewCameraHookBranchLoggedRef.current) {
+            heroOverviewCameraHookBranchLoggedRef.current = true;
+            console.log('[hero-overview-camera-hook] branch identified', {
+              branch: 'authoritativeHeroToOverviewTransitionRef.current.active',
+            });
+          }
+          if (!heroOverviewCameraHookPhaseLoggedRef.current.has(runtimePhase)) {
+            heroOverviewCameraHookPhaseLoggedRef.current.add(runtimePhase);
+            const appliedOffsetLength = appliedOffset.length();
+
+            console.log('[hero-overview-camera-hook] visual offset applied', {
+              runtimePhase,
+              runtimeProgress: Number(runtimeProgress.toFixed?.(3) ?? runtimeProgress),
+              computedOffsetLength: 0,
+              cameraPushbackApplyScale: 0,
+              appliedOffset: appliedOffset.toArray(),
+              appliedOffsetLength: Number(appliedOffsetLength.toFixed(4)),
+              basePosition: basePosition.toArray(),
+              finalPosition: finalPosition.toArray(),
+              isFiniteComputedOffset,
+              offsetZeroByOverviewSettle:
+                runtimePhase === 'overviewSettle' || runtimePhase === 'complete'
+                  ? appliedOffsetLength <= 0.000001
+                  : false,
+            });
+            globalThis.__HERO_OVERVIEW_CAMERA_APPLIED_OFFSET_LENGTH__ = appliedOffsetLength;
+          }
+          const runtimeCheckpointTargets = [0.08, 0.12, 0.20, 0.35, 0.58, 0.72, 1.00];
+          const sampleCheckpoint = runtimeCheckpointTargets.find((cp) => Math.abs(runtimeProgress - cp) <= 0.015);
+          if (sampleCheckpoint != null && !heroOverviewCameraCurveSampleLoggedRef.current.has(sampleCheckpoint)) {
+            heroOverviewCameraCurveSampleLoggedRef.current.add(sampleCheckpoint);
+            console.log('[hero-overview-sync] camera curve sample', {
+              runtimeProgress: Number(runtimeProgress.toFixed?.(3) ?? runtimeProgress),
+              runtimePhase,
+              cameraPushbackProgress: Number((cameraTimingState?.progress ?? runtimeProgress).toFixed(4)),
+              cameraAppliedOffsetLength: Number(appliedOffset.length().toFixed(4)),
+              cameraPushbackDecayStart: Number((runtimeSnapshot?.timing?.cameraPushbackDecayStart ?? config?.timing?.heroOverviewRuntime?.cameraPushbackDecayStart ?? 0.18).toFixed(3)),
+              cameraPushbackDecayEnd: Number((runtimeSnapshot?.timing?.cameraPushbackDecayEnd ?? config?.timing?.heroOverviewRuntime?.cameraPushbackDecayEnd ?? 0.68).toFixed(3)),
+              offsetZeroByOverviewSettle:
+                runtimePhase === 'overviewSettle' || runtimePhase === 'complete'
+                  ? appliedOffset.length() <= 0.000001
+                  : false,
+            });
+            if (explosionClock?.active) {
+              console.log('[hero-overview-sync] shared explosion clock', {
+                explosionProgress: Number((explosionClock.progress ?? 0).toFixed(4)),
+                fragmentVisualProgress: Number((explosionClock.progress ?? 0).toFixed(4)),
+                cameraPushbackProgress: Number((cameraTimingState?.progress ?? 0).toFixed(4)),
+                fragmentTravelProgress: Number(globalThis.__HERO_OVERVIEW_FRAGMENT_TRAVEL_PROGRESS__ ?? 0),
+                cameraAppliedOffsetLength: Number(appliedOffset.length().toFixed(4)),
+                cameraNearFinal: appliedOffset.length() <= 0.01,
+                fragmentNearFinal: Boolean(globalThis.__HERO_OVERVIEW_FRAGMENT_NEAR_FINAL__),
+              });
+            }
+          }
+        }
       }
       logCameraWrite(state, "FORCED_HERO_TO_OVERVIEW", "forced-hero-to-overview-frame", forcedLookAt, true, true);
       if (!transition.divergenceWarned && Math.abs(accumulatedProgress - elapsedProgress) > 0.05) {

@@ -121,6 +121,65 @@ const parseHeroTuning = (heroTuning, path) => {
   return parsed;
 };
 
+const parseHeroOverviewRuntimeTiming = (timing, path) => {
+  assertObject(timing, path);
+  const parsed = {};
+  const numericKeys = [
+    'totalDurationMs',
+    'fractureChargeEnd',
+    'explosionImpulseEnd',
+    'bulletTimeSlowdownEnd',
+    'overviewSettleEnd',
+    'heroOverviewMotionDurationMs',
+    'cameraPushbackDistance',
+    'cameraPushbackStrength',
+    'cameraPushbackDecayStart',
+    'cameraPushbackDecayEnd',
+    'cameraPushbackApplyScale',
+    'fragmentImpulseDistance',
+    'fragmentImpulseStrength',
+    'fragmentRotationStrength',
+    'fragmentImpulseApplyScale',
+    'fragmentImpulseDecayStart',
+    'fragmentImpulseDecayEnd',
+    'fragmentBlastPortion',
+    'fragmentBlastTravel',
+    'fragmentMidPortionEnd',
+    'fragmentMidTravel',
+    'fragmentSlowPortionEnd',
+    'fragmentSlowTravelEnd',
+    'fragmentTravelEaseStrength',
+    'fragmentTravelImpulseRate',
+    'fragmentTravelTimeExponent',
+    'fragmentTravelCurveStrength',
+    'fragmentSettleCurveStrength',
+  ];
+
+  numericKeys.forEach((key) => {
+    if (timing[key] === undefined) return;
+    if (typeof timing[key] !== 'number' || !Number.isFinite(timing[key])) {
+      throw new Error(`Invalid layout at ${path}.${key}: expected finite number.`);
+    }
+    parsed[key] = timing[key];
+  });
+
+  if (timing.fragmentTravelEaseType !== undefined) {
+    const validEaseTypes = new Set(['powerOut', 'normalizedExpoOut']);
+    if (!validEaseTypes.has(timing.fragmentTravelEaseType)) {
+      throw new Error(`Invalid layout at ${path}.fragmentTravelEaseType: expected "powerOut" or "normalizedExpoOut".`);
+    }
+    parsed.fragmentTravelEaseType = timing.fragmentTravelEaseType;
+  }
+  if (timing.heroOverviewMotionEaseType !== undefined) {
+    if (timing.heroOverviewMotionEaseType !== 'expoOut') {
+      throw new Error(`Invalid layout at ${path}.heroOverviewMotionEaseType: expected "expoOut".`);
+    }
+    parsed.heroOverviewMotionEaseType = timing.heroOverviewMotionEaseType;
+  }
+
+  return parsed;
+};
+
 const parseOffsetsObject = (offsets, path) => {
   assertObject(offsets, path);
 
@@ -270,6 +329,20 @@ export const parseLayout = (rawLayout) => {
     }
 
     parsed.projects = projects;
+  }
+
+  if (rawLayout.timing !== undefined) {
+    assertObject(rawLayout.timing, 'timing');
+    const timing = {};
+    if (rawLayout.timing.heroOverviewRuntime !== undefined) {
+      timing.heroOverviewRuntime = parseHeroOverviewRuntimeTiming(
+        rawLayout.timing.heroOverviewRuntime,
+        'timing.heroOverviewRuntime',
+      );
+    }
+    if (Object.keys(timing).length > 0) {
+      parsed.timing = timing;
+    }
   }
 
   return parsed;

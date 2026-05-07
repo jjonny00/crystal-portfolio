@@ -249,7 +249,41 @@ export const timing = {
     transitionStartTime: 0.8, // seconds - when idle animation blend starts
     transitionEndTime: 1.5,   // seconds - when idle animation blend completes
     settlingDuration: 5,      // seconds - how long the settling effect lasts
-  }
+  },
+
+  // Hero -> overview no-op runtime timeline scaffolding
+  heroOverviewRuntime: {
+    totalDurationMs: 1500,
+    fractureChargeEnd: 0.0933333333,
+    explosionImpulseEnd: 0.24,
+    bulletTimeSlowdownEnd: 0.72,
+    overviewSettleEnd: 1.0,
+    heroOverviewMotionEaseType: 'expoOut',
+    heroOverviewMotionDurationMs: 700,
+    cameraPushbackDistance: 0.18,
+    cameraPushbackStrength: 1.4,
+    cameraPushbackDecayStart: 0.18,
+    cameraPushbackDecayEnd: 0.68,
+    cameraPushbackApplyScale: 2,
+    fragmentImpulseDistance: 0.65,
+    fragmentImpulseStrength: 1.4,
+    fragmentRotationStrength: 0.55,
+    fragmentImpulseApplyScale: 1.0,
+    fragmentImpulseDecayStart: 0.36,
+    fragmentImpulseDecayEnd: 0.72,
+    fragmentBlastPortion: 0.05,
+    fragmentBlastTravel: 0.50,
+    fragmentMidPortionEnd: 0.25,
+    fragmentMidTravel: 0.60,
+    fragmentSlowPortionEnd: 0.75,
+    fragmentSlowTravelEnd: 0.90,
+    fragmentTravelEaseType: 'normalizedExpoOut',
+    fragmentTravelEaseStrength: 2.4,
+    fragmentTravelImpulseRate: 5.5,
+    fragmentTravelTimeExponent: 1.35,
+    fragmentTravelCurveStrength: 2.4,
+    fragmentSettleCurveStrength: 4.0,
+  },
 }
 
 // === SPRING PHYSICS CONFIGURATIONS ===
