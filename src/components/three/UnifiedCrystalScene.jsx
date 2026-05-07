@@ -145,14 +145,26 @@ const UnifiedCrystalScene = forwardRef(({
       const clampedStrength = Math.max(1, Number(strength ?? 2.4));
       return THREE.MathUtils.clamp(1 - ((1 - clampedT) ** clampedStrength), 0, 1);
     };
-    const travelEaseType = timing.fragmentTravelEaseType ?? 'powerOut';
+    const easeOutNormalizedExpo = (t, impulseRate, timeExponent) => {
+      const clampedT = THREE.MathUtils.clamp(t, 0, 1);
+      const safeRate = Math.max(0.0001, Number(impulseRate ?? 5.5));
+      const safeExponent = Math.max(0.0001, Number(timeExponent ?? 1.35));
+      const shapedT = clampedT ** safeExponent;
+      const raw = 1 - Math.exp(-safeRate * shapedT);
+      const normalizer = 1 - Math.exp(-safeRate);
+      if (normalizer <= 0.0000001) return clampedT;
+      return THREE.MathUtils.clamp(raw / normalizer, 0, 1);
+    };
+    const travelEaseType = timing.fragmentTravelEaseType ?? 'normalizedExpoOut';
     const travelEaseStrength = Math.max(
       1,
       Number(timing.fragmentTravelEaseStrength ?? timing.fragmentTravelCurveStrength ?? 2.4),
     );
+    const travelImpulseRate = Math.max(0.0001, Number(timing.fragmentTravelImpulseRate ?? 5.5));
+    const travelTimeExponent = Math.max(0.0001, Number(timing.fragmentTravelTimeExponent ?? 1.35));
     const travelProgress = travelEaseType === 'powerOut'
       ? easeOutPower(progress, travelEaseStrength)
-      : easeOutPower(progress, travelEaseStrength);
+      : easeOutNormalizedExpo(progress, travelImpulseRate, travelTimeExponent);
 
     const clampedTravelProgress = THREE.MathUtils.clamp(travelProgress, 0, 1);
     const appliedRotationOffset = zeroRotationOffset.clone();
@@ -162,6 +174,8 @@ const UnifiedCrystalScene = forwardRef(({
       travelProgress: clampedTravelProgress,
       travelEaseType,
       travelEaseStrength,
+      travelImpulseRate,
+      travelTimeExponent,
       useBaseInterpolation: false,
       computedRotationOffset,
       appliedRotationOffset,
@@ -1861,6 +1875,8 @@ const UnifiedCrystalScene = forwardRef(({
               travelProgress,
               travelEaseType,
               travelEaseStrength,
+              travelImpulseRate,
+              travelTimeExponent,
               useBaseInterpolation,
               computedRotationOffset,
               appliedRotationOffset,
@@ -1928,8 +1944,10 @@ const UnifiedCrystalScene = forwardRef(({
                       fragmentSlowPortionEnd: Number(resolvedTiming.fragmentSlowPortionEnd ?? 0.35),
                       fragmentSlowTravelEnd: Number(resolvedTiming.fragmentSlowTravelEnd ?? 0.95),
                       fragmentTravelCurveStrength: Number(resolvedTiming.fragmentTravelCurveStrength ?? 2.4),
-                      fragmentTravelEaseType: resolvedTiming.fragmentTravelEaseType ?? 'powerOut',
+                      fragmentTravelEaseType: resolvedTiming.fragmentTravelEaseType ?? 'normalizedExpoOut',
                       fragmentTravelEaseStrength: Number(resolvedTiming.fragmentTravelEaseStrength ?? resolvedTiming.fragmentTravelCurveStrength ?? 2.4),
+                      fragmentTravelImpulseRate: Number(resolvedTiming.fragmentTravelImpulseRate ?? 5.5),
+                      fragmentTravelTimeExponent: Number(resolvedTiming.fragmentTravelTimeExponent ?? 1.35),
                       fragmentSettleCurveStrength: Number(resolvedTiming.fragmentSettleCurveStrength ?? 2.2),
                       configSource: runtimeSnapshot?.timing ? 'runtimeSnapshot.timing' : 'config.timing.heroOverviewRuntime',
                     });
@@ -1946,8 +1964,10 @@ const UnifiedCrystalScene = forwardRef(({
                     fragmentSlowPortionEnd: Number(resolvedTiming.fragmentSlowPortionEnd ?? 0.25),
                     fragmentSlowTravelEnd: Number(resolvedTiming.fragmentSlowTravelEnd ?? 0.92),
                     fragmentTravelCurveStrength: Number(resolvedTiming.fragmentTravelCurveStrength ?? 2.8),
-                    fragmentTravelEaseType: resolvedTiming.fragmentTravelEaseType ?? 'powerOut',
+                    fragmentTravelEaseType: resolvedTiming.fragmentTravelEaseType ?? 'normalizedExpoOut',
                     fragmentTravelEaseStrength: Number(resolvedTiming.fragmentTravelEaseStrength ?? resolvedTiming.fragmentTravelCurveStrength ?? 2.4),
+                    fragmentTravelImpulseRate: Number(resolvedTiming.fragmentTravelImpulseRate ?? 5.5),
+                    fragmentTravelTimeExponent: Number(resolvedTiming.fragmentTravelTimeExponent ?? 1.35),
                     fragmentSettleCurveStrength: Number(resolvedTiming.fragmentSettleCurveStrength ?? 3.1),
                     configSource: runtimeSnapshot?.timing ? 'runtimeSnapshot.timing' : 'config.timing.heroOverviewRuntime',
                   });
@@ -1978,6 +1998,8 @@ const UnifiedCrystalScene = forwardRef(({
                     overshoot,
                     fragmentTravelEaseType: travelEaseType,
                     fragmentTravelEaseStrength: Number(travelEaseStrength.toFixed(4)),
+                    fragmentTravelImpulseRate: Number(travelImpulseRate.toFixed(4)),
+                    fragmentTravelTimeExponent: Number(travelTimeExponent.toFixed(4)),
                     finalPosition: finalPosition.toArray(),
                     appliedRotationOffset: [appliedRotationOffset.x, appliedRotationOffset.y, appliedRotationOffset.z],
                   });

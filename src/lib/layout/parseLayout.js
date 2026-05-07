@@ -148,6 +148,8 @@ const parseHeroOverviewRuntimeTiming = (timing, path) => {
     'fragmentSlowPortionEnd',
     'fragmentSlowTravelEnd',
     'fragmentTravelEaseStrength',
+    'fragmentTravelImpulseRate',
+    'fragmentTravelTimeExponent',
     'fragmentTravelCurveStrength',
     'fragmentSettleCurveStrength',
   ];
@@ -161,8 +163,9 @@ const parseHeroOverviewRuntimeTiming = (timing, path) => {
   });
 
   if (timing.fragmentTravelEaseType !== undefined) {
-    if (timing.fragmentTravelEaseType !== 'powerOut') {
-      throw new Error(`Invalid layout at ${path}.fragmentTravelEaseType: expected "powerOut".`);
+    const validEaseTypes = new Set(['powerOut', 'normalizedExpoOut']);
+    if (!validEaseTypes.has(timing.fragmentTravelEaseType)) {
+      throw new Error(`Invalid layout at ${path}.fragmentTravelEaseType: expected "powerOut" or "normalizedExpoOut".`);
     }
     parsed.fragmentTravelEaseType = timing.fragmentTravelEaseType;
   }

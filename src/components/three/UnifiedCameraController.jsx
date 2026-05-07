@@ -240,8 +240,8 @@ const UnifiedCameraController = ({
     const timing = runtimeState.timing || runtimeSettings || {};
     const pushbackDistance = Math.max(0, Number(timing.cameraPushbackDistance ?? 0));
     const pushbackStrength = Math.max(0, Number(timing.cameraPushbackStrength ?? 0));
-    const decayStart = THREE.MathUtils.clamp(Number(timing.cameraPushbackDecayStart ?? 0.42), 0, 1);
-    const decayEnd = THREE.MathUtils.clamp(Number(timing.cameraPushbackDecayEnd ?? 0.72), decayStart, 1);
+    const decayStart = THREE.MathUtils.clamp(Number(timing.cameraPushbackDecayStart ?? 0.18), 0, 1);
+    const decayEnd = THREE.MathUtils.clamp(Number(timing.cameraPushbackDecayEnd ?? 0.68), decayStart, 1);
 
     if (pushbackDistance <= 0 || pushbackStrength <= 0) return zeroOffset;
     if (phase !== 'explosionImpulse' && phase !== 'bulletTimeSlowdown') return zeroOffset;
@@ -256,7 +256,7 @@ const UnifiedCameraController = ({
       const phaseStart = THREE.MathUtils.clamp(timing.fractureChargeEnd ?? 0, 0, 1);
       const phaseEnd = THREE.MathUtils.clamp(timing.explosionImpulseEnd ?? phaseStart, phaseStart, 1);
       const local = phaseEnd > phaseStart ? (progress - phaseStart) / (phaseEnd - phaseStart) : 1;
-      phaseAmount = Math.max(0.4, smoothstep(local));
+      phaseAmount = Math.max(0.6, smoothstep(local));
     } else if (progress >= decayStart) {
       const decayT = decayEnd > decayStart ? (progress - decayStart) / (decayEnd - decayStart) : 1;
       phaseAmount = 1 - smoothstep(decayT);
@@ -2088,8 +2088,8 @@ const UnifiedCameraController = ({
               cameraPushbackApplyScale: Number(resolvedTiming.cameraPushbackApplyScale ?? 2),
               cameraPushbackDistance: Number(resolvedTiming.cameraPushbackDistance ?? 0.18),
               cameraPushbackStrength: Number(resolvedTiming.cameraPushbackStrength ?? 1.4),
-              cameraPushbackDecayStart: Number(resolvedTiming.cameraPushbackDecayStart ?? 0.2),
-              cameraPushbackDecayEnd: Number(resolvedTiming.cameraPushbackDecayEnd ?? 0.58),
+              cameraPushbackDecayStart: Number(resolvedTiming.cameraPushbackDecayStart ?? 0.18),
+              cameraPushbackDecayEnd: Number(resolvedTiming.cameraPushbackDecayEnd ?? 0.68),
               configSource: runtimeSnapshot?.timing ? 'runtimeSnapshot.timing' : 'config.timing.heroOverviewRuntime',
             });
           }
@@ -2129,8 +2129,8 @@ const UnifiedCameraController = ({
               runtimeProgress: Number(runtimeProgress.toFixed?.(3) ?? runtimeProgress),
               runtimePhase,
               cameraAppliedOffsetLength: Number(appliedOffset.length().toFixed(4)),
-              cameraPushbackDecayStart: Number((runtimeSnapshot?.timing?.cameraPushbackDecayStart ?? config?.timing?.heroOverviewRuntime?.cameraPushbackDecayStart ?? 0.2).toFixed(3)),
-              cameraPushbackDecayEnd: Number((runtimeSnapshot?.timing?.cameraPushbackDecayEnd ?? config?.timing?.heroOverviewRuntime?.cameraPushbackDecayEnd ?? 0.58).toFixed(3)),
+              cameraPushbackDecayStart: Number((runtimeSnapshot?.timing?.cameraPushbackDecayStart ?? config?.timing?.heroOverviewRuntime?.cameraPushbackDecayStart ?? 0.18).toFixed(3)),
+              cameraPushbackDecayEnd: Number((runtimeSnapshot?.timing?.cameraPushbackDecayEnd ?? config?.timing?.heroOverviewRuntime?.cameraPushbackDecayEnd ?? 0.68).toFixed(3)),
               offsetZeroByOverviewSettle:
                 runtimePhase === 'overviewSettle' || runtimePhase === 'complete'
                   ? appliedOffset.length() <= 0.000001

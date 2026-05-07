@@ -583,8 +583,8 @@
       "overviewSettleEnd": 1,
       "cameraPushbackDistance": 0.18,
       "cameraPushbackStrength": 1.4,
-      "cameraPushbackDecayStart": 0.28,
-      "cameraPushbackDecayEnd": 0.78,
+      "cameraPushbackDecayStart": 0.18,
+      "cameraPushbackDecayEnd": 0.68,
       "cameraPushbackApplyScale": 2,
       "fragmentImpulseDistance": 0.65,
       "fragmentImpulseStrength": 1.4,
@@ -598,8 +598,10 @@
       "fragmentMidTravel": 0.6,
       "fragmentSlowPortionEnd": 0.7,
       "fragmentSlowTravelEnd": 0.9,
-      "fragmentTravelEaseType": "powerOut",
+      "fragmentTravelEaseType": "normalizedExpoOut",
       "fragmentTravelEaseStrength": 2.4,
+      "fragmentTravelImpulseRate": 5.5,
+      "fragmentTravelTimeExponent": 1.35,
       "fragmentTravelCurveStrength": 2.4,
       "fragmentSettleCurveStrength": 4
     }
