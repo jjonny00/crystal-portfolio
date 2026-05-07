@@ -205,6 +205,7 @@ const UnifiedCameraController = ({
   const heroOverviewCameraHookPhaseLoggedRef = useRef(new Set());
   const heroOverviewCameraTimingResolvedLoggedRef = useRef(false);
   const heroOverviewCameraCurveSampleLoggedRef = useRef(new Set());
+  const heroOverviewImpactPolishLoggedRef = useRef(false);
   const lastCameraWriteSecondRef = useRef(-1);
   const lastCameraWriterRef = useRef('none');
   const prevStateRef = useRef(animationData?.state ?? null);
@@ -241,8 +242,15 @@ const UnifiedCameraController = ({
     const timing = runtimeState.timing || runtimeSettings || {};
     const pushbackDistance = Math.max(0, Number(timing.cameraPushbackDistance ?? 0));
     const pushbackStrength = Math.max(0, Number(timing.cameraPushbackStrength ?? 0));
+    const pushbackDelayMs = Math.max(0, Number(timing.cameraPushbackDelayMs ?? 0));
     const decayStart = THREE.MathUtils.clamp(Number(timing.cameraPushbackDecayStart ?? 0.18), 0, 1);
     const decayEnd = THREE.MathUtils.clamp(Number(timing.cameraPushbackDecayEnd ?? 0.68), decayStart, 1);
+    const shakeAmplitude = Math.max(0, Number(timing.cameraShakeAmplitude ?? 0));
+    const shakeDurationMs = Math.max(0, Number(timing.cameraShakeDurationMs ?? 0));
+    const shakeFrequency = Math.max(0, Number(timing.cameraShakeFrequency ?? 0));
+    const arcStrength = Math.max(0, Number(timing.cameraArcStrength ?? 0));
+    const arcVertical = Number(timing.cameraArcVertical ?? 0.65);
+    const arcLateral = Number(timing.cameraArcLateral ?? 0.35);
 
     if (pushbackDistance <= 0 || pushbackStrength <= 0) return zeroOffset;
     if (phase !== 'explosionImpulse' && phase !== 'bulletTimeSlowdown') return zeroOffset;
@@ -263,13 +271,38 @@ const UnifiedCameraController = ({
       phaseAmount = 1 - smoothstep(decayT);
     }
 
-    const pushbackAmount = Math.max(0, pushbackDistance * pushbackStrength * phaseAmount);
-    if (pushbackAmount <= 0.000001) return zeroOffset;
-
     const viewDirection = new THREE.Vector3().subVectors(lookAtTarget, basePosition);
     if (viewDirection.lengthSq() <= 0.0000001) return zeroOffset;
+    const offset = new THREE.Vector3();
     const pushbackDirection = viewDirection.normalize().multiplyScalar(-1);
-    return pushbackDirection.multiplyScalar(pushbackAmount);
+    const delayedProgress = THREE.MathUtils.clamp(progress - (pushbackDelayMs / Math.max(1, timing.totalDurationMs ?? 1)), 0, 1);
+    const delayedPhaseAmount = delayedProgress <= 0 ? 0 : phaseAmount;
+    const pushbackAmount = Math.max(0, pushbackDistance * pushbackStrength * delayedPhaseAmount);
+    if (pushbackAmount > 0.000001) {
+      offset.addScaledVector(pushbackDirection, pushbackAmount);
+    }
+
+    if (arcStrength > 0.000001 && delayedProgress > 0) {
+      const up = camera.up.clone().normalize();
+      const lateral = new THREE.Vector3().crossVectors(viewDirection, up).normalize();
+      const arcWave = Math.sin(Math.PI * delayedProgress);
+      const arcAmount = arcStrength * arcWave;
+      offset.addScaledVector(up, arcAmount * arcVertical);
+      offset.addScaledVector(lateral, arcAmount * arcLateral);
+    }
+
+    if (shakeAmplitude > 0.000001 && shakeDurationMs > 0 && runtimeState.elapsedMs != null && runtimeState.elapsedMs <= shakeDurationMs) {
+      const t = THREE.MathUtils.clamp(runtimeState.elapsedMs / shakeDurationMs, 0, 1);
+      const envelope = 1 - (t * t);
+      const phaseRadians = runtimeState.elapsedMs * 0.001 * shakeFrequency * Math.PI * 2;
+      const shakeX = Math.sin(phaseRadians) * shakeAmplitude * envelope;
+      const shakeY = Math.cos(phaseRadians * 1.21) * shakeAmplitude * 0.6 * envelope;
+      const up = camera.up.clone().normalize();
+      const lateral = new THREE.Vector3().crossVectors(viewDirection, up).normalize();
+      offset.addScaledVector(lateral, shakeX);
+      offset.addScaledVector(up, shakeY);
+    }
+    return offset;
   };
 
   const deriveExplosionClockRuntimeState = (explosionClock, runtimeTiming) => {
@@ -1663,6 +1696,7 @@ const UnifiedCameraController = ({
       heroOverviewCameraHookBranchLoggedRef.current = false;
       heroOverviewCameraTimingResolvedLoggedRef.current = false;
       heroOverviewCameraCurveSampleLoggedRef.current.clear();
+      heroOverviewImpactPolishLoggedRef.current = false;
       {
         const authoritativeFromPosition = fromSnapshot.position.clone();
         const authoritativeFromLookAt = fromSnapshot.lookAtTarget.clone();
@@ -2081,7 +2115,12 @@ const UnifiedCameraController = ({
           transition.to.lookAtTarget,
           sharedEased,
         );
-        const appliedOffset = new THREE.Vector3(0, 0, 0);
+        const appliedOffset = resolveHeroOverviewCameraOffset(
+          cameraTimingState,
+          runtimeSnapshot?.timing || config?.timing?.heroOverviewRuntime,
+          basePosition,
+          forcedLookAt,
+        );
         const isFiniteComputedOffset = true;
         const finalPosition = basePosition.clone().add(appliedOffset);
         globalThis.__HERO_OVERVIEW_CAMERA_TIMING_SOURCE__ = cameraTimingSource;
@@ -2103,7 +2142,23 @@ const UnifiedCameraController = ({
               cameraPushbackStrength: Number(resolvedTiming.cameraPushbackStrength ?? 1.4),
               cameraPushbackDecayStart: Number(resolvedTiming.cameraPushbackDecayStart ?? 0.18),
               cameraPushbackDecayEnd: Number(resolvedTiming.cameraPushbackDecayEnd ?? 0.68),
+              cameraPushbackDelayMs: Number(resolvedTiming.cameraPushbackDelayMs ?? 40),
+              cameraShakeAmplitude: Number(resolvedTiming.cameraShakeAmplitude ?? 0.014),
+              cameraShakeDurationMs: Number(resolvedTiming.cameraShakeDurationMs ?? 110),
+              cameraArcStrength: Number(resolvedTiming.cameraArcStrength ?? 0.08),
               configSource: runtimeSnapshot?.timing ? 'runtimeSnapshot.timing' : 'config.timing.heroOverviewRuntime',
+            });
+          }
+          if (!heroOverviewImpactPolishLoggedRef.current) {
+            heroOverviewImpactPolishLoggedRef.current = true;
+            const t = runtimeSnapshot?.timing || config?.timing?.heroOverviewRuntime || {};
+            console.log('[hero-overview-impact] explosion polish', {
+              cameraShakeTriggered: true,
+              cameraShakeAmplitude: Number(t.cameraShakeAmplitude ?? 0.014),
+              cameraShakeDurationMs: Number(t.cameraShakeDurationMs ?? 110),
+              cameraPushbackDelayMs: Number(t.cameraPushbackDelayMs ?? 40),
+              cameraArcApplied: Number(t.cameraArcStrength ?? 0) > 0,
+              cameraArcStrength: Number(t.cameraArcStrength ?? 0.08),
             });
           }
           if (!heroOverviewCameraHookBranchLoggedRef.current) {

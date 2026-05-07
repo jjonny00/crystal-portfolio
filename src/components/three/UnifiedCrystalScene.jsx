@@ -74,6 +74,7 @@ const UnifiedCrystalScene = forwardRef(({
   const [sphereVisible, setSphereVisible] = useState(false);
   const [ringVisible, setRingVisible] = useState(false);
   const [burstId, setBurstId] = useState(0);
+  const [explosionBurstId, setExplosionBurstId] = useState(0);
   
   // Crystal state tracking
   const [showWholeCrystal, setShowWholeCrystal] = useState(true);
@@ -279,6 +280,7 @@ const UnifiedCrystalScene = forwardRef(({
   // Track explosion timing so we can implement fracture pause
   const explosionStartRef = useRef(null);
   const fractureGlowStartRef = useRef(null);
+  const explosionImpactTriggeredRef = useRef(false);
   const pendingExplodeSwapAtRef = useRef(null);
   const explosionCycleCompleteRef = useRef(false);
   const pendingReformSwapAtRef = useRef(null);
@@ -324,6 +326,7 @@ const UnifiedCrystalScene = forwardRef(({
     setRingVisible(true);
     explosionStartRef.current = performance.now() - FORWARD_PRE_SWAP_WINDOW_MS;
     setBurstId(id => id + 1);
+    explosionImpactTriggeredRef.current = false;
 
     // Capture hero rotation so facets start from same orientation
     if (wholeCrystalRef.current && facetsGroupRef.current) {
@@ -1834,6 +1837,27 @@ const UnifiedCrystalScene = forwardRef(({
         const explosionElapsedMs = elapsedExplosion * 1000;
 
         const progress = Math.min((elapsedExplosion - fracturePause) / (totalDuration - fracturePause), 1);
+        if (!explosionImpactTriggeredRef.current && progress >= 0) {
+          explosionImpactTriggeredRef.current = true;
+          setExplosionBurstId((id) => id + 1);
+          if (typeof globalThis !== 'undefined' && globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__) {
+            const timing = config?.timing?.heroOverviewRuntime || {};
+            console.log('[hero-overview-impact] explosion polish', {
+              explosionParticlesTriggered: true,
+              restoredLegacyExplosionParticles: false,
+              createdNewExplosionBurst: true,
+              fractureParticlesRetained: true,
+              fractureRingTriggered: true,
+              fractureRingStrength: Number(timing.heroOverviewFractureRingOpacity ?? mergedConfig?.fracture?.image?.maxOpacity ?? 1),
+              cameraShakeTriggered: true,
+              cameraShakeAmplitude: Number(timing.cameraShakeAmplitude ?? 0.014),
+              cameraShakeDurationMs: Number(timing.cameraShakeDurationMs ?? 110),
+              cameraPushbackDelayMs: Number(timing.cameraPushbackDelayMs ?? 40),
+              cameraArcApplied: Number(timing.cameraArcStrength ?? 0) > 0,
+              cameraArcStrength: Number(timing.cameraArcStrength ?? 0.08),
+            });
+          }
+        }
         const sharedProgressRaw = THREE.MathUtils.clamp(progress, 0, 1);
         const easeType = config?.timing?.heroOverviewRuntime?.heroOverviewMotionEaseType ?? 'expoOut';
         const sharedProgressEased = THREE.MathUtils.clamp(
@@ -2586,6 +2610,9 @@ const UnifiedCrystalScene = forwardRef(({
       {/* Fracture expanding ring */}
       <FractureRingImage
         {...mergedConfig.fracture.image}
+        opacity={Number(config?.timing?.heroOverviewRuntime?.heroOverviewFractureRingOpacity ?? mergedConfig?.fracture?.image?.opacity ?? 2)}
+        maxScale={Number(config?.timing?.heroOverviewRuntime?.heroOverviewFractureRingScale ?? mergedConfig?.fracture?.image?.maxScale ?? 24)}
+        duration={Math.max(0.05, Number(config?.timing?.heroOverviewRuntime?.heroOverviewFractureRingDurationMs ?? 400) / 1000)}
         visible={ringVisible}
         animationData={animationData}
         simplifiedAnimations={simplifiedAnimations}
@@ -2615,6 +2642,15 @@ const UnifiedCrystalScene = forwardRef(({
           trigger={burstId}
           emitterPosition={[0, 0, 0]}
           {...mergedConfig.fracture.particles}
+        />
+      )}
+      {!simplifiedAnimations && (
+        <FractureBurstParticles
+          trigger={explosionBurstId}
+          emitterPosition={[0, 0, 0]}
+          delay={0}
+          count={Number(config?.timing?.heroOverviewRuntime?.heroOverviewExplosionParticleBurstCount ?? 180)}
+          color={mergedConfig?.fracture?.particles?.color ?? '#9af8ff'}
         />
       )}
 
