@@ -358,6 +358,29 @@ const UnifiedCrystalScene = forwardRef(({
     }
 
     triggerFractureGlow();
+    if (typeof globalThis !== 'undefined' && globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__) {
+      if (!globalThis.__HERO_OVERVIEW_WRITER_AUDIT__) globalThis.__HERO_OVERVIEW_WRITER_AUDIT__ = {};
+      globalThis.__HERO_OVERVIEW_WRITER_AUDIT__ = {
+        active: true,
+        fromZone: 'hero',
+        toZone: 'overview',
+        fragmentWritersSeen: new Set(),
+        cameraWritersSeen: new Set(),
+        multipleFragmentWritersSameFrame: false,
+        multipleCameraWritersSameFrame: false,
+        legacyWriterAfterRuntimeWriter: false,
+        fallbackWriterAfterRuntimeWriter: false,
+      };
+      console.log('[hero-overview-writer-audit] session start', {
+        fromZone: 'hero',
+        toZone: 'overview',
+        runtimePhase: heroOverviewRuntime?.getSnapshot?.()?.phase ?? 'idle',
+        state: animationData?.state ?? null,
+        cameraState: animationData?.cameraState ?? null,
+        crystalForm: animationData?.crystalForm ?? null,
+        reason: 'runExplodeSwap',
+      });
+    }
   }, [crystalConfig, facetKeys, facetPlacementKeys, triggerFractureGlow]);
 
   const runReformSwap = useCallback(() => {
@@ -1793,6 +1816,10 @@ const UnifiedCrystalScene = forwardRef(({
               const frameId = Math.floor(state.clock.elapsedTime * 1000);
               const frameWriters = heroOverviewFragmentWriterAuditRef.current.frameWriters.get(frameId) || [];
               frameWriters.push('fracturePauseLegacy');
+              if (globalThis.__HERO_OVERVIEW_WRITER_AUDIT__?.active) {
+                globalThis.__HERO_OVERVIEW_WRITER_AUDIT__.fragmentWritersSeen.add('fracturePauseLegacy');
+                if (frameWriters.length > 1) globalThis.__HERO_OVERVIEW_WRITER_AUDIT__.multipleFragmentWritersSameFrame = true;
+              }
               heroOverviewFragmentWriterAuditRef.current.frameWriters.set(frameId, frameWriters);
               heroOverviewFragmentWriterAuditRef.current.writers.add('fracturePauseLegacy');
               if (frameWriters.length > 1) heroOverviewFragmentWriterAuditRef.current.multiple = true;
@@ -1961,6 +1988,10 @@ const UnifiedCrystalScene = forwardRef(({
               const frameId = Math.floor(state.clock.elapsedTime * 1000);
               const frameWriters = heroOverviewFragmentWriterAuditRef.current.frameWriters.get(frameId) || [];
               frameWriters.push('heroOverviewRuntimeTravel');
+              if (globalThis.__HERO_OVERVIEW_WRITER_AUDIT__?.active) {
+                globalThis.__HERO_OVERVIEW_WRITER_AUDIT__.fragmentWritersSeen.add('heroOverviewRuntimeTravel');
+                if (frameWriters.length > 1) globalThis.__HERO_OVERVIEW_WRITER_AUDIT__.multipleFragmentWritersSameFrame = true;
+              }
               heroOverviewFragmentWriterAuditRef.current.frameWriters.set(frameId, frameWriters);
               heroOverviewFragmentWriterAuditRef.current.writers.add('heroOverviewRuntimeTravel');
               if (frameWriters.length > 1) heroOverviewFragmentWriterAuditRef.current.multiple = true;
@@ -2331,6 +2362,29 @@ const UnifiedCrystalScene = forwardRef(({
           explosionStartRef.current = null; // Animation finished
           if (heroOverviewExplosionClockRef) heroOverviewExplosionClockRef.current = null;
           explosionCycleCompleteRef.current = true;
+          if (typeof globalThis !== 'undefined' && globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__ && globalThis.__HERO_OVERVIEW_WRITER_AUDIT__?.active) {
+            const s = globalThis.__HERO_OVERVIEW_WRITER_AUDIT__;
+            console.log('[hero-overview-writer-audit] session end', {
+              fromZone: s.fromZone,
+              toZone: s.toZone,
+              runtimePhase: heroOverviewRuntime?.getSnapshot?.()?.phase ?? 'complete',
+              state: animationData?.state ?? null,
+              cameraState: animationData?.cameraState ?? null,
+              crystalForm: animationData?.crystalForm ?? null,
+              reason: 'explosion-cycle-complete',
+            });
+            console.log('[hero-overview-writer-audit] transition writer summary', {
+              fragmentWritersSeen: Array.from(s.fragmentWritersSeen || []),
+              cameraWritersSeen: Array.from(s.cameraWritersSeen || []),
+              multipleFragmentWritersSameFrame: Boolean(s.multipleFragmentWritersSameFrame),
+              multipleCameraWritersSameFrame: Boolean(s.multipleCameraWritersSameFrame),
+              legacyWriterAfterRuntimeWriter: Boolean(s.legacyWriterAfterRuntimeWriter),
+              fallbackWriterAfterRuntimeWriter: Boolean(s.fallbackWriterAfterRuntimeWriter),
+              suspectedOverwrite: Boolean(s.legacyWriterAfterRuntimeWriter || s.fallbackWriterAfterRuntimeWriter || s.multipleFragmentWritersSameFrame || s.multipleCameraWritersSameFrame),
+              suspectedBranches: [...Array.from(s.fragmentWritersSeen || []), ...Array.from(s.cameraWritersSeen || [])],
+            });
+            globalThis.__HERO_OVERVIEW_WRITER_AUDIT__.active = false;
+          }
         }
         return;
       }

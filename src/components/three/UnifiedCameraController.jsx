@@ -1468,10 +1468,20 @@ const UnifiedCameraController = ({
     if (animationData?.cameraState === 'transitioning' || runtimePhase !== 'idle') {
       wa.transitionActive = true;
       wa.cameraWritersSeen.add(branch);
+      if (typeof globalThis !== 'undefined' && globalThis.__HERO_OVERVIEW_WRITER_AUDIT__?.active) {
+        globalThis.__HERO_OVERVIEW_WRITER_AUDIT__.cameraWritersSeen.add(branch);
+      }
       const arr = wa.frameWriters.get(frameId) || [];
       if (arr.length > 0) wa.multipleCameraWritersSameFrame = true;
+      if (arr.length > 0 && typeof globalThis !== 'undefined' && globalThis.__HERO_OVERVIEW_WRITER_AUDIT__?.active) {
+        globalThis.__HERO_OVERVIEW_WRITER_AUDIT__.multipleCameraWritersSameFrame = true;
+      }
       if (arr.includes('FORCED_HERO_TO_OVERVIEW') && isFallbackWriter) wa.fallbackWriterAfterRuntimeWriter = true;
       if (arr.includes('FORCED_HERO_TO_OVERVIEW') && isLegacyWriter) wa.legacyWriterAfterRuntimeWriter = true;
+      if (typeof globalThis !== 'undefined' && globalThis.__HERO_OVERVIEW_WRITER_AUDIT__?.active) {
+        if (arr.includes('FORCED_HERO_TO_OVERVIEW') && isFallbackWriter) globalThis.__HERO_OVERVIEW_WRITER_AUDIT__.fallbackWriterAfterRuntimeWriter = true;
+        if (arr.includes('FORCED_HERO_TO_OVERVIEW') && isLegacyWriter) globalThis.__HERO_OVERVIEW_WRITER_AUDIT__.legacyWriterAfterRuntimeWriter = true;
+      }
       arr.push(branch);
       wa.frameWriters.set(frameId, arr);
       if (typeof globalThis !== 'undefined' && globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__) {
