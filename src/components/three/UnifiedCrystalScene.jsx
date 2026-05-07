@@ -1796,9 +1796,12 @@ const UnifiedCrystalScene = forwardRef(({
 
     // Hold facets at fracture positions before the explosion resumes
     if (animationData.crystalForm === 'exploded' && explosionStartRef.current) {
+      const runtimeSnapshotForLegacyWriter = heroOverviewRuntime?.getSnapshot?.() ?? null;
+      const runtimePhaseForLegacyWriter = runtimeSnapshotForLegacyWriter?.phase ?? 'idle';
+      const runtimeTravelActive = runtimePhaseForLegacyWriter !== 'idle';
       const fracturePause = crystalConfig?.fracturePause || 0.5;
       const elapsedExplosion = (performance.now() - explosionStartRef.current) / 1000;
-      if (elapsedExplosion < fracturePause) {
+      if (elapsedExplosion < fracturePause && !runtimeTravelActive) {
         const fracture = crystalConfig?.fracturePositions;
         const fractureDistance = crystalConfig?.fractureDistance ?? 0.3;
         facetRefs.current.forEach((facetRef, idx) => {
@@ -1834,6 +1837,16 @@ const UnifiedCrystalScene = forwardRef(({
           }
         });
         return; // Skip other animations during fracture pause
+      }
+      if (elapsedExplosion < fracturePause && runtimeTravelActive && typeof globalThis !== 'undefined' && globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__) {
+        console.log('[hero-overview-writer-audit] fragment writer skipped', {
+          writerBranch: 'fracturePauseLegacy',
+          reason: 'runtimeTravelActive',
+          fragmentVisualPhase: runtimeSnapshotForLegacyWriter?.fragmentVisualPhase ?? null,
+          runtimePhase: runtimePhaseForLegacyWriter,
+          crystalForm: animationData?.crystalForm ?? null,
+          explosionStartRefActive: Boolean(explosionStartRef.current),
+        });
       }
     }
 
