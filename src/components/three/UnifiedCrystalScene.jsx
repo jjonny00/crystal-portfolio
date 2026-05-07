@@ -103,7 +103,7 @@ const UnifiedCrystalScene = forwardRef(({
   const heroOverviewFragmentTimingResolvedLoggedRef = useRef(false);
   const heroOverviewTravelDistanceAuditLoggedRef = useRef(false);
   const heroOverviewVisibleTravelSampleLoggedRef = useRef(new Set());
-  const heroOverviewFragmentWriterAuditRef = useRef({ frameWriters: new Map(), writers: new Set(), multiple: false });
+  const heroOverviewFragmentWriterAuditRef = useRef({ frameWriters: new Map(), frameWriterBranches: new Map(), frameWriteCount: new Map(), writers: new Set(), multiple: false });
 
   const deriveFragmentVisualTiming = (runtimeState, explosionProgress) => {
     const timing = runtimeState?.timing || {};
@@ -367,6 +367,10 @@ const UnifiedCrystalScene = forwardRef(({
         fragmentWritersSeen: new Set(),
         cameraWritersSeen: new Set(),
         multipleFragmentWritersSameFrame: false,
+        multipleFragmentWriterBranchesSameFrame: false,
+        fragmentWriterBranchesByFrame: {},
+        maxDistinctFragmentWriterBranchesInFrame: 0,
+        fragmentWriteCountByFrame: {},
         multipleCameraWritersSameFrame: false,
         legacyWriterAfterRuntimeWriter: false,
         fallbackWriterAfterRuntimeWriter: false,
@@ -1796,9 +1800,12 @@ const UnifiedCrystalScene = forwardRef(({
 
     // Hold facets at fracture positions before the explosion resumes
     if (animationData.crystalForm === 'exploded' && explosionStartRef.current) {
+      const runtimeSnapshotForLegacyWriter = heroOverviewRuntime?.getSnapshot?.() ?? null;
+      const runtimePhaseForLegacyWriter = runtimeSnapshotForLegacyWriter?.phase ?? 'idle';
+      const runtimeTravelActive = runtimePhaseForLegacyWriter !== 'idle';
       const fracturePause = crystalConfig?.fracturePause || 0.5;
       const elapsedExplosion = (performance.now() - explosionStartRef.current) / 1000;
-      if (elapsedExplosion < fracturePause) {
+      if (elapsedExplosion < fracturePause && !runtimeTravelActive) {
         const fracture = crystalConfig?.fracturePositions;
         const fractureDistance = crystalConfig?.fractureDistance ?? 0.3;
         facetRefs.current.forEach((facetRef, idx) => {
@@ -1816,13 +1823,25 @@ const UnifiedCrystalScene = forwardRef(({
               const frameId = Math.floor(state.clock.elapsedTime * 1000);
               const frameWriters = heroOverviewFragmentWriterAuditRef.current.frameWriters.get(frameId) || [];
               frameWriters.push('fracturePauseLegacy');
+              const frameWriterBranches = heroOverviewFragmentWriterAuditRef.current.frameWriterBranches.get(frameId) || new Set();
+              frameWriterBranches.add('fracturePauseLegacy');
+              const frameWriteCount = (heroOverviewFragmentWriterAuditRef.current.frameWriteCount.get(frameId) || 0) + 1;
               if (globalThis.__HERO_OVERVIEW_WRITER_AUDIT__?.active) {
-                globalThis.__HERO_OVERVIEW_WRITER_AUDIT__.fragmentWritersSeen.add('fracturePauseLegacy');
-                if (frameWriters.length > 1) globalThis.__HERO_OVERVIEW_WRITER_AUDIT__.multipleFragmentWritersSameFrame = true;
+                const writerAudit = globalThis.__HERO_OVERVIEW_WRITER_AUDIT__;
+                writerAudit.fragmentWritersSeen.add('fracturePauseLegacy');
+                writerAudit.fragmentWriterBranchesByFrame[frameId] = Array.from(frameWriterBranches);
+                writerAudit.fragmentWriteCountByFrame[frameId] = frameWriteCount;
+                writerAudit.maxDistinctFragmentWriterBranchesInFrame = Math.max(writerAudit.maxDistinctFragmentWriterBranchesInFrame || 0, frameWriterBranches.size);
+                if (frameWriterBranches.size > 1) {
+                  writerAudit.multipleFragmentWriterBranchesSameFrame = true;
+                  writerAudit.multipleFragmentWritersSameFrame = true;
+                }
               }
               heroOverviewFragmentWriterAuditRef.current.frameWriters.set(frameId, frameWriters);
+              heroOverviewFragmentWriterAuditRef.current.frameWriterBranches.set(frameId, frameWriterBranches);
+              heroOverviewFragmentWriterAuditRef.current.frameWriteCount.set(frameId, frameWriteCount);
               heroOverviewFragmentWriterAuditRef.current.writers.add('fracturePauseLegacy');
-              if (frameWriters.length > 1) heroOverviewFragmentWriterAuditRef.current.multiple = true;
+              if (frameWriterBranches.size > 1) heroOverviewFragmentWriterAuditRef.current.multiple = true;
               if (idx === 0) console.log('[hero-overview-writer-audit] fragment writer', {
                 frameId, runtimePhase: heroOverviewRuntime?.getSnapshot?.()?.phase ?? 'idle', fragmentVisualPhase: 'fractureCharge',
                 crystalForm: animationData?.crystalForm ?? null, writerBranch: 'fracturePauseLegacy', facetKey,
@@ -1834,6 +1853,16 @@ const UnifiedCrystalScene = forwardRef(({
           }
         });
         return; // Skip other animations during fracture pause
+      }
+      if (elapsedExplosion < fracturePause && runtimeTravelActive && typeof globalThis !== 'undefined' && globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__) {
+        console.log('[hero-overview-writer-audit] fragment writer skipped', {
+          writerBranch: 'fracturePauseLegacy',
+          reason: 'runtimeTravelActive',
+          fragmentVisualPhase: runtimeSnapshotForLegacyWriter?.fragmentVisualPhase ?? null,
+          runtimePhase: runtimePhaseForLegacyWriter,
+          crystalForm: animationData?.crystalForm ?? null,
+          explosionStartRefActive: Boolean(explosionStartRef.current),
+        });
       }
     }
 
@@ -1988,13 +2017,25 @@ const UnifiedCrystalScene = forwardRef(({
               const frameId = Math.floor(state.clock.elapsedTime * 1000);
               const frameWriters = heroOverviewFragmentWriterAuditRef.current.frameWriters.get(frameId) || [];
               frameWriters.push('heroOverviewRuntimeTravel');
+              const frameWriterBranches = heroOverviewFragmentWriterAuditRef.current.frameWriterBranches.get(frameId) || new Set();
+              frameWriterBranches.add('heroOverviewRuntimeTravel');
+              const frameWriteCount = (heroOverviewFragmentWriterAuditRef.current.frameWriteCount.get(frameId) || 0) + 1;
               if (globalThis.__HERO_OVERVIEW_WRITER_AUDIT__?.active) {
-                globalThis.__HERO_OVERVIEW_WRITER_AUDIT__.fragmentWritersSeen.add('heroOverviewRuntimeTravel');
-                if (frameWriters.length > 1) globalThis.__HERO_OVERVIEW_WRITER_AUDIT__.multipleFragmentWritersSameFrame = true;
+                const writerAudit = globalThis.__HERO_OVERVIEW_WRITER_AUDIT__;
+                writerAudit.fragmentWritersSeen.add('heroOverviewRuntimeTravel');
+                writerAudit.fragmentWriterBranchesByFrame[frameId] = Array.from(frameWriterBranches);
+                writerAudit.fragmentWriteCountByFrame[frameId] = frameWriteCount;
+                writerAudit.maxDistinctFragmentWriterBranchesInFrame = Math.max(writerAudit.maxDistinctFragmentWriterBranchesInFrame || 0, frameWriterBranches.size);
+                if (frameWriterBranches.size > 1) {
+                  writerAudit.multipleFragmentWriterBranchesSameFrame = true;
+                  writerAudit.multipleFragmentWritersSameFrame = true;
+                }
               }
               heroOverviewFragmentWriterAuditRef.current.frameWriters.set(frameId, frameWriters);
+              heroOverviewFragmentWriterAuditRef.current.frameWriterBranches.set(frameId, frameWriterBranches);
+              heroOverviewFragmentWriterAuditRef.current.frameWriteCount.set(frameId, frameWriteCount);
               heroOverviewFragmentWriterAuditRef.current.writers.add('heroOverviewRuntimeTravel');
-              if (frameWriters.length > 1) heroOverviewFragmentWriterAuditRef.current.multiple = true;
+              if (frameWriterBranches.size > 1) heroOverviewFragmentWriterAuditRef.current.multiple = true;
               if (index === 0 && !heroOverviewFragmentPhaseLoggedRef.current.has(`audit-${fragmentVisualPhase}`)) {
                 heroOverviewFragmentPhaseLoggedRef.current.add(`audit-${fragmentVisualPhase}`);
                 console.log('[hero-overview-writer-audit] fragment writer', {
@@ -2376,11 +2417,15 @@ const UnifiedCrystalScene = forwardRef(({
             console.log('[hero-overview-writer-audit] transition writer summary', {
               fragmentWritersSeen: Array.from(s.fragmentWritersSeen || []),
               cameraWritersSeen: Array.from(s.cameraWritersSeen || []),
-              multipleFragmentWritersSameFrame: Boolean(s.multipleFragmentWritersSameFrame),
+              fragmentWriterBranchesByFrame: s.fragmentWriterBranchesByFrame || {},
+              maxDistinctFragmentWriterBranchesInFrame: Number(s.maxDistinctFragmentWriterBranchesInFrame || 0),
+              multipleFragmentWriterBranchesSameFrame: Boolean(s.multipleFragmentWriterBranchesSameFrame),
+              fragmentWriteCountByFrame: s.fragmentWriteCountByFrame || {},
+              multipleFragmentWritersSameFrame: Boolean(s.multipleFragmentWriterBranchesSameFrame ?? s.multipleFragmentWritersSameFrame),
               multipleCameraWritersSameFrame: Boolean(s.multipleCameraWritersSameFrame),
               legacyWriterAfterRuntimeWriter: Boolean(s.legacyWriterAfterRuntimeWriter),
               fallbackWriterAfterRuntimeWriter: Boolean(s.fallbackWriterAfterRuntimeWriter),
-              suspectedOverwrite: Boolean(s.legacyWriterAfterRuntimeWriter || s.fallbackWriterAfterRuntimeWriter || s.multipleFragmentWritersSameFrame || s.multipleCameraWritersSameFrame),
+              suspectedOverwrite: Boolean(s.legacyWriterAfterRuntimeWriter || s.fallbackWriterAfterRuntimeWriter || s.multipleFragmentWriterBranchesSameFrame || s.multipleCameraWritersSameFrame),
               suspectedBranches: [...Array.from(s.fragmentWritersSeen || []), ...Array.from(s.cameraWritersSeen || [])],
             });
             globalThis.__HERO_OVERVIEW_WRITER_AUDIT__.active = false;
