@@ -130,6 +130,7 @@ const parseHeroOverviewRuntimeTiming = (timing, path) => {
     'explosionImpulseEnd',
     'bulletTimeSlowdownEnd',
     'overviewSettleEnd',
+    'heroOverviewMotionDurationMs',
     'cameraPushbackDistance',
     'cameraPushbackStrength',
     'cameraPushbackDecayStart',
@@ -168,6 +169,12 @@ const parseHeroOverviewRuntimeTiming = (timing, path) => {
       throw new Error(`Invalid layout at ${path}.fragmentTravelEaseType: expected "powerOut" or "normalizedExpoOut".`);
     }
     parsed.fragmentTravelEaseType = timing.fragmentTravelEaseType;
+  }
+  if (timing.heroOverviewMotionEaseType !== undefined) {
+    if (timing.heroOverviewMotionEaseType !== 'expoOut') {
+      throw new Error(`Invalid layout at ${path}.heroOverviewMotionEaseType: expected "expoOut".`);
+    }
+    parsed.heroOverviewMotionEaseType = timing.heroOverviewMotionEaseType;
   }
 
   return parsed;

@@ -2073,37 +2073,22 @@ const UnifiedCameraController = ({
         const cameraTimingSource = sharedClockRuntimeState ? 'sharedExplosionClock' : 'runtime';
         const runtimePhase = runtimeSnapshot?.phase ?? 'idle';
         const runtimeProgress = runtimeSnapshot?.progress ?? 0;
-        const basePosition = new THREE.Vector3();
-
-        if (isDollyPhase) {
-          basePosition.lerpVectors(transition.from.position, waypoint.position, positionProgress);
-          forcedLookAt = introLookAtTempRef.current.copy(transition.from.lookAtTarget);
-        } else {
-          basePosition.lerpVectors(waypoint.position, transition.to.position, positionProgress);
-          forcedLookAt = introLookAtTempRef.current.lerpVectors(
-            waypoint.lookAtTarget,
-            transition.to.lookAtTarget,
-            lookAtProgress,
-          );
-        }
-        const computedOffset = resolveHeroOverviewCameraOffset(cameraTimingState, config?.timing?.heroOverviewRuntime, basePosition, forcedLookAt);
-        const applyScale = THREE.MathUtils.clamp(
-          Number(cameraTimingState?.timing?.cameraPushbackApplyScale ?? config?.timing?.heroOverviewRuntime?.cameraPushbackApplyScale ?? 0.15),
-          0,
-          200,
+        const sharedRaw = THREE.MathUtils.clamp(explosionClock?.progress ?? 0, 0, 1);
+        const sharedEased = THREE.MathUtils.clamp(sharedRaw >= 1 ? 1 : 1 - (2 ** (-10 * sharedRaw)), 0, 1);
+        const basePosition = new THREE.Vector3().lerpVectors(transition.from.position, transition.to.position, sharedEased);
+        forcedLookAt = introLookAtTempRef.current.lerpVectors(
+          transition.from.lookAtTarget,
+          transition.to.lookAtTarget,
+          sharedEased,
         );
-        const isFiniteComputedOffset = computedOffset.toArray().every(Number.isFinite);
-        const appliedOffset = isFiniteComputedOffset
-          ? computedOffset.clone().multiplyScalar(applyScale)
-          : new THREE.Vector3(0, 0, 0);
+        const appliedOffset = new THREE.Vector3(0, 0, 0);
         globalThis.__HERO_OVERVIEW_CAMERA_TIMING_SOURCE__ = cameraTimingSource;
-        globalThis.__HERO_OVERVIEW_CAMERA_PROGRESS__ = cameraTimingState?.progress ?? 0;
+        globalThis.__HERO_OVERVIEW_CAMERA_PROGRESS__ = sharedEased;
+        globalThis.__HERO_OVERVIEW_CAMERA_POSITION__ = finalPosition.toArray();
         const finalPosition = basePosition.clone().add(appliedOffset);
         camera.position.copy(finalPosition);
         camera.lookAt(forcedLookAt);
-        camera.filmOffset = isDollyPhase
-          ? transition.from.filmOffsetX
-          : THREE.MathUtils.lerp(waypoint.filmOffsetX, transition.to.filmOffsetX, filmOffsetProgress);
+        camera.filmOffset = THREE.MathUtils.lerp(transition.from.filmOffsetX, transition.to.filmOffsetX, sharedEased);
         camera.updateProjectionMatrix();
 
         if (typeof globalThis !== 'undefined' && globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__) {
@@ -2128,14 +2113,13 @@ const UnifiedCameraController = ({
           }
           if (!heroOverviewCameraHookPhaseLoggedRef.current.has(runtimePhase)) {
             heroOverviewCameraHookPhaseLoggedRef.current.add(runtimePhase);
-            const computedOffsetLength = computedOffset.length();
             const appliedOffsetLength = appliedOffset.length();
 
             console.log('[hero-overview-camera-hook] visual offset applied', {
               runtimePhase,
               runtimeProgress: Number(runtimeProgress.toFixed?.(3) ?? runtimeProgress),
-              computedOffsetLength: Number(computedOffsetLength.toFixed(4)),
-              cameraPushbackApplyScale: Number(applyScale.toFixed(3)),
+              computedOffsetLength: 0,
+              cameraPushbackApplyScale: 0,
               appliedOffset: appliedOffset.toArray(),
               appliedOffsetLength: Number(appliedOffsetLength.toFixed(4)),
               basePosition: basePosition.toArray(),

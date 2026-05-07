@@ -124,13 +124,9 @@ const UnifiedCrystalScene = forwardRef(({
     };
   };
 
-  const resolveHeroOverviewFragmentTravel = (
-    runtimeState,
-    runtimeSettings,
-    fragmentVisualProgress,
-  ) => {
+  const resolveHeroOverviewFragmentTravel = (runtimeSettings, sharedProgressEased) => {
     const zeroRotationOffset = new THREE.Euler(0, 0, 0, 'XYZ');
-    if (!runtimeState || !runtimeState.active) {
+    if (sharedProgressEased == null) {
       return {
         travelProgress: 1,
         useBaseInterpolation: true,
@@ -139,8 +135,8 @@ const UnifiedCrystalScene = forwardRef(({
       };
     }
 
-    const timing = runtimeState.timing || runtimeSettings || {};
-    const progress = THREE.MathUtils.clamp(fragmentVisualProgress ?? 0, 0, 1);
+    const timing = runtimeSettings || {};
+    const progress = THREE.MathUtils.clamp(sharedProgressEased ?? 0, 0, 1);
     const easeOutPower = (t, strength) => {
       const clampedT = THREE.MathUtils.clamp(t, 0, 1);
       const clampedStrength = Math.max(1, Number(strength ?? 2.4));
@@ -156,16 +152,14 @@ const UnifiedCrystalScene = forwardRef(({
       if (normalizer <= 0.0000001) return clampedT;
       return THREE.MathUtils.clamp(raw / normalizer, 0, 1);
     };
-    const travelEaseType = timing.fragmentTravelEaseType ?? 'normalizedExpoOut';
+    const travelEaseType = timing.heroOverviewMotionEaseType ?? 'expoOut';
     const travelEaseStrength = Math.max(
       1,
       Number(timing.fragmentTravelEaseStrength ?? timing.fragmentTravelCurveStrength ?? 2.4),
     );
     const travelImpulseRate = Math.max(0.0001, Number(timing.fragmentTravelImpulseRate ?? 5.5));
     const travelTimeExponent = Math.max(0.0001, Number(timing.fragmentTravelTimeExponent ?? 1.35));
-    const travelProgress = travelEaseType === 'powerOut'
-      ? easeOutPower(progress, travelEaseStrength)
-      : easeOutNormalizedExpo(progress, travelImpulseRate, travelTimeExponent);
+    const travelProgress = progress;
 
     const clampedTravelProgress = THREE.MathUtils.clamp(travelProgress, 0, 1);
     const appliedRotationOffset = zeroRotationOffset.clone();
@@ -1840,6 +1834,13 @@ const UnifiedCrystalScene = forwardRef(({
         const explosionElapsedMs = elapsedExplosion * 1000;
 
         const progress = Math.min((elapsedExplosion - fracturePause) / (totalDuration - fracturePause), 1);
+        const sharedProgressRaw = THREE.MathUtils.clamp(progress, 0, 1);
+        const easeType = config?.timing?.heroOverviewRuntime?.heroOverviewMotionEaseType ?? 'expoOut';
+        const sharedProgressEased = THREE.MathUtils.clamp(
+          sharedProgressRaw >= 1 ? 1 : 1 - (2 ** (-10 * sharedProgressRaw)),
+          0,
+          1,
+        );
         const runtimeSnapshotForClock = heroOverviewRuntime?.getSnapshot?.() ?? null;
         const { fragmentVisualPhase: explosionVisualPhase, fragmentVisualProgress: explosionVisualProgress } =
           deriveFragmentVisualTiming(runtimeSnapshotForClock, progress);
@@ -1848,8 +1849,10 @@ const UnifiedCrystalScene = forwardRef(({
             active: true,
             startedAt: explosionStartRef.current,
             elapsedMs: explosionElapsedMs,
-            progress: explosionVisualProgress,
+            progress: sharedProgressRaw,
+            easedProgress: sharedProgressEased,
             phase: explosionVisualPhase,
+            easeType,
             source: 'runExplodeSwap/explosionStartRef',
           };
         }
@@ -1885,7 +1888,7 @@ const UnifiedCrystalScene = forwardRef(({
             const runtimeSnapshot = heroOverviewRuntime?.getSnapshot?.() ?? null;
             const runtimePhase = runtimeSnapshot?.phase ?? 'idle';
             const runtimeProgress = runtimeSnapshot?.progress ?? 0;
-            const { fragmentVisualPhase, fragmentVisualProgress } = deriveFragmentVisualTiming(runtimeSnapshot, progress);
+            const { fragmentVisualPhase, fragmentVisualProgress } = deriveFragmentVisualTiming(runtimeSnapshot, sharedProgressRaw);
             const {
               travelProgress,
               travelEaseType,
@@ -1895,11 +1898,7 @@ const UnifiedCrystalScene = forwardRef(({
               useBaseInterpolation,
               computedRotationOffset,
               appliedRotationOffset,
-            } = resolveHeroOverviewFragmentTravel(
-              runtimeSnapshot,
-              config?.timing?.heroOverviewRuntime,
-              fragmentVisualProgress,
-            );
+            } = resolveHeroOverviewFragmentTravel(config?.timing?.heroOverviewRuntime, sharedProgressEased);
             const anchorAdjustedStartPosition = getAnchorAdjustedPosition(facetKey, start, targetQuat);
             const anchorAdjustedEndPosition = getAnchorAdjustedPosition(facetKey, end, targetQuat);
             const runtimeFinalPosition = useBaseInterpolation
@@ -2054,6 +2053,21 @@ const UnifiedCrystalScene = forwardRef(({
                     cameraTimingSource,
                     cameraProgress,
                     timingDeltaMs,
+                  });
+                  console.log('[hero-overview-sync] simple motion model', {
+                    sharedProgressRaw: Number(sharedProgressRaw.toFixed(4)),
+                    sharedProgressEased: Number(sharedProgressEased.toFixed(4)),
+                    easeType,
+                    cameraProgress: Number(globalThis.__HERO_OVERVIEW_CAMERA_PROGRESS__ ?? 0),
+                    fragmentTravelProgress: Number(resolvedTravelProgress.toFixed(4)),
+                    cameraStarted: (globalThis.__HERO_OVERVIEW_CAMERA_PROGRESS__ ?? 0) > 0,
+                    fragmentsStarted: resolvedTravelProgress > 0,
+                    cameraComplete: (globalThis.__HERO_OVERVIEW_CAMERA_PROGRESS__ ?? 0) >= 1,
+                    fragmentsComplete: resolvedTravelProgress >= 1,
+                    cameraPosition: globalThis.__HERO_OVERVIEW_CAMERA_POSITION__ ?? null,
+                    firstFacetPosition: finalPosition.toArray(),
+                    monotonic,
+                    overshoot,
                   });
                 }
                 const curveCheckpoints = [0.02, 0.05, 0.08, 0.10, 0.25, 0.50, 0.75, 1.00];

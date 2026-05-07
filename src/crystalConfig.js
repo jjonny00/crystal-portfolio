@@ -258,6 +258,8 @@ export const timing = {
     explosionImpulseEnd: 0.24,
     bulletTimeSlowdownEnd: 0.72,
     overviewSettleEnd: 1.0,
+    heroOverviewMotionEaseType: 'expoOut',
+    heroOverviewMotionDurationMs: 700,
     cameraPushbackDistance: 0.18,
     cameraPushbackStrength: 1.4,
     cameraPushbackDecayStart: 0.18,
