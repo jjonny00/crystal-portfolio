@@ -193,6 +193,7 @@ const Fixed3DCanvas = forwardRef(({
     [config?.timing?.heroOverviewRuntime, layout?.timing?.heroOverviewRuntime],
   );
   const heroOverviewRuntime = useHeroOverviewRuntime(heroOverviewRuntimeTimingConfig);
+  const heroOverviewExplosionClockRef = useRef(null);
   const lastHeroOverviewStartRef = useRef('');
   const lastHeroOverviewZoneRef = useRef(null);
 
@@ -721,6 +722,7 @@ const Fixed3DCanvas = forwardRef(({
             facetRefs={getFacetRefs()} // FIXED: Pass exposed facet refs for anchor targeting
             sharedCameraMoveProgressRef={cameraMoveProgressRef}
             heroOverviewRuntime={heroOverviewRuntime}
+            heroOverviewExplosionClockRef={heroOverviewExplosionClockRef}
           />
           
           {/* UPDATED: Crystal Scene with ref for accessing debug state */}
@@ -738,6 +740,7 @@ const Fixed3DCanvas = forwardRef(({
             onDirectProjectSelect={onDirectProjectSelect}
             onFractureStart={handleFractureStart}
             heroOverviewRuntime={heroOverviewRuntime}
+            heroOverviewExplosionClockRef={heroOverviewExplosionClockRef}
           />
 
           {/* UPDATED: Enhanced MistyLayerStack with highest render order */}

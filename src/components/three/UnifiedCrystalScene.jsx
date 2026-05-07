@@ -61,6 +61,7 @@ const UnifiedCrystalScene = forwardRef(({
   onFractureStart,
   sharedCameraMoveProgressRef = null,
   heroOverviewRuntime = null,
+  heroOverviewExplosionClockRef = null,
 }, ref) => {
   // Component refs for crystal animation
   const crystalGroupRef = useRef();
@@ -93,6 +94,13 @@ const UnifiedCrystalScene = forwardRef(({
   const heroOverviewFragmentAlignmentPhaseLoggedRef = useRef(new Set());
   const heroOverviewFragmentResolvedConfigLoggedRef = useRef(new Set());
   const heroOverviewFragmentFinalTransformLoggedRef = useRef(new Set());
+  const heroOverviewFragmentTravelLoggedRef = useRef(new Set());
+  const heroOverviewFragmentPreviousTravelProgressRef = useRef(new Map());
+  const heroOverviewPostCompleteWriterLoggedRef = useRef(new Set());
+  const heroOverviewFragmentCurveSampleLoggedRef = useRef(new Set());
+  const heroOverviewFragmentTimingResolvedLoggedRef = useRef(false);
+  const heroOverviewTravelDistanceAuditLoggedRef = useRef(false);
+  const heroOverviewVisibleTravelSampleLoggedRef = useRef(new Set());
 
   const deriveFragmentVisualTiming = (runtimeState, explosionProgress) => {
     const timing = runtimeState?.timing || {};
@@ -116,102 +124,55 @@ const UnifiedCrystalScene = forwardRef(({
     };
   };
 
-  const resolveHeroOverviewFragmentOffset = (
-    facetKey,
-    facetIndex,
-    runtimeState,
-    runtimeSettings,
-    basePosition,
-    fragmentVisualPhase,
-    fragmentVisualProgress,
-  ) => {
-    const zeroPositionOffset = new THREE.Vector3(0, 0, 0);
+  const resolveHeroOverviewFragmentTravel = (runtimeSettings, sharedProgressEased) => {
     const zeroRotationOffset = new THREE.Euler(0, 0, 0, 'XYZ');
-    if (!runtimeState || !runtimeState.active) {
+    if (sharedProgressEased == null) {
       return {
-        computedPositionOffset: zeroPositionOffset,
+        travelProgress: 1,
+        useBaseInterpolation: true,
         computedRotationOffset: zeroRotationOffset,
-        appliedPositionOffset: zeroPositionOffset,
         appliedRotationOffset: zeroRotationOffset,
       };
     }
 
-    const timing = runtimeState.timing || runtimeSettings || {};
-    const phase = fragmentVisualPhase;
-    const progress = THREE.MathUtils.clamp(fragmentVisualProgress ?? 0, 0, 1);
-    if (phase !== 'explosionImpulse' && phase !== 'bulletTimeSlowdown') {
-      return {
-        computedPositionOffset: zeroPositionOffset,
-        computedRotationOffset: zeroRotationOffset,
-        appliedPositionOffset: zeroPositionOffset,
-        appliedRotationOffset: zeroRotationOffset,
-      };
-    }
-
-    const smoothstep = (v) => {
-      const p = THREE.MathUtils.clamp(v, 0, 1);
-      return p * p * (3 - 2 * p);
+    const timing = runtimeSettings || {};
+    const progress = THREE.MathUtils.clamp(sharedProgressEased ?? 0, 0, 1);
+    const easeOutPower = (t, strength) => {
+      const clampedT = THREE.MathUtils.clamp(t, 0, 1);
+      const clampedStrength = Math.max(1, Number(strength ?? 2.4));
+      return THREE.MathUtils.clamp(1 - ((1 - clampedT) ** clampedStrength), 0, 1);
     };
-
-    const decayStart = THREE.MathUtils.clamp(Number(timing.fragmentImpulseDecayStart ?? 0.36), 0, 1);
-    const decayEnd = THREE.MathUtils.clamp(Number(timing.fragmentImpulseDecayEnd ?? 0.72), decayStart, 1);
-    let phaseAmount = 1;
-    if (phase === 'explosionImpulse') {
-      const phaseStart = THREE.MathUtils.clamp(timing.fractureChargeEnd ?? 0, 0, 1);
-      const phaseEnd = THREE.MathUtils.clamp(timing.explosionImpulseEnd ?? phaseStart, phaseStart, 1);
-      const local = phaseEnd > phaseStart ? (progress - phaseStart) / (phaseEnd - phaseStart) : 1;
-      phaseAmount = Math.max(0.4, smoothstep(local));
-    } else if (progress >= decayStart) {
-      const decayT = decayEnd > decayStart ? (progress - decayStart) / (decayEnd - decayStart) : 1;
-      phaseAmount = 1 - smoothstep(decayT);
-    }
-
-    const impulseMagnitude = Math.max(
-      0,
-      Number(timing.fragmentImpulseDistance ?? 0.45) *
-      Number(timing.fragmentImpulseStrength ?? 1) *
-      Number(timing.fragmentImpulseApplyScale ?? 1) *
-      phaseAmount,
+    const easeOutNormalizedExpo = (t, impulseRate, timeExponent) => {
+      const clampedT = THREE.MathUtils.clamp(t, 0, 1);
+      const safeRate = Math.max(0.0001, Number(impulseRate ?? 5.5));
+      const safeExponent = Math.max(0.0001, Number(timeExponent ?? 1.35));
+      const shapedT = clampedT ** safeExponent;
+      const raw = 1 - Math.exp(-safeRate * shapedT);
+      const normalizer = 1 - Math.exp(-safeRate);
+      if (normalizer <= 0.0000001) return clampedT;
+      return THREE.MathUtils.clamp(raw / normalizer, 0, 1);
+    };
+    const travelEaseType = timing.heroOverviewMotionEaseType ?? 'expoOut';
+    const travelEaseStrength = Math.max(
+      1,
+      Number(timing.fragmentTravelEaseStrength ?? timing.fragmentTravelCurveStrength ?? 2.4),
     );
+    const travelImpulseRate = Math.max(0.0001, Number(timing.fragmentTravelImpulseRate ?? 5.5));
+    const travelTimeExponent = Math.max(0.0001, Number(timing.fragmentTravelTimeExponent ?? 1.35));
+    const travelProgress = progress;
 
-    const outwardDirection = basePosition.lengthSq() > 0.000001
-      ? basePosition.clone().normalize()
-      : new THREE.Vector3(0, 1, 0);
-    const computedPositionOffset = outwardDirection.multiplyScalar(impulseMagnitude);
-
-    const seed = facetKey.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0) + facetIndex * 17;
-    const axisX = Math.sin(seed * 0.27);
-    const axisY = Math.cos(seed * 0.19);
-    const axisZ = Math.sin(seed * 0.13 + 1.7);
-    const rotationMagnitude = Math.max(0, Number(timing.fragmentRotationStrength ?? 0.35)) * phaseAmount;
-    const computedRotationOffset = new THREE.Euler(
-      axisX * rotationMagnitude,
-      axisY * rotationMagnitude,
-      axisZ * rotationMagnitude,
-      'XYZ',
-    );
-    const impulseApplyScale = THREE.MathUtils.clamp(Number(timing.fragmentImpulseApplyScale ?? 0.15), 0, 200);
-    const isFiniteComputedOffset = computedPositionOffset.toArray().every(Number.isFinite);
-    const isFiniteComputedRotation =
-      Number.isFinite(computedRotationOffset.x) &&
-      Number.isFinite(computedRotationOffset.y) &&
-      Number.isFinite(computedRotationOffset.z);
-    const appliedPositionOffset = isFiniteComputedOffset
-      ? computedPositionOffset.clone().multiplyScalar(impulseApplyScale)
-      : zeroPositionOffset;
-    const appliedRotationOffset = isFiniteComputedRotation
-      ? new THREE.Euler(
-        computedRotationOffset.x * impulseApplyScale,
-        computedRotationOffset.y * impulseApplyScale,
-        computedRotationOffset.z * impulseApplyScale,
-        'XYZ',
-      )
-      : zeroRotationOffset;
+    const clampedTravelProgress = THREE.MathUtils.clamp(travelProgress, 0, 1);
+    const appliedRotationOffset = zeroRotationOffset.clone();
+    const computedRotationOffset = zeroRotationOffset.clone();
 
     return {
-      computedPositionOffset,
+      travelProgress: clampedTravelProgress,
+      travelEaseType,
+      travelEaseStrength,
+      travelImpulseRate,
+      travelTimeExponent,
+      useBaseInterpolation: false,
       computedRotationOffset,
-      appliedPositionOffset,
       appliedRotationOffset,
     };
   };
@@ -319,6 +280,7 @@ const UnifiedCrystalScene = forwardRef(({
   const explosionStartRef = useRef(null);
   const fractureGlowStartRef = useRef(null);
   const pendingExplodeSwapAtRef = useRef(null);
+  const explosionCycleCompleteRef = useRef(false);
   const pendingReformSwapAtRef = useRef(null);
   const pendingFacetHideAtRef = useRef(null);
   const swapMaskGlowStartRef = useRef(null);
@@ -354,6 +316,8 @@ const UnifiedCrystalScene = forwardRef(({
   }, [mergedConfig, onFractureStart]);
 
   const runExplodeSwap = useCallback(() => {
+    heroOverviewTravelDistanceAuditLoggedRef.current = false;
+    heroOverviewVisibleTravelSampleLoggedRef.current.clear();
     setShowWholeCrystal(false);
     setShowFacets(true);
     setSphereVisible(true);
@@ -1603,7 +1567,7 @@ const UnifiedCrystalScene = forwardRef(({
         if (import.meta.env.DEV) {
           logger.debug('💎 Crystal: Explosion - charging whole crystal before swap');
         }
-        if (!simplifiedAnimations) {
+        if (!simplifiedAnimations && !explosionCycleCompleteRef.current) {
           pendingReformSwapAtRef.current = null;
           pendingFacetHideAtRef.current = null;
           setShowWholeCrystal(true);
@@ -1638,6 +1602,8 @@ const UnifiedCrystalScene = forwardRef(({
           setShowFacets(false);
         }
         explosionStartRef.current = null;
+        if (heroOverviewExplosionClockRef) heroOverviewExplosionClockRef.current = null;
+        explosionCycleCompleteRef.current = false;
         resetWholeCrystalMaskGlow();
         if (facetsGroupRef.current) {
           facetsGroupRef.current.quaternion.copy(neutralQuat);
@@ -1659,8 +1625,12 @@ const UnifiedCrystalScene = forwardRef(({
       pendingExplodeSwapAtRef.current != null &&
       now >= pendingExplodeSwapAtRef.current
     ) {
+      if (explosionCycleCompleteRef.current) {
+        pendingExplodeSwapAtRef.current = null;
+      } else {
       pendingExplodeSwapAtRef.current = null;
       runExplodeSwap();
+      }
     }
 
     const explodedOverviewSettled =
@@ -1864,6 +1834,28 @@ const UnifiedCrystalScene = forwardRef(({
         const explosionElapsedMs = elapsedExplosion * 1000;
 
         const progress = Math.min((elapsedExplosion - fracturePause) / (totalDuration - fracturePause), 1);
+        const sharedProgressRaw = THREE.MathUtils.clamp(progress, 0, 1);
+        const easeType = config?.timing?.heroOverviewRuntime?.heroOverviewMotionEaseType ?? 'expoOut';
+        const sharedProgressEased = THREE.MathUtils.clamp(
+          sharedProgressRaw >= 1 ? 1 : 1 - (2 ** (-10 * sharedProgressRaw)),
+          0,
+          1,
+        );
+        const runtimeSnapshotForClock = heroOverviewRuntime?.getSnapshot?.() ?? null;
+        const { fragmentVisualPhase: explosionVisualPhase, fragmentVisualProgress: explosionVisualProgress } =
+          deriveFragmentVisualTiming(runtimeSnapshotForClock, progress);
+        if (heroOverviewExplosionClockRef) {
+          heroOverviewExplosionClockRef.current = {
+            active: true,
+            startedAt: explosionStartRef.current,
+            elapsedMs: explosionElapsedMs,
+            progress: sharedProgressRaw,
+            easedProgress: sharedProgressEased,
+            phase: explosionVisualPhase,
+            easeType,
+            source: 'runExplodeSwap/explosionStartRef',
+          };
+        }
         const fracture = crystalConfig?.fracturePositions;
         const fractureDistance = crystalConfig?.fractureDistance ?? 0.3;
         const eased = crystalConfig?.explosionEase
@@ -1896,22 +1888,24 @@ const UnifiedCrystalScene = forwardRef(({
             const runtimeSnapshot = heroOverviewRuntime?.getSnapshot?.() ?? null;
             const runtimePhase = runtimeSnapshot?.phase ?? 'idle';
             const runtimeProgress = runtimeSnapshot?.progress ?? 0;
-            const { fragmentVisualPhase, fragmentVisualProgress } = deriveFragmentVisualTiming(runtimeSnapshot, progress);
+            const { fragmentVisualPhase, fragmentVisualProgress } = deriveFragmentVisualTiming(runtimeSnapshot, sharedProgressRaw);
             const {
-              computedPositionOffset,
+              travelProgress,
+              travelEaseType,
+              travelEaseStrength,
+              travelImpulseRate,
+              travelTimeExponent,
+              useBaseInterpolation,
               computedRotationOffset,
-              appliedPositionOffset,
               appliedRotationOffset,
-            } = resolveHeroOverviewFragmentOffset(
-              facetKey,
-              index,
-              runtimeSnapshot,
-              config?.timing?.heroOverviewRuntime,
-              basePosition,
-              fragmentVisualPhase,
-              fragmentVisualProgress,
-            );
-            const finalPosition = basePosition.clone().add(appliedPositionOffset);
+            } = resolveHeroOverviewFragmentTravel(config?.timing?.heroOverviewRuntime, sharedProgressEased);
+            const anchorAdjustedStartPosition = getAnchorAdjustedPosition(facetKey, start, targetQuat);
+            const anchorAdjustedEndPosition = getAnchorAdjustedPosition(facetKey, end, targetQuat);
+            const runtimeFinalPosition = useBaseInterpolation
+              ? basePosition.clone()
+              : anchorAdjustedStartPosition.clone().lerp(anchorAdjustedEndPosition, travelProgress);
+            const steadyStateExplodedPosition = anchorAdjustedEndPosition.clone();
+            const finalPosition = runtimeFinalPosition;
             const finalEuler = new THREE.Euler(
               baseEuler.x + appliedRotationOffset.x,
               baseEuler.y + appliedRotationOffset.y,
@@ -1949,82 +1943,166 @@ const UnifiedCrystalScene = forwardRef(({
                   reason: 'explosionStartRef-derived',
                 });
               }
-              if (index === 0 && !heroOverviewFragmentPhaseLoggedRef.current.has(fragmentVisualPhase)) {
-                heroOverviewFragmentPhaseLoggedRef.current.add(fragmentVisualPhase);
-                const resolvedTiming = runtimeSnapshot?.timing || config?.timing?.heroOverviewRuntime || {};
-                if (!heroOverviewFragmentResolvedConfigLoggedRef.current.has(fragmentVisualPhase)) {
-                  heroOverviewFragmentResolvedConfigLoggedRef.current.add(fragmentVisualPhase);
-                  console.log('[hero-overview-fragment-hook] resolved config', {
-                    fragmentVisualPhase,
-                    fragmentImpulseDistance: Number(resolvedTiming.fragmentImpulseDistance ?? 0.45),
-                    fragmentImpulseStrength: Number(resolvedTiming.fragmentImpulseStrength ?? 1),
-                    fragmentRotationStrength: Number(resolvedTiming.fragmentRotationStrength ?? 0.35),
-                    fragmentImpulseApplyScale: Number(resolvedTiming.fragmentImpulseApplyScale ?? 0.15),
-                    fragmentImpulseDecayStart: Number(resolvedTiming.fragmentImpulseDecayStart ?? 0.36),
-                    fragmentImpulseDecayEnd: Number(resolvedTiming.fragmentImpulseDecayEnd ?? 0.72),
+              if (index === 0) {
+                if (!heroOverviewFragmentPhaseLoggedRef.current.has(fragmentVisualPhase)) {
+                  heroOverviewFragmentPhaseLoggedRef.current.add(fragmentVisualPhase);
+                  const resolvedTiming = runtimeSnapshot?.timing || config?.timing?.heroOverviewRuntime || {};
+                  if (!heroOverviewFragmentResolvedConfigLoggedRef.current.has(fragmentVisualPhase)) {
+                    heroOverviewFragmentResolvedConfigLoggedRef.current.add(fragmentVisualPhase);
+                    console.log('[hero-overview-fragment-hook] resolved config', {
+                      fragmentVisualPhase,
+                      fragmentBlastPortion: Number(resolvedTiming.fragmentBlastPortion ?? 0.1),
+                      fragmentBlastTravel: Number(resolvedTiming.fragmentBlastTravel ?? 0.8),
+                      fragmentMidPortionEnd: Number(resolvedTiming.fragmentMidPortionEnd ?? 0.25),
+                      fragmentMidTravel: Number(resolvedTiming.fragmentMidTravel ?? 0.6),
+                      fragmentSlowPortionEnd: Number(resolvedTiming.fragmentSlowPortionEnd ?? 0.35),
+                      fragmentSlowTravelEnd: Number(resolvedTiming.fragmentSlowTravelEnd ?? 0.95),
+                      fragmentTravelCurveStrength: Number(resolvedTiming.fragmentTravelCurveStrength ?? 2.4),
+                      fragmentTravelEaseType: resolvedTiming.fragmentTravelEaseType ?? 'normalizedExpoOut',
+                      fragmentTravelEaseStrength: Number(resolvedTiming.fragmentTravelEaseStrength ?? resolvedTiming.fragmentTravelCurveStrength ?? 2.4),
+                      fragmentTravelImpulseRate: Number(resolvedTiming.fragmentTravelImpulseRate ?? 5.5),
+                      fragmentTravelTimeExponent: Number(resolvedTiming.fragmentTravelTimeExponent ?? 1.35),
+                      fragmentSettleCurveStrength: Number(resolvedTiming.fragmentSettleCurveStrength ?? 2.2),
+                      configSource: runtimeSnapshot?.timing ? 'runtimeSnapshot.timing' : 'config.timing.heroOverviewRuntime',
+                    });
+                  }
+                }
+                if (!heroOverviewFragmentTimingResolvedLoggedRef.current) {
+                  heroOverviewFragmentTimingResolvedLoggedRef.current = true;
+                  const resolvedTiming = runtimeSnapshot?.timing || config?.timing?.heroOverviewRuntime || {};
+                  console.log('[hero-overview-sync] resolved fragment timing config', {
+                    fragmentBlastPortion: Number(resolvedTiming.fragmentBlastPortion ?? 0.08),
+                    fragmentBlastTravel: Number(resolvedTiming.fragmentBlastTravel ?? 0.76),
+                    fragmentMidPortionEnd: Number(resolvedTiming.fragmentMidPortionEnd ?? 0.25),
+                    fragmentMidTravel: Number(resolvedTiming.fragmentMidTravel ?? 0.6),
+                    fragmentSlowPortionEnd: Number(resolvedTiming.fragmentSlowPortionEnd ?? 0.25),
+                    fragmentSlowTravelEnd: Number(resolvedTiming.fragmentSlowTravelEnd ?? 0.92),
+                    fragmentTravelCurveStrength: Number(resolvedTiming.fragmentTravelCurveStrength ?? 2.8),
+                    fragmentTravelEaseType: resolvedTiming.fragmentTravelEaseType ?? 'normalizedExpoOut',
+                    fragmentTravelEaseStrength: Number(resolvedTiming.fragmentTravelEaseStrength ?? resolvedTiming.fragmentTravelCurveStrength ?? 2.4),
+                    fragmentTravelImpulseRate: Number(resolvedTiming.fragmentTravelImpulseRate ?? 5.5),
+                    fragmentTravelTimeExponent: Number(resolvedTiming.fragmentTravelTimeExponent ?? 1.35),
+                    fragmentSettleCurveStrength: Number(resolvedTiming.fragmentSettleCurveStrength ?? 3.1),
                     configSource: runtimeSnapshot?.timing ? 'runtimeSnapshot.timing' : 'config.timing.heroOverviewRuntime',
                   });
                 }
-                const computedPositionOffsetLength = computedPositionOffset.length();
-                const computedRotationOffsetLength = Math.sqrt(
-                  (computedRotationOffset.x ** 2) +
-                  (computedRotationOffset.y ** 2) +
-                  (computedRotationOffset.z ** 2)
-                );
-                const isFiniteComputedOffset = computedPositionOffset.toArray().every(Number.isFinite);
-                const isFiniteComputedRotation =
-                  Number.isFinite(computedRotationOffset.x) &&
-                  Number.isFinite(computedRotationOffset.y) &&
-                  Number.isFinite(computedRotationOffset.z);
-                const appliedPositionOffsetLength = appliedPositionOffset.length();
-                const appliedRotationOffsetLength = Math.sqrt(
-                  (appliedRotationOffset.x ** 2) +
-                  (appliedRotationOffset.y ** 2) +
-                  (appliedRotationOffset.z ** 2)
-                );
-                console.log('[hero-overview-fragment-hook] impulse computed', {
-                  runtimePhase,
-                  fragmentVisualPhase,
-                  fragmentVisualProgress: Number(fragmentVisualProgress.toFixed(4)),
-                  runtimeProgress: Number(runtimeProgress.toFixed?.(3) ?? runtimeProgress),
-                  facetKey,
-                  facetIndex: index,
-                  basePosition: basePosition.toArray(),
-                  computedPositionOffset: computedPositionOffset.toArray(),
-                  computedPositionOffsetLength: Number(computedPositionOffsetLength.toFixed(4)),
-                  appliedPositionOffset: appliedPositionOffset.toArray(),
-                  finalPosition: finalPosition.toArray(),
-                  baseRotation: [baseEuler.x, baseEuler.y, baseEuler.z],
-                  computedRotationOffset: [computedRotationOffset.x, computedRotationOffset.y, computedRotationOffset.z],
-                  computedRotationOffsetLength: Number(computedRotationOffsetLength.toFixed(4)),
-                  appliedRotationOffset: [appliedRotationOffset.x, appliedRotationOffset.y, appliedRotationOffset.z],
-                  finalRotation: [finalEuler.x, finalEuler.y, finalEuler.z],
-                  isFiniteComputedOffset,
-                  isFiniteComputedRotation,
-                  offsetZeroByOverviewSettle:
-                    fragmentVisualPhase === 'overviewSettle' || fragmentVisualPhase === 'complete',
-                });
-                console.log('[hero-overview-fragment-hook] visual impulse applied', {
-                  facetKey,
-                  facetIndex: index,
-                  runtimePhase,
-                  fragmentVisualPhase,
-                  fragmentVisualProgress: Number(fragmentVisualProgress.toFixed(4)),
-                  basePosition: basePosition.toArray(),
-                  computedPositionOffset: computedPositionOffset.toArray(),
-                  appliedPositionOffset: appliedPositionOffset.toArray(),
-                  appliedPositionOffsetLength: Number(appliedPositionOffsetLength.toFixed(4)),
-                  finalPosition: finalPosition.toArray(),
-                  baseRotation: [baseEuler.x, baseEuler.y, baseEuler.z],
-                  computedRotationOffset: [computedRotationOffset.x, computedRotationOffset.y, computedRotationOffset.z],
-                  appliedRotationOffset: [appliedRotationOffset.x, appliedRotationOffset.y, appliedRotationOffset.z],
-                  appliedRotationOffsetLength: Number(appliedRotationOffsetLength.toFixed(4)),
-                  finalRotation: [finalEuler.x, finalEuler.y, finalEuler.z],
-                  offsetZeroByOverviewSettle:
-                    fragmentVisualPhase === 'overviewSettle' || fragmentVisualPhase === 'complete'
-                      ? (appliedPositionOffsetLength <= 0.000001 && appliedRotationOffsetLength <= 0.000001)
-                      : false,
-                });
+                const sampledProgressBucket = Math.round(fragmentVisualProgress * 20) / 20;
+                const shouldLogTravelSample = !heroOverviewFragmentTravelLoggedRef.current.has(sampledProgressBucket);
+                if (shouldLogTravelSample) {
+                  heroOverviewFragmentTravelLoggedRef.current.add(sampledProgressBucket);
+                  const previousTravelProgress = heroOverviewFragmentPreviousTravelProgressRef.current.get(facetKey);
+                  const resolvedTravelProgress = fragmentVisualPhase === 'complete' ? 1 : travelProgress;
+                  const monotonic = previousTravelProgress == null || resolvedTravelProgress >= previousTravelProgress;
+                  const overshoot = resolvedTravelProgress < 0 || resolvedTravelProgress > 1;
+                  heroOverviewFragmentPreviousTravelProgressRef.current.set(facetKey, resolvedTravelProgress);
+                  console.log('[hero-overview-fragment-hook] travel model', {
+                    facetKey,
+                    fragmentVisualPhase,
+                    fragmentVisualProgress: Number(fragmentVisualProgress.toFixed(4)),
+                    startPosition: start.toArray(),
+                    endPosition: end.toArray(),
+                    anchorAdjustedStartPosition: anchorAdjustedStartPosition.toArray(),
+                    anchorAdjustedEndPosition: anchorAdjustedEndPosition.toArray(),
+                    runtimeFinalPosition: runtimeFinalPosition.toArray(),
+                    steadyStateExplodedPosition: steadyStateExplodedPosition.toArray(),
+                    differenceToSteadyState: runtimeFinalPosition.clone().sub(steadyStateExplodedPosition).toArray(),
+                    travelProgress: Number(resolvedTravelProgress.toFixed(4)),
+                    previousTravelProgress: previousTravelProgress == null ? null : Number(previousTravelProgress.toFixed(4)),
+                    monotonic,
+                    overshoot,
+                    fragmentTravelEaseType: travelEaseType,
+                    fragmentTravelEaseStrength: Number(travelEaseStrength.toFixed(4)),
+                    fragmentTravelImpulseRate: Number(travelImpulseRate.toFixed(4)),
+                    fragmentTravelTimeExponent: Number(travelTimeExponent.toFixed(4)),
+                    finalPosition: finalPosition.toArray(),
+                    appliedRotationOffset: [appliedRotationOffset.x, appliedRotationOffset.y, appliedRotationOffset.z],
+                  });
+                  const cameraAppliedOffsetLength = Number(globalThis.__HERO_OVERVIEW_CAMERA_APPLIED_OFFSET_LENGTH__ ?? 0);
+                  const cameraNearFinal = cameraAppliedOffsetLength <= 0.01;
+                  const fragmentNearFinal = steadyStateExplodedPosition.distanceTo(runtimeFinalPosition) <= 0.01;
+                  globalThis.__HERO_OVERVIEW_FRAGMENT_TRAVEL_PROGRESS__ = resolvedTravelProgress;
+                  globalThis.__HERO_OVERVIEW_FRAGMENT_NEAR_FINAL__ = fragmentNearFinal;
+                  console.log('[hero-overview-sync] timing sample', {
+                    runtimeProgress: Number(runtimeProgress.toFixed?.(3) ?? runtimeProgress),
+                    runtimePhase,
+                    fragmentVisualProgress: Number(fragmentVisualProgress.toFixed(4)),
+                    fragmentVisualPhase,
+                    fragmentTravelProgress: Number(resolvedTravelProgress.toFixed(4)),
+                    cameraAppliedOffsetLength: Number(cameraAppliedOffsetLength.toFixed(4)),
+                    cameraNearFinal,
+                    fragmentNearFinal,
+                  });
+                  const runtimeStartedAt = runtimeSnapshot?.startedAt ?? null;
+                  const runtimeElapsedMs = runtimeSnapshot?.elapsedMs ?? null;
+                  const cameraProgress = Number(globalThis.__HERO_OVERVIEW_CAMERA_PROGRESS__ ?? 0);
+                  const cameraTimingSource = globalThis.__HERO_OVERVIEW_CAMERA_TIMING_SOURCE__ ?? 'runtime';
+                  const explosionStartedAt = explosionStartRef.current ?? null;
+                  const timingDeltaMs = runtimeStartedAt != null && explosionStartedAt != null
+                    ? Number((explosionStartedAt - runtimeStartedAt).toFixed(2))
+                    : null;
+                  console.log('[hero-overview-sync] clock alignment', {
+                    runtimeStartedAt,
+                    runtimeElapsedMs: runtimeElapsedMs == null ? null : Number(runtimeElapsedMs.toFixed(2)),
+                    runtimeProgress: Number(runtimeProgress.toFixed?.(4) ?? runtimeProgress),
+                    runtimePhase,
+                    explosionStartedAt,
+                    explosionElapsedMs: Number(explosionElapsedMs.toFixed(2)),
+                    explosionProgress: Number(progress.toFixed(4)),
+                    fragmentVisualProgress: Number(fragmentVisualProgress.toFixed(4)),
+                    fragmentVisualPhase,
+                    cameraTimingSource,
+                    cameraProgress,
+                    timingDeltaMs,
+                  });
+                  console.log('[hero-overview-sync] simple motion model', {
+                    sharedProgressRaw: Number(sharedProgressRaw.toFixed(4)),
+                    sharedProgressEased: Number(sharedProgressEased.toFixed(4)),
+                    easeType,
+                    cameraProgress: Number(globalThis.__HERO_OVERVIEW_CAMERA_PROGRESS__ ?? 0),
+                    fragmentTravelProgress: Number(resolvedTravelProgress.toFixed(4)),
+                    cameraStarted: (globalThis.__HERO_OVERVIEW_CAMERA_PROGRESS__ ?? 0) > 0,
+                    fragmentsStarted: resolvedTravelProgress > 0,
+                    cameraComplete: (globalThis.__HERO_OVERVIEW_CAMERA_PROGRESS__ ?? 0) >= 1,
+                    fragmentsComplete: resolvedTravelProgress >= 1,
+                    cameraPosition: globalThis.__HERO_OVERVIEW_CAMERA_POSITION__ ?? null,
+                    firstFacetPosition: finalPosition.toArray(),
+                    monotonic,
+                    overshoot,
+                  });
+                }
+                const curveCheckpoints = [0.02, 0.05, 0.08, 0.10, 0.25, 0.50, 0.75, 1.00];
+                const checkpoint = curveCheckpoints.find((cp) => Math.abs(fragmentVisualProgress - cp) <= 0.015);
+                if (checkpoint != null && !heroOverviewFragmentCurveSampleLoggedRef.current.has(checkpoint)) {
+                  heroOverviewFragmentCurveSampleLoggedRef.current.add(checkpoint);
+                  const expectedRange = checkpoint === 0.08
+                    ? 'near 0.76'
+                    : checkpoint === 0.25
+                      ? 'near 0.92'
+                      : checkpoint === 0.5
+                        ? '>0.92 and <1'
+                        : checkpoint === 1
+                          ? 'exactly 1.0'
+                          : 'front-loaded monotonic crawl';
+                  const activeTiming = runtimeSnapshot?.timing || config?.timing?.heroOverviewRuntime || {};
+                  console.log('[hero-overview-sync] fragment curve sample', {
+                    fragmentVisualProgress: Number(fragmentVisualProgress.toFixed(4)),
+                    fragmentVisualPhase,
+                    travelProgress: Number(resolvedTravelProgress.toFixed(4)),
+                    targetExpectedRange: expectedRange,
+                    configValuesUsed: {
+                      fragmentBlastPortion: Number(activeTiming.fragmentBlastPortion ?? 0.08),
+                      fragmentBlastTravel: Number(activeTiming.fragmentBlastTravel ?? 0.76),
+                      fragmentMidPortionEnd: Number(activeTiming.fragmentMidPortionEnd ?? 0.25),
+                      fragmentMidTravel: Number(activeTiming.fragmentMidTravel ?? 0.6),
+                      fragmentSlowPortionEnd: Number(activeTiming.fragmentSlowPortionEnd ?? 0.25),
+                      fragmentSlowTravelEnd: Number(activeTiming.fragmentSlowTravelEnd ?? 0.92),
+                      fragmentTravelCurveStrength: Number(activeTiming.fragmentTravelCurveStrength ?? 2.8),
+                      fragmentSettleCurveStrength: Number(activeTiming.fragmentSettleCurveStrength ?? 3.1),
+                    },
+                    monotonic,
+                    overshoot,
+                  });
+                }
 
                 if (!heroOverviewFragmentFinalTransformLoggedRef.current.has(fragmentVisualPhase)) {
                   heroOverviewFragmentFinalTransformLoggedRef.current.add(fragmentVisualPhase);
@@ -2060,8 +2138,140 @@ const UnifiedCrystalScene = forwardRef(({
           }
         });
 
+        if (typeof globalThis !== 'undefined' && globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__) {
+          const visibleCheckpoints = [0.02, 0.05, 0.10, 0.25, 0.50, 0.75, 1.00];
+          const sampleCheckpoint = visibleCheckpoints.find((cp) => Math.abs(progress - cp) <= 0.015);
+          const runtimeSnapshotForSample = heroOverviewRuntime?.getSnapshot?.() ?? null;
+          const { travelProgress: currentTravelProgressRaw } = resolveHeroOverviewFragmentTravel(
+            runtimeSnapshotForSample,
+            config?.timing?.heroOverviewRuntime,
+            progress,
+          );
+          const currentTravelProgress = progress >= 1 ? 1 : Number((currentTravelProgressRaw ?? 1).toFixed(4));
+          let minStartEndDistance = Number.POSITIVE_INFINITY;
+          let maxStartEndDistance = 0;
+          let sumStartEndDistance = 0;
+          let facetCount = 0;
+          let largestMovingFacetKey = null;
+          let largestMovingFacetDistance = -1;
+          let smallestMovingFacetKey = null;
+          let smallestMovingFacetDistance = Number.POSITIVE_INFINITY;
+          let firstFacetStartEndDistance = 0;
+          let firstFacetDistanceToFinal = 0;
+          let largestFacetDistanceToFinal = 0;
+          let fragmentAvgDistanceToFinal = 0;
+          let firstFacetSample = null;
+          let largestFacetSample = null;
+
+          facetRefs.current.forEach((facetRef2, idx) => {
+            const facetKey2 = facetKeys[idx];
+            const end2 = crystalConfig?.positions?.[facetPlacementKeys[facetKey2] || facetKey2];
+            if (!facetRef2?.current || !end2) return;
+            const start2 = (crystalConfig?.fracturePositions?.[facetPlacementKeys[facetKey2] || facetKey2])
+              || end2.clone().normalize().multiplyScalar(end2.length() * (crystalConfig?.fractureDistance ?? 0.3));
+            const targetQuat2 = baseFacetTargetQuats[facetKey2] || neutralQuat;
+            const adjustedStart2 = getAnchorAdjustedPosition(facetKey2, start2, targetQuat2);
+            const adjustedEnd2 = getAnchorAdjustedPosition(facetKey2, end2, targetQuat2);
+            const dist = adjustedStart2.distanceTo(adjustedEnd2);
+            const currentPos = facetRef2.current.position.clone();
+            const remaining = currentPos.distanceTo(adjustedEnd2);
+            fragmentAvgDistanceToFinal += remaining;
+            facetCount += 1;
+            minStartEndDistance = Math.min(minStartEndDistance, dist);
+            maxStartEndDistance = Math.max(maxStartEndDistance, dist);
+            sumStartEndDistance += dist;
+            if (dist > largestMovingFacetDistance) {
+              largestMovingFacetDistance = dist;
+              largestMovingFacetKey = facetKey2;
+              largestFacetDistanceToFinal = remaining;
+              largestFacetSample = {
+                facetKey: facetKey2,
+                startPosition: adjustedStart2.toArray(),
+                endPosition: adjustedEnd2.toArray(),
+                currentPosition: currentPos.toArray(),
+                totalTravelDistance: Number(dist.toFixed(4)),
+                remainingDistanceToEnd: Number(remaining.toFixed(4)),
+                percentDistanceRemaining: dist > 0 ? Number((remaining / dist).toFixed(4)) : 0,
+                actualWorldPosition: facetRef2.current.getWorldPosition(new THREE.Vector3()).toArray(),
+                positionDifferenceFromIntended: currentPos.clone().sub(adjustedStart2.clone().lerp(adjustedEnd2, currentTravelProgress)).toArray(),
+              };
+            }
+            if (dist < smallestMovingFacetDistance) {
+              smallestMovingFacetDistance = dist;
+              smallestMovingFacetKey = facetKey2;
+            }
+            if (idx === 0) {
+              firstFacetStartEndDistance = dist;
+              firstFacetDistanceToFinal = remaining;
+              firstFacetSample = {
+                facetKey: facetKey2,
+                startPosition: adjustedStart2.toArray(),
+                endPosition: adjustedEnd2.toArray(),
+                currentPosition: currentPos.toArray(),
+                totalTravelDistance: Number(dist.toFixed(4)),
+                remainingDistanceToEnd: Number(remaining.toFixed(4)),
+                percentDistanceRemaining: dist > 0 ? Number((remaining / dist).toFixed(4)) : 0,
+                actualWorldPosition: facetRef2.current.getWorldPosition(new THREE.Vector3()).toArray(),
+                positionDifferenceFromIntended: currentPos.clone().sub(adjustedStart2.clone().lerp(adjustedEnd2, currentTravelProgress)).toArray(),
+              };
+            }
+          });
+          fragmentAvgDistanceToFinal = facetCount > 0 ? fragmentAvgDistanceToFinal / facetCount : 0;
+          if (!heroOverviewTravelDistanceAuditLoggedRef.current && facetCount > 0) {
+            heroOverviewTravelDistanceAuditLoggedRef.current = true;
+            console.log('[hero-overview-fragment-hook] travel distance audit', {
+              facetCount,
+              minStartEndDistance: Number(minStartEndDistance.toFixed(4)),
+              maxStartEndDistance: Number(maxStartEndDistance.toFixed(4)),
+              avgStartEndDistance: Number((sumStartEndDistance / facetCount).toFixed(4)),
+              firstFacetStartEndDistance: Number(firstFacetStartEndDistance.toFixed(4)),
+              largestMovingFacetKey,
+              largestMovingFacetDistance: Number(largestMovingFacetDistance.toFixed(4)),
+              smallestMovingFacetKey,
+              smallestMovingFacetDistance: Number(smallestMovingFacetDistance.toFixed(4)),
+            });
+          }
+          if (sampleCheckpoint != null && !heroOverviewVisibleTravelSampleLoggedRef.current.has(sampleCheckpoint)) {
+            heroOverviewVisibleTravelSampleLoggedRef.current.add(sampleCheckpoint);
+            const fragmentTravelProgress = currentTravelProgress;
+            if (firstFacetSample) {
+              console.log('[hero-overview-fragment-hook] visible travel sample', {
+                ...firstFacetSample,
+                fragmentVisualProgress: Number(progress.toFixed(4)),
+                fragmentVisualPhase: deriveFragmentVisualTiming(runtimeSnapshotForSample, progress).fragmentVisualPhase,
+                travelProgress: fragmentTravelProgress,
+                overwritten: firstFacetSample.positionDifferenceFromIntended.some((v) => Math.abs(v) > 0.0001),
+              });
+            }
+            if (largestFacetSample && largestFacetSample.facetKey !== firstFacetSample?.facetKey) {
+              console.log('[hero-overview-fragment-hook] visible travel sample', {
+                ...largestFacetSample,
+                fragmentVisualProgress: Number(progress.toFixed(4)),
+                fragmentVisualPhase: deriveFragmentVisualTiming(runtimeSnapshotForSample, progress).fragmentVisualPhase,
+                travelProgress: fragmentTravelProgress,
+                overwritten: largestFacetSample.positionDifferenceFromIntended.some((v) => Math.abs(v) > 0.0001),
+              });
+            }
+            const cameraAppliedOffsetLength = Number(globalThis.__HERO_OVERVIEW_CAMERA_APPLIED_OFFSET_LENGTH__ ?? 0);
+            console.log('[hero-overview-sync] camera vs fragment finish audit', {
+              runtimeProgress: Number((runtimeSnapshotForSample?.progress ?? progress).toFixed(4)),
+              fragmentVisualProgress: Number(progress.toFixed(4)),
+              fragmentTravelProgress,
+              cameraAppliedOffsetLength: Number(cameraAppliedOffsetLength.toFixed(4)),
+              cameraDistanceToFinal: null,
+              fragmentAvgDistanceToFinal: Number(fragmentAvgDistanceToFinal.toFixed(4)),
+              firstFacetDistanceToFinal: Number(firstFacetDistanceToFinal.toFixed(4)),
+              largestFacetDistanceToFinal: Number(largestFacetDistanceToFinal.toFixed(4)),
+              cameraNearFinal: cameraAppliedOffsetLength <= 0.01,
+              fragmentsNearFinal: fragmentAvgDistanceToFinal <= 0.01,
+            });
+          }
+        }
+
         if (progress >= 1) {
           explosionStartRef.current = null; // Animation finished
+          if (heroOverviewExplosionClockRef) heroOverviewExplosionClockRef.current = null;
+          explosionCycleCompleteRef.current = true;
         }
         return;
       }
@@ -2196,6 +2406,48 @@ const UnifiedCrystalScene = forwardRef(({
           facetRef.current.quaternion.slerp(targetQuat, focusedRotationLerp);
         } else {
           facetRef.current.quaternion.slerp(targetQuat, rotationLerp);
+        }
+        if (
+          index === 0 &&
+          typeof globalThis !== 'undefined' &&
+          globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__ &&
+          animationData?.crystalForm === 'exploded' &&
+          explosionCycleCompleteRef.current
+        ) {
+          const runtimeSnapshot = heroOverviewRuntime?.getSnapshot?.() ?? null;
+          const runtimePhase = runtimeSnapshot?.phase ?? 'idle';
+          const { fragmentVisualPhase } = deriveFragmentVisualTiming(runtimeSnapshot, 1);
+          const firstFacetPositionAfter = facetRef.current.position.clone();
+          const resolvedFracture = crystalConfig?.fracturePositions?.[facetPlacementKeys[facetKey] || facetKey];
+          const writerBranch = 'overviewIdle';
+          const logBucket = `${runtimePhase}:${Math.round((animationData?.cameraMoveProgress ?? 1) * 10) / 10}`;
+          if (!heroOverviewPostCompleteWriterLoggedRef.current.has(logBucket)) {
+            heroOverviewPostCompleteWriterLoggedRef.current.add(logBucket);
+            console.log('[hero-overview-fragment-hook] post-complete writer check', {
+              crystalForm: animationData?.crystalForm,
+              runtimePhase,
+              fragmentVisualPhase,
+              explosionStartRef: { active: Boolean(explosionStartRef.current), value: explosionStartRef.current },
+              explosionProgress: 1,
+              writerBranch,
+              positionSource: 'overviewIdle',
+              firstFacetPositionBefore: null,
+              firstFacetPositionAfter: firstFacetPositionAfter.toArray(),
+            });
+          }
+          if (resolvedFracture && firstFacetPositionAfter.distanceTo(resolvedFracture) < 0.05) {
+            console.warn('[hero-overview-fragment-hook] duplicate explosion replay detected', {
+              crystalForm: animationData?.crystalForm,
+              runtimePhase,
+              fragmentVisualPhase,
+              explosionStartRef: { active: Boolean(explosionStartRef.current), value: explosionStartRef.current },
+              writerBranch,
+              positionSource: 'fracturePositionReset',
+              firstFacetPositionBefore: null,
+              firstFacetPositionAfter: firstFacetPositionAfter.toArray(),
+              fracturePosition: resolvedFracture.toArray(),
+            });
+          }
         }
       });
 

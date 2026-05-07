@@ -130,6 +130,7 @@ const parseHeroOverviewRuntimeTiming = (timing, path) => {
     'explosionImpulseEnd',
     'bulletTimeSlowdownEnd',
     'overviewSettleEnd',
+    'heroOverviewMotionDurationMs',
     'cameraPushbackDistance',
     'cameraPushbackStrength',
     'cameraPushbackDecayStart',
@@ -141,6 +142,17 @@ const parseHeroOverviewRuntimeTiming = (timing, path) => {
     'fragmentImpulseApplyScale',
     'fragmentImpulseDecayStart',
     'fragmentImpulseDecayEnd',
+    'fragmentBlastPortion',
+    'fragmentBlastTravel',
+    'fragmentMidPortionEnd',
+    'fragmentMidTravel',
+    'fragmentSlowPortionEnd',
+    'fragmentSlowTravelEnd',
+    'fragmentTravelEaseStrength',
+    'fragmentTravelImpulseRate',
+    'fragmentTravelTimeExponent',
+    'fragmentTravelCurveStrength',
+    'fragmentSettleCurveStrength',
   ];
 
   numericKeys.forEach((key) => {
@@ -150,6 +162,20 @@ const parseHeroOverviewRuntimeTiming = (timing, path) => {
     }
     parsed[key] = timing[key];
   });
+
+  if (timing.fragmentTravelEaseType !== undefined) {
+    const validEaseTypes = new Set(['powerOut', 'normalizedExpoOut']);
+    if (!validEaseTypes.has(timing.fragmentTravelEaseType)) {
+      throw new Error(`Invalid layout at ${path}.fragmentTravelEaseType: expected "powerOut" or "normalizedExpoOut".`);
+    }
+    parsed.fragmentTravelEaseType = timing.fragmentTravelEaseType;
+  }
+  if (timing.heroOverviewMotionEaseType !== undefined) {
+    if (timing.heroOverviewMotionEaseType !== 'expoOut') {
+      throw new Error(`Invalid layout at ${path}.heroOverviewMotionEaseType: expected "expoOut".`);
+    }
+    parsed.heroOverviewMotionEaseType = timing.heroOverviewMotionEaseType;
+  }
 
   return parsed;
 };
