@@ -2060,6 +2060,13 @@ const UnifiedCrystalScene = forwardRef(({
         if (typeof globalThis !== 'undefined' && globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__) {
           const visibleCheckpoints = [0.02, 0.05, 0.10, 0.25, 0.50, 0.75, 1.00];
           const sampleCheckpoint = visibleCheckpoints.find((cp) => Math.abs(progress - cp) <= 0.015);
+          const runtimeSnapshotForSample = heroOverviewRuntime?.getSnapshot?.() ?? null;
+          const { travelProgress: currentTravelProgressRaw } = resolveHeroOverviewFragmentTravel(
+            runtimeSnapshotForSample,
+            config?.timing?.heroOverviewRuntime,
+            progress,
+          );
+          const currentTravelProgress = progress >= 1 ? 1 : Number((currentTravelProgressRaw ?? 1).toFixed(4));
           let minStartEndDistance = Number.POSITIVE_INFINITY;
           let maxStartEndDistance = 0;
           let sumStartEndDistance = 0;
@@ -2105,7 +2112,7 @@ const UnifiedCrystalScene = forwardRef(({
                 remainingDistanceToEnd: Number(remaining.toFixed(4)),
                 percentDistanceRemaining: dist > 0 ? Number((remaining / dist).toFixed(4)) : 0,
                 actualWorldPosition: facetRef2.current.getWorldPosition(new THREE.Vector3()).toArray(),
-                positionDifferenceFromIntended: currentPos.clone().sub(adjustedStart2.clone().lerp(adjustedEnd2, travelProgress)).toArray(),
+                positionDifferenceFromIntended: currentPos.clone().sub(adjustedStart2.clone().lerp(adjustedEnd2, currentTravelProgress)).toArray(),
               };
             }
             if (dist < smallestMovingFacetDistance) {
@@ -2124,7 +2131,7 @@ const UnifiedCrystalScene = forwardRef(({
                 remainingDistanceToEnd: Number(remaining.toFixed(4)),
                 percentDistanceRemaining: dist > 0 ? Number((remaining / dist).toFixed(4)) : 0,
                 actualWorldPosition: facetRef2.current.getWorldPosition(new THREE.Vector3()).toArray(),
-                positionDifferenceFromIntended: currentPos.clone().sub(adjustedStart2.clone().lerp(adjustedEnd2, travelProgress)).toArray(),
+                positionDifferenceFromIntended: currentPos.clone().sub(adjustedStart2.clone().lerp(adjustedEnd2, currentTravelProgress)).toArray(),
               };
             }
           });
@@ -2145,13 +2152,7 @@ const UnifiedCrystalScene = forwardRef(({
           }
           if (sampleCheckpoint != null && !heroOverviewVisibleTravelSampleLoggedRef.current.has(sampleCheckpoint)) {
             heroOverviewVisibleTravelSampleLoggedRef.current.add(sampleCheckpoint);
-            const runtimeSnapshotForSample = heroOverviewRuntime?.getSnapshot?.() ?? null;
-            const { travelProgress: fragmentTravelProgressRaw } = resolveHeroOverviewFragmentTravel(
-              runtimeSnapshotForSample,
-              config?.timing?.heroOverviewRuntime,
-              progress,
-            );
-            const fragmentTravelProgress = progress >= 1 ? 1 : Number((fragmentTravelProgressRaw ?? 1).toFixed(4));
+            const fragmentTravelProgress = currentTravelProgress;
             if (firstFacetSample) {
               console.log('[hero-overview-fragment-hook] visible travel sample', {
                 ...firstFacetSample,
