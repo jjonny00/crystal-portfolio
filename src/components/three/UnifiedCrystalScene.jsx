@@ -140,34 +140,8 @@ const UnifiedCrystalScene = forwardRef(({
 
     const timing = runtimeState.timing || runtimeSettings || {};
     const progress = THREE.MathUtils.clamp(fragmentVisualProgress ?? 0, 0, 1);
-    const easeOutPow = (v, exponent) => {
-      const p = THREE.MathUtils.clamp(v, 0, 1);
-      return 1 - ((1 - p) ** exponent);
-    };
-
-    const blastPortion = THREE.MathUtils.clamp(Number(timing.fragmentBlastPortion ?? 0.1), 0.0001, 1);
-    const blastTravel = THREE.MathUtils.clamp(Number(timing.fragmentBlastTravel ?? 0.8), 0, 1);
-    const midPortionEnd = THREE.MathUtils.clamp(Number(timing.fragmentMidPortionEnd ?? 0.25), blastPortion, 1);
-    const midTravel = THREE.MathUtils.clamp(Number(timing.fragmentMidTravel ?? 0.6), blastTravel, 1);
-    const slowPortionEnd = THREE.MathUtils.clamp(Number(timing.fragmentSlowPortionEnd ?? 0.7), midPortionEnd, 1);
-    const slowTravelEnd = THREE.MathUtils.clamp(Number(timing.fragmentSlowTravelEnd ?? 0.9), midTravel, 1);
-    const travelCurveStrength = Math.max(1, Number(timing.fragmentTravelCurveStrength ?? 2.4));
-    const settleCurveStrength = Math.max(1, Number(timing.fragmentSettleCurveStrength ?? 2.2));
-
-    let travelProgress = 1;
-    if (progress <= blastPortion) {
-      const t = progress / blastPortion;
-      travelProgress = blastTravel * easeOutPow(t, travelCurveStrength);
-    } else if (progress <= midPortionEnd) {
-      const t = midPortionEnd > blastPortion ? (progress - blastPortion) / (midPortionEnd - blastPortion) : 1;
-      travelProgress = THREE.MathUtils.lerp(blastTravel, midTravel, easeOutPow(t, travelCurveStrength));
-    } else if (progress <= slowPortionEnd) {
-      const t = slowPortionEnd > midPortionEnd ? (progress - midPortionEnd) / (slowPortionEnd - midPortionEnd) : 1;
-      travelProgress = THREE.MathUtils.lerp(midTravel, slowTravelEnd, easeOutPow(t, travelCurveStrength));
-    } else {
-      const t = slowPortionEnd < 1 ? (progress - slowPortionEnd) / (1 - slowPortionEnd) : 1;
-      travelProgress = THREE.MathUtils.lerp(slowTravelEnd, 1, easeOutPow(t, settleCurveStrength));
-    }
+    const travelCurveStrength = Math.max(1, Number(timing.fragmentTravelCurveStrength ?? 5.0));
+    const travelProgress = 1 - ((1 - progress) ** travelCurveStrength);
 
     const clampedTravelProgress = THREE.MathUtils.clamp(travelProgress, 0, 1);
     const appliedRotationOffset = zeroRotationOffset.clone();
