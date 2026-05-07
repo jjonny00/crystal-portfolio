@@ -147,8 +147,10 @@ const UnifiedCrystalScene = forwardRef(({
 
     const blastPortion = THREE.MathUtils.clamp(Number(timing.fragmentBlastPortion ?? 0.1), 0.0001, 1);
     const blastTravel = THREE.MathUtils.clamp(Number(timing.fragmentBlastTravel ?? 0.8), 0, 1);
-    const slowPortionEnd = THREE.MathUtils.clamp(Number(timing.fragmentSlowPortionEnd ?? 0.35), blastPortion, 1);
-    const slowTravelEnd = THREE.MathUtils.clamp(Number(timing.fragmentSlowTravelEnd ?? 0.95), blastTravel, 1);
+    const midPortionEnd = THREE.MathUtils.clamp(Number(timing.fragmentMidPortionEnd ?? 0.25), blastPortion, 1);
+    const midTravel = THREE.MathUtils.clamp(Number(timing.fragmentMidTravel ?? 0.6), blastTravel, 1);
+    const slowPortionEnd = THREE.MathUtils.clamp(Number(timing.fragmentSlowPortionEnd ?? 0.7), midPortionEnd, 1);
+    const slowTravelEnd = THREE.MathUtils.clamp(Number(timing.fragmentSlowTravelEnd ?? 0.9), midTravel, 1);
     const travelCurveStrength = Math.max(1, Number(timing.fragmentTravelCurveStrength ?? 2.4));
     const settleCurveStrength = Math.max(1, Number(timing.fragmentSettleCurveStrength ?? 2.2));
 
@@ -156,9 +158,12 @@ const UnifiedCrystalScene = forwardRef(({
     if (progress <= blastPortion) {
       const t = progress / blastPortion;
       travelProgress = blastTravel * easeOutPow(t, travelCurveStrength);
+    } else if (progress <= midPortionEnd) {
+      const t = midPortionEnd > blastPortion ? (progress - blastPortion) / (midPortionEnd - blastPortion) : 1;
+      travelProgress = THREE.MathUtils.lerp(blastTravel, midTravel, easeOutPow(t, travelCurveStrength));
     } else if (progress <= slowPortionEnd) {
-      const t = slowPortionEnd > blastPortion ? (progress - blastPortion) / (slowPortionEnd - blastPortion) : 1;
-      travelProgress = THREE.MathUtils.lerp(blastTravel, slowTravelEnd, easeOutPow(t, travelCurveStrength));
+      const t = slowPortionEnd > midPortionEnd ? (progress - midPortionEnd) / (slowPortionEnd - midPortionEnd) : 1;
+      travelProgress = THREE.MathUtils.lerp(midTravel, slowTravelEnd, easeOutPow(t, travelCurveStrength));
     } else {
       const t = slowPortionEnd < 1 ? (progress - slowPortionEnd) / (1 - slowPortionEnd) : 1;
       travelProgress = THREE.MathUtils.lerp(slowTravelEnd, 1, easeOutPow(t, settleCurveStrength));
@@ -1929,6 +1934,8 @@ const UnifiedCrystalScene = forwardRef(({
                       fragmentVisualPhase,
                       fragmentBlastPortion: Number(resolvedTiming.fragmentBlastPortion ?? 0.1),
                       fragmentBlastTravel: Number(resolvedTiming.fragmentBlastTravel ?? 0.8),
+                      fragmentMidPortionEnd: Number(resolvedTiming.fragmentMidPortionEnd ?? 0.25),
+                      fragmentMidTravel: Number(resolvedTiming.fragmentMidTravel ?? 0.6),
                       fragmentSlowPortionEnd: Number(resolvedTiming.fragmentSlowPortionEnd ?? 0.35),
                       fragmentSlowTravelEnd: Number(resolvedTiming.fragmentSlowTravelEnd ?? 0.95),
                       fragmentTravelCurveStrength: Number(resolvedTiming.fragmentTravelCurveStrength ?? 2.4),
@@ -1943,6 +1950,8 @@ const UnifiedCrystalScene = forwardRef(({
                   console.log('[hero-overview-sync] resolved fragment timing config', {
                     fragmentBlastPortion: Number(resolvedTiming.fragmentBlastPortion ?? 0.08),
                     fragmentBlastTravel: Number(resolvedTiming.fragmentBlastTravel ?? 0.76),
+                    fragmentMidPortionEnd: Number(resolvedTiming.fragmentMidPortionEnd ?? 0.25),
+                    fragmentMidTravel: Number(resolvedTiming.fragmentMidTravel ?? 0.6),
                     fragmentSlowPortionEnd: Number(resolvedTiming.fragmentSlowPortionEnd ?? 0.25),
                     fragmentSlowTravelEnd: Number(resolvedTiming.fragmentSlowTravelEnd ?? 0.92),
                     fragmentTravelCurveStrength: Number(resolvedTiming.fragmentTravelCurveStrength ?? 2.8),
@@ -2013,6 +2022,8 @@ const UnifiedCrystalScene = forwardRef(({
                     configValuesUsed: {
                       fragmentBlastPortion: Number(activeTiming.fragmentBlastPortion ?? 0.08),
                       fragmentBlastTravel: Number(activeTiming.fragmentBlastTravel ?? 0.76),
+                      fragmentMidPortionEnd: Number(activeTiming.fragmentMidPortionEnd ?? 0.25),
+                      fragmentMidTravel: Number(activeTiming.fragmentMidTravel ?? 0.6),
                       fragmentSlowPortionEnd: Number(activeTiming.fragmentSlowPortionEnd ?? 0.25),
                       fragmentSlowTravelEnd: Number(activeTiming.fragmentSlowTravelEnd ?? 0.92),
                       fragmentTravelCurveStrength: Number(activeTiming.fragmentTravelCurveStrength ?? 2.8),

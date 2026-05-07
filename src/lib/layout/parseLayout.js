@@ -143,6 +143,8 @@ const parseHeroOverviewRuntimeTiming = (timing, path) => {
     'fragmentImpulseDecayEnd',
     'fragmentBlastPortion',
     'fragmentBlastTravel',
+    'fragmentMidPortionEnd',
+    'fragmentMidTravel',
     'fragmentSlowPortionEnd',
     'fragmentSlowTravelEnd',
     'fragmentTravelCurveStrength',
