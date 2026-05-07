@@ -173,6 +173,20 @@ const parseHeroOverviewRuntimeTiming = (timing, path) => {
     }
     parsed[key] = timing[key];
   });
+  const booleanKeys = [
+    'heroOverviewExplosionParticlesEnabled',
+    'heroOverviewFractureRingImpactEnabled',
+    'heroOverviewCameraShakeEnabled',
+    'heroOverviewCameraArcEnabled',
+    'heroOverviewCameraPushbackDelayEnabled',
+  ];
+  booleanKeys.forEach((key) => {
+    if (timing[key] === undefined) return;
+    if (typeof timing[key] !== 'boolean') {
+      throw new Error(`Invalid layout at ${path}.${key}: expected boolean.`);
+    }
+    parsed[key] = timing[key];
+  });
 
   if (timing.fragmentTravelEaseType !== undefined) {
     const validEaseTypes = new Set(['powerOut', 'normalizedExpoOut']);

@@ -628,7 +628,12 @@
       "heroOverviewExplosionParticleBurstCount": 180,
       "heroOverviewFractureRingOpacity": 2.6,
       "heroOverviewFractureRingScale": 28,
-      "heroOverviewFractureRingDurationMs": 320
+      "heroOverviewFractureRingDurationMs": 320,
+      "heroOverviewExplosionParticlesEnabled": true,
+      "heroOverviewFractureRingImpactEnabled": true,
+      "heroOverviewCameraShakeEnabled": true,
+      "heroOverviewCameraArcEnabled": true,
+      "heroOverviewCameraPushbackDelayEnabled": true
     }
   }
 }

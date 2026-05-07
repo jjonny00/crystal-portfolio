@@ -206,6 +206,7 @@ const UnifiedCameraController = ({
   const heroOverviewCameraTimingResolvedLoggedRef = useRef(false);
   const heroOverviewCameraCurveSampleLoggedRef = useRef(new Set());
   const heroOverviewImpactPolishLoggedRef = useRef(false);
+  const heroOverviewImpactAuditLoggedRef = useRef(new Set());
   const lastCameraWriteSecondRef = useRef(-1);
   const lastCameraWriterRef = useRef('none');
   const prevStateRef = useRef(animationData?.state ?? null);
@@ -235,7 +236,8 @@ const UnifiedCameraController = ({
 
   const resolveHeroOverviewCameraOffset = (runtimeState, runtimeSettings, basePosition, lookAtTarget) => {
     const zeroOffset = new THREE.Vector3(0, 0, 0);
-    if (!runtimeState || !runtimeState.active) return zeroOffset;
+    const empty = { totalOffset: zeroOffset, pushbackOffset: zeroOffset.clone(), shakeOffset: zeroOffset.clone(), arcOffset: zeroOffset.clone() };
+    if (!runtimeState || !runtimeState.active) return empty;
 
     const phase = runtimeState.phase;
     const progress = THREE.MathUtils.clamp(runtimeState.progress ?? 0, 0, 1);
@@ -252,8 +254,8 @@ const UnifiedCameraController = ({
     const arcVertical = Number(timing.cameraArcVertical ?? 0.65);
     const arcLateral = Number(timing.cameraArcLateral ?? 0.35);
 
-    if (pushbackDistance <= 0 || pushbackStrength <= 0) return zeroOffset;
-    if (phase !== 'explosionImpulse' && phase !== 'bulletTimeSlowdown') return zeroOffset;
+    if (pushbackDistance <= 0 || pushbackStrength <= 0) return empty;
+    if (phase !== 'explosionImpulse' && phase !== 'bulletTimeSlowdown') return empty;
 
     const smoothstep = (v) => {
       const p = THREE.MathUtils.clamp(v, 0, 1);
@@ -272,26 +274,36 @@ const UnifiedCameraController = ({
     }
 
     const viewDirection = new THREE.Vector3().subVectors(lookAtTarget, basePosition);
-    if (viewDirection.lengthSq() <= 0.0000001) return zeroOffset;
+    if (viewDirection.lengthSq() <= 0.0000001) return empty;
     const offset = new THREE.Vector3();
+    const pushbackOffset = new THREE.Vector3();
+    const shakeOffset = new THREE.Vector3();
+    const arcOffset = new THREE.Vector3();
     const pushbackDirection = viewDirection.normalize().multiplyScalar(-1);
-    const delayedProgress = THREE.MathUtils.clamp(progress - (pushbackDelayMs / Math.max(1, timing.totalDurationMs ?? 1)), 0, 1);
+    const pushbackDelayEnabled = layerOverride('cameraPushbackDelay', Number(timing.heroOverviewCameraPushbackDelayEnabled ?? 1) > 0);
+    const delayedProgress = THREE.MathUtils.clamp(
+      progress - ((pushbackDelayEnabled ? pushbackDelayMs : 0) / Math.max(1, timing.totalDurationMs ?? 1)),
+      0,
+      1,
+    );
     const delayedPhaseAmount = delayedProgress <= 0 ? 0 : phaseAmount;
     const pushbackAmount = Math.max(0, pushbackDistance * pushbackStrength * delayedPhaseAmount);
     if (pushbackAmount > 0.000001) {
-      offset.addScaledVector(pushbackDirection, pushbackAmount);
+      pushbackOffset.addScaledVector(pushbackDirection, pushbackAmount);
+      offset.add(pushbackOffset);
     }
 
-    if (arcStrength > 0.000001 && delayedProgress > 0) {
+    if (layerOverride('cameraArc', Number(timing.heroOverviewCameraArcEnabled ?? 1) > 0) && arcStrength > 0.000001 && delayedProgress > 0) {
       const up = camera.up.clone().normalize();
       const lateral = new THREE.Vector3().crossVectors(viewDirection, up).normalize();
       const arcWave = Math.sin(Math.PI * delayedProgress);
       const arcAmount = arcStrength * arcWave;
-      offset.addScaledVector(up, arcAmount * arcVertical);
-      offset.addScaledVector(lateral, arcAmount * arcLateral);
+      arcOffset.addScaledVector(up, arcAmount * arcVertical);
+      arcOffset.addScaledVector(lateral, arcAmount * arcLateral);
+      offset.add(arcOffset);
     }
 
-    if (shakeAmplitude > 0.000001 && shakeDurationMs > 0 && runtimeState.elapsedMs != null && runtimeState.elapsedMs <= shakeDurationMs) {
+    if (layerOverride('cameraShake', Number(timing.heroOverviewCameraShakeEnabled ?? 1) > 0) && shakeAmplitude > 0.000001 && shakeDurationMs > 0 && runtimeState.elapsedMs != null && runtimeState.elapsedMs <= shakeDurationMs) {
       const t = THREE.MathUtils.clamp(runtimeState.elapsedMs / shakeDurationMs, 0, 1);
       const envelope = 1 - (t * t);
       const phaseRadians = runtimeState.elapsedMs * 0.001 * shakeFrequency * Math.PI * 2;
@@ -299,10 +311,11 @@ const UnifiedCameraController = ({
       const shakeY = Math.cos(phaseRadians * 1.21) * shakeAmplitude * 0.6 * envelope;
       const up = camera.up.clone().normalize();
       const lateral = new THREE.Vector3().crossVectors(viewDirection, up).normalize();
-      offset.addScaledVector(lateral, shakeX);
-      offset.addScaledVector(up, shakeY);
+      shakeOffset.addScaledVector(lateral, shakeX);
+      shakeOffset.addScaledVector(up, shakeY);
+      offset.add(shakeOffset);
     }
-    return offset;
+    return { totalOffset: offset, pushbackOffset, shakeOffset, arcOffset };
   };
 
   const deriveExplosionClockRuntimeState = (explosionClock, runtimeTiming) => {
@@ -1697,6 +1710,7 @@ const UnifiedCameraController = ({
       heroOverviewCameraTimingResolvedLoggedRef.current = false;
       heroOverviewCameraCurveSampleLoggedRef.current.clear();
       heroOverviewImpactPolishLoggedRef.current = false;
+      heroOverviewImpactAuditLoggedRef.current.clear();
       {
         const authoritativeFromPosition = fromSnapshot.position.clone();
         const authoritativeFromLookAt = fromSnapshot.lookAtTarget.clone();
@@ -2115,12 +2129,13 @@ const UnifiedCameraController = ({
           transition.to.lookAtTarget,
           sharedEased,
         );
-        const appliedOffset = resolveHeroOverviewCameraOffset(
+        const additiveOffsets = resolveHeroOverviewCameraOffset(
           cameraTimingState,
           runtimeSnapshot?.timing || config?.timing?.heroOverviewRuntime,
           basePosition,
           forcedLookAt,
         );
+        const appliedOffset = additiveOffsets.totalOffset;
         const isFiniteComputedOffset = true;
         const finalPosition = basePosition.clone().add(appliedOffset);
         globalThis.__HERO_OVERVIEW_CAMERA_TIMING_SOURCE__ = cameraTimingSource;
@@ -2160,6 +2175,13 @@ const UnifiedCameraController = ({
               cameraArcApplied: Number(t.cameraArcStrength ?? 0) > 0,
               cameraArcStrength: Number(t.cameraArcStrength ?? 0.08),
             });
+            console.log('[hero-overview-impact] layer state', {
+              explosionParticlesEnabled: Number(t.heroOverviewExplosionParticlesEnabled ?? 1) > 0,
+              fractureRingImpactEnabled: Number(t.heroOverviewFractureRingImpactEnabled ?? 1) > 0,
+              cameraShakeEnabled: Number(t.heroOverviewCameraShakeEnabled ?? 1) > 0,
+              cameraArcEnabled: Number(t.heroOverviewCameraArcEnabled ?? 1) > 0,
+              cameraPushbackDelayEnabled: Number(t.heroOverviewCameraPushbackDelayEnabled ?? 1) > 0,
+            });
           }
           if (!heroOverviewCameraHookBranchLoggedRef.current) {
             heroOverviewCameraHookBranchLoggedRef.current = true;
@@ -2187,6 +2209,27 @@ const UnifiedCameraController = ({
                   : false,
             });
             globalThis.__HERO_OVERVIEW_CAMERA_APPLIED_OFFSET_LENGTH__ = appliedOffsetLength;
+          }
+          if (!heroOverviewImpactAuditLoggedRef.current.has(runtimePhase)) {
+            heroOverviewImpactAuditLoggedRef.current.add(runtimePhase);
+            const zeroBySettle = (runtimePhase === 'overviewSettle') ? appliedOffset.length() <= 0.000001 : null;
+            const zeroByComplete = (runtimePhase === 'complete') ? appliedOffset.length() <= 0.000001 : null;
+            console.log('[hero-overview-impact] camera additive audit', {
+              runtimePhase,
+              sharedProgressRaw: Number(sharedRaw.toFixed(4)),
+              sharedProgressEased: Number(sharedEased.toFixed(4)),
+              pushbackOffsetLength: Number(additiveOffsets.pushbackOffset.length().toFixed(5)),
+              shakeOffsetLength: Number(additiveOffsets.shakeOffset.length().toFixed(5)),
+              arcOffsetLength: Number(additiveOffsets.arcOffset.length().toFixed(5)),
+              totalAdditiveOffsetLength: Number(appliedOffset.length().toFixed(5)),
+              appliedDuringFracture: runtimePhase === 'fractureCharge' && appliedOffset.length() > 0.000001,
+              zeroByOverviewSettle: zeroBySettle,
+              zeroByComplete: zeroByComplete,
+              cameraPositionBeforeAdditives: basePosition.toArray(),
+              cameraPositionAfterAdditives: finalPosition.toArray(),
+              finalCameraPosition: camera.position.toArray(),
+              possibleJumpDetected: appliedOffset.length() > 0.06,
+            });
           }
           const runtimeCheckpointTargets = [0.08, 0.12, 0.20, 0.35, 0.58, 0.72, 1.00];
           const sampleCheckpoint = runtimeCheckpointTargets.find((cp) => Math.abs(runtimeProgress - cp) <= 0.015);
@@ -3257,3 +3300,8 @@ const UnifiedCameraController = ({
 };
 
 export default UnifiedCameraController;
+    const layerOverride = (layerName, defaultEnabled) => {
+      if (typeof globalThis === 'undefined') return defaultEnabled;
+      const override = globalThis.__HERO_OVERVIEW_IMPACT_LAYER_OVERRIDES__?.[layerName];
+      return typeof override === 'boolean' ? override : defaultEnabled;
+    };

@@ -75,6 +75,7 @@ const UnifiedCrystalScene = forwardRef(({
   const [ringVisible, setRingVisible] = useState(false);
   const [burstId, setBurstId] = useState(0);
   const [explosionBurstId, setExplosionBurstId] = useState(0);
+  const impactLayerOverrideRef = useRef({});
   
   // Crystal state tracking
   const [showWholeCrystal, setShowWholeCrystal] = useState(true);
@@ -2584,6 +2585,22 @@ const UnifiedCrystalScene = forwardRef(({
   }, [materialVersion]);
 
   useEffect(() => {
+    if (typeof globalThis === 'undefined') return undefined;
+    if (!globalThis.__HERO_OVERVIEW_IMPACT_LAYER_OVERRIDES__) {
+      globalThis.__HERO_OVERVIEW_IMPACT_LAYER_OVERRIDES__ = {};
+    }
+    globalThis.__setHeroOverviewImpactLayer = (layer, enabled) => {
+      impactLayerOverrideRef.current[layer] = Boolean(enabled);
+      globalThis.__HERO_OVERVIEW_IMPACT_LAYER_OVERRIDES__[layer] = Boolean(enabled);
+    };
+    return () => {
+      if (globalThis.__setHeroOverviewImpactLayer) {
+        delete globalThis.__setHeroOverviewImpactLayer;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     return () => {
       cleanupOverlays();
       resetRenderedFacetMaskGlow();
@@ -2613,7 +2630,7 @@ const UnifiedCrystalScene = forwardRef(({
         opacity={Number(config?.timing?.heroOverviewRuntime?.heroOverviewFractureRingOpacity ?? mergedConfig?.fracture?.image?.opacity ?? 2)}
         maxScale={Number(config?.timing?.heroOverviewRuntime?.heroOverviewFractureRingScale ?? mergedConfig?.fracture?.image?.maxScale ?? 24)}
         duration={Math.max(0.05, Number(config?.timing?.heroOverviewRuntime?.heroOverviewFractureRingDurationMs ?? 400) / 1000)}
-        visible={ringVisible}
+        visible={ringVisible && (impactLayerOverrideRef.current.fractureRingImpact ?? (Number(config?.timing?.heroOverviewRuntime?.heroOverviewFractureRingImpactEnabled ?? 1) > 0))}
         animationData={animationData}
         simplifiedAnimations={simplifiedAnimations}
         debugMode={import.meta.env.DEV}
@@ -2644,7 +2661,7 @@ const UnifiedCrystalScene = forwardRef(({
           {...mergedConfig.fracture.particles}
         />
       )}
-      {!simplifiedAnimations && (
+      {!simplifiedAnimations && (impactLayerOverrideRef.current.explosionParticles ?? (Number(config?.timing?.heroOverviewRuntime?.heroOverviewExplosionParticlesEnabled ?? 1) > 0)) && (
         <FractureBurstParticles
           trigger={explosionBurstId}
           emitterPosition={[0, 0, 0]}

@@ -19,6 +19,11 @@ const DEFAULT_TIMING = {
   cameraArcStrength: 0.08,
   cameraArcVertical: 0.65,
   cameraArcLateral: 0.35,
+  heroOverviewExplosionParticlesEnabled: 1,
+  heroOverviewFractureRingImpactEnabled: 1,
+  heroOverviewCameraShakeEnabled: 1,
+  heroOverviewCameraArcEnabled: 1,
+  heroOverviewCameraPushbackDelayEnabled: 1,
   // Practical starter fragment impulse defaults for iterative tuning.
   fragmentImpulseDistance: 0.65,
   fragmentImpulseStrength: 1.4,
@@ -125,6 +130,31 @@ export const resolveHeroOverviewRuntimeTiming = (timingOverrides = {}) => {
     typeof merged.cameraArcLateral === 'number' && Number.isFinite(merged.cameraArcLateral)
       ? merged.cameraArcLateral
       : DEFAULT_TIMING.cameraArcLateral;
+  const flagOrDefault = (value, fallback) => {
+    if (typeof value === 'boolean') return value ? 1 : 0;
+    if (typeof value === 'number' && Number.isFinite(value)) return value > 0 ? 1 : 0;
+    return fallback;
+  };
+  const heroOverviewExplosionParticlesEnabled = flagOrDefault(
+    merged.heroOverviewExplosionParticlesEnabled,
+    DEFAULT_TIMING.heroOverviewExplosionParticlesEnabled,
+  );
+  const heroOverviewFractureRingImpactEnabled = flagOrDefault(
+    merged.heroOverviewFractureRingImpactEnabled,
+    DEFAULT_TIMING.heroOverviewFractureRingImpactEnabled,
+  );
+  const heroOverviewCameraShakeEnabled = flagOrDefault(
+    merged.heroOverviewCameraShakeEnabled,
+    DEFAULT_TIMING.heroOverviewCameraShakeEnabled,
+  );
+  const heroOverviewCameraArcEnabled = flagOrDefault(
+    merged.heroOverviewCameraArcEnabled,
+    DEFAULT_TIMING.heroOverviewCameraArcEnabled,
+  );
+  const heroOverviewCameraPushbackDelayEnabled = flagOrDefault(
+    merged.heroOverviewCameraPushbackDelayEnabled,
+    DEFAULT_TIMING.heroOverviewCameraPushbackDelayEnabled,
+  );
   const fragmentImpulseDistance =
     typeof merged.fragmentImpulseDistance === 'number' && Number.isFinite(merged.fragmentImpulseDistance)
       ? Math.max(0, merged.fragmentImpulseDistance)
@@ -172,6 +202,11 @@ export const resolveHeroOverviewRuntimeTiming = (timingOverrides = {}) => {
     cameraArcStrength,
     cameraArcVertical,
     cameraArcLateral,
+    heroOverviewExplosionParticlesEnabled,
+    heroOverviewFractureRingImpactEnabled,
+    heroOverviewCameraShakeEnabled,
+    heroOverviewCameraArcEnabled,
+    heroOverviewCameraPushbackDelayEnabled,
     fragmentImpulseDistance,
     fragmentImpulseStrength,
     fragmentRotationStrength,
