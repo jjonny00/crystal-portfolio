@@ -111,6 +111,43 @@ const UnifiedCrystalScene = forwardRef(({
     lastBranch: null,
     checkpointLogged: new Set(),
   });
+  const heroOverviewFragmentHandoffAuditRef = useRef({
+    postSessionRemaining: 0,
+    prevAuditActive: false,
+    sampleIndex: 0,
+    sampledFacetKeys: [],
+    prevByFacet: new Map(),
+    maxFragmentLocalDelta: 0,
+    maxFragmentLocalDeltaFrame: null,
+    maxFragmentWorldDelta: 0,
+    maxFragmentWorldDeltaFrame: null,
+    maxFragmentScaleDelta: 0,
+    maxFragmentScaleDeltaFrame: null,
+    maxFragmentWorldScaleDelta: 0,
+    maxFragmentWorldScaleDeltaFrame: null,
+    maxParentWorldDelta: 0,
+    maxParentWorldDeltaFrame: null,
+    maxParentScaleDelta: 0,
+    maxParentScaleDeltaFrame: null,
+    objectReplaced: false,
+    parentReplaced: false,
+    fragmentWriterBranchesSeenDuringSession: new Set(),
+    fragmentWriterBranchesSeenPostSession: new Set(),
+    firstPostSessionFragmentWriterBranch: null,
+    firstPostSessionState: null,
+    firstPostSessionCameraState: null,
+    crystalFormAtSnap: null,
+    suspectedFragmentSnap: false,
+    suspectedSnapSource: null,
+    facetKeyAtSnap: null,
+    objectNameAtSnap: null,
+    parentNameAtSnap: null,
+    postRuntimeFragmentBranchesFound: new Set(),
+    postRuntimeLegacyBranchesFound: new Set(),
+    postRuntimeFallbackBranchesFound: new Set(),
+    firstPostRuntimeFragmentBranch: null,
+    firstPostRuntimeLegacyBranch: null,
+  });
 
   const deriveFragmentVisualTiming = (runtimeState, explosionProgress) => {
     const timing = runtimeState?.timing || {};
@@ -295,6 +332,99 @@ const UnifiedCrystalScene = forwardRef(({
       earlyReturnBranch: payload.earlyReturnBranch ?? null,
     });
   }, [animationData?.cameraState, animationData?.crystalForm, animationData?.state]);
+
+  const sampleFragmentHandoffAudit = useCallback((state, facetKey, object, activeFragmentWriterBranch) => {
+    if (typeof globalThis === 'undefined' || !globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__ || !object) return;
+    const audit = globalThis.__HERO_OVERVIEW_WRITER_AUDIT__;
+    const handoff = heroOverviewFragmentHandoffAuditRef.current;
+    const isDuringSession = Boolean(audit?.active && audit.sessionDirection === 'hero-to-overview');
+    if (handoff.prevAuditActive && !isDuringSession) handoff.postSessionRemaining = 24;
+    handoff.prevAuditActive = isDuringSession;
+    const isPostSessionWindow = !isDuringSession && handoff.postSessionRemaining > 0;
+    if (!isDuringSession && !isPostSessionWindow) return;
+    if (!handoff.sampledFacetKeys.includes(facetKey) && handoff.sampledFacetKeys.length < 3) handoff.sampledFacetKeys.push(facetKey);
+    if (!handoff.sampledFacetKeys.includes(facetKey)) return;
+
+    const frameId = Math.round((state?.clock?.elapsedTime ?? 0) * 1000);
+    const parent = object.parent || null;
+    const worldPosition = object.getWorldPosition(new THREE.Vector3());
+    const worldScale = object.getWorldScale(new THREE.Vector3());
+    const parentWorldPosition = parent?.getWorldPosition?.(new THREE.Vector3()) ?? null;
+    const parentWorldScale = parent?.getWorldScale?.(new THREE.Vector3()) ?? null;
+    const prev = handoff.prevByFacet.get(facetKey) || null;
+    const localPositionDelta = prev ? object.position.distanceTo(prev.localPosition) : 0;
+    const worldPositionDelta = prev ? worldPosition.distanceTo(prev.worldPosition) : 0;
+    const scaleDelta = prev ? object.scale.distanceTo(prev.localScale) : 0;
+    const worldScaleDelta = prev ? worldScale.distanceTo(prev.worldScale) : 0;
+    const parentWorldDelta = (prev?.parentWorldPosition && parentWorldPosition) ? parentWorldPosition.distanceTo(prev.parentWorldPosition) : 0;
+    const parentScaleDelta = (prev?.parentWorldScale && parentWorldScale) ? parentWorldScale.distanceTo(prev.parentWorldScale) : 0;
+    const rotationDelta = prev ? object.quaternion.angleTo(prev.quaternion) : 0;
+    if (worldPositionDelta > handoff.maxFragmentWorldDelta) { handoff.maxFragmentWorldDelta = worldPositionDelta; handoff.maxFragmentWorldDeltaFrame = frameId; }
+    if (localPositionDelta > handoff.maxFragmentLocalDelta) { handoff.maxFragmentLocalDelta = localPositionDelta; handoff.maxFragmentLocalDeltaFrame = frameId; }
+    if (scaleDelta > handoff.maxFragmentScaleDelta) { handoff.maxFragmentScaleDelta = scaleDelta; handoff.maxFragmentScaleDeltaFrame = frameId; }
+    if (worldScaleDelta > handoff.maxFragmentWorldScaleDelta) { handoff.maxFragmentWorldScaleDelta = worldScaleDelta; handoff.maxFragmentWorldScaleDeltaFrame = frameId; }
+    if (parentWorldDelta > handoff.maxParentWorldDelta) { handoff.maxParentWorldDelta = parentWorldDelta; handoff.maxParentWorldDeltaFrame = frameId; }
+    if (parentScaleDelta > handoff.maxParentScaleDelta) { handoff.maxParentScaleDelta = parentScaleDelta; handoff.maxParentScaleDeltaFrame = frameId; }
+    const objectWasReplaced = Boolean(prev && prev.objectUuid !== object.uuid);
+    const parentWasReplaced = Boolean(prev && prev.parentUuid !== (parent?.uuid ?? null));
+    handoff.objectReplaced = handoff.objectReplaced || objectWasReplaced;
+    handoff.parentReplaced = handoff.parentReplaced || parentWasReplaced;
+    if (isDuringSession) handoff.fragmentWriterBranchesSeenDuringSession.add(activeFragmentWriterBranch || 'unknown');
+    if (isPostSessionWindow) {
+      handoff.fragmentWriterBranchesSeenPostSession.add(activeFragmentWriterBranch || 'unknown');
+      handoff.postRuntimeFragmentBranchesFound.add(activeFragmentWriterBranch || 'unknown');
+      if ((activeFragmentWriterBranch || '').toLowerCase().includes('legacy')) {
+        handoff.postRuntimeLegacyBranchesFound.add(activeFragmentWriterBranch);
+        if (!handoff.firstPostRuntimeLegacyBranch) handoff.firstPostRuntimeLegacyBranch = activeFragmentWriterBranch;
+      }
+      if ((activeFragmentWriterBranch || '').toLowerCase().includes('fallback')) {
+        handoff.postRuntimeFallbackBranchesFound.add(activeFragmentWriterBranch);
+      }
+      if (!handoff.firstPostRuntimeFragmentBranch) handoff.firstPostRuntimeFragmentBranch = activeFragmentWriterBranch || 'unknown';
+      if (!handoff.firstPostSessionFragmentWriterBranch) {
+        handoff.firstPostSessionFragmentWriterBranch = activeFragmentWriterBranch || 'unknown';
+        handoff.firstPostSessionState = animationData?.state ?? null;
+        handoff.firstPostSessionCameraState = animationData?.cameraState ?? null;
+      }
+    }
+    const snapThreshold = 0.08;
+    if (worldPositionDelta > snapThreshold || worldScaleDelta > 0.05 || parentWorldDelta > snapThreshold) {
+      handoff.suspectedFragmentSnap = true;
+      handoff.suspectedSnapSource = activeFragmentWriterBranch || 'unknown';
+      handoff.facetKeyAtSnap = facetKey;
+      handoff.objectNameAtSnap = object.name || null;
+      handoff.parentNameAtSnap = parent?.name || null;
+      handoff.crystalFormAtSnap = animationData?.crystalForm ?? null;
+    }
+    handoff.sampleIndex += 1;
+    console.log('[hero-overview-fragment-handoff-audit] sample', { frameId, sampleIndex: handoff.sampleIndex, isDuringHeroOverviewSession: isDuringSession, isPostSessionWindow, state: animationData?.state ?? null, cameraState: animationData?.cameraState ?? null, crystalForm: animationData?.crystalForm ?? null, runtimePhase: heroOverviewRuntime?.getSnapshot?.()?.phase ?? null, activeFragmentWriterBranch: activeFragmentWriterBranch || null, facetKey, objectName: object.name || null, objectUuid: object.uuid, parentName: parent?.name || null, parentUuid: parent?.uuid ?? null, localPosition: object.position.toArray(), previousLocalPosition: prev?.localPosition?.toArray?.() ?? null, localPositionDelta, worldPosition: worldPosition.toArray(), previousWorldPosition: prev?.worldPosition?.toArray?.() ?? null, worldPositionDelta, localScale: object.scale.toArray(), previousLocalScale: prev?.localScale?.toArray?.() ?? null, scaleDelta, worldScale: worldScale.toArray(), previousWorldScale: prev?.worldScale?.toArray?.() ?? null, worldScaleDelta, quaternion: object.quaternion.toArray(), rotationDelta, visible: object.visible, materialOpacity: object.material?.opacity ?? null, matrixAutoUpdate: object.matrixAutoUpdate, matrixWorldNeedsUpdate: object.matrixWorldNeedsUpdate, objectWasReplaced, parentWasReplaced, parentLocalPosition: parent?.position?.toArray?.() ?? null, parentWorldPosition: parentWorldPosition?.toArray?.() ?? null, parentLocalScale: parent?.scale?.toArray?.() ?? null, parentWorldScale: parentWorldScale?.toArray?.() ?? null, parentRotation: parent?.rotation ? [parent.rotation.x, parent.rotation.y, parent.rotation.z] : null, parentWorldDelta, parentScaleDelta });
+    handoff.prevByFacet.set(facetKey, { objectUuid: object.uuid, parentUuid: parent?.uuid ?? null, localPosition: object.position.clone(), worldPosition: worldPosition.clone(), localScale: object.scale.clone(), worldScale: worldScale.clone(), parentWorldPosition: parentWorldPosition?.clone?.() ?? null, parentWorldScale: parentWorldScale?.clone?.() ?? null, quaternion: object.quaternion.clone() });
+    if (isPostSessionWindow) handoff.postSessionRemaining -= 1;
+    if (!isPostSessionWindow && handoff.postSessionRemaining === 0 && handoff.sampleIndex > 0 && !handoff.reported) {
+      handoff.reported = true;
+      console.log('[hero-overview-fragment-handoff-audit] summary', {
+        sampledFacetKeys: handoff.sampledFacetKeys,
+        maxFragmentLocalDelta: handoff.maxFragmentLocalDelta, maxFragmentLocalDeltaFrame: handoff.maxFragmentLocalDeltaFrame,
+        maxFragmentWorldDelta: handoff.maxFragmentWorldDelta, maxFragmentWorldDeltaFrame: handoff.maxFragmentWorldDeltaFrame,
+        maxFragmentScaleDelta: handoff.maxFragmentScaleDelta, maxFragmentScaleDeltaFrame: handoff.maxFragmentScaleDeltaFrame,
+        maxFragmentWorldScaleDelta: handoff.maxFragmentWorldScaleDelta, maxFragmentWorldScaleDeltaFrame: handoff.maxFragmentWorldScaleDeltaFrame,
+        maxParentWorldDelta: handoff.maxParentWorldDelta, maxParentWorldDeltaFrame: handoff.maxParentWorldDeltaFrame,
+        maxParentScaleDelta: handoff.maxParentScaleDelta, maxParentScaleDeltaFrame: handoff.maxParentScaleDeltaFrame,
+        objectReplaced: handoff.objectReplaced, parentReplaced: handoff.parentReplaced,
+        fragmentWriterBranchesSeenDuringSession: Array.from(handoff.fragmentWriterBranchesSeenDuringSession),
+        fragmentWriterBranchesSeenPostSession: Array.from(handoff.fragmentWriterBranchesSeenPostSession),
+        firstPostSessionFragmentWriterBranch: handoff.firstPostSessionFragmentWriterBranch,
+        firstPostSessionState: handoff.firstPostSessionState, firstPostSessionCameraState: handoff.firstPostSessionCameraState,
+        crystalFormAtSnap: handoff.crystalFormAtSnap, suspectedFragmentSnap: handoff.suspectedFragmentSnap, suspectedSnapSource: handoff.suspectedSnapSource,
+        facetKeyAtSnap: handoff.facetKeyAtSnap, objectNameAtSnap: handoff.objectNameAtSnap, parentNameAtSnap: handoff.parentNameAtSnap,
+        postRuntimeFragmentBranchesFound: Array.from(handoff.postRuntimeFragmentBranchesFound),
+        postRuntimeLegacyBranchesFound: Array.from(handoff.postRuntimeLegacyBranchesFound),
+        postRuntimeFallbackBranchesFound: Array.from(handoff.postRuntimeFallbackBranchesFound),
+        firstPostRuntimeFragmentBranch: handoff.firstPostRuntimeFragmentBranch ?? null,
+        firstPostRuntimeLegacyBranch: handoff.firstPostRuntimeLegacyBranch ?? null,
+      });
+    }
+  }, [animationData?.cameraState, animationData?.crystalForm, animationData?.state, heroOverviewRuntime]);
   
   // FIXED: Better hover state tracking
   const [hoveredFacet, setHoveredFacet] = useState(null);
@@ -2649,6 +2779,10 @@ const UnifiedCrystalScene = forwardRef(({
         } else {
           facetRef.current.quaternion.slerp(targetQuat, rotationLerp);
         }
+        const inferredFragmentWriterBranch = explosionStartRef.current
+          ? 'heroOverviewRuntimeTravel'
+          : (animationData?.crystalForm === 'exploded' ? 'overviewExplodedPositionBlend' : 'unknown');
+        sampleFragmentHandoffAudit(state, facetKey, facetRef.current, inferredFragmentWriterBranch);
         if (
           index === 0 &&
           typeof globalThis !== 'undefined' &&
