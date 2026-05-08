@@ -1541,15 +1541,15 @@ const UnifiedCameraController = ({
       const posNow = camera.position.clone();
       const quatNow = camera.quaternion.clone();
       const lookNow = (lookAtTarget?.clone?.() ?? currentTarget.current.lookAt?.clone?.() ?? null);
-      const posDelta = handoff.prevPosition ? posNow.distanceTo(handoff.prevPosition) : 0;
-      const rotDelta = handoff.prevQuaternion ? quatNow.angleTo(handoff.prevQuaternion) : 0;
-      const lookDelta = (lookNow && handoff.prevLookAt) ? lookNow.distanceTo(handoff.prevLookAt) : 0;
-      handoff.maxCameraPositionDelta = Math.max(handoff.maxCameraPositionDelta, posDelta);
-      if (handoff.maxCameraPositionDelta === posDelta) handoff.maxCameraPositionDeltaFrame = frameId;
-      handoff.maxLookAtDelta = Math.max(handoff.maxLookAtDelta, lookDelta);
-      if (handoff.maxLookAtDelta === lookDelta) handoff.maxLookAtDeltaFrame = frameId;
-      handoff.maxRotationDelta = Math.max(handoff.maxRotationDelta, rotDelta);
-      if (handoff.maxRotationDelta === rotDelta) handoff.maxRotationDeltaFrame = frameId;
+      const cameraPositionDelta = handoff.prevPosition ? posNow.distanceTo(handoff.prevPosition) : 0;
+      const cameraRotationDelta = handoff.prevQuaternion ? quatNow.angleTo(handoff.prevQuaternion) : 0;
+      const lookAtDelta = (lookNow && handoff.prevLookAt) ? lookNow.distanceTo(handoff.prevLookAt) : 0;
+      handoff.maxCameraPositionDelta = Math.max(handoff.maxCameraPositionDelta, cameraPositionDelta);
+      if (handoff.maxCameraPositionDelta === cameraPositionDelta) handoff.maxCameraPositionDeltaFrame = frameId;
+      handoff.maxLookAtDelta = Math.max(handoff.maxLookAtDelta, lookAtDelta);
+      if (handoff.maxLookAtDelta === lookAtDelta) handoff.maxLookAtDeltaFrame = frameId;
+      handoff.maxRotationDelta = Math.max(handoff.maxRotationDelta, cameraRotationDelta);
+      if (handoff.maxRotationDelta === cameraRotationDelta) handoff.maxRotationDeltaFrame = frameId;
       if (handoff.prevFov != null && Math.abs(camera.fov - handoff.prevFov) > 0.0001) handoff.fovChanged = true;
       if (handoff.prevZoom != null && Math.abs(camera.zoom - handoff.prevZoom) > 0.0001) handoff.zoomChanged = true;
       const positionSnapThreshold = 0.15;
@@ -1559,12 +1559,12 @@ const UnifiedCameraController = ({
       const shouldLogSample =
         isDuringSession ||
         isPostSessionWindow ||
-        posDelta > positionSnapThreshold ||
-        lookDelta > lookAtSnapThreshold ||
-        rotDelta > rotationSnapThreshold ||
+        cameraPositionDelta > positionSnapThreshold ||
+        lookAtDelta > lookAtSnapThreshold ||
+        cameraRotationDelta > rotationSnapThreshold ||
         projectionUpdated ||
         branchChanged;
-      if (shouldLogSample && (isDuringSession || isPostSessionWindow || posDelta > positionSnapThreshold || lookDelta > lookAtSnapThreshold)) {
+      if (shouldLogSample && (isDuringSession || isPostSessionWindow || cameraPositionDelta > positionSnapThreshold || lookAtDelta > lookAtSnapThreshold)) {
         handoff.sampleIndex += 1;
         console.log('[hero-overview-camera-handoff-audit] sample', {
           frameId,
@@ -1578,10 +1578,10 @@ const UnifiedCameraController = ({
           activeCameraWriterBranch: String(branch || 'unknown'),
           cameraPosition: posNow.toArray(),
           previousCameraPosition: handoff.prevPosition?.toArray?.() ?? null,
-          cameraPositionDelta: posDelta,
+          cameraPositionDelta,
           cameraQuaternion: { x: quatNow.x, y: quatNow.y, z: quatNow.z, w: quatNow.w },
           previousCameraQuaternion: handoff.prevQuaternion ? { x: handoff.prevQuaternion.x, y: handoff.prevQuaternion.y, z: handoff.prevQuaternion.z, w: handoff.prevQuaternion.w } : null,
-          cameraRotationDelta: rotDelta,
+          cameraRotationDelta,
           cameraFov: camera.fov,
           cameraZoom: camera.zoom,
           lookAtTarget: lookNow?.toArray?.() ?? null,
@@ -1593,7 +1593,7 @@ const UnifiedCameraController = ({
           reason,
         });
       }
-      if (posDelta > positionSnapThreshold || lookDelta > lookAtSnapThreshold || rotDelta > rotationSnapThreshold) {
+      if (cameraPositionDelta > positionSnapThreshold || lookAtDelta > lookAtSnapThreshold || cameraRotationDelta > rotationSnapThreshold) {
         handoff.suspectedSnapSource = reason || String(branch || 'unknown');
         handoff.selectedProjectIdAtSnap = animationData?.focusedProject ?? null;
         handoff.activeProjectIdAtSnap = animationData?.focusedProject ?? null;
