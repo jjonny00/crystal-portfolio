@@ -242,6 +242,55 @@ const UnifiedCameraController = ({
     activeProjectIdAtSnap: null,
     cameraConfigKeyAtSnap: null,
   });
+  const heroOverviewCompositionContractRef = useRef({
+    forcedFinalSnapshot: null,
+    steadyFirstSnapshot: null,
+    forcedReleasedFrameId: null,
+    steadyDeadlineFrameId: null,
+    logged: false,
+    missingLogged: false,
+    lastKnownState: null,
+    lastKnownCameraState: null,
+    lastKnownRuntimePhase: null,
+    lastWriterBranch: null,
+  });
+
+  const toRoundedArray = (arrLike, digits = 6) => {
+    if (!arrLike || typeof arrLike.length !== 'number') return null;
+    return Array.from(arrLike).map((value) => round4(Number(value.toFixed?.(digits) ?? value)));
+  };
+
+  const getCameraContractSnapshot = ({
+    state,
+    writerBranch,
+    lookAtTarget = null,
+    configSource = null,
+    projectionUpdated = false,
+  }) => {
+    const runtimePhase = heroOverviewRuntime?.getSnapshot?.()?.phase ?? null;
+    return {
+      frameId: Math.round(state.clock.elapsedTime * 1000),
+      state: animationData?.state ?? null,
+      cameraState: animationData?.cameraState ?? null,
+      runtimePhase,
+      cameraPosition: camera.position.toArray(),
+      cameraQuaternion: quaternionToPlain(camera.quaternion),
+      cameraEuler: vectorToPlain(camera.rotation),
+      cameraFov: round4(camera.fov),
+      cameraZoom: round4(camera.zoom),
+      cameraAspect: round4(camera.aspect),
+      cameraFilmOffset: round4(camera.filmOffset),
+      cameraFilmGauge: round4(camera.filmGauge),
+      cameraView: camera.view ? { ...camera.view } : null,
+      projectionMatrixSubset: toRoundedArray(camera.projectionMatrix?.elements?.slice(0, 8) ?? null),
+      matrixWorldSubset: toRoundedArray(camera.matrixWorld?.elements?.slice(0, 8) ?? null),
+      lookAtTarget: lookAtTarget?.toArray?.() ?? null,
+      currentTargetLookAt: currentTarget.current?.lookAt?.toArray?.() ?? null,
+      configSource,
+      writerBranch: String(writerBranch || 'unknown'),
+      projectionUpdated,
+    };
+  };
 
   const applyFractureTilt = () => {
     if (!fractureTiltActiveRef.current) return;
@@ -1452,6 +1501,121 @@ const UnifiedCameraController = ({
       });
     }
     lastCameraWriterRef.current = branch;
+    const frameId = Math.round(state.clock.elapsedTime * 1000);
+    const contract = heroOverviewCompositionContractRef.current;
+    contract.lastKnownState = animationData?.state ?? null;
+    contract.lastKnownCameraState = animationData?.cameraState ?? null;
+    contract.lastKnownRuntimePhase = heroOverviewRuntime?.getSnapshot?.()?.phase ?? null;
+    contract.lastWriterBranch = String(branch || 'unknown');
+    if (String(branch) === 'FORCED_HERO_TO_OVERVIEW') {
+      contract.forcedFinalSnapshot = getCameraContractSnapshot({
+        state,
+        writerBranch: branch,
+        lookAtTarget,
+        configSource: reason || 'forced-transition',
+        projectionUpdated,
+      });
+    }
+    const releaseDetected = Boolean(
+      contract.forcedFinalSnapshot &&
+      contract.forcedReleasedFrameId == null &&
+      String(branch) !== 'FORCED_HERO_TO_OVERVIEW'
+    );
+    if (releaseDetected) {
+      contract.forcedReleasedFrameId = frameId;
+      contract.steadyDeadlineFrameId = frameId + 60;
+    }
+    const isSteadyOverviewBranch =
+      Boolean(contract.forcedFinalSnapshot) &&
+      contract.forcedReleasedFrameId != null &&
+      !contract.logged &&
+      String(branch) !== 'FORCED_HERO_TO_OVERVIEW' &&
+      animationData?.cameraState === 'overview';
+    if (isSteadyOverviewBranch) {
+      const steadySnapshot = getCameraContractSnapshot({
+        state,
+        writerBranch: branch,
+        lookAtTarget,
+        configSource: animationData?.cameraState || 'overview',
+        projectionUpdated,
+      });
+      contract.steadyFirstSnapshot = steadySnapshot;
+      const forced = contract.forcedFinalSnapshot;
+      const deltaVec = (a, b) => {
+        if (!a || !b || a.length !== b.length) return null;
+        const sum = a.reduce((acc, v, i) => acc + Math.pow((b[i] ?? 0) - (v ?? 0), 2), 0);
+        return round4(Math.sqrt(sum));
+      };
+      const projectionMatrixChanged = JSON.stringify(forced.projectionMatrixSubset) !== JSON.stringify(steadySnapshot.projectionMatrixSubset);
+      const matrixWorldChanged = JSON.stringify(forced.matrixWorldSubset) !== JSON.stringify(steadySnapshot.matrixWorldSubset);
+      const configSourceChanged = forced.configSource !== steadySnapshot.configSource;
+      const writerBranchChanged = forced.writerBranch !== steadySnapshot.writerBranch;
+      const lookAtDelta = deltaVec(forced.lookAtTarget, steadySnapshot.lookAtTarget);
+      const currentTargetLookAtDelta = deltaVec(forced.currentTargetLookAt, steadySnapshot.currentTargetLookAt);
+      const suspectedCompositionMismatch = Boolean(
+        Math.abs((steadySnapshot.cameraFilmOffset ?? 0) - (forced.cameraFilmOffset ?? 0)) > 0.0001 ||
+        projectionMatrixChanged ||
+        (lookAtDelta ?? 0) > 0.0001 ||
+        (currentTargetLookAtDelta ?? 0) > 0.0001 ||
+        configSourceChanged
+      );
+      const suspectedMismatchSource = suspectedCompositionMismatch
+        ? [
+          Math.abs((steadySnapshot.cameraFilmOffset ?? 0) - (forced.cameraFilmOffset ?? 0)) > 0.0001 ? 'filmOffset' : null,
+          projectionMatrixChanged ? 'projectionMatrix' : null,
+          (lookAtDelta ?? 0) > 0.0001 ? 'lookAt' : null,
+          (currentTargetLookAtDelta ?? 0) > 0.0001 ? 'currentTargetLookAt' : null,
+          configSourceChanged ? 'configSource' : null,
+        ].filter(Boolean)
+        : [];
+      console.log('[hero-overview-composition-contract] diff', {
+        forcedFinalSnapshot: forced,
+        steadyFirstSnapshot: steadySnapshot,
+        positionDelta: deltaVec(forced.cameraPosition, steadySnapshot.cameraPosition),
+        rotationDelta: round4((new THREE.Quaternion(forced.cameraQuaternion.x, forced.cameraQuaternion.y, forced.cameraQuaternion.z, forced.cameraQuaternion.w)).angleTo(
+          new THREE.Quaternion(steadySnapshot.cameraQuaternion.x, steadySnapshot.cameraQuaternion.y, steadySnapshot.cameraQuaternion.z, steadySnapshot.cameraQuaternion.w)
+        )),
+        fovDelta: round4((steadySnapshot.cameraFov ?? 0) - (forced.cameraFov ?? 0)),
+        zoomDelta: round4((steadySnapshot.cameraZoom ?? 0) - (forced.cameraZoom ?? 0)),
+        aspectDelta: round4((steadySnapshot.cameraAspect ?? 0) - (forced.cameraAspect ?? 0)),
+        filmOffsetDelta: round4((steadySnapshot.cameraFilmOffset ?? 0) - (forced.cameraFilmOffset ?? 0)),
+        filmGaugeDelta: round4((steadySnapshot.cameraFilmGauge ?? 0) - (forced.cameraFilmGauge ?? 0)),
+        projectionMatrixChanged,
+        matrixWorldChanged,
+        lookAtDelta,
+        currentTargetLookAtDelta,
+        configSourceChanged,
+        writerBranchChanged,
+        updateProjectionMatrixCalledOnFirstSteadyFrame: Boolean(steadySnapshot.projectionUpdated),
+        suspectedCompositionMismatch,
+        suspectedMismatchSource,
+        forcedFinalConfigSource: forced.configSource,
+        steadyFirstConfigSource: steadySnapshot.configSource,
+        forcedFinalFilmOffset: forced.cameraFilmOffset,
+        steadyFirstFilmOffset: steadySnapshot.cameraFilmOffset,
+        forcedFinalLookAt: forced.lookAtTarget,
+        steadyFirstLookAt: steadySnapshot.lookAtTarget,
+        forcedFinalCurrentTargetLookAt: forced.currentTargetLookAt,
+        steadyFirstCurrentTargetLookAt: steadySnapshot.currentTargetLookAt,
+      });
+      contract.logged = true;
+    }
+    if (
+      contract.forcedReleasedFrameId != null &&
+      !contract.logged &&
+      !contract.missingLogged &&
+      frameId >= (contract.steadyDeadlineFrameId ?? Number.MAX_SAFE_INTEGER)
+    ) {
+      contract.missingLogged = true;
+      console.log('[hero-overview-composition-contract] missing steady snapshot', {
+        forcedReleasedFrameId: contract.forcedReleasedFrameId,
+        steadyDeadlineFrameId: contract.steadyDeadlineFrameId,
+        lastKnownState: contract.lastKnownState,
+        lastKnownCameraState: contract.lastKnownCameraState,
+        lastKnownRuntimePhase: contract.lastKnownRuntimePhase,
+        lastWriterBranch: contract.lastWriterBranch,
+      });
+    }
     if (typeof globalThis !== 'undefined' && globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__) {
       const audit = globalThis.__HERO_OVERVIEW_WRITER_AUDIT__;
       if (audit?.active && audit.sessionDirection === 'hero-to-overview') {
