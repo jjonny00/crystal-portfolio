@@ -172,6 +172,15 @@ const startHeroOverviewWriterAuditSession = (payload = {}) => {
     legacyWriterAfterRuntimeWriter: false,
     fallbackWriterAfterRuntimeWriter: false,
     suspectedBranches: new Set(),
+    fragmentOwnershipBranchesSeen: new Set(),
+    fragmentRuntimePhasesByBranch: new Map(),
+    firstFragmentWriterBranch: null,
+    lastFragmentWriterBranch: null,
+    runtimeTravelWasEligible: false,
+    runtimeTravelWasEntered: false,
+    runtimeTravelWasSkippedReasons: new Set(),
+    fracturePauseLegacyWasActiveDuringExplosionImpulse: false,
+    fracturePauseLegacyWasActiveDuringBulletTimeSlowdown: false,
   };
   globalThis.__HERO_OVERVIEW_WRITER_AUDIT__ = session;
   console.log('[hero-overview-writer-audit] session start', {
@@ -217,6 +226,17 @@ const endHeroOverviewWriterAuditSession = (payload = {}) => {
     fallbackWriterAfterRuntimeWriter: session.fallbackWriterAfterRuntimeWriter,
     suspectedOverwrite,
     suspectedBranches: Array.from(session.suspectedBranches),
+    fragmentOwnershipBranchesSeen: Array.from(session.fragmentOwnershipBranchesSeen || []),
+    fragmentRuntimePhasesByBranch: Object.fromEntries(
+      Array.from(session.fragmentRuntimePhasesByBranch?.entries?.() || []).map(([branch, phases]) => [branch, Array.from(phases)])
+    ),
+    firstFragmentWriterBranch: session.firstFragmentWriterBranch ?? null,
+    lastFragmentWriterBranch: session.lastFragmentWriterBranch ?? null,
+    runtimeTravelWasEligible: Boolean(session.runtimeTravelWasEligible),
+    runtimeTravelWasEntered: Boolean(session.runtimeTravelWasEntered),
+    runtimeTravelWasSkippedReasons: Array.from(session.runtimeTravelWasSkippedReasons || []),
+    fracturePauseLegacyWasActiveDuringExplosionImpulse: Boolean(session.fracturePauseLegacyWasActiveDuringExplosionImpulse),
+    fracturePauseLegacyWasActiveDuringBulletTimeSlowdown: Boolean(session.fracturePauseLegacyWasActiveDuringBulletTimeSlowdown),
   });
 };
 const ANIMATION_STATES = {

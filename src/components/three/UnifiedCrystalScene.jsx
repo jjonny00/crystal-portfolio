@@ -105,6 +105,12 @@ const UnifiedCrystalScene = forwardRef(({
   const heroOverviewCandidatePathLogBudgetRef = useRef(new Map());
   const heroOverviewRenderedProbePrevWorldRef = useRef(new Map());
   const heroOverviewRenderedProbeCountRef = useRef(0);
+  const heroOverviewOwnershipLogStateRef = useRef({
+    firstLogged: false,
+    phasesLogged: new Set(),
+    lastBranch: null,
+    checkpointLogged: new Set(),
+  });
 
   const deriveFragmentVisualTiming = (runtimeState, explosionProgress) => {
     const timing = runtimeState?.timing || {};
@@ -193,6 +199,20 @@ const UnifiedCrystalScene = forwardRef(({
     audit.fragmentFrameWriters.set(frameId, set);
     audit.fragmentWritersSeen.add(writerBranch);
     audit.writeOrderIndex += 1;
+    audit.fragmentOwnershipBranchesSeen?.add?.(writerBranch);
+    if (!audit.firstFragmentWriterBranch) audit.firstFragmentWriterBranch = writerBranch;
+    audit.lastFragmentWriterBranch = writerBranch;
+    const runtimePhase = heroOverviewRuntime?.getSnapshot?.()?.phase ?? 'idle';
+    const phaseSet = audit.fragmentRuntimePhasesByBranch?.get?.(writerBranch) || new Set();
+    phaseSet.add(runtimePhase);
+    audit.fragmentRuntimePhasesByBranch?.set?.(writerBranch, phaseSet);
+    if (writerBranch === 'heroOverviewRuntimeTravel') audit.runtimeTravelWasEntered = true;
+    if (writerBranch === 'fracturePauseLegacy' && runtimePhase === 'explosionImpulse') {
+      audit.fracturePauseLegacyWasActiveDuringExplosionImpulse = true;
+    }
+    if (writerBranch === 'fracturePauseLegacy' && runtimePhase === 'bulletTimeSlowdown') {
+      audit.fracturePauseLegacyWasActiveDuringBulletTimeSlowdown = true;
+    }
 
     const logCount = heroOverviewFragmentAuditLogBudgetRef.current.get(writerBranch) || 0;
     if (logCount < 3) {
@@ -233,6 +253,48 @@ const UnifiedCrystalScene = forwardRef(({
       reasonIfSkipped: payload.reasonIfSkipped ?? null,
     });
   }, [animationData?.cameraState, animationData?.crystalForm, animationData?.state, heroOverviewRuntime]);
+
+  const logFragmentOwnershipDecision = useCallback((state, payload = {}) => {
+    if (typeof globalThis === 'undefined' || !globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__) return;
+    const audit = globalThis.__HERO_OVERVIEW_WRITER_AUDIT__;
+    if (!audit?.active || audit.sessionDirection !== 'hero-to-overview') return;
+    const frameId = Math.round((state?.clock?.elapsedTime ?? 0) * 1000);
+    const runtimePhase = payload.runtimePhase ?? 'idle';
+    const chosen = payload.chosenFragmentWriterBranch ?? 'none';
+    const checkpoints = ['explosionImpulse', 'bulletTimeSlowdown'];
+    const checkpointHit = checkpoints.includes(runtimePhase);
+    const logState = heroOverviewOwnershipLogStateRef.current;
+    const shouldLog =
+      !logState.firstLogged ||
+      !logState.phasesLogged.has(runtimePhase) ||
+      logState.lastBranch !== chosen ||
+      (checkpointHit && !logState.checkpointLogged.has(runtimePhase));
+    if (!shouldLog) return;
+    if (payload.reasonRuntimeTravelSkipped) {
+      audit.runtimeTravelWasSkippedReasons?.add?.(payload.reasonRuntimeTravelSkipped);
+    }
+    logState.firstLogged = true;
+    logState.phasesLogged.add(runtimePhase);
+    logState.lastBranch = chosen;
+    if (checkpointHit) logState.checkpointLogged.add(runtimePhase);
+    console.log('[hero-overview-writer-audit] fragment ownership decision', {
+      frameId,
+      state: animationData?.state ?? null,
+      cameraState: animationData?.cameraState ?? null,
+      crystalForm: animationData?.crystalForm ?? null,
+      runtimePhase,
+      elapsedExplosion: payload.elapsedExplosion ?? null,
+      fracturePause: payload.fracturePause ?? null,
+      shouldUseFracturePauseLegacy: Boolean(payload.shouldUseFracturePauseLegacy),
+      shouldUseHeroOverviewRuntimeTravel: Boolean(payload.shouldUseHeroOverviewRuntimeTravel),
+      shouldUseOverviewExplodedPositionBlend: Boolean(payload.shouldUseOverviewExplodedPositionBlend),
+      chosenFragmentWriterBranch: chosen,
+      reasonChosen: payload.reasonChosen ?? null,
+      reasonRuntimeTravelSkipped: payload.reasonRuntimeTravelSkipped ?? null,
+      reasonExplodedBlendSkipped: payload.reasonExplodedBlendSkipped ?? null,
+      earlyReturnBranch: payload.earlyReturnBranch ?? null,
+    });
+  }, [animationData?.cameraState, animationData?.crystalForm, animationData?.state]);
   
   // FIXED: Better hover state tracking
   const [hoveredFacet, setHoveredFacet] = useState(null);
@@ -1827,7 +1889,21 @@ const UnifiedCrystalScene = forwardRef(({
     if (animationData.crystalForm === 'exploded' && explosionStartRef.current) {
       const fracturePause = crystalConfig?.fracturePause || 0.5;
       const elapsedExplosion = (performance.now() - explosionStartRef.current) / 1000;
+      const runtimePhaseForDecision = heroOverviewRuntime?.getSnapshot?.()?.phase ?? 'idle';
       if (elapsedExplosion < fracturePause) {
+        logFragmentOwnershipDecision(state, {
+          runtimePhase: runtimePhaseForDecision,
+          elapsedExplosion,
+          fracturePause,
+          shouldUseFracturePauseLegacy: true,
+          shouldUseHeroOverviewRuntimeTravel: false,
+          shouldUseOverviewExplodedPositionBlend: false,
+          chosenFragmentWriterBranch: 'fracturePauseLegacy',
+          reasonChosen: 'elapsedExplosion < fracturePause',
+          reasonRuntimeTravelSkipped: 'early return during fracture pause',
+          reasonExplodedBlendSkipped: 'early return during fracture pause',
+          earlyReturnBranch: 'fracturePauseLegacy',
+        });
         const sampleRef = facetRefs.current?.[0]?.current ?? null;
         logHeroOverviewCandidatePath(state, {
           candidateBranch: 'fracturePauseLegacy',
@@ -1900,6 +1976,12 @@ const UnifiedCrystalScene = forwardRef(({
     if (showFacets && crystalConfig?.positions) {
       // Custom fracture/explosion timing
       if (animationData.crystalForm === 'exploded' && explosionStartRef.current) {
+        if (typeof globalThis !== 'undefined') {
+          const audit = globalThis.__HERO_OVERVIEW_WRITER_AUDIT__;
+          if (audit?.active && audit.sessionDirection === 'hero-to-overview') {
+            audit.runtimeTravelWasEligible = true;
+          }
+        }
         const sampleRef = facetRefs.current?.[0]?.current ?? null;
         logHeroOverviewCandidatePath(state, {
           candidateBranch: 'heroOverviewRuntimeTravel',
@@ -1912,6 +1994,20 @@ const UnifiedCrystalScene = forwardRef(({
         const explosionElapsedMs = elapsedExplosion * 1000;
 
         const progress = Math.min((elapsedExplosion - fracturePause) / (totalDuration - fracturePause), 1);
+        const runtimePhaseForDecision = heroOverviewRuntime?.getSnapshot?.()?.phase ?? 'idle';
+        logFragmentOwnershipDecision(state, {
+          runtimePhase: runtimePhaseForDecision,
+          elapsedExplosion,
+          fracturePause,
+          shouldUseFracturePauseLegacy: false,
+          shouldUseHeroOverviewRuntimeTravel: true,
+          shouldUseOverviewExplodedPositionBlend: false,
+          chosenFragmentWriterBranch: 'heroOverviewRuntimeTravel',
+          reasonChosen: 'fracture pause completed and runtime exploded path active',
+          reasonRuntimeTravelSkipped: null,
+          reasonExplodedBlendSkipped: 'runtime exploded branch returned early for this frame',
+          earlyReturnBranch: null,
+        });
         const sharedProgressRaw = THREE.MathUtils.clamp(progress, 0, 1);
         const easeType = config?.timing?.heroOverviewRuntime?.heroOverviewMotionEaseType ?? 'expoOut';
         const sharedProgressEased = THREE.MathUtils.clamp(
@@ -2411,6 +2507,20 @@ const UnifiedCrystalScene = forwardRef(({
               candidateBranch: 'overviewExplodedPositionBlend',
               sampleRef: facetRef.current,
               reasonIfSkipped: null,
+            });
+            const runtimePhaseForDecision = heroOverviewRuntime?.getSnapshot?.()?.phase ?? 'idle';
+            logFragmentOwnershipDecision(state, {
+              runtimePhase: runtimePhaseForDecision,
+              elapsedExplosion: explosionStartRef.current ? (performance.now() - explosionStartRef.current) / 1000 : null,
+              fracturePause: crystalConfig?.fracturePause || 0.5,
+              shouldUseFracturePauseLegacy: false,
+              shouldUseHeroOverviewRuntimeTravel: false,
+              shouldUseOverviewExplodedPositionBlend: true,
+              chosenFragmentWriterBranch: 'overviewExplodedPositionBlend',
+              reasonChosen: 'general exploded blend path active',
+              reasonRuntimeTravelSkipped: explosionStartRef.current ? 'runtime branch not selected for current frame' : 'explosionStartRef inactive',
+              reasonExplodedBlendSkipped: null,
+              earlyReturnBranch: null,
             });
             let finalTarget = targetPos;
             if (floatAll || (floatFocused && animationData.focusedFacet === facetKey)) {
