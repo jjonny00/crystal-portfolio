@@ -160,6 +160,7 @@ const isHeroOverviewRuntimeDebugEnabled = () => {
 
 const startHeroOverviewWriterAuditSession = (payload = {}) => {
   if (!isHeroOverviewRuntimeDebugEnabled()) return;
+  // Per-frame contention is computed from DISTINCT writer branches; repeated per-facet writes by one branch do not count as contention.
   const session = {
     sessionDirection: 'hero-to-overview',
     active: true,
