@@ -400,7 +400,7 @@ const UnifiedCrystalScene = forwardRef(({
     console.log('[hero-overview-fragment-handoff-audit] sample', { frameId, sampleIndex: handoff.sampleIndex, isDuringHeroOverviewSession: isDuringSession, isPostSessionWindow, state: animationData?.state ?? null, cameraState: animationData?.cameraState ?? null, crystalForm: animationData?.crystalForm ?? null, runtimePhase: heroOverviewRuntime?.getSnapshot?.()?.phase ?? null, activeFragmentWriterBranch: activeFragmentWriterBranch || null, facetKey, objectName: object.name || null, objectUuid: object.uuid, parentName: parent?.name || null, parentUuid: parent?.uuid ?? null, localPosition: object.position.toArray(), previousLocalPosition: prev?.localPosition?.toArray?.() ?? null, localPositionDelta, worldPosition: worldPosition.toArray(), previousWorldPosition: prev?.worldPosition?.toArray?.() ?? null, worldPositionDelta, localScale: object.scale.toArray(), previousLocalScale: prev?.localScale?.toArray?.() ?? null, scaleDelta, worldScale: worldScale.toArray(), previousWorldScale: prev?.worldScale?.toArray?.() ?? null, worldScaleDelta, quaternion: object.quaternion.toArray(), rotationDelta, visible: object.visible, materialOpacity: object.material?.opacity ?? null, matrixAutoUpdate: object.matrixAutoUpdate, matrixWorldNeedsUpdate: object.matrixWorldNeedsUpdate, objectWasReplaced, parentWasReplaced, parentLocalPosition: parent?.position?.toArray?.() ?? null, parentWorldPosition: parentWorldPosition?.toArray?.() ?? null, parentLocalScale: parent?.scale?.toArray?.() ?? null, parentWorldScale: parentWorldScale?.toArray?.() ?? null, parentRotation: parent?.rotation ? [parent.rotation.x, parent.rotation.y, parent.rotation.z] : null, parentWorldDelta, parentScaleDelta });
     handoff.prevByFacet.set(facetKey, { objectUuid: object.uuid, parentUuid: parent?.uuid ?? null, localPosition: object.position.clone(), worldPosition: worldPosition.clone(), localScale: object.scale.clone(), worldScale: worldScale.clone(), parentWorldPosition: parentWorldPosition?.clone?.() ?? null, parentWorldScale: parentWorldScale?.clone?.() ?? null, quaternion: object.quaternion.clone() });
     if (isPostSessionWindow) handoff.postSessionRemaining -= 1;
-    if (!isPostSessionWindow && handoff.postSessionRemaining === 0 && handoff.sampleIndex > 0 && !handoff.reported) {
+    if (!isPostSessionWindow && handoff.postSessionRemaining === 0 && !handoff.reported) {
       handoff.reported = true;
       console.log('[hero-overview-fragment-handoff-audit] summary', {
         sampledFacetKeys: handoff.sampledFacetKeys,
@@ -422,6 +422,11 @@ const UnifiedCrystalScene = forwardRef(({
         postRuntimeFallbackBranchesFound: Array.from(handoff.postRuntimeFallbackBranchesFound),
         firstPostRuntimeFragmentBranch: handoff.firstPostRuntimeFragmentBranch ?? null,
         firstPostRuntimeLegacyBranch: handoff.firstPostRuntimeLegacyBranch ?? null,
+        runtimeFinalMatchesOverviewFinal: 'unknown',
+        suspectedLegacyInterference: handoff.postRuntimeLegacyBranchesFound.size > 0,
+        suspectedLegacyBranch: handoff.firstPostRuntimeLegacyBranch ?? null,
+        sampleRefCount: handoff.sampledFacetKeys.length,
+        reasonNoSamples: handoff.sampledFacetKeys.length === 0 ? 'No mounted facet refs sampled during session/post-session window.' : null,
       });
     }
   }, [animationData?.cameraState, animationData?.crystalForm, animationData?.state, heroOverviewRuntime]);
@@ -1866,6 +1871,41 @@ const UnifiedCrystalScene = forwardRef(({
 
   // Main animation loop
   useFrame((state, deltaTime) => {
+    if (typeof globalThis !== 'undefined' && globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__) {
+      const handoff = heroOverviewFragmentHandoffAuditRef.current;
+      const audit = globalThis.__HERO_OVERVIEW_WRITER_AUDIT__;
+      const isDuringSession = Boolean(audit?.active && audit.sessionDirection === 'hero-to-overview');
+      if (isDuringSession && !handoff.lifecycleStarted) {
+        handoff.lifecycleStarted = true;
+        console.log('[hero-overview-fragment-handoff-audit] lifecycle start', {
+          state: animationData?.state ?? null,
+          cameraState: animationData?.cameraState ?? null,
+          crystalForm: animationData?.crystalForm ?? null,
+        });
+      }
+      if (handoff.prevAuditActive && !isDuringSession) {
+        handoff.postSessionRemaining = 24;
+        handoff.reported = false;
+        console.log('[hero-overview-fragment-handoff-audit] lifecycle post-session start', {
+          state: animationData?.state ?? null,
+          cameraState: animationData?.cameraState ?? null,
+          crystalForm: animationData?.crystalForm ?? null,
+          postSessionFrames: handoff.postSessionRemaining,
+        });
+      }
+      handoff.prevAuditActive = isDuringSession;
+      const activeFragmentWriterBranch = isDuringSession ? 'heroOverviewRuntimeTravel' : (animationData?.crystalForm === 'exploded' ? 'overviewExplodedPositionBlend' : 'unknown');
+      const sampleRefs = facetRefs.current.slice(0, 3);
+      sampleRefs.forEach((refObj, idx) => {
+        const facetKey = facetKeys[idx];
+        if (refObj?.current && facetKey) {
+          sampleFragmentHandoffAudit(state, facetKey, refObj.current, activeFragmentWriterBranch);
+        }
+      });
+      if (!isDuringSession && handoff.postSessionRemaining === 0 && !handoff.reported) {
+        sampleFragmentHandoffAudit(state, 'none', facetRefs.current?.[0]?.current ?? null, activeFragmentWriterBranch);
+      }
+    }
     if (!animationData || !facetRefs.current.length || simplifiedAnimations) return;
     const now = performance.now();
 
