@@ -215,6 +215,33 @@ const UnifiedCameraController = ({
     branchCounts: new Map(),
     lastRuntimePhase: null,
   });
+  const heroOverviewCameraHandoffAuditRef = useRef({
+    postSessionRemaining: 0,
+    sampleIndex: 0,
+    prevAuditActive: false,
+    prevPosition: null,
+    prevQuaternion: null,
+    prevLookAt: null,
+    prevFov: null,
+    prevZoom: null,
+    writerSeenDuringSession: new Set(),
+    writerSeenPostSession: new Set(),
+    firstPostSessionCameraWriterBranch: null,
+    firstPostSessionCameraState: null,
+    firstPostSessionState: null,
+    maxCameraPositionDelta: 0,
+    maxCameraPositionDeltaFrame: null,
+    maxLookAtDelta: 0,
+    maxLookAtDeltaFrame: null,
+    maxRotationDelta: 0,
+    maxRotationDeltaFrame: null,
+    fovChanged: false,
+    zoomChanged: false,
+    suspectedSnapSource: null,
+    selectedProjectIdAtSnap: null,
+    activeProjectIdAtSnap: null,
+    cameraConfigKeyAtSnap: null,
+  });
 
   const applyFractureTilt = () => {
     if (!fractureTiltActiveRef.current) return;
@@ -1488,6 +1515,119 @@ const UnifiedCameraController = ({
         layoutVariant: config?.layoutVariant ?? null,
         desktopFilmOffsetPresent: config?.cameraComposition?.hero?.filmOffsetX ?? null,
       });
+    }
+
+    if (typeof globalThis !== 'undefined' && globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__) {
+      const handoff = heroOverviewCameraHandoffAuditRef.current;
+      const audit = globalThis.__HERO_OVERVIEW_WRITER_AUDIT__;
+      const isDuringSession = Boolean(audit?.active && audit.sessionDirection === 'hero-to-overview');
+      if (handoff.prevAuditActive && !isDuringSession) {
+        handoff.postSessionRemaining = 24;
+        handoff.sampleIndex = 0;
+      }
+      handoff.prevAuditActive = isDuringSession;
+      const isPostSessionWindow = !isDuringSession && handoff.postSessionRemaining > 0;
+      if (isDuringSession) handoff.writerSeenDuringSession.add(String(branch || 'unknown'));
+      if (isPostSessionWindow) {
+        const writer = String(branch || 'unknown');
+        handoff.writerSeenPostSession.add(writer);
+        if (!handoff.firstPostSessionCameraWriterBranch) {
+          handoff.firstPostSessionCameraWriterBranch = writer;
+          handoff.firstPostSessionCameraState = animationData?.cameraState ?? null;
+          handoff.firstPostSessionState = animationData?.state ?? null;
+        }
+      }
+      const frameId = Math.round(state.clock.elapsedTime * 1000);
+      const posNow = camera.position.clone();
+      const quatNow = camera.quaternion.clone();
+      const lookNow = (lookAtTarget?.clone?.() ?? currentTarget.current.lookAt?.clone?.() ?? null);
+      const posDelta = handoff.prevPosition ? posNow.distanceTo(handoff.prevPosition) : 0;
+      const rotDelta = handoff.prevQuaternion ? quatNow.angleTo(handoff.prevQuaternion) : 0;
+      const lookDelta = (lookNow && handoff.prevLookAt) ? lookNow.distanceTo(handoff.prevLookAt) : 0;
+      handoff.maxCameraPositionDelta = Math.max(handoff.maxCameraPositionDelta, posDelta);
+      if (handoff.maxCameraPositionDelta === posDelta) handoff.maxCameraPositionDeltaFrame = frameId;
+      handoff.maxLookAtDelta = Math.max(handoff.maxLookAtDelta, lookDelta);
+      if (handoff.maxLookAtDelta === lookDelta) handoff.maxLookAtDeltaFrame = frameId;
+      handoff.maxRotationDelta = Math.max(handoff.maxRotationDelta, rotDelta);
+      if (handoff.maxRotationDelta === rotDelta) handoff.maxRotationDeltaFrame = frameId;
+      if (handoff.prevFov != null && Math.abs(camera.fov - handoff.prevFov) > 0.0001) handoff.fovChanged = true;
+      if (handoff.prevZoom != null && Math.abs(camera.zoom - handoff.prevZoom) > 0.0001) handoff.zoomChanged = true;
+      const positionSnapThreshold = 0.15;
+      const lookAtSnapThreshold = 0.2;
+      const rotationSnapThreshold = 0.08;
+      const branchChanged = lastCameraWriterRef.current !== branch;
+      const shouldLogSample =
+        isDuringSession ||
+        isPostSessionWindow ||
+        posDelta > positionSnapThreshold ||
+        lookDelta > lookAtSnapThreshold ||
+        rotDelta > rotationSnapThreshold ||
+        projectionUpdated ||
+        branchChanged;
+      if (shouldLogSample && (isDuringSession || isPostSessionWindow || posDelta > positionSnapThreshold || lookDelta > lookAtSnapThreshold)) {
+        handoff.sampleIndex += 1;
+        console.log('[hero-overview-camera-handoff-audit] sample', {
+          frameId,
+          sampleIndex: handoff.sampleIndex,
+          isDuringHeroOverviewSession: isDuringSession,
+          isPostSessionWindow,
+          state: animationData?.state ?? null,
+          cameraState: animationData?.cameraState ?? null,
+          crystalForm: animationData?.crystalForm ?? null,
+          runtimePhase: heroOverviewRuntime?.getSnapshot?.()?.phase ?? null,
+          activeCameraWriterBranch: String(branch || 'unknown'),
+          cameraPosition: posNow.toArray(),
+          previousCameraPosition: handoff.prevPosition?.toArray?.() ?? null,
+          cameraPositionDelta: posDelta,
+          cameraQuaternion: { x: quatNow.x, y: quatNow.y, z: quatNow.z, w: quatNow.w },
+          previousCameraQuaternion: handoff.prevQuaternion ? { x: handoff.prevQuaternion.x, y: handoff.prevQuaternion.y, z: handoff.prevQuaternion.z, w: handoff.prevQuaternion.w } : null,
+          cameraRotationDelta: rotDelta,
+          cameraFov: camera.fov,
+          cameraZoom: camera.zoom,
+          lookAtTarget: lookNow?.toArray?.() ?? null,
+          previousLookAtTarget: handoff.prevLookAt?.toArray?.() ?? null,
+          lookAtDelta,
+          selectedProjectId: animationData?.focusedProject ?? null,
+          activeProjectId: animationData?.focusedProject ?? null,
+          currentCameraMode: animationData?.cameraState ?? null,
+          reason,
+        });
+      }
+      if (posDelta > positionSnapThreshold || lookDelta > lookAtSnapThreshold || rotDelta > rotationSnapThreshold) {
+        handoff.suspectedSnapSource = reason || String(branch || 'unknown');
+        handoff.selectedProjectIdAtSnap = animationData?.focusedProject ?? null;
+        handoff.activeProjectIdAtSnap = animationData?.focusedProject ?? null;
+        handoff.cameraConfigKeyAtSnap = animationData?.cameraState ?? null;
+      }
+      handoff.prevPosition = posNow;
+      handoff.prevQuaternion = quatNow;
+      handoff.prevLookAt = lookNow ? lookNow.clone() : null;
+      handoff.prevFov = camera.fov;
+      handoff.prevZoom = camera.zoom;
+      if (isPostSessionWindow) handoff.postSessionRemaining -= 1;
+      if (!isPostSessionWindow && handoff.postSessionRemaining === 0 && handoff.sampleIndex > 0 && !handoff.reported) {
+        handoff.reported = true;
+        console.log('[hero-overview-camera-handoff-audit] summary', {
+          maxCameraPositionDelta: handoff.maxCameraPositionDelta,
+          maxCameraPositionDeltaFrame: handoff.maxCameraPositionDeltaFrame,
+          maxLookAtDelta: handoff.maxLookAtDelta,
+          maxLookAtDeltaFrame: handoff.maxLookAtDeltaFrame,
+          maxRotationDelta: handoff.maxRotationDelta,
+          maxRotationDeltaFrame: handoff.maxRotationDeltaFrame,
+          fovChanged: handoff.fovChanged,
+          zoomChanged: handoff.zoomChanged,
+          cameraWriterBranchesSeenDuringSession: Array.from(handoff.writerSeenDuringSession),
+          cameraWriterBranchesSeenPostSession: Array.from(handoff.writerSeenPostSession),
+          firstPostSessionCameraWriterBranch: handoff.firstPostSessionCameraWriterBranch,
+          firstPostSessionCameraState: handoff.firstPostSessionCameraState,
+          firstPostSessionState: handoff.firstPostSessionState,
+          suspectedCameraSnap: Boolean(handoff.suspectedSnapSource),
+          suspectedSnapSource: handoff.suspectedSnapSource,
+          selectedProjectIdAtSnap: handoff.selectedProjectIdAtSnap,
+          activeProjectIdAtSnap: handoff.activeProjectIdAtSnap,
+          cameraConfigKeyAtSnap: handoff.cameraConfigKeyAtSnap,
+        });
+      }
     }
 
     const debugSecond = Math.floor(state.clock.elapsedTime);
