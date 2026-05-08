@@ -152,6 +152,61 @@ ANIMATION_CONFIG.crystal.fracturePause = fractureConfig.duration;
 ANIMATION_CONFIG.crystal.explodeDuration = 1.6;
 
 // SIMPLIFIED: Only essential states (no intermediate transition states)
+
+const isHeroOverviewRuntimeDebugEnabled = () => {
+  if (typeof globalThis === 'undefined') return false;
+  return Boolean(globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__);
+};
+
+const startHeroOverviewWriterAuditSession = (payload = {}) => {
+  if (!isHeroOverviewRuntimeDebugEnabled()) return;
+  const session = {
+    sessionDirection: 'hero-to-overview',
+    active: true,
+    writeOrderIndex: 0,
+    fragmentWritersSeen: new Set(),
+    cameraWritersSeen: new Set(),
+    fragmentFrameWriters: new Map(),
+    cameraFrameWriters: new Map(),
+    legacyWriterAfterRuntimeWriter: false,
+    fallbackWriterAfterRuntimeWriter: false,
+    suspectedBranches: new Set(),
+  };
+  globalThis.__HERO_OVERVIEW_WRITER_AUDIT__ = session;
+  console.log('[hero-overview-writer-audit] session start', {
+    sessionDirection: session.sessionDirection,
+    ...payload,
+  });
+};
+
+const endHeroOverviewWriterAuditSession = (payload = {}) => {
+  if (!isHeroOverviewRuntimeDebugEnabled()) return;
+  const session = globalThis.__HERO_OVERVIEW_WRITER_AUDIT__;
+  if (!session || !session.active || session.sessionDirection !== 'hero-to-overview') return;
+  session.active = false;
+  const maxFragment = Math.max(0, ...Array.from(session.fragmentFrameWriters.values()).map((set) => set.size));
+  const maxCamera = Math.max(0, ...Array.from(session.cameraFrameWriters.values()).map((set) => set.size));
+  const multipleFragment = maxFragment > 1;
+  const multipleCamera = maxCamera > 1;
+  const suspectedOverwrite = multipleFragment || session.legacyWriterAfterRuntimeWriter || session.fallbackWriterAfterRuntimeWriter;
+  console.log('[hero-overview-writer-audit] session end', {
+    sessionDirection: session.sessionDirection,
+    ...payload,
+  });
+  console.log('[hero-overview-writer-audit] transition writer summary', {
+    sessionDirection: session.sessionDirection,
+    fragmentWritersSeen: Array.from(session.fragmentWritersSeen),
+    cameraWritersSeen: Array.from(session.cameraWritersSeen),
+    maxDistinctFragmentWriterBranchesInFrame: maxFragment,
+    maxDistinctCameraWriterBranchesInFrame: maxCamera,
+    multipleFragmentWriterBranchesSameFrame: multipleFragment,
+    multipleCameraWriterBranchesSameFrame: multipleCamera,
+    legacyWriterAfterRuntimeWriter: session.legacyWriterAfterRuntimeWriter,
+    fallbackWriterAfterRuntimeWriter: session.fallbackWriterAfterRuntimeWriter,
+    suspectedOverwrite,
+    suspectedBranches: Array.from(session.suspectedBranches),
+  });
+};
 const ANIMATION_STATES = {
   HERO: 'hero',
   OVERVIEW: 'overview',
@@ -644,12 +699,26 @@ export const useUnifiedAnimationController = (options = {}) => {
         focusedFacet: null,
         isTransitioning: false
       }));
+      startHeroOverviewWriterAuditSession({
+        state: ANIMATION_STATES.OVERVIEW,
+        cameraState: 'hero',
+        crystalForm: 'exploded',
+        runtimePhase: null,
+        reason: 'handleZoneTransition to overview',
+      });
 
       cameraDelayTimeout.current = setTimeout(() => {
         setAnimationState(prev => ({
           ...prev,
           cameraState: 'overview'
         }));
+        endHeroOverviewWriterAuditSession({
+          state: ANIMATION_STATES.OVERVIEW,
+          cameraState: 'overview',
+          crystalForm: 'exploded',
+          runtimePhase: null,
+          reason: 'camera handoff complete',
+        });
       }, (config.crystal.fracturePause || 0.5) * 1000);
     }
     else if (toZone === 'projects') {

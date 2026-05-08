@@ -1421,6 +1421,39 @@ const UnifiedCameraController = ({
       });
     }
     lastCameraWriterRef.current = branch;
+    if (typeof globalThis !== 'undefined' && globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__) {
+      const audit = globalThis.__HERO_OVERVIEW_WRITER_AUDIT__;
+      if (audit?.active && audit.sessionDirection === 'hero-to-overview') {
+        const frameId = Math.round(state.clock.elapsedTime * 1000);
+        const writerBranch = String(branch || 'unknown');
+        const set = audit.cameraFrameWriters.get(frameId) || new Set();
+        set.add(writerBranch);
+        audit.cameraFrameWriters.set(frameId, set);
+        audit.cameraWritersSeen.add(writerBranch);
+        audit.writeOrderIndex += 1;
+        const isRuntimeWriter = writerBranch === 'FORCED_HERO_TO_OVERVIEW';
+        const isLegacyWriter = writerBranch === 'TRANSITION';
+        const isFallbackWriter = writerBranch === 'FALLBACK';
+        if (isLegacyWriter && audit.cameraWritersSeen.has('FORCED_HERO_TO_OVERVIEW')) {
+          audit.legacyWriterAfterRuntimeWriter = true;
+          audit.suspectedBranches.add('FORCED_HERO_TO_OVERVIEW->TRANSITION');
+        }
+        if (isFallbackWriter && audit.cameraWritersSeen.has('FORCED_HERO_TO_OVERVIEW')) {
+          audit.fallbackWriterAfterRuntimeWriter = true;
+          audit.suspectedBranches.add('FORCED_HERO_TO_OVERVIEW->FALLBACK');
+        }
+        console.log('[hero-overview-writer-audit] camera writer', {
+          writerBranch,
+          frameId,
+          writeOrderIndex: audit.writeOrderIndex,
+          isRuntimeWriter,
+          isLegacyWriter,
+          isFallbackWriter,
+          positionBefore: null,
+          positionAfter: camera.position.toArray(),
+        });
+      }
+    }
     if (!configCheckLoggedRef.current) {
       configCheckLoggedRef.current = true;
       const filmOffsetX = config?.cameraComposition?.hero?.filmOffsetX;

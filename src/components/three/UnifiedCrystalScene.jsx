@@ -1914,8 +1914,31 @@ const UnifiedCrystalScene = forwardRef(({
             );
             const finalQuat = new THREE.Quaternion().setFromEuler(finalEuler);
 
+            const positionBefore = facetRef.current.position.toArray();
             facetRef.current.position.copy(finalPosition);
             facetRef.current.quaternion.slerpQuaternions(neutralQuat, finalQuat, eased);
+            if (typeof globalThis !== 'undefined' && globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__) {
+              const audit = globalThis.__HERO_OVERVIEW_WRITER_AUDIT__;
+              if (audit?.active && audit.sessionDirection === 'hero-to-overview') {
+                const frameId = Math.round(state.clock.elapsedTime * 1000);
+                const writerBranch = 'heroOverviewRuntimeTravel';
+                const set = audit.fragmentFrameWriters.get(frameId) || new Set();
+                set.add(writerBranch);
+                audit.fragmentFrameWriters.set(frameId, set);
+                audit.fragmentWritersSeen.add(writerBranch);
+                audit.writeOrderIndex += 1;
+                console.log('[hero-overview-writer-audit] fragment writer', {
+                  writerBranch,
+                  frameId,
+                  facetKey,
+                  writeOrderIndex: audit.writeOrderIndex,
+                  isRuntimeWriter: true,
+                  isLegacyWriter: false,
+                  positionBefore,
+                  positionAfter: facetRef.current.position.toArray(),
+                });
+              }
+            }
 
             if (typeof globalThis !== 'undefined' && globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__) {
               if (!heroOverviewFragmentWriterLoggedRef.current) {
@@ -2419,7 +2442,7 @@ const UnifiedCrystalScene = forwardRef(({
           const { fragmentVisualPhase } = deriveFragmentVisualTiming(runtimeSnapshot, 1);
           const firstFacetPositionAfter = facetRef.current.position.clone();
           const resolvedFracture = crystalConfig?.fracturePositions?.[facetPlacementKeys[facetKey] || facetKey];
-          const writerBranch = 'overviewIdle';
+          const writerBranch = 'fracturePauseLegacy';
           const logBucket = `${runtimePhase}:${Math.round((animationData?.cameraMoveProgress ?? 1) * 10) / 10}`;
           if (!heroOverviewPostCompleteWriterLoggedRef.current.has(logBucket)) {
             heroOverviewPostCompleteWriterLoggedRef.current.add(logBucket);
