@@ -2769,6 +2769,9 @@ const UnifiedCameraController = ({
         // Prevent post-handoff fracture branch from re-owning camera and introducing a second jump.
         fractureTiltActiveRef.current = false;
         fractureTiltRef.current = 0;
+        fractureJumpFrameRef.current = false;
+        fractureTiltLockSeededRef.current = false;
+        fractureTiltAnchorSeededFromLiveHeroRef.current = false;
         heroExplosionTransitionRef.current.active = false;
         heroToOverviewHandoffLockFramesRef.current = HERO_TO_OVERVIEW_HANDOFF_LOCK_FRAMES;
         console.log('[UCC FORCE HERO TO OVERVIEW COMPLETE]', {
@@ -2951,7 +2954,11 @@ const UnifiedCameraController = ({
       }
     }
 
-    if (fractureJumpFrameRef.current) {
+    const shouldBlockFractureTransitionAfterHeroOverview =
+      animationData?.cameraState === 'overview' &&
+      (heroToOverviewHandoffPendingRef.current || heroToOverviewHandoffLockFramesRef.current > 0 || heroToOverviewAwaitFirstNormalFrameRef.current);
+
+    if (fractureJumpFrameRef.current && !shouldBlockFractureTransitionAfterHeroOverview) {
       fractureJumpFrameRef.current = false;
       camera.fov = currentTarget.current.fov;
       camera.updateProjectionMatrix();
@@ -2972,7 +2979,8 @@ const UnifiedCameraController = ({
     if (
       fractureTiltActiveRef.current &&
       animationData?.crystalForm === 'exploded' &&
-      animationData?.cameraState === 'hero'
+      animationData?.cameraState === 'hero' &&
+      !shouldBlockFractureTransitionAfterHeroOverview
     ) {
       const isPlainHero =
         animationData?.state === 'hero' &&
@@ -3034,7 +3042,8 @@ const UnifiedCameraController = ({
     if (
       fractureTiltActiveRef.current &&
       animationData?.crystalForm === 'exploded' &&
-      animationData?.cameraState !== 'hero'
+      animationData?.cameraState !== 'hero' &&
+      !shouldBlockFractureTransitionAfterHeroOverview
     ) {
       if (!heroExplosionTransitionRef.current.active) {
         const transition = heroExplosionTransitionRef.current;
