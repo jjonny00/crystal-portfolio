@@ -12,6 +12,18 @@ const DEFAULT_TIMING = {
   cameraPushbackDecayEnd: 0.72,
   // Practical starter scale; keep >1 support for iterative tuning.
   cameraPushbackApplyScale: 2,
+  cameraPushbackDelayMs: 40,
+  cameraShakeAmplitude: 0.014,
+  cameraShakeDurationMs: 110,
+  cameraShakeFrequency: 34,
+  cameraArcStrength: 0.08,
+  cameraArcVertical: 0.65,
+  cameraArcLateral: 0.35,
+  heroOverviewExplosionParticlesEnabled: 1,
+  heroOverviewFractureRingImpactEnabled: 1,
+  heroOverviewCameraShakeEnabled: 1,
+  heroOverviewCameraArcEnabled: 1,
+  heroOverviewCameraPushbackDelayEnabled: 1,
   // Practical starter fragment impulse defaults for iterative tuning.
   fragmentImpulseDistance: 0.65,
   fragmentImpulseStrength: 1.4,
@@ -90,6 +102,59 @@ export const resolveHeroOverviewRuntimeTiming = (timingOverrides = {}) => {
       // Keep uncapped above 1 so temporary diagnostic scales (e.g. 100) survive resolution.
       ? Math.min(Math.max(merged.cameraPushbackApplyScale, 0), 200)
       : DEFAULT_TIMING.cameraPushbackApplyScale;
+  const cameraPushbackDelayMs =
+    typeof merged.cameraPushbackDelayMs === 'number' && Number.isFinite(merged.cameraPushbackDelayMs)
+      ? Math.max(0, merged.cameraPushbackDelayMs)
+      : DEFAULT_TIMING.cameraPushbackDelayMs;
+  const cameraShakeAmplitude =
+    typeof merged.cameraShakeAmplitude === 'number' && Number.isFinite(merged.cameraShakeAmplitude)
+      ? Math.max(0, merged.cameraShakeAmplitude)
+      : DEFAULT_TIMING.cameraShakeAmplitude;
+  const cameraShakeDurationMs =
+    typeof merged.cameraShakeDurationMs === 'number' && Number.isFinite(merged.cameraShakeDurationMs)
+      ? Math.max(0, merged.cameraShakeDurationMs)
+      : DEFAULT_TIMING.cameraShakeDurationMs;
+  const cameraShakeFrequency =
+    typeof merged.cameraShakeFrequency === 'number' && Number.isFinite(merged.cameraShakeFrequency)
+      ? Math.max(0, merged.cameraShakeFrequency)
+      : DEFAULT_TIMING.cameraShakeFrequency;
+  const cameraArcStrength =
+    typeof merged.cameraArcStrength === 'number' && Number.isFinite(merged.cameraArcStrength)
+      ? Math.max(0, merged.cameraArcStrength)
+      : DEFAULT_TIMING.cameraArcStrength;
+  const cameraArcVertical =
+    typeof merged.cameraArcVertical === 'number' && Number.isFinite(merged.cameraArcVertical)
+      ? merged.cameraArcVertical
+      : DEFAULT_TIMING.cameraArcVertical;
+  const cameraArcLateral =
+    typeof merged.cameraArcLateral === 'number' && Number.isFinite(merged.cameraArcLateral)
+      ? merged.cameraArcLateral
+      : DEFAULT_TIMING.cameraArcLateral;
+  const flagOrDefault = (value, fallback) => {
+    if (typeof value === 'boolean') return value ? 1 : 0;
+    if (typeof value === 'number' && Number.isFinite(value)) return value > 0 ? 1 : 0;
+    return fallback;
+  };
+  const heroOverviewExplosionParticlesEnabled = flagOrDefault(
+    merged.heroOverviewExplosionParticlesEnabled,
+    DEFAULT_TIMING.heroOverviewExplosionParticlesEnabled,
+  );
+  const heroOverviewFractureRingImpactEnabled = flagOrDefault(
+    merged.heroOverviewFractureRingImpactEnabled,
+    DEFAULT_TIMING.heroOverviewFractureRingImpactEnabled,
+  );
+  const heroOverviewCameraShakeEnabled = flagOrDefault(
+    merged.heroOverviewCameraShakeEnabled,
+    DEFAULT_TIMING.heroOverviewCameraShakeEnabled,
+  );
+  const heroOverviewCameraArcEnabled = flagOrDefault(
+    merged.heroOverviewCameraArcEnabled,
+    DEFAULT_TIMING.heroOverviewCameraArcEnabled,
+  );
+  const heroOverviewCameraPushbackDelayEnabled = flagOrDefault(
+    merged.heroOverviewCameraPushbackDelayEnabled,
+    DEFAULT_TIMING.heroOverviewCameraPushbackDelayEnabled,
+  );
   const fragmentImpulseDistance =
     typeof merged.fragmentImpulseDistance === 'number' && Number.isFinite(merged.fragmentImpulseDistance)
       ? Math.max(0, merged.fragmentImpulseDistance)
@@ -130,6 +195,18 @@ export const resolveHeroOverviewRuntimeTiming = (timingOverrides = {}) => {
     cameraPushbackDecayStart,
     cameraPushbackDecayEnd,
     cameraPushbackApplyScale,
+    cameraPushbackDelayMs,
+    cameraShakeAmplitude,
+    cameraShakeDurationMs,
+    cameraShakeFrequency,
+    cameraArcStrength,
+    cameraArcVertical,
+    cameraArcLateral,
+    heroOverviewExplosionParticlesEnabled,
+    heroOverviewFractureRingImpactEnabled,
+    heroOverviewCameraShakeEnabled,
+    heroOverviewCameraArcEnabled,
+    heroOverviewCameraPushbackDelayEnabled,
     fragmentImpulseDistance,
     fragmentImpulseStrength,
     fragmentRotationStrength,

@@ -74,6 +74,8 @@ const UnifiedCrystalScene = forwardRef(({
   const [sphereVisible, setSphereVisible] = useState(false);
   const [ringVisible, setRingVisible] = useState(false);
   const [burstId, setBurstId] = useState(0);
+  const [explosionBurstId, setExplosionBurstId] = useState(0);
+  const impactLayerOverrideRef = useRef({});
   
   // Crystal state tracking
   const [showWholeCrystal, setShowWholeCrystal] = useState(true);
@@ -101,6 +103,7 @@ const UnifiedCrystalScene = forwardRef(({
   const heroOverviewFragmentTimingResolvedLoggedRef = useRef(false);
   const heroOverviewTravelDistanceAuditLoggedRef = useRef(false);
   const heroOverviewVisibleTravelSampleLoggedRef = useRef(new Set());
+  const heroOverviewFragmentWriterAuditRef = useRef({ frameWriters: new Map(), writers: new Set(), multiple: false });
 
   const deriveFragmentVisualTiming = (runtimeState, explosionProgress) => {
     const timing = runtimeState?.timing || {};
@@ -279,6 +282,7 @@ const UnifiedCrystalScene = forwardRef(({
   // Track explosion timing so we can implement fracture pause
   const explosionStartRef = useRef(null);
   const fractureGlowStartRef = useRef(null);
+  const explosionImpactTriggeredRef = useRef(false);
   const pendingExplodeSwapAtRef = useRef(null);
   const explosionCycleCompleteRef = useRef(false);
   const pendingReformSwapAtRef = useRef(null);
@@ -324,6 +328,7 @@ const UnifiedCrystalScene = forwardRef(({
     setRingVisible(true);
     explosionStartRef.current = performance.now() - FORWARD_PRE_SWAP_WINDOW_MS;
     setBurstId(id => id + 1);
+    explosionImpactTriggeredRef.current = false;
 
     // Capture hero rotation so facets start from same orientation
     if (wholeCrystalRef.current && facetsGroupRef.current) {
@@ -353,6 +358,29 @@ const UnifiedCrystalScene = forwardRef(({
     }
 
     triggerFractureGlow();
+    if (typeof globalThis !== 'undefined' && globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__) {
+      if (!globalThis.__HERO_OVERVIEW_WRITER_AUDIT__) globalThis.__HERO_OVERVIEW_WRITER_AUDIT__ = {};
+      globalThis.__HERO_OVERVIEW_WRITER_AUDIT__ = {
+        active: true,
+        fromZone: 'hero',
+        toZone: 'overview',
+        fragmentWritersSeen: new Set(),
+        cameraWritersSeen: new Set(),
+        multipleFragmentWritersSameFrame: false,
+        multipleCameraWritersSameFrame: false,
+        legacyWriterAfterRuntimeWriter: false,
+        fallbackWriterAfterRuntimeWriter: false,
+      };
+      console.log('[hero-overview-writer-audit] session start', {
+        fromZone: 'hero',
+        toZone: 'overview',
+        runtimePhase: heroOverviewRuntime?.getSnapshot?.()?.phase ?? 'idle',
+        state: animationData?.state ?? null,
+        cameraState: animationData?.cameraState ?? null,
+        crystalForm: animationData?.crystalForm ?? null,
+        reason: 'runExplodeSwap',
+      });
+    }
   }, [crystalConfig, facetKeys, facetPlacementKeys, triggerFractureGlow]);
 
   const runReformSwap = useCallback(() => {
@@ -1784,6 +1812,25 @@ const UnifiedCrystalScene = forwardRef(({
               .multiplyScalar(explodedPos.length() * fractureDistance);
             facetRef.current.position.copy(configured ? configured : fallback);
             facetRef.current.quaternion.slerp(neutralQuat, Math.min(1, deltaTime * 6));
+            if (typeof globalThis !== 'undefined' && globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__) {
+              const frameId = Math.floor(state.clock.elapsedTime * 1000);
+              const frameWriters = heroOverviewFragmentWriterAuditRef.current.frameWriters.get(frameId) || [];
+              frameWriters.push('fracturePauseLegacy');
+              if (globalThis.__HERO_OVERVIEW_WRITER_AUDIT__?.active) {
+                globalThis.__HERO_OVERVIEW_WRITER_AUDIT__.fragmentWritersSeen.add('fracturePauseLegacy');
+                if (frameWriters.length > 1) globalThis.__HERO_OVERVIEW_WRITER_AUDIT__.multipleFragmentWritersSameFrame = true;
+              }
+              heroOverviewFragmentWriterAuditRef.current.frameWriters.set(frameId, frameWriters);
+              heroOverviewFragmentWriterAuditRef.current.writers.add('fracturePauseLegacy');
+              if (frameWriters.length > 1) heroOverviewFragmentWriterAuditRef.current.multiple = true;
+              if (idx === 0) console.log('[hero-overview-writer-audit] fragment writer', {
+                frameId, runtimePhase: heroOverviewRuntime?.getSnapshot?.()?.phase ?? 'idle', fragmentVisualPhase: 'fractureCharge',
+                crystalForm: animationData?.crystalForm ?? null, writerBranch: 'fracturePauseLegacy', facetKey,
+                positionBefore: null, positionAfter: facetRef.current.position.toArray(), rotationBefore: null,
+                rotationAfter: new THREE.Euler().setFromQuaternion(facetRef.current.quaternion, 'XYZ').toArray(),
+                isRuntimeTravelWriter: false, isLegacyWriter: true, isPostCompleteWriter: false, writeOrderIndex: frameWriters.length - 1,
+              });
+            }
           }
         });
         return; // Skip other animations during fracture pause
@@ -1834,6 +1881,27 @@ const UnifiedCrystalScene = forwardRef(({
         const explosionElapsedMs = elapsedExplosion * 1000;
 
         const progress = Math.min((elapsedExplosion - fracturePause) / (totalDuration - fracturePause), 1);
+        if (!explosionImpactTriggeredRef.current && progress >= 0) {
+          explosionImpactTriggeredRef.current = true;
+          setExplosionBurstId((id) => id + 1);
+          if (typeof globalThis !== 'undefined' && globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__) {
+            const timing = config?.timing?.heroOverviewRuntime || {};
+            console.log('[hero-overview-impact] explosion polish', {
+              explosionParticlesTriggered: true,
+              restoredLegacyExplosionParticles: false,
+              createdNewExplosionBurst: true,
+              fractureParticlesRetained: true,
+              fractureRingTriggered: true,
+              fractureRingStrength: Number(timing.heroOverviewFractureRingOpacity ?? mergedConfig?.fracture?.image?.maxOpacity ?? 1),
+              cameraShakeTriggered: true,
+              cameraShakeAmplitude: Number(timing.cameraShakeAmplitude ?? 0.014),
+              cameraShakeDurationMs: Number(timing.cameraShakeDurationMs ?? 110),
+              cameraPushbackDelayMs: Number(timing.cameraPushbackDelayMs ?? 40),
+              cameraArcApplied: Number(timing.cameraArcStrength ?? 0) > 0,
+              cameraArcStrength: Number(timing.cameraArcStrength ?? 0.08),
+            });
+          }
+        }
         const sharedProgressRaw = THREE.MathUtils.clamp(progress, 0, 1);
         const easeType = config?.timing?.heroOverviewRuntime?.heroOverviewMotionEaseType ?? 'expoOut';
         const sharedProgressEased = THREE.MathUtils.clamp(
@@ -1916,6 +1984,28 @@ const UnifiedCrystalScene = forwardRef(({
 
             facetRef.current.position.copy(finalPosition);
             facetRef.current.quaternion.slerpQuaternions(neutralQuat, finalQuat, eased);
+            if (typeof globalThis !== 'undefined' && globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__) {
+              const frameId = Math.floor(state.clock.elapsedTime * 1000);
+              const frameWriters = heroOverviewFragmentWriterAuditRef.current.frameWriters.get(frameId) || [];
+              frameWriters.push('heroOverviewRuntimeTravel');
+              if (globalThis.__HERO_OVERVIEW_WRITER_AUDIT__?.active) {
+                globalThis.__HERO_OVERVIEW_WRITER_AUDIT__.fragmentWritersSeen.add('heroOverviewRuntimeTravel');
+                if (frameWriters.length > 1) globalThis.__HERO_OVERVIEW_WRITER_AUDIT__.multipleFragmentWritersSameFrame = true;
+              }
+              heroOverviewFragmentWriterAuditRef.current.frameWriters.set(frameId, frameWriters);
+              heroOverviewFragmentWriterAuditRef.current.writers.add('heroOverviewRuntimeTravel');
+              if (frameWriters.length > 1) heroOverviewFragmentWriterAuditRef.current.multiple = true;
+              if (index === 0 && !heroOverviewFragmentPhaseLoggedRef.current.has(`audit-${fragmentVisualPhase}`)) {
+                heroOverviewFragmentPhaseLoggedRef.current.add(`audit-${fragmentVisualPhase}`);
+                console.log('[hero-overview-writer-audit] fragment writer', {
+                  frameId, runtimePhase, fragmentVisualPhase,
+                  crystalForm: animationData?.crystalForm ?? null, writerBranch: 'heroOverviewRuntimeTravel', facetKey,
+                  positionBefore: null, positionAfter: facetRef.current.position.toArray(), rotationBefore: null,
+                  rotationAfter: new THREE.Euler().setFromQuaternion(facetRef.current.quaternion, 'XYZ').toArray(),
+                  isRuntimeTravelWriter: true, isLegacyWriter: false, isPostCompleteWriter: false, writeOrderIndex: frameWriters.length - 1,
+                });
+              }
+            }
 
             if (typeof globalThis !== 'undefined' && globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__) {
               if (!heroOverviewFragmentWriterLoggedRef.current) {
@@ -2272,6 +2362,29 @@ const UnifiedCrystalScene = forwardRef(({
           explosionStartRef.current = null; // Animation finished
           if (heroOverviewExplosionClockRef) heroOverviewExplosionClockRef.current = null;
           explosionCycleCompleteRef.current = true;
+          if (typeof globalThis !== 'undefined' && globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__ && globalThis.__HERO_OVERVIEW_WRITER_AUDIT__?.active) {
+            const s = globalThis.__HERO_OVERVIEW_WRITER_AUDIT__;
+            console.log('[hero-overview-writer-audit] session end', {
+              fromZone: s.fromZone,
+              toZone: s.toZone,
+              runtimePhase: heroOverviewRuntime?.getSnapshot?.()?.phase ?? 'complete',
+              state: animationData?.state ?? null,
+              cameraState: animationData?.cameraState ?? null,
+              crystalForm: animationData?.crystalForm ?? null,
+              reason: 'explosion-cycle-complete',
+            });
+            console.log('[hero-overview-writer-audit] transition writer summary', {
+              fragmentWritersSeen: Array.from(s.fragmentWritersSeen || []),
+              cameraWritersSeen: Array.from(s.cameraWritersSeen || []),
+              multipleFragmentWritersSameFrame: Boolean(s.multipleFragmentWritersSameFrame),
+              multipleCameraWritersSameFrame: Boolean(s.multipleCameraWritersSameFrame),
+              legacyWriterAfterRuntimeWriter: Boolean(s.legacyWriterAfterRuntimeWriter),
+              fallbackWriterAfterRuntimeWriter: Boolean(s.fallbackWriterAfterRuntimeWriter),
+              suspectedOverwrite: Boolean(s.legacyWriterAfterRuntimeWriter || s.fallbackWriterAfterRuntimeWriter || s.multipleFragmentWritersSameFrame || s.multipleCameraWritersSameFrame),
+              suspectedBranches: [...Array.from(s.fragmentWritersSeen || []), ...Array.from(s.cameraWritersSeen || [])],
+            });
+            globalThis.__HERO_OVERVIEW_WRITER_AUDIT__.active = false;
+          }
         }
         return;
       }
@@ -2560,6 +2673,22 @@ const UnifiedCrystalScene = forwardRef(({
   }, [materialVersion]);
 
   useEffect(() => {
+    if (typeof globalThis === 'undefined') return undefined;
+    if (!globalThis.__HERO_OVERVIEW_IMPACT_LAYER_OVERRIDES__) {
+      globalThis.__HERO_OVERVIEW_IMPACT_LAYER_OVERRIDES__ = {};
+    }
+    globalThis.__setHeroOverviewImpactLayer = (layer, enabled) => {
+      impactLayerOverrideRef.current[layer] = Boolean(enabled);
+      globalThis.__HERO_OVERVIEW_IMPACT_LAYER_OVERRIDES__[layer] = Boolean(enabled);
+    };
+    return () => {
+      if (globalThis.__setHeroOverviewImpactLayer) {
+        delete globalThis.__setHeroOverviewImpactLayer;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     return () => {
       cleanupOverlays();
       resetRenderedFacetMaskGlow();
@@ -2586,7 +2715,10 @@ const UnifiedCrystalScene = forwardRef(({
       {/* Fracture expanding ring */}
       <FractureRingImage
         {...mergedConfig.fracture.image}
-        visible={ringVisible}
+        opacity={Number(config?.timing?.heroOverviewRuntime?.heroOverviewFractureRingOpacity ?? mergedConfig?.fracture?.image?.opacity ?? 2)}
+        maxScale={Number(config?.timing?.heroOverviewRuntime?.heroOverviewFractureRingScale ?? mergedConfig?.fracture?.image?.maxScale ?? 24)}
+        duration={Math.max(0.05, Number(config?.timing?.heroOverviewRuntime?.heroOverviewFractureRingDurationMs ?? 400) / 1000)}
+        visible={ringVisible && (impactLayerOverrideRef.current.fractureRingImpact ?? (Number(config?.timing?.heroOverviewRuntime?.heroOverviewFractureRingImpactEnabled ?? 1) > 0))}
         animationData={animationData}
         simplifiedAnimations={simplifiedAnimations}
         debugMode={import.meta.env.DEV}
@@ -2615,6 +2747,15 @@ const UnifiedCrystalScene = forwardRef(({
           trigger={burstId}
           emitterPosition={[0, 0, 0]}
           {...mergedConfig.fracture.particles}
+        />
+      )}
+      {!simplifiedAnimations && (impactLayerOverrideRef.current.explosionParticles ?? (Number(config?.timing?.heroOverviewRuntime?.heroOverviewExplosionParticlesEnabled ?? 1) > 0)) && (
+        <FractureBurstParticles
+          trigger={explosionBurstId}
+          emitterPosition={[0, 0, 0]}
+          delay={0}
+          count={Number(config?.timing?.heroOverviewRuntime?.heroOverviewExplosionParticleBurstCount ?? 180)}
+          color={mergedConfig?.fracture?.particles?.color ?? '#9af8ff'}
         />
       )}
 

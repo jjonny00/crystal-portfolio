@@ -136,6 +136,17 @@ const parseHeroOverviewRuntimeTiming = (timing, path) => {
     'cameraPushbackDecayStart',
     'cameraPushbackDecayEnd',
     'cameraPushbackApplyScale',
+    'cameraPushbackDelayMs',
+    'cameraShakeAmplitude',
+    'cameraShakeDurationMs',
+    'cameraShakeFrequency',
+    'cameraArcStrength',
+    'cameraArcVertical',
+    'cameraArcLateral',
+    'heroOverviewExplosionParticleBurstCount',
+    'heroOverviewFractureRingOpacity',
+    'heroOverviewFractureRingScale',
+    'heroOverviewFractureRingDurationMs',
     'fragmentImpulseDistance',
     'fragmentImpulseStrength',
     'fragmentRotationStrength',
@@ -159,6 +170,20 @@ const parseHeroOverviewRuntimeTiming = (timing, path) => {
     if (timing[key] === undefined) return;
     if (typeof timing[key] !== 'number' || !Number.isFinite(timing[key])) {
       throw new Error(`Invalid layout at ${path}.${key}: expected finite number.`);
+    }
+    parsed[key] = timing[key];
+  });
+  const booleanKeys = [
+    'heroOverviewExplosionParticlesEnabled',
+    'heroOverviewFractureRingImpactEnabled',
+    'heroOverviewCameraShakeEnabled',
+    'heroOverviewCameraArcEnabled',
+    'heroOverviewCameraPushbackDelayEnabled',
+  ];
+  booleanKeys.forEach((key) => {
+    if (timing[key] === undefined) return;
+    if (typeof timing[key] !== 'boolean') {
+      throw new Error(`Invalid layout at ${path}.${key}: expected boolean.`);
     }
     parsed[key] = timing[key];
   });

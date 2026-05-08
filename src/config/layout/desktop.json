@@ -617,7 +617,23 @@
       "fragmentTravelImpulseRate": 5.5,
       "fragmentTravelTimeExponent": 1.35,
       "fragmentTravelCurveStrength": 2.4,
-      "fragmentSettleCurveStrength": 4
+      "fragmentSettleCurveStrength": 4,
+      "cameraPushbackDelayMs": 40,
+      "cameraShakeAmplitude": 0.014,
+      "cameraShakeDurationMs": 110,
+      "cameraShakeFrequency": 34,
+      "cameraArcStrength": 0.08,
+      "cameraArcVertical": 0.65,
+      "cameraArcLateral": 0.35,
+      "heroOverviewExplosionParticleBurstCount": 180,
+      "heroOverviewFractureRingOpacity": 2.6,
+      "heroOverviewFractureRingScale": 28,
+      "heroOverviewFractureRingDurationMs": 320,
+      "heroOverviewExplosionParticlesEnabled": true,
+      "heroOverviewFractureRingImpactEnabled": true,
+      "heroOverviewCameraShakeEnabled": true,
+      "heroOverviewCameraArcEnabled": true,
+      "heroOverviewCameraPushbackDelayEnabled": true
     }
   }
 }
