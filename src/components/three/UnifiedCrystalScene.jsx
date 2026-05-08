@@ -1890,7 +1890,21 @@ const UnifiedCrystalScene = forwardRef(({
       const fracturePause = crystalConfig?.fracturePause || 0.5;
       const elapsedExplosion = (performance.now() - explosionStartRef.current) / 1000;
       const runtimePhaseForDecision = heroOverviewRuntime?.getSnapshot?.()?.phase ?? 'idle';
-      if (elapsedExplosion < fracturePause) {
+      const inHeroOverviewAuditSession =
+        typeof globalThis !== 'undefined' &&
+        globalThis.__HERO_OVERVIEW_WRITER_AUDIT__?.active &&
+        globalThis.__HERO_OVERVIEW_WRITER_AUDIT__?.sessionDirection === 'hero-to-overview';
+      const runtimeLaunchReached = (
+        runtimePhaseForDecision === 'explosionImpulse' ||
+        runtimePhaseForDecision === 'bulletTimeSlowdown' ||
+        runtimePhaseForDecision === 'overviewHandoff' ||
+        runtimePhaseForDecision === 'complete'
+      );
+      const shouldUseFracturePauseLegacy =
+        elapsedExplosion < fracturePause &&
+        (!inHeroOverviewAuditSession || !runtimeLaunchReached);
+
+      if (shouldUseFracturePauseLegacy) {
         logFragmentOwnershipDecision(state, {
           runtimePhase: runtimePhaseForDecision,
           elapsedExplosion,
@@ -1935,6 +1949,21 @@ const UnifiedCrystalScene = forwardRef(({
           }
         });
         return; // Skip other animations during fracture pause
+      }
+      if (elapsedExplosion < fracturePause && inHeroOverviewAuditSession && runtimeLaunchReached) {
+        logFragmentOwnershipDecision(state, {
+          runtimePhase: runtimePhaseForDecision,
+          elapsedExplosion,
+          fracturePause,
+          shouldUseFracturePauseLegacy: false,
+          shouldUseHeroOverviewRuntimeTravel: true,
+          shouldUseOverviewExplodedPositionBlend: false,
+          chosenFragmentWriterBranch: 'heroOverviewRuntimeTravel',
+          reasonChosen: 'runtime phase launched; fracture pause ownership released',
+          reasonRuntimeTravelSkipped: null,
+          reasonExplodedBlendSkipped: 'runtime exploded branch selected after launch',
+          earlyReturnBranch: null,
+        });
       }
     }
 
