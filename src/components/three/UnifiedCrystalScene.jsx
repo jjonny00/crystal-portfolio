@@ -101,6 +101,7 @@ const UnifiedCrystalScene = forwardRef(({
   const heroOverviewFragmentTimingResolvedLoggedRef = useRef(false);
   const heroOverviewTravelDistanceAuditLoggedRef = useRef(false);
   const heroOverviewVisibleTravelSampleLoggedRef = useRef(new Set());
+  const heroOverviewFragmentAuditLogBudgetRef = useRef(new Map());
 
   const deriveFragmentVisualTiming = (runtimeState, explosionProgress) => {
     const timing = runtimeState?.timing || {};
@@ -176,6 +177,35 @@ const UnifiedCrystalScene = forwardRef(({
       appliedRotationOffset,
     };
   };
+
+  const recordHeroOverviewFragmentWriterAudit = useCallback((state, payload = {}) => {
+    if (typeof globalThis === 'undefined' || !globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__) return;
+    const audit = globalThis.__HERO_OVERVIEW_WRITER_AUDIT__;
+    if (!audit?.active || audit.sessionDirection !== 'hero-to-overview') return;
+
+    const frameId = Math.round((state?.clock?.elapsedTime ?? 0) * 1000);
+    const writerBranch = String(payload.writerBranch || 'unknownFragmentWriter');
+    const set = audit.fragmentFrameWriters.get(frameId) || new Set();
+    set.add(writerBranch);
+    audit.fragmentFrameWriters.set(frameId, set);
+    audit.fragmentWritersSeen.add(writerBranch);
+    audit.writeOrderIndex += 1;
+
+    const logCount = heroOverviewFragmentAuditLogBudgetRef.current.get(writerBranch) || 0;
+    if (logCount < 3) {
+      heroOverviewFragmentAuditLogBudgetRef.current.set(writerBranch, logCount + 1);
+      console.log('[hero-overview-writer-audit] fragment writer', {
+        writerBranch,
+        frameId,
+        facetKey: payload.facetKey ?? null,
+        writeOrderIndex: audit.writeOrderIndex,
+        isRuntimeWriter: Boolean(payload.isRuntimeWriter),
+        isLegacyWriter: Boolean(payload.isLegacyWriter),
+        positionBefore: payload.positionBefore ?? null,
+        positionAfter: payload.positionAfter ?? null,
+      });
+    }
+  }, []);
   
   // FIXED: Better hover state tracking
   const [hoveredFacet, setHoveredFacet] = useState(null);
@@ -1917,28 +1947,14 @@ const UnifiedCrystalScene = forwardRef(({
             const positionBefore = facetRef.current.position.toArray();
             facetRef.current.position.copy(finalPosition);
             facetRef.current.quaternion.slerpQuaternions(neutralQuat, finalQuat, eased);
-            if (typeof globalThis !== 'undefined' && globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__) {
-              const audit = globalThis.__HERO_OVERVIEW_WRITER_AUDIT__;
-              if (audit?.active && audit.sessionDirection === 'hero-to-overview') {
-                const frameId = Math.round(state.clock.elapsedTime * 1000);
-                const writerBranch = 'heroOverviewRuntimeTravel';
-                const set = audit.fragmentFrameWriters.get(frameId) || new Set();
-                set.add(writerBranch);
-                audit.fragmentFrameWriters.set(frameId, set);
-                audit.fragmentWritersSeen.add(writerBranch);
-                audit.writeOrderIndex += 1;
-                console.log('[hero-overview-writer-audit] fragment writer', {
-                  writerBranch,
-                  frameId,
-                  facetKey,
-                  writeOrderIndex: audit.writeOrderIndex,
-                  isRuntimeWriter: true,
-                  isLegacyWriter: false,
-                  positionBefore,
-                  positionAfter: facetRef.current.position.toArray(),
-                });
-              }
-            }
+            recordHeroOverviewFragmentWriterAudit(state, {
+              writerBranch: 'heroOverviewRuntimeTravel',
+              facetKey,
+              isRuntimeWriter: true,
+              isLegacyWriter: false,
+              positionBefore,
+              positionAfter: facetRef.current.position.toArray(),
+            });
 
             if (typeof globalThis !== 'undefined' && globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__) {
               if (!heroOverviewFragmentWriterLoggedRef.current) {
@@ -2390,10 +2406,21 @@ const UnifiedCrystalScene = forwardRef(({
                   ? getAnchorAdjustedPosition(facetKey, finalTarget, targetQuat)
                   : finalTarget);
 
+            const positionBefore = facetRef.current.position.toArray();
             if (isProjectFocusedFacet || isCaseStudyActiveProject) {
               facetRef.current.position.copy(targetPosition);
             } else {
               facetRef.current.position.lerp(targetPosition, lerpSpeed * deltaTime * 60);
+            }
+            if (animationData?.crystalForm === 'exploded') {
+              recordHeroOverviewFragmentWriterAudit(state, {
+                writerBranch: 'overviewExplodedPositionBlend',
+                facetKey,
+                isRuntimeWriter: false,
+                isLegacyWriter: true,
+                positionBefore,
+                positionAfter: facetRef.current.position.toArray(),
+              });
             }
 
           }

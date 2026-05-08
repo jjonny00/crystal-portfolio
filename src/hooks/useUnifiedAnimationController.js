@@ -190,6 +190,17 @@ const endHeroOverviewWriterAuditSession = (payload = {}) => {
   const multipleFragment = maxFragment > 1;
   const multipleCamera = maxCamera > 1;
   const suspectedOverwrite = multipleFragment || session.legacyWriterAfterRuntimeWriter || session.fallbackWriterAfterRuntimeWriter;
+  if (session.fragmentWritersSeen.size === 0) {
+    console.warn('[hero-overview-writer-audit] missing fragment writers', {
+      sessionDirection: session.sessionDirection,
+      crystalForm: payload?.crystalForm ?? null,
+      state: payload?.state ?? null,
+      cameraState: payload?.cameraState ?? null,
+      explosionStartRefActive: payload?.explosionStartRefActive ?? null,
+      knownFragmentRefCount: payload?.knownFragmentRefCount ?? null,
+      possibleReason: 'No fragment transform write instrumentation hit while session was active.',
+    });
+  }
   console.log('[hero-overview-writer-audit] session end', {
     sessionDirection: session.sessionDirection,
     ...payload,

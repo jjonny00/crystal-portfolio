@@ -211,6 +211,10 @@ const UnifiedCameraController = ({
   const prevCameraStateRef = useRef(animationData?.cameraState ?? null);
   const configCheckLoggedRef = useRef(false);
   const stableHeroPositionRef = useRef(new THREE.Vector3(0, 0.8, 7));
+  const heroOverviewCameraAuditLogStateRef = useRef({
+    branchCounts: new Map(),
+    lastRuntimePhase: null,
+  });
 
   const applyFractureTilt = () => {
     if (!fractureTiltActiveRef.current) return;
@@ -1442,16 +1446,34 @@ const UnifiedCameraController = ({
           audit.fallbackWriterAfterRuntimeWriter = true;
           audit.suspectedBranches.add('FORCED_HERO_TO_OVERVIEW->FALLBACK');
         }
-        console.log('[hero-overview-writer-audit] camera writer', {
-          writerBranch,
-          frameId,
-          writeOrderIndex: audit.writeOrderIndex,
-          isRuntimeWriter,
-          isLegacyWriter,
-          isFallbackWriter,
-          positionBefore: null,
-          positionAfter: camera.position.toArray(),
-        });
+        const runtimePhase = heroOverviewRuntime?.getSnapshot?.()?.phase ?? null;
+        const logState = heroOverviewCameraAuditLogStateRef.current;
+        const previousCount = logState.branchCounts.get(writerBranch) || 0;
+        const phaseChanged = runtimePhase !== logState.lastRuntimePhase;
+        const suspectedConflict = Boolean(
+          (isLegacyWriter && audit.cameraWritersSeen.has('FORCED_HERO_TO_OVERVIEW')) ||
+          (isFallbackWriter && audit.cameraWritersSeen.has('FORCED_HERO_TO_OVERVIEW'))
+        );
+        const shouldLog =
+          previousCount === 0 ||
+          phaseChanged ||
+          suspectedConflict ||
+          previousCount < 3;
+        logState.lastRuntimePhase = runtimePhase;
+        if (shouldLog) {
+          logState.branchCounts.set(writerBranch, previousCount + 1);
+          console.log('[hero-overview-writer-audit] camera writer', {
+            writerBranch,
+            frameId,
+            writeOrderIndex: audit.writeOrderIndex,
+            runtimePhase,
+            isRuntimeWriter,
+            isLegacyWriter,
+            isFallbackWriter,
+            positionBefore: null,
+            positionAfter: camera.position.toArray(),
+          });
+        }
       }
     }
     if (!configCheckLoggedRef.current) {
