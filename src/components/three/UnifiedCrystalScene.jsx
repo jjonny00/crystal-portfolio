@@ -102,6 +102,9 @@ const UnifiedCrystalScene = forwardRef(({
   const heroOverviewTravelDistanceAuditLoggedRef = useRef(false);
   const heroOverviewVisibleTravelSampleLoggedRef = useRef(new Set());
   const heroOverviewFragmentAuditLogBudgetRef = useRef(new Map());
+  const heroOverviewCandidatePathLogBudgetRef = useRef(new Map());
+  const heroOverviewRenderedProbePrevWorldRef = useRef(new Map());
+  const heroOverviewRenderedProbeCountRef = useRef(0);
 
   const deriveFragmentVisualTiming = (runtimeState, explosionProgress) => {
     const timing = runtimeState?.timing || {};
@@ -206,6 +209,30 @@ const UnifiedCrystalScene = forwardRef(({
       });
     }
   }, []);
+
+  const logHeroOverviewCandidatePath = useCallback((state, payload = {}) => {
+    if (typeof globalThis === 'undefined' || !globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__) return;
+    const audit = globalThis.__HERO_OVERVIEW_WRITER_AUDIT__;
+    if (!audit?.active || audit.sessionDirection !== 'hero-to-overview') return;
+    const candidateBranch = String(payload.candidateBranch || 'unknownCandidate');
+    const count = heroOverviewCandidatePathLogBudgetRef.current.get(candidateBranch) || 0;
+    if (count >= 3) return;
+    heroOverviewCandidatePathLogBudgetRef.current.set(candidateBranch, count + 1);
+    console.log('[hero-overview-writer-audit] candidate fragment path entered', {
+      candidateBranch,
+      frameId: Math.round((state?.clock?.elapsedTime ?? 0) * 1000),
+      state: animationData?.state ?? null,
+      cameraState: animationData?.cameraState ?? null,
+      crystalForm: animationData?.crystalForm ?? null,
+      runtimePhase: heroOverviewRuntime?.getSnapshot?.()?.phase ?? null,
+      refsCount: facetRefs.current?.length ?? 0,
+      sampleRefExists: Boolean(payload.sampleRef),
+      sampleRefName: payload.sampleRef?.name ?? null,
+      sampleLocalPosition: payload.sampleRef?.position?.toArray?.() ?? null,
+      sampleWorldPosition: payload.sampleRef ? payload.sampleRef.getWorldPosition(new THREE.Vector3()).toArray() : null,
+      reasonIfSkipped: payload.reasonIfSkipped ?? null,
+    });
+  }, [animationData?.cameraState, animationData?.crystalForm, animationData?.state, heroOverviewRuntime]);
   
   // FIXED: Better hover state tracking
   const [hoveredFacet, setHoveredFacet] = useState(null);
@@ -1801,6 +1828,12 @@ const UnifiedCrystalScene = forwardRef(({
       const fracturePause = crystalConfig?.fracturePause || 0.5;
       const elapsedExplosion = (performance.now() - explosionStartRef.current) / 1000;
       if (elapsedExplosion < fracturePause) {
+        const sampleRef = facetRefs.current?.[0]?.current ?? null;
+        logHeroOverviewCandidatePath(state, {
+          candidateBranch: 'fracturePauseLegacy',
+          sampleRef,
+          reasonIfSkipped: sampleRef ? null : 'sample facet ref unavailable',
+        });
         const fracture = crystalConfig?.fracturePositions;
         const fractureDistance = crystalConfig?.fractureDistance ?? 0.3;
         facetRefs.current.forEach((facetRef, idx) => {
@@ -1812,8 +1845,17 @@ const UnifiedCrystalScene = forwardRef(({
               .clone()
               .normalize()
               .multiplyScalar(explodedPos.length() * fractureDistance);
+            const positionBefore = facetRef.current.position.toArray();
             facetRef.current.position.copy(configured ? configured : fallback);
             facetRef.current.quaternion.slerp(neutralQuat, Math.min(1, deltaTime * 6));
+            recordHeroOverviewFragmentWriterAudit(state, {
+              writerBranch: 'fracturePauseLegacy',
+              facetKey,
+              isRuntimeWriter: false,
+              isLegacyWriter: true,
+              positionBefore,
+              positionAfter: facetRef.current.position.toArray(),
+            });
           }
         });
         return; // Skip other animations during fracture pause
@@ -1858,6 +1900,12 @@ const UnifiedCrystalScene = forwardRef(({
     if (showFacets && crystalConfig?.positions) {
       // Custom fracture/explosion timing
       if (animationData.crystalForm === 'exploded' && explosionStartRef.current) {
+        const sampleRef = facetRefs.current?.[0]?.current ?? null;
+        logHeroOverviewCandidatePath(state, {
+          candidateBranch: 'heroOverviewRuntimeTravel',
+          sampleRef,
+          reasonIfSkipped: sampleRef ? null : 'sample facet ref unavailable',
+        });
         const fracturePause = crystalConfig?.fracturePause || 0.5;
         const totalDuration = crystalConfig?.explodeDuration || 1.2;
         const elapsedExplosion = (performance.now() - explosionStartRef.current) / 1000;
@@ -2359,6 +2407,11 @@ const UnifiedCrystalScene = forwardRef(({
               allFacetsAtCenter = false;
             }
           } else {
+            logHeroOverviewCandidatePath(state, {
+              candidateBranch: 'overviewExplodedPositionBlend',
+              sampleRef: facetRef.current,
+              reasonIfSkipped: null,
+            });
             let finalTarget = targetPos;
             if (floatAll || (floatFocused && animationData.focusedFacet === facetKey)) {
               const params = floatParamsRef.current[index];
@@ -2498,6 +2551,39 @@ const UnifiedCrystalScene = forwardRef(({
               fracturePosition: resolvedFracture.toArray(),
             });
           }
+        }
+        if (
+          typeof globalThis !== 'undefined' &&
+          globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__ &&
+          globalThis.__HERO_OVERVIEW_WRITER_AUDIT__?.active &&
+          globalThis.__HERO_OVERVIEW_WRITER_AUDIT__?.sessionDirection === 'hero-to-overview' &&
+          heroOverviewRenderedProbeCountRef.current < 6 &&
+          facetRef?.current
+        ) {
+          const object = facetRef.current;
+          const objectId = `${object.name || 'unnamed'}:${index}`;
+          const worldPosition = object.getWorldPosition(new THREE.Vector3());
+          const previousWorldPosition = heroOverviewRenderedProbePrevWorldRef.current.get(objectId) || null;
+          const worldDelta = previousWorldPosition ? worldPosition.clone().sub(previousWorldPosition).toArray() : null;
+          if (!previousWorldPosition || worldDelta.some((v) => Math.abs(v) > 0.00001)) {
+            heroOverviewRenderedProbeCountRef.current += 1;
+            console.log('[hero-overview-writer-audit] rendered fragment movement probe', {
+              objectName: object.name || null,
+              objectType: object.type || null,
+              parentName: object.parent?.name || null,
+              parentType: object.parent?.type || null,
+              localPosition: object.position.toArray(),
+              worldPosition: worldPosition.toArray(),
+              previousWorldPosition: previousWorldPosition?.toArray?.() ?? null,
+              worldDelta,
+              visible: object.visible,
+              materialName: object.material?.name || null,
+              sourceTag: object.userData?.sourceTag ?? null,
+              crystalForm: animationData?.crystalForm ?? null,
+              runtimePhase: heroOverviewRuntime?.getSnapshot?.()?.phase ?? null,
+            });
+          }
+          heroOverviewRenderedProbePrevWorldRef.current.set(objectId, worldPosition.clone());
         }
       });
 
