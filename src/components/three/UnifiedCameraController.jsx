@@ -2862,6 +2862,28 @@ const UnifiedCameraController = ({
           finalPosition: camera.position.clone(),
           finalLookAt: transition.to.lookAtTarget.clone(),
           finalFilmOffset: camera.filmOffset,
+          finalQuaternion: camera.quaternion.clone(),
+          finalRotation: camera.rotation.clone(),
+          finalFov: camera.fov,
+          finalZoom: camera.zoom,
+          finalAspect: camera.aspect,
+          finalNear: camera.near,
+          finalFar: camera.far,
+          finalCurrentTargetPosition: currentTarget.current.position.clone(),
+          finalCurrentTargetLookAt: currentTarget.current.lookAt.clone(),
+        };
+        currentPositionRef.current.copy(camera.position);
+        currentLookAtRef.current.copy(transition.to.lookAtTarget);
+        currentFilmOffsetRef.current = camera.filmOffset;
+        previousPositionRef.current.copy(camera.position);
+        previousLookAtRef.current.copy(transition.to.lookAtTarget);
+        transitionFromRef.current.position.copy(camera.position);
+        transitionFromRef.current.lookAt.copy(transition.to.lookAtTarget);
+        lastCameraConfig.current = {
+          ...(lastCameraConfig.current || {}),
+          target: transition.to.lookAtTarget.clone(),
+          position: camera.position.clone(),
+          fov: camera.fov,
         };
         // Prevent post-handoff fracture branch from re-owning camera and introducing a second jump.
         fractureTiltActiveRef.current = false;
@@ -2870,7 +2892,7 @@ const UnifiedCameraController = ({
         fractureTiltLockSeededRef.current = false;
         fractureTiltAnchorSeededFromLiveHeroRef.current = false;
         heroExplosionTransitionRef.current.active = false;
-        heroToOverviewHandoffLockFramesRef.current = HERO_TO_OVERVIEW_HANDOFF_LOCK_FRAMES;
+        heroToOverviewHandoffLockFramesRef.current = Math.max(HERO_TO_OVERVIEW_HANDOFF_LOCK_FRAMES, 4);
         console.log('[UCC FORCE HERO TO OVERVIEW COMPLETE]', {
           finalPosition: camera.position.toArray(),
           finalLookAt: transition.to.lookAtTarget.toArray(),
@@ -3460,12 +3482,26 @@ const UnifiedCameraController = ({
       const pending = heroToOverviewHandoffPendingRef.current;
       if (pending) {
         camera.position.copy(pending.finalPosition);
+        if (pending.finalQuaternion) camera.quaternion.copy(pending.finalQuaternion);
+        if (pending.finalRotation) camera.rotation.copy(pending.finalRotation);
         camera.lookAt(pending.finalLookAt);
+        if (Number.isFinite(pending.finalFov)) camera.fov = pending.finalFov;
+        if (Number.isFinite(pending.finalZoom)) camera.zoom = pending.finalZoom;
+        if (Number.isFinite(pending.finalAspect)) camera.aspect = pending.finalAspect;
+        if (Number.isFinite(pending.finalNear)) camera.near = pending.finalNear;
+        if (Number.isFinite(pending.finalFar)) camera.far = pending.finalFar;
         camera.filmOffset = pending.finalFilmOffset;
         camera.updateProjectionMatrix();
-        currentTarget.current.position.copy(pending.finalPosition);
-        currentTarget.current.lookAt.copy(pending.finalLookAt);
-        currentTarget.current.fov = camera.fov;
+        currentTarget.current.position.copy(pending.finalCurrentTargetPosition || pending.finalPosition);
+        currentTarget.current.lookAt.copy(pending.finalCurrentTargetLookAt || pending.finalLookAt);
+        currentTarget.current.fov = Number.isFinite(pending.finalFov) ? pending.finalFov : camera.fov;
+        currentPositionRef.current.copy(pending.finalPosition);
+        currentLookAtRef.current.copy(pending.finalLookAt);
+        currentFilmOffsetRef.current = pending.finalFilmOffset;
+        previousPositionRef.current.copy(pending.finalPosition);
+        previousLookAtRef.current.copy(pending.finalLookAt);
+        transitionFromRef.current.position.copy(pending.finalPosition);
+        transitionFromRef.current.lookAt.copy(pending.finalLookAt);
         logCameraWrite(state, "FORCED_HERO_TO_OVERVIEW", "handoff-lock-frame", pending.finalLookAt, true, true);
         if (heroToOverviewHandoffLockFramesRef.current <= 0) {
           heroToOverviewHandoffPendingRef.current = null;
