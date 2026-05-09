@@ -2278,7 +2278,40 @@ const UnifiedCrystalScene = forwardRef(({
               ? basePosition.clone()
               : anchorAdjustedStartPosition.clone().lerp(anchorAdjustedEndPosition, travelProgress);
             const steadyStateExplodedPosition = anchorAdjustedEndPosition.clone();
-            const finalPosition = runtimeFinalPosition;
+            const proofModeEnabled = Boolean(typeof globalThis !== 'undefined' && globalThis.__HERO_OVERVIEW_EXTREME_PROOF__ === true);
+            const originalFinalPosition = runtimeFinalPosition.clone();
+            let finalPosition = runtimeFinalPosition;
+            if (proofModeEnabled) {
+              const direction = runtimeFinalPosition.clone().normalize();
+              finalPosition = runtimeFinalPosition.clone().add(direction.multiplyScalar(20)).add(new THREE.Vector3(0, 12, 0));
+              globalThis.__HERO_OVERVIEW_EXTREME_PROOF_FRAGMENT_HIT__ = true;
+              globalThis.__HERO_OVERVIEW_EXTREME_PROOF_FRAGMENT_FRAMES__ = Number(globalThis.__HERO_OVERVIEW_EXTREME_PROOF_FRAGMENT_FRAMES__ || 0) + 1;
+              if (globalThis.__HERO_OVERVIEW_EXTREME_PROOF_FRAGMENT_FIRST_FRAME__ == null) {
+                globalThis.__HERO_OVERVIEW_EXTREME_PROOF_FRAGMENT_FIRST_FRAME__ = Math.round(state.clock.elapsedTime * 1000);
+                console.log('[hero-overview-extreme-proof] enabled', {
+                  proofModeEnabled: true,
+                  cameraExtremeApplied: Boolean(globalThis.__HERO_OVERVIEW_EXTREME_PROOF_CAMERA_HIT__),
+                  fragmentExtremeApplied: true,
+                  cameraWriterBranch: null,
+                  fragmentWriterBranch: 'heroOverviewRuntimeTravel',
+                  runtimePhase,
+                  frameId: Math.round(state.clock.elapsedTime * 1000),
+                  state: animationData?.state ?? null,
+                  cameraState: animationData?.cameraState ?? null,
+                  crystalForm: animationData?.crystalForm ?? null,
+                });
+              }
+              if (Number(globalThis.__HERO_OVERVIEW_EXTREME_PROOF_FRAGMENT_FRAMES__ || 0) <= 8) {
+                console.log('[hero-overview-extreme-proof] fragment runtime path hit', {
+                  writerBranch: 'heroOverviewRuntimeTravel',
+                  runtimePhase,
+                  frameId: Math.round(state.clock.elapsedTime * 1000),
+                  facetKey,
+                  originalFinalPosition: originalFinalPosition.toArray(),
+                  extremeFinalPosition: finalPosition.toArray(),
+                });
+              }
+            }
             const finalEuler = new THREE.Euler(
               baseEuler.x + appliedRotationOffset.x,
               baseEuler.y + appliedRotationOffset.y,

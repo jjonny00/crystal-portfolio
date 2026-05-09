@@ -267,6 +267,14 @@ const UnifiedCameraController = ({
     secondTransitionSteadyFirstSnapshot: null,
     summaryLogged: false,
   });
+  const heroOverviewExtremeProofRef = useRef({
+    enabledLogged: false,
+    cameraRuntimePathWasHit: false,
+    cameraExtremeAppliedFrames: 0,
+    runtimePhasesSeen: new Set(),
+    firstCameraExtremeFrame: null,
+    summaryLogged: false,
+  });
 
   const toRoundedArray = (arrLike, digits = 6) => {
     if (!arrLike || typeof arrLike.length !== 'number') return null;
@@ -2543,9 +2551,55 @@ const UnifiedCameraController = ({
         globalThis.__HERO_OVERVIEW_CAMERA_TIMING_SOURCE__ = cameraTimingSource;
         globalThis.__HERO_OVERVIEW_CAMERA_PROGRESS__ = sharedEased;
         globalThis.__HERO_OVERVIEW_CAMERA_POSITION__ = finalPosition.toArray();
-        camera.position.copy(finalPosition);
-        camera.lookAt(forcedLookAt);
-        camera.filmOffset = THREE.MathUtils.lerp(transition.from.filmOffsetX, transition.to.filmOffsetX, sharedEased);
+        const proofModeEnabled = Boolean(typeof globalThis !== 'undefined' && globalThis.__HERO_OVERVIEW_EXTREME_PROOF__ === true);
+        const extreme = heroOverviewExtremeProofRef.current;
+        const originalCameraPosition = finalPosition.clone();
+        const originalLookAt = forcedLookAt.clone();
+        const originalFilmOffset = THREE.MathUtils.lerp(transition.from.filmOffsetX, transition.to.filmOffsetX, sharedEased);
+        let extremeCameraPosition = finalPosition;
+        let extremeLookAt = forcedLookAt;
+        let extremeFilmOffset = originalFilmOffset;
+        if (proofModeEnabled) {
+          globalThis.__HERO_OVERVIEW_EXTREME_PROOF_CAMERA_HIT__ = true;
+          extremeCameraPosition = finalPosition.clone().add(new THREE.Vector3(30, 14 + Math.sin(runtimeProgress * 20) * 4, 20));
+          extremeLookAt = new THREE.Vector3(10, 10, 0);
+          extremeFilmOffset = 40;
+          extreme.cameraRuntimePathWasHit = true;
+          extreme.cameraExtremeAppliedFrames += 1;
+          extreme.runtimePhasesSeen.add(runtimePhase ?? 'unknown');
+          if (extreme.firstCameraExtremeFrame == null) extreme.firstCameraExtremeFrame = Math.round(state.clock.elapsedTime * 1000);
+          if (!extreme.enabledLogged) {
+            extreme.enabledLogged = true;
+            console.log('[hero-overview-extreme-proof] enabled', {
+              proofModeEnabled: true,
+              cameraExtremeApplied: true,
+              fragmentExtremeApplied: false,
+              cameraWriterBranch: 'FORCED_HERO_TO_OVERVIEW',
+              fragmentWriterBranch: null,
+              runtimePhase,
+              frameId: Math.round(state.clock.elapsedTime * 1000),
+              state: animationData?.state ?? null,
+              cameraState: animationData?.cameraState ?? null,
+              crystalForm: animationData?.crystalForm ?? null,
+            });
+          }
+          if (extreme.cameraExtremeAppliedFrames <= 5) {
+            console.log('[hero-overview-extreme-proof] camera runtime path hit', {
+              writerBranch: 'FORCED_HERO_TO_OVERVIEW',
+              runtimePhase,
+              frameId: Math.round(state.clock.elapsedTime * 1000),
+              originalCameraPosition: originalCameraPosition.toArray(),
+              extremeCameraPosition: extremeCameraPosition.toArray(),
+              originalLookAt: originalLookAt.toArray(),
+              extremeLookAt: extremeLookAt.toArray(),
+              originalFilmOffset,
+              extremeFilmOffset,
+            });
+          }
+        }
+        camera.position.copy(extremeCameraPosition);
+        camera.lookAt(extremeLookAt);
+        camera.filmOffset = extremeFilmOffset;
         camera.updateProjectionMatrix();
 
         if (typeof globalThis !== 'undefined' && globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__) {
@@ -2892,7 +2946,20 @@ const UnifiedCameraController = ({
         fractureTiltLockSeededRef.current = false;
         fractureTiltAnchorSeededFromLiveHeroRef.current = false;
         heroExplosionTransitionRef.current.active = false;
-        heroToOverviewHandoffLockFramesRef.current = Math.max(HERO_TO_OVERVIEW_HANDOFF_LOCK_FRAMES, 4);
+        heroToOverviewHandoffLockFramesRef.current = HERO_TO_OVERVIEW_HANDOFF_LOCK_FRAMES;
+        if (proofModeEnabled && !extreme.summaryLogged) {
+          extreme.summaryLogged = true;
+          console.log('[hero-overview-extreme-proof] summary', {
+            cameraRuntimePathWasHit: extreme.cameraRuntimePathWasHit,
+            fragmentRuntimePathWasHit: Boolean(globalThis.__HERO_OVERVIEW_EXTREME_PROOF_FRAGMENT_HIT__),
+            cameraExtremeAppliedFrames: extreme.cameraExtremeAppliedFrames,
+            fragmentExtremeAppliedFrames: Number(globalThis.__HERO_OVERVIEW_EXTREME_PROOF_FRAGMENT_FRAMES__ || 0),
+            runtimePhasesSeen: Array.from(extreme.runtimePhasesSeen),
+            firstCameraExtremeFrame: extreme.firstCameraExtremeFrame,
+            firstFragmentExtremeFrame: globalThis.__HERO_OVERVIEW_EXTREME_PROOF_FRAGMENT_FIRST_FRAME__ ?? null,
+            conclusionHint: 'If the rendered transition was not visually extreme, the visible path is likely not this runtime path.',
+          });
+        }
         console.log('[UCC FORCE HERO TO OVERVIEW COMPLETE]', {
           finalPosition: camera.position.toArray(),
           finalLookAt: transition.to.lookAtTarget.toArray(),
