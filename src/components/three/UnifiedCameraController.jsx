@@ -275,6 +275,24 @@ const UnifiedCameraController = ({
     firstCameraExtremeFrame: null,
     summaryLogged: false,
   });
+  const heroOverviewRollAuditRef = useRef({
+    active: false,
+    postFramesRemaining: 0,
+    prevRoll: null,
+    prevPhase: null,
+    maxAbsRoll: 0,
+    maxAbsRollFrame: null,
+    maxRollDelta: 0,
+    maxRollDeltaFrame: null,
+    rollStartedFrame: null,
+    rollStartedPhase: null,
+    rollStartedWriterBranch: null,
+    firstPostSessionFrame: null,
+    rollPresentOnFirstSteadyFrame: false,
+    fractureTiltWasActive: false,
+    fractureTiltFrames: 0,
+    transitionBranchAtMaxRoll: null,
+  });
 
   const toRoundedArray = (arrLike, digits = 6) => {
     if (!arrLike || typeof arrLike.length !== 'number') return null;
@@ -1523,6 +1541,101 @@ const UnifiedCameraController = ({
     }
     lastCameraWriterRef.current = branch;
     const frameId = Math.round(state.clock.elapsedTime * 1000);
+    const rollAuditEnabled = Boolean(typeof globalThis !== 'undefined' && globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__ === true);
+    if (rollAuditEnabled) {
+      const roll = heroOverviewRollAuditRef.current;
+      const runtimePhase = heroOverviewRuntime?.getSnapshot?.()?.phase ?? null;
+      const isHeroOverviewRuntimeFrame = String(branch) === 'FORCED_HERO_TO_OVERVIEW';
+      if (isHeroOverviewRuntimeFrame && !roll.active) {
+        roll.active = true;
+        roll.postFramesRemaining = 30;
+      } else if (!isHeroOverviewRuntimeFrame && roll.active && roll.postFramesRemaining > 0) {
+        if (roll.firstPostSessionFrame == null) roll.firstPostSessionFrame = frameId;
+        roll.postFramesRemaining -= 1;
+      } else if (!isHeroOverviewRuntimeFrame && roll.active && roll.postFramesRemaining <= 0) {
+        const suspectedLegacyTiltInterference = roll.fractureTiltWasActive || (roll.transitionBranchAtMaxRoll === 'TRANSITION');
+        console.log('[hero-overview-camera-roll-audit] summary', {
+          maxAbsRoll: round4(roll.maxAbsRoll),
+          maxAbsRollFrame: roll.maxAbsRollFrame,
+          maxRollDelta: round4(roll.maxRollDelta),
+          maxRollDeltaFrame: roll.maxRollDeltaFrame,
+          rollStartedFrame: roll.rollStartedFrame,
+          rollStartedPhase: roll.rollStartedPhase,
+          rollStartedWriterBranch: roll.rollStartedWriterBranch,
+          rollPersistedAfterCompletion: Boolean(roll.firstPostSessionFrame && Math.abs(roll.prevRoll ?? 0) > 0.005),
+          rollPresentOnFirstSteadyFrame: roll.rollPresentOnFirstSteadyFrame,
+          fractureTiltWasActive: roll.fractureTiltWasActive,
+          fractureTiltFrames: roll.fractureTiltFrames,
+          transitionBranchAtMaxRoll: roll.transitionBranchAtMaxRoll,
+          suspectedRollSource: suspectedLegacyTiltInterference ? 'fracture-or-transition-tilt' : 'runtime-orientation',
+          rollExpectedByRuntimePath: false,
+          suspectedLegacyTiltInterference,
+        });
+        roll.active = false;
+      }
+      if (roll.active) {
+        const rollMagnitudeThreshold = 0.005;
+        const rollDeltaThreshold = 0.003;
+        const currentRoll = camera.rotation.z;
+        const rollDelta = roll.prevRoll == null ? 0 : Math.abs(currentRoll - roll.prevRoll);
+        const absRoll = Math.abs(currentRoll);
+        if (fractureTiltActiveRef.current) {
+          roll.fractureTiltWasActive = true;
+          roll.fractureTiltFrames += 1;
+        }
+        if (absRoll > roll.maxAbsRoll) {
+          roll.maxAbsRoll = absRoll;
+          roll.maxAbsRollFrame = frameId;
+          roll.transitionBranchAtMaxRoll = String(branch || 'unknown');
+        }
+        if (rollDelta > roll.maxRollDelta) {
+          roll.maxRollDelta = rollDelta;
+          roll.maxRollDeltaFrame = frameId;
+        }
+        if (roll.rollStartedFrame == null && absRoll > rollMagnitudeThreshold) {
+          roll.rollStartedFrame = frameId;
+          roll.rollStartedPhase = runtimePhase;
+          roll.rollStartedWriterBranch = String(branch || 'unknown');
+        }
+        const shouldLogRollSample =
+          frameId === roll.rollStartedFrame ||
+          roll.prevPhase !== runtimePhase ||
+          absRoll > rollMagnitudeThreshold ||
+          rollDelta > rollDeltaThreshold ||
+          roll.firstPostSessionFrame === frameId;
+        if (roll.firstPostSessionFrame === frameId && absRoll > rollMagnitudeThreshold) {
+          roll.rollPresentOnFirstSteadyFrame = true;
+        }
+        if (shouldLogRollSample) {
+          console.log('[hero-overview-camera-roll-audit] sample', {
+            frameId,
+            state: animationData?.state ?? null,
+            cameraState: animationData?.cameraState ?? null,
+            runtimePhase,
+            writerBranch: String(branch || 'unknown'),
+            cameraRotation: { x: camera.rotation.x, y: camera.rotation.y, z: camera.rotation.z },
+            cameraQuaternion: quaternionToPlain(camera.quaternion),
+            derivedRollAngle: camera.rotation.z,
+            cameraUp: camera.up.toArray(),
+            parent: camera.parent ? { name: camera.parent.name || null, type: camera.parent.type || null, uuid: camera.parent.uuid || null } : null,
+            parentRotation: camera.parent?.rotation ? { x: camera.parent.rotation.x, y: camera.parent.rotation.y, z: camera.parent.rotation.z } : null,
+            parentQuaternion: camera.parent?.quaternion ? quaternionToPlain(camera.parent.quaternion) : null,
+            currentTargetLookAt: currentTarget.current?.lookAt?.toArray?.() ?? null,
+            lookAtTargetUsed: lookAtTarget?.toArray?.() ?? null,
+            lookAtCalledThisFrame: Boolean(lookAtTarget),
+            quaternionCopiedOrSlerpedThisFrame: /quaternion|slerp|copy/i.test(String(reason || '')),
+            fractureTiltActive: fractureTiltActiveRef.current,
+            fractureTiltValue: fractureTiltRef.current,
+            heroExplosionTransitionActive: heroExplosionTransitionRef.current.active,
+            shouldBlockFractureTransitionAfterHeroOverview:
+              animationData?.cameraState === 'overview' &&
+              (heroToOverviewHandoffPendingRef.current || heroToOverviewHandoffLockFramesRef.current > 0 || heroToOverviewAwaitFirstNormalFrameRef.current),
+          });
+        }
+        roll.prevPhase = runtimePhase;
+        roll.prevRoll = currentRoll;
+      }
+    }
     const contract = heroOverviewCompositionContractRef.current;
     const firstRun = heroOverviewFirstRunAuditRef.current;
     if (!firstRun.pageLoadInitialCaptured) {
