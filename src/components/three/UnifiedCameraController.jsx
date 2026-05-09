@@ -254,6 +254,19 @@ const UnifiedCameraController = ({
     lastKnownRuntimePhase: null,
     lastWriterBranch: null,
   });
+  const heroOverviewFirstRunAuditRef = useRef({
+    transitionCount: 0,
+    hadPriorOverviewVisit: false,
+    hadPriorHeroToOverviewCompletion: false,
+    hadPriorOverviewSteadyFrame: false,
+    pageLoadInitialCaptured: false,
+    pageLoadInitial: null,
+    firstTransitionForcedFinalSnapshot: null,
+    firstTransitionSteadyFirstSnapshot: null,
+    secondTransitionForcedFinalSnapshot: null,
+    secondTransitionSteadyFirstSnapshot: null,
+    summaryLogged: false,
+  });
 
   const toRoundedArray = (arrLike, digits = 6) => {
     if (!arrLike || typeof arrLike.length !== 'number') return null;
@@ -1503,11 +1516,40 @@ const UnifiedCameraController = ({
     lastCameraWriterRef.current = branch;
     const frameId = Math.round(state.clock.elapsedTime * 1000);
     const contract = heroOverviewCompositionContractRef.current;
+    const firstRun = heroOverviewFirstRunAuditRef.current;
+    if (!firstRun.pageLoadInitialCaptured) {
+      firstRun.pageLoadInitialCaptured = true;
+      firstRun.pageLoadInitial = {
+        pageLoadInitialCameraPosition: camera.position.toArray(),
+        pageLoadInitialCameraQuaternion: quaternionToPlain(camera.quaternion),
+        pageLoadInitialFilmOffset: round4(camera.filmOffset),
+        pageLoadInitialCurrentTarget: currentTarget.current?.position?.toArray?.() ?? null,
+        pageLoadInitialCurrentTargetLookAt: currentTarget.current?.lookAt?.toArray?.() ?? null,
+        pageLoadInitialOverviewConfig: getConfigCameraState('overview', animationData?.focusedFacet, animationData?.focusedProject)
+          ? {
+            position: getConfigCameraState('overview', animationData?.focusedFacet, animationData?.focusedProject)?.position?.toArray?.() ?? null,
+            target: getConfigCameraState('overview', animationData?.focusedFacet, animationData?.focusedProject)?.target?.toArray?.() ?? null,
+            fov: getConfigCameraState('overview', animationData?.focusedFacet, animationData?.focusedProject)?.fov ?? null,
+          }
+          : null,
+      };
+    }
+    if (animationData?.cameraState === 'overview') firstRun.hadPriorOverviewVisit = true;
     contract.lastKnownState = animationData?.state ?? null;
     contract.lastKnownCameraState = animationData?.cameraState ?? null;
     contract.lastKnownRuntimePhase = heroOverviewRuntime?.getSnapshot?.()?.phase ?? null;
     contract.lastWriterBranch = String(branch || 'unknown');
     if (String(branch) === 'FORCED_HERO_TO_OVERVIEW') {
+      if (contract.forcedReleasedFrameId != null || contract.forcedFinalSnapshot == null) {
+        contract.forcedReleasedFrameId = null;
+        contract.steadyDeadlineFrameId = null;
+        contract.steadyFirstSnapshot = null;
+        contract.logged = false;
+        contract.missingLogged = false;
+      }
+      if (!contract.forcedFinalSnapshot) {
+        firstRun.transitionCount += 1;
+      }
       contract.forcedFinalSnapshot = getCameraContractSnapshot({
         state,
         writerBranch: branch,
@@ -1515,6 +1557,8 @@ const UnifiedCameraController = ({
         configSource: reason || 'forced-transition',
         projectionUpdated,
       });
+      if (firstRun.transitionCount === 1) firstRun.firstTransitionForcedFinalSnapshot = contract.forcedFinalSnapshot;
+      if (firstRun.transitionCount === 2) firstRun.secondTransitionForcedFinalSnapshot = contract.forcedFinalSnapshot;
     }
     const releaseDetected = Boolean(
       contract.forcedFinalSnapshot &&
@@ -1540,6 +1584,8 @@ const UnifiedCameraController = ({
         projectionUpdated,
       });
       contract.steadyFirstSnapshot = steadySnapshot;
+      if (firstRun.transitionCount === 1) firstRun.firstTransitionSteadyFirstSnapshot = steadySnapshot;
+      if (firstRun.transitionCount === 2) firstRun.secondTransitionSteadyFirstSnapshot = steadySnapshot;
       const forced = contract.forcedFinalSnapshot;
       const deltaVec = (a, b) => {
         if (!a || !b || a.length !== b.length) return null;
@@ -1569,6 +1615,14 @@ const UnifiedCameraController = ({
         ].filter(Boolean)
         : [];
       console.log('[hero-overview-composition-contract] diff', {
+        heroOverviewTransitionCount: firstRun.transitionCount,
+        isFirstHeroOverviewTransition: firstRun.transitionCount === 1,
+        hadPriorOverviewVisit: firstRun.hadPriorOverviewVisit,
+        hadPriorHeroToOverviewCompletion: firstRun.hadPriorHeroToOverviewCompletion,
+        hadPriorOverviewSteadyFrame: firstRun.hadPriorOverviewSteadyFrame,
+        hadCurrentTargetInitializedBeforeTransition: Boolean(firstRun.pageLoadInitial?.pageLoadInitialCurrentTarget),
+        hadFilmOffsetInitializedBeforeTransition: Number.isFinite(firstRun.pageLoadInitial?.pageLoadInitialFilmOffset),
+        hadOverviewCameraConfigResolvedBeforeTransition: Boolean(firstRun.pageLoadInitial?.pageLoadInitialOverviewConfig),
         forcedFinalSnapshot: forced,
         steadyFirstSnapshot: steadySnapshot,
         positionDelta: deltaVec(forced.cameraPosition, steadySnapshot.cameraPosition),
@@ -1599,6 +1653,49 @@ const UnifiedCameraController = ({
         steadyFirstCurrentTargetLookAt: steadySnapshot.currentTargetLookAt,
       });
       contract.logged = true;
+      firstRun.hadPriorHeroToOverviewCompletion = true;
+      firstRun.hadPriorOverviewSteadyFrame = true;
+      if (
+        !firstRun.summaryLogged &&
+        firstRun.firstTransitionForcedFinalSnapshot &&
+        firstRun.firstTransitionSteadyFirstSnapshot &&
+        firstRun.secondTransitionForcedFinalSnapshot &&
+        firstRun.secondTransitionSteadyFirstSnapshot
+      ) {
+        const deltaVec = (a, b) => (a && b ? round4(Math.sqrt(a.reduce((acc, v, i) => acc + Math.pow((b[i] ?? 0) - (v ?? 0), 2), 0))) : null);
+        const firstVsSecondForcedFinalDelta = {
+          positionDelta: deltaVec(firstRun.firstTransitionForcedFinalSnapshot.cameraPosition, firstRun.secondTransitionForcedFinalSnapshot.cameraPosition),
+          lookAtDelta: deltaVec(firstRun.firstTransitionForcedFinalSnapshot.currentTargetLookAt, firstRun.secondTransitionForcedFinalSnapshot.currentTargetLookAt),
+          filmOffsetDelta: round4((firstRun.secondTransitionForcedFinalSnapshot.cameraFilmOffset ?? 0) - (firstRun.firstTransitionForcedFinalSnapshot.cameraFilmOffset ?? 0)),
+        };
+        const firstVsSecondSteadyFirstDelta = {
+          positionDelta: deltaVec(firstRun.firstTransitionSteadyFirstSnapshot.cameraPosition, firstRun.secondTransitionSteadyFirstSnapshot.cameraPosition),
+          lookAtDelta: deltaVec(firstRun.firstTransitionSteadyFirstSnapshot.currentTargetLookAt, firstRun.secondTransitionSteadyFirstSnapshot.currentTargetLookAt),
+          filmOffsetDelta: round4((firstRun.secondTransitionSteadyFirstSnapshot.cameraFilmOffset ?? 0) - (firstRun.firstTransitionSteadyFirstSnapshot.cameraFilmOffset ?? 0)),
+        };
+        const suspectedFirstRunInitializationMismatch = Boolean(
+          (firstVsSecondForcedFinalDelta.positionDelta ?? 0) > 0.01 ||
+          (firstVsSecondSteadyFirstDelta.positionDelta ?? 0) > 0.01 ||
+          Math.abs(firstVsSecondForcedFinalDelta.filmOffsetDelta ?? 0) > 0.001 ||
+          Math.abs(firstVsSecondSteadyFirstDelta.filmOffsetDelta ?? 0) > 0.001
+        );
+        console.log('[hero-overview-first-run-camera-state] summary', {
+          ...firstRun.pageLoadInitial,
+          firstTransitionForcedFinalSnapshot: firstRun.firstTransitionForcedFinalSnapshot,
+          firstTransitionSteadyFirstSnapshot: firstRun.firstTransitionSteadyFirstSnapshot,
+          secondTransitionForcedFinalSnapshot: firstRun.secondTransitionForcedFinalSnapshot,
+          secondTransitionSteadyFirstSnapshot: firstRun.secondTransitionSteadyFirstSnapshot,
+          firstVsSecondForcedFinalDelta,
+          firstVsSecondSteadyFirstDelta,
+          suspectedFirstRunInitializationMismatch,
+          suspectedFirstRunSource: suspectedFirstRunInitializationMismatch ? ['camera-or-target-init'] : [],
+          initialHeroToOverviewHandoffPendingRef: Boolean(heroToOverviewHandoffPendingRef.current),
+          initialHandoffLockFrames: heroToOverviewHandoffLockFramesRef.current,
+          hadLayoutOrViewportDerivedConfig: Boolean(config?.cameraOffsets || config?.layoutVariant),
+          wasFilmOffsetPreSetBeforeFirstTransition: Number.isFinite(firstRun.pageLoadInitial?.pageLoadInitialFilmOffset) && Math.abs(firstRun.pageLoadInitial.pageLoadInitialFilmOffset) > 0.0001,
+        });
+        firstRun.summaryLogged = true;
+      }
     }
     if (
       contract.forcedReleasedFrameId != null &&
