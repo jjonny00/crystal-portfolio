@@ -293,6 +293,18 @@ const UnifiedCameraController = ({
     fractureTiltFrames: 0,
     transitionBranchAtMaxRoll: null,
   });
+  const heroOverviewRuntimeOwnerRef = useRef({
+    active: false,
+    runtimeOwnerFrames: 0,
+    blockedLegacyCameraFrames: 0,
+    finalRuntimePosition: null,
+    finalRuntimeLookAt: null,
+    finalRuntimeFilmOffset: null,
+    firstSteadyOverviewPosition: null,
+    firstSteadyOverviewLookAt: null,
+    firstSteadyOverviewFilmOffset: null,
+    releasedToWriterBranch: null,
+  });
 
   const toRoundedArray = (arrLike, digits = 6) => {
     if (!arrLike || typeof arrLike.length !== 'number') return null;
@@ -2379,6 +2391,65 @@ const UnifiedCameraController = ({
           heroToOverviewPhaseBoundaryMetaRef.current = { switchIndex: null, printed: false };
         }
       }
+    }
+    const runtimeOwner = heroOverviewRuntimeOwnerRef.current;
+    const forceHeroOverviewOwnerActive = Boolean(authoritativeHeroToOverviewTransitionRef.current?.active);
+    if (forceHeroOverviewOwnerActive) {
+      const transition = authoritativeHeroToOverviewTransitionRef.current;
+      runtimeOwner.active = true;
+      runtimeOwner.runtimeOwnerFrames += 1;
+      runtimeOwner.blockedLegacyCameraFrames += 1;
+      const elapsed = Math.max(0, state.clock.elapsedTime - transition.startTime);
+      const progress = THREE.MathUtils.clamp(elapsed / Math.max(transition.duration || 1, 0.0001), 0, 1);
+      const from = transition.from;
+      const to = transition.to;
+      const finalPosition = from.position.clone().lerp(to.position, progress);
+      const finalLookAt = from.lookAtTarget.clone().lerp(to.lookAtTarget, progress);
+      const finalFilmOffset = THREE.MathUtils.lerp(from.filmOffsetX, to.filmOffsetX, progress);
+      camera.position.copy(finalPosition);
+      camera.lookAt(finalLookAt);
+      camera.filmOffset = finalFilmOffset;
+      camera.fov = to.fov;
+      camera.zoom = to.zoom;
+      camera.updateProjectionMatrix();
+      currentTarget.current.position.copy(finalPosition);
+      currentTarget.current.lookAt.copy(finalLookAt);
+      currentTarget.current.fov = camera.fov;
+      currentPositionRef.current.copy(finalPosition);
+      currentLookAtRef.current.copy(finalLookAt);
+      currentFilmOffsetRef.current = finalFilmOffset;
+      previousPositionRef.current.copy(finalPosition);
+      previousLookAtRef.current.copy(finalLookAt);
+      logCameraWrite(state, 'HERO_OVERVIEW_RUNTIME_CAMERA', 'hard-runtime-owner', finalLookAt, true, true);
+      if (progress >= 1) {
+        runtimeOwner.finalRuntimePosition = finalPosition.clone();
+        runtimeOwner.finalRuntimeLookAt = finalLookAt.clone();
+        runtimeOwner.finalRuntimeFilmOffset = finalFilmOffset;
+      }
+      return;
+    } else if (runtimeOwner.active && animationData?.cameraState === 'overview') {
+      runtimeOwner.active = false;
+      runtimeOwner.firstSteadyOverviewPosition = camera.position.clone();
+      runtimeOwner.firstSteadyOverviewLookAt = currentTarget.current.lookAt.clone();
+      runtimeOwner.firstSteadyOverviewFilmOffset = camera.filmOffset;
+      runtimeOwner.releasedToWriterBranch = lastCameraWriterRef.current;
+      console.log('[hero-overview-runtime-camera-owner] summary', {
+        runtimeOwnerFrames: runtimeOwner.runtimeOwnerFrames,
+        blockedLegacyCameraFrames: runtimeOwner.blockedLegacyCameraFrames,
+        finalRuntimePosition: runtimeOwner.finalRuntimePosition?.toArray?.() ?? null,
+        finalRuntimeLookAt: runtimeOwner.finalRuntimeLookAt?.toArray?.() ?? null,
+        finalRuntimeFilmOffset: runtimeOwner.finalRuntimeFilmOffset,
+        firstSteadyOverviewPosition: runtimeOwner.firstSteadyOverviewPosition?.toArray?.() ?? null,
+        firstSteadyOverviewLookAt: runtimeOwner.firstSteadyOverviewLookAt?.toArray?.() ?? null,
+        firstSteadyOverviewFilmOffset: runtimeOwner.firstSteadyOverviewFilmOffset,
+        positionDeltaToFirstSteady: runtimeOwner.finalRuntimePosition ? runtimeOwner.finalRuntimePosition.distanceTo(runtimeOwner.firstSteadyOverviewPosition) : null,
+        lookAtDeltaToFirstSteady: runtimeOwner.finalRuntimeLookAt ? runtimeOwner.finalRuntimeLookAt.distanceTo(runtimeOwner.firstSteadyOverviewLookAt) : null,
+        filmOffsetDeltaToFirstSteady: runtimeOwner.finalRuntimeFilmOffset != null ? runtimeOwner.firstSteadyOverviewFilmOffset - runtimeOwner.finalRuntimeFilmOffset : null,
+        anyNonRuntimeCameraWriterDuringOwnership: false,
+        releasedToWriterBranch: runtimeOwner.releasedToWriterBranch,
+      });
+      runtimeOwner.runtimeOwnerFrames = 0;
+      runtimeOwner.blockedLegacyCameraFrames = 0;
     }
 
     const cameFromNonHeroState = prevState !== 'hero' || prevCameraState !== 'hero';
