@@ -2415,11 +2415,8 @@ const UnifiedCameraController = ({
       currentTarget.current.position.copy(finalPosition);
       currentTarget.current.lookAt.copy(finalLookAt);
       currentTarget.current.fov = camera.fov;
-      currentPositionRef.current.copy(finalPosition);
-      currentLookAtRef.current.copy(finalLookAt);
-      currentFilmOffsetRef.current = finalFilmOffset;
-      previousPositionRef.current.copy(finalPosition);
-      previousLookAtRef.current.copy(finalLookAt);
+      transitionFromRef.current.position.copy(finalPosition);
+      transitionFromRef.current.lookAt.copy(finalLookAt);
       logCameraWrite(state, 'HERO_OVERVIEW_RUNTIME_CAMERA', 'hard-runtime-owner', finalLookAt, true, true);
       if (progress >= 1) {
         runtimeOwner.finalRuntimePosition = finalPosition.clone();
@@ -2447,6 +2444,9 @@ const UnifiedCameraController = ({
         filmOffsetDeltaToFirstSteady: runtimeOwner.finalRuntimeFilmOffset != null ? runtimeOwner.firstSteadyOverviewFilmOffset - runtimeOwner.finalRuntimeFilmOffset : null,
         anyNonRuntimeCameraWriterDuringOwnership: false,
         releasedToWriterBranch: runtimeOwner.releasedToWriterBranch,
+        seededRefs: ['camera', 'currentTarget.current', 'transitionFromRef'],
+        missingExpectedRefs: ['currentPositionRef', 'currentLookAtRef', 'currentFilmOffsetRef', 'previousPositionRef', 'previousLookAtRef'],
+        steadySourceOfTruthRefs: ['camera', 'currentTarget.current', 'transitionFromRef', 'heroToOverviewHandoffPendingRef'],
       });
       runtimeOwner.runtimeOwnerFrames = 0;
       runtimeOwner.blockedLegacyCameraFrames = 0;
@@ -3110,11 +3110,8 @@ const UnifiedCameraController = ({
           finalCurrentTargetPosition: currentTarget.current.position.clone(),
           finalCurrentTargetLookAt: currentTarget.current.lookAt.clone(),
         };
-        currentPositionRef.current.copy(camera.position);
-        currentLookAtRef.current.copy(transition.to.lookAtTarget);
-        currentFilmOffsetRef.current = camera.filmOffset;
-        previousPositionRef.current.copy(camera.position);
-        previousLookAtRef.current.copy(transition.to.lookAtTarget);
+        transitionFromRef.current.position.copy(camera.position);
+        transitionFromRef.current.lookAt.copy(transition.to.lookAtTarget);
         transitionFromRef.current.position.copy(camera.position);
         transitionFromRef.current.lookAt.copy(transition.to.lookAtTarget);
         lastCameraConfig.current = {
@@ -3746,11 +3743,8 @@ const UnifiedCameraController = ({
         currentTarget.current.position.copy(pending.finalCurrentTargetPosition || pending.finalPosition);
         currentTarget.current.lookAt.copy(pending.finalCurrentTargetLookAt || pending.finalLookAt);
         currentTarget.current.fov = Number.isFinite(pending.finalFov) ? pending.finalFov : camera.fov;
-        currentPositionRef.current.copy(pending.finalPosition);
-        currentLookAtRef.current.copy(pending.finalLookAt);
-        currentFilmOffsetRef.current = pending.finalFilmOffset;
-        previousPositionRef.current.copy(pending.finalPosition);
-        previousLookAtRef.current.copy(pending.finalLookAt);
+        transitionFromRef.current.position.copy(pending.finalPosition);
+        transitionFromRef.current.lookAt.copy(pending.finalLookAt);
         transitionFromRef.current.position.copy(pending.finalPosition);
         transitionFromRef.current.lookAt.copy(pending.finalLookAt);
         logCameraWrite(state, "FORCED_HERO_TO_OVERVIEW", "handoff-lock-frame", pending.finalLookAt, true, true);
