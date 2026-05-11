@@ -205,6 +205,7 @@ const UnifiedCameraController = ({
   const frameWriteTrackerRef = useRef({ frame: -1, writes: [] });
   const firstHeroOverviewTraceRef = useRef([]);
   const firstHeroOverviewTransitionWindowRef = useRef({ active: false, endAt: 0 });
+  const syntheticFrameTrackerRef = useRef({ id: 0, lastElapsed: -1 });
   const heroOverviewCameraHookBranchLoggedRef = useRef(false);
   const heroOverviewCameraHookPhaseLoggedRef = useRef(new Set());
   const heroOverviewCameraTimingResolvedLoggedRef = useRef(false);
@@ -1409,14 +1410,22 @@ const UnifiedCameraController = ({
 
 
   const logCameraWrite = (state, branch, reason, lookAtTarget = null, projectionUpdated = false, returns = false) => {
-    const frame = state?.clock?.frame ?? -1;
     const elapsed = state?.clock?.elapsedTime ?? 0;
+    let frame = state?.clock?.frame;
+    if (!Number.isFinite(frame)) {
+      const tracker = syntheticFrameTrackerRef.current;
+      if (Math.abs(elapsed - tracker.lastElapsed) > 0.000001) {
+        tracker.id += 1;
+        tracker.lastElapsed = elapsed;
+      }
+      frame = tracker.id;
+    }
     if (frameWriteTrackerRef.current.frame !== frame) {
       frameWriteTrackerRef.current = { frame, writes: [] };
     }
     frameWriteTrackerRef.current.writes.push({ branch, reason });
 
-    if (frameWriteTrackerRef.current.writes.length > 1) {
+    if (frameWriteTrackerRef.current.writes.length === 2) {
       console.warn('[UCC MULTI WRITER SAME FRAME]', {
         frame,
         elapsed,
