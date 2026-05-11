@@ -194,6 +194,7 @@ const UnifiedCameraController = ({
   const HERO_TO_OVERVIEW_HANDOFF_LOCK_FRAMES = 8;
   const heroToOverviewHandoffPendingRef = useRef(null);
   const heroToOverviewHandoffLockFramesRef = useRef(0);
+  const heroToOverviewSuppressFirstFallbackFrameRef = useRef(false);
   const heroToOverviewTransitionStartedForExitRef = useRef(false);
   const heroToOverviewLastForcedFinalRef = useRef(null);
   const heroToOverviewAwaitFirstNormalFrameRef = useRef(false);
@@ -3117,6 +3118,7 @@ const UnifiedCameraController = ({
         currentTarget.current.fov = camera.fov;
         logCameraWrite(state, "FORCED_HERO_TO_OVERVIEW", "handoff-lock-frame", pending.finalLookAt, true, true);
         if (heroToOverviewHandoffLockFramesRef.current <= 0) {
+          heroToOverviewSuppressFirstFallbackFrameRef.current = true;
           heroToOverviewHandoffPendingRef.current = null;
         }
         return;
@@ -3181,6 +3183,19 @@ const UnifiedCameraController = ({
         }, null, 2)
       );
       heroToOverviewAwaitFirstNormalFrameRef.current = false;
+    }
+
+    if (
+      heroToOverviewSuppressFirstFallbackFrameRef.current &&
+      animationData?.cameraState === 'overview'
+    ) {
+      heroToOverviewSuppressFirstFallbackFrameRef.current = false;
+      currentTarget.current.position.copy(camera.position);
+      const holdLookAt = getCameraLookAtFromTransform();
+      if (holdLookAt) currentTarget.current.lookAt.copy(holdLookAt);
+      currentTarget.current.fov = camera.fov;
+      logCameraWrite(state, "FORCED_HERO_TO_OVERVIEW", "post-handoff-first-fallback-hold", holdLookAt, false, true);
+      return;
     }
 
     if (shouldLogBranch) {
