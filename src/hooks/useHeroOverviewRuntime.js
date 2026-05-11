@@ -35,6 +35,11 @@ const debugEnabled = () => {
   return Boolean(globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__);
 };
 
+const directorDebugEnabled = () => {
+  if (typeof globalThis === 'undefined') return false;
+  return Boolean(globalThis.__HERO_OVERVIEW_DIRECTOR_DEBUG__) || Boolean(globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__);
+};
+
 const runtimeDebug = (type, payload) => {
   if (!debugEnabled()) return;
   console.log(`[hero-overview-runtime] ${type}`, payload);
@@ -165,6 +170,7 @@ export const createHeroOverviewRuntime = (durationOverrides = {}) => {
     director: {
       active: false,
       startedAt: 0,
+      transitionId: 0,
       releasedCleanly: false,
       summaryLogged: false,
       stats: {
@@ -187,6 +193,12 @@ export const createHeroOverviewRuntime = (durationOverrides = {}) => {
           activePhase: state.phase,
           progress: Number(state.progress.toFixed(3)),
         });
+        if (directorDebugEnabled()) {
+          console.log('[hero-overview-director] did not activate', {
+            source,
+            reason: 'start-request-while-already-active',
+          });
+        }
         return false;
       }
 
@@ -197,6 +209,7 @@ export const createHeroOverviewRuntime = (durationOverrides = {}) => {
       state.lastPhaseLogged = '';
       state.director.active = true;
       state.director.startedAt = startedAt;
+      state.director.transitionId += 1;
       state.director.releasedCleanly = false;
       state.director.summaryLogged = false;
       state.director.stats = {
@@ -207,6 +220,12 @@ export const createHeroOverviewRuntime = (durationOverrides = {}) => {
         anyNonDirectorCameraWriterDuringDirector: false,
         anyNonDirectorFragmentWriterDuringDirector: false,
       };
+      console.log('[hero-overview-director] active', {
+        transitionId: state.director.transitionId,
+        directorActive: true,
+        cameraOwner: 'HERO_OVERVIEW_DIRECTOR_CAMERA',
+        fragmentOwner: 'HERO_OVERVIEW_DIRECTOR_FRAGMENTS',
+      });
       runtimeDebug('start', {
         source,
         startedAt: Math.round(startedAt),
@@ -276,7 +295,12 @@ export const createHeroOverviewRuntime = (durationOverrides = {}) => {
     logDirectorSummary: (summary) => {
       if (state.director.summaryLogged) return;
       state.director.summaryLogged = true;
-      console.log('[hero-overview-director] summary', summary);
+      if (directorDebugEnabled()) {
+        console.log('[hero-overview-director] summary', {
+          transitionId: state.director.transitionId,
+          ...summary,
+        });
+      }
     },
     resetToIdle: ({ reason = 'manual-reset' } = {}) => {
       const wasActive = state.active;
