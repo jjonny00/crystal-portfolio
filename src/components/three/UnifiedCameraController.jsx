@@ -191,7 +191,7 @@ const UnifiedCameraController = ({
     from: null,
     to: null,
   });
-  const HERO_TO_OVERVIEW_HANDOFF_LOCK_FRAMES = 2;
+  const HERO_TO_OVERVIEW_HANDOFF_LOCK_FRAMES = 8;
   const heroToOverviewHandoffPendingRef = useRef(null);
   const heroToOverviewHandoffLockFramesRef = useRef(0);
   const heroToOverviewTransitionStartedForExitRef = useRef(false);
@@ -3015,6 +3015,37 @@ const UnifiedCameraController = ({
     if (heroToOverviewAwaitFirstNormalFrameRef.current && animationData?.cameraState === 'overview') {
       const forcedFinal = heroToOverviewLastForcedFinalRef.current;
       const currentLookAt = currentTarget.current?.lookAt?.clone?.() || null;
+      const forcedPositionDelta = forcedFinal?.position
+        ? camera.position.distanceTo(forcedFinal.position)
+        : null;
+      const forcedLookAtDelta = (forcedFinal?.lookAt && currentLookAt)
+        ? currentLookAt.distanceTo(forcedFinal.lookAt)
+        : null;
+      const forcedFilmOffsetDelta = forcedFinal?.filmOffset !== undefined
+        ? Math.abs((camera.filmOffset ?? 0) - forcedFinal.filmOffset)
+        : null;
+
+      // Keep continuity for exactly one more frame if a normal writer diverged
+      // right after forced handoff completion.
+      if (
+        forcedFinal &&
+        (
+          (forcedPositionDelta ?? 0) > 0.001 ||
+          (forcedLookAtDelta ?? 0) > 0.001 ||
+          (forcedFilmOffsetDelta ?? 0) > 0.001
+        )
+      ) {
+        camera.position.copy(forcedFinal.position);
+        camera.lookAt(forcedFinal.lookAt);
+        camera.filmOffset = forcedFinal.filmOffset;
+        camera.updateProjectionMatrix();
+        currentTarget.current.position.copy(forcedFinal.position);
+        currentTarget.current.lookAt.copy(forcedFinal.lookAt);
+        currentTarget.current.fov = camera.fov;
+        logCameraWrite(state, "FORCED_HERO_TO_OVERVIEW", "first-normal-frame-reconcile", forcedFinal.lookAt, true, true);
+        return;
+      }
+
       console.log(
         '[UCC HERO TO OVERVIEW FIRST NORMAL FRAME VERIFY JSON STRING]\n' +
         JSON.stringify({
@@ -3027,9 +3058,9 @@ const UnifiedCameraController = ({
           previousForcedFinalPosition: forcedFinal?.position?.toArray?.() || null,
           previousForcedFinalLookAt: forcedFinal?.lookAt?.toArray?.() || null,
           previousForcedFinalFilmOffset: round4(forcedFinal?.filmOffset),
-          deltaPositionFromForcedFinal: forcedFinal?.position ? round4(camera.position.distanceTo(forcedFinal.position)) : null,
-          deltaLookAtFromForcedFinal: (forcedFinal?.lookAt && currentLookAt) ? round4(currentLookAt.distanceTo(forcedFinal.lookAt)) : null,
-          deltaFilmOffsetFromForcedFinal: forcedFinal?.filmOffset !== undefined ? round4(Math.abs((camera.filmOffset ?? 0) - forcedFinal.filmOffset)) : null,
+          deltaPositionFromForcedFinal: forcedFinal?.position ? round4(forcedPositionDelta) : null,
+          deltaLookAtFromForcedFinal: (forcedFinal?.lookAt && currentLookAt) ? round4(forcedLookAtDelta) : null,
+          deltaFilmOffsetFromForcedFinal: forcedFinal?.filmOffset !== undefined ? round4(forcedFilmOffsetDelta) : null,
           deltaQuaternionFromForcedFinal: forcedFinal?.quaternion ? round4(forcedFinal.quaternion.angleTo(camera.quaternion)) : null,
           state: animationData?.state ?? null,
           cameraState: animationData?.cameraState ?? null,
