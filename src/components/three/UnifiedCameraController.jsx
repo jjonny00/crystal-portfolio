@@ -1455,6 +1455,14 @@ const UnifiedCameraController = ({
       });
       if (elapsed >= firstHeroOverviewTransitionWindowRef.current.endAt) {
         firstHeroOverviewTransitionWindowRef.current.active = false;
+        if (typeof globalThis !== 'undefined') {
+          globalThis.__UCC_FIRST_HERO_OVERVIEW_TRACE__ = {
+            capturedFrames: firstHeroOverviewTraceRef.current.length,
+            startedAt: round4(firstHeroOverviewTransitionWindowRef.current.endAt - 2.2),
+            endedAt: round4(elapsed),
+            samples: firstHeroOverviewTraceRef.current,
+          };
+        }
         console.log(
           '[UCC FIRST HERO OVERVIEW TRACE JSON STRING]\n' +
           JSON.stringify({
