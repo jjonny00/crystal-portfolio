@@ -1806,6 +1806,8 @@ const UnifiedCrystalScene = forwardRef(({
           const mapped = facetPlacementKeys[facetKey] || facetKey;
           return crystalConfig?.positions?.[mapped]?.clone?.() || new THREE.Vector3();
         });
+        heroOverviewRuntime?.markDirectorCapture?.('fragment-start');
+        heroOverviewRuntime?.markDirectorCapture?.('fragment-end');
       }
       const startPositions = heroOverviewFragmentsDirectorRef.current.start;
       const endPositions = heroOverviewFragmentsDirectorRef.current.end;

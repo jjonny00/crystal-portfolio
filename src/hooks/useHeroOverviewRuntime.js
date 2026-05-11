@@ -171,6 +171,16 @@ export const createHeroOverviewRuntime = (durationOverrides = {}) => {
       active: false,
       startedAt: 0,
       transitionId: 0,
+      directorActivatedCount: 0,
+      directorStartedFrame: null,
+      directorReleasedFrame: null,
+      activeFrames: 0,
+      stuckLogged: false,
+      releaseRequestedLogged: false,
+      releaseReason: null,
+      runtimePhaseAtRelease: null,
+      stateAtRelease: null,
+      cameraStateAtRelease: null,
       releasedCleanly: false,
       summaryLogged: false,
       stats: {
@@ -180,8 +190,22 @@ export const createHeroOverviewRuntime = (durationOverrides = {}) => {
         blockedLegacyFragmentFrames: 0,
         anyNonDirectorCameraWriterDuringDirector: false,
         anyNonDirectorFragmentWriterDuringDirector: false,
+        nonDirectorCameraWriterBranchesDuringDirector: [],
+        nonDirectorFragmentWriterBranchesDuringDirector: [],
+        lastCameraOwnerFrame: null,
+        lastFragmentOwnerFrame: null,
+        cameraCaptureCount: 0,
+        cameraEndResolveCount: 0,
+        fragmentCaptureCount: 0,
+        fragmentEndResolveCount: 0,
+        cameraStartWasRecapturedDuringDirector: false,
+        cameraEndWasReResolvedDuringDirector: false,
+        fragmentStartWasRecapturedDuringDirector: false,
+        fragmentEndWasReResolvedDuringDirector: false,
+        directorActiveToggledDuringTransition: false,
       },
     },
+    frameCounter: 0,
   };
 
   return {
@@ -208,8 +232,18 @@ export const createHeroOverviewRuntime = (durationOverrides = {}) => {
       state.phase = PHASES.FRACTURE_CHARGE;
       state.lastPhaseLogged = '';
       state.director.active = true;
+      state.director.directorActivatedCount += 1;
       state.director.startedAt = startedAt;
       state.director.transitionId += 1;
+      state.director.directorStartedFrame = state.frameCounter;
+      state.director.directorReleasedFrame = null;
+      state.director.activeFrames = 0;
+      state.director.stuckLogged = false;
+      state.director.releaseRequestedLogged = false;
+      state.director.releaseReason = null;
+      state.director.runtimePhaseAtRelease = null;
+      state.director.stateAtRelease = null;
+      state.director.cameraStateAtRelease = null;
       state.director.releasedCleanly = false;
       state.director.summaryLogged = false;
       state.director.stats = {
@@ -219,6 +253,19 @@ export const createHeroOverviewRuntime = (durationOverrides = {}) => {
         blockedLegacyFragmentFrames: 0,
         anyNonDirectorCameraWriterDuringDirector: false,
         anyNonDirectorFragmentWriterDuringDirector: false,
+        nonDirectorCameraWriterBranchesDuringDirector: [],
+        nonDirectorFragmentWriterBranchesDuringDirector: [],
+        lastCameraOwnerFrame: null,
+        lastFragmentOwnerFrame: null,
+        cameraCaptureCount: 0,
+        cameraEndResolveCount: 0,
+        fragmentCaptureCount: 0,
+        fragmentEndResolveCount: 0,
+        cameraStartWasRecapturedDuringDirector: false,
+        cameraEndWasReResolvedDuringDirector: false,
+        fragmentStartWasRecapturedDuringDirector: false,
+        fragmentEndWasReResolvedDuringDirector: false,
+        directorActiveToggledDuringTransition: false,
       };
       console.log('[hero-overview-director] active', {
         transitionId: state.director.transitionId,
@@ -235,7 +282,11 @@ export const createHeroOverviewRuntime = (durationOverrides = {}) => {
       return true;
     },
     update: (now = performance.now()) => {
+      state.frameCounter += 1;
       if (!state.active) return;
+      if (state.director.active) {
+        state.director.activeFrames += 1;
+      }
 
       const elapsedMs = Math.max(0, now - state.startedAt);
       const normalized = state.timing.totalDurationMs > 0
@@ -257,12 +308,60 @@ export const createHeroOverviewRuntime = (durationOverrides = {}) => {
       state.phase = nextPhase;
 
       if (nextPhase === PHASES.COMPLETE) {
+        if (!state.director.releaseRequestedLogged) {
+          state.director.releaseRequestedLogged = true;
+          console.log('[hero-overview-director] release requested', {
+            transitionId: state.director.transitionId,
+            phase: nextPhase,
+          });
+        }
         state.active = false;
         state.director.active = false;
+        state.director.directorReleasedFrame = state.frameCounter;
+        state.director.releaseReason = 'phase-complete';
+        state.director.runtimePhaseAtRelease = nextPhase;
         state.director.releasedCleanly = true;
+        console.log('[hero-overview-director] released', {
+          transitionId: state.director.transitionId,
+          directorReleasedFrame: state.director.directorReleasedFrame,
+        });
+        console.log('[hero-overview-director] summary', {
+          transitionId: state.director.transitionId,
+          directorActivatedCount: state.director.directorActivatedCount,
+          directorStartedFrame: state.director.directorStartedFrame,
+          directorReleasedFrame: state.director.directorReleasedFrame,
+          directorDurationFrames:
+            (state.director.directorReleasedFrame ?? state.frameCounter) - (state.director.directorStartedFrame ?? state.frameCounter),
+          directorReleased: true,
+          releaseReason: state.director.releaseReason,
+          runtimePhaseAtRelease: state.director.runtimePhaseAtRelease,
+          stateAtRelease: state.director.stateAtRelease,
+          cameraStateAtRelease: state.director.cameraStateAtRelease,
+          ...state.director.stats,
+          directorActiveToggledDuringTransition: state.director.stats.directorActiveToggledDuringTransition,
+          releasedCleanly: state.director.releasedCleanly,
+        });
         runtimeDebug('complete', {
           elapsedMs: Math.round(elapsedMs),
           progress: 1,
+        });
+      }
+      if (state.director.active && state.director.activeFrames > 300 && !state.director.stuckLogged) {
+        state.director.stuckLogged = true;
+        console.log('[hero-overview-director] stuck active', {
+          transitionId: state.director.transitionId,
+          activeFrames: state.director.activeFrames,
+          currentPhase: state.phase,
+          state: null,
+          cameraState: null,
+          directorCameraFrames: state.director.stats.directorCameraFrames,
+          directorFragmentFrames: state.director.stats.directorFragmentFrames,
+          blockedLegacyCameraFrames: state.director.stats.blockedLegacyCameraFrames,
+          blockedLegacyFragmentFrames: state.director.stats.blockedLegacyFragmentFrames,
+          lastCameraOwnerFrame: state.director.stats.lastCameraOwnerFrame,
+          lastFragmentOwnerFrame: state.director.stats.lastFragmentOwnerFrame,
+          releaseConditionStatus: { phase: state.phase, progress: state.progress },
+          reasonStillActive: 'phase-not-complete',
         });
       }
     },
@@ -279,29 +378,55 @@ export const createHeroOverviewRuntime = (durationOverrides = {}) => {
     }),
     markDirectorFrame: (type) => {
       if (!state.director.active) return;
-      if (type === 'camera') state.director.stats.directorCameraFrames += 1;
-      if (type === 'fragments') state.director.stats.directorFragmentFrames += 1;
+      if (type === 'camera') {
+        state.director.stats.directorCameraFrames += 1;
+        state.director.stats.lastCameraOwnerFrame = state.frameCounter;
+      }
+      if (type === 'fragments') {
+        state.director.stats.directorFragmentFrames += 1;
+        state.director.stats.lastFragmentOwnerFrame = state.frameCounter;
+      }
     },
     markBlockedLegacyFrame: (type) => {
       if (!state.director.active) return;
       if (type === 'camera') state.director.stats.blockedLegacyCameraFrames += 1;
       if (type === 'fragments') state.director.stats.blockedLegacyFragmentFrames += 1;
     },
-    markNonDirectorWriter: (type) => {
+    markNonDirectorWriter: (type, branch = 'unknown') => {
       if (!state.director.active) return;
-      if (type === 'camera') state.director.stats.anyNonDirectorCameraWriterDuringDirector = true;
-      if (type === 'fragments') state.director.stats.anyNonDirectorFragmentWriterDuringDirector = true;
-    },
-    logDirectorSummary: (summary) => {
-      if (state.director.summaryLogged) return;
-      state.director.summaryLogged = true;
-      if (directorDebugEnabled()) {
-        console.log('[hero-overview-director] summary', {
-          transitionId: state.director.transitionId,
-          ...summary,
-        });
+      if (type === 'camera') {
+        state.director.stats.anyNonDirectorCameraWriterDuringDirector = true;
+        if (!state.director.stats.nonDirectorCameraWriterBranchesDuringDirector.includes(branch)) {
+          state.director.stats.nonDirectorCameraWriterBranchesDuringDirector.push(branch);
+        }
+      }
+      if (type === 'fragments') {
+        state.director.stats.anyNonDirectorFragmentWriterDuringDirector = true;
+        if (!state.director.stats.nonDirectorFragmentWriterBranchesDuringDirector.includes(branch)) {
+          state.director.stats.nonDirectorFragmentWriterBranchesDuringDirector.push(branch);
+        }
       }
     },
+    markDirectorCapture: (type) => {
+      if (type === 'camera-start') {
+        state.director.stats.cameraStartWasRecapturedDuringDirector ||= state.director.stats.cameraCaptureCount > 0;
+        state.director.stats.cameraCaptureCount += 1;
+      } else if (type === 'camera-end') {
+        state.director.stats.cameraEndWasReResolvedDuringDirector ||= state.director.stats.cameraEndResolveCount > 0;
+        state.director.stats.cameraEndResolveCount += 1;
+      } else if (type === 'fragment-start') {
+        state.director.stats.fragmentStartWasRecapturedDuringDirector ||= state.director.stats.fragmentCaptureCount > 0;
+        state.director.stats.fragmentCaptureCount += 1;
+      } else if (type === 'fragment-end') {
+        state.director.stats.fragmentEndWasReResolvedDuringDirector ||= state.director.stats.fragmentEndResolveCount > 0;
+        state.director.stats.fragmentEndResolveCount += 1;
+      }
+    },
+    markDirectorContext: ({ stateAtRelease = null, cameraStateAtRelease = null } = {}) => {
+      state.director.stateAtRelease = stateAtRelease;
+      state.director.cameraStateAtRelease = cameraStateAtRelease;
+    },
+    logDirectorSummary: () => {},
     resetToIdle: ({ reason = 'manual-reset' } = {}) => {
       const wasActive = state.active;
       state.active = false;

@@ -1583,6 +1583,8 @@ const UnifiedCameraController = ({
           fov: currentTarget.current?.fov ?? camera.fov,
           zoom: 1,
         };
+        heroOverviewRuntime?.markDirectorCapture?.('camera-start');
+        heroOverviewRuntime?.markDirectorCapture?.('camera-end');
       }
       const start = heroOverviewDirectorRef.current.start;
       const end = heroOverviewDirectorRef.current.end;
@@ -1603,6 +1605,10 @@ const UnifiedCameraController = ({
       currentTarget.current.fov = camera.fov;
       lastCameraWriterRef.current = 'HERO_OVERVIEW_DIRECTOR_CAMERA';
       heroOverviewRuntime?.markDirectorFrame?.('camera');
+      heroOverviewRuntime?.markDirectorContext?.({
+        stateAtRelease: animationData?.state ?? null,
+        cameraStateAtRelease: animationData?.cameraState ?? null,
+      });
       heroOverviewRuntime?.markBlockedLegacyFrame?.('camera');
       if (phase === 'complete' || t >= 1) {
         const finalCameraDelta = camera.position.distanceTo(end.position);
