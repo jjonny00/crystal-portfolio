@@ -208,6 +208,7 @@ const UnifiedCameraController = ({
   const heroOverviewCameraCurveSampleLoggedRef = useRef(new Set());
   const lastCameraWriteSecondRef = useRef(-1);
   const lastCameraWriterRef = useRef('none');
+  const overviewEntryDiagRef = useRef({ active: false });
   const prevStateRef = useRef(animationData?.state ?? null);
   const prevCameraStateRef = useRef(animationData?.cameraState ?? null);
   const configCheckLoggedRef = useRef(false);
@@ -1580,7 +1581,7 @@ const UnifiedCameraController = ({
             .add(toVector3(config?.cameraOffsets?.global?.target))
             .add(toVector3(config?.cameraOffsets?.zones?.overview?.target)),
           filmOffset: 0,
-          fov: currentTarget.current?.fov ?? camera.fov,
+          fov: getConfigCameraState('overview', null, null)?.fov ?? currentTarget.current?.fov ?? camera.fov,
           zoom: 1,
         };
         heroOverviewRuntime?.markDirectorCapture?.('camera-start');
@@ -1611,6 +1612,29 @@ const UnifiedCameraController = ({
       });
       heroOverviewRuntime?.markBlockedLegacyFrame?.('camera');
       if (phase === 'complete' || t >= 1) {
+        const overviewResolvedFov = getConfigCameraState('overview', null, null)?.fov ?? end.fov ?? camera.fov;
+        camera.position.copy(end.position);
+        camera.lookAt(end.lookAt);
+        camera.filmOffset = end.filmOffset;
+        camera.fov = overviewResolvedFov;
+        camera.zoom = end.zoom;
+        camera.updateProjectionMatrix();
+        currentTarget.current.position.copy(end.position);
+        currentTarget.current.lookAt.copy(end.lookAt);
+        currentTarget.current.fov = overviewResolvedFov;
+        animationData?.setCameraMoveProgress?.(1);
+        animationData?.setCameraSettled?.(true);
+        overviewEntryDiagRef.current = {
+          active: true,
+          releaseFrame: state.clock.frame,
+          samples: 0,
+          lastWriter: null,
+          lastDistance: null,
+          firstPost: null,
+          reachedAt: null,
+          directorFinalPosition: end.position.clone(),
+          directorFinalLookAt: end.lookAt.clone(),
+        };
         const finalCameraDelta = camera.position.distanceTo(end.position);
         const finalLookDelta = lookAt.distanceTo(end.lookAt);
         const finalFilmDelta = Math.abs((camera.filmOffset ?? 0) - (end.filmOffset ?? 0));
@@ -3183,6 +3207,75 @@ const UnifiedCameraController = ({
     camera.updateProjectionMatrix();
     logCameraWrite(state, animationData?.cameraState === "hero" ? "HERO_IDLE" : "FALLBACK", "smoothed-update", newLookAt, true, false);
     console.log('[UCC END FRAME]', { elapsed: state.clock.elapsedTime, finalCameraPosition: camera.position.toArray(), finalFilmOffset: camera.filmOffset, finalWriter: lastCameraWriterRef.current });
+    if (overviewEntryDiagRef.current?.active && animationData?.state === 'overview' && animationData?.cameraState === 'overview') {
+      const overviewTargetPosition = toVector3(config?.cameraPositions?.overview)
+        .add(toVector3(config?.cameraOffsets?.global?.position))
+        .add(toVector3(config?.cameraOffsets?.zones?.overview?.position));
+      const overviewTargetLookAt = toVector3(config?.cameraTargets?.overview)
+        .add(toVector3(config?.cameraOffsets?.global?.target))
+        .add(toVector3(config?.cameraOffsets?.zones?.overview?.target));
+      const framesSinceDirectorRelease = state.clock.frame - overviewEntryDiagRef.current.releaseFrame;
+      const distanceToOverviewPosition = camera.position.distanceTo(overviewTargetPosition);
+      const distanceToOverviewLookAt = currentTarget.current.lookAt.distanceTo(overviewTargetLookAt);
+      const writerBranch = lastCameraWriterRef.current;
+      const shouldSample =
+        framesSinceDirectorRelease === 0 ||
+        overviewEntryDiagRef.current.samples < 4 ||
+        writerBranch !== overviewEntryDiagRef.current.lastWriter ||
+        (overviewEntryDiagRef.current.lastDistance != null && overviewEntryDiagRef.current.lastDistance - distanceToOverviewPosition > 0.05) ||
+        distanceToOverviewPosition < 0.01 ||
+        framesSinceDirectorRelease >= 180;
+      if (!overviewEntryDiagRef.current.firstPost) {
+        overviewEntryDiagRef.current.firstPost = {
+          writerBranch,
+          cameraPosition: camera.position.toArray(),
+          lookAt: currentTarget.current.lookAt.toArray(),
+          currentTargetPosition: currentTarget.current.position.toArray(),
+          distanceToOverviewPosition,
+          distanceToOverviewLookAt,
+        };
+      }
+      if (shouldSample) {
+        console.log('[hero-overview-overview-entry] sample', {
+          frameId: state.clock.frame,
+          framesSinceDirectorRelease,
+          state: animationData?.state ?? null,
+          cameraState: animationData?.cameraState ?? null,
+          runtimePhase: directorSnapshot?.phase ?? null,
+          writerBranch,
+          distanceToOverviewPosition: Number(distanceToOverviewPosition.toFixed(4)),
+          distanceToOverviewLookAt: Number(distanceToOverviewLookAt.toFixed(4)),
+        });
+        overviewEntryDiagRef.current.samples += 1;
+      }
+      if (distanceToOverviewPosition < 0.01 && overviewEntryDiagRef.current.reachedAt == null) {
+        overviewEntryDiagRef.current.reachedAt = framesSinceDirectorRelease;
+      }
+      overviewEntryDiagRef.current.lastWriter = writerBranch;
+      overviewEntryDiagRef.current.lastDistance = distanceToOverviewPosition;
+      if (framesSinceDirectorRelease >= 180 || overviewEntryDiagRef.current.reachedAt != null) {
+        const firstDist = overviewEntryDiagRef.current.firstPost?.distanceToOverviewPosition ?? null;
+        console.log('[hero-overview-overview-entry] summary', {
+          firstPostDirectorWriterBranch: overviewEntryDiagRef.current.firstPost?.writerBranch ?? null,
+          firstPostDirectorCameraPosition: overviewEntryDiagRef.current.firstPost?.cameraPosition ?? null,
+          firstPostDirectorLookAt: overviewEntryDiagRef.current.firstPost?.lookAt ?? null,
+          firstPostDirectorCurrentTarget: overviewEntryDiagRef.current.firstPost?.currentTargetPosition ?? null,
+          overviewTargetPosition: overviewTargetPosition.toArray(),
+          overviewTargetLookAt: overviewTargetLookAt.toArray(),
+          initialDistanceToOverviewPosition: firstDist,
+          initialDistanceToOverviewLookAt: overviewEntryDiagRef.current.firstPost?.distanceToOverviewLookAt ?? null,
+          framesToReachOverview: overviewEntryDiagRef.current.reachedAt,
+          secondsToReachOverview: overviewEntryDiagRef.current.reachedAt != null ? Number((overviewEntryDiagRef.current.reachedAt / 60).toFixed(3)) : null,
+          overviewBranchStartedSecondTransition: Boolean(firstDist != null && firstDist > 0.05),
+          overviewBranchUsedHeroOrCloseStart: firstDist == null ? 'unknown' : firstDist > 0.5,
+          overviewBranchUsedDirectorFinalStart: firstDist == null ? 'unknown' : firstDist < 0.05,
+          suspectedSecondOverviewTransition: Boolean(firstDist != null && firstDist > 0.05),
+          suspectedSource: writerBranch,
+          heroCameraSourceChangedAfterOverview: 'unknown',
+        });
+        overviewEntryDiagRef.current.active = false;
+      }
+    }
 
     // Check if camera has settled at target
     const positionDiff = camera.position.distanceTo(currentTarget.current.position);
