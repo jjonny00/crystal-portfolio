@@ -209,6 +209,7 @@ const UnifiedCameraController = ({
   const lastCameraWriteSecondRef = useRef(-1);
   const lastCameraWriterRef = useRef('none');
   const overviewEntryDiagRef = useRef({ active: false });
+  const directorCameraTransitionRef = useRef({ transitionId: null, captured: false, resolved: false });
   const prevStateRef = useRef(animationData?.state ?? null);
   const prevCameraStateRef = useRef(animationData?.cameraState ?? null);
   const configCheckLoggedRef = useRef(false);
@@ -1559,6 +1560,13 @@ const UnifiedCameraController = ({
       };
     }
     if (directorActive) {
+      const transitionId = directorSnapshot?.director?.transitionId ?? null;
+      if (directorCameraTransitionRef.current.transitionId !== transitionId) {
+        directorCameraTransitionRef.current = { transitionId, captured: false, resolved: false };
+        heroOverviewDirectorRef.current.initialized = false;
+        heroOverviewDirectorRef.current.start = null;
+        heroOverviewDirectorRef.current.end = null;
+      }
       const phaseProgress = directorSnapshot?.progress ?? 0;
       const phase = directorSnapshot?.phase ?? 'fractureCharge';
       const t = THREE.MathUtils.clamp(phaseProgress, 0, 1);
@@ -1586,6 +1594,19 @@ const UnifiedCameraController = ({
         };
         heroOverviewRuntime?.markDirectorCapture?.('camera-start');
         heroOverviewRuntime?.markDirectorCapture?.('camera-end');
+        directorCameraTransitionRef.current.captured = true;
+        directorCameraTransitionRef.current.resolved = true;
+      }
+      if (!heroOverviewDirectorRef.current.start || !heroOverviewDirectorRef.current.end) {
+        console.warn('[hero-overview-director] missing camera snapshot for transition', {
+          transitionId,
+          lastCapturedTransitionId: directorCameraTransitionRef.current.transitionId,
+          frameId: state.clock.frame,
+          state: animationData?.state ?? null,
+          cameraState: animationData?.cameraState ?? null,
+          runtimePhase: directorSnapshot?.phase ?? null,
+        });
+        return;
       }
       const start = heroOverviewDirectorRef.current.start;
       const end = heroOverviewDirectorRef.current.end;

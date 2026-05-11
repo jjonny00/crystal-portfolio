@@ -102,6 +102,7 @@ const UnifiedCrystalScene = forwardRef(({
   const heroOverviewTravelDistanceAuditLoggedRef = useRef(false);
   const heroOverviewVisibleTravelSampleLoggedRef = useRef(new Set());
   const heroOverviewFragmentsDirectorRef = useRef(null);
+  const directorFragmentTransitionRef = useRef({ transitionId: null, captured: false, resolved: false });
 
   const deriveFragmentVisualTiming = (runtimeState, explosionProgress) => {
     const timing = runtimeState?.timing || {};
@@ -1798,6 +1799,13 @@ const UnifiedCrystalScene = forwardRef(({
       heroOverviewFragmentsDirectorRef.current = { initialized: false, start: [], end: [] };
     }
     if (directorActive) {
+      const transitionId = directorSnapshot?.director?.transitionId ?? null;
+      if (directorFragmentTransitionRef.current.transitionId !== transitionId) {
+        directorFragmentTransitionRef.current = { transitionId, captured: false, resolved: false };
+        heroOverviewFragmentsDirectorRef.current.initialized = false;
+        heroOverviewFragmentsDirectorRef.current.start = [];
+        heroOverviewFragmentsDirectorRef.current.end = [];
+      }
       const t = THREE.MathUtils.clamp(directorSnapshot?.progress ?? 0, 0, 1);
       if (!heroOverviewFragmentsDirectorRef.current.initialized) {
         heroOverviewFragmentsDirectorRef.current.initialized = true;
@@ -1808,6 +1816,19 @@ const UnifiedCrystalScene = forwardRef(({
         });
         heroOverviewRuntime?.markDirectorCapture?.('fragment-start');
         heroOverviewRuntime?.markDirectorCapture?.('fragment-end');
+        directorFragmentTransitionRef.current.captured = true;
+        directorFragmentTransitionRef.current.resolved = true;
+      }
+      if (!heroOverviewFragmentsDirectorRef.current.start?.length || !heroOverviewFragmentsDirectorRef.current.end?.length) {
+        console.warn('[hero-overview-director] missing fragment snapshot for transition', {
+          transitionId,
+          lastCapturedTransitionId: directorFragmentTransitionRef.current.transitionId,
+          frameId: state.clock.frame,
+          state: animationData?.state ?? null,
+          cameraState: animationData?.cameraState ?? null,
+          runtimePhase: directorSnapshot?.phase ?? null,
+        });
+        return;
       }
       const startPositions = heroOverviewFragmentsDirectorRef.current.start;
       const endPositions = heroOverviewFragmentsDirectorRef.current.end;

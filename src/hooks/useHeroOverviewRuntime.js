@@ -328,6 +328,7 @@ export const createHeroOverviewRuntime = (durationOverrides = {}) => {
         console.log('[hero-overview-director] summary', {
           transitionId: state.director.transitionId,
           directorActivatedCount: state.director.directorActivatedCount,
+          totalDirectorActivatedCount: state.director.directorActivatedCount,
           directorStartedFrame: state.director.directorStartedFrame,
           directorReleasedFrame: state.director.directorReleasedFrame,
           directorDurationFrames:
@@ -338,6 +339,10 @@ export const createHeroOverviewRuntime = (durationOverrides = {}) => {
           stateAtRelease: state.director.stateAtRelease,
           cameraStateAtRelease: state.director.cameraStateAtRelease,
           ...state.director.stats,
+          transitionCameraCaptureCount: state.director.stats.cameraCaptureCount,
+          transitionCameraEndResolveCount: state.director.stats.cameraEndResolveCount,
+          transitionFragmentCaptureCount: state.director.stats.fragmentCaptureCount,
+          transitionFragmentEndResolveCount: state.director.stats.fragmentEndResolveCount,
           directorActiveToggledDuringTransition: state.director.stats.directorActiveToggledDuringTransition,
           releasedCleanly: state.director.releasedCleanly,
         });
