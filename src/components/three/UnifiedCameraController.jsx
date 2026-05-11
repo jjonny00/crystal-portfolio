@@ -211,6 +211,9 @@ const UnifiedCameraController = ({
   // Superfluous metadata nudge: keep this marker so review systems detect a fresh patchset.
   const cameraLockTestRef = useRef({
     active: false,
+    consumed: false,
+    sessionConsumed: false,
+    lastEnabled: false,
     endAt: 0,
     position: new THREE.Vector3(),
     quaternion: new THREE.Quaternion(),
@@ -1658,6 +1661,11 @@ const UnifiedCameraController = ({
     }
 
     const lockTestEnabled = typeof globalThis !== 'undefined' && globalThis.__LOCK_CAMERA_TEST__ === true;
+    if (!lockTestEnabled && cameraLockTestRef.current.lastEnabled) {
+      cameraLockTestRef.current.sessionConsumed = false;
+      cameraLockTestRef.current.consumed = false;
+    }
+    cameraLockTestRef.current.lastEnabled = lockTestEnabled;
     const lockTestWindowActive =
       animationData?.state === 'overview' &&
       (
@@ -1666,9 +1674,19 @@ const UnifiedCameraController = ({
         heroToOverviewSuppressFirstFallbackFrameRef.current ||
         heroToOverviewOverviewSettleFramesRef.current > 0
       );
+    if (!lockTestWindowActive && !cameraLockTestRef.current.active) {
+      cameraLockTestRef.current.consumed = false;
+    }
+
     if (lockTestEnabled && lockTestWindowActive) {
-      if (!cameraLockTestRef.current.active) {
+      if (
+        !cameraLockTestRef.current.active &&
+        !cameraLockTestRef.current.consumed &&
+        !cameraLockTestRef.current.sessionConsumed
+      ) {
         cameraLockTestRef.current.active = true;
+        cameraLockTestRef.current.consumed = true;
+        cameraLockTestRef.current.sessionConsumed = true;
         cameraLockTestRef.current.endAt = state.clock.elapsedTime + 0.6;
         cameraLockTestRef.current.position.copy(camera.position);
         cameraLockTestRef.current.quaternion.copy(camera.quaternion);
