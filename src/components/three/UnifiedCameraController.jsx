@@ -256,6 +256,23 @@ const UnifiedCameraController = ({
     normalOverviewStateSeededOnRelease: false,
   });
 
+
+  const overviewPrewarmRef = useRef({
+    overviewPrewarmRan: false,
+    overviewPrewarmFrame: null,
+    overviewPrewarmHadLayoutData: false,
+    overviewPrewarmConfigSource: 'unresolved',
+    position: null,
+    lookAt: null,
+    filmOffset: 0,
+    fov: 44,
+    zoom: 1,
+    usedPrewarmedOverviewStateAtDirectorRelease: false,
+    firstHeroOverviewHadPrewarmedOverviewState: false,
+    firstHeroOverviewUsedLazyOverviewInit: false,
+    firstRunBlipRisk: true,
+    firstTransitionSeen: false,
+  });
   const applyFractureTilt = () => {
     if (!fractureTiltActiveRef.current) return;
 
@@ -1560,6 +1577,15 @@ const UnifiedCameraController = ({
   };
 
 
+
+  const resolveOverviewSteadyState = () => ({
+    position: toVector3(config?.cameraPositions?.overview).add(toVector3(config?.cameraOffsets?.global?.position)).add(toVector3(config?.cameraOffsets?.zones?.overview?.position)),
+    lookAt: toVector3(config?.cameraTargets?.overview).add(toVector3(config?.cameraOffsets?.global?.target)).add(toVector3(config?.cameraOffsets?.zones?.overview?.target)),
+    filmOffset: 0,
+    fov: Number(config?.cameraComposition?.overview?.fov ?? config?.camera?.overview?.fov ?? 44),
+    zoom: Number(config?.cameraComposition?.overview?.zoom ?? 1),
+  });
+
   const activateHeroOverviewDirector = (runtimeSnapshot) => {
     const d = heroOverviewDirectorRef.current;
     const transitionId = `${runtimeSnapshot?.startedAt ?? Date.now()}`;
@@ -1585,13 +1611,10 @@ const UnifiedCameraController = ({
       fov: Number.isFinite(camera.fov) ? camera.fov : 45,
       zoom: Number.isFinite(camera.zoom) ? camera.zoom : 1,
     };
-    d.cameraEnd = {
-      position: toVector3(config?.cameraPositions?.overview).add(toVector3(config?.cameraOffsets?.global?.position)).add(toVector3(config?.cameraOffsets?.zones?.overview?.position)),
-      lookAt: toVector3(config?.cameraTargets?.overview).add(toVector3(config?.cameraOffsets?.global?.target)).add(toVector3(config?.cameraOffsets?.zones?.overview?.target)),
-      filmOffset: 0,
-      fov: Number(config?.cameraComposition?.overview?.fov ?? config?.camera?.overview?.fov ?? 44),
-      zoom: Number(config?.cameraComposition?.overview?.zoom ?? 1),
-    };
+    const prewarmed = overviewPrewarmRef.current.overviewPrewarmRan ? overviewPrewarmRef.current : null;
+    d.cameraEnd = prewarmed?.position && prewarmed?.lookAt
+      ? { position: prewarmed.position.clone(), lookAt: prewarmed.lookAt.clone(), filmOffset: prewarmed.filmOffset, fov: prewarmed.fov, zoom: prewarmed.zoom }
+      : resolveOverviewSteadyState();
     console.log('[hero-overview-director] active', { transitionId, directorActive: true, cameraOwner: 'HERO_OVERVIEW_DIRECTOR_CAMERA', fragmentOwner: 'HERO_OVERVIEW_DIRECTOR_FRAGMENTS' });
     return d;
   };
@@ -1601,6 +1624,33 @@ const UnifiedCameraController = ({
 
     frameCounterRef.current += 1;
     const runtimeSnapshotForDirector = heroOverviewRuntime?.getSnapshot?.() ?? null;
+    if (!overviewPrewarmRef.current.overviewPrewarmRan) {
+      const resolved = resolveOverviewSteadyState();
+      overviewPrewarmRef.current.overviewPrewarmRan = true;
+      overviewPrewarmRef.current.overviewPrewarmFrame = frameCounterRef.current;
+      overviewPrewarmRef.current.overviewPrewarmHadLayoutData = Boolean(config?.cameraPositions?.overview && config?.cameraTargets?.overview);
+      overviewPrewarmRef.current.overviewPrewarmConfigSource = 'cameraPositions/targets+offsets';
+      overviewPrewarmRef.current.position = resolved.position.clone();
+      overviewPrewarmRef.current.lookAt = resolved.lookAt.clone();
+      overviewPrewarmRef.current.filmOffset = resolved.filmOffset;
+      overviewPrewarmRef.current.fov = resolved.fov;
+      overviewPrewarmRef.current.zoom = resolved.zoom;
+      console.log('[hero-overview-overview-prewarm] summary', {
+        overviewPrewarmRan: true,
+        overviewPrewarmFrame: overviewPrewarmRef.current.overviewPrewarmFrame,
+        overviewPrewarmHadLayoutData: overviewPrewarmRef.current.overviewPrewarmHadLayoutData,
+        overviewPrewarmConfigSource: overviewPrewarmRef.current.overviewPrewarmConfigSource,
+        prewarmedOverviewPosition: overviewPrewarmRef.current.position.toArray(),
+        prewarmedOverviewLookAt: overviewPrewarmRef.current.lookAt.toArray(),
+        prewarmedOverviewFilmOffset: overviewPrewarmRef.current.filmOffset,
+        prewarmedOverviewFov: overviewPrewarmRef.current.fov,
+        prewarmedOverviewZoom: overviewPrewarmRef.current.zoom,
+        usedPrewarmedOverviewStateAtDirectorRelease: false,
+        firstHeroOverviewHadPrewarmedOverviewState: false,
+        firstHeroOverviewUsedLazyOverviewInit: false,
+        firstRunBlipRisk: false,
+      });
+    }
     const prevStateForDirector = prevStateRef.current;
     const prevCameraStateForDirector = prevCameraStateRef.current;
     const isHeroToOverviewStart =
@@ -1610,6 +1660,11 @@ const UnifiedCameraController = ({
       animationData?.cameraState === 'overview';
     const d = heroOverviewDirectorRef.current;
     if (isHeroToOverviewStart && runtimeSnapshotForDirector?.active) {
+      if (!overviewPrewarmRef.current.firstTransitionSeen) {
+        overviewPrewarmRef.current.firstTransitionSeen = true;
+        overviewPrewarmRef.current.firstHeroOverviewHadPrewarmedOverviewState = overviewPrewarmRef.current.overviewPrewarmRan;
+        overviewPrewarmRef.current.firstHeroOverviewUsedLazyOverviewInit = !overviewPrewarmRef.current.overviewPrewarmRan;
+      }
       activateHeroOverviewDirector(runtimeSnapshotForDirector);
     }
     const shouldRunDirector = Boolean(d.active && runtimeSnapshotForDirector?.startedAt);
@@ -1664,10 +1719,11 @@ const UnifiedCameraController = ({
         heroOverviewHandoffRef.current.expectedFov = d.cameraEnd.fov;
         heroOverviewHandoffRef.current.expectedZoom = d.cameraEnd.zoom;
         heroOverviewHandoffRef.current.normalOverviewStateSeededOnRelease = true;
+        overviewPrewarmRef.current.usedPrewarmedOverviewStateAtDirectorRelease = Boolean(overviewPrewarmRef.current.overviewPrewarmRan);
         d.cameraStart = null;
         d.cameraEnd = null;
         d.clearedDirectorRefsOnRelease = true;
-        console.log('[hero-overview-director] summary', {transitionId: d.transitionId,directorActivatedCount:d.directorActivatedCount,totalDirectorActivatedCount:d.totalDirectorActivatedCount,directorStartedFrame:d.startedFrame,directorReleasedFrame:d.releasedFrame,directorDurationFrames:d.releasedFrame-d.startedFrame,directorReleased:true,releaseReason:'runtime-complete',cameraPathMode:'simple-stable-baseline',directorCameraFrames:d.directorCameraFrames,directorFragmentFrames:d.directorFragmentFrames,blockedLegacyCameraFrames:d.blockedLegacyCameraFrames,blockedLegacyFragmentFrames:d.blockedLegacyFragmentFrames,cameraCaptureCount:d.cameraCaptureCount,cameraEndResolveCount:d.cameraEndResolveCount,fragmentCaptureCount:d.fragmentCaptureCount,fragmentEndResolveCount:d.fragmentEndResolveCount,cameraStartWasRecapturedDuringDirector:false,cameraEndWasReResolvedDuringDirector:false,fragmentStartWasRecapturedDuringDirector:false,fragmentEndWasReResolvedDuringDirector:false,anyNonDirectorCameraWriterDuringDirector:false,anyNonDirectorFragmentWriterDuringDirector:false,nonDirectorCameraWriterBranchesDuringDirector:[],nonDirectorFragmentWriterBranchesDuringDirector:[],cameraProgressMonotonic:d.cameraProgressMonotonic,cameraReachedFinalBeforeRelease:d.cameraFramesHeldAtFinal>0,cameraFramesHeldAtFinal:d.cameraFramesHeldAtFinal,finalCameraDeltaToOverview:finalCameraDelta,finalLookAtDeltaToOverview:finalLookAtDelta,finalFilmOffsetDeltaToOverview:Math.abs((camera.filmOffset ?? 0) - (d.cameraEnd?.filmOffset ?? 0)),finalFragmentMaxDeltaToOverview:0,releasedCleanly:finalCameraDelta<0.001&&finalLookAtDelta<0.001,directorActiveAfterRelease:d.active,clearedDirectorRefsOnRelease:d.clearedDirectorRefsOnRelease,touchedGlobalCameraSettledState:d.touchedGlobalCameraSettledState,touchedGlobalCameraProgressState:d.touchedGlobalCameraProgressState,postReleaseCameraMode:animationData?.cameraState ?? null,nonHeroOverviewTransitionsBlocked:false,firstNormalWriterAfterRelease:heroOverviewHandoffRef.current.firstNormalWriterAfterRelease,firstNormalFrameCameraDelta:heroOverviewHandoffRef.current.firstNormalFrameCameraDelta,firstNormalFrameLookAtDelta:heroOverviewHandoffRef.current.firstNormalFrameLookAtDelta,firstNormalFrameFilmOffsetDelta:heroOverviewHandoffRef.current.firstNormalFrameFilmOffsetDelta,firstNormalFrameFovDelta:heroOverviewHandoffRef.current.firstNormalFrameFovDelta,firstNormalFrameZoomDelta:heroOverviewHandoffRef.current.firstNormalFrameZoomDelta,firstNormalFrameWasNoOp:heroOverviewHandoffRef.current.firstNormalFrameWasNoOp,normalOverviewStateSeededOnRelease:heroOverviewHandoffRef.current.normalOverviewStateSeededOnRelease,directorRemainedInactiveAfterRelease:!d.active});
+        console.log('[hero-overview-director] summary', {transitionId: d.transitionId,directorActivatedCount:d.directorActivatedCount,totalDirectorActivatedCount:d.totalDirectorActivatedCount,directorStartedFrame:d.startedFrame,directorReleasedFrame:d.releasedFrame,directorDurationFrames:d.releasedFrame-d.startedFrame,directorReleased:true,releaseReason:'runtime-complete',cameraPathMode:'simple-stable-baseline',directorCameraFrames:d.directorCameraFrames,directorFragmentFrames:d.directorFragmentFrames,blockedLegacyCameraFrames:d.blockedLegacyCameraFrames,blockedLegacyFragmentFrames:d.blockedLegacyFragmentFrames,cameraCaptureCount:d.cameraCaptureCount,cameraEndResolveCount:d.cameraEndResolveCount,fragmentCaptureCount:d.fragmentCaptureCount,fragmentEndResolveCount:d.fragmentEndResolveCount,cameraStartWasRecapturedDuringDirector:false,cameraEndWasReResolvedDuringDirector:false,fragmentStartWasRecapturedDuringDirector:false,fragmentEndWasReResolvedDuringDirector:false,anyNonDirectorCameraWriterDuringDirector:false,anyNonDirectorFragmentWriterDuringDirector:false,nonDirectorCameraWriterBranchesDuringDirector:[],nonDirectorFragmentWriterBranchesDuringDirector:[],cameraProgressMonotonic:d.cameraProgressMonotonic,cameraReachedFinalBeforeRelease:d.cameraFramesHeldAtFinal>0,cameraFramesHeldAtFinal:d.cameraFramesHeldAtFinal,finalCameraDeltaToOverview:finalCameraDelta,finalLookAtDeltaToOverview:finalLookAtDelta,finalFilmOffsetDeltaToOverview:Math.abs((camera.filmOffset ?? 0) - (d.cameraEnd?.filmOffset ?? 0)),finalFragmentMaxDeltaToOverview:0,releasedCleanly:finalCameraDelta<0.001&&finalLookAtDelta<0.001,directorActiveAfterRelease:d.active,clearedDirectorRefsOnRelease:d.clearedDirectorRefsOnRelease,touchedGlobalCameraSettledState:d.touchedGlobalCameraSettledState,touchedGlobalCameraProgressState:d.touchedGlobalCameraProgressState,postReleaseCameraMode:animationData?.cameraState ?? null,nonHeroOverviewTransitionsBlocked:false,firstNormalWriterAfterRelease:heroOverviewHandoffRef.current.firstNormalWriterAfterRelease,firstNormalFrameCameraDelta:heroOverviewHandoffRef.current.firstNormalFrameCameraDelta,firstNormalFrameLookAtDelta:heroOverviewHandoffRef.current.firstNormalFrameLookAtDelta,firstNormalFrameFilmOffsetDelta:heroOverviewHandoffRef.current.firstNormalFrameFilmOffsetDelta,firstNormalFrameFovDelta:heroOverviewHandoffRef.current.firstNormalFrameFovDelta,firstNormalFrameZoomDelta:heroOverviewHandoffRef.current.firstNormalFrameZoomDelta,normalOverviewStateSeededOnRelease:heroOverviewHandoffRef.current.normalOverviewStateSeededOnRelease,directorRemainedInactiveAfterRelease:!d.active,isFirstHeroOverviewTransition:overviewPrewarmRef.current.firstTransitionSeen,overviewWasPrewarmedBeforeTransition:overviewPrewarmRef.current.firstHeroOverviewHadPrewarmedOverviewState,usedPrewarmedOverviewTarget:overviewPrewarmRef.current.usedPrewarmedOverviewStateAtDirectorRelease,firstNormalFrameUsedLazyOverviewInit:overviewPrewarmRef.current.firstHeroOverviewUsedLazyOverviewInit,firstNormalFrameWasNoOp:heroOverviewHandoffRef.current.firstNormalFrameWasNoOp});
       }
       return;
     }
