@@ -101,6 +101,8 @@ const UnifiedCrystalScene = forwardRef(({
   const heroOverviewFragmentTimingResolvedLoggedRef = useRef(false);
   const heroOverviewTravelDistanceAuditLoggedRef = useRef(false);
   const heroOverviewVisibleTravelSampleLoggedRef = useRef(new Set());
+  const heroOverviewFragmentsDirectorRef = useRef(null);
+  const directorFragmentTransitionRef = useRef({ transitionId: null, captured: false, resolved: false });
 
   const deriveFragmentVisualTiming = (runtimeState, explosionProgress) => {
     const timing = runtimeState?.timing || {};
@@ -1791,6 +1793,84 @@ const UnifiedCrystalScene = forwardRef(({
     }
 
     const elapsed = state.clock.elapsedTime;
+    const directorSnapshot = heroOverviewRuntime?.getSnapshot?.() ?? null;
+    const directorActive = Boolean(directorSnapshot?.director?.active && animationData?.state === 'overview');
+    if (!heroOverviewFragmentsDirectorRef.current) {
+      heroOverviewFragmentsDirectorRef.current = { initialized: false, start: [], end: [] };
+    }
+    if (directorActive) {
+      const transitionId = directorSnapshot?.director?.transitionId ?? null;
+      if (directorFragmentTransitionRef.current.transitionId !== transitionId) {
+        directorFragmentTransitionRef.current = { transitionId, captured: false, resolved: false };
+        heroOverviewFragmentsDirectorRef.current.initialized = false;
+        heroOverviewFragmentsDirectorRef.current.start = [];
+        heroOverviewFragmentsDirectorRef.current.end = [];
+      }
+      const t = THREE.MathUtils.clamp(directorSnapshot?.progress ?? 0, 0, 1);
+      if (!heroOverviewFragmentsDirectorRef.current.initialized) {
+        heroOverviewFragmentsDirectorRef.current.initialized = true;
+        heroOverviewFragmentsDirectorRef.current.start = facetRefs.current.map((f) => f?.current?.position?.clone?.() || new THREE.Vector3());
+        heroOverviewFragmentsDirectorRef.current.end = facetKeys.map((facetKey) => {
+          const mapped = facetPlacementKeys[facetKey] || facetKey;
+          return crystalConfig?.positions?.[mapped]?.clone?.() || new THREE.Vector3();
+        });
+        heroOverviewRuntime?.markDirectorCapture?.('fragment-start');
+        heroOverviewRuntime?.markDirectorCapture?.('fragment-end');
+        directorFragmentTransitionRef.current.captured = true;
+        directorFragmentTransitionRef.current.resolved = true;
+      }
+      if (!heroOverviewFragmentsDirectorRef.current.start?.length || !heroOverviewFragmentsDirectorRef.current.end?.length) {
+        console.warn('[hero-overview-director] missing fragment snapshot for transition', {
+          transitionId,
+          lastCapturedTransitionId: directorFragmentTransitionRef.current.transitionId,
+          frameId: state.clock.frame,
+          state: animationData?.state ?? null,
+          cameraState: animationData?.cameraState ?? null,
+          runtimePhase: directorSnapshot?.phase ?? null,
+        });
+        return;
+      }
+      const startPositions = heroOverviewFragmentsDirectorRef.current.start;
+      const endPositions = heroOverviewFragmentsDirectorRef.current.end;
+      const impulseEnd = directorSnapshot?.timing?.explosionImpulseEnd ?? 0.24;
+      const slowdownEnd = directorSnapshot?.timing?.bulletTimeSlowdownEnd ?? 0.72;
+      const fragmentSettleEnd = 1.0;
+      const travelT = t < impulseEnd
+        ? THREE.MathUtils.clamp(t / Math.max(0.0001, impulseEnd), 0, 1) * 0.72
+        : t < slowdownEnd
+          ? 0.72 + (THREE.MathUtils.clamp((t - impulseEnd) / Math.max(0.0001, slowdownEnd - impulseEnd), 0, 1) * 0.24)
+          : 0.96 + (THREE.MathUtils.clamp((t - slowdownEnd) / Math.max(0.0001, fragmentSettleEnd - slowdownEnd), 0, 1) * 0.04);
+      facetRefs.current.forEach((facetRef, idx) => {
+        if (!facetRef?.current) return;
+        const from = startPositions[idx] || new THREE.Vector3();
+        const to = endPositions[idx] || new THREE.Vector3();
+        const blast = from.clone().normalize().multiplyScalar(0.7 * (1 - travelT));
+        const next = from.clone().lerp(to, travelT).add(blast);
+        facetRef.current.position.copy(next);
+        facetRef.current.quaternion.slerp(neutralQuat, Math.min(1, deltaTime * 8));
+      });
+      heroOverviewRuntime?.markDirectorFrame?.('fragments');
+      heroOverviewRuntime?.markBlockedLegacyFrame?.('fragments');
+      if ((directorSnapshot?.phase ?? '') === 'complete' || t >= 1) {
+        let maxDelta = 0;
+        facetRefs.current.forEach((facetRef, idx) => {
+          const target = endPositions[idx];
+          if (!facetRef?.current || !target) return;
+          facetRef.current.position.copy(target);
+          maxDelta = Math.max(maxDelta, facetRef.current.position.distanceTo(target));
+        });
+        heroOverviewRuntime?.logDirectorSummary?.({
+          ...directorSnapshot?.director?.stats,
+          finalCameraDeltaToOverview: null,
+          finalLookAtDeltaToOverview: null,
+          finalFilmOffsetDeltaToOverview: null,
+          finalFragmentMaxDeltaToOverview: Number(maxDelta.toFixed(6)),
+          releasedCleanly: Boolean(directorSnapshot?.director?.releasedCleanly),
+        });
+        heroOverviewFragmentsDirectorRef.current.initialized = false;
+      }
+      return;
+    }
     const cameraMoveProgress = sharedCameraMoveProgressRef?.current ?? animationData?.cameraMoveProgress ?? 1;
     const floatConfig = effects.idle.float;
     const floatAll = animationData.state === 'overview' && !animationData.isTransitioning;
