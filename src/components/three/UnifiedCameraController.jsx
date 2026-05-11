@@ -1963,6 +1963,20 @@ const UnifiedCameraController = ({
       camera.lookAt(introLookAt);
       camera.filmOffset = destination.filmOffsetX;
       camera.updateProjectionMatrix();
+      lastAuthoritativeHeroSnapshotRef.current = {
+        position: camera.position.clone(),
+        lookAtTarget: introLookAt.clone(),
+      };
+      latestAuthoritativeHeroSnapshotRef.current = {
+        position: camera.position.clone(),
+        lookAtTarget: introLookAt.clone(),
+        filmOffsetX: Number.isFinite(camera.filmOffset) ? camera.filmOffset : destination.filmOffsetX,
+        angle: destination.angle,
+        elapsed: state.clock.elapsedTime,
+        orbitElapsed: Math.max(0, state.clock.elapsedTime - heroOrbitStartTimeRef.current),
+        tuning: { ...tuning },
+        center: center.clone(),
+      };
 
       const completedThisFrame = progress >= 1;
       if (completedThisFrame) {
@@ -1972,6 +1986,20 @@ const UnifiedCameraController = ({
         camera.lookAt(destination.lookAtTarget);
         camera.filmOffset = destination.filmOffsetX;
         camera.updateProjectionMatrix();
+        lastAuthoritativeHeroSnapshotRef.current = {
+          position: destination.position.clone(),
+          lookAtTarget: destination.lookAtTarget.clone(),
+        };
+        latestAuthoritativeHeroSnapshotRef.current = {
+          position: destination.position.clone(),
+          lookAtTarget: destination.lookAtTarget.clone(),
+          filmOffsetX: destination.filmOffsetX,
+          angle: destination.angle,
+          elapsed: state.clock.elapsedTime,
+          orbitElapsed: 0,
+          tuning: { ...tuning },
+          center: center.clone(),
+        };
         heroOrbitStartTimeRef.current = state.clock.elapsedTime;
         authoritativeHeroIntroCapturedRef.current = false;
       }
