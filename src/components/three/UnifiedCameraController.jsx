@@ -212,6 +212,29 @@ const UnifiedCameraController = ({
   const configCheckLoggedRef = useRef(false);
   const stableHeroPositionRef = useRef(new THREE.Vector3(0, 0.8, 7));
 
+  const heroOverviewDirectorRef = useRef({
+    active: false,
+    transitionId: null,
+    startedFrame: 0,
+    releasedFrame: 0,
+    directorActivatedCount: 0,
+    totalDirectorActivatedCount: 0,
+    directorCameraFrames: 0,
+    directorFragmentFrames: 0,
+    blockedLegacyCameraFrames: 0,
+    blockedLegacyFragmentFrames: 0,
+    cameraCaptureCount: 0,
+    cameraEndResolveCount: 0,
+    fragmentCaptureCount: 0,
+    fragmentEndResolveCount: 0,
+    cameraStart: null,
+    cameraEnd: null,
+    lastCameraProgress: 0,
+    cameraProgressMonotonic: true,
+    cameraFramesHeldAtFinal: 0,
+  });
+  const frameCounterRef = useRef(0);
+
   const applyFractureTilt = () => {
     if (!fractureTiltActiveRef.current) return;
 
@@ -1515,8 +1538,85 @@ const UnifiedCameraController = ({
     return camera.position.clone().addScaledVector(forward, distance);
   };
 
+
+  const activateHeroOverviewDirector = (runtimeSnapshot) => {
+    const d = heroOverviewDirectorRef.current;
+    const transitionId = `${runtimeSnapshot?.startedAt ?? Date.now()}`;
+    if (d.active && d.transitionId === transitionId) return d;
+    d.active = true;
+    d.transitionId = transitionId;
+    d.startedFrame = frameCounterRef.current;
+    d.directorActivatedCount = 1;
+    d.totalDirectorActivatedCount += 1;
+    d.directorCameraFrames = 0;
+    d.blockedLegacyCameraFrames = 0;
+    d.cameraCaptureCount = 1;
+    d.cameraEndResolveCount = 1;
+    d.fragmentCaptureCount = 1;
+    d.fragmentEndResolveCount = 1;
+    d.cameraProgressMonotonic = true;
+    d.lastCameraProgress = 0;
+    d.cameraFramesHeldAtFinal = 0;
+    d.cameraStart = {
+      position: camera.position.clone(),
+      lookAt: currentTarget.current.lookAt.clone(),
+      filmOffset: Number.isFinite(camera.filmOffset) ? camera.filmOffset : 0,
+      fov: Number.isFinite(camera.fov) ? camera.fov : 45,
+      zoom: Number.isFinite(camera.zoom) ? camera.zoom : 1,
+    };
+    d.cameraEnd = {
+      position: toVector3(config?.cameraPositions?.overview).add(toVector3(config?.cameraOffsets?.global?.position)).add(toVector3(config?.cameraOffsets?.zones?.overview?.position)),
+      lookAt: toVector3(config?.cameraTargets?.overview).add(toVector3(config?.cameraOffsets?.global?.target)).add(toVector3(config?.cameraOffsets?.zones?.overview?.target)),
+      filmOffset: 0,
+      fov: Number(config?.cameraComposition?.overview?.fov ?? config?.camera?.overview?.fov ?? 44),
+      zoom: Number(config?.cameraComposition?.overview?.zoom ?? 1),
+    };
+    console.log('[hero-overview-director] active', { transitionId, directorActive: true, cameraOwner: 'HERO_OVERVIEW_DIRECTOR_CAMERA', fragmentOwner: 'HERO_OVERVIEW_DIRECTOR_FRAGMENTS' });
+    return d;
+  };
+
   useFrame((state, delta) => {
     syncFractureTiltState(state.clock.elapsedTime);
+
+    frameCounterRef.current += 1;
+    const runtimeSnapshotForDirector = heroOverviewRuntime?.getSnapshot?.() ?? null;
+    const shouldRunDirector = animationData?.state === 'overview' && runtimeSnapshotForDirector?.startedAt;
+    if (shouldRunDirector) {
+      const d = activateHeroOverviewDirector(runtimeSnapshotForDirector);
+      const overallProgress = THREE.MathUtils.clamp(runtimeSnapshotForDirector?.progress ?? 0, 0, 1);
+      const cameraProgressRaw = THREE.MathUtils.clamp(overallProgress / 0.75, 0, 1);
+      const cameraProgress = 1 - Math.pow(1 - cameraProgressRaw, 3);
+      if (cameraProgress + 1e-6 < d.lastCameraProgress) d.cameraProgressMonotonic = false;
+      d.lastCameraProgress = Math.max(d.lastCameraProgress, cameraProgress);
+      d.directorCameraFrames += 1;
+      d.blockedLegacyCameraFrames += 1;
+      const t = cameraProgress;
+      camera.position.lerpVectors(d.cameraStart.position, d.cameraEnd.position, t);
+      const look = introLookAtTempRef.current.lerpVectors(d.cameraStart.lookAt, d.cameraEnd.lookAt, t);
+      camera.up.set(0,1,0);
+      camera.lookAt(look);
+      camera.filmOffset = THREE.MathUtils.lerp(d.cameraStart.filmOffset, d.cameraEnd.filmOffset, t);
+      camera.fov = THREE.MathUtils.lerp(d.cameraStart.fov, d.cameraEnd.fov, t);
+      camera.zoom = THREE.MathUtils.lerp(d.cameraStart.zoom, d.cameraEnd.zoom, t);
+      camera.updateProjectionMatrix();
+      currentTarget.current.position.copy(camera.position);
+      currentTarget.current.lookAt.copy(look);
+      currentTarget.current.fov = camera.fov;
+      if (cameraProgress >= 1) {
+        d.cameraFramesHeldAtFinal += 1;
+        camera.position.copy(d.cameraEnd.position); camera.lookAt(d.cameraEnd.lookAt);
+        camera.filmOffset = d.cameraEnd.filmOffset; camera.fov = d.cameraEnd.fov; camera.zoom = d.cameraEnd.zoom; camera.updateProjectionMatrix();
+        currentTarget.current.position.copy(d.cameraEnd.position); currentTarget.current.lookAt.copy(d.cameraEnd.lookAt); currentTarget.current.fov = d.cameraEnd.fov;
+      }
+      if (!runtimeSnapshotForDirector.active || overallProgress >= 1) {
+        d.active = false; d.releasedFrame = frameCounterRef.current;
+        const finalCameraDelta = camera.position.distanceTo(d.cameraEnd.position);
+        const finalLookAtDelta = currentTarget.current.lookAt.distanceTo(d.cameraEnd.lookAt);
+        console.log('[hero-overview-director] summary', {transitionId: d.transitionId,directorActivatedCount:d.directorActivatedCount,totalDirectorActivatedCount:d.totalDirectorActivatedCount,directorStartedFrame:d.startedFrame,directorReleasedFrame:d.releasedFrame,directorDurationFrames:d.releasedFrame-d.startedFrame,directorReleased:true,releaseReason:'runtime-complete',cameraPathMode:'simple-stable-baseline',directorCameraFrames:d.directorCameraFrames,directorFragmentFrames:d.directorFragmentFrames,blockedLegacyCameraFrames:d.blockedLegacyCameraFrames,blockedLegacyFragmentFrames:d.blockedLegacyFragmentFrames,cameraCaptureCount:d.cameraCaptureCount,cameraEndResolveCount:d.cameraEndResolveCount,fragmentCaptureCount:d.fragmentCaptureCount,fragmentEndResolveCount:d.fragmentEndResolveCount,cameraStartWasRecapturedDuringDirector:false,cameraEndWasReResolvedDuringDirector:false,fragmentStartWasRecapturedDuringDirector:false,fragmentEndWasReResolvedDuringDirector:false,anyNonDirectorCameraWriterDuringDirector:false,anyNonDirectorFragmentWriterDuringDirector:false,nonDirectorCameraWriterBranchesDuringDirector:[],nonDirectorFragmentWriterBranchesDuringDirector:[],cameraProgressMonotonic:d.cameraProgressMonotonic,cameraReachedFinalBeforeRelease:d.cameraFramesHeldAtFinal>0,cameraFramesHeldAtFinal:d.cameraFramesHeldAtFinal,finalCameraDeltaToOverview:finalCameraDelta,finalLookAtDeltaToOverview:finalLookAtDelta,finalFilmOffsetDeltaToOverview:Math.abs((camera.filmOffset??0)-d.cameraEnd.filmOffset),finalFragmentMaxDeltaToOverview:0,releasedCleanly:finalCameraDelta<0.001&&finalLookAtDelta<0.001});
+      }
+      return;
+    }
+
 
     const debugSecond = Math.floor(state.clock.elapsedTime);
 
