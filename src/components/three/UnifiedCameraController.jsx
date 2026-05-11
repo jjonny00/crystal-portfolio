@@ -238,6 +238,24 @@ const UnifiedCameraController = ({
   });
   const frameCounterRef = useRef(0);
 
+  const heroOverviewHandoffRef = useRef({
+    pendingFirstNormalFrameLog: false,
+    logged: false,
+    expectedOverviewPosition: null,
+    expectedOverviewLookAt: null,
+    expectedFilmOffset: 0,
+    expectedFov: 44,
+    expectedZoom: 1,
+    firstNormalWriterAfterRelease: null,
+    firstNormalFrameCameraDelta: null,
+    firstNormalFrameLookAtDelta: null,
+    firstNormalFrameFilmOffsetDelta: null,
+    firstNormalFrameFovDelta: null,
+    firstNormalFrameZoomDelta: null,
+    firstNormalFrameWasNoOp: null,
+    normalOverviewStateSeededOnRelease: false,
+  });
+
   const applyFractureTilt = () => {
     if (!fractureTiltActiveRef.current) return;
 
@@ -1625,12 +1643,85 @@ const UnifiedCameraController = ({
         d.active = false; d.releasedFrame = frameCounterRef.current;
         const finalCameraDelta = camera.position.distanceTo(d.cameraEnd.position);
         const finalLookAtDelta = currentTarget.current.lookAt.distanceTo(d.cameraEnd.lookAt);
+        lastCameraConfig.current = {
+          position: d.cameraEnd.position.clone(),
+          target: d.cameraEnd.lookAt.clone(),
+          fov: d.cameraEnd.fov,
+          description: 'Overview with exploded crystal',
+        };
+        cameraMoveBaselineRef.current = { position: 0, lookAt: 0, fov: 0 };
+        cameraMoveProgressRef.current = 1;
+        settleFrameCount.current = 0;
+        cameraSettledRef.current = true;
+        if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = 1;
+        animationData?.setCameraMoveProgress?.(1);
+        animationData?.setCameraSettled?.(true);
+        heroOverviewHandoffRef.current.pendingFirstNormalFrameLog = true;
+        heroOverviewHandoffRef.current.logged = false;
+        heroOverviewHandoffRef.current.expectedOverviewPosition = d.cameraEnd.position.clone();
+        heroOverviewHandoffRef.current.expectedOverviewLookAt = d.cameraEnd.lookAt.clone();
+        heroOverviewHandoffRef.current.expectedFilmOffset = d.cameraEnd.filmOffset;
+        heroOverviewHandoffRef.current.expectedFov = d.cameraEnd.fov;
+        heroOverviewHandoffRef.current.expectedZoom = d.cameraEnd.zoom;
+        heroOverviewHandoffRef.current.normalOverviewStateSeededOnRelease = true;
         d.cameraStart = null;
         d.cameraEnd = null;
         d.clearedDirectorRefsOnRelease = true;
-        console.log('[hero-overview-director] summary', {transitionId: d.transitionId,directorActivatedCount:d.directorActivatedCount,totalDirectorActivatedCount:d.totalDirectorActivatedCount,directorStartedFrame:d.startedFrame,directorReleasedFrame:d.releasedFrame,directorDurationFrames:d.releasedFrame-d.startedFrame,directorReleased:true,releaseReason:'runtime-complete',cameraPathMode:'simple-stable-baseline',directorCameraFrames:d.directorCameraFrames,directorFragmentFrames:d.directorFragmentFrames,blockedLegacyCameraFrames:d.blockedLegacyCameraFrames,blockedLegacyFragmentFrames:d.blockedLegacyFragmentFrames,cameraCaptureCount:d.cameraCaptureCount,cameraEndResolveCount:d.cameraEndResolveCount,fragmentCaptureCount:d.fragmentCaptureCount,fragmentEndResolveCount:d.fragmentEndResolveCount,cameraStartWasRecapturedDuringDirector:false,cameraEndWasReResolvedDuringDirector:false,fragmentStartWasRecapturedDuringDirector:false,fragmentEndWasReResolvedDuringDirector:false,anyNonDirectorCameraWriterDuringDirector:false,anyNonDirectorFragmentWriterDuringDirector:false,nonDirectorCameraWriterBranchesDuringDirector:[],nonDirectorFragmentWriterBranchesDuringDirector:[],cameraProgressMonotonic:d.cameraProgressMonotonic,cameraReachedFinalBeforeRelease:d.cameraFramesHeldAtFinal>0,cameraFramesHeldAtFinal:d.cameraFramesHeldAtFinal,finalCameraDeltaToOverview:finalCameraDelta,finalLookAtDeltaToOverview:finalLookAtDelta,finalFilmOffsetDeltaToOverview:Math.abs((camera.filmOffset ?? 0) - (d.cameraEnd?.filmOffset ?? 0)),finalFragmentMaxDeltaToOverview:0,releasedCleanly:finalCameraDelta<0.001&&finalLookAtDelta<0.001,directorActiveAfterRelease:d.active,clearedDirectorRefsOnRelease:d.clearedDirectorRefsOnRelease,touchedGlobalCameraSettledState:d.touchedGlobalCameraSettledState,touchedGlobalCameraProgressState:d.touchedGlobalCameraProgressState,postReleaseCameraMode:animationData?.cameraState ?? null,nonHeroOverviewTransitionsBlocked:false});
+        console.log('[hero-overview-director] summary', {transitionId: d.transitionId,directorActivatedCount:d.directorActivatedCount,totalDirectorActivatedCount:d.totalDirectorActivatedCount,directorStartedFrame:d.startedFrame,directorReleasedFrame:d.releasedFrame,directorDurationFrames:d.releasedFrame-d.startedFrame,directorReleased:true,releaseReason:'runtime-complete',cameraPathMode:'simple-stable-baseline',directorCameraFrames:d.directorCameraFrames,directorFragmentFrames:d.directorFragmentFrames,blockedLegacyCameraFrames:d.blockedLegacyCameraFrames,blockedLegacyFragmentFrames:d.blockedLegacyFragmentFrames,cameraCaptureCount:d.cameraCaptureCount,cameraEndResolveCount:d.cameraEndResolveCount,fragmentCaptureCount:d.fragmentCaptureCount,fragmentEndResolveCount:d.fragmentEndResolveCount,cameraStartWasRecapturedDuringDirector:false,cameraEndWasReResolvedDuringDirector:false,fragmentStartWasRecapturedDuringDirector:false,fragmentEndWasReResolvedDuringDirector:false,anyNonDirectorCameraWriterDuringDirector:false,anyNonDirectorFragmentWriterDuringDirector:false,nonDirectorCameraWriterBranchesDuringDirector:[],nonDirectorFragmentWriterBranchesDuringDirector:[],cameraProgressMonotonic:d.cameraProgressMonotonic,cameraReachedFinalBeforeRelease:d.cameraFramesHeldAtFinal>0,cameraFramesHeldAtFinal:d.cameraFramesHeldAtFinal,finalCameraDeltaToOverview:finalCameraDelta,finalLookAtDeltaToOverview:finalLookAtDelta,finalFilmOffsetDeltaToOverview:Math.abs((camera.filmOffset ?? 0) - (d.cameraEnd?.filmOffset ?? 0)),finalFragmentMaxDeltaToOverview:0,releasedCleanly:finalCameraDelta<0.001&&finalLookAtDelta<0.001,directorActiveAfterRelease:d.active,clearedDirectorRefsOnRelease:d.clearedDirectorRefsOnRelease,touchedGlobalCameraSettledState:d.touchedGlobalCameraSettledState,touchedGlobalCameraProgressState:d.touchedGlobalCameraProgressState,postReleaseCameraMode:animationData?.cameraState ?? null,nonHeroOverviewTransitionsBlocked:false,firstNormalWriterAfterRelease:heroOverviewHandoffRef.current.firstNormalWriterAfterRelease,firstNormalFrameCameraDelta:heroOverviewHandoffRef.current.firstNormalFrameCameraDelta,firstNormalFrameLookAtDelta:heroOverviewHandoffRef.current.firstNormalFrameLookAtDelta,firstNormalFrameFilmOffsetDelta:heroOverviewHandoffRef.current.firstNormalFrameFilmOffsetDelta,firstNormalFrameFovDelta:heroOverviewHandoffRef.current.firstNormalFrameFovDelta,firstNormalFrameZoomDelta:heroOverviewHandoffRef.current.firstNormalFrameZoomDelta,firstNormalFrameWasNoOp:heroOverviewHandoffRef.current.firstNormalFrameWasNoOp,normalOverviewStateSeededOnRelease:heroOverviewHandoffRef.current.normalOverviewStateSeededOnRelease,directorRemainedInactiveAfterRelease:!d.active});
       }
       return;
+    }
+
+    if (heroOverviewHandoffRef.current.pendingFirstNormalFrameLog && !heroOverviewHandoffRef.current.logged) {
+      const handoff = heroOverviewHandoffRef.current;
+      const beforePos = camera.position.clone();
+      const beforeLookAt = currentTarget.current.lookAt.clone();
+      const expectedPos = handoff.expectedOverviewPosition;
+      const expectedLookAt = handoff.expectedOverviewLookAt;
+      const beforePosDelta = expectedPos ? beforePos.distanceTo(expectedPos) : null;
+      const beforeLookDelta = expectedLookAt ? beforeLookAt.distanceTo(expectedLookAt) : null;
+      const beforeFilm = camera.filmOffset ?? 0;
+      const beforeFov = camera.fov ?? 0;
+      const beforeZoom = camera.zoom ?? 1;
+      handoff.firstNormalWriterAfterRelease = 'NORMAL_CAMERA_BRANCH';
+      handoff.firstNormalFrameCameraDelta = beforePosDelta;
+      handoff.firstNormalFrameLookAtDelta = beforeLookDelta;
+      handoff.firstNormalFrameFilmOffsetDelta = Math.abs(beforeFilm - (handoff.expectedFilmOffset ?? 0));
+      handoff.firstNormalFrameFovDelta = Math.abs(beforeFov - (handoff.expectedFov ?? 0));
+      handoff.firstNormalFrameZoomDelta = Math.abs(beforeZoom - (handoff.expectedZoom ?? 1));
+      handoff.firstNormalFrameWasNoOp =
+        (handoff.firstNormalFrameCameraDelta ?? 1) < 0.001 &&
+        (handoff.firstNormalFrameLookAtDelta ?? 1) < 0.001 &&
+        handoff.firstNormalFrameFilmOffsetDelta < 0.0001 &&
+        handoff.firstNormalFrameFovDelta < 0.0001 &&
+        handoff.firstNormalFrameZoomDelta < 0.0001;
+      console.log('[hero-overview-handoff-boundary] first-normal-camera-frame', {
+        frameId: frameCounterRef.current,
+        writerBranch: handoff.firstNormalWriterAfterRelease,
+        state: animationData?.state ?? null,
+        cameraState: animationData?.cameraState ?? null,
+        runtimePhase: runtimeSnapshotForDirector?.phase ?? null,
+        cameraPositionBeforeWrite: beforePos.toArray(),
+        cameraPositionAfterWrite: camera.position.toArray(),
+        currentTargetPosition: currentTarget.current.position.toArray(),
+        currentTargetLookAt: currentTarget.current.lookAt.toArray(),
+        cameraLookAtUsedByBranch: currentTarget.current.lookAt.toArray(),
+        filmOffsetBefore: beforeFilm,
+        filmOffsetAfter: camera.filmOffset,
+        fovBefore: beforeFov,
+        fovAfter: camera.fov,
+        zoomBefore: beforeZoom,
+        zoomAfter: camera.zoom,
+        cameraMoveProgress: cameraMoveProgressRef.current,
+        cameraSettled: cameraSettledRef.current,
+        distanceToExpectedOverviewBefore: beforePosDelta,
+        distanceToExpectedOverviewAfter: expectedPos ? camera.position.distanceTo(expectedPos) : null,
+        lookAtToExpectedOverviewBefore: beforeLookDelta,
+        lookAtToExpectedOverviewAfter: expectedLookAt ? currentTarget.current.lookAt.distanceTo(expectedLookAt) : null,
+        startedSmoothingInsteadOfHold: !handoff.firstNormalFrameWasNoOp,
+      });
+      handoff.pendingFirstNormalFrameLog = false;
+      handoff.logged = true;
     }
 
     if (
