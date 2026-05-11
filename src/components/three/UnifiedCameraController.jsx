@@ -3193,8 +3193,12 @@ const UnifiedCameraController = ({
       heroToOverviewSuppressFirstFallbackFrameRef.current = false;
       heroToOverviewOverviewSettleFramesRef.current = 6;
       currentTarget.current.position.copy(camera.position);
-      const holdLookAt = getCameraLookAtFromTransform();
-      if (holdLookAt) currentTarget.current.lookAt.copy(holdLookAt);
+      const forcedFinalLookAt = heroToOverviewLastForcedFinalRef.current?.lookAt || null;
+      const holdLookAt = forcedFinalLookAt ? forcedFinalLookAt.clone() : getCameraLookAtFromTransform();
+      if (holdLookAt) {
+        currentTarget.current.lookAt.copy(holdLookAt);
+        camera.lookAt(holdLookAt);
+      }
       currentTarget.current.fov = camera.fov;
       logCameraWrite(state, "FORCED_HERO_TO_OVERVIEW", "post-handoff-first-fallback-hold", holdLookAt, false, true);
       return;
