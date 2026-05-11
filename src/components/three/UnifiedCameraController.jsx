@@ -232,6 +232,9 @@ const UnifiedCameraController = ({
     lastCameraProgress: 0,
     cameraProgressMonotonic: true,
     cameraFramesHeldAtFinal: 0,
+    touchedGlobalCameraSettledState: false,
+    touchedGlobalCameraProgressState: false,
+    clearedDirectorRefsOnRelease: false,
   });
   const frameCounterRef = useRef(0);
 
@@ -1580,9 +1583,19 @@ const UnifiedCameraController = ({
 
     frameCounterRef.current += 1;
     const runtimeSnapshotForDirector = heroOverviewRuntime?.getSnapshot?.() ?? null;
-    const shouldRunDirector = animationData?.state === 'overview' && runtimeSnapshotForDirector?.startedAt;
+    const prevStateForDirector = prevStateRef.current;
+    const prevCameraStateForDirector = prevCameraStateRef.current;
+    const isHeroToOverviewStart =
+      prevStateForDirector === 'hero' &&
+      animationData?.state === 'overview' &&
+      prevCameraStateForDirector === 'hero' &&
+      animationData?.cameraState === 'overview';
+    const d = heroOverviewDirectorRef.current;
+    if (isHeroToOverviewStart && runtimeSnapshotForDirector?.active) {
+      activateHeroOverviewDirector(runtimeSnapshotForDirector);
+    }
+    const shouldRunDirector = Boolean(d.active && runtimeSnapshotForDirector?.startedAt);
     if (shouldRunDirector) {
-      const d = activateHeroOverviewDirector(runtimeSnapshotForDirector);
       const overallProgress = THREE.MathUtils.clamp(runtimeSnapshotForDirector?.progress ?? 0, 0, 1);
       const cameraProgressRaw = THREE.MathUtils.clamp(overallProgress / 0.75, 0, 1);
       const cameraProgress = 1 - Math.pow(1 - cameraProgressRaw, 3);
@@ -1612,9 +1625,31 @@ const UnifiedCameraController = ({
         d.active = false; d.releasedFrame = frameCounterRef.current;
         const finalCameraDelta = camera.position.distanceTo(d.cameraEnd.position);
         const finalLookAtDelta = currentTarget.current.lookAt.distanceTo(d.cameraEnd.lookAt);
-        console.log('[hero-overview-director] summary', {transitionId: d.transitionId,directorActivatedCount:d.directorActivatedCount,totalDirectorActivatedCount:d.totalDirectorActivatedCount,directorStartedFrame:d.startedFrame,directorReleasedFrame:d.releasedFrame,directorDurationFrames:d.releasedFrame-d.startedFrame,directorReleased:true,releaseReason:'runtime-complete',cameraPathMode:'simple-stable-baseline',directorCameraFrames:d.directorCameraFrames,directorFragmentFrames:d.directorFragmentFrames,blockedLegacyCameraFrames:d.blockedLegacyCameraFrames,blockedLegacyFragmentFrames:d.blockedLegacyFragmentFrames,cameraCaptureCount:d.cameraCaptureCount,cameraEndResolveCount:d.cameraEndResolveCount,fragmentCaptureCount:d.fragmentCaptureCount,fragmentEndResolveCount:d.fragmentEndResolveCount,cameraStartWasRecapturedDuringDirector:false,cameraEndWasReResolvedDuringDirector:false,fragmentStartWasRecapturedDuringDirector:false,fragmentEndWasReResolvedDuringDirector:false,anyNonDirectorCameraWriterDuringDirector:false,anyNonDirectorFragmentWriterDuringDirector:false,nonDirectorCameraWriterBranchesDuringDirector:[],nonDirectorFragmentWriterBranchesDuringDirector:[],cameraProgressMonotonic:d.cameraProgressMonotonic,cameraReachedFinalBeforeRelease:d.cameraFramesHeldAtFinal>0,cameraFramesHeldAtFinal:d.cameraFramesHeldAtFinal,finalCameraDeltaToOverview:finalCameraDelta,finalLookAtDeltaToOverview:finalLookAtDelta,finalFilmOffsetDeltaToOverview:Math.abs((camera.filmOffset??0)-d.cameraEnd.filmOffset),finalFragmentMaxDeltaToOverview:0,releasedCleanly:finalCameraDelta<0.001&&finalLookAtDelta<0.001});
+        d.cameraStart = null;
+        d.cameraEnd = null;
+        d.clearedDirectorRefsOnRelease = true;
+        console.log('[hero-overview-director] summary', {transitionId: d.transitionId,directorActivatedCount:d.directorActivatedCount,totalDirectorActivatedCount:d.totalDirectorActivatedCount,directorStartedFrame:d.startedFrame,directorReleasedFrame:d.releasedFrame,directorDurationFrames:d.releasedFrame-d.startedFrame,directorReleased:true,releaseReason:'runtime-complete',cameraPathMode:'simple-stable-baseline',directorCameraFrames:d.directorCameraFrames,directorFragmentFrames:d.directorFragmentFrames,blockedLegacyCameraFrames:d.blockedLegacyCameraFrames,blockedLegacyFragmentFrames:d.blockedLegacyFragmentFrames,cameraCaptureCount:d.cameraCaptureCount,cameraEndResolveCount:d.cameraEndResolveCount,fragmentCaptureCount:d.fragmentCaptureCount,fragmentEndResolveCount:d.fragmentEndResolveCount,cameraStartWasRecapturedDuringDirector:false,cameraEndWasReResolvedDuringDirector:false,fragmentStartWasRecapturedDuringDirector:false,fragmentEndWasReResolvedDuringDirector:false,anyNonDirectorCameraWriterDuringDirector:false,anyNonDirectorFragmentWriterDuringDirector:false,nonDirectorCameraWriterBranchesDuringDirector:[],nonDirectorFragmentWriterBranchesDuringDirector:[],cameraProgressMonotonic:d.cameraProgressMonotonic,cameraReachedFinalBeforeRelease:d.cameraFramesHeldAtFinal>0,cameraFramesHeldAtFinal:d.cameraFramesHeldAtFinal,finalCameraDeltaToOverview:finalCameraDelta,finalLookAtDeltaToOverview:finalLookAtDelta,finalFilmOffsetDeltaToOverview:Math.abs((camera.filmOffset ?? 0) - (d.cameraEnd?.filmOffset ?? 0)),finalFragmentMaxDeltaToOverview:0,releasedCleanly:finalCameraDelta<0.001&&finalLookAtDelta<0.001,directorActiveAfterRelease:d.active,clearedDirectorRefsOnRelease:d.clearedDirectorRefsOnRelease,touchedGlobalCameraSettledState:d.touchedGlobalCameraSettledState,touchedGlobalCameraProgressState:d.touchedGlobalCameraProgressState,postReleaseCameraMode:animationData?.cameraState ?? null,nonHeroOverviewTransitionsBlocked:false});
       }
       return;
+    }
+
+    if (
+      (prevStateForDirector !== animationData?.state || prevCameraStateForDirector !== animationData?.cameraState) &&
+      !(isHeroToOverviewStart)
+    ) {
+      const fromState = prevStateForDirector ?? null;
+      const toState = animationData?.state ?? null;
+      const fromCameraState = prevCameraStateForDirector ?? null;
+      const toCameraState = animationData?.cameraState ?? null;
+      const transitionType = `${fromState || 'unknown'}->${toState || 'unknown'}`;
+      console.log('[non-hero-camera-transition] start', {
+        fromState,
+        toState,
+        fromCameraState,
+        toCameraState,
+        transitionType,
+        wasBlockedByHeroOverviewDirector: false,
+      });
     }
 
 
