@@ -201,6 +201,10 @@ const UnifiedCameraController = ({
   const heroToOverviewTraceMetaRef = useRef({ active: false, endTime: 0, forcedFinal: null, prevSample: null });
   const heroToOverviewPhaseBoundaryTraceRef = useRef([]);
   const heroToOverviewPhaseBoundaryMetaRef = useRef({ switchIndex: null, printed: false });
+  const firstHeroOverviewTraceCapturedRef = useRef(false);
+  const frameWriteTrackerRef = useRef({ frame: -1, writes: [] });
+  const firstHeroOverviewTraceRef = useRef([]);
+  const firstHeroOverviewTransitionWindowRef = useRef({ active: false, endAt: 0 });
   const heroOverviewCameraHookBranchLoggedRef = useRef(false);
   const heroOverviewCameraHookPhaseLoggedRef = useRef(new Set());
   const heroOverviewCameraTimingResolvedLoggedRef = useRef(false);
@@ -1405,6 +1409,55 @@ const UnifiedCameraController = ({
 
 
   const logCameraWrite = (state, branch, reason, lookAtTarget = null, projectionUpdated = false, returns = false) => {
+    const frame = state?.clock?.frame ?? -1;
+    const elapsed = state?.clock?.elapsedTime ?? 0;
+    if (frameWriteTrackerRef.current.frame !== frame) {
+      frameWriteTrackerRef.current = { frame, writes: [] };
+    }
+    frameWriteTrackerRef.current.writes.push({ branch, reason });
+
+    if (frameWriteTrackerRef.current.writes.length > 1) {
+      console.warn('[UCC MULTI WRITER SAME FRAME]', {
+        frame,
+        elapsed,
+        writes: frameWriteTrackerRef.current.writes,
+        state: animationData?.state,
+        cameraState: animationData?.cameraState,
+      });
+    }
+
+    if (firstHeroOverviewTransitionWindowRef.current.active) {
+      const derivedLookAt = getCameraLookAtFromTransform();
+      firstHeroOverviewTraceRef.current.push({
+        frame,
+        elapsed: round4(elapsed),
+        branch,
+        reason,
+        state: animationData?.state ?? null,
+        cameraState: animationData?.cameraState ?? null,
+        cameraPosition: camera.position.toArray(),
+        lookAtTarget: lookAtTarget?.toArray?.() || null,
+        derivedLookAt: derivedLookAt?.toArray?.() || null,
+        filmOffset: round4(camera.filmOffset ?? 0),
+        fov: round4(camera.fov ?? 0),
+        introActive: introActiveRef.current,
+        introPlayed: introPlayedRef.current,
+        writerCountThisFrame: frameWriteTrackerRef.current.writes.length,
+      });
+      if (elapsed >= firstHeroOverviewTransitionWindowRef.current.endAt) {
+        firstHeroOverviewTransitionWindowRef.current.active = false;
+        console.log(
+          '[UCC FIRST HERO OVERVIEW TRACE JSON STRING]\n' +
+          JSON.stringify({
+            capturedFrames: firstHeroOverviewTraceRef.current.length,
+            startedAt: round4(firstHeroOverviewTransitionWindowRef.current.endAt - 2.2),
+            endedAt: round4(elapsed),
+            samples: firstHeroOverviewTraceRef.current,
+          }, null, 2)
+        );
+      }
+    }
+
     const forcedHeroToOverviewActive = authoritativeHeroToOverviewTransitionRef.current.active;
     const forcedOverviewToHeroActive = authoritativeOverviewToHeroTransitionRef.current.active;
     if ((forcedHeroToOverviewActive || forcedOverviewToHeroActive) &&
@@ -1644,6 +1697,14 @@ const UnifiedCameraController = ({
       });
     }
     if (shouldForceHeroToOverviewTransition && !authoritativeHeroToOverviewTransitionRef.current.active) {
+      if (!firstHeroOverviewTraceCapturedRef.current) {
+        firstHeroOverviewTraceCapturedRef.current = true;
+        firstHeroOverviewTraceRef.current = [];
+        firstHeroOverviewTransitionWindowRef.current = {
+          active: true,
+          endAt: state.clock.elapsedTime + 2.2,
+        };
+      }
       const heroExitSnapshot = heroExitSnapshotRef.current || latestAuthoritativeHeroSnapshotRef.current || null;
       const latestAuthoritativeSnapshot = latestAuthoritativeHeroSnapshotRef.current || null;
       const currentCameraFallback = {
