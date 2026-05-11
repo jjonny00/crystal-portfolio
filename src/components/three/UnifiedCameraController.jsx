@@ -3195,6 +3195,22 @@ const UnifiedCameraController = ({
     const smoothingFactor = 1 - Math.exp(-6 * delta);
     const clampedSmoothing = Math.min(Math.max(smoothingFactor, 0.01), 0.15);
 
+    // Defensive reseed: if overview fallback begins with an invalid/zero target,
+    // restore the authored overview target immediately to avoid a one-frame snap.
+    if (
+      animationData?.cameraState === 'overview' &&
+      currentTarget.current.position.lengthSq() < 0.000001
+    ) {
+      const overviewPosition = toVector3(config?.cameraPositions?.overview)
+        .add(toVector3(config?.cameraOffsets?.global?.position))
+        .add(toVector3(config?.cameraOffsets?.zones?.overview?.position));
+      const overviewLookAt = toVector3(config?.cameraTargets?.overview)
+        .add(toVector3(config?.cameraOffsets?.global?.target))
+        .add(toVector3(config?.cameraOffsets?.zones?.overview?.target));
+      currentTarget.current.position.copy(overviewPosition);
+      currentTarget.current.lookAt.copy(overviewLookAt);
+    }
+
     // Smooth position interpolation
     camera.position.lerp(currentTarget.current.position, clampedSmoothing);
 
