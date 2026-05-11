@@ -162,6 +162,20 @@ export const createHeroOverviewRuntime = (durationOverrides = {}) => {
     phase: PHASES.IDLE,
     lastPhaseLogged: PHASES.IDLE,
     timing,
+    director: {
+      active: false,
+      startedAt: 0,
+      releasedCleanly: false,
+      summaryLogged: false,
+      stats: {
+        directorCameraFrames: 0,
+        directorFragmentFrames: 0,
+        blockedLegacyCameraFrames: 0,
+        blockedLegacyFragmentFrames: 0,
+        anyNonDirectorCameraWriterDuringDirector: false,
+        anyNonDirectorFragmentWriterDuringDirector: false,
+      },
+    },
   };
 
   return {
@@ -181,6 +195,18 @@ export const createHeroOverviewRuntime = (durationOverrides = {}) => {
       state.progress = 0;
       state.phase = PHASES.FRACTURE_CHARGE;
       state.lastPhaseLogged = '';
+      state.director.active = true;
+      state.director.startedAt = startedAt;
+      state.director.releasedCleanly = false;
+      state.director.summaryLogged = false;
+      state.director.stats = {
+        directorCameraFrames: 0,
+        directorFragmentFrames: 0,
+        blockedLegacyCameraFrames: 0,
+        blockedLegacyFragmentFrames: 0,
+        anyNonDirectorCameraWriterDuringDirector: false,
+        anyNonDirectorFragmentWriterDuringDirector: false,
+      };
       runtimeDebug('start', {
         source,
         startedAt: Math.round(startedAt),
@@ -213,6 +239,8 @@ export const createHeroOverviewRuntime = (durationOverrides = {}) => {
 
       if (nextPhase === PHASES.COMPLETE) {
         state.active = false;
+        state.director.active = false;
+        state.director.releasedCleanly = true;
         runtimeDebug('complete', {
           elapsedMs: Math.round(elapsedMs),
           progress: 1,
@@ -225,7 +253,31 @@ export const createHeroOverviewRuntime = (durationOverrides = {}) => {
       progress: state.progress,
       phase: state.phase,
       timing: state.timing,
+      director: {
+        ...state.director,
+        stats: { ...state.director.stats },
+      },
     }),
+    markDirectorFrame: (type) => {
+      if (!state.director.active) return;
+      if (type === 'camera') state.director.stats.directorCameraFrames += 1;
+      if (type === 'fragments') state.director.stats.directorFragmentFrames += 1;
+    },
+    markBlockedLegacyFrame: (type) => {
+      if (!state.director.active) return;
+      if (type === 'camera') state.director.stats.blockedLegacyCameraFrames += 1;
+      if (type === 'fragments') state.director.stats.blockedLegacyFragmentFrames += 1;
+    },
+    markNonDirectorWriter: (type) => {
+      if (!state.director.active) return;
+      if (type === 'camera') state.director.stats.anyNonDirectorCameraWriterDuringDirector = true;
+      if (type === 'fragments') state.director.stats.anyNonDirectorFragmentWriterDuringDirector = true;
+    },
+    logDirectorSummary: (summary) => {
+      if (state.director.summaryLogged) return;
+      state.director.summaryLogged = true;
+      console.log('[hero-overview-director] summary', summary);
+    },
     resetToIdle: ({ reason = 'manual-reset' } = {}) => {
       const wasActive = state.active;
       state.active = false;

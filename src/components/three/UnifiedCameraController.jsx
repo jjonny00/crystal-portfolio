@@ -138,6 +138,7 @@ const UnifiedCameraController = ({
   const lastCrystalFormRef = useRef(animationData?.crystalForm ?? 'whole');
   const fractureJumpFrameRef = useRef(false);
   const lastDebugSecondRef = useRef(-1);
+  const heroOverviewDirectorRef = useRef(null);
   const lastHeroOrbitDebugSecondRef = useRef(-1);
   const lastBranchDebugSecondRef = useRef(-1);
   const introFinalTargetDebugRef = useRef(new THREE.Vector3());
@@ -1546,6 +1547,79 @@ const UnifiedCameraController = ({
 
     prevStateRef.current = nextState;
     prevCameraStateRef.current = nextCameraState;
+
+    const directorSnapshot = heroOverviewRuntime?.getSnapshot?.() ?? null;
+    const directorActive = Boolean(directorSnapshot?.director?.active && nextState === 'overview');
+    if (!heroOverviewDirectorRef.current) {
+      heroOverviewDirectorRef.current = {
+        initialized: false,
+        start: null,
+        end: null,
+      };
+    }
+    if (directorActive) {
+      const phaseProgress = directorSnapshot?.progress ?? 0;
+      const phase = directorSnapshot?.phase ?? 'fractureCharge';
+      const t = THREE.MathUtils.clamp(phaseProgress, 0, 1);
+      if (!heroOverviewDirectorRef.current.initialized) {
+        const lookAtFromDirection = new THREE.Vector3();
+        camera.getWorldDirection(lookAtFromDirection);
+        heroOverviewDirectorRef.current.initialized = true;
+        heroOverviewDirectorRef.current.start = {
+          position: camera.position.clone(),
+          lookAt: camera.position.clone().add(lookAtFromDirection),
+          filmOffset: Number.isFinite(camera.filmOffset) ? camera.filmOffset : 0,
+          fov: camera.fov,
+          zoom: camera.zoom,
+        };
+        heroOverviewDirectorRef.current.end = {
+          position: toVector3(config?.cameraPositions?.overview)
+            .add(toVector3(config?.cameraOffsets?.global?.position))
+            .add(toVector3(config?.cameraOffsets?.zones?.overview?.position)),
+          lookAt: toVector3(config?.cameraTargets?.overview)
+            .add(toVector3(config?.cameraOffsets?.global?.target))
+            .add(toVector3(config?.cameraOffsets?.zones?.overview?.target)),
+          filmOffset: 0,
+          fov: currentTarget.current?.fov ?? camera.fov,
+          zoom: 1,
+        };
+      }
+      const start = heroOverviewDirectorRef.current.start;
+      const end = heroOverviewDirectorRef.current.end;
+      const chargeEnd = directorSnapshot?.timing?.fractureChargeEnd ?? 0.1;
+      const settleStart = directorSnapshot?.timing?.bulletTimeSlowdownEnd ?? 0.72;
+      const camArrival = Math.max(settleStart, 0.84);
+      const camT = t <= chargeEnd ? 0 : THREE.MathUtils.clamp((t - chargeEnd) / Math.max(0.0001, camArrival - chargeEnd), 0, 1);
+      const eased = 1 - Math.pow(1 - camT, 3);
+      camera.position.copy(start.position).lerp(end.position, eased);
+      const lookAt = start.lookAt.clone().lerp(end.lookAt, eased);
+      camera.lookAt(lookAt);
+      camera.filmOffset = THREE.MathUtils.lerp(start.filmOffset, end.filmOffset, eased);
+      camera.fov = THREE.MathUtils.lerp(start.fov, end.fov, eased);
+      camera.zoom = THREE.MathUtils.lerp(start.zoom, end.zoom, eased);
+      camera.updateProjectionMatrix();
+      currentTarget.current.position.copy(camera.position);
+      currentTarget.current.lookAt.copy(lookAt);
+      currentTarget.current.fov = camera.fov;
+      lastCameraWriterRef.current = 'HERO_OVERVIEW_DIRECTOR_CAMERA';
+      heroOverviewRuntime?.markDirectorFrame?.('camera');
+      heroOverviewRuntime?.markBlockedLegacyFrame?.('camera');
+      if (phase === 'complete' || t >= 1) {
+        const finalCameraDelta = camera.position.distanceTo(end.position);
+        const finalLookDelta = lookAt.distanceTo(end.lookAt);
+        const finalFilmDelta = Math.abs((camera.filmOffset ?? 0) - (end.filmOffset ?? 0));
+        heroOverviewRuntime?.logDirectorSummary?.({
+          ...directorSnapshot?.director?.stats,
+          finalCameraDeltaToOverview: Number(finalCameraDelta.toFixed(6)),
+          finalLookAtDeltaToOverview: Number(finalLookDelta.toFixed(6)),
+          finalFilmOffsetDeltaToOverview: Number(finalFilmDelta.toFixed(6)),
+          finalFragmentMaxDeltaToOverview: null,
+          releasedCleanly: Boolean(directorSnapshot?.director?.releasedCleanly),
+        });
+        heroOverviewDirectorRef.current.initialized = false;
+      }
+      return;
+    }
 
     if (debugSecond !== lastDebugSecondRef.current && debugSecond % 2 === 0) {
       lastDebugSecondRef.current = debugSecond;
