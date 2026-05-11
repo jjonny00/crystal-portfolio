@@ -208,6 +208,14 @@ const UnifiedCameraController = ({
   const firstHeroOverviewTraceRef = useRef([]);
   const firstHeroOverviewTransitionWindowRef = useRef({ active: false, endAt: 0 });
   const syntheticFrameTrackerRef = useRef({ id: 0, lastElapsed: -1 });
+  const cameraLockTestRef = useRef({
+    active: false,
+    endAt: 0,
+    position: new THREE.Vector3(),
+    quaternion: new THREE.Quaternion(),
+    fov: 45,
+    filmOffset: 0,
+  });
   const heroOverviewCameraHookBranchLoggedRef = useRef(false);
   const heroOverviewCameraHookPhaseLoggedRef = useRef(new Set());
   const heroOverviewCameraTimingResolvedLoggedRef = useRef(false);
@@ -1646,6 +1654,46 @@ const UnifiedCameraController = ({
         hasCurrentTarget: Boolean(currentTarget.current),
         cameraFilmOffset: camera.filmOffset,
       });
+    }
+
+    const lockTestEnabled = typeof globalThis !== 'undefined' && globalThis.__LOCK_CAMERA_TEST__ === true;
+    const lockTestWindowActive =
+      animationData?.state === 'overview' &&
+      (
+        authoritativeHeroToOverviewTransitionRef.current.active ||
+        heroToOverviewHandoffLockFramesRef.current > 0 ||
+        heroToOverviewSuppressFirstFallbackFrameRef.current ||
+        heroToOverviewOverviewSettleFramesRef.current > 0
+      );
+    if (lockTestEnabled && lockTestWindowActive) {
+      if (!cameraLockTestRef.current.active) {
+        cameraLockTestRef.current.active = true;
+        cameraLockTestRef.current.endAt = state.clock.elapsedTime + 0.6;
+        cameraLockTestRef.current.position.copy(camera.position);
+        cameraLockTestRef.current.quaternion.copy(camera.quaternion);
+        cameraLockTestRef.current.fov = camera.fov;
+        cameraLockTestRef.current.filmOffset = camera.filmOffset;
+        console.warn('[UCC LOCK CAMERA TEST] engaged', {
+          endAt: cameraLockTestRef.current.endAt,
+          position: camera.position.toArray(),
+          fov: camera.fov,
+          filmOffset: camera.filmOffset,
+        });
+      }
+    }
+
+    if (cameraLockTestRef.current.active) {
+      if (state.clock.elapsedTime <= cameraLockTestRef.current.endAt) {
+        camera.position.copy(cameraLockTestRef.current.position);
+        camera.quaternion.copy(cameraLockTestRef.current.quaternion);
+        camera.fov = cameraLockTestRef.current.fov;
+        camera.filmOffset = cameraLockTestRef.current.filmOffset;
+        camera.updateProjectionMatrix();
+        logCameraWrite(state, "FORCED_HERO_TO_OVERVIEW", "lock-camera-test-frame", null, true, true);
+        return;
+      }
+      cameraLockTestRef.current.active = false;
+      console.warn('[UCC LOCK CAMERA TEST] released', { elapsed: state.clock.elapsedTime });
     }
 
     const isAuthoritativePlainHero =
