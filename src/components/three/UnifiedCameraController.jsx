@@ -2699,6 +2699,13 @@ const UnifiedCameraController = ({
     }
 
     if (fractureJumpFrameRef.current) {
+      const shouldSkipFractureJumpFrame =
+        animationData?.cameraState !== 'hero' ||
+        authoritativeHeroToOverviewTransitionRef.current.active ||
+        authoritativeOverviewToHeroTransitionRef.current.active;
+      if (shouldSkipFractureJumpFrame) {
+        fractureJumpFrameRef.current = false;
+      } else {
       fractureJumpFrameRef.current = false;
       camera.fov = currentTarget.current.fov;
       camera.updateProjectionMatrix();
@@ -2714,6 +2721,7 @@ const UnifiedCameraController = ({
       applyFractureTilt();
       if (shouldLogBranch) console.log('[UCC RETURN] reason: fracture-jump-frame');
       return;
+      }
     }
 
     if (
