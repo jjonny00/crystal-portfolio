@@ -230,6 +230,34 @@ const UnifiedCameraController = ({
   const prevCameraStateRef = useRef(animationData?.cameraState ?? null);
   const configCheckLoggedRef = useRef(false);
   const stableHeroPositionRef = useRef(new THREE.Vector3(0, 0.8, 7));
+  const readGlobalFlag = (key, fallback = null) => {
+    if (typeof globalThis === 'undefined') return fallback;
+    const value = globalThis[key];
+    return value === undefined ? fallback : value;
+  };
+  const collectVisualStateSnapshot = () => {
+    const runtimeSnapshot = heroOverviewRuntime?.getSnapshot?.() ?? null;
+    return {
+      crystalForm: animationData?.crystalForm ?? null,
+      animationState: animationData?.state ?? null,
+      cameraState: animationData?.cameraState ?? null,
+      focusedFacet: animationData?.focusedFacet ?? null,
+      focusedProject: animationData?.focusedProject ?? null,
+      runtimePhase: runtimeSnapshot?.phase ?? null,
+      runtimeProgress: round4(runtimeSnapshot?.progress ?? 0),
+      runtimeActive: Boolean(runtimeSnapshot?.active),
+      sharedExplosionProgress: round4(heroOverviewExplosionClockRef?.current?.progress ?? 0),
+      fragmentVisualProgress: round4(readGlobalFlag('__HERO_OVERVIEW_FRAGMENT_VISUAL_PROGRESS__', 0)),
+      fragmentTravelProgress: round4(readGlobalFlag('__HERO_OVERVIEW_FRAGMENT_TRAVEL_PROGRESS__', 0)),
+      fragmentNearFinal: Boolean(readGlobalFlag('__HERO_OVERVIEW_FRAGMENT_NEAR_FINAL__', false)),
+      fragmentWriterPhase: readGlobalFlag('__HERO_OVERVIEW_FRAGMENT_WRITER_PHASE__', null),
+      crystalRootDelta: readGlobalFlag('__HERO_OVERVIEW_CRYSTAL_ROOT_DELTA__', null),
+      wholeCrystalVisible: readGlobalFlag('__HERO_OVERVIEW_WHOLE_VISIBLE__', null),
+      explodedGroupVisible: readGlobalFlag('__HERO_OVERVIEW_EXPLODED_VISIBLE__', null),
+      composerEnabled: readGlobalFlag('__HERO_OVERVIEW_COMPOSER_ENABLED__', null),
+      postFxSignature: readGlobalFlag('__HERO_OVERVIEW_POSTFX_SIGNATURE__', null),
+    };
+  };
 
   const applyFractureTilt = () => {
     if (!fractureTiltActiveRef.current) return;
@@ -1466,6 +1494,7 @@ const UnifiedCameraController = ({
         introActive: introActiveRef.current,
         introPlayed: introPlayedRef.current,
         writerCountThisFrame: frameWriteTrackerRef.current.writes.length,
+        visualState: collectVisualStateSnapshot(),
       });
       if (elapsed >= firstHeroOverviewTransitionWindowRef.current.endAt) {
         firstHeroOverviewTransitionWindowRef.current.active = false;
