@@ -230,6 +230,7 @@ const UnifiedCameraController = ({
   const prevCameraStateRef = useRef(animationData?.cameraState ?? null);
   const configCheckLoggedRef = useRef(false);
   const stableHeroPositionRef = useRef(new THREE.Vector3(0, 0.8, 7));
+  const simpleCameraModeRef = useRef({ announced: false });
   const readGlobalFlag = (key, fallback = null) => {
     if (typeof globalThis === 'undefined') return fallback;
     const value = globalThis[key];
@@ -1696,6 +1697,24 @@ const UnifiedCameraController = ({
         cameraFilmOffset: camera.filmOffset,
       });
     }
+
+    const simpleCameraModeEnabled = typeof globalThis !== 'undefined' && globalThis.__UCC_EXPERIMENTAL_SIMPLE_CAMERA__ === true;
+    if (simpleCameraModeEnabled) {
+      if (!simpleCameraModeRef.current.announced) {
+        simpleCameraModeRef.current.announced = true;
+        console.warn('[UCC SIMPLE CAMERA MODE] enabled', {
+          note: 'Single writer path for isolation. Cinematic/forced branches are bypassed in this mode.',
+        });
+      }
+      const lookAtTarget = currentTarget.current?.lookAt || heroOrbitCenterRef.current;
+      camera.position.lerp(currentTarget.current.position, 0.16);
+      camera.lookAt(lookAtTarget);
+      camera.fov = THREE.MathUtils.lerp(camera.fov, currentTarget.current.fov, 0.18);
+      camera.updateProjectionMatrix();
+      logCameraWrite(state, "SIMPLE_CAMERA", "experimental-simple-camera-mode", lookAtTarget, true, true);
+      return;
+    }
+    simpleCameraModeRef.current.announced = false;
 
     const lockTestEnabled = typeof globalThis !== 'undefined' && globalThis.__LOCK_CAMERA_TEST__ === true;
     if (!lockTestEnabled && cameraLockTestRef.current.lastEnabled) {
