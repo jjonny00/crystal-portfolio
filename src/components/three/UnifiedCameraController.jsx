@@ -258,6 +258,9 @@ const UnifiedCameraController = ({
       postFxSignature: readGlobalFlag('__HERO_OVERVIEW_POSTFX_SIGNATURE__', null),
     };
   };
+  const logNextStepInstructions = (label, instructions) => {
+    console.log(`[UCC NEXT STEPS] ${label}`, instructions);
+  };
 
   const applyFractureTilt = () => {
     if (!fractureTiltActiveRef.current) return;
@@ -1515,6 +1518,11 @@ const UnifiedCameraController = ({
             samples: firstHeroOverviewTraceRef.current,
           }, null, 2)
         );
+        logNextStepInstructions('first-hero-overview-trace-captured', [
+          'Copy globalThis.__UCC_FIRST_HERO_OVERVIEW_TRACE__ from DevTools.',
+          'Find the blip frame and compare camera values against visualState.',
+          'Share the first frame where visualState changes and camera values stay flat.',
+        ]);
       }
     }
 
@@ -1727,6 +1735,11 @@ const UnifiedCameraController = ({
           fov: camera.fov,
           filmOffset: camera.filmOffset,
         });
+        logNextStepInstructions('lock-camera-test-engaged', [
+          'Run one hero→overview transition during this lock window.',
+          'Watch for the blip while transform/FOV/filmOffset are pinned.',
+          'If blip occurs, inspect matching trace frame visualState fields.',
+        ]);
       }
     }
 
@@ -1742,6 +1755,10 @@ const UnifiedCameraController = ({
       }
       cameraLockTestRef.current.active = false;
       console.warn('[UCC LOCK CAMERA TEST] released', { elapsed: state.clock.elapsedTime });
+      logNextStepInstructions('lock-camera-test-released', [
+        'Disable __LOCK_CAMERA_TEST__ and rerun once for baseline.',
+        'Capture __UCC_FIRST_HERO_OVERVIEW_TRACE__ and note the blip frame index.',
+      ]);
     }
 
     const isAuthoritativePlainHero =
