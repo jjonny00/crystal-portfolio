@@ -232,6 +232,14 @@ const UnifiedCameraController = ({
   const configCheckLoggedRef = useRef(false);
   const stableHeroPositionRef = useRef(new THREE.Vector3(0, 0.8, 7));
   const simpleCameraModeRef = useRef({ announced: false });
+  const staticCameraModeRef = useRef({
+    announced: false,
+    captured: false,
+    position: new THREE.Vector3(),
+    quaternion: new THREE.Quaternion(),
+    fov: 45,
+    filmOffset: 0,
+  });
   const readGlobalFlag = (key, fallback = null) => {
     if (typeof globalThis === 'undefined') return fallback;
     const value = globalThis[key];
@@ -1712,6 +1720,31 @@ const UnifiedCameraController = ({
         cameraFilmOffset: camera.filmOffset,
       });
     }
+
+    const staticCameraModeEnabled = typeof globalThis !== 'undefined' && globalThis.__UCC_EXPERIMENTAL_STATIC_CAMERA__ === true;
+    if (staticCameraModeEnabled) {
+      if (!staticCameraModeRef.current.captured) {
+        staticCameraModeRef.current.captured = true;
+        staticCameraModeRef.current.position.copy(camera.position);
+        staticCameraModeRef.current.quaternion.copy(camera.quaternion);
+        staticCameraModeRef.current.fov = camera.fov;
+        staticCameraModeRef.current.filmOffset = camera.filmOffset;
+      }
+      camera.position.copy(staticCameraModeRef.current.position);
+      camera.quaternion.copy(staticCameraModeRef.current.quaternion);
+      camera.fov = staticCameraModeRef.current.fov;
+      camera.filmOffset = staticCameraModeRef.current.filmOffset;
+      camera.updateProjectionMatrix();
+      if (!staticCameraModeRef.current.announced) {
+        staticCameraModeRef.current.announced = true;
+        console.warn('[UCC STATIC CAMERA MODE] enabled', {
+          note: 'Camera transform/FOV/filmOffset are frozen for isolation.',
+        });
+      }
+      return;
+    }
+    staticCameraModeRef.current.announced = false;
+    staticCameraModeRef.current.captured = false;
 
     const simpleCameraModeEnabled = typeof globalThis !== 'undefined' && globalThis.__UCC_EXPERIMENTAL_SIMPLE_CAMERA__ === true;
     if (simpleCameraModeEnabled) {
