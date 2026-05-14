@@ -746,6 +746,18 @@ const UnifiedCrystalScene = forwardRef(({
     ])
   ), [eulerDegreesToQuaternion, facetKeys, facetPlacementKeys, mergedConfig?.selectedFacetRotationsEulerDeg]);
 
+  const selectedProjectFacetTargetQuats = useMemo(() => {
+    const deviceKey = isMobile ? 'mobile' : 'desktop';
+    return Object.fromEntries(
+      facetKeys.map((facetKey) => {
+        const sceneKey = facetPlacementKeys[facetKey] || facetKey;
+        const projectId = getProjectIdBySceneFacetKey(sceneKey);
+        const selectedRotation = mergedConfig?.projectCameraSettings?.[projectId]?.[deviceKey]?.selected?.facetRotation;
+        return [facetKey, eulerDegreesToQuaternion(selectedRotation)];
+      })
+    );
+  }, [eulerDegreesToQuaternion, facetKeys, facetPlacementKeys, isMobile, mergedConfig?.projectCameraSettings]);
+
   const caseStudyFacetTargetQuats = useMemo(() => {
     const deviceKey = isMobile ? 'mobile' : 'desktop';
     return Object.fromEntries(
@@ -2334,7 +2346,7 @@ const UnifiedCrystalScene = forwardRef(({
               finalTarget = targetPos.clone().add(new THREE.Vector3(fx, fy, fz));
             }
             const baseQuat = baseFacetTargetQuats[facetKey] || neutralQuat;
-            const selectedQuat = selectedFacetTargetQuats[facetKey] || baseQuat;
+            const selectedQuat = selectedProjectFacetTargetQuats[facetKey] || selectedFacetTargetQuats[facetKey] || baseQuat;
             const caseStudyQuat = caseStudyFacetTargetQuats[facetKey] || selectedQuat;
             const sceneKey = facetPlacementKeys[facetKey] || facetKey;
             const projectId = getProjectIdBySceneFacetKey(sceneKey);
@@ -2377,7 +2389,7 @@ const UnifiedCrystalScene = forwardRef(({
         }
 
         const baseQuat = baseFacetTargetQuats[facetKey] || neutralQuat;
-        const selectedQuat = selectedFacetTargetQuats[facetKey] || baseQuat;
+        const selectedQuat = selectedProjectFacetTargetQuats[facetKey] || selectedFacetTargetQuats[facetKey] || baseQuat;
         const caseStudyQuat = caseStudyFacetTargetQuats[facetKey] || selectedQuat;
         const sceneKey = facetPlacementKeys[facetKey] || facetKey;
         const projectId = getProjectIdBySceneFacetKey(sceneKey);
