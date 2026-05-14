@@ -134,6 +134,7 @@ const UnifiedCameraController = ({
   const heroCompositionOffsetRef = useRef(new THREE.Vector3());
   const heroCompositionLateralRef = useRef(0);
   const heroVerticalOffsetRef = useRef(0);
+  const v2LastLookAtRef = useRef(new THREE.Vector3(0, 0, 0));
   const newLookAtTempRef = useRef(new THREE.Vector3());
   const lastCrystalFormRef = useRef(animationData?.crystalForm ?? 'whole');
   const fractureJumpFrameRef = useRef(false);
@@ -1801,8 +1802,12 @@ const UnifiedCameraController = ({
         v2CameraModeRef.current.key = v2StateKey;
         v2CameraModeRef.current.startedAt = state.clock.elapsedTime;
         v2CameraModeRef.current.fromPosition.copy(camera.position);
-        const viewDirection = currentDirectionTempRef.current.set(0, 0, -1).applyQuaternion(camera.quaternion);
-        v2CameraModeRef.current.fromLookAt.copy(camera.position).add(viewDirection);
+        if (v2LastLookAtRef.current.lengthSq() > 0) {
+          v2CameraModeRef.current.fromLookAt.copy(v2LastLookAtRef.current);
+        } else {
+          const viewDirection = currentDirectionTempRef.current.set(0, 0, -1).applyQuaternion(camera.quaternion);
+          v2CameraModeRef.current.fromLookAt.copy(camera.position).add(viewDirection);
+        }
         v2CameraModeRef.current.fromFov = camera.fov;
         v2CameraModeRef.current.fromFilmOffset = camera.filmOffset ?? 0;
         v2CameraModeRef.current.duration =
@@ -1815,7 +1820,14 @@ const UnifiedCameraController = ({
       v2CameraModeRef.current.toPosition.copy(currentTarget.current.position);
       v2CameraModeRef.current.toLookAt.copy(v2LookAtTarget);
       if (animationData?.cameraState === 'hero') {
-        v2CameraModeRef.current.toLookAt.y += heroVerticalOffsetRef.current;
+        const heroCenter = getHeroOrbitCenter();
+        const authoredHeroTarget = toVector3(config?.cameraTargets?.hero);
+        const authoredHeroTargetOffset = authoredHeroTarget.y - heroCenter.y;
+        const verticalOffset = Number.isFinite(authoredHeroTargetOffset)
+          ? authoredHeroTargetOffset
+          : heroVerticalOffsetRef.current;
+        v2CameraModeRef.current.toLookAt.copy(heroCenter);
+        v2CameraModeRef.current.toLookAt.y += verticalOffset;
       }
       v2CameraModeRef.current.toFov = currentTarget.current.fov;
       v2CameraModeRef.current.toFilmOffset = v2FilmOffsetTarget;
@@ -1832,6 +1844,7 @@ const UnifiedCameraController = ({
         eased
       );
       camera.lookAt(v2InterpolatedLookAt);
+      v2LastLookAtRef.current.copy(v2InterpolatedLookAt);
       camera.fov = THREE.MathUtils.lerp(v2CameraModeRef.current.fromFov, v2CameraModeRef.current.toFov, eased);
       camera.filmOffset = THREE.MathUtils.lerp(v2CameraModeRef.current.fromFilmOffset, v2CameraModeRef.current.toFilmOffset, eased);
       camera.updateProjectionMatrix();
