@@ -1503,6 +1503,7 @@ const UnifiedCameraController = ({
       });
       if (elapsed >= firstHeroOverviewTransitionWindowRef.current.endAt) {
         firstHeroOverviewTransitionWindowRef.current.active = false;
+        const shouldLogFullTraceJson = typeof globalThis !== 'undefined' && globalThis.__UCC_LOG_FULL_TRACE_JSON__ === true;
         if (typeof globalThis !== 'undefined') {
           globalThis.__UCC_FIRST_HERO_OVERVIEW_TRACE__ = {
             capturedFrames: firstHeroOverviewTraceRef.current.length,
@@ -1511,15 +1512,24 @@ const UnifiedCameraController = ({
             samples: firstHeroOverviewTraceRef.current,
           };
         }
-        console.log(
-          '[UCC FIRST HERO OVERVIEW TRACE JSON STRING]\n' +
-          JSON.stringify({
+        if (shouldLogFullTraceJson) {
+          console.log(
+            '[UCC FIRST HERO OVERVIEW TRACE JSON STRING]\n' +
+            JSON.stringify({
+              capturedFrames: firstHeroOverviewTraceRef.current.length,
+              startedAt: round4(firstHeroOverviewTransitionWindowRef.current.endAt - 2.2),
+              endedAt: round4(elapsed),
+              samples: firstHeroOverviewTraceRef.current,
+            }, null, 2)
+          );
+        } else {
+          console.log('[UCC FIRST HERO OVERVIEW TRACE CAPTURED]', {
             capturedFrames: firstHeroOverviewTraceRef.current.length,
             startedAt: round4(firstHeroOverviewTransitionWindowRef.current.endAt - 2.2),
             endedAt: round4(elapsed),
-            samples: firstHeroOverviewTraceRef.current,
-          }, null, 2)
-        );
+            note: 'Set globalThis.__UCC_LOG_FULL_TRACE_JSON__ = true to print full JSON (expensive).',
+          });
+        }
         logNextStepInstructions('first-hero-overview-trace-captured', [
           'Copy globalThis.__UCC_FIRST_HERO_OVERVIEW_TRACE__ from DevTools.',
           'Find the blip frame and compare camera values against visualState.',
