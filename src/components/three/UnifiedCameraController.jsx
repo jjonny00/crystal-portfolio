@@ -2298,7 +2298,7 @@ const UnifiedCameraController = ({
         center: center.clone(),
       };
       logCameraWrite(state, "AUTHORITATIVE_HERO", "authoritative-hero-update", snapshot.lookAtTarget, true, true);
-      if (shouldLogBranch) {
+      if (shouldLogBranch && verboseDebug) {
         console.log('[UCC AUTHORITATIVE HERO]', {
           radius: tuning.radius,
           height: tuning.height,
