@@ -2350,14 +2350,19 @@ const UnifiedCrystalScene = forwardRef(({
             const caseStudyQuat = caseStudyFacetTargetQuats[facetKey] || selectedQuat;
             const sceneKey = facetPlacementKeys[facetKey] || facetKey;
             const projectId = getProjectIdBySceneFacetKey(sceneKey);
+            const focusedSceneKey =
+              (animationData?.focusedProject
+                ? (getSceneFacetKeyByProjectId(animationData.focusedProject) || null)
+                : null) ||
+              animationData?.focusedFacet ||
+              null;
             const isCaseStudyActiveProject =
               animationData?.viewMode === 'caseStudy' &&
               Boolean(projectId && animationData?.focusedProject && projectId === animationData.focusedProject) &&
               animationData?.cameraState === 'caseStudy';
             const isProjectFocusedByFacet =
               animationData?.focusedFacet === facetKey;
-            const isProjectFocusedByProjectId =
-              Boolean(projectId && animationData?.focusedProject && projectId === animationData.focusedProject);
+            const isProjectFocusedByProjectId = focusedSceneKey === sceneKey;
             const isProjectFocusedFacet =
               animationData?.viewMode !== 'caseStudy' &&
               animationData?.cameraState === 'project' &&
@@ -2397,14 +2402,19 @@ const UnifiedCrystalScene = forwardRef(({
         const caseStudyQuat = caseStudyFacetTargetQuats[facetKey] || selectedQuat;
         const sceneKey = facetPlacementKeys[facetKey] || facetKey;
         const projectId = getProjectIdBySceneFacetKey(sceneKey);
+        const focusedSceneKey =
+          (animationData?.focusedProject
+            ? (getSceneFacetKeyByProjectId(animationData.focusedProject) || null)
+            : null) ||
+          animationData?.focusedFacet ||
+          null;
         const isCaseStudyActiveProject =
           animationData?.viewMode === 'caseStudy' &&
           Boolean(projectId && animationData?.focusedProject && projectId === animationData.focusedProject) &&
           animationData?.cameraState === 'caseStudy';
         const isProjectFocusedByFacet =
           animationData?.focusedFacet === facetKey;
-        const isProjectFocusedByProjectId =
-          Boolean(projectId && animationData?.focusedProject && projectId === animationData.focusedProject);
+        const isProjectFocusedByProjectId = focusedSceneKey === sceneKey;
         const isProjectFocusedFacet =
           animationData?.viewMode !== 'caseStudy' &&
           animationData?.cameraState === 'project' &&
