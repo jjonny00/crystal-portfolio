@@ -1747,12 +1747,17 @@ const UnifiedCameraController = ({
     staticCameraModeRef.current.announced = false;
     staticCameraModeRef.current.captured = false;
 
-    const v2CameraModeEnabled = typeof globalThis !== 'undefined' && globalThis.__UCC_USE_V2_CAMERA__ === true;
+    const v2CameraModeEnabled = (() => {
+      if (typeof globalThis === 'undefined') return true;
+      if (globalThis.__UCC_USE_LEGACY_CAMERA__ === true) return false;
+      if (globalThis.__UCC_USE_V2_CAMERA__ === false) return false;
+      return true;
+    })();
     if (v2CameraModeEnabled) {
       if (!v2CameraModeRef.current.announced) {
         v2CameraModeRef.current.announced = true;
         console.warn('[UCC V2 CAMERA MODE] enabled', {
-          note: 'Minimal single-writer camera path (no forced handoff heuristics).',
+          note: 'Minimal single-writer camera path (default). Set __UCC_USE_LEGACY_CAMERA__=true to opt out.',
         });
       }
       const v2LookAtTarget = currentTarget.current?.lookAt || heroOrbitCenterRef.current;
