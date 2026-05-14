@@ -261,6 +261,8 @@ const UnifiedCameraController = ({
     };
   };
   const logNextStepInstructions = (label, instructions) => {
+    const verboseDebug = typeof globalThis !== 'undefined' && globalThis.__UCC_DEBUG_VERBOSE__ === true;
+    if (!verboseDebug) return;
     console.log(`[UCC NEXT STEPS] ${label}`, instructions);
   };
 
@@ -1568,8 +1570,9 @@ const UnifiedCameraController = ({
       });
     }
 
+    const verboseDebug = typeof globalThis !== 'undefined' && globalThis.__UCC_DEBUG_VERBOSE__ === true;
     const debugSecond = Math.floor(state.clock.elapsedTime);
-    if (debugSecond % 2 !== 0 || debugSecond === lastCameraWriteSecondRef.current) return;
+    if (!verboseDebug || debugSecond % 2 !== 0 || debugSecond === lastCameraWriteSecondRef.current) return;
     lastCameraWriteSecondRef.current = debugSecond;
     console.log(`[UCC CAMERA WRITE] ${branch}`, {
       elapsed: state.clock.elapsedTime,
@@ -1688,9 +1691,10 @@ const UnifiedCameraController = ({
         cameraFilmOffset: camera.filmOffset,
       });
     }
+    const verboseDebug = typeof globalThis !== 'undefined' && globalThis.__UCC_DEBUG_VERBOSE__ === true;
     const isEvenDebugSecond = debugSecond % 2 === 0;
     const shouldLogBranch = isEvenDebugSecond && debugSecond !== lastBranchDebugSecondRef.current;
-    if (shouldLogBranch) {
+    if (shouldLogBranch && verboseDebug) {
       lastBranchDebugSecondRef.current = debugSecond;
       console.log('[UCC STATE SNAPSHOT]', {
         elapsed: state.clock.elapsedTime,
@@ -1946,7 +1950,9 @@ const UnifiedCameraController = ({
           dollyDistance: 1.25,
           dollySplit: 0.35,
         };
-        console.log('[UCC HERO TO OVERVIEW IMMEDIATE OWNERSHIP JSON STRING]\n' + JSON.stringify(ownershipStart, null, 2));
+        if (verboseDebug) {
+          console.log('[UCC HERO TO OVERVIEW IMMEDIATE OWNERSHIP JSON STRING]\n' + JSON.stringify(ownershipStart, null, 2));
+        }
         const forcedFrom = authoritativeHeroToOverviewTransitionRef.current.from;
         const forcedFromPosition = forcedFrom.position.clone();
         const forcedFromLookAt = forcedFrom.lookAtTarget.clone();
@@ -1985,7 +1991,9 @@ const UnifiedCameraController = ({
           currentState: animationData?.state ?? null,
           currentCameraState: animationData?.cameraState ?? null,
         };
-        console.log('[UCC HERO TO OVERVIEW START SOURCE VERIFY JSON STRING]\n' + JSON.stringify(startSourceVerify, null, 2));
+        if (verboseDebug) {
+          console.log('[UCC HERO TO OVERVIEW START SOURCE VERIFY JSON STRING]\n' + JSON.stringify(startSourceVerify, null, 2));
+        }
         const heroExitPosition = heroExitSnapshot?.position?.clone?.() || null;
         const captureVsStart = {
           heroExitSnapshotPosition: heroExitPosition?.toArray?.() || null,
@@ -2003,8 +2011,10 @@ const UnifiedCameraController = ({
           dollyDistance: 1.25,
           dollySplit: 0.35,
         };
-        console.log('[UCC HERO TO OVERVIEW CAPTURE VS START JSON STRING]\n' + JSON.stringify(captureVsStart, null, 2));
-        console.log('[UCC FORCE HERO TO OVERVIEW START]', {
+        if (verboseDebug) {
+          console.log('[UCC HERO TO OVERVIEW CAPTURE VS START JSON STRING]\n' + JSON.stringify(captureVsStart, null, 2));
+        }
+        console.log('[UCC HERO TO OVERVIEW START]', {
           fromSource: authoritativeHeroToOverviewTransitionRef.current.from.source,
           fromPosition: authoritativeHeroToOverviewTransitionRef.current.from.position.toArray(),
           fromLookAt: authoritativeHeroToOverviewTransitionRef.current.from.lookAtTarget.toArray(),
@@ -3368,7 +3378,7 @@ const UnifiedCameraController = ({
       return;
     }
 
-    if (shouldLogBranch) {
+    if (shouldLogBranch && verboseDebug) {
       if (animationData?.cameraState === 'overview') console.log('[UCC BRANCH] OVERVIEW');
       else if (animationData?.cameraState === 'project' && animationData?.state === 'project_focused') console.log('[UCC BRANCH] SELECTED_PROJECT');
       else if (animationData?.cameraState === 'caseStudy') console.log('[UCC BRANCH] CASE_STUDY');
