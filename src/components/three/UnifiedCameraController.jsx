@@ -240,7 +240,20 @@ const UnifiedCameraController = ({
     fov: 45,
     filmOffset: 0,
   });
-  const v2CameraModeRef = useRef({ announced: false });
+  const v2CameraModeRef = useRef({
+    announced: false,
+    key: null,
+    startedAt: 0,
+    duration: 1.0,
+    fromPosition: new THREE.Vector3(),
+    fromLookAt: new THREE.Vector3(),
+    fromFov: 45,
+    fromFilmOffset: 0,
+    toPosition: new THREE.Vector3(),
+    toLookAt: new THREE.Vector3(),
+    toFov: 45,
+    toFilmOffset: 0,
+  });
   const readGlobalFlag = (key, fallback = null) => {
     if (typeof globalThis === 'undefined') return fallback;
     const value = globalThis[key];
@@ -1761,6 +1774,12 @@ const UnifiedCameraController = ({
         });
       }
       const v2LookAtTarget = currentTarget.current?.lookAt || heroOrbitCenterRef.current;
+      const v2StateKey = [
+        animationData?.cameraState ?? 'unknown',
+        animationData?.state ?? 'unknown',
+        animationData?.focusedProject ?? 'none',
+        animationData?.focusedFacet ?? 'none',
+      ].join('|');
       const heroFilmOffsetTarget = Number.isFinite(config?.cameraComposition?.hero?.filmOffsetX)
         ? config.cameraComposition.hero.filmOffsetX
         : 0;
@@ -1778,10 +1797,43 @@ const UnifiedCameraController = ({
             : animationData?.cameraState === 'caseStudy'
               ? caseStudyFilmOffsetTarget
               : 0;
-      camera.position.lerp(currentTarget.current.position, 0.12);
-      camera.lookAt(v2LookAtTarget);
-      camera.fov = THREE.MathUtils.lerp(camera.fov, currentTarget.current.fov, 0.12);
-      camera.filmOffset = THREE.MathUtils.lerp(camera.filmOffset ?? 0, v2FilmOffsetTarget, 0.2);
+      if (v2CameraModeRef.current.key !== v2StateKey) {
+        v2CameraModeRef.current.key = v2StateKey;
+        v2CameraModeRef.current.startedAt = state.clock.elapsedTime;
+        v2CameraModeRef.current.fromPosition.copy(camera.position);
+        const viewDirection = currentDirectionTempRef.current.set(0, 0, -1).applyQuaternion(camera.quaternion);
+        v2CameraModeRef.current.fromLookAt.copy(camera.position).add(viewDirection);
+        v2CameraModeRef.current.fromFov = camera.fov;
+        v2CameraModeRef.current.fromFilmOffset = camera.filmOffset ?? 0;
+        v2CameraModeRef.current.duration =
+          animationData?.cameraState === 'project' || animationData?.cameraState === 'caseStudy'
+            ? 1.0
+            : animationData?.cameraState === 'overview'
+              ? 0.9
+              : 0.8;
+      }
+      v2CameraModeRef.current.toPosition.copy(currentTarget.current.position);
+      v2CameraModeRef.current.toLookAt.copy(v2LookAtTarget);
+      if (animationData?.cameraState === 'hero') {
+        v2CameraModeRef.current.toLookAt.y += heroVerticalOffsetRef.current;
+      }
+      v2CameraModeRef.current.toFov = currentTarget.current.fov;
+      v2CameraModeRef.current.toFilmOffset = v2FilmOffsetTarget;
+      const t = THREE.MathUtils.clamp(
+        (state.clock.elapsedTime - v2CameraModeRef.current.startedAt) / Math.max(0.001, v2CameraModeRef.current.duration),
+        0,
+        1
+      );
+      const eased = 1 - Math.pow(1 - t, 3);
+      camera.position.lerpVectors(v2CameraModeRef.current.fromPosition, v2CameraModeRef.current.toPosition, eased);
+      const v2InterpolatedLookAt = introLookAtTempRef.current.lerpVectors(
+        v2CameraModeRef.current.fromLookAt,
+        v2CameraModeRef.current.toLookAt,
+        eased
+      );
+      camera.lookAt(v2InterpolatedLookAt);
+      camera.fov = THREE.MathUtils.lerp(v2CameraModeRef.current.fromFov, v2CameraModeRef.current.toFov, eased);
+      camera.filmOffset = THREE.MathUtils.lerp(v2CameraModeRef.current.fromFilmOffset, v2CameraModeRef.current.toFilmOffset, eased);
       camera.updateProjectionMatrix();
       return;
     }
