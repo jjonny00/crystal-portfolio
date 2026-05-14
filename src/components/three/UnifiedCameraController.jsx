@@ -240,6 +240,7 @@ const UnifiedCameraController = ({
     fov: 45,
     filmOffset: 0,
   });
+  const v2CameraModeRef = useRef({ announced: false });
   const readGlobalFlag = (key, fallback = null) => {
     if (typeof globalThis === 'undefined') return fallback;
     const value = globalThis[key];
@@ -1745,6 +1746,24 @@ const UnifiedCameraController = ({
     }
     staticCameraModeRef.current.announced = false;
     staticCameraModeRef.current.captured = false;
+
+    const v2CameraModeEnabled = typeof globalThis !== 'undefined' && globalThis.__UCC_USE_V2_CAMERA__ === true;
+    if (v2CameraModeEnabled) {
+      if (!v2CameraModeRef.current.announced) {
+        v2CameraModeRef.current.announced = true;
+        console.warn('[UCC V2 CAMERA MODE] enabled', {
+          note: 'Minimal single-writer camera path (no forced handoff heuristics).',
+        });
+      }
+      const v2LookAtTarget = currentTarget.current?.lookAt || heroOrbitCenterRef.current;
+      camera.position.lerp(currentTarget.current.position, 0.12);
+      camera.lookAt(v2LookAtTarget);
+      camera.fov = THREE.MathUtils.lerp(camera.fov, currentTarget.current.fov, 0.12);
+      camera.filmOffset = THREE.MathUtils.lerp(camera.filmOffset ?? 0, 0, 0.2);
+      camera.updateProjectionMatrix();
+      return;
+    }
+    v2CameraModeRef.current.announced = false;
 
     const simpleCameraModeEnabled = typeof globalThis !== 'undefined' && globalThis.__UCC_EXPERIMENTAL_SIMPLE_CAMERA__ === true;
     if (simpleCameraModeEnabled) {
