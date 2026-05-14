@@ -191,7 +191,8 @@ const UnifiedCameraController = ({
     from: null,
     to: null,
   });
-  const HERO_TO_OVERVIEW_HANDOFF_LOCK_FRAMES = 8;
+  const HERO_TO_OVERVIEW_HANDOFF_LOCK_FRAMES = 2;
+  const ENABLE_COMPLEX_POST_HANDOFF_HEURISTICS = false;
   const heroToOverviewHandoffPendingRef = useRef(null);
   const heroToOverviewHandoffLockFramesRef = useRef(0);
   const heroToOverviewSuppressFirstFallbackFrameRef = useRef(false);
@@ -3251,7 +3252,9 @@ const UnifiedCameraController = ({
         currentTarget.current.fov = camera.fov;
         logCameraWrite(state, "FORCED_HERO_TO_OVERVIEW", "handoff-lock-frame", pending.finalLookAt, true, true);
         if (heroToOverviewHandoffLockFramesRef.current <= 0) {
-          heroToOverviewSuppressFirstFallbackFrameRef.current = true;
+          heroToOverviewSuppressFirstFallbackFrameRef.current = ENABLE_COMPLEX_POST_HANDOFF_HEURISTICS;
+          heroToOverviewOverviewSettleFramesRef.current = 0;
+          heroToOverviewAwaitFirstNormalFrameRef.current = false;
           heroToOverviewHandoffPendingRef.current = null;
         }
         return;
@@ -3261,7 +3264,11 @@ const UnifiedCameraController = ({
       heroToOverviewHandoffPendingRef.current = null;
     }
 
-    if (heroToOverviewAwaitFirstNormalFrameRef.current && animationData?.cameraState === 'overview') {
+    if (
+      ENABLE_COMPLEX_POST_HANDOFF_HEURISTICS &&
+      heroToOverviewAwaitFirstNormalFrameRef.current &&
+      animationData?.cameraState === 'overview'
+    ) {
       const forcedFinal = heroToOverviewLastForcedFinalRef.current;
       const currentLookAt = currentTarget.current?.lookAt?.clone?.() || null;
       const forcedPositionDelta = forcedFinal?.position
@@ -3319,6 +3326,7 @@ const UnifiedCameraController = ({
     }
 
     if (
+      ENABLE_COMPLEX_POST_HANDOFF_HEURISTICS &&
       heroToOverviewSuppressFirstFallbackFrameRef.current &&
       animationData?.cameraState === 'overview'
     ) {
@@ -3337,6 +3345,7 @@ const UnifiedCameraController = ({
     }
 
     if (
+      ENABLE_COMPLEX_POST_HANDOFF_HEURISTICS &&
       heroToOverviewOverviewSettleFramesRef.current > 0 &&
       animationData?.cameraState === 'overview'
     ) {
