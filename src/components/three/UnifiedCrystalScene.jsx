@@ -2354,10 +2354,14 @@ const UnifiedCrystalScene = forwardRef(({
               animationData?.viewMode === 'caseStudy' &&
               Boolean(projectId && animationData?.focusedProject && projectId === animationData.focusedProject) &&
               animationData?.cameraState === 'caseStudy';
+            const isProjectFocusedByFacet =
+              animationData?.focusedFacet === facetKey;
+            const isProjectFocusedByProjectId =
+              Boolean(projectId && animationData?.focusedProject && projectId === animationData.focusedProject);
             const isProjectFocusedFacet =
               animationData?.viewMode !== 'caseStudy' &&
-              animationData?.focusedFacet === facetKey &&
-              animationData?.cameraState === 'project';
+              animationData?.cameraState === 'project' &&
+              (isProjectFocusedByFacet || isProjectFocusedByProjectId);
             const focusRotationProgress = THREE.MathUtils.clamp(
               cameraMoveProgress / FOCUS_ROTATION_PROGRESS_LEAD,
               0,
@@ -2397,10 +2401,14 @@ const UnifiedCrystalScene = forwardRef(({
           animationData?.viewMode === 'caseStudy' &&
           Boolean(projectId && animationData?.focusedProject && projectId === animationData.focusedProject) &&
           animationData?.cameraState === 'caseStudy';
+        const isProjectFocusedByFacet =
+          animationData?.focusedFacet === facetKey;
+        const isProjectFocusedByProjectId =
+          Boolean(projectId && animationData?.focusedProject && projectId === animationData.focusedProject);
         const isProjectFocusedFacet =
           animationData?.viewMode !== 'caseStudy' &&
-          animationData?.focusedFacet === facetKey &&
-          animationData?.cameraState === 'project';
+          animationData?.cameraState === 'project' &&
+          (isProjectFocusedByFacet || isProjectFocusedByProjectId);
         const focusRotationProgress = THREE.MathUtils.clamp(
           cameraMoveProgress / FOCUS_ROTATION_PROGRESS_LEAD,
           0,
