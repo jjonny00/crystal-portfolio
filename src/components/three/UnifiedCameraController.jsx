@@ -1761,10 +1761,27 @@ const UnifiedCameraController = ({
         });
       }
       const v2LookAtTarget = currentTarget.current?.lookAt || heroOrbitCenterRef.current;
+      const heroFilmOffsetTarget = Number.isFinite(config?.cameraComposition?.hero?.filmOffsetX)
+        ? config.cameraComposition.hero.filmOffsetX
+        : 0;
+      const projectFilmOffsetTarget = Number.isFinite(config?.cameraComposition?.project?.filmOffsetX)
+        ? config.cameraComposition.project.filmOffsetX
+        : 0;
+      const caseStudyFilmOffsetTarget = Number.isFinite(config?.cameraComposition?.caseStudy?.filmOffsetX)
+        ? config.cameraComposition.caseStudy.filmOffsetX
+        : 0;
+      const v2FilmOffsetTarget =
+        animationData?.cameraState === 'hero'
+          ? heroFilmOffsetTarget
+          : animationData?.cameraState === 'project'
+            ? projectFilmOffsetTarget
+            : animationData?.cameraState === 'caseStudy'
+              ? caseStudyFilmOffsetTarget
+              : 0;
       camera.position.lerp(currentTarget.current.position, 0.12);
       camera.lookAt(v2LookAtTarget);
       camera.fov = THREE.MathUtils.lerp(camera.fov, currentTarget.current.fov, 0.12);
-      camera.filmOffset = THREE.MathUtils.lerp(camera.filmOffset ?? 0, 0, 0.2);
+      camera.filmOffset = THREE.MathUtils.lerp(camera.filmOffset ?? 0, v2FilmOffsetTarget, 0.2);
       camera.updateProjectionMatrix();
       return;
     }
