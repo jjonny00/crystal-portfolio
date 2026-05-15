@@ -1774,6 +1774,55 @@ const UnifiedCameraController = ({
           note: 'Minimal single-writer camera path (default). Set __UCC_USE_LEGACY_CAMERA__=true to opt out.',
         });
       }
+      if (animationData?.state === 'hero' && animationData?.cameraState === 'hero' && isOrbitingRef.current) {
+        const deltaMultiplier = delta * 60;
+        const speed = animationData.cameraConfig?.orbitSpeed || 0.00018;
+        const nowMs = state.clock.elapsedTime * 1000;
+        const idleMs = lastPointerMoveTimeRef.current
+          ? nowMs - lastPointerMoveTimeRef.current
+          : Number.POSITIVE_INFINITY;
+        if (idleMs > POINTER_IDLE_MS) {
+          const decay = Math.pow(POINTER_DECAY, deltaMultiplier);
+          targetOrbitVelocityRef.current.multiplyScalar(decay);
+          if (targetOrbitVelocityRef.current.lengthSq() < 1e-6) targetOrbitVelocityRef.current.set(0, 0);
+        }
+        const responseLerp = Math.min(Math.max(1 - Math.exp(-6 * delta), 0.02), 0.12);
+        orbitVelocityRef.current.lerp(targetOrbitVelocityRef.current, responseLerp);
+        orbitVelocityRef.current.multiplyScalar(Math.pow(0.997, deltaMultiplier));
+        orbitVelocityRef.current.clampLength(0, POINTER_MAX_SPEED);
+        const userActive = orbitVelocityRef.current.lengthSq() > 1e-6 ? 1 : 0;
+        const influenceLerp = Math.min(Math.max(delta * 5, 0.02), 0.2);
+        userControlStrengthRef.current += (userActive - userControlStrengthRef.current) * influenceLerp;
+        const idleSeconds = idleMs / 1000;
+        const idleBlend = THREE.MathUtils.clamp((idleSeconds - POINTER_RETURN_DELAY) / POINTER_RETURN_FADE, 0, 1);
+        const autoOrbitStrength = (1 - Math.min(userControlStrengthRef.current, 1)) * idleBlend;
+        heroOrbitAngle.current += (speed * deltaMultiplier) * (0.4 + 0.6 * autoOrbitStrength);
+        heroOrbitAngle.current += orbitVelocityRef.current.x;
+        heroPolarAngleRef.current = THREE.MathUtils.clamp(heroPolarAngleRef.current + orbitVelocityRef.current.y, -0.35, 0.95);
+        const distance = orbitDistanceRef.current || Math.sqrt(
+          orbitRadiusRef.current * orbitRadiusRef.current +
+          orbitHeightRef.current * orbitHeightRef.current
+        );
+        const horizontal = Math.max(0.0001, Math.cos(heroPolarAngleRef.current)) * distance;
+        const x = horizontal * Math.sin(heroOrbitAngle.current);
+        const y = Math.sin(heroPolarAngleRef.current) * distance;
+        const z = horizontal * Math.cos(heroOrbitAngle.current);
+        const orbitCenter = heroOrbitCenterRef.current;
+        camera.position.set(x, y, z).add(orbitCenter);
+        const heroLookAtTarget = newLookAtTempRef.current.copy(orbitCenter);
+        heroLookAtTarget.y += heroVerticalOffsetRef.current;
+        camera.lookAt(heroLookAtTarget);
+        applyHeroFilmOffset(heroLookAtTarget, "HERO_ORBIT_V2");
+        applyFractureTilt();
+        camera.fov = currentTarget.current.fov;
+        camera.updateProjectionMatrix();
+        currentTarget.current.position.copy(camera.position);
+        cameraMoveProgressRef.current = 1;
+        if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = 1;
+        animationData?.setCameraMoveProgress?.(1);
+        animationData?.setCameraSettled?.(false);
+        return;
+      }
       const v2LookAtTarget = currentTarget.current?.lookAt || heroOrbitCenterRef.current;
       const v2StateKey = [
         animationData?.cameraState ?? 'unknown',
