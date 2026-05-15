@@ -746,18 +746,6 @@ const UnifiedCrystalScene = forwardRef(({
     ])
   ), [eulerDegreesToQuaternion, facetKeys, facetPlacementKeys, mergedConfig?.selectedFacetRotationsEulerDeg]);
 
-  const selectedProjectFacetTargetQuats = useMemo(() => {
-    const deviceKey = isMobile ? 'mobile' : 'desktop';
-    return Object.fromEntries(
-      facetKeys.map((facetKey) => {
-        const sceneKey = facetPlacementKeys[facetKey] || facetKey;
-        const projectId = getProjectIdBySceneFacetKey(sceneKey);
-        const selectedRotation = mergedConfig?.projectCameraSettings?.[projectId]?.[deviceKey]?.selected?.facetRotation;
-        return [facetKey, eulerDegreesToQuaternion(selectedRotation)];
-      })
-    );
-  }, [eulerDegreesToQuaternion, facetKeys, facetPlacementKeys, isMobile, mergedConfig?.projectCameraSettings]);
-
   const caseStudyFacetTargetQuats = useMemo(() => {
     const deviceKey = isMobile ? 'mobile' : 'desktop';
     return Object.fromEntries(
@@ -2346,27 +2334,18 @@ const UnifiedCrystalScene = forwardRef(({
               finalTarget = targetPos.clone().add(new THREE.Vector3(fx, fy, fz));
             }
             const baseQuat = baseFacetTargetQuats[facetKey] || neutralQuat;
-            const selectedQuat = selectedProjectFacetTargetQuats[facetKey] || selectedFacetTargetQuats[facetKey] || baseQuat;
+            const selectedQuat = selectedFacetTargetQuats[facetKey] || baseQuat;
             const caseStudyQuat = caseStudyFacetTargetQuats[facetKey] || selectedQuat;
             const sceneKey = facetPlacementKeys[facetKey] || facetKey;
             const projectId = getProjectIdBySceneFacetKey(sceneKey);
-            const focusedSceneKey =
-              (animationData?.focusedProject
-                ? (getSceneFacetKeyByProjectId(animationData.focusedProject) || null)
-                : null) ||
-              animationData?.focusedFacet ||
-              null;
             const isCaseStudyActiveProject =
               animationData?.viewMode === 'caseStudy' &&
               Boolean(projectId && animationData?.focusedProject && projectId === animationData.focusedProject) &&
               animationData?.cameraState === 'caseStudy';
-            const isProjectFocusedByFacet =
-              animationData?.focusedFacet === facetKey;
-            const isProjectFocusedByProjectId = focusedSceneKey === sceneKey;
             const isProjectFocusedFacet =
               animationData?.viewMode !== 'caseStudy' &&
               animationData?.cameraState === 'project' &&
-              (isProjectFocusedByFacet || isProjectFocusedByProjectId);
+              focusedSceneFacetKey === sceneKey;
             const focusRotationProgress = THREE.MathUtils.clamp(
               cameraMoveProgress / FOCUS_ROTATION_PROGRESS_LEAD,
               0,
@@ -2398,27 +2377,18 @@ const UnifiedCrystalScene = forwardRef(({
         }
 
         const baseQuat = baseFacetTargetQuats[facetKey] || neutralQuat;
-        const selectedQuat = selectedProjectFacetTargetQuats[facetKey] || selectedFacetTargetQuats[facetKey] || baseQuat;
+        const selectedQuat = selectedFacetTargetQuats[facetKey] || baseQuat;
         const caseStudyQuat = caseStudyFacetTargetQuats[facetKey] || selectedQuat;
         const sceneKey = facetPlacementKeys[facetKey] || facetKey;
         const projectId = getProjectIdBySceneFacetKey(sceneKey);
-        const focusedSceneKey =
-          (animationData?.focusedProject
-            ? (getSceneFacetKeyByProjectId(animationData.focusedProject) || null)
-            : null) ||
-          animationData?.focusedFacet ||
-          null;
         const isCaseStudyActiveProject =
           animationData?.viewMode === 'caseStudy' &&
           Boolean(projectId && animationData?.focusedProject && projectId === animationData.focusedProject) &&
           animationData?.cameraState === 'caseStudy';
-        const isProjectFocusedByFacet =
-          animationData?.focusedFacet === facetKey;
-        const isProjectFocusedByProjectId = focusedSceneKey === sceneKey;
         const isProjectFocusedFacet =
           animationData?.viewMode !== 'caseStudy' &&
           animationData?.cameraState === 'project' &&
-          (isProjectFocusedByFacet || isProjectFocusedByProjectId);
+          focusedSceneFacetKey === sceneKey;
         const focusRotationProgress = THREE.MathUtils.clamp(
           cameraMoveProgress / FOCUS_ROTATION_PROGRESS_LEAD,
           0,
