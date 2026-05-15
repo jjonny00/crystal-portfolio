@@ -1848,6 +1848,14 @@ const UnifiedCameraController = ({
       camera.fov = THREE.MathUtils.lerp(v2CameraModeRef.current.fromFov, v2CameraModeRef.current.toFov, eased);
       camera.filmOffset = THREE.MathUtils.lerp(v2CameraModeRef.current.fromFilmOffset, v2CameraModeRef.current.toFilmOffset, eased);
       camera.updateProjectionMatrix();
+      cameraMoveProgressRef.current = eased;
+      if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = eased;
+      animationData?.setCameraMoveProgress?.(eased);
+      const v2Settled = eased >= 0.999;
+      if (v2Settled !== cameraSettledRef.current) {
+        cameraSettledRef.current = v2Settled;
+        animationData?.setCameraSettled?.(v2Settled);
+      }
       return;
     }
     v2CameraModeRef.current.announced = false;
