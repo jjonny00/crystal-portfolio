@@ -1774,7 +1774,19 @@ const UnifiedCameraController = ({
           note: 'Minimal single-writer camera path (default). Set __UCC_USE_LEGACY_CAMERA__=true to opt out.',
         });
       }
-      if (animationData?.state === 'hero' && animationData?.cameraState === 'hero' && isOrbitingRef.current) {
+      if (animationData?.state === 'hero' && animationData?.cameraState === 'hero') {
+        if (!isOrbitingRef.current) {
+          const center = heroOrbitCenterRef.current.clone();
+          const relative = new THREE.Vector3().subVectors(camera.position, center);
+          const cameraDistance = relative.length();
+          const horizontalRadius = Math.sqrt(relative.x * relative.x + relative.z * relative.z);
+          heroOrbitAngle.current = Math.atan2(relative.x, relative.z);
+          heroPolarAngleRef.current = Math.atan2(relative.y, Math.max(0.0001, horizontalRadius));
+          orbitRadiusRef.current = horizontalRadius;
+          orbitHeightRef.current = relative.y;
+          orbitDistanceRef.current = cameraDistance || orbitDistanceRef.current;
+          isOrbitingRef.current = true;
+        }
         const deltaMultiplier = delta * 60;
         const speed = animationData.cameraConfig?.orbitSpeed || 0.00018;
         const nowMs = state.clock.elapsedTime * 1000;
@@ -1897,9 +1909,10 @@ const UnifiedCameraController = ({
       camera.fov = THREE.MathUtils.lerp(v2CameraModeRef.current.fromFov, v2CameraModeRef.current.toFov, eased);
       camera.filmOffset = THREE.MathUtils.lerp(v2CameraModeRef.current.fromFilmOffset, v2CameraModeRef.current.toFilmOffset, eased);
       camera.updateProjectionMatrix();
-      cameraMoveProgressRef.current = eased;
-      if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = eased;
-      animationData?.setCameraMoveProgress?.(eased);
+      const v2MoveProgress = THREE.MathUtils.clamp(eased / 0.85, 0, 1);
+      cameraMoveProgressRef.current = v2MoveProgress;
+      if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = v2MoveProgress;
+      animationData?.setCameraMoveProgress?.(v2MoveProgress);
       const v2Settled = eased >= 0.999;
       if (v2Settled !== cameraSettledRef.current) {
         cameraSettledRef.current = v2Settled;
