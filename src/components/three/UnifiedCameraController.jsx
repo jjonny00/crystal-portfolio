@@ -1777,6 +1777,7 @@ const UnifiedCameraController = ({
       if (animationData?.state === 'hero' && animationData?.cameraState === 'hero') {
         if (!isOrbitingRef.current) {
           const center = heroOrbitCenterRef.current.clone();
+          heroVerticalOffsetRef.current = getHeroVerticalOffset(center);
           const relative = new THREE.Vector3().subVectors(camera.position, center);
           const cameraDistance = relative.length();
           const horizontalRadius = Math.sqrt(relative.x * relative.x + relative.z * relative.z);
