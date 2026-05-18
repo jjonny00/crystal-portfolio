@@ -678,17 +678,41 @@ const UnifiedCameraController = ({
     return rawVerticalOffsetY * HERO_VERTICAL_FRAMING_SCALE * HERO_VERTICAL_FRAMING_SIGN;
   };
 
-  const resolveHeroTuning = (cameraConfig) => {
+  const getAuthoredHeroPosition = (cameraConfig) => {
+    return toVector3(cameraConfig?.cameraPositions?.hero)
+      .add(toVector3(cameraConfig?.cameraOffsets?.global?.position))
+      .add(toVector3(cameraConfig?.cameraOffsets?.zones?.hero?.position));
+  };
+
+  const deriveHeroOrbitPoseFromPosition = (heroPosition, center) => {
+    const relative = new THREE.Vector3().subVectors(heroPosition, center);
+    const radius = Math.sqrt((relative.x * relative.x) + (relative.z * relative.z));
+
+    return {
+      radius: radius || DEFAULT_HERO_TUNING.radius,
+      height: relative.y,
+      baseAngle: Math.atan2(relative.x, relative.z),
+    };
+  };
+
+  const resolveHeroTuning = (cameraConfig, center = getHeroOrbitCenter()) => {
     const configured = cameraConfig?.cameraHeroTuning || cameraConfig?.camera?.heroTuning;
-    const tuning = { ...DEFAULT_HERO_TUNING };
-    let source = 'defaults';
+    const authoredHeroPose = deriveHeroOrbitPoseFromPosition(
+      getAuthoredHeroPosition(cameraConfig),
+      center,
+    );
+    const tuning = {
+      ...DEFAULT_HERO_TUNING,
+      ...authoredHeroPose,
+    };
+    let source = 'camera.positions.hero';
 
     if (configured && typeof configured === 'object') {
-      Object.keys(DEFAULT_HERO_TUNING).forEach((key) => {
+      ['orbitSpeed', 'lookAtYOffset'].forEach((key) => {
         const value = configured[key];
         if (typeof value === 'number' && Number.isFinite(value)) {
           tuning[key] = value;
-          source = 'camera.heroTuning';
+          source = `${source} + camera.heroTuning`;
         }
       });
     }
