@@ -605,6 +605,63 @@ const Fixed3DCanvas = forwardRef(({
 
   const destinationCompareStoreRef = useRef({ byKey: {}, order: [] });
 
+  const resolveLegacyDestinationPose = useCallback((destination, projectId, mode) => {
+    const globalOffsetPos = cameraMergedConfig?.cameraOffsets?.global?.position || [0, 0, 0];
+    const globalOffsetTarget = cameraMergedConfig?.cameraOffsets?.global?.target || [0, 0, 0];
+    const add = (a = [0, 0, 0], b = [0, 0, 0]) => [
+      (a[0] || 0) + (b[0] || 0),
+      (a[1] || 0) + (b[1] || 0),
+      (a[2] || 0) + (b[2] || 0),
+    ];
+
+    if (destination === 'project' || destination === 'caseStudy') {
+      const deviceKey = isMobile ? 'mobile' : 'desktop';
+      const branchMode = destination === 'caseStudy' ? 'caseStudy' : mode;
+      const branch = cameraMergedConfig?.projectCameraSettings?.[projectId]?.[deviceKey]?.[branchMode];
+      if (!branch?.position || !branch?.target) {
+        return {
+          available: false,
+          legacySource: 'projectCameraSettings (missing branch)',
+          unresolvedReason: 'legacy-destination-pose-unavailable',
+        };
+      }
+      return {
+        available: true,
+        legacySource: `projectCameraSettings.${deviceKey}.${branchMode}`,
+        pose: {
+          position: add(branch.position, globalOffsetPos),
+          lookAt: add(branch.target, globalOffsetTarget),
+          fov: 45,
+          filmOffset: cameraMergedConfig?.cameraComposition?.hero?.filmOffsetX ?? 0,
+        },
+      };
+    }
+
+    const position = cameraMergedConfig?.cameraPositions?.[destination];
+    const lookAt = cameraMergedConfig?.cameraTargets?.[destination];
+    if (!position || !lookAt) {
+      return {
+        available: false,
+        legacySource: 'cameraPositions/cameraTargets (missing zone pose)',
+        unresolvedReason: 'legacy-destination-pose-unavailable',
+      };
+    }
+
+    const zoneOffsetPos = cameraMergedConfig?.cameraOffsets?.zones?.[destination]?.position || [0, 0, 0];
+    const zoneOffsetTarget = cameraMergedConfig?.cameraOffsets?.zones?.[destination]?.target || [0, 0, 0];
+
+    return {
+      available: true,
+      legacySource: `cameraPositions/cameraTargets.zone.${destination}`,
+      pose: {
+        position: add(add(position, globalOffsetPos), zoneOffsetPos),
+        lookAt: add(add(lookAt, globalOffsetTarget), zoneOffsetTarget),
+        fov: 45,
+        filmOffset: cameraMergedConfig?.cameraComposition?.hero?.filmOffsetX ?? 0,
+      },
+    };
+  }, [cameraMergedConfig, isMobile]);
+
   useEffect(() => {
     if (!import.meta.env.DEV) return;
 
@@ -617,12 +674,12 @@ const Fixed3DCanvas = forwardRef(({
     const compareKey = `${destination}|${animationData?.focusedProject || 'none'}|${animationData?.viewMode || 'none'}|${isMobile ? 'mobile' : 'desktop'}`;
     if (destinationCompareStoreRef.current.byKey[compareKey]) return;
 
-    const legacyPose = {
-      position: animationData?.cameraConfig?.position?.toArray?.() || null,
-      lookAt: animationData?.cameraConfig?.target?.toArray?.() || null,
-      fov: animationData?.cameraConfig?.fov ?? 45,
-      filmOffset: cameraMergedConfig?.cameraComposition?.hero?.filmOffsetX ?? 0,
-    };
+    const legacyResolution = resolveLegacyDestinationPose(
+      destination,
+      animationData?.focusedProject || null,
+      animationData?.viewMode === 'caseStudy' ? 'caseStudy' : 'selected',
+    );
+    const legacyPose = legacyResolution?.pose || null;
 
     const compareContext = {
       destination,
@@ -643,19 +700,34 @@ const Fixed3DCanvas = forwardRef(({
       isMobile,
     });
 
-    const result = compareCameraPoses(
-      legacyPose,
-      resolvedPose,
-      {},
-      destinationMatchesActiveContext ? {} : { skip: true, reason: 'context-mismatch' },
-    );
+    const compareValid = destinationMatchesActiveContext && Boolean(legacyResolution?.available);
+    const compareOptions = !destinationMatchesActiveContext
+      ? { skip: true, reason: 'context-mismatch' }
+      : (!legacyResolution?.available
+        ? { skip: false }
+        : {});
+
+    const result = legacyResolution?.available
+      ? compareCameraPoses(legacyPose, resolvedPose, {}, compareOptions)
+      : {
+        status: 'unresolved',
+        invalidSide: 'legacy',
+        reason: legacyResolution?.unresolvedReason || 'legacy-destination-pose-unavailable',
+        positionDelta: 0,
+        lookAtDelta: 0,
+        fovDelta: 0,
+        filmOffsetDelta: 0,
+        mismatchedFields: 'none',
+      };
     const entry = {
       compareKey,
       destination,
       projectId: animationData?.focusedProject || null,
       result,
-      legacySource: 'animationData.cameraConfig (live legacy destination output)',
+      legacySource: legacyResolution?.legacySource || 'legacy-pose-unavailable',
+      legacySourceIsDestinationSpecific: Boolean(legacyResolution?.available),
       resolverSource: resolvedPose.meta?.source || 'resolver',
+      compareValid,
       compareContext,
       destinationMatchesActiveContext,
       currentState: animationData?.state || null,
@@ -679,6 +751,15 @@ const Fixed3DCanvas = forwardRef(({
     if (!globalThis.__printCameraDestinationCompareDetails) {
       globalThis.__printCameraDestinationCompareDetails = () => {
         const list = destinationCompareStoreRef.current.order.map((k) => destinationCompareStoreRef.current.byKey[k]);
+        const summary = {
+          total: list.length,
+          validCompared: list.filter((r) => r.compareValid).length,
+          matches: list.filter((r) => r.result.status === 'match').length,
+          mismatches: list.filter((r) => r.result.status === 'mismatch').length,
+          unresolved: list.filter((r) => r.result.status === 'unresolved').length,
+          skippedInvalidContext: list.filter((r) => r.result.status === 'skipped').length,
+        };
+        console.log('[camera-destination-compare:summary]', summary);
         console.log('[camera-destination-compare:details]', list);
       };
     }
