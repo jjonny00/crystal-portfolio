@@ -124,6 +124,7 @@ const UnifiedCameraController = ({
   const FRACTURE_TILT_RADIANS = 0.045;
   const FRACTURE_PITCH_UP_RADIANS = -0.012;
   const FRACTURE_TILT_RELEASE_DISTANCE = 0.015;
+  const DISABLE_HERO_FRACTURE_CAMERA_TILT = true;
   const fractureTiltRef = useRef(0);
   const fractureTiltActiveRef = useRef(false);
   const fractureTiltAnchorPositionRef = useRef(new THREE.Vector3());
@@ -235,6 +236,7 @@ const UnifiedCameraController = ({
   const heroSeedHeightOverrideSuppressedLoggedRef = useRef(false);
   const heroSeedPreTransitionLoggedRef = useRef(false);
   const heroSeedFractureStartLoggedRef = useRef(false);
+  const heroFractureTiltSuppressedLoggedRef = useRef(false);
   const stableHeroPositionRef = useRef(new THREE.Vector3(0, 0.8, 7));
   const simpleCameraModeRef = useRef({ announced: false });
   const staticCameraModeRef = useRef({
@@ -295,6 +297,22 @@ const UnifiedCameraController = ({
 
   const applyFractureTilt = () => {
     if (!fractureTiltActiveRef.current) return;
+
+    const shouldSuppressHeroFractureTilt =
+      DISABLE_HERO_FRACTURE_CAMERA_TILT &&
+      animationData?.cameraState === 'hero' &&
+      animationData?.crystalForm === 'exploded';
+
+    if (shouldSuppressHeroFractureTilt) {
+      if (!heroFractureTiltSuppressedLoggedRef.current) {
+        console.log('[hero-camera-seed] fracture-tilt-suppressed', {
+          cameraState: animationData?.cameraState,
+          crystalForm: animationData?.crystalForm,
+        });
+        heroFractureTiltSuppressedLoggedRef.current = true;
+      }
+      return;
+    }
 
     if (
       Math.abs(fractureTiltRef.current) > 0.00001 ||
@@ -587,6 +605,7 @@ const UnifiedCameraController = ({
       fractureTiltAnchorSeededFromLiveHeroRef.current = false;
       heroSeedPreTransitionLoggedRef.current = false;
       heroSeedFractureStartLoggedRef.current = false;
+      heroFractureTiltSuppressedLoggedRef.current = false;
     }
 
     lastCrystalFormRef.current = currentCrystalForm;
@@ -3423,6 +3442,7 @@ const UnifiedCameraController = ({
       fractureTiltAnchorSeededFromLiveHeroRef.current = false;
       heroSeedPreTransitionLoggedRef.current = false;
       heroSeedFractureStartLoggedRef.current = false;
+      heroFractureTiltSuppressedLoggedRef.current = false;
     }
 
     if (!currentTarget.current || simplifiedAnimations) {
