@@ -231,6 +231,8 @@ const UnifiedCameraController = ({
   const prevStateRef = useRef(animationData?.state ?? null);
   const prevCameraStateRef = useRef(animationData?.cameraState ?? null);
   const configCheckLoggedRef = useRef(false);
+  const heroSeedResolvedLoggedRef = useRef(false);
+  const heroSeedHeightOverrideSuppressedLoggedRef = useRef(false);
   const stableHeroPositionRef = useRef(new THREE.Vector3(0, 0.8, 7));
   const simpleCameraModeRef = useRef({ announced: false });
   const staticCameraModeRef = useRef({
@@ -708,13 +710,38 @@ const UnifiedCameraController = ({
     let source = 'camera.positions.hero';
 
     if (configured && typeof configured === 'object') {
-      ['height', 'orbitSpeed', 'lookAtYOffset'].forEach((key) => {
+      ['orbitSpeed', 'lookAtYOffset'].forEach((key) => {
         const value = configured[key];
         if (typeof value === 'number' && Number.isFinite(value)) {
           tuning[key] = value;
           source = `${source} + camera.heroTuning`;
         }
       });
+
+      const configuredHeight = configured.height;
+      if (
+        typeof configuredHeight === 'number'
+        && Number.isFinite(configuredHeight)
+        && !heroSeedHeightOverrideSuppressedLoggedRef.current
+      ) {
+        console.log('[hero-camera-seed] height-override-suppressed', {
+          configuredHeight,
+          authoredPoseHeight: authoredHeroPose.height,
+        });
+        heroSeedHeightOverrideSuppressedLoggedRef.current = true;
+      }
+    }
+
+    if (!heroSeedResolvedLoggedRef.current) {
+      console.log('[hero-camera-seed] resolved', {
+        source,
+        radius: tuning.radius,
+        height: tuning.height,
+        baseAngle: tuning.baseAngle,
+        orbitSpeed: tuning.orbitSpeed,
+        lookAtYOffset: tuning.lookAtYOffset,
+      });
+      heroSeedResolvedLoggedRef.current = true;
     }
 
     return { tuning, source };
