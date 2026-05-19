@@ -807,10 +807,11 @@ const UnifiedCameraController = ({
     heroOrbitCenterRef.current.copy(heroCenter);
     heroCompositionOffsetRef.current.copy(heroTargetOffset);
     heroCompositionLateralRef.current = heroCompositionOffsetRef.current.x;
-    heroVerticalOffsetRef.current = getHeroVerticalOffset(heroCenter);
+    const { tuning: authoritativeHeroTuning } = resolveHeroTuning(config, heroCenter);
+    heroVerticalOffsetRef.current = authoritativeHeroTuning.lookAtYOffset;
 
     const heroLookAt = newLookAtTempRef.current.copy(heroCenter);
-    heroLookAt.y += heroVerticalOffsetRef.current;
+    heroLookAt.y += authoritativeHeroTuning.lookAtYOffset;
     currentTarget.current.lookAt.copy(heroLookAt);
 
     if (resetPosition) {
@@ -1384,14 +1385,20 @@ const UnifiedCameraController = ({
         introFromRef.current.lookAt.copy(camera.position).add(currentDirection);
         introFromRef.current.fov = camera.fov;
         const heroOrbitCenter = getHeroOrbitCenter();
-        introToRef.current.position.copy(finalPosition);
-        introToRef.current.lookAt.copy(heroOrbitCenter);
-        introToRef.current.lookAt.y += getHeroVerticalOffset(heroOrbitCenter);
+        const { tuning: authoritativeHeroTuning } = resolveHeroTuning(config, heroOrbitCenter);
+        const authoritativeHeroIntroDestination = getAuthoritativeHeroCameraSnapshot({
+          center: heroOrbitCenter,
+          tuning: authoritativeHeroTuning,
+          filmOffsetX: resolveHeroFilmOffsetX(heroOrbitCenter).value,
+          angleOverride: authoritativeHeroTuning.baseAngle,
+        });
+        introToRef.current.position.copy(authoritativeHeroIntroDestination.position);
+        introToRef.current.lookAt.copy(authoritativeHeroIntroDestination.lookAtTarget);
         introFinalTargetDebugRef.current.copy(finalTarget);
         heroOrbitCenterRef.current.copy(heroOrbitCenter);
         heroCompositionOffsetRef.current.copy(finalTarget).sub(heroOrbitCenter);
         heroCompositionLateralRef.current = heroCompositionOffsetRef.current.x;
-        heroVerticalOffsetRef.current = getHeroVerticalOffset(heroOrbitCenter);
+        heroVerticalOffsetRef.current = authoritativeHeroTuning.lookAtYOffset;
         introToRef.current.fov = enhancedConfig.fov ?? camera.fov;
         if (import.meta.env.DEV) console.log('[UCC INTRO] set active true', { reason: 'config-change shouldRunIntro', finalTarget: finalTarget?.toArray?.(), heroOrbitCenter: heroOrbitCenter.toArray() });
       }
@@ -3425,13 +3432,15 @@ const UnifiedCameraController = ({
       const z = horizontal * Math.cos(heroOrbitAngle.current);
 
       const orbitCenter = heroOrbitCenterRef.current;
+      const { tuning: authoritativeHeroTuning } = resolveHeroTuning(config, orbitCenter);
+      heroVerticalOffsetRef.current = authoritativeHeroTuning.lookAtYOffset;
 
       camera.position
         .set(x, y, z)
         .add(orbitCenter);
 
       const heroLookAtTarget = newLookAtTempRef.current.copy(orbitCenter);
-      heroLookAtTarget.y += heroVerticalOffsetRef.current;
+      heroLookAtTarget.y += authoritativeHeroTuning.lookAtYOffset;
       camera.lookAt(heroLookAtTarget);
       applyHeroFilmOffset(heroLookAtTarget, "HERO_ORBIT");
       applyFractureTilt();
