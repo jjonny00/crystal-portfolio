@@ -86,6 +86,7 @@ const UnifiedCameraController = ({
   const compareSummaryPrintedRef = useRef(false);
   const overviewToHeroDirectorSampleBucketRef = useRef(-1);
   const overviewToHeroSuppressionLoggedRef = useRef(false);
+  const overviewToHeroStartGuardKeyRef = useRef(null);
   const projectTargetLockRef = useRef({
     facetKey: null,
     target: null,
@@ -2040,7 +2041,14 @@ const UnifiedCameraController = ({
       !wasPlainHero &&
       isAuthoritativePlainHero &&
       cameFromNonHeroState;
-    if (shouldForceOverviewToHeroTransition && !authoritativeOverviewToHeroTransitionRef.current.active) {
+    const overviewToHeroStartKey = `${prevState ?? 'none'}:${prevCameraState ?? 'none'}->${animationData?.state ?? 'none'}:${animationData?.cameraState ?? 'none'}`;
+    const transitionActive = authoritativeOverviewToHeroTransitionRef.current.active;
+    const restartBlocked = shouldForceOverviewToHeroTransition && !transitionActive && overviewToHeroStartGuardKeyRef.current === overviewToHeroStartKey;
+    if (restartBlocked) {
+      console.log('[camera-director] overview-to-hero restart-blocked', { key: overviewToHeroStartKey });
+    }
+    if (shouldForceOverviewToHeroTransition && !transitionActive && !restartBlocked) {
+      overviewToHeroStartGuardKeyRef.current = overviewToHeroStartKey;
       const fromLookAt = getCameraLookAtFromTransform();
       const resolvedHero = resolveCameraDestination({
         destination: 'hero',
@@ -2077,12 +2085,19 @@ const UnifiedCameraController = ({
         },
       };
       console.log('[camera-director] overview-to-hero start', {
-        fromPosition: authoritativeOverviewToHeroTransitionRef.current.from.position.toArray(),
-        fromLookAt: authoritativeOverviewToHeroTransitionRef.current.from.lookAtTarget.toArray(),
-        fromFilmOffset: authoritativeOverviewToHeroTransitionRef.current.from.filmOffsetX,
-        toPosition: authoritativeOverviewToHeroTransitionRef.current.to.position.toArray(),
-        toLookAt: authoritativeOverviewToHeroTransitionRef.current.to.lookAtTarget.toArray(),
-        toFilmOffset: authoritativeOverviewToHeroTransitionRef.current.to.filmOffsetX,
+        key: overviewToHeroStartKey,
+        fromPose: {
+          position: authoritativeOverviewToHeroTransitionRef.current.from.position.toArray(),
+          lookAt: authoritativeOverviewToHeroTransitionRef.current.from.lookAtTarget.toArray(),
+          fov: authoritativeOverviewToHeroTransitionRef.current.from.fov,
+          filmOffset: authoritativeOverviewToHeroTransitionRef.current.from.filmOffsetX
+        },
+        toPose: {
+          position: authoritativeOverviewToHeroTransitionRef.current.to.position.toArray(),
+          lookAt: authoritativeOverviewToHeroTransitionRef.current.to.lookAtTarget.toArray(),
+          fov: authoritativeOverviewToHeroTransitionRef.current.to.fov,
+          filmOffset: authoritativeOverviewToHeroTransitionRef.current.to.filmOffsetX
+        },
         fromSource: authoritativeOverviewToHeroTransitionRef.current.from.source,
         toSource: authoritativeOverviewToHeroTransitionRef.current.to.source,
       });
