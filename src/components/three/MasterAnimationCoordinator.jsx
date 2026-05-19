@@ -1,9 +1,10 @@
 // Added keyboard control for animation debug panel
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useScrollProgress } from '../../hooks/useScrollProgress';
 import { useUnifiedAnimationController } from '../../hooks/useUnifiedAnimationController';
 import { getSceneFacetKeyByProjectId } from '../../data/projects';
+import { mapZoneToDestination } from '../../navigation/navigationIntent';
 
 let exportedAnimationData = {};
 let exportedScrollMetrics = {};
@@ -98,6 +99,26 @@ const MasterAnimationCoordinator = ({
     scrollData.isFastScrolling,
     scrollData.velocity
   ]);
+
+
+  const lastLoggedScrollDestinationRef = useRef(null);
+
+  useEffect(() => {
+    const destination = mapZoneToDestination(animationController.animationState.zoneInfo?.zone);
+    if (!destination) return;
+    if (lastLoggedScrollDestinationRef.current === destination) return;
+
+    lastLoggedScrollDestinationRef.current = destination;
+
+    if (import.meta.env.DEV) {
+      console.log('[navigation-intent] request', {
+        destination,
+        projectId: null,
+        source: 'scroll',
+        legacyActions: ['updateFromScrollProgress']
+      });
+    }
+  }, [animationController.animationState.zoneInfo?.zone]);
 
   exportedScrollMetrics = scrollMetrics;
 

@@ -1,6 +1,6 @@
 // src/App.jsx - UPDATED: Integration with V2 performance and loading system
 
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import './styles/scroll-snap.css';
 
 // UPDATED: Import V2 systems
@@ -38,6 +38,7 @@ import PerformanceDebugPanel from './components/ui/PerformanceDebugPanel';
 import * as defaultConfig from './crystalConfig';
 
 import { isMobileDevice } from './utils/isMobileDevice.js';
+import { createNavigationIntentRequester, NAV_DESTINATIONS } from './navigation/navigationIntent';
 
 const projectKeys = ['empathy', 'narrative', 'craft', 'system', 'leadership', 'exploration'];
 const zoneKeys = ['intro', 'hero', 'overview', 'about'];
@@ -562,20 +563,34 @@ function App() {
     target.scrollIntoView({ behavior, block: 'start' });
   }, []);
 
+  const requestDestination = useMemo(() => createNavigationIntentRequester({
+    directSelectZone: (zoneKey) => fixedCanvasRef.current?.directSelectZone?.(zoneKey),
+    scrollToSection
+  }), [scrollToSection]);
+
   const handleHomeClick = useCallback(() => {
-    fixedCanvasRef.current?.directSelectZone?.('hero');
-    scrollToSection('hero', 'auto');
-  }, [scrollToSection]);
+    requestDestination({
+      destination: NAV_DESTINATIONS.HERO,
+      source: 'top-nav',
+      scrollBehavior: 'auto'
+    });
+  }, [requestDestination]);
 
   const handleWorkClick = useCallback(() => {
-    fixedCanvasRef.current?.directSelectZone?.('overview');
-    scrollToSection('overview', 'auto');
-  }, [scrollToSection]);
+    requestDestination({
+      destination: NAV_DESTINATIONS.OVERVIEW,
+      source: 'top-nav',
+      scrollBehavior: 'auto'
+    });
+  }, [requestDestination]);
 
   const handleAboutClick = useCallback(() => {
-    fixedCanvasRef.current?.directSelectZone?.('about');
-    scrollToSection('about', 'auto');
-  }, [scrollToSection]);
+    requestDestination({
+      destination: NAV_DESTINATIONS.ABOUT,
+      source: 'top-nav',
+      scrollBehavior: 'auto'
+    });
+  }, [requestDestination]);
 
   const handleContactClick = useCallback(() => {}, []);
 

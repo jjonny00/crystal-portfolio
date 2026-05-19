@@ -6,6 +6,8 @@ import { useThree, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { facetKeys as canonicalFacetKeys, getSceneFacetKeyByProjectId } from '../../data/projects';
 import { createLogger } from '../../utils/logger';
+import { resolveCameraDestination } from '../../camera/cameraDestinations';
+import { compareCameraPoses, isCameraPoseMatch, getMismatchedFields, CAMERA_COMPARE_THRESHOLDS } from '../../camera/cameraPoseCompare';
 
 const logger = createLogger('unified-camera-controller');
 
@@ -65,6 +67,26 @@ const UnifiedCameraController = ({
   const lastCameraConfig = useRef(null);
   const cameraMoveBaselineRef = useRef({ position: 0, lookAt: 0, fov: 0 });
   const cameraMoveProgressRef = useRef(1);
+
+  const compareLogKeyRef = useRef(null);
+  const compareLogFingerprintRef = useRef(null);
+  const compareSummaryRef = useRef({
+    totalCompared: 0,
+    matches: 0,
+    mismatches: 0,
+    unresolved: 0,
+    mismatchedDestinations: new Set(),
+    unresolvedDestinations: new Set(),
+    largestPositionDelta: 0,
+    largestLookAtDelta: 0,
+    largestFovDelta: 0,
+    largestFilmOffsetDelta: 0
+  });
+  const compareRecordsRef = useRef(new Map());
+  const compareSummaryPrintedRef = useRef(false);
+  const overviewToHeroDirectorSampleBucketRef = useRef(-1);
+  const overviewToHeroSuppressionLoggedRef = useRef(false);
+  const overviewToHeroStartGuardKeyRef = useRef(null);
   const projectTargetLockRef = useRef({
     facetKey: null,
     target: null,
@@ -471,6 +493,14 @@ const UnifiedCameraController = ({
           time: Date.now()
         });
       }
+      if (!overviewToHeroSuppressionLoggedRef.current) {
+        overviewToHeroSuppressionLoggedRef.current = true;
+        console.log('[camera-director] suppressed legacy writer', {
+          transition: 'overview-to-hero',
+          reason: 'director-active',
+          suppressedBranch: 'legacy-camera-writers'
+        });
+      }
       
       return worldPosition;
     } else {
@@ -870,6 +900,14 @@ const UnifiedCameraController = ({
           finalTarget: projectViewSettings.selected.target?.toArray?.() || null
         });
       }
+      if (!overviewToHeroSuppressionLoggedRef.current) {
+        overviewToHeroSuppressionLoggedRef.current = true;
+        console.log('[camera-director] suppressed legacy writer', {
+          transition: 'overview-to-hero',
+          reason: 'director-active',
+          suppressedBranch: 'legacy-camera-writers'
+        });
+      }
 
       return {
         position: projectViewSettings.selected.position,
@@ -915,6 +953,14 @@ const UnifiedCameraController = ({
           finalTarget: projectViewSettings.caseStudy.target?.toArray?.() || null
         });
       }
+      if (!overviewToHeroSuppressionLoggedRef.current) {
+        overviewToHeroSuppressionLoggedRef.current = true;
+        console.log('[camera-director] suppressed legacy writer', {
+          transition: 'overview-to-hero',
+          reason: 'director-active',
+          suppressedBranch: 'legacy-camera-writers'
+        });
+      }
 
       return {
         position: projectViewSettings.caseStudy.position,
@@ -926,6 +972,47 @@ const UnifiedCameraController = ({
 
     return null;
   };
+
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    globalThis.__printCameraDestinationCompareSummary = () => {
+      const summary = compareSummaryRef.current;
+      console.log('[camera-destination-compare] summary', {
+        totalCompared: summary.totalCompared,
+        matches: summary.matches,
+        mismatches: summary.mismatches,
+        unresolved: summary.unresolved,
+        mismatchedDestinations: Array.from(summary.mismatchedDestinations).join(', '),
+        unresolvedDestinations: Array.from(summary.unresolvedDestinations).join(', '),
+        largestPositionDelta: summary.largestPositionDelta,
+        largestLookAtDelta: summary.largestLookAtDelta,
+        largestFovDelta: summary.largestFovDelta,
+        largestFilmOffsetDelta: summary.largestFilmOffsetDelta,
+        thresholds: CAMERA_COMPARE_THRESHOLDS
+      });
+    };
+    globalThis.__printCameraDestinationCompareDetails = () => {
+      const rows = Array.from(compareRecordsRef.current.values()).map((row) => ({
+        key: row.key,
+        destination: row.destination,
+        projectId: row.projectId,
+        status: row.status,
+        mismatchedFields: row.mismatchedFields,
+        invalidSide: row.invalidSide,
+        invalidFields: row.invalidFields,
+        positionDelta: row.positionDelta,
+        lookAtDelta: row.lookAtDelta,
+        fovDelta: row.fovDelta,
+        filmOffsetDelta: row.filmOffsetDelta
+      }));
+      console.table(rows);
+    };
+    return () => {
+      delete globalThis.__printCameraDestinationCompareSummary;
+      delete globalThis.__printCameraDestinationCompareDetails;
+    };
+  }, []);
 
   useEffect(() => {
     currentTarget.current.position.copy(camera.position);
@@ -1237,6 +1324,14 @@ const UnifiedCameraController = ({
           },
         });
       }
+      if (!overviewToHeroSuppressionLoggedRef.current) {
+        overviewToHeroSuppressionLoggedRef.current = true;
+        console.log('[camera-director] suppressed legacy writer', {
+          transition: 'overview-to-hero',
+          reason: 'director-active',
+          suppressedBranch: 'legacy-camera-writers'
+        });
+      }
 
       if (finalPosition) {
         currentTarget.current.position.copy(finalPosition);
@@ -1258,6 +1353,134 @@ const UnifiedCameraController = ({
       
       if (enhancedConfig.fov !== undefined) {
         currentTarget.current.fov = enhancedConfig.fov;
+      }
+
+      if (import.meta.env.DEV) {
+        const destination = cameraState;
+        const compareEligible = destination === 'hero' || destination === 'overview' || destination === 'about' || destination === 'project' || destination === 'caseStudy';
+        if (compareEligible) {
+          const resolverMode = destination === 'caseStudy' ? 'caseStudy' : 'selected';
+          const resolved = resolveCameraDestination({ destination, projectId: focusedProject, mode: resolverMode, config, animationData, isMobile });
+          const key = `${destination}:${focusedProject ?? 'none'}:${resolverMode}`;
+
+          const legacyPose = {
+            position: finalPosition?.toArray?.() ?? null,
+            lookAt: finalTarget?.toArray?.() ?? null,
+            fov: Number.isFinite(enhancedConfig?.fov) ? enhancedConfig.fov : null,
+            filmOffset: destination === 'hero' ? (Number.isFinite(config?.cameraComposition?.hero?.filmOffsetX) ? config.cameraComposition.hero.filmOffsetX : null) : 0
+          };
+
+          const delta = compareCameraPoses(legacyPose, resolved?.pose);
+          const summary = compareSummaryRef.current;
+          summary.totalCompared += 1;
+
+          if (delta.unresolved) {
+            summary.unresolved += 1;
+            const invalidFieldsCombined = Array.from(new Set([...(delta.invalidFields?.legacy ?? []), ...(delta.invalidFields?.resolver ?? [])]));
+            const invalidFieldsText = invalidFieldsCombined.join(', ');
+            summary.unresolvedDestinations.add(`${destination}:${focusedProject ?? 'none'}`);
+            const fingerprint = `${key}:unresolved:${delta.invalidSide}:${invalidFieldsText}`;
+            const shouldLog = compareLogKeyRef.current !== key || compareLogFingerprintRef.current !== fingerprint;
+            if (shouldLog) {
+              compareLogKeyRef.current = key;
+              compareLogFingerprintRef.current = fingerprint;
+              const payload = {
+                destination,
+                projectId: focusedProject ?? null,
+                invalidSide: delta.invalidSide,
+                invalidFields: invalidFieldsText,
+                reason: delta.reason
+              };
+              if (globalThis.__CAMERA_DESTINATION_COMPARE_VERBOSE__ === true) {
+                payload.legacyPose = legacyPose;
+                payload.newResolverPose = resolved?.pose ?? null;
+              }
+              console.warn('[camera-destination-compare] unresolved', payload);
+              compareRecordsRef.current.set(key, {
+                key,
+                destination,
+                projectId: focusedProject ?? null,
+                status: 'unresolved',
+                invalidSide: delta.invalidSide,
+                invalidFields: invalidFieldsText,
+                mismatchedFields: '',
+                positionDelta: null,
+                lookAtDelta: null,
+                fovDelta: null,
+                filmOffsetDelta: null
+              });
+            }
+          } else {
+            const matches = isCameraPoseMatch(delta, CAMERA_COMPARE_THRESHOLDS);
+            const mismatchedFieldsArr = getMismatchedFields(delta, CAMERA_COMPARE_THRESHOLDS);
+            const mismatchedFields = mismatchedFieldsArr.join(', ');
+            const positionDelta = Number(delta.positionDelta.toFixed(6));
+            const lookAtDelta = Number(delta.lookAtDelta.toFixed(6));
+            const fovDelta = Number(delta.fovDelta.toFixed(6));
+            const filmOffsetDelta = Number(delta.filmOffsetDelta.toFixed(6));
+
+            if (matches) summary.matches += 1;
+            else {
+              summary.mismatches += 1;
+              summary.mismatchedDestinations.add(destination);
+            }
+
+            summary.largestPositionDelta = Math.max(summary.largestPositionDelta, positionDelta);
+            summary.largestLookAtDelta = Math.max(summary.largestLookAtDelta, lookAtDelta);
+            summary.largestFovDelta = Math.max(summary.largestFovDelta, fovDelta);
+            summary.largestFilmOffsetDelta = Math.max(summary.largestFilmOffsetDelta, filmOffsetDelta);
+
+            const fingerprint = `${key}:${mismatchedFields || 'none'}`;
+            const shouldLog = compareLogKeyRef.current !== key || compareLogFingerprintRef.current !== fingerprint;
+            if (shouldLog) {
+              compareLogKeyRef.current = key;
+              compareLogFingerprintRef.current = fingerprint;
+              const payload = {
+                destination,
+                projectId: focusedProject ?? null,
+                mismatchedFields,
+                positionDelta,
+                lookAtDelta,
+                fovDelta,
+                filmOffsetDelta,
+                positionMismatch: mismatchedFieldsArr.includes('position'),
+                lookAtMismatch: mismatchedFieldsArr.includes('lookAt'),
+                fovMismatch: mismatchedFieldsArr.includes('fov'),
+                filmOffsetMismatch: mismatchedFieldsArr.includes('filmOffset'),
+                likelySourceHints: {
+                  globalOffset: resolved?.source?.usedGlobalOffsets ?? false,
+                  zoneOffset: resolved?.source?.usedZoneOffsets ?? false,
+                  projectCameraSettings: resolved?.source?.usedProjectCameraSettings ?? false,
+                  filmOffset: destination === 'hero'
+                }
+              };
+              if (globalThis.__CAMERA_DESTINATION_COMPARE_VERBOSE__ === true) {
+                payload.legacyPose = legacyPose;
+                payload.newResolverPose = resolved?.pose ?? null;
+              }
+              if (matches) console.log('[camera-destination-compare] match', payload);
+              else console.warn('[camera-destination-compare] mismatch', payload);
+              compareRecordsRef.current.set(key, {
+                key,
+                destination,
+                projectId: focusedProject ?? null,
+                status: matches ? 'match' : 'mismatch',
+                mismatchedFields,
+                invalidSide: '',
+                invalidFields: '',
+                positionDelta,
+                lookAtDelta,
+                fovDelta,
+                filmOffsetDelta
+              });
+            }
+          }
+
+          if (!compareSummaryPrintedRef.current && summary.totalCompared >= 8) {
+            compareSummaryPrintedRef.current = true;
+            globalThis.__printCameraDestinationCompareSummary?.();
+          }
+        }
       }
 
       const shouldRunIntro =
@@ -1500,6 +1723,14 @@ const UnifiedCameraController = ({
           lookAtAfterWrite: lookAtTarget?.toArray?.() || null,
           sourceCurrentTargetPosition: currentTarget.current?.position?.toArray?.() || null,
           sourceCurrentTargetLookAt: currentTarget.current?.lookAt?.toArray?.() || null,
+        });
+      }
+      if (!overviewToHeroSuppressionLoggedRef.current) {
+        overviewToHeroSuppressionLoggedRef.current = true;
+        console.log('[camera-director] suppressed legacy writer', {
+          transition: 'overview-to-hero',
+          reason: 'director-active',
+          suppressedBranch: 'legacy-camera-writers'
         });
       }
     }
@@ -1810,17 +2041,28 @@ const UnifiedCameraController = ({
       !wasPlainHero &&
       isAuthoritativePlainHero &&
       cameFromNonHeroState;
-    if (shouldForceOverviewToHeroTransition && !authoritativeOverviewToHeroTransitionRef.current.active) {
-      const center = getHeroOrbitCenter();
-      const { tuning } = resolveHeroTuning(config);
-      const resolvedHeroFilmOffsetX = resolveHeroFilmOffsetX(center).value;
-      const heroDestination = getAuthoritativeHeroCameraSnapshot({
-        center,
-        tuning,
-        filmOffsetX: resolvedHeroFilmOffsetX,
-        angleOverride: tuning.baseAngle,
-      });
+    const overviewToHeroStartKey = `${prevState ?? 'none'}:${prevCameraState ?? 'none'}->${animationData?.state ?? 'none'}:${animationData?.cameraState ?? 'none'}`;
+    const transitionActive = authoritativeOverviewToHeroTransitionRef.current.active;
+    const restartBlocked = shouldForceOverviewToHeroTransition && !transitionActive && overviewToHeroStartGuardKeyRef.current === overviewToHeroStartKey;
+    if (restartBlocked) {
+      console.log('[camera-director] overview-to-hero restart-blocked', { key: overviewToHeroStartKey });
+    }
+    if (shouldForceOverviewToHeroTransition && !transitionActive && !restartBlocked) {
+      overviewToHeroStartGuardKeyRef.current = overviewToHeroStartKey;
       const fromLookAt = getCameraLookAtFromTransform();
+      const resolvedHero = resolveCameraDestination({
+        destination: 'hero',
+        projectId: null,
+        mode: 'selected',
+        config,
+        animationData,
+        isMobile
+      });
+      const resolvedHeroPose = resolvedHero?.pose ?? null;
+      const toPosition = Array.isArray(resolvedHeroPose?.position) ? new THREE.Vector3(...resolvedHeroPose.position) : camera.position.clone();
+      const toLookAt = Array.isArray(resolvedHeroPose?.lookAt) ? new THREE.Vector3(...resolvedHeroPose.lookAt) : fromLookAt.clone();
+      const toFilmOffset = Number.isFinite(resolvedHeroPose?.filmOffset) ? resolvedHeroPose.filmOffset : (Number.isFinite(config?.cameraComposition?.hero?.filmOffsetX) ? config.cameraComposition.hero.filmOffsetX : 0);
+      const toFov = Number.isFinite(resolvedHeroPose?.fov) ? resolvedHeroPose.fov : (Number.isFinite(currentTarget.current?.fov) ? currentTarget.current.fov : camera.fov);
       authoritativeOverviewToHeroTransitionRef.current = {
         active: true,
         progress: 0,
@@ -1831,25 +2073,36 @@ const UnifiedCameraController = ({
           position: camera.position.clone(),
           lookAtTarget: fromLookAt,
           filmOffsetX: Number.isFinite(camera.filmOffset) ? camera.filmOffset : 0,
-          source: currentTarget.current?.lookAt ? 'currentTarget.lookAt' : 'overviewDestinationFallback',
+          fov: Number.isFinite(camera.fov) ? camera.fov : (Number.isFinite(currentTarget.current?.fov) ? currentTarget.current.fov : 45),
+          source: currentTarget.current?.lookAt ? 'liveCamera/currentTarget' : 'overviewDestinationFallback',
         },
         to: {
-          position: heroDestination.position.clone(),
-          lookAtTarget: heroDestination.lookAtTarget.clone(),
-          filmOffsetX: Number.isFinite(heroDestination.filmOffsetX) ? heroDestination.filmOffsetX : 0,
-          source: 'authoritativeHeroSnapshot(baseAngle)',
+          position: toPosition.clone(),
+          lookAtTarget: toLookAt.clone(),
+          filmOffsetX: toFilmOffset,
+          fov: toFov,
+          source: 'resolveCameraDestination(hero)',
         },
       };
-      console.log('[UCC FORCE OVERVIEW TO HERO START]', {
-        fromPosition: authoritativeOverviewToHeroTransitionRef.current.from.position.toArray(),
-        fromLookAt: authoritativeOverviewToHeroTransitionRef.current.from.lookAtTarget.toArray(),
-        fromFilmOffset: authoritativeOverviewToHeroTransitionRef.current.from.filmOffsetX,
-        toPosition: authoritativeOverviewToHeroTransitionRef.current.to.position.toArray(),
-        toLookAt: authoritativeOverviewToHeroTransitionRef.current.to.lookAtTarget.toArray(),
-        toFilmOffset: authoritativeOverviewToHeroTransitionRef.current.to.filmOffsetX,
+      console.log('[camera-director] overview-to-hero start', {
+        key: overviewToHeroStartKey,
+        fromPose: {
+          position: authoritativeOverviewToHeroTransitionRef.current.from.position.toArray(),
+          lookAt: authoritativeOverviewToHeroTransitionRef.current.from.lookAtTarget.toArray(),
+          fov: authoritativeOverviewToHeroTransitionRef.current.from.fov,
+          filmOffset: authoritativeOverviewToHeroTransitionRef.current.from.filmOffsetX
+        },
+        toPose: {
+          position: authoritativeOverviewToHeroTransitionRef.current.to.position.toArray(),
+          lookAt: authoritativeOverviewToHeroTransitionRef.current.to.lookAtTarget.toArray(),
+          fov: authoritativeOverviewToHeroTransitionRef.current.to.fov,
+          filmOffset: authoritativeOverviewToHeroTransitionRef.current.to.filmOffsetX
+        },
         fromSource: authoritativeOverviewToHeroTransitionRef.current.from.source,
         toSource: authoritativeOverviewToHeroTransitionRef.current.to.source,
       });
+      overviewToHeroDirectorSampleBucketRef.current = -1;
+      overviewToHeroSuppressionLoggedRef.current = false;
     }
 
     if (authoritativeOverviewToHeroTransitionRef.current.active) {
@@ -1872,6 +2125,7 @@ const UnifiedCameraController = ({
       );
       camera.lookAt(forcedLookAt);
       camera.filmOffset = THREE.MathUtils.lerp(transition.from.filmOffsetX, transition.to.filmOffsetX, filmOffsetProgress);
+      camera.fov = THREE.MathUtils.lerp(transition.from.fov, transition.to.fov, easedProgress);
       camera.updateProjectionMatrix();
       logCameraWrite(state, "FORCED_OVERVIEW_TO_HERO", "forced-overview-to-hero-frame", forcedLookAt, true, true);
       if (!transition.divergenceWarned && Math.abs(accumulatedProgress - elapsedProgress) > 0.05) {
@@ -1886,14 +2140,32 @@ const UnifiedCameraController = ({
           easedProgress: round4(easedProgress),
         });
       }
-      if (shouldLogBranch) {
-        console.log('[UCC FORCED OVERVIEW TO HERO PROGRESS]', {
+      if (!overviewToHeroSuppressionLoggedRef.current) {
+        overviewToHeroSuppressionLoggedRef.current = true;
+        console.log('[camera-director] suppressed legacy writer', {
+          transition: 'overview-to-hero',
+          reason: 'director-active',
+          suppressedBranch: 'legacy-camera-writers'
+        });
+      }
+      const sampleBucket = Math.floor(accumulatedProgress * 4);
+      if (sampleBucket !== overviewToHeroDirectorSampleBucketRef.current) {
+        overviewToHeroDirectorSampleBucketRef.current = sampleBucket;
+        console.log('[camera-director] overview-to-hero sample', {
           elapsedProgress: round4(elapsedProgress),
           accumulatedProgress: round4(accumulatedProgress),
           frameDelta: round4(frameDelta),
           safeDelta: round4(safeDelta),
           maxDelta: round4(MAX_FORCED_TRANSITION_DELTA),
           easedProgress: round4(easedProgress),
+        });
+      }
+      if (!overviewToHeroSuppressionLoggedRef.current) {
+        overviewToHeroSuppressionLoggedRef.current = true;
+        console.log('[camera-director] suppressed legacy writer', {
+          transition: 'overview-to-hero',
+          reason: 'director-active',
+          suppressedBranch: 'legacy-camera-writers'
         });
       }
       if (accumulatedProgress >= 1) {
@@ -1906,12 +2178,20 @@ const UnifiedCameraController = ({
         currentTarget.current.fov = camera.fov;
         heroOrbitStartTimeRef.current = state.clock.elapsedTime;
         authoritativeOverviewToHeroTransitionRef.current.active = false;
-        console.log('[UCC FORCE OVERVIEW TO HERO COMPLETE]', {
+        console.log('[camera-director] overview-to-hero complete', {
           finalPosition: camera.position.toArray(),
           finalLookAt: transition.to.lookAtTarget.toArray(),
           finalFilmOffset: camera.filmOffset,
           nextState: animationData?.state,
           nextCameraState: animationData?.cameraState,
+        });
+      }
+      if (!overviewToHeroSuppressionLoggedRef.current) {
+        overviewToHeroSuppressionLoggedRef.current = true;
+        console.log('[camera-director] suppressed legacy writer', {
+          transition: 'overview-to-hero',
+          reason: 'director-active',
+          suppressedBranch: 'legacy-camera-writers'
         });
       }
       return;
@@ -2018,6 +2298,14 @@ const UnifiedCameraController = ({
           lookAtTarget: snapshot.lookAtTarget.toArray(),
           state: animationData?.state,
           cameraState: animationData?.cameraState,
+        });
+      }
+      if (!overviewToHeroSuppressionLoggedRef.current) {
+        overviewToHeroSuppressionLoggedRef.current = true;
+        console.log('[camera-director] suppressed legacy writer', {
+          transition: 'overview-to-hero',
+          reason: 'director-active',
+          suppressedBranch: 'legacy-camera-writers'
         });
       }
       return;
@@ -2176,6 +2464,14 @@ const UnifiedCameraController = ({
           easedProgress: round4(localProgress),
         });
       }
+      if (!overviewToHeroSuppressionLoggedRef.current) {
+        overviewToHeroSuppressionLoggedRef.current = true;
+        console.log('[camera-director] suppressed legacy writer', {
+          transition: 'overview-to-hero',
+          reason: 'director-active',
+          suppressedBranch: 'legacy-camera-writers'
+        });
+      }
       if (shouldLogBranch) {
         const viewDir = transition.from.position.clone().sub(transition.from.lookAtTarget).normalize();
         console.log('[UCC FORCED HERO TO OVERVIEW PROGRESS]', {
@@ -2187,6 +2483,14 @@ const UnifiedCameraController = ({
           positionProgress: round4(positionProgress),
           lookAtProgress: round4(lookAtProgress),
           filmOffsetProgress: round4(filmOffsetProgress),
+        });
+      }
+      if (!overviewToHeroSuppressionLoggedRef.current) {
+        overviewToHeroSuppressionLoggedRef.current = true;
+        console.log('[camera-director] suppressed legacy writer', {
+          transition: 'overview-to-hero',
+          reason: 'director-active',
+          suppressedBranch: 'legacy-camera-writers'
         });
       }
       if (TRACE_HERO_TO_OVERVIEW_CAMERA_STATE && heroToOverviewTraceMetaRef.current.active) {
@@ -2420,6 +2724,14 @@ const UnifiedCameraController = ({
           nextCameraState: animationData?.cameraState,
         });
       }
+      if (!overviewToHeroSuppressionLoggedRef.current) {
+        overviewToHeroSuppressionLoggedRef.current = true;
+        console.log('[camera-director] suppressed legacy writer', {
+          transition: 'overview-to-hero',
+          reason: 'director-active',
+          suppressedBranch: 'legacy-camera-writers'
+        });
+      }
       return;
     }
 
@@ -2604,6 +2916,14 @@ const UnifiedCameraController = ({
           cameraPosition: camera.position.toArray(),
         });
       }
+      if (!overviewToHeroSuppressionLoggedRef.current) {
+        overviewToHeroSuppressionLoggedRef.current = true;
+        console.log('[camera-director] suppressed legacy writer', {
+          transition: 'overview-to-hero',
+          reason: 'director-active',
+          suppressedBranch: 'legacy-camera-writers'
+        });
+      }
 
       applyFractureTilt();
       if (shouldLogBranch) console.log('[UCC RETURN] reason: fracture-jump-frame');
@@ -2645,6 +2965,14 @@ const UnifiedCameraController = ({
           transitionProgress: 0,
           startPosition: start.startPosition.toArray(),
           destinationPosition: start.destinationPosition.toArray(),
+        });
+      }
+      if (!overviewToHeroSuppressionLoggedRef.current) {
+        overviewToHeroSuppressionLoggedRef.current = true;
+        console.log('[camera-director] suppressed legacy writer', {
+          transition: 'overview-to-hero',
+          reason: 'director-active',
+          suppressedBranch: 'legacy-camera-writers'
         });
       }
       const beforePosition = camera.position.clone();
@@ -2716,6 +3044,14 @@ const UnifiedCameraController = ({
           fallbackBypassed: true,
         });
       }
+      if (!overviewToHeroSuppressionLoggedRef.current) {
+        overviewToHeroSuppressionLoggedRef.current = true;
+        console.log('[camera-director] suppressed legacy writer', {
+          transition: 'overview-to-hero',
+          reason: 'director-active',
+          suppressedBranch: 'legacy-camera-writers'
+        });
+      }
       if (progress >= 1) {
         transition.active = false;
         fractureTiltActiveRef.current = false;
@@ -2731,6 +3067,14 @@ const UnifiedCameraController = ({
           finalLookAt: transition.destinationLookAt.toArray(),
           finalFilmOffset: camera.filmOffset,
           nextBranchExpected: animationData?.cameraState,
+        });
+      }
+      if (!overviewToHeroSuppressionLoggedRef.current) {
+        overviewToHeroSuppressionLoggedRef.current = true;
+        console.log('[camera-director] suppressed legacy writer', {
+          transition: 'overview-to-hero',
+          reason: 'director-active',
+          suppressedBranch: 'legacy-camera-writers'
         });
       }
       return;
@@ -2790,6 +3134,14 @@ const UnifiedCameraController = ({
           lookAtTargetY: introToRef.current.lookAt.y,
           cameraPositionY: camera.position.y,
           offsetTarget: config?.cameraOffsets?.zones?.hero?.target ?? null,
+        });
+      }
+      if (!overviewToHeroSuppressionLoggedRef.current) {
+        overviewToHeroSuppressionLoggedRef.current = true;
+        console.log('[camera-director] suppressed legacy writer', {
+          transition: 'overview-to-hero',
+          reason: 'director-active',
+          suppressedBranch: 'legacy-camera-writers'
         });
       }
       const easedProgress = 1 - Math.pow(1 - progress, 3);
@@ -2951,6 +3303,14 @@ const UnifiedCameraController = ({
           fov: camera.fov
         });
       }
+      if (!overviewToHeroSuppressionLoggedRef.current) {
+        overviewToHeroSuppressionLoggedRef.current = true;
+        console.log('[camera-director] suppressed legacy writer', {
+          transition: 'overview-to-hero',
+          reason: 'director-active',
+          suppressedBranch: 'legacy-camera-writers'
+        });
+      }
 
       currentTarget.current.position.copy(camera.position);
 
@@ -2986,6 +3346,14 @@ const UnifiedCameraController = ({
           nextOverviewLookAt: nextOverviewLookAt?.toArray?.() || null,
           forcedFinalFilmOffset: pending.finalFilmOffset,
           nextOverviewFilmOffset: camera.filmOffset,
+        });
+      }
+      if (!overviewToHeroSuppressionLoggedRef.current) {
+        overviewToHeroSuppressionLoggedRef.current = true;
+        console.log('[camera-director] suppressed legacy writer', {
+          transition: 'overview-to-hero',
+          reason: 'director-active',
+          suppressedBranch: 'legacy-camera-writers'
         });
       }
     }
