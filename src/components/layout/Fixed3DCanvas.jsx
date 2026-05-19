@@ -624,6 +624,16 @@ const Fixed3DCanvas = forwardRef(({
       filmOffset: cameraMergedConfig?.cameraComposition?.hero?.filmOffsetX ?? 0,
     };
 
+    const compareContext = {
+      destination,
+      activeCameraState: animationData?.cameraState || null,
+      viewMode: animationData?.viewMode || null,
+      focusedProject: animationData?.focusedProject || null,
+      device: isMobile ? 'mobile' : 'desktop',
+    };
+
+    const destinationMatchesActiveContext = destination === compareContext.activeCameraState;
+
     const resolvedPose = resolveCameraDestination({
       destination,
       projectId: animationData?.focusedProject || null,
@@ -633,8 +643,25 @@ const Fixed3DCanvas = forwardRef(({
       isMobile,
     });
 
-    const result = compareCameraPoses(legacyPose, resolvedPose);
-    const entry = { compareKey, destination, projectId: animationData?.focusedProject || null, result, resolvedMeta: resolvedPose.meta };
+    const result = compareCameraPoses(
+      legacyPose,
+      resolvedPose,
+      {},
+      destinationMatchesActiveContext ? {} : { skip: true, reason: 'context-mismatch' },
+    );
+    const entry = {
+      compareKey,
+      destination,
+      projectId: animationData?.focusedProject || null,
+      result,
+      legacySource: 'animationData.cameraConfig (live legacy destination output)',
+      resolverSource: resolvedPose.meta?.source || 'resolver',
+      compareContext,
+      destinationMatchesActiveContext,
+      currentState: animationData?.state || null,
+      currentZone: animationData?.currentZone || null,
+      resolvedMeta: resolvedPose.meta,
+    };
     destinationCompareStoreRef.current.byKey[compareKey] = entry;
     destinationCompareStoreRef.current.order.push(compareKey);
 

@@ -7,7 +7,10 @@ const dist = (a, b) => {
   return Math.sqrt(dx * dx + dy * dy + dz * dz);
 };
 
-export const compareCameraPoses = (legacyPose, resolvedPose, tolerances = {}) => {
+export const compareCameraPoses = (legacyPose, resolvedPose, tolerances = {}, options = {}) => {
+  if (options?.skip === true) {
+    return { status: 'skipped', reason: options.reason || 'context-mismatch', positionDelta: 0, lookAtDelta: 0, fovDelta: 0, filmOffsetDelta: 0, mismatchedFields: 'none' };
+  }
   if (!legacyPose || !resolvedPose || resolvedPose?.meta?.unresolved) {
     return { status: 'unresolved', positionDelta: 0, lookAtDelta: 0, fovDelta: 0, filmOffsetDelta: 0, mismatchedFields: 'unresolved' };
   }
