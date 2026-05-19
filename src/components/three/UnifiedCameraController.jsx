@@ -1937,7 +1937,7 @@ const UnifiedCameraController = ({
         camera.updateProjectionMatrix();
         currentTarget.current.position.copy(authoritativeHeroToOverviewTransitionRef.current.from.position);
         currentTarget.current.lookAt.copy(authoritativeHeroToOverviewTransitionRef.current.from.lookAtTarget);
-        currentTarget.current.fov = transition.to.fov;
+        currentTarget.current.fov = camera.fov;
         const ownershipStart = {
           capturedFromPosition: authoritativeHeroToOverviewTransitionRef.current.from.position.toArray(),
           currentCameraPositionAtOwnershipStart: camera.position.toArray(),
@@ -2160,7 +2160,7 @@ const UnifiedCameraController = ({
         camera.updateProjectionMatrix();
         currentTarget.current.position.copy(transition.to.position);
         currentTarget.current.lookAt.copy(transition.to.lookAtTarget);
-        currentTarget.current.fov = transition.to.fov;
+        currentTarget.current.fov = camera.fov;
         heroOrbitStartTimeRef.current = state.clock.elapsedTime;
         authoritativeOverviewToHeroTransitionRef.current.active = false;
         console.log('[camera-director] overview-to-hero complete', {
@@ -2640,7 +2640,7 @@ const UnifiedCameraController = ({
         const currentTargetLookAtBeforeSync = currentTarget.current.lookAt.clone();
         currentTarget.current.position.copy(transition.to.position);
         currentTarget.current.lookAt.copy(transition.to.lookAtTarget);
-        currentTarget.current.fov = transition.to.fov;
+        currentTarget.current.fov = camera.fov;
         const overviewResolvedPosition = toVector3(config?.cameraPositions?.overview)
           .add(toVector3(config?.cameraOffsets?.global?.position))
           .add(toVector3(config?.cameraOffsets?.zones?.overview?.position));
@@ -3353,7 +3353,7 @@ const UnifiedCameraController = ({
         camera.updateProjectionMatrix();
         currentTarget.current.position.copy(pending.finalPosition);
         currentTarget.current.lookAt.copy(pending.finalLookAt);
-        currentTarget.current.fov = transition.to.fov;
+        currentTarget.current.fov = camera.fov;
         logCameraWrite(state, "FORCED_HERO_TO_OVERVIEW", "handoff-lock-frame", pending.finalLookAt, true, true);
         if (heroToOverviewHandoffLockFramesRef.current <= 0) {
           heroToOverviewHandoffPendingRef.current = null;
