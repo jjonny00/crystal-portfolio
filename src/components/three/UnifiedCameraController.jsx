@@ -233,6 +233,8 @@ const UnifiedCameraController = ({
   const configCheckLoggedRef = useRef(false);
   const heroSeedResolvedLoggedRef = useRef(false);
   const heroSeedHeightOverrideSuppressedLoggedRef = useRef(false);
+  const heroSeedPreTransitionLoggedRef = useRef(false);
+  const heroSeedFractureStartLoggedRef = useRef(false);
   const stableHeroPositionRef = useRef(new THREE.Vector3(0, 0.8, 7));
   const simpleCameraModeRef = useRef({ announced: false });
   const staticCameraModeRef = useRef({
@@ -367,6 +369,78 @@ const UnifiedCameraController = ({
     return { active: true, progress, phase, timing, startedAt: explosionClock.startedAt, elapsedMs: explosionClock.elapsedMs };
   };
 
+
+  const captureCameraPoseSnapshot = () => {
+    const direction = new THREE.Vector3();
+    camera.getWorldDirection(direction);
+    return {
+      position: camera.position.clone(),
+      quaternion: camera.quaternion.clone(),
+      direction,
+      filmOffset: Number.isFinite(camera.filmOffset) ? camera.filmOffset : 0,
+      currentTargetPosition: currentTarget.current.position.clone(),
+      currentTargetLookAt: currentTarget.current.lookAt.clone(),
+    };
+  };
+
+  const logHeroCameraSeedPoseDiagnostics = ({ label, elapsedSeconds, renderedPose, authoritativeSnapshot, fractureStartPose = null }) => {
+    const latest = latestAuthoritativeHeroSnapshotRef.current;
+    const heroExit = heroExitSnapshotRef.current;
+    const renderedToAuthoritative = authoritativeSnapshot
+      ? renderedPose.position.distanceTo(authoritativeSnapshot.position)
+      : null;
+    const fractureToRendered = fractureStartPose
+      ? fractureStartPose.position.distanceTo(renderedPose.position)
+      : null;
+
+    console.log(label, {
+      elapsed: elapsedSeconds,
+      camera: {
+        position: renderedPose.position.toArray(),
+        quaternion: renderedPose.quaternion.toArray(),
+        direction: renderedPose.direction.toArray(),
+        filmOffset: renderedPose.filmOffset,
+      },
+      currentTarget: {
+        position: renderedPose.currentTargetPosition.toArray(),
+        lookAt: renderedPose.currentTargetLookAt.toArray(),
+      },
+      latestAuthoritativeHeroSnapshot: latest
+        ? {
+            position: latest.position?.toArray?.() || null,
+            lookAt: latest.lookAtTarget?.toArray?.() || null,
+            filmOffset: latest.filmOffsetX ?? null,
+          }
+        : null,
+      heroExitSnapshot: heroExit
+        ? {
+            position: heroExit.position?.toArray?.() || null,
+            lookAt: heroExit.lookAtTarget?.toArray?.() || null,
+            filmOffset: heroExit.filmOffsetX ?? null,
+          }
+        : null,
+      authoritativeSnapshot: authoritativeSnapshot
+        ? {
+            position: authoritativeSnapshot.position.toArray(),
+            lookAt: authoritativeSnapshot.lookAtTarget.toArray(),
+            filmOffset: authoritativeSnapshot.filmOffsetX,
+          }
+        : null,
+      deltas: {
+        renderedVsAuthoritativePosition: renderedToAuthoritative,
+        fractureStartVsRenderedPosition: fractureToRendered,
+      },
+      fractureStartPose: fractureStartPose
+        ? {
+            position: fractureStartPose.position.toArray(),
+            quaternion: fractureStartPose.quaternion.toArray(),
+            direction: fractureStartPose.direction.toArray(),
+            filmOffset: fractureStartPose.filmOffset,
+          }
+        : null,
+    });
+  };
+
   const syncFractureTiltState = (elapsedSeconds = 0) => {
     const currentCrystalForm = animationData?.crystalForm ?? 'whole';
     const previousCrystalForm = lastCrystalFormRef.current;
@@ -383,7 +457,8 @@ const UnifiedCameraController = ({
         let seededFromAuthoritative = false;
         let authoritativeSnapshot = null;
         if (isPlainHero) {
-          const beforeSyncPosition = camera.position.clone();
+          const renderedPoseBeforeTransition = captureCameraPoseSnapshot();
+          const beforeSyncPosition = renderedPoseBeforeTransition.position.clone();
           const center = getHeroOrbitCenter();
           const { tuning } = resolveHeroTuning(config);
           const filmOffsetX = resolveHeroFilmOffsetX(center).value;
@@ -394,19 +469,22 @@ const UnifiedCameraController = ({
             filmOffsetX,
             orbitStartTime: heroOrbitStartTimeRef.current,
           });
+          if (!heroSeedPreTransitionLoggedRef.current) {
+            logHeroCameraSeedPoseDiagnostics({
+              label: '[hero-camera-seed] pre-transition pose',
+              elapsedSeconds,
+              renderedPose: renderedPoseBeforeTransition,
+              authoritativeSnapshot,
+            });
+            heroSeedPreTransitionLoggedRef.current = true;
+          }
           const orbitElapsed = elapsedSeconds - heroOrbitStartTimeRef.current;
           const seedPositionDelta = beforeSyncPosition.distanceTo(authoritativeSnapshot.position);
-          const fractureStartSource = heroExitSnapshotRef.current
-            || latestAuthoritativeHeroSnapshotRef.current
-            || null;
-          const sourceType = heroExitSnapshotRef.current
-            ? 'heroExitSnapshot'
-            : (latestAuthoritativeHeroSnapshotRef.current ? 'latestAuthoritativeHeroSnapshot' : 'currentCameraFallback');
-          const sourcePosition = fractureStartSource?.position || beforeSyncPosition;
-          const sourceLookAt = fractureStartSource?.lookAtTarget || authoritativeSnapshot.lookAtTarget;
-          const sourceFilmOffset = Number.isFinite(fractureStartSource?.filmOffsetX)
-            ? fractureStartSource.filmOffsetX
-            : filmOffsetX;
+          const fractureStartSource = renderedPoseBeforeTransition;
+          const sourceType = 'lastRenderedHeroFrame';
+          const sourcePosition = fractureStartSource.position;
+          const sourceLookAt = fractureStartSource.currentTargetLookAt;
+          const sourceFilmOffset = fractureStartSource.filmOffset;
           fractureTiltAnchorPositionRef.current.copy(sourcePosition);
           fractureTiltAnchorLookAtRef.current.copy(sourceLookAt);
           camera.position.copy(beforeSyncPosition);
@@ -458,15 +536,28 @@ const UnifiedCameraController = ({
           });
           console.log('[UCC FRACTURE START SOURCE]', {
             sourceUsed: sourceType,
-            sourceAge: fractureStartSource?.elapsed !== undefined
-              ? Math.max(0, elapsedSeconds - fractureStartSource.elapsed)
-              : null,
             sourcePosition: sourcePosition.toArray(),
             sourceLookAt: sourceLookAt.toArray(),
             sourceFilmOffset,
             currentCameraPositionAtFractureStart: beforeSyncPosition.toArray(),
             deltaSourceVsCurrentCamera: sourcePosition.distanceTo(beforeSyncPosition),
           });
+          const fractureStartPose = captureCameraPoseSnapshot();
+          if (!heroSeedFractureStartLoggedRef.current) {
+            logHeroCameraSeedPoseDiagnostics({
+              label: '[hero-camera-seed] fracture-start pose',
+              elapsedSeconds,
+              renderedPose: renderedPoseBeforeTransition,
+              authoritativeSnapshot,
+              fractureStartPose,
+            });
+            console.log('[hero-camera-seed] pose delta', {
+              renderedVsAuthoritativePosition: authoritativeSnapshot.position.distanceTo(renderedPoseBeforeTransition.position),
+              fractureStartVsRenderedPosition: fractureStartPose.position.distanceTo(renderedPoseBeforeTransition.position),
+              fractureStartVsAuthoritativePosition: fractureStartPose.position.distanceTo(authoritativeSnapshot.position),
+            });
+            heroSeedFractureStartLoggedRef.current = true;
+          }
           if (seedPositionDelta > 0.001) {
             console.warn('[UCC FRACTURE LIVE HERO START] Seed differs from live authoritative snapshot', {
               delta: seedPositionDelta,
@@ -494,6 +585,8 @@ const UnifiedCameraController = ({
       fractureJumpFrameRef.current = false;
       fractureTiltLockSeededRef.current = false;
       fractureTiltAnchorSeededFromLiveHeroRef.current = false;
+      heroSeedPreTransitionLoggedRef.current = false;
+      heroSeedFractureStartLoggedRef.current = false;
     }
 
     lastCrystalFormRef.current = currentCrystalForm;
@@ -3328,6 +3421,8 @@ const UnifiedCameraController = ({
     if (!fractureTiltActiveRef.current) {
       fractureTiltLockSeededRef.current = false;
       fractureTiltAnchorSeededFromLiveHeroRef.current = false;
+      heroSeedPreTransitionLoggedRef.current = false;
+      heroSeedFractureStartLoggedRef.current = false;
     }
 
     if (!currentTarget.current || simplifiedAnimations) {
