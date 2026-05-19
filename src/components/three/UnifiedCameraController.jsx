@@ -708,7 +708,7 @@ const UnifiedCameraController = ({
     let source = 'camera.positions.hero';
 
     if (configured && typeof configured === 'object') {
-      ['orbitSpeed', 'lookAtYOffset'].forEach((key) => {
+      ['height', 'orbitSpeed', 'lookAtYOffset'].forEach((key) => {
         const value = configured[key];
         if (typeof value === 'number' && Number.isFinite(value)) {
           tuning[key] = value;
@@ -1901,6 +1901,7 @@ const UnifiedCameraController = ({
         const heroLookAtTarget = newLookAtTempRef.current.copy(orbitCenter);
         heroLookAtTarget.y += tuning.lookAtYOffset;
         camera.lookAt(heroLookAtTarget);
+        v2LastLookAtRef.current.copy(heroLookAtTarget);
         applyHeroFilmOffset(heroLookAtTarget, "HERO_ORBIT_V2");
         applyFractureTilt();
         camera.fov = currentTarget.current.fov;
