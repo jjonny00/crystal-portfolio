@@ -1,5 +1,5 @@
 // FIXED: src/components/three/UnifiedCrystalScene.jsx
-// Fixed facet color conflicts between hover and scroll focus
+// Fixed facet color conflicts between hover and scroll focus..
 
 import React, { useRef, useState, useEffect, useCallback, forwardRef, useImperativeHandle, useMemo } from 'react'
 import { useFrame } from '@react-three/fiber'
@@ -45,6 +45,7 @@ const REFORM_MASK_GLOW_PEAK_INTENSITY = 1.5
 const REFORM_FACET_MASK_GLOW_PEAK_INTENSITY = 1.3
 const REFORM_SWAP_OVERLAP_MS = 100
 const ENABLE_OVERVIEW_ALL_CONNECTORS = true
+const FRAGMENT_INSTANCE_COUNT = 120
 
 const logger = createLogger('unified-crystal-scene');
 
@@ -68,7 +69,9 @@ const UnifiedCrystalScene = forwardRef(({
   const wholeCrystalRef = useRef();
   const facetRefs = useRef([]);
   const facetsGroupRef = useRef();
+  const shardGroupRef = useRef();
   const crystalMaterialRef = useRef();
+  const shardMaterialRef = useRef(null);
 
   // Sphere state
   const [sphereVisible, setSphereVisible] = useState(false);
@@ -180,6 +183,22 @@ const UnifiedCrystalScene = forwardRef(({
   // FIXED: Better hover state tracking
   const [hoveredFacet, setHoveredFacet] = useState(null);
   const hoveredFacetRef = useRef(null);
+  const [shardTuning, setShardTuning] = useState({
+    spreadMultiplier: 1.5,
+    largeDistanceCenter: 0.64,
+    mediumDistanceCenter: 0.51,
+    smallDistanceCenter: 0.6,
+    distanceJitter: 0.3,
+    opacityMultiplier: 0.97,
+    smallScaleBase: 0.02,
+    mediumScaleBase: 0.07,
+    largeScaleBase: 0.34,
+    smallScaleJitter: 0.01,
+    mediumScaleJitter: 0.01,
+    largeScaleJitter: 0.07,
+    rotationBaseDeg: 67,
+    rotationJitterDeg: 0
+  });
 
   // Track material updates so we can reapply when ready
   const [materialVersion, setMaterialVersion] = useState(0);
@@ -223,6 +242,14 @@ const UnifiedCrystalScene = forwardRef(({
   }, []);
 
   const mergedConfig = config;
+
+  useEffect(() => {
+    if (!mergedConfig?.shardTuning) return;
+    setShardTuning((prev) => ({
+      ...prev,
+      ...mergedConfig.shardTuning
+    }));
+  }, [mergedConfig?.shardTuning]);
 
   useEffect(() => {
     if (!import.meta.env.DEV) return;
@@ -501,6 +528,7 @@ const UnifiedCrystalScene = forwardRef(({
       focusedSceneFacetKey,
       focusedProjectKey,
       focusedFacetSlot,
+      shardTuning
     }),
 
     debugState: {
@@ -514,7 +542,8 @@ const UnifiedCrystalScene = forwardRef(({
       lastCrystalForm: lastCrystalForm.current,
       focusedSceneFacetKey,
       focusedProjectKey,
-      focusedFacetSlot
+      focusedFacetSlot,
+      shardTuning
     },
     
     // Expose debug methods for debug panels
@@ -603,9 +632,12 @@ const UnifiedCrystalScene = forwardRef(({
           });
           
         }
+      },
+      updateShardTuning: (patch) => {
+        setShardTuning((prev) => ({ ...prev, ...patch }));
       }
     }
-  }), [facetKeys, showWholeCrystal, showFacets, sphereVisible, showCrystalDebug, modelsLoaded, animationData, focusedSceneFacetKey, focusedProjectKey, focusedFacetSlot]);
+  }), [facetKeys, showWholeCrystal, showFacets, sphereVisible, showCrystalDebug, modelsLoaded, animationData, focusedSceneFacetKey, focusedProjectKey, focusedFacetSlot, shardTuning]);
 
   // Load models
   const wholeCrystal = useGLTF(mergedConfig.assets.models.crystalWhole);
@@ -618,6 +650,441 @@ const UnifiedCrystalScene = forwardRef(({
 
     return useGLTF(modelUrl);
   });
+  const fragmentInstances = useMemo(() => {
+    const hash = (seed) => {
+      const value = Math.sin(seed * 12.9898 + 78.233) * 43758.5453;
+      return value - Math.floor(value);
+    };
+
+    const resolveAnchorVector = (key) => {
+      const candidate = overviewWorldAnchors?.[key];
+      if (!candidate) return null;
+      if (candidate instanceof THREE.Vector3) return candidate.clone();
+      if (Array.isArray(candidate) && candidate.length >= 3) {
+        return new THREE.Vector3(candidate[0], candidate[1], candidate[2]);
+      }
+      return null;
+    };
+    const configuredPositions = crystalConfig?.positions || {};
+    const knownTargets = facetKeys
+      .map((facetKey) => {
+        const placementKey = facetPlacementKeys[facetKey] || facetKey;
+        return (
+          resolveAnchorVector(placementKey) ||
+          resolveAnchorVector(facetKey) ||
+          configuredPositions[placementKey] ||
+          configuredPositions[facetKey]
+        );
+      })
+      .filter(Boolean);
+    const fallbackDistance = knownTargets.length
+      ? knownTargets.reduce((sum, vec) => sum + vec.length(), 0) / knownTargets.length
+      : 1.2;
+    const explodedFacetEntries = facetKeys
+      .map((facetKey, facetIndex) => {
+        const placementKey = facetPlacementKeys[facetKey] || facetKey;
+        const configuredEnd =
+          resolveAnchorVector(placementKey) ||
+          resolveAnchorVector(facetKey) ||
+          configuredPositions[placementKey] ||
+          configuredPositions[facetKey];
+        if (!configuredEnd && import.meta.env.DEV) {
+          logger.warn('Missing shard anchor target; using synthetic fallback', { facetKey, placementKey });
+        }
+        const syntheticAngle = (facetIndex / Math.max(facetKeys.length, 1)) * Math.PI * 2;
+        const syntheticTilt = (hash(facetIndex + 907) - 0.5) * 0.8;
+        const endTarget = configuredEnd?.clone() || new THREE.Vector3(
+          Math.cos(syntheticAngle) * fallbackDistance,
+          syntheticTilt * fallbackDistance * 0.55,
+          Math.sin(syntheticAngle) * fallbackDistance
+        );
+        const startTarget = new THREE.Vector3(0, 0, 0);
+        return {
+          facetKey,
+          startTarget,
+          endTarget,
+          direction: endTarget.clone().sub(startTarget).normalize()
+        };
+      });
+    const directionPool = explodedFacetEntries.length
+      ? explodedFacetEntries.map((entry) => entry.direction.clone())
+      : [new THREE.Vector3(1, 0, 0)];
+
+    const avgFacetDistance = explodedFacetEntries.length
+      ? explodedFacetEntries.reduce((sum, entry) => sum + entry.endTarget.length(), 0) / explodedFacetEntries.length
+      : 1.2;
+    const clusterCount = Math.max(explodedFacetEntries.length, 1);
+    const tierPattern = ['small', 'small', 'small', 'medium', 'small', 'small', 'small', 'large', 'small', 'medium'];
+    const resolveScaleForIndex = (index, clusterLocalIndex) => {
+      const tier = tierPattern[clusterLocalIndex % tierPattern.length];
+      if (tier === 'small') {
+        return {
+          tier,
+          scale: shardTuning.smallScaleBase + hash(index + 84) * shardTuning.smallScaleJitter
+        };
+      }
+      if (tier === 'medium') {
+        return {
+          tier,
+          scale: shardTuning.mediumScaleBase + hash(index + 85) * shardTuning.mediumScaleJitter
+        };
+      }
+      return {
+        tier,
+        scale: shardTuning.largeScaleBase + hash(index + 86) * shardTuning.largeScaleJitter
+      };
+    };
+
+    return Array.from({ length: FRAGMENT_INSTANCE_COUNT }, (_, index) => {
+      const clusterIndex = index % clusterCount;
+      const clusterLocalIndex = Math.floor(index / clusterCount);
+      const clusterEntry = explodedFacetEntries[clusterIndex];
+      const clusterDirection = clusterEntry?.direction || directionPool[index % directionPool.length].clone();
+      const clusterStart = clusterEntry?.startTarget || new THREE.Vector3(0, 0, 0);
+      const clusterEnd = clusterEntry?.endTarget || clusterDirection.clone().multiplyScalar(avgFacetDistance);
+      const clusterTravelVector = clusterEnd.clone().sub(clusterStart);
+      const clusterTravelDistance = Math.max(clusterTravelVector.length(), 0.001);
+      let direction = clusterDirection.clone();
+      let startPosition = clusterStart.clone();
+      let explodedPosition = clusterStart.clone();
+      const resolvedScale = resolveScaleForIndex(index, clusterLocalIndex);
+      const sampleSeed = index * 97 + clusterLocalIndex * 13;
+      direction = clusterDirection.clone().normalize();
+
+      const tangentAxis = Math.abs(direction.y) < 0.92
+        ? new THREE.Vector3(0, 1, 0).cross(direction).normalize()
+        : new THREE.Vector3(1, 0, 0).cross(direction).normalize();
+      const bitangentAxis = direction.clone().cross(tangentAxis).normalize();
+
+      const distanceCenter = resolvedScale.tier === 'large'
+        ? shardTuning.largeDistanceCenter
+        : resolvedScale.tier === 'medium'
+        ? shardTuning.mediumDistanceCenter
+        : shardTuning.smallDistanceCenter;
+      const distanceJitter = THREE.MathUtils.clamp(shardTuning.distanceJitter, 0, 0.45);
+      const tierDistanceRange = [
+        THREE.MathUtils.clamp(distanceCenter - distanceJitter, 0, 1),
+        THREE.MathUtils.clamp(distanceCenter + distanceJitter, 0, 1)
+      ];
+      const distanceRatio = tierDistanceRange[0] + hash(sampleSeed + 31) * (tierDistanceRange[1] - tierDistanceRange[0]);
+
+      const spreadScale = THREE.MathUtils.clamp(shardTuning.spreadMultiplier, 0.2, 4);
+      const startSpread = (0.28 + hash(sampleSeed + 41) * 0.44) * spreadScale;
+      const endSpreadMultiplier = resolvedScale.tier === 'large'
+        ? 0.72
+        : resolvedScale.tier === 'medium'
+        ? 0.62
+        : 0.52;
+      const endSpread = (0.38 + hash(sampleSeed + 47) * 0.74) * endSpreadMultiplier * spreadScale;
+      const startOffset = tangentAxis
+        .clone()
+        .multiplyScalar((hash(sampleSeed + 59) - 0.5) * startSpread)
+        .add(bitangentAxis.clone().multiplyScalar((hash(sampleSeed + 61) - 0.5) * startSpread));
+      const endOffset = tangentAxis
+        .clone()
+        .multiplyScalar((hash(sampleSeed + 67) - 0.5) * endSpread)
+        .add(bitangentAxis.clone().multiplyScalar((hash(sampleSeed + 71) - 0.5) * endSpread));
+
+      startPosition = clusterStart.clone().add(startOffset);
+      const targetAlongFacet = clusterStart
+        .clone()
+        .add(clusterDirection.clone().multiplyScalar(clusterTravelDistance * distanceRatio));
+      const endOffsetScale = 1.2 + Math.sqrt(clusterTravelDistance) * 0.95;
+      explodedPosition = targetAlongFacet
+        .clone()
+        .add(endOffset.multiplyScalar(endOffsetScale));
+
+      const rotationBase = THREE.MathUtils.degToRad(shardTuning.rotationBaseDeg || 0);
+      const rotationJitter = THREE.MathUtils.degToRad(shardTuning.rotationJitterDeg || 0);
+      const xAmp = rotationBase + hash(index + 171) * rotationJitter;
+      const yAmp = rotationBase + hash(index + 173) * rotationJitter;
+      const zAmp = rotationBase + hash(index + 179) * rotationJitter;
+      const baseEuler = new THREE.Euler(
+        (hash(index + 59) - 0.5) * 2 * xAmp,
+        (hash(index + 61) - 0.5) * 2 * yAmp,
+        (hash(index + 67) - 0.5) * 2 * zAmp,
+        'XYZ'
+      );
+      const explodedEuler = baseEuler.clone();
+
+      return {
+        key: `fragment-instance-${index}`,
+        facetKey: clusterEntry?.facetKey || facetKeys[index % facetKeys.length],
+        geometryIndex:
+          resolvedScale.tier === 'small'
+            ? Math.floor(hash(index + 101) * 64) // 0..63
+            : resolvedScale.tier === 'medium'
+            ? 64 + Math.floor(hash(index + 103) * 20) // 64..83
+            : 84 + Math.floor(hash(index + 107) * 20), // 84..103
+        startPosition,
+        explodedPosition,
+        startQuaternion: new THREE.Quaternion().setFromEuler(baseEuler),
+        explodedQuaternion: new THREE.Quaternion().setFromEuler(explodedEuler),
+        startRotation: [baseEuler.x, baseEuler.y, baseEuler.z],
+        scale: resolvedScale.scale,
+        reformLerp: 0.02 + hash(index + 89) * 0.08
+      };
+    });
+  }, [crystalConfig?.positions, crystalConfig?.fracturePositions, crystalConfig?.fractureDistance, facetKeys, facetPlacementKeys, overviewWorldAnchors, shardTuning]);
+
+  const fragmentRefs = useRef([]);
+  useEffect(() => {
+    if (fragmentRefs.current.length === fragmentInstances.length) return;
+    fragmentRefs.current = fragmentInstances.map((_, index) => fragmentRefs.current[index] || React.createRef());
+  }, [fragmentInstances]);
+
+  const proceduralShardGeometries = useMemo(() => {
+    const hash = (seed) => {
+      const value = Math.sin(seed * 17.731 + 5.192) * 43758.5453;
+      return value - Math.floor(value);
+    };
+    const carveShard = (geometry, seed, profile = {}) => {
+      const position = geometry.getAttribute('position');
+      if (!position) return geometry;
+      const profileTaper = profile.taper ?? 0.2;
+      const profileJitter = profile.jitter ?? 0.1;
+      const profileBend = profile.bend ?? 0.06;
+      const stableNoise = (x, y, z, salt) => {
+        const value = Math.sin(
+          x * 12.9898 +
+          y * 78.233 +
+          z * 37.719 +
+          seed * 19.913 +
+          salt * 17.173
+        ) * 43758.5453;
+        return value - Math.floor(value);
+      };
+      for (let i = 0; i < position.count; i += 1) {
+        const x = position.getX(i);
+        const y = position.getY(i);
+        const z = position.getZ(i);
+        const t = (y + 1) * 0.5;
+        const taper = 1 - t * profileTaper;
+        const jitterX = (stableNoise(x, y, z, 11) - 0.5) * profileJitter;
+        const jitterY = (stableNoise(x, y, z, 17) - 0.5) * profileJitter * 0.65;
+        const jitterZ = (stableNoise(x, y, z, 23) - 0.5) * profileJitter;
+        const bend = Math.sin(t * Math.PI) * (stableNoise(x, y, z, 31) - 0.5) * profileBend;
+        let nextX = x * taper + jitterX + bend * 0.5;
+        let nextY = y + jitterY;
+        let nextZ = z * taper + jitterZ;
+        if (t > 0.82 && stableNoise(x, y, z, 41) > 0.88) {
+          nextX *= 0.7 + stableNoise(x, y, z, 47) * 0.2;
+          nextZ *= 0.7 + stableNoise(x, y, z, 53) * 0.2;
+          nextY += stableNoise(x, y, z, 59) * 0.02;
+        }
+        position.setXYZ(i, nextX, nextY, nextZ);
+      }
+      position.needsUpdate = true;
+      geometry.computeVertexNormals();
+      return geometry;
+    };
+    const make = (geometry, scale = [1, 1, 1]) => {
+      geometry.scale(scale[0], scale[1], scale[2]);
+      geometry.rotateX(Math.PI * (0.2 + hash(scale[0] * 13.7) * 0.8));
+      geometry.rotateY(Math.PI * (0.1 + hash(scale[1] * 19.3) * 0.6));
+      geometry.computeVertexNormals();
+      return geometry;
+    };
+    const makeNeedle = (seed, sx, sy, sz, radial, height, sides) => make(
+      carveShard(
+        new THREE.CylinderGeometry(radial * 0.18, radial * 0.48, height * 0.68, Math.max(5, sides), 1),
+        seed,
+        { taper: 0.32, jitter: 0.09, bend: 0.04 }
+      ),
+      [sx * 0.86, sy * 0.62, sz * 0.86]
+    );
+    const makePlate = (seed, sx, sy, sz, radial, height, sides) => make(
+      carveShard(
+        new THREE.CylinderGeometry(radial * 1.0, radial * 1.2, height * 0.4, Math.max(5, sides + 1), 1),
+        seed,
+        { taper: 0.14, jitter: 0.13, bend: 0.04 }
+      ),
+      [sx * 1.1, sy * 0.52, sz * 0.95]
+    );
+    const makeChunk = (seed, sx, sy, sz) => make(
+      carveShard(
+        new THREE.BoxGeometry(
+          0.18 + hash(seed + 101) * 0.18,
+          0.14 + hash(seed + 103) * 0.24,
+          0.22 + hash(seed + 107) * 0.2,
+          2,
+          2,
+          2
+        ),
+        seed,
+        { taper: 0.14, jitter: 0.12, bend: 0.035 }
+      ),
+      [sx * 1.05, sy * 0.86, sz * 0.92]
+    );
+    const makeChunkLite = (seed, sx, sy, sz) => make(
+      carveShard(
+        new THREE.BoxGeometry(
+          0.2 + hash(seed + 301) * 0.16,
+          0.16 + hash(seed + 307) * 0.18,
+          0.22 + hash(seed + 311) * 0.18,
+          1,
+          1,
+          1
+        ),
+        seed,
+        { taper: 0.1, jitter: 0.08, bend: 0.025 }
+      ),
+      [sx * 1.0, sy * 0.8, sz * 0.9]
+    );
+    const makeWedge = (seed, sx, sy, sz, radial, height, sides) => make(
+      carveShard(
+        new THREE.ConeGeometry(radial * 0.78, height * 1.0, Math.max(4, sides - 1), 1),
+        seed,
+        { taper: 0.24, jitter: 0.1, bend: 0.05 }
+      ),
+      [sx * 0.92, sy * 1.04, sz * 0.84]
+    );
+    const makeObelisk = (seed, sx, sy, sz, radial, height, sides) => make(
+      carveShard(
+        new THREE.CylinderGeometry(
+          radial * (0.24 + hash(seed + 211) * 0.12),
+          radial * (0.5 + hash(seed + 223) * 0.22),
+          height * (0.8 + hash(seed + 227) * 0.32),
+          Math.max(5, sides + 1),
+          1
+        ),
+        seed,
+        { taper: 0.26, jitter: 0.11, bend: 0.05 }
+      ),
+      [sx * 0.9, sy * 0.86, sz * 0.82]
+    );
+    const makeCrown = (seed, sx, sy, sz, radial, height, sides) => make(
+      carveShard(
+        new THREE.OctahedronGeometry(Math.max(0.08, radial * 0.95), 0),
+        seed,
+        { taper: 0.18, jitter: 0.13, bend: 0.06 }
+      ),
+      [sx * 1.08, sy * 0.74, sz * 0.92]
+    );
+    return Array.from({ length: 104 }, (_, i) => {
+      const seed = i + 1;
+      const isSmall = i < 64;
+      const isMedium = i >= 64 && i < 84;
+      const sx = isSmall
+        ? 0.55 + hash(seed + 11) * 0.45
+        : isMedium
+        ? 0.45 + hash(seed + 11) * 0.7
+        : 0.35 + hash(seed + 11) * 1.0;
+      const sy = isSmall
+        ? 0.65 + hash(seed + 13) * 0.55
+        : isMedium
+        ? 0.62 + hash(seed + 13) * 0.58
+        : 0.72 + hash(seed + 13) * 0.62;
+      const sz = isSmall
+        ? 0.5 + hash(seed + 17) * 0.45
+        : isMedium
+        ? 0.35 + hash(seed + 17) * 0.75
+        : 0.25 + hash(seed + 17) * 0.9;
+      const radial = 0.1 + hash(seed + 19) * 0.2;
+      const height = isSmall
+        ? 0.22 + hash(seed + 23) * 0.28
+        : isMedium
+        ? 0.2 + hash(seed + 23) * 0.24
+        : 0.24 + hash(seed + 23) * 0.3;
+      const sides = 3 + Math.floor(hash(seed + 29) * 6); // 3..8
+      const familyRoll = hash(seed + 131);
+      if (isSmall) {
+        if (familyRoll < 0.42) return makePlate(seed, sx, sy, sz, radial, height, sides);
+        if (familyRoll < 0.78) return makeWedge(seed, sx, sy, sz, radial, height, sides);
+        return makeChunk(seed, sx, sy, sz);
+      }
+      if (isMedium) {
+        if (familyRoll < 0.35) return makeNeedle(seed, sx, sy, sz, radial, height, sides);
+        if (familyRoll < 0.68) return makeWedge(seed, sx, sy, sz, radial, height, sides);
+        return makeChunk(seed, sx, sy, sz);
+      }
+      if (familyRoll < 0.34) return makeNeedle(seed, sx, sy, sz, radial, height, sides);
+      if (familyRoll < 0.57) return makeChunkLite(seed, sx, sy, sz);
+      if (familyRoll < 0.76) return makeWedge(seed, sx, sy, sz, radial, height, sides);
+      if (familyRoll < 0.9) return makeObelisk(seed, sx, sy, sz, radial, height, sides);
+      return makeCrown(seed, sx, sy, sz, radial, height, sides);
+    });
+  }, []);
+
+  useEffect(() => {
+    const sharedMaterial = crystalMaterialRef.current;
+    if (!sharedMaterial) return;
+    if (shardMaterialRef.current?.dispose) {
+      shardMaterialRef.current.dispose();
+    }
+    const shardMaterial = sharedMaterial.clone();
+    const clearTextureSlot = (slotName) => {
+      if (slotName in shardMaterial) {
+        shardMaterial[slotName] = null;
+      }
+    };
+    [
+      'map',
+      'normalMap',
+      'roughnessMap',
+      'metalnessMap',
+      'aoMap',
+      'emissiveMap',
+      'alphaMap',
+      'specularMap',
+      'bumpMap',
+      'displacementMap',
+      'clearcoatMap',
+      'clearcoatNormalMap',
+      'clearcoatRoughnessMap',
+      'iridescenceMap',
+      'iridescenceThicknessMap',
+      'thicknessMap',
+      'transmissionMap',
+      'sheenColorMap',
+      'sheenRoughnessMap'
+    ].forEach(clearTextureSlot);
+    shardMaterial.customProgramCacheKey = () => 'shard-polish-v1';
+    shardMaterial.onBeforeCompile = (shader) => {
+      shader.uniforms.uShardFresnelStrength = { value: 0.28 };
+      shader.uniforms.uShardFresnelPower = { value: 2.2 };
+      shader.uniforms.uShardEdgeBoost = { value: 0.36 };
+
+      shader.fragmentShader = `
+        uniform float uShardFresnelStrength;
+        uniform float uShardFresnelPower;
+        uniform float uShardEdgeBoost;
+      ${shader.fragmentShader}`
+        .replace(
+          '#include <output_fragment>',
+          `
+          float shardFresnel = pow(
+            1.0 - clamp(dot(normalize(normal), normalize(vViewPosition)), 0.0, 1.0),
+            uShardFresnelPower
+          );
+          float shardEdge = smoothstep(0.52, 0.98, shardFresnel) * uShardEdgeBoost;
+          outgoingLight += diffuseColor.rgb * (shardFresnel * uShardFresnelStrength + shardEdge);
+          #include <output_fragment>
+          `
+        );
+    };
+    shardMaterial.side = THREE.FrontSide;
+    if ('flatShading' in shardMaterial) {
+      shardMaterial.flatShading = true;
+    }
+    if ('envMapIntensity' in shardMaterial) {
+      shardMaterial.envMapIntensity = Math.max(shardMaterial.envMapIntensity ?? 1, 1.25);
+    }
+    if ('roughness' in shardMaterial) {
+      shardMaterial.roughness = Math.min(shardMaterial.roughness ?? 0.6, 0.22);
+    }
+    if ('metalness' in shardMaterial) {
+      shardMaterial.metalness = Math.max(shardMaterial.metalness ?? 0, 0.16);
+    }
+    shardMaterial.transparent = true;
+    shardMaterial.depthWrite = true;
+    shardMaterial.opacity = Math.max(
+      0.12,
+      Math.min(1, (shardMaterial.opacity ?? 1) * THREE.MathUtils.clamp(shardTuning.opacityMultiplier, 0.1, 1))
+    );
+    shardMaterial.needsUpdate = true;
+    shardMaterialRef.current = shardMaterial;
+  }, [materialVersion, shardTuning.opacityMultiplier]);
 
   // Mark models as loaded when all GLTF hooks resolve
   useEffect(() => {
@@ -1826,6 +2293,22 @@ const UnifiedCrystalScene = forwardRef(({
 
     // Handle facet animations
     if (showFacets && crystalConfig?.positions) {
+      const setFragmentProgress = (progressValue) => {
+        const clampedProgress = THREE.MathUtils.clamp(progressValue, 0, 1);
+        fragmentRefs.current.forEach((fragmentRef, index) => {
+          if (!fragmentRef?.current) return;
+          const instance = fragmentInstances[index];
+          fragmentRef.current.position
+            .copy(instance.startPosition)
+            .lerp(instance.explodedPosition, clampedProgress);
+          fragmentRef.current.quaternion.slerpQuaternions(
+            instance.startQuaternion,
+            instance.explodedQuaternion,
+            clampedProgress
+          );
+        });
+      };
+
       // Custom fracture/explosion timing
       if (animationData.crystalForm === 'exploded' && explosionStartRef.current) {
         const fracturePause = crystalConfig?.fracturePause || 0.5;
@@ -1861,6 +2344,7 @@ const UnifiedCrystalScene = forwardRef(({
         const eased = crystalConfig?.explosionEase
           ? crystalConfig?.explosionEase(progress)
           : progress;
+        setFragmentProgress(eased);
 
         if (facetsGroupRef.current) {
           facetsGroupRef.current.quaternion.slerpQuaternions(
@@ -2452,6 +2936,25 @@ const UnifiedCrystalScene = forwardRef(({
       });
 
       if (isReforming) {
+        fragmentRefs.current.forEach((fragmentRef, index) => {
+          if (!fragmentRef?.current) return;
+          const instance = fragmentInstances[index];
+          const step = instance.reformLerp * deltaTime * 60;
+          fragmentRef.current.position.lerp(instance.startPosition, step);
+          fragmentRef.current.quaternion.slerp(instance.startQuaternion, step);
+
+          if (fragmentRef.current.position.distanceTo(instance.startPosition) < 0.003) {
+            fragmentRef.current.position.copy(instance.startPosition);
+          }
+          if (fragmentRef.current.quaternion.angleTo(instance.startQuaternion) < 0.003) {
+            fragmentRef.current.quaternion.copy(instance.startQuaternion);
+          }
+        });
+      } else if (animationData.crystalForm === 'exploded') {
+        setFragmentProgress(1);
+      }
+
+      if (isReforming) {
         const easedReformGlow = Math.pow(THREE.MathUtils.clamp(reformConvergenceProgress, 0, 1), 1.8);
         const shouldHoldMaxReformGlow =
           allFacetsAtCenter || pendingReformSwapAtRef.current != null;
@@ -2561,6 +3064,11 @@ const UnifiedCrystalScene = forwardRef(({
 
   useEffect(() => {
     return () => {
+      proceduralShardGeometries.forEach((geometry) => geometry.dispose());
+      if (shardMaterialRef.current?.dispose) {
+        shardMaterialRef.current.dispose();
+      }
+      shardMaterialRef.current = null;
       cleanupOverlays();
       resetRenderedFacetMaskGlow();
       pendingExplodeSwapAtRef.current = null;
@@ -2570,7 +3078,7 @@ const UnifiedCrystalScene = forwardRef(({
       swapMaskGlowModeRef.current = null;
       reformProgressGlowRef.current = 0;
     };
-  }, [cleanupOverlays, resetRenderedFacetMaskGlow]);
+  }, [cleanupOverlays, resetRenderedFacetMaskGlow, proceduralShardGeometries]);
 
   return (
     <group ref={crystalGroupRef}>
@@ -2626,32 +3134,51 @@ const UnifiedCrystalScene = forwardRef(({
       )}
       
       {showFacets && !simplifiedAnimations && (
-        <group ref={facetsGroupRef} visible={!hideFacetMeshesDuringReformOverlap}>
-          {facetModels.map((model, index) => {
-            const facetKey = facetKeys[index];
+        <>
+          <group ref={shardGroupRef} renderOrder={1200} visible={!hideFacetMeshesDuringReformOverlap}>
+            {fragmentInstances.map((instance, index) => {
+              const geometry = proceduralShardGeometries[instance.geometryIndex] || proceduralShardGeometries[0];
+              return (
+                <mesh
+                  key={instance.key}
+                  ref={fragmentRefs.current[index]}
+                  geometry={geometry}
+                  material={shardMaterialRef.current || undefined}
+                  position={instance.startPosition.toArray()}
+                  rotation={instance.startRotation}
+                  scale={[instance.scale * 2, instance.scale * 2, instance.scale * 2]}
+                  renderOrder={1200 + index}
+                />
+              );
+            })}
+          </group>
+          <group ref={facetsGroupRef} visible={!hideFacetMeshesDuringReformOverlap}>
+            {facetModels.map((model, index) => {
+              const facetKey = facetKeys[index];
 
-            return (
-              <primitive
-                key={facetKey}
-                ref={facetRefs.current[index]}
-                object={model.scene}
-                position={[0, 0, 0]} // Position will be animated via useFrame
-                onPointerEnter={(event) => {
-                  event.stopPropagation();
-                  handleFacetHover(facetKey, true);
-                }}
-                onPointerLeave={(event) => {
-                  event.stopPropagation();
-                  handleFacetHover(facetKey, false);
-                }}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  handleFacetClick(facetKey);
-                }}
-              />
-            );
-          })}
-        </group>
+              return (
+                <primitive
+                  key={facetKey}
+                  ref={facetRefs.current[index]}
+                  object={model.scene}
+                  position={[0, 0, 0]} // Position will be animated via useFrame
+                  onPointerEnter={(event) => {
+                    event.stopPropagation();
+                    handleFacetHover(facetKey, true);
+                  }}
+                  onPointerLeave={(event) => {
+                    event.stopPropagation();
+                    handleFacetHover(facetKey, false);
+                  }}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    handleFacetClick(facetKey);
+                  }}
+                />
+              );
+            })}
+          </group>
+        </>
       )}
 
       <FacetLabels

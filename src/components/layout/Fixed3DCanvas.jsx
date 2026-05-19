@@ -507,6 +507,7 @@ const Fixed3DCanvas = forwardRef(({
         lastCrystalForm: sceneDebugState.lastCrystalForm,
         focusedSceneFacetKey: sceneDebugState.focusedSceneFacetKey,
         focusedProjectKey: sceneDebugState.focusedProjectKey,
+        shardTuning: sceneDebugState.shardTuning,
       });
 
       if (signature === lastDebugSignatureRef.current) return;
@@ -841,6 +842,8 @@ const Fixed3DCanvas = forwardRef(({
           onForceShowFacets={debugData.debugMethods?.forceShowFacets}
           onForceShowWhole={debugData.debugMethods?.forceShowWhole}
           onInspectModels={debugData.debugMethods?.inspectModels}
+          shardTuning={debugData.shardTuning}
+          onUpdateShardTuning={debugData.debugMethods?.updateShardTuning}
           lastCrystalForm={debugData.lastCrystalForm}
           focusedSceneFacetKey={debugData.focusedSceneFacetKey}
           focusedProjectKey={debugData.focusedProjectKey}
