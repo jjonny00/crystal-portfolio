@@ -84,6 +84,8 @@ const UnifiedCameraController = ({
   });
   const compareRecordsRef = useRef(new Map());
   const compareSummaryPrintedRef = useRef(false);
+  const overviewToHeroDirectorSampleBucketRef = useRef(-1);
+  const overviewToHeroSuppressionLoggedRef = useRef(false);
   const projectTargetLockRef = useRef({
     facetKey: null,
     target: null,
@@ -490,6 +492,14 @@ const UnifiedCameraController = ({
           time: Date.now()
         });
       }
+      if (!overviewToHeroSuppressionLoggedRef.current) {
+        overviewToHeroSuppressionLoggedRef.current = true;
+        console.log('[camera-director] suppressed legacy writer', {
+          transition: 'overview-to-hero',
+          reason: 'director-active',
+          suppressedBranch: 'legacy-camera-writers'
+        });
+      }
       
       return worldPosition;
     } else {
@@ -889,6 +899,14 @@ const UnifiedCameraController = ({
           finalTarget: projectViewSettings.selected.target?.toArray?.() || null
         });
       }
+      if (!overviewToHeroSuppressionLoggedRef.current) {
+        overviewToHeroSuppressionLoggedRef.current = true;
+        console.log('[camera-director] suppressed legacy writer', {
+          transition: 'overview-to-hero',
+          reason: 'director-active',
+          suppressedBranch: 'legacy-camera-writers'
+        });
+      }
 
       return {
         position: projectViewSettings.selected.position,
@@ -932,6 +950,14 @@ const UnifiedCameraController = ({
           caseStudyBranch: config?.projectCameraSettings?.[focusedProjectId]?.[deviceKey]?.caseStudy || null,
           finalPosition: projectViewSettings.caseStudy.position?.toArray?.() || null,
           finalTarget: projectViewSettings.caseStudy.target?.toArray?.() || null
+        });
+      }
+      if (!overviewToHeroSuppressionLoggedRef.current) {
+        overviewToHeroSuppressionLoggedRef.current = true;
+        console.log('[camera-director] suppressed legacy writer', {
+          transition: 'overview-to-hero',
+          reason: 'director-active',
+          suppressedBranch: 'legacy-camera-writers'
         });
       }
 
@@ -1295,6 +1321,14 @@ const UnifiedCameraController = ({
             position: config?.cameraPositions?.overview,
             target: config?.cameraTargets?.overview,
           },
+        });
+      }
+      if (!overviewToHeroSuppressionLoggedRef.current) {
+        overviewToHeroSuppressionLoggedRef.current = true;
+        console.log('[camera-director] suppressed legacy writer', {
+          transition: 'overview-to-hero',
+          reason: 'director-active',
+          suppressedBranch: 'legacy-camera-writers'
         });
       }
 
@@ -1690,6 +1724,14 @@ const UnifiedCameraController = ({
           sourceCurrentTargetLookAt: currentTarget.current?.lookAt?.toArray?.() || null,
         });
       }
+      if (!overviewToHeroSuppressionLoggedRef.current) {
+        overviewToHeroSuppressionLoggedRef.current = true;
+        console.log('[camera-director] suppressed legacy writer', {
+          transition: 'overview-to-hero',
+          reason: 'director-active',
+          suppressedBranch: 'legacy-camera-writers'
+        });
+      }
     }
   };
   const round4 = (n) => (Number.isFinite(n) ? Number(n.toFixed(4)) : null);
@@ -1895,7 +1937,7 @@ const UnifiedCameraController = ({
         camera.updateProjectionMatrix();
         currentTarget.current.position.copy(authoritativeHeroToOverviewTransitionRef.current.from.position);
         currentTarget.current.lookAt.copy(authoritativeHeroToOverviewTransitionRef.current.from.lookAtTarget);
-        currentTarget.current.fov = camera.fov;
+        currentTarget.current.fov = transition.to.fov;
         const ownershipStart = {
           capturedFromPosition: authoritativeHeroToOverviewTransitionRef.current.from.position.toArray(),
           currentCameraPositionAtOwnershipStart: camera.position.toArray(),
@@ -1999,16 +2041,20 @@ const UnifiedCameraController = ({
       isAuthoritativePlainHero &&
       cameFromNonHeroState;
     if (shouldForceOverviewToHeroTransition && !authoritativeOverviewToHeroTransitionRef.current.active) {
-      const center = getHeroOrbitCenter();
-      const { tuning } = resolveHeroTuning(config);
-      const resolvedHeroFilmOffsetX = resolveHeroFilmOffsetX(center).value;
-      const heroDestination = getAuthoritativeHeroCameraSnapshot({
-        center,
-        tuning,
-        filmOffsetX: resolvedHeroFilmOffsetX,
-        angleOverride: tuning.baseAngle,
-      });
       const fromLookAt = getCameraLookAtFromTransform();
+      const resolvedHero = resolveCameraDestination({
+        destination: 'hero',
+        projectId: null,
+        mode: 'selected',
+        config,
+        animationData,
+        isMobile
+      });
+      const resolvedHeroPose = resolvedHero?.pose ?? null;
+      const toPosition = Array.isArray(resolvedHeroPose?.position) ? new THREE.Vector3(...resolvedHeroPose.position) : camera.position.clone();
+      const toLookAt = Array.isArray(resolvedHeroPose?.lookAt) ? new THREE.Vector3(...resolvedHeroPose.lookAt) : fromLookAt.clone();
+      const toFilmOffset = Number.isFinite(resolvedHeroPose?.filmOffset) ? resolvedHeroPose.filmOffset : (Number.isFinite(config?.cameraComposition?.hero?.filmOffsetX) ? config.cameraComposition.hero.filmOffsetX : 0);
+      const toFov = Number.isFinite(resolvedHeroPose?.fov) ? resolvedHeroPose.fov : (Number.isFinite(currentTarget.current?.fov) ? currentTarget.current.fov : camera.fov);
       authoritativeOverviewToHeroTransitionRef.current = {
         active: true,
         progress: 0,
@@ -2019,16 +2065,18 @@ const UnifiedCameraController = ({
           position: camera.position.clone(),
           lookAtTarget: fromLookAt,
           filmOffsetX: Number.isFinite(camera.filmOffset) ? camera.filmOffset : 0,
-          source: currentTarget.current?.lookAt ? 'currentTarget.lookAt' : 'overviewDestinationFallback',
+          fov: Number.isFinite(camera.fov) ? camera.fov : (Number.isFinite(currentTarget.current?.fov) ? currentTarget.current.fov : 45),
+          source: currentTarget.current?.lookAt ? 'liveCamera/currentTarget' : 'overviewDestinationFallback',
         },
         to: {
-          position: heroDestination.position.clone(),
-          lookAtTarget: heroDestination.lookAtTarget.clone(),
-          filmOffsetX: Number.isFinite(heroDestination.filmOffsetX) ? heroDestination.filmOffsetX : 0,
-          source: 'authoritativeHeroSnapshot(baseAngle)',
+          position: toPosition.clone(),
+          lookAtTarget: toLookAt.clone(),
+          filmOffsetX: toFilmOffset,
+          fov: toFov,
+          source: 'resolveCameraDestination(hero)',
         },
       };
-      console.log('[UCC FORCE OVERVIEW TO HERO START]', {
+      console.log('[camera-director] overview-to-hero start', {
         fromPosition: authoritativeOverviewToHeroTransitionRef.current.from.position.toArray(),
         fromLookAt: authoritativeOverviewToHeroTransitionRef.current.from.lookAtTarget.toArray(),
         fromFilmOffset: authoritativeOverviewToHeroTransitionRef.current.from.filmOffsetX,
@@ -2038,6 +2086,8 @@ const UnifiedCameraController = ({
         fromSource: authoritativeOverviewToHeroTransitionRef.current.from.source,
         toSource: authoritativeOverviewToHeroTransitionRef.current.to.source,
       });
+      overviewToHeroDirectorSampleBucketRef.current = -1;
+      overviewToHeroSuppressionLoggedRef.current = false;
     }
 
     if (authoritativeOverviewToHeroTransitionRef.current.active) {
@@ -2060,6 +2110,7 @@ const UnifiedCameraController = ({
       );
       camera.lookAt(forcedLookAt);
       camera.filmOffset = THREE.MathUtils.lerp(transition.from.filmOffsetX, transition.to.filmOffsetX, filmOffsetProgress);
+      camera.fov = THREE.MathUtils.lerp(transition.from.fov, transition.to.fov, easedProgress);
       camera.updateProjectionMatrix();
       logCameraWrite(state, "FORCED_OVERVIEW_TO_HERO", "forced-overview-to-hero-frame", forcedLookAt, true, true);
       if (!transition.divergenceWarned && Math.abs(accumulatedProgress - elapsedProgress) > 0.05) {
@@ -2074,14 +2125,32 @@ const UnifiedCameraController = ({
           easedProgress: round4(easedProgress),
         });
       }
-      if (shouldLogBranch) {
-        console.log('[UCC FORCED OVERVIEW TO HERO PROGRESS]', {
+      if (!overviewToHeroSuppressionLoggedRef.current) {
+        overviewToHeroSuppressionLoggedRef.current = true;
+        console.log('[camera-director] suppressed legacy writer', {
+          transition: 'overview-to-hero',
+          reason: 'director-active',
+          suppressedBranch: 'legacy-camera-writers'
+        });
+      }
+      const sampleBucket = Math.floor(accumulatedProgress * 4);
+      if (sampleBucket !== overviewToHeroDirectorSampleBucketRef.current) {
+        overviewToHeroDirectorSampleBucketRef.current = sampleBucket;
+        console.log('[camera-director] overview-to-hero sample', {
           elapsedProgress: round4(elapsedProgress),
           accumulatedProgress: round4(accumulatedProgress),
           frameDelta: round4(frameDelta),
           safeDelta: round4(safeDelta),
           maxDelta: round4(MAX_FORCED_TRANSITION_DELTA),
           easedProgress: round4(easedProgress),
+        });
+      }
+      if (!overviewToHeroSuppressionLoggedRef.current) {
+        overviewToHeroSuppressionLoggedRef.current = true;
+        console.log('[camera-director] suppressed legacy writer', {
+          transition: 'overview-to-hero',
+          reason: 'director-active',
+          suppressedBranch: 'legacy-camera-writers'
         });
       }
       if (accumulatedProgress >= 1) {
@@ -2091,15 +2160,23 @@ const UnifiedCameraController = ({
         camera.updateProjectionMatrix();
         currentTarget.current.position.copy(transition.to.position);
         currentTarget.current.lookAt.copy(transition.to.lookAtTarget);
-        currentTarget.current.fov = camera.fov;
+        currentTarget.current.fov = transition.to.fov;
         heroOrbitStartTimeRef.current = state.clock.elapsedTime;
         authoritativeOverviewToHeroTransitionRef.current.active = false;
-        console.log('[UCC FORCE OVERVIEW TO HERO COMPLETE]', {
+        console.log('[camera-director] overview-to-hero complete', {
           finalPosition: camera.position.toArray(),
           finalLookAt: transition.to.lookAtTarget.toArray(),
           finalFilmOffset: camera.filmOffset,
           nextState: animationData?.state,
           nextCameraState: animationData?.cameraState,
+        });
+      }
+      if (!overviewToHeroSuppressionLoggedRef.current) {
+        overviewToHeroSuppressionLoggedRef.current = true;
+        console.log('[camera-director] suppressed legacy writer', {
+          transition: 'overview-to-hero',
+          reason: 'director-active',
+          suppressedBranch: 'legacy-camera-writers'
         });
       }
       return;
@@ -2206,6 +2283,14 @@ const UnifiedCameraController = ({
           lookAtTarget: snapshot.lookAtTarget.toArray(),
           state: animationData?.state,
           cameraState: animationData?.cameraState,
+        });
+      }
+      if (!overviewToHeroSuppressionLoggedRef.current) {
+        overviewToHeroSuppressionLoggedRef.current = true;
+        console.log('[camera-director] suppressed legacy writer', {
+          transition: 'overview-to-hero',
+          reason: 'director-active',
+          suppressedBranch: 'legacy-camera-writers'
         });
       }
       return;
@@ -2364,6 +2449,14 @@ const UnifiedCameraController = ({
           easedProgress: round4(localProgress),
         });
       }
+      if (!overviewToHeroSuppressionLoggedRef.current) {
+        overviewToHeroSuppressionLoggedRef.current = true;
+        console.log('[camera-director] suppressed legacy writer', {
+          transition: 'overview-to-hero',
+          reason: 'director-active',
+          suppressedBranch: 'legacy-camera-writers'
+        });
+      }
       if (shouldLogBranch) {
         const viewDir = transition.from.position.clone().sub(transition.from.lookAtTarget).normalize();
         console.log('[UCC FORCED HERO TO OVERVIEW PROGRESS]', {
@@ -2375,6 +2468,14 @@ const UnifiedCameraController = ({
           positionProgress: round4(positionProgress),
           lookAtProgress: round4(lookAtProgress),
           filmOffsetProgress: round4(filmOffsetProgress),
+        });
+      }
+      if (!overviewToHeroSuppressionLoggedRef.current) {
+        overviewToHeroSuppressionLoggedRef.current = true;
+        console.log('[camera-director] suppressed legacy writer', {
+          transition: 'overview-to-hero',
+          reason: 'director-active',
+          suppressedBranch: 'legacy-camera-writers'
         });
       }
       if (TRACE_HERO_TO_OVERVIEW_CAMERA_STATE && heroToOverviewTraceMetaRef.current.active) {
@@ -2539,7 +2640,7 @@ const UnifiedCameraController = ({
         const currentTargetLookAtBeforeSync = currentTarget.current.lookAt.clone();
         currentTarget.current.position.copy(transition.to.position);
         currentTarget.current.lookAt.copy(transition.to.lookAtTarget);
-        currentTarget.current.fov = camera.fov;
+        currentTarget.current.fov = transition.to.fov;
         const overviewResolvedPosition = toVector3(config?.cameraPositions?.overview)
           .add(toVector3(config?.cameraOffsets?.global?.position))
           .add(toVector3(config?.cameraOffsets?.zones?.overview?.position));
@@ -2606,6 +2707,14 @@ const UnifiedCameraController = ({
           finalFilmOffset: camera.filmOffset,
           nextState: animationData?.state,
           nextCameraState: animationData?.cameraState,
+        });
+      }
+      if (!overviewToHeroSuppressionLoggedRef.current) {
+        overviewToHeroSuppressionLoggedRef.current = true;
+        console.log('[camera-director] suppressed legacy writer', {
+          transition: 'overview-to-hero',
+          reason: 'director-active',
+          suppressedBranch: 'legacy-camera-writers'
         });
       }
       return;
@@ -2792,6 +2901,14 @@ const UnifiedCameraController = ({
           cameraPosition: camera.position.toArray(),
         });
       }
+      if (!overviewToHeroSuppressionLoggedRef.current) {
+        overviewToHeroSuppressionLoggedRef.current = true;
+        console.log('[camera-director] suppressed legacy writer', {
+          transition: 'overview-to-hero',
+          reason: 'director-active',
+          suppressedBranch: 'legacy-camera-writers'
+        });
+      }
 
       applyFractureTilt();
       if (shouldLogBranch) console.log('[UCC RETURN] reason: fracture-jump-frame');
@@ -2833,6 +2950,14 @@ const UnifiedCameraController = ({
           transitionProgress: 0,
           startPosition: start.startPosition.toArray(),
           destinationPosition: start.destinationPosition.toArray(),
+        });
+      }
+      if (!overviewToHeroSuppressionLoggedRef.current) {
+        overviewToHeroSuppressionLoggedRef.current = true;
+        console.log('[camera-director] suppressed legacy writer', {
+          transition: 'overview-to-hero',
+          reason: 'director-active',
+          suppressedBranch: 'legacy-camera-writers'
         });
       }
       const beforePosition = camera.position.clone();
@@ -2904,6 +3029,14 @@ const UnifiedCameraController = ({
           fallbackBypassed: true,
         });
       }
+      if (!overviewToHeroSuppressionLoggedRef.current) {
+        overviewToHeroSuppressionLoggedRef.current = true;
+        console.log('[camera-director] suppressed legacy writer', {
+          transition: 'overview-to-hero',
+          reason: 'director-active',
+          suppressedBranch: 'legacy-camera-writers'
+        });
+      }
       if (progress >= 1) {
         transition.active = false;
         fractureTiltActiveRef.current = false;
@@ -2919,6 +3052,14 @@ const UnifiedCameraController = ({
           finalLookAt: transition.destinationLookAt.toArray(),
           finalFilmOffset: camera.filmOffset,
           nextBranchExpected: animationData?.cameraState,
+        });
+      }
+      if (!overviewToHeroSuppressionLoggedRef.current) {
+        overviewToHeroSuppressionLoggedRef.current = true;
+        console.log('[camera-director] suppressed legacy writer', {
+          transition: 'overview-to-hero',
+          reason: 'director-active',
+          suppressedBranch: 'legacy-camera-writers'
         });
       }
       return;
@@ -2978,6 +3119,14 @@ const UnifiedCameraController = ({
           lookAtTargetY: introToRef.current.lookAt.y,
           cameraPositionY: camera.position.y,
           offsetTarget: config?.cameraOffsets?.zones?.hero?.target ?? null,
+        });
+      }
+      if (!overviewToHeroSuppressionLoggedRef.current) {
+        overviewToHeroSuppressionLoggedRef.current = true;
+        console.log('[camera-director] suppressed legacy writer', {
+          transition: 'overview-to-hero',
+          reason: 'director-active',
+          suppressedBranch: 'legacy-camera-writers'
         });
       }
       const easedProgress = 1 - Math.pow(1 - progress, 3);
@@ -3139,6 +3288,14 @@ const UnifiedCameraController = ({
           fov: camera.fov
         });
       }
+      if (!overviewToHeroSuppressionLoggedRef.current) {
+        overviewToHeroSuppressionLoggedRef.current = true;
+        console.log('[camera-director] suppressed legacy writer', {
+          transition: 'overview-to-hero',
+          reason: 'director-active',
+          suppressedBranch: 'legacy-camera-writers'
+        });
+      }
 
       currentTarget.current.position.copy(camera.position);
 
@@ -3176,6 +3333,14 @@ const UnifiedCameraController = ({
           nextOverviewFilmOffset: camera.filmOffset,
         });
       }
+      if (!overviewToHeroSuppressionLoggedRef.current) {
+        overviewToHeroSuppressionLoggedRef.current = true;
+        console.log('[camera-director] suppressed legacy writer', {
+          transition: 'overview-to-hero',
+          reason: 'director-active',
+          suppressedBranch: 'legacy-camera-writers'
+        });
+      }
     }
 
     if (heroToOverviewHandoffLockFramesRef.current > 0 && animationData?.cameraState === 'overview') {
@@ -3188,7 +3353,7 @@ const UnifiedCameraController = ({
         camera.updateProjectionMatrix();
         currentTarget.current.position.copy(pending.finalPosition);
         currentTarget.current.lookAt.copy(pending.finalLookAt);
-        currentTarget.current.fov = camera.fov;
+        currentTarget.current.fov = transition.to.fov;
         logCameraWrite(state, "FORCED_HERO_TO_OVERVIEW", "handoff-lock-frame", pending.finalLookAt, true, true);
         if (heroToOverviewHandoffLockFramesRef.current <= 0) {
           heroToOverviewHandoffPendingRef.current = null;
