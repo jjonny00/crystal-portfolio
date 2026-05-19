@@ -119,7 +119,7 @@ const UnifiedCameraController = ({
   const POINTER_DIRECTION_DOT = 0.48;
   const POINTER_MAX_SPEED = 0.0021;
   const INTRO_DURATION_MS = 4400;
-  const HERO_VERTICAL_FRAMING_SCALE = 0; // Temporary isolate: disable authored Y framing
+  const HERO_VERTICAL_FRAMING_SCALE = 1;
   const HERO_VERTICAL_FRAMING_SIGN = 1;
   const FRACTURE_TILT_RADIANS = 0.045;
   const FRACTURE_PITCH_UP_RADIANS = -0.012;
@@ -2171,18 +2171,13 @@ const UnifiedCameraController = ({
       }
       const heroExitSnapshot = heroExitSnapshotRef.current || latestAuthoritativeHeroSnapshotRef.current || null;
       const latestAuthoritativeSnapshot = latestAuthoritativeHeroSnapshotRef.current || null;
-      const currentCameraFallback = {
+      const currentCameraSnapshot = {
         position: camera.position.clone(),
         lookAtTarget: getCameraLookAtFromTransform(),
         filmOffsetX: Number.isFinite(camera.filmOffset) ? camera.filmOffset : 0,
       };
-      const fromSnapshot = heroExitSnapshot || latestAuthoritativeSnapshot || currentCameraFallback;
-      const fromSource = heroExitSnapshot
-        ? 'heroExitSnapshot'
-        : (latestAuthoritativeSnapshot ? 'latestAuthoritativeHeroSnapshot' : 'currentCameraFallback');
-      if (fromSource === 'currentCameraFallback') {
-        console.warn('[UCC FORCE HERO TO OVERVIEW START] Missing hero snapshots; using current camera fallback');
-      }
+      const fromSnapshot = currentCameraSnapshot;
+      const fromSource = 'liveCameraAtTransitionStart';
       heroToOverviewTransitionStartedForExitRef.current = true;
       heroOverviewCameraHookPhaseLoggedRef.current.clear();
       heroOverviewCameraHookBranchLoggedRef.current = false;
