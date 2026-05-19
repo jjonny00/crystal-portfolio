@@ -34,7 +34,7 @@ import { useHoverCapable } from '../../hooks/useHoverCapable'
 import { createLogger } from '../../utils/logger'
 
 const PROJECT_DISPLAY_SLOT = 'ProjectDisplay'
-const FOCUS_ROTATION_PROGRESS_LEAD = 1
+const FOCUS_ROTATION_PROGRESS_LEAD = 0.85
 const ISOLATE_FOCUSED_ROTATION_FROM_POSITION = true
 const FORWARD_PRE_SWAP_WINDOW_MS = 120
 const FORWARD_MASK_GLOW_DURATION_S = 0.22
@@ -2344,8 +2344,8 @@ const UnifiedCrystalScene = forwardRef(({
               animationData?.cameraState === 'caseStudy';
             const isProjectFocusedFacet =
               animationData?.viewMode !== 'caseStudy' &&
-              animationData?.focusedFacet === facetKey &&
-              animationData?.cameraState === 'project';
+              animationData?.cameraState === 'project' &&
+              focusedSceneFacetKey === sceneKey;
             const focusRotationProgress = THREE.MathUtils.clamp(
               cameraMoveProgress / FOCUS_ROTATION_PROGRESS_LEAD,
               0,
@@ -2387,8 +2387,8 @@ const UnifiedCrystalScene = forwardRef(({
           animationData?.cameraState === 'caseStudy';
         const isProjectFocusedFacet =
           animationData?.viewMode !== 'caseStudy' &&
-          animationData?.focusedFacet === facetKey &&
-          animationData?.cameraState === 'project';
+          animationData?.cameraState === 'project' &&
+          focusedSceneFacetKey === sceneKey;
         const focusRotationProgress = THREE.MathUtils.clamp(
           cameraMoveProgress / FOCUS_ROTATION_PROGRESS_LEAD,
           0,
