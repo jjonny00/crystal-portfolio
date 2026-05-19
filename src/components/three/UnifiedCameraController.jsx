@@ -124,6 +124,7 @@ const UnifiedCameraController = ({
   const FRACTURE_TILT_RADIANS = 0.045;
   const FRACTURE_PITCH_UP_RADIANS = -0.012;
   const FRACTURE_TILT_RELEASE_DISTANCE = 0.015;
+  const DISABLE_HERO_FRACTURE_CAMERA_TILT = true;
   const fractureTiltRef = useRef(0);
   const fractureTiltActiveRef = useRef(false);
   const fractureTiltAnchorPositionRef = useRef(new THREE.Vector3());
@@ -231,6 +232,12 @@ const UnifiedCameraController = ({
   const prevStateRef = useRef(animationData?.state ?? null);
   const prevCameraStateRef = useRef(animationData?.cameraState ?? null);
   const configCheckLoggedRef = useRef(false);
+  const heroSeedResolvedLoggedRef = useRef(false);
+  const heroSeedHeightOverrideSuppressedLoggedRef = useRef(false);
+  const heroSeedPreTransitionLoggedRef = useRef(false);
+  const heroSeedFractureStartLoggedRef = useRef(false);
+  const heroFractureTiltSuppressedLoggedRef = useRef(false);
+  const heroFractureChargeHoldLoggedRef = useRef(false);
   const stableHeroPositionRef = useRef(new THREE.Vector3(0, 0.8, 7));
   const simpleCameraModeRef = useRef({ announced: false });
   const staticCameraModeRef = useRef({
@@ -241,6 +248,7 @@ const UnifiedCameraController = ({
     fov: 45,
     filmOffset: 0,
   });
+  const coreNavTransitionRef = useRef({ active: false, type: null, fromPose: null, toPose: null, startedAt: 0, duration: 1.15, progress: 0, lastSampleBucket: -1, });
   const v2CameraModeRef = useRef({
     announced: false,
     key: null,
@@ -291,6 +299,22 @@ const UnifiedCameraController = ({
 
   const applyFractureTilt = () => {
     if (!fractureTiltActiveRef.current) return;
+
+    const shouldSuppressHeroFractureTilt =
+      DISABLE_HERO_FRACTURE_CAMERA_TILT &&
+      animationData?.cameraState === 'hero' &&
+      animationData?.crystalForm === 'exploded';
+
+    if (shouldSuppressHeroFractureTilt) {
+      if (!heroFractureTiltSuppressedLoggedRef.current) {
+        console.log('[hero-camera-seed] fracture-tilt-suppressed', {
+          cameraState: animationData?.cameraState,
+          crystalForm: animationData?.crystalForm,
+        });
+        heroFractureTiltSuppressedLoggedRef.current = true;
+      }
+      return;
+    }
 
     if (
       Math.abs(fractureTiltRef.current) > 0.00001 ||
@@ -365,6 +389,78 @@ const UnifiedCameraController = ({
     return { active: true, progress, phase, timing, startedAt: explosionClock.startedAt, elapsedMs: explosionClock.elapsedMs };
   };
 
+
+  const captureCameraPoseSnapshot = () => {
+    const direction = new THREE.Vector3();
+    camera.getWorldDirection(direction);
+    return {
+      position: camera.position.clone(),
+      quaternion: camera.quaternion.clone(),
+      direction,
+      filmOffset: Number.isFinite(camera.filmOffset) ? camera.filmOffset : 0,
+      currentTargetPosition: currentTarget.current.position.clone(),
+      currentTargetLookAt: currentTarget.current.lookAt.clone(),
+    };
+  };
+
+  const logHeroCameraSeedPoseDiagnostics = ({ label, elapsedSeconds, renderedPose, authoritativeSnapshot, fractureStartPose = null }) => {
+    const latest = latestAuthoritativeHeroSnapshotRef.current;
+    const heroExit = heroExitSnapshotRef.current;
+    const renderedToAuthoritative = authoritativeSnapshot
+      ? renderedPose.position.distanceTo(authoritativeSnapshot.position)
+      : null;
+    const fractureToRendered = fractureStartPose
+      ? fractureStartPose.position.distanceTo(renderedPose.position)
+      : null;
+
+    console.log(label, {
+      elapsed: elapsedSeconds,
+      camera: {
+        position: renderedPose.position.toArray(),
+        quaternion: renderedPose.quaternion.toArray(),
+        direction: renderedPose.direction.toArray(),
+        filmOffset: renderedPose.filmOffset,
+      },
+      currentTarget: {
+        position: renderedPose.currentTargetPosition.toArray(),
+        lookAt: renderedPose.currentTargetLookAt.toArray(),
+      },
+      latestAuthoritativeHeroSnapshot: latest
+        ? {
+            position: latest.position?.toArray?.() || null,
+            lookAt: latest.lookAtTarget?.toArray?.() || null,
+            filmOffset: latest.filmOffsetX ?? null,
+          }
+        : null,
+      heroExitSnapshot: heroExit
+        ? {
+            position: heroExit.position?.toArray?.() || null,
+            lookAt: heroExit.lookAtTarget?.toArray?.() || null,
+            filmOffset: heroExit.filmOffsetX ?? null,
+          }
+        : null,
+      authoritativeSnapshot: authoritativeSnapshot
+        ? {
+            position: authoritativeSnapshot.position.toArray(),
+            lookAt: authoritativeSnapshot.lookAtTarget.toArray(),
+            filmOffset: authoritativeSnapshot.filmOffsetX,
+          }
+        : null,
+      deltas: {
+        renderedVsAuthoritativePosition: renderedToAuthoritative,
+        fractureStartVsRenderedPosition: fractureToRendered,
+      },
+      fractureStartPose: fractureStartPose
+        ? {
+            position: fractureStartPose.position.toArray(),
+            quaternion: fractureStartPose.quaternion.toArray(),
+            direction: fractureStartPose.direction.toArray(),
+            filmOffset: fractureStartPose.filmOffset,
+          }
+        : null,
+    });
+  };
+
   const syncFractureTiltState = (elapsedSeconds = 0) => {
     const currentCrystalForm = animationData?.crystalForm ?? 'whole';
     const previousCrystalForm = lastCrystalFormRef.current;
@@ -381,7 +477,8 @@ const UnifiedCameraController = ({
         let seededFromAuthoritative = false;
         let authoritativeSnapshot = null;
         if (isPlainHero) {
-          const beforeSyncPosition = camera.position.clone();
+          const renderedPoseBeforeTransition = captureCameraPoseSnapshot();
+          const beforeSyncPosition = renderedPoseBeforeTransition.position.clone();
           const center = getHeroOrbitCenter();
           const { tuning } = resolveHeroTuning(config);
           const filmOffsetX = resolveHeroFilmOffsetX(center).value;
@@ -392,19 +489,22 @@ const UnifiedCameraController = ({
             filmOffsetX,
             orbitStartTime: heroOrbitStartTimeRef.current,
           });
+          if (!heroSeedPreTransitionLoggedRef.current) {
+            logHeroCameraSeedPoseDiagnostics({
+              label: '[hero-camera-seed] pre-transition pose',
+              elapsedSeconds,
+              renderedPose: renderedPoseBeforeTransition,
+              authoritativeSnapshot,
+            });
+            heroSeedPreTransitionLoggedRef.current = true;
+          }
           const orbitElapsed = elapsedSeconds - heroOrbitStartTimeRef.current;
           const seedPositionDelta = beforeSyncPosition.distanceTo(authoritativeSnapshot.position);
-          const fractureStartSource = heroExitSnapshotRef.current
-            || latestAuthoritativeHeroSnapshotRef.current
-            || null;
-          const sourceType = heroExitSnapshotRef.current
-            ? 'heroExitSnapshot'
-            : (latestAuthoritativeHeroSnapshotRef.current ? 'latestAuthoritativeHeroSnapshot' : 'currentCameraFallback');
-          const sourcePosition = fractureStartSource?.position || beforeSyncPosition;
-          const sourceLookAt = fractureStartSource?.lookAtTarget || authoritativeSnapshot.lookAtTarget;
-          const sourceFilmOffset = Number.isFinite(fractureStartSource?.filmOffsetX)
-            ? fractureStartSource.filmOffsetX
-            : filmOffsetX;
+          const fractureStartSource = renderedPoseBeforeTransition;
+          const sourceType = 'lastRenderedHeroFrame';
+          const sourcePosition = fractureStartSource.position;
+          const sourceLookAt = fractureStartSource.currentTargetLookAt;
+          const sourceFilmOffset = fractureStartSource.filmOffset;
           fractureTiltAnchorPositionRef.current.copy(sourcePosition);
           fractureTiltAnchorLookAtRef.current.copy(sourceLookAt);
           camera.position.copy(beforeSyncPosition);
@@ -456,15 +556,28 @@ const UnifiedCameraController = ({
           });
           console.log('[UCC FRACTURE START SOURCE]', {
             sourceUsed: sourceType,
-            sourceAge: fractureStartSource?.elapsed !== undefined
-              ? Math.max(0, elapsedSeconds - fractureStartSource.elapsed)
-              : null,
             sourcePosition: sourcePosition.toArray(),
             sourceLookAt: sourceLookAt.toArray(),
             sourceFilmOffset,
             currentCameraPositionAtFractureStart: beforeSyncPosition.toArray(),
             deltaSourceVsCurrentCamera: sourcePosition.distanceTo(beforeSyncPosition),
           });
+          const fractureStartPose = captureCameraPoseSnapshot();
+          if (!heroSeedFractureStartLoggedRef.current) {
+            logHeroCameraSeedPoseDiagnostics({
+              label: '[hero-camera-seed] fracture-start pose',
+              elapsedSeconds,
+              renderedPose: renderedPoseBeforeTransition,
+              authoritativeSnapshot,
+              fractureStartPose,
+            });
+            console.log('[hero-camera-seed] pose delta', {
+              renderedVsAuthoritativePosition: authoritativeSnapshot.position.distanceTo(renderedPoseBeforeTransition.position),
+              fractureStartVsRenderedPosition: fractureStartPose.position.distanceTo(renderedPoseBeforeTransition.position),
+              fractureStartVsAuthoritativePosition: fractureStartPose.position.distanceTo(authoritativeSnapshot.position),
+            });
+            heroSeedFractureStartLoggedRef.current = true;
+          }
           if (seedPositionDelta > 0.001) {
             console.warn('[UCC FRACTURE LIVE HERO START] Seed differs from live authoritative snapshot', {
               delta: seedPositionDelta,
@@ -492,6 +605,10 @@ const UnifiedCameraController = ({
       fractureJumpFrameRef.current = false;
       fractureTiltLockSeededRef.current = false;
       fractureTiltAnchorSeededFromLiveHeroRef.current = false;
+      heroSeedPreTransitionLoggedRef.current = false;
+      heroSeedFractureStartLoggedRef.current = false;
+      heroFractureTiltSuppressedLoggedRef.current = false;
+      heroFractureChargeHoldLoggedRef.current = false;
     }
 
     lastCrystalFormRef.current = currentCrystalForm;
@@ -708,13 +825,38 @@ const UnifiedCameraController = ({
     let source = 'camera.positions.hero';
 
     if (configured && typeof configured === 'object') {
-      ['height', 'orbitSpeed', 'lookAtYOffset'].forEach((key) => {
+      ['orbitSpeed', 'lookAtYOffset'].forEach((key) => {
         const value = configured[key];
         if (typeof value === 'number' && Number.isFinite(value)) {
           tuning[key] = value;
           source = `${source} + camera.heroTuning`;
         }
       });
+
+      const configuredHeight = configured.height;
+      if (
+        typeof configuredHeight === 'number'
+        && Number.isFinite(configuredHeight)
+        && !heroSeedHeightOverrideSuppressedLoggedRef.current
+      ) {
+        console.log('[hero-camera-seed] height-override-suppressed', {
+          configuredHeight,
+          authoredPoseHeight: authoredHeroPose.height,
+        });
+        heroSeedHeightOverrideSuppressedLoggedRef.current = true;
+      }
+    }
+
+    if (!heroSeedResolvedLoggedRef.current) {
+      console.log('[hero-camera-seed] resolved', {
+        source,
+        radius: tuning.radius,
+        height: tuning.height,
+        baseAngle: tuning.baseAngle,
+        orbitSpeed: tuning.orbitSpeed,
+        lookAtYOffset: tuning.lookAtYOffset,
+      });
+      heroSeedResolvedLoggedRef.current = true;
     }
 
     return { tuning, source };
@@ -794,11 +936,101 @@ const UnifiedCameraController = ({
     });
   };
 
+  const resolveAuthoritativeHeroPose = ({ elapsedSeconds = 0, freezeOrbit = false, centerOverride = null } = {}) => {
+    const center = centerOverride ? centerOverride.clone() : getHeroOrbitCenter();
+    const { tuning, source: tuningSource } = resolveHeroTuning(config, center);
+    const filmOffset = resolveHeroFilmOffsetX(center).value;
+    const orbitElapsed = freezeOrbit ? 0 : Math.max(0, elapsedSeconds - heroOrbitStartTimeRef.current);
+    const snapshot = getAuthoritativeHeroCameraSnapshot({
+      elapsed: orbitElapsed,
+      center,
+      tuning,
+      filmOffsetX: filmOffset,
+      ...(freezeOrbit ? { angleOverride: tuning.baseAngle } : {}),
+    });
+    return {
+      position: snapshot.position,
+      lookAtTarget: snapshot.lookAtTarget,
+      fov: currentTarget.current.fov ?? camera.fov,
+      filmOffset: snapshot.filmOffsetX,
+      center,
+      tuning,
+      angle: snapshot.angle,
+      orbitElapsed,
+      tuningSource,
+    };
+  };
+
+  const assertHeroPoseInvariant = (label, pose, epsilon = 0.0005) => {
+    if (!import.meta.env.DEV) return;
+    const positionDelta = camera.position.distanceTo(pose.position);
+    const lookAtDelta = currentTarget.current.lookAt.distanceTo(pose.lookAtTarget);
+    const filmOffsetDelta = Math.abs((Number.isFinite(camera.filmOffset) ? camera.filmOffset : 0) - pose.filmOffset);
+    if (positionDelta > epsilon || lookAtDelta > epsilon || filmOffsetDelta > epsilon) {
+      console.warn('[hero-camera-single-source] mismatch', {
+        label,
+        positionDelta,
+        lookAtDelta,
+        filmOffsetDelta,
+      });
+    }
+  };
+
+
+  const captureCurrentCameraPose = () => ({
+    position: camera.position.clone(),
+    lookAt: getCameraLookAtFromTransform(),
+    fov: camera.fov,
+    filmOffset: Number.isFinite(camera.filmOffset) ? camera.filmOffset : 0,
+  });
+
+  const resolveHeroPose = (elapsedSeconds = 0, freezeOrbit = false) => {
+    const hero = resolveAuthoritativeHeroPose({ elapsedSeconds, freezeOrbit });
+    return {
+      position: hero.position.clone(),
+      lookAt: hero.lookAtTarget.clone(),
+      fov: hero.fov,
+      filmOffset: hero.filmOffset,
+    };
+  };
+
+  const resolveOverviewPose = () => ({
+    position: toVector3(config?.cameraPositions?.overview)
+      .add(toVector3(config?.cameraOffsets?.global?.position))
+      .add(toVector3(config?.cameraOffsets?.zones?.overview?.position)),
+    lookAt: toVector3(config?.cameraTargets?.overview)
+      .add(toVector3(config?.cameraOffsets?.global?.target))
+      .add(toVector3(config?.cameraOffsets?.zones?.overview?.target)),
+    fov: currentTarget.current.fov ?? camera.fov,
+    filmOffset: 0,
+  });
+
+  const applyCameraPose = (pose) => {
+    camera.position.copy(pose.position);
+    camera.lookAt(pose.lookAt);
+    camera.fov = pose.fov;
+    camera.filmOffset = pose.filmOffset;
+    camera.updateProjectionMatrix();
+    currentTarget.current.position.copy(pose.position);
+    currentTarget.current.lookAt.copy(pose.lookAt);
+    currentTarget.current.fov = pose.fov;
+  };
+
+  const interpolateCameraPose = (fromPose, toPose, t) => {
+    const clamped = THREE.MathUtils.clamp(t, 0, 1);
+    const eased = clamped * clamped * (3 - 2 * clamped);
+    return {
+      position: new THREE.Vector3().lerpVectors(fromPose.position, toPose.position, eased),
+      lookAt: new THREE.Vector3().lerpVectors(fromPose.lookAt, toPose.lookAt, eased),
+      fov: THREE.MathUtils.lerp(fromPose.fov, toPose.fov, eased),
+      filmOffset: THREE.MathUtils.lerp(fromPose.filmOffset, toPose.filmOffset, eased),
+    };
+  };
+
   const syncHeroCameraRefs = (reason, { resetPosition = false } = {}) => {
     const heroCenter = getHeroOrbitCenter();
-    const heroPosition = toVector3(config?.cameraPositions?.hero)
-      .add(toVector3(config?.cameraOffsets?.global?.position))
-      .add(toVector3(config?.cameraOffsets?.zones?.hero?.position));
+    const heroPose = resolveAuthoritativeHeroPose({ elapsedSeconds: heroOrbitStartTimeRef.current, freezeOrbit: true, centerOverride: heroCenter });
+    const heroPosition = heroPose.position.clone();
     const heroTargetOffset = toVector3(config?.cameraOffsets?.global?.target)
       .add(toVector3(config?.cameraOffsets?.zones?.hero?.target));
     const authoredHeroTarget = toVector3(config?.cameraTargets?.hero)
@@ -807,11 +1039,9 @@ const UnifiedCameraController = ({
     heroOrbitCenterRef.current.copy(heroCenter);
     heroCompositionOffsetRef.current.copy(heroTargetOffset);
     heroCompositionLateralRef.current = heroCompositionOffsetRef.current.x;
-    const { tuning: authoritativeHeroTuning } = resolveHeroTuning(config, heroCenter);
-    heroVerticalOffsetRef.current = authoritativeHeroTuning.lookAtYOffset;
+    heroVerticalOffsetRef.current = heroPose.tuning.lookAtYOffset;
 
-    const heroLookAt = newLookAtTempRef.current.copy(heroCenter);
-    heroLookAt.y += authoritativeHeroTuning.lookAtYOffset;
+    const heroLookAt = heroPose.lookAtTarget.clone();
     currentTarget.current.lookAt.copy(heroLookAt);
 
     if (resetPosition) {
@@ -1792,6 +2022,59 @@ const UnifiedCameraController = ({
     staticCameraModeRef.current.announced = false;
     staticCameraModeRef.current.captured = false;
 
+
+    const navState = animationData?.state;
+    const navCameraState = animationData?.cameraState;
+    const isCoreNav = (navState === 'hero' || navState === 'overview') && (navCameraState === 'hero' || navCameraState === 'overview');
+    const coreTransition = coreNavTransitionRef.current;
+    const shouldStartHeroToOverview = isCoreNav && navState === 'overview' && navCameraState === 'hero' && !coreTransition.active;
+    const shouldStartOverviewToHero = isCoreNav && navState === 'hero' && navCameraState === 'overview' && !coreTransition.active;
+
+    if (shouldStartHeroToOverview || shouldStartOverviewToHero) {
+      const type = shouldStartHeroToOverview ? 'heroToOverview' : 'overviewToHero';
+      coreTransition.active = true;
+      coreTransition.type = type;
+      coreTransition.fromPose = captureCurrentCameraPose();
+      coreTransition.toPose = shouldStartHeroToOverview
+        ? resolveOverviewPose()
+        : resolveHeroPose(state.clock.elapsedTime, true);
+      coreTransition.startedAt = state.clock.elapsedTime;
+      coreTransition.progress = 0;
+      coreTransition.lastSampleBucket = -1;
+      isOrbitingRef.current = false;
+      fractureTiltActiveRef.current = false;
+      fractureTiltRef.current = 0;
+      heroExplosionTransitionRef.current.active = false;
+      authoritativeHeroToOverviewTransitionRef.current.active = false;
+      authoritativeOverviewToHeroTransitionRef.current.active = false;
+      console.log('[camera-core-owner] transition start', { type, from: coreTransition.fromPose.position.toArray(), to: coreTransition.toPose.position.toArray() });
+    }
+
+    if (coreTransition.active) {
+      const elapsed = state.clock.elapsedTime - coreTransition.startedAt;
+      const raw = THREE.MathUtils.clamp(elapsed / coreTransition.duration, 0, 1);
+      coreTransition.progress = raw;
+      const pose = interpolateCameraPose(coreTransition.fromPose, coreTransition.toPose, raw);
+      applyCameraPose(pose);
+      const bucket = Math.floor(raw * 4);
+      if (bucket !== coreTransition.lastSampleBucket && bucket < 4) {
+        coreTransition.lastSampleBucket = bucket;
+        console.log('[camera-core-owner] transition frame sample', { type: coreTransition.type, progress: Number(raw.toFixed(3)) });
+      }
+      if (raw >= 1) {
+        applyCameraPose(coreTransition.toPose);
+        if (coreTransition.type === 'overviewToHero') {
+          heroOrbitStartTimeRef.current = state.clock.elapsedTime;
+          isOrbitingRef.current = false;
+        }
+        console.log('[camera-core-owner] transition complete', { type: coreTransition.type, final: coreTransition.toPose.position.toArray() });
+        coreTransition.active = false;
+        coreTransition.type = null;
+      }
+      console.log('[camera-core-owner] suppressed writer', { writer: 'legacy-nav-writers', type: coreTransition.type });
+      return;
+    }
+
     const v2CameraModeEnabled = (() => {
       if (typeof globalThis === 'undefined') return true;
       if (globalThis.__UCC_USE_LEGACY_CAMERA__ === true) return false;
@@ -1807,19 +2090,22 @@ const UnifiedCameraController = ({
       }
       if (animationData?.state === 'hero' && animationData?.cameraState === 'hero') {
         const center = getHeroOrbitCenter();
-        const { tuning, source: tuningSource } = resolveHeroTuning(config, center);
-        const filmOffsetX = resolveHeroFilmOffsetX(center).value;
+        const heroPoseNow = resolveAuthoritativeHeroPose({ elapsedSeconds: state.clock.elapsedTime, centerOverride: center });
+        const tuning = heroPoseNow.tuning;
+        const tuningSource = heroPoseNow.tuningSource;
+        const filmOffsetX = heroPoseNow.filmOffset;
         heroOrbitCenterRef.current.copy(center);
         heroVerticalOffsetRef.current = tuning.lookAtYOffset;
         let seededOrbitThisFrame = false;
 
         if (!isOrbitingRef.current) {
-          const seedSnapshot = getAuthoritativeHeroCameraSnapshot({
-            center,
-            tuning,
-            filmOffsetX,
-            angleOverride: tuning.baseAngle,
-          });
+          const seedPose = resolveAuthoritativeHeroPose({ elapsedSeconds: state.clock.elapsedTime, freezeOrbit: true, centerOverride: center });
+          const seedSnapshot = {
+            position: seedPose.position,
+            lookAtTarget: seedPose.lookAtTarget,
+            filmOffsetX: seedPose.filmOffset,
+            angle: seedPose.angle,
+          };
           const relative = new THREE.Vector3().subVectors(seedSnapshot.position, center);
           const cameraDistance = relative.length();
           const horizontalRadius = Math.sqrt(relative.x * relative.x + relative.z * relative.z);
@@ -2337,14 +2623,9 @@ const UnifiedCameraController = ({
       isAuthoritativePlainHero &&
       cameFromNonHeroState;
     if (shouldForceOverviewToHeroTransition && !authoritativeOverviewToHeroTransitionRef.current.active) {
-      const center = getHeroOrbitCenter();
-      const { tuning } = resolveHeroTuning(config);
-      const resolvedHeroFilmOffsetX = resolveHeroFilmOffsetX(center).value;
-      const heroDestination = getAuthoritativeHeroCameraSnapshot({
-        center,
-        tuning,
-        filmOffsetX: resolvedHeroFilmOffsetX,
-        angleOverride: tuning.baseAngle,
+      const heroDestination = resolveAuthoritativeHeroPose({
+        elapsedSeconds: state.clock.elapsedTime,
+        freezeOrbit: true,
       });
       const fromLookAt = getCameraLookAtFromTransform();
       authoritativeOverviewToHeroTransitionRef.current = {
@@ -2362,7 +2643,7 @@ const UnifiedCameraController = ({
         to: {
           position: heroDestination.position.clone(),
           lookAtTarget: heroDestination.lookAtTarget.clone(),
-          filmOffsetX: Number.isFinite(heroDestination.filmOffsetX) ? heroDestination.filmOffsetX : 0,
+          filmOffsetX: Number.isFinite(heroDestination.filmOffset) ? heroDestination.filmOffset : 0,
           source: 'authoritativeHeroSnapshot(baseAngle)',
         },
       };
@@ -2457,14 +2738,14 @@ const UnifiedCameraController = ({
         const introDestination = getAuthoritativeHeroCameraSnapshot({
           center,
           tuning,
-          filmOffsetX: resolvedFilmOffsetX,
+          filmOffsetX: heroPose.filmOffset,
           angleOverride: tuning.baseAngle,
         });
         authoritativeHeroIntroToRef.current.position.copy(introDestination.position);
         authoritativeHeroIntroToRef.current.lookAtTarget.copy(introDestination.lookAtTarget);
-        authoritativeHeroIntroToRef.current.filmOffsetX = introDestination.filmOffsetX;
+        authoritativeHeroIntroToRef.current.filmOffsetX = introDestination.filmOffset;
         authoritativeHeroIntroToRef.current.angle = introDestination.angle;
-        authoritativeHeroIntroToRef.current.elapsed = introDestination.elapsed;
+        authoritativeHeroIntroToRef.current.elapsed = introDestination.orbitElapsed;
         introFromRef.current.position.copy(camera.position);
         introFromRef.current.lookAt.copy(currentTarget.current?.lookAt || center);
       }
@@ -2533,16 +2814,20 @@ const UnifiedCameraController = ({
     }
 
     if (isAuthoritativePlainHero) {
-      const center = getHeroOrbitCenter();
-      const { tuning, source: tuningSource } = resolveHeroTuning(config);
-      const configuredFilmOffsetX = config?.cameraComposition?.hero?.filmOffsetX;
-      const resolvedFilmOffsetX = Number.isFinite(configuredFilmOffsetX) ? configuredFilmOffsetX : 0;
-      const snapshot = updateAuthoritativeHeroCamera({
-        elapsed: state.clock.elapsedTime,
-        center,
-        filmOffsetX: resolvedFilmOffsetX,
-        tuning,
-      });
+      const heroPose = resolveAuthoritativeHeroPose({ elapsedSeconds: state.clock.elapsedTime });
+      const tuning = heroPose.tuning;
+      const tuningSource = heroPose.tuningSource;
+      camera.position.copy(heroPose.position);
+      camera.lookAt(heroPose.lookAtTarget);
+      camera.filmOffset = heroPose.filmOffset;
+      camera.updateProjectionMatrix();
+      const snapshot = {
+        position: heroPose.position,
+        lookAtTarget: heroPose.lookAtTarget,
+        filmOffsetX: heroPose.filmOffset,
+        angle: heroPose.angle,
+      };
+      assertHeroPoseInvariant('authoritative-hero-update', heroPose);
       lastAuthoritativeHeroSnapshotRef.current = {
         position: snapshot.position.clone(),
         lookAtTarget: snapshot.lookAtTarget.clone(),
@@ -2566,7 +2851,7 @@ const UnifiedCameraController = ({
           baseAngle: tuning.baseAngle,
           lookAtYOffset: tuning.lookAtYOffset,
           tuningSource,
-          filmOffsetX: resolvedFilmOffsetX,
+          filmOffsetX: heroPose.filmOffset,
           center: center.toArray(),
           cameraPosition: camera.position.toArray(),
           lookAtTarget: snapshot.lookAtTarget.toArray(),
@@ -2625,10 +2910,15 @@ const UnifiedCameraController = ({
         );
         const cameraTimingState = sharedClockRuntimeState || runtimeSnapshot;
         const cameraTimingSource = sharedClockRuntimeState ? 'sharedExplosionClock' : 'runtime';
-        const runtimePhase = runtimeSnapshot?.phase ?? 'idle';
-        const runtimeProgress = runtimeSnapshot?.progress ?? 0;
-        const sharedRaw = THREE.MathUtils.clamp(explosionClock?.progress ?? 0, 0, 1);
-        const sharedEased = THREE.MathUtils.clamp(sharedRaw >= 1 ? 1 : 1 - (2 ** (-10 * sharedRaw)), 0, 1);
+        const runtimePhase = cameraTimingState?.phase ?? runtimeSnapshot?.phase ?? 'idle';
+        const runtimeProgress = cameraTimingState?.progress ?? runtimeSnapshot?.progress ?? 0;
+        const timing = cameraTimingState?.timing || runtimeSnapshot?.timing || config?.timing?.heroOverviewRuntime || {};
+        const fractureChargeEnd = THREE.MathUtils.clamp(Number(timing.fractureChargeEnd ?? 0.0933333333), 0, 1);
+        const rawProgress = THREE.MathUtils.clamp(runtimeProgress, 0, 1);
+        const cameraTravelProgress = runtimePhase === 'fractureCharge'
+          ? 0
+          : THREE.MathUtils.clamp((rawProgress - fractureChargeEnd) / Math.max(0.0001, 1 - fractureChargeEnd), 0, 1);
+        const sharedEased = THREE.MathUtils.clamp(cameraTravelProgress >= 1 ? 1 : 1 - (2 ** (-10 * cameraTravelProgress)), 0, 1);
         const basePosition = new THREE.Vector3().lerpVectors(transition.from.position, transition.to.position, sharedEased);
         forcedLookAt = introLookAtTempRef.current.lerpVectors(
           transition.from.lookAtTarget,
@@ -2645,6 +2935,15 @@ const UnifiedCameraController = ({
         camera.lookAt(forcedLookAt);
         camera.filmOffset = THREE.MathUtils.lerp(transition.from.filmOffsetX, transition.to.filmOffsetX, sharedEased);
         camera.updateProjectionMatrix();
+        if (runtimePhase === 'fractureCharge' && !heroFractureChargeHoldLoggedRef.current) {
+          heroFractureChargeHoldLoggedRef.current = true;
+          console.log('[hero-camera-freeze] fractureCharge hold', {
+            heldPosition: transition.from.position.toArray(),
+            heldLookAt: transition.from.lookAtTarget.toArray(),
+            phase: runtimePhase,
+            cameraTravelProgress,
+          });
+        }
 
         if (typeof globalThis !== 'undefined' && globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__) {
           if (!heroOverviewCameraTimingResolvedLoggedRef.current) {
@@ -2948,6 +3247,7 @@ const UnifiedCameraController = ({
         };
         heroToOverviewAwaitFirstNormalFrameRef.current = true;
         authoritativeHeroToOverviewTransitionRef.current.active = false;
+        heroFractureChargeHoldLoggedRef.current = false;
         if (TRACE_HERO_TO_OVERVIEW_CAMERA_STATE) {
           heroToOverviewTraceMetaRef.current.endTime = state.clock.elapsedTime + 0.5;
           heroToOverviewTraceMetaRef.current.forcedFinal = {
@@ -3301,6 +3601,10 @@ const UnifiedCameraController = ({
     if (!fractureTiltActiveRef.current) {
       fractureTiltLockSeededRef.current = false;
       fractureTiltAnchorSeededFromLiveHeroRef.current = false;
+      heroSeedPreTransitionLoggedRef.current = false;
+      heroSeedFractureStartLoggedRef.current = false;
+      heroFractureTiltSuppressedLoggedRef.current = false;
+      heroFractureChargeHoldLoggedRef.current = false;
     }
 
     if (!currentTarget.current || simplifiedAnimations) {
