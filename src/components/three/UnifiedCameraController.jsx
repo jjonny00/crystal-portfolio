@@ -74,12 +74,16 @@ const UnifiedCameraController = ({
     totalCompared: 0,
     matches: 0,
     mismatches: 0,
+    unresolved: 0,
     mismatchedDestinations: new Set(),
+    unresolvedDestinations: new Set(),
     largestPositionDelta: 0,
     largestLookAtDelta: 0,
     largestFovDelta: 0,
     largestFilmOffsetDelta: 0
   });
+  const compareRecordsRef = useRef(new Map());
+  const compareSummaryPrintedRef = useRef(false);
   const projectTargetLockRef = useRef({
     facetKey: null,
     target: null,
@@ -942,6 +946,47 @@ const UnifiedCameraController = ({
     return null;
   };
 
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    globalThis.__printCameraDestinationCompareSummary = () => {
+      const summary = compareSummaryRef.current;
+      console.log('[camera-destination-compare] summary', {
+        totalCompared: summary.totalCompared,
+        matches: summary.matches,
+        mismatches: summary.mismatches,
+        unresolved: summary.unresolved,
+        mismatchedDestinations: Array.from(summary.mismatchedDestinations).join(', '),
+        unresolvedDestinations: Array.from(summary.unresolvedDestinations).join(', '),
+        largestPositionDelta: summary.largestPositionDelta,
+        largestLookAtDelta: summary.largestLookAtDelta,
+        largestFovDelta: summary.largestFovDelta,
+        largestFilmOffsetDelta: summary.largestFilmOffsetDelta,
+        thresholds: CAMERA_COMPARE_THRESHOLDS
+      });
+    };
+    globalThis.__printCameraDestinationCompareDetails = () => {
+      const rows = Array.from(compareRecordsRef.current.values()).map((row) => ({
+        key: row.key,
+        destination: row.destination,
+        projectId: row.projectId,
+        status: row.status,
+        mismatchedFields: row.mismatchedFields,
+        invalidSide: row.invalidSide,
+        invalidFields: row.invalidFields,
+        positionDelta: row.positionDelta,
+        lookAtDelta: row.lookAtDelta,
+        fovDelta: row.fovDelta,
+        filmOffsetDelta: row.filmOffsetDelta
+      }));
+      console.table(rows);
+    };
+    return () => {
+      delete globalThis.__printCameraDestinationCompareSummary;
+      delete globalThis.__printCameraDestinationCompareDetails;
+    };
+  }, []);
+
   useEffect(() => {
     currentTarget.current.position.copy(camera.position);
     currentTarget.current.fov = camera.fov;
@@ -1280,76 +1325,125 @@ const UnifiedCameraController = ({
         const compareEligible = destination === 'hero' || destination === 'overview' || destination === 'about' || destination === 'project' || destination === 'caseStudy';
         if (compareEligible) {
           const resolverMode = destination === 'caseStudy' ? 'caseStudy' : 'selected';
-          const resolved = resolveCameraDestination({
-            destination,
-            projectId: focusedProject,
-            mode: resolverMode,
-            config,
-            animationData,
-            isMobile
-          });
+          const resolved = resolveCameraDestination({ destination, projectId: focusedProject, mode: resolverMode, config, animationData, isMobile });
+          const key = `${destination}:${focusedProject ?? 'none'}:${resolverMode}`;
 
           const legacyPose = {
             position: finalPosition?.toArray?.() ?? null,
             lookAt: finalTarget?.toArray?.() ?? null,
-            fov: enhancedConfig?.fov ?? null,
-            filmOffset: destination === 'hero' ? (config?.cameraComposition?.hero?.filmOffsetX ?? 0) : 0
+            fov: Number.isFinite(enhancedConfig?.fov) ? enhancedConfig.fov : null,
+            filmOffset: destination === 'hero' ? (Number.isFinite(config?.cameraComposition?.hero?.filmOffsetX) ? config.cameraComposition.hero.filmOffsetX : null) : 0
           };
-          const delta = compareCameraPoses(legacyPose, resolved?.pose);
-          const matches = isCameraPoseMatch(delta, CAMERA_COMPARE_THRESHOLDS);
-          const mismatchedFields = getMismatchedFields(delta, CAMERA_COMPARE_THRESHOLDS);
-          const key = `${destination}:${focusedProject ?? 'none'}:${resolverMode}`;
-          const fingerprint = `${key}:${mismatchedFields.join('|') || 'none'}`;
-          const shouldLog = compareLogKeyRef.current !== key || compareLogFingerprintRef.current !== fingerprint;
 
+          const delta = compareCameraPoses(legacyPose, resolved?.pose);
           const summary = compareSummaryRef.current;
           summary.totalCompared += 1;
-          if (matches) summary.matches += 1;
-          else {
-            summary.mismatches += 1;
-            summary.mismatchedDestinations.add(destination);
-          }
-          summary.largestPositionDelta = Math.max(summary.largestPositionDelta, delta.positionDelta);
-          summary.largestLookAtDelta = Math.max(summary.largestLookAtDelta, delta.lookAtDelta);
-          summary.largestFovDelta = Math.max(summary.largestFovDelta, delta.fovDelta);
-          summary.largestFilmOffsetDelta = Math.max(summary.largestFilmOffsetDelta, delta.filmOffsetDelta);
 
-          if (shouldLog) {
-            compareLogKeyRef.current = key;
-            compareLogFingerprintRef.current = fingerprint;
-            const payload = {
-              destination,
-              projectId: focusedProject ?? null,
-              mismatchedFields,
-              positionDelta: delta.positionDelta,
-              lookAtDelta: delta.lookAtDelta,
-              fovDelta: delta.fovDelta,
-              filmOffsetDelta: delta.filmOffsetDelta,
-              likelySourceHints: {
-                globalOffset: resolved?.source?.usedGlobalOffsets ?? false,
-                zoneOffset: resolved?.source?.usedZoneOffsets ?? false,
-                projectCameraSettings: resolved?.source?.usedProjectCameraSettings ?? false,
-                filmOffset: destination === 'hero'
+          if (delta.unresolved) {
+            summary.unresolved += 1;
+            const invalidFieldsCombined = Array.from(new Set([...(delta.invalidFields?.legacy ?? []), ...(delta.invalidFields?.resolver ?? [])]));
+            const invalidFieldsText = invalidFieldsCombined.join(', ');
+            summary.unresolvedDestinations.add(`${destination}:${focusedProject ?? 'none'}`);
+            const fingerprint = `${key}:unresolved:${delta.invalidSide}:${invalidFieldsText}`;
+            const shouldLog = compareLogKeyRef.current !== key || compareLogFingerprintRef.current !== fingerprint;
+            if (shouldLog) {
+              compareLogKeyRef.current = key;
+              compareLogFingerprintRef.current = fingerprint;
+              const payload = {
+                destination,
+                projectId: focusedProject ?? null,
+                invalidSide: delta.invalidSide,
+                invalidFields: invalidFieldsText,
+                reason: delta.reason
+              };
+              if (globalThis.__CAMERA_DESTINATION_COMPARE_VERBOSE__ === true) {
+                payload.legacyPose = legacyPose;
+                payload.newResolverPose = resolved?.pose ?? null;
               }
-            };
-            if (globalThis.__CAMERA_DESTINATION_COMPARE_VERBOSE__ === true) {
-              payload.legacyPose = legacyPose;
-              payload.newResolverPose = resolved?.pose ?? null;
+              console.warn('[camera-destination-compare] unresolved', payload);
+              compareRecordsRef.current.set(key, {
+                key,
+                destination,
+                projectId: focusedProject ?? null,
+                status: 'unresolved',
+                invalidSide: delta.invalidSide,
+                invalidFields: invalidFieldsText,
+                mismatchedFields: '',
+                positionDelta: null,
+                lookAtDelta: null,
+                fovDelta: null,
+                filmOffsetDelta: null
+              });
             }
-            if (matches) console.log('[camera-destination-compare] match', payload);
-            else console.warn('[camera-destination-compare] mismatch', payload);
+          } else {
+            const matches = isCameraPoseMatch(delta, CAMERA_COMPARE_THRESHOLDS);
+            const mismatchedFieldsArr = getMismatchedFields(delta, CAMERA_COMPARE_THRESHOLDS);
+            const mismatchedFields = mismatchedFieldsArr.join(', ');
+            const positionDelta = Number(delta.positionDelta.toFixed(6));
+            const lookAtDelta = Number(delta.lookAtDelta.toFixed(6));
+            const fovDelta = Number(delta.fovDelta.toFixed(6));
+            const filmOffsetDelta = Number(delta.filmOffsetDelta.toFixed(6));
 
-            console.log('[camera-destination-compare] summary', {
-              totalCompared: summary.totalCompared,
-              matches: summary.matches,
-              mismatches: summary.mismatches,
-              mismatchedDestinations: Array.from(summary.mismatchedDestinations),
-              largestPositionDelta: summary.largestPositionDelta,
-              largestLookAtDelta: summary.largestLookAtDelta,
-              largestFovDelta: summary.largestFovDelta,
-              largestFilmOffsetDelta: summary.largestFilmOffsetDelta,
-              thresholds: CAMERA_COMPARE_THRESHOLDS
-            });
+            if (matches) summary.matches += 1;
+            else {
+              summary.mismatches += 1;
+              summary.mismatchedDestinations.add(destination);
+            }
+
+            summary.largestPositionDelta = Math.max(summary.largestPositionDelta, positionDelta);
+            summary.largestLookAtDelta = Math.max(summary.largestLookAtDelta, lookAtDelta);
+            summary.largestFovDelta = Math.max(summary.largestFovDelta, fovDelta);
+            summary.largestFilmOffsetDelta = Math.max(summary.largestFilmOffsetDelta, filmOffsetDelta);
+
+            const fingerprint = `${key}:${mismatchedFields || 'none'}`;
+            const shouldLog = compareLogKeyRef.current !== key || compareLogFingerprintRef.current !== fingerprint;
+            if (shouldLog) {
+              compareLogKeyRef.current = key;
+              compareLogFingerprintRef.current = fingerprint;
+              const payload = {
+                destination,
+                projectId: focusedProject ?? null,
+                mismatchedFields,
+                positionDelta,
+                lookAtDelta,
+                fovDelta,
+                filmOffsetDelta,
+                positionMismatch: mismatchedFieldsArr.includes('position'),
+                lookAtMismatch: mismatchedFieldsArr.includes('lookAt'),
+                fovMismatch: mismatchedFieldsArr.includes('fov'),
+                filmOffsetMismatch: mismatchedFieldsArr.includes('filmOffset'),
+                likelySourceHints: {
+                  globalOffset: resolved?.source?.usedGlobalOffsets ?? false,
+                  zoneOffset: resolved?.source?.usedZoneOffsets ?? false,
+                  projectCameraSettings: resolved?.source?.usedProjectCameraSettings ?? false,
+                  filmOffset: destination === 'hero'
+                }
+              };
+              if (globalThis.__CAMERA_DESTINATION_COMPARE_VERBOSE__ === true) {
+                payload.legacyPose = legacyPose;
+                payload.newResolverPose = resolved?.pose ?? null;
+              }
+              if (matches) console.log('[camera-destination-compare] match', payload);
+              else console.warn('[camera-destination-compare] mismatch', payload);
+              compareRecordsRef.current.set(key, {
+                key,
+                destination,
+                projectId: focusedProject ?? null,
+                status: matches ? 'match' : 'mismatch',
+                mismatchedFields,
+                invalidSide: '',
+                invalidFields: '',
+                positionDelta,
+                lookAtDelta,
+                fovDelta,
+                filmOffsetDelta
+              });
+            }
+          }
+
+          if (!compareSummaryPrintedRef.current && summary.totalCompared >= 8) {
+            compareSummaryPrintedRef.current = true;
+            globalThis.__printCameraDestinationCompareSummary?.();
           }
         }
       }
