@@ -237,6 +237,7 @@ const UnifiedCameraController = ({
   const heroSeedPreTransitionLoggedRef = useRef(false);
   const heroSeedFractureStartLoggedRef = useRef(false);
   const heroFractureTiltSuppressedLoggedRef = useRef(false);
+  const heroFractureChargeHoldLoggedRef = useRef(false);
   const stableHeroPositionRef = useRef(new THREE.Vector3(0, 0.8, 7));
   const simpleCameraModeRef = useRef({ announced: false });
   const staticCameraModeRef = useRef({
@@ -606,6 +607,7 @@ const UnifiedCameraController = ({
       heroSeedPreTransitionLoggedRef.current = false;
       heroSeedFractureStartLoggedRef.current = false;
       heroFractureTiltSuppressedLoggedRef.current = false;
+      heroFractureChargeHoldLoggedRef.current = false;
     }
 
     lastCrystalFormRef.current = currentCrystalForm;
@@ -2803,10 +2805,15 @@ const UnifiedCameraController = ({
         );
         const cameraTimingState = sharedClockRuntimeState || runtimeSnapshot;
         const cameraTimingSource = sharedClockRuntimeState ? 'sharedExplosionClock' : 'runtime';
-        const runtimePhase = runtimeSnapshot?.phase ?? 'idle';
-        const runtimeProgress = runtimeSnapshot?.progress ?? 0;
-        const sharedRaw = THREE.MathUtils.clamp(explosionClock?.progress ?? 0, 0, 1);
-        const sharedEased = THREE.MathUtils.clamp(sharedRaw >= 1 ? 1 : 1 - (2 ** (-10 * sharedRaw)), 0, 1);
+        const runtimePhase = cameraTimingState?.phase ?? runtimeSnapshot?.phase ?? 'idle';
+        const runtimeProgress = cameraTimingState?.progress ?? runtimeSnapshot?.progress ?? 0;
+        const timing = cameraTimingState?.timing || runtimeSnapshot?.timing || config?.timing?.heroOverviewRuntime || {};
+        const fractureChargeEnd = THREE.MathUtils.clamp(Number(timing.fractureChargeEnd ?? 0.0933333333), 0, 1);
+        const rawProgress = THREE.MathUtils.clamp(runtimeProgress, 0, 1);
+        const cameraTravelProgress = runtimePhase === 'fractureCharge'
+          ? 0
+          : THREE.MathUtils.clamp((rawProgress - fractureChargeEnd) / Math.max(0.0001, 1 - fractureChargeEnd), 0, 1);
+        const sharedEased = THREE.MathUtils.clamp(cameraTravelProgress >= 1 ? 1 : 1 - (2 ** (-10 * cameraTravelProgress)), 0, 1);
         const basePosition = new THREE.Vector3().lerpVectors(transition.from.position, transition.to.position, sharedEased);
         forcedLookAt = introLookAtTempRef.current.lerpVectors(
           transition.from.lookAtTarget,
@@ -2823,6 +2830,15 @@ const UnifiedCameraController = ({
         camera.lookAt(forcedLookAt);
         camera.filmOffset = THREE.MathUtils.lerp(transition.from.filmOffsetX, transition.to.filmOffsetX, sharedEased);
         camera.updateProjectionMatrix();
+        if (runtimePhase === 'fractureCharge' && !heroFractureChargeHoldLoggedRef.current) {
+          heroFractureChargeHoldLoggedRef.current = true;
+          console.log('[hero-camera-freeze] fractureCharge hold', {
+            heldPosition: transition.from.position.toArray(),
+            heldLookAt: transition.from.lookAtTarget.toArray(),
+            phase: runtimePhase,
+            cameraTravelProgress,
+          });
+        }
 
         if (typeof globalThis !== 'undefined' && globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__) {
           if (!heroOverviewCameraTimingResolvedLoggedRef.current) {
@@ -3126,6 +3142,7 @@ const UnifiedCameraController = ({
         };
         heroToOverviewAwaitFirstNormalFrameRef.current = true;
         authoritativeHeroToOverviewTransitionRef.current.active = false;
+        heroFractureChargeHoldLoggedRef.current = false;
         if (TRACE_HERO_TO_OVERVIEW_CAMERA_STATE) {
           heroToOverviewTraceMetaRef.current.endTime = state.clock.elapsedTime + 0.5;
           heroToOverviewTraceMetaRef.current.forcedFinal = {
@@ -3482,6 +3499,7 @@ const UnifiedCameraController = ({
       heroSeedPreTransitionLoggedRef.current = false;
       heroSeedFractureStartLoggedRef.current = false;
       heroFractureTiltSuppressedLoggedRef.current = false;
+      heroFractureChargeHoldLoggedRef.current = false;
     }
 
     if (!currentTarget.current || simplifiedAnimations) {
