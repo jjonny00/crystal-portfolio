@@ -9,8 +9,12 @@ export const resolveCameraDestination = ({ destination, projectId = null, mode =
   const zoneKey = destination === CAMERA_DESTINATIONS.CASE_STUDY ? 'project' : destination;
   let basePosition = config?.cameraPositions?.[zoneKey] ?? null;
   let baseTarget = config?.cameraTargets?.[zoneKey] ?? null;
-  const fov = config?.camera?.fov ?? null;
-  const filmOffset = zoneKey === CAMERA_DESTINATIONS.HERO ? (config?.cameraComposition?.hero?.filmOffsetX ?? null) : null;
+  const fov = Number.isFinite(animationData?.cameraConfig?.fov)
+    ? animationData.cameraConfig.fov
+    : (Number.isFinite(config?.camera?.fov) ? config.camera.fov : null);
+  const filmOffset = zoneKey === CAMERA_DESTINATIONS.HERO
+    ? (Number.isFinite(config?.cameraComposition?.hero?.filmOffsetX) ? config.cameraComposition.hero.filmOffsetX : 0)
+    : 0;
 
   if ((destination === CAMERA_DESTINATIONS.PROJECT || destination === CAMERA_DESTINATIONS.CASE_STUDY) && projectId) {
     const projectSettings = config?.projectCameraSettings?.[projectId];
