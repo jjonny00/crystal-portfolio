@@ -248,6 +248,7 @@ const UnifiedCameraController = ({
     fov: 45,
     filmOffset: 0,
   });
+  const coreNavTransitionRef = useRef({ active: false, type: null, fromPose: null, toPose: null, startedAt: 0, duration: 1.15, progress: 0, lastSampleBucket: -1, });
   const v2CameraModeRef = useRef({
     announced: false,
     key: null,
@@ -973,6 +974,57 @@ const UnifiedCameraController = ({
         filmOffsetDelta,
       });
     }
+  };
+
+
+  const captureCurrentCameraPose = () => ({
+    position: camera.position.clone(),
+    lookAt: getCameraLookAtFromTransform(),
+    fov: camera.fov,
+    filmOffset: Number.isFinite(camera.filmOffset) ? camera.filmOffset : 0,
+  });
+
+  const resolveHeroPose = (elapsedSeconds = 0, freezeOrbit = false) => {
+    const hero = resolveAuthoritativeHeroPose({ elapsedSeconds, freezeOrbit });
+    return {
+      position: hero.position.clone(),
+      lookAt: hero.lookAtTarget.clone(),
+      fov: hero.fov,
+      filmOffset: hero.filmOffset,
+    };
+  };
+
+  const resolveOverviewPose = () => ({
+    position: toVector3(config?.cameraPositions?.overview)
+      .add(toVector3(config?.cameraOffsets?.global?.position))
+      .add(toVector3(config?.cameraOffsets?.zones?.overview?.position)),
+    lookAt: toVector3(config?.cameraTargets?.overview)
+      .add(toVector3(config?.cameraOffsets?.global?.target))
+      .add(toVector3(config?.cameraOffsets?.zones?.overview?.target)),
+    fov: currentTarget.current.fov ?? camera.fov,
+    filmOffset: 0,
+  });
+
+  const applyCameraPose = (pose) => {
+    camera.position.copy(pose.position);
+    camera.lookAt(pose.lookAt);
+    camera.fov = pose.fov;
+    camera.filmOffset = pose.filmOffset;
+    camera.updateProjectionMatrix();
+    currentTarget.current.position.copy(pose.position);
+    currentTarget.current.lookAt.copy(pose.lookAt);
+    currentTarget.current.fov = pose.fov;
+  };
+
+  const interpolateCameraPose = (fromPose, toPose, t) => {
+    const clamped = THREE.MathUtils.clamp(t, 0, 1);
+    const eased = clamped * clamped * (3 - 2 * clamped);
+    return {
+      position: new THREE.Vector3().lerpVectors(fromPose.position, toPose.position, eased),
+      lookAt: new THREE.Vector3().lerpVectors(fromPose.lookAt, toPose.lookAt, eased),
+      fov: THREE.MathUtils.lerp(fromPose.fov, toPose.fov, eased),
+      filmOffset: THREE.MathUtils.lerp(fromPose.filmOffset, toPose.filmOffset, eased),
+    };
   };
 
   const syncHeroCameraRefs = (reason, { resetPosition = false } = {}) => {
@@ -1969,6 +2021,59 @@ const UnifiedCameraController = ({
     }
     staticCameraModeRef.current.announced = false;
     staticCameraModeRef.current.captured = false;
+
+
+    const navState = animationData?.state;
+    const navCameraState = animationData?.cameraState;
+    const isCoreNav = (navState === 'hero' || navState === 'overview') && (navCameraState === 'hero' || navCameraState === 'overview');
+    const coreTransition = coreNavTransitionRef.current;
+    const shouldStartHeroToOverview = isCoreNav && navState === 'overview' && navCameraState === 'hero' && !coreTransition.active;
+    const shouldStartOverviewToHero = isCoreNav && navState === 'hero' && navCameraState === 'overview' && !coreTransition.active;
+
+    if (shouldStartHeroToOverview || shouldStartOverviewToHero) {
+      const type = shouldStartHeroToOverview ? 'heroToOverview' : 'overviewToHero';
+      coreTransition.active = true;
+      coreTransition.type = type;
+      coreTransition.fromPose = captureCurrentCameraPose();
+      coreTransition.toPose = shouldStartHeroToOverview
+        ? resolveOverviewPose()
+        : resolveHeroPose(state.clock.elapsedTime, true);
+      coreTransition.startedAt = state.clock.elapsedTime;
+      coreTransition.progress = 0;
+      coreTransition.lastSampleBucket = -1;
+      isOrbitingRef.current = false;
+      fractureTiltActiveRef.current = false;
+      fractureTiltRef.current = 0;
+      heroExplosionTransitionRef.current.active = false;
+      authoritativeHeroToOverviewTransitionRef.current.active = false;
+      authoritativeOverviewToHeroTransitionRef.current.active = false;
+      console.log('[camera-core-owner] transition start', { type, from: coreTransition.fromPose.position.toArray(), to: coreTransition.toPose.position.toArray() });
+    }
+
+    if (coreTransition.active) {
+      const elapsed = state.clock.elapsedTime - coreTransition.startedAt;
+      const raw = THREE.MathUtils.clamp(elapsed / coreTransition.duration, 0, 1);
+      coreTransition.progress = raw;
+      const pose = interpolateCameraPose(coreTransition.fromPose, coreTransition.toPose, raw);
+      applyCameraPose(pose);
+      const bucket = Math.floor(raw * 4);
+      if (bucket !== coreTransition.lastSampleBucket && bucket < 4) {
+        coreTransition.lastSampleBucket = bucket;
+        console.log('[camera-core-owner] transition frame sample', { type: coreTransition.type, progress: Number(raw.toFixed(3)) });
+      }
+      if (raw >= 1) {
+        applyCameraPose(coreTransition.toPose);
+        if (coreTransition.type === 'overviewToHero') {
+          heroOrbitStartTimeRef.current = state.clock.elapsedTime;
+          isOrbitingRef.current = false;
+        }
+        console.log('[camera-core-owner] transition complete', { type: coreTransition.type, final: coreTransition.toPose.position.toArray() });
+        coreTransition.active = false;
+        coreTransition.type = null;
+      }
+      console.log('[camera-core-owner] suppressed writer', { writer: 'legacy-nav-writers', type: coreTransition.type });
+      return;
+    }
 
     const v2CameraModeEnabled = (() => {
       if (typeof globalThis === 'undefined') return true;
