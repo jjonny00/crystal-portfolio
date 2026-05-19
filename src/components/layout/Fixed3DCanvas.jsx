@@ -25,6 +25,8 @@ import { isIOS26 } from '../../utils/isIOS26';
 import { facetKeys as canonicalFacetKeys, getProjectIdBySceneFacetKey } from '../../data/projects';
 import { useLayoutConfig } from '../../hooks/useLayoutConfig';
 import { useHeroOverviewRuntime } from '../../hooks/useHeroOverviewRuntime';
+import { resolveCameraDestination } from '../../camera/destinationResolver';
+import { compareCameraPoses } from '../../camera/cameraPoseCompare';
 
 function createSanitizePass() {
   const material = new ShaderMaterial({
@@ -600,6 +602,60 @@ const Fixed3DCanvas = forwardRef(({
     lastHeroOverviewZoneRef.current = toZone;
   }, [animationData?.currentZone, heroOverviewRuntime]);
 
+
+  const destinationCompareStoreRef = useRef({ byKey: {}, order: [] });
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+
+    const destination = animationData?.cameraState === 'caseStudy'
+      ? 'caseStudy'
+      : (animationData?.cameraState === 'project' ? 'project' : animationData?.cameraState);
+
+    if (!destination) return;
+
+    const compareKey = `${destination}|${animationData?.focusedProject || 'none'}|${animationData?.viewMode || 'none'}|${isMobile ? 'mobile' : 'desktop'}`;
+    if (destinationCompareStoreRef.current.byKey[compareKey]) return;
+
+    const legacyPose = {
+      position: animationData?.cameraConfig?.position?.toArray?.() || null,
+      lookAt: animationData?.cameraConfig?.target?.toArray?.() || null,
+      fov: animationData?.cameraConfig?.fov ?? 45,
+      filmOffset: cameraMergedConfig?.cameraComposition?.hero?.filmOffsetX ?? 0,
+    };
+
+    const resolvedPose = resolveCameraDestination({
+      destination,
+      projectId: animationData?.focusedProject || null,
+      mode: animationData?.viewMode === 'caseStudy' ? 'caseStudy' : 'selected',
+      config: cameraMergedConfig,
+      animationData,
+      isMobile,
+    });
+
+    const result = compareCameraPoses(legacyPose, resolvedPose);
+    const entry = { compareKey, destination, projectId: animationData?.focusedProject || null, result, resolvedMeta: resolvedPose.meta };
+    destinationCompareStoreRef.current.byKey[compareKey] = entry;
+    destinationCompareStoreRef.current.order.push(compareKey);
+
+    if (globalThis.__CAMERA_DESTINATION_COMPARE_VERBOSE__ === true) {
+      console.log('[camera-destination-compare]', entry);
+    }
+
+    if (!globalThis.__printCameraDestinationCompareSummary) {
+      globalThis.__printCameraDestinationCompareSummary = () => {
+        const list = destinationCompareStoreRef.current.order.map((k) => destinationCompareStoreRef.current.byKey[k]);
+        console.table(list.map((row) => ({ key: row.compareKey, destination: row.destination, projectId: row.projectId, status: row.result.status, mismatchedFields: row.result.mismatchedFields, positionDelta: row.result.positionDelta, lookAtDelta: row.result.lookAtDelta, fovDelta: row.result.fovDelta, filmOffsetDelta: row.result.filmOffsetDelta })));
+      };
+    }
+
+    if (!globalThis.__printCameraDestinationCompareDetails) {
+      globalThis.__printCameraDestinationCompareDetails = () => {
+        const list = destinationCompareStoreRef.current.order.map((k) => destinationCompareStoreRef.current.byKey[k]);
+        console.log('[camera-destination-compare:details]', list);
+      };
+    }
+  }, [animationData?.cameraState, animationData?.focusedProject, animationData?.viewMode, animationData?.cameraConfig, cameraMergedConfig, isMobile]);
   // FIXED: Function to get facet refs from crystal scene with proper access
   const initialCameraPosition =
     cameraMergedConfig?.cameraPositions?.intro || config?.camera?.startingPosition || [0, 0, 4.5];
