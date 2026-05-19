@@ -6,6 +6,8 @@ import { useThree, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { facetKeys as canonicalFacetKeys, getSceneFacetKeyByProjectId } from '../../data/projects';
 import { createLogger } from '../../utils/logger';
+import { resolveCameraDestination } from '../../camera/cameraDestinations';
+import { compareCameraPoses, isCameraPoseMatch } from '../../camera/cameraPoseCompare';
 
 const logger = createLogger('unified-camera-controller');
 
@@ -65,6 +67,8 @@ const UnifiedCameraController = ({
   const lastCameraConfig = useRef(null);
   const cameraMoveBaselineRef = useRef({ position: 0, lookAt: 0, fov: 0 });
   const cameraMoveProgressRef = useRef(1);
+
+  const compareLogKeyRef = useRef(null);
   const projectTargetLockRef = useRef({
     facetKey: null,
     target: null,
@@ -1258,6 +1262,56 @@ const UnifiedCameraController = ({
       
       if (enhancedConfig.fov !== undefined) {
         currentTarget.current.fov = enhancedConfig.fov;
+      }
+
+      if (import.meta.env.DEV) {
+        const destination = cameraState;
+        const compareEligible = destination === 'hero' || destination === 'overview' || destination === 'about' || destination === 'project' || destination === 'caseStudy';
+        if (compareEligible) {
+          const resolverMode = destination === 'caseStudy' ? 'caseStudy' : 'selected';
+          const resolved = resolveCameraDestination({
+            destination,
+            projectId: focusedProject,
+            mode: resolverMode,
+            config,
+            animationData,
+            isMobile
+          });
+
+          const legacyPose = {
+            position: finalPosition?.toArray?.() ?? null,
+            lookAt: finalTarget?.toArray?.() ?? null,
+            fov: enhancedConfig?.fov ?? null,
+            filmOffset: destination === 'hero' ? (config?.cameraComposition?.hero?.filmOffsetX ?? 0) : 0
+          };
+          const delta = compareCameraPoses(legacyPose, resolved?.pose);
+          const matches = isCameraPoseMatch(delta);
+          const key = `${destination}:${focusedProject ?? 'none'}:${resolverMode}`;
+          const changed = compareLogKeyRef.current !== key;
+          const exceeds = !matches;
+
+          if (changed || exceeds) {
+            compareLogKeyRef.current = key;
+            const payload = {
+              destination,
+              projectId: focusedProject ?? null,
+              legacyPose,
+              newResolverPose: resolved?.pose ?? null,
+              positionDelta: delta.positionDelta,
+              lookAtDelta: delta.lookAtDelta,
+              fovDelta: delta.fovDelta,
+              filmOffsetDelta: delta.filmOffsetDelta,
+              likelyMissingSource: {
+                usedGlobalOffsets: resolved?.source?.usedGlobalOffsets ?? false,
+                usedZoneOffsets: resolved?.source?.usedZoneOffsets ?? false,
+                usedProjectCameraSettings: resolved?.source?.usedProjectCameraSettings ?? false,
+                heroFilmOffset: destination === 'hero'
+              }
+            };
+            if (matches) console.log('[camera-destination-compare] match', payload);
+            else console.warn('[camera-destination-compare] mismatch', payload);
+          }
+        }
       }
 
       const shouldRunIntro =
