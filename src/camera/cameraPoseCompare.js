@@ -23,11 +23,28 @@ export const compareCameraPoses = (legacyPose, resolvedPose) => {
 };
 
 export const isCameraPoseMatch = (delta, thresholds = {}) => {
-  const t = { position: 0.001, lookAt: 0.001, fov: 0.01, filmOffset: 0.01, ...thresholds };
+  const t = { ...CAMERA_COMPARE_THRESHOLDS, ...thresholds };
   return (
     delta.positionDelta <= t.position &&
     delta.lookAtDelta <= t.lookAt &&
     delta.fovDelta <= t.fov &&
     delta.filmOffsetDelta <= t.filmOffset
   );
+};
+
+
+export const CAMERA_COMPARE_THRESHOLDS = Object.freeze({
+  position: 0.001,
+  lookAt: 0.001,
+  fov: 0.001,
+  filmOffset: 0.001
+});
+
+export const getMismatchedFields = (delta, thresholds = CAMERA_COMPARE_THRESHOLDS) => {
+  const mismatchedFields = [];
+  if (delta.positionDelta > thresholds.position) mismatchedFields.push('position');
+  if (delta.lookAtDelta > thresholds.lookAt) mismatchedFields.push('lookAt');
+  if (delta.fovDelta > thresholds.fov) mismatchedFields.push('fov');
+  if (delta.filmOffsetDelta > thresholds.filmOffset) mismatchedFields.push('filmOffset');
+  return mismatchedFields;
 };

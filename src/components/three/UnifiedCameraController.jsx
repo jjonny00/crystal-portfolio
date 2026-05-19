@@ -7,7 +7,7 @@ import * as THREE from 'three';
 import { facetKeys as canonicalFacetKeys, getSceneFacetKeyByProjectId } from '../../data/projects';
 import { createLogger } from '../../utils/logger';
 import { resolveCameraDestination } from '../../camera/cameraDestinations';
-import { compareCameraPoses, isCameraPoseMatch } from '../../camera/cameraPoseCompare';
+import { compareCameraPoses, isCameraPoseMatch, getMismatchedFields, CAMERA_COMPARE_THRESHOLDS } from '../../camera/cameraPoseCompare';
 
 const logger = createLogger('unified-camera-controller');
 
@@ -69,6 +69,17 @@ const UnifiedCameraController = ({
   const cameraMoveProgressRef = useRef(1);
 
   const compareLogKeyRef = useRef(null);
+  const compareLogFingerprintRef = useRef(null);
+  const compareSummaryRef = useRef({
+    totalCompared: 0,
+    matches: 0,
+    mismatches: 0,
+    mismatchedDestinations: new Set(),
+    largestPositionDelta: 0,
+    largestLookAtDelta: 0,
+    largestFovDelta: 0,
+    largestFilmOffsetDelta: 0
+  });
   const projectTargetLockRef = useRef({
     facetKey: null,
     target: null,
@@ -1285,31 +1296,60 @@ const UnifiedCameraController = ({
             filmOffset: destination === 'hero' ? (config?.cameraComposition?.hero?.filmOffsetX ?? 0) : 0
           };
           const delta = compareCameraPoses(legacyPose, resolved?.pose);
-          const matches = isCameraPoseMatch(delta);
+          const matches = isCameraPoseMatch(delta, CAMERA_COMPARE_THRESHOLDS);
+          const mismatchedFields = getMismatchedFields(delta, CAMERA_COMPARE_THRESHOLDS);
           const key = `${destination}:${focusedProject ?? 'none'}:${resolverMode}`;
-          const changed = compareLogKeyRef.current !== key;
-          const exceeds = !matches;
+          const fingerprint = `${key}:${mismatchedFields.join('|') || 'none'}`;
+          const shouldLog = compareLogKeyRef.current !== key || compareLogFingerprintRef.current !== fingerprint;
 
-          if (changed || exceeds) {
+          const summary = compareSummaryRef.current;
+          summary.totalCompared += 1;
+          if (matches) summary.matches += 1;
+          else {
+            summary.mismatches += 1;
+            summary.mismatchedDestinations.add(destination);
+          }
+          summary.largestPositionDelta = Math.max(summary.largestPositionDelta, delta.positionDelta);
+          summary.largestLookAtDelta = Math.max(summary.largestLookAtDelta, delta.lookAtDelta);
+          summary.largestFovDelta = Math.max(summary.largestFovDelta, delta.fovDelta);
+          summary.largestFilmOffsetDelta = Math.max(summary.largestFilmOffsetDelta, delta.filmOffsetDelta);
+
+          if (shouldLog) {
             compareLogKeyRef.current = key;
+            compareLogFingerprintRef.current = fingerprint;
             const payload = {
               destination,
               projectId: focusedProject ?? null,
-              legacyPose,
-              newResolverPose: resolved?.pose ?? null,
+              mismatchedFields,
               positionDelta: delta.positionDelta,
               lookAtDelta: delta.lookAtDelta,
               fovDelta: delta.fovDelta,
               filmOffsetDelta: delta.filmOffsetDelta,
-              likelyMissingSource: {
-                usedGlobalOffsets: resolved?.source?.usedGlobalOffsets ?? false,
-                usedZoneOffsets: resolved?.source?.usedZoneOffsets ?? false,
-                usedProjectCameraSettings: resolved?.source?.usedProjectCameraSettings ?? false,
-                heroFilmOffset: destination === 'hero'
+              likelySourceHints: {
+                globalOffset: resolved?.source?.usedGlobalOffsets ?? false,
+                zoneOffset: resolved?.source?.usedZoneOffsets ?? false,
+                projectCameraSettings: resolved?.source?.usedProjectCameraSettings ?? false,
+                filmOffset: destination === 'hero'
               }
             };
+            if (globalThis.__CAMERA_DESTINATION_COMPARE_VERBOSE__ === true) {
+              payload.legacyPose = legacyPose;
+              payload.newResolverPose = resolved?.pose ?? null;
+            }
             if (matches) console.log('[camera-destination-compare] match', payload);
             else console.warn('[camera-destination-compare] mismatch', payload);
+
+            console.log('[camera-destination-compare] summary', {
+              totalCompared: summary.totalCompared,
+              matches: summary.matches,
+              mismatches: summary.mismatches,
+              mismatchedDestinations: Array.from(summary.mismatchedDestinations),
+              largestPositionDelta: summary.largestPositionDelta,
+              largestLookAtDelta: summary.largestLookAtDelta,
+              largestFovDelta: summary.largestFovDelta,
+              largestFilmOffsetDelta: summary.largestFilmOffsetDelta,
+              thresholds: CAMERA_COMPARE_THRESHOLDS
+            });
           }
         }
       }
