@@ -684,12 +684,18 @@ const Fixed3DCanvas = forwardRef(({
     const compareContext = {
       destination,
       activeCameraState: animationData?.cameraState || null,
-      viewMode: animationData?.viewMode || null,
+      activeViewMode: animationData?.viewMode || null,
       focusedProject: animationData?.focusedProject || null,
       device: isMobile ? 'mobile' : 'desktop',
     };
 
     const destinationMatchesActiveContext = destination === compareContext.activeCameraState;
+    const destinationCompatibleWithViewMode =
+      destination === 'caseStudy'
+        ? compareContext.activeViewMode === 'caseStudy'
+        : destination === 'project'
+          ? (compareContext.activeViewMode === 'project' || compareContext.activeViewMode === 'caseStudy')
+          : compareContext.activeViewMode !== 'caseStudy';
 
     const resolvedPose = resolveCameraDestination({
       destination,
@@ -700,8 +706,8 @@ const Fixed3DCanvas = forwardRef(({
       isMobile,
     });
 
-    const compareValid = destinationMatchesActiveContext && Boolean(legacyResolution?.available);
-    const compareOptions = !destinationMatchesActiveContext
+    const compareValid = destinationMatchesActiveContext && destinationCompatibleWithViewMode && Boolean(legacyResolution?.available);
+    const compareOptions = (!destinationMatchesActiveContext || !destinationCompatibleWithViewMode)
       ? { skip: true, reason: 'context-mismatch' }
       : (!legacyResolution?.available
         ? { skip: false }
@@ -730,8 +736,12 @@ const Fixed3DCanvas = forwardRef(({
       compareValid,
       compareContext,
       destinationMatchesActiveContext,
+      destinationCompatibleWithViewMode,
+      activeViewMode: animationData?.viewMode || null,
       currentState: animationData?.state || null,
       currentZone: animationData?.currentZone || null,
+      skipReason: result.status === 'skipped' ? (result.reason || 'context-mismatch') : '',
+      unresolvedReason: result.status === 'unresolved' ? (result.reason || 'legacy-destination-pose-unavailable') : '',
       resolvedMeta: resolvedPose.meta,
     };
     destinationCompareStoreRef.current.byKey[compareKey] = entry;
