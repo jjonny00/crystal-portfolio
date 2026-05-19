@@ -38,6 +38,7 @@ import PerformanceDebugPanel from './components/ui/PerformanceDebugPanel';
 import * as defaultConfig from './crystalConfig';
 
 import { isMobileDevice } from './utils/isMobileDevice.js';
+import { createNavigationIntentRequester, NAV_DESTINATIONS } from './navigation/navigationIntent';
 
 const projectKeys = ['empathy', 'narrative', 'craft', 'system', 'leadership', 'exploration'];
 const zoneKeys = ['intro', 'hero', 'overview', 'about'];
