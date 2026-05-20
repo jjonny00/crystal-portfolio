@@ -9,6 +9,8 @@ import { createLogger } from '../../utils/logger';
 
 const logger = createLogger('unified-camera-controller');
 
+const isUccVerboseLogsEnabled = () => Boolean(globalThis?.__UCC_VERBOSE_LOGS__);
+
 const UnifiedCameraController = ({
   animationData,
   config,
@@ -1410,7 +1412,7 @@ const UnifiedCameraController = ({
     if ((forcedHeroToOverviewActive || forcedOverviewToHeroActive) &&
       branch !== 'FORCED_HERO_TO_OVERVIEW' &&
       branch !== 'FORCED_OVERVIEW_TO_HERO') {
-      console.warn('[UCC FORCED TRANSITION EXCLUSIVITY]', {
+      if (isUccVerboseLogsEnabled()) console.warn('[UCC FORCED TRANSITION EXCLUSIVITY]', {
         activeForcedTransition: forcedHeroToOverviewActive ? 'hero_to_overview' : 'overview_to_hero',
         attemptedWriterBranch: branch,
         reason,
@@ -3102,7 +3104,7 @@ const UnifiedCameraController = ({
     camera.fov += fovDiff * clampedSmoothing;
     camera.updateProjectionMatrix();
     logCameraWrite(state, animationData?.cameraState === "hero" ? "HERO_IDLE" : "FALLBACK", "smoothed-update", newLookAt, true, false);
-    console.log('[UCC END FRAME]', { elapsed: state.clock.elapsedTime, finalCameraPosition: camera.position.toArray(), finalFilmOffset: camera.filmOffset, finalWriter: lastCameraWriterRef.current });
+    if (isUccVerboseLogsEnabled()) console.log('[UCC END FRAME]', { elapsed: state.clock.elapsedTime, finalCameraPosition: camera.position.toArray(), finalFilmOffset: camera.filmOffset, finalWriter: lastCameraWriterRef.current });
 
     // Check if camera has settled at target
     const positionDiff = camera.position.distanceTo(currentTarget.current.position);

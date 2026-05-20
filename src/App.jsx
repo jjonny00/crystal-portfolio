@@ -1,6 +1,6 @@
 // src/App.jsx - UPDATED: Integration with V2 performance and loading system
 
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import './styles/scroll-snap.css';
 
 // UPDATED: Import V2 systems
@@ -38,6 +38,10 @@ import PerformanceDebugPanel from './components/ui/PerformanceDebugPanel';
 import * as defaultConfig from './crystalConfig';
 
 import { isMobileDevice } from './utils/isMobileDevice.js';
+import {
+  NAVIGATION_DESTINATIONS,
+  createNavigationIntentRequester,
+} from './navigation/navigationIntent';
 
 const projectKeys = ['empathy', 'narrative', 'craft', 'system', 'leadership', 'exploration'];
 const zoneKeys = ['intro', 'hero', 'overview', 'about'];
@@ -562,20 +566,57 @@ function App() {
     target.scrollIntoView({ behavior, block: 'start' });
   }, []);
 
+  const requestNavigationIntent = useMemo(() => createNavigationIntentRequester({
+    onDestinationChange: (nextDestination) => {
+      if (!import.meta.env.DEV) return;
+      console.log('[navigation-intent] destination', nextDestination);
+    },
+    onIntent: (intent) => {
+      if (intent.destination === NAVIGATION_DESTINATIONS.HERO) {
+        fixedCanvasRef.current?.directSelectZone?.('hero');
+        scrollToSection('hero', intent.behavior);
+        return;
+      }
+
+      if (intent.destination === NAVIGATION_DESTINATIONS.OVERVIEW) {
+        fixedCanvasRef.current?.directSelectZone?.('overview');
+        scrollToSection('overview', intent.behavior);
+        return;
+      }
+
+      if (intent.destination === NAVIGATION_DESTINATIONS.ABOUT) {
+        fixedCanvasRef.current?.directSelectZone?.('about');
+        scrollToSection('about', intent.behavior);
+      }
+    },
+  }), [scrollToSection]);
+
   const handleHomeClick = useCallback(() => {
-    fixedCanvasRef.current?.directSelectZone?.('hero');
-    scrollToSection('hero', 'auto');
-  }, [scrollToSection]);
+    requestNavigationIntent({
+      destination: NAVIGATION_DESTINATIONS.HERO,
+      source: 'top-nav-logo',
+      behavior: 'auto',
+      legacyAction: 'directSelectZone+scrollToSection',
+    });
+  }, [requestNavigationIntent]);
 
   const handleWorkClick = useCallback(() => {
-    fixedCanvasRef.current?.directSelectZone?.('overview');
-    scrollToSection('overview', 'auto');
-  }, [scrollToSection]);
+    requestNavigationIntent({
+      destination: NAVIGATION_DESTINATIONS.OVERVIEW,
+      source: 'top-nav-work',
+      behavior: 'auto',
+      legacyAction: 'directSelectZone+scrollToSection',
+    });
+  }, [requestNavigationIntent]);
 
   const handleAboutClick = useCallback(() => {
-    fixedCanvasRef.current?.directSelectZone?.('about');
-    scrollToSection('about', 'auto');
-  }, [scrollToSection]);
+    requestNavigationIntent({
+      destination: NAVIGATION_DESTINATIONS.ABOUT,
+      source: 'top-nav-about',
+      behavior: 'auto',
+      legacyAction: 'directSelectZone+scrollToSection',
+    });
+  }, [requestNavigationIntent]);
 
   const handleContactClick = useCallback(() => {}, []);
 

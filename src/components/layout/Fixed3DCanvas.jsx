@@ -25,6 +25,8 @@ import { isIOS26 } from '../../utils/isIOS26';
 import { facetKeys as canonicalFacetKeys, getProjectIdBySceneFacetKey } from '../../data/projects';
 import { useLayoutConfig } from '../../hooks/useLayoutConfig';
 import { useHeroOverviewRuntime } from '../../hooks/useHeroOverviewRuntime';
+import { resolveCameraDestination } from '../../camera/destinationResolver';
+import { compareCameraPoses } from '../../camera/cameraPoseCompare';
 
 function createSanitizePass() {
   const material = new ShaderMaterial({
@@ -600,6 +602,178 @@ const Fixed3DCanvas = forwardRef(({
     lastHeroOverviewZoneRef.current = toZone;
   }, [animationData?.currentZone, heroOverviewRuntime]);
 
+
+  const destinationCompareStoreRef = useRef({ byKey: {}, order: [] });
+
+  const resolveLegacyDestinationPose = useCallback((destination, projectId, mode) => {
+    const globalOffsetPos = cameraMergedConfig?.cameraOffsets?.global?.position || [0, 0, 0];
+    const globalOffsetTarget = cameraMergedConfig?.cameraOffsets?.global?.target || [0, 0, 0];
+    const add = (a = [0, 0, 0], b = [0, 0, 0]) => [
+      (a[0] || 0) + (b[0] || 0),
+      (a[1] || 0) + (b[1] || 0),
+      (a[2] || 0) + (b[2] || 0),
+    ];
+
+    if (destination === 'project' || destination === 'caseStudy') {
+      const deviceKey = isMobile ? 'mobile' : 'desktop';
+      const branchMode = destination === 'caseStudy' ? 'caseStudy' : mode;
+      const branch = cameraMergedConfig?.projectCameraSettings?.[projectId]?.[deviceKey]?.[branchMode];
+      if (!branch?.position || !branch?.target) {
+        return {
+          available: false,
+          legacySource: 'projectCameraSettings (missing branch)',
+          unresolvedReason: 'legacy-destination-pose-unavailable',
+        };
+      }
+      return {
+        available: true,
+        legacySource: `projectCameraSettings.${deviceKey}.${branchMode}`,
+        pose: {
+          position: add(branch.position, globalOffsetPos),
+          lookAt: add(branch.target, globalOffsetTarget),
+          fov: 45,
+          filmOffset: cameraMergedConfig?.cameraComposition?.hero?.filmOffsetX ?? 0,
+        },
+      };
+    }
+
+    const position = cameraMergedConfig?.cameraPositions?.[destination];
+    const lookAt = cameraMergedConfig?.cameraTargets?.[destination];
+    if (!position || !lookAt) {
+      return {
+        available: false,
+        legacySource: 'cameraPositions/cameraTargets (missing zone pose)',
+        unresolvedReason: 'legacy-destination-pose-unavailable',
+      };
+    }
+
+    const zoneOffsetPos = cameraMergedConfig?.cameraOffsets?.zones?.[destination]?.position || [0, 0, 0];
+    const zoneOffsetTarget = cameraMergedConfig?.cameraOffsets?.zones?.[destination]?.target || [0, 0, 0];
+
+    return {
+      available: true,
+      legacySource: `cameraPositions/cameraTargets.zone.${destination}`,
+      pose: {
+        position: add(add(position, globalOffsetPos), zoneOffsetPos),
+        lookAt: add(add(lookAt, globalOffsetTarget), zoneOffsetTarget),
+        fov: 45,
+        filmOffset: cameraMergedConfig?.cameraComposition?.hero?.filmOffsetX ?? 0,
+      },
+    };
+  }, [cameraMergedConfig, isMobile]);
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+
+    const destination = animationData?.cameraState === 'caseStudy'
+      ? 'caseStudy'
+      : (animationData?.cameraState === 'project' ? 'project' : animationData?.cameraState);
+
+    if (!destination) return;
+
+    const compareKey = `${destination}|${animationData?.focusedProject || 'none'}|${animationData?.viewMode || 'none'}|${isMobile ? 'mobile' : 'desktop'}`;
+    if (destinationCompareStoreRef.current.byKey[compareKey]) return;
+
+    const legacyResolution = resolveLegacyDestinationPose(
+      destination,
+      animationData?.focusedProject || null,
+      animationData?.viewMode === 'caseStudy' ? 'caseStudy' : 'selected',
+    );
+    const legacyPose = legacyResolution?.pose || null;
+
+    const compareContext = {
+      destination,
+      activeCameraState: animationData?.cameraState || null,
+      activeViewMode: animationData?.viewMode || null,
+      focusedProject: animationData?.focusedProject || null,
+      device: isMobile ? 'mobile' : 'desktop',
+    };
+
+    const destinationMatchesActiveContext = destination === compareContext.activeCameraState;
+    const destinationCompatibleWithViewMode =
+      destination === 'caseStudy'
+        ? compareContext.activeViewMode === 'caseStudy'
+        : destination === 'project'
+          ? (compareContext.activeViewMode === 'project' || compareContext.activeViewMode === 'caseStudy')
+          : compareContext.activeViewMode !== 'caseStudy';
+
+    const resolvedPose = resolveCameraDestination({
+      destination,
+      projectId: animationData?.focusedProject || null,
+      mode: animationData?.viewMode === 'caseStudy' ? 'caseStudy' : 'selected',
+      config: cameraMergedConfig,
+      animationData,
+      isMobile,
+    });
+
+    const compareValid = destinationMatchesActiveContext && destinationCompatibleWithViewMode && Boolean(legacyResolution?.available);
+    const compareOptions = (!destinationMatchesActiveContext || !destinationCompatibleWithViewMode)
+      ? { skip: true, reason: 'context-mismatch' }
+      : (!legacyResolution?.available
+        ? { skip: false }
+        : {});
+
+    const result = legacyResolution?.available
+      ? compareCameraPoses(legacyPose, resolvedPose, {}, compareOptions)
+      : {
+        status: 'unresolved',
+        invalidSide: 'legacy',
+        reason: legacyResolution?.unresolvedReason || 'legacy-destination-pose-unavailable',
+        positionDelta: 0,
+        lookAtDelta: 0,
+        fovDelta: 0,
+        filmOffsetDelta: 0,
+        mismatchedFields: 'none',
+      };
+    const entry = {
+      compareKey,
+      destination,
+      projectId: animationData?.focusedProject || null,
+      result,
+      legacySource: legacyResolution?.legacySource || 'legacy-pose-unavailable',
+      legacySourceIsDestinationSpecific: Boolean(legacyResolution?.available),
+      resolverSource: resolvedPose.meta?.source || 'resolver',
+      compareValid,
+      compareContext,
+      destinationMatchesActiveContext,
+      destinationCompatibleWithViewMode,
+      activeViewMode: animationData?.viewMode || null,
+      currentState: animationData?.state || null,
+      currentZone: animationData?.currentZone || null,
+      skipReason: result.status === 'skipped' ? (result.reason || 'context-mismatch') : '',
+      unresolvedReason: result.status === 'unresolved' ? (result.reason || 'legacy-destination-pose-unavailable') : '',
+      resolvedMeta: resolvedPose.meta,
+    };
+    destinationCompareStoreRef.current.byKey[compareKey] = entry;
+    destinationCompareStoreRef.current.order.push(compareKey);
+
+    if (globalThis.__CAMERA_DESTINATION_COMPARE_VERBOSE__ === true) {
+      console.log('[camera-destination-compare]', entry);
+    }
+
+    if (!globalThis.__printCameraDestinationCompareSummary) {
+      globalThis.__printCameraDestinationCompareSummary = () => {
+        const list = destinationCompareStoreRef.current.order.map((k) => destinationCompareStoreRef.current.byKey[k]);
+        console.table(list.map((row) => ({ key: row.compareKey, destination: row.destination, projectId: row.projectId, status: row.result.status, mismatchedFields: row.result.mismatchedFields, positionDelta: row.result.positionDelta, lookAtDelta: row.result.lookAtDelta, fovDelta: row.result.fovDelta, filmOffsetDelta: row.result.filmOffsetDelta })));
+      };
+    }
+
+    if (!globalThis.__printCameraDestinationCompareDetails) {
+      globalThis.__printCameraDestinationCompareDetails = () => {
+        const list = destinationCompareStoreRef.current.order.map((k) => destinationCompareStoreRef.current.byKey[k]);
+        const summary = {
+          total: list.length,
+          validCompared: list.filter((r) => r.compareValid).length,
+          matches: list.filter((r) => r.result.status === 'match').length,
+          mismatches: list.filter((r) => r.result.status === 'mismatch').length,
+          unresolved: list.filter((r) => r.result.status === 'unresolved').length,
+          skippedInvalidContext: list.filter((r) => r.result.status === 'skipped').length,
+        };
+        console.log('[camera-destination-compare:summary]', summary);
+        console.log('[camera-destination-compare:details]', list);
+      };
+    }
+  }, [animationData?.cameraState, animationData?.focusedProject, animationData?.viewMode, animationData?.cameraConfig, cameraMergedConfig, isMobile]);
   // FIXED: Function to get facet refs from crystal scene with proper access
   const initialCameraPosition =
     cameraMergedConfig?.cameraPositions?.intro || config?.camera?.startingPosition || [0, 0, 4.5];
