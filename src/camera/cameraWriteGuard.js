@@ -15,6 +15,8 @@ const buildInitialState = () => ({
   topWriterIds: {},
   highRiskFlowsObserved: {},
   conflictDetails: new Map(),
+  nextConflictId: 1,
+  frameSequence: 0,
   warned: new Set(),
 });
 
@@ -46,8 +48,16 @@ const toSummaryConflictDetails = () => {
 export const beginCameraFrame = DEV
   ? (frameId, context = {}) => {
       if (state.activeFrame) endCameraFrame(state.activeFrame.frameId);
-      state.activeFrame = { frameId, context, writesByCategory: new Map() };
       state.totalFramesObserved += 1;
+      state.frameSequence += 1;
+      const resolvedFrameId = frameId ?? `frame-seq-${state.frameSequence}`;
+      state.activeFrame = {
+        frameId: resolvedFrameId,
+        rawFrameId: frameId ?? null,
+        frameSequence: state.frameSequence,
+        context,
+        writesByCategory: new Map(),
+      };
     }
   : noop;
 
@@ -100,8 +110,10 @@ export const recordCameraWrite = DEV
           const existingDetail = state.conflictDetails.get(detailKey);
           if (existingDetail) {
             existingDetail.count += 1;
+            existingDetail.lastSeenFrame = state.activeFrame.frameId;
           } else {
             state.conflictDetails.set(detailKey, {
+              conflictId: state.nextConflictId++,
               frameId: state.activeFrame.frameId,
               state: animState || 'unknown',
               cameraState: cameraState || 'unknown',
@@ -115,6 +127,8 @@ export const recordCameraWrite = DEV
               writerBReason: categoryMap.get(writerB) || 'unknown',
               transitionOrPhase: transitionKey,
               firstSeenAt: state.totalFramesObserved,
+              firstSeenFrame: state.activeFrame.frameId,
+              lastSeenFrame: state.activeFrame.frameId,
               count: 1,
             });
           }

@@ -16,3 +16,8 @@ This document captures observed writer conflicts from the DEV camera write guard
 - This matrix is intentionally forward-looking and does **not** alter current runtime behavior.
 - Known bugs (Hero→Overview blip and About-path issues) remain out of scope in this phase.
 - Any future suppression PR should reference this matrix and the guard detail output before changing ownership.
+
+
+## Highest-priority clusters
+1. `AUTHORITATIVE_HERO <> heroOrbit`
+2. `FORCED_OVERVIEW_TO_HERO <> authoritativeOverviewToHero`

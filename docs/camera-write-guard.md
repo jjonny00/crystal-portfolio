@@ -69,3 +69,8 @@ This creates ownership visibility needed for a later suppression matrix rollout,
 - `transitionOrPhase`
 - `firstSeenAt`
 - `count`
+- `conflictId`
+- `firstSeenFrame`
+- `lastSeenFrame`
+
+If the renderer frame counter is unavailable, the guard uses a stable fallback key (`frame-seq-N`) so rows never show an undefined frame identifier.
