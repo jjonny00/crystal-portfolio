@@ -225,6 +225,7 @@ const UnifiedCameraController = ({
     completedLogged: false,
   });
   const lastOverviewToProjectKeyRef = useRef(null);
+  const blockedOverviewToProjectKeyRef = useRef(null);
 
   const isOverviewToProjectPilotEnabled = () => {
     if (typeof globalThis?.__ENABLE_CAMERA_DIRECTOR_OVERVIEW_TO_PROJECT__ === 'boolean') {
@@ -1574,12 +1575,33 @@ const UnifiedCameraController = ({
     const focusedProject = animationData?.focusedProject ?? null;
     const cameFromOverview = prevCameraState === 'overview';
     const enteredProject = nextCameraState === 'project';
+    const returnedToOverview = nextCameraState === 'overview' && prevCameraState !== 'overview';
+    if (returnedToOverview) {
+      lastOverviewToProjectKeyRef.current = null;
+      blockedOverviewToProjectKeyRef.current = null;
+    }
+    const transitionKey = [
+      'overview-to-project',
+      prevState ?? 'none',
+      prevCameraState ?? 'none',
+      nextState ?? 'none',
+      nextCameraState ?? 'none',
+      focusedProject ?? 'none',
+    ].join(':');
+    const alreadyHandledSameContext = lastOverviewToProjectKeyRef.current === transitionKey;
+    const isBlockedRepeatWhileInProject =
+      nextCameraState === 'project' &&
+      prevCameraState === 'project' &&
+      Boolean(focusedProject) &&
+      lastOverviewToProjectKeyRef.current?.endsWith(`:${focusedProject}`);
     const shouldStartOverviewToProjectPilot =
       isOverviewToProjectPilotEnabled() &&
       !cameraDirectorPilotRef.current.active &&
       cameFromOverview &&
       enteredProject &&
-      Boolean(focusedProject);
+      Boolean(focusedProject) &&
+      !alreadyHandledSameContext &&
+      !isBlockedRepeatWhileInProject;
 
     if (shouldStartOverviewToProjectPilot) {
       const fromLookAt = currentTarget.current?.lookAt
@@ -1615,7 +1637,7 @@ const UnifiedCameraController = ({
           filmOffset: Number.isFinite(destination.filmOffset) ? destination.filmOffset : 0,
         };
         const transition = createCameraDirectorPilotTransition({
-          id: `overview-to-project:${focusedProject}`,
+          id: transitionKey,
           fromPose,
           toPose,
           startedAt: state.clock.elapsedTime,
@@ -1629,14 +1651,29 @@ const UnifiedCameraController = ({
           selectedProject: focusedProject,
           completedLogged: false,
         };
-        lastOverviewToProjectKeyRef.current = transition.id;
+        blockedOverviewToProjectKeyRef.current = null;
         if (import.meta.env.DEV) {
           console.log('[camera-director-pilot] overview-to-project start', {
             projectId: focusedProject,
+            transitionKey,
             fromState: prevCameraState,
             toState: nextCameraState,
           });
         }
+      }
+    } else if (
+      isOverviewToProjectPilotEnabled() &&
+      cameFromOverview &&
+      enteredProject &&
+      Boolean(focusedProject) &&
+      (alreadyHandledSameContext || isBlockedRepeatWhileInProject)
+    ) {
+      if (import.meta.env.DEV && blockedOverviewToProjectKeyRef.current !== transitionKey) {
+        blockedOverviewToProjectKeyRef.current = transitionKey;
+        console.log('[camera-director-pilot] overview-to-project restart-blocked', {
+          projectId: focusedProject,
+          transitionKey,
+        });
       }
     }
     const isReturnToHero =
@@ -1685,6 +1722,7 @@ const UnifiedCameraController = ({
       if (step.complete && !pilot.completedLogged) {
         pilot.completedLogged = true;
         cameraDirectorPilotRef.current.active = false;
+        lastOverviewToProjectKeyRef.current = pilot.transition.id;
         if (import.meta.env.DEV) {
           console.log('[camera-director-pilot] overview-to-project complete', {
             projectId: pilot.selectedProject,
