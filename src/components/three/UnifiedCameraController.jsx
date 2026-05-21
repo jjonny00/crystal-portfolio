@@ -226,6 +226,7 @@ const UnifiedCameraController = ({
   });
   const lastOverviewToProjectKeyRef = useRef(null);
   const blockedOverviewToProjectKeyRef = useRef(null);
+  const startPoseLogKeyRef = useRef(null);
 
   const isOverviewToProjectPilotEnabled = () => {
     if (typeof globalThis?.__ENABLE_CAMERA_DIRECTOR_OVERVIEW_TO_PROJECT__ === 'boolean') {
@@ -1604,15 +1605,83 @@ const UnifiedCameraController = ({
       !isBlockedRepeatWhileInProject;
 
     if (shouldStartOverviewToProjectPilot) {
-      const fromLookAt = currentTarget.current?.lookAt
+      const liveLookAt = currentTarget.current?.lookAt
         ? currentTarget.current.lookAt.clone()
         : getCameraLookAtFromTransform();
-      const fromPose = {
+      const liveFromPose = {
         position: camera.position.clone(),
-        lookAt: fromLookAt.clone(),
+        lookAt: liveLookAt.clone(),
         fov: Number.isFinite(camera.fov) ? camera.fov : 45,
         filmOffset: Number.isFinite(camera.filmOffset) ? camera.filmOffset : 0,
       };
+      let fromPose = liveFromPose;
+      let fromPoseSource = 'live-camera';
+      const overviewResolved = resolveCameraDestination({
+        destination: 'overview',
+        config,
+        animationData,
+        isMobile,
+      });
+      const overviewPoseValid = !overviewResolved?.meta?.unresolved;
+      if (overviewPoseValid) {
+        const resolvedOverviewPose = {
+          position: new THREE.Vector3(...overviewResolved.position),
+          lookAt: new THREE.Vector3(...overviewResolved.lookAt),
+          fov: Number.isFinite(overviewResolved.fov) ? overviewResolved.fov : liveFromPose.fov,
+          filmOffset: Number.isFinite(overviewResolved.filmOffset) ? overviewResolved.filmOffset : 0,
+        };
+        const positionDelta = liveFromPose.position.distanceTo(resolvedOverviewPose.position);
+        const lookAtDelta = liveFromPose.lookAt.distanceTo(resolvedOverviewPose.lookAt);
+        const filmOffsetDelta = Math.abs(liveFromPose.filmOffset - resolvedOverviewPose.filmOffset);
+        const fovDelta = Math.abs(liveFromPose.fov - resolvedOverviewPose.fov);
+        const POSITION_DELTA_THRESHOLD = 0.18;
+        const LOOKAT_DELTA_THRESHOLD = 0.16;
+        const FILMOFFSET_DELTA_THRESHOLD = 0.12;
+        const FOV_DELTA_THRESHOLD = 0.6;
+        const liveIsContaminated =
+          positionDelta > POSITION_DELTA_THRESHOLD ||
+          lookAtDelta > LOOKAT_DELTA_THRESHOLD ||
+          filmOffsetDelta > FILMOFFSET_DELTA_THRESHOLD ||
+          fovDelta > FOV_DELTA_THRESHOLD;
+        if (liveIsContaminated) {
+          fromPose = resolvedOverviewPose;
+          fromPoseSource = 'resolved-overview';
+        }
+        if (import.meta.env.DEV && startPoseLogKeyRef.current !== transitionKey) {
+          startPoseLogKeyRef.current = transitionKey;
+          console.log('[camera-director-pilot] overview-to-project start-pose', {
+            projectId: focusedProject,
+            fromPoseSource,
+            livePose: {
+              position: liveFromPose.position.toArray(),
+              lookAt: liveFromPose.lookAt.toArray(),
+              fov: liveFromPose.fov,
+              filmOffset: liveFromPose.filmOffset,
+            },
+            resolvedOverviewPose: {
+              position: resolvedOverviewPose.position.toArray(),
+              lookAt: resolvedOverviewPose.lookAt.toArray(),
+              fov: resolvedOverviewPose.fov,
+              filmOffset: resolvedOverviewPose.filmOffset,
+            },
+            delta: {
+              position: positionDelta,
+              lookAt: lookAtDelta,
+              filmOffset: filmOffsetDelta,
+              fov: fovDelta,
+            },
+            selectedFromPoseSource: fromPoseSource,
+            transitionKey,
+          });
+        }
+      } else if (import.meta.env.DEV && startPoseLogKeyRef.current !== transitionKey) {
+        startPoseLogKeyRef.current = transitionKey;
+        console.log('[camera-director-pilot] overview-to-project fallback', {
+          reason: 'overview-pose-unresolved-live-used',
+          projectId: focusedProject,
+          transitionKey,
+        });
+      }
       const destination = resolveCameraDestination({
         destination: 'project',
         projectId: focusedProject,
@@ -1633,7 +1702,7 @@ const UnifiedCameraController = ({
         const toPose = {
           position: new THREE.Vector3(...destination.position),
           lookAt: new THREE.Vector3(...destination.lookAt),
-          fov: Number.isFinite(destination.fov) ? destination.fov : fromPose.fov,
+          fov: Number.isFinite(destination.fov) ? destination.fov : liveFromPose.fov,
           filmOffset: Number.isFinite(destination.filmOffset) ? destination.filmOffset : 0,
         };
         const transition = createCameraDirectorPilotTransition({
