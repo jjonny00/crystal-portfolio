@@ -7,6 +7,8 @@ import * as THREE from 'three';
 import { facetKeys as canonicalFacetKeys, getSceneFacetKeyByProjectId } from '../../data/projects';
 import { createLogger } from '../../utils/logger';
 import { beginCameraFrame, recordCameraWrite } from '../../camera/cameraWriteGuard';
+import { createCameraDirectorPilotTransition, updateCameraDirectorPilotTransition } from '../../camera/CameraDirector';
+import { resolveCameraDestination } from '../../camera/destinationResolver';
 
 const logger = createLogger('unified-camera-controller');
 
@@ -214,6 +216,22 @@ const UnifiedCameraController = ({
   const prevCameraStateRef = useRef(animationData?.cameraState ?? null);
   const configCheckLoggedRef = useRef(false);
   const stableHeroPositionRef = useRef(new THREE.Vector3(0, 0.8, 7));
+  const cameraDirectorPilotRef = useRef({
+    active: false,
+    transition: null,
+    fromState: null,
+    toState: null,
+    selectedProject: null,
+    completedLogged: false,
+  });
+  const lastOverviewToProjectKeyRef = useRef(null);
+
+  const isOverviewToProjectPilotEnabled = () => {
+    if (typeof globalThis?.__ENABLE_CAMERA_DIRECTOR_OVERVIEW_TO_PROJECT__ === 'boolean') {
+      return globalThis.__ENABLE_CAMERA_DIRECTOR_OVERVIEW_TO_PROJECT__;
+    }
+    return false;
+  };
 
   const applyFractureTilt = () => {
     if (!fractureTiltActiveRef.current) return;
@@ -1553,6 +1571,74 @@ const UnifiedCameraController = ({
     const prevCameraState = prevCameraStateRef.current;
     const nextState = animationData?.state ?? null;
     const nextCameraState = animationData?.cameraState ?? null;
+    const focusedProject = animationData?.focusedProject ?? null;
+    const cameFromOverview = prevCameraState === 'overview';
+    const enteredProject = nextCameraState === 'project';
+    const shouldStartOverviewToProjectPilot =
+      isOverviewToProjectPilotEnabled() &&
+      !cameraDirectorPilotRef.current.active &&
+      cameFromOverview &&
+      enteredProject &&
+      Boolean(focusedProject);
+
+    if (shouldStartOverviewToProjectPilot) {
+      const fromLookAt = currentTarget.current?.lookAt
+        ? currentTarget.current.lookAt.clone()
+        : getCameraLookAtFromTransform();
+      const fromPose = {
+        position: camera.position.clone(),
+        lookAt: fromLookAt.clone(),
+        fov: Number.isFinite(camera.fov) ? camera.fov : 45,
+        filmOffset: Number.isFinite(camera.filmOffset) ? camera.filmOffset : 0,
+      };
+      const destination = resolveCameraDestination({
+        destination: 'project',
+        projectId: focusedProject,
+        mode: 'selected',
+        config,
+        animationData,
+        isMobile,
+      });
+      const unresolved = destination?.meta?.unresolved;
+      if (unresolved) {
+        if (import.meta.env.DEV) {
+          console.log('[camera-director-pilot] overview-to-project fallback', {
+            reason: destination?.meta?.reason ?? 'unresolved-destination',
+            selectedProject: focusedProject,
+          });
+        }
+      } else {
+        const toPose = {
+          position: new THREE.Vector3(...destination.position),
+          lookAt: new THREE.Vector3(...destination.lookAt),
+          fov: Number.isFinite(destination.fov) ? destination.fov : fromPose.fov,
+          filmOffset: Number.isFinite(destination.filmOffset) ? destination.filmOffset : 0,
+        };
+        const transition = createCameraDirectorPilotTransition({
+          id: `overview-to-project:${focusedProject}`,
+          fromPose,
+          toPose,
+          startedAt: state.clock.elapsedTime,
+          durationSeconds: 0.9,
+        });
+        cameraDirectorPilotRef.current = {
+          active: true,
+          transition,
+          fromState: prevCameraState,
+          toState: nextCameraState,
+          selectedProject: focusedProject,
+          completedLogged: false,
+        };
+        lastOverviewToProjectKeyRef.current = transition.id;
+        if (import.meta.env.DEV) {
+          console.log('[camera-director-pilot] overview-to-project start', {
+            projectId: focusedProject,
+            fromState: prevCameraState,
+            toState: nextCameraState,
+          });
+        }
+      }
+    }
     const isReturnToHero =
       nextState === 'hero' &&
       nextCameraState === 'hero' &&
@@ -1575,6 +1661,39 @@ const UnifiedCameraController = ({
 
     prevStateRef.current = nextState;
     prevCameraStateRef.current = nextCameraState;
+
+    if (cameraDirectorPilotRef.current.active) {
+      const pilot = cameraDirectorPilotRef.current;
+      const step = updateCameraDirectorPilotTransition({
+        transition: pilot.transition,
+        now: state.clock.elapsedTime,
+      });
+      camera.position.copy(step.pose.position);
+      camera.lookAt(step.pose.lookAt);
+      camera.fov = step.pose.fov;
+      camera.filmOffset = step.pose.filmOffset;
+      camera.updateProjectionMatrix();
+      currentTarget.current.position.copy(step.pose.position);
+      currentTarget.current.lookAt.copy(step.pose.lookAt);
+      currentTarget.current.fov = step.pose.fov;
+      guardRecord(
+        'CAMERA_DIRECTOR_OVERVIEW_TO_PROJECT',
+        ['position', 'lookAt', 'fov', 'filmOffset', 'currentTarget'],
+        animationData?.cameraState || animationData?.state || 'unknown',
+        'overview-to-project-pilot-active'
+      );
+      if (step.complete && !pilot.completedLogged) {
+        pilot.completedLogged = true;
+        cameraDirectorPilotRef.current.active = false;
+        if (import.meta.env.DEV) {
+          console.log('[camera-director-pilot] overview-to-project complete', {
+            projectId: pilot.selectedProject,
+            transitionId: pilot.transition.id,
+          });
+        }
+      }
+      return;
+    }
 
     if (debugSecond !== lastDebugSecondRef.current && debugSecond % 2 === 0) {
       lastDebugSecondRef.current = debugSecond;
