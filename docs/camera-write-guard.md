@@ -27,11 +27,13 @@ Bounded by design:
 - No mandatory per-frame spam.
 - One-time deduped conflict warnings per `writerPair + category + phase/reason` key when verbose mode is enabled.
 - Manual summary output.
+- Manual conflict detail output.
 
 ## Manual helpers
 Available in DEV:
 - `globalThis.__printCameraWriteGuardSummary()`
 - `globalThis.__clearCameraWriteGuardSummary()`
+- `globalThis.__printCameraWriteGuardConflictDetails()`
 - Optional verbose mode: `globalThis.__CAMERA_WRITE_GUARD_VERBOSE__ = true`
 
 ## Summary fields
@@ -49,3 +51,21 @@ Available in DEV:
 
 ## Why this exists
 This creates ownership visibility needed for a later suppression matrix rollout, without changing current camera execution behavior.
+
+
+## Conflict details table
+`__printCameraWriteGuardConflictDetails()` prints a compact `console.table` with:
+- `frameId`
+- `state`
+- `cameraState`
+- `viewMode`
+- `selectedProject`
+- `phase`
+- `category`
+- `writerA`
+- `writerB`
+- `writerAReason`
+- `writerBReason`
+- `transitionOrPhase`
+- `firstSeenAt`
+- `count`
