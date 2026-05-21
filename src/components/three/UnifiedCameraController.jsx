@@ -1573,6 +1573,11 @@ const UnifiedCameraController = ({
   const quaternionToPlain = (q) => ({ x: round4(q?.x), y: round4(q?.y), z: round4(q?.z), w: round4(q?.w) });
   const safeDistance = (a, b) => (a && b ? round4(a.distanceTo(b)) : null);
   const quaternionAngleDelta = (q1, q2) => (q1 && q2 ? round4(q1.angleTo(q2)) : null);
+  const getCameraLookAtFromTransform = (distance = 10) => {
+    const forward = new THREE.Vector3();
+    camera.getWorldDirection(forward);
+    return camera.position.clone().addScaledVector(forward, distance);
+  };
   const getOverviewProjectResolvedPose = (destination, projectId = null) => {
     const resolved = resolveCameraDestination({ destination, projectId, mode: 'selected', config, animationData, isMobile });
     if (!resolved || resolved?.meta?.unresolved) return null;
@@ -1613,8 +1618,20 @@ const UnifiedCameraController = ({
     globalThis.__overviewProjectShadowHelpersInstalled = true;
   };
 
-  const sampleOverviewProjectShadow = ({ state, delta, transitionActive, transitionKey, focusedProject, settled }) => {
+  const sampleOverviewProjectShadow = ({ state, delta, transitionActive, transitionKey, focusedProject, settled, prevCameraState, nextCameraState, nextState, viewMode }) => {
     if (!import.meta.env.DEV) return;
+    const isFreshOverviewToProject =
+      prevCameraState === 'overview' &&
+      nextCameraState === 'project' &&
+      Boolean(focusedProject) &&
+      viewMode !== 'caseStudy';
+    const isActiveObservedOverviewToProject =
+      overviewProjectShadowRef.current.active &&
+      nextCameraState === 'project' &&
+      nextState !== 'about' &&
+      viewMode !== 'caseStudy';
+    if (!isFreshOverviewToProject && !isActiveObservedOverviewToProject) return;
+
     installOverviewProjectShadowHelpers();
     const shadow = overviewProjectShadowRef.current;
     const now = state.clock.elapsedTime;
@@ -3517,6 +3534,10 @@ const UnifiedCameraController = ({
       transitionKey,
       focusedProject: animationData?.focusedProject ?? null,
       settled: cameraSettledRef.current,
+      prevCameraState,
+      nextCameraState,
+      nextState,
+      viewMode: animationData?.viewMode ?? null,
     });
 
     // FIXED: Enhanced orbit initiation with additional delay and stricter conditions
