@@ -7,6 +7,8 @@ import * as THREE from 'three';
 import { facetKeys as canonicalFacetKeys, getSceneFacetKeyByProjectId } from '../../data/projects';
 import { createLogger } from '../../utils/logger';
 import { beginCameraFrame, recordCameraWrite } from '../../camera/cameraWriteGuard';
+import { createCameraDirectorPilotTransition, updateCameraDirectorPilotTransition } from '../../camera/CameraDirector';
+import { resolveCameraDestination } from '../../camera/destinationResolver';
 
 const logger = createLogger('unified-camera-controller');
 
@@ -214,6 +216,26 @@ const UnifiedCameraController = ({
   const prevCameraStateRef = useRef(animationData?.cameraState ?? null);
   const configCheckLoggedRef = useRef(false);
   const stableHeroPositionRef = useRef(new THREE.Vector3(0, 0.8, 7));
+  const cameraDirectorPilotRef = useRef({
+    active: false,
+    transition: null,
+    fromState: null,
+    toState: null,
+    selectedProject: null,
+    completedLogged: false,
+  });
+  const lastOverviewToProjectKeyRef = useRef(null);
+  const blockedOverviewToProjectKeyRef = useRef(null);
+  const startPoseLogKeyRef = useRef(null);
+
+  const isOverviewToProjectPilotEnabled = () => {
+    // WARNING: Experimental pilot only; not production-ready.
+    // Keep disabled by default unless explicitly enabled for research.
+    if (typeof globalThis?.__ENABLE_CAMERA_DIRECTOR_OVERVIEW_TO_PROJECT__ === 'boolean') {
+      return globalThis.__ENABLE_CAMERA_DIRECTOR_OVERVIEW_TO_PROJECT__;
+    }
+    return false;
+  };
 
   const applyFractureTilt = () => {
     if (!fractureTiltActiveRef.current) return;
@@ -1553,6 +1575,178 @@ const UnifiedCameraController = ({
     const prevCameraState = prevCameraStateRef.current;
     const nextState = animationData?.state ?? null;
     const nextCameraState = animationData?.cameraState ?? null;
+    const focusedProject = animationData?.focusedProject ?? null;
+    const cameFromOverview = prevCameraState === 'overview';
+    const enteredProject = nextCameraState === 'project';
+    const returnedToOverview = nextCameraState === 'overview' && prevCameraState !== 'overview';
+    if (returnedToOverview) {
+      lastOverviewToProjectKeyRef.current = null;
+      blockedOverviewToProjectKeyRef.current = null;
+    }
+    const transitionKey = [
+      'overview-to-project',
+      prevState ?? 'none',
+      prevCameraState ?? 'none',
+      nextState ?? 'none',
+      nextCameraState ?? 'none',
+      focusedProject ?? 'none',
+    ].join(':');
+    const alreadyHandledSameContext = lastOverviewToProjectKeyRef.current === transitionKey;
+    const isBlockedRepeatWhileInProject =
+      nextCameraState === 'project' &&
+      prevCameraState === 'project' &&
+      Boolean(focusedProject) &&
+      lastOverviewToProjectKeyRef.current?.endsWith(`:${focusedProject}`);
+    const shouldStartOverviewToProjectPilot =
+      isOverviewToProjectPilotEnabled() &&
+      !cameraDirectorPilotRef.current.active &&
+      cameFromOverview &&
+      enteredProject &&
+      Boolean(focusedProject) &&
+      !alreadyHandledSameContext &&
+      !isBlockedRepeatWhileInProject;
+
+    if (shouldStartOverviewToProjectPilot) {
+      const liveLookAt = currentTarget.current?.lookAt
+        ? currentTarget.current.lookAt.clone()
+        : getCameraLookAtFromTransform();
+      const liveFromPose = {
+        position: camera.position.clone(),
+        lookAt: liveLookAt.clone(),
+        fov: Number.isFinite(camera.fov) ? camera.fov : 45,
+        filmOffset: Number.isFinite(camera.filmOffset) ? camera.filmOffset : 0,
+      };
+      let fromPose = liveFromPose;
+      let fromPoseSource = 'live-camera';
+      const overviewResolved = resolveCameraDestination({
+        destination: 'overview',
+        config,
+        animationData,
+        isMobile,
+      });
+      const overviewPoseValid = !overviewResolved?.meta?.unresolved;
+      if (overviewPoseValid) {
+        const resolvedOverviewPose = {
+          position: new THREE.Vector3(...overviewResolved.position),
+          lookAt: new THREE.Vector3(...overviewResolved.lookAt),
+          fov: Number.isFinite(overviewResolved.fov) ? overviewResolved.fov : liveFromPose.fov,
+          filmOffset: Number.isFinite(overviewResolved.filmOffset) ? overviewResolved.filmOffset : 0,
+        };
+        const positionDelta = liveFromPose.position.distanceTo(resolvedOverviewPose.position);
+        const lookAtDelta = liveFromPose.lookAt.distanceTo(resolvedOverviewPose.lookAt);
+        const filmOffsetDelta = Math.abs(liveFromPose.filmOffset - resolvedOverviewPose.filmOffset);
+        const fovDelta = Math.abs(liveFromPose.fov - resolvedOverviewPose.fov);
+        const POSITION_DELTA_THRESHOLD = 0.18;
+        const LOOKAT_DELTA_THRESHOLD = 0.16;
+        const FILMOFFSET_DELTA_THRESHOLD = 0.12;
+        const FOV_DELTA_THRESHOLD = 0.6;
+        const liveIsContaminated =
+          positionDelta > POSITION_DELTA_THRESHOLD ||
+          lookAtDelta > LOOKAT_DELTA_THRESHOLD ||
+          filmOffsetDelta > FILMOFFSET_DELTA_THRESHOLD ||
+          fovDelta > FOV_DELTA_THRESHOLD;
+        if (liveIsContaminated) {
+          fromPose = resolvedOverviewPose;
+          fromPoseSource = 'resolved-overview';
+        }
+        if (import.meta.env.DEV && startPoseLogKeyRef.current !== transitionKey) {
+          startPoseLogKeyRef.current = transitionKey;
+          console.log('[camera-director-pilot] overview-to-project start-pose', {
+            projectId: focusedProject,
+            fromPoseSource,
+            livePose: {
+              position: liveFromPose.position.toArray(),
+              lookAt: liveFromPose.lookAt.toArray(),
+              fov: liveFromPose.fov,
+              filmOffset: liveFromPose.filmOffset,
+            },
+            resolvedOverviewPose: {
+              position: resolvedOverviewPose.position.toArray(),
+              lookAt: resolvedOverviewPose.lookAt.toArray(),
+              fov: resolvedOverviewPose.fov,
+              filmOffset: resolvedOverviewPose.filmOffset,
+            },
+            delta: {
+              position: positionDelta,
+              lookAt: lookAtDelta,
+              filmOffset: filmOffsetDelta,
+              fov: fovDelta,
+            },
+            selectedFromPoseSource: fromPoseSource,
+            transitionKey,
+          });
+        }
+      } else if (import.meta.env.DEV && startPoseLogKeyRef.current !== transitionKey) {
+        startPoseLogKeyRef.current = transitionKey;
+        console.log('[camera-director-pilot] overview-to-project fallback', {
+          reason: 'overview-pose-unresolved-live-used',
+          projectId: focusedProject,
+          transitionKey,
+        });
+      }
+      const destination = resolveCameraDestination({
+        destination: 'project',
+        projectId: focusedProject,
+        mode: 'selected',
+        config,
+        animationData,
+        isMobile,
+      });
+      const unresolved = destination?.meta?.unresolved;
+      if (unresolved) {
+        if (import.meta.env.DEV) {
+          console.log('[camera-director-pilot] overview-to-project fallback', {
+            reason: destination?.meta?.reason ?? 'unresolved-destination',
+            selectedProject: focusedProject,
+          });
+        }
+      } else {
+        const toPose = {
+          position: new THREE.Vector3(...destination.position),
+          lookAt: new THREE.Vector3(...destination.lookAt),
+          fov: Number.isFinite(destination.fov) ? destination.fov : liveFromPose.fov,
+          filmOffset: Number.isFinite(destination.filmOffset) ? destination.filmOffset : 0,
+        };
+        const transition = createCameraDirectorPilotTransition({
+          id: transitionKey,
+          fromPose,
+          toPose,
+          startedAt: state.clock.elapsedTime,
+          durationSeconds: 0.9,
+        });
+        cameraDirectorPilotRef.current = {
+          active: true,
+          transition,
+          fromState: prevCameraState,
+          toState: nextCameraState,
+          selectedProject: focusedProject,
+          completedLogged: false,
+        };
+        blockedOverviewToProjectKeyRef.current = null;
+        if (import.meta.env.DEV) {
+          console.log('[camera-director-pilot] overview-to-project start', {
+            projectId: focusedProject,
+            transitionKey,
+            fromState: prevCameraState,
+            toState: nextCameraState,
+          });
+        }
+      }
+    } else if (
+      isOverviewToProjectPilotEnabled() &&
+      cameFromOverview &&
+      enteredProject &&
+      Boolean(focusedProject) &&
+      (alreadyHandledSameContext || isBlockedRepeatWhileInProject)
+    ) {
+      if (import.meta.env.DEV && blockedOverviewToProjectKeyRef.current !== transitionKey) {
+        blockedOverviewToProjectKeyRef.current = transitionKey;
+        console.log('[camera-director-pilot] overview-to-project restart-blocked', {
+          projectId: focusedProject,
+          transitionKey,
+        });
+      }
+    }
     const isReturnToHero =
       nextState === 'hero' &&
       nextCameraState === 'hero' &&
@@ -1575,6 +1769,40 @@ const UnifiedCameraController = ({
 
     prevStateRef.current = nextState;
     prevCameraStateRef.current = nextCameraState;
+
+    if (cameraDirectorPilotRef.current.active) {
+      const pilot = cameraDirectorPilotRef.current;
+      const step = updateCameraDirectorPilotTransition({
+        transition: pilot.transition,
+        now: state.clock.elapsedTime,
+      });
+      camera.position.copy(step.pose.position);
+      camera.lookAt(step.pose.lookAt);
+      camera.fov = step.pose.fov;
+      camera.filmOffset = step.pose.filmOffset;
+      camera.updateProjectionMatrix();
+      currentTarget.current.position.copy(step.pose.position);
+      currentTarget.current.lookAt.copy(step.pose.lookAt);
+      currentTarget.current.fov = step.pose.fov;
+      guardRecord(
+        'CAMERA_DIRECTOR_OVERVIEW_TO_PROJECT',
+        ['position', 'lookAt', 'fov', 'filmOffset', 'currentTarget'],
+        animationData?.cameraState || animationData?.state || 'unknown',
+        'overview-to-project-pilot-active'
+      );
+      if (step.complete && !pilot.completedLogged) {
+        pilot.completedLogged = true;
+        cameraDirectorPilotRef.current.active = false;
+        lastOverviewToProjectKeyRef.current = pilot.transition.id;
+        if (import.meta.env.DEV) {
+          console.log('[camera-director-pilot] overview-to-project complete', {
+            projectId: pilot.selectedProject,
+            transitionId: pilot.transition.id,
+          });
+        }
+      }
+      return;
+    }
 
     if (debugSecond !== lastDebugSecondRef.current && debugSecond % 2 === 0) {
       lastDebugSecondRef.current = debugSecond;
