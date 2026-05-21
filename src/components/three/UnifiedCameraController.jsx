@@ -227,6 +227,20 @@ const UnifiedCameraController = ({
   const lastOverviewToProjectKeyRef = useRef(null);
   const blockedOverviewToProjectKeyRef = useRef(null);
   const startPoseLogKeyRef = useRef(null);
+  const overviewProjectShadowRef = useRef({
+    active: false,
+    transitionId: null,
+    startedAt: null,
+    startedFrame: null,
+    completedAt: null,
+    completedFrame: null,
+    startSample: null,
+    completionSample: null,
+    samples: [],
+    maxSamples: 240,
+    printedStartForTransition: null,
+    printedCompletionForTransition: null,
+  });
 
   const isOverviewToProjectPilotEnabled = () => {
     // WARNING: Experimental pilot only; not production-ready.
@@ -1559,10 +1573,101 @@ const UnifiedCameraController = ({
   const quaternionToPlain = (q) => ({ x: round4(q?.x), y: round4(q?.y), z: round4(q?.z), w: round4(q?.w) });
   const safeDistance = (a, b) => (a && b ? round4(a.distanceTo(b)) : null);
   const quaternionAngleDelta = (q1, q2) => (q1 && q2 ? round4(q1.angleTo(q2)) : null);
-  const getCameraLookAtFromTransform = (distance = 10) => {
-    const forward = new THREE.Vector3();
-    camera.getWorldDirection(forward);
-    return camera.position.clone().addScaledVector(forward, distance);
+  const getOverviewProjectResolvedPose = (destination, projectId = null) => {
+    const resolved = resolveCameraDestination({ destination, projectId, mode: 'selected', config, animationData, isMobile });
+    if (!resolved || resolved?.meta?.unresolved) return null;
+    return {
+      position: new THREE.Vector3(...resolved.position),
+      lookAt: new THREE.Vector3(...resolved.lookAt),
+      fov: Number.isFinite(resolved.fov) ? resolved.fov : null,
+      filmOffset: Number.isFinite(resolved.filmOffset) ? resolved.filmOffset : 0,
+    };
+  };
+
+  const installOverviewProjectShadowHelpers = () => {
+    if (!import.meta.env.DEV || typeof globalThis === 'undefined') return;
+    if (globalThis.__overviewProjectShadowHelpersInstalled) return;
+    globalThis.__printOverviewProjectTimingSummary = () => {
+      const shadow = overviewProjectShadowRef.current;
+      console.log('[overview-project-shadow] summary', {
+        active: shadow.active,
+        transitionId: shadow.transitionId,
+        startedAt: shadow.startedAt,
+        completedAt: shadow.completedAt,
+        startedFrame: shadow.startedFrame,
+        completedFrame: shadow.completedFrame,
+        durationSecondsApprox: (shadow.startedAt != null && shadow.completedAt != null) ? round4(shadow.completedAt - shadow.startedAt) : null,
+        durationFramesApprox: (shadow.startedFrame != null && shadow.completedFrame != null) ? shadow.completedFrame - shadow.startedFrame : null,
+        sampleCount: shadow.samples.length,
+        startSample: shadow.startSample,
+        completionSample: shadow.completionSample,
+      });
+    };
+    globalThis.__printOverviewProjectTimingSamples = () => {
+      console.log('[overview-project-shadow] samples', overviewProjectShadowRef.current.samples);
+    };
+    globalThis.__clearOverviewProjectTimingSamples = () => {
+      overviewProjectShadowRef.current.samples = [];
+      console.log('[overview-project-shadow] samples-cleared');
+    };
+    globalThis.__overviewProjectShadowHelpersInstalled = true;
+  };
+
+  const sampleOverviewProjectShadow = ({ state, delta, transitionActive, transitionKey, focusedProject, settled }) => {
+    if (!import.meta.env.DEV) return;
+    installOverviewProjectShadowHelpers();
+    const shadow = overviewProjectShadowRef.current;
+    const now = state.clock.elapsedTime;
+    const frame = state.clock.frame;
+    const liveLookAt = getCameraLookAtFromTransform();
+    const resolvedOverview = getOverviewProjectResolvedPose('overview');
+    const resolvedProject = focusedProject ? getOverviewProjectResolvedPose('project', focusedProject) : null;
+    const facetDebug = globalThis?.__overviewProjectFacetDebug ?? null;
+    if (transitionActive && !shadow.active) {
+      shadow.active = true;
+      shadow.transitionId = transitionKey;
+      shadow.startedAt = now;
+      shadow.startedFrame = frame;
+      shadow.completedAt = null;
+      shadow.completedFrame = null;
+      shadow.startSample = {
+        livePosition: vectorToPlain(camera.position),
+        liveLookAt: vectorToPlain(liveLookAt),
+        liveFov: round4(camera.fov),
+        liveFilmOffset: round4(camera.filmOffset),
+        resolvedOverviewPosition: vectorToPlain(resolvedOverview?.position),
+        resolvedOverviewLookAt: vectorToPlain(resolvedOverview?.lookAt),
+        deltaLiveToResolvedOverviewPosition: safeDistance(camera.position, resolvedOverview?.position),
+        deltaLiveToResolvedOverviewLookAt: safeDistance(liveLookAt, resolvedOverview?.lookAt),
+      };
+    }
+    if (shadow.active) {
+      const progress = cameraMoveProgressRef.current;
+      shadow.samples.push({
+        t: round4(now), frame, delta: round4(delta), progress: round4(progress),
+        viewMode: animationData?.viewMode ?? null, state: animationData?.state ?? null, cameraState: animationData?.cameraState ?? null,
+        focusedProject: animationData?.focusedProject ?? null, selectedProject: animationData?.selectedProject ?? null,
+        transitionActive, cameraSettled: settled,
+        livePosition: vectorToPlain(camera.position), liveLookAt: vectorToPlain(liveLookAt), liveFov: round4(camera.fov), liveFilmOffset: round4(camera.filmOffset),
+        targetPosition: vectorToPlain(currentTarget.current?.position), targetLookAt: vectorToPlain(currentTarget.current?.lookAt), targetFov: round4(currentTarget.current?.fov),
+        resolvedOverviewPosition: vectorToPlain(resolvedOverview?.position), resolvedProjectPosition: vectorToPlain(resolvedProject?.position),
+        deltaToResolvedProjectPosition: safeDistance(camera.position, resolvedProject?.position),
+        deltaToResolvedProjectLookAt: safeDistance(liveLookAt, resolvedProject?.lookAt),
+        facet: facetDebug,
+      });
+      if (shadow.samples.length > shadow.maxSamples) shadow.samples.shift();
+    }
+    if (shadow.active && settled && animationData?.cameraState === 'project') {
+      shadow.active = false;
+      shadow.completedAt = now;
+      shadow.completedFrame = frame;
+      shadow.completionSample = {
+        livePosition: vectorToPlain(camera.position),
+        liveLookAt: vectorToPlain(liveLookAt),
+        deltaLiveToResolvedProjectPosition: safeDistance(camera.position, resolvedProject?.position),
+        deltaLiveToResolvedProjectLookAt: safeDistance(liveLookAt, resolvedProject?.lookAt),
+      };
+    }
   };
 
   useFrame((state, delta) => {
@@ -3404,6 +3509,15 @@ const UnifiedCameraController = ({
       settleFrameCount.current = 0;
       orbitInitDelayRef.current = 0; // ADDED: Reset orbit delay when not settled
     }
+
+    sampleOverviewProjectShadow({
+      state,
+      delta,
+      transitionActive: (cameFromOverview && enteredProject) || (animationData?.cameraState === 'project' && !cameraSettledRef.current),
+      transitionKey,
+      focusedProject: animationData?.focusedProject ?? null,
+      settled: cameraSettledRef.current,
+    });
 
     // FIXED: Enhanced orbit initiation with additional delay and stricter conditions
     if (
