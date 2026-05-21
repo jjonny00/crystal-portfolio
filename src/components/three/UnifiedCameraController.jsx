@@ -237,9 +237,10 @@ const UnifiedCameraController = ({
     startSample: null,
     completionSample: null,
     samples: [],
-    maxSamples: 240,
+    maxSamples: 120,
     printedStartForTransition: null,
     printedCompletionForTransition: null,
+    lastSkipReason: null,
   });
 
   const isOverviewToProjectPilotEnabled = () => {
@@ -1589,11 +1590,23 @@ const UnifiedCameraController = ({
     };
   };
 
+
+  const getOverviewProjectShadowStore = () => {
+    if (typeof globalThis === 'undefined') return overviewProjectShadowRef.current;
+    if (!globalThis.__overviewProjectShadowStore) {
+      globalThis.__overviewProjectShadowStore = overviewProjectShadowRef.current;
+    }
+    if (globalThis.__overviewProjectShadowStore !== overviewProjectShadowRef.current) {
+      globalThis.__overviewProjectShadowStore = overviewProjectShadowRef.current;
+    }
+    return globalThis.__overviewProjectShadowStore;
+  };
+
   const installOverviewProjectShadowHelpers = () => {
     if (!import.meta.env.DEV || typeof globalThis === 'undefined') return;
     if (globalThis.__overviewProjectShadowHelpersInstalled) return;
     globalThis.__printOverviewProjectTimingSummary = () => {
-      const shadow = overviewProjectShadowRef.current;
+      const shadow = getOverviewProjectShadowStore();
       console.log('[overview-project-shadow] summary', {
         active: shadow.active,
         transitionId: shadow.transitionId,
@@ -1606,13 +1619,19 @@ const UnifiedCameraController = ({
         sampleCount: shadow.samples.length,
         startSample: shadow.startSample,
         completionSample: shadow.completionSample,
+        lastSkipReason: shadow.lastSkipReason ?? null,
       });
     };
     globalThis.__printOverviewProjectTimingSamples = () => {
-      console.log('[overview-project-shadow] samples', overviewProjectShadowRef.current.samples);
+      const shadow = getOverviewProjectShadowStore();
+      if (!shadow.samples.length) {
+        console.log('[overview-project-shadow] samples', []);
+        return;
+      }
+      console.table(shadow.samples);
     };
     globalThis.__clearOverviewProjectTimingSamples = () => {
-      overviewProjectShadowRef.current.samples = [];
+      getOverviewProjectShadowStore().samples = []
       console.log('[overview-project-shadow] samples-cleared');
     };
     globalThis.__overviewProjectShadowHelpersInstalled = true;
@@ -1626,14 +1645,24 @@ const UnifiedCameraController = ({
       Boolean(focusedProject) &&
       viewMode !== 'caseStudy';
     const isActiveObservedOverviewToProject =
-      overviewProjectShadowRef.current.active &&
+      getOverviewProjectShadowStore().active &&
       nextCameraState === 'project' &&
       nextState !== 'about' &&
       viewMode !== 'caseStudy';
-    if (!isFreshOverviewToProject && !isActiveObservedOverviewToProject) return;
+    if (!isFreshOverviewToProject && !isActiveObservedOverviewToProject) {
+      getOverviewProjectShadowStore().lastSkipReason = {
+        prevCameraState,
+        nextCameraState,
+        nextState,
+        viewMode,
+        focusedProject: focusedProject ?? null,
+        reason: "outside-overview-to-project",
+      };
+      return;
+    }
 
     installOverviewProjectShadowHelpers();
-    const shadow = overviewProjectShadowRef.current;
+    const shadow = getOverviewProjectShadowStore();
     const now = state.clock.elapsedTime;
     const frame = state.clock.frame;
     const liveLookAt = getCameraLookAtFromTransform();
