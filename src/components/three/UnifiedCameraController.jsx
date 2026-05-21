@@ -229,6 +229,8 @@ const UnifiedCameraController = ({
   const startPoseLogKeyRef = useRef(null);
 
   const isOverviewToProjectPilotEnabled = () => {
+    // WARNING: Experimental pilot only; not production-ready.
+    // Keep disabled by default unless explicitly enabled for research.
     if (typeof globalThis?.__ENABLE_CAMERA_DIRECTOR_OVERVIEW_TO_PROJECT__ === 'boolean') {
       return globalThis.__ENABLE_CAMERA_DIRECTOR_OVERVIEW_TO_PROJECT__;
     }

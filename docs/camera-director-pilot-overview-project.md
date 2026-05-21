@@ -3,11 +3,13 @@
 ## Scope
 - Runtime pilot for **overview → project** only.
 - All other transitions remain legacy.
+- Status: **experimental research scaffold, not production-ready**.
 
 ## Feature flag
 - Flag: `globalThis.__ENABLE_CAMERA_DIRECTOR_OVERVIEW_TO_PROJECT__`
 - Default: `false` when not explicitly set.
 - Safe default path is legacy behavior.
+- **Do not enable in production.**
 
 ## Activation conditions
 Pilot activates only when all conditions are true:
@@ -69,3 +71,36 @@ No frame-level pilot spam is added.
 - No project → caseStudy migration.
 - No caseStudy behavior changes.
 - No fragment/particle/glow/ring/runtime fragment rotation changes.
+
+## Current test findings (PR-7)
+- Flag-off is safe:
+  - App load/navigation/scroll/project flow remain unchanged.
+  - Overview → project and project → overview remain legacy baseline.
+- Flag-on improvements:
+  - Pilot starts once (restart guard resolved repeated start/complete loops).
+  - Project destination landing and project UI/state remain functional.
+- Flag-on remaining issues:
+  - Scrolling into first project still shows a wrong visual start composition.
+  - Start-pose diagnostics showed `fromPoseSource: resolved-overview` with:
+    - position delta near `0`
+    - but large lookAt / filmOffset / fov deltas versus live composition.
+  - This indicates composition mismatch even when base position matches.
+  - Pilot camera timing is not synchronized to existing project facet rotation timing.
+  - Result: transition can visually jump and arrive before facet motion completes.
+
+## Why the pilot is not ready
+1. **Composition mismatch**
+   - Position parity alone is insufficient; lookAt/fov/filmOffset must preserve live visual composition.
+2. **Project motion sync mismatch**
+   - Pilot easing timeline is not currently coupled to legacy project facet rotation timing.
+3. **From-pose correctness requirement**
+   - A future runtime attempt must preserve live composition semantics or consume an authoritative transition timing source.
+4. **Resolver scope limitation**
+   - Destination resolver is useful for endpoints but is not enough by itself for project transition choreography.
+
+## Recommended next step
+- Do **not** continue patching this pilot as a production migration in-place.
+- First run a focused audit of:
+  1. legacy overview → project transition timing sources, and
+  2. project facet rotation timing/phase ownership.
+- Use that audit to define a synchronized transition contract before any new runtime CameraDirector attempt.
