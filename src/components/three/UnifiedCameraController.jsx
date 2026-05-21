@@ -6,6 +6,7 @@ import { useThree, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { facetKeys as canonicalFacetKeys, getSceneFacetKeyByProjectId } from '../../data/projects';
 import { createLogger } from '../../utils/logger';
+import { beginCameraFrame, recordCameraWrite } from '../../camera/cameraWriteGuard';
 
 const logger = createLogger('unified-camera-controller');
 
@@ -1406,7 +1407,32 @@ const UnifiedCameraController = ({
   ]);
 
 
+  const guardRecord = (writerId, writes, phase, reason) => {
+    recordCameraWrite({
+      writerId,
+      ownerGroup: 'UnifiedCameraController',
+      writes,
+      phase,
+      reason,
+      state: animationData?.state ?? null,
+      cameraState: animationData?.cameraState ?? null,
+      viewMode: animationData?.state ?? null,
+      selectedProject: animationData?.focusedProject ?? null,
+    });
+  };
+
   const logCameraWrite = (state, branch, reason, lookAtTarget = null, projectionUpdated = false, returns = false) => {
+    const writesByBranch = {
+      AUTHORITATIVE_HERO: ["position", "lookAt", "filmOffset"],
+      FORCED_HERO_TO_OVERVIEW: ["position", "lookAt", "filmOffset", "currentTarget"],
+      FORCED_OVERVIEW_TO_HERO: ["position", "lookAt", "filmOffset", "currentTarget"],
+      TRANSITION: ["position", "lookAt", "filmOffset", "currentTarget"],
+      INTRO: ["position", "lookAt", "fov", "currentTarget"],
+      PROJECT: ["position", "lookAt", "fov", "filmOffset", "currentTarget"],
+      ABOUT: ["position", "lookAt", "fov", "filmOffset", "currentTarget"],
+      FALLBACK: ["position", "lookAt", "fov", "currentTarget"],
+    };
+    guardRecord(branch, writesByBranch[branch] || ["position", "lookAt"], animationData?.cameraState || animationData?.state || "unknown", reason);
     const forcedHeroToOverviewActive = authoritativeHeroToOverviewTransitionRef.current.active;
     const forcedOverviewToHeroActive = authoritativeOverviewToHeroTransitionRef.current.active;
     if ((forcedHeroToOverviewActive || forcedOverviewToHeroActive) &&
@@ -1519,6 +1545,7 @@ const UnifiedCameraController = ({
 
   useFrame((state, delta) => {
     syncFractureTiltState(state.clock.elapsedTime);
+    beginCameraFrame(state.clock.frame, { elapsed: state.clock.elapsedTime, phase: animationData?.cameraState ?? null });
 
     const debugSecond = Math.floor(state.clock.elapsedTime);
 
@@ -1875,6 +1902,7 @@ const UnifiedCameraController = ({
       camera.lookAt(forcedLookAt);
       camera.filmOffset = THREE.MathUtils.lerp(transition.from.filmOffsetX, transition.to.filmOffsetX, filmOffsetProgress);
       camera.updateProjectionMatrix();
+      guardRecord("authoritativeOverviewToHero", ["position", "lookAt", "filmOffset", "currentTarget"], "overview->hero", "forced-overview-to-hero-frame");
       logCameraWrite(state, "FORCED_OVERVIEW_TO_HERO", "forced-overview-to-hero-frame", forcedLookAt, true, true);
       if (!transition.divergenceWarned && Math.abs(accumulatedProgress - elapsedProgress) > 0.05) {
         transition.divergenceWarned = true;
@@ -1965,6 +1993,7 @@ const UnifiedCameraController = ({
       camera.lookAt(introLookAt);
       camera.filmOffset = destination.filmOffsetX;
       camera.updateProjectionMatrix();
+      guardRecord("introPlayback", ["position", "lookAt", "filmOffset", "fov", "currentTarget"], "intro", "intro-playback");
 
       const completedThisFrame = progress >= 1;
       if (completedThisFrame) {
@@ -2005,6 +2034,7 @@ const UnifiedCameraController = ({
         tuning: { ...tuning },
         center: center.clone(),
       };
+      guardRecord("heroOrbit", ["position", "lookAt", "filmOffset"], "hero", "authoritative-hero-update");
       logCameraWrite(state, "AUTHORITATIVE_HERO", "authoritative-hero-update", snapshot.lookAtTarget, true, true);
       if (shouldLogBranch) {
         console.log('[UCC AUTHORITATIVE HERO]', {
@@ -2053,6 +2083,7 @@ const UnifiedCameraController = ({
         camera.lookAt(forcedLookAt);
         camera.filmOffset = transition.from.filmOffsetX;
         camera.updateProjectionMatrix();
+        guardRecord("authoritativeHeroToOverview", ["position", "lookAt", "filmOffset", "currentTarget"], "hero->overview", "forced-hero-to-overview-frame");
         if (shouldLogBranch) {
           console.log('[UCC HERO TO OVERVIEW CAMERA LOCK TEST]', {
             progress: round4(accumulatedProgress),
