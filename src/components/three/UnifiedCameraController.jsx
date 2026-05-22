@@ -1639,36 +1639,67 @@ const UnifiedCameraController = ({
 
   const sampleOverviewProjectShadow = ({ state, delta, transitionActive, transitionKey, focusedProject, settled, prevCameraState, nextCameraState, nextState, viewMode }) => {
     if (!import.meta.env.DEV) return;
+    const shadow = getOverviewProjectShadowStore();
     const isFreshOverviewToProject =
       prevCameraState === 'overview' &&
       nextCameraState === 'project' &&
       Boolean(focusedProject) &&
       viewMode !== 'caseStudy';
-    const isActiveObservedOverviewToProject =
-      getOverviewProjectShadowStore().active &&
+    const isProjectContext =
       nextCameraState === 'project' &&
       nextState !== 'about' &&
       viewMode !== 'caseStudy';
-    if (!isFreshOverviewToProject && !isActiveObservedOverviewToProject) {
-      getOverviewProjectShadowStore().lastSkipReason = {
+    const shouldObserve = isFreshOverviewToProject || (shadow.active && isProjectContext) || (transitionActive && isProjectContext);
+    if (!shouldObserve) {
+      shadow.lastSkipReason = {
         prevCameraState,
         nextCameraState,
         nextState,
         viewMode,
         focusedProject: focusedProject ?? null,
-        reason: "outside-overview-to-project",
+        reason: 'outside-overview-to-project',
       };
       return;
     }
 
     installOverviewProjectShadowHelpers();
-    const shadow = getOverviewProjectShadowStore();
     const now = state.clock.elapsedTime;
     const frame = state.clock.frame;
     const liveLookAt = getCameraLookAtFromTransform();
     const resolvedOverview = getOverviewProjectResolvedPose('overview');
     const resolvedProject = focusedProject ? getOverviewProjectResolvedPose('project', focusedProject) : null;
     const facetDebug = globalThis?.__overviewProjectFacetDebug ?? null;
+
+    const pushRow = (sampleType) => {
+      const transitionElapsedSeconds = shadow.startedAt != null ? round4(now - shadow.startedAt) : null;
+      shadow.samples.push({
+        sampleType,
+        frameId: frame,
+        elapsedSeconds: round4(now),
+        transitionElapsedSeconds,
+        deltaSeconds: round4(delta),
+        cameraMoveProgress: round4(cameraMoveProgressRef.current),
+        state: animationData?.state ?? null,
+        cameraState: animationData?.cameraState ?? null,
+        viewMode: animationData?.viewMode ?? null,
+        focusedProject: animationData?.focusedProject ?? null,
+        selectedProject: animationData?.selectedProject ?? null,
+        livePosition: vectorToPlain(camera.position),
+        liveLookAt: vectorToPlain(liveLookAt),
+        liveFov: round4(camera.fov),
+        liveFilmOffset: round4(camera.filmOffset),
+        currentTargetLookAt: vectorToPlain(currentTarget.current?.lookAt),
+        currentTargetFov: round4(currentTarget.current?.fov),
+        currentTargetFilmOffset: null,
+        deltaToResolvedProjectPosition: safeDistance(camera.position, resolvedProject?.position),
+        deltaToResolvedProjectLookAt: safeDistance(liveLookAt, resolvedProject?.lookAt),
+        deltaToResolvedOverviewPosition: safeDistance(camera.position, resolvedOverview?.position),
+        deltaToResolvedOverviewLookAt: safeDistance(liveLookAt, resolvedOverview?.lookAt),
+        facet: facetDebug,
+      });
+      if (shadow.samples.length > shadow.maxSamples) shadow.samples.shift();
+    };
+
     if (transitionActive && !shadow.active) {
       shadow.active = true;
       shadow.transitionId = transitionKey;
@@ -1686,33 +1717,25 @@ const UnifiedCameraController = ({
         deltaLiveToResolvedOverviewPosition: safeDistance(camera.position, resolvedOverview?.position),
         deltaLiveToResolvedOverviewLookAt: safeDistance(liveLookAt, resolvedOverview?.lookAt),
       };
+      pushRow('start');
+      return;
     }
+
     if (shadow.active) {
-      const progress = cameraMoveProgressRef.current;
-      shadow.samples.push({
-        t: round4(now), frame, delta: round4(delta), progress: round4(progress),
-        viewMode: animationData?.viewMode ?? null, state: animationData?.state ?? null, cameraState: animationData?.cameraState ?? null,
-        focusedProject: animationData?.focusedProject ?? null, selectedProject: animationData?.selectedProject ?? null,
-        transitionActive, cameraSettled: settled,
-        livePosition: vectorToPlain(camera.position), liveLookAt: vectorToPlain(liveLookAt), liveFov: round4(camera.fov), liveFilmOffset: round4(camera.filmOffset),
-        targetPosition: vectorToPlain(currentTarget.current?.position), targetLookAt: vectorToPlain(currentTarget.current?.lookAt), targetFov: round4(currentTarget.current?.fov),
-        resolvedOverviewPosition: vectorToPlain(resolvedOverview?.position), resolvedProjectPosition: vectorToPlain(resolvedProject?.position),
-        deltaToResolvedProjectPosition: safeDistance(camera.position, resolvedProject?.position),
-        deltaToResolvedProjectLookAt: safeDistance(liveLookAt, resolvedProject?.lookAt),
-        facet: facetDebug,
-      });
-      if (shadow.samples.length > shadow.maxSamples) shadow.samples.shift();
+      pushRow('active');
     }
+
     if (shadow.active && settled && animationData?.cameraState === 'project') {
-      shadow.active = false;
-      shadow.completedAt = now;
-      shadow.completedFrame = frame;
       shadow.completionSample = {
         livePosition: vectorToPlain(camera.position),
         liveLookAt: vectorToPlain(liveLookAt),
         deltaLiveToResolvedProjectPosition: safeDistance(camera.position, resolvedProject?.position),
         deltaLiveToResolvedProjectLookAt: safeDistance(liveLookAt, resolvedProject?.lookAt),
       };
+      pushRow('complete');
+      shadow.active = false;
+      shadow.completedAt = now;
+      shadow.completedFrame = frame;
     }
   };
 
