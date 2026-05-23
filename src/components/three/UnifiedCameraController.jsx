@@ -2264,6 +2264,10 @@ const UnifiedCameraController = ({
           fov: Number.isFinite(destination.fov) ? destination.fov : liveFromPose.fov,
           filmOffset: Number.isFinite(destination.filmOffset) ? destination.filmOffset : 0,
         };
+        fromPose = {
+          ...fromPose,
+          lookAt: toPose.lookAt.clone(),
+        };
         const transition = createCameraDirectorPilotTransition({
           id: transitionKey,
           fromPose,
@@ -2341,20 +2345,51 @@ const UnifiedCameraController = ({
       currentTarget.current.position.copy(step.pose.position);
       currentTarget.current.lookAt.copy(step.pose.lookAt);
       currentTarget.current.fov = step.pose.fov;
+      const pilotProgress = THREE.MathUtils.clamp(step.progress, 0, 1);
+      cameraMoveProgressRef.current = pilotProgress;
+      if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = pilotProgress;
+      animationData?.setCameraMoveProgress?.(pilotProgress);
+      if (cameraSettledRef.current) {
+        cameraSettledRef.current = false;
+        animationData?.setCameraSettled?.(false);
+      }
+      const facetDebug = globalThis?.__overviewProjectFacetDebug ?? null;
+      const toPose = pilot.transition?.toPose;
+      const positionDelta = toPose?.position ? camera.position.distanceTo(toPose.position) : Number.POSITIVE_INFINITY;
+      const lookAtDelta = toPose?.lookAt ? currentTarget.current.lookAt.distanceTo(toPose.lookAt) : Number.POSITIVE_INFINITY;
+      const fovDelta = Number.isFinite(toPose?.fov) ? Math.abs(camera.fov - toPose.fov) : Number.POSITIVE_INFINITY;
+      const filmOffsetDelta = Number.isFinite(toPose?.filmOffset) ? Math.abs((camera.filmOffset ?? 0) - toPose.filmOffset) : Number.POSITIVE_INFINITY;
+      const facetReady = facetDebug?.focusRotationProgress == null ? true : facetDebug.focusRotationProgress >= 0.98;
+      const compositionReady =
+        positionDelta < 0.012 &&
+        lookAtDelta < 0.01 &&
+        fovDelta < 0.05 &&
+        filmOffsetDelta < 0.05;
+      const canComplete = step.complete && compositionReady && facetReady;
       guardRecord(
         'CAMERA_DIRECTOR_OVERVIEW_TO_PROJECT',
         ['position', 'lookAt', 'fov', 'filmOffset', 'currentTarget'],
         animationData?.cameraState || animationData?.state || 'unknown',
         'overview-to-project-pilot-active'
       );
-      if (step.complete && !pilot.completedLogged) {
+      if (canComplete && !pilot.completedLogged) {
         pilot.completedLogged = true;
         cameraDirectorPilotRef.current.active = false;
         lastOverviewToProjectKeyRef.current = pilot.transition.id;
+        cameraMoveProgressRef.current = 1;
+        if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = 1;
+        animationData?.setCameraMoveProgress?.(1);
+        cameraSettledRef.current = true;
+        animationData?.setCameraSettled?.(true);
         if (import.meta.env.DEV) {
           console.log('[camera-director-pilot] overview-to-project complete', {
             projectId: pilot.selectedProject,
             transitionId: pilot.transition.id,
+            positionDelta: round4(positionDelta),
+            lookAtDelta: round4(lookAtDelta),
+            fovDelta: round4(fovDelta),
+            filmOffsetDelta: round4(filmOffsetDelta),
+            facetProgress: round4(facetDebug?.focusRotationProgress),
           });
         }
       }

@@ -111,7 +111,7 @@ const GradientBackground = forwardRef(({ backgrounds, initialKey = 'default', ra
       if (key !== currentKey.current || !backgrounds[key]) {
         const scheme = backgrounds[key] || backgrounds.default;
 
-        if (import.meta.env.DEV) {
+        if (import.meta.env.DEV && globalThis?.__GRADIENT_BACKGROUND_VERBOSE__ === true) {
           console.log(`🎨 GradientBackground: Updating from "${currentKey.current}" to "${key}"`, {
             oldColors: {
               colorA: currentKey.current ? backgrounds[currentKey.current]?.colorA : 'unknown',
@@ -127,7 +127,7 @@ const GradientBackground = forwardRef(({ backgrounds, initialKey = 'default', ra
         targetA.current = new THREE.Color(scheme.colorA);
         targetB.current = new THREE.Color(scheme.colorB);
         currentKey.current = key;
-      } else if (import.meta.env.DEV) {
+      } else if (import.meta.env.DEV && globalThis?.__GRADIENT_BACKGROUND_VERBOSE__ === true) {
         console.log(`🎨 GradientBackground: Skipping update, already on "${key}"`);
       }
     },
@@ -145,7 +145,7 @@ const GradientBackground = forwardRef(({ backgrounds, initialKey = 'default', ra
       targetB.current = new THREE.Color(scheme.colorB);
       currentKey.current = key;
 
-      if (import.meta.env.DEV) {
+      if (import.meta.env.DEV && globalThis?.__GRADIENT_BACKGROUND_VERBOSE__ === true) {
         console.log(`🎨 GradientBackground: Force updated to "${key}"`);
       }
     }
