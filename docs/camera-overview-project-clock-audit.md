@@ -95,3 +95,37 @@ In other words, do not rely on `cameraMoveProgress` alone as the sole transition
 - `cameraMoveProgress` remains not suitable as the true transition-start clock.
 - Observed large FOV residuals against resolved-project FOV indicate a likely target mismatch suspicion path; resolver project FOV should not be treated as pilot-authoritative until parity is proven against legacy live/currentTarget behavior.
 - Current earliest captured row can still occur after state/cameraState flip from this hook location; future work needs an earlier upstream hook if strict pre-flip capture is required.
+
+## Latest observed run findings (post PR-10 instrumentation cleanup)
+
+### 1) Current hook limitation confirmed
+- In the captured overview → `project01` run, all rows had `isTruePreTransition: false`.
+- The first captured row was already `state: project_focused` and `cameraState: project` (with `viewMode: overview`), confirming this hook is downstream from the true selection request edge.
+- Therefore:
+  - `truePreTransitionCaptured` should be `false`
+  - `earliestCapturedAfterStateFlip` should be `true`
+- If strict pre-transition capture is required, an earlier upstream hook must be added at navigation/selection intent time (before project state flip).
+
+### 2) Project FOV parity issue confirmed
+- Observed values:
+  - `resolvedProjectFov`: `45`
+  - `currentTargetFov`: `35`
+  - `legacyProjectFovCandidate`: `35`
+  - `targetFovMismatch`: `true`
+- During the same run, `liveFov` settled from approximately `43.8533` to approximately `35.0067`, which matches legacy/current-target behavior rather than resolver project FOV.
+- Conclusion: resolver project FOV is not currently legacy-equivalent for overview → project. Future CameraDirector pilot work must not consume resolver project FOV until parity is fixed, or must explicitly use legacy/currentTarget-equivalent FOV for this path.
+
+### 3) Timing source finding from this observation point
+- `cameraMoveProgress` remained `1` from first captured row through completion in the observed run, so it is not a useful 0→1 transition-start clock at this hook location.
+- More useful settle signals in this instrumentation:
+  - `liveDistanceToProjectTarget` (observed roughly `4.37` → `0.003`)
+  - `fovDeltaToCurrentTarget` (observed roughly `8.85` → `0.0067`)
+- From this hook location, transition behavior appears settle/smoothing/delta-driven rather than a fixed-duration timeline.
+
+## Recommended next PR (before any runtime pilot retry)
+1. **Either** fix destination resolver project-FOV parity in shadow/audit validation flow (do not change runtime behavior in audit pass),
+2. **Or** add upstream navigation-intent instrumentation that captures the true pre-transition overview pose before project state/cameraState flips.
+
+Do not retry runtime CameraDirector overview → project pilot behavior until both are addressed:
+- project FOV parity with legacy path is demonstrated, and
+- transition start capture source is proven to be pre-flip (or equivalently authoritative).
