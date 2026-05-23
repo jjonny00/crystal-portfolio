@@ -261,6 +261,9 @@ const UnifiedCameraController = ({
     activeRun: null,
     maxRuns: 20,
   });
+  const pilotHandoffDebugRef = useRef({
+    pending: null,
+  });
 
   const isOverviewToProjectPilotEnabled = () => {
     // WARNING: Experimental pilot only; not production-ready.
@@ -2271,7 +2274,7 @@ const UnifiedCameraController = ({
           position: new THREE.Vector3(...destination.position),
           lookAt: new THREE.Vector3(...destination.lookAt),
           fov: Number.isFinite(destination.fov) ? destination.fov : liveFromPose.fov,
-          filmOffset: Number.isFinite(destination.filmOffset) ? destination.filmOffset : 0,
+          filmOffset: Number.isFinite(liveFromPose.filmOffset) ? liveFromPose.filmOffset : 0,
         };
         fromPose = {
           ...fromPose,
@@ -2402,6 +2405,39 @@ const UnifiedCameraController = ({
               : 'max-duration-fallback');
         cameraDirectorPilotRef.current.active = false;
         lastOverviewToProjectKeyRef.current = pilot.transition.id;
+        const cameraBeforeHandoff = {
+          position: camera.position.clone(),
+          lookAt: currentTarget.current.lookAt.clone(),
+          fov: camera.fov,
+          filmOffset: camera.filmOffset,
+        };
+        const currentTargetBeforeSync = {
+          position: currentTarget.current.position.clone(),
+          lookAt: currentTarget.current.lookAt.clone(),
+          fov: currentTarget.current.fov,
+          filmOffset: camera.filmOffset,
+        };
+        currentTarget.current.position.copy(camera.position);
+        currentTarget.current.lookAt.copy(step.pose.lookAt);
+        currentTarget.current.fov = camera.fov;
+        pilotHandoffDebugRef.current.pending = {
+          completionReason,
+          projectId: pilot.selectedProject,
+          pilotFinalPose: {
+            position: step.pose.position.clone(),
+            lookAt: step.pose.lookAt.clone(),
+            fov: step.pose.fov,
+            filmOffset: step.pose.filmOffset,
+          },
+          cameraBeforeHandoff,
+          currentTargetBeforeSync,
+          currentTargetAfterSync: {
+            position: currentTarget.current.position.clone(),
+            lookAt: currentTarget.current.lookAt.clone(),
+            fov: currentTarget.current.fov,
+            filmOffset: camera.filmOffset,
+          },
+        };
         cameraMoveProgressRef.current = 1;
         if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = 1;
         animationData?.setCameraMoveProgress?.(1);
@@ -2429,6 +2465,63 @@ const UnifiedCameraController = ({
         focusedProject: pilot.selectedProject ?? focusedProject ?? null,
       });
       return;
+    }
+
+    if (import.meta.env.DEV && pilotHandoffDebugRef.current.pending && animationData?.cameraState === 'project') {
+      const handoff = pilotHandoffDebugRef.current.pending;
+      const firstLegacyPose = {
+        position: camera.position.clone(),
+        lookAt: currentTarget.current.lookAt.clone(),
+        fov: camera.fov,
+        filmOffset: camera.filmOffset,
+      };
+      console.log('[camera-director-pilot] overview-to-project handoff', {
+        projectId: handoff.projectId,
+        completionReason: handoff.completionReason,
+        cameraBeforeHandoff: {
+          position: handoff.cameraBeforeHandoff.position.toArray(),
+          lookAt: handoff.cameraBeforeHandoff.lookAt.toArray(),
+          fov: round4(handoff.cameraBeforeHandoff.fov),
+          filmOffset: round4(handoff.cameraBeforeHandoff.filmOffset),
+        },
+        pilotFinalPose: {
+          position: handoff.pilotFinalPose.position.toArray(),
+          lookAt: handoff.pilotFinalPose.lookAt.toArray(),
+          fov: round4(handoff.pilotFinalPose.fov),
+          filmOffset: round4(handoff.pilotFinalPose.filmOffset),
+        },
+        currentTargetBeforeSync: {
+          position: handoff.currentTargetBeforeSync.position.toArray(),
+          lookAt: handoff.currentTargetBeforeSync.lookAt.toArray(),
+          fov: round4(handoff.currentTargetBeforeSync.fov),
+          filmOffset: round4(handoff.currentTargetBeforeSync.filmOffset),
+        },
+        currentTargetAfterSync: {
+          position: handoff.currentTargetAfterSync.position.toArray(),
+          lookAt: handoff.currentTargetAfterSync.lookAt.toArray(),
+          fov: round4(handoff.currentTargetAfterSync.fov),
+          filmOffset: round4(handoff.currentTargetAfterSync.filmOffset),
+        },
+        firstLegacyFramePose: {
+          position: firstLegacyPose.position.toArray(),
+          lookAt: firstLegacyPose.lookAt.toArray(),
+          fov: round4(firstLegacyPose.fov),
+          filmOffset: round4(firstLegacyPose.filmOffset),
+        },
+        deltaPilotFinalToCurrentTargetAfterSync: {
+          position: round4(handoff.pilotFinalPose.position.distanceTo(handoff.currentTargetAfterSync.position)),
+          lookAt: round4(handoff.pilotFinalPose.lookAt.distanceTo(handoff.currentTargetAfterSync.lookAt)),
+          fov: round4(Math.abs(handoff.pilotFinalPose.fov - handoff.currentTargetAfterSync.fov)),
+          filmOffset: round4(Math.abs((handoff.pilotFinalPose.filmOffset ?? 0) - (handoff.currentTargetAfterSync.filmOffset ?? 0))),
+        },
+        deltaPilotFinalToFirstLegacyFrame: {
+          position: round4(handoff.pilotFinalPose.position.distanceTo(firstLegacyPose.position)),
+          lookAt: round4(handoff.pilotFinalPose.lookAt.distanceTo(firstLegacyPose.lookAt)),
+          fov: round4(Math.abs(handoff.pilotFinalPose.fov - firstLegacyPose.fov)),
+          filmOffset: round4(Math.abs((handoff.pilotFinalPose.filmOffset ?? 0) - (firstLegacyPose.filmOffset ?? 0))),
+        },
+      });
+      pilotHandoffDebugRef.current.pending = null;
     }
 
     if (debugSecond !== lastDebugSecondRef.current && debugSecond % 2 === 0) {
