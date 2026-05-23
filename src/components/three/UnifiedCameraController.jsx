@@ -2224,6 +2224,15 @@ const UnifiedCameraController = ({
         (deltaPreviousToLiveLookAt ?? 0) > 0.05 ||
         (deltaPreviousToLiveFov ?? 0) > 0.2 ||
         (deltaPreviousToLiveFilmOffset ?? 0) > 0.2;
+      const canUsePreviousFrameLookAtOnly =
+        previousPoseIsFinite &&
+        previousFramePose?.viewMode === 'overview' &&
+        (animationData?.viewMode ?? null) === 'overview' &&
+        previousFramePose?.focusedProject === focusedProject &&
+        (deltaPreviousToLiveLookAt ?? 0) > 0.1 &&
+        (deltaPreviousToLivePosition ?? 0) <= 0.05 &&
+        (deltaPreviousToLiveFov ?? 0) <= 0.2 &&
+        (deltaPreviousToLiveFilmOffset ?? 0) <= 0.2;
       if (previousPoseIsFinite && previousOverviewContext && meaningfulPreviousToLiveDelta) {
         fromPose = {
           position: previousFramePose.position.clone(),
@@ -2232,6 +2241,12 @@ const UnifiedCameraController = ({
           filmOffset: previousFramePose.filmOffset,
         };
         fromPoseSource = 'previous-overview-frame';
+      } else if (canUsePreviousFrameLookAtOnly) {
+        fromPose = {
+          ...fromPose,
+          lookAt: previousFramePose.lookAt.clone(),
+        };
+        fromPoseSource = 'previous-frame-lookAt';
       }
       console.log('[camera-director-pilot] overview-to-project pre-start-continuity', {
         previousFrameState: previousFramePose?.state ?? null,
@@ -2254,6 +2269,8 @@ const UnifiedCameraController = ({
         previousFrameFilmOffset: round4(previousFramePose?.filmOffset ?? null),
         liveStartFilmOffset: round4(liveFromPose.filmOffset),
         deltaPreviousToLiveFilmOffset: round4(deltaPreviousToLiveFilmOffset),
+        lookAtSource: canUsePreviousFrameLookAtOnly ? 'previous-frame' : 'live-start',
+        usedPreviousFrameLookAt: canUsePreviousFrameLookAtOnly,
       });
       const overviewResolved = resolveCameraDestination({
         destination: 'overview',
