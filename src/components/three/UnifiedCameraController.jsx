@@ -1818,6 +1818,7 @@ const UnifiedCameraController = ({
         sampleType,
         mode: run.mode,
         projectId: run.projectId,
+        completionReason: run.completionReason ?? null,
         elapsed: round4(state.clock.elapsedTime),
         state: animationData?.state ?? null,
         cameraState: animationData?.cameraState ?? null,
@@ -1860,10 +1861,18 @@ const UnifiedCameraController = ({
     const filmOffsetDelta = round4(Math.abs((camera.filmOffset ?? 0) - (runResolvedProject.filmOffset ?? 0))) ?? Number.POSITIVE_INFINITY;
     const isNearTarget = positionDelta < 0.08 && lookAtDelta < 0.06 && fovDelta < 0.2 && filmOffsetDelta < 0.12;
     const explicitLegacySettle = animationData?.viewMode === 'project' && cameraSettledRef.current;
-    const completeSignal = transitionElapsed > 0.15 && (explicitLegacySettle || isNearTarget);
+    const facetProgress = Number.isFinite(facetDebug?.focusRotationProgress) ? facetDebug.focusRotationProgress : null;
+    const cameraProgress = round4(cameraMoveProgressRef.current) ?? 0;
+    const strictNearTarget = positionDelta <= 0.005 && lookAtDelta <= 0.005 && fovDelta <= 0.02 && filmOffsetDelta <= 0.05;
+    const thresholdsMet = strictNearTarget && cameraProgress >= 0.99 && (facetProgress == null || facetProgress >= 0.99);
+    const missingFacetProgressFallback = strictNearTarget && cameraProgress >= 0.99 && facetProgress == null;
+    const maxDurationFallback = transitionElapsed >= 1.8 && (explicitLegacySettle || isNearTarget);
+    const completeSignal = transitionElapsed > 0.15 && (thresholdsMet || missingFacetProgressFallback || maxDurationFallback);
     if (!run.completed && completeSignal) {
       run.completed = true;
-      run.completionReason = explicitLegacySettle ? 'viewmode-project-and-camera-settled' : 'near-resolved-project-target';
+      run.completionReason = thresholdsMet
+        ? 'thresholds-met'
+        : (missingFacetProgressFallback ? 'missing-facet-progress-fallback' : 'max-duration-fallback');
       run.durationSeconds = round4(transitionElapsed);
       pushRow('complete');
       store.activeRun = null;
@@ -2359,13 +2368,25 @@ const UnifiedCameraController = ({
       const lookAtDelta = toPose?.lookAt ? currentTarget.current.lookAt.distanceTo(toPose.lookAt) : Number.POSITIVE_INFINITY;
       const fovDelta = Number.isFinite(toPose?.fov) ? Math.abs(camera.fov - toPose.fov) : Number.POSITIVE_INFINITY;
       const filmOffsetDelta = Number.isFinite(toPose?.filmOffset) ? Math.abs((camera.filmOffset ?? 0) - toPose.filmOffset) : Number.POSITIVE_INFINITY;
-      const facetReady = facetDebug?.focusRotationProgress == null ? true : facetDebug.focusRotationProgress >= 0.98;
+      const facetProgress = Number.isFinite(facetDebug?.focusRotationProgress) ? facetDebug.focusRotationProgress : null;
+      const facetReady = facetProgress == null ? true : facetProgress >= 0.99;
+      const cameraProgressReady = pilotProgress >= 0.99;
       const compositionReady =
-        positionDelta < 0.012 &&
-        lookAtDelta < 0.01 &&
-        fovDelta < 0.05 &&
+        positionDelta <= 0.005 &&
+        lookAtDelta <= 0.005 &&
+        fovDelta <= 0.02 &&
         filmOffsetDelta < 0.05;
-      const canComplete = step.complete && compositionReady && facetReady;
+      const MAX_PILOT_DURATION_SECONDS = 1.8;
+      const durationSeconds = state.clock.elapsedTime - (pilot.transition?.startedAt ?? state.clock.elapsedTime);
+      const exceededMaxDuration = durationSeconds >= MAX_PILOT_DURATION_SECONDS;
+      const canCompleteByThresholds = step.complete && compositionReady && facetReady && cameraProgressReady;
+      const canCompleteByMissingFacetFallback =
+        step.complete &&
+        compositionReady &&
+        cameraProgressReady &&
+        facetProgress == null;
+      const canCompleteByMaxDurationFallback = exceededMaxDuration && step.complete;
+      const canComplete = canCompleteByThresholds || canCompleteByMissingFacetFallback || canCompleteByMaxDurationFallback;
       guardRecord(
         'CAMERA_DIRECTOR_OVERVIEW_TO_PROJECT',
         ['position', 'lookAt', 'fov', 'filmOffset', 'currentTarget'],
@@ -2374,6 +2395,11 @@ const UnifiedCameraController = ({
       );
       if (canComplete && !pilot.completedLogged) {
         pilot.completedLogged = true;
+        const completionReason = canCompleteByThresholds
+          ? 'thresholds-met'
+          : (canCompleteByMissingFacetFallback
+              ? 'missing-facet-progress-fallback'
+              : 'max-duration-fallback');
         cameraDirectorPilotRef.current.active = false;
         lastOverviewToProjectKeyRef.current = pilot.transition.id;
         cameraMoveProgressRef.current = 1;
@@ -2385,11 +2411,14 @@ const UnifiedCameraController = ({
           console.log('[camera-director-pilot] overview-to-project complete', {
             projectId: pilot.selectedProject,
             transitionId: pilot.transition.id,
+            completionReason,
             positionDelta: round4(positionDelta),
             lookAtDelta: round4(lookAtDelta),
             fovDelta: round4(fovDelta),
             filmOffsetDelta: round4(filmOffsetDelta),
-            facetProgress: round4(facetDebug?.focusRotationProgress),
+            cameraMoveProgress: round4(pilotProgress),
+            facetProgress: round4(facetProgress),
+            durationSeconds: round4(durationSeconds),
           });
         }
       }
