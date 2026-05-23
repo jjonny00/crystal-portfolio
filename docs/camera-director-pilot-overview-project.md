@@ -1,9 +1,9 @@
-# CameraDirector Pilot: Overview → Project (PR-7)
+# CameraDirector Pilot: Overview → Project (PR-12 update)
 
 ## Scope
 - Runtime pilot for **overview → project** only.
 - All other transitions remain legacy.
-- Status: **experimental research scaffold, not production-ready**.
+- Status: **experimental, flag-gated, not production-ready**.
 
 ## Feature flag
 - Flag: `globalThis.__ENABLE_CAMERA_DIRECTOR_OVERVIEW_TO_PROJECT__`
@@ -22,10 +22,24 @@ Pilot activates only when all conditions are true:
 ## Ownership model
 - **Flag false**: legacy `UnifiedCameraController` owns camera writes.
 - **Flag true + active transition**:
-  - Pilot captures `fromPose` from live camera (`position`, inferred `lookAt`, `fov`, `filmOffset`).
-  - Pilot resolves `toPose` using destination resolver (`project`, `selected`, current project).
+  - Pilot captures `fromPose` from the visible live camera composition (`position`, live `lookAt`, `fov`, `filmOffset`).
+  - Pilot resolves `toPose` using destination resolver (`project`, `selected`, current project) with project FOV parity.
   - Pilot interpolates and writes `position`, `lookAt/orientation`, `fov`, `filmOffset`, and `currentTarget`.
 - On completion, pilot deactivates and legacy project-state camera path immediately resumes ownership.
+
+## PR-11 / PR-12 parity and timing notes
+- PR-11 fixed project resolver FOV parity for this path:
+  - `resolvedProjectFov = 35`
+  - `legacyProjectFovCandidate = 35`
+  - `currentTargetFov = 35`
+  - `targetFovMismatch = false`
+- PR-12 pilot composition update:
+  - `fromPose` now uses the live visible camera composition by default.
+  - project destination composition uses resolver-equivalent target values (`position`, `lookAt`, `fov`, `filmOffset`) with project FOV parity.
+- PR-12 timing update:
+  - completion now considers settle signals (distance/lookAt/fov/filmOffset deltas for a few frames) instead of relying only on a generic fixed-duration completion.
+  - timing/choreography remains **experimental** and is intentionally still flag-gated.
+- Flag remains off by default.
 
 ## Suppression list
 - During active pilot only: legacy branches are bypassed by early return in `useFrame` after pilot write.
