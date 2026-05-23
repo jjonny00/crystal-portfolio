@@ -2208,6 +2208,7 @@ const UnifiedCameraController = ({
       };
       let fromPose = liveFromPose;
       let fromPoseSource = 'live-camera';
+      const previousFramePose = previousFramePoseRef.current ?? null;
       const previousPoseIsFinite =
         previousFramePose?.position instanceof THREE.Vector3 &&
         previousFramePose?.lookAt instanceof THREE.Vector3 &&
