@@ -69,6 +69,7 @@ Additional event rows are captured on:
 - focusedProject change
 - selectedProject change
 - pre-start intent event: `intent:overview-to-project` (when early overview→project intent is detectable from selection/view/camera-state precursor signals)
+- repeated intent rows are edge-detected and suppressed (summary includes `suppressedIntentRepeatCount`)
 
 FOV audit fields now include:
 - `liveFov`
@@ -78,6 +79,7 @@ FOV audit fields now include:
 - `fovDeltaToCurrentTarget`
 - `fovDeltaToResolvedProject`
 - `targetFovMismatch` (true when `abs(currentTargetFov - resolvedProjectFov) > 0.5`)
+- timeline table helper now prints explicit FOV columns (with `null` when unavailable) for visual audit consistency
 
 Default console remains silent; output is helper-triggered only.
 
@@ -92,3 +94,4 @@ In other words, do not rely on `cameraMoveProgress` alone as the sole transition
 - The sampler can still begin after `project_focused` / `cameraState: project` flips, so timeline analysis must include the new pre-start intent event to bracket earlier intent onset.
 - `cameraMoveProgress` remains not suitable as the true transition-start clock.
 - Observed large FOV residuals against resolved-project FOV indicate a likely target mismatch suspicion path; resolver project FOV should not be treated as pilot-authoritative until parity is proven against legacy live/currentTarget behavior.
+- Current earliest captured row can still occur after state/cameraState flip from this hook location; future work needs an earlier upstream hook if strict pre-flip capture is required.

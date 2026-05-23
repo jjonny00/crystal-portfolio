@@ -251,6 +251,10 @@ const UnifiedCameraController = ({
       focusedProject: null,
       selectedProject: null,
     },
+    intentEdgeKey: null,
+    suppressedIntentRepeatCount: 0,
+    truePreTransitionCaptured: false,
+    earliestCapturedAfterStateFlip: null,
   });
 
   const isOverviewToProjectPilotEnabled = () => {
@@ -1630,6 +1634,9 @@ const UnifiedCameraController = ({
         startSample: shadow.startSample,
         completionSample: shadow.completionSample,
         lastSkipReason: shadow.lastSkipReason ?? null,
+        suppressedIntentRepeatCount: shadow.suppressedIntentRepeatCount ?? 0,
+        truePreTransitionCaptured: shadow.truePreTransitionCaptured ?? false,
+        earliestCapturedAfterStateFlip: shadow.earliestCapturedAfterStateFlip ?? null,
       });
     };
     globalThis.__printOverviewProjectTimingSamples = () => {
@@ -1645,6 +1652,10 @@ const UnifiedCameraController = ({
       shadow.samples = [];
       shadow.timeline = [];
       shadow.frameDeltaAccum = 0;
+      shadow.intentEdgeKey = null;
+      shadow.suppressedIntentRepeatCount = 0;
+      shadow.truePreTransitionCaptured = false;
+      shadow.earliestCapturedAfterStateFlip = null;
       console.log('[overview-project-shadow] samples-cleared');
     };
     globalThis.__printOverviewProjectTimingTimeline = () => {
@@ -1653,7 +1664,29 @@ const UnifiedCameraController = ({
         console.log('[overview-project-shadow] timeline', []);
         return;
       }
-      console.table(shadow.timeline);
+      const tableRows = shadow.timeline.map((row) => ({
+        eventType: row.eventType ?? null,
+        timestamp: row.timestamp ?? null,
+        frameId: row.frameId ?? null,
+        state: row.state ?? null,
+        cameraState: row.cameraState ?? null,
+        viewMode: row.viewMode ?? null,
+        focusedProject: row.focusedProject ?? null,
+        selectedProject: row.selectedProject ?? null,
+        isTruePreTransition: row.isTruePreTransition ?? null,
+        liveFov: row.liveFov ?? null,
+        currentTargetFov: row.currentTargetFov ?? null,
+        resolvedProjectFov: row.resolvedProjectFov ?? null,
+        legacyProjectFovCandidate: row.legacyProjectFovCandidate ?? null,
+        fovDeltaToCurrentTarget: row.fovDeltaToCurrentTarget ?? null,
+        fovDeltaToResolvedProject: row.fovDeltaToResolvedProject ?? null,
+        targetFovMismatch: row.targetFovMismatch ?? null,
+        liveDistanceToProjectTarget: row.liveDistanceToProjectTarget ?? null,
+        liveFilmOffsetDeltaToProjectTarget: row.liveFilmOffsetDeltaToProjectTarget ?? null,
+        cameraMoveProgress: row.cameraMoveProgress ?? null,
+        frameDeltaAccum: row.frameDeltaAccum ?? null,
+      }));
+      console.table(tableRows);
     };
     globalThis.__overviewProjectShadowHelpersInstalled = true;
   };
@@ -1693,9 +1726,12 @@ const UnifiedCameraController = ({
       (prevFocusedProjectMark == null && nextFocusedProjectMark != null) ||
       (prevSelectedProjectMark == null && nextSelectedProjectMark != null) ||
       (prevCameraStateMark === 'overview' && nextCameraStateMark === 'project');
+    const isTruePreTransition = nextStateMark !== 'project_focused' && nextCameraStateMark !== 'project';
+    const intentTargetProject = nextFocusedProjectMark ?? nextSelectedProjectMark ?? null;
+    const nextIntentEdgeKey = likelyOverviewToProjectIntent ? `${nextViewModeMark ?? 'none'}|${intentTargetProject ?? 'none'}` : null;
 
     const markChangeEvent = (eventType, previousValue, nextValue) => {
-      shadow.timeline.push({
+      const row = {
         eventType,
         timestamp: round4(now),
         frameId: frame,
@@ -1725,14 +1761,31 @@ const UnifiedCameraController = ({
         fovDeltaToCurrentTarget,
         fovDeltaToResolvedProject,
         targetFovMismatch,
+        isTruePreTransition,
         liveDistanceToProjectTarget: safeDistance(camera.position, resolvedProject?.position),
         liveFilmOffsetDeltaToProjectTarget: resolvedProject?.filmOffset != null ? round4(Math.abs((camera.filmOffset ?? 0) - resolvedProject.filmOffset)) : null,
         facetProgress: round4(facetDebug?.focusRotationProgress),
         facetDeltaToProjectQuat: facetDebug?.deltaMeshToProjectFocusQuat ?? null,
-      });
+      };
+      shadow.timeline.push(row);
       if (shadow.timeline.length > shadow.maxTimelineRows) shadow.timeline.shift();
+      if (shadow.timeline.length === 1) {
+        shadow.earliestCapturedAfterStateFlip = !row.isTruePreTransition;
+        shadow.truePreTransitionCaptured = Boolean(row.isTruePreTransition);
+      } else if (row.isTruePreTransition) {
+        shadow.truePreTransitionCaptured = true;
+      }
     };
-    if (likelyOverviewToProjectIntent) markChangeEvent('intent:overview-to-project', prevFocusedProjectMark ?? prevSelectedProjectMark, nextFocusedProjectMark ?? nextSelectedProjectMark);
+    if (likelyOverviewToProjectIntent) {
+      if (shadow.intentEdgeKey !== nextIntentEdgeKey) {
+        markChangeEvent('intent:overview-to-project', prevFocusedProjectMark ?? prevSelectedProjectMark, nextFocusedProjectMark ?? nextSelectedProjectMark);
+        shadow.intentEdgeKey = nextIntentEdgeKey;
+      } else {
+        shadow.suppressedIntentRepeatCount = (shadow.suppressedIntentRepeatCount ?? 0) + 1;
+      }
+    } else {
+      shadow.intentEdgeKey = null;
+    }
 
     const isFreshOverviewToProject =
       prevCameraState === 'overview' &&
@@ -1786,6 +1839,7 @@ const UnifiedCameraController = ({
         fovDeltaToCurrentTarget,
         fovDeltaToResolvedProject,
         targetFovMismatch,
+        isTruePreTransition,
         deltaToResolvedProjectPosition: liveDistanceToProjectTarget,
         deltaToResolvedProjectLookAt: safeDistance(liveLookAt, resolvedProject?.lookAt),
         liveDistanceToProjectTarget,
@@ -1816,12 +1870,19 @@ const UnifiedCameraController = ({
         fovDeltaToCurrentTarget,
         fovDeltaToResolvedProject,
         targetFovMismatch,
+        isTruePreTransition,
         liveFovDeltaToProjectTarget,
         liveFilmOffsetDeltaToProjectTarget,
         facetProgress: round4(facetDebug?.focusRotationProgress),
         facetDeltaToProjectQuat: facetDebug?.deltaMeshToProjectFocusQuat ?? null,
       });
       if (shadow.timeline.length > shadow.maxTimelineRows) shadow.timeline.shift();
+      if (shadow.timeline.length === 1) {
+        shadow.earliestCapturedAfterStateFlip = !row.isTruePreTransition;
+        shadow.truePreTransitionCaptured = Boolean(row.isTruePreTransition);
+      } else if (row.isTruePreTransition) {
+        shadow.truePreTransitionCaptured = true;
+      }
     };
     shadow.frameDeltaAccum += Number.isFinite(delta) ? delta : 0;
 
