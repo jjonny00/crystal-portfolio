@@ -18,3 +18,9 @@ Supported canonical destinations:
 - No transition timing changes.
 - Hero→Overview behavior intentionally untouched.
 - Known About corruption remains unresolved in this PR.
+
+## PR-11: Project FOV parity fix (overview → project)
+- Root cause: resolver project/caseStudy branch returned the default base FOV (`45`) because it only resolved position/target from `projectCameraSettings` and never sourced FOV for project destinations.
+- Legacy/runtime target source for this transition remains `animationData.cameraConfig.fov` (observed project target `35`), so shadow compare showed `resolvedProjectFov=45` vs `currentTargetFov=35`.
+- Fix: project/caseStudy resolver path now reads FOV from `animationData.cameraConfig.fov` (same source used by legacy runtime targeting) and keeps fallback to base FOV only when animation data is unavailable.
+- Non-goal unchanged: transition timing/start-capture instrumentation is still downstream and not addressed here.

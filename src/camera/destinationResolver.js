@@ -22,7 +22,9 @@ export const resolveCameraDestination = ({ destination, projectId = null, mode =
       ...base,
       position: addVec3(toVec3(branch.position), globalOffsetPos),
       lookAt: addVec3(toVec3(branch.target), globalOffsetTarget),
-      meta: { ...base.meta, source: `projectCameraSettings.${projectMode}` },
+      fov: animationData?.cameraConfig?.fov ?? base.fov,
+      filmOffset: config?.cameraComposition?.hero?.filmOffsetX ?? 0,
+      meta: { ...base.meta, source: `projectCameraSettings.${projectMode}+animationData.cameraConfig.fov` },
     };
   }
 
