@@ -237,10 +237,19 @@ const UnifiedCameraController = ({
     startSample: null,
     completionSample: null,
     samples: [],
+    timeline: [],
     maxSamples: 120,
+    maxTimelineRows: 240,
     printedStartForTransition: null,
     printedCompletionForTransition: null,
     lastSkipReason: null,
+    frameDeltaAccum: 0,
+    eventMarks: {
+      state: null,
+      cameraState: null,
+      viewMode: null,
+      focusedProject: null,
+    },
   });
 
   const isOverviewToProjectPilotEnabled = () => {
@@ -1631,8 +1640,19 @@ const UnifiedCameraController = ({
       console.table(shadow.samples);
     };
     globalThis.__clearOverviewProjectTimingSamples = () => {
-      getOverviewProjectShadowStore().samples = []
+      const shadow = getOverviewProjectShadowStore();
+      shadow.samples = [];
+      shadow.timeline = [];
+      shadow.frameDeltaAccum = 0;
       console.log('[overview-project-shadow] samples-cleared');
+    };
+    globalThis.__printOverviewProjectTimingTimeline = () => {
+      const shadow = getOverviewProjectShadowStore();
+      if (!shadow.timeline.length) {
+        console.log('[overview-project-shadow] timeline', []);
+        return;
+      }
+      console.table(shadow.timeline);
     };
     globalThis.__overviewProjectShadowHelpersInstalled = true;
   };
@@ -1672,7 +1692,10 @@ const UnifiedCameraController = ({
 
     const pushRow = (sampleType) => {
       const transitionElapsedSeconds = shadow.startedAt != null ? round4(now - shadow.startedAt) : null;
-      shadow.samples.push({
+      const liveDistanceToProjectTarget = safeDistance(camera.position, resolvedProject?.position);
+      const liveFovDeltaToProjectTarget = resolvedProject?.fov != null ? round4(Math.abs(camera.fov - resolvedProject.fov)) : null;
+      const liveFilmOffsetDeltaToProjectTarget = resolvedProject?.filmOffset != null ? round4(Math.abs((camera.filmOffset ?? 0) - resolvedProject.filmOffset)) : null;
+      const row = {
         sampleType,
         transitionId: shadow.transitionId ?? transitionKey,
         frameId: frame,
@@ -1691,13 +1714,75 @@ const UnifiedCameraController = ({
         liveFilmOffset: round4(camera.filmOffset),
         currentTargetLookAt: vectorToPlain(currentTarget.current?.lookAt),
         currentTargetFov: round4(currentTarget.current?.fov),
-        currentTargetFilmOffset: null,
-        deltaToResolvedProjectPosition: safeDistance(camera.position, resolvedProject?.position),
+        currentTargetFilmOffset: round4(camera.filmOffset),
+        deltaToResolvedProjectPosition: liveDistanceToProjectTarget,
         deltaToResolvedProjectLookAt: safeDistance(liveLookAt, resolvedProject?.lookAt),
+        liveDistanceToProjectTarget,
+        liveFovDeltaToProjectTarget,
+        liveFilmOffsetDeltaToProjectTarget,
+        frameDeltaAccum: round4(shadow.frameDeltaAccum),
         facet: facetDebug,
-      });
+      };
+      shadow.samples.push(row);
       if (shadow.samples.length > shadow.maxSamples) shadow.samples.shift();
+      shadow.timeline.push({
+        eventType: `sample:${sampleType}`,
+        timestamp: round4(now),
+        transitionElapsedSeconds,
+        frameId: frame,
+        state: animationData?.state ?? null,
+        cameraState: animationData?.cameraState ?? null,
+        viewMode: animationData?.viewMode ?? null,
+        focusedProject: animationData?.focusedProject ?? null,
+        cameraMoveProgress: row.cameraMoveProgress,
+        frameDeltaAccum: row.frameDeltaAccum,
+        liveDistanceToProjectTarget,
+        liveFovDeltaToProjectTarget,
+        liveFilmOffsetDeltaToProjectTarget,
+        facetProgress: round4(facetDebug?.focusRotationProgress),
+        facetDeltaToProjectQuat: facetDebug?.deltaMeshToProjectFocusQuat ?? null,
+      });
+      if (shadow.timeline.length > shadow.maxTimelineRows) shadow.timeline.shift();
     };
+    shadow.frameDeltaAccum += Number.isFinite(delta) ? delta : 0;
+    const markChangeEvent = (eventType, previousValue, nextValue) => {
+      shadow.timeline.push({
+        eventType,
+        timestamp: round4(now),
+        frameId: frame,
+        state: animationData?.state ?? null,
+        cameraState: animationData?.cameraState ?? null,
+        viewMode: animationData?.viewMode ?? null,
+        focusedProject: animationData?.focusedProject ?? null,
+        previousValue: previousValue ?? null,
+        nextValue: nextValue ?? null,
+        cameraMoveProgress: round4(cameraMoveProgressRef.current),
+        frameDeltaAccum: round4(shadow.frameDeltaAccum),
+        liveDistanceToProjectTarget: safeDistance(camera.position, resolvedProject?.position),
+        liveFovDeltaToProjectTarget: resolvedProject?.fov != null ? round4(Math.abs(camera.fov - resolvedProject.fov)) : null,
+        liveFilmOffsetDeltaToProjectTarget: resolvedProject?.filmOffset != null ? round4(Math.abs((camera.filmOffset ?? 0) - resolvedProject.filmOffset)) : null,
+        facetProgress: round4(facetDebug?.focusRotationProgress),
+        facetDeltaToProjectQuat: facetDebug?.deltaMeshToProjectFocusQuat ?? null,
+      });
+      if (shadow.timeline.length > shadow.maxTimelineRows) shadow.timeline.shift();
+    };
+
+    if (shadow.eventMarks.state !== (animationData?.state ?? null)) {
+      markChangeEvent('state-change', shadow.eventMarks.state, animationData?.state ?? null);
+      shadow.eventMarks.state = animationData?.state ?? null;
+    }
+    if (shadow.eventMarks.cameraState !== (animationData?.cameraState ?? null)) {
+      markChangeEvent('cameraState-change', shadow.eventMarks.cameraState, animationData?.cameraState ?? null);
+      shadow.eventMarks.cameraState = animationData?.cameraState ?? null;
+    }
+    if (shadow.eventMarks.viewMode !== (animationData?.viewMode ?? null)) {
+      markChangeEvent('viewMode-change', shadow.eventMarks.viewMode, animationData?.viewMode ?? null);
+      shadow.eventMarks.viewMode = animationData?.viewMode ?? null;
+    }
+    if (shadow.eventMarks.focusedProject !== (animationData?.focusedProject ?? null)) {
+      markChangeEvent('focusedProject-change', shadow.eventMarks.focusedProject, animationData?.focusedProject ?? null);
+      shadow.eventMarks.focusedProject = animationData?.focusedProject ?? null;
+    }
 
     if (transitionActive && !shadow.active) {
       shadow.active = true;

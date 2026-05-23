@@ -2421,6 +2421,7 @@ const UnifiedCrystalScene = forwardRef(({
               facetKey,
               focusRotationProgress,
               facetRotationProgressApprox: facetProgress,
+              deltaMeshToProjectFocusQuat: Number(facetRef.current.quaternion.angleTo(targetQuat).toFixed(4)),
               cameraMoveProgress,
               viewMode: animationData?.viewMode ?? null,
               cameraState: animationData?.cameraState ?? null,
