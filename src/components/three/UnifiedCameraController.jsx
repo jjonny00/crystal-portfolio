@@ -2214,10 +2214,6 @@ const UnifiedCameraController = ({
           lookAtDelta > LOOKAT_DELTA_THRESHOLD ||
           filmOffsetDelta > FILMOFFSET_DELTA_THRESHOLD ||
           fovDelta > FOV_DELTA_THRESHOLD;
-        if (liveIsContaminated) {
-          fromPose = resolvedOverviewPose;
-          fromPoseSource = 'resolved-overview';
-        }
         if (import.meta.env.DEV && startPoseLogKeyRef.current !== transitionKey) {
           startPoseLogKeyRef.current = transitionKey;
           console.log('[camera-director-pilot] overview-to-project start-pose', {
@@ -2275,10 +2271,6 @@ const UnifiedCameraController = ({
           lookAt: new THREE.Vector3(...destination.lookAt),
           fov: Number.isFinite(destination.fov) ? destination.fov : liveFromPose.fov,
           filmOffset: Number.isFinite(destination.filmOffset) ? destination.filmOffset : liveFromPose.filmOffset,
-        };
-        fromPose = {
-          ...fromPose,
-          lookAt: toPose.lookAt.clone(),
         };
         if (import.meta.env.DEV) {
           console.log('[camera-director-pilot] overview-to-project start-composition', {
