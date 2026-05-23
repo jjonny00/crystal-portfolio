@@ -1,9 +1,9 @@
-# CameraDirector Pilot: Overview → Project (PR-12 update)
+# CameraDirector Pilot: Overview → Project (PR-12 findings)
 
 ## Scope
 - Runtime pilot for **overview → project** only.
 - All other transitions remain legacy.
-- Status: **experimental, flag-gated, not production-ready**.
+- Status: **experimental research scaffold, not production-ready**.
 
 ## Feature flag
 - Flag: `globalThis.__ENABLE_CAMERA_DIRECTOR_OVERVIEW_TO_PROJECT__`
@@ -22,24 +22,36 @@ Pilot activates only when all conditions are true:
 ## Ownership model
 - **Flag false**: legacy `UnifiedCameraController` owns camera writes.
 - **Flag true + active transition**:
-  - Pilot captures `fromPose` from the visible live camera composition (`position`, live `lookAt`, `fov`, `filmOffset`).
-  - Pilot resolves `toPose` using destination resolver (`project`, `selected`, current project) with project FOV parity.
+  - Pilot captures `fromPose` from live camera/resolved-overview guarded selection.
+  - Pilot resolves `toPose` using destination resolver (`project`, `selected`, current project).
   - Pilot interpolates and writes `position`, `lookAt/orientation`, `fov`, `filmOffset`, and `currentTarget`.
 - On completion, pilot deactivates and legacy project-state camera path immediately resumes ownership.
 
-## PR-11 / PR-12 parity and timing notes
+## PR-11 / PR-12 findings
 - PR-11 fixed project resolver FOV parity for this path:
   - `resolvedProjectFov = 35`
   - `legacyProjectFovCandidate = 35`
   - `currentTargetFov = 35`
   - `targetFovMismatch = false`
-- PR-12 pilot composition update:
-  - `fromPose` now uses the live visible camera composition by default.
-  - project destination composition uses resolver-equivalent target values (`position`, `lookAt`, `fov`, `filmOffset`) with project FOV parity.
-- PR-12 timing update:
-  - completion now considers settle signals (distance/lookAt/fov/filmOffset deltas for a few frames) instead of relying only on a generic fixed-duration completion.
-  - timing/choreography remains **experimental** and is intentionally still flag-gated.
+- PR-12 observation outcome:
+  - pilot can start and complete.
+  - pilot can reach near-zero `liveDistanceToProjectTarget`.
+  - visual result still fails in the same way as earlier runtime attempts.
+- Conclusion:
+  - near-zero position delta is **not** a sufficient success condition.
+  - remaining failure likely involves composition and choreography mismatch rather than endpoint position only:
+    - `lookAt`
+    - `fov` timing
+    - `filmOffset` / composition framing
+    - project facet rotation timing coupling
+    - scroll/state handoff timing
+- Standalone generic CameraDirector replacement is not the right next move for overview → project at this stage.
 - Flag remains off by default.
+
+## Decision: Do not continue patching this pilot.
+- Do not treat this pilot as the production migration path for overview → project.
+- Keep the pilot disabled by default and research-only.
+- Do not add further runtime timing/completion patches in this isolated pilot loop.
 
 ## Suppression list
 - During active pilot only: legacy branches are bypassed by early return in `useFrame` after pilot write.
@@ -112,9 +124,8 @@ No frame-level pilot spam is added.
 4. **Resolver scope limitation**
    - Destination resolver is useful for endpoints but is not enough by itself for project transition choreography.
 
-## Recommended next step
-- Do **not** continue patching this pilot as a production migration in-place.
-- First run a focused audit of:
-  1. legacy overview → project transition timing sources, and
-  2. project facet rotation timing/phase ownership.
-- Use that audit to define a synchronized transition contract before any new runtime CameraDirector attempt.
+## Recommended next direction
+- Audit/refactor the **existing legacy overview → project owner path** first, instead of replacing it with a standalone pilot.
+- Identify the **smallest internal cleanup** inside that current legacy owner that improves reliability while preserving behavior.
+- Preserve existing choreography coupling (camera composition + facet rotation + scroll/state handoff) rather than approximating with a separate generic transition.
+- Only after that owner path is stabilized and explicit should it be extracted into CameraDirector.

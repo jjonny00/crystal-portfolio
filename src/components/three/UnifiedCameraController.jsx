@@ -1994,8 +1994,74 @@ const UnifiedCameraController = ({
         fov: Number.isFinite(camera.fov) ? camera.fov : 45,
         filmOffset: Number.isFinite(camera.filmOffset) ? camera.filmOffset : 0,
       };
-      const fromPose = liveFromPose;
-      const fromPoseSource = 'live-camera';
+      let fromPose = liveFromPose;
+      let fromPoseSource = 'live-camera';
+      const overviewResolved = resolveCameraDestination({
+        destination: 'overview',
+        config,
+        animationData,
+        isMobile,
+      });
+      const overviewPoseValid = !overviewResolved?.meta?.unresolved;
+      if (overviewPoseValid) {
+        const resolvedOverviewPose = {
+          position: new THREE.Vector3(...overviewResolved.position),
+          lookAt: new THREE.Vector3(...overviewResolved.lookAt),
+          fov: Number.isFinite(overviewResolved.fov) ? overviewResolved.fov : liveFromPose.fov,
+          filmOffset: Number.isFinite(overviewResolved.filmOffset) ? overviewResolved.filmOffset : 0,
+        };
+        const positionDelta = liveFromPose.position.distanceTo(resolvedOverviewPose.position);
+        const lookAtDelta = liveFromPose.lookAt.distanceTo(resolvedOverviewPose.lookAt);
+        const filmOffsetDelta = Math.abs(liveFromPose.filmOffset - resolvedOverviewPose.filmOffset);
+        const fovDelta = Math.abs(liveFromPose.fov - resolvedOverviewPose.fov);
+        const POSITION_DELTA_THRESHOLD = 0.18;
+        const LOOKAT_DELTA_THRESHOLD = 0.16;
+        const FILMOFFSET_DELTA_THRESHOLD = 0.12;
+        const FOV_DELTA_THRESHOLD = 0.6;
+        const liveIsContaminated =
+          positionDelta > POSITION_DELTA_THRESHOLD ||
+          lookAtDelta > LOOKAT_DELTA_THRESHOLD ||
+          filmOffsetDelta > FILMOFFSET_DELTA_THRESHOLD ||
+          fovDelta > FOV_DELTA_THRESHOLD;
+        if (liveIsContaminated) {
+          fromPose = resolvedOverviewPose;
+          fromPoseSource = 'resolved-overview';
+        }
+        if (import.meta.env.DEV && startPoseLogKeyRef.current !== transitionKey) {
+          startPoseLogKeyRef.current = transitionKey;
+          console.log('[camera-director-pilot] overview-to-project start-pose', {
+            projectId: focusedProject,
+            fromPoseSource,
+            livePose: {
+              position: liveFromPose.position.toArray(),
+              lookAt: liveFromPose.lookAt.toArray(),
+              fov: liveFromPose.fov,
+              filmOffset: liveFromPose.filmOffset,
+            },
+            resolvedOverviewPose: {
+              position: resolvedOverviewPose.position.toArray(),
+              lookAt: resolvedOverviewPose.lookAt.toArray(),
+              fov: resolvedOverviewPose.fov,
+              filmOffset: resolvedOverviewPose.filmOffset,
+            },
+            delta: {
+              position: positionDelta,
+              lookAt: lookAtDelta,
+              filmOffset: filmOffsetDelta,
+              fov: fovDelta,
+            },
+            selectedFromPoseSource: fromPoseSource,
+            transitionKey,
+          });
+        }
+      } else if (import.meta.env.DEV && startPoseLogKeyRef.current !== transitionKey) {
+        startPoseLogKeyRef.current = transitionKey;
+        console.log('[camera-director-pilot] overview-to-project fallback', {
+          reason: 'overview-pose-unresolved-live-used',
+          projectId: focusedProject,
+          transitionKey,
+        });
+      }
       const destination = resolveCameraDestination({
         destination: 'project',
         projectId: focusedProject,
@@ -2024,7 +2090,7 @@ const UnifiedCameraController = ({
           fromPose,
           toPose,
           startedAt: state.clock.elapsedTime,
-          durationSeconds: 1.2,
+          durationSeconds: 0.9,
         });
         cameraDirectorPilotRef.current = {
           active: true,
@@ -2033,7 +2099,6 @@ const UnifiedCameraController = ({
           toState: nextCameraState,
           selectedProject: focusedProject,
           completedLogged: false,
-          settleFrameCount: 0,
         };
         blockedOverviewToProjectKeyRef.current = null;
         if (import.meta.env.DEV) {
@@ -2097,26 +2162,13 @@ const UnifiedCameraController = ({
       currentTarget.current.position.copy(step.pose.position);
       currentTarget.current.lookAt.copy(step.pose.lookAt);
       currentTarget.current.fov = step.pose.fov;
-      const toPose = pilot.transition.toPose;
-      const liveDistanceToProjectTarget = camera.position.distanceTo(toPose.position);
-      const liveLookAtToProjectTarget = currentTarget.current.lookAt.distanceTo(toPose.lookAt);
-      const liveFovToProjectTarget = Math.abs(camera.fov - toPose.fov);
-      const liveFilmOffsetToProjectTarget = Math.abs(camera.filmOffset - toPose.filmOffset);
-      const elapsed = state.clock.elapsedTime - (Number(pilot.transition.startedAt) || 0);
-      const settleSignalReached =
-        liveDistanceToProjectTarget < 0.055 &&
-        liveLookAtToProjectTarget < 0.03 &&
-        liveFovToProjectTarget < 0.1 &&
-        liveFilmOffsetToProjectTarget < 0.08;
-      pilot.settleFrameCount = settleSignalReached ? (pilot.settleFrameCount || 0) + 1 : 0;
-      const settleComplete = elapsed >= 0.9 && pilot.settleFrameCount >= 3;
       guardRecord(
         'CAMERA_DIRECTOR_OVERVIEW_TO_PROJECT',
         ['position', 'lookAt', 'fov', 'filmOffset', 'currentTarget'],
         animationData?.cameraState || animationData?.state || 'unknown',
         'overview-to-project-pilot-active'
       );
-      if ((step.complete || settleComplete) && !pilot.completedLogged) {
+      if (step.complete && !pilot.completedLogged) {
         pilot.completedLogged = true;
         cameraDirectorPilotRef.current.active = false;
         lastOverviewToProjectKeyRef.current = pilot.transition.id;
@@ -2124,9 +2176,6 @@ const UnifiedCameraController = ({
           console.log('[camera-director-pilot] overview-to-project complete', {
             projectId: pilot.selectedProject,
             transitionId: pilot.transition.id,
-            settleComplete,
-            elapsed,
-            liveDistanceToProjectTarget,
           });
         }
       }
