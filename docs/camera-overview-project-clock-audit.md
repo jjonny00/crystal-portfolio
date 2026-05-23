@@ -67,6 +67,17 @@ Additional event rows are captured on:
 - cameraState change
 - viewMode change
 - focusedProject change
+- selectedProject change
+- pre-start intent event: `intent:overview-to-project` (when early overview→project intent is detectable from selection/view/camera-state precursor signals)
+
+FOV audit fields now include:
+- `liveFov`
+- `currentTargetFov`
+- `resolvedProjectFov`
+- `legacyProjectFovCandidate` (observational candidate; currently mirrored from `currentTargetFov` for parity checks)
+- `fovDeltaToCurrentTarget`
+- `fovDeltaToResolvedProject`
+- `targetFovMismatch` (true when `abs(currentTargetFov - resolvedProjectFov) > 0.5`)
 
 Default console remains silent; output is helper-triggered only.
 
@@ -76,3 +87,8 @@ Use a **dual-source timing contract**:
 2. Coupling clock: explicit normalized transition progress that matches legacy facet expectations (or explicit facet clock).
 
 In other words, do not rely on `cameraMoveProgress` alone as the sole transition clock; consume both event boundaries and live camera-to-target error curves.
+
+## Current PR-10 finding updates
+- The sampler can still begin after `project_focused` / `cameraState: project` flips, so timeline analysis must include the new pre-start intent event to bracket earlier intent onset.
+- `cameraMoveProgress` remains not suitable as the true transition-start clock.
+- Observed large FOV residuals against resolved-project FOV indicate a likely target mismatch suspicion path; resolver project FOV should not be treated as pilot-authoritative until parity is proven against legacy live/currentTarget behavior.

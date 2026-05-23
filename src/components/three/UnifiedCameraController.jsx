@@ -249,6 +249,7 @@ const UnifiedCameraController = ({
       cameraState: null,
       viewMode: null,
       focusedProject: null,
+      selectedProject: null,
     },
   });
 
@@ -1660,6 +1661,79 @@ const UnifiedCameraController = ({
   const sampleOverviewProjectShadow = ({ state, delta, transitionActive, transitionKey, focusedProject, settled, prevCameraState, nextCameraState, nextState, viewMode }) => {
     if (!import.meta.env.DEV) return;
     const shadow = getOverviewProjectShadowStore();
+    installOverviewProjectShadowHelpers();
+    const now = state.clock.elapsedTime;
+    const frame = state.clock.frame;
+    const liveLookAt = getCameraLookAtFromTransform();
+    const resolvedOverview = getOverviewProjectResolvedPose('overview');
+    const resolvedProject = focusedProject ? getOverviewProjectResolvedPose('project', focusedProject) : null;
+    const facetDebug = globalThis?.__overviewProjectFacetDebug ?? null;
+    const resolvedProjectFov = round4(resolvedProject?.fov);
+    const currentTargetFov = round4(currentTarget.current?.fov);
+    const liveFov = round4(camera.fov);
+    const fovDeltaToCurrentTarget = Number.isFinite(currentTarget.current?.fov) ? round4(Math.abs(camera.fov - currentTarget.current.fov)) : null;
+    const fovDeltaToResolvedProject = resolvedProject?.fov != null ? round4(Math.abs(camera.fov - resolvedProject.fov)) : null;
+    const targetFovMismatch = (
+      Number.isFinite(currentTarget.current?.fov) &&
+      Number.isFinite(resolvedProject?.fov) &&
+      Math.abs(currentTarget.current.fov - resolvedProject.fov) > 0.5
+    ) || false;
+    const prevStateMark = shadow.eventMarks.state;
+    const prevCameraStateMark = shadow.eventMarks.cameraState;
+    const prevViewModeMark = shadow.eventMarks.viewMode;
+    const prevFocusedProjectMark = shadow.eventMarks.focusedProject;
+    const prevSelectedProjectMark = shadow.eventMarks.selectedProject;
+    const nextStateMark = animationData?.state ?? null;
+    const nextCameraStateMark = animationData?.cameraState ?? null;
+    const nextViewModeMark = animationData?.viewMode ?? null;
+    const nextFocusedProjectMark = animationData?.focusedProject ?? null;
+    const nextSelectedProjectMark = animationData?.selectedProject ?? null;
+    const likelyOverviewToProjectIntent =
+      (prevViewModeMark === 'overview' && Boolean(nextFocusedProjectMark || nextSelectedProjectMark)) ||
+      (prevFocusedProjectMark == null && nextFocusedProjectMark != null) ||
+      (prevSelectedProjectMark == null && nextSelectedProjectMark != null) ||
+      (prevCameraStateMark === 'overview' && nextCameraStateMark === 'project');
+
+    const markChangeEvent = (eventType, previousValue, nextValue) => {
+      shadow.timeline.push({
+        eventType,
+        timestamp: round4(now),
+        frameId: frame,
+        state: nextStateMark,
+        cameraState: nextCameraStateMark,
+        viewMode: nextViewModeMark,
+        focusedProject: nextFocusedProjectMark,
+        selectedProject: nextSelectedProjectMark,
+        previousValue: previousValue ?? null,
+        nextValue: nextValue ?? null,
+        prevState: prevStateMark,
+        nextState: nextStateMark,
+        prevCameraState: prevCameraStateMark,
+        nextCameraState: nextCameraStateMark,
+        prevViewMode: prevViewModeMark,
+        nextViewMode: nextViewModeMark,
+        prevFocusedProject: prevFocusedProjectMark,
+        nextFocusedProject: nextFocusedProjectMark,
+        prevSelectedProject: prevSelectedProjectMark,
+        nextSelectedProject: nextSelectedProjectMark,
+        cameraMoveProgress: round4(cameraMoveProgressRef.current),
+        frameDeltaAccum: round4(shadow.frameDeltaAccum),
+        liveFov,
+        currentTargetFov,
+        resolvedProjectFov,
+        legacyProjectFovCandidate: currentTargetFov,
+        fovDeltaToCurrentTarget,
+        fovDeltaToResolvedProject,
+        targetFovMismatch,
+        liveDistanceToProjectTarget: safeDistance(camera.position, resolvedProject?.position),
+        liveFilmOffsetDeltaToProjectTarget: resolvedProject?.filmOffset != null ? round4(Math.abs((camera.filmOffset ?? 0) - resolvedProject.filmOffset)) : null,
+        facetProgress: round4(facetDebug?.focusRotationProgress),
+        facetDeltaToProjectQuat: facetDebug?.deltaMeshToProjectFocusQuat ?? null,
+      });
+      if (shadow.timeline.length > shadow.maxTimelineRows) shadow.timeline.shift();
+    };
+    if (likelyOverviewToProjectIntent) markChangeEvent('intent:overview-to-project', prevFocusedProjectMark ?? prevSelectedProjectMark, nextFocusedProjectMark ?? nextSelectedProjectMark);
+
     const isFreshOverviewToProject =
       prevCameraState === 'overview' &&
       nextCameraState === 'project' &&
@@ -1681,14 +1755,6 @@ const UnifiedCameraController = ({
       };
       return;
     }
-
-    installOverviewProjectShadowHelpers();
-    const now = state.clock.elapsedTime;
-    const frame = state.clock.frame;
-    const liveLookAt = getCameraLookAtFromTransform();
-    const resolvedOverview = getOverviewProjectResolvedPose('overview');
-    const resolvedProject = focusedProject ? getOverviewProjectResolvedPose('project', focusedProject) : null;
-    const facetDebug = globalThis?.__overviewProjectFacetDebug ?? null;
 
     const pushRow = (sampleType) => {
       const transitionElapsedSeconds = shadow.startedAt != null ? round4(now - shadow.startedAt) : null;
@@ -1715,6 +1781,11 @@ const UnifiedCameraController = ({
         currentTargetLookAt: vectorToPlain(currentTarget.current?.lookAt),
         currentTargetFov: round4(currentTarget.current?.fov),
         currentTargetFilmOffset: round4(camera.filmOffset),
+        resolvedProjectFov,
+        legacyProjectFovCandidate: currentTargetFov,
+        fovDeltaToCurrentTarget,
+        fovDeltaToResolvedProject,
+        targetFovMismatch,
         deltaToResolvedProjectPosition: liveDistanceToProjectTarget,
         deltaToResolvedProjectLookAt: safeDistance(liveLookAt, resolvedProject?.lookAt),
         liveDistanceToProjectTarget,
@@ -1734,9 +1805,17 @@ const UnifiedCameraController = ({
         cameraState: animationData?.cameraState ?? null,
         viewMode: animationData?.viewMode ?? null,
         focusedProject: animationData?.focusedProject ?? null,
+        selectedProject: animationData?.selectedProject ?? null,
         cameraMoveProgress: row.cameraMoveProgress,
         frameDeltaAccum: row.frameDeltaAccum,
         liveDistanceToProjectTarget,
+        liveFov,
+        currentTargetFov,
+        resolvedProjectFov,
+        legacyProjectFovCandidate: currentTargetFov,
+        fovDeltaToCurrentTarget,
+        fovDeltaToResolvedProject,
+        targetFovMismatch,
         liveFovDeltaToProjectTarget,
         liveFilmOffsetDeltaToProjectTarget,
         facetProgress: round4(facetDebug?.focusRotationProgress),
@@ -1745,27 +1824,6 @@ const UnifiedCameraController = ({
       if (shadow.timeline.length > shadow.maxTimelineRows) shadow.timeline.shift();
     };
     shadow.frameDeltaAccum += Number.isFinite(delta) ? delta : 0;
-    const markChangeEvent = (eventType, previousValue, nextValue) => {
-      shadow.timeline.push({
-        eventType,
-        timestamp: round4(now),
-        frameId: frame,
-        state: animationData?.state ?? null,
-        cameraState: animationData?.cameraState ?? null,
-        viewMode: animationData?.viewMode ?? null,
-        focusedProject: animationData?.focusedProject ?? null,
-        previousValue: previousValue ?? null,
-        nextValue: nextValue ?? null,
-        cameraMoveProgress: round4(cameraMoveProgressRef.current),
-        frameDeltaAccum: round4(shadow.frameDeltaAccum),
-        liveDistanceToProjectTarget: safeDistance(camera.position, resolvedProject?.position),
-        liveFovDeltaToProjectTarget: resolvedProject?.fov != null ? round4(Math.abs(camera.fov - resolvedProject.fov)) : null,
-        liveFilmOffsetDeltaToProjectTarget: resolvedProject?.filmOffset != null ? round4(Math.abs((camera.filmOffset ?? 0) - resolvedProject.filmOffset)) : null,
-        facetProgress: round4(facetDebug?.focusRotationProgress),
-        facetDeltaToProjectQuat: facetDebug?.deltaMeshToProjectFocusQuat ?? null,
-      });
-      if (shadow.timeline.length > shadow.maxTimelineRows) shadow.timeline.shift();
-    };
 
     if (shadow.eventMarks.state !== (animationData?.state ?? null)) {
       markChangeEvent('state-change', shadow.eventMarks.state, animationData?.state ?? null);
@@ -1782,6 +1840,10 @@ const UnifiedCameraController = ({
     if (shadow.eventMarks.focusedProject !== (animationData?.focusedProject ?? null)) {
       markChangeEvent('focusedProject-change', shadow.eventMarks.focusedProject, animationData?.focusedProject ?? null);
       shadow.eventMarks.focusedProject = animationData?.focusedProject ?? null;
+    }
+    if (shadow.eventMarks.selectedProject !== (animationData?.selectedProject ?? null)) {
+      markChangeEvent('selectedProject-change', shadow.eventMarks.selectedProject, animationData?.selectedProject ?? null);
+      shadow.eventMarks.selectedProject = animationData?.selectedProject ?? null;
     }
 
     if (transitionActive && !shadow.active) {
