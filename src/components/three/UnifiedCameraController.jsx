@@ -2280,6 +2280,21 @@ const UnifiedCameraController = ({
           ...fromPose,
           lookAt: toPose.lookAt.clone(),
         };
+        if (import.meta.env.DEV) {
+          console.log('[camera-director-pilot] overview-to-project start-continuity', {
+            projectId: focusedProject,
+            liveStartFov: round4(liveFromPose.fov),
+            fromPoseFov: round4(fromPose.fov),
+            targetProjectFov: round4(toPose.fov),
+            liveStartFilmOffset: round4(liveFromPose.filmOffset),
+            fromPoseFilmOffset: round4(fromPose.filmOffset),
+            targetProjectFilmOffset: round4(toPose.filmOffset),
+            deltaLiveToFromFov: round4(Math.abs(liveFromPose.fov - fromPose.fov)),
+            deltaLiveToFromFilmOffset: round4(Math.abs((liveFromPose.filmOffset ?? 0) - (fromPose.filmOffset ?? 0))),
+            deltaFromToFov: round4(Math.abs(fromPose.fov - toPose.fov)),
+            deltaFromToFilmOffset: round4(Math.abs((fromPose.filmOffset ?? 0) - (toPose.filmOffset ?? 0))),
+          });
+        }
         const transition = createCameraDirectorPilotTransition({
           id: transitionKey,
           fromPose,
@@ -2349,7 +2364,10 @@ const UnifiedCameraController = ({
         transition: pilot.transition,
         now: state.clock.elapsedTime,
       });
-      camera.position.copy(step.pose.position);
+      const facetDebug = globalThis?.__overviewProjectFacetDebug ?? null;
+      const facetProgress = Number.isFinite(facetDebug?.focusRotationProgress) ? facetDebug.focusRotationProgress : null;
+      const positionProgress = facetProgress == null ? step.progress : Math.min(step.progress, facetProgress + 0.03);
+      camera.position.lerpVectors(pilot.transition.fromPose.position, pilot.transition.toPose.position, THREE.MathUtils.clamp(positionProgress, 0, 1));
       camera.lookAt(step.pose.lookAt);
       camera.fov = step.pose.fov;
       camera.filmOffset = step.pose.filmOffset;
@@ -2365,13 +2383,11 @@ const UnifiedCameraController = ({
         cameraSettledRef.current = false;
         animationData?.setCameraSettled?.(false);
       }
-      const facetDebug = globalThis?.__overviewProjectFacetDebug ?? null;
       const toPose = pilot.transition?.toPose;
       const positionDelta = toPose?.position ? camera.position.distanceTo(toPose.position) : Number.POSITIVE_INFINITY;
       const lookAtDelta = toPose?.lookAt ? currentTarget.current.lookAt.distanceTo(toPose.lookAt) : Number.POSITIVE_INFINITY;
       const fovDelta = Number.isFinite(toPose?.fov) ? Math.abs(camera.fov - toPose.fov) : Number.POSITIVE_INFINITY;
       const filmOffsetDelta = Number.isFinite(toPose?.filmOffset) ? Math.abs((camera.filmOffset ?? 0) - toPose.filmOffset) : Number.POSITIVE_INFINITY;
-      const facetProgress = Number.isFinite(facetDebug?.focusRotationProgress) ? facetDebug.focusRotationProgress : null;
       const facetReady = facetProgress == null ? true : facetProgress >= 0.99;
       const cameraProgressReady = pilotProgress >= 0.99;
       const compositionReady =
