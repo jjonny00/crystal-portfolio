@@ -2266,11 +2266,15 @@ const UnifiedCameraController = ({
           });
         }
       } else {
+        const resolverProjectFilmOffset = Number.isFinite(destination.filmOffset) ? destination.filmOffset : null;
+        const legacyProjectFilmOffsetCandidate = Number.isFinite(liveFromPose.filmOffset) ? liveFromPose.filmOffset : 0;
+        const pilotTargetFilmOffset = legacyProjectFilmOffsetCandidate;
+        const filmOffsetTargetSource = 'legacy-live-filmOffset';
         const toPose = {
           position: new THREE.Vector3(...destination.position),
           lookAt: new THREE.Vector3(...destination.lookAt),
           fov: Number.isFinite(destination.fov) ? destination.fov : liveFromPose.fov,
-          filmOffset: Number.isFinite(destination.filmOffset) ? destination.filmOffset : liveFromPose.filmOffset,
+          filmOffset: pilotTargetFilmOffset,
         };
         if (import.meta.env.DEV) {
           console.log('[camera-director-pilot] overview-to-project start-composition', {
@@ -2281,6 +2285,10 @@ const UnifiedCameraController = ({
             liveStartFilmOffset: round4(liveFromPose.filmOffset),
             fromPoseFilmOffset: round4(fromPose.filmOffset),
             targetFilmOffset: round4(toPose.filmOffset),
+            resolverProjectFilmOffset: round4(resolverProjectFilmOffset),
+            legacyProjectFilmOffsetCandidate: round4(legacyProjectFilmOffsetCandidate),
+            pilotTargetFilmOffset: round4(pilotTargetFilmOffset),
+            filmOffsetTargetSource,
             deltaLiveToFromFov: round4(Math.abs(liveFromPose.fov - fromPose.fov)),
             deltaLiveToFromFilmOffset: round4(Math.abs((liveFromPose.filmOffset ?? 0) - (fromPose.filmOffset ?? 0))),
             startFovDelta: round4(Math.abs(fromPose.fov - toPose.fov)),
