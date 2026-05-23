@@ -264,6 +264,16 @@ const UnifiedCameraController = ({
   const pilotHandoffDebugRef = useRef({
     pending: null,
   });
+  const previousFramePoseRef = useRef({
+    position: null,
+    lookAt: null,
+    fov: null,
+    filmOffset: null,
+    state: null,
+    cameraState: null,
+    viewMode: null,
+    focusedProject: null,
+  });
 
   const isOverviewToProjectPilotEnabled = () => {
     // WARNING: Experimental pilot only; not production-ready.
@@ -1214,6 +1224,17 @@ const UnifiedCameraController = ({
 
     const focusedProject = animationData.focusedProject ?? null;
     const focusedFacet = animationData.focusedFacet;
+    const previousFramePose = previousFramePoseRef.current;
+    previousFramePoseRef.current = {
+      position: camera.position.clone(),
+      lookAt: (currentTarget.current?.lookAt?.clone?.() || getCameraLookAtFromTransform()),
+      fov: Number.isFinite(camera.fov) ? camera.fov : null,
+      filmOffset: Number.isFinite(camera.filmOffset) ? camera.filmOffset : null,
+      state: animationData?.state ?? null,
+      cameraState: animationData?.cameraState ?? null,
+      viewMode: animationData?.viewMode ?? null,
+      focusedProject,
+    };
     const resolvedFocusedFacet = focusedProject
       ? (getSceneFacetKeyByProjectId(focusedProject) || focusedFacet)
       : focusedFacet;
@@ -2187,6 +2208,52 @@ const UnifiedCameraController = ({
       };
       let fromPose = liveFromPose;
       let fromPoseSource = 'live-camera';
+      const previousPoseIsFinite =
+        previousFramePose?.position instanceof THREE.Vector3 &&
+        previousFramePose?.lookAt instanceof THREE.Vector3 &&
+        Number.isFinite(previousFramePose?.fov) &&
+        Number.isFinite(previousFramePose?.filmOffset);
+      const deltaPreviousToLivePosition = previousPoseIsFinite ? previousFramePose.position.distanceTo(liveFromPose.position) : null;
+      const deltaPreviousToLiveLookAt = previousPoseIsFinite ? previousFramePose.lookAt.distanceTo(liveFromPose.lookAt) : null;
+      const deltaPreviousToLiveFov = previousPoseIsFinite ? Math.abs(previousFramePose.fov - liveFromPose.fov) : null;
+      const deltaPreviousToLiveFilmOffset = previousPoseIsFinite ? Math.abs(previousFramePose.filmOffset - liveFromPose.filmOffset) : null;
+      const previousOverviewContext = previousFramePose?.state === 'overview' && previousFramePose?.cameraState === 'overview';
+      const meaningfulPreviousToLiveDelta =
+        (deltaPreviousToLivePosition ?? 0) > 0.05 ||
+        (deltaPreviousToLiveLookAt ?? 0) > 0.05 ||
+        (deltaPreviousToLiveFov ?? 0) > 0.2 ||
+        (deltaPreviousToLiveFilmOffset ?? 0) > 0.2;
+      if (previousPoseIsFinite && previousOverviewContext && meaningfulPreviousToLiveDelta) {
+        fromPose = {
+          position: previousFramePose.position.clone(),
+          lookAt: previousFramePose.lookAt.clone(),
+          fov: previousFramePose.fov,
+          filmOffset: previousFramePose.filmOffset,
+        };
+        fromPoseSource = 'previous-overview-frame';
+      }
+      console.log('[camera-director-pilot] overview-to-project pre-start-continuity', {
+        previousFrameState: previousFramePose?.state ?? null,
+        previousFrameCameraState: previousFramePose?.cameraState ?? null,
+        previousFrameViewMode: previousFramePose?.viewMode ?? null,
+        previousFrameFocusedProject: previousFramePose?.focusedProject ?? null,
+        currentState: animationData?.state ?? null,
+        currentCameraState: animationData?.cameraState ?? null,
+        currentViewMode: animationData?.viewMode ?? null,
+        currentFocusedProject: focusedProject,
+        previousFramePosition: previousPoseIsFinite ? previousFramePose.position.toArray() : null,
+        liveStartPosition: liveFromPose.position.toArray(),
+        deltaPreviousToLivePosition: round4(deltaPreviousToLivePosition),
+        previousFrameLookAt: previousPoseIsFinite ? previousFramePose.lookAt.toArray() : null,
+        liveStartLookAt: liveFromPose.lookAt.toArray(),
+        deltaPreviousToLiveLookAt: round4(deltaPreviousToLiveLookAt),
+        previousFrameFov: round4(previousFramePose?.fov ?? null),
+        liveStartFov: round4(liveFromPose.fov),
+        deltaPreviousToLiveFov: round4(deltaPreviousToLiveFov),
+        previousFrameFilmOffset: round4(previousFramePose?.filmOffset ?? null),
+        liveStartFilmOffset: round4(liveFromPose.filmOffset),
+        deltaPreviousToLiveFilmOffset: round4(deltaPreviousToLiveFilmOffset),
+      });
       const overviewResolved = resolveCameraDestination({
         destination: 'overview',
         config,
