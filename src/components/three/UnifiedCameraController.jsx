@@ -2279,6 +2279,12 @@ const UnifiedCameraController = ({
         if (import.meta.env.DEV) {
           console.log('[camera-director-pilot] overview-to-project start-composition', {
             projectId: focusedProject,
+            liveStartPosition: liveFromPose.position.toArray(),
+            fromPosePosition: fromPose.position.toArray(),
+            targetPosition: toPose.position.toArray(),
+            liveStartLookAt: liveFromPose.lookAt.toArray(),
+            fromPoseLookAt: fromPose.lookAt.toArray(),
+            targetLookAt: toPose.lookAt.toArray(),
             liveStartFov: round4(liveFromPose.fov),
             fromPoseFov: round4(fromPose.fov),
             targetFov: round4(toPose.fov),
@@ -2289,6 +2295,10 @@ const UnifiedCameraController = ({
             legacyProjectFilmOffsetCandidate: round4(legacyProjectFilmOffsetCandidate),
             pilotTargetFilmOffset: round4(pilotTargetFilmOffset),
             filmOffsetTargetSource,
+            deltaLiveToFromPosition: round4(liveFromPose.position.distanceTo(fromPose.position)),
+            deltaLiveToTargetPosition: round4(liveFromPose.position.distanceTo(toPose.position)),
+            deltaLiveToFromLookAt: round4(liveFromPose.lookAt.distanceTo(fromPose.lookAt)),
+            deltaLiveToTargetLookAt: round4(liveFromPose.lookAt.distanceTo(toPose.lookAt)),
             deltaLiveToFromFov: round4(Math.abs(liveFromPose.fov - fromPose.fov)),
             deltaLiveToFromFilmOffset: round4(Math.abs((liveFromPose.filmOffset ?? 0) - (fromPose.filmOffset ?? 0))),
             startFovDelta: round4(Math.abs(fromPose.fov - toPose.fov)),
@@ -2309,6 +2319,7 @@ const UnifiedCameraController = ({
           toState: nextCameraState,
           selectedProject: focusedProject,
           completedLogged: false,
+          firstWriteLogged: false,
         };
         blockedOverviewToProjectKeyRef.current = null;
         if (import.meta.env.DEV) {
@@ -2367,7 +2378,9 @@ const UnifiedCameraController = ({
       const facetDebug = globalThis?.__overviewProjectFacetDebug ?? null;
       const facetProgress = Number.isFinite(facetDebug?.focusRotationProgress) ? facetDebug.focusRotationProgress : null;
       const pilotProgress = THREE.MathUtils.clamp(step.progress, 0, 1);
-      const curveDriver = facetProgress == null ? pilotProgress : Math.min(pilotProgress, facetProgress);
+      const isFirstPilotWrite = pilot.firstWriteLogged !== true;
+      const writeProgress = isFirstPilotWrite ? 0 : pilotProgress;
+      const curveDriver = facetProgress == null ? writeProgress : Math.min(writeProgress, facetProgress);
       const laggedDriver = THREE.MathUtils.clamp(curveDriver - 0.05, 0, 1);
       const easedPositionProgress = laggedDriver * laggedDriver * (3 - 2 * laggedDriver);
       camera.position.lerpVectors(
@@ -2375,13 +2388,25 @@ const UnifiedCameraController = ({
         pilot.transition.toPose.position,
         easedPositionProgress
       );
-      camera.lookAt(step.pose.lookAt);
-      camera.fov = step.pose.fov;
-      camera.filmOffset = step.pose.filmOffset;
+      const appliedLookAt = isFirstPilotWrite ? pilot.transition.fromPose.lookAt : step.pose.lookAt;
+      camera.lookAt(appliedLookAt);
+      camera.fov = isFirstPilotWrite ? pilot.transition.fromPose.fov : step.pose.fov;
+      camera.filmOffset = isFirstPilotWrite ? pilot.transition.fromPose.filmOffset : step.pose.filmOffset;
       camera.updateProjectionMatrix();
       currentTarget.current.position.copy(camera.position);
-      currentTarget.current.lookAt.copy(step.pose.lookAt);
-      currentTarget.current.fov = step.pose.fov;
+      currentTarget.current.lookAt.copy(appliedLookAt);
+      currentTarget.current.fov = camera.fov;
+      if (import.meta.env.DEV && isFirstPilotWrite) {
+        console.log('[camera-director-pilot] overview-to-project first-write-continuity', {
+          projectId: pilot.selectedProject,
+          progress: round4(writeProgress),
+          deltaFromPoseToAppliedPosition: round4(camera.position.distanceTo(pilot.transition.fromPose.position)),
+          deltaFromPoseToAppliedLookAt: round4(currentTarget.current.lookAt.distanceTo(pilot.transition.fromPose.lookAt)),
+          deltaFromPoseToAppliedFov: round4(Math.abs(camera.fov - pilot.transition.fromPose.fov)),
+          deltaFromPoseToAppliedFilmOffset: round4(Math.abs((camera.filmOffset ?? 0) - (pilot.transition.fromPose.filmOffset ?? 0))),
+        });
+      }
+      pilot.firstWriteLogged = true;
       cameraMoveProgressRef.current = pilotProgress;
       if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = pilotProgress;
       animationData?.setCameraMoveProgress?.(pilotProgress);
