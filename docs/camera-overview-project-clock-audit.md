@@ -1,0 +1,131 @@
+# Overview → Project transition clock audit (PR-10)
+
+## Scope
+This audit identifies the real timing signals behind the visible Overview → Project camera movement and focused project facet rotation, without changing runtime behavior.
+
+## Candidate clocks found
+
+### 1) `cameraMoveProgress` (derived settle progress)
+- Computed in `UnifiedCameraController` from **three normalized settle channels**:
+  - position distance to `currentTarget.current.position`
+  - lookAt angle delta (`currentDirection` vs `targetDirection`)
+  - fov delta (`currentTarget.current.fov` vs `camera.fov`)
+- Per-frame `moveProgress = min(positionProgress, lookAtProgress, fovProgress)` and made monotonic via `max(previous, clampedMoveProgress)`.
+- This means it is **not an elapsed-time clock**; it is a settle metric and may already be `1` when sampling begins if baselines are small/already-settled.
+
+### 2) `currentTarget` smoothing clock (actual visible camera motion)
+- Visible camera movement is driven by per-frame smoothing toward `currentTarget`:
+  - `camera.position.lerp(currentTarget.current.position, clampedSmoothing)`
+  - `currentDirection.lerp(targetDirection, clampedSmoothing)` then `lookAt`
+  - `camera.fov += (currentTarget.current.fov - camera.fov) * clampedSmoothing`
+- `clampedSmoothing` is delta-based (`useFrame` dt path), so the true motion clock is frame-delta accumulation + remaining deltas to target.
+
+### 3) State routing clocks (`state`, `cameraState`, `viewMode`, `focusedProject`)
+- Transition observability gates are routed by changes in `cameraState` and project context.
+- `focusedProject` and `viewMode` changes can precede or overlap camera settle behavior.
+- These are transition event clocks (discrete), not motion clocks.
+
+### 4) Facet rotation clocks
+- Target focused quaternion uses
+  - `focusRotationProgress = clamp(cameraMoveProgress / FOCUS_ROTATION_PROGRESS_LEAD, 0, 1)`
+- Mesh rotation is still applied with per-frame slerp (`focusedRotationLerp` / `rotationLerp`) toward that target, making final visible facet convergence partly delta-time driven.
+
+## What appears to drive visible motion
+
+### Camera movement (overview → project)
+Primary driver: **`currentTarget` delta-based smoothing path** (position/lookAt/fov deltas shrinking over frames).
+
+`cameraMoveProgress` is a derived settle indicator, useful as coupling/progress metadata, but not a reliable start-at-zero transition clock.
+
+### Facet rotation
+Primary driver for intended target progression: **`cameraMoveProgress`**.
+
+Primary driver for visible final convergence: **per-frame quaternion slerp toward that target**.
+
+## Shared vs correlated
+- Camera and facet are **partially shared** through `cameraMoveProgress`.
+- They are also **independently time-shaped** by separate per-frame smoothing/slerp paths.
+- Therefore they are correlated, but not a single strict elapsed-time clock.
+
+## DEV-only shadow instrumentation added
+Manual helper:
+- `globalThis.__printOverviewProjectTimingTimeline()`
+
+Timeline rows include:
+- event/sample type
+- timestamp/frame
+- `state`, `cameraState`, `viewMode`, `focusedProject`
+- live distance to resolved project target
+- live fov delta to resolved project target
+- live filmOffset delta to resolved project target
+- facet progress/quaternion delta (if focused facet debug available)
+- `cameraMoveProgress`
+- frame-delta accumulation
+
+Additional event rows are captured on:
+- state change
+- cameraState change
+- viewMode change
+- focusedProject change
+- selectedProject change
+- pre-start intent event: `intent:overview-to-project` (when early overview→project intent is detectable from selection/view/camera-state precursor signals)
+- repeated intent rows are edge-detected and suppressed (summary includes `suppressedIntentRepeatCount`)
+
+FOV audit fields now include:
+- `liveFov`
+- `currentTargetFov`
+- `resolvedProjectFov`
+- `legacyProjectFovCandidate` (observational candidate; currently mirrored from `currentTargetFov` for parity checks)
+- `fovDeltaToCurrentTarget`
+- `fovDeltaToResolvedProject`
+- `targetFovMismatch` (true when `abs(currentTargetFov - resolvedProjectFov) > 0.5`)
+- timeline table helper now prints explicit FOV columns (with `null` when unavailable) for visual audit consistency
+
+Default console remains silent; output is helper-triggered only.
+
+## Recommendation for future CameraDirector pilot
+Use a **dual-source timing contract**:
+1. Motion clock: live target deltas over frame time (distance/lookAt/fov/filmOffset error envelope).
+2. Coupling clock: explicit normalized transition progress that matches legacy facet expectations (or explicit facet clock).
+
+In other words, do not rely on `cameraMoveProgress` alone as the sole transition clock; consume both event boundaries and live camera-to-target error curves.
+
+## Current PR-10 finding updates
+- The sampler can still begin after `project_focused` / `cameraState: project` flips, so timeline analysis must include the new pre-start intent event to bracket earlier intent onset.
+- `cameraMoveProgress` remains not suitable as the true transition-start clock.
+- Observed large FOV residuals against resolved-project FOV indicate a likely target mismatch suspicion path; resolver project FOV should not be treated as pilot-authoritative until parity is proven against legacy live/currentTarget behavior.
+- Current earliest captured row can still occur after state/cameraState flip from this hook location; future work needs an earlier upstream hook if strict pre-flip capture is required.
+
+## Latest observed run findings (post PR-10 instrumentation cleanup)
+
+### 1) Current hook limitation confirmed
+- In the captured overview → `project01` run, all rows had `isTruePreTransition: false`.
+- The first captured row was already `state: project_focused` and `cameraState: project` (with `viewMode: overview`), confirming this hook is downstream from the true selection request edge.
+- Therefore:
+  - `truePreTransitionCaptured` should be `false`
+  - `earliestCapturedAfterStateFlip` should be `true`
+- If strict pre-transition capture is required, an earlier upstream hook must be added at navigation/selection intent time (before project state flip).
+
+### 2) Project FOV parity issue confirmed
+- Observed values:
+  - `resolvedProjectFov`: `45`
+  - `currentTargetFov`: `35`
+  - `legacyProjectFovCandidate`: `35`
+  - `targetFovMismatch`: `true`
+- During the same run, `liveFov` settled from approximately `43.8533` to approximately `35.0067`, which matches legacy/current-target behavior rather than resolver project FOV.
+- Conclusion: resolver project FOV is not currently legacy-equivalent for overview → project. Future CameraDirector pilot work must not consume resolver project FOV until parity is fixed, or must explicitly use legacy/currentTarget-equivalent FOV for this path.
+
+### 3) Timing source finding from this observation point
+- `cameraMoveProgress` remained `1` from first captured row through completion in the observed run, so it is not a useful 0→1 transition-start clock at this hook location.
+- More useful settle signals in this instrumentation:
+  - `liveDistanceToProjectTarget` (observed roughly `4.37` → `0.003`)
+  - `fovDeltaToCurrentTarget` (observed roughly `8.85` → `0.0067`)
+- From this hook location, transition behavior appears settle/smoothing/delta-driven rather than a fixed-duration timeline.
+
+## Recommended next PR (before any runtime pilot retry)
+1. **Either** fix destination resolver project-FOV parity in shadow/audit validation flow (do not change runtime behavior in audit pass),
+2. **Or** add upstream navigation-intent instrumentation that captures the true pre-transition overview pose before project state/cameraState flips.
+
+Do not retry runtime CameraDirector overview → project pilot behavior until both are addressed:
+- project FOV parity with legacy path is demonstrated, and
+- transition start capture source is proven to be pre-flip (or equivalently authoritative).
