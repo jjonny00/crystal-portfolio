@@ -227,6 +227,8 @@ const UnifiedCameraController = ({
   const lastOverviewToProjectKeyRef = useRef(null);
   const blockedOverviewToProjectKeyRef = useRef(null);
   const startPoseLogKeyRef = useRef(null);
+  const preStartContinuityLogKeyRef = useRef(null);
+  const startContinuityLogKeyRef = useRef(null);
   const overviewProjectShadowRef = useRef({
     active: false,
     transitionId: null,
@@ -255,6 +257,24 @@ const UnifiedCameraController = ({
     suppressedIntentRepeatCount: 0,
     truePreTransitionCaptured: false,
     earliestCapturedAfterStateFlip: null,
+  });
+  const overviewProjectPilotParityRef = useRef({
+    runs: [],
+    activeRun: null,
+    maxRuns: 20,
+  });
+  const pilotHandoffDebugRef = useRef({
+    pending: null,
+  });
+  const previousFramePoseRef = useRef({
+    position: null,
+    lookAt: null,
+    fov: null,
+    filmOffset: null,
+    state: null,
+    cameraState: null,
+    viewMode: null,
+    focusedProject: null,
   });
 
   const isOverviewToProjectPilotEnabled = () => {
@@ -1206,6 +1226,17 @@ const UnifiedCameraController = ({
 
     const focusedProject = animationData.focusedProject ?? null;
     const focusedFacet = animationData.focusedFacet;
+    const previousFramePose = previousFramePoseRef.current;
+    previousFramePoseRef.current = {
+      position: camera.position.clone(),
+      lookAt: (currentTarget.current?.lookAt?.clone?.() || getCameraLookAtFromTransform()),
+      fov: Number.isFinite(camera.fov) ? camera.fov : null,
+      filmOffset: Number.isFinite(camera.filmOffset) ? camera.filmOffset : null,
+      state: animationData?.state ?? null,
+      cameraState: animationData?.cameraState ?? null,
+      viewMode: animationData?.viewMode ?? null,
+      focusedProject,
+    };
     const resolvedFocusedFacet = focusedProject
       ? (getSceneFacetKeyByProjectId(focusedProject) || focusedFacet)
       : focusedFacet;
@@ -1615,6 +1646,16 @@ const UnifiedCameraController = ({
     }
     return globalThis.__overviewProjectShadowStore;
   };
+  const getOverviewProjectPilotParityStore = () => {
+    if (typeof globalThis === 'undefined') return overviewProjectPilotParityRef.current;
+    if (!globalThis.__overviewProjectPilotParityStore) {
+      globalThis.__overviewProjectPilotParityStore = overviewProjectPilotParityRef.current;
+    }
+    if (globalThis.__overviewProjectPilotParityStore !== overviewProjectPilotParityRef.current) {
+      globalThis.__overviewProjectPilotParityStore = overviewProjectPilotParityRef.current;
+    }
+    return globalThis.__overviewProjectPilotParityStore;
+  };
 
   const installOverviewProjectShadowHelpers = () => {
     if (!import.meta.env.DEV || typeof globalThis === 'undefined') return;
@@ -1689,6 +1730,179 @@ const UnifiedCameraController = ({
       console.table(tableRows);
     };
     globalThis.__overviewProjectShadowHelpersInstalled = true;
+    globalThis.__clearOverviewProjectPilotParity = () => {
+      const store = getOverviewProjectPilotParityStore();
+      store.runs = [];
+      store.activeRun = null;
+      console.log('[overview-project-pilot-parity] cleared');
+    };
+    globalThis.__printOverviewProjectPilotParitySamples = () => {
+      const store = getOverviewProjectPilotParityStore();
+      const rows = store.runs.flatMap((run) =>
+        run.rows.map((row) => ({
+          runId: run.id,
+          mode: run.mode,
+          sampleType: row.sampleType,
+          projectId: row.projectId,
+          elapsed: row.elapsed,
+          state: row.state,
+          cameraState: row.cameraState,
+          viewMode: row.viewMode,
+          liveDistanceToResolvedProjectPosition: row.liveDistanceToResolvedProjectPosition,
+          liveLookAtDeltaToResolvedProject: row.liveLookAtDeltaToResolvedProject,
+          liveFovDeltaToResolvedProject: row.liveFovDeltaToResolvedProject,
+          liveFilmOffsetDeltaToResolvedProject: row.liveFilmOffsetDeltaToResolvedProject,
+          cameraMoveProgress: row.cameraMoveProgress,
+          facetRotationProgress: row.facetRotationProgress,
+        }))
+      );
+      if (!rows.length) return console.log('[overview-project-pilot-parity] samples', []);
+      console.table(rows);
+    };
+    globalThis.__printOverviewProjectPilotParitySummary = () => {
+      const store = getOverviewProjectPilotParityStore();
+      const legacyRun = [...store.runs].reverse().find((run) => run.mode === 'legacy' && run.completed);
+      const pilotRun = [...store.runs].reverse().find((run) => run.mode === 'pilot' && run.completed);
+      const latestLegacy = [...store.runs].reverse().find((run) => run.mode === 'legacy') ?? null;
+      const latestPilot = [...store.runs].reverse().find((run) => run.mode === 'pilot') ?? null;
+      const finalOf = (run) => run?.rows?.find((r) => r.sampleType === 'complete') ?? run?.rows?.[run.rows.length - 1] ?? null;
+      const legacyFinal = finalOf(legacyRun);
+      const pilotFinal = finalOf(pilotRun);
+      const gaps = [];
+      if (legacyFinal && pilotFinal) {
+        if (Math.abs((pilotFinal.liveLookAtDeltaToResolvedProject ?? 0) - (legacyFinal.liveLookAtDeltaToResolvedProject ?? 0)) > 0.02) gaps.push('lookAt');
+        if (Math.abs((pilotFinal.liveFovDeltaToResolvedProject ?? 0) - (legacyFinal.liveFovDeltaToResolvedProject ?? 0)) > 0.2) gaps.push('fov');
+        if (Math.abs((pilotFinal.liveFilmOffsetDeltaToResolvedProject ?? 0) - (legacyFinal.liveFilmOffsetDeltaToResolvedProject ?? 0)) > 0.1) gaps.push('filmOffset');
+        if (Math.abs((pilotFinal.facetRotationProgress ?? 0) - (legacyFinal.facetRotationProgress ?? 0)) > 0.08) gaps.push('facet-rotation-timing');
+      }
+      console.log('[overview-project-pilot-parity] summary', {
+        runCount: store.runs.length,
+        legacyRunId: latestLegacy?.id ?? null,
+        pilotRunId: latestPilot?.id ?? null,
+        legacyCompleted: latestLegacy?.completed ?? false,
+        pilotCompleted: latestPilot?.completed ?? false,
+        legacyCompletionReason: latestLegacy?.completionReason ?? 'not-detected',
+        pilotCompletionReason: latestPilot?.completionReason ?? 'not-detected',
+        legacyDurationSeconds: latestLegacy?.durationSeconds ?? null,
+        pilotDurationSeconds: latestPilot?.durationSeconds ?? null,
+        legacySampleCount: latestLegacy?.sampleCount ?? 0,
+        pilotSampleCount: latestPilot?.sampleCount ?? 0,
+        legacyFinalPositionDelta: legacyFinal?.liveDistanceToResolvedProjectPosition ?? null,
+        pilotFinalPositionDelta: pilotFinal?.liveDistanceToResolvedProjectPosition ?? null,
+        legacyFinalLookAtDelta: legacyFinal?.liveLookAtDeltaToResolvedProject ?? null,
+        pilotFinalLookAtDelta: pilotFinal?.liveLookAtDeltaToResolvedProject ?? null,
+        legacyFinalFovDelta: legacyFinal?.liveFovDeltaToResolvedProject ?? null,
+        pilotFinalFovDelta: pilotFinal?.liveFovDeltaToResolvedProject ?? null,
+        legacyFinalFilmOffsetDelta: legacyFinal?.liveFilmOffsetDeltaToResolvedProject ?? null,
+        pilotFinalFilmOffsetDelta: pilotFinal?.liveFilmOffsetDeltaToResolvedProject ?? null,
+        legacyFacetRotationCompletionEstimate: legacyFinal?.facetRotationProgress ?? null,
+        pilotFacetRotationCompletionEstimate: pilotFinal?.facetRotationProgress ?? null,
+        visualParityGapsDetected: gaps,
+      });
+    };
+  };
+
+  const sampleOverviewProjectPilotParity = ({ state, prevCameraState, nextCameraState, focusedProject }) => {
+    if (!import.meta.env.DEV) return;
+    installOverviewProjectShadowHelpers();
+    const store = getOverviewProjectPilotParityStore();
+    const mode = isOverviewToProjectPilotEnabled() ? 'pilot' : 'legacy';
+    const resolvedProject = focusedProject ? getOverviewProjectResolvedPose('project', focusedProject) : null;
+    const isStart = prevCameraState === 'overview' && nextCameraState === 'project' && Boolean(focusedProject);
+    if (isStart) {
+      store.activeRun = {
+        id: `${mode}:${focusedProject}`,
+        mode,
+        projectId: focusedProject,
+        startedAt: state.clock.elapsedTime,
+        rows: [],
+        completed: false,
+        completionReason: 'not-detected',
+        durationSeconds: null,
+        sampleCount: 0,
+        sawMid: false,
+        sawViewModeChange: false,
+      };
+      store.runs.push(store.activeRun);
+      if (store.runs.length > store.maxRuns) store.runs.shift();
+    }
+    const run = store.activeRun;
+    if (run && nextCameraState !== 'project' && !run.completed) {
+      run.completionReason = 'not-detected';
+      run.durationSeconds = round4(state.clock.elapsedTime - run.startedAt);
+      run.sampleCount = run.rows.length;
+      store.activeRun = null;
+      return;
+    }
+    const runProjectId = run?.projectId ?? focusedProject ?? null;
+    const runResolvedProject = runProjectId ? getOverviewProjectResolvedPose('project', runProjectId) : null;
+    if (!run || !runResolvedProject) return;
+    const liveLookAt = currentTarget.current?.lookAt ? currentTarget.current.lookAt.clone() : getCameraLookAtFromTransform();
+    const facetDebug = globalThis?.__overviewProjectFacetDebug ?? null;
+    const pushRow = (sampleType) => {
+      run.rows.push({
+        sampleType,
+        mode: run.mode,
+        projectId: run.projectId,
+        completionReason: run.completionReason ?? null,
+        elapsed: round4(state.clock.elapsedTime),
+        state: animationData?.state ?? null,
+        cameraState: animationData?.cameraState ?? null,
+        viewMode: animationData?.viewMode ?? null,
+        liveCameraPosition: vectorToPlain(camera.position),
+        liveLookAt: vectorToPlain(liveLookAt),
+        liveFov: round4(camera.fov),
+        liveFilmOffset: round4(camera.filmOffset),
+        currentTargetPosition: vectorToPlain(currentTarget.current?.position),
+        currentTargetLookAt: vectorToPlain(currentTarget.current?.lookAt),
+        currentTargetFov: round4(currentTarget.current?.fov),
+        currentTargetFilmOffset: round4(camera.filmOffset),
+        resolvedProjectPosition: vectorToPlain(runResolvedProject.position),
+        resolvedProjectLookAt: vectorToPlain(runResolvedProject.lookAt),
+        resolvedProjectFov: round4(runResolvedProject.fov),
+        resolvedProjectFilmOffset: round4(runResolvedProject.filmOffset),
+        liveDistanceToResolvedProjectPosition: safeDistance(camera.position, runResolvedProject.position),
+        liveLookAtDeltaToResolvedProject: safeDistance(liveLookAt, runResolvedProject.lookAt),
+        liveFovDeltaToResolvedProject: round4(Math.abs(camera.fov - (runResolvedProject.fov ?? camera.fov))),
+        liveFilmOffsetDeltaToResolvedProject: round4(Math.abs((camera.filmOffset ?? 0) - (runResolvedProject.filmOffset ?? 0))),
+        facetRotationProgress: round4(facetDebug?.focusRotationProgress),
+        facetRotationDelta: facetDebug?.deltaMeshToProjectFocusQuat ?? null,
+        cameraMoveProgress: round4(cameraMoveProgressRef.current),
+      });
+      run.sampleCount = run.rows.length;
+    };
+    if (isStart) pushRow('start');
+    const transitionElapsed = state.clock.elapsedTime - run.startedAt;
+    if (!run.sawMid && transitionElapsed >= 0.45) {
+      run.sawMid = true;
+      pushRow('mid');
+    }
+    if (!run.sawViewModeChange && animationData?.viewMode === 'project') {
+      run.sawViewModeChange = true;
+      pushRow('viewMode-change');
+    }
+    const positionDelta = safeDistance(camera.position, runResolvedProject.position) ?? Number.POSITIVE_INFINITY;
+    const lookAtDelta = safeDistance(liveLookAt, runResolvedProject.lookAt) ?? Number.POSITIVE_INFINITY;
+    const fovDelta = round4(Math.abs(camera.fov - (runResolvedProject.fov ?? camera.fov))) ?? Number.POSITIVE_INFINITY;
+    const filmOffsetDelta = round4(Math.abs((camera.filmOffset ?? 0) - (runResolvedProject.filmOffset ?? 0))) ?? Number.POSITIVE_INFINITY;
+    const isNearTarget = positionDelta < 0.08 && lookAtDelta < 0.06 && fovDelta < 0.2 && filmOffsetDelta < 0.12;
+    const explicitLegacySettle = animationData?.viewMode === 'project' && cameraSettledRef.current;
+    const facetProgress = Number.isFinite(facetDebug?.focusRotationProgress) ? facetDebug.focusRotationProgress : null;
+    const cameraProgress = round4(cameraMoveProgressRef.current) ?? 0;
+    const strictNearTarget = positionDelta <= 0.005 && lookAtDelta <= 0.005 && fovDelta <= 0.02 && filmOffsetDelta <= 0.05;
+    const thresholdsMet = strictNearTarget && cameraProgress >= 0.99 && (facetProgress == null || facetProgress >= 0.99);
+    const missingFacetProgressFallback = strictNearTarget && cameraProgress >= 0.99 && facetProgress == null;
+    const maxDurationFallback = transitionElapsed >= 1.8 && (explicitLegacySettle || isNearTarget);
+    const completeSignal = transitionElapsed > 0.15 && (thresholdsMet || missingFacetProgressFallback || maxDurationFallback);
+    if (!run.completed && completeSignal) {
+      run.completed = true;
+      run.completionReason = thresholdsMet
+        ? 'thresholds-met'
+        : (missingFacetProgressFallback ? 'missing-facet-progress-fallback' : 'max-duration-fallback');
+      run.durationSeconds = round4(transitionElapsed);
+      pushRow('complete');
+      store.activeRun = null;
+    }
   };
 
   const sampleOverviewProjectShadow = ({ state, delta, transitionActive, transitionKey, focusedProject, settled, prevCameraState, nextCameraState, nextState, viewMode }) => {
@@ -1996,6 +2210,73 @@ const UnifiedCameraController = ({
       };
       let fromPose = liveFromPose;
       let fromPoseSource = 'live-camera';
+      const previousFramePose = previousFramePoseRef.current ?? null;
+      const previousPoseIsFinite =
+        previousFramePose?.position instanceof THREE.Vector3 &&
+        previousFramePose?.lookAt instanceof THREE.Vector3 &&
+        Number.isFinite(previousFramePose?.fov) &&
+        Number.isFinite(previousFramePose?.filmOffset);
+      const deltaPreviousToLivePosition = previousPoseIsFinite ? previousFramePose.position.distanceTo(liveFromPose.position) : null;
+      const deltaPreviousToLiveLookAt = previousPoseIsFinite ? previousFramePose.lookAt.distanceTo(liveFromPose.lookAt) : null;
+      const deltaPreviousToLiveFov = previousPoseIsFinite ? Math.abs(previousFramePose.fov - liveFromPose.fov) : null;
+      const deltaPreviousToLiveFilmOffset = previousPoseIsFinite ? Math.abs(previousFramePose.filmOffset - liveFromPose.filmOffset) : null;
+      const previousOverviewContext = previousFramePose?.state === 'overview' && previousFramePose?.cameraState === 'overview';
+      const meaningfulPreviousToLiveDelta =
+        (deltaPreviousToLivePosition ?? 0) > 0.05 ||
+        (deltaPreviousToLiveLookAt ?? 0) > 0.05 ||
+        (deltaPreviousToLiveFov ?? 0) > 0.2 ||
+        (deltaPreviousToLiveFilmOffset ?? 0) > 0.2;
+      const canUsePreviousFrameLookAtOnly =
+        previousPoseIsFinite &&
+        previousFramePose?.viewMode === 'overview' &&
+        (animationData?.viewMode ?? null) === 'overview' &&
+        previousFramePose?.focusedProject === focusedProject &&
+        (deltaPreviousToLiveLookAt ?? 0) > 0.1 &&
+        (deltaPreviousToLivePosition ?? 0) <= 0.05 &&
+        (deltaPreviousToLiveFov ?? 0) <= 0.2 &&
+        (deltaPreviousToLiveFilmOffset ?? 0) <= 0.2;
+      if (previousPoseIsFinite && previousOverviewContext && meaningfulPreviousToLiveDelta) {
+        fromPose = {
+          position: previousFramePose.position.clone(),
+          lookAt: previousFramePose.lookAt.clone(),
+          fov: previousFramePose.fov,
+          filmOffset: previousFramePose.filmOffset,
+        };
+        fromPoseSource = 'previous-overview-frame';
+      } else if (canUsePreviousFrameLookAtOnly) {
+        fromPose = {
+          ...fromPose,
+          lookAt: previousFramePose.lookAt.clone(),
+        };
+        fromPoseSource = 'previous-frame-lookAt';
+      }
+      if (preStartContinuityLogKeyRef.current !== transitionKey) {
+        preStartContinuityLogKeyRef.current = transitionKey;
+        console.log('[camera-director-pilot] overview-to-project pre-start-continuity', {
+        previousFrameState: previousFramePose?.state ?? null,
+        previousFrameCameraState: previousFramePose?.cameraState ?? null,
+        previousFrameViewMode: previousFramePose?.viewMode ?? null,
+        previousFrameFocusedProject: previousFramePose?.focusedProject ?? null,
+        currentState: animationData?.state ?? null,
+        currentCameraState: animationData?.cameraState ?? null,
+        currentViewMode: animationData?.viewMode ?? null,
+        currentFocusedProject: focusedProject,
+        previousFramePosition: previousPoseIsFinite ? previousFramePose.position.toArray() : null,
+        liveStartPosition: liveFromPose.position.toArray(),
+        deltaPreviousToLivePosition: round4(deltaPreviousToLivePosition),
+        previousFrameLookAt: previousPoseIsFinite ? previousFramePose.lookAt.toArray() : null,
+        liveStartLookAt: liveFromPose.lookAt.toArray(),
+        deltaPreviousToLiveLookAt: round4(deltaPreviousToLiveLookAt),
+        previousFrameFov: round4(previousFramePose?.fov ?? null),
+        liveStartFov: round4(liveFromPose.fov),
+        deltaPreviousToLiveFov: round4(deltaPreviousToLiveFov),
+        previousFrameFilmOffset: round4(previousFramePose?.filmOffset ?? null),
+        liveStartFilmOffset: round4(liveFromPose.filmOffset),
+        deltaPreviousToLiveFilmOffset: round4(deltaPreviousToLiveFilmOffset),
+        lookAtSource: canUsePreviousFrameLookAtOnly ? 'previous-frame' : 'live-start',
+          usedPreviousFrameLookAt: canUsePreviousFrameLookAtOnly,
+        });
+      }
       const overviewResolved = resolveCameraDestination({
         destination: 'overview',
         config,
@@ -2023,14 +2304,11 @@ const UnifiedCameraController = ({
           lookAtDelta > LOOKAT_DELTA_THRESHOLD ||
           filmOffsetDelta > FILMOFFSET_DELTA_THRESHOLD ||
           fovDelta > FOV_DELTA_THRESHOLD;
-        if (liveIsContaminated) {
-          fromPose = resolvedOverviewPose;
-          fromPoseSource = 'resolved-overview';
-        }
         if (import.meta.env.DEV && startPoseLogKeyRef.current !== transitionKey) {
           startPoseLogKeyRef.current = transitionKey;
           console.log('[camera-director-pilot] overview-to-project start-pose', {
             projectId: focusedProject,
+            transitionKey,
             fromPoseSource,
             livePose: {
               position: liveFromPose.position.toArray(),
@@ -2051,7 +2329,6 @@ const UnifiedCameraController = ({
               fov: fovDelta,
             },
             selectedFromPoseSource: fromPoseSource,
-            transitionKey,
           });
         }
       } else if (import.meta.env.DEV && startPoseLogKeyRef.current !== transitionKey) {
@@ -2079,12 +2356,46 @@ const UnifiedCameraController = ({
           });
         }
       } else {
+        const resolverProjectFilmOffset = Number.isFinite(destination.filmOffset) ? destination.filmOffset : null;
+        const legacyProjectFilmOffsetCandidate = Number.isFinite(liveFromPose.filmOffset) ? liveFromPose.filmOffset : 0;
+        const pilotTargetFilmOffset = legacyProjectFilmOffsetCandidate;
+        const filmOffsetTargetSource = 'legacy-live-filmOffset';
         const toPose = {
           position: new THREE.Vector3(...destination.position),
           lookAt: new THREE.Vector3(...destination.lookAt),
           fov: Number.isFinite(destination.fov) ? destination.fov : liveFromPose.fov,
-          filmOffset: Number.isFinite(destination.filmOffset) ? destination.filmOffset : 0,
+          filmOffset: pilotTargetFilmOffset,
         };
+        if (startContinuityLogKeyRef.current !== transitionKey) {
+          startContinuityLogKeyRef.current = transitionKey;
+          console.log('[camera-director-pilot] overview-to-project start-continuity', {
+            projectId: focusedProject,
+            liveStartPosition: liveFromPose.position.toArray(),
+            fromPosePosition: fromPose.position.toArray(),
+            targetPosition: toPose.position.toArray(),
+            liveStartLookAt: liveFromPose.lookAt.toArray(),
+            fromPoseLookAt: fromPose.lookAt.toArray(),
+            targetLookAt: toPose.lookAt.toArray(),
+            liveStartFov: round4(liveFromPose.fov),
+            fromPoseFov: round4(fromPose.fov),
+            targetFov: round4(toPose.fov),
+            liveStartFilmOffset: round4(liveFromPose.filmOffset),
+            fromPoseFilmOffset: round4(fromPose.filmOffset),
+            targetFilmOffset: round4(toPose.filmOffset),
+            resolverProjectFilmOffset: round4(resolverProjectFilmOffset),
+            legacyProjectFilmOffsetCandidate: round4(legacyProjectFilmOffsetCandidate),
+            pilotTargetFilmOffset: round4(pilotTargetFilmOffset),
+            filmOffsetTargetSource,
+            deltaLiveToFromPosition: round4(liveFromPose.position.distanceTo(fromPose.position)),
+            deltaLiveToTargetPosition: round4(liveFromPose.position.distanceTo(toPose.position)),
+            deltaLiveToFromLookAt: round4(liveFromPose.lookAt.distanceTo(fromPose.lookAt)),
+            deltaLiveToTargetLookAt: round4(liveFromPose.lookAt.distanceTo(toPose.lookAt)),
+            deltaLiveToFromFov: round4(Math.abs(liveFromPose.fov - fromPose.fov)),
+            deltaLiveToFromFilmOffset: round4(Math.abs((liveFromPose.filmOffset ?? 0) - (fromPose.filmOffset ?? 0))),
+            startFovDelta: round4(Math.abs(fromPose.fov - toPose.fov)),
+            startFilmOffsetDelta: round4(Math.abs((fromPose.filmOffset ?? 0) - (toPose.filmOffset ?? 0))),
+          });
+        }
         const transition = createCameraDirectorPilotTransition({
           id: transitionKey,
           fromPose,
@@ -2099,6 +2410,7 @@ const UnifiedCameraController = ({
           toState: nextCameraState,
           selectedProject: focusedProject,
           completedLogged: false,
+          firstWriteLogged: false,
         };
         blockedOverviewToProjectKeyRef.current = null;
         if (import.meta.env.DEV) {
@@ -2154,32 +2466,210 @@ const UnifiedCameraController = ({
         transition: pilot.transition,
         now: state.clock.elapsedTime,
       });
-      camera.position.copy(step.pose.position);
-      camera.lookAt(step.pose.lookAt);
-      camera.fov = step.pose.fov;
-      camera.filmOffset = step.pose.filmOffset;
+      const facetDebug = globalThis?.__overviewProjectFacetDebug ?? null;
+      const facetProgress = Number.isFinite(facetDebug?.focusRotationProgress) ? facetDebug.focusRotationProgress : null;
+      const pilotProgress = THREE.MathUtils.clamp(step.progress, 0, 1);
+      const isFirstPilotWrite = pilot.firstWriteLogged !== true;
+      const writeProgress = isFirstPilotWrite ? 0 : pilotProgress;
+      const curveDriver = facetProgress == null ? writeProgress : Math.min(writeProgress, facetProgress);
+      const laggedDriver = THREE.MathUtils.clamp(curveDriver - 0.05, 0, 1);
+      const easedPositionProgress = laggedDriver * laggedDriver * (3 - 2 * laggedDriver);
+      camera.position.lerpVectors(
+        pilot.transition.fromPose.position,
+        pilot.transition.toPose.position,
+        easedPositionProgress
+      );
+      const appliedLookAt = isFirstPilotWrite ? pilot.transition.fromPose.lookAt : step.pose.lookAt;
+      camera.lookAt(appliedLookAt);
+      camera.fov = isFirstPilotWrite ? pilot.transition.fromPose.fov : step.pose.fov;
+      camera.filmOffset = isFirstPilotWrite ? pilot.transition.fromPose.filmOffset : step.pose.filmOffset;
       camera.updateProjectionMatrix();
-      currentTarget.current.position.copy(step.pose.position);
-      currentTarget.current.lookAt.copy(step.pose.lookAt);
-      currentTarget.current.fov = step.pose.fov;
+      currentTarget.current.position.copy(camera.position);
+      currentTarget.current.lookAt.copy(appliedLookAt);
+      currentTarget.current.fov = camera.fov;
+      if (isFirstPilotWrite) {
+        console.log('[camera-director-pilot] overview-to-project first-write-continuity', {
+          projectId: pilot.selectedProject,
+          transitionKey: pilot.transition.id,
+          progress: round4(writeProgress),
+          appliedPosition: camera.position.toArray(),
+          fromPosePosition: pilot.transition.fromPose.position.toArray(),
+          targetPosition: pilot.transition.toPose.position.toArray(),
+          deltaFromPoseToAppliedPosition: round4(camera.position.distanceTo(pilot.transition.fromPose.position)),
+          appliedLookAt: currentTarget.current.lookAt.toArray(),
+          fromPoseLookAt: pilot.transition.fromPose.lookAt.toArray(),
+          deltaFromPoseToAppliedLookAt: round4(currentTarget.current.lookAt.distanceTo(pilot.transition.fromPose.lookAt)),
+          appliedFov: round4(camera.fov),
+          fromPoseFov: round4(pilot.transition.fromPose.fov),
+          deltaFromPoseToAppliedFov: round4(Math.abs(camera.fov - pilot.transition.fromPose.fov)),
+          appliedFilmOffset: round4(camera.filmOffset),
+          fromPoseFilmOffset: round4(pilot.transition.fromPose.filmOffset),
+          deltaFromPoseToAppliedFilmOffset: round4(Math.abs((camera.filmOffset ?? 0) - (pilot.transition.fromPose.filmOffset ?? 0))),
+        });
+      }
+      pilot.firstWriteLogged = true;
+      cameraMoveProgressRef.current = pilotProgress;
+      if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = pilotProgress;
+      animationData?.setCameraMoveProgress?.(pilotProgress);
+      if (cameraSettledRef.current) {
+        cameraSettledRef.current = false;
+        animationData?.setCameraSettled?.(false);
+      }
+      const toPose = pilot.transition?.toPose;
+      const positionDelta = toPose?.position ? camera.position.distanceTo(toPose.position) : Number.POSITIVE_INFINITY;
+      const lookAtDelta = toPose?.lookAt ? currentTarget.current.lookAt.distanceTo(toPose.lookAt) : Number.POSITIVE_INFINITY;
+      const fovDelta = Number.isFinite(toPose?.fov) ? Math.abs(camera.fov - toPose.fov) : Number.POSITIVE_INFINITY;
+      const filmOffsetDelta = Number.isFinite(toPose?.filmOffset) ? Math.abs((camera.filmOffset ?? 0) - toPose.filmOffset) : Number.POSITIVE_INFINITY;
+      const facetReady = facetProgress == null ? true : facetProgress >= 0.99;
+      const cameraProgressReady = pilotProgress >= 0.99;
+      const compositionReady =
+        positionDelta <= 0.005 &&
+        lookAtDelta <= 0.005 &&
+        fovDelta <= 0.02 &&
+        filmOffsetDelta < 0.05;
+      const MAX_PILOT_DURATION_SECONDS = 1.8;
+      const durationSeconds = state.clock.elapsedTime - (pilot.transition?.startedAt ?? state.clock.elapsedTime);
+      const exceededMaxDuration = durationSeconds >= MAX_PILOT_DURATION_SECONDS;
+      const canCompleteByThresholds = step.complete && compositionReady && facetReady && cameraProgressReady;
+      const canCompleteByMissingFacetFallback =
+        step.complete &&
+        compositionReady &&
+        cameraProgressReady &&
+        facetProgress == null;
+      const canCompleteByMaxDurationFallback = exceededMaxDuration && step.complete;
+      const canComplete = canCompleteByThresholds || canCompleteByMissingFacetFallback || canCompleteByMaxDurationFallback;
       guardRecord(
         'CAMERA_DIRECTOR_OVERVIEW_TO_PROJECT',
         ['position', 'lookAt', 'fov', 'filmOffset', 'currentTarget'],
         animationData?.cameraState || animationData?.state || 'unknown',
         'overview-to-project-pilot-active'
       );
-      if (step.complete && !pilot.completedLogged) {
+      if (canComplete && !pilot.completedLogged) {
         pilot.completedLogged = true;
+        const completionReason = canCompleteByThresholds
+          ? 'thresholds-met'
+          : (canCompleteByMissingFacetFallback
+              ? 'missing-facet-progress-fallback'
+              : 'max-duration-fallback');
         cameraDirectorPilotRef.current.active = false;
         lastOverviewToProjectKeyRef.current = pilot.transition.id;
+        const cameraBeforeHandoff = {
+          position: camera.position.clone(),
+          lookAt: currentTarget.current.lookAt.clone(),
+          fov: camera.fov,
+          filmOffset: camera.filmOffset,
+        };
+        const currentTargetBeforeSync = {
+          position: currentTarget.current.position.clone(),
+          lookAt: currentTarget.current.lookAt.clone(),
+          fov: currentTarget.current.fov,
+          filmOffset: camera.filmOffset,
+        };
+        currentTarget.current.position.copy(camera.position);
+        currentTarget.current.lookAt.copy(step.pose.lookAt);
+        currentTarget.current.fov = camera.fov;
+        pilotHandoffDebugRef.current.pending = {
+          completionReason,
+          projectId: pilot.selectedProject,
+          pilotFinalPose: {
+            position: step.pose.position.clone(),
+            lookAt: step.pose.lookAt.clone(),
+            fov: step.pose.fov,
+            filmOffset: step.pose.filmOffset,
+          },
+          cameraBeforeHandoff,
+          currentTargetBeforeSync,
+          currentTargetAfterSync: {
+            position: currentTarget.current.position.clone(),
+            lookAt: currentTarget.current.lookAt.clone(),
+            fov: currentTarget.current.fov,
+            filmOffset: camera.filmOffset,
+          },
+        };
+        cameraMoveProgressRef.current = 1;
+        if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = 1;
+        animationData?.setCameraMoveProgress?.(1);
+        cameraSettledRef.current = true;
+        animationData?.setCameraSettled?.(true);
         if (import.meta.env.DEV) {
           console.log('[camera-director-pilot] overview-to-project complete', {
             projectId: pilot.selectedProject,
             transitionId: pilot.transition.id,
+            completionReason,
+            positionDelta: round4(positionDelta),
+            lookAtDelta: round4(lookAtDelta),
+            fovDelta: round4(fovDelta),
+            filmOffsetDelta: round4(filmOffsetDelta),
+            cameraMoveProgress: round4(pilotProgress),
+            facetProgress: round4(facetProgress),
+            durationSeconds: round4(durationSeconds),
           });
         }
       }
+      sampleOverviewProjectPilotParity({
+        state,
+        prevCameraState,
+        nextCameraState,
+        focusedProject: pilot.selectedProject ?? focusedProject ?? null,
+      });
       return;
+    }
+
+    if (import.meta.env.DEV && pilotHandoffDebugRef.current.pending && animationData?.cameraState === 'project') {
+      const handoff = pilotHandoffDebugRef.current.pending;
+      const firstLegacyPose = {
+        position: camera.position.clone(),
+        lookAt: currentTarget.current.lookAt.clone(),
+        fov: camera.fov,
+        filmOffset: camera.filmOffset,
+      };
+      console.log('[camera-director-pilot] overview-to-project handoff', {
+        projectId: handoff.projectId,
+        completionReason: handoff.completionReason,
+        cameraBeforeHandoff: {
+          position: handoff.cameraBeforeHandoff.position.toArray(),
+          lookAt: handoff.cameraBeforeHandoff.lookAt.toArray(),
+          fov: round4(handoff.cameraBeforeHandoff.fov),
+          filmOffset: round4(handoff.cameraBeforeHandoff.filmOffset),
+        },
+        pilotFinalPose: {
+          position: handoff.pilotFinalPose.position.toArray(),
+          lookAt: handoff.pilotFinalPose.lookAt.toArray(),
+          fov: round4(handoff.pilotFinalPose.fov),
+          filmOffset: round4(handoff.pilotFinalPose.filmOffset),
+        },
+        currentTargetBeforeSync: {
+          position: handoff.currentTargetBeforeSync.position.toArray(),
+          lookAt: handoff.currentTargetBeforeSync.lookAt.toArray(),
+          fov: round4(handoff.currentTargetBeforeSync.fov),
+          filmOffset: round4(handoff.currentTargetBeforeSync.filmOffset),
+        },
+        currentTargetAfterSync: {
+          position: handoff.currentTargetAfterSync.position.toArray(),
+          lookAt: handoff.currentTargetAfterSync.lookAt.toArray(),
+          fov: round4(handoff.currentTargetAfterSync.fov),
+          filmOffset: round4(handoff.currentTargetAfterSync.filmOffset),
+        },
+        firstLegacyFramePose: {
+          position: firstLegacyPose.position.toArray(),
+          lookAt: firstLegacyPose.lookAt.toArray(),
+          fov: round4(firstLegacyPose.fov),
+          filmOffset: round4(firstLegacyPose.filmOffset),
+        },
+        deltaPilotFinalToCurrentTargetAfterSync: {
+          position: round4(handoff.pilotFinalPose.position.distanceTo(handoff.currentTargetAfterSync.position)),
+          lookAt: round4(handoff.pilotFinalPose.lookAt.distanceTo(handoff.currentTargetAfterSync.lookAt)),
+          fov: round4(Math.abs(handoff.pilotFinalPose.fov - handoff.currentTargetAfterSync.fov)),
+          filmOffset: round4(Math.abs((handoff.pilotFinalPose.filmOffset ?? 0) - (handoff.currentTargetAfterSync.filmOffset ?? 0))),
+        },
+        deltaPilotFinalToFirstLegacyFrame: {
+          position: round4(handoff.pilotFinalPose.position.distanceTo(firstLegacyPose.position)),
+          lookAt: round4(handoff.pilotFinalPose.lookAt.distanceTo(firstLegacyPose.lookAt)),
+          fov: round4(Math.abs(handoff.pilotFinalPose.fov - firstLegacyPose.fov)),
+          filmOffset: round4(Math.abs((handoff.pilotFinalPose.filmOffset ?? 0) - (firstLegacyPose.filmOffset ?? 0))),
+        },
+      });
+      pilotHandoffDebugRef.current.pending = null;
     }
 
     if (debugSecond !== lastDebugSecondRef.current && debugSecond % 2 === 0) {
@@ -3794,6 +4284,12 @@ const UnifiedCameraController = ({
       nextCameraState,
       nextState,
       viewMode: animationData?.viewMode ?? null,
+    });
+    sampleOverviewProjectPilotParity({
+      state,
+      prevCameraState,
+      nextCameraState,
+      focusedProject: animationData?.focusedProject ?? null,
     });
 
     // FIXED: Enhanced orbit initiation with additional delay and stricter conditions
