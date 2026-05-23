@@ -2382,12 +2382,15 @@ const UnifiedCameraController = ({
       currentTarget.current.position.copy(camera.position);
       currentTarget.current.lookAt.copy(step.pose.lookAt);
       currentTarget.current.fov = step.pose.fov;
-      cameraMoveProgressRef.current = pilotProgress;
-      if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = pilotProgress;
-      animationData?.setCameraMoveProgress?.(pilotProgress);
-      if (cameraSettledRef.current) {
-        cameraSettledRef.current = false;
-        animationData?.setCameraSettled?.(false);
+      // Keep legacy choreography ownership intact during pilot camera writes:
+      // do not drive shared cameraMoveProgress / cameraSettled from pilot progress.
+      const legacyCameraMoveProgress = Number.isFinite(cameraMoveProgressRef.current)
+        ? cameraMoveProgressRef.current
+        : 1;
+      if (!Number.isFinite(cameraMoveProgressRef.current)) {
+        cameraMoveProgressRef.current = 1;
+        if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = 1;
+        animationData?.setCameraMoveProgress?.(1);
       }
       const toPose = pilot.transition?.toPose;
       const positionDelta = toPose?.position ? camera.position.distanceTo(toPose.position) : Number.POSITIVE_INFINITY;
@@ -2474,7 +2477,8 @@ const UnifiedCameraController = ({
             lookAtDelta: round4(lookAtDelta),
             fovDelta: round4(fovDelta),
             filmOffsetDelta: round4(filmOffsetDelta),
-            cameraMoveProgress: round4(pilotProgress),
+            cameraMoveProgress: round4(legacyCameraMoveProgress),
+            pilotProgress: round4(pilotProgress),
             facetProgress: round4(facetProgress),
             durationSeconds: round4(durationSeconds),
           });
