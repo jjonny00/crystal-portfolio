@@ -1674,6 +1674,7 @@ const UnifiedCameraController = ({
       const transitionElapsedSeconds = shadow.startedAt != null ? round4(now - shadow.startedAt) : null;
       shadow.samples.push({
         sampleType,
+        transitionId: shadow.transitionId ?? transitionKey,
         frameId: frame,
         elapsedSeconds: round4(now),
         transitionElapsedSeconds,
@@ -1693,8 +1694,6 @@ const UnifiedCameraController = ({
         currentTargetFilmOffset: null,
         deltaToResolvedProjectPosition: safeDistance(camera.position, resolvedProject?.position),
         deltaToResolvedProjectLookAt: safeDistance(liveLookAt, resolvedProject?.lookAt),
-        deltaToResolvedOverviewPosition: safeDistance(camera.position, resolvedOverview?.position),
-        deltaToResolvedOverviewLookAt: safeDistance(liveLookAt, resolvedOverview?.lookAt),
         facet: facetDebug,
       });
       if (shadow.samples.length > shadow.maxSamples) shadow.samples.shift();
@@ -1721,9 +1720,6 @@ const UnifiedCameraController = ({
       return;
     }
 
-    if (shadow.active) {
-      pushRow('active');
-    }
 
     if (shadow.active && settled && animationData?.cameraState === 'project') {
       shadow.completionSample = {
