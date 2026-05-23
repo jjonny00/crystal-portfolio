@@ -2218,6 +2218,7 @@ const UnifiedCameraController = ({
           startPoseLogKeyRef.current = transitionKey;
           console.log('[camera-director-pilot] overview-to-project start-pose', {
             projectId: focusedProject,
+            transitionKey,
             fromPoseSource,
             livePose: {
               position: liveFromPose.position.toArray(),
@@ -2238,7 +2239,6 @@ const UnifiedCameraController = ({
               fov: fovDelta,
             },
             selectedFromPoseSource: fromPoseSource,
-            transitionKey,
           });
         }
       } else if (import.meta.env.DEV && startPoseLogKeyRef.current !== transitionKey) {
@@ -2276,8 +2276,7 @@ const UnifiedCameraController = ({
           fov: Number.isFinite(destination.fov) ? destination.fov : liveFromPose.fov,
           filmOffset: pilotTargetFilmOffset,
         };
-        if (import.meta.env.DEV) {
-          console.log('[camera-director-pilot] overview-to-project start-composition', {
+        console.log('[camera-director-pilot] overview-to-project start-continuity', {
             projectId: focusedProject,
             liveStartPosition: liveFromPose.position.toArray(),
             fromPosePosition: fromPose.position.toArray(),
@@ -2304,7 +2303,6 @@ const UnifiedCameraController = ({
             startFovDelta: round4(Math.abs(fromPose.fov - toPose.fov)),
             startFilmOffsetDelta: round4(Math.abs((fromPose.filmOffset ?? 0) - (toPose.filmOffset ?? 0))),
           });
-        }
         const transition = createCameraDirectorPilotTransition({
           id: transitionKey,
           fromPose,
@@ -2396,13 +2394,23 @@ const UnifiedCameraController = ({
       currentTarget.current.position.copy(camera.position);
       currentTarget.current.lookAt.copy(appliedLookAt);
       currentTarget.current.fov = camera.fov;
-      if (import.meta.env.DEV && isFirstPilotWrite) {
+      if (isFirstPilotWrite) {
         console.log('[camera-director-pilot] overview-to-project first-write-continuity', {
           projectId: pilot.selectedProject,
+          transitionKey: pilot.transition.id,
           progress: round4(writeProgress),
+          appliedPosition: camera.position.toArray(),
+          fromPosePosition: pilot.transition.fromPose.position.toArray(),
+          targetPosition: pilot.transition.toPose.position.toArray(),
           deltaFromPoseToAppliedPosition: round4(camera.position.distanceTo(pilot.transition.fromPose.position)),
+          appliedLookAt: currentTarget.current.lookAt.toArray(),
+          fromPoseLookAt: pilot.transition.fromPose.lookAt.toArray(),
           deltaFromPoseToAppliedLookAt: round4(currentTarget.current.lookAt.distanceTo(pilot.transition.fromPose.lookAt)),
+          appliedFov: round4(camera.fov),
+          fromPoseFov: round4(pilot.transition.fromPose.fov),
           deltaFromPoseToAppliedFov: round4(Math.abs(camera.fov - pilot.transition.fromPose.fov)),
+          appliedFilmOffset: round4(camera.filmOffset),
+          fromPoseFilmOffset: round4(pilot.transition.fromPose.filmOffset),
           deltaFromPoseToAppliedFilmOffset: round4(Math.abs((camera.filmOffset ?? 0) - (pilot.transition.fromPose.filmOffset ?? 0))),
         });
       }
