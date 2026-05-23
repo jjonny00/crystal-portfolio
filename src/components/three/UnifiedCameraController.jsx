@@ -2366,16 +2366,22 @@ const UnifiedCameraController = ({
       });
       const facetDebug = globalThis?.__overviewProjectFacetDebug ?? null;
       const facetProgress = Number.isFinite(facetDebug?.focusRotationProgress) ? facetDebug.focusRotationProgress : null;
-      const positionProgress = facetProgress == null ? step.progress : Math.min(step.progress, facetProgress + 0.03);
-      camera.position.lerpVectors(pilot.transition.fromPose.position, pilot.transition.toPose.position, THREE.MathUtils.clamp(positionProgress, 0, 1));
+      const pilotProgress = THREE.MathUtils.clamp(step.progress, 0, 1);
+      const curveDriver = facetProgress == null ? pilotProgress : Math.min(pilotProgress, facetProgress);
+      const laggedDriver = THREE.MathUtils.clamp(curveDriver - 0.05, 0, 1);
+      const easedPositionProgress = laggedDriver * laggedDriver * (3 - 2 * laggedDriver);
+      camera.position.lerpVectors(
+        pilot.transition.fromPose.position,
+        pilot.transition.toPose.position,
+        easedPositionProgress
+      );
       camera.lookAt(step.pose.lookAt);
       camera.fov = step.pose.fov;
       camera.filmOffset = step.pose.filmOffset;
       camera.updateProjectionMatrix();
-      currentTarget.current.position.copy(step.pose.position);
+      currentTarget.current.position.copy(camera.position);
       currentTarget.current.lookAt.copy(step.pose.lookAt);
       currentTarget.current.fov = step.pose.fov;
-      const pilotProgress = THREE.MathUtils.clamp(step.progress, 0, 1);
       cameraMoveProgressRef.current = pilotProgress;
       if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = pilotProgress;
       animationData?.setCameraMoveProgress?.(pilotProgress);
