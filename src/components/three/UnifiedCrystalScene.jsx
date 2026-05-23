@@ -453,6 +453,16 @@ const UnifiedCrystalScene = forwardRef(({
   }, [facetKeys]);
 
   const focusedSceneFacetKey = animationData?.focusedFacet || null;
+
+  useEffect(() => {
+    if (!import.meta.env.DEV || typeof globalThis === 'undefined') return undefined;
+    globalThis.__overviewProjectFacetDebug = globalThis.__overviewProjectFacetDebug || {};
+    return () => {
+      if (globalThis.__overviewProjectFacetDebug) {
+        delete globalThis.__overviewProjectFacetDebug;
+      }
+    };
+  }, []);
   const hideFacetMeshesDuringReformOverlap =
     animationData?.crystalForm === 'whole'
     && showWholeCrystal
@@ -2401,6 +2411,22 @@ const UnifiedCrystalScene = forwardRef(({
               ? caseStudyFocusQuat
               : (isProjectFocusedFacet ? projectFocusQuat : baseQuat))
           : neutralQuat;
+
+        if (import.meta.env.DEV && typeof globalThis !== 'undefined') {
+          const isFocusedFacet = isProjectFocusedFacet || isCaseStudyActiveProject;
+          if (isFocusedFacet) {
+            const facetProgress = 1 - Math.min(facetRef.current.quaternion.angleTo(targetQuat) / Math.PI, 1);
+            globalThis.__overviewProjectFacetDebug = {
+              projectId,
+              facetKey,
+              focusRotationProgress,
+              facetRotationProgressApprox: facetProgress,
+              cameraMoveProgress,
+              viewMode: animationData?.viewMode ?? null,
+              cameraState: animationData?.cameraState ?? null,
+            };
+          }
+        }
 
         if (isProjectFocusedFacet || isCaseStudyActiveProject) {
           facetRef.current.quaternion.slerp(targetQuat, focusedRotationLerp);
