@@ -227,6 +227,8 @@ const UnifiedCameraController = ({
   const lastOverviewToProjectKeyRef = useRef(null);
   const blockedOverviewToProjectKeyRef = useRef(null);
   const startPoseLogKeyRef = useRef(null);
+  const preStartContinuityLogKeyRef = useRef(null);
+  const startContinuityLogKeyRef = useRef(null);
   const overviewProjectShadowRef = useRef({
     active: false,
     transitionId: null,
@@ -2248,7 +2250,9 @@ const UnifiedCameraController = ({
         };
         fromPoseSource = 'previous-frame-lookAt';
       }
-      console.log('[camera-director-pilot] overview-to-project pre-start-continuity', {
+      if (preStartContinuityLogKeyRef.current !== transitionKey) {
+        preStartContinuityLogKeyRef.current = transitionKey;
+        console.log('[camera-director-pilot] overview-to-project pre-start-continuity', {
         previousFrameState: previousFramePose?.state ?? null,
         previousFrameCameraState: previousFramePose?.cameraState ?? null,
         previousFrameViewMode: previousFramePose?.viewMode ?? null,
@@ -2270,8 +2274,9 @@ const UnifiedCameraController = ({
         liveStartFilmOffset: round4(liveFromPose.filmOffset),
         deltaPreviousToLiveFilmOffset: round4(deltaPreviousToLiveFilmOffset),
         lookAtSource: canUsePreviousFrameLookAtOnly ? 'previous-frame' : 'live-start',
-        usedPreviousFrameLookAt: canUsePreviousFrameLookAtOnly,
-      });
+          usedPreviousFrameLookAt: canUsePreviousFrameLookAtOnly,
+        });
+      }
       const overviewResolved = resolveCameraDestination({
         destination: 'overview',
         config,
@@ -2361,7 +2366,9 @@ const UnifiedCameraController = ({
           fov: Number.isFinite(destination.fov) ? destination.fov : liveFromPose.fov,
           filmOffset: pilotTargetFilmOffset,
         };
-        console.log('[camera-director-pilot] overview-to-project start-continuity', {
+        if (startContinuityLogKeyRef.current !== transitionKey) {
+          startContinuityLogKeyRef.current = transitionKey;
+          console.log('[camera-director-pilot] overview-to-project start-continuity', {
             projectId: focusedProject,
             liveStartPosition: liveFromPose.position.toArray(),
             fromPosePosition: fromPose.position.toArray(),
@@ -2388,6 +2395,7 @@ const UnifiedCameraController = ({
             startFovDelta: round4(Math.abs(fromPose.fov - toPose.fov)),
             startFilmOffsetDelta: round4(Math.abs((fromPose.filmOffset ?? 0) - (toPose.filmOffset ?? 0))),
           });
+        }
         const transition = createCameraDirectorPilotTransition({
           id: transitionKey,
           fromPose,

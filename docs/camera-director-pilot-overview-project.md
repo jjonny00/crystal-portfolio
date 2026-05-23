@@ -48,6 +48,39 @@ Pilot activates only when all conditions are true:
 - Standalone generic CameraDirector replacement is not the right next move for overview → project at this stage.
 - Flag remains off by default.
 
+## Latest validated status (PR-12)
+- **Flag off** remains unchanged.
+- **Flag on (project01)** currently verifies:
+  - pilot starts once
+  - start jump gone
+  - end jump gone
+  - project lands correctly
+  - project → overview unchanged
+  - Hero → Overview unchanged
+  - About unchanged
+  - no console errors
+
+### Root cause of the former start jump
+- The start jump was caused by a **pre-pilot lookAt snap** before pilot capture.
+- Diagnostics showed previous frame and live-start matched for position/fov/filmOffset, but lookAt changed abruptly:
+  - previousFrameLookAt: `[1.7, 0.3, 0]`
+  - liveStartLookAt: `[-0.1, 2.3, 0.9]`
+  - `deltaPreviousToLiveLookAt: 2.8373`
+
+### Fix now in place
+- For the detected pre-start lookAt snap case, pilot uses **previousFrameLookAt** as `fromPose.lookAt`.
+- `fromPose.position`, `fromPose.fov`, and `fromPose.filmOffset` remain live-start values.
+- `toPose.lookAt` remains the project target lookAt source.
+
+### Why previous-frame lookAt is sometimes required
+- At activation time, visible continuity can be broken before pilot first write if state/cameraState/viewMode handoff already advanced lookAt.
+- Using prior visible lookAt as the interpolation start restores continuity without changing destination composition.
+
+### Experimental status remains unchanged
+- Pilot is still **experimental** and **disabled by default**.
+- Keep behind `globalThis.__ENABLE_CAMERA_DIRECTOR_OVERVIEW_TO_PROJECT__`.
+- Do not enable in production.
+
 ## Decision: Do not continue patching this pilot.
 - Do not treat this pilot as the production migration path for overview → project.
 - Keep the pilot disabled by default and research-only.
@@ -87,6 +120,17 @@ No frame-level pilot spam is added.
 - Verify project → overview remains legacy.
 - Verify Hero/Overview/About behaviors remain unchanged.
 - Verify no console flooding.
+
+### Multi-project spot-check checklist (flag true)
+- project01
+  - overview → project start and end are smooth
+  - landing pose correct
+- project02
+  - overview → project start and end are smooth
+  - landing pose correct
+- project06
+  - overview → project start and end are smooth
+  - landing pose correct
 
 ## Non-goals
 - No Hero → Overview changes.
