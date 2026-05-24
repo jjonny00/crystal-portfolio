@@ -2782,22 +2782,31 @@ const UnifiedCameraController = ({
       const filmOffsetDelta = Number.isFinite(toPose?.filmOffset) ? Math.abs((camera.filmOffset ?? 0) - toPose.filmOffset) : Number.POSITIVE_INFINITY;
       const facetReady = facetProgress == null ? true : facetProgress >= 0.99;
       const cameraProgressReady = pilotProgress >= 0.99;
-      const compositionReady =
-        positionDelta <= 0.005 &&
-        lookAtDelta <= 0.005 &&
-        fovDelta <= 0.02 &&
-        filmOffsetDelta < 0.05;
-      const MAX_PILOT_DURATION_SECONDS = 1.8;
+      const isProjectToOverview = pilot.direction === 'project-to-overview';
+      const compositionReady = isProjectToOverview
+        ? (
+            positionDelta <= 0.01 &&
+            lookAtDelta <= 0.01 &&
+            fovDelta <= 0.02 &&
+            filmOffsetDelta < 0.05
+          )
+        : (
+            positionDelta <= 0.005 &&
+            lookAtDelta <= 0.005 &&
+            fovDelta <= 0.02 &&
+            filmOffsetDelta < 0.05
+          );
+      const MAX_PILOT_DURATION_SECONDS = isProjectToOverview ? 2.4 : 1.8;
       const durationSeconds = state.clock.elapsedTime - (pilot.transition?.startedAt ?? state.clock.elapsedTime);
       const exceededMaxDuration = durationSeconds >= MAX_PILOT_DURATION_SECONDS;
       const canCompleteByThresholds = step.complete && compositionReady && facetReady && cameraProgressReady;
-      const canCompleteByMissingFacetFallback =
+      const canCompleteByMissingProgressFallback =
         step.complete &&
         compositionReady &&
         cameraProgressReady &&
         facetProgress == null;
       const canCompleteByMaxDurationFallback = exceededMaxDuration && step.complete;
-      const canComplete = canCompleteByThresholds || canCompleteByMissingFacetFallback || canCompleteByMaxDurationFallback;
+      const canComplete = canCompleteByThresholds || canCompleteByMissingProgressFallback || canCompleteByMaxDurationFallback;
       guardRecord(
         pilot.direction === 'project-to-overview' ? 'CAMERA_DIRECTOR_PROJECT_TO_OVERVIEW' : 'CAMERA_DIRECTOR_OVERVIEW_TO_PROJECT',
         ['position', 'lookAt', 'fov', 'filmOffset', 'currentTarget'],
@@ -2808,8 +2817,8 @@ const UnifiedCameraController = ({
         pilot.completedLogged = true;
         const completionReason = canCompleteByThresholds
           ? 'thresholds-met'
-          : (canCompleteByMissingFacetFallback
-              ? 'missing-facet-progress-fallback'
+          : (canCompleteByMissingProgressFallback
+              ? 'missing-progress-fallback'
               : 'max-duration-fallback');
         cameraDirectorPilotRef.current.active = false;
         lastOverviewToProjectKeyRef.current = pilot.transition.id;
