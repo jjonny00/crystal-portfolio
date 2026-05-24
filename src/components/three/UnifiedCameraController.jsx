@@ -2775,8 +2775,13 @@ const UnifiedCameraController = ({
       const pilotProgress = THREE.MathUtils.clamp(step.progress, 0, 1);
       const isFirstPilotWrite = pilot.firstWriteLogged !== true;
       const writeProgress = isFirstPilotWrite ? 0 : pilotProgress;
+      const projectOverviewEasedProgress = writeProgress * writeProgress * writeProgress * (writeProgress * (writeProgress * 6 - 15) + 10);
       if (pilot.direction === 'project-to-overview') {
-        camera.position.copy(step.pose.position);
+        camera.position.lerpVectors(
+          pilot.transition.fromPose.position,
+          pilot.transition.toPose.position,
+          projectOverviewEasedProgress
+        );
       } else {
         const curveDriver = facetProgress == null ? writeProgress : Math.min(writeProgress, facetProgress);
         const laggedDriver = THREE.MathUtils.clamp(curveDriver - 0.05, 0, 1);
@@ -2930,6 +2935,9 @@ const UnifiedCameraController = ({
             console.log('[camera-director-pilot] project-to-overview complete', {
               projectId: pilot.selectedProject ?? null,
               durationSeconds: round4(durationSeconds),
+              progressEasingSource: 'project-to-overview:smootherstep-position',
+              rawProgress: round4(pilotProgress),
+              easedProgress: round4(projectOverviewEasedProgress),
               completionReason,
               positionDeltaAtFallback: completionReason === 'max-duration-fallback' ? round4(positionDelta) : null,
               lookAtDeltaAtFallback: completionReason === 'max-duration-fallback' ? round4(lookAtDelta) : null,
