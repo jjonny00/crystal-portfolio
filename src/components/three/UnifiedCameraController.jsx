@@ -1847,6 +1847,7 @@ const UnifiedCameraController = ({
       const latestLegacy = [...store.runs].reverse().find((run) => run.mode === 'legacy') ?? null;
       const latestPilot = [...store.runs].reverse().find((run) => run.mode === 'pilot') ?? null;
       const rowOf = (run, sampleType) => run?.rows?.find((r) => r.sampleType === sampleType) ?? null;
+      const bucketOf = (run, bucket) => run?.rows?.find((r) => r.progressBucket === bucket) ?? null;
       const legacyStart = rowOf(latestLegacy, 'start');
       const pilotStart = rowOf(latestPilot, 'start');
       const legacyMid = rowOf(latestLegacy, 'mid');
@@ -1855,6 +1856,12 @@ const UnifiedCameraController = ({
       const pilotViewMode = rowOf(latestPilot, 'viewMode-change');
       const legacyComplete = rowOf(latestLegacy, 'complete');
       const pilotComplete = rowOf(latestPilot, 'complete');
+      const legacy25 = bucketOf(latestLegacy, '25%');
+      const legacy50 = bucketOf(latestLegacy, '50%');
+      const legacy75 = bucketOf(latestLegacy, '75%');
+      const pilot25 = bucketOf(latestPilot, '25%');
+      const pilot50 = bucketOf(latestPilot, '50%');
+      const pilot75 = bucketOf(latestPilot, '75%');
       console.log('[camera-director-pilot] project-to-overview motion-parity', {
         sourceProjectId: latestPilot?.sourceProjectId ?? latestLegacy?.sourceProjectId ?? null,
         legacyStartPositionDelta: legacyStart?.liveDistanceToResolvedOverviewPosition ?? null,
@@ -1870,6 +1877,38 @@ const UnifiedCameraController = ({
         legacyCompletionReason: latestLegacy?.completionReason ?? null,
         pilotCompletionReason: latestPilot?.completionReason ?? null,
         progressEasingSource: 'project-to-overview:step-pose-smoothstep',
+      });
+      const compareAheadBehind = (pilotRow, legacyRow, field) => {
+        if (!pilotRow || !legacyRow) return 'insufficient-data';
+        const p = pilotRow[field];
+        const l = legacyRow[field];
+        if (!Number.isFinite(p) || !Number.isFinite(l)) return 'insufficient-data';
+        if (Math.abs(p - l) < 0.02) return 'similar';
+        return p < l ? 'pilot-ahead' : 'pilot-behind';
+      };
+      console.log('[camera-director-pilot] project-to-overview motion-curve-summary', {
+        progressEasingSource: 'project-to-overview:step-pose-smoothstep',
+        legacyDuration: latestLegacy?.durationSeconds ?? null,
+        pilotDuration: latestPilot?.durationSeconds ?? null,
+        legacyPositionDelta25: legacy25?.liveDistanceToResolvedOverviewPosition ?? null,
+        pilotPositionDelta25: pilot25?.liveDistanceToResolvedOverviewPosition ?? null,
+        legacyPositionDelta50: legacy50?.liveDistanceToResolvedOverviewPosition ?? null,
+        pilotPositionDelta50: pilot50?.liveDistanceToResolvedOverviewPosition ?? null,
+        legacyPositionDelta75: legacy75?.liveDistanceToResolvedOverviewPosition ?? null,
+        pilotPositionDelta75: pilot75?.liveDistanceToResolvedOverviewPosition ?? null,
+        legacyPositionDeltaComplete: legacyComplete?.liveDistanceToResolvedOverviewPosition ?? null,
+        pilotPositionDeltaComplete: pilotComplete?.liveDistanceToResolvedOverviewPosition ?? null,
+        legacyFovDelta25: legacy25?.liveFovDeltaToResolvedOverview ?? null,
+        pilotFovDelta25: pilot25?.liveFovDeltaToResolvedOverview ?? null,
+        legacyFovDelta50: legacy50?.liveFovDeltaToResolvedOverview ?? null,
+        pilotFovDelta50: pilot50?.liveFovDeltaToResolvedOverview ?? null,
+        legacyFovDelta75: legacy75?.liveFovDeltaToResolvedOverview ?? null,
+        pilotFovDelta75: pilot75?.liveFovDeltaToResolvedOverview ?? null,
+        legacyFovDeltaComplete: legacyComplete?.liveFovDeltaToResolvedOverview ?? null,
+        pilotFovDeltaComplete: pilotComplete?.liveFovDeltaToResolvedOverview ?? null,
+        aheadBehindAt25: compareAheadBehind(pilot25, legacy25, 'liveDistanceToResolvedOverviewPosition'),
+        aheadBehindAt50: compareAheadBehind(pilot50, legacy50, 'liveDistanceToResolvedOverviewPosition'),
+        aheadBehindAt75: compareAheadBehind(pilot75, legacy75, 'liveDistanceToResolvedOverviewPosition'),
       });
       console.log('[project-overview-pilot-parity] summary', {
         runCount: store.runs.length,
@@ -1905,6 +1944,9 @@ const UnifiedCameraController = ({
         sampleCount: 0,
         sawMid: false,
         sawViewModeChange: false,
+        bucket25: false,
+        bucket50: false,
+        bucket75: false,
       };
       store.runs.push(store.activeRun);
       if (store.runs.length > store.maxRuns) store.runs.shift();
@@ -1947,12 +1989,20 @@ const UnifiedCameraController = ({
         progressThresholdMet: settleStatus.progressThresholdMet,
         facetThresholdMet: settleStatus.facetThresholdMet,
         allThresholdsMet: settleStatus.allThresholdsMet,
+        normalizedTime: round4(THREE.MathUtils.clamp((state.clock.elapsedTime - run.startedAt) / 0.9, 0, 1)),
+        rawProgress: progressValue,
+        easedProgress: progressValue,
+        progressBucket: sampleType?.startsWith('bucket-') ? sampleType.replace('bucket-', '') : null,
       });
       run.sampleCount = run.rows.length;
     };
     if (isStart) pushRow('start');
     const elapsed = state.clock.elapsedTime - run.startedAt;
     if (!run.sawMid && elapsed >= 0.45) { run.sawMid = true; pushRow('mid'); }
+    const normalizedTime = THREE.MathUtils.clamp(elapsed / 0.9, 0, 1);
+    if (!run.bucket25 && normalizedTime >= 0.25) { run.bucket25 = true; pushRow('bucket-25%'); }
+    if (!run.bucket50 && normalizedTime >= 0.50) { run.bucket50 = true; pushRow('bucket-50%'); }
+    if (!run.bucket75 && normalizedTime >= 0.75) { run.bucket75 = true; pushRow('bucket-75%'); }
     if (!run.sawViewModeChange && animationData?.viewMode === 'overview') { run.sawViewModeChange = true; pushRow('viewMode-change'); }
     const positionDeltaNow = safeDistance(camera.position, resolvedOverview.position);
     const lookAtDeltaNow = safeDistance(liveLookAt, resolvedOverview.lookAt);
@@ -1978,6 +2028,9 @@ const UnifiedCameraController = ({
       if (!run.rows.find((row) => row.sampleType === 'start')) pushRow('start');
       if (!run.rows.find((row) => row.sampleType === 'mid')) pushRow('mid');
       if (!run.rows.find((row) => row.sampleType === 'viewMode-change')) pushRow('viewMode-change');
+      if (!run.rows.find((row) => row.progressBucket === '25%')) pushRow('bucket-25%');
+      if (!run.rows.find((row) => row.progressBucket === '50%')) pushRow('bucket-50%');
+      if (!run.rows.find((row) => row.progressBucket === '75%')) pushRow('bucket-75%');
       run.completed = true;
       run.completionReason = settleStatusNow.allThresholdsMet ? 'thresholds-met' : 'max-duration-fallback';
       run.durationSeconds = round4(elapsed);
@@ -2775,13 +2828,8 @@ const UnifiedCameraController = ({
       const pilotProgress = THREE.MathUtils.clamp(step.progress, 0, 1);
       const isFirstPilotWrite = pilot.firstWriteLogged !== true;
       const writeProgress = isFirstPilotWrite ? 0 : pilotProgress;
-      const projectOverviewEasedProgress = writeProgress * writeProgress * writeProgress * (writeProgress * (writeProgress * 6 - 15) + 10);
       if (pilot.direction === 'project-to-overview') {
-        camera.position.lerpVectors(
-          pilot.transition.fromPose.position,
-          pilot.transition.toPose.position,
-          projectOverviewEasedProgress
-        );
+        camera.position.copy(step.pose.position);
       } else {
         const curveDriver = facetProgress == null ? writeProgress : Math.min(writeProgress, facetProgress);
         const laggedDriver = THREE.MathUtils.clamp(curveDriver - 0.05, 0, 1);
@@ -2935,9 +2983,9 @@ const UnifiedCameraController = ({
             console.log('[camera-director-pilot] project-to-overview complete', {
               projectId: pilot.selectedProject ?? null,
               durationSeconds: round4(durationSeconds),
-              progressEasingSource: 'project-to-overview:smootherstep-position',
+              progressEasingSource: 'project-to-overview:step-pose-smoothstep',
               rawProgress: round4(pilotProgress),
-              easedProgress: round4(projectOverviewEasedProgress),
+              easedProgress: round4(pilotProgress * pilotProgress * (3 - 2 * pilotProgress)),
               completionReason,
               positionDeltaAtFallback: completionReason === 'max-duration-fallback' ? round4(positionDelta) : null,
               lookAtDeltaAtFallback: completionReason === 'max-duration-fallback' ? round4(lookAtDelta) : null,
