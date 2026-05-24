@@ -234,6 +234,7 @@ const UnifiedCameraController = ({
   const startPoseLogKeyRef = useRef(null);
   const preStartContinuityLogKeyRef = useRef(null);
   const startContinuityLogKeyRef = useRef(null);
+  const projectOverviewTargetParityLogKeyRef = useRef(null);
   const overviewProjectShadowRef = useRef({
     active: false,
     transitionId: null,
@@ -2532,12 +2533,54 @@ const UnifiedCameraController = ({
       if (destination?.meta?.unresolved) {
         console.log('[camera-director-pilot] project-to-overview fallback', { reason: destination?.meta?.reason ?? 'unresolved-overview' });
       } else {
+        const resolverOverviewPosition = new THREE.Vector3(...destination.position);
+        const resolverOverviewLookAt = new THREE.Vector3(...destination.lookAt);
+        const resolverOverviewFov = Number.isFinite(destination.fov) ? destination.fov : fromPose.fov;
+        const resolverOverviewFilmOffset = Number.isFinite(destination.filmOffset) ? destination.filmOffset : fromPose.filmOffset;
+        const legacyOverviewPositionCandidate = currentTarget.current?.position instanceof THREE.Vector3
+          ? currentTarget.current.position.clone()
+          : resolverOverviewPosition.clone();
+        const legacyOverviewLookAtCandidate = currentTarget.current?.lookAt instanceof THREE.Vector3
+          ? currentTarget.current.lookAt.clone()
+          : resolverOverviewLookAt.clone();
+        const legacyOverviewFovCandidate = Number.isFinite(currentTarget.current?.fov)
+          ? currentTarget.current.fov
+          : resolverOverviewFov;
+        const legacyOverviewFilmOffsetCandidate = Number.isFinite(camera.filmOffset)
+          ? camera.filmOffset
+          : resolverOverviewFilmOffset;
         const toPose = {
-          position: new THREE.Vector3(...destination.position),
-          lookAt: new THREE.Vector3(...destination.lookAt),
-          fov: Number.isFinite(destination.fov) ? destination.fov : fromPose.fov,
-          filmOffset: Number.isFinite(destination.filmOffset) ? destination.filmOffset : fromPose.filmOffset,
+          position: legacyOverviewPositionCandidate.clone(),
+          lookAt: legacyOverviewLookAtCandidate.clone(),
+          fov: legacyOverviewFovCandidate,
+          filmOffset: legacyOverviewFilmOffsetCandidate,
         };
+        if (import.meta.env.DEV && projectOverviewTargetParityLogKeyRef.current !== transitionKey) {
+          projectOverviewTargetParityLogKeyRef.current = transitionKey;
+          console.log('[camera-director-pilot] project-to-overview target-parity', {
+            projectId: focusedProject ?? null,
+            resolverOverviewPosition: resolverOverviewPosition.toArray(),
+            legacyOverviewPositionCandidate: legacyOverviewPositionCandidate.toArray(),
+            pilotTargetPosition: toPose.position.toArray(),
+            currentTargetPosition: currentTarget.current?.position?.toArray?.() ?? null,
+            resolverOverviewLookAt: resolverOverviewLookAt.toArray(),
+            legacyOverviewLookAtCandidate: legacyOverviewLookAtCandidate.toArray(),
+            pilotTargetLookAt: toPose.lookAt.toArray(),
+            currentTargetLookAt: currentTarget.current?.lookAt?.toArray?.() ?? null,
+            resolverOverviewFov: round4(resolverOverviewFov),
+            legacyOverviewFovCandidate: round4(legacyOverviewFovCandidate),
+            pilotTargetFov: round4(toPose.fov),
+            currentTargetFov: round4(currentTarget.current?.fov),
+            resolverOverviewFilmOffset: round4(resolverOverviewFilmOffset),
+            legacyOverviewFilmOffsetCandidate: round4(legacyOverviewFilmOffsetCandidate),
+            pilotTargetFilmOffset: round4(toPose.filmOffset),
+            currentTargetFilmOffset: round4(camera.filmOffset),
+            deltaPilotTargetToLegacyPosition: round4(toPose.position.distanceTo(legacyOverviewPositionCandidate)),
+            deltaPilotTargetToLegacyLookAt: round4(toPose.lookAt.distanceTo(legacyOverviewLookAtCandidate)),
+            deltaPilotTargetToLegacyFov: round4(Math.abs(toPose.fov - legacyOverviewFovCandidate)),
+            deltaPilotTargetToLegacyFilmOffset: round4(Math.abs((toPose.filmOffset ?? 0) - (legacyOverviewFilmOffsetCandidate ?? 0))),
+          });
+        }
         console.log('[camera-director-pilot] project-to-overview pre-start-continuity', {
           fromPoseLookAt: fromPose.lookAt.toArray(),
           liveLookAt: liveLookAt.toArray(),
@@ -2697,7 +2740,9 @@ const UnifiedCameraController = ({
           filmOffset: camera.filmOffset,
         };
         currentTarget.current.position.copy(camera.position);
-        currentTarget.current.lookAt.copy(step.pose.lookAt);
+        currentTarget.current.lookAt.copy(
+          pilot.direction === 'project-to-overview' ? pilot.transition.toPose.lookAt : step.pose.lookAt
+        );
         currentTarget.current.fov = camera.fov;
         pilotHandoffDebugRef.current.pending = {
           completionReason,
