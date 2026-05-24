@@ -11,6 +11,10 @@ import { createCameraDirectorPilotTransition, updateCameraDirectorPilotTransitio
 import { resolveCameraDestination } from '../../camera/destinationResolver';
 
 const logger = createLogger('unified-camera-controller');
+const PROJECT_OVERVIEW_POSITION_SETTLE_EPSILON = 0.01;
+const PROJECT_OVERVIEW_LOOKAT_SETTLE_EPSILON = 0.01;
+const PROJECT_OVERVIEW_FOV_SETTLE_EPSILON = 0.02;
+const PROJECT_OVERVIEW_PROGRESS_SETTLE_MIN = 0.99;
 
 const isUccVerboseLogsEnabled = () => Boolean(globalThis?.__UCC_VERBOSE_LOGS__);
 
@@ -1910,14 +1914,22 @@ const UnifiedCameraController = ({
     if (!run || !resolvedOverview) return;
     const liveLookAt = currentTarget.current?.lookAt ? currentTarget.current.lookAt.clone() : getCameraLookAtFromTransform();
     const pushRow = (sampleType) => {
+      const positionDelta = safeDistance(camera.position, resolvedOverview.position);
+      const lookAtDelta = safeDistance(liveLookAt, resolvedOverview.lookAt);
+      const fovDelta = round4(Math.abs(camera.fov - (resolvedOverview.fov ?? camera.fov)));
+      const progressValue = round4(cameraMoveProgressRef.current);
       run.rows.push({
         runId: run.id, mode: run.mode, sampleType, projectId: run.projectId, sourceProjectId: run.sourceProjectId ?? null, sourceProjectIdUnavailableReason: run.sourceProjectIdUnavailableReason ?? null, completionReason: run.completionReason ?? null, elapsed: round4(state.clock.elapsedTime), transitionElapsed: round4(state.clock.elapsedTime - run.startedAt), state: animationData?.state ?? null, cameraState: animationData?.cameraState ?? null, viewMode: animationData?.viewMode ?? null,
-        liveDistanceToResolvedOverviewPosition: safeDistance(camera.position, resolvedOverview.position),
-        liveLookAtDeltaToResolvedOverview: safeDistance(liveLookAt, resolvedOverview.lookAt),
-        liveFovDeltaToResolvedOverview: round4(Math.abs(camera.fov - (resolvedOverview.fov ?? camera.fov))),
+        liveDistanceToResolvedOverviewPosition: positionDelta,
+        liveLookAtDeltaToResolvedOverview: lookAtDelta,
+        liveFovDeltaToResolvedOverview: fovDelta,
         liveFilmOffsetDeltaToResolvedOverview: round4(Math.abs((camera.filmOffset ?? 0) - (resolvedOverview.filmOffset ?? 0))),
-        cameraMoveProgress: round4(cameraMoveProgressRef.current),
+        cameraMoveProgress: progressValue,
         facetRotationProgress: round4(globalThis?.__overviewProjectFacetDebug?.focusRotationProgress),
+        positionThresholdMet: positionDelta != null ? positionDelta <= PROJECT_OVERVIEW_POSITION_SETTLE_EPSILON : null,
+        lookAtThresholdMet: lookAtDelta != null ? lookAtDelta <= PROJECT_OVERVIEW_LOOKAT_SETTLE_EPSILON : null,
+        fovThresholdMet: fovDelta != null ? fovDelta <= PROJECT_OVERVIEW_FOV_SETTLE_EPSILON : null,
+        progressThresholdMet: progressValue != null ? progressValue >= PROJECT_OVERVIEW_PROGRESS_SETTLE_MIN : null,
       });
       run.sampleCount = run.rows.length;
     };
@@ -2780,14 +2792,16 @@ const UnifiedCameraController = ({
       const lookAtDelta = toPose?.lookAt ? currentTarget.current.lookAt.distanceTo(toPose.lookAt) : Number.POSITIVE_INFINITY;
       const fovDelta = Number.isFinite(toPose?.fov) ? Math.abs(camera.fov - toPose.fov) : Number.POSITIVE_INFINITY;
       const filmOffsetDelta = Number.isFinite(toPose?.filmOffset) ? Math.abs((camera.filmOffset ?? 0) - toPose.filmOffset) : Number.POSITIVE_INFINITY;
-      const facetReady = facetProgress == null ? true : facetProgress >= 0.99;
-      const cameraProgressReady = pilotProgress >= 0.99;
       const isProjectToOverview = pilot.direction === 'project-to-overview';
+      const facetReady = facetProgress == null ? true : facetProgress >= 0.99;
+      const cameraProgressReady = isProjectToOverview
+        ? pilotProgress >= PROJECT_OVERVIEW_PROGRESS_SETTLE_MIN
+        : pilotProgress >= 0.99;
       const compositionReady = isProjectToOverview
         ? (
-            positionDelta <= 0.01 &&
-            lookAtDelta <= 0.01 &&
-            fovDelta <= 0.02 &&
+            positionDelta <= PROJECT_OVERVIEW_POSITION_SETTLE_EPSILON &&
+            lookAtDelta <= PROJECT_OVERVIEW_LOOKAT_SETTLE_EPSILON &&
+            fovDelta <= PROJECT_OVERVIEW_FOV_SETTLE_EPSILON &&
             filmOffsetDelta < 0.05
           )
         : (
@@ -2801,6 +2815,7 @@ const UnifiedCameraController = ({
       const exceededMaxDuration = durationSeconds >= MAX_PILOT_DURATION_SECONDS;
       const canCompleteByThresholds = step.complete && compositionReady && facetReady && cameraProgressReady;
       const canCompleteByMissingProgressFallback =
+        !isProjectToOverview &&
         step.complete &&
         compositionReady &&
         cameraProgressReady &&
@@ -2880,6 +2895,12 @@ const UnifiedCameraController = ({
               projectId: pilot.selectedProject ?? null,
               durationSeconds: round4(durationSeconds),
               completionReason,
+              positionDeltaAtFallback: completionReason === 'max-duration-fallback' ? round4(positionDelta) : null,
+              lookAtDeltaAtFallback: completionReason === 'max-duration-fallback' ? round4(lookAtDelta) : null,
+              fovDeltaAtFallback: completionReason === 'max-duration-fallback' ? round4(fovDelta) : null,
+              cameraMoveProgressAtFallback: completionReason === 'max-duration-fallback' ? round4(pilotProgress) : null,
+              elapsedAtFallback: completionReason === 'max-duration-fallback' ? round4(durationSeconds) : null,
+              maxDuration: completionReason === 'max-duration-fallback' ? round4(MAX_PILOT_DURATION_SECONDS) : null,
             });
           }
         }
