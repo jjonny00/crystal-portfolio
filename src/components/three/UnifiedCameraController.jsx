@@ -1840,6 +1840,20 @@ const UnifiedCameraController = ({
       const store = getProjectOverviewPilotParityStore();
       const latestLegacy = [...store.runs].reverse().find((run) => run.mode === 'legacy') ?? null;
       const latestPilot = [...store.runs].reverse().find((run) => run.mode === 'pilot') ?? null;
+      const rowOf = (run, sampleType) => run?.rows?.find((r) => r.sampleType === sampleType) ?? null;
+      const legacyMid = rowOf(latestLegacy, 'mid');
+      const pilotMid = rowOf(latestPilot, 'mid');
+      console.log('[camera-director-pilot] project-to-overview motion-parity', {
+        sourceProjectId: latestPilot?.sourceProjectId ?? latestLegacy?.sourceProjectId ?? null,
+        legacyMidPositionDelta: legacyMid?.liveDistanceToResolvedOverviewPosition ?? null,
+        pilotMidPositionDelta: pilotMid?.liveDistanceToResolvedOverviewPosition ?? null,
+        legacyMidLookAtDelta: legacyMid?.liveLookAtDeltaToResolvedOverview ?? null,
+        pilotMidLookAtDelta: pilotMid?.liveLookAtDeltaToResolvedOverview ?? null,
+        legacyMidProgress: legacyMid?.cameraMoveProgress ?? null,
+        pilotMidProgress: pilotMid?.cameraMoveProgress ?? null,
+        pilotCompletionReason: latestPilot?.completionReason ?? null,
+        progressEasingSource: 'project-to-overview:step-pose-smoothstep',
+      });
       console.log('[project-overview-pilot-parity] summary', {
         runCount: store.runs.length,
         legacyRunId: latestLegacy?.id ?? null,
@@ -1860,7 +1874,7 @@ const UnifiedCameraController = ({
     const mode = isProjectToOverviewPilotEnabled() ? 'pilot' : 'legacy';
     const isStart = prevCameraState === 'project' && nextCameraState === 'overview';
     if (isStart) {
-      store.activeRun = { id: `${mode}:${state.clock.elapsedTime}`, mode, projectId: projectId ?? null, startedAt: state.clock.elapsedTime, rows: [], completed: false, durationSeconds: null, sampleCount: 0, sawMid: false, sawViewModeChange: false };
+      store.activeRun = { id: `${mode}:${state.clock.elapsedTime}`, mode, projectId: projectId ?? null, sourceProjectId: projectId ?? null, startedAt: state.clock.elapsedTime, rows: [], completed: false, completionReason: 'not-detected', durationSeconds: null, sampleCount: 0, sawMid: false, sawViewModeChange: false };
       store.runs.push(store.activeRun);
       if (store.runs.length > store.maxRuns) store.runs.shift();
     }
@@ -1870,7 +1884,7 @@ const UnifiedCameraController = ({
     const liveLookAt = currentTarget.current?.lookAt ? currentTarget.current.lookAt.clone() : getCameraLookAtFromTransform();
     const pushRow = (sampleType) => {
       run.rows.push({
-        sampleType, projectId: run.projectId, elapsed: round4(state.clock.elapsedTime), state: animationData?.state ?? null, cameraState: animationData?.cameraState ?? null, viewMode: animationData?.viewMode ?? null,
+        sampleType, projectId: run.projectId, sourceProjectId: run.sourceProjectId ?? null, completionReason: run.completionReason ?? null, elapsed: round4(state.clock.elapsedTime), transitionElapsed: round4(state.clock.elapsedTime - run.startedAt), state: animationData?.state ?? null, cameraState: animationData?.cameraState ?? null, viewMode: animationData?.viewMode ?? null,
         liveDistanceToResolvedOverviewPosition: safeDistance(camera.position, resolvedOverview.position),
         liveLookAtDeltaToResolvedOverview: safeDistance(liveLookAt, resolvedOverview.lookAt),
         liveFovDeltaToResolvedOverview: round4(Math.abs(camera.fov - (resolvedOverview.fov ?? camera.fov))),
@@ -1887,6 +1901,7 @@ const UnifiedCameraController = ({
     const near = (safeDistance(camera.position, resolvedOverview.position) ?? 1) < 0.08 && (safeDistance(liveLookAt, resolvedOverview.lookAt) ?? 1) < 0.06;
     if (!run.completed && elapsed > 0.15 && (near || elapsed >= 1.8)) {
       run.completed = true;
+      run.completionReason = near ? 'thresholds-met' : 'max-duration-fallback';
       run.durationSeconds = round4(elapsed);
       pushRow('complete');
       store.activeRun = null;
@@ -2559,6 +2574,7 @@ const UnifiedCameraController = ({
           projectOverviewTargetParityLogKeyRef.current = transitionKey;
           console.log('[camera-director-pilot] project-to-overview target-parity', {
             projectId: focusedProject ?? null,
+            sourceProjectId: focusedProject ?? animationData?.selectedProject ?? null,
             resolverOverviewPosition: resolverOverviewPosition.toArray(),
             legacyOverviewPositionCandidate: legacyOverviewPositionCandidate.toArray(),
             pilotTargetPosition: toPose.position.toArray(),
@@ -2645,14 +2661,18 @@ const UnifiedCameraController = ({
       const pilotProgress = THREE.MathUtils.clamp(step.progress, 0, 1);
       const isFirstPilotWrite = pilot.firstWriteLogged !== true;
       const writeProgress = isFirstPilotWrite ? 0 : pilotProgress;
-      const curveDriver = facetProgress == null ? writeProgress : Math.min(writeProgress, facetProgress);
-      const laggedDriver = THREE.MathUtils.clamp(curveDriver - 0.05, 0, 1);
-      const easedPositionProgress = laggedDriver * laggedDriver * (3 - 2 * laggedDriver);
-      camera.position.lerpVectors(
-        pilot.transition.fromPose.position,
-        pilot.transition.toPose.position,
-        easedPositionProgress
-      );
+      if (pilot.direction === 'project-to-overview') {
+        camera.position.copy(step.pose.position);
+      } else {
+        const curveDriver = facetProgress == null ? writeProgress : Math.min(writeProgress, facetProgress);
+        const laggedDriver = THREE.MathUtils.clamp(curveDriver - 0.05, 0, 1);
+        const easedPositionProgress = laggedDriver * laggedDriver * (3 - 2 * laggedDriver);
+        camera.position.lerpVectors(
+          pilot.transition.fromPose.position,
+          pilot.transition.toPose.position,
+          easedPositionProgress
+        );
+      }
       const appliedLookAt = isFirstPilotWrite ? pilot.transition.fromPose.lookAt : step.pose.lookAt;
       camera.lookAt(appliedLookAt);
       camera.fov = isFirstPilotWrite ? pilot.transition.fromPose.fov : step.pose.fov;
