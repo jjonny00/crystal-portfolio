@@ -2865,8 +2865,17 @@ const UnifiedCameraController = ({
       const pilotProgress = THREE.MathUtils.clamp(step.progress, 0, 1);
       const isFirstPilotWrite = pilot.firstWriteLogged !== true;
       const writeProgress = isFirstPilotWrite ? 0 : pilotProgress;
+      const projectOverviewEasedProgress = 1 - Math.pow(1 - writeProgress, 3.2);
       if (pilot.direction === 'project-to-overview') {
-        camera.position.copy(step.pose.position);
+        if (isFirstPilotWrite) {
+          camera.position.copy(pilot.transition.fromPose.position);
+        } else {
+          camera.position.lerpVectors(
+            pilot.transition.fromPose.position,
+            pilot.transition.toPose.position,
+            projectOverviewEasedProgress
+          );
+        }
       } else {
         const curveDriver = facetProgress == null ? writeProgress : Math.min(writeProgress, facetProgress);
         const laggedDriver = THREE.MathUtils.clamp(curveDriver - 0.05, 0, 1);
@@ -2877,10 +2886,24 @@ const UnifiedCameraController = ({
           easedPositionProgress
         );
       }
-      const appliedLookAt = isFirstPilotWrite ? pilot.transition.fromPose.lookAt : step.pose.lookAt;
+      const appliedLookAt = (pilot.direction === 'project-to-overview' && !isFirstPilotWrite)
+        ? new THREE.Vector3().lerpVectors(
+            pilot.transition.fromPose.lookAt,
+            pilot.transition.toPose.lookAt,
+            projectOverviewEasedProgress
+          )
+        : (isFirstPilotWrite ? pilot.transition.fromPose.lookAt : step.pose.lookAt);
       camera.lookAt(appliedLookAt);
-      camera.fov = isFirstPilotWrite ? pilot.transition.fromPose.fov : step.pose.fov;
-      camera.filmOffset = isFirstPilotWrite ? pilot.transition.fromPose.filmOffset : step.pose.filmOffset;
+      camera.fov = (pilot.direction === 'project-to-overview' && !isFirstPilotWrite)
+        ? THREE.MathUtils.lerp(pilot.transition.fromPose.fov, pilot.transition.toPose.fov, projectOverviewEasedProgress)
+        : (isFirstPilotWrite ? pilot.transition.fromPose.fov : step.pose.fov);
+      camera.filmOffset = (pilot.direction === 'project-to-overview' && !isFirstPilotWrite)
+        ? THREE.MathUtils.lerp(
+            pilot.transition.fromPose.filmOffset,
+            pilot.transition.toPose.filmOffset,
+            projectOverviewEasedProgress
+          )
+        : (isFirstPilotWrite ? pilot.transition.fromPose.filmOffset : step.pose.filmOffset);
       camera.updateProjectionMatrix();
       currentTarget.current.position.copy(camera.position);
       currentTarget.current.lookAt.copy(appliedLookAt);
@@ -3020,9 +3043,9 @@ const UnifiedCameraController = ({
             console.log('[camera-director-pilot] project-to-overview complete', {
               projectId: pilot.selectedProject ?? null,
               durationSeconds: round4(durationSeconds),
-              progressEasingSource: 'project-to-overview:step-pose-smoothstep',
+              progressEasingSource: 'project-to-overview:legacy-settle-ease-out',
               rawProgress: round4(pilotProgress),
-              easedProgress: round4(pilotProgress * pilotProgress * (3 - 2 * pilotProgress)),
+              easedProgress: round4(projectOverviewEasedProgress),
               completionReason,
               positionDeltaAtFallback: completionReason === 'max-duration-fallback' ? round4(positionDelta) : null,
               lookAtDeltaAtFallback: completionReason === 'max-duration-fallback' ? round4(lookAtDelta) : null,
