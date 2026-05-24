@@ -1886,29 +1886,54 @@ const UnifiedCameraController = ({
         if (Math.abs(p - l) < 0.02) return 'similar';
         return p < l ? 'pilot-ahead' : 'pilot-behind';
       };
+      const nearestBucket = (run, target) => {
+        if (!run?.rows?.length) return null;
+        const withNorm = run.rows.filter((r) => Number.isFinite(r?.normalizedTime));
+        if (!withNorm.length) return null;
+        return withNorm.reduce((best, row) => {
+          const rowDist = Math.abs((row.normalizedTime ?? 0) - target);
+          const bestDist = Math.abs((best?.normalizedTime ?? 0) - target);
+          return rowDist < bestDist ? row : best;
+        }, withNorm[0]);
+      };
+      const legacy25Resolved = legacy25 ?? nearestBucket(latestLegacy, 0.25);
+      const legacy50Resolved = legacy50 ?? nearestBucket(latestLegacy, 0.50);
+      const legacy75Resolved = legacy75 ?? nearestBucket(latestLegacy, 0.75);
+      const legacyCurveCaptureStatus = (!latestLegacy || !legacyComplete)
+        ? 'not-captured'
+        : ((legacy25 && legacy50 && legacy75) ? 'captured' : 'partial');
+      const legacyCurveCaptureFailureReason = legacyCurveCaptureStatus === 'captured'
+        ? null
+        : (!latestLegacy
+            ? 'no-legacy-project-overview-run-recorded'
+            : (!legacyComplete
+                ? 'legacy-run-missing-complete-row'
+                : 'exact-bucket-rows-missing-used-nearest'));
       console.log('[camera-director-pilot] project-to-overview motion-curve-summary', {
         progressEasingSource: 'project-to-overview:step-pose-smoothstep',
+        legacyCurveCaptureStatus,
+        legacyCurveCaptureFailureReason,
         legacyDuration: latestLegacy?.durationSeconds ?? null,
         pilotDuration: latestPilot?.durationSeconds ?? null,
-        legacyPositionDelta25: legacy25?.liveDistanceToResolvedOverviewPosition ?? null,
+        legacyPositionDelta25: legacy25Resolved?.liveDistanceToResolvedOverviewPosition ?? null,
         pilotPositionDelta25: pilot25?.liveDistanceToResolvedOverviewPosition ?? null,
-        legacyPositionDelta50: legacy50?.liveDistanceToResolvedOverviewPosition ?? null,
+        legacyPositionDelta50: legacy50Resolved?.liveDistanceToResolvedOverviewPosition ?? null,
         pilotPositionDelta50: pilot50?.liveDistanceToResolvedOverviewPosition ?? null,
-        legacyPositionDelta75: legacy75?.liveDistanceToResolvedOverviewPosition ?? null,
+        legacyPositionDelta75: legacy75Resolved?.liveDistanceToResolvedOverviewPosition ?? null,
         pilotPositionDelta75: pilot75?.liveDistanceToResolvedOverviewPosition ?? null,
         legacyPositionDeltaComplete: legacyComplete?.liveDistanceToResolvedOverviewPosition ?? null,
         pilotPositionDeltaComplete: pilotComplete?.liveDistanceToResolvedOverviewPosition ?? null,
-        legacyFovDelta25: legacy25?.liveFovDeltaToResolvedOverview ?? null,
+        legacyFovDelta25: legacy25Resolved?.liveFovDeltaToResolvedOverview ?? null,
         pilotFovDelta25: pilot25?.liveFovDeltaToResolvedOverview ?? null,
-        legacyFovDelta50: legacy50?.liveFovDeltaToResolvedOverview ?? null,
+        legacyFovDelta50: legacy50Resolved?.liveFovDeltaToResolvedOverview ?? null,
         pilotFovDelta50: pilot50?.liveFovDeltaToResolvedOverview ?? null,
-        legacyFovDelta75: legacy75?.liveFovDeltaToResolvedOverview ?? null,
+        legacyFovDelta75: legacy75Resolved?.liveFovDeltaToResolvedOverview ?? null,
         pilotFovDelta75: pilot75?.liveFovDeltaToResolvedOverview ?? null,
         legacyFovDeltaComplete: legacyComplete?.liveFovDeltaToResolvedOverview ?? null,
         pilotFovDeltaComplete: pilotComplete?.liveFovDeltaToResolvedOverview ?? null,
-        aheadBehindAt25: compareAheadBehind(pilot25, legacy25, 'liveDistanceToResolvedOverviewPosition'),
-        aheadBehindAt50: compareAheadBehind(pilot50, legacy50, 'liveDistanceToResolvedOverviewPosition'),
-        aheadBehindAt75: compareAheadBehind(pilot75, legacy75, 'liveDistanceToResolvedOverviewPosition'),
+        aheadBehindAt25: compareAheadBehind(pilot25, legacy25Resolved, 'liveDistanceToResolvedOverviewPosition'),
+        aheadBehindAt50: compareAheadBehind(pilot50, legacy50Resolved, 'liveDistanceToResolvedOverviewPosition'),
+        aheadBehindAt75: compareAheadBehind(pilot75, legacy75Resolved, 'liveDistanceToResolvedOverviewPosition'),
       });
       console.log('[project-overview-pilot-parity] summary', {
         runCount: store.runs.length,
@@ -2028,9 +2053,21 @@ const UnifiedCameraController = ({
       if (!run.rows.find((row) => row.sampleType === 'start')) pushRow('start');
       if (!run.rows.find((row) => row.sampleType === 'mid')) pushRow('mid');
       if (!run.rows.find((row) => row.sampleType === 'viewMode-change')) pushRow('viewMode-change');
-      if (!run.rows.find((row) => row.progressBucket === '25%')) pushRow('bucket-25%');
-      if (!run.rows.find((row) => row.progressBucket === '50%')) pushRow('bucket-50%');
-      if (!run.rows.find((row) => row.progressBucket === '75%')) pushRow('bucket-75%');
+      const nearestBucketLabel = (target, label) => {
+        const withNorm = run.rows.filter((r) => Number.isFinite(r?.normalizedTime));
+        if (!withNorm.length) return false;
+        const nearest = withNorm.reduce((best, row) => {
+          const rowDist = Math.abs((row.normalizedTime ?? 0) - target);
+          const bestDist = Math.abs((best?.normalizedTime ?? 0) - target);
+          return rowDist < bestDist ? row : best;
+        }, withNorm[0]);
+        if (!nearest) return false;
+        run.rows.push({ ...nearest, sampleType: `bucket-${label}-nearest`, progressBucket: `${label}-nearest` });
+        return true;
+      };
+      if (!run.rows.find((row) => row.progressBucket === '25%')) nearestBucketLabel(0.25, '25%');
+      if (!run.rows.find((row) => row.progressBucket === '50%')) nearestBucketLabel(0.50, '50%');
+      if (!run.rows.find((row) => row.progressBucket === '75%')) nearestBucketLabel(0.75, '75%');
       run.completed = true;
       run.completionReason = settleStatusNow.allThresholdsMet ? 'thresholds-met' : 'max-duration-fallback';
       run.durationSeconds = round4(elapsed);
