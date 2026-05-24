@@ -1918,6 +1918,21 @@ const UnifiedCameraController = ({
       const lookAtDelta = safeDistance(liveLookAt, resolvedOverview.lookAt);
       const fovDelta = round4(Math.abs(camera.fov - (resolvedOverview.fov ?? camera.fov)));
       const progressValue = round4(cameraMoveProgressRef.current);
+      const facetValue = round4(globalThis?.__overviewProjectFacetDebug?.focusRotationProgress);
+      const settleStatus = {
+        positionThresholdMet: positionDelta != null ? positionDelta <= PROJECT_OVERVIEW_POSITION_SETTLE_EPSILON : null,
+        lookAtThresholdMet: lookAtDelta != null ? lookAtDelta <= PROJECT_OVERVIEW_LOOKAT_SETTLE_EPSILON : null,
+        fovThresholdMet: fovDelta != null ? fovDelta <= PROJECT_OVERVIEW_FOV_SETTLE_EPSILON : null,
+        progressThresholdMet: progressValue != null ? progressValue >= PROJECT_OVERVIEW_PROGRESS_SETTLE_MIN : null,
+        facetThresholdMet: facetValue == null ? true : facetValue >= 0.99,
+      };
+      settleStatus.allThresholdsMet = Boolean(
+        settleStatus.positionThresholdMet &&
+        settleStatus.lookAtThresholdMet &&
+        settleStatus.fovThresholdMet &&
+        settleStatus.progressThresholdMet &&
+        settleStatus.facetThresholdMet
+      );
       run.rows.push({
         runId: run.id, mode: run.mode, sampleType, projectId: run.projectId, sourceProjectId: run.sourceProjectId ?? null, sourceProjectIdUnavailableReason: run.sourceProjectIdUnavailableReason ?? null, completionReason: run.completionReason ?? null, elapsed: round4(state.clock.elapsedTime), transitionElapsed: round4(state.clock.elapsedTime - run.startedAt), state: animationData?.state ?? null, cameraState: animationData?.cameraState ?? null, viewMode: animationData?.viewMode ?? null,
         liveDistanceToResolvedOverviewPosition: positionDelta,
@@ -1925,11 +1940,13 @@ const UnifiedCameraController = ({
         liveFovDeltaToResolvedOverview: fovDelta,
         liveFilmOffsetDeltaToResolvedOverview: round4(Math.abs((camera.filmOffset ?? 0) - (resolvedOverview.filmOffset ?? 0))),
         cameraMoveProgress: progressValue,
-        facetRotationProgress: round4(globalThis?.__overviewProjectFacetDebug?.focusRotationProgress),
-        positionThresholdMet: positionDelta != null ? positionDelta <= PROJECT_OVERVIEW_POSITION_SETTLE_EPSILON : null,
-        lookAtThresholdMet: lookAtDelta != null ? lookAtDelta <= PROJECT_OVERVIEW_LOOKAT_SETTLE_EPSILON : null,
-        fovThresholdMet: fovDelta != null ? fovDelta <= PROJECT_OVERVIEW_FOV_SETTLE_EPSILON : null,
-        progressThresholdMet: progressValue != null ? progressValue >= PROJECT_OVERVIEW_PROGRESS_SETTLE_MIN : null,
+        facetRotationProgress: facetValue,
+        positionThresholdMet: settleStatus.positionThresholdMet,
+        lookAtThresholdMet: settleStatus.lookAtThresholdMet,
+        fovThresholdMet: settleStatus.fovThresholdMet,
+        progressThresholdMet: settleStatus.progressThresholdMet,
+        facetThresholdMet: settleStatus.facetThresholdMet,
+        allThresholdsMet: settleStatus.allThresholdsMet,
       });
       run.sampleCount = run.rows.length;
     };
@@ -1937,13 +1954,32 @@ const UnifiedCameraController = ({
     const elapsed = state.clock.elapsedTime - run.startedAt;
     if (!run.sawMid && elapsed >= 0.45) { run.sawMid = true; pushRow('mid'); }
     if (!run.sawViewModeChange && animationData?.viewMode === 'overview') { run.sawViewModeChange = true; pushRow('viewMode-change'); }
-    const near = (safeDistance(camera.position, resolvedOverview.position) ?? 1) < 0.08 && (safeDistance(liveLookAt, resolvedOverview.lookAt) ?? 1) < 0.06;
-    if (!run.completed && elapsed > 0.15 && (near || elapsed >= 1.8)) {
+    const positionDeltaNow = safeDistance(camera.position, resolvedOverview.position);
+    const lookAtDeltaNow = safeDistance(liveLookAt, resolvedOverview.lookAt);
+    const fovDeltaNow = round4(Math.abs(camera.fov - (resolvedOverview.fov ?? camera.fov)));
+    const progressNow = round4(cameraMoveProgressRef.current);
+    const facetNow = round4(globalThis?.__overviewProjectFacetDebug?.focusRotationProgress);
+    const settleStatusNow = {
+      positionThresholdMet: positionDeltaNow != null ? positionDeltaNow <= PROJECT_OVERVIEW_POSITION_SETTLE_EPSILON : false,
+      lookAtThresholdMet: lookAtDeltaNow != null ? lookAtDeltaNow <= PROJECT_OVERVIEW_LOOKAT_SETTLE_EPSILON : false,
+      fovThresholdMet: fovDeltaNow != null ? fovDeltaNow <= PROJECT_OVERVIEW_FOV_SETTLE_EPSILON : false,
+      progressThresholdMet: progressNow != null ? progressNow >= PROJECT_OVERVIEW_PROGRESS_SETTLE_MIN : false,
+      facetThresholdMet: facetNow == null ? true : facetNow >= 0.99,
+    };
+    settleStatusNow.allThresholdsMet = Boolean(
+      settleStatusNow.positionThresholdMet &&
+      settleStatusNow.lookAtThresholdMet &&
+      settleStatusNow.fovThresholdMet &&
+      settleStatusNow.progressThresholdMet &&
+      settleStatusNow.facetThresholdMet
+    );
+    const maxDurationReached = elapsed >= 2.4;
+    if (!run.completed && elapsed > 0.15 && (settleStatusNow.allThresholdsMet || maxDurationReached)) {
       if (!run.rows.find((row) => row.sampleType === 'start')) pushRow('start');
       if (!run.rows.find((row) => row.sampleType === 'mid')) pushRow('mid');
       if (!run.rows.find((row) => row.sampleType === 'viewMode-change')) pushRow('viewMode-change');
       run.completed = true;
-      run.completionReason = near ? 'thresholds-met' : 'max-duration-fallback';
+      run.completionReason = settleStatusNow.allThresholdsMet ? 'thresholds-met' : 'max-duration-fallback';
       run.durationSeconds = round4(elapsed);
       pushRow('complete');
       const legacyRun = [...store.runs].reverse().find((r) => r.mode === 'legacy' && r.completed) ?? null;
