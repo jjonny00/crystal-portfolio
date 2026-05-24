@@ -1876,7 +1876,7 @@ const UnifiedCameraController = ({
         pilotDuration: latestPilot?.durationSeconds ?? null,
         legacyCompletionReason: latestLegacy?.completionReason ?? null,
         pilotCompletionReason: latestPilot?.completionReason ?? null,
-        progressEasingSource: 'project-to-overview:step-pose-smoothstep',
+        progressEasingSource: 'project-to-overview:legacy-settle-ease-out',
       });
       const compareAheadBehind = (pilotRow, legacyRow, field) => {
         if (!pilotRow || !legacyRow) return 'insufficient-data';
@@ -1910,7 +1910,7 @@ const UnifiedCameraController = ({
                 ? 'legacy-run-missing-complete-row'
                 : 'exact-bucket-rows-missing-used-nearest'));
       console.log('[camera-director-pilot] project-to-overview motion-curve-summary', {
-        progressEasingSource: 'project-to-overview:step-pose-smoothstep',
+        progressEasingSource: 'project-to-overview:legacy-settle-ease-out',
         legacyCurveCaptureStatus,
         legacyCurveCaptureFailureReason,
         legacyDuration: latestLegacy?.durationSeconds ?? null,

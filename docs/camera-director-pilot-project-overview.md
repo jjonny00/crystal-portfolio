@@ -22,8 +22,16 @@ Pilot activates only when all are true:
 ## Target pose strategy
 
 - Resolve `overview` destination through existing `resolveCameraDestination`.
-- Use resolved position/lookAt/fov when finite.
-- Keep target `filmOffset` resolver-driven when finite; fallback to live from-pose filmOffset.
+- Use legacy-equivalent overview composition candidates from live `currentTarget`/camera when available, with resolver as fallback.
+- Keep target parity aligned to legacy handoff expectations (`position`, `lookAt`, `fov`, `filmOffset`) to avoid end correction pops.
+
+## Runtime status (current pilot)
+
+- Target/handoff parity fix is in place.
+- Start continuity fix is in place (no start jump in validated runs).
+- End continuity fix is in place (no end pop in validated runs).
+- Motion curve uses a front-loaded settle remap (`project-to-overview:legacy-settle-ease-out`) to reduce hard final approach.
+- Pilot remains experimental and disabled by default.
 
 ## Parity helpers
 
@@ -49,10 +57,11 @@ Bounded logs:
 
 ## Test checklist
 
-- Flag off: verify legacy behavior for all transitions.
-- Flag on: verify project→overview pilot start, continuity, and completion.
+- Flag off (default): verify legacy behavior is unchanged.
+- Flag on: verify project→overview has no start jump, no end pop, correct overview composition, and soft final approach.
 - Confirm no console flooding/errors.
 - Confirm overview→project pilot remains unchanged.
+- Confirm completion remains strict (`thresholds-met` only when settle thresholds are satisfied).
 
 ## Non-goals
 
