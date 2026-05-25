@@ -283,6 +283,7 @@ const UnifiedCameraController = ({
     pending: null,
   });
   const projectProjectActivationLogKeyRef = useRef(null);
+  const projectProjectActivationMatchedLogKeyRef = useRef(null);
   const previousSelectedProjectRef = useRef(null);
   const previousFramePoseRef = useRef({
     position: null,
@@ -2269,10 +2270,27 @@ const UnifiedCameraController = ({
     }
     const run = store.activeRun;
     const resolvedProject = run?.toProjectId ? getOverviewProjectResolvedPose('project', run.toProjectId) : null;
+    const targetPoseUnavailableReason = (!resolvedProject && run?.toProjectId)
+      ? 'resolved-project-pose-unavailable'
+      : (!run?.toProjectId ? 'to-project-id-missing' : null);
     if (!run) return;
     const liveLookAt = currentTarget.current?.lookAt ? currentTarget.current.lookAt.clone() : getCameraLookAtFromTransform();
-    const pushRow = (sampleType) => run.rows.push({ sampleType, state: animationData?.state ?? null, cameraState: animationData?.cameraState ?? null, viewMode: animationData?.viewMode ?? null, fromProjectId: run.fromProjectId, toProjectId: run.toProjectId, fromProjectIdUnavailableReason: run.fromProjectId ? null : (run.fromProjectIdUnavailableReason ?? 'from-project-id-missing'), toProjectIdUnavailableReason: run.toProjectId ? null : (run.toProjectIdUnavailableReason ?? 'to-project-id-missing'), liveDistanceToResolvedProjectPosition: resolvedProject ? safeDistance(camera.position, resolvedProject.position) : null, liveLookAtDeltaToResolvedProject: resolvedProject ? safeDistance(liveLookAt, resolvedProject.lookAt) : null, liveFovDeltaToResolvedProject: resolvedProject ? round4(Math.abs(camera.fov - (resolvedProject.fov ?? camera.fov))) : null, liveFilmOffsetDeltaToResolvedProject: resolvedProject ? round4(Math.abs((camera.filmOffset ?? 0) - (resolvedProject.filmOffset ?? 0))) : null, cameraMoveProgress: round4(cameraMoveProgressRef.current), facetRotationProgress: round4(globalThis?.__overviewProjectFacetDebug?.focusRotationProgress), completionReason: completionReason ?? run.completionReason, progressEasingSource });
-    if (isStart) pushRow('start');
+    const pushRow = (sampleType) => run.rows.push({ sampleType, state: animationData?.state ?? null, cameraState: animationData?.cameraState ?? null, viewMode: animationData?.viewMode ?? null, fromProjectId: run.fromProjectId, toProjectId: run.toProjectId, fromProjectIdUnavailableReason: run.fromProjectId ? null : (run.fromProjectIdUnavailableReason ?? 'from-project-id-missing'), toProjectIdUnavailableReason: run.toProjectId ? null : (run.toProjectIdUnavailableReason ?? 'to-project-id-missing'), targetPoseUnavailableReason, liveDistanceToResolvedProjectPosition: resolvedProject ? safeDistance(camera.position, resolvedProject.position) : null, liveLookAtDeltaToResolvedProject: resolvedProject ? safeDistance(liveLookAt, resolvedProject.lookAt) : null, liveFovDeltaToResolvedProject: resolvedProject ? round4(Math.abs(camera.fov - (resolvedProject.fov ?? camera.fov))) : null, liveFilmOffsetDeltaToResolvedProject: resolvedProject ? round4(Math.abs((camera.filmOffset ?? 0) - (resolvedProject.filmOffset ?? 0))) : null, cameraMoveProgress: round4(cameraMoveProgressRef.current), facetRotationProgress: round4(globalThis?.__overviewProjectFacetDebug?.focusRotationProgress), completionReason: completionReason ?? run.completionReason, progressEasingSource });
+    if (isStart) {
+      pushRow('start');
+      const rowsAfter = store.runs.flatMap((r) => r.rows);
+      const lastSample = rowsAfter[rowsAfter.length - 1] ?? null;
+      console.log('[camera-director-pilot] project-to-project parity-start-written', {
+        runId: run.id,
+        mode: run.mode,
+        fromProjectId: run.fromProjectId ?? null,
+        toProjectId: run.toProjectId ?? null,
+        sampleType: 'start',
+        parityStoreSampleCountAfter: rowsAfter.length,
+        parityStoreRunCountAfter: store.runs.length,
+        lastSample,
+      });
+    }
     const elapsed = state.clock.elapsedTime - run.startedAt;
     const normalizedTime = THREE.MathUtils.clamp(elapsed / 0.9, 0, 1);
     if (!run.bucket25 && normalizedTime >= 0.25) { run.bucket25 = true; pushRow('bucket-25%'); }
@@ -2659,6 +2677,25 @@ const UnifiedCameraController = ({
       }
     }
     if (shouldStartProjectToProjectPilot) {
+      const store = getProjectProjectPilotParityStore();
+      const runId = `${projectProjectFlagEnabled ? 'pilot' : 'legacy'}:${state.clock.elapsedTime}:${projectProjectFromId ?? 'unknown'}->${projectProjectToId ?? 'unknown'}`;
+      const activationMatchedLogKey = `${runId}:${previousProjectId ?? 'none'}:${currentProjectId ?? 'none'}:${nextState ?? 'none'}:${nextCameraState ?? 'none'}:${viewMode ?? 'none'}`;
+      if (projectProjectActivationMatchedLogKeyRef.current !== activationMatchedLogKey) {
+        projectProjectActivationMatchedLogKeyRef.current = activationMatchedLogKey;
+        const sampleCountBefore = store.runs.flatMap((run) => run.rows).length;
+        console.log('[camera-director-pilot] project-to-project activation-matched', {
+          fromProjectId: projectProjectFromId ?? null,
+          toProjectId: projectProjectToId ?? null,
+          previousProjectId: previousProjectId ?? null,
+          currentProjectId: currentProjectId ?? null,
+          state: nextState ?? null,
+          cameraState: nextCameraState ?? null,
+          viewMode: viewMode ?? null,
+          runId,
+          parityStoreSampleCountBefore: sampleCountBefore,
+          parityStoreRunCountBefore: store.runs.length,
+        });
+      }
       sampleProjectProjectPilotParity({
         state,
         prevCameraState,
