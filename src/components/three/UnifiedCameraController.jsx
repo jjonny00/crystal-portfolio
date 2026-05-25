@@ -2004,7 +2004,7 @@ const UnifiedCameraController = ({
     const store = getProjectOverviewPilotParityStore();
     const mode = isProjectToOverviewPilotEnabled() ? 'pilot' : 'legacy';
     const isStart = prevCameraState === 'project' && nextCameraState === 'overview';
-    if (isStart) {
+    if (isStart && !store.activeRun) {
       store.activeRun = {
         id: `${mode}:${state.clock.elapsedTime}`,
         mode,
@@ -2256,22 +2256,22 @@ const UnifiedCameraController = ({
       store.activeRun = null;
     }
   };
-  const sampleProjectProjectPilotParity = ({ state, prevCameraState, nextCameraState, fromProjectId, toProjectId, progressEasingSource = null, completionReason = null }) => {
+  const sampleProjectProjectPilotParity = ({ state, prevCameraState, nextCameraState, fromProjectId, toProjectId, fromProjectIdUnavailableReason = null, toProjectIdUnavailableReason = null, progressEasingSource = null, completionReason = null, forceStart = false }) => {
     if (!import.meta.env.DEV) return;
     installOverviewProjectShadowHelpers();
     const store = getProjectProjectPilotParityStore();
     const mode = isProjectToProjectPilotEnabled() ? 'pilot' : 'legacy';
-    const isStart = prevCameraState === 'project' && nextCameraState === 'project' && fromProjectId !== toProjectId;
+    const isStart = forceStart || (prevCameraState === 'project' && nextCameraState === 'project' && fromProjectId !== toProjectId);
     if (isStart) {
-      store.activeRun = { id: `${mode}:${state.clock.elapsedTime}:${fromProjectId}->${toProjectId}`, mode, fromProjectId, toProjectId, startedAt: state.clock.elapsedTime, rows: [], completed: false, completionReason: 'not-detected', durationSeconds: null };
+      store.activeRun = { id: `${mode}:${state.clock.elapsedTime}:${fromProjectId ?? 'unknown'}->${toProjectId ?? 'unknown'}`, mode, fromProjectId, toProjectId, fromProjectIdUnavailableReason, toProjectIdUnavailableReason, startedAt: state.clock.elapsedTime, rows: [], completed: false, completionReason: 'not-detected', durationSeconds: null };
       store.runs.push(store.activeRun);
       if (store.runs.length > store.maxRuns) store.runs.shift();
     }
     const run = store.activeRun;
     const resolvedProject = run?.toProjectId ? getOverviewProjectResolvedPose('project', run.toProjectId) : null;
-    if (!run || !resolvedProject) return;
+    if (!run) return;
     const liveLookAt = currentTarget.current?.lookAt ? currentTarget.current.lookAt.clone() : getCameraLookAtFromTransform();
-    const pushRow = (sampleType) => run.rows.push({ sampleType, state: animationData?.state ?? null, cameraState: animationData?.cameraState ?? null, viewMode: animationData?.viewMode ?? null, fromProjectId: run.fromProjectId, toProjectId: run.toProjectId, liveDistanceToResolvedProjectPosition: safeDistance(camera.position, resolvedProject.position), liveLookAtDeltaToResolvedProject: safeDistance(liveLookAt, resolvedProject.lookAt), liveFovDeltaToResolvedProject: round4(Math.abs(camera.fov - (resolvedProject.fov ?? camera.fov))), liveFilmOffsetDeltaToResolvedProject: round4(Math.abs((camera.filmOffset ?? 0) - (resolvedProject.filmOffset ?? 0))), cameraMoveProgress: round4(cameraMoveProgressRef.current), facetRotationProgress: round4(globalThis?.__overviewProjectFacetDebug?.focusRotationProgress), completionReason: completionReason ?? run.completionReason, progressEasingSource });
+    const pushRow = (sampleType) => run.rows.push({ sampleType, state: animationData?.state ?? null, cameraState: animationData?.cameraState ?? null, viewMode: animationData?.viewMode ?? null, fromProjectId: run.fromProjectId, toProjectId: run.toProjectId, fromProjectIdUnavailableReason: run.fromProjectId ? null : (run.fromProjectIdUnavailableReason ?? 'from-project-id-missing'), toProjectIdUnavailableReason: run.toProjectId ? null : (run.toProjectIdUnavailableReason ?? 'to-project-id-missing'), liveDistanceToResolvedProjectPosition: resolvedProject ? safeDistance(camera.position, resolvedProject.position) : null, liveLookAtDeltaToResolvedProject: resolvedProject ? safeDistance(liveLookAt, resolvedProject.lookAt) : null, liveFovDeltaToResolvedProject: resolvedProject ? round4(Math.abs(camera.fov - (resolvedProject.fov ?? camera.fov))) : null, liveFilmOffsetDeltaToResolvedProject: resolvedProject ? round4(Math.abs((camera.filmOffset ?? 0) - (resolvedProject.filmOffset ?? 0))) : null, cameraMoveProgress: round4(cameraMoveProgressRef.current), facetRotationProgress: round4(globalThis?.__overviewProjectFacetDebug?.focusRotationProgress), completionReason: completionReason ?? run.completionReason, progressEasingSource });
     if (isStart) pushRow('start');
     const elapsed = state.clock.elapsedTime - run.startedAt;
     const normalizedTime = THREE.MathUtils.clamp(elapsed / 0.9, 0, 1);
@@ -2594,17 +2594,22 @@ const UnifiedCameraController = ({
       prevCameraState === 'project' &&
       nextCameraState === 'overview' &&
       viewMode !== 'caseStudy';
-    const projectProjectFromId = previousFocusedProject ?? previousSelectedProject ?? selectedProject ?? null;
-    const projectProjectToId = focusedProject ?? selectedProject ?? previousFocusedProject ?? null;
+    const previousProjectId = previousFocusedProject ?? previousSelectedProject ?? null;
+    const currentProjectId = focusedProject ?? selectedProject ?? null;
+    const projectProjectFromId = previousProjectId ?? selectedProject ?? null;
+    const projectProjectToId = currentProjectId ?? previousFocusedProject ?? null;
+    const fromProjectIdUnavailableReason = projectProjectFromId ? null : 'missing-previous-focused-and-previous-selected-project';
+    const toProjectIdUnavailableReason = projectProjectToId ? null : 'missing-focused-and-selected-project';
+    const projectChanged = Boolean(previousProjectId && currentProjectId && previousProjectId !== currentProjectId);
     const projectProjectFlagEnabled = isProjectToProjectPilotEnabled();
     const shouldStartProjectToProjectPilot =
       projectProjectFlagEnabled &&
       !cameraDirectorPilotRef.current.active &&
       prevCameraState === 'project' &&
       nextCameraState === 'project' &&
-      projectProjectFromId !== projectProjectToId &&
+      projectChanged &&
       viewMode !== 'caseStudy';
-    const projectProjectActivationReason = !projectProjectFlagEnabled
+    const projectProjectActivationRejectReason = !projectProjectFlagEnabled
       ? 'flag-disabled'
       : (cameraDirectorPilotRef.current.active
           ? 'another-pilot-active'
@@ -2612,7 +2617,9 @@ const UnifiedCameraController = ({
               ? 'camera-state-not-project-project'
               : (viewMode === 'caseStudy'
                   ? 'view-mode-caseStudy'
-                  : (projectProjectFromId === projectProjectToId ? 'project-ids-not-changed' : null))));
+                  : (!previousProjectId || !currentProjectId
+                      ? 'previous-or-current-project-id-missing'
+                      : (projectChanged ? null : 'project-ids-not-changed')))));
     const isProjectRelatedState = nextCameraState === 'project' || prevCameraState === 'project' || viewMode === 'project' || Boolean(focusedProject) || Boolean(selectedProject);
     if (import.meta.env.DEV && projectProjectFlagEnabled && isProjectRelatedState) {
       const activationLogKey = [
@@ -2625,7 +2632,10 @@ const UnifiedCameraController = ({
         previousSelectedProject ?? 'none',
         focusedProject ?? 'none',
         selectedProject ?? 'none',
-        shouldStartProjectToProjectPilot ? 'matched' : (projectProjectActivationReason ?? 'not-matched'),
+        previousProjectId ?? 'none',
+        currentProjectId ?? 'none',
+        projectChanged ? 'changed' : 'same',
+        shouldStartProjectToProjectPilot ? 'matched' : (projectProjectActivationRejectReason ?? 'not-matched'),
       ].join(':');
       if (projectProjectActivationLogKeyRef.current !== activationLogKey) {
         projectProjectActivationLogKeyRef.current = activationLogKey;
@@ -2634,16 +2644,33 @@ const UnifiedCameraController = ({
           state: nextState ?? null,
           cameraState: nextCameraState ?? null,
           viewMode: viewMode ?? null,
-          previousProjectId: projectProjectFromId,
-          currentProjectId: projectProjectToId,
+          previousProjectId,
+          currentProjectId,
+          fromProjectId: projectProjectFromId,
+          toProjectId: projectProjectToId,
+          projectChanged,
           focusedProject: focusedProject ?? null,
           selectedProject: selectedProject ?? null,
           previousFocusedProject: previousFocusedProject ?? null,
           previousSelectedProject: previousSelectedProject ?? null,
           activationMatched: shouldStartProjectToProjectPilot,
-          reason: shouldStartProjectToProjectPilot ? null : (projectProjectActivationReason ?? 'activation-conditions-not-met'),
+          activationRejectReason: shouldStartProjectToProjectPilot ? null : (projectProjectActivationRejectReason ?? 'activation-conditions-not-met'),
         });
       }
+    }
+    if (shouldStartProjectToProjectPilot) {
+      sampleProjectProjectPilotParity({
+        state,
+        prevCameraState,
+        nextCameraState,
+        fromProjectId: projectProjectFromId,
+        toProjectId: projectProjectToId,
+        fromProjectIdUnavailableReason,
+        toProjectIdUnavailableReason,
+        progressEasingSource: 'project-to-project:default-smoothstep',
+        completionReason: 'not-detected',
+        forceStart: true,
+      });
     }
 
     if (shouldStartOverviewToProjectPilot) {
