@@ -2546,6 +2546,7 @@ const UnifiedCameraController = ({
     const viewMode = animationData?.viewMode ?? null;
     const focusedProject = animationData?.focusedProject ?? null;
     const selectedProject = animationData?.selectedProject ?? null;
+    const previousFramePose = previousFramePoseRef.current ?? null;
     const previousFocusedProject = previousFramePose?.focusedProject ?? null;
     const cameFromOverview = prevCameraState === 'overview';
     const enteredProject = nextCameraState === 'project';
