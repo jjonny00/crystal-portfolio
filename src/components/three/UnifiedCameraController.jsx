@@ -286,6 +286,7 @@ const UnifiedCameraController = ({
   const projectProjectActivationMatchedLogKeyRef = useRef(null);
   const projectProjectIdSnapshotLogKeyRef = useRef(null);
   const previousSelectedProjectRef = useRef(null);
+  const lastStableProjectIdRef = useRef(null);
   const previousFramePoseRef = useRef({
     position: null,
     lookAt: null,
@@ -2617,13 +2618,14 @@ const UnifiedCameraController = ({
       prevCameraState === 'project' &&
       nextCameraState === 'overview' &&
       viewMode !== 'caseStudy';
+    const lastStableProjectId = lastStableProjectIdRef.current ?? null;
     const previousProjectId = previousFocusedProject ?? previousSelectedProject ?? null;
     const currentProjectId = focusedProject ?? selectedProject ?? null;
-    const projectProjectFromId = previousProjectId ?? selectedProject ?? null;
-    const projectProjectToId = currentProjectId ?? previousFocusedProject ?? null;
+    const projectProjectFromId = lastStableProjectId ?? previousProjectId ?? selectedProject ?? null;
+    const projectProjectToId = focusedProject ?? selectedProject ?? null;
     const fromProjectIdUnavailableReason = projectProjectFromId ? null : 'missing-previous-focused-and-previous-selected-project';
     const toProjectIdUnavailableReason = projectProjectToId ? null : 'missing-focused-and-selected-project';
-    const projectChanged = Boolean(previousProjectId && currentProjectId && previousProjectId !== currentProjectId);
+    const projectChanged = Boolean(projectProjectFromId && projectProjectToId && projectProjectFromId !== projectProjectToId);
     const projectProjectFlagEnabled = isProjectToProjectPilotEnabled();
     const shouldStartProjectToProjectPilot =
       projectProjectFlagEnabled &&
@@ -2640,8 +2642,8 @@ const UnifiedCameraController = ({
               ? 'camera-state-not-project-project'
               : (viewMode === 'caseStudy'
                   ? 'view-mode-caseStudy'
-                  : (!previousProjectId || !currentProjectId
-                      ? 'previous-or-current-project-id-missing'
+                  : (!projectProjectFromId || !projectProjectToId
+                      ? 'from-or-to-project-id-missing'
                       : (projectChanged ? null : 'project-ids-not-changed')))));
     const isProjectRelatedState = nextCameraState === 'project' || prevCameraState === 'project' || viewMode === 'project' || Boolean(focusedProject) || Boolean(selectedProject);
     if (import.meta.env.DEV && projectProjectFlagEnabled && isProjectRelatedState) {
@@ -2688,11 +2690,12 @@ const UnifiedCameraController = ({
         nextState ?? 'none',
         nextCameraState ?? 'none',
         viewMode ?? 'none',
-        previousFocusedProject ?? 'none',
-        previousSelectedProject ?? 'none',
-        focusedProject ?? 'none',
-        selectedProject ?? 'none',
-        previousProjectId ?? 'none',
+          previousFocusedProject ?? 'none',
+          previousSelectedProject ?? 'none',
+          lastStableProjectId ?? 'none',
+          focusedProject ?? 'none',
+          selectedProject ?? 'none',
+          previousProjectId ?? 'none',
         currentProjectId ?? 'none',
         projectChanged ? 'changed' : 'same',
         shouldStartProjectToProjectPilot ? 'matched' : (projectProjectActivationRejectReason ?? 'not-matched'),
@@ -2711,6 +2714,7 @@ const UnifiedCameraController = ({
           projectChanged,
           focusedProject: focusedProject ?? null,
           selectedProject: selectedProject ?? null,
+          lastStableProjectId: lastStableProjectId ?? null,
           previousFocusedProject: previousFocusedProject ?? null,
           previousSelectedProject: previousSelectedProject ?? null,
           activationMatched: shouldStartProjectToProjectPilot,
@@ -2728,6 +2732,8 @@ const UnifiedCameraController = ({
         console.log('[camera-director-pilot] project-to-project activation-matched', {
           fromProjectId: projectProjectFromId ?? null,
           toProjectId: projectProjectToId ?? null,
+          focusedProject: focusedProject ?? null,
+          lastStableProjectId: lastStableProjectId ?? null,
           previousProjectId: previousProjectId ?? null,
           currentProjectId: currentProjectId ?? null,
           state: nextState ?? null,
@@ -3116,6 +3122,11 @@ const UnifiedCameraController = ({
     prevStateRef.current = nextState;
     prevCameraStateRef.current = nextCameraState;
     previousSelectedProjectRef.current = selectedProject;
+    if (focusedProject) {
+      lastStableProjectIdRef.current = focusedProject;
+    } else if (!nextCameraState || nextCameraState !== 'project') {
+      lastStableProjectIdRef.current = null;
+    }
 
     if (cameraDirectorPilotRef.current.active) {
       const pilot = cameraDirectorPilotRef.current;
