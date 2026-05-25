@@ -284,6 +284,7 @@ const UnifiedCameraController = ({
   });
   const projectProjectActivationLogKeyRef = useRef(null);
   const projectProjectActivationMatchedLogKeyRef = useRef(null);
+  const projectProjectIdSnapshotLogKeyRef = useRef(null);
   const previousSelectedProjectRef = useRef(null);
   const previousFramePoseRef = useRef({
     position: null,
@@ -2569,6 +2570,10 @@ const UnifiedCameraController = ({
     const previousFramePose = previousFramePoseRef.current ?? null;
     const previousFocusedProject = previousFramePose?.focusedProject ?? null;
     const previousSelectedProject = previousSelectedProjectRef.current ?? null;
+    const animationDataProjectId = animationData?.projectInfo?.project ?? animationData?.activeProjectId ?? null;
+    const focusedProjectId = focusedProject ?? null;
+    const selectedProjectId = selectedProject ?? null;
+    const activeProjectId = animationDataProjectId ?? focusedProjectId ?? selectedProjectId ?? null;
     const cameFromOverview = prevCameraState === 'overview';
     const enteredProject = nextCameraState === 'project';
     const returnedToOverview = nextCameraState === 'overview' && prevCameraState !== 'overview';
@@ -2639,6 +2644,43 @@ const UnifiedCameraController = ({
                       ? 'previous-or-current-project-id-missing'
                       : (projectChanged ? null : 'project-ids-not-changed')))));
     const isProjectRelatedState = nextCameraState === 'project' || prevCameraState === 'project' || viewMode === 'project' || Boolean(focusedProject) || Boolean(selectedProject);
+    if (import.meta.env.DEV && projectProjectFlagEnabled && isProjectRelatedState) {
+      const snapshotKey = [
+        nextState ?? 'none',
+        nextCameraState ?? 'none',
+        viewMode ?? 'none',
+        focusedProject ?? 'none',
+        selectedProject ?? 'none',
+        previousFocusedProject ?? 'none',
+        previousSelectedProject ?? 'none',
+        currentProjectId ?? 'none',
+        previousProjectId ?? 'none',
+        activeProjectId ?? 'none',
+      ].join(':');
+      if (projectProjectIdSnapshotLogKeyRef.current !== snapshotKey) {
+        projectProjectIdSnapshotLogKeyRef.current = snapshotKey;
+        console.log('[camera-director-pilot] project-to-project id-snapshot', {
+          state: nextState ?? null,
+          cameraState: nextCameraState ?? null,
+          viewMode: viewMode ?? null,
+          focusedProject: focusedProject ?? null,
+          selectedProject: selectedProject ?? null,
+          previousFocusedProject: previousFocusedProject ?? null,
+          previousSelectedProject: previousSelectedProject ?? null,
+          currentProjectId: currentProjectId ?? null,
+          previousProjectId: previousProjectId ?? null,
+          activeProjectId: activeProjectId ?? null,
+          focusedProjectId: focusedProjectId ?? null,
+          selectedProjectId: selectedProjectId ?? null,
+          projectIndex: animationData?.projectInfo?.index ?? null,
+          previousProjectIndex: null,
+          currentTargetProjectId: currentTarget.current?.projectId ?? null,
+          animationDataProjectId: animationDataProjectId ?? null,
+          navigationIntentProjectId: animationData?.directProjectOverride ?? null,
+          scrollZoneProjectId: animationData?.zoneInfo?.project ?? null,
+        });
+      }
+    }
     if (import.meta.env.DEV && projectProjectFlagEnabled && isProjectRelatedState) {
       const activationLogKey = [
         prevState ?? 'none',
