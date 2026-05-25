@@ -238,6 +238,7 @@ const UnifiedCameraController = ({
   const blockedOverviewToProjectKeyRef = useRef(null);
   const lastProjectToProjectHandledKeyRef = useRef(null);
   const blockedProjectToProjectKeyRef = useRef(null);
+  const blockedProjectToProjectStartKeyRef = useRef(null);
   const startPoseLogKeyRef = useRef(null);
   const preStartContinuityLogKeyRef = useRef(null);
   const startContinuityLogKeyRef = useRef(null);
@@ -2606,6 +2607,7 @@ const UnifiedCameraController = ({
       blockedOverviewToProjectKeyRef.current = null;
       lastProjectToProjectHandledKeyRef.current = null;
       blockedProjectToProjectKeyRef.current = null;
+      blockedProjectToProjectStartKeyRef.current = null;
     }
     const transitionKey = [
       'overview-to-project',
@@ -2654,6 +2656,21 @@ const UnifiedCameraController = ({
       projectChanged &&
       viewMode !== 'caseStudy' &&
       !alreadyHandledProjectToProject;
+    const projectToProjectResolvedAtStart = projectProjectToId ? getOverviewProjectResolvedPose('project', projectProjectToId) : null;
+    const projectToProjectLiveLookAt = currentTarget.current?.lookAt ? currentTarget.current.lookAt.clone() : getCameraLookAtFromTransform();
+    const projectToProjectStartPositionDelta = projectToProjectResolvedAtStart ? safeDistance(camera.position, projectToProjectResolvedAtStart.position) : null;
+    const projectToProjectStartLookAtDelta = projectToProjectResolvedAtStart ? safeDistance(projectToProjectLiveLookAt, projectToProjectResolvedAtStart.lookAt) : null;
+    const projectToProjectStartMoveProgress = round4(cameraMoveProgressRef.current);
+    const projectToProjectStartFacetProgress = round4(globalThis?.__overviewProjectFacetDebug?.focusRotationProgress);
+    const projectToProjectActivationTimingCandidate = ((projectToProjectStartPositionDelta != null && projectToProjectStartPositionDelta <= 0.02 && (projectToProjectStartMoveProgress ?? 1) >= 0.99 && (projectToProjectStartFacetProgress ?? 1) >= 0.99)
+      ? 'post-settle'
+      : ((projectToProjectStartMoveProgress ?? 0) <= 0.1 ? 'pre-transition' : 'mid-transition'));
+    const shouldBlockInvalidMidTransitionStart =
+      shouldStartProjectToProjectPilot &&
+      projectToProjectActivationTimingCandidate === 'mid-transition' &&
+      (projectToProjectStartMoveProgress ?? 0) >= 0.99 &&
+      (projectToProjectStartFacetProgress ?? 0) >= 0.99 &&
+      (projectToProjectStartLookAtDelta ?? Number.POSITIVE_INFINITY) <= 0.05;
     const projectProjectActivationRejectReason = !projectProjectFlagEnabled
       ? 'flag-disabled'
       : (cameraDirectorPilotRef.current.active
@@ -2743,7 +2760,21 @@ const UnifiedCameraController = ({
       }
     }
     if (shouldStartProjectToProjectPilot) {
-      if (alreadyHandledProjectToProject) {
+      if (shouldBlockInvalidMidTransitionStart) {
+        const startBlockKey = `${projectToProjectTransitionKey}:post-settle-or-invalid-mid-transition`;
+        if (import.meta.env.DEV && blockedProjectToProjectStartKeyRef.current !== startBlockKey) {
+          blockedProjectToProjectStartKeyRef.current = startBlockKey;
+          console.log('[camera-director-pilot] project-to-project start-blocked', {
+            transitionKey: projectToProjectTransitionKey,
+            activationTiming: projectToProjectActivationTimingCandidate,
+            cameraMoveProgress: projectToProjectStartMoveProgress,
+            facetRotationProgress: projectToProjectStartFacetProgress,
+            liveDistanceToResolvedProjectPosition: projectToProjectStartPositionDelta,
+            liveLookAtDeltaToResolvedProject: projectToProjectStartLookAtDelta,
+            reason: 'post-settle-or-invalid-mid-transition',
+          });
+        }
+      } else if (alreadyHandledProjectToProject) {
         const restartBlockKey = `${projectToProjectTransitionKey}:already-handled-transition-key`;
         if (import.meta.env.DEV && blockedProjectToProjectKeyRef.current !== restartBlockKey) {
           blockedProjectToProjectKeyRef.current = restartBlockKey;
