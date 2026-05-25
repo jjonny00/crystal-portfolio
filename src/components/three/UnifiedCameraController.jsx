@@ -282,6 +282,8 @@ const UnifiedCameraController = ({
   const pilotHandoffDebugRef = useRef({
     pending: null,
   });
+  const projectProjectActivationLogKeyRef = useRef(null);
+  const previousSelectedProjectRef = useRef(null);
   const previousFramePoseRef = useRef({
     position: null,
     lookAt: null,
@@ -2259,7 +2261,7 @@ const UnifiedCameraController = ({
     installOverviewProjectShadowHelpers();
     const store = getProjectProjectPilotParityStore();
     const mode = isProjectToProjectPilotEnabled() ? 'pilot' : 'legacy';
-    const isStart = prevCameraState === 'project' && nextCameraState === 'project' && Boolean(fromProjectId) && Boolean(toProjectId) && fromProjectId !== toProjectId;
+    const isStart = prevCameraState === 'project' && nextCameraState === 'project' && fromProjectId !== toProjectId;
     if (isStart) {
       store.activeRun = { id: `${mode}:${state.clock.elapsedTime}:${fromProjectId}->${toProjectId}`, mode, fromProjectId, toProjectId, startedAt: state.clock.elapsedTime, rows: [], completed: false, completionReason: 'not-detected', durationSeconds: null };
       store.runs.push(store.activeRun);
@@ -2548,6 +2550,7 @@ const UnifiedCameraController = ({
     const selectedProject = animationData?.selectedProject ?? null;
     const previousFramePose = previousFramePoseRef.current ?? null;
     const previousFocusedProject = previousFramePose?.focusedProject ?? null;
+    const previousSelectedProject = previousSelectedProjectRef.current ?? null;
     const cameFromOverview = prevCameraState === 'overview';
     const enteredProject = nextCameraState === 'project';
     const returnedToOverview = nextCameraState === 'overview' && prevCameraState !== 'overview';
@@ -2591,17 +2594,57 @@ const UnifiedCameraController = ({
       prevCameraState === 'project' &&
       nextCameraState === 'overview' &&
       viewMode !== 'caseStudy';
-    const projectProjectFromId = previousFocusedProject ?? selectedProject ?? null;
-    const projectProjectToId = focusedProject ?? selectedProject ?? null;
+    const projectProjectFromId = previousFocusedProject ?? previousSelectedProject ?? selectedProject ?? null;
+    const projectProjectToId = focusedProject ?? selectedProject ?? previousFocusedProject ?? null;
+    const projectProjectFlagEnabled = isProjectToProjectPilotEnabled();
     const shouldStartProjectToProjectPilot =
-      isProjectToProjectPilotEnabled() &&
+      projectProjectFlagEnabled &&
       !cameraDirectorPilotRef.current.active &&
       prevCameraState === 'project' &&
       nextCameraState === 'project' &&
-      Boolean(projectProjectFromId) &&
-      Boolean(projectProjectToId) &&
       projectProjectFromId !== projectProjectToId &&
       viewMode !== 'caseStudy';
+    const projectProjectActivationReason = !projectProjectFlagEnabled
+      ? 'flag-disabled'
+      : (cameraDirectorPilotRef.current.active
+          ? 'another-pilot-active'
+          : (prevCameraState !== 'project' || nextCameraState !== 'project'
+              ? 'camera-state-not-project-project'
+              : (viewMode === 'caseStudy'
+                  ? 'view-mode-caseStudy'
+                  : (projectProjectFromId === projectProjectToId ? 'project-ids-not-changed' : null))));
+    const isProjectRelatedState = nextCameraState === 'project' || prevCameraState === 'project' || viewMode === 'project' || Boolean(focusedProject) || Boolean(selectedProject);
+    if (import.meta.env.DEV && projectProjectFlagEnabled && isProjectRelatedState) {
+      const activationLogKey = [
+        prevState ?? 'none',
+        prevCameraState ?? 'none',
+        nextState ?? 'none',
+        nextCameraState ?? 'none',
+        viewMode ?? 'none',
+        previousFocusedProject ?? 'none',
+        previousSelectedProject ?? 'none',
+        focusedProject ?? 'none',
+        selectedProject ?? 'none',
+        shouldStartProjectToProjectPilot ? 'matched' : (projectProjectActivationReason ?? 'not-matched'),
+      ].join(':');
+      if (projectProjectActivationLogKeyRef.current !== activationLogKey) {
+        projectProjectActivationLogKeyRef.current = activationLogKey;
+        console.log('[camera-director-pilot] project-to-project activation-check', {
+          flagEnabled: projectProjectFlagEnabled,
+          state: nextState ?? null,
+          cameraState: nextCameraState ?? null,
+          viewMode: viewMode ?? null,
+          previousProjectId: projectProjectFromId,
+          currentProjectId: projectProjectToId,
+          focusedProject: focusedProject ?? null,
+          selectedProject: selectedProject ?? null,
+          previousFocusedProject: previousFocusedProject ?? null,
+          previousSelectedProject: previousSelectedProject ?? null,
+          activationMatched: shouldStartProjectToProjectPilot,
+          reason: shouldStartProjectToProjectPilot ? null : (projectProjectActivationReason ?? 'activation-conditions-not-met'),
+        });
+      }
+    }
 
     if (shouldStartOverviewToProjectPilot) {
       const liveLookAt = currentTarget.current?.lookAt
@@ -2966,6 +3009,7 @@ const UnifiedCameraController = ({
 
     prevStateRef.current = nextState;
     prevCameraStateRef.current = nextCameraState;
+    previousSelectedProjectRef.current = selectedProject;
 
     if (cameraDirectorPilotRef.current.active) {
       const pilot = cameraDirectorPilotRef.current;
