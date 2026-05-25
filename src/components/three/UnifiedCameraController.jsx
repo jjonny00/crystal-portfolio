@@ -236,6 +236,8 @@ const UnifiedCameraController = ({
   const lastProjectToOverviewSourceProjectIdRef = useRef(null);
   const lastOverviewToProjectKeyRef = useRef(null);
   const blockedOverviewToProjectKeyRef = useRef(null);
+  const lastProjectToProjectHandledKeyRef = useRef(null);
+  const blockedProjectToProjectKeyRef = useRef(null);
   const startPoseLogKeyRef = useRef(null);
   const preStartContinuityLogKeyRef = useRef(null);
   const startContinuityLogKeyRef = useRef(null);
@@ -2589,6 +2591,8 @@ const UnifiedCameraController = ({
     if (returnedToOverview) {
       lastOverviewToProjectKeyRef.current = null;
       blockedOverviewToProjectKeyRef.current = null;
+      lastProjectToProjectHandledKeyRef.current = null;
+      blockedProjectToProjectKeyRef.current = null;
     }
     const transitionKey = [
       'overview-to-project',
@@ -2627,13 +2631,16 @@ const UnifiedCameraController = ({
     const toProjectIdUnavailableReason = projectProjectToId ? null : 'missing-focused-and-selected-project';
     const projectChanged = Boolean(projectProjectFromId && projectProjectToId && projectProjectFromId !== projectProjectToId);
     const projectProjectFlagEnabled = isProjectToProjectPilotEnabled();
+    const projectToProjectTransitionKey = `project-to-project:${projectProjectFromId ?? 'none'}->${projectProjectToId ?? 'none'}`;
+    const alreadyHandledProjectToProject = lastProjectToProjectHandledKeyRef.current === projectToProjectTransitionKey;
     const shouldStartProjectToProjectPilot =
       projectProjectFlagEnabled &&
       !cameraDirectorPilotRef.current.active &&
       prevCameraState === 'project' &&
       nextCameraState === 'project' &&
       projectChanged &&
-      viewMode !== 'caseStudy';
+      viewMode !== 'caseStudy' &&
+      !alreadyHandledProjectToProject;
     const projectProjectActivationRejectReason = !projectProjectFlagEnabled
       ? 'flag-disabled'
       : (cameraDirectorPilotRef.current.active
@@ -3080,9 +3087,34 @@ const UnifiedCameraController = ({
         };
         console.log('[camera-director-pilot] project-to-project pre-start-continuity', { fromProjectId: projectProjectFromId, toProjectId: projectProjectToId, deltaLookAt: round4(fromPose.lookAt.distanceTo(liveLookAt)) });
         console.log('[camera-director-pilot] project-to-project target-parity', { fromProjectId: projectProjectFromId, toProjectId: projectProjectToId, resolverFov: round4(destination.fov), pilotTargetFov: round4(toPose.fov), resolverFilmOffset: round4(destination.filmOffset), pilotTargetFilmOffset: round4(toPose.filmOffset) });
-        const transition = createCameraDirectorPilotTransition({ id: `project-to-project:${state.clock.elapsedTime}:${projectProjectFromId}->${projectProjectToId}`, fromPose, toPose, startedAt: state.clock.elapsedTime, durationSeconds: 0.9 });
+        const transition = createCameraDirectorPilotTransition({ id: projectToProjectTransitionKey, fromPose, toPose, startedAt: state.clock.elapsedTime, durationSeconds: 0.9 });
         cameraDirectorPilotRef.current = { active: true, transition, selectedProject: projectProjectToId, fromProjectId: projectProjectFromId, completedLogged: false, firstWriteLogged: false, direction: 'project-to-project' };
+        blockedProjectToProjectKeyRef.current = null;
+        lastProjectToProjectHandledKeyRef.current = projectToProjectTransitionKey;
         console.log('[camera-director-pilot] project-to-project start', { fromProjectId: projectProjectFromId, toProjectId: projectProjectToId });
+      }
+    } else if (
+      projectProjectFlagEnabled &&
+      prevCameraState === 'project' &&
+      nextCameraState === 'project' &&
+      (alreadyHandledProjectToProject || (
+        cameraDirectorPilotRef.current.active &&
+        cameraDirectorPilotRef.current.direction === 'project-to-project' &&
+        cameraDirectorPilotRef.current.transition?.id === projectToProjectTransitionKey
+      ))
+    ) {
+      const reason = alreadyHandledProjectToProject ? 'already-handled-transition-key' : 'same-transition-active';
+      const restartBlockKey = `${projectToProjectTransitionKey}:${reason}`;
+      if (import.meta.env.DEV && blockedProjectToProjectKeyRef.current !== restartBlockKey) {
+        blockedProjectToProjectKeyRef.current = restartBlockKey;
+        console.log('[camera-director-pilot] project-to-project restart-blocked', {
+          transitionKey: projectToProjectTransitionKey,
+          activeTransitionKey: cameraDirectorPilotRef.current.transition?.id ?? null,
+          lastHandledTransitionKey: lastProjectToProjectHandledKeyRef.current ?? null,
+          fromProjectId: projectProjectFromId ?? null,
+          toProjectId: projectProjectToId ?? null,
+          reason,
+        });
       }
     } else if (
       isOverviewToProjectPilotEnabled() &&
