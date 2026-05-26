@@ -42,3 +42,8 @@ Captured parity fields include mode, from/to project ids, sample buckets, view m
 - No changes to hero/overview/about transitions.
 - No changes to overview→project or project→overview pilot behavior.
 - No global tuning for fragments, particles, glow, or ring.
+
+## PR-14 tuning note (v2)
+- Updated project→project pilot easing label to `project-to-project:legacy-settle-ease-out-v2`.
+- Position easing was reduced from the prior over-aggressive front-load to better align with legacy 25/50/75 pacing while preserving no-start-jump/no-end-pop behavior.
+- LookAt still resolves early, but less aggressively than the previous iteration to avoid visibly finishing far ahead of facet rotation.
