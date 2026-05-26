@@ -239,6 +239,7 @@ const UnifiedCameraController = ({
   const lastProjectToProjectHandledKeyRef = useRef(null);
   const blockedProjectToProjectKeyRef = useRef(null);
   const blockedProjectToProjectStartKeyRef = useRef(null);
+  const projectProjectCurveLogKeyRef = useRef(null);
   const startPoseLogKeyRef = useRef(null);
   const preStartContinuityLogKeyRef = useRef(null);
   const startContinuityLogKeyRef = useRef(null);
@@ -2291,7 +2292,7 @@ const UnifiedCameraController = ({
             ? 'post-settle'
             : ((moveProgress ?? 0) <= 0.1 ? 'pre-transition' : 'mid-transition'))
         : null;
-      run.rows.push({ sampleType, activationTiming, state: animationData?.state ?? null, cameraState: animationData?.cameraState ?? null, viewMode: animationData?.viewMode ?? null, fromProjectId: run.fromProjectId, toProjectId: run.toProjectId, fromProjectIdUnavailableReason: run.fromProjectId ? null : (run.fromProjectIdUnavailableReason ?? 'from-project-id-missing'), toProjectIdUnavailableReason: run.toProjectId ? null : (run.toProjectIdUnavailableReason ?? 'to-project-id-missing'), targetPoseUnavailableReason, liveDistanceToResolvedProjectPosition: positionDelta, liveLookAtDeltaToResolvedProject: resolvedProject ? safeDistance(liveLookAt, resolvedProject.lookAt) : null, liveFovDeltaToResolvedProject: resolvedProject ? round4(Math.abs(camera.fov - (resolvedProject.fov ?? camera.fov))) : null, liveFilmOffsetDeltaToResolvedProject: resolvedProject ? round4(Math.abs((camera.filmOffset ?? 0) - (resolvedProject.filmOffset ?? 0))) : null, cameraMoveProgress: moveProgress, facetRotationProgress: facetProgress, completionReason: completionReason ?? run.completionReason, progressEasingSource });
+      run.rows.push({ sampleType, activationTiming, state: animationData?.state ?? null, cameraState: animationData?.cameraState ?? null, viewMode: animationData?.viewMode ?? null, fromProjectId: run.fromProjectId, toProjectId: run.toProjectId, fromProjectIdUnavailableReason: run.fromProjectId ? null : (run.fromProjectIdUnavailableReason ?? 'from-project-id-missing'), toProjectIdUnavailableReason: run.toProjectId ? null : (run.toProjectIdUnavailableReason ?? 'to-project-id-missing'), targetPoseUnavailableReason, liveDistanceToResolvedProjectPosition: positionDelta, liveLookAtDeltaToResolvedProject: resolvedProject ? safeDistance(liveLookAt, resolvedProject.lookAt) : null, liveFovDeltaToResolvedProject: resolvedProject ? round4(Math.abs(camera.fov - (resolvedProject.fov ?? camera.fov))) : null, liveFilmOffsetDeltaToResolvedProject: resolvedProject ? round4(Math.abs((camera.filmOffset ?? 0) - (resolvedProject.filmOffset ?? 0))) : null, cameraMoveProgress: moveProgress, facetRotationProgress: facetProgress, rawProgress: moveProgress, easedProgress: moveProgress, completionReason: completionReason ?? run.completionReason, progressEasingSource });
       run.sampleTypesWritten?.add(sampleType);
     };
     if (isStart) {
@@ -2818,7 +2819,7 @@ const UnifiedCameraController = ({
         transitionKey: projectToProjectTransitionKey,
         fromProjectIdUnavailableReason,
         toProjectIdUnavailableReason,
-        progressEasingSource: 'project-to-project:legacy-settle-ease-out',
+        progressEasingSource: 'project-to-project:legacy-settle-ease-out-v2',
         completionReason: 'not-detected',
         forceStart: true,
       });
@@ -3233,8 +3234,29 @@ const UnifiedCameraController = ({
       const isFirstPilotWrite = pilot.firstWriteLogged !== true;
       const writeProgress = isFirstPilotWrite ? 0 : pilotProgress;
       const projectOverviewEasedProgress = 1 - Math.pow(1 - writeProgress, 3.2);
-      const projectToProjectEasedProgress = 1 - Math.pow(1 - writeProgress, 5.2);
-      const projectToProjectLookAtProgress = 1 - Math.pow(1 - writeProgress, 9.5);
+      const remapProjectToProjectProgress = (t) => {
+        const x = THREE.MathUtils.clamp(t, 0, 1);
+        if (x <= 0.25) return THREE.MathUtils.lerp(0, 0.73, x / 0.25);
+        if (x <= 0.50) return THREE.MathUtils.lerp(0.73, 0.93, (x - 0.25) / 0.25);
+        if (x <= 0.75) return THREE.MathUtils.lerp(0.93, 0.98, (x - 0.50) / 0.25);
+        return THREE.MathUtils.lerp(0.98, 1, (x - 0.75) / 0.25);
+      };
+      const projectToProjectEasedProgress = remapProjectToProjectProgress(writeProgress);
+      const projectToProjectLookAtProgress = 1 - Math.pow(1 - writeProgress, 7.2);
+      if (pilot.direction === 'project-to-project' && import.meta.env.DEV) {
+        const curveLogKey = `${pilot.transition?.id ?? 'none'}:${Math.floor(writeProgress * 4)}`;
+        if (projectProjectCurveLogKeyRef.current !== curveLogKey) {
+          projectProjectCurveLogKeyRef.current = curveLogKey;
+          console.log('[camera-director-pilot] project-to-project curve-path', {
+            transitionKey: pilot.transition?.id ?? null,
+            rawProgress: round4(writeProgress),
+            easedProgress: round4(projectToProjectEasedProgress),
+            progressEasingSource: 'project-to-project:legacy-settle-ease-out-v2',
+            activeCurveFunction: 'piecewise-linear-legacy-target-remap',
+            curvePathReached: true,
+          });
+        }
+      }
       if (pilot.direction === 'project-to-overview') {
         if (isFirstPilotWrite) {
           camera.position.copy(pilot.transition.fromPose.position);
@@ -3444,7 +3466,7 @@ const UnifiedCameraController = ({
             console.log('[camera-director-pilot] project-to-project motion-curve-summary', {
               fromProjectId: pilot.fromProjectId ?? null,
               toProjectId: pilot.selectedProject ?? null,
-              progressEasingSource: 'project-to-project:legacy-settle-ease-out',
+              progressEasingSource: 'project-to-project:legacy-settle-ease-out-v2',
               rawProgress: round4(pilotProgress),
               completionReason,
               durationSeconds: round4(durationSeconds),
@@ -3464,7 +3486,7 @@ const UnifiedCameraController = ({
       } else {
         sampleOverviewProjectPilotParity({ state, prevCameraState, nextCameraState, focusedProject: pilot.selectedProject ?? focusedProject ?? null });
         if (pilot.direction === 'project-to-project') {
-          sampleProjectProjectPilotParity({ state, prevCameraState, nextCameraState, fromProjectId: pilot.fromProjectId ?? null, toProjectId: pilot.selectedProject ?? null, progressEasingSource: 'project-to-project:legacy-settle-ease-out', completionReason: pilot.completedLogged ? 'thresholds-met' : null });
+          sampleProjectProjectPilotParity({ state, prevCameraState, nextCameraState, fromProjectId: pilot.fromProjectId ?? null, toProjectId: pilot.selectedProject ?? null, progressEasingSource: 'project-to-project:legacy-settle-ease-out-v2', completionReason: pilot.completedLogged ? 'thresholds-met' : null });
         }
       }
       return;
@@ -3483,7 +3505,7 @@ const UnifiedCameraController = ({
       nextCameraState,
       fromProjectId: projectProjectFromId,
       toProjectId: projectProjectToId,
-      progressEasingSource: isProjectToProjectPilotEnabled() ? 'project-to-project:legacy-settle-ease-out' : 'legacy-camera-move-progress',
+      progressEasingSource: isProjectToProjectPilotEnabled() ? 'project-to-project:legacy-settle-ease-out-v2' : 'legacy-camera-move-progress',
     });
 
     if (import.meta.env.DEV && pilotHandoffDebugRef.current.pending && animationData?.cameraState === 'project') {
