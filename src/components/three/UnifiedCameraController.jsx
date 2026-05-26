@@ -207,6 +207,7 @@ const UnifiedCameraController = ({
   const HERO_TO_OVERVIEW_HANDOFF_LOCK_FRAMES = 2;
   const heroToOverviewHandoffPendingRef = useRef(null);
   const heroToOverviewHandoffLockFramesRef = useRef(0);
+  const heroToOverviewSharedProgressMaxRef = useRef(0);
   const heroToOverviewTransitionStartedForExitRef = useRef(false);
   const heroToOverviewLastForcedFinalRef = useRef(null);
   const heroToOverviewAwaitFirstNormalFrameRef = useRef(false);
@@ -3809,6 +3810,7 @@ const UnifiedCameraController = ({
       heroOverviewCameraHookBranchLoggedRef.current = false;
       heroOverviewCameraTimingResolvedLoggedRef.current = false;
       heroOverviewCameraCurveSampleLoggedRef.current.clear();
+      heroToOverviewSharedProgressMaxRef.current = 0;
       {
         const authoritativeFromPosition = fromSnapshot.position.clone();
         const authoritativeFromLookAt = fromSnapshot.lookAtTarget.clone();
@@ -4223,8 +4225,14 @@ const UnifiedCameraController = ({
         const cameraTimingSource = sharedClockRuntimeState ? 'sharedExplosionClock' : 'runtime';
         const runtimePhase = runtimeSnapshot?.phase ?? 'idle';
         const runtimeProgress = runtimeSnapshot?.progress ?? 0;
-        const sharedRaw = THREE.MathUtils.clamp(explosionClock?.progress ?? 0, 0, 1);
+        const sharedRaw = THREE.MathUtils.clamp(explosionClock?.progress ?? accumulatedProgress, 0, 1);
         const sharedEased = THREE.MathUtils.clamp(sharedRaw >= 1 ? 1 : 1 - (2 ** (-10 * sharedRaw)), 0, 1);
+        heroToOverviewSharedProgressMaxRef.current = Math.max(
+          heroToOverviewSharedProgressMaxRef.current,
+          sharedEased,
+          accumulatedProgress
+        );
+        const monotonicSharedEased = heroToOverviewSharedProgressMaxRef.current;
         const basePosition = new THREE.Vector3().lerpVectors(transition.from.position, transition.to.position, sharedEased);
         forcedLookAt = introLookAtTempRef.current.lerpVectors(
           transition.from.lookAtTarget,
@@ -4239,7 +4247,11 @@ const UnifiedCameraController = ({
         globalThis.__HERO_OVERVIEW_CAMERA_POSITION__ = finalPosition.toArray();
         camera.position.copy(finalPosition);
         camera.lookAt(forcedLookAt);
-        camera.filmOffset = THREE.MathUtils.lerp(transition.from.filmOffsetX, transition.to.filmOffsetX, sharedEased);
+        camera.filmOffset = THREE.MathUtils.lerp(
+          transition.from.filmOffsetX,
+          transition.to.filmOffsetX,
+          monotonicSharedEased
+        );
         camera.updateProjectionMatrix();
 
         if (typeof globalThis !== 'undefined' && globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__) {
@@ -4291,6 +4303,8 @@ const UnifiedCameraController = ({
               runtimeProgress: Number(runtimeProgress.toFixed?.(3) ?? runtimeProgress),
               runtimePhase,
               cameraPushbackProgress: Number((cameraTimingState?.progress ?? runtimeProgress).toFixed(4)),
+              cameraProgressSharedEased: Number(sharedEased.toFixed(4)),
+              cameraProgressMonotonicSharedEased: Number(monotonicSharedEased.toFixed(4)),
               cameraAppliedOffsetLength: Number(appliedOffset.length().toFixed(4)),
               cameraPushbackDecayStart: Number((runtimeSnapshot?.timing?.cameraPushbackDecayStart ?? config?.timing?.heroOverviewRuntime?.cameraPushbackDecayStart ?? 0.18).toFixed(3)),
               cameraPushbackDecayEnd: Number((runtimeSnapshot?.timing?.cameraPushbackDecayEnd ?? config?.timing?.heroOverviewRuntime?.cameraPushbackDecayEnd ?? 0.68).toFixed(3)),
@@ -4337,6 +4351,8 @@ const UnifiedCameraController = ({
           positionProgress: round4(positionProgress),
           lookAtProgress: round4(lookAtProgress),
           filmOffsetProgress: round4(filmOffsetProgress),
+          sharedEasedProgress: round4(sharedEased),
+          monotonicSharedEasedProgress: round4(monotonicSharedEased),
         });
       }
       if (TRACE_HERO_TO_OVERVIEW_CAMERA_STATE && heroToOverviewTraceMetaRef.current.active) {
@@ -4555,7 +4571,7 @@ const UnifiedCameraController = ({
         heroToOverviewHandoffPendingRef.current = {
           finalPosition: camera.position.clone(),
           finalLookAt: transition.to.lookAtTarget.clone(),
-          finalFilmOffset: camera.filmOffset,
+          finalFilmOffset: Number.isFinite(transition.to.filmOffsetX) ? transition.to.filmOffsetX : 0,
         };
         // Prevent post-handoff fracture branch from re-owning camera and introducing a second jump.
         fractureTiltActiveRef.current = false;
@@ -5164,6 +5180,8 @@ const UnifiedCameraController = ({
 
     if (heroToOverviewAwaitFirstNormalFrameRef.current && animationData?.cameraState === 'overview') {
       const forcedFinal = heroToOverviewLastForcedFinalRef.current;
+      const pending = heroToOverviewHandoffPendingRef.current;
+      const resolvedOverview = getOverviewProjectResolvedPose('overview');
       const currentLookAt = currentTarget.current?.lookAt?.clone?.() || null;
       console.log(
         '[UCC HERO TO OVERVIEW FIRST NORMAL FRAME VERIFY JSON STRING]\n' +
@@ -5173,6 +5191,9 @@ const UnifiedCameraController = ({
           cameraPosition: camera.position.toArray(),
           cameraLookAt: currentLookAt?.toArray?.() || null,
           cameraFilmOffset: round4(camera.filmOffset),
+          currentTargetFilmOffset: round4(camera.filmOffset),
+          handoffPendingFilmOffset: round4(pending?.finalFilmOffset ?? null),
+          resolvedOverviewFilmOffset: round4(resolvedOverview?.filmOffset ?? null),
           cameraQuaternion: quaternionToPlain(camera.quaternion),
           previousForcedFinalPosition: forcedFinal?.position?.toArray?.() || null,
           previousForcedFinalLookAt: forcedFinal?.lookAt?.toArray?.() || null,

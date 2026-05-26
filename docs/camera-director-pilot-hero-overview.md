@@ -68,3 +68,9 @@ Block scaffold start if any are active:
 1. Flag off baseline: verify unchanged behavior and no new errors.
 2. Diagnostics-on run: trigger slow/fast hero→overview and inspect summary/samples.
 3. Pilot-flag-on smoke: verify scaffold logs once per intent and no route regressions.
+
+## PR-16 legacy handoff finding (filmOffset)
+- Legacy forced hero→overview branch used shared explosion-clock eased progress directly for filmOffset lerp.
+- Near completion, shared clock progress can regress/reset while forced transition is still active, causing filmOffset to jump back toward hero value.
+- Mitigation added in legacy branch: monotonic clamp for shared-eased progress used by filmOffset lerp, plus forced final/handoff filmOffset normalization to transition destination.
+- This is a targeted handoff stabilization fix; pilot still does not own the route.
