@@ -3154,7 +3154,7 @@ const UnifiedCameraController = ({
         };
         console.log('[camera-director-pilot] project-to-project pre-start-continuity', { fromProjectId: projectProjectFromId, toProjectId: projectProjectToId, deltaLookAt: round4(fromPose.lookAt.distanceTo(liveLookAt)) });
         console.log('[camera-director-pilot] project-to-project target-parity', { fromProjectId: projectProjectFromId, toProjectId: projectProjectToId, resolverFov: round4(destination.fov), pilotTargetFov: round4(toPose.fov), resolverFilmOffset: round4(destination.filmOffset), pilotTargetFilmOffset: round4(toPose.filmOffset) });
-        const transition = createCameraDirectorPilotTransition({ id: projectToProjectTransitionKey, fromPose, toPose, startedAt: state.clock.elapsedTime, durationSeconds: 0.9 });
+        const transition = createCameraDirectorPilotTransition({ id: projectToProjectTransitionKey, fromPose, toPose, startedAt: state.clock.elapsedTime, durationSeconds: 1.0 });
         cameraDirectorPilotRef.current = { active: true, transition, selectedProject: projectProjectToId, fromProjectId: projectProjectFromId, completedLogged: false, firstWriteLogged: false, direction: 'project-to-project' };
         blockedProjectToProjectKeyRef.current = null;
         lastProjectToProjectHandledKeyRef.current = projectToProjectTransitionKey;
