@@ -3240,15 +3240,8 @@ const UnifiedCameraController = ({
       const isFirstPilotWrite = pilot.firstWriteLogged !== true;
       const writeProgress = isFirstPilotWrite ? 0 : pilotProgress;
       const projectOverviewEasedProgress = 1 - Math.pow(1 - writeProgress, 3.2);
-      const remapProjectToProjectProgress = (t) => {
-        const x = THREE.MathUtils.clamp(t, 0, 1);
-        if (x <= 0.25) return THREE.MathUtils.lerp(0, 0.73, x / 0.25);
-        if (x <= 0.50) return THREE.MathUtils.lerp(0.73, 0.93, (x - 0.25) / 0.25);
-        if (x <= 0.75) return THREE.MathUtils.lerp(0.93, 0.98, (x - 0.50) / 0.25);
-        return THREE.MathUtils.lerp(0.98, 1, (x - 0.75) / 0.25);
-      };
-      const projectToProjectEasedProgress = remapProjectToProjectProgress(writeProgress);
-      const projectToProjectLookAtProgress = 1 - Math.pow(1 - writeProgress, 7.2);
+      const projectToProjectEasedProgress = 1 - Math.pow(1 - writeProgress, 2.6);
+      const projectToProjectLookAtProgress = 1 - Math.pow(1 - writeProgress, 4.5);
       const projectToProjectPositionProgress = facetProgress == null
         ? projectToProjectEasedProgress
         : Math.min(projectToProjectEasedProgress, THREE.MathUtils.clamp(facetProgress, 0, 1));
@@ -3271,7 +3264,7 @@ const UnifiedCameraController = ({
             cameraPositionProgress: round4(projectToProjectPositionProgress),
             facetProgressObserved: round4(facetProgress),
             progressEasingSource: 'project-to-project:legacy-settle-ease-out',
-            activeCurveFunction: 'piecewise-linear-legacy-target-remap',
+            activeCurveFunction: 'power-ease-out-2.6-position / 4.5-lookAt',
             curvePathReached: true,
           });
         }
