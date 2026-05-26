@@ -897,9 +897,27 @@ const UnifiedCrystalScene = forwardRef(({
     (facetKey) => getProjectIdByAnyKey(facetKey),
     []
   );
+  const projectSelectionSignalLogRef = useRef({ from: null, to: null, clicked: null });
 
   const selectProjectAndNavigate = useCallback((projectKey) => {
     if (!projectKey) return;
+    if (import.meta.env.DEV) {
+      const fromProjectId = animationData?.focusedProject ?? null;
+      const logKey = `${fromProjectId ?? 'none'}->${projectKey}`;
+      const prevKey = `${projectSelectionSignalLogRef.current.from ?? 'none'}->${projectSelectionSignalLogRef.current.to ?? 'none'}`;
+      if (logKey !== prevKey || projectSelectionSignalLogRef.current.clicked !== projectKey) {
+        projectSelectionSignalLogRef.current = { from: fromProjectId, to: projectKey, clicked: projectKey };
+        console.log('[camera-director-pilot] project-selection-signal', {
+          fromProjectId,
+          toProjectId: projectKey,
+          clickedProjectId: projectKey,
+          previousSelected: null,
+          previousFocused: fromProjectId,
+          resultingSelected: projectKey,
+          resultingFocused: projectKey,
+        });
+      }
+    }
 
     const sectionNode = typeof document !== 'undefined'
       ? document.getElementById(`project-${projectKey}`)
@@ -924,7 +942,7 @@ const UnifiedCrystalScene = forwardRef(({
     const sectionStart = ANIMATION_CONFIG.projectSections?.[projectKey]?.start;
     if (sectionStart === undefined || sectionStart === null) return;
     scrollToProgress?.(sectionStart, 'auto');
-  }, [onDirectProjectSelect, scrollToProgress, scrollToProject]);
+  }, [animationData?.focusedProject, onDirectProjectSelect, scrollToProgress, scrollToProject]);
 
   const handleFacetClick = useCallback((facetKey) => {
     if (!inActiveOverview) return;
