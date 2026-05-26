@@ -24,3 +24,7 @@ Supported canonical destinations:
 - Legacy/runtime target source for this transition remains `animationData.cameraConfig.fov` (observed project target `35`), so shadow compare showed `resolvedProjectFov=45` vs `currentTargetFov=35`.
 - Fix: project/caseStudy resolver path now reads FOV from `animationData.cameraConfig.fov` (same source used by legacy runtime targeting) and keeps fallback to base FOV only when animation data is unavailable.
 - Non-goal unchanged: transition timing/start-capture instrumentation is still downstream and not addressed here.
+
+## PR-15 caveat: hero→overview overview filmOffset parity
+- Hero-specific filmOffset should not be blindly inherited into non-hero overview destination semantics during migration scaffolding.
+- Current resolver behavior is preserved in this step; filmOffset parity handling is documented for upcoming hero→overview pilot ownership work.

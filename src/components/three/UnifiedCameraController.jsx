@@ -11,6 +11,10 @@ import { createCameraDirectorPilotTransition, updateCameraDirectorPilotTransitio
 import { resolveCameraDestination } from '../../camera/destinationResolver';
 
 const logger = createLogger('unified-camera-controller');
+const HERO_OVERVIEW_DIRECTOR_ENV_FLAG =
+  typeof import.meta !== 'undefined' && import.meta.env
+    ? String(import.meta.env.VITE_CAMERA_DIRECTOR_HERO_OVERVIEW_PILOT ?? '').toLowerCase() === 'true'
+    : false;
 const PROJECT_OVERVIEW_POSITION_SETTLE_EPSILON = 0.01;
 const PROJECT_OVERVIEW_LOOKAT_SETTLE_EPSILON = 0.01;
 const PROJECT_OVERVIEW_FOV_SETTLE_EPSILON = 0.02;
@@ -228,6 +232,12 @@ const UnifiedCameraController = ({
     selectedProject: null,
     completedLogged: false,
   });
+  const heroOverviewPilotRef = useRef({
+    active: false,
+    key: null,
+    blockedReason: null,
+    transition: null,
+  });
   const projectOverviewPilotParityRef = useRef({
     runs: [],
     activeRun: null,
@@ -328,6 +338,15 @@ const UnifiedCameraController = ({
     }
     return false;
   };
+  const isHeroToOverviewPilotEnabled = () => {
+    if (!import.meta.env.DEV) return false;
+    if (typeof globalThis?.__ENABLE_CAMERA_DIRECTOR_HERO_OVERVIEW__ === 'boolean') {
+      return globalThis.__ENABLE_CAMERA_DIRECTOR_HERO_OVERVIEW__;
+    }
+    return HERO_OVERVIEW_DIRECTOR_ENV_FLAG;
+  };
+  const isHeroOverviewDiagnosticsEnabled = () =>
+    import.meta.env.DEV && Boolean(globalThis?.__HERO_OVERVIEW_PILOT_DIAGNOSTICS__);
 
   const applyFractureTilt = () => {
     if (!fractureTiltActiveRef.current) return;
@@ -1719,6 +1738,16 @@ const UnifiedCameraController = ({
     }
     return globalThis.__projectProjectPilotParityStore;
   };
+  const getHeroOverviewDiagnosticStore = () => {
+    if (typeof globalThis === 'undefined') return heroToOverviewTraceRef.current;
+    if (!globalThis.__heroOverviewDiagnosticStore) {
+      globalThis.__heroOverviewDiagnosticStore = heroToOverviewTraceRef.current;
+    }
+    if (globalThis.__heroOverviewDiagnosticStore !== heroToOverviewTraceRef.current) {
+      globalThis.__heroOverviewDiagnosticStore = heroToOverviewTraceRef.current;
+    }
+    return globalThis.__heroOverviewDiagnosticStore;
+  };
 
   const installOverviewProjectShadowHelpers = () => {
     if (!import.meta.env.DEV || typeof globalThis === 'undefined') return;
@@ -2008,6 +2037,35 @@ const UnifiedCameraController = ({
         pilotCompleted: latestPilot?.completed ?? false,
         legacyDurationSeconds: latestLegacy?.durationSeconds ?? null,
         pilotDurationSeconds: latestPilot?.durationSeconds ?? null,
+      });
+    };
+    globalThis.__clearHeroOverviewDiagnosticSamples = () => {
+      heroToOverviewTraceRef.current = [];
+      heroToOverviewPhaseBoundaryTraceRef.current = [];
+      heroToOverviewTraceMetaRef.current = { active: false, endTime: 0, forcedFinal: null, prevSample: null };
+      heroToOverviewPhaseBoundaryMetaRef.current = { switchIndex: null, printed: false };
+      console.log('[hero-overview-pilot-diagnostics] samples-cleared');
+    };
+    globalThis.__printHeroOverviewDiagnosticSamples = () => {
+      const rows = getHeroOverviewDiagnosticStore();
+      if (!rows.length) return console.log('[hero-overview-pilot-diagnostics] samples', []);
+      console.table(rows.slice(-60));
+    };
+    globalThis.__printHeroOverviewDiagnosticSummary = () => {
+      const rows = getHeroOverviewDiagnosticStore();
+      const last = rows[rows.length - 1] ?? null;
+      console.log('[hero-overview-pilot-diagnostics] summary', {
+        enabled: isHeroOverviewDiagnosticsEnabled(),
+        pilotEnabled: isHeroToOverviewPilotEnabled(),
+        sampleCount: rows.length,
+        lastPhase: last?.phase ?? null,
+        lastCameraState: last?.cameraState ?? null,
+        lastState: last?.state ?? null,
+        lastViewMode: last?.viewMode ?? null,
+        forcedTransitionActive: authoritativeHeroToOverviewTransitionRef.current.active,
+        heroExplosionTransitionActive: heroExplosionTransitionRef.current.active,
+        fractureTiltActive: fractureTiltActiveRef.current,
+        handoffLockFrames: heroToOverviewHandoffLockFramesRef.current,
       });
     };
   };
@@ -2644,6 +2702,33 @@ const UnifiedCameraController = ({
       prevCameraState === 'project' &&
       nextCameraState === 'overview' &&
       viewMode !== 'caseStudy';
+    const heroOverviewTransitionKey = `hero-to-overview:${prevState ?? 'none'}:${prevCameraState ?? 'none'}->${nextState ?? 'none'}:${nextCameraState ?? 'none'}`;
+    const heroOverviewIntentDetected =
+      prevCameraState === 'hero' &&
+      nextState === 'overview' &&
+      nextCameraState === 'hero';
+    const heroOverviewBlockedReason =
+      cameraDirectorPilotRef.current.active ? 'camera-director-pilot-active' :
+      fractureTiltActiveRef.current ? 'fractureTiltActive' :
+      heroExplosionTransitionRef.current.active ? 'heroExplosionTransitionActive' :
+      authoritativeHeroToOverviewTransitionRef.current.active ? 'authoritativeHeroToOverviewActive' :
+      cameraMoveProgressRef.current < 0.999 ? 'cameraMoveProgressIncomplete' :
+      null;
+    const shouldStartHeroOverviewPilotScaffold =
+      isHeroToOverviewPilotEnabled() &&
+      heroOverviewIntentDetected &&
+      !heroOverviewPilotRef.current.active &&
+      heroOverviewPilotRef.current.key !== heroOverviewTransitionKey &&
+      !heroOverviewBlockedReason;
+    if (isHeroOverviewDiagnosticsEnabled() && heroOverviewIntentDetected) {
+      const diagLabel = shouldStartHeroOverviewPilotScaffold ? 'start-eligible' : 'start-blocked';
+      console.log('[camera-director-pilot] hero-to-overview scaffold intent', {
+        diagLabel,
+        heroOverviewTransitionKey,
+        blockedReason: heroOverviewBlockedReason,
+        cameraMoveProgress: round4(cameraMoveProgressRef.current),
+      });
+    }
     const lastStableProjectId = lastStableProjectIdRef.current ?? null;
     const previousProjectId = previousFocusedProject ?? previousSelectedProject ?? null;
     const currentProjectId = focusedProject ?? selectedProject ?? null;
@@ -2763,6 +2848,36 @@ const UnifiedCameraController = ({
           previousSelectedProject: previousSelectedProject ?? null,
           activationMatched: shouldStartProjectToProjectPilot,
           activationRejectReason: shouldStartProjectToProjectPilot ? null : (projectProjectActivationRejectReason ?? 'activation-conditions-not-met'),
+        });
+      }
+    }
+    if (shouldStartHeroOverviewPilotScaffold) {
+      const fromLookAt = getCameraLookAtFromTransform();
+      const resolvedOverview = getOverviewProjectResolvedPose('overview');
+      heroOverviewPilotRef.current = {
+        active: false,
+        key: heroOverviewTransitionKey,
+        blockedReason: null,
+        transition: {
+          startedAt: state.clock.elapsedTime,
+          fromPose: {
+            position: camera.position.clone(),
+            lookAt: fromLookAt.clone(),
+            fov: Number.isFinite(camera.fov) ? camera.fov : (currentTarget.current?.fov ?? 45),
+            filmOffset: Number.isFinite(camera.filmOffset) ? camera.filmOffset : 0,
+          },
+          toPose: resolvedOverview,
+        },
+      };
+      if (isHeroOverviewDiagnosticsEnabled()) {
+        console.log('[camera-director-pilot] hero-to-overview scaffold captured', {
+          heroOverviewTransitionKey,
+          fromPosePosition: heroOverviewPilotRef.current.transition.fromPose.position.toArray(),
+          fromPoseLookAt: heroOverviewPilotRef.current.transition.fromPose.lookAt.toArray(),
+          toPoseResolved: resolvedOverview
+            ? { position: resolvedOverview.position.toArray(), lookAt: resolvedOverview.lookAt.toArray(), fov: resolvedOverview.fov, filmOffset: resolvedOverview.filmOffset }
+            : null,
+          note: 'Scaffold only. Legacy forced Hero->Overview remains authoritative.',
         });
       }
     }

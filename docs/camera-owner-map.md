@@ -181,3 +181,8 @@ PR-2 should include reproducible scripts/steps, expected vs actual camera pose n
 - ✅ `src/crystalConfig.js`
 - ✅ `src/hooks/useHeroOverviewRuntime.js`
 - ✅ project/caseStudy camera config paths (`projectCameraSettings` in config, merge usage in canvas/controller)
+
+## PR-15 hero→overview stabilization note
+- Hero → Overview remains legacy-owned in runtime.
+- Added DEV-only diagnostics helpers and a disabled scaffold gate for future CameraDirector migration work.
+- About route behaviors remain intentionally unchanged in this step.
