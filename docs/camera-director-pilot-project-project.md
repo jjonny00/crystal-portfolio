@@ -3,53 +3,55 @@
 ## Feature flag
 - Flag: `globalThis.__ENABLE_CAMERA_DIRECTOR_PROJECT_TO_PROJECT__`
 - Default: disabled (`false` / `undefined`).
-- With flag off, legacy behavior is unchanged.
+- With flag off, behavior remains legacy.
 
-## Activation strategy (focusedProject + last stable project)
-Project→project pilot activation is gated and only starts when all are true:
-- project→project pilot flag is enabled
+## Activation strategy (focusedProject + last stable project id)
+Project→project pilot activates only when all are true:
+- feature flag enabled
 - no other camera-director pilot is active
 - `prevCameraState === 'project'` and `nextCameraState === 'project'`
-- `fromProjectId` resolves from the last stable project id (focused project history)
-- `toProjectId` resolves from current `focusedProject` (selected project is fallback only)
+- `fromProjectId` resolves from last stable focused project id
+- `toProjectId` resolves from current `focusedProject` (`selectedProject` fallback only)
 - `fromProjectId !== toProjectId`
 - `viewMode !== 'caseStudy'`
 
 ## Duplicate-start guard
-- Stable transition key is used:
+- Stable transition key:
   - `project-to-project:${fromProjectId}->${toProjectId}`
-- Duplicate starts are blocked if the same transition key is already handled/active.
-- Bounded duplicate suppression diagnostic:
+- Duplicate starts blocked for same key while active/handled.
+- Bounded diagnostic:
   - `[camera-director-pilot] project-to-project restart-blocked`
 
 ## False mid-transition start blocking
-To avoid false late starts (already settled state), starts are blocked when the transition appears invalid/post-settle.
+- Invalid starts are blocked when activation is detected post-settle / invalid mid-transition state.
 - Bounded diagnostic:
   - `[camera-director-pilot] project-to-project start-blocked`
 
 ## fromPose strategy
-- Capture visible live camera pose on start.
-- Preserve first-write continuity (`position`/`lookAt`/`fov`/`filmOffset`) to avoid start jump.
+- Capture live visible camera pose at pilot start.
+- Preserve first-write continuity to avoid start jump.
 
 ## Target pose strategy
-- Resolve target pose with `resolveCameraDestination(... destination: 'project', mode: 'selected')`.
-- Preserve legacy-equivalent composition behavior for `fov`/`filmOffset`.
-- If target pose cannot resolve, parity rows are still recorded with null pose deltas and reason fields.
+- Resolve `toPose` with `resolveCameraDestination(... destination: 'project', mode: 'selected')`.
+- Keep target composition parity for `fov` / `filmOffset`.
+- If target cannot resolve, parity rows still record with null deltas and reason fields.
 
-## Final curve strategy (active)
-- `progressEasingSource`: `project-to-project:legacy-settle-ease-out`
-- Camera position uses a front-loaded but moderated project→project remap (closer to legacy 25/50/75 settle pacing).
-- LookAt resolves early (faster than old smooth interpolation) while keeping no-start-jump behavior.
+## Final curve strategy (accepted)
+- Position uses project→project easing tuned to legacy-like pacing while maintaining no-jump/no-pop.
+- LookAt resolves early enough to avoid lingering mismatch.
+- Camera settle is synchronized against facet progress in project→project pilot path for acceptable visual end alignment.
 
-## Facet/choreography parity
-- Project→project pilot preserves legacy-like facet choreography behavior.
-- Camera pilot keeps camera ownership, but shared choreography progress is preserved so facet lag vs legacy is avoided.
+## progressEasingSource
+- Final descriptive label:
+  - `project-to-project:facet-synced-settle`
 
-## Completion strategy
-- Strict completion remains:
-  - near-zero position/lookAt/fov deltas
-  - filmOffset parity preserved
-  - completion reason remains `thresholds-met` when strict criteria are met
+## Final accepted status
+- Flag off unchanged.
+- Flag on project→project transitions accepted for merge quality:
+  - no start jump
+  - no end pop
+  - correct landing
+  - acceptable camera/facet timing
 
 ## Parity helpers
 - `globalThis.__clearProjectProjectPilotParity()`
@@ -67,31 +69,33 @@ To avoid false late starts (already settled state), starts are blocked when the 
 - `[camera-director-pilot] project-to-project complete`
 - `[camera-director-pilot] project-to-project fallback`
 
-## Final successful status (current)
-- Flag off: unchanged legacy behavior.
-- Flag on: project→project starts once, no start jump, no end pop, correct landing, and parity rows are captured.
-
 ## Recommended test checklist
-1. Set `globalThis.__ENABLE_CAMERA_DIRECTOR_PROJECT_TO_PROJECT__ = false` and confirm all transitions remain legacy.
-2. Set flag true.
-3. Run:
+1. Flag off (`false`/unset) and verify legacy behavior remains unchanged.
+2. Flag on and run:
    - `__clearProjectProjectPilotParity()`
-4. Navigate:
+3. Navigate:
    - Overview → Project 1
    - Project 1 → Project 2
-5. Verify:
-   - single project→project pilot activation
+   - Project 2 → Project 3
+   - Project 3 → Project 1
+4. Verify:
+   - one pilot start per project→project transition
    - no start jump / no end pop
-   - bounded logs only (no console flooding)
-6. Inspect parity:
+   - correct project landing
+   - bounded diagnostics only
+5. Inspect parity:
    - `__printProjectProjectPilotParitySummary()`
    - `__printProjectProjectPilotParitySamples()`
-7. Confirm completion remains strict and final deltas settle correctly.
+6. Re-check unaffected routes:
+   - overview→project
+   - project→overview
+   - hero/overview
+   - about
 
 ## Rollback
-- Disable the flag (`false`/unset) to return immediately to legacy project→project behavior.
+- Disable/unset `__ENABLE_CAMERA_DIRECTOR_PROJECT_TO_PROJECT__` to return immediately to legacy behavior.
 
 ## Non-goals
-- No changes to hero/overview/about transitions.
-- No changes to overview→project or project→overview pilot behavior.
+- No changes to overview→project or project→overview pilot systems.
+- No changes to hero/about/caseStudy route behavior.
 - No global visual-system tuning (fragments/particles/glow/ring).
