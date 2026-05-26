@@ -240,6 +240,12 @@ const UnifiedCameraController = ({
   const blockedProjectToProjectKeyRef = useRef(null);
   const blockedProjectToProjectStartKeyRef = useRef(null);
   const projectProjectCurveLogKeyRef = useRef(null);
+  const projectProjectProgressMetaRef = useRef({
+    rawProgress: null,
+    easedProgress: null,
+    cameraPositionProgress: null,
+    facetProgressSource: 'unknown',
+  });
   const startPoseLogKeyRef = useRef(null);
   const preStartContinuityLogKeyRef = useRef(null);
   const startContinuityLogKeyRef = useRef(null);
@@ -2292,7 +2298,7 @@ const UnifiedCameraController = ({
             ? 'post-settle'
             : ((moveProgress ?? 0) <= 0.1 ? 'pre-transition' : 'mid-transition'))
         : null;
-      run.rows.push({ sampleType, activationTiming, state: animationData?.state ?? null, cameraState: animationData?.cameraState ?? null, viewMode: animationData?.viewMode ?? null, fromProjectId: run.fromProjectId, toProjectId: run.toProjectId, fromProjectIdUnavailableReason: run.fromProjectId ? null : (run.fromProjectIdUnavailableReason ?? 'from-project-id-missing'), toProjectIdUnavailableReason: run.toProjectId ? null : (run.toProjectIdUnavailableReason ?? 'to-project-id-missing'), targetPoseUnavailableReason, liveDistanceToResolvedProjectPosition: positionDelta, liveLookAtDeltaToResolvedProject: resolvedProject ? safeDistance(liveLookAt, resolvedProject.lookAt) : null, liveFovDeltaToResolvedProject: resolvedProject ? round4(Math.abs(camera.fov - (resolvedProject.fov ?? camera.fov))) : null, liveFilmOffsetDeltaToResolvedProject: resolvedProject ? round4(Math.abs((camera.filmOffset ?? 0) - (resolvedProject.filmOffset ?? 0))) : null, cameraMoveProgress: moveProgress, facetRotationProgress: facetProgress, rawProgress: moveProgress, easedProgress: moveProgress, completionReason: completionReason ?? run.completionReason, progressEasingSource });
+      run.rows.push({ sampleType, activationTiming, state: animationData?.state ?? null, cameraState: animationData?.cameraState ?? null, viewMode: animationData?.viewMode ?? null, fromProjectId: run.fromProjectId, toProjectId: run.toProjectId, fromProjectIdUnavailableReason: run.fromProjectId ? null : (run.fromProjectIdUnavailableReason ?? 'from-project-id-missing'), toProjectIdUnavailableReason: run.toProjectId ? null : (run.toProjectIdUnavailableReason ?? 'to-project-id-missing'), targetPoseUnavailableReason, liveDistanceToResolvedProjectPosition: positionDelta, liveLookAtDeltaToResolvedProject: resolvedProject ? safeDistance(liveLookAt, resolvedProject.lookAt) : null, liveFovDeltaToResolvedProject: resolvedProject ? round4(Math.abs(camera.fov - (resolvedProject.fov ?? camera.fov))) : null, liveFilmOffsetDeltaToResolvedProject: resolvedProject ? round4(Math.abs((camera.filmOffset ?? 0) - (resolvedProject.filmOffset ?? 0))) : null, cameraMoveProgress: moveProgress, facetRotationProgress: facetProgress, rawProgress: round4(projectProjectProgressMetaRef.current?.rawProgress), easedProgress: round4(projectProjectProgressMetaRef.current?.easedProgress), cameraPositionProgress: round4(projectProjectProgressMetaRef.current?.cameraPositionProgress), facetProgressSource: projectProjectProgressMetaRef.current?.facetProgressSource ?? null, completionReason: completionReason ?? run.completionReason, progressEasingSource });
       run.sampleTypesWritten?.add(sampleType);
     };
     if (isStart) {
@@ -3243,6 +3249,14 @@ const UnifiedCameraController = ({
       };
       const projectToProjectEasedProgress = remapProjectToProjectProgress(writeProgress);
       const projectToProjectLookAtProgress = 1 - Math.pow(1 - writeProgress, 7.2);
+      if (pilot.direction === 'project-to-project') {
+        projectProjectProgressMetaRef.current = {
+          rawProgress: writeProgress,
+          easedProgress: projectToProjectEasedProgress,
+          cameraPositionProgress: projectToProjectEasedProgress,
+          facetProgressSource: 'legacy-preserved',
+        };
+      }
       if (pilot.direction === 'project-to-project' && import.meta.env.DEV) {
         const curveLogKey = `${pilot.transition?.id ?? 'none'}:${Math.floor(writeProgress * 4)}`;
         if (projectProjectCurveLogKeyRef.current !== curveLogKey) {
@@ -3337,9 +3351,10 @@ const UnifiedCameraController = ({
         });
       }
       pilot.firstWriteLogged = true;
-      cameraMoveProgressRef.current = pilotProgress;
-      if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = pilotProgress;
-      animationData?.setCameraMoveProgress?.(pilotProgress);
+      const publishedProgress = pilot.direction === 'project-to-project' ? 1 : pilotProgress;
+      cameraMoveProgressRef.current = publishedProgress;
+      if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = publishedProgress;
+      animationData?.setCameraMoveProgress?.(publishedProgress);
       if (cameraSettledRef.current) {
         cameraSettledRef.current = false;
         animationData?.setCameraSettled?.(false);
