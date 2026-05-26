@@ -2825,7 +2825,7 @@ const UnifiedCameraController = ({
         transitionKey: projectToProjectTransitionKey,
         fromProjectIdUnavailableReason,
         toProjectIdUnavailableReason,
-        progressEasingSource: 'project-to-project:legacy-settle-ease-out-v2',
+        progressEasingSource: 'project-to-project:legacy-settle-ease-out',
         completionReason: 'not-detected',
         forceStart: true,
       });
@@ -3265,7 +3265,7 @@ const UnifiedCameraController = ({
             transitionKey: pilot.transition?.id ?? null,
             rawProgress: round4(writeProgress),
             easedProgress: round4(projectToProjectEasedProgress),
-            progressEasingSource: 'project-to-project:legacy-settle-ease-out-v2',
+            progressEasingSource: 'project-to-project:legacy-settle-ease-out',
             activeCurveFunction: 'piecewise-linear-legacy-target-remap',
             curvePathReached: true,
           });
@@ -3481,7 +3481,7 @@ const UnifiedCameraController = ({
             console.log('[camera-director-pilot] project-to-project motion-curve-summary', {
               fromProjectId: pilot.fromProjectId ?? null,
               toProjectId: pilot.selectedProject ?? null,
-              progressEasingSource: 'project-to-project:legacy-settle-ease-out-v2',
+              progressEasingSource: 'project-to-project:legacy-settle-ease-out',
               rawProgress: round4(pilotProgress),
               completionReason,
               durationSeconds: round4(durationSeconds),
@@ -3501,7 +3501,7 @@ const UnifiedCameraController = ({
       } else {
         sampleOverviewProjectPilotParity({ state, prevCameraState, nextCameraState, focusedProject: pilot.selectedProject ?? focusedProject ?? null });
         if (pilot.direction === 'project-to-project') {
-          sampleProjectProjectPilotParity({ state, prevCameraState, nextCameraState, fromProjectId: pilot.fromProjectId ?? null, toProjectId: pilot.selectedProject ?? null, progressEasingSource: 'project-to-project:legacy-settle-ease-out-v2', completionReason: pilot.completedLogged ? 'thresholds-met' : null });
+          sampleProjectProjectPilotParity({ state, prevCameraState, nextCameraState, fromProjectId: pilot.fromProjectId ?? null, toProjectId: pilot.selectedProject ?? null, progressEasingSource: 'project-to-project:legacy-settle-ease-out', completionReason: pilot.completedLogged ? 'thresholds-met' : null });
         }
       }
       return;
@@ -3520,7 +3520,7 @@ const UnifiedCameraController = ({
       nextCameraState,
       fromProjectId: projectProjectFromId,
       toProjectId: projectProjectToId,
-      progressEasingSource: isProjectToProjectPilotEnabled() ? 'project-to-project:legacy-settle-ease-out-v2' : 'legacy-camera-move-progress',
+      progressEasingSource: isProjectToProjectPilotEnabled() ? 'project-to-project:legacy-settle-ease-out' : 'legacy-camera-move-progress',
     });
 
     if (import.meta.env.DEV && pilotHandoffDebugRef.current.pending && animationData?.cameraState === 'project') {
