@@ -3249,11 +3249,14 @@ const UnifiedCameraController = ({
       };
       const projectToProjectEasedProgress = remapProjectToProjectProgress(writeProgress);
       const projectToProjectLookAtProgress = 1 - Math.pow(1 - writeProgress, 7.2);
+      const projectToProjectPositionProgress = facetProgress == null
+        ? projectToProjectEasedProgress
+        : Math.min(projectToProjectEasedProgress, THREE.MathUtils.clamp(facetProgress, 0, 1));
       if (pilot.direction === 'project-to-project') {
         projectProjectProgressMetaRef.current = {
           rawProgress: writeProgress,
           easedProgress: projectToProjectEasedProgress,
-          cameraPositionProgress: projectToProjectEasedProgress,
+          cameraPositionProgress: projectToProjectPositionProgress,
           facetProgressSource: 'legacy-preserved',
         };
       }
@@ -3265,6 +3268,8 @@ const UnifiedCameraController = ({
             transitionKey: pilot.transition?.id ?? null,
             rawProgress: round4(writeProgress),
             easedProgress: round4(projectToProjectEasedProgress),
+            cameraPositionProgress: round4(projectToProjectPositionProgress),
+            facetProgressObserved: round4(facetProgress),
             progressEasingSource: 'project-to-project:legacy-settle-ease-out',
             activeCurveFunction: 'piecewise-linear-legacy-target-remap',
             curvePathReached: true,
@@ -3285,7 +3290,7 @@ const UnifiedCameraController = ({
         camera.position.lerpVectors(
           pilot.transition.fromPose.position,
           pilot.transition.toPose.position,
-          projectToProjectEasedProgress
+          projectToProjectPositionProgress
         );
       } else {
         const curveDriver = facetProgress == null ? writeProgress : Math.min(writeProgress, facetProgress);
