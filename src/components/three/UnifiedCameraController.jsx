@@ -4195,6 +4195,8 @@ const UnifiedCameraController = ({
       const positionProgress = localProgress;
       const lookAtProgress = isDollyPhase ? 0 : localProgress;
       const filmOffsetProgress = isDollyPhase ? 0 : localProgress;
+      let sharedEasedForLog = null;
+      let monotonicSharedEasedForLog = null;
       let forcedLookAt;
       if (FORCE_LOCK_HERO_TO_OVERVIEW_CAMERA) {
         camera.position.copy(transition.from.position);
@@ -4233,6 +4235,8 @@ const UnifiedCameraController = ({
           accumulatedProgress
         );
         const monotonicSharedEased = heroToOverviewSharedProgressMaxRef.current;
+        sharedEasedForLog = sharedEased;
+        monotonicSharedEasedForLog = monotonicSharedEased;
         const basePosition = new THREE.Vector3().lerpVectors(transition.from.position, transition.to.position, sharedEased);
         forcedLookAt = introLookAtTempRef.current.lerpVectors(
           transition.from.lookAtTarget,
@@ -4351,8 +4355,8 @@ const UnifiedCameraController = ({
           positionProgress: round4(positionProgress),
           lookAtProgress: round4(lookAtProgress),
           filmOffsetProgress: round4(filmOffsetProgress),
-          sharedEasedProgress: round4(sharedEased),
-          monotonicSharedEasedProgress: round4(monotonicSharedEased),
+          sharedEasedProgress: round4(sharedEasedForLog),
+          monotonicSharedEasedProgress: round4(monotonicSharedEasedForLog),
         });
       }
       if (TRACE_HERO_TO_OVERVIEW_CAMERA_STATE && heroToOverviewTraceMetaRef.current.active) {
@@ -4587,6 +4591,31 @@ const UnifiedCameraController = ({
         });
       }
       return;
+    }
+
+    if (heroToOverviewHandoffLockFramesRef.current > 0 && animationData?.cameraState === 'overview') {
+      heroToOverviewHandoffLockFramesRef.current -= 1;
+      const pending = heroToOverviewHandoffPendingRef.current;
+      if (pending) {
+        camera.position.copy(pending.finalPosition);
+        camera.lookAt(pending.finalLookAt);
+        camera.filmOffset = pending.finalFilmOffset;
+        camera.updateProjectionMatrix();
+        currentTarget.current.position.copy(pending.finalPosition);
+        currentTarget.current.lookAt.copy(pending.finalLookAt);
+        currentTarget.current.fov = camera.fov;
+        cameraMoveProgressRef.current = 1;
+        if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = 1;
+        animationData?.setCameraMoveProgress?.(1);
+        logCameraWrite(state, "FORCED_HERO_TO_OVERVIEW", "handoff-lock-frame", pending.finalLookAt, true, true);
+        if (heroToOverviewHandoffLockFramesRef.current <= 0) {
+          heroToOverviewHandoffPendingRef.current = null;
+        }
+        return;
+      }
+    } else if (heroToOverviewHandoffLockFramesRef.current > 0) {
+      heroToOverviewHandoffLockFramesRef.current = 0;
+      heroToOverviewHandoffPendingRef.current = null;
     }
 
     if (TRACE_HERO_TO_OVERVIEW_CAMERA_STATE && heroToOverviewTraceMetaRef.current.active) {
@@ -5154,28 +5183,6 @@ const UnifiedCameraController = ({
           nextOverviewFilmOffset: camera.filmOffset,
         });
       }
-    }
-
-    if (heroToOverviewHandoffLockFramesRef.current > 0 && animationData?.cameraState === 'overview') {
-      heroToOverviewHandoffLockFramesRef.current -= 1;
-      const pending = heroToOverviewHandoffPendingRef.current;
-      if (pending) {
-        camera.position.copy(pending.finalPosition);
-        camera.lookAt(pending.finalLookAt);
-        camera.filmOffset = pending.finalFilmOffset;
-        camera.updateProjectionMatrix();
-        currentTarget.current.position.copy(pending.finalPosition);
-        currentTarget.current.lookAt.copy(pending.finalLookAt);
-        currentTarget.current.fov = camera.fov;
-        logCameraWrite(state, "FORCED_HERO_TO_OVERVIEW", "handoff-lock-frame", pending.finalLookAt, true, true);
-        if (heroToOverviewHandoffLockFramesRef.current <= 0) {
-          heroToOverviewHandoffPendingRef.current = null;
-        }
-        return;
-      }
-    } else if (heroToOverviewHandoffLockFramesRef.current > 0) {
-      heroToOverviewHandoffLockFramesRef.current = 0;
-      heroToOverviewHandoffPendingRef.current = null;
     }
 
     if (heroToOverviewAwaitFirstNormalFrameRef.current && animationData?.cameraState === 'overview') {
