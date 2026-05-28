@@ -86,3 +86,9 @@ Block scaffold start if any are active:
 - Root cause: forced local progress advanced by clamped frame delta, so under larger frame times it could lag wall-clock/shared runtime completion.
 - Narrow fix in legacy forced hero→overview branch: clamp local forced progress to at least elapsed wall-clock progress each frame (`transition.progress = max(transition.progress, elapsedProgress)`).
 - This keeps the forced camera completion seam aligned with shared-runtime completion without changing pilot ownership or broad transition logic.
+
+## PR-19 phase-staging diagnosis and guard
+- Timeline evidence showed forced camera travel becoming active during `fractureCharge`, overlapping fracture/explosion phases.
+- Added phase-staging summary helper: `__printHeroOverviewPhaseStaging()` to quantify per-phase movement and overlap.
+- Added narrow route-specific travel gate in legacy forced Hero→Overview path so overview travel progress remains held until `bulletTimeSlowdown` phase progression (via progress remap from configured phase start).
+- This does not enable pilot ownership and does not change fragment/material styling; it only separates early fracture/impulse beat from overview travel progress.

@@ -19,6 +19,31 @@ const PROJECT_OVERVIEW_POSITION_SETTLE_EPSILON = 0.01;
 const PROJECT_OVERVIEW_LOOKAT_SETTLE_EPSILON = 0.01;
 const PROJECT_OVERVIEW_FOV_SETTLE_EPSILON = 0.02;
 const PROJECT_OVERVIEW_PROGRESS_SETTLE_MIN = 0.99;
+const HERO_OVERVIEW_FORCED_TRAVEL_START_PHASE = 'bulletTimeSlowdown';
+const HERO_OVERVIEW_PHASE_ORDER = ['fractureCharge', 'explosionImpulse', 'bulletTimeSlowdown', 'overviewSettle', 'complete'];
+
+const getPhaseStartProgress = (phase, timing = {}) => {
+  const fractureChargeEnd = THREE.MathUtils.clamp(timing.fractureChargeEnd ?? 0.0933333333, 0, 1);
+  const explosionImpulseEnd = THREE.MathUtils.clamp(timing.explosionImpulseEnd ?? 0.24, fractureChargeEnd, 1);
+  const bulletTimeSlowdownEnd = THREE.MathUtils.clamp(timing.bulletTimeSlowdownEnd ?? 0.72, explosionImpulseEnd, 1);
+  const overviewSettleEnd = THREE.MathUtils.clamp(timing.overviewSettleEnd ?? 1, bulletTimeSlowdownEnd, 1);
+
+  switch (phase) {
+    case 'fractureCharge': return 0;
+    case 'explosionImpulse': return fractureChargeEnd;
+    case 'bulletTimeSlowdown': return explosionImpulseEnd;
+    case 'overviewSettle': return bulletTimeSlowdownEnd;
+    case 'complete': return overviewSettleEnd;
+    default: return 0;
+  }
+};
+
+const remapProgressFromPhaseStart = (progress, timing = {}, startPhase = HERO_OVERVIEW_FORCED_TRAVEL_START_PHASE) => {
+  const clamped = THREE.MathUtils.clamp(progress ?? 0, 0, 1);
+  const start = THREE.MathUtils.clamp(getPhaseStartProgress(startPhase, timing), 0, 0.999999);
+  if (clamped <= start) return 0;
+  return THREE.MathUtils.clamp((clamped - start) / (1 - start), 0, 1);
+};
 
 const isUccVerboseLogsEnabled = () => Boolean(globalThis?.__UCC_VERBOSE_LOGS__);
 
@@ -2151,6 +2176,62 @@ const UnifiedCameraController = ({
         takeoverFlagsClearedAtSample,
         startPoseSource: rows.find((r) => r.fromPoseSource)?.fromPoseSource ?? null,
         likelyVisualRefireWindow,
+      });
+    };
+    globalThis.__printHeroOverviewPhaseStaging = () => {
+      const store = getHeroOverviewFullTimelineStore();
+      const rows = store.rows || [];
+      if (!rows.length) return console.log('[hero-overview-phase-staging] no samples');
+      const movementThreshold = 0.0005;
+      const firstForcedActiveSample = rows.find((r) => r.forcedActive) ?? null;
+      const firstMeaningfulMoveSample = rows.find((r) => Number(r.distanceMovedSincePreviousSample || 0) > movementThreshold) ?? null;
+      const firstForcedProgressSample = rows.find((r) => Number(r.localForcedProgress || 0) > 0.01) ?? null;
+      const firstOverviewStateSample = rows.find((r) => r.cameraState === 'overview' || r.viewMode === 'overview') ?? null;
+      const phaseStats = HERO_OVERVIEW_PHASE_ORDER.reduce((acc, phase) => {
+        const phaseRows = rows.filter((r) => r.phase === phase);
+        acc[phase] = {
+          sampleCount: phaseRows.length,
+          cameraDistanceMoved: round4(phaseRows.reduce((sum, r) => sum + Number(r.distanceMovedSincePreviousSample || 0), 0)),
+          lookAtDistanceMoved: round4(phaseRows.reduce((sum, r) => sum + Number(r.lookAtMovedSincePreviousSample || 0), 0)),
+          filmOffsetChanged: round4(phaseRows.reduce((sum, r) => sum + Number(r.filmOffsetChangedSincePreviousSample || 0), 0)),
+        };
+        return acc;
+      }, {});
+      const forcedRows = rows.filter((r) => r.forcedActive);
+      const fractureTiltOverlapsForcedTravel = forcedRows.some((r) => r.fractureTiltActive);
+      const heroExplosionTransitionOverlapsForcedTravel = forcedRows.some((r) => r.heroExplosionTransitionActive);
+      const hasTrueCameraHoldDuringFractureAndImpulse = ['fractureCharge', 'explosionImpulse']
+        .every((phase) => (phaseStats[phase]?.cameraDistanceMoved ?? 0) <= movementThreshold);
+      console.log('[hero-overview-phase-staging] summary', {
+        forcedTravelStartPhaseGate: HERO_OVERVIEW_FORCED_TRAVEL_START_PHASE,
+        firstForcedActiveSample: firstForcedActiveSample ? {
+          sampleIndex: firstForcedActiveSample.sampleIndex,
+          t: firstForcedActiveSample.t,
+          phase: firstForcedActiveSample.phase,
+        } : null,
+        firstMeaningfulMoveSample: firstMeaningfulMoveSample ? {
+          sampleIndex: firstMeaningfulMoveSample.sampleIndex,
+          t: firstMeaningfulMoveSample.t,
+          phase: firstMeaningfulMoveSample.phase,
+          distanceMovedSincePreviousSample: firstMeaningfulMoveSample.distanceMovedSincePreviousSample,
+        } : null,
+        firstLocalForcedProgressAbove001: firstForcedProgressSample ? {
+          sampleIndex: firstForcedProgressSample.sampleIndex,
+          t: firstForcedProgressSample.t,
+          phase: firstForcedProgressSample.phase,
+          localForcedProgress: firstForcedProgressSample.localForcedProgress,
+        } : null,
+        firstOverviewStateSample: firstOverviewStateSample ? {
+          sampleIndex: firstOverviewStateSample.sampleIndex,
+          t: firstOverviewStateSample.t,
+          phase: firstOverviewStateSample.phase,
+          cameraState: firstOverviewStateSample.cameraState,
+          viewMode: firstOverviewStateSample.viewMode,
+        } : null,
+        phaseStats,
+        fractureTiltOverlapsForcedTravel,
+        heroExplosionTransitionOverlapsForcedTravel,
+        hasTrueCameraHoldDuringFractureAndImpulse,
       });
     };
     globalThis.__markHeroOverviewVisualIssue = (description = 'visual-issue') => {
@@ -4411,9 +4492,14 @@ const UnifiedCameraController = ({
         const runtimePhase = runtimeSnapshot?.phase ?? 'idle';
         const runtimeProgress = runtimeSnapshot?.progress ?? 0;
         const rawSharedProgress = THREE.MathUtils.clamp(explosionClock?.progress ?? accumulatedProgress, 0, 1);
+        const stagedSharedProgress = remapProgressFromPhaseStart(
+          rawSharedProgress,
+          runtimeSnapshot?.timing || config?.timing?.heroOverviewRuntime,
+          HERO_OVERVIEW_FORCED_TRAVEL_START_PHASE,
+        );
         // Completion gate: do not let camera-driving shared progress outrun local forced camera progress.
-        // This keeps Hero→Overview from feeling "complete" while forced camera still has meaningful motion left.
-        const sharedRaw = THREE.MathUtils.clamp(Math.min(rawSharedProgress, accumulatedProgress), 0, 1);
+        // Also hold travel until the configured runtime phase boundary.
+        const sharedRaw = THREE.MathUtils.clamp(Math.min(stagedSharedProgress, accumulatedProgress), 0, 1);
         const sharedEased = THREE.MathUtils.clamp(sharedRaw >= 1 ? 1 : 1 - (2 ** (-10 * sharedRaw)), 0, 1);
         heroToOverviewSharedProgressMaxRef.current = Math.max(
           heroToOverviewSharedProgressMaxRef.current,
