@@ -2115,6 +2115,44 @@ const UnifiedCameraController = ({
       console.table(store.rows);
       if (store.markers.length) console.table(store.markers);
     };
+    globalThis.__printHeroOverviewClockDrift = () => {
+      const store = getHeroOverviewFullTimelineStore();
+      const rows = store.rows || [];
+      if (!rows.length) return console.log('[hero-overview-clock-drift] no samples');
+      const firstSharedCompleteSample = rows.find((r) => Number(r.sharedRuntimeProgress) >= 1) ?? null;
+      const firstLocalForcedCompleteSample = rows.find((r) => Number(r.localForcedProgress) >= 1) ?? null;
+      const sharedCompleteIndex = firstSharedCompleteSample ? rows.indexOf(firstSharedCompleteSample) : -1;
+      const postSharedRows = sharedCompleteIndex >= 0 ? rows.slice(sharedCompleteIndex) : [];
+      const motionAfterShared = postSharedRows.reduce((acc, row) => {
+        acc.camera += Number(row.distanceMovedSincePreviousSample || 0);
+        acc.lookAt += Number(row.lookAtMovedSincePreviousSample || 0);
+        acc.film += Number(row.filmOffsetChangedSincePreviousSample || 0);
+        return acc;
+      }, { camera: 0, lookAt: 0, film: 0 });
+      const forcedActiveAfterSharedComplete = postSharedRows.some((r) => r.forcedActive);
+      const fractureTiltActiveAfterSharedComplete = postSharedRows.some((r) => r.fractureTiltActive);
+      const heroExplosionTransitionActiveAfterSharedComplete = postSharedRows.some((r) => r.heroExplosionTransitionActive);
+      const takeoverFlagsClearedAtSample = postSharedRows.find((r) => !r.fractureTiltActive && !r.heroExplosionTransitionActive)?.sampleIndex ?? null;
+      const likelyVisualRefireWindow = postSharedRows
+        .filter((r) => (r.suspicious || '').includes('writer-change') || Number(r.distanceMovedSincePreviousSample || 0) > 0.03)
+        .slice(0, 10)
+        .map((r) => ({ sampleIndex: r.sampleIndex, t: r.t, activeWriter: r.activeWriter, suspicious: r.suspicious }));
+      console.log('[hero-overview-clock-drift] summary', {
+        firstSharedCompleteSample,
+        firstLocalForcedCompleteSample,
+        secondsBetweenCompletions: firstSharedCompleteSample && firstLocalForcedCompleteSample ? round4((firstLocalForcedCompleteSample.t ?? 0) - (firstSharedCompleteSample.t ?? 0)) : null,
+        localForcedProgressAtSharedComplete: firstSharedCompleteSample?.localForcedProgress ?? null,
+        totalCameraDistanceMovedAfterSharedComplete: round4(motionAfterShared.camera),
+        totalLookAtMovedAfterSharedComplete: round4(motionAfterShared.lookAt),
+        totalFilmOffsetChangedAfterSharedComplete: round4(motionAfterShared.film),
+        forcedActiveAfterSharedComplete,
+        fractureTiltActiveAfterSharedComplete,
+        heroExplosionTransitionActiveAfterSharedComplete,
+        takeoverFlagsClearedAtSample,
+        startPoseSource: rows.find((r) => r.fromPoseSource)?.fromPoseSource ?? null,
+        likelyVisualRefireWindow,
+      });
+    };
     globalThis.__markHeroOverviewVisualIssue = (description = 'visual-issue') => {
       const store = getHeroOverviewFullTimelineStore();
       store.markers.push({ t: round4(performance.now() / 1000), frame: null, description });
@@ -2854,7 +2892,9 @@ const UnifiedCameraController = ({
           handoffLockFrames: heroToOverviewHandoffLockFramesRef.current,
           sharedRuntimeProgress,
           localForcedProgress,
+          sharedMinusLocalProgress: (sharedRuntimeProgress != null && localForcedProgress != null) ? round4(sharedRuntimeProgress - localForcedProgress) : null,
           elapsedProgress,
+          elapsedProgressSource: forcedActive ? 'forced-local-duration' : 'none',
           cameraPosition: vectorToPlain(camera.position),
           currentLookAt: vectorToPlain(currentLookAt),
           fov: round4(camera.fov),
@@ -2871,6 +2911,7 @@ const UnifiedCameraController = ({
           filmOffsetDeltaToOverviewTarget: resolvedOverview ? round4(Math.abs((camera.filmOffset ?? 0) - (resolvedOverview.filmOffset ?? 0))) : null,
           fromPoseCaptured: shouldStartHeroOverviewPilotScaffold,
           targetPoseRecalculated: shouldStartHeroOverviewPilotScaffold,
+          fromPoseSource: transition?.from?.source ?? null,
         };
         row.distanceMovedSincePreviousSample = prevRow?.cameraPosition ? round4(Math.hypot((row.cameraPosition?.x ?? 0) - (prevRow.cameraPosition?.x ?? 0), (row.cameraPosition?.y ?? 0) - (prevRow.cameraPosition?.y ?? 0), (row.cameraPosition?.z ?? 0) - (prevRow.cameraPosition?.z ?? 0))) : null;
         row.lookAtMovedSincePreviousSample = prevRow?.currentLookAt ? round4(Math.hypot((row.currentLookAt?.x ?? 0) - (prevRow.currentLookAt?.x ?? 0), (row.currentLookAt?.y ?? 0) - (prevRow.currentLookAt?.y ?? 0), (row.currentLookAt?.z ?? 0) - (prevRow.currentLookAt?.z ?? 0))) : null;
