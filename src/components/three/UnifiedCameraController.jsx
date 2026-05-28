@@ -4360,8 +4360,12 @@ const UnifiedCameraController = ({
       const frameDelta = Number.isFinite(delta) ? delta : 0;
       const safeDelta = Math.min(frameDelta, MAX_FORCED_TRANSITION_DELTA);
       transition.progress = Math.min(1, transition.progress + (safeDelta / transition.duration));
-      const accumulatedProgress = THREE.MathUtils.clamp(transition.progress, 0, 1);
       const elapsedProgress = THREE.MathUtils.clamp((state.clock.elapsedTime - transition.startTime) / transition.duration, 0, 1);
+      // Prevent forced local progress from lagging wall-clock/shared runtime under large frame deltas.
+      if (elapsedProgress > transition.progress) {
+        transition.progress = elapsedProgress;
+      }
+      const accumulatedProgress = THREE.MathUtils.clamp(transition.progress, 0, 1);
       const smoothstep = (v) => {
         const p = THREE.MathUtils.clamp(v, 0, 1);
         return p * p * p * (p * (p * 6 - 15) + 10);
@@ -4406,7 +4410,10 @@ const UnifiedCameraController = ({
         const cameraTimingSource = sharedClockRuntimeState ? 'sharedExplosionClock' : 'runtime';
         const runtimePhase = runtimeSnapshot?.phase ?? 'idle';
         const runtimeProgress = runtimeSnapshot?.progress ?? 0;
-        const sharedRaw = THREE.MathUtils.clamp(explosionClock?.progress ?? accumulatedProgress, 0, 1);
+        const rawSharedProgress = THREE.MathUtils.clamp(explosionClock?.progress ?? accumulatedProgress, 0, 1);
+        // Completion gate: do not let camera-driving shared progress outrun local forced camera progress.
+        // This keeps Hero→Overview from feeling "complete" while forced camera still has meaningful motion left.
+        const sharedRaw = THREE.MathUtils.clamp(Math.min(rawSharedProgress, accumulatedProgress), 0, 1);
         const sharedEased = THREE.MathUtils.clamp(sharedRaw >= 1 ? 1 : 1 - (2 ** (-10 * sharedRaw)), 0, 1);
         heroToOverviewSharedProgressMaxRef.current = Math.max(
           heroToOverviewSharedProgressMaxRef.current,
@@ -4486,6 +4493,8 @@ const UnifiedCameraController = ({
               runtimeProgress: Number(runtimeProgress.toFixed?.(3) ?? runtimeProgress),
               runtimePhase,
               cameraPushbackProgress: Number((cameraTimingState?.progress ?? runtimeProgress).toFixed(4)),
+              rawSharedProgress: Number(rawSharedProgress.toFixed(4)),
+              gatedSharedProgress: Number(sharedRaw.toFixed(4)),
               cameraProgressSharedEased: Number(sharedEased.toFixed(4)),
               cameraProgressMonotonicSharedEased: Number(monotonicSharedEased.toFixed(4)),
               cameraAppliedOffsetLength: Number(appliedOffset.length().toFixed(4)),

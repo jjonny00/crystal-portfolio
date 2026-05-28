@@ -80,3 +80,9 @@ Block scaffold start if any are active:
 - Current working hypothesis: broader timeline/state/composition mismatch, potentially while `state/cameraState` are already `overview` but forced writer remains active.
 - Added bounded full-route timeline diagnostics (`__printHeroOverviewFullTimeline`) plus manual marker helper (`__markHeroOverviewVisualIssue`) to identify the exact discontinuity frame before further runtime patching.
 - Do not continue Hero→Overview handoff patching until timeline evidence identifies the first true visual discontinuity frame and branch cause.
+
+## PR-18 clock-drift stabilization note
+- Timeline + clock-drift diagnostics showed shared runtime reaching `complete` while forced camera local progress remained around `0.81`.
+- Root cause: forced local progress advanced by clamped frame delta, so under larger frame times it could lag wall-clock/shared runtime completion.
+- Narrow fix in legacy forced hero→overview branch: clamp local forced progress to at least elapsed wall-clock progress each frame (`transition.progress = max(transition.progress, elapsedProgress)`).
+- This keeps the forced camera completion seam aligned with shared-runtime completion without changing pilot ownership or broad transition logic.
