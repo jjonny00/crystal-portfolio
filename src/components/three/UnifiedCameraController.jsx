@@ -211,6 +211,8 @@ const UnifiedCameraController = ({
   const heroToOverviewTransitionStartedForExitRef = useRef(false);
   const heroToOverviewLastForcedFinalRef = useRef(null);
   const heroToOverviewAwaitFirstNormalFrameRef = useRef(false);
+  const heroToOverviewForcedCompleteFrameRef = useRef(null);
+  const heroToOverviewHandoffSeamRowsRef = useRef([]);
   const heroToOverviewTraceRef = useRef([]);
   const heroToOverviewTraceMetaRef = useRef({ active: false, endTime: 0, forcedFinal: null, prevSample: null });
   const heroToOverviewPhaseBoundaryTraceRef = useRef([]);
@@ -1751,6 +1753,16 @@ const UnifiedCameraController = ({
     }
     return globalThis.__heroOverviewDiagnosticStore;
   };
+  const getHeroOverviewHandoffSeamStore = () => {
+    if (typeof globalThis === 'undefined') return heroToOverviewHandoffSeamRowsRef.current;
+    if (!globalThis.__heroOverviewHandoffSeamStore) {
+      globalThis.__heroOverviewHandoffSeamStore = heroToOverviewHandoffSeamRowsRef.current;
+    }
+    if (globalThis.__heroOverviewHandoffSeamStore !== heroToOverviewHandoffSeamRowsRef.current) {
+      globalThis.__heroOverviewHandoffSeamStore = heroToOverviewHandoffSeamRowsRef.current;
+    }
+    return globalThis.__heroOverviewHandoffSeamStore;
+  };
 
   const installOverviewProjectShadowHelpers = () => {
     if (!import.meta.env.DEV || typeof globalThis === 'undefined') return;
@@ -2070,6 +2082,11 @@ const UnifiedCameraController = ({
         fractureTiltActive: fractureTiltActiveRef.current,
         handoffLockFrames: heroToOverviewHandoffLockFramesRef.current,
       });
+    };
+    globalThis.__printHeroOverviewHandoffSeam = () => {
+      const rows = getHeroOverviewHandoffSeamStore();
+      if (!rows.length) return console.log('[hero-overview-handoff-seam] samples', []);
+      console.table(rows);
     };
   };
   const sampleProjectOverviewPilotParity = ({ state, prevCameraState, nextCameraState, projectId, sourceProjectId, sourceProjectIdUnavailableReason = null }) => {
@@ -4575,6 +4592,7 @@ const UnifiedCameraController = ({
           focusedProject: animationData?.focusedProject ?? null,
         };
         heroToOverviewAwaitFirstNormalFrameRef.current = true;
+        heroToOverviewForcedCompleteFrameRef.current = state.clock.frame;
         authoritativeHeroToOverviewTransitionRef.current.active = false;
         if (TRACE_HERO_TO_OVERVIEW_CAMERA_STATE) {
           heroToOverviewTraceMetaRef.current.endTime = state.clock.elapsedTime + 0.5;
@@ -5247,6 +5265,57 @@ const UnifiedCameraController = ({
       else if (animationData?.cameraState === 'caseStudy') console.log('[UCC BRANCH] CASE_STUDY');
       else if (animationData?.cameraState === 'hero') console.log('[UCC BRANCH] HERO_IDLE');
       else console.log('[UCC BRANCH] FALLBACK', { cameraState: animationData?.cameraState, state: animationData?.state });
+    }
+
+    const resolvedOverviewForSeam = getOverviewProjectResolvedPose('overview');
+    const liveLookAtForSeam = currentTarget.current?.lookAt ? currentTarget.current.lookAt.clone() : getCameraLookAtFromTransform();
+    const framesSinceForcedCompletion = heroToOverviewForcedCompleteFrameRef.current == null
+      ? null
+      : Math.max(0, state.clock.frame - heroToOverviewForcedCompleteFrameRef.current);
+    const forcedRecentlyCompleted = framesSinceForcedCompletion != null && framesSinceForcedCompletion <= 20;
+    const distanceToOverviewTarget = resolvedOverviewForSeam ? safeDistance(camera.position, resolvedOverviewForSeam.position) : null;
+    const lookAtDeltaToOverviewTarget = resolvedOverviewForSeam ? safeDistance(liveLookAtForSeam, resolvedOverviewForSeam.lookAt) : null;
+    const filmOffsetDeltaToOverviewTarget = resolvedOverviewForSeam ? round4(Math.abs((camera.filmOffset ?? 0) - (resolvedOverviewForSeam.filmOffset ?? 0))) : null;
+    const shouldSuppressPostForcedFallbackSmoothing =
+      forcedRecentlyCompleted &&
+      resolvedOverviewForSeam &&
+      (distanceToOverviewTarget ?? Number.POSITIVE_INFINITY) <= 0.01 &&
+      (lookAtDeltaToOverviewTarget ?? Number.POSITIVE_INFINITY) <= 0.01 &&
+      (filmOffsetDeltaToOverviewTarget ?? Number.POSITIVE_INFINITY) <= 0.01;
+    if (import.meta.env.DEV && forcedRecentlyCompleted) {
+      const seamRows = heroToOverviewHandoffSeamRowsRef.current;
+      seamRows.push({
+        frame: state.clock.frame,
+        framesSinceForcedCompletion,
+        activeWriter: lastCameraWriterRef.current,
+        activeWriterReason: lastCameraWriteReasonRef.current,
+        transitionStartReason: lastCameraWriterRef.current === 'TRANSITION' ? lastCameraWriteReasonRef.current : null,
+        fallbackReason: lastCameraWriterRef.current === 'FALLBACK' ? lastCameraWriteReasonRef.current : null,
+        branchName: animationData?.cameraState === 'overview' ? 'overview-branch' : (animationData?.cameraState || 'other'),
+        forcedRecentlyCompleted,
+        forcedActive: authoritativeHeroToOverviewTransitionRef.current.active,
+        handoffLockFrames: heroToOverviewHandoffLockFramesRef.current,
+        cameraMoveProgressRef: round4(cameraMoveProgressRef.current),
+        cameraSettled: cameraSettledRef.current,
+        distanceToOverviewTarget,
+        lookAtDeltaToOverviewTarget,
+        filmOffsetDeltaToOverviewTarget,
+        currentTargetExists: Boolean(currentTarget.current),
+      });
+      if (seamRows.length > 60) seamRows.shift();
+    }
+    if (shouldSuppressPostForcedFallbackSmoothing && animationData?.cameraState === 'overview') {
+      camera.position.copy(currentTarget.current.position);
+      camera.lookAt(currentTarget.current.lookAt);
+      camera.fov = currentTarget.current.fov;
+      camera.filmOffset = resolvedOverviewForSeam.filmOffset;
+      camera.updateProjectionMatrix();
+      cameraMoveProgressRef.current = 1;
+      if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = 1;
+      animationData?.setCameraMoveProgress?.(1);
+      animationData?.setCameraSettled?.(true);
+      logCameraWrite(state, "FORCED_HERO_TO_OVERVIEW", "post-forced-overview-noop", currentTarget.current.lookAt, true, true);
+      return;
     }
 
     // FIXED: Use exponential smoothing with clamping
