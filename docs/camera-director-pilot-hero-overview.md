@@ -125,3 +125,21 @@ The proposed pilot should:
 - Initially reproduce current baseline as closely as possible.
 - Include diagnostic comparison against legacy.
 - No explosion style polish yet.
+
+## Milestone A scaffold status
+- Added an explicit disabled pilot phase model in `UnifiedCameraController`:
+  1. `fractureCharge`
+  2. `explosionImpulse`
+  3. `bulletTimeSlowdown`
+  4. `overviewTravel`
+  5. `overviewSettle`
+  6. `complete`
+- Initial phase behavior map is declarative only: hold/capture, baseline-equivalent fracture or hold, controlled handoff, overview interpolation, exact settle, clear ownership.
+- Current Milestone A code is scaffold-only: `ownsCameraInMilestoneA: false`; flag-on capture records phase metadata and live/target poses, but does not block legacy writers or write the camera.
+- Capture source is the live camera transform (`camera.position.clone()` plus `getCameraLookAtFromTransform()`), not hero snapshots.
+- Target source is explicit overview resolution through `resolveCameraDestination`/`getOverviewProjectResolvedPose`, with intentional `filmOffset` from the resolver.
+- Pilot diagnostics:
+  - `__clearHeroOverviewPilotSamples()`
+  - `__printHeroOverviewPilotSummary()`
+  - `__printHeroOverviewPilotSamples()`
+- Enable smoke test in DEV with `globalThis.__ENABLE_CAMERA_DIRECTOR_HERO_OVERVIEW__ = true`; rollback by setting it to `false` or reloading with the default disabled flag.
