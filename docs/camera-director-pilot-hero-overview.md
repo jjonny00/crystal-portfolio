@@ -74,3 +74,9 @@ Block scaffold start if any are active:
 - Near completion, shared clock progress can regress/reset while forced transition is still active, causing filmOffset to jump back toward hero value.
 - Mitigation added in legacy branch: monotonic clamp for shared-eased progress used by filmOffset lerp, plus forced final/handoff filmOffset normalization to transition destination.
 - This is a targeted handoff stabilization fix; pilot still does not own the route.
+
+## PR-17 timeline diagnosis pivot
+- Final handoff seam patches (filmOffset, early lock, seeded refs) reduced specific snaps but did not remove the user-visible refire.
+- Current working hypothesis: broader timeline/state/composition mismatch, potentially while `state/cameraState` are already `overview` but forced writer remains active.
+- Added bounded full-route timeline diagnostics (`__printHeroOverviewFullTimeline`) plus manual marker helper (`__markHeroOverviewVisualIssue`) to identify the exact discontinuity frame before further runtime patching.
+- Do not continue Hero→Overview handoff patching until timeline evidence identifies the first true visual discontinuity frame and branch cause.

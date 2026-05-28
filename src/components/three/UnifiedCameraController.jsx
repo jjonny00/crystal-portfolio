@@ -213,6 +213,17 @@ const UnifiedCameraController = ({
   const heroToOverviewAwaitFirstNormalFrameRef = useRef(false);
   const heroToOverviewForcedCompleteFrameRef = useRef(null);
   const heroToOverviewHandoffSeamRowsRef = useRef([]);
+  const heroToOverviewFullTimelineRef = useRef({
+    rows: [],
+    markers: [],
+    maxRows: 400,
+    active: false,
+    runId: null,
+    lastPhase: null,
+    lastWriter: null,
+    lastStateKey: null,
+    forcedCompleteFrame: null,
+  });
   const heroToOverviewTraceRef = useRef([]);
   const heroToOverviewTraceMetaRef = useRef({ active: false, endTime: 0, forcedFinal: null, prevSample: null });
   const heroToOverviewPhaseBoundaryTraceRef = useRef([]);
@@ -1763,6 +1774,16 @@ const UnifiedCameraController = ({
     }
     return globalThis.__heroOverviewHandoffSeamStore;
   };
+  const getHeroOverviewFullTimelineStore = () => {
+    if (typeof globalThis === 'undefined') return heroToOverviewFullTimelineRef.current;
+    if (!globalThis.__heroOverviewFullTimelineStore) {
+      globalThis.__heroOverviewFullTimelineStore = heroToOverviewFullTimelineRef.current;
+    }
+    if (globalThis.__heroOverviewFullTimelineStore !== heroToOverviewFullTimelineRef.current) {
+      globalThis.__heroOverviewFullTimelineStore = heroToOverviewFullTimelineRef.current;
+    }
+    return globalThis.__heroOverviewFullTimelineStore;
+  };
 
   const installOverviewProjectShadowHelpers = () => {
     if (!import.meta.env.DEV || typeof globalThis === 'undefined') return;
@@ -2087,6 +2108,18 @@ const UnifiedCameraController = ({
       const rows = getHeroOverviewHandoffSeamStore();
       if (!rows.length) return console.log('[hero-overview-handoff-seam] samples', []);
       console.table(rows);
+    };
+    globalThis.__printHeroOverviewFullTimeline = () => {
+      const store = getHeroOverviewFullTimelineStore();
+      if (!store.rows.length) return console.log('[hero-overview-full-timeline] samples', []);
+      console.table(store.rows);
+      if (store.markers.length) console.table(store.markers);
+    };
+    globalThis.__markHeroOverviewVisualIssue = (description = 'visual-issue') => {
+      const store = getHeroOverviewFullTimelineStore();
+      store.markers.push({ t: round4(performance.now() / 1000), frame: null, description });
+      if (store.markers.length > 20) store.markers.shift();
+      console.log('[hero-overview-full-timeline] marker added', { description });
     };
   };
   const sampleProjectOverviewPilotParity = ({ state, prevCameraState, nextCameraState, projectId, sourceProjectId, sourceProjectIdUnavailableReason = null }) => {
@@ -2777,6 +2810,92 @@ const UnifiedCameraController = ({
     const projectToProjectActivationTimingCandidate = ((projectToProjectStartPositionDelta != null && projectToProjectStartPositionDelta <= 0.02 && (projectToProjectStartMoveProgress ?? 1) >= 0.99 && (projectToProjectStartFacetProgress ?? 1) >= 0.99)
       ? 'post-settle'
       : ((projectToProjectStartMoveProgress ?? 0) <= 0.1 ? 'pre-transition' : 'mid-transition'));
+    if (import.meta.env.DEV) {
+      const timeline = heroToOverviewFullTimelineRef.current;
+      const transition = authoritativeHeroToOverviewTransitionRef.current;
+      const forcedActive = Boolean(transition?.active);
+      const heroOverviewRouteActive =
+        forcedActive ||
+        heroToOverviewHandoffLockFramesRef.current > 0 ||
+        ((prevCameraState === 'hero' || prevState === 'hero') && (nextState === 'overview' || nextCameraState === 'overview')) ||
+        (nextState === 'overview' && nextCameraState === 'overview' && heroToOverviewForcedCompleteFrameRef.current != null && (state.clock.frame - heroToOverviewForcedCompleteFrameRef.current) <= 40);
+      if (heroOverviewRouteActive && !timeline.active) {
+        timeline.active = true;
+        timeline.runId = `hero-overview:${state.clock.frame}`;
+        timeline.rows = [];
+        timeline.markers = [];
+        timeline.lastPhase = null;
+        timeline.lastWriter = null;
+        timeline.lastStateKey = null;
+        timeline.forcedCompleteFrame = null;
+      }
+      if (timeline.active) {
+        const resolvedOverview = getOverviewProjectResolvedPose('overview');
+        const currentLookAt = currentTarget.current?.lookAt ? currentTarget.current.lookAt.clone() : getCameraLookAtFromTransform();
+        const prevRow = timeline.rows[timeline.rows.length - 1] ?? null;
+        const localForcedProgress = round4(transition?.progress ?? null);
+        const elapsedProgress = transition?.active ? round4(THREE.MathUtils.clamp((state.clock.elapsedTime - transition.startTime) / transition.duration, 0, 1)) : null;
+        const sharedRuntimeProgress = round4(heroOverviewRuntime?.getSnapshot?.()?.progress ?? null);
+        const row = {
+          t: round4(state.clock.elapsedTime),
+          frameId: state.clock.frame,
+          sampleIndex: timeline.rows.length,
+          phase: heroOverviewRuntime?.getSnapshot?.()?.phase ?? null,
+          routePhase: nextState,
+          state: nextState,
+          cameraState: nextCameraState,
+          viewMode: viewMode ?? null,
+          activeWriter: lastCameraWriterRef.current,
+          activeWriterReason: lastCameraWriteReasonRef.current,
+          forcedActive,
+          heroExplosionTransitionActive: heroExplosionTransitionRef.current.active,
+          fractureTiltActive: fractureTiltActiveRef.current,
+          authoritativeHeroToOverviewActive: forcedActive,
+          handoffLockFrames: heroToOverviewHandoffLockFramesRef.current,
+          sharedRuntimeProgress,
+          localForcedProgress,
+          elapsedProgress,
+          cameraPosition: vectorToPlain(camera.position),
+          currentLookAt: vectorToPlain(currentLookAt),
+          fov: round4(camera.fov),
+          filmOffset: round4(camera.filmOffset),
+          currentTargetPosition: vectorToPlain(currentTarget.current?.position),
+          currentTargetLookAt: vectorToPlain(currentTarget.current?.lookAt),
+          currentTargetFilmOffset: round4(camera.filmOffset),
+          previousFramePosePosition: vectorToPlain(previousFramePoseRef.current?.position),
+          previousFramePoseLookAt: vectorToPlain(previousFramePoseRef.current?.lookAt),
+          cameraMoveProgressRef: round4(cameraMoveProgressRef.current),
+          cameraSettled: cameraSettledRef.current,
+          distanceToOverviewTarget: resolvedOverview ? safeDistance(camera.position, resolvedOverview.position) : null,
+          lookAtDeltaToOverviewTarget: resolvedOverview ? safeDistance(currentLookAt, resolvedOverview.lookAt) : null,
+          filmOffsetDeltaToOverviewTarget: resolvedOverview ? round4(Math.abs((camera.filmOffset ?? 0) - (resolvedOverview.filmOffset ?? 0))) : null,
+          fromPoseCaptured: shouldStartHeroOverviewPilotScaffold,
+          targetPoseRecalculated: shouldStartHeroOverviewPilotScaffold,
+        };
+        row.distanceMovedSincePreviousSample = prevRow?.cameraPosition ? round4(Math.hypot((row.cameraPosition?.x ?? 0) - (prevRow.cameraPosition?.x ?? 0), (row.cameraPosition?.y ?? 0) - (prevRow.cameraPosition?.y ?? 0), (row.cameraPosition?.z ?? 0) - (prevRow.cameraPosition?.z ?? 0))) : null;
+        row.lookAtMovedSincePreviousSample = prevRow?.currentLookAt ? round4(Math.hypot((row.currentLookAt?.x ?? 0) - (prevRow.currentLookAt?.x ?? 0), (row.currentLookAt?.y ?? 0) - (prevRow.currentLookAt?.y ?? 0), (row.currentLookAt?.z ?? 0) - (prevRow.currentLookAt?.z ?? 0))) : null;
+        row.filmOffsetChangedSincePreviousSample = prevRow?.filmOffset != null ? round4(Math.abs((row.filmOffset ?? 0) - (prevRow.filmOffset ?? 0))) : null;
+        const stateKey = `${row.state}|${row.cameraState}|${row.viewMode}|${row.activeWriter}|${row.phase}`;
+        const suspicious = [];
+        if (timeline.lastWriter && timeline.lastWriter !== row.activeWriter) suspicious.push('writer-change');
+        if (timeline.lastStateKey && timeline.lastStateKey !== `${row.state}|${row.cameraState}|${row.viewMode}`) suspicious.push('state-change');
+        if ((row.distanceMovedSincePreviousSample ?? 0) > 0.03) suspicious.push('large-position-delta');
+        if ((row.lookAtMovedSincePreviousSample ?? 0) > 0.03) suspicious.push('large-lookAt-delta');
+        if ((row.filmOffsetChangedSincePreviousSample ?? 0) > 0.05) suspicious.push('large-filmOffset-delta');
+        if (row.cameraState === 'overview' && row.forcedActive) suspicious.push('overview-state-while-forced-active');
+        row.suspicious = suspicious.join(',');
+        if (!timeline.lastPhase || timeline.lastPhase !== row.phase || suspicious.length || row.sampleIndex < 8) {
+          timeline.rows.push(row);
+          if (timeline.rows.length > timeline.maxRows) timeline.rows.shift();
+        }
+        timeline.lastPhase = row.phase;
+        timeline.lastWriter = row.activeWriter;
+        timeline.lastStateKey = `${row.state}|${row.cameraState}|${row.viewMode}`;
+        if (!heroOverviewRouteActive && !forcedActive && heroToOverviewHandoffLockFramesRef.current <= 0 && row.sampleIndex > 20) {
+          timeline.active = false;
+        }
+      }
+    }
     const shouldBlockInvalidMidTransitionStart =
       shouldStartProjectToProjectPilot &&
       projectToProjectActivationTimingCandidate === 'mid-transition' &&
