@@ -173,3 +173,10 @@ The proposed pilot should:
 - Diagnostics also showed pilot camera progress could reset mid-run when the shared/explosion progress source regressed while elapsed wall-clock progress continued. The pilot now keeps a monotonic run-level camera interpolation progress (`monotonicGlobalProgress`) and records the source values separately.
 - `__printHeroOverviewPilotSamples()` now includes flattened camera/from/target vector fields so parity rows are readable without expanding console objects.
 - New helper: `__printHeroOverviewPilotParity()` compares pilot from/to poses, the proven legacy overview final pose, the resolver overview pose, and the current final camera pose with position/lookAt/FOV/filmOffset deltas.
+
+## PR-23 active-pilot wiring guardrails
+- Follow-up browser output still showed `targetFov: 32`, `targetFilmOffset: 9`, and non-monotonic `globalProgress`, which means the active camera-write path needed stronger proof fields and runtime correction rather than only capture-time target selection.
+- The active Milestone B writer now revalidates `transition.toPose` on every pilot write. If a stale resolver/current-target pose reaches the active writer, it is replaced before camera writes with `hero-overview-legacy-final-pose` (`fov: 44`, `filmOffset: 0`) and diagnostics record `targetWasOverwritten` plus `targetOverwriteReason`.
+- Active pilot samples now distinguish the target used for camera writes from resolver/debug targets with `activeToPoseSource`, `activeToPoseFov`, `activeToPoseFilmOffset`, `cameraWriteTargetSource`, `diagnosticTargetSource`, and `completionTargetSource`.
+- Active pilot samples also distinguish raw progress candidates from write progress with `progressSourceUsedForCameraWrite`, `rawProgressCandidate`, `previousMonotonicGlobalProgress`, `globalProgressPrintedSource`, `progressWentBackwards`, and `progressWasClampedToMonotonic`.
+- DEV warning: if the active writer encounters a stale non-legacy target, it logs a one-time correction warning with previous and corrected FOV/filmOffset values. The warning does not crash or change flag-off behavior.

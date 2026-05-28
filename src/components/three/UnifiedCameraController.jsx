@@ -269,6 +269,7 @@ const UnifiedCameraController = ({
     lastSummary: null,
   });
   const lastHeroOverviewPilotAttemptKeyRef = useRef(null);
+  const heroOverviewPilotBadTargetWarnedRef = useRef(false);
   const projectOverviewPilotParityRef = useRef({
     runs: [],
     activeRun: null,
@@ -1750,7 +1751,7 @@ const UnifiedCameraController = ({
       fov: 44,
       filmOffset: 0,
       meta: {
-        source: 'legacy-forced-hero-overview-final+overview-cameraConfig-fov',
+        source: 'hero-overview-legacy-final-pose',
         positionSource: 'config.cameraPositions.overview+offsets',
         lookAtSource: 'config.cameraTargets.overview+offsets',
         fovSource: 'ANIMATION_CONFIG.camera.overview.fov',
@@ -1772,6 +1773,62 @@ const UnifiedCameraController = ({
     fovDelta: Number.isFinite(a?.fov) && Number.isFinite(b?.fov) ? round4(Math.abs(a.fov - b.fov)) : null,
     filmOffsetDelta: Number.isFinite(a?.filmOffset) && Number.isFinite(b?.filmOffset) ? round4(Math.abs(a.filmOffset - b.filmOffset)) : null,
   });
+  const isHeroOverviewLegacyFinalPose = (pose) => (
+    pose &&
+    Number.isFinite(pose.fov) && Math.abs(pose.fov - 44) <= 0.001 &&
+    Number.isFinite(pose.filmOffset) && Math.abs(pose.filmOffset) <= 0.001 &&
+    pose.meta?.source === 'hero-overview-legacy-final-pose'
+  );
+  const ensureHeroOverviewPilotCameraWriteTarget = (transition) => {
+    const legacyFinalPose = getHeroOverviewLegacyFinalPose();
+    const currentToPose = transition?.toPose ?? null;
+    const targetWasOverwritten = Boolean(legacyFinalPose && !isHeroOverviewLegacyFinalPose(currentToPose));
+    const targetOverwriteReason = targetWasOverwritten
+      ? `active-toPose-not-legacy-final:fov=${round4(currentToPose?.fov)}:filmOffset=${round4(currentToPose?.filmOffset)}:source=${currentToPose?.meta?.source ?? transition?.targetPoseSource ?? 'unknown'}`
+      : null;
+    if (targetWasOverwritten) {
+      if (import.meta.env.DEV && !heroOverviewPilotBadTargetWarnedRef.current) {
+        heroOverviewPilotBadTargetWarnedRef.current = true;
+        console.warn('[hero-overview-pilot] corrected stale active camera-write target before pilot write', {
+          targetOverwriteReason,
+          previousTargetSource: currentToPose?.meta?.source ?? transition?.targetPoseSource ?? null,
+          previousTargetFov: round4(currentToPose?.fov),
+          previousTargetFilmOffset: round4(currentToPose?.filmOffset),
+          correctedTargetSource: legacyFinalPose.meta.source,
+          correctedTargetFov: round4(legacyFinalPose.fov),
+          correctedTargetFilmOffset: round4(legacyFinalPose.filmOffset),
+        });
+      }
+      transition.toPose = legacyFinalPose;
+      transition.targetPoseSource = legacyFinalPose.meta.source;
+      transition.targetWasOverwritten = true;
+      transition.targetOverwriteReason = targetOverwriteReason;
+      transition.targetPoseRecalculated = false;
+    } else if (transition) {
+      transition.targetWasOverwritten = Boolean(transition.targetWasOverwritten);
+      transition.targetOverwriteReason = transition.targetOverwriteReason ?? null;
+    }
+    const activeToPose = transition?.toPose ?? legacyFinalPose ?? currentToPose;
+    if (
+      import.meta.env.DEV &&
+      isHeroToOverviewPilotEnabled() &&
+      activeToPose &&
+      (!Number.isFinite(activeToPose.fov) || Math.abs(activeToPose.fov - 44) > 0.001 || !Number.isFinite(activeToPose.filmOffset) || Math.abs(activeToPose.filmOffset) > 0.001) &&
+      !heroOverviewPilotBadTargetWarnedRef.current
+    ) {
+      heroOverviewPilotBadTargetWarnedRef.current = true;
+      console.warn('[hero-overview-pilot] active camera-write target is not legacy overview final pose', {
+        activeToPoseSource: activeToPose.meta?.source ?? transition?.targetPoseSource ?? null,
+        activeToPoseFov: round4(activeToPose.fov),
+        activeToPoseFilmOffset: round4(activeToPose.filmOffset),
+        resolverPoseFov: round4(transition?.resolverOverviewPose?.fov),
+        resolverPoseFilmOffset: round4(transition?.resolverOverviewPose?.filmOffset),
+        legacyFinalPoseFov: round4(legacyFinalPose?.fov),
+        legacyFinalPoseFilmOffset: round4(legacyFinalPose?.filmOffset),
+      });
+    }
+    return { activeToPose, legacyFinalPose, targetWasOverwritten, targetOverwriteReason };
+  };
 
 
   const getOverviewProjectShadowStore = () => {
@@ -2296,6 +2353,7 @@ const UnifiedCameraController = ({
         transition: null,
       };
       lastHeroOverviewPilotAttemptKeyRef.current = null;
+      heroOverviewPilotBadTargetWarnedRef.current = false;
       console.log('[hero-overview-pilot] samples-cleared');
     };
     globalThis.__printHeroOverviewPilotSamples = () => {
@@ -2308,6 +2366,7 @@ const UnifiedCameraController = ({
       const latest = store.samples[store.samples.length - 1] ?? null;
       const summary = {
         pilotEnabled: isHeroToOverviewPilotEnabled(),
+        pilotDiagnosticVersion: latest?.pilotDiagnosticVersion ?? 'PR-23-active-writer-target-guard',
         sampleCount: store.samples.length,
         captureAttempted: latest?.captureAttempted ?? false,
         captureSucceeded: latest?.captureSucceeded ?? false,
@@ -2338,6 +2397,26 @@ const UnifiedCameraController = ({
         progressSource: latest?.progressSource ?? heroOverviewPilotRef.current.transition?.progressSource ?? null,
         fromPoseRecaptured: latest?.fromPoseRecaptured ?? heroOverviewPilotRef.current.transition?.fromPoseRecaptured ?? false,
         targetPoseRecalculated: latest?.targetPoseRecalculated ?? heroOverviewPilotRef.current.transition?.targetPoseRecalculated ?? false,
+        activeToPoseSource: latest?.activeToPoseSource ?? heroOverviewPilotRef.current.transition?.toPose?.meta?.source ?? null,
+        activeToPoseFov: latest?.activeToPoseFov ?? round4(heroOverviewPilotRef.current.transition?.toPose?.fov),
+        activeToPoseFilmOffset: latest?.activeToPoseFilmOffset ?? round4(heroOverviewPilotRef.current.transition?.toPose?.filmOffset),
+        resolverPoseFov: latest?.resolverPoseFov ?? round4(heroOverviewPilotRef.current.transition?.resolverOverviewPose?.fov),
+        resolverPoseFilmOffset: latest?.resolverPoseFilmOffset ?? round4(heroOverviewPilotRef.current.transition?.resolverOverviewPose?.filmOffset),
+        legacyFinalPoseFov: latest?.legacyFinalPoseFov ?? round4(getHeroOverviewLegacyFinalPose()?.fov),
+        legacyFinalPoseFilmOffset: latest?.legacyFinalPoseFilmOffset ?? round4(getHeroOverviewLegacyFinalPose()?.filmOffset),
+        diagnosticTargetSource: latest?.diagnosticTargetSource ?? null,
+        cameraWriteTargetSource: latest?.cameraWriteTargetSource ?? null,
+        completionTargetSource: latest?.completionTargetSource ?? null,
+        targetWasOverwritten: latest?.targetWasOverwritten ?? heroOverviewPilotRef.current.transition?.targetWasOverwritten ?? false,
+        targetOverwriteReason: latest?.targetOverwriteReason ?? heroOverviewPilotRef.current.transition?.targetOverwriteReason ?? null,
+        progressSourceUsedForCameraWrite: latest?.progressSourceUsedForCameraWrite ?? null,
+        rawProgressCandidate: latest?.rawProgressCandidate ?? null,
+        previousMonotonicGlobalProgress: latest?.previousMonotonicGlobalProgress ?? null,
+        globalProgressPrintedSource: latest?.globalProgressPrintedSource ?? null,
+        progressWentBackwards: latest?.progressWentBackwards ?? false,
+        progressWasClampedToMonotonic: latest?.progressWasClampedToMonotonic ?? false,
+        transitionObjectReinitialized: latest?.transitionObjectReinitialized ?? false,
+        runRestarted: latest?.runRestarted ?? false,
         latest,
       };
       store.lastSummary = summary;
@@ -3409,6 +3488,7 @@ const UnifiedCameraController = ({
         key: heroOverviewActivationKey,
         transitionKey: heroOverviewTransitionKey,
         pilotEnabled: isHeroToOverviewPilotEnabled(),
+        pilotDiagnosticVersion: 'PR-23-active-writer-target-guard',
         captureAttempted: true,
         captureSucceeded: Boolean(resolvedOverview),
         activationConditionMatched: true,
@@ -3445,6 +3525,19 @@ const UnifiedCameraController = ({
         fromFilmOffset: round4(Number.isFinite(camera.filmOffset) ? camera.filmOffset : null),
         targetResolved: Boolean(resolvedOverview),
         targetPoseSource: resolvedOverview?.meta?.source ?? null,
+        activeToPoseSource: resolvedOverview?.meta?.source ?? null,
+        activeToPoseFov: round4(resolvedOverview?.fov),
+        activeToPoseFilmOffset: round4(resolvedOverview?.filmOffset),
+        ...flattenVector('activeToPose', resolvedOverview?.position),
+        resolverPoseFov: round4(resolverOverview?.fov),
+        resolverPoseFilmOffset: round4(resolverOverview?.filmOffset),
+        legacyFinalPoseFov: round4(resolvedOverview?.fov),
+        legacyFinalPoseFilmOffset: round4(resolvedOverview?.filmOffset),
+        diagnosticTargetSource: 'capture-toPose',
+        cameraWriteTargetSource: resolvedOverview?.meta?.source ?? null,
+        completionTargetSource: null,
+        targetWasOverwritten: false,
+        targetOverwriteReason: null,
         resolverTargetFov: round4(resolverOverview?.fov),
         resolverTargetFilmOffset: round4(resolverOverview?.filmOffset),
         targetPosition: resolvedOverview ? vectorToPlain(resolvedOverview.position) : null,
@@ -3459,6 +3552,14 @@ const UnifiedCameraController = ({
         phaseProgress: 0,
         runtimePhase: heroOverviewObservedPhase,
         progressSource: 'monotonic-run-progress:max(elapsed,runtime,explosion)',
+        progressSourceUsedForCameraWrite: 'not-writing-on-capture-row',
+        rawProgressCandidate: 0,
+        previousMonotonicGlobalProgress: 0,
+        globalProgressPrintedSource: 'initial-capture-row',
+        progressWentBackwards: false,
+        progressWasClampedToMonotonic: false,
+        transitionObjectReinitialized: false,
+        runRestarted: false,
         fromPoseRecaptured: false,
         targetPoseRecalculated: false,
         pilotStartedThisFrame: true,
@@ -4233,7 +4334,8 @@ const UnifiedCameraController = ({
       const pilot = heroOverviewPilotRef.current;
       const transition = pilot.transition;
       const fromPose = transition?.fromPose;
-      const toPose = transition?.toPose;
+      const ensuredTarget = ensureHeroOverviewPilotCameraWriteTarget(transition);
+      const toPose = ensuredTarget.activeToPose;
       if (!fromPose || !toPose) {
         pilot.active = false;
       } else {
@@ -4255,6 +4357,8 @@ const UnifiedCameraController = ({
         const previousMonotonicProgress = Number.isFinite(transition.monotonicGlobalProgress)
           ? transition.monotonicGlobalProgress
           : 0;
+        const progressWentBackwards = progressCandidate < previousMonotonicProgress - 0.0001;
+        const progressWasClampedToMonotonic = progressWentBackwards;
         const monotonicGlobalProgress = Math.max(previousMonotonicProgress, progressCandidate);
         transition.monotonicGlobalProgress = monotonicGlobalProgress;
         const globalProgress = THREE.MathUtils.clamp(monotonicGlobalProgress, 0, 1);
@@ -4297,6 +4401,7 @@ const UnifiedCameraController = ({
         const filmOffsetDeltaToTarget = round4(Math.abs((camera.filmOffset ?? 0) - (toFilmOffset ?? 0)));
         pushHeroOverviewPilotSample({
           type: globalProgress >= 1 ? 'completion-handoff' : 'pilot-frame',
+          pilotDiagnosticVersion: 'PR-23-active-writer-target-guard',
           t: round4(state.clock.elapsedTime),
           frame: state.clock.frame,
           key: pilot.key,
@@ -4308,7 +4413,13 @@ const UnifiedCameraController = ({
           runtimeProgress: round4(runtimeProgress),
           explosionProgress: round4(explosionProgress),
           elapsedProgress: round4(elapsedProgress),
+          rawProgressCandidate: round4(progressCandidate),
+          previousMonotonicGlobalProgress: round4(previousMonotonicProgress),
           progressSource: transition.progressSource,
+          progressSourceUsedForCameraWrite: 'monotonicGlobalProgress',
+          globalProgressPrintedSource: 'monotonicGlobalProgress',
+          progressWentBackwards,
+          progressWasClampedToMonotonic,
           runtimePhase,
           activeWriter: 'HERO_OVERVIEW_PILOT',
           writerReason: 'hero-overview-pilot-active',
@@ -4331,6 +4442,19 @@ const UnifiedCameraController = ({
           targetPosition: vectorToPlain(toPose.position),
           targetLookAt: vectorToPlain(toPose.lookAt),
           targetPoseSource: transition.targetPoseSource ?? toPose.meta?.source ?? null,
+          activeToPoseSource: toPose.meta?.source ?? transition.targetPoseSource ?? null,
+          activeToPoseFov: round4(toPose.fov),
+          activeToPoseFilmOffset: round4(toPose.filmOffset),
+          ...flattenVector('activeToPose', toPose.position),
+          resolverPoseFov: round4(transition.resolverOverviewPose?.fov),
+          resolverPoseFilmOffset: round4(transition.resolverOverviewPose?.filmOffset),
+          legacyFinalPoseFov: round4(ensuredTarget.legacyFinalPose?.fov),
+          legacyFinalPoseFilmOffset: round4(ensuredTarget.legacyFinalPose?.filmOffset),
+          diagnosticTargetSource: 'camera-write-toPose',
+          cameraWriteTargetSource: toPose.meta?.source ?? transition.targetPoseSource ?? null,
+          completionTargetSource: globalProgress >= 1 ? (toPose.meta?.source ?? transition.targetPoseSource ?? null) : null,
+          targetWasOverwritten: Boolean(transition.targetWasOverwritten || ensuredTarget.targetWasOverwritten),
+          targetOverwriteReason: transition.targetOverwriteReason ?? ensuredTarget.targetOverwriteReason ?? null,
           distanceToTarget,
           lookAtDeltaToTarget,
           filmOffsetDeltaToTarget,
@@ -4340,6 +4464,8 @@ const UnifiedCameraController = ({
           targetPoseRecalculated: false,
           pilotStartedThisFrame: false,
           duplicateStartSuppressed: false,
+          transitionObjectReinitialized: false,
+          runRestarted: false,
           legacyWriterBlocked: true,
           fallbackBlocked: true,
           ownsCameraInMilestoneB: true,
