@@ -268,6 +268,7 @@ const UnifiedCameraController = ({
     maxSamples: 80,
     lastSummary: null,
   });
+  const lastHeroOverviewPilotAttemptKeyRef = useRef(null);
   const projectOverviewPilotParityRef = useRef({
     runs: [],
     activeRun: null,
@@ -1809,6 +1810,12 @@ const UnifiedCameraController = ({
     }
     return globalThis.__heroOverviewPilotDiagnosticsStore;
   };
+  const pushHeroOverviewPilotSample = (sample) => {
+    if (!import.meta.env.DEV) return;
+    const store = getHeroOverviewPilotDiagnosticsStore();
+    store.samples.push(sample);
+    if (store.samples.length > store.maxSamples) store.samples.shift();
+  };
 
   const installOverviewProjectShadowHelpers = () => {
     if (!import.meta.env.DEV || typeof globalThis === 'undefined') return;
@@ -2238,6 +2245,13 @@ const UnifiedCameraController = ({
       const store = getHeroOverviewPilotDiagnosticsStore();
       store.samples = [];
       store.lastSummary = null;
+      heroOverviewPilotRef.current = {
+        active: false,
+        key: null,
+        blockedReason: null,
+        transition: null,
+      };
+      lastHeroOverviewPilotAttemptKeyRef.current = null;
       console.log('[hero-overview-pilot] samples-cleared');
     };
     globalThis.__printHeroOverviewPilotSamples = () => {
@@ -2251,6 +2265,12 @@ const UnifiedCameraController = ({
       const summary = {
         pilotEnabled: isHeroToOverviewPilotEnabled(),
         sampleCount: store.samples.length,
+        captureAttempted: latest?.captureAttempted ?? false,
+        captureSucceeded: latest?.captureSucceeded ?? false,
+        activationConditionMatched: latest?.activationConditionMatched ?? false,
+        routeIntentDetected: latest?.routeIntentDetected ?? false,
+        duplicateStartSuppressed: latest?.duplicateStartSuppressed ?? false,
+        falseStartSuppressed: latest?.falseStartSuppressed ?? false,
         active: heroOverviewPilotRef.current.active,
         key: heroOverviewPilotRef.current.key,
         blockedReason: heroOverviewPilotRef.current.blockedReason,
@@ -2877,6 +2897,15 @@ const UnifiedCameraController = ({
       blockedProjectToProjectKeyRef.current = null;
       blockedProjectToProjectStartKeyRef.current = null;
     }
+    if (nextState === 'hero' && nextCameraState === 'hero' && (prevState !== 'hero' || prevCameraState !== 'hero')) {
+      heroOverviewPilotRef.current = {
+        active: false,
+        key: null,
+        blockedReason: null,
+        transition: null,
+      };
+      lastHeroOverviewPilotAttemptKeyRef.current = null;
+    }
     const transitionKey = [
       'overview-to-project',
       prevState ?? 'none',
@@ -2905,30 +2934,86 @@ const UnifiedCameraController = ({
       prevCameraState === 'project' &&
       nextCameraState === 'overview' &&
       viewMode !== 'caseStudy';
-    const heroOverviewTransitionKey = `hero-to-overview:${prevState ?? 'none'}:${prevCameraState ?? 'none'}->${nextState ?? 'none'}:${nextCameraState ?? 'none'}`;
-    const heroOverviewIntentDetected =
+    const heroOverviewRuntimeSnapshotForActivation = heroOverviewRuntime?.getSnapshot?.() ?? null;
+    const heroOverviewObservedPhase = heroOverviewRuntimeSnapshotForActivation?.phase ?? null;
+    const heroOverviewTransitionKey = `hero-to-overview:${prevState ?? 'none'}:${prevCameraState ?? 'none'}->${nextState ?? 'none'}:${nextCameraState ?? 'none'}:${viewMode ?? 'none'}`;
+    const heroOverviewPlainIntent =
       prevCameraState === 'hero' &&
       nextState === 'overview' &&
-      nextCameraState === 'hero';
+      (nextCameraState === 'hero' || nextCameraState === 'overview' || viewMode === 'overview');
+    const heroOverviewObservedIntent =
+      nextState === 'overview' &&
+      nextCameraState === 'hero' &&
+      viewMode === 'overview';
+    const heroOverviewForcedRouteObserved =
+      authoritativeHeroToOverviewTransitionRef.current.active &&
+      (nextState === 'overview' || nextCameraState === 'overview' || viewMode === 'overview');
+    const heroOverviewIntentDetected = heroOverviewPlainIntent || heroOverviewObservedIntent || heroOverviewForcedRouteObserved;
+    const heroOverviewActivationKey = `hero-to-overview:${heroOverviewRuntimeSnapshotForActivation?.startedAt || authoritativeHeroToOverviewTransitionRef.current?.startTime || heroOverviewTransitionKey}`;
+    const heroOverviewDuplicateStartSuppressed = heroOverviewPilotRef.current.key === heroOverviewActivationKey;
+    const heroOverviewFalseStartReason = cameraDirectorPilotRef.current.active ? 'camera-director-pilot-active' : null;
     const heroOverviewBlockedReason =
-      cameraDirectorPilotRef.current.active ? 'camera-director-pilot-active' :
-      fractureTiltActiveRef.current ? 'fractureTiltActive' :
-      heroExplosionTransitionRef.current.active ? 'heroExplosionTransitionActive' :
-      authoritativeHeroToOverviewTransitionRef.current.active ? 'authoritativeHeroToOverviewActive' :
-      cameraMoveProgressRef.current < 0.999 ? 'cameraMoveProgressIncomplete' :
-      null;
+      heroOverviewDuplicateStartSuppressed ? 'duplicate-start-suppressed' :
+      heroOverviewFalseStartReason;
     const shouldStartHeroOverviewPilotScaffold =
       isHeroToOverviewPilotEnabled() &&
       heroOverviewIntentDetected &&
       !heroOverviewPilotRef.current.active &&
-      heroOverviewPilotRef.current.key !== heroOverviewTransitionKey &&
       !heroOverviewBlockedReason;
+    if (isHeroToOverviewPilotEnabled() && heroOverviewIntentDetected && lastHeroOverviewPilotAttemptKeyRef.current !== heroOverviewActivationKey) {
+      lastHeroOverviewPilotAttemptKeyRef.current = heroOverviewActivationKey;
+      if (heroOverviewBlockedReason) {
+        heroOverviewPilotRef.current = {
+          ...heroOverviewPilotRef.current,
+          blockedReason: heroOverviewBlockedReason,
+        };
+      }
+      pushHeroOverviewPilotSample({
+        type: shouldStartHeroOverviewPilotScaffold ? 'activation-eligible' : 'activation-blocked',
+        t: round4(state.clock.elapsedTime),
+        frame: state.clock.frame,
+        activationKey: heroOverviewActivationKey,
+        transitionKey: heroOverviewTransitionKey,
+        pilotEnabled: true,
+        captureAttempted: true,
+        captureSucceeded: false,
+        activationConditionMatched: heroOverviewIntentDetected,
+        routeIntentDetected: heroOverviewIntentDetected,
+        plainIntentDetected: heroOverviewPlainIntent,
+        observedIntentDetected: heroOverviewObservedIntent,
+        forcedRouteObserved: heroOverviewForcedRouteObserved,
+        duplicateStartSuppressed: heroOverviewDuplicateStartSuppressed,
+        falseStartSuppressed: Boolean(heroOverviewFalseStartReason),
+        blockedReason: heroOverviewBlockedReason,
+        observedState: nextState,
+        observedCameraState: nextCameraState,
+        observedViewMode: viewMode,
+        observedPhase: heroOverviewObservedPhase,
+        previousState: prevState,
+        previousCameraState: prevCameraState,
+        previousViewMode: previousFramePose?.viewMode ?? null,
+        nextState,
+        nextCameraState,
+        nextViewMode: viewMode,
+        cameraMoveProgress: round4(cameraMoveProgressRef.current),
+        fractureTiltActive: Boolean(fractureTiltActiveRef.current),
+        heroExplosionTransitionActive: Boolean(heroExplosionTransitionRef.current.active),
+        authoritativeHeroToOverviewActive: Boolean(authoritativeHeroToOverviewTransitionRef.current.active),
+        ownsCameraInMilestoneA: false,
+        legacyForcedWriterBlocked: false,
+      });
+    }
     if (isHeroOverviewDiagnosticsEnabled() && heroOverviewIntentDetected) {
       const diagLabel = shouldStartHeroOverviewPilotScaffold ? 'start-eligible' : 'start-blocked';
       console.log('[camera-director-pilot] hero-to-overview scaffold intent', {
         diagLabel,
+        heroOverviewActivationKey,
         heroOverviewTransitionKey,
         blockedReason: heroOverviewBlockedReason,
+        observedState: nextState,
+        observedCameraState: nextCameraState,
+        observedViewMode: viewMode,
+        observedPhase: heroOverviewObservedPhase,
         cameraMoveProgress: round4(cameraMoveProgressRef.current),
       });
     }
@@ -3148,7 +3233,7 @@ const UnifiedCameraController = ({
       const resolvedOverview = getOverviewProjectResolvedPose('overview');
       heroOverviewPilotRef.current = {
         active: false,
-        key: heroOverviewTransitionKey,
+        key: heroOverviewActivationKey,
         blockedReason: null,
         transition: {
           startedAt: state.clock.elapsedTime,
@@ -3171,8 +3256,26 @@ const UnifiedCameraController = ({
         type: 'milestone-a-scaffold-capture',
         t: round4(state.clock.elapsedTime),
         frame: state.clock.frame,
-        key: heroOverviewTransitionKey,
+        key: heroOverviewActivationKey,
+        transitionKey: heroOverviewTransitionKey,
         pilotEnabled: isHeroToOverviewPilotEnabled(),
+        captureAttempted: true,
+        captureSucceeded: true,
+        activationConditionMatched: true,
+        routeIntentDetected: true,
+        duplicateStartSuppressed: false,
+        falseStartSuppressed: false,
+        blockedReason: null,
+        observedState: nextState,
+        observedCameraState: nextCameraState,
+        observedViewMode: viewMode,
+        observedPhase: heroOverviewObservedPhase,
+        previousState: prevState,
+        previousCameraState: prevCameraState,
+        previousViewMode: previousFramePose?.viewMode ?? null,
+        nextState,
+        nextCameraState,
+        nextViewMode: viewMode,
         active: false,
         ownsCameraInMilestoneA: false,
         phaseModel: HERO_OVERVIEW_PILOT_PHASES.join(' -> '),
@@ -3192,7 +3295,9 @@ const UnifiedCameraController = ({
       if (pilotStore.samples.length > pilotStore.maxSamples) pilotStore.samples.shift();
       if (isHeroOverviewDiagnosticsEnabled()) {
         console.log('[camera-director-pilot] hero-to-overview scaffold captured', {
+          heroOverviewActivationKey,
           heroOverviewTransitionKey,
+          observedPhase: heroOverviewObservedPhase,
           fromPosePosition: heroOverviewPilotRef.current.transition.fromPose.position.toArray(),
           fromPoseLookAt: heroOverviewPilotRef.current.transition.fromPose.lookAt.toArray(),
           toPoseResolved: resolvedOverview

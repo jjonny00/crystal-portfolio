@@ -143,3 +143,12 @@ The proposed pilot should:
   - `__printHeroOverviewPilotSummary()`
   - `__printHeroOverviewPilotSamples()`
 - Enable smoke test in DEV with `globalThis.__ENABLE_CAMERA_DIRECTOR_HERO_OVERVIEW__ = true`; rollback by setting it to `false` or reloading with the default disabled flag.
+
+## Milestone A capture activation fix
+- Initial Milestone A scaffold did not capture in browser because the activation gate expected a narrow state edge (`prevCameraState === 'hero'`, `state === 'overview'`, `cameraState === 'hero'`). The observed route can already be in `state/viewMode: overview` while `cameraState` remains `hero`, or the legacy forced writer can already be active.
+- Activation now treats any of these as Hero→Overview scaffold intent when the pilot flag is enabled:
+  - the original plain hero→overview edge,
+  - observed `state: overview`, `cameraState: hero`, `viewMode: overview`,
+  - active legacy forced Hero→Overview route with overview state/viewMode context.
+- False-start blocking for the non-owning scaffold is intentionally limited to an already-active CameraDirector pilot; fracture tilt, hero explosion, and legacy forced writer are recorded as observed owners instead of blocking capture.
+- Capture diagnostics now record attempted/succeeded status, activation key, observed/previous state fields, phase, duplicate suppression, blocked reason, live fromPose, and resolved overview target.
