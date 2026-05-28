@@ -221,6 +221,7 @@ const UnifiedCameraController = ({
   const heroOverviewCameraCurveSampleLoggedRef = useRef(new Set());
   const lastCameraWriteSecondRef = useRef(-1);
   const lastCameraWriterRef = useRef('none');
+  const lastCameraWriteReasonRef = useRef('none');
   const prevStateRef = useRef(animationData?.state ?? null);
   const prevCameraStateRef = useRef(animationData?.cameraState ?? null);
   const configCheckLoggedRef = useRef(false);
@@ -1594,6 +1595,7 @@ const UnifiedCameraController = ({
       });
     }
     lastCameraWriterRef.current = branch;
+    lastCameraWriteReasonRef.current = reason || 'unknown';
     if (!configCheckLoggedRef.current) {
       configCheckLoggedRef.current = true;
       const filmOffsetX = config?.cameraComposition?.hero?.filmOffsetX;
@@ -4562,6 +4564,16 @@ const UnifiedCameraController = ({
           filmOffset: camera.filmOffset,
           quaternion: camera.quaternion.clone(),
         };
+        previousFramePoseRef.current = {
+          position: camera.position.clone(),
+          lookAt: transition.to.lookAtTarget.clone(),
+          fov: camera.fov,
+          filmOffset: camera.filmOffset,
+          state: animationData?.state ?? null,
+          cameraState: animationData?.cameraState ?? null,
+          viewMode: animationData?.viewMode ?? null,
+          focusedProject: animationData?.focusedProject ?? null,
+        };
         heroToOverviewAwaitFirstNormalFrameRef.current = true;
         authoritativeHeroToOverviewTransitionRef.current.active = false;
         if (TRACE_HERO_TO_OVERVIEW_CAMERA_STATE) {
@@ -4582,6 +4594,10 @@ const UnifiedCameraController = ({
         fractureTiltRef.current = 0;
         heroExplosionTransitionRef.current.active = false;
         heroToOverviewHandoffLockFramesRef.current = HERO_TO_OVERVIEW_HANDOFF_LOCK_FRAMES;
+        cameraMoveProgressRef.current = 1;
+        if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = 1;
+        animationData?.setCameraMoveProgress?.(1);
+        animationData?.setCameraSettled?.(true);
         console.log('[UCC FORCE HERO TO OVERVIEW COMPLETE]', {
           finalPosition: camera.position.toArray(),
           finalLookAt: transition.to.lookAtTarget.toArray(),
@@ -4638,7 +4654,12 @@ const UnifiedCameraController = ({
         cameraState: animationData?.cameraState ?? null,
         scrollProgress: round4(animationData?.scrollProgress ?? null),
         activeWriter: lastCameraWriterRef.current,
+        activeWriterReason: lastCameraWriteReasonRef.current,
         forcedActive: authoritativeHeroToOverviewTransitionRef.current.active,
+        handoffLockFrames: heroToOverviewHandoffLockFramesRef.current,
+        transitionStartReason: lastCameraWriterRef.current === 'TRANSITION' ? lastCameraWriteReasonRef.current : null,
+        fallbackReason: lastCameraWriterRef.current === 'FALLBACK' ? lastCameraWriteReasonRef.current : null,
+        cameraMoveProgressRef: round4(cameraMoveProgressRef.current),
         fallbackActive: animationData?.cameraState !== 'overview',
         cameraPosition: vectorToPlain(camera.position),
         currentLookAt: vectorToPlain(currentLookAt),
@@ -4646,6 +4667,10 @@ const UnifiedCameraController = ({
         quaternion: quaternionToPlain(camera.quaternion),
         up: vectorToPlain(camera.up),
         filmOffset: round4(camera.filmOffset),
+        currentTargetPosition: vectorToPlain(currentTarget.current?.position),
+        currentTargetLookAt: vectorToPlain(currentTarget.current?.lookAt),
+        currentTargetFilmOffset: round4(camera.filmOffset),
+        previousFrameLookAt: vectorToPlain(previousFramePoseRef.current?.lookAt),
         fov: round4(camera.fov),
         zoom: round4(camera.zoom),
         aspect: round4(camera.aspect),
