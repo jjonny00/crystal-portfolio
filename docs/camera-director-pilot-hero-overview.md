@@ -152,3 +152,15 @@ The proposed pilot should:
   - active legacy forced Hero→Overview route with overview state/viewMode context.
 - False-start blocking for the non-owning scaffold is intentionally limited to an already-active CameraDirector pilot; fracture tilt, hero explosion, and legacy forced writer are recorded as observed owners instead of blocking capture.
 - Capture diagnostics now record attempted/succeeded status, activation key, observed/previous state fields, phase, duplicate suppression, blocked reason, live fromPose, and resolved overview target.
+
+## Milestone B owning pilot status
+- Milestone B is flag-on only and remains disabled by default via `VITE_CAMERA_DIRECTOR_HERO_OVERVIEW_PILOT=false` / unset `__ENABLE_CAMERA_DIRECTOR_HERO_OVERVIEW__`.
+- When enabled and scaffold capture resolves an overview target, `ownsCameraInMilestoneB: true` and the pilot writes the camera every active frame.
+- The pilot blocks the legacy forced Hero→Overview writer by:
+  - skipping new forced-route initialization while the pilot is active,
+  - clearing `authoritativeHeroToOverviewTransitionRef.current.active` if legacy forced ownership is observed during pilot frames,
+  - early-returning after pilot writes so generic fallback/transition writers do not run on active pilot frames.
+- Baseline parity source: shared runtime/explosion progress clamped by elapsed local progress, using the existing exponential-out camera interpolation from live `fromPose` to resolved overview `toPose`.
+- No phase hold, cinematic improvement, explosion timing change, or visual polish is included in Milestone B.
+- Completion writes the exact resolved overview pose, seeds `currentTarget` / `previousFramePose`, marks camera progress settled, and applies the existing short handoff lock.
+- Pilot diagnostics now report `ownsCameraInMilestoneB`, `legacyForcedWriterBlocked`, `blockedLegacyWriterCount`, `distanceToTarget`, target deltas, completion status, and whether any competing writer was detected.
