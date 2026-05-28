@@ -19,31 +19,7 @@ const PROJECT_OVERVIEW_POSITION_SETTLE_EPSILON = 0.01;
 const PROJECT_OVERVIEW_LOOKAT_SETTLE_EPSILON = 0.01;
 const PROJECT_OVERVIEW_FOV_SETTLE_EPSILON = 0.02;
 const PROJECT_OVERVIEW_PROGRESS_SETTLE_MIN = 0.99;
-const HERO_OVERVIEW_FORCED_TRAVEL_START_PHASE = 'bulletTimeSlowdown';
 const HERO_OVERVIEW_PHASE_ORDER = ['fractureCharge', 'explosionImpulse', 'bulletTimeSlowdown', 'overviewSettle', 'complete'];
-
-const getPhaseStartProgress = (phase, timing = {}) => {
-  const fractureChargeEnd = THREE.MathUtils.clamp(timing.fractureChargeEnd ?? 0.0933333333, 0, 1);
-  const explosionImpulseEnd = THREE.MathUtils.clamp(timing.explosionImpulseEnd ?? 0.24, fractureChargeEnd, 1);
-  const bulletTimeSlowdownEnd = THREE.MathUtils.clamp(timing.bulletTimeSlowdownEnd ?? 0.72, explosionImpulseEnd, 1);
-  const overviewSettleEnd = THREE.MathUtils.clamp(timing.overviewSettleEnd ?? 1, bulletTimeSlowdownEnd, 1);
-
-  switch (phase) {
-    case 'fractureCharge': return 0;
-    case 'explosionImpulse': return fractureChargeEnd;
-    case 'bulletTimeSlowdown': return explosionImpulseEnd;
-    case 'overviewSettle': return bulletTimeSlowdownEnd;
-    case 'complete': return overviewSettleEnd;
-    default: return 0;
-  }
-};
-
-const remapProgressFromPhaseStart = (progress, timing = {}, startPhase = HERO_OVERVIEW_FORCED_TRAVEL_START_PHASE) => {
-  const clamped = THREE.MathUtils.clamp(progress ?? 0, 0, 1);
-  const start = THREE.MathUtils.clamp(getPhaseStartProgress(startPhase, timing), 0, 0.999999);
-  if (clamped <= start) return 0;
-  return THREE.MathUtils.clamp((clamped - start) / (1 - start), 0, 1);
-};
 
 const isUccVerboseLogsEnabled = () => Boolean(globalThis?.__UCC_VERBOSE_LOGS__);
 
@@ -2203,7 +2179,7 @@ const UnifiedCameraController = ({
       const hasTrueCameraHoldDuringFractureAndImpulse = ['fractureCharge', 'explosionImpulse']
         .every((phase) => (phaseStats[phase]?.cameraDistanceMoved ?? 0) <= movementThreshold);
       console.log('[hero-overview-phase-staging] summary', {
-        forcedTravelStartPhaseGate: HERO_OVERVIEW_FORCED_TRAVEL_START_PHASE,
+        forcedTravelStartPhaseGate: 'disabled (PR-19 runtime gate removed)',
         firstForcedActiveSample: firstForcedActiveSample ? {
           sampleIndex: firstForcedActiveSample.sampleIndex,
           t: firstForcedActiveSample.t,
@@ -4492,14 +4468,8 @@ const UnifiedCameraController = ({
         const runtimePhase = runtimeSnapshot?.phase ?? 'idle';
         const runtimeProgress = runtimeSnapshot?.progress ?? 0;
         const rawSharedProgress = THREE.MathUtils.clamp(explosionClock?.progress ?? accumulatedProgress, 0, 1);
-        const stagedSharedProgress = remapProgressFromPhaseStart(
-          rawSharedProgress,
-          runtimeSnapshot?.timing || config?.timing?.heroOverviewRuntime,
-          HERO_OVERVIEW_FORCED_TRAVEL_START_PHASE,
-        );
         // Completion gate: do not let camera-driving shared progress outrun local forced camera progress.
-        // Also hold travel until the configured runtime phase boundary.
-        const sharedRaw = THREE.MathUtils.clamp(Math.min(stagedSharedProgress, accumulatedProgress), 0, 1);
+        const sharedRaw = THREE.MathUtils.clamp(Math.min(rawSharedProgress, accumulatedProgress), 0, 1);
         const sharedEased = THREE.MathUtils.clamp(sharedRaw >= 1 ? 1 : 1 - (2 ** (-10 * sharedRaw)), 0, 1);
         heroToOverviewSharedProgressMaxRef.current = Math.max(
           heroToOverviewSharedProgressMaxRef.current,

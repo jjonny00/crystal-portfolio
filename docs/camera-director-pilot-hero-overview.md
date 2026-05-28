@@ -87,8 +87,41 @@ Block scaffold start if any are active:
 - Narrow fix in legacy forced hero→overview branch: clamp local forced progress to at least elapsed wall-clock progress each frame (`transition.progress = max(transition.progress, elapsedProgress)`).
 - This keeps the forced camera completion seam aligned with shared-runtime completion without changing pilot ownership or broad transition logic.
 
-## PR-19 phase-staging diagnosis and guard
-- Timeline evidence showed forced camera travel becoming active during `fractureCharge`, overlapping fracture/explosion phases.
-- Added phase-staging summary helper: `__printHeroOverviewPhaseStaging()` to quantify per-phase movement and overlap.
-- Added narrow route-specific travel gate in legacy forced Hero→Overview path so overview travel progress remains held until `bulletTimeSlowdown` phase progression (via progress remap from configured phase start).
-- This does not enable pilot ownership and does not change fragment/material styling; it only separates early fracture/impulse beat from overview travel progress.
+## PR-19 phase-staging diagnosis result
+- Attempted: a naive runtime phase gate delayed forced overview travel until `bulletTimeSlowdown` by remapping shared progress inside the legacy forced branch.
+- Result: rejected. The transition became visually chaotic, with delayed dolly timing and remaining early horizontal motion.
+- Reverted/disabled runtime effect: the forced progress remap and `HERO_OVERVIEW_FORCED_TRAVEL_START_PHASE` behavior were removed so flag-off Hero→Overview returns to the less-chaotic pre-PR-19 baseline.
+- Preserved diagnostic value: `__printHeroOverviewPhaseStaging()` remains available to quantify per-phase camera/lookAt/filmOffset movement and overlap.
+- Learning: the issue is likely overlapping phase choreography, not only final handoff/refire or clock drift.
+- Learning: the legacy forced branch has multiple overlapping motion contributors; simply remapping forced progress is not enough to create clean ownership.
+- Direction: avoid further broad patching of the legacy forced branch; next work should be a disabled owning CameraDirector pilot with explicit sub-phases.
+
+## Next Pilot Plan: owning Hero → Overview CameraDirector pilot
+The proposed pilot should:
+- remain feature-flagged and disabled by default;
+- preserve flag-off legacy behavior;
+- own the camera only when explicitly enabled;
+- use explicit sub-phases:
+  1. `fractureCharge`
+  2. `explosionImpulse`
+  3. `bulletTimeSlowdown`
+  4. `overviewTravel`
+  5. `overviewSettle`
+  6. `complete`
+- define the camera owner in each sub-phase;
+- define whether camera behavior is hold, tilt, drift, dolly, or settle in each sub-phase;
+- start from the real live camera transform where possible instead of stale snapshots;
+- use `getCameraLookAtFromTransform` or equivalent live lookAt derivation;
+- avoid accidental overlap between forced overview travel and fracture camera effects;
+- use one authoritative phase clock for camera choreography;
+- keep object/facet explosion timing unchanged initially;
+- reproduce baseline first before creative tuning;
+- only after baseline parity, tune toward the Overwatch/Sigma-style cinematic goal.
+
+### Milestone A
+- Disabled pilot only.
+- No visual runtime change with flag off.
+- Flag-on path owns the camera through explicit phases.
+- Initially reproduce current baseline as closely as possible.
+- Include diagnostic comparison against legacy.
+- No explosion style polish yet.
