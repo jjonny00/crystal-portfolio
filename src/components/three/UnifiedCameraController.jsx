@@ -1710,6 +1710,11 @@ const UnifiedCameraController = ({
   };
   const round4 = (n) => (Number.isFinite(n) ? Number(n.toFixed(4)) : null);
   const vectorToPlain = (v) => ({ x: round4(v?.x), y: round4(v?.y), z: round4(v?.z) });
+  const flattenVector = (prefix, v) => ({
+    [`${prefix}X`]: round4(v?.x),
+    [`${prefix}Y`]: round4(v?.y),
+    [`${prefix}Z`]: round4(v?.z),
+  });
   const quaternionToPlain = (q) => ({ x: round4(q?.x), y: round4(q?.y), z: round4(q?.z), w: round4(q?.w) });
   const safeDistance = (a, b) => (a && b ? round4(a.distanceTo(b)) : null);
   const quaternionAngleDelta = (q1, q2) => (q1 && q2 ? round4(q1.angleTo(q2)) : null);
@@ -1726,8 +1731,47 @@ const UnifiedCameraController = ({
       lookAt: new THREE.Vector3(...resolved.lookAt),
       fov: Number.isFinite(resolved.fov) ? resolved.fov : null,
       filmOffset: Number.isFinite(resolved.filmOffset) ? resolved.filmOffset : 0,
+      meta: resolved.meta ?? null,
     };
   };
+  const getHeroOverviewLegacyFinalPose = () => {
+    const rawPosition = config?.cameraPositions?.overview;
+    const rawLookAt = config?.cameraTargets?.overview;
+    if (!rawPosition || !rawLookAt) return null;
+    const position = toVector3(rawPosition)
+      .add(toVector3(config?.cameraOffsets?.global?.position))
+      .add(toVector3(config?.cameraOffsets?.zones?.overview?.position));
+    const lookAt = toVector3(rawLookAt)
+      .add(toVector3(config?.cameraOffsets?.global?.target))
+      .add(toVector3(config?.cameraOffsets?.zones?.overview?.target));
+    return {
+      position,
+      lookAt,
+      fov: 44,
+      filmOffset: 0,
+      meta: {
+        source: 'legacy-forced-hero-overview-final+overview-cameraConfig-fov',
+        positionSource: 'config.cameraPositions.overview+offsets',
+        lookAtSource: 'config.cameraTargets.overview+offsets',
+        fovSource: 'ANIMATION_CONFIG.camera.overview.fov',
+        filmOffsetSource: 'legacy-forced-hero-overview-to.filmOffsetX',
+      },
+    };
+  };
+  const flattenPilotPoseFields = ({ cameraPosition, lookAt, targetPosition, targetLookAt, fromPosition, fromLookAt }) => ({
+    ...flattenVector('camera', cameraPosition),
+    ...flattenVector('lookAt', lookAt),
+    ...flattenVector('target', targetPosition),
+    ...flattenVector('targetLookAt', targetLookAt),
+    ...flattenVector('from', fromPosition),
+    ...flattenVector('fromLookAt', fromLookAt),
+  });
+  const getPoseParityDeltas = (a, b) => ({
+    positionDelta: safeDistance(a?.position, b?.position),
+    lookAtDelta: safeDistance(a?.lookAt, b?.lookAt),
+    fovDelta: Number.isFinite(a?.fov) && Number.isFinite(b?.fov) ? round4(Math.abs(a.fov - b.fov)) : null,
+    filmOffsetDelta: Number.isFinite(a?.filmOffset) && Number.isFinite(b?.filmOffset) ? round4(Math.abs(a.filmOffset - b.filmOffset)) : null,
+  });
 
 
   const getOverviewProjectShadowStore = () => {
@@ -2287,10 +2331,92 @@ const UnifiedCameraController = ({
         completed: latest?.completed ?? heroOverviewPilotRef.current.transition?.completed ?? false,
         blockedLegacyWriterCount: latest?.blockedLegacyWriterCount ?? heroOverviewPilotRef.current.transition?.blockedLegacyWriterCount ?? 0,
         competingWriterDetected: latest?.competingWriterDetected ?? heroOverviewPilotRef.current.transition?.competingWriterDetected ?? false,
+        targetPoseSource: latest?.targetPoseSource ?? heroOverviewPilotRef.current.transition?.targetPoseSource ?? null,
+        targetFov: latest?.targetFov ?? round4(heroOverviewPilotRef.current.transition?.toPose?.fov),
+        targetFilmOffset: latest?.targetFilmOffset ?? round4(heroOverviewPilotRef.current.transition?.toPose?.filmOffset),
+        monotonicGlobalProgress: latest?.monotonicGlobalProgress ?? round4(heroOverviewPilotRef.current.transition?.monotonicGlobalProgress),
+        progressSource: latest?.progressSource ?? heroOverviewPilotRef.current.transition?.progressSource ?? null,
+        fromPoseRecaptured: latest?.fromPoseRecaptured ?? heroOverviewPilotRef.current.transition?.fromPoseRecaptured ?? false,
+        targetPoseRecalculated: latest?.targetPoseRecalculated ?? heroOverviewPilotRef.current.transition?.targetPoseRecalculated ?? false,
         latest,
       };
       store.lastSummary = summary;
       console.log('[hero-overview-pilot] summary', summary);
+    };
+    globalThis.__printHeroOverviewPilotParity = () => {
+      const transition = heroOverviewPilotRef.current.transition;
+      const store = getHeroOverviewPilotDiagnosticsStore();
+      const latest = store.samples[store.samples.length - 1] ?? null;
+      const legacyOverviewFinalPose = getHeroOverviewLegacyFinalPose();
+      const resolverOverviewPose = getOverviewProjectResolvedPose('overview');
+      const currentFinalPose = {
+        position: camera.position.clone(),
+        lookAt: currentTarget.current?.lookAt?.clone?.() ?? getCameraLookAtFromTransform(),
+        fov: camera.fov,
+        filmOffset: camera.filmOffset,
+      };
+      const pilotFromPose = transition?.fromPose ?? null;
+      const pilotToPose = transition?.toPose ?? null;
+      const rows = [
+        {
+          pose: 'pilotFromPose',
+          source: transition?.fromPoseSource ?? null,
+          ...flattenPilotPoseFields({ cameraPosition: pilotFromPose?.position, lookAt: pilotFromPose?.lookAt }),
+          fov: round4(pilotFromPose?.fov),
+          filmOffset: round4(pilotFromPose?.filmOffset),
+        },
+        {
+          pose: 'pilotToPose',
+          source: transition?.targetPoseSource ?? pilotToPose?.meta?.source ?? null,
+          ...flattenPilotPoseFields({ cameraPosition: pilotToPose?.position, lookAt: pilotToPose?.lookAt }),
+          fov: round4(pilotToPose?.fov),
+          filmOffset: round4(pilotToPose?.filmOffset),
+        },
+        {
+          pose: 'legacyOverviewFinalPose',
+          source: legacyOverviewFinalPose?.meta?.source ?? null,
+          ...flattenPilotPoseFields({ cameraPosition: legacyOverviewFinalPose?.position, lookAt: legacyOverviewFinalPose?.lookAt }),
+          fov: round4(legacyOverviewFinalPose?.fov),
+          filmOffset: round4(legacyOverviewFinalPose?.filmOffset),
+        },
+        {
+          pose: 'resolverOverviewPose',
+          source: resolverOverviewPose?.meta?.source ?? null,
+          ...flattenPilotPoseFields({ cameraPosition: resolverOverviewPose?.position, lookAt: resolverOverviewPose?.lookAt }),
+          fov: round4(resolverOverviewPose?.fov),
+          filmOffset: round4(resolverOverviewPose?.filmOffset),
+        },
+        {
+          pose: 'currentFinalOverviewCameraPose',
+          source: 'live-camera-currentTarget',
+          ...flattenPilotPoseFields({ cameraPosition: currentFinalPose.position, lookAt: currentFinalPose.lookAt }),
+          fov: round4(currentFinalPose.fov),
+          filmOffset: round4(currentFinalPose.filmOffset),
+        },
+      ];
+      const pilotVsLegacy = getPoseParityDeltas(pilotToPose, legacyOverviewFinalPose);
+      const resolverVsLegacy = getPoseParityDeltas(resolverOverviewPose, legacyOverviewFinalPose);
+      const currentVsLegacy = getPoseParityDeltas(currentFinalPose, legacyOverviewFinalPose);
+      const targetParityPasses = Boolean(
+        pilotVsLegacy.positionDelta !== null && pilotVsLegacy.positionDelta <= 0.001 &&
+        pilotVsLegacy.lookAtDelta !== null && pilotVsLegacy.lookAtDelta <= 0.001 &&
+        pilotVsLegacy.fovDelta !== null && pilotVsLegacy.fovDelta <= 0.001 &&
+        pilotVsLegacy.filmOffsetDelta !== null && pilotVsLegacy.filmOffsetDelta <= 0.001
+      );
+      console.log('[hero-overview-pilot] parity-summary', {
+        targetParityPasses,
+        pilotVsLegacy,
+        resolverVsLegacy,
+        currentVsLegacy,
+        latestProgress: latest ? {
+          globalProgress: latest.globalProgress ?? null,
+          monotonicGlobalProgress: latest.monotonicGlobalProgress ?? null,
+          progressSource: latest.progressSource ?? null,
+          fromPoseRecaptured: latest.fromPoseRecaptured ?? null,
+          targetPoseRecalculated: latest.targetPoseRecalculated ?? null,
+        } : null,
+      });
+      console.table(rows);
     };
     globalThis.__markHeroOverviewVisualIssue = (description = 'visual-issue') => {
       const store = getHeroOverviewFullTimelineStore();
@@ -3237,7 +3363,8 @@ const UnifiedCameraController = ({
     }
     if (shouldStartHeroOverviewPilotScaffold) {
       const fromLookAt = getCameraLookAtFromTransform();
-      const resolvedOverview = getOverviewProjectResolvedPose('overview');
+      const resolverOverview = getOverviewProjectResolvedPose('overview');
+      const resolvedOverview = getHeroOverviewLegacyFinalPose();
       const blockedLegacyWriterAtCapture = Boolean(authoritativeHeroToOverviewTransitionRef.current.active);
       if (blockedLegacyWriterAtCapture) {
         authoritativeHeroToOverviewTransitionRef.current.active = false;
@@ -3266,6 +3393,12 @@ const UnifiedCameraController = ({
             filmOffset: Number.isFinite(camera.filmOffset) ? camera.filmOffset : 0,
           },
           toPose: resolvedOverview,
+          resolverOverviewPose: resolverOverview,
+          targetPoseSource: resolvedOverview?.meta?.source ?? null,
+          progressSource: 'monotonic-run-progress:max(elapsed,runtime,explosion)',
+          monotonicGlobalProgress: 0,
+          fromPoseRecaptured: false,
+          targetPoseRecalculated: false,
         },
       };
       const pilotStore = getHeroOverviewPilotDiagnosticsStore();
@@ -3300,14 +3433,35 @@ const UnifiedCameraController = ({
         fromPoseSource: 'live-camera-transform',
         fromPosition: vectorToPlain(camera.position),
         fromLookAt: vectorToPlain(fromLookAt),
+        ...flattenPilotPoseFields({
+          cameraPosition: camera.position,
+          lookAt: fromLookAt,
+          targetPosition: resolvedOverview?.position,
+          targetLookAt: resolvedOverview?.lookAt,
+          fromPosition: camera.position,
+          fromLookAt,
+        }),
         fromFov: round4(Number.isFinite(camera.fov) ? camera.fov : null),
         fromFilmOffset: round4(Number.isFinite(camera.filmOffset) ? camera.filmOffset : null),
         targetResolved: Boolean(resolvedOverview),
+        targetPoseSource: resolvedOverview?.meta?.source ?? null,
+        resolverTargetFov: round4(resolverOverview?.fov),
+        resolverTargetFilmOffset: round4(resolverOverview?.filmOffset),
         targetPosition: resolvedOverview ? vectorToPlain(resolvedOverview.position) : null,
         targetLookAt: resolvedOverview ? vectorToPlain(resolvedOverview.lookAt) : null,
         targetFov: round4(resolvedOverview?.fov),
         targetFilmOffset: round4(resolvedOverview?.filmOffset),
         distanceToTarget: resolvedOverview ? safeDistance(camera.position, resolvedOverview.position) : null,
+        distanceFromCameraToLookAt: safeDistance(camera.position, fromLookAt),
+        targetCameraToLookAtDistance: resolvedOverview ? safeDistance(resolvedOverview.position, resolvedOverview.lookAt) : null,
+        globalProgress: 0,
+        monotonicGlobalProgress: 0,
+        phaseProgress: 0,
+        runtimePhase: heroOverviewObservedPhase,
+        progressSource: 'monotonic-run-progress:max(elapsed,runtime,explosion)',
+        fromPoseRecaptured: false,
+        targetPoseRecalculated: false,
+        pilotStartedThisFrame: true,
         startJumpDistance: 0,
         legacyForcedWriterBlocked: Boolean(resolvedOverview),
         blockedLegacyWriterCount: blockedLegacyWriterAtCapture ? 1 : 0,
@@ -3322,7 +3476,10 @@ const UnifiedCameraController = ({
           fromPosePosition: heroOverviewPilotRef.current.transition.fromPose.position.toArray(),
           fromPoseLookAt: heroOverviewPilotRef.current.transition.fromPose.lookAt.toArray(),
           toPoseResolved: resolvedOverview
-            ? { position: resolvedOverview.position.toArray(), lookAt: resolvedOverview.lookAt.toArray(), fov: resolvedOverview.fov, filmOffset: resolvedOverview.filmOffset }
+            ? { position: resolvedOverview.position.toArray(), lookAt: resolvedOverview.lookAt.toArray(), fov: resolvedOverview.fov, filmOffset: resolvedOverview.filmOffset, source: resolvedOverview.meta?.source }
+            : null,
+          resolverOverviewPose: resolverOverview
+            ? { position: resolverOverview.position.toArray(), lookAt: resolverOverview.lookAt.toArray(), fov: resolverOverview.fov, filmOffset: resolverOverview.filmOffset, source: resolverOverview.meta?.source }
             : null,
           phaseModel: HERO_OVERVIEW_PILOT_PHASES,
           phaseBehaviors: HERO_OVERVIEW_PILOT_PHASE_BEHAVIORS,
@@ -4087,8 +4244,20 @@ const UnifiedCameraController = ({
           0,
           1,
         );
-        const rawSharedProgress = THREE.MathUtils.clamp(explosionClock?.progress ?? runtimeSnapshot?.progress ?? elapsedProgress, 0, 1);
-        const globalProgress = THREE.MathUtils.clamp(Math.min(rawSharedProgress, elapsedProgress), 0, 1);
+        const explosionProgress = Number.isFinite(explosionClock?.progress) ? explosionClock.progress : null;
+        const runtimeProgress = Number.isFinite(runtimeSnapshot?.progress) ? runtimeSnapshot.progress : null;
+        const rawSharedProgress = THREE.MathUtils.clamp(explosionProgress ?? runtimeProgress ?? elapsedProgress, 0, 1);
+        const progressCandidate = THREE.MathUtils.clamp(
+          Math.max(elapsedProgress, runtimeProgress ?? 0, explosionProgress ?? 0),
+          0,
+          1,
+        );
+        const previousMonotonicProgress = Number.isFinite(transition.monotonicGlobalProgress)
+          ? transition.monotonicGlobalProgress
+          : 0;
+        const monotonicGlobalProgress = Math.max(previousMonotonicProgress, progressCandidate);
+        transition.monotonicGlobalProgress = monotonicGlobalProgress;
+        const globalProgress = THREE.MathUtils.clamp(monotonicGlobalProgress, 0, 1);
         const easedProgress = THREE.MathUtils.clamp(globalProgress >= 1 ? 1 : 1 - (2 ** (-10 * globalProgress)), 0, 1);
         const runtimePhase = runtimeSnapshot?.phase ?? null;
         const pilotPhase = globalProgress >= 1
@@ -4134,22 +4303,43 @@ const UnifiedCameraController = ({
           phase: pilotPhase,
           phaseProgress: round4(phaseProgress),
           globalProgress: round4(globalProgress),
+          monotonicGlobalProgress: round4(monotonicGlobalProgress),
           rawSharedProgress: round4(rawSharedProgress),
+          runtimeProgress: round4(runtimeProgress),
+          explosionProgress: round4(explosionProgress),
           elapsedProgress: round4(elapsedProgress),
+          progressSource: transition.progressSource,
           runtimePhase,
           activeWriter: 'HERO_OVERVIEW_PILOT',
           writerReason: 'hero-overview-pilot-active',
           cameraPosition: vectorToPlain(camera.position),
           currentLookAt: vectorToPlain(nextLookAt),
+          ...flattenPilotPoseFields({
+            cameraPosition: camera.position,
+            lookAt: nextLookAt,
+            targetPosition: toPose.position,
+            targetLookAt: toPose.lookAt,
+            fromPosition: fromPose.position,
+            fromLookAt: fromPose.lookAt,
+          }),
           fov: round4(camera.fov),
+          targetFov: round4(toFov),
+          fromFov: round4(fromFov),
           filmOffset: round4(camera.filmOffset),
+          targetFilmOffset: round4(toFilmOffset),
+          fromFilmOffset: round4(fromFilmOffset),
           targetPosition: vectorToPlain(toPose.position),
           targetLookAt: vectorToPlain(toPose.lookAt),
-          targetFov: round4(toFov),
-          targetFilmOffset: round4(toFilmOffset),
+          targetPoseSource: transition.targetPoseSource ?? toPose.meta?.source ?? null,
           distanceToTarget,
           lookAtDeltaToTarget,
           filmOffsetDeltaToTarget,
+          distanceFromCameraToLookAt: safeDistance(camera.position, nextLookAt),
+          targetCameraToLookAtDistance: safeDistance(toPose.position, toPose.lookAt),
+          fromPoseRecaptured: false,
+          targetPoseRecalculated: false,
+          pilotStartedThisFrame: false,
+          duplicateStartSuppressed: false,
           legacyWriterBlocked: true,
           fallbackBlocked: true,
           ownsCameraInMilestoneB: true,

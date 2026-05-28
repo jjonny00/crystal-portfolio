@@ -164,3 +164,12 @@ The proposed pilot should:
 - No phase hold, cinematic improvement, explosion timing change, or visual polish is included in Milestone B.
 - Completion writes the exact resolved overview pose, seeds `currentTarget` / `previousFramePose`, marks camera progress settled, and applies the existing short handoff lock.
 - Pilot diagnostics now report `ownsCameraInMilestoneB`, `legacyForcedWriterBlocked`, `blockedLegacyWriterCount`, `distanceToTarget`, target deltas, completion status, and whether any competing writer was detected.
+
+## PR-22 Milestone B parity correction
+- Milestone B remains flag-on only and disabled by default; flag-off legacy Hero → Overview behavior is unchanged.
+- Browser diagnostics showed the first owning-pilot pass was using the generic destination resolver for the pilot target during Hero → Overview capture. In the observed route shape, that resolver could inherit hero-biased lens/composition values (`fov: 32`, `filmOffset: 9`) even though the legacy forced Hero → Overview final pose normalizes to the overview composition.
+- The Milestone B pilot target now uses the proven legacy Hero → Overview final pose for parity: overview camera position/target from `cameraPositions.overview` and `cameraTargets.overview` plus offsets, overview FOV from the overview camera config (`44`), and `filmOffset: 0` from the legacy forced branch's final target.
+- The generic resolver overview pose is still captured in diagnostics for comparison, but it is not used as the owning-pilot target when it carries stale hero lens/composition values.
+- Diagnostics also showed pilot camera progress could reset mid-run when the shared/explosion progress source regressed while elapsed wall-clock progress continued. The pilot now keeps a monotonic run-level camera interpolation progress (`monotonicGlobalProgress`) and records the source values separately.
+- `__printHeroOverviewPilotSamples()` now includes flattened camera/from/target vector fields so parity rows are readable without expanding console objects.
+- New helper: `__printHeroOverviewPilotParity()` compares pilot from/to poses, the proven legacy overview final pose, the resolver overview pose, and the current final camera pose with position/lookAt/FOV/filmOffset deltas.
