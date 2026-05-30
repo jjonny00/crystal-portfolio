@@ -1719,6 +1719,39 @@ const UnifiedCameraController = ({
   const quaternionToPlain = (q) => ({ x: round4(q?.x), y: round4(q?.y), z: round4(q?.z), w: round4(q?.w) });
   const safeDistance = (a, b) => (a && b ? round4(a.distanceTo(b)) : null);
   const quaternionAngleDelta = (q1, q2) => (q1 && q2 ? round4(q1.angleTo(q2)) : null);
+  const getCanonicalCameraUp = () => new THREE.Vector3(0, 1, 0);
+  const getUpDeltaFromWorldUp = (up = camera.up) => (up ? round4(up.clone().normalize().distanceTo(getCanonicalCameraUp())) : null);
+  const getRollDeltaFromWorldUp = (up = camera.up) => {
+    if (!up) return null;
+    const normalizedUp = up.clone().normalize();
+    return round4(normalizedUp.angleTo(getCanonicalCameraUp()));
+  };
+  const applyCanonicalCameraUp = () => {
+    const beforeUp = camera.up.clone();
+    const beforeDelta = getUpDeltaFromWorldUp(beforeUp);
+    const corrected = (beforeDelta ?? 0) > 0.0001;
+    camera.up.copy(getCanonicalCameraUp());
+    return { beforeUp, beforeDelta, corrected };
+  };
+  const getCameraOrientationDiagnostics = ({ expectedUp = getCanonicalCameraUp(), targetUp = getCanonicalCameraUp(), rollCorrectedThisFrame = false, rollCorrectionReason = null, orientationSource = 'unknown', upSource = 'unknown', previousFramePoseUp = null, currentTargetUp = null, handoffUp = null, firstNormalOverviewUp = null } = {}) => ({
+    ...flattenVector('cameraUp', camera.up),
+    ...flattenVector('targetUp', targetUp),
+    ...flattenVector('expectedUp', expectedUp),
+    rollDeltaFromWorldUp: getRollDeltaFromWorldUp(camera.up),
+    upDeltaFromWorldUp: getUpDeltaFromWorldUp(camera.up),
+    orientationSource,
+    upSource,
+    cameraQuaternionX: round4(camera.quaternion?.x),
+    cameraQuaternionY: round4(camera.quaternion?.y),
+    cameraQuaternionZ: round4(camera.quaternion?.z),
+    cameraQuaternionW: round4(camera.quaternion?.w),
+    previousFramePoseUp: previousFramePoseUp ? vectorToPlain(previousFramePoseUp) : null,
+    currentTargetUp: currentTargetUp ? vectorToPlain(currentTargetUp) : null,
+    handoffUp: handoffUp ? vectorToPlain(handoffUp) : null,
+    firstNormalOverviewUp: firstNormalOverviewUp ? vectorToPlain(firstNormalOverviewUp) : null,
+    rollCorrectedThisFrame,
+    rollCorrectionReason,
+  });
   const getCameraLookAtFromTransform = (distance = 10) => {
     const forward = new THREE.Vector3();
     camera.getWorldDirection(forward);
@@ -2366,7 +2399,7 @@ const UnifiedCameraController = ({
       const latest = store.samples[store.samples.length - 1] ?? null;
       const summary = {
         pilotEnabled: isHeroToOverviewPilotEnabled(),
-        pilotDiagnosticVersion: latest?.pilotDiagnosticVersion ?? 'PR-23-active-writer-target-guard',
+        pilotDiagnosticVersion: latest?.pilotDiagnosticVersion ?? 'PR-24-canonical-up-orientation-guard',
         sampleCount: store.samples.length,
         captureAttempted: latest?.captureAttempted ?? false,
         captureSucceeded: latest?.captureSucceeded ?? false,
@@ -2421,6 +2454,54 @@ const UnifiedCameraController = ({
       };
       store.lastSummary = summary;
       console.log('[hero-overview-pilot] summary', summary);
+    };
+    globalThis.__printHeroOverviewPilotOrientation = () => {
+      const store = getHeroOverviewPilotDiagnosticsStore();
+      const samples = store.samples.filter((sample) => sample.type === 'pilot-frame' || sample.type === 'completion-handoff' || sample.type === 'handoff-lock-frame' || sample.type === 'milestone-a-scaffold-capture');
+      if (!samples.length) return console.log('[hero-overview-pilot] orientation-summary', { sampleCount: 0 });
+      const numeric = (field) => samples.map((sample) => sample[field]).filter(Number.isFinite);
+      const maxOf = (field) => {
+        const values = numeric(field);
+        return values.length ? round4(Math.max(...values)) : null;
+      };
+      const first = samples[0];
+      const completion = [...samples].reverse().find((sample) => sample.type === 'completion-handoff' || sample.completed) ?? samples[samples.length - 1];
+      const nearCompletion = [...samples].reverse().find((sample) => Number.isFinite(sample.globalProgress) && sample.globalProgress >= 0.95) ?? completion;
+      const firstNormal = [...samples].reverse().find((sample) => sample.firstNormalOverviewUp) ?? null;
+      const upChanged = samples.some((sample) => (sample.upDeltaFromWorldUp ?? 0) > 0.0001);
+      const restored = (completion?.upDeltaFromWorldUp ?? Number.POSITIVE_INFINITY) <= 0.0001;
+      const summary = {
+        sampleCount: samples.length,
+        maxUpDeltaDuringPilot: maxOf('upDeltaFromWorldUp'),
+        maxRollDeltaDuringPilot: maxOf('rollDeltaFromWorldUp'),
+        upVectorAtStart: { x: first.cameraUpX ?? null, y: first.cameraUpY ?? null, z: first.cameraUpZ ?? null },
+        upVectorNearCompletion: { x: nearCompletion?.cameraUpX ?? null, y: nearCompletion?.cameraUpY ?? null, z: nearCompletion?.cameraUpZ ?? null },
+        upVectorAtCompletion: { x: completion?.cameraUpX ?? null, y: completion?.cameraUpY ?? null, z: completion?.cameraUpZ ?? null },
+        upVectorFirstNormalOverviewFrame: firstNormal?.firstNormalOverviewUp ?? null,
+        cameraUpChangedDuringPilot: upChanged,
+        cameraUpRestoredToCanonicalOverviewUp: restored,
+        suspectedRollSource: upChanged ? 'inherited-camera.up-before-pilot-or-handoff' : 'not-detected-in-pilot-samples',
+      };
+      console.log('[hero-overview-pilot] orientation-summary', summary);
+      console.table(samples.map((sample) => ({
+        type: sample.type ?? null,
+        frame: sample.frame ?? null,
+        phase: sample.phase ?? null,
+        globalProgress: sample.globalProgress ?? null,
+        cameraUpX: sample.cameraUpX ?? null,
+        cameraUpY: sample.cameraUpY ?? null,
+        cameraUpZ: sample.cameraUpZ ?? null,
+        upDeltaFromWorldUp: sample.upDeltaFromWorldUp ?? null,
+        rollDeltaFromWorldUp: sample.rollDeltaFromWorldUp ?? null,
+        cameraQuaternionX: sample.cameraQuaternionX ?? null,
+        cameraQuaternionY: sample.cameraQuaternionY ?? null,
+        cameraQuaternionZ: sample.cameraQuaternionZ ?? null,
+        cameraQuaternionW: sample.cameraQuaternionW ?? null,
+        orientationSource: sample.orientationSource ?? null,
+        upSource: sample.upSource ?? null,
+        rollCorrectedThisFrame: sample.rollCorrectedThisFrame ?? false,
+        rollCorrectionReason: sample.rollCorrectionReason ?? null,
+      })));
     };
     globalThis.__printHeroOverviewPilotParity = () => {
       const transition = heroOverviewPilotRef.current.transition;
@@ -3470,7 +3551,11 @@ const UnifiedCameraController = ({
             lookAt: fromLookAt.clone(),
             fov: Number.isFinite(camera.fov) ? camera.fov : (currentTarget.current?.fov ?? 45),
             filmOffset: Number.isFinite(camera.filmOffset) ? camera.filmOffset : 0,
+            up: camera.up.clone(),
           },
+          targetUp: getCanonicalCameraUp(),
+          completionUp: null,
+          firstNormalOverviewUp: null,
           toPose: resolvedOverview,
           resolverOverviewPose: resolverOverview,
           targetPoseSource: resolvedOverview?.meta?.source ?? null,
@@ -3488,7 +3573,7 @@ const UnifiedCameraController = ({
         key: heroOverviewActivationKey,
         transitionKey: heroOverviewTransitionKey,
         pilotEnabled: isHeroToOverviewPilotEnabled(),
-        pilotDiagnosticVersion: 'PR-23-active-writer-target-guard',
+        pilotDiagnosticVersion: 'PR-24-canonical-up-orientation-guard',
         captureAttempted: true,
         captureSucceeded: Boolean(resolvedOverview),
         activationConditionMatched: true,
@@ -3558,6 +3643,16 @@ const UnifiedCameraController = ({
         globalProgressPrintedSource: 'initial-capture-row',
         progressWentBackwards: false,
         progressWasClampedToMonotonic: false,
+        ...getCameraOrientationDiagnostics({
+          targetUp: getCanonicalCameraUp(),
+          expectedUp: getCanonicalCameraUp(),
+          orientationSource: 'capture-live-camera-transform',
+          upSource: 'captured-live-camera-up',
+          previousFramePoseUp: previousFramePose?.up ?? null,
+          currentTargetUp: currentTarget.current?.up ?? null,
+          rollCorrectedThisFrame: false,
+          rollCorrectionReason: null,
+        }),
         transitionObjectReinitialized: false,
         runRestarted: false,
         fromPoseRecaptured: false,
@@ -4380,6 +4475,7 @@ const UnifiedCameraController = ({
         const toFov = Number.isFinite(toPose.fov) ? toPose.fov : fromFov;
         const fromFilmOffset = Number.isFinite(fromPose.filmOffset) ? fromPose.filmOffset : 0;
         const toFilmOffset = Number.isFinite(toPose.filmOffset) ? toPose.filmOffset : 0;
+        const upCorrection = applyCanonicalCameraUp();
         camera.position.copy(nextPosition);
         camera.lookAt(nextLookAt);
         camera.fov = THREE.MathUtils.lerp(fromFov, toFov, easedProgress);
@@ -4389,6 +4485,7 @@ const UnifiedCameraController = ({
         currentTarget.current.lookAt.copy(nextLookAt);
         currentTarget.current.fov = camera.fov;
         currentTarget.current.filmOffset = camera.filmOffset;
+        currentTarget.current.up = camera.up.clone();
         cameraMoveProgressRef.current = globalProgress;
         if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = globalProgress;
         animationData?.setCameraMoveProgress?.(globalProgress);
@@ -4401,7 +4498,7 @@ const UnifiedCameraController = ({
         const filmOffsetDeltaToTarget = round4(Math.abs((camera.filmOffset ?? 0) - (toFilmOffset ?? 0)));
         pushHeroOverviewPilotSample({
           type: globalProgress >= 1 ? 'completion-handoff' : 'pilot-frame',
-          pilotDiagnosticVersion: 'PR-23-active-writer-target-guard',
+          pilotDiagnosticVersion: 'PR-24-canonical-up-orientation-guard',
           t: round4(state.clock.elapsedTime),
           frame: state.clock.frame,
           key: pilot.key,
@@ -4460,6 +4557,18 @@ const UnifiedCameraController = ({
           filmOffsetDeltaToTarget,
           distanceFromCameraToLookAt: safeDistance(camera.position, nextLookAt),
           targetCameraToLookAtDistance: safeDistance(toPose.position, toPose.lookAt),
+          ...getCameraOrientationDiagnostics({
+            targetUp: transition.targetUp ?? getCanonicalCameraUp(),
+            expectedUp: getCanonicalCameraUp(),
+            orientationSource: 'pilot-lookAt-canonical-up',
+            upSource: 'canonical-world-up',
+            previousFramePoseUp: previousFramePoseRef.current?.up ?? null,
+            currentTargetUp: currentTarget.current?.up ?? null,
+            handoffUp: heroToOverviewHandoffPendingRef.current?.finalUp ?? null,
+            firstNormalOverviewUp: transition.firstNormalOverviewUp ?? null,
+            rollCorrectedThisFrame: upCorrection.corrected,
+            rollCorrectionReason: upCorrection.corrected ? 'camera.up-normalized-before-pilot-lookAt' : null,
+          }),
           fromPoseRecaptured: false,
           targetPoseRecalculated: false,
           pilotStartedThisFrame: false,
@@ -4475,6 +4584,7 @@ const UnifiedCameraController = ({
           completed: globalProgress >= 1,
         });
         if (globalProgress >= 1) {
+          camera.up.copy(getCanonicalCameraUp());
           camera.position.copy(toPose.position);
           camera.lookAt(toPose.lookAt);
           camera.fov = toFov;
@@ -4484,11 +4594,15 @@ const UnifiedCameraController = ({
           currentTarget.current.lookAt.copy(toPose.lookAt);
           currentTarget.current.fov = camera.fov;
           currentTarget.current.filmOffset = camera.filmOffset;
+          currentTarget.current.up = camera.up.clone();
+          transition.completionUp = camera.up.clone();
           previousFramePoseRef.current = {
             position: camera.position.clone(),
             lookAt: toPose.lookAt.clone(),
             fov: camera.fov,
             filmOffset: camera.filmOffset,
+            up: camera.up.clone(),
+            quaternion: camera.quaternion.clone(),
             state: animationData?.state ?? null,
             cameraState: animationData?.cameraState ?? null,
             viewMode: animationData?.viewMode ?? null,
@@ -4504,6 +4618,8 @@ const UnifiedCameraController = ({
             finalPosition: camera.position.clone(),
             finalLookAt: toPose.lookAt.clone(),
             finalFilmOffset: camera.filmOffset,
+            finalUp: camera.up.clone(),
+            finalQuaternion: camera.quaternion.clone(),
           };
           heroToOverviewHandoffLockFramesRef.current = HERO_TO_OVERVIEW_HANDOFF_LOCK_FRAMES;
           cameraMoveProgressRef.current = 1;
@@ -5515,6 +5631,7 @@ const UnifiedCameraController = ({
       heroToOverviewHandoffLockFramesRef.current -= 1;
       const pending = heroToOverviewHandoffPendingRef.current;
       if (pending) {
+        camera.up.copy(pending.finalUp ?? getCanonicalCameraUp());
         camera.position.copy(pending.finalPosition);
         camera.lookAt(pending.finalLookAt);
         camera.filmOffset = pending.finalFilmOffset;
@@ -5522,10 +5639,47 @@ const UnifiedCameraController = ({
         currentTarget.current.position.copy(pending.finalPosition);
         currentTarget.current.lookAt.copy(pending.finalLookAt);
         currentTarget.current.fov = camera.fov;
+        currentTarget.current.up = camera.up.clone();
         cameraMoveProgressRef.current = 1;
         if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = 1;
         animationData?.setCameraMoveProgress?.(1);
         logCameraWrite(state, "FORCED_HERO_TO_OVERVIEW", "handoff-lock-frame", pending.finalLookAt, true, true);
+        if (heroOverviewPilotRef.current.transition && !heroOverviewPilotRef.current.transition.firstNormalOverviewUp) {
+          heroOverviewPilotRef.current.transition.firstNormalOverviewUp = camera.up.clone();
+        }
+        pushHeroOverviewPilotSample({
+          type: 'handoff-lock-frame',
+          pilotDiagnosticVersion: 'PR-24-canonical-up-orientation-guard',
+          t: round4(state.clock.elapsedTime),
+          frame: state.clock.frame,
+          key: heroOverviewPilotRef.current.key,
+          phase: 'handoffLock',
+          globalProgress: 1,
+          monotonicGlobalProgress: 1,
+          activeWriter: 'FORCED_HERO_TO_OVERVIEW',
+          writerReason: 'handoff-lock-frame',
+          ...getCameraOrientationDiagnostics({
+            targetUp: pending.finalUp ?? getCanonicalCameraUp(),
+            expectedUp: getCanonicalCameraUp(),
+            orientationSource: 'handoff-lock-canonical-up',
+            upSource: pending.finalUp ? 'handoff-pending-finalUp' : 'canonical-world-up',
+            previousFramePoseUp: previousFramePoseRef.current?.up ?? null,
+            currentTargetUp: currentTarget.current?.up ?? null,
+            handoffUp: pending.finalUp ?? null,
+            firstNormalOverviewUp: camera.up.clone(),
+            rollCorrectedThisFrame: false,
+            rollCorrectionReason: null,
+          }),
+          activeToPoseSource: heroOverviewPilotRef.current.transition?.toPose?.meta?.source ?? null,
+          activeToPoseFov: round4(heroOverviewPilotRef.current.transition?.toPose?.fov),
+          activeToPoseFilmOffset: round4(heroOverviewPilotRef.current.transition?.toPose?.filmOffset),
+          cameraWriteTargetSource: heroOverviewPilotRef.current.transition?.toPose?.meta?.source ?? null,
+          progressSourceUsedForCameraWrite: 'handoff-lock-final-pose',
+          globalProgressPrintedSource: 'handoff-lock-final-pose',
+          fromPoseRecaptured: false,
+          targetPoseRecalculated: false,
+          completed: true,
+        });
         if (heroToOverviewHandoffLockFramesRef.current <= 0) {
           heroToOverviewHandoffPendingRef.current = null;
         }
@@ -6189,6 +6343,7 @@ const UnifiedCameraController = ({
       if (seamRows.length > 60) seamRows.shift();
     }
     if (shouldSuppressPostForcedFallbackSmoothing && animationData?.cameraState === 'overview') {
+      camera.up.copy(currentTarget.current.up ?? getCanonicalCameraUp());
       camera.position.copy(currentTarget.current.position);
       camera.lookAt(currentTarget.current.lookAt);
       camera.fov = currentTarget.current.fov;

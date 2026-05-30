@@ -180,3 +180,10 @@ The proposed pilot should:
 - Active pilot samples now distinguish the target used for camera writes from resolver/debug targets with `activeToPoseSource`, `activeToPoseFov`, `activeToPoseFilmOffset`, `cameraWriteTargetSource`, `diagnosticTargetSource`, and `completionTargetSource`.
 - Active pilot samples also distinguish raw progress candidates from write progress with `progressSourceUsedForCameraWrite`, `rawProgressCandidate`, `previousMonotonicGlobalProgress`, `globalProgressPrintedSource`, `progressWentBackwards`, and `progressWasClampedToMonotonic`.
 - DEV warning: if the active writer encounters a stale non-legacy target, it logs a one-time correction warning with previous and corrected FOV/filmOffset values. The warning does not crash or change flag-off behavior.
+
+## PR-24 orientation / roll guard
+- Follow-up flag-on testing showed the owning pilot target/progress path was smooth, but a narrow end tilt/roll remained.
+- The likely cause is inherited `camera.up`: Three.js `camera.lookAt()` uses the current `camera.up`, so a stale rolled up vector can survive otherwise-correct position/lookAt/fov/filmOffset writes.
+- The active Hero → Overview pilot now normalizes `camera.up` to canonical world/overview up (`0, 1, 0`) before pilot `lookAt()` writes, on the exact completion write, and during the handoff-lock frames.
+- Completion now seeds `currentTarget.up`, `previousFramePose.up`, `previousFramePose.quaternion`, and handoff-pending `finalUp`/`finalQuaternion` so the first normal overview frames inherit the same non-rolled basis.
+- New helper: `__printHeroOverviewPilotOrientation()` summarizes up/roll deltas, start/completion/handoff up vectors, whether up changed during the pilot, and whether completion restored canonical overview up.
