@@ -2399,7 +2399,7 @@ const UnifiedCameraController = ({
       const latest = store.samples[store.samples.length - 1] ?? null;
       const summary = {
         pilotEnabled: isHeroToOverviewPilotEnabled(),
-        pilotDiagnosticVersion: latest?.pilotDiagnosticVersion ?? 'PR-24-canonical-up-orientation-guard',
+        pilotDiagnosticVersion: latest?.pilotDiagnosticVersion ?? 'PR-25-live-lookat-takeover-clear',
         sampleCount: store.samples.length,
         captureAttempted: latest?.captureAttempted ?? false,
         captureSucceeded: latest?.captureSucceeded ?? false,
@@ -2415,6 +2415,7 @@ const UnifiedCameraController = ({
         phaseModel: HERO_OVERVIEW_PILOT_PHASES,
         phaseBehaviors: HERO_OVERVIEW_PILOT_PHASE_BEHAVIORS,
         fromPoseSource: latest?.fromPoseSource ?? heroOverviewPilotRef.current.transition?.fromPoseSource ?? null,
+        fromLookAtSource: latest?.fromLookAtSource ?? heroOverviewPilotRef.current.transition?.fromLookAtSource ?? null,
         targetResolved: Boolean(heroOverviewPilotRef.current.transition?.toPose),
         legacyForcedWriterBlocked: latest?.legacyForcedWriterBlocked ?? heroOverviewPilotRef.current.transition?.legacyForcedWriterBlocked ?? false,
         startJumpDistance: latest?.startJumpDistance ?? heroOverviewPilotRef.current.transition?.startJumpDistance ?? null,
@@ -2450,6 +2451,12 @@ const UnifiedCameraController = ({
         progressWasClampedToMonotonic: latest?.progressWasClampedToMonotonic ?? false,
         transitionObjectReinitialized: latest?.transitionObjectReinitialized ?? false,
         runRestarted: latest?.runRestarted ?? false,
+        fractureTiltActiveAtCompletion: latest?.fractureTiltActiveAtCompletion ?? heroOverviewPilotRef.current.transition?.fractureTiltActiveAtCompletion ?? null,
+        fractureTiltValueAtCompletion: latest?.fractureTiltValueAtCompletion ?? round4(heroOverviewPilotRef.current.transition?.fractureTiltValueAtCompletion),
+        heroExplosionTransitionActiveAtCompletion: latest?.heroExplosionTransitionActiveAtCompletion ?? heroOverviewPilotRef.current.transition?.heroExplosionTransitionActiveAtCompletion ?? null,
+        takeoverFlagsClearedAtCompletion: latest?.takeoverFlagsClearedAtCompletion ?? heroOverviewPilotRef.current.transition?.takeoverFlagsClearedAtCompletion ?? null,
+        takeoverFlagsClearedBeforeFirstNormalOverview: latest?.takeoverFlagsClearedBeforeFirstNormalOverview ?? null,
+        postPilotFractureReentryDetected: latest?.postPilotFractureReentryDetected ?? false,
         latest,
       };
       store.lastSummary = summary;
@@ -2457,7 +2464,7 @@ const UnifiedCameraController = ({
     };
     globalThis.__printHeroOverviewPilotOrientation = () => {
       const store = getHeroOverviewPilotDiagnosticsStore();
-      const samples = store.samples.filter((sample) => sample.type === 'pilot-frame' || sample.type === 'completion-handoff' || sample.type === 'handoff-lock-frame' || sample.type === 'milestone-a-scaffold-capture');
+      const samples = store.samples.filter((sample) => sample.type === 'pilot-frame' || sample.type === 'completion-handoff' || sample.type === 'handoff-lock-frame' || sample.type === 'pilot-completion-finalized' || sample.type === 'milestone-a-scaffold-capture');
       if (!samples.length) return console.log('[hero-overview-pilot] orientation-summary', { sampleCount: 0 });
       const numeric = (field) => samples.map((sample) => sample[field]).filter(Number.isFinite);
       const maxOf = (field) => {
@@ -2470,8 +2477,13 @@ const UnifiedCameraController = ({
       const firstNormal = [...samples].reverse().find((sample) => sample.firstNormalOverviewUp) ?? null;
       const upChanged = samples.some((sample) => (sample.upDeltaFromWorldUp ?? 0) > 0.0001);
       const restored = (completion?.upDeltaFromWorldUp ?? Number.POSITIVE_INFINITY) <= 0.0001;
+      const completionClearedTakeoverFlags = samples.some((sample) => sample.takeoverFlagsClearedAtCompletion === true);
+      const postPilotFractureReentryDetected = samples.some((sample) => sample.postPilotFractureReentryDetected === true);
+      const liveFromPose = samples.some((sample) => sample.fromPoseSource === 'live-camera-transform' && sample.fromLookAtSource === 'camera-world-direction');
       const summary = {
         sampleCount: samples.length,
+        fromPoseUsedLiveCameraTransform: liveFromPose,
+        completionClearedFractureExplosionTakeoverFlags: completionClearedTakeoverFlags,
         maxUpDeltaDuringPilot: maxOf('upDeltaFromWorldUp'),
         maxRollDeltaDuringPilot: maxOf('rollDeltaFromWorldUp'),
         upVectorAtStart: { x: first.cameraUpX ?? null, y: first.cameraUpY ?? null, z: first.cameraUpZ ?? null },
@@ -2480,7 +2492,10 @@ const UnifiedCameraController = ({
         upVectorFirstNormalOverviewFrame: firstNormal?.firstNormalOverviewUp ?? null,
         cameraUpChangedDuringPilot: upChanged,
         cameraUpRestoredToCanonicalOverviewUp: restored,
-        suspectedRollSource: upChanged ? 'inherited-camera.up-before-pilot-or-handoff' : 'not-detected-in-pilot-samples',
+        postPilotFractureReentryDetected,
+        suspectedRollSource: postPilotFractureReentryDetected
+          ? 'post-pilot-fracture-or-explosion-reentry'
+          : (upChanged ? 'inherited-camera.up-before-pilot-or-handoff' : 'not-detected-in-pilot-samples'),
       };
       console.log('[hero-overview-pilot] orientation-summary', summary);
       console.table(samples.map((sample) => ({
@@ -2501,6 +2516,17 @@ const UnifiedCameraController = ({
         upSource: sample.upSource ?? null,
         rollCorrectedThisFrame: sample.rollCorrectedThisFrame ?? false,
         rollCorrectionReason: sample.rollCorrectionReason ?? null,
+        fromPoseSource: sample.fromPoseSource ?? null,
+        fromLookAtSource: sample.fromLookAtSource ?? null,
+        fractureTiltActiveAtCompletion: sample.fractureTiltActiveAtCompletion ?? null,
+        fractureTiltValueAtCompletion: sample.fractureTiltValueAtCompletion ?? null,
+        heroExplosionTransitionActiveAtCompletion: sample.heroExplosionTransitionActiveAtCompletion ?? null,
+        takeoverFlagsClearedAtCompletion: sample.takeoverFlagsClearedAtCompletion ?? null,
+        takeoverFlagsClearedBeforeFirstNormalOverview: sample.takeoverFlagsClearedBeforeFirstNormalOverview ?? null,
+        firstNormalOverviewFrameWriter: sample.firstNormalOverviewFrameWriter ?? null,
+        postPilotFractureReentryDetected: sample.postPilotFractureReentryDetected ?? null,
+        postPilotOrientationDelta: sample.postPilotOrientationDelta ?? null,
+        postPilotRollDelta: sample.postPilotRollDelta ?? null,
       })));
     };
     globalThis.__printHeroOverviewPilotParity = () => {
@@ -3546,6 +3572,7 @@ const UnifiedCameraController = ({
           duration: 1.45,
           startJumpDistance: 0,
           fromPoseSource: 'live-camera-transform',
+          fromLookAtSource: 'camera-world-direction',
           fromPose: {
             position: camera.position.clone(),
             lookAt: fromLookAt.clone(),
@@ -3573,7 +3600,7 @@ const UnifiedCameraController = ({
         key: heroOverviewActivationKey,
         transitionKey: heroOverviewTransitionKey,
         pilotEnabled: isHeroToOverviewPilotEnabled(),
-        pilotDiagnosticVersion: 'PR-24-canonical-up-orientation-guard',
+        pilotDiagnosticVersion: 'PR-25-live-lookat-takeover-clear',
         captureAttempted: true,
         captureSucceeded: Boolean(resolvedOverview),
         activationConditionMatched: true,
@@ -3596,8 +3623,10 @@ const UnifiedCameraController = ({
         ownsCameraInMilestoneB: Boolean(resolvedOverview),
         phaseModel: HERO_OVERVIEW_PILOT_PHASES.join(' -> '),
         fromPoseSource: 'live-camera-transform',
+        fromLookAtSource: 'camera-world-direction',
         fromPosition: vectorToPlain(camera.position),
         fromLookAt: vectorToPlain(fromLookAt),
+        ...flattenVector('fromUp', camera.up),
         ...flattenPilotPoseFields({
           cameraPosition: camera.position,
           lookAt: fromLookAt,
@@ -4498,10 +4527,12 @@ const UnifiedCameraController = ({
         const filmOffsetDeltaToTarget = round4(Math.abs((camera.filmOffset ?? 0) - (toFilmOffset ?? 0)));
         pushHeroOverviewPilotSample({
           type: globalProgress >= 1 ? 'completion-handoff' : 'pilot-frame',
-          pilotDiagnosticVersion: 'PR-24-canonical-up-orientation-guard',
+          pilotDiagnosticVersion: 'PR-25-live-lookat-takeover-clear',
           t: round4(state.clock.elapsedTime),
           frame: state.clock.frame,
           key: pilot.key,
+          fromPoseSource: transition.fromPoseSource ?? null,
+          fromLookAtSource: transition.fromLookAtSource ?? null,
           phase: pilotPhase,
           phaseProgress: round4(phaseProgress),
           globalProgress: round4(globalProgress),
@@ -4536,6 +4567,7 @@ const UnifiedCameraController = ({
           filmOffset: round4(camera.filmOffset),
           targetFilmOffset: round4(toFilmOffset),
           fromFilmOffset: round4(fromFilmOffset),
+          ...flattenVector('fromUp', fromPose.up),
           targetPosition: vectorToPlain(toPose.position),
           targetLookAt: vectorToPlain(toPose.lookAt),
           targetPoseSource: transition.targetPoseSource ?? toPose.meta?.source ?? null,
@@ -4596,9 +4628,25 @@ const UnifiedCameraController = ({
           currentTarget.current.filmOffset = camera.filmOffset;
           currentTarget.current.up = camera.up.clone();
           transition.completionUp = camera.up.clone();
+          const finalRenderedLookAt = getCameraLookAtFromTransform();
+          const fractureTiltActiveAtCompletion = Boolean(fractureTiltActiveRef.current);
+          const fractureTiltValueAtCompletion = Number.isFinite(fractureTiltRef.current) ? fractureTiltRef.current : 0;
+          const heroExplosionTransitionActiveAtCompletion = Boolean(heroExplosionTransitionRef.current.active);
+          fractureTiltActiveRef.current = false;
+          fractureTiltRef.current = 0;
+          heroExplosionTransitionRef.current.active = false;
+          const takeoverFlagsClearedAtCompletion =
+            !fractureTiltActiveRef.current &&
+            Math.abs(fractureTiltRef.current) <= 0.00001 &&
+            !heroExplosionTransitionRef.current.active;
+          transition.takeoverFlagsClearedAtCompletion = takeoverFlagsClearedAtCompletion;
+          transition.fractureTiltActiveAtCompletion = fractureTiltActiveAtCompletion;
+          transition.fractureTiltValueAtCompletion = fractureTiltValueAtCompletion;
+          transition.heroExplosionTransitionActiveAtCompletion = heroExplosionTransitionActiveAtCompletion;
           previousFramePoseRef.current = {
             position: camera.position.clone(),
             lookAt: toPose.lookAt.clone(),
+            renderedLookAt: finalRenderedLookAt.clone(),
             fov: camera.fov,
             filmOffset: camera.filmOffset,
             up: camera.up.clone(),
@@ -4617,11 +4665,58 @@ const UnifiedCameraController = ({
           heroToOverviewHandoffPendingRef.current = {
             finalPosition: camera.position.clone(),
             finalLookAt: toPose.lookAt.clone(),
+            finalRenderedLookAt: finalRenderedLookAt.clone(),
             finalFilmOffset: camera.filmOffset,
             finalUp: camera.up.clone(),
             finalQuaternion: camera.quaternion.clone(),
           };
           heroToOverviewHandoffLockFramesRef.current = HERO_TO_OVERVIEW_HANDOFF_LOCK_FRAMES;
+          pushHeroOverviewPilotSample({
+            type: 'pilot-completion-finalized',
+            pilotDiagnosticVersion: 'PR-25-live-lookat-takeover-clear',
+            t: round4(state.clock.elapsedTime),
+            frame: state.clock.frame,
+            key: pilot.key,
+            fromPoseSource: transition.fromPoseSource ?? null,
+            fromLookAtSource: transition.fromLookAtSource ?? null,
+            phase: 'complete',
+            globalProgress: 1,
+            monotonicGlobalProgress: 1,
+            activeWriter: 'HERO_OVERVIEW_PILOT',
+            writerReason: 'hero-overview-pilot-completion-finalized',
+            activeToPoseSource: toPose.meta?.source ?? transition.targetPoseSource ?? null,
+            activeToPoseFov: round4(toPose.fov),
+            activeToPoseFilmOffset: round4(toPose.filmOffset),
+            cameraWriteTargetSource: toPose.meta?.source ?? transition.targetPoseSource ?? null,
+            completionTargetSource: toPose.meta?.source ?? transition.targetPoseSource ?? null,
+            ...flattenVector('finalUp', camera.up),
+            ...flattenVector('previousFramePoseUp', previousFramePoseRef.current?.up),
+            fractureTiltActiveAtCompletion,
+            fractureTiltValueAtCompletion: round4(fractureTiltValueAtCompletion),
+            heroExplosionTransitionActiveAtCompletion,
+            takeoverFlagsClearedAtCompletion,
+            takeoverFlagsClearedBeforeFirstNormalOverview: takeoverFlagsClearedAtCompletion,
+            postPilotFractureReentryDetected: false,
+            postPilotOrientationDelta: 0,
+            postPilotRollDelta: getRollDeltaFromWorldUp(camera.up),
+            firstNormalOverviewFrameWriter: null,
+            firstNormalOverviewFrameLookAtSource: null,
+            ...getCameraOrientationDiagnostics({
+              targetUp: transition.targetUp ?? getCanonicalCameraUp(),
+              expectedUp: getCanonicalCameraUp(),
+              orientationSource: 'pilot-completion-final-camera-transform',
+              upSource: 'canonical-world-up',
+              previousFramePoseUp: previousFramePoseRef.current?.up ?? null,
+              currentTargetUp: currentTarget.current?.up ?? null,
+              handoffUp: heroToOverviewHandoffPendingRef.current?.finalUp ?? null,
+              firstNormalOverviewUp: null,
+              rollCorrectedThisFrame: false,
+              rollCorrectionReason: null,
+            }),
+            fromPoseRecaptured: false,
+            targetPoseRecalculated: false,
+            completed: true,
+          });
           cameraMoveProgressRef.current = 1;
           if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = 1;
           animationData?.setCameraMoveProgress?.(1);
@@ -5644,12 +5739,14 @@ const UnifiedCameraController = ({
         if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = 1;
         animationData?.setCameraMoveProgress?.(1);
         logCameraWrite(state, "FORCED_HERO_TO_OVERVIEW", "handoff-lock-frame", pending.finalLookAt, true, true);
+        const postPilotFractureReentryDetected = Boolean(fractureTiltActiveRef.current || heroExplosionTransitionRef.current.active);
         if (heroOverviewPilotRef.current.transition && !heroOverviewPilotRef.current.transition.firstNormalOverviewUp) {
           heroOverviewPilotRef.current.transition.firstNormalOverviewUp = camera.up.clone();
+          heroOverviewPilotRef.current.transition.firstNormalOverviewFrameWriter = lastCameraWriterRef.current;
         }
         pushHeroOverviewPilotSample({
           type: 'handoff-lock-frame',
-          pilotDiagnosticVersion: 'PR-24-canonical-up-orientation-guard',
+          pilotDiagnosticVersion: 'PR-25-live-lookat-takeover-clear',
           t: round4(state.clock.elapsedTime),
           frame: state.clock.frame,
           key: heroOverviewPilotRef.current.key,
@@ -5658,6 +5755,8 @@ const UnifiedCameraController = ({
           monotonicGlobalProgress: 1,
           activeWriter: 'FORCED_HERO_TO_OVERVIEW',
           writerReason: 'handoff-lock-frame',
+          fromPoseSource: heroOverviewPilotRef.current.transition?.fromPoseSource ?? null,
+          fromLookAtSource: heroOverviewPilotRef.current.transition?.fromLookAtSource ?? null,
           ...getCameraOrientationDiagnostics({
             targetUp: pending.finalUp ?? getCanonicalCameraUp(),
             expectedUp: getCanonicalCameraUp(),
@@ -5674,6 +5773,17 @@ const UnifiedCameraController = ({
           activeToPoseFov: round4(heroOverviewPilotRef.current.transition?.toPose?.fov),
           activeToPoseFilmOffset: round4(heroOverviewPilotRef.current.transition?.toPose?.filmOffset),
           cameraWriteTargetSource: heroOverviewPilotRef.current.transition?.toPose?.meta?.source ?? null,
+          ...flattenVector('firstNormalOverviewFrameUp', camera.up),
+          firstNormalOverviewFrameWriter: lastCameraWriterRef.current,
+          firstNormalOverviewFrameLookAtSource: 'handoff-pending-finalLookAt',
+          fractureTiltActiveAtCompletion: heroOverviewPilotRef.current.transition?.fractureTiltActiveAtCompletion ?? null,
+          fractureTiltValueAtCompletion: round4(heroOverviewPilotRef.current.transition?.fractureTiltValueAtCompletion),
+          heroExplosionTransitionActiveAtCompletion: heroOverviewPilotRef.current.transition?.heroExplosionTransitionActiveAtCompletion ?? null,
+          takeoverFlagsClearedAtCompletion: heroOverviewPilotRef.current.transition?.takeoverFlagsClearedAtCompletion ?? null,
+          takeoverFlagsClearedBeforeFirstNormalOverview: !postPilotFractureReentryDetected,
+          postPilotFractureReentryDetected,
+          postPilotOrientationDelta: previousFramePoseRef.current?.quaternion ? quaternionAngleDelta(previousFramePoseRef.current.quaternion, camera.quaternion) : null,
+          postPilotRollDelta: getRollDeltaFromWorldUp(camera.up),
           progressSourceUsedForCameraWrite: 'handoff-lock-final-pose',
           globalProgressPrintedSource: 'handoff-lock-final-pose',
           fromPoseRecaptured: false,
