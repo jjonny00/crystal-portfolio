@@ -334,3 +334,27 @@ The trace summarizes and tables the 10-frame pre-activation window and first 5 p
 - Whether the pilot hold matches the visible Hero pose.
 
 `__printHeroOverviewPilotCinematic?.()` also reports `lastWriterBeforePilotLock`, `lastHeroWriterBeforePilotLock`, `lastHeroOrbitPoseBeforePilotLock`, `lastAuthoritativeHeroPoseBeforePilotLock`, `distanceBetweenPilotHoldPoseAndHeroOrbit`, `distanceBetweenPilotHoldPoseAndAuthoritativeHero`, `doesPilotHoldMatchHeroOrbit`, and `doesPilotHoldMatchAuthoritativeHero`.
+
+## Milestone C follow-up: visible composition trace
+
+The previous visible-Hero-pose attempt still fell back to `first-active-pilot-write-live-camera-transform` in runtime diagnostics. The most likely implementation issue was that the recency check depended on `state.clock.frame`, which may be absent/unstable in React Three Fiber clock data, so a valid last rendered Hero pose could be rejected as not recent. The camera controller now keeps its own monotonically increasing `cameraFrameIndexRef` for pilot/trace windows and uses that for visible-Hero-pose recency.
+
+A new DEV-only visible composition trace has also been added:
+
+```js
+globalThis.__printHeroOverviewVisibleCompositionTrace?.();
+globalThis.__clearHeroOverviewVisibleCompositionTrace?.();
+```
+
+The trace records the 20 frames before Hero → Overview activation and the first 10 pilot frames. It compares raw camera pose, camera world pose, currentTarget, previousFramePose, the last recorded Hero-orbit state, camera parent world transform, and crystal scene transform snapshots published by `UnifiedCrystalScene`.
+
+The helper summarizes:
+- whether raw camera position moved during Hero orbit
+- whether camera world position moved during Hero orbit
+- whether camera quaternion changed during Hero orbit
+- whether filmOffset changed during Hero orbit
+- whether scene root / crystal group transforms moved during Hero orbit
+- the best visible Hero pose candidate relative to the pilot hold
+- whether the visible orbit appears camera-, scene-, or projection-based
+
+This pass intentionally keeps the fix narrow: it improves the visible-pose recency mechanism and adds evidence to identify whether the remaining visual snap is camera-based, scene/object-based, projection-based, or state-order based. It does not tune cinematic timing, object explosion timing, fragments, particles, materials, styling, About behavior, or other routes.
