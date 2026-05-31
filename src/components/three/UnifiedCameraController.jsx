@@ -2868,6 +2868,15 @@ const UnifiedCameraController = ({
         targetFov: latest?.targetFov ?? round4(heroOverviewPilotRef.current.transition?.toPose?.fov),
         targetFilmOffset: latest?.targetFilmOffset ?? round4(heroOverviewPilotRef.current.transition?.toPose?.filmOffset),
         monotonicGlobalProgress: latest?.monotonicGlobalProgress ?? round4(heroOverviewPilotRef.current.transition?.monotonicGlobalProgress),
+        totalDurationSeconds: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.totalDurationSeconds,
+        rawTotalDurationSeconds: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.rawTotalDurationSeconds,
+        resolvedTotalDurationSeconds: latest?.resolvedTotalDurationSeconds ?? HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.resolvedTotalDurationSeconds,
+        totalDurationFallbackUsed: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.totalDurationFallbackUsed,
+        invalidTotalDuration: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.invalidTotalDuration,
+        derivedPhaseDurationsSeconds: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.derivedPhaseDurationsSeconds,
+        cameraRunElapsedSeconds: latest?.cameraRunElapsedSeconds ?? round4(heroOverviewPilotRef.current.transition?.cameraRunElapsedSeconds),
+        cameraRunProgress: latest?.cameraRunProgress ?? round4(heroOverviewPilotRef.current.transition?.cameraRunProgress),
+        totalDurationSecondsActivelyControlsCameraProgress: latest?.totalDurationSecondsActivelyControlsCameraProgress ?? heroOverviewPilotRef.current.transition?.progressSourceIsConfigDurationControlled ?? false,
         progressSource: latest?.progressSource ?? heroOverviewPilotRef.current.transition?.progressSource ?? null,
         fromPoseRecaptured: latest?.fromPoseRecaptured ?? heroOverviewPilotRef.current.transition?.fromPoseRecaptured ?? false,
         targetPoseRecalculated: latest?.targetPoseRecalculated ?? heroOverviewPilotRef.current.transition?.targetPoseRecalculated ?? false,
@@ -2883,7 +2892,7 @@ const UnifiedCameraController = ({
         completionTargetSource: latest?.completionTargetSource ?? null,
         targetWasOverwritten: latest?.targetWasOverwritten ?? heroOverviewPilotRef.current.transition?.targetWasOverwritten ?? false,
         targetOverwriteReason: latest?.targetOverwriteReason ?? heroOverviewPilotRef.current.transition?.targetOverwriteReason ?? null,
-        progressSourceUsedForCameraWrite: latest?.progressSourceUsedForCameraWrite ?? null,
+        progressSourceUsedForCameraWrite: latest?.progressSourceUsedForCameraWrite ?? heroOverviewPilotRef.current.transition?.progressSourceUsedForCameraWrite ?? null,
         rawProgressCandidate: latest?.rawProgressCandidate ?? null,
         previousMonotonicGlobalProgress: latest?.previousMonotonicGlobalProgress ?? null,
         globalProgressPrintedSource: latest?.globalProgressPrintedSource ?? null,
@@ -3242,7 +3251,7 @@ const UnifiedCameraController = ({
     globalThis.__printHeroOverviewPilotCinematic = () => {
       const store = getHeroOverviewPilotDiagnosticsStore();
       const samples = store.samples.filter((sample) => sample.type === 'pilot-frame' || sample.type === 'completion-handoff' || sample.type === 'pilot-completion-finalized');
-      if (!samples.length) return console.log('[hero-overview-pilot] cinematic-summary', { sampleCount: 0, pilotCinematicMilestone: 'Milestone E config-driven cinematic tuning', configSourceFile: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.sourceFile, rawDurationValues: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.rawDurations, derivedNormalizedPhaseWindows: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE, cameraMotionConfig: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.camera, particleConfig: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.particles, ringConfig: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.ring, defaultsUsed: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.defaultsUsed, invalidConfigFallbackOccurred: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.invalidConfigFallbackOccurred });
+      if (!samples.length) return console.log('[hero-overview-pilot] cinematic-summary', { sampleCount: 0, pilotCinematicMilestone: 'Milestone E config-driven cinematic tuning', configSourceFile: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.sourceFile, rawDurationValues: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.rawDurations, rawTotalDurationSeconds: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.rawTotalDurationSeconds, resolvedTotalDurationSeconds: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.resolvedTotalDurationSeconds, totalDurationFallbackUsed: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.totalDurationFallbackUsed, invalidTotalDuration: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.invalidTotalDuration, configuredPhaseWeights: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.configuredPhaseWeights, derivedNormalizedPhaseWindows: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE, derivedPhaseWindows: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE, derivedPhaseDurationsSeconds: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.derivedPhaseDurationsSeconds, cameraMotionConfig: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.camera, particleConfig: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.particles, ringConfig: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.ring, defaultsUsed: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.defaultsUsed, invalidConfigFallbackOccurred: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.invalidConfigFallbackOccurred, totalDurationSecondsActivelyControlsCameraProgress: true });
       const latest = samples[samples.length - 1];
       const movementThreshold = 0.001;
       const phaseRows = (phase) => samples.filter((sample) => sample.phase === phase);
@@ -3270,7 +3279,14 @@ const UnifiedCameraController = ({
         configSourceFile: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.sourceFile,
         configSourceName: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.sourceName,
         rawDurationValues: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.rawDurations,
+        rawTotalDurationSeconds: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.rawTotalDurationSeconds,
+        totalDurationSeconds: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.totalDurationSeconds,
+        resolvedTotalDurationSeconds: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.resolvedTotalDurationSeconds,
+        totalDurationFallbackUsed: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.totalDurationFallbackUsed,
+        invalidTotalDuration: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.invalidTotalDuration,
         resolvedDurationValues: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.durations,
+        configuredPhaseWeights: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.configuredPhaseWeights,
+        derivedPhaseDurationsSeconds: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.derivedPhaseDurationsSeconds,
         totalConfiguredDuration: round4(HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.totalConfiguredDuration),
         normalizedDurationTotal: round4(HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.normalizedDurationTotal),
         defaultsUsed: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.defaultsUsed,
@@ -3278,6 +3294,11 @@ const UnifiedCameraController = ({
         invalidDurationKeys: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.invalidDurationKeys,
         cameraTimeline: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE,
         derivedNormalizedPhaseWindows: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE,
+        derivedPhaseWindows: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE,
+        cameraRunElapsedSeconds: latest?.cameraRunElapsedSeconds ?? round4(heroOverviewPilotRef.current.transition?.cameraRunElapsedSeconds),
+        cameraRunProgress: latest?.cameraRunProgress ?? round4(heroOverviewPilotRef.current.transition?.cameraRunProgress),
+        progressSourceUsedForCameraWrite: latest?.progressSourceUsedForCameraWrite ?? heroOverviewPilotRef.current.transition?.progressSourceUsedForCameraWrite ?? null,
+        totalDurationSecondsActivelyControlsCameraProgress: latest?.totalDurationSecondsActivelyControlsCameraProgress ?? heroOverviewPilotRef.current.transition?.progressSourceIsConfigDurationControlled ?? false,
         cameraMotion: HERO_OVERVIEW_PILOT_CAMERA_MOTION,
         cameraMotionConfig: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.camera,
         easingNames: {
@@ -4483,7 +4504,9 @@ const UnifiedCameraController = ({
           blockedLegacyWriterCount: blockedLegacyWriterAtCapture ? 1 : 0,
           competingWriterDetected: false,
           completed: false,
-          duration: 1.45,
+          duration: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.totalDurationSeconds,
+          totalDurationSeconds: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.totalDurationSeconds,
+          progressSourceIsConfigDurationControlled: true,
           startJumpDistance: 0,
           activationFromPoseSource: 'activation-intent-live-camera-transform',
           activeHoldPoseSource: null,
@@ -4503,7 +4526,7 @@ const UnifiedCameraController = ({
           toPose: resolvedOverview,
           resolverOverviewPose: resolverOverview,
           targetPoseSource: resolvedOverview?.meta?.source ?? null,
-          progressSource: 'monotonic-run-progress:max(elapsed,runtime,explosion)',
+          progressSource: 'config-duration-elapsed-progress',
           monotonicGlobalProgress: 0,
           fromPoseRecaptured: false,
           targetPoseRecalculated: false,
@@ -4655,7 +4678,7 @@ const UnifiedCameraController = ({
         fovChangedDuringHold: false,
         filmOffsetChangedDuringHold: false,
         runtimePhase: heroOverviewObservedPhase,
-        progressSource: 'monotonic-run-progress:max(elapsed,runtime,explosion)',
+        progressSource: 'config-duration-elapsed-progress',
         progressSourceUsedForCameraWrite: 'not-writing-on-capture-row',
         rawProgressCandidate: 0,
         previousMonotonicGlobalProgress: 0,
@@ -5598,19 +5621,24 @@ const UnifiedCameraController = ({
         }
         const runtimeSnapshot = heroOverviewRuntime?.getSnapshot?.() ?? null;
         const explosionClock = heroOverviewExplosionClockRef?.current ?? null;
+        const cameraRunElapsedSeconds = Math.max(0, state.clock.elapsedTime - (transition.startedAt ?? state.clock.elapsedTime));
+        const resolvedCameraDurationSeconds = Number.isFinite(transition.duration) && transition.duration > 0
+          ? transition.duration
+          : HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.totalDurationSeconds;
         const elapsedProgress = THREE.MathUtils.clamp(
-          (state.clock.elapsedTime - (transition.startedAt ?? state.clock.elapsedTime)) / (transition.duration || 1.45),
+          cameraRunElapsedSeconds / resolvedCameraDurationSeconds,
           0,
           1,
         );
         const explosionProgress = Number.isFinite(explosionClock?.progress) ? explosionClock.progress : null;
         const runtimeProgress = Number.isFinite(runtimeSnapshot?.progress) ? runtimeSnapshot.progress : null;
         const rawSharedProgress = THREE.MathUtils.clamp(explosionProgress ?? runtimeProgress ?? elapsedProgress, 0, 1);
-        const progressCandidate = THREE.MathUtils.clamp(
-          Math.max(elapsedProgress, runtimeProgress ?? 0, explosionProgress ?? 0),
-          0,
-          1,
-        );
+        const progressCandidate = elapsedProgress;
+        transition.cameraRunElapsedSeconds = cameraRunElapsedSeconds;
+        transition.cameraRunProgress = progressCandidate;
+        transition.progressSource = 'config-duration-elapsed-progress';
+        transition.progressSourceUsedForCameraWrite = 'config-duration-elapsed-progress';
+        transition.progressSourceIsConfigDurationControlled = true;
         const previousMonotonicProgress = Number.isFinite(transition.monotonicGlobalProgress)
           ? transition.monotonicGlobalProgress
           : 0;
@@ -5862,8 +5890,12 @@ const UnifiedCameraController = ({
           rawProgressCandidate: round4(progressCandidate),
           previousMonotonicGlobalProgress: round4(previousMonotonicProgress),
           progressSource: transition.progressSource,
-          progressSourceUsedForCameraWrite: 'monotonicGlobalProgress',
-          globalProgressPrintedSource: 'monotonicGlobalProgress',
+          progressSourceUsedForCameraWrite: transition.progressSourceUsedForCameraWrite ?? 'config-duration-elapsed-progress',
+          globalProgressPrintedSource: transition.progressSourceUsedForCameraWrite ?? 'config-duration-elapsed-progress',
+          cameraRunElapsedSeconds: round4(cameraRunElapsedSeconds),
+          cameraRunProgress: round4(progressCandidate),
+          resolvedTotalDurationSeconds: round4(resolvedCameraDurationSeconds),
+          totalDurationSecondsActivelyControlsCameraProgress: Boolean(transition.progressSourceIsConfigDurationControlled),
           progressWentBackwards,
           progressWasClampedToMonotonic,
           runtimePhase,

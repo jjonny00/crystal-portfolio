@@ -435,6 +435,7 @@ Use this file for timing/easing/motion tuning only. Do **not** tune by editing r
 ```js
 export const HERO_OVERVIEW_CINEMATIC_CONFIG = {
   timeline: {
+    totalDurationSeconds: 1.45,
     fractureHold: 0.10,
     explosionImpulse: 0.08,
     bulletTime: 0.16,
@@ -454,7 +455,9 @@ export const HERO_OVERVIEW_CINEMATIC_CONFIG = {
 };
 ```
 
-The timeline is authored as human-editable durations. The runtime derives normalized phase windows from those durations. With the default values, the derived windows remain:
+`timeline.totalDurationSeconds` is the absolute camera-pilot runtime control. The phase fields remain relative weights inside that total duration, not absolute per-phase seconds. The default is `1.45` seconds because the owning pilot previously used a hardcoded `transition.duration: 1.45` for elapsed camera progress.
+
+The runtime derives normalized phase windows from the relative weights. With the default values, the derived windows remain:
 
 - `fractureCharge`: `0.00 → 0.10`
 - `explosionImpulse`: `0.10 → 0.18`
@@ -462,7 +465,9 @@ The timeline is authored as human-editable durations. The runtime derives normal
 - `overviewTravel`: `0.34 → 0.90`
 - `overviewSettle`: `0.90 → 1.00`
 
-If a duration is missing, zero, negative, or non-finite, the resolver falls back to the default duration for that field and reports `defaultsUsed` / `invalidConfigFallbackOccurred` in `__printHeroOverviewPilotCinematic?.()`. If the duration total differs from `1`, the resolver normalizes the phase windows while preserving the authored proportions.
+If a phase weight is missing, zero, negative, or non-finite, the resolver falls back to the default weight for that field and reports `defaultsUsed` / `invalidConfigFallbackOccurred` in `__printHeroOverviewPilotCinematic?.()`. If the phase-weight total differs from `1`, the resolver normalizes the phase windows while preserving the authored proportions. If `timeline.totalDurationSeconds` is missing, zero, negative, or non-finite, the resolver falls back to `1.45` and reports `totalDurationFallbackUsed` / `invalidTotalDuration`.
+
+The owning Hero → Overview pilot now computes camera-write progress from elapsed camera runtime divided by `resolvedTotalDurationSeconds`. Shared runtime and explosion progress remain diagnostic fields for timing comparison, but they no longer accelerate the owning pilot camera progress with `max(elapsed, runtime, explosion)`. This keeps total duration edits observable while preserving monotonic camera progress and final-pose guardrails.
 
 ### Easing swaps
 
@@ -498,11 +503,12 @@ Follow-up needed to wire route-phase ring timing/scale: map the new config value
 
 ### Concise tuning guide
 
-1. To make the fracture hold shorter, edit `timeline.fractureHold`.
-2. To make the reveal start sooner, reduce `timeline.bulletTime` or `timeline.explosionImpulse`.
-3. To make the dolly feel more dramatic, change `camera.travelEase`.
-4. To remove pre-travel motion, set `camera.explosionPunchDistance` and `camera.bulletTimeDriftDistance` to `0`.
-5. Particle and ring route-phase fields are placeholders in this PR; tune existing visuals through `fracture.particles` / `fracture.image` until a follow-up wires route-phase effect triggers.
+1. To speed up or slow down the whole camera transition, edit `timeline.totalDurationSeconds`.
+2. To make the fracture hold shorter within the same total runtime, edit `timeline.fractureHold`.
+3. To make the reveal start sooner, reduce `timeline.bulletTime` or `timeline.explosionImpulse`.
+4. To make the dolly feel more dramatic, change `camera.travelEase`.
+5. To remove pre-travel motion, set `camera.explosionPunchDistance` and `camera.bulletTimeDriftDistance` to `0`.
+6. Particle and ring route-phase fields are placeholders in this PR; tune existing visuals through `fracture.particles` / `fracture.image` until a follow-up wires route-phase effect triggers.
 
 ### Local test commands
 
@@ -526,4 +532,4 @@ globalThis.__printCameraWriteGuardSummary?.();
 globalThis.__printCameraWriteGuardConflictDetails?.();
 ```
 
-For a local tweak smoke test, temporarily change `timeline.fractureHold` from `0.10` to `0.14` or `camera.explosionPunchDistance` from `0.06` to `0`, rerun Hero → Overview, and confirm `__printHeroOverviewPilotCinematic?.()` reports the changed config value. Restore defaults before committing unless the change is intentional.
+For a local tweak smoke test, temporarily change `timeline.totalDurationSeconds` from `1.45` to `2.0` or `0.8`, rerun Hero → Overview, and confirm `__printHeroOverviewPilotCinematic?.()` reports the changed total duration plus changed `derivedPhaseDurationsSeconds`. You can also temporarily change `timeline.fractureHold` from `0.10` to `0.14` or `camera.explosionPunchDistance` from `0.06` to `0`. Restore defaults before committing unless the change is intentional.

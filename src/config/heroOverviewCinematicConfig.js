@@ -2,6 +2,7 @@ export const HERO_OVERVIEW_CINEMATIC_CONFIG_SOURCE = 'src/config/heroOverviewCin
 
 export const HERO_OVERVIEW_CINEMATIC_CONFIG = {
   timeline: {
+    totalDurationSeconds: 1.45,
     fractureHold: 0.10,
     explosionImpulse: 0.08,
     bulletTime: 0.16,
@@ -74,7 +75,6 @@ export const HERO_OVERVIEW_EASING = {
   },
 };
 
-const DEFAULT_DURATIONS = { ...HERO_OVERVIEW_CINEMATIC_CONFIG.timeline };
 const DURATION_TO_PHASE = [
   ['fractureHold', 'fractureCharge'],
   ['explosionImpulse', 'explosionImpulse'],
@@ -82,6 +82,12 @@ const DURATION_TO_PHASE = [
   ['overviewTravel', 'overviewTravel'],
   ['overviewSettle', 'overviewSettle'],
 ];
+
+const DEFAULT_TOTAL_DURATION_SECONDS = HERO_OVERVIEW_CINEMATIC_CONFIG.timeline.totalDurationSeconds;
+const DEFAULT_DURATIONS = DURATION_TO_PHASE.reduce((acc, [durationKey]) => {
+  acc[durationKey] = HERO_OVERVIEW_CINEMATIC_CONFIG.timeline[durationKey];
+  return acc;
+}, {});
 
 const CAMERA_PHASE_META = {
   fractureCharge: {
@@ -116,6 +122,10 @@ const CAMERA_PHASE_META = {
   },
 };
 
+const readPositiveSeconds = (value, fallback) => (
+  typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : fallback
+);
+
 const readPositiveDuration = (durations, key, fallback, invalidKeys) => {
   const value = durations?.[key];
   if (typeof value === 'number' && Number.isFinite(value) && value > 0) return value;
@@ -134,6 +144,14 @@ const readEasingName = (value, fallback) => (
 export const resolveHeroOverviewCinematicConfig = (config = HERO_OVERVIEW_CINEMATIC_CONFIG) => {
   const invalidDurationKeys = [];
   const rawDurations = { ...(config?.timeline || {}) };
+  const rawTotalDurationSeconds = config?.timeline?.totalDurationSeconds;
+  const invalidTotalDuration = !(
+    typeof rawTotalDurationSeconds === 'number' &&
+    Number.isFinite(rawTotalDurationSeconds) &&
+    rawTotalDurationSeconds > 0
+  );
+  const totalDurationSeconds = readPositiveSeconds(rawTotalDurationSeconds, DEFAULT_TOTAL_DURATION_SECONDS);
+  const totalDurationFallbackUsed = invalidTotalDuration;
   const resolvedDurations = DURATION_TO_PHASE.reduce((acc, [durationKey]) => {
     acc[durationKey] = readPositiveDuration(rawDurations, durationKey, DEFAULT_DURATIONS[durationKey], invalidDurationKeys);
     return acc;
@@ -154,9 +172,13 @@ export const resolveHeroOverviewCinematicConfig = (config = HERO_OVERVIEW_CINEMA
     const easing = meta.easingKey
       ? readEasingName(config?.camera?.[meta.easingKey], meta.fallbackEasing)
       : meta.fallbackEasing;
+    const normalizedDuration = Math.max(0, end - start);
     acc[phaseName] = {
       start,
       end,
+      durationWeight: safeDurations[durationKey],
+      normalizedDuration,
+      durationSeconds: Number((normalizedDuration * totalDurationSeconds).toFixed(4)),
       cameraMode: meta.cameraMode,
       easing,
       notes: meta.notes,
@@ -178,15 +200,24 @@ export const resolveHeroOverviewCinematicConfig = (config = HERO_OVERVIEW_CINEMA
     sourceFile: HERO_OVERVIEW_CINEMATIC_CONFIG_SOURCE,
     sourceName: 'HERO_OVERVIEW_CINEMATIC_CONFIG',
     rawDurations,
+    rawTotalDurationSeconds,
     durations: safeDurations,
+    configuredPhaseWeights: safeDurations,
+    totalDurationSeconds,
+    resolvedTotalDurationSeconds: totalDurationSeconds,
+    totalDurationFallbackUsed,
+    invalidTotalDuration,
     derivedTimeline: timeline,
+    derivedPhaseDurationsSeconds: Object.fromEntries(
+      Object.entries(timeline).map(([phaseName, phase]) => [phaseName, phase.durationSeconds]),
+    ),
     camera,
     particles: { ...HERO_OVERVIEW_CINEMATIC_CONFIG.particles, ...(config?.particles || {}) },
     ring: { ...HERO_OVERVIEW_CINEMATIC_CONFIG.ring, ...(config?.ring || {}) },
     totalConfiguredDuration,
     normalizedDurationTotal: safeTotal,
-    defaultsUsed: invalidDurationKeys.length > 0 || invalidTotal,
-    invalidConfigFallbackOccurred: invalidDurationKeys.length > 0 || invalidTotal,
+    defaultsUsed: invalidDurationKeys.length > 0 || invalidTotal || totalDurationFallbackUsed,
+    invalidConfigFallbackOccurred: invalidDurationKeys.length > 0 || invalidTotal || totalDurationFallbackUsed,
     invalidDurationKeys,
     invalidTotal,
   };
