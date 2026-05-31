@@ -1749,6 +1749,18 @@ const UnifiedCameraController = ({
   const quaternionToPlain = (q) => ({ x: round4(q?.x), y: round4(q?.y), z: round4(q?.z), w: round4(q?.w) });
   const safeDistance = (a, b) => (a && b ? round4(a.distanceTo(b)) : null);
   const quaternionAngleDelta = (q1, q2) => (q1 && q2 ? round4(q1.angleTo(q2)) : null);
+  const cloneHeroOverviewLiveCameraPose = (source = 'live-camera-transform') => {
+    const lookAt = getCameraLookAtFromTransform();
+    return {
+      position: camera.position.clone(),
+      lookAt,
+      fov: Number.isFinite(camera.fov) ? camera.fov : (currentTarget.current?.fov ?? 45),
+      filmOffset: Number.isFinite(camera.filmOffset) ? camera.filmOffset : 0,
+      up: camera.up.clone(),
+      quaternion: camera.quaternion.clone(),
+      source,
+    };
+  };
   const getCanonicalCameraUp = () => new THREE.Vector3(0, 1, 0);
   const getUpDeltaFromWorldUp = (up = camera.up) => (up ? round4(up.clone().normalize().distanceTo(getCanonicalCameraUp())) : null);
   const getRollDeltaFromWorldUp = (up = camera.up) => {
@@ -2484,8 +2496,8 @@ const UnifiedCameraController = ({
       const latest = store.samples[store.samples.length - 1] ?? null;
       const summary = {
         pilotEnabled: isHeroToOverviewPilotEnabled(),
-        pilotDiagnosticVersion: latest?.pilotDiagnosticVersion ?? 'Milestone C cinematic timeline',
-        pilotCinematicMilestone: latest?.pilotCinematicMilestone ?? heroOverviewPilotRef.current.transition?.pilotCinematicMilestone ?? 'Milestone C',
+        pilotDiagnosticVersion: latest?.pilotDiagnosticVersion ?? 'Milestone C live hold-pose lock',
+        pilotCinematicMilestone: latest?.pilotCinematicMilestone ?? heroOverviewPilotRef.current.transition?.pilotCinematicMilestone ?? 'Milestone C hold-pose lock',
         sampleCount: store.samples.length,
         captureAttempted: latest?.captureAttempted ?? false,
         captureSucceeded: latest?.captureSucceeded ?? false,
@@ -2501,6 +2513,19 @@ const UnifiedCameraController = ({
         phaseModel: HERO_OVERVIEW_PILOT_PHASES,
         phaseBehaviors: HERO_OVERVIEW_PILOT_PHASE_BEHAVIORS,
         cameraTimeline: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE,
+        activationFromPoseSource: latest?.activationFromPoseSource ?? heroOverviewPilotRef.current.transition?.activationFromPoseSource ?? null,
+        activeHoldPoseSource: latest?.activeHoldPoseSource ?? heroOverviewPilotRef.current.transition?.activeHoldPoseSource ?? null,
+        holdPoseLockedAtFrame: latest?.holdPoseLockedAtFrame ?? heroOverviewPilotRef.current.transition?.holdPoseLockedAtFrame ?? null,
+        holdPoseLockedAtPhase: latest?.holdPoseLockedAtPhase ?? heroOverviewPilotRef.current.transition?.holdPoseLockedAtPhase ?? null,
+        holdPoseLockedAfterHeroOrbitWrite: latest?.holdPoseLockedAfterHeroOrbitWrite ?? heroOverviewPilotRef.current.transition?.holdPoseLockedAfterHeroOrbitWrite ?? null,
+        holdPosePositionDeltaFromLiveAtLock: latest?.holdPosePositionDeltaFromLiveAtLock ?? round4(heroOverviewPilotRef.current.transition?.holdPosePositionDeltaFromLiveAtLock),
+        holdPoseLookAtDeltaFromLiveAtLock: latest?.holdPoseLookAtDeltaFromLiveAtLock ?? round4(heroOverviewPilotRef.current.transition?.holdPoseLookAtDeltaFromLiveAtLock),
+        holdPoseQuaternionDeltaFromLiveAtLock: latest?.holdPoseQuaternionDeltaFromLiveAtLock ?? round4(heroOverviewPilotRef.current.transition?.holdPoseQuaternionDeltaFromLiveAtLock),
+        startLookAtJumpDistance: latest?.startLookAtJumpDistance ?? round4(heroOverviewPilotRef.current.transition?.startLookAtJumpDistance),
+        firstPilotWriteMovedCamera: latest?.firstPilotWriteMovedCamera ?? heroOverviewPilotRef.current.transition?.firstPilotWriteMovedCamera ?? null,
+        firstPilotWriteMoveDistance: latest?.firstPilotWriteMoveDistance ?? round4(heroOverviewPilotRef.current.transition?.firstPilotWriteMoveDistance),
+        respectsCurrentHeroOrbitPose: latest?.respectsCurrentHeroOrbitPose ?? heroOverviewPilotRef.current.transition?.respectsCurrentHeroOrbitPose ?? null,
+        orbitPhaseOrAngleAtCapture: latest?.orbitPhaseOrAngleAtCapture ?? heroOverviewPilotRef.current.transition?.orbitPhaseOrAngleAtCapture ?? null,
         fromPoseSource: latest?.fromPoseSource ?? heroOverviewPilotRef.current.transition?.fromPoseSource ?? null,
         fromLookAtSource: latest?.fromLookAtSource ?? heroOverviewPilotRef.current.transition?.fromLookAtSource ?? null,
         targetResolved: Boolean(heroOverviewPilotRef.current.transition?.toPose),
@@ -2566,7 +2591,7 @@ const UnifiedCameraController = ({
       const restored = (completion?.upDeltaFromWorldUp ?? Number.POSITIVE_INFINITY) <= 0.0001;
       const completionClearedTakeoverFlags = samples.some((sample) => sample.takeoverFlagsClearedAtCompletion === true);
       const postPilotFractureReentryDetected = samples.some((sample) => sample.postPilotFractureReentryDetected === true);
-      const liveFromPose = samples.some((sample) => sample.fromPoseSource === 'live-camera-transform' && sample.fromLookAtSource === 'camera-world-direction');
+      const liveFromPose = samples.some((sample) => (sample.fromPoseSource === 'first-active-pilot-write-live-camera-transform' || sample.activeHoldPoseSource === 'first-active-pilot-write-live-camera-transform') && sample.fromLookAtSource === 'camera-world-direction');
       const summary = {
         sampleCount: samples.length,
         fromPoseUsedLiveCameraTransform: liveFromPose,
@@ -2695,7 +2720,7 @@ const UnifiedCameraController = ({
     globalThis.__printHeroOverviewPilotCinematic = () => {
       const store = getHeroOverviewPilotDiagnosticsStore();
       const samples = store.samples.filter((sample) => sample.type === 'pilot-frame' || sample.type === 'completion-handoff' || sample.type === 'pilot-completion-finalized');
-      if (!samples.length) return console.log('[hero-overview-pilot] cinematic-summary', { sampleCount: 0, pilotCinematicMilestone: 'Milestone C' });
+      if (!samples.length) return console.log('[hero-overview-pilot] cinematic-summary', { sampleCount: 0, pilotCinematicMilestone: 'Milestone C hold-pose lock' });
       const latest = samples[samples.length - 1];
       const movementThreshold = 0.001;
       const phaseRows = (phase) => samples.filter((sample) => sample.phase === phase);
@@ -2718,10 +2743,21 @@ const UnifiedCameraController = ({
       const maxUpDelta = samples.reduce((max, sample) => Math.max(max, Number(sample.upDeltaFromWorldUp || 0)), 0);
       const competingWriterAppeared = samples.some((sample) => sample.competingWriterDetected === true);
       const summary = {
-        pilotCinematicMilestone: 'Milestone C',
+        pilotCinematicMilestone: 'Milestone C hold-pose lock',
         sampleCount: samples.length,
         cameraTimeline: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE,
         holdPhases: HERO_OVERVIEW_PILOT_HOLD_PHASES,
+        holdPoseSource: latest?.activeHoldPoseSource ?? latest?.fromPoseSource ?? null,
+        activationFromPoseSource: latest?.activationFromPoseSource ?? null,
+        holdPoseLockedAtPhase: latest?.holdPoseLockedAtPhase ?? null,
+        holdPoseLockedAtFrame: latest?.holdPoseLockedAtFrame ?? null,
+        holdPoseLockedAfterHeroOrbitWrite: latest?.holdPoseLockedAfterHeroOrbitWrite ?? null,
+        startJumpDistance: latest?.startJumpDistance ?? null,
+        startLookAtJumpDistance: latest?.startLookAtJumpDistance ?? null,
+        firstPilotWriteMoveDistance: latest?.firstPilotWriteMoveDistance ?? null,
+        firstPilotWriteMovedCamera: latest?.firstPilotWriteMovedCamera ?? null,
+        respectsCurrentHeroOrbitPose: latest?.respectsCurrentHeroOrbitPose ?? null,
+        orbitPhaseOrAngleAtCapture: latest?.orbitPhaseOrAngleAtCapture ?? null,
         firstActualTravelPhase: firstTravelSample?.phase ?? null,
         firstActualTravelFrame: firstTravelSample?.frame ?? null,
         firstActualTravelGlobalProgress: firstTravelSample?.globalProgress ?? null,
@@ -2757,6 +2793,15 @@ const UnifiedCameraController = ({
         frame: sample.frame ?? null,
         phase: sample.phase ?? null,
         cameraMode: sample.cameraMode ?? null,
+        activationFromPoseSource: sample.activationFromPoseSource ?? null,
+        activeHoldPoseSource: sample.activeHoldPoseSource ?? null,
+        holdPoseLockedAtFrame: sample.holdPoseLockedAtFrame ?? null,
+        holdPoseLockedAtPhase: sample.holdPoseLockedAtPhase ?? null,
+        startJumpDistance: sample.startJumpDistance ?? null,
+        startLookAtJumpDistance: sample.startLookAtJumpDistance ?? null,
+        firstPilotWriteMoveDistance: sample.firstPilotWriteMoveDistance ?? null,
+        firstPilotWriteMovedCamera: sample.firstPilotWriteMovedCamera ?? null,
+        respectsCurrentHeroOrbitPose: sample.respectsCurrentHeroOrbitPose ?? null,
         globalProgress: sample.globalProgress ?? null,
         phaseLocalProgress: sample.phaseLocalProgress ?? null,
         cameraTravelProgress: sample.cameraTravelProgress ?? null,
@@ -3740,7 +3785,7 @@ const UnifiedCameraController = ({
           phaseModel: HERO_OVERVIEW_PILOT_PHASES,
           phaseBehaviors: HERO_OVERVIEW_PILOT_PHASE_BEHAVIORS,
           cameraTimeline: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE,
-          pilotCinematicMilestone: 'Milestone C',
+          pilotCinematicMilestone: 'Milestone C hold-pose lock',
           ownsCameraInMilestoneA: false,
           ownsCameraInMilestoneB: Boolean(resolvedOverview),
           legacyForcedWriterBlocked: Boolean(resolvedOverview),
@@ -3749,7 +3794,9 @@ const UnifiedCameraController = ({
           completed: false,
           duration: 1.45,
           startJumpDistance: 0,
-          fromPoseSource: 'live-camera-transform',
+          activationFromPoseSource: 'activation-intent-live-camera-transform',
+          activeHoldPoseSource: null,
+          fromPoseSource: 'activation-intent-live-camera-transform',
           fromLookAtSource: 'camera-world-direction',
           fromPose: {
             position: camera.position.clone(),
@@ -3757,6 +3804,7 @@ const UnifiedCameraController = ({
             fov: Number.isFinite(camera.fov) ? camera.fov : (currentTarget.current?.fov ?? 45),
             filmOffset: Number.isFinite(camera.filmOffset) ? camera.filmOffset : 0,
             up: camera.up.clone(),
+            quaternion: camera.quaternion.clone(),
           },
           targetUp: getCanonicalCameraUp(),
           completionUp: null,
@@ -3768,6 +3816,23 @@ const UnifiedCameraController = ({
           monotonicGlobalProgress: 0,
           fromPoseRecaptured: false,
           targetPoseRecalculated: false,
+          holdPoseLocked: false,
+          holdPoseLockedAtFrame: null,
+          holdPoseLockedAtPhase: null,
+          holdPoseLockedAfterHeroOrbitWrite: null,
+          holdPosePreviousWriter: null,
+          holdPosePreviousWriterReason: null,
+          liveCameraBeforeFirstPilotWrite: null,
+          liveLookAtBeforeFirstPilotWrite: null,
+          liveQuaternionBeforeFirstPilotWrite: null,
+          holdPosePositionDeltaFromLiveAtLock: null,
+          holdPoseLookAtDeltaFromLiveAtLock: null,
+          holdPoseQuaternionDeltaFromLiveAtLock: null,
+          startLookAtJumpDistance: null,
+          firstPilotWriteMovedCamera: null,
+          firstPilotWriteMoveDistance: null,
+          respectsCurrentHeroOrbitPose: null,
+          orbitPhaseOrAngleAtCapture: null,
           firstTravelFrame: null,
           travelStartTime: null,
           travelStartProgress: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE.overviewTravel.start,
@@ -3787,8 +3852,10 @@ const UnifiedCameraController = ({
         key: heroOverviewActivationKey,
         transitionKey: heroOverviewTransitionKey,
         pilotEnabled: isHeroToOverviewPilotEnabled(),
-        pilotDiagnosticVersion: 'Milestone C cinematic timeline',
-        pilotCinematicMilestone: 'Milestone C',
+        pilotDiagnosticVersion: 'Milestone C live hold-pose lock',
+        pilotCinematicMilestone: 'Milestone C hold-pose lock',
+        activationFromPoseSource: 'activation-intent-live-camera-transform',
+        activeHoldPoseSource: null,
         cameraTimeline: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE,
         captureAttempted: true,
         captureSucceeded: Boolean(resolvedOverview),
@@ -3811,7 +3878,7 @@ const UnifiedCameraController = ({
         ownsCameraInMilestoneA: false,
         ownsCameraInMilestoneB: Boolean(resolvedOverview),
         phaseModel: HERO_OVERVIEW_PILOT_PHASES.join(' -> '),
-        fromPoseSource: 'live-camera-transform',
+        fromPoseSource: 'activation-intent-live-camera-transform',
         fromLookAtSource: 'camera-world-direction',
         fromPosition: vectorToPlain(camera.position),
         fromLookAt: vectorToPlain(fromLookAt),
@@ -3922,8 +3989,9 @@ const UnifiedCameraController = ({
           phaseModel: HERO_OVERVIEW_PILOT_PHASES,
           phaseBehaviors: HERO_OVERVIEW_PILOT_PHASE_BEHAVIORS,
           cameraTimeline: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE,
-          pilotCinematicMilestone: 'Milestone C',
-          fromPoseSource: 'live-camera-transform',
+          pilotCinematicMilestone: 'Milestone C hold-pose lock',
+          fromPoseSource: 'activation-intent-live-camera-transform',
+          activeHoldPoseSource: null,
           ownsCameraInMilestoneA: false,
           ownsCameraInMilestoneB: Boolean(resolvedOverview),
           legacyForcedWriterBlocked: Boolean(resolvedOverview),
@@ -4672,12 +4740,63 @@ const UnifiedCameraController = ({
     if (heroOverviewPilotRef.current.active) {
       const pilot = heroOverviewPilotRef.current;
       const transition = pilot.transition;
-      const fromPose = transition?.fromPose;
+      let fromPose = transition?.fromPose;
       const ensuredTarget = ensureHeroOverviewPilotCameraWriteTarget(transition);
       const toPose = ensuredTarget.activeToPose;
-      if (!fromPose || !toPose) {
+      if (!transition || !toPose) {
         pilot.active = false;
       } else {
+        let holdPoseLockedThisFrame = false;
+        let livePoseBeforeFirstPilotWrite = null;
+        if (!transition.holdPoseLocked) {
+          livePoseBeforeFirstPilotWrite = cloneHeroOverviewLiveCameraPose('live-camera-before-first-pilot-write');
+          const activeHoldPose = cloneHeroOverviewLiveCameraPose('first-active-pilot-write-live-camera-transform');
+          const previousWriterBeforePilot = lastCameraWriterRef.current;
+          const previousReasonBeforePilot = lastCameraWriteReasonRef.current;
+          transition.activationFromPoseSource = transition.activationFromPoseSource ?? transition.fromPoseSource ?? 'activation-intent-live-camera-transform';
+          transition.activeHoldPoseSource = activeHoldPose.source;
+          transition.fromPoseSource = activeHoldPose.source;
+          transition.fromLookAtSource = 'camera-world-direction';
+          transition.fromPose = activeHoldPose;
+          transition.holdPose = activeHoldPose;
+          transition.holdPoseLocked = true;
+          transition.holdPoseLockedAtFrame = state.clock.frame;
+          transition.holdPoseLockedAtPhase = 'first-active-pilot-write';
+          transition.holdPoseLockedAfterHeroOrbitWrite = previousWriterBeforePilot === 'AUTHORITATIVE_HERO' || previousWriterBeforePilot === 'HERO_ORBIT';
+          transition.holdPosePreviousWriter = previousWriterBeforePilot;
+          transition.holdPosePreviousWriterReason = previousReasonBeforePilot;
+          transition.liveCameraBeforeFirstPilotWrite = livePoseBeforeFirstPilotWrite.position.clone();
+          transition.liveLookAtBeforeFirstPilotWrite = livePoseBeforeFirstPilotWrite.lookAt.clone();
+          transition.liveQuaternionBeforeFirstPilotWrite = livePoseBeforeFirstPilotWrite.quaternion.clone();
+          transition.holdPosePositionDeltaFromLiveAtLock = activeHoldPose.position.distanceTo(livePoseBeforeFirstPilotWrite.position);
+          transition.holdPoseLookAtDeltaFromLiveAtLock = activeHoldPose.lookAt.distanceTo(livePoseBeforeFirstPilotWrite.lookAt);
+          transition.holdPoseQuaternionDeltaFromLiveAtLock = activeHoldPose.quaternion.angleTo(livePoseBeforeFirstPilotWrite.quaternion);
+          transition.startJumpDistance = transition.holdPosePositionDeltaFromLiveAtLock;
+          transition.startLookAtJumpDistance = transition.holdPoseLookAtDeltaFromLiveAtLock;
+          transition.firstPilotWriteMovedCamera = false;
+          transition.firstPilotWriteMoveDistance = 0;
+          transition.respectsCurrentHeroOrbitPose = true;
+          transition.orbitPhaseOrAngleAtCapture = {
+            heroOrbitAngle: round4(heroOrbitAngle.current),
+            heroPolarAngle: round4(heroPolarAngleRef.current),
+            orbitElapsed: Number.isFinite(state.clock.elapsedTime - heroOrbitStartTimeRef.current)
+              ? round4(state.clock.elapsedTime - heroOrbitStartTimeRef.current)
+              : null,
+            previousWriterBeforePilot,
+            previousReasonBeforePilot,
+            latestAuthoritativeHeroAngle: round4(latestAuthoritativeHeroSnapshotRef.current?.angle),
+            latestAuthoritativeHeroOrbitElapsed: round4(latestAuthoritativeHeroSnapshotRef.current?.orbitElapsed),
+          };
+          transition.previousCinematicCameraPosition = activeHoldPose.position.clone();
+          fromPose = transition.fromPose;
+          holdPoseLockedThisFrame = true;
+        } else {
+          fromPose = transition.fromPose;
+        }
+        if (!fromPose) {
+          pilot.active = false;
+          return;
+        }
         const runtimeSnapshot = heroOverviewRuntime?.getSnapshot?.() ?? null;
         const explosionClock = heroOverviewExplosionClockRef?.current ?? null;
         const elapsedProgress = THREE.MathUtils.clamp(
@@ -4713,8 +4832,10 @@ const UnifiedCameraController = ({
         const toFov = Number.isFinite(toPose.fov) ? toPose.fov : fromFov;
         const fromFilmOffset = Number.isFinite(fromPose.filmOffset) ? fromPose.filmOffset : 0;
         const toFilmOffset = Number.isFinite(toPose.filmOffset) ? toPose.filmOffset : 0;
-        const isFinalPoseLocked = globalProgress >= 1 || pilotPhase === 'overviewSettle' || pilotPhase === 'complete';
-        const cameraTravelEasedProgress = isFinalPoseLocked ? 1 : cinematicProgress.cameraTravelEasedProgress;
+        const isFinalPoseLocked = !holdPoseLockedThisFrame && (globalProgress >= 1 || pilotPhase === 'overviewSettle' || pilotPhase === 'complete');
+        const cameraTravelEasedProgress = holdPoseLockedThisFrame
+          ? 0
+          : (isFinalPoseLocked ? 1 : cinematicProgress.cameraTravelEasedProgress);
         const nextPosition = isFinalPoseLocked
           ? toPose.position.clone()
           : new THREE.Vector3().lerpVectors(fromPose.position, toPose.position, cameraTravelEasedProgress);
@@ -4747,6 +4868,15 @@ const UnifiedCameraController = ({
         camera.fov = nextFov;
         camera.filmOffset = nextFilmOffset;
         camera.updateProjectionMatrix();
+        if (holdPoseLockedThisFrame && livePoseBeforeFirstPilotWrite) {
+          const firstPilotWriteMoveDistance = camera.position.distanceTo(livePoseBeforeFirstPilotWrite.position);
+          const firstPilotWriteLookAtDistance = nextLookAt.distanceTo(livePoseBeforeFirstPilotWrite.lookAt);
+          transition.firstPilotWriteMoveDistance = firstPilotWriteMoveDistance;
+          transition.firstPilotWriteMovedCamera = firstPilotWriteMoveDistance > 0.001 || firstPilotWriteLookAtDistance > 0.001;
+          transition.startJumpDistance = firstPilotWriteMoveDistance;
+          transition.startLookAtJumpDistance = firstPilotWriteLookAtDistance;
+          transition.respectsCurrentHeroOrbitPose = !transition.firstPilotWriteMovedCamera;
+        }
         currentTarget.current.position.copy(nextPosition);
         currentTarget.current.lookAt.copy(nextLookAt);
         currentTarget.current.fov = camera.fov;
@@ -4764,13 +4894,33 @@ const UnifiedCameraController = ({
         const filmOffsetDeltaToTarget = round4(Math.abs((camera.filmOffset ?? 0) - (toFilmOffset ?? 0)));
         pushHeroOverviewPilotSample({
           type: globalProgress >= 1 ? 'completion-handoff' : 'pilot-frame',
-          pilotDiagnosticVersion: 'Milestone C cinematic timeline',
-          pilotCinematicMilestone: 'Milestone C',
+          pilotDiagnosticVersion: 'Milestone C live hold-pose lock',
+          pilotCinematicMilestone: 'Milestone C hold-pose lock',
           t: round4(state.clock.elapsedTime),
           frame: state.clock.frame,
           key: pilot.key,
+          activationFromPoseSource: transition.activationFromPoseSource ?? null,
+          activeHoldPoseSource: transition.activeHoldPoseSource ?? null,
           fromPoseSource: transition.fromPoseSource ?? null,
           fromLookAtSource: transition.fromLookAtSource ?? null,
+          holdPoseLockedAtFrame: transition.holdPoseLockedAtFrame ?? null,
+          holdPoseLockedAtPhase: transition.holdPoseLockedAtPhase ?? null,
+          holdPoseLockedAfterHeroOrbitWrite: transition.holdPoseLockedAfterHeroOrbitWrite ?? null,
+          holdPosePreviousWriter: transition.holdPosePreviousWriter ?? null,
+          holdPosePreviousWriterReason: transition.holdPosePreviousWriterReason ?? null,
+          orbitPhaseOrAngleAtCapture: transition.orbitPhaseOrAngleAtCapture ?? null,
+          ...flattenVector('liveCameraBeforeFirstPilotWrite', transition.liveCameraBeforeFirstPilotWrite),
+          ...flattenVector('liveLookAtBeforeFirstPilotWrite', transition.liveLookAtBeforeFirstPilotWrite),
+          ...flattenVector('heldCamera', fromPose.position),
+          ...flattenVector('heldLookAt', fromPose.lookAt),
+          holdPosePositionDeltaFromLiveAtLock: round4(transition.holdPosePositionDeltaFromLiveAtLock),
+          holdPoseLookAtDeltaFromLiveAtLock: round4(transition.holdPoseLookAtDeltaFromLiveAtLock),
+          holdPoseQuaternionDeltaFromLiveAtLock: round4(transition.holdPoseQuaternionDeltaFromLiveAtLock),
+          startJumpDistance: round4(transition.startJumpDistance),
+          startLookAtJumpDistance: round4(transition.startLookAtJumpDistance),
+          firstPilotWriteMovedCamera: transition.firstPilotWriteMovedCamera,
+          firstPilotWriteMoveDistance: round4(transition.firstPilotWriteMoveDistance),
+          respectsCurrentHeroOrbitPose: transition.respectsCurrentHeroOrbitPose,
           phase: pilotPhase,
           cameraMode: cinematicProgress.cameraMode,
           phaseStart: round4(cinematicProgress.phaseStart),
@@ -4934,13 +5084,33 @@ const UnifiedCameraController = ({
           heroToOverviewHandoffLockFramesRef.current = HERO_TO_OVERVIEW_HANDOFF_LOCK_FRAMES;
           pushHeroOverviewPilotSample({
             type: 'pilot-completion-finalized',
-            pilotDiagnosticVersion: 'Milestone C cinematic timeline',
-            pilotCinematicMilestone: 'Milestone C',
+            pilotDiagnosticVersion: 'Milestone C live hold-pose lock',
+            pilotCinematicMilestone: 'Milestone C hold-pose lock',
             t: round4(state.clock.elapsedTime),
             frame: state.clock.frame,
             key: pilot.key,
+            activationFromPoseSource: transition.activationFromPoseSource ?? null,
+            activeHoldPoseSource: transition.activeHoldPoseSource ?? null,
             fromPoseSource: transition.fromPoseSource ?? null,
             fromLookAtSource: transition.fromLookAtSource ?? null,
+            holdPoseLockedAtFrame: transition.holdPoseLockedAtFrame ?? null,
+            holdPoseLockedAtPhase: transition.holdPoseLockedAtPhase ?? null,
+            holdPoseLockedAfterHeroOrbitWrite: transition.holdPoseLockedAfterHeroOrbitWrite ?? null,
+            holdPosePreviousWriter: transition.holdPosePreviousWriter ?? null,
+            holdPosePreviousWriterReason: transition.holdPosePreviousWriterReason ?? null,
+            orbitPhaseOrAngleAtCapture: transition.orbitPhaseOrAngleAtCapture ?? null,
+            ...flattenVector('liveCameraBeforeFirstPilotWrite', transition.liveCameraBeforeFirstPilotWrite),
+            ...flattenVector('liveLookAtBeforeFirstPilotWrite', transition.liveLookAtBeforeFirstPilotWrite),
+            ...flattenVector('heldCamera', transition.fromPose?.position),
+            ...flattenVector('heldLookAt', transition.fromPose?.lookAt),
+            holdPosePositionDeltaFromLiveAtLock: round4(transition.holdPosePositionDeltaFromLiveAtLock),
+            holdPoseLookAtDeltaFromLiveAtLock: round4(transition.holdPoseLookAtDeltaFromLiveAtLock),
+            holdPoseQuaternionDeltaFromLiveAtLock: round4(transition.holdPoseQuaternionDeltaFromLiveAtLock),
+            startJumpDistance: round4(transition.startJumpDistance),
+            startLookAtJumpDistance: round4(transition.startLookAtJumpDistance),
+            firstPilotWriteMovedCamera: transition.firstPilotWriteMovedCamera,
+            firstPilotWriteMoveDistance: round4(transition.firstPilotWriteMoveDistance),
+            respectsCurrentHeroOrbitPose: transition.respectsCurrentHeroOrbitPose,
             phase: 'complete',
             cameraMode: 'complete',
             phaseStart: 1,
@@ -6031,7 +6201,7 @@ const UnifiedCameraController = ({
         }
         pushHeroOverviewPilotSample({
           type: 'handoff-lock-frame',
-          pilotDiagnosticVersion: 'Milestone C cinematic timeline',
+          pilotDiagnosticVersion: 'Milestone C live hold-pose lock',
           t: round4(state.clock.elapsedTime),
           frame: state.clock.frame,
           key: heroOverviewPilotRef.current.key,

@@ -262,3 +262,43 @@ With the pilot flag on, test Hero → Overview and look specifically for:
 ### Out of scope for Milestone C
 
 No fragments, particles, glow, ring, material, layout, UI, object explosion timing, About-route behavior, or non-Hero→Overview routes were intentionally changed.
+
+## Milestone C follow-up: first-write live hold-pose lock
+
+The first Milestone C implementation proved that the phase hold concept works, but visual testing showed a start jump: the pilot could hold the activation/scaffold pose instead of the actual rendered Hero orbit pose at the moment the pilot first owned the camera. That made the first run jump farther back than the visible Hero camera, and later runs could appear to snap to an orbit-start/baseline pose.
+
+The fix keeps the activation capture for diagnostics, but it no longer treats that early capture as the authoritative hold source for active camera ownership. On the first active `HERO_OVERVIEW_PILOT` camera write, immediately before writing any held camera pose, the pilot now locks the active hold pose from the live rendered camera transform:
+
+- `camera.position.clone()`
+- `camera.getWorldDirection(...) + camera.position` for lookAt
+- `camera.up.clone()`
+- `camera.quaternion.clone()`
+- current `camera.fov`
+- current `camera.filmOffset`
+
+That locked first-write hold pose becomes the source for `fractureCharge`, `explosionImpulse`, `bulletTimeSlowdown`, and the start of `overviewTravel`. It is not recaptured during the run.
+
+The first active pilot write also forces camera travel progress to `0` for that frame, so the pilot captures the visible live camera and writes the same pose back. Diagnostics compare the live camera immediately before the first pilot write against the held pose written by the pilot:
+
+- `activationFromPoseSource`
+- `activeHoldPoseSource`
+- `holdPoseLockedAtFrame`
+- `holdPoseLockedAtPhase`
+- `holdPoseLockedAfterHeroOrbitWrite`
+- `liveCameraBeforeFirstPilotWriteX/Y/Z`
+- `liveLookAtBeforeFirstPilotWriteX/Y/Z`
+- `heldCameraX/Y/Z`
+- `heldLookAtX/Y/Z`
+- `holdPosePositionDeltaFromLiveAtLock`
+- `holdPoseLookAtDeltaFromLiveAtLock`
+- `holdPoseQuaternionDeltaFromLiveAtLock`
+- `startJumpDistance`
+- `startLookAtJumpDistance`
+- `firstPilotWriteMovedCamera`
+- `firstPilotWriteMoveDistance`
+- `respectsCurrentHeroOrbitPose`
+- `orbitPhaseOrAngleAtCapture`
+
+`globalThis.__printHeroOverviewPilotCinematic?.()` now reports the hold-pose source, lock phase/frame, start jump, first-write move distance, current-orbit-respect status, first travel phase, configured travel start, and per-phase camera distance totals.
+
+Rollback remains the same: disable `globalThis.__ENABLE_CAMERA_DIRECTOR_HERO_OVERVIEW__` or leave the default flag-off path active. No fragments, particles, materials, styling, About behavior, object explosion timing, or other routes are affected by this hold-pose lock.
