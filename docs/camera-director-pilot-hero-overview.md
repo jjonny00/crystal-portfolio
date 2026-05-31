@@ -358,3 +358,48 @@ The helper summarizes:
 - whether the visible orbit appears camera-, scene-, or projection-based
 
 This pass intentionally keeps the fix narrow: it improves the visible-pose recency mechanism and adds evidence to identify whether the remaining visual snap is camera-based, scene/object-based, projection-based, or state-order based. It does not tune cinematic timing, object explosion timing, fragments, particles, materials, styling, About behavior, or other routes.
+
+## Milestone D: cinematic timing and motion pass
+
+Milestone D keeps the flag-on Hero → Overview owning pilot architecture intact and only tunes the pilot-owned camera choreography. It does not change flag-off behavior, non-Hero→Overview routes, target parity, live hold-pose capture, anti-reownership protections, object explosion systems, fragment/particle/glow/material styling, or About behavior.
+
+### Milestone D timeline
+
+The tunable `HERO_OVERVIEW_PILOT_CAMERA_TIMELINE` now uses a tighter Overwatch / Play-of-the-Game style rhythm:
+
+| Phase | Progress window | Camera mode | Easing | Tuning intent |
+| --- | ---: | --- | --- | --- |
+| `fractureCharge` | `0.00 → 0.10` | `hold` | `hold` | Very brief live Hero orbit hold so the charge reads as energy building rather than dead time. |
+| `explosionImpulse` | `0.10 → 0.18` | `impactPunch` | `sinePulse` | Short isolated impact beat. |
+| `bulletTimeSlowdown` | `0.18 → 0.34` | `suspendedDrift` | `sinePulse` | Brief tense suspended moment. |
+| `overviewTravel` | `0.34 → 0.90` | `travel` | `cinematicRevealOut` | Main reveal starts earlier and moves decisively before easing down into Overview. |
+| `overviewSettle` | `0.90 → 1.00` | `settle` | `smoothSettle` | Short exact final lock with no floaty extra settle. |
+
+### Milestone D motion constants
+
+New motion values are centralized in `HERO_OVERVIEW_PILOT_CAMERA_MOTION` next to the timeline constants:
+
+- `explosionImpulse.punchDistance: 0.06` moves the camera a tiny distance along the captured hold-pose forward axis toward the held lookAt. It uses a sine pulse, keeps lookAt stable, does not touch roll/up/FOV/filmOffset, and returns to zero before the next phase boundary.
+- `bulletTimeSlowdown.driftAmount: 0.025` moves the camera a smaller distance away from the held lookAt for suspended tension. It also uses a sine pulse and returns to the held pose before `overviewTravel` begins.
+- `overviewTravel` and `overviewSettle` keep `punchDistance` and `driftAmount` at zero so final target parity remains owned by the existing resolved Overview pose.
+
+### Milestone D diagnostics
+
+`globalThis.__printHeroOverviewPilotCinematic?.()` now reports the timeline and motion config plus the requested cinematic fields:
+
+- `firstTravelFrame`
+- `configuredTravelStartProgress`
+- `actualTravelStartProgress`
+- `cameraDistanceMovedByPhase`
+- `punchDistanceApplied`
+- `maxImpulseCameraOffset`
+- `returnedToHoldPoseBeforeTravel`
+- `bulletTimeDriftDistance`
+- `overviewTravelDuration`
+- `settleDuration`
+- `finalPoseLocked`
+- `finalTargetParityPasses`
+- `rollUpGuardClean`
+- `competingWriterAppeared`
+
+Per-frame diagnostic rows also include the phase easing, current/max impulse offset, current bullet-time offset, bullet-time drift distance, and returned-to-hold-pose status so a visual test can verify the impact and suspended beats without reopening the ownership baseline.
