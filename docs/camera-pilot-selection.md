@@ -1,3 +1,16 @@
+# Current CameraDirector route defaults
+
+The original pilot-selection memo below is historical. The completed transitions are now promoted to default CameraDirector/pilot ownership:
+
+| route | default behavior | explicit DEV fallback |
+| --- | --- | --- |
+| Overview → Project | CameraDirector/pilot | `globalThis.__OVERVIEW_PROJECT_CAMERA_MODE__ = 'legacy'` |
+| Project → Overview | CameraDirector/pilot | `globalThis.__PROJECT_OVERVIEW_CAMERA_MODE__ = 'legacy'` |
+| Project → Project | CameraDirector/pilot | `globalThis.__PROJECT_PROJECT_CAMERA_MODE__ = 'legacy'` |
+| Hero → Overview | owning `HERO_OVERVIEW_PILOT` | `globalThis.__HERO_OVERVIEW_CAMERA_MODE__ = 'legacy'` |
+
+Old `__ENABLE_CAMERA_DIRECTOR_*__` booleans are still accepted in DEV as a backwards-compatible shim, but new testing should use the explicit `__*_CAMERA_MODE__` fallback controls. Diagnostics toggles remain separate.
+
 # Camera Pilot Transition Selection (PR-6, docs-only)
 
 ## Scope and constraints

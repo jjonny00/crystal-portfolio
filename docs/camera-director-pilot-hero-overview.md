@@ -1,23 +1,36 @@
 # CameraDirector Pilot: hero → overview (stabilization scaffold)
 
 ## Scope
-- Add bounded DEV diagnostics for hero → overview ownership/handoff analysis.
-- Add disabled-by-default CameraDirector pilot scaffold for hero → overview intent capture.
-- Keep legacy hero → overview runtime path authoritative.
+- Keep bounded DEV diagnostics for hero → overview ownership/handoff analysis.
+- Use the completed owning CameraDirector pilot as the default hero → overview camera path.
+- Keep the legacy forced hero → overview runtime path as explicit DEV fallback only.
 
-## Feature flag
-- Env: `VITE_CAMERA_DIRECTOR_HERO_OVERVIEW_PILOT` (default `false`).
-- DEV override: `globalThis.__ENABLE_CAMERA_DIRECTOR_HERO_OVERVIEW__ = true`.
+
+## Current default status
+
+Hero → Overview now defaults to the owning `HERO_OVERVIEW_PILOT` path. It no longer requires `globalThis.__ENABLE_CAMERA_DIRECTOR_HERO_OVERVIEW__ = true` for normal DEV/runtime verification. The retained legacy forced Hero → Overview branch is fallback-only and can be requested in DEV with:
+
+```js
+globalThis.__HERO_OVERVIEW_CAMERA_MODE__ = 'legacy';
+```
+
+Reset by assigning `undefined` or reloading. Diagnostics such as `globalThis.__HERO_OVERVIEW_PILOT_DIAGNOSTICS__ = true` remain independent of route selection. The old `__ENABLE_CAMERA_DIRECTOR_HERO_OVERVIEW__` boolean remains accepted only as a DEV compatibility shim.
+
+## Route mode controls
+- Default: owning `HERO_OVERVIEW_PILOT` path.
+- DEV legacy fallback: `globalThis.__HERO_OVERVIEW_CAMERA_MODE__ = 'legacy'`.
+- Optional DEV compatibility shim: `globalThis.__ENABLE_CAMERA_DIRECTOR_HERO_OVERVIEW__ = false` also forces legacy; `true` forces pilot.
+- Optional legacy env compatibility shim: explicit `VITE_CAMERA_DIRECTOR_HERO_OVERVIEW_PILOT=true` still forces pilot in DEV builds that define it, but `false`/unset no longer disables the default pilot path. Use `__HERO_OVERVIEW_CAMERA_MODE__ = 'legacy'` for fallback.
 - Diagnostics toggle: `globalThis.__HERO_OVERVIEW_PILOT_DIAGNOSTICS__ = true`.
 
 ## Non-goals
 - No explosion timing or style tuning.
 - No fragments/particles/glow/ring/material changes.
 - No About route fixes.
-- No replacement of the legacy forced hero → overview branch.
+- No deletion of the legacy forced hero → overview branch in this PR.
 
 ## Known issues intentionally retained
-- Existing hero → overview end blip may still occur.
+- Legacy fallback Hero → Overview still has the old blip and is not the default.
 - About-related camera bugs remain out of scope.
 
 ## Current ownership map (hero → overview)
@@ -358,3 +371,50 @@ The helper summarizes:
 - whether the visible orbit appears camera-, scene-, or projection-based
 
 This pass intentionally keeps the fix narrow: it improves the visible-pose recency mechanism and adds evidence to identify whether the remaining visual snap is camera-based, scene/object-based, projection-based, or state-order based. It does not tune cinematic timing, object explosion timing, fragments, particles, materials, styling, About behavior, or other routes.
+
+## Milestone D: cinematic timing and motion pass
+
+Milestone D keeps the flag-on Hero → Overview owning pilot architecture intact and only tunes the pilot-owned camera choreography. It does not change flag-off behavior, non-Hero→Overview routes, target parity, live hold-pose capture, anti-reownership protections, object explosion systems, fragment/particle/glow/material styling, or About behavior.
+
+### Milestone D timeline
+
+The tunable `HERO_OVERVIEW_PILOT_CAMERA_TIMELINE` now uses a tighter Overwatch / Play-of-the-Game style rhythm:
+
+| Phase | Progress window | Camera mode | Easing | Tuning intent |
+| --- | ---: | --- | --- | --- |
+| `fractureCharge` | `0.00 → 0.10` | `hold` | `hold` | Very brief live Hero orbit hold so the charge reads as energy building rather than dead time. |
+| `explosionImpulse` | `0.10 → 0.18` | `impactPunch` | `sinePulse` | Short isolated impact beat. |
+| `bulletTimeSlowdown` | `0.18 → 0.34` | `suspendedHold` | `hold` | Brief tense suspended moment from a clean held pose, with no pre-travel drift. |
+| `overviewTravel` | `0.34 → 0.90` | `travel` | `cinematicRevealOut` | Main reveal starts earlier and moves decisively before easing down into Overview. |
+| `overviewSettle` | `0.90 → 1.00` | `settle` | `smoothSettle` | Short exact final lock with no floaty extra settle. |
+
+### Milestone D motion constants
+
+New motion values are centralized in `HERO_OVERVIEW_PILOT_CAMERA_MOTION` next to the timeline constants:
+
+- `explosionImpulse.punchDistance: 0.06` moves the camera a tiny distance along the captured hold-pose forward axis toward the held lookAt. It resolves by `returnCompleteAt: 0.72` of the impact phase, keeps lookAt stable, does not touch roll/up/FOV/filmOffset, and leaves the held pose clean before bullet time.
+- `bulletTimeSlowdown.driftAmount: 0` removes the earlier suspended drift so bullet time reads as intentional suspension rather than pre-travel camera movement.
+- `overviewTravel` and `overviewSettle` keep `punchDistance` and `driftAmount` at zero so final target parity remains owned by the existing resolved Overview pose.
+
+### Milestone D diagnostics
+
+`globalThis.__printHeroOverviewPilotCinematic?.()` now reports the timeline and motion config plus the requested cinematic fields:
+
+- `firstTravelFrame`
+- `configuredTravelStartProgress`
+- `actualTravelStartProgress`
+- `cameraDistanceMovedByPhase`
+- `punchDistanceApplied`
+- `maxImpulseCameraOffset`
+- `returnedToHoldPoseBeforeTravel`
+- `holdPoseDeltaAtTravelStart`
+- `explosionImpulseMaxOffset`
+- `bulletTimeDriftDistance`
+- `overviewTravelDuration`
+- `settleDuration`
+- `finalPoseLocked`
+- `finalTargetParityPasses`
+- `rollUpGuardClean`
+- `competingWriterAppeared`
+
+Per-frame diagnostic rows also include the phase easing, current/max impulse offset, current bullet-time offset, bullet-time drift distance, hold-pose delta at travel start, and returned-to-hold-pose status so a visual test can verify the impact and suspended beats without reopening the ownership baseline.

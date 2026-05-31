@@ -11,9 +11,9 @@ import { createCameraDirectorPilotTransition, updateCameraDirectorPilotTransitio
 import { resolveCameraDestination } from '../../camera/destinationResolver';
 
 const logger = createLogger('unified-camera-controller');
-const HERO_OVERVIEW_DIRECTOR_ENV_FLAG =
-  typeof import.meta !== 'undefined' && import.meta.env
-    ? String(import.meta.env.VITE_CAMERA_DIRECTOR_HERO_OVERVIEW_PILOT ?? '').toLowerCase() === 'true'
+const HERO_OVERVIEW_DIRECTOR_ENV_FORCE_PILOT =
+  typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_CAMERA_DIRECTOR_HERO_OVERVIEW_PILOT != null
+    ? String(import.meta.env.VITE_CAMERA_DIRECTOR_HERO_OVERVIEW_PILOT).toLowerCase() === 'true'
     : false;
 const PROJECT_OVERVIEW_POSITION_SETTLE_EPSILON = 0.01;
 const PROJECT_OVERVIEW_LOOKAT_SETTLE_EPSILON = 0.01;
@@ -24,30 +24,68 @@ const HERO_OVERVIEW_PILOT_PHASES = ['fractureCharge', 'explosionImpulse', 'bulle
 const HERO_OVERVIEW_PILOT_CAMERA_TIMELINE = {
   fractureCharge: {
     start: 0,
-    end: 0.16,
+    end: 0.1,
     cameraMode: 'hold',
+    easing: 'hold',
+    notes: 'Very brief live Hero orbit hold; tune only duration for charge intensity.',
   },
   explosionImpulse: {
-    start: 0.16,
-    end: 0.26,
-    cameraMode: 'impactHold',
+    start: 0.1,
+    end: 0.18,
+    cameraMode: 'impactPunch',
+    easing: 'sinePulse',
+    notes: 'Short impact beat with isolated in/out camera punch that returns to the hold pose.',
   },
   bulletTimeSlowdown: {
-    start: 0.26,
-    end: 0.42,
+    start: 0.18,
+    end: 0.34,
     cameraMode: 'suspendedHold',
+    easing: 'hold',
+    notes: 'Brief suspended tension beat; camera stays locked so overviewTravel releases from a clean pose.',
   },
   overviewTravel: {
-    start: 0.42,
-    end: 0.88,
+    start: 0.34,
+    end: 0.9,
     cameraMode: 'travel',
-    easing: 'expoOut',
+    easing: 'cinematicRevealOut',
+    notes: 'Main reveal: decisive initial dolly-out with a polished slowdown into Overview.',
   },
   overviewSettle: {
-    start: 0.88,
+    start: 0.9,
     end: 1,
     cameraMode: 'settle',
     easing: 'smoothSettle',
+    notes: 'Short exact final lock; no extra float after the reveal.',
+  },
+};
+const HERO_OVERVIEW_PILOT_CAMERA_MOTION = {
+  fractureCharge: {
+    punchDistance: 0,
+    driftAmount: 0,
+    notes: 'Camera remains locked to the first-write live Hero orbit pose.',
+  },
+  explosionImpulse: {
+    punchDistance: 0.06,
+    punchDirection: 'toward-lookAt',
+    driftAmount: 0,
+    returnCompleteAt: 0.72,
+    notes: 'Tiny push-in along the captured camera forward axis; lookAt/up/FOV/filmOffset stay stable and the punch resolves before bullet time begins.',
+  },
+  bulletTimeSlowdown: {
+    punchDistance: 0,
+    driftAmount: 0,
+    driftDirection: 'none',
+    notes: 'No camera drift in this pass; the suspended beat stays locked after impact so travel starts cleanly.',
+  },
+  overviewTravel: {
+    punchDistance: 0,
+    driftAmount: 0,
+    notes: 'Position/lookAt/FOV/filmOffset interpolate only from held Hero pose to resolved Overview pose.',
+  },
+  overviewSettle: {
+    punchDistance: 0,
+    driftAmount: 0,
+    notes: 'Final pose lock uses exact resolved Overview target with canonical up.',
   },
 };
 const HERO_OVERVIEW_PILOT_HOLD_PHASES = ['fractureCharge', 'explosionImpulse', 'bulletTimeSlowdown'];
@@ -396,33 +434,44 @@ const UnifiedCameraController = ({
   });
   const cameraFrameIndexRef = useRef(0);
 
-  const isOverviewToProjectPilotEnabled = () => {
-    // WARNING: Experimental pilot only; not production-ready.
-    // Keep disabled by default unless explicitly enabled for research.
-    if (typeof globalThis?.__ENABLE_CAMERA_DIRECTOR_OVERVIEW_TO_PROJECT__ === 'boolean') {
-      return globalThis.__ENABLE_CAMERA_DIRECTOR_OVERVIEW_TO_PROJECT__;
+  const getCameraDirectorRouteMode = ({ modeGlobalName, legacyEnableGlobalName, envForcePilot = false }) => {
+    if (import.meta.env.DEV) {
+      const explicitMode = typeof globalThis?.[modeGlobalName] === 'string'
+        ? globalThis[modeGlobalName].toLowerCase()
+        : null;
+      if (explicitMode === 'legacy') return 'legacy';
+      if (explicitMode === 'pilot' || explicitMode === 'director') return 'pilot';
+
+      // Backwards-compatible DEV shim for old enable flags. New tests should prefer
+      // the explicit `__*_CAMERA_MODE__ = 'legacy'` fallback controls below.
+      if (typeof globalThis?.[legacyEnableGlobalName] === 'boolean') {
+        return globalThis[legacyEnableGlobalName] ? 'pilot' : 'legacy';
+      }
+      if (envForcePilot) return 'pilot';
     }
-    return false;
+    return 'pilot';
   };
-  const isProjectToOverviewPilotEnabled = () => {
-    if (typeof globalThis?.__ENABLE_CAMERA_DIRECTOR_PROJECT_TO_OVERVIEW__ === 'boolean') {
-      return globalThis.__ENABLE_CAMERA_DIRECTOR_PROJECT_TO_OVERVIEW__;
-    }
-    return false;
-  };
-  const isProjectToProjectPilotEnabled = () => {
-    if (typeof globalThis?.__ENABLE_CAMERA_DIRECTOR_PROJECT_TO_PROJECT__ === 'boolean') {
-      return globalThis.__ENABLE_CAMERA_DIRECTOR_PROJECT_TO_PROJECT__;
-    }
-    return false;
-  };
-  const isHeroToOverviewPilotEnabled = () => {
-    if (!import.meta.env.DEV) return false;
-    if (typeof globalThis?.__ENABLE_CAMERA_DIRECTOR_HERO_OVERVIEW__ === 'boolean') {
-      return globalThis.__ENABLE_CAMERA_DIRECTOR_HERO_OVERVIEW__;
-    }
-    return HERO_OVERVIEW_DIRECTOR_ENV_FLAG;
-  };
+  const isOverviewToProjectPilotEnabled = () =>
+    getCameraDirectorRouteMode({
+      modeGlobalName: '__OVERVIEW_PROJECT_CAMERA_MODE__',
+      legacyEnableGlobalName: '__ENABLE_CAMERA_DIRECTOR_OVERVIEW_TO_PROJECT__',
+    }) === 'pilot';
+  const isProjectToOverviewPilotEnabled = () =>
+    getCameraDirectorRouteMode({
+      modeGlobalName: '__PROJECT_OVERVIEW_CAMERA_MODE__',
+      legacyEnableGlobalName: '__ENABLE_CAMERA_DIRECTOR_PROJECT_TO_OVERVIEW__',
+    }) === 'pilot';
+  const isProjectToProjectPilotEnabled = () =>
+    getCameraDirectorRouteMode({
+      modeGlobalName: '__PROJECT_PROJECT_CAMERA_MODE__',
+      legacyEnableGlobalName: '__ENABLE_CAMERA_DIRECTOR_PROJECT_TO_PROJECT__',
+    }) === 'pilot';
+  const isHeroToOverviewPilotEnabled = () =>
+    getCameraDirectorRouteMode({
+      modeGlobalName: '__HERO_OVERVIEW_CAMERA_MODE__',
+      legacyEnableGlobalName: '__ENABLE_CAMERA_DIRECTOR_HERO_OVERVIEW__',
+      envForcePilot: HERO_OVERVIEW_DIRECTOR_ENV_FORCE_PILOT,
+    }) === 'pilot';
   const isHeroOverviewDiagnosticsEnabled = () =>
     import.meta.env.DEV && Boolean(globalThis?.__HERO_OVERVIEW_PILOT_DIAGNOSTICS__);
 
@@ -1968,6 +2017,8 @@ const UnifiedCameraController = ({
   const easeHeroOverviewPilotProgress = (progress, easing = 'linear') => {
     const t = THREE.MathUtils.clamp(Number.isFinite(progress) ? progress : 0, 0, 1);
     if (easing === 'expoOut') return t >= 1 ? 1 : THREE.MathUtils.clamp(1 - (2 ** (-10 * t)), 0, 1);
+    if (easing === 'cinematicRevealOut') return t >= 1 ? 1 : THREE.MathUtils.clamp(1 - ((1 - t) ** 3.4), 0, 1);
+    if (easing === 'sinePulse') return Math.sin(Math.PI * t);
     if (easing === 'smoothSettle') return t * t * (3 - 2 * t);
     return t;
   };
@@ -1985,16 +2036,21 @@ const UnifiedCameraController = ({
       cameraTravelEasedProgress = 1;
       cameraTravelEasing = phase.easing ?? 'smoothSettle';
     }
+    const motion = HERO_OVERVIEW_PILOT_CAMERA_MOTION[phaseName] ?? {};
     return {
       phaseName,
       cameraMode: phase.cameraMode ?? 'unknown',
       phaseStart: phase.start ?? null,
       phaseEnd: phase.end ?? null,
       phaseLocalProgress,
+      phaseEasing: phase.easing ?? 'none',
       cameraTravelProgress,
       cameraTravelEasedProgress,
       cameraTravelEasing,
       isHoldingCamera: HERO_OVERVIEW_PILOT_HOLD_PHASES.includes(phaseName),
+      punchDistance: Number.isFinite(motion.punchDistance) ? motion.punchDistance : 0,
+      driftAmount: Number.isFinite(motion.driftAmount) ? motion.driftAmount : 0,
+      returnCompleteAt: Number.isFinite(motion.returnCompleteAt) ? motion.returnCompleteAt : 1,
       travelStartProgress: travelPhase.start,
       travelDuration: travelPhase.end - travelPhase.start,
       settleStartProgress: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE.overviewSettle.start,
@@ -2425,6 +2481,14 @@ const UnifiedCameraController = ({
           liveFilmOffsetDeltaToResolvedProject: row.liveFilmOffsetDeltaToResolvedProject,
           cameraMoveProgress: row.cameraMoveProgress,
           facetRotationProgress: row.facetRotationProgress,
+          facetRotationProgressApprox: row.facetRotationProgressApprox,
+          activeWriter: row.activeWriter,
+          routeModeUsed: row.routeModeUsed,
+          targetProjectId: row.targetProjectId,
+          transitionDuration: row.transitionDuration,
+          facetRotationDuration: row.facetRotationDuration,
+          cameraEasing: row.cameraEasing,
+          facetEasing: row.facetEasing,
         }))
       );
       if (!rows.length) return console.log('[overview-project-pilot-parity] samples', []);
@@ -2468,6 +2532,9 @@ const UnifiedCameraController = ({
         pilotFinalFilmOffsetDelta: pilotFinal?.liveFilmOffsetDeltaToResolvedProject ?? null,
         legacyFacetRotationCompletionEstimate: legacyFinal?.facetRotationProgress ?? null,
         pilotFacetRotationCompletionEstimate: pilotFinal?.facetRotationProgress ?? null,
+        pilotCameraCompleteFrame: latestPilot?.cameraCompleteFrame ?? null,
+        pilotFacetRotationCompleteFrame: latestPilot?.facetRotationCompleteFrame ?? null,
+        pilotSecondsBetweenCameraAndFacetCompletion: latestPilot?.secondsBetweenCameraAndFacetCompletion ?? null,
         visualParityGapsDetected: gaps,
       });
     };
@@ -2616,6 +2683,9 @@ const UnifiedCameraController = ({
         pilotCompleted: latestPilot?.completed ?? false,
         legacyDurationSeconds: latestLegacy?.durationSeconds ?? null,
         pilotDurationSeconds: latestPilot?.durationSeconds ?? null,
+        pilotCameraCompleteFrame: latestPilot?.cameraCompleteFrame ?? null,
+        pilotFacetRotationCompleteFrame: latestPilot?.facetRotationCompleteFrame ?? null,
+        pilotSecondsBetweenCameraAndFacetCompletion: latestPilot?.secondsBetweenCameraAndFacetCompletion ?? null,
       });
     };
     globalThis.__clearHeroOverviewDiagnosticSamples = () => {
@@ -2784,8 +2854,8 @@ const UnifiedCameraController = ({
       const latest = store.samples[store.samples.length - 1] ?? null;
       const summary = {
         pilotEnabled: isHeroToOverviewPilotEnabled(),
-        pilotDiagnosticVersion: latest?.pilotDiagnosticVersion ?? 'Milestone C live hold-pose lock',
-        pilotCinematicMilestone: latest?.pilotCinematicMilestone ?? heroOverviewPilotRef.current.transition?.pilotCinematicMilestone ?? 'Milestone C hold-pose lock',
+        pilotDiagnosticVersion: latest?.pilotDiagnosticVersion ?? 'Milestone D cinematic timing pass',
+        pilotCinematicMilestone: latest?.pilotCinematicMilestone ?? heroOverviewPilotRef.current.transition?.pilotCinematicMilestone ?? 'Milestone D cinematic timing pass',
         sampleCount: store.samples.length,
         captureAttempted: latest?.captureAttempted ?? false,
         captureSucceeded: latest?.captureSucceeded ?? false,
@@ -3209,7 +3279,7 @@ const UnifiedCameraController = ({
     globalThis.__printHeroOverviewPilotCinematic = () => {
       const store = getHeroOverviewPilotDiagnosticsStore();
       const samples = store.samples.filter((sample) => sample.type === 'pilot-frame' || sample.type === 'completion-handoff' || sample.type === 'pilot-completion-finalized');
-      if (!samples.length) return console.log('[hero-overview-pilot] cinematic-summary', { sampleCount: 0, pilotCinematicMilestone: 'Milestone C hold-pose lock' });
+      if (!samples.length) return console.log('[hero-overview-pilot] cinematic-summary', { sampleCount: 0, pilotCinematicMilestone: 'Milestone D cinematic timing pass' });
       const latest = samples[samples.length - 1];
       const movementThreshold = 0.001;
       const phaseRows = (phase) => samples.filter((sample) => sample.phase === phase);
@@ -3232,9 +3302,10 @@ const UnifiedCameraController = ({
       const maxUpDelta = samples.reduce((max, sample) => Math.max(max, Number(sample.upDeltaFromWorldUp || 0)), 0);
       const competingWriterAppeared = samples.some((sample) => sample.competingWriterDetected === true);
       const summary = {
-        pilotCinematicMilestone: 'Milestone C hold-pose lock',
+        pilotCinematicMilestone: 'Milestone D cinematic timing pass',
         sampleCount: samples.length,
         cameraTimeline: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE,
+        cameraMotion: HERO_OVERVIEW_PILOT_CAMERA_MOTION,
         holdPhases: HERO_OVERVIEW_PILOT_HOLD_PHASES,
         holdPoseSource: latest?.activeHoldPoseSource ?? latest?.fromPoseSource ?? null,
         activationFromPoseSource: latest?.activationFromPoseSource ?? null,
@@ -3260,12 +3331,22 @@ const UnifiedCameraController = ({
         doesPilotHoldMatchAuthoritativeHero: latest?.doesPilotHoldMatchAuthoritativeHero ?? null,
         firstActualTravelPhase: firstTravelSample?.phase ?? null,
         firstActualTravelFrame: firstTravelSample?.frame ?? null,
+        firstTravelFrame: latest?.firstTravelFrame ?? firstTravelSample?.frame ?? null,
         firstActualTravelGlobalProgress: firstTravelSample?.globalProgress ?? null,
         configuredTravelStartProgress: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE.overviewTravel.start,
+        actualTravelStartProgress: latest?.travelStartProgress ?? firstTravelSample?.globalProgress ?? null,
         transitionTravelStartProgress: latest?.travelStartProgress ?? null,
         transitionTravelStartTime: latest?.travelStartTime ?? null,
+        overviewTravelDuration: round4(HERO_OVERVIEW_PILOT_CAMERA_TIMELINE.overviewTravel.end - HERO_OVERVIEW_PILOT_CAMERA_TIMELINE.overviewTravel.start),
         travelDuration: latest?.travelDuration ?? round4(HERO_OVERVIEW_PILOT_CAMERA_TIMELINE.overviewTravel.end - HERO_OVERVIEW_PILOT_CAMERA_TIMELINE.overviewTravel.start),
+        settleDuration: round4(HERO_OVERVIEW_PILOT_CAMERA_TIMELINE.overviewSettle.end - HERO_OVERVIEW_PILOT_CAMERA_TIMELINE.overviewSettle.start),
         settleStartProgress: latest?.settleStartProgress ?? HERO_OVERVIEW_PILOT_CAMERA_TIMELINE.overviewSettle.start,
+        punchDistanceApplied: latest?.punchDistanceApplied ?? round4(HERO_OVERVIEW_PILOT_CAMERA_MOTION.explosionImpulse.punchDistance),
+        maxImpulseCameraOffset: latest?.maxImpulseCameraOffset ?? null,
+        explosionImpulseMaxOffset: latest?.maxImpulseCameraOffset ?? null,
+        returnedToHoldPoseBeforeTravel: latest?.returnedToHoldPoseBeforeTravel ?? null,
+        holdPoseDeltaAtTravelStart: latest?.holdPoseDeltaAtTravelStart ?? null,
+        bulletTimeDriftDistance: latest?.bulletTimeDriftDistance ?? null,
         cameraDistanceMovedByPhase: {
           fractureCharge: round4(fractureChargeDistance),
           explosionImpulse: round4(explosionImpulseDistance),
@@ -3275,7 +3356,9 @@ const UnifiedCameraController = ({
         },
         fractureChargeStayedStill: fractureChargeDistance <= movementThreshold,
         explosionImpulseStayedStill: explosionImpulseDistance <= movementThreshold,
+        explosionImpulseWithinConfiguredPunch: (latest?.maxImpulseCameraOffset ?? 0) <= HERO_OVERVIEW_PILOT_CAMERA_MOTION.explosionImpulse.punchDistance + 0.001,
         bulletTimeSlowdownStayedStill: bulletTimeDistance <= movementThreshold,
+        bulletTimeDriftWithinConfiguredAmount: (latest?.bulletTimeDriftDistance ?? 0) <= HERO_OVERVIEW_PILOT_CAMERA_MOTION.bulletTimeSlowdown.driftAmount + 0.001,
         travelBeginsInOverviewTravel,
         finalTargetParityPasses,
         rollUpGuardClean: maxRollDelta <= 0.0001 && maxUpDelta <= 0.0001,
@@ -3315,6 +3398,15 @@ const UnifiedCameraController = ({
         cameraTravelProgress: sample.cameraTravelProgress ?? null,
         cameraTravelEasedProgress: sample.cameraTravelEasedProgress ?? null,
         cameraTravelEasing: sample.cameraTravelEasing ?? null,
+        phaseEasing: sample.phaseEasing ?? null,
+        punchDistanceApplied: sample.punchDistanceApplied ?? null,
+        currentImpulseCameraOffset: sample.currentImpulseCameraOffset ?? null,
+        maxImpulseCameraOffset: sample.maxImpulseCameraOffset ?? null,
+        explosionImpulseMaxOffset: sample.explosionImpulseMaxOffset ?? null,
+        currentBulletTimeCameraOffset: sample.currentBulletTimeCameraOffset ?? null,
+        bulletTimeDriftDistance: sample.bulletTimeDriftDistance ?? null,
+        returnedToHoldPoseBeforeTravel: sample.returnedToHoldPoseBeforeTravel ?? null,
+        holdPoseDeltaAtTravelStart: sample.holdPoseDeltaAtTravelStart ?? null,
         isHoldingCamera: sample.isHoldingCamera ?? null,
         finalPoseLocked: sample.finalPoseLocked ?? null,
         distanceMovedDuringFractureCharge: sample.distanceMovedDuringFractureCharge ?? null,
@@ -3516,6 +3608,10 @@ const UnifiedCameraController = ({
         sampleCount: 0,
         sawMid: false,
         sawViewModeChange: false,
+        cameraCompleteFrame: null,
+        cameraCompleteAt: null,
+        facetRotationCompleteFrame: null,
+        facetRotationCompleteAt: null,
       };
       store.runs.push(store.activeRun);
       if (store.runs.length > store.maxRuns) store.runs.shift();
@@ -3561,7 +3657,17 @@ const UnifiedCameraController = ({
         liveFilmOffsetDeltaToResolvedProject: round4(Math.abs((camera.filmOffset ?? 0) - (runResolvedProject.filmOffset ?? 0))),
         facetRotationProgress: round4(facetDebug?.focusRotationProgress),
         facetRotationDelta: facetDebug?.deltaMeshToProjectFocusQuat ?? null,
+        facetRotationProgressApprox: round4(facetDebug?.facetRotationProgressApprox),
         cameraMoveProgress: round4(cameraMoveProgressRef.current),
+        rawProgress: null,
+        easedProgress: null,
+        activeWriter: lastCameraWriterRef.current ?? null,
+        routeModeUsed: run.mode,
+        targetProjectId: run.projectId,
+        transitionDuration: null,
+        facetRotationDuration: 'cameraMoveProgress / FOCUS_ROTATION_PROGRESS_LEAD, then per-frame quaternion slerp',
+        cameraEasing: run.mode === 'pilot' ? 'overview-to-project lagged smoothstep from min(rawProgress, facetProgress)' : 'legacy-camera-move-progress',
+        facetEasing: 'focusRotationProgress target + focusedRotationLerp slerp',
       });
       run.sampleCount = run.rows.length;
     };
@@ -3584,6 +3690,14 @@ const UnifiedCameraController = ({
     const facetProgress = Number.isFinite(facetDebug?.focusRotationProgress) ? facetDebug.focusRotationProgress : null;
     const cameraProgress = round4(cameraMoveProgressRef.current) ?? 0;
     const strictNearTarget = positionDelta <= 0.005 && lookAtDelta <= 0.005 && fovDelta <= 0.02 && filmOffsetDelta <= 0.05;
+    if (run.cameraCompleteFrame == null && strictNearTarget && cameraProgress >= 0.99) {
+      run.cameraCompleteFrame = cameraFrameIndexRef.current;
+      run.cameraCompleteAt = state.clock.elapsedTime;
+    }
+    if (run.facetRotationCompleteFrame == null && (facetProgress == null || facetProgress >= 0.99)) {
+      run.facetRotationCompleteFrame = cameraFrameIndexRef.current;
+      run.facetRotationCompleteAt = state.clock.elapsedTime;
+    }
     const thresholdsMet = strictNearTarget && cameraProgress >= 0.99 && (facetProgress == null || facetProgress >= 0.99);
     const missingFacetProgressFallback = strictNearTarget && cameraProgress >= 0.99 && facetProgress == null;
     const maxDurationFallback = transitionElapsed >= 1.8 && (explicitLegacySettle || isNearTarget);
@@ -3594,6 +3708,11 @@ const UnifiedCameraController = ({
         ? 'thresholds-met'
         : (missingFacetProgressFallback ? 'missing-facet-progress-fallback' : 'max-duration-fallback');
       run.durationSeconds = round4(transitionElapsed);
+      run.secondsBetweenCameraAndFacetCompletion = round4(
+        Number.isFinite(run.cameraCompleteAt) && Number.isFinite(run.facetRotationCompleteAt)
+          ? run.cameraCompleteAt - run.facetRotationCompleteAt
+          : null
+      );
       pushRow('complete');
       store.activeRun = null;
     }
@@ -3606,7 +3725,25 @@ const UnifiedCameraController = ({
     const stableTransitionKey = transitionKey ?? `project-to-project:${fromProjectId ?? 'none'}->${toProjectId ?? 'none'}`;
     const isStart = forceStart || (prevCameraState === 'project' && nextCameraState === 'project' && fromProjectId !== toProjectId);
     if (isStart && !store.activeRun) {
-      store.activeRun = { id: `${mode}:${state.clock.elapsedTime}:${fromProjectId ?? 'unknown'}->${toProjectId ?? 'unknown'}`, transitionKey: stableTransitionKey, mode, fromProjectId, toProjectId, fromProjectIdUnavailableReason, toProjectIdUnavailableReason, startedAt: state.clock.elapsedTime, rows: [], sampleTypesWritten: new Set(), completed: false, completionReason: 'not-detected', durationSeconds: null };
+      store.activeRun = {
+        id: `${mode}:${state.clock.elapsedTime}:${fromProjectId ?? 'unknown'}->${toProjectId ?? 'unknown'}`,
+        transitionKey: stableTransitionKey,
+        mode,
+        fromProjectId,
+        toProjectId,
+        fromProjectIdUnavailableReason,
+        toProjectIdUnavailableReason,
+        startedAt: state.clock.elapsedTime,
+        rows: [],
+        sampleTypesWritten: new Set(),
+        completed: false,
+        completionReason: 'not-detected',
+        durationSeconds: null,
+        cameraCompleteFrame: null,
+        cameraCompleteAt: null,
+        facetRotationCompleteFrame: null,
+        facetRotationCompleteAt: null,
+      };
       store.runs.push(store.activeRun);
       if (store.runs.length > store.maxRuns) store.runs.shift();
     }
@@ -3627,7 +3764,41 @@ const UnifiedCameraController = ({
             ? 'post-settle'
             : ((moveProgress ?? 0) <= 0.1 ? 'pre-transition' : 'mid-transition'))
         : null;
-      run.rows.push({ sampleType, activationTiming, state: animationData?.state ?? null, cameraState: animationData?.cameraState ?? null, viewMode: animationData?.viewMode ?? null, fromProjectId: run.fromProjectId, toProjectId: run.toProjectId, fromProjectIdUnavailableReason: run.fromProjectId ? null : (run.fromProjectIdUnavailableReason ?? 'from-project-id-missing'), toProjectIdUnavailableReason: run.toProjectId ? null : (run.toProjectIdUnavailableReason ?? 'to-project-id-missing'), targetPoseUnavailableReason, liveDistanceToResolvedProjectPosition: positionDelta, liveLookAtDeltaToResolvedProject: resolvedProject ? safeDistance(liveLookAt, resolvedProject.lookAt) : null, liveFovDeltaToResolvedProject: resolvedProject ? round4(Math.abs(camera.fov - (resolvedProject.fov ?? camera.fov))) : null, liveFilmOffsetDeltaToResolvedProject: resolvedProject ? round4(Math.abs((camera.filmOffset ?? 0) - (resolvedProject.filmOffset ?? 0))) : null, cameraMoveProgress: moveProgress, facetRotationProgress: facetProgress, rawProgress: round4(projectProjectProgressMetaRef.current?.rawProgress), easedProgress: round4(projectProjectProgressMetaRef.current?.easedProgress), cameraPositionProgress: round4(projectProjectProgressMetaRef.current?.cameraPositionProgress), facetProgressSource: projectProjectProgressMetaRef.current?.facetProgressSource ?? null, completionReason: completionReason ?? run.completionReason, progressEasingSource });
+      run.rows.push({
+        sampleType,
+        activationTiming,
+        state: animationData?.state ?? null,
+        cameraState: animationData?.cameraState ?? null,
+        viewMode: animationData?.viewMode ?? null,
+        fromProjectId: run.fromProjectId,
+        toProjectId: run.toProjectId,
+        fromProjectIdUnavailableReason: run.fromProjectId ? null : (run.fromProjectIdUnavailableReason ?? 'from-project-id-missing'),
+        toProjectIdUnavailableReason: run.toProjectId ? null : (run.toProjectIdUnavailableReason ?? 'to-project-id-missing'),
+        targetPoseUnavailableReason,
+        liveDistanceToResolvedProjectPosition: positionDelta,
+        liveLookAtDeltaToResolvedProject: resolvedProject ? safeDistance(liveLookAt, resolvedProject.lookAt) : null,
+        liveFovDeltaToResolvedProject: resolvedProject ? round4(Math.abs(camera.fov - (resolvedProject.fov ?? camera.fov))) : null,
+        liveFilmOffsetDeltaToResolvedProject: resolvedProject ? round4(Math.abs((camera.filmOffset ?? 0) - (resolvedProject.filmOffset ?? 0))) : null,
+        cameraMoveProgress: moveProgress,
+        facetRotationProgress: facetProgress,
+        facetRotationProgressApprox: round4(globalThis?.__overviewProjectFacetDebug?.facetRotationProgressApprox),
+        rawProgress: round4(projectProjectProgressMetaRef.current?.rawProgress),
+        easedProgress: round4(projectProjectProgressMetaRef.current?.easedProgress),
+        cameraPositionProgress: round4(projectProjectProgressMetaRef.current?.cameraPositionProgress),
+        facetProgressSource: projectProjectProgressMetaRef.current?.facetProgressSource ?? null,
+        completionReason: completionReason ?? run.completionReason,
+        progressEasingSource,
+        activeWriter: lastCameraWriterRef.current ?? null,
+        routeModeUsed: run.mode,
+        targetProjectId: run.toProjectId,
+        transitionDuration: 1.0,
+        facetRotationDuration: 'cameraMoveProgress / FOCUS_ROTATION_PROGRESS_LEAD, then per-frame quaternion slerp',
+        cameraEasing: progressEasingSource ?? 'project-to-project:facet-synced-settle',
+        facetEasing: 'focusRotationProgress target + focusedRotationLerp slerp',
+        cameraCompleteFrame: run.cameraCompleteFrame,
+        facetRotationCompleteFrame: run.facetRotationCompleteFrame,
+        secondsBetweenCameraAndFacetCompletion: run.secondsBetweenCameraAndFacetCompletion ?? null,
+      });
       run.sampleTypesWritten?.add(sampleType);
     };
     if (isStart) {
@@ -3646,13 +3817,36 @@ const UnifiedCameraController = ({
       });
     }
     const elapsed = state.clock.elapsedTime - run.startedAt;
+    const currentFacetProgress = Number.isFinite(globalThis?.__overviewProjectFacetDebug?.focusRotationProgress)
+      ? globalThis.__overviewProjectFacetDebug.focusRotationProgress
+      : null;
+    const currentPositionDelta = resolvedProject ? safeDistance(camera.position, resolvedProject.position) : null;
+    if (run.cameraCompleteFrame == null && currentPositionDelta != null && currentPositionDelta <= 0.005 && cameraMoveProgressRef.current >= 0.99) {
+      run.cameraCompleteFrame = cameraFrameIndexRef.current;
+      run.cameraCompleteAt = state.clock.elapsedTime;
+    }
+    if (run.facetRotationCompleteFrame == null && (currentFacetProgress == null || currentFacetProgress >= 0.99)) {
+      run.facetRotationCompleteFrame = cameraFrameIndexRef.current;
+      run.facetRotationCompleteAt = state.clock.elapsedTime;
+    }
     const normalizedTime = THREE.MathUtils.clamp(elapsed / 0.9, 0, 1);
     if (!run.bucket25 && normalizedTime >= 0.25) { run.bucket25 = true; pushRow('bucket-25%'); }
     if (!run.sawMid && elapsed >= 0.45) { run.sawMid = true; pushRow('mid'); }
     if (!run.bucket50 && normalizedTime >= 0.50) { run.bucket50 = true; pushRow('bucket-50%'); }
     if (!run.bucket75 && normalizedTime >= 0.75) { run.bucket75 = true; pushRow('bucket-75%'); }
     if (!run.sawViewModeChange && animationData?.viewMode === 'project') { run.sawViewModeChange = true; pushRow('viewMode-change'); }
-    if (!run.completed && completionReason) { run.completed = true; run.completionReason = completionReason; run.durationSeconds = round4(elapsed); pushRow('complete'); store.activeRun = null; }
+    if (!run.completed && completionReason) {
+      run.completed = true;
+      run.completionReason = completionReason;
+      run.durationSeconds = round4(elapsed);
+      run.secondsBetweenCameraAndFacetCompletion = round4(
+        Number.isFinite(run.cameraCompleteAt) && Number.isFinite(run.facetRotationCompleteAt)
+          ? run.cameraCompleteAt - run.facetRotationCompleteAt
+          : null
+      );
+      pushRow('complete');
+      store.activeRun = null;
+    }
   };
 
   const sampleOverviewProjectShadow = ({ state, delta, transitionActive, transitionKey, focusedProject, settled, prevCameraState, nextCameraState, nextState, viewMode }) => {
@@ -4295,7 +4489,8 @@ const UnifiedCameraController = ({
           phaseModel: HERO_OVERVIEW_PILOT_PHASES,
           phaseBehaviors: HERO_OVERVIEW_PILOT_PHASE_BEHAVIORS,
           cameraTimeline: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE,
-          pilotCinematicMilestone: 'Milestone C hold-pose lock',
+          cameraMotion: HERO_OVERVIEW_PILOT_CAMERA_MOTION,
+          pilotCinematicMilestone: 'Milestone D cinematic timing pass',
           ownsCameraInMilestoneA: false,
           ownsCameraInMilestoneB: Boolean(resolvedOverview),
           legacyForcedWriterBlocked: Boolean(resolvedOverview),
@@ -4361,6 +4556,14 @@ const UnifiedCameraController = ({
           previousCinematicCameraPosition: camera.position.clone(),
           fovChangedDuringHold: false,
           filmOffsetChangedDuringHold: false,
+          punchDistanceApplied: HERO_OVERVIEW_PILOT_CAMERA_MOTION.explosionImpulse.punchDistance,
+          maxImpulseCameraOffset: 0,
+          returnedToHoldPoseBeforeTravel: null,
+          holdPoseDeltaAtTravelStart: null,
+          lastHoldCameraOffset: 0,
+          lastPreTravelHoldCameraOffset: 0,
+          bulletTimeDriftDistance: 0,
+          maxBulletTimeCameraOffset: 0,
         },
       };
       markHeroOverviewPilotActivationTrace(cameraFrameIndexRef.current);
@@ -4372,8 +4575,8 @@ const UnifiedCameraController = ({
         key: heroOverviewActivationKey,
         transitionKey: heroOverviewTransitionKey,
         pilotEnabled: isHeroToOverviewPilotEnabled(),
-        pilotDiagnosticVersion: 'Milestone C live hold-pose lock',
-        pilotCinematicMilestone: 'Milestone C hold-pose lock',
+        pilotDiagnosticVersion: 'Milestone D cinematic timing pass',
+        pilotCinematicMilestone: 'Milestone D cinematic timing pass',
         activationFromPoseSource: 'activation-intent-live-camera-transform',
         activeHoldPoseSource: null,
         cameraTimeline: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE,
@@ -4509,7 +4712,8 @@ const UnifiedCameraController = ({
           phaseModel: HERO_OVERVIEW_PILOT_PHASES,
           phaseBehaviors: HERO_OVERVIEW_PILOT_PHASE_BEHAVIORS,
           cameraTimeline: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE,
-          pilotCinematicMilestone: 'Milestone C hold-pose lock',
+          cameraMotion: HERO_OVERVIEW_PILOT_CAMERA_MOTION,
+          pilotCinematicMilestone: 'Milestone D cinematic timing pass',
           fromPoseSource: 'activation-intent-live-camera-transform',
           activeHoldPoseSource: null,
           ownsCameraInMilestoneA: false,
@@ -5443,7 +5647,7 @@ const UnifiedCameraController = ({
         const cameraTravelEasedProgress = holdPoseLockedThisFrame
           ? 0
           : (isFinalPoseLocked ? 1 : cinematicProgress.cameraTravelEasedProgress);
-        const nextPosition = isFinalPoseLocked
+        let nextPosition = isFinalPoseLocked
           ? toPose.position.clone()
           : new THREE.Vector3().lerpVectors(fromPose.position, toPose.position, cameraTravelEasedProgress);
         const nextLookAt = isFinalPoseLocked
@@ -5451,6 +5655,43 @@ const UnifiedCameraController = ({
           : introLookAtTempRef.current.lerpVectors(fromPose.lookAt, toPose.lookAt, cameraTravelEasedProgress);
         const nextFov = isFinalPoseLocked ? toFov : THREE.MathUtils.lerp(fromFov, toFov, cameraTravelEasedProgress);
         const nextFilmOffset = isFinalPoseLocked ? toFilmOffset : THREE.MathUtils.lerp(fromFilmOffset, toFilmOffset, cameraTravelEasedProgress);
+        const holdForwardAxis = new THREE.Vector3().subVectors(fromPose.lookAt, fromPose.position);
+        if (holdForwardAxis.lengthSq() > 0.000001) holdForwardAxis.normalize();
+        else camera.getWorldDirection(holdForwardAxis).normalize();
+        let impulseCameraOffset = 0;
+        let bulletTimeCameraOffset = 0;
+        if (!isFinalPoseLocked && pilotPhase === 'explosionImpulse') {
+          const impulseReturnCompleteAt = THREE.MathUtils.clamp(cinematicProgress.returnCompleteAt, 0.05, 1);
+          const impulsePulseProgress = phaseProgress < impulseReturnCompleteAt
+            ? THREE.MathUtils.clamp(phaseProgress / impulseReturnCompleteAt, 0, 1)
+            : 1;
+          const impulsePulse = phaseProgress < impulseReturnCompleteAt
+            ? easeHeroOverviewPilotProgress(impulsePulseProgress, 'sinePulse')
+            : 0;
+          impulseCameraOffset = cinematicProgress.punchDistance * impulsePulse;
+          if (Math.abs(impulseCameraOffset) > 0.000001) {
+            nextPosition = nextPosition.clone().addScaledVector(holdForwardAxis, impulseCameraOffset);
+          }
+        } else if (!isFinalPoseLocked && pilotPhase === 'bulletTimeSlowdown') {
+          const bulletPulse = easeHeroOverviewPilotProgress(phaseProgress, 'sinePulse');
+          bulletTimeCameraOffset = cinematicProgress.driftAmount * bulletPulse;
+          if (Math.abs(bulletTimeCameraOffset) > 0.000001) {
+            nextPosition = nextPosition.clone().addScaledVector(holdForwardAxis, -bulletTimeCameraOffset);
+          }
+        }
+        const totalHoldCameraOffset = Math.abs(impulseCameraOffset) + Math.abs(bulletTimeCameraOffset);
+        transition.punchDistanceApplied = HERO_OVERVIEW_PILOT_CAMERA_MOTION.explosionImpulse.punchDistance;
+        transition.maxImpulseCameraOffset = Math.max(transition.maxImpulseCameraOffset ?? 0, Math.abs(impulseCameraOffset));
+        transition.maxBulletTimeCameraOffset = Math.max(transition.maxBulletTimeCameraOffset ?? 0, Math.abs(bulletTimeCameraOffset));
+        transition.bulletTimeDriftDistance = transition.maxBulletTimeCameraOffset;
+        transition.lastHoldCameraOffset = totalHoldCameraOffset;
+        if (pilotPhase === 'overviewTravel' && transition.returnedToHoldPoseBeforeTravel == null) {
+          transition.holdPoseDeltaAtTravelStart = totalHoldCameraOffset;
+          transition.returnedToHoldPoseBeforeTravel = totalHoldCameraOffset <= 0.0005;
+        }
+        if (pilotPhase === 'explosionImpulse' || pilotPhase === 'bulletTimeSlowdown') {
+          transition.lastPreTravelHoldCameraOffset = totalHoldCameraOffset;
+        }
         if (transition.firstTravelFrame == null && cameraTravelEasedProgress > 0.0001) {
           transition.firstTravelFrame = cameraFrameIndexRef.current;
           transition.travelStartTime = state.clock.elapsedTime;
@@ -5552,8 +5793,8 @@ const UnifiedCameraController = ({
         }
         pushHeroOverviewPilotSample({
           type: globalProgress >= 1 ? 'completion-handoff' : 'pilot-frame',
-          pilotDiagnosticVersion: 'Milestone C live hold-pose lock',
-          pilotCinematicMilestone: 'Milestone C hold-pose lock',
+          pilotDiagnosticVersion: 'Milestone D cinematic timing pass',
+          pilotCinematicMilestone: 'Milestone D cinematic timing pass',
           t: round4(state.clock.elapsedTime),
           frame: cameraFrameIndexRef.current,
           key: pilot.key,
@@ -5592,6 +5833,15 @@ const UnifiedCameraController = ({
           respectsCurrentHeroOrbitPose: transition.respectsCurrentHeroOrbitPose,
           phase: pilotPhase,
           cameraMode: cinematicProgress.cameraMode,
+          phaseEasing: cinematicProgress.phaseEasing,
+          punchDistanceApplied: round4(transition.punchDistanceApplied),
+          currentImpulseCameraOffset: round4(impulseCameraOffset),
+          maxImpulseCameraOffset: round4(transition.maxImpulseCameraOffset),
+          explosionImpulseMaxOffset: round4(transition.maxImpulseCameraOffset),
+          returnedToHoldPoseBeforeTravel: transition.returnedToHoldPoseBeforeTravel,
+          holdPoseDeltaAtTravelStart: round4(transition.holdPoseDeltaAtTravelStart),
+          currentBulletTimeCameraOffset: round4(bulletTimeCameraOffset),
+          bulletTimeDriftDistance: round4(transition.bulletTimeDriftDistance),
           phaseStart: round4(cinematicProgress.phaseStart),
           phaseEnd: round4(cinematicProgress.phaseEnd),
           phaseProgress: round4(phaseProgress),
@@ -5753,8 +6003,8 @@ const UnifiedCameraController = ({
           heroToOverviewHandoffLockFramesRef.current = HERO_TO_OVERVIEW_HANDOFF_LOCK_FRAMES;
           pushHeroOverviewPilotSample({
             type: 'pilot-completion-finalized',
-            pilotDiagnosticVersion: 'Milestone C live hold-pose lock',
-            pilotCinematicMilestone: 'Milestone C hold-pose lock',
+            pilotDiagnosticVersion: 'Milestone D cinematic timing pass',
+            pilotCinematicMilestone: 'Milestone D cinematic timing pass',
             t: round4(state.clock.elapsedTime),
             frame: cameraFrameIndexRef.current,
             key: pilot.key,
@@ -5793,6 +6043,15 @@ const UnifiedCameraController = ({
             respectsCurrentHeroOrbitPose: transition.respectsCurrentHeroOrbitPose,
             phase: 'complete',
             cameraMode: 'complete',
+            phaseEasing: 'complete',
+            punchDistanceApplied: round4(transition.punchDistanceApplied),
+            currentImpulseCameraOffset: 0,
+            maxImpulseCameraOffset: round4(transition.maxImpulseCameraOffset),
+            explosionImpulseMaxOffset: round4(transition.maxImpulseCameraOffset),
+            returnedToHoldPoseBeforeTravel: transition.returnedToHoldPoseBeforeTravel,
+            holdPoseDeltaAtTravelStart: round4(transition.holdPoseDeltaAtTravelStart),
+            currentBulletTimeCameraOffset: 0,
+            bulletTimeDriftDistance: round4(transition.bulletTimeDriftDistance),
             phaseStart: 1,
             phaseEnd: 1,
             phaseLocalProgress: 1,
@@ -6888,7 +7147,7 @@ const UnifiedCameraController = ({
         }
         pushHeroOverviewPilotSample({
           type: 'handoff-lock-frame',
-          pilotDiagnosticVersion: 'Milestone C live hold-pose lock',
+          pilotDiagnosticVersion: 'Milestone D cinematic timing pass',
           t: round4(state.clock.elapsedTime),
           frame: cameraFrameIndexRef.current,
           key: heroOverviewPilotRef.current.key,

@@ -14,6 +14,20 @@
   - `src/crystalConfig.js`
   - `src/hooks/useHeroOverviewRuntime.js`
 
+
+## Current stable route defaults (CameraDirector baseline)
+
+The completed CameraDirector/pilot routes now own their transitions by default:
+
+| route | default owner | fallback |
+|---|---|---|
+| Overview → Project | `CAMERA_DIRECTOR_OVERVIEW_TO_PROJECT` pilot path | DEV-only `globalThis.__OVERVIEW_PROJECT_CAMERA_MODE__ = 'legacy'` |
+| Project → Overview | `CAMERA_DIRECTOR_PROJECT_TO_OVERVIEW` pilot path | DEV-only `globalThis.__PROJECT_OVERVIEW_CAMERA_MODE__ = 'legacy'` |
+| Project → Project | `CAMERA_DIRECTOR_PROJECT_TO_PROJECT` pilot path | DEV-only `globalThis.__PROJECT_PROJECT_CAMERA_MODE__ = 'legacy'` |
+| Hero → Overview | owning `HERO_OVERVIEW_PILOT` path | DEV-only `globalThis.__HERO_OVERVIEW_CAMERA_MODE__ = 'legacy'` |
+
+Legacy paths are retained as explicit development fallbacks only. Diagnostics remain independent of route selection flags.
+
 ---
 
 ## 1) Camera writer inventory
@@ -182,7 +196,7 @@ PR-2 should include reproducible scripts/steps, expected vs actual camera pose n
 - ✅ `src/hooks/useHeroOverviewRuntime.js`
 - ✅ project/caseStudy camera config paths (`projectCameraSettings` in config, merge usage in canvas/controller)
 
-## PR-15 hero→overview stabilization note
-- Hero → Overview remains legacy-owned in runtime.
-- Added DEV-only diagnostics helpers and a disabled scaffold gate for future CameraDirector migration work.
-- About route behaviors remain intentionally unchanged in this step.
+## PR-15 hero→overview stabilization note (historical)
+- Historical PR-15 state: Hero → Overview remained legacy-owned in runtime while diagnostics/scaffold work landed.
+- Current state is listed above: Hero → Overview now defaults to the owning `HERO_OVERVIEW_PILOT`, with legacy retained only as explicit DEV fallback.
+- About route behaviors remain intentionally unchanged.
