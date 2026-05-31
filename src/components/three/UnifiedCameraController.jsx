@@ -19,8 +19,38 @@ const PROJECT_OVERVIEW_POSITION_SETTLE_EPSILON = 0.01;
 const PROJECT_OVERVIEW_LOOKAT_SETTLE_EPSILON = 0.01;
 const PROJECT_OVERVIEW_FOV_SETTLE_EPSILON = 0.02;
 const PROJECT_OVERVIEW_PROGRESS_SETTLE_MIN = 0.99;
-const HERO_OVERVIEW_PHASE_ORDER = ['fractureCharge', 'explosionImpulse', 'bulletTimeSlowdown', 'overviewSettle', 'complete'];
+const HERO_OVERVIEW_PHASE_ORDER = ['fractureCharge', 'explosionImpulse', 'bulletTimeSlowdown', 'overviewTravel', 'overviewSettle', 'complete'];
 const HERO_OVERVIEW_PILOT_PHASES = ['fractureCharge', 'explosionImpulse', 'bulletTimeSlowdown', 'overviewTravel', 'overviewSettle', 'complete'];
+const HERO_OVERVIEW_PILOT_CAMERA_TIMELINE = {
+  fractureCharge: {
+    start: 0,
+    end: 0.16,
+    cameraMode: 'hold',
+  },
+  explosionImpulse: {
+    start: 0.16,
+    end: 0.26,
+    cameraMode: 'impactHold',
+  },
+  bulletTimeSlowdown: {
+    start: 0.26,
+    end: 0.42,
+    cameraMode: 'suspendedHold',
+  },
+  overviewTravel: {
+    start: 0.42,
+    end: 0.88,
+    cameraMode: 'travel',
+    easing: 'expoOut',
+  },
+  overviewSettle: {
+    start: 0.88,
+    end: 1,
+    cameraMode: 'settle',
+    easing: 'smoothSettle',
+  },
+};
+const HERO_OVERVIEW_PILOT_HOLD_PHASES = ['fractureCharge', 'explosionImpulse', 'bulletTimeSlowdown'];
 const HERO_OVERVIEW_PILOT_PHASE_BEHAVIORS = {
   fractureCharge: { cameraOwner: 'pilot', behavior: 'hold-live-captured-hero-pose', writesCamera: true },
   explosionImpulse: { cameraOwner: 'pilot', behavior: 'baseline-equivalent-fracture-influence-or-hold', writesCamera: true },
@@ -1864,6 +1894,61 @@ const UnifiedCameraController = ({
   };
 
 
+
+  const getHeroOverviewPilotPhaseMetrics = () => HERO_OVERVIEW_PILOT_PHASES.reduce((acc, phase) => {
+    acc[phase] = 0;
+    return acc;
+  }, {});
+  const getHeroOverviewPilotTimelinePhase = (progress) => {
+    const clampedProgress = THREE.MathUtils.clamp(Number.isFinite(progress) ? progress : 0, 0, 1);
+    const phaseName = HERO_OVERVIEW_PILOT_PHASES.find((name) => {
+      if (name === 'complete') return clampedProgress >= 1;
+      const phase = HERO_OVERVIEW_PILOT_CAMERA_TIMELINE[name];
+      if (!phase) return false;
+      return clampedProgress >= phase.start && clampedProgress < phase.end;
+    }) ?? (clampedProgress >= 1 ? 'complete' : 'overviewSettle');
+    const phase = HERO_OVERVIEW_PILOT_CAMERA_TIMELINE[phaseName] ?? { start: 1, end: 1, cameraMode: 'complete' };
+    const phaseLocalProgress = phase.end > phase.start
+      ? THREE.MathUtils.clamp((clampedProgress - phase.start) / (phase.end - phase.start), 0, 1)
+      : 1;
+    return { phaseName, phase, phaseLocalProgress };
+  };
+  const easeHeroOverviewPilotProgress = (progress, easing = 'linear') => {
+    const t = THREE.MathUtils.clamp(Number.isFinite(progress) ? progress : 0, 0, 1);
+    if (easing === 'expoOut') return t >= 1 ? 1 : THREE.MathUtils.clamp(1 - (2 ** (-10 * t)), 0, 1);
+    if (easing === 'smoothSettle') return t * t * (3 - 2 * t);
+    return t;
+  };
+  const getHeroOverviewPilotCameraProgress = (globalProgress) => {
+    const { phaseName, phase, phaseLocalProgress } = getHeroOverviewPilotTimelinePhase(globalProgress);
+    const travelPhase = HERO_OVERVIEW_PILOT_CAMERA_TIMELINE.overviewTravel;
+    let cameraTravelProgress = 0;
+    let cameraTravelEasedProgress = 0;
+    let cameraTravelEasing = phase.easing ?? 'none';
+    if (phaseName === 'overviewTravel') {
+      cameraTravelProgress = phaseLocalProgress;
+      cameraTravelEasedProgress = easeHeroOverviewPilotProgress(cameraTravelProgress, phase.easing ?? 'expoOut');
+    } else if (phaseName === 'overviewSettle' || phaseName === 'complete' || globalProgress >= travelPhase.end) {
+      cameraTravelProgress = 1;
+      cameraTravelEasedProgress = 1;
+      cameraTravelEasing = phase.easing ?? 'smoothSettle';
+    }
+    return {
+      phaseName,
+      cameraMode: phase.cameraMode ?? 'unknown',
+      phaseStart: phase.start ?? null,
+      phaseEnd: phase.end ?? null,
+      phaseLocalProgress,
+      cameraTravelProgress,
+      cameraTravelEasedProgress,
+      cameraTravelEasing,
+      isHoldingCamera: HERO_OVERVIEW_PILOT_HOLD_PHASES.includes(phaseName),
+      travelStartProgress: travelPhase.start,
+      travelDuration: travelPhase.end - travelPhase.start,
+      settleStartProgress: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE.overviewSettle.start,
+    };
+  };
+
   const getOverviewProjectShadowStore = () => {
     if (typeof globalThis === 'undefined') return overviewProjectShadowRef.current;
     if (!globalThis.__overviewProjectShadowStore) {
@@ -2399,7 +2484,8 @@ const UnifiedCameraController = ({
       const latest = store.samples[store.samples.length - 1] ?? null;
       const summary = {
         pilotEnabled: isHeroToOverviewPilotEnabled(),
-        pilotDiagnosticVersion: latest?.pilotDiagnosticVersion ?? 'PR-25-live-lookat-takeover-clear',
+        pilotDiagnosticVersion: latest?.pilotDiagnosticVersion ?? 'Milestone C cinematic timeline',
+        pilotCinematicMilestone: latest?.pilotCinematicMilestone ?? heroOverviewPilotRef.current.transition?.pilotCinematicMilestone ?? 'Milestone C',
         sampleCount: store.samples.length,
         captureAttempted: latest?.captureAttempted ?? false,
         captureSucceeded: latest?.captureSucceeded ?? false,
@@ -2414,6 +2500,7 @@ const UnifiedCameraController = ({
         ownsCameraInMilestoneB: latest?.ownsCameraInMilestoneB ?? heroOverviewPilotRef.current.transition?.ownsCameraInMilestoneB ?? false,
         phaseModel: HERO_OVERVIEW_PILOT_PHASES,
         phaseBehaviors: HERO_OVERVIEW_PILOT_PHASE_BEHAVIORS,
+        cameraTimeline: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE,
         fromPoseSource: latest?.fromPoseSource ?? heroOverviewPilotRef.current.transition?.fromPoseSource ?? null,
         fromLookAtSource: latest?.fromLookAtSource ?? heroOverviewPilotRef.current.transition?.fromLookAtSource ?? null,
         targetResolved: Boolean(heroOverviewPilotRef.current.transition?.toPose),
@@ -2604,6 +2691,95 @@ const UnifiedCameraController = ({
       });
       console.table(rows);
     };
+
+    globalThis.__printHeroOverviewPilotCinematic = () => {
+      const store = getHeroOverviewPilotDiagnosticsStore();
+      const samples = store.samples.filter((sample) => sample.type === 'pilot-frame' || sample.type === 'completion-handoff' || sample.type === 'pilot-completion-finalized');
+      if (!samples.length) return console.log('[hero-overview-pilot] cinematic-summary', { sampleCount: 0, pilotCinematicMilestone: 'Milestone C' });
+      const latest = samples[samples.length - 1];
+      const movementThreshold = 0.001;
+      const phaseRows = (phase) => samples.filter((sample) => sample.phase === phase);
+      const distanceFromLatest = (phase, field) => latest?.[field] ?? phaseRows(phase).reduce((sum, sample) => sum + Number(sample.distanceMovedSincePreviousSample || 0), 0);
+      const firstTravelSample = samples.find((sample) => (sample.cameraTravelEasedProgress ?? 0) > 0.0001) ?? null;
+      const travelBeginsInOverviewTravel = firstTravelSample?.phase === 'overviewTravel';
+      const fractureChargeDistance = Number(distanceFromLatest('fractureCharge', 'distanceMovedDuringFractureCharge') ?? 0);
+      const explosionImpulseDistance = Number(distanceFromLatest('explosionImpulse', 'distanceMovedDuringExplosionImpulse') ?? 0);
+      const bulletTimeDistance = Number(distanceFromLatest('bulletTimeSlowdown', 'distanceMovedDuringBulletTimeSlowdown') ?? 0);
+      const overviewTravelDistance = Number(distanceFromLatest('overviewTravel', 'distanceMovedDuringOverviewTravel') ?? 0);
+      const overviewSettleDistance = Number(distanceFromLatest('overviewSettle', 'distanceMovedDuringOverviewSettle') ?? 0);
+      const pilotToLegacy = getPoseParityDeltas(heroOverviewPilotRef.current.transition?.toPose, getHeroOverviewLegacyFinalPose());
+      const finalTargetParityPasses = Boolean(
+        pilotToLegacy.positionDelta !== null && pilotToLegacy.positionDelta <= 0.001 &&
+        pilotToLegacy.lookAtDelta !== null && pilotToLegacy.lookAtDelta <= 0.001 &&
+        pilotToLegacy.fovDelta !== null && pilotToLegacy.fovDelta <= 0.001 &&
+        pilotToLegacy.filmOffsetDelta !== null && pilotToLegacy.filmOffsetDelta <= 0.001
+      );
+      const maxRollDelta = samples.reduce((max, sample) => Math.max(max, Number(sample.rollDeltaFromWorldUp || 0)), 0);
+      const maxUpDelta = samples.reduce((max, sample) => Math.max(max, Number(sample.upDeltaFromWorldUp || 0)), 0);
+      const competingWriterAppeared = samples.some((sample) => sample.competingWriterDetected === true);
+      const summary = {
+        pilotCinematicMilestone: 'Milestone C',
+        sampleCount: samples.length,
+        cameraTimeline: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE,
+        holdPhases: HERO_OVERVIEW_PILOT_HOLD_PHASES,
+        firstActualTravelPhase: firstTravelSample?.phase ?? null,
+        firstActualTravelFrame: firstTravelSample?.frame ?? null,
+        firstActualTravelGlobalProgress: firstTravelSample?.globalProgress ?? null,
+        configuredTravelStartProgress: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE.overviewTravel.start,
+        transitionTravelStartProgress: latest?.travelStartProgress ?? null,
+        transitionTravelStartTime: latest?.travelStartTime ?? null,
+        travelDuration: latest?.travelDuration ?? round4(HERO_OVERVIEW_PILOT_CAMERA_TIMELINE.overviewTravel.end - HERO_OVERVIEW_PILOT_CAMERA_TIMELINE.overviewTravel.start),
+        settleStartProgress: latest?.settleStartProgress ?? HERO_OVERVIEW_PILOT_CAMERA_TIMELINE.overviewSettle.start,
+        cameraDistanceMovedByPhase: {
+          fractureCharge: round4(fractureChargeDistance),
+          explosionImpulse: round4(explosionImpulseDistance),
+          bulletTimeSlowdown: round4(bulletTimeDistance),
+          overviewTravel: round4(overviewTravelDistance),
+          overviewSettle: round4(overviewSettleDistance),
+        },
+        fractureChargeStayedStill: fractureChargeDistance <= movementThreshold,
+        explosionImpulseStayedStill: explosionImpulseDistance <= movementThreshold,
+        bulletTimeSlowdownStayedStill: bulletTimeDistance <= movementThreshold,
+        travelBeginsInOverviewTravel,
+        finalTargetParityPasses,
+        rollUpGuardClean: maxRollDelta <= 0.0001 && maxUpDelta <= 0.0001,
+        maxRollDeltaDuringPilot: round4(maxRollDelta),
+        maxUpDeltaDuringPilot: round4(maxUpDelta),
+        competingWriterAppeared,
+        legacyForcedWriterBlocked: samples.some((sample) => sample.legacyForcedWriterBlocked === true),
+        fovChangedDuringHold: samples.some((sample) => sample.fovChangedDuringHold === true),
+        filmOffsetChangedDuringHold: samples.some((sample) => sample.filmOffsetChangedDuringHold === true),
+        finalPoseLocked: latest?.finalPoseLocked ?? false,
+      };
+      console.log('[hero-overview-pilot] cinematic-summary', summary);
+      console.table(samples.map((sample) => ({
+        type: sample.type ?? null,
+        frame: sample.frame ?? null,
+        phase: sample.phase ?? null,
+        cameraMode: sample.cameraMode ?? null,
+        globalProgress: sample.globalProgress ?? null,
+        phaseLocalProgress: sample.phaseLocalProgress ?? null,
+        cameraTravelProgress: sample.cameraTravelProgress ?? null,
+        cameraTravelEasedProgress: sample.cameraTravelEasedProgress ?? null,
+        cameraTravelEasing: sample.cameraTravelEasing ?? null,
+        isHoldingCamera: sample.isHoldingCamera ?? null,
+        finalPoseLocked: sample.finalPoseLocked ?? null,
+        distanceMovedDuringFractureCharge: sample.distanceMovedDuringFractureCharge ?? null,
+        distanceMovedDuringExplosionImpulse: sample.distanceMovedDuringExplosionImpulse ?? null,
+        distanceMovedDuringBulletTimeSlowdown: sample.distanceMovedDuringBulletTimeSlowdown ?? null,
+        distanceMovedDuringOverviewTravel: sample.distanceMovedDuringOverviewTravel ?? null,
+        distanceMovedDuringOverviewSettle: sample.distanceMovedDuringOverviewSettle ?? null,
+        fovChangedDuringHold: sample.fovChangedDuringHold ?? null,
+        filmOffsetChangedDuringHold: sample.filmOffsetChangedDuringHold ?? null,
+        activeToPoseSource: sample.activeToPoseSource ?? null,
+        activeToPoseFov: sample.activeToPoseFov ?? null,
+        activeToPoseFilmOffset: sample.activeToPoseFilmOffset ?? null,
+        rollDeltaFromWorldUp: sample.rollDeltaFromWorldUp ?? null,
+        upDeltaFromWorldUp: sample.upDeltaFromWorldUp ?? null,
+        competingWriterDetected: sample.competingWriterDetected ?? null,
+      })));
+    };
+
     globalThis.__markHeroOverviewVisualIssue = (description = 'visual-issue') => {
       const store = getHeroOverviewFullTimelineStore();
       store.markers.push({ t: round4(performance.now() / 1000), frame: null, description });
@@ -3563,6 +3739,8 @@ const UnifiedCameraController = ({
           startedAt: state.clock.elapsedTime,
           phaseModel: HERO_OVERVIEW_PILOT_PHASES,
           phaseBehaviors: HERO_OVERVIEW_PILOT_PHASE_BEHAVIORS,
+          cameraTimeline: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE,
+          pilotCinematicMilestone: 'Milestone C',
           ownsCameraInMilestoneA: false,
           ownsCameraInMilestoneB: Boolean(resolvedOverview),
           legacyForcedWriterBlocked: Boolean(resolvedOverview),
@@ -3590,6 +3768,15 @@ const UnifiedCameraController = ({
           monotonicGlobalProgress: 0,
           fromPoseRecaptured: false,
           targetPoseRecalculated: false,
+          firstTravelFrame: null,
+          travelStartTime: null,
+          travelStartProgress: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE.overviewTravel.start,
+          travelDuration: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE.overviewTravel.end - HERO_OVERVIEW_PILOT_CAMERA_TIMELINE.overviewTravel.start,
+          settleStartProgress: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE.overviewSettle.start,
+          phaseDistanceMoved: getHeroOverviewPilotPhaseMetrics(),
+          previousCinematicCameraPosition: camera.position.clone(),
+          fovChangedDuringHold: false,
+          filmOffsetChangedDuringHold: false,
         },
       };
       const pilotStore = getHeroOverviewPilotDiagnosticsStore();
@@ -3600,7 +3787,9 @@ const UnifiedCameraController = ({
         key: heroOverviewActivationKey,
         transitionKey: heroOverviewTransitionKey,
         pilotEnabled: isHeroToOverviewPilotEnabled(),
-        pilotDiagnosticVersion: 'PR-25-live-lookat-takeover-clear',
+        pilotDiagnosticVersion: 'Milestone C cinematic timeline',
+        pilotCinematicMilestone: 'Milestone C',
+        cameraTimeline: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE,
         captureAttempted: true,
         captureSucceeded: Boolean(resolvedOverview),
         activationConditionMatched: true,
@@ -3663,7 +3852,31 @@ const UnifiedCameraController = ({
         targetCameraToLookAtDistance: resolvedOverview ? safeDistance(resolvedOverview.position, resolvedOverview.lookAt) : null,
         globalProgress: 0,
         monotonicGlobalProgress: 0,
+        phase: 'fractureCharge',
+        cameraMode: 'hold',
+        phaseStart: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE.fractureCharge.start,
+        phaseEnd: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE.fractureCharge.end,
         phaseProgress: 0,
+        phaseLocalProgress: 0,
+        cameraTravelProgress: 0,
+        cameraTravelEasedProgress: 0,
+        cameraTravelEasing: 'none',
+        heldCameraPosition: vectorToPlain(camera.position),
+        heldLookAt: vectorToPlain(fromLookAt),
+        isHoldingCamera: true,
+        firstTravelFrame: null,
+        travelStartTime: null,
+        travelStartProgress: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE.overviewTravel.start,
+        travelDuration: round4(HERO_OVERVIEW_PILOT_CAMERA_TIMELINE.overviewTravel.end - HERO_OVERVIEW_PILOT_CAMERA_TIMELINE.overviewTravel.start),
+        settleStartProgress: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE.overviewSettle.start,
+        finalPoseLocked: false,
+        distanceMovedDuringFractureCharge: 0,
+        distanceMovedDuringExplosionImpulse: 0,
+        distanceMovedDuringBulletTimeSlowdown: 0,
+        distanceMovedDuringOverviewTravel: 0,
+        distanceMovedDuringOverviewSettle: 0,
+        fovChangedDuringHold: false,
+        filmOffsetChangedDuringHold: false,
         runtimePhase: heroOverviewObservedPhase,
         progressSource: 'monotonic-run-progress:max(elapsed,runtime,explosion)',
         progressSourceUsedForCameraWrite: 'not-writing-on-capture-row',
@@ -3708,6 +3921,8 @@ const UnifiedCameraController = ({
             : null,
           phaseModel: HERO_OVERVIEW_PILOT_PHASES,
           phaseBehaviors: HERO_OVERVIEW_PILOT_PHASE_BEHAVIORS,
+          cameraTimeline: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE,
+          pilotCinematicMilestone: 'Milestone C',
           fromPoseSource: 'live-camera-transform',
           ownsCameraInMilestoneA: false,
           ownsCameraInMilestoneB: Boolean(resolvedOverview),
@@ -4486,29 +4701,51 @@ const UnifiedCameraController = ({
         const monotonicGlobalProgress = Math.max(previousMonotonicProgress, progressCandidate);
         transition.monotonicGlobalProgress = monotonicGlobalProgress;
         const globalProgress = THREE.MathUtils.clamp(monotonicGlobalProgress, 0, 1);
-        const easedProgress = THREE.MathUtils.clamp(globalProgress >= 1 ? 1 : 1 - (2 ** (-10 * globalProgress)), 0, 1);
         const runtimePhase = runtimeSnapshot?.phase ?? null;
-        const pilotPhase = globalProgress >= 1
-          ? 'complete'
-          : (runtimePhase === 'fractureCharge' || runtimePhase === 'explosionImpulse' || runtimePhase === 'bulletTimeSlowdown'
-              ? runtimePhase
-              : (globalProgress < 0.94 ? 'overviewTravel' : 'overviewSettle'));
-        const phaseProgress = pilotPhase === 'complete' ? 1 : easedProgress;
+        const cinematicProgress = getHeroOverviewPilotCameraProgress(globalProgress);
+        const pilotPhase = globalProgress >= 1 ? 'complete' : cinematicProgress.phaseName;
+        const phaseProgress = cinematicProgress.phaseLocalProgress;
         if (authoritativeHeroToOverviewTransitionRef.current.active) {
           authoritativeHeroToOverviewTransitionRef.current.active = false;
           transition.blockedLegacyWriterCount = (transition.blockedLegacyWriterCount ?? 0) + 1;
         }
-        const nextPosition = new THREE.Vector3().lerpVectors(fromPose.position, toPose.position, easedProgress);
-        const nextLookAt = introLookAtTempRef.current.lerpVectors(fromPose.lookAt, toPose.lookAt, easedProgress);
         const fromFov = Number.isFinite(fromPose.fov) ? fromPose.fov : camera.fov;
         const toFov = Number.isFinite(toPose.fov) ? toPose.fov : fromFov;
         const fromFilmOffset = Number.isFinite(fromPose.filmOffset) ? fromPose.filmOffset : 0;
         const toFilmOffset = Number.isFinite(toPose.filmOffset) ? toPose.filmOffset : 0;
+        const isFinalPoseLocked = globalProgress >= 1 || pilotPhase === 'overviewSettle' || pilotPhase === 'complete';
+        const cameraTravelEasedProgress = isFinalPoseLocked ? 1 : cinematicProgress.cameraTravelEasedProgress;
+        const nextPosition = isFinalPoseLocked
+          ? toPose.position.clone()
+          : new THREE.Vector3().lerpVectors(fromPose.position, toPose.position, cameraTravelEasedProgress);
+        const nextLookAt = isFinalPoseLocked
+          ? toPose.lookAt.clone()
+          : introLookAtTempRef.current.lerpVectors(fromPose.lookAt, toPose.lookAt, cameraTravelEasedProgress);
+        const nextFov = isFinalPoseLocked ? toFov : THREE.MathUtils.lerp(fromFov, toFov, cameraTravelEasedProgress);
+        const nextFilmOffset = isFinalPoseLocked ? toFilmOffset : THREE.MathUtils.lerp(fromFilmOffset, toFilmOffset, cameraTravelEasedProgress);
+        if (transition.firstTravelFrame == null && cameraTravelEasedProgress > 0.0001) {
+          transition.firstTravelFrame = state.clock.frame;
+          transition.travelStartTime = state.clock.elapsedTime;
+          transition.travelStartProgress = globalProgress;
+        }
+        if (cinematicProgress.isHoldingCamera) {
+          if (Math.abs(nextFov - fromFov) > 0.0001) transition.fovChangedDuringHold = true;
+          if (Math.abs((nextFilmOffset ?? 0) - (fromFilmOffset ?? 0)) > 0.0001) transition.filmOffsetChangedDuringHold = true;
+        }
+        const movedThisFrame = transition.previousCinematicCameraPosition
+          ? nextPosition.distanceTo(transition.previousCinematicCameraPosition)
+          : 0;
+        const distancePhase = pilotPhase === 'complete' ? 'overviewSettle' : pilotPhase;
+        transition.phaseDistanceMoved = transition.phaseDistanceMoved ?? getHeroOverviewPilotPhaseMetrics();
+        if (transition.phaseDistanceMoved[distancePhase] != null) {
+          transition.phaseDistanceMoved[distancePhase] += movedThisFrame;
+        }
+        transition.previousCinematicCameraPosition = nextPosition.clone();
         const upCorrection = applyCanonicalCameraUp();
         camera.position.copy(nextPosition);
         camera.lookAt(nextLookAt);
-        camera.fov = THREE.MathUtils.lerp(fromFov, toFov, easedProgress);
-        camera.filmOffset = THREE.MathUtils.lerp(fromFilmOffset, toFilmOffset, easedProgress);
+        camera.fov = nextFov;
+        camera.filmOffset = nextFilmOffset;
         camera.updateProjectionMatrix();
         currentTarget.current.position.copy(nextPosition);
         currentTarget.current.lookAt.copy(nextLookAt);
@@ -4527,14 +4764,38 @@ const UnifiedCameraController = ({
         const filmOffsetDeltaToTarget = round4(Math.abs((camera.filmOffset ?? 0) - (toFilmOffset ?? 0)));
         pushHeroOverviewPilotSample({
           type: globalProgress >= 1 ? 'completion-handoff' : 'pilot-frame',
-          pilotDiagnosticVersion: 'PR-25-live-lookat-takeover-clear',
+          pilotDiagnosticVersion: 'Milestone C cinematic timeline',
+          pilotCinematicMilestone: 'Milestone C',
           t: round4(state.clock.elapsedTime),
           frame: state.clock.frame,
           key: pilot.key,
           fromPoseSource: transition.fromPoseSource ?? null,
           fromLookAtSource: transition.fromLookAtSource ?? null,
           phase: pilotPhase,
+          cameraMode: cinematicProgress.cameraMode,
+          phaseStart: round4(cinematicProgress.phaseStart),
+          phaseEnd: round4(cinematicProgress.phaseEnd),
           phaseProgress: round4(phaseProgress),
+          phaseLocalProgress: round4(cinematicProgress.phaseLocalProgress),
+          cameraTravelProgress: round4(cinematicProgress.cameraTravelProgress),
+          cameraTravelEasedProgress: round4(cameraTravelEasedProgress),
+          cameraTravelEasing: cinematicProgress.cameraTravelEasing,
+          heldCameraPosition: cinematicProgress.isHoldingCamera ? vectorToPlain(fromPose.position) : null,
+          heldLookAt: cinematicProgress.isHoldingCamera ? vectorToPlain(fromPose.lookAt) : null,
+          isHoldingCamera: cinematicProgress.isHoldingCamera,
+          firstTravelFrame: transition.firstTravelFrame,
+          travelStartTime: round4(transition.travelStartTime),
+          travelStartProgress: round4(transition.travelStartProgress),
+          travelDuration: round4(transition.travelDuration),
+          settleStartProgress: round4(transition.settleStartProgress),
+          finalPoseLocked: isFinalPoseLocked,
+          distanceMovedDuringFractureCharge: round4(transition.phaseDistanceMoved?.fractureCharge ?? 0),
+          distanceMovedDuringExplosionImpulse: round4(transition.phaseDistanceMoved?.explosionImpulse ?? 0),
+          distanceMovedDuringBulletTimeSlowdown: round4(transition.phaseDistanceMoved?.bulletTimeSlowdown ?? 0),
+          distanceMovedDuringOverviewTravel: round4(transition.phaseDistanceMoved?.overviewTravel ?? 0),
+          distanceMovedDuringOverviewSettle: round4(transition.phaseDistanceMoved?.overviewSettle ?? 0),
+          fovChangedDuringHold: Boolean(transition.fovChangedDuringHold),
+          filmOffsetChangedDuringHold: Boolean(transition.filmOffsetChangedDuringHold),
           globalProgress: round4(globalProgress),
           monotonicGlobalProgress: round4(monotonicGlobalProgress),
           rawSharedProgress: round4(rawSharedProgress),
@@ -4673,13 +4934,37 @@ const UnifiedCameraController = ({
           heroToOverviewHandoffLockFramesRef.current = HERO_TO_OVERVIEW_HANDOFF_LOCK_FRAMES;
           pushHeroOverviewPilotSample({
             type: 'pilot-completion-finalized',
-            pilotDiagnosticVersion: 'PR-25-live-lookat-takeover-clear',
+            pilotDiagnosticVersion: 'Milestone C cinematic timeline',
+            pilotCinematicMilestone: 'Milestone C',
             t: round4(state.clock.elapsedTime),
             frame: state.clock.frame,
             key: pilot.key,
             fromPoseSource: transition.fromPoseSource ?? null,
             fromLookAtSource: transition.fromLookAtSource ?? null,
             phase: 'complete',
+            cameraMode: 'complete',
+            phaseStart: 1,
+            phaseEnd: 1,
+            phaseLocalProgress: 1,
+            cameraTravelProgress: 1,
+            cameraTravelEasedProgress: 1,
+            cameraTravelEasing: 'complete',
+            heldCameraPosition: null,
+            heldLookAt: null,
+            isHoldingCamera: false,
+            firstTravelFrame: transition.firstTravelFrame,
+            travelStartTime: round4(transition.travelStartTime),
+            travelStartProgress: round4(transition.travelStartProgress),
+            travelDuration: round4(transition.travelDuration),
+            settleStartProgress: round4(transition.settleStartProgress),
+            finalPoseLocked: true,
+            distanceMovedDuringFractureCharge: round4(transition.phaseDistanceMoved?.fractureCharge ?? 0),
+            distanceMovedDuringExplosionImpulse: round4(transition.phaseDistanceMoved?.explosionImpulse ?? 0),
+            distanceMovedDuringBulletTimeSlowdown: round4(transition.phaseDistanceMoved?.bulletTimeSlowdown ?? 0),
+            distanceMovedDuringOverviewTravel: round4(transition.phaseDistanceMoved?.overviewTravel ?? 0),
+            distanceMovedDuringOverviewSettle: round4(transition.phaseDistanceMoved?.overviewSettle ?? 0),
+            fovChangedDuringHold: Boolean(transition.fovChangedDuringHold),
+            filmOffsetChangedDuringHold: Boolean(transition.filmOffsetChangedDuringHold),
             globalProgress: 1,
             monotonicGlobalProgress: 1,
             activeWriter: 'HERO_OVERVIEW_PILOT',
@@ -5746,7 +6031,7 @@ const UnifiedCameraController = ({
         }
         pushHeroOverviewPilotSample({
           type: 'handoff-lock-frame',
-          pilotDiagnosticVersion: 'PR-25-live-lookat-takeover-clear',
+          pilotDiagnosticVersion: 'Milestone C cinematic timeline',
           t: round4(state.clock.elapsedTime),
           frame: state.clock.frame,
           key: heroOverviewPilotRef.current.key,

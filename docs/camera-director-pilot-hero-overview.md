@@ -194,3 +194,71 @@ The proposed pilot should:
 - At pilot completion, before the normal overview branch can resume, the pilot now clears the legacy fracture/explosion camera takeover flags that previously caused post-handoff tilt/pop regressions: `fractureTiltActiveRef.current = false`, `fractureTiltRef.current = 0`, and `heroExplosionTransitionRef.current.active = false`.
 - Completion and handoff diagnostics now record whether fracture/explosion takeover flags were active at completion, whether they were cleared before the first normal overview frame, and whether post-pilot fracture re-entry was detected.
 - The canonical-up guard from PR-24 remains in place; PR-25 layers the known-good live-lookAt and takeover-clear protections on top without changing flag-off legacy behavior, object/facet explosion timing, or the pilot's baseline-parity camera curve.
+
+## Milestone C: explicit cinematic camera phase timeline
+
+Milestone C is the first cinematic refinement pass for the flag-on Hero → Overview owning pilot. It does **not** attempt final art direction polish; it only gives the pilot an explicit, tunable camera choreography timeline so future passes can tune the Overwatch / Play-of-the-Game style beat structure without re-opening camera ownership conflicts.
+
+### Flag and rollback safety
+- The pilot remains disabled by default.
+- Enable only in DEV with `globalThis.__ENABLE_CAMERA_DIRECTOR_HERO_OVERVIEW__ = true` or the existing `VITE_CAMERA_DIRECTOR_HERO_OVERVIEW_PILOT` DEV flag.
+- Flag-off behavior still uses the legacy Hero → Overview path.
+- Rollback is immediate: turn the flag off and the Milestone C timeline is not used.
+- Milestone C keeps the PR-25 guardrails: live from-pose capture, camera-world-direction lookAt capture, `hero-overview-legacy-final-pose` target parity, target `fov: 44`, target `filmOffset: 0`, monotonic pilot progress, canonical up at completion, and fracture/explosion takeover flag clearing.
+
+### Camera phase timeline
+
+The flag-on pilot now owns a dedicated `HERO_OVERVIEW_PILOT_CAMERA_TIMELINE` in `UnifiedCameraController.jsx`:
+
+| Phase | Progress window | Camera mode | Starting behavior |
+| --- | ---: | --- | --- |
+| `fractureCharge` | `0.00 → 0.16` | `hold` | Hold exact captured live Hero camera pose. |
+| `explosionImpulse` | `0.16 → 0.26` | `impactHold` | Hold exact captured live Hero camera pose. |
+| `bulletTimeSlowdown` | `0.26 → 0.42` | `suspendedHold` | Hold exact captured live Hero camera pose for the conservative first pass. |
+| `overviewTravel` | `0.42 → 0.88` | `travel` | Main camera interpolation to final Overview, using `expoOut`. |
+| `overviewSettle` | `0.88 → 1.00` | `settle` | Lock exactly onto final Overview pose, canonical up, `fov: 44`, `filmOffset: 0`. |
+
+This means the camera should no longer dolly toward Overview during the fracture/charge, explosion impulse, or bullet-time slowdown beats. The first intentional travel should begin at pilot global progress `0.42`, inside `overviewTravel`.
+
+### How to tune timing
+
+Adjust only the constants in `HERO_OVERVIEW_PILOT_CAMERA_TIMELINE` for this pass:
+- Move `overviewTravel.start` earlier/later to control when the dolly begins.
+- Move `overviewTravel.end` to control how long the main travel lasts.
+- Move `overviewSettle.start` with `overviewTravel.end` so settle remains the final stabilization window.
+- Change `overviewTravel.easing` if a later pass needs a different travel feel.
+
+Keep phase ranges monotonic and contiguous between `0` and `1`. Avoid routing gaps; the owning pilot should write a stable camera pose every frame.
+
+### Diagnostics
+
+Milestone C adds/updates per-frame pilot diagnostics with:
+- `pilotCinematicMilestone: "Milestone C"`
+- phase metadata: `cameraMode`, `phaseStart`, `phaseEnd`, `phaseLocalProgress`
+- camera travel metadata: `cameraTravelProgress`, `cameraTravelEasedProgress`, `cameraTravelEasing`
+- hold metadata: `heldCameraPosition`, `heldLookAt`, `isHoldingCamera`, `fovChangedDuringHold`, `filmOffsetChangedDuringHold`
+- travel metadata: `firstTravelFrame`, `travelStartTime`, `travelStartProgress`, `travelDuration`, `settleStartProgress`, `finalPoseLocked`
+- cumulative per-phase camera movement: `distanceMovedDuringFractureCharge`, `distanceMovedDuringExplosionImpulse`, `distanceMovedDuringBulletTimeSlowdown`, `distanceMovedDuringOverviewTravel`, `distanceMovedDuringOverviewSettle`
+
+New helper:
+
+```js
+globalThis.__printHeroOverviewPilotCinematic?.();
+```
+
+It summarizes hold phases, first actual travel phase, camera distance moved per phase, whether `fractureCharge` and `explosionImpulse` stayed still, whether travel begins in `overviewTravel`, whether final target parity passes, whether the up/roll guard remains clean, and whether a competing writer appeared.
+
+### Visual test focus
+
+With the pilot flag on, test Hero → Overview and look specifically for:
+1. No start jump from Hero into the pilot.
+2. Camera holds during `fractureCharge`.
+3. Camera still does not obviously dolly toward Overview during `explosionImpulse`.
+4. `bulletTimeSlowdown` reads as a short suspended moment.
+5. The main Overview travel begins intentionally in `overviewTravel`.
+6. The final Overview composition matches the existing Overview target.
+7. No end tilt/roll, and no `HERO_OVERVIEW_PILOT <> FORCED_HERO_TO_OVERVIEW` conflict.
+
+### Out of scope for Milestone C
+
+No fragments, particles, glow, ring, material, layout, UI, object explosion timing, About-route behavior, or non-Hero→Overview routes were intentionally changed.
