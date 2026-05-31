@@ -1,13 +1,24 @@
 # CameraDirector Pilot: Project → Project (PR-14)
 
-## Feature flag
-- Flag: `globalThis.__ENABLE_CAMERA_DIRECTOR_PROJECT_TO_PROJECT__`
-- Default: disabled (`false` / `undefined`).
-- With flag off, behavior remains legacy.
+## Current default status
+
+Project → Project now defaults to its completed CameraDirector/pilot path. The legacy path is retained as a DEV-only fallback and can be requested with:
+
+```js
+globalThis.__PROJECT_PROJECT_CAMERA_MODE__ = 'legacy';
+```
+
+Reset by assigning `undefined` or reloading. The old `__ENABLE_CAMERA_DIRECTOR_PROJECT_TO_PROJECT__` boolean remains accepted only as a DEV compatibility shim; prefer the explicit `__*_CAMERA_MODE__` override for fallback testing. Diagnostics remain independent of route selection.
+
+
+## Route mode controls
+- Default: CameraDirector/pilot path.
+- DEV legacy fallback: `globalThis.__PROJECT_PROJECT_CAMERA_MODE__ = 'legacy'`.
+- Optional DEV compatibility shim: `globalThis.__ENABLE_CAMERA_DIRECTOR_PROJECT_TO_PROJECT__ = false` also forces legacy; `true` forces pilot.
 
 ## Activation strategy (focusedProject + last stable project id)
 Project→project pilot activates only when all are true:
-- feature flag enabled
+- route mode resolves to CameraDirector/pilot
 - no other camera-director pilot is active
 - `prevCameraState === 'project'` and `nextCameraState === 'project'`
 - `fromProjectId` resolves from last stable focused project id
@@ -46,8 +57,7 @@ Project→project pilot activates only when all are true:
   - `project-to-project:facet-synced-settle`
 
 ## Final accepted status
-- Flag off unchanged.
-- Flag on project→project transitions accepted for merge quality:
+- Default project→project CameraDirector transitions accepted for merge quality:
   - no start jump
   - no end pop
   - correct landing
@@ -70,10 +80,9 @@ Project→project pilot activates only when all are true:
 - `[camera-director-pilot] project-to-project fallback`
 
 ## Recommended test checklist
-1. Flag off (`false`/unset) and verify legacy behavior remains unchanged.
-2. Flag on and run:
+1. Default CameraDirector/pilot and run:
    - `__clearProjectProjectPilotParity()`
-3. Navigate:
+2. Navigate:
    - Overview → Project 1
    - Project 1 → Project 2
    - Project 2 → Project 3
@@ -92,8 +101,8 @@ Project→project pilot activates only when all are true:
    - hero/overview
    - about
 
-## Rollback
-- Disable/unset `__ENABLE_CAMERA_DIRECTOR_PROJECT_TO_PROJECT__` to return immediately to legacy behavior.
+## Rollback / fallback
+- Set `globalThis.__PROJECT_PROJECT_CAMERA_MODE__ = 'legacy'` in DEV to return immediately to retained legacy behavior; reset with `undefined` or reload.
 
 ## Non-goals
 - No changes to overview→project or project→overview pilot systems.

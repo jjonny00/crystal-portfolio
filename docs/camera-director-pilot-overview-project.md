@@ -1,19 +1,29 @@
 # CameraDirector Pilot: Overview → Project (PR-12 findings)
 
+## Current default status
+
+Overview → Project now defaults to its completed CameraDirector/pilot path. The legacy path is retained as a DEV-only fallback and can be requested with:
+
+```js
+globalThis.__OVERVIEW_PROJECT_CAMERA_MODE__ = 'legacy';
+```
+
+Reset by assigning `undefined` or reloading. The old `__ENABLE_CAMERA_DIRECTOR_OVERVIEW_TO_PROJECT__` boolean remains accepted only as a DEV compatibility shim; prefer the explicit `__*_CAMERA_MODE__` override for fallback testing. Diagnostics remain independent of route selection.
+
+
 ## Scope
 - Runtime pilot for **overview → project** only.
-- All other transitions remain legacy.
-- Status: **experimental research scaffold, not production-ready**.
+- Current status: completed/stabilized and promoted to default.
+- Legacy overview → project behavior is retained as explicit DEV fallback only.
 
-## Feature flag
-- Flag: `globalThis.__ENABLE_CAMERA_DIRECTOR_OVERVIEW_TO_PROJECT__`
-- Default: `false` when not explicitly set.
-- Safe default path is legacy behavior.
-- **Do not enable in production.**
+## Route mode controls
+- Default: CameraDirector/pilot path.
+- DEV legacy fallback: `globalThis.__OVERVIEW_PROJECT_CAMERA_MODE__ = 'legacy'`.
+- Optional DEV compatibility shim: `globalThis.__ENABLE_CAMERA_DIRECTOR_OVERVIEW_TO_PROJECT__ = false` also forces legacy; `true` forces pilot.
 
 ## Activation conditions
 Pilot activates only when all conditions are true:
-1. Flag is enabled.
+1. Route mode resolves to CameraDirector/pilot.
 2. Previous `cameraState` is `overview`.
 3. Current `cameraState` is `project`.
 4. `focusedProject` is present.
@@ -76,15 +86,14 @@ Pilot activates only when all conditions are true:
 - At activation time, visible continuity can be broken before pilot first write if state/cameraState/viewMode handoff already advanced lookAt.
 - Using prior visible lookAt as the interpolation start restores continuity without changing destination composition.
 
-### Experimental status remains unchanged
-- Pilot is still **experimental** and **disabled by default**.
-- Keep behind `globalThis.__ENABLE_CAMERA_DIRECTOR_OVERVIEW_TO_PROJECT__`.
-- Do not enable in production.
+### Historical experimental status
+- This section described an earlier research-only state.
+- Current state: Overview → Project is completed/stabilized and defaults to CameraDirector/pilot ownership.
+- Use `globalThis.__OVERVIEW_PROJECT_CAMERA_MODE__ = 'legacy'` only for explicit DEV fallback testing.
 
-## Decision: Do not continue patching this pilot.
-- Do not treat this pilot as the production migration path for overview → project.
-- Keep the pilot disabled by default and research-only.
-- Do not add further runtime timing/completion patches in this isolated pilot loop.
+## Historical decision note
+- Earlier isolated-pilot findings are retained for context.
+- Current default behavior is the completed CameraDirector/pilot path documented at the top of this file.
 
 ## Suppression list
 - During active pilot only: legacy branches are bypassed by early return in `useFrame` after pilot write.
@@ -99,14 +108,14 @@ DEV-only bounded logs:
 
 No frame-level pilot spam is added.
 
-## Rollback
-1. Set `globalThis.__ENABLE_CAMERA_DIRECTOR_OVERVIEW_TO_PROJECT__ = false`.
-2. Verify overview → project uses legacy behavior.
-3. If needed, revert PR-7 commit.
+## Rollback / fallback
+1. Set `globalThis.__OVERVIEW_PROJECT_CAMERA_MODE__ = 'legacy'` in DEV.
+2. Verify overview → project uses retained legacy behavior.
+3. Reset by assigning `undefined` or reloading.
 
 ## Test checklist
-### Flag false
-- App load and normal navigation remain unchanged.
+### Default CameraDirector/pilot
+- App load and normal navigation remain stable.
 - Scroll and top nav behave as baseline.
 - Project flow behaves as baseline.
 - Hero → Overview unchanged.

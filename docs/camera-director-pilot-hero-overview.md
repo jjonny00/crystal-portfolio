@@ -1,23 +1,36 @@
 # CameraDirector Pilot: hero → overview (stabilization scaffold)
 
 ## Scope
-- Add bounded DEV diagnostics for hero → overview ownership/handoff analysis.
-- Add disabled-by-default CameraDirector pilot scaffold for hero → overview intent capture.
-- Keep legacy hero → overview runtime path authoritative.
+- Keep bounded DEV diagnostics for hero → overview ownership/handoff analysis.
+- Use the completed owning CameraDirector pilot as the default hero → overview camera path.
+- Keep the legacy forced hero → overview runtime path as explicit DEV fallback only.
 
-## Feature flag
-- Env: `VITE_CAMERA_DIRECTOR_HERO_OVERVIEW_PILOT` (default `false`).
-- DEV override: `globalThis.__ENABLE_CAMERA_DIRECTOR_HERO_OVERVIEW__ = true`.
+
+## Current default status
+
+Hero → Overview now defaults to the owning `HERO_OVERVIEW_PILOT` path. It no longer requires `globalThis.__ENABLE_CAMERA_DIRECTOR_HERO_OVERVIEW__ = true` for normal DEV/runtime verification. The retained legacy forced Hero → Overview branch is fallback-only and can be requested in DEV with:
+
+```js
+globalThis.__HERO_OVERVIEW_CAMERA_MODE__ = 'legacy';
+```
+
+Reset by assigning `undefined` or reloading. Diagnostics such as `globalThis.__HERO_OVERVIEW_PILOT_DIAGNOSTICS__ = true` remain independent of route selection. The old `__ENABLE_CAMERA_DIRECTOR_HERO_OVERVIEW__` boolean remains accepted only as a DEV compatibility shim.
+
+## Route mode controls
+- Default: owning `HERO_OVERVIEW_PILOT` path.
+- DEV legacy fallback: `globalThis.__HERO_OVERVIEW_CAMERA_MODE__ = 'legacy'`.
+- Optional DEV compatibility shim: `globalThis.__ENABLE_CAMERA_DIRECTOR_HERO_OVERVIEW__ = false` also forces legacy; `true` forces pilot.
+- Optional legacy env compatibility shim: explicit `VITE_CAMERA_DIRECTOR_HERO_OVERVIEW_PILOT=true` still forces pilot in DEV builds that define it, but `false`/unset no longer disables the default pilot path. Use `__HERO_OVERVIEW_CAMERA_MODE__ = 'legacy'` for fallback.
 - Diagnostics toggle: `globalThis.__HERO_OVERVIEW_PILOT_DIAGNOSTICS__ = true`.
 
 ## Non-goals
 - No explosion timing or style tuning.
 - No fragments/particles/glow/ring/material changes.
 - No About route fixes.
-- No replacement of the legacy forced hero → overview branch.
+- No deletion of the legacy forced hero → overview branch in this PR.
 
 ## Known issues intentionally retained
-- Existing hero → overview end blip may still occur.
+- Legacy fallback Hero → Overview still has the old blip and is not the default.
 - About-related camera bugs remain out of scope.
 
 ## Current ownership map (hero → overview)

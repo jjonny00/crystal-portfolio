@@ -11,9 +11,9 @@ import { createCameraDirectorPilotTransition, updateCameraDirectorPilotTransitio
 import { resolveCameraDestination } from '../../camera/destinationResolver';
 
 const logger = createLogger('unified-camera-controller');
-const HERO_OVERVIEW_DIRECTOR_ENV_FLAG =
-  typeof import.meta !== 'undefined' && import.meta.env
-    ? String(import.meta.env.VITE_CAMERA_DIRECTOR_HERO_OVERVIEW_PILOT ?? '').toLowerCase() === 'true'
+const HERO_OVERVIEW_DIRECTOR_ENV_FORCE_PILOT =
+  typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_CAMERA_DIRECTOR_HERO_OVERVIEW_PILOT != null
+    ? String(import.meta.env.VITE_CAMERA_DIRECTOR_HERO_OVERVIEW_PILOT).toLowerCase() === 'true'
     : false;
 const PROJECT_OVERVIEW_POSITION_SETTLE_EPSILON = 0.01;
 const PROJECT_OVERVIEW_LOOKAT_SETTLE_EPSILON = 0.01;
@@ -434,33 +434,44 @@ const UnifiedCameraController = ({
   });
   const cameraFrameIndexRef = useRef(0);
 
-  const isOverviewToProjectPilotEnabled = () => {
-    // WARNING: Experimental pilot only; not production-ready.
-    // Keep disabled by default unless explicitly enabled for research.
-    if (typeof globalThis?.__ENABLE_CAMERA_DIRECTOR_OVERVIEW_TO_PROJECT__ === 'boolean') {
-      return globalThis.__ENABLE_CAMERA_DIRECTOR_OVERVIEW_TO_PROJECT__;
+  const getCameraDirectorRouteMode = ({ modeGlobalName, legacyEnableGlobalName, envForcePilot = false }) => {
+    if (import.meta.env.DEV) {
+      const explicitMode = typeof globalThis?.[modeGlobalName] === 'string'
+        ? globalThis[modeGlobalName].toLowerCase()
+        : null;
+      if (explicitMode === 'legacy') return 'legacy';
+      if (explicitMode === 'pilot' || explicitMode === 'director') return 'pilot';
+
+      // Backwards-compatible DEV shim for old enable flags. New tests should prefer
+      // the explicit `__*_CAMERA_MODE__ = 'legacy'` fallback controls below.
+      if (typeof globalThis?.[legacyEnableGlobalName] === 'boolean') {
+        return globalThis[legacyEnableGlobalName] ? 'pilot' : 'legacy';
+      }
+      if (envForcePilot) return 'pilot';
     }
-    return false;
+    return 'pilot';
   };
-  const isProjectToOverviewPilotEnabled = () => {
-    if (typeof globalThis?.__ENABLE_CAMERA_DIRECTOR_PROJECT_TO_OVERVIEW__ === 'boolean') {
-      return globalThis.__ENABLE_CAMERA_DIRECTOR_PROJECT_TO_OVERVIEW__;
-    }
-    return false;
-  };
-  const isProjectToProjectPilotEnabled = () => {
-    if (typeof globalThis?.__ENABLE_CAMERA_DIRECTOR_PROJECT_TO_PROJECT__ === 'boolean') {
-      return globalThis.__ENABLE_CAMERA_DIRECTOR_PROJECT_TO_PROJECT__;
-    }
-    return false;
-  };
-  const isHeroToOverviewPilotEnabled = () => {
-    if (!import.meta.env.DEV) return false;
-    if (typeof globalThis?.__ENABLE_CAMERA_DIRECTOR_HERO_OVERVIEW__ === 'boolean') {
-      return globalThis.__ENABLE_CAMERA_DIRECTOR_HERO_OVERVIEW__;
-    }
-    return HERO_OVERVIEW_DIRECTOR_ENV_FLAG;
-  };
+  const isOverviewToProjectPilotEnabled = () =>
+    getCameraDirectorRouteMode({
+      modeGlobalName: '__OVERVIEW_PROJECT_CAMERA_MODE__',
+      legacyEnableGlobalName: '__ENABLE_CAMERA_DIRECTOR_OVERVIEW_TO_PROJECT__',
+    }) === 'pilot';
+  const isProjectToOverviewPilotEnabled = () =>
+    getCameraDirectorRouteMode({
+      modeGlobalName: '__PROJECT_OVERVIEW_CAMERA_MODE__',
+      legacyEnableGlobalName: '__ENABLE_CAMERA_DIRECTOR_PROJECT_TO_OVERVIEW__',
+    }) === 'pilot';
+  const isProjectToProjectPilotEnabled = () =>
+    getCameraDirectorRouteMode({
+      modeGlobalName: '__PROJECT_PROJECT_CAMERA_MODE__',
+      legacyEnableGlobalName: '__ENABLE_CAMERA_DIRECTOR_PROJECT_TO_PROJECT__',
+    }) === 'pilot';
+  const isHeroToOverviewPilotEnabled = () =>
+    getCameraDirectorRouteMode({
+      modeGlobalName: '__HERO_OVERVIEW_CAMERA_MODE__',
+      legacyEnableGlobalName: '__ENABLE_CAMERA_DIRECTOR_HERO_OVERVIEW__',
+      envForcePilot: HERO_OVERVIEW_DIRECTOR_ENV_FORCE_PILOT,
+    }) === 'pilot';
   const isHeroOverviewDiagnosticsEnabled = () =>
     import.meta.env.DEV && Boolean(globalThis?.__HERO_OVERVIEW_PILOT_DIAGNOSTICS__);
 
