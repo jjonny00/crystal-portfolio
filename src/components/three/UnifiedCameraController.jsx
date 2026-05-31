@@ -9,6 +9,7 @@ import { createLogger } from '../../utils/logger';
 import { beginCameraFrame, recordCameraWrite } from '../../camera/cameraWriteGuard';
 import { createCameraDirectorPilotTransition, updateCameraDirectorPilotTransition } from '../../camera/CameraDirector';
 import { resolveCameraDestination } from '../../camera/destinationResolver';
+import { HERO_OVERVIEW_CINEMATIC_RESOLVED, HERO_OVERVIEW_EASING } from '../../config/heroOverviewCinematicConfig';
 
 const logger = createLogger('unified-camera-controller');
 const HERO_OVERVIEW_DIRECTOR_ENV_FORCE_PILOT =
@@ -21,43 +22,8 @@ const PROJECT_OVERVIEW_FOV_SETTLE_EPSILON = 0.02;
 const PROJECT_OVERVIEW_PROGRESS_SETTLE_MIN = 0.99;
 const HERO_OVERVIEW_PHASE_ORDER = ['fractureCharge', 'explosionImpulse', 'bulletTimeSlowdown', 'overviewTravel', 'overviewSettle', 'complete'];
 const HERO_OVERVIEW_PILOT_PHASES = ['fractureCharge', 'explosionImpulse', 'bulletTimeSlowdown', 'overviewTravel', 'overviewSettle', 'complete'];
-const HERO_OVERVIEW_PILOT_CAMERA_TIMELINE = {
-  fractureCharge: {
-    start: 0,
-    end: 0.1,
-    cameraMode: 'hold',
-    easing: 'hold',
-    notes: 'Very brief live Hero orbit hold; tune only duration for charge intensity.',
-  },
-  explosionImpulse: {
-    start: 0.1,
-    end: 0.18,
-    cameraMode: 'impactPunch',
-    easing: 'sinePulse',
-    notes: 'Short impact beat with isolated in/out camera punch that returns to the hold pose.',
-  },
-  bulletTimeSlowdown: {
-    start: 0.18,
-    end: 0.34,
-    cameraMode: 'suspendedHold',
-    easing: 'hold',
-    notes: 'Brief suspended tension beat; camera stays locked so overviewTravel releases from a clean pose.',
-  },
-  overviewTravel: {
-    start: 0.34,
-    end: 0.9,
-    cameraMode: 'travel',
-    easing: 'cinematicRevealOut',
-    notes: 'Main reveal: decisive initial dolly-out with a polished slowdown into Overview.',
-  },
-  overviewSettle: {
-    start: 0.9,
-    end: 1,
-    cameraMode: 'settle',
-    easing: 'smoothSettle',
-    notes: 'Short exact final lock; no extra float after the reveal.',
-  },
-};
+const HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG = HERO_OVERVIEW_CINEMATIC_RESOLVED;
+const HERO_OVERVIEW_PILOT_CAMERA_TIMELINE = HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.derivedTimeline;
 const HERO_OVERVIEW_PILOT_CAMERA_MOTION = {
   fractureCharge: {
     punchDistance: 0,
@@ -65,7 +31,7 @@ const HERO_OVERVIEW_PILOT_CAMERA_MOTION = {
     notes: 'Camera remains locked to the first-write live Hero orbit pose.',
   },
   explosionImpulse: {
-    punchDistance: 0.06,
+    punchDistance: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.camera.explosionPunchDistance,
     punchDirection: 'toward-lookAt',
     driftAmount: 0,
     returnCompleteAt: 0.72,
@@ -73,9 +39,9 @@ const HERO_OVERVIEW_PILOT_CAMERA_MOTION = {
   },
   bulletTimeSlowdown: {
     punchDistance: 0,
-    driftAmount: 0,
-    driftDirection: 'none',
-    notes: 'No camera drift in this pass; the suspended beat stays locked after impact so travel starts cleanly.',
+    driftAmount: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.camera.bulletTimeDriftDistance,
+    driftDirection: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.camera.bulletTimeDriftDistance > 0 ? 'away-from-lookAt' : 'none',
+    notes: 'No camera drift by default; the suspended beat stays locked after impact so travel starts cleanly.',
   },
   overviewTravel: {
     punchDistance: 0,
@@ -2016,11 +1982,8 @@ const UnifiedCameraController = ({
   };
   const easeHeroOverviewPilotProgress = (progress, easing = 'linear') => {
     const t = THREE.MathUtils.clamp(Number.isFinite(progress) ? progress : 0, 0, 1);
-    if (easing === 'expoOut') return t >= 1 ? 1 : THREE.MathUtils.clamp(1 - (2 ** (-10 * t)), 0, 1);
-    if (easing === 'cinematicRevealOut') return t >= 1 ? 1 : THREE.MathUtils.clamp(1 - ((1 - t) ** 3.4), 0, 1);
-    if (easing === 'sinePulse') return Math.sin(Math.PI * t);
-    if (easing === 'smoothSettle') return t * t * (3 - 2 * t);
-    return t;
+    const easingFn = HERO_OVERVIEW_EASING[easing] || HERO_OVERVIEW_EASING.linear;
+    return THREE.MathUtils.clamp(easingFn(t), 0, 1);
   };
   const getHeroOverviewPilotCameraProgress = (globalProgress) => {
     const { phaseName, phase, phaseLocalProgress } = getHeroOverviewPilotTimelinePhase(globalProgress);
@@ -2854,8 +2817,8 @@ const UnifiedCameraController = ({
       const latest = store.samples[store.samples.length - 1] ?? null;
       const summary = {
         pilotEnabled: isHeroToOverviewPilotEnabled(),
-        pilotDiagnosticVersion: latest?.pilotDiagnosticVersion ?? 'Milestone D cinematic timing pass',
-        pilotCinematicMilestone: latest?.pilotCinematicMilestone ?? heroOverviewPilotRef.current.transition?.pilotCinematicMilestone ?? 'Milestone D cinematic timing pass',
+        pilotDiagnosticVersion: latest?.pilotDiagnosticVersion ?? 'Milestone E config-driven cinematic tuning',
+        pilotCinematicMilestone: latest?.pilotCinematicMilestone ?? heroOverviewPilotRef.current.transition?.pilotCinematicMilestone ?? 'Milestone E config-driven cinematic tuning',
         sampleCount: store.samples.length,
         captureAttempted: latest?.captureAttempted ?? false,
         captureSucceeded: latest?.captureSucceeded ?? false,
@@ -3279,7 +3242,7 @@ const UnifiedCameraController = ({
     globalThis.__printHeroOverviewPilotCinematic = () => {
       const store = getHeroOverviewPilotDiagnosticsStore();
       const samples = store.samples.filter((sample) => sample.type === 'pilot-frame' || sample.type === 'completion-handoff' || sample.type === 'pilot-completion-finalized');
-      if (!samples.length) return console.log('[hero-overview-pilot] cinematic-summary', { sampleCount: 0, pilotCinematicMilestone: 'Milestone D cinematic timing pass' });
+      if (!samples.length) return console.log('[hero-overview-pilot] cinematic-summary', { sampleCount: 0, pilotCinematicMilestone: 'Milestone E config-driven cinematic tuning', configSourceFile: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.sourceFile, rawDurationValues: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.rawDurations, derivedNormalizedPhaseWindows: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE, cameraMotionConfig: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.camera, particleConfig: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.particles, ringConfig: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.ring, defaultsUsed: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.defaultsUsed, invalidConfigFallbackOccurred: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.invalidConfigFallbackOccurred });
       const latest = samples[samples.length - 1];
       const movementThreshold = 0.001;
       const phaseRows = (phase) => samples.filter((sample) => sample.phase === phase);
@@ -3302,10 +3265,32 @@ const UnifiedCameraController = ({
       const maxUpDelta = samples.reduce((max, sample) => Math.max(max, Number(sample.upDeltaFromWorldUp || 0)), 0);
       const competingWriterAppeared = samples.some((sample) => sample.competingWriterDetected === true);
       const summary = {
-        pilotCinematicMilestone: 'Milestone D cinematic timing pass',
+        pilotCinematicMilestone: 'Milestone E config-driven cinematic tuning',
         sampleCount: samples.length,
+        configSourceFile: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.sourceFile,
+        configSourceName: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.sourceName,
+        rawDurationValues: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.rawDurations,
+        resolvedDurationValues: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.durations,
+        totalConfiguredDuration: round4(HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.totalConfiguredDuration),
+        normalizedDurationTotal: round4(HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.normalizedDurationTotal),
+        defaultsUsed: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.defaultsUsed,
+        invalidConfigFallbackOccurred: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.invalidConfigFallbackOccurred,
+        invalidDurationKeys: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.invalidDurationKeys,
         cameraTimeline: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE,
+        derivedNormalizedPhaseWindows: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE,
         cameraMotion: HERO_OVERVIEW_PILOT_CAMERA_MOTION,
+        cameraMotionConfig: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.camera,
+        easingNames: {
+          travelEase: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.camera.travelEase,
+          settleEase: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.camera.settleEase,
+          punchEase: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.camera.punchEase,
+          driftEase: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.camera.driftEase,
+        },
+        activeTravelEasing: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.camera.travelEase,
+        activePunchEasing: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.camera.punchEase,
+        activeDriftEasing: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.camera.driftEase,
+        particleConfig: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.particles,
+        ringConfig: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.ring,
         holdPhases: HERO_OVERVIEW_PILOT_HOLD_PHASES,
         holdPoseSource: latest?.activeHoldPoseSource ?? latest?.fromPoseSource ?? null,
         activationFromPoseSource: latest?.activationFromPoseSource ?? null,
@@ -4490,7 +4475,8 @@ const UnifiedCameraController = ({
           phaseBehaviors: HERO_OVERVIEW_PILOT_PHASE_BEHAVIORS,
           cameraTimeline: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE,
           cameraMotion: HERO_OVERVIEW_PILOT_CAMERA_MOTION,
-          pilotCinematicMilestone: 'Milestone D cinematic timing pass',
+          cinematicConfig: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG,
+          pilotCinematicMilestone: 'Milestone E config-driven cinematic tuning',
           ownsCameraInMilestoneA: false,
           ownsCameraInMilestoneB: Boolean(resolvedOverview),
           legacyForcedWriterBlocked: Boolean(resolvedOverview),
@@ -4575,11 +4561,12 @@ const UnifiedCameraController = ({
         key: heroOverviewActivationKey,
         transitionKey: heroOverviewTransitionKey,
         pilotEnabled: isHeroToOverviewPilotEnabled(),
-        pilotDiagnosticVersion: 'Milestone D cinematic timing pass',
-        pilotCinematicMilestone: 'Milestone D cinematic timing pass',
+        pilotDiagnosticVersion: 'Milestone E config-driven cinematic tuning',
+        pilotCinematicMilestone: 'Milestone E config-driven cinematic tuning',
         activationFromPoseSource: 'activation-intent-live-camera-transform',
         activeHoldPoseSource: null,
         cameraTimeline: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE,
+        cinematicConfig: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG,
         captureAttempted: true,
         captureSucceeded: Boolean(resolvedOverview),
         activationConditionMatched: true,
@@ -4713,7 +4700,8 @@ const UnifiedCameraController = ({
           phaseBehaviors: HERO_OVERVIEW_PILOT_PHASE_BEHAVIORS,
           cameraTimeline: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE,
           cameraMotion: HERO_OVERVIEW_PILOT_CAMERA_MOTION,
-          pilotCinematicMilestone: 'Milestone D cinematic timing pass',
+          cinematicConfig: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG,
+          pilotCinematicMilestone: 'Milestone E config-driven cinematic tuning',
           fromPoseSource: 'activation-intent-live-camera-transform',
           activeHoldPoseSource: null,
           ownsCameraInMilestoneA: false,
@@ -5666,14 +5654,14 @@ const UnifiedCameraController = ({
             ? THREE.MathUtils.clamp(phaseProgress / impulseReturnCompleteAt, 0, 1)
             : 1;
           const impulsePulse = phaseProgress < impulseReturnCompleteAt
-            ? easeHeroOverviewPilotProgress(impulsePulseProgress, 'sinePulse')
+            ? easeHeroOverviewPilotProgress(impulsePulseProgress, HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.camera.punchEase)
             : 0;
           impulseCameraOffset = cinematicProgress.punchDistance * impulsePulse;
           if (Math.abs(impulseCameraOffset) > 0.000001) {
             nextPosition = nextPosition.clone().addScaledVector(holdForwardAxis, impulseCameraOffset);
           }
         } else if (!isFinalPoseLocked && pilotPhase === 'bulletTimeSlowdown') {
-          const bulletPulse = easeHeroOverviewPilotProgress(phaseProgress, 'sinePulse');
+          const bulletPulse = easeHeroOverviewPilotProgress(phaseProgress, HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.camera.driftEase);
           bulletTimeCameraOffset = cinematicProgress.driftAmount * bulletPulse;
           if (Math.abs(bulletTimeCameraOffset) > 0.000001) {
             nextPosition = nextPosition.clone().addScaledVector(holdForwardAxis, -bulletTimeCameraOffset);
@@ -5793,8 +5781,8 @@ const UnifiedCameraController = ({
         }
         pushHeroOverviewPilotSample({
           type: globalProgress >= 1 ? 'completion-handoff' : 'pilot-frame',
-          pilotDiagnosticVersion: 'Milestone D cinematic timing pass',
-          pilotCinematicMilestone: 'Milestone D cinematic timing pass',
+          pilotDiagnosticVersion: 'Milestone E config-driven cinematic tuning',
+          pilotCinematicMilestone: 'Milestone E config-driven cinematic tuning',
           t: round4(state.clock.elapsedTime),
           frame: cameraFrameIndexRef.current,
           key: pilot.key,
@@ -6003,8 +5991,8 @@ const UnifiedCameraController = ({
           heroToOverviewHandoffLockFramesRef.current = HERO_TO_OVERVIEW_HANDOFF_LOCK_FRAMES;
           pushHeroOverviewPilotSample({
             type: 'pilot-completion-finalized',
-            pilotDiagnosticVersion: 'Milestone D cinematic timing pass',
-            pilotCinematicMilestone: 'Milestone D cinematic timing pass',
+            pilotDiagnosticVersion: 'Milestone E config-driven cinematic tuning',
+            pilotCinematicMilestone: 'Milestone E config-driven cinematic tuning',
             t: round4(state.clock.elapsedTime),
             frame: cameraFrameIndexRef.current,
             key: pilot.key,
@@ -7147,7 +7135,7 @@ const UnifiedCameraController = ({
         }
         pushHeroOverviewPilotSample({
           type: 'handoff-lock-frame',
-          pilotDiagnosticVersion: 'Milestone D cinematic timing pass',
+          pilotDiagnosticVersion: 'Milestone E config-driven cinematic tuning',
           t: round4(state.clock.elapsedTime),
           frame: cameraFrameIndexRef.current,
           key: heroOverviewPilotRef.current.key,

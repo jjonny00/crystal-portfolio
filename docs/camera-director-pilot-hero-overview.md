@@ -418,3 +418,112 @@ New motion values are centralized in `HERO_OVERVIEW_PILOT_CAMERA_MOTION` next to
 - `competingWriterAppeared`
 
 Per-frame diagnostic rows also include the phase easing, current/max impulse offset, current bullet-time offset, bullet-time drift distance, hold-pose delta at travel start, and returned-to-hold-pose status so a visual test can verify the impact and suspended beats without reopening the ownership baseline.
+
+## Milestone E tuning config
+
+Hero → Overview cinematic authoring now lives in one local config file:
+
+- `src/config/heroOverviewCinematicConfig.js`
+- Export: `HERO_OVERVIEW_CINEMATIC_CONFIG`
+- Runtime resolver: `resolveHeroOverviewCinematicConfig()`
+- Easing registry: `HERO_OVERVIEW_EASING`
+
+Use this file for timing/easing/motion tuning only. Do **not** tune by editing route ownership, target parity, CameraWriteGuard, canonical-up/roll guard, live lookAt capture, or final overview pose logic in `UnifiedCameraController`.
+
+### Values Jon should edit
+
+```js
+export const HERO_OVERVIEW_CINEMATIC_CONFIG = {
+  timeline: {
+    fractureHold: 0.10,
+    explosionImpulse: 0.08,
+    bulletTime: 0.16,
+    overviewTravel: 0.56,
+    overviewSettle: 0.10,
+  },
+  camera: {
+    explosionPunchDistance: 0.06,
+    bulletTimeDriftDistance: 0,
+    travelEase: 'cinematicRevealOut',
+    settleEase: 'smoothSettle',
+    punchEase: 'sinePulse',
+    driftEase: 'sinePulse',
+  },
+  particles: { enabled: true, triggerAt: 0.10, duration: null, wired: false },
+  ring: { enabled: true, triggerAt: 0.10, duration: null, startScale: null, endScale: null, easing: 'sinePulse', wired: false },
+};
+```
+
+The timeline is authored as human-editable durations. The runtime derives normalized phase windows from those durations. With the default values, the derived windows remain:
+
+- `fractureCharge`: `0.00 → 0.10`
+- `explosionImpulse`: `0.10 → 0.18`
+- `bulletTimeSlowdown`: `0.18 → 0.34`
+- `overviewTravel`: `0.34 → 0.90`
+- `overviewSettle`: `0.90 → 1.00`
+
+If a duration is missing, zero, negative, or non-finite, the resolver falls back to the default duration for that field and reports `defaultsUsed` / `invalidConfigFallbackOccurred` in `__printHeroOverviewPilotCinematic?.()`. If the duration total differs from `1`, the resolver normalizes the phase windows while preserving the authored proportions.
+
+### Easing swaps
+
+`camera.travelEase`, `camera.settleEase`, `camera.punchEase`, and `camera.driftEase` are string names resolved through `HERO_OVERVIEW_EASING`. Current supported names include:
+
+- `linear`
+- `smoothstep`
+- `smootherstep`
+- `easeOutCubic`
+- `easeOutExpo`
+- `expoOut`
+- `cinematicRevealOut`
+- `sinePulse`
+- `smoothSettle`
+
+To try a more aggressive reveal, change `camera.travelEase`. To add a new curve, add a function to `HERO_OVERVIEW_EASING`, then reference its key from the config.
+
+### Particle findings
+
+Particles are currently spawned in `UnifiedCrystalScene.runExplodeSwap()` by incrementing `burstId`; `FractureBurstParticles` receives that `trigger` plus existing `mergedConfig.fracture.particles` props. The particle component currently consumes trigger/delay/count/color/emitter position, while particle lifetimes are generated internally.
+
+That means particles are tied to the crystal explosion swap / `crystalForm === 'exploded'` visual path, not directly to the Hero → Overview CameraDirector phase windows. Trigger delay is partly tweakable in the existing particle component, but route-phase trigger timing and duration are not safely wired without changing the particle trigger/lifetime source. Milestone E therefore leaves `particles.triggerAt` and `particles.duration` as documented placeholders in the new config and reports them in diagnostics.
+
+Follow-up needed to wire route-phase particle timing: pass the resolved Hero → Overview cinematic config into the crystal scene or central visual effects trigger, then trigger `burstId` from a single monotonic route-phase crossing instead of from `runExplodeSwap()` alone.
+
+### Ring findings
+
+The ring is made visible in `UnifiedCrystalScene.runExplodeSwap()` via `setRingVisible(true)`. Its animation is controlled inside `FractureRingImage`, which watches `animationData.crystalForm`, applies `triggerDelay`, and uses props from `mergedConfig.fracture.image` for `duration`, `baseSize`, `maxScale`, `fadeInDuration`, `fadeOutDuration`, and `scaleEasing`.
+
+That means ring duration and scale are already tweakable in the existing fracture image config, but Hero → Overview route-phase `triggerAt` is not safely wired without changing the effect trigger source. Milestone E therefore leaves `ring.triggerAt`, `ring.duration`, `ring.startScale`, `ring.endScale`, and `ring.easing` as documented placeholders in the new config and reports them in diagnostics.
+
+Follow-up needed to wire route-phase ring timing/scale: map the new config values to `FractureRingImage` props and trigger the ring from an explicit Hero → Overview phase crossing rather than only from crystal-form change / explosion swap visibility.
+
+### Concise tuning guide
+
+1. To make the fracture hold shorter, edit `timeline.fractureHold`.
+2. To make the reveal start sooner, reduce `timeline.bulletTime` or `timeline.explosionImpulse`.
+3. To make the dolly feel more dramatic, change `camera.travelEase`.
+4. To remove pre-travel motion, set `camera.explosionPunchDistance` and `camera.bulletTimeDriftDistance` to `0`.
+5. Particle and ring route-phase fields are placeholders in this PR; tune existing visuals through `fracture.particles` / `fracture.image` until a follow-up wires route-phase effect triggers.
+
+### Local test commands
+
+```js
+globalThis.__HERO_OVERVIEW_PILOT_DIAGNOSTICS__ = true;
+globalThis.__clearHeroOverviewDiagnosticSamples?.();
+globalThis.__clearHeroOverviewPilotSamples?.();
+globalThis.__clearHeroOverviewPrePilotHeroTrace?.();
+globalThis.__clearHeroOverviewVisibleCompositionTrace?.();
+globalThis.__clearCameraWriteGuardSummary?.();
+```
+
+Trigger Hero → Overview from a visibly offset Hero orbit, then run:
+
+```js
+globalThis.__printHeroOverviewPilotSummary?.();
+globalThis.__printHeroOverviewPilotCinematic?.();
+globalThis.__printHeroOverviewPilotParity?.();
+globalThis.__printHeroOverviewPilotOrientation?.();
+globalThis.__printCameraWriteGuardSummary?.();
+globalThis.__printCameraWriteGuardConflictDetails?.();
+```
+
+For a local tweak smoke test, temporarily change `timeline.fractureHold` from `0.10` to `0.14` or `camera.explosionPunchDistance` from `0.06` to `0`, rerun Hero → Overview, and confirm `__printHeroOverviewPilotCinematic?.()` reports the changed config value. Restore defaults before committing unless the change is intentional.
