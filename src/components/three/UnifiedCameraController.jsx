@@ -39,9 +39,9 @@ const HERO_OVERVIEW_PILOT_CAMERA_TIMELINE = {
   bulletTimeSlowdown: {
     start: 0.18,
     end: 0.34,
-    cameraMode: 'suspendedDrift',
-    easing: 'sinePulse',
-    notes: 'Brief suspended tension beat; drift is tiny and returns before overviewTravel.',
+    cameraMode: 'suspendedHold',
+    easing: 'hold',
+    notes: 'Brief suspended tension beat; camera stays locked so overviewTravel releases from a clean pose.',
   },
   overviewTravel: {
     start: 0.34,
@@ -68,13 +68,14 @@ const HERO_OVERVIEW_PILOT_CAMERA_MOTION = {
     punchDistance: 0.06,
     punchDirection: 'toward-lookAt',
     driftAmount: 0,
-    notes: 'Tiny push-in along the captured camera forward axis; lookAt/up/FOV/filmOffset stay stable and the sine pulse returns to zero before bullet time.',
+    returnCompleteAt: 0.72,
+    notes: 'Tiny push-in along the captured camera forward axis; lookAt/up/FOV/filmOffset stay stable and the punch resolves before bullet time begins.',
   },
   bulletTimeSlowdown: {
     punchDistance: 0,
-    driftAmount: 0.025,
-    driftDirection: 'away-from-lookAt',
-    notes: 'Subtle recoil float away from the crystal; sine pulse returns to the hold pose before overviewTravel starts.',
+    driftAmount: 0,
+    driftDirection: 'none',
+    notes: 'No camera drift in this pass; the suspended beat stays locked after impact so travel starts cleanly.',
   },
   overviewTravel: {
     punchDistance: 0,
@@ -2038,6 +2039,7 @@ const UnifiedCameraController = ({
       isHoldingCamera: HERO_OVERVIEW_PILOT_HOLD_PHASES.includes(phaseName),
       punchDistance: Number.isFinite(motion.punchDistance) ? motion.punchDistance : 0,
       driftAmount: Number.isFinite(motion.driftAmount) ? motion.driftAmount : 0,
+      returnCompleteAt: Number.isFinite(motion.returnCompleteAt) ? motion.returnCompleteAt : 1,
       travelStartProgress: travelPhase.start,
       travelDuration: travelPhase.end - travelPhase.start,
       settleStartProgress: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE.overviewSettle.start,
@@ -3316,7 +3318,9 @@ const UnifiedCameraController = ({
         settleStartProgress: latest?.settleStartProgress ?? HERO_OVERVIEW_PILOT_CAMERA_TIMELINE.overviewSettle.start,
         punchDistanceApplied: latest?.punchDistanceApplied ?? round4(HERO_OVERVIEW_PILOT_CAMERA_MOTION.explosionImpulse.punchDistance),
         maxImpulseCameraOffset: latest?.maxImpulseCameraOffset ?? null,
+        explosionImpulseMaxOffset: latest?.maxImpulseCameraOffset ?? null,
         returnedToHoldPoseBeforeTravel: latest?.returnedToHoldPoseBeforeTravel ?? null,
+        holdPoseDeltaAtTravelStart: latest?.holdPoseDeltaAtTravelStart ?? null,
         bulletTimeDriftDistance: latest?.bulletTimeDriftDistance ?? null,
         cameraDistanceMovedByPhase: {
           fractureCharge: round4(fractureChargeDistance),
@@ -3373,9 +3377,11 @@ const UnifiedCameraController = ({
         punchDistanceApplied: sample.punchDistanceApplied ?? null,
         currentImpulseCameraOffset: sample.currentImpulseCameraOffset ?? null,
         maxImpulseCameraOffset: sample.maxImpulseCameraOffset ?? null,
+        explosionImpulseMaxOffset: sample.explosionImpulseMaxOffset ?? null,
         currentBulletTimeCameraOffset: sample.currentBulletTimeCameraOffset ?? null,
         bulletTimeDriftDistance: sample.bulletTimeDriftDistance ?? null,
         returnedToHoldPoseBeforeTravel: sample.returnedToHoldPoseBeforeTravel ?? null,
+        holdPoseDeltaAtTravelStart: sample.holdPoseDeltaAtTravelStart ?? null,
         isHoldingCamera: sample.isHoldingCamera ?? null,
         finalPoseLocked: sample.finalPoseLocked ?? null,
         distanceMovedDuringFractureCharge: sample.distanceMovedDuringFractureCharge ?? null,
@@ -4426,6 +4432,7 @@ const UnifiedCameraController = ({
           punchDistanceApplied: HERO_OVERVIEW_PILOT_CAMERA_MOTION.explosionImpulse.punchDistance,
           maxImpulseCameraOffset: 0,
           returnedToHoldPoseBeforeTravel: null,
+          holdPoseDeltaAtTravelStart: null,
           lastHoldCameraOffset: 0,
           lastPreTravelHoldCameraOffset: 0,
           bulletTimeDriftDistance: 0,
@@ -5527,7 +5534,13 @@ const UnifiedCameraController = ({
         let impulseCameraOffset = 0;
         let bulletTimeCameraOffset = 0;
         if (!isFinalPoseLocked && pilotPhase === 'explosionImpulse') {
-          const impulsePulse = easeHeroOverviewPilotProgress(phaseProgress, 'sinePulse');
+          const impulseReturnCompleteAt = THREE.MathUtils.clamp(cinematicProgress.returnCompleteAt, 0.05, 1);
+          const impulsePulseProgress = phaseProgress < impulseReturnCompleteAt
+            ? THREE.MathUtils.clamp(phaseProgress / impulseReturnCompleteAt, 0, 1)
+            : 1;
+          const impulsePulse = phaseProgress < impulseReturnCompleteAt
+            ? easeHeroOverviewPilotProgress(impulsePulseProgress, 'sinePulse')
+            : 0;
           impulseCameraOffset = cinematicProgress.punchDistance * impulsePulse;
           if (Math.abs(impulseCameraOffset) > 0.000001) {
             nextPosition = nextPosition.clone().addScaledVector(holdForwardAxis, impulseCameraOffset);
@@ -5546,8 +5559,8 @@ const UnifiedCameraController = ({
         transition.bulletTimeDriftDistance = transition.maxBulletTimeCameraOffset;
         transition.lastHoldCameraOffset = totalHoldCameraOffset;
         if (pilotPhase === 'overviewTravel' && transition.returnedToHoldPoseBeforeTravel == null) {
-          const preTravelOffset = Number.isFinite(transition.lastPreTravelHoldCameraOffset) ? transition.lastPreTravelHoldCameraOffset : totalHoldCameraOffset;
-          transition.returnedToHoldPoseBeforeTravel = preTravelOffset <= 0.0005;
+          transition.holdPoseDeltaAtTravelStart = totalHoldCameraOffset;
+          transition.returnedToHoldPoseBeforeTravel = totalHoldCameraOffset <= 0.0005;
         }
         if (pilotPhase === 'explosionImpulse' || pilotPhase === 'bulletTimeSlowdown') {
           transition.lastPreTravelHoldCameraOffset = totalHoldCameraOffset;
@@ -5697,7 +5710,9 @@ const UnifiedCameraController = ({
           punchDistanceApplied: round4(transition.punchDistanceApplied),
           currentImpulseCameraOffset: round4(impulseCameraOffset),
           maxImpulseCameraOffset: round4(transition.maxImpulseCameraOffset),
+          explosionImpulseMaxOffset: round4(transition.maxImpulseCameraOffset),
           returnedToHoldPoseBeforeTravel: transition.returnedToHoldPoseBeforeTravel,
+          holdPoseDeltaAtTravelStart: round4(transition.holdPoseDeltaAtTravelStart),
           currentBulletTimeCameraOffset: round4(bulletTimeCameraOffset),
           bulletTimeDriftDistance: round4(transition.bulletTimeDriftDistance),
           phaseStart: round4(cinematicProgress.phaseStart),
@@ -5905,7 +5920,9 @@ const UnifiedCameraController = ({
             punchDistanceApplied: round4(transition.punchDistanceApplied),
             currentImpulseCameraOffset: 0,
             maxImpulseCameraOffset: round4(transition.maxImpulseCameraOffset),
+            explosionImpulseMaxOffset: round4(transition.maxImpulseCameraOffset),
             returnedToHoldPoseBeforeTravel: transition.returnedToHoldPoseBeforeTravel,
+            holdPoseDeltaAtTravelStart: round4(transition.holdPoseDeltaAtTravelStart),
             currentBulletTimeCameraOffset: 0,
             bulletTimeDriftDistance: round4(transition.bulletTimeDriftDistance),
             phaseStart: 1,

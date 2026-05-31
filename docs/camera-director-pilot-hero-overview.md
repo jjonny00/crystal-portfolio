@@ -371,7 +371,7 @@ The tunable `HERO_OVERVIEW_PILOT_CAMERA_TIMELINE` now uses a tighter Overwatch /
 | --- | ---: | --- | --- | --- |
 | `fractureCharge` | `0.00 → 0.10` | `hold` | `hold` | Very brief live Hero orbit hold so the charge reads as energy building rather than dead time. |
 | `explosionImpulse` | `0.10 → 0.18` | `impactPunch` | `sinePulse` | Short isolated impact beat. |
-| `bulletTimeSlowdown` | `0.18 → 0.34` | `suspendedDrift` | `sinePulse` | Brief tense suspended moment. |
+| `bulletTimeSlowdown` | `0.18 → 0.34` | `suspendedHold` | `hold` | Brief tense suspended moment from a clean held pose, with no pre-travel drift. |
 | `overviewTravel` | `0.34 → 0.90` | `travel` | `cinematicRevealOut` | Main reveal starts earlier and moves decisively before easing down into Overview. |
 | `overviewSettle` | `0.90 → 1.00` | `settle` | `smoothSettle` | Short exact final lock with no floaty extra settle. |
 
@@ -379,8 +379,8 @@ The tunable `HERO_OVERVIEW_PILOT_CAMERA_TIMELINE` now uses a tighter Overwatch /
 
 New motion values are centralized in `HERO_OVERVIEW_PILOT_CAMERA_MOTION` next to the timeline constants:
 
-- `explosionImpulse.punchDistance: 0.06` moves the camera a tiny distance along the captured hold-pose forward axis toward the held lookAt. It uses a sine pulse, keeps lookAt stable, does not touch roll/up/FOV/filmOffset, and returns to zero before the next phase boundary.
-- `bulletTimeSlowdown.driftAmount: 0.025` moves the camera a smaller distance away from the held lookAt for suspended tension. It also uses a sine pulse and returns to the held pose before `overviewTravel` begins.
+- `explosionImpulse.punchDistance: 0.06` moves the camera a tiny distance along the captured hold-pose forward axis toward the held lookAt. It resolves by `returnCompleteAt: 0.72` of the impact phase, keeps lookAt stable, does not touch roll/up/FOV/filmOffset, and leaves the held pose clean before bullet time.
+- `bulletTimeSlowdown.driftAmount: 0` removes the earlier suspended drift so bullet time reads as intentional suspension rather than pre-travel camera movement.
 - `overviewTravel` and `overviewSettle` keep `punchDistance` and `driftAmount` at zero so final target parity remains owned by the existing resolved Overview pose.
 
 ### Milestone D diagnostics
@@ -394,6 +394,8 @@ New motion values are centralized in `HERO_OVERVIEW_PILOT_CAMERA_MOTION` next to
 - `punchDistanceApplied`
 - `maxImpulseCameraOffset`
 - `returnedToHoldPoseBeforeTravel`
+- `holdPoseDeltaAtTravelStart`
+- `explosionImpulseMaxOffset`
 - `bulletTimeDriftDistance`
 - `overviewTravelDuration`
 - `settleDuration`
@@ -402,4 +404,4 @@ New motion values are centralized in `HERO_OVERVIEW_PILOT_CAMERA_MOTION` next to
 - `rollUpGuardClean`
 - `competingWriterAppeared`
 
-Per-frame diagnostic rows also include the phase easing, current/max impulse offset, current bullet-time offset, bullet-time drift distance, and returned-to-hold-pose status so a visual test can verify the impact and suspended beats without reopening the ownership baseline.
+Per-frame diagnostic rows also include the phase easing, current/max impulse offset, current bullet-time offset, bullet-time drift distance, hold-pose delta at travel start, and returned-to-hold-pose status so a visual test can verify the impact and suspended beats without reopening the ownership baseline.
