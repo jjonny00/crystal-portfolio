@@ -47,6 +47,25 @@ const REFORM_SWAP_OVERLAP_MS = 100
 const ENABLE_OVERVIEW_ALL_CONNECTORS = true
 
 const logger = createLogger('unified-crystal-scene');
+const vectorToPlain = (v) => v ? ({ x: Number(v.x?.toFixed?.(4) ?? v.x), y: Number(v.y?.toFixed?.(4) ?? v.y), z: Number(v.z?.toFixed?.(4) ?? v.z) }) : null;
+const quaternionToPlain = (q) => q ? ({ x: Number(q.x?.toFixed?.(4) ?? q.x), y: Number(q.y?.toFixed?.(4) ?? q.y), z: Number(q.z?.toFixed?.(4) ?? q.z), w: Number(q.w?.toFixed?.(4) ?? q.w) }) : null;
+const objectTransformSnapshot = (object) => {
+  if (!object) return null;
+  object.updateMatrixWorld?.(true);
+  const worldPosition = new THREE.Vector3();
+  const worldQuaternion = new THREE.Quaternion();
+  const worldScale = new THREE.Vector3();
+  object.matrixWorld.decompose(worldPosition, worldQuaternion, worldScale);
+  return {
+    name: object.name || object.type || null,
+    localPosition: vectorToPlain(object.position),
+    localQuaternion: quaternionToPlain(object.quaternion),
+    localScale: vectorToPlain(object.scale),
+    worldPosition: vectorToPlain(worldPosition),
+    worldQuaternion: quaternionToPlain(worldQuaternion),
+    worldScale: vectorToPlain(worldScale),
+  };
+};
 
 const UnifiedCrystalScene = forwardRef(({ 
   animationData,
@@ -1647,6 +1666,21 @@ const UnifiedCrystalScene = forwardRef(({
   useFrame((state, deltaTime) => {
     if (!animationData || !facetRefs.current.length || simplifiedAnimations) return;
     const now = performance.now();
+    if (import.meta.env.DEV && typeof globalThis !== 'undefined') {
+      globalThis.__crystalSceneVisibleCompositionSnapshot = {
+        frame: state.clock?.frame ?? null,
+        t: Number(state.clock?.elapsedTime?.toFixed?.(4) ?? state.clock?.elapsedTime ?? 0),
+        state: animationData?.state ?? null,
+        cameraState: animationData?.cameraState ?? null,
+        viewMode: animationData?.viewMode ?? null,
+        crystalForm: animationData?.crystalForm ?? null,
+        showWholeCrystal,
+        showFacets,
+        crystalGroup: objectTransformSnapshot(crystalGroupRef.current),
+        wholeCrystal: objectTransformSnapshot(wholeCrystalRef.current),
+        facetsGroup: objectTransformSnapshot(facetsGroupRef.current),
+      };
+    }
 
     if (
       animationData.crystalForm === 'exploded' &&

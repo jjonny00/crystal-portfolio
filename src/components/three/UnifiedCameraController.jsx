@@ -19,8 +19,38 @@ const PROJECT_OVERVIEW_POSITION_SETTLE_EPSILON = 0.01;
 const PROJECT_OVERVIEW_LOOKAT_SETTLE_EPSILON = 0.01;
 const PROJECT_OVERVIEW_FOV_SETTLE_EPSILON = 0.02;
 const PROJECT_OVERVIEW_PROGRESS_SETTLE_MIN = 0.99;
-const HERO_OVERVIEW_PHASE_ORDER = ['fractureCharge', 'explosionImpulse', 'bulletTimeSlowdown', 'overviewSettle', 'complete'];
+const HERO_OVERVIEW_PHASE_ORDER = ['fractureCharge', 'explosionImpulse', 'bulletTimeSlowdown', 'overviewTravel', 'overviewSettle', 'complete'];
 const HERO_OVERVIEW_PILOT_PHASES = ['fractureCharge', 'explosionImpulse', 'bulletTimeSlowdown', 'overviewTravel', 'overviewSettle', 'complete'];
+const HERO_OVERVIEW_PILOT_CAMERA_TIMELINE = {
+  fractureCharge: {
+    start: 0,
+    end: 0.16,
+    cameraMode: 'hold',
+  },
+  explosionImpulse: {
+    start: 0.16,
+    end: 0.26,
+    cameraMode: 'impactHold',
+  },
+  bulletTimeSlowdown: {
+    start: 0.26,
+    end: 0.42,
+    cameraMode: 'suspendedHold',
+  },
+  overviewTravel: {
+    start: 0.42,
+    end: 0.88,
+    cameraMode: 'travel',
+    easing: 'expoOut',
+  },
+  overviewSettle: {
+    start: 0.88,
+    end: 1,
+    cameraMode: 'settle',
+    easing: 'smoothSettle',
+  },
+};
+const HERO_OVERVIEW_PILOT_HOLD_PHASES = ['fractureCharge', 'explosionImpulse', 'bulletTimeSlowdown'];
 const HERO_OVERVIEW_PILOT_PHASE_BEHAVIORS = {
   fractureCharge: { cameraOwner: 'pilot', behavior: 'hold-live-captured-hero-pose', writesCamera: true },
   explosionImpulse: { cameraOwner: 'pilot', behavior: 'baseline-equivalent-fracture-influence-or-hold', writesCamera: true },
@@ -349,6 +379,22 @@ const UnifiedCameraController = ({
     viewMode: null,
     focusedProject: null,
   });
+  const lastVisibleHeroPoseRef = useRef(null);
+  const lastHeroOrbitRenderedPoseRef = useRef(null);
+  const lastAuthoritativeHeroRenderedPoseRef = useRef(null);
+  const heroOverviewPrePilotHeroTraceRef = useRef({
+    rows: [],
+    maxRows: 180,
+    pilotActivationFrame: null,
+    pilotFirstWriteFrame: null,
+  });
+  const heroOverviewVisibleCompositionTraceRef = useRef({
+    rows: [],
+    maxRows: 240,
+    pilotActivationFrame: null,
+    pilotFirstWriteFrame: null,
+  });
+  const cameraFrameIndexRef = useRef(0);
 
   const isOverviewToProjectPilotEnabled = () => {
     // WARNING: Experimental pilot only; not production-ready.
@@ -1600,6 +1646,7 @@ const UnifiedCameraController = ({
   const logCameraWrite = (state, branch, reason, lookAtTarget = null, projectionUpdated = false, returns = false) => {
     const writesByBranch = {
       AUTHORITATIVE_HERO: ["position", "lookAt", "filmOffset"],
+      HERO_ORBIT: ["position", "lookAt", "filmOffset"],
       FORCED_HERO_TO_OVERVIEW: ["position", "lookAt", "filmOffset", "currentTarget"],
       FORCED_OVERVIEW_TO_HERO: ["position", "lookAt", "filmOffset", "currentTarget"],
       TRANSITION: ["position", "lookAt", "filmOffset", "currentTarget"],
@@ -1719,6 +1766,41 @@ const UnifiedCameraController = ({
   const quaternionToPlain = (q) => ({ x: round4(q?.x), y: round4(q?.y), z: round4(q?.z), w: round4(q?.w) });
   const safeDistance = (a, b) => (a && b ? round4(a.distanceTo(b)) : null);
   const quaternionAngleDelta = (q1, q2) => (q1 && q2 ? round4(q1.angleTo(q2)) : null);
+  const cloneHeroOverviewLiveCameraPose = (source = 'live-camera-transform', meta = {}) => {
+    const lookAt = getCameraLookAtFromTransform();
+    return {
+      position: camera.position.clone(),
+      lookAt,
+      fov: Number.isFinite(camera.fov) ? camera.fov : (currentTarget.current?.fov ?? 45),
+      filmOffset: Number.isFinite(camera.filmOffset) ? camera.filmOffset : 0,
+      up: camera.up.clone(),
+      quaternion: camera.quaternion.clone(),
+      source,
+      ...meta,
+    };
+  };
+  const cloneHeroOverviewStoredPose = (pose, source = pose?.source ?? 'stored-hero-pose') => (pose ? {
+    ...pose,
+    position: pose.position?.clone?.() ?? null,
+    lookAt: pose.lookAt?.clone?.() ?? null,
+    up: pose.up?.clone?.() ?? null,
+    quaternion: pose.quaternion?.clone?.() ?? null,
+    source,
+  } : null);
+  const heroOverviewPoseToPlain = (pose) => (pose ? {
+    source: pose.source ?? null,
+    writerId: pose.writerId ?? null,
+    writerReason: pose.writerReason ?? null,
+    frame: pose.frame ?? null,
+    t: round4(pose.t),
+    position: vectorToPlain(pose.position),
+    lookAt: vectorToPlain(pose.lookAt),
+    fov: round4(pose.fov),
+    filmOffset: round4(pose.filmOffset),
+    heroOrbitAngle: round4(pose.heroOrbitAngle),
+    heroPolarAngle: round4(pose.heroPolarAngle),
+  } : null);
+  const distanceBetweenHeroOverviewPoses = (a, b) => (a?.position && b?.position ? a.position.distanceTo(b.position) : null);
   const getCanonicalCameraUp = () => new THREE.Vector3(0, 1, 0);
   const getUpDeltaFromWorldUp = (up = camera.up) => (up ? round4(up.clone().normalize().distanceTo(getCanonicalCameraUp())) : null);
   const getRollDeltaFromWorldUp = (up = camera.up) => {
@@ -1864,6 +1946,61 @@ const UnifiedCameraController = ({
   };
 
 
+
+  const getHeroOverviewPilotPhaseMetrics = () => HERO_OVERVIEW_PILOT_PHASES.reduce((acc, phase) => {
+    acc[phase] = 0;
+    return acc;
+  }, {});
+  const getHeroOverviewPilotTimelinePhase = (progress) => {
+    const clampedProgress = THREE.MathUtils.clamp(Number.isFinite(progress) ? progress : 0, 0, 1);
+    const phaseName = HERO_OVERVIEW_PILOT_PHASES.find((name) => {
+      if (name === 'complete') return clampedProgress >= 1;
+      const phase = HERO_OVERVIEW_PILOT_CAMERA_TIMELINE[name];
+      if (!phase) return false;
+      return clampedProgress >= phase.start && clampedProgress < phase.end;
+    }) ?? (clampedProgress >= 1 ? 'complete' : 'overviewSettle');
+    const phase = HERO_OVERVIEW_PILOT_CAMERA_TIMELINE[phaseName] ?? { start: 1, end: 1, cameraMode: 'complete' };
+    const phaseLocalProgress = phase.end > phase.start
+      ? THREE.MathUtils.clamp((clampedProgress - phase.start) / (phase.end - phase.start), 0, 1)
+      : 1;
+    return { phaseName, phase, phaseLocalProgress };
+  };
+  const easeHeroOverviewPilotProgress = (progress, easing = 'linear') => {
+    const t = THREE.MathUtils.clamp(Number.isFinite(progress) ? progress : 0, 0, 1);
+    if (easing === 'expoOut') return t >= 1 ? 1 : THREE.MathUtils.clamp(1 - (2 ** (-10 * t)), 0, 1);
+    if (easing === 'smoothSettle') return t * t * (3 - 2 * t);
+    return t;
+  };
+  const getHeroOverviewPilotCameraProgress = (globalProgress) => {
+    const { phaseName, phase, phaseLocalProgress } = getHeroOverviewPilotTimelinePhase(globalProgress);
+    const travelPhase = HERO_OVERVIEW_PILOT_CAMERA_TIMELINE.overviewTravel;
+    let cameraTravelProgress = 0;
+    let cameraTravelEasedProgress = 0;
+    let cameraTravelEasing = phase.easing ?? 'none';
+    if (phaseName === 'overviewTravel') {
+      cameraTravelProgress = phaseLocalProgress;
+      cameraTravelEasedProgress = easeHeroOverviewPilotProgress(cameraTravelProgress, phase.easing ?? 'expoOut');
+    } else if (phaseName === 'overviewSettle' || phaseName === 'complete' || globalProgress >= travelPhase.end) {
+      cameraTravelProgress = 1;
+      cameraTravelEasedProgress = 1;
+      cameraTravelEasing = phase.easing ?? 'smoothSettle';
+    }
+    return {
+      phaseName,
+      cameraMode: phase.cameraMode ?? 'unknown',
+      phaseStart: phase.start ?? null,
+      phaseEnd: phase.end ?? null,
+      phaseLocalProgress,
+      cameraTravelProgress,
+      cameraTravelEasedProgress,
+      cameraTravelEasing,
+      isHoldingCamera: HERO_OVERVIEW_PILOT_HOLD_PHASES.includes(phaseName),
+      travelStartProgress: travelPhase.start,
+      travelDuration: travelPhase.end - travelPhase.start,
+      settleStartProgress: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE.overviewSettle.start,
+    };
+  };
+
   const getOverviewProjectShadowStore = () => {
     if (typeof globalThis === 'undefined') return overviewProjectShadowRef.current;
     if (!globalThis.__overviewProjectShadowStore) {
@@ -1949,6 +2086,246 @@ const UnifiedCameraController = ({
     const store = getHeroOverviewPilotDiagnosticsStore();
     store.samples.push(sample);
     if (store.samples.length > store.maxSamples) store.samples.shift();
+  };
+
+  const getHeroOverviewPrePilotHeroTraceStore = () => {
+    if (typeof globalThis === 'undefined') return heroOverviewPrePilotHeroTraceRef.current;
+    if (!globalThis.__heroOverviewPrePilotHeroTraceStore) {
+      globalThis.__heroOverviewPrePilotHeroTraceStore = heroOverviewPrePilotHeroTraceRef.current;
+    }
+    if (globalThis.__heroOverviewPrePilotHeroTraceStore !== heroOverviewPrePilotHeroTraceRef.current) {
+      globalThis.__heroOverviewPrePilotHeroTraceStore = heroOverviewPrePilotHeroTraceRef.current;
+    }
+    return globalThis.__heroOverviewPrePilotHeroTraceStore;
+  };
+  const pushHeroOverviewPrePilotHeroTrace = (row) => {
+    if (!import.meta.env.DEV) return;
+    const store = getHeroOverviewPrePilotHeroTraceStore();
+    store.rows.push({ sampleIndex: store.rows.length, ...row });
+    if (store.rows.length > store.maxRows) {
+      const overflow = store.rows.length - store.maxRows;
+      store.rows.splice(0, overflow);
+      store.rows.forEach((entry, index) => { entry.sampleIndex = index; });
+    }
+  };
+
+  const getHeroOverviewVisibleCompositionTraceStore = () => {
+    if (typeof globalThis === 'undefined') return heroOverviewVisibleCompositionTraceRef.current;
+    if (!globalThis.__heroOverviewVisibleCompositionTraceStore) {
+      globalThis.__heroOverviewVisibleCompositionTraceStore = heroOverviewVisibleCompositionTraceRef.current;
+    }
+    if (globalThis.__heroOverviewVisibleCompositionTraceStore !== heroOverviewVisibleCompositionTraceRef.current) {
+      globalThis.__heroOverviewVisibleCompositionTraceStore = heroOverviewVisibleCompositionTraceRef.current;
+    }
+    return globalThis.__heroOverviewVisibleCompositionTraceStore;
+  };
+  const pushHeroOverviewVisibleCompositionTrace = (row) => {
+    if (!import.meta.env.DEV) return;
+    const store = getHeroOverviewVisibleCompositionTraceStore();
+    store.rows.push({ sampleIndex: store.rows.length, ...row });
+    if (store.rows.length > store.maxRows) {
+      const overflow = store.rows.length - store.maxRows;
+      store.rows.splice(0, overflow);
+      store.rows.forEach((entry, index) => { entry.sampleIndex = index; });
+    }
+  };
+
+  const getCameraWorldCompositionPose = () => {
+    camera.updateMatrixWorld?.(true);
+    const worldPosition = new THREE.Vector3();
+    const worldQuaternion = new THREE.Quaternion();
+    const worldScale = new THREE.Vector3();
+    camera.matrixWorld.decompose(worldPosition, worldQuaternion, worldScale);
+    const worldForward = new THREE.Vector3(0, 0, -1).applyQuaternion(worldQuaternion).normalize();
+    return {
+      position: worldPosition,
+      lookAt: worldPosition.clone().addScaledVector(worldForward, 10),
+      quaternion: worldQuaternion,
+      scale: worldScale,
+      fov: camera.fov,
+      filmOffset: camera.filmOffset,
+      up: camera.up.clone(),
+      source: 'camera-world',
+    };
+  };
+  const getObjectWorldTransformPlain = (object) => {
+    if (!object) return null;
+    object.updateMatrixWorld?.(true);
+    const worldPosition = new THREE.Vector3();
+    const worldQuaternion = new THREE.Quaternion();
+    const worldScale = new THREE.Vector3();
+    object.matrixWorld.decompose(worldPosition, worldQuaternion, worldScale);
+    return {
+      name: object.name || object.type || null,
+      worldPosition: vectorToPlain(worldPosition),
+      worldQuaternion: quaternionToPlain(worldQuaternion),
+      worldScale: vectorToPlain(worldScale),
+      localPosition: vectorToPlain(object.position),
+      localQuaternion: quaternionToPlain(object.quaternion),
+      localScale: vectorToPlain(object.scale),
+    };
+  };
+  const pushHeroOverviewVisibleCompositionSample = ({ eventType, state, phase = null, writerId = null, writerReason = null, pilotHoldPose = null } = {}) => {
+    if (!import.meta.env.DEV) return;
+    const frameId = cameraFrameIndexRef.current || state?.clock?.frame || null;
+    const rawPose = cloneHeroOverviewLiveCameraPose('rawCamera', { frame: frameId, t: state?.clock?.elapsedTime });
+    const worldPose = getCameraWorldCompositionPose();
+    const previousPose = previousFramePoseRef.current?.position ? {
+      position: previousFramePoseRef.current.position.clone(),
+      lookAt: previousFramePoseRef.current.lookAt?.clone?.() ?? null,
+      fov: previousFramePoseRef.current.fov,
+      filmOffset: previousFramePoseRef.current.filmOffset,
+      quaternion: previousFramePoseRef.current.quaternion?.clone?.() ?? null,
+      source: 'previousFramePose',
+    } : null;
+    const currentTargetPose = currentTarget.current?.position ? {
+      position: currentTarget.current.position.clone(),
+      lookAt: currentTarget.current.lookAt?.clone?.() ?? null,
+      fov: currentTarget.current.fov,
+      filmOffset: currentTarget.current.filmOffset,
+      source: 'currentTarget',
+    } : null;
+    const heroOrbitStatePose = lastVisibleHeroPoseRef.current ? cloneHeroOverviewStoredPose(lastVisibleHeroPoseRef.current, 'heroOrbitState') : null;
+    const candidates = {
+      rawCamera: rawPose,
+      worldCamera: worldPose,
+      currentTarget: currentTargetPose,
+      previousFramePose: previousPose,
+      heroOrbitState: heroOrbitStatePose,
+    };
+    let bestVisibleHeroPoseCandidate = null;
+    let distancePilotHoldToBestCandidate = null;
+    if (pilotHoldPose?.position) {
+      Object.entries(candidates).forEach(([name, candidate]) => {
+        const distance = candidate?.position ? pilotHoldPose.position.distanceTo(candidate.position) : null;
+        if (Number.isFinite(distance) && (distancePilotHoldToBestCandidate == null || distance < distancePilotHoldToBestCandidate)) {
+          bestVisibleHeroPoseCandidate = name;
+          distancePilotHoldToBestCandidate = distance;
+        }
+      });
+    }
+    const sceneSnapshot = typeof globalThis !== 'undefined' ? globalThis.__crystalSceneVisibleCompositionSnapshot : null;
+    pushHeroOverviewVisibleCompositionTrace({
+      eventType,
+      frame: frameId,
+      t: round4(state?.clock?.elapsedTime),
+      state: animationData?.state ?? null,
+      cameraState: animationData?.cameraState ?? null,
+      viewMode: animationData?.viewMode ?? null,
+      phase,
+      selectedProject: animationData?.selectedProject ?? null,
+      writerId,
+      writerReason,
+      rawCameraX: round4(rawPose.position.x), rawCameraY: round4(rawPose.position.y), rawCameraZ: round4(rawPose.position.z),
+      rawLookAtX: round4(rawPose.lookAt.x), rawLookAtY: round4(rawPose.lookAt.y), rawLookAtZ: round4(rawPose.lookAt.z),
+      rawQuatX: round4(rawPose.quaternion.x), rawQuatY: round4(rawPose.quaternion.y), rawQuatZ: round4(rawPose.quaternion.z), rawQuatW: round4(rawPose.quaternion.w),
+      rawUpX: round4(rawPose.up.x), rawUpY: round4(rawPose.up.y), rawUpZ: round4(rawPose.up.z),
+      rawFov: round4(rawPose.fov), rawFilmOffset: round4(rawPose.filmOffset),
+      cameraParentName: camera.parent?.name || camera.parent?.type || null,
+      cameraParentWorldPosition: getObjectWorldTransformPlain(camera.parent)?.worldPosition ?? null,
+      cameraParentWorldQuaternion: getObjectWorldTransformPlain(camera.parent)?.worldQuaternion ?? null,
+      cameraParentWorldScale: getObjectWorldTransformPlain(camera.parent)?.worldScale ?? null,
+      worldCameraX: round4(worldPose.position.x), worldCameraY: round4(worldPose.position.y), worldCameraZ: round4(worldPose.position.z),
+      worldQuatX: round4(worldPose.quaternion.x), worldQuatY: round4(worldPose.quaternion.y), worldQuatZ: round4(worldPose.quaternion.z), worldQuatW: round4(worldPose.quaternion.w),
+      currentTargetX: round4(currentTargetPose?.position?.x), currentTargetY: round4(currentTargetPose?.position?.y), currentTargetZ: round4(currentTargetPose?.position?.z),
+      currentTargetLookAtX: round4(currentTargetPose?.lookAt?.x), currentTargetLookAtY: round4(currentTargetPose?.lookAt?.y), currentTargetLookAtZ: round4(currentTargetPose?.lookAt?.z),
+      currentTargetFov: round4(currentTargetPose?.fov), currentTargetFilmOffset: round4(currentTargetPose?.filmOffset),
+      previousFrameX: round4(previousPose?.position?.x), previousFrameY: round4(previousPose?.position?.y), previousFrameZ: round4(previousPose?.position?.z),
+      previousFrameLookAtX: round4(previousPose?.lookAt?.x), previousFrameLookAtY: round4(previousPose?.lookAt?.y), previousFrameLookAtZ: round4(previousPose?.lookAt?.z),
+      sceneRootPosition: sceneSnapshot?.crystalGroup?.worldPosition ?? null,
+      sceneRootQuaternion: sceneSnapshot?.crystalGroup?.worldQuaternion ?? null,
+      sceneRootScale: sceneSnapshot?.crystalGroup?.worldScale ?? null,
+      crystalGroupPosition: sceneSnapshot?.wholeCrystal?.worldPosition ?? null,
+      crystalGroupQuaternion: sceneSnapshot?.wholeCrystal?.worldQuaternion ?? null,
+      crystalGroupScale: sceneSnapshot?.wholeCrystal?.worldScale ?? null,
+      heroGroupPosition: sceneSnapshot?.facetsGroup?.worldPosition ?? null,
+      heroGroupQuaternion: sceneSnapshot?.facetsGroup?.worldQuaternion ?? null,
+      heroGroupScale: sceneSnapshot?.facetsGroup?.worldScale ?? null,
+      sceneSnapshotState: sceneSnapshot?.state ?? null,
+      sceneSnapshotCrystalForm: sceneSnapshot?.crystalForm ?? null,
+      sceneShowWholeCrystal: sceneSnapshot?.showWholeCrystal ?? null,
+      sceneShowFacets: sceneSnapshot?.showFacets ?? null,
+      heroOrbitAngle: round4(heroOrbitAngle.current),
+      heroPolarAngle: round4(heroPolarAngleRef.current),
+      heroOrbitActive: Boolean(isOrbitingRef.current),
+      compositionOffsetX: round4(heroCompositionOffsetRef.current?.x),
+      compositionOffsetY: round4(heroCompositionOffsetRef.current?.y),
+      compositionOffsetZ: round4(heroCompositionOffsetRef.current?.z),
+      heroVerticalOffset: round4(heroVerticalOffsetRef.current),
+      pilotHoldX: round4(pilotHoldPose?.position?.x), pilotHoldY: round4(pilotHoldPose?.position?.y), pilotHoldZ: round4(pilotHoldPose?.position?.z),
+      pilotHoldLookAtX: round4(pilotHoldPose?.lookAt?.x), pilotHoldLookAtY: round4(pilotHoldPose?.lookAt?.y), pilotHoldLookAtZ: round4(pilotHoldPose?.lookAt?.z),
+      distancePilotHoldToRawCamera: round4(pilotHoldPose?.position ? pilotHoldPose.position.distanceTo(rawPose.position) : null),
+      distancePilotHoldToWorldCamera: round4(pilotHoldPose?.position ? pilotHoldPose.position.distanceTo(worldPose.position) : null),
+      distancePilotHoldToCurrentTarget: round4(pilotHoldPose?.position && currentTargetPose?.position ? pilotHoldPose.position.distanceTo(currentTargetPose.position) : null),
+      distancePilotHoldToPreviousFramePose: round4(pilotHoldPose?.position && previousPose?.position ? pilotHoldPose.position.distanceTo(previousPose.position) : null),
+      distancePilotHoldToHeroOrbitState: round4(pilotHoldPose?.position && heroOrbitStatePose?.position ? pilotHoldPose.position.distanceTo(heroOrbitStatePose.position) : null),
+      lookAtDeltaPilotHoldToRawCamera: round4(pilotHoldPose?.lookAt ? pilotHoldPose.lookAt.distanceTo(rawPose.lookAt) : null),
+      lookAtDeltaPilotHoldToCurrentTarget: round4(pilotHoldPose?.lookAt && currentTargetPose?.lookAt ? pilotHoldPose.lookAt.distanceTo(currentTargetPose.lookAt) : null),
+      lookAtDeltaPilotHoldToPreviousFramePose: round4(pilotHoldPose?.lookAt && previousPose?.lookAt ? pilotHoldPose.lookAt.distanceTo(previousPose.lookAt) : null),
+      bestVisibleHeroPoseCandidate,
+      distancePilotHoldToBestCandidate: round4(distancePilotHoldToBestCandidate),
+      pilotHoldMatchesBestCandidate: Number.isFinite(distancePilotHoldToBestCandidate) ? distancePilotHoldToBestCandidate <= 0.001 : null,
+    });
+  };
+  const markHeroOverviewPilotActivationTrace = (frame) => {
+    if (!import.meta.env.DEV) return;
+    getHeroOverviewPrePilotHeroTraceStore().pilotActivationFrame = frame;
+    getHeroOverviewVisibleCompositionTraceStore().pilotActivationFrame = frame;
+  };
+  const markHeroOverviewPilotFirstWriteTrace = (frame) => {
+    if (!import.meta.env.DEV) return;
+    const store = getHeroOverviewPrePilotHeroTraceStore();
+    if (store.pilotFirstWriteFrame == null) store.pilotFirstWriteFrame = frame;
+    const visibleStore = getHeroOverviewVisibleCompositionTraceStore();
+    if (visibleStore.pilotFirstWriteFrame == null) visibleStore.pilotFirstWriteFrame = frame;
+  };
+  const captureHeroOverviewRenderedHeroPose = ({ source, writerId, writerReason, state, lookAt = null, phase = 'hero' }) => {
+    const frameId = cameraFrameIndexRef.current || state.clock.frame || null;
+    const pose = cloneHeroOverviewLiveCameraPose(source, {
+      writerId,
+      writerReason,
+      frame: frameId,
+      t: state.clock.elapsedTime,
+      phase,
+      heroOrbitAngle: heroOrbitAngle.current,
+      heroPolarAngle: heroPolarAngleRef.current,
+      heroOrbitActive: Boolean(isOrbitingRef.current),
+      authoritativeHeroActive: writerId === 'AUTHORITATIVE_HERO',
+    });
+    if (lookAt?.isVector3) pose.lookAt = lookAt.clone();
+    if (writerId === 'AUTHORITATIVE_HERO') {
+      lastAuthoritativeHeroRenderedPoseRef.current = cloneHeroOverviewStoredPose(pose, source);
+    }
+    if (writerId === 'HERO_ORBIT' || writerId === 'AUTHORITATIVE_HERO') {
+      lastHeroOrbitRenderedPoseRef.current = cloneHeroOverviewStoredPose(pose, source);
+      lastVisibleHeroPoseRef.current = cloneHeroOverviewStoredPose(pose, source);
+    }
+    pushHeroOverviewPrePilotHeroTrace({
+      eventType: 'hero-writer-after-write',
+      frame: frameId,
+      t: round4(state.clock.elapsedTime),
+      state: animationData?.state ?? null,
+      cameraState: animationData?.cameraState ?? null,
+      viewMode: animationData?.viewMode ?? null,
+      phase,
+      selectedProject: animationData?.selectedProject ?? null,
+      writerId,
+      writerReason,
+      cameraPosition: vectorToPlain(pose.position),
+      cameraLookAt: vectorToPlain(pose.lookAt),
+      fov: round4(pose.fov),
+      filmOffset: round4(pose.filmOffset),
+      authoritativeHeroPose: heroOverviewPoseToPlain(lastAuthoritativeHeroRenderedPoseRef.current),
+      heroOrbitPose: heroOverviewPoseToPlain(lastHeroOrbitRenderedPoseRef.current),
+      finalCameraPoseAtEndOfFrame: heroOverviewPoseToPlain(pose),
+      distanceBetweenHeroOrbitAndAuthoritativeHero: round4(distanceBetweenHeroOverviewPoses(lastHeroOrbitRenderedPoseRef.current, lastAuthoritativeHeroRenderedPoseRef.current)),
+      heroOrbitAngle: round4(heroOrbitAngle.current),
+      heroPolarAngle: round4(heroPolarAngleRef.current),
+      heroOrbitActive: Boolean(isOrbitingRef.current),
+      authoritativeHeroActive: writerId === 'AUTHORITATIVE_HERO',
+    });
+    pushHeroOverviewVisibleCompositionSample({ eventType: 'hero-writer-after-write', state, phase, writerId, writerReason });
+    return pose;
   };
 
   const installOverviewProjectShadowHelpers = () => {
@@ -2379,6 +2756,14 @@ const UnifiedCameraController = ({
       const store = getHeroOverviewPilotDiagnosticsStore();
       store.samples = [];
       store.lastSummary = null;
+      const prePilotStore = getHeroOverviewPrePilotHeroTraceStore();
+      prePilotStore.rows = [];
+      prePilotStore.pilotActivationFrame = null;
+      prePilotStore.pilotFirstWriteFrame = null;
+      const visibleStore = getHeroOverviewVisibleCompositionTraceStore();
+      visibleStore.rows = [];
+      visibleStore.pilotActivationFrame = null;
+      visibleStore.pilotFirstWriteFrame = null;
       heroOverviewPilotRef.current = {
         active: false,
         key: null,
@@ -2399,7 +2784,8 @@ const UnifiedCameraController = ({
       const latest = store.samples[store.samples.length - 1] ?? null;
       const summary = {
         pilotEnabled: isHeroToOverviewPilotEnabled(),
-        pilotDiagnosticVersion: latest?.pilotDiagnosticVersion ?? 'PR-25-live-lookat-takeover-clear',
+        pilotDiagnosticVersion: latest?.pilotDiagnosticVersion ?? 'Milestone C live hold-pose lock',
+        pilotCinematicMilestone: latest?.pilotCinematicMilestone ?? heroOverviewPilotRef.current.transition?.pilotCinematicMilestone ?? 'Milestone C hold-pose lock',
         sampleCount: store.samples.length,
         captureAttempted: latest?.captureAttempted ?? false,
         captureSucceeded: latest?.captureSucceeded ?? false,
@@ -2414,6 +2800,27 @@ const UnifiedCameraController = ({
         ownsCameraInMilestoneB: latest?.ownsCameraInMilestoneB ?? heroOverviewPilotRef.current.transition?.ownsCameraInMilestoneB ?? false,
         phaseModel: HERO_OVERVIEW_PILOT_PHASES,
         phaseBehaviors: HERO_OVERVIEW_PILOT_PHASE_BEHAVIORS,
+        cameraTimeline: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE,
+        activationFromPoseSource: latest?.activationFromPoseSource ?? heroOverviewPilotRef.current.transition?.activationFromPoseSource ?? null,
+        activeHoldPoseSource: latest?.activeHoldPoseSource ?? heroOverviewPilotRef.current.transition?.activeHoldPoseSource ?? null,
+        holdPoseLockedAtFrame: latest?.holdPoseLockedAtFrame ?? heroOverviewPilotRef.current.transition?.holdPoseLockedAtFrame ?? null,
+        holdPoseLockedAtPhase: latest?.holdPoseLockedAtPhase ?? heroOverviewPilotRef.current.transition?.holdPoseLockedAtPhase ?? null,
+        holdPoseLockedAfterHeroOrbitWrite: latest?.holdPoseLockedAfterHeroOrbitWrite ?? heroOverviewPilotRef.current.transition?.holdPoseLockedAfterHeroOrbitWrite ?? null,
+        holdPosePositionDeltaFromLiveAtLock: latest?.holdPosePositionDeltaFromLiveAtLock ?? round4(heroOverviewPilotRef.current.transition?.holdPosePositionDeltaFromLiveAtLock),
+        holdPoseLookAtDeltaFromLiveAtLock: latest?.holdPoseLookAtDeltaFromLiveAtLock ?? round4(heroOverviewPilotRef.current.transition?.holdPoseLookAtDeltaFromLiveAtLock),
+        holdPoseQuaternionDeltaFromLiveAtLock: latest?.holdPoseQuaternionDeltaFromLiveAtLock ?? round4(heroOverviewPilotRef.current.transition?.holdPoseQuaternionDeltaFromLiveAtLock),
+        startLookAtJumpDistance: latest?.startLookAtJumpDistance ?? round4(heroOverviewPilotRef.current.transition?.startLookAtJumpDistance),
+        firstPilotWriteMovedCamera: latest?.firstPilotWriteMovedCamera ?? heroOverviewPilotRef.current.transition?.firstPilotWriteMovedCamera ?? null,
+        firstPilotWriteMoveDistance: latest?.firstPilotWriteMoveDistance ?? round4(heroOverviewPilotRef.current.transition?.firstPilotWriteMoveDistance),
+        respectsCurrentHeroOrbitPose: latest?.respectsCurrentHeroOrbitPose ?? heroOverviewPilotRef.current.transition?.respectsCurrentHeroOrbitPose ?? null,
+        orbitPhaseOrAngleAtCapture: latest?.orbitPhaseOrAngleAtCapture ?? heroOverviewPilotRef.current.transition?.orbitPhaseOrAngleAtCapture ?? null,
+        lastWriterBeforePilotLock: latest?.lastWriterBeforePilotLock ?? heroOverviewPilotRef.current.transition?.lastWriterBeforePilotLock ?? null,
+        lastHeroWriterBeforePilotLock: latest?.lastHeroWriterBeforePilotLock ?? heroOverviewPilotRef.current.transition?.lastHeroWriterBeforePilotLock ?? null,
+        distanceBetweenHeroOrbitAndAuthoritativeHero: latest?.distanceBetweenHeroOrbitAndAuthoritativeHero ?? round4(heroOverviewPilotRef.current.transition?.distanceBetweenHeroOrbitAndAuthoritativeHero),
+        distanceBetweenPilotHoldPoseAndHeroOrbit: latest?.distanceBetweenPilotHoldPoseAndHeroOrbit ?? round4(heroOverviewPilotRef.current.transition?.distanceBetweenPilotHoldPoseAndHeroOrbit),
+        distanceBetweenPilotHoldPoseAndAuthoritativeHero: latest?.distanceBetweenPilotHoldPoseAndAuthoritativeHero ?? round4(heroOverviewPilotRef.current.transition?.distanceBetweenPilotHoldPoseAndAuthoritativeHero),
+        doesPilotHoldMatchHeroOrbit: latest?.doesPilotHoldMatchHeroOrbit ?? heroOverviewPilotRef.current.transition?.doesPilotHoldMatchHeroOrbit ?? null,
+        doesPilotHoldMatchAuthoritativeHero: latest?.doesPilotHoldMatchAuthoritativeHero ?? heroOverviewPilotRef.current.transition?.doesPilotHoldMatchAuthoritativeHero ?? null,
         fromPoseSource: latest?.fromPoseSource ?? heroOverviewPilotRef.current.transition?.fromPoseSource ?? null,
         fromLookAtSource: latest?.fromLookAtSource ?? heroOverviewPilotRef.current.transition?.fromLookAtSource ?? null,
         targetResolved: Boolean(heroOverviewPilotRef.current.transition?.toPose),
@@ -2479,7 +2886,7 @@ const UnifiedCameraController = ({
       const restored = (completion?.upDeltaFromWorldUp ?? Number.POSITIVE_INFINITY) <= 0.0001;
       const completionClearedTakeoverFlags = samples.some((sample) => sample.takeoverFlagsClearedAtCompletion === true);
       const postPilotFractureReentryDetected = samples.some((sample) => sample.postPilotFractureReentryDetected === true);
-      const liveFromPose = samples.some((sample) => sample.fromPoseSource === 'live-camera-transform' && sample.fromLookAtSource === 'camera-world-direction');
+      const liveFromPose = samples.some((sample) => (sample.fromPoseSource === 'first-active-pilot-write-live-camera-transform' || sample.activeHoldPoseSource === 'first-active-pilot-write-live-camera-transform') && sample.fromLookAtSource === 'camera-world-direction');
       const summary = {
         sampleCount: samples.length,
         fromPoseUsedLiveCameraTransform: liveFromPose,
@@ -2604,6 +3011,328 @@ const UnifiedCameraController = ({
       });
       console.table(rows);
     };
+
+
+    globalThis.__clearHeroOverviewPrePilotHeroTrace = () => {
+      const store = getHeroOverviewPrePilotHeroTraceStore();
+      store.rows = [];
+      store.pilotActivationFrame = null;
+      store.pilotFirstWriteFrame = null;
+      console.log('[hero-overview-pre-pilot-trace] cleared');
+    };
+
+    globalThis.__clearHeroOverviewVisibleCompositionTrace = () => {
+      const store = getHeroOverviewVisibleCompositionTraceStore();
+      store.rows = [];
+      store.pilotActivationFrame = null;
+      store.pilotFirstWriteFrame = null;
+      console.log('[hero-overview-visible-composition] cleared');
+    };
+    globalThis.__printHeroOverviewVisibleCompositionTrace = () => {
+      const store = getHeroOverviewVisibleCompositionTraceStore();
+      const activationFrame = store.pilotActivationFrame;
+      const firstWriteFrame = store.pilotFirstWriteFrame;
+      const rows = store.rows.filter((row) => {
+        if (activationFrame == null && firstWriteFrame == null) return true;
+        const frame = row.frame ?? null;
+        if (frame == null) return true;
+        const lower = activationFrame != null ? activationFrame - 20 : (firstWriteFrame != null ? firstWriteFrame - 20 : frame);
+        const upper = firstWriteFrame != null ? firstWriteFrame + 10 : (activationFrame != null ? activationFrame + 10 : frame);
+        return frame >= lower && frame <= upper;
+      });
+      const vectorFromRow = (row, prefix) => {
+        const x = row?.[`${prefix}X`];
+        const y = row?.[`${prefix}Y`];
+        const z = row?.[`${prefix}Z`];
+        return Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(z) ? new THREE.Vector3(x, y, z) : null;
+      };
+      const distanceBetweenRows = (first, last, prefix) => {
+        const a = vectorFromRow(first, prefix);
+        const b = vectorFromRow(last, prefix);
+        return a && b ? round4(a.distanceTo(b)) : null;
+      };
+      const heroRows = rows.filter((row) => row.eventType === 'hero-writer-after-write');
+      const firstHero = heroRows[0] ?? null;
+      const lastHero = heroRows[heroRows.length - 1] ?? null;
+      const latestPilot = [...rows].reverse().find((row) => row.pilotHoldX != null || row.eventType === 'pilot-frame-after-write' || row.eventType === 'pilot-hold-pose-lock') ?? null;
+      const rawMove = distanceBetweenRows(firstHero, lastHero, 'rawCamera');
+      const worldMove = distanceBetweenRows(firstHero, lastHero, 'worldCamera');
+      const quaternionMove = firstHero && lastHero && Number.isFinite(firstHero.rawQuatX) && Number.isFinite(lastHero.rawQuatX)
+        ? round4(Math.abs(firstHero.rawQuatX - lastHero.rawQuatX) + Math.abs(firstHero.rawQuatY - lastHero.rawQuatY) + Math.abs(firstHero.rawQuatZ - lastHero.rawQuatZ) + Math.abs(firstHero.rawQuatW - lastHero.rawQuatW))
+        : null;
+      const filmOffsetMove = firstHero && lastHero && Number.isFinite(firstHero.rawFilmOffset) && Number.isFinite(lastHero.rawFilmOffset)
+        ? round4(Math.abs(firstHero.rawFilmOffset - lastHero.rawFilmOffset))
+        : null;
+      const nestedDistance = (a, b, field) => {
+        const av = a?.[field];
+        const bv = b?.[field];
+        if (!av || !bv) return null;
+        return round4(new THREE.Vector3(av.x, av.y, av.z).distanceTo(new THREE.Vector3(bv.x, bv.y, bv.z)));
+      };
+      const sceneRootMove = nestedDistance(firstHero, lastHero, 'sceneRootPosition');
+      const crystalGroupMove = nestedDistance(firstHero, lastHero, 'crystalGroupPosition');
+      const summary = {
+        sampleCount: rows.length,
+        pilotActivationFrame: activationFrame,
+        pilotFirstWriteFrame: firstWriteFrame,
+        rawCameraMovedDuringHeroOrbit: rawMove != null ? rawMove > 0.001 : null,
+        cameraWorldMovedDuringHeroOrbit: worldMove != null ? worldMove > 0.001 : null,
+        cameraQuaternionChangedDuringHeroOrbit: quaternionMove != null ? quaternionMove > 0.001 : null,
+        filmOffsetChangedDuringHeroOrbit: filmOffsetMove != null ? filmOffsetMove > 0.001 : null,
+        sceneRootMovedDuringHeroOrbit: sceneRootMove != null ? sceneRootMove > 0.001 : null,
+        crystalGroupMovedDuringHeroOrbit: crystalGroupMove != null ? crystalGroupMove > 0.001 : null,
+        rawCameraMoveDistanceDuringHeroOrbit: rawMove,
+        cameraWorldMoveDistanceDuringHeroOrbit: worldMove,
+        sceneRootMoveDistanceDuringHeroOrbit: sceneRootMove,
+        crystalGroupMoveDistanceDuringHeroOrbit: crystalGroupMove,
+        bestVisibleHeroPoseCandidate: latestPilot?.bestVisibleHeroPoseCandidate ?? null,
+        distancePilotHoldToBestCandidate: latestPilot?.distancePilotHoldToBestCandidate ?? null,
+        pilotHoldMatchesBestCandidate: latestPilot?.pilotHoldMatchesBestCandidate ?? null,
+        visibleOrbitLikelyCameraBased: (worldMove ?? rawMove ?? 0) > 0.001,
+        visibleOrbitLikelySceneBased: (sceneRootMove ?? 0) > 0.001 || (crystalGroupMove ?? 0) > 0.001,
+        visibleOrbitLikelyProjectionBased: (filmOffsetMove ?? 0) > 0.001,
+      };
+      console.log('[hero-overview-visible-composition] summary', summary);
+      console.table(rows.map((row) => ({
+        sampleIndex: row.sampleIndex,
+        eventType: row.eventType,
+        frame: row.frame,
+        t: row.t,
+        state: row.state,
+        cameraState: row.cameraState,
+        viewMode: row.viewMode,
+        phase: row.phase,
+        writerId: row.writerId,
+        writerReason: row.writerReason,
+        rawCameraX: row.rawCameraX,
+        rawCameraY: row.rawCameraY,
+        rawCameraZ: row.rawCameraZ,
+        worldCameraX: row.worldCameraX,
+        worldCameraY: row.worldCameraY,
+        worldCameraZ: row.worldCameraZ,
+        rawQuatX: row.rawQuatX,
+        rawQuatY: row.rawQuatY,
+        rawQuatZ: row.rawQuatZ,
+        rawQuatW: row.rawQuatW,
+        rawFov: row.rawFov,
+        rawFilmOffset: row.rawFilmOffset,
+        cameraParentName: row.cameraParentName,
+        cameraParentWorldPosition: row.cameraParentWorldPosition,
+        sceneRootPosition: row.sceneRootPosition,
+        crystalGroupPosition: row.crystalGroupPosition,
+        heroGroupPosition: row.heroGroupPosition,
+        heroOrbitAngle: row.heroOrbitAngle,
+        heroOrbitActive: row.heroOrbitActive,
+        currentTargetX: row.currentTargetX,
+        currentTargetY: row.currentTargetY,
+        currentTargetZ: row.currentTargetZ,
+        previousFrameX: row.previousFrameX,
+        previousFrameY: row.previousFrameY,
+        previousFrameZ: row.previousFrameZ,
+        pilotHoldX: row.pilotHoldX,
+        pilotHoldY: row.pilotHoldY,
+        pilotHoldZ: row.pilotHoldZ,
+        distancePilotHoldToRawCamera: row.distancePilotHoldToRawCamera,
+        distancePilotHoldToWorldCamera: row.distancePilotHoldToWorldCamera,
+        distancePilotHoldToCurrentTarget: row.distancePilotHoldToCurrentTarget,
+        distancePilotHoldToPreviousFramePose: row.distancePilotHoldToPreviousFramePose,
+        distancePilotHoldToHeroOrbitState: row.distancePilotHoldToHeroOrbitState,
+        bestVisibleHeroPoseCandidate: row.bestVisibleHeroPoseCandidate,
+        distancePilotHoldToBestCandidate: row.distancePilotHoldToBestCandidate,
+        pilotHoldMatchesBestCandidate: row.pilotHoldMatchesBestCandidate,
+      })));
+    };
+    globalThis.__printHeroOverviewPrePilotHeroTrace = () => {
+      const store = getHeroOverviewPrePilotHeroTraceStore();
+      const activationFrame = store.pilotActivationFrame;
+      const firstWriteFrame = store.pilotFirstWriteFrame;
+      const rows = store.rows.filter((row) => {
+        if (activationFrame == null && firstWriteFrame == null) return true;
+        const frame = row.frame ?? row.pilotFirstWriteFrame ?? row.pilotActivationFrame ?? null;
+        if (frame == null) return true;
+        const lower = activationFrame != null ? activationFrame - 10 : (firstWriteFrame != null ? firstWriteFrame - 10 : frame);
+        const upper = firstWriteFrame != null ? firstWriteFrame + 5 : (activationFrame != null ? activationFrame + 5 : frame);
+        return frame >= lower && frame <= upper;
+      });
+      const latestPilotSample = [...getHeroOverviewPilotDiagnosticsStore().samples].reverse()
+        .find((sample) => sample.type === 'pilot-frame' || sample.type === 'completion-handoff' || sample.type === 'pilot-completion-finalized') ?? null;
+      const summary = {
+        sampleCount: rows.length,
+        pilotActivationFrame: activationFrame,
+        pilotFirstWriteFrame: firstWriteFrame,
+        lastWriterBeforePilotLock: latestPilotSample?.holdPosePreviousWriter ?? null,
+        lastHeroWriterBeforePilotLock: latestPilotSample?.lastHeroWriterBeforePilotLock ?? null,
+        lastHeroOrbitPoseBeforePilotLock: latestPilotSample?.lastHeroOrbitPoseBeforePilotLock ?? null,
+        lastAuthoritativeHeroPoseBeforePilotLock: latestPilotSample?.lastAuthoritativeHeroPoseBeforePilotLock ?? null,
+        distanceBetweenHeroOrbitAndAuthoritativeHero: latestPilotSample?.distanceBetweenHeroOrbitAndAuthoritativeHero ?? null,
+        distanceBetweenPilotHoldPoseAndHeroOrbit: latestPilotSample?.distanceBetweenPilotHoldPoseAndHeroOrbit ?? null,
+        distanceBetweenPilotHoldPoseAndAuthoritativeHero: latestPilotSample?.distanceBetweenPilotHoldPoseAndAuthoritativeHero ?? null,
+        doesPilotHoldMatchHeroOrbit: latestPilotSample?.doesPilotHoldMatchHeroOrbit ?? null,
+        doesPilotHoldMatchAuthoritativeHero: latestPilotSample?.doesPilotHoldMatchAuthoritativeHero ?? null,
+        guardConflictExplanation: 'Previous AUTHORITATIVE_HERO <> heroOrbit conflicts were caused by duplicate DEV guard labels inside the AUTHORITATIVE_HERO path; the rendered hero pose trace now records actual writer poses and distances.',
+      };
+      console.log('[hero-overview-pre-pilot-trace] summary', summary);
+      console.table(rows.map((row) => ({
+        sampleIndex: row.sampleIndex,
+        eventType: row.eventType,
+        frame: row.frame,
+        t: row.t,
+        state: row.state,
+        cameraState: row.cameraState,
+        viewMode: row.viewMode,
+        phase: row.phase,
+        selectedProject: row.selectedProject,
+        writerId: row.writerId,
+        writerReason: row.writerReason,
+        cameraPosition: row.cameraPosition,
+        cameraLookAt: row.cameraLookAt,
+        fov: row.fov,
+        filmOffset: row.filmOffset,
+        authoritativeHeroPosition: row.authoritativeHeroPose?.position ?? null,
+        heroOrbitPosition: row.heroOrbitPose?.position ?? null,
+        finalCameraPosition: row.finalCameraPoseAtEndOfFrame?.position ?? null,
+        pilotActivationFrame: row.pilotActivationFrame ?? activationFrame,
+        pilotFirstWriteFrame: row.pilotFirstWriteFrame ?? firstWriteFrame,
+        pilotLockedHoldPose: row.pilotLockedHoldPose ?? null,
+        lastWriterBeforePilotLock: row.lastWriterBeforePilotLock ?? null,
+        lastHeroWriterBeforePilotLock: row.lastHeroWriterBeforePilotLock ?? null,
+        distanceBetweenHeroOrbitAndAuthoritativeHero: row.distanceBetweenHeroOrbitAndAuthoritativeHero,
+        distanceBetweenPilotHoldPoseAndHeroOrbit: row.distanceBetweenPilotHoldPoseAndHeroOrbit,
+        distanceBetweenPilotHoldPoseAndAuthoritativeHero: row.distanceBetweenPilotHoldPoseAndAuthoritativeHero,
+        doesPilotHoldMatchHeroOrbit: row.doesPilotHoldMatchHeroOrbit,
+        doesPilotHoldMatchAuthoritativeHero: row.doesPilotHoldMatchAuthoritativeHero,
+        heroOrbitAngle: row.heroOrbitAngle,
+        heroOrbitActive: row.heroOrbitActive,
+        authoritativeHeroActive: row.authoritativeHeroActive,
+      })));
+    };
+    globalThis.__printHeroOverviewPilotCinematic = () => {
+      const store = getHeroOverviewPilotDiagnosticsStore();
+      const samples = store.samples.filter((sample) => sample.type === 'pilot-frame' || sample.type === 'completion-handoff' || sample.type === 'pilot-completion-finalized');
+      if (!samples.length) return console.log('[hero-overview-pilot] cinematic-summary', { sampleCount: 0, pilotCinematicMilestone: 'Milestone C hold-pose lock' });
+      const latest = samples[samples.length - 1];
+      const movementThreshold = 0.001;
+      const phaseRows = (phase) => samples.filter((sample) => sample.phase === phase);
+      const distanceFromLatest = (phase, field) => latest?.[field] ?? phaseRows(phase).reduce((sum, sample) => sum + Number(sample.distanceMovedSincePreviousSample || 0), 0);
+      const firstTravelSample = samples.find((sample) => (sample.cameraTravelEasedProgress ?? 0) > 0.0001) ?? null;
+      const travelBeginsInOverviewTravel = firstTravelSample?.phase === 'overviewTravel';
+      const fractureChargeDistance = Number(distanceFromLatest('fractureCharge', 'distanceMovedDuringFractureCharge') ?? 0);
+      const explosionImpulseDistance = Number(distanceFromLatest('explosionImpulse', 'distanceMovedDuringExplosionImpulse') ?? 0);
+      const bulletTimeDistance = Number(distanceFromLatest('bulletTimeSlowdown', 'distanceMovedDuringBulletTimeSlowdown') ?? 0);
+      const overviewTravelDistance = Number(distanceFromLatest('overviewTravel', 'distanceMovedDuringOverviewTravel') ?? 0);
+      const overviewSettleDistance = Number(distanceFromLatest('overviewSettle', 'distanceMovedDuringOverviewSettle') ?? 0);
+      const pilotToLegacy = getPoseParityDeltas(heroOverviewPilotRef.current.transition?.toPose, getHeroOverviewLegacyFinalPose());
+      const finalTargetParityPasses = Boolean(
+        pilotToLegacy.positionDelta !== null && pilotToLegacy.positionDelta <= 0.001 &&
+        pilotToLegacy.lookAtDelta !== null && pilotToLegacy.lookAtDelta <= 0.001 &&
+        pilotToLegacy.fovDelta !== null && pilotToLegacy.fovDelta <= 0.001 &&
+        pilotToLegacy.filmOffsetDelta !== null && pilotToLegacy.filmOffsetDelta <= 0.001
+      );
+      const maxRollDelta = samples.reduce((max, sample) => Math.max(max, Number(sample.rollDeltaFromWorldUp || 0)), 0);
+      const maxUpDelta = samples.reduce((max, sample) => Math.max(max, Number(sample.upDeltaFromWorldUp || 0)), 0);
+      const competingWriterAppeared = samples.some((sample) => sample.competingWriterDetected === true);
+      const summary = {
+        pilotCinematicMilestone: 'Milestone C hold-pose lock',
+        sampleCount: samples.length,
+        cameraTimeline: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE,
+        holdPhases: HERO_OVERVIEW_PILOT_HOLD_PHASES,
+        holdPoseSource: latest?.activeHoldPoseSource ?? latest?.fromPoseSource ?? null,
+        activationFromPoseSource: latest?.activationFromPoseSource ?? null,
+        holdPoseLockedAtPhase: latest?.holdPoseLockedAtPhase ?? null,
+        holdPoseLockedAtFrame: latest?.holdPoseLockedAtFrame ?? null,
+        holdPoseLockedAfterHeroOrbitWrite: latest?.holdPoseLockedAfterHeroOrbitWrite ?? null,
+        startJumpDistance: latest?.startJumpDistance ?? null,
+        startLookAtJumpDistance: latest?.startLookAtJumpDistance ?? null,
+        firstPilotWriteMoveDistance: latest?.firstPilotWriteMoveDistance ?? null,
+        firstPilotWriteLiveCameraMoveDistance: latest?.firstPilotWriteLiveCameraMoveDistance ?? null,
+        firstPilotWriteMovedLiveCamera: latest?.firstPilotWriteMovedLiveCamera ?? null,
+        firstPilotWriteMovedCamera: latest?.firstPilotWriteMovedCamera ?? null,
+        respectsCurrentHeroOrbitPose: latest?.respectsCurrentHeroOrbitPose ?? null,
+        orbitPhaseOrAngleAtCapture: latest?.orbitPhaseOrAngleAtCapture ?? null,
+        lastWriterBeforePilotLock: latest?.lastWriterBeforePilotLock ?? null,
+        lastHeroWriterBeforePilotLock: latest?.lastHeroWriterBeforePilotLock ?? null,
+        lastHeroOrbitPoseBeforePilotLock: latest?.lastHeroOrbitPoseBeforePilotLock ?? null,
+        lastAuthoritativeHeroPoseBeforePilotLock: latest?.lastAuthoritativeHeroPoseBeforePilotLock ?? null,
+        distanceBetweenHeroOrbitAndAuthoritativeHero: latest?.distanceBetweenHeroOrbitAndAuthoritativeHero ?? null,
+        distanceBetweenPilotHoldPoseAndHeroOrbit: latest?.distanceBetweenPilotHoldPoseAndHeroOrbit ?? null,
+        distanceBetweenPilotHoldPoseAndAuthoritativeHero: latest?.distanceBetweenPilotHoldPoseAndAuthoritativeHero ?? null,
+        doesPilotHoldMatchHeroOrbit: latest?.doesPilotHoldMatchHeroOrbit ?? null,
+        doesPilotHoldMatchAuthoritativeHero: latest?.doesPilotHoldMatchAuthoritativeHero ?? null,
+        firstActualTravelPhase: firstTravelSample?.phase ?? null,
+        firstActualTravelFrame: firstTravelSample?.frame ?? null,
+        firstActualTravelGlobalProgress: firstTravelSample?.globalProgress ?? null,
+        configuredTravelStartProgress: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE.overviewTravel.start,
+        transitionTravelStartProgress: latest?.travelStartProgress ?? null,
+        transitionTravelStartTime: latest?.travelStartTime ?? null,
+        travelDuration: latest?.travelDuration ?? round4(HERO_OVERVIEW_PILOT_CAMERA_TIMELINE.overviewTravel.end - HERO_OVERVIEW_PILOT_CAMERA_TIMELINE.overviewTravel.start),
+        settleStartProgress: latest?.settleStartProgress ?? HERO_OVERVIEW_PILOT_CAMERA_TIMELINE.overviewSettle.start,
+        cameraDistanceMovedByPhase: {
+          fractureCharge: round4(fractureChargeDistance),
+          explosionImpulse: round4(explosionImpulseDistance),
+          bulletTimeSlowdown: round4(bulletTimeDistance),
+          overviewTravel: round4(overviewTravelDistance),
+          overviewSettle: round4(overviewSettleDistance),
+        },
+        fractureChargeStayedStill: fractureChargeDistance <= movementThreshold,
+        explosionImpulseStayedStill: explosionImpulseDistance <= movementThreshold,
+        bulletTimeSlowdownStayedStill: bulletTimeDistance <= movementThreshold,
+        travelBeginsInOverviewTravel,
+        finalTargetParityPasses,
+        rollUpGuardClean: maxRollDelta <= 0.0001 && maxUpDelta <= 0.0001,
+        maxRollDeltaDuringPilot: round4(maxRollDelta),
+        maxUpDeltaDuringPilot: round4(maxUpDelta),
+        competingWriterAppeared,
+        legacyForcedWriterBlocked: samples.some((sample) => sample.legacyForcedWriterBlocked === true),
+        fovChangedDuringHold: samples.some((sample) => sample.fovChangedDuringHold === true),
+        filmOffsetChangedDuringHold: samples.some((sample) => sample.filmOffsetChangedDuringHold === true),
+        finalPoseLocked: latest?.finalPoseLocked ?? false,
+      };
+      console.log('[hero-overview-pilot] cinematic-summary', summary);
+      console.table(samples.map((sample) => ({
+        type: sample.type ?? null,
+        frame: sample.frame ?? null,
+        phase: sample.phase ?? null,
+        cameraMode: sample.cameraMode ?? null,
+        activationFromPoseSource: sample.activationFromPoseSource ?? null,
+        activeHoldPoseSource: sample.activeHoldPoseSource ?? null,
+        holdPoseLockedAtFrame: sample.holdPoseLockedAtFrame ?? null,
+        holdPoseLockedAtPhase: sample.holdPoseLockedAtPhase ?? null,
+        startJumpDistance: sample.startJumpDistance ?? null,
+        startLookAtJumpDistance: sample.startLookAtJumpDistance ?? null,
+        firstPilotWriteMoveDistance: sample.firstPilotWriteMoveDistance ?? null,
+        firstPilotWriteLiveCameraMoveDistance: sample.firstPilotWriteLiveCameraMoveDistance ?? null,
+        firstPilotWriteMovedLiveCamera: sample.firstPilotWriteMovedLiveCamera ?? null,
+        firstPilotWriteMovedCamera: sample.firstPilotWriteMovedCamera ?? null,
+        respectsCurrentHeroOrbitPose: sample.respectsCurrentHeroOrbitPose ?? null,
+        lastWriterBeforePilotLock: sample.lastWriterBeforePilotLock ?? null,
+        lastHeroWriterBeforePilotLock: sample.lastHeroWriterBeforePilotLock ?? null,
+        distanceBetweenPilotHoldPoseAndHeroOrbit: sample.distanceBetweenPilotHoldPoseAndHeroOrbit ?? null,
+        distanceBetweenPilotHoldPoseAndAuthoritativeHero: sample.distanceBetweenPilotHoldPoseAndAuthoritativeHero ?? null,
+        doesPilotHoldMatchHeroOrbit: sample.doesPilotHoldMatchHeroOrbit ?? null,
+        doesPilotHoldMatchAuthoritativeHero: sample.doesPilotHoldMatchAuthoritativeHero ?? null,
+        globalProgress: sample.globalProgress ?? null,
+        phaseLocalProgress: sample.phaseLocalProgress ?? null,
+        cameraTravelProgress: sample.cameraTravelProgress ?? null,
+        cameraTravelEasedProgress: sample.cameraTravelEasedProgress ?? null,
+        cameraTravelEasing: sample.cameraTravelEasing ?? null,
+        isHoldingCamera: sample.isHoldingCamera ?? null,
+        finalPoseLocked: sample.finalPoseLocked ?? null,
+        distanceMovedDuringFractureCharge: sample.distanceMovedDuringFractureCharge ?? null,
+        distanceMovedDuringExplosionImpulse: sample.distanceMovedDuringExplosionImpulse ?? null,
+        distanceMovedDuringBulletTimeSlowdown: sample.distanceMovedDuringBulletTimeSlowdown ?? null,
+        distanceMovedDuringOverviewTravel: sample.distanceMovedDuringOverviewTravel ?? null,
+        distanceMovedDuringOverviewSettle: sample.distanceMovedDuringOverviewSettle ?? null,
+        fovChangedDuringHold: sample.fovChangedDuringHold ?? null,
+        filmOffsetChangedDuringHold: sample.filmOffsetChangedDuringHold ?? null,
+        activeToPoseSource: sample.activeToPoseSource ?? null,
+        activeToPoseFov: sample.activeToPoseFov ?? null,
+        activeToPoseFilmOffset: sample.activeToPoseFilmOffset ?? null,
+        rollDeltaFromWorldUp: sample.rollDeltaFromWorldUp ?? null,
+        upDeltaFromWorldUp: sample.upDeltaFromWorldUp ?? null,
+        competingWriterDetected: sample.competingWriterDetected ?? null,
+      })));
+    };
+
     globalThis.__markHeroOverviewVisualIssue = (description = 'visual-issue') => {
       const store = getHeroOverviewFullTimelineStore();
       store.markers.push({ t: round4(performance.now() / 1000), frame: null, description });
@@ -3179,8 +3908,10 @@ const UnifiedCameraController = ({
   };
 
   useFrame((state, delta) => {
+    cameraFrameIndexRef.current += 1;
+    const cameraFrameId = cameraFrameIndexRef.current;
     syncFractureTiltState(state.clock.elapsedTime);
-    beginCameraFrame(state.clock.frame, { elapsed: state.clock.elapsedTime, phase: animationData?.cameraState ?? null });
+    beginCameraFrame(cameraFrameId, { elapsed: state.clock.elapsedTime, phase: animationData?.cameraState ?? null });
 
     const debugSecond = Math.floor(state.clock.elapsedTime);
 
@@ -3290,7 +4021,7 @@ const UnifiedCameraController = ({
       pushHeroOverviewPilotSample({
         type: shouldStartHeroOverviewPilotScaffold ? 'activation-eligible' : 'activation-blocked',
         t: round4(state.clock.elapsedTime),
-        frame: state.clock.frame,
+        frame: cameraFrameIndexRef.current,
         activationKey: heroOverviewActivationKey,
         transitionKey: heroOverviewTransitionKey,
         pilotEnabled: true,
@@ -3563,6 +4294,8 @@ const UnifiedCameraController = ({
           startedAt: state.clock.elapsedTime,
           phaseModel: HERO_OVERVIEW_PILOT_PHASES,
           phaseBehaviors: HERO_OVERVIEW_PILOT_PHASE_BEHAVIORS,
+          cameraTimeline: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE,
+          pilotCinematicMilestone: 'Milestone C hold-pose lock',
           ownsCameraInMilestoneA: false,
           ownsCameraInMilestoneB: Boolean(resolvedOverview),
           legacyForcedWriterBlocked: Boolean(resolvedOverview),
@@ -3571,7 +4304,9 @@ const UnifiedCameraController = ({
           completed: false,
           duration: 1.45,
           startJumpDistance: 0,
-          fromPoseSource: 'live-camera-transform',
+          activationFromPoseSource: 'activation-intent-live-camera-transform',
+          activeHoldPoseSource: null,
+          fromPoseSource: 'activation-intent-live-camera-transform',
           fromLookAtSource: 'camera-world-direction',
           fromPose: {
             position: camera.position.clone(),
@@ -3579,6 +4314,7 @@ const UnifiedCameraController = ({
             fov: Number.isFinite(camera.fov) ? camera.fov : (currentTarget.current?.fov ?? 45),
             filmOffset: Number.isFinite(camera.filmOffset) ? camera.filmOffset : 0,
             up: camera.up.clone(),
+            quaternion: camera.quaternion.clone(),
           },
           targetUp: getCanonicalCameraUp(),
           completionUp: null,
@@ -3590,17 +4326,57 @@ const UnifiedCameraController = ({
           monotonicGlobalProgress: 0,
           fromPoseRecaptured: false,
           targetPoseRecalculated: false,
+          holdPoseLocked: false,
+          holdPoseLockedAtFrame: null,
+          holdPoseLockedAtPhase: null,
+          holdPoseLockedAfterHeroOrbitWrite: null,
+          holdPosePreviousWriter: null,
+          holdPosePreviousWriterReason: null,
+          liveCameraBeforeFirstPilotWrite: null,
+          liveLookAtBeforeFirstPilotWrite: null,
+          liveQuaternionBeforeFirstPilotWrite: null,
+          holdPosePositionDeltaFromLiveAtLock: null,
+          holdPoseLookAtDeltaFromLiveAtLock: null,
+          holdPoseQuaternionDeltaFromLiveAtLock: null,
+          startLookAtJumpDistance: null,
+          firstPilotWriteMovedCamera: null,
+          firstPilotWriteMoveDistance: null,
+          respectsCurrentHeroOrbitPose: null,
+          orbitPhaseOrAngleAtCapture: null,
+          lastWriterBeforePilotLock: null,
+          lastHeroWriterBeforePilotLock: null,
+          lastHeroOrbitPoseBeforePilotLock: null,
+          lastAuthoritativeHeroPoseBeforePilotLock: null,
+          distanceBetweenHeroOrbitAndAuthoritativeHero: null,
+          distanceBetweenPilotHoldPoseAndHeroOrbit: null,
+          distanceBetweenPilotHoldPoseAndAuthoritativeHero: null,
+          doesPilotHoldMatchHeroOrbit: null,
+          doesPilotHoldMatchAuthoritativeHero: null,
+          firstTravelFrame: null,
+          travelStartTime: null,
+          travelStartProgress: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE.overviewTravel.start,
+          travelDuration: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE.overviewTravel.end - HERO_OVERVIEW_PILOT_CAMERA_TIMELINE.overviewTravel.start,
+          settleStartProgress: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE.overviewSettle.start,
+          phaseDistanceMoved: getHeroOverviewPilotPhaseMetrics(),
+          previousCinematicCameraPosition: camera.position.clone(),
+          fovChangedDuringHold: false,
+          filmOffsetChangedDuringHold: false,
         },
       };
+      markHeroOverviewPilotActivationTrace(cameraFrameIndexRef.current);
       const pilotStore = getHeroOverviewPilotDiagnosticsStore();
       pilotStore.samples.push({
         type: 'milestone-a-scaffold-capture',
         t: round4(state.clock.elapsedTime),
-        frame: state.clock.frame,
+        frame: cameraFrameIndexRef.current,
         key: heroOverviewActivationKey,
         transitionKey: heroOverviewTransitionKey,
         pilotEnabled: isHeroToOverviewPilotEnabled(),
-        pilotDiagnosticVersion: 'PR-25-live-lookat-takeover-clear',
+        pilotDiagnosticVersion: 'Milestone C live hold-pose lock',
+        pilotCinematicMilestone: 'Milestone C hold-pose lock',
+        activationFromPoseSource: 'activation-intent-live-camera-transform',
+        activeHoldPoseSource: null,
+        cameraTimeline: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE,
         captureAttempted: true,
         captureSucceeded: Boolean(resolvedOverview),
         activationConditionMatched: true,
@@ -3622,7 +4398,7 @@ const UnifiedCameraController = ({
         ownsCameraInMilestoneA: false,
         ownsCameraInMilestoneB: Boolean(resolvedOverview),
         phaseModel: HERO_OVERVIEW_PILOT_PHASES.join(' -> '),
-        fromPoseSource: 'live-camera-transform',
+        fromPoseSource: 'activation-intent-live-camera-transform',
         fromLookAtSource: 'camera-world-direction',
         fromPosition: vectorToPlain(camera.position),
         fromLookAt: vectorToPlain(fromLookAt),
@@ -3663,7 +4439,31 @@ const UnifiedCameraController = ({
         targetCameraToLookAtDistance: resolvedOverview ? safeDistance(resolvedOverview.position, resolvedOverview.lookAt) : null,
         globalProgress: 0,
         monotonicGlobalProgress: 0,
+        phase: 'fractureCharge',
+        cameraMode: 'hold',
+        phaseStart: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE.fractureCharge.start,
+        phaseEnd: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE.fractureCharge.end,
         phaseProgress: 0,
+        phaseLocalProgress: 0,
+        cameraTravelProgress: 0,
+        cameraTravelEasedProgress: 0,
+        cameraTravelEasing: 'none',
+        heldCameraPosition: vectorToPlain(camera.position),
+        heldLookAt: vectorToPlain(fromLookAt),
+        isHoldingCamera: true,
+        firstTravelFrame: null,
+        travelStartTime: null,
+        travelStartProgress: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE.overviewTravel.start,
+        travelDuration: round4(HERO_OVERVIEW_PILOT_CAMERA_TIMELINE.overviewTravel.end - HERO_OVERVIEW_PILOT_CAMERA_TIMELINE.overviewTravel.start),
+        settleStartProgress: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE.overviewSettle.start,
+        finalPoseLocked: false,
+        distanceMovedDuringFractureCharge: 0,
+        distanceMovedDuringExplosionImpulse: 0,
+        distanceMovedDuringBulletTimeSlowdown: 0,
+        distanceMovedDuringOverviewTravel: 0,
+        distanceMovedDuringOverviewSettle: 0,
+        fovChangedDuringHold: false,
+        filmOffsetChangedDuringHold: false,
         runtimePhase: heroOverviewObservedPhase,
         progressSource: 'monotonic-run-progress:max(elapsed,runtime,explosion)',
         progressSourceUsedForCameraWrite: 'not-writing-on-capture-row',
@@ -3708,7 +4508,10 @@ const UnifiedCameraController = ({
             : null,
           phaseModel: HERO_OVERVIEW_PILOT_PHASES,
           phaseBehaviors: HERO_OVERVIEW_PILOT_PHASE_BEHAVIORS,
-          fromPoseSource: 'live-camera-transform',
+          cameraTimeline: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE,
+          pilotCinematicMilestone: 'Milestone C hold-pose lock',
+          fromPoseSource: 'activation-intent-live-camera-transform',
+          activeHoldPoseSource: null,
           ownsCameraInMilestoneA: false,
           ownsCameraInMilestoneB: Boolean(resolvedOverview),
           legacyForcedWriterBlocked: Boolean(resolvedOverview),
@@ -4457,12 +5260,150 @@ const UnifiedCameraController = ({
     if (heroOverviewPilotRef.current.active) {
       const pilot = heroOverviewPilotRef.current;
       const transition = pilot.transition;
-      const fromPose = transition?.fromPose;
+      let fromPose = transition?.fromPose;
       const ensuredTarget = ensureHeroOverviewPilotCameraWriteTarget(transition);
       const toPose = ensuredTarget.activeToPose;
-      if (!fromPose || !toPose) {
+      if (!transition || !toPose) {
         pilot.active = false;
       } else {
+        let holdPoseLockedThisFrame = false;
+        let livePoseBeforeFirstPilotWrite = null;
+        if (!transition.holdPoseLocked) {
+          livePoseBeforeFirstPilotWrite = cloneHeroOverviewLiveCameraPose('live-camera-before-first-pilot-write', {
+            frame: cameraFrameIndexRef.current,
+            t: state.clock.elapsedTime,
+            writerId: 'LIVE_CAMERA_BEFORE_PILOT',
+            writerReason: 'before-first-active-pilot-write',
+          });
+          const previousWriterBeforePilot = lastCameraWriterRef.current;
+          const previousReasonBeforePilot = lastCameraWriteReasonRef.current;
+          const lastVisibleHeroPose = cloneHeroOverviewStoredPose(lastVisibleHeroPoseRef.current, lastVisibleHeroPoseRef.current?.source ?? 'last-visible-hero-pose');
+          const lastHeroOrbitPose = cloneHeroOverviewStoredPose(lastHeroOrbitRenderedPoseRef.current, lastHeroOrbitRenderedPoseRef.current?.source ?? 'last-hero-orbit-pose');
+          const lastAuthoritativeHeroPose = cloneHeroOverviewStoredPose(lastAuthoritativeHeroRenderedPoseRef.current, lastAuthoritativeHeroRenderedPoseRef.current?.source ?? 'last-authoritative-hero-pose');
+          const heroPoseFrameDelta = Number.isFinite(lastVisibleHeroPose?.frame)
+            ? cameraFrameIndexRef.current - lastVisibleHeroPose.frame
+            : Number.POSITIVE_INFINITY;
+          const canUseLastVisibleHeroPose = Boolean(
+            lastVisibleHeroPose?.position &&
+            lastVisibleHeroPose?.lookAt &&
+            heroPoseFrameDelta >= 0 &&
+            heroPoseFrameDelta <= 30
+          );
+          const activeHoldPose = canUseLastVisibleHeroPose
+            ? cloneHeroOverviewStoredPose(lastVisibleHeroPose, `last-visible-hero-orbit-pose:${lastVisibleHeroPose.writerId ?? lastVisibleHeroPose.source ?? 'unknown'}`)
+            : cloneHeroOverviewLiveCameraPose('first-active-pilot-write-live-camera-transform', {
+                frame: cameraFrameIndexRef.current,
+                t: state.clock.elapsedTime,
+                writerId: 'LIVE_CAMERA_AT_PILOT_LOCK',
+                writerReason: 'fallback-live-camera-transform',
+              });
+          transition.activationFromPoseSource = transition.activationFromPoseSource ?? transition.fromPoseSource ?? 'activation-intent-live-camera-transform';
+          transition.activeHoldPoseSource = activeHoldPose.source;
+          transition.fromPoseSource = activeHoldPose.source;
+          transition.fromLookAtSource = canUseLastVisibleHeroPose ? 'last-visible-hero-rendered-lookAt' : 'camera-world-direction';
+          transition.fromPose = activeHoldPose;
+          transition.holdPose = activeHoldPose;
+          transition.holdPoseLocked = true;
+          transition.holdPoseLockedAtFrame = cameraFrameIndexRef.current;
+          transition.holdPoseLockedAtPhase = canUseLastVisibleHeroPose ? 'first-active-pilot-write:last-visible-hero-pose' : 'first-active-pilot-write:live-camera-fallback';
+          transition.holdPoseLockedAfterHeroOrbitWrite = previousWriterBeforePilot === 'AUTHORITATIVE_HERO' || previousWriterBeforePilot === 'HERO_ORBIT';
+          transition.holdPosePreviousWriter = previousWriterBeforePilot;
+          transition.holdPosePreviousWriterReason = previousReasonBeforePilot;
+          transition.lastWriterBeforePilotLock = previousWriterBeforePilot;
+          transition.lastHeroWriterBeforePilotLock = lastVisibleHeroPose?.writerId ?? null;
+          transition.liveCameraBeforeFirstPilotWrite = livePoseBeforeFirstPilotWrite.position.clone();
+          transition.liveLookAtBeforeFirstPilotWrite = livePoseBeforeFirstPilotWrite.lookAt.clone();
+          transition.liveQuaternionBeforeFirstPilotWrite = livePoseBeforeFirstPilotWrite.quaternion.clone();
+          transition.lastHeroOrbitPoseBeforePilotLock = lastHeroOrbitPose;
+          transition.lastAuthoritativeHeroPoseBeforePilotLock = lastAuthoritativeHeroPose;
+          transition.distanceBetweenHeroOrbitAndAuthoritativeHero = distanceBetweenHeroOverviewPoses(lastHeroOrbitPose, lastAuthoritativeHeroPose);
+          transition.distanceBetweenPilotHoldPoseAndHeroOrbit = distanceBetweenHeroOverviewPoses(activeHoldPose, lastHeroOrbitPose);
+          transition.distanceBetweenPilotHoldPoseAndAuthoritativeHero = distanceBetweenHeroOverviewPoses(activeHoldPose, lastAuthoritativeHeroPose);
+          transition.doesPilotHoldMatchHeroOrbit = Number.isFinite(transition.distanceBetweenPilotHoldPoseAndHeroOrbit)
+            ? transition.distanceBetweenPilotHoldPoseAndHeroOrbit <= 0.001
+            : null;
+          transition.doesPilotHoldMatchAuthoritativeHero = Number.isFinite(transition.distanceBetweenPilotHoldPoseAndAuthoritativeHero)
+            ? transition.distanceBetweenPilotHoldPoseAndAuthoritativeHero <= 0.001
+            : null;
+          transition.holdPosePositionDeltaFromLiveAtLock = activeHoldPose.position.distanceTo(livePoseBeforeFirstPilotWrite.position);
+          transition.holdPoseLookAtDeltaFromLiveAtLock = activeHoldPose.lookAt.distanceTo(livePoseBeforeFirstPilotWrite.lookAt);
+          transition.holdPoseQuaternionDeltaFromLiveAtLock = activeHoldPose.quaternion?.angleTo?.(livePoseBeforeFirstPilotWrite.quaternion) ?? null;
+          transition.startJumpDistance = Number.isFinite(transition.distanceBetweenPilotHoldPoseAndHeroOrbit)
+            ? transition.distanceBetweenPilotHoldPoseAndHeroOrbit
+            : transition.holdPosePositionDeltaFromLiveAtLock;
+          transition.startLookAtJumpDistance = Number.isFinite(transition.distanceBetweenPilotHoldPoseAndHeroOrbit)
+            ? (activeHoldPose.lookAt && lastHeroOrbitPose?.lookAt ? activeHoldPose.lookAt.distanceTo(lastHeroOrbitPose.lookAt) : null)
+            : transition.holdPoseLookAtDeltaFromLiveAtLock;
+          transition.firstPilotWriteMovedCamera = false;
+          transition.firstPilotWriteMoveDistance = 0;
+          transition.respectsCurrentHeroOrbitPose = transition.doesPilotHoldMatchHeroOrbit !== false;
+          transition.orbitPhaseOrAngleAtCapture = {
+            heroOrbitAngle: round4(activeHoldPose.heroOrbitAngle ?? heroOrbitAngle.current),
+            heroPolarAngle: round4(activeHoldPose.heroPolarAngle ?? heroPolarAngleRef.current),
+            orbitElapsed: Number.isFinite(state.clock.elapsedTime - heroOrbitStartTimeRef.current)
+              ? round4(state.clock.elapsedTime - heroOrbitStartTimeRef.current)
+              : null,
+            previousWriterBeforePilot,
+            previousReasonBeforePilot,
+            lastVisibleHeroPoseFrame: lastVisibleHeroPose?.frame ?? null,
+            lastVisibleHeroPoseWriter: lastVisibleHeroPose?.writerId ?? null,
+            heroPoseFrameDelta: Number.isFinite(heroPoseFrameDelta) ? heroPoseFrameDelta : null,
+            latestAuthoritativeHeroAngle: round4(latestAuthoritativeHeroSnapshotRef.current?.angle),
+            latestAuthoritativeHeroOrbitElapsed: round4(latestAuthoritativeHeroSnapshotRef.current?.orbitElapsed),
+          };
+          markHeroOverviewPilotFirstWriteTrace(cameraFrameIndexRef.current);
+          pushHeroOverviewVisibleCompositionSample({
+            eventType: 'pilot-hold-pose-lock',
+            state,
+            phase: 'hero->overview',
+            writerId: 'HERO_OVERVIEW_PILOT',
+            writerReason: 'first-active-pilot-write-hold-pose-lock',
+            pilotHoldPose: activeHoldPose,
+          });
+          pushHeroOverviewPrePilotHeroTrace({
+            eventType: 'pilot-hold-pose-lock',
+            frame: cameraFrameIndexRef.current,
+            t: round4(state.clock.elapsedTime),
+            state: animationData?.state ?? null,
+            cameraState: animationData?.cameraState ?? null,
+            viewMode: animationData?.viewMode ?? null,
+            phase: 'hero->overview',
+            selectedProject: animationData?.selectedProject ?? null,
+            writerId: 'HERO_OVERVIEW_PILOT',
+            writerReason: 'first-active-pilot-write-hold-pose-lock',
+            cameraPosition: vectorToPlain(camera.position),
+            cameraLookAt: vectorToPlain(livePoseBeforeFirstPilotWrite.lookAt),
+            fov: round4(camera.fov),
+            filmOffset: round4(camera.filmOffset),
+            authoritativeHeroPose: heroOverviewPoseToPlain(lastAuthoritativeHeroPose),
+            heroOrbitPose: heroOverviewPoseToPlain(lastHeroOrbitPose),
+            finalCameraPoseAtEndOfFrame: null,
+            pilotActivationFrame: getHeroOverviewPrePilotHeroTraceStore().pilotActivationFrame,
+            pilotFirstWriteFrame: cameraFrameIndexRef.current,
+            pilotLockedHoldPose: heroOverviewPoseToPlain(activeHoldPose),
+            lastWriterBeforePilotLock: previousWriterBeforePilot,
+            lastHeroWriterBeforePilotLock: lastVisibleHeroPose?.writerId ?? null,
+            lastHeroOrbitPoseBeforePilotLock: heroOverviewPoseToPlain(lastHeroOrbitPose),
+            lastAuthoritativeHeroPoseBeforePilotLock: heroOverviewPoseToPlain(lastAuthoritativeHeroPose),
+            distanceBetweenHeroOrbitAndAuthoritativeHero: round4(transition.distanceBetweenHeroOrbitAndAuthoritativeHero),
+            distanceBetweenPilotHoldPoseAndHeroOrbit: round4(transition.distanceBetweenPilotHoldPoseAndHeroOrbit),
+            distanceBetweenPilotHoldPoseAndAuthoritativeHero: round4(transition.distanceBetweenPilotHoldPoseAndAuthoritativeHero),
+            doesPilotHoldMatchHeroOrbit: transition.doesPilotHoldMatchHeroOrbit,
+            doesPilotHoldMatchAuthoritativeHero: transition.doesPilotHoldMatchAuthoritativeHero,
+            heroOrbitAngle: round4(activeHoldPose.heroOrbitAngle ?? heroOrbitAngle.current),
+            heroOrbitActive: Boolean(lastVisibleHeroPose?.heroOrbitActive),
+            authoritativeHeroActive: lastVisibleHeroPose?.writerId === 'AUTHORITATIVE_HERO',
+          });
+          transition.previousCinematicCameraPosition = activeHoldPose.position.clone();
+          fromPose = transition.fromPose;
+          holdPoseLockedThisFrame = true;
+        } else {
+          fromPose = transition.fromPose;
+        }
+        if (!fromPose) {
+          pilot.active = false;
+          return;
+        }
         const runtimeSnapshot = heroOverviewRuntime?.getSnapshot?.() ?? null;
         const explosionClock = heroOverviewExplosionClockRef?.current ?? null;
         const elapsedProgress = THREE.MathUtils.clamp(
@@ -4486,30 +5427,69 @@ const UnifiedCameraController = ({
         const monotonicGlobalProgress = Math.max(previousMonotonicProgress, progressCandidate);
         transition.monotonicGlobalProgress = monotonicGlobalProgress;
         const globalProgress = THREE.MathUtils.clamp(monotonicGlobalProgress, 0, 1);
-        const easedProgress = THREE.MathUtils.clamp(globalProgress >= 1 ? 1 : 1 - (2 ** (-10 * globalProgress)), 0, 1);
         const runtimePhase = runtimeSnapshot?.phase ?? null;
-        const pilotPhase = globalProgress >= 1
-          ? 'complete'
-          : (runtimePhase === 'fractureCharge' || runtimePhase === 'explosionImpulse' || runtimePhase === 'bulletTimeSlowdown'
-              ? runtimePhase
-              : (globalProgress < 0.94 ? 'overviewTravel' : 'overviewSettle'));
-        const phaseProgress = pilotPhase === 'complete' ? 1 : easedProgress;
+        const cinematicProgress = getHeroOverviewPilotCameraProgress(globalProgress);
+        const pilotPhase = globalProgress >= 1 ? 'complete' : cinematicProgress.phaseName;
+        const phaseProgress = cinematicProgress.phaseLocalProgress;
         if (authoritativeHeroToOverviewTransitionRef.current.active) {
           authoritativeHeroToOverviewTransitionRef.current.active = false;
           transition.blockedLegacyWriterCount = (transition.blockedLegacyWriterCount ?? 0) + 1;
         }
-        const nextPosition = new THREE.Vector3().lerpVectors(fromPose.position, toPose.position, easedProgress);
-        const nextLookAt = introLookAtTempRef.current.lerpVectors(fromPose.lookAt, toPose.lookAt, easedProgress);
         const fromFov = Number.isFinite(fromPose.fov) ? fromPose.fov : camera.fov;
         const toFov = Number.isFinite(toPose.fov) ? toPose.fov : fromFov;
         const fromFilmOffset = Number.isFinite(fromPose.filmOffset) ? fromPose.filmOffset : 0;
         const toFilmOffset = Number.isFinite(toPose.filmOffset) ? toPose.filmOffset : 0;
+        const isFinalPoseLocked = !holdPoseLockedThisFrame && (globalProgress >= 1 || pilotPhase === 'overviewSettle' || pilotPhase === 'complete');
+        const cameraTravelEasedProgress = holdPoseLockedThisFrame
+          ? 0
+          : (isFinalPoseLocked ? 1 : cinematicProgress.cameraTravelEasedProgress);
+        const nextPosition = isFinalPoseLocked
+          ? toPose.position.clone()
+          : new THREE.Vector3().lerpVectors(fromPose.position, toPose.position, cameraTravelEasedProgress);
+        const nextLookAt = isFinalPoseLocked
+          ? toPose.lookAt.clone()
+          : introLookAtTempRef.current.lerpVectors(fromPose.lookAt, toPose.lookAt, cameraTravelEasedProgress);
+        const nextFov = isFinalPoseLocked ? toFov : THREE.MathUtils.lerp(fromFov, toFov, cameraTravelEasedProgress);
+        const nextFilmOffset = isFinalPoseLocked ? toFilmOffset : THREE.MathUtils.lerp(fromFilmOffset, toFilmOffset, cameraTravelEasedProgress);
+        if (transition.firstTravelFrame == null && cameraTravelEasedProgress > 0.0001) {
+          transition.firstTravelFrame = cameraFrameIndexRef.current;
+          transition.travelStartTime = state.clock.elapsedTime;
+          transition.travelStartProgress = globalProgress;
+        }
+        if (cinematicProgress.isHoldingCamera) {
+          if (Math.abs(nextFov - fromFov) > 0.0001) transition.fovChangedDuringHold = true;
+          if (Math.abs((nextFilmOffset ?? 0) - (fromFilmOffset ?? 0)) > 0.0001) transition.filmOffsetChangedDuringHold = true;
+        }
+        const movedThisFrame = transition.previousCinematicCameraPosition
+          ? nextPosition.distanceTo(transition.previousCinematicCameraPosition)
+          : 0;
+        const distancePhase = pilotPhase === 'complete' ? 'overviewSettle' : pilotPhase;
+        transition.phaseDistanceMoved = transition.phaseDistanceMoved ?? getHeroOverviewPilotPhaseMetrics();
+        if (transition.phaseDistanceMoved[distancePhase] != null) {
+          transition.phaseDistanceMoved[distancePhase] += movedThisFrame;
+        }
+        transition.previousCinematicCameraPosition = nextPosition.clone();
         const upCorrection = applyCanonicalCameraUp();
         camera.position.copy(nextPosition);
         camera.lookAt(nextLookAt);
-        camera.fov = THREE.MathUtils.lerp(fromFov, toFov, easedProgress);
-        camera.filmOffset = THREE.MathUtils.lerp(fromFilmOffset, toFilmOffset, easedProgress);
+        camera.fov = nextFov;
+        camera.filmOffset = nextFilmOffset;
         camera.updateProjectionMatrix();
+        if (holdPoseLockedThisFrame && livePoseBeforeFirstPilotWrite) {
+          const firstPilotWriteLiveCameraMoveDistance = camera.position.distanceTo(livePoseBeforeFirstPilotWrite.position);
+          const firstPilotWriteLiveLookAtMoveDistance = nextLookAt.distanceTo(livePoseBeforeFirstPilotWrite.lookAt);
+          transition.firstPilotWriteLiveCameraMoveDistance = firstPilotWriteLiveCameraMoveDistance;
+          transition.firstPilotWriteLiveLookAtMoveDistance = firstPilotWriteLiveLookAtMoveDistance;
+          transition.firstPilotWriteMovedLiveCamera = firstPilotWriteLiveCameraMoveDistance > 0.001 || firstPilotWriteLiveLookAtMoveDistance > 0.001;
+          transition.firstPilotWriteMoveDistance = Number.isFinite(transition.distanceBetweenPilotHoldPoseAndHeroOrbit)
+            ? transition.distanceBetweenPilotHoldPoseAndHeroOrbit
+            : firstPilotWriteLiveCameraMoveDistance;
+          transition.firstPilotWriteLookAtMoveDistance = Number.isFinite(transition.startLookAtJumpDistance)
+            ? transition.startLookAtJumpDistance
+            : firstPilotWriteLiveLookAtMoveDistance;
+          transition.firstPilotWriteMovedCamera = transition.firstPilotWriteMoveDistance > 0.001 || transition.firstPilotWriteLookAtMoveDistance > 0.001;
+          transition.respectsCurrentHeroOrbitPose = transition.doesPilotHoldMatchHeroOrbit !== false;
+        }
         currentTarget.current.position.copy(nextPosition);
         currentTarget.current.lookAt.copy(nextLookAt);
         currentTarget.current.fov = camera.fov;
@@ -4525,16 +5505,116 @@ const UnifiedCameraController = ({
         const distanceToTarget = safeDistance(camera.position, toPose.position);
         const lookAtDeltaToTarget = safeDistance(nextLookAt, toPose.lookAt);
         const filmOffsetDeltaToTarget = round4(Math.abs((camera.filmOffset ?? 0) - (toFilmOffset ?? 0)));
+        const prePilotTraceStore = getHeroOverviewPrePilotHeroTraceStore();
+        if (prePilotTraceStore.pilotFirstWriteFrame != null && cameraFrameIndexRef.current <= prePilotTraceStore.pilotFirstWriteFrame + 5) {
+          pushHeroOverviewPrePilotHeroTrace({
+            eventType: 'pilot-frame-after-write',
+            frame: cameraFrameIndexRef.current,
+            t: round4(state.clock.elapsedTime),
+            state: animationData?.state ?? null,
+            cameraState: animationData?.cameraState ?? null,
+            viewMode: animationData?.viewMode ?? null,
+            phase: pilotPhase,
+            selectedProject: animationData?.selectedProject ?? null,
+            writerId: 'HERO_OVERVIEW_PILOT',
+            writerReason: 'hero-overview-pilot-active',
+            cameraPosition: vectorToPlain(camera.position),
+            cameraLookAt: vectorToPlain(nextLookAt),
+            fov: round4(camera.fov),
+            filmOffset: round4(camera.filmOffset),
+            authoritativeHeroPose: heroOverviewPoseToPlain(transition.lastAuthoritativeHeroPoseBeforePilotLock),
+            heroOrbitPose: heroOverviewPoseToPlain(transition.lastHeroOrbitPoseBeforePilotLock),
+            finalCameraPoseAtEndOfFrame: heroOverviewPoseToPlain(cloneHeroOverviewLiveCameraPose('pilot-frame-after-write', { writerId: 'HERO_OVERVIEW_PILOT', writerReason: 'hero-overview-pilot-active', frame: cameraFrameIndexRef.current, t: state.clock.elapsedTime })),
+            pilotActivationFrame: prePilotTraceStore.pilotActivationFrame,
+            pilotFirstWriteFrame: prePilotTraceStore.pilotFirstWriteFrame,
+            pilotLockedHoldPose: heroOverviewPoseToPlain(transition.fromPose),
+            lastWriterBeforePilotLock: transition.lastWriterBeforePilotLock ?? null,
+            lastHeroWriterBeforePilotLock: transition.lastHeroWriterBeforePilotLock ?? null,
+            lastHeroOrbitPoseBeforePilotLock: heroOverviewPoseToPlain(transition.lastHeroOrbitPoseBeforePilotLock),
+            lastAuthoritativeHeroPoseBeforePilotLock: heroOverviewPoseToPlain(transition.lastAuthoritativeHeroPoseBeforePilotLock),
+            distanceBetweenHeroOrbitAndAuthoritativeHero: round4(transition.distanceBetweenHeroOrbitAndAuthoritativeHero),
+            distanceBetweenPilotHoldPoseAndHeroOrbit: round4(transition.distanceBetweenPilotHoldPoseAndHeroOrbit),
+            distanceBetweenPilotHoldPoseAndAuthoritativeHero: round4(transition.distanceBetweenPilotHoldPoseAndAuthoritativeHero),
+            doesPilotHoldMatchHeroOrbit: transition.doesPilotHoldMatchHeroOrbit,
+            doesPilotHoldMatchAuthoritativeHero: transition.doesPilotHoldMatchAuthoritativeHero,
+            heroOrbitAngle: round4(transition.fromPose?.heroOrbitAngle ?? heroOrbitAngle.current),
+            heroOrbitActive: Boolean(transition.lastHeroOrbitPoseBeforePilotLock?.heroOrbitActive),
+            authoritativeHeroActive: transition.lastHeroWriterBeforePilotLock === 'AUTHORITATIVE_HERO',
+          });
+          pushHeroOverviewVisibleCompositionSample({
+            eventType: 'pilot-frame-after-write',
+            state,
+            phase: pilotPhase,
+            writerId: 'HERO_OVERVIEW_PILOT',
+            writerReason: 'hero-overview-pilot-active',
+            pilotHoldPose: transition.fromPose,
+          });
+        }
         pushHeroOverviewPilotSample({
           type: globalProgress >= 1 ? 'completion-handoff' : 'pilot-frame',
-          pilotDiagnosticVersion: 'PR-25-live-lookat-takeover-clear',
+          pilotDiagnosticVersion: 'Milestone C live hold-pose lock',
+          pilotCinematicMilestone: 'Milestone C hold-pose lock',
           t: round4(state.clock.elapsedTime),
-          frame: state.clock.frame,
+          frame: cameraFrameIndexRef.current,
           key: pilot.key,
+          activationFromPoseSource: transition.activationFromPoseSource ?? null,
+          activeHoldPoseSource: transition.activeHoldPoseSource ?? null,
           fromPoseSource: transition.fromPoseSource ?? null,
           fromLookAtSource: transition.fromLookAtSource ?? null,
+          holdPoseLockedAtFrame: transition.holdPoseLockedAtFrame ?? null,
+          holdPoseLockedAtPhase: transition.holdPoseLockedAtPhase ?? null,
+          holdPoseLockedAfterHeroOrbitWrite: transition.holdPoseLockedAfterHeroOrbitWrite ?? null,
+          holdPosePreviousWriter: transition.holdPosePreviousWriter ?? null,
+          holdPosePreviousWriterReason: transition.holdPosePreviousWriterReason ?? null,
+          orbitPhaseOrAngleAtCapture: transition.orbitPhaseOrAngleAtCapture ?? null,
+          lastWriterBeforePilotLock: transition.lastWriterBeforePilotLock ?? null,
+          lastHeroWriterBeforePilotLock: transition.lastHeroWriterBeforePilotLock ?? null,
+          lastHeroOrbitPoseBeforePilotLock: heroOverviewPoseToPlain(transition.lastHeroOrbitPoseBeforePilotLock),
+          lastAuthoritativeHeroPoseBeforePilotLock: heroOverviewPoseToPlain(transition.lastAuthoritativeHeroPoseBeforePilotLock),
+          distanceBetweenHeroOrbitAndAuthoritativeHero: round4(transition.distanceBetweenHeroOrbitAndAuthoritativeHero),
+          distanceBetweenPilotHoldPoseAndHeroOrbit: round4(transition.distanceBetweenPilotHoldPoseAndHeroOrbit),
+          distanceBetweenPilotHoldPoseAndAuthoritativeHero: round4(transition.distanceBetweenPilotHoldPoseAndAuthoritativeHero),
+          doesPilotHoldMatchHeroOrbit: transition.doesPilotHoldMatchHeroOrbit,
+          doesPilotHoldMatchAuthoritativeHero: transition.doesPilotHoldMatchAuthoritativeHero,
+          ...flattenVector('liveCameraBeforeFirstPilotWrite', transition.liveCameraBeforeFirstPilotWrite),
+          ...flattenVector('liveLookAtBeforeFirstPilotWrite', transition.liveLookAtBeforeFirstPilotWrite),
+          ...flattenVector('heldCamera', fromPose.position),
+          ...flattenVector('heldLookAt', fromPose.lookAt),
+          holdPosePositionDeltaFromLiveAtLock: round4(transition.holdPosePositionDeltaFromLiveAtLock),
+          holdPoseLookAtDeltaFromLiveAtLock: round4(transition.holdPoseLookAtDeltaFromLiveAtLock),
+          holdPoseQuaternionDeltaFromLiveAtLock: round4(transition.holdPoseQuaternionDeltaFromLiveAtLock),
+          startJumpDistance: round4(transition.startJumpDistance),
+          startLookAtJumpDistance: round4(transition.startLookAtJumpDistance),
+          firstPilotWriteMovedCamera: transition.firstPilotWriteMovedCamera,
+          firstPilotWriteMoveDistance: round4(transition.firstPilotWriteMoveDistance),
+          firstPilotWriteLiveCameraMoveDistance: round4(transition.firstPilotWriteLiveCameraMoveDistance),
+          firstPilotWriteMovedLiveCamera: transition.firstPilotWriteMovedLiveCamera,
+          respectsCurrentHeroOrbitPose: transition.respectsCurrentHeroOrbitPose,
           phase: pilotPhase,
+          cameraMode: cinematicProgress.cameraMode,
+          phaseStart: round4(cinematicProgress.phaseStart),
+          phaseEnd: round4(cinematicProgress.phaseEnd),
           phaseProgress: round4(phaseProgress),
+          phaseLocalProgress: round4(cinematicProgress.phaseLocalProgress),
+          cameraTravelProgress: round4(cinematicProgress.cameraTravelProgress),
+          cameraTravelEasedProgress: round4(cameraTravelEasedProgress),
+          cameraTravelEasing: cinematicProgress.cameraTravelEasing,
+          heldCameraPosition: cinematicProgress.isHoldingCamera ? vectorToPlain(fromPose.position) : null,
+          heldLookAt: cinematicProgress.isHoldingCamera ? vectorToPlain(fromPose.lookAt) : null,
+          isHoldingCamera: cinematicProgress.isHoldingCamera,
+          firstTravelFrame: transition.firstTravelFrame,
+          travelStartTime: round4(transition.travelStartTime),
+          travelStartProgress: round4(transition.travelStartProgress),
+          travelDuration: round4(transition.travelDuration),
+          settleStartProgress: round4(transition.settleStartProgress),
+          finalPoseLocked: isFinalPoseLocked,
+          distanceMovedDuringFractureCharge: round4(transition.phaseDistanceMoved?.fractureCharge ?? 0),
+          distanceMovedDuringExplosionImpulse: round4(transition.phaseDistanceMoved?.explosionImpulse ?? 0),
+          distanceMovedDuringBulletTimeSlowdown: round4(transition.phaseDistanceMoved?.bulletTimeSlowdown ?? 0),
+          distanceMovedDuringOverviewTravel: round4(transition.phaseDistanceMoved?.overviewTravel ?? 0),
+          distanceMovedDuringOverviewSettle: round4(transition.phaseDistanceMoved?.overviewSettle ?? 0),
+          fovChangedDuringHold: Boolean(transition.fovChangedDuringHold),
+          filmOffsetChangedDuringHold: Boolean(transition.filmOffsetChangedDuringHold),
           globalProgress: round4(globalProgress),
           monotonicGlobalProgress: round4(monotonicGlobalProgress),
           rawSharedProgress: round4(rawSharedProgress),
@@ -4673,13 +5753,68 @@ const UnifiedCameraController = ({
           heroToOverviewHandoffLockFramesRef.current = HERO_TO_OVERVIEW_HANDOFF_LOCK_FRAMES;
           pushHeroOverviewPilotSample({
             type: 'pilot-completion-finalized',
-            pilotDiagnosticVersion: 'PR-25-live-lookat-takeover-clear',
+            pilotDiagnosticVersion: 'Milestone C live hold-pose lock',
+            pilotCinematicMilestone: 'Milestone C hold-pose lock',
             t: round4(state.clock.elapsedTime),
-            frame: state.clock.frame,
+            frame: cameraFrameIndexRef.current,
             key: pilot.key,
+            activationFromPoseSource: transition.activationFromPoseSource ?? null,
+            activeHoldPoseSource: transition.activeHoldPoseSource ?? null,
             fromPoseSource: transition.fromPoseSource ?? null,
             fromLookAtSource: transition.fromLookAtSource ?? null,
+            holdPoseLockedAtFrame: transition.holdPoseLockedAtFrame ?? null,
+            holdPoseLockedAtPhase: transition.holdPoseLockedAtPhase ?? null,
+            holdPoseLockedAfterHeroOrbitWrite: transition.holdPoseLockedAfterHeroOrbitWrite ?? null,
+            holdPosePreviousWriter: transition.holdPosePreviousWriter ?? null,
+            holdPosePreviousWriterReason: transition.holdPosePreviousWriterReason ?? null,
+            orbitPhaseOrAngleAtCapture: transition.orbitPhaseOrAngleAtCapture ?? null,
+            lastWriterBeforePilotLock: transition.lastWriterBeforePilotLock ?? null,
+            lastHeroWriterBeforePilotLock: transition.lastHeroWriterBeforePilotLock ?? null,
+            lastHeroOrbitPoseBeforePilotLock: heroOverviewPoseToPlain(transition.lastHeroOrbitPoseBeforePilotLock),
+            lastAuthoritativeHeroPoseBeforePilotLock: heroOverviewPoseToPlain(transition.lastAuthoritativeHeroPoseBeforePilotLock),
+            distanceBetweenHeroOrbitAndAuthoritativeHero: round4(transition.distanceBetweenHeroOrbitAndAuthoritativeHero),
+            distanceBetweenPilotHoldPoseAndHeroOrbit: round4(transition.distanceBetweenPilotHoldPoseAndHeroOrbit),
+            distanceBetweenPilotHoldPoseAndAuthoritativeHero: round4(transition.distanceBetweenPilotHoldPoseAndAuthoritativeHero),
+            doesPilotHoldMatchHeroOrbit: transition.doesPilotHoldMatchHeroOrbit,
+            doesPilotHoldMatchAuthoritativeHero: transition.doesPilotHoldMatchAuthoritativeHero,
+            ...flattenVector('liveCameraBeforeFirstPilotWrite', transition.liveCameraBeforeFirstPilotWrite),
+            ...flattenVector('liveLookAtBeforeFirstPilotWrite', transition.liveLookAtBeforeFirstPilotWrite),
+            ...flattenVector('heldCamera', transition.fromPose?.position),
+            ...flattenVector('heldLookAt', transition.fromPose?.lookAt),
+            holdPosePositionDeltaFromLiveAtLock: round4(transition.holdPosePositionDeltaFromLiveAtLock),
+            holdPoseLookAtDeltaFromLiveAtLock: round4(transition.holdPoseLookAtDeltaFromLiveAtLock),
+            holdPoseQuaternionDeltaFromLiveAtLock: round4(transition.holdPoseQuaternionDeltaFromLiveAtLock),
+            startJumpDistance: round4(transition.startJumpDistance),
+            startLookAtJumpDistance: round4(transition.startLookAtJumpDistance),
+            firstPilotWriteMovedCamera: transition.firstPilotWriteMovedCamera,
+            firstPilotWriteMoveDistance: round4(transition.firstPilotWriteMoveDistance),
+            firstPilotWriteLiveCameraMoveDistance: round4(transition.firstPilotWriteLiveCameraMoveDistance),
+            firstPilotWriteMovedLiveCamera: transition.firstPilotWriteMovedLiveCamera,
+            respectsCurrentHeroOrbitPose: transition.respectsCurrentHeroOrbitPose,
             phase: 'complete',
+            cameraMode: 'complete',
+            phaseStart: 1,
+            phaseEnd: 1,
+            phaseLocalProgress: 1,
+            cameraTravelProgress: 1,
+            cameraTravelEasedProgress: 1,
+            cameraTravelEasing: 'complete',
+            heldCameraPosition: null,
+            heldLookAt: null,
+            isHoldingCamera: false,
+            firstTravelFrame: transition.firstTravelFrame,
+            travelStartTime: round4(transition.travelStartTime),
+            travelStartProgress: round4(transition.travelStartProgress),
+            travelDuration: round4(transition.travelDuration),
+            settleStartProgress: round4(transition.settleStartProgress),
+            finalPoseLocked: true,
+            distanceMovedDuringFractureCharge: round4(transition.phaseDistanceMoved?.fractureCharge ?? 0),
+            distanceMovedDuringExplosionImpulse: round4(transition.phaseDistanceMoved?.explosionImpulse ?? 0),
+            distanceMovedDuringBulletTimeSlowdown: round4(transition.phaseDistanceMoved?.bulletTimeSlowdown ?? 0),
+            distanceMovedDuringOverviewTravel: round4(transition.phaseDistanceMoved?.overviewTravel ?? 0),
+            distanceMovedDuringOverviewSettle: round4(transition.phaseDistanceMoved?.overviewSettle ?? 0),
+            fovChangedDuringHold: Boolean(transition.fovChangedDuringHold),
+            filmOffsetChangedDuringHold: Boolean(transition.filmOffsetChangedDuringHold),
             globalProgress: 1,
             monotonicGlobalProgress: 1,
             activeWriter: 'HERO_OVERVIEW_PILOT',
@@ -5259,7 +6394,14 @@ const UnifiedCameraController = ({
         tuning: { ...tuning },
         center: center.clone(),
       };
-      guardRecord("heroOrbit", ["position", "lookAt", "filmOffset"], "hero", "authoritative-hero-update");
+      captureHeroOverviewRenderedHeroPose({
+        source: 'authoritative-hero-rendered-pose',
+        writerId: 'AUTHORITATIVE_HERO',
+        writerReason: 'authoritative-hero-update',
+        state,
+        lookAt: snapshot.lookAtTarget,
+        phase: 'hero',
+      });
       logCameraWrite(state, "AUTHORITATIVE_HERO", "authoritative-hero-update", snapshot.lookAtTarget, true, true);
       if (shouldLogBranch) {
         console.log('[UCC AUTHORITATIVE HERO]', {
@@ -5746,9 +6888,9 @@ const UnifiedCameraController = ({
         }
         pushHeroOverviewPilotSample({
           type: 'handoff-lock-frame',
-          pilotDiagnosticVersion: 'PR-25-live-lookat-takeover-clear',
+          pilotDiagnosticVersion: 'Milestone C live hold-pose lock',
           t: round4(state.clock.elapsedTime),
-          frame: state.clock.frame,
+          frame: cameraFrameIndexRef.current,
           key: heroOverviewPilotRef.current.key,
           phase: 'handoffLock',
           globalProgress: 1,
@@ -6342,6 +7484,15 @@ const UnifiedCameraController = ({
 
       animationData?.setCameraMoveProgress?.(1);
       animationData?.setCameraSettled?.(false);
+      captureHeroOverviewRenderedHeroPose({
+        source: 'hero-orbit-rendered-pose',
+        writerId: 'HERO_ORBIT',
+        writerReason: 'hero-orbit-active',
+        state,
+        lookAt: heroLookAtTarget,
+        phase: 'hero',
+      });
+      logCameraWrite(state, "HERO_ORBIT", "hero-orbit-active", heroLookAtTarget, true, true);
       console.log('[UCC EARLY RETURN]', { branch: "HERO_ORBIT", reason: "hero-orbit-active", finalCameraPosition: camera.position.toArray(), finalFilmOffset: camera.filmOffset, heroOrbitCenter: heroOrbitCenterRef.current.toArray(), lookAt: heroLookAtTarget.toArray() });
       if (shouldLogBranch) console.log('[UCC RETURN] reason: hero-orbit-active');
       return;
@@ -6433,7 +7584,7 @@ const UnifiedCameraController = ({
     if (import.meta.env.DEV && forcedRecentlyCompleted) {
       const seamRows = heroToOverviewHandoffSeamRowsRef.current;
       seamRows.push({
-        frame: state.clock.frame,
+        frame: cameraFrameIndexRef.current,
         framesSinceForcedCompletion,
         activeWriter: lastCameraWriterRef.current,
         activeWriterReason: lastCameraWriteReasonRef.current,

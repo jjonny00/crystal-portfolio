@@ -194,3 +194,167 @@ The proposed pilot should:
 - At pilot completion, before the normal overview branch can resume, the pilot now clears the legacy fracture/explosion camera takeover flags that previously caused post-handoff tilt/pop regressions: `fractureTiltActiveRef.current = false`, `fractureTiltRef.current = 0`, and `heroExplosionTransitionRef.current.active = false`.
 - Completion and handoff diagnostics now record whether fracture/explosion takeover flags were active at completion, whether they were cleared before the first normal overview frame, and whether post-pilot fracture re-entry was detected.
 - The canonical-up guard from PR-24 remains in place; PR-25 layers the known-good live-lookAt and takeover-clear protections on top without changing flag-off legacy behavior, object/facet explosion timing, or the pilot's baseline-parity camera curve.
+
+## Milestone C: explicit cinematic camera phase timeline
+
+Milestone C is the first cinematic refinement pass for the flag-on Hero → Overview owning pilot. It does **not** attempt final art direction polish; it only gives the pilot an explicit, tunable camera choreography timeline so future passes can tune the Overwatch / Play-of-the-Game style beat structure without re-opening camera ownership conflicts.
+
+### Flag and rollback safety
+- The pilot remains disabled by default.
+- Enable only in DEV with `globalThis.__ENABLE_CAMERA_DIRECTOR_HERO_OVERVIEW__ = true` or the existing `VITE_CAMERA_DIRECTOR_HERO_OVERVIEW_PILOT` DEV flag.
+- Flag-off behavior still uses the legacy Hero → Overview path.
+- Rollback is immediate: turn the flag off and the Milestone C timeline is not used.
+- Milestone C keeps the PR-25 guardrails: live from-pose capture, camera-world-direction lookAt capture, `hero-overview-legacy-final-pose` target parity, target `fov: 44`, target `filmOffset: 0`, monotonic pilot progress, canonical up at completion, and fracture/explosion takeover flag clearing.
+
+### Camera phase timeline
+
+The flag-on pilot now owns a dedicated `HERO_OVERVIEW_PILOT_CAMERA_TIMELINE` in `UnifiedCameraController.jsx`:
+
+| Phase | Progress window | Camera mode | Starting behavior |
+| --- | ---: | --- | --- |
+| `fractureCharge` | `0.00 → 0.16` | `hold` | Hold exact captured live Hero camera pose. |
+| `explosionImpulse` | `0.16 → 0.26` | `impactHold` | Hold exact captured live Hero camera pose. |
+| `bulletTimeSlowdown` | `0.26 → 0.42` | `suspendedHold` | Hold exact captured live Hero camera pose for the conservative first pass. |
+| `overviewTravel` | `0.42 → 0.88` | `travel` | Main camera interpolation to final Overview, using `expoOut`. |
+| `overviewSettle` | `0.88 → 1.00` | `settle` | Lock exactly onto final Overview pose, canonical up, `fov: 44`, `filmOffset: 0`. |
+
+This means the camera should no longer dolly toward Overview during the fracture/charge, explosion impulse, or bullet-time slowdown beats. The first intentional travel should begin at pilot global progress `0.42`, inside `overviewTravel`.
+
+### How to tune timing
+
+Adjust only the constants in `HERO_OVERVIEW_PILOT_CAMERA_TIMELINE` for this pass:
+- Move `overviewTravel.start` earlier/later to control when the dolly begins.
+- Move `overviewTravel.end` to control how long the main travel lasts.
+- Move `overviewSettle.start` with `overviewTravel.end` so settle remains the final stabilization window.
+- Change `overviewTravel.easing` if a later pass needs a different travel feel.
+
+Keep phase ranges monotonic and contiguous between `0` and `1`. Avoid routing gaps; the owning pilot should write a stable camera pose every frame.
+
+### Diagnostics
+
+Milestone C adds/updates per-frame pilot diagnostics with:
+- `pilotCinematicMilestone: "Milestone C"`
+- phase metadata: `cameraMode`, `phaseStart`, `phaseEnd`, `phaseLocalProgress`
+- camera travel metadata: `cameraTravelProgress`, `cameraTravelEasedProgress`, `cameraTravelEasing`
+- hold metadata: `heldCameraPosition`, `heldLookAt`, `isHoldingCamera`, `fovChangedDuringHold`, `filmOffsetChangedDuringHold`
+- travel metadata: `firstTravelFrame`, `travelStartTime`, `travelStartProgress`, `travelDuration`, `settleStartProgress`, `finalPoseLocked`
+- cumulative per-phase camera movement: `distanceMovedDuringFractureCharge`, `distanceMovedDuringExplosionImpulse`, `distanceMovedDuringBulletTimeSlowdown`, `distanceMovedDuringOverviewTravel`, `distanceMovedDuringOverviewSettle`
+
+New helper:
+
+```js
+globalThis.__printHeroOverviewPilotCinematic?.();
+```
+
+It summarizes hold phases, first actual travel phase, camera distance moved per phase, whether `fractureCharge` and `explosionImpulse` stayed still, whether travel begins in `overviewTravel`, whether final target parity passes, whether the up/roll guard remains clean, and whether a competing writer appeared.
+
+### Visual test focus
+
+With the pilot flag on, test Hero → Overview and look specifically for:
+1. No start jump from Hero into the pilot.
+2. Camera holds during `fractureCharge`.
+3. Camera still does not obviously dolly toward Overview during `explosionImpulse`.
+4. `bulletTimeSlowdown` reads as a short suspended moment.
+5. The main Overview travel begins intentionally in `overviewTravel`.
+6. The final Overview composition matches the existing Overview target.
+7. No end tilt/roll, and no `HERO_OVERVIEW_PILOT <> FORCED_HERO_TO_OVERVIEW` conflict.
+
+### Out of scope for Milestone C
+
+No fragments, particles, glow, ring, material, layout, UI, object explosion timing, About-route behavior, or non-Hero→Overview routes were intentionally changed.
+
+## Milestone C follow-up: first-write live hold-pose lock
+
+The first Milestone C implementation proved that the phase hold concept works, but visual testing showed a start jump: the pilot could hold the activation/scaffold pose instead of the actual rendered Hero orbit pose at the moment the pilot first owned the camera. That made the first run jump farther back than the visible Hero camera, and later runs could appear to snap to an orbit-start/baseline pose.
+
+The fix keeps the activation capture for diagnostics, but it no longer treats that early capture as the authoritative hold source for active camera ownership. On the first active `HERO_OVERVIEW_PILOT` camera write, immediately before writing any held camera pose, the pilot now locks the active hold pose from the live rendered camera transform:
+
+- `camera.position.clone()`
+- `camera.getWorldDirection(...) + camera.position` for lookAt
+- `camera.up.clone()`
+- `camera.quaternion.clone()`
+- current `camera.fov`
+- current `camera.filmOffset`
+
+That locked first-write hold pose becomes the source for `fractureCharge`, `explosionImpulse`, `bulletTimeSlowdown`, and the start of `overviewTravel`. It is not recaptured during the run.
+
+The first active pilot write also forces camera travel progress to `0` for that frame, so the pilot captures the visible live camera and writes the same pose back. Diagnostics compare the live camera immediately before the first pilot write against the held pose written by the pilot:
+
+- `activationFromPoseSource`
+- `activeHoldPoseSource`
+- `holdPoseLockedAtFrame`
+- `holdPoseLockedAtPhase`
+- `holdPoseLockedAfterHeroOrbitWrite`
+- `liveCameraBeforeFirstPilotWriteX/Y/Z`
+- `liveLookAtBeforeFirstPilotWriteX/Y/Z`
+- `heldCameraX/Y/Z`
+- `heldLookAtX/Y/Z`
+- `holdPosePositionDeltaFromLiveAtLock`
+- `holdPoseLookAtDeltaFromLiveAtLock`
+- `holdPoseQuaternionDeltaFromLiveAtLock`
+- `startJumpDistance`
+- `startLookAtJumpDistance`
+- `firstPilotWriteMovedCamera`
+- `firstPilotWriteMoveDistance`
+- `respectsCurrentHeroOrbitPose`
+- `orbitPhaseOrAngleAtCapture`
+
+`globalThis.__printHeroOverviewPilotCinematic?.()` now reports the hold-pose source, lock phase/frame, start jump, first-write move distance, current-orbit-respect status, first travel phase, configured travel start, and per-phase camera distance totals.
+
+Rollback remains the same: disable `globalThis.__ENABLE_CAMERA_DIRECTOR_HERO_OVERVIEW__` or leave the default flag-off path active. No fragments, particles, materials, styling, About behavior, object explosion timing, or other routes are affected by this hold-pose lock.
+
+## Milestone C follow-up: pre-pilot hero writer trace and visible-pose source
+
+Follow-up diagnostics showed that the first-write live camera lock can still be too late if the live camera has already been reset by an upstream Hero writer before the pilot locks the hold pose. The pilot now keeps a DEV-only record of the last rendered Hero camera pose and prefers that last visible Hero pose when locking the Hero → Overview hold source.
+
+Current Hero writer finding:
+- The `AUTHORITATIVE_HERO` path is the active rendered Hero writer for the authoritative plain-Hero branch.
+- The previous `AUTHORITATIVE_HERO <> heroOrbit` CameraWriteGuard conflict was caused by duplicate DEV guard labels in the same authoritative Hero path, not by two independent rendered camera writers winning in the same frame.
+- The old `HERO_ORBIT` branch is still traced if it runs, but the pilot's safe source is now the last visible Hero pose recorded from whichever Hero writer actually rendered most recently.
+
+The pilot hold lock now uses this order:
+1. Last visible Hero pose recorded from the rendered Hero writer within the recent pre-pilot window.
+2. First-active-pilot-write live camera transform only as a fallback.
+
+This stored visible Hero pose includes position, lookAt, up, quaternion, fov, filmOffset, frame/time, writer id/reason, and hero orbit angle/polar metadata. It becomes the source for `fractureCharge`, `explosionImpulse`, `bulletTimeSlowdown`, and the start of `overviewTravel`.
+
+New helper:
+
+```js
+globalThis.__printHeroOverviewPrePilotHeroTrace?.();
+```
+
+The trace summarizes and tables the 10-frame pre-activation window and first 5 pilot frames, including:
+- Hero writer id/reason and pose after write.
+- Last visible Hero pose before pilot lock.
+- Last authoritative Hero pose before pilot lock.
+- Pilot locked hold pose.
+- Distance between Hero writer poses.
+- Distance between pilot hold and the last visible Hero pose.
+- Whether the pilot hold matches the visible Hero pose.
+
+`__printHeroOverviewPilotCinematic?.()` also reports `lastWriterBeforePilotLock`, `lastHeroWriterBeforePilotLock`, `lastHeroOrbitPoseBeforePilotLock`, `lastAuthoritativeHeroPoseBeforePilotLock`, `distanceBetweenPilotHoldPoseAndHeroOrbit`, `distanceBetweenPilotHoldPoseAndAuthoritativeHero`, `doesPilotHoldMatchHeroOrbit`, and `doesPilotHoldMatchAuthoritativeHero`.
+
+## Milestone C follow-up: visible composition trace
+
+The previous visible-Hero-pose attempt still fell back to `first-active-pilot-write-live-camera-transform` in runtime diagnostics. The most likely implementation issue was that the recency check depended on `state.clock.frame`, which may be absent/unstable in React Three Fiber clock data, so a valid last rendered Hero pose could be rejected as not recent. The camera controller now keeps its own monotonically increasing `cameraFrameIndexRef` for pilot/trace windows and uses that for visible-Hero-pose recency.
+
+A new DEV-only visible composition trace has also been added:
+
+```js
+globalThis.__printHeroOverviewVisibleCompositionTrace?.();
+globalThis.__clearHeroOverviewVisibleCompositionTrace?.();
+```
+
+The trace records the 20 frames before Hero → Overview activation and the first 10 pilot frames. It compares raw camera pose, camera world pose, currentTarget, previousFramePose, the last recorded Hero-orbit state, camera parent world transform, and crystal scene transform snapshots published by `UnifiedCrystalScene`.
+
+The helper summarizes:
+- whether raw camera position moved during Hero orbit
+- whether camera world position moved during Hero orbit
+- whether camera quaternion changed during Hero orbit
+- whether filmOffset changed during Hero orbit
+- whether scene root / crystal group transforms moved during Hero orbit
+- the best visible Hero pose candidate relative to the pilot hold
+- whether the visible orbit appears camera-, scene-, or projection-based
+
+This pass intentionally keeps the fix narrow: it improves the visible-pose recency mechanism and adds evidence to identify whether the remaining visual snap is camera-based, scene/object-based, projection-based, or state-order based. It does not tune cinematic timing, object explosion timing, fragments, particles, materials, styling, About behavior, or other routes.
