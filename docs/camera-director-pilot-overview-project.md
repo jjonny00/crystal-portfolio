@@ -182,3 +182,16 @@ No frame-level pilot spam is added.
 - Identify the **smallest internal cleanup** inside that current legacy owner that improves reliability while preserving behavior.
 - Preserve existing choreography coupling (camera composition + facet rotation + scroll/state handoff) rather than approximating with a separate generic transition.
 - Only after that owner path is stabilized and explicit should it be extracted into CameraDirector.
+
+## Default-promotion timing audit note
+
+After route promotion, Overview → Project no longer exercises the legacy camera-progress path by default; it exercises the completed pilot path that was previously behind `__ENABLE_CAMERA_DIRECTOR_OVERVIEW_TO_PROJECT__`. That means any visible camera/facet timing mismatch observed immediately after promotion is most likely the already-existing pilot choreography being exposed as the default path, not a new Hero → Overview or route-selection ownership regression.
+
+Current timing model:
+- Camera position uses the overview→project pilot's lagged smoothstep driver from `min(rawProgress, facetProgress)`.
+- Facet focus rotation reads `cameraMoveProgress` and then applies its own per-frame quaternion slerp in `UnifiedCrystalScene`.
+- The pilot completion gate waits for strict camera target parity and facet progress when available, but camera interpolation and facet mesh rotation do not share a single duration/easing function.
+
+Diagnostics were expanded to capture `cameraMoveProgress`, `facetRotationProgress`, `facetRotationProgressApprox`, active writer, route mode, target project id, camera/facet easing labels, and camera/facet completion frame deltas. Use `__printOverviewProjectPilotParitySummary()` and `__printOverviewProjectPilotParitySamples()` after a default Overview → Project run to quantify whether camera completion leads or trails facet completion.
+
+No behavior was changed in this audit pass. If visual review requires exact lockstep, the recommended follow-up is a narrow Overview → Project timing pass that aligns the pilot's published camera progress and facet rotation completion without changing final composition or non-project routes.

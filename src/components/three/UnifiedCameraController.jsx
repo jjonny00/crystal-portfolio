@@ -2481,6 +2481,14 @@ const UnifiedCameraController = ({
           liveFilmOffsetDeltaToResolvedProject: row.liveFilmOffsetDeltaToResolvedProject,
           cameraMoveProgress: row.cameraMoveProgress,
           facetRotationProgress: row.facetRotationProgress,
+          facetRotationProgressApprox: row.facetRotationProgressApprox,
+          activeWriter: row.activeWriter,
+          routeModeUsed: row.routeModeUsed,
+          targetProjectId: row.targetProjectId,
+          transitionDuration: row.transitionDuration,
+          facetRotationDuration: row.facetRotationDuration,
+          cameraEasing: row.cameraEasing,
+          facetEasing: row.facetEasing,
         }))
       );
       if (!rows.length) return console.log('[overview-project-pilot-parity] samples', []);
@@ -2524,6 +2532,9 @@ const UnifiedCameraController = ({
         pilotFinalFilmOffsetDelta: pilotFinal?.liveFilmOffsetDeltaToResolvedProject ?? null,
         legacyFacetRotationCompletionEstimate: legacyFinal?.facetRotationProgress ?? null,
         pilotFacetRotationCompletionEstimate: pilotFinal?.facetRotationProgress ?? null,
+        pilotCameraCompleteFrame: latestPilot?.cameraCompleteFrame ?? null,
+        pilotFacetRotationCompleteFrame: latestPilot?.facetRotationCompleteFrame ?? null,
+        pilotSecondsBetweenCameraAndFacetCompletion: latestPilot?.secondsBetweenCameraAndFacetCompletion ?? null,
         visualParityGapsDetected: gaps,
       });
     };
@@ -2672,6 +2683,9 @@ const UnifiedCameraController = ({
         pilotCompleted: latestPilot?.completed ?? false,
         legacyDurationSeconds: latestLegacy?.durationSeconds ?? null,
         pilotDurationSeconds: latestPilot?.durationSeconds ?? null,
+        pilotCameraCompleteFrame: latestPilot?.cameraCompleteFrame ?? null,
+        pilotFacetRotationCompleteFrame: latestPilot?.facetRotationCompleteFrame ?? null,
+        pilotSecondsBetweenCameraAndFacetCompletion: latestPilot?.secondsBetweenCameraAndFacetCompletion ?? null,
       });
     };
     globalThis.__clearHeroOverviewDiagnosticSamples = () => {
@@ -3594,6 +3608,10 @@ const UnifiedCameraController = ({
         sampleCount: 0,
         sawMid: false,
         sawViewModeChange: false,
+        cameraCompleteFrame: null,
+        cameraCompleteAt: null,
+        facetRotationCompleteFrame: null,
+        facetRotationCompleteAt: null,
       };
       store.runs.push(store.activeRun);
       if (store.runs.length > store.maxRuns) store.runs.shift();
@@ -3639,7 +3657,17 @@ const UnifiedCameraController = ({
         liveFilmOffsetDeltaToResolvedProject: round4(Math.abs((camera.filmOffset ?? 0) - (runResolvedProject.filmOffset ?? 0))),
         facetRotationProgress: round4(facetDebug?.focusRotationProgress),
         facetRotationDelta: facetDebug?.deltaMeshToProjectFocusQuat ?? null,
+        facetRotationProgressApprox: round4(facetDebug?.facetRotationProgressApprox),
         cameraMoveProgress: round4(cameraMoveProgressRef.current),
+        rawProgress: null,
+        easedProgress: null,
+        activeWriter: lastCameraWriterRef.current ?? null,
+        routeModeUsed: run.mode,
+        targetProjectId: run.projectId,
+        transitionDuration: null,
+        facetRotationDuration: 'cameraMoveProgress / FOCUS_ROTATION_PROGRESS_LEAD, then per-frame quaternion slerp',
+        cameraEasing: run.mode === 'pilot' ? 'overview-to-project lagged smoothstep from min(rawProgress, facetProgress)' : 'legacy-camera-move-progress',
+        facetEasing: 'focusRotationProgress target + focusedRotationLerp slerp',
       });
       run.sampleCount = run.rows.length;
     };
@@ -3662,6 +3690,14 @@ const UnifiedCameraController = ({
     const facetProgress = Number.isFinite(facetDebug?.focusRotationProgress) ? facetDebug.focusRotationProgress : null;
     const cameraProgress = round4(cameraMoveProgressRef.current) ?? 0;
     const strictNearTarget = positionDelta <= 0.005 && lookAtDelta <= 0.005 && fovDelta <= 0.02 && filmOffsetDelta <= 0.05;
+    if (run.cameraCompleteFrame == null && strictNearTarget && cameraProgress >= 0.99) {
+      run.cameraCompleteFrame = cameraFrameIndexRef.current;
+      run.cameraCompleteAt = state.clock.elapsedTime;
+    }
+    if (run.facetRotationCompleteFrame == null && (facetProgress == null || facetProgress >= 0.99)) {
+      run.facetRotationCompleteFrame = cameraFrameIndexRef.current;
+      run.facetRotationCompleteAt = state.clock.elapsedTime;
+    }
     const thresholdsMet = strictNearTarget && cameraProgress >= 0.99 && (facetProgress == null || facetProgress >= 0.99);
     const missingFacetProgressFallback = strictNearTarget && cameraProgress >= 0.99 && facetProgress == null;
     const maxDurationFallback = transitionElapsed >= 1.8 && (explicitLegacySettle || isNearTarget);
@@ -3672,6 +3708,11 @@ const UnifiedCameraController = ({
         ? 'thresholds-met'
         : (missingFacetProgressFallback ? 'missing-facet-progress-fallback' : 'max-duration-fallback');
       run.durationSeconds = round4(transitionElapsed);
+      run.secondsBetweenCameraAndFacetCompletion = round4(
+        Number.isFinite(run.cameraCompleteAt) && Number.isFinite(run.facetRotationCompleteAt)
+          ? run.cameraCompleteAt - run.facetRotationCompleteAt
+          : null
+      );
       pushRow('complete');
       store.activeRun = null;
     }
@@ -3684,7 +3725,25 @@ const UnifiedCameraController = ({
     const stableTransitionKey = transitionKey ?? `project-to-project:${fromProjectId ?? 'none'}->${toProjectId ?? 'none'}`;
     const isStart = forceStart || (prevCameraState === 'project' && nextCameraState === 'project' && fromProjectId !== toProjectId);
     if (isStart && !store.activeRun) {
-      store.activeRun = { id: `${mode}:${state.clock.elapsedTime}:${fromProjectId ?? 'unknown'}->${toProjectId ?? 'unknown'}`, transitionKey: stableTransitionKey, mode, fromProjectId, toProjectId, fromProjectIdUnavailableReason, toProjectIdUnavailableReason, startedAt: state.clock.elapsedTime, rows: [], sampleTypesWritten: new Set(), completed: false, completionReason: 'not-detected', durationSeconds: null };
+      store.activeRun = {
+        id: `${mode}:${state.clock.elapsedTime}:${fromProjectId ?? 'unknown'}->${toProjectId ?? 'unknown'}`,
+        transitionKey: stableTransitionKey,
+        mode,
+        fromProjectId,
+        toProjectId,
+        fromProjectIdUnavailableReason,
+        toProjectIdUnavailableReason,
+        startedAt: state.clock.elapsedTime,
+        rows: [],
+        sampleTypesWritten: new Set(),
+        completed: false,
+        completionReason: 'not-detected',
+        durationSeconds: null,
+        cameraCompleteFrame: null,
+        cameraCompleteAt: null,
+        facetRotationCompleteFrame: null,
+        facetRotationCompleteAt: null,
+      };
       store.runs.push(store.activeRun);
       if (store.runs.length > store.maxRuns) store.runs.shift();
     }
@@ -3705,7 +3764,41 @@ const UnifiedCameraController = ({
             ? 'post-settle'
             : ((moveProgress ?? 0) <= 0.1 ? 'pre-transition' : 'mid-transition'))
         : null;
-      run.rows.push({ sampleType, activationTiming, state: animationData?.state ?? null, cameraState: animationData?.cameraState ?? null, viewMode: animationData?.viewMode ?? null, fromProjectId: run.fromProjectId, toProjectId: run.toProjectId, fromProjectIdUnavailableReason: run.fromProjectId ? null : (run.fromProjectIdUnavailableReason ?? 'from-project-id-missing'), toProjectIdUnavailableReason: run.toProjectId ? null : (run.toProjectIdUnavailableReason ?? 'to-project-id-missing'), targetPoseUnavailableReason, liveDistanceToResolvedProjectPosition: positionDelta, liveLookAtDeltaToResolvedProject: resolvedProject ? safeDistance(liveLookAt, resolvedProject.lookAt) : null, liveFovDeltaToResolvedProject: resolvedProject ? round4(Math.abs(camera.fov - (resolvedProject.fov ?? camera.fov))) : null, liveFilmOffsetDeltaToResolvedProject: resolvedProject ? round4(Math.abs((camera.filmOffset ?? 0) - (resolvedProject.filmOffset ?? 0))) : null, cameraMoveProgress: moveProgress, facetRotationProgress: facetProgress, rawProgress: round4(projectProjectProgressMetaRef.current?.rawProgress), easedProgress: round4(projectProjectProgressMetaRef.current?.easedProgress), cameraPositionProgress: round4(projectProjectProgressMetaRef.current?.cameraPositionProgress), facetProgressSource: projectProjectProgressMetaRef.current?.facetProgressSource ?? null, completionReason: completionReason ?? run.completionReason, progressEasingSource });
+      run.rows.push({
+        sampleType,
+        activationTiming,
+        state: animationData?.state ?? null,
+        cameraState: animationData?.cameraState ?? null,
+        viewMode: animationData?.viewMode ?? null,
+        fromProjectId: run.fromProjectId,
+        toProjectId: run.toProjectId,
+        fromProjectIdUnavailableReason: run.fromProjectId ? null : (run.fromProjectIdUnavailableReason ?? 'from-project-id-missing'),
+        toProjectIdUnavailableReason: run.toProjectId ? null : (run.toProjectIdUnavailableReason ?? 'to-project-id-missing'),
+        targetPoseUnavailableReason,
+        liveDistanceToResolvedProjectPosition: positionDelta,
+        liveLookAtDeltaToResolvedProject: resolvedProject ? safeDistance(liveLookAt, resolvedProject.lookAt) : null,
+        liveFovDeltaToResolvedProject: resolvedProject ? round4(Math.abs(camera.fov - (resolvedProject.fov ?? camera.fov))) : null,
+        liveFilmOffsetDeltaToResolvedProject: resolvedProject ? round4(Math.abs((camera.filmOffset ?? 0) - (resolvedProject.filmOffset ?? 0))) : null,
+        cameraMoveProgress: moveProgress,
+        facetRotationProgress: facetProgress,
+        facetRotationProgressApprox: round4(globalThis?.__overviewProjectFacetDebug?.facetRotationProgressApprox),
+        rawProgress: round4(projectProjectProgressMetaRef.current?.rawProgress),
+        easedProgress: round4(projectProjectProgressMetaRef.current?.easedProgress),
+        cameraPositionProgress: round4(projectProjectProgressMetaRef.current?.cameraPositionProgress),
+        facetProgressSource: projectProjectProgressMetaRef.current?.facetProgressSource ?? null,
+        completionReason: completionReason ?? run.completionReason,
+        progressEasingSource,
+        activeWriter: lastCameraWriterRef.current ?? null,
+        routeModeUsed: run.mode,
+        targetProjectId: run.toProjectId,
+        transitionDuration: 1.0,
+        facetRotationDuration: 'cameraMoveProgress / FOCUS_ROTATION_PROGRESS_LEAD, then per-frame quaternion slerp',
+        cameraEasing: progressEasingSource ?? 'project-to-project:facet-synced-settle',
+        facetEasing: 'focusRotationProgress target + focusedRotationLerp slerp',
+        cameraCompleteFrame: run.cameraCompleteFrame,
+        facetRotationCompleteFrame: run.facetRotationCompleteFrame,
+        secondsBetweenCameraAndFacetCompletion: run.secondsBetweenCameraAndFacetCompletion ?? null,
+      });
       run.sampleTypesWritten?.add(sampleType);
     };
     if (isStart) {
@@ -3724,13 +3817,36 @@ const UnifiedCameraController = ({
       });
     }
     const elapsed = state.clock.elapsedTime - run.startedAt;
+    const currentFacetProgress = Number.isFinite(globalThis?.__overviewProjectFacetDebug?.focusRotationProgress)
+      ? globalThis.__overviewProjectFacetDebug.focusRotationProgress
+      : null;
+    const currentPositionDelta = resolvedProject ? safeDistance(camera.position, resolvedProject.position) : null;
+    if (run.cameraCompleteFrame == null && currentPositionDelta != null && currentPositionDelta <= 0.005 && cameraMoveProgressRef.current >= 0.99) {
+      run.cameraCompleteFrame = cameraFrameIndexRef.current;
+      run.cameraCompleteAt = state.clock.elapsedTime;
+    }
+    if (run.facetRotationCompleteFrame == null && (currentFacetProgress == null || currentFacetProgress >= 0.99)) {
+      run.facetRotationCompleteFrame = cameraFrameIndexRef.current;
+      run.facetRotationCompleteAt = state.clock.elapsedTime;
+    }
     const normalizedTime = THREE.MathUtils.clamp(elapsed / 0.9, 0, 1);
     if (!run.bucket25 && normalizedTime >= 0.25) { run.bucket25 = true; pushRow('bucket-25%'); }
     if (!run.sawMid && elapsed >= 0.45) { run.sawMid = true; pushRow('mid'); }
     if (!run.bucket50 && normalizedTime >= 0.50) { run.bucket50 = true; pushRow('bucket-50%'); }
     if (!run.bucket75 && normalizedTime >= 0.75) { run.bucket75 = true; pushRow('bucket-75%'); }
     if (!run.sawViewModeChange && animationData?.viewMode === 'project') { run.sawViewModeChange = true; pushRow('viewMode-change'); }
-    if (!run.completed && completionReason) { run.completed = true; run.completionReason = completionReason; run.durationSeconds = round4(elapsed); pushRow('complete'); store.activeRun = null; }
+    if (!run.completed && completionReason) {
+      run.completed = true;
+      run.completionReason = completionReason;
+      run.durationSeconds = round4(elapsed);
+      run.secondsBetweenCameraAndFacetCompletion = round4(
+        Number.isFinite(run.cameraCompleteAt) && Number.isFinite(run.facetRotationCompleteAt)
+          ? run.cameraCompleteAt - run.facetRotationCompleteAt
+          : null
+      );
+      pushRow('complete');
+      store.activeRun = null;
+    }
   };
 
   const sampleOverviewProjectShadow = ({ state, delta, transitionActive, transitionKey, focusedProject, settled, prevCameraState, nextCameraState, nextState, viewMode }) => {
