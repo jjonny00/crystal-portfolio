@@ -302,3 +302,35 @@ The first active pilot write also forces camera travel progress to `0` for that 
 `globalThis.__printHeroOverviewPilotCinematic?.()` now reports the hold-pose source, lock phase/frame, start jump, first-write move distance, current-orbit-respect status, first travel phase, configured travel start, and per-phase camera distance totals.
 
 Rollback remains the same: disable `globalThis.__ENABLE_CAMERA_DIRECTOR_HERO_OVERVIEW__` or leave the default flag-off path active. No fragments, particles, materials, styling, About behavior, object explosion timing, or other routes are affected by this hold-pose lock.
+
+## Milestone C follow-up: pre-pilot hero writer trace and visible-pose source
+
+Follow-up diagnostics showed that the first-write live camera lock can still be too late if the live camera has already been reset by an upstream Hero writer before the pilot locks the hold pose. The pilot now keeps a DEV-only record of the last rendered Hero camera pose and prefers that last visible Hero pose when locking the Hero → Overview hold source.
+
+Current Hero writer finding:
+- The `AUTHORITATIVE_HERO` path is the active rendered Hero writer for the authoritative plain-Hero branch.
+- The previous `AUTHORITATIVE_HERO <> heroOrbit` CameraWriteGuard conflict was caused by duplicate DEV guard labels in the same authoritative Hero path, not by two independent rendered camera writers winning in the same frame.
+- The old `HERO_ORBIT` branch is still traced if it runs, but the pilot's safe source is now the last visible Hero pose recorded from whichever Hero writer actually rendered most recently.
+
+The pilot hold lock now uses this order:
+1. Last visible Hero pose recorded from the rendered Hero writer within the recent pre-pilot window.
+2. First-active-pilot-write live camera transform only as a fallback.
+
+This stored visible Hero pose includes position, lookAt, up, quaternion, fov, filmOffset, frame/time, writer id/reason, and hero orbit angle/polar metadata. It becomes the source for `fractureCharge`, `explosionImpulse`, `bulletTimeSlowdown`, and the start of `overviewTravel`.
+
+New helper:
+
+```js
+globalThis.__printHeroOverviewPrePilotHeroTrace?.();
+```
+
+The trace summarizes and tables the 10-frame pre-activation window and first 5 pilot frames, including:
+- Hero writer id/reason and pose after write.
+- Last visible Hero pose before pilot lock.
+- Last authoritative Hero pose before pilot lock.
+- Pilot locked hold pose.
+- Distance between Hero writer poses.
+- Distance between pilot hold and the last visible Hero pose.
+- Whether the pilot hold matches the visible Hero pose.
+
+`__printHeroOverviewPilotCinematic?.()` also reports `lastWriterBeforePilotLock`, `lastHeroWriterBeforePilotLock`, `lastHeroOrbitPoseBeforePilotLock`, `lastAuthoritativeHeroPoseBeforePilotLock`, `distanceBetweenPilotHoldPoseAndHeroOrbit`, `distanceBetweenPilotHoldPoseAndAuthoritativeHero`, `doesPilotHoldMatchHeroOrbit`, and `doesPilotHoldMatchAuthoritativeHero`.
