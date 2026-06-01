@@ -533,3 +533,134 @@ globalThis.__printCameraWriteGuardConflictDetails?.();
 ```
 
 For a local tweak smoke test, temporarily change `timeline.totalDurationSeconds` from `1.45` to `2.0` or `0.8`, rerun Hero → Overview, and confirm `__printHeroOverviewPilotCinematic?.()` reports the changed total duration plus changed `derivedPhaseDurationsSeconds`. You can also temporarily change `timeline.fractureHold` from `0.10` to `0.14` or `camera.explosionPunchDistance` from `0.06` to `0`. Restore defaults before committing unless the change is intentional.
+
+## Milestone E follow-up audit: facet explosion timing
+
+This audit is documentation-only. It does not wire facet explosion, particles, ring, glow, route ownership, or camera values into `src/config/heroOverviewCinematicConfig.js` yet.
+
+### Current camera timing control
+
+Hero → Overview camera timing is now controlled by `HERO_OVERVIEW_CINEMATIC_CONFIG.timeline` in `src/config/heroOverviewCinematicConfig.js`. `timeline.totalDurationSeconds` controls the owning pilot camera runtime, while the phase fields remain relative weights that derive normalized phase windows and per-phase seconds.
+
+### Current facet explosion trigger path
+
+The visual crystal/facet explosion starts from the scroll/route animation state, not from the Hero → Overview cinematic config:
+
+1. `MasterAnimationCoordinator` feeds scroll progress into `useUnifiedAnimationController`.
+2. When the controller enters the `overview` zone, `useUnifiedAnimationController.handleZoneTransition()` sets:
+   - `state: overview`
+   - `crystalForm: 'exploded'`
+   - `cameraState: 'hero'` initially
+   - then delays `cameraState: 'overview'` by `config.crystal.fracturePause`.
+3. `UnifiedCrystalScene` watches `animationData.crystalForm`. When it changes to `exploded`, it starts the forward mask glow and sets `pendingExplodeSwapAtRef.current = performance.now() + FORWARD_PRE_SWAP_WINDOW_MS`.
+4. In the next frame after that short pre-swap window, `runExplodeSwap()` runs. It hides the whole crystal, shows facets/sphere/ring, sets `explosionStartRef.current`, increments `burstId` for particles, snaps facets to fracture positions, captures the whole-crystal quaternion, and starts fracture glow.
+
+### Current facet translation / travel timing
+
+Facet translation is currently controlled in `UnifiedCrystalScene`, not in the Hero → Overview cinematic config.
+
+- **Trigger source:** `animationData.crystalForm === 'exploded'` plus `runExplodeSwap()` setting `explosionStartRef.current`.
+- **Start position:** `crystalConfig.fracturePositions[facetKey]`; fallback is `explodedPosition.normalized * explodedPosition.length() * crystalConfig.fractureDistance`.
+- **End position / travel distance:** `crystalConfig.positions[facetKey]`, sourced from `ANIMATION_CONFIG.crystal.explodedPositions` / layout crystal config and adjusted by `getAnchorAdjustedPosition()` for overview anchor alignment.
+- **Fracture hold:** While `(performance.now() - explosionStartRef.current) / 1000 < crystalConfig.fracturePause`, facets are held at fracture positions and the rest of the facet animation loop returns early.
+- **Travel duration:** `crystalConfig.explodeDuration - crystalConfig.fracturePause`; default controller values are currently `explodeDuration = 1.6` and `fracturePause = fracture.duration` from `src/crystalConfig.js` (`0.5` seconds by default), so travel is about `1.1` seconds before any frame-rate effects.
+- **Progress source:** wall-clock `performance.now()` compared with `explosionStartRef.current`.
+- **Progress formula:** `progress = (elapsedExplosion - fracturePause) / (totalDuration - fracturePause)`, clamped to `0 → 1`.
+- **Primary travel easing:** `crystalConfig.explosionEase(progress)`, defaulting to `1 - (1 - t)^3` from `ANIMATION_CONFIG.crystal.explosionEase`.
+- **Additional Hero Overview fragment travel shaping:** during Hero → Overview runtime debugging/scaffolding, `resolveHeroOverviewFragmentTravel(config?.timing?.heroOverviewRuntime, sharedProgressEased)` computes `travelProgress`. In the current implementation, that function returns `travelProgress = sharedProgressEased`, so the final written facet position uses `anchorAdjustedStartPosition.lerp(anchorAdjustedEndPosition, travelProgress)`. `sharedProgressEased` is an expo-out transform of the raw explosion progress.
+- **Motion mechanism:** not springs. Translation uses per-frame `Vector3.lerp()` from fracture/start to end based on computed progress, then directly writes `facetRef.current.position.copy(finalPosition)`.
+
+### Current facet rotation timing
+
+Facet rotation has two layers:
+
+1. **Group-level fracture rotation recovery:** `facetsGroupRef.current.quaternion.slerpQuaternions(fractureStartQuatRef.current, neutralQuat, eased)` uses the same `eased = crystalConfig.explosionEase(progress)` as the explosion travel.
+2. **Per-facet rotation:** each facet resolves `targetQuat` from `baseFacetTargetQuats` and writes `facetRef.current.quaternion.slerpQuaternions(neutralQuat, finalQuat, eased)`. `finalQuat` is based on the target facet quaternion plus any offsets returned by `resolveHeroOverviewFragmentTravel()`. Current computed/applied offsets are zero, so the real rotation target is primarily the facet target quaternion and the same `eased` explosion progress.
+
+Rotation is therefore time/progress-driven by the same explosion wall-clock progress and easing, with quaternion slerp, not spring damping.
+
+### Current facet settle / Overview positioning
+
+A facet is effectively “settled” when explosion progress reaches `1`, because the per-frame position write reaches `anchorAdjustedEndPosition` and rotation reaches `finalQuat`. Separately, `UnifiedCrystalScene` marks `facetsSettled` when the app is in active Overview, `crystalForm === 'exploded'`, facets are visible, and no explosion start is active. There is no separate authored `settleDuration` for facet motion today.
+
+### Current particles timing
+
+Particles are not driven by the Hero → Overview camera config yet.
+
+- **Trigger source:** `runExplodeSwap()` increments `burstId`; `FractureBurstParticles` receives `trigger={burstId}`.
+- **Timing source:** `FractureBurstParticles` watches `trigger` and can apply its `delay` prop.
+- **Config today:** `mergedConfig.fracture.particles`, backed by `src/crystalConfig.js`, includes `delay`, `count`, `color`, `duration`, and `spread`, but the component currently consumes trigger/delay/count/color/emitter position and internally randomizes particle lifetimes.
+- **Safe follow-up:** trigger timing can be exposed safely only after a single source of truth decides whether particle trigger follows route phase, explosion swap, or both. Particle lifetime/duration needs a small component API pass before `duration` is truly route-configurable.
+
+### Current ring timing / scale
+
+The ring is not driven by the Hero → Overview camera config yet.
+
+- **Visibility trigger:** `runExplodeSwap()` sets `ringVisible` true.
+- **Animation trigger:** `FractureRingImage` watches `animationData.crystalForm` and starts when it sees `triggerOnState` (default `exploded`) after `triggerDelay`.
+- **Config today:** `mergedConfig.fracture.image`, backed by `src/crystalConfig.js`, controls `baseSize`, `maxScale`, `duration`, `triggerDelay`, `fadeInDuration`, `fadeOutDuration`, `scaleEasing`, `opacity`, and the image texture path.
+- **Safe follow-up:** ring timing/scale can be exposed if the follow-up maps Hero Overview config fields to `FractureRingImage` props and ensures the ring has one trigger source instead of racing crystal-form detection and route-phase timing.
+
+### Current glow / flash timing
+
+There are two glow-like effects involved:
+
+- **Forward swap mask glow:** starts before `runExplodeSwap()` through `triggerSwapMaskGlow()`, timed by constants such as `FORWARD_PRE_SWAP_WINDOW_MS` and `FORWARD_MASK_GLOW_DURATION_S` in `UnifiedCrystalScene`.
+- **Facet fracture emissive glow:** `triggerFractureGlow()` starts from `runExplodeSwap()` and uses `mergedConfig.fracture.emissive.delay`, `mergedConfig.effects.fracture.initialGlow`, `crystalConfig.fracturePause`, and `crystalConfig.explodeDuration` to ramp/fade emissive intensity.
+
+These are not wired to the Hero Overview cinematic config today.
+
+### Camera/facet synchronization status
+
+The camera and facets are only loosely coordinated today:
+
+- The owning camera pilot uses `src/config/heroOverviewCinematicConfig.js` for camera runtime/progress/easing.
+- Facets use `animationData.crystalForm`, `runExplodeSwap()`, `explosionStartRef`, `crystalConfig.fracturePause`, `crystalConfig.explodeDuration`, `crystalConfig.explosionEase`, and existing `config.timing.heroOverviewRuntime` fragment helpers.
+- `heroOverviewExplosionClockRef` lets the camera/controller observe explosion progress, and diagnostics compare the two, but the camera timeline does not own the facet timeline and the facet timeline does not consume `HERO_OVERVIEW_CINEMATIC_CONFIG.timeline`.
+
+To synchronize safely in a follow-up, introduce a resolved fracture/facet timing section in `heroOverviewCinematicConfig.js`, then feed it into `UnifiedCrystalScene` as the single source for Hero → Overview facet trigger, hold, travel, easing, rotation, and settle windows. The follow-up should keep legacy/non-Hero routes on existing `crystalConfig` defaults unless explicitly migrated.
+
+### Recommended follow-up config fields
+
+Proposed shape only; do not wire until the follow-up owns the single source of truth:
+
+```js
+fracture: {
+  triggerAt: 0.08,
+  preSwapLeadSeconds: 0.12,
+  holdDuration: 0.50,
+  travelDuration: 1.10,
+  travelEase: 'easeOutExpo',
+  rotationDuration: 1.10,
+  rotationEase: 'easeOutCubic',
+  fractureDistanceMultiplier: 1.0,
+  spreadMultiplier: 1.0,
+  depthMultiplier: 1.0,
+  settleDuration: 0.20,
+  glowDelay: 0,
+  glowDuration: null,
+},
+
+particles: {
+  enabled: true,
+  triggerAt: 0.10,
+  delay: 0,
+  duration: 0.80,
+  count: 360,
+},
+
+ring: {
+  enabled: true,
+  triggerAt: 0.10,
+  duration: 0.45,
+  startScale: 0.20,
+  endScale: 3.50,
+  easing: 'sinePulse',
+},
+```
+
+### Safe exposure assessment
+
+- **Safe to expose next with a small adapter:** travel duration, hold duration, explosion ease name, fracture distance multiplier, ring duration/scale/easing, particle trigger delay/count/color.
+- **Needs care:** route-phase `triggerAt` for facets/particles/ring, because current triggers come from `crystalForm`/`runExplodeSwap()` and can double-trigger if route-phase triggers are added without removing the old source for Hero → Overview.
+- **Needs component API work:** particle duration/lifetime, because `FractureBurstParticles` currently randomizes lifetimes internally rather than reading a duration prop for all particles.
