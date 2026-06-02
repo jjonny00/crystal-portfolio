@@ -678,7 +678,7 @@ ring: {
 
 ## Milestone F runtime wiring: facet explosion timing controls
 
-Milestone F wires the safest facet explosion controls into `src/config/heroOverviewCinematicConfig.js` for the Hero → Overview route only. Camera ownership, target parity, final FOV/filmOffset, roll/up guards, particles, and ring behavior remain unchanged.
+Milestone F wires the safest facet explosion controls into `src/config/heroOverviewCinematicConfig.js` for the Hero → Overview route only. Camera ownership, target parity, final FOV/filmOffset, and roll/up guards remain unchanged. The later effects timing pass below wires Hero → Overview particles/ring route-locally while preserving non-Hero fallbacks.
 
 ### New fracture config fields
 
@@ -711,8 +711,8 @@ The camera timeline still comes from `timeline.totalDurationSeconds` and the cam
 
 - Camera progress: `HERO_OVERVIEW_CINEMATIC_CONFIG.timeline` in `UnifiedCameraController`.
 - Facet hold/travel progress: `HERO_OVERVIEW_CINEMATIC_CONFIG.fracture` in `UnifiedCrystalScene` for Overview-route exploded facets.
-- Particles: still triggered by `runExplodeSwap()` via `burstId`.
-- Ring: still shown by `runExplodeSwap()` and animated by `FractureRingImage` from `animationData.crystalForm`.
+- Particles: in the effects timing pass, Hero → Overview uses `particles.triggerAt` to increment `burstId`; non-Hero Overview still uses the legacy immediate `runExplodeSwap()` burst.
+- Ring: in the effects timing pass, Hero → Overview uses `ring.triggerAt` and manual `FractureRingImage` triggering; non-Hero Overview still uses the legacy `runExplodeSwap()` / `crystalForm` flow.
 
 ### Diagnostics
 
@@ -731,4 +731,63 @@ The fracture helper reports the trigger source, effective hold/travel/total dura
 2. To make facet travel faster, decrease `fracture.travelDuration`.
 3. To make facet travel feel more aggressive, try `fracture.travelEase: 'easeOutExpo'`.
 4. To keep camera bullet-time and facet explosion aligned, compare `timeline.bulletTime`, `timeline.overviewTravel`, `fracture.holdDuration`, and `fracture.travelDuration` in the two diagnostics above.
-5. Do not tune particles or ring from the fracture section; those remain separate follow-ups.
+5. Do not tune particles or ring from the fracture section; use the `particles` and `ring` sections described below.
+
+## Milestone E effects timing: particles and ring on the Hero → Overview route timeline
+
+The default tuning now uses the current Hero → Overview local values:
+
+```js
+timeline: {
+  totalDurationSeconds: 2,
+  fractureHold: 0.28,
+  explosionImpulse: 0.01,
+  bulletTime: 0.01,
+  overviewTravel: 0.6,
+  overviewSettle: 0.07,
+},
+
+camera: {
+  explosionPunchDistance: 0.06,
+  bulletTimeDriftDistance: 0.0,
+  travelEase: 'cinematicRevealOut',
+  settleEase: 'smoothSettle',
+  punchEase: 'smoothSettle',
+  driftEase: 'smoothSettle',
+},
+
+fracture: {
+  holdDuration: 0.6,
+  travelDuration: 2.5,
+  travelEase: 'easeOutExpo',
+}
+```
+
+### Particle config fields
+
+`particles.triggerAt` is wired as **seconds from Hero → Overview runtime start**, not normalized progress. `particles.triggerAt: 0.28` means the burst increments `burstId` about 0.28 seconds after the Hero → Overview run starts. `particles.enabled: false` suppresses only the Hero → Overview route-local burst; non-Hero Overview explosions still use the legacy immediate `runExplodeSwap()` burst. `particles.delay` is passed through to `FractureBurstParticles` for the Hero → Overview manual trigger. `particles.duration` remains a placeholder because `FractureBurstParticles` randomizes individual particle lifetimes internally.
+
+### Ring config fields
+
+`ring.triggerAt` is also **seconds from Hero → Overview runtime start**. On Hero → Overview, `runExplodeSwap()` bypasses the old immediate ring trigger and the frame loop shows/triggers the ring once when elapsed route time reaches `ring.triggerAt`. `ring.enabled: false` suppresses only the Hero → Overview route-local ring. `ring.duration`, `ring.startScale`, `ring.endScale`, and `ring.easing` are mapped to `FractureRingImage.duration`, `baseSize`, `maxScale`, and `scaleEasing` in manual trigger mode. Non-Hero Overview explosions still use `mergedConfig.fracture.image` and the existing `crystalForm` watcher.
+
+### Diagnostics
+
+Use:
+
+```js
+globalThis.__printHeroOverviewEffectsTimingConfig?.();
+globalThis.__printHeroOverviewFractureTimingConfig?.();
+globalThis.__printHeroOverviewPilotCinematic?.();
+```
+
+The effects helper reports particle/ring enabled flags, `triggerAt` values, actual trigger frame/time, trigger source, suppression state, whether Hero → Overview bypassed immediate `runExplodeSwap()` effects, and which fields are still placeholders.
+
+### Effects tuning examples
+
+1. To fire particles later, increase `particles.triggerAt` in seconds.
+2. To disable Hero → Overview particles only, set `particles.enabled: false`.
+3. To fire the ring later, increase `ring.triggerAt` in seconds.
+4. To make the ring last longer, increase `ring.duration`.
+5. To resize the ring, tune `ring.startScale` and `ring.endScale`.
+6. To align effects with the camera, compare `particles.triggerAt` and `ring.triggerAt` with `timeline.fractureHold`, `timeline.totalDurationSeconds`, `fracture.holdDuration`, and `fracture.travelDuration`.

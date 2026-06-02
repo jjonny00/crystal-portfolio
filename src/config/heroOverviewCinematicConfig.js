@@ -2,27 +2,27 @@ export const HERO_OVERVIEW_CINEMATIC_CONFIG_SOURCE = 'src/config/heroOverviewCin
 
 export const HERO_OVERVIEW_CINEMATIC_CONFIG = {
   timeline: {
-    totalDurationSeconds: 1.45,
-    fractureHold: 0.10,
-    explosionImpulse: 0.08,
-    bulletTime: 0.16,
-    overviewTravel: 0.56,
-    overviewSettle: 0.10,
+    totalDurationSeconds: 2,
+    fractureHold: 0.28,
+    explosionImpulse: 0.01,
+    bulletTime: 0.01,
+    overviewTravel: 0.6,
+    overviewSettle: 0.07,
   },
 
   camera: {
     explosionPunchDistance: 0.06,
-    bulletTimeDriftDistance: 0,
+    bulletTimeDriftDistance: 0.0,
     travelEase: 'cinematicRevealOut',
     settleEase: 'smoothSettle',
-    punchEase: 'sinePulse',
-    driftEase: 'sinePulse',
+    punchEase: 'smoothSettle',
+    driftEase: 'smoothSettle',
   },
 
   fracture: {
-    holdDuration: 0.5,
-    travelDuration: 1.1,
-    travelEase: 'easeOutCubic',
+    holdDuration: 0.6,
+    travelDuration: 2.5,
+    travelEase: 'easeOutExpo',
     fractureDistanceMultiplier: 1.0,
     spreadMultiplier: 1.0,
     depthMultiplier: 1.0,
@@ -37,21 +37,22 @@ export const HERO_OVERVIEW_CINEMATIC_CONFIG = {
 
   particles: {
     enabled: true,
-    triggerAt: 0.10,
+    triggerAt: 0.28,
+    delay: 0,
     duration: null,
     wired: false,
-    notes: 'Placeholder for Hero → Overview route-phase timing. Current particles fire from UnifiedCrystalScene.runExplodeSwap via burstId and mergedConfig.fracture.particles.',
+    notes: 'Particles should be wired to the Hero → Overview route timeline in this pass. Duration may remain component-driven if unsafe to wire.',
   },
 
   ring: {
     enabled: true,
-    triggerAt: 0.10,
-    duration: null,
-    startScale: null,
-    endScale: null,
+    triggerAt: 0.28,
+    duration: 0.8,
+    startScale: 0.2,
+    endScale: 3.5,
     easing: 'sinePulse',
     wired: false,
-    notes: 'Placeholder for Hero → Overview route-phase timing. Current ring is shown by UnifiedCrystalScene.runExplodeSwap and animated by FractureRingImage using mergedConfig.fracture.image.',
+    notes: 'Ring trigger/timing should be wired to the Hero → Overview route timeline in this pass.',
   },
 };
 
@@ -286,8 +287,28 @@ export const resolveHeroOverviewCinematicConfig = (config = HERO_OVERVIEW_CINEMA
     rawFracture,
     invalidFractureKeys,
     fractureConfigFallbackUsed: fracture.fallbackUsed,
-    particles: { ...HERO_OVERVIEW_CINEMATIC_CONFIG.particles, ...(config?.particles || {}) },
-    ring: { ...HERO_OVERVIEW_CINEMATIC_CONFIG.ring, ...(config?.ring || {}) },
+    particles: {
+      ...HERO_OVERVIEW_CINEMATIC_CONFIG.particles,
+      ...(config?.particles || {}),
+      routeTimelineWired: true,
+      triggerAtUnits: 'seconds-from-hero-overview-start',
+      unwiredFields: {
+        duration: 'FractureBurstParticles randomizes per-particle lifetimes internally; duration remains a placeholder.',
+      },
+    },
+    ring: {
+      ...HERO_OVERVIEW_CINEMATIC_CONFIG.ring,
+      ...(config?.ring || {}),
+      routeTimelineWired: true,
+      triggerAtUnits: 'seconds-from-hero-overview-start',
+      mappedProps: {
+        duration: 'FractureRingImage.duration',
+        startScale: 'FractureRingImage.baseSize',
+        endScale: 'FractureRingImage.maxScale',
+        easing: 'FractureRingImage.scaleEasing',
+      },
+      unwiredFields: {},
+    },
     totalConfiguredDuration,
     normalizedDurationTotal: safeTotal,
     defaultsUsed: invalidDurationKeys.length > 0 || invalidTotal || totalDurationFallbackUsed || fracture.fallbackUsed,

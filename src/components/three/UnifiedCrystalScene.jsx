@@ -94,6 +94,8 @@ const UnifiedCrystalScene = forwardRef(({
   const [sphereVisible, setSphereVisible] = useState(false);
   const [ringVisible, setRingVisible] = useState(false);
   const [burstId, setBurstId] = useState(0);
+  const [heroOverviewEffectsManualMode, setHeroOverviewEffectsManualMode] = useState(false);
+  const [heroOverviewRingTriggerId, setHeroOverviewRingTriggerId] = useState(0);
   
   // Crystal state tracking
   const [showWholeCrystal, setShowWholeCrystal] = useState(true);
@@ -121,6 +123,27 @@ const UnifiedCrystalScene = forwardRef(({
   const heroOverviewFragmentTimingResolvedLoggedRef = useRef(false);
   const heroOverviewTravelDistanceAuditLoggedRef = useRef(false);
   const heroOverviewVisibleTravelSampleLoggedRef = useRef(new Set());
+  const heroOverviewEffectsRunStartedAtRef = useRef(null);
+  const heroOverviewParticlesTriggeredRef = useRef(false);
+  const heroOverviewRingTriggeredRef = useRef(false);
+  const heroOverviewParticlesSuppressedRef = useRef(false);
+  const heroOverviewRingSuppressedRef = useRef(false);
+  const heroOverviewEffectsImmediateBypassRef = useRef(false);
+  const heroOverviewEffectsFrameRef = useRef(0);
+  const heroOverviewEffectsDiagnosticsRef = useRef({
+    particlesTriggered: false,
+    particlesTriggerFrame: null,
+    particlesTriggerTime: null,
+    particlesTriggerSource: null,
+    particlesSuppressedByConfig: false,
+    ringTriggered: false,
+    ringTriggerFrame: null,
+    ringTriggerTime: null,
+    ringTriggerSource: null,
+    ringSuppressedByConfig: false,
+    runExplodeSwapImmediateEffectsBypassedForHeroOverview: false,
+    nonHeroOverviewFallbackBehaviorPreserved: true,
+  });
 
   const deriveFragmentVisualTiming = (runtimeState, explosionProgress) => {
     const timing = runtimeState?.timing || {};
@@ -253,6 +276,31 @@ const UnifiedCrystalScene = forwardRef(({
   }, [mergedConfig?.cameraPositions?.hero, mergedConfig?.cameraPositions?.overview]);
 
   const crystalConfig = animationData?.crystalConfig;
+  const heroOverviewParticlesConfig = HERO_OVERVIEW_CINEMATIC_RESOLVED.particles;
+  const heroOverviewRingConfig = HERO_OVERVIEW_CINEMATIC_RESOLVED.ring;
+  const resetHeroOverviewEffectsRun = useCallback((startedAt = null) => {
+    heroOverviewEffectsRunStartedAtRef.current = startedAt;
+    heroOverviewParticlesTriggeredRef.current = false;
+    heroOverviewRingTriggeredRef.current = false;
+    heroOverviewParticlesSuppressedRef.current = false;
+    heroOverviewRingSuppressedRef.current = false;
+    heroOverviewEffectsImmediateBypassRef.current = false;
+    heroOverviewEffectsDiagnosticsRef.current = {
+      particlesTriggered: false,
+      particlesTriggerFrame: null,
+      particlesTriggerTime: null,
+      particlesTriggerSource: null,
+      particlesSuppressedByConfig: false,
+      ringTriggered: false,
+      ringTriggerFrame: null,
+      ringTriggerTime: null,
+      ringTriggerSource: null,
+      ringSuppressedByConfig: false,
+      runExplodeSwapImmediateEffectsBypassedForHeroOverview: false,
+      nonHeroOverviewFallbackBehaviorPreserved: true,
+    };
+  }, []);
+
   const isHeroOverviewFractureTimingRouteCandidate = Boolean(
     animationData?.crystalForm === 'exploded' &&
     (
@@ -322,9 +370,9 @@ const UnifiedCrystalScene = forwardRef(({
       fractureDistanceMultiplier: routeLocal ? fractureConfig.fractureDistanceMultiplier : 1,
       multipliersWired: fractureConfig.multipliersWired,
       defaultsPreservePreviousBehavior: Boolean(
-        fractureConfig.holdDuration === 0.5 &&
-        fractureConfig.travelDuration === 1.1 &&
-        fractureConfig.travelEase === 'easeOutCubic'
+        fractureConfig.holdDuration === 0.6 &&
+        fractureConfig.travelDuration === 2.5 &&
+        fractureConfig.travelEase === 'easeOutExpo'
       ),
       invalidFractureConfigFallbackState: {
         fallbackUsed: Boolean(fractureConfig.fallbackUsed),
@@ -357,8 +405,12 @@ const UnifiedCrystalScene = forwardRef(({
           ? `HERO_OVERVIEW_EASING.${timing.fractureTravelEase}`
           : timing.fractureTravelEase,
         facetRotationProgressSource: 'same effective explosion progress/easing used by facet travel',
-        particleTriggerSource: 'runExplodeSwap() burstId (unchanged)',
-        ringTriggerSource: 'runExplodeSwap() ringVisible + FractureRingImage crystalForm watcher (unchanged)',
+        particleTriggerSource: timing.routeLocal
+          ? 'HERO_OVERVIEW_CINEMATIC_CONFIG.particles.triggerAt -> burstId'
+          : 'runExplodeSwap() burstId legacy fallback',
+        ringTriggerSource: timing.routeLocal
+          ? 'HERO_OVERVIEW_CINEMATIC_CONFIG.ring.triggerAt -> FractureRingImage manual trigger'
+          : 'runExplodeSwap() ringVisible + FractureRingImage crystalForm watcher legacy fallback',
         cameraTimelineSource: 'HERO_OVERVIEW_CINEMATIC_CONFIG.timeline',
         cameraAndFacetTimelinesSynchronized: false,
         cameraFacetSynchronizationNotes: timing.routeLocal
@@ -373,6 +425,156 @@ const UnifiedCrystalScene = forwardRef(({
       }
     };
   }, [getHeroOverviewFractureTimingState]);
+
+  const getHeroOverviewEffectsTimingState = useCallback(() => {
+    const timing = getHeroOverviewFractureTimingState();
+    const runtimeSnapshot = heroOverviewRuntime?.getSnapshot?.() ?? null;
+    const startedAt = runtimeSnapshot?.startedAt || heroOverviewEffectsRunStartedAtRef.current || null;
+    const elapsedSeconds = startedAt ? Math.max(0, (performance.now() - startedAt) / 1000) : null;
+    return {
+      routeLocal: timing.routeLocal,
+      runtimeStartedAt: startedAt,
+      elapsedSeconds,
+      particles: heroOverviewParticlesConfig,
+      ring: heroOverviewRingConfig,
+      diagnostics: heroOverviewEffectsDiagnosticsRef.current,
+    };
+  }, [getHeroOverviewFractureTimingState, heroOverviewRuntime, heroOverviewParticlesConfig, heroOverviewRingConfig]);
+
+  const maybeTriggerHeroOverviewEffects = useCallback((source = 'frame') => {
+    const timing = getHeroOverviewFractureTimingState();
+    const runtimeSnapshot = heroOverviewRuntime?.getSnapshot?.() ?? null;
+    const startedAt = runtimeSnapshot?.startedAt || heroOverviewEffectsRunStartedAtRef.current;
+
+    if (!timing.routeLocal || !startedAt || animationData?.crystalForm !== 'exploded') {
+      return;
+    }
+
+    if (heroOverviewEffectsRunStartedAtRef.current !== startedAt) {
+      resetHeroOverviewEffectsRun(startedAt);
+    }
+
+    const elapsedSeconds = Math.max(0, (performance.now() - startedAt) / 1000);
+    const roundedElapsed = Number(elapsedSeconds.toFixed(4));
+    const frame = heroOverviewEffectsFrameRef.current;
+    const nextDiagnostics = {
+      ...heroOverviewEffectsDiagnosticsRef.current,
+      runExplodeSwapImmediateEffectsBypassedForHeroOverview: heroOverviewEffectsImmediateBypassRef.current,
+      nonHeroOverviewFallbackBehaviorPreserved: true,
+      particlesTriggerAt: heroOverviewParticlesConfig.triggerAt,
+      ringTriggerAt: heroOverviewRingConfig.triggerAt,
+      elapsedSeconds: roundedElapsed,
+      timingSource: 'heroOverviewRuntime.startedAt seconds',
+    };
+
+    if (!heroOverviewParticlesConfig.enabled) {
+      if (!heroOverviewParticlesSuppressedRef.current) {
+        heroOverviewParticlesSuppressedRef.current = true;
+        nextDiagnostics.particlesSuppressedByConfig = true;
+        nextDiagnostics.particlesTriggerSource = 'suppressed by HERO_OVERVIEW_CINEMATIC_CONFIG.particles.enabled=false';
+      }
+    } else if (!heroOverviewParticlesTriggeredRef.current && elapsedSeconds >= (heroOverviewParticlesConfig.triggerAt ?? 0)) {
+      heroOverviewParticlesTriggeredRef.current = true;
+      nextDiagnostics.particlesTriggered = true;
+      nextDiagnostics.particlesTriggerFrame = frame;
+      nextDiagnostics.particlesTriggerTime = roundedElapsed;
+      nextDiagnostics.particlesTriggerSource = `HERO_OVERVIEW_CINEMATIC_CONFIG.particles.triggerAt (${source})`;
+      setBurstId(id => id + 1);
+    }
+
+    if (!heroOverviewRingConfig.enabled) {
+      if (!heroOverviewRingSuppressedRef.current) {
+        heroOverviewRingSuppressedRef.current = true;
+        nextDiagnostics.ringSuppressedByConfig = true;
+        nextDiagnostics.ringTriggerSource = 'suppressed by HERO_OVERVIEW_CINEMATIC_CONFIG.ring.enabled=false';
+      }
+    } else if (!heroOverviewRingTriggeredRef.current && elapsedSeconds >= (heroOverviewRingConfig.triggerAt ?? 0)) {
+      heroOverviewRingTriggeredRef.current = true;
+      nextDiagnostics.ringTriggered = true;
+      nextDiagnostics.ringTriggerFrame = frame;
+      nextDiagnostics.ringTriggerTime = roundedElapsed;
+      nextDiagnostics.ringTriggerSource = `HERO_OVERVIEW_CINEMATIC_CONFIG.ring.triggerAt (${source})`;
+      setRingVisible(true);
+      setHeroOverviewRingTriggerId(id => id + 1);
+    }
+
+    heroOverviewEffectsDiagnosticsRef.current = nextDiagnostics;
+    if (typeof globalThis !== 'undefined') {
+      globalThis.__HERO_OVERVIEW_EFFECTS_TIMING_STATE__ = {
+        particles: heroOverviewParticlesConfig,
+        ring: heroOverviewRingConfig,
+        ...nextDiagnostics,
+      };
+    }
+  }, [
+    animationData?.crystalForm,
+    getHeroOverviewFractureTimingState,
+    heroOverviewRuntime,
+    heroOverviewParticlesConfig,
+    heroOverviewRingConfig,
+    resetHeroOverviewEffectsRun,
+  ]);
+
+  useEffect(() => {
+    if (animationData?.crystalForm === 'exploded') return;
+    if (heroOverviewEffectsManualMode) {
+      setHeroOverviewEffectsManualMode(false);
+    }
+    resetHeroOverviewEffectsRun(null);
+  }, [animationData?.crystalForm, heroOverviewEffectsManualMode, resetHeroOverviewEffectsRun]);
+
+  useEffect(() => {
+    if (typeof globalThis === 'undefined') return undefined;
+    globalThis.__printHeroOverviewEffectsTimingConfig = () => {
+      const state = getHeroOverviewEffectsTimingState();
+      const diagnostics = state.diagnostics || {};
+      const summary = {
+        timingSource: 'seconds from heroOverviewRuntime.startedAt',
+        routeLocalActive: state.routeLocal,
+        elapsedSeconds: state.elapsedSeconds != null ? Number(state.elapsedSeconds.toFixed(4)) : null,
+        particles: {
+          enabled: state.particles.enabled,
+          triggerAt: state.particles.triggerAt,
+          delay: state.particles.delay,
+          duration: state.particles.duration,
+          wired: state.particles.wired,
+          routeTimelineWired: state.particles.routeTimelineWired,
+          triggered: diagnostics.particlesTriggered,
+          triggerFrame: diagnostics.particlesTriggerFrame,
+          triggerTime: diagnostics.particlesTriggerTime,
+          triggerSource: diagnostics.particlesTriggerSource,
+          suppressedByConfig: diagnostics.particlesSuppressedByConfig,
+          unwiredFields: state.particles.unwiredFields,
+        },
+        ring: {
+          enabled: state.ring.enabled,
+          triggerAt: state.ring.triggerAt,
+          duration: state.ring.duration,
+          startScale: state.ring.startScale,
+          endScale: state.ring.endScale,
+          easing: state.ring.easing,
+          wired: state.ring.wired,
+          routeTimelineWired: state.ring.routeTimelineWired,
+          triggered: diagnostics.ringTriggered,
+          triggerFrame: diagnostics.ringTriggerFrame,
+          triggerTime: diagnostics.ringTriggerTime,
+          triggerSource: diagnostics.ringTriggerSource,
+          suppressedByConfig: diagnostics.ringSuppressedByConfig,
+          mappedProps: state.ring.mappedProps,
+          unwiredFields: state.ring.unwiredFields,
+        },
+        runExplodeSwapImmediateEffectsBypassedForHeroOverview: diagnostics.runExplodeSwapImmediateEffectsBypassedForHeroOverview,
+        nonHeroOverviewFallbackBehaviorPreserved: diagnostics.nonHeroOverviewFallbackBehaviorPreserved,
+      };
+      console.log('[hero-overview-effects-timing] config', summary);
+      return summary;
+    };
+    return () => {
+      if (globalThis.__printHeroOverviewEffectsTimingConfig) {
+        delete globalThis.__printHeroOverviewEffectsTimingConfig;
+      }
+    };
+  }, [getHeroOverviewEffectsTimingState]);
 
   // Facet configuration
   const facetKeys = canonicalFacetKeys;
@@ -459,12 +661,35 @@ const UnifiedCrystalScene = forwardRef(({
   const runExplodeSwap = useCallback(() => {
     heroOverviewTravelDistanceAuditLoggedRef.current = false;
     heroOverviewVisibleTravelSampleLoggedRef.current.clear();
+    const fractureTiming = getHeroOverviewFractureTimingState();
+    const runtimeSnapshot = heroOverviewRuntime?.getSnapshot?.() ?? null;
+    const heroOverviewRouteLocal = fractureTiming.routeLocal;
+
+    if (heroOverviewRouteLocal) {
+      resetHeroOverviewEffectsRun(runtimeSnapshot?.startedAt || performance.now());
+      heroOverviewEffectsImmediateBypassRef.current = true;
+      heroOverviewEffectsDiagnosticsRef.current = {
+        ...heroOverviewEffectsDiagnosticsRef.current,
+        runExplodeSwapImmediateEffectsBypassedForHeroOverview: true,
+        nonHeroOverviewFallbackBehaviorPreserved: true,
+      };
+      setHeroOverviewEffectsManualMode(true);
+    } else {
+      resetHeroOverviewEffectsRun(null);
+      setHeroOverviewEffectsManualMode(false);
+    }
+
     setShowWholeCrystal(false);
     setShowFacets(true);
     setSphereVisible(true);
-    setRingVisible(true);
+    if (heroOverviewRouteLocal) {
+      setRingVisible(false);
+      maybeTriggerHeroOverviewEffects('runExplodeSwap');
+    } else {
+      setRingVisible(true);
+      setBurstId(id => id + 1);
+    }
     explosionStartRef.current = performance.now() - FORWARD_PRE_SWAP_WINDOW_MS;
-    setBurstId(id => id + 1);
 
     // Capture hero rotation so facets start from same orientation
     if (wholeCrystalRef.current && facetsGroupRef.current) {
@@ -473,7 +698,6 @@ const UnifiedCrystalScene = forwardRef(({
     }
 
     // Snap facets immediately to fracture positions (small initial offset)
-    const fractureTiming = getHeroOverviewFractureTimingState();
     const fractureDistance = (crystalConfig?.fractureDistance ?? 0.3) * fractureTiming.fractureDistanceMultiplier;
     const fracture = crystalConfig?.fracturePositions;
     if (fracture || fractureDistance) {
@@ -495,7 +719,16 @@ const UnifiedCrystalScene = forwardRef(({
     }
 
     triggerFractureGlow();
-  }, [crystalConfig, facetKeys, facetPlacementKeys, getHeroOverviewFractureTimingState, triggerFractureGlow]);
+  }, [
+    crystalConfig,
+    facetKeys,
+    facetPlacementKeys,
+    getHeroOverviewFractureTimingState,
+    heroOverviewRuntime,
+    maybeTriggerHeroOverviewEffects,
+    resetHeroOverviewEffectsRun,
+    triggerFractureGlow,
+  ]);
 
   const runReformSwap = useCallback(() => {
     pendingReformSwapAtRef.current = null;
@@ -1787,6 +2020,8 @@ const UnifiedCrystalScene = forwardRef(({
 
   // Main animation loop
   useFrame((state, deltaTime) => {
+    heroOverviewEffectsFrameRef.current += 1;
+    maybeTriggerHeroOverviewEffects('frame');
     if (!animationData || !facetRefs.current.length || simplifiedAnimations) return;
     const now = performance.now();
     if (import.meta.env.DEV && typeof globalThis !== 'undefined') {
@@ -2796,8 +3031,17 @@ const UnifiedCrystalScene = forwardRef(({
       {/* Fracture expanding ring */}
       <FractureRingImage
         {...mergedConfig.fracture.image}
+        {...(heroOverviewEffectsManualMode ? {
+          duration: heroOverviewRingConfig.duration ?? mergedConfig.fracture.image?.duration,
+          baseSize: heroOverviewRingConfig.startScale ?? mergedConfig.fracture.image?.baseSize,
+          maxScale: heroOverviewRingConfig.endScale ?? mergedConfig.fracture.image?.maxScale,
+          scaleEasing: heroOverviewRingConfig.easing ?? mergedConfig.fracture.image?.scaleEasing,
+          triggerDelay: 0,
+        } : {})}
         visible={ringVisible}
         animationData={animationData}
+        manualTriggerMode={heroOverviewEffectsManualMode}
+        triggerKey={heroOverviewEffectsManualMode ? heroOverviewRingTriggerId : null}
         simplifiedAnimations={simplifiedAnimations}
         debugMode={import.meta.env.DEV}
       />
@@ -2825,6 +3069,9 @@ const UnifiedCrystalScene = forwardRef(({
           trigger={burstId}
           emitterPosition={[0, 0, 0]}
           {...mergedConfig.fracture.particles}
+          {...(heroOverviewEffectsManualMode ? {
+            delay: heroOverviewParticlesConfig.delay ?? mergedConfig.fracture.particles?.delay,
+          } : {})}
         />
       )}
 

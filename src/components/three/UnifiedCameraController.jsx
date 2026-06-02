@@ -3251,7 +3251,8 @@ const UnifiedCameraController = ({
     globalThis.__printHeroOverviewPilotCinematic = () => {
       const store = getHeroOverviewPilotDiagnosticsStore();
       const samples = store.samples.filter((sample) => sample.type === 'pilot-frame' || sample.type === 'completion-handoff' || sample.type === 'pilot-completion-finalized');
-      if (!samples.length) return console.log('[hero-overview-pilot] cinematic-summary', { sampleCount: 0, pilotCinematicMilestone: 'Milestone E config-driven cinematic tuning', configSourceFile: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.sourceFile, rawDurationValues: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.rawDurations, rawTotalDurationSeconds: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.rawTotalDurationSeconds, resolvedTotalDurationSeconds: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.resolvedTotalDurationSeconds, totalDurationFallbackUsed: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.totalDurationFallbackUsed, invalidTotalDuration: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.invalidTotalDuration, configuredPhaseWeights: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.configuredPhaseWeights, derivedNormalizedPhaseWindows: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE, derivedPhaseWindows: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE, derivedPhaseDurationsSeconds: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.derivedPhaseDurationsSeconds, cameraMotionConfig: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.camera, fractureConfig: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.fracture, fractureConfigFallbackUsed: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.fractureConfigFallbackUsed, invalidFractureKeys: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.invalidFractureKeys, particleConfig: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.particles, ringConfig: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.ring, defaultsUsed: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.defaultsUsed, invalidConfigFallbackOccurred: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.invalidConfigFallbackOccurred, totalDurationSecondsActivelyControlsCameraProgress: true });
+      const effectsTimingState = globalThis.__HERO_OVERVIEW_EFFECTS_TIMING_STATE__ ?? null;
+      if (!samples.length) return console.log('[hero-overview-pilot] cinematic-summary', { sampleCount: 0, pilotCinematicMilestone: 'Milestone E config-driven cinematic tuning', configSourceFile: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.sourceFile, rawDurationValues: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.rawDurations, rawTotalDurationSeconds: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.rawTotalDurationSeconds, resolvedTotalDurationSeconds: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.resolvedTotalDurationSeconds, totalDurationFallbackUsed: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.totalDurationFallbackUsed, invalidTotalDuration: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.invalidTotalDuration, configuredPhaseWeights: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.configuredPhaseWeights, derivedNormalizedPhaseWindows: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE, derivedPhaseWindows: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE, derivedPhaseDurationsSeconds: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.derivedPhaseDurationsSeconds, cameraMotionConfig: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.camera, fractureConfig: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.fracture, fractureConfigFallbackUsed: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.fractureConfigFallbackUsed, invalidFractureKeys: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.invalidFractureKeys, particleConfig: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.particles, ringConfig: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.ring, effectsTimingState, particleRingTriggerTimingSource: 'HERO_OVERVIEW_CINEMATIC_CONFIG triggerAt seconds from Hero → Overview start', defaultsUsed: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.defaultsUsed, invalidConfigFallbackOccurred: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.invalidConfigFallbackOccurred, totalDurationSecondsActivelyControlsCameraProgress: true });
       const latest = samples[samples.length - 1];
       const movementThreshold = 0.001;
       const phaseRows = (phase) => samples.filter((sample) => sample.phase === phase);
@@ -3329,6 +3330,20 @@ const UnifiedCameraController = ({
         },
         particleConfig: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.particles,
         ringConfig: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.ring,
+        particleRingTriggerTimingSource: 'HERO_OVERVIEW_CINEMATIC_CONFIG triggerAt seconds from Hero → Overview start',
+        effectsTimingState,
+        particleTriggerActualTime: effectsTimingState?.particlesTriggerTime ?? null,
+        ringTriggerActualTime: effectsTimingState?.ringTriggerTime ?? null,
+        particleTriggerDeltaFromConfig: effectsTimingState?.particlesTriggerTime != null
+          ? round4(effectsTimingState.particlesTriggerTime - (HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.particles?.triggerAt ?? 0))
+          : null,
+        ringTriggerDeltaFromConfig: effectsTimingState?.ringTriggerTime != null
+          ? round4(effectsTimingState.ringTriggerTime - (HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.ring?.triggerAt ?? 0))
+          : null,
+        effectsFiredOnce: {
+          particles: effectsTimingState?.particlesTriggered === true,
+          ring: effectsTimingState?.ringTriggered === true,
+        },
         holdPhases: HERO_OVERVIEW_PILOT_HOLD_PHASES,
         holdPoseSource: latest?.activeHoldPoseSource ?? latest?.fromPoseSource ?? null,
         activationFromPoseSource: latest?.activationFromPoseSource ?? null,
