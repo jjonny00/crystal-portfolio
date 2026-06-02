@@ -802,11 +802,12 @@ Hero → Overview particles now use `HERO_OVERVIEW_CINEMATIC_CONFIG.particles` f
 
 - `trigger` — owned by `UnifiedCrystalScene`; Hero → Overview still uses the existing `burstId` trigger path.
 - `delay` — delay before spawning after `trigger`, with the component's internal emitter lead applied.
-- `count` — particle buffer/spawn count, capped internally to 360 active particles.
+- `count` — particle buffer/spawn count; the component now spawns the requested count for each burst.
 - `color` — shader color string accepted by `THREE.Color`; the cinematic config validates hex strings.
 - `emitterPosition` — `[x, y, z]` group position for the particle emitter.
+- `spread` — scales the generated radial emission radius, y-offset range, and burst jitter; `0.5` preserves the previous default distribution, smaller values tighten the burst, and larger values widen it.
 
-`mergedConfig.fracture.particles` currently provides `delay`, `count`, `color`, `duration`, and `spread`. Before this pass, only the props consumed by `FractureBurstParticles` affected runtime behavior; `duration` and `spread` were config values but were not consumed by the component.
+`mergedConfig.fracture.particles` currently provides `delay`, `count`, `color`, `duration`, and `spread`. Before this pass, `spread` was present in config but not consumed by the component; Hero → Overview now passes the resolved cinematic `spread` override while non-Hero routes keep the old default spread behavior.
 
 ### Final particles config shape
 
@@ -840,13 +841,13 @@ particles: {
 - `count`: passed to `FractureBurstParticles.count` for Hero → Overview.
 - `color`: passed to `FractureBurstParticles.color` for Hero → Overview.
 - `emitterPosition`: passed to `FractureBurstParticles.emitterPosition` for Hero → Overview.
+- `spread`: passed to `FractureBurstParticles.spread` for Hero → Overview and used at burst generation time.
 
 Non-Hero Overview still spreads `mergedConfig.fracture.particles` into `FractureBurstParticles`, so legacy particle behavior stays on the existing config path.
 
 ### Particle placeholders and current limitations
 
 - `duration`: placeholder; the component expires particles using randomized per-particle lifetimes instead of a duration prop.
-- `spread`: placeholder; it exists in `mergedConfig.fracture.particles`, but `FractureBurstParticles` does not consume it today.
 - `lifetime`, `lifetimeMin`, `lifetimeMax`: placeholders; lifetimes are currently randomized internally between roughly `0.9` and `1.6` seconds.
 - `speed`, `speedMin`, `speedMax`: placeholders; initial burst speed is randomized internally before vertical adjustment.
 - `size`: placeholder; particle sizes use internal tiered randomization.
@@ -868,6 +869,7 @@ The effects helper reports the raw particle config, resolved particle config, wi
 1. To fire particles later, increase `particles.triggerAt` in seconds.
 2. To suppress Hero → Overview particles only, set `particles.enabled: false`.
 3. To make the burst denser or lighter, tune `particles.count`.
-4. To recolor the burst, tune `particles.color` using a hex color.
-5. To offset the emitter, tune `particles.emitterPosition`.
-6. To align with the rest of the transition, compare `particles.triggerAt` to `timeline.totalDurationSeconds`, `fracture.holdDuration`, `fracture.travelDuration`, and `ring.triggerAt`.
+4. To make emission tighter or wider, tune `particles.spread`.
+5. To recolor the burst, tune `particles.color` using a hex color.
+6. To offset the emitter, tune `particles.emitterPosition`.
+7. To align with the rest of the transition, compare `particles.triggerAt` to `timeline.totalDurationSeconds`, `fracture.holdDuration`, `fracture.travelDuration`, and `ring.triggerAt`.

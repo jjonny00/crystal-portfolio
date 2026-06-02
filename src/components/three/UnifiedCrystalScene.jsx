@@ -143,6 +143,10 @@ const UnifiedCrystalScene = forwardRef(({
     ringSuppressedByConfig: false,
     runExplodeSwapImmediateEffectsBypassedForHeroOverview: false,
     nonHeroOverviewFallbackBehaviorPreserved: true,
+    lastGeneratedParticleCount: null,
+    lastGeneratedParticleSpread: null,
+    particleCountAppliedDuringLastBurst: false,
+    particleSpreadAppliedDuringLastBurst: false,
   });
 
   const deriveFragmentVisualTiming = (runtimeState, explosionProgress) => {
@@ -298,6 +302,10 @@ const UnifiedCrystalScene = forwardRef(({
       ringSuppressedByConfig: false,
       runExplodeSwapImmediateEffectsBypassedForHeroOverview: false,
       nonHeroOverviewFallbackBehaviorPreserved: true,
+      lastGeneratedParticleCount: null,
+      lastGeneratedParticleSpread: null,
+      particleCountAppliedDuringLastBurst: false,
+      particleSpreadAppliedDuringLastBurst: false,
     };
   }, []);
 
@@ -549,6 +557,12 @@ const UnifiedCrystalScene = forwardRef(({
           invalidKeys: HERO_OVERVIEW_CINEMATIC_RESOLVED.invalidParticleKeys,
           fallbackUsed: HERO_OVERVIEW_CINEMATIC_RESOLVED.particleConfigFallbackUsed,
           finalPropsPassedToFractureBurstParticles: state.particles.finalProps,
+          finalParticleCountProp: state.particles.finalProps?.count ?? null,
+          finalParticleSpreadProp: state.particles.finalProps?.spread ?? null,
+          lastGeneratedParticleCount: diagnostics.lastGeneratedParticleCount ?? null,
+          lastGeneratedSpreadValue: diagnostics.lastGeneratedParticleSpread ?? null,
+          countAppliedDuringLastBurst: diagnostics.particleCountAppliedDuringLastBurst === true,
+          spreadAppliedDuringLastBurst: diagnostics.particleSpreadAppliedDuringLastBurst === true,
           heroOverviewUsesConfigOverrides: state.routeLocal,
           triggered: diagnostics.particlesTriggered,
           firedOnce: diagnostics.particlesTriggered === true,
@@ -3082,6 +3096,26 @@ const UnifiedCrystalScene = forwardRef(({
           emitterPosition={[0, 0, 0]}
           {...mergedConfig.fracture.particles}
           {...(heroOverviewEffectsManualMode ? heroOverviewParticlesConfig.finalProps : {})}
+          spread={heroOverviewEffectsManualMode ? heroOverviewParticlesConfig.finalProps.spread : 0.5}
+          onBurstGenerated={heroOverviewEffectsManualMode ? ((details) => {
+            heroOverviewEffectsDiagnosticsRef.current = {
+              ...heroOverviewEffectsDiagnosticsRef.current,
+              lastGeneratedParticleCount: details.generatedCount,
+              lastGeneratedParticleSpread: details.spread,
+              particleCountAppliedDuringLastBurst: details.generatedCount === heroOverviewParticlesConfig.finalProps.count,
+              particleSpreadAppliedDuringLastBurst: details.spread === heroOverviewParticlesConfig.finalProps.spread,
+            };
+            if (typeof globalThis !== 'undefined') {
+              globalThis.__HERO_OVERVIEW_EFFECTS_TIMING_STATE__ = {
+                ...(globalThis.__HERO_OVERVIEW_EFFECTS_TIMING_STATE__ || {}),
+                particles: heroOverviewParticlesConfig,
+                lastGeneratedParticleCount: details.generatedCount,
+                lastGeneratedParticleSpread: details.spread,
+                particleCountAppliedDuringLastBurst: details.generatedCount === heroOverviewParticlesConfig.finalProps.count,
+                particleSpreadAppliedDuringLastBurst: details.spread === heroOverviewParticlesConfig.finalProps.spread,
+              };
+            }
+          }) : undefined}
         />
       )}
 

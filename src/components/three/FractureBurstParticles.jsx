@@ -37,6 +37,8 @@ const FractureBurstParticles = ({
   count = 360,
   color = '#9af8ff',
   emitterPosition = [0, 0, 0],
+  spread = 0.5,
+  onBurstGenerated = null,
 }) => {
   const pointsRef = useRef();
   const startTimeRef = useRef(0);
@@ -147,16 +149,17 @@ const FractureBurstParticles = ({
       const flowAmps = flowAmpsRef.current;
 
       logger.debug('[particles] before spawn activeCount=', activeCountRef.current);
-      const spawnCount = Math.min(count, 360);
-      logger.debug('[particles] spawning count=', spawnCount);
+      const spawnCount = Math.max(0, Math.floor(count));
+      const spreadScale = Math.max(0, Number.isFinite(spread) ? spread / 0.5 : 1);
+      logger.debug('[particles] spawning count=', spawnCount, 'spread=', spread);
 
       for (let i = 0; i < spawnCount; i += 1) {
         const i3 = i * 3;
 
         const angle = Math.random() * Math.PI * 2 + (Math.random() - 0.5) * 0.35;
-        const ringRadius = 0.38 + Math.random() * 0.44;
-        const ringThickness = -0.14 + Math.random() * 0.28;
-        const yOffset = -0.48 + Math.random() * 1.0;
+        const ringRadius = (0.38 + Math.random() * 0.44) * spreadScale;
+        const ringThickness = (-0.14 + Math.random() * 0.28) * spreadScale;
+        const yOffset = (-0.48 + Math.random() * 1.0) * spreadScale;
         const radial = ringRadius + ringThickness;
         const ringYOffset = -0.24;
 
@@ -170,9 +173,9 @@ const FractureBurstParticles = ({
 
         const radialDir = new THREE.Vector3(positions[i3], positions[i3 + 1], positions[i3 + 2]).normalize();
         const burstJitter = new THREE.Vector3(
-          -0.48 + Math.random() * 0.96,
-          -0.26 + Math.random() * 0.38,
-          -0.48 + Math.random() * 0.96,
+          (-0.48 + Math.random() * 0.96) * spreadScale,
+          (-0.26 + Math.random() * 0.38) * spreadScale,
+          (-0.48 + Math.random() * 0.96) * spreadScale,
         );
         const burstDir = radialDir.add(burstJitter).normalize();
         const velocity = burstDir.multiplyScalar(4.4 + Math.random() * 2.2);
@@ -228,6 +231,20 @@ const FractureBurstParticles = ({
       }
 
       activeCountRef.current = spawnCount;
+      onBurstGenerated?.({
+        generatedCount: spawnCount,
+        requestedCount: count,
+        spread,
+        spreadScale,
+      });
+      if (typeof globalThis !== 'undefined') {
+        globalThis.__FRACTURE_BURST_PARTICLES_LAST_GENERATED__ = {
+          generatedCount: spawnCount,
+          requestedCount: count,
+          spread,
+          spreadScale,
+        };
+      }
       logger.debug('[particles] after spawn activeCount=', activeCountRef.current);
 
       for (let i = 0; i < Math.min(5, activeCountRef.current); i += 1) {
@@ -270,7 +287,7 @@ const FractureBurstParticles = ({
         delayRef.current = null;
       }
     };
-  }, [trigger, delay, count, geometry]);
+  }, [trigger, delay, count, spread, geometry, onBurstGenerated]);
 
   useEffect(() => {
     if (pointsRef.current) {

@@ -311,6 +311,8 @@ export const resolveHeroOverviewCinematicConfig = (config = HERO_OVERVIEW_CINEMA
   if (!isHexColorString(rawParticles.color)) pushInvalidParticleKey('color');
   const particleEmitterPosition = readVec3(rawParticles.emitterPosition, DEFAULT_PARTICLES_CONFIG.emitterPosition);
   if (particleEmitterPosition !== rawParticles.emitterPosition) pushInvalidParticleKey('emitterPosition');
+  const particleSpread = readNonNegativeNumber(rawParticles.spread, DEFAULT_PARTICLES_CONFIG.spread);
+  if (!(typeof rawParticles.spread === 'number' && Number.isFinite(rawParticles.spread) && rawParticles.spread >= 0)) pushInvalidParticleKey('spread');
   const particleFieldsWired = [
     'enabled',
     'triggerAt',
@@ -318,10 +320,10 @@ export const resolveHeroOverviewCinematicConfig = (config = HERO_OVERVIEW_CINEMA
     'count',
     'color',
     'emitterPosition',
+    'spread',
   ];
   const particleFieldsPlaceholders = {
     duration: 'FractureBurstParticles does not consume duration; particle lifetimes are randomized internally.',
-    spread: 'mergedConfig.fracture.particles.spread exists but FractureBurstParticles does not consume it today.',
     lifetime: 'No single lifetime prop exists yet.',
     lifetimeMin: 'Lifetimes are currently randomized internally between 0.9 and 1.6 seconds.',
     lifetimeMax: 'Lifetimes are currently randomized internally between 0.9 and 1.6 seconds.',
@@ -340,6 +342,7 @@ export const resolveHeroOverviewCinematicConfig = (config = HERO_OVERVIEW_CINEMA
     count: particleCount,
     color: particleColor,
     emitterPosition: particleEmitterPosition,
+    spread: particleSpread,
     wired: true,
     routeTimelineWired: true,
     triggerAtUnits: 'seconds-from-hero-overview-start',
@@ -351,6 +354,7 @@ export const resolveHeroOverviewCinematicConfig = (config = HERO_OVERVIEW_CINEMA
       count: particleCount,
       color: particleColor,
       emitterPosition: particleEmitterPosition,
+      spread: particleSpread,
     },
     invalidKeys: invalidParticleKeys,
     fallbackUsed: invalidParticleKeys.length > 0,
