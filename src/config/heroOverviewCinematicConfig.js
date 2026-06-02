@@ -19,6 +19,22 @@ export const HERO_OVERVIEW_CINEMATIC_CONFIG = {
     driftEase: 'sinePulse',
   },
 
+  fracture: {
+    holdDuration: 0.5,
+    travelDuration: 1.1,
+    travelEase: 'easeOutCubic',
+    fractureDistanceMultiplier: 1.0,
+    spreadMultiplier: 1.0,
+    depthMultiplier: 1.0,
+    wired: true,
+    multipliersWired: {
+      fractureDistanceMultiplier: 'fallback-only',
+      spreadMultiplier: false,
+      depthMultiplier: false,
+    },
+    notes: 'Controls Hero → Overview facet explosion hold/travel timing. Ring and particles remain separate follow-ups.',
+  },
+
   particles: {
     enabled: true,
     triggerAt: 0.10,
@@ -84,6 +100,7 @@ const DURATION_TO_PHASE = [
 ];
 
 const DEFAULT_TOTAL_DURATION_SECONDS = HERO_OVERVIEW_CINEMATIC_CONFIG.timeline.totalDurationSeconds;
+const DEFAULT_FRACTURE_CONFIG = { ...HERO_OVERVIEW_CINEMATIC_CONFIG.fracture };
 const DEFAULT_DURATIONS = DURATION_TO_PHASE.reduce((acc, [durationKey]) => {
   acc[durationKey] = HERO_OVERVIEW_CINEMATIC_CONFIG.timeline[durationKey];
   return acc;
@@ -124,6 +141,10 @@ const CAMERA_PHASE_META = {
 
 const readPositiveSeconds = (value, fallback) => (
   typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : fallback
+);
+
+const readNonNegativeSeconds = (value, fallback) => (
+  typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : fallback
 );
 
 const readPositiveDuration = (durations, key, fallback, invalidKeys) => {
@@ -196,6 +217,55 @@ export const resolveHeroOverviewCinematicConfig = (config = HERO_OVERVIEW_CINEMA
     driftEase: readEasingName(config?.camera?.driftEase, HERO_OVERVIEW_CINEMATIC_CONFIG.camera.driftEase),
   };
 
+  const invalidFractureKeys = [];
+  const rawFracture = { ...(config?.fracture || {}) };
+  const pushInvalidFractureKey = (key) => {
+    if (!invalidFractureKeys.includes(key)) invalidFractureKeys.push(key);
+  };
+  const fractureHoldDuration = readNonNegativeSeconds(rawFracture.holdDuration, DEFAULT_FRACTURE_CONFIG.holdDuration);
+  if (!(typeof rawFracture.holdDuration === 'number' && Number.isFinite(rawFracture.holdDuration) && rawFracture.holdDuration >= 0)) {
+    pushInvalidFractureKey('holdDuration');
+  }
+  const fractureTravelDuration = readPositiveSeconds(rawFracture.travelDuration, DEFAULT_FRACTURE_CONFIG.travelDuration);
+  if (!(typeof rawFracture.travelDuration === 'number' && Number.isFinite(rawFracture.travelDuration) && rawFracture.travelDuration > 0)) {
+    pushInvalidFractureKey('travelDuration');
+  }
+  const fractureTravelEase = readEasingName(rawFracture.travelEase, DEFAULT_FRACTURE_CONFIG.travelEase);
+  if (!(typeof rawFracture.travelEase === 'string' && HERO_OVERVIEW_EASING[rawFracture.travelEase])) {
+    pushInvalidFractureKey('travelEase');
+  }
+  const fractureDistanceMultiplier = readPositiveSeconds(rawFracture.fractureDistanceMultiplier, DEFAULT_FRACTURE_CONFIG.fractureDistanceMultiplier);
+  if (!(typeof rawFracture.fractureDistanceMultiplier === 'number' && Number.isFinite(rawFracture.fractureDistanceMultiplier) && rawFracture.fractureDistanceMultiplier > 0)) {
+    pushInvalidFractureKey('fractureDistanceMultiplier');
+  }
+  const spreadMultiplier = readPositiveSeconds(rawFracture.spreadMultiplier, DEFAULT_FRACTURE_CONFIG.spreadMultiplier);
+  if (!(typeof rawFracture.spreadMultiplier === 'number' && Number.isFinite(rawFracture.spreadMultiplier) && rawFracture.spreadMultiplier > 0)) {
+    pushInvalidFractureKey('spreadMultiplier');
+  }
+  const depthMultiplier = readPositiveSeconds(rawFracture.depthMultiplier, DEFAULT_FRACTURE_CONFIG.depthMultiplier);
+  if (!(typeof rawFracture.depthMultiplier === 'number' && Number.isFinite(rawFracture.depthMultiplier) && rawFracture.depthMultiplier > 0)) {
+    pushInvalidFractureKey('depthMultiplier');
+  }
+  const fracture = {
+    ...DEFAULT_FRACTURE_CONFIG,
+    ...rawFracture,
+    holdDuration: fractureHoldDuration,
+    travelDuration: fractureTravelDuration,
+    travelEase: fractureTravelEase,
+    fractureDistanceMultiplier,
+    spreadMultiplier,
+    depthMultiplier,
+    totalDuration: Number((fractureHoldDuration + fractureTravelDuration).toFixed(4)),
+    wired: true,
+    multipliersWired: {
+      fractureDistanceMultiplier: 'fallback-only',
+      spreadMultiplier: false,
+      depthMultiplier: false,
+    },
+    invalidKeys: invalidFractureKeys,
+    fallbackUsed: invalidFractureKeys.length > 0,
+  };
+
   return {
     sourceFile: HERO_OVERVIEW_CINEMATIC_CONFIG_SOURCE,
     sourceName: 'HERO_OVERVIEW_CINEMATIC_CONFIG',
@@ -212,12 +282,16 @@ export const resolveHeroOverviewCinematicConfig = (config = HERO_OVERVIEW_CINEMA
       Object.entries(timeline).map(([phaseName, phase]) => [phaseName, phase.durationSeconds]),
     ),
     camera,
+    fracture,
+    rawFracture,
+    invalidFractureKeys,
+    fractureConfigFallbackUsed: fracture.fallbackUsed,
     particles: { ...HERO_OVERVIEW_CINEMATIC_CONFIG.particles, ...(config?.particles || {}) },
     ring: { ...HERO_OVERVIEW_CINEMATIC_CONFIG.ring, ...(config?.ring || {}) },
     totalConfiguredDuration,
     normalizedDurationTotal: safeTotal,
-    defaultsUsed: invalidDurationKeys.length > 0 || invalidTotal || totalDurationFallbackUsed,
-    invalidConfigFallbackOccurred: invalidDurationKeys.length > 0 || invalidTotal || totalDurationFallbackUsed,
+    defaultsUsed: invalidDurationKeys.length > 0 || invalidTotal || totalDurationFallbackUsed || fracture.fallbackUsed,
+    invalidConfigFallbackOccurred: invalidDurationKeys.length > 0 || invalidTotal || totalDurationFallbackUsed || fracture.fallbackUsed,
     invalidDurationKeys,
     invalidTotal,
   };

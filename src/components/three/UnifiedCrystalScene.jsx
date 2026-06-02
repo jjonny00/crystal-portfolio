@@ -32,6 +32,7 @@ import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController'
 import { useLayoutConfig } from '../../hooks/useLayoutConfig'
 import { useHoverCapable } from '../../hooks/useHoverCapable'
 import { createLogger } from '../../utils/logger'
+import { HERO_OVERVIEW_CINEMATIC_RESOLVED, HERO_OVERVIEW_EASING } from '../../config/heroOverviewCinematicConfig'
 
 const PROJECT_DISPLAY_SLOT = 'ProjectDisplay'
 const FOCUS_ROTATION_PROGRESS_LEAD = 1
@@ -224,6 +225,7 @@ const UnifiedCrystalScene = forwardRef(({
   const [labelsReady, setLabelsReady] = useState(false);
   const [facetsSettled, setFacetsSettled] = useState(false);
   const facetsSettledRef = useRef(false);
+  const heroOverviewFractureTimingRouteActiveRef = useRef(false);
   const { layout } = useLayoutConfig();
   const hoverCapable = useHoverCapable();
   useCursor(Boolean(hoverCapable && hoveredFacet));
@@ -251,6 +253,126 @@ const UnifiedCrystalScene = forwardRef(({
   }, [mergedConfig?.cameraPositions?.hero, mergedConfig?.cameraPositions?.overview]);
 
   const crystalConfig = animationData?.crystalConfig;
+  const isHeroOverviewFractureTimingRouteCandidate = Boolean(
+    animationData?.crystalForm === 'exploded' &&
+    (
+      animationData?.state === 'overview' ||
+      animationData?.currentZone === 'overview' ||
+      animationData?.viewMode === 'overview'
+    )
+  );
+  const getHeroOverviewFractureTimingState = useCallback(() => {
+    const normalizeDuration = (value, fallback, allowZero = false) => {
+      const numeric = typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+      const seconds = numeric > 10 ? numeric / 1000 : numeric;
+      const min = allowZero ? 0 : 0.0001;
+      return Math.max(min, Number.isFinite(seconds) ? seconds : fallback);
+    };
+    const originalCrystalFracturePause = normalizeDuration(crystalConfig?.fracturePause, 0.5, true);
+    const originalCrystalExplodeDuration = normalizeDuration(crystalConfig?.explodeDuration, 1.6);
+    const originalFacetTravelDuration = Math.max(0.0001, originalCrystalExplodeDuration - originalCrystalFracturePause);
+    const fractureConfig = HERO_OVERVIEW_CINEMATIC_RESOLVED.fracture;
+    const runtimeSnapshot = heroOverviewRuntime?.getSnapshot?.() ?? null;
+    const runtimeIndicatesHeroOverview = Boolean(
+      runtimeSnapshot?.active ||
+      runtimeSnapshot?.phase === 'fractureCharge' ||
+      runtimeSnapshot?.phase === 'explosionImpulse' ||
+      runtimeSnapshot?.phase === 'bulletTimeSlowdown' ||
+      runtimeSnapshot?.phase === 'overviewTravel' ||
+      runtimeSnapshot?.phase === 'overviewSettle'
+    );
+
+    if (animationData?.crystalForm !== 'exploded') {
+      heroOverviewFractureTimingRouteActiveRef.current = false;
+    } else if (isHeroOverviewFractureTimingRouteCandidate && runtimeIndicatesHeroOverview) {
+      heroOverviewFractureTimingRouteActiveRef.current = true;
+    }
+
+    const routeLocal = Boolean(
+      isHeroOverviewFractureTimingRouteCandidate &&
+      heroOverviewFractureTimingRouteActiveRef.current
+    );
+    const effectiveCrystalFracturePause = routeLocal ? fractureConfig.holdDuration : originalCrystalFracturePause;
+    const effectiveFacetTravelDuration = routeLocal ? fractureConfig.travelDuration : originalFacetTravelDuration;
+    const effectiveCrystalExplodeDuration = routeLocal
+      ? effectiveCrystalFracturePause + effectiveFacetTravelDuration
+      : originalCrystalExplodeDuration;
+    const fractureTravelEase = routeLocal ? fractureConfig.travelEase : 'legacy-crystalConfig.explosionEase/shared-expoOut';
+    const travelEaseFunction = routeLocal
+      ? (HERO_OVERVIEW_EASING[fractureConfig.travelEase] || HERO_OVERVIEW_EASING.easeOutCubic)
+      : null;
+    return {
+      routeLocal,
+      fractureConfig,
+      fractureConfigWired: Boolean(fractureConfig?.wired),
+      fractureTimingSource: routeLocal
+        ? 'HERO_OVERVIEW_CINEMATIC_CONFIG.fracture'
+        : 'animationData.crystalConfig',
+      originalCrystalFracturePause,
+      originalCrystalExplodeDuration,
+      originalFacetTravelDuration,
+      effectiveCrystalFracturePause,
+      effectiveCrystalExplodeDuration,
+      effectiveFacetTravelDuration,
+      fractureHoldDurationSeconds: effectiveCrystalFracturePause,
+      fractureTravelDurationSeconds: effectiveFacetTravelDuration,
+      fractureTotalDurationSeconds: effectiveCrystalExplodeDuration,
+      fractureTravelEase,
+      travelEaseFunction,
+      fractureDistanceMultiplier: routeLocal ? fractureConfig.fractureDistanceMultiplier : 1,
+      multipliersWired: fractureConfig.multipliersWired,
+      defaultsPreservePreviousBehavior: Boolean(
+        fractureConfig.holdDuration === 0.5 &&
+        fractureConfig.travelDuration === 1.1 &&
+        fractureConfig.travelEase === 'easeOutCubic'
+      ),
+      invalidFractureConfigFallbackState: {
+        fallbackUsed: Boolean(fractureConfig.fallbackUsed),
+        invalidKeys: fractureConfig.invalidKeys || [],
+      },
+    };
+  }, [
+    animationData?.crystalForm,
+    animationData?.currentZone,
+    animationData?.state,
+    animationData?.viewMode,
+    crystalConfig?.explodeDuration,
+    crystalConfig?.fracturePause,
+    heroOverviewRuntime,
+    isHeroOverviewFractureTimingRouteCandidate,
+  ]);
+
+  useEffect(() => {
+    if (typeof globalThis === 'undefined') return undefined;
+    globalThis.__printHeroOverviewFractureTimingConfig = () => {
+      const timing = getHeroOverviewFractureTimingState();
+      const { travelEaseFunction, ...timingForLog } = timing;
+      console.log('[hero-overview-fracture-timing] config', {
+        facetExplosionTriggerSource: 'animationData.crystalForm -> UnifiedCrystalScene pendingExplodeSwapAtRef -> runExplodeSwap()',
+        facetTravelProgressSource: timing.routeLocal
+          ? 'config-driven elapsed explosion progress after holdDuration'
+          : 'crystalConfig elapsed explosion progress',
+        facetTravelDurationSource: timing.fractureTimingSource,
+        facetTravelEasingSource: timing.routeLocal
+          ? `HERO_OVERVIEW_EASING.${timing.fractureTravelEase}`
+          : timing.fractureTravelEase,
+        facetRotationProgressSource: 'same effective explosion progress/easing used by facet travel',
+        particleTriggerSource: 'runExplodeSwap() burstId (unchanged)',
+        ringTriggerSource: 'runExplodeSwap() ringVisible + FractureRingImage crystalForm watcher (unchanged)',
+        cameraTimelineSource: 'HERO_OVERVIEW_CINEMATIC_CONFIG.timeline',
+        cameraAndFacetTimelinesSynchronized: false,
+        cameraFacetSynchronizationNotes: timing.routeLocal
+          ? 'Both systems read heroOverviewCinematicConfig, but camera progress and facet explosion progress remain separate clocks.'
+          : 'Legacy crystalConfig path is active, so camera config does not drive facet timing.',
+        ...timingForLog,
+      });
+    };
+    return () => {
+      if (globalThis.__printHeroOverviewFractureTimingConfig) {
+        delete globalThis.__printHeroOverviewFractureTimingConfig;
+      }
+    };
+  }, [getHeroOverviewFractureTimingState]);
 
   // Facet configuration
   const facetKeys = canonicalFacetKeys;
@@ -351,7 +473,8 @@ const UnifiedCrystalScene = forwardRef(({
     }
 
     // Snap facets immediately to fracture positions (small initial offset)
-    const fractureDistance = crystalConfig?.fractureDistance ?? 0.3;
+    const fractureTiming = getHeroOverviewFractureTimingState();
+    const fractureDistance = (crystalConfig?.fractureDistance ?? 0.3) * fractureTiming.fractureDistanceMultiplier;
     const fracture = crystalConfig?.fracturePositions;
     if (fracture || fractureDistance) {
       facetRefs.current.forEach((facetRef, idx) => {
@@ -372,7 +495,7 @@ const UnifiedCrystalScene = forwardRef(({
     }
 
     triggerFractureGlow();
-  }, [crystalConfig, facetKeys, facetPlacementKeys, triggerFractureGlow]);
+  }, [crystalConfig, facetKeys, facetPlacementKeys, getHeroOverviewFractureTimingState, triggerFractureGlow]);
 
   const runReformSwap = useCallback(() => {
     pendingReformSwapAtRef.current = null;
@@ -1830,11 +1953,12 @@ const UnifiedCrystalScene = forwardRef(({
 
     // Hold facets at fracture positions before the explosion resumes
     if (animationData.crystalForm === 'exploded' && explosionStartRef.current) {
-      const fracturePause = crystalConfig?.fracturePause || 0.5;
+      const fractureTiming = getHeroOverviewFractureTimingState();
+      const fracturePause = fractureTiming.effectiveCrystalFracturePause;
       const elapsedExplosion = (performance.now() - explosionStartRef.current) / 1000;
       if (elapsedExplosion < fracturePause) {
         const fracture = crystalConfig?.fracturePositions;
-        const fractureDistance = crystalConfig?.fractureDistance ?? 0.3;
+        const fractureDistance = (crystalConfig?.fractureDistance ?? 0.3) * fractureTiming.fractureDistanceMultiplier;
         facetRefs.current.forEach((facetRef, idx) => {
           const facetKey = facetKeys[idx];
           const explodedPos = crystalConfig?.positions?.[facetPlacementKeys[facetKey] || facetKey];
@@ -1890,19 +2014,24 @@ const UnifiedCrystalScene = forwardRef(({
     if (showFacets && crystalConfig?.positions) {
       // Custom fracture/explosion timing
       if (animationData.crystalForm === 'exploded' && explosionStartRef.current) {
-        const fracturePause = crystalConfig?.fracturePause || 0.5;
-        const totalDuration = crystalConfig?.explodeDuration || 1.2;
+        const fractureTiming = getHeroOverviewFractureTimingState();
+        const fracturePause = fractureTiming.effectiveCrystalFracturePause;
+        const travelDuration = Math.max(0.0001, fractureTiming.effectiveFacetTravelDuration);
         const elapsedExplosion = (performance.now() - explosionStartRef.current) / 1000;
         const explosionElapsedMs = elapsedExplosion * 1000;
 
-        const progress = Math.min((elapsedExplosion - fracturePause) / (totalDuration - fracturePause), 1);
+        const progress = THREE.MathUtils.clamp((elapsedExplosion - fracturePause) / travelDuration, 0, 1);
         const sharedProgressRaw = THREE.MathUtils.clamp(progress, 0, 1);
-        const easeType = config?.timing?.heroOverviewRuntime?.heroOverviewMotionEaseType ?? 'expoOut';
-        const sharedProgressEased = THREE.MathUtils.clamp(
-          sharedProgressRaw >= 1 ? 1 : 1 - (2 ** (-10 * sharedProgressRaw)),
-          0,
-          1,
-        );
+        const easeType = fractureTiming.routeLocal
+          ? fractureTiming.fractureTravelEase
+          : (config?.timing?.heroOverviewRuntime?.heroOverviewMotionEaseType ?? 'expoOut');
+        const sharedProgressEased = fractureTiming.routeLocal
+          ? THREE.MathUtils.clamp(fractureTiming.travelEaseFunction(sharedProgressRaw), 0, 1)
+          : THREE.MathUtils.clamp(
+              sharedProgressRaw >= 1 ? 1 : 1 - (2 ** (-10 * sharedProgressRaw)),
+              0,
+              1,
+            );
         const runtimeSnapshotForClock = heroOverviewRuntime?.getSnapshot?.() ?? null;
         const { fragmentVisualPhase: explosionVisualPhase, fragmentVisualProgress: explosionVisualProgress } =
           deriveFragmentVisualTiming(runtimeSnapshotForClock, progress);
@@ -1919,10 +2048,12 @@ const UnifiedCrystalScene = forwardRef(({
           };
         }
         const fracture = crystalConfig?.fracturePositions;
-        const fractureDistance = crystalConfig?.fractureDistance ?? 0.3;
-        const eased = crystalConfig?.explosionEase
-          ? crystalConfig?.explosionEase(progress)
-          : progress;
+        const fractureDistance = (crystalConfig?.fractureDistance ?? 0.3) * fractureTiming.fractureDistanceMultiplier;
+        const eased = fractureTiming.routeLocal
+          ? sharedProgressEased
+          : (crystalConfig?.explosionEase
+              ? crystalConfig?.explosionEase(progress)
+              : progress);
 
         if (facetsGroupRef.current) {
           facetsGroupRef.current.quaternion.slerpQuaternions(

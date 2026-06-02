@@ -450,6 +450,15 @@ export const HERO_OVERVIEW_CINEMATIC_CONFIG = {
     punchEase: 'sinePulse',
     driftEase: 'sinePulse',
   },
+  fracture: {
+    holdDuration: 0.5,
+    travelDuration: 1.1,
+    travelEase: 'easeOutCubic',
+    fractureDistanceMultiplier: 1.0,
+    spreadMultiplier: 1.0,
+    depthMultiplier: 1.0,
+    wired: true,
+  },
   particles: { enabled: true, triggerAt: 0.10, duration: null, wired: false },
   ring: { enabled: true, triggerAt: 0.10, duration: null, startScale: null, endScale: null, easing: 'sinePulse', wired: false },
 };
@@ -618,11 +627,11 @@ The camera and facets are only loosely coordinated today:
 - Facets use `animationData.crystalForm`, `runExplodeSwap()`, `explosionStartRef`, `crystalConfig.fracturePause`, `crystalConfig.explodeDuration`, `crystalConfig.explosionEase`, and existing `config.timing.heroOverviewRuntime` fragment helpers.
 - `heroOverviewExplosionClockRef` lets the camera/controller observe explosion progress, and diagnostics compare the two, but the camera timeline does not own the facet timeline and the facet timeline does not consume `HERO_OVERVIEW_CINEMATIC_CONFIG.timeline`.
 
-To synchronize safely in a follow-up, introduce a resolved fracture/facet timing section in `heroOverviewCinematicConfig.js`, then feed it into `UnifiedCrystalScene` as the single source for Hero → Overview facet trigger, hold, travel, easing, rotation, and settle windows. The follow-up should keep legacy/non-Hero routes on existing `crystalConfig` defaults unless explicitly migrated.
+Milestone F begins the synchronization work by feeding route-local facet hold, travel, and travel easing from `heroOverviewCinematicConfig.js` into `UnifiedCrystalScene`. Remaining follow-ups should only migrate trigger phase, independent rotation windows, settle windows, particles, and ring once they can keep legacy/non-Hero routes on existing `crystalConfig` defaults unless explicitly migrated.
 
-### Recommended follow-up config fields
+### Remaining follow-up config fields
 
-Proposed shape only; do not wire until the follow-up owns the single source of truth:
+Milestone F wires the safe `holdDuration`, `travelDuration`, `travelEase`, and fallback fracture-distance multiplier pieces route-locally. The shape below remains a recommendation for fields that are not yet wired, such as trigger phase, pre-swap lead, independent rotation duration/ease, explicit spread/depth scaling, settle duration, glow, particle, and ring timing:
 
 ```js
 fracture: {
@@ -661,6 +670,65 @@ ring: {
 
 ### Safe exposure assessment
 
-- **Safe to expose next with a small adapter:** travel duration, hold duration, explosion ease name, fracture distance multiplier, ring duration/scale/easing, particle trigger delay/count/color.
+- **Already exposed in Milestone F:** Hero → Overview fracture hold duration, travel duration, travel easing, and fallback fracture-distance multiplier.
+- **Safe to expose next with a small adapter:** ring duration/scale/easing and particle trigger delay/count/color.
 - **Needs care:** route-phase `triggerAt` for facets/particles/ring, because current triggers come from `crystalForm`/`runExplodeSwap()` and can double-trigger if route-phase triggers are added without removing the old source for Hero → Overview.
 - **Needs component API work:** particle duration/lifetime, because `FractureBurstParticles` currently randomizes lifetimes internally rather than reading a duration prop for all particles.
+
+
+## Milestone F runtime wiring: facet explosion timing controls
+
+Milestone F wires the safest facet explosion controls into `src/config/heroOverviewCinematicConfig.js` for the Hero → Overview route only. Camera ownership, target parity, final FOV/filmOffset, roll/up guards, particles, and ring behavior remain unchanged.
+
+### New fracture config fields
+
+```js
+fracture: {
+  holdDuration: 0.5,
+  travelDuration: 1.1,
+  travelEase: 'easeOutCubic',
+  fractureDistanceMultiplier: 1.0,
+  spreadMultiplier: 1.0,
+  depthMultiplier: 1.0,
+  wired: true,
+  multipliersWired: {
+    fractureDistanceMultiplier: 'fallback-only',
+    spreadMultiplier: false,
+    depthMultiplier: false,
+  },
+}
+```
+
+- `holdDuration` is wired route-locally in `UnifiedCrystalScene` as the Hero → Overview facet hold before outward travel.
+- `travelDuration` is wired route-locally as the Hero → Overview facet travel time after the hold.
+- `travelEase` is wired route-locally through `HERO_OVERVIEW_EASING` for facet translation and rotation progress during the Hero → Overview explosion.
+- `fractureDistanceMultiplier` is wired only for fallback fracture positions when an explicit `crystalConfig.fracturePositions[facetKey]` is unavailable. Existing explicit fracture positions remain authoritative.
+- `spreadMultiplier` and `depthMultiplier` are validated placeholders; they are not wired yet because widening/depth scaling explicit facet targets would be broader than this safe timing pass.
+
+### Relationship to the camera timeline
+
+The camera timeline still comes from `timeline.totalDurationSeconds` and the camera phase weights. The facet explosion now has a separate route-local `fracture` timing section. These two sections can be tuned together, but they remain separate clocks:
+
+- Camera progress: `HERO_OVERVIEW_CINEMATIC_CONFIG.timeline` in `UnifiedCameraController`.
+- Facet hold/travel progress: `HERO_OVERVIEW_CINEMATIC_CONFIG.fracture` in `UnifiedCrystalScene` for Overview-route exploded facets.
+- Particles: still triggered by `runExplodeSwap()` via `burstId`.
+- Ring: still shown by `runExplodeSwap()` and animated by `FractureRingImage` from `animationData.crystalForm`.
+
+### Diagnostics
+
+Use:
+
+```js
+globalThis.__printHeroOverviewFractureTimingConfig?.();
+globalThis.__printHeroOverviewPilotCinematic?.();
+```
+
+The fracture helper reports the trigger source, effective hold/travel/total duration, travel easing, original `crystalConfig` timing, whether the Hero → Overview route-local config is active, invalid fallback state, and which multipliers are wired versus placeholders. `__printHeroOverviewPilotCinematic?.()` also includes the resolved fracture config and fallback flags.
+
+### Tuning examples
+
+1. To make facets wait longer before traveling, increase `fracture.holdDuration`.
+2. To make facet travel faster, decrease `fracture.travelDuration`.
+3. To make facet travel feel more aggressive, try `fracture.travelEase: 'easeOutExpo'`.
+4. To keep camera bullet-time and facet explosion aligned, compare `timeline.bulletTime`, `timeline.overviewTravel`, `fracture.holdDuration`, and `fracture.travelDuration` in the two diagnostics above.
+5. Do not tune particles or ring from the fracture section; those remain separate follow-ups.
