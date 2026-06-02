@@ -37,22 +37,34 @@ export const HERO_OVERVIEW_CINEMATIC_CONFIG = {
 
   particles: {
     enabled: true,
-    triggerAt: 0.28,
+    triggerAt: 0.5,
     delay: 0,
+    count: 360,
+    color: '#66ffcc',
+    emitterPosition: [0, 0, 0],
     duration: null,
-    wired: false,
-    notes: 'Particles should be wired to the Hero → Overview route timeline in this pass. Duration may remain component-driven if unsafe to wire.',
+    spread: 0.5,
+    lifetime: null,
+    lifetimeMin: null,
+    lifetimeMax: null,
+    speed: null,
+    speedMin: null,
+    speedMax: null,
+    size: null,
+    opacity: null,
+    wired: true,
+    notes: 'Hero → Overview particle trigger plus supported FractureBurstParticles props are config-driven. Duration/lifetime/speed/size/spread remain component-internal placeholders until a particle API pass wires them safely.',
   },
 
   ring: {
     enabled: true,
-    triggerAt: 0.28,
-    duration: 0.8,
-    startScale: 0.2,
-    endScale: 3.5,
-    easing: 'sinePulse',
-    wired: false,
-    notes: 'Ring trigger/timing should be wired to the Hero → Overview route timeline in this pass.',
+    triggerAt: 0.55,
+    duration: 0.6,
+    startScale: 0.05,
+    endScale: 25.5,
+    easing: 'easeOutExpo',
+    wired: true,
+    notes: 'Ring trigger/timing is wired to the Hero → Overview route timeline.',
   },
 };
 
@@ -102,6 +114,7 @@ const DURATION_TO_PHASE = [
 
 const DEFAULT_TOTAL_DURATION_SECONDS = HERO_OVERVIEW_CINEMATIC_CONFIG.timeline.totalDurationSeconds;
 const DEFAULT_FRACTURE_CONFIG = { ...HERO_OVERVIEW_CINEMATIC_CONFIG.fracture };
+const DEFAULT_PARTICLES_CONFIG = { ...HERO_OVERVIEW_CINEMATIC_CONFIG.particles };
 const DEFAULT_DURATIONS = DURATION_TO_PHASE.reduce((acc, [durationKey]) => {
   acc[durationKey] = HERO_OVERVIEW_CINEMATIC_CONFIG.timeline[durationKey];
   return acc;
@@ -157,6 +170,20 @@ const readPositiveDuration = (durations, key, fallback, invalidKeys) => {
 
 const readNonNegativeNumber = (value, fallback) => (
   typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : fallback
+);
+
+const readPositiveInteger = (value, fallback) => (
+  Number.isInteger(value) && value > 0 ? value : fallback
+);
+
+const isHexColorString = (value) => typeof value === 'string' && /^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(value);
+
+const readVec3 = (value, fallback) => (
+  Array.isArray(value) &&
+  value.length === 3 &&
+  value.every((entry) => typeof entry === 'number' && Number.isFinite(entry))
+    ? value
+    : fallback
 );
 
 const readEasingName = (value, fallback) => (
@@ -267,6 +294,68 @@ export const resolveHeroOverviewCinematicConfig = (config = HERO_OVERVIEW_CINEMA
     fallbackUsed: invalidFractureKeys.length > 0,
   };
 
+  const invalidParticleKeys = [];
+  const rawParticles = { ...(config?.particles || {}) };
+  const pushInvalidParticleKey = (key) => {
+    if (!invalidParticleKeys.includes(key)) invalidParticleKeys.push(key);
+  };
+  const particleEnabled = typeof rawParticles.enabled === 'boolean' ? rawParticles.enabled : DEFAULT_PARTICLES_CONFIG.enabled;
+  if (typeof rawParticles.enabled !== 'boolean') pushInvalidParticleKey('enabled');
+  const particleTriggerAt = readNonNegativeSeconds(rawParticles.triggerAt, DEFAULT_PARTICLES_CONFIG.triggerAt);
+  if (!(typeof rawParticles.triggerAt === 'number' && Number.isFinite(rawParticles.triggerAt) && rawParticles.triggerAt >= 0)) pushInvalidParticleKey('triggerAt');
+  const particleDelay = readNonNegativeSeconds(rawParticles.delay, DEFAULT_PARTICLES_CONFIG.delay);
+  if (!(typeof rawParticles.delay === 'number' && Number.isFinite(rawParticles.delay) && rawParticles.delay >= 0)) pushInvalidParticleKey('delay');
+  const particleCount = readPositiveInteger(rawParticles.count, DEFAULT_PARTICLES_CONFIG.count);
+  if (!(Number.isInteger(rawParticles.count) && rawParticles.count > 0)) pushInvalidParticleKey('count');
+  const particleColor = isHexColorString(rawParticles.color) ? rawParticles.color : DEFAULT_PARTICLES_CONFIG.color;
+  if (!isHexColorString(rawParticles.color)) pushInvalidParticleKey('color');
+  const particleEmitterPosition = readVec3(rawParticles.emitterPosition, DEFAULT_PARTICLES_CONFIG.emitterPosition);
+  if (particleEmitterPosition !== rawParticles.emitterPosition) pushInvalidParticleKey('emitterPosition');
+  const particleFieldsWired = [
+    'enabled',
+    'triggerAt',
+    'delay',
+    'count',
+    'color',
+    'emitterPosition',
+  ];
+  const particleFieldsPlaceholders = {
+    duration: 'FractureBurstParticles does not consume duration; particle lifetimes are randomized internally.',
+    spread: 'mergedConfig.fracture.particles.spread exists but FractureBurstParticles does not consume it today.',
+    lifetime: 'No single lifetime prop exists yet.',
+    lifetimeMin: 'Lifetimes are currently randomized internally between 0.9 and 1.6 seconds.',
+    lifetimeMax: 'Lifetimes are currently randomized internally between 0.9 and 1.6 seconds.',
+    speed: 'Initial speed is randomized internally.',
+    speedMin: 'Initial speed is randomized internally between 4.4 and 6.6 before vertical adjustment.',
+    speedMax: 'Initial speed is randomized internally between 4.4 and 6.6 before vertical adjustment.',
+    size: 'Particle sizes use internal tiered randomization.',
+    opacity: 'Opacity is driven by shader alpha/fade constants internally.',
+  };
+  const particles = {
+    ...DEFAULT_PARTICLES_CONFIG,
+    ...rawParticles,
+    enabled: particleEnabled,
+    triggerAt: particleTriggerAt,
+    delay: particleDelay,
+    count: particleCount,
+    color: particleColor,
+    emitterPosition: particleEmitterPosition,
+    wired: true,
+    routeTimelineWired: true,
+    triggerAtUnits: 'seconds-from-hero-overview-start',
+    fieldsWired: particleFieldsWired,
+    fieldsPlaceholders: particleFieldsPlaceholders,
+    unwiredFields: particleFieldsPlaceholders,
+    finalProps: {
+      delay: particleDelay,
+      count: particleCount,
+      color: particleColor,
+      emitterPosition: particleEmitterPosition,
+    },
+    invalidKeys: invalidParticleKeys,
+    fallbackUsed: invalidParticleKeys.length > 0,
+  };
+
   return {
     sourceFile: HERO_OVERVIEW_CINEMATIC_CONFIG_SOURCE,
     sourceName: 'HERO_OVERVIEW_CINEMATIC_CONFIG',
@@ -287,15 +376,12 @@ export const resolveHeroOverviewCinematicConfig = (config = HERO_OVERVIEW_CINEMA
     rawFracture,
     invalidFractureKeys,
     fractureConfigFallbackUsed: fracture.fallbackUsed,
-    particles: {
-      ...HERO_OVERVIEW_CINEMATIC_CONFIG.particles,
-      ...(config?.particles || {}),
-      routeTimelineWired: true,
-      triggerAtUnits: 'seconds-from-hero-overview-start',
-      unwiredFields: {
-        duration: 'FractureBurstParticles randomizes per-particle lifetimes internally; duration remains a placeholder.',
-      },
-    },
+    particles,
+    rawParticles,
+    invalidParticleKeys,
+    particleConfigFallbackUsed: particles.fallbackUsed,
+    particleFieldsWired,
+    particleFieldsPlaceholders,
     ring: {
       ...HERO_OVERVIEW_CINEMATIC_CONFIG.ring,
       ...(config?.ring || {}),
@@ -311,8 +397,8 @@ export const resolveHeroOverviewCinematicConfig = (config = HERO_OVERVIEW_CINEMA
     },
     totalConfiguredDuration,
     normalizedDurationTotal: safeTotal,
-    defaultsUsed: invalidDurationKeys.length > 0 || invalidTotal || totalDurationFallbackUsed || fracture.fallbackUsed,
-    invalidConfigFallbackOccurred: invalidDurationKeys.length > 0 || invalidTotal || totalDurationFallbackUsed || fracture.fallbackUsed,
+    defaultsUsed: invalidDurationKeys.length > 0 || invalidTotal || totalDurationFallbackUsed || fracture.fallbackUsed || particles.fallbackUsed,
+    invalidConfigFallbackOccurred: invalidDurationKeys.length > 0 || invalidTotal || totalDurationFallbackUsed || fracture.fallbackUsed || particles.fallbackUsed,
     invalidDurationKeys,
     invalidTotal,
   };

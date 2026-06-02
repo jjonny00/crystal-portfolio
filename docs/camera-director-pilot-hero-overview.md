@@ -791,3 +791,83 @@ The effects helper reports particle/ring enabled flags, `triggerAt` values, actu
 4. To make the ring last longer, increase `ring.duration`.
 5. To resize the ring, tune `ring.startScale` and `ring.endScale`.
 6. To align effects with the camera, compare `particles.triggerAt` and `ring.triggerAt` with `timeline.fractureHold`, `timeline.totalDurationSeconds`, `fracture.holdDuration`, and `fracture.travelDuration`.
+
+## Milestone E particle controls exposed in the cinematic config
+
+Hero → Overview particles now use `HERO_OVERVIEW_CINEMATIC_CONFIG.particles` for the route-local trigger plus the `FractureBurstParticles` props that already map cleanly to the component API.
+
+### Particle API audit
+
+`FractureBurstParticles` currently accepts these props directly:
+
+- `trigger` — owned by `UnifiedCrystalScene`; Hero → Overview still uses the existing `burstId` trigger path.
+- `delay` — delay before spawning after `trigger`, with the component's internal emitter lead applied.
+- `count` — particle buffer/spawn count, capped internally to 360 active particles.
+- `color` — shader color string accepted by `THREE.Color`; the cinematic config validates hex strings.
+- `emitterPosition` — `[x, y, z]` group position for the particle emitter.
+
+`mergedConfig.fracture.particles` currently provides `delay`, `count`, `color`, `duration`, and `spread`. Before this pass, only the props consumed by `FractureBurstParticles` affected runtime behavior; `duration` and `spread` were config values but were not consumed by the component.
+
+### Final particles config shape
+
+```js
+particles: {
+  enabled: true,
+  triggerAt: 0.5,
+  delay: 0,
+  count: 360,
+  color: '#66ffcc',
+  emitterPosition: [0, 0, 0],
+  duration: null,
+  spread: 0.5,
+  lifetime: null,
+  lifetimeMin: null,
+  lifetimeMax: null,
+  speed: null,
+  speedMin: null,
+  speedMax: null,
+  size: null,
+  opacity: null,
+  wired: true,
+}
+```
+
+### Wired particle fields
+
+- `enabled`: disables only the Hero → Overview route-local particle burst when `false`.
+- `triggerAt`: seconds from Hero → Overview runtime start, not normalized progress.
+- `delay`: passed to `FractureBurstParticles.delay` for the Hero → Overview route-local burst.
+- `count`: passed to `FractureBurstParticles.count` for Hero → Overview.
+- `color`: passed to `FractureBurstParticles.color` for Hero → Overview.
+- `emitterPosition`: passed to `FractureBurstParticles.emitterPosition` for Hero → Overview.
+
+Non-Hero Overview still spreads `mergedConfig.fracture.particles` into `FractureBurstParticles`, so legacy particle behavior stays on the existing config path.
+
+### Particle placeholders and current limitations
+
+- `duration`: placeholder; the component expires particles using randomized per-particle lifetimes instead of a duration prop.
+- `spread`: placeholder; it exists in `mergedConfig.fracture.particles`, but `FractureBurstParticles` does not consume it today.
+- `lifetime`, `lifetimeMin`, `lifetimeMax`: placeholders; lifetimes are currently randomized internally between roughly `0.9` and `1.6` seconds.
+- `speed`, `speedMin`, `speedMax`: placeholders; initial burst speed is randomized internally before vertical adjustment.
+- `size`: placeholder; particle sizes use internal tiered randomization.
+- `opacity`: placeholder; opacity is shader-alpha/fade driven internally.
+
+### Particle diagnostics
+
+Use:
+
+```js
+globalThis.__printHeroOverviewEffectsTimingConfig?.();
+globalThis.__printHeroOverviewPilotCinematic?.();
+```
+
+The effects helper reports the raw particle config, resolved particle config, wired fields, placeholder fields, invalid particle keys, fallback state, final props passed to `FractureBurstParticles`, whether Hero → Overview used config overrides, and trigger frame/time/source.
+
+### Particle tuning guide
+
+1. To fire particles later, increase `particles.triggerAt` in seconds.
+2. To suppress Hero → Overview particles only, set `particles.enabled: false`.
+3. To make the burst denser or lighter, tune `particles.count`.
+4. To recolor the burst, tune `particles.color` using a hex color.
+5. To offset the emitter, tune `particles.emitterPosition`.
+6. To align with the rest of the transition, compare `particles.triggerAt` to `timeline.totalDurationSeconds`, `fracture.holdDuration`, `fracture.travelDuration`, and `ring.triggerAt`.

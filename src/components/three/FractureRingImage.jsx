@@ -63,6 +63,7 @@ const FractureRingImage = ({
   const easingFunctions = {
     linear: (t) => t,
     easeOut: (t) => 1 - Math.pow(1 - t, 3),
+    easeOutExpo: (t) => (t >= 1 ? 1 : 1 - (2 ** (-10 * t))),
     easeIn: (t) => t * t * t,
     bounce: (t) => {
       if (t < 1/2.75) {

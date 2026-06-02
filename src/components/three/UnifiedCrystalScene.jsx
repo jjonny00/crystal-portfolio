@@ -537,9 +537,21 @@ const UnifiedCrystalScene = forwardRef(({
           triggerAt: state.particles.triggerAt,
           delay: state.particles.delay,
           duration: state.particles.duration,
+          count: state.particles.count,
+          color: state.particles.color,
+          emitterPosition: state.particles.emitterPosition,
           wired: state.particles.wired,
           routeTimelineWired: state.particles.routeTimelineWired,
+          rawConfig: HERO_OVERVIEW_CINEMATIC_RESOLVED.rawParticles,
+          resolvedConfig: state.particles,
+          fieldsWired: HERO_OVERVIEW_CINEMATIC_RESOLVED.particleFieldsWired,
+          fieldsPlaceholders: HERO_OVERVIEW_CINEMATIC_RESOLVED.particleFieldsPlaceholders,
+          invalidKeys: HERO_OVERVIEW_CINEMATIC_RESOLVED.invalidParticleKeys,
+          fallbackUsed: HERO_OVERVIEW_CINEMATIC_RESOLVED.particleConfigFallbackUsed,
+          finalPropsPassedToFractureBurstParticles: state.particles.finalProps,
+          heroOverviewUsesConfigOverrides: state.routeLocal,
           triggered: diagnostics.particlesTriggered,
+          firedOnce: diagnostics.particlesTriggered === true,
           triggerFrame: diagnostics.particlesTriggerFrame,
           triggerTime: diagnostics.particlesTriggerTime,
           triggerSource: diagnostics.particlesTriggerSource,
@@ -3069,9 +3081,7 @@ const UnifiedCrystalScene = forwardRef(({
           trigger={burstId}
           emitterPosition={[0, 0, 0]}
           {...mergedConfig.fracture.particles}
-          {...(heroOverviewEffectsManualMode ? {
-            delay: heroOverviewParticlesConfig.delay ?? mergedConfig.fracture.particles?.delay,
-          } : {})}
+          {...(heroOverviewEffectsManualMode ? heroOverviewParticlesConfig.finalProps : {})}
         />
       )}
 
