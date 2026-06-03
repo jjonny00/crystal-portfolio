@@ -38,6 +38,7 @@ const FractureBurstParticles = ({
   color = '#9af8ff',
   emitterPosition = [0, 0, 0],
   spawnRadius = 0.5,
+  emitterScale = [1, 1, 1],
   spread = 0.5,
   onBurstGenerated = null,
 }) => {
@@ -46,7 +47,7 @@ const FractureBurstParticles = ({
   const startTimeRef = useRef(0);
   const delayRef = useRef(null);
   const activeCountRef = useRef(0);
-  const latestPropsRef = useRef({ delay, count: resolvedCount, spawnRadius, spread, onBurstGenerated });
+  const latestPropsRef = useRef({ delay, count: resolvedCount, spawnRadius, emitterScale, spread, onBurstGenerated });
   const generationRef = useRef({ trigger: null, countForTrigger: 0 });
 
   const velocitiesRef = useRef(new Float32Array(resolvedCount * 3));
@@ -114,10 +115,11 @@ const FractureBurstParticles = ({
       delay,
       count: resolvedCount,
       spawnRadius,
+      emitterScale,
       spread,
       onBurstGenerated,
     };
-  }, [delay, resolvedCount, spawnRadius, spread, onBurstGenerated]);
+  }, [delay, resolvedCount, spawnRadius, emitterScale, spread, onBurstGenerated]);
 
   useEffect(() => {
     velocitiesRef.current = new Float32Array(resolvedCount * 3);
@@ -181,6 +183,10 @@ const FractureBurstParticles = ({
       const spawnCount = Math.min(requestedCount, lifetimes.length);
       const resolvedSpawnRadius = Number.isFinite(latest.spawnRadius) ? Math.max(0, latest.spawnRadius) : 0.5;
       const spawnRadiusScale = resolvedSpawnRadius / 0.5;
+      const resolvedEmitterScale = Array.isArray(latest.emitterScale) && latest.emitterScale.length === 3
+        ? latest.emitterScale.map((value) => (Number.isFinite(value) ? Math.max(0, value) : 1))
+        : [1, 1, 1];
+      const [emitterScaleX, emitterScaleY, emitterScaleZ] = resolvedEmitterScale;
       const resolvedSpread = Number.isFinite(latest.spread) ? Math.max(0, latest.spread) : 0.5;
       const spreadScale = resolvedSpread / 0.5;
       const sameTrigger = generationRef.current.trigger === trigger;
@@ -194,10 +200,16 @@ const FractureBurstParticles = ({
       let initialRadiusMax = -Infinity;
       let travelDistanceMin = Infinity;
       let travelDistanceMax = -Infinity;
+      let initialBoundsXMin = Infinity;
+      let initialBoundsXMax = -Infinity;
+      let initialBoundsYMin = Infinity;
+      let initialBoundsYMax = -Infinity;
+      let initialBoundsZMin = Infinity;
+      let initialBoundsZMax = -Infinity;
       const invalidParticleRuntimeValues = [];
 
       logger.debug('[particles] before spawn activeCount=', activeCountRef.current);
-      logger.debug('[particles] spawning count=', spawnCount, 'spawnRadius=', resolvedSpawnRadius, 'spread=', resolvedSpread);
+      logger.debug('[particles] spawning count=', spawnCount, 'spawnRadius=', resolvedSpawnRadius, 'emitterScale=', resolvedEmitterScale, 'spread=', resolvedSpread);
 
       for (let i = 0; i < spawnCount; i += 1) {
         const i3 = i * 3;
@@ -213,9 +225,15 @@ const FractureBurstParticles = ({
         const emitterHeight = 1.15;
         const emitterDepth = 1.0;
 
-        positions[i3] = Math.cos(angle) * emitterWidth * radial;
-        positions[i3 + 1] = yOffset * emitterHeight + ringYOffset;
-        positions[i3 + 2] = Math.sin(angle) * emitterDepth * radial;
+        positions[i3] = Math.cos(angle) * emitterWidth * radial * emitterScaleX;
+        positions[i3 + 1] = (yOffset * emitterHeight + ringYOffset) * emitterScaleY;
+        positions[i3 + 2] = Math.sin(angle) * emitterDepth * radial * emitterScaleZ;
+        initialBoundsXMin = Math.min(initialBoundsXMin, positions[i3]);
+        initialBoundsXMax = Math.max(initialBoundsXMax, positions[i3]);
+        initialBoundsYMin = Math.min(initialBoundsYMin, positions[i3 + 1]);
+        initialBoundsYMax = Math.max(initialBoundsYMax, positions[i3 + 1]);
+        initialBoundsZMin = Math.min(initialBoundsZMin, positions[i3 + 2]);
+        initialBoundsZMax = Math.max(initialBoundsZMax, positions[i3 + 2]);
         const initialRadius = Math.sqrt(positions[i3] ** 2 + positions[i3 + 1] ** 2 + positions[i3 + 2] ** 2);
         if (Number.isFinite(initialRadius)) {
           initialRadiusMin = Math.min(initialRadiusMin, initialRadius);
@@ -311,11 +329,18 @@ const FractureBurstParticles = ({
         generatedCount: spawnCount,
         requestedCount,
         spawnRadius: resolvedSpawnRadius,
+        emitterScale: resolvedEmitterScale,
         spread: resolvedSpread,
         spreadScale,
         emitterPosition,
         initialRadiusMin: Number.isFinite(initialRadiusMin) ? initialRadiusMin : null,
         initialRadiusMax: Number.isFinite(initialRadiusMax) ? initialRadiusMax : null,
+        initialBoundsXMin: Number.isFinite(initialBoundsXMin) ? initialBoundsXMin : null,
+        initialBoundsXMax: Number.isFinite(initialBoundsXMax) ? initialBoundsXMax : null,
+        initialBoundsYMin: Number.isFinite(initialBoundsYMin) ? initialBoundsYMin : null,
+        initialBoundsYMax: Number.isFinite(initialBoundsYMax) ? initialBoundsYMax : null,
+        initialBoundsZMin: Number.isFinite(initialBoundsZMin) ? initialBoundsZMin : null,
+        initialBoundsZMax: Number.isFinite(initialBoundsZMax) ? initialBoundsZMax : null,
         lifetimeMin: Number.isFinite(lifetimeMin) ? lifetimeMin : null,
         lifetimeMax: Number.isFinite(lifetimeMax) ? lifetimeMax : null,
         velocityMin: Number.isFinite(velocityMin) ? velocityMin : null,
@@ -324,6 +349,8 @@ const FractureBurstParticles = ({
         travelDistanceMax: Number.isFinite(travelDistanceMax) ? travelDistanceMax : null,
         spreadAppliedToInitialPosition: false,
         spreadAppliedToVelocityOrTravel: true,
+        emitterScaleAppliedToInitialPosition: true,
+        emitterScaleAppliedToVelocityOrTravel: false,
         generationCountForCurrentTrigger,
         regeneratedThisFrame: false,
         regenerationReason: generationCountForCurrentTrigger > 1

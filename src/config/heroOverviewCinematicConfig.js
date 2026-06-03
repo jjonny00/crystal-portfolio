@@ -43,6 +43,7 @@ export const HERO_OVERVIEW_CINEMATIC_CONFIG = {
     color: '#66ffcc',
     emitterPosition: [0, 0, 0],
     spawnRadius: 0.02,
+    emitterScale: [1, 1, 1],
     duration: null,
     spread: 0.5,
     lifetime: null,
@@ -54,7 +55,7 @@ export const HERO_OVERVIEW_CINEMATIC_CONFIG = {
     size: null,
     opacity: null,
     wired: true,
-    notes: 'Hero → Overview particle trigger plus supported FractureBurstParticles props are config-driven. spawnRadius controls initial emitter tightness; spread controls outward travel dispersion. Duration/lifetime/speed/size remain component-internal placeholders until a particle API pass wires them safely.',
+    notes: 'Hero → Overview particle trigger plus supported FractureBurstParticles props are config-driven. spawnRadius controls initial emitter tightness; emitterScale shapes the initial emitter volume; spread controls outward travel dispersion. Duration/lifetime/speed/size remain component-internal placeholders until a particle API pass wires them safely.',
   },
 
   ring: {
@@ -187,6 +188,14 @@ const readVec3 = (value, fallback) => (
     : fallback
 );
 
+const readNonNegativeVec3 = (value, fallback) => (
+  Array.isArray(value) &&
+  value.length === 3 &&
+  value.every((entry) => typeof entry === 'number' && Number.isFinite(entry) && entry >= 0)
+    ? value
+    : fallback
+);
+
 const readEasingName = (value, fallback) => (
   typeof value === 'string' && HERO_OVERVIEW_EASING[value] ? value : fallback
 );
@@ -314,6 +323,8 @@ export const resolveHeroOverviewCinematicConfig = (config = HERO_OVERVIEW_CINEMA
   if (particleEmitterPosition !== rawParticles.emitterPosition) pushInvalidParticleKey('emitterPosition');
   const particleSpawnRadius = readNonNegativeNumber(rawParticles.spawnRadius, DEFAULT_PARTICLES_CONFIG.spawnRadius);
   if (!(typeof rawParticles.spawnRadius === 'number' && Number.isFinite(rawParticles.spawnRadius) && rawParticles.spawnRadius >= 0)) pushInvalidParticleKey('spawnRadius');
+  const particleEmitterScale = readNonNegativeVec3(rawParticles.emitterScale, DEFAULT_PARTICLES_CONFIG.emitterScale);
+  if (particleEmitterScale !== rawParticles.emitterScale) pushInvalidParticleKey('emitterScale');
   const particleSpread = readNonNegativeNumber(rawParticles.spread, DEFAULT_PARTICLES_CONFIG.spread);
   if (!(typeof rawParticles.spread === 'number' && Number.isFinite(rawParticles.spread) && rawParticles.spread >= 0)) pushInvalidParticleKey('spread');
   const particleFieldsWired = [
@@ -324,6 +335,7 @@ export const resolveHeroOverviewCinematicConfig = (config = HERO_OVERVIEW_CINEMA
     'color',
     'emitterPosition',
     'spawnRadius',
+    'emitterScale',
     'spread',
   ];
   const particleFieldsPlaceholders = {
@@ -347,6 +359,7 @@ export const resolveHeroOverviewCinematicConfig = (config = HERO_OVERVIEW_CINEMA
     color: particleColor,
     emitterPosition: particleEmitterPosition,
     spawnRadius: particleSpawnRadius,
+    emitterScale: particleEmitterScale,
     spread: particleSpread,
     wired: true,
     routeTimelineWired: true,
@@ -360,6 +373,7 @@ export const resolveHeroOverviewCinematicConfig = (config = HERO_OVERVIEW_CINEMA
       color: particleColor,
       emitterPosition: particleEmitterPosition,
       spawnRadius: particleSpawnRadius,
+      emitterScale: particleEmitterScale,
       spread: particleSpread,
     },
     invalidKeys: invalidParticleKeys,
