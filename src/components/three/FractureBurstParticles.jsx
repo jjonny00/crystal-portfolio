@@ -37,6 +37,7 @@ const FractureBurstParticles = ({
   count = 360,
   color = '#9af8ff',
   emitterPosition = [0, 0, 0],
+  spawnRadius = 0.5,
   spread = 0.5,
   onBurstGenerated = null,
 }) => {
@@ -45,7 +46,7 @@ const FractureBurstParticles = ({
   const startTimeRef = useRef(0);
   const delayRef = useRef(null);
   const activeCountRef = useRef(0);
-  const latestPropsRef = useRef({ delay, count: resolvedCount, spread, onBurstGenerated });
+  const latestPropsRef = useRef({ delay, count: resolvedCount, spawnRadius, spread, onBurstGenerated });
   const generationRef = useRef({ trigger: null, countForTrigger: 0 });
 
   const velocitiesRef = useRef(new Float32Array(resolvedCount * 3));
@@ -112,10 +113,11 @@ const FractureBurstParticles = ({
     latestPropsRef.current = {
       delay,
       count: resolvedCount,
+      spawnRadius,
       spread,
       onBurstGenerated,
     };
-  }, [delay, resolvedCount, spread, onBurstGenerated]);
+  }, [delay, resolvedCount, spawnRadius, spread, onBurstGenerated]);
 
   useEffect(() => {
     velocitiesRef.current = new Float32Array(resolvedCount * 3);
@@ -177,6 +179,8 @@ const FractureBurstParticles = ({
       const latest = latestPropsRef.current;
       const requestedCount = Math.max(0, Math.floor(Number.isFinite(latest.count) ? latest.count : 0));
       const spawnCount = Math.min(requestedCount, lifetimes.length);
+      const resolvedSpawnRadius = Number.isFinite(latest.spawnRadius) ? Math.max(0, latest.spawnRadius) : 0.5;
+      const spawnRadiusScale = resolvedSpawnRadius / 0.5;
       const resolvedSpread = Number.isFinite(latest.spread) ? Math.max(0, latest.spread) : 0.5;
       const spreadScale = resolvedSpread / 0.5;
       const sameTrigger = generationRef.current.trigger === trigger;
@@ -186,20 +190,24 @@ const FractureBurstParticles = ({
       let lifetimeMax = -Infinity;
       let velocityMin = Infinity;
       let velocityMax = -Infinity;
+      let initialRadiusMin = Infinity;
+      let initialRadiusMax = -Infinity;
+      let travelDistanceMin = Infinity;
+      let travelDistanceMax = -Infinity;
       const invalidParticleRuntimeValues = [];
 
       logger.debug('[particles] before spawn activeCount=', activeCountRef.current);
-      logger.debug('[particles] spawning count=', spawnCount, 'spread=', resolvedSpread);
+      logger.debug('[particles] spawning count=', spawnCount, 'spawnRadius=', resolvedSpawnRadius, 'spread=', resolvedSpread);
 
       for (let i = 0; i < spawnCount; i += 1) {
         const i3 = i * 3;
 
         const angle = Math.random() * Math.PI * 2 + (Math.random() - 0.5) * 0.35;
-        const ringRadius = (0.38 + Math.random() * 0.44) * spreadScale;
-        const ringThickness = (-0.14 + Math.random() * 0.28) * spreadScale;
-        const yOffset = (-0.48 + Math.random() * 1.0) * spreadScale;
+        const ringRadius = (0.38 + Math.random() * 0.44) * spawnRadiusScale;
+        const ringThickness = (-0.14 + Math.random() * 0.28) * spawnRadiusScale;
+        const yOffset = (-0.48 + Math.random() * 1.0) * spawnRadiusScale;
         const radial = ringRadius + ringThickness;
-        const ringYOffset = -0.24;
+        const ringYOffset = -0.24 * spawnRadiusScale;
 
         const emitterWidth = 1.0;
         const emitterHeight = 1.15;
@@ -208,16 +216,27 @@ const FractureBurstParticles = ({
         positions[i3] = Math.cos(angle) * emitterWidth * radial;
         positions[i3 + 1] = yOffset * emitterHeight + ringYOffset;
         positions[i3 + 2] = Math.sin(angle) * emitterDepth * radial;
+        const initialRadius = Math.sqrt(positions[i3] ** 2 + positions[i3 + 1] ** 2 + positions[i3 + 2] ** 2);
+        if (Number.isFinite(initialRadius)) {
+          initialRadiusMin = Math.min(initialRadiusMin, initialRadius);
+          initialRadiusMax = Math.max(initialRadiusMax, initialRadius);
+        } else {
+          invalidParticleRuntimeValues.push(`initialRadius:${i}`);
+        }
 
-        const radialDir = new THREE.Vector3(positions[i3], positions[i3 + 1], positions[i3 + 2]).normalize();
+        const outwardDir = new THREE.Vector3(
+          Math.cos(angle) * (0.65 + Math.random() * 0.35),
+          -0.22 + Math.random() * 0.42,
+          Math.sin(angle) * (0.65 + Math.random() * 0.35),
+        ).normalize();
         const burstJitter = new THREE.Vector3(
-          (-0.48 + Math.random() * 0.96) * spreadScale,
-          (-0.26 + Math.random() * 0.38) * spreadScale,
-          (-0.48 + Math.random() * 0.96) * spreadScale,
+          (-0.48 + Math.random() * 0.96) * Math.min(spreadScale, 2),
+          (-0.26 + Math.random() * 0.38) * Math.min(spreadScale, 2),
+          (-0.48 + Math.random() * 0.96) * Math.min(spreadScale, 2),
         );
-        const burstDir = radialDir.add(burstJitter).normalize();
-        const velocity = burstDir.multiplyScalar(4.4 + Math.random() * 2.2);
-        velocity.y += -0.7 + Math.random() * 0.54;
+        const burstDir = outwardDir.add(burstJitter).normalize();
+        const velocity = burstDir.multiplyScalar((4.4 + Math.random() * 2.2) * spreadScale);
+        velocity.y += (-0.7 + Math.random() * 0.54) * spreadScale;
         const velocityMagnitude = velocity.length();
         if (Number.isFinite(velocityMagnitude)) {
           velocityMin = Math.min(velocityMin, velocityMagnitude);
@@ -235,6 +254,11 @@ const FractureBurstParticles = ({
         if (Number.isFinite(lifetimes[i]) && lifetimes[i] > 0) {
           lifetimeMin = Math.min(lifetimeMin, lifetimes[i]);
           lifetimeMax = Math.max(lifetimeMax, lifetimes[i]);
+          if (Number.isFinite(velocityMagnitude)) {
+            const travelDistance = velocityMagnitude * lifetimes[i];
+            travelDistanceMin = Math.min(travelDistanceMin, travelDistance);
+            travelDistanceMax = Math.max(travelDistanceMax, travelDistance);
+          }
         } else {
           invalidParticleRuntimeValues.push(`lifetime:${i}`);
         }
@@ -286,13 +310,20 @@ const FractureBurstParticles = ({
         trigger,
         generatedCount: spawnCount,
         requestedCount,
+        spawnRadius: resolvedSpawnRadius,
         spread: resolvedSpread,
         spreadScale,
         emitterPosition,
+        initialRadiusMin: Number.isFinite(initialRadiusMin) ? initialRadiusMin : null,
+        initialRadiusMax: Number.isFinite(initialRadiusMax) ? initialRadiusMax : null,
         lifetimeMin: Number.isFinite(lifetimeMin) ? lifetimeMin : null,
         lifetimeMax: Number.isFinite(lifetimeMax) ? lifetimeMax : null,
         velocityMin: Number.isFinite(velocityMin) ? velocityMin : null,
         velocityMax: Number.isFinite(velocityMax) ? velocityMax : null,
+        travelDistanceMin: Number.isFinite(travelDistanceMin) ? travelDistanceMin : null,
+        travelDistanceMax: Number.isFinite(travelDistanceMax) ? travelDistanceMax : null,
+        spreadAppliedToInitialPosition: false,
+        spreadAppliedToVelocityOrTravel: true,
         generationCountForCurrentTrigger,
         regeneratedThisFrame: false,
         regenerationReason: generationCountForCurrentTrigger > 1

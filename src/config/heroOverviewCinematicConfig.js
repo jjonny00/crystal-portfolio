@@ -42,6 +42,7 @@ export const HERO_OVERVIEW_CINEMATIC_CONFIG = {
     count: 360,
     color: '#66ffcc',
     emitterPosition: [0, 0, 0],
+    spawnRadius: 0.02,
     duration: null,
     spread: 0.5,
     lifetime: null,
@@ -53,7 +54,7 @@ export const HERO_OVERVIEW_CINEMATIC_CONFIG = {
     size: null,
     opacity: null,
     wired: true,
-    notes: 'Hero → Overview particle trigger plus supported FractureBurstParticles props are config-driven. Duration/lifetime/speed/size/spread remain component-internal placeholders until a particle API pass wires them safely.',
+    notes: 'Hero → Overview particle trigger plus supported FractureBurstParticles props are config-driven. spawnRadius controls initial emitter tightness; spread controls outward travel dispersion. Duration/lifetime/speed/size remain component-internal placeholders until a particle API pass wires them safely.',
   },
 
   ring: {
@@ -311,6 +312,8 @@ export const resolveHeroOverviewCinematicConfig = (config = HERO_OVERVIEW_CINEMA
   if (!isHexColorString(rawParticles.color)) pushInvalidParticleKey('color');
   const particleEmitterPosition = readVec3(rawParticles.emitterPosition, DEFAULT_PARTICLES_CONFIG.emitterPosition);
   if (particleEmitterPosition !== rawParticles.emitterPosition) pushInvalidParticleKey('emitterPosition');
+  const particleSpawnRadius = readNonNegativeNumber(rawParticles.spawnRadius, DEFAULT_PARTICLES_CONFIG.spawnRadius);
+  if (!(typeof rawParticles.spawnRadius === 'number' && Number.isFinite(rawParticles.spawnRadius) && rawParticles.spawnRadius >= 0)) pushInvalidParticleKey('spawnRadius');
   const particleSpread = readNonNegativeNumber(rawParticles.spread, DEFAULT_PARTICLES_CONFIG.spread);
   if (!(typeof rawParticles.spread === 'number' && Number.isFinite(rawParticles.spread) && rawParticles.spread >= 0)) pushInvalidParticleKey('spread');
   const particleFieldsWired = [
@@ -320,6 +323,7 @@ export const resolveHeroOverviewCinematicConfig = (config = HERO_OVERVIEW_CINEMA
     'count',
     'color',
     'emitterPosition',
+    'spawnRadius',
     'spread',
   ];
   const particleFieldsPlaceholders = {
@@ -328,8 +332,8 @@ export const resolveHeroOverviewCinematicConfig = (config = HERO_OVERVIEW_CINEMA
     lifetimeMin: 'Lifetimes are currently randomized internally between 0.9 and 1.6 seconds.',
     lifetimeMax: 'Lifetimes are currently randomized internally between 0.9 and 1.6 seconds.',
     speed: 'Initial speed is randomized internally.',
-    speedMin: 'Initial speed is randomized internally between 4.4 and 6.6 before vertical adjustment.',
-    speedMax: 'Initial speed is randomized internally between 4.4 and 6.6 before vertical adjustment.',
+    speedMin: 'Initial speed is randomized internally between 4.4 and 6.6, then scaled by particles.spread before vertical adjustment.',
+    speedMax: 'Initial speed is randomized internally between 4.4 and 6.6, then scaled by particles.spread before vertical adjustment.',
     size: 'Particle sizes use internal tiered randomization.',
     opacity: 'Opacity is driven by shader alpha/fade constants internally.',
   };
@@ -342,6 +346,7 @@ export const resolveHeroOverviewCinematicConfig = (config = HERO_OVERVIEW_CINEMA
     count: particleCount,
     color: particleColor,
     emitterPosition: particleEmitterPosition,
+    spawnRadius: particleSpawnRadius,
     spread: particleSpread,
     wired: true,
     routeTimelineWired: true,
@@ -354,6 +359,7 @@ export const resolveHeroOverviewCinematicConfig = (config = HERO_OVERVIEW_CINEMA
       count: particleCount,
       color: particleColor,
       emitterPosition: particleEmitterPosition,
+      spawnRadius: particleSpawnRadius,
       spread: particleSpread,
     },
     invalidKeys: invalidParticleKeys,

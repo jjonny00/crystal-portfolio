@@ -805,9 +805,10 @@ Hero → Overview particles now use `HERO_OVERVIEW_CINEMATIC_CONFIG.particles` f
 - `count` — particle buffer/spawn count; the component now spawns the requested count for each burst.
 - `color` — shader color string accepted by `THREE.Color`; the cinematic config validates hex strings.
 - `emitterPosition` — `[x, y, z]` group position for the particle emitter.
-- `spread` — scales the generated radial emission radius, y-offset range, and burst jitter; `0.5` preserves the previous default distribution, smaller values tighten the burst, and larger values widen it.
+- `spawnRadius` — controls how tightly particles are born around `emitterPosition`; Hero → Overview defaults to a tight `0.02` origin while the component keeps a legacy `0.5` fallback for non-Hero routes.
+- `spread` — controls outward velocity/travel dispersion after particles spawn; it no longer drives the main initial spawn radius for Hero → Overview.
 
-`mergedConfig.fracture.particles` currently provides `delay`, `count`, `color`, `duration`, and `spread`. Before this pass, `spread` was present in config but not consumed by the component; Hero → Overview now passes the resolved cinematic `spread` override while non-Hero routes keep the old default spread behavior.
+`mergedConfig.fracture.particles` currently provides `delay`, `count`, `color`, `duration`, and `spread`. Hero → Overview now passes resolved cinematic particle overrides, including `spawnRadius` for initial emitter tightness and `spread` for outward travel strength, while non-Hero routes keep the old default spread/spawn behavior.
 
 ### Final particles config shape
 
@@ -819,6 +820,7 @@ particles: {
   count: 360,
   color: '#66ffcc',
   emitterPosition: [0, 0, 0],
+  spawnRadius: 0.02,
   duration: null,
   spread: 0.5,
   lifetime: null,
@@ -841,7 +843,8 @@ particles: {
 - `count`: passed to `FractureBurstParticles.count` for Hero → Overview.
 - `color`: passed to `FractureBurstParticles.color` for Hero → Overview.
 - `emitterPosition`: passed to `FractureBurstParticles.emitterPosition` for Hero → Overview.
-- `spread`: passed to `FractureBurstParticles.spread` for Hero → Overview and used at burst generation time.
+- `spawnRadius`: passed to `FractureBurstParticles.spawnRadius` for Hero → Overview and used at burst generation time for the initial particle birth radius around the emitter.
+- `spread`: passed to `FractureBurstParticles.spread` for Hero → Overview and used at burst generation time for outward velocity/travel dispersion, not primary initial placement.
 
 Non-Hero Overview still spreads `mergedConfig.fracture.particles` into `FractureBurstParticles`, so legacy particle behavior stays on the existing config path.
 
@@ -862,18 +865,19 @@ globalThis.__printHeroOverviewEffectsTimingConfig?.();
 globalThis.__printHeroOverviewPilotCinematic?.();
 ```
 
-The effects helper reports the raw particle config, resolved particle config, wired fields, placeholder fields, invalid particle keys, fallback state, final props passed to `FractureBurstParticles`, whether Hero → Overview used config overrides, and trigger frame/time/source.
+The effects helper reports the raw particle config, resolved particle config, wired fields, placeholder fields, invalid particle keys, fallback state, final props passed to `FractureBurstParticles`, last generated count/spawn radius/spread, initial radius min/max, velocity/travel min/max, whether spread was applied to initial position or velocity/travel, whether Hero → Overview used config overrides, and trigger frame/time/source.
 
 ### Particle tuning guide
 
 1. To fire particles later, increase `particles.triggerAt` in seconds.
 2. To suppress Hero → Overview particles only, set `particles.enabled: false`.
 3. To make the burst denser or lighter, tune `particles.count`.
-4. To make emission tighter or wider, tune `particles.spread`.
-5. To recolor the burst, tune `particles.color` using a hex color.
-6. To offset the emitter, tune `particles.emitterPosition`.
-7. To align with the rest of the transition, compare `particles.triggerAt` to `timeline.totalDurationSeconds`, `fracture.holdDuration`, `fracture.travelDuration`, and `ring.triggerAt`.
+4. To make particles start tighter around the emitter, lower `particles.spawnRadius`; raise it only if you intentionally want a pre-spread cloud.
+5. To make particles travel farther/wider after spawning, raise `particles.spread`; lower it for a shorter/tighter outward burst.
+6. To recolor the burst, tune `particles.color` using a hex color.
+7. To offset the emitter, tune `particles.emitterPosition`.
+8. To align with the rest of the transition, compare `particles.triggerAt` to `timeline.totalDurationSeconds`, `fracture.holdDuration`, `fracture.travelDuration`, and `ring.triggerAt`.
 
 ### Particle count/spread regression note
 
-The count/spread regression fix keeps `trigger` as the only burst-generation key inside `FractureBurstParticles`. Latest `count`, `spread`, `delay`, and diagnostic callback values are read from refs at trigger time, so parent diagnostics and inline callback identity changes do not regenerate the active burst every render. `spread: 0.5` remains the legacy/default emission distribution; `spread` scales radial radius, y-offset range, and burst jitter when the next Hero → Overview burst is generated.
+The count/spread regression fix keeps `trigger` as the only burst-generation key inside `FractureBurstParticles`. Latest `count`, `spawnRadius`, `spread`, `delay`, and diagnostic callback values are read from refs at trigger time, so parent diagnostics and inline callback identity changes do not regenerate the active burst every render. The center-out spread fix separates initial placement from travel: `spawnRadius` scales the small birth radius around the emitter, while `spread` scales outward velocity/travel dispersion on the next Hero → Overview burst. This prevents particles from appearing already at their spread/end positions.
