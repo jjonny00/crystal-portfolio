@@ -143,8 +143,23 @@ const UnifiedCrystalScene = forwardRef(({
     ringSuppressedByConfig: false,
     runExplodeSwapImmediateEffectsBypassedForHeroOverview: false,
     nonHeroOverviewFallbackBehaviorPreserved: true,
+    particleTriggerValue: null,
+    burstId: null,
+    particlesTriggeredCountForRun: 0,
+    lastBurstGeneratedFrame: null,
+    lastBurstGeneratedTime: null,
     lastGeneratedParticleCount: null,
     lastGeneratedParticleSpread: null,
+    lastGeneratedEmitterPosition: null,
+    lastGeneratedLifetimeMin: null,
+    lastGeneratedLifetimeMax: null,
+    lastGeneratedVelocityMin: null,
+    lastGeneratedVelocityMax: null,
+    regeneratedThisFrame: false,
+    regenerationReason: null,
+    generationCountForCurrentTrigger: 0,
+    invalidParticleRuntimeValues: [],
+    onBurstGeneratedCausedRegeneration: false,
     particleCountAppliedDuringLastBurst: false,
     particleSpreadAppliedDuringLastBurst: false,
   });
@@ -484,6 +499,9 @@ const UnifiedCrystalScene = forwardRef(({
     } else if (!heroOverviewParticlesTriggeredRef.current && elapsedSeconds >= (heroOverviewParticlesConfig.triggerAt ?? 0)) {
       heroOverviewParticlesTriggeredRef.current = true;
       nextDiagnostics.particlesTriggered = true;
+      nextDiagnostics.particlesTriggeredCountForRun = (nextDiagnostics.particlesTriggeredCountForRun ?? 0) + 1;
+      nextDiagnostics.burstId = burstId + 1;
+      nextDiagnostics.particleTriggerValue = burstId + 1;
       nextDiagnostics.particlesTriggerFrame = frame;
       nextDiagnostics.particlesTriggerTime = roundedElapsed;
       nextDiagnostics.particlesTriggerSource = `HERO_OVERVIEW_CINEMATIC_CONFIG.particles.triggerAt (${source})`;
@@ -559,8 +577,23 @@ const UnifiedCrystalScene = forwardRef(({
           finalPropsPassedToFractureBurstParticles: state.particles.finalProps,
           finalParticleCountProp: state.particles.finalProps?.count ?? null,
           finalParticleSpreadProp: state.particles.finalProps?.spread ?? null,
+          particleTriggerValue: diagnostics.particleTriggerValue ?? null,
+          burstId: diagnostics.burstId ?? null,
+          particlesTriggeredCountForRun: diagnostics.particlesTriggeredCountForRun ?? 0,
+          lastBurstGeneratedFrame: diagnostics.lastBurstGeneratedFrame ?? null,
+          lastBurstGeneratedTime: diagnostics.lastBurstGeneratedTime ?? null,
           lastGeneratedParticleCount: diagnostics.lastGeneratedParticleCount ?? null,
           lastGeneratedSpreadValue: diagnostics.lastGeneratedParticleSpread ?? null,
+          lastGeneratedEmitterPosition: diagnostics.lastGeneratedEmitterPosition ?? null,
+          lastGeneratedLifetimeMin: diagnostics.lastGeneratedLifetimeMin ?? null,
+          lastGeneratedLifetimeMax: diagnostics.lastGeneratedLifetimeMax ?? null,
+          lastGeneratedVelocityMin: diagnostics.lastGeneratedVelocityMin ?? null,
+          lastGeneratedVelocityMax: diagnostics.lastGeneratedVelocityMax ?? null,
+          regeneratedThisFrame: diagnostics.regeneratedThisFrame === true,
+          regenerationReason: diagnostics.regenerationReason ?? null,
+          generationCountForCurrentTrigger: diagnostics.generationCountForCurrentTrigger ?? 0,
+          invalidParticleRuntimeValues: diagnostics.invalidParticleRuntimeValues ?? [],
+          onBurstGeneratedCausedRegeneration: diagnostics.onBurstGeneratedCausedRegeneration === true,
           countAppliedDuringLastBurst: diagnostics.particleCountAppliedDuringLastBurst === true,
           spreadAppliedDuringLastBurst: diagnostics.particleSpreadAppliedDuringLastBurst === true,
           heroOverviewUsesConfigOverrides: state.routeLocal,
@@ -3100,8 +3133,22 @@ const UnifiedCrystalScene = forwardRef(({
           onBurstGenerated={heroOverviewEffectsManualMode ? ((details) => {
             heroOverviewEffectsDiagnosticsRef.current = {
               ...heroOverviewEffectsDiagnosticsRef.current,
+              particleTriggerValue: details.trigger,
+              burstId: details.trigger,
+              lastBurstGeneratedFrame: heroOverviewEffectsFrameRef.current,
+              lastBurstGeneratedTime: performance.now(),
               lastGeneratedParticleCount: details.generatedCount,
               lastGeneratedParticleSpread: details.spread,
+              lastGeneratedEmitterPosition: details.emitterPosition,
+              lastGeneratedLifetimeMin: details.lifetimeMin,
+              lastGeneratedLifetimeMax: details.lifetimeMax,
+              lastGeneratedVelocityMin: details.velocityMin,
+              lastGeneratedVelocityMax: details.velocityMax,
+              regeneratedThisFrame: details.regeneratedThisFrame,
+              regenerationReason: details.regenerationReason,
+              generationCountForCurrentTrigger: details.generationCountForCurrentTrigger,
+              invalidParticleRuntimeValues: details.invalidParticleRuntimeValues,
+              onBurstGeneratedCausedRegeneration: details.generationCountForCurrentTrigger > 1,
               particleCountAppliedDuringLastBurst: details.generatedCount === heroOverviewParticlesConfig.finalProps.count,
               particleSpreadAppliedDuringLastBurst: details.spread === heroOverviewParticlesConfig.finalProps.spread,
             };
@@ -3109,8 +3156,22 @@ const UnifiedCrystalScene = forwardRef(({
               globalThis.__HERO_OVERVIEW_EFFECTS_TIMING_STATE__ = {
                 ...(globalThis.__HERO_OVERVIEW_EFFECTS_TIMING_STATE__ || {}),
                 particles: heroOverviewParticlesConfig,
+                particleTriggerValue: details.trigger,
+                burstId: details.trigger,
+                lastBurstGeneratedFrame: heroOverviewEffectsFrameRef.current,
+                lastBurstGeneratedTime: performance.now(),
                 lastGeneratedParticleCount: details.generatedCount,
                 lastGeneratedParticleSpread: details.spread,
+                lastGeneratedEmitterPosition: details.emitterPosition,
+                lastGeneratedLifetimeMin: details.lifetimeMin,
+                lastGeneratedLifetimeMax: details.lifetimeMax,
+                lastGeneratedVelocityMin: details.velocityMin,
+                lastGeneratedVelocityMax: details.velocityMax,
+                regeneratedThisFrame: details.regeneratedThisFrame,
+                regenerationReason: details.regenerationReason,
+                generationCountForCurrentTrigger: details.generationCountForCurrentTrigger,
+                invalidParticleRuntimeValues: details.invalidParticleRuntimeValues,
+                onBurstGeneratedCausedRegeneration: details.generationCountForCurrentTrigger > 1,
                 particleCountAppliedDuringLastBurst: details.generatedCount === heroOverviewParticlesConfig.finalProps.count,
                 particleSpreadAppliedDuringLastBurst: details.spread === heroOverviewParticlesConfig.finalProps.spread,
               };

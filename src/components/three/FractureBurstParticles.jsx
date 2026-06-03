@@ -40,30 +40,33 @@ const FractureBurstParticles = ({
   spread = 0.5,
   onBurstGenerated = null,
 }) => {
+  const resolvedCount = Math.max(0, Math.floor(Number.isFinite(count) ? count : 0));
   const pointsRef = useRef();
   const startTimeRef = useRef(0);
   const delayRef = useRef(null);
   const activeCountRef = useRef(0);
+  const latestPropsRef = useRef({ delay, count: resolvedCount, spread, onBurstGenerated });
+  const generationRef = useRef({ trigger: null, countForTrigger: 0 });
 
-  const velocitiesRef = useRef(new Float32Array(count * 3));
-  const lifetimesRef = useRef(new Float32Array(count));
-  const agesRef = useRef(new Float32Array(count));
-  const baseSizesRef = useRef(new Float32Array(count));
-  const dragsRef = useRef(new Float32Array(count));
-  const buoyanciesRef = useRef(new Float32Array(count));
-  const turbulencesRef = useRef(new Float32Array(count));
-  const swirlsRef = useRef(new Float32Array(count));
-  const phasesRef = useRef(new Float32Array(count));
-  const flowFreqsRef = useRef(new Float32Array(count));
-  const flowAmpsRef = useRef(new Float32Array(count));
+  const velocitiesRef = useRef(new Float32Array(resolvedCount * 3));
+  const lifetimesRef = useRef(new Float32Array(resolvedCount));
+  const agesRef = useRef(new Float32Array(resolvedCount));
+  const baseSizesRef = useRef(new Float32Array(resolvedCount));
+  const dragsRef = useRef(new Float32Array(resolvedCount));
+  const buoyanciesRef = useRef(new Float32Array(resolvedCount));
+  const turbulencesRef = useRef(new Float32Array(resolvedCount));
+  const swirlsRef = useRef(new Float32Array(resolvedCount));
+  const phasesRef = useRef(new Float32Array(resolvedCount));
+  const flowFreqsRef = useRef(new Float32Array(resolvedCount));
+  const flowAmpsRef = useRef(new Float32Array(resolvedCount));
 
   const geometry = useMemo(() => {
     const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(count * 3), 3));
-    g.setAttribute('aAlpha', new THREE.BufferAttribute(new Float32Array(count), 1));
-    g.setAttribute('aSize', new THREE.BufferAttribute(new Float32Array(count), 1));
+    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(resolvedCount * 3), 3));
+    g.setAttribute('aAlpha', new THREE.BufferAttribute(new Float32Array(resolvedCount), 1));
+    g.setAttribute('aSize', new THREE.BufferAttribute(new Float32Array(resolvedCount), 1));
     return g;
-  }, [count]);
+  }, [resolvedCount]);
 
   const material = useMemo(
     () =>
@@ -104,6 +107,30 @@ const FractureBurstParticles = ({
       }),
     [color],
   );
+
+  useEffect(() => {
+    latestPropsRef.current = {
+      delay,
+      count: resolvedCount,
+      spread,
+      onBurstGenerated,
+    };
+  }, [delay, resolvedCount, spread, onBurstGenerated]);
+
+  useEffect(() => {
+    velocitiesRef.current = new Float32Array(resolvedCount * 3);
+    lifetimesRef.current = new Float32Array(resolvedCount);
+    agesRef.current = new Float32Array(resolvedCount);
+    baseSizesRef.current = new Float32Array(resolvedCount);
+    dragsRef.current = new Float32Array(resolvedCount);
+    buoyanciesRef.current = new Float32Array(resolvedCount);
+    turbulencesRef.current = new Float32Array(resolvedCount);
+    swirlsRef.current = new Float32Array(resolvedCount);
+    phasesRef.current = new Float32Array(resolvedCount);
+    flowFreqsRef.current = new Float32Array(resolvedCount);
+    flowAmpsRef.current = new Float32Array(resolvedCount);
+    activeCountRef.current = Math.min(activeCountRef.current, resolvedCount);
+  }, [resolvedCount]);
 
   useEffect(() => {
     logger.debug('geometry attributes', Object.keys(geometry.attributes));
@@ -147,11 +174,22 @@ const FractureBurstParticles = ({
       const phases = phasesRef.current;
       const flowFreqs = flowFreqsRef.current;
       const flowAmps = flowAmpsRef.current;
+      const latest = latestPropsRef.current;
+      const requestedCount = Math.max(0, Math.floor(Number.isFinite(latest.count) ? latest.count : 0));
+      const spawnCount = Math.min(requestedCount, lifetimes.length);
+      const resolvedSpread = Number.isFinite(latest.spread) ? Math.max(0, latest.spread) : 0.5;
+      const spreadScale = resolvedSpread / 0.5;
+      const sameTrigger = generationRef.current.trigger === trigger;
+      const generationCountForCurrentTrigger = sameTrigger ? generationRef.current.countForTrigger + 1 : 1;
+      generationRef.current = { trigger, countForTrigger: generationCountForCurrentTrigger };
+      let lifetimeMin = Infinity;
+      let lifetimeMax = -Infinity;
+      let velocityMin = Infinity;
+      let velocityMax = -Infinity;
+      const invalidParticleRuntimeValues = [];
 
       logger.debug('[particles] before spawn activeCount=', activeCountRef.current);
-      const spawnCount = Math.max(0, Math.floor(count));
-      const spreadScale = Math.max(0, Number.isFinite(spread) ? spread / 0.5 : 1);
-      logger.debug('[particles] spawning count=', spawnCount, 'spread=', spread);
+      logger.debug('[particles] spawning count=', spawnCount, 'spread=', resolvedSpread);
 
       for (let i = 0; i < spawnCount; i += 1) {
         const i3 = i * 3;
@@ -180,6 +218,13 @@ const FractureBurstParticles = ({
         const burstDir = radialDir.add(burstJitter).normalize();
         const velocity = burstDir.multiplyScalar(4.4 + Math.random() * 2.2);
         velocity.y += -0.7 + Math.random() * 0.54;
+        const velocityMagnitude = velocity.length();
+        if (Number.isFinite(velocityMagnitude)) {
+          velocityMin = Math.min(velocityMin, velocityMagnitude);
+          velocityMax = Math.max(velocityMax, velocityMagnitude);
+        } else {
+          invalidParticleRuntimeValues.push(`velocity:${i}`);
+        }
 
         velocities[i3] = velocity.x;
         velocities[i3 + 1] = velocity.y;
@@ -187,6 +232,12 @@ const FractureBurstParticles = ({
 
         ages[i] = 0;
         lifetimes[i] = 0.9 + Math.random() * 0.7;
+        if (Number.isFinite(lifetimes[i]) && lifetimes[i] > 0) {
+          lifetimeMin = Math.min(lifetimeMin, lifetimes[i]);
+          lifetimeMax = Math.max(lifetimeMax, lifetimes[i]);
+        } else {
+          invalidParticleRuntimeValues.push(`lifetime:${i}`);
+        }
 
         const tierRoll = Math.random();
         let baseSize;
@@ -212,7 +263,7 @@ const FractureBurstParticles = ({
         alphas[i] = 1;
       }
 
-      for (let i = spawnCount; i < count; i += 1) {
+      for (let i = spawnCount; i < lifetimes.length; i += 1) {
         const i3 = i * 3;
         positions[i3] = positions[i3 + 1] = positions[i3 + 2] = 0;
         velocities[i3] = velocities[i3 + 1] = velocities[i3 + 2] = 0;
@@ -231,19 +282,30 @@ const FractureBurstParticles = ({
       }
 
       activeCountRef.current = spawnCount;
-      onBurstGenerated?.({
+      const generationDetails = {
+        trigger,
         generatedCount: spawnCount,
-        requestedCount: count,
-        spread,
+        requestedCount,
+        spread: resolvedSpread,
         spreadScale,
-      });
+        emitterPosition,
+        lifetimeMin: Number.isFinite(lifetimeMin) ? lifetimeMin : null,
+        lifetimeMax: Number.isFinite(lifetimeMax) ? lifetimeMax : null,
+        velocityMin: Number.isFinite(velocityMin) ? velocityMin : null,
+        velocityMax: Number.isFinite(velocityMax) ? velocityMax : null,
+        generationCountForCurrentTrigger,
+        regeneratedThisFrame: false,
+        regenerationReason: generationCountForCurrentTrigger > 1
+          ? 'same trigger generated more than once'
+          : 'trigger changed',
+        invalidParticleRuntimeValues,
+      };
+      latest.onBurstGenerated?.(generationDetails);
       if (typeof globalThis !== 'undefined') {
-        globalThis.__FRACTURE_BURST_PARTICLES_LAST_GENERATED__ = {
-          generatedCount: spawnCount,
-          requestedCount: count,
-          spread,
-          spreadScale,
-        };
+        globalThis.__FRACTURE_BURST_PARTICLES_LAST_GENERATED__ = generationDetails;
+        if (generationCountForCurrentTrigger > 1 && globalThis.__HERO_OVERVIEW_PILOT_DIAGNOSTICS__) {
+          console.warn('[fracture-burst-particles] duplicate generation for trigger', generationDetails);
+        }
       }
       logger.debug('[particles] after spawn activeCount=', activeCountRef.current);
 
@@ -270,7 +332,7 @@ const FractureBurstParticles = ({
       startTimeRef.current = performance.now() - EMITTER_START_LEAD_S * 1000;
     };
 
-    const effectiveDelay = Math.max(delay - EMITTER_START_LEAD_S, 0);
+    const effectiveDelay = Math.max((latestPropsRef.current.delay ?? 0) - EMITTER_START_LEAD_S, 0);
     if (effectiveDelay > 0) {
       delayRef.current = setTimeout(() => {
         delayRef.current = null;
@@ -287,7 +349,7 @@ const FractureBurstParticles = ({
         delayRef.current = null;
       }
     };
-  }, [trigger, delay, count, spread, geometry, onBurstGenerated]);
+  }, [trigger]);
 
   useEffect(() => {
     if (pointsRef.current) {

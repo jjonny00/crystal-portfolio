@@ -873,3 +873,7 @@ The effects helper reports the raw particle config, resolved particle config, wi
 5. To recolor the burst, tune `particles.color` using a hex color.
 6. To offset the emitter, tune `particles.emitterPosition`.
 7. To align with the rest of the transition, compare `particles.triggerAt` to `timeline.totalDurationSeconds`, `fracture.holdDuration`, `fracture.travelDuration`, and `ring.triggerAt`.
+
+### Particle count/spread regression note
+
+The count/spread regression fix keeps `trigger` as the only burst-generation key inside `FractureBurstParticles`. Latest `count`, `spread`, `delay`, and diagnostic callback values are read from refs at trigger time, so parent diagnostics and inline callback identity changes do not regenerate the active burst every render. `spread: 0.5` remains the legacy/default emission distribution; `spread` scales radial radius, y-offset range, and burst jitter when the next Hero → Overview burst is generated.
