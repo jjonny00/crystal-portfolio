@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useMemo } from 'react';
+import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { BLENDING_MODES } from './GlowingSphereImage';
@@ -23,6 +23,8 @@ const FractureRingImage = ({
   // TRIGGER PARAMETERS - When to start!
   triggerDelay = 0,      // Delay after crystal form change (in seconds)
   triggerOnState = 'exploded', // 'exploded' or 'whole' - which state triggers the animation
+  manualTriggerMode = false, // Let parent own the trigger instead of crystalForm changes
+  triggerKey = null,
   
   // VISUAL PARAMETERS
   blendingMode = BLENDING_MODES.ADDITIVE,
@@ -61,6 +63,7 @@ const FractureRingImage = ({
   const easingFunctions = {
     linear: (t) => t,
     easeOut: (t) => 1 - Math.pow(1 - t, 3),
+    easeOutExpo: (t) => (t >= 1 ? 1 : 1 - (2 ** (-10 * t))),
     easeIn: (t) => t * t * t,
     bounce: (t) => {
       if (t < 1/2.75) {
@@ -72,12 +75,32 @@ const FractureRingImage = ({
       } else {
         return 7.5625 * (t -= 2.625/2.75) * t + 0.984375;
       }
-    }
+    },
+    sinePulse: (t) => Math.sin(Math.max(0, Math.min(1, t)) * Math.PI * 0.5)
   };
+
+  const triggerRingAnimation = useCallback((source = 'manual') => {
+    setIsAnimating(true);
+    setStartTime(Date.now());
+    if (debugMode && import.meta.env.DEV) {
+      console.log(`🌀 Fracture ring: Animation started (${source})`);
+    }
+  }, [debugMode]);
+
+  useEffect(() => {
+    if (!manualTriggerMode || triggerKey == null || !visible) return;
+
+    if (delayTimer) {
+      clearTimeout(delayTimer);
+      setDelayTimer(null);
+    }
+
+    triggerRingAnimation('manual triggerKey');
+  }, [delayTimer, manualTriggerMode, triggerKey, triggerRingAnimation, visible]);
 
   // Enhanced trigger logic with delay support
   useEffect(() => {
-    if (!animationData) return;
+    if (manualTriggerMode || !animationData) return;
     
     const currentForm = animationData.crystalForm;
     
@@ -96,20 +119,12 @@ const FractureRingImage = ({
         if (triggerDelay > 0) {
           // Set up delayed trigger
           const timer = setTimeout(() => {
-            setIsAnimating(true);
-            setStartTime(Date.now());
-            if (debugMode && import.meta.env.DEV) {
-              console.log('🌀 Fracture ring: Animation started after delay');
-            }
+            triggerRingAnimation('crystalForm delay');
           }, triggerDelay * 1000);
           setDelayTimer(timer);
         } else {
           // Immediate trigger
-          setIsAnimating(true);
-          setStartTime(Date.now());
-          if (debugMode && import.meta.env.DEV) {
-            console.log('🌀 Fracture ring: Animation started immediately');
-          }
+          triggerRingAnimation('crystalForm immediate');
         }
       } else if (currentForm !== triggerOnState) {
         setIsAnimating(false);
@@ -120,7 +135,7 @@ const FractureRingImage = ({
       
       lastForm.current = currentForm;
     }
-  }, [animationData?.crystalForm, triggerDelay, triggerOnState, delayTimer, debugMode]);
+  }, [animationData?.crystalForm, triggerDelay, triggerOnState, delayTimer, debugMode, manualTriggerMode, triggerRingAnimation]);
 
   // Enhanced animation loop
   useFrame((state, delta) => {

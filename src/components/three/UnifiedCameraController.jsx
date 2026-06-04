@@ -9,6 +9,7 @@ import { createLogger } from '../../utils/logger';
 import { beginCameraFrame, recordCameraWrite } from '../../camera/cameraWriteGuard';
 import { createCameraDirectorPilotTransition, updateCameraDirectorPilotTransition } from '../../camera/CameraDirector';
 import { resolveCameraDestination } from '../../camera/destinationResolver';
+import { HERO_OVERVIEW_CINEMATIC_RESOLVED, HERO_OVERVIEW_EASING } from '../../config/heroOverviewCinematicConfig';
 
 const logger = createLogger('unified-camera-controller');
 const HERO_OVERVIEW_DIRECTOR_ENV_FORCE_PILOT =
@@ -21,43 +22,8 @@ const PROJECT_OVERVIEW_FOV_SETTLE_EPSILON = 0.02;
 const PROJECT_OVERVIEW_PROGRESS_SETTLE_MIN = 0.99;
 const HERO_OVERVIEW_PHASE_ORDER = ['fractureCharge', 'explosionImpulse', 'bulletTimeSlowdown', 'overviewTravel', 'overviewSettle', 'complete'];
 const HERO_OVERVIEW_PILOT_PHASES = ['fractureCharge', 'explosionImpulse', 'bulletTimeSlowdown', 'overviewTravel', 'overviewSettle', 'complete'];
-const HERO_OVERVIEW_PILOT_CAMERA_TIMELINE = {
-  fractureCharge: {
-    start: 0,
-    end: 0.1,
-    cameraMode: 'hold',
-    easing: 'hold',
-    notes: 'Very brief live Hero orbit hold; tune only duration for charge intensity.',
-  },
-  explosionImpulse: {
-    start: 0.1,
-    end: 0.18,
-    cameraMode: 'impactPunch',
-    easing: 'sinePulse',
-    notes: 'Short impact beat with isolated in/out camera punch that returns to the hold pose.',
-  },
-  bulletTimeSlowdown: {
-    start: 0.18,
-    end: 0.34,
-    cameraMode: 'suspendedHold',
-    easing: 'hold',
-    notes: 'Brief suspended tension beat; camera stays locked so overviewTravel releases from a clean pose.',
-  },
-  overviewTravel: {
-    start: 0.34,
-    end: 0.9,
-    cameraMode: 'travel',
-    easing: 'cinematicRevealOut',
-    notes: 'Main reveal: decisive initial dolly-out with a polished slowdown into Overview.',
-  },
-  overviewSettle: {
-    start: 0.9,
-    end: 1,
-    cameraMode: 'settle',
-    easing: 'smoothSettle',
-    notes: 'Short exact final lock; no extra float after the reveal.',
-  },
-};
+const HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG = HERO_OVERVIEW_CINEMATIC_RESOLVED;
+const HERO_OVERVIEW_PILOT_CAMERA_TIMELINE = HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.derivedTimeline;
 const HERO_OVERVIEW_PILOT_CAMERA_MOTION = {
   fractureCharge: {
     punchDistance: 0,
@@ -65,7 +31,7 @@ const HERO_OVERVIEW_PILOT_CAMERA_MOTION = {
     notes: 'Camera remains locked to the first-write live Hero orbit pose.',
   },
   explosionImpulse: {
-    punchDistance: 0.06,
+    punchDistance: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.camera.explosionPunchDistance,
     punchDirection: 'toward-lookAt',
     driftAmount: 0,
     returnCompleteAt: 0.72,
@@ -73,9 +39,9 @@ const HERO_OVERVIEW_PILOT_CAMERA_MOTION = {
   },
   bulletTimeSlowdown: {
     punchDistance: 0,
-    driftAmount: 0,
-    driftDirection: 'none',
-    notes: 'No camera drift in this pass; the suspended beat stays locked after impact so travel starts cleanly.',
+    driftAmount: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.camera.bulletTimeDriftDistance,
+    driftDirection: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.camera.bulletTimeDriftDistance > 0 ? 'away-from-lookAt' : 'none',
+    notes: 'No camera drift by default; the suspended beat stays locked after impact so travel starts cleanly.',
   },
   overviewTravel: {
     punchDistance: 0,
@@ -2016,11 +1982,8 @@ const UnifiedCameraController = ({
   };
   const easeHeroOverviewPilotProgress = (progress, easing = 'linear') => {
     const t = THREE.MathUtils.clamp(Number.isFinite(progress) ? progress : 0, 0, 1);
-    if (easing === 'expoOut') return t >= 1 ? 1 : THREE.MathUtils.clamp(1 - (2 ** (-10 * t)), 0, 1);
-    if (easing === 'cinematicRevealOut') return t >= 1 ? 1 : THREE.MathUtils.clamp(1 - ((1 - t) ** 3.4), 0, 1);
-    if (easing === 'sinePulse') return Math.sin(Math.PI * t);
-    if (easing === 'smoothSettle') return t * t * (3 - 2 * t);
-    return t;
+    const easingFn = HERO_OVERVIEW_EASING[easing] || HERO_OVERVIEW_EASING.linear;
+    return THREE.MathUtils.clamp(easingFn(t), 0, 1);
   };
   const getHeroOverviewPilotCameraProgress = (globalProgress) => {
     const { phaseName, phase, phaseLocalProgress } = getHeroOverviewPilotTimelinePhase(globalProgress);
@@ -2854,8 +2817,8 @@ const UnifiedCameraController = ({
       const latest = store.samples[store.samples.length - 1] ?? null;
       const summary = {
         pilotEnabled: isHeroToOverviewPilotEnabled(),
-        pilotDiagnosticVersion: latest?.pilotDiagnosticVersion ?? 'Milestone D cinematic timing pass',
-        pilotCinematicMilestone: latest?.pilotCinematicMilestone ?? heroOverviewPilotRef.current.transition?.pilotCinematicMilestone ?? 'Milestone D cinematic timing pass',
+        pilotDiagnosticVersion: latest?.pilotDiagnosticVersion ?? 'Milestone E config-driven cinematic tuning',
+        pilotCinematicMilestone: latest?.pilotCinematicMilestone ?? heroOverviewPilotRef.current.transition?.pilotCinematicMilestone ?? 'Milestone E config-driven cinematic tuning',
         sampleCount: store.samples.length,
         captureAttempted: latest?.captureAttempted ?? false,
         captureSucceeded: latest?.captureSucceeded ?? false,
@@ -2905,6 +2868,15 @@ const UnifiedCameraController = ({
         targetFov: latest?.targetFov ?? round4(heroOverviewPilotRef.current.transition?.toPose?.fov),
         targetFilmOffset: latest?.targetFilmOffset ?? round4(heroOverviewPilotRef.current.transition?.toPose?.filmOffset),
         monotonicGlobalProgress: latest?.monotonicGlobalProgress ?? round4(heroOverviewPilotRef.current.transition?.monotonicGlobalProgress),
+        totalDurationSeconds: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.totalDurationSeconds,
+        rawTotalDurationSeconds: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.rawTotalDurationSeconds,
+        resolvedTotalDurationSeconds: latest?.resolvedTotalDurationSeconds ?? HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.resolvedTotalDurationSeconds,
+        totalDurationFallbackUsed: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.totalDurationFallbackUsed,
+        invalidTotalDuration: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.invalidTotalDuration,
+        derivedPhaseDurationsSeconds: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.derivedPhaseDurationsSeconds,
+        cameraRunElapsedSeconds: latest?.cameraRunElapsedSeconds ?? round4(heroOverviewPilotRef.current.transition?.cameraRunElapsedSeconds),
+        cameraRunProgress: latest?.cameraRunProgress ?? round4(heroOverviewPilotRef.current.transition?.cameraRunProgress),
+        totalDurationSecondsActivelyControlsCameraProgress: latest?.totalDurationSecondsActivelyControlsCameraProgress ?? heroOverviewPilotRef.current.transition?.progressSourceIsConfigDurationControlled ?? false,
         progressSource: latest?.progressSource ?? heroOverviewPilotRef.current.transition?.progressSource ?? null,
         fromPoseRecaptured: latest?.fromPoseRecaptured ?? heroOverviewPilotRef.current.transition?.fromPoseRecaptured ?? false,
         targetPoseRecalculated: latest?.targetPoseRecalculated ?? heroOverviewPilotRef.current.transition?.targetPoseRecalculated ?? false,
@@ -2920,7 +2892,7 @@ const UnifiedCameraController = ({
         completionTargetSource: latest?.completionTargetSource ?? null,
         targetWasOverwritten: latest?.targetWasOverwritten ?? heroOverviewPilotRef.current.transition?.targetWasOverwritten ?? false,
         targetOverwriteReason: latest?.targetOverwriteReason ?? heroOverviewPilotRef.current.transition?.targetOverwriteReason ?? null,
-        progressSourceUsedForCameraWrite: latest?.progressSourceUsedForCameraWrite ?? null,
+        progressSourceUsedForCameraWrite: latest?.progressSourceUsedForCameraWrite ?? heroOverviewPilotRef.current.transition?.progressSourceUsedForCameraWrite ?? null,
         rawProgressCandidate: latest?.rawProgressCandidate ?? null,
         previousMonotonicGlobalProgress: latest?.previousMonotonicGlobalProgress ?? null,
         globalProgressPrintedSource: latest?.globalProgressPrintedSource ?? null,
@@ -3279,7 +3251,8 @@ const UnifiedCameraController = ({
     globalThis.__printHeroOverviewPilotCinematic = () => {
       const store = getHeroOverviewPilotDiagnosticsStore();
       const samples = store.samples.filter((sample) => sample.type === 'pilot-frame' || sample.type === 'completion-handoff' || sample.type === 'pilot-completion-finalized');
-      if (!samples.length) return console.log('[hero-overview-pilot] cinematic-summary', { sampleCount: 0, pilotCinematicMilestone: 'Milestone D cinematic timing pass' });
+      const effectsTimingState = globalThis.__HERO_OVERVIEW_EFFECTS_TIMING_STATE__ ?? null;
+      if (!samples.length) return console.log('[hero-overview-pilot] cinematic-summary', { sampleCount: 0, pilotCinematicMilestone: 'Milestone E config-driven cinematic tuning', configSourceFile: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.sourceFile, rawDurationValues: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.rawDurations, rawTotalDurationSeconds: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.rawTotalDurationSeconds, resolvedTotalDurationSeconds: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.resolvedTotalDurationSeconds, totalDurationFallbackUsed: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.totalDurationFallbackUsed, invalidTotalDuration: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.invalidTotalDuration, configuredPhaseWeights: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.configuredPhaseWeights, derivedNormalizedPhaseWindows: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE, derivedPhaseWindows: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE, derivedPhaseDurationsSeconds: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.derivedPhaseDurationsSeconds, cameraMotionConfig: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.camera, fractureConfig: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.fracture, fractureConfigFallbackUsed: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.fractureConfigFallbackUsed, invalidFractureKeys: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.invalidFractureKeys, particleConfig: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.particles, ringConfig: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.ring, effectsTimingState, particleRingTriggerTimingSource: 'HERO_OVERVIEW_CINEMATIC_CONFIG triggerAt seconds from Hero → Overview start', defaultsUsed: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.defaultsUsed, invalidConfigFallbackOccurred: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.invalidConfigFallbackOccurred, totalDurationSecondsActivelyControlsCameraProgress: true });
       const latest = samples[samples.length - 1];
       const movementThreshold = 0.001;
       const phaseRows = (phase) => samples.filter((sample) => sample.phase === phase);
@@ -3302,10 +3275,79 @@ const UnifiedCameraController = ({
       const maxUpDelta = samples.reduce((max, sample) => Math.max(max, Number(sample.upDeltaFromWorldUp || 0)), 0);
       const competingWriterAppeared = samples.some((sample) => sample.competingWriterDetected === true);
       const summary = {
-        pilotCinematicMilestone: 'Milestone D cinematic timing pass',
+        pilotCinematicMilestone: 'Milestone E config-driven cinematic tuning',
         sampleCount: samples.length,
+        configSourceFile: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.sourceFile,
+        configSourceName: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.sourceName,
+        rawDurationValues: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.rawDurations,
+        rawTotalDurationSeconds: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.rawTotalDurationSeconds,
+        totalDurationSeconds: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.totalDurationSeconds,
+        resolvedTotalDurationSeconds: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.resolvedTotalDurationSeconds,
+        totalDurationFallbackUsed: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.totalDurationFallbackUsed,
+        invalidTotalDuration: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.invalidTotalDuration,
+        resolvedDurationValues: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.durations,
+        configuredPhaseWeights: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.configuredPhaseWeights,
+        derivedPhaseDurationsSeconds: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.derivedPhaseDurationsSeconds,
+        totalConfiguredDuration: round4(HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.totalConfiguredDuration),
+        normalizedDurationTotal: round4(HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.normalizedDurationTotal),
+        defaultsUsed: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.defaultsUsed,
+        invalidConfigFallbackOccurred: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.invalidConfigFallbackOccurred,
+        invalidDurationKeys: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.invalidDurationKeys,
         cameraTimeline: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE,
+        derivedNormalizedPhaseWindows: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE,
+        derivedPhaseWindows: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE,
+        cameraRunElapsedSeconds: latest?.cameraRunElapsedSeconds ?? round4(heroOverviewPilotRef.current.transition?.cameraRunElapsedSeconds),
+        cameraRunProgress: latest?.cameraRunProgress ?? round4(heroOverviewPilotRef.current.transition?.cameraRunProgress),
+        progressSourceUsedForCameraWrite: latest?.progressSourceUsedForCameraWrite ?? heroOverviewPilotRef.current.transition?.progressSourceUsedForCameraWrite ?? null,
+        totalDurationSecondsActivelyControlsCameraProgress: latest?.totalDurationSecondsActivelyControlsCameraProgress ?? heroOverviewPilotRef.current.transition?.progressSourceIsConfigDurationControlled ?? false,
         cameraMotion: HERO_OVERVIEW_PILOT_CAMERA_MOTION,
+        cameraMotionConfig: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.camera,
+        easingNames: {
+          travelEase: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.camera.travelEase,
+          settleEase: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.camera.settleEase,
+          punchEase: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.camera.punchEase,
+          driftEase: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.camera.driftEase,
+        },
+        activeTravelEasing: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.camera.travelEase,
+        activePunchEasing: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.camera.punchEase,
+        activeDriftEasing: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.camera.driftEase,
+        fractureConfig: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.fracture,
+        fractureHoldDurationSeconds: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.fracture?.holdDuration ?? null,
+        fractureTravelDurationSeconds: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.fracture?.travelDuration ?? null,
+        fractureTotalDurationSeconds: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.fracture?.totalDuration ?? null,
+        fractureTravelEase: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.fracture?.travelEase ?? null,
+        fractureConfigWired: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.fracture?.wired ?? false,
+        fractureTimingSource: 'HERO_OVERVIEW_CINEMATIC_CONFIG.fracture (Hero → Overview route-local in UnifiedCrystalScene)',
+        invalidFractureConfigFallbackState: {
+          fallbackUsed: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.fractureConfigFallbackUsed,
+          invalidKeys: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.invalidFractureKeys,
+        },
+        fractureMultipliers: {
+          fractureDistanceMultiplier: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.fracture?.fractureDistanceMultiplier ?? null,
+          spreadMultiplier: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.fracture?.spreadMultiplier ?? null,
+          depthMultiplier: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.fracture?.depthMultiplier ?? null,
+          multipliersWired: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.fracture?.multipliersWired ?? null,
+        },
+        particleConfig: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.particles,
+        particleFieldsWired: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.particleFieldsWired,
+        particleFieldsPlaceholders: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.particleFieldsPlaceholders,
+        particleConfigFallbackUsed: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.particleConfigFallbackUsed,
+        invalidParticleKeys: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.invalidParticleKeys,
+        ringConfig: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.ring,
+        particleRingTriggerTimingSource: 'HERO_OVERVIEW_CINEMATIC_CONFIG triggerAt seconds from Hero → Overview start',
+        effectsTimingState,
+        particleTriggerActualTime: effectsTimingState?.particlesTriggerTime ?? null,
+        ringTriggerActualTime: effectsTimingState?.ringTriggerTime ?? null,
+        particleTriggerDeltaFromConfig: effectsTimingState?.particlesTriggerTime != null
+          ? round4(effectsTimingState.particlesTriggerTime - (HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.particles?.triggerAt ?? 0))
+          : null,
+        ringTriggerDeltaFromConfig: effectsTimingState?.ringTriggerTime != null
+          ? round4(effectsTimingState.ringTriggerTime - (HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.ring?.triggerAt ?? 0))
+          : null,
+        effectsFiredOnce: {
+          particles: effectsTimingState?.particlesTriggered === true,
+          ring: effectsTimingState?.ringTriggered === true,
+        },
         holdPhases: HERO_OVERVIEW_PILOT_HOLD_PHASES,
         holdPoseSource: latest?.activeHoldPoseSource ?? latest?.fromPoseSource ?? null,
         activationFromPoseSource: latest?.activationFromPoseSource ?? null,
@@ -4490,14 +4532,17 @@ const UnifiedCameraController = ({
           phaseBehaviors: HERO_OVERVIEW_PILOT_PHASE_BEHAVIORS,
           cameraTimeline: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE,
           cameraMotion: HERO_OVERVIEW_PILOT_CAMERA_MOTION,
-          pilotCinematicMilestone: 'Milestone D cinematic timing pass',
+          cinematicConfig: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG,
+          pilotCinematicMilestone: 'Milestone E config-driven cinematic tuning',
           ownsCameraInMilestoneA: false,
           ownsCameraInMilestoneB: Boolean(resolvedOverview),
           legacyForcedWriterBlocked: Boolean(resolvedOverview),
           blockedLegacyWriterCount: blockedLegacyWriterAtCapture ? 1 : 0,
           competingWriterDetected: false,
           completed: false,
-          duration: 1.45,
+          duration: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.totalDurationSeconds,
+          totalDurationSeconds: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.totalDurationSeconds,
+          progressSourceIsConfigDurationControlled: true,
           startJumpDistance: 0,
           activationFromPoseSource: 'activation-intent-live-camera-transform',
           activeHoldPoseSource: null,
@@ -4517,7 +4562,7 @@ const UnifiedCameraController = ({
           toPose: resolvedOverview,
           resolverOverviewPose: resolverOverview,
           targetPoseSource: resolvedOverview?.meta?.source ?? null,
-          progressSource: 'monotonic-run-progress:max(elapsed,runtime,explosion)',
+          progressSource: 'config-duration-elapsed-progress',
           monotonicGlobalProgress: 0,
           fromPoseRecaptured: false,
           targetPoseRecalculated: false,
@@ -4575,11 +4620,12 @@ const UnifiedCameraController = ({
         key: heroOverviewActivationKey,
         transitionKey: heroOverviewTransitionKey,
         pilotEnabled: isHeroToOverviewPilotEnabled(),
-        pilotDiagnosticVersion: 'Milestone D cinematic timing pass',
-        pilotCinematicMilestone: 'Milestone D cinematic timing pass',
+        pilotDiagnosticVersion: 'Milestone E config-driven cinematic tuning',
+        pilotCinematicMilestone: 'Milestone E config-driven cinematic tuning',
         activationFromPoseSource: 'activation-intent-live-camera-transform',
         activeHoldPoseSource: null,
         cameraTimeline: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE,
+        cinematicConfig: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG,
         captureAttempted: true,
         captureSucceeded: Boolean(resolvedOverview),
         activationConditionMatched: true,
@@ -4668,7 +4714,7 @@ const UnifiedCameraController = ({
         fovChangedDuringHold: false,
         filmOffsetChangedDuringHold: false,
         runtimePhase: heroOverviewObservedPhase,
-        progressSource: 'monotonic-run-progress:max(elapsed,runtime,explosion)',
+        progressSource: 'config-duration-elapsed-progress',
         progressSourceUsedForCameraWrite: 'not-writing-on-capture-row',
         rawProgressCandidate: 0,
         previousMonotonicGlobalProgress: 0,
@@ -4713,7 +4759,8 @@ const UnifiedCameraController = ({
           phaseBehaviors: HERO_OVERVIEW_PILOT_PHASE_BEHAVIORS,
           cameraTimeline: HERO_OVERVIEW_PILOT_CAMERA_TIMELINE,
           cameraMotion: HERO_OVERVIEW_PILOT_CAMERA_MOTION,
-          pilotCinematicMilestone: 'Milestone D cinematic timing pass',
+          cinematicConfig: HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG,
+          pilotCinematicMilestone: 'Milestone E config-driven cinematic tuning',
           fromPoseSource: 'activation-intent-live-camera-transform',
           activeHoldPoseSource: null,
           ownsCameraInMilestoneA: false,
@@ -5610,19 +5657,24 @@ const UnifiedCameraController = ({
         }
         const runtimeSnapshot = heroOverviewRuntime?.getSnapshot?.() ?? null;
         const explosionClock = heroOverviewExplosionClockRef?.current ?? null;
+        const cameraRunElapsedSeconds = Math.max(0, state.clock.elapsedTime - (transition.startedAt ?? state.clock.elapsedTime));
+        const resolvedCameraDurationSeconds = Number.isFinite(transition.duration) && transition.duration > 0
+          ? transition.duration
+          : HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.totalDurationSeconds;
         const elapsedProgress = THREE.MathUtils.clamp(
-          (state.clock.elapsedTime - (transition.startedAt ?? state.clock.elapsedTime)) / (transition.duration || 1.45),
+          cameraRunElapsedSeconds / resolvedCameraDurationSeconds,
           0,
           1,
         );
         const explosionProgress = Number.isFinite(explosionClock?.progress) ? explosionClock.progress : null;
         const runtimeProgress = Number.isFinite(runtimeSnapshot?.progress) ? runtimeSnapshot.progress : null;
         const rawSharedProgress = THREE.MathUtils.clamp(explosionProgress ?? runtimeProgress ?? elapsedProgress, 0, 1);
-        const progressCandidate = THREE.MathUtils.clamp(
-          Math.max(elapsedProgress, runtimeProgress ?? 0, explosionProgress ?? 0),
-          0,
-          1,
-        );
+        const progressCandidate = elapsedProgress;
+        transition.cameraRunElapsedSeconds = cameraRunElapsedSeconds;
+        transition.cameraRunProgress = progressCandidate;
+        transition.progressSource = 'config-duration-elapsed-progress';
+        transition.progressSourceUsedForCameraWrite = 'config-duration-elapsed-progress';
+        transition.progressSourceIsConfigDurationControlled = true;
         const previousMonotonicProgress = Number.isFinite(transition.monotonicGlobalProgress)
           ? transition.monotonicGlobalProgress
           : 0;
@@ -5666,14 +5718,14 @@ const UnifiedCameraController = ({
             ? THREE.MathUtils.clamp(phaseProgress / impulseReturnCompleteAt, 0, 1)
             : 1;
           const impulsePulse = phaseProgress < impulseReturnCompleteAt
-            ? easeHeroOverviewPilotProgress(impulsePulseProgress, 'sinePulse')
+            ? easeHeroOverviewPilotProgress(impulsePulseProgress, HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.camera.punchEase)
             : 0;
           impulseCameraOffset = cinematicProgress.punchDistance * impulsePulse;
           if (Math.abs(impulseCameraOffset) > 0.000001) {
             nextPosition = nextPosition.clone().addScaledVector(holdForwardAxis, impulseCameraOffset);
           }
         } else if (!isFinalPoseLocked && pilotPhase === 'bulletTimeSlowdown') {
-          const bulletPulse = easeHeroOverviewPilotProgress(phaseProgress, 'sinePulse');
+          const bulletPulse = easeHeroOverviewPilotProgress(phaseProgress, HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.camera.driftEase);
           bulletTimeCameraOffset = cinematicProgress.driftAmount * bulletPulse;
           if (Math.abs(bulletTimeCameraOffset) > 0.000001) {
             nextPosition = nextPosition.clone().addScaledVector(holdForwardAxis, -bulletTimeCameraOffset);
@@ -5793,8 +5845,8 @@ const UnifiedCameraController = ({
         }
         pushHeroOverviewPilotSample({
           type: globalProgress >= 1 ? 'completion-handoff' : 'pilot-frame',
-          pilotDiagnosticVersion: 'Milestone D cinematic timing pass',
-          pilotCinematicMilestone: 'Milestone D cinematic timing pass',
+          pilotDiagnosticVersion: 'Milestone E config-driven cinematic tuning',
+          pilotCinematicMilestone: 'Milestone E config-driven cinematic tuning',
           t: round4(state.clock.elapsedTime),
           frame: cameraFrameIndexRef.current,
           key: pilot.key,
@@ -5874,8 +5926,12 @@ const UnifiedCameraController = ({
           rawProgressCandidate: round4(progressCandidate),
           previousMonotonicGlobalProgress: round4(previousMonotonicProgress),
           progressSource: transition.progressSource,
-          progressSourceUsedForCameraWrite: 'monotonicGlobalProgress',
-          globalProgressPrintedSource: 'monotonicGlobalProgress',
+          progressSourceUsedForCameraWrite: transition.progressSourceUsedForCameraWrite ?? 'config-duration-elapsed-progress',
+          globalProgressPrintedSource: transition.progressSourceUsedForCameraWrite ?? 'config-duration-elapsed-progress',
+          cameraRunElapsedSeconds: round4(cameraRunElapsedSeconds),
+          cameraRunProgress: round4(progressCandidate),
+          resolvedTotalDurationSeconds: round4(resolvedCameraDurationSeconds),
+          totalDurationSecondsActivelyControlsCameraProgress: Boolean(transition.progressSourceIsConfigDurationControlled),
           progressWentBackwards,
           progressWasClampedToMonotonic,
           runtimePhase,
@@ -6003,8 +6059,8 @@ const UnifiedCameraController = ({
           heroToOverviewHandoffLockFramesRef.current = HERO_TO_OVERVIEW_HANDOFF_LOCK_FRAMES;
           pushHeroOverviewPilotSample({
             type: 'pilot-completion-finalized',
-            pilotDiagnosticVersion: 'Milestone D cinematic timing pass',
-            pilotCinematicMilestone: 'Milestone D cinematic timing pass',
+            pilotDiagnosticVersion: 'Milestone E config-driven cinematic tuning',
+            pilotCinematicMilestone: 'Milestone E config-driven cinematic tuning',
             t: round4(state.clock.elapsedTime),
             frame: cameraFrameIndexRef.current,
             key: pilot.key,
@@ -7147,7 +7203,7 @@ const UnifiedCameraController = ({
         }
         pushHeroOverviewPilotSample({
           type: 'handoff-lock-frame',
-          pilotDiagnosticVersion: 'Milestone D cinematic timing pass',
+          pilotDiagnosticVersion: 'Milestone E config-driven cinematic tuning',
           t: round4(state.clock.elapsedTime),
           frame: cameraFrameIndexRef.current,
           key: heroOverviewPilotRef.current.key,

@@ -37,31 +37,38 @@ const FractureBurstParticles = ({
   count = 360,
   color = '#9af8ff',
   emitterPosition = [0, 0, 0],
+  spawnRadius = 0.5,
+  emitterScale = [1, 1, 1],
+  spread = 0.5,
+  onBurstGenerated = null,
 }) => {
+  const resolvedCount = Math.max(0, Math.floor(Number.isFinite(count) ? count : 0));
   const pointsRef = useRef();
   const startTimeRef = useRef(0);
   const delayRef = useRef(null);
   const activeCountRef = useRef(0);
+  const latestPropsRef = useRef({ delay, count: resolvedCount, spawnRadius, emitterScale, spread, onBurstGenerated });
+  const generationRef = useRef({ trigger: null, countForTrigger: 0 });
 
-  const velocitiesRef = useRef(new Float32Array(count * 3));
-  const lifetimesRef = useRef(new Float32Array(count));
-  const agesRef = useRef(new Float32Array(count));
-  const baseSizesRef = useRef(new Float32Array(count));
-  const dragsRef = useRef(new Float32Array(count));
-  const buoyanciesRef = useRef(new Float32Array(count));
-  const turbulencesRef = useRef(new Float32Array(count));
-  const swirlsRef = useRef(new Float32Array(count));
-  const phasesRef = useRef(new Float32Array(count));
-  const flowFreqsRef = useRef(new Float32Array(count));
-  const flowAmpsRef = useRef(new Float32Array(count));
+  const velocitiesRef = useRef(new Float32Array(resolvedCount * 3));
+  const lifetimesRef = useRef(new Float32Array(resolvedCount));
+  const agesRef = useRef(new Float32Array(resolvedCount));
+  const baseSizesRef = useRef(new Float32Array(resolvedCount));
+  const dragsRef = useRef(new Float32Array(resolvedCount));
+  const buoyanciesRef = useRef(new Float32Array(resolvedCount));
+  const turbulencesRef = useRef(new Float32Array(resolvedCount));
+  const swirlsRef = useRef(new Float32Array(resolvedCount));
+  const phasesRef = useRef(new Float32Array(resolvedCount));
+  const flowFreqsRef = useRef(new Float32Array(resolvedCount));
+  const flowAmpsRef = useRef(new Float32Array(resolvedCount));
 
   const geometry = useMemo(() => {
     const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(count * 3), 3));
-    g.setAttribute('aAlpha', new THREE.BufferAttribute(new Float32Array(count), 1));
-    g.setAttribute('aSize', new THREE.BufferAttribute(new Float32Array(count), 1));
+    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(resolvedCount * 3), 3));
+    g.setAttribute('aAlpha', new THREE.BufferAttribute(new Float32Array(resolvedCount), 1));
+    g.setAttribute('aSize', new THREE.BufferAttribute(new Float32Array(resolvedCount), 1));
     return g;
-  }, [count]);
+  }, [resolvedCount]);
 
   const material = useMemo(
     () =>
@@ -102,6 +109,32 @@ const FractureBurstParticles = ({
       }),
     [color],
   );
+
+  useEffect(() => {
+    latestPropsRef.current = {
+      delay,
+      count: resolvedCount,
+      spawnRadius,
+      emitterScale,
+      spread,
+      onBurstGenerated,
+    };
+  }, [delay, resolvedCount, spawnRadius, emitterScale, spread, onBurstGenerated]);
+
+  useEffect(() => {
+    velocitiesRef.current = new Float32Array(resolvedCount * 3);
+    lifetimesRef.current = new Float32Array(resolvedCount);
+    agesRef.current = new Float32Array(resolvedCount);
+    baseSizesRef.current = new Float32Array(resolvedCount);
+    dragsRef.current = new Float32Array(resolvedCount);
+    buoyanciesRef.current = new Float32Array(resolvedCount);
+    turbulencesRef.current = new Float32Array(resolvedCount);
+    swirlsRef.current = new Float32Array(resolvedCount);
+    phasesRef.current = new Float32Array(resolvedCount);
+    flowFreqsRef.current = new Float32Array(resolvedCount);
+    flowAmpsRef.current = new Float32Array(resolvedCount);
+    activeCountRef.current = Math.min(activeCountRef.current, resolvedCount);
+  }, [resolvedCount]);
 
   useEffect(() => {
     logger.debug('geometry attributes', Object.keys(geometry.attributes));
@@ -145,38 +178,90 @@ const FractureBurstParticles = ({
       const phases = phasesRef.current;
       const flowFreqs = flowFreqsRef.current;
       const flowAmps = flowAmpsRef.current;
+      const latest = latestPropsRef.current;
+      const requestedCount = Math.max(0, Math.floor(Number.isFinite(latest.count) ? latest.count : 0));
+      const spawnCount = Math.min(requestedCount, lifetimes.length);
+      const resolvedSpawnRadius = Number.isFinite(latest.spawnRadius) ? Math.max(0, latest.spawnRadius) : 0.5;
+      const spawnRadiusScale = resolvedSpawnRadius / 0.5;
+      const resolvedEmitterScale = Array.isArray(latest.emitterScale) && latest.emitterScale.length === 3
+        ? latest.emitterScale.map((value) => (Number.isFinite(value) ? Math.max(0, value) : 1))
+        : [1, 1, 1];
+      const [emitterScaleX, emitterScaleY, emitterScaleZ] = resolvedEmitterScale;
+      const resolvedSpread = Number.isFinite(latest.spread) ? Math.max(0, latest.spread) : 0.5;
+      const spreadScale = resolvedSpread / 0.5;
+      const sameTrigger = generationRef.current.trigger === trigger;
+      const generationCountForCurrentTrigger = sameTrigger ? generationRef.current.countForTrigger + 1 : 1;
+      generationRef.current = { trigger, countForTrigger: generationCountForCurrentTrigger };
+      let lifetimeMin = Infinity;
+      let lifetimeMax = -Infinity;
+      let velocityMin = Infinity;
+      let velocityMax = -Infinity;
+      let initialRadiusMin = Infinity;
+      let initialRadiusMax = -Infinity;
+      let travelDistanceMin = Infinity;
+      let travelDistanceMax = -Infinity;
+      let initialBoundsXMin = Infinity;
+      let initialBoundsXMax = -Infinity;
+      let initialBoundsYMin = Infinity;
+      let initialBoundsYMax = -Infinity;
+      let initialBoundsZMin = Infinity;
+      let initialBoundsZMax = -Infinity;
+      const invalidParticleRuntimeValues = [];
 
       logger.debug('[particles] before spawn activeCount=', activeCountRef.current);
-      const spawnCount = Math.min(count, 360);
-      logger.debug('[particles] spawning count=', spawnCount);
+      logger.debug('[particles] spawning count=', spawnCount, 'spawnRadius=', resolvedSpawnRadius, 'emitterScale=', resolvedEmitterScale, 'spread=', resolvedSpread);
 
       for (let i = 0; i < spawnCount; i += 1) {
         const i3 = i * 3;
 
         const angle = Math.random() * Math.PI * 2 + (Math.random() - 0.5) * 0.35;
-        const ringRadius = 0.38 + Math.random() * 0.44;
-        const ringThickness = -0.14 + Math.random() * 0.28;
-        const yOffset = -0.48 + Math.random() * 1.0;
+        const ringRadius = (0.38 + Math.random() * 0.44) * spawnRadiusScale;
+        const ringThickness = (-0.14 + Math.random() * 0.28) * spawnRadiusScale;
+        const yOffset = (-0.48 + Math.random() * 1.0) * spawnRadiusScale;
         const radial = ringRadius + ringThickness;
-        const ringYOffset = -0.24;
+        const ringYOffset = -0.24 * spawnRadiusScale;
 
         const emitterWidth = 1.0;
         const emitterHeight = 1.15;
         const emitterDepth = 1.0;
 
-        positions[i3] = Math.cos(angle) * emitterWidth * radial;
-        positions[i3 + 1] = yOffset * emitterHeight + ringYOffset;
-        positions[i3 + 2] = Math.sin(angle) * emitterDepth * radial;
+        positions[i3] = Math.cos(angle) * emitterWidth * radial * emitterScaleX;
+        positions[i3 + 1] = (yOffset * emitterHeight + ringYOffset) * emitterScaleY;
+        positions[i3 + 2] = Math.sin(angle) * emitterDepth * radial * emitterScaleZ;
+        initialBoundsXMin = Math.min(initialBoundsXMin, positions[i3]);
+        initialBoundsXMax = Math.max(initialBoundsXMax, positions[i3]);
+        initialBoundsYMin = Math.min(initialBoundsYMin, positions[i3 + 1]);
+        initialBoundsYMax = Math.max(initialBoundsYMax, positions[i3 + 1]);
+        initialBoundsZMin = Math.min(initialBoundsZMin, positions[i3 + 2]);
+        initialBoundsZMax = Math.max(initialBoundsZMax, positions[i3 + 2]);
+        const initialRadius = Math.sqrt(positions[i3] ** 2 + positions[i3 + 1] ** 2 + positions[i3 + 2] ** 2);
+        if (Number.isFinite(initialRadius)) {
+          initialRadiusMin = Math.min(initialRadiusMin, initialRadius);
+          initialRadiusMax = Math.max(initialRadiusMax, initialRadius);
+        } else {
+          invalidParticleRuntimeValues.push(`initialRadius:${i}`);
+        }
 
-        const radialDir = new THREE.Vector3(positions[i3], positions[i3 + 1], positions[i3 + 2]).normalize();
+        const outwardDir = new THREE.Vector3(
+          Math.cos(angle) * (0.65 + Math.random() * 0.35),
+          -0.22 + Math.random() * 0.42,
+          Math.sin(angle) * (0.65 + Math.random() * 0.35),
+        ).normalize();
         const burstJitter = new THREE.Vector3(
-          -0.48 + Math.random() * 0.96,
-          -0.26 + Math.random() * 0.38,
-          -0.48 + Math.random() * 0.96,
+          (-0.48 + Math.random() * 0.96) * Math.min(spreadScale, 2),
+          (-0.26 + Math.random() * 0.38) * Math.min(spreadScale, 2),
+          (-0.48 + Math.random() * 0.96) * Math.min(spreadScale, 2),
         );
-        const burstDir = radialDir.add(burstJitter).normalize();
-        const velocity = burstDir.multiplyScalar(4.4 + Math.random() * 2.2);
-        velocity.y += -0.7 + Math.random() * 0.54;
+        const burstDir = outwardDir.add(burstJitter).normalize();
+        const velocity = burstDir.multiplyScalar((4.4 + Math.random() * 2.2) * spreadScale);
+        velocity.y += (-0.7 + Math.random() * 0.54) * spreadScale;
+        const velocityMagnitude = velocity.length();
+        if (Number.isFinite(velocityMagnitude)) {
+          velocityMin = Math.min(velocityMin, velocityMagnitude);
+          velocityMax = Math.max(velocityMax, velocityMagnitude);
+        } else {
+          invalidParticleRuntimeValues.push(`velocity:${i}`);
+        }
 
         velocities[i3] = velocity.x;
         velocities[i3 + 1] = velocity.y;
@@ -184,6 +269,17 @@ const FractureBurstParticles = ({
 
         ages[i] = 0;
         lifetimes[i] = 0.9 + Math.random() * 0.7;
+        if (Number.isFinite(lifetimes[i]) && lifetimes[i] > 0) {
+          lifetimeMin = Math.min(lifetimeMin, lifetimes[i]);
+          lifetimeMax = Math.max(lifetimeMax, lifetimes[i]);
+          if (Number.isFinite(velocityMagnitude)) {
+            const travelDistance = velocityMagnitude * lifetimes[i];
+            travelDistanceMin = Math.min(travelDistanceMin, travelDistance);
+            travelDistanceMax = Math.max(travelDistanceMax, travelDistance);
+          }
+        } else {
+          invalidParticleRuntimeValues.push(`lifetime:${i}`);
+        }
 
         const tierRoll = Math.random();
         let baseSize;
@@ -209,7 +305,7 @@ const FractureBurstParticles = ({
         alphas[i] = 1;
       }
 
-      for (let i = spawnCount; i < count; i += 1) {
+      for (let i = spawnCount; i < lifetimes.length; i += 1) {
         const i3 = i * 3;
         positions[i3] = positions[i3 + 1] = positions[i3 + 2] = 0;
         velocities[i3] = velocities[i3 + 1] = velocities[i3 + 2] = 0;
@@ -228,6 +324,47 @@ const FractureBurstParticles = ({
       }
 
       activeCountRef.current = spawnCount;
+      const generationDetails = {
+        trigger,
+        generatedCount: spawnCount,
+        requestedCount,
+        spawnRadius: resolvedSpawnRadius,
+        emitterScale: resolvedEmitterScale,
+        spread: resolvedSpread,
+        spreadScale,
+        emitterPosition,
+        initialRadiusMin: Number.isFinite(initialRadiusMin) ? initialRadiusMin : null,
+        initialRadiusMax: Number.isFinite(initialRadiusMax) ? initialRadiusMax : null,
+        initialBoundsXMin: Number.isFinite(initialBoundsXMin) ? initialBoundsXMin : null,
+        initialBoundsXMax: Number.isFinite(initialBoundsXMax) ? initialBoundsXMax : null,
+        initialBoundsYMin: Number.isFinite(initialBoundsYMin) ? initialBoundsYMin : null,
+        initialBoundsYMax: Number.isFinite(initialBoundsYMax) ? initialBoundsYMax : null,
+        initialBoundsZMin: Number.isFinite(initialBoundsZMin) ? initialBoundsZMin : null,
+        initialBoundsZMax: Number.isFinite(initialBoundsZMax) ? initialBoundsZMax : null,
+        lifetimeMin: Number.isFinite(lifetimeMin) ? lifetimeMin : null,
+        lifetimeMax: Number.isFinite(lifetimeMax) ? lifetimeMax : null,
+        velocityMin: Number.isFinite(velocityMin) ? velocityMin : null,
+        velocityMax: Number.isFinite(velocityMax) ? velocityMax : null,
+        travelDistanceMin: Number.isFinite(travelDistanceMin) ? travelDistanceMin : null,
+        travelDistanceMax: Number.isFinite(travelDistanceMax) ? travelDistanceMax : null,
+        spreadAppliedToInitialPosition: false,
+        spreadAppliedToVelocityOrTravel: true,
+        emitterScaleAppliedToInitialPosition: true,
+        emitterScaleAppliedToVelocityOrTravel: false,
+        generationCountForCurrentTrigger,
+        regeneratedThisFrame: false,
+        regenerationReason: generationCountForCurrentTrigger > 1
+          ? 'same trigger generated more than once'
+          : 'trigger changed',
+        invalidParticleRuntimeValues,
+      };
+      latest.onBurstGenerated?.(generationDetails);
+      if (typeof globalThis !== 'undefined') {
+        globalThis.__FRACTURE_BURST_PARTICLES_LAST_GENERATED__ = generationDetails;
+        if (generationCountForCurrentTrigger > 1 && globalThis.__HERO_OVERVIEW_PILOT_DIAGNOSTICS__) {
+          console.warn('[fracture-burst-particles] duplicate generation for trigger', generationDetails);
+        }
+      }
       logger.debug('[particles] after spawn activeCount=', activeCountRef.current);
 
       for (let i = 0; i < Math.min(5, activeCountRef.current); i += 1) {
@@ -253,7 +390,7 @@ const FractureBurstParticles = ({
       startTimeRef.current = performance.now() - EMITTER_START_LEAD_S * 1000;
     };
 
-    const effectiveDelay = Math.max(delay - EMITTER_START_LEAD_S, 0);
+    const effectiveDelay = Math.max((latestPropsRef.current.delay ?? 0) - EMITTER_START_LEAD_S, 0);
     if (effectiveDelay > 0) {
       delayRef.current = setTimeout(() => {
         delayRef.current = null;
@@ -270,7 +407,7 @@ const FractureBurstParticles = ({
         delayRef.current = null;
       }
     };
-  }, [trigger, delay, count, geometry]);
+  }, [trigger]);
 
   useEffect(() => {
     if (pointsRef.current) {
