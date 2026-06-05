@@ -37,15 +37,15 @@ export const HERO_OVERVIEW_CINEMATIC_CONFIG = {
 
   particles: {
     enabled: true,
-    triggerAt: 0.5,
+    triggerAt: 0.6,
     delay: 0,
-    count: 360,
-    color: '#66ffcc',
-    emitterPosition: [0, 0, 0],
-    spawnRadius: 0.02,
-    emitterScale: [1, 1, 1],
+    count: 900,
+    color: '#eafffc',
+    emitterPosition: [0, 1, 0],
+    spawnRadius: 0.1,
+    emitterScale: [0.05, 30, 0.05],
     duration: null,
-    spread: 0.5,
+    spread: 2.2,
     lifetime: null,
     lifetimeMin: null,
     lifetimeMax: null,
@@ -55,16 +55,16 @@ export const HERO_OVERVIEW_CINEMATIC_CONFIG = {
     size: null,
     opacity: null,
     wired: true,
-    notes: 'Hero → Overview particle trigger plus supported FractureBurstParticles props are config-driven. spawnRadius controls initial emitter tightness; emitterScale shapes the initial emitter volume; spread controls outward travel dispersion. Duration/lifetime/speed/size remain component-internal placeholders until a particle API pass wires them safely.',
+    notes: 'Hero → Overview particle trigger plus supported FractureBurstParticles props are config-driven. spawnRadius controls initial emitter tightness; emitterScale shapes the initial emitter volume; spread controls outward travel dispersion. lifetime/lifetimeMin/lifetimeMax, speed/speedMin/speedMax, size, and opacity are wired to generation-time particle props; duration remains a documented placeholder.',
   },
 
   ring: {
     enabled: true,
     triggerAt: 0.55,
-    duration: 0.6,
-    startScale: 0.05,
-    endScale: 25.5,
-    easing: 'easeOutExpo',
+    duration: 0.3,
+    startScale: 0.01,
+    endScale: 20.5,
+    easing: 'linear',
     wired: true,
     notes: 'Ring trigger/timing is wired to the Hero → Overview route timeline.',
   },
@@ -176,6 +176,18 @@ const readNonNegativeNumber = (value, fallback) => (
 
 const readPositiveInteger = (value, fallback) => (
   Number.isInteger(value) && value > 0 ? value : fallback
+);
+
+const readNullablePositiveNumber = (value, fallback = null) => (
+  value == null ? null : (typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : fallback)
+);
+
+const readNullableNonNegativeNumber = (value, fallback = null) => (
+  value == null ? null : (typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : fallback)
+);
+
+const readNullableOpacity = (value, fallback = null) => (
+  value == null ? null : (typeof value === 'number' && Number.isFinite(value) ? clamp01(value) : fallback)
 );
 
 const isHexColorString = (value) => typeof value === 'string' && /^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(value);
@@ -327,6 +339,37 @@ export const resolveHeroOverviewCinematicConfig = (config = HERO_OVERVIEW_CINEMA
   if (particleEmitterScale !== rawParticles.emitterScale) pushInvalidParticleKey('emitterScale');
   const particleSpread = readNonNegativeNumber(rawParticles.spread, DEFAULT_PARTICLES_CONFIG.spread);
   if (!(typeof rawParticles.spread === 'number' && Number.isFinite(rawParticles.spread) && rawParticles.spread >= 0)) pushInvalidParticleKey('spread');
+
+  if (rawParticles.duration != null) pushInvalidParticleKey('duration');
+  const particleDuration = null;
+  const particleLifetime = readNullablePositiveNumber(rawParticles.lifetime, DEFAULT_PARTICLES_CONFIG.lifetime);
+  if (!(rawParticles.lifetime == null || (typeof rawParticles.lifetime === 'number' && Number.isFinite(rawParticles.lifetime) && rawParticles.lifetime > 0))) pushInvalidParticleKey('lifetime');
+  let particleLifetimeMin = readNullablePositiveNumber(rawParticles.lifetimeMin, DEFAULT_PARTICLES_CONFIG.lifetimeMin);
+  if (!(rawParticles.lifetimeMin == null || (typeof rawParticles.lifetimeMin === 'number' && Number.isFinite(rawParticles.lifetimeMin) && rawParticles.lifetimeMin > 0))) pushInvalidParticleKey('lifetimeMin');
+  let particleLifetimeMax = readNullablePositiveNumber(rawParticles.lifetimeMax, DEFAULT_PARTICLES_CONFIG.lifetimeMax);
+  if (!(rawParticles.lifetimeMax == null || (typeof rawParticles.lifetimeMax === 'number' && Number.isFinite(rawParticles.lifetimeMax) && rawParticles.lifetimeMax > 0))) pushInvalidParticleKey('lifetimeMax');
+  if (particleLifetime == null && particleLifetimeMin != null && particleLifetimeMax != null && particleLifetimeMin > particleLifetimeMax) {
+    pushInvalidParticleKey('lifetimeRangeOrder');
+    [particleLifetimeMin, particleLifetimeMax] = [particleLifetimeMax, particleLifetimeMin];
+  }
+
+  const particleSpeed = readNullableNonNegativeNumber(rawParticles.speed, DEFAULT_PARTICLES_CONFIG.speed);
+  if (!(rawParticles.speed == null || (typeof rawParticles.speed === 'number' && Number.isFinite(rawParticles.speed) && rawParticles.speed >= 0))) pushInvalidParticleKey('speed');
+  let particleSpeedMin = readNullableNonNegativeNumber(rawParticles.speedMin, DEFAULT_PARTICLES_CONFIG.speedMin);
+  if (!(rawParticles.speedMin == null || (typeof rawParticles.speedMin === 'number' && Number.isFinite(rawParticles.speedMin) && rawParticles.speedMin >= 0))) pushInvalidParticleKey('speedMin');
+  let particleSpeedMax = readNullableNonNegativeNumber(rawParticles.speedMax, DEFAULT_PARTICLES_CONFIG.speedMax);
+  if (!(rawParticles.speedMax == null || (typeof rawParticles.speedMax === 'number' && Number.isFinite(rawParticles.speedMax) && rawParticles.speedMax >= 0))) pushInvalidParticleKey('speedMax');
+  if (particleSpeed == null && particleSpeedMin != null && particleSpeedMax != null && particleSpeedMin > particleSpeedMax) {
+    pushInvalidParticleKey('speedRangeOrder');
+    [particleSpeedMin, particleSpeedMax] = [particleSpeedMax, particleSpeedMin];
+  }
+
+  const particleSize = readNullablePositiveNumber(rawParticles.size, DEFAULT_PARTICLES_CONFIG.size);
+  if (!(rawParticles.size == null || (typeof rawParticles.size === 'number' && Number.isFinite(rawParticles.size) && rawParticles.size > 0))) pushInvalidParticleKey('size');
+  const particleOpacity = readNullableOpacity(rawParticles.opacity, DEFAULT_PARTICLES_CONFIG.opacity);
+  if (!(rawParticles.opacity == null || (typeof rawParticles.opacity === 'number' && Number.isFinite(rawParticles.opacity)))) pushInvalidParticleKey('opacity');
+  if (typeof rawParticles.opacity === 'number' && Number.isFinite(rawParticles.opacity) && (rawParticles.opacity < 0 || rawParticles.opacity > 1)) pushInvalidParticleKey('opacityClamped');
+
   const particleFieldsWired = [
     'enabled',
     'triggerAt',
@@ -337,17 +380,17 @@ export const resolveHeroOverviewCinematicConfig = (config = HERO_OVERVIEW_CINEMA
     'spawnRadius',
     'emitterScale',
     'spread',
+    'lifetime',
+    'lifetimeMin',
+    'lifetimeMax',
+    'speed',
+    'speedMin',
+    'speedMax',
+    'size',
+    'opacity',
   ];
   const particleFieldsPlaceholders = {
-    duration: 'FractureBurstParticles does not consume duration; particle lifetimes are randomized internally.',
-    lifetime: 'No single lifetime prop exists yet.',
-    lifetimeMin: 'Lifetimes are currently randomized internally between 0.9 and 1.6 seconds.',
-    lifetimeMax: 'Lifetimes are currently randomized internally between 0.9 and 1.6 seconds.',
-    speed: 'Initial speed is randomized internally.',
-    speedMin: 'Initial speed is randomized internally between 4.4 and 6.6, then scaled by particles.spread before vertical adjustment.',
-    speedMax: 'Initial speed is randomized internally between 4.4 and 6.6, then scaled by particles.spread before vertical adjustment.',
-    size: 'Particle sizes use internal tiered randomization.',
-    opacity: 'Opacity is driven by shader alpha/fade constants internally.',
+    duration: 'Duration remains a documented placeholder; FractureBurstParticles uses lifetime/lifetimeMin/lifetimeMax for per-particle life control.',
   };
   const particles = {
     ...DEFAULT_PARTICLES_CONFIG,
@@ -360,7 +403,16 @@ export const resolveHeroOverviewCinematicConfig = (config = HERO_OVERVIEW_CINEMA
     emitterPosition: particleEmitterPosition,
     spawnRadius: particleSpawnRadius,
     emitterScale: particleEmitterScale,
+    duration: particleDuration,
     spread: particleSpread,
+    lifetime: particleLifetime,
+    lifetimeMin: particleLifetimeMin,
+    lifetimeMax: particleLifetimeMax,
+    speed: particleSpeed,
+    speedMin: particleSpeedMin,
+    speedMax: particleSpeedMax,
+    size: particleSize,
+    opacity: particleOpacity,
     wired: true,
     routeTimelineWired: true,
     triggerAtUnits: 'seconds-from-hero-overview-start',
@@ -375,6 +427,14 @@ export const resolveHeroOverviewCinematicConfig = (config = HERO_OVERVIEW_CINEMA
       spawnRadius: particleSpawnRadius,
       emitterScale: particleEmitterScale,
       spread: particleSpread,
+      lifetime: particleLifetime,
+      lifetimeMin: particleLifetimeMin,
+      lifetimeMax: particleLifetimeMax,
+      speed: particleSpeed,
+      speedMin: particleSpeedMin,
+      speedMax: particleSpeedMax,
+      size: particleSize,
+      opacity: particleOpacity,
     },
     invalidKeys: invalidParticleKeys,
     fallbackUsed: invalidParticleKeys.length > 0,
