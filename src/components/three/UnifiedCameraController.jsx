@@ -24,6 +24,31 @@ const HERO_OVERVIEW_PHASE_ORDER = ['fractureCharge', 'explosionImpulse', 'bullet
 const HERO_OVERVIEW_PILOT_PHASES = ['fractureCharge', 'explosionImpulse', 'bulletTimeSlowdown', 'overviewTravel', 'overviewSettle', 'complete'];
 const HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG = HERO_OVERVIEW_CINEMATIC_RESOLVED;
 const HERO_OVERVIEW_PILOT_CAMERA_TIMELINE = HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.derivedTimeline;
+const HERO_OVERVIEW_CAMERA_FORCE = HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.cameraForce;
+const resolveHeroOverviewCameraForceState = (elapsedSeconds) => {
+  const cfg = HERO_OVERVIEW_CAMERA_FORCE;
+  if (!cfg?.enabled || elapsedSeconds == null || elapsedSeconds < cfg.triggerAt) {
+    return { active: false, phase: 'idle', offset: 0, shake: 0, triggerAt: cfg?.triggerAt ?? null };
+  }
+  const local = Math.max(0, elapsedSeconds - cfg.triggerAt);
+  const pushEnd = cfg.pushbackDuration;
+  const catchEnd = pushEnd + cfg.catchDuration;
+  let phase = 'resolved';
+  let offset = 0;
+  if (local <= pushEnd) {
+    phase = 'pushback';
+    const t = (HERO_OVERVIEW_EASING[cfg.pushbackEase] || HERO_OVERVIEW_EASING.easeOutExpo)(local / Math.max(0.0001, pushEnd));
+    offset = cfg.pushbackDistance * t;
+  } else if (local <= catchEnd) {
+    phase = 'catch';
+    const t = (HERO_OVERVIEW_EASING[cfg.catchEase] || HERO_OVERVIEW_EASING.smoothSettle)((local - pushEnd) / Math.max(0.0001, cfg.catchDuration));
+    offset = cfg.pushbackDistance * (1 - t);
+  }
+  const shakeActive = cfg.shakeAmplitude > 0 && local <= cfg.shakeDuration;
+  const shakeEnvelope = shakeActive ? 1 - (local / Math.max(0.0001, cfg.shakeDuration)) : 0;
+  const shake = cfg.shakeAmplitude * shakeEnvelope * Math.sin(local * cfg.shakeFrequency * Math.PI * 2);
+  return { active: phase !== 'resolved' || shakeActive, phase, offset, shake, triggerAt: cfg.triggerAt, elapsedSinceTrigger: local };
+};
 const HERO_OVERVIEW_PILOT_CAMERA_MOTION = {
   fractureCharge: {
     punchDistance: 0,
@@ -6813,11 +6838,19 @@ const UnifiedCameraController = ({
           sharedEased,
         );
         const appliedOffset = new THREE.Vector3(0, 0, 0);
-        const isFiniteComputedOffset = true;
+        const forceElapsedSeconds = runtimeSnapshot?.startedAt ? Math.max(0, (performance.now() - runtimeSnapshot.startedAt) / 1000) : null;
+        const cameraForceState = resolveHeroOverviewCameraForceState(forceElapsedSeconds);
+        const forceAxis = new THREE.Vector3().subVectors(transition.from.position, transition.from.lookAtTarget);
+        if (forceAxis.lengthSq() > 0.000001) forceAxis.normalize();
+        if (cameraForceState.active) {
+          appliedOffset.addScaledVector(forceAxis, (cameraForceState.offset ?? 0) + (cameraForceState.shake ?? 0));
+        }
+        const isFiniteComputedOffset = Number.isFinite(appliedOffset.x) && Number.isFinite(appliedOffset.y) && Number.isFinite(appliedOffset.z);
         const finalPosition = basePosition.clone().add(appliedOffset);
         globalThis.__HERO_OVERVIEW_CAMERA_TIMING_SOURCE__ = cameraTimingSource;
         globalThis.__HERO_OVERVIEW_CAMERA_PROGRESS__ = sharedEased;
         globalThis.__HERO_OVERVIEW_CAMERA_POSITION__ = finalPosition.toArray();
+        globalThis.__HERO_OVERVIEW_CAMERA_IMPACT_STATE__ = cameraForceState;
         camera.position.copy(finalPosition);
         camera.lookAt(forcedLookAt);
         camera.filmOffset = THREE.MathUtils.lerp(
@@ -6854,8 +6887,9 @@ const UnifiedCameraController = ({
             console.log('[hero-overview-camera-hook] visual offset applied', {
               runtimePhase,
               runtimeProgress: Number(runtimeProgress.toFixed?.(3) ?? runtimeProgress),
-              computedOffsetLength: 0,
-              cameraPushbackApplyScale: 0,
+              computedOffsetLength: appliedOffset.length(),
+              cameraForceConfig: HERO_OVERVIEW_CAMERA_FORCE,
+              cameraImpactState: cameraForceState,
               appliedOffset: appliedOffset.toArray(),
               appliedOffsetLength: Number(appliedOffsetLength.toFixed(4)),
               basePosition: basePosition.toArray(),
@@ -6881,6 +6915,7 @@ const UnifiedCameraController = ({
               cameraProgressSharedEased: Number(sharedEased.toFixed(4)),
               cameraProgressMonotonicSharedEased: Number(monotonicSharedEased.toFixed(4)),
               cameraAppliedOffsetLength: Number(appliedOffset.length().toFixed(4)),
+              cameraImpactState: cameraForceState,
               cameraPushbackDecayStart: Number((runtimeSnapshot?.timing?.cameraPushbackDecayStart ?? config?.timing?.heroOverviewRuntime?.cameraPushbackDecayStart ?? 0.18).toFixed(3)),
               cameraPushbackDecayEnd: Number((runtimeSnapshot?.timing?.cameraPushbackDecayEnd ?? config?.timing?.heroOverviewRuntime?.cameraPushbackDecayEnd ?? 0.68).toFixed(3)),
               offsetZeroByOverviewSettle:
@@ -6895,6 +6930,7 @@ const UnifiedCameraController = ({
                 cameraPushbackProgress: Number((cameraTimingState?.progress ?? 0).toFixed(4)),
                 fragmentTravelProgress: Number(globalThis.__HERO_OVERVIEW_FRAGMENT_TRAVEL_PROGRESS__ ?? 0),
                 cameraAppliedOffsetLength: Number(appliedOffset.length().toFixed(4)),
+              cameraImpactState: cameraForceState,
                 cameraNearFinal: appliedOffset.length() <= 0.01,
                 fragmentNearFinal: Boolean(globalThis.__HERO_OVERVIEW_FRAGMENT_NEAR_FINAL__),
               });
