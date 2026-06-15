@@ -368,7 +368,7 @@ const FractureBurstParticles = ({
         ).normalize();
         const burstJitter = new THREE.Vector3(
           (-0.48 + Math.random() * 0.96) * Math.min(spreadScale, 2),
-          (-0.26 + Math.random() * 0.38) * Math.min(spreadScale, 2),
+          (-0.48 + Math.random() * 0.96) * Math.min(spreadScale, 2),
           (-0.48 + Math.random() * 0.96) * Math.min(spreadScale, 2),
         );
         const burstDir = outwardDir.add(burstJitter).normalize();
