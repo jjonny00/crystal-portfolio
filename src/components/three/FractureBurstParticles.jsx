@@ -7,6 +7,23 @@ const EMITTER_START_LEAD_S = 0.08;
 const PARTICLE_FADE_IN_END = 0.03;
 const PARTICLE_FADE_OUT_START = 0.42;
 const PARTICLE_FADE_OUT_END = 0.76;
+const DEFAULT_LIFETIME_MIN = 0.9;
+const DEFAULT_LIFETIME_MAX = 1.6;
+const DEFAULT_SPEED_MIN = 4.4;
+const DEFAULT_SPEED_MAX = 6.6;
+const DEFAULT_PARTICLE_BLENDING = 'additive';
+const PARTICLE_BLENDING_BY_NAME = {
+  additive: THREE.AdditiveBlending,
+  normal: THREE.NormalBlending,
+  subtractive: THREE.SubtractiveBlending,
+  multiply: THREE.MultiplyBlending,
+  none: THREE.NoBlending,
+  no: THREE.NoBlending,
+};
+
+const normalizeParticleBlending = (value) => (
+  typeof value === 'string' && PARTICLE_BLENDING_BY_NAME[value] != null ? value : DEFAULT_PARTICLE_BLENDING
+);
 
 const logger = createLogger('fracture-burst-particles');
 
@@ -40,6 +57,16 @@ const FractureBurstParticles = ({
   spawnRadius = 0.5,
   emitterScale = [1, 1, 1],
   spread = 0.5,
+  duration = null,
+  lifetime = null,
+  lifetimeMin = null,
+  lifetimeMax = null,
+  speed = null,
+  speedMin = null,
+  speedMax = null,
+  size = null,
+  opacity = null,
+  blending = DEFAULT_PARTICLE_BLENDING,
   onBurstGenerated = null,
 }) => {
   const resolvedCount = Math.max(0, Math.floor(Number.isFinite(count) ? count : 0));
@@ -47,7 +74,25 @@ const FractureBurstParticles = ({
   const startTimeRef = useRef(0);
   const delayRef = useRef(null);
   const activeCountRef = useRef(0);
-  const latestPropsRef = useRef({ delay, count: resolvedCount, spawnRadius, emitterScale, spread, onBurstGenerated });
+  const latestPropsRef = useRef({
+    delay,
+    count: resolvedCount,
+    spawnRadius,
+    emitterScale,
+    spread,
+    duration,
+    lifetime,
+    lifetimeMin,
+    lifetimeMax,
+    speed,
+    speedMin,
+    speedMax,
+    size,
+    opacity,
+    blending,
+    onBurstGenerated,
+  });
+  const generatedOpacityRef = useRef(1);
   const generationRef = useRef({ trigger: null, countForTrigger: 0 });
 
   const velocitiesRef = useRef(new Float32Array(resolvedCount * 3));
@@ -104,7 +149,7 @@ const FractureBurstParticles = ({
           }
         `,
         transparent: true,
-        blending: THREE.AdditiveBlending,
+        blending: PARTICLE_BLENDING_BY_NAME[DEFAULT_PARTICLE_BLENDING],
         depthWrite: false,
       }),
     [color],
@@ -117,9 +162,25 @@ const FractureBurstParticles = ({
       spawnRadius,
       emitterScale,
       spread,
+      duration,
+      lifetime,
+      lifetimeMin,
+      lifetimeMax,
+      speed,
+      speedMin,
+      speedMax,
+      size,
+      opacity,
+      blending,
       onBurstGenerated,
     };
-  }, [delay, resolvedCount, spawnRadius, emitterScale, spread, onBurstGenerated]);
+  }, [delay, resolvedCount, spawnRadius, emitterScale, spread, duration, lifetime, lifetimeMin, lifetimeMax, speed, speedMin, speedMax, size, opacity, blending, onBurstGenerated]);
+
+  useEffect(() => {
+    const resolvedBlending = normalizeParticleBlending(blending);
+    material.blending = PARTICLE_BLENDING_BY_NAME[resolvedBlending];
+    material.needsUpdate = true;
+  }, [blending, material]);
 
   useEffect(() => {
     velocitiesRef.current = new Float32Array(resolvedCount * 3);
@@ -189,6 +250,21 @@ const FractureBurstParticles = ({
       const [emitterScaleX, emitterScaleY, emitterScaleZ] = resolvedEmitterScale;
       const resolvedSpread = Number.isFinite(latest.spread) ? Math.max(0, latest.spread) : 0.5;
       const spreadScale = resolvedSpread / 0.5;
+      const readPositive = (value) => (typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : null);
+      const readNonNegative = (value) => (typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null);
+      const fixedLifetime = readPositive(latest.lifetime);
+      const durationLifetime = readPositive(latest.duration);
+      let resolvedLifetimeMin = readPositive(latest.lifetimeMin);
+      let resolvedLifetimeMax = readPositive(latest.lifetimeMax);
+      const fixedSpeed = readNonNegative(latest.speed);
+      let resolvedSpeedMin = readNonNegative(latest.speedMin);
+      let resolvedSpeedMax = readNonNegative(latest.speedMax);
+      const fixedSize = readPositive(latest.size);
+      const resolvedOpacity = typeof latest.opacity === 'number' && Number.isFinite(latest.opacity)
+        ? THREE.MathUtils.clamp(latest.opacity, 0, 1)
+        : 1;
+      const resolvedBlending = normalizeParticleBlending(latest.blending);
+      generatedOpacityRef.current = resolvedOpacity;
       const sameTrigger = generationRef.current.trigger === trigger;
       const generationCountForCurrentTrigger = sameTrigger ? generationRef.current.countForTrigger + 1 : 1;
       generationRef.current = { trigger, countForTrigger: generationCountForCurrentTrigger };
@@ -207,6 +283,49 @@ const FractureBurstParticles = ({
       let initialBoundsZMin = Infinity;
       let initialBoundsZMax = -Infinity;
       const invalidParticleRuntimeValues = [];
+      if (latest.lifetime != null && fixedLifetime == null) invalidParticleRuntimeValues.push('lifetime');
+      if (latest.duration != null && durationLifetime == null) invalidParticleRuntimeValues.push('duration');
+      if (latest.lifetimeMin != null && resolvedLifetimeMin == null) invalidParticleRuntimeValues.push('lifetimeMin');
+      if (latest.lifetimeMax != null && resolvedLifetimeMax == null) invalidParticleRuntimeValues.push('lifetimeMax');
+      const lifetimeSource = fixedLifetime != null
+        ? 'fixed-lifetime'
+        : (durationLifetime != null
+          ? 'duration'
+          : (resolvedLifetimeMin != null || resolvedLifetimeMax != null ? 'configured-range' : 'internal-default'));
+      if (lifetimeSource === 'configured-range') {
+        resolvedLifetimeMin = resolvedLifetimeMin ?? DEFAULT_LIFETIME_MIN;
+        resolvedLifetimeMax = resolvedLifetimeMax ?? DEFAULT_LIFETIME_MAX;
+        if (resolvedLifetimeMin > resolvedLifetimeMax) {
+          invalidParticleRuntimeValues.push('lifetimeRangeOrder');
+          [resolvedLifetimeMin, resolvedLifetimeMax] = [resolvedLifetimeMax, resolvedLifetimeMin];
+        }
+      }
+      if (latest.speed != null && fixedSpeed == null) invalidParticleRuntimeValues.push('speed');
+      if (latest.speedMin != null && resolvedSpeedMin == null) invalidParticleRuntimeValues.push('speedMin');
+      if (latest.speedMax != null && resolvedSpeedMax == null) invalidParticleRuntimeValues.push('speedMax');
+      const speedSource = fixedSpeed != null
+        ? 'fixed-speed'
+        : (resolvedSpeedMin != null || resolvedSpeedMax != null ? 'configured-range' : 'internal-default');
+      if (speedSource === 'configured-range') {
+        resolvedSpeedMin = resolvedSpeedMin ?? DEFAULT_SPEED_MIN;
+        resolvedSpeedMax = resolvedSpeedMax ?? DEFAULT_SPEED_MAX;
+        if (resolvedSpeedMin > resolvedSpeedMax) {
+          invalidParticleRuntimeValues.push('speedRangeOrder');
+          [resolvedSpeedMin, resolvedSpeedMax] = [resolvedSpeedMax, resolvedSpeedMin];
+        }
+      }
+      if (latest.size != null && fixedSize == null) invalidParticleRuntimeValues.push('size');
+      if (latest.opacity != null && !(typeof latest.opacity === 'number' && Number.isFinite(latest.opacity))) invalidParticleRuntimeValues.push('opacity');
+      if (typeof latest.opacity === 'number' && Number.isFinite(latest.opacity) && (latest.opacity < 0 || latest.opacity > 1)) invalidParticleRuntimeValues.push('opacityClamped');
+      if (latest.blending != null && normalizeParticleBlending(latest.blending) !== latest.blending) invalidParticleRuntimeValues.push('blending');
+      const lifetimeMode = lifetimeSource;
+      const speedMode = speedSource;
+      const sizeMode = fixedSize != null ? 'fixed' : 'default-randomized';
+      const opacityMode = latest.opacity != null ? 'config-driven' : 'default';
+      let baseSpeedMin = Infinity;
+      let baseSpeedMax = -Infinity;
+      let sizeMin = Infinity;
+      let sizeMax = -Infinity;
 
       logger.debug('[particles] before spawn activeCount=', activeCountRef.current);
       logger.debug('[particles] spawning count=', spawnCount, 'spawnRadius=', resolvedSpawnRadius, 'emitterScale=', resolvedEmitterScale, 'spread=', resolvedSpread);
@@ -249,12 +368,24 @@ const FractureBurstParticles = ({
         ).normalize();
         const burstJitter = new THREE.Vector3(
           (-0.48 + Math.random() * 0.96) * Math.min(spreadScale, 2),
-          (-0.26 + Math.random() * 0.38) * Math.min(spreadScale, 2),
+          (-0.48 + Math.random() * 0.96) * Math.min(spreadScale, 2),
           (-0.48 + Math.random() * 0.96) * Math.min(spreadScale, 2),
         );
         const burstDir = outwardDir.add(burstJitter).normalize();
-        const velocity = burstDir.multiplyScalar((4.4 + Math.random() * 2.2) * spreadScale);
-        velocity.y += (-0.7 + Math.random() * 0.54) * spreadScale;
+        const baseSpeed = fixedSpeed != null
+          ? fixedSpeed
+          : (speedSource === 'configured-range'
+            ? THREE.MathUtils.lerp(
+              resolvedSpeedMin ?? resolvedSpeedMax,
+              resolvedSpeedMax ?? resolvedSpeedMin,
+              Math.random(),
+            )
+            : DEFAULT_SPEED_MIN + Math.random() * (DEFAULT_SPEED_MAX - DEFAULT_SPEED_MIN));
+        baseSpeedMin = Math.min(baseSpeedMin, baseSpeed);
+        baseSpeedMax = Math.max(baseSpeedMax, baseSpeed);
+        const velocity = burstDir.multiplyScalar(baseSpeed * spreadScale);
+        const verticalKickScale = speedSource === 'internal-default' ? 1 : (baseSpeed / ((DEFAULT_SPEED_MIN + DEFAULT_SPEED_MAX) / 2));
+        velocity.y += (-0.7 + Math.random() * 0.54) * spreadScale * verticalKickScale;
         const velocityMagnitude = velocity.length();
         if (Number.isFinite(velocityMagnitude)) {
           velocityMin = Math.min(velocityMin, velocityMagnitude);
@@ -268,7 +399,17 @@ const FractureBurstParticles = ({
         velocities[i3 + 2] = velocity.z;
 
         ages[i] = 0;
-        lifetimes[i] = 0.9 + Math.random() * 0.7;
+        lifetimes[i] = fixedLifetime != null
+          ? fixedLifetime
+          : (durationLifetime != null
+            ? durationLifetime
+            : (lifetimeSource === 'configured-range'
+              ? THREE.MathUtils.lerp(
+                resolvedLifetimeMin,
+                resolvedLifetimeMax,
+                Math.random(),
+              )
+              : DEFAULT_LIFETIME_MIN + Math.random() * (DEFAULT_LIFETIME_MAX - DEFAULT_LIFETIME_MIN)));
         if (Number.isFinite(lifetimes[i]) && lifetimes[i] > 0) {
           lifetimeMin = Math.min(lifetimeMin, lifetimes[i]);
           lifetimeMax = Math.max(lifetimeMax, lifetimes[i]);
@@ -290,9 +431,15 @@ const FractureBurstParticles = ({
         } else {
           baseSize = 0.028 + Math.random() * 0.022;
         }
-        baseSize *= 2.0;
+        baseSize = fixedSize ?? (baseSize * 2.0);
         baseSizes[i] = baseSize;
         sizes[i] = baseSize;
+        if (Number.isFinite(baseSize) && baseSize > 0) {
+          sizeMin = Math.min(sizeMin, baseSize);
+          sizeMax = Math.max(sizeMax, baseSize);
+        } else {
+          invalidParticleRuntimeValues.push(`size:${i}`);
+        }
 
         drags[i] = 0.84 + Math.random() * 0.08;
         buoyancies[i] = 0.013 + Math.random() * 0.013;
@@ -302,7 +449,7 @@ const FractureBurstParticles = ({
         flowFreqs[i] = 8.0 + Math.random() * 10.0;
         flowAmps[i] = 0.018 + Math.random() * 0.032;
 
-        alphas[i] = 1;
+        alphas[i] = resolvedOpacity;
       }
 
       for (let i = spawnCount; i < lifetimes.length; i += 1) {
@@ -332,6 +479,17 @@ const FractureBurstParticles = ({
         emitterScale: resolvedEmitterScale,
         spread: resolvedSpread,
         spreadScale,
+        duration: durationLifetime,
+        lifetime: fixedLifetime,
+        lifetimeMinProp: resolvedLifetimeMin,
+        lifetimeMaxProp: resolvedLifetimeMax,
+        speed: fixedSpeed,
+        speedMinProp: resolvedSpeedMin,
+        speedMaxProp: resolvedSpeedMax,
+        size: fixedSize,
+        opacity: resolvedOpacity,
+        blending: latest.blending,
+        resolvedParticleBlending: resolvedBlending,
         emitterPosition,
         initialRadiusMin: Number.isFinite(initialRadiusMin) ? initialRadiusMin : null,
         initialRadiusMax: Number.isFinite(initialRadiusMax) ? initialRadiusMax : null,
@@ -345,6 +503,30 @@ const FractureBurstParticles = ({
         lifetimeMax: Number.isFinite(lifetimeMax) ? lifetimeMax : null,
         velocityMin: Number.isFinite(velocityMin) ? velocityMin : null,
         velocityMax: Number.isFinite(velocityMax) ? velocityMax : null,
+        speedMin: Number.isFinite(baseSpeedMin) ? baseSpeedMin : null,
+        speedMax: Number.isFinite(baseSpeedMax) ? baseSpeedMax : null,
+        sizeMin: Number.isFinite(sizeMin) ? sizeMin : null,
+        sizeMax: Number.isFinite(sizeMax) ? sizeMax : null,
+        lastGeneratedLifetimeMin: Number.isFinite(lifetimeMin) ? lifetimeMin : null,
+        lastGeneratedLifetimeMax: Number.isFinite(lifetimeMax) ? lifetimeMax : null,
+        lastGeneratedSpeedMin: Number.isFinite(baseSpeedMin) ? baseSpeedMin : null,
+        lastGeneratedSpeedMax: Number.isFinite(baseSpeedMax) ? baseSpeedMax : null,
+        lastGeneratedSizeMin: Number.isFinite(sizeMin) ? sizeMin : null,
+        lastGeneratedSizeMax: Number.isFinite(sizeMax) ? sizeMax : null,
+        lastGeneratedOpacity: resolvedOpacity,
+        lifetimeMode,
+        speedMode,
+        sizeMode,
+        opacityMode,
+        lifetimeSource,
+        speedSource,
+        lifetimeWasFixed: lifetimeSource === 'fixed-lifetime' || lifetimeSource === 'duration',
+        lifetimeWasRandomized: lifetimeSource === 'configured-range' || lifetimeSource === 'internal-default',
+        speedWasFixed: speedSource === 'fixed-speed',
+        speedWasRandomized: speedSource !== 'fixed-speed',
+        sizeWasFixed: sizeMode === 'fixed',
+        sizeWasDefaultRandomized: sizeMode === 'default-randomized',
+        opacityWasConfigDriven: opacityMode === 'config-driven',
         travelDistanceMin: Number.isFinite(travelDistanceMin) ? travelDistanceMin : null,
         travelDistanceMax: Number.isFinite(travelDistanceMax) ? travelDistanceMax : null,
         spreadAppliedToInitialPosition: false,
@@ -526,7 +708,7 @@ const FractureBurstParticles = ({
       positions[i3 + 2] += velocities[i3 + 2] * dt;
 
       sizes[i] = baseSizes[i];
-      alphas[i] = smoothstep(0.0, PARTICLE_FADE_IN_END, lifeT) * (1.0 - smoothstep(PARTICLE_FADE_OUT_START, PARTICLE_FADE_OUT_END, lifeT));
+      alphas[i] = generatedOpacityRef.current * smoothstep(0.0, PARTICLE_FADE_IN_END, lifeT) * (1.0 - smoothstep(PARTICLE_FADE_OUT_START, PARTICLE_FADE_OUT_END, lifeT));
 
       if (i < 3) {
         logger.debug('[fade timing]', i, {

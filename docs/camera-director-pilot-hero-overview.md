@@ -792,39 +792,47 @@ The effects helper reports particle/ring enabled flags, `triggerAt` values, actu
 5. To resize the ring, tune `ring.startScale` and `ring.endScale`.
 6. To align effects with the camera, compare `particles.triggerAt` and `ring.triggerAt` with `timeline.fractureHold`, `timeline.totalDurationSeconds`, `fracture.holdDuration`, and `fracture.travelDuration`.
 
-## Milestone E particle controls exposed in the cinematic config
+## Hero → Overview particle API completion
 
-Hero → Overview particles now use `HERO_OVERVIEW_CINEMATIC_CONFIG.particles` for the route-local trigger plus the `FractureBurstParticles` props that already map cleanly to the component API.
+Hero → Overview particles use `HERO_OVERVIEW_CINEMATIC_CONFIG.particles` for the route-local trigger plus the safe `FractureBurstParticles` generation-time API. The route keeps using the existing `burstId` trigger path, but the Hero → Overview branch passes resolved `finalProps` from the cinematic config into the particle component only while the route-local/manual effects mode is active.
 
 ### Particle API audit
 
-`FractureBurstParticles` currently accepts these props directly:
+`FractureBurstParticles` accepts these props directly for the Hero → Overview route-local burst:
 
-- `trigger` — owned by `UnifiedCrystalScene`; Hero → Overview still uses the existing `burstId` trigger path.
+- `trigger` — owned by `UnifiedCrystalScene`; particle generation remains keyed only by this value.
 - `delay` — delay before spawning after `trigger`, with the component's internal emitter lead applied.
-- `count` — particle buffer/spawn count; the component now spawns the requested count for each burst.
-- `color` — shader color string accepted by `THREE.Color`; the cinematic config validates hex strings.
+- `count` — particle buffer/spawn count; the component spawns the requested count for each burst.
+- `color` — shader color string accepted by `THREE.Color`; the cinematic resolver validates hex strings.
 - `emitterPosition` — `[x, y, z]` group position for the particle emitter.
-- `spawnRadius` — controls how tightly particles are born around `emitterPosition`; Hero → Overview defaults to a tight `0.02` origin while the component keeps a legacy `0.5` fallback for non-Hero routes.
-- `emitterScale` — `[x, y, z]` multiplier for the initial birth volume only; `[1, 1, 1]` preserves the current shape, `[3, 1, 1]` makes the birth area wider on X, `[1, 3, 1]` makes it taller on Y, and `[1, 1, 3]` makes it deeper on Z.
-- `spread` — controls outward velocity/travel dispersion after particles spawn; it no longer drives the main initial spawn radius for Hero → Overview.
+- `spawnRadius` — controls how tightly particles are born around `emitterPosition`.
+- `emitterScale` — `[x, y, z]` multiplier for the initial birth volume only.
+- `spread` — controls outward velocity/travel dispersion after particles spawn; it does not drive the main initial birth position.
+- `duration` — optional fixed positive lifetime alias used when `lifetime` is `null`.
+- `lifetime` — optional fixed positive lifetime in seconds for every generated particle.
+- `lifetimeMin` / `lifetimeMax` — optional positive randomized lifetime range in seconds when both `lifetime` and `duration` are `null`.
+- `speed` — optional fixed non-negative base speed before the existing `spread` multiplier and vertical shaping.
+- `speedMin` / `speedMax` — optional non-negative randomized base-speed range when `speed` is `null`.
+- `size` — optional fixed positive point size; when `null`, the existing tiered random size distribution is preserved.
+- `opacity` — optional alpha multiplier clamped to `0 → 1`; it multiplies the existing fade-in/fade-out curve.
+- `blending` — optional Three.js blending mode name for visual/performance experiments.
 
-`mergedConfig.fracture.particles` currently provides `delay`, `count`, `color`, `duration`, and `spread`. Hero → Overview now passes resolved cinematic particle overrides, including `spawnRadius` for initial emitter tightness, `emitterScale` for X/Y/Z birth-volume shape, and `spread` for outward travel strength, while non-Hero routes keep the old default spread/spawn behavior.
+`mergedConfig.fracture.particles` still provides the legacy non-Hero particle path. Hero → Overview overlays resolved cinematic `finalProps` while `heroOverviewEffectsManualMode` is active; non-Hero Overview explosions continue spreading `mergedConfig.fracture.particles` into `FractureBurstParticles` without the route-local override.
 
 ### Final particles config shape
 
 ```js
 particles: {
   enabled: true,
-  triggerAt: 0.5,
+  triggerAt: 0.6,
   delay: 0,
-  count: 360,
-  color: '#66ffcc',
-  emitterPosition: [0, 0, 0],
-  spawnRadius: 0.02,
-  emitterScale: [1, 1, 1],
+  count: 900,
+  color: '#eafffc',
+  emitterPosition: [0, 1, 0],
+  spawnRadius: 0.1,
+  emitterScale: [0.05, 30, 0.05],
   duration: null,
-  spread: 0.5,
+  spread: 2.2,
   lifetime: null,
   lifetimeMin: null,
   lifetimeMax: null,
@@ -833,31 +841,48 @@ particles: {
   speedMax: null,
   size: null,
   opacity: null,
+  blending: 'additive',
   wired: true,
 }
 ```
 
-### Wired particle fields
+### Lifetime and duration precedence
 
-- `enabled`: disables only the Hero → Overview route-local particle burst when `false`.
-- `triggerAt`: seconds from Hero → Overview runtime start, not normalized progress.
-- `delay`: passed to `FractureBurstParticles.delay` for the Hero → Overview route-local burst.
-- `count`: passed to `FractureBurstParticles.count` for Hero → Overview.
-- `color`: passed to `FractureBurstParticles.color` for Hero → Overview.
-- `emitterPosition`: passed to `FractureBurstParticles.emitterPosition` for Hero → Overview.
-- `spawnRadius`: passed to `FractureBurstParticles.spawnRadius` for Hero → Overview and used at burst generation time for the initial particle birth radius around the emitter.
-- `emitterScale`: passed to `FractureBurstParticles.emitterScale` for Hero → Overview and used at burst generation time to multiply the initial X/Y/Z birth shape only.
-- `spread`: passed to `FractureBurstParticles.spread` for Hero → Overview and used at burst generation time for outward velocity/travel dispersion, not primary initial placement.
+Particle lifetime source is selected in this order:
 
-Non-Hero Overview still spreads `mergedConfig.fracture.particles` into `FractureBurstParticles`, so legacy particle behavior stays on the existing config path.
+1. `lifetime` — positive finite fixed lifetime for every particle.
+2. `duration` — positive finite fixed lifetime alias when `lifetime` is `null`.
+3. `lifetimeMin` / `lifetimeMax` — configured randomized lifetime range when both fixed fields are `null`.
+4. Internal default randomized lifetime range of roughly `0.9 → 1.6` seconds.
 
-### Particle placeholders and current limitations
+If only `lifetimeMin` is provided, it is paired with the existing default max (`1.6`). If only `lifetimeMax` is provided, it is paired with the existing default min (`0.9`). If the resolved min is greater than the resolved max, the values are swapped safely and diagnostics report `lifetimeRangeOrder`.
 
-- `duration`: placeholder; the component expires particles using randomized per-particle lifetimes instead of a duration prop.
-- `lifetime`, `lifetimeMin`, `lifetimeMax`: placeholders; lifetimes are currently randomized internally between roughly `0.9` and `1.6` seconds.
-- `speed`, `speedMin`, `speedMax`: placeholders; initial burst speed is randomized internally before vertical adjustment.
-- `size`: placeholder; particle sizes use internal tiered randomization.
-- `opacity`: placeholder; opacity is shader-alpha/fade driven internally.
+### Speed precedence
+
+Particle speed source is selected in this order:
+
+1. `speed` — non-negative finite fixed base speed for every particle.
+2. `speedMin` / `speedMax` — configured randomized base-speed range when `speed` is `null`.
+3. Internal default randomized base-speed range of roughly `4.4 → 6.6`.
+
+If only `speedMin` is provided, it is paired with the existing default max (`6.6`). If only `speedMax` is provided, it is paired with the existing default min (`4.4`). If the resolved min is greater than the resolved max, the values are swapped safely and diagnostics report `speedRangeOrder`. The chosen base speed is still multiplied by `spread`, so `speed` controls base magnitude while `spread` controls outward dispersion/travel scale.
+
+### Size, opacity, and blending semantics
+
+- `size: null` preserves the existing tiered randomized particle point-size distribution.
+- A positive finite `size` uses one fixed visual point size for all generated particles in the burst.
+- `opacity: null` preserves default opacity and the existing fade curve.
+- A finite `opacity` value is clamped to `0 → 1` and multiplied by the existing fade-in/fade-out alpha, so it softens/brightens the burst without disabling fade behavior.
+- `blending: 'additive'` is the default and preserves the current glowing particle look.
+- Supported blending values are `additive`, `normal`, `subtractive`, `multiply`, `none`, and `no`.
+- `normal` can look softer and less blown out than additive; `multiply`/`subtractive` are experiment modes that may be useful for darker/mask-like effects but can be visually subtle or surprising depending on the background. Changing blending updates material state and does not trigger particle regeneration.
+
+### Interaction with spawnRadius, emitterScale, and spread
+
+- `spawnRadius` controls the birth radius before travel begins. Lower values create a tighter center-out origin; higher values create a wider birth shell.
+- `emitterScale` shapes that birth volume independently on X/Y/Z and does not change travel velocity.
+- `speed` / `speedMin` / `speedMax` choose base travel speed.
+- `spread` scales outward dispersion/travel after the base speed is chosen and still affects jitter direction; it does not move particles directly to their final spread positions at birth.
 
 ### Particle diagnostics
 
@@ -865,10 +890,11 @@ Use:
 
 ```js
 globalThis.__printHeroOverviewEffectsTimingConfig?.();
+globalThis.__FRACTURE_BURST_PARTICLES_LAST_GENERATED__;
 globalThis.__printHeroOverviewPilotCinematic?.();
 ```
 
-The effects helper reports the raw particle config, resolved particle config, wired fields, placeholder fields, invalid particle keys, fallback state, final props passed to `FractureBurstParticles`, last generated count/spawn radius/emitter scale/spread, initial bounds and radius min/max, velocity/travel min/max, whether spread or emitter scale was applied to initial position or velocity/travel, whether Hero → Overview used config overrides, and trigger frame/time/source.
+The effects helper reports raw/resolved particle config, `invalidParticleKeys`, `particleConfigFallbackUsed`, `particleFieldsWired`, `particleFieldsPlaceholders`, `finalPropsPassedToFractureBurstParticles`, final prop values for duration/lifetime/speed/size/opacity/blending, and the resolved blending mode. Runtime generation diagnostics report generated lifetime/speed/size min/max, generated opacity, `lifetimeSource` (`fixed-lifetime`, `duration`, `configured-range`, or `internal-default`), `speedSource` (`fixed-speed`, `configured-range`, or `internal-default`), invalid runtime values, trigger generation count, and regeneration reason.
 
 ### Particle tuning guide
 
@@ -878,9 +904,75 @@ The effects helper reports the raw particle config, resolved particle config, wi
 4. To make particles start tighter around the emitter, lower `particles.spawnRadius`; raise it only if you intentionally want a larger birth volume.
 5. To shape the initial birth volume without changing outward travel, tune `particles.emitterScale`: `[3, 1, 1]` is wider, `[1, 3, 1]` is taller, and `[1, 1, 3]` is deeper.
 6. To make particles travel farther/wider after spawning, raise `particles.spread`; lower it for a shorter/tighter outward burst.
-7. To recolor the burst, tune `particles.color` using a hex color.
-8. To offset the emitter, tune `particles.emitterPosition`.
-9. To align with the rest of the transition, compare `particles.triggerAt` to `timeline.totalDurationSeconds`, `fracture.holdDuration`, `fracture.travelDuration`, and `ring.triggerAt`.
+7. To make all particles last the same amount of time, set `particles.duration` for the easiest fixed-lifetime control or `particles.lifetime` when you need explicit precedence over duration.
+8. To make particle expiry more organic, leave `particles.lifetime` and `particles.duration` `null`, then set `particles.lifetimeMin` / `particles.lifetimeMax`.
+9. To set one base travel speed, set `particles.speed` and leave the min/max fields `null`.
+10. To vary travel speed, leave `particles.speed` `null` and set `particles.speedMin` / `particles.speedMax`.
+11. To resize all particles, set `particles.size`; use `null` for the default tiered randomized sizes.
+12. To soften the whole burst while keeping fade behavior, set `particles.opacity` below `1`.
+13. To test visual/performance tradeoffs, set `particles.blending` to `additive`, `normal`, `subtractive`, `multiply`, `none`, or `no`.
+14. To recolor the burst, tune `particles.color` using a hex color.
+15. To offset the emitter, tune `particles.emitterPosition`.
+16. To align with the rest of the transition, compare `particles.triggerAt` to `timeline.totalDurationSeconds`, `fracture.holdDuration`, `fracture.travelDuration`, and `ring.triggerAt`.
+
+### Particle tuning examples
+
+```js
+// Long duration particles.
+particles: {
+  duration: 3,
+  lifetime: null,
+  lifetimeMin: null,
+  lifetimeMax: null,
+  speed: 0.35,
+  spread: 1.1,
+}
+
+// Fixed lifetime wins over duration and dies quickly.
+particles: {
+  duration: 3,
+  lifetime: 0.4,
+  lifetimeMin: null,
+  lifetimeMax: null,
+}
+
+// Randomized lifetime range.
+particles: {
+  duration: null,
+  lifetime: null,
+  lifetimeMin: 0.2,
+  lifetimeMax: 0.4,
+}
+
+// Randomized slow speed range.
+particles: {
+  speed: null,
+  speedMin: 0.1,
+  speedMax: 0.2,
+  spread: 2.2,
+}
+
+// Additive glow (default/current look).
+particles: {
+  blending: 'additive',
+  opacity: 1,
+  color: '#eafffc',
+}
+
+// Normal blended softer particles.
+particles: {
+  blending: 'normal',
+  opacity: 0.55,
+  size: 0.08,
+}
+
+// Multiply/subtractive experiments.
+particles: {
+  blending: 'multiply', // or 'subtractive'
+  opacity: 0.7,
+  color: '#eafffc',
+}
+```
 
 ### Particle emitter shape examples
 
@@ -911,4 +1003,4 @@ particles: {
 
 ### Particle count/spread regression note
 
-The count/spread regression fix keeps `trigger` as the only burst-generation key inside `FractureBurstParticles`. Latest `count`, `spawnRadius`, `emitterScale`, `spread`, `delay`, and diagnostic callback values are read from refs at trigger time, so parent diagnostics and inline callback identity changes do not regenerate the active burst every render. The center-out spread fix separates initial placement from travel: `spawnRadius` scales the small birth radius around the emitter, `emitterScale` shapes that birth volume on X/Y/Z, and `spread` scales outward velocity/travel dispersion on the next Hero → Overview burst. This prevents particles from appearing already at their spread/end positions.
+The count/spread regression fix keeps `trigger` as the only burst-generation key inside `FractureBurstParticles`. Latest `count`, `spawnRadius`, `emitterScale`, `spread`, `delay`, `duration`, `lifetime`, `lifetimeMin`, `lifetimeMax`, `speed`, `speedMin`, `speedMax`, `size`, `opacity`, `blending`, and diagnostic callback values are read from refs at trigger time, so parent diagnostics and inline callback identity changes do not regenerate the active burst every render. The center-out spread fix separates initial placement from travel: `spawnRadius` scales the small birth radius around the emitter, `emitterScale` shapes that birth volume on X/Y/Z, and `spread` scales outward velocity/travel dispersion on the next Hero → Overview burst. This prevents particles from appearing already at their spread/end positions.
