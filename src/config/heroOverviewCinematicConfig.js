@@ -52,15 +52,59 @@ export const HERO_OVERVIEW_CINEMATIC_CONFIG = {
     wired: true,
   },
 
-  ring: {
+  shardBurst: {
     enabled: true,
-    triggerAt: 0.5,
-    duration: 0.28,
-    startScale: 0.01,
-    endScale: 25.5,
-    easing: 'linear',
+    triggerAt: 0.56,
+    burstDuration: 0.07,
+    burstDistance: 0.58,
+    burstEase: 'easeOutExpo',
+    slowdownDuration: 0.18,
+    slowdownEase: 'smoothSettle',
+    resolveBlendDuration: 0.72,
     wired: true,
   },
+
+  explosionParticles: {
+    enabled: true,
+    triggerAt: 0.56,
+    count: 360,
+    color: '#d9fbff',
+    duration: 0.24,
+    speedMin: 6.0,
+    speedMax: 11.0,
+    lifetimeMin: 0.08,
+    lifetimeMax: 0.32,
+    opacity: 0.95,
+    spawnRadius: 0.41,
+    emitterScale: [0.75, 0.75, 0.75],
+    spread: 2.8,
+    blending: 'additive',
+    wired: true,
+  },
+
+  cameraForce: {
+    enabled: true,
+    triggerAt: 0.56,
+    pushbackDistance: 0.42,
+    pushbackDuration: 0.075,
+    pushbackEase: 'easeOutExpo',
+    catchDuration: 0.26,
+    catchEase: 'smoothSettle',
+    shakeAmplitude: 0.016,
+    shakeDuration: 0.12,
+    shakeFrequency: 38,
+    wired: true,
+  },
+
+  ring: {
+    enabled: true,
+    triggerAt: 0.56,
+    duration: 0.22,
+    startScale: 0.01,
+    endScale: 18.0,
+    easing: 'easeOutExpo',
+    wired: true,
+  }
 };
 
 const clamp01 = (value) => Math.min(Math.max(value, 0), 1);
@@ -110,6 +154,9 @@ const DURATION_TO_PHASE = [
 const DEFAULT_TOTAL_DURATION_SECONDS = HERO_OVERVIEW_CINEMATIC_CONFIG.timeline.totalDurationSeconds;
 const DEFAULT_FRACTURE_CONFIG = { ...HERO_OVERVIEW_CINEMATIC_CONFIG.fracture };
 const DEFAULT_PARTICLES_CONFIG = { ...HERO_OVERVIEW_CINEMATIC_CONFIG.particles };
+const DEFAULT_SHARD_BURST_CONFIG = { ...HERO_OVERVIEW_CINEMATIC_CONFIG.shardBurst };
+const DEFAULT_EXPLOSION_PARTICLES_CONFIG = { ...HERO_OVERVIEW_CINEMATIC_CONFIG.explosionParticles };
+const DEFAULT_CAMERA_FORCE_CONFIG = { ...HERO_OVERVIEW_CINEMATIC_CONFIG.cameraForce };
 const DEFAULT_DURATIONS = DURATION_TO_PHASE.reduce((acc, [durationKey]) => {
   acc[durationKey] = HERO_OVERVIEW_CINEMATIC_CONFIG.timeline[durationKey];
   return acc;
@@ -442,6 +489,72 @@ export const resolveHeroOverviewCinematicConfig = (config = HERO_OVERVIEW_CINEMA
     fallbackUsed: invalidParticleKeys.length > 0,
   };
 
+
+  const resolveBurstLayerConfig = (rawConfig, defaults, fields) => {
+    const raw = { ...(rawConfig || {}) };
+    const invalidKeys = [];
+    const invalid = (key) => { if (!invalidKeys.includes(key)) invalidKeys.push(key); };
+    const resolved = { ...defaults, ...raw };
+    fields.forEach(({ key, type = 'nonNegative', easing = false }) => {
+      if (key === 'enabled') {
+        resolved.enabled = typeof raw.enabled === 'boolean' ? raw.enabled : defaults.enabled;
+        if (typeof raw.enabled !== 'boolean') invalid(key);
+      } else if (easing) {
+        resolved[key] = readEasingName(raw[key], defaults[key]);
+        if (!(typeof raw[key] === 'string' && HERO_OVERVIEW_EASING[raw[key]])) invalid(key);
+      } else if (type === 'positiveInteger') {
+        resolved[key] = readPositiveInteger(raw[key], defaults[key]);
+        if (!(Number.isInteger(raw[key]) && raw[key] > 0)) invalid(key);
+      } else if (type === 'positive') {
+        resolved[key] = readPositiveSeconds(raw[key], defaults[key]);
+        if (!(typeof raw[key] === 'number' && Number.isFinite(raw[key]) && raw[key] > 0)) invalid(key);
+      } else if (type === 'opacity') {
+        resolved[key] = readNullableOpacity(raw[key], defaults[key]);
+        if (!(typeof raw[key] === 'number' && Number.isFinite(raw[key]))) invalid(key);
+      } else {
+        resolved[key] = readNonNegativeSeconds(raw[key], defaults[key]);
+        if (!(typeof raw[key] === 'number' && Number.isFinite(raw[key]) && raw[key] >= 0)) invalid(key);
+      }
+    });
+    if (resolved.speedMin != null && resolved.speedMax != null && resolved.speedMin > resolved.speedMax) {
+      invalid('speedRangeOrder');
+      [resolved.speedMin, resolved.speedMax] = [resolved.speedMax, resolved.speedMin];
+    }
+    if (resolved.lifetimeMin != null && resolved.lifetimeMax != null && resolved.lifetimeMin > resolved.lifetimeMax) {
+      invalid('lifetimeRangeOrder');
+      [resolved.lifetimeMin, resolved.lifetimeMax] = [resolved.lifetimeMax, resolved.lifetimeMin];
+    }
+    return {
+      ...resolved,
+      wired: true,
+      routeTimelineWired: true,
+      triggerAtUnits: 'seconds-from-hero-overview-start',
+      invalidKeys,
+      fallbackUsed: invalidKeys.length > 0,
+    };
+  };
+
+  const shardBurst = resolveBurstLayerConfig(config?.shardBurst, DEFAULT_SHARD_BURST_CONFIG, [
+    { key: 'enabled' },
+    { key: 'triggerAt' },
+    { key: 'burstDuration', type: 'positive' },
+    { key: 'burstDistance' },
+    { key: 'burstEase', easing: true },
+    { key: 'slowdownDuration', type: 'positive' },
+    { key: 'slowdownEase', easing: true },
+    { key: 'resolveBlendDuration', type: 'positive' },
+  ]);
+  const explosionParticles = resolveBurstLayerConfig(config?.explosionParticles, DEFAULT_EXPLOSION_PARTICLES_CONFIG, [
+    { key: 'enabled' }, { key: 'triggerAt' }, { key: 'count', type: 'positiveInteger' }, { key: 'duration', type: 'positive' },
+    { key: 'speedMin' }, { key: 'speedMax' }, { key: 'lifetimeMin', type: 'positive' }, { key: 'lifetimeMax', type: 'positive' },
+    { key: 'opacity', type: 'opacity' }, { key: 'spawnRadius' }, { key: 'spread' },
+  ]);
+  const cameraForce = resolveBurstLayerConfig(config?.cameraForce, DEFAULT_CAMERA_FORCE_CONFIG, [
+    { key: 'enabled' }, { key: 'triggerAt' }, { key: 'pushbackDistance' }, { key: 'pushbackDuration', type: 'positive' },
+    { key: 'pushbackEase', easing: true }, { key: 'catchDuration', type: 'positive' }, { key: 'catchEase', easing: true },
+    { key: 'shakeAmplitude' }, { key: 'shakeDuration' }, { key: 'shakeFrequency' },
+  ]);
+
   return {
     sourceFile: HERO_OVERVIEW_CINEMATIC_CONFIG_SOURCE,
     sourceName: 'HERO_OVERVIEW_CINEMATIC_CONFIG',
@@ -465,9 +578,12 @@ export const resolveHeroOverviewCinematicConfig = (config = HERO_OVERVIEW_CINEMA
     particles,
     rawParticles,
     invalidParticleKeys,
-    particleConfigFallbackUsed: particles.fallbackUsed,
+    particleConfigFallbackUsed: particles.fallbackUsed || shardBurst.fallbackUsed || explosionParticles.fallbackUsed || cameraForce.fallbackUsed,
     particleFieldsWired,
     particleFieldsPlaceholders,
+    shardBurst,
+    explosionParticles,
+    cameraForce,
     ring: {
       ...HERO_OVERVIEW_CINEMATIC_CONFIG.ring,
       ...(config?.ring || {}),
@@ -483,8 +599,8 @@ export const resolveHeroOverviewCinematicConfig = (config = HERO_OVERVIEW_CINEMA
     },
     totalConfiguredDuration,
     normalizedDurationTotal: safeTotal,
-    defaultsUsed: invalidDurationKeys.length > 0 || invalidTotal || totalDurationFallbackUsed || fracture.fallbackUsed || particles.fallbackUsed,
-    invalidConfigFallbackOccurred: invalidDurationKeys.length > 0 || invalidTotal || totalDurationFallbackUsed || fracture.fallbackUsed || particles.fallbackUsed,
+    defaultsUsed: invalidDurationKeys.length > 0 || invalidTotal || totalDurationFallbackUsed || fracture.fallbackUsed || particles.fallbackUsed || shardBurst.fallbackUsed || explosionParticles.fallbackUsed || cameraForce.fallbackUsed,
+    invalidConfigFallbackOccurred: invalidDurationKeys.length > 0 || invalidTotal || totalDurationFallbackUsed || fracture.fallbackUsed || particles.fallbackUsed || shardBurst.fallbackUsed || explosionParticles.fallbackUsed || cameraForce.fallbackUsed,
     invalidDurationKeys,
     invalidTotal,
   };

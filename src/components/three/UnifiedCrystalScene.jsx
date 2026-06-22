@@ -96,6 +96,7 @@ const UnifiedCrystalScene = forwardRef(({
   const [burstId, setBurstId] = useState(0);
   const [heroOverviewEffectsManualMode, setHeroOverviewEffectsManualMode] = useState(false);
   const [heroOverviewRingTriggerId, setHeroOverviewRingTriggerId] = useState(0);
+  const [heroOverviewExplosionBurstId, setHeroOverviewExplosionBurstId] = useState(0);
   
   // Crystal state tracking
   const [showWholeCrystal, setShowWholeCrystal] = useState(true);
@@ -126,6 +127,7 @@ const UnifiedCrystalScene = forwardRef(({
   const heroOverviewEffectsRunStartedAtRef = useRef(null);
   const heroOverviewParticlesTriggeredRef = useRef(false);
   const heroOverviewRingTriggeredRef = useRef(false);
+  const heroOverviewExplosionParticlesTriggeredRef = useRef(false);
   const heroOverviewParticlesSuppressedRef = useRef(false);
   const heroOverviewRingSuppressedRef = useRef(false);
   const heroOverviewEffectsImmediateBypassRef = useRef(false);
@@ -332,10 +334,14 @@ const UnifiedCrystalScene = forwardRef(({
   const crystalConfig = animationData?.crystalConfig;
   const heroOverviewParticlesConfig = HERO_OVERVIEW_CINEMATIC_RESOLVED.particles;
   const heroOverviewRingConfig = HERO_OVERVIEW_CINEMATIC_RESOLVED.ring;
+  const heroOverviewShardBurstConfig = HERO_OVERVIEW_CINEMATIC_RESOLVED.shardBurst;
+  const heroOverviewExplosionParticlesConfig = HERO_OVERVIEW_CINEMATIC_RESOLVED.explosionParticles;
+  const heroOverviewCameraForceConfig = HERO_OVERVIEW_CINEMATIC_RESOLVED.cameraForce;
   const resetHeroOverviewEffectsRun = useCallback((startedAt = null) => {
     heroOverviewEffectsRunStartedAtRef.current = startedAt;
     heroOverviewParticlesTriggeredRef.current = false;
     heroOverviewRingTriggeredRef.current = false;
+    heroOverviewExplosionParticlesTriggeredRef.current = false;
     heroOverviewParticlesSuppressedRef.current = false;
     heroOverviewRingSuppressedRef.current = false;
     heroOverviewEffectsImmediateBypassRef.current = false;
@@ -346,6 +352,13 @@ const UnifiedCrystalScene = forwardRef(({
       particlesTriggerSource: null,
       particlesSuppressedByConfig: false,
       ringTriggered: false,
+      explosionParticlesTriggered: false,
+      explosionParticlesTriggerFrame: null,
+      explosionParticlesTriggerTime: null,
+      explosionParticlesGenerationRanges: null,
+      shardBurstTriggerAt: heroOverviewShardBurstConfig.triggerAt,
+      shardBurstActivePhase: 'idle',
+      cameraImpactState: { active: false, phase: 'idle' },
       ringTriggerFrame: null,
       ringTriggerTime: null,
       ringTriggerSource: null,
@@ -510,10 +523,39 @@ const UnifiedCrystalScene = forwardRef(({
       runtimeStartedAt: startedAt,
       elapsedSeconds,
       particles: heroOverviewParticlesConfig,
+      explosionParticles: heroOverviewExplosionParticlesConfig,
+      shardBurst: heroOverviewShardBurstConfig,
+      cameraForce: heroOverviewCameraForceConfig,
       ring: heroOverviewRingConfig,
       diagnostics: heroOverviewEffectsDiagnosticsRef.current,
     };
   }, [getHeroOverviewFractureTimingState, heroOverviewRuntime, heroOverviewParticlesConfig, heroOverviewRingConfig]);
+
+
+  const resolveHeroOverviewBurstState = useCallback((elapsedSeconds) => {
+    const cfg = heroOverviewShardBurstConfig;
+    if (!cfg?.enabled || elapsedSeconds == null || elapsedSeconds < cfg.triggerAt) {
+      return { active: false, phase: 'idle', offsetScale: 0, triggerAt: cfg?.triggerAt ?? null };
+    }
+    const local = Math.max(0, elapsedSeconds - cfg.triggerAt);
+    const burstEnd = cfg.burstDuration;
+    const slowdownEnd = burstEnd + cfg.slowdownDuration;
+    const resolveEnd = slowdownEnd + cfg.resolveBlendDuration;
+    let phase = 'resolved';
+    let offsetScale = 0;
+    if (local <= burstEnd) {
+      phase = 'burst';
+      offsetScale = (HERO_OVERVIEW_EASING[cfg.burstEase] || HERO_OVERVIEW_EASING.easeOutExpo)(local / Math.max(0.0001, burstEnd));
+    } else if (local <= slowdownEnd) {
+      phase = 'slowdown';
+      offsetScale = 1;
+    } else if (local <= resolveEnd) {
+      phase = 'resolve';
+      const t = (HERO_OVERVIEW_EASING[cfg.slowdownEase] || HERO_OVERVIEW_EASING.smoothSettle)((local - slowdownEnd) / Math.max(0.0001, cfg.resolveBlendDuration));
+      offsetScale = 1 - t;
+    }
+    return { active: phase !== 'resolved', phase, offsetScale, triggerAt: cfg.triggerAt, elapsedSinceTrigger: local };
+  }, [heroOverviewShardBurstConfig]);
 
   const maybeTriggerHeroOverviewEffects = useCallback((source = 'frame') => {
     const timing = getHeroOverviewFractureTimingState();
@@ -537,6 +579,8 @@ const UnifiedCrystalScene = forwardRef(({
       nonHeroOverviewFallbackBehaviorPreserved: true,
       particlesTriggerAt: heroOverviewParticlesConfig.triggerAt,
       ringTriggerAt: heroOverviewRingConfig.triggerAt,
+      explosionParticlesTriggerAt: heroOverviewExplosionParticlesConfig.triggerAt,
+      shardBurstTriggerAt: heroOverviewShardBurstConfig.triggerAt,
       elapsedSeconds: roundedElapsed,
       timingSource: 'heroOverviewRuntime.startedAt seconds',
     };
@@ -557,6 +601,17 @@ const UnifiedCrystalScene = forwardRef(({
       nextDiagnostics.particlesTriggerTime = roundedElapsed;
       nextDiagnostics.particlesTriggerSource = `HERO_OVERVIEW_CINEMATIC_CONFIG.particles.triggerAt (${source})`;
       setBurstId(id => id + 1);
+    }
+
+    if (!heroOverviewExplosionParticlesConfig.enabled) {
+      nextDiagnostics.explosionParticlesSuppressedByConfig = true;
+    } else if (!heroOverviewExplosionParticlesTriggeredRef.current && elapsedSeconds >= (heroOverviewExplosionParticlesConfig.triggerAt ?? 0)) {
+      heroOverviewExplosionParticlesTriggeredRef.current = true;
+      nextDiagnostics.explosionParticlesTriggered = true;
+      nextDiagnostics.explosionParticlesTriggerFrame = frame;
+      nextDiagnostics.explosionParticlesTriggerTime = roundedElapsed;
+      nextDiagnostics.explosionParticlesTriggerSource = `HERO_OVERVIEW_CINEMATIC_CONFIG.explosionParticles.triggerAt (${source})`;
+      setHeroOverviewExplosionBurstId(id => id + 1);
     }
 
     if (!heroOverviewRingConfig.enabled) {
@@ -580,6 +635,9 @@ const UnifiedCrystalScene = forwardRef(({
       globalThis.__HERO_OVERVIEW_EFFECTS_TIMING_STATE__ = {
         particles: heroOverviewParticlesConfig,
         ring: heroOverviewRingConfig,
+        explosionParticles: heroOverviewExplosionParticlesConfig,
+        shardBurst: heroOverviewShardBurstConfig,
+        cameraForce: heroOverviewCameraForceConfig,
         ...nextDiagnostics,
       };
     }
@@ -589,6 +647,9 @@ const UnifiedCrystalScene = forwardRef(({
     heroOverviewRuntime,
     heroOverviewParticlesConfig,
     heroOverviewRingConfig,
+    heroOverviewExplosionParticlesConfig,
+    heroOverviewShardBurstConfig,
+    heroOverviewCameraForceConfig,
     resetHeroOverviewEffectsRun,
   ]);
 
@@ -2437,6 +2498,7 @@ const UnifiedCrystalScene = forwardRef(({
             phase: explosionVisualPhase,
             easeType,
             source: 'runExplodeSwap/explosionStartRef',
+            shardBurst: resolveHeroOverviewBurstState((runtimeSnapshotForClock?.startedAt || heroOverviewEffectsRunStartedAtRef.current) ? Math.max(0, (performance.now() - (runtimeSnapshotForClock?.startedAt || heroOverviewEffectsRunStartedAtRef.current)) / 1000) : null),
           };
         }
         const fracture = crystalConfig?.fracturePositions;
@@ -2490,7 +2552,14 @@ const UnifiedCrystalScene = forwardRef(({
               ? basePosition.clone()
               : anchorAdjustedStartPosition.clone().lerp(anchorAdjustedEndPosition, travelProgress);
             const steadyStateExplodedPosition = anchorAdjustedEndPosition.clone();
-            const finalPosition = runtimeFinalPosition;
+            const runtimeStartedAtForBurst = runtimeSnapshot?.startedAt || heroOverviewEffectsRunStartedAtRef.current || explosionStartRef.current;
+            const burstElapsedSeconds = runtimeStartedAtForBurst ? Math.max(0, (performance.now() - runtimeStartedAtForBurst) / 1000) : null;
+            const burstState = fractureTiming.routeLocal ? resolveHeroOverviewBurstState(burstElapsedSeconds) : { active: false, phase: 'idle', offsetScale: 0 };
+            const outwardBurstDirection = anchorAdjustedEndPosition.clone().sub(origin);
+            if (outwardBurstDirection.lengthSq() <= 0.000001) outwardBurstDirection.copy(anchorAdjustedEndPosition).sub(anchorAdjustedStartPosition);
+            if (outwardBurstDirection.lengthSq() > 0.000001) outwardBurstDirection.normalize();
+            const burstOffset = outwardBurstDirection.multiplyScalar((heroOverviewShardBurstConfig.burstDistance ?? 0) * (burstState.offsetScale ?? 0));
+            const finalPosition = runtimeFinalPosition.clone().add(burstOffset);
             const finalEuler = new THREE.Euler(
               baseEuler.x + appliedRotationOffset.x,
               baseEuler.y + appliedRotationOffset.y,
@@ -3220,6 +3289,31 @@ const UnifiedCrystalScene = forwardRef(({
         simplifiedAnimations={simplifiedAnimations}
         debugMode={import.meta.env.DEV}
       />
+
+      {!simplifiedAnimations && heroOverviewEffectsManualMode && heroOverviewExplosionParticlesConfig.enabled && (
+        <FractureBurstParticles
+          trigger={heroOverviewExplosionBurstId}
+          emitterPosition={[0, 0, 0]}
+          {...heroOverviewExplosionParticlesConfig}
+          delay={0}
+          onBurstGenerated={(details) => {
+            heroOverviewEffectsDiagnosticsRef.current = {
+              ...heroOverviewEffectsDiagnosticsRef.current,
+              explosionParticlesGenerationRanges: {
+                count: details.generatedCount,
+                speedMin: details.lastGeneratedSpeedMin,
+                speedMax: details.lastGeneratedSpeedMax,
+                lifetimeMin: details.lifetimeMin,
+                lifetimeMax: details.lifetimeMax,
+                velocityMin: details.velocityMin,
+                velocityMax: details.velocityMax,
+                spawnRadius: details.spawnRadius,
+                spread: details.spread,
+              },
+            };
+          }}
+        />
+      )}
 
       {!simplifiedAnimations && (
         <FractureBurstParticles
