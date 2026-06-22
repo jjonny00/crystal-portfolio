@@ -381,7 +381,11 @@ export const materials = {
     color: new THREE.Color('#0d042b'),
     transparent: true,
     transmission: 0.85,
-    ior: 2.3,
+    // NOTE: On MeshPhysicalMaterial, `reflectivity` is a getter/setter linked to
+    // `ior` (ior = (1 + 0.4·reflectivity)/(1 − 0.4·reflectivity)). Do NOT also set
+    // `reflectivity` here or it will clobber `ior` and the IOR control will do
+    // nothing. `ior: 1.78` reproduces the previous look (reflectivity ≈ 0.70).
+    ior: 1.78,
     thickness: 0.01,
     iridescence: 0.3,
     iridescenceIOR: 1.3,
@@ -392,12 +396,24 @@ export const materials = {
     clearcoat: 0.8,
     clearcoatRoughness: 0.05,
     envMapIntensity: 15.0,
-    reflectivity: 0.7,
+    // reflectivity intentionally omitted — it is derived from `ior` on
+    // MeshPhysicalMaterial (see ior note above). Setting it breaks the IOR control.
     specularIntensity: 1.0,
     specularColor: new THREE.Color('#ffffff'),
     emissive: new THREE.Color('#050c4e'),
     emissiveIntensity: 0, // Default, will be changed dynamically
-    opacity: 0.98
+    opacity: 0.98,
+
+    // Fresnel-driven internal core glow (additive emissive injected via shader).
+    // Independent of the built-in emissive above; see components/materials/internalGlow.js
+    glow: {
+      color: '#4800ff',         // non-project (default) internal glow color
+      emissiveIntensity: 0.18,  // 'high' reference; device tiers scale this
+      fresnelPower: 2.5,        // higher = tighter, more centered core
+      glowBias: 0.0,            // 0 = tight center core; higher reaches toward edges
+      pulseSpeed: 1.5,          // Hero pulse frequency (rad/sec); 0 = no pulse
+      pulseAmount: 0.4          // Hero pulse depth (0..1): intensity swings ±(amount·base)
+    }
   },
   
   // Texture settings

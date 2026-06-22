@@ -147,6 +147,11 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
     'materials.crystal.ior': crystalConfig.materials.crystal.ior,
     'materials.crystal.iridescence': crystalConfig.materials.crystal.iridescence,
     'materials.crystal.roughness': crystalConfig.materials.crystal.roughness,
+    'materials.crystal.glow.emissiveIntensity': crystalConfig.materials.crystal.glow.emissiveIntensity,
+    'materials.crystal.glow.fresnelPower': crystalConfig.materials.crystal.glow.fresnelPower,
+    'materials.crystal.glow.glowBias': crystalConfig.materials.crystal.glow.glowBias,
+    'materials.crystal.glow.pulseSpeed': crystalConfig.materials.crystal.glow.pulseSpeed,
+    'materials.crystal.glow.pulseAmount': crystalConfig.materials.crystal.glow.pulseAmount,
   });
 
   const normalizeCrystalConfig = (input) => {
@@ -184,7 +189,9 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
           color: normalizeColor(materials.crystal?.color),
           emissive: normalizeColor(materials.crystal?.emissive),
           attenuationColor: normalizeColor(materials.crystal?.attenuationColor),
-          specularColor: normalizeColor(materials.crystal?.specularColor)
+          specularColor: normalizeColor(materials.crystal?.specularColor),
+          // Deep-clone glow so editing its values never mutates the shared/default object
+          glow: materials.crystal?.glow ? { ...materials.crystal.glow } : materials.crystal?.glow
         },
         textures: {
           ...materials.textures,
@@ -973,14 +980,20 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
     });
     
     const updatedConfig = cloneConfig();
-    const [section, category, property] = key.split('.');
-    
+    const parts = key.split('.');
+    const [section, category, property] = parts;
+
     if (import.meta.env.DEV) console.log(`Updating material: ${key} = ${numValue}`);
-    
+
     // Special handling for color properties - they are THREE.Color objects
     if (property === 'color' || property === 'emissive' || property === 'attenuationColor' || property === 'specularColor') {
       // Don't update color properties directly through this UI
       // Would need a color picker component
+    } else if (parts.length === 4) {
+      // Nested numeric property, e.g. materials.crystal.glow.emissiveIntensity
+      const [s, c, group, prop] = parts;
+      if (!updatedConfig[s][c][group]) updatedConfig[s][c][group] = {};
+      updatedConfig[s][c][group][prop] = numValue;
     } else {
       // Update numeric property directly
       updatedConfig[section][category][property] = numValue;
@@ -1090,8 +1103,13 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
     setMaterialValues({
       'materials.crystal.transmission': crystalConfig.materials.crystal.transmission,
       'materials.crystal.ior': crystalConfig.materials.crystal.ior,
-      'materials.crystal.iridescence': crystalConfig.materials.crystal.iridescence, 
+      'materials.crystal.iridescence': crystalConfig.materials.crystal.iridescence,
       'materials.crystal.roughness': crystalConfig.materials.crystal.roughness,
+      'materials.crystal.glow.emissiveIntensity': crystalConfig.materials.crystal.glow.emissiveIntensity,
+      'materials.crystal.glow.fresnelPower': crystalConfig.materials.crystal.glow.fresnelPower,
+      'materials.crystal.glow.glowBias': crystalConfig.materials.crystal.glow.glowBias,
+      'materials.crystal.glow.pulseSpeed': crystalConfig.materials.crystal.glow.pulseSpeed,
+      'materials.crystal.glow.pulseAmount': crystalConfig.materials.crystal.glow.pulseAmount,
     });
     
     // Notify parent component
@@ -2149,13 +2167,93 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
           <span>Roughness</span>
           <span>{materialValues['materials.crystal.roughness'].toFixed(2)}</span>
         </div>
-        <input 
-          type="range" 
-          min="0" 
-          max="1.0" 
+        <input
+          type="range"
+          min="0"
+          max="1.0"
           step="0.01"
-          value={materialValues['materials.crystal.roughness']} 
+          value={materialValues['materials.crystal.roughness']}
           onChange={(e) => handleMaterialChange('materials.crystal.roughness', e.target.value)}
+          style={sliderStyle}
+        />
+      </div>
+
+      <div style={sliderGroupStyle}>
+        <div style={sliderLabelStyle}>
+          <span>Glow Intensity</span>
+          <span>{materialValues['materials.crystal.glow.emissiveIntensity'].toFixed(2)}</span>
+        </div>
+        <input
+          type="range"
+          min="0"
+          max="1.0"
+          step="0.01"
+          value={materialValues['materials.crystal.glow.emissiveIntensity']}
+          onChange={(e) => handleMaterialChange('materials.crystal.glow.emissiveIntensity', e.target.value)}
+          style={sliderStyle}
+        />
+      </div>
+
+      <div style={sliderGroupStyle}>
+        <div style={sliderLabelStyle}>
+          <span>Glow Fresnel Power</span>
+          <span>{materialValues['materials.crystal.glow.fresnelPower'].toFixed(1)}</span>
+        </div>
+        <input
+          type="range"
+          min="0.5"
+          max="8"
+          step="0.1"
+          value={materialValues['materials.crystal.glow.fresnelPower']}
+          onChange={(e) => handleMaterialChange('materials.crystal.glow.fresnelPower', e.target.value)}
+          style={sliderStyle}
+        />
+      </div>
+
+      <div style={sliderGroupStyle}>
+        <div style={sliderLabelStyle}>
+          <span>Glow Bias</span>
+          <span>{materialValues['materials.crystal.glow.glowBias'].toFixed(2)}</span>
+        </div>
+        <input
+          type="range"
+          min="0"
+          max="1.0"
+          step="0.01"
+          value={materialValues['materials.crystal.glow.glowBias']}
+          onChange={(e) => handleMaterialChange('materials.crystal.glow.glowBias', e.target.value)}
+          style={sliderStyle}
+        />
+      </div>
+
+      <div style={sliderGroupStyle}>
+        <div style={sliderLabelStyle}>
+          <span>Glow Pulse Speed</span>
+          <span>{materialValues['materials.crystal.glow.pulseSpeed'].toFixed(1)}</span>
+        </div>
+        <input
+          type="range"
+          min="0"
+          max="5"
+          step="0.1"
+          value={materialValues['materials.crystal.glow.pulseSpeed']}
+          onChange={(e) => handleMaterialChange('materials.crystal.glow.pulseSpeed', e.target.value)}
+          style={sliderStyle}
+        />
+      </div>
+
+      <div style={sliderGroupStyle}>
+        <div style={sliderLabelStyle}>
+          <span>Glow Pulse Amount</span>
+          <span>{materialValues['materials.crystal.glow.pulseAmount'].toFixed(2)}</span>
+        </div>
+        <input
+          type="range"
+          min="0"
+          max="1.0"
+          step="0.01"
+          value={materialValues['materials.crystal.glow.pulseAmount']}
+          onChange={(e) => handleMaterialChange('materials.crystal.glow.pulseAmount', e.target.value)}
           style={sliderStyle}
         />
       </div>

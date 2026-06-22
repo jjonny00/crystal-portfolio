@@ -9,6 +9,7 @@ import FractureBurstParticles from './FractureBurstParticles'
 
 // Import existing material manager
 import MaterialManager from './MaterialManager'
+import { attachInternalGlow, updateInternalGlow, hasInternalGlow, FACET_GLOW_PROGRAM_KEY } from '../materials/internalGlow'
 
 // Import enhanced sphere component
 import GlowingSphereImage, { BLEND_STYLES } from './GlowingSphereImage'
@@ -26,7 +27,7 @@ import projects, {
 } from '../../data/projects'
 import FacetLabels from './FacetLabels'
 import OverviewConnectorLines from './OverviewConnectorLines'
-import { effects } from '../../crystalConfig'
+import { effects, materials as defaultCrystalMaterials } from '../../crystalConfig'
 import { useFacetOverlayGeometry } from '../../hooks/useFacetOverlayGeometry'
 import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController'
 import { useLayoutConfig } from '../../hooks/useLayoutConfig'
@@ -806,6 +807,18 @@ const UnifiedCrystalScene = forwardRef(({
     [facetKeys]
   );
 
+  // Non-project (default) internal-glow color, e.g. #6AFFEE. Held in a ref so it
+  // can be read inside callbacks/useFrame without re-creating them.
+  const glowDefaultColorRef = useRef(new THREE.Color('#6AFFEE'));
+  useEffect(() => {
+    glowDefaultColorRef.current.set(config?.materials?.crystal?.glow?.color ?? '#6AFFEE');
+  }, [config?.materials?.crystal?.glow?.color]);
+
+  // Whole-crystal glow materials + their steady base intensity, collected by the
+  // glow-owner effect so the useFrame hero pulse can drive uGlowIntensity cheaply.
+  const wholeCrystalGlowMaterialsRef = useRef([]);
+  const wholeCrystalGlowBaseIntensityRef = useRef(0);
+
   const facetModelKeys = useMemo(
     () => facetKeys.map((key) => getProjectModelKeyByFacetKey(key)),
     [facetKeys]
@@ -1426,6 +1439,21 @@ const UnifiedCrystalScene = forwardRef(({
       mat.userData.startColor.copy(mat.color)
       mat.userData.targetColor.copy(targetColor)
       mat.userData.progress = 0
+
+      // Mirror activation onto the internal-glow color: project color when
+      // active (targetColor was assigned projectColors[index] by reference),
+      // otherwise the non-project glow color.
+      const glowUniforms = mat.userData.glowUniforms
+      if (glowUniforms) {
+        const glowTarget = targetColor === projectColors[index]
+          ? projectColors[index]
+          : glowDefaultColorRef.current
+        if (!mat.userData.glowStartColor) mat.userData.glowStartColor = new THREE.Color()
+        if (!mat.userData.glowTargetColor) mat.userData.glowTargetColor = new THREE.Color()
+        mat.userData.glowStartColor.copy(glowUniforms.uGlowColor.value)
+        mat.userData.glowTargetColor.copy(glowTarget)
+        mat.userData.glowProgress = 0
+      }
     },
     [facetKeys, projectColors, animationData?.focusedFacet]
   )
@@ -1839,6 +1867,25 @@ const UnifiedCrystalScene = forwardRef(({
 
     applyMaterial(wholeCrystal.scene, crystalMaterialRef.current);
 
+    // Resolved fresnel internal-glow init values (tier-scaled intensity). The
+    // intensity-owner useEffect keeps these in sync afterward; passing resolved
+    // values here avoids a first-frame flash.
+    const glowCfg = config?.materials?.crystal?.glow || {};
+    const glowScale = performanceProfile?.glowIntensityScale ?? 1;
+    const glowInit = {
+      color: glowCfg.color ?? '#6AFFEE',
+      emissiveIntensity: (glowCfg.emissiveIntensity ?? 0) * glowScale,
+      fresnelPower: glowCfg.fresnelPower ?? 2.5,
+      glowBias: glowCfg.glowBias ?? 0,
+    };
+
+    // Whole (un-exploded) crystal gets the non-project glow color. Attach ONCE
+    // per material (re-attaching every bump would either churn programs or rebind
+    // stale uniforms); the glow-owner effect keeps its values in sync afterward.
+    if (!hasInternalGlow(crystalMaterialRef.current)) {
+      attachInternalGlow(crystalMaterialRef.current, glowInit);
+    }
+
     // Create or update facet materials
     const hoveredKey = hoveredFacetRef.current;
     const focusedKey = animationData?.focusedFacet;
@@ -1895,6 +1942,17 @@ const UnifiedCrystalScene = forwardRef(({
 
       const model = facetModels[idx];
       applyMaterial(model.scene, mat, facetKeys[idx]);
+
+      // Each facet clone gets its OWN glow uniforms but SHARES one program key, so
+      // re-cloning facets reuses the cached program instead of recompiling GLSL.
+      // Active (hovered/focused) facet starts at its project color; others default.
+      const isActiveFacet = hoveredKey === key || (focusedKey === key && !hoveredKey);
+      attachInternalGlow(mat, {
+        ...glowInit,
+        color: isActiveFacet ? projectColors[idx] : glowInit.color,
+        programKey: FACET_GLOW_PROGRAM_KEY,
+      });
+
       return mat;
     });
 
@@ -2141,6 +2199,19 @@ const UnifiedCrystalScene = forwardRef(({
         mat.userData.startColor.copy(mat.color);
         mat.userData.targetColor.copy(targetColor);
         mat.userData.progress = 0;
+
+        // Mirror activation onto the internal-glow color.
+        const glowUniforms = mat.userData.glowUniforms;
+        if (glowUniforms) {
+          const glowTarget = targetColor === projectColors[idx]
+            ? projectColors[idx]
+            : glowDefaultColorRef.current;
+          if (!mat.userData.glowStartColor) mat.userData.glowStartColor = new THREE.Color();
+          if (!mat.userData.glowTargetColor) mat.userData.glowTargetColor = new THREE.Color();
+          mat.userData.glowStartColor.copy(glowUniforms.uGlowColor.value);
+          mat.userData.glowTargetColor.copy(glowTarget);
+          mat.userData.glowProgress = 0;
+        }
       });
 
       activeFacetRef.current = currentFacet;
@@ -2460,6 +2531,24 @@ const UnifiedCrystalScene = forwardRef(({
         wholeCrystalRef.current.position.set(floatX, floatY, floatZ);
       } else {
         wholeCrystalRef.current.position.set(0, 0, 0);
+      }
+    }
+
+    // Hero internal-glow pulse: breathe the whole crystal's core glow around its
+    // steady base intensity. Outside hero (or with speed/amount 0) hold the base.
+    const glowMats = wholeCrystalGlowMaterialsRef.current;
+    if (glowMats && glowMats.length) {
+      const base = wholeCrystalGlowBaseIntensityRef.current;
+      const glowCfg = config?.materials?.crystal?.glow;
+      const pulseSpeed = glowCfg?.pulseSpeed ?? 0;
+      const pulseAmount = glowCfg?.pulseAmount ?? 0;
+      let intensity = base;
+      if (animationData.state === 'hero' && pulseSpeed > 0 && pulseAmount > 0) {
+        intensity = Math.max(0, base * (1 + pulseAmount * Math.sin(elapsed * pulseSpeed)));
+      }
+      for (let i = 0; i < glowMats.length; i++) {
+        const gu = glowMats[i]?.userData?.glowUniforms;
+        if (gu) gu.uGlowIntensity.value = intensity;
       }
     }
 
@@ -3155,6 +3244,18 @@ const UnifiedCrystalScene = forwardRef(({
         mat.color.lerpColors(startColor, targetColor, easedProgress);
         mat.needsUpdate = true;
       }
+
+      // Internal-glow color transition (mutates the uniform value only; no
+      // needsUpdate, no touching material.emissive).
+      const glowUniforms = mat.userData?.glowUniforms;
+      const { glowStartColor, glowTargetColor, glowProgress = 1 } = mat.userData || {};
+      if (glowUniforms && glowStartColor && glowTargetColor && glowProgress < 1) {
+        const glowSpeed = 4;
+        const nextGlowProgress = Math.min(glowProgress + deltaTime * glowSpeed, 1);
+        const easedGlow = 1 - Math.pow(1 - nextGlowProgress, 3);
+        mat.userData.glowProgress = nextGlowProgress;
+        glowUniforms.uGlowColor.value.lerpColors(glowStartColor, glowTargetColor, easedGlow);
+      }
     });
 
     if (overlaysReady) {
@@ -3229,6 +3330,156 @@ const UnifiedCrystalScene = forwardRef(({
       crystalMaterialRef.current.emissive || new THREE.Color('#000000')
     );
   }, [materialVersion]);
+
+  // Single owner of the fresnel glow intensity / fresnelPower / glowBias uniforms.
+  // Control-panel and performance-tier changes flow here and only mutate uniform
+  // VALUES (no needsUpdate, never touching material.emissive), so they can't
+  // cause the known material-blackout. Re-keyed on materialVersion so recreated
+  // facet clones pick up the current tuning.
+  const glowEmissiveIntensity = config?.materials?.crystal?.glow?.emissiveIntensity ?? 0;
+  const glowFresnelPower = config?.materials?.crystal?.glow?.fresnelPower ?? 2.5;
+  const glowBiasValue = config?.materials?.crystal?.glow?.glowBias ?? 0;
+  const glowIntensityScale = performanceProfile?.glowIntensityScale ?? 1;
+  useEffect(() => {
+    const baseIntensity = glowEmissiveIntensity * glowIntensityScale;
+    const params = {
+      emissiveIntensity: baseIntensity,
+      fresnelPower: glowFresnelPower,
+      glowBias: glowBiasValue,
+    };
+
+    // Collect the whole-crystal glow materials so the useFrame hero pulse can drive
+    // their uGlowIntensity without traversing every frame.
+    const wholeMats = [];
+
+    // For the whole crystal we must reach the material instance(s) actually on the
+    // rendered meshes — on non-high tiers that differs from crystalMaterialRef.current
+    // (same reason the scalar sync writes via wholeCrystal.scene). Attach the glow
+    // injection if it isn't there yet, otherwise just update the uniform values.
+    const ensureAndUpdate = (mat) => {
+      if (!mat || typeof mat !== 'object') return;
+      // Re-attach if the injection is missing OR was dropped (clone/copy keeps
+      // userData but loses onBeforeCompile). attach uses a fresh unique program
+      // key, forcing a recompile that re-runs the injection.
+      if (!hasInternalGlow(mat)) {
+        attachInternalGlow(mat, { color: glowDefaultColorRef.current, ...params });
+      } else {
+        updateInternalGlow(mat, params);
+      }
+      if (mat.userData?.glowUniforms && !wholeMats.includes(mat)) wholeMats.push(mat);
+    };
+
+    ensureAndUpdate(crystalMaterialRef.current);
+    wholeCrystal?.scene?.traverse((child) => {
+      if (!child.isMesh || child.userData?.isOverlay) return;
+      const mats = Array.isArray(child.material) ? child.material : [child.material];
+      mats.forEach(ensureAndUpdate);
+    });
+
+    wholeCrystalGlowMaterialsRef.current = wholeMats;
+    wholeCrystalGlowBaseIntensityRef.current = baseIntensity;
+
+    // Facets keep their per-facet glow color (driven by hover/focus); only update.
+    facetMaterialsRef.current.forEach((mat) => updateInternalGlow(mat, params));
+  }, [glowEmissiveIntensity, glowFresnelPower, glowBiasValue, glowIntensityScale, materialVersion, wholeCrystal]);
+
+  // DEV-only: `__inspectCrystalGlow()` in the browser console dumps the live glow
+  // state of the whole-crystal mesh materials + facets so we can see exactly which
+  // material the whole crystal renders and whether the injection is bound to it.
+  useEffect(() => {
+    if (!import.meta.env.DEV || typeof globalThis === 'undefined') return undefined;
+    globalThis.__inspectCrystalGlow = () => {
+      const dump = (label, mat) => {
+        if (!mat || typeof mat !== 'object') return console.log(label, '→ (none)');
+        const gu = mat.userData?.glowUniforms;
+        console.log(label, {
+          type: mat.type,
+          uuid: mat.uuid,
+          injectionBound: Boolean(mat.onBeforeCompile?.__internalGlow),
+          hasGlowUniforms: Boolean(gu),
+          intensity: gu?.uGlowIntensity?.value,
+          fresnelPower: gu?.uFresnelPower?.value,
+          glowBias: gu?.uGlowBias?.value,
+          color: gu?.uGlowColor?.value?.getHexString?.(),
+          programKey: mat.userData?.__glowProgramKey,
+          isCrystalMaterialRef: mat === crystalMaterialRef.current,
+        });
+      };
+      dump('crystalMaterialRef.current', crystalMaterialRef.current);
+      wholeCrystal?.scene?.traverse((child) => {
+        if (!child.isMesh) return;
+        const mats = Array.isArray(child.material) ? child.material : [child.material];
+        mats.forEach((m, i) => dump(`wholeCrystal mesh "${child.name}" mat[${i}]`, m));
+      });
+      facetMaterialsRef.current.forEach((m, idx) => dump(`facet[${idx}]`, m));
+    };
+    return () => {
+      delete globalThis.__inspectCrystalGlow;
+    };
+  }, [wholeCrystal]);
+
+  // Make the control-panel material sliders authoritative over the WHOLE crystal
+  // (and facets), on every PBR tier. On medium/low the active material is built by
+  // MaterialManager and hardcodes these scalars, so the high-tier CrystalMaterial
+  // path doesn't reach them. We write the four tunable scalars directly to the
+  // materials actually on the rendered meshes — but ONLY when the user has changed
+  // a value from its crystalConfig default, so each tier's default look/perf is
+  // preserved until the slider is touched.
+  const DEFAULT_CRYSTAL = defaultCrystalMaterials.crystal;
+  const liveTransmission = config?.materials?.crystal?.transmission;
+  const liveIor = config?.materials?.crystal?.ior;
+  const liveIridescence = config?.materials?.crystal?.iridescence;
+  const liveRoughness = config?.materials?.crystal?.roughness;
+  const matPbrQuality = performanceProfile?.pbrQuality ?? 'high';
+  useEffect(() => {
+    // Low tier uses MeshPhongMaterial, which has none of these properties.
+    if (matPbrQuality === 'low') return;
+
+    const overrides = [];
+    if (typeof liveTransmission === 'number' && liveTransmission !== DEFAULT_CRYSTAL.transmission) {
+      overrides.push(['transmission', liveTransmission]);
+    }
+    if (typeof liveIor === 'number' && liveIor !== DEFAULT_CRYSTAL.ior) {
+      overrides.push(['ior', liveIor]);
+    }
+    if (typeof liveIridescence === 'number' && liveIridescence !== DEFAULT_CRYSTAL.iridescence) {
+      overrides.push(['iridescence', liveIridescence]);
+    }
+    if (typeof liveRoughness === 'number' && liveRoughness !== DEFAULT_CRYSTAL.roughness) {
+      overrides.push(['roughness', liveRoughness]);
+    }
+    if (overrides.length === 0) return;
+
+    const applyOverrides = (mat) => {
+      if (!mat || typeof mat !== 'object') return;
+      let changed = false;
+      overrides.forEach(([key, value]) => {
+        if (key in mat) {
+          mat[key] = value;
+          changed = true;
+        }
+      });
+      if (changed) mat.needsUpdate = true;
+    };
+
+    // Write directly to whatever material instance the whole-crystal meshes hold,
+    // so this works regardless of tier-specific material wiring.
+    wholeCrystal?.scene?.traverse((child) => {
+      if (!child.isMesh || child.userData?.isOverlay) return;
+      const mats = Array.isArray(child.material) ? child.material : [child.material];
+      mats.forEach(applyOverrides);
+    });
+    facetMaterialsRef.current.forEach(applyOverrides);
+  }, [
+    liveTransmission,
+    liveIor,
+    liveIridescence,
+    liveRoughness,
+    matPbrQuality,
+    materialVersion,
+    wholeCrystal,
+    DEFAULT_CRYSTAL,
+  ]);
 
   useEffect(() => {
     return () => {

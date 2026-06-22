@@ -29,7 +29,7 @@ export const PERFORMANCE_PROFILES = {
     
     // Animations
     simplifiedAnimations: false,
-    
+
     // Post-processing
     postProcessing: {
       bloom: true,
@@ -37,7 +37,10 @@ export const PERFORMANCE_PROFILES = {
       noise: true,
       vignette: true
     },
-    
+
+    // Fresnel internal-glow intensity scale (multiplies crystal.glow.emissiveIntensity)
+    glowIntensityScale: 1.0,
+
     // All tiers now target a 60 FPS baseline
     targetFPS: 60,
     minAcceptableFPS: 55,
@@ -80,7 +83,10 @@ export const PERFORMANCE_PROFILES = {
       noise: true,
       vignette: true
     },
-    
+
+    // Fresnel internal-glow intensity scale (multiplies crystal.glow.emissiveIntensity)
+    glowIntensityScale: 0.7,
+
     // All tiers now target a 60 FPS baseline
     targetFPS: 60,
     minAcceptableFPS: 55,
@@ -123,7 +129,10 @@ export const PERFORMANCE_PROFILES = {
       noise: true,
       vignette: true
     },
-    
+
+    // Fresnel internal-glow intensity scale (multiplies crystal.glow.emissiveIntensity)
+    glowIntensityScale: 0.45,
+
     // All tiers now target a 60 FPS baseline
     targetFPS: 60,
     minAcceptableFPS: 55,
@@ -159,10 +168,12 @@ export const PERFORMANCE_PROFILES = {
       noise: true,
       vignette: true
     },
-    
+
+    glowIntensityScale: 1.0,
+
     targetFPS: 60,
     minAcceptableFPS: 45,
-    
+
     description: 'Development/testing - maximum quality',
     expectedDevices: ['Development machines only']
   }
