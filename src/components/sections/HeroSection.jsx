@@ -102,7 +102,7 @@ const HeroSection = ({
 
         <animated.div style={subtitleSpring} className="hero-section__body-block">
           <p className="hero-section__body-copy">
-            I've spent twenty years designing systems that shape how people decide, play, and engage. My work focuses on the mechanics underneath the experience: rules, feedback, and tradeoffs that give interaction depth. The six systems below span products and games, each one shaped how I think.
+            My work spans products, platforms, and play, built across twenty years of shipped systems. I focus on the mechanics underneath the experience, where rules, feedback, and tradeoffs give interaction depth. The six systems below span products and games. Each shares the same conviction: complexity should never reach the surface.
           </p>
         </animated.div>
       </div>

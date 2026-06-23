@@ -4,6 +4,18 @@ import { Line } from '@react-three/drei';
 import * as THREE from 'three';
 import { getProjectColorByFacetKey } from '../../data/projects';
 
+// Module-level scratch reused inside the per-frame connector rebuild. Each is set
+// fresh before use and never retained across connectors or returned to drei (only
+// the output curve-point Vector3s are freshly allocated, since <Line> rebuilds its
+// geometry only when given a new points reference).
+const _ndcScratch = new THREE.Vector2();
+const _planeNormalScratch = new THREE.Vector3();
+const _planeScratch = new THREE.Plane();
+const _cameraRightScratch = new THREE.Vector3();
+const _droopDirScratch = new THREE.Vector3();
+const _straightVecScratch = new THREE.Vector3();
+const _connectorRaycaster = new THREE.Raycaster();
+
 const OverviewConnectorLines = ({
   enabled,
   resolvedConnectorPairs,
@@ -258,8 +270,8 @@ const OverviewConnectorLines = ({
 
     const width = size.width || 1;
     const height = size.height || 1;
-    const raycaster = new THREE.Raycaster();
-    const planeNormal = new THREE.Vector3();
+    const raycaster = _connectorRaycaster;
+    const planeNormal = _planeNormalScratch;
     camera.getWorldDirection(planeNormal);
 
     return resolvedConnectorPairs.flatMap(({ runtimeDomKey, sceneWorldKey }, pairIndex) => {
@@ -267,12 +279,12 @@ const OverviewConnectorLines = ({
       const start = overviewWorldAnchors?.[sceneWorldKey];
       if (!domAnchor || !start) return [];
 
-      const ndc = new THREE.Vector2(
+      const ndc = _ndcScratch.set(
         (domAnchor.x / width) * 2 - 1,
         -(domAnchor.y / height) * 2 + 1,
       );
       raycaster.setFromCamera(ndc, camera);
-      const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(planeNormal, start);
+      const plane = _planeScratch.setFromNormalAndCoplanarPoint(planeNormal, start);
       const end = new THREE.Vector3();
       const intersected = raycaster.ray.intersectPlane(plane, end);
       if (!intersected) return [];
@@ -287,7 +299,7 @@ const OverviewConnectorLines = ({
         ACTIVE_DROOP,
         animationState.progress,
       );
-      const straightVec = end.clone().sub(start);
+      const straightVec = _straightVecScratch.copy(end).sub(start);
       const distance = straightVec.length();
 
       if (distance <= Number.EPSILON) {
@@ -313,8 +325,8 @@ const OverviewConnectorLines = ({
         }];
       }
 
-      const cameraRight = new THREE.Vector3().crossVectors(planeNormal, camera.up).normalize();
-      const droopDirection = new THREE.Vector3().crossVectors(cameraRight, planeNormal).normalize().negate();
+      const cameraRight = _cameraRightScratch.crossVectors(planeNormal, camera.up).normalize();
+      const droopDirection = _droopDirScratch.crossVectors(cameraRight, planeNormal).normalize().negate();
 
       const rawSagDistance = distance * droopTension;
       const absSagDistance = Math.abs(rawSagDistance);

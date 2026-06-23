@@ -380,17 +380,17 @@ export const materials = {
   crystal: {
     color: new THREE.Color('#0d042b'),
     transparent: true,
-    transmission: 0.85,
+    transmission: 0.92,
     // NOTE: On MeshPhysicalMaterial, `reflectivity` is a getter/setter linked to
     // `ior` (ior = (1 + 0.4·reflectivity)/(1 − 0.4·reflectivity)). Do NOT also set
     // `reflectivity` here or it will clobber `ior` and the IOR control will do
     // nothing. `ior: 1.78` reproduces the previous look (reflectivity ≈ 0.70).
-    ior: 1.78,
+    ior: 1.1,
     thickness: 0.01,
     iridescence: 0.3,
     iridescenceIOR: 1.3,
     metalness: 0.0,
-    roughness: 0.11,
+    roughness: 0.18,
     attenuationColor: new THREE.Color('#00fff2'),
     attenuationDistance: 0.5,
     clearcoat: 0.8,
@@ -408,11 +408,11 @@ export const materials = {
     // Independent of the built-in emissive above; see components/materials/internalGlow.js
     glow: {
       color: '#4800ff',         // non-project (default) internal glow color
-      emissiveIntensity: 0.18,  // 'high' reference; device tiers scale this
-      fresnelPower: 2.5,        // higher = tighter, more centered core
-      glowBias: 0.0,            // 0 = tight center core; higher reaches toward edges
+      emissiveIntensity: 0.30,  // 'high' reference; device tiers scale this
+      fresnelPower: 3.7,        // higher = tighter, more centered core
+      glowBias: 0.19,            // 0 = tight center core; higher reaches toward edges
       pulseSpeed: 1.5,          // Hero pulse frequency (rad/sec); 0 = no pulse
-      pulseAmount: 0.4          // Hero pulse depth (0..1): intensity swings ±(amount·base)
+      pulseAmount: 0.54          // Hero pulse depth (0..1): intensity swings ±(amount·base)
     }
   },
   

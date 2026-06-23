@@ -49,6 +49,15 @@ const REFORM_SWAP_OVERLAP_MS = 100
 const ENABLE_OVERVIEW_ALL_CONNECTORS = true
 
 const logger = createLogger('unified-crystal-scene');
+
+// Module-level scratch objects reused inside per-frame loops to avoid GC churn.
+// Safe because each is fully consumed synchronously before the next write; never
+// retained across iterations or returned to callers.
+const _anchorOffsetScratch = new THREE.Vector3();
+const _anchorRotatedOffsetScratch = new THREE.Vector3();
+const _facetBaseEulerScratch = new THREE.Euler();
+const _facetFinalEulerScratch = new THREE.Euler();
+const _facetFinalQuatScratch = new THREE.Quaternion();
 const vectorToPlain = (v) => v ? ({ x: Number(v.x?.toFixed?.(4) ?? v.x), y: Number(v.y?.toFixed?.(4) ?? v.y), z: Number(v.z?.toFixed?.(4) ?? v.z) }) : null;
 const quaternionToPlain = (q) => q ? ({ x: Number(q.x?.toFixed?.(4) ?? q.x), y: Number(q.y?.toFixed?.(4) ?? q.y), z: Number(q.z?.toFixed?.(4) ?? q.z), w: Number(q.w?.toFixed?.(4) ?? q.w) }) : null;
 const objectTransformSnapshot = (object) => {
@@ -1328,8 +1337,8 @@ const UnifiedCrystalScene = forwardRef(({
       if (!basePosition || !targetQuat) return basePosition;
       const offsetArray = anchorOffsets?.[facetKey];
       if (!offsetArray) return basePosition;
-      const offset = new THREE.Vector3().fromArray(offsetArray);
-      const rotatedOffset = offset.clone().applyQuaternion(targetQuat);
+      const offset = _anchorOffsetScratch.fromArray(offsetArray);
+      const rotatedOffset = _anchorRotatedOffsetScratch.copy(offset).applyQuaternion(targetQuat);
       return basePosition.clone().add(offset).sub(rotatedOffset);
     },
     [anchorOffsets]
@@ -2620,7 +2629,7 @@ const UnifiedCrystalScene = forwardRef(({
               ? getAnchorAdjustedPosition(facetKey, interpolated, targetQuat)
               : interpolated;
             const basePosition = adjusted.clone();
-            const baseEuler = new THREE.Euler().setFromQuaternion(targetQuat.clone(), 'XYZ');
+            const baseEuler = _facetBaseEulerScratch.setFromQuaternion(targetQuat, 'XYZ');
             const runtimeSnapshot = heroOverviewRuntime?.getSnapshot?.() ?? null;
             const runtimePhase = runtimeSnapshot?.phase ?? 'idle';
             const runtimeProgress = runtimeSnapshot?.progress ?? 0;
@@ -2649,13 +2658,13 @@ const UnifiedCrystalScene = forwardRef(({
             if (outwardBurstDirection.lengthSq() > 0.000001) outwardBurstDirection.normalize();
             const burstOffset = outwardBurstDirection.multiplyScalar((heroOverviewShardBurstConfig.burstDistance ?? 0) * (burstState.offsetScale ?? 0));
             const finalPosition = runtimeFinalPosition.clone().add(burstOffset);
-            const finalEuler = new THREE.Euler(
+            const finalEuler = _facetFinalEulerScratch.set(
               baseEuler.x + appliedRotationOffset.x,
               baseEuler.y + appliedRotationOffset.y,
               baseEuler.z + appliedRotationOffset.z,
               'XYZ',
             );
-            const finalQuat = new THREE.Quaternion().setFromEuler(finalEuler);
+            const finalQuat = _facetFinalQuatScratch.setFromEuler(finalEuler);
 
             facetRef.current.position.copy(finalPosition);
             facetRef.current.quaternion.slerpQuaternions(neutralQuat, finalQuat, eased);

@@ -1145,6 +1145,13 @@ export const useUnifiedAnimationController = (options = {}) => {
 
   const setCameraMoveProgress = useCallback((value) => {
     const clamped = Math.max(0, Math.min(1, value));
+    // PERF: intermediate per-frame progress is consumed in the render loop via
+    // sharedCameraMoveProgressRef (see UnifiedCrystalScene). Committing every
+    // mid-transition float to React state here re-renders the entire 3D scene
+    // subtree once per frame during camera moves (the overview explosion). Only
+    // commit transition boundaries (0 / 1); the continuous value still flows
+    // through the shared ref. cameraSettled (a boolean) drives settle-time renders.
+    if (clamped > 0 && clamped < 1) return;
     setAnimationState((prev) => {
       if (prev.cameraMoveProgress === clamped) return prev;
       return { ...prev, cameraMoveProgress: clamped };

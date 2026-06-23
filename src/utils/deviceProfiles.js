@@ -9,7 +9,10 @@ export const PERFORMANCE_PROFILES = {
     renderScale: 1.0,
     maxPixelRatio: 2.0,
     antialiasing: true,
-    
+    // EffectComposer MSAA sample count (4x is visually ~indistinguishable from 8x
+    // at a fraction of the post-processing bandwidth cost)
+    msaaSamples: 4,
+
     // Material quality
     pbrQuality: 'high',
     usePBR: true,
@@ -55,7 +58,8 @@ export const PERFORMANCE_PROFILES = {
     renderScale: 0.9, // Slightly higher than before
     maxPixelRatio: 1.5,
     antialiasing: true,
-    
+    msaaSamples: 4,
+
     // Material quality - keep PBR enabled for good visuals
     pbrQuality: 'medium',
     usePBR: true,
@@ -101,7 +105,8 @@ export const PERFORMANCE_PROFILES = {
     renderScale: 0.6,
     maxPixelRatio: 1.0,
     antialiasing: false,
-    
+    msaaSamples: 0, // post-process MSAA off on low tier (was paying 8x regardless)
+
     // Material quality - use optimized materials
     pbrQuality: 'low',
     usePBR: false, // Use your optimized MeshStandardMaterial path
@@ -148,7 +153,8 @@ export const PERFORMANCE_PROFILES = {
     renderScale: 1.0,
     maxPixelRatio: 3.0,
     antialiasing: true,
-    
+    msaaSamples: 8, // dev/testing tier keeps maximum quality
+
     pbrQuality: 'high',
     usePBR: true,
     useNormalMaps: true,

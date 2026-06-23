@@ -178,6 +178,8 @@ const Fixed3DCanvas = forwardRef(({
   const simplifiedAnimations = performanceProfile?.simplifiedAnimations;
   const dustEnabled = !performanceProfile?.reducedParticles;
   const particleCount = performanceProfile?.particleCount;
+  // Post-process MSAA sample count, tier-scaled (falls back to 4 if profile omits it)
+  const msaaSamples = performanceProfile?.msaaSamples ?? 4;
   const [ios26, setIos26] = useState(() => {
     if (typeof navigator === 'undefined') {
       return false;
@@ -939,9 +941,9 @@ const Fixed3DCanvas = forwardRef(({
           
           {/* Post-processing effects (unchanged) */}
           <EffectComposer
-            key={ios26 ? 'ios26-no-msaa' : 'default-msaa'}
+            key={ios26 ? 'ios26-no-msaa' : `msaa-${msaaSamples}`}
             enabled={true}
-            multisampling={ios26 ? 0 : 8}
+            multisampling={ios26 ? 0 : msaaSamples}
             frameBufferType={ios26 ? UnsignedByteType : HalfFloatType}
           >
             {/* Default minimal bloom when no effects are enabled */}
