@@ -572,15 +572,38 @@ function App() {
       console.log('[navigation-intent] destination', nextDestination);
     },
     onIntent: (intent) => {
+      // Hero ↔ Overview: drive the REAL scroll-driven transition rather than the
+      // imperative directSelectZone override. A smooth scroll (the container's
+      // default behavior) crosses the zone boundary gradually, which is exactly
+      // what fires handleZoneTransition + the hero→overview explosion runtime. By
+      // routing the click through the same scroll pipeline, clicking "Work" /
+      // "Jon Shaw" runs identical code to scrolling — there is only one version
+      // of the transition, so effects can't double-fire or drift.
       if (intent.destination === NAVIGATION_DESTINATIONS.HERO) {
-        fixedCanvasRef.current?.directSelectZone?.('hero');
-        scrollToSection('hero', intent.behavior);
+        scrollToSection('hero', 'smooth');
         return;
       }
 
       if (intent.destination === NAVIGATION_DESTINATIONS.OVERVIEW) {
-        fixedCanvasRef.current?.directSelectZone?.('overview');
-        scrollToSection('overview', intent.behavior);
+        const scrollContainer = document.querySelector('.scroll-container');
+        const overviewEl = document.getElementById('overview');
+        const comingUpFromBelow = Boolean(
+          scrollContainer && overviewEl && scrollContainer.scrollTop > overviewEl.offsetTop + 1
+        );
+        if (comingUpFromBelow) {
+          // From projects/about: clear any lingering project override and set the
+          // overview state directly, then jump immediately, so the camera flies
+          // straight to the canonical overview pose. (A smooth scroll across
+          // scroll-snap-mandatory sections gets latched on an intermediate project,
+          // and a bare jump left the project override fighting the move so it never
+          // reached overview.)
+          fixedCanvasRef.current?.directSelectZone?.('overview');
+          scrollToSection('overview', 'auto');
+        } else {
+          // From hero: smooth scroll so the hero→overview explosion cinematic plays
+          // via the gradual boundary crossing.
+          scrollToSection('overview', 'smooth');
+        }
         return;
       }
 

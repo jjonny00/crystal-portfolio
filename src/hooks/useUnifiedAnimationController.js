@@ -456,6 +456,13 @@ export const useUnifiedAnimationController = (options = {}) => {
     }));
 
     lastProject.current = projectKey;
+    // Mark the projects zone as current. A facet click calls this directly and the
+    // override-hold then returns early every frame, so the dispatch that normally
+    // keeps lastZone in sync never runs — leaving lastZone stale at 'overview'.
+    // On the return to overview that stale value made the zone-transition dispatch
+    // a no-op (it never registered projects→overview), so the camera didn't fly
+    // back. Setting it here keeps a clicked project consistent with a scrolled one.
+    lastZone.current = 'projects';
   }, [clearDirectProjectOverride, config]);
 
   const clearDirectZoneOverride = useCallback(() => {
@@ -635,22 +642,38 @@ export const useUnifiedAnimationController = (options = {}) => {
       }, (config.crystal.fracturePause || 0.5) * 1000);
     }
     else if (toZone === 'overview') {
-      // Start explosion immediately but delay camera move until fracture pause completes
-      setAnimationState(prev => ({
-        ...prev,
-        state: ANIMATION_STATES.OVERVIEW,
-        crystalForm: 'exploded',     // Immediate
-        cameraState: 'hero',         // Hold camera during fracture pause
-        focusedFacet: null,
-        isTransitioning: false
-      }));
-
-      cameraDelayTimeout.current = setTimeout(() => {
+      if (fromZone === 'hero') {
+        // hero → overview: explosion choreography — hold the camera at the hero
+        // pose during the fracture pause, then move it to overview.
         setAnimationState(prev => ({
           ...prev,
-          cameraState: 'overview'
+          state: ANIMATION_STATES.OVERVIEW,
+          crystalForm: 'exploded',     // Immediate
+          cameraState: 'hero',         // Hold camera during fracture pause
+          focusedFacet: null,
+          isTransitioning: false
         }));
-      }, (config.crystal.fracturePause || 0.5) * 1000);
+
+        cameraDelayTimeout.current = setTimeout(() => {
+          setAnimationState(prev => ({
+            ...prev,
+            cameraState: 'overview'
+          }));
+        }, (config.crystal.fracturePause || 0.5) * 1000);
+      } else {
+        // projects/about → overview: the crystal is already exploded, so DON'T run
+        // the hero-hold (it detoured the camera toward the hero pose on the way to
+        // overview — the broken "Work from a project" behavior). Move the camera
+        // straight to overview.
+        setAnimationState(prev => ({
+          ...prev,
+          state: ANIMATION_STATES.OVERVIEW,
+          crystalForm: 'exploded',
+          cameraState: 'overview',
+          focusedFacet: null,
+          isTransitioning: false
+        }));
+      }
     }
     else if (toZone === 'projects') {
       const targetFacet = getSceneFacetKeyByProjectId(initialProject) || initialProject;
@@ -906,18 +929,32 @@ export const useUnifiedAnimationController = (options = {}) => {
     if (directOverrideProject) {
       const directOverrideAgeMs = Date.now() - (directProjectOverrideRef.current?.createdAt ?? Date.now());
       const directOverrideSectionId = `project-${directOverrideProject}`;
-      const hasReachedTargetSection =
-        currentZone.zone === 'projects' &&
-        activeProject.project === directOverrideProject &&
+      const isAtDirectOverrideSection = Boolean(
         nearestSectionId === directOverrideSectionId &&
         typeof nearestSectionTop === 'number' &&
         container &&
-        Math.abs(container.scrollTop - nearestSectionTop) <= 2;
+        Math.abs(container.scrollTop - nearestSectionTop) <= 2
+      );
+      const hasReachedTargetSection =
+        currentZone.zone === 'projects' &&
+        activeProject.project === directOverrideProject &&
+        isAtDirectOverrideSection;
 
       if (hasReachedTargetSection) {
         directOverrideReachedTargetRef.current = true;
       }
 
+      if (directOverrideReachedTargetRef.current && !isAtDirectOverrideSection) {
+        // Reached the target project, then scrolled AWAY from its section (up toward
+        // overview, or onward). Release the override immediately so the camera/crystal
+        // follow the scroll instead of staying pinned on the project until you fully
+        // reach the next zone — that pin made the scroll-up look frozen then snap when
+        // returning to overview after a CLICK (clicks set this override; scroll-in does
+        // not). Gated on reachedTarget so an in-flight far-project click is never
+        // released early (its scroll hasn't arrived, so isAtSection stays false there).
+        clearDirectProjectOverride();
+        lastProject.current = null;
+      } else {
       const movedToDifferentProject =
         directOverrideReachedTargetRef.current &&
         currentZone.zone === 'projects' &&
@@ -932,12 +969,6 @@ export const useUnifiedAnimationController = (options = {}) => {
         lastProject.current = activeProject.project;
         clearDirectProjectOverride();
       } else {
-      const isAtDirectOverrideSection = Boolean(
-        nearestSectionId === directOverrideSectionId &&
-        typeof nearestSectionTop === 'number' &&
-        container &&
-        Math.abs(container.scrollTop - nearestSectionTop) <= 2
-      );
       const directOverrideCameraSettled =
         animationState.cameraSettled === true ||
         (animationState.cameraMoveProgress ?? 0) >= 0.995;
@@ -976,8 +1007,9 @@ export const useUnifiedAnimationController = (options = {}) => {
       }
       return;
       }
+      }
     }
-    
+
     // ENHANCED: Log scroll updates for background debugging
     if (import.meta.env.DEV && Math.random() < 0.05) { // Sample 5% of updates
       console.log('🔄 Animation state update:', {

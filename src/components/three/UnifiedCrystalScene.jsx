@@ -3526,7 +3526,13 @@ const UnifiedCrystalScene = forwardRef(({
         } : {})}
         visible={ringVisible}
         animationData={animationData}
-        manualTriggerMode={heroOverviewEffectsManualMode}
+        // Suppress the legacy crystalForm-driven ring for the ENTIRE hero→overview
+        // route, not just once heroOverviewEffectsManualMode has latched. Otherwise
+        // the legacy ring fires during the window where crystalForm is already
+        // 'exploded' but runExplodeSwap (deferred) hasn't enabled manual mode yet,
+        // producing a second, mistimed ring on top of the manual one. The manual
+        // ring still owns the trigger via heroOverviewRingTriggerId below.
+        manualTriggerMode={heroOverviewEffectsManualMode || isHeroOverviewFractureTimingRouteCandidate}
         triggerKey={heroOverviewEffectsManualMode ? heroOverviewRingTriggerId : null}
         simplifiedAnimations={simplifiedAnimations}
         debugMode={import.meta.env.DEV}

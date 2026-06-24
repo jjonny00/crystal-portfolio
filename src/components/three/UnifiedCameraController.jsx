@@ -425,7 +425,7 @@ const UnifiedCameraController = ({
   });
   const cameraFrameIndexRef = useRef(0);
 
-  const getCameraDirectorRouteMode = ({ modeGlobalName, legacyEnableGlobalName, envForcePilot = false }) => {
+  const getCameraDirectorRouteMode = ({ modeGlobalName, legacyEnableGlobalName, envForcePilot = false, defaultMode = 'pilot' }) => {
     if (import.meta.env.DEV) {
       const explicitMode = typeof globalThis?.[modeGlobalName] === 'string'
         ? globalThis[modeGlobalName].toLowerCase()
@@ -440,12 +440,19 @@ const UnifiedCameraController = ({
       }
       if (envForcePilot) return 'pilot';
     }
-    return 'pilot';
+    return defaultMode;
   };
+  // overview→project defaults to LEGACY: the legacy exponential-settle path is the
+  // perfectly-tuned transition the CLICK uses (clicks miss pilot activation because
+  // focusedProject lags the cameraState edge, so they fall to legacy). Scrolling in
+  // aligns focusedProject on the edge and DID fire the pilot, producing a different,
+  // worse transition. Forcing legacy makes scroll match the click and leaves clicks
+  // unchanged. DEV can still opt into the pilot with __OVERVIEW_PROJECT_CAMERA_MODE__ = 'pilot'.
   const isOverviewToProjectPilotEnabled = () =>
     getCameraDirectorRouteMode({
       modeGlobalName: '__OVERVIEW_PROJECT_CAMERA_MODE__',
       legacyEnableGlobalName: '__ENABLE_CAMERA_DIRECTOR_OVERVIEW_TO_PROJECT__',
+      defaultMode: 'legacy',
     }) === 'pilot';
   const isProjectToOverviewPilotEnabled = () =>
     getCameraDirectorRouteMode({
