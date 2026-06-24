@@ -944,14 +944,20 @@ export const useUnifiedAnimationController = (options = {}) => {
         directOverrideReachedTargetRef.current = true;
       }
 
-      if (directOverrideReachedTargetRef.current && !isAtDirectOverrideSection) {
-        // Reached the target project, then scrolled AWAY from its section (up toward
-        // overview, or onward). Release the override immediately so the camera/crystal
-        // follow the scroll instead of staying pinned on the project until you fully
-        // reach the next zone — that pin made the scroll-up look frozen then snap when
-        // returning to overview after a CLICK (clicks set this override; scroll-in does
-        // not). Gated on reachedTarget so an in-flight far-project click is never
-        // released early (its scroll hasn't arrived, so isAtSection stays false there).
+      if (
+        (directOverrideReachedTargetRef.current && !isAtDirectOverrideSection) ||
+        currentZone.zone !== 'projects'
+      ) {
+        // Release the override and fall through to the normal zone transition when
+        // either:
+        //  (a) we reached the target project then scrolled AWAY from its section, or
+        //  (b) we've left the projects zone entirely (scrolled out to overview/hero/
+        //      about). Case (b) fixes the aggressive about→hero fling: the about-return
+        //      band-entry lock pins the last project, but a fast fling never "settles"
+        //      on it (reached stays false), so without this it stayed pinned all the
+        //      way up — the camera stuck on 'project' while zoneInfo reached hero.
+        // Safe for far-project clicks: their scroll stays WITHIN the projects zone, so
+        // currentZone.zone === 'projects' and (a) only fires once reached.
         clearDirectProjectOverride();
         lastProject.current = null;
       } else {
@@ -1034,7 +1040,14 @@ export const useUnifiedAnimationController = (options = {}) => {
       const projectsZoneHysteresis = 0; // Immediate transition at projects start
       let shouldChangeZone = false;
 
-      if (currentZone.zone === 'hero' && currentZone.progress > hysteresis) {
+      if (currentZone.zone === 'hero' && currentZone.progress < (1 - hysteresis)) {
+        // Hero is the TOP zone: you enter it from its high-progress (overview)
+        // boundary and "well into hero" means LOW progress (toward the top). The
+        // old `progress > hysteresis` check failed when an aggressive fling landed
+        // at the very top (progress ~0), so the camera-state transition to hero
+        // never fired and the scene stayed stuck on the last project/overview while
+        // zoneInfo reached hero. `< (1 - hysteresis)` fires once you're past the
+        // overview boundary, including a top-landing fling.
         shouldChangeZone = true;
       } else if (currentZone.zone === 'overview') {
         if (currentZone.progress > hysteresis && currentZone.progress < (1 - hysteresis)) {
