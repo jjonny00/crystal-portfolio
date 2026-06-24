@@ -454,15 +454,24 @@ const UnifiedCameraController = ({
       legacyEnableGlobalName: '__ENABLE_CAMERA_DIRECTOR_OVERVIEW_TO_PROJECT__',
       defaultMode: 'legacy',
     }) === 'pilot';
+  // project→overview and project→project default to LEGACY: the legacy
+  // exponential-settle path is preemptible (it lerps toward a target that updates
+  // with cameraState/focusedProject), so scrolling DURING a transition smoothly
+  // re-targets instead of breaking. The pilot captures a fixed toPose and blocks
+  // re-activation while active, so a mid-flight scroll left it finishing to a stale
+  // target = the halfway/broken state. Legacy also matches the tuned click path.
+  // DEV can still opt into the pilot per route via __*_CAMERA_MODE__ = 'pilot'.
   const isProjectToOverviewPilotEnabled = () =>
     getCameraDirectorRouteMode({
       modeGlobalName: '__PROJECT_OVERVIEW_CAMERA_MODE__',
       legacyEnableGlobalName: '__ENABLE_CAMERA_DIRECTOR_PROJECT_TO_OVERVIEW__',
+      defaultMode: 'legacy',
     }) === 'pilot';
   const isProjectToProjectPilotEnabled = () =>
     getCameraDirectorRouteMode({
       modeGlobalName: '__PROJECT_PROJECT_CAMERA_MODE__',
       legacyEnableGlobalName: '__ENABLE_CAMERA_DIRECTOR_PROJECT_TO_PROJECT__',
+      defaultMode: 'legacy',
     }) === 'pilot';
   const isHeroToOverviewPilotEnabled = () =>
     getCameraDirectorRouteMode({

@@ -521,7 +521,7 @@ export const useUnifiedAnimationController = (options = {}) => {
         return {
           ...prev,
           state: ANIMATION_STATES.ABOUT,
-          crystalForm: 'whole',
+          crystalForm: 'exploded', // About keeps the crystal exploded; reforming to whole only happens going to hero
           cameraState: 'about',
           focusedFacet: null,
           isTransitioning: false
@@ -716,7 +716,7 @@ export const useUnifiedAnimationController = (options = {}) => {
       setAnimationState(prev => ({
         ...prev,
         state: ANIMATION_STATES.ABOUT,
-        crystalForm: 'whole',        // Immediate
+        crystalForm: 'exploded',     // About keeps the crystal exploded; reform to whole only when going to hero
         cameraState: 'about',        // Immediate
         focusedFacet: null,
         isTransitioning: false
