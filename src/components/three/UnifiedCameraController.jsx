@@ -7887,10 +7887,18 @@ const UnifiedCameraController = ({
 
     const isHeroCameraPath = (animationData?.state === 'hero' && animationData?.cameraState === 'hero') || introActiveRef.current;
     if (!isHeroCameraPath && camera.filmOffset !== 0) {
-      camera.filmOffset = 0;
+      // Ease filmOffset toward 0 instead of hard-snapping it. The instant reset made
+      // the crystal jump horizontally to center the moment you left hero without a
+      // cinematic to interpolate it — e.g. clicking "About" snapped hero's filmOffset
+      // (9) straight to 0. hero->overview already lerps filmOffset via its pilot; this
+      // gives the legacy paths (about, fling-to-projects) the same smooth horizontal
+      // settle. Snap the final sliver to exactly 0 so it fully clears.
+      const filmOffsetSmoothing = Math.min(Math.max(1 - Math.exp(-6 * delta), 0.01), 0.15);
+      camera.filmOffset = THREE.MathUtils.lerp(camera.filmOffset, 0, filmOffsetSmoothing);
+      if (Math.abs(camera.filmOffset) < 0.02) camera.filmOffset = 0;
       camera.updateProjectionMatrix();
-      logCameraWrite(state, "CLEANUP_FILM_OFFSET", "non-hero-path", null, true, false);
-      if (shouldLogBranch) console.log('[UCC FILM] cleared for non-hero path');
+      logCameraWrite(state, "CLEANUP_FILM_OFFSET", "non-hero-path-eased", null, true, false);
+      if (shouldLogBranch) console.log('[UCC FILM] easing toward 0 for non-hero path');
     }
 
     if (heroToOverviewHandoffPendingRef.current && animationData?.cameraState === 'overview') {
