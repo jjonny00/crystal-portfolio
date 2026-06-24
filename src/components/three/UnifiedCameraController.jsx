@@ -4233,6 +4233,26 @@ const UnifiedCameraController = ({
       };
       lastHeroOverviewPilotAttemptKeyRef.current = null;
     }
+    // The hero→overview cinematic pilot is not preemptible: during a fast fling
+    // hero→about it captures the overview pose and keeps holding the camera there
+    // even after the scene has moved on to about (a dual-writer — the scene reads
+    // 'about' but the camera stays stuck at overview). Abort it once the scene has
+    // reached ABOUT so the preemptible legacy camera can fly to the real destination.
+    // Gated to 'about' (not 'project') on purpose: scrolling forward into PROJECTS
+    // during a normal hero→overview cinematic is common, and aborting there breaks
+    // the cinematic — only the all-the-way-to-about fling should preempt it.
+    if (
+      heroOverviewPilotRef.current.active &&
+      (nextCameraState === 'about' || nextState === 'about')
+    ) {
+      heroOverviewPilotRef.current = {
+        active: false,
+        key: null,
+        blockedReason: null,
+        transition: null,
+      };
+      lastHeroOverviewPilotAttemptKeyRef.current = null;
+    }
     const transitionKey = [
       'overview-to-project',
       prevState ?? 'none',
