@@ -25,8 +25,12 @@ export const ANIMATION_CONFIG = {
     hero: {
       position: new Vector3(0, 3.2, 2.4),
       target: new Vector3(0, 0.5, 0),
-      fov: 32,
-      description: 'Hero close view',
+      // Hero renders at the wide ~45 fov on every correct entry (initial load,
+      // overview→hero); the old 32 "close view" was never actually applied to the
+      // render and only leaked in via about→hero, appearing zoomed/"pushed in".
+      // Match the config to the intended wide hero render so every entry is consistent.
+      fov: 45,
+      description: 'Hero wide view',
       orbitSpeed: 0.0003
     },
     overview: {
