@@ -1477,11 +1477,23 @@ const UnifiedCameraController = ({
       return;
     }
 
+    // About arrives via the legacy path, but coming from hero the hero writers can
+    // leave currentTarget on a stale hero pose while lastCameraConfig already reads
+    // 'about', so the normal configChanged check below misses it and the about pose
+    // is never applied (camera settles at the hero pose with the wrong fov/filmOffset).
+    // For about specifically, also re-apply when currentTarget has drifted off the
+    // resolved about pose. Scoped to 'about' so the hero orbit and project pilots —
+    // which legitimately drive currentTarget themselves — are untouched.
+    const aboutTargetDrifted =
+      cameraState === 'about' &&
+      finalPosition &&
+      !vectorsEqual(currentTarget.current.position, finalPosition);
     const configChanged = !lastCameraConfig.current ||
       !vectorsEqual(finalPosition, lastCameraConfig.current.position) ||
       !vectorsEqual(finalTarget, lastCameraConfig.current.target) ||
       enhancedConfig.fov !== lastCameraConfig.current.fov ||
-      enhancedConfig.description !== lastCameraConfig.current.description;
+      enhancedConfig.description !== lastCameraConfig.current.description ||
+      aboutTargetDrifted;
 
     if (configChanged) {
       if (import.meta.env.DEV) {
@@ -6370,10 +6382,18 @@ const UnifiedCameraController = ({
     }
     previousWasPlainHeroRef.current = isAuthoritativePlainHero;
 
+    // Leaving plain hero must only kick off the hero→overview cinematic when the
+    // destination is actually overview. Going hero→about (nav click or aggressive
+    // scroll) was also triggering this forced transition, which holds the camera at
+    // the hero exit pose via AUTHORITATIVE_HERO and never lets the about config apply
+    // (camera settled at the hero pose with hero fov/filmOffset). Exclude about.
+    const heroExitDestinationIsAbout =
+      animationData?.state === 'about' || animationData?.cameraState === 'about';
     const attemptedHeroToOverviewInit =
       FORCE_AUTHORITATIVE_HERO_TO_OVERVIEW_TRANSITION &&
       wasPlainHero &&
-      !isAuthoritativePlainHero;
+      !isAuthoritativePlainHero &&
+      !heroExitDestinationIsAbout;
     const alreadyActiveHeroToOverview = Boolean(authoritativeHeroToOverviewTransitionRef.current?.active);
     const startedForExit = heroToOverviewTransitionStartedForExitRef.current;
     const shouldForceHeroToOverviewTransition =
@@ -6798,6 +6818,17 @@ const UnifiedCameraController = ({
       return;
     }
 
+    // Aggressive hero→about scrolls can init the forced hero→overview transition
+    // while passing through overview, then land on about. If the destination has
+    // resolved to about, abort the forced transition so the legacy path can take the
+    // camera to the about pose instead of holding it on the way to overview.
+    if (
+      authoritativeHeroToOverviewTransitionRef.current.active &&
+      (animationData?.state === 'about' || animationData?.cameraState === 'about')
+    ) {
+      authoritativeHeroToOverviewTransitionRef.current.active = false;
+      heroToOverviewTransitionStartedForExitRef.current = false;
+    }
     if (authoritativeHeroToOverviewTransitionRef.current.active) {
       const transition = authoritativeHeroToOverviewTransitionRef.current;
       const DOLLY_SPLIT = 0.35;
