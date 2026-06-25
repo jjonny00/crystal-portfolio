@@ -554,9 +554,12 @@ function App() {
     const scrollContainer = document.querySelector('.scroll-container');
     if (scrollContainer) {
       if (behavior === 'auto') {
-        // CSS forces smooth scroll on the container, so set scrollTop directly
-        // when we need an immediate jump without traversing intermediate zones.
-        scrollContainer.scrollTop = target.offsetTop;
+        // Force a TRULY instant jump. The container has CSS scroll-behavior:smooth,
+        // which makes even `scrollTop = ...` animate — that animation traverses every
+        // snap-mandatory section, firing intermediate zone transitions that fight the
+        // directSelectZone override (the "conflicting jumping") and snap-latches on an
+        // adjacent section. `behavior: 'instant'` overrides the CSS and lands directly.
+        scrollContainer.scrollTo({ top: target.offsetTop, behavior: 'instant' });
       } else {
         scrollContainer.scrollTo({ top: target.offsetTop, behavior });
       }
@@ -572,15 +575,54 @@ function App() {
       console.log('[navigation-intent] destination', nextDestination);
     },
     onIntent: (intent) => {
+      // Hero ↔ Overview: drive the REAL scroll-driven transition rather than the
+      // imperative directSelectZone override. A smooth scroll (the container's
+      // default behavior) crosses the zone boundary gradually, which is exactly
+      // what fires handleZoneTransition + the hero→overview explosion runtime. By
+      // routing the click through the same scroll pipeline, clicking "Work" /
+      // "Jon Shaw" runs identical code to scrolling — there is only one version
+      // of the transition, so effects can't double-fire or drift.
       if (intent.destination === NAVIGATION_DESTINATIONS.HERO) {
-        fixedCanvasRef.current?.directSelectZone?.('hero');
-        scrollToSection('hero', intent.behavior);
+        const scrollContainer = document.querySelector('.scroll-container');
+        const firstProjectEl = document.querySelector('.scroll-section[id^="project-"]');
+        const comingUpFromFar = Boolean(
+          scrollContainer && firstProjectEl && scrollContainer.scrollTop >= firstProjectEl.offsetTop - 1
+        );
+        if (comingUpFromFar) {
+          // From projects/about: clear overrides and set the hero state directly,
+          // then jump immediately, so the camera flies straight to hero. (A smooth
+          // scroll up across scroll-snap-mandatory sections latched on the last
+          // project — "Jon Shaw" from About never reached hero.)
+          fixedCanvasRef.current?.directSelectZone?.('hero');
+          scrollToSection('hero', 'auto');
+        } else {
+          // From overview (adjacent): smooth scroll so the overview→hero reform
+          // cinematic plays via the gradual boundary crossing.
+          scrollToSection('hero', 'smooth');
+        }
         return;
       }
 
       if (intent.destination === NAVIGATION_DESTINATIONS.OVERVIEW) {
-        fixedCanvasRef.current?.directSelectZone?.('overview');
-        scrollToSection('overview', intent.behavior);
+        const scrollContainer = document.querySelector('.scroll-container');
+        const overviewEl = document.getElementById('overview');
+        const comingUpFromBelow = Boolean(
+          scrollContainer && overviewEl && scrollContainer.scrollTop > overviewEl.offsetTop + 1
+        );
+        if (comingUpFromBelow) {
+          // From projects/about: clear any lingering project override and set the
+          // overview state directly, then jump immediately, so the camera flies
+          // straight to the canonical overview pose. (A smooth scroll across
+          // scroll-snap-mandatory sections gets latched on an intermediate project,
+          // and a bare jump left the project override fighting the move so it never
+          // reached overview.)
+          fixedCanvasRef.current?.directSelectZone?.('overview');
+          scrollToSection('overview', 'auto');
+        } else {
+          // From hero: smooth scroll so the hero→overview explosion cinematic plays
+          // via the gradual boundary crossing.
+          scrollToSection('overview', 'smooth');
+        }
         return;
       }
 

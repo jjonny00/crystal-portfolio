@@ -25,8 +25,12 @@ export const ANIMATION_CONFIG = {
     hero: {
       position: new Vector3(0, 3.2, 2.4),
       target: new Vector3(0, 0.5, 0),
-      fov: 32,
-      description: 'Hero close view',
+      // Hero renders at the wide ~45 fov on every correct entry (initial load,
+      // overview→hero); the old 32 "close view" was never actually applied to the
+      // render and only leaked in via about→hero, appearing zoomed/"pushed in".
+      // Match the config to the intended wide hero render so every entry is consistent.
+      fov: 45,
+      description: 'Hero wide view',
       orbitSpeed: 0.0003
     },
     overview: {
@@ -456,6 +460,13 @@ export const useUnifiedAnimationController = (options = {}) => {
     }));
 
     lastProject.current = projectKey;
+    // Mark the projects zone as current. A facet click calls this directly and the
+    // override-hold then returns early every frame, so the dispatch that normally
+    // keeps lastZone in sync never runs — leaving lastZone stale at 'overview'.
+    // On the return to overview that stale value made the zone-transition dispatch
+    // a no-op (it never registered projects→overview), so the camera didn't fly
+    // back. Setting it here keeps a clicked project consistent with a scrolled one.
+    lastZone.current = 'projects';
   }, [clearDirectProjectOverride, config]);
 
   const clearDirectZoneOverride = useCallback(() => {
@@ -514,7 +525,7 @@ export const useUnifiedAnimationController = (options = {}) => {
         return {
           ...prev,
           state: ANIMATION_STATES.ABOUT,
-          crystalForm: 'whole',
+          crystalForm: 'exploded', // About keeps the crystal exploded; reforming to whole only happens going to hero
           cameraState: 'about',
           focusedFacet: null,
           isTransitioning: false
@@ -635,22 +646,38 @@ export const useUnifiedAnimationController = (options = {}) => {
       }, (config.crystal.fracturePause || 0.5) * 1000);
     }
     else if (toZone === 'overview') {
-      // Start explosion immediately but delay camera move until fracture pause completes
-      setAnimationState(prev => ({
-        ...prev,
-        state: ANIMATION_STATES.OVERVIEW,
-        crystalForm: 'exploded',     // Immediate
-        cameraState: 'hero',         // Hold camera during fracture pause
-        focusedFacet: null,
-        isTransitioning: false
-      }));
-
-      cameraDelayTimeout.current = setTimeout(() => {
+      if (fromZone === 'hero') {
+        // hero → overview: explosion choreography — hold the camera at the hero
+        // pose during the fracture pause, then move it to overview.
         setAnimationState(prev => ({
           ...prev,
-          cameraState: 'overview'
+          state: ANIMATION_STATES.OVERVIEW,
+          crystalForm: 'exploded',     // Immediate
+          cameraState: 'hero',         // Hold camera during fracture pause
+          focusedFacet: null,
+          isTransitioning: false
         }));
-      }, (config.crystal.fracturePause || 0.5) * 1000);
+
+        cameraDelayTimeout.current = setTimeout(() => {
+          setAnimationState(prev => ({
+            ...prev,
+            cameraState: 'overview'
+          }));
+        }, (config.crystal.fracturePause || 0.5) * 1000);
+      } else {
+        // projects/about → overview: the crystal is already exploded, so DON'T run
+        // the hero-hold (it detoured the camera toward the hero pose on the way to
+        // overview — the broken "Work from a project" behavior). Move the camera
+        // straight to overview.
+        setAnimationState(prev => ({
+          ...prev,
+          state: ANIMATION_STATES.OVERVIEW,
+          crystalForm: 'exploded',
+          cameraState: 'overview',
+          focusedFacet: null,
+          isTransitioning: false
+        }));
+      }
     }
     else if (toZone === 'projects') {
       const targetFacet = getSceneFacetKeyByProjectId(initialProject) || initialProject;
@@ -693,7 +720,7 @@ export const useUnifiedAnimationController = (options = {}) => {
       setAnimationState(prev => ({
         ...prev,
         state: ANIMATION_STATES.ABOUT,
-        crystalForm: 'whole',        // Immediate
+        crystalForm: 'exploded',     // About keeps the crystal exploded; reform to whole only when going to hero
         cameraState: 'about',        // Immediate
         focusedFacet: null,
         isTransitioning: false
@@ -906,18 +933,38 @@ export const useUnifiedAnimationController = (options = {}) => {
     if (directOverrideProject) {
       const directOverrideAgeMs = Date.now() - (directProjectOverrideRef.current?.createdAt ?? Date.now());
       const directOverrideSectionId = `project-${directOverrideProject}`;
-      const hasReachedTargetSection =
-        currentZone.zone === 'projects' &&
-        activeProject.project === directOverrideProject &&
+      const isAtDirectOverrideSection = Boolean(
         nearestSectionId === directOverrideSectionId &&
         typeof nearestSectionTop === 'number' &&
         container &&
-        Math.abs(container.scrollTop - nearestSectionTop) <= 2;
+        Math.abs(container.scrollTop - nearestSectionTop) <= 2
+      );
+      const hasReachedTargetSection =
+        currentZone.zone === 'projects' &&
+        activeProject.project === directOverrideProject &&
+        isAtDirectOverrideSection;
 
       if (hasReachedTargetSection) {
         directOverrideReachedTargetRef.current = true;
       }
 
+      if (
+        (directOverrideReachedTargetRef.current && !isAtDirectOverrideSection) ||
+        currentZone.zone !== 'projects'
+      ) {
+        // Release the override and fall through to the normal zone transition when
+        // either:
+        //  (a) we reached the target project then scrolled AWAY from its section, or
+        //  (b) we've left the projects zone entirely (scrolled out to overview/hero/
+        //      about). Case (b) fixes the aggressive about→hero fling: the about-return
+        //      band-entry lock pins the last project, but a fast fling never "settles"
+        //      on it (reached stays false), so without this it stayed pinned all the
+        //      way up — the camera stuck on 'project' while zoneInfo reached hero.
+        // Safe for far-project clicks: their scroll stays WITHIN the projects zone, so
+        // currentZone.zone === 'projects' and (a) only fires once reached.
+        clearDirectProjectOverride();
+        lastProject.current = null;
+      } else {
       const movedToDifferentProject =
         directOverrideReachedTargetRef.current &&
         currentZone.zone === 'projects' &&
@@ -932,12 +979,6 @@ export const useUnifiedAnimationController = (options = {}) => {
         lastProject.current = activeProject.project;
         clearDirectProjectOverride();
       } else {
-      const isAtDirectOverrideSection = Boolean(
-        nearestSectionId === directOverrideSectionId &&
-        typeof nearestSectionTop === 'number' &&
-        container &&
-        Math.abs(container.scrollTop - nearestSectionTop) <= 2
-      );
       const directOverrideCameraSettled =
         animationState.cameraSettled === true ||
         (animationState.cameraMoveProgress ?? 0) >= 0.995;
@@ -976,8 +1017,9 @@ export const useUnifiedAnimationController = (options = {}) => {
       }
       return;
       }
+      }
     }
-    
+
     // ENHANCED: Log scroll updates for background debugging
     if (import.meta.env.DEV && Math.random() < 0.05) { // Sample 5% of updates
       console.log('🔄 Animation state update:', {
@@ -1002,7 +1044,14 @@ export const useUnifiedAnimationController = (options = {}) => {
       const projectsZoneHysteresis = 0; // Immediate transition at projects start
       let shouldChangeZone = false;
 
-      if (currentZone.zone === 'hero' && currentZone.progress > hysteresis) {
+      if (currentZone.zone === 'hero' && currentZone.progress < (1 - hysteresis)) {
+        // Hero is the TOP zone: you enter it from its high-progress (overview)
+        // boundary and "well into hero" means LOW progress (toward the top). The
+        // old `progress > hysteresis` check failed when an aggressive fling landed
+        // at the very top (progress ~0), so the camera-state transition to hero
+        // never fired and the scene stayed stuck on the last project/overview while
+        // zoneInfo reached hero. `< (1 - hysteresis)` fires once you're past the
+        // overview boundary, including a top-landing fling.
         shouldChangeZone = true;
       } else if (currentZone.zone === 'overview') {
         if (currentZone.progress > hysteresis && currentZone.progress < (1 - hysteresis)) {

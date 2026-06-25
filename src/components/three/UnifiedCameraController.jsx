@@ -425,7 +425,7 @@ const UnifiedCameraController = ({
   });
   const cameraFrameIndexRef = useRef(0);
 
-  const getCameraDirectorRouteMode = ({ modeGlobalName, legacyEnableGlobalName, envForcePilot = false }) => {
+  const getCameraDirectorRouteMode = ({ modeGlobalName, legacyEnableGlobalName, envForcePilot = false, defaultMode = 'pilot' }) => {
     if (import.meta.env.DEV) {
       const explicitMode = typeof globalThis?.[modeGlobalName] === 'string'
         ? globalThis[modeGlobalName].toLowerCase()
@@ -440,22 +440,38 @@ const UnifiedCameraController = ({
       }
       if (envForcePilot) return 'pilot';
     }
-    return 'pilot';
+    return defaultMode;
   };
+  // overview→project defaults to LEGACY: the legacy exponential-settle path is the
+  // perfectly-tuned transition the CLICK uses (clicks miss pilot activation because
+  // focusedProject lags the cameraState edge, so they fall to legacy). Scrolling in
+  // aligns focusedProject on the edge and DID fire the pilot, producing a different,
+  // worse transition. Forcing legacy makes scroll match the click and leaves clicks
+  // unchanged. DEV can still opt into the pilot with __OVERVIEW_PROJECT_CAMERA_MODE__ = 'pilot'.
   const isOverviewToProjectPilotEnabled = () =>
     getCameraDirectorRouteMode({
       modeGlobalName: '__OVERVIEW_PROJECT_CAMERA_MODE__',
       legacyEnableGlobalName: '__ENABLE_CAMERA_DIRECTOR_OVERVIEW_TO_PROJECT__',
+      defaultMode: 'legacy',
     }) === 'pilot';
+  // project→overview and project→project default to LEGACY: the legacy
+  // exponential-settle path is preemptible (it lerps toward a target that updates
+  // with cameraState/focusedProject), so scrolling DURING a transition smoothly
+  // re-targets instead of breaking. The pilot captures a fixed toPose and blocks
+  // re-activation while active, so a mid-flight scroll left it finishing to a stale
+  // target = the halfway/broken state. Legacy also matches the tuned click path.
+  // DEV can still opt into the pilot per route via __*_CAMERA_MODE__ = 'pilot'.
   const isProjectToOverviewPilotEnabled = () =>
     getCameraDirectorRouteMode({
       modeGlobalName: '__PROJECT_OVERVIEW_CAMERA_MODE__',
       legacyEnableGlobalName: '__ENABLE_CAMERA_DIRECTOR_PROJECT_TO_OVERVIEW__',
+      defaultMode: 'legacy',
     }) === 'pilot';
   const isProjectToProjectPilotEnabled = () =>
     getCameraDirectorRouteMode({
       modeGlobalName: '__PROJECT_PROJECT_CAMERA_MODE__',
       legacyEnableGlobalName: '__ENABLE_CAMERA_DIRECTOR_PROJECT_TO_PROJECT__',
+      defaultMode: 'legacy',
     }) === 'pilot';
   const isHeroToOverviewPilotEnabled = () =>
     getCameraDirectorRouteMode({
@@ -1461,11 +1477,23 @@ const UnifiedCameraController = ({
       return;
     }
 
+    // About arrives via the legacy path, but coming from hero the hero writers can
+    // leave currentTarget on a stale hero pose while lastCameraConfig already reads
+    // 'about', so the normal configChanged check below misses it and the about pose
+    // is never applied (camera settles at the hero pose with the wrong fov/filmOffset).
+    // For about specifically, also re-apply when currentTarget has drifted off the
+    // resolved about pose. Scoped to 'about' so the hero orbit and project pilots —
+    // which legitimately drive currentTarget themselves — are untouched.
+    const aboutTargetDrifted =
+      cameraState === 'about' &&
+      finalPosition &&
+      !vectorsEqual(currentTarget.current.position, finalPosition);
     const configChanged = !lastCameraConfig.current ||
       !vectorsEqual(finalPosition, lastCameraConfig.current.position) ||
       !vectorsEqual(finalTarget, lastCameraConfig.current.target) ||
       enhancedConfig.fov !== lastCameraConfig.current.fov ||
-      enhancedConfig.description !== lastCameraConfig.current.description;
+      enhancedConfig.description !== lastCameraConfig.current.description ||
+      aboutTargetDrifted;
 
     if (configChanged) {
       if (import.meta.env.DEV) {
@@ -4217,6 +4245,26 @@ const UnifiedCameraController = ({
       };
       lastHeroOverviewPilotAttemptKeyRef.current = null;
     }
+    // The hero→overview cinematic pilot is not preemptible: during a fast fling
+    // hero→about it captures the overview pose and keeps holding the camera there
+    // even after the scene has moved on to about (a dual-writer — the scene reads
+    // 'about' but the camera stays stuck at overview). Abort it once the scene has
+    // reached ABOUT so the preemptible legacy camera can fly to the real destination.
+    // Gated to 'about' (not 'project') on purpose: scrolling forward into PROJECTS
+    // during a normal hero→overview cinematic is common, and aborting there breaks
+    // the cinematic — only the all-the-way-to-about fling should preempt it.
+    if (
+      heroOverviewPilotRef.current.active &&
+      (nextCameraState === 'about' || nextState === 'about')
+    ) {
+      heroOverviewPilotRef.current = {
+        active: false,
+        key: null,
+        blockedReason: null,
+        transition: null,
+      };
+      lastHeroOverviewPilotAttemptKeyRef.current = null;
+    }
     const transitionKey = [
       'overview-to-project',
       prevState ?? 'none',
@@ -6334,10 +6382,18 @@ const UnifiedCameraController = ({
     }
     previousWasPlainHeroRef.current = isAuthoritativePlainHero;
 
+    // Leaving plain hero must only kick off the hero→overview cinematic when the
+    // destination is actually overview. Going hero→about (nav click or aggressive
+    // scroll) was also triggering this forced transition, which holds the camera at
+    // the hero exit pose via AUTHORITATIVE_HERO and never lets the about config apply
+    // (camera settled at the hero pose with hero fov/filmOffset). Exclude about.
+    const heroExitDestinationIsAbout =
+      animationData?.state === 'about' || animationData?.cameraState === 'about';
     const attemptedHeroToOverviewInit =
       FORCE_AUTHORITATIVE_HERO_TO_OVERVIEW_TRANSITION &&
       wasPlainHero &&
-      !isAuthoritativePlainHero;
+      !isAuthoritativePlainHero &&
+      !heroExitDestinationIsAbout;
     const alreadyActiveHeroToOverview = Boolean(authoritativeHeroToOverviewTransitionRef.current?.active);
     const startedForExit = heroToOverviewTransitionStartedForExitRef.current;
     const shouldForceHeroToOverviewTransition =
@@ -6762,6 +6818,17 @@ const UnifiedCameraController = ({
       return;
     }
 
+    // Aggressive hero→about scrolls can init the forced hero→overview transition
+    // while passing through overview, then land on about. If the destination has
+    // resolved to about, abort the forced transition so the legacy path can take the
+    // camera to the about pose instead of holding it on the way to overview.
+    if (
+      authoritativeHeroToOverviewTransitionRef.current.active &&
+      (animationData?.state === 'about' || animationData?.cameraState === 'about')
+    ) {
+      authoritativeHeroToOverviewTransitionRef.current.active = false;
+      heroToOverviewTransitionStartedForExitRef.current = false;
+    }
     if (authoritativeHeroToOverviewTransitionRef.current.active) {
       const transition = authoritativeHeroToOverviewTransitionRef.current;
       const DOLLY_SPLIT = 0.35;
@@ -7851,10 +7918,18 @@ const UnifiedCameraController = ({
 
     const isHeroCameraPath = (animationData?.state === 'hero' && animationData?.cameraState === 'hero') || introActiveRef.current;
     if (!isHeroCameraPath && camera.filmOffset !== 0) {
-      camera.filmOffset = 0;
+      // Ease filmOffset toward 0 instead of hard-snapping it. The instant reset made
+      // the crystal jump horizontally to center the moment you left hero without a
+      // cinematic to interpolate it — e.g. clicking "About" snapped hero's filmOffset
+      // (9) straight to 0. hero->overview already lerps filmOffset via its pilot; this
+      // gives the legacy paths (about, fling-to-projects) the same smooth horizontal
+      // settle. Snap the final sliver to exactly 0 so it fully clears.
+      const filmOffsetSmoothing = Math.min(Math.max(1 - Math.exp(-6 * delta), 0.01), 0.15);
+      camera.filmOffset = THREE.MathUtils.lerp(camera.filmOffset, 0, filmOffsetSmoothing);
+      if (Math.abs(camera.filmOffset) < 0.02) camera.filmOffset = 0;
       camera.updateProjectionMatrix();
-      logCameraWrite(state, "CLEANUP_FILM_OFFSET", "non-hero-path", null, true, false);
-      if (shouldLogBranch) console.log('[UCC FILM] cleared for non-hero path');
+      logCameraWrite(state, "CLEANUP_FILM_OFFSET", "non-hero-path-eased", null, true, false);
+      if (shouldLogBranch) console.log('[UCC FILM] easing toward 0 for non-hero path');
     }
 
     if (heroToOverviewHandoffPendingRef.current && animationData?.cameraState === 'overview') {
