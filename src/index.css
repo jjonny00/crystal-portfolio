@@ -20,7 +20,7 @@ body {
   font-stretch: 87.5%;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #050505;
+  background-color: #070015;
   min-height: 100vh;
   height: auto;
   overflow-x: hidden;
@@ -45,6 +45,12 @@ h6,
   min-height: 100vh;
   overflow-x: hidden;
   position: relative;
+}
+
+html,
+body,
+#root {
+  background-color: #070015;
 }
 
 /* Custom scrollbar styling */
