@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { useThree } from '@react-three/fiber';
 import Headline from '../ui/Headline';
 import { MQ_HOVER_CAPABLE } from '../../config/breakpoints';
 import { useLayoutConfig } from '../../hooks/useLayoutConfig';
@@ -102,8 +101,7 @@ const FacetLabels = React.memo(function FacetLabels({
   onAlwaysOnDomAnchorChange,
   onLabelsReadyChange,
 }) {
-  const { camera, size } = useThree();
-  const [anchorScreenPositions, setAnchorScreenPositions] = useState({});
+  const [anchorsReady, setAnchorsReady] = useState(false);
   const [visible, setVisible] = useState(false);
   const [fadeDuration, setFadeDuration] = useState(0.8);
   const [hoverCapable, setHoverCapable] = useState(false);
@@ -146,22 +144,12 @@ const FacetLabels = React.memo(function FacetLabels({
     });
   }, [onAlwaysOnDomAnchorChange]);
 
-  const calculateAnchorPositions = useCallback(() => {
-    if (!overviewWorld) {
-      setAnchorScreenPositions({});
-      return;
-    }
-
-    const positions = {};
-    Object.entries(overviewWorld).forEach(([facetKey, worldPos]) => {
-      const projected = worldPos.clone().project(camera);
-      positions[facetKey] = {
-        x: (projected.x * 0.5 + 0.5) * size.width,
-        y: (-projected.y * 0.5 + 0.5) * size.height,
-      };
-    });
-    setAnchorScreenPositions(positions);
-  }, [camera, overviewWorld, size.height, size.width]);
+  // Labels are positioned statically via CSS; this only gates whether the label
+  // layer renders, mirroring the old "anchor positions computed" readiness check
+  // (true iff the layout actually provides overview anchors).
+  const markAnchorsReady = useCallback(() => {
+    setAnchorsReady(Boolean(overviewWorld) && Object.keys(overviewWorld).length > 0);
+  }, [overviewWorld]);
 
   useEffect(() => {
     const hoverMq = window.matchMedia(MQ_HOVER_CAPABLE);
@@ -208,8 +196,8 @@ const FacetLabels = React.memo(function FacetLabels({
       rootRef.current = createRoot(layer);
     }
 
-    calculateAnchorPositions();
-  }, [calculateAnchorPositions, inActiveOverview, onAlwaysOnDomAnchorChange, onDomAnchorChange, onLabelsReadyChange]);
+    markAnchorsReady();
+  }, [markAnchorsReady, inActiveOverview, onAlwaysOnDomAnchorChange, onDomAnchorChange, onLabelsReadyChange]);
 
   useEffect(() => {
     if (!inActiveOverview || !projects?.length) return;
@@ -295,7 +283,7 @@ const FacetLabels = React.memo(function FacetLabels({
     }
     if (
       performanceProfile?.simplifiedAnimations ||
-      Object.keys(anchorScreenPositions).length === 0
+      !anchorsReady
     ) {
       rootRef.current.render(null);
       return;
@@ -382,7 +370,7 @@ const FacetLabels = React.memo(function FacetLabels({
       </>,
     );
   }, [
-    anchorScreenPositions,
+    anchorsReady,
     fadeDuration,
     hoverCapable,
     inActiveOverview,
