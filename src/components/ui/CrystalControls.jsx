@@ -148,6 +148,7 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
     'materials.crystal.iridescence': crystalConfig.materials.crystal.iridescence,
     'materials.crystal.roughness': crystalConfig.materials.crystal.roughness,
     'materials.crystal.glow.emissiveIntensity': crystalConfig.materials.crystal.glow.emissiveIntensity,
+    'materials.crystal.glow.activeIntensity': crystalConfig.materials.crystal.glow.activeIntensity,
     'materials.crystal.glow.fresnelPower': crystalConfig.materials.crystal.glow.fresnelPower,
     'materials.crystal.glow.glowBias': crystalConfig.materials.crystal.glow.glowBias,
     'materials.crystal.glow.pulseSpeed': crystalConfig.materials.crystal.glow.pulseSpeed,
@@ -1106,6 +1107,7 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
       'materials.crystal.iridescence': crystalConfig.materials.crystal.iridescence,
       'materials.crystal.roughness': crystalConfig.materials.crystal.roughness,
       'materials.crystal.glow.emissiveIntensity': crystalConfig.materials.crystal.glow.emissiveIntensity,
+      'materials.crystal.glow.activeIntensity': crystalConfig.materials.crystal.glow.activeIntensity,
       'materials.crystal.glow.fresnelPower': crystalConfig.materials.crystal.glow.fresnelPower,
       'materials.crystal.glow.glowBias': crystalConfig.materials.crystal.glow.glowBias,
       'materials.crystal.glow.pulseSpeed': crystalConfig.materials.crystal.glow.pulseSpeed,
@@ -2193,6 +2195,23 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
           style={sliderStyle}
         />
       </div>
+
+      <div style={sliderGroupStyle}>
+        <div style={sliderLabelStyle}>
+          <span>Glow Intensity (Hover/Selected)</span>
+          <span>{materialValues['materials.crystal.glow.activeIntensity'].toFixed(2)}</span>
+        </div>
+        <input
+          type="range"
+          min="0"
+          max="2.0"
+          step="0.01"
+          value={materialValues['materials.crystal.glow.activeIntensity']}
+          onChange={(e) => handleMaterialChange('materials.crystal.glow.activeIntensity', e.target.value)}
+          style={sliderStyle}
+        />
+      </div>
+
 
       <div style={sliderGroupStyle}>
         <div style={sliderLabelStyle}>

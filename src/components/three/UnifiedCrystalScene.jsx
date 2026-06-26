@@ -40,11 +40,14 @@ const FOCUS_ROTATION_PROGRESS_LEAD = 1
 const ISOLATE_FOCUSED_ROTATION_FROM_POSITION = true
 const FORWARD_PRE_SWAP_WINDOW_MS = 120
 const FORWARD_MASK_GLOW_DURATION_S = 0.22
-const FORWARD_MASK_GLOW_PEAK_INTENSITY = 1.2
+const FORWARD_MASK_GLOW_PEAK_INTENSITY = 2.0
+// Fraction of the facet travel over which the fracture glow shifts from
+// flare-blue to the project color ("very quickly" / front-loaded).
+const FRACTURE_GLOW_COLOR_FADE_PORTION = 0.2
 const REFORM_PRE_SWAP_WINDOW_MS = 110
 const REFORM_MASK_GLOW_DURATION_S = 0.2
-const REFORM_MASK_GLOW_PEAK_INTENSITY = 1.5
-const REFORM_FACET_MASK_GLOW_PEAK_INTENSITY = 1.3
+const REFORM_MASK_GLOW_PEAK_INTENSITY = 6.75
+const REFORM_FACET_MASK_GLOW_PEAK_INTENSITY = 6.75
 const REFORM_SWAP_OVERLAP_MS = 100
 const ENABLE_OVERVIEW_ALL_CONNECTORS = true
 
@@ -117,7 +120,7 @@ const UnifiedCrystalScene = forwardRef(({
   const fractureStartQuatRef = useRef(new THREE.Quaternion());
   const neutralQuat = useMemo(() => new THREE.Quaternion(), []);
   const origin = useMemo(() => new THREE.Vector3(0, 0, 0), []);
-  const swapMaskGlowColor = useMemo(() => new THREE.Color('#66cfff'), []);
+  const swapMaskGlowColor = useMemo(() => new THREE.Color('#2146ff'), []);
   
   // Debug panel state
   const [showCrystalDebug, setShowCrystalDebug] = useState(false);
@@ -828,6 +831,10 @@ const UnifiedCrystalScene = forwardRef(({
   const wholeCrystalGlowMaterialsRef = useRef([]);
   const wholeCrystalGlowBaseIntensityRef = useRef(0);
 
+  // Resting + active facet glow intensities (tier-scaled), read when setting up the
+  // hover/select glow transition. Active = brighter glow on hover/selected facet.
+  const facetGlowLevelsRef = useRef({ base: 0, active: 0 });
+
   const facetModelKeys = useMemo(
     () => facetKeys.map((key) => getProjectModelKeyByFacetKey(key)),
     [facetKeys]
@@ -889,14 +896,16 @@ const UnifiedCrystalScene = forwardRef(({
     const delay = mergedConfig?.fracture?.emissive?.delay ?? 0;
     fractureGlowStartRef.current = performance.now() + delay * 1000;
     facetMaterialsRef.current.forEach((mat) => {
-      // Start from no glow and fade in during the fracture pause
-      mat.emissive.set(0, 0, 0);
-      mat.emissiveIntensity = 0;
+      // Start at the whole-crystal flare (color + level) so the very first frame
+      // after the swap matches it — no dark dip. The useFrame fade then holds
+      // this through the fracture pause and animates it across travel.
+      mat.emissive.copy(swapMaskGlowColor);
+      mat.emissiveIntensity = FORWARD_MASK_GLOW_PEAK_INTENSITY;
       mat.userData = { ...(mat.userData || {}), isFading: true };
       mat.needsUpdate = true;
     });
     onFractureStart?.();
-  }, [mergedConfig, onFractureStart]);
+  }, [mergedConfig, onFractureStart, swapMaskGlowColor]);
 
   const runExplodeSwap = useCallback(() => {
     heroOverviewTravelDistanceAuditLoggedRef.current = false;
@@ -1461,6 +1470,13 @@ const UnifiedCrystalScene = forwardRef(({
         if (!mat.userData.glowTargetColor) mat.userData.glowTargetColor = new THREE.Color()
         mat.userData.glowStartColor.copy(glowUniforms.uGlowColor.value)
         mat.userData.glowTargetColor.copy(glowTarget)
+        // Ramp glow intensity to the active level when this facet is active, back to
+        // base otherwise — using the SAME glowProgress transition as the color.
+        const activeNow = glowTarget === projectColors[index]
+        mat.userData.glowStartIntensity = glowUniforms.uGlowIntensity.value
+        mat.userData.glowTargetIntensity = activeNow
+          ? facetGlowLevelsRef.current.active
+          : facetGlowLevelsRef.current.base
         mat.userData.glowProgress = 0
       }
     },
@@ -1954,10 +1970,13 @@ const UnifiedCrystalScene = forwardRef(({
 
       // Each facet clone gets its OWN glow uniforms but SHARES one program key, so
       // re-cloning facets reuses the cached program instead of recompiling GLSL.
-      // Active (hovered/focused) facet starts at its project color; others default.
+      // Active (hovered/focused) facet starts at its project color AND lifted glow
+      // intensity; others start at the default color and resting base. (Without the
+      // intensity lift here, a re-clone mid-hover snapped the lifted glow back to base.)
       const isActiveFacet = hoveredKey === key || (focusedKey === key && !hoveredKey);
       attachInternalGlow(mat, {
         ...glowInit,
+        emissiveIntensity: isActiveFacet ? facetGlowLevelsRef.current.active : glowInit.emissiveIntensity,
         color: isActiveFacet ? projectColors[idx] : glowInit.color,
         programKey: FACET_GLOW_PROGRAM_KEY,
       });
@@ -1965,40 +1984,33 @@ const UnifiedCrystalScene = forwardRef(({
       return mat;
     });
 
-    // If fracture glow is active, apply current fade state to new materials
+    // If fracture glow is active, apply current fade state to new materials.
+    // Mirrors the useFrame fade so a mid-animation re-clone doesn't snap.
     if (fractureGlowStartRef.current) {
       const elapsedGlow = (performance.now() - fractureGlowStartRef.current) / 1000;
-      const rawDuration = crystalConfig?.explodeDuration || 1.2;
       const fracturePause = crystalConfig?.fracturePause || 0.5;
-      const totalDuration = rawDuration > 10 ? rawDuration / 1000 : rawDuration;
-      const explosionDuration = Math.max(totalDuration - fracturePause, 0);
-      const fadeOutDuration = explosionDuration * 2;
       const elapsedExplosion = elapsedGlow - fracturePause;
-      const rampDuration = explosionDuration * 0.15;
-      const totalFadeDuration = explosionDuration + fadeOutDuration;
+      const travel = Math.max(getHeroOverviewFractureTimingState().effectiveFacetTravelDuration, 0.0001);
 
       facetMaterialsRef.current.forEach((mat, idx) => {
         const baseIntensity = mat.userData?.baseEmissiveIntensity ?? 0.02;
-        const startIntensity = (mergedConfig?.fracture?.emissive?.intensity ?? 2.0) * 0.15;
-        const baseColor = mat.userData?.baseEmissiveColor || defaultColorRef.current;
-        const startColor = projectColors[idx];
+        const startIntensity = FORWARD_MASK_GLOW_PEAK_INTENSITY; // match the flare
+        const startColor = swapMaskGlowColor;                    // flare-blue
+        const projectColor = projectColors[idx];
 
         if (elapsedExplosion < 0) {
-          mat.emissive.set(0, 0, 0);
-          mat.emissiveIntensity = 0;
-          mat.userData.isFading = true;
-        } else if (elapsedExplosion < rampDuration) {
-          const t = Math.min(elapsedExplosion / rampDuration, 1);
-          mat.emissive.copy(startColor).multiplyScalar(t);
-          mat.emissiveIntensity = THREE.MathUtils.lerp(0, startIntensity, t);
+          mat.emissive.copy(startColor);
+          mat.emissiveIntensity = startIntensity;
           mat.userData.isFading = true;
         } else {
-          const fadeElapsed = elapsedExplosion - rampDuration;
-          const t = Math.min(fadeElapsed / (totalFadeDuration - rampDuration), 1);
-          const ease = 1 - Math.pow(1 - t, 3);
-          mat.emissive.copy(startColor).lerp(baseColor, ease);
-          mat.emissiveIntensity = THREE.MathUtils.lerp(startIntensity, baseIntensity, ease);
-          mat.userData.isFading = t < 1;
+          const cT = Math.min(elapsedExplosion / (travel * FRACTURE_GLOW_COLOR_FADE_PORTION), 1);
+          const cEase = 1 - Math.pow(1 - cT, 3);
+          mat.emissive.copy(startColor).lerp(projectColor, cEase);
+
+          const iT = Math.min(elapsedExplosion / travel, 1);
+          const iEase = 1 - Math.pow(1 - iT, 3);
+          mat.emissiveIntensity = THREE.MathUtils.lerp(startIntensity, baseIntensity, iEase);
+          mat.userData.isFading = iT < 1;
         }
         mat.needsUpdate = true;
       });
@@ -2219,6 +2231,11 @@ const UnifiedCrystalScene = forwardRef(({
           if (!mat.userData.glowTargetColor) mat.userData.glowTargetColor = new THREE.Color();
           mat.userData.glowStartColor.copy(glowUniforms.uGlowColor.value);
           mat.userData.glowTargetColor.copy(glowTarget);
+          const activeNow = glowTarget === projectColors[idx];
+          mat.userData.glowStartIntensity = glowUniforms.uGlowIntensity.value;
+          mat.userData.glowTargetIntensity = activeNow
+            ? facetGlowLevelsRef.current.active
+            : facetGlowLevelsRef.current.base;
           mat.userData.glowProgress = 0;
         }
       });
@@ -2437,46 +2454,44 @@ const UnifiedCrystalScene = forwardRef(({
       }
     }
 
-    // Fade emissive glow timed with explosion
+    // Fade emissive glow timed with explosion. Facets start at the whole-crystal
+    // flare (color + level), then across their travel the color shifts quickly to
+    // the project color while the intensity dims to the resting level.
     if (fractureGlowStartRef.current && facetMaterialsRef.current.length) {
       const elapsedGlow = (performance.now() - fractureGlowStartRef.current) / 1000;
-      const rawDuration = crystalConfig?.explodeDuration || 1.2;
       const fracturePause = crystalConfig?.fracturePause || 0.5;
-      const totalDuration = rawDuration > 10 ? rawDuration / 1000 : rawDuration;
-      const explosionDuration = Math.max(totalDuration - fracturePause, 0);
-      const fadeOutDuration = explosionDuration * 2;
       const elapsedExplosion = elapsedGlow - fracturePause;
-      const rampDuration = explosionDuration * 0.15;
-      const totalFadeDuration = explosionDuration + fadeOutDuration;
+      // Real facet travel duration so the dim completes as facets arrive.
+      const travel = Math.max(getHeroOverviewFractureTimingState().effectiveFacetTravelDuration, 0.0001);
 
       facetMaterialsRef.current.forEach((mat, idx) => {
         const baseIntensity = mat.userData?.baseEmissiveIntensity ?? 0.02;
-        const startIntensity = (mergedConfig?.effects?.fracture?.initialGlow ?? 2.0) * 0.15;
-        const baseColor = mat.userData?.baseEmissiveColor || defaultColorRef.current;
-        const startColor = projectColors[idx];
+        const startIntensity = FORWARD_MASK_GLOW_PEAK_INTENSITY; // match the flare
+        const startColor = swapMaskGlowColor;                    // flare-blue
+        const projectColor = projectColors[idx];
 
         if (elapsedExplosion < 0) {
-          mat.emissive.set(0, 0, 0);
-          mat.emissiveIntensity = 0;
-          mat.userData.isFading = true;
-        } else if (elapsedExplosion < rampDuration) {
-          const t = Math.min(elapsedExplosion / rampDuration, 1);
-          mat.emissive.copy(startColor).multiplyScalar(t);
-          mat.emissiveIntensity = THREE.MathUtils.lerp(0, startIntensity, t);
+          // Fracture pause: hold at the flare so facets match the whole crystal.
+          mat.emissive.copy(startColor);
+          mat.emissiveIntensity = startIntensity;
           mat.userData.isFading = true;
         } else {
-          const fadeElapsed = elapsedExplosion - rampDuration;
-          const t = Math.min(fadeElapsed / (totalFadeDuration - rampDuration), 1);
-          const ease = 1 - Math.pow(1 - t, 3); // Soft ease out
-          mat.emissive.copy(startColor).lerp(baseColor, ease);
-          mat.emissiveIntensity = THREE.MathUtils.lerp(startIntensity, baseIntensity, ease);
-          mat.userData.isFading = t < 1;
+          // (a) Color: flare-blue -> project color, very quickly (front-loaded).
+          const cT = Math.min(elapsedExplosion / (travel * FRACTURE_GLOW_COLOR_FADE_PORTION), 1);
+          const cEase = 1 - Math.pow(1 - cT, 3);
+          mat.emissive.copy(startColor).lerp(projectColor, cEase);
+
+          // (b) Intensity: flare peak -> resting, across the full travel.
+          const iT = Math.min(elapsedExplosion / travel, 1);
+          const iEase = 1 - Math.pow(1 - iT, 3);
+          mat.emissiveIntensity = THREE.MathUtils.lerp(startIntensity, baseIntensity, iEase);
+          mat.userData.isFading = iT < 1;
         }
 
         mat.needsUpdate = true;
       });
 
-      if (elapsedExplosion >= totalFadeDuration) {
+      if (elapsedExplosion >= travel) {
         fractureGlowStartRef.current = null;
         facetMaterialsRef.current.forEach(mat => {
           if (mat.userData) mat.userData.isFading = false;
@@ -3243,7 +3258,7 @@ const UnifiedCrystalScene = forwardRef(({
     }
 
     // Smooth color transitions for facet materials
-    facetMaterialsRef.current.forEach((mat) => {
+    facetMaterialsRef.current.forEach((mat, idx) => {
       const { targetColor, startColor, progress = 1 } = mat.userData || {};
       if (targetColor && startColor && progress < 1) {
         const speed = 4; // Faster response so hover color is active right as camera settles
@@ -3254,8 +3269,11 @@ const UnifiedCrystalScene = forwardRef(({
         mat.needsUpdate = true;
       }
 
-      // Internal-glow color transition (mutates the uniform value only; no
-      // needsUpdate, no touching material.emissive).
+      // Internal-glow transition (color + intensity), driven by glowProgress so it
+      // runs to completion ONCE and then stops writing — leaving the uniforms static,
+      // exactly like the resting glow (which never flickers). Hovered / selected facets
+      // ramp intensity up to the active level; others ramp back to the resting base.
+      // Mutates uniform values only; no needsUpdate, no touching material.emissive.
       const glowUniforms = mat.userData?.glowUniforms;
       const { glowStartColor, glowTargetColor, glowProgress = 1 } = mat.userData || {};
       if (glowUniforms && glowStartColor && glowTargetColor && glowProgress < 1) {
@@ -3264,6 +3282,20 @@ const UnifiedCrystalScene = forwardRef(({
         const easedGlow = 1 - Math.pow(1 - nextGlowProgress, 3);
         mat.userData.glowProgress = nextGlowProgress;
         glowUniforms.uGlowColor.value.lerpColors(glowStartColor, glowTargetColor, easedGlow);
+
+        const { glowStartIntensity, glowTargetIntensity } = mat.userData;
+        if (
+          glowUniforms.uGlowIntensity &&
+          typeof glowStartIntensity === 'number' &&
+          typeof glowTargetIntensity === 'number' &&
+          !mat.userData?.isFading
+        ) {
+          glowUniforms.uGlowIntensity.value = THREE.MathUtils.lerp(
+            glowStartIntensity,
+            glowTargetIntensity,
+            easedGlow
+          );
+        }
       }
     });
 
@@ -3346,11 +3378,17 @@ const UnifiedCrystalScene = forwardRef(({
   // cause the known material-blackout. Re-keyed on materialVersion so recreated
   // facet clones pick up the current tuning.
   const glowEmissiveIntensity = config?.materials?.crystal?.glow?.emissiveIntensity ?? 0;
+  const glowActiveIntensity = config?.materials?.crystal?.glow?.activeIntensity ?? glowEmissiveIntensity;
   const glowFresnelPower = config?.materials?.crystal?.glow?.fresnelPower ?? 2.5;
   const glowBiasValue = config?.materials?.crystal?.glow?.glowBias ?? 0;
   const glowIntensityScale = performanceProfile?.glowIntensityScale ?? 1;
   useEffect(() => {
     const baseIntensity = glowEmissiveIntensity * glowIntensityScale;
+    // Tier-scaled resting + active facet glow intensities for the hover/select ramp.
+    facetGlowLevelsRef.current = {
+      base: baseIntensity,
+      active: glowActiveIntensity * glowIntensityScale,
+    };
     const params = {
       emissiveIntensity: baseIntensity,
       fresnelPower: glowFresnelPower,
@@ -3388,9 +3426,19 @@ const UnifiedCrystalScene = forwardRef(({
     wholeCrystalGlowMaterialsRef.current = wholeMats;
     wholeCrystalGlowBaseIntensityRef.current = baseIntensity;
 
-    // Facets keep their per-facet glow color (driven by hover/focus); only update.
-    facetMaterialsRef.current.forEach((mat) => updateInternalGlow(mat, params));
-  }, [glowEmissiveIntensity, glowFresnelPower, glowBiasValue, glowIntensityScale, materialVersion, wholeCrystal]);
+    // Facets keep their per-facet glow color (driven by hover/focus). Update fresnel/
+    // bias from params, but set intensity to the facet's OWN level (active when it's the
+    // hovered/selected facet, else base) so a tier/config update doesn't clobber the
+    // lifted active glow back to base (which snapped the hover/select ramp).
+    facetMaterialsRef.current.forEach((mat, idx) => {
+      const key = facetKeys[idx];
+      const active = hoveredFacetRef.current === key || animationData?.focusedFacet === key;
+      updateInternalGlow(mat, {
+        ...params,
+        emissiveIntensity: active ? facetGlowLevelsRef.current.active : baseIntensity,
+      });
+    });
+  }, [glowEmissiveIntensity, glowActiveIntensity, glowFresnelPower, glowBiasValue, glowIntensityScale, materialVersion, wholeCrystal]);
 
   // DEV-only: `__inspectCrystalGlow()` in the browser console dumps the live glow
   // state of the whole-crystal mesh materials + facets so we can see exactly which

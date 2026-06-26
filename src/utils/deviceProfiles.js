@@ -33,12 +33,12 @@ export const PERFORMANCE_PROFILES = {
     // Animations
     simplifiedAnimations: false,
 
-    // Post-processing
+    // Post-processing (vignette off across all tiers; bloom + CA on across all tiers)
     postProcessing: {
       bloom: true,
       chromaticAberration: true,
       noise: true,
-      vignette: true
+      vignette: false
     },
 
     // Fresnel internal-glow intensity scale (multiplies crystal.glow.emissiveIntensity)
@@ -80,16 +80,18 @@ export const PERFORMANCE_PROFILES = {
     // Animations
     simplifiedAnimations: false,
     
-    // Post-processing (noise and vignette enabled for consistency)
+    // Post-processing (vignette off across all tiers; bloom + CA on across all tiers)
     postProcessing: {
       bloom: true,
-      chromaticAberration: false,
+      chromaticAberration: true,
       noise: true,
-      vignette: true
+      vignette: false
     },
 
-    // Fresnel internal-glow intensity scale (multiplies crystal.glow.emissiveIntensity)
-    glowIntensityScale: 0.7,
+    // Fresnel internal-glow intensity scale (multiplies crystal.glow.emissiveIntensity).
+    // Now that medium keeps high's transmission, the glow reads close to high; held just
+    // under 1.0 to hedge medium's flatter (normal-maps-off) surface. Tune in-browser.
+    glowIntensityScale: 0.85,
 
     // All tiers now target a 60 FPS baseline
     targetFPS: 60,
@@ -127,12 +129,14 @@ export const PERFORMANCE_PROFILES = {
     // Animations
     simplifiedAnimations: false,
     
-    // Post-processing (bloom/CA vary, noise and vignette always on)
+    // Post-processing (vignette off across all tiers; bloom + CA on across all tiers).
+    // NOTE: bloom + CA were previously off on low for performance — re-enabled per
+    // request for visual consistency; watch low-end FPS.
     postProcessing: {
-      bloom: false,
-      chromaticAberration: false,
+      bloom: true,
+      chromaticAberration: true,
       noise: true,
-      vignette: true
+      vignette: false
     },
 
     // Fresnel internal-glow intensity scale (multiplies crystal.glow.emissiveIntensity)
@@ -168,11 +172,12 @@ export const PERFORMANCE_PROFILES = {
     reducedParticles: false,
     simplifiedAnimations: false,
     
+    // Post-processing (vignette off across all tiers; bloom + CA on across all tiers)
     postProcessing: {
       bloom: true,
       chromaticAberration: true,
       noise: true,
-      vignette: true
+      vignette: false
     },
 
     glowIntensityScale: 1.0,

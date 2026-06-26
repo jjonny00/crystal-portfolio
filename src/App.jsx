@@ -426,7 +426,7 @@ function App() {
     bloom: true,
     chromaticAberration: true,
     noise: true,
-    vignette: true
+    vignette: false
   });
   const [postProcessingConfig, setPostProcessingConfig] = useState(config.postProcessing);
   const [viewMode, setViewMode] = useState('overview');
@@ -449,11 +449,13 @@ function App() {
   // Initialize effects from the detected device profile
   useEffect(() => {
     if (performanceProfile?.postProcessing) {
-      // Apply unified noise and vignette settings regardless of profile
+      // Apply unified noise and vignette settings regardless of profile.
+      // Vignette is off across all tiers; bloom + CA come from the profile
+      // (now enabled on every tier). Noise stays always-on.
       const unifiedEffects = {
         ...performanceProfile.postProcessing,
         noise: true,        // Always enabled
-        vignette: true      // Always enabled
+        vignette: false     // Off across all tiers
       };
 
       setEffectsEnabled(unifiedEffects);

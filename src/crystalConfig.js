@@ -409,6 +409,7 @@ export const materials = {
     glow: {
       color: '#4800ff',         // non-project (default) internal glow color
       emissiveIntensity: 0.30,  // 'high' reference; device tiers scale this
+      activeIntensity: 0.90,    // glow brightness when a facet is hovered or is the selected project (device tiers scale this too)
       fresnelPower: 3.7,        // higher = tighter, more centered core
       glowBias: 0.19,            // 0 = tight center core; higher reaches toward edges
       pulseSpeed: 1.5,          // Hero pulse frequency (rad/sec); 0 = no pulse

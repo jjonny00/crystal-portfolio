@@ -109,9 +109,10 @@ const CrystalMaterial = ({
           break;
       }
 
-      // Apply medium quality tweaks
+      // Apply medium quality tweaks. Transmission is intentionally NOT reduced here:
+      // a more-opaque surface makes the additive internal glow read much brighter
+      // (and bloom amplifies it), so medium keeps high's transmission for glow parity.
       if (isMedium && usePBR) {
-        baseConfig.transmission *= 0.7;
         if (baseConfig.clearcoat !== undefined) baseConfig.clearcoat *= 0.7;
         if (baseConfig.iridescence !== undefined) baseConfig.iridescence *= 0.5;
       }
@@ -304,7 +305,7 @@ const CrystalMaterial = ({
       }
 
       if (isMedium && usePBR) {
-        material.transmission *= 0.7;
+        // Transmission intentionally kept at high's value for glow parity (see note above).
         if (material.clearcoat !== undefined) material.clearcoat *= 0.7;
         if (material.iridescence !== undefined) material.iridescence *= 0.5;
       }
