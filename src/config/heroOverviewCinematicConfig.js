@@ -99,10 +99,14 @@ export const HERO_OVERVIEW_CINEMATIC_CONFIG = {
   ring: {
     enabled: true,
     triggerAt: 0.56,
-    duration: 0.22,
-    startScale: 0.01,
-    endScale: 18.0,
-    easing: 'easeOutExpo',
+    // Tuned for a visible outward sweep. The previous values
+    // (duration 0.22 / easeOutExpo / startScale 0.01 / endScale 18) front-loaded
+    // the entire expansion into ~4 frames, so the ring read as a near-invisible
+    // single-frame flash. A longer linear sweep makes the shockwave readable.
+    duration: 0.28,
+    startScale: 0.7,
+    endScale: 25.0,
+    easing: 'linear',
     wired: true,
   }
 };
