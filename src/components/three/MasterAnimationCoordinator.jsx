@@ -5,9 +5,6 @@ import { useScrollProgress } from '../../hooks/useScrollProgress';
 import { useUnifiedAnimationController } from '../../hooks/useUnifiedAnimationController';
 import { getSceneFacetKeyByProjectId } from '../../data/projects';
 
-let exportedAnimationData = {};
-let exportedScrollMetrics = {};
-
 /**
  * SIMPLIFIED: Master Animation Coordinator with keyboard-controlled debug
  */
@@ -99,8 +96,6 @@ const MasterAnimationCoordinator = ({
     scrollData.velocity
   ]);
 
-  exportedScrollMetrics = scrollMetrics;
-
   // Stable scroll controls - primarily used for label clicks
   const scrollControls = useMemo(() => ({
     scrollToProgress: scrollData.scrollToProgress,
@@ -170,8 +165,6 @@ const MasterAnimationCoordinator = ({
     viewMode,
     activeProjectId
   ]);
-
-  exportedAnimationData = animationData;
 
   // Clone children and pass only required fields
   const childrenWithProps = React.Children.map(children, child => {
@@ -291,5 +284,4 @@ const DebugOverlay = ({ scrollData, animationData, animationController }) => {
   );
 };
 
-export { exportedAnimationData as animationData, exportedScrollMetrics as scrollMetrics };
 export default MasterAnimationCoordinator;

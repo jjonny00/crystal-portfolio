@@ -159,5 +159,3 @@ export const updateInternalGlow = (
 
   return material;
 };
-
-export const INTERNAL_GLOW_PROGRAM_CACHE_KEY = PROGRAM_CACHE_KEY;

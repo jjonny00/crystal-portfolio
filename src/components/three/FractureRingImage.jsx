@@ -216,48 +216,4 @@ const FractureRingImage = ({
   );
 };
 
-// Export with some preset configurations for easy use
-export const FractureRingPresets = {
-  // Quick, small burst
-  quick: {
-    baseSize: 0.3,
-    maxScale: 8,
-    duration: 0.2,
-    fadeInDuration: 0.05,
-    fadeOutDuration: 0.15,
-    scaleEasing: 'easeOut'
-  },
-  
-  // Slow, dramatic expansion
-  dramatic: {
-    baseSize: 0.1,
-    maxScale: 35,
-    duration: 1.0,
-    fadeInDuration: 0.2,
-    fadeOutDuration: 0.6,
-    scaleEasing: 'easeOut'
-  },
-  
-  // Bouncy effect
-  bouncy: {
-    baseSize: 0.5,
-    maxScale: 20,
-    duration: 0.8,
-    fadeInDuration: 0.1,
-    fadeOutDuration: 0.4,
-    scaleEasing: 'bounce'
-  },
-  
-  // Delayed explosion
-  delayed: {
-    baseSize: 0.5,
-    maxScale: 24,
-    duration: 0.4,
-    fadeInDuration: 0.1,
-    fadeOutDuration: 0.3,
-    triggerDelay: 0.3, // 300ms delay
-    scaleEasing: 'easeOut'
-  }
-};
-
 export default FractureRingImage;

@@ -51,5 +51,3 @@ export const createLogger = (scope) => {
     },
   };
 };
-
-export const DEBUG_LOG_KEY = DEBUG_FLAG_KEY;
