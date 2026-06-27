@@ -43,6 +43,7 @@ const NAV_ITEM_BASE_STYLE = {
   fontSize: '24px',
   fontStyle: 'normal',
   fontStretch: 'condensed',
+  fontVariationSettings: '"wdth" 75',
   fontWeight: 500,
   lineHeight: 'normal',
   textTransform: 'uppercase',

@@ -39,6 +39,7 @@
   font-family: 'acumin-variable', 'Acumin VF', sans-serif;
   font-style: normal;
   font-stretch: 50%;
+  --wdth: 50;
   font-size: 200px;
   font-weight: 700;
   line-height: 160px !important;

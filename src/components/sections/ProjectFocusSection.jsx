@@ -102,6 +102,7 @@ const ProjectFocusSection = ({
               fontSize: isMobile ? 'clamp(2.2rem, 11vw, 2.9rem)' : '96px',
               fontStyle: 'normal',
               fontStretch: '68%',
+              fontVariationSettings: '"wdth" 68',
               fontWeight: 700,
               lineHeight: isMobile ? '1' : '96px',
               letterSpacing: isMobile ? '-0.02em' : '-1.92px',

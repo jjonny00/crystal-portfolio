@@ -921,11 +921,11 @@ const Fixed3DCanvas = forwardRef(({
 
           {/* UPDATED: Enhanced MistyLayerStack with highest render order */}
           <MistyLayerStack
-            y={0.4}              // Position above crystal
-            width={18}         // Wide coverage
-            height={9}      // 2:1 aspect ratio with new texture
+            y={1.3}              // Position above crystal
+            width={24}         // Wide coverage
+            height={10}      // 2:1 aspect ratio with new texture
             layers={3}         // Multiple layers for depth
-            opacity={0.4}      // Semi-transparent
+            opacity={0.1}      // Semi-transparent
             drift={{ x: 0.002, y: 0.0 }}  // Gentle drift
             pulseAmp={0.007}   // Subtle pulsing
             pulseFreq={0.1}    // Slow pulse frequency

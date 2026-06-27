@@ -14,6 +14,9 @@
         margin: 0;
         padding: 0;
         box-sizing: border-box;
+        /* Match src/index.css: drive the variable-font width axis directly so
+           condensed Acumin renders on iOS Safari (see src/index.css for why). */
+        font-variation-settings: "wdth" var(--wdth, 100);
       }
 
       body {
@@ -22,6 +25,7 @@
         font-family: "acumin-variable", sans-serif;
         font-weight: 300;
         font-stretch: 87.5%;
+        --wdth: 87.5;
         overflow: hidden;
       }
     </style>

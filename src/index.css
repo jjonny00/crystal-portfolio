@@ -4,6 +4,11 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  /* Drive the variable-font width axis directly. Adobe's @font-face for
+     acumin-variable only advertises font-stretch: normal, so iOS Safari clamps
+     `font-stretch: <pct>` to 100%. Setting "wdth" explicitly bypasses that.
+     Only the width axis is named so per-element font-weight is unaffected. */
+  font-variation-settings: "wdth" var(--wdth, 100);
 }
 
 /* CRITICAL: Clean document scroll setup */
@@ -18,6 +23,7 @@ body {
   font-family: 'acumin-variable', sans-serif;
   font-weight: 300;
   font-stretch: 87.5%;
+  --wdth: 87.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-color: #050505;
