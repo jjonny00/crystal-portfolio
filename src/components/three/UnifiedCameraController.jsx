@@ -12,6 +12,21 @@ import { resolveCameraDestination } from '../../camera/destinationResolver';
 import { HERO_OVERVIEW_CINEMATIC_RESOLVED, HERO_OVERVIEW_EASING } from '../../config/heroOverviewCinematicConfig';
 
 const logger = createLogger('unified-camera-controller');
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MOUSE INTERACTION TUNING — the single place to adjust how the camera reacts to
+// the mouse in each zone. All angles are in radians (0.105 ≈ 6°, 0.16 ≈ 9°).
+//   maxAzimuth : horizontal swing toward the cursor at full mouse extent (bigger = more sway)
+//   maxPolar   : vertical tilt toward the cursor at full mouse extent
+//   easeK      : follow speed (higher = snappier/lighter, lower = heavier/laggier)
+// `about` has no mouse tracking — only a constant slow drift in radians/second.
+// (Disabled automatically on touch devices.)
+// ─────────────────────────────────────────────────────────────────────────────
+const MOUSE_INTERACTION = {
+  hero:            { maxAzimuth: 0.26,  maxPolar: 0.1,  easeK: 0.005 }, // weightiest / most pronounced
+  overviewProject: { maxAzimuth: 0.1, maxPolar: 0.04, easeK: 1 }, // overview + selected project
+  aboutOrbitSpeed: 0.01,                                            // rad/sec constant auto-orbit
+};
 const HERO_OVERVIEW_DIRECTOR_ENV_FORCE_PILOT =
   typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_CAMERA_DIRECTOR_HERO_OVERVIEW_PILOT != null
     ? String(import.meta.env.VITE_CAMERA_DIRECTOR_HERO_OVERVIEW_PILOT).toLowerCase() === 'true'
@@ -128,6 +143,23 @@ const UnifiedCameraController = ({
   const isOrbitingRef = useRef(false);
   const orbitRadiusRef = useRef(0);
   const orbitHeightRef = useRef(0);
+
+  // Subtle mouse parallax (overview/project) + slow auto-orbit (about) layered on the
+  // settled fallback camera. Eased angle refs persist between frames; temp vectors are
+  // reused each frame to avoid allocations.
+  const parallaxAzimuthRef = useRef(0);
+  const parallaxPolarRef = useRef(0);
+  const parallaxOffsetTempRef = useRef(new THREE.Vector3());
+  const parallaxRightTempRef = useRef(new THREE.Vector3());
+  const parallaxAimTempRef = useRef(new THREE.Vector3());
+  // Normalized [-1,1] mouse position from a window listener. The canvas has
+  // pointerEvents:none (PerformanceManagerV2), so r3f's state.pointer never updates — the
+  // hero orbit listens on window for the same reason.
+  const parallaxPointerRef = useRef(new THREE.Vector2(0, 0));
+  // Latch: once the camera has settled in a zone, keep parallax active even though applying
+  // the offset momentarily un-settles the camera. Without this the offset toggles on/off
+  // every frame and the camera jumps. Reset on zone change.
+  const parallaxLatchRef = useRef(false);
   
   // Current camera target tracking
   const currentTarget = useRef({
@@ -200,6 +232,14 @@ const UnifiedCameraController = ({
   const POINTER_DIRECTION_DISTANCE = 0.00055;
   const POINTER_DIRECTION_DOT = 0.48;
   const POINTER_MAX_SPEED = 0.0021;
+  // Mouse interaction feel — tune these in MOUSE_INTERACTION at the top of this file.
+  const PARALLAX_MAX_AZIMUTH = MOUSE_INTERACTION.overviewProject.maxAzimuth;
+  const PARALLAX_MAX_POLAR = MOUSE_INTERACTION.overviewProject.maxPolar;
+  const PARALLAX_EASE_K = MOUSE_INTERACTION.overviewProject.easeK;
+  const ABOUT_AUTO_ORBIT_SPEED = MOUSE_INTERACTION.aboutOrbitSpeed;
+  const HERO_PARALLAX_MAX_AZIMUTH = MOUSE_INTERACTION.hero.maxAzimuth;
+  const HERO_PARALLAX_MAX_POLAR = MOUSE_INTERACTION.hero.maxPolar;
+  const HERO_PARALLAX_EASE_K = MOUSE_INTERACTION.hero.easeK;
   const INTRO_DURATION_MS = 4400;
   const HERO_VERTICAL_FRAMING_SCALE = 0; // Temporary isolate: disable authored Y framing
   const HERO_VERTICAL_FRAMING_SIGN = 1;
@@ -919,13 +959,15 @@ const UnifiedCameraController = ({
   };
 
 
-  const updateAuthoritativeHeroCamera = ({ elapsed, center, filmOffsetX = 0, tuning }) => {
+  const updateAuthoritativeHeroCamera = ({ elapsed, center, filmOffsetX = 0, tuning, azimuthOffset = 0, polarOffset = 0 }) => {
     const orbitElapsed = elapsed - heroOrbitStartTimeRef.current;
     const snapshot = getAuthoritativeHeroCameraSnapshot({
       elapsed: orbitElapsed,
       center,
       tuning,
       filmOffsetX,
+      azimuthOffset,
+      polarOffset,
     });
     camera.position.copy(snapshot.position);
     camera.lookAt(snapshot.lookAtTarget);
@@ -934,16 +976,27 @@ const UnifiedCameraController = ({
     return snapshot;
   };
 
-  const getAuthoritativeHeroCameraSnapshot = ({ elapsed = 0, center, tuning, filmOffsetX, angleOverride }) => {
-    const angle = Number.isFinite(angleOverride)
+  const getAuthoritativeHeroCameraSnapshot = ({ elapsed = 0, center, tuning, filmOffsetX, angleOverride, azimuthOffset = 0, polarOffset = 0 }) => {
+    // azimuthOffset folds the mouse sway straight into the orbit angle (horizontal);
+    // polarOffset tilts the camera vertically around the look target. Both default to 0 so
+    // the exit-continuity / diagnostic callers get the un-swayed pose.
+    const baseAngle = Number.isFinite(angleOverride)
       ? angleOverride
       : tuning.baseAngle + elapsed * tuning.orbitSpeed;
+    const angle = baseAngle + azimuthOffset;
+    const lookAtTarget = new THREE.Vector3(center.x, center.y + tuning.lookAtYOffset, center.z);
     const position = new THREE.Vector3(
       center.x + Math.sin(angle) * tuning.radius,
       center.y + tuning.height,
       center.z + Math.cos(angle) * tuning.radius,
     );
-    const lookAtTarget = new THREE.Vector3(center.x, center.y + tuning.lookAtYOffset, center.z);
+    if (polarOffset) {
+      const off = position.clone().sub(lookAtTarget);
+      const up = new THREE.Vector3(0, 1, 0);
+      const right = up.clone().cross(off).normalize();
+      off.applyAxisAngle(right, polarOffset);
+      position.copy(lookAtTarget).add(off);
+    }
     return {
       position,
       lookAtTarget,
@@ -1343,6 +1396,27 @@ const UnifiedCameraController = ({
     };
   }, [animationData?.cameraState, animationData?.state]);
 
+  // Track normalized mouse position for the settled-camera parallax (overview/project).
+  // Separate from the hero handler because it must run in non-hero zones and only needs a
+  // position, not velocity. Skipped on touch devices.
+  useEffect(() => {
+    if (typeof window === 'undefined' || isTouchDeviceRef.current) return undefined;
+
+    const handleParallaxPointer = (event) => {
+      const nx = (event.clientX / window.innerWidth) * 2 - 1;
+      const ny = -((event.clientY / window.innerHeight) * 2 - 1);
+      parallaxPointerRef.current.set(
+        THREE.MathUtils.clamp(nx, -1, 1),
+        THREE.MathUtils.clamp(ny, -1, 1)
+      );
+    };
+
+    window.addEventListener('pointermove', handleParallaxPointer, { passive: true });
+    return () => {
+      window.removeEventListener('pointermove', handleParallaxPointer);
+    };
+  }, []);
+
   useEffect(() => {
     // FIXED: Reset orbit state when camera state changes
     if (animationData?.cameraState !== lastCameraStateRef.current) {
@@ -1357,6 +1431,10 @@ const UnifiedCameraController = ({
       pointerSwitchDistanceRef.current = 0;
       targetOrbitVelocityRef.current.set(0, 0);
       orbitVelocityRef.current.set(0, 0);
+      // Reset settled-camera parallax so re-entering a zone (esp. about) starts at angle 0
+      parallaxAzimuthRef.current = 0;
+      parallaxPolarRef.current = 0;
+      parallaxLatchRef.current = false;
 
       if (animationData?.cameraState === 'hero' && previousCameraState !== 'hero') {
         syncHeroCameraRefs('cameraState-transition-to-hero', { resetPosition: false });
@@ -6770,11 +6848,23 @@ const UnifiedCameraController = ({
       const { tuning, source: tuningSource } = resolveHeroTuning(config);
       const configuredFilmOffsetX = config?.cameraComposition?.hero?.filmOffsetX;
       const resolvedFilmOffsetX = Number.isFinite(configuredFilmOffsetX) ? configuredFilmOffsetX : 0;
+      // Mouse parallax: ease the swing toward the cursor position and fold it into the
+      // authoritative orbit so the slow auto-orbit and the mouse sway combine. Skipped on
+      // touch devices. Heavier (larger, slower) than the other zones for a weighty feel.
+      if (!isTouchDeviceRef.current) {
+        const targetAz = parallaxPointerRef.current.x * HERO_PARALLAX_MAX_AZIMUTH;
+        const targetPol = parallaxPointerRef.current.y * HERO_PARALLAX_MAX_POLAR;
+        const ease = Math.min(Math.max(1 - Math.exp(-HERO_PARALLAX_EASE_K * delta), 0.01), 1);
+        parallaxAzimuthRef.current += (targetAz - parallaxAzimuthRef.current) * ease;
+        parallaxPolarRef.current += (targetPol - parallaxPolarRef.current) * ease;
+      }
       const snapshot = updateAuthoritativeHeroCamera({
         elapsed: state.clock.elapsedTime,
         center,
         filmOffsetX: resolvedFilmOffsetX,
         tuning,
+        azimuthOffset: parallaxAzimuthRef.current,
+        polarOffset: parallaxPolarRef.current,
       });
       lastAuthoritativeHeroSnapshotRef.current = {
         position: snapshot.position.clone(),
@@ -7577,8 +7667,12 @@ const UnifiedCameraController = ({
           filmOffsetX,
           orbitStartTime: heroOrbitStartTimeRef.current,
         });
-        fractureTiltAnchorPositionRef.current.copy(authoritativeSnapshot.position);
-        fractureTiltAnchorLookAtRef.current.copy(authoritativeSnapshot.lookAtTarget);
+        // Anchor to the actually-rendered hero pose (which includes the mouse parallax
+        // sway) rather than the freshly-recomputed base pose, so the explosion doesn't snap
+        // away from where the swayed camera currently sits.
+        const renderedHeroPose = latestAuthoritativeHeroSnapshotRef.current;
+        fractureTiltAnchorPositionRef.current.copy(renderedHeroPose?.position ?? authoritativeSnapshot.position);
+        fractureTiltAnchorLookAtRef.current.copy(renderedHeroPose?.lookAtTarget ?? authoritativeSnapshot.lookAtTarget);
         fractureTiltLockSeededRef.current = true;
       }
       if (!explosionFirstFrameLoggedRef.current && explosionSyncStartRef.current) {
@@ -8048,8 +8142,52 @@ const UnifiedCameraController = ({
     const smoothingFactor = 1 - Math.exp(-6 * delta);
     const clampedSmoothing = Math.min(Math.max(smoothingFactor, 0.01), 0.15);
 
+    // Settled-camera "delight": rotate a small offset around the lookAt point so the camera
+    // gently sways. overview/project track the mouse position (hold the offset when still);
+    // about drifts continuously. Recomputed from the immutable base target each frame, so it
+    // never accumulates. Lerp toward this aim instead of the raw target; the lookAt path is
+    // unchanged so framing and camera.up stay stable.
+    const parallaxCameraState = animationData?.cameraState;
+    // Gate on the latch (set once the zone first settles), NOT the live settle flag —
+    // applying the offset momentarily un-settles the camera, and gating on the live flag
+    // would toggle the offset on/off every frame and jump. (Hero is handled separately in
+    // the AUTHORITATIVE_HERO branch, which idle hero reaches instead of this fallback.)
+    const parallaxEligible =
+      !isTouchDeviceRef.current &&
+      parallaxLatchRef.current &&
+      (parallaxCameraState === 'overview' || parallaxCameraState === 'project');
+    const aboutAutoOrbitEligible =
+      parallaxLatchRef.current && parallaxCameraState === 'about';
+
+    if (parallaxEligible) {
+      const targetAz = parallaxPointerRef.current.x * PARALLAX_MAX_AZIMUTH;
+      const targetPol = parallaxPointerRef.current.y * PARALLAX_MAX_POLAR;
+      const ease = Math.min(Math.max(1 - Math.exp(-PARALLAX_EASE_K * delta), 0.01), 1);
+      parallaxAzimuthRef.current += (targetAz - parallaxAzimuthRef.current) * ease;
+      parallaxPolarRef.current += (targetPol - parallaxPolarRef.current) * ease;
+    } else if (aboutAutoOrbitEligible) {
+      parallaxAzimuthRef.current += ABOUT_AUTO_ORBIT_SPEED * delta;
+      parallaxPolarRef.current = 0;
+    }
+
+    const aimPosition = parallaxAimTempRef.current.copy(currentTarget.current.position);
+    if (parallaxEligible || aboutAutoOrbitEligible) {
+      const up = getCanonicalCameraUp();
+      const off = parallaxOffsetTempRef.current
+        .subVectors(currentTarget.current.position, currentTarget.current.lookAt);
+      off.applyAxisAngle(up, parallaxAzimuthRef.current);
+      const right = parallaxRightTempRef.current.crossVectors(up, off).normalize();
+      off.applyAxisAngle(right, parallaxPolarRef.current);
+      aimPosition.addVectors(currentTarget.current.lookAt, off);
+    }
+    // about orbits continuously, so compare settle against the un-rotated base (otherwise it
+    // would never settle and would corrupt cameraSettled for downstream consumers).
+    const settleComparePosition = aboutAutoOrbitEligible
+      ? currentTarget.current.position
+      : aimPosition;
+
     // Smooth position interpolation
-    camera.position.lerp(currentTarget.current.position, clampedSmoothing);
+    camera.position.lerp(aimPosition, clampedSmoothing);
 
     // Smooth look-at interpolation
     const currentDirection = currentDirectionTempRef.current;
@@ -8102,8 +8240,9 @@ const UnifiedCameraController = ({
     logCameraWrite(state, animationData?.cameraState === "hero" ? "HERO_IDLE" : "FALLBACK", "smoothed-update", newLookAt, true, false);
     if (isUccVerboseLogsEnabled()) console.log('[UCC END FRAME]', { elapsed: state.clock.elapsedTime, finalCameraPosition: camera.position.toArray(), finalFilmOffset: camera.filmOffset, finalWriter: lastCameraWriterRef.current });
 
-    // Check if camera has settled at target
-    const positionDiff = camera.position.distanceTo(currentTarget.current.position);
+    // Check if camera has settled at target (against the parallax aim, except about which
+    // orbits continuously and is compared against its un-rotated base — see above).
+    const positionDiff = camera.position.distanceTo(settleComparePosition);
     const lookAtDiff = currentDirection.angleTo(targetDirection);
     const fovDistance = Math.abs(currentTarget.current.fov - camera.fov);
     const baselinePosition = Math.max(cameraMoveBaselineRef.current.position, SETTLE_EPSILON);
@@ -8134,12 +8273,31 @@ const UnifiedCameraController = ({
         animationData?.setCameraSettled?.(true);
       }
     } else {
-      if (cameraSettledRef.current) {
-        cameraSettledRef.current = false;
-        animationData?.setCameraSettled?.(false);
+      // Once the parallax latch is armed, the camera HAS arrived — the only thing moving it
+      // is the cosmetic mouse sway / about drift. Don't report un-settled for that, or
+      // consumers keyed off cameraSettled (e.g. the focused-facet float in
+      // UnifiedCrystalScene) hitch every time the mouse moves. Real transitions reset the
+      // latch (on cameraState change) so this stays correct.
+      const parallaxHolding =
+        parallaxLatchRef.current &&
+        (parallaxCameraState === 'overview' ||
+          parallaxCameraState === 'project' ||
+          parallaxCameraState === 'about');
+      if (!parallaxHolding) {
+        if (cameraSettledRef.current) {
+          cameraSettledRef.current = false;
+          animationData?.setCameraSettled?.(false);
+        }
+        settleFrameCount.current = 0;
+        orbitInitDelayRef.current = 0; // ADDED: Reset orbit delay when not settled
       }
-      settleFrameCount.current = 0;
-      orbitInitDelayRef.current = 0; // ADDED: Reset orbit delay when not settled
+    }
+
+    // Latch parallax on the first settle in a zone. Once latched it stays active until the
+    // zone changes (reset in the cameraState-change effect), so the offset no longer toggles
+    // with the per-frame settle flag.
+    if (cameraSettledRef.current) {
+      parallaxLatchRef.current = true;
     }
 
     sampleOverviewProjectShadow({
