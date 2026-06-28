@@ -370,7 +370,7 @@ const CrystalMaterial = ({
           texture.colorSpace = THREE.SRGBColorSpace;
 
           // ENHANCED: Adaptive normal scale based on PBR mode
-          const normalScale = usePBR ? new THREE.Vector2(0.02, 0.02) : new THREE.Vector2(0.4, 0.4);
+          const normalScale = usePBR ? new THREE.Vector2(0.02, 0.03) : new THREE.Vector2(0.4, 0.4);
           
           materialRef.current.normalMap = texture;
           materialRef.current.normalScale = normalScale;

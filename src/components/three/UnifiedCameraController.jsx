@@ -8281,6 +8281,7 @@ const UnifiedCameraController = ({
       const parallaxHolding =
         parallaxLatchRef.current &&
         (parallaxCameraState === 'overview' ||
+          parallaxCameraState === 'project' ||
           parallaxCameraState === 'about');
       if (!parallaxHolding) {
         if (cameraSettledRef.current) {
