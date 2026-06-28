@@ -63,10 +63,28 @@ const GlowingSphereImage = ({
   enableAntialiasing = true,
   textureFiltering = 'enhanced', // 'basic', 'enhanced', 'premium'
   
+  // Energy pulse (subtle breathing once settled)
+  pulseSpeed = 1.0,            // radians/sec of the primary pulse
+  pulseScaleAmount = 0.1,     // ±6% scale breathing
+  pulseOpacityAmount = 0.07,   // ±14% brightness flicker
+
   // Position and visibility
   position = [0, 0, 0],
   visible = false,
-  
+
+  // Draw order. Default keeps the orb in front; pass a value below the project
+  // facets' order to render the glow behind them (halo / silhouette backdrop).
+  renderOrder = 999,
+
+  // Push the plane this many world units away from the camera (along the view
+  // axis) before rendering, with on-screen size held constant via scale
+  // compensation. The crystal facets are *transmissive* (transmission > 0), so
+  // they render in three.js's separate transmission pass — which `renderOrder`
+  // cannot reorder against. To make this glow read as a true backdrop behind
+  // the facets, we sit it physically behind the whole cluster so depth-testing
+  // (not draw order) keeps every facet in front of it. Default 0 = no push.
+  depthPush = 0,
+
   // Animation state
   animationData = null,
 
@@ -75,7 +93,13 @@ const GlowingSphereImage = ({
   simplifiedAnimations = false
 }) => {
   const meshRef = useRef();
-  
+
+  // Reused scratch vectors for the per-frame depth-push (avoids allocation).
+  const depthScratch = useMemo(() => ({
+    base: new THREE.Vector3(),
+    dir: new THREE.Vector3(),
+  }), []);
+
   // Simple state
   const [isExploding, setIsExploding] = useState(false);
   const [startTime, setStartTime] = useState(0);
@@ -235,26 +259,52 @@ const GlowingSphereImage = ({
   useFrame((state, deltaTime) => {
     if (!meshRef.current || !visible) return;
 
+    // Optionally push the plane back behind the cluster (see `depthPush` above),
+    // keeping on-screen size constant by scaling up in proportion to the added
+    // distance. Compute before lookAt so the plane re-faces the camera from its
+    // pushed position.
+    let depthScaleComp = 1;
+    if (depthPush > 0) {
+      depthScratch.base.set(position[0], position[1], position[2]);
+      depthScratch.dir.copy(depthScratch.base).sub(state.camera.position);
+      const dist0 = depthScratch.dir.length();
+      if (dist0 > 1e-4) {
+        depthScratch.dir.divideScalar(dist0); // normalize (away from camera)
+        meshRef.current.position
+          .copy(depthScratch.base)
+          .addScaledVector(depthScratch.dir, depthPush);
+        depthScaleComp = (dist0 + depthPush) / dist0;
+      }
+    }
+
     // Face camera
     meshRef.current.lookAt(state.camera.position);
-    
+
     if (isExploding) {
       const elapsed = (Date.now() - startTime) / 1000;
       const explosionProgress = Math.min(elapsed / explosionDuration, 1);
       const fadeProgress = Math.min(elapsed / fadeInDuration, 1);
-      
+
       const scale = baseWorldSize + (maxWorldSize - baseWorldSize) * explosionProgress;
       const opacity = fadeProgress * maxOpacity;
 
-      meshRef.current.scale.setScalar(scale);
-      material.opacity = opacity;
-      
+      // Subtle energetic pulse, layered in only once the glow has settled so it
+      // doesn't fight the fade-in. Two slightly detuned sines avoid an obvious
+      // metronome cadence and read as living energy rather than a loop.
+      const t = state.clock.elapsedTime;
+      const pulse = Math.sin(t * pulseSpeed) * 0.7 + Math.sin(t * pulseSpeed * 1.7 + 1.3) * 0.3;
+      const scalePulse = 1.0 + pulse * pulseScaleAmount * explosionProgress;
+      const opacityPulse = 0.55 + pulse * pulseOpacityAmount * fadeProgress;
+
+      meshRef.current.scale.setScalar(scale * scalePulse * depthScaleComp);
+      material.opacity = Math.min(1, opacity * opacityPulse);
+
     } else {
       const currentOpacity = material.opacity;
       if (currentOpacity > 0) {
         material.opacity = Math.max(0, currentOpacity - 0.05 * deltaTime * 60);
         if (material.opacity <= 0) {
-          meshRef.current.scale.setScalar(baseWorldSize);
+          meshRef.current.scale.setScalar(baseWorldSize * depthScaleComp);
         }
       }
     }
@@ -269,7 +319,7 @@ const GlowingSphereImage = ({
       material={material}
       position={position}
       scale={[baseWorldSize, baseWorldSize, baseWorldSize]}
-      renderOrder={999} // Render after other objects to avoid z-fighting
+      renderOrder={renderOrder}
     />
   );
 };

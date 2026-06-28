@@ -13,6 +13,7 @@ import { attachInternalGlow, updateInternalGlow, hasInternalGlow, FACET_GLOW_PRO
 
 // Import enhanced sphere component
 import GlowingSphereImage, { BLEND_STYLES } from './GlowingSphereImage'
+import OrbEnergyParticles from './OrbEnergyParticles'
 import FractureRingImage from './FractureRingImage'
 import projects, {
   facetKeys as canonicalFacetKeys,
@@ -3673,6 +3674,28 @@ const UnifiedCrystalScene = forwardRef(({
         debugMode={import.meta.env.DEV}
       />
 
+      {/* Backdrop halo glow — twice the spread, half the opacity, rendered
+          behind the project facets (negative renderOrder) so the facets read as
+          dramatic silhouettes against it. */}
+      <GlowingSphereImage
+        blendStyle={BLEND_STYLES.ADDITIVE}
+        enableDithering={true}
+        enableAntialiasing={true}
+        textureFiltering="enhanced"
+        baseSize={256}
+        maxScale={9000}
+        maxOpacity={0.9}
+        explosionDuration={0.05}
+        fadeInDuration={0.02}
+        position={[0, 0, 0]}
+        visible={sphereVisible}
+        renderOrder={-10}
+        depthPush={8}
+        animationData={animationData}
+        simplifiedAnimations={simplifiedAnimations}
+        debugMode={import.meta.env.DEV}
+      />
+
       {/* Enhanced Glowing Sphere */}
       <GlowingSphereImage
         blendStyle={BLEND_STYLES.ADDITIVE}
@@ -3680,8 +3703,8 @@ const UnifiedCrystalScene = forwardRef(({
         enableAntialiasing={true}
         textureFiltering="enhanced"
         baseSize={256}
-        maxScale={1280}
-        maxOpacity={1.0}
+        maxScale={3500}
+        maxOpacity={0.65}
         explosionDuration={0.05}
         fadeInDuration={0.02}
         position={[0, 0, 0]}
@@ -3689,6 +3712,13 @@ const UnifiedCrystalScene = forwardRef(({
         animationData={animationData}
         simplifiedAnimations={simplifiedAnimations}
         debugMode={import.meta.env.DEV}
+      />
+
+      {/* Fine flickering energy motes swarming the orb */}
+      <OrbEnergyParticles
+        enabled={!simplifiedAnimations}
+        visible={sphereVisible}
+        position={[0, 0, 0]}
       />
 
       {!simplifiedAnimations && heroOverviewEffectsManualMode && heroOverviewExplosionParticlesConfig.enabled && (

@@ -408,7 +408,7 @@ const MaterialManager = ({
         texture.anisotropy = 1;
 
         target.normalMap = texture;
-        target.normalScale = new THREE.Vector2(0.5, 0.5);
+        target.normalScale = new THREE.Vector2(0.0075, 0.01);
         target.needsUpdate = true;
 
         if (import.meta.env.DEV) console.log('✅ Normal map added');

@@ -395,12 +395,12 @@ export const materials = {
     attenuationDistance: 0.5,
     clearcoat: 0.8,
     clearcoatRoughness: 0.05,
-    envMapIntensity: 15.0,
+    envMapIntensity: 7.0,
     // reflectivity intentionally omitted — it is derived from `ior` on
     // MeshPhysicalMaterial (see ior note above). Setting it breaks the IOR control.
-    specularIntensity: 1.0,
+    specularIntensity: 2.0,
     specularColor: new THREE.Color('#ffffff'),
-    emissive: new THREE.Color('#050c4e'),
+    emissive: new THREE.Color('#02062b'),
     emissiveIntensity: 0, // Default, will be changed dynamically
     opacity: 0.98,
 
