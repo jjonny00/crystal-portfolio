@@ -28,7 +28,7 @@ export default function MistyLayerStack({
   const { camera } = useThree()
 
   // Load the tileable mist texture
-  const tex = useTexture('/assets/textures/mist04.jpg')
+  const tex = useTexture('/assets/textures/mist05.jpg')
   tex.wrapS = THREE.RepeatWrapping
   tex.wrapT = THREE.RepeatWrapping
   tex.minFilter = THREE.LinearMipmapLinearFilter

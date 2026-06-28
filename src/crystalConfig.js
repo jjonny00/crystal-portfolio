@@ -422,7 +422,7 @@ export const materials = {
     normalMap: {
       wrapS: THREE.RepeatWrapping,
       wrapT: THREE.RepeatWrapping,
-      repeat: [5, 5] // Tiling to make scratches smaller
+      repeat: [8, 8] // Tiling to make scratches smaller
     }
   }
 }
@@ -530,7 +530,7 @@ export const assets = {
     project06: '/assets/models/Project06.glb'
   },
   textures: {
-    normalMap: '/assets/textures/quartz-normal07_subtle.png'
+    normalMap: '/assets/textures/raw-crystal-normal01.png'
   }
 }
 

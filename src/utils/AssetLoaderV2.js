@@ -76,7 +76,7 @@ export default class AssetLoaderV2 {
       'Project04': 'Project04 Facet',
       'Project05': 'Project05 Facet',
       'Project06': 'Project06 Facet',
-      'quartz-normal07_subtle': 'Normal Map Texture',
+      'raw-crystal-normal01': 'Normal Map Texture',
       'prismatic10-low': 'Environment (Low)',
       'prismatic10-medium': 'Environment (Medium)',
       'prismatic10-high': 'Environment (High)'

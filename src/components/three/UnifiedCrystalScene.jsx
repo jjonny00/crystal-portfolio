@@ -53,6 +53,69 @@ const ENABLE_OVERVIEW_ALL_CONNECTORS = true
 
 const logger = createLogger('unified-crystal-scene');
 
+// DIAGNOSTIC TOGGLE — flat (per-face) normals for hard-faceted glass.
+// Faceted reflections/refractions on a transmissive material are driven by the
+// surface normal. The exported GLB ships smoothed/averaged (shared) normals,
+// which bend the reflection across facet edges and scramble it per facet.
+// Recomputing flat normals (one independent normal per triangle) makes each
+// facet reflect coherently. Flip to `false` to A/B against the exported normals,
+// or call window.__setFlatNormals(true|false) at runtime for an instant compare.
+let FLATTEN_FACET_NORMALS = true;
+
+// Loud, default-visible marker (plain console.log, not warn) so a stale/un-applied
+// HMR module is obvious — if you don't see this after a hard reload, the dev
+// server is serving old code.
+if (import.meta.env.DEV) console.log('[flatNormals] module loaded — toggle =', FLATTEN_FACET_NORMALS);
+
+// Non-destructive, reversible per-mesh swap. We cache BOTH geometries on the mesh
+// so true/false can A/B without a hard reload:
+//   userData.__originalGeometry — exported geometry (kept, never disposed)
+//   userData.__flatGeometry     — built once: toNonIndexed -> drop normals ->
+//                                 computeVertexNormals (independent per-face normals)
+// Memory cost: two equivalent-shape geometries coexist per mesh. Acceptable for a
+// diagnostic; remove the unused side once the comparison is settled.
+const applyFlatNormals = (scene, enabled, label = 'scene') => {
+  if (!scene) {
+    if (import.meta.env.DEV) console.log(`[flatNormals] ${label} is ${scene} — nothing to process`);
+    return scene;
+  }
+  let meshCount = 0;
+  scene.traverse((child) => {
+    if (!child?.isMesh || !child.geometry) return;
+    meshCount += 1;
+
+    if (!child.userData.__originalGeometry) {
+      const original = child.geometry;
+      // Non-indexed so each triangle owns its 3 vertices (no shared normals).
+      const flat = original.index ? original.toNonIndexed() : original.clone();
+      flat.deleteAttribute('normal');
+      flat.computeVertexNormals();
+      flat.attributes.normal.needsUpdate = true;
+      flat.computeBoundingSphere?.();
+      child.userData.__originalGeometry = original;
+      child.userData.__flatGeometry = flat;
+    }
+
+    const target = enabled
+      ? child.userData.__flatGeometry
+      : child.userData.__originalGeometry;
+    if (child.geometry !== target) {
+      child.geometry = target;
+      child.geometry.computeBoundingSphere?.();
+    }
+
+    if (import.meta.env.DEV) {
+      console.log(
+        `[flatNormals] ${label}/${child.name || 'mesh'} ` +
+        `enabled=${enabled} verts=${child.geometry.attributes.position.count} ` +
+        `wasIndexed=${!!child.userData.__originalGeometry.index}`
+      );
+    }
+  });
+  if (import.meta.env.DEV) console.log(`[flatNormals] ${label}: ${meshCount} mesh(es) traversed`);
+  return scene;
+};
+
 // Module-level scratch objects reused inside per-frame loops to avoid GC churn.
 // Safe because each is fully consumed synchronously before the next write; never
 // retained across iterations or returned to callers.
@@ -1252,6 +1315,30 @@ const UnifiedCrystalScene = forwardRef(({
 
     return useGLTF(modelUrl);
   });
+
+  // Geometry-only diagnostic: swap the crystal meshes to flat per-face normals so the
+  // transmissive material renders as clean hard-faceted glass. See FLATTEN_FACET_NORMALS.
+  // NOTE: this is a useEffect (not useMemo) on purpose — React Fast Refresh preserves
+  // useMemo across hot edits and won't re-run a memo whose deps (the cached gltf objects)
+  // never change, so the toggle/logs would silently no-op. Effects re-run on Fast Refresh.
+  const applyFlatNormalsToAll = useCallback((enabled) => {
+    applyFlatNormals(wholeCrystal?.scene, enabled, 'wholeCrystal');
+    facetModels.forEach((model, i) => applyFlatNormals(model?.scene, enabled, `facet${i}`));
+  }, [wholeCrystal, ...facetModels]);
+
+  useEffect(() => {
+    applyFlatNormalsToAll(FLATTEN_FACET_NORMALS);
+
+    if (import.meta.env.DEV) {
+      // Runtime A/B helper: window.__setFlatNormals(true|false) re-swaps instantly,
+      // no edit/rebuild needed. Updates the module default so future renders match.
+      window.__setFlatNormals = (enabled) => {
+        FLATTEN_FACET_NORMALS = !!enabled;
+        applyFlatNormalsToAll(FLATTEN_FACET_NORMALS);
+        console.log('[flatNormals] runtime toggle ->', FLATTEN_FACET_NORMALS);
+      };
+    }
+  }, [applyFlatNormalsToAll, modelsLoaded]);
 
   // Mark models as loaded when all GLTF hooks resolve
   useEffect(() => {

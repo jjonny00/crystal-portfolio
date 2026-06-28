@@ -921,7 +921,7 @@ const Fixed3DCanvas = forwardRef(({
 
           {/* UPDATED: Enhanced MistyLayerStack with highest render order */}
           <MistyLayerStack
-            y={1.3}              // Position above crystal
+            y={1.5}              // Position above crystal
             width={24}         // Wide coverage
             height={10}      // 2:1 aspect ratio with new texture
             layers={3}         // Multiple layers for depth
