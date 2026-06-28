@@ -862,7 +862,7 @@ function App() {
     if (!performanceProfile) return {};
     
     return {
-      files: `/assets/environment/prismatic10-${performanceProfile.hdriQuality || 'medium'}.hdr`
+      files: `/assets/environment/prismatic-detailed01-${performanceProfile.hdriQuality || 'medium'}.hdr`
     };
   }, [performanceProfile]);
 

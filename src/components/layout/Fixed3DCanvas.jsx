@@ -934,9 +934,9 @@ const Fixed3DCanvas = forwardRef(({
 
           {/* Environment used for reflections only */}
           <Environment
-            files={environmentProps.files || config?.environment?.hdri || "/assets/environment/prismatic10-low.hdr"}
+            files={environmentProps.files || config?.environment?.hdri || "/assets/environment/prismatic-detailed01-low.hdr"}
             background={false}
-            rotation={config?.environment?.rotation || [0, Math.PI * 0.5, 0]}
+            environmentRotation={config?.environment?.rotation || [0, Math.PI * 0.7, 0]}
           />
           
           {/* Post-processing effects (unchanged) */}
