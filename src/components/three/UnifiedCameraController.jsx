@@ -24,7 +24,7 @@ const logger = createLogger('unified-camera-controller');
 // ─────────────────────────────────────────────────────────────────────────────
 const MOUSE_INTERACTION = {
   hero:            { maxAzimuth: 0.26,  maxPolar: 0.1,  easeK: 0.005 }, // weightiest / most pronounced
-  overviewProject: { maxAzimuth: 0.1, maxPolar: 0.04, easeK: 1 }, // overview + selected project
+  overviewProject: { maxAzimuth: 0.1, maxPolar: 0.04, easeK: 1 }, // overview only (selected projects no longer track the mouse)
   aboutOrbitSpeed: 0.01,                                            // rad/sec constant auto-orbit
 };
 const HERO_OVERVIEW_DIRECTOR_ENV_FORCE_PILOT =
@@ -8143,7 +8143,7 @@ const UnifiedCameraController = ({
     const clampedSmoothing = Math.min(Math.max(smoothingFactor, 0.01), 0.15);
 
     // Settled-camera "delight": rotate a small offset around the lookAt point so the camera
-    // gently sways. overview/project track the mouse position (hold the offset when still);
+    // gently sways. overview tracks the mouse position (hold the offset when still);
     // about drifts continuously. Recomputed from the immutable base target each frame, so it
     // never accumulates. Lerp toward this aim instead of the raw target; the lookAt path is
     // unchanged so framing and camera.up stay stable.
@@ -8155,7 +8155,7 @@ const UnifiedCameraController = ({
     const parallaxEligible =
       !isTouchDeviceRef.current &&
       parallaxLatchRef.current &&
-      (parallaxCameraState === 'overview' || parallaxCameraState === 'project');
+      parallaxCameraState === 'overview';
     const aboutAutoOrbitEligible =
       parallaxLatchRef.current && parallaxCameraState === 'about';
 
@@ -8281,7 +8281,6 @@ const UnifiedCameraController = ({
       const parallaxHolding =
         parallaxLatchRef.current &&
         (parallaxCameraState === 'overview' ||
-          parallaxCameraState === 'project' ||
           parallaxCameraState === 'about');
       if (!parallaxHolding) {
         if (cameraSettledRef.current) {
