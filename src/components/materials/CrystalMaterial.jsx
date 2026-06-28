@@ -48,7 +48,7 @@ const CrystalMaterial = ({
           baseConfig.iridescenceIOR = 1.5;
           baseConfig.emissive = new THREE.Color('#ffffff');
           baseConfig.emissiveIntensity = 0.03;
-          baseConfig.envMapIntensity = usePBR ? 1.5 : 1.2;
+          baseConfig.envMapIntensity = usePBR ? 10.5 : 1.2;
           baseConfig.opacity = usePBR ? 0.4 : 0.6;
           break;
           

@@ -380,22 +380,22 @@ export const materials = {
   crystal: {
     color: new THREE.Color('#0d042b'),
     transparent: true,
-    transmission: 0.92,
+    transmission: 0.97,
     // NOTE: On MeshPhysicalMaterial, `reflectivity` is a getter/setter linked to
     // `ior` (ior = (1 + 0.4·reflectivity)/(1 − 0.4·reflectivity)). Do NOT also set
     // `reflectivity` here or it will clobber `ior` and the IOR control will do
     // nothing. `ior: 1.78` reproduces the previous look (reflectivity ≈ 0.70).
-    ior: 1.1,
-    thickness: 0.01,
-    iridescence: 0.3,
+    ior: 1.6,
+    thickness: 100.1,
+    iridescence: 1.4,
     iridescenceIOR: 1.3,
     metalness: 0.0,
-    roughness: 0.18,
+    roughness: 0.08,
     attenuationColor: new THREE.Color('#00fff2'),
     attenuationDistance: 0.5,
     clearcoat: 0.8,
     clearcoatRoughness: 0.05,
-    envMapIntensity: 27.0,
+    envMapIntensity: 17.0,
     // reflectivity intentionally omitted — it is derived from `ior` on
     // MeshPhysicalMaterial (see ior note above). Setting it breaks the IOR control.
     specularIntensity: 2.0,
@@ -407,11 +407,11 @@ export const materials = {
     // Fresnel-driven internal core glow (additive emissive injected via shader).
     // Independent of the built-in emissive above; see components/materials/internalGlow.js
     glow: {
-      color: '#2600ff',         // non-project (default) internal glow color
+      color: '#3e10bc',         // non-project (default) internal glow color
       emissiveIntensity: 0.30,  // 'high' reference; device tiers scale this
-      activeIntensity: 0.90,    // glow brightness when a facet is hovered or is the selected project (device tiers scale this too)
-      fresnelPower: 3.7,        // higher = tighter, more centered core
-      glowBias: 0.19,            // 0 = tight center core; higher reaches toward edges
+      activeIntensity: 0.40,    // glow brightness when a facet is hovered or is the selected project (device tiers scale this too)
+      fresnelPower: 1.1,        // higher = tighter, more centered core
+      glowBias: 0.16,            // 0 = tight center core; higher reaches toward edges
       pulseSpeed: 1.5,          // Hero pulse frequency (rad/sec); 0 = no pulse
       pulseAmount: 0.54          // Hero pulse depth (0..1): intensity swings ±(amount·base)
     }
@@ -515,7 +515,13 @@ export const lighting = {
 export const environment = {
   hdri: "/assets/environment/prismatic-detailed01-low.hdr",
   showBackground: true,
-  rotation: [0, Math.PI * 0.5, 0]
+  rotation: [0, Math.PI * -0.1, 0],
+  // Scene-level IBL intensity. As of three r163, materials that read
+  // scene.environment implicitly (envMap === null, i.e. the high tier) have
+  // their envMapIntensity overridden by scene.environmentIntensity, so this is
+  // the knob for high-tier reflection brightness (materials.crystal.envMapIntensity
+  // still governs the medium/low tiers, which assign envMap explicitly).
+  intensity: 3.0
 }
 
 // === ASSET PATHS ===
