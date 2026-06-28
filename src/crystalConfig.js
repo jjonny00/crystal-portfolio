@@ -395,7 +395,7 @@ export const materials = {
     attenuationDistance: 0.5,
     clearcoat: 0.8,
     clearcoatRoughness: 0.05,
-    envMapIntensity: 7.0,
+    envMapIntensity: 27.0,
     // reflectivity intentionally omitted — it is derived from `ior` on
     // MeshPhysicalMaterial (see ior note above). Setting it breaks the IOR control.
     specularIntensity: 2.0,

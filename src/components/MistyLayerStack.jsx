@@ -33,11 +33,7 @@ export default function MistyLayerStack({
   tex.wrapT = THREE.RepeatWrapping
   tex.minFilter = THREE.LinearMipmapLinearFilter
   tex.magFilter = THREE.LinearFilter
-  if ('SRGBColorSpace' in THREE) {
-    tex.colorSpace = THREE.SRGBColorSpace
-  } else if ('encoding' in tex) {
-    tex.encoding = THREE.sRGBEncoding
-  }
+  tex.colorSpace = THREE.SRGBColorSpace
 
   // Per-layer variations
   const layerConfigs = useMemo(() => {
