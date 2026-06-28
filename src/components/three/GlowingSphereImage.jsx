@@ -294,7 +294,7 @@ const GlowingSphereImage = ({
       const t = state.clock.elapsedTime;
       const pulse = Math.sin(t * pulseSpeed) * 0.7 + Math.sin(t * pulseSpeed * 1.7 + 1.3) * 0.3;
       const scalePulse = 1.0 + pulse * pulseScaleAmount * explosionProgress;
-      const opacityPulse = 0.55 + pulse * pulseOpacityAmount * fadeProgress;
+      const opacityPulse = 0.65 + pulse * pulseOpacityAmount * fadeProgress;
 
       meshRef.current.scale.setScalar(scale * scalePulse * depthScaleComp);
       material.opacity = Math.min(1, opacity * opacityPulse);
