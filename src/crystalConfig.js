@@ -380,17 +380,17 @@ export const materials = {
   crystal: {
     color: new THREE.Color('#0d042b'),
     transparent: true,
-    transmission: 0.97,
+    transmission: 0.91,
     // NOTE: On MeshPhysicalMaterial, `reflectivity` is a getter/setter linked to
     // `ior` (ior = (1 + 0.4·reflectivity)/(1 − 0.4·reflectivity)). Do NOT also set
     // `reflectivity` here or it will clobber `ior` and the IOR control will do
     // nothing. `ior: 1.78` reproduces the previous look (reflectivity ≈ 0.70).
-    ior: 1.6,
+    ior: 1.8,
     thickness: 0.1,
     iridescence: 1.4,
     iridescenceIOR: 1.3,
     metalness: 0.0,
-    roughness: 0.08,
+    roughness: 0.00,
     attenuationColor: new THREE.Color('#00fff2'),
     attenuationDistance: 0.5,
     clearcoat: 0.8,
