@@ -171,7 +171,7 @@ const MaterialManager = ({
           materialProps.color.set('#f0f8ff');
           materialProps.metalness = 0.3;
           materialProps.roughness = 0.05;
-          materialProps.envMapIntensity = 50.0;
+          materialProps.envMapIntensity = 5.0;
           materialProps.emissive.set('#ffffff');
           break;
         case 'gem':

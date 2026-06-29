@@ -386,7 +386,7 @@ export const materials = {
     // `reflectivity` here or it will clobber `ior` and the IOR control will do
     // nothing. `ior: 1.78` reproduces the previous look (reflectivity ≈ 0.70).
     ior: 1.6,
-    thickness: 100.1,
+    thickness: 0.1,
     iridescence: 1.4,
     iridescenceIOR: 1.3,
     metalness: 0.0,
