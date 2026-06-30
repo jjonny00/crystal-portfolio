@@ -515,7 +515,7 @@ export const lighting = {
 export const environment = {
   hdri: "/assets/environment/prismatic-detailed01-low.hdr",
   showBackground: true,
-  rotation: [0, Math.PI * -0.1, 0],
+  rotation: [0, Math.PI * -0.2, 0],
   // Scene-level IBL intensity. As of three r163, materials that read
   // scene.environment implicitly (envMap === null, i.e. the high tier) have
   // their envMapIntensity overridden by scene.environmentIntensity, so this is

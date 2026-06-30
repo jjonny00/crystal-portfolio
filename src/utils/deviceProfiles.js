@@ -63,9 +63,39 @@ export const PERFORMANCE_PROFILES = {
     // Material quality - keep PBR enabled for good visuals
     pbrQuality: 'medium',
     usePBR: true,
-    useNormalMaps: false, // Keep disabled for performance
+    useNormalMaps: true, // Keep disabled for performance
     textureQuality: 'medium',
     anisotropicFiltering: 2,
+
+    // Crystal material baseline (default variant). MeshPhysicalMaterial — same
+    // class as high, so seeded from high's reference values; dial down here to
+    // claw back FPS. Colors are hex strings, ranges are arrays; MaterialManager
+    // instantiates THREE.Color / Vector2. NOTE: `reflectivity` is intentionally
+    // omitted — on MeshPhysicalMaterial it is coupled to `ior` and setting it
+    // clobbers IOR (see crystalConfig.js materials.crystal note).
+    material: {
+      type: 'physical',
+      color: '#0d042b',
+      emissive: '#02062b',
+      emissiveIntensity: 0.1,
+      metalness: 0.0,
+      roughness: 0.08,
+      opacity: 0.98,
+      transmission: 0.97,
+      ior: 1.0,
+      thickness: 0.1,
+      iridescence: 1.4,
+      iridescenceIOR: 1.3,
+      iridescenceThicknessRange: [100, 400],
+      clearcoat: 0.8,
+      clearcoatRoughness: 0.05,
+      attenuationColor: '#00fff2',
+      attenuationDistance: 0.5,
+      envMapIntensity: 4.0,
+      specularIntensity: 2.0,
+      specularColor: '#ffffff',
+      flatShading: true,
+    },
     
     // Environment
     hdriQuality: 'medium',
@@ -112,9 +142,27 @@ export const PERFORMANCE_PROFILES = {
     // Material quality - use optimized materials
     pbrQuality: 'low',
     usePBR: false, // Use your optimized MeshStandardMaterial path
-    useNormalMaps: false,
+    useNormalMaps: true,
     textureQuality: 'low',
     anisotropicFiltering: 1,
+
+    // Crystal material baseline (default variant). MeshPhong — hard ceiling: no
+    // transmission / refraction / iridescence / clearcoat. Approximates the glass
+    // read with envMap reflections + specular highlights + the shared internal
+    // glow. `combine: 'mix'` maps to THREE.MixOperation in MaterialManager.
+    // `color` here is the pre-boost base; MaterialManager still applies
+    // boostLowTierColor for visibility on low-tier lighting.
+    material: {
+      type: 'phong',
+      color: '#0d042b',
+      specular: '#ffffff',
+      shininess: 1000,
+      reflectivity: 0.9,
+      combine: 'mix',
+      emissive: '#261b8d',
+      emissiveIntensity: 0.9,
+      opacity: 0.98,
+    },
     
     // Environment
     hdriQuality: 'low',
