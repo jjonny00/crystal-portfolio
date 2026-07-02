@@ -12,7 +12,8 @@ const MODEL_DESCRIPTORS = [
   { key: 'project03', url: '/assets/models/Project03.glb' },
   { key: 'project04', url: '/assets/models/Project04.glb' },
   { key: 'project05', url: '/assets/models/Project05.glb' },
-  { key: 'project06', url: '/assets/models/Project06.glb' }
+  { key: 'project06', url: '/assets/models/Project06.glb' },
+  { key: 'fractureRays', url: '/assets/models/FractureRays.glb' }
 ];
 
 export const useAssetLoaderV2 = (performanceProfile) => {

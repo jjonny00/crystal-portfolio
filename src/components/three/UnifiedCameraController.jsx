@@ -118,7 +118,9 @@ const UnifiedCameraController = ({
   heroOverviewExplosionClockRef = null,
 }) => {
   const { camera } = useThree();
-  console.log('[UnifiedCameraController] mounted/rendered');
+  // Verbose per-frame/mount logging is off by default. Enable in the console:
+  //   globalThis.__UCC_VERBOSE__ = true
+  if (globalThis.__UCC_VERBOSE__) console.log('[UnifiedCameraController] mounted/rendered');
 
   // Input context
   const isTouchDeviceRef = useRef(false);
@@ -1836,7 +1838,7 @@ const UnifiedCameraController = ({
     const debugSecond = Math.floor(state.clock.elapsedTime);
     if (debugSecond % 2 !== 0 || debugSecond === lastCameraWriteSecondRef.current) return;
     lastCameraWriteSecondRef.current = debugSecond;
-    console.log(`[UCC CAMERA WRITE] ${branch}`, {
+    if (globalThis.__UCC_VERBOSE__) console.log(`[UCC CAMERA WRITE] ${branch}`, {
       elapsed: state.clock.elapsedTime,
       reason,
       state: animationData?.state,
@@ -6402,7 +6404,7 @@ const UnifiedCameraController = ({
 
     if (debugSecond !== lastDebugSecondRef.current && debugSecond % 2 === 0) {
       lastDebugSecondRef.current = debugSecond;
-      console.log('[UnifiedCameraController] useFrame running', {
+      if (globalThis.__UCC_VERBOSE__) console.log('[UnifiedCameraController] useFrame running', {
         elapsed: state.clock.elapsedTime,
         cameraPosition: camera.position.toArray(),
         cameraFilmOffset: camera.filmOffset,
@@ -6412,7 +6414,7 @@ const UnifiedCameraController = ({
     const shouldLogBranch = isEvenDebugSecond && debugSecond !== lastBranchDebugSecondRef.current;
     if (shouldLogBranch) {
       lastBranchDebugSecondRef.current = debugSecond;
-      console.log('[UCC STATE SNAPSHOT]', {
+      if (globalThis.__UCC_VERBOSE__) console.log('[UCC STATE SNAPSHOT]', {
         elapsed: state.clock.elapsedTime,
         state: animationData?.state,
         cameraState: animationData?.cameraState,
@@ -6889,7 +6891,7 @@ const UnifiedCameraController = ({
         phase: 'hero',
       });
       logCameraWrite(state, "AUTHORITATIVE_HERO", "authoritative-hero-update", snapshot.lookAtTarget, true, true);
-      if (shouldLogBranch) {
+      if (shouldLogBranch && globalThis.__UCC_VERBOSE__) {
         console.log('[UCC AUTHORITATIVE HERO]', {
           radius: tuning.radius,
           height: tuning.height,

@@ -226,6 +226,7 @@ export default class PerformanceManagerV2 {
     const THREE = await import('three');
 
     return new Promise(async (resolve) => {
+     try {
       const renderer = new THREE.WebGLRenderer({
         canvas,
         antialias: profile.antialiasing !== false,
@@ -421,15 +422,28 @@ export default class PerformanceManagerV2 {
 
       onProgress?.(0);
       requestAnimationFrame(testLoop);
+     } catch (err) {
+       // WebGL context creation can fail (e.g. too many live contexts). Don't let
+       // an async-executor throw become an unhandled rejection that hangs init —
+       // resolve with a failed result so the caller falls back to a lower tier.
+       console.warn(`Performance benchmark tier "${tier}" failed to initialize; using fallback.`, err);
+       resolve({ tier, avgFps: 0, minFps: 0, maxFps: 0, frameCount: 0, samples: 0, failedEarly: true });
+     }
     });
   }
 
   _cleanup(composer, renderer, material, geometry) {
     try {
       if (composer && composer.dispose) composer.dispose();
-      if (renderer && renderer.dispose) renderer.dispose();
       if (material && material.dispose) material.dispose();
       if (geometry && geometry.dispose) geometry.dispose();
+      if (renderer) {
+        // dispose() frees GPU resources but leaves the WebGL context alive until
+        // GC. Each benchmark tier + every HMR reload would then leak a context
+        // until the browser blocks new ones. forceContextLoss() releases it now.
+        if (renderer.dispose) renderer.dispose();
+        if (renderer.forceContextLoss) renderer.forceContextLoss();
+      }
     } catch (e) {
       // Ignore cleanup errors
     }

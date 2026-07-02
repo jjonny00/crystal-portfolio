@@ -88,6 +88,15 @@ const GlowingSphereImage = ({
   // Animation state
   animationData = null,
 
+  // Delay (seconds) after the fracture swap before this glow blooms. Lets a
+  // backdrop instance fire at the explosion rather than the instant of fracture.
+  triggerDelay = 0,
+
+  // Opt-in live tuning: name of a globalThis key holding
+  // { maxOpacity, fadeInDuration, explosionDuration, delay } overrides, read
+  // each frame. Only instances that pass a tuningKey are affected.
+  tuningKey = null,
+
   // Debug
   debugMode = false,
   simplifiedAnimations = false
@@ -281,12 +290,25 @@ const GlowingSphereImage = ({
     meshRef.current.lookAt(state.camera.position);
 
     if (isExploding) {
-      const elapsed = (Date.now() - startTime) / 1000;
-      const explosionProgress = Math.min(elapsed / explosionDuration, 1);
-      const fadeProgress = Math.min(elapsed / fadeInDuration, 1);
+      // Optional live overrides (only when a tuningKey is provided).
+      const tune = (tuningKey && typeof globalThis !== 'undefined' && globalThis[tuningKey]) || null;
+      const effMaxOpacity = tune?.maxOpacity ?? maxOpacity;
+      const effFadeIn = Math.max(1e-4, tune?.fadeInDuration ?? fadeInDuration);
+      const effExplosion = Math.max(1e-4, tune?.explosionDuration ?? explosionDuration);
+      const effDelay = tune?.delay ?? triggerDelay ?? 0;
+
+      const elapsed = (Date.now() - startTime) / 1000 - effDelay;
+      if (elapsed < 0) {
+        // Not bloomed yet — hold hidden at base size until the delay elapses.
+        material.opacity = 0;
+        meshRef.current.scale.setScalar(baseWorldSize * depthScaleComp);
+        return;
+      }
+      const explosionProgress = Math.min(elapsed / effExplosion, 1);
+      const fadeProgress = Math.min(elapsed / effFadeIn, 1);
 
       const scale = baseWorldSize + (maxWorldSize - baseWorldSize) * explosionProgress;
-      const opacity = fadeProgress * maxOpacity;
+      const opacity = fadeProgress * effMaxOpacity;
 
       // Subtle energetic pulse, layered in only once the glow has settled so it
       // doesn't fight the fade-in. Two slightly detuned sines avoid an obvious

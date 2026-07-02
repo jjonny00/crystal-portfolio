@@ -50,6 +50,59 @@ export const fracture = {
   emissive: {
     intensity: 2.3,       // Bright glow intensity at fracture
     delay: 0              // Delay before emissive glow starts (seconds)
+  },
+  // Crack-aligned energy "rays" (a GLB of fanned planes hand-aligned to the
+  // crystal's cracks). All tunables live here. NOTE: keep `enabled: false` until
+  // public/assets/models/FractureRays.glb exists — the component uses useGLTF and
+  // a missing file would error the scene.
+  rays: {
+    enabled: true,
+    color: '#ffffff',
+    // Length fade along each ray (bright base → transparent tip).
+    gradient: {
+      mode: 'uvX',        // 'uvY' | 'uvX' | 'dist' (which axis is the ray length)
+      invert: false,      // flip which end is the bright base
+      power: 1            // falloff shape (1 = linear, >1 = tighter to the base)
+    },
+    // Split each plane into thin sub-rays across its width.
+    subRays: {
+      enabled: true,
+      count: 5,           // number of sub-rays per plane
+      thickness: 0.04,    // half-width of each sub-ray
+      softness: 0.08,     // edge blur
+      jitter: 0.4,        // 0 = even/uniform, 1 = fully organic
+      seed: 0,            // reshuffle the random arrangement
+      fan: 1              // 0 = parallel, 1 = fan out from the base
+    },
+    // Base→tip reveal. Its own timer — NOT tied to how long the rays are visible.
+    growth: {
+      duration: 0.1,      // seconds for the front to travel base → tip
+      edge: 0.12,         // soft leading-edge width
+      edgeBoost: 0      // brightness spike at the growth front
+    },
+    // Flicker that builds toward the tip/front as if energy is charging up.
+    shimmer: {
+      amount: 0,        // 0 = steady, 1 = heavy flicker
+      speed: 22           // flicker rate
+    },
+    // Visibility window as progress (0-1) of the hero→overview sequence.
+    timing: {
+      appearAt: 0.06,     // pop in
+      disappearAt: 0.37   // cut out
+    },
+    // Depth behavior. The exploding facets start near-coplanar with the rays and
+    // sweep outward, which makes depthTest flip frame-to-frame → flicker.
+    depth: {
+      occlude: true,      // true = crystal hides the ray bases (emergence); false = always on top (no flicker, but no occlusion)
+      bias: -16            // polygonOffset toward camera to stop z-fighting with the near-coplanar facets (more negative = stronger)
+    }
+  },
+  // White flash of the gradient background at the fracture.
+  backgroundFlash: {
+    intensity: 0.5,       // 0 = off → 1 = full white
+    duration: 0.8,        // decay seconds
+    delay: 0.4,           // seconds after fracture before it flashes (moves it to the explosion)
+    ease: 'sine'          // 'sine' | 'smooth' | 'cubic' | 'quad' | 'expo' | 'linear'
   }
 };
 
@@ -533,7 +586,8 @@ export const assets = {
     project03: '/assets/models/Project03.glb',
     project04: '/assets/models/Project04.glb',
     project05: '/assets/models/Project05.glb',
-    project06: '/assets/models/Project06.glb'
+    project06: '/assets/models/Project06.glb',
+    fractureRays: '/assets/models/FractureRays.glb'
   },
   textures: {
     normalMap: '/assets/textures/raw-crystal-normal01.png'

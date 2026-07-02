@@ -15,6 +15,7 @@ import { attachInternalGlow, updateInternalGlow, hasInternalGlow, FACET_GLOW_PRO
 import GlowingSphereImage, { BLEND_STYLES } from './GlowingSphereImage'
 import OrbEnergyParticles from './OrbEnergyParticles'
 import FractureRingImage from './FractureRingImage'
+import FractureRays from './FractureRays'
 import projects, {
   facetKeys as canonicalFacetKeys,
   getProjectColorByFacetKey,
@@ -3674,6 +3675,18 @@ const UnifiedCrystalScene = forwardRef(({
         debugMode={import.meta.env.DEV}
       />
 
+      {/* Crack-aligned energy rays — flash on at the fracture beat and fade out
+          by the end of the explosion impulse. Gated on config.enabled so the
+          scene never tries to load a missing FractureRays.glb. */}
+      {!simplifiedAnimations && mergedConfig.fracture?.rays?.enabled && (
+        <FractureRays
+          modelUrl={mergedConfig.assets.models.fractureRays}
+          rays={mergedConfig.fracture.rays}
+          heroOverviewRuntime={heroOverviewRuntime}
+          simplifiedAnimations={simplifiedAnimations}
+        />
+      )}
+
       {/* Backdrop halo glow — twice the spread, half the opacity, rendered
           behind the project facets (negative renderOrder) so the facets read as
           dramatic silhouettes against it. */}
@@ -3689,6 +3702,7 @@ const UnifiedCrystalScene = forwardRef(({
         fadeInDuration={0.02}
         position={[0, 0, 0]}
         visible={sphereVisible}
+        tuningKey="__BG_HALO__"
         renderOrder={-10}
         depthPush={8}
         animationData={animationData}

@@ -90,7 +90,11 @@ export const HERO_OVERVIEW_CINEMATIC_CONFIG = {
     pushbackEase: 'easeOutExpo',
     catchDuration: 0.26,
     catchEase: 'smoothSettle',
-    shakeAmplitude: 0.016,
+    // Shake disabled: at 38 Hz it dithers the camera almost every frame, which
+    // made the thin, bright fracture rays scintillate on the forced (WORK-link)
+    // hero→overview path (the pilot/scroll path never applied it). Keeping the
+    // smooth pushback recoil; only the high-frequency shake is removed.
+    shakeAmplitude: 0,
     shakeDuration: 0.12,
     shakeFrequency: 38,
     wired: true,

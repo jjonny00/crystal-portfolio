@@ -20,6 +20,7 @@ import { FPSCounter } from '../ui/FpsDisplay';
 import CrystalDebugPanels from '../ui/CrystalDebugPanels';
 import GradientBackground from '../three/GradientBackground';
 import { projectBackgrounds } from '../../data/projectBackgrounds';
+import { fracture as fractureConfig } from '../../crystalConfig';
 import MistyLayerStack from '../MistyLayerStack';
 import { isIOS26 } from '../../utils/isIOS26';
 import { facetKeys as canonicalFacetKeys, getProjectIdBySceneFacetKey } from '../../data/projects';
@@ -152,7 +153,21 @@ const Fixed3DCanvas = forwardRef(({
   const cameraMoveProgressRef = useRef(1);
 
   const handleFractureStart = useCallback(() => {
-    backgroundRef.current?.flash(1, 0.5);
+    // Background white-flash on fracture. Defaults live in
+    // crystalConfig.js `fracture.backgroundFlash`; a globalThis.__BG_FLASH__
+    // object (same shape) overrides them at runtime for live tuning.
+    const cfg = fractureConfig.backgroundFlash || {};
+    const t = (typeof globalThis !== 'undefined' && globalThis.__BG_FLASH__) || {};
+    const intensity = t.intensity ?? cfg.intensity ?? 0.5;
+    const duration = t.duration ?? cfg.duration ?? 0.8;
+    const delay = t.delay ?? cfg.delay ?? 0.4;
+    const ease = t.ease ?? cfg.ease ?? 'sine'; // 'sine' | 'smooth' | 'cubic' | 'quad' | 'expo' | 'linear'
+    if (intensity <= 0) return;
+    if (delay > 0) {
+      window.setTimeout(() => backgroundRef.current?.flash(intensity, duration, ease), delay * 1000);
+    } else {
+      backgroundRef.current?.flash(intensity, duration, ease);
+    }
   }, []);
 
   // Expose internal state to parent components

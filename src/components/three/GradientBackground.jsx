@@ -78,8 +78,23 @@ const GradientBackground = forwardRef(({ backgrounds, initialKey = 'default', ra
 
   const currentKey = useRef(initialKey);
 
-  const flashIntensityRef = useRef(0);
+  const flashPeakRef = useRef(0);
   const flashDurationRef = useRef(1);
+  const flashElapsedRef = useRef(Infinity); // Infinity = no active flash
+  const flashEaseRef = useRef('sine');
+
+  // Flash decay curves — each returns the remaining brightness (1 → 0) for a
+  // normalized progress p. `sine`/`smooth` fade out very gently (soft landing);
+  // `cubic`/`quad` linger bright then ease off; `expo` drops fast; `linear` is
+  // a constant slope.
+  const flashEasings = useMemo(() => ({
+    linear: (p) => 1 - p,
+    expo: (p) => (p >= 1 ? 0 : Math.pow(2, -10 * p)),
+    sine: (p) => 0.5 + 0.5 * Math.cos(Math.min(p, 1) * Math.PI),
+    smooth: (p) => { const s = p * p * (3 - 2 * p); return 1 - s; },
+    quad: (p) => 1 - p * p,
+    cubic: (p) => 1 - p * p * p,
+  }), []);
 
   const uniforms = useMemo(() => ({
     colorA: { value: currentA.current.clone() },
@@ -93,16 +108,17 @@ const GradientBackground = forwardRef(({ backgrounds, initialKey = 'default', ra
     currentA.current.lerp(targetA.current, 0.05 * deltaTime * 60);
     currentB.current.lerp(targetB.current, 0.05 * deltaTime * 60);
 
-    if (flashIntensityRef.current > 0) {
-      flashIntensityRef.current = Math.max(
-        flashIntensityRef.current - deltaTime / flashDurationRef.current,
-        0
-      );
+    let flashValue = 0;
+    if (flashElapsedRef.current < flashDurationRef.current) {
+      flashElapsedRef.current += deltaTime;
+      const p = Math.min(flashElapsedRef.current / flashDurationRef.current, 1);
+      const easeFn = flashEasings[flashEaseRef.current] || flashEasings.sine;
+      flashValue = flashPeakRef.current * Math.max(0, easeFn(p));
     }
 
     uniforms.colorA.value.copy(currentA.current);
     uniforms.colorB.value.copy(currentB.current);
-    uniforms.flash.value = flashIntensityRef.current;
+    uniforms.flash.value = flashValue;
     materialRef.current.needsUpdate = true;
   });
 
@@ -132,9 +148,11 @@ const GradientBackground = forwardRef(({ backgrounds, initialKey = 'default', ra
       }
     },
 
-    flash: (intensity = 1, duration = 0.5) => {
-      flashIntensityRef.current = intensity;
+    flash: (intensity = 1, duration = 0.5, ease = 'sine') => {
+      flashPeakRef.current = intensity;
       flashDurationRef.current = Math.max(duration, 0.001);
+      flashEaseRef.current = ease;
+      flashElapsedRef.current = 0;
     },
 
     getCurrentKey: () => currentKey.current,
