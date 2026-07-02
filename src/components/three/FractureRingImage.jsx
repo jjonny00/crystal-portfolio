@@ -36,7 +36,10 @@ const FractureRingImage = ({
   visible = false,
   animationData = null,
   simplifiedAnimations = false,
-  debugMode = false
+  debugMode = false,
+  // When true, keep the mesh mounted (but invisible) even while `visible` is
+  // false so its material/texture can be GPU-warmed ahead of the first trigger.
+  warmup = false
 }) => {
   const meshRef = useRef();
   const [isAnimating, setIsAnimating] = useState(false);
@@ -202,7 +205,7 @@ const FractureRingImage = ({
     };
   }, [delayTimer]);
 
-  if (!visible || simplifiedAnimations || !texture) return null;
+  if ((!visible && !warmup) || simplifiedAnimations || !texture) return null;
 
   return (
     <mesh
@@ -212,6 +215,7 @@ const FractureRingImage = ({
       position={position}
       scale={[baseSize, baseSize, baseSize]}
       renderOrder={1000}
+      visible={visible}
     />
   );
 };

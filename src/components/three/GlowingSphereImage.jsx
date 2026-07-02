@@ -99,7 +99,11 @@ const GlowingSphereImage = ({
 
   // Debug
   debugMode = false,
-  simplifiedAnimations = false
+  simplifiedAnimations = false,
+
+  // When true, keep the mesh mounted (but invisible) even while `visible` is
+  // false so its material/texture can be GPU-warmed ahead of the first trigger.
+  warmup = false
 }) => {
   const meshRef = useRef();
 
@@ -332,8 +336,8 @@ const GlowingSphereImage = ({
     }
   });
   
-  if (!visible || simplifiedAnimations || !texture) return null;
-  
+  if ((!visible && !warmup) || simplifiedAnimations || !texture) return null;
+
   return (
     <mesh
       ref={meshRef}
@@ -342,6 +346,7 @@ const GlowingSphereImage = ({
       position={position}
       scale={[baseWorldSize, baseWorldSize, baseWorldSize]}
       renderOrder={renderOrder}
+      visible={visible}
     />
   );
 };

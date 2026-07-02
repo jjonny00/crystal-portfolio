@@ -2,10 +2,11 @@
 // Fixed facet color conflicts between hover and scroll focus
 
 import React, { useRef, useState, useEffect, useCallback, forwardRef, useImperativeHandle, useMemo } from 'react'
-import { useFrame } from '@react-three/fiber'
+import { useFrame, useThree } from '@react-three/fiber'
 import { useGLTF, Html, useCursor } from '@react-three/drei'
 import * as THREE from 'three'
 import FractureBurstParticles from './FractureBurstParticles'
+import { getFractureRingTexture, getGlowingSphereTexture } from '../../loader/preloadFractureAssets'
 
 // Import existing material manager
 import MaterialManager from './MaterialManager'
@@ -146,7 +147,56 @@ const objectTransformSnapshot = (object) => {
   };
 };
 
-const UnifiedCrystalScene = forwardRef(({ 
+// One-shot GPU warmup. The hero→overview effects (fracture ring, orb + backdrop
+// glow, orb energy motes, crack rays) are normally absent from the scene graph
+// until their trigger fires — so their shader programs compile and their
+// textures/geometry upload to the GPU all in the single frame the transition
+// starts, producing a visible freeze the *first* time it plays.
+//
+// To avoid that, the effect components are mounted invisibly (via their
+// `warmup` prop) as soon as the models load, and this component then asks the
+// renderer to pre-compile every material and pre-upload the shared textures
+// while the crystal is still idle in the hero. `compileAsync` uses
+// KHR_parallel_shader_compile where available so even the warmup itself doesn't
+// stall the main thread. After this runs once, the real trigger just flips the
+// already-warm objects visible — no compile, no upload, no hitch.
+const SceneWarmup = ({ active }) => {
+  const { gl, scene, camera } = useThree();
+  const doneRef = useRef(false);
+
+  useEffect(() => {
+    if (!active || doneRef.current || !gl || !scene || !camera) return undefined;
+    doneRef.current = true;
+
+    // Wait two frames so the newly-mounted (invisible) warmup meshes are in the
+    // scene graph before we ask the renderer to compile them.
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        try {
+          [getFractureRingTexture(), getGlowingSphereTexture()].forEach((tex) => {
+            if (tex) gl.initTexture(tex);
+          });
+          const result = gl.compileAsync
+            ? gl.compileAsync(scene, camera)
+            : (gl.compile(scene, camera), null);
+          if (result && typeof result.catch === 'function') result.catch(() => {});
+        } catch {
+          // Warmup is best-effort; never let it break the scene.
+        }
+      });
+    });
+
+    return () => {
+      cancelAnimationFrame(raf1);
+      if (raf2) cancelAnimationFrame(raf2);
+    };
+  }, [active, gl, scene, camera]);
+
+  return null;
+};
+
+const UnifiedCrystalScene = forwardRef(({
   animationData,
   config,
   materialVariant = 'default',
@@ -3651,6 +3701,11 @@ const UnifiedCrystalScene = forwardRef(({
         onMaterialReady={handleMaterialReady}
       />
 
+      {/* One-shot GPU warmup: pre-compiles the hero→overview effect shaders and
+          uploads their textures while the crystal is idle, so the first fracture
+          doesn't hitch. See SceneWarmup above. */}
+      <SceneWarmup active={modelsLoaded} />
+
       {/* Fracture expanding ring */}
       <FractureRingImage
         {...mergedConfig.fracture.image}
@@ -3673,6 +3728,7 @@ const UnifiedCrystalScene = forwardRef(({
         triggerKey={heroOverviewEffectsManualMode ? heroOverviewRingTriggerId : null}
         simplifiedAnimations={simplifiedAnimations}
         debugMode={import.meta.env.DEV}
+        warmup={modelsLoaded}
       />
 
       {/* Crack-aligned energy rays — flash on at the fracture beat and fade out
@@ -3708,6 +3764,7 @@ const UnifiedCrystalScene = forwardRef(({
         animationData={animationData}
         simplifiedAnimations={simplifiedAnimations}
         debugMode={import.meta.env.DEV}
+        warmup={modelsLoaded}
       />
 
       {/* Enhanced Glowing Sphere */}
@@ -3726,6 +3783,7 @@ const UnifiedCrystalScene = forwardRef(({
         animationData={animationData}
         simplifiedAnimations={simplifiedAnimations}
         debugMode={import.meta.env.DEV}
+        warmup={modelsLoaded}
       />
 
       {/* Fine flickering energy motes swarming the orb */}
@@ -3733,6 +3791,7 @@ const UnifiedCrystalScene = forwardRef(({
         enabled={!simplifiedAnimations}
         visible={sphereVisible}
         position={[0, 0, 0]}
+        warmup={modelsLoaded}
       />
 
       {!simplifiedAnimations && heroOverviewEffectsManualMode && heroOverviewExplosionParticlesConfig.enabled && (

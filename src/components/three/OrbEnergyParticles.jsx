@@ -30,6 +30,9 @@ const OrbEnergyParticles = ({
   driftSpeed = 0.05,
   flickerSpeed = 2.0,
   opacity = 0.55,   // barely-perceptible by default
+  // When true, keep the points mounted (but invisible) even while `visible` is
+  // false so the shader can be GPU-warmed ahead of the first trigger.
+  warmup = false,
 }) => {
   const pointsRef = useRef();
   const timeRef = useRef(0);
@@ -170,7 +173,7 @@ const OrbEnergyParticles = ({
     geometry.attributes.position.needsUpdate = true;
   });
 
-  if (!enabled || !visible || !geometry || !material) return null;
+  if (!enabled || (!visible && !warmup) || !geometry || !material) return null;
 
   return (
     <points
@@ -180,6 +183,7 @@ const OrbEnergyParticles = ({
       position={position}
       frustumCulled={false}
       renderOrder={1000}
+      visible={visible}
     />
   );
 };
