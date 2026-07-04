@@ -134,16 +134,12 @@ export default class PerformanceManagerV2 {
   }
 
   async _runSmartProgressiveTest() {
-    this._testCanvas = document.createElement('canvas');
-    const canvas = this._testCanvas;
-    // Preallocate enough resolution for all test tiers
-    canvas.width = 512;
-    canvas.height = 512;
-    canvas.style.position = 'absolute';
-    canvas.style.top = '-9999px';
-    canvas.style.pointerEvents = 'none';
-    document.body.appendChild(canvas);
-
+    // NOTE: each tier gets its OWN canvas (created in _testTier). We must not
+    // share one canvas across tiers: _cleanup calls forceContextLoss() to
+    // release the benchmark's WebGL context, and a force-lost canvas can never
+    // acquire a new context again — so a shared canvas would let the medium
+    // test's cleanup poison the high test (renderer creation fails → avgFps 0 →
+    // high always "fails" and capable machines get stuck on medium).
     const results = {};
 
     try {
@@ -182,10 +178,6 @@ export default class PerformanceManagerV2 {
       console.warn('Smart performance test failed:', error);
       return { tier: 'low', testResults: results };
     } finally {
-      if (canvas.parentNode) {
-        canvas.parentNode.removeChild(canvas);
-      }
-      this._testCanvas = null;
       this._reportProgress(66, 'Performance test complete');
     }
   }
@@ -197,18 +189,33 @@ export default class PerformanceManagerV2 {
     width = window.innerWidth,
     height = window.innerHeight
   ) {
-    const canvas = this._testCanvas;
-    return this._testWithRealisticScene(
-      canvas,
-      tier,
-      width,
-      height,
-      2500,
-      (p) => {
-        const progress = rangeStart + p * (rangeEnd - rangeStart);
-        this._reportProgress(progress, `Testing ${tier} quality...`);
+    // Fresh canvas per tier: _cleanup force-loses the context afterward, so this
+    // canvas is single-use. Reusing one across tiers breaks the second tier.
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    canvas.style.position = 'absolute';
+    canvas.style.top = '-9999px';
+    canvas.style.pointerEvents = 'none';
+    document.body.appendChild(canvas);
+
+    try {
+      return await this._testWithRealisticScene(
+        canvas,
+        tier,
+        width,
+        height,
+        2500,
+        (p) => {
+          const progress = rangeStart + p * (rangeEnd - rangeStart);
+          this._reportProgress(progress, `Testing ${tier} quality...`);
+        }
+      );
+    } finally {
+      if (canvas.parentNode) {
+        canvas.parentNode.removeChild(canvas);
       }
-    );
+    }
   }
 
   _reportProgress(percentage, message) {
