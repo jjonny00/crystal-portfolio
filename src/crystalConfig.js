@@ -62,13 +62,13 @@ export const fracture = {
     gradient: {
       mode: 'uvX',        // 'uvY' | 'uvX' | 'dist' (which axis is the ray length)
       invert: false,      // flip which end is the bright base
-      power: 1            // falloff shape (1 = linear, >1 = tighter to the base)
+      power: 1.5            // falloff shape (1 = linear, >1 = tighter to the base)
     },
     // Split each plane into thin sub-rays across its width.
     subRays: {
       enabled: true,
       count: 5,           // number of sub-rays per plane
-      thickness: 0.04,    // half-width of each sub-ray
+      thickness: 0.01,    // half-width of each sub-ray
       softness: 0.08,     // edge blur
       jitter: 0.4,        // 0 = even/uniform, 1 = fully organic
       seed: 0,            // reshuffle the random arrangement
@@ -76,7 +76,7 @@ export const fracture = {
     },
     // Base→tip reveal. Its own timer — NOT tied to how long the rays are visible.
     growth: {
-      duration: 0.1,      // seconds for the front to travel base → tip
+      duration: 0.2,      // seconds for the front to travel base → tip
       edge: 0.12,         // soft leading-edge width
       edgeBoost: 0      // brightness spike at the growth front
     },
