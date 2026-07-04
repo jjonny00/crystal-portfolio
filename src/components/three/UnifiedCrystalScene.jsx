@@ -148,28 +148,86 @@ const objectTransformSnapshot = (object) => {
 };
 
 // One-shot GPU warmup. The hero→overview effects (fracture ring, orb + backdrop
-// glow, orb energy motes, crack rays) are normally absent from the scene graph
-// until their trigger fires — so their shader programs compile and their
-// textures/geometry upload to the GPU all in the single frame the transition
-// starts, producing a visible freeze the *first* time it plays.
+// glow, orb energy motes, crack rays) and the exploded facets are normally not
+// visibly rendered during hero — so their shader programs compile and their
+// textures upload to the GPU all in the single frame the transition starts,
+// producing a visible freeze the *first* time it plays.
 //
-// To avoid that, the effect components are mounted invisibly (via their
-// `warmup` prop) as soon as the models load, and this component then asks the
-// renderer to pre-compile every material and pre-upload the shared textures
-// while the crystal is still idle in the hero. `compileAsync` uses
-// KHR_parallel_shader_compile where available so even the warmup itself doesn't
-// stall the main thread. After this runs once, the real trigger just flips the
-// already-warm objects visible — no compile, no upload, no hitch.
-const SceneWarmup = ({ active }) => {
+// To avoid that, the effect components are mounted invisibly (via their `warmup`
+// prop) as soon as the models load, and this component then does one real
+// off-screen render with everything visible while the crystal is still idle in
+// the hero (see runWarmupRender). After this runs once, the real trigger just
+// flips the already-warm objects visible — no compile, no upload, no hitch.
+//
+// The exploded facets (heavy transmissive glass) plus the fracture effects are
+// NOT visibly rendered during hero, so their shader PROGRAMS only compile on the
+// transition frame — where three's linkProgram/getProgramInfoLog blocks the main
+// thread for hundreds of ms (confirmed via Performance profile).
+//
+// `gl.compile()` is not enough here: a program is keyed by material defines +
+// geometry attributes + mesh type (morph/skin) + full render state (lights, env,
+// tone mapping, and the transmission pass). `compile()` doesn't reproduce the
+// transmission pass, and plain-Mesh proxies drop mesh-type flags, so it compiled
+// the WRONG variants and the real ones stayed cold. The only reliable way to get
+// the exact programs is a REAL render.
+//
+// So: clone the facet meshes (clone() preserves class + morph/skin and shares
+// geometry+material → identical cache key), add them to the real scene, force
+// every scene object visible for ONE off-screen render, then restore. That
+// compiles every program the transition needs via the real path — the
+// unavoidable link stall now happens here, during the invisible hero idle,
+// instead of mid-transition.
+const runWarmupRender = (gl, scene, camera, roots) => {
+  const proxies = [];
+  roots.forEach((root) => {
+    root?.traverse?.((obj) => {
+      if (obj.isMesh && obj.geometry && obj.material) {
+        const proxy = obj.clone(false); // same class → morph/skin/attrib flags preserved
+        proxy.frustumCulled = false;
+        scene.add(proxy);
+        proxies.push(proxy);
+      }
+    });
+  });
+
+  // Force everything visible so a single real render touches every material
+  // (the effect meshes are mounted but invisible during hero).
+  const savedVisibility = [];
+  scene.traverse((obj) => {
+    savedVisibility.push([obj, obj.visible]);
+    obj.visible = true;
+  });
+  proxies.forEach((p) => { p.visible = true; });
+
+  const target = new THREE.WebGLRenderTarget(8, 8);
+  const prevTarget = gl.getRenderTarget();
+  try {
+    gl.setRenderTarget(target);
+    gl.render(scene, camera);
+  } finally {
+    gl.setRenderTarget(prevTarget);
+    target.dispose();
+    savedVisibility.forEach(([obj, v]) => { obj.visible = v; });
+    proxies.forEach((p) => scene.remove(p));
+  }
+};
+
+const SceneWarmup = ({ active, geometryRoots = [] }) => {
   const { gl, scene, camera } = useThree();
   const doneRef = useRef(false);
+
+  // Read geometryRoots through a ref so a new array identity each render doesn't
+  // retrigger the effect (which would cancel the pending warmup rAF every frame
+  // and never fire it).
+  const geometryRootsRef = useRef(geometryRoots);
+  geometryRootsRef.current = geometryRoots;
 
   useEffect(() => {
     if (!active || doneRef.current || !gl || !scene || !camera) return undefined;
     doneRef.current = true;
 
-    // Wait two frames so the newly-mounted (invisible) warmup meshes are in the
-    // scene graph before we ask the renderer to compile them.
+    // Wait two frames so materials (and the invisible effect meshes) are fully
+    // in place before we do the warmup render.
     let raf2 = 0;
     const raf1 = requestAnimationFrame(() => {
       raf2 = requestAnimationFrame(() => {
@@ -177,10 +235,9 @@ const SceneWarmup = ({ active }) => {
           [getFractureRingTexture(), getGlowingSphereTexture()].forEach((tex) => {
             if (tex) gl.initTexture(tex);
           });
-          const result = gl.compileAsync
-            ? gl.compileAsync(scene, camera)
-            : (gl.compile(scene, camera), null);
-          if (result && typeof result.catch === 'function') result.catch(() => {});
+          // One real off-screen render with everything (incl. facet proxies)
+          // visible — compiles every transition shader now, during hero idle.
+          runWarmupRender(gl, scene, camera, geometryRootsRef.current.filter(Boolean));
         } catch {
           // Warmup is best-effort; never let it break the scene.
         }
@@ -2178,7 +2235,34 @@ const UnifiedCrystalScene = forwardRef(({
       return;
     }
 
-    facetRefs.current.forEach((facetRef, index) => {
+    // Overlay slot registration builds up to six large (≤2048px) canvases +
+    // textures for the project artwork — ~35ms of synchronous work. That artwork
+    // is only needed once a project is FOCUSED, never during the hero→overview
+    // explosion, so doing it all on the frame the facets mount produces the
+    // explosion hitch. Instead we register one facet per idle slice (falling
+    // back to a short timeout), so the work spreads across frames and never
+    // blocks the transition. If a project is focused before its slot exists,
+    // updateOverlays fades it in as soon as registration catches up.
+    let cancelled = false;
+    let pendingId = null;
+    // Generous timeout: the artwork isn't needed until a project is focused
+    // (well after the explosion settles), so prefer true idle over forcing the
+    // work onto a busy explosion frame.
+    const scheduleIdle = typeof window !== 'undefined' && window.requestIdleCallback
+      ? (cb) => window.requestIdleCallback(cb, { timeout: 1000 })
+      : (cb) => setTimeout(cb, 32);
+    const cancelIdle = typeof window !== 'undefined' && window.cancelIdleCallback
+      ? (id) => window.cancelIdleCallback(id)
+      : (id) => clearTimeout(id);
+
+    let nextIndex = 0;
+    const registerNext = () => {
+      pendingId = null;
+      if (cancelled) return;
+
+      const index = nextIndex;
+      nextIndex += 1;
+      const facetRef = facetRefs.current[index];
       const facetKey = facetKeys[index];
       if (facetRef?.current) {
         const overlaySlot = registerOverlaySlot(facetRef, facetKey);
@@ -2186,14 +2270,22 @@ const UnifiedCrystalScene = forwardRef(({
           logger.debug(`📄 Registered overlay slot for ${facetKey}`);
         }
       }
-    });
 
-    const currentFocus = animationData?.focusedFacet;
-    if (currentFocus) {
-      setOverlayVisibility(currentFocus, true);
-    }
+      if (nextIndex < facetKeys.length) {
+        pendingId = scheduleIdle(registerNext);
+      } else {
+        // All slots registered — reveal the currently focused project's overlay.
+        const currentFocus = animationData?.focusedFacet;
+        if (currentFocus) {
+          setOverlayVisibility(currentFocus, true);
+        }
+      }
+    };
+    pendingId = scheduleIdle(registerNext);
 
     return () => {
+      cancelled = true;
+      if (pendingId != null) cancelIdle(pendingId);
       overlaySlots.forEach((slot) => {
         if (!slot?.mesh) return;
 
@@ -3704,7 +3796,10 @@ const UnifiedCrystalScene = forwardRef(({
       {/* One-shot GPU warmup: pre-compiles the hero→overview effect shaders and
           uploads their textures while the crystal is idle, so the first fracture
           doesn't hitch. See SceneWarmup above. */}
-      <SceneWarmup active={modelsLoaded} />
+      <SceneWarmup
+        active={modelsLoaded && materialVersion > 0}
+        geometryRoots={facetModels.map((m) => m?.scene)}
+      />
 
       {/* Fracture expanding ring */}
       <FractureRingImage
