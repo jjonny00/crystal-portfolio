@@ -1652,8 +1652,22 @@ const UnifiedCameraController = ({
         introActiveRef.current = true;
         authoritativeHeroIntroCapturedRef.current = false;
         introStartTimeRef.current = performance.now();
-        introFromRef.current.position.copy(camera.position);
-        introFromRef.current.lookAt.copy(camera.position).add(currentDirection);
+        if (config?.cameraPositions?.intro) {
+          introFromRef.current.position.copy(toVector3(config.cameraPositions.intro));
+        } else {
+          introFromRef.current.position.copy(camera.position);
+        }
+        // Seed the start look from the AUTHORED intro target rather than the
+        // camera's live direction. The legacy (!isAuthoritativePlainHero) intro
+        // branch lerps from this value, and the live direction is racy on load:
+        // if InitialCameraLookAt hasn't oriented the camera yet, it's straight-on,
+        // giving the "moves up, no orbit" bug. The authoritative branch reseeds
+        // this deterministically too (see the :6809 capture).
+        if (config?.cameraTargets?.intro) {
+          introFromRef.current.lookAt.copy(toVector3(config.cameraTargets.intro));
+        } else {
+          introFromRef.current.lookAt.copy(camera.position).add(currentDirection);
+        }
         introFromRef.current.fov = camera.fov;
         const heroOrbitCenter = getHeroOrbitCenter();
         introToRef.current.position.copy(finalPosition);
@@ -6805,8 +6819,25 @@ const UnifiedCameraController = ({
         authoritativeHeroIntroToRef.current.filmOffsetX = introDestination.filmOffsetX;
         authoritativeHeroIntroToRef.current.angle = introDestination.angle;
         authoritativeHeroIntroToRef.current.elapsed = introDestination.elapsed;
-        introFromRef.current.position.copy(camera.position);
-        introFromRef.current.lookAt.copy(currentTarget.current?.lookAt || center);
+        // Seed the START position from the AUTHORED intro position, not the live
+        // camera: if anything nudged the camera before the intro armed, the live
+        // value would be wrong. (The hold guard below normally keeps them equal.)
+        if (config?.cameraPositions?.intro) {
+          introFromRef.current.position.copy(toVector3(config.cameraPositions.intro));
+        } else {
+          introFromRef.current.position.copy(camera.position);
+        }
+        // Seed the intro's START look from the AUTHORED intro target, not the
+        // live currentTarget.lookAt: the hero config effect has already
+        // overwritten currentTarget.lookAt to the hero LANDING target, so using
+        // it here made start-look == landing-look — the camera stayed straight-on
+        // and only rose (no orbit/rotate-in), and the look-lerp had from == to.
+        // Reading the authored intro target makes the reveal deterministic.
+        if (config?.cameraTargets?.intro) {
+          introFromRef.current.lookAt.copy(toVector3(config.cameraTargets.intro));
+        } else {
+          introFromRef.current.lookAt.copy(currentTarget.current?.lookAt || center);
+        }
       }
 
       const destination = authoritativeHeroIntroToRef.current;
@@ -6846,6 +6877,23 @@ const UnifiedCameraController = ({
     }
 
     if (isAuthoritativePlainHero) {
+      // Hold the camera at the mounted intro pose while the intro is CONFIGURED
+      // but not yet armed. The config effect that sets introActive fires a few
+      // frames after the first render; without this hold, the hero orbit below
+      // drags the camera toward hero in that gap, so when the intro finally
+      // captures its start position from the live camera it grabs an already-
+      // moved pose and the reveal collapses into a straight-on "just moves up".
+      // The intro branch (above) takes over the instant it arms.
+      if (
+        !introStartedRef.current &&
+        !introActiveRef.current &&
+        !introPlayedRef.current &&
+        config?.cameraPositions?.intro &&
+        config?.cameraTargets?.intro
+      ) {
+        return;
+      }
+
       const center = getHeroOrbitCenter();
       const { tuning, source: tuningSource } = resolveHeroTuning(config);
       const configuredFilmOffsetX = config?.cameraComposition?.hero?.filmOffsetX;
