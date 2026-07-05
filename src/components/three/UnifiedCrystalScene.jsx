@@ -2111,6 +2111,17 @@ const UnifiedCrystalScene = forwardRef(({
     const hoveredKey = hoveredFacetRef.current;
     const focusedKey = animationData?.focusedFacet;
     
+    // Tier-independent resting emissive for the facet fracture-flare fade. High
+    // uses crystalConfig's material emissiveIntensity (≈0), so the flare fades all
+    // the way out and the resting project glow is carried by the tier-scaled
+    // fresnel internal glow. Medium/low crystal materials inflate emissiveIntensity
+    // (0.1 / 0.9) for the WHOLE-crystal glass read — using that as the facet flare's
+    // resting point makes the "fade down" barely move (esp. low), so the glow reads
+    // as never fading and then snapping off. Seed the facets' base from the shared
+    // config value instead so every consumer (both fade blocks, swap-mask reset,
+    // reform) dims to the same low rest on all tiers, exactly like high.
+    const facetRestEmissiveIntensity = config?.materials?.crystal?.emissiveIntensity ?? 0;
+
     const previousFacetMaterials = facetMaterialsRef.current;
     facetMaterialsRef.current = facetKeys.map((key, idx) => {
       const mat = crystalMaterialRef.current.clone();
@@ -2125,7 +2136,7 @@ const UnifiedCrystalScene = forwardRef(({
         const previousBaseEmissiveColor =
           previousUserData.baseEmissiveColor?.clone?.() || mat.emissive.clone();
         const previousBaseEmissiveIntensity =
-          previousUserData.baseEmissiveIntensity ?? mat.emissiveIntensity;
+          previousUserData.baseEmissiveIntensity ?? facetRestEmissiveIntensity;
 
         mat.userData = {
           ...(mat.userData || {}),
@@ -2155,7 +2166,7 @@ const UnifiedCrystalScene = forwardRef(({
           startColor: mat.color.clone(),
           progress: 1,
           baseEmissiveIntensity:
-            mat.userData?.baseEmissiveIntensity ?? mat.emissiveIntensity,
+            mat.userData?.baseEmissiveIntensity ?? facetRestEmissiveIntensity,
           baseEmissiveColor:
             mat.userData?.baseEmissiveColor?.clone?.() || mat.emissive.clone()
         };
