@@ -44,6 +44,13 @@ export const PERFORMANCE_PROFILES = {
     // Fresnel internal-glow intensity scale (multiplies crystal.glow.emissiveIntensity)
     glowIntensityScale: 1.0,
 
+    // Extra multiplier applied ONLY to the emissive-driven EVENT glows — the
+    // fracture flare peaks and the hover/selected active glow — layered on top of
+    // glowIntensityScale (which owns the resting glow). PBR tiers leave this at
+    // 1.0; low boosts it because its non-PBR MeshPhong material renders the same
+    // emissiveIntensity far more weakly, so the flare/hover pop reads flat.
+    emissiveGlowBoost: 1.0,
+
     // All tiers now target a 60 FPS baseline
     targetFPS: 60,
     minAcceptableFPS: 55,
@@ -123,6 +130,10 @@ export const PERFORMANCE_PROFILES = {
     // under 1.0 to hedge medium's flatter (normal-maps-off) surface. Tune in-browser.
     glowIntensityScale: 0.85,
 
+    // See `emissiveGlowBoost` note on the `high` profile. Medium keeps a PBR
+    // material, so the event glows read close to high — no boost needed.
+    emissiveGlowBoost: 1.0,
+
     // All tiers now target a 60 FPS baseline
     targetFPS: 60,
     minAcceptableFPS: 55,
@@ -188,7 +199,14 @@ export const PERFORMANCE_PROFILES = {
     },
 
     // Fresnel internal-glow intensity scale (multiplies crystal.glow.emissiveIntensity)
-    glowIntensityScale: 0.45,
+    glowIntensityScale: 1.45,
+
+    // Non-PBR (MeshPhong) tier — its emissive renders weaker than PBR, so the
+    // fracture flare and hover/selected active glow need an extra push beyond the
+    // resting glowIntensityScale. See the `high` profile note. Starting point —
+    // tune in-browser; with this in place you can dial glowIntensityScale (which
+    // owns the RESTING glow) back down if 10.45 is over-lifting the crystal at rest.
+    emissiveGlowBoost: 10.75,
 
     // All tiers now target a 60 FPS baseline
     targetFPS: 60,
@@ -229,6 +247,7 @@ export const PERFORMANCE_PROFILES = {
     },
 
     glowIntensityScale: 1.0,
+    emissiveGlowBoost: 1.0,
 
     targetFPS: 60,
     minAcceptableFPS: 45,

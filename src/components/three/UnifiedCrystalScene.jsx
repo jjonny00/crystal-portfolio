@@ -1007,6 +1007,13 @@ const UnifiedCrystalScene = forwardRef(({
   // hover/select glow transition. Active = brighter glow on hover/selected facet.
   const facetGlowLevelsRef = useRef({ base: 0, active: 0 });
 
+  // Per-tier multiplier for the emissive-driven EVENT glows only — the fracture
+  // flare peaks and the hover/selected active glow. Kept separate from the resting
+  // glowIntensityScale so non-PBR tiers (low = MeshPhong) can boost the flare/hover
+  // pop without over-lifting the resting glow. Synced from the performance profile
+  // in the glow-owner effect; read at runtime by the flare sites below.
+  const emissiveGlowBoostRef = useRef(1);
+
   const facetModelKeys = useMemo(
     () => facetKeys.map((key) => getProjectModelKeyByFacetKey(key)),
     [facetKeys]
@@ -1072,7 +1079,7 @@ const UnifiedCrystalScene = forwardRef(({
       // after the swap matches it — no dark dip. The useFrame fade then holds
       // this through the fracture pause and animates it across travel.
       mat.emissive.copy(swapMaskGlowColor);
-      mat.emissiveIntensity = FORWARD_MASK_GLOW_PEAK_INTENSITY;
+      mat.emissiveIntensity = FORWARD_MASK_GLOW_PEAK_INTENSITY * emissiveGlowBoostRef.current;
       mat.userData = { ...(mat.userData || {}), isFading: true };
       mat.needsUpdate = true;
     });
@@ -1166,7 +1173,7 @@ const UnifiedCrystalScene = forwardRef(({
       facetMat.emissive.copy(baseFacetColor).lerp(swapMaskGlowColor, clampedStrength * 0.9);
       facetMat.emissiveIntensity = THREE.MathUtils.lerp(
         baseFacetIntensity,
-        REFORM_FACET_MASK_GLOW_PEAK_INTENSITY,
+        REFORM_FACET_MASK_GLOW_PEAK_INTENSITY * emissiveGlowBoostRef.current,
         clampedStrength
       );
       facetMat.needsUpdate = true;
@@ -1193,7 +1200,7 @@ const UnifiedCrystalScene = forwardRef(({
           mat.emissive.copy(baseColor).lerp(swapMaskGlowColor, clampedStrength * 0.9);
           mat.emissiveIntensity = THREE.MathUtils.lerp(
             baseIntensity,
-            REFORM_FACET_MASK_GLOW_PEAK_INTENSITY,
+            REFORM_FACET_MASK_GLOW_PEAK_INTENSITY * emissiveGlowBoostRef.current,
             clampedStrength
           );
           mat.needsUpdate = true;
@@ -2201,7 +2208,7 @@ const UnifiedCrystalScene = forwardRef(({
 
       facetMaterialsRef.current.forEach((mat, idx) => {
         const baseIntensity = mat.userData?.baseEmissiveIntensity ?? 0.02;
-        const startIntensity = FORWARD_MASK_GLOW_PEAK_INTENSITY; // match the flare
+        const startIntensity = FORWARD_MASK_GLOW_PEAK_INTENSITY * emissiveGlowBoostRef.current; // match the flare
         const startColor = swapMaskGlowColor;                    // flare-blue
         const projectColor = projectColors[idx];
 
@@ -2639,7 +2646,7 @@ const UnifiedCrystalScene = forwardRef(({
       const glowMode = swapMaskGlowModeRef.current || 'forward';
       const elapsed = (now - swapMaskGlowStartRef.current) / 1000;
       const glowDuration = glowMode === 'reform' ? REFORM_MASK_GLOW_DURATION_S : FORWARD_MASK_GLOW_DURATION_S;
-      const peakIntensity = glowMode === 'reform' ? REFORM_MASK_GLOW_PEAK_INTENSITY : FORWARD_MASK_GLOW_PEAK_INTENSITY;
+      const peakIntensity = (glowMode === 'reform' ? REFORM_MASK_GLOW_PEAK_INTENSITY : FORWARD_MASK_GLOW_PEAK_INTENSITY) * emissiveGlowBoostRef.current;
       const glowProgress = Math.min(elapsed / glowDuration, 1);
       const attack = 0.55;
       const envelope = glowProgress < attack
@@ -2708,7 +2715,7 @@ const UnifiedCrystalScene = forwardRef(({
 
       facetMaterialsRef.current.forEach((mat, idx) => {
         const baseIntensity = mat.userData?.baseEmissiveIntensity ?? 0.02;
-        const startIntensity = FORWARD_MASK_GLOW_PEAK_INTENSITY; // match the flare
+        const startIntensity = FORWARD_MASK_GLOW_PEAK_INTENSITY * emissiveGlowBoostRef.current; // match the flare
         const startColor = swapMaskGlowColor;                    // flare-blue
         const projectColor = projectColors[idx];
 
@@ -3624,12 +3631,17 @@ const UnifiedCrystalScene = forwardRef(({
   const glowFresnelPower = config?.materials?.crystal?.glow?.fresnelPower ?? 2.5;
   const glowBiasValue = config?.materials?.crystal?.glow?.glowBias ?? 0;
   const glowIntensityScale = performanceProfile?.glowIntensityScale ?? 1;
+  const emissiveGlowBoost = performanceProfile?.emissiveGlowBoost ?? 1;
   useEffect(() => {
+    // Keep the flare sites' runtime multiplier in sync with the active tier.
+    emissiveGlowBoostRef.current = emissiveGlowBoost;
     const baseIntensity = glowEmissiveIntensity * glowIntensityScale;
     // Tier-scaled resting + active facet glow intensities for the hover/select ramp.
+    // The active (hover/selected) level carries the extra event boost; the resting
+    // base does not, so non-PBR tiers can punch the hover pop without lifting rest.
     facetGlowLevelsRef.current = {
       base: baseIntensity,
-      active: glowActiveIntensity * glowIntensityScale,
+      active: glowActiveIntensity * glowIntensityScale * emissiveGlowBoost,
     };
     const params = {
       emissiveIntensity: baseIntensity,
@@ -3680,7 +3692,7 @@ const UnifiedCrystalScene = forwardRef(({
         emissiveIntensity: active ? facetGlowLevelsRef.current.active : baseIntensity,
       });
     });
-  }, [glowEmissiveIntensity, glowActiveIntensity, glowFresnelPower, glowBiasValue, glowIntensityScale, materialVersion, wholeCrystal]);
+  }, [glowEmissiveIntensity, glowActiveIntensity, glowFresnelPower, glowBiasValue, glowIntensityScale, emissiveGlowBoost, materialVersion, wholeCrystal]);
 
   // DEV-only: `__inspectCrystalGlow()` in the browser console dumps the live glow
   // state of the whole-crystal mesh materials + facets so we can see exactly which
