@@ -215,6 +215,7 @@ const Fixed3DCanvas = forwardRef(({
   const heroOverviewExplosionClockRef = useRef(null);
   const lastHeroOverviewStartRef = useRef('');
   const lastHeroOverviewZoneRef = useRef(null);
+  const lastHeroOverviewFormRef = useRef('whole');
 
   const cameraMergedConfig = useMemo(() => {
     const nextConfig = { ...config };
@@ -599,25 +600,30 @@ const Fixed3DCanvas = forwardRef(({
   ]);
 
   useEffect(() => {
-    const fromZone = lastHeroOverviewZoneRef.current;
-    const toZone = animationData?.currentZone ?? null;
+    // Drive the hero→overview cinematic clock (camera pushback + fragment/ray/particle
+    // timing) off the actual crystal-form change, NOT the raw scroll zone. The zone
+    // crosses immediately on scroll, but the explosion can be deferred by the
+    // overview→hero interruption queue — keying on the zone made the rays fire ~1.6s
+    // ahead of the explosion. A whole→exploded transition uniquely marks the
+    // hero→overview explosion (projects/about→overview keep the crystal exploded), so
+    // this stays aligned whether or not the explosion was queued.
+    const prevForm = lastHeroOverviewFormRef.current;
+    const form = animationData?.crystalForm ?? null;
 
-    if (toZone === 'hero') {
-      heroOverviewRuntime.resetToIdle({ reason: 'returned-to-hero' });
+    const explodingIntoOverview =
+      animationData?.state === 'overview' || animationData?.currentZone === 'overview';
+    if (form === 'whole') {
+      heroOverviewRuntime.resetToIdle({ reason: 'crystal-reformed' });
       lastHeroOverviewStartRef.current = '';
-    }
-
-    const isHeroToOverview = fromZone === 'hero' && toZone === 'overview';
-    if (isHeroToOverview) {
-      const startKey = `${fromZone}->${toZone}`;
-      if (lastHeroOverviewStartRef.current !== startKey) {
-        lastHeroOverviewStartRef.current = startKey;
-        heroOverviewRuntime.start({ source: 'hero-to-overview-zone-transition' });
+    } else if (prevForm === 'whole' && form === 'exploded' && explodingIntoOverview) {
+      if (lastHeroOverviewStartRef.current !== 'exploded') {
+        lastHeroOverviewStartRef.current = 'exploded';
+        heroOverviewRuntime.start({ source: 'crystal-whole-to-exploded' });
       }
     }
 
-    lastHeroOverviewZoneRef.current = toZone;
-  }, [animationData?.currentZone, heroOverviewRuntime]);
+    lastHeroOverviewFormRef.current = form;
+  }, [animationData?.crystalForm, heroOverviewRuntime]);
 
 
   const destinationCompareStoreRef = useRef({ byKey: {}, order: [] });

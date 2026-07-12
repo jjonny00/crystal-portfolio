@@ -97,8 +97,8 @@ export const projects = [
     technologies: ['Product Strategy', 'UX Systems', 'Platform Design'],
     color: '#58E0B2',
     headlineColor: '#58E0B2',
-    imageUrl: '/assets/projects/storytelling-platform.jpg',
-    overlayImage: '/assets/projects/storytelling-platform.jpg'
+    imageUrl: '/assets/projects/fundseeder.webp',
+    overlayImage: '/assets/projects/fundseeder.webp'
   },
   {
     id: 'project04',
@@ -174,8 +174,8 @@ export const projects = [
     technologies: ['Spatial UX', 'Modular Platform Architecture', 'Production'],
     color: '#265cff',
     headlineColor: '#265cff',
-    imageUrl: '/assets/projects/user-dashboard.jpg',
-    overlayImage: '/assets/projects/user-dashboard.jpg'
+    imageUrl: '/assets/projects/preview-gec.webp',
+    overlayImage: '/assets/projects/preview-gec.webp'
   }
 ];
 

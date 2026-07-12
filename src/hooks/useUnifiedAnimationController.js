@@ -324,6 +324,14 @@ export const useUnifiedAnimationController = (options = {}) => {
   const runtimeProjectSectionsRef = useRef([]);
   const aboutToProjectsLockUntilRef = useRef(0);
   const lastNearestSectionIdRef = useRef(null);
+  // Crystal-transition interruption queue: while the crystal is mid explode/reform,
+  // a reversing zone change is queued and applied only after the current animation
+  // completes — so the user never sees the explosion restart or the crystal snap to
+  // center (interrupting is treated as an edge case, per product direction).
+  const crystalFormRef = useRef('whole');
+  const crystalBusyUntilRef = useRef(0);
+  const queuedZoneTransitionRef = useRef(null);
+  const queuedZoneTimeoutRef = useRef(null);
 
   const getRuntimeProjectSection = useCallback((projectKey) => {
     if (!projectKey) return null;
@@ -615,7 +623,7 @@ export const useUnifiedAnimationController = (options = {}) => {
   /**
    * FIXED: Handle zone transitions with immediate state changes
    */
-  const handleZoneTransition = useCallback((fromZone, toZone, initialProject = null) => {
+  const applyZoneTransition = useCallback((fromZone, toZone, initialProject = null) => {
     if (debugMode) {
       if (import.meta.env.DEV) console.log(`🗺️ IMMEDIATE Zone transition: ${fromZone} → ${toZone}`);
     }
@@ -727,6 +735,69 @@ export const useUnifiedAnimationController = (options = {}) => {
       }));
     }
   }, [debugMode, config]);
+
+  // The crystal form a zone resolves to (hero = reformed/whole, everything else = exploded).
+  const crystalFormForZone = (toZone) => (toZone === 'hero' ? 'whole' : 'exploded');
+
+  // Apply a zone transition and, if it changes the crystal form, mark the crystal
+  // busy for the length of the explode/reform animation so a reversing transition
+  // that arrives mid-flight gets queued rather than restarting the animation.
+  const commitZoneTransition = useCallback((fromZone, toZone, initialProject = null) => {
+    const targetForm = crystalFormForZone(toZone);
+    if (targetForm !== crystalFormRef.current) {
+      const settleMs = (config?.crystal?.explodeDuration ?? 1.6) * 1000;
+      crystalBusyUntilRef.current = performance.now() + settleMs;
+    }
+    crystalFormRef.current = targetForm;
+    applyZoneTransition(fromZone, toZone, initialProject);
+  }, [applyZoneTransition, config]);
+
+  const handleZoneTransition = useCallback((fromZone, toZone, initialProject = null) => {
+    const targetForm = crystalFormForZone(toZone);
+    const now = performance.now();
+    const changesForm = targetForm !== crystalFormRef.current;
+
+    // Only queue a mid-flight EXPLOSION (whole→exploded) — the overview→hero reversal,
+    // where re-exploding from a partial reform would restart the animation and snap the
+    // crystal to center. The opposite direction (reform, exploded→whole — the
+    // hero→overview reversal) is already handled gracefully by the camera-reversal path
+    // and must NOT be queued, or it regresses that (perfect) interrupt.
+    const shouldQueueReversal =
+      changesForm &&
+      targetForm === 'exploded' &&
+      now < crystalBusyUntilRef.current;
+
+    // Mid-transition reversal: the crystal is still reforming and this change would
+    // re-explode it. Queue the latest requested transition and let it fire once the
+    // in-flight reform completes, so nothing restarts or snaps.
+    if (shouldQueueReversal) {
+      queuedZoneTransitionRef.current = { fromZone, toZone, initialProject };
+      if (!queuedZoneTimeoutRef.current) {
+        const delay = Math.max(0, crystalBusyUntilRef.current - now);
+        queuedZoneTimeoutRef.current = setTimeout(() => {
+          queuedZoneTimeoutRef.current = null;
+          const queued = queuedZoneTransitionRef.current;
+          queuedZoneTransitionRef.current = null;
+          if (queued) commitZoneTransition(queued.fromZone, queued.toZone, queued.initialProject);
+        }, delay);
+      }
+      return;
+    }
+
+    // Applying a fresh transition supersedes anything queued.
+    if (queuedZoneTimeoutRef.current) {
+      clearTimeout(queuedZoneTimeoutRef.current);
+      queuedZoneTimeoutRef.current = null;
+    }
+    queuedZoneTransitionRef.current = null;
+    commitZoneTransition(fromZone, toZone, initialProject);
+  }, [commitZoneTransition]);
+
+  // Keep the crystal-form ref in sync with any crystalForm change (including resets
+  // and intro), so the interruption gate always compares against the real form.
+  useEffect(() => {
+    crystalFormRef.current = animationState.crystalForm;
+  }, [animationState.crystalForm]);
 
   /**
    * SIMPLIFIED: Handle project focus (same pattern as before - it works!)
@@ -1255,6 +1326,10 @@ export const useUnifiedAnimationController = (options = {}) => {
       }
       if (cameraDelayTimeout.current) {
          clearTimeout(cameraDelayTimeout.current);
+      }
+      if (queuedZoneTimeoutRef.current) {
+        clearTimeout(queuedZoneTimeoutRef.current);
+        queuedZoneTimeoutRef.current = null;
       }
       lastNearestSectionIdRef.current = null;
     };

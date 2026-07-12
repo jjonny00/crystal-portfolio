@@ -4359,6 +4359,49 @@ const UnifiedCameraController = ({
       };
       lastHeroOverviewPilotAttemptKeyRef.current = null;
     }
+    // Preemptible reversal (hero↔overview): the forward hero→overview transition
+    // (pilot or legacy forced) runs on a monotonic, elapsed-time clock and ignores
+    // scroll direction, so interrupting it by scrolling back to hero makes the
+    // camera lunge onward to overview before snapping home. When a forward
+    // transition is in flight and the scroll has reversed into the hero zone, abort
+    // it and hand the camera to the reverse (overview→hero) transition from the LIVE
+    // pose. This intentionally bypasses the ~500ms reform-pause cameraState hold
+    // (useUnifiedAnimationController holds cameraState:'overview' while state is
+    // already 'hero') ONLY for this interrupted case — the normal
+    // settled-overview→hero path is untouched because no forward transition is active.
+    let heroOverviewReversalToHeroDetected = false;
+    {
+      const forwardHeroOverviewActive =
+        heroOverviewPilotRef.current.active ||
+        authoritativeHeroToOverviewTransitionRef.current.active;
+      if (forwardHeroOverviewActive && nextState === 'hero') {
+        currentTarget.current.position.copy(camera.position);
+        currentTarget.current.lookAt.copy(getCameraLookAtFromTransform());
+        currentTarget.current.fov = camera.fov;
+        if (Number.isFinite(camera.filmOffset)) currentTarget.current.filmOffset = camera.filmOffset;
+        if (heroOverviewPilotRef.current.active) {
+          heroOverviewPilotRef.current = { active: false, key: null, blockedReason: null, transition: null };
+          lastHeroOverviewPilotAttemptKeyRef.current = null;
+        }
+        if (authoritativeHeroToOverviewTransitionRef.current.active) {
+          authoritativeHeroToOverviewTransitionRef.current.active = false;
+          heroToOverviewTransitionStartedForExitRef.current = false;
+        }
+        heroOverviewReversalToHeroDetected = true;
+      }
+    }
+    // Preemptible reversal (overview→hero): the forced overview→hero transition is a
+    // simple monotonic lerp that returns early every frame until it reaches hero.
+    // Interrupting it by scrolling forward again must reverse into a SIMPLE move back
+    // to overview — NOT the hero→overview fracture/explosion cinematic. So while a
+    // reversed-to-overview move is in flight we suppress both the cinematic pilot and
+    // the legacy forced hero→overview writer (which would otherwise re-explode the
+    // camera or snap it to a stale hero snapshot). About is excluded so the
+    // known-buggy About paths keep their existing behavior.
+    const heroOverviewReversalToOverviewActive =
+      authoritativeOverviewToHeroTransitionRef.current.active &&
+      (authoritativeOverviewToHeroTransitionRef.current.reversedToOverview === true ||
+        (nextState !== 'hero' && nextState !== 'about' && nextCameraState !== 'about'));
     const transitionKey = [
       'overview-to-project',
       prevState ?? 'none',
@@ -4408,11 +4451,25 @@ const UnifiedCameraController = ({
     const heroOverviewBlockedReason =
       heroOverviewDuplicateStartSuppressed ? 'duplicate-start-suppressed' :
       heroOverviewFalseStartReason;
+    // Guard against a spurious hero→overview cinematic when the camera is already
+    // sitting at overview. A quick overview→hero→overview flick re-issues the
+    // hero→overview sequence (state overview, cameraState hero during fracture pause),
+    // which would re-fire the pilot from an overview pose and snap the look-at to a
+    // hero-ish/centered target. If we're already at overview there is nothing to fly.
+    const heroOverviewLegacyFinalForGate = getHeroOverviewLegacyFinalPose();
+    const heroOverviewLiveAlreadyAtOverview = heroOverviewLegacyFinalForGate?.position
+      ? camera.position.distanceTo(heroOverviewLegacyFinalForGate.position) <= 1.5
+      : false;
     const shouldStartHeroOverviewPilotScaffold =
       isHeroToOverviewPilotEnabled() &&
       heroOverviewIntentDetected &&
       !heroOverviewPilotRef.current.active &&
-      !heroOverviewBlockedReason;
+      !heroOverviewBlockedReason &&
+      // Don't fire the cinematic pilot when we're reversing an interrupted
+      // overview→hero back to overview — that path owns a simple move instead.
+      !heroOverviewReversalToOverviewActive &&
+      // ...or when the camera is already at overview (spurious re-fire).
+      !heroOverviewLiveAlreadyAtOverview;
     if (isHeroToOverviewPilotEnabled() && heroOverviewIntentDetected && lastHeroOverviewPilotAttemptKeyRef.current !== heroOverviewActivationKey) {
       lastHeroOverviewPilotAttemptKeyRef.current = heroOverviewActivationKey;
       if (heroOverviewBlockedReason) {
@@ -5701,11 +5758,24 @@ const UnifiedCameraController = ({
           const heroPoseFrameDelta = Number.isFinite(lastVisibleHeroPose?.frame)
             ? cameraFrameIndexRef.current - lastVisibleHeroPose.frame
             : Number.POSITIVE_INFINITY;
+          // If the live camera is already sitting at the overview pose, this pilot is
+          // firing on a reform-hold reversal (user scrolled overview→hero, then back
+          // before ever reaching hero) — NOT a genuine hero→overview. The stored
+          // "last visible hero pose" is stale/far here, and using it snaps the look-at
+          // to a centered hero-ish target. Hold the live overview pose instead so the
+          // pilot eases from the real composition, no snap. (When the camera is truly
+          // near hero, the last-visible-hero-pose path is preserved as before, to keep
+          // dodging the upstream hero-writer reset race the pilot was designed around.)
+          const overviewResolvedForHold = getHeroOverviewLegacyFinalPose();
+          const liveNearOverview = overviewResolvedForHold?.position
+            ? livePoseBeforeFirstPilotWrite.position.distanceTo(overviewResolvedForHold.position) <= 1.5
+            : false;
           const canUseLastVisibleHeroPose = Boolean(
             lastVisibleHeroPose?.position &&
             lastVisibleHeroPose?.lookAt &&
             heroPoseFrameDelta >= 0 &&
-            heroPoseFrameDelta <= 30
+            heroPoseFrameDelta <= 30 &&
+            !liveNearOverview
           );
           const activeHoldPose = canUseLastVisibleHeroPose
             ? cloneHeroOverviewStoredPose(lastVisibleHeroPose, `last-visible-hero-orbit-pose:${lastVisibleHeroPose.writerId ?? lastVisibleHeroPose.source ?? 'unknown'}`)
@@ -6494,7 +6564,11 @@ const UnifiedCameraController = ({
       attemptedHeroToOverviewInit &&
       !alreadyActiveHeroToOverview &&
       !startedForExit &&
-      !heroOverviewPilotRef.current.active;
+      !heroOverviewPilotRef.current.active &&
+      // While reversing an interrupted overview→hero back to overview, don't let the
+      // legacy forced hero→overview writer grab the camera and snap it to a stale
+      // hero snapshot — the reversed simple move owns the camera instead.
+      !heroOverviewReversalToOverviewActive;
     if (attemptedHeroToOverviewInit && shouldLogBranch) {
       console.log(
         '[UCC HERO TO OVERVIEW INIT GUARD JSON STRING]\n' +
@@ -6686,9 +6760,12 @@ const UnifiedCameraController = ({
     const cameFromNonHeroState = prevState !== 'hero' || prevCameraState !== 'hero';
     const shouldForceOverviewToHeroTransition =
       FORCE_AUTHORITATIVE_OVERVIEW_TO_HERO_TRANSITION &&
-      !wasPlainHero &&
-      isAuthoritativePlainHero &&
-      cameFromNonHeroState;
+      (
+        (!wasPlainHero && isAuthoritativePlainHero && cameFromNonHeroState) ||
+        // Interrupted hero→overview reversed back to hero: start immediately from
+        // the live pose instead of waiting for the reform-pause cameraState flip.
+        heroOverviewReversalToHeroDetected
+      );
     if (shouldForceOverviewToHeroTransition && !authoritativeOverviewToHeroTransitionRef.current.active) {
       const center = getHeroOrbitCenter();
       const { tuning } = resolveHeroTuning(config);
@@ -6731,6 +6808,51 @@ const UnifiedCameraController = ({
       });
     }
 
+    // Preemptible reversal (overview→hero): this forced transition is monotonic and
+    // non-preemptible (it returns early every frame until it reaches hero). If the
+    // user scrolls forward again mid-transition, reverse it in place into a SIMPLE
+    // move from the LIVE pose back to the overview resting pose — reusing the same
+    // smoothstep lerp machinery — instead of flying all the way to hero and snapping
+    // back, or handing off to the hero→overview fracture cinematic. Retarget once
+    // (guarded by reversedToOverview) so progress isn't reset every frame. About is
+    // excluded so the known-buggy About paths keep their existing behavior.
+    if (
+      authoritativeOverviewToHeroTransitionRef.current.active &&
+      !authoritativeOverviewToHeroTransitionRef.current.reversedToOverview &&
+      nextState !== 'hero' &&
+      nextState !== 'about' &&
+      nextCameraState !== 'about'
+    ) {
+      const t = authoritativeOverviewToHeroTransitionRef.current;
+      const overviewPosition = toVector3(config?.cameraPositions?.overview)
+        .add(toVector3(config?.cameraOffsets?.global?.position))
+        .add(toVector3(config?.cameraOffsets?.zones?.overview?.position));
+      const overviewLookAt = toVector3(config?.cameraTargets?.overview)
+        .add(toVector3(config?.cameraOffsets?.global?.target))
+        .add(toVector3(config?.cameraOffsets?.zones?.overview?.target));
+      t.from = {
+        position: camera.position.clone(),
+        lookAtTarget: getCameraLookAtFromTransform(),
+        filmOffsetX: Number.isFinite(camera.filmOffset) ? camera.filmOffset : 0,
+        source: 'reversal-live-camera',
+      };
+      t.to = {
+        position: overviewPosition,
+        lookAtTarget: overviewLookAt,
+        filmOffsetX: 0,
+        source: 'reversal-overview-destination',
+      };
+      t.progress = 0;
+      t.startTime = state.clock.elapsedTime;
+      t.divergenceWarned = false;
+      t.reversedToOverview = true;
+      console.log('[UCC FORCE OVERVIEW TO HERO REVERSED TO OVERVIEW]', {
+        fromPosition: t.from.position.toArray(),
+        toPosition: t.to.position.toArray(),
+        nextState,
+        nextCameraState,
+      });
+    }
     if (authoritativeOverviewToHeroTransitionRef.current.active) {
       const transition = authoritativeOverviewToHeroTransitionRef.current;
       const frameDelta = Number.isFinite(delta) ? delta : 0;
@@ -6784,7 +6906,29 @@ const UnifiedCameraController = ({
         currentTarget.current.position.copy(transition.to.position);
         currentTarget.current.lookAt.copy(transition.to.lookAtTarget);
         currentTarget.current.fov = camera.fov;
-        heroOrbitStartTimeRef.current = state.clock.elapsedTime;
+        if (transition.reversedToOverview) {
+          // A reversed move ends at the overview pose. Hand off exactly like the
+          // hero→overview forward completion: hold the final overview pose for a few
+          // frames and clear fracture takeover flags so the generic overview branch
+          // picks up its smoothing without popping off the forced endpoint.
+          heroToOverviewHandoffPendingRef.current = {
+            finalPosition: camera.position.clone(),
+            finalLookAt: transition.to.lookAtTarget.clone(),
+            finalFilmOffset: Number.isFinite(transition.to.filmOffsetX) ? transition.to.filmOffsetX : 0,
+            finalUp: getCanonicalCameraUp(),
+          };
+          fractureTiltActiveRef.current = false;
+          fractureTiltRef.current = 0;
+          heroExplosionTransitionRef.current.active = false;
+          heroToOverviewHandoffLockFramesRef.current = HERO_TO_OVERVIEW_HANDOFF_LOCK_FRAMES;
+          cameraMoveProgressRef.current = 1;
+          if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = 1;
+          animationData?.setCameraMoveProgress?.(1);
+          animationData?.setCameraSettled?.(true);
+        } else {
+          // Arrived at hero: seed the hero orbit clock so the orbit picks up cleanly.
+          heroOrbitStartTimeRef.current = state.clock.elapsedTime;
+        }
         authoritativeOverviewToHeroTransitionRef.current.active = false;
         console.log('[UCC FORCE OVERVIEW TO HERO COMPLETE]', {
           finalPosition: camera.position.toArray(),
