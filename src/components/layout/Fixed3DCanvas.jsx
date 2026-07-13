@@ -20,7 +20,7 @@ import { FPSCounter } from '../ui/FpsDisplay';
 import CrystalDebugPanels from '../ui/CrystalDebugPanels';
 import GradientBackground from '../three/GradientBackground';
 import { projectBackgrounds } from '../../data/projectBackgrounds';
-import { fracture as fractureConfig } from '../../crystalConfig';
+import { fracture as fractureConfig, hdriPathForTier } from '../../crystalConfig';
 import MistyLayerStack from '../MistyLayerStack';
 import { isIOS26 } from '../../utils/isIOS26';
 import { facetKeys as canonicalFacetKeys, getProjectIdBySceneFacetKey } from '../../data/projects';
@@ -955,7 +955,7 @@ const Fixed3DCanvas = forwardRef(({
 
           {/* Environment used for reflections only */}
           <Environment
-            files={environmentProps.files || config?.environment?.hdri || "/assets/environment/prismatic-detailed01-low.hdr"}
+            files={environmentProps.files || config?.environment?.hdri || hdriPathForTier('low')}
             background={false}
             environmentRotation={config?.environment?.rotation || [0, Math.PI * 0.7, 0]}
             environmentIntensity={config?.environment?.intensity ?? 7.0}

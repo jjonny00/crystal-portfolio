@@ -565,8 +565,15 @@ export const lighting = {
 }
 
 // === ENVIRONMENT ===
+// Single source of truth for the environment map. To swap the HDRI everywhere,
+// change HDRI_BASE only — the per-tier suffix (-high/-medium/-low) is appended
+// automatically and must match the files in public/assets/environment/.
+export const HDRI_BASE = 'prismatic10';
+export const hdriPathForTier = (tier = 'low') =>
+  `/assets/environment/${HDRI_BASE}-${tier}.hdr`;
+
 export const environment = {
-  hdri: "/assets/environment/prismatic-detailed01-low.hdr",
+  hdri: hdriPathForTier('low'),
   showBackground: true,
   rotation: [0, Math.PI * -0.2, 0],
   // Scene-level IBL intensity. As of three r163, materials that read

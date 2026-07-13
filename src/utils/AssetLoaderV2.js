@@ -76,12 +76,17 @@ export default class AssetLoaderV2 {
       'Project04': 'Project04 Facet',
       'Project05': 'Project05 Facet',
       'Project06': 'Project06 Facet',
-      'raw-crystal-normal01': 'Normal Map Texture',
-      'prismatic-detailed01-low': 'Environment (Low)',
-      'prismatic-detailed01-medium': 'Environment (Medium)',
-      'prismatic-detailed01-high': 'Environment (High)'
+      'raw-crystal-normal01': 'Normal Map Texture'
     };
-    
+
+    // Environment HDRIs are named `<base>-<tier>.hdr`; label them by tier so the
+    // loader text stays friendly regardless of which HDRI_BASE is in use.
+    const envTier = name.match(/-(low|medium|high)$/);
+    if (envTier) {
+      const tier = envTier[1];
+      return `Environment (${tier.charAt(0).toUpperCase()}${tier.slice(1)})`;
+    }
+
     return friendlyNames[name] || filename;
   }
 

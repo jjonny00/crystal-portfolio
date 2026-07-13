@@ -862,7 +862,7 @@ function App() {
     if (!performanceProfile) return {};
     
     return {
-      files: `/assets/environment/prismatic-detailed01-${performanceProfile.hdriQuality || 'medium'}.hdr`
+      files: defaultConfig.hdriPathForTier(performanceProfile.hdriQuality || 'medium')
     };
   }, [performanceProfile]);
 

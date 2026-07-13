@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import AssetLoaderV2 from '../utils/AssetLoaderV2.js';
+import { hdriPathForTier } from '../crystalConfig';
 
 // Descriptors for all GLTF models used in the app
 const MODEL_DESCRIPTORS = [
@@ -59,7 +60,7 @@ export const useAssetLoaderV2 = (performanceProfile) => {
     const hdriAssets = [{
       type: 'environment',
       key: 'hdri',
-      url: `/assets/environment/prismatic-detailed01-${hdriQuality}.hdr`,
+      url: hdriPathForTier(hdriQuality),
       name: `Environment (${hdriQuality})`
     }];
 
