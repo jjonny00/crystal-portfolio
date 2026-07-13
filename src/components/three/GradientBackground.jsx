@@ -52,10 +52,13 @@ void main() {
   vec3 dir = normalize(vWorldPosition);
 
   float height = dir.y * 0.5 + 0.5;
-  float angle = (atan(dir.z, dir.x) / (2.0 * 3.1415926)) + 0.5;
 
-  // Subtle directional gradient
-  float baseT = clamp(height + angle * 0.1, 0.0, 1.0);
+  // Subtle directional gradient. Using dir.x directly (rather than a
+  // linear atan() ramp) keeps this term periodic around the horizon, so
+  // there's no discontinuity at the ±PI wrap point — i.e. no visible seam
+  // where the gradient's start meets its end.
+  float horizontalTilt = dir.x * 0.05;
+  float baseT = clamp(height + horizontalTilt, 0.0, 1.0);
 
   // Bursts of randomness (scale position to control density)
   float bursts = burstField(vWorldPosition * 0.03) * 0.1;
