@@ -48,10 +48,32 @@ const NAV_ITEM_BASE_STYLE = {
   lineHeight: 'normal',
   textTransform: 'uppercase',
   cursor: 'pointer',
-  padding: 0
+  padding: 0,
+  transition: 'opacity 0.3s ease'
 };
 
-const Navigation = ({ onHomeClick, onWorkClick, onAboutClick, onContactClick, isTransitioning = false }) => {
+const NavItem = ({ label, onClick, disabled, isActive, fontSize }) => {
+  const [isHovered, setIsHovered] = useState(false);
+  const active = isActive || isHovered;
+
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{
+        ...NAV_ITEM_BASE_STYLE,
+        fontSize,
+        opacity: disabled ? 0.6 : active ? 1 : 0.7
+      }}
+    >
+      {label}
+    </button>
+  );
+};
+
+const Navigation = ({ activeLabel = null, onHomeClick, onWorkClick, onAboutClick, onContactClick, isTransitioning = false }) => {
   const [isDesktop, setIsDesktop] = useState(true);
 
   useEffect(() => {
@@ -84,23 +106,19 @@ const Navigation = ({ onHomeClick, onWorkClick, onAboutClick, onContactClick, is
           disabled={isTransitioning}
           aria-label="Go to hero section"
         >
-          JONSHAW
+          J.JONSHAW
         </button>
 
         <div style={{ display: 'flex', gap: isDesktop ? '34px' : '16px', alignItems: 'center' }}>
           {navItems.map((item) => (
-            <button
+            <NavItem
               key={item.label}
+              label={item.label}
               onClick={item.onClick}
               disabled={isTransitioning}
-              style={{
-                ...NAV_ITEM_BASE_STYLE,
-                fontSize: isDesktop ? '24px' : '18px',
-                opacity: isTransitioning ? 0.6 : 1
-              }}
-            >
-              {item.label}
-            </button>
+              isActive={activeLabel === item.label}
+              fontSize={isDesktop ? '24px' : '18px'}
+            />
           ))}
         </div>
       </div>

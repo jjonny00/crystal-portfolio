@@ -402,6 +402,8 @@ function App() {
   
   // Basic state hooks
   const [hideAllUI, setHideAllUI] = useState(false);
+  // Which top-nav item is highlighted, derived from the current scroll zone.
+  const [activeNavLabel, setActiveNavLabel] = useState(null);
   const [perfDebug, setPerfDebug] = useState(false);
   const [snapSpeed, setSnapSpeed] = useState('medium');
   const [config, setConfig] = useState({
@@ -547,6 +549,17 @@ function App() {
     if (import.meta.env.DEV) {
       console.log('🎬 Animation state change:', { prev: prevState, new: newState });
     }
+
+    // Keep the top-nav highlight in sync with the section the user is actually in.
+    // The controller passes its full animationState object; map its zone to a label.
+    const zone = newState?.zoneInfo?.zone ?? newState?.state;
+    let label = null;
+    if (zone === 'overview' || zone === 'projects' || zone === 'project_focused') {
+      label = 'WORK';
+    } else if (zone === 'about') {
+      label = 'ABOUT';
+    }
+    setActiveNavLabel(label);
   }, []);
 
   const scrollToSection = useCallback((sectionId, behavior = 'smooth') => {
@@ -919,6 +932,7 @@ function App() {
       {/* Navigation Bar */}
       {!hideAllUI && (
         <Navigation
+          activeLabel={activeNavLabel}
           onHomeClick={handleHomeClick}
           onWorkClick={handleWorkClick}
           onAboutClick={handleAboutClick}
