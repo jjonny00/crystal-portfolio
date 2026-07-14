@@ -33,22 +33,24 @@ export const HERO_OVERVIEW_CINEMATIC_CONFIG = {
     enabled: true,
     triggerAt: 0.5,
     delay: 0,
-    count: 625,
+    count: 1025,
     color: '#aeecff',
-    emitterPosition: [0, 1.1, 0],
+    emitterPosition: [0, 1.0, 0],
     spawnRadius: 0.075,
-    emitterScale: [0.07, 15.5, 0.07],
-    duration: 1.45,
-    spread: 2.2,
+    emitterScale: [0.07, 25.5, 0.07],
+    duration: 1.9,
+    spread: 1.1,
     lifetime: null,
-    lifetimeMin: 0.05,
-    lifetimeMax: 3.0,
+    lifetimeMin: 0.01,
+    lifetimeMax: 4.25,
     speed: null,
     speedMin: 0.08,
-    speedMax: 5.25,
-    size: null,
+    speedMax: 7.25,
+    size: .06,
     opacity: 0.72,
     blending: 'additive',
+    shimmerStrength: 0.75,
+    shimmerSpeed: 60.0,
     wired: true,
   },
 
@@ -67,18 +69,21 @@ export const HERO_OVERVIEW_CINEMATIC_CONFIG = {
   explosionParticles: {
     enabled: true,
     triggerAt: 0.56,
-    count: 260,
-    color: '#d9fbff',
-    duration: 2.24,
+    count: 220,
+    color: '#b2fcff',
+    duration: 1.9,
     speedMin: 0.01,
-    speedMax: 0.15,
+    speedMax: 0.05,
     lifetimeMin: 0.08,
-    lifetimeMax: 1.32,
+    lifetimeMax: 0.12,
     opacity: 0.95,
-    spawnRadius: 0.5,
-    emitterScale: [0.75, 0.75, 0.75],
-    spread: 12.8,
+    spawnRadius: 0.85,
+    emitterScale: [0.75, 2.2, 0.75],
+    spread: 36.8,
+    size: 0.025,
     blending: 'additive',
+    shimmerStrength: 0.75,
+    shimmerSpeed: 60.0,
     wired: true,
   },
 
@@ -423,6 +428,12 @@ export const resolveHeroOverviewCinematicConfig = (config = HERO_OVERVIEW_CINEMA
     ? rawParticles.blending
     : DEFAULT_PARTICLES_CONFIG.blending;
   if (!(typeof rawParticles.blending === 'string' && HERO_OVERVIEW_PARTICLE_BLENDING_MODES.includes(rawParticles.blending))) pushInvalidParticleKey('blending');
+  const particleShimmerStrength = (typeof rawParticles.shimmerStrength === 'number' && Number.isFinite(rawParticles.shimmerStrength))
+    ? Math.min(Math.max(rawParticles.shimmerStrength, 0), 3)
+    : DEFAULT_PARTICLES_CONFIG.shimmerStrength;
+  if (!(typeof rawParticles.shimmerStrength === 'number' && Number.isFinite(rawParticles.shimmerStrength))) pushInvalidParticleKey('shimmerStrength');
+  const particleShimmerSpeed = readNonNegativeNumber(rawParticles.shimmerSpeed, DEFAULT_PARTICLES_CONFIG.shimmerSpeed);
+  if (!(typeof rawParticles.shimmerSpeed === 'number' && Number.isFinite(rawParticles.shimmerSpeed) && rawParticles.shimmerSpeed >= 0)) pushInvalidParticleKey('shimmerSpeed');
 
   const particleFieldsWired = [
     'enabled',
@@ -444,6 +455,8 @@ export const resolveHeroOverviewCinematicConfig = (config = HERO_OVERVIEW_CINEMA
     'size',
     'opacity',
     'blending',
+    'shimmerStrength',
+    'shimmerSpeed',
   ];
   const particleFieldsPlaceholders = {};
   const particles = {
@@ -468,6 +481,8 @@ export const resolveHeroOverviewCinematicConfig = (config = HERO_OVERVIEW_CINEMA
     size: particleSize,
     opacity: particleOpacity,
     blending: particleBlending,
+    shimmerStrength: particleShimmerStrength,
+    shimmerSpeed: particleShimmerSpeed,
     wired: true,
     routeTimelineWired: true,
     triggerAtUnits: 'seconds-from-hero-overview-start',
@@ -492,6 +507,8 @@ export const resolveHeroOverviewCinematicConfig = (config = HERO_OVERVIEW_CINEMA
       size: particleSize,
       opacity: particleOpacity,
       blending: particleBlending,
+      shimmerStrength: particleShimmerStrength,
+      shimmerSpeed: particleShimmerSpeed,
     },
     invalidKeys: invalidParticleKeys,
     fallbackUsed: invalidParticleKeys.length > 0,

@@ -1094,7 +1094,17 @@ const UnifiedCrystalScene = forwardRef(({
     const heroOverviewRouteLocal = fractureTiming.routeLocal;
 
     if (heroOverviewRouteLocal) {
-      resetHeroOverviewEffectsRun(runtimeSnapshot?.startedAt || performance.now());
+      // Only (re)arm the effect triggers when this is a genuinely new hero→overview
+      // run. maybeTriggerHeroOverviewEffects('frame') runs every frame while
+      // crystalForm is already 'exploded', so it may have started this run (same
+      // startedAt) and fired the initial particle burst before this deferred
+      // runExplodeSwap fires ~120ms later. Re-resetting here would clear the
+      // "already triggered" guards, and the immediate maybeTriggerHeroOverviewEffects
+      // call below would re-fire that initial burst on top of the main explosion beat.
+      const runStartedAt = runtimeSnapshot?.startedAt || performance.now();
+      if (heroOverviewEffectsRunStartedAtRef.current !== runStartedAt) {
+        resetHeroOverviewEffectsRun(runStartedAt);
+      }
       heroOverviewEffectsImmediateBypassRef.current = true;
       heroOverviewEffectsDiagnosticsRef.current = {
         ...heroOverviewEffectsDiagnosticsRef.current,

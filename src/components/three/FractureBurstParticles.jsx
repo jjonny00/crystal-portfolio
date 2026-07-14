@@ -67,6 +67,12 @@ const FractureBurstParticles = ({
   size = null,
   opacity = null,
   blending = DEFAULT_PARTICLE_BLENDING,
+  // Per-particle high-frequency twinkle (matches the orb motes' shimmer). Each
+  // particle gets its own random phase/rate so the swarm sparkles rather than
+  // pulsing in lockstep. shimmerStrength=0 (or shimmer=false) fully disables it.
+  shimmer = true,
+  shimmerStrength = 0.55,
+  shimmerSpeed = 9.0,
   onBurstGenerated = null,
 }) => {
   const resolvedCount = Math.max(0, Math.floor(Number.isFinite(count) ? count : 0));
@@ -112,6 +118,8 @@ const FractureBurstParticles = ({
     g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(resolvedCount * 3), 3));
     g.setAttribute('aAlpha', new THREE.BufferAttribute(new Float32Array(resolvedCount), 1));
     g.setAttribute('aSize', new THREE.BufferAttribute(new Float32Array(resolvedCount), 1));
+    g.setAttribute('aShimmerPhase', new THREE.BufferAttribute(new Float32Array(resolvedCount), 1));
+    g.setAttribute('aShimmerRate', new THREE.BufferAttribute(new Float32Array(resolvedCount), 1));
     return g;
   }, [resolvedCount]);
 
@@ -123,29 +131,50 @@ const FractureBurstParticles = ({
           uPixelRatio: {
             value: typeof window !== 'undefined' ? Math.min(window.devicePixelRatio || 1, 2) : 1,
           },
+          uTime: { value: 0 },
+          uShimmerStrength: { value: shimmer ? THREE.MathUtils.clamp(shimmerStrength, 0, 3) : 0 },
+          uShimmerSpeed: { value: Math.max(0, shimmerSpeed) },
         },
         vertexShader: `
           attribute float aSize;
           attribute float aAlpha;
+          attribute float aShimmerPhase;
+          attribute float aShimmerRate;
           uniform float uPixelRatio;
+          uniform float uTime;
+          uniform float uShimmerStrength;
+          uniform float uShimmerSpeed;
           varying float vAlpha;
+          varying float vShimmer;
 
           void main() {
             vAlpha = aAlpha;
+            // Per-particle sparkle. A gentle twinkle sets a baseline wobble, but
+            // the readable part is the flare: a sharp, brief spike (pow(sin,16)) at
+            // a per-particle rate/phase. In a dense additive cloud a brightness-only
+            // twinkle averages out, so the flare also PULSES the point size -- the
+            // momentary bigger, brighter dots register as distinct glints.
+            // At strength 0 this collapses to bright=1 / sizePulse=1 (no shimmer).
+            float tw = 0.5 + 0.5 * sin(uTime * uShimmerSpeed * aShimmerRate + aShimmerPhase);
+            float flare = pow(max(0.0, sin(uTime * uShimmerSpeed * 0.5 * aShimmerRate + aShimmerPhase * 2.3)), 16.0);
+            float bright = (1.0 - 0.6 * uShimmerStrength) + 0.6 * uShimmerStrength * tw + 2.4 * uShimmerStrength * flare;
+            vShimmer = max(bright, 0.0);
+            float sizePulse = 1.0 + 1.2 * uShimmerStrength * flare;
             vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-            gl_PointSize = aSize * uPixelRatio * (300.0 / -mvPosition.z);
+            gl_PointSize = aSize * uPixelRatio * (300.0 / -mvPosition.z) * sizePulse;
             gl_Position = projectionMatrix * mvPosition;
           }
         `,
         fragmentShader: `
           uniform vec3 uColor;
           varying float vAlpha;
+          varying float vShimmer;
 
           void main() {
             vec2 uv = gl_PointCoord - 0.5;
             float d = length(uv);
             float soft = 1.0 - smoothstep(0.25, 0.5, d);
-            gl_FragColor = vec4(uColor, vAlpha * soft);
+            gl_FragColor = vec4(uColor, vAlpha * soft * vShimmer);
           }
         `,
         transparent: true,
@@ -181,6 +210,11 @@ const FractureBurstParticles = ({
     material.blending = PARTICLE_BLENDING_BY_NAME[resolvedBlending];
     material.needsUpdate = true;
   }, [blending, material]);
+
+  useEffect(() => {
+    material.uniforms.uShimmerStrength.value = shimmer ? THREE.MathUtils.clamp(shimmerStrength, 0, 3) : 0;
+    material.uniforms.uShimmerSpeed.value = Math.max(0, shimmerSpeed);
+  }, [shimmer, shimmerStrength, shimmerSpeed, material]);
 
   useEffect(() => {
     velocitiesRef.current = new Float32Array(resolvedCount * 3);
@@ -228,6 +262,8 @@ const FractureBurstParticles = ({
       const positions = geometry.attributes.position.array;
       const alphas = geometry.attributes.aAlpha.array;
       const sizes = geometry.attributes.aSize.array;
+      const shimmerPhases = geometry.attributes.aShimmerPhase.array;
+      const shimmerRates = geometry.attributes.aShimmerRate.array;
       const velocities = velocitiesRef.current;
       const lifetimes = lifetimesRef.current;
       const ages = agesRef.current;
@@ -448,6 +484,8 @@ const FractureBurstParticles = ({
         phases[i] = Math.random() * Math.PI * 2;
         flowFreqs[i] = 8.0 + Math.random() * 10.0;
         flowAmps[i] = 0.018 + Math.random() * 0.032;
+        shimmerPhases[i] = Math.random() * Math.PI * 2;
+        shimmerRates[i] = 0.6 + Math.random() * 0.9;
 
         alphas[i] = resolvedOpacity;
       }
@@ -466,6 +504,8 @@ const FractureBurstParticles = ({
         phases[i] = 0;
         flowFreqs[i] = 0;
         flowAmps[i] = 0;
+        shimmerPhases[i] = 0;
+        shimmerRates[i] = 0;
         sizes[i] = 0;
         alphas[i] = 0;
       }
@@ -568,6 +608,8 @@ const FractureBurstParticles = ({
       geometry.attributes.position.needsUpdate = true;
       geometry.attributes.aAlpha.needsUpdate = true;
       geometry.attributes.aSize.needsUpdate = true;
+      geometry.attributes.aShimmerPhase.needsUpdate = true;
+      geometry.attributes.aShimmerRate.needsUpdate = true;
 
       startTimeRef.current = performance.now() - EMITTER_START_LEAD_S * 1000;
     };
@@ -597,12 +639,17 @@ const FractureBurstParticles = ({
     }
   });
 
-  useFrame((_, dt) => {
+  useFrame((state, dt) => {
+    // Keep the shimmer clock advancing even before/after a burst so the twinkle
+    // never jumps when particles (re)appear.
+    material.uniforms.uTime.value = state.clock.elapsedTime;
     if (!startTimeRef.current) return;
 
     const positions = geometry.attributes.position.array;
     const alphas = geometry.attributes.aAlpha.array;
     const sizes = geometry.attributes.aSize.array;
+    const shimmerPhases = geometry.attributes.aShimmerPhase.array;
+    const shimmerRates = geometry.attributes.aShimmerRate.array;
     const velocities = velocitiesRef.current;
     const lifetimes = lifetimesRef.current;
     const ages = agesRef.current;
@@ -652,6 +699,8 @@ const FractureBurstParticles = ({
           swapScalar(phases, i, last);
           swapScalar(flowFreqs, i, last);
           swapScalar(flowAmps, i, last);
+          swapScalar(shimmerPhases, i, last);
+          swapScalar(shimmerRates, i, last);
           swapScalar(alphas, i, last);
           swapScalar(sizes, i, last);
         }
@@ -729,6 +778,12 @@ const FractureBurstParticles = ({
     geometry.attributes.position.needsUpdate = true;
     geometry.attributes.aAlpha.needsUpdate = true;
     geometry.attributes.aSize.needsUpdate = true;
+    // The per-particle shimmer attributes are static per spawn, but the expiry
+    // swap above reorders them — re-upload only on frames where that happened.
+    if (expiredThisFrame > 0) {
+      geometry.attributes.aShimmerPhase.needsUpdate = true;
+      geometry.attributes.aShimmerRate.needsUpdate = true;
+    }
   });
 
   return (
