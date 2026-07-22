@@ -16,7 +16,8 @@ const ScrollablePortfolio = ({
   activeProjectId = null,
   onActiveProjectChange = null,
   onOpenCaseStudy = null,
-  onBackToProject = null
+  onBackToProject = null,
+  onSettledSectionChange = null
 }) => {
   const { variant } = useLayoutConfig();
   const isMobileViewport = variant === 'mobile';
@@ -97,6 +98,14 @@ const ScrollablePortfolio = ({
       }
     };
   }, []);
+
+  // Relay the settled section up so App-level UI (e.g. the About scrim) can stay
+  // perfectly in sync with the section the content layer has settled on — this is
+  // the same signal that drives each section's `visible` prop, so it responds
+  // identically to scrolling and to nav-click jumps.
+  useEffect(() => {
+    onSettledSectionChange?.(settledSectionId);
+  }, [onSettledSectionChange, settledSectionId]);
 
   useEffect(() => {
     if (!onActiveProjectChange) return;
@@ -255,7 +264,7 @@ const ScrollablePortfolio = ({
             pointerEvents: 'auto'
           }}
         >
-          <AboutSection />
+          <AboutSection visible={settledSectionId === 'about'} />
         </section>
       </div>
     </div>

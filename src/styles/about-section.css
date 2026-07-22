@@ -1,0 +1,203 @@
+/* src/styles/about-section.css */
+
+.about-section {
+  position: relative;
+  height: 100%;
+  width: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  /* Allow scroll chaining: reaching the top hands off to the page scroll
+     so an up-scroll returns to the projects section. */
+  overscroll-behavior-y: auto;
+  touch-action: pan-y;
+  box-sizing: border-box;
+  background-color: transparent;
+}
+
+/* The readability scrim is a fixed viewport layer rendered at the App level
+   (between the 3D canvas and this scroll content), so it fades in/out with the
+   About zone and never scrolls. */
+
+/* Inner wrapper: centers content when it fits, lets the parent scroll when it doesn't. */
+.about-section__inner {
+  position: relative;
+  min-height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: clamp(4rem, 10svh, 7rem) clamp(1.5rem, 5.2vw, 6rem)
+    calc(clamp(4rem, 10svh, 7rem) + env(safe-area-inset-bottom, 0px));
+  color: #fcf5eb;
+}
+
+.about-section__content {
+  position: relative;
+  width: 100%;
+  max-width: 1160px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  column-gap: clamp(2rem, 5vw, 5.5rem);
+  row-gap: clamp(2rem, 4svh, 3rem);
+  align-items: start;
+}
+
+/* ---- Photo ---- */
+.about-section__photo {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  border-radius: 14px;
+  overflow: hidden;
+  background:
+    linear-gradient(150deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.015));
+  border: 1px solid rgba(226, 220, 195, 0.18);
+}
+
+.about-section__photo-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.about-section__photo-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  color: rgba(226, 220, 195, 0.55);
+  text-align: center;
+  padding: 1.5rem;
+}
+
+.about-section__photo-placeholder svg {
+  opacity: 0.65;
+}
+
+.about-section__photo-label {
+  font-family: 'acumin-variable', 'Acumin VF', sans-serif;
+  font-size: 0.8125rem;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* ---- Copy column ---- */
+.about-section__body {
+  display: flex;
+  flex-direction: column;
+}
+
+.about-section__title {
+  --headline-ink: #FFFCEE;
+  font-family: 'acumin-variable', 'Acumin VF', sans-serif;
+  font-style: normal;
+  font-stretch: 68%;
+  font-variation-settings: 'wdth' 68;
+  font-size: clamp(2.4rem, 5.4vw, 4rem);
+  font-weight: 700;
+  line-height: 0.98;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  text-wrap: balance;
+  margin: 0 0 clamp(1.5rem, 3.5svh, 2.5rem);
+  color: #FFFCEE;
+}
+
+.about-section__paragraph {
+  font-family: 'acumin-variable', 'Acumin VF', sans-serif;
+  font-style: normal;
+  font-size: clamp(1rem, min(1.35vw, 2.2svh), 1.25rem);
+  font-weight: 300;
+  line-height: 1.6;
+  letter-spacing: -0.01em;
+  color: rgb(226 220 195 / 0.85);
+  margin: 0;
+}
+
+.about-section__paragraph + .about-section__paragraph {
+  margin-top: clamp(1rem, 2.6svh, 1.6rem);
+}
+
+/* ---- Stats ---- */
+.about-section__stats {
+  margin-top: clamp(2rem, 5svh, 3.25rem);
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+}
+
+.about-section__stat {
+  padding: clamp(1rem, 2.4svh, 1.5rem) 0;
+  border-top: 1px solid rgba(226, 220, 195, 0.16);
+}
+
+.about-section__stat:last-child {
+  border-bottom: 1px solid rgba(226, 220, 195, 0.16);
+}
+
+.about-section__stat-value {
+  font-family: 'acumin-variable', 'Acumin VF', sans-serif;
+  font-stretch: 68%;
+  font-variation-settings: 'wdth' 68;
+  font-size: clamp(1.5rem, 3vw, 2.1rem);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+  color: #64ffda;
+  margin: 0;
+}
+
+.about-section__stat-label {
+  font-family: 'acumin-variable', 'Acumin VF', sans-serif;
+  font-size: clamp(0.9rem, 1.1vw, 1.05rem);
+  font-weight: 300;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+  color: rgb(226 220 195 / 0.7);
+  margin: 0.4rem 0 0;
+}
+
+/* ---- Tablet ---- */
+@media (max-width: 1024px) {
+  .about-section__content {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+    column-gap: clamp(1.5rem, 4vw, 3rem);
+  }
+}
+
+/* ---- Mobile: single column, stacked ---- */
+@media (max-width: 767px) {
+  .about-section__inner {
+    padding: clamp(3.5rem, 9svh, 5rem) 20px
+      calc(clamp(4.5rem, 12svh, 6rem) + env(safe-area-inset-bottom, 0px));
+  }
+
+  .about-section__content {
+    grid-template-columns: 1fr;
+    row-gap: clamp(1.75rem, 4svh, 2.5rem);
+    max-width: 34rem;
+    padding: clamp(1.5rem, 4svh, 2rem) clamp(1.25rem, 5vw, 1.75rem);
+  }
+
+  /* Lead with the photo on mobile, then headline / copy / stats. */
+  .about-section__photo {
+    order: -1;
+    max-width: 18rem;
+    margin-inline: auto;
+    aspect-ratio: 4 / 5;
+  }
+
+  .about-section__title {
+    font-size: clamp(2.2rem, 10vw, 3rem);
+  }
+}
