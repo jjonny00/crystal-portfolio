@@ -29,6 +29,7 @@ import projects, {
   getFacetSlotBySceneFacetKey
 } from '../../data/projects'
 import FacetLabels from './FacetLabels'
+import FacetHoverParticles from './FacetHoverParticles'
 import { effects, materials as defaultCrystalMaterials } from '../../crystalConfig'
 import { useFacetOverlayGeometry } from '../../hooks/useFacetOverlayGeometry'
 import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController'
@@ -64,6 +65,11 @@ const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3)
 const easeInOutCubic = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2)
 const FACET_EASE_ACTIVATE = 'out'
 const FACET_EASE_DEACTIVATE = 'inout'
+
+// Selecting a project pops the facet's internal glow above its active (hover/select)
+// level, then eases back down to that level while the project is being viewed.
+const FACET_SELECT_GLOW_BOOST_MULT = 2.3
+const FACET_SELECT_GLOW_DECAY_SPEED = 1.4 // ~0.7s ease back to the active level
 const easeFacetTransition = (mode, t) => (
   mode === FACET_EASE_DEACTIVATE ? easeInOutCubic(t) : easeOutCubic(t)
 )
@@ -987,6 +993,18 @@ const UnifiedCrystalScene = forwardRef(({
     [facetKeys]
   );
 
+  // Maps each scene facet key (e.g. 'narrative') to the project's DOM label key
+  // (data-facet-key), used by the hover connector particles to locate the label.
+  const domKeyBySceneKey = useMemo(() => {
+    const map = {};
+    projects.forEach((project) => {
+      const domKey = project.facetKey || project.id;
+      const sceneKey = getSceneFacetKeyByProjectId(domKey);
+      if (domKey && sceneKey) map[sceneKey] = domKey;
+    });
+    return map;
+  }, [projects]);
+
   // Non-project (default) internal-glow color, e.g. #6AFFEE. Held in a ref so it
   // can be read inside callbacks/useFrame without re-creating them.
   const glowDefaultColorRef = useRef(new THREE.Color('#6AFFEE'));
@@ -1767,8 +1785,35 @@ const UnifiedCrystalScene = forwardRef(({
   );
   const projectSelectionSignalLogRef = useRef({ from: null, to: null, clicked: null });
 
+  // Pop the selected facet's internal glow above its active level, then let the frame
+  // loop ease it back down to that level (owned by the loop, so the sync writers won't
+  // clobber it mid-decay). Keyed by any project/facet key the selection carries.
+  const applyFacetSelectGlowBoost = useCallback((projectOrFacetKey) => {
+    const sceneKey = getSceneFacetKeyByProjectId(projectOrFacetKey) || projectOrFacetKey;
+    const index = facetKeys.indexOf(sceneKey);
+    if (index === -1) return;
+    const mat = facetMaterialsRef.current[index];
+    const glowUniforms = mat?.userData?.glowUniforms;
+    if (!glowUniforms) return;
+    const activeLevel = facetGlowLevelsRef.current.active;
+    const projectColor = projectColors[index];
+    if (!mat.userData.glowStartColor) mat.userData.glowStartColor = new THREE.Color();
+    if (!mat.userData.glowTargetColor) mat.userData.glowTargetColor = new THREE.Color();
+    // Hold the project color steady; only the intensity pops and decays.
+    mat.userData.glowStartColor.copy(projectColor);
+    mat.userData.glowTargetColor.copy(projectColor);
+    glowUniforms.uGlowColor.value.copy(projectColor);
+    glowUniforms.uGlowIntensity.value = activeLevel * FACET_SELECT_GLOW_BOOST_MULT;
+    mat.userData.glowStartIntensity = activeLevel * FACET_SELECT_GLOW_BOOST_MULT;
+    mat.userData.glowTargetIntensity = activeLevel;
+    mat.userData.glowProgress = 0;
+    mat.userData.glowTransitionSpeed = FACET_SELECT_GLOW_DECAY_SPEED;
+    mat.userData.transitionEase = FACET_EASE_DEACTIVATE;
+  }, [facetKeys, projectColors]);
+
   const selectProjectAndNavigate = useCallback((projectKey) => {
     if (!projectKey) return;
+    applyFacetSelectGlowBoost(projectKey);
     if (import.meta.env.DEV) {
       const fromProjectId = animationData?.focusedProject ?? null;
       const logKey = `${fromProjectId ?? 'none'}->${projectKey}`;
@@ -1810,7 +1855,7 @@ const UnifiedCrystalScene = forwardRef(({
     const sectionStart = ANIMATION_CONFIG.projectSections?.[projectKey]?.start;
     if (sectionStart === undefined || sectionStart === null) return;
     scrollToProgress?.(sectionStart, 'auto');
-  }, [animationData?.focusedProject, onDirectProjectSelect, scrollToProgress, scrollToProject]);
+  }, [animationData?.focusedProject, onDirectProjectSelect, scrollToProgress, scrollToProject, applyFacetSelectGlowBoost]);
 
   const handleFacetClick = useCallback((facetKey) => {
     if (!inActiveOverview) return;
@@ -4091,6 +4136,17 @@ const UnifiedCrystalScene = forwardRef(({
         performanceProfile={performanceProfile}
         anchorOffsets={anchorOffsets}
       />
+
+      {!simplifiedAnimations && (
+        <FacetHoverParticles
+          enabled={inActiveOverview && cameraSettled}
+          hoveredFacetKey={hoveredFacet}
+          facetRefs={facetRefs}
+          facetKeys={facetKeys}
+          domKeyBySceneKey={domKeyBySceneKey}
+          projectColors={projectColors}
+        />
+      )}
 
       {/* Debug visualization when enabled */}
       {showCrystalDebug && showFacets && !simplifiedAnimations && (
