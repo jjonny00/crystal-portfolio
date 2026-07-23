@@ -29,11 +29,9 @@ import projects, {
   getFacetSlotBySceneFacetKey
 } from '../../data/projects'
 import FacetLabels from './FacetLabels'
-import OverviewConnectorLines from './OverviewConnectorLines'
 import { effects, materials as defaultCrystalMaterials } from '../../crystalConfig'
 import { useFacetOverlayGeometry } from '../../hooks/useFacetOverlayGeometry'
 import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController'
-import { useLayoutConfig } from '../../hooks/useLayoutConfig'
 import { useHoverCapable } from '../../hooks/useHoverCapable'
 import { createLogger } from '../../utils/logger'
 import { HERO_OVERVIEW_CINEMATIC_RESOLVED, HERO_OVERVIEW_EASING } from '../../config/heroOverviewCinematicConfig'
@@ -52,7 +50,23 @@ const REFORM_MASK_GLOW_DURATION_S = 0.2
 const REFORM_MASK_GLOW_PEAK_INTENSITY = 6.75
 const REFORM_FACET_MASK_GLOW_PEAK_INTENSITY = 6.75
 const REFORM_SWAP_OVERLAP_MS = 100
-const ENABLE_OVERVIEW_ALL_CONNECTORS = true
+
+// Facet hover/focus color-transition rates (progress units per second; duration ≈ 1/rate).
+// The hover-out fade runs at half rate so exiting a hover fades back twice as slowly.
+const FACET_COLOR_TRANSITION_SPEED = 4
+const FACET_COLOR_HOVER_OUT_TRANSITION_SPEED = FACET_COLOR_TRANSITION_SPEED / 2
+
+// Activation (hover/focus in) eases out — snappy start, settles into the peak with
+// near-zero velocity. Deactivation (fade-out) eases in-and-out so it *leaves* the peak
+// gently too; matching the near-zero velocity at the peak avoids a visible strength dip
+// when a fade-out begins right as the ramp-up finishes.
+const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3)
+const easeInOutCubic = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2)
+const FACET_EASE_ACTIVATE = 'out'
+const FACET_EASE_DEACTIVATE = 'inout'
+const easeFacetTransition = (mode, t) => (
+  mode === FACET_EASE_DEACTIVATE ? easeInOutCubic(t) : easeOutCubic(t)
+)
 
 const logger = createLogger('unified-crystal-scene');
 
@@ -485,27 +499,9 @@ const UnifiedCrystalScene = forwardRef(({
     animationData?.crystalForm === 'exploded' &&
     (animationData?.isTransitioning === false || cameraSettled || cameraMoveProgress >= 0.995);
 
-  const [alwaysOnDomAnchorsByRuntimeKey, setAlwaysOnDomAnchorsByRuntimeKey] = useState({});
-  const [labelsReady, setLabelsReady] = useState(false);
-  const [facetsSettled, setFacetsSettled] = useState(false);
-  const facetsSettledRef = useRef(false);
   const heroOverviewFractureTimingRouteActiveRef = useRef(false);
-  const { layout } = useLayoutConfig();
   const hoverCapable = useHoverCapable();
   useCursor(Boolean(hoverCapable && hoveredFacet));
-  const overviewWorldAnchors = layout?.anchors?.overviewWorld;
-  const resolvedConnectorPairs = useMemo(() => {
-    const pairs = projects
-      .map((project) => {
-        const runtimeDomKey = project.facetKey || project.id;
-        const sceneWorldKey = getSceneFacetKeyByProjectId(runtimeDomKey);
-        if (!runtimeDomKey || !sceneWorldKey) return null;
-        return { runtimeDomKey, sceneWorldKey };
-      })
-      .filter(Boolean);
-
-    return pairs;
-  }, []);
 
   const mergedConfig = config;
 
@@ -1666,10 +1662,22 @@ const UnifiedCrystalScene = forwardRef(({
         }
       }
 
-      // Set up material transition
+      // A transition toward the project color is an "activation" (hover/focus in);
+      // toward the default color it's a "deactivation" (fade-out).
+      const isActivate = targetColor === projectColors[index]
+
+      // Set up material transition. Exiting hover fades back at a slower rate (longer
+      // duration); entering hover keeps the standard rate. Both start from the CURRENT
+      // color/glow (captured below), so mousing out mid-ramp reverses smoothly from
+      // wherever the ramp had reached rather than snapping or forcing a full peak.
+      const facetColorTransitionSpeed = hovering
+        ? FACET_COLOR_TRANSITION_SPEED
+        : FACET_COLOR_HOVER_OUT_TRANSITION_SPEED
       mat.userData.startColor.copy(mat.color)
       mat.userData.targetColor.copy(targetColor)
       mat.userData.progress = 0
+      mat.userData.colorTransitionSpeed = facetColorTransitionSpeed
+      mat.userData.transitionEase = isActivate ? FACET_EASE_ACTIVATE : FACET_EASE_DEACTIVATE
 
       // Mirror activation onto the internal-glow color: project color when
       // active (targetColor was assigned projectColors[index] by reference),
@@ -1691,6 +1699,7 @@ const UnifiedCrystalScene = forwardRef(({
           ? facetGlowLevelsRef.current.active
           : facetGlowLevelsRef.current.base
         mat.userData.glowProgress = 0
+        mat.userData.glowTransitionSpeed = facetColorTransitionSpeed
       }
     },
     [facetKeys, projectColors, animationData?.focusedFacet]
@@ -1814,55 +1823,9 @@ const UnifiedCrystalScene = forwardRef(({
     hoverSourcesRef.current = {};
     hoveredFacetRef.current = null;
     setHoveredFacet(null);
-    setAlwaysOnDomAnchorsByRuntimeKey({});
-    setLabelsReady(false);
-    facetsSettledRef.current = false;
-    setFacetsSettled(false);
   }, [inActiveOverview]);
 
-  useEffect(() => {
-    if (!inActiveOverview || !labelsReady || !cameraSettled) return undefined;
 
-    const measureAllAnchors = () => {
-      const nextAnchors = {};
-      let domFoundCount = 0;
-      let worldFoundCount = 0;
-
-      resolvedConnectorPairs.forEach(({ runtimeDomKey, sceneWorldKey }) => {
-        const node = document.querySelector(`[data-facet-key="${runtimeDomKey}"]`);
-        if (node) {
-          const rect = node.getBoundingClientRect();
-          nextAnchors[runtimeDomKey] = {
-            x: rect.left,
-            y: rect.top + rect.height * 0.5,
-          };
-          domFoundCount += 1;
-        }
-        if (overviewWorldAnchors?.[sceneWorldKey]) {
-          worldFoundCount += 1;
-        }
-      });
-
-      setAlwaysOnDomAnchorsByRuntimeKey(nextAnchors);
-      logger.debug('[overview connector pairs]');
-      logger.debug('resolvedConnectorPairs', resolvedConnectorPairs);
-      logger.debug('resolvedPairCount', resolvedConnectorPairs.length);
-      logger.debug('domAnchorsMeasuredCount', Object.keys(nextAnchors).length);
-      logger.debug('worldAnchorsFoundCount', worldFoundCount);
-      logger.debug('domNodesFoundCount', domFoundCount);
-      logger.debug('cameraSettled', cameraSettled);
-      
-    };
-
-    const raf = requestAnimationFrame(measureAllAnchors);
-    window.addEventListener('resize', measureAllAnchors);
-    return () => {
-      cancelAnimationFrame(raf);
-      window.removeEventListener('resize', measureAllAnchors);
-    };
-  }, [cameraSettled, inActiveOverview, labelsReady, overviewWorldAnchors, resolvedConnectorPairs]);
-
-  
   // Keyboard listener for debug toggle
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -2197,11 +2160,19 @@ const UnifiedCrystalScene = forwardRef(({
       // Active (hovered/focused) facet starts at its project color AND lifted glow
       // intensity; others start at the default color and resting base. (Without the
       // intensity lift here, a re-clone mid-hover snapped the lifted glow back to base.)
+      // If a hover/select glow transition is mid-flight on the previous clone, seed the
+      // fresh uniforms with its CURRENT values so the rebuild doesn't snap the ramp.
       const isActiveFacet = hoveredKey === key || (focusedKey === key && !hoveredKey);
+      const prevGlow = existingMat?.userData?.glowUniforms;
+      const glowTransitionInFlight = prevGlow && (existingMat.userData.glowProgress ?? 1) < 1;
       attachInternalGlow(mat, {
         ...glowInit,
-        emissiveIntensity: isActiveFacet ? facetGlowLevelsRef.current.active : glowInit.emissiveIntensity,
-        color: isActiveFacet ? projectColors[idx] : glowInit.color,
+        emissiveIntensity: glowTransitionInFlight
+          ? prevGlow.uGlowIntensity.value
+          : (isActiveFacet ? facetGlowLevelsRef.current.active : glowInit.emissiveIntensity),
+        color: glowTransitionInFlight
+          ? prevGlow.uGlowColor.value.clone()
+          : (isActiveFacet ? projectColors[idx] : glowInit.color),
         programKey: FACET_GLOW_PROGRAM_KEY,
       });
 
@@ -2479,6 +2450,10 @@ const UnifiedCrystalScene = forwardRef(({
         mat.userData.startColor.copy(mat.color);
         mat.userData.targetColor.copy(targetColor);
         mat.userData.progress = 0;
+        mat.userData.colorTransitionSpeed = FACET_COLOR_TRANSITION_SPEED;
+        mat.userData.transitionEase = targetColor === projectColors[idx]
+          ? FACET_EASE_ACTIVATE
+          : FACET_EASE_DEACTIVATE;
 
         // Mirror activation onto the internal-glow color.
         const glowUniforms = mat.userData.glowUniforms;
@@ -2496,6 +2471,7 @@ const UnifiedCrystalScene = forwardRef(({
             ? facetGlowLevelsRef.current.active
             : facetGlowLevelsRef.current.base;
           mat.userData.glowProgress = 0;
+          mat.userData.glowTransitionSpeed = FACET_COLOR_TRANSITION_SPEED;
         }
       });
 
@@ -2627,16 +2603,6 @@ const UnifiedCrystalScene = forwardRef(({
       }
     }
 
-    const explodedOverviewSettled =
-      inActiveOverview &&
-      animationData.crystalForm === 'exploded' &&
-      showFacets &&
-      pendingExplodeSwapAtRef.current == null &&
-      explosionStartRef.current == null;
-    if (facetsSettledRef.current !== explodedOverviewSettled) {
-      facetsSettledRef.current = explodedOverviewSettled;
-      setFacetsSettled(explodedOverviewSettled);
-    }
     if (
       animationData.crystalForm === 'whole' &&
       pendingReformSwapAtRef.current != null &&
@@ -3520,9 +3486,11 @@ const UnifiedCrystalScene = forwardRef(({
     facetMaterialsRef.current.forEach((mat, idx) => {
       const { targetColor, startColor, progress = 1 } = mat.userData || {};
       if (targetColor && startColor && progress < 1) {
-        const speed = 4; // Faster response so hover color is active right as camera settles
+        // Standard rate keeps hover color active right as the camera settles; hover-out
+        // transitions store a slower rate for a longer fade (see FACET_COLOR_* constants).
+        const speed = mat.userData.colorTransitionSpeed ?? FACET_COLOR_TRANSITION_SPEED;
         const nextProgress = Math.min(progress + deltaTime * speed, 1);
-        const easedProgress = 1 - Math.pow(1 - nextProgress, 3);
+        const easedProgress = easeFacetTransition(mat.userData.transitionEase, nextProgress);
         mat.userData.progress = nextProgress;
         mat.color.lerpColors(startColor, targetColor, easedProgress);
         mat.needsUpdate = true;
@@ -3536,9 +3504,9 @@ const UnifiedCrystalScene = forwardRef(({
       const glowUniforms = mat.userData?.glowUniforms;
       const { glowStartColor, glowTargetColor, glowProgress = 1 } = mat.userData || {};
       if (glowUniforms && glowStartColor && glowTargetColor && glowProgress < 1) {
-        const glowSpeed = 4;
+        const glowSpeed = mat.userData.glowTransitionSpeed ?? FACET_COLOR_TRANSITION_SPEED;
         const nextGlowProgress = Math.min(glowProgress + deltaTime * glowSpeed, 1);
-        const easedGlow = 1 - Math.pow(1 - nextGlowProgress, 3);
+        const easedGlow = easeFacetTransition(mat.userData.transitionEase, nextGlowProgress);
         mat.userData.glowProgress = nextGlowProgress;
         glowUniforms.uGlowColor.value.lerpColors(glowStartColor, glowTargetColor, easedGlow);
 
@@ -3694,13 +3662,17 @@ const UnifiedCrystalScene = forwardRef(({
     // bias from params, but set intensity to the facet's OWN level (active when it's the
     // hovered/selected facet, else base) so a tier/config update doesn't clobber the
     // lifted active glow back to base (which snapped the hover/select ramp).
+    const { emissiveIntensity: _paramsIntensity, ...paramsNoIntensity } = params;
     facetMaterialsRef.current.forEach((mat, idx) => {
       const key = facetKeys[idx];
       const active = hoveredFacetRef.current === key || animationData?.focusedFacet === key;
-      updateInternalGlow(mat, {
-        ...params,
-        emissiveIntensity: active ? facetGlowLevelsRef.current.active : baseIntensity,
-      });
+      // While a hover/select glow transition is in flight the frame loop owns the
+      // intensity — writing active/base here would snap it mid-ramp (a visible dip).
+      // Sync only fresnel/bias in that case and leave the intensity to the lerp.
+      const transitionInFlight = (mat.userData?.glowProgress ?? 1) < 1;
+      updateInternalGlow(mat, transitionInFlight
+        ? paramsNoIntensity
+        : { ...params, emissiveIntensity: active ? facetGlowLevelsRef.current.active : baseIntensity });
     });
   }, [glowEmissiveIntensity, glowActiveIntensity, glowFresnelPower, glowBiasValue, glowIntensityScale, emissiveGlowBoost, materialVersion, wholeCrystal]);
 
@@ -4118,25 +4090,7 @@ const UnifiedCrystalScene = forwardRef(({
         animationData={animationData}
         performanceProfile={performanceProfile}
         anchorOffsets={anchorOffsets}
-        alwaysOnFacetKey={resolvedConnectorPairs[0]?.runtimeDomKey}
-        onLabelsReadyChange={setLabelsReady}
       />
-
-      {ENABLE_OVERVIEW_ALL_CONNECTORS && inActiveOverview && (
-        <OverviewConnectorLines
-          enabled={
-            inActiveOverview &&
-            labelsReady &&
-            facetsSettled &&
-            cameraSettled &&
-            Object.keys(alwaysOnDomAnchorsByRuntimeKey).length > 0
-          }
-          resolvedConnectorPairs={resolvedConnectorPairs}
-          alwaysOnDomAnchorsByRuntimeKey={alwaysOnDomAnchorsByRuntimeKey}
-          overviewWorldAnchors={overviewWorldAnchors}
-          hoveredSceneFacetKey={hoveredFacet}
-        />
-      )}
 
       {/* Debug visualization when enabled */}
       {showCrystalDebug && showFacets && !simplifiedAnimations && (
