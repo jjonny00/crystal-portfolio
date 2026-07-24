@@ -17,6 +17,7 @@ import GlowingSphereImage, { BLEND_STYLES } from './GlowingSphereImage'
 import OrbEnergyParticles from './OrbEnergyParticles'
 import FractureRingImage from './FractureRingImage'
 import FractureRays from './FractureRays'
+import FractureSmokePuff from './FractureSmokePuff'
 import projects, {
   facetKeys as canonicalFacetKeys,
   getProjectColorByFacetKey,
@@ -3898,7 +3899,7 @@ const UnifiedCrystalScene = forwardRef(({
         textureFiltering="enhanced"
         baseSize={256}
         maxScale={9000}
-        maxOpacity={0.75}
+        maxOpacity={0.45}
         explosionDuration={0.05}
         fadeInDuration={0.02}
         position={[0, 0, 0]}
@@ -3920,7 +3921,7 @@ const UnifiedCrystalScene = forwardRef(({
         textureFiltering="enhanced"
         baseSize={256}
         maxScale={3500}
-        maxOpacity={0.65}
+        maxOpacity={0.55}
         explosionDuration={0.05}
         fadeInDuration={0.02}
         position={[0, 0, 0]}
@@ -3938,6 +3939,19 @@ const UnifiedCrystalScene = forwardRef(({
         position={[0, 0, 0]}
         warmup={modelsLoaded}
       />
+
+      {/* Magical smoke — instanced camera-facing billboards fired at the same
+          beat as the shimmering explosion burst (burstId). Slower/contained,
+          untinted (color comes from the texture); disabled entirely under
+          reduced motion (simplifiedAnimations). Normal-blended. */}
+      {!simplifiedAnimations && mergedConfig.fracture?.smoke?.enabled && (
+        <FractureSmokePuff
+          trigger={burstId}
+          reducedMotion={simplifiedAnimations}
+          position={[0, 0, 0]}
+          {...mergedConfig.fracture.smoke}
+        />
+      )}
 
       {!simplifiedAnimations && heroOverviewEffectsManualMode && heroOverviewExplosionParticlesConfig.enabled && (
         <FractureBurstParticles

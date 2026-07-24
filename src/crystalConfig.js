@@ -47,6 +47,22 @@ export const fracture = {
     fadeOutDuration: 0.4,
     scaleEasing: 'linear'
   },
+  // Low-cost magical smoke — instanced camera-facing billboards spawned at the
+  // explosion beat. Slower and more contained than `particles` so it reads as
+  // mist lifting rather than a spark burst. Rendered by FractureSmokePuff.
+  smoke: {
+    enabled: true,
+    count: 18,            // sprites spawned per explosion (~12-18)
+    size: 1.8,            // base sprite world size at spawn (large, billowy)
+    expand: 7.0,          // end-of-life scale multiplier (aggressive growth as it rises)
+    spread: 0.05,         // spawn radius — spread around the core, not on the bright center
+    outwardSpeed: 4.25,   // gentle radial drift (kept slow/contained)
+    upwardLift: 2.7,      // strong upward rise so it reads as mist lifting off the fracture
+    drag: 0.92,            // per-frame damping of radial drift (0-1, higher = floatier)
+    lifetimeMin: 0.08,     // seconds
+    lifetimeMax: 3.5,     // seconds
+    opacity: 0.15          // peak per-sprite opacity (color comes from the texture itself)
+  },
   emissive: {
     intensity: 2.3,       // Bright glow intensity at fracture
     delay: 0              // Delay before emissive glow starts (seconds)
@@ -57,7 +73,7 @@ export const fracture = {
   // a missing file would error the scene.
   rays: {
     enabled: true,
-    color: '#ffffff',
+    color: '#00aeff',
     // Length fade along each ray (bright base → transparent tip).
     gradient: {
       mode: 'uvX',        // 'uvY' | 'uvX' | 'dist' (which axis is the ray length)
@@ -83,7 +99,7 @@ export const fracture = {
     // Flicker that builds toward the tip/front as if energy is charging up.
     shimmer: {
       amount: 0,        // 0 = steady, 1 = heavy flicker
-      speed: 22           // flicker rate
+      speed: 1           // flicker rate
     },
     // Visibility window as progress (0-1) of the hero→overview sequence.
     timing: {
@@ -99,7 +115,7 @@ export const fracture = {
   },
   // White flash of the gradient background at the fracture.
   backgroundFlash: {
-    intensity: 0.5,       // 0 = off → 1 = full white
+    intensity: 0.7,       // 0 = off → 1 = full white
     duration: 0.8,        // decay seconds
     delay: 0.4,           // seconds after fracture before it flashes (moves it to the explosion)
     ease: 'sine'          // 'sine' | 'smooth' | 'cubic' | 'quad' | 'expo' | 'linear'
@@ -412,9 +428,9 @@ export const effects = {
     },
     glow: {
       pulseBase: 0.2,        // Base glow intensity
-      pulseStrength: 0.3,    // Amount of pulse variation
+      pulseStrength: 1.5,    // Amount of pulse variation
       frequencyMultiplier: 0.1, // How much frequency varies per facet
-      baseFrequency: 0.5,    // Base pulse frequency
+      baseFrequency: 0.75,    // Base pulse frequency
       phaseOffset: 0.5       // Phase difference between facets
     }
   },
@@ -460,13 +476,13 @@ export const materials = {
     // Fresnel-driven internal core glow (additive emissive injected via shader).
     // Independent of the built-in emissive above; see components/materials/internalGlow.js
     glow: {
-      color: '#3e10bc',         // non-project (default) internal glow color
+      color: '#0015ff',         // non-project (default) internal glow color
       emissiveIntensity: 0.30,  // 'high' reference; device tiers scale this
       activeIntensity: 0.40,    // glow brightness when a facet is hovered or is the selected project (device tiers scale this too)
       fresnelPower: 1.1,        // higher = tighter, more centered core
       glowBias: 0.16,            // 0 = tight center core; higher reaches toward edges
-      pulseSpeed: 1.5,          // Hero pulse frequency (rad/sec); 0 = no pulse
-      pulseAmount: 0.54          // Hero pulse depth (0..1): intensity swings ±(amount·base)
+      pulseSpeed: 1.25,          // Hero pulse frequency (rad/sec); 0 = no pulse
+      pulseAmount: 0.84          // Hero pulse depth (0..1): intensity swings ±(amount·base)
     }
   },
   
