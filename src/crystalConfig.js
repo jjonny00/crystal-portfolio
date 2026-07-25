@@ -52,15 +52,15 @@ export const fracture = {
   // mist lifting rather than a spark burst. Rendered by FractureSmokePuff.
   smoke: {
     enabled: true,
-    count: 18,            // sprites spawned per explosion (~12-18)
-    size: 1.8,            // base sprite world size at spawn (large, billowy)
-    expand: 7.0,          // end-of-life scale multiplier (aggressive growth as it rises)
-    spread: 0.05,         // spawn radius — spread around the core, not on the bright center
-    outwardSpeed: 4.25,   // gentle radial drift (kept slow/contained)
-    upwardLift: 2.7,      // strong upward rise so it reads as mist lifting off the fracture
-    drag: 0.92,            // per-frame damping of radial drift (0-1, higher = floatier)
+    count: 20,            // sprites spawned per explosion (~12-18)
+    size: 1.0,            // base sprite world size at spawn (large, billowy)
+    expand: 10.0,          // end-of-life scale multiplier (aggressive growth as it rises)
+    spread: 0.5,         // spawn radius — spread around the core, not on the bright center
+    outwardSpeed: 7.25,   // gentle radial drift (kept slow/contained)
+    upwardLift: 1.9,      // strong upward rise so it reads as mist lifting off the fracture
+    drag: 0.9,            // per-frame damping of radial drift (0-1, higher = floatier)
     lifetimeMin: 0.08,     // seconds
-    lifetimeMax: 3.5,     // seconds
+    lifetimeMax: 4.5,     // seconds
     opacity: 0.15          // peak per-sprite opacity (color comes from the texture itself)
   },
   emissive: {
@@ -73,7 +73,7 @@ export const fracture = {
   // a missing file would error the scene.
   rays: {
     enabled: true,
-    color: '#00aeff',
+    color: '#4ebbff',
     // Length fade along each ray (bright base → transparent tip).
     gradient: {
       mode: 'uvX',        // 'uvY' | 'uvX' | 'dist' (which axis is the ray length)

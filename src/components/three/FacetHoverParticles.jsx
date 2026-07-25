@@ -21,6 +21,14 @@ const EMIT_INTERVAL_MAX = 0.16;
 const COMPANION_SPAWN_CHANCE = 0.12; // occasional second particle for a light cluster
 const TRAVEL_MIN = 2.7;
 const TRAVEL_MAX = 3.05;
+// On hover start, pre-seed a few particles already partway along the facet->label
+// path so the trail reaches the label almost immediately instead of after a full
+// travel time. Progress is in age-fraction terms; because travel is easeOutCubic,
+// these low fractions still land the particles across the middle-to-late span of
+// the visible path (e.g. t=0.2 is already ~50% of the way there).
+const PRIME_COUNT = 6;
+const PRIME_PROGRESS_MIN = 0.12;
+const PRIME_PROGRESS_MAX = 0.5;
 const START_JITTER = 0.8; // world-space spawn spread around the fragment anchor (wide emitter)
 const TARGET_JITTER = 0.1; // world-space spread across the label's left edge (narrow end)
 const DEFAULT_INTENSITY_SCALE = 1.6; // overall brightness of the additive points
@@ -78,6 +86,7 @@ const FacetHoverParticles = ({
     nextInterval: EMIT_INTERVAL_MIN,
     spawnedThisFrame: false,
     wasActive: false,
+    primedKey: null, // facet whose hover-start batch has already been seeded
   }).current;
 
   const geometry = useMemo(() => {
@@ -189,7 +198,7 @@ const FacetHoverParticles = ({
     return _raycaster.ray.intersectPlane(_planeScratch, out);
   };
 
-  const spawnParticle = (startWorld, targetWorld, particleColor) => {
+  const spawnParticle = (startWorld, targetWorld, particleColor, initialProgress = 0) => {
     // Find a free slot.
     let slot = -1;
     for (let i = 0; i < POOL_SIZE; i += 1) {
@@ -199,8 +208,11 @@ const FacetHoverParticles = ({
     state.spawnedThisFrame = true;
     const i3 = slot * 3;
 
-    state.age[slot] = 0;
     state.life[slot] = rand(TRAVEL_MIN, TRAVEL_MAX);
+    // Pre-seeded particles start partway along their travel; the rest start at 0.
+    const seeded = initialProgress > 0;
+    const clampedProgress = seeded ? Math.min(Math.max(initialProgress, 0), 0.6) : 0;
+    state.age[slot] = clampedProgress * state.life[slot];
 
     state.start[i3] = startWorld.x + rand(-START_JITTER, START_JITTER);
     state.start[i3 + 1] = startWorld.y + rand(-START_JITTER, START_JITTER);
@@ -221,8 +233,10 @@ const FacetHoverParticles = ({
     state.amp1[slot] = rand(0.012, 0.034);
     state.amp2[slot] = rand(0.012, 0.03);
 
-    // Fade window: most disperse just before the text; some fade early.
-    if (Math.random() < 0.3) {
+    // Fade window: most disperse just before the text; some fade early. Seeded
+    // particles always use the late window so they don't spawn already fading at
+    // their partway start.
+    if (!seeded && Math.random() < 0.3) {
       state.fadeStart[slot] = rand(0.4, 0.55);
       state.fadeEnd[slot] = state.fadeStart[slot] + rand(0.14, 0.22);
     } else {
@@ -262,6 +276,18 @@ const FacetHoverParticles = ({
         const hoveredColor = colorIdx !== -1 && projectColors?.[colorIdx]
           ? spawnColorScratch.copy(projectColors[colorIdx])
           : spawnColorScratch.set('#9af8ff');
+
+        // First frame of a new hover (once anchors resolve): seed a spread of
+        // particles already along the path so the label lights up right away.
+        if (state.primedKey !== hoveredFacetKey) {
+          state.primedKey = hoveredFacetKey;
+          const span = PRIME_PROGRESS_MAX - PRIME_PROGRESS_MIN;
+          for (let k = 0; k < PRIME_COUNT; k += 1) {
+            const base = PRIME_PROGRESS_MIN + span * (k / Math.max(1, PRIME_COUNT - 1));
+            spawnParticle(start, target, hoveredColor, base + rand(-0.03, 0.03));
+          }
+        }
+
         state.emitAccum += dt;
         while (state.emitAccum >= state.nextInterval) {
           state.emitAccum -= state.nextInterval;
@@ -273,6 +299,7 @@ const FacetHoverParticles = ({
       }
     } else {
       state.emitAccum = 0;
+      state.primedKey = null;
     }
 
     // Screen-aligned drift basis (particles travel roughly in the camera plane).
