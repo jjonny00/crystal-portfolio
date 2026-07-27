@@ -8,7 +8,7 @@ const clamp = (v: number) => Math.min(1, Math.max(0, v));
 
 export const LOADER_CONTENT_FADE_MS = 420;
 export const LOADER_SCENE_REVEAL_DELAY_MS = 520;
-export const LOADER_OVERLAY_FADE_MS = 1680;
+export const LOADER_OVERLAY_FADE_MS = 3360;
 
 interface LoaderProps {
   initProgress?: number;   // 0..1 initialization progress

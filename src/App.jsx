@@ -987,6 +987,12 @@ function App() {
         activeProjectId={activeProjectId}
       >
         {/* Fixed 3D Canvas */}
+        {/* Restart remounts this (key includes sceneRestartToken) so the camera
+            controller re-mounts fresh and replays the FULL intro from the authored
+            intro pose — exactly like a page reload. The animation controller's
+            introReplay effect resets controller state to a clean hero (it must NOT
+            cycle through a separate 'intro' cameraState, or that becomes a SECOND
+            intro trigger racing the remount — the old "plays twice" bug). */}
         <Fixed3DCanvas
           key={`${performanceProfile?.renderScale ?? 'default'}-${sceneRestartToken}`}
           ref={fixedCanvasRef}

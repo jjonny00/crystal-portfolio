@@ -29,6 +29,24 @@ import { useHeroOverviewRuntime } from '../../hooks/useHeroOverviewRuntime';
 import { resolveCameraDestination } from '../../camera/destinationResolver';
 import { compareCameraPoses } from '../../camera/cameraPoseCompare';
 
+const DEFAULT_ENV_ROTATION = [0, Math.PI * 0.7, 0];
+
+// Memoized so drei's <Environment> only re-runs its (no-deps) layout effect when
+// these props actually change — NOT on every unrelated re-render of Fixed3DCanvas.
+// That layout effect re-asserts scene.environmentIntensity every commit, which would
+// otherwise clobber the smooth per-frame intro reveal that UnifiedCameraController
+// writes to scene.environmentIntensity (causing brightness flashes back to full).
+const StableEnvironment = React.memo(function StableEnvironment({ files, rotation, intensity }) {
+  return (
+    <Environment
+      files={files}
+      background={false}
+      environmentRotation={rotation}
+      environmentIntensity={intensity}
+    />
+  );
+});
+
 function createSanitizePass() {
   const material = new ShaderMaterial({
     uniforms: { inputBuffer: { value: null } },
@@ -151,6 +169,10 @@ const Fixed3DCanvas = forwardRef(({
   const backgroundRef = useRef();
   const lastZoneRef = useRef(null);
   const cameraMoveProgressRef = useRef(1);
+  // Continuous 0→1 intro reveal, written per-frame by UnifiedCameraController and
+  // read by UnifiedCrystalScene (glow). 1 = full/not-in-intro. A ref (not React
+  // state) keeps the ramp smooth without per-frame re-renders.
+  const introRevealRef = useRef(1);
 
   const handleFractureStart = useCallback(() => {
     // Background white-flash on fracture. Defaults live in
@@ -860,19 +882,25 @@ const Fixed3DCanvas = forwardRef(({
             <PersistentDustSystem count={particleCount} enabled={dustEnabled} />
           )}
           
-          {/* UPDATED: Enhanced lighting setup with bottom directional light */}
-          <ambientLight intensity={config?.lighting?.ambient?.intensity || 0.4} />
-          
+          {/* UPDATED: Enhanced lighting setup with bottom directional light.
+              Each light is gated by its debug.lights.<type> flag (Scene tab) so it
+              can be toggled off live to isolate its contribution. Undefined => on. */}
+          {config?.debug?.lights?.ambient !== false && (
+            <ambientLight intensity={config?.lighting?.ambient?.intensity || 0.4} />
+          )}
+
           {/* Main directional light (from above/side) */}
-          <directionalLight
-            position={config?.lighting?.directional?.position || [10, 8, 5]}
-            intensity={config?.lighting?.directional?.intensity || 1.0}
-            color={config?.lighting?.directional?.color || "#FFFFFF"}
-            castShadow={false}
-          />
-          
+          {config?.debug?.lights?.directional !== false && (
+            <directionalLight
+              position={config?.lighting?.directional?.position || [10, 8, 5]}
+              intensity={config?.lighting?.directional?.intensity || 1.0}
+              color={config?.lighting?.directional?.color || "#FFFFFF"}
+              castShadow={false}
+            />
+          )}
+
           {/* ADDED: Bottom directional light pointing upward */}
-          {config?.lighting?.directionalBottom && (
+          {config?.debug?.lights?.directionalBottom !== false && config?.lighting?.directionalBottom && (
             <directionalLight
               position={config.lighting.directionalBottom.position || [0, -5, 0]}
               target-position={config.lighting.directionalBottom.target || [0, 0, 0]}
@@ -881,9 +909,9 @@ const Fixed3DCanvas = forwardRef(({
               castShadow={false}
             />
           )}
-          
+
           {/* Point lights */}
-          {config?.lighting?.pointLights
+          {config?.debug?.lights?.point !== false && config?.lighting?.pointLights
             ?.slice(0, performanceProfile?.maxLights || config?.lighting?.pointLights.length)
             .map((light, index) => (
               <pointLight
@@ -895,17 +923,21 @@ const Fixed3DCanvas = forwardRef(({
               />
             ))}
 
-          <PulsingOmniLight simplified={simplifiedAnimations} />
-          
+          {config?.debug?.lights?.pulsingOmni !== false && (
+            <PulsingOmniLight simplified={simplifiedAnimations} />
+          )}
+
           {/* Spot light */}
-          <spotLight
-            position={config?.lighting?.spotLight?.position || [0, 0, 10]}
-            intensity={config?.lighting?.spotLight?.intensity || 1.0}
-            angle={config?.lighting?.spotLight?.angle || Math.PI / 4}
-            penumbra={config?.lighting?.spotLight?.penumbra || 0.2}
-            color={config?.lighting?.spotLight?.color || "#ffffffff"}
-            castShadow={false}
-          />
+          {config?.debug?.lights?.spot !== false && (
+            <spotLight
+              position={config?.lighting?.spotLight?.position || [0, 0, 10]}
+              intensity={config?.lighting?.spotLight?.intensity || 1.0}
+              angle={config?.lighting?.spotLight?.angle || Math.PI / 4}
+              penumbra={config?.lighting?.spotLight?.penumbra || 0.2}
+              color={config?.lighting?.spotLight?.color || "#ffffffff"}
+              castShadow={false}
+            />
+          )}
           
           <HeroOverviewRuntimeTicker runtime={heroOverviewRuntime} />
 
@@ -918,6 +950,7 @@ const Fixed3DCanvas = forwardRef(({
             simplifiedAnimations={simplifiedAnimations}
             facetRefs={getFacetRefs()} // FIXED: Pass exposed facet refs for anchor targeting
             sharedCameraMoveProgressRef={cameraMoveProgressRef}
+            introRevealRef={introRevealRef}
             heroOverviewRuntime={heroOverviewRuntime}
             heroOverviewExplosionClockRef={heroOverviewExplosionClockRef}
           />
@@ -925,6 +958,7 @@ const Fixed3DCanvas = forwardRef(({
           {/* UPDATED: Crystal Scene with ref for accessing debug state */}
           <UnifiedCrystalScene
             sharedCameraMoveProgressRef={cameraMoveProgressRef}
+            introRevealRef={introRevealRef}
             ref={crystalSceneRef} // NEW: Ref to access debug state and methods
             animationData={animationData}
             config={cameraMergedConfig}
@@ -953,12 +987,16 @@ const Fixed3DCanvas = forwardRef(({
             renderOrder={3000} // UPDATED: Highest render order to be on top
           />
 
-          {/* Environment used for reflections only */}
-          <Environment
+          {/* Environment used for reflections only. Memoized (StableEnvironment) so
+              its layout effect doesn't clobber the smooth per-frame intro reveal on
+              unrelated re-renders. Baseline/full value only; the reveal ramp is applied
+              by UnifiedCameraController writing scene.environmentIntensity per-frame.
+              The Scene-tab debug toggle (debug.envMapEnabled) forces it to 0 for A/B —
+              a prop change that intentionally re-runs the effect. */}
+          <StableEnvironment
             files={environmentProps.files || config?.environment?.hdri || hdriPathForTier('low')}
-            background={false}
-            environmentRotation={config?.environment?.rotation || [0, Math.PI * 0.7, 0]}
-            environmentIntensity={config?.environment?.intensity ?? 7.0}
+            rotation={config?.environment?.rotation || DEFAULT_ENV_ROTATION}
+            intensity={config?.debug?.envMapEnabled === false ? 0 : (config?.environment?.intensity ?? 7.0)}
           />
           
           {/* Post-processing effects (unchanged) */}

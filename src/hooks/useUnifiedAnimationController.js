@@ -16,8 +16,8 @@ export const ANIMATION_CONFIG = {
   // Camera positions for immediate transitions
   camera: {
     intro: {
-      position: new Vector3(0.16359952088021784, -2.0376618037026195, 1.1719674768510127),
-      target: new Vector3(0.6, -2.9, 0),
+      position: new Vector3(-0.18, -0.98, 0.83),
+      target: new Vector3(0.3, 0.5, 0),
       fov: 32,
       description: 'Intro dramatic close view',
       orbitSpeed: 0.0003
@@ -560,11 +560,18 @@ export const useUnifiedAnimationController = (options = {}) => {
     lastZone.current = 'hero';
     lastProject.current = null;
 
+    // Reset controller state to a clean hero. The <Fixed3DCanvas> remount (its key
+    // includes the restart token) gives a fresh camera controller that plays the
+    // FULL intro from the authored intro pose — same path as an initial load. We set
+    // cameraState directly to 'hero' (NOT a separate 'intro' phase): a distinct
+    // 'intro'→'hero' cycle here would be a SECOND intro trigger racing the remount,
+    // which is what made the intro play twice. The preview-active hold below just
+    // keeps scroll from perturbing hero during the reset window.
     setAnimationState((prev) => ({
       ...prev,
       state: ANIMATION_STATES.HERO,
       crystalForm: 'whole',
-      cameraState: 'intro',
+      cameraState: 'hero',
       focusedFacet: null,
       isTransitioning: false,
       scrollProgress: 0,
@@ -575,10 +582,6 @@ export const useUnifiedAnimationController = (options = {}) => {
     introPreviewTimeout.current = setTimeout(() => {
       introPreviewActiveRef.current = false;
       introPreviewTimeout.current = null;
-      setAnimationState((prev) => ({
-        ...prev,
-        cameraState: 'hero'
-      }));
     }, 1400);
   }, [clearDirectProjectOverride, clearDirectZoneOverride, clearIntroPreview, config, introReplayToken]);
 

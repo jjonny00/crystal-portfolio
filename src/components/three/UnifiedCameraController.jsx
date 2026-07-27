@@ -114,6 +114,7 @@ const UnifiedCameraController = ({
   simplifiedAnimations = false,
   facetRefs = null,
   sharedCameraMoveProgressRef = null,
+  introRevealRef = null,
   heroOverviewRuntime = null,
   heroOverviewExplosionClockRef = null,
 }) => {
@@ -225,7 +226,6 @@ const UnifiedCameraController = ({
     lookAt: new THREE.Vector3(),
     fov: 45
   });
-  const lastRestartTokenRef = useRef(0);
   const POINTER_IDLE_MS = 400;
   const POINTER_RETURN_DELAY = 0.25;
   const POINTER_RETURN_FADE = 0.7;
@@ -243,6 +243,68 @@ const UnifiedCameraController = ({
   const HERO_PARALLAX_MAX_POLAR = MOUSE_INTERACTION.hero.maxPolar;
   const HERO_PARALLAX_EASE_K = MOUSE_INTERACTION.hero.easeK;
   const INTRO_DURATION_MS = 4400;
+  // Reveal easing exponent. The reveal = smoothstep(progress) ** this. >1 biases the
+  // curve toward dark values — the crystal crawls through the low/dark range for
+  // longer before blooming. smoothstep keeps both ends' slope at 0, so raising the
+  // exponent lengthens the dark phase without making the start or landing abrupt.
+  const INTRO_REVEAL_GAMMA = 3;
+  // Crystal materials with an EXPLICIT envMap (medium/low/mobile tiers) whose
+  // envMapIntensity we scale during the intro. High tier's crystal has no explicit
+  // envMap (reads scene.environment), so it is handled by the scene-intensity prop
+  // instead and is intentionally excluded here to avoid double-dimming.
+  const introDimMaterialsRef = useRef([]);
+  const introDimCapturedRef = useRef(false);
+  // Intro ORBIT: swing the camera around the crystal's vertical axis (through the
+  // orbit center) from the authored start toward hero, controlled independently of
+  // the dolly and WITHOUT changing the hero landing. Config: config.introMotion.orbit
+  //   amount     – 0..1 fraction of the authored orbit (start→hero azimuth). 1 = the
+  //                full sweep the authored intro position implies; 0.5 = half as much.
+  //   delayMs    – wait this long before the orbit begins (camera holds its angle).
+  //   durationMs – how long the orbit sweep takes. It always finishes at the hero
+  //                azimuth, so radius/height (the dolly, on `dollyProgress`) land the
+  //                camera exactly on hero at the end.
+  // The dolly (radius + height) rides `dollyProgress`; only the azimuth is governed by
+  // delay/duration/amount, so `amount` scales how far around it travels — the start
+  // angle moves closer to hero as amount shrinks, the hero end never moves.
+  const computeIntroOrbitPosition = (out, startPos, heroPos, orbitCenter, elapsedMs, dollyProgress) => {
+    const orbit = config?.introMotion?.orbit;
+    const amount = Number.isFinite(orbit?.amount) ? THREE.MathUtils.clamp(orbit.amount, 0, 1) : 1;
+    const delayMs = Number.isFinite(orbit?.delayMs) ? Math.max(0, orbit.delayMs) : 0;
+    let durationMs = Number.isFinite(orbit?.durationMs) ? orbit.durationMs : INTRO_DURATION_MS;
+    durationMs = Math.max(1, durationMs);
+
+    const sdx = startPos.x - orbitCenter.x, sdz = startPos.z - orbitCenter.z;
+    const hdx = heroPos.x - orbitCenter.x, hdz = heroPos.z - orbitCenter.z;
+    const startRadius = Math.hypot(sdx, sdz);
+    const heroRadius = Math.hypot(hdx, hdz);
+    const startHeight = startPos.y - orbitCenter.y;
+    const heroHeight = heroPos.y - orbitCenter.y;
+    const startAzAuthored = Math.atan2(sdx, sdz);
+    const heroAz = Math.atan2(hdx, hdz);
+    // Shortest signed authored sweep (hero − authored start), normalized to [-π, π].
+    let authoredOrbit = heroAz - startAzAuthored;
+    while (authoredOrbit > Math.PI) authoredOrbit -= 2 * Math.PI;
+    while (authoredOrbit < -Math.PI) authoredOrbit += 2 * Math.PI;
+    const startAz = heroAz - authoredOrbit * amount;
+
+    // Keep the sweep inside the intro so it always finishes at the hero angle.
+    const effectiveDuration = Math.max(1, Math.min(durationMs, INTRO_DURATION_MS - delayMs));
+    const x = THREE.MathUtils.clamp((elapsedMs - delayMs) / effectiveDuration, 0, 1);
+    // smoothstep: zero angular velocity at both ends, so the orbit eases in silky-
+    // smooth after any delay (no snap into motion) and eases out into hero.
+    const orbitProgress = x * x * (3 - 2 * x);
+    const az = startAz + (heroAz - startAz) * orbitProgress;
+
+    const radius = startRadius + (heroRadius - startRadius) * dollyProgress;
+    const height = startHeight + (heroHeight - startHeight) * dollyProgress;
+
+    out.set(
+      orbitCenter.x + Math.sin(az) * radius,
+      orbitCenter.y + height,
+      orbitCenter.z + Math.cos(az) * radius,
+    );
+    return out;
+  };
   const HERO_VERTICAL_FRAMING_SCALE = 0; // Temporary isolate: disable authored Y framing
   const HERO_VERTICAL_FRAMING_SIGN = 1;
   const FRACTURE_TILT_RADIANS = 0.045;
@@ -1277,65 +1339,13 @@ const UnifiedCameraController = ({
     isTouchDeviceRef.current = coarsePointer || 'ontouchstart' in window;
   }, []);
 
-  useEffect(() => {
-    if (
-      !restartToken ||
-      restartToken === lastRestartTokenRef.current ||
-      !config?.cameraPositions?.intro ||
-      !config?.cameraTargets?.intro
-    ) {
-      return;
-    }
-
-    lastRestartTokenRef.current = restartToken;
-
-    const introPosition = toVector3(config.cameraPositions.intro)
-      .add(toVector3(config?.cameraOffsets?.global?.position))
-      .add(toVector3(config?.cameraOffsets?.zones?.intro?.position));
-    const introTarget = toVector3(config.cameraTargets.intro)
-      .add(toVector3(config?.cameraOffsets?.global?.target))
-      .add(toVector3(config?.cameraOffsets?.zones?.intro?.target));
-    const heroPosition = currentTarget.current.position.clone();
-    const heroTarget = currentTarget.current.lookAt.clone();
-    const heroOrbitCenter = getHeroOrbitCenter();
-    const heroFov = currentTarget.current.fov ?? animationData?.cameraConfig?.fov ?? camera.fov;
-
-    introStartedRef.current = true;
-    introPlayedRef.current = false;
-    introActiveRef.current = true;
-    authoritativeHeroIntroCapturedRef.current = false;
-    if (import.meta.env.DEV) console.log('[UCC INTRO] set active true', { reason: 'restart-token', restartToken });
-    introStartTimeRef.current = performance.now();
-    isOrbitingRef.current = false;
-    orbitInitDelayRef.current = 0;
-    cameraSettledRef.current = false;
-    settleFrameCount.current = 0;
-
-    introFromRef.current.position.copy(introPosition);
-    introFromRef.current.lookAt.copy(introTarget);
-    introFromRef.current.fov = heroFov;
-    introToRef.current.position.copy(heroPosition);
-    introToRef.current.lookAt.copy(heroTarget);
-    introToRef.current.fov = heroFov;
-
-    camera.position.copy(introPosition);
-    camera.lookAt(introTarget);
-    camera.fov = heroFov;
-    camera.updateProjectionMatrix();
-
-    currentTarget.current.position.copy(heroPosition);
-    currentTarget.current.lookAt.copy(heroTarget);
-    currentTarget.current.fov = heroFov;
-    heroOrbitCenterRef.current.copy(heroOrbitCenter);
-    heroCompositionOffsetRef.current.copy(heroTarget).sub(heroOrbitCenter);
-    heroCompositionLateralRef.current = heroCompositionOffsetRef.current.x;
-    heroVerticalOffsetRef.current = getHeroVerticalOffset(heroOrbitCenter);
-
-    cameraMoveProgressRef.current = 0;
-    if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = 0;
-    animationData?.setCameraMoveProgress?.(0);
-    animationData?.setCameraSettled?.(false);
-  }, [animationData, camera, config, restartToken, sharedCameraMoveProgressRef]);
+  // NOTE: Restart Scene is NOT handled here. A restart remounts <Fixed3DCanvas>
+  // (its key includes the restart token) so this controller re-mounts fresh, and
+  // the animation controller's introReplay effect drives cameraState 'intro'→'hero'
+  // — the exact same path as an initial page load, which fires the real intro once
+  // (see `shouldRunIntro`). A previous effect here fired a SECOND intro on the
+  // restart token that flew to a stale `currentTarget` (default pose, not the real
+  // hero landing), causing the "plays twice / lands in the wrong spot" bug. Removed.
 
 
   useEffect(() => {
@@ -1445,6 +1455,9 @@ const UnifiedCameraController = ({
       if (animationData?.cameraState === 'intro' && config?.cameraPositions?.intro && config?.cameraTargets?.intro) {
         const introPosition = toVector3(config.cameraPositions.intro);
         const introTarget = toVector3(config.cameraTargets.intro);
+        // Match the start target's z to the camera's z so the held intro pose looks
+        // straight ahead — and matches the fly-in's start look (see shouldRunIntro).
+        introTarget.z = introPosition.z;
         const introFov = animationData?.cameraConfig?.fov ?? currentTarget.current.fov ?? camera.fov;
 
         introStartedRef.current = false;
@@ -1668,6 +1681,9 @@ const UnifiedCameraController = ({
         } else {
           introFromRef.current.lookAt.copy(camera.position).add(currentDirection);
         }
+        // Match the start target's z to the camera's z so the intro opens looking
+        // straight ahead rather than angled into the scene.
+        introFromRef.current.lookAt.z = introFromRef.current.position.z;
         introFromRef.current.fov = camera.fov;
         const heroOrbitCenter = getHeroOrbitCenter();
         introToRef.current.position.copy(finalPosition);
@@ -4295,6 +4311,93 @@ const UnifiedCameraController = ({
     const cameraFrameId = cameraFrameIndexRef.current;
     syncFractureTiltState(state.clock.elapsedTime);
     beginCameraFrame(cameraFrameId, { elapsed: state.clock.elapsedTime, phase: animationData?.cameraState ?? null });
+
+    // --- Intro reveal (0 → 1) -----------------------------------------------
+    // Single reveal progress that ramps from 0 (crystal barely visible, near-dark)
+    // to 1 (full hero brilliance) across the WHOLE intro fly-in. It drives the
+    // scene env-map intensity, the crystal material's explicit envMap, AND (via the
+    // shared introRevealRef) the crystal's internal glow color in UnifiedCrystalScene.
+    // Written smoothly per-frame (no React state / no quantization) so the ramp is
+    // continuous rather than stepping. During the intro no re-renders occur, so drei's
+    // <Environment> layout effect doesn't clobber our scene.environmentIntensity write;
+    // the prop carries only the debug on/off + full value as a safety baseline.
+    {
+      const introInScope =
+        !introPlayedRef.current &&
+        (introActiveRef.current ||
+          (animationData?.state === 'hero' &&
+            !!config?.cameraPositions?.intro &&
+            !!config?.cameraTargets?.intro));
+      let reveal = 1;
+      if (introInScope) {
+        let introRevealProgress = 0;
+        if (introActiveRef.current) {
+          const introElapsedMs = performance.now() - introStartTimeRef.current;
+          introRevealProgress = THREE.MathUtils.clamp(introElapsedMs / INTRO_DURATION_MS, 0, 1);
+        }
+        // smoothstep 0→1 across the entire intro, then gamma-warp to hold the dark
+        // values longer (gentle at both ends, just slower to bloom).
+        const smooth = introRevealProgress * introRevealProgress * (3 - 2 * introRevealProgress);
+        reveal = Math.pow(smooth, INTRO_REVEAL_GAMMA);
+      }
+      // Publish the continuous reveal for other in-Canvas readers (glow, etc.).
+      if (introRevealRef) introRevealRef.current = reveal;
+
+      const envMapOff = config?.debug?.envMapEnabled === false;
+
+      // Scene IBL intensity (high tier reads scene.environment implicitly). Write it
+      // smoothly here while the intro owns it; otherwise leave it to the <Environment>
+      // prop. Off-toggle forces 0.
+      if (state.scene) {
+        const fullEnvIntensity = Number.isFinite(config?.environment?.intensity)
+          ? config.environment.intensity
+          : 7.0;
+        if (envMapOff) {
+          state.scene.environmentIntensity = 0;
+        } else if (introInScope) {
+          state.scene.environmentIntensity = fullEnvIntensity * reveal;
+        }
+      }
+
+      // Tier-agnostic half: medium/low/mobile crystals carry an explicit envMap and
+      // are lit by material.envMapIntensity — invisible to the scene knob. Scale
+      // those by the same continuous reveal here.
+      const needMaterialScale = introInScope || envMapOff;
+      // `reveal` is 1 when the intro is not in scope, so this is 0 when the toggle
+      // is off, the 0→1 ramp value during the intro, and 1 otherwise.
+      const materialMult = envMapOff ? 0 : reveal;
+      if (needMaterialScale) {
+        if (!introDimCapturedRef.current && state.scene) {
+          const found = [];
+          state.scene.traverse((obj) => {
+            if (!obj.isMesh || !obj.material) return;
+            const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+            mats.forEach((mat) => {
+              if (!mat || !mat.envMap) return;
+              // Standard/Physical use envMapIntensity; Phong (mobile) uses reflectivity.
+              if (typeof mat.envMapIntensity === 'number') {
+                found.push({ mat, prop: 'envMapIntensity', base: mat.envMapIntensity });
+              } else if (typeof mat.reflectivity === 'number') {
+                found.push({ mat, prop: 'reflectivity', base: mat.reflectivity });
+              }
+            });
+          });
+          if (found.length > 0) {
+            introDimMaterialsRef.current = found;
+            introDimCapturedRef.current = true;
+          }
+        }
+        introDimMaterialsRef.current.forEach(({ mat, prop, base }) => {
+          mat[prop] = base * materialMult;
+        });
+      } else if (introDimCapturedRef.current) {
+        introDimMaterialsRef.current.forEach(({ mat, prop, base }) => {
+          mat[prop] = base;
+        });
+        introDimMaterialsRef.current = [];
+        introDimCapturedRef.current = false;
+      }
+    }
 
     const debugSecond = Math.floor(state.clock.elapsedTime);
 
@@ -6982,6 +7085,9 @@ const UnifiedCameraController = ({
         } else {
           introFromRef.current.lookAt.copy(currentTarget.current?.lookAt || center);
         }
+        // Match the start target's z to the camera's z so the intro opens looking
+        // straight ahead rather than angled into the scene.
+        introFromRef.current.lookAt.z = introFromRef.current.position.z;
       }
 
       const destination = authoritativeHeroIntroToRef.current;
@@ -6996,9 +7102,15 @@ const UnifiedCameraController = ({
         destination.lookAtTarget,
         easedProgress,
       );
-      camera.position.lerpVectors(
+      // Orbit the camera around the crystal from the authored start toward hero,
+      // with its own delay/duration/amount (see computeIntroOrbitPosition). The dolly
+      // (radius/height) rides positionProgress; the orbit always lands at hero.
+      computeIntroOrbitPosition(
+        camera.position,
         introFromRef.current.position,
         destination.position,
+        center,
+        elapsedMs,
         positionProgress,
       );
       camera.lookAt(introLookAt);
@@ -8036,9 +8148,14 @@ const UnifiedCameraController = ({
         easedProgress
       );
 
-      camera.position.lerpVectors(
+      // Orbit around the crystal from the authored start toward hero (delay/duration/
+      // amount); dolly rides positionProgress. Always lands at hero.
+      computeIntroOrbitPosition(
+        camera.position,
         introFromRef.current.position,
         introToRef.current.position,
+        getHeroOrbitCenter(),
+        elapsed,
         positionProgress
       );
       camera.lookAt(introLookAt);

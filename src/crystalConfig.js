@@ -142,7 +142,7 @@ export const explodedRotations = {
 
 // === CAMERA POSITIONS ===
 export const cameraPositions = {
-  intro: [0.16359952088021784, -2.0376618037026195, 1.1719674768510127],
+  intro: [-0.18, -0.98, 0.83],
   hero: [0.55, 0.92, 3.94],
   overview: [0.23, 0.53, 6.57],
   about: [1.74, 1.34, 1.87],
@@ -157,7 +157,7 @@ export const cameraPositions = {
 }
 
 export const cameraTargets = {
-  intro: [0.6, -2.9, 0],
+  intro: [0.3, 0.0, 0],
   hero: [0, 0.5, 0],
   overview: [0, 0.3, 0],
   about: [0, 0.2, 0],
@@ -577,6 +577,45 @@ export const lighting = {
     angle: Math.PI / 4,
     penumbra: 10.2,
     color: "#ff0051"
+  }
+}
+
+// === DEBUG TOGGLES ===
+// Runtime on/off switches surfaced in the debug panel's "Scene" tab, used to
+// isolate what actually drives the crystal's visibility during the intro. These
+// all default to true (normal rendering); flipping one off lets you A/B its
+// contribution live. `envMapEnabled: false` forces environment reflections off
+// (scene intensity 0 + the intro reveal held at 0); each `lights.<type>` flag
+// hides that specific scene light.
+export const debug = {
+  envMapEnabled: true,
+  // Scene lights ship OFF: the crystal's look is driven by the environment map
+  // (reflections) and its internal glow, not these lights — they were adding cost
+  // without visible benefit. Still individually toggleable in the Scene debug tab.
+  lights: {
+    ambient: false,
+    directional: false,
+    directionalBottom: false,
+    point: false,
+    spot: false,
+    pulsingOmni: false
+  }
+}
+
+// === INTRO MOTION ===
+// Control the camera's ORBIT around the crystal during the intro, independently of the
+// dolly (moving in) and WITHOUT changing where it lands (hero is fixed).
+//   amount     – 0..1 fraction of the orbit implied by the authored intro position.
+//                1 = the full swing from the authored start angle to hero; 0.5 = orbit
+//                half as much (the start angle moves closer to hero, hero unchanged).
+//   delayMs    – wait this long into the intro before the orbit starts turning.
+//   durationMs – how long the orbit sweep takes (it always finishes at the hero angle).
+// The dolly (distance/height) still spans the full intro so the camera lands on hero.
+export const introMotion = {
+  orbit: {
+    amount: 0.75,
+    delayMs: 500,
+    durationMs: 4400
   }
 }
 

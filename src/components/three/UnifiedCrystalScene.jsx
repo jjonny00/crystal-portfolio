@@ -286,6 +286,7 @@ const UnifiedCrystalScene = forwardRef(({
   onDirectProjectSelect,
   onFractureStart,
   sharedCameraMoveProgressRef = null,
+  introRevealRef = null,
   heroOverviewRuntime = null,
   heroOverviewExplosionClockRef = null,
 }, ref) => {
@@ -1017,6 +1018,12 @@ const UnifiedCrystalScene = forwardRef(({
   // glow-owner effect so the useFrame hero pulse can drive uGlowIntensity cheaply.
   const wholeCrystalGlowMaterialsRef = useRef([]);
   const wholeCrystalGlowBaseIntensityRef = useRef(0);
+  // Intro glow reveal: the core glow color lerps up from black to the configured
+  // default as the intro reveal (0→1) progresses. Scratch refs so the per-frame
+  // lerp allocates nothing; `settled` gates the single hand-back write at the end.
+  const glowRevealBlackRef = useRef(new THREE.Color('#000000'));
+  const glowRevealTmpRef = useRef(new THREE.Color());
+  const glowRevealSettledRef = useRef(false);
 
   // Resting + active facet glow intensities (tier-scaled), read when setting up the
   // hover/select glow transition. Active = brighter glow on hover/selected facet.
@@ -2841,10 +2848,37 @@ const UnifiedCrystalScene = forwardRef(({
       if (animationData.state === 'hero' && pulseSpeed > 0 && pulseAmount > 0) {
         intensity = Math.max(0, base * (1 + pulseAmount * Math.sin(elapsed * pulseSpeed)));
       }
+
+      // Intro glow reveal: fade the core glow color up from black to the configured
+      // default as the shared intro reveal (introRevealRef, 0→1; 1 = full/idle)
+      // progresses, so the glow materialises in step with the env-map. A black
+      // uGlowColor contributes nothing, so this alone gives "no glow → full glow".
+      // Read from the ref (continuous, written per-frame) so it lerps smoothly.
+      const reveal = introRevealRef?.current ?? 1;
+      const revealing = reveal < 1;
+      let revealColor = null;
+      if (revealing) {
+        revealColor = glowRevealTmpRef.current.lerpColors(
+          glowRevealBlackRef.current,
+          glowDefaultColorRef.current,
+          reveal
+        );
+        glowRevealSettledRef.current = false;
+      }
+
       for (let i = 0; i < glowMats.length; i++) {
         const gu = glowMats[i]?.userData?.glowUniforms;
-        if (gu) gu.uGlowIntensity.value = intensity;
+        if (!gu) continue;
+        gu.uGlowIntensity.value = intensity;
+        if (revealing) {
+          gu.uGlowColor.value.copy(revealColor);
+        } else if (!glowRevealSettledRef.current) {
+          // One final write snapping exactly to the configured color, then hand
+          // glow-color ownership back to the normal (hover/project) glow system.
+          gu.uGlowColor.value.copy(glowDefaultColorRef.current);
+        }
       }
+      if (!revealing) glowRevealSettledRef.current = true;
     }
 
     // Handle facet animations

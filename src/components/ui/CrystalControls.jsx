@@ -323,7 +323,17 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
         },
         fracture: { ...base.effects?.fracture }
       },
-      materials: cloneMaterials(base.materials)
+      materials: cloneMaterials(base.materials),
+      // Deep-clone debug toggles so editing a flag never mutates the shared default.
+      debug: {
+        ...base.debug,
+        lights: { ...base.debug?.lights }
+      },
+      // Deep-clone intro-motion so editing orbit never mutates the shared default.
+      introMotion: {
+        ...base.introMotion,
+        orbit: { ...base.introMotion?.orbit }
+      }
     };
   };
 
@@ -1001,6 +1011,55 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
     }
     
     // Notify parent component immediately
+    onUpdate(updatedConfig);
+  };
+
+  // --- Scene / Intro debug toggles (Scene tab) ---------------------------------
+  // Normalize a stored glow color (string like "#0015ff" or a THREE.Color) to the
+  // "#rrggbb" form that <input type="color"> requires.
+  const toHexColorString = (value, fallback = '#000000') => {
+    if (!value) return fallback;
+    if (typeof value === 'string') {
+      const m = value.match(/^#?([0-9a-fA-F]{6})/);
+      return m ? `#${m[1]}` : fallback;
+    }
+    if (value.isColor && typeof value.getHexString === 'function') {
+      return `#${value.getHexString()}`;
+    }
+    return fallback;
+  };
+
+  const handleEnvMapToggle = (enabled) => {
+    const updatedConfig = cloneConfig();
+    if (!updatedConfig.debug) updatedConfig.debug = {};
+    updatedConfig.debug.envMapEnabled = enabled;
+    onUpdate(updatedConfig);
+  };
+
+  const handleDebugLightToggle = (lightKey, enabled) => {
+    const updatedConfig = cloneConfig();
+    if (!updatedConfig.debug) updatedConfig.debug = {};
+    if (!updatedConfig.debug.lights) updatedConfig.debug.lights = {};
+    updatedConfig.debug.lights[lightKey] = enabled;
+    onUpdate(updatedConfig);
+  };
+
+  const handleGlowColorChange = (hex) => {
+    const updatedConfig = cloneConfig();
+    if (!updatedConfig.materials) updatedConfig.materials = {};
+    if (!updatedConfig.materials.crystal) updatedConfig.materials.crystal = {};
+    if (!updatedConfig.materials.crystal.glow) updatedConfig.materials.crystal.glow = {};
+    // Store as a plain hex string; UnifiedCrystalScene reads it via THREE.Color.set().
+    updatedConfig.materials.crystal.glow.color = hex;
+    onUpdate(updatedConfig);
+  };
+
+  const handleIntroOrbitChange = (field, value) => {
+    const num = parseFloat(value);
+    const updatedConfig = cloneConfig();
+    if (!updatedConfig.introMotion) updatedConfig.introMotion = {};
+    if (!updatedConfig.introMotion.orbit) updatedConfig.introMotion.orbit = {};
+    updatedConfig.introMotion.orbit[field] = num;
     onUpdate(updatedConfig);
   };
 
@@ -2279,6 +2338,134 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
     </div>
   );
 
+  const sceneLightToggles = [
+    { key: 'ambient', label: 'Ambient' },
+    { key: 'directional', label: 'Directional (main)' },
+    { key: 'directionalBottom', label: 'Directional (bottom)' },
+    { key: 'point', label: 'Point lights' },
+    { key: 'spot', label: 'Spot light' },
+    { key: 'pulsingOmni', label: 'Pulsing omni' }
+  ];
+
+  const renderSceneControls = () => {
+    const debug = config?.debug ?? {};
+    const lights = debug.lights ?? {};
+    const glowColorHex = toHexColorString(config?.materials?.crystal?.glow?.color, '#0015ff');
+    const introOrbitAmount = Number.isFinite(config?.introMotion?.orbit?.amount)
+      ? config.introMotion.orbit.amount
+      : 1;
+    const introOrbitDelayMs = Number.isFinite(config?.introMotion?.orbit?.delayMs)
+      ? config.introMotion.orbit.delayMs
+      : 0;
+    const introOrbitDurationMs = Number.isFinite(config?.introMotion?.orbit?.durationMs)
+      ? config.introMotion.orbit.durationMs
+      : 4400;
+    const checkboxStyle = { accentColor: '#64ffda', width: '16px', height: '16px', cursor: 'pointer' };
+    const hintStyle = { fontSize: '10px', opacity: 0.6, marginTop: '4px' };
+    return (
+      <div>
+        <h3 style={{ fontSize: '14px', marginBottom: '6px' }}>Scene / Intro Debug</h3>
+        <div style={{ ...hintStyle, marginBottom: '15px' }}>
+          Toggle contributors on/off to isolate what actually makes the crystal visible.
+        </div>
+
+        <div style={sliderGroupStyle}>
+          <label style={{ ...sliderLabelStyle, cursor: 'pointer' }}>
+            <span>Environment map (reflections)</span>
+            <input
+              type="checkbox"
+              checked={debug.envMapEnabled !== false}
+              onChange={(e) => handleEnvMapToggle(e.target.checked)}
+              style={checkboxStyle}
+            />
+          </label>
+          <div style={hintStyle}>Off = kills scene IBL + crystal envMap/reflectivity (overrides the intro ramp).</div>
+        </div>
+
+        <div style={sliderGroupStyle}>
+          <div style={{ fontSize: '12px', marginBottom: '10px', opacity: 0.85 }}>Lights</div>
+          {sceneLightToggles.map(({ key, label }) => (
+            <label
+              key={key}
+              style={{ ...sliderLabelStyle, cursor: 'pointer', marginBottom: '10px' }}
+            >
+              <span>{label}</span>
+              <input
+                type="checkbox"
+                checked={lights[key] !== false}
+                onChange={(e) => handleDebugLightToggle(key, e.target.checked)}
+                style={checkboxStyle}
+              />
+            </label>
+          ))}
+        </div>
+
+        <div style={sliderGroupStyle}>
+          <label style={{ ...sliderLabelStyle, cursor: 'pointer' }}>
+            <span>Crystal glow color</span>
+            <input
+              type="color"
+              value={glowColorHex}
+              onChange={(e) => handleGlowColorChange(e.target.value)}
+              style={{ width: '48px', height: '26px', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}
+            />
+          </label>
+          <div style={hintStyle}>Default internal (Fresnel) glow color — {glowColorHex}</div>
+        </div>
+
+        <div style={{ fontSize: '12px', marginBottom: '10px', opacity: 0.85 }}>Intro orbit</div>
+        <div style={sliderGroupStyle}>
+          <div style={sliderLabelStyle}>
+            <span>Orbit amount</span>
+            <span>{introOrbitAmount.toFixed(2)}</span>
+          </div>
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.05"
+            value={introOrbitAmount}
+            onChange={(e) => handleIntroOrbitChange('amount', e.target.value)}
+            style={sliderStyle}
+          />
+          <div style={hintStyle}>Fraction of the authored orbit. 1 = full swing to hero; 0.5 = orbit half as much (hero landing unchanged).</div>
+        </div>
+        <div style={sliderGroupStyle}>
+          <div style={sliderLabelStyle}>
+            <span>Orbit delay</span>
+            <span>{introOrbitDelayMs} ms</span>
+          </div>
+          <input
+            type="range"
+            min="0"
+            max="3000"
+            step="100"
+            value={introOrbitDelayMs}
+            onChange={(e) => handleIntroOrbitChange('delayMs', e.target.value)}
+            style={sliderStyle}
+          />
+          <div style={hintStyle}>Wait this long into the intro before the orbit starts turning.</div>
+        </div>
+        <div style={sliderGroupStyle}>
+          <div style={sliderLabelStyle}>
+            <span>Orbit duration</span>
+            <span>{introOrbitDurationMs} ms</span>
+          </div>
+          <input
+            type="range"
+            min="200"
+            max="4400"
+            step="100"
+            value={introOrbitDurationMs}
+            onChange={(e) => handleIntroOrbitChange('durationMs', e.target.value)}
+            style={sliderStyle}
+          />
+          <div style={hintStyle}>How long the orbit sweep takes (dolly still spans the full intro; always lands at hero).</div>
+        </div>
+      </div>
+    );
+  };
+
   // Updated return statement for tabbed interface
   return (
     <div style={containerStyle}>
@@ -2318,6 +2505,12 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
         >
           Material
         </button>
+        <button
+          style={tabButtonStyle(activeTab === 'scene')}
+          onClick={() => setActiveTab('scene')}
+        >
+          Scene
+        </button>
       </div>
 
       {activeTab === 'timing' && renderTimingControls()}
@@ -2325,6 +2518,7 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
       {activeTab === 'camera' && renderCameraControls()}
       {activeTab === 'effects' && renderEffectsControls()}
       {activeTab === 'material' && renderMaterialControls()}
+      {activeTab === 'scene' && renderSceneControls()}
 
       <div style={exportSectionStyle}>
         <h3 style={{ fontSize: '13px', margin: '0 0 10px 0' }}>Export / Copy Tuning JSON</h3>
