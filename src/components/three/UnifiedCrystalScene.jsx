@@ -18,6 +18,7 @@ import OrbEnergyParticles from './OrbEnergyParticles'
 import FractureRingImage from './FractureRingImage'
 import FractureRays from './FractureRays'
 import FractureSmokePuff from './FractureSmokePuff'
+import CrystalEnergyAura from './CrystalEnergyAura'
 import projects, {
   facetKeys as canonicalFacetKeys,
   getProjectColorByFacetKey,
@@ -31,7 +32,7 @@ import projects, {
 } from '../../data/projects'
 import FacetLabels from './FacetLabels'
 import FacetHoverParticles from './FacetHoverParticles'
-import { effects, materials as defaultCrystalMaterials } from '../../crystalConfig'
+import { effects, materials as defaultCrystalMaterials, energy as defaultEnergyConfig, resolveEnergyConfig } from '../../crystalConfig'
 import { useFacetOverlayGeometry } from '../../hooks/useFacetOverlayGeometry'
 import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController'
 import { useHoverCapable } from '../../hooks/useHoverCapable'
@@ -519,6 +520,17 @@ const UnifiedCrystalScene = forwardRef(({
     const overview = mergedConfig?.cameraPositions?.overview;
     logger.debug('📷 Effective layout camera positions', { hero, overview });
   }, [mergedConfig?.cameraPositions?.hero, mergedConfig?.cameraPositions?.overview]);
+
+  // Energy aura config: crystalConfig `energy` (plus any runtime/debug override
+  // that arrived on the merged config) resolved against the active device tier.
+  // Tier key is the profile's pbrQuality, same convention as MaterialManager.
+  const energyConfig = useMemo(
+    () => resolveEnergyConfig(
+      mergedConfig?.energy || defaultEnergyConfig,
+      performanceProfile?.pbrQuality || (performanceProfile?.usePBR === false ? 'low' : 'high'),
+    ),
+    [mergedConfig?.energy, performanceProfile?.pbrQuality, performanceProfile?.usePBR],
+  );
 
   const crystalConfig = animationData?.crystalConfig;
   const heroOverviewParticlesConfig = HERO_OVERVIEW_CINEMATIC_RESOLVED.particles;
@@ -3972,6 +3984,15 @@ const UnifiedCrystalScene = forwardRef(({
         visible={sphereVisible}
         position={[0, 0, 0]}
         warmup={modelsLoaded}
+      />
+
+      {/* Procedural plasma aura — a single additive shell whose vertical energy
+          streams are generated in-shader. All tunables live in crystalConfig's
+          `energy` section (tier-resolved above); see CrystalEnergyAura.jsx. */}
+      <CrystalEnergyAura
+        energy={energyConfig}
+        position={[0, 0, 0]}
+        reducedMotion={simplifiedAnimations}
       />
 
       {/* Magical smoke — instanced camera-facing billboards fired at the same

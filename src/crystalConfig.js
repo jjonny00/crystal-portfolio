@@ -602,6 +602,104 @@ export const debug = {
   }
 }
 
+// === ENERGY AURA ===
+// Procedural plasma field rising around the crystal, rendered by
+// components/three/CrystalEnergyAura.jsx. It is ONE additive, open-ended
+// cylindrical shell whose vertical energy streams are generated entirely in the
+// fragment shader (hash-based value noise — no particle system, no noise
+// texture, no extra draw calls beyond the single shell).
+//
+// Every visual parameter the shader reads lives here; the component only maps
+// these onto uniforms, so the look can be retuned without editing GLSL. Values
+// are re-read every frame, so debug-panel/HMR edits apply live.
+//
+// `tiers` overlays the base values per device tier. The tier key is the active
+// performance profile's `pbrQuality` ('high' | 'medium' | 'low'), matching the
+// convention MaterialManager already uses. Merge is shallow per sub-object —
+// see `resolveEnergyConfig` below.
+export const energy = {
+  enabled: true,
+
+  // --- Color & brightness ---
+  color: '#4ebbff',          // dominant field color
+  coreColor: '#dff4ff',      // hot-core tint mixed into the brightest streams
+  intensity: 1.5,            // emissive multiplier (pre-bloom; bloom picks this up)
+  opacity: 0.5,              // overall alpha ceiling of the field
+
+  // --- Motion ---
+  speed: 0.3,                // upward flow rate of the noise domain
+  swirl: 0.35,               // radians of twist per world unit of height (0 = straight columns)
+
+  // --- Noise shaping ---
+  scale: 1.45,               // noise frequency in the horizontal plane (higher = finer streams)
+  verticalStretch: 4.5,      // divides the vertical noise frequency — this is what turns
+                             // blobs into long vertical streams (higher = longer/smoother)
+  turbulence: 0.55,          // weight of the 2nd noise octave (0 = smooth, 1 = churning)
+  octaves: 2,                // 1 or 2 — the only shader-complexity knob that matters
+  threshold: 0.44,           // noise cutoff; higher = sparser, fewer streams
+  breakup: 0.65,             // 0 = soft continuous wash, 1 = hard-edged shredded filaments
+  asymmetry: 0.7,            // 0..1 strength of the slow low-frequency mask that kills the
+                             // field on random sides so it never reads as a uniform shell
+
+  // --- Fresnel (rim weighting; makes the shell read as a volume, not a wall) ---
+  fresnelStrength: 0.7,      // 0 = flat, 1 = only the silhouette rim is lit
+  fresnelPower: 2.2,         // higher = tighter rim
+
+  // --- Field size, relative to the crystal ---
+  field: {
+    crystalRadius: 1.0,      // world-unit reference radius of the crystal; everything below
+                             // is expressed as a multiple of this so the field tracks scale
+    radius: 1.4,             // shell radius at the base, × crystalRadius
+    taper: 1.2,              // top radius as a multiple of the base radius (>1 = flares out)
+    height: 3.0,             // shell height, × crystalRadius
+    yOffset: 0.15,           // shell center offset above the crystal center, × crystalRadius
+    radialSegments: 48,      // silhouette smoothness (vertex cost only)
+  },
+
+  // --- Vertical falloff, in normalized shell height (0 = base, 1 = top) ---
+  falloff: {
+    bottom: 0.3,             // fade-in distance from the base
+    top: 0.45,               // fade-out distance below the top
+    rise: 0.4,               // 0..1 extra thinning applied as streams rise (dissipation)
+  },
+
+  // Per-tier overlays. Keys not listed inherit the base values above.
+  tiers: {
+    high: {},
+    medium: {
+      turbulence: 0.45,
+      field: { radialSegments: 40 },
+    },
+    low: {
+      octaves: 1,            // single noise octave — roughly halves the fragment cost
+      turbulence: 0.0,       // unused at 1 octave; zeroed so the intent is explicit
+      opacity: 0.42,
+      threshold: 0.48,       // sparser field = fewer shaded fragments survive the discard
+      field: { radialSegments: 28 },
+    },
+  },
+};
+
+/**
+ * Resolve the energy config for a device tier: base values overlaid with
+ * `energy.tiers[tier]`, merged one level deep for the `field`/`falloff`
+ * sub-objects so a tier can override a single key without restating the block.
+ * `tier` is the performance profile's `pbrQuality`; unknown tiers fall back to
+ * the base values.
+ */
+export const resolveEnergyConfig = (source = energy, tier = 'high') => {
+  const base = source || energy;
+  const overlay = base.tiers?.[tier] || {};
+  const { tiers: _tiers, ...rest } = base;
+
+  return {
+    ...rest,
+    ...overlay,
+    field: { ...(base.field || {}), ...(overlay.field || {}) },
+    falloff: { ...(base.falloff || {}), ...(overlay.falloff || {}) },
+  };
+};
+
 // === INTRO MOTION ===
 // Control the camera's ORBIT around the crystal during the intro, independently of the
 // dolly (moving in) and WITHOUT changing where it lands (hero is fixed).

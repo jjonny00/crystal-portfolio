@@ -1,0 +1,311 @@
+// src/components/three/CrystalEnergyAura.jsx
+// Procedural energy aura: vertical streams of plasma rising around the crystal.
+//
+// Deliberately NOT a particle system. The whole effect is one open-ended
+// cylindrical shell (a single draw call, two overlapping layers of overdraw at
+// worst) with a custom ShaderMaterial that generates its own hash-based value
+// noise — no sprite atlas, no noise texture, no render targets.
+//
+// How the "streams" are made, in the fragment shader:
+//   1. Sample 3D value noise in the shell's LOCAL space (3D sampling is what
+//      keeps it seamless around the cylinder — there is no UV seam to hide).
+//   2. Divide the vertical axis of the sample domain by `verticalStretch`, which
+//      smears round noise blobs into long vertical filaments.
+//   3. Slide the domain downward over time so the filaments read as rising.
+//   4. Multiply by a slow, low-frequency "presence" mask so whole sides of the
+//      shell go dark — this is what stops it collapsing into a uniform glow.
+//   5. Threshold the result (`threshold` / `breakup`) to cut it into broken,
+//      hard-edged bands, then weight by Fresnel so the silhouette rim reads as
+//      the densest part of a volume rather than a painted wall.
+//
+// Fragments below the alpha floor `discard`, which is the main overdraw saving:
+// most of the shell is empty most of the time.
+//
+// Every tunable comes from crystalConfig's `energy` section (tier-resolved by
+// `resolveEnergyConfig`). Uniforms are refreshed each frame from the current
+// props, so config edits apply live without rebuilding the material.
+
+import React, { useEffect, useMemo, useRef } from 'react';
+import { useFrame } from '@react-three/fiber';
+import * as THREE from 'three';
+
+const vertexShader = /* glsl */ `
+  uniform float uHalfHeight;
+
+  varying vec3 vLocalPos;
+  varying vec3 vNormalW;
+  varying vec3 vViewDirW;
+  varying float vHeight;
+
+  void main() {
+    vLocalPos = position;
+    // 0 at the base of the shell, 1 at the top — drives the vertical falloff.
+    vHeight = clamp((position.y + uHalfHeight) / max(2.0 * uHalfHeight, 1e-4), 0.0, 1.0);
+
+    vec4 worldPos = modelMatrix * vec4(position, 1.0);
+    vNormalW = normalize(mat3(modelMatrix) * normal);
+    vViewDirW = normalize(cameraPosition - worldPos.xyz);
+
+    gl_Position = projectionMatrix * viewMatrix * worldPos;
+  }
+`;
+
+// OCTAVES is injected as a #define so the second noise fetch is compiled out
+// entirely on the low tier rather than being branched around at runtime.
+const fragmentShader = /* glsl */ `
+  uniform float uTime;
+  uniform vec3  uColor;
+  uniform vec3  uCoreColor;
+  uniform float uIntensity;
+  uniform float uOpacity;
+  uniform float uSpeed;
+  uniform float uScale;
+  uniform float uVerticalStretch;
+  uniform float uTurbulence;
+  uniform float uThreshold;
+  uniform float uSoftness;
+  uniform float uAsymmetry;
+  uniform float uSwirl;
+  uniform float uFresnelStrength;
+  uniform float uFresnelPower;
+  uniform float uFadeBottom;
+  uniform float uFadeTop;
+  uniform float uRise;
+
+  varying vec3 vLocalPos;
+  varying vec3 vNormalW;
+  varying vec3 vViewDirW;
+  varying float vHeight;
+
+  // iq's cheap 3D hash — no texture lookup, ~6 ALU.
+  float hash31(vec3 p) {
+    p = fract(p * 0.3183099 + vec3(0.1, 0.2, 0.3));
+    p *= 17.0;
+    return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+  }
+
+  // Trilinear value noise. Cheaper than simplex and plenty for a soft plasma.
+  float vnoise(vec3 x) {
+    vec3 i = floor(x);
+    vec3 f = fract(x);
+    f = f * f * (3.0 - 2.0 * f);
+
+    return mix(
+      mix(
+        mix(hash31(i + vec3(0.0, 0.0, 0.0)), hash31(i + vec3(1.0, 0.0, 0.0)), f.x),
+        mix(hash31(i + vec3(0.0, 1.0, 0.0)), hash31(i + vec3(1.0, 1.0, 0.0)), f.x),
+        f.y
+      ),
+      mix(
+        mix(hash31(i + vec3(0.0, 0.0, 1.0)), hash31(i + vec3(1.0, 0.0, 1.0)), f.x),
+        mix(hash31(i + vec3(0.0, 1.0, 1.0)), hash31(i + vec3(1.0, 1.0, 1.0)), f.x),
+        f.y
+      ),
+      f.z
+    );
+  }
+
+  void main() {
+    // --- Build the sample domain -------------------------------------------
+    // Twist the horizontal plane by height so the columns spiral instead of
+    // running dead-straight up the shell.
+    float twist = vLocalPos.y * uSwirl;
+    float cs = cos(twist);
+    float sn = sin(twist);
+    vec2 swirled = vec2(
+      vLocalPos.x * cs - vLocalPos.z * sn,
+      vLocalPos.x * sn + vLocalPos.z * cs
+    );
+
+    vec3 domain = vec3(swirled.x, vLocalPos.y, swirled.y) * uScale;
+    // Compress the vertical axis => tall, thin filaments instead of blobs.
+    domain.y /= max(uVerticalStretch, 0.001);
+    // Slide the domain DOWN so the pattern appears to rise.
+    domain.y -= uTime * uSpeed;
+
+    float n = vnoise(domain);
+
+    #if OCTAVES > 1
+      // Second octave: finer, faster, offset — this is the churn/turbulence.
+      vec3 domain2 = domain * 2.17 + vec3(19.3, 0.0, 7.1);
+      domain2.y -= uTime * uSpeed * 0.85;
+      n = mix(n, n * 0.62 + vnoise(domain2) * 0.38, uTurbulence);
+    #endif
+
+    // --- Asymmetry: kill whole sides of the shell ---------------------------
+    // Very low frequency, drifting slowly, so the field is never symmetrical
+    // and the gaps wander around the crystal over time.
+    float presence = vnoise(vec3(swirled * uScale * 0.28, uTime * uSpeed * 0.12 + 41.0));
+    n *= mix(1.0, smoothstep(0.12, 0.78, presence), uAsymmetry);
+
+    // --- Threshold into broken bands ---------------------------------------
+    float streams = smoothstep(uThreshold, uThreshold + uSoftness, n);
+    if (streams <= 0.0) discard;
+
+    // --- Vertical shaping ---------------------------------------------------
+    float fade = smoothstep(0.0, max(uFadeBottom, 0.001), vHeight)
+               * (1.0 - smoothstep(1.0 - max(uFadeTop, 0.001), 1.0, vHeight));
+    // Streams dissipate as they climb.
+    streams *= mix(1.0, 1.0 - vHeight, uRise);
+
+    // --- Fresnel rim weighting ---------------------------------------------
+    float facing = abs(dot(normalize(vNormalW), normalize(vViewDirW)));
+    float fresnel = pow(1.0 - facing, uFresnelPower);
+    float rim = mix(1.0, fresnel, uFresnelStrength);
+
+    float alpha = streams * fade * rim * uOpacity;
+    if (alpha < 0.003) discard;
+
+    // Hot core only in the densest parts, so the field has a temperature
+    // gradient rather than being flat-tinted.
+    vec3 col = mix(uColor, uCoreColor, pow(streams, 3.0) * 0.65) * uIntensity * streams;
+
+    gl_FragColor = vec4(col, alpha);
+  }
+`;
+
+const DEFAULT_FIELD = {
+  crystalRadius: 1.0,
+  radius: 1.4,
+  taper: 1.2,
+  height: 3.0,
+  yOffset: 0.15,
+  radialSegments: 48,
+};
+
+const DEFAULT_FALLOFF = { bottom: 0.3, top: 0.45, rise: 0.4 };
+
+/**
+ * Additive plasma shell around the crystal.
+ *
+ * @param {object}  energy      tier-resolved crystalConfig `energy` block
+ * @param {boolean} visible     hide without unmounting (keeps the shader warm)
+ * @param {boolean} reducedMotion  freeze the flow; the field still renders, static
+ */
+const CrystalEnergyAura = ({
+  energy,
+  position = [0, 0, 0],
+  visible = true,
+  reducedMotion = false,
+  renderOrder = 1200,
+}) => {
+  const timeRef = useRef(0);
+
+  // Latest config read per-frame so live tuning doesn't rebuild the material.
+  const cfgRef = useRef(energy);
+  cfgRef.current = energy;
+
+  const field = { ...DEFAULT_FIELD, ...(energy?.field || {}) };
+  const crystalRadius = field.crystalRadius || 1;
+  const baseRadius = field.radius * crystalRadius;
+  const topRadius = baseRadius * (field.taper ?? 1);
+  const height = field.height * crystalRadius;
+  const radialSegments = Math.max(8, Math.round(field.radialSegments || 48));
+  const octaves = (energy?.octaves ?? 2) > 1 ? 2 : 1;
+
+  // Geometry only depends on the shell's shape — not on any of the look knobs.
+  const geometry = useMemo(
+    () =>
+      new THREE.CylinderGeometry(
+        topRadius,
+        baseRadius,
+        height,
+        radialSegments,
+        1,
+        true, // open-ended: no caps to pay for, and caps would read as lids
+      ),
+    [topRadius, baseRadius, height, radialSegments],
+  );
+
+  // Rebuilt only when the octave count changes (it is a compile-time #define).
+  const material = useMemo(
+    () =>
+      new THREE.ShaderMaterial({
+        defines: { OCTAVES: octaves },
+        uniforms: {
+          uTime: { value: 0 },
+          uHalfHeight: { value: height * 0.5 },
+          uColor: { value: new THREE.Color('#4ebbff') },
+          uCoreColor: { value: new THREE.Color('#dff4ff') },
+          uIntensity: { value: 1.5 },
+          uOpacity: { value: 0.5 },
+          uSpeed: { value: 0.3 },
+          uScale: { value: 1.45 },
+          uVerticalStretch: { value: 4.5 },
+          uTurbulence: { value: 0.55 },
+          uThreshold: { value: 0.44 },
+          uSoftness: { value: 0.2 },
+          uAsymmetry: { value: 0.7 },
+          uSwirl: { value: 0.35 },
+          uFresnelStrength: { value: 0.7 },
+          uFresnelPower: { value: 2.2 },
+          uFadeBottom: { value: 0.3 },
+          uFadeTop: { value: 0.45 },
+          uRise: { value: 0.4 },
+        },
+        vertexShader,
+        fragmentShader,
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        side: THREE.DoubleSide, // front + back layers => the field wraps the crystal
+        depthWrite: false,
+        depthTest: true, // let the crystal occlude the far side of the shell
+      }),
+    [octaves], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+
+  useEffect(() => () => geometry.dispose(), [geometry]);
+  useEffect(() => () => material.dispose(), [material]);
+
+  useFrame((_, deltaRaw) => {
+    if (!visible) return;
+
+    const cfg = cfgRef.current;
+    if (!cfg) return;
+
+    if (!reducedMotion) {
+      timeRef.current += Math.min(deltaRaw, 1 / 30); // clamp so a stutter can't jump the flow
+    }
+
+    const u = material.uniforms;
+    const f = { ...DEFAULT_FALLOFF, ...(cfg.falloff || {}) };
+    const shell = { ...DEFAULT_FIELD, ...(cfg.field || {}) };
+
+    u.uTime.value = timeRef.current;
+    u.uHalfHeight.value = (shell.height * (shell.crystalRadius || 1)) * 0.5;
+    u.uColor.value.set(cfg.color ?? '#4ebbff');
+    u.uCoreColor.value.set(cfg.coreColor ?? '#dff4ff');
+    u.uIntensity.value = cfg.intensity ?? 1.5;
+    u.uOpacity.value = cfg.opacity ?? 0.5;
+    u.uSpeed.value = cfg.speed ?? 0.3;
+    u.uScale.value = cfg.scale ?? 1.45;
+    u.uVerticalStretch.value = cfg.verticalStretch ?? 4.5;
+    u.uTurbulence.value = cfg.turbulence ?? 0.55;
+    u.uThreshold.value = cfg.threshold ?? 0.44;
+    // `breakup` is authored as 0 = soft wash → 1 = shredded, which is the
+    // inverse of the smoothstep width the shader actually wants.
+    u.uSoftness.value = THREE.MathUtils.lerp(0.5, 0.03, THREE.MathUtils.clamp(cfg.breakup ?? 0.65, 0, 1));
+    u.uAsymmetry.value = cfg.asymmetry ?? 0.7;
+    u.uSwirl.value = cfg.swirl ?? 0.35;
+    u.uFresnelStrength.value = cfg.fresnelStrength ?? 0.7;
+    u.uFresnelPower.value = cfg.fresnelPower ?? 2.2;
+    u.uFadeBottom.value = f.bottom;
+    u.uFadeTop.value = f.top;
+    u.uRise.value = f.rise;
+  });
+
+  if (!energy?.enabled) return null;
+
+  return (
+    <mesh
+      geometry={geometry}
+      material={material}
+      position={[position[0], position[1] + field.yOffset * crystalRadius, position[2]]}
+      visible={visible}
+      frustumCulled={false}
+      renderOrder={renderOrder}
+    />
+  );
+};
+
+export default CrystalEnergyAura;
