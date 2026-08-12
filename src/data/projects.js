@@ -95,8 +95,8 @@ export const projects = [
       cta: 'Designing the Ladder'
     },
     technologies: ['Product Strategy', 'UX Systems', 'Platform Design'],
-    color: '#58E0B2',
-    headlineColor: '#58E0B2',
+    color: '#27E0B0',
+    headlineColor: '#27E0B0',
     imageUrl: '/assets/projects/fundseeder.webp',
     overlayImage: '/assets/projects/fundseeder.webp'
   },

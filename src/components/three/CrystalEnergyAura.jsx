@@ -12,11 +12,12 @@
 //   2. Divide the vertical axis of the sample domain by `verticalStretch`, which
 //      smears round noise blobs into long vertical filaments.
 //   3. Slide the domain downward over time so the filaments read as rising.
-//   4. Multiply by a slow, low-frequency "presence" mask so whole sides of the
-//      shell go dark — this is what stops it collapsing into a uniform glow.
+//   4. Multiply by a slow, low-frequency "presence" mask so parts of the shell
+//      thin out — this is what stops it collapsing into a uniform glow. Its
+//      cells must stay smaller than the shell or it becomes a global fade.
 //   5. Threshold the result (`threshold` / `breakup`) to cut it into broken,
-//      hard-edged bands, then weight by Fresnel so the silhouette rim reads as
-//      the densest part of a volume rather than a painted wall.
+//      hard-edged bands, then apply an INVERSE Fresnel term that fades the
+//      silhouette and keeps the energy over the middle of the field.
 //
 // Fragments below the alpha floor `discard`, which is the main overdraw saving:
 // most of the shell is empty most of the time.
@@ -50,8 +51,9 @@ const vertexShader = /* glsl */ `
   }
 `;
 
-// OCTAVES is injected as a #define so the second noise fetch is compiled out
-// entirely on the low tier rather than being branched around at runtime.
+// OCTAVES is injected as a #define so unused octaves are compiled out entirely
+// rather than being branched around at runtime. Each octave is ~8 hash calls
+// plus a trilinear blend, so cost scales close to linearly with the count.
 const fragmentShader = /* glsl */ `
   uniform float uTime;
   uniform vec3  uColor;
@@ -124,14 +126,38 @@ const fragmentShader = /* glsl */ `
     // Slide the domain DOWN so the pattern appears to rise.
     domain.y -= uTime * uSpeed;
 
+    // fBm. Each extra octave is finer, fainter and drifts faster, adding detail
+    // WITHIN the streams rather than more of them. The running norm keeps the
+    // mean near 0.5 whatever the octave count, so changing the octave count
+    // doesn't shift the effective threshold and force a retune of the field.
     float n = vnoise(domain);
+    float norm = 1.0;
+    float amp = 1.0;
+    vec3 p = domain;
 
     #if OCTAVES > 1
-      // Second octave: finer, faster, offset — this is the churn/turbulence.
-      vec3 domain2 = domain * 2.17 + vec3(19.3, 0.0, 7.1);
-      domain2.y -= uTime * uSpeed * 0.85;
-      n = mix(n, n * 0.62 + vnoise(domain2) * 0.38, uTurbulence);
+      amp *= uTurbulence * 0.6;
+      p = p * 2.17 + vec3(19.3, 0.0, 7.1);
+      p.y -= uTime * uSpeed * 0.85;
+      n += vnoise(p) * amp;
+      norm += amp;
     #endif
+    #if OCTAVES > 2
+      amp *= uTurbulence * 0.6;
+      p = p * 2.03 + vec3(7.7, 0.0, 23.1);
+      p.y -= uTime * uSpeed * 1.4;
+      n += vnoise(p) * amp;
+      norm += amp;
+    #endif
+    #if OCTAVES > 3
+      amp *= uTurbulence * 0.6;
+      p = p * 2.11 + vec3(31.5, 0.0, 5.3);
+      p.y -= uTime * uSpeed * 2.2;
+      n += vnoise(p) * amp;
+      norm += amp;
+    #endif
+
+    n /= norm;
 
     // --- Asymmetry: thin the field on SOME sides, not all of it at once ------
     // Sampled on its own domain (uAsymmetryScale, independent of uScale) so it
@@ -155,12 +181,18 @@ const fragmentShader = /* glsl */ `
     // Streams dissipate as they climb.
     streams *= mix(1.0, 1.0 - vHeight, uRise);
 
-    // --- Fresnel rim weighting ---------------------------------------------
+    // --- INVERSE Fresnel: weight the centre, fade the silhouette -------------
+    // Note this is the opposite of a conventional Fresnel rim term. "facing" is
+    // 1 where the shell points straight at the camera — which, on a shell
+    // wrapping the crystal, is the part of it seen over the crystal's face —
+    // and 0 at the silhouette, i.e. the outer left/right extremes of the aura.
+    // Raising uFresnelStrength therefore pulls the energy in off the edges and
+    // concentrates it over the middle. 0 leaves the field flat.
     float facing = abs(dot(normalize(vNormalW), normalize(vViewDirW)));
-    float fresnel = pow(1.0 - facing, uFresnelPower);
-    float rim = mix(1.0, fresnel, uFresnelStrength);
+    float core = pow(facing, uFresnelPower);
+    float weight = mix(1.0, core, uFresnelStrength);
 
-    float alpha = streams * fade * rim * uOpacity;
+    float alpha = streams * fade * weight * uOpacity;
     if (alpha < 0.003) discard;
 
     // Hot core only in the densest parts, so the field has a temperature
@@ -176,7 +208,9 @@ const DEFAULT_FIELD = {
   radius: 1.4,
   taper: 1.2,
   height: 3.0,
+  xOffset: 0,
   yOffset: 0.15,
+  zOffset: 0,
   radialSegments: 48,
 };
 
@@ -211,7 +245,7 @@ const CrystalEnergyAura = ({
   const topRadius = baseRadius * (field.taper ?? 1);
   const height = field.height * crystalRadius;
   const radialSegments = Math.max(8, Math.round(field.radialSegments || 48));
-  const octaves = (energy?.octaves ?? 2) > 1 ? 2 : 1;
+  const octaves = THREE.MathUtils.clamp(Math.round(energy?.octaves ?? 2), 1, 4);
 
   // Geometry only depends on the shell's shape — not on any of the look knobs.
   const geometry = useMemo(
@@ -248,7 +282,7 @@ const CrystalEnergyAura = ({
           uAsymmetry: { value: 0.35 },
           uAsymmetryScale: { value: 1.1 },
           uSwirl: { value: 0.35 },
-          uFresnelStrength: { value: 0.7 },
+          uFresnelStrength: { value: 0.0 }, // neutral: flat across the shell
           uFresnelPower: { value: 2.2 },
           uFadeBottom: { value: 0.3 },
           uFadeTop: { value: 0.45 },
@@ -299,7 +333,7 @@ const CrystalEnergyAura = ({
     u.uAsymmetry.value = cfg.asymmetry ?? 0.35;
     u.uAsymmetryScale.value = cfg.asymmetryScale ?? 1.1;
     u.uSwirl.value = cfg.swirl ?? 0.35;
-    u.uFresnelStrength.value = cfg.fresnelStrength ?? 0.7;
+    u.uFresnelStrength.value = cfg.fresnelStrength ?? 0.0;
     u.uFresnelPower.value = cfg.fresnelPower ?? 2.2;
     u.uFadeBottom.value = f.bottom;
     u.uFadeTop.value = f.top;
@@ -312,7 +346,14 @@ const CrystalEnergyAura = ({
     <mesh
       geometry={geometry}
       material={material}
-      position={[position[0], position[1] + field.yOffset * crystalRadius, position[2]]}
+      // Offsets are in crystal radii. Because the noise is sampled in the
+      // shell's LOCAL space, sliding the shell carries the pattern with it —
+      // nudging it clear of the crystal doesn't make the streams swim.
+      position={[
+        position[0] + (field.xOffset ?? 0) * crystalRadius,
+        position[1] + (field.yOffset ?? 0) * crystalRadius,
+        position[2] + (field.zOffset ?? 0) * crystalRadius,
+      ]}
       visible={visible}
       frustumCulled={false}
       renderOrder={renderOrder}

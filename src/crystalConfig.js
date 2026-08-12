@@ -647,14 +647,18 @@ export const energy = {
   // factor — e.g. twice as many, same length: scale 2.9 + verticalStretch 9.0.
   // Past roughly scale 4 the noise starts aliasing into per-pixel sparkle as the
   // camera moves; add turbulence for fine detail instead of pushing scale higher.
-  scale: 1.45,               // master noise frequency — the "smaller and more" knob
+  scale: 3.45,               // master noise frequency — the "smaller and more" knob
   verticalStretch: 4.5,      // divides ONLY the vertical frequency, so it sets the aspect
                              // ratio of a stream (a stream is ~this many times taller than
                              // it is wide). Higher = longer, smoother columns; lower = blobby.
   turbulence: 0.55,          // weight of a 2nd octave at ~2.2x frequency. Adds fine detail
                              // WITHIN each stream without changing how many there are — this
                              // is the knob for "busier", as opposed to scale's "finer".
-  octaves: 2,                // 1 or 2 — the only shader-complexity knob that matters
+  octaves: 4,                // 1..4 fBm octaves. THE shader-complexity knob: each octave is
+                             // another ~8 hash calls per fragment, so cost is roughly linear
+                             // in this number. Octaves 3-4 only add fine grain (their
+                             // amplitude is turbulence^n), so check they're earning their
+                             // cost before shipping 4 on anything but the high tier.
   threshold: 0.44,           // noise cutoff. Trades width against count in the opposite
                              // direction from scale: higher = thinner, sparser, more gaps;
                              // lower = fatter streams that merge into a continuous sheet.
@@ -670,18 +674,30 @@ export const energy = {
                              // mask stops being spatial and becomes a global fade that
                              // switches the entire aura on and off over tens of seconds.
 
-  // --- Fresnel (rim weighting; makes the shell read as a volume, not a wall) ---
-  fresnelStrength: 0.0,      // 0 = flat, 1 = only the silhouette rim is lit
-  fresnelPower: 2.2,         // higher = tighter rim
+  // --- Inverse Fresnel (centre weighting) ---
+  // NOTE this is the reverse of a conventional Fresnel rim term: it fades the
+  // silhouette and keeps the energy over the middle of the field, where the
+  // shell faces the camera. Raising `fresnelStrength` pulls the aura IN off its
+  // outer edges — useful when the shell is tight and its left/right extremes
+  // read as a hard outline rather than a volume.
+  fresnelStrength: 0.0,      // 0 = flat across the shell, 1 = edges gone, centre only
+  fresnelPower: 2.2,         // how fast it falls off toward the edge (higher = tighter core)
 
   // --- Field size, relative to the crystal ---
   field: {
-    crystalRadius: 1.0,      // world-unit reference radius of the crystal; everything below
+    crystalRadius: 0.55,      // world-unit reference radius of the crystal; everything below
                              // is expressed as a multiple of this so the field tracks scale
     radius: 1.4,             // shell radius at the base, × crystalRadius
     taper: 1.2,              // top radius as a multiple of the base radius (>1 = flares out)
     height: 3.0,             // shell height, × crystalRadius
-    yOffset: 0.15,           // shell center offset above the crystal center, × crystalRadius
+    // Position of the shell relative to the crystal's centre, × crystalRadius.
+    // The crystal isn't radially symmetric, so a shell tight enough to hug it on
+    // one side will cut through it on another — nudge it here until it clears.
+    // The noise travels with the shell (it's sampled in local space), so these
+    // reposition the field without shifting the pattern across it.
+    xOffset: 0,              // + is toward the crystal's right
+    yOffset: 0.15,           // + is up
+    zOffset: 0,              // + is toward the camera at hero
     radialSegments: 48,      // silhouette smoothness (vertex cost only)
   },
 
@@ -703,11 +719,13 @@ export const energy = {
   tiers: {
     high: {},
     medium: {
+      octaves: 2,            // capped below the base: octaves 3-4 are fine grain that costs
+                             // a hash chain per fragment and reads as noise on mid hardware
       turbulence: 0.45,
       field: { radialSegments: 40 },
     },
     low: {
-      octaves: 1,            // single noise octave — roughly halves the fragment cost
+      octaves: 1,            // single noise octave — the cheapest the field gets
       turbulence: 0.0,       // unused at 1 octave; zeroed so the intent is explicit
       opacity: 0.42,
       threshold: 0.48,       // sparser field = fewer shaded fragments survive the discard
