@@ -631,18 +631,47 @@ export const energy = {
   swirl: 0.35,               // radians of twist per world unit of height (0 = straight columns)
 
   // --- Noise shaping ---
-  scale: 1.45,               // noise frequency in the horizontal plane (higher = finer streams)
-  verticalStretch: 4.5,      // divides the vertical noise frequency — this is what turns
-                             // blobs into long vertical streams (higher = longer/smoother)
-  turbulence: 0.55,          // weight of the 2nd noise octave (0 = smooth, 1 = churning)
+  //
+  // SIZE vs. COUNT. `scale` is the master frequency on the whole sample domain,
+  // so it sets the size of ONE noise cell: cell width = 1 / scale (world units),
+  // cell height = verticalStretch / scale. Because the shell has a fixed
+  // circumference, shrinking the cells is the same thing as fitting more of them
+  // around it — there is no separate "count" knob:
+  //
+  //     streams around the shell ≈ 2π · field.radius · scale
+  //     (at radius 1.4, scale 1.45 → ≈ 13 streams)
+  //
+  // So "smaller and more" = raise `scale`. But note that raising `scale` alone
+  // also shortens the streams, since cell height divides by it too. To make them
+  // narrower WITHOUT making them stubbier, raise `verticalStretch` by the same
+  // factor — e.g. twice as many, same length: scale 2.9 + verticalStretch 9.0.
+  // Past roughly scale 4 the noise starts aliasing into per-pixel sparkle as the
+  // camera moves; add turbulence for fine detail instead of pushing scale higher.
+  scale: 1.45,               // master noise frequency — the "smaller and more" knob
+  verticalStretch: 4.5,      // divides ONLY the vertical frequency, so it sets the aspect
+                             // ratio of a stream (a stream is ~this many times taller than
+                             // it is wide). Higher = longer, smoother columns; lower = blobby.
+  turbulence: 0.55,          // weight of a 2nd octave at ~2.2x frequency. Adds fine detail
+                             // WITHIN each stream without changing how many there are — this
+                             // is the knob for "busier", as opposed to scale's "finer".
   octaves: 2,                // 1 or 2 — the only shader-complexity knob that matters
-  threshold: 0.44,           // noise cutoff; higher = sparser, fewer streams
-  breakup: 0.65,             // 0 = soft continuous wash, 1 = hard-edged shredded filaments
-  asymmetry: 0.7,            // 0..1 strength of the slow low-frequency mask that kills the
-                             // field on random sides so it never reads as a uniform shell
+  threshold: 0.44,           // noise cutoff. Trades width against count in the opposite
+                             // direction from scale: higher = thinner, sparser, more gaps;
+                             // lower = fatter streams that merge into a continuous sheet.
+  breakup: 0.65,             // edge hardness only — 0 = soft continuous wash, 1 = hard-edged
+                             // shredded filaments. Does not change stream count.
+  asymmetry: 0.35,           // 0..1 depth of the low-frequency mask that thins the field on
+                             // some sides so it never reads as a uniform shell. 0 = even
+                             // density everywhere; ~0.5 is already strong; above ~0.6 the
+                             // masked sides go fully dark.
+  asymmetryScale: 1.1,       // cell size of that mask, independent of `scale`. Higher = more,
+                             // smaller patches. Keep this high enough that a few cells span
+                             // the shell — if the cells grow larger than the field itself the
+                             // mask stops being spatial and becomes a global fade that
+                             // switches the entire aura on and off over tens of seconds.
 
   // --- Fresnel (rim weighting; makes the shell read as a volume, not a wall) ---
-  fresnelStrength: 0.7,      // 0 = flat, 1 = only the silhouette rim is lit
+  fresnelStrength: 0.0,      // 0 = flat, 1 = only the silhouette rim is lit
   fresnelPower: 2.2,         // higher = tighter rim
 
   // --- Field size, relative to the crystal ---
@@ -657,10 +686,17 @@ export const energy = {
   },
 
   // --- Vertical falloff, in normalized shell height (0 = base, 1 = top) ---
+  // These three are what decide how much of the crystal the field actually wraps.
+  // Only the band between `bottom` and `1 - top` is at full strength — with the
+  // values below that is h 0.3..0.55, i.e. a quarter of the shell's height,
+  // centred slightly BELOW the crystal's middle. Widen it (lower both) to make
+  // the energy climb past the crystal's shoulders.
   falloff: {
     bottom: 0.3,             // fade-in distance from the base
     top: 0.45,               // fade-out distance below the top
-    rise: 0.4,               // 0..1 extra thinning applied as streams rise (dissipation)
+    rise: 0.4,               // 0..1 extra thinning applied as streams rise (dissipation).
+                             // Stacks on top of `top`, so high values pull the visible
+                             // field further down even if `top` is small.
   },
 
   // Per-tier overlays. Keys not listed inherit the base values above.

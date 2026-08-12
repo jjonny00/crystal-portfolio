@@ -65,6 +65,7 @@ const fragmentShader = /* glsl */ `
   uniform float uThreshold;
   uniform float uSoftness;
   uniform float uAsymmetry;
+  uniform float uAsymmetryScale;
   uniform float uSwirl;
   uniform float uFresnelStrength;
   uniform float uFresnelPower;
@@ -132,11 +133,17 @@ const fragmentShader = /* glsl */ `
       n = mix(n, n * 0.62 + vnoise(domain2) * 0.38, uTurbulence);
     #endif
 
-    // --- Asymmetry: kill whole sides of the shell ---------------------------
-    // Very low frequency, drifting slowly, so the field is never symmetrical
-    // and the gaps wander around the crystal over time.
-    float presence = vnoise(vec3(swirled * uScale * 0.28, uTime * uSpeed * 0.12 + 41.0));
-    n *= mix(1.0, smoothstep(0.12, 0.78, presence), uAsymmetry);
+    // --- Asymmetry: thin the field on SOME sides, not all of it at once ------
+    // Sampled on its own domain (uAsymmetryScale, independent of uScale) so it
+    // resolves several cells around the circumference and up the height. The
+    // mask must stay genuinely spatial: if its cells are larger than the shell
+    // it degenerates into one global brightness fade that switches the whole
+    // aura on and off. It drifts upward with the streams rather than animating
+    // on a separate time axis, so gaps travel with the flow.
+    vec3 maskDomain = vec3(swirled.x, vLocalPos.y * 0.55, swirled.y) * uAsymmetryScale;
+    maskDomain.y -= uTime * uSpeed * 0.3;
+    float presence = vnoise(maskDomain);
+    n *= mix(1.0, smoothstep(0.25, 0.72, presence), uAsymmetry);
 
     // --- Threshold into broken bands ---------------------------------------
     float streams = smoothstep(uThreshold, uThreshold + uSoftness, n);
@@ -189,7 +196,10 @@ const CrystalEnergyAura = ({
   reducedMotion = false,
   renderOrder = 1200,
 }) => {
-  const timeRef = useRef(0);
+  // Seeded away from 0 so the first frame doesn't land on the noise lattice's
+  // origin, where the pattern is at its least interesting — the field should be
+  // fully formed the instant it mounts, with no ramp-in.
+  const timeRef = useRef(37.0);
 
   // Latest config read per-frame so live tuning doesn't rebuild the material.
   const cfgRef = useRef(energy);
@@ -235,7 +245,8 @@ const CrystalEnergyAura = ({
           uTurbulence: { value: 0.55 },
           uThreshold: { value: 0.44 },
           uSoftness: { value: 0.2 },
-          uAsymmetry: { value: 0.7 },
+          uAsymmetry: { value: 0.35 },
+          uAsymmetryScale: { value: 1.1 },
           uSwirl: { value: 0.35 },
           uFresnelStrength: { value: 0.7 },
           uFresnelPower: { value: 2.2 },
@@ -285,7 +296,8 @@ const CrystalEnergyAura = ({
     // `breakup` is authored as 0 = soft wash → 1 = shredded, which is the
     // inverse of the smoothstep width the shader actually wants.
     u.uSoftness.value = THREE.MathUtils.lerp(0.5, 0.03, THREE.MathUtils.clamp(cfg.breakup ?? 0.65, 0, 1));
-    u.uAsymmetry.value = cfg.asymmetry ?? 0.7;
+    u.uAsymmetry.value = cfg.asymmetry ?? 0.35;
+    u.uAsymmetryScale.value = cfg.asymmetryScale ?? 1.1;
     u.uSwirl.value = cfg.swirl ?? 0.35;
     u.uFresnelStrength.value = cfg.fresnelStrength ?? 0.7;
     u.uFresnelPower.value = cfg.fresnelPower ?? 2.2;
