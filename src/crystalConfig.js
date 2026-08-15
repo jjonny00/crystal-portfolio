@@ -621,14 +621,14 @@ export const energy = {
   enabled: true,
 
   // --- Color & brightness ---
-  color: '#4ebbff',          // dominant field color
-  coreColor: '#dff4ff',      // hot-core tint mixed into the brightest streams
-  intensity: 1.5,            // emissive multiplier (pre-bloom; bloom picks this up)
-  opacity: 0.5,              // overall alpha ceiling of the field
+  color: '#0015ff',          // dominant field color
+  coreColor: '#00c8ff',      // hot-core tint mixed into the brightest streams
+  intensity: 10.5,            // emissive multiplier (pre-bloom; bloom picks this up)
+  opacity: 0.15,              // overall alpha ceiling of the field
 
   // --- Motion ---
-  speed: 0.3,                // upward flow rate of the noise domain
-  swirl: 0.35,               // radians of twist per world unit of height (0 = straight columns)
+  speed: 0.1,                // upward flow rate of the noise domain
+  swirl: 0.05,               // radians of twist per world unit of height (0 = straight columns)
 
   // --- Noise shaping ---
   //
@@ -647,11 +647,11 @@ export const energy = {
   // factor — e.g. twice as many, same length: scale 2.9 + verticalStretch 9.0.
   // Past roughly scale 4 the noise starts aliasing into per-pixel sparkle as the
   // camera moves; add turbulence for fine detail instead of pushing scale higher.
-  scale: 3.45,               // master noise frequency — the "smaller and more" knob
+  scale: 2.45,               // master noise frequency — the "smaller and more" knob
   verticalStretch: 4.5,      // divides ONLY the vertical frequency, so it sets the aspect
                              // ratio of a stream (a stream is ~this many times taller than
                              // it is wide). Higher = longer, smoother columns; lower = blobby.
-  turbulence: 0.55,          // weight of a 2nd octave at ~2.2x frequency. Adds fine detail
+  turbulence: 0.75,          // weight of a 2nd octave at ~2.2x frequency. Adds fine detail
                              // WITHIN each stream without changing how many there are — this
                              // is the knob for "busier", as opposed to scale's "finer".
   octaves: 4,                // 1..4 fBm octaves. THE shader-complexity knob: each octave is
@@ -668,7 +668,7 @@ export const energy = {
                              // some sides so it never reads as a uniform shell. 0 = even
                              // density everywhere; ~0.5 is already strong; above ~0.6 the
                              // masked sides go fully dark.
-  asymmetryScale: 1.1,       // cell size of that mask, independent of `scale`. Higher = more,
+  asymmetryScale: 3.1,       // cell size of that mask, independent of `scale`. Higher = more,
                              // smaller patches. Keep this high enough that a few cells span
                              // the shell — if the cells grow larger than the field itself the
                              // mask stops being spatial and becomes a global fade that
@@ -680,22 +680,22 @@ export const energy = {
   // shell faces the camera. Raising `fresnelStrength` pulls the aura IN off its
   // outer edges — useful when the shell is tight and its left/right extremes
   // read as a hard outline rather than a volume.
-  fresnelStrength: 0.0,      // 0 = flat across the shell, 1 = edges gone, centre only
-  fresnelPower: 2.2,         // how fast it falls off toward the edge (higher = tighter core)
+  fresnelStrength: 1.0,      // 0 = flat across the shell, 1 = edges gone, centre only
+  fresnelPower: 5.2,         // how fast it falls off toward the edge (higher = tighter core)
 
   // --- Field size, relative to the crystal ---
   field: {
-    crystalRadius: 0.55,      // world-unit reference radius of the crystal; everything below
+    crystalRadius: 0.48,      // world-unit reference radius of the crystal; everything below
                              // is expressed as a multiple of this so the field tracks scale
-    radius: 1.4,             // shell radius at the base, × crystalRadius
-    taper: 1.2,              // top radius as a multiple of the base radius (>1 = flares out)
-    height: 3.0,             // shell height, × crystalRadius
+    radius: 1.8,             // shell radius at the base, × crystalRadius
+    taper: 1.1,              // top radius as a multiple of the base radius (>1 = flares out)
+    height: 6.0,             // shell height, × crystalRadius
     // Position of the shell relative to the crystal's centre, × crystalRadius.
     // The crystal isn't radially symmetric, so a shell tight enough to hug it on
     // one side will cut through it on another — nudge it here until it clears.
     // The noise travels with the shell (it's sampled in local space), so these
     // reposition the field without shifting the pattern across it.
-    xOffset: 0,              // + is toward the crystal's right
+    xOffset: -0.2,              // + is toward the crystal's right
     yOffset: 0.15,           // + is up
     zOffset: 0,              // + is toward the camera at hero
     radialSegments: 48,      // silhouette smoothness (vertex cost only)
