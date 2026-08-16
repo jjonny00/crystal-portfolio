@@ -124,6 +124,9 @@ const ScrollablePortfolio = ({
     if (!container) return;
 
     const handleWheel = (e) => {
+      // Full-bleed layers over the portfolio (the case-study overlay) own their
+      // own scrolling — relaying their wheel events here would scroll both.
+      if (e.target.closest?.('.cs-overlay')) return;
       if (!e.target.closest('.scroll-container')) {
         container.scrollBy({ top: e.deltaY });
       }

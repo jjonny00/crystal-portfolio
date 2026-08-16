@@ -37,6 +37,12 @@ import PerformanceDebugPanel from './components/ui/PerformanceDebugPanel';
 // Configuration and utilities
 import * as defaultConfig from './crystalConfig';
 
+// Case studies (lazy-loaded per project)
+import CaseStudyOverlay from './caseStudies/CaseStudyOverlay';
+import { foregroundColorForTone } from './caseStudies/system/caseStudyTheme';
+import { caseStudyOpaqueAtMs } from './caseStudies/transitionTiming';
+import { getProjectByAnyKey } from './data/projects';
+
 import { isMobileDevice } from './utils/isMobileDevice.js';
 import {
   NAVIGATION_DESTINATIONS,
@@ -45,6 +51,12 @@ import {
 
 const projectKeys = ['empathy', 'narrative', 'craft', 'system', 'leadership', 'exploration'];
 const zoneKeys = ['intro', 'hero', 'overview', 'about'];
+
+// How long the scene keeps rendering after a case study opens. It has to outlast
+// the case study's colour wash — the crystal is visible through the layer until
+// that is fully opaque, so freezing (and hiding) the canvas any earlier would
+// blink it out mid-transition. Derived, not a second copy of the timing.
+const SCENE_FREEZE_DELAY_MS = caseStudyOpaqueAtMs + 260;
 
 const toVecOrNull = (value) => (
   Array.isArray(value) && value.length === 3 && value.every((entry) => Number.isFinite(entry))
@@ -440,6 +452,42 @@ function App() {
   const [viewMode, setViewMode] = useState('overview');
   const [activeProjectId, setActiveProjectId] = useState(null);
 
+  // Case study overlay: the project whose case study is (or would be) open.
+  const activeProject = useMemo(
+    () => (activeProjectId ? getProjectByAnyKey(activeProjectId) : null),
+    [activeProjectId]
+  );
+  const caseStudyOpen = viewMode === 'caseStudy';
+  // Tone of the case-study section currently under the fixed top nav; null once
+  // the overlay has finished fading out. Driven by the overlay rather than by
+  // `caseStudyOpen` so the nav keeps its case-study colour through the exit.
+  const [caseStudyNavTone, setCaseStudyNavTone] = useState(null);
+  const navColor = caseStudyNavTone
+    ? foregroundColorForTone(caseStudyNavTone, activeProject?.caseStudyColors)
+    : null;
+
+  // Leaving a case study returns to the project view it was opened from; the
+  // scroll position, crystal state, and camera underneath are untouched.
+  const closeCaseStudy = useCallback(() => {
+    setViewMode((prev) => (prev === 'caseStudy' ? 'project' : prev));
+  }, []);
+
+  // Freeze-frame the 3D scene while a case study covers it. The crystal is fully
+  // hidden behind an opaque layer, so rendering it is pure waste — and a case
+  // study is exactly where the browser needs its budget for images, scrolling,
+  // and the lightbox. It stops on a finished frame and resumes from the same one
+  // (see SceneFreezeGuard in Fixed3DCanvas for how the clock stays continuous).
+  const [sceneFrozen, setSceneFrozen] = useState(false);
+
+  useEffect(() => {
+    if (!caseStudyOpen) {
+      setSceneFrozen(false);
+      return undefined;
+    }
+    const timeoutId = setTimeout(() => setSceneFrozen(true), SCENE_FREEZE_DELAY_MS);
+    return () => clearTimeout(timeoutId);
+  }, [caseStudyOpen]);
+
   // Simulate application initialization progress for loader
   useEffect(() => {
     let frame;
@@ -666,32 +714,37 @@ function App() {
     },
   }), [scrollToSection]);
 
+  // Top-nav destinations live in the portfolio underneath, so any nav click
+  // dismisses an open case study before the usual intent runs.
   const handleHomeClick = useCallback(() => {
+    closeCaseStudy();
     requestNavigationIntent({
       destination: NAVIGATION_DESTINATIONS.HERO,
       source: 'top-nav-logo',
       behavior: 'auto',
       legacyAction: 'directSelectZone+scrollToSection',
     });
-  }, [requestNavigationIntent]);
+  }, [closeCaseStudy, requestNavigationIntent]);
 
   const handleWorkClick = useCallback(() => {
+    closeCaseStudy();
     requestNavigationIntent({
       destination: NAVIGATION_DESTINATIONS.OVERVIEW,
       source: 'top-nav-work',
       behavior: 'auto',
       legacyAction: 'directSelectZone+scrollToSection',
     });
-  }, [requestNavigationIntent]);
+  }, [closeCaseStudy, requestNavigationIntent]);
 
   const handleAboutClick = useCallback(() => {
+    closeCaseStudy();
     requestNavigationIntent({
       destination: NAVIGATION_DESTINATIONS.ABOUT,
       source: 'top-nav-about',
       behavior: 'auto',
       legacyAction: 'directSelectZone+scrollToSection',
     });
-  }, [requestNavigationIntent]);
+  }, [closeCaseStudy, requestNavigationIntent]);
 
   const handleContactClick = useCallback(() => {}, []);
 
@@ -710,9 +763,7 @@ function App() {
     setViewMode('caseStudy');
   }, []);
 
-  const handleBackToProject = useCallback(() => {
-    setViewMode((prev) => (prev === 'caseStudy' ? 'project' : prev));
-  }, []);
+  const handleBackToProject = closeCaseStudy;
 
   const handleConfigUpdate = useCallback((newConfig) => {
     setConfig(newConfig);
@@ -955,6 +1006,7 @@ function App() {
           onWorkClick={handleWorkClick}
           onAboutClick={handleAboutClick}
           onContactClick={handleContactClick}
+          color={navColor}
         />
       )}
 
@@ -1007,6 +1059,7 @@ function App() {
           canvasProps={getOptimalCanvasProps()}
           environmentProps={getOptimalEnvironmentProps()}
           isMobile={isMobile}
+          paused={sceneFrozen}
         />
       </MasterAnimationCoordinator>
 
@@ -1039,6 +1092,15 @@ function App() {
         onOpenCaseStudy={handleOpenCaseStudy}
         onBackToProject={handleBackToProject}
         onSettledSectionChange={setSettledSection}
+      />
+
+      {/* Case study — a self-contained layer over the portfolio. Sits below the
+          top nav so the site navigation stays available while reading. */}
+      <CaseStudyOverlay
+        project={activeProject}
+        open={caseStudyOpen}
+        onClose={closeCaseStudy}
+        onToneChange={setCaseStudyNavTone}
       />
 
       {/* UI Controls */}

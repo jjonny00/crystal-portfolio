@@ -1,0 +1,43 @@
+/* Mesa-specific visuals. Only custom diagram styling belongs here — layout,
+   gutters, and typography come from the case-study system. */
+
+.mesa-arc {
+  display: grid;
+  gap: clamp(10px, 1.2vw, 20px);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.mesa-arc__stage {
+  display: grid;
+  gap: clamp(6px, 0.7vw, 12px);
+}
+
+/* The stage boxes widen through the midgame and contract again, echoing the
+   choice-space curve the finished diagram will draw. */
+.mesa-arc__box {
+  position: relative;
+  aspect-ratio: 3 / 2;
+}
+
+.mesa-arc__stage[data-stage='midgame'] .mesa-arc__box {
+  aspect-ratio: 3 / 2.6;
+}
+
+.mesa-arc__label {
+  font-size: var(--cs-type-meta-label);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--cs-fg) 70%, transparent);
+}
+
+@media (max-width: 767.98px) {
+  .mesa-arc {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mesa-arc__box,
+  .mesa-arc__stage[data-stage='midgame'] .mesa-arc__box {
+    aspect-ratio: 16 / 9;
+  }
+}

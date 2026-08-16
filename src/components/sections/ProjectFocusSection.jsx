@@ -16,8 +16,14 @@ const ProjectFocusSection = ({
   const headlineColor = project.headlineColor || project.color || '#ffffff';
   const displayProject = isMobile && project.mobile ? { ...project, ...project.mobile } : project;
   const contentWidth = isMobile ? '100%' : 'min(34vw, 640px)';
-  const isCaseStudy = visible && isActiveProject && viewMode === 'caseStudy';
-  const isProjectView = visible && !isCaseStudy;
+  // Projects with a `caseStudySlug` render their case study in the full-page
+  // overlay instead of this inline stub; the stub remains for the rest.
+  const hasFullCaseStudy = Boolean(project.caseStudySlug);
+  // Either way the preview copy clears out — for the full-page case study it
+  // fades before the colour wash starts, so the crystal is briefly alone.
+  const caseStudyOpen = visible && isActiveProject && viewMode === 'caseStudy';
+  const isCaseStudy = caseStudyOpen && !hasFullCaseStudy;
+  const isProjectView = visible && !caseStudyOpen;
 
   const contentSpring = useSpring({
     from: {

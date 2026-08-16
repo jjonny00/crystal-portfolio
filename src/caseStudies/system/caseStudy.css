@@ -1,0 +1,867 @@
+/* ============================================================================
+   Case study design system
+   ----------------------------------------------------------------------------
+   One stylesheet owns the layout + typography for every case-study section so
+   individual case studies never need their own breakpoint CSS.
+
+   Theming: `.cs-root` receives --cs-color-a / --cs-color-b from the project.
+   Every section carries data-tone="a" | "b", which resolves --cs-bg / --cs-fg.
+     tone="a" -> color A background, color B foreground
+     tone="b" -> color B background, color A foreground
+
+   Fluid sizing is interpolated between the two supplied reference widths
+   (402px mobile and 1728px desktop) so both endpoints land on the design.
+   ========================================================================== */
+
+.cs-root {
+  /* --- theme (overridden inline per project) --- */
+  --cs-color-a: #eaff00;
+  --cs-color-b: #001014;
+
+  /* --- page metrics --- */
+  --cs-content-max: 1568px;
+  --cs-gutter: clamp(16px, calc(4.83vw - 3.4px), 80px);
+  --cs-edge: max(var(--cs-gutter), calc((100vw - var(--cs-content-max)) / 2));
+  /* Media that runs to the viewport edge insets by this much (16px at desktop) */
+  --cs-bleed-inset: 16px;
+  --cs-section-padding-block: clamp(48px, 6.4vw, 112px);
+  /* The site nav is fixed above this layer (its box is 88px — NAV_INNER_STYLE in
+     src/components/ui/Navigation.jsx — but its ink sits higher, so clear the
+     visible bar rather than the box). The extra is breathing room below it. */
+  --cs-nav-height: 72px;
+  --cs-nav-clearance: calc(var(--cs-nav-height) + clamp(8px, 2.5vw, 24px));
+
+  /* --- type scale --- */
+  --cs-type-title: clamp(34px, calc(11.77vw - 13.3px), 190px);
+  --cs-type-subtitle: clamp(19px, calc(0.83vw + 15.67px), 30px);
+  --cs-type-heading: clamp(17px, calc(0.98vw + 13.06px), 30px);
+  --cs-type-body: clamp(14px, calc(0.6vw + 11.57px), 22px);
+  --cs-type-caption: clamp(12px, calc(0.15vw + 11.4px), 14px);
+  --cs-type-meta-label: clamp(11px, calc(0.19vw + 10.24px), 13.5px);
+  --cs-type-meta-value: clamp(13.5px, calc(0.41vw + 11.83px), 19px);
+  --cs-type-outcome-value: clamp(17px, calc(0.3vw + 15.79px), 21px);
+  --cs-type-outcome-detail: clamp(13px, calc(0.15vw + 12.4px), 15px);
+
+  --cs-body-line: 1.45;
+  --cs-paragraph-gap: calc(1em * var(--cs-body-line));
+
+  --cs-font-sans: 'acumin-variable', 'Acumin VF', system-ui, sans-serif;
+
+  color-scheme: dark;
+  font-family: var(--cs-font-sans);
+  /* Backstop for any area the sections do not cover (short pages, iOS
+     rubber-banding). Inside the overlay it is suppressed until the entrance has
+     finished — see the entrance block below. */
+  background-color: var(--cs-color-b);
+  /* Bleeding media can overshoot by a sub-pixel on fractional viewports. `clip`
+     rather than `hidden` so this never turns the root into a scroll container
+     (which would fight the overlay's own scrolling). */
+  overflow-x: clip;
+}
+
+/* --------------------------------------------------------------------------
+   Tone resolution
+   -------------------------------------------------------------------------- */
+
+.cs-section[data-tone='a'] {
+  --cs-bg: var(--cs-color-a);
+  --cs-fg: var(--cs-color-b);
+}
+
+.cs-section[data-tone='b'] {
+  --cs-bg: var(--cs-color-b);
+  --cs-fg: var(--cs-color-a);
+}
+
+.cs-section {
+  background-color: var(--cs-bg);
+  color: var(--cs-fg);
+  padding-block: var(--cs-section-padding-block);
+  position: relative;
+}
+
+/* Horizontal page gutters. Children that bleed cancel this with a negative
+   margin of exactly -(--cs-edge), so they always land on the viewport edge. */
+.cs-container {
+  box-sizing: border-box;
+  width: 100%;
+  padding-inline: var(--cs-edge);
+}
+
+/* --------------------------------------------------------------------------
+   Typography primitives
+   -------------------------------------------------------------------------- */
+
+.cs-root :where(h1, h2, h3, p, ul, ol, figure, figcaption, dl, dd, dt) {
+  margin: 0;
+}
+
+/* The global `* { font-variation-settings: "wdth" var(--wdth, 100) }` rule in
+   index.css drives the width axis, so set --wdth rather than the property. */
+.cs-title,
+.cs-subtitle,
+.cs-heading {
+  font-family: var(--cs-font-sans);
+  text-transform: uppercase;
+  color: var(--cs-fg);
+  text-wrap: balance;
+}
+
+.cs-title {
+  --wdth: 68;
+  font-size: var(--cs-type-title);
+  font-weight: 700;
+  line-height: 0.92;
+  letter-spacing: -0.02em;
+}
+
+.cs-subtitle {
+  --wdth: 75;
+  font-size: var(--cs-type-subtitle);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+
+.cs-heading {
+  --wdth: 75;
+  font-size: var(--cs-type-heading);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+
+.cs-body {
+  font-size: var(--cs-type-body);
+  font-weight: 300;
+  line-height: var(--cs-body-line);
+  letter-spacing: -0.01em;
+  color: color-mix(in srgb, var(--cs-fg) 82%, transparent);
+}
+
+.cs-body > p + p {
+  margin-top: var(--cs-paragraph-gap);
+}
+
+.cs-body strong,
+.cs-body b {
+  font-weight: 600;
+  color: var(--cs-fg);
+}
+
+.cs-body a {
+  color: var(--cs-fg);
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+.cs-caption {
+  font-size: var(--cs-type-caption);
+  font-weight: 300;
+  line-height: 1.45;
+  letter-spacing: 0;
+  color: color-mix(in srgb, var(--cs-fg) 55%, transparent);
+}
+
+/* --------------------------------------------------------------------------
+   Media
+   -------------------------------------------------------------------------- */
+
+.cs-media {
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+
+.cs-media__frame {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: var(--cs-frame-ratio, 16 / 10);
+  overflow: hidden;
+  background-color: transparent;
+}
+
+/* A frame whose height is set by its own children (custom diagrams, sequence
+   and feature slots) opts out of the aspect ratio entirely. */
+.cs-media__frame--auto {
+  aspect-ratio: auto;
+}
+
+.cs-media__img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.cs-media__img--contain {
+  object-fit: contain;
+}
+
+.cs-media__img--cover {
+  object-fit: cover;
+}
+
+.cs-media__button {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: zoom-in;
+}
+
+.cs-media__caption {
+  margin-top: clamp(8px, 0.9vw, 14px);
+}
+
+/* Placeholder standing in for artwork that has not been supplied yet. It is
+   filled with the section foreground and cross-hatched in the background so it
+   reads as an intentional void in either tone. */
+.cs-placeholder {
+  display: block;
+  width: 100%;
+  height: 100%;
+  color: var(--cs-fg);
+  background-color: var(--cs-fg);
+}
+
+.cs-placeholder__svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.cs-placeholder__x {
+  stroke: var(--cs-bg);
+  stroke-width: 1.25;
+  vector-effect: non-scaling-stroke;
+  fill: none;
+}
+
+.cs-placeholder__label {
+  position: absolute;
+  inset-inline-start: 0;
+  inset-block-end: 0;
+  max-width: 100%;
+  padding: 4px 8px;
+  background-color: var(--cs-bg);
+  color: var(--cs-fg);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+/* --------------------------------------------------------------------------
+   Gallery
+   -------------------------------------------------------------------------- */
+
+.cs-gallery {
+  display: grid;
+  gap: clamp(10px, 1.2vw, 20px);
+}
+
+.cs-gallery[data-layout='2-up'] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.cs-gallery[data-layout='3-up'] {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.cs-gallery[data-layout='stacked'] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* --------------------------------------------------------------------------
+   Hero
+   -------------------------------------------------------------------------- */
+
+/* Keep the hero clear of the fixed site nav at every width. Below roughly
+   1750px the section's own padding is smaller than the nav, so the project name
+   would sit under it; at the reference desktop width the two are equal and this
+   changes nothing. Only the hero needs this — later sections are meant to scroll
+   under the nav. */
+.cs-hero {
+  padding-block-start: max(var(--cs-section-padding-block), var(--cs-nav-clearance));
+}
+
+.cs-hero__inner {
+  display: grid;
+  grid-template-columns: minmax(0, 604fr) minmax(0, 883fr);
+  grid-template-areas:
+    'title title'
+    'subtitle media'
+    'body media';
+  grid-template-rows: auto auto 1fr;
+  column-gap: clamp(24px, 4.7vw, 81px);
+  align-items: start;
+}
+
+.cs-hero__title {
+  grid-area: title;
+  margin-bottom: clamp(14px, 2.9vw, 50px);
+}
+
+.cs-hero__subtitle {
+  grid-area: subtitle;
+  margin-bottom: clamp(8px, 0.9vw, 16px);
+}
+
+.cs-hero__text {
+  grid-area: body;
+  min-width: 0;
+}
+
+.cs-hero__media {
+  grid-area: media;
+  min-width: 0;
+  --cs-frame-ratio: 1.26;
+  /* Bleeds off the right viewport edge, per the reference. */
+  margin-inline-end: calc(-1 * var(--cs-edge));
+}
+
+/* --------------------------------------------------------------------------
+   Overview
+   -------------------------------------------------------------------------- */
+
+.cs-overview__inner {
+  display: grid;
+  grid-template-columns: minmax(0, 989fr) minmax(0, 365fr);
+  column-gap: clamp(32px, 12.4vw, 214px);
+  grid-template-rows: auto auto;
+  align-items: start;
+}
+
+.cs-overview__heading {
+  grid-column: 1;
+  grid-row: 1;
+  margin-bottom: clamp(10px, 1.2vw, 21px);
+}
+
+.cs-overview__content {
+  grid-column: 1;
+  grid-row: 2;
+  min-width: 0;
+}
+
+/* The metadata rail starts level with the first line of the narrative, not the
+   section heading — matching the desktop reference. */
+.cs-overview__rail {
+  grid-column: 2;
+  grid-row: 2;
+  min-width: 0;
+}
+
+.cs-overview__media {
+  margin-top: clamp(20px, 2.6vw, 45px);
+  /* The prototype gallery sits in a portrait 3-up in the reference. */
+  --cs-frame-ratio: 3 / 4;
+}
+
+/* --------------------------------------------------------------------------
+   Metadata (At a Glance)
+   -------------------------------------------------------------------------- */
+
+.cs-meta {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: clamp(18px, 1.6vw, 28px);
+}
+
+.cs-meta__label {
+  font-size: var(--cs-type-meta-label);
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--cs-fg) 55%, transparent);
+  margin-bottom: 0.35em;
+}
+
+.cs-meta__value {
+  font-size: var(--cs-type-meta-value);
+  font-weight: 300;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+  color: color-mix(in srgb, var(--cs-fg) 90%, transparent);
+}
+
+/* --------------------------------------------------------------------------
+   Split section
+   -------------------------------------------------------------------------- */
+
+.cs-split__inner {
+  display: grid;
+  column-gap: clamp(24px, 5.5vw, 100px);
+  grid-template-rows: auto auto;
+  align-items: start;
+}
+
+.cs-split[data-direction='text-left'] .cs-split__inner {
+  grid-template-columns: minmax(0, 506fr) minmax(0, 956fr);
+  grid-template-areas:
+    'heading .'
+    'body media';
+}
+
+.cs-split[data-direction='text-right'] .cs-split__inner {
+  grid-template-columns: minmax(0, 956fr) minmax(0, 506fr);
+  grid-template-areas:
+    '. heading'
+    'media body';
+}
+
+.cs-split__heading {
+  grid-area: heading;
+  margin-bottom: clamp(10px, 1.2vw, 21px);
+}
+
+.cs-split__body {
+  grid-area: body;
+  min-width: 0;
+}
+
+.cs-split__media {
+  grid-area: media;
+  min-width: 0;
+  --cs-frame-ratio: 1.17;
+}
+
+.cs-split[data-direction='text-left'] .cs-split__inner .cs-split__media {
+  margin-inline-end: calc(-1 * var(--cs-edge));
+}
+
+.cs-split[data-direction='text-right'] .cs-split__inner .cs-split__media {
+  margin-inline-start: calc(-1 * var(--cs-edge));
+}
+
+/* Keep the caption on the page gutter when the media bleeds off the left. */
+.cs-split[data-direction='text-right'] .cs-split__inner .cs-split__media .cs-media__caption {
+  padding-inline-start: var(--cs-edge);
+}
+
+/* --------------------------------------------------------------------------
+   Sequence section
+   -------------------------------------------------------------------------- */
+
+.cs-sequence__heading {
+  margin-bottom: clamp(10px, 1.2vw, 21px);
+}
+
+.cs-sequence__intro {
+  max-width: 1080px;
+}
+
+.cs-sequence__stage {
+  margin-top: clamp(20px, 2.6vw, 46px);
+  margin-inline: calc(var(--cs-bleed-inset) - var(--cs-edge));
+  /* Governs image/placeholder media only — custom children set their own height. */
+  --cs-frame-ratio: 2.3;
+}
+
+.cs-sequence__takeaway {
+  margin-top: clamp(20px, 2.6vw, 44px);
+  max-width: 1080px;
+}
+
+.cs-sequence__stage .cs-media__caption {
+  padding-inline: calc(var(--cs-edge) - var(--cs-bleed-inset));
+}
+
+/* --------------------------------------------------------------------------
+   Feature section
+   -------------------------------------------------------------------------- */
+
+.cs-feature__inner {
+  text-align: center;
+}
+
+.cs-feature__heading {
+  margin-bottom: clamp(10px, 1.2vw, 21px);
+}
+
+.cs-feature__intro {
+  max-width: 1080px;
+  margin-inline: auto;
+}
+
+.cs-feature__stage {
+  margin-top: clamp(20px, 2.6vw, 46px);
+  margin-inline: calc(var(--cs-bleed-inset) - var(--cs-edge));
+  text-align: start;
+  /* Governs image/placeholder media only — custom children set their own height. */
+  --cs-frame-ratio: 3.26;
+}
+
+.cs-feature__stage .cs-media__caption {
+  padding-inline: calc(var(--cs-edge) - var(--cs-bleed-inset));
+  text-align: center;
+}
+
+.cs-feature__takeaway {
+  max-width: 1080px;
+  margin-inline: auto;
+  margin-top: clamp(20px, 2.6vw, 44px);
+}
+
+/* --------------------------------------------------------------------------
+   Conclusion
+   -------------------------------------------------------------------------- */
+
+.cs-conclusion__inner {
+  display: grid;
+  grid-template-columns: minmax(0, 30fr) minmax(0, 70fr);
+  column-gap: clamp(24px, 4.6vw, 80px);
+  align-items: start;
+}
+
+.cs-conclusion__heading {
+  margin-bottom: clamp(12px, 1.6vw, 28px);
+}
+
+.cs-outcomes {
+  display: grid;
+  gap: clamp(22px, 3.2vw, 56px);
+  margin: 0;
+}
+
+.cs-outcome__value {
+  font-size: var(--cs-type-outcome-value);
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--cs-fg);
+  margin: 0;
+}
+
+.cs-outcome__detail {
+  font-size: var(--cs-type-outcome-detail);
+  font-weight: 300;
+  line-height: 1.35;
+  color: color-mix(in srgb, var(--cs-fg) 55%, transparent);
+  margin: 0.45em 0 0;
+}
+
+.cs-conclusion__takeaway {
+  margin-top: var(--cs-paragraph-gap);
+  font-size: var(--cs-type-body);
+  font-weight: 600;
+  line-height: var(--cs-body-line);
+  letter-spacing: -0.01em;
+  color: var(--cs-fg);
+}
+
+/* --------------------------------------------------------------------------
+   Page chrome
+   -------------------------------------------------------------------------- */
+
+.cs-back {
+  position: fixed;
+  inset-block-end: clamp(16px, 2vw, 28px);
+  inset-inline-start: clamp(16px, 2vw, 28px);
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  padding: 0.6em 1.15em;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  background-color: var(--cs-color-b);
+  color: var(--cs-color-a);
+  font-family: var(--cs-font-sans);
+  --wdth: 75;
+  font-size: clamp(13px, 0.35vw + 11.6px, 17px);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: opacity 200ms ease;
+}
+
+.cs-back:hover {
+  opacity: 0.75;
+}
+
+.cs-skip-link {
+  position: absolute;
+  inset-inline-start: -9999px;
+  top: 0;
+  z-index: 3;
+  padding: 0.6em 1em;
+  background-color: var(--cs-color-b);
+  color: var(--cs-color-a);
+  font-family: var(--cs-font-sans);
+  font-size: 15px;
+}
+
+.cs-skip-link:focus {
+  inset-inline-start: 8px;
+  top: 8px;
+}
+
+.cs-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.cs-root :focus-visible {
+  outline: 2px solid var(--cs-fg, var(--cs-color-a));
+  outline-offset: 3px;
+}
+
+/* --------------------------------------------------------------------------
+   Entrance
+   ----------------------------------------------------------------------------
+   Two beats. The overlay's colour wash rises first (inline-styled in
+   CaseStudyOverlay.jsx, because it has to paint before this stylesheet's chunk
+   has even loaded). The sections rise on the same curve so the hero's own
+   background joins the wash without a seam — they are the same colour, so the
+   handover is invisible whenever the chunk happens to arrive.
+
+   Then the hero fades in on a stagger, so the page assembles rather than
+   appearing all at once.
+
+   The exit is a single fade of the whole layer, also handled in the overlay.
+
+   Two deliberate choices:
+
+   - Nothing here animates an ancestor of the fixed back button. An element with
+     an in-flight opacity becomes a containing block for its fixed descendants,
+     which would fling the button to the bottom of the scrolled document.
+   - `backwards`, not `both`. Every end state here is the element's natural
+     state, so there is nothing to hold; a forwards fill would keep a dozen
+     elements promoted to their own compositor layers for the whole visit.
+   -------------------------------------------------------------------------- */
+
+@keyframes cs-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes cs-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Every duration and delay below comes from src/caseStudies/transitionTiming.js,
+   published onto .cs-overlay as custom properties. The fallbacks only apply if a
+   section is rendered outside the overlay. */
+
+/* Nothing in the layer may paint opaquely before the wash does. The case study
+   chunk mounts long before the wash begins, and .cs-root's backstop colour would
+   otherwise slam over the crystal the instant it arrives — the scene has to stay
+   visible and animating underneath until the wash has covered it.
+   The backstop is switched on the moment the sections reach full opacity, so the
+   change is invisible. Driving it from the same animation clock as the sections
+   (rather than the overlay's phase attribute) keeps the two in lockstep however
+   long the chunk took to arrive; it must never cross-fade, or its dark colour
+   would muddy the wash it sits behind. */
+@keyframes cs-root-backstop {
+  to {
+    background-color: var(--cs-color-b);
+  }
+}
+
+.cs-overlay .cs-root {
+  background-color: transparent;
+  animation: cs-root-backstop 1ms linear
+    calc(var(--cs-enter-offset, 700ms) + var(--cs-enter-wash, 840ms)) forwards;
+}
+
+.cs-overlay .cs-section {
+  animation: cs-fade-in var(--cs-enter-wash, 840ms) ease-out
+    var(--cs-enter-offset, 700ms) backwards;
+}
+
+.cs-overlay .cs-hero__title,
+.cs-overlay .cs-hero__subtitle,
+.cs-overlay .cs-hero__media,
+.cs-overlay .cs-hero__text {
+  animation: cs-rise-in var(--cs-enter-item, 1120ms) cubic-bezier(0.2, 0.7, 0.2, 1)
+    calc(
+      var(--cs-enter-offset, 700ms) + var(--cs-enter-lead, 760ms) +
+        var(--cs-enter-step, 0) * var(--cs-enter-stagger, 180ms)
+    )
+    backwards;
+}
+
+.cs-overlay .cs-hero__title {
+  --cs-enter-step: 0;
+}
+
+.cs-overlay .cs-hero__subtitle {
+  --cs-enter-step: 1;
+}
+
+.cs-overlay .cs-hero__media {
+  --cs-enter-step: 2;
+}
+
+.cs-overlay .cs-hero__text {
+  --cs-enter-step: 3;
+}
+
+.cs-overlay .cs-back {
+  animation: cs-fade-in 400ms ease
+    calc(var(--cs-enter-offset, 700ms) + var(--cs-enter-back, 1640ms)) backwards;
+}
+
+/* --------------------------------------------------------------------------
+   Mobile — the supplied mobile references, not a shrunk desktop grid
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 767.98px) {
+  .cs-root {
+    --cs-section-padding-block: clamp(28px, 8vw, 44px);
+  }
+
+  /* Hero: project name, case study title, media, then intro copy. */
+  .cs-hero__inner {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'title'
+      'subtitle'
+      'media'
+      'body';
+    grid-template-rows: auto;
+  }
+
+  .cs-hero__title {
+    margin-bottom: clamp(6px, 2vw, 12px);
+  }
+
+  .cs-hero__media {
+    --cs-frame-ratio: 2.2;
+    margin-top: clamp(12px, 4vw, 20px);
+  }
+
+  .cs-hero__text {
+    margin-top: clamp(14px, 4.5vw, 22px);
+  }
+
+  /* Overview: metadata first, then narrative, media, caption. */
+  .cs-overview__inner {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto;
+    row-gap: clamp(20px, 6vw, 32px);
+  }
+
+  .cs-overview__rail {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .cs-overview__heading {
+    grid-column: 1;
+    grid-row: 2;
+    margin-bottom: clamp(8px, 2.4vw, 14px);
+  }
+
+  .cs-overview__content {
+    grid-column: 1;
+    grid-row: 3;
+  }
+
+  .cs-overview__media {
+    --cs-frame-ratio: 16 / 9;
+  }
+
+  /* Multi-column galleries would be illegible at phone widths — stack them. */
+  .cs-gallery[data-layout='2-up'],
+  .cs-gallery[data-layout='3-up'] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cs-meta {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: clamp(16px, 5vw, 28px);
+    row-gap: clamp(18px, 5vw, 26px);
+  }
+
+  /* Split: title, body, media, caption — regardless of desktop direction. */
+  .cs-split__inner,
+  .cs-split[data-direction='text-left'] .cs-split__inner,
+  .cs-split[data-direction='text-right'] .cs-split__inner {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'heading'
+      'body'
+      'media';
+  }
+
+  .cs-split__heading {
+    margin-bottom: clamp(8px, 2.4vw, 14px);
+  }
+
+  .cs-split__media,
+  .cs-split[data-direction='text-left'] .cs-split__inner .cs-split__media,
+  .cs-split[data-direction='text-right'] .cs-split__inner .cs-split__media {
+    --cs-frame-ratio: 16 / 10;
+    margin-top: clamp(14px, 4.5vw, 22px);
+    margin-inline-start: 0;
+    margin-inline-end: calc(-1 * var(--cs-edge));
+  }
+
+  .cs-split[data-direction='text-right'] .cs-split__inner .cs-split__media .cs-media__caption {
+    padding-inline-start: 0;
+  }
+
+  /* Sequence: media keeps the left gutter and bleeds right. */
+  .cs-sequence__stage {
+    margin-inline-start: 0;
+    margin-inline-end: calc(-1 * var(--cs-edge));
+    --cs-frame-ratio: 1.4;
+  }
+
+  .cs-sequence__stage .cs-media__caption {
+    padding-inline: 0;
+  }
+
+  /* Feature: media bleeds both edges, caption returns to the gutter. */
+  .cs-feature__stage {
+    margin-inline: calc(-1 * var(--cs-edge));
+    --cs-frame-ratio: 1.47;
+  }
+
+  .cs-feature__stage .cs-media__caption {
+    padding-inline: var(--cs-edge);
+    text-align: start;
+  }
+
+  /* Conclusion: outcomes, then reflection. */
+  .cs-conclusion__inner {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: clamp(26px, 8vw, 44px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cs-root,
+  .cs-root * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

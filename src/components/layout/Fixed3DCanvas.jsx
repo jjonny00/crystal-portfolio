@@ -1,7 +1,7 @@
 // FIXED: src/components/layout/Fixed3DCanvas.jsx
 // UPDATED: Enhanced MistyLayerStack positioning and render order
 
-import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallback, useMemo } from 'react';
+import React, { useRef, useState, useEffect, useLayoutEffect, forwardRef, useImperativeHandle, useCallback, useMemo } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Environment, OrbitControls } from '@react-three/drei';
 import { EffectComposer, Bloom, ChromaticAberration, Noise, Vignette } from '@react-three/postprocessing';
@@ -119,6 +119,41 @@ const PulsingOmniLight = ({ simplified = false }) => {
 };
 
 
+/**
+ * Keeps the r3f clock continuous across a frameloop stop/start.
+ *
+ * Setting `frameloop="never"` is the cheapest way to freeze the scene — no
+ * useFrame callbacks, no draw calls, no postprocessing — but r3f's
+ * `setFrameloop()` zeroes `clock.elapsedTime` on both stop and restart.
+ * Everything keyed off elapsed time would jump on resume: the `uTime` uniforms
+ * driving dust, glow, rays and particles, and the camera controller's
+ * transition bookkeeping (which stores `startedAt` as an elapsed time and would
+ * compute a negative elapsed after a reset).
+ *
+ * So: record the last rendered time every frame, and put it back the moment the
+ * loop restarts. `clock.start()` also resets `oldTime` to now, so the first
+ * delta after resuming is ~0 and nothing lurches.
+ */
+const SceneFreezeGuard = () => {
+  const clock = useThree((state) => state.clock);
+  const frameloop = useThree((state) => state.frameloop);
+  const lastElapsedRef = useRef(0);
+
+  useFrame(() => {
+    lastElapsedRef.current = clock.elapsedTime;
+  });
+
+  // Layout effect, not passive: this has to land before the restarted rAF loop
+  // renders its first frame.
+  useLayoutEffect(() => {
+    if (frameloop !== 'never' && lastElapsedRef.current > 0) {
+      clock.elapsedTime = lastElapsedRef.current;
+    }
+  }, [clock, frameloop]);
+
+  return null;
+};
+
 const HeroOverviewRuntimeTicker = ({ runtime }) => {
   useFrame(() => {
     runtime?.update?.();
@@ -162,7 +197,10 @@ const Fixed3DCanvas = forwardRef(({
   onDirectProjectSelect,
   onDirectZoneSelect,
   cameraRuntimeOverrides = null,
-  projectRuntimeOverrides = null
+  projectRuntimeOverrides = null,
+  // Stops the render loop entirely while the scene is hidden behind a
+  // full-screen layer (the case study). See SceneFreezeGuard below.
+  paused = false
 }, ref) => {
   // NEW: Ref to access crystal scene for debug panels
   const crystalSceneRef = useRef();
@@ -843,6 +881,10 @@ const Fixed3DCanvas = forwardRef(({
         height: '100vh',
         zIndex: 1, // Behind scrollable content (which is z-index 10)
         pointerEvents: 'none', // Don't block scrolling
+        // While frozen the canvas is fully covered anyway, so skip compositing
+        // it too. `visibility` (not `display`) keeps the WebGL context and its
+        // drawing buffer intact, so unfreezing reveals the same frame.
+        visibility: paused ? 'hidden' : 'visible',
       }}>
         <Canvas
           key={Array.isArray(canvasProps.dpr) ? canvasProps.dpr.join('-') : canvasProps.dpr}
@@ -851,6 +893,8 @@ const Fixed3DCanvas = forwardRef(({
             fov: config?.camera?.fov || 45
           }}
           {...canvasProps}
+          // After the spread so a perf profile can never override the freeze.
+          frameloop={paused ? 'never' : 'always'}
           gl={{
             toneMapping: THREE.ACESFilmicToneMapping,
             toneMappingExposure: 0.2,
@@ -867,6 +911,8 @@ const Fixed3DCanvas = forwardRef(({
           }}
         >
           <InitialCameraLookAt target={initialCameraTarget} />
+
+          <SceneFreezeGuard />
 
           <FPSCounter />
 

@@ -69,6 +69,10 @@ Before changing camera behavior:
 - `App.jsx` gates the splash `LoaderV2` (`src/ui/LoaderV2.tsx`) on both systems plus a simulated init progress ramp before mounting the real app.
 - Full behavior details (FPS thresholds, tier criteria) are documented in the README — don't restate them from memory, re-check `README.md` if tuning this system.
 
+### Case studies
+
+`src/caseStudies/` is a self-contained system, intentionally decoupled from the crystal/facet/project-background rendering. A project opts in with `caseStudySlug` + `caseStudyColors` (exactly two colours) in `projects.js`; `src/caseStudies/registry.js` maps the slug to a dynamically-imported module, and `CaseStudyOverlay` (mounted from `App.jsx` when `viewMode === 'caseStudy'`) renders it as a full-page layer over the portfolio without touching the scroll/camera state underneath. Reusable sections, the media/lightbox abstraction, and all responsive CSS live in `src/caseStudies/system/`; project content lives in `src/caseStudies/<slug>/`. Read `docs/case-study-system.md` before adding a case study or changing a section component — in particular, case studies should not need their own breakpoint CSS, and only `MediaViewerLightbox.jsx` may import the lightbox library.
+
 ### Config layering, in general
 
 A recurring pattern in this codebase: a hardcoded JS default (`crystalConfig.js`) is overlaid by a validated JSON layout config (`src/config/layout/*.json`, schema-checked by `src/lib/layout/parseLayout.js`, picked desktop vs. mobile by `useLayoutConfig`), which is then overlaid by live runtime overrides from the in-app debug panel (`TabbedControlPanel`/`CrystalControls` in `App.jsx`). When debugging "wrong" camera/crystal values, check all three layers — the bug is often a stale or missing key at one layer rather than wrong math.

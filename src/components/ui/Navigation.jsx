@@ -32,7 +32,8 @@ const NAME_BUTTON_STYLE = {
   letterSpacing: '-2.88px',
   textTransform: 'uppercase',
   cursor: 'pointer',
-  padding: 0
+  padding: 0,
+  transition: 'color 0.3s ease'
 };
 
 const NAV_ITEM_BASE_STYLE = {
@@ -49,10 +50,12 @@ const NAV_ITEM_BASE_STYLE = {
   textTransform: 'uppercase',
   cursor: 'pointer',
   padding: 0,
-  transition: 'opacity 0.3s ease'
+  // Colour is animated too so the swap to a case-study palette eases in with
+  // that layer's own fade rather than snapping.
+  transition: 'opacity 0.3s ease, color 0.3s ease'
 };
 
-const NavItem = ({ label, onClick, disabled, isActive, fontSize }) => {
+const NavItem = ({ label, onClick, disabled, isActive, fontSize, color }) => {
   const [isHovered, setIsHovered] = useState(false);
   const active = isActive || isHovered;
 
@@ -64,6 +67,7 @@ const NavItem = ({ label, onClick, disabled, isActive, fontSize }) => {
       onMouseLeave={() => setIsHovered(false)}
       style={{
         ...NAV_ITEM_BASE_STYLE,
+        ...(color ? { color } : null),
         fontSize,
         opacity: disabled ? 0.6 : active ? 1 : 0.7
       }}
@@ -73,7 +77,10 @@ const NavItem = ({ label, onClick, disabled, isActive, fontSize }) => {
   );
 };
 
-const Navigation = ({ activeLabel = null, onHomeClick, onWorkClick, onAboutClick, onContactClick, isTransitioning = false }) => {
+// `color` lets a full-bleed layer (currently the case-study overlay) keep the
+// nav legible over its own background. Omitted everywhere else, so the default
+// portfolio treatment is unchanged.
+const Navigation = ({ activeLabel = null, onHomeClick, onWorkClick, onAboutClick, onContactClick, isTransitioning = false, color = null }) => {
   const [isDesktop, setIsDesktop] = useState(true);
 
   useEffect(() => {
@@ -100,6 +107,7 @@ const Navigation = ({ activeLabel = null, onHomeClick, onWorkClick, onAboutClick
           onClick={onHomeClick}
           style={{
             ...NAME_BUTTON_STYLE,
+            ...(color ? { color } : null),
             fontSize: isDesktop ? '36px' : '28px',
             opacity: isTransitioning ? 0.6 : 1
           }}
@@ -118,6 +126,7 @@ const Navigation = ({ activeLabel = null, onHomeClick, onWorkClick, onAboutClick
               disabled={isTransitioning}
               isActive={activeLabel === item.label}
               fontSize={isDesktop ? '24px' : '18px'}
+              color={color}
             />
           ))}
         </div>

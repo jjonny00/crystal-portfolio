@@ -51,6 +51,13 @@ export const projects = [
     metrics: '150K downloads in week one · Top 5 iOS App Store Free Games in 3 days',
     roles: 'Creator · Game Design · Systems + UI/UX',
     cta: 'How Turns Create Tension',
+    // Case-study level only: where to find the case study and how to theme it.
+    // The case study's own content lives in src/caseStudies/mesa/.
+    caseStudySlug: 'mesa',
+    caseStudyColors: {
+      a: '#EAFF00',
+      b: '#001014'
+    },
     mobile: {
       title: 'MESA',
       subtitle: 'Asynchronous Multiplayer · iOS',
@@ -262,6 +269,12 @@ export const getProjectColorByFacetKey = (facetKey) => {
   const project = getProjectByFacetKey(facetKey);
   return project ? project.color : '#028700';
 };
+
+/**
+ * Full project record for a facet key, scene key, or project id. The case-study
+ * overlay uses this to reach `caseStudySlug` / `caseStudyColors`.
+ */
+export const getProjectByAnyKey = (key) => getProjectByFacetKey(key);
 
 export const getOverlayImageByFacetKey = (facetKey) => {
   const project = getProjectByFacetKey(facetKey);
