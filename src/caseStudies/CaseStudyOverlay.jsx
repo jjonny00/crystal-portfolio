@@ -14,7 +14,7 @@
 // crystal — which has already resumed rendering by then.
 
 import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
-import { hasCaseStudy, loadCaseStudy } from './registry';
+import { getCaseStudyEntry, hasCaseStudy, loadCaseStudy } from './registry';
 import {
   backgroundColorForTone,
   normalizeCaseStudyColors,
@@ -32,6 +32,11 @@ const OVERLAY_Z_INDEX = 9000;
 // sitting on, so the nav can recolour itself for contrast.
 const NAV_PROBE_Y = 44;
 
+// A section that shows the scene through it keeps the renderer awake this far
+// outside the viewport, so the crystal is already drawing by the time it scrolls
+// back into view rather than thawing into an empty frame.
+const SCENE_KEEPALIVE_MARGIN = 240;
+
 // React.lazy components must be stable across renders or the tree remounts on
 // every parent update; cache one per slug.
 const lazyComponentCache = new Map();
@@ -46,10 +51,18 @@ const getLazyCaseStudy = (slug) => {
   return lazyComponentCache.get(slug);
 };
 
-const CaseStudyOverlay = ({ project, open = false, onClose, onToneChange = null }) => {
+const CaseStudyOverlay = ({
+  project,
+  open = false,
+  onClose,
+  onToneChange = null,
+  /** Reports whether any on-screen section is showing the 3D scene through it. */
+  onSceneNeededChange = null,
+}) => {
   const scrollRef = useRef(null);
   const slug = project?.caseStudySlug || null;
   const supported = hasCaseStudy(slug);
+  const entryMode = getCaseStudyEntry(slug);
 
   // 'closed' -> 'entering' -> 'open' -> 'exiting' -> 'closed'. The exit phase is
   // why closing cannot just unmount: the layer has to stay up while it fades.
@@ -114,9 +127,10 @@ const CaseStudyOverlay = ({ project, open = false, onClose, onToneChange = null 
   // its normal portfolio treatment, but not until the layer has finished fading.
   useEffect(() => {
     const node = scrollRef.current;
-    if (!mounted || !node || !onToneChange) return undefined;
+    if (!mounted || !node) return undefined;
 
-    const update = () => {
+    const updateTone = () => {
+      if (!onToneChange) return;
       const sections = node.querySelectorAll('.cs-section[data-tone]');
       for (const section of sections) {
         const rect = section.getBoundingClientRect();
@@ -130,6 +144,31 @@ const CaseStudyOverlay = ({ project, open = false, onClose, onToneChange = null 
       onToneChange('a');
     };
 
+    // Sections that paint no background of their own show the crystal through
+    // them, so the scene has to keep rendering while any of them is near the
+    // viewport — freezing it would leave a hole where the scene should be.
+    const updateSceneNeed = () => {
+      if (!onSceneNeededChange) return;
+      const transparent = node.querySelectorAll('.cs-section[data-surface="none"]');
+      const viewportHeight = window.innerHeight;
+      for (const section of transparent) {
+        const rect = section.getBoundingClientRect();
+        if (
+          rect.bottom > -SCENE_KEEPALIVE_MARGIN &&
+          rect.top < viewportHeight + SCENE_KEEPALIVE_MARGIN
+        ) {
+          onSceneNeededChange(true);
+          return;
+        }
+      }
+      onSceneNeededChange(false);
+    };
+
+    const update = () => {
+      updateTone();
+      updateSceneNeed();
+    };
+
     update();
     node.addEventListener('scroll', update, { passive: true });
     const observer = new MutationObserver(update);
@@ -138,9 +177,10 @@ const CaseStudyOverlay = ({ project, open = false, onClose, onToneChange = null 
     return () => {
       node.removeEventListener('scroll', update);
       observer.disconnect();
-      onToneChange(null);
+      onToneChange?.(null);
+      onSceneNeededChange?.(false);
     };
-  }, [mounted, onToneChange, slug]);
+  }, [mounted, onToneChange, onSceneNeededChange, slug]);
 
   if (!mounted || !supported) return null;
 
@@ -152,6 +192,7 @@ const CaseStudyOverlay = ({ project, open = false, onClose, onToneChange = null 
       className="cs-overlay"
       data-case-study={slug}
       data-phase={phase}
+      data-entry={entryMode}
       style={{
         position: 'fixed',
         inset: 0,
@@ -172,18 +213,21 @@ const CaseStudyOverlay = ({ project, open = false, onClose, onToneChange = null 
       }}
     >
       {/* The colour wash. Inline-styled on purpose: it has to be paintable
-          before the case study chunk (and its stylesheet) has loaded. */}
-      <div
-        aria-hidden="true"
-        style={{
-          position: 'fixed',
-          inset: 0,
-          backgroundColor: entryColor,
-          opacity: backdropUp ? 1 : 0,
-          transition: `opacity ${CASE_STUDY_ENTER.washMs}ms ease-out ${CASE_STUDY_ENTER.offsetMs}ms`,
-          pointerEvents: 'none',
-        }}
-      />
+          before the case study chunk (and its stylesheet) has loaded. Omitted in
+          reveal mode, where the point is that nothing covers the scene. */}
+      {entryMode !== 'reveal' && (
+        <div
+          aria-hidden="true"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: entryColor,
+            opacity: backdropUp ? 1 : 0,
+            transition: `opacity ${CASE_STUDY_ENTER.washMs}ms ease-out ${CASE_STUDY_ENTER.offsetMs}ms`,
+            pointerEvents: 'none',
+          }}
+        />
+      )}
 
       <Suspense fallback={null}>
         <CaseStudy project={project} onClose={onClose} />

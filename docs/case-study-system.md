@@ -52,6 +52,19 @@ Components never name a colour — they resolve `--cs-bg` / `--cs-fg` from the
 tone. Text weights come from `color-mix()` on the foreground, so muted body copy,
 captions, and metadata labels stay correct in both tones automatically.
 
+A section can also paint no background at all with `background="none"`, letting
+the 3D scene show through it; foreground colours still come from its tone. Mesa's
+hero uses this to sit directly on the crystal facet, which is already the
+project's colour. Two things follow automatically, and both matter if you add
+another one:
+
+- The case study must declare `entry: 'reveal'` in the registry, or the colour
+  wash would paint over the very thing the hero is sitting on.
+- The scene cannot freeze while any such section is near the viewport. The
+  overlay reports that to `App.jsx`, so the freeze waits for the reader to scroll
+  past it and resumes early enough (`SCENE_KEEPALIVE_MARGIN`) that scrolling back
+  never lands on an empty frame.
+
 ## Sections
 
 | Component | Shape |

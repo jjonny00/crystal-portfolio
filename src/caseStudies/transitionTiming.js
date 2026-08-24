@@ -13,10 +13,11 @@
 
 export const CASE_STUDY_ENTER = Object.freeze({
   /**
-   * Beat after the CTA before the case study starts arriving. Long enough for
-   * the project preview copy to clear out first, short enough not to stall.
+   * Beat after the CTA before the case study starts arriving. Overlaps the tail
+   * of the project preview copy fading out, so the two hand over rather than
+   * leaving a gap.
    */
-  offsetMs: 700,
+  offsetMs: 5,
   /** The project-colour wash fading up. */
   washMs: 840,
   /** How long after the wash starts the hero begins. */

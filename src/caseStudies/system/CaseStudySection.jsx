@@ -9,6 +9,12 @@ import { normalizeTone } from './caseStudyTheme';
 
 const CaseStudySection = ({
   tone = 'b',
+  /**
+   * 'tone' paints the tone's background colour. 'none' paints nothing, so
+   * whatever sits behind the case study shows through — the 3D scene, in
+   * practice. Foreground colours still come from the tone either way.
+   */
+  background = 'tone',
   className = '',
   innerClassName = '',
   id = null,
@@ -20,6 +26,7 @@ const CaseStudySection = ({
     id={id || undefined}
     className={`cs-section ${className}`.trim()}
     data-tone={normalizeTone(tone)}
+    data-surface={background === 'none' ? 'none' : undefined}
     aria-labelledby={ariaLabelledBy || undefined}
     {...rest}
   >

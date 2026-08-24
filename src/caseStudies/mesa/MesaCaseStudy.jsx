@@ -29,8 +29,12 @@ const MesaCaseStudy = ({ project, onClose }) => {
       backLabel={`Back to ${project?.label || c.projectName}`}
       onClose={onClose}
     >
+      {/* No background of its own — the hero sits on the crystal facet, which is
+          already this project's colour. Keeps the registry's entry: 'reveal'
+          honest: nothing covers the scene until the reader scrolls past it. */}
       <CaseStudyHero
         tone="a"
+        background="none"
         projectName={c.projectName}
         title={c.title}
         intro={c.hero.intro}

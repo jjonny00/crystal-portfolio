@@ -472,19 +472,30 @@ function App() {
     setViewMode((prev) => (prev === 'caseStudy' ? 'project' : prev));
   }, []);
 
-  // Freeze-frame the 3D scene while a case study covers it. The crystal is fully
-  // hidden behind an opaque layer, so rendering it is pure waste — and a case
-  // study is exactly where the browser needs its budget for images, scrolling,
-  // and the lightbox. It stops on a finished frame and resumes from the same one
-  // (see SceneFreezeGuard in Fixed3DCanvas for how the clock stays continuous).
-  const [sceneFrozen, setSceneFrozen] = useState(false);
+  // Freeze-frame the 3D scene while a case study covers it. Where the crystal is
+  // hidden behind opaque content, rendering it is pure waste — and a case study
+  // is exactly where the browser needs its budget for images, scrolling, and the
+  // lightbox. It stops on a finished frame and resumes from the same one (see
+  // SceneFreezeGuard in Fixed3DCanvas for how the clock stays continuous).
+  //
+  // Two conditions have to hold. The entrance must have finished covering the
+  // scene, and no on-screen section may be showing the scene through itself —
+  // the overlay reports that second one, since a section can opt out of painting
+  // a background entirely.
+  const [caseStudyEntranceSettled, setCaseStudyEntranceSettled] = useState(false);
+  const [caseStudySceneNeeded, setCaseStudySceneNeeded] = useState(false);
+  const sceneFrozen =
+    caseStudyOpen && caseStudyEntranceSettled && !caseStudySceneNeeded;
 
   useEffect(() => {
     if (!caseStudyOpen) {
-      setSceneFrozen(false);
+      setCaseStudyEntranceSettled(false);
       return undefined;
     }
-    const timeoutId = setTimeout(() => setSceneFrozen(true), SCENE_FREEZE_DELAY_MS);
+    const timeoutId = setTimeout(
+      () => setCaseStudyEntranceSettled(true),
+      SCENE_FREEZE_DELAY_MS
+    );
     return () => clearTimeout(timeoutId);
   }, [caseStudyOpen]);
 
@@ -1101,6 +1112,7 @@ function App() {
         open={caseStudyOpen}
         onClose={closeCaseStudy}
         onToneChange={setCaseStudyNavTone}
+        onSceneNeededChange={setCaseStudySceneNeeded}
       />
 
       {/* UI Controls */}

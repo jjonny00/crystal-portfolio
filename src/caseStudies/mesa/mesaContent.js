@@ -7,6 +7,11 @@
 // `**bold**` is supported inline. Media entries without a `src` render the
 // system placeholder at the correct size; supplying `src`/`fullSrc` later is the
 // only change needed to drop the real asset in.
+import heroImage from './assets/hero.webp';
+import prototype01 from './assets/prototype01.webp';
+import prototype02 from './assets/prototype02.webp';
+import prototype03 from './assets/prototype03.webp';
+import oneturn from './assets/one-turn01.webp';
 
 export const mesaContent = {
   projectName: 'MESA',
@@ -19,7 +24,7 @@ export const mesaContent = {
       'I originated the concept and led the game design, creative direction, production, and delivery with a five-person team at Forest Giant.',
     ],
     media: {
-      placeholder: 'Hero image — Mesa in hand, mid-match',
+      src: heroImage,
       alt: 'Mesa running on an iPhone, held in one hand during a match.',
     },
   },
@@ -36,16 +41,16 @@ export const mesaContent = {
     ],
     gallery: [
       {
-        placeholder: 'Prototype photo — card prototype',
-        alt: 'The earliest Mesa prototype, played with paper cards on a table.',
+        src: prototype01,
+        alt: 'Front view of Mesa’s physical prototype board, with colorful hexagonal tiles stacked in layered rows to form the game’s pyramid structure.',
       },
       {
-        placeholder: 'Prototype photo — printed hex tiles',
-        alt: 'Printed hexagonal tiles with three colored corners, laid out for a test.',
+        src: prototype02,
+        alt: 'A player reaches into the stacked physical Mesa prototype during a tabletop playtest, surrounded by colorful hexagonal tiles and early game pieces.',
       },
       {
-        placeholder: 'Prototype photo — poker-chip board',
-        alt: 'Printed tiles mounted on poker chips, stacked into the pyramid board.',
+        src: prototype03,
+        alt: 'Three physical Mesa tiles arranged in the player’s matching area during a prototype playtest, showing the colored corners used to build matches.',
       },
     ],
     caption:
@@ -82,8 +87,7 @@ export const mesaContent = {
       'The player is rarely choosing only for themselves.',
     ],
     media: {
-      placeholder:
-        'Turn sequence diagram — Select Tile → Place in Slot → Rotate → Match Colors → Deal Damage + Earn Power',
+      src: oneturn,
       alt: 'Diagram of a single Mesa turn, from selecting a shared tile through earning a power.',
     },
     caption:

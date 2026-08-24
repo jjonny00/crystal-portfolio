@@ -80,6 +80,14 @@
   position: relative;
 }
 
+/* A section can paint no background at all, letting the 3D scene behind the
+   case study show through it — the hero uses this to sit directly on the
+   crystal facet, whose colour is the project's own. Foreground colours still
+   come from the tone, so the copy is unaffected. */
+.cs-section[data-surface='none'] {
+  background-color: transparent;
+}
+
 /* Horizontal page gutters. Children that bleed cancel this with a negative
    margin of exactly -(--cs-edge), so they always land on the viewport edge. */
 .cs-container {
@@ -688,12 +696,20 @@
 .cs-overlay .cs-root {
   background-color: transparent;
   animation: cs-root-backstop 1ms linear
-    calc(var(--cs-enter-offset, 700ms) + var(--cs-enter-wash, 840ms)) forwards;
+    calc(var(--cs-enter-offset, 450ms) + var(--cs-enter-wash, 840ms)) forwards;
+}
+
+/* Reveal mode has no wash to hand over to, and its hero is deliberately showing
+   the scene — the backstop would paint over the very thing the hero sits on, so
+   the root stays transparent for the whole visit. */
+.cs-overlay[data-entry='reveal'] .cs-root {
+  animation: none;
+  background-color: transparent;
 }
 
 .cs-overlay .cs-section {
   animation: cs-fade-in var(--cs-enter-wash, 840ms) ease-out
-    var(--cs-enter-offset, 700ms) backwards;
+    var(--cs-enter-offset, 450ms) backwards;
 }
 
 .cs-overlay .cs-hero__title,
@@ -702,7 +718,7 @@
 .cs-overlay .cs-hero__text {
   animation: cs-rise-in var(--cs-enter-item, 1120ms) cubic-bezier(0.2, 0.7, 0.2, 1)
     calc(
-      var(--cs-enter-offset, 700ms) + var(--cs-enter-lead, 760ms) +
+      var(--cs-enter-offset, 450ms) + var(--cs-enter-lead, 760ms) +
         var(--cs-enter-step, 0) * var(--cs-enter-stagger, 180ms)
     )
     backwards;
@@ -726,7 +742,7 @@
 
 .cs-overlay .cs-back {
   animation: cs-fade-in 400ms ease
-    calc(var(--cs-enter-offset, 700ms) + var(--cs-enter-back, 1640ms)) backwards;
+    calc(var(--cs-enter-offset, 450ms) + var(--cs-enter-back, 1640ms)) backwards;
 }
 
 /* --------------------------------------------------------------------------

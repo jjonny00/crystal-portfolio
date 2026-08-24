@@ -18,6 +18,8 @@ const CaseStudyHero = ({
   intro = null,
   media = null,
   tone = 'a',
+  /** 'none' lets the hero sit directly on the 3D scene. See CaseStudySection. */
+  background = 'tone',
   id = 'case-study-hero',
   children = null,
 }) => {
@@ -26,6 +28,7 @@ const CaseStudyHero = ({
   return (
     <CaseStudySection
       tone={tone}
+      background={background}
       id={id}
       className="cs-hero"
       innerClassName="cs-hero__inner"

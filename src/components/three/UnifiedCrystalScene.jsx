@@ -40,6 +40,11 @@ import { HERO_OVERVIEW_CINEMATIC_RESOLVED, HERO_OVERVIEW_EASING } from '../../co
 
 const PROJECT_DISPLAY_SLOT = 'ProjectDisplay'
 const FOCUS_ROTATION_PROGRESS_LEAD = 1
+// Exponential rate the focused facet's idle float decays at when a case study
+// opens. Lower is slower; ~2.2 brings it to rest over roughly the camera's move
+// to the case-study pose, so the facet eases to a stop rather than snapping.
+// (The usual focus handover uses 8 — see the float block in the frame loop.)
+const CASE_STUDY_FLOAT_SETTLE_RATE = 2.2
 const ISOLATE_FOCUSED_ROTATION_FROM_POSITION = true
 const FORWARD_PRE_SWAP_WINDOW_MS = 120
 const FORWARD_MASK_GLOW_DURATION_S = 0.22
@@ -2806,17 +2811,25 @@ const UnifiedCrystalScene = forwardRef(({
     const cameraMoveProgress = sharedCameraMoveProgressRef?.current ?? animationData?.cameraMoveProgress ?? 1;
     const floatConfig = effects.idle.float;
     const floatAll = animationData.state === 'overview' && !animationData.isTransitioning;
+    // Opening a case study leaves `state` at 'project_focused' — only cameraState
+    // changes — so the idle float would otherwise keep running under the case
+    // study. Settle it instead: the facet the reader is about to read against
+    // comes to rest as the camera arrives.
+    const caseStudyEngaged = animationData.viewMode === 'caseStudy';
     const floatFocused =
       animationData.state === 'project_focused' &&
       animationData.focusedFacet &&
       !animationData.isTransitioning &&
-      animationData.cameraSettled === true;
+      animationData.cameraSettled === true &&
+      !caseStudyEngaged;
     const rotationLerp = Math.min(1, deltaTime * 6);
     const focusedRotationLerp = Math.min(1, deltaTime * 4);
     focusedFloatBlendRef.current = THREE.MathUtils.lerp(
       focusedFloatBlendRef.current,
       floatFocused ? 1 : 0,
-      Math.min(1, deltaTime * 8)
+      // A deliberate settle timed to the camera move on the way in; the usual
+      // quick handover everywhere else, including on the way back out.
+      Math.min(1, deltaTime * (caseStudyEngaged ? CASE_STUDY_FLOAT_SETTLE_RATE : 8))
     );
 
     // Handle whole crystal floating (no rotation)
