@@ -12,6 +12,7 @@ import prototype01 from './assets/prototype01.webp';
 import prototype02 from './assets/prototype02.webp';
 import prototype03 from './assets/prototype03.webp';
 import oneturn from './assets/one-turn01.webp';
+import previewmesa from './assets/preview-mesa.webp';
 
 export const mesaContent = {
   projectName: 'MESA',
@@ -105,7 +106,7 @@ export const mesaContent = {
       'The board gradually releases that constraint as the player becomes more comfortable.',
     ],
     media: {
-      placeholder: 'Screenshot — opening board with one selectable tile, and tile placement UI',
+      src: previewmesa,
       alt: 'The opening Mesa board, with only the peak tile selectable and the placement slots below.',
     },
     caption:

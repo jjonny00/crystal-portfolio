@@ -33,9 +33,9 @@
 
   /* --- type scale --- */
   --cs-type-title: clamp(34px, calc(11.77vw - 13.3px), 190px);
-  --cs-type-subtitle: clamp(19px, calc(0.83vw + 15.67px), 30px);
-  --cs-type-heading: clamp(17px, calc(0.98vw + 13.06px), 30px);
-  --cs-type-body: clamp(14px, calc(0.6vw + 11.57px), 22px);
+  --cs-type-subtitle: clamp(24px, calc(1.81vw + 16.77px), 48px);
+  --cs-type-heading: clamp(24px, calc(1.81vw + 16.77px), 48px);
+  --cs-type-body: clamp(16px, calc(0.60vw + 13.59px), 24px);
   --cs-type-caption: clamp(12px, calc(0.15vw + 11.4px), 14px);
   --cs-type-meta-label: clamp(11px, calc(0.19vw + 10.24px), 13.5px);
   --cs-type-meta-value: clamp(13.5px, calc(0.41vw + 11.83px), 19px);
