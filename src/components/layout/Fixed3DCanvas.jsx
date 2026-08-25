@@ -878,7 +878,7 @@ const Fixed3DCanvas = forwardRef(({
         top: 0,
         left: 0,
         width: '100vw',
-        height: '100vh',
+        height: '100lvh',
         zIndex: 1, // Behind scrollable content (which is z-index 10)
         pointerEvents: 'none', // Don't block scrolling
         // While frozen the canvas is fully covered anyway, so skip compositing
