@@ -25,14 +25,33 @@
   pointer-events: none;
   border-radius: var(--app-corner-radius, 0px);
   /* Only needs to reach from the rounded edge out to the viewport corner — a few
-     px at these radii. 50 is slack, and the overspill is clipped by the viewport. */
-  box-shadow: 0 0 0 50px var(--page-bg);
+     px at these radii. 60 is slack, and the overspill is clipped by the viewport. */
+  box-shadow: 0 0 0 60px var(--page-bg);
+}
+
+/* iOS-style corner smoothing. `squircle` is the superellipse Apple uses for app
+   icons — curvature eases into the straight edges instead of meeting them at a
+   tangent, which is what stops the corner reading as a stuck-on quarter circle.
+   The shadow follows the border box, so the notches take the smoothed shape too.
+ *
+ * Progressive enhancement, and worth knowing which way round it degrades: this is
+ * a Chromium property at time of writing, so iOS Safari — the browser this
+ * treatment is aimed at — is the one most likely to fall back. The fallback is
+ * the plain circular corner below, which is what we had, so nothing breaks; the
+ * smoothing just is not there. Because a squircle hugs the corner more tightly
+ * than an arc of the same radius, it also reads slightly less rounded, so the two
+ * are not pixel-identical.
+ */
+@supports (corner-shape: squircle) {
+  .app-frame {
+    corner-shape: squircle;
+  }
 }
 
 /* Desktop keeps square corners: at radius 0 the shadow is a band entirely
    outside the viewport, so the layer costs nothing and paints nothing. */
 @media (max-width: 767px) {
   .app-frame {
-    --app-corner-radius: 1.75rem;
+    --app-corner-radius: 2.5rem;
   }
 }
