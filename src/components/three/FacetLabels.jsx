@@ -2,7 +2,16 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client';
 import Headline from '../ui/Headline';
 import { MQ_HOVER_CAPABLE } from '../../config/breakpoints';
-import { OVERVIEW_COLUMN } from '../../config/overviewLayout';
+import {
+  OVERVIEW_COLUMN,
+  OVERVIEW_RAIL_GAP_PX,
+  OVERVIEW_RAIL_X_FALLBACK_VW,
+} from '../../config/overviewLayout';
+
+// The column hangs off the vertical energy line, which publishes its measured x
+// as `--overview-rail-x` — so the labels sit beside the line rather than the line
+// having to travel to them.
+const OVERVIEW_COLUMN_LEFT = `calc(var(--overview-rail-x, ${OVERVIEW_RAIL_X_FALLBACK_VW}vw) + ${OVERVIEW_RAIL_GAP_PX}px)`;
 import { useLayoutConfig } from '../../hooks/useLayoutConfig';
 import { getProjectIdBySceneFacetKey } from '../../data/projects';
 import { setRailActiveProject, setRailOverviewVisible } from '../../lib/verticalRailSignal';
@@ -379,8 +388,8 @@ const FacetLabels = React.memo(function FacetLabels({
           style={{
             position: 'absolute',
             width: variant === 'desktop' ? `${OVERVIEW_COLUMN.widthVw}vw` : '100%',
-            right: variant === 'desktop' ? `${OVERVIEW_COLUMN.insetVw}vw` : 0,
-            left: variant === 'desktop' ? 'auto' : 0,
+            right: variant === 'desktop' ? 'auto' : 0,
+            left: variant === 'desktop' ? OVERVIEW_COLUMN_LEFT : 0,
             top: variant === 'desktop' ? '50%' : 'auto',
             bottom: variant === 'desktop' ? 'auto' : 'calc(4.75rem + env(safe-area-inset-bottom, 0px))',
             transform: variant === 'desktop' ? 'translateY(-50%)' : 'none',

@@ -2,8 +2,7 @@
 
 import React, { useEffect, useRef } from 'react';
 
-import { MQ_DESKTOP, MQ_REDUCED_MOTION } from '../../config/breakpoints';
-import { OVERVIEW_RAIL_GAP_PX, getOverviewColumnLeft } from '../../config/overviewLayout';
+import { MQ_REDUCED_MOTION } from '../../config/breakpoints';
 import { subscribeToRailState } from '../../lib/verticalRailSignal';
 import '../../styles/vertical-energy-line.css';
 
@@ -42,11 +41,6 @@ const IDLE_CYCLE_MS = 6400;
 // should drift after the pointer rather than track it.
 const POINTER_FOLLOW_MS = 420;
 const POINTER_HANDOFF_MS = 520;
-
-// The rail slides over toward the label column across the back half of the hero →
-// overview scroll, so it is still sitting under the arrow while the arrow is the
-// thing you are looking at.
-const RAIL_SHIFT_START = 0.3;
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
@@ -88,7 +82,6 @@ const VerticalEnergyLine = () => {
   // Cached layout. Written only by measure(), read by the frame loops.
   const metricsRef = useRef({
     railX: 0,
-    overviewRailX: 0,
     arrowBottom: 0,
     heroTop: 0,
     overviewTop: 0,
@@ -113,7 +106,6 @@ const VerticalEnergyLine = () => {
 
     const reducedMotionQuery = window.matchMedia(MQ_REDUCED_MOTION);
     let reducedMotion = reducedMotionQuery.matches;
-    const desktopQuery = window.matchMedia(MQ_DESKTOP);
 
     // Whether the peak loop is running. Tracked in the closure rather than read
     // back off the element: under StrictMode the effect is torn down and re-run
@@ -164,20 +156,13 @@ const VerticalEnergyLine = () => {
         metrics.arrowBottom = viewportHeight * 0.88;
       }
 
-      // Where the rail settles once the overview is framed: just off the leading
-      // edge of the label column. Measured from the real column when the label
-      // layer exists, otherwise from the shared constants it is built from — the
-      // fallback matters because the transition starts before those labels do.
-      // Mobile keeps the hero position; that composition is not designed yet.
-      if (desktopQuery.matches) {
-        const listLeft = document.querySelector('[data-rail-list]')?.getBoundingClientRect().left;
-        const columnLeft = Number.isFinite(listLeft) && listLeft > 0
-          ? listLeft
-          : getOverviewColumnLeft(window.innerWidth);
-        metrics.overviewRailX = columnLeft - OVERVIEW_RAIL_GAP_PX;
-      } else {
-        metrics.overviewRailX = metrics.railX;
-      }
+      // Publish the measured x so the overview's label column can sit beside the
+      // line (see config/overviewLayout.js). Document-level, because that column
+      // is rendered from its own React root.
+      document.documentElement.style.setProperty(
+        '--overview-rail-x',
+        metrics.railX.toFixed(1) + 'px'
+      );
 
       update();
       measureStrip();
@@ -205,14 +190,6 @@ const VerticalEnergyLine = () => {
       );
       const trackHeight = Math.max(0, metrics.viewportHeight - trackTop);
 
-      // Lateral glide toward the label column, driven by the same scroll that
-      // brings the overview in. Written as a shift rather than a new `left` so
-      // the per-frame write stays on the compositor.
-      const enterSpan = Math.max(1, metrics.overviewTop - metrics.heroTop);
-      const entering = clamp(heroScroll / enterSpan, 0, 1);
-      const railShift =
-        (metrics.overviewRailX - metrics.railX) * smoothstep(RAIL_SHIFT_START, 1, entering);
-
       // 0 in the overview, 1 once the first project preview is framed.
       const exitSpan = Math.max(1, metrics.firstProjectTop - metrics.overviewTop);
       const leaving = clamp((scrollTop - metrics.overviewTop) / exitSpan, 0, 1);
@@ -225,7 +202,6 @@ const VerticalEnergyLine = () => {
       geometry.opacity = opacity;
 
       writeVar('--vrail-x', metrics.railX.toFixed(1) + 'px');
-      writeVar('--vrail-x-shift', railShift.toFixed(1) + 'px');
       writeVar('--vrail-top', trackTop.toFixed(1) + 'px');
       writeVar('--vrail-peak-height', geometry.peakHeight.toFixed(1) + 'px');
       writeVar('--vrail-opacity', opacity.toFixed(3));
