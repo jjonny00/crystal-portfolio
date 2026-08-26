@@ -4,8 +4,8 @@
     "positions": {
       "hero": [
         0.7033823112161721,
-        2.9524915835250827,
-        2.522258823008028
+        0.9524915835250827,
+        4.522258823008028
       ],
       "overview": [
         0.47140156026567925,
@@ -434,6 +434,18 @@
           ]
         }
       }
+    },
+    "composition": {
+      "hero": {
+        "filmOffsetX": 0
+      }
+    },
+    "heroTuning": {
+      "radius": 7,
+      "height": 0.8,
+      "orbitSpeed": 0.08,
+      "baseAngle": 0,
+      "lookAtYOffset": 0
     }
   },
   "projects": {
