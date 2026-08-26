@@ -12,10 +12,18 @@ export const OVERVIEW_COLUMN = {
   widthVw: 33.333,
 };
 
-// Gap between the line and the leading edge of the label column.
+// Gap between the line and the leading edge of the label column. Tighter on
+// mobile, where the line sits just inside the left margin and the labels take the
+// rest of the width.
 export const OVERVIEW_RAIL_GAP_PX = 20;
+export const OVERVIEW_RAIL_GAP_MOBILE_PX = 10;
 
-// Where the line sits before it has been measured, as a fraction of the viewport
-// width. Only used for the very first paint — the line measures the real arrow on
-// mount, long before the overview is ever reached.
+// Where the line sits before it has been measured. Only used for the very first
+// paint — the line measures the real arrow on mount, long before the overview is
+// ever reached. Desktop tracks the viewport (the hero grid splits by proportion);
+// mobile is a fixed inset, because there the CTA is flush to the left margin.
 export const OVERVIEW_RAIL_X_FALLBACK_VW = 52.6;
+export const OVERVIEW_RAIL_X_FALLBACK_MOBILE_PX = 26;
+
+// Right margin of the mobile label column.
+export const OVERVIEW_COLUMN_RIGHT_MOBILE_PX = 16;

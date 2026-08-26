@@ -34,14 +34,20 @@
 
 
 @media (max-width: 767px) {
+  /* Condensed so all six entries sit tightly beside the line. The subhead comes
+     down further than the title and loses a little contrast with it, so the
+     hierarchy between them reads more strongly at the smaller overall size than
+     it did at the larger one. */
   .label-title {
-    font-size: clamp(1.13rem, 5.67vw, 1.47rem);
-    line-height: 1;
+    font-size: clamp(1.15rem, 4.5vw, 1.65rem);
+    line-height: 0.95;
+    letter-spacing: -0.02em;
   }
 
   .label-description {
-    margin-top: 0.1rem;
-    font-size: clamp(1rem, 4.2vw, 1.15rem);
-    line-height: 1.35;
+    margin-top: 0.125rem;
+    font-size: clamp(0.8rem, 2.5vw, 1rem);
+    line-height: 1.2;
+    color: rgba(255, 255, 255, 0.78);
   }
 }

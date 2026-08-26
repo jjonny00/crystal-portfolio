@@ -200,10 +200,13 @@
     font-size: clamp(0.8rem, 3.6vw, 1rem);
   }
 
+  /* Flush left even though the copy above it is centred: the CTA's arrow is what
+     the vertical line is measured from, and the line needs to run just inside the
+     left margin so the overview's labels can sit beside it. */
   .hero-section__cta-block {
     margin-top: clamp(1.5rem, 4svh, 2.5rem);
     display: flex;
-    justify-content: center;
+    justify-content: flex-start;
   }
 
   .hero-section__cta-label {

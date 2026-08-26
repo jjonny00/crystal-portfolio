@@ -4,7 +4,10 @@ import Headline from '../ui/Headline';
 import { MQ_HOVER_CAPABLE } from '../../config/breakpoints';
 import {
   OVERVIEW_COLUMN,
+  OVERVIEW_COLUMN_RIGHT_MOBILE_PX,
+  OVERVIEW_RAIL_GAP_MOBILE_PX,
   OVERVIEW_RAIL_GAP_PX,
+  OVERVIEW_RAIL_X_FALLBACK_MOBILE_PX,
   OVERVIEW_RAIL_X_FALLBACK_VW,
 } from '../../config/overviewLayout';
 import { useLayoutConfig } from '../../hooks/useLayoutConfig';
@@ -14,8 +17,10 @@ import '../../styles/facet-label.css';
 
 // The column hangs off the vertical energy line, which publishes its measured x
 // as `--overview-rail-x` — so the labels sit beside the line rather than the line
-// having to travel to them.
+// having to travel to them. True on mobile as well, where the line runs just
+// inside the left margin and the labels take the rest of the width.
 const OVERVIEW_COLUMN_LEFT = `calc(var(--overview-rail-x, ${OVERVIEW_RAIL_X_FALLBACK_VW}vw) + ${OVERVIEW_RAIL_GAP_PX}px)`;
+const OVERVIEW_COLUMN_LEFT_MOBILE = `calc(var(--overview-rail-x, ${OVERVIEW_RAIL_X_FALLBACK_MOBILE_PX}px) + ${OVERVIEW_RAIL_GAP_MOBILE_PX}px)`;
 
 // Stagger between label reveals during the hero → overview transition. Applied as
 // a transition-delay on the existing container fade, so it rides that transition
@@ -410,14 +415,17 @@ const FacetLabels = React.memo(function FacetLabels({
           }}
           style={{
             position: 'absolute',
-            width: variant === 'desktop' ? `${OVERVIEW_COLUMN.widthVw}vw` : '100%',
-            right: variant === 'desktop' ? 'auto' : 0,
-            left: variant === 'desktop' ? OVERVIEW_COLUMN_LEFT : 0,
+            width: variant === 'desktop' ? `${OVERVIEW_COLUMN.widthVw}vw` : 'auto',
+            right: variant === 'desktop' ? 'auto' : `${OVERVIEW_COLUMN_RIGHT_MOBILE_PX}px`,
+            left: variant === 'desktop' ? OVERVIEW_COLUMN_LEFT : OVERVIEW_COLUMN_LEFT_MOBILE,
             top: variant === 'desktop' ? '50%' : 'auto',
             bottom: variant === 'desktop' ? 'auto' : 'calc(4.75rem + env(safe-area-inset-bottom, 0px))',
             transform: variant === 'desktop' ? 'translateY(-50%)' : 'none',
-            paddingLeft: variant === 'desktop' ? 0 : '16px',
-            paddingRight: variant === 'desktop' ? 0 : '16px',
+            // No inset of its own on either variant: `left`/`right` above already
+            // place the column, and padding here would push the text off the line
+            // it is supposed to hang from.
+            paddingLeft: 0,
+            paddingRight: 0,
             opacity: visible ? 1 : 0,
             transition: `opacity ${fadeDurationMs}ms`,
             display: 'flex',
