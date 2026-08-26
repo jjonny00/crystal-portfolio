@@ -1,10 +1,16 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import Headline from '../ui/Headline';
 import { MQ_HOVER_CAPABLE } from '../../config/breakpoints';
 import { useLayoutConfig } from '../../hooks/useLayoutConfig';
 import { getProjectIdBySceneFacetKey } from '../../data/projects';
+import { setRailActiveProject, setRailOverviewVisible } from '../../lib/verticalRailSignal';
 import '../../styles/facet-label.css';
+
+// Stagger between label reveals during the hero → overview transition. Applied as
+// a transition-delay on the existing container fade, so it rides that transition
+// rather than introducing a second, independent timer.
+const LABEL_REVEAL_STAGGER_MS = 70;
 
 const OptimizedLabel = React.memo(function OptimizedLabel({
   project,
@@ -12,6 +18,9 @@ const OptimizedLabel = React.memo(function OptimizedLabel({
   onHover,
   onClick,
   isTargetActive = false,
+  isRevealed = true,
+  revealDelayMs = 0,
+  revealDurationMs = 800,
 }) {
   const FADE_IN_MS = 120;
   const FADE_OUT_MS = 1300;
@@ -64,7 +73,12 @@ const OptimizedLabel = React.memo(function OptimizedLabel({
       onPointerEnter={() => onHover?.(runtimeKey, true)}
       onPointerLeave={() => onHover?.(runtimeKey, false)}
       onClick={onClick}
+      // Read by VerticalEnergyLine to measure the active strip's bounds — this
+      // element spans exactly the title through the bottom of the subhead.
+      data-rail-project={runtimeKey}
       style={{
+        opacity: isRevealed ? 1 : 0,
+        transition: `opacity ${revealDurationMs}ms ease ${isRevealed ? revealDelayMs : 0}ms`,
         '--headline-ink': isDisplayActive ? project.headlineColor : '#ffffff',
         '--headline-glow1': isDisplayActive ? project.headlineColor : '#ffffff',
         '--headline-glow2': isDisplayActive ? project.headlineColor : '#ffffff',
@@ -119,6 +133,43 @@ const FacetLabels = React.memo(function FacetLabels({
 
   const { variant, layout, error } = useLayoutConfig();
   const overviewWorld = layout?.anchors?.overviewWorld;
+
+  // The single active project, however it was activated: hovering the label here,
+  // or hovering the matching facet in the scene (which arrives as
+  // `externallyHoveredFacetKey` from the shared hover-source state in
+  // UnifiedCrystalScene). Same expression the labels use for their own active
+  // treatment, so label and strip can never disagree.
+  const activeRuntimeKey = useMemo(() => {
+    if (labelHoveredFacetKey) return labelHoveredFacetKey;
+    if (!externallyHoveredFacetKey) return null;
+    return getProjectIdBySceneFacetKey(externallyHoveredFacetKey) || externallyHoveredFacetKey;
+  }, [externallyHoveredFacetKey, labelHoveredFacetKey]);
+
+  // Publish to the vertical energy line. It renders in App's tree, so it cannot
+  // read this component's state directly (this layer lives in its own React
+  // root); the snapshot store keeps that one-way and re-render free.
+  useEffect(() => {
+    const railVisible = inActiveOverview && visible;
+    setRailOverviewVisible(railVisible);
+
+    if (!railVisible) {
+      setRailActiveProject(null, null);
+      return;
+    }
+
+    const activeProject = projects.find(
+      (project) => (project.facetKey || project.id) === activeRuntimeKey
+    );
+    setRailActiveProject(
+      activeProject ? (activeProject.facetKey || activeProject.id) : null,
+      activeProject?.color ?? null
+    );
+  }, [activeRuntimeKey, inActiveOverview, projects, visible]);
+
+  useEffect(() => () => {
+    setRailOverviewVisible(false);
+    setRailActiveProject(null, null);
+  }, []);
 
   const emitDomAnchorPoint = useCallback((facetKey) => {
     if (!hoverCapable || !onDomAnchorChange || !facetKey) return;
@@ -311,6 +362,9 @@ const FacetLabels = React.memo(function FacetLabels({
         <div
           ref={labelLayerContentRef}
           onTransitionEnd={(event) => {
+            // The labels themselves now fade with a stagger, and those transition
+            // events bubble — only this container's own fade means "settled".
+            if (event.target !== event.currentTarget) return;
             if (event.propertyName !== 'opacity') return;
             if (!visible) return;
             requestAnimationFrame(() => {
@@ -341,8 +395,9 @@ const FacetLabels = React.memo(function FacetLabels({
             boxSizing: 'border-box',
             pointerEvents: visible ? 'auto' : 'none',
           }}
+          data-rail-list
         >
-          {projects.map((project) => {
+          {projects.map((project, index) => {
             const runtimeKey = project.facetKey || project.id;
             const externallyHoveredRuntimeKey =
               getProjectIdBySceneFacetKey(externallyHoveredFacetKey) || externallyHoveredFacetKey;
@@ -362,6 +417,9 @@ const FacetLabels = React.memo(function FacetLabels({
               onHover={handleHover}
               onClick={() => onSelectProject?.(runtimeKey)}
               isTargetActive={isActive}
+              isRevealed={visible}
+              revealDelayMs={index * LABEL_REVEAL_STAGGER_MS}
+              revealDurationMs={fadeDuration * 1000}
             />
             );
           })}

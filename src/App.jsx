@@ -30,6 +30,7 @@ import PostProcessingControls from './components/ui/PostProcessingControls';
 import PerformanceControls from './components/ui/PerformanceControls';
 import AccessibilityInstructions from './components/ui/AccessibilityInstructions';
 import FpsDisplay, { PerformanceAlert } from './components/ui/FpsDisplay';
+import VerticalEnergyLine from './components/ui/VerticalEnergyLine';
 
 // Debug component
 import PerformanceDebugPanel from './components/ui/PerformanceDebugPanel';
@@ -1092,6 +1093,11 @@ function App() {
           transition: 'opacity 450ms ease'
         }}
       />
+
+      {/* Vertical energy line — one continuous 1px rail from the hero CTA
+          through the full work overview. Fixed layer between the 3D canvas and
+          the scrollable content; decorative and pointer-transparent. */}
+      {!hideAllUI && <VerticalEnergyLine />}
 
       {/* Scrollable Content */}
       <ScrollablePortfolio

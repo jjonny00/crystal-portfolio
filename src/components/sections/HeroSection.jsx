@@ -1,30 +1,28 @@
 // src/components/sections/HeroSection.jsx
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { animated, useSpring } from '@react-spring/web';
 
 import useProjectHeadlineColor from '../../hooks/useProjectHeadlineColor';
 import Headline from '../ui/Headline';
 import '../../styles/hero-section.css';
 
+const ARROW_DOWN_SRC = '/assets/ui/SVG/arrow-down.svg';
+
 /**
  * Hero Section Component
- * Full viewport introduction with crystal metaphor
+ * Full viewport introduction with crystal metaphor.
+ *
+ * The CTA's arrow is the anchor the vertical energy line is measured from
+ * (`data-hero-rail-anchor`) — see VerticalEnergyLine.jsx. Keeping the CTA in
+ * normal flow rather than absolutely positioned is what lets the rail derive its
+ * x and starting y from layout instead of viewport coordinates.
  */
 const HeroSection = ({
   visible = true,
-  scrollProgress = 0,
   onScrollHint = null
 }) => {
   useProjectHeadlineColor();
-
-  const [hasScrolled, setHasScrolled] = useState(false);
-
-  useEffect(() => {
-    if (scrollProgress > 0.05) {
-      setHasScrolled(true);
-    }
-  }, [scrollProgress]);
 
   const contentSpring = useSpring({
     from: {
@@ -52,43 +50,36 @@ const HeroSection = ({
     delay: visible ? 600 : 0
   });
 
-  const scrollHintSpring = useSpring({
+  const ctaSpring = useSpring({
     from: {
       opacity: 0,
       transform: 'translateY(20px)'
     },
     to: {
-      opacity: visible && !hasScrolled ? 1 : 0,
-      transform: visible && !hasScrolled ? 'translateY(0px)' : 'translateY(20px)'
+      opacity: visible ? 1 : 0,
+      transform: visible ? 'translateY(0px)' : 'translateY(20px)'
     },
     config: { tension: 200, friction: 20 },
-    delay: visible ? 1200 : 0
-  });
-
-  const bounceSpring = useSpring({
-    from: { transform: 'translateY(0px)' },
-    to: async (next) => {
-      if (!hasScrolled && visible) {
-        while (!hasScrolled) {
-          await next({ transform: 'translateY(-8px)' });
-          await next({ transform: 'translateY(0px)' });
-          await new Promise(resolve => setTimeout(resolve, 2000));
-        }
-      }
-    },
-    config: { tension: 300, friction: 8 }
+    delay: visible ? 1000 : 0
   });
 
   const handleScrollHint = () => {
     if (onScrollHint) {
       onScrollHint();
-    } else {
-      window.scrollTo({
-        top: window.innerHeight,
-        behavior: 'smooth'
-      });
+      return;
     }
-    setHasScrolled(true);
+
+    // `.scroll-container` is the real scroller (see scroll-snap.css), not the
+    // document — scrolling the window here would do nothing.
+    const container = document.querySelector('.scroll-container');
+    const overview = document.getElementById('overview');
+
+    if (container && overview) {
+      container.scrollTo({ top: overview.offsetTop, behavior: 'smooth' });
+      return;
+    }
+
+    window.scrollTo({ top: window.innerHeight, behavior: 'smooth' });
   };
 
   return (
@@ -96,39 +87,40 @@ const HeroSection = ({
       <div className="hero-section__content">
         <animated.div style={contentSpring} className="hero-section__headline-block">
           <Headline as="h1" className="hero-section__title">
-            THE SYSTEMS BENEATH THE SURFACE
+            <span className="hero-section__title-line">THE SYSTEMS</span>
+            <span className="hero-section__title-line">BENEATH</span>
+            <span className="hero-section__title-line">THE SURFACE</span>
           </Headline>
         </animated.div>
 
         <animated.div style={subtitleSpring} className="hero-section__body-block">
+          <p className="hero-section__role">
+            PRINCIPAL PRODUCT DESIGNER · SYSTEMS AND INTERACTION
+          </p>
           <p className="hero-section__body-copy">
-            My work spans products, platforms, and play, built across twenty years of shipped systems. I focus on the mechanics underneath the experience, where rules, feedback, and tradeoffs give interaction depth. The six systems below span products and games. Each shares the same conviction: complexity should never reach the surface.
+            I design systems that shape how people decide, compete, and engage. My work focuses on the mechanics underneath the experience: the rules, feedback, and tradeoffs that turn interaction into something worth mastering. Across products and games, I build systems that reward intent.
           </p>
         </animated.div>
-      </div>
 
-      <animated.button
-        type="button"
-        className="hero-section__scroll-hint"
-        style={scrollHintSpring}
-        onClick={handleScrollHint}
-        aria-label="Scroll to explore"
-      >
-        <span className="hero-section__scroll-label">Scroll to explore</span>
-        <animated.div style={bounceSpring}>
-          <svg
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            style={{ opacity: 0.8, filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.8))' }}
+        <animated.div style={ctaSpring} className="hero-section__cta-block">
+          <button
+            type="button"
+            className="hero-section__cta"
+            onClick={handleScrollHint}
           >
-            <path d="M7 10L12 15L17 10H7Z" fill="#64ffda" />
-          </svg>
+            <img
+              className="hero-section__cta-arrow"
+              data-hero-rail-anchor
+              src={ARROW_DOWN_SRC}
+              alt=""
+              aria-hidden="true"
+              width={19}
+              height={21}
+            />
+            <span className="hero-section__cta-label">LOOK BENEATH THE SURFACE</span>
+          </button>
         </animated.div>
-        <span className="hero-section__scroll-line" />
-      </animated.button>
+      </div>
     </div>
   );
 };
