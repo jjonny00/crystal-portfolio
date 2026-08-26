@@ -181,10 +181,16 @@
 
 @media (max-width: 767px) {
   .hero-section {
+    /* The gutter is stated once here and everything else follows it — including
+       the vertical line, which is measured off the CTA arrow, and the overview's
+       label column, which hangs off that line. */
+    --hero-gutter: clamp(1.25rem, 7vw, 2.75rem);
+
     width: 100%;
     align-items: center;
     justify-content: flex-end;
-    padding: clamp(4rem, 10svh, 6rem) 16px calc(2.75rem + env(safe-area-inset-bottom, 0px));
+    padding: clamp(4rem, 10svh, 6rem) var(--hero-gutter)
+      calc(2.75rem + env(safe-area-inset-bottom, 0px));
   }
 
   .hero-section__content {
@@ -195,14 +201,18 @@
     padding-block: 0;
   }
 
-  /* Fills the measure here too — which on mobile is the full viewport less the
-     16px gutters, since the content is a single column. Only the height guard
-     differs: what sits below the headline is much taller than on desktop (the
-     body copy wraps to eight or ten lines), so the fixed block it has to leave
-     room for is bigger and the offset is correspondingly larger. Tall phones
-     fill; short ones back off. */
+  /* Deliberately short of the measure, unlike desktop: the reference comp sets
+     the headline at roughly four fifths of the column so the longest line has
+     somewhere to end and the three-line block reads as a shape rather than as
+     justified text. 26.9cqw is the fill constant (see the desktop rule); 22.3 is
+     that scaled to ~83%.
+
+     The height term is still a guard, but with a bigger offset than desktop's:
+     the block below the headline is much taller here, since the body copy wraps
+     to seven or eight lines. Tall phones take the width-derived size; short ones
+     back off further. */
   .hero-section__title {
-    font-size: clamp(2.25rem, min(26.9cqw, calc(41.7svh - 217px)), 12rem);
+    font-size: clamp(2rem, min(22.3cqw, calc(41.7svh - 217px)), 12rem);
     max-inline-size: 100%;
   }
 
