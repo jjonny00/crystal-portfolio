@@ -74,16 +74,18 @@
 
 /* The active-project strip: an energised segment of the rail, sized to the
    measured bounds of the hovered project item (title through subhead). It
-   overlays the rail without affecting layout, and eases between rows. */
+   overlays the rail without affecting layout, and eases between rows. Exactly as
+   wide as the rail itself — the caps are the only rule, so the segment reads as
+   part of the line rather than a bar sitting on it. */
 .vertical-energy-line__strip {
   position: absolute;
   top: var(--vrail-strip-top, 0px);
-  left: calc(var(--vrail-x, 50%) - 2.5px);
-  width: 5px;
+  left: calc(var(--vrail-x, 50%) - 0.5px);
+  width: 1px;
   height: var(--vrail-strip-height, 0px);
   background: var(--active-project-color, #ffffff);
-  border: 1px solid #161a32;
-  border-radius: 1px;
+  border-top: 1px solid #161a32;
+  border-bottom: 1px solid #161a32;
   box-shadow:
     0 0 8px 0 color-mix(in srgb, var(--active-project-color, #ffffff) 25%, transparent),
     0 0 25px 0 color-mix(in srgb, var(--active-project-color, #ffffff) 50%, transparent);

@@ -31,7 +31,10 @@ const PEAK_WHITE_STOP = 0.3798;
 // Gap between the rendered bottom edge of the arrow and the start of the line.
 const ARROW_GAP_PX = 8;
 
-const IDLE_CYCLE_MS = 4600;
+// The pulse traverses the peak's own height plus the track's, so a taller
+// gradient covers more ground per cycle — the duration is stretched to match so
+// the bright core still drifts at a restrained pace.
+const IDLE_CYCLE_MS = 6400;
 const POINTER_EASE = 0.14;
 const INFLUENCE_EASE = 0.09;
 
@@ -183,7 +186,7 @@ const VerticalEnergyLine = () => {
       const geometry = geometryRef.current;
       geometry.trackTop = trackTop;
       geometry.trackHeight = trackHeight;
-      geometry.peakHeight = clamp(trackHeight * 0.55, 90, 340);
+      geometry.peakHeight = clamp(trackHeight * 1.4, 240, 900);
       geometry.opacity = opacity;
 
       writeVar('--vrail-x', metrics.railX.toFixed(1) + 'px');
