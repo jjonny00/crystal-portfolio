@@ -43,6 +43,14 @@
   grid-column: 2;
 }
 
+/* Makes the headline size off the column it sits in rather than off the viewport,
+   so it fills the measure exactly however the grid is split. Inline-size
+   containment also stops the shrink-wrapped headline from ever feeding its own
+   width back into the column. */
+.hero-section__headline-block {
+  container-type: inline-size;
+}
+
 .hero-section__title {
   --headline-ink: #FFFCEE;
   font-family: 'acumin-variable', 'Acumin VF', sans-serif;
@@ -51,11 +59,20 @@
      identically — and it is what the reference comp is set in. */
   font-stretch: 50%;
   --wdth: 50;
-  /* Sized so the longest line ("THE SYSTEMS") fills the column with a little
-     slack, scaling with the viewport rather than snapping at breakpoints. The svh
-     term keeps three lines of display type from crowding the rest of the block on
-     short, wide viewports. */
-  font-size: clamp(2.5rem, min(10.1vw, 18svh), 12.5rem);
+  /* Set from the column's own width so the longest line ("THE SYSTEMS") fills the
+     measure. The multiplier is a property of the face at these settings, not of
+     any particular layout: at wdth 50 / weight 800 / -0.02em, that line renders
+     3.675em wide, so 100 / 3.675 = 27.2cqw fills the column exactly. Trimmed
+     slightly below that for sub-pixel slack, since the lines are nowrap.
+
+     The height term is a guard, not the intent: on a short, wide viewport three
+     lines at full column width would crowd out everything below them, so height
+     wins there and the headline stops short of the measure. It is offset rather
+     than a flat svh because what sits below — role, body, CTA — is roughly fixed
+     in height, so the allowance is (viewport - that block) over three lines of
+     0.8 leading, which grows faster than the viewport does. A flat svh tuned for
+     short viewports goes on clamping tall ones that have room to spare. */
+  font-size: clamp(2.5rem, min(26.9cqw, calc(40svh - 167px)), 20rem);
   font-weight: 800;
   /* 80%, as in the comp — 160px at the 200px reference size. */
   line-height: 0.8;
@@ -154,9 +171,8 @@
     padding: 0;
   }
 
-  .hero-section__title {
-    font-size: clamp(2.25rem, min(10.2vw, 18svh), 7rem);
-  }
+  /* No font-size override: the grid is the same two columns here, so the base
+     cqw rule already fills the (narrower) measure. */
 
   .hero-section__body-block {
     max-inline-size: min(100%, 38rem);
