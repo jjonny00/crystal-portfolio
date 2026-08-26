@@ -2,6 +2,7 @@
 
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import './styles/scroll-snap.css';
+import './styles/app-frame.css';
 
 // UPDATED: Import V2 systems
 import { useAssetLoaderV2 } from './hooks/useAssetLoaderV2';
@@ -977,13 +978,18 @@ function App() {
   }
 
   if (!isAppReady && !exitLoader) {
+    // The frame ships with the loader too, otherwise the corners would square off
+    // for the whole load and then round on hand-off.
     return (
-      <LoaderV2
-        initProgress={initProgress / 100}
-        assetProgress={assetProgressHook / 100}
-        testProgress={testProgressHook / 100}
-        statusMessage={statusMessage}
-      />
+      <>
+        <LoaderV2
+          initProgress={initProgress / 100}
+          assetProgress={assetProgressHook / 100}
+          testProgress={testProgressHook / 100}
+          statusMessage={statusMessage}
+        />
+        <div className="app-frame" aria-hidden="true" />
+      </>
     );
   }
 
@@ -1243,6 +1249,11 @@ function App() {
           exiting={exitLoader}
         />
       )}
+
+      {/* App frame — rounds the corners on mobile. Last in the tree and above
+          every other layer, including the loader, so the frame is unbroken from
+          the first paint. Decorative and pointer-transparent. */}
+      <div className="app-frame" aria-hidden="true" />
     </>
   );
 }

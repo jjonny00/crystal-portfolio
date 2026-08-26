@@ -189,7 +189,7 @@
 
   .hero-section__content {
     width: 100%;
-    text-align: center;
+    text-align: left;
     display: block;
     padding-inline: 0;
     padding-block: 0;
@@ -209,7 +209,7 @@
   .hero-section__body-block {
     margin-top: clamp(1.1rem, 3.5svh, 1.8rem);
     max-inline-size: min(100%, 40rem);
-    margin-inline: auto;
+    margin-inline: 0;
   }
 
   .hero-section__body-copy {

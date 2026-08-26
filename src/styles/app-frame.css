@@ -1,0 +1,38 @@
+/* src/styles/app-frame.css */
+
+/*
+ * Rounds off the corners of the app itself on mobile.
+ *
+ * Rather than four corner pieces, this is one fixed, pointer-transparent layer
+ * the size of the viewport with a rounded border box and a large *outset* box
+ * shadow. An outset shadow paints everything outside the border box, so with a
+ * radius that is exactly the four corner notches — the rest of the shadow falls
+ * off-screen and is never seen. One element instead of four, and the notches are
+ * antialiased by the border-radius itself rather than by a gradient colour stop,
+ * which is what makes the curve read clean at any density.
+ *
+ * The colour is the page's own ground (see --page-bg in index.css) rather than a
+ * hardcoded black, so the corners stay flush if that ever changes.
+ *
+ * It sits above every other layer, including the nav (z-index 10000) and the
+ * debug UI toggle (99999) — it is the frame of the app, so nothing should be
+ * drawn over it.
+ */
+.app-frame {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  pointer-events: none;
+  border-radius: var(--app-corner-radius, 0px);
+  /* Only needs to reach from the rounded edge out to the viewport corner — a few
+     px at these radii. 50 is slack, and the overspill is clipped by the viewport. */
+  box-shadow: 0 0 0 50px var(--page-bg);
+}
+
+/* Desktop keeps square corners: at radius 0 the shadow is a band entirely
+   outside the viewport, so the layer costs nothing and paints nothing. */
+@media (max-width: 767px) {
+  .app-frame {
+    --app-corner-radius: 1.75rem;
+  }
+}

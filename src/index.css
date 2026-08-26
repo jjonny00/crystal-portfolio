@@ -11,6 +11,15 @@
   font-variation-settings: "wdth" var(--wdth, 100);
 }
 
+/* The page's ground colour, as a token so anything that has to sit flush against
+   it (the mobile corner mask in app-frame.css) reads it rather than restating it.
+   index.html carries the same literal in its inline <style>; that copy exists to
+   paint the first frame before this file loads, and is the only other place the
+   value should appear. */
+:root {
+  --page-bg: #050505;
+}
+
 /* CRITICAL: Clean document scroll setup */
 html {
   overflow-x: hidden;
@@ -26,7 +35,7 @@ body {
   --wdth: 87.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #050505;
+  background-color: var(--page-bg);
   min-height: 100vh;
   height: auto;
   overflow-x: hidden;
