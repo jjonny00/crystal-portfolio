@@ -2,27 +2,32 @@ import React, { useEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 
-// Sparse shimmer particles that stream from a hovered project facet toward the
-// left edge of its DOM label, making the facet -> label connection legible. The
-// motion is a directed A->B travel (fast departure, soft deceleration near the
-// label) with per-particle turbulence, stagger, occasional overshoot, and an
-// early/late fade so the trail disperses just before the text and never reads as
-// a dashed line. Points reuse the crystal explosion particles' shimmer shader.
+import { getRailState } from '../../lib/verticalRailSignal';
+
+// Sparse shimmer particles that stream from a hovered project facet toward that
+// project's segment of the vertical energy line — the active strip — making the
+// facet -> project connection legible. The motion is a directed A->B travel (fast
+// departure, soft deceleration near the strip) with per-particle turbulence,
+// stagger, a slight overshoot, and an early/late fade so the trail disperses as it
+// arrives and never reads as a dashed line. Points reuse the crystal explosion
+// particles' shimmer shader.
 //
 // Everything is written in WORLD space into a <points> anchored at the origin, so
-// no emitter transform is involved. The label target is resolved by raycasting the
-// label's screen-space left edge onto the plane containing the facet emit point
-// (mirrors how the old connector lines were placed).
+// no emitter transform is involved. The strip target is resolved by raycasting its
+// screen position onto the plane containing the facet emit point (mirrors how the
+// old connector lines were placed).
 
 const POOL_SIZE = 64;
-const LABEL_GAP_PX = 12; // aim just left of the text so particles fade into the gap
+// Fallback only, for when the energy line has not published an x (it is the
+// aim point): sit just left of the text so particles fade into the gap.
+const LABEL_GAP_PX = 12;
 const EMIT_INTERVAL_MIN = 0.09;
 const EMIT_INTERVAL_MAX = 0.16;
 const COMPANION_SPAWN_CHANCE = 0.12; // occasional second particle for a light cluster
 const TRAVEL_MIN = 2.7;
 const TRAVEL_MAX = 3.05;
-// On hover start, pre-seed a few particles already partway along the facet->label
-// path so the trail reaches the label almost immediately instead of after a full
+// On hover start, pre-seed a few particles already partway along the facet->strip
+// path so the trail reaches the strip almost immediately instead of after a full
 // travel time. Progress is in age-fraction terms; because travel is easeOutCubic,
 // these low fractions still land the particles across the middle-to-late span of
 // the visible path (e.g. t=0.2 is already ~50% of the way there).
@@ -30,7 +35,7 @@ const PRIME_COUNT = 6;
 const PRIME_PROGRESS_MIN = 0.12;
 const PRIME_PROGRESS_MAX = 0.5;
 const START_JITTER = 0.8; // world-space spawn spread around the fragment anchor (wide emitter)
-const TARGET_JITTER = 0.1; // world-space spread across the label's left edge (narrow end)
+const TARGET_JITTER = 0.1; // world-space spread across the strip (narrow end)
 const DEFAULT_INTENSITY_SCALE = 1.6; // overall brightness of the additive points
 const SIZE_MIN = 0.016; // per-particle base point size (world units, before perspective scaling)
 const SIZE_MAX = 0.078;
@@ -72,7 +77,7 @@ const FacetHoverParticles = ({
     life: new Float32Array(POOL_SIZE),
     start: new Float32Array(POOL_SIZE * 3),
     target: new Float32Array(POOL_SIZE * 3),
-    reach: new Float32Array(POOL_SIZE), // >1 => overshoot past the label
+    reach: new Float32Array(POOL_SIZE), // >1 => overshoot past the strip
     f1: new Float32Array(POOL_SIZE),
     f2: new Float32Array(POOL_SIZE),
     ph1: new Float32Array(POOL_SIZE),
@@ -179,15 +184,20 @@ const FacetHoverParticles = ({
     return out;
   };
 
-  // Resolve the world point on the facet's plane that sits at the label's left edge.
+  // Resolve the world point on the facet's plane that sits on the project's active
+  // strip. The strip is drawn at the energy line's x and spans the whole project
+  // item, so the aim point is that x at the item's vertical centre — not the
+  // title's, and not the label's left edge.
   const resolveTarget = (sceneKey, startWorld, out) => {
     const domKey = domKeyBySceneKey?.[sceneKey];
     if (!domKey || typeof document === 'undefined') return null;
-    const node = document.querySelector(`[data-facet-key="${domKey}"]`);
+    const node = document.querySelector(`[data-rail-project="${domKey}"]`)
+      || document.querySelector(`[data-facet-key="${domKey}"]`);
     if (!node) return null;
     const rect = node.getBoundingClientRect();
     if (rect.width === 0 && rect.height === 0) return null;
-    const screenX = rect.left - LABEL_GAP_PX;
+    const railX = getRailState().railX;
+    const screenX = railX > 0 ? railX : rect.left - LABEL_GAP_PX;
     const screenY = rect.top + rect.height * 0.5;
     const width = size.width || 1;
     const height = size.height || 1;
@@ -222,8 +232,11 @@ const FacetHoverParticles = ({
     state.target[i3 + 1] = targetWorld.y + rand(-TARGET_JITTER * 1.4, TARGET_JITTER * 1.4);
     state.target[i3 + 2] = targetWorld.z + rand(-TARGET_JITTER, TARGET_JITTER);
 
-    // A few particles overshoot past the label before fading.
-    state.reach[slot] = Math.random() < 0.22 ? rand(1.06, 1.16) : 1.0;
+    // A few particles carry a little past the strip before fading — kept small on
+    // purpose: `reach` scales the whole facet->strip travel, so what reads as a
+    // few percent here is enough to sail well past the line and into the label
+    // text, which is exactly what the trail should stop short of.
+    state.reach[slot] = Math.random() < 0.22 ? rand(1.012, 1.035) : 1.0;
 
     // Per-particle turbulence (two frequencies => irregular, non-linear drift).
     state.f1[slot] = rand(3.5, 6.5);

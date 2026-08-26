@@ -20,6 +20,9 @@ const state = {
   overviewVisible: false,
   activeProjectKey: null,
   activeProjectColor: null,
+  // Viewport x of the line itself. Polled (by the hover particles, which need it
+  // every frame), never reacted to — so it has its own non-emitting setter.
+  railX: 0,
 };
 
 const listeners = new Set();
@@ -29,6 +32,10 @@ const emit = () => {
 };
 
 export const getRailState = () => state;
+
+export const setRailX = (x) => {
+  state.railX = Number.isFinite(x) ? x : 0;
+};
 
 export const subscribeToRailState = (listener) => {
   listeners.add(listener);

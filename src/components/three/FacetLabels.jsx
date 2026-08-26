@@ -7,20 +7,23 @@ import {
   OVERVIEW_RAIL_GAP_PX,
   OVERVIEW_RAIL_X_FALLBACK_VW,
 } from '../../config/overviewLayout';
-
-// The column hangs off the vertical energy line, which publishes its measured x
-// as `--overview-rail-x` — so the labels sit beside the line rather than the line
-// having to travel to them.
-const OVERVIEW_COLUMN_LEFT = `calc(var(--overview-rail-x, ${OVERVIEW_RAIL_X_FALLBACK_VW}vw) + ${OVERVIEW_RAIL_GAP_PX}px)`;
 import { useLayoutConfig } from '../../hooks/useLayoutConfig';
 import { getProjectIdBySceneFacetKey } from '../../data/projects';
 import { setRailActiveProject, setRailOverviewVisible } from '../../lib/verticalRailSignal';
 import '../../styles/facet-label.css';
 
+// The column hangs off the vertical energy line, which publishes its measured x
+// as `--overview-rail-x` — so the labels sit beside the line rather than the line
+// having to travel to them.
+const OVERVIEW_COLUMN_LEFT = `calc(var(--overview-rail-x, ${OVERVIEW_RAIL_X_FALLBACK_VW}vw) + ${OVERVIEW_RAIL_GAP_PX}px)`;
+
 // Stagger between label reveals during the hero → overview transition. Applied as
 // a transition-delay on the existing container fade, so it rides that transition
 // rather than introducing a second, independent timer.
 const LABEL_REVEAL_STAGGER_MS = 70;
+
+const LABEL_FADE_IN_MS = 800;
+const LABEL_FADE_OUT_MS = 200;
 
 const OptimizedLabel = React.memo(function OptimizedLabel({
   project,
@@ -127,7 +130,7 @@ const FacetLabels = React.memo(function FacetLabels({
 }) {
   const [anchorsReady, setAnchorsReady] = useState(false);
   const [visible, setVisible] = useState(false);
-  const [fadeDuration, setFadeDuration] = useState(0.8);
+  const [fadeDurationMs, setFadeDurationMs] = useState(LABEL_FADE_IN_MS);
   const [hoverCapable, setHoverCapable] = useState(false);
   const [labelHoveredFacetKey, setLabelHoveredFacetKey] = useState(null);
   const titleRefs = useRef(new Map());
@@ -229,20 +232,23 @@ const FacetLabels = React.memo(function FacetLabels({
 
   useEffect(() => {
     if (!inActiveOverview) {
-      setFadeDuration(0.2);
+      setFadeDurationMs(LABEL_FADE_OUT_MS);
       setVisible(false);
       setLabelHoveredFacetKey(null);
       onDomAnchorChange?.(null, null);
       onAlwaysOnDomAnchorChange?.(null, null);
       onLabelsReadyChange?.(false);
       clearTimeout(fadeTimeoutRef.current);
+      // Outlasts the fade above — the opacity: 0 render lands a commit after this
+      // timer is armed, so tearing down at exactly the fade duration would clip
+      // the last frames of it.
       fadeTimeoutRef.current = setTimeout(() => {
         rootRef.current?.render(null);
         rootRef.current?.unmount();
         layerRef.current?.remove();
         rootRef.current = null;
         layerRef.current = null;
-      }, 200);
+      }, LABEL_FADE_OUT_MS + 160);
       return;
     }
 
@@ -269,12 +275,12 @@ const FacetLabels = React.memo(function FacetLabels({
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.intersectionRatio >= 0.1) {
-          setFadeDuration(0.2);
+          setFadeDurationMs(LABEL_FADE_OUT_MS);
           setVisible(false);
           setLabelHoveredFacetKey(null);
           onLabelsReadyChange?.(false);
         } else {
-          setFadeDuration(0.8);
+          setFadeDurationMs(LABEL_FADE_IN_MS);
           setVisible(true);
           onLabelsReadyChange?.(false);
         }
@@ -337,7 +343,13 @@ const FacetLabels = React.memo(function FacetLabels({
   }, [emitDomAnchorPoint, hoverCapable, labelHoveredFacetKey]);
 
   useEffect(() => {
-    if (!rootRef.current || !inActiveOverview) return;
+    // Deliberately NOT gated on `inActiveOverview`: leaving the overview sets
+    // `visible` false and then unmounts this layer on a timer, and if the effect
+    // bailed out here that opacity: 0 would never be painted — the layer would be
+    // yanked at full opacity instead of fading. `visible` is what governs the
+    // fade; the root's existence is what governs whether there is anything to
+    // paint into.
+    if (!rootRef.current) return;
     if (!layout || error) {
       rootRef.current.render(null);
       return;
@@ -349,6 +361,17 @@ const FacetLabels = React.memo(function FacetLabels({
       rootRef.current.render(null);
       return;
     }
+
+    // Selecting a project jumps straight to its section, which may never bring the
+    // FIRST project section far enough into view for the IntersectionObserver
+    // above to fire. Start the same fade here so the labels always clear on the
+    // way out, whether you scrolled to a project or picked one from this list.
+    const handleSelect = (facetKey) => {
+      setFadeDurationMs(LABEL_FADE_OUT_MS);
+      setVisible(false);
+      setLabelHoveredFacetKey(null);
+      onSelectProject?.(facetKey);
+    };
 
     const handleHover = (facetKey, isHovering) => {
       onHoverChange?.(facetKey, isHovering);
@@ -396,7 +419,7 @@ const FacetLabels = React.memo(function FacetLabels({
             paddingLeft: variant === 'desktop' ? 0 : '16px',
             paddingRight: variant === 'desktop' ? 0 : '16px',
             opacity: visible ? 1 : 0,
-            transition: `opacity ${fadeDuration}s`,
+            transition: `opacity ${fadeDurationMs}ms`,
             display: 'flex',
             flexDirection: 'column',
             gap: variant === 'desktop' ? '1.5rem' : '0.8rem',
@@ -425,11 +448,11 @@ const FacetLabels = React.memo(function FacetLabels({
                 }
               }}
               onHover={handleHover}
-              onClick={() => onSelectProject?.(runtimeKey)}
+              onClick={() => handleSelect(runtimeKey)}
               isTargetActive={isActive}
               isRevealed={visible}
               revealDelayMs={index * LABEL_REVEAL_STAGGER_MS}
-              revealDurationMs={fadeDuration * 1000}
+              revealDurationMs={fadeDurationMs}
             />
             );
           })}
@@ -439,7 +462,7 @@ const FacetLabels = React.memo(function FacetLabels({
     );
   }, [
     anchorsReady,
-    fadeDuration,
+    fadeDurationMs,
     hoverCapable,
     inActiveOverview,
     alwaysOnFacetKey,

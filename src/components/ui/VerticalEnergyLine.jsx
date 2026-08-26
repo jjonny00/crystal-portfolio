@@ -3,7 +3,7 @@
 import React, { useEffect, useRef } from 'react';
 
 import { MQ_REDUCED_MOTION } from '../../config/breakpoints';
-import { subscribeToRailState } from '../../lib/verticalRailSignal';
+import { setRailX, subscribeToRailState } from '../../lib/verticalRailSignal';
 import '../../styles/vertical-energy-line.css';
 
 /**
@@ -156,13 +156,15 @@ const VerticalEnergyLine = () => {
         metrics.arrowBottom = viewportHeight * 0.88;
       }
 
-      // Publish the measured x so the overview's label column can sit beside the
-      // line (see config/overviewLayout.js). Document-level, because that column
-      // is rendered from its own React root.
+      // Publish the measured x for everything that has to line up with the rail
+      // but lives outside this component: the overview's label column reads the
+      // custom property in CSS (see config/overviewLayout.js), and the facet hover
+      // particles read the store value to aim at the active strip.
       document.documentElement.style.setProperty(
         '--overview-rail-x',
         metrics.railX.toFixed(1) + 'px'
       );
+      setRailX(metrics.railX);
 
       update();
       measureStrip();
