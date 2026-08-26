@@ -195,8 +195,14 @@
     padding-block: 0;
   }
 
+  /* Fills the measure here too — which on mobile is the full viewport less the
+     16px gutters, since the content is a single column. Only the height guard
+     differs: what sits below the headline is much taller than on desktop (the
+     body copy wraps to eight or ten lines), so the fixed block it has to leave
+     room for is bigger and the offset is correspondingly larger. Tall phones
+     fill; short ones back off. */
   .hero-section__title {
-    font-size: clamp(2.25rem, min(13vw, 14svh), 4.5rem);
+    font-size: clamp(2.25rem, min(26.9cqw, calc(41.7svh - 217px)), 12rem);
     max-inline-size: 100%;
   }
 
