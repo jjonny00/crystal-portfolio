@@ -29,7 +29,10 @@
   overflow-y: visible;
   display: grid;
   align-content: end;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  /* Asymmetric split: the copy column sits right of centre, which is what carries
+     the vertical line — and with it the overview's label column — further right.
+     Everything downstream is derived from this one ratio. */
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
   column-gap: clamp(1.5rem, 4vw, 5rem);
 }
 
@@ -44,16 +47,21 @@
   --headline-ink: #FFFCEE;
   font-family: 'acumin-variable', 'Acumin VF', sans-serif;
   font-style: normal;
-  font-stretch: 60%;
-  --wdth: 60;
-  /* Sized so the longest line ("THE SYSTEMS") very nearly fills the column at the
-     reference desktop width, scaling with the viewport rather than snapping at
-     breakpoints. The svh term keeps three lines of display type from crowding the
-     rest of the block on short, wide viewports. */
-  font-size: clamp(2.5rem, min(9.9vw, 15.5svh), 12.25rem);
-  font-weight: 700;
-  line-height: 0.98;
+  /* 50 is the narrow end of Acumin's width axis — anything lower renders
+     identically — and it is what the reference comp is set in. */
+  font-stretch: 50%;
+  --wdth: 50;
+  /* Sized so the longest line ("THE SYSTEMS") fills the column with a little
+     slack, scaling with the viewport rather than snapping at breakpoints. The svh
+     term keeps three lines of display type from crowding the rest of the block on
+     short, wide viewports. */
+  font-size: clamp(2.5rem, min(10.1vw, 18svh), 12.5rem);
+  font-weight: 800;
+  /* 80%, as in the comp — 160px at the 200px reference size. */
+  line-height: 0.8;
   text-transform: uppercase;
+  /* -4px at the 200px reference size, expressed as a ratio so it tracks the
+     responsive size. */
   letter-spacing: -0.02em;
   margin: 0;
   display: block;
@@ -147,7 +155,7 @@
   }
 
   .hero-section__title {
-    font-size: clamp(2.25rem, min(10.2vw, 15.5svh), 7rem);
+    font-size: clamp(2.25rem, min(10.2vw, 18svh), 7rem);
   }
 
   .hero-section__body-block {
@@ -172,7 +180,7 @@
   }
 
   .hero-section__title {
-    font-size: clamp(2.25rem, min(13vw, 12svh), 4.5rem);
+    font-size: clamp(2.25rem, min(13vw, 14svh), 4.5rem);
     max-inline-size: 100%;
   }
 
