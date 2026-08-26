@@ -32,6 +32,11 @@
   width: 1px;
   overflow: hidden;
   opacity: var(--vrail-opacity, 0);
+
+  /* The hero position is the resting `left`; the glide toward the overview's
+     label column rides on a transform so the scroll loop never relays out. */
+  transform: translate3d(var(--vrail-x-shift, 0px), 0, 0);
+  will-change: transform;
 }
 
 /* Deliberately near-invisible: the moving peak is what carries the energy. */
@@ -83,6 +88,8 @@
   left: calc(var(--vrail-x, 50%) - 0.5px);
   width: 1px;
   height: var(--vrail-strip-height, 0px);
+  /* Same glide as the track, so the strip stays welded to the rail. */
+  transform: translate3d(var(--vrail-x-shift, 0px), 0, 0);
   background: var(--active-project-color, #ffffff);
   border-top: 1px solid #161a32;
   border-bottom: 1px solid #161a32;
