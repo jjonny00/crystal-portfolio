@@ -419,7 +419,9 @@ const FacetLabels = React.memo(function FacetLabels({
             right: variant === 'desktop' ? 'auto' : `${OVERVIEW_COLUMN_RIGHT_MOBILE_PX}px`,
             left: variant === 'desktop' ? OVERVIEW_COLUMN_LEFT : OVERVIEW_COLUMN_LEFT_MOBILE,
             top: variant === 'desktop' ? '50%' : 'auto',
-            bottom: variant === 'desktop' ? 'auto' : 'calc(4.75rem + env(safe-area-inset-bottom, 0px))',
+            // Same inset the hero's block-end padding uses (see index.css), so the
+            // list lands on the same line the hero's CTA does.
+            bottom: variant === 'desktop' ? 'auto' : 'var(--mobile-bottom-inset)',
             transform: variant === 'desktop' ? 'translateY(-50%)' : 'none',
             // No inset of its own on either variant: `left`/`right` above already
             // place the column, and padding here would push the text off the line

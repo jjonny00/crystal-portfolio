@@ -197,8 +197,7 @@
     width: 100%;
     align-items: center;
     justify-content: flex-end;
-    padding: clamp(4rem, 10svh, 6rem) var(--hero-gutter)
-      calc(2.75rem + env(safe-area-inset-bottom, 0px));
+    padding: clamp(4rem, 10svh, 6rem) var(--hero-gutter) var(--mobile-bottom-inset);
   }
 
   .hero-section__content {
