@@ -441,11 +441,11 @@
       }
     },
     "heroTuning": {
-      "radius": 7,
-      "height": 0.8,
+      "radius": 3.0,
+      "height": 0.525,
       "orbitSpeed": 0.08,
       "baseAngle": 0,
-      "lookAtYOffset": 0
+      "lookAtYOffset": 0.5
     }
   },
   "projects": {
