@@ -52,6 +52,6 @@
    outside the viewport, so the layer costs nothing and paints nothing. */
 @media (max-width: 767px) {
   .app-frame {
-    --app-corner-radius: 2.5rem;
+    --app-corner-radius: 5rem;
   }
 }

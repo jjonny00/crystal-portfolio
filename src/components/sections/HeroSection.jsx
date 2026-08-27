@@ -95,7 +95,8 @@ const HeroSection = ({
 
         <animated.div style={subtitleSpring} className="hero-section__body-block">
           <p className="hero-section__role">
-            PRINCIPAL PRODUCT DESIGNER · SYSTEMS AND INTERACTION
+            <span className="hero-section__role-line">PRINCIPAL PRODUCT DESIGNER</span>
+            <span className="hero-section__role-line">SYSTEMS AND INTERACTION</span>
           </p>
           <p className="hero-section__body-copy">
             I design systems that shape how people decide, compete, and engage. My work focuses on the mechanics underneath the experience: the rules, feedback, and tradeoffs that turn interaction into something worth mastering. Across products and games, I build systems that reward intent.
