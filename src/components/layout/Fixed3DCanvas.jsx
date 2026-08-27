@@ -1021,10 +1021,34 @@ const Fixed3DCanvas = forwardRef(({
           />
 
           {/* UPDATED: Enhanced MistyLayerStack with highest render order */}
+          {/* The plane is billboarded and the texture maps once across it, so what
+              makes the mist read is the frustum covering a good fraction of that
+              single tile — desktop's overview sees about 70% of it.
+
+              Mobile's overview camera has to pull much further back to fit the
+              crystal into a narrow portrait frame, and it looks lower: its view
+              spans roughly y -9.0 to 4.4 where desktop's spans -3.2 to 3.8. Against
+              a plane centred at y 1.5 covering -3.5 to 6.5, that leaves the bottom
+              5.5 units of the mobile frame with no plane at all, and wastes the top
+              of the plane above the frame.
+
+              So mobile gets the plane scaled UNIFORMLY (24x10 -> 46x19, both by
+              1.9) and recentred. Uniform is the point: scaling height alone
+              stretches the texture, and tiling it instead seams, because mist05
+              does not tile down Y. This keeps one undistorted tile filling the
+              frame.
+
+              The centre is solved, not guessed. Desktop's view covers the plane
+              from 2.8% to 73.2% of its height, so mobile's is placed to cover the
+              same span of the same texture — 19 tall centred at 0 — which is what
+              makes it read the same rather than merely be present.
+
+              These follow the mobile overview camera in layout/mobile.json; if that
+              is retuned substantially, re-solve against its new target. */}
           <MistyLayerStack
-            y={1.5}              // Position above crystal
-            width={24}         // Wide coverage
-            height={10}      // 2:1 aspect ratio with new texture
+            y={isMobile ? 0 : 1.5}
+            width={isMobile ? 46 : 24}
+            height={isMobile ? 19 : 10}
             layers={3}         // Multiple layers for depth
             opacity={0.1}      // Semi-transparent
             drift={{ x: 0.002, y: 0.0 }}  // Gentle drift
