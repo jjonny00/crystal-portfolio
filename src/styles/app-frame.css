@@ -49,9 +49,17 @@
 }
 
 /* Desktop keeps square corners: at radius 0 the shadow is a band entirely
-   outside the viewport, so the layer costs nothing and paints nothing. */
+   outside the viewport, so the layer costs nothing and paints nothing.
+ *
+ * Deliberately vw and px, never rem. A fixed radius is a very different fraction
+ * of the screen on a 390px phone than on the ~600px window a desktop responsive
+ * mode is usually parked at, which is what makes the same value look right in one
+ * and oversized in the other — so it scales with the viewport instead, landing on
+ * 32px at iPhone widths. Avoiding rem also keeps it out of reach of iOS Safari
+ * inflating the root font size, which would scale a rem radius but not a px one.
+ */
 @media (max-width: 767px) {
   .app-frame {
-    --app-corner-radius: 5rem;
+    --app-corner-radius: clamp(24px, 8.2vw, 56px);
   }
 }
