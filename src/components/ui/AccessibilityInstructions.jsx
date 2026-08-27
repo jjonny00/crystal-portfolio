@@ -8,7 +8,10 @@ import { animated, useSpring } from '@react-spring/web';
  * Component to display keyboard controls and accessibility instructions
  * UPDATED: Added debug panel shortcuts
  */
-const AccessibilityInstructions = ({ visible = true }) => {
+// `showLauncher` hides the floating button without unmounting the component, so
+// the K shortcut still conjures the panel while the dev affordances are hidden.
+// `visible` remains the all-or-nothing switch.
+const AccessibilityInstructions = ({ visible = true, showLauncher = true }) => {
   const [expanded, setExpanded] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false); // Start hidden
   
@@ -103,8 +106,9 @@ const AccessibilityInstructions = ({ visible = true }) => {
   return (
     <>
       {/* Toggle Button */}
-      <button 
-        style={toggleButtonStyle} 
+      {showLauncher && (
+      <button
+        style={toggleButtonStyle}
         onClick={() => setShowInstructions(!showInstructions)}
         aria-label="Toggle Keyboard Shortcuts"
         role="button"
@@ -142,7 +146,8 @@ const AccessibilityInstructions = ({ visible = true }) => {
           Keyboard Shortcuts (press K to toggle)
         </div>
       </button>
-      
+      )}
+
       {/* Instructions Panel */}
       <animated.div 
         style={{

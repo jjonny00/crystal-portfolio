@@ -416,6 +416,12 @@ function App() {
   
   // Basic state hooks
   const [hideAllUI, setHideAllUI] = useState(false);
+  // Whether the development affordances are on screen: the Hide UI button, the
+  // FPS counter and its performance alert, the settings gear and its panel, and
+  // the keyboard-shortcuts launcher. Off by default so the site presents clean;
+  // revealed by the corner tap target below. The keyboard shortcuts (U, P, K, C)
+  // keep working either way — they are how you reach these dialogs without it.
+  const [devUiRevealed, setDevUiRevealed] = useState(false);
   // Which top-nav item is highlighted, derived from the current scroll zone.
   const [activeNavLabel, setActiveNavLabel] = useState(null);
   // The section the scrollable content has settled on. Drives the About scrim so
@@ -995,26 +1001,59 @@ function App() {
 
   return (
     <>
-      {/* UI Hide Toggle Button */}
+      {/* TEMPORARY — DELETE BEFORE PRODUCTION.
+          Invisible tap target in the top-right corner that reveals the dev
+          affordances. Fixed and fully transparent, so it contributes nothing to
+          layout and nothing to paint; removing this block and the `devUiRevealed`
+          gates is all that ships-to-prod requires. Sized to the nav's own 32px
+          right gutter so it sits beside the nav items rather than over them, and
+          kept out of the tab order and the accessibility tree — it is scaffolding,
+          not UI. */}
       <button
-        onClick={() => setHideAllUI(!hideAllUI)}
+        type="button"
+        onClick={() => setDevUiRevealed((prev) => !prev)}
+        aria-hidden="true"
+        tabIndex={-1}
+        title={devUiRevealed ? 'Hide dev UI' : 'Reveal dev UI'}
         style={{
           position: 'fixed',
-          top: '10px',
-          left: '10px',
-          zIndex: 99999,
-          backgroundColor: hideAllUI ? '#64ffda' : 'rgba(0, 0, 0, 0.7)',
-          color: hideAllUI ? '#000' : 'white',
+          top: 0,
+          right: 0,
+          width: '36px',
+          height: '36px',
+          zIndex: 100001,
+          padding: 0,
           border: 'none',
-          padding: '8px 12px',
-          borderRadius: '4px',
-          fontSize: '12px',
-          cursor: 'pointer',
-          fontWeight: 'bold'
+          background: 'transparent',
+          opacity: 0,
+          cursor: 'default',
+          appearance: 'none',
+          WebkitTapHighlightColor: 'transparent'
         }}
-      >
-        {hideAllUI ? 'Show UI (U)' : 'Hide UI (U)'}
-      </button>
+      />
+
+      {/* UI Hide Toggle Button */}
+      {devUiRevealed && (
+        <button
+          onClick={() => setHideAllUI(!hideAllUI)}
+          style={{
+            position: 'fixed',
+            top: '10px',
+            left: '10px',
+            zIndex: 99999,
+            backgroundColor: hideAllUI ? '#64ffda' : 'rgba(0, 0, 0, 0.7)',
+            color: hideAllUI ? '#000' : 'white',
+            border: 'none',
+            padding: '8px 12px',
+            borderRadius: '4px',
+            fontSize: '12px',
+            cursor: 'pointer',
+            fontWeight: 'bold'
+          }}
+        >
+          {hideAllUI ? 'Show UI (U)' : 'Hide UI (U)'}
+        </button>
+      )}
 
       {/* Navigation Bar */}
       {!hideAllUI && (
@@ -1029,8 +1068,8 @@ function App() {
       )}
 
       {/* UPDATED: FPS Display with V2 performance tier info */}
-      {!hideAllUI && (
-        <FpsDisplay 
+      {devUiRevealed && !hideAllUI && (
+        <FpsDisplay
           visible={true}
           position="top-right"
           showDetails={false}
@@ -1038,7 +1077,7 @@ function App() {
       )}
       
       {/* UPDATED: Performance alerts with V2 tier-appropriate thresholds */}
-      {!hideAllUI && (
+      {devUiRevealed && !hideAllUI && (
         <PerformanceAlert
           visible={true}
           onPerformanceIssue={(data) => {
@@ -1128,15 +1167,15 @@ function App() {
       />
 
       {/* UI Controls */}
-      {!hideAllUI && (
-        <ControlsToggle 
-          showUI={showUI} 
-          toggleUI={toggleUI} 
+      {devUiRevealed && !hideAllUI && (
+        <ControlsToggle
+          showUI={showUI}
+          toggleUI={toggleUI}
           disabled={false}
         />
       )}
-      
-      {!hideAllUI && showUI && (
+
+      {devUiRevealed && !hideAllUI && showUI && (
         <TabbedControlPanel 
           visible={true}
           activeTab={activeTab}
@@ -1222,8 +1261,11 @@ function App() {
         </TabbedControlPanel>
       )}
       
+      {/* Stays mounted with its launcher hidden, rather than gated out entirely —
+          that is what keeps K working as the way to conjure the shortcuts panel
+          while the dev affordances are off screen. */}
       {!hideAllUI && (
-        <AccessibilityInstructions visible={true} />
+        <AccessibilityInstructions visible={true} showLauncher={devUiRevealed} />
       )}
 
       {/* UPDATED: Enhanced Debug Panel with V2 performance system info */}
