@@ -10,10 +10,14 @@ const NAV_BASE_STYLE = {
   backgroundColor: 'transparent'
 };
 
+// Sits on the site-wide content edge (--page-edge in index.css) rather than its
+// own max-width, so the nav lines up with the hero and with every case-study
+// section. The token already handles centring past --page-content-max, so the bar
+// itself stays full-bleed and only its padding grows.
 const NAV_INNER_STYLE = {
-  maxWidth: '1480px',
-  margin: '0 auto',
-  padding: '0 32px',
+  maxWidth: 'none',
+  margin: '0',
+  padding: '0 var(--page-edge)',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',

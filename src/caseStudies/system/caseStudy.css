@@ -18,10 +18,14 @@
   --cs-color-a: #eaff00;
   --cs-color-b: #001014;
 
-  /* --- page metrics --- */
-  --cs-content-max: 1568px;
-  --cs-gutter: clamp(16px, calc(4.83vw - 3.4px), 80px);
-  --cs-edge: max(var(--cs-gutter), calc((100vw - var(--cs-content-max)) / 2));
+  /* --- page metrics ---
+     Aliased onto the site-wide tokens in index.css, which these were promoted to
+     so the portfolio nav and hero can sit on the same content edge as the case
+     studies. The --cs-* names stay because the bleed math below is written
+     against them. */
+  --cs-content-max: var(--page-content-max);
+  --cs-gutter: var(--page-gutter);
+  --cs-edge: var(--page-edge);
   /* Media that runs to the viewport edge insets by this much (16px at desktop) */
   --cs-bleed-inset: 16px;
   --cs-section-padding-block: clamp(48px, 6.4vw, 112px);

@@ -19,6 +19,18 @@
 :root {
   --page-bg: #050505;
 
+  /* Horizontal page metrics, shared by the portfolio and the case studies so the
+     nav, the hero and every case-study section all sit on one content edge.
+     Originally the case-study system's own tokens (fluid between a 402px mobile
+     and 1728px desktop reference); they live here now and caseStudy.css aliases
+     its --cs-* names onto them.
+
+     --page-edge is the one to use: below --page-content-max it is the fluid
+     gutter, above it the content centres and the gutter grows with the viewport. */
+  --page-content-max: 1568px;
+  --page-gutter: clamp(16px, calc(4.83vw - 3.4px), 80px);
+  --page-edge: max(var(--page-gutter), calc((100vw - var(--page-content-max)) / 2));
+
   /* How far the mobile composition sits off the bottom of the viewport. Shared by
      the hero's block-end padding and the overview's label column so the two sit on
      the same line rather than drifting apart. */
