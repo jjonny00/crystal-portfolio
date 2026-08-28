@@ -56,7 +56,7 @@ export const projects = [
     caseStudySlug: 'mesa',
     caseStudyColors: {
       a: '#EAFF00',
-      b: '#002a3d'
+      b: '#000d1d'
     },
     mobile: {
       title: 'MESA',
