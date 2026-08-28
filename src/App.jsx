@@ -427,9 +427,6 @@ function App() {
   // The section the scrollable content has settled on. Drives the About scrim so
   // it stays in sync with the section content on both scroll and nav clicks.
   const [settledSection, setSettledSection] = useState('hero');
-  // Keeps the About scrim's blur mounted through the fade-out so the blur
-  // doesn't visibly pop off before the opacity has finished animating.
-  const [aboutScrimBlur, setAboutScrimBlur] = useState(false);
   const [perfDebug, setPerfDebug] = useState(false);
   const [snapSpeed, setSnapSpeed] = useState('medium');
   const [config, setConfig] = useState({
@@ -634,18 +631,6 @@ function App() {
     }
     setActiveNavLabel(label);
   }, []);
-
-  // Drive the About scrim's blur: on immediately when entering About, off only
-  // after the opacity fade-out has completed (so it never leaves the blur cost
-  // running while the user is elsewhere).
-  useEffect(() => {
-    if (settledSection === 'about') {
-      setAboutScrimBlur(true);
-      return undefined;
-    }
-    const timeoutId = setTimeout(() => setAboutScrimBlur(false), 520);
-    return () => clearTimeout(timeoutId);
-  }, [settledSection]);
 
   const scrollToSection = useCallback((sectionId, behavior = 'smooth') => {
     const target = document.getElementById(sectionId);
@@ -1132,8 +1117,6 @@ function App() {
           zIndex: 5,
           pointerEvents: 'none',
           background: 'rgba(6, 8, 12, 0.42)',
-          backdropFilter: aboutScrimBlur ? 'blur(5px)' : 'none',
-          WebkitBackdropFilter: aboutScrimBlur ? 'blur(5px)' : 'none',
           opacity: settledSection === 'about' ? 1 : 0,
           transition: 'opacity 450ms ease'
         }}
