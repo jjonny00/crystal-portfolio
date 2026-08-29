@@ -23,6 +23,12 @@ const FeatureSection = ({
   caption = null,
   takeaway = null,
   tone = 'a',
+  /**
+   * 'center' matches the reference design. 'start' left-aligns the copy and
+   * pulls the stage onto the same gutter, so every left edge in the section
+   * agrees and the space either side of the stage is equal.
+   */
+  align = 'center',
   id = null,
   children = null,
 }) => {
@@ -35,6 +41,7 @@ const FeatureSection = ({
       className="cs-feature"
       innerClassName="cs-feature__inner"
       aria-labelledby={headingId}
+      data-align={align === 'start' ? 'start' : undefined}
     >
       {title && (
         <h2 className="cs-heading cs-feature__heading" id={headingId}>

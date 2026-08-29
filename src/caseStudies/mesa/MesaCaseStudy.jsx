@@ -16,7 +16,7 @@ import {
   ConclusionSection,
   MediaGallery,
 } from '../system';
-import TightOpenTightPlaceholder from './TightOpenTightPlaceholder';
+import TightOpenTightStages from './TightOpenTightStages';
 import { mesaContent } from './mesaContent';
 
 const MesaCaseStudy = ({ project, onClose }) => {
@@ -74,12 +74,13 @@ const MesaCaseStudy = ({ project, onClose }) => {
 
       <FeatureSection
         tone="a"
+        align="start"
         title={c.tightOpenTight.title}
         intro={c.tightOpenTight.intro}
         caption={c.tightOpenTight.caption}
         takeaway={c.tightOpenTight.takeaway}
       >
-        <TightOpenTightPlaceholder />
+        <TightOpenTightStages stages={c.tightOpenTight.stages} />
       </FeatureSection>
 
       <SplitSection

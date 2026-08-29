@@ -13,6 +13,9 @@ import prototype02 from './assets/prototype02.webp';
 import prototype03 from './assets/prototype03.webp';
 import oneturn from './assets/one-turn01.webp';
 import previewmesa from './assets/preview-mesa.webp';
+import tightOpenTight01 from './assets/tight-open-tight01.webp';
+import tightOpenTight02 from './assets/tight-open-tight02.webp';
+import tightOpenTight03 from './assets/tight-open-tight03.webp';
 
 export const mesaContent = {
   projectName: 'MESA',
@@ -122,6 +125,38 @@ export const mesaContent = {
       'Then the board begins to contract.',
       'With fewer tiles remaining, the match becomes easier to read but harder to solve. Players compare their remaining health, calculate which colors can still deal enough damage, and decide whether to pursue their own match or deny the one their opponent is building toward.',
       'If the opponent completes that match, how close will it bring you to zero? Can you remove enough tiles of that color before they do? Is the better move to score damage now, or use a power to control what remains?',
+    ],
+    // Rendered by TightOpenTightStages in the FeatureSection content slot.
+    // Each stage's media is an ordinary descriptor: swap 'placeholder' for
+    // 'src' with an import to drop artwork in, exactly like every other slot.
+    stages: [
+      {
+        key: 'opening',
+        label: 'Early Game',
+        note: 'Few choices, limited information',
+        media: {
+          src: tightOpenTight01,
+          alt: 'The Mesa board at the opening of a match, with only the tile at the peak of the pyramid selectable.',
+        },
+      },
+      {
+        key: 'midgame',
+        label: 'Midgame',
+        note: 'Choice space at its widest',
+        media: {
+          src: tightOpenTight02,
+          alt: 'The Mesa board mid-match, with many tiles exposed and several colours available to pursue.',
+        },
+      },
+      {
+        key: 'endgame',
+        label: 'Endgame',
+        note: 'Legible, contracting, decisive',
+        media: {
+          src: tightOpenTight03,
+          alt: 'The Mesa board late in a match, with few tiles remaining and each choice consequential.',
+        },
+      },
     ],
     caption:
       'As the pyramid is revealed, available choices expand through the midgame before contracting into a more legible, consequential endgame.',

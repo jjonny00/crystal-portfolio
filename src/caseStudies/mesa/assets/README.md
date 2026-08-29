@@ -29,7 +29,7 @@ hero: {
 | `overview.gallery` | `prototype01.webp` · `prototype02.webp` · `prototype03.webp` |
 | `turnSequence.media` | `one-turn01.webp` |
 | `boardTeaches.media` | `preview-mesa.webp` |
-| `tightOpenTight` | **Outstanding** — Opening → Midgame → Endgame diagram with the choice-space curve (currently `TightOpenTightPlaceholder.jsx`) |
+| `tightOpenTight.stages` | `tight-open-tight01.webp` · `02` · `03` — rendered by `TightOpenTightStages.jsx` |
 | `costOfPower.media` | **Outstanding** — power table: ability, damage value, tiles remaining |
 | `asynchronous.media` | **Outstanding** — turn-replay sequence or animation |
 

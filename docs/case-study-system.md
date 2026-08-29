@@ -20,7 +20,7 @@ src/caseStudies/
   mesa/
     MesaCaseStudy.jsx       page composition
     mesaContent.js          copy + media descriptors
-    TightOpenTightPlaceholder.jsx  case-study-specific visual
+    TightOpenTightStages.jsx  case-study-specific visual
     mesa.css                case-study-specific visual styling only
     assets/
 ```

@@ -521,6 +521,29 @@
   margin-top: clamp(20px, 2.6vw, 44px);
 }
 
+/* Left-aligned variant. The copy starts on the gutter instead of centring,
+   and the stage drops its full-bleed inset to sit on that same gutter — so
+   the heading, intro, media, captions and takeaway all share one left edge,
+   with equal space either side of the stage. Higher specificity than the
+   mobile bleed rules below, so it holds at every width. */
+.cs-feature[data-align='start'] .cs-feature__inner {
+  text-align: start;
+}
+
+.cs-feature[data-align='start'] .cs-feature__intro,
+.cs-feature[data-align='start'] .cs-feature__takeaway {
+  margin-inline: 0;
+}
+
+
+/* The stage caption describes the whole trio, so it keeps the base treatment:
+   centred under the media at desktop, left on the gutter at mobile. Only the
+   padding is dropped here, so it centres across the full width of the stage
+   rather than an inset box. */
+.cs-feature[data-align='start'] .cs-feature__stage .cs-media__caption {
+  padding-inline: 0;
+}
+
 /* --------------------------------------------------------------------------
    Conclusion
    -------------------------------------------------------------------------- */
@@ -869,6 +892,14 @@
   .cs-feature__stage .cs-media__caption {
     padding-inline: var(--cs-edge);
     text-align: start;
+  }
+
+  /* The left-aligned variant zeroes this padding at desktop, where the stage
+     is only inset 16px. On mobile the stage runs edge to edge, so the caption
+     has to come back to the gutter or it sits flush against the screen while
+     every other line of copy is indented. */
+  .cs-feature[data-align='start'] .cs-feature__stage .cs-media__caption {
+    padding-inline: var(--cs-edge);
   }
 
   /* Conclusion: outcomes, then reflection. */
