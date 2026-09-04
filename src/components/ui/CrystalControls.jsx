@@ -2,7 +2,7 @@
 import { useRef, useState } from 'react';
 import * as THREE from 'three';
 import * as crystalConfig from '../../crystalConfig';
-import { isMobileDevice } from '../../utils/isMobileDevice';
+import { useLayoutConfig } from '../../hooks/useLayoutConfig';
 import { getProjectIdBySceneFacetKey, getSceneFacetKeyByProjectId } from '../../data/projects';
 import desktopLayoutJson from '../../config/layout/desktop.json';
 import mobileLayoutJson from '../../config/layout/mobile.json';
@@ -40,7 +40,11 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
     }, {})
   );
   const [projectCameraMode, setProjectCameraMode] = useState('selected');
-  const editDeviceKey = isMobileDevice() ? 'mobile' : 'desktop';
+  // Edit/export the branch the app actually reads, which is picked by viewport
+  // width (useLayoutConfig), not by touch capability — an iPad is a touch device
+  // but loads desktop.json.
+  const { variant: layoutVariant } = useLayoutConfig();
+  const editDeviceKey = layoutVariant === 'mobile' ? 'mobile' : 'desktop';
   
   // Timing state
   const [timingValues, setTimingValues] = useState({

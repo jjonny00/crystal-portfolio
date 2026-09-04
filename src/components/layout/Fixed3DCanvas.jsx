@@ -264,6 +264,16 @@ const Fixed3DCanvas = forwardRef(({
 
   const sanitizePass = useMemo(() => createSanitizePass(), []);
   const { layout, variant } = useLayoutConfig();
+
+  // Camera/scene config is keyed off the *viewport* variant, not the device's
+  // touch capability. The layout JSON above is merged into
+  // projectCameraSettings[projectId][variant === 'mobile' ? 'mobile' : 'desktop'],
+  // so anything reading those branches must use the same key or it reads a
+  // branch the layout never wrote to. An iPad is a touch device (isMobile) but
+  // is >= 768px wide, so it loads desktop.json and must read the desktop branch.
+  // isMobile stays touch-based and is only used for touch-specific behaviour
+  // (canvas pointer events).
+  const isCompactLayout = variant === 'mobile';
   const heroOverviewRuntimeTimingConfig = useMemo(
     () => ({
       ...(layout?.timing?.heroOverviewRuntime || {}),
@@ -698,7 +708,7 @@ const Fixed3DCanvas = forwardRef(({
     ];
 
     if (destination === 'project' || destination === 'caseStudy') {
-      const deviceKey = isMobile ? 'mobile' : 'desktop';
+      const deviceKey = isCompactLayout ? 'mobile' : 'desktop';
       const branchMode = destination === 'caseStudy' ? 'caseStudy' : mode;
       const branch = cameraMergedConfig?.projectCameraSettings?.[projectId]?.[deviceKey]?.[branchMode];
       if (!branch?.position || !branch?.target) {
@@ -743,7 +753,7 @@ const Fixed3DCanvas = forwardRef(({
         filmOffset: cameraMergedConfig?.cameraComposition?.hero?.filmOffsetX ?? 0,
       },
     };
-  }, [cameraMergedConfig, isMobile]);
+  }, [cameraMergedConfig, isCompactLayout]);
 
   useEffect(() => {
     if (!import.meta.env.DEV) return;
@@ -754,7 +764,7 @@ const Fixed3DCanvas = forwardRef(({
 
     if (!destination) return;
 
-    const compareKey = `${destination}|${animationData?.focusedProject || 'none'}|${animationData?.viewMode || 'none'}|${isMobile ? 'mobile' : 'desktop'}`;
+    const compareKey = `${destination}|${animationData?.focusedProject || 'none'}|${animationData?.viewMode || 'none'}|${isCompactLayout ? 'mobile' : 'desktop'}`;
     if (destinationCompareStoreRef.current.byKey[compareKey]) return;
 
     const legacyResolution = resolveLegacyDestinationPose(
@@ -769,7 +779,7 @@ const Fixed3DCanvas = forwardRef(({
       activeCameraState: animationData?.cameraState || null,
       activeViewMode: animationData?.viewMode || null,
       focusedProject: animationData?.focusedProject || null,
-      device: isMobile ? 'mobile' : 'desktop',
+      device: isCompactLayout ? 'mobile' : 'desktop',
     };
 
     const destinationMatchesActiveContext = destination === compareContext.activeCameraState;
@@ -786,7 +796,7 @@ const Fixed3DCanvas = forwardRef(({
       mode: animationData?.viewMode === 'caseStudy' ? 'caseStudy' : 'selected',
       config: cameraMergedConfig,
       animationData,
-      isMobile,
+      isMobile: isCompactLayout,
     });
 
     const compareValid = destinationMatchesActiveContext && destinationCompatibleWithViewMode && Boolean(legacyResolution?.available);
@@ -856,7 +866,7 @@ const Fixed3DCanvas = forwardRef(({
         console.log('[camera-destination-compare:details]', list);
       };
     }
-  }, [animationData?.cameraState, animationData?.focusedProject, animationData?.viewMode, animationData?.cameraConfig, cameraMergedConfig, isMobile]);
+  }, [animationData?.cameraState, animationData?.focusedProject, animationData?.viewMode, animationData?.cameraConfig, cameraMergedConfig, isCompactLayout]);
   // FIXED: Function to get facet refs from crystal scene with proper access
   const initialCameraPosition =
     cameraMergedConfig?.cameraPositions?.intro || config?.camera?.startingPosition || [0, 0, 4.5];
@@ -992,7 +1002,7 @@ const Fixed3DCanvas = forwardRef(({
             animationData={animationData}
             config={cameraMergedConfig}
             restartToken={restartToken}
-            isMobile={isMobile}
+            isMobile={isCompactLayout}
             simplifiedAnimations={simplifiedAnimations}
             facetRefs={getFacetRefs()} // FIXED: Pass exposed facet refs for anchor targeting
             sharedCameraMoveProgressRef={cameraMoveProgressRef}
@@ -1010,7 +1020,7 @@ const Fixed3DCanvas = forwardRef(({
             config={cameraMergedConfig}
             materialVariant={materialVariant}
             performanceProfile={performanceProfile}
-            isMobile={isMobile}
+            isMobile={isCompactLayout}
             simplifiedAnimations={simplifiedAnimations}
             scrollToProgress={scrollToProgress}
             scrollToProject={scrollToProject}
@@ -1046,9 +1056,9 @@ const Fixed3DCanvas = forwardRef(({
               These follow the mobile overview camera in layout/mobile.json; if that
               is retuned substantially, re-solve against its new target. */}
           <MistyLayerStack
-            y={isMobile ? 0 : 1.5}
-            width={isMobile ? 46 : 24}
-            height={isMobile ? 19 : 10}
+            y={isCompactLayout ? 0 : 1.5}
+            width={isCompactLayout ? 46 : 24}
+            height={isCompactLayout ? 19 : 10}
             layers={3}         // Multiple layers for depth
             opacity={0.1}      // Semi-transparent
             drift={{ x: 0.002, y: 0.0 }}  // Gentle drift
