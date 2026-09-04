@@ -2,12 +2,19 @@
    gutters, and typography come from the case-study system. */
 
 .mesa-arc {
-  /* The board-state images are 1376x1348 — square within a couple of pixels.
-     Every box matches that ratio, so `cover` never actually crops them. */
-  --mesa-arc-ratio: 1376 / 1348;
-  /* How much wider the midgame column is than the two either side of it. The
-     boxes are square, so this is the only thing making the middle one bigger. */
-  --mesa-arc-emphasis: 1.25fr;
+  /* The artwork is 1376x1647. The box is slightly shorter than that, so cover
+     trims a couple of percent — taken off the TOP, where there is only empty
+     hex background, because object-position below anchors the image to its
+     bottom. The legend along the bottom edge is never touched.
+     This is the dial for the section height: lower the second number to
+     shorten it further, up to the point where the pyramid apex starts to
+     clip. 1647 would be the untrimmed artwork. */
+  --mesa-arc-ratio: 1376 / 1610;
+  /* Relative width of the midgame column. All three boxes share one shape, so
+     width also sets height — at 1fr they come out identical, which is what
+     keeps the row level. Raising it makes the middle one bigger again, at the
+     cost of it overhanging the other two. */
+  --mesa-arc-emphasis: 1fr;
   /* Space between the three boxes, matched to the space either side of the
      trio — FeatureSection insets its stage by --cs-bleed-inset, so taking the
      gap from the same token keeps all four consistent if it ever changes. */
@@ -15,10 +22,10 @@
 
   display: grid;
   gap: var(--mesa-arc-gap);
-  /* Without this the three stages stretch to the height of the tallest —
-     the midgame one — which overrides the outer boxes' aspect-ratio and
-     re-crops their artwork taller than square. Each stage sizes to its own
-     content instead. */
+  /* Grid items stretch to the tallest sibling by default, which overrides a
+     box's aspect-ratio and re-crops its artwork. That is moot while every column
+     is the same width, but it is what breaks the moment --mesa-arc-emphasis is
+     raised again, so each stage sizes to its own content instead. */
   align-items: start;
   grid-template-columns:
     minmax(0, 1fr)
@@ -31,12 +38,17 @@
   gap: clamp(6px, 0.7vw, 12px);
 }
 
-/* The midgame box is bigger because its column is wider — it stays the same
-   shape as the other two, rather than being stretched taller. That keeps the
-   expand-and-contract read of the trio without cropping any of the artwork. */
+/* One shape for all three boxes. Because every column is the same width, they
+   resolve to the same height too, so the row is level and the labels line up. */
 .mesa-arc__box {
   position: relative;
   aspect-ratio: var(--mesa-arc-ratio);
+}
+
+/* Anchor the artwork to the bottom of its box, so the crop above comes off the
+   empty background at the top rather than the legend at the bottom. */
+.mesa-arc__box .cs-media__img {
+  object-position: bottom;
 }
 
 .mesa-arc__label {
@@ -49,7 +61,7 @@
 
 @media (max-width: 767.98px) {
   /* One column, so there is no width to emphasise with — all three render at
-     the same square size. */
+     the same size. */
   .mesa-arc {
     grid-template-columns: minmax(0, 1fr);
   }

@@ -195,9 +195,13 @@
 }
 
 /* A frame whose height is set by its own children (custom diagrams, sequence
-   and feature slots) opts out of the aspect ratio entirely. */
+   and feature slots) opts out of the aspect ratio entirely — and with it, the
+   clipping. The overflow above exists to crop media to a ratio; with no ratio
+   there is nothing to crop to, and leaving it on silently cuts off whatever a
+   custom stage puts below its artwork (labels, legends, its own captions). */
 .cs-media__frame--auto {
   aspect-ratio: auto;
+  overflow: visible;
 }
 
 .cs-media__img {
