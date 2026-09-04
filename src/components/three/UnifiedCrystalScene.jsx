@@ -31,6 +31,7 @@ import projects, {
 } from '../../data/projects'
 import FacetLabels from './FacetLabels'
 import FacetHoverParticles from './FacetHoverParticles'
+import OverviewTouchPicker from './OverviewTouchPicker'
 import { effects, materials as defaultCrystalMaterials } from '../../crystalConfig'
 import { useFacetOverlayGeometry } from '../../hooks/useFacetOverlayGeometry'
 import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController'
@@ -4187,6 +4188,16 @@ const UnifiedCrystalScene = forwardRef(({
           })}
         </group>
       )}
+
+      {/* Touch has no pointer hand-off to the canvas, so taps are resolved here
+          instead. See OverviewTouchPicker for why the canvas cannot simply take
+          the input on a touch device. */}
+      <OverviewTouchPicker
+        enabled={inActiveOverview && !hoverCapable}
+        facetRefs={facetRefs}
+        facetKeys={facetKeys}
+        onPickFacet={handleFacetClick}
+      />
 
       <FacetLabels
         projects={projects}

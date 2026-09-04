@@ -436,7 +436,13 @@ const FacetLabels = React.memo(function FacetLabels({
             alignItems: 'flex-start',
             textAlign: 'left',
             boxSizing: 'border-box',
-            pointerEvents: visible ? 'auto' : 'none',
+            // Interactive for a mouse only. This column lives in a fixed portal on
+            // document.body, not inside the scroll container, so a touch it captures
+            // is a touch that can never scroll the page — a swipe that happens to
+            // start on a label would just die there. On touch the labels go inert and
+            // OverviewTouchPicker hit-tests them by rect instead, clicking through to
+            // the same handler.
+            pointerEvents: hoverCapable && visible ? 'auto' : 'none',
           }}
           data-rail-list
         >

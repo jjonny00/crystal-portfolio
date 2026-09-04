@@ -6,6 +6,7 @@ import ProjectFocusSection from '../sections/ProjectFocusSection';
 import AboutSection from '../sections/AboutSection';
 import { projects } from '../../data/projects';
 import { useLayoutConfig } from '../../hooks/useLayoutConfig';
+import { useHoverCapable } from '../../hooks/useHoverCapable';
 
 const SECTION_SETTLE_DELAY_MS = 220;
 
@@ -20,6 +21,7 @@ const ScrollablePortfolio = ({
   onSettledSectionChange = null
 }) => {
   const { variant } = useLayoutConfig();
+  const hoverCapable = useHoverCapable();
   const isMobileViewport = variant === 'mobile';
   const containerRef = useRef(null);
   const settleTimeoutRef = useRef(null);
@@ -151,7 +153,14 @@ const ScrollablePortfolio = ({
         zIndex: 10,
         WebkitOverflowScrolling: 'touch',
         backgroundColor: 'transparent',
-        pointerEvents: overviewInteractionMode ? 'none' : 'auto',
+        // The settled overview hands pointer input to the 3D canvas underneath so
+        // the fragments can be hovered and clicked. That hand-off only makes sense
+        // for a mouse: the canvas is fixed-position and is not an ancestor of this
+        // container, so on touch any gesture it swallows is a gesture this
+        // container never sees — scrolling stops dead and there is no swipe left to
+        // get back out of the overview. Touch keeps this container live and reaches
+        // the crystal through OverviewTouchPicker instead.
+        pointerEvents: overviewInteractionMode && hoverCapable ? 'none' : 'auto',
         margin: 0,
         padding: 0,
         boxSizing: 'border-box',
