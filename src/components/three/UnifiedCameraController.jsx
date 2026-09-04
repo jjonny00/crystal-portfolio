@@ -26,6 +26,13 @@ const MOUSE_INTERACTION = {
   hero:            { maxAzimuth: 0.26,  maxPolar: 0.1,  easeK: 0.005 }, // weightiest / most pronounced
   overviewProject: { maxAzimuth: 0.1, maxPolar: 0.04, easeK: 1 }, // overview only (selected projects no longer track the mouse)
   aboutOrbitSpeed: 0.01,                                            // rad/sec constant auto-orbit
+  // Touch has no cursor to sway toward, so the hero gives a horizontal drag direct
+  // control of the orbit angle instead. Unlike the mouse sway this is unbounded —
+  // the auto-orbit already sweeps the full circle, so every angle is a valid pose.
+  //   turnsPerScreenWidth : a full-width drag rotates this fraction of a revolution
+  //   flingDamping        : e-folding rate (1/s) of the spin left over after release
+  //   maxFlingTurnsPerSec : ceiling on release velocity, so a flick cannot whip
+  heroTouchOrbit:  { turnsPerScreenWidth: 0.25, flingDamping: 2.6, maxFlingTurnsPerSec: 0.35 },
 };
 const HERO_OVERVIEW_DIRECTOR_ENV_FORCE_PILOT =
   typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_CAMERA_DIRECTOR_HERO_OVERVIEW_PILOT != null
@@ -163,6 +170,10 @@ const UnifiedCameraController = ({
   // the offset momentarily un-settles the camera. Without this the offset toggles on/off
   // every frame and the camera jumps. Reset on zone change.
   const parallaxLatchRef = useRef(false);
+  // Hero orbit under a finger. `offset` is folded into the orbit angle; `velocity`
+  // (rad/s) is the fling left after release, decaying back to the plain auto-orbit;
+  // `dragging` freezes that decay while the finger is still down.
+  const heroTouchOrbitRef = useRef({ offset: 0, velocity: 0, dragging: false });
   
   // Current camera target tracking
   const currentTarget = useRef({
@@ -242,6 +253,9 @@ const UnifiedCameraController = ({
   const HERO_PARALLAX_MAX_AZIMUTH = MOUSE_INTERACTION.hero.maxAzimuth;
   const HERO_PARALLAX_MAX_POLAR = MOUSE_INTERACTION.hero.maxPolar;
   const HERO_PARALLAX_EASE_K = MOUSE_INTERACTION.hero.easeK;
+  const HERO_TOUCH_ORBIT_TURNS_PER_SCREEN_WIDTH = MOUSE_INTERACTION.heroTouchOrbit.turnsPerScreenWidth;
+  const HERO_TOUCH_ORBIT_FLING_DAMPING = MOUSE_INTERACTION.heroTouchOrbit.flingDamping;
+  const HERO_TOUCH_ORBIT_MAX_FLING = MOUSE_INTERACTION.heroTouchOrbit.maxFlingTurnsPerSec * Math.PI * 2;
   const INTRO_DURATION_MS = 4400;
   // Reveal easing exponent. The reveal = smoothstep(progress) ** this. >1 biases the
   // curve toward dark values — the crystal crawls through the low/dark range for
@@ -1429,6 +1443,108 @@ const UnifiedCameraController = ({
     };
   }, []);
 
+  // Touch equivalent of the hero mouse sway: a horizontal drag turns the orbit.
+  // There is no cursor to track on touch, so the gesture itself becomes the input.
+  // Only the hero listens — every other zone belongs to the scroll.
+  //
+  // Vertical is the page scroll and must stay untouched, so the gesture is
+  // axis-locked on the first few pixels of travel and a vertical lock hands the
+  // whole gesture back. `.scroll-container` is touch-action: pan-y on coarse
+  // pointers, which is what makes this safe: the browser owns vertical panning
+  // (and sends pointercancel when it takes over) and leaves horizontal to us.
+  useEffect(() => {
+    if (typeof window === 'undefined' || !isTouchDeviceRef.current) return undefined;
+    if (animationData?.cameraState !== 'hero') return undefined;
+
+    const AXIS_LOCK_TRAVEL_PX = 8;
+    const INTERACTIVE_SELECTOR =
+      'a, button, input, select, textarea, [role="button"], [data-no-hero-orbit-drag]';
+    const spin = heroTouchOrbitRef.current;
+    let gesture = null;
+
+    const radiansPerPixel = () =>
+      (HERO_TOUCH_ORBIT_TURNS_PER_SCREEN_WIDTH * Math.PI * 2) / Math.max(window.innerWidth, 1);
+
+    const endGesture = () => {
+      if (!gesture) return;
+      gesture = null;
+      spin.dragging = false;
+    };
+
+    const handleDown = (event) => {
+      if (event.pointerType === 'mouse') return;
+      if (event.target?.closest?.(INTERACTIVE_SELECTOR)) return;
+      gesture = {
+        id: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        lastX: event.clientX,
+        lastTime: event.timeStamp,
+        axis: null,
+      };
+    };
+
+    const handleMove = (event) => {
+      if (!gesture || event.pointerId !== gesture.id) return;
+
+      if (!gesture.axis) {
+        const travelX = event.clientX - gesture.startX;
+        const travelY = event.clientY - gesture.startY;
+        if (Math.hypot(travelX, travelY) < AXIS_LOCK_TRAVEL_PX) return;
+        gesture.axis = Math.abs(travelX) > Math.abs(travelY) ? 'x' : 'y';
+        if (gesture.axis === 'y') {
+          // The scroll owns this one.
+          endGesture();
+          return;
+        }
+        // Take over from any fling still coasting, so the crystal lands under
+        // the finger instead of fighting it.
+        spin.dragging = true;
+        spin.velocity = 0;
+        gesture.lastX = event.clientX;
+        gesture.lastTime = event.timeStamp;
+        return;
+      }
+
+      const dx = event.clientX - gesture.lastX;
+      const dtMs = Math.max(event.timeStamp - gesture.lastTime, 1);
+      gesture.lastX = event.clientX;
+      gesture.lastTime = event.timeStamp;
+
+      // Negated, and deliberately the opposite sign to the mouse sway. The mouse is
+      // a sway TOWARD the cursor: move right, the camera swings right. A drag is
+      // direct manipulation and has to behave like every other 3D viewer — the
+      // crystal follows the finger. Increasing the orbit angle walks the camera
+      // toward +X, which slides the crystal LEFT on screen (verified against
+      // getAuthoritativeHeroCameraSnapshot: a marker at +Z projects to ndc.x -0.40
+      // at +10deg and +0.40 at -10deg), so finger-right must decrease it.
+      const deltaAngle = -dx * radiansPerPixel();
+      spin.offset += deltaAngle;
+      spin.velocity = THREE.MathUtils.clamp(
+        (deltaAngle / dtMs) * 1000,
+        -HERO_TOUCH_ORBIT_MAX_FLING,
+        HERO_TOUCH_ORBIT_MAX_FLING,
+      );
+    };
+
+    window.addEventListener('pointerdown', handleDown, { passive: true });
+    window.addEventListener('pointermove', handleMove, { passive: true });
+    window.addEventListener('pointerup', endGesture, { passive: true });
+    window.addEventListener('pointercancel', endGesture, { passive: true });
+
+    return () => {
+      window.removeEventListener('pointerdown', handleDown);
+      window.removeEventListener('pointermove', handleMove);
+      window.removeEventListener('pointerup', endGesture);
+      window.removeEventListener('pointercancel', endGesture);
+      endGesture();
+    };
+  }, [
+    HERO_TOUCH_ORBIT_MAX_FLING,
+    HERO_TOUCH_ORBIT_TURNS_PER_SCREEN_WIDTH,
+    animationData?.cameraState,
+  ]);
+
   useEffect(() => {
     // FIXED: Reset orbit state when camera state changes
     if (animationData?.cameraState !== lastCameraStateRef.current) {
@@ -1447,6 +1563,11 @@ const UnifiedCameraController = ({
       parallaxAzimuthRef.current = 0;
       parallaxPolarRef.current = 0;
       parallaxLatchRef.current = false;
+      // Same reasoning for the hero touch orbit: re-entering hero starts from the
+      // plain auto-orbit rather than wherever a previous visit was left spun to.
+      heroTouchOrbitRef.current.offset = 0;
+      heroTouchOrbitRef.current.velocity = 0;
+      heroTouchOrbitRef.current.dragging = false;
 
       if (animationData?.cameraState === 'hero' && previousCameraState !== 'hero') {
         syncHeroCameraRefs('cameraState-transition-to-hero', { resetPosition: false });
@@ -7163,6 +7284,19 @@ const UnifiedCameraController = ({
         const ease = Math.min(Math.max(1 - Math.exp(-HERO_PARALLAX_EASE_K * delta), 0.01), 1);
         parallaxAzimuthRef.current += (targetAz - parallaxAzimuthRef.current) * ease;
         parallaxPolarRef.current += (targetPol - parallaxPolarRef.current) * ease;
+      } else {
+        // Touch: the drag writes the angle straight into `offset` (no easing — a
+        // drag that lags the finger reads as broken), so all that is left here is
+        // coasting the fling down after release. No polar channel: vertical is the
+        // scroll, so there is no gesture to tilt with.
+        const spin = heroTouchOrbitRef.current;
+        if (!spin.dragging && spin.velocity !== 0) {
+          spin.offset += spin.velocity * delta;
+          spin.velocity *= Math.exp(-HERO_TOUCH_ORBIT_FLING_DAMPING * delta);
+          if (Math.abs(spin.velocity) < 1e-4) spin.velocity = 0;
+        }
+        parallaxAzimuthRef.current = spin.offset;
+        parallaxPolarRef.current = 0;
       }
       const snapshot = updateAuthoritativeHeroCamera({
         elapsed: state.clock.elapsedTime,

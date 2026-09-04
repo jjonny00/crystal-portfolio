@@ -260,8 +260,12 @@ html .scroll-container.no-snap .scroll-section {
   }
 }
 
-/* TABLET: match mobile touch panning so iPad can hand off vertical swipes */
-@media (min-width: 769px) and (max-width: 1024px) {
+/* TOUCH: the container owns vertical panning at every width. The bracketed rules
+   above miss large tablets in landscape, and this is load-bearing in both
+   directions — pan-y claims the vertical axis for the scroll AND leaves the
+   horizontal one free, which is what the hero orbit drag
+   (UnifiedCameraController) reads. */
+@media (pointer: coarse) {
   .scroll-container {
     touch-action: pan-y !important;
   }
