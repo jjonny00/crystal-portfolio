@@ -16,6 +16,13 @@ import previewmesa from './assets/preview-mesa.webp';
 import tightOpenTight01 from './assets/tight-open-tight01.webp';
 import tightOpenTight02 from './assets/tight-open-tight02.webp';
 import tightOpenTight03 from './assets/tight-open-tight03.webp';
+import powerKey from './assets/power-key.webp';
+import powerBomb from './assets/power-cards/bomb.webp';
+import powerDestroy from './assets/power-cards/destroy.webp';
+import powerShuffle from './assets/power-cards/shuffle.webp';
+import powerDraw from './assets/power-cards/draw.webp';
+import powerFreeze from './assets/power-cards/freeze.webp';
+import powerSteal from './assets/power-cards/steal.webp';
 
 export const mesaContent = {
   projectName: 'MESA',
@@ -169,7 +176,7 @@ export const mesaContent = {
 
   costOfPower: {
     title: 'The Cost of Power',
-    body: [
+    intro: [
       'Every color match produces two rewards: damage against the opponent and a power that can alter the match.',
       'The stronger the power, the less immediate damage its color deals.',
       "A **Bomb** deals only five damage but can destroy every tile in an opponent's slots if they select the trapped tile. **Freeze** deals more damage but temporarily locks part of the shared board. **Shuffle** can rotate your own tiles or disrupt an opponent's nearly completed match without sacrificing the normal draw.",
@@ -177,12 +184,56 @@ export const mesaContent = {
       'That difference was intentional. The rules were easy to understand, but their value changed as players learned to read the entire board.',
       'A compact power key showed each ability, its damage, and how many matching tiles remained. Detailed descriptions stayed behind an information control. The interface exposed the economy without telling the player which decision to make.',
     ],
-    media: {
-      placeholder: 'Screenshot — power table with each ability, damage value, and tiles remaining',
+    // Rendered by FeaturedGallery in the FeatureSection content slot: the power
+    // key is the lead, the six ability cards are the supporting set. Aspect
+    // ratios are the artwork's own — the gallery derives its column split from
+    // them, so the key and the card grid come out the same height.
+    key: {
+      src: powerKey,
       alt: 'The Mesa power key, listing each ability alongside its damage value and remaining tile count.',
+      aspectRatio: '1280 / 2675',
     },
+    // Ordered as the power key lists them, so the two read together.
+    powers: [
+      {
+        key: 'bomb',
+        src: powerBomb,
+        alt: 'Bomb power card: −5 damage. Hide a bomb on any available tile; if your opponent draws it, their current tiles are destroyed.',
+        aspectRatio: '388 / 560',
+      },
+      {
+        key: 'destroy',
+        src: powerDestroy,
+        alt: "Destroy power card: −10 damage. Select one of your opponent's tiles to destroy.",
+        aspectRatio: '388 / 560',
+      },
+      {
+        key: 'shuffle',
+        src: powerShuffle,
+        alt: "Shuffle power card: −15 damage. Rotate your opponent's tiles to disrupt their match.",
+        aspectRatio: '388 / 560',
+      },
+      {
+        key: 'draw',
+        src: powerDraw,
+        alt: 'Draw power card: −10 damage. Draw an additional tile.',
+        aspectRatio: '388 / 560',
+      },
+      {
+        key: 'freeze',
+        src: powerFreeze,
+        alt: 'Freeze power card: −15 damage. Select any available tile to freeze it and any adjacent tiles for one turn.',
+        aspectRatio: '388 / 560',
+      },
+      {
+        key: 'steal',
+        src: powerSteal,
+        alt: "Steal power card: −5 damage. Take one of your opponent's tiles and make it your own.",
+        aspectRatio: '388 / 560',
+      },
+    ],
     caption:
-      "The power key exposes each ability's damage and remaining tile count, giving players the information to weigh immediate damage against board control.",
+      "The power key exposes each ability's damage and remaining tile count, while the individual cards carry the detail — the information to weigh immediate damage against board control, without being told which to take.",
   },
 
   asynchronous: {

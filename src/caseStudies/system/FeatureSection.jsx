@@ -23,6 +23,8 @@ const FeatureSection = ({
   caption = null,
   takeaway = null,
   tone = 'a',
+  /** 'none' paints no background, so the 3D scene shows through. See CaseStudySection. */
+  background = 'tone',
   /**
    * 'center' matches the reference design. 'start' left-aligns the copy and
    * pulls the stage onto the same gutter, so every left edge in the section
@@ -37,6 +39,7 @@ const FeatureSection = ({
   return (
     <CaseStudySection
       tone={tone}
+      background={background}
       id={id}
       className="cs-feature"
       innerClassName="cs-feature__inner"

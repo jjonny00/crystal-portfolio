@@ -53,9 +53,10 @@ tone. Text weights come from `color-mix()` on the foreground, so muted body copy
 captions, and metadata labels stay correct in both tones automatically.
 
 A section can also paint no background at all with `background="none"`, letting
-the 3D scene show through it; foreground colours still come from its tone. Mesa's
-hero uses this to sit directly on the crystal facet, which is already the
-project's colour. Two things follow automatically, and both matter if you add
+the 3D scene show through it; foreground colours still come from its tone. Mesa
+uses it twice: the hero sits directly on the crystal facet, which is already the
+project's colour, and "Tight, Open, Tight" opens the page back onto it further
+down. Two things follow automatically, and both matter if you add
 another one:
 
 - The case study must declare `entry: 'reveal'` in the registry, or the colour
@@ -88,6 +89,14 @@ the standard image/placeholder treatment.
 optional enlargement, and a `fullSrc` used only by the enlarged view.
 `MediaGallery` arranges several of them (`2-up`, `3-up`, `stacked`, collapsing to
 one column on phones) and hands the whole set to the viewer when one is opened.
+
+`FeaturedGallery` is the shape `MediaGallery` cannot make: one lead item beside a
+grid of supporting ones, for a set too large for `3-up` with one member that is
+the point. It derives the split between the two columns from the aspect ratios
+its media declares, so the lead and the grid resolve to the same height at any
+width — no case study has to tune it. On phones the lead moves above the grid and
+the grid holds two columns. Mesa's "The Cost of Power" uses it for the power key
+plus the six ability cards.
 
 Media with no `src` renders `PlaceholderMedia` at the exact size the real asset
 will occupy, naming the expected asset (always to assistive tech, and on screen

@@ -85,9 +85,9 @@
 }
 
 /* A section can paint no background at all, letting the 3D scene behind the
-   case study show through it — the hero uses this to sit directly on the
-   crystal facet, whose colour is the project's own. Foreground colours still
-   come from the tone, so the copy is unaffected. */
+   case study show through it — Mesa's hero and its "Tight, Open, Tight" feature
+   both sit directly on the crystal facet, whose colour is the project's own.
+   Foreground colours still come from the tone, so the copy is unaffected. */
 .cs-section[data-surface='none'] {
   background-color: transparent;
 }
@@ -291,6 +291,40 @@
 
 .cs-gallery[data-layout='stacked'] {
   grid-template-columns: minmax(0, 1fr);
+}
+
+/* --------------------------------------------------------------------------
+   Featured gallery
+   One lead item beside a grid of supporting ones. The split between the two
+   columns is computed per instance by FeaturedGallery, from the ratios its
+   media declares, so the lead and the grid come out the same height.
+   -------------------------------------------------------------------------- */
+
+.cs-featured {
+  --cs-featured-gap: clamp(10px, 1.2vw, 20px);
+
+  /* A portrait lead beside a two-row grid gets tall fast, and width is the only
+     control over that. Left to a bleeding stage the exhibit would run
+     ~1700px across and over 1000px tall, with supporting cards rendered larger
+     than the lead deserves. It takes the copy's measure instead — the same
+     1080px as .cs-feature__intro — and centres on the stage, level with the
+     centred caption beneath it. Widen it per instance with FeaturedGallery's
+     `maxWidth`; the whole block gets taller in proportion. */
+  max-width: var(--cs-featured-max, 1080px);
+  margin-inline: auto;
+
+  display: grid;
+  gap: var(--cs-featured-gap);
+  /* Items size themselves from their own aspect ratio; stretching them to the
+     tallest sibling would override it, exactly as it would in the mesa arc. */
+  align-items: start;
+  grid-template-columns: minmax(0, 1fr) minmax(0, var(--cs-featured-split, 2fr));
+}
+
+.cs-featured__grid {
+  display: grid;
+  gap: var(--cs-featured-gap);
+  grid-template-columns: repeat(var(--cs-featured-columns, 3), minmax(0, 1fr));
 }
 
 /* --------------------------------------------------------------------------
@@ -840,6 +874,24 @@
   .cs-gallery[data-layout='2-up'],
   .cs-gallery[data-layout='3-up'] {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Featured gallery: the lead moves above its grid. A portrait lead run to the
+     full width of a bleeding stage would fill the screen on its own, so it is
+     centred at a share of the width instead — the grid below it is what the
+     reader is meant to see next. The supporting grid keeps two columns rather
+     than stacking: these are thumbnails of a set, and tapping one enlarges it. */
+  .cs-featured {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cs-featured__lead {
+    max-width: 68%;
+    margin-inline: auto;
+  }
+
+  .cs-featured__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .cs-meta {

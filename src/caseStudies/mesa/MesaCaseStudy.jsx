@@ -15,6 +15,7 @@ import {
   FeatureSection,
   ConclusionSection,
   MediaGallery,
+  FeaturedGallery,
 } from '../system';
 import TightOpenTightStages from './TightOpenTightStages';
 import { mesaContent } from './mesaContent';
@@ -72,8 +73,15 @@ const MesaCaseStudy = ({ project, onClose }) => {
         media={{ ...c.boardTeaches.media, caption: c.boardTeaches.caption }}
       />
 
+      {/* Like the hero, this one sits on the crystal facet rather than painting
+          over it — the arc of the match, read against the project's own colour.
+          Two things follow, both already true for Mesa: the registry entry must
+          be 'reveal' (or the root backstop would paint over the scene), and the
+          overlay keeps the renderer awake whenever a section like this is near
+          the viewport, so it never scrolls back onto a frozen, empty frame. */}
       <FeatureSection
         tone="a"
+        background="none"
         align="start"
         title={c.tightOpenTight.title}
         intro={c.tightOpenTight.intro}
@@ -83,13 +91,22 @@ const MesaCaseStudy = ({ project, onClose }) => {
         <TightOpenTightStages stages={c.tightOpenTight.stages} />
       </FeatureSection>
 
-      <SplitSection
+      {/* The power key and the six ability cards are one exhibit: the summary the
+          player reads mid-match, and the detail that sits behind it. FeaturedGallery
+          holds that relationship; the section only supplies the stage. */}
+      <FeatureSection
         tone="b"
-        direction="text-right"
+        align="start"
         title={c.costOfPower.title}
-        body={c.costOfPower.body}
-        media={{ ...c.costOfPower.media, caption: c.costOfPower.caption }}
-      />
+        intro={c.costOfPower.intro}
+        caption={c.costOfPower.caption}
+      >
+        <FeaturedGallery
+          featured={c.costOfPower.key}
+          items={c.costOfPower.powers}
+          columns={3}
+        />
+      </FeatureSection>
 
       <SequenceSection
         tone="b"
