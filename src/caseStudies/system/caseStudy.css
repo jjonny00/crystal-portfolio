@@ -28,10 +28,14 @@
   --cs-edge: var(--page-edge);
   /* Media that runs to the viewport edge insets by this much (16px at desktop) */
   --cs-bleed-inset: 16px;
+  /* The space between images, wherever several sit together — one token so a
+     gallery, a featured gallery, and a rail cannot drift apart. */
+  --cs-media-gap: clamp(10px, 1.2vw, 20px);
   --cs-section-padding-block: clamp(48px, 6.4vw, 112px);
-  /* The site nav is fixed above this layer (its box is 88px — NAV_INNER_STYLE in
-     src/components/ui/Navigation.jsx — but its ink sits higher, so clear the
-     visible bar rather than the box). The extra is breathing room below it. */
+  /* The site nav is fixed above this layer. Its box is its ink plus 16px from
+     the top of the window (NAV_INNER_STYLE in src/components/ui/Navigation.jsx),
+     around 60px; this clears it with room to spare, and the extra is breathing
+     room below that. */
   --cs-nav-height: 72px;
   --cs-nav-clearance: calc(var(--cs-nav-height) + clamp(8px, 2.5vw, 24px));
 
@@ -278,7 +282,7 @@
 
 .cs-gallery {
   display: grid;
-  gap: clamp(10px, 1.2vw, 20px);
+  gap: var(--cs-media-gap);
 }
 
 .cs-gallery[data-layout='2-up'] {
@@ -301,7 +305,7 @@
    -------------------------------------------------------------------------- */
 
 .cs-featured {
-  --cs-featured-gap: clamp(10px, 1.2vw, 20px);
+  --cs-featured-gap: var(--cs-media-gap);
 
   /* A portrait lead beside a two-row grid gets tall fast, and width is the only
      control over that. Left to a bleeding stage the exhibit would run
@@ -325,6 +329,112 @@
   display: grid;
   gap: var(--cs-featured-gap);
   grid-template-columns: repeat(var(--cs-featured-columns, 3), minmax(0, 1fr));
+}
+
+/* Two columns side by side, so the lead is measured against the grid rather
+   than against its own aspect ratio. The derived split gets the lead's width
+   close enough that letterboxing is a few pixels, but only the grid can know
+   the exact total of its rows and the gaps between them — so let it say.
+
+   Taking the lead's media out of flow is what makes that work: in flow, the
+   image's own height is part of what sizes the row, and the row grows to the
+   taller of the two. Out of flow it contributes nothing, the row is exactly the
+   card grid, and the lead stretches to meet it. */
+@media (min-width: 768px) {
+  .cs-featured__lead {
+    position: relative;
+    align-self: stretch;
+    min-height: 0;
+  }
+
+  .cs-featured__lead > .cs-media {
+    position: absolute;
+    inset: 0;
+  }
+
+  /* Fills the box it has been given instead of imposing a ratio on it. `contain`
+     (FeaturedGallery's default fit) then renders the image at the full height of
+     the grid beside it, with any width residue split either side of it.
+     The button is in the chain because the lead is enlargeable — CaseStudyMedia
+     wraps the frame in one, so the height has to be handed down through it. */
+  .cs-featured__lead .cs-media__button,
+  .cs-featured__lead .cs-media__frame {
+    height: 100%;
+  }
+
+  .cs-featured__lead .cs-media__frame {
+    aspect-ratio: auto;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Media rail
+   A row at one shared height, scrolled when it overflows. Height is fixed and
+   width follows each item's own ratio — the reverse of the gallery — so a row
+   of mixed ratios still reads as one band.
+   -------------------------------------------------------------------------- */
+
+.cs-rail {
+  --cs-rail-gap: var(--cs-media-gap);
+
+  display: flex;
+  gap: var(--cs-rail-gap);
+  /* Centred when the row does not fill the stage, start-aligned the moment it
+     overflows — which is what `safe` buys: plain `center` would push the first
+     item off the scrollable origin and put it out of reach. */
+  justify-content: safe center;
+  overflow-x: auto;
+  overflow-y: hidden;
+  /* Proximity rather than mandatory: a reader flicking through a long rail
+     should be able to stop between two items without being pulled onward. */
+  scroll-snap-type: x proximity;
+  /* A horizontal swipe here is not a page gesture — never chain it out to the
+     scroller behind, or to the browser's back-swipe. */
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  /* The bar would sit under the last row of a stage that already bleeds; the
+     peeking next item is the affordance instead. Keyboard users reach the rail
+     through the items themselves, which scroll into view as they take focus. */
+  scrollbar-width: none;
+}
+
+.cs-rail::-webkit-scrollbar {
+  display: none;
+}
+
+.cs-rail__item {
+  flex: 0 0 auto;
+  width: auto;
+  scroll-snap-align: start;
+}
+
+/* The image is the only thing given a size here, and every box around it —
+   figure, the button items are enlargeable through, and the frame — shrink-wraps
+   to whatever width that produces. Nothing is cropped and nothing is padded: an
+   item is exactly as wide as its picture is at the rail's height.
+
+   This is also why none of these boxes carry an aspect ratio. Resolving a width
+   from `aspect-ratio` on a nested box is handled inconsistently — iOS Safari was
+   leaving each item far wider than its image, which read as a huge gap between
+   the pictures — whereas an image sized by its own height is the oldest, most
+   reliable sizing there is, and falls back to its intrinsic ratio even where the
+   declared one is ignored. */
+.cs-rail__item .cs-media__button,
+.cs-rail__item .cs-media__frame {
+  width: auto;
+}
+
+.cs-rail__item .cs-media__frame {
+  height: auto;
+  aspect-ratio: auto;
+}
+
+.cs-rail__item .cs-media__img {
+  width: auto;
+  height: var(--cs-rail-height, clamp(320px, 34vw, 680px));
+  /* The declared ratio, so the row reserves the right width before the image
+     arrives; `auto` (an undeclared item) falls back to the image's intrinsic one. */
+  aspect-ratio: var(--cs-frame-ratio, auto);
 }
 
 /* --------------------------------------------------------------------------
@@ -868,6 +978,18 @@
 
   .cs-overview__media {
     --cs-frame-ratio: 16 / 9;
+  }
+
+  /* The rail is the one arrangement that does not reflow on a phone: it was
+     already a scroller, and a set height with the next item peeking past the
+     screen edge is how a reader knows to swipe. Trailing padding so the last
+     item can clear a stage that bleeds off the edge. */
+  .cs-rail {
+    padding-inline-end: var(--cs-edge);
+  }
+
+  .cs-rail__item .cs-media__img {
+    height: var(--cs-rail-height-mobile, clamp(300px, 96vw, 520px));
   }
 
   /* Multi-column galleries would be illegible at phone widths — stack them. */

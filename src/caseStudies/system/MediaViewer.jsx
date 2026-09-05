@@ -14,6 +14,7 @@ import React, {
   lazy,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -60,6 +61,21 @@ export const MediaViewerProvider = ({ children }) => {
   }, []);
 
   const isOpen = state.slides.length > 0;
+
+  // Published on the document rather than handed upward: the viewer sits deep
+  // inside a case study, and the things that need to know it is open — the site
+  // nav, above every layer — are nowhere near it in the tree. An attribute of
+  // our own, not the library's classes, so this survives swapping the lightbox.
+  useEffect(() => {
+    if (!isOpen || typeof document === 'undefined') return undefined;
+
+    const root = document.documentElement;
+    root.dataset.mediaViewer = 'open';
+    return () => {
+      delete root.dataset.mediaViewer;
+    };
+  }, [isOpen]);
+
   const value = useMemo(() => ({ open, close, isOpen }), [open, close, isOpen]);
 
   return (

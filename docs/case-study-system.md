@@ -90,6 +90,14 @@ optional enlargement, and a `fullSrc` used only by the enlarged view.
 `MediaGallery` arranges several of them (`2-up`, `3-up`, `stacked`, collapsing to
 one column on phones) and hands the whole set to the viewer when one is opened.
 
+`MediaRail` is the third arrangement: a row at one shared height, scrolled
+horizontally when it overflows. Height is what it fixes and width follows each
+item's own ratio — the reverse of `MediaGallery` — so a row of mixed ratios still
+reads as one band. On phones it stays a row and becomes a scroller, with the next
+item peeking past the edge; `height` and `mobileHeight` are the two dials, because
+what reads well at each size depends on the media. Mesa's "One Turn, Several
+Decisions" uses it for the five screens of a turn.
+
 `FeaturedGallery` is the shape `MediaGallery` cannot make: one lead item beside a
 grid of supporting ones, for a set too large for `3-up` with one member that is
 the point. It derives the split between the two columns from the aspect ratios

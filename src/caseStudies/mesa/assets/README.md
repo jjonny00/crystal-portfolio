@@ -27,12 +27,21 @@ hero: {
 | --- | --- |
 | `hero.media` | `hero.webp` |
 | `overview.gallery` | `prototype01.webp` · `prototype02.webp` · `prototype03.webp` |
-| `turnSequence.media` | `one-turn01.webp` |
+| `turnSequence.steps` | `one-turn/one-turn-01.webp` … `-05.webp` — rendered by `MediaRail` |
 | `boardTeaches.media` | `preview-mesa.webp` |
 | `tightOpenTight.stages` | `tight-open-tight01.webp` · `02` · `03` — rendered by `TightOpenTightStages.jsx` |
-| `costOfPower.media` | **Outstanding** — power table: ability, damage value, tiles remaining |
+| `costOfPower.key` · `.powers` | `power-key.webp` · `power-cards/*.webp` — rendered by `FeaturedGallery` |
 | `asynchronous.media` | **Outstanding** — turn-replay sequence or animation |
 
-Nothing is `expandable` yet. When enabling it on a detailed image, ship a
-display-resolution `src` plus a larger `fullSrc`, so the lightbox is the only
-thing that loads the full-size file.
+`one-turn01.webp` is left over from the single-image version of the turn sequence
+and is no longer imported by anything. Safe to delete.
+
+A folder per set, as with `one-turn/` and `power-cards/`, once a slot holds more
+than a couple of images — the arrangement components (`MediaGallery`,
+`FeaturedGallery`, `MediaRail`) all take a plain array, so the folder and the
+content array stay in step.
+
+Everything in a gallery, a featured gallery, or a rail is `expandable`: opening
+one hands the whole set to the viewer. None of them ship a separate `fullSrc`
+yet, so the lightbox shows the same file the page loaded — worth adding for any
+image detailed enough that a reader would want to zoom past display resolution.

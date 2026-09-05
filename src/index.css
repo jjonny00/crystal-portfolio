@@ -30,6 +30,10 @@
   --page-content-max: 1568px;
   --page-gutter: clamp(16px, calc(4.83vw - 3.4px), 80px);
   --page-edge: max(var(--page-gutter), calc((100vw - var(--page-content-max)) / 2));
+  /* Where the fixed nav ends: 16px above the wordmark's ink (Navigation.jsx,
+     28px on phones and 36px from 1024px up, so this tracks its own breakpoint).
+     Anything that must not slide under the nav measures down from here. */
+  --page-nav-bottom: 52px;
 
   /* How far the mobile composition sits off the bottom of the viewport. Shared by
      the hero's block-end padding and the overview's label column so the two sit on
@@ -239,3 +243,25 @@ a:focus:not(:focus-visible) {
 }
 
 /* REMOVED: Static loading screen styles - let React handle all loading */
+/* While a media viewer (the case-study lightbox) is open, the nav steps back to
+   just the wordmark: WORK / ABOUT / CONTACT would otherwise sit over the
+   viewer's own controls, and the nav is drawn above it. MediaViewer.jsx sets the
+   attribute; the wordmark stays because it is the way back out.
+   Visibility follows the fade rather than cutting it, so the items also leave
+   the tab order once they are gone. */
+.site-nav__items {
+  transition: opacity 0.3s ease, visibility 0s linear 0s;
+}
+
+html[data-media-viewer='open'] .site-nav__items {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.3s ease, visibility 0s linear 0.3s;
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --page-nav-bottom: 62px;
+  }
+}

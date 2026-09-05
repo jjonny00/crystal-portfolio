@@ -16,6 +16,7 @@ import {
   ConclusionSection,
   MediaGallery,
   FeaturedGallery,
+  MediaRail,
 } from '../system';
 import TightOpenTightStages from './TightOpenTightStages';
 import { mesaContent } from './mesaContent';
@@ -57,13 +58,18 @@ const MesaCaseStudy = ({ project, onClose }) => {
         }
       />
 
+      {/* The five screens of one turn, read left to right. Phone screenshots
+          are tall, so a rail at a shared height carries them where a stage
+          spanning the width could only hold one: on desktop the five fit
+          across, and on a phone the row becomes the swipe it already was. */}
       <SequenceSection
         tone="b"
         title={c.turnSequence.title}
         intro={c.turnSequence.intro}
-        media={c.turnSequence.media}
         caption={c.turnSequence.caption}
-      />
+      >
+        <MediaRail items={c.turnSequence.steps} mobileHeight="126vw" />
+      </SequenceSection>
 
       <SplitSection
         tone="b"
@@ -91,22 +97,29 @@ const MesaCaseStudy = ({ project, onClose }) => {
         <TightOpenTightStages stages={c.tightOpenTight.stages} />
       </FeatureSection>
 
-      {/* The power key and the six ability cards are one exhibit: the summary the
-          player reads mid-match, and the detail that sits behind it. FeaturedGallery
-          holds that relationship; the section only supplies the stage. */}
-      <FeatureSection
+      {/* The power key and the six ability cards are one exhibit: the summary
+          the player reads mid-match, and the detail that sits behind it.
+          FeaturedGallery holds that relationship; the section only places it.
+          A split rather than a stage: the exhibit is a portrait lead beside two
+          rows of cards, so its height follows its width, and given the whole
+          stage it dwarfs the section. In the media column it fills the width it
+          is given at a height the copy beside it can live with. */}
+      <SplitSection
         tone="b"
-        align="start"
+        direction="text-left"
         title={c.costOfPower.title}
-        intro={c.costOfPower.intro}
-        caption={c.costOfPower.caption}
-      >
-        <FeaturedGallery
-          featured={c.costOfPower.key}
-          items={c.costOfPower.powers}
-          columns={3}
-        />
-      </FeatureSection>
+        body={c.costOfPower.body}
+        media={
+          <FeaturedGallery
+            featured={c.costOfPower.key}
+            items={c.costOfPower.powers}
+            columns={3}
+            caption={c.costOfPower.caption}
+            /* The column is the measure here, so drop the standalone cap. */
+            maxWidth="none"
+          />
+        }
+      />
 
       <SequenceSection
         tone="b"

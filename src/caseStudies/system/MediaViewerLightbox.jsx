@@ -39,12 +39,21 @@ const MediaViewerLightbox = ({ slides, index, onClose }) => {
       index={index}
       slides={librarySlides}
       plugins={PLUGINS}
+      // 2vmin around each slide, and the nav's height on top of that: the site
+      // nav is drawn above this layer (z-index 10000 against the portal's 9999),
+      // so an image scaled to fill the height would otherwise run underneath the
+      // wordmark. Most obvious on a phone, where the slides are portrait.
       carousel={{ finite: true, padding: '2vmin' }}
       controller={{ closeOnBackdropClick: true, closeOnPullDown: true }}
       // Detailed diagrams need real magnification, not a 2x nudge.
       zoom={{ maxZoomPixelRatio: 4, scrollToZoom: true }}
       captions={{ descriptionTextAlign: 'center', showToggle: false }}
-      styles={{ container: { backgroundColor: 'rgba(0, 4, 6, 0.94)' } }}
+      styles={{
+        container: { backgroundColor: 'rgba(0, 4, 6, 0.94)' },
+        // Padding rather than moving the container, so the backdrop still covers
+        // the whole window — including the strip the nav sits in.
+        slide: { paddingTop: 'calc(var(--page-nav-bottom, 62px) + 2vmin)' },
+      }}
       render={
         single
           ? { buttonPrev: () => null, buttonNext: () => null }

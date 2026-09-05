@@ -14,14 +14,16 @@ const NAV_BASE_STYLE = {
 // own max-width, so the nav lines up with the hero and with every case-study
 // section. The token already handles centring past --page-content-max, so the bar
 // itself stays full-bleed and only its padding grows.
+//
+// The bar takes its height from its own contents, 16px below the top of the
+// window — rather than a fixed box that centred the ink somewhere inside itself.
 const NAV_INNER_STYLE = {
   maxWidth: 'none',
   margin: '0',
-  padding: '0 var(--page-edge)',
+  padding: '16px var(--page-edge) 0',
   display: 'flex',
   alignItems: 'center',
-  justifyContent: 'space-between',
-  height: '88px'
+  justifyContent: 'space-between'
 };
 
 const NAME_BUTTON_STYLE = {
@@ -121,7 +123,13 @@ const Navigation = ({ activeLabel = null, onHomeClick, onWorkClick, onAboutClick
           J.JONSHAW
         </button>
 
-        <div style={{ display: 'flex', gap: isDesktop ? '34px' : '16px', alignItems: 'center' }}>
+        {/* Steps back while a media viewer is open — see index.css. The
+            wordmark stays: it is the way back out of a case study, and it sits
+            clear of the lightbox's own controls. */}
+        <div
+          className="site-nav__items"
+          style={{ display: 'flex', gap: isDesktop ? '34px' : '16px', alignItems: 'center' }}
+        >
           {navItems.map((item) => (
             <NavItem
               key={item.label}

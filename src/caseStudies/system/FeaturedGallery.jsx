@@ -14,11 +14,12 @@
 // reservation, placeholders — and opening any one of them hands the whole set,
 // lead first, to the viewer.
 //
-// The two columns come out level on their own. Each item's own aspect ratio is
-// what sizes it, so the component derives the column split that makes the lead
-// and the grid resolve to the same height (gaps excluded — the residue is a few
-// pixels, and `align-items: start` absorbs it). Supply `split` to override that
-// with a fixed ratio of grid width to lead width.
+// The two columns come out level on their own. Each item is sized by its own
+// aspect ratio, so the component derives the column split that resolves the lead
+// and the grid to the same height. That calculation cannot see the gaps, so it
+// sets the lead's width only: at desktop the stylesheet stretches the lead to the
+// grid's exact height, and the few pixels of residue land as letterboxing rather
+// than as a difference in height. Supply `split` to override the derived ratio.
 //
 // Height follows width: a portrait lead beside a two-row grid is a tall block,
 // and run to the full width of a bleeding stage it dwarfs the section. So the

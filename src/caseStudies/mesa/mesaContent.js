@@ -11,7 +11,11 @@ import heroImage from './assets/hero.webp';
 import prototype01 from './assets/prototype01.webp';
 import prototype02 from './assets/prototype02.webp';
 import prototype03 from './assets/prototype03.webp';
-import oneturn from './assets/one-turn01.webp';
+import oneTurn01 from './assets/one-turn/one-turn-01.webp';
+import oneTurn02 from './assets/one-turn/one-turn-02.webp';
+import oneTurn03 from './assets/one-turn/one-turn-03.webp';
+import oneTurn04 from './assets/one-turn/one-turn-04.webp';
+import oneTurn05 from './assets/one-turn/one-turn-05.webp';
 import previewmesa from './assets/preview-mesa.webp';
 import tightOpenTight01 from './assets/tight-open-tight01.webp';
 import tightOpenTight02 from './assets/tight-open-tight02.webp';
@@ -97,10 +101,46 @@ export const mesaContent = {
       'Taking one tile might complete your own match. It might also remove the tile your opponent needs, expose a valuable corner beneath it, or prevent a specific power from being earned.',
       'The player is rarely choosing only for themselves.',
     ],
-    media: {
-      src: oneturn,
-      alt: 'Diagram of a single Mesa turn, from selecting a shared tile through earning a power.',
-    },
+    // Rendered by MediaRail in the SequenceSection content slot: one row at a
+    // shared height, scrolled on phones. The screens number themselves, so the
+    // rail carries no labels of its own.
+    //
+    // The ratio is the artwork's own, uncropped: each screen renders at the
+    // rail's height and exactly the width that produces. The artwork carries
+    // ~100px of its own dark canvas either side of the phone, which is part of
+    // the picture rather than something the layout should trim.
+    steps: [
+      {
+        key: 'pick',
+        src: oneTurn01,
+        alt: 'Step 1, Pick a tile: the shared pyramid with one exposed tile circled.',
+        aspectRatio: '1490 / 3107',
+      },
+      {
+        key: 'slot',
+        src: oneTurn02,
+        alt: "Step 2, Select a slot: the chosen tile showing each corner's damage value, with an arrow to an empty personal slot.",
+        aspectRatio: '1490 / 3107',
+      },
+      {
+        key: 'rotate',
+        src: oneTurn03,
+        alt: 'Step 3, Rotate: the placed tile turning so the intended coloured corner faces the centre.',
+        aspectRatio: '1490 / 3107',
+      },
+      {
+        key: 'confirm',
+        src: oneTurn04,
+        alt: 'Step 4, Confirm your selection: all three slots filled, with the confirm control live.',
+        aspectRatio: '1490 / 3107',
+      },
+      {
+        key: 'power',
+        src: oneTurn05,
+        alt: "Step 5, Power acquired — Destroy: the match completes, the opponent's health falls from 100 to 90, and the power unlocks.",
+        aspectRatio: '1490 / 3107',
+      },
+    ],
     caption:
       'From selecting a shared tile to earning a power, each turn moves through a short sequence of choices before the opponent takes control.',
   },
@@ -176,7 +216,7 @@ export const mesaContent = {
 
   costOfPower: {
     title: 'The Cost of Power',
-    intro: [
+    body: [
       'Every color match produces two rewards: damage against the opponent and a power that can alter the match.',
       'The stronger the power, the less immediate damage its color deals.',
       "A **Bomb** deals only five damage but can destroy every tile in an opponent's slots if they select the trapped tile. **Freeze** deals more damage but temporarily locks part of the shared board. **Shuffle** can rotate your own tiles or disrupt an opponent's nearly completed match without sacrificing the normal draw.",
