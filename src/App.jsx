@@ -32,6 +32,7 @@ import PerformanceControls from './components/ui/PerformanceControls';
 import AccessibilityInstructions from './components/ui/AccessibilityInstructions';
 import FpsDisplay, { PerformanceAlert } from './components/ui/FpsDisplay';
 import VerticalEnergyLine from './components/ui/VerticalEnergyLine';
+import ProjectScrim from './components/ui/ProjectScrim';
 
 // Debug component
 import PerformanceDebugPanel from './components/ui/PerformanceDebugPanel';
@@ -1121,6 +1122,18 @@ function App() {
           transition: 'opacity 450ms ease'
         }}
       />
+
+      {/* Project scrim — the mobile counterpart to the About scrim above, in
+          the same layer between the canvas and the content. One element for the
+          whole projects zone: it never scrolls, and grows or shrinks to the
+          settled project's copy as the reader moves between them. */}
+      {!hideAllUI && (
+        <ProjectScrim
+          settledSection={settledSection}
+          isMobile={isMobile}
+          suppressed={caseStudyOpen}
+        />
+      )}
 
       {/* Vertical energy line — one continuous 1px rail from the hero CTA
           through the full work overview. Fixed layer between the 3D canvas and

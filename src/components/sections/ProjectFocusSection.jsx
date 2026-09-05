@@ -89,7 +89,11 @@ const ProjectFocusSection = ({
           boxSizing: 'border-box'
         }}
       >
+        {/* ProjectScrim measures this block to size itself — it is the copy
+            the scrim exists to ground. Keyed like the section id so the scrim
+            can find it from the settled section alone. */}
         <div
+          data-project-copy={project.facetKey || project.id}
           style={{
             width: isMobile ? '100%' : contentWidth,
             maxWidth: '100%',
