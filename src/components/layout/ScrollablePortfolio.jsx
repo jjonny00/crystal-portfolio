@@ -150,7 +150,14 @@ const ScrollablePortfolio = ({
         height: '100vh',
         overflowY: 'auto',
         overflowX: 'hidden',
-        zIndex: 10,
+        // Deliberately no z-index. This was 10, sitting above the canvas at 1 and
+        // the scrims at 5 — but a z-index makes this container a stacking
+        // context, and a stacking context is an isolation boundary: copy inside
+        // it can only blend with what is painted inside it, which is nothing.
+        // The whole fixed stack (canvas, scrims, energy line) gave up its
+        // z-indexes together, and they now paint in the order App renders them —
+        // the same order they were in — so the layers stay put and the copy can
+        // reach the scene behind it. See legibility.css.
         WebkitOverflowScrolling: 'touch',
         backgroundColor: 'transparent',
         // The settled overview hands pointer input to the 3D canvas underneath so

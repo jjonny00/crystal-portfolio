@@ -33,6 +33,9 @@ import AccessibilityInstructions from './components/ui/AccessibilityInstructions
 import FpsDisplay, { PerformanceAlert } from './components/ui/FpsDisplay';
 import VerticalEnergyLine from './components/ui/VerticalEnergyLine';
 import ProjectScrim from './components/ui/ProjectScrim';
+import NavScrim from './components/ui/NavScrim';
+import './styles/legibility.css';
+import { clearBackdropInk, setBackdropInkSettled } from './legibility/backdropInk';
 
 // Debug component
 import PerformanceDebugPanel from './components/ui/PerformanceDebugPanel';
@@ -41,7 +44,7 @@ import PerformanceDebugPanel from './components/ui/PerformanceDebugPanel';
 import * as defaultConfig from './crystalConfig';
 
 // Case studies (lazy-loaded per project)
-import CaseStudyOverlay from './caseStudies/CaseStudyOverlay';
+import CaseStudyOverlay, { OVERLAY_Z_INDEX } from './caseStudies/CaseStudyOverlay';
 import { foregroundColorForTone } from './caseStudies/system/caseStudyTheme';
 import { caseStudyOpaqueAtMs } from './caseStudies/transitionTiming';
 import { getProjectByAnyKey } from './data/projects';
@@ -60,6 +63,28 @@ const zoneKeys = ['intro', 'hero', 'overview', 'about'];
 // that is fully opaque, so freezing (and hiding) the canvas any earlier would
 // blink it out mid-transition. Derived, not a second copy of the timing.
 const SCENE_FREEZE_DELAY_MS = caseStudyOpaqueAtMs + 260;
+
+// The component catalogue is not a project — no facet, no crystal, no entry in
+// projects.js — but it is a case study as far as the overlay is concerned, so it
+// borrows the same shape. Reachable only from the hidden dev menu.
+const CATALOG_PROJECT = Object.freeze({
+  id: 'catalog',
+  label: 'Catalog',
+  caseStudySlug: 'catalog',
+  // Neutral greys rather than a project palette: the catalogue is about shape,
+  // not colour, and a bright accent would flatten the differences between
+  // sections. Tone a is the light ground, tone b the dark one.
+  caseStudyColors: { a: '#9A9A9A', b: '#282828' },
+});
+
+// How the copy is kept legible over a scene that swings from near-black to
+// blown-out. `adaptive` measures what the scene is doing behind each block and
+// picks an ink that clears it; `difference` and `exclusion` blend the ink against
+// the scene instead (both have a contrast hole where the backdrop sits near half
+// the ink's value, which is what `adaptive` exists to avoid); `scrim` is the old
+// treatment, a wash under the copy; `off` is none of them, for judging the rest
+// against a bare scene. Cycled with L — see legibility.css and backdropInk.js.
+const LEGIBILITY_MODES = ['adaptive', 'difference', 'exclusion', 'scrim', 'off'];
 
 const toVecOrNull = (value) => (
   Array.isArray(value) && value.length === 3 && value.every((entry) => Number.isFinite(entry))
@@ -417,6 +442,10 @@ function App() {
   
   // Basic state hooks
   const [hideAllUI, setHideAllUI] = useState(false);
+  // How the copy is kept legible over the scene. L cycles the four treatments so
+  // they can be compared on the same frame, which is the only way to judge them.
+  const [legibilityMode, setLegibilityMode] = useState(LEGIBILITY_MODES[0]);
+  const blendMode = legibilityMode === 'difference' || legibilityMode === 'exclusion';
   // Whether the development affordances are on screen: the Hide UI button, the
   // FPS counter and its performance alert, the settings gear and its panel, and
   // the keyboard-shortcuts launcher. Off by default so the site presents clean;
@@ -464,12 +493,17 @@ function App() {
     [activeProjectId]
   );
   const caseStudyOpen = viewMode === 'caseStudy';
+  // The catalogue rides this same overlay rather than mounting a second one, so
+  // there is only ever one full-screen layer, one scroll owner, one freeze rule.
+  const [catalogOpen, setCatalogOpen] = useState(false);
+  const overlayProject = catalogOpen ? CATALOG_PROJECT : activeProject;
+  const overlayOpen = catalogOpen || caseStudyOpen;
   // Tone of the case-study section currently under the fixed top nav; null once
   // the overlay has finished fading out. Driven by the overlay rather than by
   // `caseStudyOpen` so the nav keeps its case-study colour through the exit.
   const [caseStudyNavTone, setCaseStudyNavTone] = useState(null);
   const navColor = caseStudyNavTone
-    ? foregroundColorForTone(caseStudyNavTone, activeProject?.caseStudyColors)
+    ? foregroundColorForTone(caseStudyNavTone, overlayProject?.caseStudyColors)
     : null;
 
   // Leaving a case study returns to the project view it was opened from; the
@@ -477,6 +511,13 @@ function App() {
   const closeCaseStudy = useCallback(() => {
     setViewMode((prev) => (prev === 'caseStudy' ? 'project' : prev));
   }, []);
+
+  // Whichever layer is up. The catalogue is not part of viewMode, so it needs
+  // clearing separately.
+  const closeOverlay = useCallback(() => {
+    setCatalogOpen(false);
+    closeCaseStudy();
+  }, [closeCaseStudy]);
 
   // Freeze-frame the 3D scene while a case study covers it. Where the crystal is
   // hidden behind opaque content, rendering it is pure waste — and a case study
@@ -491,10 +532,10 @@ function App() {
   const [caseStudyEntranceSettled, setCaseStudyEntranceSettled] = useState(false);
   const [caseStudySceneNeeded, setCaseStudySceneNeeded] = useState(false);
   const sceneFrozen =
-    caseStudyOpen && caseStudyEntranceSettled && !caseStudySceneNeeded;
+    overlayOpen && caseStudyEntranceSettled && !caseStudySceneNeeded;
 
   useEffect(() => {
-    if (!caseStudyOpen) {
+    if (!overlayOpen) {
       setCaseStudyEntranceSettled(false);
       return undefined;
     }
@@ -503,7 +544,7 @@ function App() {
       SCENE_FREEZE_DELAY_MS
     );
     return () => clearTimeout(timeoutId);
-  }, [caseStudyOpen]);
+  }, [overlayOpen]);
 
   // Simulate application initialization progress for loader
   useEffect(() => {
@@ -891,6 +932,29 @@ function App() {
     document.body.style.overflow = 'hidden';
   }, [isAppReady]);
 
+  // The blend treatment is published as one attribute on <html> rather than
+  // threaded through ScrollablePortfolio into every section. The elements that
+  // blend are spread across three components at different depths, and all any of
+  // them needs is a class — prop-drilling a mode through the content layer would
+  // put a rendering concern in components that have nothing else to say about it.
+  useEffect(() => {
+    document.documentElement.dataset.legibility = legibilityMode;
+    // Leaving a measured ink published in a mode that does not measure would
+    // hold whatever the last sample decided; clearing hands every block back to
+    // the colour it was authored with.
+    if (legibilityMode !== 'adaptive') clearBackdropInk();
+  }, [legibilityMode]);
+
+  // The ink is only measured on a scene that has arrived. `settledSection` goes
+  // null the moment a scroll starts and comes back once it stops, which is
+  // exactly the window in which the scene is not what the copy will end up
+  // sitting on — hero → overview most of all, where the crystal detonates on the
+  // crossing and the frame flares white for a moment on its way to a scene that
+  // is not bright at all.
+  useEffect(() => {
+    setBackdropInkSettled(Boolean(settledSection));
+  }, [settledSection]);
+
   // UI Hide Toggle Keyboard Listener
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -920,8 +984,19 @@ function App() {
           if (import.meta.env.DEV) console.log(`🛠️ Performance debug ${next ? 'enabled' : 'disabled'}`);
         }
       }
+
+      if (e.key === 'l' || e.key === 'L') {
+        if (!e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey) {
+          e.preventDefault();
+          setLegibilityMode((prev) => {
+            const next = LEGIBILITY_MODES[(LEGIBILITY_MODES.indexOf(prev) + 1) % LEGIBILITY_MODES.length];
+            if (import.meta.env.DEV) console.log(`🫥 Legibility mode: ${next}`);
+            return next;
+          });
+        }
+      }
     };
-    
+
     window.addEventListener('keydown', handleKeyDown);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
@@ -1041,6 +1116,43 @@ function App() {
         </button>
       )}
 
+      {/* Component catalogue — every section component and variation with dummy
+         copy, for choosing a layout while building a case study. Dev-only, and
+         its own lazy chunk, so it never reaches a reader. */}
+      {devUiRevealed && (
+        <button
+          onClick={() => setCatalogOpen(true)}
+          style={{
+            position: 'fixed',
+            top: '46px',
+            left: '10px',
+            zIndex: 99999,
+            backgroundColor: catalogOpen ? '#64ffda' : 'rgba(0, 0, 0, 0.7)',
+            color: catalogOpen ? '#000' : 'white',
+            border: 'none',
+            padding: '8px 12px',
+            borderRadius: '4px',
+            fontSize: '12px',
+            cursor: 'pointer',
+            fontWeight: 'bold'
+          }}
+        >
+          Components
+        </button>
+      )}
+
+      {/* Nav scrim — blurs the case study's own content as it scrolls up under
+          the fixed bar. Sits between that layer and the nav, so the bar itself
+          stays sharp. Nothing for it to do on the portfolio, where the nav reads
+          the scene and picks an ink instead. */}
+      {!hideAllUI && (
+        <NavScrim
+          active={overlayOpen}
+          zIndex={OVERLAY_Z_INDEX + 1}
+          fadeInDelayMs={caseStudyOpaqueAtMs}
+        />
+      )}
+
       {/* Navigation Bar */}
       {!hideAllUI && (
         <Navigation
@@ -1050,6 +1162,10 @@ function App() {
           onAboutClick={handleAboutClick}
           onContactClick={handleContactClick}
           color={navColor}
+          // Not while a case study is up: that layer paints its own ground and
+          // hands the nav a colour picked against it, so there is nothing for a
+          // blend to adapt to and it would only fight the palette.
+          blend={blendMode && !overlayOpen}
         />
       )}
 
@@ -1106,32 +1222,48 @@ function App() {
         />
       </MasterAnimationCoordinator>
 
-      {/* About scrim — fixed viewport layer sitting between the 3D canvas
-          (z-index 1) and the scrollable content (z-index 10). Fades in/out with
-          the About zone and never scrolls, so the copy stays legible over the
-          scene without the scrim ever appearing to move. */}
-      <div
-        aria-hidden="true"
-        style={{
-          position: 'fixed',
-          inset: 0,
-          zIndex: 5,
-          pointerEvents: 'none',
-          background: 'rgba(6, 8, 12, 0.42)',
-          opacity: settledSection === 'about' ? 1 : 0,
-          transition: 'opacity 450ms ease'
-        }}
-      />
+      {/* About scrim — fixed viewport layer sitting in the band between the 3D
+          canvas and the scrollable content. Fades in/out with the About zone and
+          never scrolls, so the copy stays legible over the scene without the
+          scrim ever appearing to move.
+
+          About is deliberately the one place that keeps a scrim rather than
+          adapting to the scene: it reads as a page, not as a caption over the
+          crystal, and its copy should be able to stay a flat white without ever
+          reacting to what is behind it.
+
+          The opacity is derived, not picked by eye. Against the worst frame the
+          scene can produce — a fully blown-out white — a black wash at this alpha
+          leaves the backdrop at sRGB 0.38, which every colour in the section
+          clears: the title and paragraphs at 6.0:1, the stat labels at 4.6:1, the
+          accent stat values at 5.0:1. Lower it and the stat labels are the first
+          to fall below 4.5:1. Every real frame is darker than that, so those are
+          floors rather than estimates; re-derive them if the About palette moves.
+          Dropped only in `off`, which exists to show the bare scene. */}
+      {legibilityMode !== 'off' && (
+        <div
+          aria-hidden="true"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            pointerEvents: 'none',
+            background: 'rgba(6, 8, 12, 0.62)',
+            opacity: settledSection === 'about' ? 1 : 0,
+            transition: 'opacity 450ms ease'
+          }}
+        />
+      )}
 
       {/* Project scrim — the mobile counterpart to the About scrim above, in
           the same layer between the canvas and the content. One element for the
           whole projects zone: it never scrolls, and grows or shrinks to the
-          settled project's copy as the reader moves between them. */}
-      {!hideAllUI && (
+          settled project's copy as the reader moves between them. Same story:
+          `scrim` mode only. */}
+      {legibilityMode === 'scrim' && !hideAllUI && (
         <ProjectScrim
           settledSection={settledSection}
           isMobile={isMobile}
-          suppressed={caseStudyOpen}
+          suppressed={overlayOpen}
         />
       )}
 
@@ -1155,9 +1287,9 @@ function App() {
       {/* Case study — a self-contained layer over the portfolio. Sits below the
           top nav so the site navigation stays available while reading. */}
       <CaseStudyOverlay
-        project={activeProject}
-        open={caseStudyOpen}
-        onClose={closeCaseStudy}
+        project={overlayProject}
+        open={overlayOpen}
+        onClose={closeOverlay}
         onToneChange={setCaseStudyNavTone}
         onSceneNeededChange={setCaseStudySceneNeeded}
       />

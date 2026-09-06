@@ -20,6 +20,13 @@ const CASE_STUDY_MODULES = {
     load: () => import('./mesa/MesaCaseStudy.jsx'),
     entry: 'reveal',
   },
+  // Not a project. A catalogue of every section component and variation, opened
+  // from the hidden dev menu rather than linked from the site — see
+  // CATALOG_PROJECT in App.jsx. Its own chunk, so it never ships to a reader.
+  catalog: {
+    load: () => import('./catalog/CatalogCaseStudy.jsx'),
+    entry: 'wash',
+  },
 };
 
 export const caseStudySlugs = Object.keys(CASE_STUDY_MODULES);

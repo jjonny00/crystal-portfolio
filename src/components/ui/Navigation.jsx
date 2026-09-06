@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { MQ_NAV_DESKTOP } from '../../config/breakpoints';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 
 const NAV_BASE_STYLE = {
   position: 'fixed',
@@ -29,13 +31,17 @@ const NAV_INNER_STYLE = {
 const NAME_BUTTON_STYLE = {
   background: 'none',
   border: 'none',
-  color: '#FFFAE3',
+  color: 'rgb(from var(--ink-nav, #FFFAE3) r g b)',
   fontFamily: '"ivypresto-text", "IvyPresto Text", "ivypresto-display", Georgia, serif',
   fontSize: '36px',
   fontStyle: 'normal',
   fontWeight: 400,
   lineHeight: 'normal',
-  letterSpacing: '-2.88px',
+  // -2.88px at the 36px desktop size, restated as a ratio. As a fixed px value
+  // it was tracking for one size only: at the 28px mobile wordmark it worked out
+  // to -0.103em, meaningfully tighter than drawn, and it could not follow the
+  // font if anything rescaled it. In em it holds the same fit at every size.
+  letterSpacing: '-0.08em',
   textTransform: 'uppercase',
   cursor: 'pointer',
   padding: 0,
@@ -45,7 +51,7 @@ const NAME_BUTTON_STYLE = {
 const NAV_ITEM_BASE_STYLE = {
   background: 'none',
   border: 'none',
-  color: '#FEFFDE',
+  color: 'rgb(from var(--ink-nav, #FEFFDE) r g b)',
   fontFamily: '"acumin-variable", "Acumin VF", sans-serif',
   fontSize: '24px',
   fontStyle: 'normal',
@@ -86,15 +92,18 @@ const NavItem = ({ label, onClick, disabled, isActive, fontSize, color }) => {
 // `color` lets a full-bleed layer (currently the case-study overlay) keep the
 // nav legible over its own background. Omitted everywhere else, so the default
 // portfolio treatment is unchanged.
-const Navigation = ({ activeLabel = null, onHomeClick, onWorkClick, onAboutClick, onContactClick, isTransitioning = false, color = null }) => {
-  const [isDesktop, setIsDesktop] = useState(true);
-
-  useEffect(() => {
-    const handleResize = () => setIsDesktop(window.innerWidth >= 1024);
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+// `blend` puts the whole bar into the scene-adaptive blend mode (legibility.css).
+// It goes on the <nav> itself rather than on the buttons inside it: the z-index
+// that keeps the bar above everything already makes this element an isolated
+// group, so a blended child would only see the bar's own empty backdrop. Blending
+// the group instead composites the ink against the page — and because the bar is
+// transparent everywhere but the glyphs, only the glyphs are affected.
+const Navigation = ({ activeLabel = null, onHomeClick, onWorkClick, onAboutClick, onContactClick, isTransitioning = false, color = null, blend = false }) => {
+  // The same query NavScrim sizes itself from — the band under the bar has to
+  // turn over exactly where the bar's type does, so both read one token rather
+  // than each carrying its own 1024. Also fires only when the answer changes,
+  // where the resize listener this replaced re-rendered on every pixel of a drag.
+  const isDesktop = useMediaQuery(MQ_NAV_DESKTOP);
 
   const navItems = [
     { label: 'WORK', onClick: onWorkClick },
@@ -104,13 +113,18 @@ const Navigation = ({ activeLabel = null, onHomeClick, onWorkClick, onAboutClick
 
   return (
     <nav
+      className={blend ? 'legible-blend' : undefined}
       style={{
         ...NAV_BASE_STYLE
       }}
     >
       <div style={NAV_INNER_STYLE}>
+        {/* The two ink clusters mark themselves as what to measure — the bar
+            itself spans the window and most of it is empty, so sampling its full
+            width would average in a stretch of scene no glyph ever sits on. */}
         <button
           onClick={onHomeClick}
+          data-ink-region="nav"
           style={{
             ...NAME_BUTTON_STYLE,
             ...(color ? { color } : null),
@@ -128,6 +142,7 @@ const Navigation = ({ activeLabel = null, onHomeClick, onWorkClick, onAboutClick
             clear of the lightbox's own controls. */}
         <div
           className="site-nav__items"
+          data-ink-region="nav"
           style={{ display: 'flex', gap: isDesktop ? '34px' : '16px', alignItems: 'center' }}
         >
           {navItems.map((item) => (

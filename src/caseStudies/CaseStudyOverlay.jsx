@@ -26,7 +26,9 @@ import {
   caseStudyOpaqueAtMs,
 } from './transitionTiming';
 
-const OVERLAY_Z_INDEX = 9000;
+// Exported so the nav scrim can be placed between this layer and the nav — it
+// has to blur the case study's content without blurring the bar it sits under.
+export const OVERLAY_Z_INDEX = 9000;
 
 // Vertical probe point used to work out which section tone the fixed top nav is
 // sitting on, so the nav can recolour itself for contrast.

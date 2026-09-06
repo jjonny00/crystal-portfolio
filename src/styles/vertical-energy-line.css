@@ -1,13 +1,14 @@
 /* src/styles/vertical-energy-line.css */
 
-/* One fixed layer spanning hero + overview. Sits above the 3D canvas (z-index 1)
-   and the About scrim (z-index 5) but below the scrollable content (z-index 10)
-   and the overview label layer (z-index 20), so it never covers text or catches
-   a click. Purely decorative — the element is aria-hidden in the component. */
+/* One fixed layer spanning hero + overview. Sits above the 3D canvas and the
+   scrims but below the scrollable content, so it never covers text or catches a
+   click — all of it by DOM order now rather than by z-index (see legibility.css
+   for why those went). Purely decorative — aria-hidden in the component. */
 .vertical-energy-line {
   position: fixed;
   inset: 0;
-  z-index: 8;
+  /* No z-index — see legibility.css. Sits after the canvas and the scrims and
+     before the scrollable content in App's tree, which is the order it had. */
   pointer-events: none;
   contain: layout style;
 

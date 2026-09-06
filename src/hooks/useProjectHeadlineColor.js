@@ -18,20 +18,14 @@ export default function useProjectHeadlineColor() {
         return;
       }
       
-        // Apply the color directly and reuse for glow accents
-        const glow1 = hex;
-        const glow2 = hex;
+        // Ink only. This also published --headline-glow1/2, which nothing has
+        // read for some time — headlines sit flat on the scene and no text on
+        // this site carries an outer glow. Left set, they were a standing
+        // invitation to wire one back up.
         root.style.setProperty('--headline-ink', hex);
-        root.style.setProperty('--headline-glow1', glow1);
-        root.style.setProperty('--headline-glow2', glow2);
 
         if (import.meta.env.DEV) {
-          console.log('🎨 Applied headline color:', {
-            source,
-            ink: hex,
-            glow1,
-            glow2
-          });
+          console.log('🎨 Applied headline color:', { source, ink: hex });
         }
     };
 

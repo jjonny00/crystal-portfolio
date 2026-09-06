@@ -38,6 +38,11 @@ const AboutSection = ({
   return (
     <div className="about-section">
       <div className="about-section__inner">
+        {/* One spring for the whole block. The other sections carry theirs on
+            each line, because a line that blends against the scene has to be the
+            outermost box of its own group — About does not blend. Its scrim is
+            set from the worst frame the scene can produce, so the copy is a flat
+            white that never has to react to anything. */}
         <animated.div className="about-section__content" style={contentSpring}>
           <div className="about-section__body">
             <h1 className="about-section__title">Shaped Through Iteration</h1>

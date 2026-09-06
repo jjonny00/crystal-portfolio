@@ -1,0 +1,109 @@
+/* src/styles/legibility.css
+ *
+ * Keeping copy readable over a scene that swings from near-black to blown-out,
+ * without putting a wash over the scene to do it.
+ *
+ * The treatment is a blend mode on the ink itself: `difference` renders each
+ * glyph as |backdrop - ink|, so the copy inverts against whatever the crystal is
+ * doing behind it. A dark frame gives near-cream text; a blown-out frame gives
+ * near-black text; the scene keeps every bit of its own brightness and colour.
+ *
+ * `exclusion` is offered alongside it and is the softer of the two. Worth
+ * knowing before choosing between them: for pure white ink the two are
+ * *identical* — both reduce to 1 - backdrop. They only diverge as the ink moves
+ * off white, and there exclusion is the lower-contrast of the pair, flattening
+ * the mid range where difference keeps pushing apart. The site's ink is a warm
+ * cream (#E2DCC3), close enough to white that the two read as near neighbours.
+ *
+ * The one real weakness, worth watching for while judging this: difference has a
+ * hole where the backdrop sits at half the ink's value — |B - S| equals B when
+ * S = 2B, so cream ink disappears against a backdrop around 0.45. It is a narrow
+ * band and a desaturated one (a saturated backdrop only ever hits it in one
+ * channel at a time, and the other two carry the glyph), but a flat mid-grey
+ * frame is the case to look for.
+ *
+ *
+ * Why the class goes where it does — the isolation rule
+ * ----------------------------------------------------
+ * A blended element blends with its *backdrop*, and the backdrop stops at the
+ * nearest isolated group above it. Anything that creates a stacking context is
+ * one: a z-index, a transform, an opacity below 1, a filter. So for ink in the
+ * content layer to see the canvas at all, two things have to hold.
+ *
+ *   1. Nothing between the ink and the root may be a stacking context. This is
+ *      why the canvas, the scrims, the energy line and the scroll container all
+ *      dropped their z-indexes and now paint in DOM order instead — see the note
+ *      in ScrollablePortfolio.jsx. Their painting order is unchanged; what
+ *      changed is that they no longer wall the layers off from each other.
+ *
+ *   2. The class goes on the *outermost* element of each isolated group, never
+ *      inside it. Every fading block on this site is a react-spring wrapper
+ *      carrying an opacity and a transform, which makes it a group of its own; a
+ *      blended child inside one would blend against its parent's transparent
+ *      backdrop and render as if nothing had been applied at all. Putting the
+ *      mode on the wrapper blends the whole group against the page instead,
+ *      which is what we want.
+ *
+ * Rule 2 is also what makes the exclusions free. The project title and the CTA
+ * are in wrappers of their own, so they simply do not carry the class and keep
+ * exactly the accent ink they always had.
+ */
+
+/* ------------------------------------------------------------------------- *
+ * adaptive — the default, and the answer to difference's hole
+ * ------------------------------------------------------------------------- *
+ *
+ * Rather than force the backdrop into a range the ink can clear, this measures
+ * the backdrop and picks an ink that clears it: the probe inside the canvas
+ * reads the finished frame a couple of times a second and publishes a colour per
+ * region onto <html> — see backdropInk.js for the measuring and the choosing.
+ *
+ * Nothing here needs a class. The elements ask for `var(--ink-copy)` with their
+ * authored colour as the fallback, so in every other mode — and before the first
+ * measurement lands, and if WebGL readback is unavailable — they simply render
+ * the ink they always had. The variable is the whole mechanism.
+ *
+ * There is deliberately no second treatment layered under it. A region can be too
+ * mixed for either ink to clear — half black sky, half blown-out crystal — and
+ * the usual answer to that is a glow around the glyphs, which this site does not
+ * use anywhere. `__inkReport()` marks those regions `marginal` so they can be
+ * fixed in the composition instead.
+ */
+
+.legible-ink {
+  transition: color 320ms ease;
+}
+
+/* ------------------------------------------------------------------------- *
+ * difference / exclusion — blend the ink against the live scene
+ * ------------------------------------------------------------------------- *
+ *
+ * Kept for comparison. Both render a glyph as a function of what is behind it,
+ * so the scene keeps all of its brightness — but both have a hole: difference
+ * gives |backdrop - ink|, which equals the backdrop when the backdrop sits at
+ * half the ink's value, so cream copy disappears around 0.45. `adaptive` exists
+ * because that band is not rare on a crystal with specular highlights in it.
+ *
+ * Worth knowing when comparing the two: for pure white ink they are *identical*,
+ * both reducing to 1 - backdrop. They only diverge as the ink moves off white,
+ * and there exclusion is the lower-contrast of the pair.
+ */
+
+[data-legibility='difference'] .legible-blend {
+  mix-blend-mode: difference;
+}
+
+[data-legibility='exclusion'] .legible-blend {
+  mix-blend-mode: exclusion;
+}
+
+/* Forced-colours users get their own palette and their own contrast guarantee; a
+   blend mode would only fight it. Same for anyone who has asked the OS for more
+   contrast — inverting the ink against the scene is not what that request means.
+   `adaptive` is unaffected and keeps working for both: it only ever sets a plain
+   colour, which is exactly what those readers are asking to have chosen well. */
+@media (forced-colors: active), (prefers-contrast: more) {
+  .legible-blend {
+    mix-blend-mode: normal !important;
+  }
+}

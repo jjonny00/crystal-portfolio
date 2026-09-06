@@ -122,7 +122,10 @@ const ProjectScrim = ({
         left: 0,
         right: 0,
         bottom: 0,
-        zIndex: 5,
+        // No z-index — see the canvas wrapper in Fixed3DCanvas.jsx. This sits
+        // after the canvas and before the content in App's tree, which is the
+        // order it needs, and staying out of the stacking order keeps the layers
+        // able to blend against each other.
         pointerEvents: 'none',
         height: `calc(${Math.round(measured.height)}px + ${CONTENT_BOTTOM_PAD})`,
         backgroundColor: `rgb(from ${scheme.colorA} r g b / ${SCRIM.opacity})`,

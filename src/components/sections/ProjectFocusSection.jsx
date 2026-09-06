@@ -2,6 +2,26 @@ import React from 'react';
 import { animated, useSpring } from '@react-spring/web';
 import Headline from '../ui/Headline';
 
+// The body copy blends against the live scene rather than sitting on a scrim —
+// see legibility.css. Two things about how that is wired here:
+//
+//   • The class goes on the elements that carry the entrance spring, not on a
+//     wrapper around them. A spring writes an opacity and a transform, and both
+//     make an element an isolated group; a blended child inside one would blend
+//     against its parent's empty backdrop and look untreated. Putting the mode
+//     on the same element that owns the spring makes the group and the blend the
+//     same box, so it blends against the page.
+//   • Which is also why the spring moved off the single wrapper it used to sit
+//     on and onto each element in turn. The values are shared, so the block
+//     still fades and rises as one — but now each line is its own group, and the
+//     title and the CTA can stay out of the blend simply by not asking for it.
+const COPY_CLASS = 'legible-blend legible-ink';
+
+// The ink these lines take in `adaptive` mode, measured against the scene behind
+// them and published onto <html> by backdropInk.js. The authored colour is the
+// fallback, so every other mode renders exactly what it always did.
+const COPY_INK = (alpha) => `rgb(from var(--ink-copy, #E2DCC3) r g b / ${alpha})`;
+
 const ProjectFocusSection = ({
   project,
   isMobile = false,
@@ -57,6 +77,18 @@ const ProjectFocusSection = ({
     }
   });
 
+  // Shared by every line of body copy. Only the size/leading metrics differ
+  // between them, so the rest is stated once.
+  const bodyStyle = {
+    color: COPY_INK(0.85),
+    fontFamily: '"acumin-variable", "Acumin VF", sans-serif',
+    fontSize: isMobile ? '18px' : '24px',
+    fontStyle: 'normal',
+    fontWeight: 300,
+    lineHeight: isMobile ? '1.38' : '30px',
+    letterSpacing: isMobile ? '-0.24px' : '-0.48px'
+  };
+
   return (
     <div
       style={{
@@ -72,9 +104,12 @@ const ProjectFocusSection = ({
         paddingBottom: isMobile ? 'calc(4.75rem + env(safe-area-inset-bottom, 0px))' : 0
       }}
     >
-      <animated.div
+      {/* Plain, not animated: this used to carry the entrance spring for the
+          whole block, which made it an isolated group and put a wall between the
+          copy inside it and the scene it now blends with. The spring moved down
+          onto the individual lines. */}
+      <div
         style={{
-          ...contentSpring,
           pointerEvents: isProjectView ? 'auto' : 'none',
           width: isMobile ? '100%' : '50vw',
           height: isMobile ? 'auto' : '100vh',
@@ -103,32 +138,38 @@ const ProjectFocusSection = ({
             textAlign: 'left'
           }}
         >
-          <Headline
-            as="h1"
-            style={{
-              margin: 0,
-              color: headlineColor,
-              fontFamily: '"acumin-variable", "Acumin VF", sans-serif',
-              fontSize: isMobile ? 'clamp(2.2rem, 11vw, 2.9rem)' : '96px',
-              fontStyle: 'normal',
-              fontStretch: '68%',
-              fontVariationSettings: '"wdth" 68',
-              fontWeight: 700,
-              lineHeight: isMobile ? '1' : '96px',
-              letterSpacing: isMobile ? '-0.02em' : '-1.92px',
-              textTransform: 'uppercase',
-              '--headline-ink': headlineColor,
-              '--headline-glow1': headlineColor,
-              '--headline-glow2': headlineColor
-            }}
-          >
-            {displayProject.title}
-          </Headline>
+          {/* Unblended, as asked: the title is the project's accent colour and
+              inverting it would swing the hue across the whole palette. It is
+              also large and heavy enough to hold its own. */}
+          <animated.div style={contentSpring}>
+            <Headline
+              as="h1"
+              style={{
+                margin: 0,
+                color: headlineColor,
+                fontFamily: '"acumin-variable", "Acumin VF", sans-serif',
+                fontSize: isMobile ? 'clamp(2.2rem, 11vw, 2.9rem)' : '96px',
+                fontStyle: 'normal',
+                fontStretch: '68%',
+                fontVariationSettings: '"wdth" 68',
+                fontWeight: 700,
+                lineHeight: isMobile ? '1' : '96px',
+                letterSpacing: isMobile ? '-0.02em' : '-1.92px',
+                textTransform: 'uppercase',
+                '--headline-ink': headlineColor
+              }}
+            >
+              {displayProject.title}
+            </Headline>
+          </animated.div>
 
-          <p
+          <animated.p
+            className={COPY_CLASS}
+            data-ink-region="copy"
             style={{
+              ...contentSpring,
               margin: isMobile ? '0 0 0.2rem' : '8px 0 18px',
-              color: 'rgb(from #E2DCC3 r g b / 0.6)',
+              color: COPY_INK(0.6),
               fontFamily: '"acumin-variable", "Acumin VF", sans-serif',
               fontSize: isMobile ? '14px' : '16px',
               fontStyle: 'normal',
@@ -139,79 +180,63 @@ const ProjectFocusSection = ({
             }}
           >
             {displayProject.subtitle}
-          </p>
+          </animated.p>
 
-          <p
-            style={{
-              margin: 0,
-              color: 'rgb(from #E2DCC3 r g b / 0.85)',
-              fontFamily: '"acumin-variable", "Acumin VF", sans-serif',
-              fontSize: isMobile ? '18px' : '24px',
-              fontStyle: 'normal',
-              fontWeight: 300,
-              lineHeight: isMobile ? '1.38' : '30px',
-              letterSpacing: isMobile ? '-0.24px' : '-0.48px'
-            }}
+          <animated.p
+            className={COPY_CLASS}
+            data-ink-region="copy"
+            style={{ ...contentSpring, ...bodyStyle, margin: 0 }}
           >
             {displayProject.description}
-          </p>
+          </animated.p>
 
           {displayProject.secondaryCopy && (
-            <p
+            <animated.p
+              className={COPY_CLASS}
+            data-ink-region="copy"
               style={{
-                margin: isMobile ? '0.2rem 0 0' : '30px 0 0',
-                color: 'rgb(from #E2DCC3 r g b / 0.85)',
-                fontFamily: '"acumin-variable", "Acumin VF", sans-serif',
-                fontSize: isMobile ? '18px' : '24px',
-                fontStyle: 'normal',
-                fontWeight: 300,
-                lineHeight: isMobile ? '1.38' : '30px',
-                letterSpacing: isMobile ? '-0.24px' : '-0.48px'
+                ...contentSpring,
+                ...bodyStyle,
+                margin: isMobile ? '0.2rem 0 0' : '30px 0 0'
               }}
             >
               {displayProject.secondaryCopy}
-            </p>
+            </animated.p>
           )}
 
           {displayProject.metrics && (
-            <p
+            <animated.p
+              className={COPY_CLASS}
+            data-ink-region="copy"
               style={{
-                margin: isMobile ? '0.2rem 0 0' : '30px 0 0',
-                color: 'rgb(from #E2DCC3 r g b / 0.85)',
-                fontFamily: '"acumin-variable", "Acumin VF", sans-serif',
-                fontSize: isMobile ? '18px' : '24px',
-                fontStyle: 'normal',
-                fontWeight: 300,
-                lineHeight: isMobile ? '1.38' : '30px',
-                letterSpacing: isMobile ? '-0.24px' : '-0.48px'
+                ...contentSpring,
+                ...bodyStyle,
+                margin: isMobile ? '0.2rem 0 0' : '30px 0 0'
               }}
             >
               {displayProject.metrics}
-            </p>
+            </animated.p>
           )}
 
           {displayProject.roles && (
-            <p
-              style={{
-                margin: 0,
-                color: 'rgb(from #E2DCC3 r g b / 0.85)',
-                fontFamily: '"acumin-variable", "Acumin VF", sans-serif',
-                fontSize: isMobile ? '18px' : '24px',
-                fontStyle: 'normal',
-                fontWeight: 300,
-                lineHeight: isMobile ? '1.38' : '30px',
-                letterSpacing: isMobile ? '-0.24px' : '-0.48px'
-              }}
+            <animated.p
+              className={COPY_CLASS}
+            data-ink-region="copy"
+              style={{ ...contentSpring, ...bodyStyle, margin: 0 }}
             >
               {displayProject.roles}
-            </p>
+            </animated.p>
           )}
 
+          {/* Unblended, as asked. It is also the one interactive element here,
+              and a control whose colour moves with the scene reads as a state
+              change rather than as an affordance. */}
           {displayProject.cta && (
-            <button
+            <animated.button
               type="button"
               onClick={() => onOpenCaseStudy?.(project.facetKey || project.id)}
               style={{
+                ...contentSpring,
                 margin: isMobile ? '1rem 0 0' : '46px 0 0',
                 color: headlineColor,
                 textAlign: isMobile ? 'left' : 'center',
@@ -229,10 +254,10 @@ const ProjectFocusSection = ({
               }}
             >
               {displayProject.cta}
-            </button>
+            </animated.button>
           )}
         </div>
-      </animated.div>
+      </div>
 
       <animated.div
         style={{

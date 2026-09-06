@@ -50,6 +50,15 @@
 html {
   overflow-x: hidden;
   height: 100%;
+
+  /* Stops mobile browsers rescaling text on their own — Android Chrome's font
+     boosting and iOS Safari's text inflation. Both grow `font-size` and neither
+     touches `letter-spacing`, so any tracking set in px stays put while the
+     glyphs around it get bigger, and tight tracking closes up into a crush. It
+     is invisible in Chrome's device mode, which does not emulate either: the
+     only way to see it is on a real phone. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {

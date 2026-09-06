@@ -12,7 +12,7 @@ import CaseStudyBody, { CaseStudyInline } from './CaseStudyText';
 const ConclusionSection = ({
   outcomeTitle = 'Outcome',
   outcomes = [],
-  lessonsTitle = 'What I Learned',
+  lessonsTitle = 'Lessons Learned',
   lessons = null,
   /** Closing statement rendered at full emphasis under the reflection. */
   takeaway = null,

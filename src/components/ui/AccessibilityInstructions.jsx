@@ -79,8 +79,7 @@ const AccessibilityInstructions = ({ visible = true, showLauncher = true }) => {
     border: '1px solid rgba(255, 255, 255, 0.2)',
     outline: 'none',
     zIndex: 1000,
-    fontSize: '18px',
-    textShadow: '0 1px 2px rgba(0, 0, 0, 0.6)',
+    fontSize: '18px',
     transition: 'all 0.2s ease'
   };
   
@@ -193,6 +192,7 @@ const AccessibilityInstructions = ({ visible = true, showLauncher = true }) => {
             <div><strong>ENTER</strong>: Select Facet</div>
             <div><strong>ESC</strong>: Back/Deselect</div>
             <div><strong>H</strong>: Toggle UI Controls</div>
+            <div><strong>L</strong>: Legibility (adaptive / difference / exclusion / scrim / off)</div>
           </div>
           
           {expanded && (

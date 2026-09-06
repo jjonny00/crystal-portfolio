@@ -28,6 +28,7 @@ import { useLayoutConfig } from '../../hooks/useLayoutConfig';
 import { useHeroOverviewRuntime } from '../../hooks/useHeroOverviewRuntime';
 import { resolveCameraDestination } from '../../camera/destinationResolver';
 import { compareCameraPoses } from '../../camera/cameraPoseCompare';
+import BackdropInkProbe from '../../legibility/BackdropInkProbe';
 
 const DEFAULT_ENV_ROTATION = [0, Math.PI * 0.7, 0];
 
@@ -889,7 +890,12 @@ const Fixed3DCanvas = forwardRef(({
         left: 0,
         width: '100vw',
         height: '100vh',
-        zIndex: 1, // Behind scrollable content (which is z-index 10)
+        // No z-index on purpose. This used to be 1, above the page and below the
+        // z-index 10 content layer — but a z-index makes this a stacking context,
+        // and copy in the content layer blending against the scene has to be able
+        // to see through to it. The canvas is the first of the fixed layers in
+        // App's tree, so DOM order alone puts it behind the scrims, the energy
+        // line and the content, which is the order it had. See legibility.css.
         pointerEvents: 'none', // Don't block scrolling
         // While frozen the canvas is fully covered anyway, so skip compositing
         // it too. `visibility` (not `display`) keeps the WebGL context and its
@@ -923,6 +929,10 @@ const Fixed3DCanvas = forwardRef(({
           <InitialCameraLookAt target={initialCameraTarget} />
 
           <SceneFreezeGuard />
+
+          {/* Reads the finished frame so the copy over it can pick an ink that
+              clears it. Renders nothing; see BackdropInkProbe.jsx. */}
+          <BackdropInkProbe />
 
           <FPSCounter />
 

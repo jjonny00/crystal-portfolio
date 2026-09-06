@@ -63,8 +63,9 @@ body {
   scroll-snap-type: y mandatory !important;
   scroll-behavior: smooth !important;
   
-  /* Ensure it's above 3D canvas */
-  z-index: 10 !important;
+  /* Above the 3D canvas by DOM order rather than by z-index: a z-index here
+     would make this a stacking context, and the copy inside it has to be able to
+     blend against the scene behind it. See legibility.css. */
   
   /* Mobile scroll support */
   -webkit-overflow-scrolling: touch;
