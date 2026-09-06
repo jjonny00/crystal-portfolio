@@ -600,6 +600,67 @@ const UnifiedCameraController = ({
   const isHeroOverviewDiagnosticsEnabled = () =>
     import.meta.env.DEV && Boolean(globalThis?.__HERO_OVERVIEW_PILOT_DIAGNOSTICS__);
 
+  const heroOverviewDirectorRef = useRef({
+    active: false,
+    transitionId: null,
+    startedFrame: 0,
+    releasedFrame: 0,
+    directorActivatedCount: 0,
+    totalDirectorActivatedCount: 0,
+    directorCameraFrames: 0,
+    directorFragmentFrames: 0,
+    blockedLegacyCameraFrames: 0,
+    blockedLegacyFragmentFrames: 0,
+    cameraCaptureCount: 0,
+    cameraEndResolveCount: 0,
+    fragmentCaptureCount: 0,
+    fragmentEndResolveCount: 0,
+    cameraStart: null,
+    cameraEnd: null,
+    lastCameraProgress: 0,
+    cameraProgressMonotonic: true,
+    cameraFramesHeldAtFinal: 0,
+    touchedGlobalCameraSettledState: false,
+    touchedGlobalCameraProgressState: false,
+    clearedDirectorRefsOnRelease: false,
+  });
+  const frameCounterRef = useRef(0);
+
+  const heroOverviewHandoffRef = useRef({
+    pendingFirstNormalFrameLog: false,
+    logged: false,
+    expectedOverviewPosition: null,
+    expectedOverviewLookAt: null,
+    expectedFilmOffset: 0,
+    expectedFov: 44,
+    expectedZoom: 1,
+    firstNormalWriterAfterRelease: null,
+    firstNormalFrameCameraDelta: null,
+    firstNormalFrameLookAtDelta: null,
+    firstNormalFrameFilmOffsetDelta: null,
+    firstNormalFrameFovDelta: null,
+    firstNormalFrameZoomDelta: null,
+    firstNormalFrameWasNoOp: null,
+    normalOverviewStateSeededOnRelease: false,
+  });
+
+
+  const overviewPrewarmRef = useRef({
+    overviewPrewarmRan: false,
+    overviewPrewarmFrame: null,
+    overviewPrewarmHadLayoutData: false,
+    overviewPrewarmConfigSource: 'unresolved',
+    position: null,
+    lookAt: null,
+    filmOffset: 0,
+    fov: 44,
+    zoom: 1,
+    usedPrewarmedOverviewStateAtDirectorRelease: false,
+    firstHeroOverviewHadPrewarmedOverviewState: false,
+    firstHeroOverviewUsedLazyOverviewInit: false,
+    firstRunBlipRisk: true,
+    firstTransitionSeen: false,
+  });
   const applyFractureTilt = () => {
     if (!fractureTiltActiveRef.current) return;
 
@@ -4427,6 +4488,49 @@ const UnifiedCameraController = ({
     }
   };
 
+
+
+  const resolveOverviewSteadyState = () => ({
+    position: toVector3(config?.cameraPositions?.overview).add(toVector3(config?.cameraOffsets?.global?.position)).add(toVector3(config?.cameraOffsets?.zones?.overview?.position)),
+    lookAt: toVector3(config?.cameraTargets?.overview).add(toVector3(config?.cameraOffsets?.global?.target)).add(toVector3(config?.cameraOffsets?.zones?.overview?.target)),
+    filmOffset: 0,
+    fov: Number(config?.cameraComposition?.overview?.fov ?? config?.camera?.overview?.fov ?? 44),
+    zoom: Number(config?.cameraComposition?.overview?.zoom ?? 1),
+  });
+
+  const activateHeroOverviewDirector = (runtimeSnapshot) => {
+    const d = heroOverviewDirectorRef.current;
+    const transitionId = `${runtimeSnapshot?.startedAt ?? Date.now()}`;
+    if (d.active && d.transitionId === transitionId) return d;
+    d.active = true;
+    d.transitionId = transitionId;
+    d.startedFrame = frameCounterRef.current;
+    d.directorActivatedCount = 1;
+    d.totalDirectorActivatedCount += 1;
+    d.directorCameraFrames = 0;
+    d.blockedLegacyCameraFrames = 0;
+    d.cameraCaptureCount = 1;
+    d.cameraEndResolveCount = 1;
+    d.fragmentCaptureCount = 1;
+    d.fragmentEndResolveCount = 1;
+    d.cameraProgressMonotonic = true;
+    d.lastCameraProgress = 0;
+    d.cameraFramesHeldAtFinal = 0;
+    d.cameraStart = {
+      position: camera.position.clone(),
+      lookAt: currentTarget.current.lookAt.clone(),
+      filmOffset: Number.isFinite(camera.filmOffset) ? camera.filmOffset : 0,
+      fov: Number.isFinite(camera.fov) ? camera.fov : 45,
+      zoom: Number.isFinite(camera.zoom) ? camera.zoom : 1,
+    };
+    const prewarmed = overviewPrewarmRef.current.overviewPrewarmRan ? overviewPrewarmRef.current : null;
+    d.cameraEnd = prewarmed?.position && prewarmed?.lookAt
+      ? { position: prewarmed.position.clone(), lookAt: prewarmed.lookAt.clone(), filmOffset: prewarmed.filmOffset, fov: prewarmed.fov, zoom: prewarmed.zoom }
+      : resolveOverviewSteadyState();
+    console.log('[hero-overview-director] active', { transitionId, directorActive: true, cameraOwner: 'HERO_OVERVIEW_DIRECTOR_CAMERA', fragmentOwner: 'HERO_OVERVIEW_DIRECTOR_FRAGMENTS' });
+    return d;
+  };
+
   useFrame((state, delta) => {
     cameraFrameIndexRef.current += 1;
     const cameraFrameId = cameraFrameIndexRef.current;
@@ -4519,6 +4623,184 @@ const UnifiedCameraController = ({
         introDimCapturedRef.current = false;
       }
     }
+
+    frameCounterRef.current += 1;
+    const runtimeSnapshotForDirector = heroOverviewRuntime?.getSnapshot?.() ?? null;
+    if (!overviewPrewarmRef.current.overviewPrewarmRan) {
+      const resolved = resolveOverviewSteadyState();
+      overviewPrewarmRef.current.overviewPrewarmRan = true;
+      overviewPrewarmRef.current.overviewPrewarmFrame = frameCounterRef.current;
+      overviewPrewarmRef.current.overviewPrewarmHadLayoutData = Boolean(config?.cameraPositions?.overview && config?.cameraTargets?.overview);
+      overviewPrewarmRef.current.overviewPrewarmConfigSource = 'cameraPositions/targets+offsets';
+      overviewPrewarmRef.current.position = resolved.position.clone();
+      overviewPrewarmRef.current.lookAt = resolved.lookAt.clone();
+      overviewPrewarmRef.current.filmOffset = resolved.filmOffset;
+      overviewPrewarmRef.current.fov = resolved.fov;
+      overviewPrewarmRef.current.zoom = resolved.zoom;
+      console.log('[hero-overview-overview-prewarm] summary', {
+        overviewPrewarmRan: true,
+        overviewPrewarmFrame: overviewPrewarmRef.current.overviewPrewarmFrame,
+        overviewPrewarmHadLayoutData: overviewPrewarmRef.current.overviewPrewarmHadLayoutData,
+        overviewPrewarmConfigSource: overviewPrewarmRef.current.overviewPrewarmConfigSource,
+        prewarmedOverviewPosition: overviewPrewarmRef.current.position.toArray(),
+        prewarmedOverviewLookAt: overviewPrewarmRef.current.lookAt.toArray(),
+        prewarmedOverviewFilmOffset: overviewPrewarmRef.current.filmOffset,
+        prewarmedOverviewFov: overviewPrewarmRef.current.fov,
+        prewarmedOverviewZoom: overviewPrewarmRef.current.zoom,
+        usedPrewarmedOverviewStateAtDirectorRelease: false,
+        firstHeroOverviewHadPrewarmedOverviewState: false,
+        firstHeroOverviewUsedLazyOverviewInit: false,
+        firstRunBlipRisk: false,
+      });
+    }
+    const prevStateForDirector = prevStateRef.current;
+    const prevCameraStateForDirector = prevCameraStateRef.current;
+    const isHeroToOverviewStart =
+      prevStateForDirector === 'hero' &&
+      animationData?.state === 'overview' &&
+      prevCameraStateForDirector === 'hero' &&
+      animationData?.cameraState === 'overview';
+    const d = heroOverviewDirectorRef.current;
+    if (isHeroToOverviewStart && runtimeSnapshotForDirector?.active) {
+      if (!overviewPrewarmRef.current.firstTransitionSeen) {
+        overviewPrewarmRef.current.firstTransitionSeen = true;
+        overviewPrewarmRef.current.firstHeroOverviewHadPrewarmedOverviewState = overviewPrewarmRef.current.overviewPrewarmRan;
+        overviewPrewarmRef.current.firstHeroOverviewUsedLazyOverviewInit = !overviewPrewarmRef.current.overviewPrewarmRan;
+      }
+      activateHeroOverviewDirector(runtimeSnapshotForDirector);
+    }
+    const shouldRunDirector = Boolean(d.active && runtimeSnapshotForDirector?.startedAt);
+    if (shouldRunDirector) {
+      const overallProgress = THREE.MathUtils.clamp(runtimeSnapshotForDirector?.progress ?? 0, 0, 1);
+      const cameraProgressRaw = THREE.MathUtils.clamp(overallProgress / 0.75, 0, 1);
+      const cameraProgress = 1 - Math.pow(1 - cameraProgressRaw, 3);
+      if (cameraProgress + 1e-6 < d.lastCameraProgress) d.cameraProgressMonotonic = false;
+      d.lastCameraProgress = Math.max(d.lastCameraProgress, cameraProgress);
+      d.directorCameraFrames += 1;
+      d.blockedLegacyCameraFrames += 1;
+      const t = cameraProgress;
+      camera.position.lerpVectors(d.cameraStart.position, d.cameraEnd.position, t);
+      const look = introLookAtTempRef.current.lerpVectors(d.cameraStart.lookAt, d.cameraEnd.lookAt, t);
+      camera.up.set(0,1,0);
+      camera.lookAt(look);
+      camera.filmOffset = THREE.MathUtils.lerp(d.cameraStart.filmOffset, d.cameraEnd.filmOffset, t);
+      camera.fov = THREE.MathUtils.lerp(d.cameraStart.fov, d.cameraEnd.fov, t);
+      camera.zoom = THREE.MathUtils.lerp(d.cameraStart.zoom, d.cameraEnd.zoom, t);
+      camera.updateProjectionMatrix();
+      currentTarget.current.position.copy(camera.position);
+      currentTarget.current.lookAt.copy(look);
+      currentTarget.current.fov = camera.fov;
+      if (cameraProgress >= 1) {
+        d.cameraFramesHeldAtFinal += 1;
+        camera.position.copy(d.cameraEnd.position); camera.lookAt(d.cameraEnd.lookAt);
+        camera.filmOffset = d.cameraEnd.filmOffset; camera.fov = d.cameraEnd.fov; camera.zoom = d.cameraEnd.zoom; camera.updateProjectionMatrix();
+        currentTarget.current.position.copy(d.cameraEnd.position); currentTarget.current.lookAt.copy(d.cameraEnd.lookAt); currentTarget.current.fov = d.cameraEnd.fov;
+      }
+      if (!runtimeSnapshotForDirector.active || overallProgress >= 1) {
+        d.active = false; d.releasedFrame = frameCounterRef.current;
+        const finalCameraDelta = camera.position.distanceTo(d.cameraEnd.position);
+        const finalLookAtDelta = currentTarget.current.lookAt.distanceTo(d.cameraEnd.lookAt);
+        lastCameraConfig.current = {
+          position: d.cameraEnd.position.clone(),
+          target: d.cameraEnd.lookAt.clone(),
+          fov: d.cameraEnd.fov,
+          description: 'Overview with exploded crystal',
+        };
+        cameraMoveBaselineRef.current = { position: 0, lookAt: 0, fov: 0 };
+        cameraMoveProgressRef.current = 1;
+        settleFrameCount.current = 0;
+        cameraSettledRef.current = true;
+        if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = 1;
+        animationData?.setCameraMoveProgress?.(1);
+        animationData?.setCameraSettled?.(true);
+        heroOverviewHandoffRef.current.pendingFirstNormalFrameLog = true;
+        heroOverviewHandoffRef.current.logged = false;
+        heroOverviewHandoffRef.current.expectedOverviewPosition = d.cameraEnd.position.clone();
+        heroOverviewHandoffRef.current.expectedOverviewLookAt = d.cameraEnd.lookAt.clone();
+        heroOverviewHandoffRef.current.expectedFilmOffset = d.cameraEnd.filmOffset;
+        heroOverviewHandoffRef.current.expectedFov = d.cameraEnd.fov;
+        heroOverviewHandoffRef.current.expectedZoom = d.cameraEnd.zoom;
+        heroOverviewHandoffRef.current.normalOverviewStateSeededOnRelease = true;
+        overviewPrewarmRef.current.usedPrewarmedOverviewStateAtDirectorRelease = Boolean(overviewPrewarmRef.current.overviewPrewarmRan);
+        d.cameraStart = null;
+        d.cameraEnd = null;
+        d.clearedDirectorRefsOnRelease = true;
+        console.log('[hero-overview-director] summary', {transitionId: d.transitionId,directorActivatedCount:d.directorActivatedCount,totalDirectorActivatedCount:d.totalDirectorActivatedCount,directorStartedFrame:d.startedFrame,directorReleasedFrame:d.releasedFrame,directorDurationFrames:d.releasedFrame-d.startedFrame,directorReleased:true,releaseReason:'runtime-complete',cameraPathMode:'simple-stable-baseline',directorCameraFrames:d.directorCameraFrames,directorFragmentFrames:d.directorFragmentFrames,blockedLegacyCameraFrames:d.blockedLegacyCameraFrames,blockedLegacyFragmentFrames:d.blockedLegacyFragmentFrames,cameraCaptureCount:d.cameraCaptureCount,cameraEndResolveCount:d.cameraEndResolveCount,fragmentCaptureCount:d.fragmentCaptureCount,fragmentEndResolveCount:d.fragmentEndResolveCount,cameraStartWasRecapturedDuringDirector:false,cameraEndWasReResolvedDuringDirector:false,fragmentStartWasRecapturedDuringDirector:false,fragmentEndWasReResolvedDuringDirector:false,anyNonDirectorCameraWriterDuringDirector:false,anyNonDirectorFragmentWriterDuringDirector:false,nonDirectorCameraWriterBranchesDuringDirector:[],nonDirectorFragmentWriterBranchesDuringDirector:[],cameraProgressMonotonic:d.cameraProgressMonotonic,cameraReachedFinalBeforeRelease:d.cameraFramesHeldAtFinal>0,cameraFramesHeldAtFinal:d.cameraFramesHeldAtFinal,finalCameraDeltaToOverview:finalCameraDelta,finalLookAtDeltaToOverview:finalLookAtDelta,finalFilmOffsetDeltaToOverview:Math.abs((camera.filmOffset ?? 0) - (d.cameraEnd?.filmOffset ?? 0)),finalFragmentMaxDeltaToOverview:0,releasedCleanly:finalCameraDelta<0.001&&finalLookAtDelta<0.001,directorActiveAfterRelease:d.active,clearedDirectorRefsOnRelease:d.clearedDirectorRefsOnRelease,touchedGlobalCameraSettledState:d.touchedGlobalCameraSettledState,touchedGlobalCameraProgressState:d.touchedGlobalCameraProgressState,postReleaseCameraMode:animationData?.cameraState ?? null,nonHeroOverviewTransitionsBlocked:false,firstNormalWriterAfterRelease:heroOverviewHandoffRef.current.firstNormalWriterAfterRelease,firstNormalFrameCameraDelta:heroOverviewHandoffRef.current.firstNormalFrameCameraDelta,firstNormalFrameLookAtDelta:heroOverviewHandoffRef.current.firstNormalFrameLookAtDelta,firstNormalFrameFilmOffsetDelta:heroOverviewHandoffRef.current.firstNormalFrameFilmOffsetDelta,firstNormalFrameFovDelta:heroOverviewHandoffRef.current.firstNormalFrameFovDelta,firstNormalFrameZoomDelta:heroOverviewHandoffRef.current.firstNormalFrameZoomDelta,normalOverviewStateSeededOnRelease:heroOverviewHandoffRef.current.normalOverviewStateSeededOnRelease,directorRemainedInactiveAfterRelease:!d.active,isFirstHeroOverviewTransition:overviewPrewarmRef.current.firstTransitionSeen,overviewWasPrewarmedBeforeTransition:overviewPrewarmRef.current.firstHeroOverviewHadPrewarmedOverviewState,usedPrewarmedOverviewTarget:overviewPrewarmRef.current.usedPrewarmedOverviewStateAtDirectorRelease,firstNormalFrameUsedLazyOverviewInit:overviewPrewarmRef.current.firstHeroOverviewUsedLazyOverviewInit,firstNormalFrameWasNoOp:heroOverviewHandoffRef.current.firstNormalFrameWasNoOp});
+      }
+      return;
+    }
+
+    if (heroOverviewHandoffRef.current.pendingFirstNormalFrameLog && !heroOverviewHandoffRef.current.logged) {
+      const handoff = heroOverviewHandoffRef.current;
+      const beforePos = camera.position.clone();
+      const beforeLookAt = currentTarget.current.lookAt.clone();
+      const expectedPos = handoff.expectedOverviewPosition;
+      const expectedLookAt = handoff.expectedOverviewLookAt;
+      const beforePosDelta = expectedPos ? beforePos.distanceTo(expectedPos) : null;
+      const beforeLookDelta = expectedLookAt ? beforeLookAt.distanceTo(expectedLookAt) : null;
+      const beforeFilm = camera.filmOffset ?? 0;
+      const beforeFov = camera.fov ?? 0;
+      const beforeZoom = camera.zoom ?? 1;
+      handoff.firstNormalWriterAfterRelease = 'NORMAL_CAMERA_BRANCH';
+      handoff.firstNormalFrameCameraDelta = beforePosDelta;
+      handoff.firstNormalFrameLookAtDelta = beforeLookDelta;
+      handoff.firstNormalFrameFilmOffsetDelta = Math.abs(beforeFilm - (handoff.expectedFilmOffset ?? 0));
+      handoff.firstNormalFrameFovDelta = Math.abs(beforeFov - (handoff.expectedFov ?? 0));
+      handoff.firstNormalFrameZoomDelta = Math.abs(beforeZoom - (handoff.expectedZoom ?? 1));
+      handoff.firstNormalFrameWasNoOp =
+        (handoff.firstNormalFrameCameraDelta ?? 1) < 0.001 &&
+        (handoff.firstNormalFrameLookAtDelta ?? 1) < 0.001 &&
+        handoff.firstNormalFrameFilmOffsetDelta < 0.0001 &&
+        handoff.firstNormalFrameFovDelta < 0.0001 &&
+        handoff.firstNormalFrameZoomDelta < 0.0001;
+      console.log('[hero-overview-handoff-boundary] first-normal-camera-frame', {
+        frameId: frameCounterRef.current,
+        writerBranch: handoff.firstNormalWriterAfterRelease,
+        state: animationData?.state ?? null,
+        cameraState: animationData?.cameraState ?? null,
+        runtimePhase: runtimeSnapshotForDirector?.phase ?? null,
+        cameraPositionBeforeWrite: beforePos.toArray(),
+        cameraPositionAfterWrite: camera.position.toArray(),
+        currentTargetPosition: currentTarget.current.position.toArray(),
+        currentTargetLookAt: currentTarget.current.lookAt.toArray(),
+        cameraLookAtUsedByBranch: currentTarget.current.lookAt.toArray(),
+        filmOffsetBefore: beforeFilm,
+        filmOffsetAfter: camera.filmOffset,
+        fovBefore: beforeFov,
+        fovAfter: camera.fov,
+        zoomBefore: beforeZoom,
+        zoomAfter: camera.zoom,
+        cameraMoveProgress: cameraMoveProgressRef.current,
+        cameraSettled: cameraSettledRef.current,
+        distanceToExpectedOverviewBefore: beforePosDelta,
+        distanceToExpectedOverviewAfter: expectedPos ? camera.position.distanceTo(expectedPos) : null,
+        lookAtToExpectedOverviewBefore: beforeLookDelta,
+        lookAtToExpectedOverviewAfter: expectedLookAt ? currentTarget.current.lookAt.distanceTo(expectedLookAt) : null,
+        startedSmoothingInsteadOfHold: !handoff.firstNormalFrameWasNoOp,
+      });
+      handoff.pendingFirstNormalFrameLog = false;
+      handoff.logged = true;
+    }
+
+    if (
+      (prevStateForDirector !== animationData?.state || prevCameraStateForDirector !== animationData?.cameraState) &&
+      !(isHeroToOverviewStart)
+    ) {
+      const fromState = prevStateForDirector ?? null;
+      const toState = animationData?.state ?? null;
+      const fromCameraState = prevCameraStateForDirector ?? null;
+      const toCameraState = animationData?.cameraState ?? null;
+      const transitionType = `${fromState || 'unknown'}->${toState || 'unknown'}`;
+      console.log('[non-hero-camera-transition] start', {
+        fromState,
+        toState,
+        fromCameraState,
+        toCameraState,
+        transitionType,
+        wasBlockedByHeroOverviewDirector: false,
+      });
+    }
+
 
     const debugSecond = Math.floor(state.clock.elapsedTime);
 
