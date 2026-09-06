@@ -15,13 +15,22 @@ import { useEffect } from 'react';
 import { addAfterEffect, useThree } from '@react-three/fiber';
 import { sampleBackdropInk, clearBackdropInk } from './backdropInk';
 
-const BackdropInkProbe = () => {
+const BackdropInkProbe = ({ introRevealRef = null }) => {
   const gl = useThree((state) => state.gl);
 
   useEffect(() => {
     if (!gl) return undefined;
 
     const unsubscribe = addAfterEffect(() => {
+      // The intro fly-in is the one camera move the settle signal cannot see.
+      // `settledSection` is 'hero' from the first render, so the grace window
+      // opens partway into the intro and every sample after it lands on a camera
+      // still in flight. A readback is a hard GPU sync, and on the PBR tiers the
+      // queue it has to flush holds the full-resolution transmission pass and the
+      // multisampled composer — enough to read as a hitch in a moving frame.
+      // Nothing measured there is worth keeping anyway: the reveal ramp means the
+      // frame is still darker than the one the copy ends up sitting on.
+      if (introRevealRef && introRevealRef.current < 1) return;
       sampleBackdropInk(gl, performance.now());
     });
 
@@ -32,7 +41,7 @@ const BackdropInkProbe = () => {
       // that is no longer there.
       clearBackdropInk();
     };
-  }, [gl]);
+  }, [gl, introRevealRef]);
 
   return null;
 };

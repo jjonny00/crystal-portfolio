@@ -932,7 +932,7 @@ const Fixed3DCanvas = forwardRef(({
 
           {/* Reads the finished frame so the copy over it can pick an ink that
               clears it. Renders nothing; see BackdropInkProbe.jsx. */}
-          <BackdropInkProbe />
+          <BackdropInkProbe introRevealRef={introRevealRef} />
 
           <FPSCounter />
 
