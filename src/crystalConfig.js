@@ -498,7 +498,7 @@ export const materials = {
       // Added to roughness on the bevels. Base crystal roughness is 0.0, so this is
       // the bevel's absolute roughness. Also blurs refraction through those faces,
       // since three feeds material.roughness into getIBLVolumeRefraction.
-      roughnessBoost: 0.1,
+      roughnessBoost: 0.175,
       // Fraction of transmission removed on the bevels (0 = none, 1 = opaque).
       // 0.10 takes transmission 0.91 -> ~0.82 there.
       transmissionReduction: 0.90,
@@ -510,7 +510,7 @@ export const materials = {
       // and facet triangles are ~0.65 units across, so 0.02 is ~4x the bevel and
       // ~3% of a facet. Keep it well under the facet size — the ramp is measured
       // inside each triangle and would clip at a triangle edge if pushed too far.
-      falloff: 0.2,
+      falloff: 0.125,
 
       // Additive emissive glow on the worn edges. Follows the same wear value as the
       // roughness/transmission shift, so it feathers along the `falloff` ramp rather
