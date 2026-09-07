@@ -11,6 +11,7 @@ import { getFractureRingTexture, getGlowingSphereTexture } from '../../loader/pr
 // Import existing material manager
 import MaterialManager from './MaterialManager'
 import { attachInternalGlow, updateInternalGlow, hasInternalGlow, FACET_GLOW_PROGRAM_KEY } from '../materials/internalGlow'
+import { attachEdgeWear, detachEdgeWear, updateEdgeWear, hasEdgeWear, readEdgeWear, supportsEdgeWear, ensureEdgeWearGeometry, setEdgeWearReveal } from '../materials/edgeWear'
 
 // Import enhanced sphere component
 import GlowingSphereImage, { BLEND_STYLES } from './GlowingSphereImage'
@@ -37,6 +38,8 @@ import { useFacetOverlayGeometry } from '../../hooks/useFacetOverlayGeometry'
 import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController'
 import { useHoverCapable } from '../../hooks/useHoverCapable'
 import { createLogger } from '../../utils/logger'
+// TEMPORARY DIAGNOSTIC — remove together with src/debug/edgeWearMaskDebug.js
+import { inspectEdgeWearAttributes, applyEdgeWearMaskDebug, getEdgeWearDebugMode, getEdgeWearDebugOverride, installEdgeWearMaskDebug, setEdgeWearDebugParams } from '../../debug/edgeWearMaskDebug'
 import { HERO_OVERVIEW_CINEMATIC_RESOLVED, HERO_OVERVIEW_EASING } from '../../config/heroOverviewCinematicConfig'
 
 const PROJECT_DISPLAY_SLOT = 'ProjectDisplay'
@@ -302,6 +305,13 @@ const UnifiedCrystalScene = forwardRef(({
   const facetRefs = useRef([]);
   const facetsGroupRef = useRef();
   const crystalMaterialRef = useRef();
+
+  // TEMPORARY DIAGNOSTIC — live scene/renderer for the edge-wear mask audit.
+  // Selector form on purpose: `useThree()` with no selector subscribes to the whole
+  // r3f store and would re-render this component on every size/state change. `scene`
+  // and `gl` are stable for the canvas lifetime, so these never re-render it.
+  const r3fScene = useThree((s) => s.scene);
+  const r3fGl = useThree((s) => s.gl);
 
   // Sphere state
   const [sphereVisible, setSphereVisible] = useState(false);
@@ -2098,12 +2108,19 @@ const UnifiedCrystalScene = forwardRef(({
               overlayTargetsChild.overlayMaterial;
           }
 
-          child.material = updatedMaterials;
+          // TEMPORARY DIAGNOSTIC — while edge-wear debugging is on, the debug
+          // material wins over this re-application (returns null otherwise).
+          const debugOverride = getEdgeWearDebugOverride(child, updatedMaterials);
+          child.material = debugOverride
+            ? new Array(materialCount).fill(debugOverride)
+            : updatedMaterials;
         } else {
-          child.material =
+          const intended =
             overlayTargetsChild && overlayTargetsChild.isActive
               ? overlayTargetsChild.overlayMaterial
               : material;
+          // TEMPORARY DIAGNOSTIC — see note above.
+          child.material = getEdgeWearDebugOverride(child, intended) ?? intended;
         }
 
         if (Array.isArray(child.material)) {
@@ -2849,6 +2866,13 @@ const UnifiedCrystalScene = forwardRef(({
         wholeCrystalRef.current.position.set(0, 0, 0);
       }
     }
+
+    // Edge-wear glow reveal: ramp the worn edges' emissive 0 -> configured value on
+    // the SAME intro clock the core glow reads (introRevealRef, 0→1; 1 = full/idle),
+    // so the edges light up in step with the scene fade-up rather than popping in.
+    // Outside the `glowMats` block on purpose — the edge wear lives on the crystal
+    // material whether or not the fresnel glow is attached. No-ops when unchanged.
+    setEdgeWearReveal(crystalMaterialRef.current, introRevealRef?.current ?? 1);
 
     // Hero internal-glow pulse: breathe the whole crystal's core glow around its
     // steady base intensity. Outside hero (or with speed/amount 0) hold the base.
@@ -3769,6 +3793,130 @@ const UnifiedCrystalScene = forwardRef(({
         : { ...params, emissiveIntensity: active ? facetGlowLevelsRef.current.active : baseIntensity });
     });
   }, [glowEmissiveIntensity, glowActiveIntensity, glowFresnelPower, glowBiasValue, glowIntensityScale, emissiveGlowBoost, materialVersion, wholeCrystal]);
+
+  // Beveled-edge wear. Reads the crystal GLB's `edgeWear` vertex mask and shifts only
+  // roughness + transmission on the bevels, injected into the EXISTING crystal
+  // material (see components/materials/edgeWear.js). Runs AFTER the glow effect so
+  // attachEdgeWear chains onto the glow injection instead of replacing it.
+  const edgeWearEnabled = config?.materials?.crystal?.edgeWear?.enabled ?? false;
+  const edgeWearRoughnessBoost = config?.materials?.crystal?.edgeWear?.roughnessBoost ?? 0;
+  const edgeWearTransmissionReduction =
+    config?.materials?.crystal?.edgeWear?.transmissionReduction ?? 0;
+  const edgeWearFalloff = config?.materials?.crystal?.edgeWear?.falloff ?? 0;
+  const edgeWearBrightness = config?.materials?.crystal?.edgeWear?.brightness ?? 0;
+  const edgeWearBrightnessColor =
+    config?.materials?.crystal?.edgeWear?.brightnessColor ?? '#ffffff';
+  const edgeWearNoiseAmount = config?.materials?.crystal?.edgeWear?.noiseAmount ?? 0;
+  const edgeWearNoiseScale = config?.materials?.crystal?.edgeWear?.noiseScale ?? 1;
+
+  useEffect(() => {
+    if (!wholeCrystal?.scene) return;
+
+    // Build the per-triangle edge-distance attribute that drives the soft falloff.
+    // Must run AFTER applyFlatNormals (which swaps in the non-indexed geometry this
+    // needs); it caches on the geometry, so the flat-normal A/B toggle keeps working.
+    ensureEdgeWearGeometry(wholeCrystal.scene);
+    setEdgeWearDebugParams({
+      falloff: edgeWearFalloff,
+      noiseAmount: edgeWearNoiseAmount,
+      noiseScale: edgeWearNoiseScale,
+    });
+
+    // The effect is driven entirely by the vertex mask, so a crystal GLB without one
+    // must behave exactly as before.
+    let hasMask = false;
+    const meshMaterials = new Set();
+    wholeCrystal.scene.traverse((child) => {
+      if (!child.isMesh || child.userData?.isOverlay) return;
+      if (child.geometry?.attributes?.color) hasMask = true;
+      const mats = Array.isArray(child.material) ? child.material : [child.material];
+      mats.forEach((m) => m && meshMaterials.add(m));
+    });
+
+    if (!hasMask) {
+      if (import.meta.env.DEV && edgeWearEnabled) {
+        logger.warn('edgeWear: crystal geometry has no `color` attribute — effect skipped');
+      }
+      return;
+    }
+
+    // crystalMaterialRef.current is the live tier material; include it explicitly so
+    // the injection is still applied while the debug visualization has temporarily
+    // swapped the mesh's material out.
+    const candidates = new Set(meshMaterials);
+    if (crystalMaterialRef.current) candidates.add(crystalMaterialRef.current);
+
+    candidates.forEach((mat) => {
+      if (!supportsEdgeWear(mat)) return; // low tier (MeshPhong) + debug materials
+      if (!edgeWearEnabled) {
+        if (hasEdgeWear(mat)) detachEdgeWear(mat);
+        return;
+      }
+      const params = {
+        roughnessBoost: edgeWearRoughnessBoost,
+        transmissionReduction: edgeWearTransmissionReduction,
+        falloff: edgeWearFalloff,
+        brightness: edgeWearBrightness,
+        brightnessColor: edgeWearBrightnessColor,
+        noiseAmount: edgeWearNoiseAmount,
+        noiseScale: edgeWearNoiseScale,
+      };
+      // attach compiles; update is a plain uniform write with no recompile.
+      if (hasEdgeWear(mat)) updateEdgeWear(mat, params);
+      else attachEdgeWear(mat, params);
+    });
+  }, [
+    wholeCrystal,
+    modelsLoaded,
+    materialVersion,
+    edgeWearEnabled,
+    edgeWearRoughnessBoost,
+    edgeWearTransmissionReduction,
+    edgeWearFalloff,
+    edgeWearBrightness,
+    edgeWearBrightnessColor,
+    edgeWearNoiseAmount,
+    edgeWearNoiseScale,
+  ]);
+
+  // DEV-only: live tuning without a rebuild — __setEdgeWear({ roughnessBoost: 0.3 }).
+  useEffect(() => {
+    if (!import.meta.env.DEV || typeof globalThis === 'undefined') return undefined;
+    globalThis.__setEdgeWear = (params = {}) => {
+      const mat = crystalMaterialRef.current;
+      if (!hasEdgeWear(mat)) {
+        console.warn('[edgeWear] not attached (disabled, unsupported tier, or no mask)');
+        return null;
+      }
+      updateEdgeWear(mat, params);
+      const values = readEdgeWear(mat);
+      // Keep the 'wear' debug visualisation showing what the crystal is really doing.
+      setEdgeWearDebugParams(values);
+      console.log('[edgeWear] ->', values);
+      return values;
+    };
+    return () => { delete globalThis.__setEdgeWear; };
+  }, []);
+
+  // TEMPORARY DIAGNOSTIC — edge-wear mask verification (src/debug/edgeWearMaskDebug.js).
+  // Placed AFTER the material-application effect on purpose, for two reasons:
+  //   1. the GLB's own MeshStandardMaterial ships vertexColors=true (GLTFLoader sets it
+  //      whenever COLOR_0 exists), so inspecting earlier would warn about a material
+  //      that has already been replaced by the time anything renders;
+  //   2. it lets the debug material be re-asserted after applyMaterial has run.
+  // The flat-normals geometry swap also runs earlier, so this doubles as a check that
+  // the color attribute survives toNonIndexed(). Delete this block and the import.
+  useEffect(() => {
+    if (!import.meta.env.DEV) return undefined;
+    const root = wholeCrystal?.scene;
+    inspectEdgeWearAttributes(root, 'wholeCrystal');
+    applyEdgeWearMaskDebug(root, getEdgeWearDebugMode());
+    return installEdgeWearMaskDebug({
+      getTargetRoot: () => wholeCrystal?.scene,
+      getRootScene: () => r3fScene,
+      getRenderer: () => r3fGl,
+    });
+  }, [wholeCrystal, modelsLoaded, materialVersion, r3fScene, r3fGl]);
 
   // DEV-only: `__inspectCrystalGlow()` in the browser console dumps the live glow
   // state of the whole-crystal mesh materials + facets so we can see exactly which

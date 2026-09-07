@@ -455,7 +455,7 @@ export const materials = {
     // `reflectivity` here or it will clobber `ior` and the IOR control will do
     // nothing. `ior: 1.78` reproduces the previous look (reflectivity ≈ 0.70).
     ior: 1.8,
-    thickness: 0.1,
+    thickness: 0.05,
     iridescence: 1.4,
     iridescenceIOR: 1.3,
     metalness: 0.0,
@@ -483,6 +483,67 @@ export const materials = {
       glowBias: 0.16,            // 0 = tight center core; higher reaches toward edges
       pulseSpeed: 1.25,          // Hero pulse frequency (rad/sec); 0 = no pulse
       pulseAmount: 0.84          // Hero pulse depth (0..1): intensity swings ±(amount·base)
+    },
+
+    // Beveled-edge wear, driven by the Blender `edgeWear` vertex-colour mask that
+    // ships in the crystal GLB (facets = 0, bevels = 1). Shifts roughness and
+    // transmission on the masked bevels, plus an optional additive emissive glow —
+    // no drawn lines, no extra geometry/materials/draw calls.
+    // See components/materials/edgeWear.js.
+    //
+    // Only applies on tiers that use MeshPhysicalMaterial (high + medium). The low
+    // tier renders MeshPhongMaterial, which has neither property, and is skipped.
+    edgeWear: {
+      enabled: true,
+      // Added to roughness on the bevels. Base crystal roughness is 0.0, so this is
+      // the bevel's absolute roughness. Also blurs refraction through those faces,
+      // since three feeds material.roughness into getIBLVolumeRefraction.
+      roughnessBoost: 0.1,
+      // Fraction of transmission removed on the bevels (0 = none, 1 = opaque).
+      // 0.10 takes transmission 0.91 -> ~0.82 there.
+      transmissionReduction: 0.90,
+      // Object-space width of the soft falloff that carries the wear off the bevel
+      // and onto the neighbouring facet, via the precomputed `aEdgeDist` attribute.
+      // 0 = no spill (the original hard-edged mask behaviour).
+      //
+      // Scale reference from the shipped mesh: the bevel strip is ~0.005 units wide
+      // and facet triangles are ~0.65 units across, so 0.02 is ~4x the bevel and
+      // ~3% of a facet. Keep it well under the facet size — the ramp is measured
+      // inside each triangle and would clip at a triangle edge if pushed too far.
+      falloff: 0.2,
+
+      // Additive emissive glow on the worn edges. Follows the same wear value as the
+      // roughness/transmission shift, so it feathers along the `falloff` ramp rather
+      // than stopping hard at the bevel.
+      //
+      // This is light ADDED to the edge, not a surface property — it will read as
+      // brightness painted on rather than as physical wear, and it feeds the bloom
+      // pass. Keep it low unless you specifically want a glowing rim.
+      //
+      // 0 = off, and numerically identical to the pre-brightness behaviour.
+      // Injected additively into totalEmissiveRadiance, independent of the material's
+      // animated `emissive`/`emissiveIntensity` (fracture + reform glow) and of the
+      // internalGlow fresnel core, so none of them clobber each other.
+      // Ramps 0 -> this value with the shared intro reveal (introRevealRef), so the
+      // edges light up in step with the scene fade-up instead of popping in. Only the
+      // glow ramps: the roughness/transmission wear is a surface property and is
+      // present from the first frame.
+      brightness: 0.025,
+      brightnessColor: '#00bbff',
+
+      // Procedural break-up, so the edges read as nicks and scratches picked up over
+      // time rather than as an evenly frosted band. Object-space value noise (2
+      // octaves) — locked to the surface, so it doesn't swim as the crystal floats,
+      // rotates or explodes.
+      //
+      // noiseAmount does two things at once: it makes the falloff contour ragged, and
+      // it knocks holes in the band. 0 = perfectly smooth (an exact no-op, and the
+      // noise is skipped entirely via a uniform branch).
+      noiseAmount: 0.5,
+      // Frequency in object-space units. The crystal is ~4 units tall and the bevel
+      // strip ~0.005 wide, so 45 puts noise features around 0.022 units — a handful
+      // across the current 0.1 falloff band. Higher = finer, busier scratches.
+      noiseScale: 400
     }
   },
   
@@ -642,7 +703,7 @@ export const environment = {
 // === ASSET PATHS ===
 export const assets = {
   models: {
-    crystalWhole: '/assets/models/CrystalWhole.glb',
+    crystalWhole: '/assets/models/CrystalWhole-EdgeWear03.glb',
     project01: '/assets/models/Project01.glb',
     project02: '/assets/models/Project02.glb',
     project03: '/assets/models/Project03.glb',

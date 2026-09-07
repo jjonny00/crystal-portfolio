@@ -7,7 +7,7 @@ import { hdriPathForTier } from '../crystalConfig';
 
 // Descriptors for all GLTF models used in the app
 const MODEL_DESCRIPTORS = [
-  { key: 'crystalWhole', url: '/assets/models/CrystalWhole.glb' },
+  { key: 'crystalWhole', url: '/assets/models/CrystalWhole-EdgeWear03.glb' },
   { key: 'project01', url: '/assets/models/Project01.glb' },
   { key: 'project02', url: '/assets/models/Project02.glb' },
   { key: 'project03', url: '/assets/models/Project03.glb' },
