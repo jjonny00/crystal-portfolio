@@ -25,6 +25,34 @@ src/caseStudies/
     assets/
 ```
 
+## The catalogue
+
+Every section component, at every variation, filled with dummy copy at a
+realistic length — the way to choose a layout for a new case study by looking
+rather than guessing.
+
+```
+src/caseStudies/catalog/
+  CatalogCaseStudy.jsx      one instance of every section and variation
+  catalogContent.js         filler copy at real lengths
+  catalogProject.js         the stand-in project supplying its two greys
+```
+
+Two ways in, both rendering the same component:
+
+- **/catalog.html** — a page of its own, no portfolio around it. Its entry is
+  `src/catalog-main.jsx`, registered as a second Vite input in
+  `vite.config.js`, so it neither pulls the 3D app into its bundle nor ships
+  itself with the portfolio. Sections sit still here: the staggered entry
+  animations are scoped to `.cs-overlay`, which a standalone page has no reason
+  to wrap itself in.
+- **The hidden dev menu** (the button under Hide UI in `App.jsx`) — opens it as
+  an overlay over the scene, entry animations and all.
+
+It is not a project: no facet, no crystal, no entry in `projects.js`, and
+nothing on the site links to it. Adding a section component or a variation to
+the system means adding it to the catalogue too, or it quietly starts lying.
+
 ## Adding a case study
 
 1. Add `caseStudySlug` and `caseStudyColors` (exactly two colours) to the

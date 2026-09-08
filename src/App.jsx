@@ -47,6 +47,7 @@ import * as defaultConfig from './crystalConfig';
 import CaseStudyOverlay, { OVERLAY_Z_INDEX } from './caseStudies/CaseStudyOverlay';
 import { foregroundColorForTone } from './caseStudies/system/caseStudyTheme';
 import { caseStudyOpaqueAtMs } from './caseStudies/transitionTiming';
+import { CATALOG_PROJECT } from './caseStudies/catalog/catalogProject';
 import { getProjectByAnyKey } from './data/projects';
 
 import { isMobileDevice } from './utils/isMobileDevice.js';
@@ -64,18 +65,6 @@ const zoneKeys = ['intro', 'hero', 'overview', 'about'];
 // blink it out mid-transition. Derived, not a second copy of the timing.
 const SCENE_FREEZE_DELAY_MS = caseStudyOpaqueAtMs + 260;
 
-// The component catalogue is not a project — no facet, no crystal, no entry in
-// projects.js — but it is a case study as far as the overlay is concerned, so it
-// borrows the same shape. Reachable only from the hidden dev menu.
-const CATALOG_PROJECT = Object.freeze({
-  id: 'catalog',
-  label: 'Catalog',
-  caseStudySlug: 'catalog',
-  // Neutral greys rather than a project palette: the catalogue is about shape,
-  // not colour, and a bright accent would flatten the differences between
-  // sections. Tone a is the light ground, tone b the dark one.
-  caseStudyColors: { a: '#9A9A9A', b: '#282828' },
-});
 
 // How the copy is kept legible over a scene that swings from near-black to
 // blown-out. `adaptive` measures what the scene is doing behind each block and
