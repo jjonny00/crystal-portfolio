@@ -86,17 +86,24 @@ export const projects = [
     subtitle: 'Competitive Platform · Web',
     tagline: 'Competitive Platform · Web',
     description:
-      'A competitive platform for traders, built around trust, progression, and real opportunity. Traders connect their strategies, track performance, and compete for a shot at real allocation. I helped define the system that makes that climb feel credible, from early business validation and MVP scope to the ladder, tiers, and internal tools that surface high-potential traders.',
-    metrics: '9 traders seeded in year one · 1,800 traders on platform',
+      'I redesigned FundSeeder around a competitive system that gives more than 1,000 ranked participants meaningful goals, relevant rivals, and a reason to keep progressing.',
+    metrics: '1,027 strategies ranked · 17 traders seeded since relaunch',
     roles: 'Principal Product Designer · Strategy, Systems + Brand',
     cta: 'Designing the Ladder',
+    // Case-study level only: where to find the case study and how to theme it.
+    // The case study's own content lives in src/caseStudies/fundseeder/.
+    caseStudySlug: 'fundseeder',
+    caseStudyColors: {
+      a: '#58E0B2',
+      b: '#151f32'
+    },
     mobile: {
       title: 'FundSeeder',
       subtitle: 'Competitive Platform · Web',
       description:
-        'A competitive platform for traders, built around trust, progression, and real opportunity. Traders connect strategies, track performance, and compete for a shot at real allocation.',
+        'I redesigned FundSeeder around a competitive system that gives more than 1,000 ranked participants meaningful goals, relevant rivals, and a reason to keep progressing.',
       secondaryCopy:
-        'I helped define the ladder, tiers, and systems that make that climb credible. 9 traders seeded in year one.',
+        '1,027 strategies ranked. 17 traders seeded since the relaunch.',
       metrics: null,
       roles: null,
       cta: 'Designing the Ladder'

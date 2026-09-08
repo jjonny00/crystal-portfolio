@@ -171,6 +171,32 @@
   text-underline-offset: 0.18em;
 }
 
+/* Lists in body copy. The root reset strips list margins and index.css strips
+   padding, so both are restated here — a case study can drop a <ul> or <ol>
+   into a body array without reaching for CSS of its own. Markers sit outside
+   the measure, so the text edge stays aligned with the paragraphs above it. */
+.cs-body ul,
+.cs-body ol {
+  margin-top: var(--cs-paragraph-gap);
+  padding-inline-start: 1.15em;
+}
+
+.cs-body ul {
+  list-style: disc;
+}
+
+.cs-body ol {
+  list-style: decimal;
+}
+
+.cs-body li + li {
+  margin-top: 0.35em;
+}
+
+.cs-body li::marker {
+  color: color-mix(in srgb, var(--cs-fg) 55%, transparent);
+}
+
 .cs-caption {
   font-size: var(--cs-type-caption);
   font-weight: 300;
@@ -584,6 +610,13 @@
 .cs-split__body {
   grid-area: body;
   min-width: 0;
+}
+
+/* Under the text column rather than under the whole section: in a split the
+   media sits alongside the copy, so the closing line belongs at the end of the
+   column it closes. Same rhythm as the sequence and feature takeaways. */
+.cs-split__takeaway {
+  margin-top: clamp(20px, 2.6vw, 44px);
 }
 
 .cs-split__media {

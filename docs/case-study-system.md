@@ -81,11 +81,14 @@ tone. Text weights come from `color-mix()` on the foreground, so muted body copy
 captions, and metadata labels stay correct in both tones automatically.
 
 A section can also paint no background at all with `background="none"`, letting
-the 3D scene show through it; foreground colours still come from its tone. Mesa
-uses it twice: the hero sits directly on the crystal facet, which is already the
-project's colour, and "Tight, Open, Tight" opens the page back onto it further
-down. Two things follow automatically, and both matter if you add
-another one:
+the 3D scene show through it; foreground colours still come from its tone —
+which works because the facet behind is already colour A, so tone-A ink lands on
+the colour it was chosen against. `CaseStudyHero`, `FeatureSection` and
+`SplitSection` take the prop. Mesa uses it twice: the hero sits directly on the
+crystal facet, and "Tight, Open, Tight" opens the page back onto it further down.
+FundSeeder goes further and drops every tone-A background, so the scene stands in
+for colour A across the whole case study. Two things follow automatically, and
+both matter if you add another one:
 
 - The case study must declare `entry: 'reveal'` in the registry, or the colour
   wash would paint over the very thing the hero is sitting on.
@@ -100,10 +103,15 @@ another one:
 | --- | --- |
 | `CaseStudyHero` | Project name, case study title, intro, hero media. Mobile is a different composition, not a shrunk grid. |
 | `CaseStudyOverview` | Narrative + media in a content column, metadata rail alongside. On mobile the rail moves ahead of the narrative. |
-| `SplitSection` | `direction="text-left"` / `"text-right"`. Media bleeds off the outer edge. Mobile collapses to title → body → media → caption. |
+| `SplitSection` | `direction="text-left"` / `"text-right"`. Media bleeds off the outer edge. Mobile collapses to title → body → media → caption. An optional `takeaway` closes the text column, since the media is beside it rather than above. |
 | `SequenceSection` | Title, intro, a wide stage, caption, optional takeaway. |
 | `FeatureSection` | Centred title, intro, a full-bleed stage, caption, optional takeaway. |
 | `ConclusionSection` | Outcome items and reflection; two columns on desktop, stacked on mobile. |
+
+A body is a string, an array of strings, or React nodes mixed into that array —
+which is how a list, a pull quote, or a one-off element enters a section without
+a new component. `**bold**` is the only inline markup. Lists are styled by the
+system, so a case study never needs CSS of its own for one.
 
 `SequenceSection` and `FeatureSection` take arbitrary children as their stage.
 Neither imposes a height — the stage is sized by whatever it contains, and that

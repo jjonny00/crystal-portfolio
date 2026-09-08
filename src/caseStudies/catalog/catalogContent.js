@@ -81,6 +81,15 @@ export const catalogContent = {
       'Placeholder standing in for split section media.'
     ),
     caption: 'The caption sits under the media, on the media column.',
+    takeaway:
+      'A takeaway closes the text column — the same closing line SequenceSection and FeatureSection take, sitting under the copy rather than under the whole section, because in a split the media is beside it.',
+    // A list is a node passed into a body array alongside the strings; the
+    // system styles it, so no case study needs CSS of its own for one.
+    listItems: [
+      'A list item, at about the length a real one runs to.',
+      'A second, because one is never a list.',
+      'A third, closing the set out.',
+    ],
   },
 
   splitRight: {

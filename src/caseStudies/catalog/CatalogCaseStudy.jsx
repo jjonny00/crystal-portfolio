@@ -66,7 +66,15 @@ const CatalogCaseStudy = ({ project, onClose }) => {
         tone="b"
         direction="text-left"
         title={c.splitLeft.title}
-        body={c.splitLeft.body}
+        body={[
+          ...c.splitLeft.body,
+          <ul key="list">
+            {c.splitLeft.listItems.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>,
+        ]}
+        takeaway={c.splitLeft.takeaway}
         media={{ ...c.splitLeft.media, caption: c.splitLeft.caption }}
       />
 

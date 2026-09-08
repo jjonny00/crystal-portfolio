@@ -19,7 +19,11 @@ const SplitSection = ({
   direction = 'text-left',
   media = null,
   tone = 'b',
+  /** 'none' paints no background, so the 3D scene shows through. See CaseStudySection. */
+  background = 'tone',
   body = null,
+  /** Closing line under the text column, as SequenceSection and FeatureSection have. */
+  takeaway = null,
   id = null,
   children = null,
 }) => {
@@ -29,6 +33,7 @@ const SplitSection = ({
   return (
     <CaseStudySection
       tone={tone}
+      background={background}
       id={id}
       className="cs-split"
       innerClassName="cs-split__inner"
@@ -44,6 +49,7 @@ const SplitSection = ({
       <div className="cs-split__body">
         <CaseStudyBody content={body} />
         {children}
+        {takeaway && <CaseStudyBody content={takeaway} className="cs-split__takeaway" />}
       </div>
 
       {media && <div className="cs-split__media">{renderMedia(media)}</div>}

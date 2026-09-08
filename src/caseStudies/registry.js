@@ -20,6 +20,12 @@ const CASE_STUDY_MODULES = {
     load: () => import('./mesa/MesaCaseStudy.jsx'),
     entry: 'reveal',
   },
+  fundseeder: {
+    load: () => import('./fundseeder/FundSeederCaseStudy.jsx'),
+    // Its hero, tier ladder and identity sections paint no background of their
+    // own — they show the crystal — so nothing may cover the scene on the way in.
+    entry: 'reveal',
+  },
   // Not a project. A catalogue of every section component and variation, opened
   // from the hidden dev menu rather than linked from the site — see
   // CATALOG_PROJECT in App.jsx. Its own chunk, so it never ships to a reader.
