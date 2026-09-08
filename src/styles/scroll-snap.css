@@ -303,6 +303,14 @@ html:not(:has(.scroll-container)) .scroll-section {
 /* BROWSER-SPECIFIC FIXES */
 
 /* Chrome/Safari scroll snap fixes */
+
+/* Worth knowing before touching this block: both properties below make
+   .scroll-container a stacking context, which walls every element inside it off
+   from the layers painted beneath — the canvas included. Nothing here depends on
+   crossing that wall today, but a `mix-blend-mode` in the content layer would,
+   and it would fail silently rather than error. Removing them is not on its own
+   enough to make blending work; it is only the first thing in the way. The base
+   .scroll-container rule above avoids a z-index for the same reason. */
 @supports (-webkit-appearance: none) {
   .scroll-container {
     /* Force hardware acceleration */

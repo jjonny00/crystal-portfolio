@@ -13,17 +13,15 @@
 // ScrollablePortfolio drops the settled section the moment a scroll starts, so
 // both leave together and both return once the scroll settles.
 //
-// The tint is the project's colorA specifically. GradientBackground maps t = 0
-// to straight down (see its fragment shader), so colorA is the colour at the
-// bottom of the sky — what the copy is actually sitting on. The scrim deepens
-// what is already there rather than introducing a second colour.
+// What colour it lays down, and what ink the copy over it takes, both come from
+// scrimTone.js — the two are one decision and ProjectFocusSection needs the
+// other half of it. Most projects get a deepened wash of their own colorA; the
+// ones flagged `scrimInvert` get a near-white one instead. See that module.
 
 import React, { useEffect, useRef, useState } from 'react';
-import { projectBackgrounds } from '../../data/projectBackgrounds';
+import { getScrimTone } from '../../legibility/scrimTone';
 
 const SCRIM = {
-  /** Tint opacity below the fade, held all the way to the bottom of the screen. */
-  opacity: 0.35,
   blurPx: 24,
   /** Depth of the fade at the top, in px, independent of how tall the copy is. */
   fadePx: 220,
@@ -108,7 +106,7 @@ const ProjectScrim = ({
 
   if (!isMobile || !id) return null;
 
-  const scheme = projectBackgrounds[id] || projectBackgrounds.default;
+  const tone = getScrimTone(id);
   // Height only animates between two visible states, which in practice means a
   // resize. Moving between projects happens while the scrim is down, so it comes
   // back at the new size rather than growing into it under the fade.
@@ -128,7 +126,7 @@ const ProjectScrim = ({
         // able to blend against each other.
         pointerEvents: 'none',
         height: `calc(${Math.round(measured.height)}px + ${CONTENT_BOTTOM_PAD})`,
-        backgroundColor: `rgb(from ${scheme.colorA} r g b / ${SCRIM.opacity})`,
+        backgroundColor: tone.wash,
         backdropFilter: `blur(${SCRIM.blurPx}px)`,
         WebkitBackdropFilter: `blur(${SCRIM.blurPx}px)`,
         maskImage: SCRIM_MASK,

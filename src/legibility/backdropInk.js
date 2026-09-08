@@ -39,7 +39,7 @@ const SAMPLE_INTERVAL_MS = 650;
  * `data-ink-settled` the moment one starts. That alone is not enough for
  * hero → overview: the crystal detonates on the crossing and the frame is still
  * flaring white for a while after the scroll itself has stopped. Sampling into
- * that reads a scene that is about to stop existing, and the nav flips for a
+ * that reads a scene that is about to stop existing, and the copy flips for a
  * beat and flips back. The wait outlasts the flare, and everywhere else it just
  * means the ink is chosen once the scene has arrived rather than on the way in.
  */
@@ -75,12 +75,20 @@ const FLIP_MARGIN = 1.25;
  * a warm near-black rather than a neutral one, so a flipped block still belongs
  * to the same page.
  */
-// About is not here on purpose. It is the one section that reads as a page
-// rather than as a caption over the scene, so it sits on a scrim sized to the
-// worst frame the scene can produce and its copy is a flat white — nothing to
-// measure and nothing to decide. See the About scrim in App.jsx.
+// Two sections are deliberately absent.
+//
+// About is the one section that reads as a page rather than as a caption over
+// the scene, so it sits on a scrim sized to the worst frame the scene can
+// produce and its copy is a flat white — nothing to measure and nothing to
+// decide. See the About scrim in App.jsx.
+//
+// The nav used to be here and is not any more. It is persistent chrome, and a
+// measured ink flips it: the bar stays put while the scene moves under it, so
+// every flip reads as the site changing rather than as the backdrop changing,
+// and it lands in peripheral vision where that is most distracting. It keeps
+// its bright ink at all times, and the case-study nav scrim is what carries it
+// where the layer underneath goes light.
 const INKS = {
-  nav: { light: '#FEFFDE', dark: '#14120C' },
   copy: { light: '#E2DCC3', dark: '#14120C' },
 };
 
@@ -126,10 +134,12 @@ const current = new Map();
  * there is no second description of the layout to keep in step with this one.
  *
  * Rects are merged into horizontal clusters rather than one union per region.
- * The nav is the case that forces it: its wordmark is hard left and its items
- * hard right, and a single union of the two is the whole window, most of which
- * is bare scene no glyph ever sits on. Clustering keeps the two ends apart while
- * still collapsing a stack of paragraphs in one column down to a single read.
+ * A region split across the width of the window — the nav, while it was still
+ * measured, had its wordmark hard left and its items hard right — unions into
+ * the whole window, most of which is bare scene no glyph ever sits on.
+ * Clustering keeps ends like that apart while still collapsing a stack of
+ * paragraphs in one column down to a single read, which is what `copy` needs
+ * and the only thing it is doing now.
  */
 const clusterRects = (rects) => {
   const sorted = rects.slice().sort((a, b) => a.left - b.left);

@@ -1257,9 +1257,16 @@ function App() {
       {/* Project scrim — the mobile counterpart to the About scrim above, in
           the same layer between the canvas and the content. One element for the
           whole projects zone: it never scrolls, and grows or shrinks to the
-          settled project's copy as the reader moves between them. Same story:
-          `scrim` mode only. */}
-      {legibilityMode === 'scrim' && !hideAllUI && (
+          settled project's copy as the reader moves between them.
+
+          Mobile keeps the scrim in every mode but `off`, the same call About
+          makes: on a small screen the copy runs the full width with the crystal
+          directly behind it, and there is not enough bare scene around the block
+          for a measured ink to be the whole answer. The scrim is what the copy
+          sits on. ProjectFocusSection drops its ink region on mobile to match —
+          the probe reads the canvas, which is under this layer, so a measurement
+          taken there is of a backdrop the reader never actually sees. */}
+      {legibilityMode !== 'off' && !hideAllUI && (
         <ProjectScrim
           settledSection={settledSection}
           isMobile={isMobile}

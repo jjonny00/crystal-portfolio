@@ -31,7 +31,7 @@ const NAV_INNER_STYLE = {
 const NAME_BUTTON_STYLE = {
   background: 'none',
   border: 'none',
-  color: 'rgb(from var(--ink-nav, #FFFAE3) r g b)',
+  color: '#ffebe3',
   fontFamily: '"ivypresto-text", "IvyPresto Text", "ivypresto-display", Georgia, serif',
   fontSize: '36px',
   fontStyle: 'normal',
@@ -51,7 +51,7 @@ const NAME_BUTTON_STYLE = {
 const NAV_ITEM_BASE_STYLE = {
   background: 'none',
   border: 'none',
-  color: 'rgb(from var(--ink-nav, #FEFFDE) r g b)',
+  color: '#FEFFDE',
   fontFamily: '"acumin-variable", "Acumin VF", sans-serif',
   fontSize: '24px',
   fontStyle: 'normal',
@@ -119,12 +119,8 @@ const Navigation = ({ activeLabel = null, onHomeClick, onWorkClick, onAboutClick
       }}
     >
       <div style={NAV_INNER_STYLE}>
-        {/* The two ink clusters mark themselves as what to measure — the bar
-            itself spans the window and most of it is empty, so sampling its full
-            width would average in a stretch of scene no glyph ever sits on. */}
         <button
           onClick={onHomeClick}
-          data-ink-region="nav"
           style={{
             ...NAME_BUTTON_STYLE,
             ...(color ? { color } : null),
@@ -142,7 +138,6 @@ const Navigation = ({ activeLabel = null, onHomeClick, onWorkClick, onAboutClick
             clear of the lightbox's own controls. */}
         <div
           className="site-nav__items"
-          data-ink-region="nav"
           style={{ display: 'flex', gap: isDesktop ? '34px' : '16px', alignItems: 'center' }}
         >
           {navItems.map((item) => (

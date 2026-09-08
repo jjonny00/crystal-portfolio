@@ -1,9 +1,12 @@
 import React from 'react';
 import { animated, useSpring } from '@react-spring/web';
 import Headline from '../ui/Headline';
+import { getScrimTone, accentInkFor } from '../../legibility/scrimTone';
 
-// The body copy blends against the live scene rather than sitting on a scrim —
-// see legibility.css. Two things about how that is wired here:
+// On desktop the body copy sits on the live scene rather than on a scrim, and
+// stays readable by taking a measured ink — see legibility.css. On mobile it
+// keeps the scrim (ProjectScrim) and its authored ink instead; `inkRegion` below
+// is where that split is made. Two things about how the desktop wiring works:
 //
 //   • The class goes on the elements that carry the entrance spring, not on a
 //     wrapper around them. A spring writes an opacity and a transform, and both
@@ -18,9 +21,11 @@ import Headline from '../ui/Headline';
 const COPY_CLASS = 'legible-blend legible-ink';
 
 // The ink these lines take in `adaptive` mode, measured against the scene behind
-// them and published onto <html> by backdropInk.js. The authored colour is the
-// fallback, so every other mode renders exactly what it always did.
-const COPY_INK = (alpha) => `rgb(from var(--ink-copy, #E2DCC3) r g b / ${alpha})`;
+// them and published onto <html> by backdropInk.js. The fallback is the ink the
+// block should use when nothing is published — the authored cream, or on a
+// scrim-inverted project the dark ink — so every other mode, and all of mobile,
+// renders a flat colour chosen for what the copy is really sitting on.
+const COPY_INK = (fallback, alpha) => `rgb(from var(--ink-copy, ${fallback}) r g b / ${alpha})`;
 
 const ProjectFocusSection = ({
   project,
@@ -36,6 +41,23 @@ const ProjectFocusSection = ({
   const headlineColor = project.headlineColor || project.color || '#ffffff';
   const displayProject = isMobile && project.mobile ? { ...project, ...project.mobile } : project;
   const contentWidth = isMobile ? '100%' : 'min(34vw, 640px)';
+  // Desktop copy is measured against the scene and takes the ink that clears it.
+  // Mobile copy is not: it sits on ProjectScrim, and the probe reads the canvas
+  // underneath that scrim, so it would be choosing an ink for a backdrop the
+  // reader never sees — and choosing a dark one exactly when the scrim has just
+  // changed everything behind the glyphs. Off the region list, `--ink-copy` is
+  // never published on a phone and every line below falls back to the ink the
+  // scrim is tuned to carry.
+  const inkRegion = isMobile ? undefined : 'copy';
+
+  // The other half of that scrim’s recipe. Mobile only, because the scrim is:
+  // on desktop the copy is on the bare scene and the measured ink is the answer.
+  // On an inverted project this is the dark ink on a near-white panel, and the
+  // accent follows it down so the CTA is not a mint outline on white.
+  const tone = getScrimTone(project.facetKey || project.id);
+  const inverted = isMobile && tone.inverted;
+  const copyInk = isMobile ? tone.ink : '#E2DCC3';
+  const accentInk = accentInkFor(headlineColor, inverted);
   // Projects with a `caseStudySlug` render their case study in the full-page
   // overlay instead of this inline stub; the stub remains for the rest.
   const hasFullCaseStudy = Boolean(project.caseStudySlug);
@@ -80,7 +102,7 @@ const ProjectFocusSection = ({
   // Shared by every line of body copy. Only the size/leading metrics differ
   // between them, so the rest is stated once.
   const bodyStyle = {
-    color: COPY_INK(0.85),
+    color: COPY_INK(copyInk, 0.85),
     fontFamily: '"acumin-variable", "Acumin VF", sans-serif',
     fontSize: isMobile ? '18px' : '24px',
     fontStyle: 'normal',
@@ -165,11 +187,11 @@ const ProjectFocusSection = ({
 
           <animated.p
             className={COPY_CLASS}
-            data-ink-region="copy"
+            data-ink-region={inkRegion}
             style={{
               ...contentSpring,
               margin: isMobile ? '0 0 0.2rem' : '8px 0 18px',
-              color: COPY_INK(0.6),
+              color: COPY_INK(copyInk, 0.6),
               fontFamily: '"acumin-variable", "Acumin VF", sans-serif',
               fontSize: isMobile ? '14px' : '16px',
               fontStyle: 'normal',
@@ -184,7 +206,7 @@ const ProjectFocusSection = ({
 
           <animated.p
             className={COPY_CLASS}
-            data-ink-region="copy"
+            data-ink-region={inkRegion}
             style={{ ...contentSpring, ...bodyStyle, margin: 0 }}
           >
             {displayProject.description}
@@ -193,7 +215,7 @@ const ProjectFocusSection = ({
           {displayProject.secondaryCopy && (
             <animated.p
               className={COPY_CLASS}
-            data-ink-region="copy"
+              data-ink-region={inkRegion}
               style={{
                 ...contentSpring,
                 ...bodyStyle,
@@ -207,7 +229,7 @@ const ProjectFocusSection = ({
           {displayProject.metrics && (
             <animated.p
               className={COPY_CLASS}
-            data-ink-region="copy"
+              data-ink-region={inkRegion}
               style={{
                 ...contentSpring,
                 ...bodyStyle,
@@ -221,7 +243,7 @@ const ProjectFocusSection = ({
           {displayProject.roles && (
             <animated.p
               className={COPY_CLASS}
-            data-ink-region="copy"
+              data-ink-region={inkRegion}
               style={{ ...contentSpring, ...bodyStyle, margin: 0 }}
             >
               {displayProject.roles}
@@ -230,7 +252,9 @@ const ProjectFocusSection = ({
 
           {/* Unblended, as asked. It is also the one interactive element here,
               and a control whose colour moves with the scene reads as a state
-              change rather than as an affordance. */}
+              change rather than as an affordance. It does follow the scrim,
+              though — `accentInk` is the same hue darkened where the panel is
+              light, which is a fixed colour per project, not a live one. */}
           {displayProject.cta && (
             <animated.button
               type="button"
@@ -238,7 +262,7 @@ const ProjectFocusSection = ({
               style={{
                 ...contentSpring,
                 margin: isMobile ? '1rem 0 0' : '46px 0 0',
-                color: headlineColor,
+                color: accentInk,
                 textAlign: isMobile ? 'left' : 'center',
                 fontFamily: '"acumin-variable", "Acumin VF", sans-serif',
                 fontSize: isMobile ? '20px' : '24px',
@@ -247,7 +271,7 @@ const ProjectFocusSection = ({
                 lineHeight: isMobile ? '1.35' : '30px',
                 letterSpacing: '-0.48px',
                 background: 'transparent',
-                border: `1px solid ${headlineColor}`,
+                border: `1px solid ${accentInk}`,
                 borderRadius: '999px',
                 padding: isMobile ? '10px 16px' : '12px 22px',
                 cursor: 'pointer'
