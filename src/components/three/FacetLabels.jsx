@@ -129,9 +129,18 @@ const FacetLabels = React.memo(function FacetLabels({
   alwaysOnFacetKey,
   onAlwaysOnDomAnchorChange,
   onLabelsReadyChange,
+  // Released partway through the hero -> overview explosion, once the facets have
+  // all but reached their anchors — UnifiedCrystalScene owns that clock and the
+  // exact point (LABEL_REVEAL_EXPLOSION_FRACTION). The labels wait for it rather
+  // than fading up over facets still in flight. Defaults true so a caller that
+  // does not pass it gets the old behaviour instead of labels that never appear.
+  labelRevealReady = true,
 }) {
   const [anchorsReady, setAnchorsReady] = useState(false);
   const [visible, setVisible] = useState(false);
+  // What the scroll position says, kept apart from whether the labels are up.
+  // See the two effects below for why the decision cannot live in the observer.
+  const [firstProjectClear, setFirstProjectClear] = useState(false);
   const [fadeDurationMs, setFadeDurationMs] = useState(LABEL_FADE_IN_MS);
   const [hoverCapable, setHoverCapable] = useState(false);
   const [labelHoveredFacetKey, setLabelHoveredFacetKey] = useState(null);
@@ -268,6 +277,11 @@ const FacetLabels = React.memo(function FacetLabels({
     markAnchorsReady();
   }, [markAnchorsReady, inActiveOverview, onAlwaysOnDomAnchorChange, onDomAnchorChange, onLabelsReadyChange]);
 
+  // Reports the scroll position and nothing else. The reveal decision moved to the
+  // effect below because an observer only fires when the intersection CHANGES:
+  // deciding here would strand the labels hidden whenever `labelRevealReady` turned
+  // true after the last crossing — which on the hero -> overview path it always
+  // does, since the crossing starts the explosion that the labels are waiting on.
   useEffect(() => {
     if (!inActiveOverview || !projects?.length) return;
     const firstFacetKey = projects[0].facetKey || projects[0].id;
@@ -275,24 +289,33 @@ const FacetLabels = React.memo(function FacetLabels({
     if (!section) return;
 
     const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.intersectionRatio >= 0.1) {
-          setFadeDurationMs(LABEL_FADE_OUT_MS);
-          setVisible(false);
-          setLabelHoveredFacetKey(null);
-          onLabelsReadyChange?.(false);
-        } else {
-          setFadeDurationMs(LABEL_FADE_IN_MS);
-          setVisible(true);
-          onLabelsReadyChange?.(false);
-        }
-      },
+      ([entry]) => setFirstProjectClear(entry.intersectionRatio < 0.1),
       { threshold: 0.1 },
     );
 
     observer.observe(section);
     return () => observer.disconnect();
-  }, [inActiveOverview, onLabelsReadyChange, projects]);
+  }, [inActiveOverview, projects]);
+
+  // Labels are up only once the overview is clear of the first project section AND
+  // the explosion has released them. Leaving the overview is not handled here — the
+  // teardown effect above owns that, including the fade-out it has to paint before
+  // unmounting the layer.
+  useEffect(() => {
+    if (!inActiveOverview) return;
+
+    if (firstProjectClear && labelRevealReady) {
+      setFadeDurationMs(LABEL_FADE_IN_MS);
+      setVisible(true);
+      onLabelsReadyChange?.(false);
+      return;
+    }
+
+    setFadeDurationMs(LABEL_FADE_OUT_MS);
+    setVisible(false);
+    setLabelHoveredFacetKey(null);
+    onLabelsReadyChange?.(false);
+  }, [labelRevealReady, firstProjectClear, inActiveOverview, onLabelsReadyChange]);
 
   useEffect(() => {
     if (!inActiveOverview || !visible) return;

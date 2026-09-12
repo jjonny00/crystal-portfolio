@@ -32,16 +32,31 @@ const NAME_BUTTON_STYLE = {
   background: 'none',
   border: 'none',
   color: '#ffebe3',
-  fontFamily: '"ivypresto-text", "IvyPresto Text", "ivypresto-display", Georgia, serif',
+  // ivypresto-DISPLAY, like every other serif here (index.css, LoaderV2.module.css).
+  // The stack used to lead with "ivypresto-text" / "IvyPresto Text", and neither can
+  // resolve for a visitor: the Typekit kit in index.html publishes only
+  // acumin-variable and ivypresto-display, and "IvyPresto Text" is a desktop family
+  // name that matches only on a machine with it installed from Creative Cloud. So the
+  // wordmark rendered in Text on the author's screen and in Display on every device
+  // in the world, which is what made its tracking look device-dependent.
+  fontFamily: '"ivypresto-display", Georgia, serif',
   fontSize: '36px',
   fontStyle: 'normal',
   fontWeight: 400,
   lineHeight: 'normal',
-  // -2.88px at the 36px desktop size, restated as a ratio. As a fixed px value
-  // it was tracking for one size only: at the 28px mobile wordmark it worked out
-  // to -0.103em, meaningfully tighter than drawn, and it could not follow the
-  // font if anything rescaled it. In em it holds the same fit at every size.
-  letterSpacing: '-0.08em',
+  // Tracking belongs to the cut it was drawn against. Originally -2.88px (-0.08em at
+  // the 36px desktop size), tuned by eye against IvyPresto Text.
+  //
+  // The two cuts carry the same letterforms and differ almost entirely in side
+  // bearing: across J.JONSHAW, Text sets 5.272em and Display 4.780em, and the whole
+  // 0.492em gap is accounted for by side bearings alone (mean lsb 35.7/1000em in
+  // Text against 8.3 in Display, several of them negative). Display is Text with
+  // ~0.055em/glyph of tracking already taken out for headline sizes — so -0.08em on
+  // top of it read as -0.135em against what was actually being tuned.
+  //
+  // -0.025em reproduces that intended fit on Display: -0.08 + 0.055. Because the ink
+  // widths match, holding the set width holds the gaps too.
+  letterSpacing: '-0.025em',
   textTransform: 'uppercase',
   cursor: 'pointer',
   padding: 0,

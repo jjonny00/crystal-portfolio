@@ -3,11 +3,11 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import AssetLoaderV2 from '../utils/AssetLoaderV2.js';
-import { hdriPathForTier } from '../crystalConfig';
+import { hdriPathForTier, crystalWholePathForTier } from '../crystalConfig';
 
-// Descriptors for all GLTF models used in the app
+// Descriptors for all GLTF models used in the app. The whole crystal is added
+// separately in getRequiredAssets because its mesh varies by performance tier.
 const MODEL_DESCRIPTORS = [
-  { key: 'crystalWhole', url: '/assets/models/CrystalWhole-EdgeWear03.glb' },
   { key: 'project01', url: '/assets/models/Project01.glb' },
   { key: 'project02', url: '/assets/models/Project02.glb' },
   { key: 'project03', url: '/assets/models/Project03.glb' },
@@ -37,8 +37,16 @@ export const useAssetLoaderV2 = (performanceProfile) => {
   const getRequiredAssets = useCallback(() => {
     if (!performanceProfile) return [];
 
+    // The low tier gets the no-edge-wear crystal (see crystalWholePathForTier).
+    // UnifiedCrystalScene picks the same URL off the same profile field, so the
+    // mesh counted in the splash progress is the one the scene then renders.
+    const crystalWholeDescriptor = {
+      key: 'crystalWhole',
+      url: crystalWholePathForTier(performanceProfile.pbrQuality)
+    };
+
     // Transform model descriptors into asset objects
-    const modelAssets = MODEL_DESCRIPTORS.map(({ key, url }) => ({
+    const modelAssets = [crystalWholeDescriptor, ...MODEL_DESCRIPTORS].map(({ key, url }) => ({
       type: 'model',
       key,
       url,

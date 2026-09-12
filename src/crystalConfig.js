@@ -492,7 +492,9 @@ export const materials = {
     // See components/materials/edgeWear.js.
     //
     // Only applies on tiers that use MeshPhysicalMaterial (high + medium). The low
-    // tier renders MeshPhongMaterial, which has neither property, and is skipped.
+    // tier renders MeshPhongMaterial, which has neither property, and is skipped —
+    // it also loads the mask-free crystal (see crystalWholePathForTier), so none of
+    // the settings below reach it however this flag is set.
     edgeWear: {
       enabled: true,
       // Added to roughness on the bevels. Base crystal roughness is 0.0, so this is
@@ -701,9 +703,29 @@ export const environment = {
 }
 
 // === ASSET PATHS ===
+
+// Whole-crystal mesh, per performance tier. The default carries the Blender
+// `edgeWear` vertex mask that materials/edgeWear.js reads; the `-noWear` variant is
+// the same crystal exported without it. The low tier renders MeshPhongMaterial,
+// which the edge-wear injection skips outright (see materials.crystal.edgeWear), so
+// there the mask geometry and its per-triangle aEdgeDist build would be paid for
+// and never shown.
+//
+// Both consumers must agree on this URL: useAssetLoaderV2 warms it (its own
+// GLTFLoader, so the second read is a browser-cache hit) and UnifiedCrystalScene's
+// useGLTF loads it for real. A mismatch means the splash counts one crystal to 100%
+// and then the scene downloads a different one.
+const CRYSTAL_WHOLE_MODELS = {
+  default: '/assets/models/CrystalWhole-EdgeWear03.glb',
+  low: '/assets/models/CrystalWhole-noWear.glb'
+}
+
+export const crystalWholePathForTier = (tier = 'high') =>
+  tier === 'low' ? CRYSTAL_WHOLE_MODELS.low : CRYSTAL_WHOLE_MODELS.default;
+
 export const assets = {
   models: {
-    crystalWhole: '/assets/models/CrystalWhole-EdgeWear03.glb',
+    crystalWhole: CRYSTAL_WHOLE_MODELS.default,
     project01: '/assets/models/Project01.glb',
     project02: '/assets/models/Project02.glb',
     project03: '/assets/models/Project03.glb',

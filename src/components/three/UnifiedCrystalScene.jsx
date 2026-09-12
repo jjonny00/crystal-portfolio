@@ -33,7 +33,7 @@ import projects, {
 import FacetLabels from './FacetLabels'
 import FacetHoverParticles from './FacetHoverParticles'
 import OverviewTouchPicker from './OverviewTouchPicker'
-import { effects, materials as defaultCrystalMaterials } from '../../crystalConfig'
+import { effects, materials as defaultCrystalMaterials, crystalWholePathForTier } from '../../crystalConfig'
 import { useFacetOverlayGeometry } from '../../hooks/useFacetOverlayGeometry'
 import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController'
 import { useHoverCapable } from '../../hooks/useHoverCapable'
@@ -51,6 +51,16 @@ const FOCUS_ROTATION_PROGRESS_LEAD = 1
 const CASE_STUDY_FLOAT_SETTLE_RATE = 2.2
 const ISOLATE_FOCUSED_ROTATION_FROM_POSITION = true
 const FORWARD_PRE_SWAP_WINDOW_MS = 120
+
+// How far into the hero -> overview explosion the overview labels are released to
+// begin their fade, as a fraction of the whole run (fracture hold + facet travel).
+// 1 = the frame the facets land; 0.5 halves that wait.
+//
+// Halving the wall clock does NOT mean catching the facets half-travelled: the
+// travel is expo-eased, so at 0.5 of the run they are already ~92% of the way to
+// their anchors. The labels still come up over facets that read as arrived, just
+// without the dead beat at the end of the settle.
+const LABEL_REVEAL_EXPLOSION_FRACTION = 0.5
 const FORWARD_MASK_GLOW_DURATION_S = 0.22
 const FORWARD_MASK_GLOW_PEAK_INTENSITY = 2.0
 // Fraction of the facet travel over which the fracture glow shifts from
@@ -88,25 +98,99 @@ const logger = createLogger('unified-crystal-scene');
 
 // DIAGNOSTIC TOGGLE — flat (per-face) normals for hard-faceted glass.
 // Faceted reflections/refractions on a transmissive material are driven by the
-// surface normal. The exported GLB ships smoothed/averaged (shared) normals,
-// which bend the reflection across facet edges and scramble it per facet.
-// Recomputing flat normals (one independent normal per triangle) makes each
-// facet reflect coherently. Flip to `false` to A/B against the exported normals,
-// or call window.__setFlatNormals(true|false) at runtime for an instant compare.
-let FLATTEN_FACET_NORMALS = true;
+// surface normal. A GLB that ships smoothed/averaged (shared) normals bends the
+// reflection across facet edges and scrambles it per facet; recomputing flat
+// normals (one independent normal per triangle) makes each facet reflect
+// coherently.
+//
+// Two switches, because the whole crystal and the six project meshes are authored
+// separately and need not agree. The crystal keeps the recompute. The project
+// meshes are off: their exported normals are being treated as the source of truth,
+// so overwriting them here would hide whatever they actually ship.
+//
+// A/B either at runtime with no rebuild — window.__setFlatNormals(true|false) moves
+// both, window.__setProjectFlatNormals(true|false) moves just the project meshes.
+let FLATTEN_CRYSTAL_NORMALS = true;
+let FLATTEN_PROJECT_NORMALS = false;
 
 // Loud, default-visible marker (plain console.log, not warn) so a stale/un-applied
 // HMR module is obvious — if you don't see this after a hard reload, the dev
 // server is serving old code.
-if (import.meta.env.DEV) console.log('[flatNormals] module loaded — toggle =', FLATTEN_FACET_NORMALS);
+if (import.meta.env.DEV) {
+  console.log(
+    '[flatNormals] module loaded — crystal =', FLATTEN_CRYSTAL_NORMALS,
+    'projects =', FLATTEN_PROJECT_NORMALS,
+  );
+}
 
-// Non-destructive, reversible per-mesh swap. We cache BOTH geometries on the mesh
-// so true/false can A/B without a hard reload:
-//   userData.__originalGeometry — exported geometry (kept, never disposed)
-//   userData.__flatGeometry     — built once: toNonIndexed -> drop normals ->
+// Non-destructive, reversible per-mesh swap, so true/false can A/B without a hard
+// reload:
+//   userData.__originalGeometry — exported geometry, cached on the first pass and
+//                                 never disposed
+//   userData.__flatGeometry     — toNonIndexed -> drop normals ->
 //                                 computeVertexNormals (independent per-face normals)
-// Memory cost: two equivalent-shape geometries coexist per mesh. Acceptable for a
-// diagnostic; remove the unused side once the comparison is settled.
+//
+// The flat side is built on first ENABLE rather than on first sight of the mesh: a
+// mesh that never turns it on never pays for it. That matters now that the project
+// meshes default to off — otherwise all six would carry a second, unused geometry
+// (and toNonIndexed inflates the vertex count, since every triangle stops sharing).
+// Flipping one on at runtime builds it then, once.
+// How much would flat normals actually change this mesh? computeVertexNormals on a
+// non-indexed geometry returns exactly the geometric face normal at all three
+// corners, so the angle between a shipped normal and its own triangle's face normal
+// IS the change the toggle makes. Near zero everywhere means the export is already
+// flat and the toggle is a visual no-op — which is a different thing from the toggle
+// being broken, and the two are otherwise indistinguishable by eye.
+//
+// Reported by window.__compareFlatNormals(). Reads the exported geometry, so the
+// answer does not depend on which side is currently swapped in.
+const measureFlatNormalShift = (geometry) => {
+  const pos = geometry?.attributes?.position;
+  const nrm = geometry?.attributes?.normal;
+  if (!pos || !nrm) return null;
+
+  const index = geometry.index;
+  const triCount = Math.floor((index ? index.count : pos.count) / 3);
+  const a = new THREE.Vector3();
+  const b = new THREE.Vector3();
+  const c = new THREE.Vector3();
+  const ab = new THREE.Vector3();
+  const ac = new THREE.Vector3();
+  const face = new THREE.Vector3();
+  const vertexNormal = new THREE.Vector3();
+  let sum = 0;
+  let max = 0;
+  let counted = 0;
+
+  for (let t = 0; t < triCount; t += 1) {
+    const corners = [0, 1, 2].map((k) => (index ? index.getX(t * 3 + k) : t * 3 + k));
+    a.fromBufferAttribute(pos, corners[0]);
+    b.fromBufferAttribute(pos, corners[1]);
+    c.fromBufferAttribute(pos, corners[2]);
+    face.copy(ab.subVectors(b, a)).cross(ac.subVectors(c, a));
+    if (face.lengthSq() < 1e-20) continue; // degenerate triangle, no face normal
+    face.normalize();
+
+    corners.forEach((i) => {
+      vertexNormal.fromBufferAttribute(nrm, i).normalize();
+      const deg = THREE.MathUtils.radToDeg(
+        Math.acos(THREE.MathUtils.clamp(vertexNormal.dot(face), -1, 1)),
+      );
+      sum += deg;
+      if (deg > max) max = deg;
+      counted += 1;
+    });
+  }
+
+  if (!counted) return null;
+  return {
+    tris: triCount,
+    indexed: Boolean(index),
+    meanDeg: Number((sum / counted).toFixed(2)),
+    maxDeg: Number(max.toFixed(2)),
+  };
+};
+
 const applyFlatNormals = (scene, enabled, label = 'scene') => {
   if (!scene) {
     if (import.meta.env.DEV) console.log(`[flatNormals] ${label} is ${scene} — nothing to process`);
@@ -118,19 +202,25 @@ const applyFlatNormals = (scene, enabled, label = 'scene') => {
     meshCount += 1;
 
     if (!child.userData.__originalGeometry) {
-      const original = child.geometry;
+      child.userData.__originalGeometry = child.geometry;
+    }
+
+    if (enabled && !child.userData.__flatGeometry) {
+      const original = child.userData.__originalGeometry;
       // Non-indexed so each triangle owns its 3 vertices (no shared normals).
       const flat = original.index ? original.toNonIndexed() : original.clone();
       flat.deleteAttribute('normal');
       flat.computeVertexNormals();
       flat.attributes.normal.needsUpdate = true;
       flat.computeBoundingSphere?.();
-      child.userData.__originalGeometry = original;
       child.userData.__flatGeometry = flat;
     }
 
+    // The ?? is for the impossible case only: with `enabled` true the build above
+    // has just run, so falling back to the exported geometry means something threw
+    // rather than that we silently chose the wrong side.
     const target = enabled
-      ? child.userData.__flatGeometry
+      ? (child.userData.__flatGeometry ?? child.userData.__originalGeometry)
       : child.userData.__originalGeometry;
     if (child.geometry !== target) {
       child.geometry = target;
@@ -1088,6 +1178,13 @@ const UnifiedCrystalScene = forwardRef(({
   const fractureGlowStartRef = useRef(null);
   const pendingExplodeSwapAtRef = useRef(null);
   const explosionCycleCompleteRef = useRef(false);
+  // Gates the overview labels' fade, which waits out most of the explosion rather
+  // than starting under facets still flying (see LABEL_REVEAL_EXPLOSION_FRACTION).
+  // State because it has to reach the DOM — FacetLabels reads it as a prop; the ref
+  // beside it keeps the frame loop from re-dispatching the same value every frame
+  // once the threshold is passed.
+  const [labelRevealReady, setLabelRevealReady] = useState(false);
+  const labelRevealFiredRef = useRef(false);
   const pendingReformSwapAtRef = useRef(null);
   const pendingFacetHideAtRef = useRef(null);
   const swapMaskGlowStartRef = useRef(null);
@@ -1468,8 +1565,19 @@ const UnifiedCrystalScene = forwardRef(({
     }
   }), [facetKeys, showWholeCrystal, showFacets, sphereVisible, showCrystalDebug, modelsLoaded, animationData, focusedSceneFacetKey, focusedProjectKey, focusedFacetSlot]);
 
+  // Low tier renders MeshPhongMaterial, which the edge-wear injection skips, so it
+  // loads the crystal exported without the wear mask instead of paying for mask
+  // geometry it can never show. Same profile field the asset loader keys off, so
+  // this reads the GLB the loader already prewarmed rather than fetching a second.
+  const matPbrQuality = performanceProfile?.pbrQuality ?? 'high';
+  const edgeWearSupported = matPbrQuality !== 'low';
+
   // Load models
-  const wholeCrystal = useGLTF(mergedConfig.assets.models.crystalWhole);
+  const wholeCrystal = useGLTF(
+    edgeWearSupported
+      ? mergedConfig.assets.models.crystalWhole
+      : crystalWholePathForTier('low')
+  );
   const facetModels = facetModelKeys.map((modelKey, index) => {
     const modelUrl = mergedConfig.assets.models[modelKey];
 
@@ -1481,27 +1589,54 @@ const UnifiedCrystalScene = forwardRef(({
   });
 
   // Geometry-only diagnostic: swap the crystal meshes to flat per-face normals so the
-  // transmissive material renders as clean hard-faceted glass. See FLATTEN_FACET_NORMALS.
+  // transmissive material renders as clean hard-faceted glass. See FLATTEN_CRYSTAL_NORMALS.
   // NOTE: this is a useEffect (not useMemo) on purpose — React Fast Refresh preserves
   // useMemo across hot edits and won't re-run a memo whose deps (the cached gltf objects)
   // never change, so the toggle/logs would silently no-op. Effects re-run on Fast Refresh.
-  const applyFlatNormalsToAll = useCallback((enabled) => {
-    applyFlatNormals(wholeCrystal?.scene, enabled, 'wholeCrystal');
-    facetModels.forEach((model, i) => applyFlatNormals(model?.scene, enabled, `facet${i}`));
+  const applyFlatNormalsToAll = useCallback(() => {
+    applyFlatNormals(wholeCrystal?.scene, FLATTEN_CRYSTAL_NORMALS, 'wholeCrystal');
+    facetModels.forEach((model, i) =>
+      applyFlatNormals(model?.scene, FLATTEN_PROJECT_NORMALS, `facet${i}`));
   }, [wholeCrystal, ...facetModels]);
 
   useEffect(() => {
-    applyFlatNormalsToAll(FLATTEN_FACET_NORMALS);
+    applyFlatNormalsToAll();
 
     if (import.meta.env.DEV) {
-      // Runtime A/B helper: window.__setFlatNormals(true|false) re-swaps instantly,
-      // no edit/rebuild needed. Updates the module default so future renders match.
+      // Runtime A/B helpers: re-swap instantly, no edit/rebuild needed. Each updates
+      // the module default so later renders (and Fast Refresh) match what you last set.
       window.__setFlatNormals = (enabled) => {
-        FLATTEN_FACET_NORMALS = !!enabled;
-        applyFlatNormalsToAll(FLATTEN_FACET_NORMALS);
-        console.log('[flatNormals] runtime toggle ->', FLATTEN_FACET_NORMALS);
+        FLATTEN_CRYSTAL_NORMALS = !!enabled;
+        FLATTEN_PROJECT_NORMALS = !!enabled;
+        applyFlatNormalsToAll();
+        console.log('[flatNormals] runtime toggle -> crystal + projects =', !!enabled);
+      };
+      window.__setProjectFlatNormals = (enabled) => {
+        FLATTEN_PROJECT_NORMALS = !!enabled;
+        applyFlatNormalsToAll();
+        console.log('[flatNormals] runtime toggle -> projects =', FLATTEN_PROJECT_NORMALS);
+      };
+      // Answers "is the toggle doing nothing, or is there nothing to do?" — see
+      // measureFlatNormalShift. maxDeg near 0 means that mesh is already flat as
+      // exported, so flipping the toggle cannot look like anything. Reads the
+      // exported side, so the answer does not depend on what is swapped in.
+      window.__compareFlatNormals = () => {
+        const report = (label, scene) => {
+          scene?.traverse((child) => {
+            if (!child?.isMesh) return;
+            const exported = child.userData.__originalGeometry || child.geometry;
+            console.log(
+              `[flatNormals] ${label}/${child.name || 'mesh'}`,
+              measureFlatNormalShift(exported) ?? '(no position/normal attribute)',
+            );
+          });
+        };
+        report('wholeCrystal', wholeCrystal?.scene);
+        facetModels.forEach((model, i) => report(`facet${i}`, model?.scene));
       };
     }
+    // wholeCrystal/facetModels are reached through applyFlatNormalsToAll, whose own
+    // identity already tracks them — the same spread-dep pattern used elsewhere here.
   }, [applyFlatNormalsToAll, modelsLoaded]);
 
   // Mark models as loaded when all GLTF hooks resolve
@@ -2611,6 +2746,14 @@ const UnifiedCrystalScene = forwardRef(({
           setShowFacets(false);
           setSphereVisible(false);
           setRingVisible(false);
+          // No explosion runs on this branch — either simplified animations are on
+          // (the frame loop bails out entirely) or the cycle already completed and
+          // we are re-entering the overview with the facets still on their marks.
+          // Either way there is nothing for the labels to wait for.
+          if (simplifiedAnimations) {
+            labelRevealFiredRef.current = true;
+            setLabelRevealReady(true);
+          }
         }
 
       } else if (currentForm === 'whole') {
@@ -2633,6 +2776,8 @@ const UnifiedCrystalScene = forwardRef(({
         explosionStartRef.current = null;
         if (heroOverviewExplosionClockRef) heroOverviewExplosionClockRef.current = null;
         explosionCycleCompleteRef.current = false;
+        labelRevealFiredRef.current = false;
+        setLabelRevealReady(false);
         resetWholeCrystalMaskGlow();
         if (facetsGroupRef.current) {
           facetsGroupRef.current.quaternion.copy(neutralQuat);
@@ -2930,6 +3075,17 @@ const UnifiedCrystalScene = forwardRef(({
         const explosionElapsedMs = elapsedExplosion * 1000;
 
         const progress = THREE.MathUtils.clamp((elapsedExplosion - fracturePause) / travelDuration, 0, 1);
+
+        // Let the overview labels start fading. Keyed off wall-clock elapsed rather
+        // than `progress` so the fraction covers the fracture hold as well as the
+        // travel — the hold is part of the wait being tuned.
+        if (
+          !labelRevealFiredRef.current &&
+          elapsedExplosion >= (fracturePause + travelDuration) * LABEL_REVEAL_EXPLOSION_FRACTION
+        ) {
+          labelRevealFiredRef.current = true;
+          setLabelRevealReady(true);
+        }
         const sharedProgressRaw = THREE.MathUtils.clamp(progress, 0, 1);
         const easeType = fractureTiming.routeLocal
           ? fractureTiming.fractureTravelEase
@@ -3798,7 +3954,8 @@ const UnifiedCrystalScene = forwardRef(({
   // roughness + transmission on the bevels, injected into the EXISTING crystal
   // material (see components/materials/edgeWear.js). Runs AFTER the glow effect so
   // attachEdgeWear chains onto the glow injection instead of replacing it.
-  const edgeWearEnabled = config?.materials?.crystal?.edgeWear?.enabled ?? false;
+  const edgeWearEnabled =
+    edgeWearSupported && (config?.materials?.crystal?.edgeWear?.enabled ?? false);
   const edgeWearRoughnessBoost = config?.materials?.crystal?.edgeWear?.roughnessBoost ?? 0;
   const edgeWearTransmissionReduction =
     config?.materials?.crystal?.edgeWear?.transmissionReduction ?? 0;
@@ -3811,6 +3968,11 @@ const UnifiedCrystalScene = forwardRef(({
 
   useEffect(() => {
     if (!wholeCrystal?.scene) return;
+    // Low tier: the -noWear crystal carries no mask and MeshPhong could not render
+    // the effect anyway, so skip the whole pass — including the per-triangle
+    // aEdgeDist build, which is the expensive half on exactly the weakest devices.
+    // Nothing was ever attached there, so there is nothing to detach either.
+    if (!edgeWearSupported) return;
 
     // Build the per-triangle edge-distance attribute that drives the soft falloff.
     // Must run AFTER applyFlatNormals (which swaps in the non-indexed geometry this
@@ -3869,6 +4031,7 @@ const UnifiedCrystalScene = forwardRef(({
     wholeCrystal,
     modelsLoaded,
     materialVersion,
+    edgeWearSupported,
     edgeWearEnabled,
     edgeWearRoughnessBoost,
     edgeWearTransmissionReduction,
@@ -3907,7 +4070,7 @@ const UnifiedCrystalScene = forwardRef(({
   // The flat-normals geometry swap also runs earlier, so this doubles as a check that
   // the color attribute survives toNonIndexed(). Delete this block and the import.
   useEffect(() => {
-    if (!import.meta.env.DEV) return undefined;
+    if (!import.meta.env.DEV || !edgeWearSupported) return undefined;
     const root = wholeCrystal?.scene;
     inspectEdgeWearAttributes(root, 'wholeCrystal');
     applyEdgeWearMaskDebug(root, getEdgeWearDebugMode());
@@ -3916,7 +4079,7 @@ const UnifiedCrystalScene = forwardRef(({
       getRootScene: () => r3fScene,
       getRenderer: () => r3fGl,
     });
-  }, [wholeCrystal, modelsLoaded, materialVersion, r3fScene, r3fGl]);
+  }, [wholeCrystal, modelsLoaded, materialVersion, edgeWearSupported, r3fScene, r3fGl]);
 
   // DEV-only: `__inspectCrystalGlow()` in the browser console dumps the live glow
   // state of the whole-crystal mesh materials + facets so we can see exactly which
@@ -3965,7 +4128,6 @@ const UnifiedCrystalScene = forwardRef(({
   const liveIor = config?.materials?.crystal?.ior;
   const liveIridescence = config?.materials?.crystal?.iridescence;
   const liveRoughness = config?.materials?.crystal?.roughness;
-  const matPbrQuality = performanceProfile?.pbrQuality ?? 'high';
   useEffect(() => {
     // Low tier uses MeshPhongMaterial, which has none of these properties.
     if (matPbrQuality === 'low') return;
@@ -4355,6 +4517,7 @@ const UnifiedCrystalScene = forwardRef(({
         animationData={animationData}
         performanceProfile={performanceProfile}
         anchorOffsets={anchorOffsets}
+        labelRevealReady={labelRevealReady}
       />
 
       {!simplifiedAnimations && (
