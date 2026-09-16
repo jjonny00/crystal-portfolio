@@ -1,14 +1,10 @@
 // Per-project sky colours. colorA is the bottom of the gradient and colorB the
 // top — see GradientBackground’s fragment shader.
 //
-// `scrimInvert` is optional and read through scrimTone.js: it opts a project
-// out of the deepened colorA wash and into a near-white one, with the preview
-// copy flipped to the dark ink to suit. It is for palettes whose colorA is
-// itself light enough that washing it over the scene raises the backdrop into
-// the greys cream copy cannot clear — rather than fight that, the section reads
-// as a light panel. Set it when the preview copy is hard to read on a phone
-// even with the scrim up. It changes how the whole section reads, so it is a
-// per-project call and not a threshold on colorA.
+// The mobile scrim used to be configured from here too. It is authored per
+// project in data/projects.js now, under `scrim` — colour, opacity and whether
+// the copy goes dark. These colours are only the sky, and the scrim falls back
+// to colorA when a project does not name a wash colour of its own.
 export const projectBackgrounds = {
   default: {
     colorA: '#212124',
@@ -28,11 +24,11 @@ export const projectBackgrounds = {
     colorB: '#00364d'
   },
   project03: {
-    colorA: '#45afa9',
-    colorB: '#2079b8',
     // FundSeeder. The lightest colorA in the set by a wide margin, and the one
-    // that sent its preview copy into the grey band.
-    scrimInvert: true
+    // that sent its preview copy into the grey band — see its `scrim` block in
+    // projects.js, the only project set to dark copy.
+    colorA: '#45afa9',
+    colorB: '#2079b8'
   },
   project04: {
     colorA: '#00034d',

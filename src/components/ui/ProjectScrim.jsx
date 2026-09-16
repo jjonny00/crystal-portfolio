@@ -15,16 +15,25 @@
 //
 // What colour it lays down, and what ink the copy over it takes, both come from
 // scrimTone.js — the two are one decision and ProjectFocusSection needs the
-// other half of it. Most projects get a deepened wash of their own colorA; the
-// ones flagged `scrimInvert` get a near-white one instead. See that module.
+// other half of it. Both are authored per project in data/projects.js under
+// `scrim`; see that module for why they are not measured.
 
 import React, { useEffect, useRef, useState } from 'react';
 import { getScrimTone } from '../../legibility/scrimTone';
 
 const SCRIM = {
   blurPx: 24,
-  /** Depth of the fade at the top, in px, independent of how tall the copy is. */
-  fadePx: 220,
+  /**
+   * Depth of the fade at the top, in px, independent of how tall the copy is.
+   *
+   * Short enough to finish inside FADE_HEADROOM_PX below, which is what keeps the
+   * top of the scrim close to the title. It was 220 when the ramp was allowed to
+   * run across the copy and had the whole block to disperse in; carrying that
+   * length up into the headroom put the scrim's top edge most of a screen above
+   * the title. The stops in SCRIM_MASK are fractions of this, so they come with
+   * it.
+   */
+  fadePx: 96,
   /** Matches ProjectFocusSection's copy spring, so the two arrive together. */
   fadeInDelayMs: 180,
   fadeMs: 450,
@@ -52,6 +61,30 @@ const SCRIM_MASK = (() => {
     'rgba(0, 0, 0, 0) 100%)',
   ].join(', ');
 })();
+
+/**
+ * How far the scrim reaches above the copy: a little clearance over the title, not
+ * room for the whole ramp.
+ *
+ * SCRIM_MASK's ramp occupies the top `fadePx` of the scrim, so where the ramp ends
+ * up depends entirely on this number, and there are two failures either side of it.
+ *
+ * Too little and the ramp runs across the whole block — the original problem: the
+ * title, the subtitle AND the opening lines of body all sitting under a wash still
+ * climbing to strength while everything below gets all of it, which is the top of a
+ * block reading weaker than the bottom however well the opacity is solved.
+ *
+ * Too much — anything near fadePx, which is where this started — and the scrim's
+ * top edge stands off the title by most of the ramp's length, washing a band of
+ * scene that has no copy on it at all.
+ *
+ * So the ramp is deliberately allowed to cross the title. The title is large
+ * display type in the project's own accent and carries itself; the body copy
+ * underneath is the thing the scrim exists for, and at this clearance the wash is
+ * at full strength by roughly the subtitle — before the first line of body, which
+ * is all that was ever being asked of it.
+ */
+const TITLE_CLEARANCE_PX = 28;
 
 const PROJECT_SECTION_PREFIX = 'project-';
 
@@ -125,7 +158,13 @@ const ProjectScrim = ({
         // order it needs, and staying out of the stacking order keeps the layers
         // able to blend against each other.
         pointerEvents: 'none',
-        height: `calc(${Math.round(measured.height)}px + ${CONTENT_BOTTOM_PAD})`,
+        // Capped at the viewport so the ramp always has its fadePx on screen: past
+        // that the top of the scrim is above the fold, the fade goes with it, and
+        // what is left is a full-strength wash meeting the top edge on a hard line.
+        // svh rather than vh for the usual mobile reason — vh is the tallest the
+        // viewport ever gets, so the scrim would overshoot while the browser chrome
+        // is showing.
+        height: `min(100svh, calc(${Math.round(measured.height)}px + ${TITLE_CLEARANCE_PX}px + ${CONTENT_BOTTOM_PAD}))`,
         backgroundColor: tone.wash,
         backdropFilter: `blur(${SCRIM.blurPx}px)`,
         WebkitBackdropFilter: `blur(${SCRIM.blurPx}px)`,

@@ -202,7 +202,7 @@ const ScrollablePortfolio = ({
             pointerEvents: 'auto'
           }}
         >
-          <HeroSection visible={settledSectionId === 'hero'} />
+          <HeroSection visible={settledSectionId === 'hero'} isMobile={isMobileViewport} />
         </section>
 
         <section

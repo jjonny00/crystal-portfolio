@@ -1,64 +1,58 @@
 // src/legibility/scrimTone.js
 //
-// The scrim a project's preview copy sits on, and the ink that copy takes, are
-// two halves of one decision — and they are read by two different components.
-// This is the one place that holds both, so a project cannot end up with a wash
-// from one recipe and an ink from the other.
+// The scrim a project's preview copy sits on, and the ink that copy takes. Two
+// halves of one decision, read by two different components — ProjectScrim draws
+// the wash, ProjectFocusSection colours the copy — so both come from here and a
+// project cannot end up with a wash from one recipe and an ink from the other.
 //
-// Two recipes.
+// Authored per project in data/projects.js under `scrim`, not derived and not
+// measured.
 //
-// The default deepens what is already there: colorA is the colour at the bottom
-// of that project's sky (GradientBackground maps t = 0 to straight down), so a
-// light wash of it grounds the copy in the project's own colour, and the cream
-// ink carries.
+// An earlier version solved the opacity live, from a reading of the frame behind
+// the copy. It hit its contrast target, but a surface that moves while you look
+// at it is its own problem, and the crystal is never quite still: every reading
+// was defensible and the scrim still breathed. A number you can see in the file,
+// change, and reload beats one that is always technically correct. Measuring is
+// still how the DESKTOP copy picks its ink (legibility/backdropInk.js) — there it
+// moves the glyphs' colour rather than a surface behind them, and it can only
+// land on one of two authored inks.
 //
-// A few palettes have a colorA light enough that this backfires — washing a light
-// colour over the scene lifts the backdrop into the mid greys instead of pushing
-// it down, which is the exact band cream copy disappears into. FundSeeder's teal
-// is the case that forced the second recipe. Rather than fight the colour, that
-// recipe goes with it: lift the wash the rest of the way to near-white and flip
-// the copy to the dark ink. The section reads as a light panel instead of a dark
-// one, which is a bigger change than a tweak — which is why it is opt-in per
-// project via `scrimInvert` in projectBackgrounds rather than something derived
-// from a luminance threshold that would reclassify a project the moment someone
-// nudged its palette.
+// What each project authors:
+//
+//   scrim: {
+//     opacity,    // 0–1, how much of the wash colour lands
+//     darkText,   // true = near-black copy on a light wash, for bright sections
+//     color,      // optional; defaults to the project's own sky (colorA)
+//   }
 
+import projects from '../data/projects';
 import { projectBackgrounds } from '../data/projectBackgrounds';
 
-/** The dark ink, matching backdropInk.js's `dark` tone so the page has one. */
+/** The two inks the copy is ever drawn in. Dark is warm, to match backdropInk.js. */
+const CREAM_INK = '#E2DCC3';
 const DARK_INK = '#14120C';
 const DARK_INK_RGB = [20, 18, 12];
 
-const DEFAULT_WASH = {
-  /** Tint opacity below the fade, held to the bottom of the screen. */
-  opacity: 0.35,
-  /** How much of colorA survives; the default is the colour itself. */
-  mix: 1,
-  ground: [0, 0, 0],
-};
+/**
+ * For a project with no `scrim` block. Deliberately a middling wash rather than a
+ * light one: an unauthored project should be readable first and pretty second.
+ */
+const DEFAULT_SCRIM = { opacity: 0.55, darkText: false };
 
 /**
- * The inverted recipe. Its worst case is the opposite of the default's: a light
- * wash is thinnest over a *black* frame, not a blown-out one, so the numbers are
- * derived there. FundSeeder's #45afa9 through this lands the backdrop at sRGB
- * 0.55 over pure black, which the dark ink clears at 6.6:1 — and every brighter
- * frame only improves it. Drop either number and that falls away fast.
+ * How much of an accent survives on a dark-text project. The CTA is the one
+ * control in the block and it is drawn in the project's accent, which on a light
+ * panel is a pale line on near-white. This keeps the hue and moves the value —
+ * the same trade the wash makes, in the other direction — rather than dropping
+ * the accent for a flat black and losing the project from the control entirely.
  */
-const INVERTED_WASH = {
-  opacity: 0.66,
-  mix: 0.22,
-  ground: [255, 255, 255],
-};
+const DARK_TEXT_ACCENT_MIX = 0.15;
 
-/**
- * How much of an accent survives on an inverted project. The CTA is the one
- * control in the block and it is drawn in the project's accent, which on a
- * near-white panel is a mint line on white. This keeps the hue and moves the
- * value — the same trade the wash makes, in the other direction — rather than
- * dropping the accent for a flat black and losing the project from the control
- * entirely. At 0.15 the CTA clears the panel at 4.9:1.
- */
-const INVERTED_ACCENT_MIX = 0.15;
+const byKey = new Map();
+projects.forEach((project) => {
+  byKey.set(project.id, project);
+  if (project.facetKey) byKey.set(project.facetKey, project);
+});
 
 const toRgb = (hex) => {
   const n = parseInt(hex.replace('#', ''), 16);
@@ -69,30 +63,39 @@ const mix = (rgb, ground, amount) => rgb.map((channel, i) => (
   Math.round(channel * amount + ground[i] * (1 - amount))
 ));
 
+const clamp01 = (value, fallback) => (
+  typeof value === 'number' && Number.isFinite(value)
+    ? Math.min(1, Math.max(0, value))
+    : fallback
+);
+
 /**
- * The scrim recipe for one scene key ('project03', and so on).
+ * The scrim recipe for one project key ('project03', and so on).
  *
  * `wash` is the scrim's own background colour, alpha included. `ink` is what the
- * body copy over it should be, and is only ever the authored cream or the dark
- * ink — it is a fallback colour, not a measured one, since the probe reads the
- * canvas underneath this layer and cannot see the wash at all.
+ * body copy over it takes. `inverted` says which way round it went, for anything
+ * that has to follow — the CTA's accent, mainly.
  */
-export const getScrimTone = (sceneKey) => {
-  const scheme = projectBackgrounds[sceneKey] || projectBackgrounds.default;
-  const inverted = Boolean(scheme.scrimInvert);
-  const recipe = inverted ? INVERTED_WASH : DEFAULT_WASH;
-  const rgb = mix(toRgb(scheme.colorA), recipe.ground, recipe.mix);
+export const getScrimTone = (projectKey) => {
+  const project = byKey.get(projectKey);
+  const scrim = project?.scrim || DEFAULT_SCRIM;
+  const inverted = Boolean(scrim.darkText);
+
+  const scheme = projectBackgrounds[projectKey] || projectBackgrounds.default;
+  const color = scrim.color || scheme.colorA;
+  const opacity = clamp01(scrim.opacity, DEFAULT_SCRIM.opacity);
 
   return {
     inverted,
-    wash: `rgba(${rgb.join(', ')}, ${recipe.opacity})`,
-    ink: inverted ? DARK_INK : '#E2DCC3',
+    wash: `rgba(${toRgb(color).join(', ')}, ${opacity})`,
+    opacity,
+    ink: inverted ? DARK_INK : CREAM_INK,
   };
 };
 
 /** An accent colour as it should be drawn on this project's scrim. */
 export const accentInkFor = (accentHex, inverted) => {
   if (!inverted) return accentHex;
-  const rgb = mix(toRgb(accentHex), DARK_INK_RGB, INVERTED_ACCENT_MIX);
+  const rgb = mix(toRgb(accentHex), DARK_INK_RGB, DARK_TEXT_ACCENT_MIX);
   return `rgb(${rgb.join(', ')})`;
 };

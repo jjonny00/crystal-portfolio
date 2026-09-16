@@ -28,6 +28,22 @@ export const projects = [
     secondaryCopy: 'Game Design · Systems Design · Unreal Engine',
     roles: 'Prototype R&D · Movement, combat, and resource systems',
     cta: 'Designing Around Essence',
+    // Only the keys that differ: ProjectFocusSection spreads mobile over the
+    // project, so anything left out here keeps its desktop value.
+    mobile: {
+      description:
+        'In this VR combat prototype, Essence powers movement, weapons, and the world itself, unifying traversal, combat, and progression in one high-speed economy.',
+      secondaryCopy: null,
+      metrics: null,
+      roles: null
+    },
+    // Mobile scrim + copy ink. Authored, not measured — see legibility/scrimTone.js.
+    // Cream copy over the project sky. Holds 4.6:1 on a bright frame.
+    scrim: {
+      opacity: 0.4,
+      darkText: false,
+      color: '#3c4375'
+    },
     technologies: ['TBD', 'TBD', 'TBD'],
     color: '#a51dff',
     headlineColor: '#873cff',
@@ -62,11 +78,17 @@ export const projects = [
       title: 'MESA',
       subtitle: 'Asynchronous Multiplayer · iOS',
       description:
-        'An asynchronous competitive strategy game built around one idea: turns should create tension. Stronger powers hit softer, so every move becomes a choice between pressing now or playing for control.',
-      secondaryCopy: 'Built on Game Center to cut multiplayer friction and scope. 150K downloads in week one.',
+        'An asynchronous strategy game where stronger powers hit softer, turning every move into a choice between damage and control.',
+      secondaryCopy: null,
       metrics: null,
       roles: null,
       cta: 'How Turns Create Tension'
+    },
+    // Mobile scrim + copy ink. Authored, not measured — see legibility/scrimTone.js.
+    scrim: {
+      opacity: 0.55,
+      darkText: false,
+      color: '#334a71'
     },
     technologies: ['Gameplay Systems', 'UX Design', 'Balancing'],
     color: '#c5d300',
@@ -101,12 +123,22 @@ export const projects = [
       title: 'FundSeeder',
       subtitle: 'Competitive Platform · Web',
       description:
-        'I redesigned FundSeeder around a competitive system that gives more than 1,000 ranked participants meaningful goals, relevant rivals, and a reason to keep progressing.',
-      secondaryCopy:
-        '1,027 strategies ranked. 17 traders seeded since the relaunch.',
+        'I redesigned FundSeeder as a competitive progression system with clear goals, relevant rivals, and reasons to advance.',
+      secondaryCopy: null,
       metrics: null,
       roles: null,
       cta: 'Designing the Ladder'
+    },
+    // Mobile scrim + copy ink. Authored, not measured — see legibility/scrimTone.js.
+    // The section that forced the dark-text option. Its teal sky is light enough
+    // that washing it over the scene lifts the backdrop into the mid greys — the
+    // exact band cream copy disappears into. So it goes the other way: a near-white
+    // wash and near-black copy, reading as a light panel. 6.1:1 at its worst, over a
+    // BLACK frame, which is the opposite worst case to every other project here.
+    scrim: {
+      opacity: 0.4,
+      darkText: true,
+      color: '#d6edec',
     },
     technologies: ['Product Strategy', 'UX Systems', 'Platform Design'],
     color: '#00bd8b',
@@ -130,6 +162,19 @@ export const projects = [
     secondaryCopy: 'Deployed across 3 venues.',
     roles: 'Co-Founder · Experience Design · Systems + Game Design',
     cta: 'Making Digital Feel Analog',
+    mobile: {
+      description:
+        'A connected venue system that made axe throwing tactile, social, and instantly legible. A resilient edge network unified scoreboards, coaching tablets, and displays across three venues.',
+      secondaryCopy: null,
+      metrics: null,
+      roles: null
+    },
+    // Mobile scrim + copy ink. Authored, not measured — see legibility/scrimTone.js.
+    scrim: {
+      opacity: 0.2,
+      darkText: false,
+      color: '#303f69'
+    },
     technologies: ['TBD', 'TBD', 'TBD'],
     color: '#ff3c5c',
     headlineColor: '#ff0000',
@@ -152,6 +197,19 @@ export const projects = [
     metrics: 'Selected by GE over ~500 global agencies · 30+ team at pea',
     roles: 'Co-Founder · Creative Direction · Process + Systems',
     cta: 'Building the Practice',
+    mobile: {
+      description:
+        'As Forest Giant grew beyond 30 people, I helped shape the process, structure, and culture that kept ambitious work consistently strong.',
+      secondaryCopy: null,
+      metrics: null,
+      roles: null
+    },
+    // Mobile scrim + copy ink. Authored, not measured — see legibility/scrimTone.js.
+    scrim: {
+      opacity: 0.4,
+      darkText: false,
+      color: '#4f3c6b'
+    },
     technologies: ['TBD', 'TBD', 'TBD'],
     color: '#ff4000',
     headlineColor: '#e35d30',
@@ -178,12 +236,25 @@ export const projects = [
       title: 'GE Experience Centers',
       subtitle: 'Spatial Platform · Global Installations',
       description:
-        'A spatial platform that transformed with the audience and the work at hand. The same space could welcome partners with tailored content or shift into secure collaboration using live data and specialized tools.',
+        'A spatial platform that transformed with its audience, from tailored presentations to secure collaboration with real data and specialized tools.',
+      // Kept where the other five null it out: this is the second paragraph of
+      // the mobile copy, not one of the proof/credit lines.
       secondaryCopy:
-        'Scaled across Austin, Dubai, and Shanghai. Led the platform team across three continents.',
+        'I led the platform team, scaling the experience to Austin, Dubai, and Shanghai.',
       metrics: null,
       roles: null,
       cta: 'Built to Transform'
+    },
+    // Mobile scrim + copy ink. Authored, not measured — see legibility/scrimTone.js.
+    // Its sky (#2c53a1) is the lightest of the cream-copy set, and washing it at any
+    // opacity leaves the composite too high for cream — so the wash is that colour
+    // deepened rather than the colour itself. `darkText: true` is the other answer
+    // and needs no `color`, at the cost of GE reading as a light panel like
+    // FundSeeder.
+    scrim: {
+      opacity: 0.4,
+      darkText: false,
+      color: '#314e86',
     },
     technologies: ['Spatial UX', 'Modular Platform Architecture', 'Production'],
     color: '#0095ff',

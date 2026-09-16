@@ -9,6 +9,15 @@ import '../../styles/hero-section.css';
 
 const ARROW_DOWN_SRC = '/assets/ui/SVG/arrow-down.svg';
 
+// The intro, long and short. Same shape as a project's `mobile` block in
+// data/projects.js: the phone gets its own tighter cut rather than the desktop
+// paragraph reflowed down a narrow column.
+const BODY_COPY =
+  'I design systems that shape how people decide, compete, and engage. My work focuses on the mechanics underneath the experience: the rules, feedback, and tradeoffs that turn interaction into something worth mastering. Across products and games, I build systems that reward intent.';
+
+const BODY_COPY_MOBILE =
+  'I design systems that shape how people decide, compete, and engage. Across products and games, I turn rules, feedback, and tradeoffs into experiences that reward intent.';
+
 /**
  * Hero Section Component
  * Full viewport introduction with crystal metaphor.
@@ -20,6 +29,7 @@ const ARROW_DOWN_SRC = '/assets/ui/SVG/arrow-down.svg';
  */
 const HeroSection = ({
   visible = true,
+  isMobile = false,
   onScrollHint = null
 }) => {
   useProjectHeadlineColor();
@@ -99,7 +109,7 @@ const HeroSection = ({
             <span className="hero-section__role-line">SYSTEMS AND INTERACTION</span>
           </p>
           <p className="hero-section__body-copy">
-            I design systems that shape how people decide, compete, and engage. My work focuses on the mechanics underneath the experience: the rules, feedback, and tradeoffs that turn interaction into something worth mastering. Across products and games, I build systems that reward intent.
+            {isMobile ? BODY_COPY_MOBILE : BODY_COPY}
           </p>
         </animated.div>
 
