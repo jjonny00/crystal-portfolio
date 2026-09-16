@@ -3,17 +3,17 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import AssetLoaderV2 from '../utils/AssetLoaderV2.js';
-import { hdriPathForTier, crystalWholePathForTier } from '../crystalConfig';
+import {
+  hdriPathForTier,
+  crystalWholePathForTier,
+  projectModelPathForTier,
+  PROJECT_MODEL_KEYS,
+} from '../crystalConfig';
 
-// Descriptors for all GLTF models used in the app. The whole crystal is added
-// separately in getRequiredAssets because its mesh varies by performance tier.
+// Descriptors for the models that are the same on every tier. The whole crystal and
+// the six project facets are added in getRequiredAssets instead, because their meshes
+// vary by performance tier.
 const MODEL_DESCRIPTORS = [
-  { key: 'project01', url: '/assets/models/Project01.glb' },
-  { key: 'project02', url: '/assets/models/Project02.glb' },
-  { key: 'project03', url: '/assets/models/Project03.glb' },
-  { key: 'project04', url: '/assets/models/Project04.glb' },
-  { key: 'project05', url: '/assets/models/Project05.glb' },
-  { key: 'project06', url: '/assets/models/Project06.glb' },
   { key: 'fractureRays', url: '/assets/models/FractureRays.glb' }
 ];
 
@@ -37,16 +37,18 @@ export const useAssetLoaderV2 = (performanceProfile) => {
   const getRequiredAssets = useCallback(() => {
     if (!performanceProfile) return [];
 
-    // The low tier gets the no-edge-wear crystal (see crystalWholePathForTier).
-    // UnifiedCrystalScene picks the same URL off the same profile field, so the
-    // mesh counted in the splash progress is the one the scene then renders.
-    const crystalWholeDescriptor = {
-      key: 'crystalWhole',
-      url: crystalWholePathForTier(performanceProfile.pbrQuality)
-    };
+    // The low tier gets the mask-free crystal and project facets (see
+    // crystalWholePathForTier / projectModelPathForTier). UnifiedCrystalScene picks
+    // the same URLs off the same profile field, so the meshes counted in the splash
+    // progress are the ones the scene then renders.
+    const tier = performanceProfile.pbrQuality;
+    const tieredDescriptors = [
+      { key: 'crystalWhole', url: crystalWholePathForTier(tier) },
+      ...PROJECT_MODEL_KEYS.map((key) => ({ key, url: projectModelPathForTier(key, tier) })),
+    ];
 
     // Transform model descriptors into asset objects
-    const modelAssets = [crystalWholeDescriptor, ...MODEL_DESCRIPTORS].map(({ key, url }) => ({
+    const modelAssets = [...tieredDescriptors, ...MODEL_DESCRIPTORS].map(({ key, url }) => ({
       type: 'model',
       key,
       url,

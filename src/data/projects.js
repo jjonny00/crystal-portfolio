@@ -29,7 +29,7 @@ export const projects = [
     roles: 'Prototype R&D · Movement, combat, and resource systems',
     cta: 'Designing Around Essence',
     technologies: ['TBD', 'TBD', 'TBD'],
-    color: '#a56dff',
+    color: '#a51dff',
     headlineColor: '#873cff',
     imageUrl: '/assets/projects/experimental-interactions.jpg',
     overlayImage: '/assets/projects/experimental-interactions.jpg'
@@ -69,7 +69,7 @@ export const projects = [
       cta: 'How Turns Create Tension'
     },
     technologies: ['Gameplay Systems', 'UX Design', 'Balancing'],
-    color: '#EAFF00',
+    color: '#c5d300',
     headlineColor: '#EAFF00',
     imageUrl: '/assets/projects/preview-mesa.webp',
     overlayImage: '/assets/projects/preview-mesa.webp'
@@ -109,7 +109,7 @@ export const projects = [
       cta: 'Designing the Ladder'
     },
     technologies: ['Product Strategy', 'UX Systems', 'Platform Design'],
-    color: '#58E0B2',
+    color: '#00bd8b',
     headlineColor: '#58E0B2',
     imageUrl: '/assets/projects/fundseeder.webp',
     overlayImage: '/assets/projects/fundseeder.webp'
@@ -131,8 +131,8 @@ export const projects = [
     roles: 'Co-Founder · Experience Design · Systems + Game Design',
     cta: 'Making Digital Feel Analog',
     technologies: ['TBD', 'TBD', 'TBD'],
-    color: '#ff0000',
-    headlineColor: '#d22222',
+    color: '#ff3c5c',
+    headlineColor: '#ff0000',
     imageUrl: '/assets/projects/component-architecture.jpg',
     overlayImage: '/assets/projects/component-architecture.jpg'
   },
@@ -153,7 +153,7 @@ export const projects = [
     roles: 'Co-Founder · Creative Direction · Process + Systems',
     cta: 'Building the Practice',
     technologies: ['TBD', 'TBD', 'TBD'],
-    color: '#e35d30',
+    color: '#ff4000',
     headlineColor: '#e35d30',
     imageUrl: '/assets/projects/preview-fg.webp',
     overlayImage: '/assets/projects/preview-fg.webp'
@@ -186,7 +186,7 @@ export const projects = [
       cta: 'Built to Transform'
     },
     technologies: ['Spatial UX', 'Modular Platform Architecture', 'Production'],
-    color: '#265cff',
+    color: '#0095ff',
     headlineColor: '#265cff',
     imageUrl: '/assets/projects/preview-gec.webp',
     overlayImage: '/assets/projects/preview-gec.webp'

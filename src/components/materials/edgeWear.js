@@ -60,6 +60,14 @@ const attachState = new WeakMap();
 
 let edgeWearCounter = 0;
 
+// Shared program key for the facet clones, mirroring FACET_GLOW_PROGRAM_KEY. They all
+// compile the same GLSL and differ only in uniform VALUES, which are per-material, so
+// one cached program serves every one of them.
+//
+// Only pass this for a material that has never carried the injection — see the
+// attachEdgeWear notes. For the whole crystal, omit it.
+export const FACET_EDGE_WEAR_PROGRAM_KEY = 'edgeWear-facet';
+
 const toColor = (color) =>
   color instanceof THREE.Color ? color.clone() : new THREE.Color(color);
 
@@ -434,6 +442,22 @@ export const hasEdgeWear = (material) =>
  * would then never re-run onBeforeCompile — so our injection would silently not
  * apply. We compose our own key onto whatever key is already installed (the glow
  * injection sets one) so the shader recompiles with BOTH injections present.
+ *
+ * `programKey` decides whether that recompile is paid once or every time:
+ *
+ * - OMIT for a material that may already have rendered (the whole crystal, or any
+ *   re-attach after a detach). A fresh unique key is minted, which is what forces
+ *   three to run onBeforeCompile again and bind the new uniform objects. Reusing a
+ *   key there would hand back the previously compiled program with the OLD uniforms
+ *   still bound, and later updates would write to objects nothing reads.
+ *
+ * - PASS a shared key (FACET_EDGE_WEAR_PROGRAM_KEY) for a brand-new material that
+ *   has never been rendered — a fresh clone. Its per-material program map is empty,
+ *   so onBeforeCompile runs and binds its own uniforms regardless, while three's
+ *   global cache serves the already-compiled program instead of building another.
+ *   Facet materials are re-cloned on every focus and visibility change, so without
+ *   this each one compiled and linked a full transmissive shader — and since the
+ *   replaced materials are never disposed, each of those programs then leaked.
  */
 export const attachEdgeWear = (
   material,
@@ -445,6 +469,7 @@ export const attachEdgeWear = (
     brightnessColor = '#ffffff',
     noiseAmount = 0,
     noiseScale = 1,
+    programKey,
   } = {}
 ) => {
   if (!material || !supportsEdgeWear(material)) return material;
@@ -474,7 +499,7 @@ export const attachEdgeWear = (
 
   const previousOnBeforeCompile = material.onBeforeCompile;
   const previousCacheKey = material.customProgramCacheKey;
-  const programKey = `edgeWear-${++edgeWearCounter}`;
+  const resolvedProgramKey = programKey ?? `edgeWear-${++edgeWearCounter}`;
   const onBeforeCompile = function edgeWearOnBeforeCompile(shader, renderer) {
     // Run the pre-existing injection (internalGlow) FIRST so we patch its output
     // rather than discarding it.
@@ -523,7 +548,7 @@ export const attachEdgeWear = (
     uniforms,
     previousOnBeforeCompile,
     previousCacheKey,
-    programKey,
+    programKey: resolvedProgramKey,
     // Authored brightness, kept separate from the uniform so setEdgeWearReveal() can
     // scale it per frame. Starts at 1 so a scene with no intro looks correct even if
     // the per-frame sync never runs.
@@ -534,7 +559,7 @@ export const attachEdgeWear = (
   material.onBeforeCompile = onBeforeCompile;
   material.customProgramCacheKey = () => {
     const base = typeof previousCacheKey === 'function' ? previousCacheKey.call(material) : '';
-    return `${base}|${programKey}`;
+    return `${base}|${resolvedProgramKey}`;
   };
   material.needsUpdate = true;
 

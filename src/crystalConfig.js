@@ -32,7 +32,7 @@ export const fracture = {
   particles: {
     delay: 0.0,          // Trigger exactly at fracture swap (seconds)
     count: 360,           // Number of burst particles
-    color: '#66ffcc',     // Particle color
+    color: '#6fd4ff',     // Particle color
     duration: 1.2,        // Longer-lived glitter fade duration (seconds)
     spread: 0.5            // Half-width emitter radius
   },
@@ -52,15 +52,15 @@ export const fracture = {
   // mist lifting rather than a spark burst. Rendered by FractureSmokePuff.
   smoke: {
     enabled: true,
-    count: 20,            // sprites spawned per explosion (~12-18)
-    size: 1.0,            // base sprite world size at spawn (large, billowy)
-    expand: 10.0,          // end-of-life scale multiplier (aggressive growth as it rises)
-    spread: 0.5,         // spawn radius — spread around the core, not on the bright center
-    outwardSpeed: 7.25,   // gentle radial drift (kept slow/contained)
-    upwardLift: 1.9,      // strong upward rise so it reads as mist lifting off the fracture
-    drag: 0.9,            // per-frame damping of radial drift (0-1, higher = floatier)
+    count: 12,            // sprites spawned per explosion (~12-18)
+    size: 1.5,            // base sprite world size at spawn (large, billowy)
+    expand: 7.0,          // end-of-life scale multiplier (aggressive growth as it rises)
+    spread: 0.05,         // spawn radius — spread around the core, not on the bright center
+    outwardSpeed: 10.25,   // gentle radial drift (kept slow/contained)
+    upwardLift: 2.7,      // strong upward rise so it reads as mist lifting off the fracture
+    drag: 0.94,            // per-frame damping of radial drift (0-1, higher = floatier)
     lifetimeMin: 0.08,     // seconds
-    lifetimeMax: 4.5,     // seconds
+    lifetimeMax: 3.5,     // seconds
     opacity: 0.15          // peak per-sprite opacity (color comes from the texture itself)
   },
   emissive: {
@@ -447,7 +447,7 @@ export const effects = {
 export const materials = {
   // Base crystal material configuration
   crystal: {
-    color: new THREE.Color('#0d042b'),
+    color: new THREE.Color('#d4d4d4'),
     transparent: true,
     transmission: 0.91,
     // NOTE: On MeshPhysicalMaterial, `reflectivity` is a getter/setter linked to
@@ -455,12 +455,12 @@ export const materials = {
     // `reflectivity` here or it will clobber `ior` and the IOR control will do
     // nothing. `ior: 1.78` reproduces the previous look (reflectivity ≈ 0.70).
     ior: 1.8,
-    thickness: 0.05,
+    thickness: 0.9,
     iridescence: 1.4,
     iridescenceIOR: 1.3,
     metalness: 0.0,
     roughness: 0.00,
-    attenuationColor: new THREE.Color('#00fff2'),
+    attenuationColor: new THREE.Color('#00ddff'),
     attenuationDistance: 0.5,
     clearcoat: 0.8,
     clearcoatRoughness: 0.05,
@@ -476,10 +476,10 @@ export const materials = {
     // Fresnel-driven internal core glow (additive emissive injected via shader).
     // Independent of the built-in emissive above; see components/materials/internalGlow.js
     glow: {
-      color: '#0015ff',         // non-project (default) internal glow color
+      color: '#090084',         // non-project (default) internal glow color
       emissiveIntensity: 0.30,  // 'high' reference; device tiers scale this
-      activeIntensity: 0.40,    // glow brightness when a facet is hovered or is the selected project (device tiers scale this too)
-      fresnelPower: 1.1,        // higher = tighter, more centered core
+      activeIntensity: 1.0,    // glow brightness when a facet is hovered or is the selected project (device tiers scale this too)
+      fresnelPower: 0.75,        // higher = tighter, more centered core
       glowBias: 0.16,            // 0 = tight center core; higher reaches toward edges
       pulseSpeed: 1.25,          // Hero pulse frequency (rad/sec); 0 = no pulse
       pulseAmount: 0.84          // Hero pulse depth (0..1): intensity swings ±(amount·base)
@@ -500,10 +500,10 @@ export const materials = {
       // Added to roughness on the bevels. Base crystal roughness is 0.0, so this is
       // the bevel's absolute roughness. Also blurs refraction through those faces,
       // since three feeds material.roughness into getIBLVolumeRefraction.
-      roughnessBoost: 0.175,
+      roughnessBoost: 0.125,
       // Fraction of transmission removed on the bevels (0 = none, 1 = opaque).
       // 0.10 takes transmission 0.91 -> ~0.82 there.
-      transmissionReduction: 0.90,
+      transmissionReduction: 0.075,
       // Object-space width of the soft falloff that carries the wear off the bevel
       // and onto the neighbouring facet, via the precomputed `aEdgeDist` attribute.
       // 0 = no spill (the original hard-edged mask behaviour).
@@ -512,7 +512,7 @@ export const materials = {
       // and facet triangles are ~0.65 units across, so 0.02 is ~4x the bevel and
       // ~3% of a facet. Keep it well under the facet size — the ramp is measured
       // inside each triangle and would clip at a triangle edge if pushed too far.
-      falloff: 0.125,
+      falloff: 0.003,
 
       // Additive emissive glow on the worn edges. Follows the same wear value as the
       // roughness/transmission shift, so it feathers along the `falloff` ramp rather
@@ -530,8 +530,8 @@ export const materials = {
       // edges light up in step with the scene fade-up instead of popping in. Only the
       // glow ramps: the roughness/transmission wear is a surface property and is
       // present from the first frame.
-      brightness: 0.025,
-      brightnessColor: '#00bbff',
+      brightness: 0.05,
+      brightnessColor: '#0080ff',
 
       // Procedural break-up, so the edges read as nicks and scratches picked up over
       // time rather than as an evenly frosted band. Object-space value noise (2
@@ -541,11 +541,39 @@ export const materials = {
       // noiseAmount does two things at once: it makes the falloff contour ragged, and
       // it knocks holes in the band. 0 = perfectly smooth (an exact no-op, and the
       // noise is skipped entirely via a uniform branch).
-      noiseAmount: 0.5,
+      noiseAmount: 1.35,
       // Frequency in object-space units. The crystal is ~4 units tall and the bevel
       // strip ~0.005 wide, so 45 puts noise features around 0.022 units — a handful
       // across the current 0.1 falloff band. Higher = finer, busier scratches.
       noiseScale: 400
+    }
+  },
+
+  // The six project facets. They render a CLONE of materials.crystal above, so
+  // everything else about their surface is the crystal's — only edge wear is
+  // authored separately, because the two read differently at the sizes they are
+  // actually seen at: the crystal fills the hero, a facet is one of six objects
+  // in the overview and then fills the frame when focused.
+  facet: {
+    // Same knobs as materials.crystal.edgeWear, which carries the full explanation
+    // of what each one does — only the values that want to differ are commented
+    // here. Seeded as a copy of the crystal's, so the split changed nothing on its
+    // own and every divergence from this point is deliberate.
+    //
+    // The two meshes are close in scale, which is why the crystal's numbers are a
+    // sane starting point rather than a guess: measured off the shipped GLBs, the
+    // bevel strip is ~0.0011-0.0015 object-space units on BOTH (same Blender bevel),
+    // and the facet triangles run ~0.46 across against the crystal's ~0.58. So
+    // falloff and noiseScale, which are both in object space, transfer directly.
+    edgeWear: {
+      enabled: true,
+      roughnessBoost: 0.2,
+      transmissionReduction: 0.025,
+      falloff: 0.01,
+      brightness: 0.1,
+      brightnessColor: '#0080ff',
+      noiseAmount: 1.5,
+      noiseScale: 80
     }
   },
   
@@ -723,15 +751,44 @@ const CRYSTAL_WHOLE_MODELS = {
 export const crystalWholePathForTier = (tier = 'high') =>
   tier === 'low' ? CRYSTAL_WHOLE_MODELS.low : CRYSTAL_WHOLE_MODELS.default;
 
+// The six project facets, same story as the crystal above: the default exports carry
+// the `edgeWear` mask, the ones under projects-no-edgewear/ are the same meshes
+// without it. Identical filenames, so the tier only chooses a directory.
+//
+// Low tier renders MeshPhongMaterial, which the edge-wear injection skips, so the
+// mask there is dead weight twice over: the COLOR_0 attribute rides along in the
+// download, and unshareForEdgeWear would call toNonIndexed on the geometry purely
+// to host an aEdgeDist attribute nothing reads. Without a mask neither happens.
+const PROJECT_MODEL_FILES = {
+  project01: 'Project01.glb',
+  project02: 'Project02.glb',
+  project03: 'Project03.glb',
+  project04: 'Project04.glb',
+  project05: 'Project05.glb',
+  project06: 'Project06.glb',
+}
+
+const PROJECT_MODEL_DIRS = {
+  default: '/assets/models',
+  low: '/assets/models/projects-no-edgewear',
+}
+
+export const PROJECT_MODEL_KEYS = Object.keys(PROJECT_MODEL_FILES);
+
+// Returns null for a key that is not a project facet, so a caller can tell the two
+// kinds of model apart without keeping its own list.
+export const projectModelPathForTier = (key, tier = 'high') => {
+  const file = PROJECT_MODEL_FILES[key];
+  if (!file) return null;
+  return `${tier === 'low' ? PROJECT_MODEL_DIRS.low : PROJECT_MODEL_DIRS.default}/${file}`;
+};
+
 export const assets = {
   models: {
     crystalWhole: CRYSTAL_WHOLE_MODELS.default,
-    project01: '/assets/models/Project01.glb',
-    project02: '/assets/models/Project02.glb',
-    project03: '/assets/models/Project03.glb',
-    project04: '/assets/models/Project04.glb',
-    project05: '/assets/models/Project05.glb',
-    project06: '/assets/models/Project06.glb',
+    ...Object.fromEntries(
+      PROJECT_MODEL_KEYS.map((key) => [key, projectModelPathForTier(key)])
+    ),
     fractureRays: '/assets/models/FractureRays.glb'
   },
   textures: {

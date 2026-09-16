@@ -11,7 +11,7 @@ import { getFractureRingTexture, getGlowingSphereTexture } from '../../loader/pr
 // Import existing material manager
 import MaterialManager from './MaterialManager'
 import { attachInternalGlow, updateInternalGlow, hasInternalGlow, FACET_GLOW_PROGRAM_KEY } from '../materials/internalGlow'
-import { attachEdgeWear, detachEdgeWear, updateEdgeWear, hasEdgeWear, readEdgeWear, supportsEdgeWear, ensureEdgeWearGeometry, setEdgeWearReveal } from '../materials/edgeWear'
+import { attachEdgeWear, detachEdgeWear, updateEdgeWear, hasEdgeWear, readEdgeWear, supportsEdgeWear, ensureEdgeWearGeometry, setEdgeWearReveal, FACET_EDGE_WEAR_PROGRAM_KEY } from '../materials/edgeWear'
 
 // Import enhanced sphere component
 import GlowingSphereImage, { BLEND_STYLES } from './GlowingSphereImage'
@@ -33,7 +33,7 @@ import projects, {
 import FacetLabels from './FacetLabels'
 import FacetHoverParticles from './FacetHoverParticles'
 import OverviewTouchPicker from './OverviewTouchPicker'
-import { effects, materials as defaultCrystalMaterials, crystalWholePathForTier } from '../../crystalConfig'
+import { effects, materials as defaultCrystalMaterials, crystalWholePathForTier, projectModelPathForTier } from '../../crystalConfig'
 import { useFacetOverlayGeometry } from '../../hooks/useFacetOverlayGeometry'
 import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController'
 import { useHoverCapable } from '../../hooks/useHoverCapable'
@@ -237,6 +237,69 @@ const applyFlatNormals = (scene, enabled, label = 'scene') => {
   });
   if (import.meta.env.DEV) console.log(`[flatNormals] ${label}: ${meshCount} mesh(es) traversed`);
   return scene;
+};
+
+// Edge wear stores one edge-distance triple per triangle, which an indexed geometry
+// cannot hold: its vertices are shared between triangles, so there is nowhere to put
+// per-triangle data. The whole crystal gets a non-indexed geometry for free from
+// applyFlatNormals; the project facets, which render their exported normals, do not.
+//
+// This is NOT the flat-normals path and does not touch shading: toNonIndexed copies
+// each shared vertex's normal to every corner that used it, so the rendered normals
+// are exactly what the export specified. Only the vertex count changes. Skipped
+// entirely for a mesh with no mask, so a facet GLB without edgeWear colours pays
+// nothing.
+//
+// The flat-normals cache is moved along with it, so that toggle's "off" side keeps
+// pointing at the geometry actually mounted rather than at a detached original.
+// Pull one edge-wear source (materials.crystal.edgeWear or materials.facet.edgeWear)
+// into the shape attachEdgeWear/updateEdgeWear expect. The defaults are the
+// no-op ones, so a missing or half-written config block degrades to "no wear"
+// rather than to something arbitrary.
+const resolveEdgeWearParams = (source) => ({
+  roughnessBoost: source?.roughnessBoost ?? 0,
+  transmissionReduction: source?.transmissionReduction ?? 0,
+  falloff: source?.falloff ?? 0,
+  brightness: source?.brightness ?? 0,
+  brightnessColor: source?.brightnessColor ?? '#ffffff',
+  noiseAmount: source?.noiseAmount ?? 0,
+  noiseScale: source?.noiseScale ?? 1,
+});
+
+// Does anything in this model carry the edgeWear vertex mask? Facet GLBs are being
+// masked one at a time, so this decides per model whether the injection is worth
+// attaching at all.
+const sceneHasEdgeWearMask = (scene) => {
+  let has = false;
+  scene?.traverse((child) => {
+    if (has || !child.isMesh || child.userData?.isOverlay) return;
+    if (child.geometry?.attributes?.color) has = true;
+  });
+  return has;
+};
+
+const unshareForEdgeWear = (scene, label = 'scene') => {
+  scene?.traverse((child) => {
+    if (!child?.isMesh || !child.geometry) return;
+    const geometry = child.geometry;
+    if (!geometry.attributes.color) return;   // no mask on this mesh
+    if (!geometry.index) return;              // already unshared
+    if (geometry.attributes.aEdgeDist) return; // already prepared
+
+    const unshared = geometry.toNonIndexed();
+    unshared.computeBoundingSphere?.();
+    if (child.userData.__originalGeometry === geometry) {
+      child.userData.__originalGeometry = unshared;
+    }
+    child.geometry = unshared;
+
+    if (import.meta.env.DEV) {
+      console.log(
+        `[edgeWear] unshared ${label}/${child.name || 'mesh'} for the mask: ` +
+        `${geometry.attributes.position.count} -> ${unshared.attributes.position.count} verts`
+      );
+    }
+  });
 };
 
 // Module-level scratch objects reused inside per-frame loops to avoid GC churn.
@@ -1094,6 +1157,15 @@ const UnifiedCrystalScene = forwardRef(({
 
   // Individual facet materials and colors
   const facetMaterialsRef = useRef([]);
+  // Set by the edge-wear effect, called by the material effect when it clones a facet
+  // material. A ref rather than a callback dep on purpose: the material effect must
+  // not re-clone every facet just because an edge-wear slider moved.
+  const edgeWearFacetAttachRef = useRef(null);
+  // DEV-only live overrides from __setFacetEdgeWear, merged over the config values
+  // whenever a facet material is born. Without this, tuning a facet by hand would
+  // survive only until the next focus change re-cloned the material out from under
+  // it — which is the one thing the crystal never has to deal with.
+  const facetEdgeWearOverrideRef = useRef(null);
   const activeFacetRef = useRef(null);
   const defaultColorRef = useRef(new THREE.Color('#ffffff'));
   const projectColors = useMemo(
@@ -1579,7 +1651,13 @@ const UnifiedCrystalScene = forwardRef(({
       : crystalWholePathForTier('low')
   );
   const facetModels = facetModelKeys.map((modelKey, index) => {
-    const modelUrl = mergedConfig.assets.models[modelKey];
+    // Same swap the crystal makes above, for the same reason: on low tier the facets
+    // load the exports without the edgeWear mask. projectModelPathForTier returns null
+    // for anything that is not a project facet, so a non-facet key still falls through
+    // to the configured URL rather than being silently redirected.
+    const modelUrl = edgeWearSupported
+      ? mergedConfig.assets.models[modelKey]
+      : (projectModelPathForTier(modelKey, 'low') ?? mergedConfig.assets.models[modelKey]);
 
     if (!modelUrl) {
       throw new Error(`Missing model URL for facet index ${index} (${modelKey ?? 'undefined'})`);
@@ -2386,6 +2464,14 @@ const UnifiedCrystalScene = forwardRef(({
           : (isActiveFacet ? projectColors[idx] : glowInit.color),
         programKey: FACET_GLOW_PROGRAM_KEY,
       });
+
+      // Edge wear has to be re-attached here for exactly the reason the glow above
+      // does: onBeforeCompile lives on the prototype, so clone() hands back a material
+      // with the injection gone. This effect re-clones on focus and visibility
+      // changes — including the showFacets flip during the explosion, which lands
+      // BEFORE a facet has ever been on screen. Attaching only from the edge-wear
+      // effect meant every facet lost its wear before it could be seen.
+      edgeWearFacetAttachRef.current?.(mat, model.scene);
 
       return mat;
     });
@@ -3950,116 +4036,254 @@ const UnifiedCrystalScene = forwardRef(({
     });
   }, [glowEmissiveIntensity, glowActiveIntensity, glowFresnelPower, glowBiasValue, glowIntensityScale, emissiveGlowBoost, materialVersion, wholeCrystal]);
 
-  // Beveled-edge wear. Reads the crystal GLB's `edgeWear` vertex mask and shifts only
-  // roughness + transmission on the bevels, injected into the EXISTING crystal
-  // material (see components/materials/edgeWear.js). Runs AFTER the glow effect so
-  // attachEdgeWear chains onto the glow injection instead of replacing it.
-  const edgeWearEnabled =
-    edgeWearSupported && (config?.materials?.crystal?.edgeWear?.enabled ?? false);
-  const edgeWearRoughnessBoost = config?.materials?.crystal?.edgeWear?.roughnessBoost ?? 0;
-  const edgeWearTransmissionReduction =
-    config?.materials?.crystal?.edgeWear?.transmissionReduction ?? 0;
-  const edgeWearFalloff = config?.materials?.crystal?.edgeWear?.falloff ?? 0;
-  const edgeWearBrightness = config?.materials?.crystal?.edgeWear?.brightness ?? 0;
-  const edgeWearBrightnessColor =
-    config?.materials?.crystal?.edgeWear?.brightnessColor ?? '#ffffff';
-  const edgeWearNoiseAmount = config?.materials?.crystal?.edgeWear?.noiseAmount ?? 0;
-  const edgeWearNoiseScale = config?.materials?.crystal?.edgeWear?.noiseScale ?? 1;
+  // Beveled-edge wear. Reads a GLB's `edgeWear` vertex mask and shifts only roughness
+  // + transmission on the bevels, injected into the EXISTING material (see
+  // components/materials/edgeWear.js). Runs AFTER the glow effect so attachEdgeWear
+  // chains onto the glow injection instead of replacing it.
+  //
+  // The whole crystal and the project facets are tuned independently:
+  // materials.crystal.edgeWear and materials.facet.edgeWear. Nothing is inherited
+  // between them — a value left out of one block falls back to the no-op default,
+  // not to the other block — so a crystal tweak can never move the facets.
+  const crystalEdgeWearSource = config?.materials?.crystal?.edgeWear;
+  const facetEdgeWearSource = config?.materials?.facet?.edgeWear;
+  const crystalEdgeWearEnabled = edgeWearSupported && (crystalEdgeWearSource?.enabled ?? false);
+  const facetEdgeWearEnabled = edgeWearSupported && (facetEdgeWearSource?.enabled ?? false);
+  // One signature per source, used as the effect's dependency. A string that changes
+  // exactly when a value does, so a config object rebuilt with equal contents does
+  // not re-run the pass — and so adding a knob later does not mean remembering to
+  // add another dep.
+  const crystalEdgeWearKey = JSON.stringify(crystalEdgeWearSource ?? null);
+  const facetEdgeWearKey = JSON.stringify(facetEdgeWearSource ?? null);
 
   useEffect(() => {
-    if (!wholeCrystal?.scene) return;
     // Low tier: the -noWear crystal carries no mask and MeshPhong could not render
     // the effect anyway, so skip the whole pass — including the per-triangle
     // aEdgeDist build, which is the expensive half on exactly the weakest devices.
     // Nothing was ever attached there, so there is nothing to detach either.
-    if (!edgeWearSupported) return;
-
-    // Build the per-triangle edge-distance attribute that drives the soft falloff.
-    // Must run AFTER applyFlatNormals (which swaps in the non-indexed geometry this
-    // needs); it caches on the geometry, so the flat-normal A/B toggle keeps working.
-    ensureEdgeWearGeometry(wholeCrystal.scene);
-    setEdgeWearDebugParams({
-      falloff: edgeWearFalloff,
-      noiseAmount: edgeWearNoiseAmount,
-      noiseScale: edgeWearNoiseScale,
-    });
-
-    // The effect is driven entirely by the vertex mask, so a crystal GLB without one
-    // must behave exactly as before.
-    let hasMask = false;
-    const meshMaterials = new Set();
-    wholeCrystal.scene.traverse((child) => {
-      if (!child.isMesh || child.userData?.isOverlay) return;
-      if (child.geometry?.attributes?.color) hasMask = true;
-      const mats = Array.isArray(child.material) ? child.material : [child.material];
-      mats.forEach((m) => m && meshMaterials.add(m));
-    });
-
-    if (!hasMask) {
-      if (import.meta.env.DEV && edgeWearEnabled) {
-        logger.warn('edgeWear: crystal geometry has no `color` attribute — effect skipped');
-      }
+    if (!edgeWearSupported) {
+      edgeWearFacetAttachRef.current = null;
       return;
     }
+    if (!wholeCrystal?.scene) return;
 
-    // crystalMaterialRef.current is the live tier material; include it explicitly so
-    // the injection is still applied while the debug visualization has temporarily
-    // swapped the mesh's material out.
-    const candidates = new Set(meshMaterials);
-    if (crystalMaterialRef.current) candidates.add(crystalMaterialRef.current);
+    // Read here rather than at render: the signature deps below already guarantee
+    // the effect re-runs whenever either block's values change.
+    const crystalParams = resolveEdgeWearParams(crystalEdgeWearSource);
+    const facetParams = resolveEdgeWearParams(facetEdgeWearSource);
 
-    candidates.forEach((mat) => {
-      if (!supportsEdgeWear(mat)) return; // low tier (MeshPhong) + debug materials
-      if (!edgeWearEnabled) {
+    // Republished on every param change, so a freshly cloned facet is born with the
+    // values currently in force rather than whatever was set when it first loaded.
+    edgeWearFacetAttachRef.current = (mat, scene) => {
+      if (!supportsEdgeWear(mat) || !sceneHasEdgeWearMask(scene)) return;
+      if (!facetEdgeWearEnabled) {
         if (hasEdgeWear(mat)) detachEdgeWear(mat);
         return;
       }
-      const params = {
-        roughnessBoost: edgeWearRoughnessBoost,
-        transmissionReduction: edgeWearTransmissionReduction,
-        falloff: edgeWearFalloff,
-        brightness: edgeWearBrightness,
-        brightnessColor: edgeWearBrightnessColor,
-        noiseAmount: edgeWearNoiseAmount,
-        noiseScale: edgeWearNoiseScale,
-      };
+      const live = facetEdgeWearOverrideRef.current
+        ? { ...facetParams, ...facetEdgeWearOverrideRef.current }
+        : facetParams;
+      if (hasEdgeWear(mat)) updateEdgeWear(mat, live);
+      // Always a brand-new clone here, so the shared facet program key applies: one
+      // compile for all six rather than one per re-clone. See attachEdgeWear.
+      else attachEdgeWear(mat, { ...live, programKey: FACET_EDGE_WEAR_PROGRAM_KEY });
+    };
+
+    // The mask visualiser only ever draws the whole crystal, so it follows the
+    // crystal's numbers.
+    setEdgeWearDebugParams({
+      falloff: crystalParams.falloff,
+      noiseAmount: crystalParams.noiseAmount,
+      noiseScale: crystalParams.noiseScale,
+    });
+
+    // The crystal and the six project facets carry independent masks, and the facets
+    // are being masked one GLB at a time — so each target is tested on its own and
+    // only a target that actually has a mask hands its materials over. An unmasked
+    // facet is left exactly as it was.
+    const targets = [
+      { label: 'wholeCrystal', scene: wholeCrystal.scene, isCrystal: true },
+      ...facetModels.map((model, i) => ({
+        label: `facet${i}`,
+        scene: model?.scene,
+        isCrystal: false,
+      })),
+    ];
+
+    // material -> the settings that own it. A Map rather than a Set because the two
+    // groups are tuned separately now, so a material has to remember which block it
+    // came from.
+    const candidates = new Map();
+
+    targets.forEach(({ label, scene, isCrystal }) => {
+      if (!scene) return;
+
+      // The crystal is already non-indexed via applyFlatNormals; the facets are not.
+      if (!isCrystal) unshareForEdgeWear(scene, label);
+
+      // Build the per-triangle edge-distance attribute that drives the soft falloff.
+      // Must run AFTER applyFlatNormals (which swaps in the non-indexed geometry this
+      // needs); it caches on the geometry, so the flat-normal A/B toggle keeps working.
+      ensureEdgeWearGeometry(scene);
+
+      // The effect is driven entirely by the vertex mask, so a GLB without one must
+      // behave exactly as before.
+      let hasMask = false;
+      const meshMaterials = new Set();
+      scene.traverse((child) => {
+        if (!child.isMesh || child.userData?.isOverlay) return;
+        if (child.geometry?.attributes?.color) hasMask = true;
+        const mats = Array.isArray(child.material) ? child.material : [child.material];
+        mats.forEach((m) => m && meshMaterials.add(m));
+      });
+
+      if (!hasMask) {
+        // Only worth saying for the crystal: the facets are expected to be unmasked
+        // until each one's GLB is re-exported, and six warnings a load is noise.
+        if (import.meta.env.DEV && crystalEdgeWearEnabled && isCrystal) {
+          logger.warn('edgeWear: crystal geometry has no `color` attribute — effect skipped');
+        }
+        return;
+      }
+
+      const owner = isCrystal
+        ? { params: crystalParams, enabled: crystalEdgeWearEnabled, programKey: undefined }
+        // No shared key on this path: these materials may already have rendered, and
+        // reusing a key would hand back the old program with the old uniforms bound.
+        // The clone-loop path above is the one that gets the shared key.
+        : { params: facetParams, enabled: facetEdgeWearEnabled, programKey: undefined };
+
+      // Every slot on a masked facet is fair game, the project-display slot included:
+      // its artwork renders through the overlay's MeshBasicMaterial (which
+      // supportsEdgeWear rejects), and the base material underneath has had its map
+      // detached by the overlay system, so what wear reaches there is plain glass.
+      meshMaterials.forEach((m) => candidates.set(m, owner));
+
+      // crystalMaterialRef.current is the live tier material; include it explicitly so
+      // the injection is still applied while the debug visualization has temporarily
+      // swapped the mesh's material out.
+      if (isCrystal && crystalMaterialRef.current) candidates.set(crystalMaterialRef.current, owner);
+    });
+
+    candidates.forEach(({ params, enabled, programKey }, mat) => {
+      if (!supportsEdgeWear(mat)) return; // low tier (MeshPhong) + debug materials
+      if (!enabled) {
+        if (hasEdgeWear(mat)) detachEdgeWear(mat);
+        return;
+      }
       // attach compiles; update is a plain uniform write with no recompile.
       if (hasEdgeWear(mat)) updateEdgeWear(mat, params);
-      else attachEdgeWear(mat, params);
+      else attachEdgeWear(mat, { ...params, programKey });
     });
+    // crystalEdgeWearSource/facetEdgeWearSource are read inside, but the two
+    // signature strings below are what actually decide when this re-runs — they
+    // change exactly when a value in either block does.
   }, [
     wholeCrystal,
+    ...facetModels,
     modelsLoaded,
     materialVersion,
     edgeWearSupported,
-    edgeWearEnabled,
-    edgeWearRoughnessBoost,
-    edgeWearTransmissionReduction,
-    edgeWearFalloff,
-    edgeWearBrightness,
-    edgeWearBrightnessColor,
-    edgeWearNoiseAmount,
-    edgeWearNoiseScale,
+    crystalEdgeWearEnabled,
+    facetEdgeWearEnabled,
+    crystalEdgeWearKey,
+    facetEdgeWearKey,
   ]);
 
-  // DEV-only: live tuning without a rebuild — __setEdgeWear({ roughnessBoost: 0.3 }).
+  // DEV-only live tuning without a rebuild. The two groups are authored separately
+  // (materials.crystal.edgeWear / materials.facet.edgeWear), so there is one setter
+  // each — __setEdgeWear({ roughnessBoost: 0.3 }) moves the whole crystal only,
+  // __setFacetEdgeWear(...) moves the six project facets only.
   useEffect(() => {
     if (!import.meta.env.DEV || typeof globalThis === 'undefined') return undefined;
     globalThis.__setEdgeWear = (params = {}) => {
       const mat = crystalMaterialRef.current;
       if (!hasEdgeWear(mat)) {
-        console.warn('[edgeWear] not attached (disabled, unsupported tier, or no mask)');
+        console.warn('[edgeWear] crystal not attached (disabled, unsupported tier, or no mask)');
         return null;
       }
       updateEdgeWear(mat, params);
       const values = readEdgeWear(mat);
       // Keep the 'wear' debug visualisation showing what the crystal is really doing.
       setEdgeWearDebugParams(values);
-      console.log('[edgeWear] ->', values);
+      console.log('[edgeWear] crystal ->', values);
       return values;
     };
-    return () => { delete globalThis.__setEdgeWear; };
-  }, []);
+
+    globalThis.__setFacetEdgeWear = (params = {}) => {
+      // Remembered so the next re-clone reapplies it — see facetEdgeWearOverrideRef.
+      facetEdgeWearOverrideRef.current = {
+        ...(facetEdgeWearOverrideRef.current || {}),
+        ...params,
+      };
+      const mats = facetMaterialsRef.current.filter((m) => hasEdgeWear(m));
+      if (!mats.length) {
+        console.warn(
+          '[edgeWear] no facet is attached yet (disabled, unsupported tier, or no GLB ' +
+          'carries the mask). The values are stored and will apply to the next facet ' +
+          'that does.',
+        );
+        return null;
+      }
+      mats.forEach((m) => updateEdgeWear(m, params));
+      const values = readEdgeWear(mats[0]);
+      console.log(`[edgeWear] facets (${mats.length} attached) ->`, values);
+      return values;
+    };
+
+    // Clears the live facet overrides, so the next re-clone comes back to whatever
+    // materials.facet.edgeWear says.
+    globalThis.__resetFacetEdgeWear = () => {
+      facetEdgeWearOverrideRef.current = null;
+      console.log('[edgeWear] facet overrides cleared — reload or change focus to reapply config');
+    };
+
+    // __inspectEdgeWear() — the chain the effect has to get all the way through, per
+    // model, so a silent miss is readable instead of just invisible. Every one of
+    // these has to hold for wear to show: a mask in the GLB, a non-indexed geometry
+    // carrying aEdgeDist (no aEdgeDist = hard mask, the `falloff` spill is gone), a
+    // MeshPhysicalMaterial, and the injection actually live on the material instance
+    // that is mounted right now. That last one is the one that bites: clone() drops
+    // onBeforeCompile, and facet materials are re-cloned on focus and visibility
+    // changes.
+    globalThis.__inspectEdgeWear = () => {
+      const rows = [];
+      const inspect = (label, scene) => {
+        scene?.traverse((child) => {
+          if (!child.isMesh || child.userData?.isOverlay) return;
+          const mats = Array.isArray(child.material) ? child.material : [child.material];
+          rows.push({
+            model: label,
+            mesh: child.name || 'mesh',
+            mask: Boolean(child.geometry?.attributes?.color),
+            indexed: Boolean(child.geometry?.index),
+            aEdgeDist: Boolean(child.geometry?.attributes?.aEdgeDist),
+            materials: mats.map((m) => ({
+              name: m?.name || m?.type || '(none)',
+              supported: supportsEdgeWear(m),
+              attached: hasEdgeWear(m),
+            })),
+          });
+        });
+      };
+      inspect('wholeCrystal', wholeCrystal?.scene);
+      facetModels.forEach((model, i) => inspect(`facet${i}`, model?.scene));
+      console.log('[edgeWear] supported =', edgeWearSupported,
+        ' crystal enabled =', crystalEdgeWearEnabled,
+        ' facets enabled =', facetEdgeWearEnabled);
+      rows.forEach((r) => console.log('[edgeWear]', r.model, r.mesh, {
+        mask: r.mask, indexed: r.indexed, aEdgeDist: r.aEdgeDist,
+      }, r.materials));
+      return rows;
+    };
+
+    return () => {
+      delete globalThis.__setEdgeWear;
+      delete globalThis.__setFacetEdgeWear;
+      delete globalThis.__resetFacetEdgeWear;
+      delete globalThis.__inspectEdgeWear;
+    };
+  }, [wholeCrystal, ...facetModels, crystalEdgeWearEnabled, facetEdgeWearEnabled, edgeWearSupported]);
 
   // TEMPORARY DIAGNOSTIC — edge-wear mask verification (src/debug/edgeWearMaskDebug.js).
   // Placed AFTER the material-application effect on purpose, for two reasons:
