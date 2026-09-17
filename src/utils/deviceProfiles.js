@@ -82,23 +82,23 @@ export const PERFORMANCE_PROFILES = {
     // clobbers IOR (see crystalConfig.js materials.crystal note).
     material: {
       type: 'physical',
-      color: '#0d042b',
+      color: '#7c7c7c',
       emissive: '#02062b',
       emissiveIntensity: 0.1,
       metalness: 0.0,
-      roughness: 0.08,
+      roughness: 0.1,
       opacity: 0.98,
       transmission: 0.97,
-      ior: 1.0,
-      thickness: 0.1,
+      ior: 1.8,
+      thickness: 0.9,
       iridescence: 1.4,
       iridescenceIOR: 1.3,
       iridescenceThicknessRange: [100, 400],
       clearcoat: 0.8,
       clearcoatRoughness: 0.05,
-      attenuationColor: '#00fff2',
+      attenuationColor: '#00ddff',
       attenuationDistance: 0.5,
-      envMapIntensity: 4.0,
+      envMapIntensity: 7.0,
       specularIntensity: 2.0,
       specularColor: '#ffffff',
       flatShading: true,
@@ -168,9 +168,9 @@ export const PERFORMANCE_PROFILES = {
       color: '#0d042b',
       specular: '#ffffff',
       shininess: 1000,
-      reflectivity: 0.9,
+      reflectivity: 0.95,
       combine: 'mix',
-      emissive: '#261b8d',
+      emissive: '#02062b',
       emissiveIntensity: 0.9,
       opacity: 0.98,
     },
@@ -206,7 +206,7 @@ export const PERFORMANCE_PROFILES = {
     // resting glowIntensityScale. See the `high` profile note. Starting point —
     // tune in-browser; with this in place you can dial glowIntensityScale (which
     // owns the RESTING glow) back down if 10.45 is over-lifting the crystal at rest.
-    emissiveGlowBoost: 10.75,
+    emissiveGlowBoost: 8.75,
 
     // All tiers now target a 60 FPS baseline
     targetFPS: 60,

@@ -28,25 +28,22 @@
 import projects from '../data/projects';
 import { projectBackgrounds } from '../data/projectBackgrounds';
 
-/** The two inks the copy is ever drawn in. Dark is warm, to match backdropInk.js. */
+/**
+ * The two inks the body copy is ever drawn in. Dark is warm, to match
+ * backdropInk.js, so a flipped block still belongs to the same page.
+ *
+ * This is the whole reach of `darkText`. The CTA keeps the project's own accent
+ * at full strength on every section and both screen sizes — see the note at the
+ * button in ProjectFocusSection.
+ */
 const CREAM_INK = '#E2DCC3';
 const DARK_INK = '#14120C';
-const DARK_INK_RGB = [20, 18, 12];
 
 /**
  * For a project with no `scrim` block. Deliberately a middling wash rather than a
  * light one: an unauthored project should be readable first and pretty second.
  */
 const DEFAULT_SCRIM = { opacity: 0.55, darkText: false };
-
-/**
- * How much of an accent survives on a dark-text project. The CTA is the one
- * control in the block and it is drawn in the project's accent, which on a light
- * panel is a pale line on near-white. This keeps the hue and moves the value —
- * the same trade the wash makes, in the other direction — rather than dropping
- * the accent for a flat black and losing the project from the control entirely.
- */
-const DARK_TEXT_ACCENT_MIX = 0.15;
 
 const byKey = new Map();
 projects.forEach((project) => {
@@ -58,10 +55,6 @@ const toRgb = (hex) => {
   const n = parseInt(hex.replace('#', ''), 16);
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 };
-
-const mix = (rgb, ground, amount) => rgb.map((channel, i) => (
-  Math.round(channel * amount + ground[i] * (1 - amount))
-));
 
 const clamp01 = (value, fallback) => (
   typeof value === 'number' && Number.isFinite(value)
@@ -93,9 +86,3 @@ export const getScrimTone = (projectKey) => {
   };
 };
 
-/** An accent colour as it should be drawn on this project's scrim. */
-export const accentInkFor = (accentHex, inverted) => {
-  if (!inverted) return accentHex;
-  const rgb = mix(toRgb(accentHex), DARK_INK_RGB, DARK_TEXT_ACCENT_MIX);
-  return `rgb(${rgb.join(', ')})`;
-};

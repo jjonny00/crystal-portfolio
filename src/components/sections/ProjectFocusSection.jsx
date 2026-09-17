@@ -1,12 +1,18 @@
 import React from 'react';
 import { animated, useSpring } from '@react-spring/web';
 import Headline from '../ui/Headline';
-import { getScrimTone, accentInkFor } from '../../legibility/scrimTone';
+import { getScrimTone } from '../../legibility/scrimTone';
 
-// On desktop the body copy sits on the live scene rather than on a scrim, and
-// stays readable by taking a measured ink — see legibility.css. On mobile it
-// keeps the scrim (ProjectScrim) and its authored ink instead; `inkRegion` below
-// is where that split is made. Two things about how the desktop wiring works:
+// The body copy's ink is authored, not measured: every project names it in
+// projects.js under `scrim.darkText`, and that answer holds at every screen size.
+// It used to be a split — desktop took an ink measured against the live scene
+// while mobile took the authored one — which meant a project set to dark copy got
+// it on a phone and cream on a laptop, from the same flag.
+//
+// The blend classes below stay: they are what the `difference` and `exclusion`
+// comparison modes act on (legibility.css, cycled with L), and `legible-ink`
+// carries the colour transition between one project's ink and the next. Two
+// things about how they are attached:
 //
 //   • The class goes on the elements that carry the entrance spring, not on a
 //     wrapper around them. A spring writes an opacity and a transform, and both
@@ -20,12 +26,10 @@ import { getScrimTone, accentInkFor } from '../../legibility/scrimTone';
 //     title and the CTA can stay out of the blend simply by not asking for it.
 const COPY_CLASS = 'legible-blend legible-ink';
 
-// The ink these lines take in `adaptive` mode, measured against the scene behind
-// them and published onto <html> by backdropInk.js. The fallback is the ink the
-// block should use when nothing is published — the authored cream, or on a
-// scrim-inverted project the dark ink — so every other mode, and all of mobile,
-// renders a flat colour chosen for what the copy is really sitting on.
-const COPY_INK = (fallback, alpha) => `rgb(from var(--ink-copy, ${fallback}) r g b / ${alpha})`;
+// The ink these lines take, at the alpha each one wants. A flat colour: it used
+// to read `var(--ink-copy, …)` so backdropInk.js could override it per frame on
+// desktop, and that override is what stopped `darkText` reaching a laptop.
+const COPY_INK = (ink, alpha) => `rgb(from ${ink} r g b / ${alpha})`;
 
 const ProjectFocusSection = ({
   project,
@@ -41,23 +45,11 @@ const ProjectFocusSection = ({
   const headlineColor = project.headlineColor || project.color || '#ffffff';
   const displayProject = isMobile && project.mobile ? { ...project, ...project.mobile } : project;
   const contentWidth = isMobile ? '100%' : 'min(34vw, 640px)';
-  // Desktop copy is measured against the scene and takes the ink that clears it.
-  // Mobile copy is not: it sits on ProjectScrim, and the probe reads the canvas
-  // underneath that scrim, so it would be choosing an ink for a backdrop the
-  // reader never sees — and choosing a dark one exactly when the scrim has just
-  // changed everything behind the glyphs. Off the region list, `--ink-copy` is
-  // never published on a phone and every line below falls back to the ink the
-  // scrim is tuned to carry.
-  const inkRegion = isMobile ? undefined : 'copy';
-
-  // The other half of that scrim’s recipe. Mobile only, because the scrim is:
-  // on desktop the copy is on the bare scene and the measured ink is the answer.
-  // On an inverted project this is the dark ink on a near-white panel, and the
-  // accent follows it down so the CTA is not a mint outline on white.
+  // One recipe, both screen sizes. `darkText` on a project swaps this to the
+  // near-black ink; it governs the body copy and nothing else. The CTA keeps the
+  // project's own accent either way — see the note at the button.
   const tone = getScrimTone(project.facetKey || project.id);
-  const inverted = isMobile && tone.inverted;
-  const copyInk = isMobile ? tone.ink : '#E2DCC3';
-  const accentInk = accentInkFor(headlineColor, inverted);
+  const copyInk = tone.ink;
   // Projects with a `caseStudySlug` render their case study in the full-page
   // overlay instead of this inline stub; the stub remains for the rest.
   const hasFullCaseStudy = Boolean(project.caseStudySlug);
@@ -187,7 +179,6 @@ const ProjectFocusSection = ({
 
           <animated.p
             className={COPY_CLASS}
-            data-ink-region={inkRegion}
             style={{
               ...contentSpring,
               margin: isMobile ? '0 0 0.2rem' : '8px 0 18px',
@@ -206,7 +197,6 @@ const ProjectFocusSection = ({
 
           <animated.p
             className={COPY_CLASS}
-            data-ink-region={inkRegion}
             style={{ ...contentSpring, ...bodyStyle, margin: 0 }}
           >
             {displayProject.description}
@@ -215,7 +205,6 @@ const ProjectFocusSection = ({
           {displayProject.secondaryCopy && (
             <animated.p
               className={COPY_CLASS}
-              data-ink-region={inkRegion}
               style={{
                 ...contentSpring,
                 ...bodyStyle,
@@ -229,7 +218,6 @@ const ProjectFocusSection = ({
           {displayProject.metrics && (
             <animated.p
               className={COPY_CLASS}
-              data-ink-region={inkRegion}
               style={{
                 ...contentSpring,
                 ...bodyStyle,
@@ -243,7 +231,6 @@ const ProjectFocusSection = ({
           {displayProject.roles && (
             <animated.p
               className={COPY_CLASS}
-              data-ink-region={inkRegion}
               style={{ ...contentSpring, ...bodyStyle, margin: 0 }}
             >
               {displayProject.roles}
@@ -252,9 +239,11 @@ const ProjectFocusSection = ({
 
           {/* Unblended, as asked. It is also the one interactive element here,
               and a control whose colour moves with the scene reads as a state
-              change rather than as an affordance. It does follow the scrim,
-              though — `accentInk` is the same hue darkened where the panel is
-              light, which is a fixed colour per project, not a live one. */}
+              change rather than as an affordance — which is equally true of it
+              moving with `darkText`. The accent is the project's, full strength,
+              on every section and both screen sizes: it is the one place the
+              project's own colour reaches the copy block, and darkening it to
+              suit a light scrim cost more than it bought. */}
           {displayProject.cta && (
             <animated.button
               type="button"
@@ -262,7 +251,7 @@ const ProjectFocusSection = ({
               style={{
                 ...contentSpring,
                 margin: isMobile ? '1rem 0 0' : '46px 0 0',
-                color: accentInk,
+                color: headlineColor,
                 textAlign: isMobile ? 'left' : 'center',
                 fontFamily: '"acumin-variable", "Acumin VF", sans-serif',
                 fontSize: isMobile ? '20px' : '24px',
@@ -271,7 +260,7 @@ const ProjectFocusSection = ({
                 lineHeight: isMobile ? '1.35' : '30px',
                 letterSpacing: '-0.48px',
                 background: 'transparent',
-                border: `1px solid ${accentInk}`,
+                border: `1px solid ${headlineColor}`,
                 borderRadius: '999px',
                 padding: isMobile ? '10px 16px' : '12px 22px',
                 cursor: 'pointer'
