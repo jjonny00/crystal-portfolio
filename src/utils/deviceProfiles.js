@@ -168,7 +168,7 @@ export const PERFORMANCE_PROFILES = {
       color: '#0d042b',
       specular: '#ffffff',
       shininess: 1000,
-      reflectivity: 0.95,
+      reflectivity: 0.85,
       combine: 'mix',
       emissive: '#02062b',
       emissiveIntensity: 0.9,
@@ -194,19 +194,19 @@ export const PERFORMANCE_PROFILES = {
     postProcessing: {
       bloom: true,
       chromaticAberration: true,
-      noise: true,
+      noise: false,
       vignette: false
     },
 
     // Fresnel internal-glow intensity scale (multiplies crystal.glow.emissiveIntensity)
-    glowIntensityScale: 1.45,
+    glowIntensityScale: 1.0,
 
     // Non-PBR (MeshPhong) tier — its emissive renders weaker than PBR, so the
     // fracture flare and hover/selected active glow need an extra push beyond the
     // resting glowIntensityScale. See the `high` profile note. Starting point —
     // tune in-browser; with this in place you can dial glowIntensityScale (which
     // owns the RESTING glow) back down if 10.45 is over-lifting the crystal at rest.
-    emissiveGlowBoost: 8.75,
+    emissiveGlowBoost: 5.75,
 
     // All tiers now target a 60 FPS baseline
     targetFPS: 60,

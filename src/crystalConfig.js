@@ -447,7 +447,7 @@ export const effects = {
 export const materials = {
   // Base crystal material configuration
   crystal: {
-    color: new THREE.Color('#d4d4d4'),
+    color: new THREE.Color('#989898'),
     transparent: true,
     transmission: 0.91,
     // NOTE: On MeshPhysicalMaterial, `reflectivity` is a getter/setter linked to

@@ -4501,6 +4501,20 @@ const UnifiedCameraController = ({
               } else if (typeof mat.reflectivity === 'number') {
                 found.push({ mat, prop: 'reflectivity', base: mat.reflectivity });
               }
+              // And the emissive, which is why dimming the env map alone was not
+              // enough. Emissive is added unconditionally — it needs no light and no
+              // env map — so it is the ONLY thing lit at reveal 0 once the reflection
+              // is dark and the scene lights are off (crystalConfig `debug.lights`,
+              // all false). On a tier that leans on it the crystal then opens as a
+              // flat block of that colour and sits there for the whole fly-in: low
+              // runs emissiveIntensity 0.9 against medium's 0.1, which is why this
+              // read as a low-tier problem.
+              //
+              // Pushed as well as the env prop, not instead of it — both have to come
+              // up together or the crystal trades one flat look for another.
+              if (typeof mat.emissiveIntensity === 'number' && mat.emissiveIntensity > 0) {
+                found.push({ mat, prop: 'emissiveIntensity', base: mat.emissiveIntensity });
+              }
             });
           });
           if (found.length > 0) {
