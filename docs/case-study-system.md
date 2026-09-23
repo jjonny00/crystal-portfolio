@@ -131,8 +131,15 @@ horizontally when it overflows. Height is what it fixes and width follows each
 item's own ratio — the reverse of `MediaGallery` — so a row of mixed ratios still
 reads as one band. On phones it stays a row and becomes a scroller, with the next
 item peeking past the edge; `height` and `mobileHeight` are the two dials, because
-what reads well at each size depends on the media. Mesa's "One Turn, Several
-Decisions" uses it for the five screens of a turn.
+what reads well at each size depends on the media. At every width it runs the
+full width of the viewport, with no inset on either side: the stages it sits in
+hold other media off the edge, and the rail takes that back, so it belongs in a
+`SequenceSection` or `FeatureSection` stage. Whenever the row overflows, a pair
+of arrows sits above it at the top right, on the page gutter, stepping one item
+at a time (each dims at its end); a row that fits renders no controls at all.
+The rail measures this itself as it resizes and its images load, so a case study
+never opts in. Mesa's "One Turn, Several Decisions" uses it for the five screens
+of a turn.
 
 `FeaturedGallery` is the shape `MediaGallery` cannot make: one lead item beside a
 grid of supporting ones, for a set too large for `3-up` with one member that is

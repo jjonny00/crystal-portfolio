@@ -428,6 +428,72 @@
   display: none;
 }
 
+/* A rail runs the full width of the viewport at every size: nothing inset on
+   either side, the first item starting on the left edge and the row running off
+   the right. The stages it sits in each hold their media off the edge by their
+   own amount, so the rail takes back exactly that — here the 16px desktop inset
+   both stages share; the phone offsets are in the mobile block below. */
+.cs-sequence__stage :is(.cs-rail, .cs-rail__controls),
+.cs-feature__stage :is(.cs-rail, .cs-rail__controls) {
+  margin-inline: calc(-1 * var(--cs-bleed-inset));
+}
+
+/* Arrows above the rail, at the top right. Rendered only while the row
+   overflows (MediaRail measures it), so a rail that fits has no row here at all.
+   The row takes the rail's edge-to-edge margins (above, and in the mobile
+   block), then pads back in to the page gutter, so the arrows sit on the same right edge as the copy at every
+   width — whatever inset the stage has. */
+.cs-rail__controls {
+  display: flex;
+  justify-content: flex-end;
+  gap: clamp(8px, 0.7vw, 12px);
+  margin-bottom: clamp(10px, 1.2vw, 20px);
+  padding-inline: var(--cs-edge);
+}
+
+.cs-rail__arrow {
+  display: grid;
+  place-items: center;
+  width: clamp(38px, 2.6vw, 46px);
+  aspect-ratio: 1;
+  padding: 0;
+  border: 1.5px solid var(--cs-fg);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--cs-fg);
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    opacity 160ms ease;
+}
+
+.cs-rail__arrow svg {
+  width: 46%;
+  height: 46%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.cs-rail__arrow:hover:not(:disabled) {
+  background-color: var(--cs-fg);
+  color: var(--cs-bg);
+}
+
+.cs-rail__arrow:focus-visible {
+  outline: 2px solid var(--cs-fg);
+  outline-offset: 3px;
+}
+
+/* At either end the arrow stays in place, dimmed, so the pair never jumps. */
+.cs-rail__arrow:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
 .cs-rail__item {
   flex: 0 0 auto;
   width: auto;
@@ -1015,10 +1081,15 @@
 
   /* The rail is the one arrangement that does not reflow on a phone: it was
      already a scroller, and a set height with the next item peeking past the
-     screen edge is how a reader knows to swipe. Trailing padding so the last
-     item can clear a stage that bleeds off the edge. */
-  .cs-rail {
-    padding-inline-end: var(--cs-edge);
+     screen edge is how a reader knows to swipe. Edge to edge here as at every
+     width: the sequence stage keeps the left gutter, so the rail takes that
+     back; the feature stage already bleeds both sides. */
+  .cs-sequence__stage :is(.cs-rail, .cs-rail__controls) {
+    margin-inline: calc(-1 * var(--cs-edge)) 0;
+  }
+
+  .cs-feature__stage :is(.cs-rail, .cs-rail__controls) {
+    margin-inline: 0;
   }
 
   .cs-rail__item .cs-media__img {
