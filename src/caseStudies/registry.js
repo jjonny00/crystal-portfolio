@@ -26,6 +26,12 @@ const CASE_STUDY_MODULES = {
     // own — they show the crystal — so nothing may cover the scene on the way in.
     entry: 'reveal',
   },
+  'flying-axes': {
+    load: () => import('./flying-axes/FlyingAxesCaseStudy.jsx'),
+    // Its hero and "Give Coaches Room" paint no background — they show the
+    // crystal — so nothing may cover the scene on the way in.
+    entry: 'reveal',
+  },
   // Not a project. A catalogue of every section component and variation, opened
   // from the hidden dev menu rather than linked from the site — see
   // CATALOG_PROJECT in App.jsx. Its own chunk, so it never ships to a reader.

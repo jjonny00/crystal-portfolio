@@ -91,7 +91,7 @@ export const projects = [
       color: '#334a71'
     },
     technologies: ['Gameplay Systems', 'UX Design', 'Balancing'],
-    color: '#c5d300',
+    color: '#c2cd23',
     headlineColor: '#EAFF00',
     imageUrl: '/assets/projects/preview-mesa.webp',
     overlayImage: '/assets/projects/preview-mesa.webp'
@@ -142,7 +142,7 @@ export const projects = [
     },
     technologies: ['Product Strategy', 'UX Systems', 'Platform Design'],
     color: '#00bd8b',
-    headlineColor: '#58E0B2',
+    headlineColor: '#23c790',
     imageUrl: '/assets/projects/fundseeder.webp',
     overlayImage: '/assets/projects/fundseeder.webp'
   },
@@ -161,7 +161,14 @@ export const projects = [
       'A connected venue system built to make axe throwing feel tactile, social, and instantly legible. Scoreboards, coach tablets, and venue displays ran on an edge network that made the system easy to swap, reassign, and deploy across locations without losing the atmosphere of the game. The result was a more resilient platform behind the scenes and a more established game experience on the floor.',
     secondaryCopy: 'Deployed across 3 venues.',
     roles: 'Co-Founder · Experience Design · Systems + Game Design',
-    cta: 'Making Digital Feel Analog',
+    cta: 'Making Room for Play',
+    // Case-study level only: where to find the case study and how to theme it.
+    // The case study's own content lives in src/caseStudies/flying-axes/.
+    caseStudySlug: 'flying-axes',
+    caseStudyColors: {
+      a: '#ce2632',
+      b: '#e2e0d8'
+    },
     mobile: {
       description:
         'A connected venue system that made axe throwing tactile, social, and instantly legible. A resilient edge network unified scoreboards, coaching tablets, and displays across three venues.',
@@ -176,10 +183,10 @@ export const projects = [
       color: '#303f69'
     },
     technologies: ['TBD', 'TBD', 'TBD'],
-    color: '#ff3c5c',
+    color: '#ce2632',
     headlineColor: '#ff0000',
-    imageUrl: '/assets/projects/component-architecture.jpg',
-    overlayImage: '/assets/projects/component-architecture.jpg'
+    imageUrl: '/assets/projects/preview-flying-axes.webp',
+    overlayImage: '/assets/projects/preview-flying-axes.webp'
   },
   {
     id: 'project05',
@@ -211,8 +218,8 @@ export const projects = [
       color: '#4f3c6b'
     },
     technologies: ['TBD', 'TBD', 'TBD'],
-    color: '#ff4000',
-    headlineColor: '#e35d30',
+    color: '#ff4d00',
+    headlineColor: '#eb5321',
     imageUrl: '/assets/projects/preview-fg.webp',
     overlayImage: '/assets/projects/preview-fg.webp'
   },

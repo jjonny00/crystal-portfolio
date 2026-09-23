@@ -1,0 +1,170 @@
+/* Flying Axes-specific visuals. Only custom diagram styling belongs here —
+   layout, gutters, and typography come from the case-study system. */
+
+/* --------------------------------------------------------------------------
+   Scoreboard callouts
+   The tags are the section's foreground on its background, inverted — a solid
+   chip rather than bare text, because the photo is light siding on top and
+   wood below, and bare ink disappears into one or the other.
+   -------------------------------------------------------------------------- */
+
+.fa-callouts {
+  /* The component switches composition on its own width: it sits in one cell
+     of a 2-up, so the viewport is a poor guide to how much room it has. */
+  container-type: inline-size;
+  /* How far in from the image edge a wide-mode tag starts. */
+  --fa-edge: 3%;
+  /* In narrow mode, how far from its point a numbered tag sits. */
+  --fa-reach: 9%;
+  --fa-ink: var(--cs-fg);
+  --fa-paper: var(--cs-bg);
+  --fa-point: 9px;
+}
+
+.fa-callouts__figure {
+  position: relative;
+}
+
+.fa-callouts__marks {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  /* The image underneath is the enlarge button. */
+  pointer-events: none;
+}
+
+.fa-callout {
+  position: absolute;
+  top: var(--fa-y);
+  display: flex;
+  align-items: center;
+  transform: translateY(-50%);
+}
+
+/* Left-hand callouts run from the edge in to their point; right-hand ones are
+   the mirror image. Same markup either way — row-reverse puts the point first. */
+.fa-callout[data-side='left'] {
+  left: var(--fa-edge);
+  right: calc(100% - var(--fa-x));
+}
+
+.fa-callout[data-side='right'] {
+  left: var(--fa-x);
+  right: var(--fa-edge);
+  flex-direction: row-reverse;
+}
+
+.fa-callout__tag {
+  flex: none;
+  padding: 0.3em 0.6em 0.25em;
+  background-color: var(--fa-ink);
+  color: var(--fa-paper);
+  font-size: var(--cs-type-meta-label);
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.fa-callout__number {
+  display: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.fa-callout__line {
+  flex: 1 1 auto;
+  min-width: 8px;
+  height: 1.5px;
+  background-color: var(--fa-ink);
+}
+
+/* Centred on the labelled spot: half its width hangs past the line's end. */
+.fa-callout__point {
+  flex: none;
+  box-sizing: border-box;
+  width: var(--fa-point);
+  height: var(--fa-point);
+  border: 2px solid var(--fa-ink);
+  border-radius: 50%;
+  background-color: var(--fa-paper);
+}
+
+.fa-callout[data-side='left'] .fa-callout__point {
+  margin-inline-end: calc(var(--fa-point) / -2);
+}
+
+.fa-callout[data-side='right'] .fa-callout__point {
+  margin-inline-start: calc(var(--fa-point) / -2);
+}
+
+.fa-callouts__legend {
+  display: none;
+}
+
+/* Narrow: the labels no longer fit beside the board, so each becomes a number
+   just off its point and the words move into a legend below the image. The
+   board takes the middle third of the photo, so this is where the longest
+   label stops fitting in the third either side of it. */
+@container (max-width: 30rem) {
+  .fa-callout[data-side='left'] {
+    left: calc(var(--fa-x) - var(--fa-reach));
+  }
+
+  .fa-callout[data-side='right'] {
+    right: calc(100% - var(--fa-x) - var(--fa-reach));
+  }
+
+  .fa-callout__tag {
+    padding: 0.2em 0.5em 0.15em;
+  }
+
+  .fa-callout__label {
+    display: none;
+  }
+
+  .fa-callout__number {
+    display: inline;
+  }
+
+  .fa-callouts__legend {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5em 1em;
+    margin: clamp(8px, 2.4vw, 12px) 0 0;
+    padding: 0;
+    list-style: none;
+    font-size: var(--cs-type-meta-label);
+    font-weight: 500;
+    line-height: 1.2;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--fa-ink);
+  }
+
+  .fa-callouts__legend li {
+    display: flex;
+    align-items: center;
+    gap: 0.6em;
+  }
+
+  .fa-callouts__legend .fa-callout__number {
+    display: inline-block;
+    min-width: 1.5em;
+    padding: 0.2em 0 0.15em;
+    background-color: var(--fa-ink);
+    color: var(--fa-paper);
+    text-align: center;
+  }
+}
+
+/* On a phone the feature stage runs edge to edge, and the system brings its
+   caption back to the gutter (caseStudy.css, same breakpoint). The legend is
+   copy under the image in the same way, so it comes back to the same edge. */
+@media (max-width: 767.98px) {
+  .cs-feature__stage .fa-callouts__legend {
+    padding-inline: var(--cs-edge);
+  }
+}
