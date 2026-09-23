@@ -51,6 +51,7 @@ import { CATALOG_PROJECT } from './caseStudies/catalog/catalogProject';
 import { getProjectByAnyKey } from './data/projects';
 
 import { isMobileDevice } from './utils/isMobileDevice.js';
+import { useLayoutConfig } from './hooks/useLayoutConfig';
 import {
   NAVIGATION_DESTINATIONS,
   createNavigationIntentRequester,
@@ -596,8 +597,24 @@ function App() {
     }, LOADER_EXIT_FADE_MS);
   }, []);
 
-  // Detect if mobile
+  // Two different questions, and they disagree on a tablet.
+  //
+  // isMobileDevice() asks what the hardware is — a UA and touch test, which an
+  // iPad answers yes to at any window size (iPadOS reports itself as a Mac, so
+  // there is an explicit Mac-plus-touch branch for it). That is the right question
+  // for the canvas, which cares about input and GPU budget.
   const isMobile = isMobileDevice();
+
+  // The layout variant asks how wide the window is — the same state
+  // ScrollablePortfolio hands ProjectFocusSection, so it is what decides whether
+  // the copy renders its mobile or desktop treatment.
+  //
+  // ProjectScrim has to follow THIS one. It exists to ground the mobile copy, and
+  // on an iPad Pro the device check said mobile while the copy was laid out for
+  // desktop — so a scrim sized and placed for a phone came up underneath copy that
+  // never asked for one.
+  const { variant: layoutVariant } = useLayoutConfig();
+  const isMobileLayout = layoutVariant === 'mobile';
 
   // ========================================
   // UPDATED: App ready detection with V2 system
@@ -1258,7 +1275,7 @@ function App() {
       {legibilityMode !== 'off' && !hideAllUI && (
         <ProjectScrim
           settledSection={settledSection}
-          isMobile={isMobile}
+          isMobile={isMobileLayout}
           suppressed={overlayOpen}
         />
       )}

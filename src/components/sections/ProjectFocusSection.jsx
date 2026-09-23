@@ -1,6 +1,7 @@
 import React from 'react';
 import { animated, useSpring } from '@react-spring/web';
 import Headline from '../ui/Headline';
+import KnockoutButton from '../ui/KnockoutButton';
 import { getScrimTone } from '../../legibility/scrimTone';
 
 // The body copy's ink is authored, not measured: every project names it in
@@ -243,31 +244,20 @@ const ProjectFocusSection = ({
               moving with `darkText`. The accent is the project's, full strength,
               on every section and both screen sizes: it is the one place the
               project's own colour reaches the copy block, and darkening it to
-              suit a light scrim cost more than it bought. */}
+              suit a light scrim cost more than it bought.
+
+              Now the fill rather than the ink: the pill is the accent and the
+              label is cut out of it, so the scene reads through the letterforms.
+              See KnockoutButton for why that needs an SVG mask. */}
           {displayProject.cta && (
-            <animated.button
-              type="button"
+            <KnockoutButton
+              label={displayProject.cta}
+              color={headlineColor}
+              isMobile={isMobile}
               onClick={() => onOpenCaseStudy?.(project.facetKey || project.id)}
-              style={{
-                ...contentSpring,
-                margin: isMobile ? '1rem 0 0' : '46px 0 0',
-                color: headlineColor,
-                textAlign: isMobile ? 'left' : 'center',
-                fontFamily: '"acumin-variable", "Acumin VF", sans-serif',
-                fontSize: isMobile ? '20px' : '24px',
-                fontStyle: 'normal',
-                fontWeight: 600,
-                lineHeight: isMobile ? '1.35' : '30px',
-                letterSpacing: '-0.48px',
-                background: 'transparent',
-                border: `1px solid ${headlineColor}`,
-                borderRadius: '999px',
-                padding: isMobile ? '10px 16px' : '12px 22px',
-                cursor: 'pointer'
-              }}
-            >
-              {displayProject.cta}
-            </animated.button>
+              springStyle={contentSpring}
+              style={{ margin: isMobile ? '1rem 0 0' : '46px 0 0' }}
+            />
           )}
         </div>
       </div>

@@ -52,15 +52,15 @@ export const fracture = {
   // mist lifting rather than a spark burst. Rendered by FractureSmokePuff.
   smoke: {
     enabled: true,
-    count: 12,            // sprites spawned per explosion (~12-18)
+    count: 18,            // sprites spawned per explosion (~12-18)
     size: 1.5,            // base sprite world size at spawn (large, billowy)
-    expand: 7.0,          // end-of-life scale multiplier (aggressive growth as it rises)
-    spread: 0.05,         // spawn radius — spread around the core, not on the bright center
+    expand: 14.0,          // end-of-life scale multiplier (aggressive growth as it rises)
+    spread: 1.5,         // spawn radius — spread around the core, not on the bright center
     outwardSpeed: 10.25,   // gentle radial drift (kept slow/contained)
-    upwardLift: 2.7,      // strong upward rise so it reads as mist lifting off the fracture
+    upwardLift: 3.7,      // strong upward rise so it reads as mist lifting off the fracture
     drag: 0.94,            // per-frame damping of radial drift (0-1, higher = floatier)
     lifetimeMin: 0.08,     // seconds
-    lifetimeMax: 3.5,     // seconds
+    lifetimeMax: 3.0,     // seconds
     opacity: 0.15          // peak per-sprite opacity (color comes from the texture itself)
   },
   emissive: {
