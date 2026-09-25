@@ -56,7 +56,7 @@ export const fracture = {
     size: 1.5,            // base sprite world size at spawn (large, billowy)
     expand: 14.0,          // end-of-life scale multiplier (aggressive growth as it rises)
     spread: 1.5,         // spawn radius — spread around the core, not on the bright center
-    outwardSpeed: 10.25,   // gentle radial drift (kept slow/contained)
+    outwardSpeed: 6.25,   // gentle radial drift (kept slow/contained)
     upwardLift: 3.7,      // strong upward rise so it reads as mist lifting off the fracture
     drag: 0.94,            // per-frame damping of radial drift (0-1, higher = floatier)
     lifetimeMin: 0.08,     // seconds
