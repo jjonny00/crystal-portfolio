@@ -1,0 +1,334 @@
+/* GE Experience Centers-specific visuals. Only custom diagram styling belongs
+   here — layout, gutters, and typography come from the case-study system. */
+
+/* --------------------------------------------------------------------------
+   Shared: the label chip
+   The section's foreground on its background, inverted — a solid chip rather
+   than bare text, so it reads over a photo, a dark UI screenshot, or a drawing
+   alike. Same treatment as Flying Axes' scoreboard callouts.
+   -------------------------------------------------------------------------- */
+
+.gec-callout__tag,
+.gec-state__label,
+.gec-approach__tag {
+  padding: 0.3em 0.6em 0.25em;
+  background-color: var(--cs-fg);
+  color: var(--cs-bg);
+  font-size: var(--cs-type-meta-label);
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* --------------------------------------------------------------------------
+   Experience Selector stage
+   -------------------------------------------------------------------------- */
+
+.gec-selector-stage {
+  display: grid;
+  gap: var(--cs-media-gap);
+  /* The selector's width, then the states column at the share that makes the
+     stacked pair as tall as it (set inline from the media's ratios). */
+  grid-template-columns: minmax(0, 1fr) minmax(0, var(--gec-states-split, 0.4fr));
+  align-items: start;
+}
+
+.gec-selector__crop {
+  position: relative;
+}
+
+/* One crop per breakpoint. Hidden images are lazy, so the other is never
+   fetched. */
+.gec-selector__crop[data-crop='narrow'] {
+  display: none;
+}
+
+.gec-callouts {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  /* The image underneath is the enlarge button. */
+  pointer-events: none;
+  --gec-point: 9px;
+}
+
+/* Hangs straight down from the labelled edge into the empty screen below the
+   last row: point, a short leader, then the chip, centred on the point. */
+.gec-callout {
+  position: absolute;
+  left: var(--gec-x);
+  top: var(--gec-y);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transform: translate(-50%, calc(var(--gec-point) / -2));
+}
+
+.gec-callout__point {
+  box-sizing: border-box;
+  width: var(--gec-point);
+  height: var(--gec-point);
+  border: 2px solid var(--cs-fg);
+  border-radius: 50%;
+  background-color: var(--cs-bg);
+}
+
+.gec-callout__line {
+  width: 1.5px;
+  height: clamp(10px, 1.6vw, 26px);
+  background-color: var(--cs-fg);
+}
+
+/* The two states: out of flow, so only the selector sizes the row, then
+   stretched to it and split into two equal rows. Their frames fill those rows
+   and crop a sliver instead of imposing their own ratio. */
+.gec-states {
+  position: relative;
+  align-self: stretch;
+}
+
+.gec-states__list {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: var(--cs-media-gap);
+}
+
+.gec-state {
+  position: relative;
+  min-height: 0;
+}
+
+.gec-state > .cs-media,
+.gec-state .cs-media__button,
+.gec-state .cs-media__frame {
+  height: 100%;
+}
+
+.gec-state .cs-media__frame {
+  aspect-ratio: auto;
+}
+
+.gec-state__label {
+  position: absolute;
+  top: clamp(8px, 0.8vw, 14px);
+  left: clamp(8px, 0.8vw, 14px);
+  pointer-events: none;
+}
+
+@media (max-width: 767.98px) {
+  .gec-selector-stage {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .gec-selector__crop[data-crop='wide'] {
+    display: none;
+  }
+
+  .gec-selector__crop[data-crop='narrow'] {
+    display: block;
+  }
+
+  /* Back in flow, side by side, each at its own ratio. */
+  .gec-states {
+    align-self: auto;
+  }
+
+  .gec-states__list {
+    position: static;
+    grid-template-rows: none;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .gec-state > .cs-media,
+  .gec-state .cs-media__button,
+  .gec-state .cs-media__frame {
+    height: auto;
+  }
+
+  .gec-state .cs-media__frame {
+    aspect-ratio: var(--cs-frame-ratio);
+  }
+
+  /* The stage runs edge to edge on phones; the chips hold off the screen edge
+     by the same amount they hold off the photo's. */
+  .gec-state__label {
+    top: 6px;
+    left: 6px;
+    padding: 0.25em 0.5em 0.2em;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Approach diagram
+   Sized by the rail it sits in: MediaRail publishes its row heights as
+   --cs-rail-height / --cs-rail-height-mobile, so the diagram takes the same
+   height as the photo beside it and its width from its own ratio (the
+   drawing's 400×360 box).
+   -------------------------------------------------------------------------- */
+
+.gec-approach {
+  position: relative;
+  height: var(--cs-rail-height);
+  aspect-ratio: 400 / 360;
+  color: var(--cs-fg);
+  /* The drawing's own ground, a step off the section background, so it reads
+     as one frame in the rail beside the photo. */
+  background-color: color-mix(in srgb, var(--cs-fg) 5%, var(--cs-bg));
+}
+
+@media (max-width: 767.98px) {
+  .gec-approach {
+    height: var(--cs-rail-height-mobile);
+  }
+}
+
+.gec-approach__drawing {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.gec-approach__wall {
+  fill: color-mix(in srgb, var(--cs-fg) 7%, transparent);
+  stroke: var(--cs-fg);
+  stroke-width: 1.5;
+}
+
+.gec-approach__block {
+  fill: color-mix(in srgb, var(--cs-fg) 14%, transparent);
+  stroke: color-mix(in srgb, var(--cs-fg) 45%, transparent);
+  stroke-width: 1;
+}
+
+.gec-approach__block--expanded {
+  fill: color-mix(in srgb, var(--cs-fg) 18%, var(--cs-bg));
+  stroke: var(--cs-fg);
+  stroke-width: 1.5;
+}
+
+.gec-approach__image {
+  fill: color-mix(in srgb, var(--cs-fg) 35%, transparent);
+}
+
+.gec-approach__ink {
+  fill: var(--cs-fg);
+}
+
+.gec-approach__ink--soft {
+  fill: color-mix(in srgb, var(--cs-fg) 45%, transparent);
+}
+
+.gec-approach__sensor {
+  fill: var(--cs-fg);
+}
+
+.gec-approach__zone {
+  fill: color-mix(in srgb, var(--cs-fg) 12%, transparent);
+  stroke: color-mix(in srgb, var(--cs-fg) 55%, transparent);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.gec-approach__visitor-halo {
+  fill: none;
+  stroke: color-mix(in srgb, var(--cs-fg) 40%, transparent);
+  stroke-width: 1.5;
+}
+
+.gec-approach__visitor-body {
+  fill: var(--cs-fg);
+}
+
+.gec-approach__visitor--ghost .gec-approach__visitor-halo {
+  stroke-dasharray: 2 3;
+}
+
+.gec-approach__visitor--ghost .gec-approach__visitor-body {
+  fill: none;
+  stroke: color-mix(in srgb, var(--cs-fg) 55%, transparent);
+  stroke-width: 1.5;
+  stroke-dasharray: 2 2;
+}
+
+.gec-approach__trail {
+  stroke: color-mix(in srgb, var(--cs-fg) 55%, transparent);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 4;
+}
+
+.gec-approach__leader line {
+  stroke: var(--cs-fg);
+  stroke-width: 1.5;
+}
+
+.gec-approach__leader circle {
+  fill: var(--cs-bg);
+  stroke: var(--cs-fg);
+  stroke-width: 2;
+}
+
+.gec-approach__labels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.gec-approach__tag {
+  position: absolute;
+}
+
+.gec-approach__zone-label {
+  position: absolute;
+  left: 0;
+  right: 0;
+  transform: translateY(-50%);
+  text-align: center;
+  font-size: var(--cs-type-meta-label);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--cs-fg) 70%, transparent);
+}
+
+.gec-approach__title {
+  position: absolute;
+  left: 4%;
+  right: 4%;
+  bottom: 3.5%;
+  display: flex;
+  align-items: center;
+  gap: 0.55em;
+  margin: 0;
+  font-size: var(--cs-type-meta-value);
+  font-weight: 500;
+  line-height: 1.15;
+  color: var(--cs-fg);
+}
+
+.gec-approach__number {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 1.5em;
+  height: 1.5em;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  font-size: 0.8em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The note that the diagram is drawn after the fact, under the rail's caption. */
+.gec-note {
+  display: block;
+  margin-top: 0.35em;
+  font-style: italic;
+}

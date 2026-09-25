@@ -49,14 +49,18 @@ const MediaGallery = ({
             .slice(0, index)
             .filter((candidate) => candidate && candidate.src).length;
 
+          // An item's `key` identifies it in content; it is React's key here,
+          // not a prop to spread onto the media (as in MediaRail).
+          const { key: itemKey, ...media } = item || {};
+
           return (
             <CaseStudyMedia
-              key={item.key || item.src || `item-${index}`}
+              key={itemKey || media.src || `item-${index}`}
               fit={fit}
               aspectRatio={aspectRatio}
               expandable={expandable}
               onExpand={slides.length ? () => viewer.open(slides, slideIndex) : null}
-              {...item}
+              {...media}
             />
           );
         })}

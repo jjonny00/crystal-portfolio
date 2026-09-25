@@ -232,25 +232,31 @@ export const projects = [
     runtimeModelKey: 'project01',
     title: 'GE EXPERIENCE CENTERS',
     label: 'GE Experience Centers',
-    subtitle: 'Spatial Platform · Global Installations',
-    tagline: 'Spatial Platform · Global Installations',
+    subtitle: 'Creative Direction · Shared Experience Platform',
+    tagline: 'Creative Direction · Shared Experience Platform',
     description:
-      'A spatial platform that transformed with the audience and the work at hand. Each center could welcome visitors with tailored partner content or shift into a secure environment for teams using live data and specialized tools. Built as a modular system, the same framework launched across Austin, Dubai, and Shanghai.',
-    secondaryCopy: 'Led the platform team, aligning stakeholders across three continents.',
-    roles: 'Creative Direction · Systems Design · Production Leadership',
-    cta: 'Built to Transform',
+      'I led the evolution of GE’s collaboration centers into a shared platform, giving guides the freedom to reshape a space around the needs of a visit.',
+    secondaryCopy: 'Deployed in Dubai, Shanghai, and Austin.',
+    roles: 'Project Lead · Creative Direction',
+    cta: 'Explore the Case Study',
+    // Case-study level only: where to find the case study and how to theme it.
+    // The case study's own content lives in src/caseStudies/ge-experience-centers/.
+    // Colour A is a deeper step of the headline blue: it is the ink on every
+    // cream section, and the facet blue itself is too light to read there.
+    caseStudySlug: 'ge-experience-centers',
+    caseStudyColors: {
+      a: '#1f5bd8',
+      b: '#f4f3ef'
+    },
     mobile: {
       title: 'GE Experience Centers',
-      subtitle: 'Spatial Platform · Global Installations',
+      subtitle: 'Creative Direction · Shared Experience Platform',
       description:
-        'A spatial platform that transformed with its audience, from tailored presentations to secure collaboration with real data and specialized tools.',
-      // Kept where the other five null it out: this is the second paragraph of
-      // the mobile copy, not one of the proof/credit lines.
-      secondaryCopy:
-        'I led the platform team, scaling the experience to Austin, Dubai, and Shanghai.',
+        'I led the evolution of GE’s collaboration centers into a shared platform, giving guides the freedom to reshape a space around the needs of a visit.',
+      secondaryCopy: null,
       metrics: null,
       roles: null,
-      cta: 'Built to Transform'
+      cta: 'Explore the Case Study'
     },
     // Mobile scrim + copy ink. Authored, not measured — see legibility/scrimTone.js.
     // Its sky (#2c53a1) is the lightest of the cream-copy set, and washing it at any
@@ -264,8 +270,8 @@ export const projects = [
       color: '#314e86',
     },
     technologies: ['Spatial UX', 'Modular Platform Architecture', 'Production'],
-    color: '#0095ff',
-    headlineColor: '#265cff',
+    color: '#0059ff',
+    headlineColor: '#0051ff',
     imageUrl: '/assets/projects/preview-gec.webp',
     overlayImage: '/assets/projects/preview-gec.webp'
   }
