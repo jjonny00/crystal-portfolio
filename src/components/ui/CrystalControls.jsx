@@ -360,53 +360,130 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
     return numbers;
   };
 
-  const buildLayoutPayload = (baseConfig, deviceKey) => {
-    const baseLayout = JSON.parse(
-      JSON.stringify(deviceKey === 'mobile' ? mobileLayoutJson : desktopLayoutJson)
+  const layoutJsonFor = (deviceKey) => (deviceKey === 'mobile' ? mobileLayoutJson : desktopLayoutJson);
+
+  const isVec3 = (value) =>
+    Array.isArray(value) && value.length === 3 && value.every((entry) => Number.isFinite(entry));
+
+  // The panel's config starts from crystalConfig, not from the layout JSON the
+  // scene actually renders. A panel value only counts as an edit once it differs
+  // from crystalConfig's default — the same test App's get*RuntimeOverrides use
+  // to decide what overrides the layout — and anything unedited falls through to
+  // the layout JSON. That keeps the sliders, the scene and the export in step.
+  const vec3Edited = (value, defaultValue) =>
+    isVec3(value) && isVec3(defaultValue) && value.some((entry, index) => entry !== defaultValue[index]);
+
+  const pickVec3 = (value, defaultValue, layoutValue) => {
+    if (vec3Edited(value, defaultValue)) return [...value];
+    if (isVec3(layoutValue)) return [...layoutValue];
+    return isVec3(value) ? [...value] : value;
+  };
+
+  const pickVec3Map = (keys, values, defaults, layoutValues) => Object.fromEntries(
+    keys.map((key) => [key, pickVec3(values?.[key], defaults?.[key], layoutValues?.[key])])
+  );
+
+  const pickOffsetGroup = (keys, values, defaults, layoutValues) => Object.fromEntries(
+    keys.map((key) => [
+      key,
+      {
+        ...(layoutValues?.[key] || {}),
+        position: pickVec3(values?.[key]?.position, defaults?.[key]?.position, layoutValues?.[key]?.position),
+        target: pickVec3(values?.[key]?.target, defaults?.[key]?.target, layoutValues?.[key]?.target)
+      }
+    ])
+  );
+
+  const pickScalarMap = (values, defaults, layoutValues) => {
+    const keys = new Set([...Object.keys(layoutValues || {}), ...Object.keys(values || {})]);
+    return Object.fromEntries(
+      [...keys].map((key) => {
+        const value = values?.[key];
+        const edited = value !== undefined && value !== defaults?.[key];
+        return [key, edited || layoutValues?.[key] === undefined ? value : layoutValues[key]];
+      })
     );
+  };
+
+  const resolveProjectCameraVec3 = (sourceConfig, projectId, mode, field, deviceKey) => {
+    const sceneKey = getSceneFacetKeyByProjectId(projectId) || projectId;
+    return pickVec3(
+      sourceConfig?.projectCameraSettings?.[projectId]?.[deviceKey]?.[mode]?.[field],
+      crystalConfig.projectCameraSettings?.[projectId]?.[deviceKey]?.[mode]?.[field],
+      layoutJsonFor(deviceKey)?.camera?.projects?.[sceneKey]?.[mode]?.[field]
+    ) || [0, 0, 0];
+  };
+
+  const buildLayoutPayload = (baseConfig, deviceKey) => {
+    const baseLayout = JSON.parse(JSON.stringify(layoutJsonFor(deviceKey)));
+    const layoutCamera = baseLayout.camera || {};
+    const layoutProjects = baseLayout.projects || {};
+    const layoutTiming = baseLayout.timing || {};
     const payload = {
       ...baseLayout,
       schemaVersion: 2,
       camera: {
-        ...(baseLayout.camera || {}),
+        ...layoutCamera,
         positions: {
-          ...(baseLayout.camera?.positions || {}),
-          intro: baseConfig.cameraPositions?.intro,
-          hero: baseConfig.cameraPositions?.hero,
-          overview: baseConfig.cameraPositions?.overview,
-          about: baseConfig.cameraPositions?.about,
-          projects: baseConfig.cameraPositions?.projects
+          ...(layoutCamera.positions || {}),
+          ...pickVec3Map(zoneKeys, baseConfig.cameraPositions, crystalConfig.cameraPositions, layoutCamera.positions),
+          projects: pickVec3Map(
+            projectKeys,
+            baseConfig.cameraPositions?.projects,
+            crystalConfig.cameraPositions.projects,
+            layoutCamera.positions?.projects
+          )
         },
         targets: {
-          ...(baseLayout.camera?.targets || {}),
-          intro: baseConfig.cameraTargets?.intro,
-          hero: baseConfig.cameraTargets?.hero,
-          overview: baseConfig.cameraTargets?.overview,
-          about: baseConfig.cameraTargets?.about,
-          projects: baseConfig.cameraTargets?.projects
+          ...(layoutCamera.targets || {}),
+          ...pickVec3Map(zoneKeys, baseConfig.cameraTargets, crystalConfig.cameraTargets, layoutCamera.targets),
+          projects: pickVec3Map(
+            projectKeys,
+            baseConfig.cameraTargets?.projects,
+            crystalConfig.cameraTargets.projects,
+            layoutCamera.targets?.projects
+          )
         },
         offsets: {
-          ...(baseLayout.camera?.offsets || {}),
-          global: baseConfig.cameraOffsets?.global,
-          zones: baseConfig.cameraOffsets?.zones,
-          projects: baseConfig.cameraOffsets?.projects
+          ...(layoutCamera.offsets || {}),
+          global: pickOffsetGroup(
+            ['global'],
+            baseConfig.cameraOffsets,
+            crystalConfig.cameraOffsets,
+            layoutCamera.offsets
+          ).global,
+          zones: pickOffsetGroup(
+            zoneKeys,
+            baseConfig.cameraOffsets?.zones,
+            crystalConfig.cameraOffsets.zones,
+            layoutCamera.offsets?.zones
+          ),
+          projects: pickOffsetGroup(
+            projectKeys,
+            baseConfig.cameraOffsets?.projects,
+            crystalConfig.cameraOffsets.projects,
+            layoutCamera.offsets?.projects
+          )
         },
         projects: Object.fromEntries(
           projectKeys.map((sceneKey) => {
             const projectId = getProjectIdBySceneFacetKey(sceneKey);
-            const selected = baseConfig.projectCameraSettings?.[projectId]?.[deviceKey]?.selected;
-            const caseStudy = baseConfig.projectCameraSettings?.[projectId]?.[deviceKey]?.caseStudy;
+            const vec = (mode, field) => resolveProjectCameraVec3(baseConfig, projectId, mode, field, deviceKey);
+            const layoutProject = layoutCamera.projects?.[sceneKey] || {};
             return [
               sceneKey,
               {
+                ...layoutProject,
                 selected: {
-                  position: selected?.position ?? [0, 0, 0],
-                  target: selected?.target ?? [0, 0, 0]
+                  ...(layoutProject.selected || {}),
+                  position: vec('selected', 'position'),
+                  target: vec('selected', 'target')
                 },
                 caseStudy: {
-                  position: caseStudy?.position ?? [0, 0, 0],
-                  target: caseStudy?.target ?? [0, 0, 0],
-                  facetRotation: caseStudy?.facetRotation ?? [0, 0, 0]
+                  ...(layoutProject.caseStudy || {}),
+                  position: vec('caseStudy', 'position'),
+                  target: vec('caseStudy', 'target'),
+                  facetRotation: vec('caseStudy', 'facetRotation')
                 }
               }
             ];
@@ -414,21 +491,34 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
         )
       },
       projects: {
-        ...(baseLayout.projects || {}),
-        explodedPositions: baseConfig.explodedPositions,
-        facetRotationsEulerDeg: baseConfig.facetRotationsEulerDeg,
-        selectedFacetRotationsEulerDeg: baseConfig.selectedFacetRotationsEulerDeg
+        ...layoutProjects,
+        explodedPositions: pickVec3Map(
+          projectKeys,
+          baseConfig.explodedPositions,
+          crystalConfig.explodedPositions,
+          layoutProjects.explodedPositions
+        ),
+        facetRotationsEulerDeg: pickVec3Map(
+          projectKeys,
+          baseConfig.facetRotationsEulerDeg,
+          crystalConfig.facetRotationsEulerDeg,
+          layoutProjects.facetRotationsEulerDeg
+        ),
+        selectedFacetRotationsEulerDeg: pickVec3Map(
+          projectKeys,
+          baseConfig.selectedFacetRotationsEulerDeg,
+          crystalConfig.selectedFacetRotationsEulerDeg,
+          layoutProjects.selectedFacetRotationsEulerDeg
+        )
       },
       timing: {
-        ...(baseLayout.timing || {}),
-        camera: {
-          ...(baseLayout.timing?.camera || {}),
-          ...(baseConfig.timing?.camera || {})
-        },
-        heroOverviewRuntime: {
-          ...(baseLayout.timing?.heroOverviewRuntime || {}),
-          ...(baseConfig.timing?.heroOverviewRuntime || {}),
-        },
+        ...layoutTiming,
+        camera: pickScalarMap(baseConfig.timing?.camera, crystalConfig.timing.camera, layoutTiming.camera),
+        heroOverviewRuntime: pickScalarMap(
+          baseConfig.timing?.heroOverviewRuntime,
+          crystalConfig.timing.heroOverviewRuntime,
+          layoutTiming.heroOverviewRuntime
+        )
       }
     };
 
@@ -904,7 +994,7 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
     const previousProject = previousProjectCameraSettings[writeProjectKey] || {};
     const previousDevice = previousProject[editDeviceKey] || {};
     const previousMode = previousDevice[mode] || {};
-    const current = previousMode[field] || [0, 0, 0];
+    const current = getProjectCameraVec3(writeProjectKey, mode, field);
     const next = [...current];
     next[axisIndex] = parseFloat(value);
 
@@ -957,8 +1047,10 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
     onUpdate(updatedConfig);
   };
 
+  // What the scene is rendering for this branch: the panel's edit if there is
+  // one, otherwise the layout JSON for the device being edited.
   const getProjectCameraVec3 = (project, mode, field) =>
-    config?.projectCameraSettings?.[project]?.[editDeviceKey]?.[mode]?.[field] || [0, 0, 0];
+    resolveProjectCameraVec3(config ?? crystalConfig, project, mode, field, editDeviceKey);
 
   // Handle effect value changes
   const handleEffectChange = (key, value) => {
@@ -1918,8 +2010,8 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
                       <div style={accordionSectionStyle}>
                         {(() => {
                           const labelPrefix = projectCameraMode === 'caseStudy' ? 'Case Study' : 'Selected';
-                          const positionVec = config?.projectCameraSettings?.[project]?.[editDeviceKey]?.[projectCameraMode]?.position || [0, 0, 0];
-                          const targetVec = config?.projectCameraSettings?.[project]?.[editDeviceKey]?.[projectCameraMode]?.target || [0, 0, 0];
+                          const positionVec = getProjectCameraVec3(project, projectCameraMode, 'position');
+                          const targetVec = getProjectCameraVec3(project, projectCameraMode, 'target');
                           return (
                             <>
                               <div style={accordionSubheadingStyle}>{labelPrefix} Camera Position</div>
@@ -1933,7 +2025,7 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
                                     type="range"
                                     min="-5"
                                     max="5"
-                                    step="0.1"
+                                    step="0.01"
                                     value={positionVec[axisIndex]}
                                     onChange={(e) => updateProjectCameraSettingVec3(project, projectCameraMode, 'position', axisIndex, e.target.value)}
                                     style={sliderStyle}
@@ -1954,7 +2046,7 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
                                     type="range"
                                     min="-5"
                                     max="5"
-                                    step="0.1"
+                                    step="0.01"
                                     value={targetVec[axisIndex]}
                                     onChange={(e) => {
                                       if (import.meta.env.DEV) {
@@ -1983,7 +2075,7 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
                                     Case Study Facet Rotation
                                   </div>
                                   {['X', 'Y', 'Z'].map((axis, axisIndex) => {
-                                    const vec = config?.projectCameraSettings?.[project]?.[editDeviceKey]?.caseStudy?.facetRotation || [0, 0, 0];
+                                    const vec = getProjectCameraVec3(project, 'caseStudy', 'facetRotation');
                                     return (
                                       <div key={`live-facetRotation-${axis}`} style={{ marginBottom: '5px' }}>
                                         <div style={sliderLabelStyle}>

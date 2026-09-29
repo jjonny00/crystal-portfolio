@@ -441,6 +441,27 @@ const Fixed3DCanvas = forwardRef(({
     mergeCameraLayer(layout?.camera, true);
     mergeCameraLayer(cameraRuntimeOverrides, true);
 
+    // Debug-panel project camera edits come keyed by project and device, so a
+    // mobile edit never lands on the desktop branch (or vice versa) if the
+    // viewport crosses the breakpoint. Applied after the layout so they win.
+    if (cameraRuntimeOverrides?.projectCameraSettings) {
+      const nextProjectCameraSettings = { ...(nextConfig.projectCameraSettings || {}) };
+      Object.entries(cameraRuntimeOverrides.projectCameraSettings).forEach(([projectId, devices]) => {
+        const branch = devices?.[deviceKey];
+        if (!branch) return;
+        const existing = nextProjectCameraSettings[projectId]?.[deviceKey] || {};
+        nextProjectCameraSettings[projectId] = {
+          ...(nextProjectCameraSettings[projectId] || {}),
+          [deviceKey]: {
+            ...existing,
+            selected: { ...(existing.selected || {}), ...(branch.selected || {}) },
+            caseStudy: { ...(existing.caseStudy || {}), ...(branch.caseStudy || {}) },
+          },
+        };
+      });
+      nextConfig.projectCameraSettings = nextProjectCameraSettings;
+    }
+
     if (layoutProjects?.explodedPositions) {
       nextConfig.explodedPositions = {
         ...(nextConfig.explodedPositions || {}),
@@ -518,7 +539,8 @@ const Fixed3DCanvas = forwardRef(({
     const hasRuntimeOverrides = Boolean(
       cameraRuntimeOverrides?.positions ||
       cameraRuntimeOverrides?.targets ||
-      cameraRuntimeOverrides?.offsets
+      cameraRuntimeOverrides?.offsets ||
+      cameraRuntimeOverrides?.projectCameraSettings
     );
 
     if (hasRuntimeOverrides && !runtimeOverrideLogShownRef.current) {

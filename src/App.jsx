@@ -213,6 +213,33 @@ const getCameraRuntimeOverrides = (baseConfig, nextConfig) => {
     });
   });
 
+  // Debug-panel edits to the per-project selected/case-study cameras, kept per
+  // device branch so Fixed3DCanvas only applies the branch its layout is using.
+  Object.keys(baseConfig?.projectCameraSettings || {}).forEach((projectId) => {
+    ['desktop', 'mobile'].forEach((device) => {
+      ['selected', 'caseStudy'].forEach((mode) => {
+        ['position', 'target', 'facetRotation'].forEach((field) => {
+          const nextVec = nextConfig?.projectCameraSettings?.[projectId]?.[device]?.[mode]?.[field];
+          if (!vecChanged(baseConfig.projectCameraSettings[projectId]?.[device]?.[mode]?.[field], nextVec)) return;
+          const projectOverrides = overrides.projectCameraSettings?.[projectId] || {};
+          overrides.projectCameraSettings = {
+            ...(overrides.projectCameraSettings || {}),
+            [projectId]: {
+              ...projectOverrides,
+              [device]: {
+                ...(projectOverrides[device] || {}),
+                [mode]: {
+                  ...(projectOverrides[device]?.[mode] || {}),
+                  [field]: [...nextVec]
+                }
+              }
+            }
+          };
+        });
+      });
+    });
+  });
+
   return overrides;
 };
 
