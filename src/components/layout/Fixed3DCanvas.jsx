@@ -4,7 +4,7 @@
 import React, { useRef, useState, useEffect, useLayoutEffect, forwardRef, useImperativeHandle, useCallback, useMemo } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Environment, OrbitControls } from '@react-three/drei';
-import { EffectComposer, Bloom, ChromaticAberration, Noise, Vignette } from '@react-three/postprocessing';
+import { EffectComposer, Bloom, ChromaticAberration, Noise } from '@react-three/postprocessing';
 import { BlendFunction } from 'postprocessing';
 import { ShaderPass } from 'postprocessing';
 import * as THREE from 'three';
@@ -19,6 +19,7 @@ import { FPSCounter } from '../ui/FpsDisplay';
 // ADDED: Import the debug panels component
 import CrystalDebugPanels from '../ui/CrystalDebugPanels';
 import GradientBackground from '../three/GradientBackground';
+import EdgeVignette from '../three/EdgeVignette';
 import { projectBackgrounds } from '../../data/projectBackgrounds';
 import { fracture as fractureConfig, hdriPathForTier } from '../../crystalConfig';
 import MistyLayerStack from '../MistyLayerStack';
@@ -1153,11 +1154,7 @@ const Fixed3DCanvas = forwardRef(({
               />
             )}
             {effectsEnabled?.vignette && (
-              <Vignette 
-                eskil={postProcessingConfig?.vignette?.eskil || false} 
-                offset={postProcessingConfig?.vignette?.offset || 0.1} 
-                darkness={postProcessingConfig?.vignette?.darkness || 1.1} 
-              />
+              <EdgeVignette {...postProcessingConfig?.vignette} />
             )}
           </EffectComposer>
 

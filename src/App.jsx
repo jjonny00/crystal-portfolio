@@ -498,7 +498,7 @@ function App() {
     bloom: true,
     chromaticAberration: true,
     noise: true,
-    vignette: false
+    vignette: true
   });
   const [postProcessingConfig, setPostProcessingConfig] = useState(config.postProcessing);
   const [viewMode, setViewMode] = useState('overview');
@@ -581,12 +581,13 @@ function App() {
   useEffect(() => {
     if (performanceProfile?.postProcessing) {
       // Apply unified noise and vignette settings regardless of profile.
-      // Vignette is off across all tiers; bloom + CA come from the profile
-      // (now enabled on every tier). Noise stays always-on.
+      // Bloom + CA come from the profile (enabled on every tier). Noise and the
+      // vignette (EdgeVignette, values in crystalConfig.postProcessing.vignette)
+      // are on for every tier; the profiles don't carry a vignette flag.
       const unifiedEffects = {
         ...performanceProfile.postProcessing,
         noise: true,        // Always enabled
-        vignette: false     // Off across all tiers
+        vignette: true      // Always enabled
       };
 
       setEffectsEnabled(unifiedEffects);
@@ -595,7 +596,7 @@ function App() {
       setPostProcessingConfig({
         ...performanceProfile.postProcessing,
         noise: { opacity: 0.15 },      // Unified value
-        vignette: { darkness: 0.7 }    // Unified value
+        vignette: { ...defaultConfig.postProcessing.vignette }    // Unified values
       });
     }
   }, [performanceProfile]);
@@ -1365,8 +1366,9 @@ function App() {
           <PostProcessingControls 
             effectsEnabled={effectsEnabled}
             onToggleEffect={handleToggleEffect}
-            visible={true} 
+            visible={true}
             config={config}
+            postProcessingConfig={postProcessingConfig}
           />
           
           <PerformanceControls

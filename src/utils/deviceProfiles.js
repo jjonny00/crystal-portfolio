@@ -33,12 +33,11 @@ export const PERFORMANCE_PROFILES = {
     // Animations
     simplifiedAnimations: false,
 
-    // Post-processing (vignette off across all tiers; bloom + CA on across all tiers)
+    // Post-processing (bloom + CA on across all tiers; the vignette is on for every tier, set in App.jsx)
     postProcessing: {
       bloom: true,
       chromaticAberration: true,
-      noise: true,
-      vignette: false
+      noise: true
     },
 
     // Fresnel internal-glow intensity scale (multiplies crystal.glow.emissiveIntensity)
@@ -117,12 +116,11 @@ export const PERFORMANCE_PROFILES = {
     // Animations
     simplifiedAnimations: false,
     
-    // Post-processing (vignette off across all tiers; bloom + CA on across all tiers)
+    // Post-processing (bloom + CA on across all tiers; the vignette is on for every tier, set in App.jsx)
     postProcessing: {
       bloom: true,
       chromaticAberration: true,
-      noise: true,
-      vignette: false
+      noise: true
     },
 
     // Fresnel internal-glow intensity scale (multiplies crystal.glow.emissiveIntensity).
@@ -188,14 +186,13 @@ export const PERFORMANCE_PROFILES = {
     // Animations
     simplifiedAnimations: false,
     
-    // Post-processing (vignette off across all tiers; bloom + CA on across all tiers).
+    // Post-processing (bloom + CA on across all tiers; the vignette is on for every tier, set in App.jsx).
     // NOTE: bloom + CA were previously off on low for performance — re-enabled per
     // request for visual consistency; watch low-end FPS.
     postProcessing: {
       bloom: true,
       chromaticAberration: true,
-      noise: false,
-      vignette: false
+      noise: false
     },
 
     // Fresnel internal-glow intensity scale (multiplies crystal.glow.emissiveIntensity)
@@ -238,12 +235,11 @@ export const PERFORMANCE_PROFILES = {
     reducedParticles: false,
     simplifiedAnimations: false,
     
-    // Post-processing (vignette off across all tiers; bloom + CA on across all tiers)
+    // Post-processing (bloom + CA on across all tiers; the vignette is on for every tier, set in App.jsx)
     postProcessing: {
       bloom: true,
       chromaticAberration: true,
-      noise: true,
-      vignette: false
+      noise: true
     },
 
     glowIntensityScale: 1.0,

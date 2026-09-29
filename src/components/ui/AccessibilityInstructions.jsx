@@ -220,7 +220,6 @@ const AccessibilityInstructions = ({ visible = true, showLauncher = true }) => {
               <div><strong>B</strong>: Toggle Bloom</div>
               <div><strong>C</strong>: Toggle Chromatic Aberration</div>
               <div><strong>N</strong>: Toggle Noise</div>
-              <div><strong>V</strong>: Toggle Vignette</div>
               <div><strong>P</strong>: Toggle All Effects</div>
               
               <div style={{ 

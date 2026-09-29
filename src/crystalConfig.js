@@ -617,10 +617,17 @@ export const postProcessing = {
   noise: {
     opacity: 1.5  // UNIFIED: Set to 1.5 for all levels
   },
+  // EdgeVignette (components/three/EdgeVignette.jsx) — see there for what each
+  // value does. These reproduce the stock vignette the site used before
+  // (offset 0.1, darkness 0.75) exactly; positive strength brightens instead.
   vignette: {
-    eskil: false,
-    offset: 0.1,
-    darkness: 0.7  // UNIFIED: Set to 0.7 for all levels
+    strength: 2.0,
+    radius: 0.094,
+    softness: 0.847,
+    wash: 0,
+    tint: '#f7a922',
+    roundness: 0,
+    center: [0.5, 0.5]
   }
 }
 

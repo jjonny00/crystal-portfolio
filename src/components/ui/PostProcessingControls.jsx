@@ -1,5 +1,14 @@
 // Updated PostProcessingControls.jsx for tabbed interface
 import { useState, useEffect } from 'react';
+import { postProcessing as defaultPostProcessing } from '../../crystalConfig';
+
+const vignetteSliders = [
+  { key: 'strength', label: 'Strength (− darken / + brighten)', min: -1, max: 2, step: 0.01 },
+  { key: 'radius', label: 'Radius', min: 0, max: 1, step: 0.001 },
+  { key: 'softness', label: 'Softness', min: 0.01, max: 1.5, step: 0.001 },
+  { key: 'wash', label: 'Wash (0 multiply / 1 wash to tint)', min: 0, max: 1, step: 0.01 },
+  { key: 'roundness', label: 'Roundness (0 frame / 1 circle)', min: 0, max: 1, step: 0.01 }
+];
 
 /**
  * UI component for toggling post-processing effects
@@ -9,7 +18,8 @@ const PostProcessingControls = ({
   effectsEnabled, 
   onToggleEffect, 
   visible = false,
-  config
+  config,
+  postProcessingConfig
 }) => {
   // Remove expanded state as it's now handled by parent 
   
@@ -19,8 +29,12 @@ const PostProcessingControls = ({
     config?.postProcessing?.chromaticAberration?.offset?.[0] * 1000 || 3
   );
   const [noiseOpacity, setNoiseOpacity] = useState(config?.postProcessing?.noise?.opacity || 0.1);
-  const [vignetteDarkness, setVignetteDarkness] = useState(config?.postProcessing?.vignette?.darkness || 1.1);
-  
+  const [vignetteCopyStatus, setVignetteCopyStatus] = useState('');
+
+  // The vignette controls read the live settings (App's postProcessingConfig)
+  // rather than crystalConfig, so they always show what's on screen.
+  const vignette = { ...defaultPostProcessing.vignette, ...postProcessingConfig?.vignette };
+
   // Update slider values when config changes
   useEffect(() => {
     if (config?.postProcessing) {
@@ -34,10 +48,6 @@ const PostProcessingControls = ({
       
       if (config.postProcessing.noise?.opacity !== undefined) {
         setNoiseOpacity(config.postProcessing.noise.opacity);
-      }
-      
-      if (config.postProcessing.vignette?.darkness !== undefined) {
-        setVignetteDarkness(config.postProcessing.vignette.darkness);
       }
     }
   }, [config?.postProcessing]);
@@ -75,13 +85,32 @@ const PostProcessingControls = ({
     }
   };
   
-  const handleVignetteChange = (value) => {
-    const numValue = parseFloat(value);
-    setVignetteDarkness(numValue);
-    
+  const handleVignetteChange = (key, value) => {
     if (onToggleEffect) {
-      onToggleEffect('vignette', true, { darkness: numValue });
+      onToggleEffect('vignette', true, { [key]: value });
     }
+  };
+
+  const handleVignetteReset = () => {
+    if (onToggleEffect) {
+      onToggleEffect('vignette', true, { ...defaultPostProcessing.vignette });
+    }
+  };
+
+  // Copies the current values in the shape crystalConfig.postProcessing.vignette
+  // uses, ready to paste over it to keep a tuned look.
+  const handleCopyVignette = async () => {
+    const text = `vignette: ${JSON.stringify(vignette, null, 2)}`;
+    let copied = false;
+    try {
+      await navigator.clipboard.writeText(text);
+      copied = true;
+    } catch {
+      copied = false;
+    }
+    if (!copied) console.log(text);
+    setVignetteCopyStatus(copied ? 'Copied — paste over postProcessing.vignette in crystalConfig.js' : 'Copy failed — values logged to console');
+    window.setTimeout(() => setVignetteCopyStatus(''), 3000);
   };
   
   // Toggle all effects on/off
@@ -347,22 +376,70 @@ const PostProcessingControls = ({
         />
       </div>
       
-      {/* Vignette Darkness Slider (only shown when enabled) */}
+      {/* Vignette controls (only shown when enabled) — see EdgeVignette.jsx */}
       {effectsEnabled.vignette && (
         <div style={sliderGroupStyle}>
-          <div style={sliderLabelStyle}>
-            <span>Vignette Darkness</span>
-            <span>{vignetteDarkness.toFixed(1)}</span>
+          {vignetteSliders.map(({ key, label, min, max, step }) => (
+            <div key={key} style={{ marginBottom: '8px' }}>
+              <div style={sliderLabelStyle}>
+                <span>{label}</span>
+                <span>{Number(vignette[key]).toFixed(step < 0.01 ? 3 : 2)}</span>
+              </div>
+              <input
+                type="range"
+                min={min}
+                max={max}
+                step={step}
+                value={vignette[key]}
+                onChange={(e) => handleVignetteChange(key, parseFloat(e.target.value))}
+                style={sliderStyle}
+              />
+            </div>
+          ))}
+
+          {['X', 'Y'].map((axis, axisIndex) => (
+            <div key={axis} style={{ marginBottom: '8px' }}>
+              <div style={sliderLabelStyle}>
+                <span>Centre {axis}</span>
+                <span>{Number(vignette.center[axisIndex]).toFixed(2)}</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value={vignette.center[axisIndex]}
+                onChange={(e) => {
+                  const center = [...vignette.center];
+                  center[axisIndex] = parseFloat(e.target.value);
+                  handleVignetteChange('center', center);
+                }}
+                style={sliderStyle}
+              />
+            </div>
+          ))}
+
+          <div style={{ ...sliderLabelStyle, marginBottom: '10px' }}>
+            <span>Tint (brighten target)</span>
+            <input
+              type="color"
+              value={vignette.tint}
+              onChange={(e) => handleVignetteChange('tint', e.target.value)}
+              style={{ width: '48px', height: '24px', border: 'none', background: 'transparent', cursor: 'pointer' }}
+            />
           </div>
-          <input 
-            type="range" 
-            min="0" 
-            max="2" 
-            step="0.1"
-            value={vignetteDarkness} 
-            onChange={(e) => handleVignetteChange(e.target.value)}
-            style={sliderStyle}
-          />
+
+          <div style={buttonContainerStyle}>
+            <button type="button" style={toggleAllButtonStyle(true)} onClick={handleCopyVignette}>
+              Copy Values
+            </button>
+            <button type="button" style={toggleAllButtonStyle(false)} onClick={handleVignetteReset}>
+              Reset
+            </button>
+          </div>
+          {vignetteCopyStatus && (
+            <div style={{ fontSize: '11px', marginTop: '8px', color: '#64ffda' }}>{vignetteCopyStatus}</div>
+          )}
         </div>
       )}
       
