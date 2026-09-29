@@ -73,7 +73,7 @@ export const fracture = {
   // a missing file would error the scene.
   rays: {
     enabled: true,
-    color: '#4ebbff',
+    color: '#c1fffc',
     // Length fade along each ray (bright base → transparent tip).
     gradient: {
       mode: 'uvX',        // 'uvY' | 'uvX' | 'dist' (which axis is the ray length)
@@ -83,16 +83,16 @@ export const fracture = {
     // Split each plane into thin sub-rays across its width.
     subRays: {
       enabled: true,
-      count: 5,           // number of sub-rays per plane
-      thickness: 0.01,    // half-width of each sub-ray
-      softness: 0.08,     // edge blur
-      jitter: 0.4,        // 0 = even/uniform, 1 = fully organic
+      count: 6,           // number of sub-rays per plane
+      thickness: 0.075,    // half-width of each sub-ray
+      softness: 0.025,     // edge blur
+      jitter: 0.75,        // 0 = even/uniform, 1 = fully organic
       seed: 0,            // reshuffle the random arrangement
       fan: 1              // 0 = parallel, 1 = fan out from the base
     },
     // Base→tip reveal. Its own timer — NOT tied to how long the rays are visible.
     growth: {
-      duration: 0.2,      // seconds for the front to travel base → tip
+      duration: 0.1,      // seconds for the front to travel base → tip
       edge: 0.12,         // soft leading-edge width
       edgeBoost: 0      // brightness spike at the growth front
     },
@@ -115,9 +115,9 @@ export const fracture = {
   },
   // White flash of the gradient background at the fracture.
   backgroundFlash: {
-    intensity: 0.7,       // 0 = off → 1 = full white
-    duration: 0.8,        // decay seconds
-    delay: 0.4,           // seconds after fracture before it flashes (moves it to the explosion)
+    intensity: 0.45,       // 0 = off → 1 = full white
+    duration: 1.25,        // decay seconds
+    delay: 0.05,           // seconds after fracture before it flashes (moves it to the explosion)
     ease: 'sine'          // 'sine' | 'smooth' | 'cubic' | 'quad' | 'expo' | 'linear'
   }
 };
