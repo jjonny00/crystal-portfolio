@@ -494,6 +494,12 @@ function App() {
   const [materialVariant, setMaterialVariant] = useState('default');
   const [showUI, setShowUI] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
+  // The control panel mounts the first time it's opened and then stays mounted,
+  // so hiding it (the gear, Hide UI / U, or the dev reveal button) keeps its
+  // tab, open sections and slider values for the next open instead of resetting.
+  const controlPanelVisible = devUiRevealed && !hideAllUI && showUI;
+  const [controlPanelMounted, setControlPanelMounted] = useState(false);
+  if (controlPanelVisible && !controlPanelMounted) setControlPanelMounted(true);
   const [effectsEnabled, setEffectsEnabled] = useState({
     bloom: true,
     chromaticAberration: true,
@@ -1344,9 +1350,9 @@ function App() {
         />
       )}
 
-      {devUiRevealed && !hideAllUI && showUI && (
-        <TabbedControlPanel 
-          visible={true}
+      {controlPanelMounted && (
+        <TabbedControlPanel
+          visible={controlPanelVisible}
           activeTab={activeTab}
           onTabChange={setActiveTab}
           tabs={[

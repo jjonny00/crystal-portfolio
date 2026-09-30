@@ -1,5 +1,5 @@
 // src/components/ui/TabbedControlPanel.jsx - Updated for external tab control
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useLayoutEffect } from 'react';
 
 /**
  * A tabbed control panel component with external tab control support
@@ -12,11 +12,26 @@ const TabbedControlPanel = ({
   onTabChange 
 }) => {
   const tabsContainerRef = useRef(null);
+  const contentRef = useRef(null);
+  const tabScrollTopsRef = useRef({});
   const showScrollButtons = false; // Simplified for now
-  
-  // Only show the currently active panel
-  const visiblePanel = React.Children.toArray(children)[activeTab];
-  
+
+  // Every tab stays mounted and the inactive ones are only hidden, so a tab's
+  // own state (open sections, sub-tabs, slider values) survives switching away
+  // and back. display:none drops a scroll offset, so each tab's is remembered
+  // and put back when it becomes active again.
+  const panels = React.Children.toArray(children);
+
+  useLayoutEffect(() => {
+    if (contentRef.current) {
+      contentRef.current.scrollTop = tabScrollTopsRef.current[activeTab] ?? 0;
+    }
+  }, [activeTab]);
+
+  const handleContentScroll = (event) => {
+    tabScrollTopsRef.current[activeTab] = event.currentTarget.scrollTop;
+  };
+
   // Scroll to active tab when it changes
   useEffect(() => {
     if (!tabsContainerRef.current) return;
@@ -59,7 +74,11 @@ const TabbedControlPanel = ({
     padding: '5px',
     borderRadius: '8px',
     boxShadow: '0 0 20px rgba(0, 0, 0, 0.5)',
-    transition: 'left 0.3s ease',
+    // Hidden, the panel slides off-screen and goes visibility:hidden once it's
+    // there (out of the tab order, no hits) but stays mounted, keeping its state
+    // and scroll position for the next open.
+    visibility: visible ? 'visible' : 'hidden',
+    transition: 'left 0.3s ease, visibility 0.3s',
     zIndex: 1000,
     fontFamily: '"acumin-variable", sans-serif',
     maxHeight: '70vh',
@@ -104,11 +123,8 @@ const TabbedControlPanel = ({
     padding: '5px 10px'
   };
 
-  // Only render if visible
-  if (!visible) return null;
-
   return (
-    <div style={panelStyle}>
+    <div style={panelStyle} aria-hidden={!visible}>
       {/* Tab Buttons */}
       <div 
         ref={tabsContainerRef} 
@@ -131,8 +147,12 @@ const TabbedControlPanel = ({
       </div>
       
       {/* Content Area */}
-      <div style={contentStyle}>
-        {visiblePanel}
+      <div ref={contentRef} style={contentStyle} onScroll={handleContentScroll}>
+        {panels.map((panel, index) => (
+          <div key={index} style={{ display: index === activeTab ? 'block' : 'none' }}>
+            {panel}
+          </div>
+        ))}
       </div>
     </div>
   );
