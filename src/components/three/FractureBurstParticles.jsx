@@ -128,9 +128,10 @@ const FractureBurstParticles = ({
       new THREE.ShaderMaterial({
         uniforms: {
           uColor: { value: new THREE.Color(color) },
-          uPixelRatio: {
-            value: typeof window !== 'undefined' ? Math.min(window.devicePixelRatio || 1, 2) : 1,
-          },
+          // The canvas's real pixel ratio, synced every frame. Not the device's:
+          // tiers render below it (renderScale), and sizing against the device
+          // ratio made points ~3x larger on screen on the low tier.
+          uPixelRatio: { value: 1 },
           uTime: { value: 0 },
           uShimmerStrength: { value: shimmer ? THREE.MathUtils.clamp(shimmerStrength, 0, 3) : 0 },
           uShimmerSpeed: { value: Math.max(0, shimmerSpeed) },
@@ -643,6 +644,7 @@ const FractureBurstParticles = ({
     // Keep the shimmer clock advancing even before/after a burst so the twinkle
     // never jumps when particles (re)appear.
     material.uniforms.uTime.value = state.clock.elapsedTime;
+    material.uniforms.uPixelRatio.value = state.gl.getPixelRatio();
     if (!startTimeRef.current) return;
 
     const positions = geometry.attributes.position.array;

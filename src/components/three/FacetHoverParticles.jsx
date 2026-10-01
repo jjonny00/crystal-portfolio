@@ -110,9 +110,10 @@ const FacetHoverParticles = ({
     () =>
       new THREE.ShaderMaterial({
         uniforms: {
-          uPixelRatio: {
-            value: typeof window !== 'undefined' ? Math.min(window.devicePixelRatio || 1, 2) : 1,
-          },
+          // The canvas's real pixel ratio, synced every frame. Not the device's:
+          // tiers render below it (renderScale), and sizing against the device
+          // ratio made points ~3x larger on screen on the low tier.
+          uPixelRatio: { value: 1 },
           uTime: { value: 0 },
           uShimmerStrength: { value: 0.4 },
           uShimmerSpeed: { value: 9.0 },
@@ -272,6 +273,7 @@ const FacetHoverParticles = ({
 
   useFrame((frameState, dtRaw) => {
     material.uniforms.uTime.value = frameState.clock.elapsedTime;
+    material.uniforms.uPixelRatio.value = frameState.gl.getPixelRatio();
     const dt = Math.min(dtRaw, 0.05);
     state.spawnedThisFrame = false;
 
