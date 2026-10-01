@@ -9,7 +9,7 @@
 // ink can do about a photograph passing behind the wordmark; the fix is to blur
 // what passes.
 //
-// Same construction as ProjectScrim: a backdrop-filter behind a mask that fades
+// A backdrop-filter behind a mask that fades
 // it out, so the blur ends on nothing rather than on a rule. It runs on desktop
 // and mobile alike — the case study scrolls under the nav on both.
 //

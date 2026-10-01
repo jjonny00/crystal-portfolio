@@ -452,7 +452,8 @@ const FacetLabels = React.memo(function FacetLabels({
             transition: `opacity ${fadeDurationMs}ms`,
             display: 'flex',
             flexDirection: 'column',
-            gap: variant === 'desktop' ? '1.5rem' : '0.8rem',
+            // Mobile spacing lives with the label sizes in facet-label.css.
+            gap: variant === 'desktop' ? '1.5rem' : 'var(--overview-label-gap)',
             alignItems: 'flex-start',
             textAlign: 'left',
             boxSizing: 'border-box',

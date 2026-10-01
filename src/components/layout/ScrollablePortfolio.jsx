@@ -18,7 +18,13 @@ const ScrollablePortfolio = ({
   onActiveProjectChange = null,
   onOpenCaseStudy = null,
   onBackToProject = null,
-  onSettledSectionChange = null
+  onSettledSectionChange = null,
+  /**
+   * The section nearest the middle of the viewport, reported live while a scroll
+   * is still moving (`onSettledSectionChange` goes null until it stops). Lets UI
+   * start heading for the next section during the camera move rather than after.
+   */
+  onNearestSectionChange = null
 }) => {
   const { variant } = useLayoutConfig();
   const hoverCapable = useHoverCapable();
@@ -28,6 +34,11 @@ const ScrollablePortfolio = ({
 
   const [settledSectionId, setSettledSectionId] = useState('hero');
   const overviewInteractionMode = settledSectionId === 'overview';
+
+  // Read through a ref: the scroll listener below is attached once.
+  const onNearestSectionChangeRef = useRef(onNearestSectionChange);
+  onNearestSectionChangeRef.current = onNearestSectionChange;
+  const nearestSectionRef = useRef(null);
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -77,6 +88,11 @@ const ScrollablePortfolio = ({
 
     const scheduleSettle = () => {
       const candidateId = getClosestSectionId();
+
+      if (candidateId !== nearestSectionRef.current) {
+        nearestSectionRef.current = candidateId;
+        onNearestSectionChangeRef.current?.(candidateId);
+      }
 
       setSettledSectionId(null);
 

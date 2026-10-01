@@ -1,7 +1,7 @@
 // src/legibility/scrimTone.js
 //
 // The scrim a project's preview copy sits on, and the ink that copy takes. Two
-// halves of one decision, read by two different components — ProjectScrim draws
+// halves of one decision, read by two different components — GlassScrim draws
 // the wash, ProjectFocusSection colours the copy — so both come from here and a
 // project cannot end up with a wash from one recipe and an ink from the other.
 //
@@ -78,9 +78,11 @@ export const getScrimTone = (projectKey) => {
   const color = scrim.color || scheme.colorA;
   const opacity = clamp01(scrim.opacity, DEFAULT_SCRIM.opacity);
 
+  const rgb = toRgb(color);
   return {
     inverted,
-    wash: `rgba(${toRgb(color).join(', ')}, ${opacity})`,
+    wash: `rgba(${rgb.join(', ')}, ${opacity})`,
+    rgb,
     opacity,
     ink: inverted ? DARK_INK : CREAM_INK,
   };

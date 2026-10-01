@@ -32,7 +32,7 @@ import PerformanceControls from './components/ui/PerformanceControls';
 import AccessibilityInstructions from './components/ui/AccessibilityInstructions';
 import FpsDisplay, { PerformanceAlert } from './components/ui/FpsDisplay';
 import VerticalEnergyLine from './components/ui/VerticalEnergyLine';
-import ProjectScrim from './components/ui/ProjectScrim';
+import GlassScrim from './components/ui/GlassScrim';
 import NavScrim from './components/ui/NavScrim';
 import './styles/legibility.css';
 import { clearBackdropInk, setBackdropInkSettled } from './legibility/backdropInk';
@@ -474,6 +474,9 @@ function App() {
   // The section the scrollable content has settled on. Drives the About scrim so
   // it stays in sync with the section content on both scroll and nav clicks.
   const [settledSection, setSettledSection] = useState('hero');
+  // Nearest section, live while a scroll is still moving (settledSection is null
+  // until it stops). The mobile glass scrim reshapes on this, mid-transition.
+  const [nearestSection, setNearestSection] = useState('hero');
   const [perfDebug, setPerfDebug] = useState(false);
   const [snapSpeed, setSnapSpeed] = useState('medium');
   const [config, setConfig] = useState({
@@ -643,7 +646,7 @@ function App() {
   // ScrollablePortfolio hands ProjectFocusSection, so it is what decides whether
   // the copy renders its mobile or desktop treatment.
   //
-  // ProjectScrim has to follow THIS one. It exists to ground the mobile copy, and
+  // GlassScrim has to follow THIS one. It exists to ground the mobile copy, and
   // on an iPad Pro the device check said mobile while the copy was laid out for
   // desktop — so a scrim sized and placed for a phone came up underneath copy that
   // never asked for one.
@@ -1294,10 +1297,11 @@ function App() {
         />
       )}
 
-      {/* Project scrim — the mobile counterpart to the About scrim above, in
-          the same layer between the canvas and the content. One element for the
-          whole projects zone: it never scrolls, and grows or shrinks to the
-          settled project's copy as the reader moves between them.
+      {/* Glass scrim — the mobile counterpart to the About scrim above, in the
+          same layer between the canvas and the content. One glass panel from the
+          overview through the last project: it never scrolls and never fades
+          between them, it reshapes and retints to the copy the scroll is heading
+          for while the camera moves. See GlassScrim.jsx.
 
           Mobile keeps the scrim in every mode but `off`, the same call About
           makes: on a small screen the copy runs the full width with the crystal
@@ -1307,10 +1311,12 @@ function App() {
           the probe reads the canvas, which is under this layer, so a measurement
           taken there is of a backdrop the reader never actually sees. */}
       {legibilityMode !== 'off' && !hideAllUI && (
-        <ProjectScrim
+        <GlassScrim
           settledSection={settledSection}
+          nearestSection={nearestSection}
           isMobile={isMobileLayout}
           suppressed={overlayOpen}
+          lowPower={performanceTier === 'low'}
         />
       )}
 
@@ -1329,6 +1335,7 @@ function App() {
         onOpenCaseStudy={handleOpenCaseStudy}
         onBackToProject={handleBackToProject}
         onSettledSectionChange={setSettledSection}
+        onNearestSectionChange={setNearestSection}
       />
 
       {/* Case study — a self-contained layer over the portfolio. Sits below the
