@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef } from 'react';
 
-import { MQ_REDUCED_MOTION } from '../../config/breakpoints';
+import { MQ_MOBILE, MQ_REDUCED_MOTION } from '../../config/breakpoints';
 import { setRailX, subscribeToRailState } from '../../lib/verticalRailSignal';
 import '../../styles/vertical-energy-line.css';
 
@@ -107,6 +107,11 @@ const VerticalEnergyLine = () => {
     const reducedMotionQuery = window.matchMedia(MQ_REDUCED_MOTION);
     let reducedMotion = reducedMotionQuery.matches;
 
+    // The line is hidden on mobile (vertical-energy-line.css). It keeps measuring
+    // and publishing --overview-rail-x, which the overview labels align to, but
+    // there is nothing to animate.
+    const mobileQuery = window.matchMedia(MQ_MOBILE);
+
     // Whether the peak loop is running. Tracked in the closure rather than read
     // back off the element: under StrictMode the effect is torn down and re-run
     // against the *same* node, so a DOM flag would still read "running" after the
@@ -208,9 +213,9 @@ const VerticalEnergyLine = () => {
       writeVar('--vrail-peak-height', geometry.peakHeight.toFixed(1) + 'px');
       writeVar('--vrail-opacity', opacity.toFixed(3));
 
-      // Below the overview the rail is fully faded; park the frame loop so it
-      // costs nothing while the user reads project previews.
-      const shouldAnimate = opacity > 0.001;
+      // Below the overview the rail is fully faded, and on mobile it isn't shown
+      // at all; park the frame loop so it costs nothing in either case.
+      const shouldAnimate = opacity > 0.001 && !mobileQuery.matches;
       if (animating !== shouldAnimate) {
         animating = shouldAnimate;
         layer.dataset.active = String(shouldAnimate);
@@ -388,6 +393,7 @@ const VerticalEnergyLine = () => {
       }
     };
     reducedMotionQuery.addEventListener('change', onReducedMotionChange);
+    mobileQuery.addEventListener('change', update);
 
     measure();
     // Web fonts change the CTA's metrics; re-measure once they land.
@@ -410,6 +416,7 @@ const VerticalEnergyLine = () => {
       document.removeEventListener('pointerout', onPointerOut);
       window.removeEventListener('blur', onWindowBlur);
       reducedMotionQuery.removeEventListener('change', onReducedMotionChange);
+      mobileQuery.removeEventListener('change', update);
     };
   }, []);
 

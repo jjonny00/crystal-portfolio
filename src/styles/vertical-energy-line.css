@@ -113,3 +113,13 @@
     will-change: auto;
   }
 }
+
+/* Not on mobile: the line is gone there, and the overview card carries the
+   column instead. The component still measures the hero arrow and publishes
+   --overview-rail-x, which the overview labels align to, and it parks its
+   frame loop while hidden. Same breakpoint as MQ_MOBILE. */
+@media (max-width: 767.98px) {
+  .vertical-energy-line {
+    display: none;
+  }
+}
