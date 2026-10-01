@@ -107,7 +107,14 @@ const ProjectFocusSection = ({
   return (
     <div
       style={{
-        height: '100vh',
+        // Mobile lays the copy out in the SMALL viewport at the top of the
+        // section. The section is 100vh, which on iOS Safari is the viewport
+        // with its toolbar hidden — so anything placed against the section's
+        // bottom lands behind the toolbar and past the app frame's corners
+        // while the toolbar is showing. The hero sizes in svh for the same
+        // reason.
+        height: isMobile ? '100svh' : '100vh',
+        alignSelf: isMobile ? 'flex-start' : 'auto',
         width: '100%',
         position: 'relative',
         overflow: 'hidden',
@@ -117,7 +124,7 @@ const ProjectFocusSection = ({
         background: 'transparent',
         boxSizing: 'border-box',
         // On mobile the copy is a glass card sitting the card inset off the
-        // bottom of the screen; see glass-card.css.
+        // bottom of the visible screen; see glass-card.css.
         paddingBottom: isMobile ? 'calc(var(--glass-card-inset) + env(safe-area-inset-bottom, 0px))' : 0
       }}
     >
@@ -157,6 +164,8 @@ const ProjectFocusSection = ({
             textAlign: 'left',
             ...(isMobile && {
               padding: 'var(--project-card-pad)',
+              // The colour the glass picks up at its edge and in its fill.
+              '--glass-accent': headlineColor,
               '--glass-tint': tone.wash,
               '--glass-tint-low': `rgba(${tone.rgb.join(', ')}, ${Math.min(0.9, tone.opacity + 0.25)})`,
               opacity: isProjectView ? 1 : 0,

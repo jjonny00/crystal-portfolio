@@ -169,6 +169,11 @@ const FacetLabels = React.memo(function FacetLabels({
     return getProjectIdBySceneFacetKey(externallyHoveredFacetKey) || externallyHoveredFacetKey;
   }, [externallyHoveredFacetKey, labelHoveredFacetKey]);
 
+  const activeProjectColor = useMemo(
+    () => projects.find((project) => (project.facetKey || project.id) === activeRuntimeKey)?.color ?? null,
+    [activeRuntimeKey, projects]
+  );
+
   // Publish to the vertical energy line. It renders in App's tree, so it cannot
   // read this component's state directly (this layer lives in its own React
   // root); the snapshot store keeps that one-way and re-render free.
@@ -452,8 +457,14 @@ const FacetLabels = React.memo(function FacetLabels({
             paddingRight: variant === 'desktop' ? 0 : `${OVERVIEW_COLUMN_RIGHT_MOBILE_PX}px`,
             paddingTop: variant === 'desktop' ? 0 : 'var(--overview-card-pad-top)',
             paddingBottom: variant === 'desktop' ? 0 : 'var(--overview-card-pad-bottom)',
+            // The card picks up the highlighted project's colour in its rim and
+            // fill, easing between projects; unset, glass-card.css falls back to
+            // a cool lavender.
+            ...(variant !== 'desktop' && activeProjectColor && { '--glass-accent': activeProjectColor }),
             opacity: visible ? 1 : 0,
-            transition: `opacity ${fadeDurationMs}ms`,
+            transition: variant === 'desktop'
+              ? `opacity ${fadeDurationMs}ms`
+              : `opacity ${fadeDurationMs}ms, --glass-accent 500ms ease`,
             display: 'flex',
             flexDirection: 'column',
             // Mobile spacing lives with the label sizes in facet-label.css.
@@ -502,6 +513,7 @@ const FacetLabels = React.memo(function FacetLabels({
       </>,
     );
   }, [
+    activeProjectColor,
     anchorsReady,
     fadeDurationMs,
     hoverCapable,

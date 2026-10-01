@@ -4,16 +4,35 @@
  * copy sit on one of these. It is part of the content it holds — it scrolls with
  * its section and fades with its copy — rather than a separate fixed layer.
  *
- * Geometry and edge treatment are measured off the iPhone 17 mockups (402pt
- * wide): an 8px inset from the screen's sides and bottom, 28px corners, a 1px
- * light rim with a brighter top lip, a slight darkening just inside the top edge,
- * and light gathering along the inside of the bottom edge.
+ * Geometry is measured off the iPhone 17 mockups (402pt wide): an 8px inset from
+ * the screen's sides and bottom and 28px corners.
  *
- * Tint is per card: set --glass-tint on the element (the overview uses a faint
- * white lift; projects use their authored scrim colour, see scrimTone.js), and
- * optionally --glass-tint-low for the low tier, which drops the blur and needs a
- * stronger tint to hold the copy on its own.
+ * The glass reads as glass through variation rather than a uniform stroke:
+ *   • the rim is a gradient — a specular highlight at the top left, almost gone
+ *     down the sides, and the card's accent colour gathering at the bottom right;
+ *   • the fill carries a faint light at the top left and a soft pool of the accent
+ *     rising from the bottom right, where the project's button and fragment are,
+ *     as if their colour were refracting into the glass;
+ *   • the inside of the bottom edge glows faintly in the accent, the top edge has
+ *     a white lip, and a slight darkening sits just under the top.
+ *
+ * Per-card variables, set on the element:
+ *   --glass-accent    the colour the glass picks up (projects: their own colour;
+ *                     the overview: the highlighted project's, else a cool lavender)
+ *   --glass-tint      the fill (projects: their authored scrim wash, scrimTone.js)
+ *   --glass-tint-low  the low tier's fill, which has no blur to lean on
+ *
+ * Everything here is static paint: none of it changes per frame, so it adds
+ * nothing to the per-frame cost, which is the backdrop blur itself.
  */
+
+/* Registered so the overview's accent can ease between projects instead of
+   snapping (custom properties only interpolate once they have a type). */
+@property --glass-accent {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #8f9bff;
+}
 
 :root {
   --glass-card-inset: 8px;
@@ -24,18 +43,52 @@
 }
 
 .glass-card {
+  position: relative;
   box-sizing: border-box;
   border-radius: var(--glass-card-radius);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  /* The visible rim is the ::before ring below; this keeps the box model. */
+  border: 1px solid transparent;
   background-color: var(--glass-tint, rgba(255, 255, 255, 0.05));
-  background-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.1) 0, rgba(0, 0, 0, 0) 36px);
+  background-image:
+    /* Accent pooling up from the bottom right. */
+    radial-gradient(120% 75% at 100% 100%, rgb(from var(--glass-accent) r g b / 0.2), transparent 70%),
+    /* Faint light at the top left. */
+    radial-gradient(90% 55% at 0% 0%, rgba(255, 255, 255, 0.09), transparent 65%),
+    /* Slight darkening just under the top edge. */
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.1) 0, rgba(0, 0, 0, 0) 36px);
+  background-origin: border-box;
   box-shadow:
-    /* Brighter lip along the top edge. */
-    inset 0 1px 0 rgba(255, 255, 255, 0.22),
-    /* Light gathering just inside the bottom edge. */
-    inset 0 -6px 8px -5px rgba(255, 255, 255, 0.24);
-  -webkit-backdrop-filter: blur(28px) saturate(1.25);
-  backdrop-filter: blur(28px) saturate(1.25);
+    /* White lip along the top edge. */
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    /* The accent catching the inside of the bottom edge. */
+    inset 0 -12px 20px -14px rgb(from var(--glass-accent) r g b / 0.55),
+    inset 0 -1px 0 rgb(from var(--glass-accent) r g b / 0.3);
+  -webkit-backdrop-filter: blur(28px) saturate(1.4);
+  backdrop-filter: blur(28px) saturate(1.4);
+}
+
+/* The rim: a 1px ring cut out of a gradient with a mask, since a border can't
+   carry a gradient around rounded corners. */
+.glass-card::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    150deg,
+    rgba(255, 255, 255, 0.75) 0%,
+    rgba(255, 255, 255, 0.28) 18%,
+    rgba(255, 255, 255, 0.08) 45%,
+    rgb(from var(--glass-accent) r g b / 0.35) 72%,
+    rgb(from var(--glass-accent) r g b / 0.75) 92%,
+    rgba(255, 255, 255, 0.5) 100%
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
 }
 
 /* Low tier: no blur, a stronger tint in its place. */
@@ -50,6 +103,9 @@
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
   background: none;
-  border-color: transparent;
   box-shadow: none;
+}
+
+[data-legibility='off'] .glass-card::before {
+  display: none;
 }
