@@ -37,6 +37,9 @@ import { effects, materials as defaultCrystalMaterials, crystalWholePathForTier,
 import { useFacetOverlayGeometry } from '../../hooks/useFacetOverlayGeometry'
 import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController'
 import { useHoverCapable } from '../../hooks/useHoverCapable'
+import { useMediaQuery } from '../../hooks/useMediaQuery'
+import { MQ_REDUCED_MOTION } from '../../config/breakpoints'
+import { createFacetMagnet, useWindowPointer, beginFacetMagnetFrame, applyFacetMagnet } from './facetMagnet'
 import { createLogger } from '../../utils/logger'
 // TEMPORARY DIAGNOSTIC — remove together with src/debug/edgeWearMaskDebug.js
 import { inspectEdgeWearAttributes, applyEdgeWearMaskDebug, getEdgeWearDebugMode, getEdgeWearDebugOverride, installEdgeWearMaskDebug, setEdgeWearDebugParams } from '../../debug/edgeWearMaskDebug'
@@ -310,6 +313,7 @@ const _anchorRotatedOffsetScratch = new THREE.Vector3();
 const _facetBaseEulerScratch = new THREE.Euler();
 const _facetFinalEulerScratch = new THREE.Euler();
 const _facetFinalQuatScratch = new THREE.Quaternion();
+const _facetMagnetTargetScratch = new THREE.Vector3();
 const vectorToPlain = (v) => v ? ({ x: Number(v.x?.toFixed?.(4) ?? v.x), y: Number(v.y?.toFixed?.(4) ?? v.y), z: Number(v.z?.toFixed?.(4) ?? v.z) }) : null;
 const quaternionToPlain = (q) => q ? ({ x: Number(q.x?.toFixed?.(4) ?? q.x), y: Number(q.y?.toFixed?.(4) ?? q.y), z: Number(q.z?.toFixed?.(4) ?? q.z), w: Number(q.w?.toFixed?.(4) ?? q.w) }) : null;
 const objectTransformSnapshot = (object) => {
@@ -679,6 +683,17 @@ const UnifiedCrystalScene = forwardRef(({
   const heroOverviewFractureTimingRouteActiveRef = useRef(false);
   const hoverCapable = useHoverCapable();
   useCursor(Boolean(hoverCapable && hoveredFacet));
+
+  // Overview cursor magnetism (see facetMagnet.js). Mouse-only, and off for
+  // reduced motion and the simplified-animation tier.
+  const reducedMotion = useMediaQuery(MQ_REDUCED_MOTION);
+  const magnetEnabled = Boolean(
+    effects.idle.magnet?.enabled && hoverCapable && !reducedMotion && !simplifiedAnimations
+  );
+  const magnetPointerRef = useWindowPointer(magnetEnabled);
+  const facetMagnetRef = useRef(null);
+  if (!facetMagnetRef.current) facetMagnetRef.current = createFacetMagnet();
+  const facetMagnetFrameRef = useRef({});
 
   const mergedConfig = config;
 
@@ -3647,6 +3662,27 @@ const UnifiedCrystalScene = forwardRef(({
       let allFacetsAtCenter = true;
       let reformConvergenceProgress = 1;
 
+      const facetMagnet = facetMagnetRef.current;
+      if (isReforming) facetMagnet.offsets.length = 0;
+      beginFacetMagnetFrame(
+        facetMagnet,
+        magnetEnabled &&
+          floatAll &&
+          animationData.currentZone === 'overview' &&
+          animationData.crystalForm === 'exploded' &&
+          !caseStudyEngaged,
+        facetsGroupRef.current,
+      );
+      const magnetFrame = facetMagnetFrameRef.current;
+      magnetFrame.camera = state.camera;
+      magnetFrame.pointer = magnetPointerRef.current;
+      magnetFrame.size = state.size;
+      // DEV tuning: globalThis.__FACET_MAGNET__ = { strength: 0.4, radius: 0.35 }
+      magnetFrame.config = import.meta.env.DEV && globalThis.__FACET_MAGNET__
+        ? { ...effects.idle.magnet, ...globalThis.__FACET_MAGNET__ }
+        : effects.idle.magnet;
+      magnetFrame.deltaTime = deltaTime;
+
       facetRefs.current.forEach((facetRef, index) => {
         if (!facetRef || !facetRef.current) return;
 
@@ -3719,10 +3755,19 @@ const UnifiedCrystalScene = forwardRef(({
                   ? getAnchorAdjustedPosition(facetKey, finalTarget, targetQuat)
                   : finalTarget);
 
+            const steerTarget = applyFacetMagnet(
+              facetMagnet,
+              index,
+              facetRef.current,
+              targetPosition,
+              _facetMagnetTargetScratch,
+              magnetFrame,
+            );
+
             if (isProjectFocusedFacet || isCaseStudyActiveProject) {
-              facetRef.current.position.copy(targetPosition);
+              facetRef.current.position.copy(steerTarget);
             } else {
-              facetRef.current.position.lerp(targetPosition, lerpSpeed * deltaTime * 60);
+              facetRef.current.position.lerp(steerTarget, lerpSpeed * deltaTime * 60);
             }
 
           }

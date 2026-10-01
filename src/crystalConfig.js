@@ -426,6 +426,16 @@ export const effects = {
       xFrequency: 0.9,       // X-axis wave frequency
       zFrequency: 0.7,       // Z-axis wave frequency
     },
+    // Overview cursor magnetism: a facet near the pointer leans toward it.
+    // Distance is measured on screen so the reach tracks the composition, not
+    // the camera; the pull itself is in world units. See facetMagnet.js.
+    magnet: {
+      enabled: true,
+      radius: 0.4,       // Reach, as a fraction of viewport height
+      strength: 0.7,     // Share of the facet→cursor gap closed at full influence
+      maxOffset: 0.28,   // Cap on the pull, world units (~40px at the overview camera)
+      response: 3,       // Per-second rate the pull eases toward its target (lower = lazier)
+    },
     glow: {
       pulseBase: 0.2,        // Base glow intensity
       pulseStrength: 1.5,    // Amount of pulse variation
