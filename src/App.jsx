@@ -32,9 +32,9 @@ import PerformanceControls from './components/ui/PerformanceControls';
 import AccessibilityInstructions from './components/ui/AccessibilityInstructions';
 import FpsDisplay, { PerformanceAlert } from './components/ui/FpsDisplay';
 import VerticalEnergyLine from './components/ui/VerticalEnergyLine';
-import GlassScrim from './components/ui/GlassScrim';
 import NavScrim from './components/ui/NavScrim';
 import './styles/legibility.css';
+import './styles/glass-card.css';
 import { clearBackdropInk, setBackdropInkSettled } from './legibility/backdropInk';
 
 // Debug component
@@ -51,7 +51,6 @@ import { CATALOG_PROJECT } from './caseStudies/catalog/catalogProject';
 import { getProjectByAnyKey } from './data/projects';
 
 import { isMobileDevice } from './utils/isMobileDevice.js';
-import { useLayoutConfig } from './hooks/useLayoutConfig';
 import {
   NAVIGATION_DESTINATIONS,
   createNavigationIntentRequester,
@@ -474,9 +473,6 @@ function App() {
   // The section the scrollable content has settled on. Drives the About scrim so
   // it stays in sync with the section content on both scroll and nav clicks.
   const [settledSection, setSettledSection] = useState('hero');
-  // Nearest section, live while a scroll is still moving (settledSection is null
-  // until it stops). The mobile glass scrim reshapes on this, mid-transition.
-  const [nearestSection, setNearestSection] = useState('hero');
   const [perfDebug, setPerfDebug] = useState(false);
   const [snapSpeed, setSnapSpeed] = useState('medium');
   const [config, setConfig] = useState({
@@ -641,17 +637,6 @@ function App() {
   // there is an explicit Mac-plus-touch branch for it). That is the right question
   // for the canvas, which cares about input and GPU budget.
   const isMobile = isMobileDevice();
-
-  // The layout variant asks how wide the window is — the same state
-  // ScrollablePortfolio hands ProjectFocusSection, so it is what decides whether
-  // the copy renders its mobile or desktop treatment.
-  //
-  // GlassScrim has to follow THIS one. It exists to ground the mobile copy, and
-  // on an iPad Pro the device check said mobile while the copy was laid out for
-  // desktop — so a scrim sized and placed for a phone came up underneath copy that
-  // never asked for one.
-  const { variant: layoutVariant } = useLayoutConfig();
-  const isMobileLayout = layoutVariant === 'mobile';
 
   // ========================================
   // UPDATED: App ready detection with V2 system
@@ -988,6 +973,12 @@ function App() {
     if (legibilityMode !== 'adaptive') clearBackdropInk();
   }, [legibilityMode]);
 
+  // The performance tier, published the same way for CSS: the mobile glass cards
+  // (glass-card.css) drop their blur on the low tier.
+  useEffect(() => {
+    document.documentElement.dataset.perfTier = performanceTier || '';
+  }, [performanceTier]);
+
   // The ink is only measured on a scene that has arrived. `settledSection` goes
   // null the moment a scroll starts and comes back once it stops, which is
   // exactly the window in which the scene is not what the copy will end up
@@ -1297,29 +1288,6 @@ function App() {
         />
       )}
 
-      {/* Glass scrim — the mobile counterpart to the About scrim above, in the
-          same layer between the canvas and the content. One glass panel from the
-          overview through the last project: it never scrolls and never fades
-          between them, it reshapes and retints to the copy the scroll is heading
-          for while the camera moves. See GlassScrim.jsx.
-
-          Mobile keeps the scrim in every mode but `off`, the same call About
-          makes: on a small screen the copy runs the full width with the crystal
-          directly behind it, and there is not enough bare scene around the block
-          for a measured ink to be the whole answer. The scrim is what the copy
-          sits on. ProjectFocusSection drops its ink region on mobile to match —
-          the probe reads the canvas, which is under this layer, so a measurement
-          taken there is of a backdrop the reader never actually sees. */}
-      {legibilityMode !== 'off' && !hideAllUI && (
-        <GlassScrim
-          settledSection={settledSection}
-          nearestSection={nearestSection}
-          isMobile={isMobileLayout}
-          suppressed={overlayOpen}
-          lowPower={performanceTier === 'low'}
-        />
-      )}
-
       {/* Vertical energy line — one continuous 1px rail from the hero CTA
           through the full work overview. Fixed layer between the 3D canvas and
           the scrollable content; decorative and pointer-transparent. */}
@@ -1335,7 +1303,6 @@ function App() {
         onOpenCaseStudy={handleOpenCaseStudy}
         onBackToProject={handleBackToProject}
         onSettledSectionChange={setSettledSection}
-        onNearestSectionChange={setNearestSection}
       />
 
       {/* Case study — a self-contained layer over the portfolio. Sits below the

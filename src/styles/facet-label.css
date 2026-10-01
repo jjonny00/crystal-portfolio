@@ -38,7 +38,12 @@
      hierarchy between them reads more strongly at the smaller overall size than
      it did at the larger one. */
   :root {
-    --overview-label-gap: 8.68px;
+    --overview-label-gap: 8.25px;
+    /* Inside the overview's glass card (glass-card.css), measured off the
+       mockup: the first title's caps start 30px under the card's top edge, and
+       the last title's baseline sits 46.7px above its bottom edge. */
+    --overview-card-pad-top: 25px;
+    --overview-card-pad-bottom: 21.9px;
   }
 
   .label-title {

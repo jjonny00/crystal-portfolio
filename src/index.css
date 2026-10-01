@@ -35,15 +35,8 @@
      Anything that must not slide under the nav measures down from here. */
   --page-nav-bottom: 52px;
 
-  /* How far the mobile composition sits off the bottom of the viewport. Shared by
-     the hero's block-end padding and the overview's label column so the two sit on
-     the same line rather than drifting apart. */
+  /* How far the mobile hero composition sits off the bottom of the viewport. */
   --mobile-bottom-inset: calc(2.75rem + env(safe-area-inset-bottom, 0px));
-
-  /* The overview's list sits tighter to the bottom than the hero does. Derived
-     from the hero's inset rather than stated separately, so the two stay related
-     — and so the safe-area term is carried along with it. */
-  --overview-bottom-inset: calc(var(--mobile-bottom-inset) - 1.55rem);
 }
 
 /* CRITICAL: Clean document scroll setup */

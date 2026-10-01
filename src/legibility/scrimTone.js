@@ -1,8 +1,8 @@
 // src/legibility/scrimTone.js
 //
 // The scrim a project's preview copy sits on, and the ink that copy takes. Two
-// halves of one decision, read by two different components — GlassScrim draws
-// the wash, ProjectFocusSection colours the copy — so both come from here and a
+// halves of one decision, both read by ProjectFocusSection — the mobile glass
+// card is tinted with the wash, the copy takes the ink — so both come from here and a
 // project cannot end up with a wash from one recipe and an ink from the other.
 //
 // Authored per project in data/projects.js under `scrim`, not derived and not

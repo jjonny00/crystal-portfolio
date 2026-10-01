@@ -1,0 +1,55 @@
+/* src/styles/glass-card.css
+ *
+ * The mobile glass card: the overview's label list and every project's preview
+ * copy sit on one of these. It is part of the content it holds — it scrolls with
+ * its section and fades with its copy — rather than a separate fixed layer.
+ *
+ * Geometry and edge treatment are measured off the iPhone 17 mockups (402pt
+ * wide): an 8px inset from the screen's sides and bottom, 28px corners, a 1px
+ * light rim with a brighter top lip, a slight darkening just inside the top edge,
+ * and light gathering along the inside of the bottom edge.
+ *
+ * Tint is per card: set --glass-tint on the element (the overview uses a faint
+ * white lift; projects use their authored scrim colour, see scrimTone.js), and
+ * optionally --glass-tint-low for the low tier, which drops the blur and needs a
+ * stronger tint to hold the copy on its own.
+ */
+
+:root {
+  --glass-card-inset: 8px;
+  --glass-card-radius: 28px;
+  /* A project's copy card. 27px on the left puts its text 36px off the screen
+     edge, the same line the overview list's text hangs on. */
+  --project-card-pad: 26px 27px 27px;
+}
+
+.glass-card {
+  box-sizing: border-box;
+  border-radius: var(--glass-card-radius);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background-color: var(--glass-tint, rgba(255, 255, 255, 0.05));
+  background-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.1) 0, rgba(0, 0, 0, 0) 36px);
+  box-shadow:
+    /* Brighter lip along the top edge. */
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    /* Light gathering just inside the bottom edge. */
+    inset 0 -6px 8px -5px rgba(255, 255, 255, 0.24);
+  -webkit-backdrop-filter: blur(28px) saturate(1.25);
+  backdrop-filter: blur(28px) saturate(1.25);
+}
+
+/* Low tier: no blur, a stronger tint in its place. */
+[data-perf-tier='low'] .glass-card {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  background-color: var(--glass-tint-low, var(--glass-tint, rgba(14, 18, 40, 0.5)));
+}
+
+/* `off` legibility mode shows the bare scene, cards included. */
+[data-legibility='off'] .glass-card {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  background: none;
+  border-color: transparent;
+  box-shadow: none;
+}

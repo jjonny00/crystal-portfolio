@@ -116,7 +116,9 @@ const ProjectFocusSection = ({
         justifyContent: 'flex-start',
         background: 'transparent',
         boxSizing: 'border-box',
-        paddingBottom: isMobile ? 'calc(4.75rem + env(safe-area-inset-bottom, 0px))' : 0
+        // On mobile the copy is a glass card sitting the card inset off the
+        // bottom of the screen; see glass-card.css.
+        paddingBottom: isMobile ? 'calc(var(--glass-card-inset) + env(safe-area-inset-bottom, 0px))' : 0
       }}
     >
       {/* Plain, not animated: this used to carry the entrance spring for the
@@ -134,23 +136,35 @@ const ProjectFocusSection = ({
           display: 'flex',
           alignItems: isMobile ? 'flex-end' : 'center',
           justifyContent: isMobile ? 'flex-start' : 'center',
-          paddingLeft: isMobile ? '16px' : 'clamp(20px, 2.5vw, 52px)',
-          paddingRight: isMobile ? '16px' : 'clamp(20px, 2.5vw, 52px)',
+          paddingLeft: isMobile ? 'var(--glass-card-inset)' : 'clamp(20px, 2.5vw, 52px)',
+          paddingRight: isMobile ? 'var(--glass-card-inset)' : 'clamp(20px, 2.5vw, 52px)',
           boxSizing: 'border-box'
         }}
       >
-        {/* GlassScrim measures this block to size itself — it is the copy
-            the scrim exists to ground. Keyed like the section id so the scrim
-            can find it from the settled section alone. */}
+        {/* On mobile this block is the glass card the copy sits on (see
+            glass-card.css), so it scrolls with the section and fades with the
+            copy: in on the copy spring's delay, out at once. Tinted with the
+            project's authored scrim colour, the same recipe the copy ink is
+            picked against. Once faded it drops out of compositing entirely. */}
         <div
-          data-project-copy={project.facetKey || project.id}
+          className={isMobile ? 'glass-card' : undefined}
           style={{
             width: isMobile ? '100%' : contentWidth,
             maxWidth: '100%',
             display: 'grid',
             gridTemplateColumns: '1fr',
             gap: isMobile ? '0.9rem' : '0',
-            textAlign: 'left'
+            textAlign: 'left',
+            ...(isMobile && {
+              padding: 'var(--project-card-pad)',
+              '--glass-tint': tone.wash,
+              '--glass-tint-low': `rgba(${tone.rgb.join(', ')}, ${Math.min(0.9, tone.opacity + 0.25)})`,
+              opacity: isProjectView ? 1 : 0,
+              visibility: isProjectView ? 'visible' : 'hidden',
+              transition: isProjectView
+                ? 'opacity 450ms ease 180ms, visibility 0s linear 0s'
+                : 'opacity 450ms ease, visibility 0s linear 450ms'
+            })
           }}
         >
           {/* Unblended, as asked: the title is the project's accent colour and

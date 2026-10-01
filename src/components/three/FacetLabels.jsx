@@ -433,21 +433,25 @@ const FacetLabels = React.memo(function FacetLabels({
               onLabelsReadyChange?.(true);
             });
           }}
+          // On mobile the list is its own glass card (glass-card.css), inset from
+          // the screen edges, so the card fades in and out with the labels. Its
+          // left padding keeps the text hanging off the energy line exactly where
+          // it did without the card; the vertical padding is in facet-label.css.
+          className={variant === 'desktop' ? undefined : 'glass-card'}
           style={{
             position: 'absolute',
             width: variant === 'desktop' ? `${OVERVIEW_COLUMN.widthVw}vw` : 'auto',
-            right: variant === 'desktop' ? 'auto' : `${OVERVIEW_COLUMN_RIGHT_MOBILE_PX}px`,
-            left: variant === 'desktop' ? OVERVIEW_COLUMN_LEFT : OVERVIEW_COLUMN_LEFT_MOBILE,
+            right: variant === 'desktop' ? 'auto' : 'var(--glass-card-inset)',
+            left: variant === 'desktop' ? OVERVIEW_COLUMN_LEFT : 'var(--glass-card-inset)',
             top: variant === 'desktop' ? '50%' : 'auto',
-            // Derived from the hero's block-end padding (see index.css), a little
-            // tighter to the bottom than the hero sits.
-            bottom: variant === 'desktop' ? 'auto' : 'var(--overview-bottom-inset)',
+            bottom: variant === 'desktop' ? 'auto' : 'calc(var(--glass-card-inset) + env(safe-area-inset-bottom, 0px))',
             transform: variant === 'desktop' ? 'translateY(-50%)' : 'none',
-            // No inset of its own on either variant: `left`/`right` above already
-            // place the column, and padding here would push the text off the line
-            // it is supposed to hang from.
-            paddingLeft: 0,
-            paddingRight: 0,
+            // Desktop has no inset of its own: `left`/`right` above already place
+            // the column, and padding would push the text off the line it hangs from.
+            paddingLeft: variant === 'desktop' ? 0 : `calc(${OVERVIEW_COLUMN_LEFT_MOBILE} - var(--glass-card-inset) - 1px)`,
+            paddingRight: variant === 'desktop' ? 0 : `${OVERVIEW_COLUMN_RIGHT_MOBILE_PX}px`,
+            paddingTop: variant === 'desktop' ? 0 : 'var(--overview-card-pad-top)',
+            paddingBottom: variant === 'desktop' ? 0 : 'var(--overview-card-pad-bottom)',
             opacity: visible ? 1 : 0,
             transition: `opacity ${fadeDurationMs}ms`,
             display: 'flex',
