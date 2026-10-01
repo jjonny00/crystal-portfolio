@@ -1,6 +1,12 @@
 // src/components/ui/TabbedControlPanel.jsx - Updated for external tab control
 import React, { useRef, useEffect, useLayoutEffect } from 'react';
 
+// Keeps its last render while `frozen` and skips re-rendering, so a hidden
+// panel or an inactive tab costs nothing when App re-renders (the Crystal tab
+// alone is thousands of lines of sliders). State is untouched; the first render
+// after unfreezing picks up the latest props.
+const Frozen = React.memo(({ children }) => children, (prevProps, nextProps) => nextProps.frozen);
+
 /**
  * A tabbed control panel component with external tab control support
  */
@@ -150,7 +156,7 @@ const TabbedControlPanel = ({
       <div ref={contentRef} style={contentStyle} onScroll={handleContentScroll}>
         {panels.map((panel, index) => (
           <div key={index} style={{ display: index === activeTab ? 'block' : 'none' }}>
-            {panel}
+            <Frozen frozen={!visible || index !== activeTab}>{panel}</Frozen>
           </div>
         ))}
       </div>
