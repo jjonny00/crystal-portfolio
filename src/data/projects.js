@@ -267,11 +267,11 @@ export const projects = [
     scrim: {
       opacity: 0.4,
       darkText: false,
-      color: '#314e86',
+      color: '#031028',
     },
     technologies: ['Spatial UX', 'Modular Platform Architecture', 'Production'],
-    color: '#0059ff',
-    headlineColor: '#0051ff',
+    color: '#0077ff',
+    headlineColor: '#008cff',
     imageUrl: '/assets/projects/preview-gec.webp',
     overlayImage: '/assets/projects/preview-gec.webp'
   }
