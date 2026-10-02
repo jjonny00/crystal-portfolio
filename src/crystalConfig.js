@@ -432,9 +432,13 @@ export const effects = {
     magnet: {
       enabled: true,
       radius: 0.4,       // Reach, as a fraction of viewport height
-      strength: 0.7,     // Share of the facet→cursor gap closed at full influence
+      strength: 0.25,    // Share of the facet→cursor gap closed at full influence
       maxOffset: 0.28,   // Cap on the pull, world units (~40px at the overview camera)
       response: 3,       // Per-second rate the pull eases toward its target (lower = lazier)
+      // The other facets give way as the cursor closes in on one: pushed away
+      // from the cursor, a little softer than the pull. 0 turns it off.
+      repel: 0.2,        // Push at full engagement, world units (~70% of maxOffset)
+      repelRadius: 0.7,  // Reach of the push, as a fraction of viewport height
     },
     glow: {
       pulseBase: 0.2,        // Base glow intensity

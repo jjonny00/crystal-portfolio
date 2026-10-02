@@ -13,6 +13,14 @@
 // near the facet's silhouette and settles back to nearly centred when the cursor
 // is right over it.
 //
+// The facets the cursor is *not* closing in on give way instead. Each facet's
+// engagement is how close the cursor is to it; a facet that another one
+// out-engages is pushed away from the cursor and its own pull fades, in
+// proportion to the gap. The facet with the cursor's attention is never
+// out-engaged, so its pull is untouched, and two facets the cursor sits between
+// are level, so sliding from one to the next hands over without a flip. It is read from the previous frame, which saves a second
+// pass over the facets and is a lag nobody can see.
+//
 // Per frame this is a projection and an unprojection for six facets with
 // scratch vectors only: no allocation, no raycast, and nothing at all once the
 // magnet is idle and every offset has decayed.
@@ -21,11 +29,16 @@ import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 
 const EPSILON_SQ = 1e-10
+// Scales the engagement gap into how fully a facet gives way. Neighbours sit
+// close enough to share some of the cursor's reach; without the gain their
+// own pull and the push roughly cancel and they just hang there.
+const DOMINANCE_GAIN = 2
 
 const _center = new THREE.Vector3()
 const _ndc = new THREE.Vector3()
 const _cursor = new THREE.Vector3()
 const _desired = new THREE.Vector3()
+const _repel = new THREE.Vector3()
 const _localOrigin = new THREE.Vector3()
 const _box = new THREE.Box3()
 const _zero = new THREE.Vector3()
@@ -38,6 +51,12 @@ export const createFacetMagnet = () => ({
   // Each facet's visual centre in its own local space. The group origin is the
   // model's pivot, not the middle of the shard, so distance is taken from here.
   localCenters: [],
+  // How close the cursor is to each facet (0–1), written by applyFacetMagnet
+  // and read back next frame to find the facets that dominate.
+  engagement: [],
+  leaderIndex: -1,
+  leaderEngagement: 0,
+  runnerUpEngagement: 0,
   parentInverse: new THREE.Matrix4(),
 })
 
@@ -88,6 +107,22 @@ export const beginFacetMagnetFrame = (magnet, active, parent) => {
   magnet.wasActive = active
   magnet.active = active && Boolean(parent)
   if (magnet.active) magnet.parentInverse.copy(parent.matrixWorld).invert()
+
+  let leaderIndex = -1
+  let leader = 0
+  let runnerUp = 0
+  magnet.engagement.forEach((value, index) => {
+    if (value > leader) {
+      runnerUp = leader
+      leader = value
+      leaderIndex = index
+    } else if (value > runnerUp) {
+      runnerUp = value
+    }
+  })
+  magnet.leaderIndex = leaderIndex
+  magnet.leaderEngagement = leader
+  magnet.runnerUpEngagement = runnerUp
 }
 
 const measureLocalCenter = (facet) => {
@@ -106,6 +141,7 @@ export const applyFacetMagnet = (magnet, index, facet, restLocal, out, frame) =>
   let offset = magnet.offsets[index]
 
   _desired.set(0, 0, 0)
+  magnet.engagement[index] = 0
   if (magnet.active && pointer.inside && size.width > 0 && size.height > 0) {
     let localCenter = magnet.localCenters[index]
     if (!localCenter) {
@@ -126,16 +162,36 @@ export const applyFacetMagnet = (magnet, index, facet, restLocal, out, frame) =>
       const dx = pointer.x - (_ndc.x + 1) * 0.5 * size.width
       const dy = pointer.y - (1 - _ndc.y) * 0.5 * size.height
       const reach = config.radius * size.height
+      const repelReach = (config.repelRadius ?? 0) * size.height
       const distance = Math.sqrt(dx * dx + dy * dy)
+      const influence = distance < reach ? 1 - THREE.MathUtils.smoothstep(distance, 0, reach) : 0
+      magnet.engagement[index] = influence
 
-      if (distance < reach) {
-        const influence = 1 - THREE.MathUtils.smoothstep(distance, 0, reach)
+      // How far some *other* facet out-engages this one.
+      const othersEngagement = magnet.leaderIndex === index
+        ? magnet.runnerUpEngagement
+        : magnet.leaderEngagement
+      const dominance = Math.min(1, Math.max(0, othersEngagement - influence) * DOMINANCE_GAIN)
+      const repelInfluence = distance < repelReach && config.repel > 0
+        ? dominance * (1 - THREE.MathUtils.smoothstep(distance, 0, repelReach))
+        : 0
+
+      if (influence > 0 || repelInfluence > 0) {
         _cursor
           .set((pointer.x / size.width) * 2 - 1, -(pointer.y / size.height) * 2 + 1, _ndc.z)
           .unproject(camera)
-        _desired.subVectors(_cursor, _center).multiplyScalar(config.strength * influence)
         const max = config.maxOffset
+        _desired
+          .subVectors(_cursor, _center)
+          .multiplyScalar(config.strength * influence * (1 - dominance))
         if (_desired.lengthSq() > max * max) _desired.setLength(max)
+        if (repelInfluence > 0) {
+          _repel.subVectors(_center, _cursor)
+          if (_repel.lengthSq() > EPSILON_SQ) {
+            _desired.add(_repel.setLength(config.repel * repelInfluence))
+            if (_desired.lengthSq() > max * max) _desired.setLength(max)
+          }
+        }
 
         // World pull → parent space (the facets group can be rotated/scaled).
         _localOrigin.copy(_center).applyMatrix4(magnet.parentInverse)
