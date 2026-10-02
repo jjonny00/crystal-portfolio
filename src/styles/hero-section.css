@@ -259,3 +259,23 @@
     font-size: clamp(1rem, 5vw, 1.25rem);
   }
 }
+
+/* Hero drag orbit (mouse). UnifiedCameraController sets these on <html> while the
+   camera is in the hero: a grab cursor over the empty scene, a grabbing one held for
+   the length of a drag. On #root rather than body because drei's useCursor leaves
+   an inline `cursor` on body after a facet hover. Copy keeps its own cursor (and
+   its selection) since a drag never starts on text. */
+html.hero-orbit-drag #root {
+  cursor: grab;
+}
+
+html.hero-orbit-drag :is(p, h1, h2, h3, h4, h5, h6, li) {
+  cursor: auto;
+}
+
+html.hero-orbit-dragging,
+html.hero-orbit-dragging * {
+  cursor: grabbing !important;
+  -webkit-user-select: none !important;
+  user-select: none !important;
+}
