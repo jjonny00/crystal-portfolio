@@ -3,18 +3,7 @@
 import React from 'react';
 import { animated, useSpring } from '@react-spring/web';
 import '../../styles/about-section.css';
-
-const PARAGRAPHS = [
-  'Every project has shaped how I approach the next, refining the process, challenging assumptions, and finding clearer ways to turn an idea into an experience. Over time, that process has expanded to move fluidly between systems thinking, visual design, and implementation. I’m most interested in the point where structure becomes experience, when rules, feedback, and tradeoffs take on a clear, expressive form people can understand and feel.',
-  'I co-founded the studio that became Forest Giant and spent fifteen years helping grow it from a small team into a multidisciplinary studio of more than thirty people. Today, my work ranges from shaping complex product systems at FundSeeder to building and testing combat mechanics in Slipstream. Prototyping allows me to carry ideas into playable form, where they can be tested through interaction rather than debated in the abstract.',
-  'I believe the strongest work comes from blended teams. Bringing designers, developers, stakeholders, and other disciplines into the process early exposes blind spots, surfaces constraints sooner, and gives each perspective a real hand in shaping the outcome. I often work between those groups, preserving intent as ideas move toward implementation and making sure no voice is lost, especially the user or player at the center of the system.'
-];
-
-const STATS = [
-  { value: '20+ Years', label: 'Designing interactive systems' },
-  { value: '15 Years · 30+ Person Team', label: 'Building and leading a multidisciplinary studio' },
-  { value: '150K Downloads · Top 5 Free Game', label: 'Mesa’s first week on iOS' }
-];
+import { ABOUT_PARAGRAPHS as PARAGRAPHS, ABOUT_STATS as STATS, ABOUT_TITLE } from '../../data/siteCopy';
 
 /**
  * About section — personal bio, background, and career highlights.
@@ -45,7 +34,7 @@ const AboutSection = ({
             white that never has to react to anything. */}
         <animated.div className="about-section__content" style={contentSpring}>
           <div className="about-section__body">
-            <h2 className="about-section__title">Shaped Through Iteration</h2>
+            <h2 className="about-section__title">{ABOUT_TITLE}</h2>
 
             {PARAGRAPHS.map((paragraph, index) => (
               <p key={index} className="about-section__paragraph">

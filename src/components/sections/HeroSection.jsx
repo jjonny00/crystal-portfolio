@@ -6,17 +6,15 @@ import { animated, useSpring } from '@react-spring/web';
 import useProjectHeadlineColor from '../../hooks/useProjectHeadlineColor';
 import Headline from '../ui/Headline';
 import '../../styles/hero-section.css';
-
-const ARROW_DOWN_SRC = '/assets/ui/SVG/arrow-down.svg';
-
 // The intro, long and short. Same shape as a project's `mobile` block in
 // data/projects.js: the phone gets its own tighter cut rather than the desktop
-// paragraph reflowed down a narrow column.
-const BODY_COPY =
-  'I design systems that shape how people decide, compete, and engage. My work focuses on the mechanics underneath the experience: the rules, feedback, and tradeoffs that turn interaction into something worth mastering. Across products and games, I build systems that reward intent.';
+// paragraph reflowed down a narrow column. Shared with the prerendered page.
+import {
+  HERO_BODY_COPY as BODY_COPY,
+  HERO_BODY_COPY_MOBILE as BODY_COPY_MOBILE,
+} from '../../data/siteCopy';
 
-const BODY_COPY_MOBILE =
-  'I design systems that shape how people decide, compete, and engage. Across products and games, I turn rules, feedback, and tradeoffs into experiences that reward intent.';
+const ARROW_DOWN_SRC = '/assets/ui/SVG/arrow-down.svg';
 
 /**
  * Hero Section Component
@@ -97,6 +95,7 @@ const HeroSection = ({
       <div className="hero-section__content">
         <animated.div style={contentSpring} className="hero-section__headline-block">
           <Headline as="h1" className="type-headline-lg hero-section__title">
+            <span className="visually-hidden">Jon Shaw: </span>
             <span className="hero-section__title-line">THE SYSTEMS</span>
             <span className="hero-section__title-line">BENEATH</span>
             <span className="hero-section__title-line">THE SURFACE</span>

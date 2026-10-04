@@ -35,6 +35,7 @@
 
 import React, { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { animated } from '@react-spring/web';
+import { inPageLinkHandler } from '../../navigation/linkClick';
 
 const toRgb = (hex) => {
   const n = parseInt(hex.replace('#', ''), 16);
@@ -161,6 +162,11 @@ const KnockoutButton = ({
   isMobile = false,
   onClick,
   /**
+   * Makes the control a link to this URL. A plain click still runs `onClick` in
+   * place; the href is for crawlers, new tabs, and copying the link.
+   */
+  href = null,
+  /**
    * Entrance spring from the parent. These are SpringValues, not numbers, so the
    * root has to be an `animated` element for them to subscribe — spread onto a
    * plain <button> they stringify and the block never fades in. The spring also
@@ -258,11 +264,15 @@ const KnockoutButton = ({
     dominantBaseline: 'central',
   };
 
+  const Root = href ? animated.a : animated.button;
+  const rootProps = href
+    ? { href, onClick: inPageLinkHandler(onClick) }
+    : { type: 'button', onClick };
+
   return (
-    <animated.button
+    <Root
       ref={buttonRef}
-      type="button"
-      onClick={onClick}
+      {...rootProps}
       aria-label={ariaLabel}
       onPointerEnter={() => setHovered(true)}
       onPointerLeave={() => { setHovered(false); setPressed(false); }}
@@ -292,6 +302,7 @@ const KnockoutButton = ({
         width: isMobile ? '100%' : 'auto',
         lineHeight: isMobile ? '1.35' : '30px',
         WebkitTapHighlightColor: 'transparent',
+        textDecoration: 'none',
         outline: 'none',
         boxShadow: rings.length ? rings.join(', ') : 'none',
         transition: 'box-shadow 160ms ease',
@@ -368,7 +379,7 @@ const KnockoutButton = ({
       <span style={{ ...typeStyle, color: 'transparent', whiteSpace: 'nowrap' }}>
         {label}
       </span>
-    </animated.button>
+    </Root>
   );
 };
 

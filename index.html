@@ -2,10 +2,21 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Multifaceted Designer</title>
-    <!-- Adobe Fonts kit removed: network failures in offline environments -->
+    <meta name="theme-color" content="#050505" />
+    <!-- Per-route tags. scripts/prerender.mjs replaces everything between the
+         markers with the route's own (src/seo/seoMeta.js), and the client keeps
+         them current after that (src/seo/useDocumentHead.js). These are the
+         home page's, for the dev server. -->
+    <!--seo:start-->
+    <title>Jon Shaw | Principal Product Designer, Systems and Interaction</title>
+    <meta name="description" content="Jon Shaw, principal product designer. I design the systems beneath products and games: the rules, feedback, and tradeoffs that make interaction worth mastering." />
+    <!--seo:end-->
+    <link rel="preconnect" href="https://use.typekit.net" crossorigin />
+    <link rel="preconnect" href="https://p.typekit.net" crossorigin />
     <link rel="stylesheet" href="https://use.typekit.net/qqu3acy.css" />
 
     <!-- Minimal base styles -->
@@ -28,9 +39,74 @@
         --wdth: 87.5;
         overflow: hidden;
       }
+
+      /* The prerendered body (see #prerender below). On most routes it is for
+         screen readers, crawlers and readers without JavaScript only: a sighted
+         reader sees the loader and then the scene. */
+      .prerender--hidden {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        clip-path: inset(50%);
+        white-space: nowrap;
+      }
+
+      /* A plain readable page: the 404, and every route without JavaScript. */
+      .prerender--page {
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 120px 24px 64px;
+        line-height: 1.5;
+        font-size: 18px;
+      }
+      .prerender--page h1,
+      .prerender--page h2 {
+        font-weight: 500;
+        line-height: 1.15;
+        margin: 1.5em 0 0.5em;
+      }
+      .prerender--page h1 { font-size: 40px; margin-top: 0; }
+      .prerender--page h2 { font-size: 28px; }
+      .prerender--page p,
+      .prerender--page ul { margin: 0 0 1em; }
+      .prerender--page ul { padding-left: 1.2em; }
+      .prerender--page a { color: #ffebe3; }
+
+      /* The prerendered nav is rendered without a viewport, so it carries the
+         nav's mobile sizes inline; these are its desktop ones, until the app's
+         own nav (which measures) takes over. See Navigation.jsx. */
+      @media (min-width: 1024px) {
+        #prerender nav > div > a { font-size: 36px !important; }
+        #prerender .site-nav__items { gap: 34px !important; }
+        #prerender .site-nav__items > * { font-size: 24px !important; }
+      }
     </style>
+    <!-- Without JavaScript there is no scene, so the prerendered page is the site. -->
+    <noscript>
+      <style>
+        body { overflow: auto; }
+        .prerender--hidden {
+          position: static;
+          width: auto;
+          height: auto;
+          margin: 0 auto;
+          overflow: visible;
+          clip: auto;
+          clip-path: none;
+          white-space: normal;
+        }
+      </style>
+    </noscript>
   </head>
   <body>
+    <!-- scripts/prerender.mjs puts the route's readable content here, so it is in
+         the HTML before any JavaScript runs. A sibling of #root rather than inside
+         it, so mounting React does not wipe it; the app takes it down once its
+         own copy is on screen (src/seo/prerenderedContent.js). -->
+    <div id="prerender"><!--prerender-html--></div>
     <div id="root"></div>
 
     <script type="module" src="/src/main.jsx"></script>

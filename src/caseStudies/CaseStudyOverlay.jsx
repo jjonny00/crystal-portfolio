@@ -13,7 +13,7 @@
 // content fades in on a stagger. Exit fades the whole layer out, revealing the
 // crystal — which has already resumed rendering by then.
 
-import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { getCaseStudyEntry, hasCaseStudy, loadCaseStudy } from './registry';
 import {
   backgroundColorForTone,
@@ -43,6 +43,24 @@ const SCENE_KEEPALIVE_MARGIN = 240;
 // every parent update; cache one per slug.
 const lazyComponentCache = new Map();
 
+// Case studies whose module has already arrived (preloadCaseStudy). Rendered
+// directly rather than through React.lazy, which would still suspend for one
+// pass and blank the layer even though the code is in hand. That pass matters
+// for a deep link: the page is already on screen from the prerendered HTML, and
+// the app has to take it over without a flash of nothing.
+const resolvedComponentCache = new Map();
+
+/**
+ * Fetches a case study's module ahead of rendering it. The prerender awaits it so
+ * renderToString gets the whole page; the client awaits it before mounting on a
+ * /work/<slug> deep link.
+ */
+export const preloadCaseStudy = (slug) =>
+  loadCaseStudy(slug).then((module) => {
+    resolvedComponentCache.set(slug, module.default);
+    return module.default;
+  });
+
 const getLazyCaseStudy = (slug) => {
   if (!lazyComponentCache.has(slug)) {
     lazyComponentCache.set(
@@ -60,6 +78,15 @@ const CaseStudyOverlay = ({
   onToneChange = null,
   /** Reports whether any on-screen section is showing the 3D scene through it. */
   onSceneNeededChange = null,
+  /**
+   * Start already open, with no wash and no entrance stagger. For arriving on a
+   * case study's own URL, where the page is already showing (prerendered) and
+   * animating it in again would only replay what the reader has seen. Read on
+   * mount only; a later open animates as usual.
+   */
+  initiallyOpen = false,
+  /** With `initiallyOpen`: where the reader had already scrolled the prerendered page. */
+  initialScrollTop = 0,
 }) => {
   const scrollRef = useRef(null);
   const slug = project?.caseStudySlug || null;
@@ -68,8 +95,12 @@ const CaseStudyOverlay = ({
 
   // 'closed' -> 'entering' -> 'open' -> 'exiting' -> 'closed'. The exit phase is
   // why closing cannot just unmount: the layer has to stay up while it fades.
-  const [phase, setPhase] = useState('closed');
-  const [backdropUp, setBackdropUp] = useState(false);
+  const startOpen = initiallyOpen && open && supported;
+  const [phase, setPhase] = useState(startOpen ? 'open' : 'closed');
+  const [backdropUp, setBackdropUp] = useState(startOpen);
+  // True from an instant start until the layer first closes.
+  const [instant, setInstant] = useState(startOpen);
+  if (instant && phase !== 'open') setInstant(false);
 
   const colors = useMemo(
     () => normalizeCaseStudyColors(project?.caseStudyColors),
@@ -114,6 +145,16 @@ const CaseStudyOverlay = ({
 
   const mounted = phase !== 'closed';
   const exiting = phase === 'exiting';
+
+  // Taking over a prerendered page the reader may already be partway down.
+  // Before paint, so the swap never shows the top of the page.
+  useLayoutEffect(() => {
+    if (startOpen && initialScrollTop && scrollRef.current) {
+      scrollRef.current.scrollTop = initialScrollTop;
+    }
+    // Mount only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Every open starts at the top of the case study, regardless of where the
   // reader left the previous one.
@@ -186,7 +227,7 @@ const CaseStudyOverlay = ({
 
   if (!mounted || !supported) return null;
 
-  const CaseStudy = getLazyCaseStudy(slug);
+  const CaseStudy = resolvedComponentCache.get(slug) || getLazyCaseStudy(slug);
 
   return (
     <div
@@ -195,6 +236,7 @@ const CaseStudyOverlay = ({
       data-case-study={slug}
       data-phase={phase}
       data-entry={entryMode}
+      data-instant={instant ? '' : undefined}
       style={{
         position: 'fixed',
         inset: 0,
@@ -225,7 +267,9 @@ const CaseStudyOverlay = ({
             inset: 0,
             backgroundColor: entryColor,
             opacity: backdropUp ? 1 : 0,
-            transition: `opacity ${CASE_STUDY_ENTER.washMs}ms ease-out ${CASE_STUDY_ENTER.offsetMs}ms`,
+            transition: instant
+              ? 'none'
+              : `opacity ${CASE_STUDY_ENTER.washMs}ms ease-out ${CASE_STUDY_ENTER.offsetMs}ms`,
             pointerEvents: 'none',
           }}
         />

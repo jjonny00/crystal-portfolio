@@ -1,6 +1,6 @@
 // src/App.jsx - UPDATED: Integration with V2 performance and loading system
 
-import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import './styles/scroll-snap.css';
 import './styles/app-frame.css';
 
@@ -49,12 +49,18 @@ import { foregroundColorForTone } from './caseStudies/system/caseStudyTheme';
 import { caseStudyOpaqueAtMs } from './caseStudies/transitionTiming';
 import { CATALOG_PROJECT } from './caseStudies/catalog/catalogProject';
 import { getProjectByAnyKey } from './data/projects';
+import SceneStandIn, { SCENE_STAND_IN_FADE_MS } from './components/ui/SceneStandIn';
 
 import { isMobileDevice } from './utils/isMobileDevice.js';
 import {
   NAVIGATION_DESTINATIONS,
   createNavigationIntentRequester,
 } from './navigation/navigationIntent';
+import { parsePath } from './navigation/routes';
+import { routeToSectionId, useRouteSync } from './navigation/useRouteSync';
+import { useDocumentHead } from './seo/useDocumentHead';
+import { getPrerenderedScrollTop, removePrerenderedContent } from './seo/prerenderedContent';
+import { preloadFractureAssets } from './loader/preloadFractureAssets';
 
 const projectKeys = ['empathy', 'narrative', 'craft', 'system', 'leadership', 'exploration'];
 const zoneKeys = ['intro', 'hero', 'overview', 'about'];
@@ -64,6 +70,11 @@ const zoneKeys = ['intro', 'hero', 'overview', 'about'];
 // that is fully opaque, so freezing (and hiding) the canvas any earlier would
 // blink it out mid-transition. Derived, not a second copy of the timing.
 const SCENE_FREEZE_DELAY_MS = caseStudyOpaqueAtMs + 260;
+
+// Case-study fast path: how long the stand-in sky holds after the scene mounts,
+// long enough for its first frames (shader compile, environment map), before it
+// fades off the scene (SceneStandIn).
+const SCENE_STAND_IN_HOLD_MS = 900;
 
 
 // How the copy is kept legible over a scene that swings from near-black to
@@ -415,12 +426,40 @@ const LOADER_EXIT_FADE_MS = LOADER_SCENE_REVEAL_DELAY_MS + LOADER_OVERLAY_FADE_M
 
 function App() {
   // ========================================
+  // Arrival: which URL the reader came in on
+  // ========================================
+  // Read once. /work/<slug> with a case study opens it straight away, readable
+  // while the scene loads behind it (the "fast path"); /about, /work and a
+  // project without a case study wait for the loader as usual, then land in place
+  // without the intro. An unknown path is the hero (the host serves those a 404
+  // page of its own; this only covers a dev server).
+  const [initialRoute] = useState(
+    () => parsePath(window.location.pathname) || parsePath('/')
+  );
+  const caseStudyDeepLink = initialRoute.destination === NAVIGATION_DESTINATIONS.CASE_STUDY;
+  // Where the scene lands once it is up. Cleared when used.
+  const pendingLandingRef = useRef(
+    initialRoute.destination === NAVIGATION_DESTINATIONS.HERO ? null : initialRoute
+  );
+
+  // ========================================
   // UPDATED: V2 Performance and Asset Loading System
   // ========================================
   const [isAppReady, setIsAppReady] = useState(false);
   const [initProgress, setInitProgress] = useState(0);
   const [exitLoader, setExitLoader] = useState(false);
   const [showLoader, setShowLoader] = useState(true);
+  // The fracture textures the scene samples. Already loaded by the time App
+  // mounts on a normal arrival (main.jsx awaits them); on the case-study fast
+  // path they arrive behind the page, so the scene waits for them here.
+  const [fractureReady, setFractureReady] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    preloadFractureAssets()
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setFractureReady(true); });
+    return () => { cancelled = true; };
+  }, []);
   const loaderHideTimeoutRef = useRef(null);
   const loaderStartFadeTimeoutRef = useRef(null);
   const loaderRevealTimeoutRef = useRef(null);
@@ -472,7 +511,7 @@ function App() {
   const [activeNavLabel, setActiveNavLabel] = useState(null);
   // The section the scrollable content has settled on. Drives the About scrim so
   // it stays in sync with the section content on both scroll and nav clicks.
-  const [settledSection, setSettledSection] = useState('hero');
+  const [settledSection, setSettledSection] = useState(() => routeToSectionId(initialRoute));
   const [perfDebug, setPerfDebug] = useState(false);
   const [snapSpeed, setSnapSpeed] = useState('medium');
   const [config, setConfig] = useState({
@@ -506,8 +545,12 @@ function App() {
     vignette: true
   });
   const [postProcessingConfig, setPostProcessingConfig] = useState(config.postProcessing);
-  const [viewMode, setViewMode] = useState('overview');
-  const [activeProjectId, setActiveProjectId] = useState(null);
+  const [viewMode, setViewMode] = useState(caseStudyDeepLink ? 'caseStudy' : 'overview');
+  const [activeProjectId, setActiveProjectId] = useState(
+    caseStudyDeepLink ? initialRoute.projectId : null
+  );
+  const viewModeRef = useRef(viewMode);
+  viewModeRef.current = viewMode;
 
   // Case study overlay: the project whose case study is (or would be) open.
   const activeProject = useMemo(
@@ -642,7 +685,7 @@ function App() {
   // UPDATED: App ready detection with V2 system
   // ========================================
   useEffect(() => {
-    if (performanceReady && assetsReady && initProgress >= 100 && !exitLoader) {
+    if (performanceReady && assetsReady && fractureReady && initProgress >= 100 && !exitLoader) {
       if (import.meta.env.DEV) {
         console.log('🎯 App is ready - V2 system initialized:', {
           performanceReady,
@@ -659,7 +702,7 @@ function App() {
       setInitProgress(100);
       beginLoaderFadeOut();
     }
-  }, [beginLoaderFadeOut, performanceReady, assetsReady, initProgress, exitLoader, performanceTier, performanceProfile]);
+  }, [beginLoaderFadeOut, performanceReady, assetsReady, fractureReady, initProgress, exitLoader, performanceTier, performanceProfile]);
 
   useEffect(() => () => {
     if (loaderHideTimeoutRef.current) {
@@ -823,10 +866,16 @@ function App() {
   const handleContactClick = useCallback(() => {}, []);
 
   const handleActiveProjectChange = useCallback((nextProjectId) => {
-    setActiveProjectId(nextProjectId);
+    // An open case study keeps its project. On a deep link the content layer
+    // mounts underneath the open case study and reports its passing sections as
+    // it settles; letting those through would swap the case study's project out
+    // from under it (or null it, which closes the layer).
+    if (viewModeRef.current !== 'caseStudy') setActiveProjectId(nextProjectId);
     setViewMode((prev) => {
-      if (!nextProjectId) return 'overview';
+      // Checked first: a passing null (the section between two settles) is no
+      // reason to close a case study.
       if (prev === 'caseStudy') return prev;
+      if (!nextProjectId) return 'overview';
       return 'project';
     });
   }, []);
@@ -838,6 +887,108 @@ function App() {
   }, []);
 
   const handleBackToProject = closeCaseStudy;
+
+  // ========================================
+  // Deep links and history
+  // ========================================
+  // The scene and the content layer exist once the loader hands off (or, on the
+  // case-study fast path, once the scene has finished loading behind the page).
+  const sceneMounted = isAppReady || exitLoader;
+
+  // Puts the scene on a project the way a facet click does: jump the content
+  // layer to the project's section, then hold the camera on its facet.
+  const landProjectInScene = useCallback((projectId) => {
+    const section = document.getElementById(`project-${projectId}`);
+    const scrollContainer = document.querySelector('.scroll-container');
+    if (section && scrollContainer) {
+      scrollContainer.scrollTo({ top: section.offsetTop, behavior: 'instant' });
+    }
+    fixedCanvasRef.current?.directSelectProject?.(projectId);
+  }, []);
+
+  // The prerendered copy of the page comes down once the app's own is showing.
+  // Ahead of the landing below: the prerendered home page carries the same
+  // section headings, and nothing should be found in it by mistake.
+  useLayoutEffect(() => {
+    if (caseStudyDeepLink || sceneMounted) removePrerenderedContent();
+  }, [caseStudyDeepLink, sceneMounted]);
+
+  // Arriving on /work, /about or /work/<slug>: land there directly, with no intro
+  // and no hero -> overview cinematic. Both are keyed off the controller being in
+  // the hero state when the camera mounts; setting the destination state here, in
+  // the commit that mounts the content layer and before the canvas has rendered
+  // its scene, means the camera never sees hero at all.
+  useLayoutEffect(() => {
+    if (!sceneMounted) return;
+    const landing = pendingLandingRef.current;
+    if (!landing) return;
+    pendingLandingRef.current = null;
+
+    switch (landing.destination) {
+      case NAVIGATION_DESTINATIONS.PROJECT:
+      case NAVIGATION_DESTINATIONS.CASE_STUDY:
+        landProjectInScene(landing.projectId);
+        break;
+      case NAVIGATION_DESTINATIONS.OVERVIEW:
+      case NAVIGATION_DESTINATIONS.ABOUT:
+        fixedCanvasRef.current?.directSelectZone?.(landing.destination);
+        scrollToSection(landing.destination, 'auto');
+        break;
+      default:
+        break;
+    }
+  }, [sceneMounted, landProjectInScene, scrollToSection]);
+
+  // Case-study fast path: the case study's transparent sections show the scene
+  // through them, and until it has loaded there is nothing there but the page
+  // ground. This stands in with the project's own sky, then crossfades out once
+  // the scene has had time to draw, so the page warms into the crystal rather
+  // than the crystal popping in under it.
+  const [sceneStandIn, setSceneStandIn] = useState(caseStudyDeepLink ? 'shown' : 'gone');
+  useEffect(() => {
+    if (sceneStandIn !== 'shown' || !sceneMounted) return undefined;
+    const timeoutId = setTimeout(() => setSceneStandIn('fading'), SCENE_STAND_IN_HOLD_MS);
+    return () => clearTimeout(timeoutId);
+  }, [sceneMounted, sceneStandIn]);
+  useEffect(() => {
+    if (sceneStandIn !== 'fading') return undefined;
+    const timeoutId = setTimeout(() => setSceneStandIn('gone'), SCENE_STAND_IN_FADE_MS);
+    return () => clearTimeout(timeoutId);
+  }, [sceneStandIn]);
+
+  // Back / Forward onto an entry somewhere else on the page.
+  const navigateFromHistory = useCallback((route) => {
+    if (!sceneMounted) {
+      pendingLandingRef.current = route.destination === NAVIGATION_DESTINATIONS.HERO ? null : route;
+      return;
+    }
+    if (
+      route.destination === NAVIGATION_DESTINATIONS.PROJECT ||
+      route.destination === NAVIGATION_DESTINATIONS.CASE_STUDY
+    ) {
+      landProjectInScene(route.projectId);
+      return;
+    }
+    requestNavigationIntent({
+      destination: route.destination,
+      source: 'history',
+      behavior: 'auto',
+      legacyAction: 'directSelectZone+scrollToSection',
+    });
+  }, [sceneMounted, landProjectInScene, requestNavigationIntent]);
+
+  const routePath = useRouteSync({
+    initialRoute,
+    sceneMounted,
+    settledSection,
+    caseStudyOpen,
+    activeProjectId,
+    onOpenCaseStudy: handleOpenCaseStudy,
+    onCloseCaseStudy: closeCaseStudy,
+    onNavigate: navigateFromHistory,
+  });
+
+  useDocumentHead(parsePath(routePath));
 
   const handleConfigUpdate = useCallback((newConfig) => {
     setConfig(newConfig);
@@ -1078,7 +1229,11 @@ function App() {
     statusMessage = 'Finishing up...';
   }
 
-  if (!isAppReady && !exitLoader) {
+  // The case-study fast path renders the full tree from the start (the overlay
+  // has to keep one place in it, or it would remount, and lose its scroll, the
+  // moment the scene arrives), with the scene's own layers held back until it
+  // has loaded. Every other arrival keeps the loader-only first screen.
+  if (!sceneMounted && !caseStudyDeepLink) {
     // The frame ships with the loader too, otherwise the corners would square off
     // for the whole load and then round on hand-off.
     return (
@@ -1223,6 +1378,7 @@ function App() {
       )}
 
       {/* Master Animation Coordinator */}
+      {sceneMounted && (
       <MasterAnimationCoordinator
         debugMode={import.meta.env.DEV}
         onAnimationStateChange={handleAnimationStateChange}
@@ -1255,6 +1411,7 @@ function App() {
           paused={sceneFrozen}
         />
       </MasterAnimationCoordinator>
+      )}
 
       {/* About scrim — fixed viewport layer sitting in the band between the 3D
           canvas and the scrollable content. Fades in/out with the About zone and
@@ -1291,10 +1448,12 @@ function App() {
       {/* Vertical energy line — one continuous 1px rail from the hero CTA
           through the full work overview. Fixed layer between the 3D canvas and
           the scrollable content; decorative and pointer-transparent. */}
-      {!hideAllUI && <VerticalEnergyLine />}
+      {sceneMounted && !hideAllUI && <VerticalEnergyLine />}
 
       {/* Scrollable Content */}
+      {sceneMounted && (
       <ScrollablePortfolio
+        initialSettledSectionId={routeToSectionId(initialRoute)}
         snapSpeed={snapSpeed}
         hideContent={hideAllUI}
         viewMode={viewMode}
@@ -1304,6 +1463,14 @@ function App() {
         onBackToProject={handleBackToProject}
         onSettledSectionChange={setSettledSection}
       />
+      )}
+
+      {/* Stand-in for the scene behind a deep-linked case study (see
+          sceneStandIn). Directly under the case study, over everything else;
+          gone the moment the case study closes, since the loader covers that. */}
+      {sceneStandIn !== 'gone' && caseStudyOpen && (
+        <SceneStandIn projectId={initialRoute.projectId} fading={sceneStandIn === 'fading'} />
+      )}
 
       {/* Case study — a self-contained layer over the portfolio. Sits below the
           top nav so the site navigation stays available while reading. */}
@@ -1313,6 +1480,8 @@ function App() {
         onClose={closeOverlay}
         onToneChange={setCaseStudyNavTone}
         onSceneNeededChange={setCaseStudySceneNeeded}
+        initiallyOpen={caseStudyDeepLink}
+        initialScrollTop={caseStudyDeepLink ? getPrerenderedScrollTop() : 0}
       />
 
       {/* UI Controls */}
@@ -1432,7 +1601,11 @@ function App() {
         />
       )}
 
-      {showLoader && (
+      {/* On the case-study fast path the loader stays out of sight while the
+          case study is up — the reader is reading, and the scene loads quietly
+          behind. It shows only if they close the case study before the scene is
+          ready, and then hands off exactly as it would on a normal arrival. */}
+      {showLoader && !(caseStudyDeepLink && caseStudyOpen) && (
         <LoaderV2
           initProgress={exitLoader ? 1 : initProgress / 100}
           assetProgress={exitLoader ? 1 : assetProgressHook / 100}

@@ -13,6 +13,8 @@ import {
 import { useLayoutConfig } from '../../hooks/useLayoutConfig';
 import { getProjectIdBySceneFacetKey } from '../../data/projects';
 import { setRailActiveProject, setRailOverviewVisible } from '../../lib/verticalRailSignal';
+import { inPageLinkHandler } from '../../navigation/linkClick';
+import { projectPath } from '../../navigation/routes';
 import '../../styles/facet-label.css';
 
 // The column hangs off the vertical energy line, which publishes its measured x
@@ -86,13 +88,14 @@ const OptimizedLabel = React.memo(function OptimizedLabel({
   }, []);
 
   // A list item, not a heading: the project sections below carry each project's
-  // heading, and the overview is the list of them.
+  // heading, and the overview is the list of them. Each one is a link to the
+  // project's own URL, so the list is the site's index of its work for anything
+  // that follows links; a plain click still flies the camera in place.
   return (
     <li
       className="facet-label-optimized"
       onPointerEnter={() => onHover?.(runtimeKey, true)}
       onPointerLeave={() => onHover?.(runtimeKey, false)}
-      onClick={onClick}
       // Read by VerticalEnergyLine to measure the active strip's bounds — this
       // element spans exactly the title through the bottom of the subhead.
       data-rail-project={runtimeKey}
@@ -106,16 +109,22 @@ const OptimizedLabel = React.memo(function OptimizedLabel({
         cursor: 'pointer'
       }}
     >
-      <div ref={titleRef} data-facet-key={runtimeKey}>
-        <Headline
-          as="p"
-          className="type-headline-sm label-title"
-          style={{ margin: 0 }}
-        >
-          {project.label}
-        </Headline>
-      </div>
-      <p className="type-subhead-sm label-description">{project.tagline}</p>
+      <a
+        href={projectPath(runtimeKey)}
+        onClick={inPageLinkHandler(onClick)}
+        style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}
+      >
+        <div ref={titleRef} data-facet-key={runtimeKey}>
+          <Headline
+            as="p"
+            className="type-headline-sm label-title"
+            style={{ margin: 0 }}
+          >
+            {project.label}
+          </Headline>
+        </div>
+        <p className="type-subhead-sm label-description">{project.tagline}</p>
+      </a>
     </li>
   );
 });

@@ -3,6 +3,7 @@ import { animated, useSpring } from '@react-spring/web';
 import Headline from '../ui/Headline';
 import KnockoutButton from '../ui/KnockoutButton';
 import { getScrimTone } from '../../legibility/scrimTone';
+import { projectPath } from '../../navigation/routes';
 
 // The body copy's ink is authored, not measured: every project names it in
 // projects.js under `scrim.darkText`, and that answer holds at every screen size.
@@ -256,6 +257,7 @@ const ProjectFocusSection = ({
               label={displayProject.cta}
               color={headlineColor}
               isMobile={isMobile}
+              href={projectPath(project.facetKey || project.id)}
               onClick={() => onOpenCaseStudy?.(project.facetKey || project.id)}
               springStyle={contentSpring}
               style={{ margin: isMobile ? '1rem 0 0' : '46px 0 0' }}

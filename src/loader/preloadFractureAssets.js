@@ -8,7 +8,17 @@ const FRACTURE_RING_URL = '/assets/textures/fractureRing03.jpg';
 const GLOW_SPHERE_URL = '/assets/textures/glowing-sphere06-noise.jpg';
 const WIZARD_SMOKE_URL = '/assets/textures/wizard-smoke02.webp';
 
-export async function preloadFractureAssets() {
+let preloadPromise = null;
+
+// One load, however many callers. main.jsx starts it at boot; on the case-study
+// fast path it is not awaited there (the page is already readable), so App waits
+// on the same promise before mounting the scene that samples these textures.
+export function preloadFractureAssets() {
+  if (!preloadPromise) preloadPromise = loadFractureAssets();
+  return preloadPromise;
+}
+
+async function loadFractureAssets() {
   const loader = new THREE.TextureLoader();
 
   const [ring, glow, smoke] = await Promise.all([

@@ -972,6 +972,23 @@
     calc(var(--cs-enter-offset, 450ms) + var(--cs-enter-back, 1640ms)) backwards;
 }
 
+/* Arrived on the case study's own URL: the page is already on screen (it was
+   prerendered), so nothing animates in, and a wash-mode root takes its backstop
+   straight away rather than waiting on a wash that never runs. */
+.cs-overlay[data-instant] .cs-section,
+.cs-overlay[data-instant] .cs-hero__title,
+.cs-overlay[data-instant] .cs-hero__subtitle,
+.cs-overlay[data-instant] .cs-hero__media,
+.cs-overlay[data-instant] .cs-hero__text,
+.cs-overlay[data-instant] .cs-back {
+  animation: none;
+}
+
+.cs-overlay[data-instant]:not([data-entry='reveal']) .cs-root {
+  animation: none;
+  background-color: var(--cs-color-b);
+}
+
 /* --------------------------------------------------------------------------
    Mobile — the supplied mobile references, not a shrunk desktop grid
    -------------------------------------------------------------------------- */

@@ -18,7 +18,10 @@ const ScrollablePortfolio = ({
   onActiveProjectChange = null,
   onOpenCaseStudy = null,
   onBackToProject = null,
-  onSettledSectionChange = null
+  onSettledSectionChange = null,
+  // The section a deep link lands on (/about, /work/<slug>). Seeded so the first
+  // report up is where the reader is arriving rather than a passing 'hero'.
+  initialSettledSectionId = 'hero'
 }) => {
   const { variant } = useLayoutConfig();
   const hoverCapable = useHoverCapable();
@@ -26,7 +29,7 @@ const ScrollablePortfolio = ({
   const containerRef = useRef(null);
   const settleTimeoutRef = useRef(null);
 
-  const [settledSectionId, setSettledSectionId] = useState('hero');
+  const [settledSectionId, setSettledSectionId] = useState(initialSettledSectionId);
   const overviewInteractionMode = settledSectionId === 'overview';
 
   useEffect(() => {

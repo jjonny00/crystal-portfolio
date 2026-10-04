@@ -1,0 +1,40 @@
+# Netlify build and serving rules.
+#
+# Routing needs no rules here. scripts/prerender.mjs writes a real file for every
+# route (work/mesa.html, about.html, ...), which Pretty URLs (on by default)
+# serves at /work/mesa with no redirect, and dist/404.html is served, with a 404
+# status, for anything else. A catch-all "/* /index.html 200" rewrite would turn
+# every unknown URL into a soft 404, which is exactly what search engines
+# penalise, so there deliberately isn't one.
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# Vite's build output (vite.config.js assetsDir), fingerprinted by content hash,
+# so a changed file is a new URL and the old one can be cached forever.
+[[headers]]
+  for = "/_app/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# public/assets/ (models, HDRIs, textures) is copied in unhashed: replacing a
+# file keeps its URL. A day, then revalidate by ETag.
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=86400, must-revalidate"
+
+# HTML must always revalidate, so a deploy is visible on the next load.
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/og/*"
+  [headers.values]
+    Cache-Control = "public, max-age=86400"

@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import { MQ_NAV_DESKTOP } from '../../config/breakpoints';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
+import { inPageLinkHandler } from '../../navigation/linkClick';
+import { NAVIGATION_DESTINATIONS } from '../../navigation/navigationIntent';
+import { pathFor } from '../../navigation/routes';
+import { CONTACT_EMAIL } from '../../seo/site';
 
 const NAV_BASE_STYLE = {
   position: 'fixed',
@@ -26,6 +30,13 @@ const NAV_INNER_STYLE = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between'
+};
+
+// The nav items are links (crawlable, and openable in a new tab) styled as the
+// bare type they always were.
+const LINK_RESET_STYLE = {
+  display: 'inline-block',
+  textDecoration: 'none'
 };
 
 const NAME_BUTTON_STYLE = {
@@ -82,25 +93,42 @@ const NAV_ITEM_BASE_STYLE = {
   transition: 'opacity 0.3s ease, color 0.3s ease'
 };
 
-const NavItem = ({ label, onClick, disabled, isActive, fontSize, color }) => {
+const NavItem = ({ label, href, onClick, disabled, isActive, fontSize, color }) => {
   const [isHovered, setIsHovered] = useState(false);
   const active = isActive || isHovered;
 
+  const sharedProps = {
+    onMouseEnter: () => setIsHovered(true),
+    onMouseLeave: () => setIsHovered(false),
+    style: {
+      ...NAV_ITEM_BASE_STYLE,
+      ...(href ? LINK_RESET_STYLE : null),
+      ...(color ? { color } : null),
+      ...(href && disabled ? { pointerEvents: 'none' } : null),
+      fontSize,
+      opacity: disabled ? 0.6 : active ? 1 : 0.7
+    }
+  };
+
+  // No href means nothing to link to yet (CONTACT without an address).
+  if (!href) {
+    return (
+      <button type="button" onClick={onClick} disabled={disabled} {...sharedProps}>
+        {label}
+      </button>
+    );
+  }
+
   return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      style={{
-        ...NAV_ITEM_BASE_STYLE,
-        ...(color ? { color } : null),
-        fontSize,
-        opacity: disabled ? 0.6 : active ? 1 : 0.7
-      }}
+    <a
+      href={href}
+      onClick={inPageLinkHandler(onClick)}
+      aria-disabled={disabled || undefined}
+      aria-current={isActive ? 'location' : undefined}
+      {...sharedProps}
     >
       {label}
-    </button>
+    </a>
   );
 };
 
@@ -121,9 +149,12 @@ const Navigation = ({ activeLabel = null, onHomeClick, onWorkClick, onAboutClick
   const isDesktop = useMediaQuery(MQ_NAV_DESKTOP);
 
   const navItems = [
-    { label: 'WORK', onClick: onWorkClick },
-    { label: 'ABOUT', onClick: onAboutClick },
-    { label: 'CONTACT', onClick: onContactClick }
+    { label: 'WORK', href: pathFor(NAVIGATION_DESTINATIONS.OVERVIEW), onClick: onWorkClick },
+    { label: 'ABOUT', href: pathFor(NAVIGATION_DESTINATIONS.ABOUT), onClick: onAboutClick },
+    // A mailto: is left to the browser; there is no in-page version of it.
+    CONTACT_EMAIL
+      ? { label: 'CONTACT', href: `mailto:${CONTACT_EMAIL}`, onClick: null }
+      : { label: 'CONTACT', onClick: onContactClick }
   ];
 
   return (
@@ -134,19 +165,22 @@ const Navigation = ({ activeLabel = null, onHomeClick, onWorkClick, onAboutClick
       }}
     >
       <div style={NAV_INNER_STYLE}>
-        <button
-          onClick={onHomeClick}
+        <a
+          href={pathFor(NAVIGATION_DESTINATIONS.HERO)}
+          onClick={inPageLinkHandler(onHomeClick)}
           style={{
             ...NAME_BUTTON_STYLE,
+            ...LINK_RESET_STYLE,
+            ...(isTransitioning ? { pointerEvents: 'none' } : null),
             ...(color ? { color } : null),
             fontSize: isDesktop ? '36px' : '28px',
             opacity: isTransitioning ? 0.6 : 1
           }}
-          disabled={isTransitioning}
-          aria-label="Go to hero section"
+          aria-disabled={isTransitioning || undefined}
+          aria-label="Jon Shaw, home"
         >
           J.JONSHAW
-        </button>
+        </a>
 
         {/* Steps back while a media viewer is open — see index.css. The
             wordmark stays: it is the way back out of a case study, and it sits
@@ -159,6 +193,7 @@ const Navigation = ({ activeLabel = null, onHomeClick, onWorkClick, onAboutClick
             <NavItem
               key={item.label}
               label={item.label}
+              href={item.href}
               onClick={item.onClick}
               disabled={isTransitioning}
               isActive={activeLabel === item.label}

@@ -271,3 +271,18 @@ html[data-media-viewer='open'] .site-nav__items {
     --page-nav-bottom: 62px;
   }
 }
+
+/* Text for screen readers and search engines that the design carries some other
+   way: the hero headline's "Jon Shaw", which on screen is the nav wordmark. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}

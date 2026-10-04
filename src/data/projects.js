@@ -14,6 +14,17 @@ import {
 export const projects = [
   {
     id: 'project01',
+    // URL identity: /work/slipstream. Stable once published, since inbound links
+    // and search results point at it.
+    slug: 'slipstream',
+    // Search result + share card. Title gets ' | Jon Shaw' appended; keep the
+    // description under ~160 characters so it is not cut off.
+    seo: {
+      title: 'Slipstream: Designing Around Essence',
+      description:
+        'A VR combat prototype in Unreal Engine where one resource, Essence, powers movement, weapons, and the world itself, unifying traversal, combat, and progression.',
+      image: '/og/slipstream.jpg'
+    },
     facetKey: 'project01',
     modelKey: 'project01',
     crystalKey: 'leadership',
@@ -52,6 +63,17 @@ export const projects = [
   },
   {
     id: 'project02',
+    // URL identity: /work/mesa. Stable once published, since inbound links
+    // and search results point at it.
+    slug: 'mesa',
+    // Search result + share card. Title gets ' | Jon Shaw' appended; keep the
+    // description under ~160 characters so it is not cut off.
+    seo: {
+      title: 'Mesa: How Turns Create Tension',
+      description:
+        'Case study: designing Mesa, an asynchronous iOS strategy game where stronger powers hit softer. Paper prototyped, then 150K downloads in its first week.',
+      image: '/og/mesa.jpg'
+    },
     facetKey: 'project02',
     modelKey: 'project02',
     crystalKey: 'exploration',
@@ -98,6 +120,17 @@ export const projects = [
   },
   {
     id: 'project03',
+    // URL identity: /work/fundseeder. Stable once published, since inbound links
+    // and search results point at it.
+    slug: 'fundseeder',
+    // Search result + share card. Title gets ' | Jon Shaw' appended; keep the
+    // description under ~160 characters so it is not cut off.
+    seo: {
+      title: 'FundSeeder: Designing the Ladder',
+      description:
+        'Case study: redesigning FundSeeder around a competitive ladder that gives 1,000+ ranked traders meaningful goals, relevant rivals, and reasons to progress.',
+      image: '/og/fundseeder.jpg'
+    },
     facetKey: 'project03',
     modelKey: 'project03',
     crystalKey: 'craft',
@@ -148,6 +181,17 @@ export const projects = [
   },
   {
     id: 'project04',
+    // URL identity: /work/flying-axes. Stable once published, since inbound links
+    // and search results point at it.
+    slug: 'flying-axes',
+    // Search result + share card. Title gets ' | Jon Shaw' appended; keep the
+    // description under ~160 characters so it is not cut off.
+    seo: {
+      title: 'Flying Axes: Making Room for Play',
+      description:
+        'Case study: a connected axe-throwing venue system. Scoreboards, coach tablets, and venue displays on one edge network, deployed across three venues.',
+      image: '/og/flying-axes.jpg'
+    },
     facetKey: 'project04',
     modelKey: 'project04',
     crystalKey: 'system',
@@ -190,6 +234,17 @@ export const projects = [
   },
   {
     id: 'project05',
+    // URL identity: /work/forest-giant. Stable once published, since inbound links
+    // and search results point at it.
+    slug: 'forest-giant',
+    // Search result + share card. Title gets ' | Jon Shaw' appended; keep the
+    // description under ~160 characters so it is not cut off.
+    seo: {
+      title: 'Forest Giant: Building the Practice',
+      description:
+        'How I helped Forest Giant hold its quality bar past 30 people: the process, structure, and design culture behind ambitious interactive work.',
+      image: '/og/forest-giant.jpg'
+    },
     facetKey: 'project05',
     modelKey: 'project05',
     crystalKey: 'narrative',
@@ -225,6 +280,17 @@ export const projects = [
   },
   {
     id: 'project06',
+    // URL identity: /work/ge-experience-centers. Stable once published, since inbound links
+    // and search results point at it.
+    slug: 'ge-experience-centers',
+    // Search result + share card. Title gets ' | Jon Shaw' appended; keep the
+    // description under ~160 characters so it is not cut off.
+    seo: {
+      title: 'GE Experience Centers: A Space That Follows the Conversation',
+      description:
+        'Case study: evolving GE’s collaboration centers in Dubai, Shanghai, and Austin into a shared platform that guides reshape around each visit.',
+      image: '/og/ge-experience-centers.jpg'
+    },
     facetKey: 'project06',
     modelKey: 'project06',
     crystalKey: 'empathy',
