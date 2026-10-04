@@ -19,9 +19,21 @@ const SceneStandIn = ({ projectId, fading = false }) => {
       aria-hidden="true"
       data-scene-stand-in=""
       style={{
-        position: 'fixed',
+        // Absolute, not fixed, and that matters. iOS 26 Safari tints its
+        // status and tool bars from any position:fixed element spanning the top
+        // edge (it ignores theme-color), so a fixed sky here turned the top of
+        // the phone the project's colour on every deep link. The document never
+        // scrolls (body is overflow:hidden; the portfolio and the case study
+        // scroll inside their own layers), so absolute sits exactly where fixed
+        // would: against #root (position:relative, min-height:100vh) in the
+        // app, against the initial containing block in the prerendered page.
+        // inset rather than a height of its own, so it never makes #root
+        // taller than the viewport and gives the document something to scroll.
+        position: 'absolute',
         inset: 0,
-        // Directly under the case study, over everything else.
+        // Directly under the case study, over everything else. (The canvas and
+        // content layers are fixed, but z-index orders across positioning
+        // schemes within the same stacking context, so this still covers them.)
         zIndex: OVERLAY_Z_INDEX - 1,
         pointerEvents: 'none',
         background: `linear-gradient(to top, ${sky.colorA}, ${sky.colorB})`,
