@@ -39,17 +39,14 @@
   --cs-nav-height: 72px;
   --cs-nav-clearance: calc(var(--cs-nav-height) + clamp(8px, 2.5vw, 24px));
 
-  /* --- type scale --- */
-  --cs-type-title: clamp(34px, calc(11.77vw - 13.3px), 190px);
-  --cs-type-subtitle: clamp(24px, calc(1.81vw + 16.77px), 48px);
-  --cs-type-heading: clamp(24px, calc(1.81vw + 16.77px), 48px);
-  --cs-type-body: clamp(16px, calc(0.60vw + 13.59px), 24px);
-  --cs-type-caption: clamp(12px, calc(0.15vw + 11.4px), 14px);
+  /* --- type ---
+     Copy takes the site's type scale (src/styles/type.css) by class. The two
+     sizes below are for annotations drawn inside a case study's own diagrams
+     (callout tags, zone labels), which sit outside the scale. */
   --cs-type-meta-label: clamp(11px, calc(0.19vw + 10.24px), 13.5px);
   --cs-type-meta-value: clamp(13.5px, calc(0.41vw + 11.83px), 19px);
-  --cs-type-outcome-value: clamp(17px, calc(0.3vw + 15.79px), 21px);
-  --cs-type-outcome-detail: clamp(13px, calc(0.15vw + 12.4px), 15px);
 
+  /* Matches .type-body's leading, so a paragraph gap is one line of body. */
   --cs-body-line: 1.45;
   --cs-paragraph-gap: calc(1em * var(--cs-body-line));
 
@@ -88,12 +85,13 @@
   position: relative;
 }
 
-/* A section can paint no background at all, letting the 3D scene behind the
-   case study show through it — Mesa's hero and its "Tight, Open, Tight" feature
-   both sit directly on the crystal facet, whose colour is the project's own.
-   Foreground colours still come from the tone, so the copy is unaffected. */
+/* A section can let the 3D scene behind the case study show through it —
+   Mesa's hero and its "Tight, Open, Tight" feature both sit on the crystal
+   facet, whose colour is the project's own. It keeps a 60% wash of its tone's
+   background so the copy has something under it. Foreground colours still come
+   from the tone, so the copy is unaffected. */
 .cs-section[data-surface='none'] {
-  background-color: transparent;
+  background-color: color-mix(in srgb, var(--cs-bg) 60%, transparent);
 }
 
 /* Horizontal page gutters. Children that bleed cancel this with a negative
@@ -112,46 +110,21 @@
   margin: 0;
 }
 
-/* The global `* { font-variation-settings: "wdth" var(--wdth, 100) }` rule in
-   index.css drives the width axis, so set --wdth rather than the property. */
+/* Face, size, weight, leading and tracking come from the type scale
+   (src/styles/type.css), applied alongside these classes in the markup:
+     .cs-title     .type-headline      project name
+     .cs-subtitle  .type-headline-sm   case study title
+     .cs-heading   .type-headline-sm   section headers
+     .cs-body      .type-body
+     .cs-caption   .type-caption
+   What stays here is colour, which follows the section's tone. */
 .cs-title,
 .cs-subtitle,
 .cs-heading {
-  font-family: var(--cs-font-sans);
-  text-transform: uppercase;
   color: var(--cs-fg);
-  text-wrap: balance;
-}
-
-.cs-title {
-  --wdth: 68;
-  font-size: var(--cs-type-title);
-  font-weight: 700;
-  line-height: 0.92;
-  letter-spacing: -0.02em;
-}
-
-.cs-subtitle {
-  --wdth: 75;
-  font-size: var(--cs-type-subtitle);
-  font-weight: 700;
-  line-height: 1.1;
-  letter-spacing: -0.01em;
-}
-
-.cs-heading {
-  --wdth: 75;
-  font-size: var(--cs-type-heading);
-  font-weight: 700;
-  line-height: 1.1;
-  letter-spacing: -0.01em;
 }
 
 .cs-body {
-  font-size: var(--cs-type-body);
-  font-weight: 300;
-  line-height: var(--cs-body-line);
-  letter-spacing: -0.01em;
   color: color-mix(in srgb, var(--cs-fg) 82%, transparent);
 }
 
@@ -198,10 +171,6 @@
 }
 
 .cs-caption {
-  font-size: var(--cs-type-caption);
-  font-weight: 300;
-  line-height: 1.45;
-  letter-spacing: 0;
   color: color-mix(in srgb, var(--cs-fg) 55%, transparent);
 }
 
@@ -572,7 +541,7 @@
 .cs-hero__media {
   grid-area: media;
   min-width: 0;
-  --cs-frame-ratio: 1.26;
+  --cs-frame-ratio: 1.5;
   /* Bleeds off the right viewport edge, per the reference. */
   margin-inline-end: calc(-1 * var(--cs-edge));
 }
@@ -625,21 +594,13 @@
   gap: clamp(18px, 1.6vw, 28px);
 }
 
+/* Label is .type-subhead-sm, value .type-body-sm (type.css). */
 .cs-meta__label {
-  font-size: var(--cs-type-meta-label);
-  font-weight: 500;
-  line-height: 1.3;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   color: color-mix(in srgb, var(--cs-fg) 55%, transparent);
   margin-bottom: 0.35em;
 }
 
 .cs-meta__value {
-  font-size: var(--cs-type-meta-value);
-  font-weight: 300;
-  line-height: 1.5;
-  letter-spacing: -0.01em;
   color: color-mix(in srgb, var(--cs-fg) 90%, transparent);
 }
 
@@ -812,29 +773,21 @@
   margin: 0;
 }
 
+/* Value is .type-subhead-sm, detail .type-body-sm (type.css). */
 .cs-outcome__value {
-  font-size: var(--cs-type-outcome-value);
-  font-weight: 600;
-  line-height: 1.2;
-  letter-spacing: -0.01em;
   color: var(--cs-fg);
   margin: 0;
 }
 
 .cs-outcome__detail {
-  font-size: var(--cs-type-outcome-detail);
-  font-weight: 300;
-  line-height: 1.35;
   color: color-mix(in srgb, var(--cs-fg) 55%, transparent);
   margin: 0.45em 0 0;
 }
 
+/* .type-body, set in the bold weight as the closing line. */
 .cs-conclusion__takeaway {
   margin-top: var(--cs-paragraph-gap);
-  font-size: var(--cs-type-body);
   font-weight: 600;
-  line-height: var(--cs-body-line);
-  letter-spacing: -0.01em;
   color: var(--cs-fg);
 }
 
@@ -1044,7 +997,7 @@
   }
 
   .cs-hero__media {
-    --cs-frame-ratio: 2.2;
+    --cs-frame-ratio: 1.5;
     margin-top: clamp(12px, 4vw, 20px);
   }
 

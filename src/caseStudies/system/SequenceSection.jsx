@@ -34,7 +34,7 @@ const SequenceSection = ({
       aria-labelledby={headingId}
     >
       {title && (
-        <h2 className="cs-heading cs-sequence__heading" id={headingId}>
+        <h2 className="type-headline-sm cs-heading cs-sequence__heading" id={headingId}>
           {title}
         </h2>
       )}

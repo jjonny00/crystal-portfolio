@@ -47,9 +47,9 @@ const CaseStudyMetadata = ({ metadata, className = '', title = 'At a glance' }) 
       <dl className="cs-meta">
         {entries.map((entry) => (
           <div className="cs-meta__group" key={entry.label}>
-            <dt className="cs-meta__label">{entry.label}</dt>
+            <dt className="type-subhead-sm cs-meta__label">{entry.label}</dt>
             {entry.values.map((value, index) => (
-              <dd className="cs-meta__value" key={`${entry.label}-${index}`}>
+              <dd className="type-body-sm cs-meta__value" key={`${entry.label}-${index}`}>
                 {typeof value === 'string' ? <CaseStudyInline text={value} /> : value}
               </dd>
             ))}

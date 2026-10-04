@@ -85,8 +85,10 @@ const OptimizedLabel = React.memo(function OptimizedLabel({
     }
   }, []);
 
+  // A list item, not a heading: the project sections below carry each project's
+  // heading, and the overview is the list of them.
   return (
-    <div
+    <li
       className="facet-label-optimized"
       onPointerEnter={() => onHover?.(runtimeKey, true)}
       onPointerLeave={() => onHover?.(runtimeKey, false)}
@@ -106,15 +108,15 @@ const OptimizedLabel = React.memo(function OptimizedLabel({
     >
       <div ref={titleRef} data-facet-key={runtimeKey}>
         <Headline
-          as="h3"
-          className="label-title"
+          as="p"
+          className="type-headline-sm label-title"
           style={{ margin: 0 }}
         >
           {project.label}
         </Headline>
       </div>
-      <div className="label-description">{project.tagline}</div>
-    </div>
+      <p className="type-subhead-sm label-description">{project.tagline}</p>
+    </li>
   );
 });
 
@@ -422,7 +424,7 @@ const FacetLabels = React.memo(function FacetLabels({
 
     rootRef.current.render(
       <>
-        <div
+        <ul
           ref={labelLayerContentRef}
           onTransitionEnd={(event) => {
             // The labels themselves now fade with a stagger, and those transition
@@ -443,7 +445,10 @@ const FacetLabels = React.memo(function FacetLabels({
           // left padding keeps the text hanging off the energy line exactly where
           // it did without the card; the vertical padding is in facet-label.css.
           className={variant === 'desktop' ? undefined : 'glass-card'}
+          aria-label="Selected work"
           style={{
+            listStyle: 'none',
+            margin: 0,
             position: 'absolute',
             width: variant === 'desktop' ? `${OVERVIEW_COLUMN.widthVw}vw` : 'auto',
             right: variant === 'desktop' ? 'auto' : 'var(--glass-card-inset)',
@@ -508,7 +513,7 @@ const FacetLabels = React.memo(function FacetLabels({
             />
             );
           })}
-        </div>
+        </ul>
 
       </>,
     );

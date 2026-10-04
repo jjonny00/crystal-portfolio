@@ -32,7 +32,7 @@ const CaseStudyOverview = ({
       aria-labelledby={headingId}
     >
       {title && (
-        <h2 className="cs-heading cs-overview__heading" id={headingId}>
+        <h2 className="type-headline-sm cs-heading cs-overview__heading" id={headingId}>
           {title}
         </h2>
       )}

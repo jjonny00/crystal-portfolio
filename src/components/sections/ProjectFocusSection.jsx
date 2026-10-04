@@ -92,17 +92,9 @@ const ProjectFocusSection = ({
     }
   });
 
-  // Shared by every line of body copy. Only the size/leading metrics differ
-  // between them, so the rest is stated once.
-  const bodyStyle = {
-    color: COPY_INK(copyInk, 0.85),
-    fontFamily: '"acumin-variable", "Acumin VF", sans-serif',
-    fontSize: isMobile ? '18px' : '24px',
-    fontStyle: 'normal',
-    fontWeight: 300,
-    lineHeight: isMobile ? '1.38' : '30px',
-    letterSpacing: isMobile ? '-0.24px' : '-0.48px'
-  };
+  // Shared by every line of body copy, which is .type-body (type.css).
+  const bodyClass = `type-body ${COPY_CLASS}`;
+  const bodyStyle = { color: COPY_INK(copyInk, 0.85) };
 
   return (
     <div
@@ -180,20 +172,14 @@ const ProjectFocusSection = ({
               inverting it would swing the hue across the whole palette. It is
               also large and heavy enough to hold its own. */}
           <animated.div style={contentSpring}>
+            {/* h2: the page's one h1 is the hero headline, and each project
+                is a section under it. */}
             <Headline
-              as="h1"
+              as="h2"
+              className="type-headline"
               style={{
                 margin: 0,
                 color: headlineColor,
-                fontFamily: '"acumin-variable", "Acumin VF", sans-serif',
-                fontSize: isMobile ? 'clamp(2.2rem, 11vw, 2.9rem)' : '96px',
-                fontStyle: 'normal',
-                fontStretch: '68%',
-                fontVariationSettings: '"wdth" 68',
-                fontWeight: 700,
-                lineHeight: isMobile ? '1' : '96px',
-                letterSpacing: isMobile ? '-0.02em' : '-1.92px',
-                textTransform: 'uppercase',
                 '--headline-ink': headlineColor
               }}
             >
@@ -202,25 +188,18 @@ const ProjectFocusSection = ({
           </animated.div>
 
           <animated.p
-            className={COPY_CLASS}
+            className={`type-subhead-sm ${COPY_CLASS}`}
             style={{
               ...contentSpring,
               margin: isMobile ? '0 0 0.2rem' : '8px 0 18px',
-              color: COPY_INK(copyInk, 0.6),
-              fontFamily: '"acumin-variable", "Acumin VF", sans-serif',
-              fontSize: isMobile ? '14px' : '16px',
-              fontStyle: 'normal',
-              fontWeight: 400,
-              lineHeight: isMobile ? '1.35' : '30px',
-              letterSpacing: isMobile ? '-0.2px' : '-0.32px',
-              textTransform: 'uppercase'
+              color: COPY_INK(copyInk, 0.6)
             }}
           >
             {displayProject.subtitle}
           </animated.p>
 
           <animated.p
-            className={COPY_CLASS}
+            className={bodyClass}
             style={{ ...contentSpring, ...bodyStyle, margin: 0 }}
           >
             {displayProject.description}
@@ -228,7 +207,7 @@ const ProjectFocusSection = ({
 
           {displayProject.secondaryCopy && (
             <animated.p
-              className={COPY_CLASS}
+              className={bodyClass}
               style={{
                 ...contentSpring,
                 ...bodyStyle,
@@ -241,7 +220,7 @@ const ProjectFocusSection = ({
 
           {displayProject.metrics && (
             <animated.p
-              className={COPY_CLASS}
+              className={bodyClass}
               style={{
                 ...contentSpring,
                 ...bodyStyle,
@@ -254,7 +233,7 @@ const ProjectFocusSection = ({
 
           {displayProject.roles && (
             <animated.p
-              className={COPY_CLASS}
+              className={bodyClass}
               style={{ ...contentSpring, ...bodyStyle, margin: 0 }}
             >
               {displayProject.roles}

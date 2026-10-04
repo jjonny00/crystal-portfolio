@@ -77,6 +77,10 @@ Before changing camera behavior:
 
 A recurring pattern in this codebase: a hardcoded JS default (`crystalConfig.js`) is overlaid by a validated JSON layout config (`src/config/layout/*.json`, schema-checked by `src/lib/layout/parseLayout.js`, picked desktop vs. mobile by `useLayoutConfig`), which is then overlaid by live runtime overrides from the in-app debug panel (`TabbedControlPanel`/`CrystalControls` in `App.jsx`). When debugging "wrong" camera/crystal values, check all three layers — the bug is often a stale or missing key at one layer rather than wrong math.
 
+### Type scale
+
+All copy uses one of nine classes in `src/styles/type.css` (`type-headline-lg`/`-subhead-lg`/`-body-lg` for the hero; `type-headline`, `type-headline-sm`, `type-subhead-sm`, `type-body`, `type-body-sm`, `type-caption` everywhere else). They own the face, size, weight, width axis, leading, tracking and case. Element CSS sets only colour and spacing, so don't restate font metrics locally. Headings follow the document outline: the hero headline is the page's only `h1`, project titles and About are `h2`, and the overview labels are a list, not headings. A case study is its own outline (`h1` project name, `h2` sections).
+
 ### Logging convention
 
 Prefer `src/utils/logger.js`'s `createLogger(scope)` (`debug`/`info` gated behind `import.meta.env.DEV` + an optional `localStorage.crystalDebugLogs` scope filter; `warn` DEV-only; `error` always-on) over raw `console.*`. The codebase has a known backlog of ungated `console.log` calls in hot paths (see `docs/console-log-cleanup-plan.md`) — don't add new ones; migrate to `logger` when touching nearby code.

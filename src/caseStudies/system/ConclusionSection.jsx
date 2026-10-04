@@ -35,17 +35,17 @@ const ConclusionSection = ({
       <div className="cs-conclusion__outcomes">
         {hasOutcomes && (
           <>
-            <h2 className="cs-heading cs-conclusion__heading" id={outcomeHeadingId}>
+            <h2 className="type-headline-sm cs-heading cs-conclusion__heading" id={outcomeHeadingId}>
               {outcomeTitle}
             </h2>
             <dl className="cs-outcomes">
               {outcomes.map((outcome, index) => (
                 <div key={outcome.key || `${outcome.value}-${index}`}>
-                  <dt className="cs-outcome__value">
+                  <dt className="type-subhead-sm cs-outcome__value">
                     <CaseStudyInline text={outcome.value} keyPrefix={`outcome-${index}`} />
                   </dt>
                   {outcome.detail && (
-                    <dd className="cs-outcome__detail">
+                    <dd className="type-body-sm cs-outcome__detail">
                       <CaseStudyInline
                         text={outcome.detail}
                         keyPrefix={`outcome-detail-${index}`}
@@ -61,13 +61,13 @@ const ConclusionSection = ({
 
       <div className="cs-conclusion__lessons">
         {lessonsTitle && (
-          <h2 className="cs-heading cs-conclusion__heading" id={lessonsHeadingId}>
+          <h2 className="type-headline-sm cs-heading cs-conclusion__heading" id={lessonsHeadingId}>
             {lessonsTitle}
           </h2>
         )}
         <CaseStudyBody content={lessons} />
         {takeaway && (
-          <p className="cs-conclusion__takeaway">
+          <p className="type-body cs-conclusion__takeaway">
             <CaseStudyInline text={takeaway} keyPrefix="conclusion-takeaway" />
           </p>
         )}

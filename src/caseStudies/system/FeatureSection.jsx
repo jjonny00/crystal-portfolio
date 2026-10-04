@@ -47,7 +47,7 @@ const FeatureSection = ({
       data-align={align === 'start' ? 'start' : undefined}
     >
       {title && (
-        <h2 className="cs-heading cs-feature__heading" id={headingId}>
+        <h2 className="type-headline-sm cs-heading cs-feature__heading" id={headingId}>
           {title}
         </h2>
       )}

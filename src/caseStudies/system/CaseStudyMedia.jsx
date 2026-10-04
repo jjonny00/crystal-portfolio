@@ -140,7 +140,7 @@ const CaseStudyMedia = ({
       )}
 
       {caption && (
-        <figcaption className="cs-caption cs-media__caption">
+        <figcaption className="type-caption cs-caption cs-media__caption">
           {typeof caption === 'string' ? <CaseStudyInline text={caption} /> : caption}
         </figcaption>
       )}

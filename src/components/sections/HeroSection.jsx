@@ -96,7 +96,7 @@ const HeroSection = ({
     <div className="hero-section">
       <div className="hero-section__content">
         <animated.div style={contentSpring} className="hero-section__headline-block">
-          <Headline as="h1" className="hero-section__title">
+          <Headline as="h1" className="type-headline-lg hero-section__title">
             <span className="hero-section__title-line">THE SYSTEMS</span>
             <span className="hero-section__title-line">BENEATH</span>
             <span className="hero-section__title-line">THE SURFACE</span>
@@ -104,11 +104,11 @@ const HeroSection = ({
         </animated.div>
 
         <animated.div style={subtitleSpring} className="hero-section__body-block">
-          <p className="hero-section__role">
+          <p className="type-subhead-lg hero-section__role">
             <span className="hero-section__role-line">PRINCIPAL PRODUCT DESIGNER</span>
             <span className="hero-section__role-line">SYSTEMS AND INTERACTION</span>
           </p>
-          <p className="hero-section__body-copy">
+          <p className="type-body-lg hero-section__body-copy">
             {isMobile ? BODY_COPY_MOBILE : BODY_COPY}
           </p>
         </animated.div>

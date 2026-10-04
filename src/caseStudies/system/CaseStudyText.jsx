@@ -54,7 +54,7 @@ const CaseStudyBody = ({ content, children, className = '', ...rest }) => {
   if (!paragraphs.length && !children) return null;
 
   return (
-    <div className={`cs-body ${className}`.trim()} {...rest}>
+    <div className={`type-body cs-body ${className}`.trim()} {...rest}>
       {paragraphs.map((paragraph, index) => {
         if (isValidElement(paragraph)) {
           return <Fragment key={paragraph.key ?? `node-${index}`}>{paragraph}</Fragment>;

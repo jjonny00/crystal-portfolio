@@ -34,11 +34,11 @@ const CaseStudyHero = ({
       innerClassName="cs-hero__inner"
       aria-labelledby={headingId}
     >
-      <h1 className="cs-title cs-hero__title" id={headingId}>
+      <h1 className="type-headline cs-title cs-hero__title" id={headingId}>
         {projectName}
       </h1>
 
-      {title && <h2 className="cs-subtitle cs-hero__subtitle">{title}</h2>}
+      {title && <p className="type-headline-sm cs-subtitle cs-hero__subtitle">{title}</p>}
 
       <div className="cs-hero__text">
         <CaseStudyBody content={intro} />

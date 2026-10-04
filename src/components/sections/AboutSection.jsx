@@ -45,7 +45,7 @@ const AboutSection = ({
             white that never has to react to anything. */}
         <animated.div className="about-section__content" style={contentSpring}>
           <div className="about-section__body">
-            <h1 className="about-section__title">Shaped Through Iteration</h1>
+            <h2 className="about-section__title">Shaped Through Iteration</h2>
 
             {PARAGRAPHS.map((paragraph, index) => (
               <p key={index} className="about-section__paragraph">

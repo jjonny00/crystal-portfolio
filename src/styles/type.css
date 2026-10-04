@@ -1,0 +1,160 @@
+/* ============================================================================
+   Type scale
+   ----------------------------------------------------------------------------
+   Every piece of copy on the site takes one of these styles, and the style owns
+   the face, size, weight, width, leading, tracking and case. Colour, opacity
+   and margins stay with the element, since they change with the backdrop and
+   the layout.
+
+     hero                headline-lg, subhead-lg, body-lg
+     overview            headline-sm, subhead-sm
+     selected project    headline, subhead-sm, body
+     case study          headline (project name), headline-sm (case study
+                         title and section headers), body, caption (under
+                         media), subhead-sm (labels above lists: metadata,
+                         outcomes), body-sm (the entries under those labels)
+
+   The fluid sizes interpolate between the case-study system's two reference
+   widths (402px mobile, 1728px desktop), so at those widths each style lands on
+   the comp exactly.
+
+   Acumin's width axis: `font-stretch` and `--wdth` are always set together and
+   must agree. iOS Safari ignores a percentage font-stretch on this face, so
+   --wdth is what drives the axis there (see the note in index.css).
+   ========================================================================== */
+
+:root {
+  --type-font-sans: 'acumin-variable', 'Acumin VF', sans-serif;
+}
+
+.type-headline-lg,
+.type-subhead-lg,
+.type-body-lg,
+.type-headline,
+.type-headline-sm,
+.type-subhead-sm,
+.type-body,
+.type-body-sm,
+.type-caption {
+  font-family: var(--type-font-sans);
+  font-style: normal;
+}
+
+/* --- hero ---------------------------------------------------------------- */
+
+/* Size is not set here: the hero headline is sized off the column it sits in
+   (hero-section.css), so it fills the measure however the grid is split. 50 is
+   the narrow end of Acumin's width axis; anything lower renders the same. */
+.type-headline-lg {
+  font-weight: 800;
+  font-stretch: 50%;
+  --wdth: 50;
+  line-height: 0.8;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+}
+
+.type-subhead-lg {
+  font-size: clamp(0.9rem, 5.5vw, 1.125rem);
+  font-weight: 600;
+  font-stretch: 100%;
+  --wdth: 100;
+  line-height: 1.091;
+  letter-spacing: -0.04em;
+  text-transform: uppercase;
+}
+
+.type-body-lg {
+  font-size: clamp(1rem, 5vw, 1.25rem);
+  font-weight: 400;
+  font-stretch: 87.5%;
+  --wdth: 87.5;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+/* --- shared -------------------------------------------------------------- */
+
+.type-headline {
+  font-size: clamp(2.2rem, 11vw, 2.9rem);
+  font-weight: 700;
+  font-stretch: 68%;
+  --wdth: 68;
+  line-height: 0.92;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  text-wrap: balance;
+}
+
+.type-headline-sm {
+  font-size: clamp(24px, calc(1.81vw + 16.77px), 48px);
+  font-weight: 600;
+  font-stretch: 68%;
+  --wdth: 68;
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  text-wrap: balance;
+}
+
+.type-subhead-sm {
+  font-size: clamp(14px, calc(0.15vw + 13.39px), 16px);
+  font-weight: 400;
+  font-stretch: 87.5%;
+  --wdth: 87.5;
+  line-height: 1.35;
+  letter-spacing: -0.015em;
+  text-transform: uppercase;
+}
+
+.type-body {
+  font-size: clamp(18px, calc(0.45vw + 16.18px), 24px);
+  font-weight: 300;
+  font-stretch: 87.5%;
+  --wdth: 87.5;
+  line-height: 1.45;
+  letter-spacing: -0.01em;
+}
+
+/* A step under body, for the short entries in lists: metadata values and
+   outcome details. */
+.type-body-sm {
+  font-size: clamp(15px, calc(0.38vw + 13.48px), 20px);
+  font-weight: 300;
+  font-stretch: 87.5%;
+  --wdth: 87.5;
+  line-height: 1.45;
+  letter-spacing: -0.01em;
+}
+
+.type-caption {
+  font-size: clamp(13px, calc(0.15vw + 12.39px), 15px);
+  font-weight: 300;
+  font-stretch: 87.5%;
+  --wdth: 87.5;
+  line-height: 1.45;
+  letter-spacing: 0;
+}
+
+/* --- desktop ------------------------------------------------------------- */
+
+@media (min-width: 768px) {
+  .type-subhead-lg {
+    font-size: clamp(0.9rem, 1.273vw, 1.4rem);
+  }
+
+  .type-body-lg {
+    font-size: clamp(0.95rem, 1.157vw, 1.3rem);
+  }
+
+  .type-headline {
+    font-size: 6rem;
+  }
+
+  /* PENDING: the case study's project name is a full-width display line and
+     runs far larger than the project card's title, which has to fit a 34vw
+     column. They share every metric but size until that's decided. */
+  .cs-root .type-headline {
+    font-size: clamp(34px, calc(11.77vw - 13.3px), 190px);
+  }
+}

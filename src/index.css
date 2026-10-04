@@ -1,5 +1,9 @@
 /* index.css - FIXED: Remove static loading screen */
 
+/* The site's type scale. Imported here so both entry points (the portfolio and
+   the case-study catalog) get it. */
+@import './styles/type.css';
+
 * {
   margin: 0;
   padding: 0;

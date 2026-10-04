@@ -1,6 +1,8 @@
 /* src/styles/facet-label.css */
 
-/* No text-shadow on the labels or their subheads — they sit flat on the scene. */
+/* No text-shadow on the labels or their subheads — they sit flat on the scene.
+   Type comes from type.css: .type-headline-sm for the title, .type-subhead-sm
+   for the line under it. */
 .facet-label-optimized {
   cursor: pointer;
   user-select: none;
@@ -10,33 +12,17 @@
 .label-title {
   margin: 0;
   color: #FFFCEE;
-  font-family: "acumin-variable", "Acumin VF", sans-serif;
-  font-size: 48px;
-  font-style: normal;
-  font-stretch: 68%;
-  --wdth: 68;
-  font-weight: 600;
-  line-height: 48px;
-  letter-spacing: -0.96px;
-  text-transform: uppercase;
 }
 
 .label-description {
   margin-top: 0.25rem;
-  font-family: "acumin-variable", "Acumin VF", sans-serif;
-  font-size: 24px;
-  font-style: normal;
-  font-weight: 300;
-  line-height: normal;
   color: rgba(255, 255, 255, 0.85);
 }
 
 
 @media (max-width: 767px) {
-  /* Condensed so all six entries sit tightly beside the line. The subhead comes
-     down further than the title and loses a little contrast with it, so the
-     hierarchy between them reads more strongly at the smaller overall size than
-     it did at the larger one. */
+  /* The subhead loses a little contrast against the title, so the hierarchy
+     between them reads more strongly at the smaller overall size. */
   :root {
     --overview-label-gap: 8.25px;
     /* Inside the overview's glass card (glass-card.css), measured off the
@@ -46,16 +32,8 @@
     --overview-card-pad-bottom: 21.9px;
   }
 
-  .label-title {
-    font-size: clamp(1.375rem, 5.97vw, 1.75rem);
-    line-height: 0.95;
-    letter-spacing: -0.02em;
-  }
-
   .label-description {
     margin-top: -0.55px;
-    font-size: clamp(0.95rem, 4.2vw, 1.15rem);
-    line-height: 1.2;
     color: rgba(255, 255, 255, 0.78);
   }
 }

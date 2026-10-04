@@ -41,7 +41,7 @@ const SplitSection = ({
       data-direction={usableDirection}
     >
       {title && (
-        <h2 className="cs-heading cs-split__heading" id={headingId}>
+        <h2 className="type-headline-sm cs-heading cs-split__heading" id={headingId}>
           {title}
         </h2>
       )}
