@@ -1,6 +1,7 @@
 import React, { useRef, forwardRef, useImperativeHandle, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { frameEase } from '../../utils/frameEase';
 
 const vertexShader = /* glsl */`
   varying vec3 vWorldPosition;
@@ -108,8 +109,8 @@ const GradientBackground = forwardRef(({ backgrounds, initialKey = 'default', ra
   useFrame((state, deltaTime) => {
     if (!materialRef.current) return;
 
-    currentA.current.lerp(targetA.current, 0.05 * deltaTime * 60);
-    currentB.current.lerp(targetB.current, 0.05 * deltaTime * 60);
+    currentA.current.lerp(targetA.current, frameEase(0.05, deltaTime));
+    currentB.current.lerp(targetB.current, frameEase(0.05, deltaTime));
 
     let flashValue = 0;
     if (flashElapsedRef.current < flashDurationRef.current) {

@@ -41,6 +41,7 @@ import { useMediaQuery } from '../../hooks/useMediaQuery'
 import { MQ_REDUCED_MOTION } from '../../config/breakpoints'
 import { createFacetMagnet, useWindowPointer, beginFacetMagnetFrame, applyFacetMagnet } from './facetMagnet'
 import { createLogger } from '../../utils/logger'
+import { frameEase } from '../../utils/frameEase'
 // TEMPORARY DIAGNOSTIC — remove together with src/debug/edgeWearMaskDebug.js
 import { inspectEdgeWearAttributes, applyEdgeWearMaskDebug, getEdgeWearDebugMode, getEdgeWearDebugOverride, installEdgeWearMaskDebug, setEdgeWearDebugParams } from '../../debug/edgeWearMaskDebug'
 import { HERO_OVERVIEW_CINEMATIC_RESOLVED, HERO_OVERVIEW_EASING } from '../../config/heroOverviewCinematicConfig'
@@ -3702,7 +3703,7 @@ const UnifiedCrystalScene = forwardRef(({
             reformConvergenceProgress = Math.min(reformConvergenceProgress, clampedProgress);
 
             const facetSpeed = 0.02 + (clampedProgress * clampedProgress * 0.16);
-            facetRef.current.position.lerp(targetPos, facetSpeed * deltaTime * 60);
+            facetRef.current.position.lerp(targetPos, frameEase(facetSpeed, deltaTime));
 
             if (distanceToCenter > 0.05) {
               allFacetsAtCenter = false;
@@ -3767,7 +3768,7 @@ const UnifiedCrystalScene = forwardRef(({
             if (isProjectFocusedFacet || isCaseStudyActiveProject) {
               facetRef.current.position.copy(steerTarget);
             } else {
-              facetRef.current.position.lerp(steerTarget, lerpSpeed * deltaTime * 60);
+              facetRef.current.position.lerp(steerTarget, frameEase(lerpSpeed, deltaTime));
             }
 
           }

@@ -135,13 +135,32 @@ const PulsingOmniLight = ({ simplified = false }) => {
  * So: record the last rendered time every frame, and put it back the moment the
  * loop restarts. `clock.start()` also resets `oldTime` to now, so the first
  * delta after resuming is ~0 and nothing lurches.
+ *
+ * Frames rendered while frozen are not recorded. In "never" mode r3f takes the
+ * time it is handed as seconds, but its own rAF loop hands it the frame's
+ * millisecond timestamp — so a stray frame there sets elapsedTime ~1000x too
+ * high, with a delta to match. Fixed3DCanvas cancels the frame that would
+ * otherwise slip through on the way into a freeze (see its `paused` effect);
+ * this keeps a stray one from being carried across the resume if it ever does.
+ *
+ * Hands the store's `get` up through `storeRef` for that effect.
  */
-const SceneFreezeGuard = () => {
+const SceneFreezeGuard = ({ storeRef }) => {
   const clock = useThree((state) => state.clock);
   const frameloop = useThree((state) => state.frameloop);
+  const get = useThree((state) => state.get);
   const lastElapsedRef = useRef(0);
 
-  useFrame(() => {
+  useLayoutEffect(() => {
+    if (!storeRef) return undefined;
+    storeRef.current = get;
+    return () => {
+      storeRef.current = null;
+    };
+  }, [get, storeRef]);
+
+  useFrame((state) => {
+    if (state.frameloop === 'never') return;
     lastElapsedRef.current = clock.elapsedTime;
   });
 
@@ -151,6 +170,25 @@ const SceneFreezeGuard = () => {
     if (frameloop !== 'never' && lastElapsedRef.current > 0) {
       clock.elapsedTime = lastElapsedRef.current;
     }
+  }, [clock, frameloop]);
+
+  // A hidden tab is the same pause by another route: the browser stops rAF, but
+  // the clock runs on, so the first frame back would carry the whole time away
+  // as its delta and every useFrame would take one enormous step. Stop the clock
+  // with the tab instead — a stopped clock reports a delta of 0, even if a frame
+  // sneaks in before the visible event — and restart it keeping elapsed time.
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.hidden) {
+        clock.stop();
+      } else if (!clock.running && frameloop !== 'never') {
+        const elapsed = clock.elapsedTime;
+        clock.start();
+        clock.elapsedTime = elapsed;
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, [clock, frameloop]);
 
   return null;
@@ -207,7 +245,24 @@ const Fixed3DCanvas = forwardRef(({
   // NEW: Ref to access crystal scene for debug panels
   const crystalSceneRef = useRef();
   const backgroundRef = useRef();
+  const r3fGetRef = useRef(null);
   const lastZoneRef = useRef(null);
+
+  // Going into a freeze, cancel any frame r3f still has queued. The Canvas has
+  // just switched to frameloop "never" in its own layout effect, but its rAF loop
+  // is already scheduled, and it still renders a root whose `frames` counter is
+  // non-zero — which it usually is, since anything that invalidates during a
+  // frame leaves it set. In "never" mode that frame reads the rAF timestamp
+  // (milliseconds) as seconds: elapsedTime jumps ~1000x and every useFrame gets a
+  // delta of hours, which threw the camera, facets and shaders far off and left
+  // them to ease back after the case study resumed the scene. A parent layout
+  // effect runs after the Canvas's in the same commit, so this lands before
+  // that frame can.
+  useLayoutEffect(() => {
+    if (!paused) return;
+    const state = r3fGetRef.current?.();
+    if (state) state.internal.frames = 0;
+  }, [paused]);
   const cameraMoveProgressRef = useRef(1);
   // Continuous 0→1 intro reveal, written per-frame by UnifiedCameraController and
   // read by UnifiedCrystalScene (glow). 1 = full/not-in-intro. A ref (not React
@@ -951,7 +1006,7 @@ const Fixed3DCanvas = forwardRef(({
         >
           <InitialCameraLookAt target={initialCameraTarget} />
 
-          <SceneFreezeGuard />
+          <SceneFreezeGuard storeRef={r3fGetRef} />
 
           {/* Reads the finished frame so the copy over it can pick an ink that
               clears it. Renders nothing; see BackdropInkProbe.jsx. */}
