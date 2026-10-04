@@ -29,6 +29,11 @@ The intent requester still dispatches to legacy behavior:
 
 This preserves runtime behavior while unifying intent shape.
 
+## URLs and history
+- Every destination now has a URL (`src/navigation/routes.js`); see `docs/seo-and-routing.md`.
+- Back/Forward onto a zone entry dispatches `requestNavigationIntent({ source: 'history' })` from `useRouteSync`; project entries use the facet path (`directSelectProject` + instant scroll) instead.
+- Deep-link arrival (`/work`, `/about`, `/work/<slug>`) bypasses the intent layer: it lands with `directSelectZone` / `directSelectProject` in the commit that mounts the scene, so the intro and hero → overview cinematic never arm.
+
 ## Scroll intent path
 - Scroll runtime path is intentionally unchanged in this PR.
 - Scroll still flows through `useScrollProgress` → `MasterAnimationCoordinator` → `useUnifiedAnimationController`.

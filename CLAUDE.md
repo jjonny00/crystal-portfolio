@@ -7,7 +7,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 npm install      # install dependencies
 npm run dev      # start Vite dev server
-npm run build    # production build (also the de facto type/compile check)
+npm run build    # production build + prerender (also the de facto type/compile check)
+npm run build:share-images  # regenerate public/og/*.jpg + favicons (commit the output)
 npm run preview  # serve the dist/ build for smoke testing
 ```
 
@@ -36,6 +37,10 @@ This is a single-page 3D portfolio built with React + react-three-fiber/drei/pos
 ### Navigation intent
 
 `src/navigation/navigationIntent.js` defines canonical destinations (`intro`/`hero`/`overview`/`about`/`project`/`caseStudy`) and a small requester factory. Top-nav clicks in `App.jsx` go through `requestNavigationIntent(...)`, which still ultimately calls the legacy `directSelectZone` + DOM `scrollToSection` pair — this is an intentionally incomplete migration (see `docs/navigation-intent-map.md`). Scroll-driven navigation does **not** go through this intent layer; it talks directly to `useUnifiedAnimationController`.
+
+### URLs, prerendering and SEO
+
+Every destination has a URL (`/`, `/work`, `/about`, `/work/<slug>`), defined only in `src/navigation/routes.js`. `npm run build` also runs an SSR build of `src/seo/entry-server.jsx` and `scripts/prerender.mjs`, which writes one flat HTML file per route (`work/mesa.html`) with its own head tags (`src/seo/seoMeta.js`) and readable body in `#prerender`, plus `sitemap.xml`, `robots.txt` and a static `404.html`. A case-study URL opens the case study immediately and loads the scene behind it (the "fast path"); other routes keep the loader, then land in place without the intro. `useRouteSync` mirrors scroll/case-study state into history. Read `docs/seo-and-routing.md` before touching routing, the loader gate in `App.jsx`, or `CaseStudyOverlay`'s `initiallyOpen` path. Slugs in `projects.js` are public URLs; don't rename them casually.
 
 ### Camera system — read the docs before editing
 
