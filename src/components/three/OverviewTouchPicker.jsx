@@ -20,7 +20,7 @@
 //   1. The facet labels, by bounding rect. They are pointer-events:none on
 //      touch — otherwise a swipe that starts on a label is a swipe the scroll
 //      container never sees — so they are hit-tested here and selected by
-//      dispatching a real click on the label element. That keeps FacetLabels'
+//      dispatching a real click on the label's link. That keeps FacetLabels'
 //      own handler (which fades the label layer out on the way to the project)
 //      as the single selection path rather than duplicating it.
 //   2. The facet meshes, by raycast. Manual raycasting is unaffected by the
@@ -129,7 +129,11 @@ const OverviewTouchPicker = ({
       const label = pickLabelAt(event.clientX, event.clientY);
       if (label) {
         // Programmatic — pointer-events:none blocks hit-testing, not dispatch.
-        label.click();
+        // The click goes to the label's link, which is where FacetLabels'
+        // handler lives (each label is an <a href> to its project). A click
+        // dispatched on the <li> itself would never reach it: events bubble up
+        // from their target, not down into its children.
+        (label.querySelector('a[href]') || label).click();
         return;
       }
 
