@@ -985,7 +985,7 @@ function App() {
       behavior: 'auto',
       legacyAction: 'directSelectZone+scrollToSection',
     });
-  }, [sceneMounted, landProjectInScene, requestNavigationIntent]);
+  }, [sceneMounted, queueLanding, landProjectInScene, requestNavigationIntent]);
 
   const routePath = useRouteSync({
     initialRoute,

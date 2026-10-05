@@ -2,22 +2,6 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <!-- TEMPORARY: iOS Safari bar-colour bisect, round 2 (public/safari-bar-lab.html).
-         ?sbd=a,b,... changes one thing before first paint. Delete with the lab. -->
-    <script>
-      (function () {
-        var flags = (new URLSearchParams(location.search).get('sbd') || '').split(',');
-        var deep = ".cs-overlay[data-instant] .cs-section[data-surface='none']";
-        var rules = {
-          nosolid: deep + '{background-color:color-mix(in srgb,var(--cs-bg) 60%,transparent)!important}',
-          semi99: deep + '{background-color:color-mix(in srgb,var(--cs-bg) 99%,transparent)!important}',
-          sections99: ".cs-overlay[data-instant] .cs-section{background-color:color-mix(in srgb,var(--cs-bg) 99%,transparent)!important}",
-          norim: '.app-rim{display:none!important}'
-        };
-        var css = flags.map(function (f) { return rules[f] || ''; }).join('');
-        if (css) document.write('<style>' + css + '</style>');
-      })();
-    </script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
@@ -125,13 +109,6 @@
     </noscript>
   </head>
   <body>
-    <!-- TEMPORARY, with the ?sbd= bisect above: ?sbd=blackbars puts solid,
-         hit-testable black bars at the very top and bottom edges. -->
-    <script>
-      if ((new URLSearchParams(location.search).get('sbd') || '').split(',').indexOf('blackbars') !== -1) {
-        document.write('<div style="position:fixed;left:0;right:0;top:0;height:6px;background:#050505;z-index:2147483646"></div><div style="position:fixed;left:0;right:0;bottom:0;height:6px;background:#050505;z-index:2147483646"></div>');
-      }
-    </script>
     <!-- scripts/prerender.mjs puts the route's readable content here, so it is in
          the HTML before any JavaScript runs. A sibling of #root rather than inside
          it, so mounting React does not wipe it; the app takes it down once its
