@@ -62,4 +62,41 @@
   .app-frame {
     --app-corner-radius: clamp(24px, 8.2vw, 56px);
   }
+
+  /* A glass rim along the inside of the rounded edge, so the app reads as a
+     pane of glass set into the phone, not just a cut-out. The same build as the
+     glass card's rim (glass-card.css): a 1px ring cut out of a gradient with a
+     mask, since a border can't carry a gradient around rounded corners. Much
+     quieter than the card's, and white only (it frames every page, so it takes
+     no project's accent): a soft specular at the top left that is almost gone
+     down the sides, gathering a little again at the bottom right. Static paint;
+     it costs nothing per frame. */
+  .app-frame::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(
+      155deg,
+      rgba(255, 255, 255, 0.2) 0%,
+      rgba(255, 255, 255, 0.09) 14%,
+      rgba(255, 255, 255, 0.025) 38%,
+      rgba(255, 255, 255, 0.02) 66%,
+      rgba(255, 255, 255, 0.07) 90%,
+      rgba(255, 255, 255, 0.12) 100%
+    );
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+}
+
+/* The rim follows the smoothed corner too (see the squircle note above). */
+@supports (corner-shape: squircle) {
+  .app-frame::before {
+    corner-shape: squircle;
+  }
 }

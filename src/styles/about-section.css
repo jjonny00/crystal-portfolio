@@ -220,4 +220,17 @@
   .about-section__title {
     font-size: clamp(2.2rem, 10vw, 3rem);
   }
+
+  /* The same step up as the type scale's phone sizes (type.css). */
+  .about-section__paragraph {
+    font-size: clamp(16px, 4.35vw, 18px); /* 16 -> 17.5 */
+  }
+
+  .about-section__stat-value {
+    font-size: clamp(1.5rem, 6.5vw, 1.75rem); /* 24 -> 26 */
+  }
+
+  .about-section__stat-label {
+    font-size: clamp(0.9rem, 3.85vw, 1.05rem); /* 14.4 -> 15.5 */
+  }
 }

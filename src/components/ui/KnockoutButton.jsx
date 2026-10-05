@@ -248,7 +248,8 @@ const KnockoutButton = ({
 
   const typeStyle = {
     fontFamily: '"acumin-variable", "Acumin VF", sans-serif',
-    fontSize: isMobile ? '20px' : '24px',
+    // 21px on a phone: the type scale's phone step (type.css).
+    fontSize: isMobile ? '21px' : '24px',
     fontWeight: 600,
     letterSpacing: '-0.48px',
   };

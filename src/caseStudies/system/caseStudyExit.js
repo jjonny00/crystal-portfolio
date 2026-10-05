@@ -11,8 +11,11 @@
 
 import { createContext } from 'react';
 
-/** The label for a case study's way out when the reader arrived on it from outside. */
-export const ARRIVAL_EXIT_LABEL = 'All work';
+/**
+ * The label for a case study's way out when the reader arrived on it from
+ * outside. Shown without the back arrow: it leads on into the work, not back.
+ */
+export const ARRIVAL_EXIT_LABEL = 'View all work';
 
 /** @type {import('react').Context<null | { label: string, onExit: () => void }>} */
 export const CaseStudyExitContext = createContext(null);

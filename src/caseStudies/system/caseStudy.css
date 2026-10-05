@@ -1022,6 +1022,14 @@
 @media (max-width: 767.98px) {
   .cs-root {
     --cs-section-padding-block: clamp(28px, 8vw, 44px);
+    /* The phone step up the type scale takes (type.css), for the metadata
+       sizes that live here rather than in a type class. */
+    --cs-type-meta-label: clamp(11px, 3vw, 13px); /* 11 -> 12 */
+    --cs-type-meta-value: clamp(13.5px, 3.6vw, 15.5px); /* 13.5 -> 14.5 */
+  }
+
+  .cs-back {
+    font-size: clamp(13px, 3.6vw, 15.5px); /* 13 -> 14.5 */
   }
 
   /* Hero: project name, case study title, media, then intro copy. */

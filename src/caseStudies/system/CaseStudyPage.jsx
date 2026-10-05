@@ -67,7 +67,9 @@ const CaseStudyPage = ({
 
         {onExit && (
           <button type="button" className="cs-back" onClick={onExit}>
-            <span aria-hidden="true">&larr;</span>
+            {/* The arrow says "back". A host-supplied exit leads somewhere new
+                (caseStudyExit.js), so it goes without. */}
+            {!exitOverride && <span aria-hidden="true">&larr;</span>}
             {exitLabel}
           </button>
         )}

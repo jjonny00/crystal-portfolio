@@ -187,18 +187,27 @@
     padding-block: 0;
   }
 
-  /* Deliberately short of the measure, unlike desktop: the reference comp sets
-     the headline at roughly four fifths of the column so the longest line has
-     somewhere to end and the three-line block reads as a shape rather than as
-     justified text. 26.9cqw is the fill constant (see the desktop rule); 22.3 is
-     that scaled to ~83%.
+  /* Fills the column, as on desktop: 26.9cqw is the fill constant (see the
+     desktop rule), measured inside the page padding. (It used to stop at ~83%
+     of the column, after the original comp.)
 
-     The height term is still a guard, but with a bigger offset than desktop's:
-     the block below the headline is much taller here, since the body copy wraps
-     to seven or eight lines. Tall phones take the width-derived size; short ones
-     back off further. */
+     The height term is what actually binds on a phone, so it is sized to the
+     real room rather than as a rough guard: the section's height, less its top
+     padding (~10svh), its bottom inset (2.75rem plus the home-bar safe area),
+     and a ~300px budget for what sits below the headline (role, body copy, CTA
+     and the gaps between them), over the headline's height of 2.4em (three
+     lines at 0.8). That is 37.5svh - 145px - safe-area/2.4. Measured: the block
+     below runs 236-290px across phone widths, so the budget leaves slack, and
+     the content is bottom-anchored, so any spare room sits above the headline.
+     Most phones now reach the full width; short ones (an SE, or Safari with its
+     toolbars expanded on a small phone) still stop short rather than crowd the
+     copy below. */
   .hero-section__title {
-    font-size: clamp(2rem, min(22.3cqw, calc(41.7svh - 217px)), 12rem);
+    font-size: clamp(
+      2rem,
+      min(26.9cqw, calc(37.5svh - 145px - env(safe-area-inset-bottom, 0px) / 2.4)),
+      12rem
+    );
     max-inline-size: 100%;
   }
 
@@ -218,7 +227,7 @@
   }
 
   .hero-section__cta-label {
-    font-size: clamp(1rem, 5vw, 1.25rem);
+    font-size: clamp(1rem, 5.1vw, 1.3rem); /* 19.5 -> 20.5, with the type.css phone step */
   }
 }
 

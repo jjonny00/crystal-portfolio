@@ -78,7 +78,7 @@ Copy shown on the live page and in the prerender comes from one place:
    (`.cs-section[data-surface='none']`) paint their colour solid, so the scene
    loading behind is never seen. The flag clears when the case study first
    closes; any case study opened after that sees through as usual.
-4. The case study's way out reads "All work" and goes to the overview, not
+4. The case study's way out reads "View all work" (no back arrow) and goes to the overview, not
    "Back to <project>" (`CaseStudyExitContext`, `system/caseStudyExit.js`):
    the reader came from outside and has no project to go back to. It lapses
    when the case study first closes.

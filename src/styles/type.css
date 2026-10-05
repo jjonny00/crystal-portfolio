@@ -136,6 +136,47 @@
   letter-spacing: 0;
 }
 
+/* --- phone --------------------------------------------------------------- */
+
+/* A step up from the comp sizes on phones: read at arm's length, a size that
+   is right on a 1728px canvas is small at 402px. Roughly 6-8% across the
+   scale, more for the caption, which was the one straining. Fluid on vw so a
+   narrow phone eases back toward the comp; the values in the comments are at
+   402px. Desktop (below) is unchanged. */
+@media (max-width: 767px) {
+  .type-subhead-lg {
+    font-size: clamp(0.95rem, 5.5vw, 1.22rem); /* 18 -> 19.5 */
+  }
+
+  .type-body-lg {
+    font-size: clamp(1.05rem, 5.35vw, 1.34rem); /* 20 -> 21.5 */
+  }
+
+  .type-headline {
+    font-size: clamp(2.35rem, 12.4vw, 3.125rem); /* 46.4 -> 50 */
+  }
+
+  .type-headline-sm {
+    font-size: clamp(24px, 6.5vw, 28px); /* 24 -> 26 */
+  }
+
+  .type-subhead-sm {
+    font-size: clamp(14px, 3.75vw, 16px); /* 14 -> 15 */
+  }
+
+  .type-body {
+    font-size: clamp(18px, 4.75vw, 20px); /* 18 -> 19 */
+  }
+
+  .type-body-sm {
+    font-size: clamp(15px, 4vw, 17px); /* 15 -> 16 */
+  }
+
+  .type-caption {
+    font-size: clamp(14px, 3.75vw, 16px); /* 13 -> 15 */
+  }
+}
+
 /* --- desktop ------------------------------------------------------------- */
 
 @media (min-width: 768px) {

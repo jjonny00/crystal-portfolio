@@ -182,7 +182,8 @@ const Navigation = ({ activeLabel = null, onHomeClick, onWorkClick, onAboutClick
             ...LINK_RESET_STYLE,
             ...(isTransitioning ? { pointerEvents: 'none' } : null),
             ...(color ? { color } : null),
-            fontSize: isDesktop ? '36px' : '28px',
+            // Phone sizes carry the type scale's phone step (type.css).
+            fontSize: isDesktop ? '36px' : '29px',
             opacity: isTransitioning ? 0.6 : 1
           }}
           aria-disabled={isTransitioning || undefined}
@@ -206,7 +207,7 @@ const Navigation = ({ activeLabel = null, onHomeClick, onWorkClick, onAboutClick
               onClick={item.onClick}
               disabled={isTransitioning}
               isActive={activeLabel === item.label}
-              fontSize={isDesktop ? '24px' : '18px'}
+              fontSize={isDesktop ? '24px' : '19px'}
               color={color}
             />
           ))}
