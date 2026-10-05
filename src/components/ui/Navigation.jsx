@@ -6,8 +6,17 @@ import { NAVIGATION_DESTINATIONS } from '../../navigation/navigationIntent';
 import { pathFor } from '../../navigation/routes';
 import { CONTACT_EMAIL } from '../../seo/site';
 
+// Absolute, not fixed, because of iOS 26 Safari. It colours its status bar from
+// a position:fixed bar at the top edge of the page, and a transparent one (this
+// nav, which sits on the scene) makes it show whatever is behind: the project
+// colour on a case study opened from its own URL, where a normal visit had the
+// dark scene there. Safari only looks at fixed and sticky elements, and the
+// document never scrolls (body is overflow:hidden; the portfolio and the case
+// study scroll inside their own layers), so absolute holds the nav exactly
+// where fixed did while leaving Safari to fall back to the page's black.
+// Found by bisecting on a real iPhone; keep it absolute.
 const NAV_BASE_STYLE = {
-  position: 'fixed',
+  position: 'absolute',
   top: 0,
   left: 0,
   right: 0,
