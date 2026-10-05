@@ -150,6 +150,15 @@ const UnifiedCameraController = ({
   introRevealRef = null,
   heroOverviewRuntime = null,
   heroOverviewExplosionClockRef = null,
+  /**
+   * The visit began on a deep link (/work, /about, /work/<slug>) that landed in
+   * place, so the arrival intro is over before it started. Without this the
+   * intro stays pending, and the first visit to the hero afterwards fired it:
+   * a jump to the intro's dark close-up start pose, and the intro-dim held the
+   * crystal's materials down. Read at mount only; a restart remount passes
+   * false and replays the intro as usual.
+   */
+  introAlreadyPlayed = false,
 }) => {
   const { camera } = useThree();
   // Verbose per-frame/mount logging is off by default. Enable in the console:
@@ -254,8 +263,9 @@ const UnifiedCameraController = ({
   };
   const FORCE_STABLE_HERO_CAMERA = false;
   const lastCameraStateRef = useRef(null);
-  const introStartedRef = useRef(false);
-  const introPlayedRef = useRef(false);
+  // Seeded from `introAlreadyPlayed` on a deep-link arrival (see the prop).
+  const introStartedRef = useRef(introAlreadyPlayed);
+  const introPlayedRef = useRef(introAlreadyPlayed);
   const introActiveRef = useRef(false);
   const introStartTimeRef = useRef(0);
   const introFromRef = useRef({

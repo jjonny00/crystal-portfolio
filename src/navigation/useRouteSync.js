@@ -53,6 +53,9 @@ const historyState = (caseStudyProjectId) => ({ crystalRoute: true, caseStudy: c
  */
 export const useRouteSync = ({
   initialRoute,
+  // Where the reader is headed while the scene loads (App queues nav clicks
+  // made before it exists). Defaults to the arrival route.
+  preSceneRoute = initialRoute,
   sceneMounted,
   settledSection,
   caseStudyOpen,
@@ -92,13 +95,14 @@ export const useRouteSync = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Before the scene exists the reader is wherever they arrived; after, the
-  // settled section says. Mid-scroll (null) holds the last URL.
+  // Before the scene exists the reader is wherever they arrived, or wherever
+  // they have since asked to go; after, the settled section says. Mid-scroll
+  // (null) holds the last URL.
   const derivedPath = caseStudyOpen && activeProjectId
     ? pathFor(NAVIGATION_DESTINATIONS.CASE_STUDY, activeProjectId)
     : sceneMounted
       ? settledSectionToPath(settledSection)
-      : initialRoute.path;
+      : preSceneRoute.path;
 
   useEffect(() => {
     if (awaitingPopRef.current) return;

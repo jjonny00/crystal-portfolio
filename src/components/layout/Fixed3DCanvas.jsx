@@ -240,7 +240,10 @@ const Fixed3DCanvas = forwardRef(({
   projectRuntimeOverrides = null,
   // Stops the render loop entirely while the scene is hidden behind a
   // full-screen layer (the case study). See SceneFreezeGuard below.
-  paused = false
+  paused = false,
+  // A deep-link arrival landed in place; the camera's arrival intro is done.
+  // See UnifiedCameraController.
+  introAlreadyPlayed = false
 }, ref) => {
   // NEW: Ref to access crystal scene for debug panels
   const crystalSceneRef = useRef();
@@ -1099,6 +1102,7 @@ const Fixed3DCanvas = forwardRef(({
             introRevealRef={introRevealRef}
             heroOverviewRuntime={heroOverviewRuntime}
             heroOverviewExplosionClockRef={heroOverviewExplosionClockRef}
+            introAlreadyPlayed={introAlreadyPlayed}
           />
           
           {/* UPDATED: Crystal Scene with ref for accessing debug state */}

@@ -20,6 +20,7 @@ import {
   foregroundColorForTone,
   normalizeCaseStudyColors,
 } from './system/caseStudyTheme';
+import { CaseStudyExitContext } from './system/caseStudyExit';
 import {
   CASE_STUDY_ENTER,
   CASE_STUDY_EXIT_MS,
@@ -102,6 +103,13 @@ const CaseStudyOverlay = ({
   initiallyOpen = false,
   /** With `initiallyOpen`: where the reader had already scrolled the prerendered page. */
   initialScrollTop = 0,
+  /**
+   * With `initiallyOpen`: `{ label, onExit }` to use in place of the case study's
+   * own "Back to <project>" for as long as the reader stays on the case study they
+   * arrived on. They came from outside the site and have no project to go back
+   * to. See system/caseStudyExit.js.
+   */
+  arrivalExit = null,
 }) => {
   const scrollRef = useRef(null);
   const slug = project?.caseStudySlug || null;
@@ -303,9 +311,11 @@ const CaseStudyOverlay = ({
         />
       )}
 
-      <Suspense fallback={null}>
-        <CaseStudy project={project} onClose={onClose} />
-      </Suspense>
+      <CaseStudyExitContext.Provider value={instant ? arrivalExit : null}>
+        <Suspense fallback={null}>
+          <CaseStudy project={project} onClose={onClose} />
+        </Suspense>
+      </CaseStudyExitContext.Provider>
     </div>
   );
 };

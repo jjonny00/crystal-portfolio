@@ -55,10 +55,11 @@ import {
   NAVIGATION_DESTINATIONS,
   createNavigationIntentRequester,
 } from './navigation/navigationIntent';
-import { parsePath } from './navigation/routes';
+import { parsePath, pathFor } from './navigation/routes';
 import { routeToSectionId, useRouteSync } from './navigation/useRouteSync';
 import { useDocumentHead } from './seo/useDocumentHead';
 import { getPrerenderedScrollTop, removePrerenderedContent } from './seo/prerenderedContent';
+import { ARRIVAL_EXIT_LABEL } from './caseStudies/system/caseStudyExit';
 import { preloadFractureAssets } from './loader/preloadFractureAssets';
 
 const projectKeys = ['empathy', 'narrative', 'craft', 'system', 'leadership', 'exploration'];
@@ -435,6 +436,18 @@ function App() {
   const pendingLandingRef = useRef(
     initialRoute.destination === NAVIGATION_DESTINATIONS.HERO ? null : initialRoute
   );
+  // Where the reader will be once the scene is up: the arrival route, until
+  // they navigate somewhere else first (the case-study fast path lets them, nav
+  // clicks included, long before the scene exists). Drives the address bar and
+  // the section the content layer mounts on; pendingLandingRef is the same
+  // destination for the landing itself.
+  const [preSceneRoute, setPreSceneRoute] = useState(initialRoute);
+  const queueLanding = useCallback((route) => {
+    pendingLandingRef.current = route.destination === NAVIGATION_DESTINATIONS.HERO ? null : route;
+    setPreSceneRoute(route);
+  }, []);
+  // Read by handlers created before sceneMounted is known (requestNavigationIntent).
+  const sceneMountedRef = useRef(false);
 
   // ========================================
   // UPDATED: V2 Performance and Asset Loading System
@@ -767,6 +780,15 @@ function App() {
       console.log('[navigation-intent] destination', nextDestination);
     },
     onIntent: (intent) => {
+      // Before the scene exists (a nav click from a deep-linked case study while
+      // it loads) there is nothing to fly or scroll yet. Queue the destination
+      // instead, so the scene lands where the reader asked to go rather than on
+      // the case study's project it was arriving for.
+      if (!sceneMountedRef.current) {
+        queueLanding(parsePath(pathFor(intent.destination, intent.projectId)) || parsePath('/'));
+        return;
+      }
+
       // Hero ↔ Overview: drive the REAL scroll-driven transition rather than the
       // imperative directSelectZone override. A smooth scroll (the container's
       // default behavior) crosses the zone boundary gradually, which is exactly
@@ -823,7 +845,7 @@ function App() {
         scrollToSection('about', intent.behavior);
       }
     },
-  }), [scrollToSection]);
+  }), [scrollToSection, queueLanding]);
 
   // Top-nav destinations live in the portfolio underneath, so any nav click
   // dismisses an open case study before the usual intent runs.
@@ -882,12 +904,23 @@ function App() {
 
   const handleBackToProject = closeCaseStudy;
 
+  // A case study opened from its own URL: its way out leads into the rest of
+  // the work rather than "back" to a project the reader has never seen. Only
+  // while they stay on that first case study (the overlay drops it when the
+  // layer first closes); one opened from the portfolio afterwards goes back to
+  // its project as usual.
+  const arrivalExit = useMemo(
+    () => (caseStudyDeepLink ? { label: ARRIVAL_EXIT_LABEL, onExit: handleWorkClick } : null),
+    [caseStudyDeepLink, handleWorkClick]
+  );
+
   // ========================================
   // Deep links and history
   // ========================================
   // The scene and the content layer exist once the loader hands off (or, on the
   // case-study fast path, once the scene has finished loading behind the page).
   const sceneMounted = isAppReady || exitLoader;
+  sceneMountedRef.current = sceneMounted;
 
   // Puts the scene on a project the way a facet click does: jump the content
   // layer to the project's section, then hold the camera on its facet.
@@ -936,7 +969,7 @@ function App() {
   // Back / Forward onto an entry somewhere else on the page.
   const navigateFromHistory = useCallback((route) => {
     if (!sceneMounted) {
-      pendingLandingRef.current = route.destination === NAVIGATION_DESTINATIONS.HERO ? null : route;
+      queueLanding(route);
       return;
     }
     if (
@@ -956,6 +989,7 @@ function App() {
 
   const routePath = useRouteSync({
     initialRoute,
+    preSceneRoute,
     sceneMounted,
     settledSection,
     caseStudyOpen,
@@ -1386,6 +1420,11 @@ function App() {
           environmentProps={getOptimalEnvironmentProps()}
           isMobile={isMobile}
           paused={sceneFrozen}
+          // Arrived somewhere other than the hero: no intro now, and none later
+          // either. Not after a Restart, which replays it on purpose.
+          introAlreadyPlayed={
+            initialRoute.destination !== NAVIGATION_DESTINATIONS.HERO && sceneRestartToken === 0
+          }
         />
       </MasterAnimationCoordinator>
       )}
@@ -1430,7 +1469,7 @@ function App() {
       {/* Scrollable Content */}
       {sceneMounted && (
       <ScrollablePortfolio
-        initialSettledSectionId={routeToSectionId(initialRoute)}
+        initialSettledSectionId={routeToSectionId(preSceneRoute)}
         snapSpeed={snapSpeed}
         hideContent={hideAllUI}
         viewMode={viewMode}
@@ -1452,6 +1491,7 @@ function App() {
         onSceneNeededChange={setCaseStudySceneNeeded}
         initiallyOpen={caseStudyDeepLink}
         initialScrollTop={caseStudyDeepLink ? getPrerenderedScrollTop() : 0}
+        arrivalExit={arrivalExit}
       />
 
       {/* UI Controls */}

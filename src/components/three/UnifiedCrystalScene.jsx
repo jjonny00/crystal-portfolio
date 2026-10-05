@@ -2406,6 +2406,7 @@ const UnifiedCrystalScene = forwardRef(({
     // config value instead so every consumer (both fade blocks, swap-mask reset,
     // reform) dims to the same low rest on all tiers, exactly like high.
     const facetRestEmissiveIntensity = config?.materials?.crystal?.emissiveIntensity ?? 0;
+    const facetRestEmissiveColor = new THREE.Color(config?.materials?.crystal?.emissive ?? '#02062b');
 
     const previousFacetMaterials = facetMaterialsRef.current;
     facetMaterialsRef.current = facetKeys.map((key, idx) => {
@@ -2419,7 +2420,7 @@ const UnifiedCrystalScene = forwardRef(({
         const previousTargetColor = previousUserData.targetColor?.clone?.();
         const previousStartColor = previousUserData.startColor?.clone?.();
         const previousBaseEmissiveColor =
-          previousUserData.baseEmissiveColor?.clone?.() || mat.emissive.clone();
+          previousUserData.baseEmissiveColor?.clone?.() || facetRestEmissiveColor.clone();
         const previousBaseEmissiveIntensity =
           previousUserData.baseEmissiveIntensity ?? facetRestEmissiveIntensity;
 
@@ -2452,9 +2453,23 @@ const UnifiedCrystalScene = forwardRef(({
           progress: 1,
           baseEmissiveIntensity:
             mat.userData?.baseEmissiveIntensity ?? facetRestEmissiveIntensity,
+          // The configured rest, not the clone's: see the rest block below.
           baseEmissiveColor:
-            mat.userData?.baseEmissiveColor?.clone?.() || mat.emissive.clone()
+            mat.userData?.baseEmissiveColor?.clone?.() || facetRestEmissiveColor.clone()
         };
+      }
+
+      // Every facet starts at rest. The clone carries the WHOLE crystal's live
+      // emissive, which is its own (a lit blue on every tier, brighter on the
+      // tiers that inflate it), and nothing about a facet's. On a normal visit
+      // the hero -> overview flare overwrites that and fades the facets to rest,
+      // so it never showed; a deep link lands exploded with no flare, and the
+      // facets kept the whole crystal's glow for good. While a flare or reform
+      // glow is mid-flight it owns these values (the blocks below and the
+      // per-frame fades), so it is left alone then.
+      if (!fractureGlowStartRef.current && swapMaskGlowStartRef.current == null) {
+        mat.emissive.copy(mat.userData.baseEmissiveColor);
+        mat.emissiveIntensity = mat.userData.baseEmissiveIntensity;
       }
 
       const model = facetModels[idx];

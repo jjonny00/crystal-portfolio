@@ -25,6 +25,7 @@ import {
   HERO_ROLE_LINES,
 } from '../data/siteCopy';
 import CaseStudyOverlay, { preloadCaseStudy } from '../caseStudies/CaseStudyOverlay';
+import { ARRIVAL_EXIT_LABEL } from '../caseStudies/system/caseStudyExit';
 import { foregroundColorForTone, normalizeCaseStudyColors } from '../caseStudies/system/caseStudyTheme';
 import Navigation from '../components/ui/Navigation';
 import { NAVIGATION_DESTINATIONS } from '../navigation/navigationIntent';
@@ -128,7 +129,13 @@ export async function renderRoute(route) {
     const html = renderToString(
       <>
         <Navigation color={navColor} onHomeClick={noop} onWorkClick={noop} onAboutClick={noop} onContactClick={noop} />
-        <CaseStudyOverlay project={project} open initiallyOpen onClose={noop} />
+        <CaseStudyOverlay
+          project={project}
+          open
+          initiallyOpen
+          onClose={noop}
+          arrivalExit={{ label: ARRIVAL_EXIT_LABEL, onExit: noop }}
+        />
       </>
     );
     return { html, visible: true, caseStudySlug };

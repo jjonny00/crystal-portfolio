@@ -4,9 +4,10 @@
 // colours as CSS custom properties, mounts the media viewer, and provides the
 // shared chrome (skip link, back control, Escape to leave).
 
-import React, { useEffect, useRef } from 'react';
+import React, { useContext, useEffect, useRef } from 'react';
 import { MediaViewerProvider, useMediaViewer } from './MediaViewer';
 import { buildCaseStudyThemeStyle } from './caseStudyTheme';
+import { CaseStudyExitContext } from './caseStudyExit';
 import './caseStudy.css';
 
 const MAIN_ID = 'case-study-main';
@@ -39,6 +40,11 @@ const CaseStudyPage = ({
   children,
 }) => {
   const rootRef = useRef(null);
+  // The host can swap the way out (a case study opened from its own URL; see
+  // caseStudyExit.js). The button and Escape both take it.
+  const exitOverride = useContext(CaseStudyExitContext);
+  const exitLabel = exitOverride?.label ?? backLabel;
+  const onExit = exitOverride?.onExit ?? onClose;
 
   // Move focus into the case study when it opens so keyboard and screen-reader
   // users start at the top of the new content rather than wherever they were.
@@ -53,16 +59,16 @@ const CaseStudyPage = ({
       </a>
 
       <MediaViewerProvider>
-        <EscapeToClose onClose={onClose} />
+        <EscapeToClose onClose={onExit} />
 
         <main id={MAIN_ID} aria-label={label}>
           {children}
         </main>
 
-        {onClose && (
-          <button type="button" className="cs-back" onClick={onClose}>
+        {onExit && (
+          <button type="button" className="cs-back" onClick={onExit}>
             <span aria-hidden="true">&larr;</span>
-            {backLabel}
+            {exitLabel}
           </button>
         )}
       </MediaViewerProvider>
