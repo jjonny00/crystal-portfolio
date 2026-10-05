@@ -901,6 +901,23 @@
   }
 }
 
+/* The case study layer's scrollbar takes the nav's colours: track on the
+   section under the nav, thumb and arrows in the nav's ink. The values are set
+   per section by CaseStudyOverlay (scrollbarColorsFor). The standard property
+   is what Chrome and Firefox use (and it overrides the pseudo-elements);
+   Safari only knows the pseudo-elements. */
+.cs-overlay {
+  scrollbar-color: var(--cs-scrollbar-thumb) var(--cs-scrollbar-track);
+}
+
+.cs-overlay::-webkit-scrollbar-track {
+  background: var(--cs-scrollbar-track);
+}
+
+.cs-overlay::-webkit-scrollbar-thumb {
+  background: var(--cs-scrollbar-thumb);
+}
+
 /* Every duration and delay below comes from src/caseStudies/transitionTiming.js,
    published onto .cs-overlay as custom properties. The fallbacks only apply if a
    section is rendered outside the overlay. */

@@ -13,6 +13,15 @@
   touch-action: pan-y;
   box-sizing: border-box;
   background-color: transparent;
+  /* Scrolls, but shows no bar of its own: it sits inside the portfolio's
+     scroll container, whose bar is already at the window edge, and a second
+     one beside it read as a double scrollbar. Wheel, trackpad and touch still
+     scroll it, then hand off to the page at either end. */
+  scrollbar-width: none;
+}
+
+.about-section::-webkit-scrollbar {
+  display: none;
 }
 
 /* The readability scrim is a fixed viewport layer rendered at the App level
