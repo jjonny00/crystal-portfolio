@@ -6,62 +6,44 @@
     <meta name="robots" content="noindex" />
     <title>Safari bar lab</title>
     <!--
-      Diagnostic for iOS 26 Safari's status bar colour. Not part of the site;
-      delete once the question is settled.
+      TEMPORARY diagnostic for iOS 26 Safari's status bar colour on case-study
+      deep links. Not part of the site; delete it, and the ?sbd= scripts in
+      index.html, once the question is settled.
 
-      Every variant mirrors a case study opened from its own URL: a black page,
-      a fixed full-screen scrolling layer, and at its top a hero painted in the
-      project colour at 60% (as .cs-section[data-surface='none'] does). Each
-      variant changes exactly one thing. Safari decides the bar colour when the
-      page loads, so each variant is its own page load.
+      Every link is the real Flying Axes deep link with one part of the page
+      switched off before first paint (see the ?sbd= script in index.html).
+      Whichever one comes out black names the part that colours the bar.
     -->
     <style>
-      html, body { margin: 0; background: #050505; color: #fff; font: 16px/1.4 -apple-system, system-ui, sans-serif; overflow: hidden; }
-      .layer { position: fixed; inset: 0; overflow-y: auto; z-index: 9000; }
-      .hero { min-height: 70vh; padding: 64px 20px 24px; box-sizing: border-box; background-color: color-mix(in srgb, #ce2632 60%, transparent); }
-      .hero.opaque { background-color: #ce2632; }
-      .hero.gap { margin-top: 8px; }
-      .rest { padding: 24px 20px 120px; background: #e2e0d8; color: #111; }
-      h1 { margin: 0 0 8px; font-size: 28px; }
-      .expect { opacity: 0.85; }
-      ul { padding-left: 1.2em; }
-      li { margin: 0 0 14px; }
-      a { color: inherit; font-weight: 600; }
-      .strip { position: fixed; top: 0; left: 0; right: 0; height: 3px; background-color: #050505; z-index: 100002; }
+      html, body { margin: 0; background: #050505; color: #fff; font: 17px/1.45 -apple-system, system-ui, sans-serif; }
+      main { padding: 72px 20px 80px; max-width: 640px; }
+      h1 { font-size: 26px; margin: 0 0 12px; }
+      p { margin: 0 0 16px; opacity: 0.85; }
+      ol { padding-left: 1.4em; }
+      li { margin: 0 0 16px; }
+      a { color: #ffebe3; font-weight: 600; }
+      .what { display: block; opacity: 0.75; font-size: 15px; }
     </style>
   </head>
   <body>
-    <script>
-      // Built before first paint, so Safari samples the variant and nothing else.
-      const VARIANTS = {
-        '0': { name: 'Control', expect: 'Reproduces the bug: expect a dark red bar.', strip: null },
-        '1': { name: 'Strip, pointer-events: none', expect: 'The previous fix. Red means Safari skips non-hit-testable elements.', strip: 'pointer-events:none' },
-        '2': { name: 'Strip, hit-testable', expect: 'The new fix. Should be black.', strip: '' },
-        '3': { name: 'Strip, hit-testable, opacity 0', expect: 'Black means opacity does not matter, only hit-testing.', strip: 'opacity:0' },
-        '4': { name: 'Opaque hero, no strip', expect: 'Bright red means the bar is the hero’s own background colour.', strip: null, hero: 'opaque' },
-        '5': { name: '8px black gap above the hero, no strip', expect: 'Black means Safari reads only the top few pixels.', strip: null, hero: 'gap' },
-      };
-      const key = new URLSearchParams(location.search).get('v') || '0';
-      const v = VARIANTS[key] || VARIANTS['0'];
-      if (v.strip !== null) {
-        document.write(`<div class="strip" style="${v.strip}"></div>`);
-      }
-      const links = Object.entries(VARIANTS)
-        .map(([k, x]) => `<li><a href="?v=${k}">${k}. ${x.name}</a><br><span class="expect">${x.expect}</span></li>`)
-        .join('');
-      document.write(`
-        <div class="layer">
-          <section class="hero ${v.hero || ''}">
-            <h1>Variant ${key}: ${v.name}</h1>
-            <p class="expect">${v.expect}</p>
-            <p>Note the colour of the status bar at the very top, then pick the next variant below.</p>
-          </section>
-          <section class="rest">
-            <p>Open each one by tapping it (each is a fresh page load). Report the bar colour for each number.</p>
-            <ul>${links}</ul>
-          </section>
-        </div>
-      `);
-    </script>
+    <main>
+      <h1>Safari bar bisect</h1>
+      <p>Long-press each link and open it in a new tab (closing the last one first is fine). For each number, note whether the status bar is <strong>black</strong> or <strong>coloured</strong>.</p>
+      <ol>
+        <li><a href="/">Home, normal visit</a><span class="what">Reference: should be black.</span></li>
+        <li><a href="/work/flying-axes">Baseline</a><span class="what">Nothing switched off. Should be red, as you saw.</span></li>
+        <li><a href="/work/flying-axes?sbd=standin">No sky stand-in</a><span class="what">The project-sky layer behind the case study.</span></li>
+        <li><a href="/work/flying-axes?sbd=herobg">No hero tint</a><span class="what">The hero's 60% project-colour background.</span></li>
+        <li><a href="/work/flying-axes?sbd=scrim">No nav blur</a><span class="what">The blurred band behind the nav.</span></li>
+        <li><a href="/work/flying-axes?sbd=frame">No rounded frame</a><span class="what">The black rounded-corner frame around the app.</span></li>
+        <li><a href="/work/flying-axes?sbd=nav">No nav</a><span class="what">The top navigation bar.</span></li>
+        <li><a href="/work/flying-axes?sbd=strip">No black strip</a><span class="what">The 3px black strip added to hold the bar black.</span></li>
+        <li><a href="/work/flying-axes?sbd=canvas">No 3D canvas</a><span class="what">The crystal scene, once it loads behind the case study.</span></li>
+        <li><a href="/work/flying-axes?sbd=overlay">No case study</a><span class="what">Hides the case study layer entirely.</span></li>
+        <li><a href="/work/flying-axes?sbd=framefirst">Rounded frame at load</a><span class="what">Puts the black rounded-corner frame in the first paint, as a normal visit has it.</span></li>
+        <li><a href="/work/flying-axes?sbd=cover">Black cover at load</a><span class="what">A full-screen black cover for the first moments, like the loader on a normal visit.</span></li>
+        <li><a href="/work/flying-axes?sbd=standin,herobg,scrim,frame,nav">All decoration off</a><span class="what">Stand-in, hero tint, blur, frame and nav all off together.</span></li>
+      </ol>
+    </main>
   </body>
 </html>

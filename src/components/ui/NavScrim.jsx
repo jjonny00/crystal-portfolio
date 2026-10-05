@@ -89,6 +89,7 @@ const NavScrim = ({ active = false, zIndex = 9999, fadeInDelayMs = 0 }) => {
   return (
     <div
       aria-hidden="true"
+      data-nav-scrim=""
       style={{
         position: 'fixed',
         top: 0,
