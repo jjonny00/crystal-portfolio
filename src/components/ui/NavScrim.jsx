@@ -86,16 +86,6 @@ const NavScrim = ({ active = false, zIndex = 9999, fadeInDelayMs = 0 }) => {
   const variant = useMediaQuery(MQ_NAV_DESKTOP) ? 'desktop' : 'mobile';
   const tune = SCRIM[variant];
 
-  // Two boxes, not one, because of iOS 26 Safari. It tints its status bar from
-  // position:fixed elements at the top edge, and a backdrop-filter on one of
-  // them reads as glass: the bar goes see-through and shows the page under it,
-  // which on a case study opened from its own URL is the project's colour
-  // (the scrim is up from the first frame there, where a normal visit has the
-  // black loader on top instead). Safari ignores absolutely positioned children
-  // of fixed elements, so the fixed box only places the band and the blur rides
-  // on a child. The fixed box carries no opacity, filter or mask of its own: any
-  // of those would make it the child's backdrop root, and the blur would see
-  // nothing behind it.
   return (
     <div
       aria-hidden="true"
@@ -107,28 +97,21 @@ const NavScrim = ({ active = false, zIndex = 9999, fadeInDelayMs = 0 }) => {
         height: `${tune.heightPx}px`,
         zIndex,
         pointerEvents: 'none',
+        backdropFilter: `blur(${tune.blurPx}px)`,
+        WebkitBackdropFilter: `blur(${tune.blurPx}px)`,
+        maskImage: SCRIM_MASK[variant],
+        WebkitMaskImage: SCRIM_MASK[variant],
+        opacity: active ? 1 : 0,
+        // A faded-out backdrop-filter is still a live layer sampling everything
+        // behind it every frame. Once invisible it comes out of compositing, on
+        // a delay so it does not blink away mid-fade.
+        visibility: active ? 'visible' : 'hidden',
+        transition: [
+          `opacity ${SCRIM.fadeMs}ms ease${active && fadeInDelayMs ? ` ${fadeInDelayMs}ms` : ''}`,
+          `visibility 0s linear ${active ? fadeInDelayMs : SCRIM.fadeMs}ms`,
+        ].join(', '),
       }}
-    >
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          backdropFilter: `blur(${tune.blurPx}px)`,
-          WebkitBackdropFilter: `blur(${tune.blurPx}px)`,
-          maskImage: SCRIM_MASK[variant],
-          WebkitMaskImage: SCRIM_MASK[variant],
-          opacity: active ? 1 : 0,
-          // A faded-out backdrop-filter is still a live layer sampling everything
-          // behind it every frame. Once invisible it comes out of compositing, on
-          // a delay so it does not blink away mid-fade.
-          visibility: active ? 'visible' : 'hidden',
-          transition: [
-            `opacity ${SCRIM.fadeMs}ms ease${active && fadeInDelayMs ? ` ${fadeInDelayMs}ms` : ''}`,
-            `visibility 0s linear ${active ? fadeInDelayMs : SCRIM.fadeMs}ms`,
-          ].join(', '),
-        }}
-      />
-    </div>
+    />
   );
 };
 

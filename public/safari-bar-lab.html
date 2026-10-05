@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Safari bar lab</title>
+    <!--
+      Diagnostic for iOS 26 Safari's status bar colour. Not part of the site;
+      delete once the question is settled.
+
+      Every variant mirrors a case study opened from its own URL: a black page,
+      a fixed full-screen scrolling layer, and at its top a hero painted in the
+      project colour at 60% (as .cs-section[data-surface='none'] does). Each
+      variant changes exactly one thing. Safari decides the bar colour when the
+      page loads, so each variant is its own page load.
+    -->
+    <style>
+      html, body { margin: 0; background: #050505; color: #fff; font: 16px/1.4 -apple-system, system-ui, sans-serif; overflow: hidden; }
+      .layer { position: fixed; inset: 0; overflow-y: auto; z-index: 9000; }
+      .hero { min-height: 70vh; padding: 64px 20px 24px; box-sizing: border-box; background-color: color-mix(in srgb, #ce2632 60%, transparent); }
+      .hero.opaque { background-color: #ce2632; }
+      .hero.gap { margin-top: 8px; }
+      .rest { padding: 24px 20px 120px; background: #e2e0d8; color: #111; }
+      h1 { margin: 0 0 8px; font-size: 28px; }
+      .expect { opacity: 0.85; }
+      ul { padding-left: 1.2em; }
+      li { margin: 0 0 14px; }
+      a { color: inherit; font-weight: 600; }
+      .strip { position: fixed; top: 0; left: 0; right: 0; height: 3px; background-color: #050505; z-index: 100002; }
+    </style>
+  </head>
+  <body>
+    <script>
+      // Built before first paint, so Safari samples the variant and nothing else.
+      const VARIANTS = {
+        '0': { name: 'Control', expect: 'Reproduces the bug: expect a dark red bar.', strip: null },
+        '1': { name: 'Strip, pointer-events: none', expect: 'The previous fix. Red means Safari skips non-hit-testable elements.', strip: 'pointer-events:none' },
+        '2': { name: 'Strip, hit-testable', expect: 'The new fix. Should be black.', strip: '' },
+        '3': { name: 'Strip, hit-testable, opacity 0', expect: 'Black means opacity does not matter, only hit-testing.', strip: 'opacity:0' },
+        '4': { name: 'Opaque hero, no strip', expect: 'Bright red means the bar is the hero’s own background colour.', strip: null, hero: 'opaque' },
+        '5': { name: '8px black gap above the hero, no strip', expect: 'Black means Safari reads only the top few pixels.', strip: null, hero: 'gap' },
+      };
+      const key = new URLSearchParams(location.search).get('v') || '0';
+      const v = VARIANTS[key] || VARIANTS['0'];
+      if (v.strip !== null) {
+        document.write(`<div class="strip" style="${v.strip}"></div>`);
+      }
+      const links = Object.entries(VARIANTS)
+        .map(([k, x]) => `<li><a href="?v=${k}">${k}. ${x.name}</a><br><span class="expect">${x.expect}</span></li>`)
+        .join('');
+      document.write(`
+        <div class="layer">
+          <section class="hero ${v.hero || ''}">
+            <h1>Variant ${key}: ${v.name}</h1>
+            <p class="expect">${v.expect}</p>
+            <p>Note the colour of the status bar at the very top, then pick the next variant below.</p>
+          </section>
+          <section class="rest">
+            <p>Open each one by tapping it (each is a fresh page load). Report the bar colour for each number.</p>
+            <ul>${links}</ul>
+          </section>
+        </div>
+      `);
+    </script>
+  </body>
+</html>
