@@ -3,8 +3,11 @@
 // Who the site is and where it lives. Read by seoMeta.js for canonical URLs,
 // share cards and structured data, and by the prerender for the sitemap.
 
-/** Production origin, no trailing slash. Every canonical URL is built on it. */
-export const SITE_URL = 'https://jjonnyshaw.com';
+/**
+ * Production origin, no trailing slash. Every canonical URL, the sitemap and
+ * the share-card image URLs are built on it. (jjonnyshaw.com redirects here.)
+ */
+export const SITE_URL = 'https://jjonshaw.com';
 
 export const SITE_NAME = 'Jon Shaw';
 
