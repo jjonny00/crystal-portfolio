@@ -30,6 +30,24 @@
         font-variation-settings: "wdth" var(--wdth, 100);
       }
 
+      /* Pins iOS Safari's bar colour (see the element at the top of <body>).
+         Hidden elsewhere: other browsers do not tint from the page, and on
+         them it would only be a black line along the top. */
+      .safari-bar-tint {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background-color: #050505;
+        pointer-events: none;
+        z-index: 100002;
+      }
+      @supports (-webkit-touch-callout: none) {
+        .safari-bar-tint { display: block; }
+      }
+
       /* Safari's fallback for its bar colour when no fixed element qualifies. */
       html {
         background-color: #050505;
@@ -109,18 +127,16 @@
   <body>
     <!-- Tells iOS 26 Safari what colour its status bar and toolbar are. Safari
          ignores theme-color now and samples position:fixed elements at the top
-         edge (within 4px, 80%+ wide, 3px+ high), reading their background-color.
-         opacity:0 does not stop it, and a fixed element with a TRANSPARENT
-         background tints the bar transparent, letting the page show through.
-         Every layer here that spans the top edge is transparent (the nav, the
-         case-study overlay, the frame), so without this the bar depended on
-         what happened to be painted first: black behind the loader on a normal
-         visit, the project's colour on a case-study deep link. Invisible, inert,
-         and outside #root so React never touches it. -->
-    <div
-      aria-hidden="true"
-      style="position: fixed; top: 0; left: 0; right: 0; height: 4px; background-color: #050505; opacity: 0; pointer-events: none; z-index: 100002;"
-    ></div>
+         edge (within 4px, 80%+ wide, 3px+ high), reading their background-color
+         and backdrop-filter. A transparent one, or one at opacity 0, tints the
+         bar transparent and lets the page show through. Every other layer that
+         spans the top edge is transparent (the nav, the case-study overlay, the
+         frame), so without this the bar depended on what happened to be on top
+         when Safari looked: the black loader on a normal visit, the case study
+         on a deep link. So this is solid and on screen: 3px, Safari's minimum,
+         flush against the black bar it produces. iOS only (see
+         .safari-bar-tint), outside #root so React never touches it. -->
+    <div class="safari-bar-tint" aria-hidden="true"></div>
     <!-- scripts/prerender.mjs puts the route's readable content here, so it is in
          the HTML before any JavaScript runs. A sibling of #root rather than inside
          it, so mounting React does not wipe it; the app takes it down once its
