@@ -2,25 +2,6 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <!-- TEMPORARY: iOS Safari status-bar bisect (public/safari-bar-lab.html).
-         ?sbd=a,b,... turns parts of the page off before first paint so the one
-         that colours the bar can be found on a real iPhone. Delete with the lab. -->
-    <script>
-      (function () {
-        var flags = (new URLSearchParams(location.search).get('sbd') || '').split(',');
-        var rules = {
-          standin: '[data-scene-stand-in]{display:none!important}',
-          herobg: ".cs-section[data-surface='none']{background-color:transparent!important}",
-          frame: '.app-frame{display:none!important}',
-          scrim: '[data-nav-scrim]{display:none!important}',
-          nav: 'nav{display:none!important}',
-          overlay: '.cs-overlay{display:none!important}',
-          canvas: 'canvas{display:none!important}'
-        };
-        var css = flags.map(function (f) { return rules[f] || ''; }).join('');
-        if (css) document.write('<style>' + css + '</style>');
-      })();
-    </script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
@@ -128,25 +109,6 @@
     </noscript>
   </head>
   <body>
-    <!-- TEMPORARY, with the ?sbd= bisect above. ?sbd=cover puts a full-screen
-         black cover over the page at first paint, like the loader on a normal
-         visit, and lifts it 1.5s after load. ?sbd=framefirst puts the rounded
-         app frame in the first paint (a normal visit has it there; a deep link
-         only gets it when the app mounts). -->
-    <script>
-      (function () {
-        var flags = (new URLSearchParams(location.search).get('sbd') || '').split(',');
-        if (flags.indexOf('framefirst') !== -1) {
-          document.write('<div class="app-frame" aria-hidden="true"></div>');
-        }
-        if (flags.indexOf('cover') !== -1) {
-          document.write('<div id="sbd-cover" style="position:fixed;inset:0;background:#050505;z-index:2147483647"></div>');
-          addEventListener('load', function () {
-            setTimeout(function () { var c = document.getElementById('sbd-cover'); if (c) c.remove(); }, 1500);
-          });
-        }
-      })();
-    </script>
     <!-- scripts/prerender.mjs puts the route's readable content here, so it is in
          the HTML before any JavaScript runs. A sibling of #root rather than inside
          it, so mounting React does not wipe it; the app takes it down once its

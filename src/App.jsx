@@ -49,7 +49,6 @@ import { foregroundColorForTone } from './caseStudies/system/caseStudyTheme';
 import { caseStudyOpaqueAtMs } from './caseStudies/transitionTiming';
 import { CATALOG_PROJECT } from './caseStudies/catalog/catalogProject';
 import { getProjectByAnyKey } from './data/projects';
-import SceneStandIn, { SCENE_STAND_IN_FADE_MS } from './components/ui/SceneStandIn';
 
 import { isMobileDevice } from './utils/isMobileDevice.js';
 import {
@@ -70,11 +69,6 @@ const zoneKeys = ['intro', 'hero', 'overview', 'about'];
 // that is fully opaque, so freezing (and hiding) the canvas any earlier would
 // blink it out mid-transition. Derived, not a second copy of the timing.
 const SCENE_FREEZE_DELAY_MS = caseStudyOpaqueAtMs + 260;
-
-// Case-study fast path: how long the stand-in sky holds after the scene mounts,
-// long enough for its first frames (shader compile, environment map), before it
-// fades off the scene (SceneStandIn).
-const SCENE_STAND_IN_HOLD_MS = 900;
 
 
 // How the copy is kept legible over a scene that swings from near-black to
@@ -939,23 +933,6 @@ function App() {
     }
   }, [sceneMounted, landProjectInScene, scrollToSection]);
 
-  // Case-study fast path: the case study's transparent sections show the scene
-  // through them, and until it has loaded there is nothing there but the page
-  // ground. This stands in with the project's own sky, then crossfades out once
-  // the scene has had time to draw, so the page warms into the crystal rather
-  // than the crystal popping in under it.
-  const [sceneStandIn, setSceneStandIn] = useState(caseStudyDeepLink ? 'shown' : 'gone');
-  useEffect(() => {
-    if (sceneStandIn !== 'shown' || !sceneMounted) return undefined;
-    const timeoutId = setTimeout(() => setSceneStandIn('fading'), SCENE_STAND_IN_HOLD_MS);
-    return () => clearTimeout(timeoutId);
-  }, [sceneMounted, sceneStandIn]);
-  useEffect(() => {
-    if (sceneStandIn !== 'fading') return undefined;
-    const timeoutId = setTimeout(() => setSceneStandIn('gone'), SCENE_STAND_IN_FADE_MS);
-    return () => clearTimeout(timeoutId);
-  }, [sceneStandIn]);
-
   // Back / Forward onto an entry somewhere else on the page.
   const navigateFromHistory = useCallback((route) => {
     if (!sceneMounted) {
@@ -1463,13 +1440,6 @@ function App() {
         onBackToProject={handleBackToProject}
         onSettledSectionChange={setSettledSection}
       />
-      )}
-
-      {/* Stand-in for the scene behind a deep-linked case study (see
-          sceneStandIn). Directly under the case study, over everything else;
-          gone the moment the case study closes, since the loader covers that. */}
-      {sceneStandIn !== 'gone' && caseStudyOpen && (
-        <SceneStandIn projectId={initialRoute.projectId} fading={sceneStandIn === 'fading'} />
       )}
 
       {/* Case study — a self-contained layer over the portfolio. Sits below the

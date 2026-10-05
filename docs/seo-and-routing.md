@@ -48,8 +48,8 @@ that would answer every unknown URL with the home page and a 200 (a soft 404).
 ### What the prerendered body is
 
 - **Case study routes**: the real case study, rendered through the same
-  `CaseStudyOverlay` and components the app uses, plus the nav and the scene
-  stand-in. It is visible: it *is* the page on first paint.
+  `CaseStudyOverlay` and components the app uses, plus the nav. It is
+  visible: it *is* the page on first paint.
 - **Every other route**: the page's copy as plain semantic HTML (name, role,
   intro, each project linking to its URL, About). Visually hidden
   (`.prerender--hidden`): sighted readers get the loader and then the scene.
@@ -73,8 +73,11 @@ Copy shown on the live page and in the prerender comes from one place:
    scroll position. The app renders the same markup, so the takeover is
    invisible; `#prerender` is removed in the same commit.
 3. The perf benchmark, assets and fracture textures load behind it. The loader
-   stays hidden while the case study is open. `SceneStandIn` paints the
-   project's sky where the scene will be, then crossfades out once it has drawn.
+   stays hidden while the case study is open. While `data-instant` is set,
+   the sections that normally show the scene through them
+   (`.cs-section[data-surface='none']`) paint their colour solid, so the scene
+   loading behind is never seen. The flag clears when the case study first
+   closes; any case study opened after that sees through as usual.
 4. When the scene mounts, it lands on the project (below). Closing the case
    study reveals the facet; closing it before the scene is ready shows the
    loader, which then hands off as usual.
@@ -130,3 +133,12 @@ copy link) behave like normal links.
   share card.
 - Search Console: submit `/sitemap.xml`; URL Inspection → "View crawled page"
   on `/` and a case study, to see the rendered HTML Google indexed.
+
+## iOS 26 Safari status bar
+
+Safari 26 ignores `theme-color` and colours its status bar from a
+`position: fixed` bar at the top edge of the page; a transparent one makes it
+show whatever is behind. The nav was that bar, which turned the status bar the
+project colour on case-study deep links. The nav is `position: absolute`
+(the document never scrolls, so it renders the same), and Safari falls back to
+the page background, `#050505`. Keep full-width top bars non-fixed.

@@ -989,6 +989,15 @@
   background-color: var(--cs-color-b);
 }
 
+/* ...and the 3D scene is still loading behind it, so the sections that would
+   show the scene through them paint their colour solid instead, for as long
+   as the reader stays on the case study they arrived on. data-instant clears
+   when the layer first closes, so any case study opened after that, with the
+   scene up, sees through as usual. */
+.cs-overlay[data-instant] .cs-section[data-surface='none'] {
+  background-color: var(--cs-bg);
+}
+
 /* --------------------------------------------------------------------------
    Mobile — the supplied mobile references, not a shrunk desktop grid
    -------------------------------------------------------------------------- */

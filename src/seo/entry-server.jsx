@@ -27,7 +27,6 @@ import {
 import CaseStudyOverlay, { preloadCaseStudy } from '../caseStudies/CaseStudyOverlay';
 import { foregroundColorForTone, normalizeCaseStudyColors } from '../caseStudies/system/caseStudyTheme';
 import Navigation from '../components/ui/Navigation';
-import SceneStandIn from '../components/ui/SceneStandIn';
 import { NAVIGATION_DESTINATIONS } from '../navigation/navigationIntent';
 import { getPrerenderRoutes, getProjectBySlug, projectPath } from '../navigation/routes';
 import { getRouteMeta, renderHeadTagsHtml } from './seoMeta';
@@ -129,7 +128,6 @@ export async function renderRoute(route) {
     const html = renderToString(
       <>
         <Navigation color={navColor} onHomeClick={noop} onWorkClick={noop} onAboutClick={noop} onContactClick={noop} />
-        <SceneStandIn projectId={project.facetKey || project.id} />
         <CaseStudyOverlay project={project} open initiallyOpen onClose={noop} />
       </>
     );
