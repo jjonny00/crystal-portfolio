@@ -12,7 +12,7 @@
           nosolid: deep + '{background-color:color-mix(in srgb,var(--cs-bg) 60%,transparent)!important}',
           semi99: deep + '{background-color:color-mix(in srgb,var(--cs-bg) 99%,transparent)!important}',
           sections99: ".cs-overlay[data-instant] .cs-section{background-color:color-mix(in srgb,var(--cs-bg) 99%,transparent)!important}",
-          norim: '.app-frame::before{display:none!important}'
+          norim: '.app-rim{display:none!important}'
         };
         var css = flags.map(function (f) { return rules[f] || ''; }).join('');
         if (css) document.write('<style>' + css + '</style>');

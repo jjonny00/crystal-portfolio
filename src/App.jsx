@@ -1256,6 +1256,7 @@ function App() {
           statusMessage={statusMessage}
         />
         <div className="app-frame" aria-hidden="true" />
+        <div className="app-rim" aria-hidden="true" />
       </>
     );
   }
@@ -1629,6 +1630,9 @@ function App() {
           every other layer, including the loader, so the frame is unbroken from
           the first paint. Decorative and pointer-transparent. */}
       <div className="app-frame" aria-hidden="true" />
+      {/* Its glass rim, on mobile. A separate, non-fixed element on purpose:
+          see .app-rim in app-frame.css. */}
+      <div className="app-rim" aria-hidden="true" />
     </>
   );
 }

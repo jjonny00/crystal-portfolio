@@ -58,8 +58,15 @@
  * 32px at iPhone widths. Avoiding rem also keeps it out of reach of iOS Safari
  * inflating the root font size, which would scale a rem radius but not a px one.
  */
+/* The glass rim: its own element (.app-rim, rendered next to .app-frame), hidden
+   until the phone layout below. */
+.app-rim {
+  display: none;
+}
+
 @media (max-width: 767px) {
-  .app-frame {
+  .app-frame,
+  .app-rim {
     --app-corner-radius: clamp(24px, 8.2vw, 56px);
   }
 
@@ -70,13 +77,27 @@
      quieter than the card's, and white only (it frames every page, so it takes
      no project's accent): a soft specular at the top left that is almost gone
      down the sides, gathering a little again at the bottom right. Static paint;
-     it costs nothing per frame. */
-  .app-frame::before {
-    content: '';
+     it costs nothing per frame.
+
+     Its own ABSOLUTE element, not a pseudo-element of the fixed frame. iOS 26
+     Safari colours its status bar and toolbar from fixed elements at the screen
+     edges: the frame alone (transparent) it ignores, but with this ring on it
+     Safari took the frame as a bar and showed the page through it, so a
+     case study's colours ran up into the status bar and down under the
+     toolbar. Found by bisecting on an iPhone. The document never scrolls, so
+     absolute holds still; 100svh is the height the fixed frame gets with the
+     browser's toolbars showing, which on this page they always are. */
+  .app-rim {
+    display: block;
     position: absolute;
-    inset: 0;
-    border-radius: inherit;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 100svh;
+    z-index: 100000;
+    border-radius: var(--app-corner-radius);
     padding: 1px;
+    box-sizing: border-box;
     background: linear-gradient(
       155deg,
       rgba(255, 255, 255, 0.2) 0%,
@@ -96,7 +117,7 @@
 
 /* The rim follows the smoothed corner too (see the squircle note above). */
 @supports (corner-shape: squircle) {
-  .app-frame::before {
+  .app-rim {
     corner-shape: squircle;
   }
 }
