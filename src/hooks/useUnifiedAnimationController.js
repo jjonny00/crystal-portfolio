@@ -1007,23 +1007,31 @@ export const useUnifiedAnimationController = (options = {}) => {
     if (directOverrideProject) {
       const directOverrideAgeMs = Date.now() - (directProjectOverrideRef.current?.createdAt ?? Date.now());
       const directOverrideSectionId = `project-${directOverrideProject}`;
+      const isNearestDirectOverrideSection = nearestSectionId === directOverrideSectionId;
       const isAtDirectOverrideSection = Boolean(
-        nearestSectionId === directOverrideSectionId &&
+        isNearestDirectOverrideSection &&
         typeof nearestSectionTop === 'number' &&
         container &&
         Math.abs(container.scrollTop - nearestSectionTop) <= 2
       );
+      // Reaching the target only needs its section to be the nearest one, not an
+      // exact landing: scroll updates are throttled and skip sub-0.001 moves, so the
+      // click's smooth scroll often comes to rest without its final position ever
+      // being seen here. Requiring the exact landing left this false, and the hold
+      // below then pinned the clicked facet through the next scroll to a neighbouring
+      // project — the camera followed the DOM there, but the facet never rotated or
+      // glowed until a second scroll (after the age release) re-ran normal focus.
       const hasReachedTargetSection =
         currentZone.zone === 'projects' &&
         activeProject.project === directOverrideProject &&
-        isAtDirectOverrideSection;
+        isNearestDirectOverrideSection;
 
       if (hasReachedTargetSection) {
         directOverrideReachedTargetRef.current = true;
       }
 
       if (
-        (directOverrideReachedTargetRef.current && !isAtDirectOverrideSection) ||
+        (directOverrideReachedTargetRef.current && !isNearestDirectOverrideSection) ||
         currentZone.zone !== 'projects'
       ) {
         // Release the override and fall through to the normal zone transition when
@@ -1232,12 +1240,17 @@ export const useUnifiedAnimationController = (options = {}) => {
       lastProject.current = null;
     }
 
-    // Always update scroll progress and zone info
+    // Always update scroll progress and zone info. Re-read the override: it may have
+    // been released above, and the lockedProjectInfo computed before that would
+    // pin projectInfo back to the clicked project after handleProjectFocus moved on.
+    const remainingOverrideProject = directProjectOverrideRef.current?.projectKey ?? null;
     setAnimationState(prev => ({
       ...prev,
       scrollProgress: scrollProgress,
       zoneInfo: currentZone,
-      projectInfo: lockedProjectInfo
+      projectInfo: remainingOverrideProject
+        ? { ...activeProject, project: remainingOverrideProject }
+        : activeProject
     }));
 
     if (onStateChange) {
