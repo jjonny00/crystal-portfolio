@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import PerformanceManagerV2 from '../utils/PerformanceManagerV2.js';
+import { updateStage } from '../loader/loadProgress';
 
 // Single manager instance to avoid multiple tests
 const manager = new PerformanceManagerV2();
@@ -23,6 +24,7 @@ export const usePerformanceV2 = () => {
 
     const initializeManager = async () => {
       if (manager.isReady()) {
+        updateStage('device', { done: true });
         // Already ready - use cached results
         setProfile(manager.getProfile());
         setTier(manager.getTier());
@@ -41,17 +43,13 @@ export const usePerformanceV2 = () => {
       setTestStatus('');
 
       // Set up progress callback for real-time updates
-      manager.setProgressCallback((percentage, message) => {
+      // The loader's "Adjusting to your device" ring (src/loader/loadProgress.js).
+      updateStage('device', { started: true });
+      manager.setProgressCallback((fraction, message) => {
+        updateStage('device', { progress: fraction });
         if (mounted) {
-          setTestProgress(percentage);
+          setTestProgress(fraction * 100);
           setTestStatus(message || '');
-          
-          // Update global HTML loader with testing progress
-          window.updateImmediateLoader?.({
-            test: percentage,
-            phase: 'Testing Performance',
-            currentAsset: message,
-          });
         }
       });
 
@@ -61,6 +59,7 @@ export const usePerformanceV2 = () => {
         }
 
         await manager.initialize();
+        updateStage('device', { done: true });
 
         if (mounted) {
           setProfile(manager.getProfile());
@@ -80,6 +79,7 @@ export const usePerformanceV2 = () => {
         }
       } catch (err) {
         console.error('Performance testing failed:', err);
+        updateStage('device', { done: true });
         
         if (mounted) {
           setError(err.message);
@@ -148,16 +148,9 @@ export const usePerformanceV2 = () => {
     setTestStatus('');
 
     // Set up progress callback for retest
-    manager.setProgressCallback((percentage, message) => {
-      setTestProgress(percentage);
+    manager.setProgressCallback((fraction, message) => {
+      setTestProgress(fraction * 100);
       setTestStatus(message || '');
-
-      // Update global HTML loader
-      window.updateImmediateLoader?.({
-        test: percentage,
-        phase: 'Retesting Performance',
-        currentAsset: message,
-      });
     });
 
     try {

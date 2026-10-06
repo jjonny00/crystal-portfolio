@@ -1,98 +1,339 @@
-:root{
-  --bg: #0B0B0C;
-  --ring1: #64ffda;  /* outer = initialization (teal) */
-  --ring2: #bb86fc;  /* middle = assets (purple) */
-  --ring3: #ff64b0;  /* inner = performance (pink) */
-  --ringTrack: rgba(255,255,255,0.12);
-  --text: #F0ECE0;
-  --offwhite: #F4F2E6;
-  --ringStroke: 6;
-}
+/* The loading screen (LoaderV2.tsx), in the hero's palette so the hand-off reads
+   as one scene: the backdrop is the sky as it renders behind the crystal (the
+   default gradient in projectBackgrounds.js, after tone mapping), and the rings
+   run through the crystal's cool blues to teal under the cream ink every
+   headline uses. */
 
-@media (max-width: 480px){
-  :root{ --ringStroke: 4; }
-}
+.overlay {
+  /* The sky (index.css): the same two colours the page takes on phones. */
+  --loader-bg-top: var(--sky-top);
+  --loader-bg-bottom: var(--sky-bottom);
+  --loader-ink: #fffcee;
+  --loader-ink-muted: rgb(255 252 238 / 0.7);
+  --loader-ink-strong: rgb(255 252 238 / 0.88);
+  --ring-download: #384ce6;
+  --ring-device: #3c83e5;
+  --ring-scene: #3abebe;
 
-.overlay{
-  position: fixed; inset: 0; background: var(--bg);
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  position: fixed;
+  inset: 0;
   z-index: 9999;
-  opacity: 1;
-  transition: opacity 5.36s ease;
-}
-
-.fadeOut{
-  opacity: 0;
-  pointer-events: none;
-}
-
-.content{
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  padding: 0 16px;
+  background: linear-gradient(to bottom, var(--loader-bg-top), var(--loader-bg-bottom));
   opacity: 1;
-  transition: opacity 0.42s ease;
+  /* Starts after the content has gone (LOADER_SCENE_REVEAL_DELAY_MS), then
+     uncovers the scene slowly. App unmounts the loader at
+     LOADER_SCENE_REVEAL_DELAY_MS + LOADER_OVERLAY_FADE_MS. */
+  transition: opacity 5.36s ease 0.52s;
 }
 
-.contentFadeOut{
+/* Until Acumin has loaded (see useAcuminReady): the type classes and the
+   percentage all read --type-font-sans. */
+.fallbackSans {
+  --type-font-sans: 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* Phones: the one ground colour the page and the frame's corners use (index.css),
+   so while the loader is up Safari's bars, which it colours from the loader's top
+   and bottom edges, match the corners too. */
+@media (max-width: 767px) {
+  .overlay {
+    background: var(--phone-ground);
+  }
+}
+
+.overlayExiting {
   opacity: 0;
-}
-
-  .headline{
-    margin: 0 0 14px 0;
-    font-family: "ivypresto-display", serif;
-    font-size: clamp(26px, 4vw, 48px);
-    font-weight: 400;
-    text-align: center; letter-spacing: 0.02em;
-    background: linear-gradient(90deg, var(--ring1), var(--ring2));
-    -webkit-background-clip: text;
-    color: transparent;
-  }
-  .subhead{
-    display: block; margin-top: 4px;
-    font-family: "acumin-variable", sans-serif;
-    font-size: 0.38em; letter-spacing: 0.08em; opacity: 0.8;
-  }
-
-.meter{ position: relative; width: 260px; height: 260px; display: grid; place-items: center; }
-.svg{ width: 100%; height: 100%; }
-
-.track{ transition: stroke 0.2s ease-out; }
-.progress{ transition: stroke-dashoffset 0.35s ease-out, stroke 0.2s ease-out; }
-.complete{ transition: stroke-dashoffset 0.6s ease-out, stroke 0.2s ease-out; }
-
-.diamond{ filter: drop-shadow(0 0 10px rgba(255,255,230,0.18)); }
-
-.percent{
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 28px;
-  font-weight: 600;
-  color: var(--offwhite);
   pointer-events: none;
 }
 
-.status{
-  margin-top: 10px; color: var(--text); font-size: 12px; letter-spacing: 0.06em; text-align: center;
-}
-.dots{ display: inline-flex; gap: 4px; margin-left: 6px; }
-.dots i{
-  width: 6px; height: 6px; border-radius: 50%; background: var(--text); opacity: 0.6;
-  animation: pulse 1.2s infinite ease-in-out;
-}
-.dots i:nth-child(2){ animation-delay: 0.12s; }
-.dots i:nth-child(3){ animation-delay: 0.24s; }
-
-@keyframes pulse{
-  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
-  40%          { transform: scale(1);   opacity: 1; }
+.content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  opacity: 1;
+  transition: opacity 0.42s ease; /* LOADER_CONTENT_FADE_MS */
 }
 
-@media (prefers-reduced-motion: reduce){
-  .progress{ transition: none; }
-  .dots i{ animation: none; }
+.contentExiting {
+  opacity: 0;
+}
+
+/* --- entrance -------------------------------------------------------------- */
+
+/* Nothing shows until the loader's fonts are in (useSettledPromise in
+   LoaderV2.tsx), then the wordmark, role, meter and status fade up in turn. */
+.wordmark,
+.subtitle,
+.meter,
+.status {
+  opacity: 0;
+}
+
+.entered .wordmark { animation: loaderEnter 0.7s ease-out 0s both; }
+.entered .subtitle { animation: loaderEnter 0.7s ease-out 0.15s both; }
+.entered .meter { animation: loaderEnter 0.8s ease-out 0.3s both; }
+.entered .status { animation: loaderEnter 0.7s ease-out 0.45s both; }
+
+@keyframes loaderEnter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* The wordmark is the nav's (Navigation.jsx): IvyPresto Display with the same
+   tracking, which belongs to that cut. Like the nav, it sits outside the type
+   scale, which is for copy. */
+.wordmark {
+  margin: 0;
+  font-family: 'ivypresto-display', Georgia, serif;
+  font-size: 33px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: -0.025em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--loader-ink);
+}
+
+.subtitle {
+  margin: 3px 0 0;
+  color: var(--loader-ink-muted);
+}
+
+.meter {
+  position: relative;
+  width: 144px;
+  height: 168px;
+  margin-top: 14px;
+}
+
+.svg {
+  display: block;
+  overflow: visible;
+}
+
+/* --- rings ---------------------------------------------------------------- */
+
+.ring_download { --ring: var(--ring-download); }
+.ring_device { --ring: var(--ring-device); }
+.ring_scene { --ring: var(--ring-scene); }
+
+.track,
+.arc {
+  fill: none;
+  stroke-width: 1.5;
+}
+
+/* The unfilled part reads as a dim version of the ring's own colour. */
+.track {
+  stroke: color-mix(in srgb, var(--ring) 16%, transparent);
+}
+
+.arc {
+  stroke: var(--ring);
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.35s ease-out;
+}
+
+/* While a ring's stage is working, a pulse sweeps its filled arc from the start
+   to the leading edge (--arc, its filled length) every 2.2s, fading in and out at
+   the ends; .arcMask keeps it on the arc. Not rendered once the ring is full.
+
+   The pulse is the hero energy line's travelling peak (vertical-energy-line.css):
+   the same colours and the same colour-dodge blend, as a comet whose bright spot
+   leads: three dashes (a white core, cyan, a wide indigo halo) whose fronts are
+   one point, so the longer layers trail behind as its tail. --len is a layer's
+   length: its dash starts that far behind the shared front. */
+.arcMask {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 3;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.35s ease-out;
+}
+
+.pulse {
+  mix-blend-mode: color-dodge;
+}
+
+.pulseLayer {
+  fill: none;
+  stroke-linecap: round;
+  animation: pulse 2.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.pulseOuter {
+  stroke: rgb(41 39 181 / 0.55);
+  stroke-width: 3;
+}
+
+.pulseMid {
+  stroke: rgb(0 187 255 / 0.75);
+  stroke-width: 1.5;
+}
+
+.pulseCore {
+  stroke: #fff;
+  stroke-width: 1.5;
+}
+
+/* The front runs from the arc's start (0) to its leading edge (--arc). A dash
+   starts at (circumference - offset), so for a front at f the offset is
+   circumference - f + len. */
+@keyframes pulse {
+  0% { stroke-dashoffset: calc((var(--circumference) + var(--len)) * 1px); opacity: 0; }
+  15% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { stroke-dashoffset: calc((var(--circumference) - var(--arc) + var(--len)) * 1px); opacity: 0; }
+}
+
+/* --- percentage ------------------------------------------------------------ */
+
+/* A readout rather than copy, sized to sit inside the inner ring, so it is set
+   here rather than taken from the type scale. Centred on the rings' centre. */
+.percent {
+  position: absolute;
+  top: 72px; /* the rings' centre: -VIEW_TOP */
+  left: 0;
+  right: 0;
+  transform: translateY(-58%);
+  text-align: center;
+  font-family: var(--type-font-sans);
+  font-size: 30px;
+  font-weight: 600;
+  font-stretch: 100%;
+  --wdth: 100;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--loader-ink-strong);
+}
+
+/* Only the digits are centred; the sign hangs off their right edge, outside the
+   box being centred, so it doesn't pull the number left of the rings' centre. */
+.percentValue {
+  position: relative;
+  display: inline-block;
+}
+
+.percentSign {
+  position: absolute;
+  top: 0.08em;
+  left: 100%;
+  margin-left: 1px;
+  font-size: 0.55em;
+  line-height: 1;
+}
+
+/* --- diamond --------------------------------------------------------------- */
+
+/* Cut out of the rings (the mask in LoaderV2.tsx), a little wider than the
+   diamond, so they break around it. */
+.diamondCutout {
+  fill: #000;
+  stroke: #000;
+  stroke-width: 7;
+  stroke-linejoin: round;
+}
+
+.diamondFace {
+  fill: #feffde;
+}
+
+.diamondSpine {
+  fill: rgb(10 8 20 / 0.85);
+}
+
+/* A wash per completed ring (LoaderV2.tsx), its gradient a light tint of the
+   ring's colour, the colour, and a deeper shade, over the cream face and any wash
+   before it. It sweeps in from the right under its mask (.washSweep), whose
+   leading edge is a soft band, so the colours blend as it crosses. */
+.washLight { stop-color: color-mix(in srgb, var(--ring) 45%, #fff); }
+.washBase { stop-color: var(--ring); }
+.washDeep { stop-color: color-mix(in srgb, var(--ring) 70%, #0b0820); }
+
+/* The mask's sweep: from just off the diamond's right edge until its soft edge
+   has cleared the left one (--sweep-from / --sweep-to, the diamond's units). */
+.washSweep {
+  animation: washSweep 0.9s cubic-bezier(0.45, 0, 0.25, 1) both;
+}
+
+@keyframes washSweep {
+  from { transform: translateX(calc(var(--sweep-from) * 1px)); }
+  to { transform: translateX(calc(var(--sweep-to) * 1px)); }
+}
+
+/* A glow in the latest wash's colour, growing as each ring completes. */
+.diamond {
+  filter: drop-shadow(0 0 calc(var(--glow-level, 0) * 4px)
+    color-mix(in srgb, var(--glow-color, transparent) calc(var(--glow-level, 0) * 22%), transparent));
+  transition: filter 0.6s ease-out;
+}
+
+/* --- status ---------------------------------------------------------------- */
+
+/* Room for two lines; the labels stack in it so one can fade out while the next
+   rises in. */
+.status {
+  position: relative;
+  width: 100%;
+  height: calc(2em * 1.35); /* two lines of type-subhead-sm */
+  margin: 10px 0 0;
+  text-align: center;
+  color: var(--loader-ink-muted);
+}
+
+.label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.labelIn {
+  animation: labelIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.12s both;
+}
+
+/* LABEL_OUT_MS in LoaderV2.tsx */
+.labelOut {
+  animation: labelOut 0.26s ease-in forwards;
+}
+
+@keyframes labelIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes labelOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@media (max-width: 480px) {
+  .wordmark { font-size: 30px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .arc { transition: none; }
+
+  /* A wash fades in where it is rather than wiping. */
+  .washSweep { animation-name: washSweepFade; }
+
+  @keyframes washSweepFade {
+    from { opacity: 0; transform: translateX(calc(var(--sweep-to) * 1px)); }
+    to { opacity: 1; transform: translateX(calc(var(--sweep-to) * 1px)); }
+  }
+
+  /* Fades stay; the label's rise goes. */
+  @keyframes labelIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
 }

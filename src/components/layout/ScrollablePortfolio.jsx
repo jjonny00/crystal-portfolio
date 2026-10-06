@@ -21,7 +21,10 @@ const ScrollablePortfolio = ({
   onSettledSectionChange = null,
   // The section a deep link lands on (/about, /work/<slug>). Seeded so the first
   // report up is where the reader is arriving rather than a passing 'hero'.
-  initialSettledSectionId = 'hero'
+  initialSettledSectionId = 'hero',
+  // False while the content sits behind the loader: a section animates in when it
+  // turns visible, and that should happen as the loader uncovers it.
+  revealed = true
 }) => {
   const { variant } = useLayoutConfig();
   const hoverCapable = useHoverCapable();
@@ -205,7 +208,7 @@ const ScrollablePortfolio = ({
             pointerEvents: 'auto'
           }}
         >
-          <HeroSection visible={settledSectionId === 'hero'} isMobile={isMobileViewport} />
+          <HeroSection visible={revealed && settledSectionId === 'hero'} isMobile={isMobileViewport} />
         </section>
 
         <section
@@ -257,7 +260,7 @@ const ScrollablePortfolio = ({
               <ProjectFocusSection
                 project={project}
                 isMobile={isMobileViewport}
-                visible={settledSectionId === sectionId}
+                visible={revealed && settledSectionId === sectionId}
                 viewMode={viewMode}
                 isActiveProject={activeProjectId === (project.facetKey || project.id)}
                 onOpenCaseStudy={onOpenCaseStudy}
@@ -286,7 +289,7 @@ const ScrollablePortfolio = ({
             pointerEvents: 'auto'
           }}
         >
-          <AboutSection visible={settledSectionId === 'about'} />
+          <AboutSection visible={revealed && settledSectionId === 'about'} />
         </section>
       </div>
     </div>

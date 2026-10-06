@@ -2,6 +2,15 @@
 // UPDATED: Lighting adjustments to compensate for disabled crystal shadows
 
 import * as THREE from 'three'
+import {
+  hdriPathForTier,
+  CRYSTAL_WHOLE_MODELS,
+  PROJECT_MODEL_KEYS,
+  projectModelPathForTier,
+  FRACTURE_RAYS_MODEL,
+  CRYSTAL_NORMAL_MAP,
+  FRACTURE_RING_TEXTURE,
+} from './config/assetPaths'
 
 // === POSITIONS ===
 // Define the starting positions (where they make the whole crystal)
@@ -37,7 +46,7 @@ export const fracture = {
     spread: 0.5            // Half-width emitter radius
   },
   image: {
-    imagePath: '/assets/textures/fractureRing03.jpg',
+    imagePath: FRACTURE_RING_TEXTURE,
     baseSize: 0.1,
     maxScale: 16,
     opacity: 0.75,
@@ -732,12 +741,8 @@ export const introMotion = {
 }
 
 // === ENVIRONMENT ===
-// Single source of truth for the environment map. To swap the HDRI everywhere,
-// change HDRI_BASE only — the per-tier suffix (-high/-medium/-low) is appended
-// automatically and must match the files in public/assets/environment/.
-export const HDRI_BASE = 'prismatic-detailed01';
-export const hdriPathForTier = (tier = 'low') =>
-  `/assets/environment/${HDRI_BASE}-${tier}.hdr`;
+// The HDRI path per tier lives in config/assetPaths.js (three-free, so the boot
+// code can download it early); re-exported here for existing callers.
 
 export const environment = {
   hdri: hdriPathForTier('low'),
@@ -752,57 +757,14 @@ export const environment = {
 }
 
 // === ASSET PATHS ===
-
-// Whole-crystal mesh, per performance tier. The default carries the Blender
-// `edgeWear` vertex mask that materials/edgeWear.js reads; the `-noWear` variant is
-// the same crystal exported without it. The low tier renders MeshPhongMaterial,
-// which the edge-wear injection skips outright (see materials.crystal.edgeWear), so
-// there the mask geometry and its per-triangle aEdgeDist build would be paid for
-// and never shown.
-//
-// Both consumers must agree on this URL: useAssetLoaderV2 warms it (its own
-// GLTFLoader, so the second read is a browser-cache hit) and UnifiedCrystalScene's
-// useGLTF loads it for real. A mismatch means the splash counts one crystal to 100%
-// and then the scene downloads a different one.
-const CRYSTAL_WHOLE_MODELS = {
-  default: '/assets/models/CrystalWhole-EdgeWear03.glb',
-  low: '/assets/models/CrystalWhole-noWear.glb'
-}
-
-export const crystalWholePathForTier = (tier = 'high') =>
-  tier === 'low' ? CRYSTAL_WHOLE_MODELS.low : CRYSTAL_WHOLE_MODELS.default;
-
-// The six project facets, same story as the crystal above: the default exports carry
-// the `edgeWear` mask, the ones under projects-no-edgewear/ are the same meshes
-// without it. Identical filenames, so the tier only chooses a directory.
-//
-// Low tier renders MeshPhongMaterial, which the edge-wear injection skips, so the
-// mask there is dead weight twice over: the COLOR_0 attribute rides along in the
-// download, and unshareForEdgeWear would call toNonIndexed on the geometry purely
-// to host an aEdgeDist attribute nothing reads. Without a mask neither happens.
-const PROJECT_MODEL_FILES = {
-  project01: 'Project01.glb',
-  project02: 'Project02.glb',
-  project03: 'Project03.glb',
-  project04: 'Project04.glb',
-  project05: 'Project05.glb',
-  project06: 'Project06.glb',
-}
-
-const PROJECT_MODEL_DIRS = {
-  default: '/assets/models',
-  low: '/assets/models/projects-no-edgewear',
-}
-
-export const PROJECT_MODEL_KEYS = Object.keys(PROJECT_MODEL_FILES);
-
-// Returns null for a key that is not a project facet, so a caller can tell the two
-// kinds of model apart without keeping its own list.
-export const projectModelPathForTier = (key, tier = 'high') => {
-  const file = PROJECT_MODEL_FILES[key];
-  if (!file) return null;
-  return `${tier === 'low' ? PROJECT_MODEL_DIRS.low : PROJECT_MODEL_DIRS.default}/${file}`;
-};
+// Defined in config/assetPaths.js; re-exported so existing imports keep working.
+export {
+  HDRI_BASE,
+  hdriPathForTier,
+  crystalWholePathForTier,
+  PROJECT_MODEL_KEYS,
+  projectModelPathForTier,
+} from './config/assetPaths';
 
 export const assets = {
   models: {
@@ -810,10 +772,10 @@ export const assets = {
     ...Object.fromEntries(
       PROJECT_MODEL_KEYS.map((key) => [key, projectModelPathForTier(key)])
     ),
-    fractureRays: '/assets/models/FractureRays.glb'
+    fractureRays: FRACTURE_RAYS_MODEL
   },
   textures: {
-    normalMap: '/assets/textures/raw-crystal-normal01.png'
+    normalMap: CRYSTAL_NORMAL_MAP
   }
 }
 

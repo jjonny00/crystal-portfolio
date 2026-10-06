@@ -64,6 +64,19 @@ const findCaseStudyChunkKey = (caseStudySlug) =>
 
 const entryAssets = collectChunkAssets('index.html');
 
+// The app is split out of the entry (src/main.jsx) so the loader paints first.
+// A case study is on screen before any of that, though, and its overlay and the
+// app it mounts in are needed at once, so a case-study page links them directly.
+// Found by chunk name: a chunk shared by more than one importer is keyed by its
+// hashed file rather than its source path.
+const findEntryDynamicChunkKey = (name) =>
+  (manifest['index.html']?.dynamicImports || []).find((key) => manifest[key]?.name === name);
+const caseStudyShellAssets = ['App', 'CaseStudyOverlay'].reduce((assets, name) => {
+  const key = findEntryDynamicChunkKey(name);
+  if (!key) fail(`no "${name}" chunk among src/main.jsx's dynamic imports.`);
+  return collectChunkAssets(key, new Set(), assets);
+}, { css: new Set(), js: new Set() });
+
 const buildPage = async (route) => {
   const meta = entry.getRouteMeta(route);
   const { html, visible, caseStudySlug } = await entry.renderRoute(route);
@@ -72,7 +85,10 @@ const buildPage = async (route) => {
   if (caseStudySlug) {
     const chunkKey = findCaseStudyChunkKey(caseStudySlug);
     if (!chunkKey) fail(`no chunk in the manifest for case study "${caseStudySlug}".`);
-    const { css, js } = collectChunkAssets(chunkKey);
+    const { css, js } = collectChunkAssets(chunkKey, new Set(), {
+      css: new Set(caseStudyShellAssets.css),
+      js: new Set(caseStudyShellAssets.js),
+    });
     const links = [
       ...[...css].filter((href) => !entryAssets.css.has(href)).map((href) => `<link rel="stylesheet" crossorigin href="${href}" />`),
       ...[...js].filter((href) => !entryAssets.js.has(href)).map((href) => `<link rel="modulepreload" crossorigin href="${href}" />`),

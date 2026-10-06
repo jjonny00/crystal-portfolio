@@ -45,6 +45,7 @@ import { frameEase } from '../../utils/frameEase'
 // TEMPORARY DIAGNOSTIC — remove together with src/debug/edgeWearMaskDebug.js
 import { inspectEdgeWearAttributes, applyEdgeWearMaskDebug, getEdgeWearDebugMode, getEdgeWearDebugOverride, installEdgeWearMaskDebug, setEdgeWearDebugParams } from '../../debug/edgeWearMaskDebug'
 import { HERO_OVERVIEW_CINEMATIC_RESOLVED, HERO_OVERVIEW_EASING } from '../../config/heroOverviewCinematicConfig'
+import { markScenePrep } from '../../loader/loadProgress'
 
 const PROJECT_DISPLAY_SLOT = 'ProjectDisplay'
 const FOCUS_ROTATION_PROGRESS_LEAD = 1
@@ -400,9 +401,22 @@ const runWarmupRender = (gl, scene, camera, roots) => {
   }
 };
 
+// Frames drawn after the warmup before the loader counts the scene as ready: the
+// first ones through the full post-processing chain still have work of their own.
+const WARMUP_SETTLE_FRAMES = 3;
+
 const SceneWarmup = ({ active, geometryRoots = [] }) => {
   const { gl, scene, camera } = useThree();
   const doneRef = useRef(false);
+  const framesSinceWarmupRef = useRef(-1);
+
+  // The loader's last steps (src/loader/loadProgress.js): warmup compiled, then a
+  // few real frames drawn.
+  useFrame(() => {
+    if (framesSinceWarmupRef.current < 0) return;
+    framesSinceWarmupRef.current += 1;
+    if (framesSinceWarmupRef.current === WARMUP_SETTLE_FRAMES) markScenePrep('frames');
+  });
 
   // Read geometryRoots through a ref so a new array identity each render doesn't
   // retrigger the effect (which would cancel the pending warmup rAF every frame
@@ -429,6 +443,8 @@ const SceneWarmup = ({ active, geometryRoots = [] }) => {
         } catch {
           // Warmup is best-effort; never let it break the scene.
         }
+        markScenePrep('warmup');
+        framesSinceWarmupRef.current = 0;
       });
     });
 
@@ -1471,6 +1487,7 @@ const UnifiedCrystalScene = forwardRef(({
 
   const handleMaterialReady = useCallback(() => {
     setMaterialVersion(v => v + 1);
+    markScenePrep('materials');
   }, []);
 
   const {
@@ -1481,6 +1498,15 @@ const UnifiedCrystalScene = forwardRef(({
     cleanup: cleanupOverlays,
     overlaySlots
   } = useFacetOverlayGeometry(facetKeys);
+
+  // The facet whose artwork should be showing — the same pick as the focus-change
+  // effect's activeSceneFacetKey. Mirrored to a ref for the idle registration
+  // queue, which must not restart on every focus change.
+  const overlayFocusKey = animationData?.focusedProject
+    ? (getSceneFacetKeyByProjectId(animationData.focusedProject) || animationData?.focusedFacet || null)
+    : (animationData?.focusedFacet ?? null);
+  const overlayFocusKeyRef = useRef(overlayFocusKey);
+  overlayFocusKeyRef.current = overlayFocusKey;
 
   useEffect(() => {
     if (facetRefs.current.length === 0) {
@@ -1739,6 +1765,9 @@ const UnifiedCrystalScene = forwardRef(({
       wholeCrystal && facetModels.every((m) => m && m.scene);
     if (allLoaded) {
       setModelsLoaded(true);
+      // Rendering at all means the canvas's Suspense boundary has resolved: every
+      // model, the HDRI and the textures are parsed.
+      markScenePrep('resolved');
     }
   }, [wholeCrystal, ...facetModels]);
 
@@ -2582,33 +2611,46 @@ const UnifiedCrystalScene = forwardRef(({
       ? (id) => window.cancelIdleCallback(id)
       : (id) => clearTimeout(id);
 
-    let nextIndex = 0;
+    const registerAt = (index) => {
+      const facetRef = facetRefs.current[index];
+      const facetKey = facetKeys[index];
+      if (!facetRef?.current) return;
+      const overlaySlot = registerOverlaySlot(facetRef, facetKey);
+      if (overlaySlot) {
+        logger.debug(`📄 Registered overlay slot for ${facetKey}`);
+      }
+    };
+
+    // A project already in focus (a /work/<slug> landing) is the one artwork
+    // that's needed now: register it on this frame instead of queueing it behind
+    // up to five idle slices, each of which can wait out the full timeout while
+    // the scene keeps the main thread busy.
+    const focusedIndex = facetKeys.indexOf(overlayFocusKeyRef.current);
+    if (focusedIndex !== -1) {
+      registerAt(focusedIndex);
+      setOverlayVisibility(facetKeys[focusedIndex], true);
+    }
+    const queue = facetKeys
+      .map((_, index) => index)
+      .filter((index) => index !== focusedIndex);
+
     const registerNext = () => {
       pendingId = null;
       if (cancelled) return;
 
-      const index = nextIndex;
-      nextIndex += 1;
-      const facetRef = facetRefs.current[index];
-      const facetKey = facetKeys[index];
-      if (facetRef?.current) {
-        const overlaySlot = registerOverlaySlot(facetRef, facetKey);
-        if (overlaySlot) {
-          logger.debug(`📄 Registered overlay slot for ${facetKey}`);
-        }
-      }
+      registerAt(queue.shift());
 
-      if (nextIndex < facetKeys.length) {
+      if (queue.length) {
         pendingId = scheduleIdle(registerNext);
       } else {
         // All slots registered — reveal the currently focused project's overlay.
-        const currentFocus = animationData?.focusedFacet;
+        const currentFocus = overlayFocusKeyRef.current;
         if (currentFocus) {
           setOverlayVisibility(currentFocus, true);
         }
       }
     };
-    pendingId = scheduleIdle(registerNext);
+    if (queue.length) pendingId = scheduleIdle(registerNext);
 
     return () => {
       cancelled = true;
@@ -2646,10 +2688,34 @@ const UnifiedCrystalScene = forwardRef(({
     modelsLoaded,
     showFacets,
     registerOverlaySlot,
+    setOverlayVisibility,
     overlaySlots,
     facetKeys,
-    materialVersion,
-    animationData?.focusedFacet
+    materialVersion
+  ]);
+
+  // Focusing a project whose slot the idle queue hasn't reached yet: register it
+  // now rather than waiting its turn. Declared ahead of the focus-change effect
+  // below so the slot exists when that effect sets overlay visibility.
+  useEffect(() => {
+    if (!overlaysReady || !modelsLoaded || !showFacets || !overlayFocusKey) return;
+    if (overlaySlots.has(overlayFocusKey)) return;
+    const index = facetKeys.indexOf(overlayFocusKey);
+    const facetRef = facetRefs.current[index];
+    if (index === -1 || !facetRef?.current) return;
+    if (registerOverlaySlot(facetRef, overlayFocusKey)) {
+      logger.debug(`📄 Registered overlay slot for ${overlayFocusKey} on focus`);
+      setOverlayVisibility(overlayFocusKey, true);
+    }
+  }, [
+    overlayFocusKey,
+    overlaysReady,
+    modelsLoaded,
+    showFacets,
+    overlaySlots,
+    facetKeys,
+    registerOverlaySlot,
+    setOverlayVisibility
   ]);
 
   // Debug anchor positions when facets are loaded

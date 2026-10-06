@@ -1,16 +1,23 @@
 // src/App.jsx - UPDATED: Integration with V2 performance and loading system
 
-import React, { useState, useCallback, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useLayoutEffect, useRef, useMemo, useSyncExternalStore } from 'react';
 import './styles/scroll-snap.css';
-import './styles/app-frame.css';
 
 // UPDATED: Import V2 systems
-import { useAssetLoaderV2 } from './hooks/useAssetLoaderV2';
 import { usePerformanceV2 } from './hooks/usePerformanceV2';
-import LoaderV2, {
+import {
+  LOADER_COMPLETE_PULSE_MS,
   LOADER_OVERLAY_FADE_MS,
   LOADER_SCENE_REVEAL_DELAY_MS
 } from './ui/LoaderV2';
+import {
+  forceSceneDone,
+  getLoadProgress,
+  setLoaderPresentation,
+  subscribeLoadProgress,
+} from './loader/loadProgress';
+import { requestTieredDownloads } from './loader/sceneAssets';
+import { releaseThreeCache, seedThreeCacheAll } from './loader/threeCache';
 
 // Animation coordinator
 import MasterAnimationCoordinator from './components/three/MasterAnimationCoordinator';
@@ -61,6 +68,7 @@ import { useDocumentHead } from './seo/useDocumentHead';
 import { getPrerenderedScrollTop, removePrerenderedContent } from './seo/prerenderedContent';
 import { ARRIVAL_EXIT_LABEL } from './caseStudies/system/caseStudyExit';
 import { preloadFractureAssets } from './loader/preloadFractureAssets';
+import { preloadOverlayImages } from './loader/preloadOverlayImages';
 
 const projectKeys = ['empathy', 'narrative', 'craft', 'system', 'leadership', 'exploration'];
 const zoneKeys = ['intro', 'hero', 'overview', 'about'];
@@ -452,13 +460,21 @@ function App() {
   // ========================================
   // UPDATED: V2 Performance and Asset Loading System
   // ========================================
-  const [isAppReady, setIsAppReady] = useState(false);
-  const [initProgress, setInitProgress] = useState(0);
+  // The scene mounts behind the loader once its files are in and the device test
+  // has picked a tier; the loader's last ring then follows it getting ready
+  // (src/loader/loadProgress.js), and the loader hands off once it is.
+  const [sceneRequested, setSceneRequested] = useState(false);
   const [exitLoader, setExitLoader] = useState(false);
   const [showLoader, setShowLoader] = useState(true);
-  // The fracture textures the scene samples. Already loaded by the time App
-  // mounts on a normal arrival (main.jsx awaits them); on the case-study fast
-  // path they arrive behind the page, so the scene waits for them here.
+  // The camera's intro and the hero copy wait behind the loader until the hand-off,
+  // so they play as it uncovers the scene rather than out of sight while the scene
+  // is being prepared.
+  const [introReleased, setIntroReleased] = useState(false);
+  // Only the two flags App acts on: subscribing to the whole store would re-render
+  // the app on every chunk of every download.
+  const sceneDone = useSyncExternalStore(subscribeLoadProgress, () => getLoadProgress().scene.done);
+  const loadComplete = useSyncExternalStore(subscribeLoadProgress, () => getLoadProgress().complete);
+  // The fracture textures the scene samples (bytes from the boot downloads).
   const [fractureReady, setFractureReady] = useState(false);
   useEffect(() => {
     let cancelled = false;
@@ -479,7 +495,6 @@ function App() {
     isReady: performanceReady,
     error: performanceError,
     testResults,
-    testProgress: testProgressHook,
     testStatus,
     updateProfile,
     forceRetest,
@@ -487,17 +502,44 @@ function App() {
     debugInfo
   } = usePerformanceV2();
 
-  // UPDATED: Use V2 asset loader hook
-  const {
-    progress: assetProgressHook,
-    currentAsset,
-    loadedAssets,
-    totalAssets,
-    errors: assetErrors,
-    isReady: assetsReady,
-    hasErrors: assetHasErrors,
-    retry: retryAssets
-  } = useAssetLoaderV2(performanceReady ? performanceProfile : null);
+  // The device test has settled the tier, so the tier's files can be requested
+  // (a returning visitor's started at boot). Once every file is in, hand the bytes
+  // to three's loaders and mount the scene behind the loader.
+  const [sceneAssetUrls, setSceneAssetUrls] = useState(null);
+  useEffect(() => {
+    if (!performanceReady || !performanceProfile || sceneAssetUrls) return;
+    setSceneAssetUrls(requestTieredDownloads(performanceProfile));
+  }, [performanceReady, performanceProfile, sceneAssetUrls]);
+
+  useEffect(() => {
+    if (!sceneAssetUrls || !fractureReady || sceneRequested) return;
+    let cancelled = false;
+    // Resolves once every file is downloaded and handed to three.
+    seedThreeCacheAll(sceneAssetUrls).then(() => {
+      if (!cancelled) setSceneRequested(true);
+    });
+    return () => { cancelled = true; };
+  }, [sceneAssetUrls, fractureReady, sceneRequested]);
+
+  // The scene reports its own preparation (markScenePrep). Should a step never
+  // report — a load error, a tier without some effect — don't hold the loader up
+  // indefinitely: the scene is mounted and rendering by now either way.
+  useEffect(() => {
+    if (!sceneRequested || sceneDone) return undefined;
+    const timeoutId = setTimeout(() => {
+      if (import.meta.env.DEV) console.warn('[loader] scene preparation timed out; handing off anyway');
+      forceSceneDone();
+    }, 20000);
+    return () => clearTimeout(timeoutId);
+  }, [sceneRequested, sceneDone]);
+
+  // Prepared: stop caching files for three, and start on the facet artwork, which
+  // isn't needed until a project is focused.
+  useEffect(() => {
+    if (!sceneDone) return;
+    releaseThreeCache();
+    preloadOverlayImages();
+  }, [sceneDone]);
 
   // Track when GLTF models have loaded via Fixed3DCanvas
   const fixedCanvasRef = useRef();
@@ -618,20 +660,6 @@ function App() {
     return () => clearTimeout(timeoutId);
   }, [overlayOpen]);
 
-  // Simulate application initialization progress for loader
-  useEffect(() => {
-    let frame;
-    const step = () => {
-      setInitProgress((p) => {
-        if (p >= 100) return 100;
-        frame = requestAnimationFrame(step);
-        return Math.min(100, p + 2);
-      });
-    };
-    frame = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(frame);
-  }, []);
-
   // Initialize effects from the detected device profile
   useEffect(() => {
     if (performanceProfile?.postProcessing) {
@@ -689,27 +717,21 @@ function App() {
   const isMobile = isMobileDevice();
 
   // ========================================
-  // UPDATED: App ready detection with V2 system
+  // Hand-off: every ring full
   // ========================================
+  // The last third of the diamond finishes filling first (LOADER_COMPLETE_PULSE_MS),
+  // then the loader fades and, as it starts to uncover the scene, the intro is let
+  // go. Once only: a debug Restart reuses the loader fade with its own timing.
+  const handoffStartedRef = useRef(false);
   useEffect(() => {
-    if (performanceReady && assetsReady && fractureReady && initProgress >= 100 && !exitLoader) {
-      if (import.meta.env.DEV) {
-        console.log('🎯 App is ready - V2 system initialized:', {
-          performanceReady,
-          assetsReady,
-          performanceTier,
-          performanceProfile: {
-            renderScale: performanceProfile.renderScale,
-            pbrQuality: performanceProfile.pbrQuality,
-            textureQuality: performanceProfile.textureQuality
-          }
-        });
-      }
-      setIsAppReady(true);
-      setInitProgress(100);
-      beginLoaderFadeOut();
-    }
-  }, [beginLoaderFadeOut, performanceReady, assetsReady, fractureReady, initProgress, exitLoader, performanceTier, performanceProfile]);
+    if (!loadComplete || handoffStartedRef.current) return undefined;
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const timeoutId = setTimeout(() => {
+      handoffStartedRef.current = true;
+      beginLoaderFadeOut(() => setIntroReleased(true));
+    }, reducedMotion ? 0 : LOADER_COMPLETE_PULSE_MS);
+    return () => clearTimeout(timeoutId);
+  }, [loadComplete, beginLoaderFadeOut]);
 
   useEffect(() => () => {
     if (loaderHideTimeoutRef.current) {
@@ -917,9 +939,10 @@ function App() {
   // ========================================
   // Deep links and history
   // ========================================
-  // The scene and the content layer exist once the loader hands off (or, on the
-  // case-study fast path, once the scene has finished loading behind the page).
-  const sceneMounted = isAppReady || exitLoader;
+  // The scene and the content layer mount behind the loader once the scene's files
+  // are in, so the loader can follow them getting ready; on the case-study fast
+  // path they mount behind the case study the same way.
+  const sceneMounted = sceneRequested || exitLoader;
   sceneMountedRef.current = sceneMounted;
 
   // Puts the scene on a project the way a facet click does: jump the content
@@ -1117,10 +1140,10 @@ function App() {
     }
   }, [perfDebug]);
 
-  // Toggle body scrolling based on app readiness
+  // The page itself never scrolls; the content layer's container does.
   useEffect(() => {
     document.body.style.overflow = 'hidden';
-  }, [isAppReady]);
+  }, []);
 
   // The blend treatment is published as one attribute on <html> rather than
   // threaded through ScrollablePortfolio into every section. The elements that
@@ -1224,42 +1247,24 @@ function App() {
     };
   }, [performanceProfile]);
 
-  // UPDATED: Determine loader message and early return before app mounts
-  let statusMessage = '';
-  if (initProgress < 100) {
-    statusMessage = 'Initializing...';
-  } else if (!performanceReady) {
-    statusMessage = 'Optimizing for your device...';
-  } else if (!assetsReady) {
-    if (currentAsset && /loaded|failed|timed out/i.test(currentAsset)) {
-      statusMessage = 'Loading assets...';
-    } else {
-      statusMessage = currentAsset || 'Loading assets...';
-    }
-  } else {
-    statusMessage = 'Finishing up...';
-  }
+  // The loader is mounted once, by main.jsx, outside App: it is on screen before
+  // this chunk has arrived, and stays the same element until it goes. App decides
+  // when it shows and when it leaves.
+  //
+  // On the case-study fast path it stays out of sight while the case study is up —
+  // the reader is reading, and the scene loads quietly behind. It shows only if
+  // they close the case study before the scene is ready, and then hands off
+  // exactly as it would on a normal arrival.
+  const loaderShown = showLoader && !(caseStudyDeepLink && caseStudyOpen);
+  useLayoutEffect(() => {
+    setLoaderPresentation({ shown: loaderShown, exiting: exitLoader });
+  }, [loaderShown, exitLoader]);
 
   // The case-study fast path renders the full tree from the start (the overlay
   // has to keep one place in it, or it would remount, and lose its scroll, the
   // moment the scene arrives), with the scene's own layers held back until it
   // has loaded. Every other arrival keeps the loader-only first screen.
-  if (!sceneMounted && !caseStudyDeepLink) {
-    // The frame ships with the loader too, otherwise the corners would square off
-    // for the whole load and then round on hand-off.
-    return (
-      <>
-        <LoaderV2
-          initProgress={initProgress / 100}
-          assetProgress={assetProgressHook / 100}
-          testProgress={testProgressHook / 100}
-          statusMessage={statusMessage}
-        />
-        <div className="app-frame" aria-hidden="true" />
-        <div className="app-rim" aria-hidden="true" />
-      </>
-    );
-  }
+  if (!sceneMounted && !caseStudyDeepLink) return null;
 
   return (
     <>
@@ -1426,6 +1431,9 @@ function App() {
           introAlreadyPlayed={
             initialRoute.destination !== NAVIGATION_DESTINATIONS.HERO && sceneRestartToken === 0
           }
+          // Mounted behind the loader while it prepares; the intro waits for the
+          // hand-off. (A Restart remounts after it, so nothing holds the replay.)
+          introHold={!introReleased}
         />
       </MasterAnimationCoordinator>
       )}
@@ -1479,6 +1487,9 @@ function App() {
         onOpenCaseStudy={handleOpenCaseStudy}
         onBackToProject={handleBackToProject}
         onSettledSectionChange={setSettledSection}
+        // Its sections animate in when they become visible; behind the loader
+        // that would happen unseen, so they wait for the hand-off.
+        revealed={exitLoader}
       />
       )}
 
@@ -1612,27 +1623,9 @@ function App() {
         />
       )}
 
-      {/* On the case-study fast path the loader stays out of sight while the
-          case study is up — the reader is reading, and the scene loads quietly
-          behind. It shows only if they close the case study before the scene is
-          ready, and then hands off exactly as it would on a normal arrival. */}
-      {showLoader && !(caseStudyDeepLink && caseStudyOpen) && (
-        <LoaderV2
-          initProgress={exitLoader ? 1 : initProgress / 100}
-          assetProgress={exitLoader ? 1 : assetProgressHook / 100}
-          testProgress={exitLoader ? 1 : testProgressHook / 100}
-          statusMessage={exitLoader ? 'Launching...' : statusMessage}
-          exiting={exitLoader}
-        />
-      )}
-
-      {/* App frame — rounds the corners on mobile. Last in the tree and above
-          every other layer, including the loader, so the frame is unbroken from
-          the first paint. Decorative and pointer-transparent. */}
-      <div className="app-frame" aria-hidden="true" />
-      {/* Its glass rim, on mobile. A separate, non-fixed element on purpose:
-          see .app-rim in app-frame.css. */}
-      <div className="app-rim" aria-hidden="true" />
+      {/* The loader and the app frame (rounded corners and their glass rim on
+          mobile) come after App in main.jsx, so both are up from the first
+          paint. */}
     </>
   );
 }

@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import * as THREE from 'three';
 import { getOverlayImageByFacetKey } from '../data/projects';
+import { loadOverlayImage } from '../loader/preloadOverlayImages';
 
 const PROJECT_DISPLAY_SLOT = 'ProjectDisplay';
 const EPSILON = 1e-5;
@@ -233,14 +234,6 @@ export const useFacetOverlayGeometry = (facetKeys) => {
   const overlaySlotsRef = useRef(new Map());
   const canvasCacheRef = useRef(new Map());
 
-  const imageLoader = useMemo(() => {
-    const loader = new THREE.ImageLoader();
-    if (loader && loader.setCrossOrigin) {
-      loader.setCrossOrigin('anonymous');
-    }
-    return loader;
-  }, []);
-
   useEffect(() => {
     let cancelled = false;
 
@@ -256,14 +249,8 @@ export const useFacetOverlayGeometry = (facetKeys) => {
           if (!imagePath) return [facetKey, null];
 
           try {
-            const image = await new Promise((resolve, reject) => {
-              imageLoader.load(
-                imagePath,
-                (img) => resolve(img),
-                undefined,
-                (err) => reject(err)
-              );
-            });
+            // Usually already loaded: boot starts these (preloadOverlayImages).
+            const image = await loadOverlayImage(imagePath);
 
             if (cancelled) return [facetKey, null];
 
@@ -294,7 +281,7 @@ export const useFacetOverlayGeometry = (facetKeys) => {
     return () => {
       cancelled = true;
     };
-  }, [facetKeys, imageLoader]);
+  }, [facetKeys]);
 
   const getOrCreateCanvas = useCallback((image, slotAspect) => {
     const aspect = Number.isFinite(slotAspect) ? slotAspect : 1;

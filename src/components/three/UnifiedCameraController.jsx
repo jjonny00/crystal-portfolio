@@ -159,8 +159,16 @@ const UnifiedCameraController = ({
    * false and replays the intro as usual.
    */
   introAlreadyPlayed = false,
+  /**
+   * The scene is mounted behind the loader while it is prepared. The intro still
+   * arms as usual, but its clock is held at zero — camera on the authored start
+   * pose, reveal dark — so it plays from the top once the loader hands off.
+   */
+  introHold = false,
 }) => {
   const { camera } = useThree();
+  const introHoldRef = useRef(introHold);
+  introHoldRef.current = introHold;
   // Verbose per-frame/mount logging is off by default. Enable in the console:
   //   globalThis.__UCC_VERBOSE__ = true
   if (globalThis.__UCC_VERBOSE__) console.log('[UnifiedCameraController] mounted/rendered');
@@ -4539,6 +4547,12 @@ const UnifiedCameraController = ({
   };
 
   useFrame((state, delta) => {
+    // Held behind the loader: keep restarting the intro's clock so everything that
+    // reads it (the reveal below, the fly-in) stays at its first frame.
+    if (introHoldRef.current && introActiveRef.current) {
+      introStartTimeRef.current = performance.now();
+    }
+
     cameraFrameIndexRef.current += 1;
     const cameraFrameId = cameraFrameIndexRef.current;
     syncFractureTiltState(state.clock.elapsedTime);

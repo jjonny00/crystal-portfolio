@@ -1,24 +1,28 @@
 import * as THREE from 'three';
+import {
+  FRACTURE_RING_TEXTURE as FRACTURE_RING_URL,
+  GLOW_SPHERE_TEXTURE as GLOW_SPHERE_URL,
+  WIZARD_SMOKE_TEXTURE as WIZARD_SMOKE_URL,
+} from '../config/assetPaths';
+import { seedThreeCacheAll } from './threeCache';
 
 let fractureRingTex = null;
 let glowSphereTex = null;
 let wizardSmokeTex = null;
 
-const FRACTURE_RING_URL = '/assets/textures/fractureRing03.jpg';
-const GLOW_SPHERE_URL = '/assets/textures/glowing-sphere06-noise.jpg';
-const WIZARD_SMOKE_URL = '/assets/textures/wizard-smoke02.webp';
-
 let preloadPromise = null;
 
-// One load, however many callers. main.jsx starts it at boot; on the case-study
-// fast path it is not awaited there (the page is already readable), so App waits
-// on the same promise before mounting the scene that samples these textures.
+// One load, however many callers. App starts it on mount and waits on it before
+// mounting the scene that samples these textures.
 export function preloadFractureAssets() {
   if (!preloadPromise) preloadPromise = loadFractureAssets();
   return preloadPromise;
 }
 
 async function loadFractureAssets() {
+  // The bytes come from the boot downloads (src/loader/sceneAssets.js), so the
+  // loader below reads them from THREE.Cache rather than the network.
+  await seedThreeCacheAll([FRACTURE_RING_URL, GLOW_SPHERE_URL, WIZARD_SMOKE_URL]);
   const loader = new THREE.TextureLoader();
 
   const [ring, glow, smoke] = await Promise.all([

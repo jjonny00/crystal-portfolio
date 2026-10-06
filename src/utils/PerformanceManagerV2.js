@@ -2,11 +2,13 @@
 // FIXED: Smart progressive performance testing system
 
 import { PERFORMANCE_PROFILES, detectDeviceCapabilities } from './deviceProfiles.js';
-
-const STORAGE_KEY = 'crystal-performance-config-v2';
-const VERSION_KEY = 'crystal-performance-version-v2';
-const CURRENT_VERSION = '3.0'; // New version for conservative approach
-const CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // ~7 days
+import {
+  STORAGE_KEY,
+  VERSION_KEY,
+  CURRENT_VERSION,
+  readCachedPerformance,
+  isCachedPerformanceValid,
+} from './performanceCache.js';
 
 export default class PerformanceManagerV2 {
   constructor() {
@@ -88,30 +90,11 @@ export default class PerformanceManagerV2 {
   }
 
   _getCachedResults() {
-    try {
-      const cached = localStorage.getItem(STORAGE_KEY);
-      const version = localStorage.getItem(VERSION_KEY);
-
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        return { ...parsed, appVersion: version };
-      }
-    } catch (error) {
-      console.warn('Failed to read cached performance data:', error);
-    }
-    return null;
+    return readCachedPerformance();
   }
 
   _isCacheValid(cachedData, forceRetest = false) {
-    // Cache is always invalid in dev for testing
-    if (import.meta.env.DEV) return false;
-    if (forceRetest) return false;
-
-    if (cachedData.appVersion !== CURRENT_VERSION) return false;
-
-    const age = Date.now() - (cachedData.timestamp || 0);
-
-    return age < CACHE_TTL && cachedData.tier && cachedData.testResults;
+    return isCachedPerformanceValid(cachedData, forceRetest);
   }
 
   _cacheResults(tier, testResults) {
@@ -146,13 +129,13 @@ export default class PerformanceManagerV2 {
       // Start with medium tier using the real viewport size
       const mediumWidth = window.innerWidth;
       const mediumHeight = window.innerHeight;
-      const mediumResult = await this._testTier('medium', 33, 50, mediumWidth, mediumHeight);
+      const mediumResult = await this._testTier('medium', 0, 0.5, mediumWidth, mediumHeight);
       results.medium = mediumResult;
 
       // Final thresholds derived from benchmark analysis
       if (mediumResult.avgFps >= 50 && mediumResult.minFps >= 45) {
         // Medium was strong enough, attempt the high tier
-        const highResult = await this._testTier('high', 50, 66, 512, 512);
+        const highResult = await this._testTier('high', 0.5, 1, 512, 512);
         results.high = highResult;
         if (highResult.avgFps >= 45 && highResult.minFps >= 40) {
           // Only allow high tier for clearly high-end hardware
@@ -172,13 +155,13 @@ export default class PerformanceManagerV2 {
       }
 
       // Medium test failed, drop directly to low tier
-      this._reportProgress(50, 'Medium tier insufficient, using low profile');
+      this._reportProgress(0.5, 'Medium tier insufficient, using low profile');
       return { tier: 'low', testResults: results };
     } catch (error) {
       console.warn('Smart performance test failed:', error);
       return { tier: 'low', testResults: results };
     } finally {
-      this._reportProgress(66, 'Performance test complete');
+      this._reportProgress(1, 'Performance test complete');
     }
   }
 
@@ -218,10 +201,13 @@ export default class PerformanceManagerV2 {
     }
   }
 
-  _reportProgress(percentage, message) {
-    const clamped = Math.min(100, Math.max(0, percentage));
+  // `fraction` is the whole test, 0..1: the medium tier is the first half and the
+  // high tier (run only when medium passes) the second. A skipped high test
+  // completes it at 1.
+  _reportProgress(fraction, message) {
+    const clamped = Math.min(1, Math.max(0, fraction));
     if (import.meta.env.DEV) {
-      console.debug(`📈 Smart test progress: ${clamped.toFixed(1)}% - ${message}`);
+      console.debug(`📈 Smart test progress: ${(clamped * 100).toFixed(1)}% - ${message}`);
     }
     if (this._progressCallback) {
       this._progressCallback(clamped, message);

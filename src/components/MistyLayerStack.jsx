@@ -2,6 +2,7 @@ import React, { useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useTexture } from '@react-three/drei'
+import { MIST_TEXTURE } from '../config/assetPaths'
 
 /**
  * MistyLayerStack
@@ -28,7 +29,7 @@ export default function MistyLayerStack({
   const { camera } = useThree()
 
   // Load the tileable mist texture
-  const tex = useTexture('/assets/textures/mist05.jpg')
+  const tex = useTexture(MIST_TEXTURE)
   tex.wrapS = THREE.RepeatWrapping
   tex.wrapT = THREE.RepeatWrapping
   tex.minFilter = THREE.LinearMipmapLinearFilter

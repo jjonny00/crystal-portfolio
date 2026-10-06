@@ -4,6 +4,7 @@ import { useFrame } from '@react-three/fiber';
 import { useTexture } from '@react-three/drei';
 import * as THREE from 'three';
 import { usePxToWorld } from '../../hooks/usePxToWorld';
+import { DUST_TEXTURE } from '../../config/assetPaths';
 
 /**
  * Enhanced Ember System with iridescent shimmer, spiral vortex motion, and directional rotation
@@ -51,7 +52,7 @@ const PersistentDustSystem = ({
   const { px } = usePxToWorld();
   
   // Load the particle texture
-  const particleTexture = useTexture('/assets/textures/particle-dust05.png');
+  const particleTexture = useTexture(DUST_TEXTURE);
   
   // Configure the texture for embers
   React.useEffect(() => {

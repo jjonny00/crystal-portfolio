@@ -70,8 +70,7 @@ Before changing camera behavior:
 ### Performance & asset loading (V2 systems)
 
 - `usePerformanceV2` / `PerformanceManagerV2` (`src/hooks/`, `src/utils/`) benchmark the device at startup (medium tier first, then attempts high if FPS thresholds are met, falls back to low) and produce a performance `profile` consumed for renderScale/PBR/texture/postprocessing settings. Tiers are defined in `src/utils/deviceProfiles.js`. Results are cached against app version + hardware fingerprint. Press **P** at runtime to open the live debug panel (`window.__PERF_DEBUG__`).
-- `useAssetLoaderV2` / `AssetLoaderV2` load GLTF models/textures/HDRIs based on the chosen performance profile.
-- `App.jsx` gates the splash `LoaderV2` (`src/ui/LoaderV2.tsx`) on both systems plus a simulated init progress ramp before mounting the real app.
+- The loader (`src/ui/LoaderV2.tsx`, `src/loader/`) shows three measured stages: bytes downloaded (app chunk + scene files, fetched once and handed to three's loaders through `THREE.Cache`), the performance test, and the scene being prepared behind it (mounted with the camera intro held via `introHold`). `main.jsx` paints it before the app chunk (`App.jsx`, split out) arrives. Read `docs/loader-v2-spec.md` before changing scene asset URLs (`src/config/assetPaths.js`) or what mounts when.
 - Full behavior details (FPS thresholds, tier criteria) are documented in the README — don't restate them from memory, re-check `README.md` if tuning this system.
 
 ### Case studies

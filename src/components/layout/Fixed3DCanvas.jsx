@@ -30,6 +30,7 @@ import { useHeroOverviewRuntime } from '../../hooks/useHeroOverviewRuntime';
 import { resolveCameraDestination } from '../../camera/destinationResolver';
 import { compareCameraPoses } from '../../camera/cameraPoseCompare';
 import BackdropInkProbe from '../../legibility/BackdropInkProbe';
+import { markScenePrep } from '../../loader/loadProgress';
 
 const DEFAULT_ENV_ROTATION = [0, Math.PI * 0.7, 0];
 
@@ -243,7 +244,9 @@ const Fixed3DCanvas = forwardRef(({
   paused = false,
   // A deep-link arrival landed in place; the camera's arrival intro is done.
   // See UnifiedCameraController.
-  introAlreadyPlayed = false
+  introAlreadyPlayed = false,
+  // The scene is being prepared behind the loader: hold the intro at its start.
+  introHold = false
 }, ref) => {
   // NEW: Ref to access crystal scene for debug panels
   const crystalSceneRef = useRef();
@@ -994,6 +997,11 @@ const Fixed3DCanvas = forwardRef(({
           {...canvasProps}
           // After the spread so a perf profile can never override the freeze.
           frameloop={paused ? 'never' : 'always'}
+          // First step of the loader's "Preparing scene" ring: a WebGL context.
+          onCreated={(state) => {
+            canvasProps.onCreated?.(state);
+            markScenePrep('canvas');
+          }}
           gl={{
             toneMapping: THREE.ACESFilmicToneMapping,
             toneMappingExposure: 0.2,
@@ -1103,6 +1111,7 @@ const Fixed3DCanvas = forwardRef(({
             heroOverviewRuntime={heroOverviewRuntime}
             heroOverviewExplosionClockRef={heroOverviewExplosionClockRef}
             introAlreadyPlayed={introAlreadyPlayed}
+            introHold={introHold}
           />
           
           {/* UPDATED: Crystal Scene with ref for accessing debug state */}
