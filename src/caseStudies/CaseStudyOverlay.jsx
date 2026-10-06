@@ -215,6 +215,15 @@ const CaseStudyOverlay = ({
     // viewport — freezing it would leave a hole where the scene should be.
     const updateSceneNeed = () => {
       if (!onSceneNeededChange) return;
+      // A reveal-mode layer has no wash, so until the case study chunk mounts
+      // there is nothing in it at all and the whole scene is what shows. The
+      // first open of any case study fetches that chunk; freezing on the usual
+      // timer while it was still arriving hid the canvas over an empty layer —
+      // a flash of the bare black page.
+      if (entryMode === 'reveal' && !node.querySelector('.cs-section')) {
+        onSceneNeededChange(true);
+        return;
+      }
       const transparent = node.querySelectorAll('.cs-section[data-surface="none"]');
       const viewportHeight = window.innerHeight;
       for (const section of transparent) {
@@ -246,7 +255,7 @@ const CaseStudyOverlay = ({
       onToneChange?.(null);
       onSceneNeededChange?.(false);
     };
-  }, [mounted, onToneChange, onSceneNeededChange, slug]);
+  }, [mounted, onToneChange, onSceneNeededChange, slug, entryMode]);
 
   if (!mounted || !supported) return null;
 
