@@ -47,6 +47,15 @@
         overflow: hidden;
       }
 
+      /* Phones: one ground colour for the page, the corners and the loader, from
+         the first paint (src/index.css, --phone-ground). */
+      @media (max-width: 767px) {
+        html,
+        body {
+          background-color: #2a2730;
+        }
+      }
+
       /* The prerendered body (see #prerender below). On most routes it is for
          screen readers, crawlers and readers without JavaScript only: a sighted
          reader sees the loader and then the scene. */

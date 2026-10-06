@@ -198,6 +198,15 @@
 
 /* ---- Mobile: single column, stacked ---- */
 @media (max-width: 767px) {
+  /* Laid out in the small viewport, like the hero and the project copy
+     (ProjectFocusSection.jsx): the section is 100vh, which on iOS Safari runs on
+     under the toolbar, past the app frame's rounded bottom — and copy scrolled
+     down there showed through the toolbar. Ending the scroller at 100svh keeps
+     its copy inside the frame. */
+  .about-section {
+    height: 100svh;
+  }
+
   .about-section__inner {
     /* Same --page-edge as everywhere else; only the vertical rhythm tightens. */
     padding: clamp(3.5rem, 9svh, 5rem) var(--page-edge)

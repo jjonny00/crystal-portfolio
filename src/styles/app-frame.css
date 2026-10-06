@@ -12,7 +12,8 @@
  * which is what makes the curve read clean at any density.
  *
  * The colour is the page's own ground (see --page-bg in index.css) rather than a
- * hardcoded black, so the corners stay flush if that ever changes.
+ * hardcoded black, so the corners stay flush if that ever changes. On phones the
+ * ground is --phone-ground (index.css), and the corners take it with the page.
  *
  * It sits above every other layer, including the nav (z-index 10000) and the
  * debug UI toggle (99999) — it is the frame of the app, so nothing should be

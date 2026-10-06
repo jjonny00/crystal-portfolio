@@ -23,6 +23,20 @@
 :root {
   --page-bg: #050505;
 
+  /* The sky behind the crystal as it renders (the default gradient in
+     projectBackgrounds.js, after tone mapping), top and bottom: the loader's
+     background on desktop. */
+  --sky-top: #1a1219;
+  --sky-bottom: #2a2730;
+
+  /* Phones: one colour for the page, the frame's corners and the loader, so iOS
+     Safari's status bar and toolbar match the corners beside them. Safari takes
+     the bars' colour from the page's background colour (a gradient is ignored —
+     it used the base colour, not the gradient's top), or from the loader's top
+     and bottom edges while that is up; a single colour keeps all of them equal.
+     The sky's bottom, which is what Safari showed once the app had loaded. */
+  --phone-ground: var(--sky-bottom);
+
   /* Horizontal page metrics, shared by the portfolio and the case studies so the
      nav, the hero and every case-study section all sit on one content edge.
      Originally the case-study system's own tokens (fluid between a 402px mobile
@@ -72,6 +86,16 @@ body {
   height: auto;
   overflow-x: hidden;
   overflow-y: auto;
+}
+
+/* Phones: the page takes --phone-ground (see :root), as do the frame's corners
+   (app-frame.css) and the loader, so Safari's bars, which take their colour from
+   the page, match the corners beside them. index.html repeats this for the first
+   paint. Same breakpoint as the app frame. */
+@media (max-width: 767px) {
+  :root {
+    --page-bg: var(--phone-ground);
+  }
 }
 
 h1,
