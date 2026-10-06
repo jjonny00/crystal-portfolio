@@ -71,6 +71,12 @@
     --app-corner-radius: clamp(24px, 8.2vw, 56px);
   }
 
+  /* The corners follow the page's ground as it changes section by
+     section (src/ui/phoneGround.js), at the page's pace (index.css). */
+  .app-frame {
+    transition: box-shadow var(--phone-ground-transition, 1.2s ease-out);
+  }
+
   /* A glass rim along the inside of the rounded edge, so the app reads as a
      pane of glass set into the phone, not just a cut-out. The same build as the
      glass card's rim (glass-card.css): a 1px ring cut out of a gradient with a
@@ -99,14 +105,17 @@
     border-radius: var(--app-corner-radius);
     padding: 1px;
     box-sizing: border-box;
+    /* 20% up from the first pass (0.2 / 0.09 / 0.025 / 0.02 / 0.07 / 0.12): with
+       the page behind the corners in the scene's own colour on phones, the rim
+       is what separates the app from the screen edge. */
     background: linear-gradient(
       155deg,
-      rgba(255, 255, 255, 0.2) 0%,
-      rgba(255, 255, 255, 0.09) 14%,
-      rgba(255, 255, 255, 0.025) 38%,
-      rgba(255, 255, 255, 0.02) 66%,
-      rgba(255, 255, 255, 0.07) 90%,
-      rgba(255, 255, 255, 0.12) 100%
+      rgba(255, 255, 255, 0.24) 0%,
+      rgba(255, 255, 255, 0.108) 14%,
+      rgba(255, 255, 255, 0.03) 38%,
+      rgba(255, 255, 255, 0.024) 66%,
+      rgba(255, 255, 255, 0.084) 90%,
+      rgba(255, 255, 255, 0.144) 100%
     );
     -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
     -webkit-mask-composite: xor;

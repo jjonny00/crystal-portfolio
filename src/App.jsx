@@ -18,6 +18,7 @@ import {
 } from './loader/loadProgress';
 import { requestTieredDownloads } from './loader/sceneAssets';
 import { releaseThreeCache, seedThreeCacheAll } from './loader/threeCache';
+import { usePhoneGround } from './ui/phoneGround';
 
 // Animation coordinator
 import MasterAnimationCoordinator from './components/three/MasterAnimationCoordinator';
@@ -426,6 +427,8 @@ const buildAnimationConfig = (uiConfig) => {
 
 
 const LOADER_EXIT_FADE_MS = LOADER_SCENE_REVEAL_DELAY_MS + LOADER_OVERLAY_FADE_MS;
+// The loader's fade, which the phone ground's first move matches (usePhoneGround).
+const PHONE_GROUND_HANDOFF = { delayMs: LOADER_SCENE_REVEAL_DELAY_MS, durationMs: LOADER_OVERLAY_FADE_MS };
 
 function App() {
   // ========================================
@@ -561,6 +564,15 @@ function App() {
   // The section the scrollable content has settled on. Drives the About scrim so
   // it stays in sync with the section content on both scroll and nav clicks.
   const [settledSection, setSettledSection] = useState(() => routeToSectionId(initialRoute));
+  // On phones the page and corner colour follows the section
+  // (src/ui/phoneGround.js). Held at the loader's colour until the hand-off — on
+  // any arrival, and again on a Restart — then eased into the section over the
+  // loader's own fade, so the corners and Safari's bars arrive as it leaves.
+  usePhoneGround({
+    released: exitLoader,
+    settledSection,
+    handoff: PHONE_GROUND_HANDOFF,
+  });
   const [perfDebug, setPerfDebug] = useState(false);
   const [snapSpeed, setSnapSpeed] = useState('medium');
   const [config, setConfig] = useState({

@@ -98,7 +98,7 @@ it renders, not invented for the loader:
 
 | | | Source |
 |---|---|---|
-| Background | desktop: `#1a1219` → `#2a2730`, top to bottom (`--sky-top` / `--sky-bottom`, index.css), the sky behind the crystal (`projectBackgrounds.js` default, after tone mapping); phones: solid `#2a2730` (`--phone-ground`), the same colour as the page and the frame's corners there, so Safari's bars match the corners during the load and after it | |
+| Background | desktop: `#1a1219` → `#2a2730`, top to bottom (`--sky-top` / `--sky-bottom`, index.css), the sky behind the crystal (`projectBackgrounds.js` default, after tone mapping); phones: solid `#2a2730`, which the page and the frame's corners hold while the loader is up, then ease from into each section's own colour over the loader's fade (`src/ui/phoneGround.js`) | |
 | Outer ring | `#384ce6` | blue-violet |
 | Middle ring | `#3c83e5` | blue |
 | Inner ring | `#3abebe` | teal |

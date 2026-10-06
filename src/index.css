@@ -96,6 +96,18 @@ body {
   :root {
     --page-bg: var(--phone-ground);
   }
+
+  /* --phone-ground moves to each section's colour as the page
+     settles on it (src/ui/phoneGround.js); ease between them about as the sky
+     itself does.
+     html takes it too, over index.html's first-paint copy. */
+  html,
+  body {
+    background-color: var(--page-bg);
+    /* --phone-ground-transition: the loader hand-off's timing (phoneGround.js);
+       the frame's corners read the same, so they always move together. */
+    transition: background-color var(--phone-ground-transition, 1.2s ease-out);
+  }
 }
 
 h1,

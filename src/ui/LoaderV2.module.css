@@ -17,7 +17,10 @@
 
   position: fixed;
   inset: 0;
-  z-index: 9999;
+  /* Above the nav (10000): the scene and its chrome mount behind the loader while
+     it prepares, and the nav must stay covered until the loader fades off it.
+     Below the debug panels (20000) and the app frame (100000). */
+  z-index: 15000;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -37,12 +40,14 @@
   --type-font-sans: 'Helvetica Neue', Arial, sans-serif;
 }
 
-/* Phones: the one ground colour the page and the frame's corners use (index.css),
-   so while the loader is up Safari's bars, which it colours from the loader's top
-   and bottom edges, match the corners too. */
+/* Phones: one solid colour, the sky's bottom — the ground the page and the
+   frame's corners hold while the loader is up (index.css, App) — so Safari's
+   bars, which it colours from the loader's top and bottom edges, match the
+   corners too. Its own value, not --phone-ground: that one moves on to the
+   section's colour once the loader goes, and the loader must not move with it. */
 @media (max-width: 767px) {
   .overlay {
-    background: var(--phone-ground);
+    background: var(--sky-bottom);
   }
 }
 
