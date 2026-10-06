@@ -237,6 +237,9 @@ const Fixed3DCanvas = forwardRef(({
   scrollToProject,
   onDirectProjectSelect,
   onDirectZoneSelect,
+  // A click on the scene's background: 'project' or 'overview', the level it
+  // goes back up from. See SceneBackgroundClick.
+  onBackgroundClick = null,
   cameraRuntimeOverrides = null,
   projectRuntimeOverrides = null,
   // Stops the render loop entirely while the scene is hidden behind a
@@ -1141,6 +1144,7 @@ const Fixed3DCanvas = forwardRef(({
             scrollToProject={scrollToProject}
             onDirectProjectSelect={onDirectProjectSelect}
             onFractureStart={handleFractureStart}
+            onBackgroundClick={onBackgroundClick}
             heroOverviewRuntime={fractureEffectsRuntime}
             heroOverviewExplosionClockRef={heroOverviewExplosionClockRef}
           />

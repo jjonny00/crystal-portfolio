@@ -146,8 +146,11 @@ const ProjectFocusSection = ({
             copy: in on the copy spring's delay, out at once. Tinted with the
             project's authored scrim colour, the same recipe the copy ink is
             picked against. Once faded it drops out of compositing entirely. */}
+        {/* The copy is content, not background: a click on it (or a drag to
+            select it) never goes back to Work. See SceneBackgroundClick. */}
         <div
           className={isMobile ? 'glass-card' : undefined}
+          data-scene-click-ignore=""
           style={{
             width: isMobile ? '100%' : contentWidth,
             maxWidth: '100%',

@@ -33,6 +33,7 @@ import projects, {
 import FacetLabels from './FacetLabels'
 import FacetHoverParticles from './FacetHoverParticles'
 import OverviewTouchPicker from './OverviewTouchPicker'
+import SceneBackgroundClick from './SceneBackgroundClick'
 import { effects, materials as defaultCrystalMaterials, crystalWholePathForTier, projectModelPathForTier } from '../../crystalConfig'
 import { useFacetOverlayGeometry, resetOverlaySlot, reassertOverlayFace } from '../../hooks/useFacetOverlayGeometry'
 import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController'
@@ -468,6 +469,7 @@ const UnifiedCrystalScene = forwardRef(({
   scrollToProject,
   onDirectProjectSelect,
   onFractureStart,
+  onBackgroundClick = null,
   sharedCameraMoveProgressRef = null,
   introRevealRef = null,
   heroOverviewRuntime = null,
@@ -4761,6 +4763,24 @@ const UnifiedCrystalScene = forwardRef(({
         facetRefs={facetRefs}
         facetKeys={facetKeys}
         onPickFacet={handleFacetClick}
+      />
+
+      {/* Clicking the background goes back a level: project → overview →
+          hero. Off everywhere else (hero, About, an open case study). */}
+      <SceneBackgroundClick
+        level={
+          inActiveOverview
+            ? 'overview'
+            : (animationData?.viewMode === 'project' &&
+                animationData?.currentZone === 'projects' &&
+                animationData?.focusedFacet)
+              ? 'project'
+              : null
+        }
+        focusedFacetKey={animationData?.focusedFacet ?? null}
+        facetRefs={facetRefs}
+        facetKeys={facetKeys}
+        onBackgroundClick={onBackgroundClick}
       />
 
       <FacetLabels

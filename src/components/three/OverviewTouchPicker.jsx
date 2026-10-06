@@ -29,18 +29,13 @@
 import { useEffect } from 'react';
 import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-
-// A tap is a press that neither travelled nor lingered. Anything past these is
-// a scroll gesture (or a long-press) and is left to the browser.
-const TAP_MAX_TRAVEL_PX = 12;
-const TAP_MAX_DURATION_MS = 600;
-
-// Labels are thin lines of text; a fingertip lands near them more often than on
-// them. Their rects are grown by this much before the hit test.
-const LABEL_HIT_PADDING_PX = 12;
-
-// Taps on real chrome (nav, buttons, links) belong to that chrome.
-const INTERACTIVE_SELECTOR = 'a, button, input, select, textarea, [role="button"], [data-no-overview-tap]';
+import {
+  INTERACTIVE_SELECTOR,
+  TAP_MAX_DURATION_MS,
+  TAP_MAX_TRAVEL_PX,
+  pickFacetAt,
+  pickRailLabelAt,
+} from './scenePicking';
 
 const OverviewTouchPicker = ({
   enabled = false,
@@ -58,50 +53,6 @@ const OverviewTouchPicker = ({
     const raycaster = new THREE.Raycaster();
     const ndc = new THREE.Vector2();
     let pressed = null;
-
-    const pickLabelAt = (clientX, clientY) => {
-      const labels = document.querySelectorAll('[data-rail-project]');
-      for (const label of labels) {
-        const rect = label.getBoundingClientRect();
-        if (rect.width === 0 || rect.height === 0) continue;
-        if (
-          clientX >= rect.left - LABEL_HIT_PADDING_PX &&
-          clientX <= rect.right + LABEL_HIT_PADDING_PX &&
-          clientY >= rect.top - LABEL_HIT_PADDING_PX &&
-          clientY <= rect.bottom + LABEL_HIT_PADDING_PX
-        ) {
-          return label;
-        }
-      }
-      return null;
-    };
-
-    const pickFacetAt = (clientX, clientY) => {
-      const rect = glDomElement.getBoundingClientRect();
-      if (rect.width === 0 || rect.height === 0) return null;
-
-      ndc.set(
-        ((clientX - rect.left) / rect.width) * 2 - 1,
-        -((clientY - rect.top) / rect.height) * 2 + 1,
-      );
-      raycaster.setFromCamera(ndc, camera);
-
-      // Raycast each facet separately rather than the whole group: the answer
-      // needed here is "which facet", and intersectObjects would only hand back
-      // the leaf mesh, leaving the same walk back up to its facet root anyway.
-      let nearest = null;
-      (facetRefs?.current || []).forEach((facetRef, index) => {
-        const root = facetRef?.current;
-        if (!root || root.visible === false) return;
-        const hit = raycaster.intersectObject(root, true)[0];
-        if (!hit) return;
-        if (!nearest || hit.distance < nearest.distance) {
-          nearest = { distance: hit.distance, facetKey: facetKeys?.[index] || null };
-        }
-      });
-
-      return nearest?.facetKey || null;
-    };
 
     const handlePointerDown = (event) => {
       // Mouse keeps the r3f path; this is only the touch/pen fallback.
@@ -126,7 +77,7 @@ const OverviewTouchPicker = ({
       if (travelled > TAP_MAX_TRAVEL_PX) return;
       if (performance.now() - start.time > TAP_MAX_DURATION_MS) return;
 
-      const label = pickLabelAt(event.clientX, event.clientY);
+      const label = pickRailLabelAt(event.clientX, event.clientY);
       if (label) {
         // Programmatic — pointer-events:none blocks hit-testing, not dispatch.
         // The click goes to the label's link, which is where FacetLabels'
@@ -137,7 +88,16 @@ const OverviewTouchPicker = ({
         return;
       }
 
-      const facetKey = pickFacetAt(event.clientX, event.clientY);
+      const facetKey = pickFacetAt({
+        clientX: event.clientX,
+        clientY: event.clientY,
+        camera,
+        domElement: glDomElement,
+        facetRefs,
+        facetKeys,
+        raycaster,
+        ndc,
+      });
       if (facetKey) {
         onPickFacet?.(facetKey);
       }

@@ -915,6 +915,14 @@ function App() {
 
   const handleContactClick = useCallback(() => {}, []);
 
+  // A click on the scene's background goes back up a level, exactly as the nav
+  // would take it: a project to Work, Work to the hero.
+  const handleSceneBackgroundClick = useCallback((level) => {
+    if (viewModeRef.current === 'caseStudy') return;
+    if (level === 'project') handleWorkClick();
+    else if (level === 'overview') handleHomeClick();
+  }, [handleHomeClick, handleWorkClick]);
+
   const handleActiveProjectChange = useCallback((nextProjectId) => {
     // An open case study keeps its project. On a deep link the content layer
     // mounts underneath the open case study and reports its passing sections as
@@ -1440,6 +1448,7 @@ function App() {
           canvasProps={getOptimalCanvasProps()}
           environmentProps={getOptimalEnvironmentProps()}
           isMobile={isMobile}
+          onBackgroundClick={handleSceneBackgroundClick}
           paused={sceneFrozen}
           // Arrived somewhere other than the hero: no intro now, and none later
           // either. Not after a Restart, which replays it on purpose.
