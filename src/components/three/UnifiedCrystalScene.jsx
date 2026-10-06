@@ -778,14 +778,9 @@ const UnifiedCrystalScene = forwardRef(({
     };
   }, []);
 
-  const isHeroOverviewFractureTimingRouteCandidate = Boolean(
-    animationData?.crystalForm === 'exploded' &&
-    (
-      animationData?.state === 'overview' ||
-      animationData?.currentZone === 'overview' ||
-      animationData?.viewMode === 'overview'
-    )
-  );
+  // Every explosion out of hero — into the overview or straight to About — runs the
+  // same fracture effects, so this is no longer gated on the destination zone.
+  const isHeroOverviewFractureTimingRouteCandidate = animationData?.crystalForm === 'exploded';
   const getHeroOverviewFractureTimingState = useCallback(() => {
     const normalizeDuration = (value, fallback, allowZero = false) => {
       const numeric = typeof value === 'number' && Number.isFinite(value) ? value : fallback;
@@ -1328,44 +1323,36 @@ const UnifiedCrystalScene = forwardRef(({
   const runExplodeSwap = useCallback(() => {
     heroOverviewTravelDistanceAuditLoggedRef.current = false;
     heroOverviewVisibleTravelSampleLoggedRef.current.clear();
+    // Any swap is an explosion out of hero, so it always runs the config-driven
+    // fracture (timing, ring, particles, rays, shard burst). Latch that here rather
+    // than relying on having seen the effects clock active.
+    heroOverviewFractureTimingRouteActiveRef.current = true;
     const fractureTiming = getHeroOverviewFractureTimingState();
     const runtimeSnapshot = heroOverviewRuntime?.getSnapshot?.() ?? null;
-    const heroOverviewRouteLocal = fractureTiming.routeLocal;
 
-    if (heroOverviewRouteLocal) {
-      // Only (re)arm the effect triggers when this is a genuinely new hero→overview
-      // run. maybeTriggerHeroOverviewEffects('frame') runs every frame while
-      // crystalForm is already 'exploded', so it may have started this run (same
-      // startedAt) and fired the initial particle burst before this deferred
-      // runExplodeSwap fires ~120ms later. Re-resetting here would clear the
-      // "already triggered" guards, and the immediate maybeTriggerHeroOverviewEffects
-      // call below would re-fire that initial burst on top of the main explosion beat.
-      const runStartedAt = runtimeSnapshot?.startedAt || performance.now();
-      if (heroOverviewEffectsRunStartedAtRef.current !== runStartedAt) {
-        resetHeroOverviewEffectsRun(runStartedAt);
-      }
-      heroOverviewEffectsImmediateBypassRef.current = true;
-      heroOverviewEffectsDiagnosticsRef.current = {
-        ...heroOverviewEffectsDiagnosticsRef.current,
-        runExplodeSwapImmediateEffectsBypassedForHeroOverview: true,
-        nonHeroOverviewFallbackBehaviorPreserved: true,
-      };
-      setHeroOverviewEffectsManualMode(true);
-    } else {
-      resetHeroOverviewEffectsRun(null);
-      setHeroOverviewEffectsManualMode(false);
+    // Only (re)arm the effect triggers when this is a genuinely new run.
+    // maybeTriggerHeroOverviewEffects('frame') runs every frame while crystalForm is
+    // already 'exploded', so it may have started this run (same startedAt) and fired
+    // the initial particle burst before this deferred runExplodeSwap fires ~120ms
+    // later. Re-resetting here would clear the "already triggered" guards, and the
+    // immediate maybeTriggerHeroOverviewEffects call below would re-fire that initial
+    // burst on top of the main explosion beat.
+    const runStartedAt = runtimeSnapshot?.startedAt || performance.now();
+    if (heroOverviewEffectsRunStartedAtRef.current !== runStartedAt) {
+      resetHeroOverviewEffectsRun(runStartedAt);
     }
+    heroOverviewEffectsImmediateBypassRef.current = true;
+    heroOverviewEffectsDiagnosticsRef.current = {
+      ...heroOverviewEffectsDiagnosticsRef.current,
+      runExplodeSwapImmediateEffectsBypassedForHeroOverview: true,
+    };
+    setHeroOverviewEffectsManualMode(true);
 
     setShowWholeCrystal(false);
     setShowFacets(true);
     setSphereVisible(true);
-    if (heroOverviewRouteLocal) {
-      setRingVisible(false);
-      maybeTriggerHeroOverviewEffects('runExplodeSwap');
-    } else {
-      setRingVisible(true);
-      setBurstId(id => id + 1);
-    }
+    setRingVisible(false);
+    maybeTriggerHeroOverviewEffects('runExplodeSwap');
     explosionStartRef.current = performance.now() - FORWARD_PRE_SWAP_WINDOW_MS;
 
     // Capture hero rotation so facets start from same orientation
@@ -4573,13 +4560,10 @@ const UnifiedCrystalScene = forwardRef(({
         } : {})}
         visible={ringVisible}
         animationData={animationData}
-        // Suppress the legacy crystalForm-driven ring for the ENTIRE hero→overview
-        // route, not just once heroOverviewEffectsManualMode has latched. Otherwise
-        // the legacy ring fires during the window where crystalForm is already
-        // 'exploded' but runExplodeSwap (deferred) hasn't enabled manual mode yet,
-        // producing a second, mistimed ring on top of the manual one. The manual
-        // ring still owns the trigger via heroOverviewRingTriggerId below.
-        manualTriggerMode={heroOverviewEffectsManualMode || isHeroOverviewFractureTimingRouteCandidate}
+        // The scene always owns the ring trigger (heroOverviewRingTriggerId, fired
+        // on the fracture effects clock). The ring's own crystalForm watcher would
+        // fire a second, mistimed ring the moment the crystal starts exploding.
+        manualTriggerMode
         triggerKey={heroOverviewEffectsManualMode ? heroOverviewRingTriggerId : null}
         simplifiedAnimations={simplifiedAnimations}
         debugMode={import.meta.env.DEV}

@@ -347,6 +347,11 @@ const Fixed3DCanvas = forwardRef(({
     [config?.timing?.heroOverviewRuntime, layout?.timing?.heroOverviewRuntime],
   );
   const heroOverviewRuntime = useHeroOverviewRuntime(heroOverviewRuntimeTimingConfig);
+  // The same clock for the crystal scene's fracture effects (rays, ring, particles,
+  // shard burst, facet travel). It runs on every explosion, including hero→about,
+  // while the camera's clock above only runs into the overview, so the About
+  // camera never sees an active cinematic.
+  const fractureEffectsRuntime = useHeroOverviewRuntime(heroOverviewRuntimeTimingConfig);
   const heroOverviewExplosionClockRef = useRef(null);
   const lastHeroOverviewStartRef = useRef('');
   const lastHeroOverviewZoneRef = useRef(null);
@@ -761,9 +766,10 @@ const Fixed3DCanvas = forwardRef(({
     // timing) off the actual crystal-form change, NOT the raw scroll zone. The zone
     // crosses immediately on scroll, but the explosion can be deferred by the
     // overview→hero interruption queue — keying on the zone made the rays fire ~1.6s
-    // ahead of the explosion. A whole→exploded transition uniquely marks the
-    // hero→overview explosion (projects/about→overview keep the crystal exploded), so
-    // this stays aligned whether or not the explosion was queued.
+    // ahead of the explosion. A whole→exploded transition uniquely marks an explosion
+    // out of hero (projects/about→overview keep the crystal exploded), so this stays
+    // aligned whether or not the explosion was queued. The effects clock starts on
+    // every one; the camera's only when the explosion lands in the overview.
     const prevForm = lastHeroOverviewFormRef.current;
     const form = animationData?.crystalForm ?? null;
 
@@ -771,16 +777,21 @@ const Fixed3DCanvas = forwardRef(({
       animationData?.state === 'overview' || animationData?.currentZone === 'overview';
     if (form === 'whole') {
       heroOverviewRuntime.resetToIdle({ reason: 'crystal-reformed' });
+      fractureEffectsRuntime.resetToIdle({ reason: 'crystal-reformed' });
       lastHeroOverviewStartRef.current = '';
-    } else if (prevForm === 'whole' && form === 'exploded' && explodingIntoOverview) {
+    } else if (prevForm === 'whole' && form === 'exploded') {
       if (lastHeroOverviewStartRef.current !== 'exploded') {
         lastHeroOverviewStartRef.current = 'exploded';
-        heroOverviewRuntime.start({ source: 'crystal-whole-to-exploded' });
+        const startedAt = performance.now();
+        fractureEffectsRuntime.start({ startedAt, source: 'crystal-whole-to-exploded' });
+        if (explodingIntoOverview) {
+          heroOverviewRuntime.start({ startedAt, source: 'crystal-whole-to-exploded' });
+        }
       }
     }
 
     lastHeroOverviewFormRef.current = form;
-  }, [animationData?.crystalForm, heroOverviewRuntime]);
+  }, [animationData?.crystalForm, fractureEffectsRuntime, heroOverviewRuntime]);
 
 
   const destinationCompareStoreRef = useRef({ byKey: {}, order: [] });
@@ -1097,6 +1108,7 @@ const Fixed3DCanvas = forwardRef(({
           )}
           
           <HeroOverviewRuntimeTicker runtime={heroOverviewRuntime} />
+          <HeroOverviewRuntimeTicker runtime={fractureEffectsRuntime} />
 
           {/* UPDATED: Enhanced Camera Controller with facet refs */}
           <UnifiedCameraController
@@ -1129,7 +1141,7 @@ const Fixed3DCanvas = forwardRef(({
             scrollToProject={scrollToProject}
             onDirectProjectSelect={onDirectProjectSelect}
             onFractureStart={handleFractureStart}
-            heroOverviewRuntime={heroOverviewRuntime}
+            heroOverviewRuntime={fractureEffectsRuntime}
             heroOverviewExplosionClockRef={heroOverviewExplosionClockRef}
           />
 
