@@ -6,6 +6,101 @@ import { loadOverlayImage } from '../loader/preloadOverlayImages';
 const PROJECT_DISPLAY_SLOT = 'ProjectDisplay';
 const EPSILON = 1e-5;
 
+// The artwork is drawn by its own mesh laid over the ProjectDisplay face, not by
+// swapping that face's material for it. Swapped in, the transparent artwork
+// material left the face see-through while it faded — the inside of the facet
+// showed — and the glass popped back once the fade finished. Layered on top, the
+// face stays solid underneath and the artwork fades over it.
+//
+// The overlay mesh shares the facet mesh's geometry. On a multi-material mesh
+// every group but ProjectDisplay gets this hidden material, which the renderer
+// skips (an empty slot would also be skipped, but compile() and anything else
+// walking the array would trip on it).
+const HIDDEN_GROUP_MATERIAL = new THREE.MeshBasicMaterial({ visible: false });
+const NO_RAYCAST = () => {};
+
+// The artwork fades over a fixed time and lands exactly on 0 or 1. It used to
+// close a fraction of the remaining gap each frame, which never reaches 0, so it
+// was cut off below 1% — and over dark glass 1% of a bright image is still a
+// visible ghost, so the cut read as a pop. The case-study cut-out runs quicker:
+// it has to finish in the moment before the case study covers the scene.
+const FADE_SECONDS = 0.8;
+const CUTOUT_FADE_SECONDS = 0.45;
+const easeFade = (t) => t * t * (3 - 2 * t);
+
+const faceMaterialOf = (slot) => {
+  const materials = Array.isArray(slot.mesh.material) ? slot.mesh.material : [slot.mesh.material];
+  return materials[slot.materialIndex ?? 0];
+};
+
+// Hides or restores the face itself, under the artwork. Only the case study
+// does this: with the face gone, the faded-out artwork leaves the fragment open.
+const setFaceHidden = (slot, hidden) => {
+  slot.faceHidden = hidden;
+  ensureMaterialAssignment(
+    slot.mesh,
+    slot.materialIndex,
+    hidden ? HIDDEN_GROUP_MATERIAL : slot.originalMaterial
+  );
+};
+
+const createOverlayMesh = (mesh, materialIndex, overlayMaterial) => {
+  let material = overlayMaterial;
+  if (materialIndex != null) {
+    const count = Math.max(
+      materialIndex + 1,
+      Array.isArray(mesh.material) ? mesh.material.length : 1
+    );
+    material = new Array(count).fill(HIDDEN_GROUP_MATERIAL);
+    material[materialIndex] = overlayMaterial;
+  }
+
+  const overlayMesh = new THREE.Mesh(mesh.geometry, material);
+  overlayMesh.name = `${mesh.name || 'facet'}__projectOverlay`;
+  overlayMesh.userData.isOverlay = true;
+  // Picks belong to the face beneath, which is the same shape.
+  overlayMesh.raycast = NO_RAYCAST;
+  overlayMesh.frustumCulled = mesh.frustumCulled;
+  overlayMesh.castShadow = false;
+  overlayMesh.receiveShadow = false;
+  overlayMesh.visible = false;
+  mesh.add(overlayMesh);
+  return overlayMesh;
+};
+
+const removeOverlayMesh = (slot) => {
+  slot?.overlayMesh?.removeFromParent();
+};
+
+// Shows or hides a slot's artwork. The face's own material is never touched.
+export const setOverlaySlotShown = (slot, shown) => {
+  if (!slot) return;
+  slot.isActive = shown;
+  if (!slot.overlayMesh) return;
+  // Follow the facet's geometry (the flat-normals toggle swaps it).
+  if (slot.overlayMesh.geometry !== slot.mesh.geometry) {
+    slot.overlayMesh.geometry = slot.mesh.geometry;
+  }
+  slot.overlayMesh.visible = shown;
+};
+
+// For code that re-applies a facet's material: keeps a cut-out face cut out.
+export const reassertOverlayFace = (slot) => {
+  if (slot?.faceHidden) setFaceHidden(slot, true);
+};
+
+// Drops a slot straight back to rest: artwork off, face back.
+export const resetOverlaySlot = (slot) => {
+  if (!slot) return;
+  slot.targetOpacity = 0;
+  slot.fadeLevel = 0;
+  slot.currentOpacity = 0;
+  slot.cutout = false;
+  if (slot.overlayMaterial) slot.overlayMaterial.opacity = 0;
+  if (slot.faceHidden) setFaceHidden(slot, false);
+  setOverlaySlotShown(slot, false);
+};
+
 const ensureMaterialAssignment = (mesh, materialIndex, material) => {
   if (!mesh) return;
 
@@ -311,7 +406,7 @@ export const useFacetOverlayGeometry = (facetKeys) => {
       let candidate = null;
 
       facetRef.current.traverse((child) => {
-        if (candidate || !child.isMesh) return;
+        if (candidate || !child.isMesh || child.userData?.isOverlay) return;
 
         const isArrayMaterial = Array.isArray(child.material);
         const materials = isArrayMaterial ? child.material : [child.material];
@@ -431,6 +526,7 @@ export const useFacetOverlayGeometry = (facetKeys) => {
       let overlayTexture = existingSlot?.overlayTexture || null;
       let overlayMaterial = existingSlot?.overlayMaterial || null;
       const previousOpacity = existingSlot?.currentOpacity ?? 0;
+      const previousLevel = existingSlot?.fadeLevel ?? previousOpacity;
       const previousTarget = existingSlot?.targetOpacity ?? 0;
       const wasActive = existingSlot?.isActive ?? false;
 
@@ -453,9 +549,6 @@ export const useFacetOverlayGeometry = (facetKeys) => {
 
       if (!overlayMaterial || baseMaterialChanged || boundsChanged) {
         if (overlayMaterial) {
-          if (wasActive) {
-            ensureMaterialAssignment(mesh, materialIndex, baseMaterial);
-          }
           overlayMaterial.dispose();
         }
 
@@ -467,6 +560,11 @@ export const useFacetOverlayGeometry = (facetKeys) => {
 
         overlayMaterial.depthWrite = false;
         overlayMaterial.depthTest = true;
+        // Drawn on the face's own triangles: pull it toward the camera so it
+        // never z-fights the face beneath.
+        overlayMaterial.polygonOffset = true;
+        overlayMaterial.polygonOffsetFactor = -1;
+        overlayMaterial.polygonOffsetUnits = -1;
         overlayMaterial.toneMapped = false;
         overlayMaterial.side = baseMaterial.side ?? THREE.FrontSide;
       } else {
@@ -494,31 +592,46 @@ export const useFacetOverlayGeometry = (facetKeys) => {
         originalMap: fallbackMap,
         originalMapTransform: fallbackTransform,
         overlayMaterial,
+        overlayMesh: null,
         overlayTexture,
         bounds,
         targetOpacity: previousTarget,
+        // fadeLevel runs linearly 0..1; currentOpacity is it eased (easeFade).
+        fadeLevel: previousLevel,
         currentOpacity: previousOpacity,
         isActive: wasActive,
+        cutout: existingSlot?.cutout ?? false,
+        faceHidden: false,
         keepBaseMapDetached: true,
       };
+
+      // A fresh overlay mesh each registration: cheap (no GPU resources of its
+      // own), and it picks up a changed mesh, slot index or material.
+      removeOverlayMesh(existingSlot);
+      slot.overlayMesh = createOverlayMesh(mesh, materialIndex, overlayMaterial);
 
       overlaySlotsRef.current.set(facetKey, slot);
 
       // Ensure project artwork is rendered only by overlayMaterial so it can
-      // fade independently from the base tinted facet.
+      // fade independently from the base tinted facet. Only the map comes off:
+      // the facet material's transparency is the crystal's as authored, and
+      // forcing it opaque here (or at the end of a fade) switched the face to a
+      // different render path — double-sided transparent draws back faces first —
+      // which read as a pop.
       if (slot.keepBaseMapDetached && slot.originalMaterial?.map) {
         slot.originalMaterial.map = null;
-        slot.originalMaterial.transparent = false;
-        slot.originalMaterial.opacity = 1;
         slot.originalMaterial.needsUpdate = true;
       }
 
-      if (slot.isActive) {
-        slot.overlayMaterial.opacity = slot.currentOpacity;
-        ensureMaterialAssignment(slot.mesh, slot.materialIndex, slot.overlayMaterial);
-      } else {
-        ensureMaterialAssignment(slot.mesh, slot.materialIndex, slot.originalMaterial);
-      }
+      // The face keeps its own material, the artwork riding on top — unless a
+      // case study had it cut out, which a re-registration mid case study keeps.
+      const keepFaceHidden =
+        existingSlot?.faceHidden &&
+        existingSlot.mesh === mesh &&
+        existingSlot.materialIndex === materialIndex;
+      setFaceHidden(slot, Boolean(keepFaceHidden));
+      slot.overlayMaterial.opacity = slot.currentOpacity;
+      setOverlaySlotShown(slot, slot.isActive);
 
       return slot;
     },
@@ -533,9 +646,16 @@ export const useFacetOverlayGeometry = (facetKeys) => {
 
     if (visible && !slot.isActive) {
       slot.overlayMaterial.opacity = slot.currentOpacity;
-      ensureMaterialAssignment(slot.mesh, slot.materialIndex, slot.overlayMaterial);
-      slot.isActive = true;
+      setOverlaySlotShown(slot, true);
     }
+  }, []);
+
+  // The case study's project has its face cut out (see setFaceHidden); every
+  // other slot is a plain overlay. Called each frame with the current one.
+  const setOverlayCutout = useCallback((facetKey) => {
+    overlaySlotsRef.current.forEach((slot, key) => {
+      slot.cutout = key === facetKey;
+    });
   }, []);
 
   const updateOverlays = useCallback((deltaTime, options = {}) => {
@@ -545,77 +665,63 @@ export const useFacetOverlayGeometry = (facetKeys) => {
       if (!slot.mesh) return;
 
       if (forceHide) {
-        slot.currentOpacity = 0;
-
-        if (slot.isActive) {
-          // Keep overlay material assigned, just hide it visually
+        if (slot.isActive || slot.faceHidden || slot.fadeLevel > 0) {
+          slot.fadeLevel = 0;
+          slot.currentOpacity = 0;
           slot.overlayMaterial.opacity = 0;
-          slot.overlayMaterial.needsUpdate = true;
+          if (slot.faceHidden) setFaceHidden(slot, false);
+          setOverlaySlotShown(slot, false);
         }
-
         return;
       }
 
-      if (!slot.isActive && slot.targetOpacity <= 0) {
-        slot.currentOpacity = 0;
-        return;
+      // Where the artwork is headed. A case study cuts the face out: the artwork
+      // comes fully up over the face, the face is hidden under it (unseen, the
+      // artwork covers it), then the artwork fades away and leaves the fragment
+      // open. Leaving runs it backwards — the face returns once the artwork is
+      // fully back over it. Leaving the project from its case study (back to the
+      // overview, say) brings the face straight back: the case study is still
+      // covering the scene then.
+      let target = slot.targetOpacity > 0 ? 1 : 0;
+      if (slot.cutout) {
+        if (!slot.faceHidden && slot.fadeLevel >= 1) setFaceHidden(slot, true);
+        target = slot.faceHidden ? 0 : 1;
+      } else if (slot.faceHidden && (target === 0 || slot.fadeLevel >= 1)) {
+        setFaceHidden(slot, false);
+      }
+      // A facet material re-application puts the face back; keep it cut out.
+      if (slot.faceHidden && faceMaterialOf(slot) !== HIDDEN_GROUP_MATERIAL) {
+        setFaceHidden(slot, true);
       }
 
-      if (!slot.isActive && slot.targetOpacity > 0) {
-        slot.overlayMaterial.opacity = slot.currentOpacity;
-        ensureMaterialAssignment(slot.mesh, slot.materialIndex, slot.overlayMaterial);
-        slot.isActive = true;
-      }
+      if (!slot.isActive && target === 0 && slot.fadeLevel === 0) return;
+      // Shown (again) — this also keeps it on the facet's current geometry.
+      setOverlaySlotShown(slot, true);
 
-      const speed = 3.0;
-      const lerpAlpha = Math.min(deltaTime * speed, 1);
-      const newOpacity = THREE.MathUtils.lerp(slot.currentOpacity, slot.targetOpacity, lerpAlpha);
+      const seconds = slot.cutout || slot.faceHidden ? CUTOUT_FADE_SECONDS : FADE_SECONDS;
+      const step = deltaTime / seconds;
+      slot.fadeLevel = target > slot.fadeLevel
+        ? Math.min(target, slot.fadeLevel + step)
+        : Math.max(target, slot.fadeLevel - step);
+      slot.currentOpacity = easeFade(slot.fadeLevel);
+      // Opacity is a uniform: no needsUpdate (that re-checks the program).
+      slot.overlayMaterial.opacity = slot.currentOpacity;
 
-      slot.currentOpacity = newOpacity;
-
-      if (slot.isActive) {
-        slot.overlayMaterial.opacity = newOpacity;
-        slot.overlayMaterial.needsUpdate = true;
-      }
-
-      if (slot.isActive && slot.targetOpacity === 0 && newOpacity <= 0.01) {
-        ensureMaterialAssignment(slot.mesh, slot.materialIndex, slot.originalMaterial);
-        slot.overlayMaterial.opacity = 0;
-        slot.isActive = false;
-        slot.currentOpacity = 0;
-        slot.originalMaterial.transparent = slot.keepBaseMapDetached
-          ? false
-          : slot.originalTransparent;
-        slot.originalMaterial.opacity = slot.keepBaseMapDetached
-          ? 1
-          : slot.originalOpacity;
-        if (!slot.keepBaseMapDetached) {
-          if (!slot.originalMaterial.map && slot.originalMap) {
-            slot.originalMaterial.map = slot.originalMap;
-          }
-
-          if (slot.originalMaterial.map && slot.originalMapTransform) {
-            applyStoredTextureTransform(
-              slot.originalMaterial.map,
-              slot.originalMapTransform
-            );
-          } else if (slot.originalMaterial.map) {
-            slot.originalMaterial.map.needsUpdate = true;
-          }
-        } else if (slot.originalMaterial.map) {
+      // Off only once it has actually reached nothing.
+      if (target === 0 && slot.fadeLevel === 0) {
+        setOverlaySlotShown(slot, false);
+        if (slot.keepBaseMapDetached && slot.originalMaterial.map) {
           slot.originalMaterial.map = null;
+          slot.originalMaterial.needsUpdate = true;
         }
-        slot.originalMaterial.needsUpdate = true;
       }
-
     });
   }, []);
 
   const cleanup = useCallback(() => {
     overlaySlotsRef.current.forEach((slot) => {
-      if (slot.isActive) {
-        ensureMaterialAssignment(slot.mesh, slot.materialIndex, slot.originalMaterial);
-      }
+      if (slot.faceHidden) setFaceHidden(slot, false);
+      removeOverlayMesh(slot);
 
       if (slot.overlayMaterial) {
         slot.overlayMaterial.dispose();
@@ -644,6 +750,7 @@ export const useFacetOverlayGeometry = (facetKeys) => {
     isReady,
     registerOverlaySlot,
     setOverlayVisibility,
+    setOverlayCutout,
     updateOverlays,
     cleanup,
     overlaySlots: overlaySlotsRef.current,

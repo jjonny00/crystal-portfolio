@@ -34,7 +34,7 @@ import FacetLabels from './FacetLabels'
 import FacetHoverParticles from './FacetHoverParticles'
 import OverviewTouchPicker from './OverviewTouchPicker'
 import { effects, materials as defaultCrystalMaterials, crystalWholePathForTier, projectModelPathForTier } from '../../crystalConfig'
-import { useFacetOverlayGeometry } from '../../hooks/useFacetOverlayGeometry'
+import { useFacetOverlayGeometry, resetOverlaySlot, reassertOverlayFace } from '../../hooks/useFacetOverlayGeometry'
 import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController'
 import { useHoverCapable } from '../../hooks/useHoverCapable'
 import { useMediaQuery } from '../../hooks/useMediaQuery'
@@ -1481,6 +1481,7 @@ const UnifiedCrystalScene = forwardRef(({
     isReady: overlaysReady,
     registerOverlaySlot,
     setOverlayVisibility,
+    setOverlayCutout,
     updateOverlays,
     cleanup: cleanupOverlays,
     overlaySlots
@@ -2185,20 +2186,6 @@ const UnifiedCrystalScene = forwardRef(({
     );
 
     // Apply material to whole crystal
-    const applyStoredTextureTransform = (texture, transform) => {
-      if (!texture || !transform) return;
-
-      texture.offset.copy(transform.offset);
-      texture.repeat.copy(transform.repeat);
-      texture.rotation = transform.rotation ?? 0;
-
-      if (texture.center && transform.center) {
-        texture.center.copy(transform.center);
-      }
-
-      texture.needsUpdate = true;
-    };
-
     const snapshotTextureTransform = (texture) => {
       if (!texture) {
         return null;
@@ -2230,16 +2217,6 @@ const UnifiedCrystalScene = forwardRef(({
 
       const storedMap = originalInfo?.projectDisplayMap || null;
       const storedTransform = originalInfo?.projectDisplayMapTransform || null;
-
-      if (!baseMaterial.map && storedMap) {
-        baseMaterial.map = storedMap;
-        if (storedTransform) {
-          applyStoredTextureTransform(baseMaterial.map, storedTransform);
-        } else {
-          baseMaterial.map.needsUpdate = true;
-        }
-        baseMaterial.needsUpdate = true;
-      }
 
       const effectiveMap = baseMaterial.map || storedMap || null;
 
@@ -2323,42 +2300,24 @@ const UnifiedCrystalScene = forwardRef(({
         if (overlayTargetsChild) {
           const originalInfo = child.userData.__originalMaterialInfo || {};
 
-          if (!material.map && originalInfo.projectDisplayMap) {
-            material.map = originalInfo.projectDisplayMap;
-
-            if (originalInfo.projectDisplayMapTransform) {
-              const { offset, repeat, rotation, center } =
-                originalInfo.projectDisplayMapTransform;
-
-              material.map.offset.copy(offset);
-              material.map.repeat.copy(repeat);
-              material.map.rotation = rotation;
-
-              if (material.map.center && center) {
-                material.map.center.copy(center);
-              }
-            }
-
-            material.map.needsUpdate = true;
+          // The artwork belongs to the overlay mesh alone. This used to put the
+          // model's ProjectDisplay texture back on the facet material on every
+          // re-application (any focus change), so with the face now drawn under
+          // the fading overlay, the image stayed up through the fade and then
+          // popped off when the fade's end stripped it.
+          if (material.map && material.map === originalInfo.projectDisplayMap) {
+            material.map = null;
             material.needsUpdate = true;
           }
 
           updateOverlaySlotBase(overlayTargetsChild, material, originalInfo);
         }
 
+        // The project artwork is its own mesh over the face (see
+        // useFacetOverlayGeometry), so every slot here takes the facet material.
         if (existingMaterials.length > 1) {
           const materialCount = existingMaterials.length;
           const updatedMaterials = new Array(materialCount).fill(material);
-
-          if (
-            overlayTargetsChild &&
-            overlayTargetsChild.isActive &&
-            overlayTargetsChild.materialIndex != null &&
-            overlayTargetsChild.materialIndex < materialCount
-          ) {
-            updatedMaterials[overlayTargetsChild.materialIndex] =
-              overlayTargetsChild.overlayMaterial;
-          }
 
           // TEMPORARY DIAGNOSTIC — while edge-wear debugging is on, the debug
           // material wins over this re-application (returns null otherwise).
@@ -2367,13 +2326,11 @@ const UnifiedCrystalScene = forwardRef(({
             ? new Array(materialCount).fill(debugOverride)
             : updatedMaterials;
         } else {
-          const intended =
-            overlayTargetsChild && overlayTargetsChild.isActive
-              ? overlayTargetsChild.overlayMaterial
-              : material;
           // TEMPORARY DIAGNOSTIC — see note above.
-          child.material = getEdgeWearDebugOverride(child, intended) ?? intended;
+          child.material = getEdgeWearDebugOverride(child, material) ?? material;
         }
+        // A case study's cut-out face stays cut out across the re-application.
+        if (overlayTargetsChild) reassertOverlayFace(overlayTargetsChild);
 
         if (Array.isArray(child.material)) {
           child.material.forEach((mat) => {
@@ -2650,31 +2607,7 @@ const UnifiedCrystalScene = forwardRef(({
       cancelled = true;
       if (pendingId != null) cancelIdle(pendingId);
       overlaySlots.forEach((slot) => {
-        if (!slot?.mesh) return;
-
-        if (slot.isActive) {
-          const materials = Array.isArray(slot.mesh.material)
-            ? slot.mesh.material
-            : [slot.mesh.material];
-          const index = slot.materialIndex ?? 0;
-
-          if (materials[index] === slot.overlayMaterial) {
-            if (slot.materialIndex != null) {
-              const updated = materials.slice();
-              updated[index] = slot.originalMaterial;
-              slot.mesh.material = updated;
-            } else {
-              slot.mesh.material = slot.originalMaterial;
-            }
-          }
-        }
-
-        slot.targetOpacity = 0;
-        slot.currentOpacity = 0;
-        slot.isActive = false;
-        if (slot.overlayMaterial) {
-          slot.overlayMaterial.opacity = 0;
-        }
+        if (slot?.mesh) resetOverlaySlot(slot);
       });
     };
   }, [
@@ -4014,38 +3947,17 @@ const UnifiedCrystalScene = forwardRef(({
         : null;
       const activeProjectSlot = activeFacetKey ? overlaySlots.get(activeFacetKey) : null;
 
-      if (activeProjectSlot?.mesh && activeProjectSlot?.overlayMaterial) {
-        const isCaseStudyActiveProject =
-          animationData?.viewMode === 'caseStudy' &&
-          activeProjectId != null &&
-          getProjectIdBySceneFacetKey(activeProjectSlot.facetKey) === activeProjectId;
-        const targetOpacity = isCaseStudyActiveProject ? 0 : 1;
-        const lerpAlpha = Math.min(deltaTime * 4, 1);
-        const nextOpacity = THREE.MathUtils.lerp(
-          activeProjectSlot.overlayMaterial.opacity ?? activeProjectSlot.currentOpacity ?? 1,
-          targetOpacity,
-          lerpAlpha
-        );
-
-        if (!activeProjectSlot.isActive) {
-          const materials = Array.isArray(activeProjectSlot.mesh.material)
-            ? activeProjectSlot.mesh.material.slice()
-            : [activeProjectSlot.mesh.material];
-          const materialIndex = activeProjectSlot.materialIndex ?? 0;
-          materials[materialIndex] = activeProjectSlot.overlayMaterial;
-          activeProjectSlot.mesh.material =
-            activeProjectSlot.materialIndex != null ? materials : activeProjectSlot.overlayMaterial;
-          activeProjectSlot.isActive = true;
-        }
-
-        if (activeProjectSlot.overlayMaterial.transparent !== true) {
-          activeProjectSlot.overlayMaterial.transparent = true;
-          activeProjectSlot.overlayMaterial.needsUpdate = true;
-        }
-
-        activeProjectSlot.overlayMaterial.opacity = nextOpacity;
-        activeProjectSlot.currentOpacity = nextOpacity;
-        activeProjectSlot.targetOpacity = nextOpacity;
+      // The focused project's artwork is up; in its case study the face is cut
+      // out so the fragment opens (useFacetOverlayGeometry does the fading).
+      const isCaseStudyActiveProject = Boolean(
+        activeProjectSlot?.mesh &&
+        animationData?.viewMode === 'caseStudy' &&
+        activeProjectId != null &&
+        getProjectIdBySceneFacetKey(activeProjectSlot.facetKey) === activeProjectId
+      );
+      setOverlayCutout(isCaseStudyActiveProject ? activeFacetKey : null);
+      if (activeProjectSlot?.mesh) {
+        setOverlayVisibility(activeFacetKey, true);
       }
 
       updateOverlays(deltaTime, {
