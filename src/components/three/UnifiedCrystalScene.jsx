@@ -1679,7 +1679,7 @@ const UnifiedCrystalScene = forwardRef(({
       ? mergedConfig.assets.models.crystalWhole
       : crystalWholePathForTier('low')
   );
-  const facetModels = facetModelKeys.map((modelKey, index) => {
+  const loadedFacetModels = facetModelKeys.map((modelKey, index) => {
     // Same swap the crystal makes above, for the same reason: on low tier the facets
     // load the exports without the edgeWear mask. projectModelPathForTier returns null
     // for anything that is not a project facet, so a non-facet key still falls through
@@ -1694,6 +1694,13 @@ const UnifiedCrystalScene = forwardRef(({
 
     return useGLTF(modelUrl);
   });
+  // One array for as long as the models are the same. map() hands back a new one
+  // every render, and effects keyed on it re-ran every render: the anchor-offset
+  // effect set state from there, so the scene re-rendered itself in a loop (well
+  // over a thousand times a second), re-cloning every facet material each time —
+  // the face under a project image was a fresh material hundreds of times a
+  // second. The GLTFs themselves are cached and stable, so they are the key.
+  const facetModels = useMemo(() => loadedFacetModels, loadedFacetModels); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Geometry-only diagnostic: swap the crystal meshes to flat per-face normals so the
   // transmissive material renders as clean hard-faceted glass. See FLATTEN_CRYSTAL_NORMALS.
