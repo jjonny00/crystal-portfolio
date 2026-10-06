@@ -64,16 +64,17 @@ export const preloadCaseStudy = (slug) =>
   });
 
 /**
- * The layer's scrollbar: always the tone-b scheme — the second colour as the
- * track, the project colour as the thumb — whatever section is on screen. It
+ * The layer's scrollbar: always the same two colours — the project colour as the
+ * track, the second colour as the thumb (tone b's pair, swapped) — whatever
+ * section is on screen. It
  * used to follow the section under the nav, which flipped the bar's colours at
  * every tone change. Opaque, too: a see-through track showed the scene loading
  * behind it, and the portfolio's own scrollbar underneath. caseStudy.css
  * applies these.
  */
 const scrollbarColorsFor = (colors) => ({
-  '--cs-scrollbar-track': backgroundColorForTone('b', colors),
-  '--cs-scrollbar-thumb': foregroundColorForTone('b', colors),
+  '--cs-scrollbar-track': foregroundColorForTone('b', colors),
+  '--cs-scrollbar-thumb': backgroundColorForTone('b', colors),
 });
 
 const getLazyCaseStudy = (slug) => {
