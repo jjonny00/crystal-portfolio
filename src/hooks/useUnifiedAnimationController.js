@@ -310,6 +310,16 @@ export const useUnifiedAnimationController = (options = {}) => {
     cameraMoveProgress: 1
   });
 
+  // Report each committed state. The scroll handler used to call onStateChange
+  // straight after queuing an update, handing over the state from before it — a
+  // nav jump (one scroll event) left the nav highlight one destination behind.
+  const lastReportedStateRef = useRef(null);
+  useEffect(() => {
+    if (!onStateChange) return;
+    onStateChange(animationState, lastReportedStateRef.current);
+    lastReportedStateRef.current = animationState;
+  }, [animationState, onStateChange]);
+
   // Simplified refs for tracking changes
   const lastZone = useRef('hero');
   const lastProject = useRef(null);
@@ -991,10 +1001,6 @@ export const useUnifiedAnimationController = (options = {}) => {
         zoneInfo: forcedProjectsZoneInfo,
         projectInfo: lockedProjectInfo
       }));
-
-      if (onStateChange) {
-        onStateChange(animationState);
-      }
       return;
     }
 
@@ -1093,10 +1099,6 @@ export const useUnifiedAnimationController = (options = {}) => {
         focusedFacet: directProjectOverrideRef.current?.sceneFacetKey ?? prev.focusedFacet,
         isTransitioning: false,
       }));
-
-      if (onStateChange) {
-        onStateChange(animationState);
-      }
       return;
       }
       }
@@ -1252,10 +1254,6 @@ export const useUnifiedAnimationController = (options = {}) => {
         ? { ...activeProject, project: remainingOverrideProject }
         : activeProject
     }));
-
-    if (onStateChange) {
-      onStateChange(animationState);
-    }
   }, [
     config,
     measureProjectSectionsFromDom,
@@ -1264,7 +1262,6 @@ export const useUnifiedAnimationController = (options = {}) => {
     setDirectProjectOverride,
     clearDirectProjectOverride,
     clearDirectZoneOverride,
-    onStateChange,
     animationState,
     debugMode
   ]);
