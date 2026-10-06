@@ -64,17 +64,16 @@ export const preloadCaseStudy = (slug) =>
   });
 
 /**
- * The layer's scrollbar, mirroring the nav: the track is the background of the
- * section under the nav (the project colour on a tone-a section, its second
- * colour on a tone-b one) and the thumb is the nav's own ink on it. A track
- * fixed to the project colour would lose the thumb on tone-b sections, where
- * the ink is the project colour. Opaque, too: a see-through track showed the
- * scene loading behind it, and the portfolio's own scrollbar underneath.
- * caseStudy.css applies these.
+ * The layer's scrollbar: always the tone-b scheme — the second colour as the
+ * track, the project colour as the thumb — whatever section is on screen. It
+ * used to follow the section under the nav, which flipped the bar's colours at
+ * every tone change. Opaque, too: a see-through track showed the scene loading
+ * behind it, and the portfolio's own scrollbar underneath. caseStudy.css
+ * applies these.
  */
-const scrollbarColorsFor = (tone, colors) => ({
-  '--cs-scrollbar-track': backgroundColorForTone(tone, colors),
-  '--cs-scrollbar-thumb': foregroundColorForTone(tone, colors),
+const scrollbarColorsFor = (colors) => ({
+  '--cs-scrollbar-track': backgroundColorForTone('b', colors),
+  '--cs-scrollbar-thumb': foregroundColorForTone('b', colors),
 });
 
 const getLazyCaseStudy = (slug) => {
@@ -195,7 +194,6 @@ const CaseStudyOverlay = ({
     const node = scrollRef.current;
     if (!mounted || !node) return undefined;
 
-    let scrollbarTone = null;
     const updateTone = () => {
       let tone = 'a';
       const sections = node.querySelectorAll('.cs-section[data-tone]');
@@ -208,15 +206,6 @@ const CaseStudyOverlay = ({
       }
       // (Nothing to probe yet means the case study chunk has not mounted, so
       // what the nav is sitting on is the colour wash: the hero's tone, 'a'.)
-
-      // The scrollbar follows the nav: written straight onto the layer rather
-      // than through state, since this runs on every scroll event.
-      if (tone !== scrollbarTone) {
-        scrollbarTone = tone;
-        Object.entries(scrollbarColorsFor(tone, colors)).forEach(([name, value]) =>
-          node.style.setProperty(name, value)
-        );
-      }
       onToneChange?.(tone);
     };
 
@@ -256,7 +245,7 @@ const CaseStudyOverlay = ({
       onToneChange?.(null);
       onSceneNeededChange?.(false);
     };
-  }, [mounted, onToneChange, onSceneNeededChange, slug, colors]);
+  }, [mounted, onToneChange, onSceneNeededChange, slug]);
 
   if (!mounted || !supported) return null;
 
@@ -287,9 +276,7 @@ const CaseStudyOverlay = ({
         // The stylesheet composes its stagger from these, so the CSS and the
         // phase machine can never disagree about the timing.
         ...caseStudyEnterCssVars,
-        // The top of every case study is its tone-a hero; the scroll handler
-        // takes over from here (and the prerendered page starts on this too).
-        ...scrollbarColorsFor('a', colors),
+        ...scrollbarColorsFor(colors),
       }}
     >
       {/* The colour wash. Inline-styled on purpose: it has to be paintable

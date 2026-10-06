@@ -133,6 +133,14 @@ body {
   box-sizing: border-box !important;
 }
 
+/* About is its own scroller (about-section.css) and pads itself on --page-edge.
+   Padding the section as well inset that scroller by 2rem on every side, so its
+   copy was sliced off on a hard line 2rem below the top of the window, and sat
+   2rem in from the nav's edge. */
+#about {
+  padding: 0 !important;
+}
+
 /* ========================================= */
 /* SNAP SPEED CONTROLS - NEW SECTION */
 /* ========================================= */

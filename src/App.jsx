@@ -1359,15 +1359,18 @@ function App() {
         </button>
       )}
 
-      {/* Nav scrim — blurs the case study's own content as it scrolls up under
-          the fixed bar. Sits between that layer and the nav, so the bar itself
-          stays sharp. Nothing for it to do on the portfolio, where the nav reads
-          the scene and picks an ink instead. */}
+      {/* Nav scrim — blurs the case study's own content, and About's copy, as
+          they scroll up under the fixed bar. Sits between those layers and the
+          nav, so the bar itself stays sharp. Nothing for it to do on the rest of
+          the portfolio, where the nav reads the scene and picks an ink instead.
+          The case study's delay waits for its colour wash; About comes up with
+          its own scrim. */}
       {!hideAllUI && (
         <NavScrim
-          active={overlayOpen}
+          active={overlayOpen || settledSection === 'about'}
           zIndex={OVERLAY_Z_INDEX + 1}
-          fadeInDelayMs={caseStudyOpaqueAtMs}
+          scroller={caseStudyOpen ? '.cs-overlay' : '.scroll-container'}
+          fadeInDelayMs={overlayOpen ? caseStudyOpaqueAtMs : 0}
         />
       )}
 

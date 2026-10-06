@@ -901,11 +901,11 @@
   }
 }
 
-/* The case study layer's scrollbar takes the nav's colours: track on the
-   section under the nav, thumb and arrows in the nav's ink. The values are set
-   per section by CaseStudyOverlay (scrollbarColorsFor). The standard property
-   is what Chrome and Firefox use (and it overrides the pseudo-elements);
-   Safari only knows the pseudo-elements. */
+/* The case study layer's scrollbar is always in the tone-b scheme: the second
+   colour as the track, the project colour as the thumb and arrows. The values
+   are set by CaseStudyOverlay (scrollbarColorsFor). The standard property is
+   what Chrome and Firefox use (and it overrides the pseudo-elements); Safari
+   only knows the pseudo-elements. */
 .cs-overlay {
   scrollbar-color: var(--cs-scrollbar-thumb) var(--cs-scrollbar-track);
 }

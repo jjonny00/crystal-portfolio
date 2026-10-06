@@ -1,13 +1,14 @@
 // src/components/ui/NavScrim.jsx
 //
-// A blurred band under the nav while a case study is open.
+// A blurred band under the nav while a case study is open, or About is up.
 //
-// The portfolio does not need one: there the nav sits on the 3D scene, and the
-// scene is measured so the nav can pick an ink that clears it (backdropInk.js).
-// A case study has no scene to measure — it paints its own ground and scrolls
-// its own content, images included, straight up under a fixed bar. Nothing an
-// ink can do about a photograph passing behind the wordmark; the fix is to blur
-// what passes.
+// The rest of the portfolio does not need one: there the nav sits on the 3D
+// scene, and the scene is measured so the nav can pick an ink that clears it
+// (backdropInk.js). A case study has no scene to measure — it paints its own
+// ground and scrolls its own content, images included, straight up under a
+// fixed bar. Nothing an ink can do about a photograph passing behind the
+// wordmark; the fix is to blur what passes. About is the one portfolio section
+// whose copy scrolls up under the bar, so it takes the same band.
 //
 // A backdrop-filter behind a mask that fades
 // it out, so the blur ends on nothing rather than on a rule. It runs on desktop
@@ -16,7 +17,7 @@
 // Blur only, no tint. Tinting it would mean choosing a colour per case-study
 // palette, and how much of one is a question for after this reads right.
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { MQ_NAV_DESKTOP } from '../../config/breakpoints';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 
@@ -70,10 +71,13 @@ const SCRIM_MASK = {
 };
 
 /**
- * @param {boolean} active          Up while a case study is open.
+ * @param {boolean} active          Up while a case study is open or About is up.
  * @param {number}  zIndex          Between the overlay and the nav, so it blurs
  *                                  the case study's content without blurring the
  *                                  nav itself.
+ * @param {string}  scroller        Selector for the scroll container the band
+ *                                  sits over. The band stops short of its
+ *                                  scrollbar rather than blurring the top of it.
  * @param {number}  fadeInDelayMs   Held down until the case study's colour wash
  *                                  is opaque. The overlay opens over a still-
  *                                  visible crystal, and coming up any earlier
@@ -82,9 +86,45 @@ const SCRIM_MASK = {
  *                                  Nothing on the way out: the overlay is fading
  *                                  and the blur should leave with it.
  */
-const NavScrim = ({ active = false, zIndex = 9999, fadeInDelayMs = 0 }) => {
+const NavScrim = ({ active = false, zIndex = 9999, scroller = null, fadeInDelayMs = 0 }) => {
   const variant = useMediaQuery(MQ_NAV_DESKTOP) ? 'desktop' : 'mobile';
   const tune = SCRIM[variant];
+
+  // The width of the scrollbar under the band, measured rather than assumed: it
+  // is the platform's (a styled scrollbar-color opts Chrome out of the 6px
+  // ::-webkit-scrollbar width), and nothing at all where scrollbars overlay the
+  // content. Only measured while up, so the band keeps its width as it fades
+  // out. The case study layer can mount a few frames after the band is raised,
+  // hence the short retry to find it.
+  //
+  // Watched, not measured once: a case study opened from the portfolio has no
+  // scrollbar until its lazily-loaded content arrives and overflows, which can
+  // be well after the band is up. The bar appearing shrinks the scroller's
+  // content box, which is what the ResizeObserver reports (as it does a window
+  // resize — the scroller is viewport-sized).
+  const [gutterPx, setGutterPx] = useState(0);
+  useEffect(() => {
+    if (!active || !scroller) return undefined;
+    let frame = 0;
+    let retries = 30;
+    let observer = null;
+    const attach = () => {
+      const el = document.querySelector(scroller);
+      if (!el) {
+        if (retries-- > 0) frame = requestAnimationFrame(attach);
+        return;
+      }
+      const measure = () => setGutterPx(Math.max(0, el.offsetWidth - el.clientWidth));
+      observer = new ResizeObserver(measure);
+      observer.observe(el);
+      measure();
+    };
+    attach();
+    return () => {
+      cancelAnimationFrame(frame);
+      observer?.disconnect();
+    };
+  }, [active, scroller]);
 
   return (
     <div
@@ -93,7 +133,7 @@ const NavScrim = ({ active = false, zIndex = 9999, fadeInDelayMs = 0 }) => {
         position: 'fixed',
         top: 0,
         left: 0,
-        right: 0,
+        right: `${gutterPx}px`,
         height: `${tune.heightPx}px`,
         zIndex,
         pointerEvents: 'none',
