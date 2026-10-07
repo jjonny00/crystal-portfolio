@@ -1,8 +1,8 @@
 // src/ui/LoaderV2.tsx
 // The loading screen: three rings, one per stage of real work (see
-// src/loader/loadProgress.js for what each one measures), the percentage they
-// add up to, and the diamond the rings break around. Mounted once, by main.jsx;
-// App shows and dismisses it through the progress store.
+// src/loader/loadProgress.js for what each one measures), the diamond the rings
+// break around, and the current stage's label in the rings' centre. Mounted once,
+// by main.jsx; App shows and dismisses it through the progress store.
 
 import React, { useEffect, useId, useState, useSyncExternalStore } from 'react';
 import styles from './LoaderV2.module.css';
@@ -21,7 +21,7 @@ type Stage = 'download' | 'device' | 'scene';
 // Two lines each, broken where the comp breaks them.
 const STATUS_COPY: Record<Stage, [string, string]> = {
   download: ['Loading', 'portfolio'],
-  device: ['Adjusting to', 'your device'],
+  device: ['Tuning for', 'your device'],
   scene: ['Preparing', 'scene'],
 };
 
@@ -37,8 +37,8 @@ const RINGS: { stage: Stage; radius: number }[] = [
 
 // The SVG draws at 1:1 CSS px with the rings' centre at the origin. The diamond
 // (public/assets/ui/diamond.svg, inlined so its fill can animate) hangs from just
-// under the percentage and runs past the bottom of the rings, which break around
-// it: its outline is painted in the background colour over them.
+// under the status label and runs past the bottom of the rings, which break around
+// it: its outline is cut out of them.
 const VIEW_LEFT = -72;
 const VIEW_TOP = -72;
 const VIEW_WIDTH = 144;
@@ -395,32 +395,23 @@ const LoaderScreen: React.FC<{ exiting: boolean }> = ({ exiting }) => {
             </g>
           </svg>
 
-          {/* Centred on the digits alone: the % hangs off their right edge, so it
-              doesn't pull the number off the rings' centre. */}
-          <div className={styles.percent} aria-hidden="true">
-            <span className={styles.percentValue}>
-              {percent}
-              <span className={styles.percentSign}>%</span>
-            </span>
-          </div>
+          <p className={`type-caption-caps ${styles.status}`} aria-live="polite">
+            {labels.map((label) => {
+              const [line1, line2] = STATUS_COPY[label.stage];
+              const motion = label.leaving ? styles.labelOut : label.initial ? '' : styles.labelIn;
+              return (
+                <span
+                  key={label.key}
+                  className={`${styles.label} ${motion}`}
+                  aria-hidden={label.leaving || undefined}
+                >
+                  <span>{line1}</span>
+                  <span>{line2}</span>
+                </span>
+              );
+            })}
+          </p>
         </div>
-
-        <p className={`type-subhead-sm ${styles.status}`} aria-live="polite">
-          {labels.map((label) => {
-            const [line1, line2] = STATUS_COPY[label.stage];
-            const motion = label.leaving ? styles.labelOut : label.initial ? '' : styles.labelIn;
-            return (
-              <span
-                key={label.key}
-                className={`${styles.label} ${motion}`}
-                aria-hidden={label.leaving || undefined}
-              >
-                <span>{line1}</span>
-                <span>{line2}</span>
-              </span>
-            );
-          })}
-        </p>
       </div>
     </div>
   );

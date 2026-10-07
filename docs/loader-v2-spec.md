@@ -12,7 +12,7 @@ whichever stage is holding things up.
 | Ring | Copy | Measures | Reported by |
 |---|---|---|---|
 | outer | Loading portfolio | Bytes of the app chunk and of the files every tier needs | `src/loader/downloads.js` (group `boot`); on a dev server, `devModuleProgress.js` for the app's code |
-| middle | Adjusting to your device | The performance test that picks the quality tier (instant when its result is cached) | `usePerformanceV2` |
+| middle | Tuning for your device | The performance test that picks the quality tier (instant when its result is cached) | `usePerformanceV2` |
 | inner | Preparing scene | Bytes of the files the test chose (crystal and project meshes, HDRI), then the scene mounted behind the loader: canvas created, Suspense resolved (models, HDRI, textures parsed), materials applied, shader warmup (`SceneWarmup`), first frames drawn | `downloads.js` (group `tiered`), then `markScenePrep` calls in `Fixed3DCanvas` and `UnifiedCrystalScene` |
 
 The tier's files are counted in the scene ring rather than the outer one because
@@ -76,20 +76,19 @@ From the comp, top to bottom, centred:
   as a comet whose bright spot leads — a white head, cyan behind it, an indigo
   tail (three dashes whose fronts line up). A full ring is still. No pulse under
   reduced motion.
-- Percentage inside the rings: the time-weighted total (see Percentage), 30px Acumin 600 with
-  a raised `%` at 0.55em. Only the digits are centred; the `%` hangs off their
-  right edge so it doesn't pull the number off-centre. A readout, so it is styled
-  locally.
 - Diamond (`public/assets/ui/diamond.svg`, inlined): 78px tall, its top 16px below
   the rings' centre, so it runs past the outer ring. Its outline (plus a 7-unit
   stroke) is masked out of the rings, so they break around it and the background
   gradient shows through the gap.
-- Status: `type-subhead-sm`, always two lines (`Loading / portfolio`, `Adjusting
-  to / your device`, `Preparing / scene`), `aria-live="polite"`. On a change the
-  old label fades out (260ms) while the new one fades in rising 8px (550ms, 120ms
-  in).
+- Status, inside the rings, centred on them and just above the diamond's tip:
+  `type-caption-caps`, always two lines (`Loading / portfolio`, `Tuning
+  for / your device`, `Preparing / scene`), `aria-live="polite"`. On a change
+  the old label fades out (260ms) while the new one fades in rising 8px (550ms,
+  120ms in). The inner ring leaves room for about 86px on the lower line and less
+  on the upper one; on phones, where the type is largest, `TUNING FOR` and
+  `YOUR DEVICE` clear it by ~8px a side.
 
-The meter is a `role="progressbar"` with the percentage as its value.
+The meter is a `role="progressbar"` with the percentage (not shown) as its value.
 
 ## Colour
 
@@ -103,8 +102,8 @@ it renders, not invented for the loader:
 | Middle ring | `#3c83e5` | blue |
 | Inner ring | `#3abebe` | teal |
 | Wordmark | `#fffcee` | the headline ink (hero, About) |
-| Subtitle, status | ink at 70% | |
-| Percentage | ink at 88% | |
+| Subtitle | ink at 70% | |
+| Status | ink at 55% | the case study's caption |
 
 ## Diamond
 
@@ -122,7 +121,7 @@ doesn't wait.
 
 ## Percentage
 
-Weighted by time, not by stage: each part counts for as long as it should take.
+Not shown; it is the progressbar's value for assistive tech. Weighted by time, not by stage: each part counts for as long as it should take.
 Downloads by bytes over the throughput measured while fetches are in flight
 (10 Mbps until ~64KB has arrived), the device test by its length (3s, or 5.5s
 once the high-tier test runs; nothing when cached; its real duration once done),

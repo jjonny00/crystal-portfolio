@@ -10,7 +10,7 @@
   --loader-bg-bottom: var(--sky-bottom);
   --loader-ink: #fffcee;
   --loader-ink-muted: rgb(255 252 238 / 0.7);
-  --loader-ink-strong: rgb(255 252 238 / 0.88);
+  --loader-ink-faint: rgb(255 252 238 / 0.55); /* the case study's caption */
   --ring-download: #384ce6;
   --ring-device: #3c83e5;
   --ring-scene: #3abebe;
@@ -34,8 +34,8 @@
   transition: opacity 5.36s ease 0.52s;
 }
 
-/* Until Acumin has loaded (see useAcuminReady): the type classes and the
-   percentage all read --type-font-sans. */
+/* Until Acumin has loaded (see useAcuminReady): the type classes read
+   --type-font-sans. */
 .fallbackSans {
   --type-font-sans: 'Helvetica Neue', Arial, sans-serif;
 }
@@ -196,44 +196,6 @@
   100% { stroke-dashoffset: calc((var(--circumference) - var(--arc) + var(--len)) * 1px); opacity: 0; }
 }
 
-/* --- percentage ------------------------------------------------------------ */
-
-/* A readout rather than copy, sized to sit inside the inner ring, so it is set
-   here rather than taken from the type scale. Centred on the rings' centre. */
-.percent {
-  position: absolute;
-  top: 72px; /* the rings' centre: -VIEW_TOP */
-  left: 0;
-  right: 0;
-  transform: translateY(-58%);
-  text-align: center;
-  font-family: var(--type-font-sans);
-  font-size: 30px;
-  font-weight: 600;
-  font-stretch: 100%;
-  --wdth: 100;
-  line-height: 1;
-  letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
-  color: var(--loader-ink-strong);
-}
-
-/* Only the digits are centred; the sign hangs off their right edge, outside the
-   box being centred, so it doesn't pull the number left of the rings' centre. */
-.percentValue {
-  position: relative;
-  display: inline-block;
-}
-
-.percentSign {
-  position: absolute;
-  top: 0.08em;
-  left: 100%;
-  margin-left: 1px;
-  font-size: 0.55em;
-  line-height: 1;
-}
-
 /* --- diamond --------------------------------------------------------------- */
 
 /* Cut out of the rings (the mask in LoaderV2.tsx), a little wider than the
@@ -281,15 +243,18 @@
 
 /* --- status ---------------------------------------------------------------- */
 
-/* Room for two lines; the labels stack in it so one can fade out while the next
-   rises in. */
+/* In the rings' centre, sitting just above the diamond's tip. Room for two
+   lines; the labels stack in it so one can fade out while the next rises in. */
 .status {
-  position: relative;
-  width: 100%;
-  height: calc(2em * 1.35); /* two lines of type-subhead-sm */
-  margin: 10px 0 0;
+  position: absolute;
+  top: 72px; /* the rings' centre: -VIEW_TOP */
+  left: 0;
+  right: 0;
+  height: calc(2em * 1.45); /* two lines of type-caption-caps */
+  margin: 0;
+  transform: translateY(-58%);
   text-align: center;
-  color: var(--loader-ink-muted);
+  color: var(--loader-ink-faint);
 }
 
 .label {

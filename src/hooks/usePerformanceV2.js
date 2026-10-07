@@ -43,7 +43,7 @@ export const usePerformanceV2 = () => {
       setTestStatus('');
 
       // Set up progress callback for real-time updates
-      // The loader's "Adjusting to your device" ring (src/loader/loadProgress.js).
+      // The loader's "Tuning for your device" ring (src/loader/loadProgress.js).
       updateStage('device', { started: true });
       manager.setProgressCallback((fraction, message) => {
         updateStage('device', { progress: fraction });

@@ -5,7 +5,7 @@
 //
 //   download  "Loading portfolio"         bytes of the app code and of the files
 //                                         every tier needs (src/loader/downloads.js)
-//   device    "Adjusting to your device"  the performance test that picks the
+//   device    "Tuning for your device"    the performance test that picks the
 //                                         quality tier (usePerformanceV2)
 //   scene     "Preparing scene"           bytes of the files the test chose, then
 //                                         the scene mounted behind the loader:

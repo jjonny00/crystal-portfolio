@@ -83,7 +83,7 @@ A recurring pattern in this codebase: a hardcoded JS default (`crystalConfig.js`
 
 ### Type scale
 
-All copy uses one of nine classes in `src/styles/type.css` (`type-headline-lg`/`-subhead-lg`/`-body-lg` for the hero; `type-headline`, `type-headline-sm`, `type-subhead-sm`, `type-body`, `type-body-sm`, `type-caption` everywhere else). They own the face, size, weight, width axis, leading, tracking and case. Element CSS sets only colour and spacing, so don't restate font metrics locally. Headings follow the document outline: the hero headline is the page's only `h1`, project titles and About are `h2`, and the overview labels are a list, not headings. A case study is its own outline (`h1` project name, `h2` sections).
+All copy uses one of ten classes in `src/styles/type.css` (`type-headline-lg`/`-subhead-lg`/`-body-lg` for the hero; `type-headline`, `type-headline-sm`, `type-subhead-sm`, `type-body`, `type-body-sm`, `type-caption` everywhere else; `type-caption-caps`, caption in capitals, for the loader status). They own the face, size, weight, width axis, leading, tracking and case. Element CSS sets only colour and spacing, so don't restate font metrics locally. Headings follow the document outline: the hero headline is the page's only `h1`, project titles and About are `h2`, and the overview labels are a list, not headings. A case study is its own outline (`h1` project name, `h2` sections).
 
 ### Logging convention
 
