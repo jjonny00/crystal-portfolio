@@ -34,6 +34,10 @@ import { markScenePrep } from '../../loader/loadProgress';
 
 const DEFAULT_ENV_ROTATION = [0, Math.PI * 0.7, 0];
 
+// How far the bottom mist climbs: a vertical stretch of the mist plane, pinned
+// at its bottom edge. 1 is the solved, undistorted tile.
+const MIST_RISE = 1.35;
+
 // Memoized so drei's <Environment> only re-runs its (no-deps) layout effect when
 // these props actually change — NOT on every unrelated re-render of Fixed3DCanvas.
 // That layout effect re-asserts scene.environmentIntensity every commit, which would
@@ -1173,11 +1177,16 @@ const Fixed3DCanvas = forwardRef(({
               makes it read the same rather than merely be present.
 
               These follow the mobile overview camera in layout/mobile.json; if that
-              is retuned substantially, re-solve against its new target. */}
+              is retuned substantially, re-solve against its new target.
+
+              MIST_RISE then stretches that tile up from its bottom edge, which
+              stays where the solve put it. This one is a deliberate stretch: the
+              glow lives in the texture's lower half, so stretching Y is what makes
+              the plumes climb higher, and soft mist hides the distortion. */}
           <MistyLayerStack
-            y={isCompactLayout ? 0 : 1.5}
+            y={(isCompactLayout ? -9.5 : -3.5) + ((isCompactLayout ? 19 : 10) * MIST_RISE) / 2}
             width={isCompactLayout ? 46 : 24}
-            height={isCompactLayout ? 19 : 10}
+            height={(isCompactLayout ? 19 : 10) * MIST_RISE}
             layers={3}         // Multiple layers for depth
             opacity={0.1}      // Semi-transparent
             drift={{ x: 0.002, y: 0.0 }}  // Gentle drift
