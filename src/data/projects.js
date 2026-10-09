@@ -34,6 +34,7 @@ export const projects = [
     label: 'Slipstream',
     subtitle: 'VR Combat Prototype · Unreal Engine',
     tagline: 'VR Combat Prototype · Unreal Engine',
+    shortTagline: 'VR Prototype · Unreal',
     description:
       'A VR action prototype built around one shared system: Essence powers everything. The same energy drives movement, weapons, and the dormant facility itself, turning traversal, combat, and progression into one continuous economy. SlipStream lets the player float, surge, and chain momentum through a vertical world built around powered cores, hostile drones, and high-speed decision making.',
     secondaryCopy: 'Game Design · Systems Design · Unreal Engine',
@@ -83,6 +84,7 @@ export const projects = [
     label: 'Mesa',
     subtitle: 'Asynchronous Multiplayer · iOS',
     tagline: 'Asynchronous Multiplayer · iOS',
+    shortTagline: 'Async Multiplayer · iOS',
     description:
       'An asynchronous competitive strategy game built around one idea: turns should create tension. Stronger powers hit softer, so each move forces a choice between pressing the advantage now or playing for control. The match opens up mid-game, then tightens until every tile matters.',
     secondaryCopy: 'Paper prototyped. Full matches tested before production.',
@@ -140,6 +142,7 @@ export const projects = [
     label: 'FundSeeder',
     subtitle: 'Competitive Platform · Web',
     tagline: 'Competitive Platform · Web',
+    shortTagline: 'Competitive Platform',
     description:
       'I redesigned FundSeeder around a competitive system that gives more than 1,000 ranked participants meaningful goals, relevant rivals, and a reason to keep progressing.',
     metrics: '1,027 strategies ranked · 17 traders seeded since relaunch',
@@ -201,6 +204,7 @@ export const projects = [
     label: 'Flying Axes',
     subtitle: 'Connected Venue System · Multi-Location',
     tagline: 'Connected Venue System · Multi-Location',
+    shortTagline: 'Connected Venues',
     description:
       'A connected venue system built to make axe throwing feel tactile, social, and instantly legible. Scoreboards, coach tablets, and venue displays ran on an edge network that made the system easy to swap, reassign, and deploy across locations without losing the atmosphere of the game. The result was a more resilient platform behind the scenes and a more established game experience on the floor.',
     secondaryCopy: 'Deployed across 3 venues.',
@@ -254,6 +258,7 @@ export const projects = [
     label: 'Forest Giant',
     subtitle: 'Creative Practice · Leadership + Delivery',
     tagline: 'Creative Practice · Leadership + Delivery',
+    shortTagline: 'Leadership + Systems',
     description:
       'Forest Giant earned its name on bold, technically ambitious interactive work. As the team grew past 30, holding the quality bar got harder than setting it. I helped shape the process, structure, and design culture that gave every team the same foundation and freed them to do their best work.',
     metrics: 'Selected by GE over ~500 global agencies · 30+ team at pea',
@@ -298,8 +303,12 @@ export const projects = [
     runtimeModelKey: 'project01',
     title: 'GE EXPERIENCE CENTERS',
     label: 'GE Experience Centers',
+    // The mobile overview's name for it: the labels there sit beside the
+    // fragments, and the full name would run across the scene.
+    shortLabel: 'GE Centers',
     subtitle: 'Creative Direction · Shared Experience Platform',
     tagline: 'Creative Direction · Shared Experience Platform',
+    shortTagline: 'Creative Direction',
     description:
       'I led the evolution of GE’s collaboration centers into a shared platform, giving guides the freedom to reshape a space around the needs of a visit.',
     secondaryCopy: 'Deployed in Dubai, Shanghai, and Austin.',

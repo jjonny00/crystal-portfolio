@@ -252,6 +252,90 @@ const parseCameraProjects = (projects, path) => {
   );
 };
 
+// The overview's project labels. `list` (the default, and what a layout without
+// this block gets) is the column/card in FacetLabels; `placed` sets each label
+// beside its fragment (overviewLabelPlacement.js documents the fields).
+const OVERVIEW_LABEL_MODES = ['list', 'placed'];
+const OVERVIEW_LABEL_NUMBERS = [
+  'edgeMargin',
+  'rightColumn',
+  'connectorGap',
+  'connectorRadius',
+  'connectorWidth',
+  'connectorLift',
+];
+const OVERVIEW_LABEL_SIDES = ['left', 'right'];
+
+const assertOneOf = (value, allowed, path) => {
+  if (!allowed.includes(value)) {
+    throw new Error(`Invalid layout at ${path}: expected one of ${allowed.join(', ')}. ${FORMAT_HELP}`);
+  }
+};
+
+const assertNumber = (value, path) => {
+  if (typeof value !== 'number' || Number.isNaN(value)) {
+    throw new Error(`Invalid layout at ${path}: expected number. ${FORMAT_HELP}`);
+  }
+};
+
+const assertNumberPair = (value, path) => {
+  if (!Array.isArray(value) || value.length !== 2 || value.some((v) => typeof v !== 'number' || Number.isNaN(v))) {
+    throw new Error(`Invalid layout at ${path}: expected [a, b] numeric array. ${FORMAT_HELP}`);
+  }
+};
+
+const parseOverviewLabels = (raw, path) => {
+  assertObject(raw, path);
+  const parsed = {};
+
+  if (raw.mode !== undefined) {
+    assertOneOf(raw.mode, OVERVIEW_LABEL_MODES, `${path}.mode`);
+    parsed.mode = raw.mode;
+  }
+  OVERVIEW_LABEL_NUMBERS.forEach((key) => {
+    if (raw[key] === undefined) return;
+    assertNumber(raw[key], `${path}.${key}`);
+    parsed[key] = raw[key];
+  });
+  if (raw.rightAlign !== undefined) {
+    if (typeof raw.rightAlign !== 'boolean') {
+      throw new Error(`Invalid layout at ${path}.rightAlign: expected true or false. ${FORMAT_HELP}`);
+    }
+    parsed.rightAlign = raw.rightAlign;
+  }
+
+  if (raw.items !== undefined) {
+    assertObject(raw.items, `${path}.items`);
+    parsed.items = Object.fromEntries(
+      Object.entries(raw.items).map(([key, item]) => {
+        const itemPath = `${path}.items.${key}`;
+        assertObject(item, itemPath);
+        const parsedItem = {};
+        if (item.side !== undefined) {
+          assertOneOf(item.side, OVERVIEW_LABEL_SIDES, `${itemPath}.side`);
+          parsedItem.side = item.side;
+        }
+        ['dx', 'dy'].forEach((axis) => {
+          if (item[axis] === undefined) return;
+          assertNumber(item[axis], `${itemPath}.${axis}`);
+          parsedItem[axis] = item[axis];
+        });
+        if (item.exit !== undefined) {
+          assertOneOf(item.exit, ['inner', 'below'], `${itemPath}.exit`);
+          parsedItem.exit = item.exit;
+        }
+        if (item.dot !== undefined) {
+          assertNumberPair(item.dot, `${itemPath}.dot`);
+          parsedItem.dot = item.dot;
+        }
+        return [key, parsedItem];
+      }),
+    );
+  }
+
+  return parsed;
+};
+
 export const parseLayout = (rawLayout) => {
   assertObject(rawLayout, 'root');
 
@@ -343,6 +427,10 @@ export const parseLayout = (rawLayout) => {
     if (Object.keys(timing).length > 0) {
       parsed.timing = timing;
     }
+  }
+
+  if (rawLayout.overviewLabels !== undefined) {
+    parsed.overviewLabels = parseOverviewLabels(rawLayout.overviewLabels, 'overviewLabels');
   }
 
   return parsed;

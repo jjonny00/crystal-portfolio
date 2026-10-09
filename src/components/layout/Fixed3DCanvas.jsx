@@ -1158,35 +1158,37 @@ const Fixed3DCanvas = forwardRef(({
               makes the mist read is the frustum covering a good fraction of that
               single tile — desktop's overview sees about 70% of it.
 
-              Mobile's overview camera has to pull much further back to fit the
-              crystal into a narrow portrait frame, and it looks lower: its view
-              spans roughly y -9.0 to 4.4 where desktop's spans -3.2 to 3.8. Against
-              a plane centred at y 1.5 covering -3.5 to 6.5, that leaves the bottom
-              5.5 units of the mobile frame with no plane at all, and wastes the top
-              of the plane above the frame.
+              Mobile's overview camera sits further back and higher to fit the
+              crystal into a narrow portrait frame (camera y 1.02, z 11.26, looking
+              at y 0.05; desktop's is y 0.6, z 8.5), so its frame spans a different
+              band of world space: y -4.4 to 4.5 at the mist, where desktop's spans
+              -3.0 to 3.6.
 
-              So mobile gets the plane scaled UNIFORMLY (24x10 -> 46x19, both by
-              1.9) and recentred. Uniform is the point: scaling height alone
-              stretches the texture, and tiling it instead seams, because mist05
-              does not tile down Y. This keeps one undistorted tile filling the
+              So mobile gets its own plane, scaled UNIFORMLY from desktop's tile
+              (24x10 -> 32.5x13.5, both by 1.35) and placed lower. Uniform is the
+              point: scaling height alone stretches the texture, and tiling it
+              instead seams, because mist05 does not tile down Y.
+
+              The placement is solved, not guessed. Desktop's overview frame covers
+              the (risen) plane from 4% to 53% of its height: the dense base of the
+              mist and the plumes above it. Mobile's plane is sized and placed so
+              its overview frame covers the same 4% to 53%, which is what makes the
+              mist read the same rather than merely be present. Measured in the
+              running app (2026-10-09); an earlier solve, made for a mobile camera
+              pulled much further back, left the bottom fifth of the mist under the
               frame.
 
-              The centre is solved, not guessed. Desktop's view covers the plane
-              from 2.8% to 73.2% of its height, so mobile's is placed to cover the
-              same span of the same texture — 19 tall centred at 0 — which is what
-              makes it read the same rather than merely be present.
-
               These follow the mobile overview camera in layout/mobile.json; if that
-              is retuned substantially, re-solve against its new target.
+              is retuned substantially, re-solve against it.
 
               MIST_RISE then stretches that tile up from its bottom edge, which
               stays where the solve put it. This one is a deliberate stretch: the
               glow lives in the texture's lower half, so stretching Y is what makes
               the plumes climb higher, and soft mist hides the distortion. */}
           <MistyLayerStack
-            y={(isCompactLayout ? -9.5 : -3.5) + ((isCompactLayout ? 19 : 10) * MIST_RISE) / 2}
-            width={isCompactLayout ? 46 : 24}
-            height={(isCompactLayout ? 19 : 10) * MIST_RISE}
+            y={(isCompactLayout ? -5.1 : -3.5) + ((isCompactLayout ? 13.5 : 10) * MIST_RISE) / 2}
+            width={isCompactLayout ? 32.5 : 24}
+            height={(isCompactLayout ? 13.5 : 10) * MIST_RISE}
             layers={3}         // Multiple layers for depth
             opacity={0.1}      // Semi-transparent
             drift={{ x: 0.002, y: 0.0 }}  // Gentle drift

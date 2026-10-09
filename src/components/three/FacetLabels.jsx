@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { useFrame, useThree } from '@react-three/fiber';
+import { Box3, Vector3 } from 'three';
 import Headline from '../ui/Headline';
 import { MQ_HOVER_CAPABLE } from '../../config/breakpoints';
 import {
@@ -11,7 +13,9 @@ import {
   OVERVIEW_RAIL_X_FALLBACK_VW,
 } from '../../config/overviewLayout';
 import { useLayoutConfig } from '../../hooks/useLayoutConfig';
-import { getProjectIdBySceneFacetKey } from '../../data/projects';
+import { getProjectIdBySceneFacetKey, getSceneFacetKeyByProjectId } from '../../data/projects';
+import PlacedOverviewLabels from './PlacedOverviewLabels';
+import { OVERVIEW_LABEL_DEFAULTS } from './overviewLabelPlacement';
 import { setRailActiveProject, setRailOverviewVisible } from '../../lib/verticalRailSignal';
 import { inPageLinkHandler } from '../../navigation/linkClick';
 import { projectPath } from '../../navigation/routes';
@@ -31,6 +35,50 @@ const LABEL_REVEAL_STAGGER_MS = 70;
 
 const LABEL_FADE_IN_MS = 800;
 const LABEL_FADE_OUT_MS = 200;
+
+// Placed labels only re-render for a fragment that has moved by more than this.
+const POINT_EPSILON_PX = 0.75;
+
+// Each fragment's middle, found once as its bounding box's centre and kept in
+// the fragment's own space so it stays a fixed point on the fragment.
+const fragmentMiddles = new WeakMap();
+const _box = new Box3();
+const _point = new Vector3();
+
+// Where each fragment's middle is on screen, in viewport px, keyed like the
+// projects. Null until every fragment is there to measure.
+const measureFragmentPoints = ({ projects, facetRefs, facetKeys, camera, size, canvasRect }) => {
+  const points = {};
+  camera.updateMatrixWorld();
+  for (const project of projects) {
+    const runtimeKey = project.facetKey || project.id;
+    const sceneKey = getSceneFacetKeyByProjectId(runtimeKey) || runtimeKey;
+    const index = facetKeys?.indexOf(sceneKey) ?? -1;
+    const facet = index === -1 ? null : facetRefs?.current?.[index]?.current;
+    if (!facet) return null;
+    let local = fragmentMiddles.get(facet);
+    if (!local) {
+      facet.updateWorldMatrix(true, true);
+      _box.setFromObject(facet);
+      if (_box.isEmpty()) return null;
+      local = facet.worldToLocal(_box.getCenter(new Vector3()));
+      fragmentMiddles.set(facet, local);
+    }
+    facet.updateWorldMatrix(true, false);
+    _point.copy(local).applyMatrix4(facet.matrixWorld).project(camera);
+    points[runtimeKey] = {
+      x: canvasRect.left + ((_point.x + 1) / 2) * size.width,
+      y: canvasRect.top + ((1 - _point.y) / 2) * size.height,
+    };
+  }
+  return points;
+};
+
+const samePoints = (a, b) =>
+  Boolean(a && b) &&
+  Object.keys(b).every(
+    (key) => a[key] && Math.abs(a[key].x - b[key].x) < POINT_EPSILON_PX && Math.abs(a[key].y - b[key].y) < POINT_EPSILON_PX,
+  );
 
 const OptimizedLabel = React.memo(function OptimizedLabel({
   project,
@@ -146,6 +194,9 @@ const FacetLabels = React.memo(function FacetLabels({
   // than fading up over facets still in flight. Defaults true so a caller that
   // does not pass it gets the old behaviour instead of labels that never appear.
   labelRevealReady = true,
+  // For placed labels, which sit beside their fragments.
+  facetRefs,
+  facetKeys,
 }) {
   const [anchorsReady, setAnchorsReady] = useState(false);
   const [visible, setVisible] = useState(false);
@@ -168,6 +219,42 @@ const FacetLabels = React.memo(function FacetLabels({
 
   const { variant, layout, error } = useLayoutConfig();
   const overviewWorld = layout?.anchors?.overviewWorld;
+  // `list` is the column (desktop) or glass card (mobile); `placed` sets each
+  // label beside its fragment (PlacedOverviewLabels).
+  const labelConfig = useMemo(
+    () => ({ ...OVERVIEW_LABEL_DEFAULTS, ...(layout?.overviewLabels || {}) }),
+    [layout],
+  );
+  const placed = labelConfig.mode === 'placed';
+
+  // Placed labels: where the fragments are on screen. Measured from the moment
+  // the labels are about to come up until they have finished fading in (the
+  // fragments are still settling from the explosion), and again after a
+  // resize; held still otherwise, so labels and lines do not ride the
+  // fragments' idle drift.
+  const camera = useThree((state) => state.camera);
+  const gl = useThree((state) => state.gl);
+  const size = useThree((state) => state.size);
+  const [fragmentPoints, setFragmentPoints] = useState(null);
+  const [canvasRect, setCanvasRect] = useState({ left: 0, top: 0, width: 0 });
+  const measureUntilRef = useRef(0);
+
+  useEffect(() => {
+    const rect = gl.domElement.getBoundingClientRect();
+    setCanvasRect({ left: rect.left, top: rect.top, width: rect.width });
+  }, [gl, size]);
+
+  useEffect(() => {
+    if (!placed || !inActiveOverview || !labelRevealReady) return;
+    measureUntilRef.current =
+      performance.now() + LABEL_FADE_IN_MS + LABEL_REVEAL_STAGGER_MS * projects.length + 200;
+  }, [inActiveOverview, labelRevealReady, placed, projects.length, size]);
+
+  useFrame(() => {
+    if (!placed || performance.now() > measureUntilRef.current) return;
+    const next = measureFragmentPoints({ projects, facetRefs, facetKeys, camera, size, canvasRect });
+    if (next) setFragmentPoints((previous) => (samePoints(previous, next) ? previous : next));
+  });
 
   // The single active project, however it was activated: hovering the label here,
   // or hovering the matching facet in the scene (which arrives as
@@ -431,24 +518,60 @@ const FacetLabels = React.memo(function FacetLabels({
       }
     };
 
+    const handleLayerTransitionEnd = (event) => {
+      // The labels themselves now fade with a stagger, and those transition
+      // events bubble — only this container's own fade means "settled".
+      if (event.target !== event.currentTarget) return;
+      if (event.propertyName !== 'opacity') return;
+      if (!visible) return;
+      requestAnimationFrame(() => {
+        const alwaysOnKey = alwaysOnFacetKey || projects[0]?.facetKey || projects[0]?.id;
+        if (alwaysOnKey) {
+          emitAlwaysOnDomAnchorPoint(alwaysOnKey);
+        }
+        onLabelsReadyChange?.(true);
+      });
+    };
+
+    const activeRuntimeKeyNow =
+      labelHoveredFacetKey ||
+      getProjectIdBySceneFacetKey(externallyHoveredFacetKey) ||
+      externallyHoveredFacetKey;
+
+    if (placed) {
+      rootRef.current.render(
+        <PlacedOverviewLabels
+          ref={labelLayerContentRef}
+          onTransitionEnd={handleLayerTransitionEnd}
+          projects={projects}
+          points={fragmentPoints}
+          config={labelConfig}
+          canvas={canvasRect}
+          visible={visible}
+          fadeMs={fadeDurationMs}
+          staggerMs={LABEL_REVEAL_STAGGER_MS}
+          activeKey={activeRuntimeKeyNow}
+          interactive={hoverCapable}
+          onHover={handleHover}
+          onSelect={handleSelect}
+          labelRef={(runtimeKey, el) => {
+            const title = el?.querySelector('[data-facet-key]');
+            if (title) {
+              titleRefs.current.set(runtimeKey, title);
+            } else {
+              titleRefs.current.delete(runtimeKey);
+            }
+          }}
+        />,
+      );
+      return;
+    }
+
     rootRef.current.render(
       <>
         <ul
           ref={labelLayerContentRef}
-          onTransitionEnd={(event) => {
-            // The labels themselves now fade with a stagger, and those transition
-            // events bubble — only this container's own fade means "settled".
-            if (event.target !== event.currentTarget) return;
-            if (event.propertyName !== 'opacity') return;
-            if (!visible) return;
-            requestAnimationFrame(() => {
-              const alwaysOnKey = alwaysOnFacetKey || projects[0]?.facetKey || projects[0]?.id;
-              if (alwaysOnKey) {
-                emitAlwaysOnDomAnchorPoint(alwaysOnKey);
-              }
-              onLabelsReadyChange?.(true);
-            });
-          }}
+          onTransitionEnd={handleLayerTransitionEnd}
           // On mobile the list is its own glass card (glass-card.css), inset from
           // the screen edges, so the card fades in and out with the labels. Its
           // left padding keeps the text hanging off the energy line exactly where
@@ -545,6 +668,10 @@ const FacetLabels = React.memo(function FacetLabels({
     onAlwaysOnDomAnchorChange,
     externallyHoveredFacetKey,
     labelHoveredFacetKey,
+    canvasRect,
+    fragmentPoints,
+    labelConfig,
+    placed,
     variant,
     visible,
   ]);

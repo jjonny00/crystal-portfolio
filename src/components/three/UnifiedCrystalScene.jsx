@@ -4792,6 +4792,8 @@ const UnifiedCrystalScene = forwardRef(({
         performanceProfile={performanceProfile}
         anchorOffsets={anchorOffsets}
         labelRevealReady={labelRevealReady}
+        facetRefs={facetRefs}
+        facetKeys={facetKeys}
       />
 
       {!simplifiedAnimations && (

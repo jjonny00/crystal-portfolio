@@ -8,9 +8,9 @@
         4.522258823008028
       ],
       "overview": [
-        0.04526883241294499,
-        0.5301839132666051,
-        9.661051014377943
+        0.1197,
+        1.0172,
+        11.255
       ],
       "about": [
         1.74,
@@ -62,8 +62,8 @@
         0
       ],
       "overview": [
-        0.2,
-        -0.3,
+        0.3,
+        0.05,
         0
       ],
       "about": [
@@ -618,6 +618,73 @@
       "fragmentTravelTimeExponent": 1.35,
       "fragmentTravelCurveStrength": 2.4,
       "fragmentSettleCurveStrength": 4
+    }
+  },
+  "overviewLabels": {
+    "mode": "placed",
+    "edgeMargin": 24,
+    "rightColumn": 0.665,
+    "connectorGap": 5,
+    "connectorRadius": 32,
+    "connectorWidth": 1,
+    "connectorLift": 0.5,
+    "rightAlign": true,
+    "items": {
+      "project01": {
+        "side": "right",
+        "dx": 7,
+        "dy": -93,
+        "dot": [
+          13,
+          -37
+        ]
+      },
+      "project02": {
+        "side": "left",
+        "dx": 0,
+        "dy": -145,
+        "dot": [
+          -5,
+          -51
+        ]
+      },
+      "project03": {
+        "side": "right",
+        "dx": 8,
+        "dy": -118,
+        "exit": "below",
+        "dot": [
+          39,
+          3
+        ]
+      },
+      "project04": {
+        "side": "left",
+        "dx": -4,
+        "dy": 114,
+        "dot": [
+          5,
+          23
+        ]
+      },
+      "project05": {
+        "side": "right",
+        "dx": -10,
+        "dy": 75,
+        "dot": [
+          7,
+          26
+        ]
+      },
+      "project06": {
+        "side": "left",
+        "dx": 14,
+        "dy": 28,
+        "dot": [
+          -21,
+          -5
+        ]
+      }
     }
   }
 }

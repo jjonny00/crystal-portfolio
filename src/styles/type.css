@@ -7,7 +7,8 @@
    the layout.
 
      hero                headline-lg, subhead-lg, body-lg
-     overview            headline-sm, subhead-sm
+     overview            headline-sm, subhead-sm; on a phone with the labels
+                         beside the fragments, headline-xs, subhead-xs
      selected project    headline, subhead-sm, body
      case study          headline (project name), headline-sm (case study
                          title and section headers), body, caption (under
@@ -38,6 +39,8 @@
 .type-headline,
 .type-headline-sm,
 .type-subhead-sm,
+.type-headline-xs,
+.type-subhead-xs,
 .type-body,
 .type-body-sm,
 .type-caption,
@@ -145,6 +148,33 @@
 
 .type-caption-caps {
   font-size: clamp(11px, calc(0.15vw + 10.39px), 13px);
+  text-transform: uppercase;
+}
+
+/* --- placed overview labels ---------------------------------------------- */
+
+/* The overview's labels when they sit beside the fragments on a phone
+   (PlacedOverviewLabels): headline-sm and subhead-sm a step down, so the type
+   leaves the fragments room. The descriptor is tracked tighter than
+   subhead-sm, which reads airy at this size. Values in the comments are at
+   402px. */
+.type-headline-xs {
+  font-size: clamp(20px, 5.5vw, 24px); /* 22 */
+  font-weight: 600;
+  font-stretch: 68%;
+  --wdth: 68;
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+}
+
+.type-subhead-xs {
+  font-size: clamp(11.5px, 3.1vw, 13.5px); /* 12.5 */
+  font-weight: 400;
+  font-stretch: 87.5%;
+  --wdth: 87.5;
+  line-height: 1.35;
+  letter-spacing: -0.03em;
   text-transform: uppercase;
 }
 
