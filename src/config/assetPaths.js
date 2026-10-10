@@ -76,3 +76,8 @@ export const DUST_TEXTURE = '/assets/textures/particle-dust05.png';
 export const FRACTURE_RING_TEXTURE = '/assets/textures/fractureRing03.jpg';
 export const GLOW_SPHERE_TEXTURE = '/assets/textures/glowing-sphere06-noise.jpg';
 export const WIZARD_SMOKE_TEXTURE = '/assets/textures/wizard-smoke02.webp';
+
+// Lens dirt masks (components/three/LensDirt.jsx). Not loader assets: the dirt is
+// hidden at rest, so they load once the scene is up.
+export const LENS_DIRT_LANDSCAPE_TEXTURE = '/assets/textures/lens-dirt-landscape.jpg';
+export const LENS_DIRT_PORTRAIT_TEXTURE = '/assets/textures/lens-dirt-portrait.jpg';

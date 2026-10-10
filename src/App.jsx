@@ -603,7 +603,8 @@ function App() {
     bloom: true,
     chromaticAberration: true,
     noise: true,
-    vignette: true
+    vignette: true,
+    lensDirt: true
   });
   const [postProcessingConfig, setPostProcessingConfig] = useState(config.postProcessing);
   const [viewMode, setViewMode] = useState(caseStudyDeepLink ? 'caseStudy' : 'overview');
@@ -676,13 +677,15 @@ function App() {
   useEffect(() => {
     if (performanceProfile?.postProcessing) {
       // Apply unified noise and vignette settings regardless of profile.
-      // Bloom + CA come from the profile (enabled on every tier). Noise and the
+      // Bloom + CA come from the profile (enabled on every tier). Noise, the
       // vignette (EdgeVignette, values in crystalConfig.postProcessing.vignette)
-      // are on for every tier; the profiles don't carry a vignette flag.
+      // and the lens dirt (LensDirt, crystalConfig.postProcessing.lensDirt) are on
+      // for every tier; the profiles don't carry flags for them.
       const unifiedEffects = {
         ...performanceProfile.postProcessing,
         noise: true,        // Always enabled
-        vignette: true      // Always enabled
+        vignette: true,     // Always enabled
+        lensDirt: true      // Always enabled
       };
 
       setEffectsEnabled(unifiedEffects);
@@ -691,7 +694,8 @@ function App() {
       setPostProcessingConfig({
         ...performanceProfile.postProcessing,
         noise: { opacity: 0.15 },      // Unified value
-        vignette: { ...defaultConfig.postProcessing.vignette }    // Unified values
+        vignette: { ...defaultConfig.postProcessing.vignette },   // Unified values
+        lensDirt: { ...defaultConfig.postProcessing.lensDirt, ...performanceProfile.lensDirt } // Per-tier overrides
       });
     }
   }, [performanceProfile]);

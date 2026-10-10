@@ -205,6 +205,15 @@ export const PERFORMANCE_PROFILES = {
     // owns the RESTING glow) back down if 10.45 is over-lifting the crystal at rest.
     emissiveGlowBoost: 5.75,
 
+    // Lens dirt overrides (over crystalConfig.postProcessing.lensDirt). The
+    // non-PBR material's highlights are dimmer, so the dirt needs less light to
+    // flare; and it stays sharp here, unlike medium/high.
+    lensDirt: {
+      softFocus: 0,
+      sensitivity: 2.5,
+      brightThreshold: 0.6
+    },
+
     // All tiers now target a 60 FPS baseline
     targetFPS: 60,
     minAcceptableFPS: 55,

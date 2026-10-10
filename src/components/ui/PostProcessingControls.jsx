@@ -10,6 +10,22 @@ const vignetteSliders = [
   { key: 'roundness', label: 'Roundness (0 frame / 1 circle)', min: 0, max: 1, step: 0.01 }
 ];
 
+// See LensDirt.jsx and crystalConfig.postProcessing.lensDirt for what each does.
+const lensDirtSliders = [
+  { key: 'intensity', label: 'Intensity (fully lit)', min: 0, max: 8, step: 0.01 },
+  { key: 'rest', label: 'Resting level', min: 0, max: 1, step: 0.005 },
+  { key: 'overviewRest', label: 'Resting level (overview)', min: 0, max: 1, step: 0.005 },
+  { key: 'shimmer', label: 'Shimmer', min: 0, max: 1, step: 0.01 },
+  { key: 'softFocus', label: 'Soft focus (blur)', min: 0, max: 4, step: 0.05 },
+  { key: 'sensitivity', label: 'Sensitivity', min: 0, max: 8, step: 0.05 },
+  { key: 'adaptation', label: 'Discount steady light', min: 0, max: 1, step: 0.01 },
+  { key: 'adaptTime', label: 'Steady after (s)', min: 0.1, max: 6, step: 0.05 },
+  { key: 'fadeTime', label: 'Fade (s)', min: 0.02, max: 2, step: 0.01 },
+  { key: 'brightThreshold', label: 'Bright light above', min: 0, max: 3, step: 0.01 },
+  { key: 'reach', label: 'Reach (distant light)', min: 0, max: 60, step: 0.5 },
+  { key: 'transitionBoost', label: 'Boost into Work', min: 0, max: 8, step: 0.1 }
+];
+
 /**
  * UI component for toggling post-processing effects
  * Modified to work within a tabbed interface
@@ -34,6 +50,8 @@ const PostProcessingControls = ({
   // The vignette controls read the live settings (App's postProcessingConfig)
   // rather than crystalConfig, so they always show what's on screen.
   const vignette = { ...defaultPostProcessing.vignette, ...postProcessingConfig?.vignette };
+  const lensDirt = { ...defaultPostProcessing.lensDirt, ...postProcessingConfig?.lensDirt };
+  const [lensDirtCopyStatus, setLensDirtCopyStatus] = useState('');
 
   // Update slider values when config changes
   useEffect(() => {
@@ -113,6 +131,33 @@ const PostProcessingControls = ({
     window.setTimeout(() => setVignetteCopyStatus(''), 3000);
   };
   
+  const handleLensDirtChange = (key, value) => {
+    if (onToggleEffect) {
+      onToggleEffect('lensDirt', true, { [key]: value });
+    }
+  };
+
+  const handleLensDirtReset = () => {
+    if (onToggleEffect) {
+      onToggleEffect('lensDirt', true, { ...defaultPostProcessing.lensDirt, debugView: false });
+    }
+  };
+
+  const handleCopyLensDirt = async () => {
+    const { debugView: _debugView, ...values } = lensDirt;
+    const text = `lensDirt: ${JSON.stringify(values, null, 2)}`;
+    let copied = false;
+    try {
+      await navigator.clipboard.writeText(text);
+      copied = true;
+    } catch {
+      copied = false;
+    }
+    if (!copied) console.log(text);
+    setLensDirtCopyStatus(copied ? 'Copied — paste over postProcessing.lensDirt in crystalConfig.js' : 'Copy failed — values logged to console');
+    window.setTimeout(() => setLensDirtCopyStatus(''), 3000);
+  };
+
   // Toggle all effects on/off
   const handleToggleAll = (enabled) => {
     if (onToggleEffect) {
@@ -120,6 +165,7 @@ const PostProcessingControls = ({
       onToggleEffect('chromaticAberration', enabled);
       onToggleEffect('noise', enabled);
       onToggleEffect('vignette', enabled);
+      onToggleEffect('lensDirt', enabled);
     }
   };
   
@@ -439,6 +485,64 @@ const PostProcessingControls = ({
           </div>
           {vignetteCopyStatus && (
             <div style={{ fontSize: '11px', marginTop: '8px', color: '#64ffda' }}>{vignetteCopyStatus}</div>
+          )}
+        </div>
+      )}
+
+      {/* Lens Dirt Toggle */}
+      <div
+        style={{
+          ...toggleContainerStyle,
+          backgroundColor: effectsEnabled.lensDirt ? 'rgba(100, 255, 218, 0.1)' : 'rgba(0, 0, 0, 0.2)'
+        }}
+      >
+        <div style={toggleLabelStyle}>Lens Dirt</div>
+        <ToggleSwitch
+          checked={Boolean(effectsEnabled.lensDirt)}
+          onChange={() => onToggleEffect('lensDirt', !effectsEnabled.lensDirt)}
+        />
+      </div>
+
+      {/* Lens dirt controls (only shown when enabled) — see LensDirt.jsx */}
+      {effectsEnabled.lensDirt && (
+        <div style={sliderGroupStyle}>
+          {lensDirtSliders.map(({ key, label, min, max, step }) => (
+            <div key={key} style={{ marginBottom: '8px' }}>
+              <div style={sliderLabelStyle}>
+                <span>{label}</span>
+                <span>{Number(lensDirt[key]).toFixed(step < 0.01 ? 3 : 2)}</span>
+              </div>
+              <input
+                type="range"
+                min={min}
+                max={max}
+                step={step}
+                value={lensDirt[key]}
+                onChange={(e) => handleLensDirtChange(key, parseFloat(e.target.value))}
+                style={sliderStyle}
+              />
+            </div>
+          ))}
+
+          {/* Red is where light would reveal dirt right now, green the mask. */}
+          <div style={{ ...sliderLabelStyle, marginBottom: '10px' }}>
+            <span>Show reveal map</span>
+            <ToggleSwitch
+              checked={Boolean(lensDirt.debugView)}
+              onChange={() => handleLensDirtChange('debugView', !lensDirt.debugView)}
+            />
+          </div>
+
+          <div style={buttonContainerStyle}>
+            <button type="button" style={toggleAllButtonStyle(true)} onClick={handleCopyLensDirt}>
+              Copy Values
+            </button>
+            <button type="button" style={toggleAllButtonStyle(false)} onClick={handleLensDirtReset}>
+              Reset
+            </button>
+          </div>
+          {lensDirtCopyStatus && (
+            <div style={{ fontSize: '11px', marginTop: '8px', color: '#64ffda' }}>{lensDirtCopyStatus}</div>
           )}
         </div>
       )}

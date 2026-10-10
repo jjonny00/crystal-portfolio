@@ -20,6 +20,7 @@ import { FPSCounter } from '../ui/FpsDisplay';
 import CrystalDebugPanels from '../ui/CrystalDebugPanels';
 import GradientBackground from '../three/GradientBackground';
 import EdgeVignette from '../three/EdgeVignette';
+import LensDirt from '../three/LensDirt';
 import { projectBackgrounds } from '../../data/projectBackgrounds';
 import { fracture as fractureConfig, hdriPathForTier } from '../../crystalConfig';
 import MistyLayerStack from '../MistyLayerStack';
@@ -1243,6 +1244,19 @@ const Fixed3DCanvas = forwardRef(({
 
             {/* Sanitize HDR data before any full-screen overlays */}
             <primitive object={sanitizePass} />
+
+            {/* Ahead of the grain and vignette, so they sit over it like the rest
+                of the image. Reads the camera's explosion clock for the boost
+                into Work, sits out the intro's fade-up, and rests a little
+                higher in the overview. */}
+            {effectsEnabled?.lensDirt && (
+              <LensDirt
+                {...postProcessingConfig?.lensDirt}
+                runtime={heroOverviewRuntime}
+                introRevealRef={introRevealRef}
+                inOverview={animationData?.currentZone === 'overview'}
+              />
+            )}
 
             {effectsEnabled?.noise && (
               <Noise
