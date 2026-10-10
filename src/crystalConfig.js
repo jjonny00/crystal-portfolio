@@ -657,13 +657,13 @@ export const postProcessing = {
   lensDirt: {
     intensity: 0.3,        // brightness of a fully lit patch; kept low so the dirt stays subtle
     rest: 0,               // resting visibility, as a fraction of a fully lit patch (0 = only where lit)
-    overviewRest: 0.05,    // the same, in the overview only (its ambient glow lights the whole frame)
-    shimmer: 1.0,          // depth of the slow twinkle (0 = steady, 1 = from off to double)
+    overviewRest: 0.025,    // the same, in the overview only (its ambient glow lights the whole frame)
+    shimmer: 0.0,          // depth of the slow twinkle (0 = steady, 1 = from off to double)
     softFocus: 1.0,        // blur, in mip levels (each one halves the detail); free, it's the same single lookup
-    sensitivity: 20.0,      // how readily light lights the dirt (higher = less light for a full flare)
+    sensitivity: 5.0,      // how readily light lights the dirt (higher = less light for a full flare)
     adaptation: 0.5,       // how much light that has held still is discounted (0 = none, 1 = all)
     adaptTime: 1.6,        // seconds for light to count as holding still
-    fadeTime: 0.25,        // seconds patches take to ease in and out
+    fadeTime: 0.05,        // seconds patches take to ease in and out
     brightThreshold: 0.5,  // what counts as bright light (scene luminance)
     reach: 1,             // weight of light from further away (0 = only light right behind a patch)
     tint: 0.5,             // 0 white dirt, 1 dirt takes the light's colour

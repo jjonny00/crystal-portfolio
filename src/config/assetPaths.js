@@ -79,5 +79,5 @@ export const WIZARD_SMOKE_TEXTURE = '/assets/textures/wizard-smoke02.webp';
 
 // Lens dirt masks (components/three/LensDirt.jsx). Not loader assets: the dirt is
 // hidden at rest, so they load once the scene is up.
-export const LENS_DIRT_LANDSCAPE_TEXTURE = '/assets/textures/lens-dirt-landscape.jpg';
-export const LENS_DIRT_PORTRAIT_TEXTURE = '/assets/textures/lens-dirt-portrait.jpg';
+export const LENS_DIRT_LANDSCAPE_TEXTURE = '/assets/textures/lens-dirt-landscape.webp';
+export const LENS_DIRT_PORTRAIT_TEXTURE = '/assets/textures/lens-dirt-portrait.webp';
