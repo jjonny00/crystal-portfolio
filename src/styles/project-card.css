@@ -1,0 +1,56 @@
+/* src/styles/project-card.css
+ *
+ * The mobile project preview: a solid sheet across the full width of the screen,
+ * running to its bottom edge, in the project's case study colours. The colours
+ * follow the case study hero's rule (caseStudyTheme.js, tone "a"): colour A is the
+ * fill and colour B the ink, so the preview reads as the first page of the case
+ * study it opens.
+ *
+ * Its bottom corners are the app's own: the sheet runs to the bottom of the
+ * small viewport, where the app frame (app-frame.css) rounds the screen. The top
+ * corners take the same radius so the sheet matches them.
+ *
+ * Set on the element:
+ *   --project-card-bg   colour A
+ *   --project-card-fg   colour B
+ */
+
+.project-card {
+  box-sizing: border-box;
+  width: 100%;
+  background: var(--project-card-bg);
+  color: var(--project-card-fg);
+  border-radius: var(--app-corner-radius, 32px) var(--app-corner-radius, 32px) 0 0;
+  /* 36px off the screen edge, the line the overview's text hangs on. */
+  padding: 30px 36px calc(30px + env(safe-area-inset-bottom, 0px));
+}
+
+/* The row the case study opens from: a rule across, the label, an arrow. */
+.project-card__cta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 0.9rem;
+  padding-top: 24px;
+  border-top: 1px solid rgb(from var(--project-card-fg) r g b / 0.35);
+  color: inherit;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.project-card__cta:active {
+  opacity: 0.7;
+}
+
+.project-card__cta:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 6px;
+  border-radius: 4px;
+}
+
+.project-card__arrow {
+  flex: none;
+  width: 14px;
+  height: 14px;
+}

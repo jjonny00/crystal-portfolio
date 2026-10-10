@@ -66,8 +66,8 @@
 }
 
 @media (max-width: 767px) {
-  .app-frame,
-  .app-rim {
+  /* On the root so the mobile project card (project-card.css) can match it. */
+  :root {
     --app-corner-radius: clamp(24px, 8.2vw, 56px);
   }
 

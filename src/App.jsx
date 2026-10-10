@@ -43,6 +43,7 @@ import VerticalEnergyLine from './components/ui/VerticalEnergyLine';
 import NavScrim from './components/ui/NavScrim';
 import './styles/legibility.css';
 import './styles/glass-card.css';
+import './styles/project-card.css';
 import { clearBackdropInk, setBackdropInkSettled } from './legibility/backdropInk';
 
 // Debug component

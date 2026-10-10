@@ -2,8 +2,15 @@ import React from 'react';
 import { animated, useSpring } from '@react-spring/web';
 import Headline from '../ui/Headline';
 import KnockoutButton from '../ui/KnockoutButton';
+import { ctaTypeStyle } from '../ui/ctaType';
 import { getScrimTone } from '../../legibility/scrimTone';
 import { projectPath } from '../../navigation/routes';
+import { inPageLinkHandler } from '../../navigation/linkClick';
+import {
+  DEFAULT_CASE_STUDY_COLORS,
+  backgroundColorForTone,
+  foregroundColorForTone
+} from '../../caseStudies/system/caseStudyTheme';
 
 // The body copy's ink is authored, not measured: every project names it in
 // projects.js under `scrim.darkText`, and that answer holds at every screen size.
@@ -32,6 +39,34 @@ const COPY_CLASS = 'legible-blend legible-ink';
 // to read `var(--ink-copy, …)` so backdropInk.js could override it per frame on
 // desktop, and that override is what stopped `darkText` reaching a laptop.
 const COPY_INK = (ink, alpha) => `rgb(from ${ink} r g b / ${alpha})`;
+
+// The mobile card takes the case study hero's colours (project-card.css).
+const HERO_TONE = 'a';
+// A project without case study colours fills with its own accent, inked in
+// whichever of the default dark or a light cream reads better on it.
+const LIGHT_INK = '#f4f3ef';
+const luminance = (hex) => {
+  const [r, g, b] = [1, 3, 5].map((i) => {
+    const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+const inkFor = (fill) => {
+  if (!/^#[0-9a-f]{6}$/i.test(fill)) return DEFAULT_CASE_STUDY_COLORS.b;
+  const l = luminance(fill);
+  const onDark = (l + 0.05) / (luminance(DEFAULT_CASE_STUDY_COLORS.b) + 0.05);
+  const onLight = (luminance(LIGHT_INK) + 0.05) / (l + 0.05);
+  return onDark >= onLight ? DEFAULT_CASE_STUDY_COLORS.b : LIGHT_INK;
+};
+const cardColorsFor = (project, accent) =>
+  project.caseStudyColors ?? { a: accent, b: inkFor(accent) };
+
+const ArrowIcon = () => (
+  <svg className="project-card__arrow" viewBox="0 0 14 14" aria-hidden="true" focusable="false">
+    <path d="M3 11 11 3M4.5 3H11v6.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
 
 const ProjectFocusSection = ({
   project,
@@ -93,9 +128,18 @@ const ProjectFocusSection = ({
     }
   });
 
+  // On mobile the copy sits on a solid card in the case study hero's colours,
+  // so its ink is the card's and the legibility blends stay off.
+  const cardColors = cardColorsFor(project, headlineColor);
+  const cardBg = backgroundColorForTone(HERO_TONE, cardColors);
+  const cardFg = foregroundColorForTone(HERO_TONE, cardColors);
+  const copyClass = isMobile ? '' : COPY_CLASS;
+
   // Shared by every line of body copy, which is .type-body (type.css).
-  const bodyClass = `type-body ${COPY_CLASS}`;
-  const bodyStyle = { color: COPY_INK(copyInk, 0.85) };
+  const bodyClass = `type-body ${copyClass}`;
+  const bodyStyle = { color: isMobile ? cardFg : COPY_INK(copyInk, 0.85) };
+  const ctaHref = projectPath(project.facetKey || project.id);
+  const openCaseStudy = () => onOpenCaseStudy?.(project.facetKey || project.id);
 
   return (
     <div
@@ -116,9 +160,9 @@ const ProjectFocusSection = ({
         justifyContent: 'flex-start',
         background: 'transparent',
         boxSizing: 'border-box',
-        // On mobile the copy is a glass card sitting the card inset off the
-        // bottom of the visible screen; see glass-card.css.
-        paddingBottom: isMobile ? 'calc(var(--glass-card-inset) + env(safe-area-inset-bottom, 0px))' : 0
+        // On mobile the copy is a card across the full width, running to the
+        // bottom of the visible screen; see project-card.css.
+        paddingBottom: 0
       }}
     >
       {/* Plain, not animated: this used to carry the entrance spring for the
@@ -136,20 +180,19 @@ const ProjectFocusSection = ({
           display: 'flex',
           alignItems: isMobile ? 'flex-end' : 'center',
           justifyContent: isMobile ? 'flex-start' : 'center',
-          paddingLeft: isMobile ? 'var(--glass-card-inset)' : 'clamp(20px, 2.5vw, 52px)',
-          paddingRight: isMobile ? 'var(--glass-card-inset)' : 'clamp(20px, 2.5vw, 52px)',
+          paddingLeft: isMobile ? 0 : 'clamp(20px, 2.5vw, 52px)',
+          paddingRight: isMobile ? 0 : 'clamp(20px, 2.5vw, 52px)',
           boxSizing: 'border-box'
         }}
       >
-        {/* On mobile this block is the glass card the copy sits on (see
-            glass-card.css), so it scrolls with the section and fades with the
-            copy: in on the copy spring's delay, out at once. Tinted with the
-            project's authored scrim colour, the same recipe the copy ink is
-            picked against. Once faded it drops out of compositing entirely. */}
+        {/* On mobile this block is the card the copy sits on (see
+            project-card.css), so it scrolls with the section and fades with the
+            copy: in on the copy spring's delay, out at once. Once faded it drops
+            out of compositing entirely. */}
         {/* The copy is content, not background: a click on it (or a drag to
             select it) never goes back to Work. See SceneBackgroundClick. */}
         <div
-          className={isMobile ? 'glass-card' : undefined}
+          className={isMobile ? 'project-card' : undefined}
           data-scene-click-ignore=""
           style={{
             width: isMobile ? '100%' : contentWidth,
@@ -159,11 +202,8 @@ const ProjectFocusSection = ({
             gap: isMobile ? '0.9rem' : '0',
             textAlign: 'left',
             ...(isMobile && {
-              padding: 'var(--project-card-pad)',
-              // The colour the glass picks up at its edge and in its fill.
-              '--glass-accent': headlineColor,
-              '--glass-tint': tone.wash,
-              '--glass-tint-low': `rgba(${tone.rgb.join(', ')}, ${Math.min(0.9, tone.opacity + 0.25)})`,
+              '--project-card-bg': cardBg,
+              '--project-card-fg': cardFg,
               opacity: isProjectView ? 1 : 0,
               visibility: isProjectView ? 'visible' : 'hidden',
               transition: isProjectView
@@ -183,8 +223,8 @@ const ProjectFocusSection = ({
               className="type-headline"
               style={{
                 margin: 0,
-                color: headlineColor,
-                '--headline-ink': headlineColor
+                color: isMobile ? cardFg : headlineColor,
+                '--headline-ink': isMobile ? cardFg : headlineColor
               }}
             >
               {displayProject.title}
@@ -192,11 +232,11 @@ const ProjectFocusSection = ({
           </animated.div>
 
           <animated.p
-            className={`type-subhead-sm ${COPY_CLASS}`}
+            className={`type-subhead-sm ${copyClass}`}
             style={{
               ...contentSpring,
               margin: isMobile ? '0 0 0.2rem' : '8px 0 18px',
-              color: COPY_INK(copyInk, 0.6)
+              color: isMobile ? COPY_INK(cardFg, 0.7) : COPY_INK(copyInk, 0.6)
             }}
           >
             {displayProject.subtitle}
@@ -255,15 +295,29 @@ const ProjectFocusSection = ({
               Now the fill rather than the ink: the pill is the accent and the
               label is cut out of it, so the scene reads through the letterforms.
               See KnockoutButton for why that needs an SVG mask. */}
-          {displayProject.cta && (
+          {/* Mobile: a row under a rule, the label and an arrow, in the card's
+              ink. Same link and click as the button. */}
+          {displayProject.cta && isMobile && (
+            <animated.a
+              className="project-card__cta"
+              href={ctaHref}
+              onClick={inPageLinkHandler(openCaseStudy)}
+              style={contentSpring}
+            >
+              <span style={ctaTypeStyle(true)}>{displayProject.cta}</span>
+              <ArrowIcon />
+            </animated.a>
+          )}
+
+          {displayProject.cta && !isMobile && (
             <KnockoutButton
               label={displayProject.cta}
               color={headlineColor}
               isMobile={isMobile}
-              href={projectPath(project.facetKey || project.id)}
-              onClick={() => onOpenCaseStudy?.(project.facetKey || project.id)}
+              href={ctaHref}
+              onClick={openCaseStudy}
               springStyle={contentSpring}
-              style={{ margin: isMobile ? '1rem 0 0' : '46px 0 0' }}
+              style={{ margin: '46px 0 0' }}
             />
           )}
         </div>

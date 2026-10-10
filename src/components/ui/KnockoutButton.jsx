@@ -36,6 +36,7 @@
 import React, { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { animated } from '@react-spring/web';
 import { inPageLinkHandler } from '../../navigation/linkClick';
+import { ctaTypeStyle } from './ctaType';
 
 const toRgb = (hex) => {
   const n = parseInt(hex.replace('#', ''), 16);
@@ -246,13 +247,7 @@ const KnockoutButton = ({
   if (pressed) rings.push(`0 0 0 2px ${accentAt(color, 0.75)}`);
   else if (hovered) rings.push(`0 0 0 6px ${accentAt(color, 0.28)}`);
 
-  const typeStyle = {
-    fontFamily: '"acumin-variable", "Acumin VF", sans-serif',
-    // 21px on a phone: the type scale's phone step (type.css).
-    fontSize: isMobile ? '21px' : '24px',
-    fontWeight: 600,
-    letterSpacing: '-0.48px',
-  };
+  const typeStyle = ctaTypeStyle(isMobile);
 
   const radius = box.height ? box.height / 2 : 0;
 
