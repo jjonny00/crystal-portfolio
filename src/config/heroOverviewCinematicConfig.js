@@ -17,6 +17,10 @@ export const HERO_OVERVIEW_CINEMATIC_CONFIG = {
     settleEase: 'smoothSettle',
     punchEase: 'easeOutExpo',
     driftEase: 'smoothSettle',
+    // The turn around the crystal from the hero orbit's angle to the overview's.
+    // It runs on its own across the whole fracture and explosion (start → settle),
+    // eased in and out, rather than inside overviewTravel's fast-start ease.
+    orbitEase: 'smoothstep',
   },
 
   fracture: {
@@ -320,6 +324,7 @@ export const resolveHeroOverviewCinematicConfig = (config = HERO_OVERVIEW_CINEMA
     settleEase: readEasingName(config?.camera?.settleEase, HERO_OVERVIEW_CINEMATIC_CONFIG.camera.settleEase),
     punchEase: readEasingName(config?.camera?.punchEase, HERO_OVERVIEW_CINEMATIC_CONFIG.camera.punchEase),
     driftEase: readEasingName(config?.camera?.driftEase, HERO_OVERVIEW_CINEMATIC_CONFIG.camera.driftEase),
+    orbitEase: readEasingName(config?.camera?.orbitEase, HERO_OVERVIEW_CINEMATIC_CONFIG.camera.orbitEase),
   };
 
   const invalidFractureKeys = [];

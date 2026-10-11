@@ -6277,15 +6277,45 @@ const UnifiedCameraController = ({
         const cameraTravelEasedProgress = holdPoseLockedThisFrame
           ? 0
           : (isFinalPoseLocked ? 1 : cinematicProgress.cameraTravelEasedProgress);
+        // The turn around the crystal (hero orbit angle → overview angle, shortest way
+        // round) is taken out of the travel lerp and run on its own ease across the
+        // whole transition up to the settle, so it carries through the fracture and
+        // explosion and eases to a stop instead of whipping round in overviewTravel.
+        // The travel (dolly, lookAt, punch) is computed from the hold pose turned onto
+        // the overview angle; the whole pose is then turned back by the part of the
+        // turn still to come. Both turns are rigid about the vertical axis through the
+        // orbit center, so the first write is still exactly the hold pose and the
+        // final lock exactly the overview pose.
+        const orbitCenter = getHeroOrbitCenter();
+        const orbitAxis = new THREE.Vector3(0, 1, 0);
+        const turnAboutOrbitCenter = (v, angle) => v.sub(orbitCenter).applyAxisAngle(orbitAxis, angle).add(orbitCenter);
+        const fromRadial = Math.hypot(fromPose.position.x - orbitCenter.x, fromPose.position.z - orbitCenter.z);
+        const toRadial = Math.hypot(toPose.position.x - orbitCenter.x, toPose.position.z - orbitCenter.z);
+        let orbitTurn = 0;
+        if (fromRadial > 0.001 && toRadial > 0.001) {
+          orbitTurn = Math.atan2(toPose.position.x - orbitCenter.x, toPose.position.z - orbitCenter.z)
+            - Math.atan2(fromPose.position.x - orbitCenter.x, fromPose.position.z - orbitCenter.z);
+          orbitTurn = Math.atan2(Math.sin(orbitTurn), Math.cos(orbitTurn));
+        }
+        const orbitTurnProgress = holdPoseLockedThisFrame
+          ? 0
+          : (isFinalPoseLocked
+            ? 1
+            : easeHeroOverviewPilotProgress(
+              globalProgress / Math.max(0.0001, cinematicProgress.settleStartProgress),
+              HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.camera.orbitEase,
+            ));
+        const turnedFromPosition = turnAboutOrbitCenter(fromPose.position.clone(), orbitTurn);
+        const turnedFromLookAt = turnAboutOrbitCenter(fromPose.lookAt.clone(), orbitTurn);
         let nextPosition = isFinalPoseLocked
           ? toPose.position.clone()
-          : new THREE.Vector3().lerpVectors(fromPose.position, toPose.position, cameraTravelEasedProgress);
+          : new THREE.Vector3().lerpVectors(turnedFromPosition, toPose.position, cameraTravelEasedProgress);
         const nextLookAt = isFinalPoseLocked
           ? toPose.lookAt.clone()
-          : introLookAtTempRef.current.lerpVectors(fromPose.lookAt, toPose.lookAt, cameraTravelEasedProgress);
+          : introLookAtTempRef.current.lerpVectors(turnedFromLookAt, toPose.lookAt, cameraTravelEasedProgress);
         const nextFov = isFinalPoseLocked ? toFov : THREE.MathUtils.lerp(fromFov, toFov, cameraTravelEasedProgress);
         const nextFilmOffset = isFinalPoseLocked ? toFilmOffset : THREE.MathUtils.lerp(fromFilmOffset, toFilmOffset, cameraTravelEasedProgress);
-        const holdForwardAxis = new THREE.Vector3().subVectors(fromPose.lookAt, fromPose.position);
+        const holdForwardAxis = new THREE.Vector3().subVectors(turnedFromLookAt, turnedFromPosition);
         if (holdForwardAxis.lengthSq() > 0.000001) holdForwardAxis.normalize();
         else camera.getWorldDirection(holdForwardAxis).normalize();
         let impulseCameraOffset = 0;
@@ -6308,6 +6338,11 @@ const UnifiedCameraController = ({
           if (Math.abs(bulletTimeCameraOffset) > 0.000001) {
             nextPosition = nextPosition.clone().addScaledVector(holdForwardAxis, -bulletTimeCameraOffset);
           }
+        }
+        const remainingOrbitTurn = -orbitTurn * (1 - orbitTurnProgress);
+        if (!isFinalPoseLocked && Math.abs(remainingOrbitTurn) > 0.0000001) {
+          turnAboutOrbitCenter(nextPosition, remainingOrbitTurn);
+          turnAboutOrbitCenter(nextLookAt, remainingOrbitTurn);
         }
         const totalHoldCameraOffset = Math.abs(impulseCameraOffset) + Math.abs(bulletTimeCameraOffset);
         transition.punchDistanceApplied = HERO_OVERVIEW_PILOT_CAMERA_MOTION.explosionImpulse.punchDistance;
