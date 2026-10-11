@@ -96,7 +96,7 @@ const HeroSection = ({
         <animated.div style={contentSpring} className="hero-section__headline-block">
           <Headline as="h1" className="type-headline-lg hero-section__title">
             <span className="visually-hidden">Jon Shaw: </span>
-            <span className="hero-section__title-line">THE SYSTEMS</span>
+            <span className="hero-section__title-line">SYSTEMS</span>
             <span className="hero-section__title-line">BENEATH</span>
             <span className="hero-section__title-line">THE SURFACE</span>
           </Headline>

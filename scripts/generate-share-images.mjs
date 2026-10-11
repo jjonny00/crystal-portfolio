@@ -100,7 +100,7 @@ const homeCard = async () => {
   </defs>
   <rect width="${WIDTH}" height="${HEIGHT}" fill="url(#fade)"/>
   ${wordmark(64, 112, 64)}
-  <text x="64" y="300" font-family="${FONT}" font-weight="600" font-size="62" fill="${INK}">THE SYSTEMS</text>
+  <text x="64" y="300" font-family="${FONT}" font-weight="600" font-size="62" fill="${INK}">SYSTEMS</text>
   <text x="64" y="370" font-family="${FONT}" font-weight="600" font-size="62" fill="${INK}">BENEATH THE SURFACE</text>
   <text x="64" y="520" font-family="${FONT}" font-size="30" fill="${INK}" fill-opacity="0.85">Principal Product Designer</text>
   <text x="64" y="562" font-family="${FONT}" font-size="30" fill="${INK}" fill-opacity="0.85">Systems and Interaction</text>
