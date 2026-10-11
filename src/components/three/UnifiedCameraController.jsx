@@ -6360,6 +6360,27 @@ const UnifiedCameraController = ({
           turnAboutOrbitCenter(nextPosition, remainingOrbitTurn);
           turnAboutOrbitCenter(nextLookAt, remainingOrbitTurn);
         }
+        // Arrive on the overview's mouse-parallax pose instead of stopping on the bare
+        // overview pose and then drifting into the parallax once the zone settles (a
+        // second move, just after the stop). The overview's parallax follow runs here
+        // on the same refs and ease, faded in with the travel; completion latches it,
+        // so the overview writer finds the camera exactly where its parallax puts it.
+        const overviewParallaxActive = !isTouchDeviceRef.current && animationData?.cameraState === 'overview';
+        const applyOverviewParallax = (position, lookAt, weight) => {
+          if (!overviewParallaxActive || !(weight > 0)) return;
+          const up = getCanonicalCameraUp();
+          const off = new THREE.Vector3().subVectors(position, lookAt);
+          off.applyAxisAngle(up, parallaxAzimuthRef.current * weight);
+          const right = new THREE.Vector3().crossVectors(up, off).normalize();
+          off.applyAxisAngle(right, parallaxPolarRef.current * weight);
+          position.copy(lookAt).add(off);
+        };
+        if (overviewParallaxActive) {
+          const parallaxEase = Math.min(Math.max(1 - Math.exp(-PARALLAX_EASE_K * delta), 0.01), 1);
+          parallaxAzimuthRef.current += (parallaxPointerRef.current.x * PARALLAX_MAX_AZIMUTH - parallaxAzimuthRef.current) * parallaxEase;
+          parallaxPolarRef.current += (parallaxPointerRef.current.y * PARALLAX_MAX_POLAR - parallaxPolarRef.current) * parallaxEase;
+        }
+        applyOverviewParallax(nextPosition, nextLookAt, cameraTravelEasedProgress);
         const totalHoldCameraOffset = Math.abs(impulseCameraOffset) + Math.abs(bulletTimeCameraOffset);
         transition.punchDistanceApplied = HERO_OVERVIEW_PILOT_CAMERA_MOTION.explosionImpulse.punchDistance;
         transition.maxImpulseCameraOffset = Math.max(transition.maxImpulseCameraOffset ?? 0, Math.abs(impulseCameraOffset));
@@ -6633,6 +6654,8 @@ const UnifiedCameraController = ({
         if (globalProgress >= 1) {
           camera.up.copy(getCanonicalCameraUp());
           camera.position.copy(toPose.position);
+          applyOverviewParallax(camera.position, toPose.lookAt, 1);
+          if (overviewParallaxActive) parallaxLatchRef.current = true;
           camera.lookAt(toPose.lookAt);
           camera.fov = toFov;
           camera.filmOffset = toFilmOffset;
@@ -6679,6 +6702,7 @@ const UnifiedCameraController = ({
           authoritativeHeroToOverviewTransitionRef.current.active = false;
           heroToOverviewHandoffPendingRef.current = {
             finalPosition: camera.position.clone(),
+            finalTargetPosition: toPose.position.clone(),
             finalLookAt: toPose.lookAt.clone(),
             finalRenderedLookAt: finalRenderedLookAt.clone(),
             finalFilmOffset: camera.filmOffset,
@@ -8003,7 +8027,10 @@ const UnifiedCameraController = ({
         camera.lookAt(pending.finalLookAt);
         camera.filmOffset = pending.finalFilmOffset;
         camera.updateProjectionMatrix();
-        currentTarget.current.position.copy(pending.finalPosition);
+        // The base overview target, which the overview writer's parallax turns from.
+        // The pilot arrives already turned by the parallax, so it hands the unturned
+        // pose over separately; holding the turned one here would turn it twice.
+        currentTarget.current.position.copy(pending.finalTargetPosition ?? pending.finalPosition);
         currentTarget.current.lookAt.copy(pending.finalLookAt);
         currentTarget.current.fov = camera.fov;
         currentTarget.current.up = camera.up.clone();

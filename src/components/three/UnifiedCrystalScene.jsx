@@ -926,22 +926,15 @@ const UnifiedCrystalScene = forwardRef(({
     }
     const local = Math.max(0, elapsedSeconds - cfg.triggerAt);
     const burstEnd = cfg.burstDuration;
-    const slowdownEnd = burstEnd + cfg.slowdownDuration;
-    const resolveEnd = slowdownEnd + cfg.resolveBlendDuration;
-    let phase = 'resolved';
-    let offsetScale = 0;
+    // The pop, then held: the fragment writer carries the offset off with the
+    // travel still to go (see burstCarry there), so it ends with the travel.
+    let phase = 'carried';
+    let offsetScale = 1;
     if (local <= burstEnd) {
       phase = 'burst';
       offsetScale = (HERO_OVERVIEW_EASING[cfg.burstEase] || HERO_OVERVIEW_EASING.easeOutExpo)(local / Math.max(0.0001, burstEnd));
-    } else if (local <= slowdownEnd) {
-      phase = 'slowdown';
-      offsetScale = 1;
-    } else if (local <= resolveEnd) {
-      phase = 'resolve';
-      const t = (HERO_OVERVIEW_EASING[cfg.slowdownEase] || HERO_OVERVIEW_EASING.smoothSettle)((local - slowdownEnd) / Math.max(0.0001, cfg.resolveBlendDuration));
-      offsetScale = 1 - t;
     }
-    return { active: phase !== 'resolved', phase, offsetScale, triggerAt: cfg.triggerAt, elapsedSinceTrigger: local };
+    return { active: true, phase, offsetScale, triggerAt: cfg.triggerAt, elapsedSinceTrigger: local };
   }, [heroOverviewShardBurstConfig]);
 
   const maybeTriggerHeroOverviewEffects = useCallback((source = 'frame') => {
@@ -3295,8 +3288,32 @@ const UnifiedCrystalScene = forwardRef(({
             const outwardBurstDirection = anchorAdjustedEndPosition.clone().sub(origin);
             if (outwardBurstDirection.lengthSq() <= 0.000001) outwardBurstDirection.copy(anchorAdjustedEndPosition).sub(anchorAdjustedStartPosition);
             if (outwardBurstDirection.lengthSq() > 0.000001) outwardBurstDirection.normalize();
-            const burstOffset = outwardBurstDirection.multiplyScalar((heroOverviewShardBurstConfig.burstDistance ?? 0) * (burstState.offsetScale ?? 0));
+            // The burst's extra distance shrinks in step with the travel still to go
+            // from the moment it fired, so position is linear in the travel's eased
+            // progress: no overshoot and return, and it stops with the travel's glide.
+            let burstCarry = 0;
+            if (burstState.active && fractureTiming.travelEaseFunction && burstElapsedSeconds != null) {
+              const triggerExplosionElapsed = elapsedExplosion - (burstElapsedSeconds - (burstState.triggerAt ?? 0));
+              const triggerTravelEased = fractureTiming.travelEaseFunction(
+                THREE.MathUtils.clamp((triggerExplosionElapsed - fracturePause) / travelDuration, 0, 1),
+              );
+              burstCarry = triggerTravelEased < 1
+                ? THREE.MathUtils.clamp((1 - sharedProgressEased) / (1 - triggerTravelEased), 0, 1)
+                : 0;
+            }
+            const burstOffset = outwardBurstDirection.multiplyScalar((heroOverviewShardBurstConfig.burstDistance ?? 0) * (burstState.offsetScale ?? 0) * burstCarry);
             const finalPosition = runtimeFinalPosition.clone().add(burstOffset);
+            // Fade the overview idle float in with the travel, so the fragments arrive
+            // already drifting exactly where the overview writer takes them over
+            // (it aims at the same anchor-adjusted rest + float), instead of
+            // stopping dead and then being pulled into the drift.
+            if (floatAll) {
+              const params = floatParamsRef.current[index];
+              const amp = params.amp * floatConfig.overviewMultiplier * sharedProgressEased;
+              finalPosition.x += Math.sin(elapsed * floatConfig.xFrequency + params.phaseX) * amp * floatConfig.xMultiplier;
+              finalPosition.y += Math.sin(elapsed * floatConfig.yFrequency + params.phaseY) * amp;
+              finalPosition.z += Math.sin(elapsed * floatConfig.zFrequency + params.phaseZ) * amp * floatConfig.zMultiplier;
+            }
             const finalEuler = _facetFinalEulerScratch.set(
               baseEuler.x + appliedRotationOffset.x,
               baseEuler.y + appliedRotationOffset.y,

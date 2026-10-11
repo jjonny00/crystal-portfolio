@@ -1,19 +1,25 @@
 export const HERO_OVERVIEW_CINEMATIC_CONFIG_SOURCE = 'src/config/heroOverviewCinematicConfig.js';
 
 export const HERO_OVERVIEW_CINEMATIC_CONFIG = {
+  // The phase values are weights, normalized over the total; they are written in
+  // seconds here so they read directly. The three hold phases keep the times they
+  // had in the 2s cut, so the camera's impact punch still lands on the explosion;
+  // the extra second all goes to overviewTravel, so the camera has time to glide
+  // to a stop. The fragments (fracture.travelDuration) and the turn round the
+  // crystal (camera.orbitEase) come to rest at the same end.
   timeline: {
-    totalDurationSeconds: 2,
-    fractureHold: 0.31,
-    explosionImpulse: 0.055,
-    bulletTime: 0.15,
-    overviewTravel: 0.92,
-    overviewSettle: 0.13,
+    totalDurationSeconds: 3,
+    fractureHold: 0.396,
+    explosionImpulse: 0.07,
+    bulletTime: 0.192,
+    overviewTravel: 2.192,
+    overviewSettle: 0.15,
   },
 
   camera: {
     explosionPunchDistance: 0.05,
     bulletTimeDriftDistance: 0.01,
-    travelEase: 'cinematicRevealOut',
+    travelEase: 'quintOut',
     settleEase: 'smoothSettle',
     punchEase: 'easeOutExpo',
     driftEase: 'smoothSettle',
@@ -26,8 +32,9 @@ export const HERO_OVERVIEW_CINEMATIC_CONFIG = {
 
   fracture: {
     holdDuration: 0.5,
-    travelDuration: 1.8,
-    travelEase: 'easeOutExpo',
+    // Release (holdDuration) + travel = 3s, the end of the camera move.
+    travelDuration: 2.5,
+    travelEase: 'quintOut',
     fractureDistanceMultiplier: 1.0,
     spreadMultiplier: 1.0,
     depthMultiplier: 1.0,
@@ -65,9 +72,9 @@ export const HERO_OVERVIEW_CINEMATIC_CONFIG = {
     burstDuration: 0.07,
     burstDistance: 0.58,
     burstEase: 'easeOutExpo',
-    slowdownDuration: 0.18,
-    slowdownEase: 'smoothSettle',
-    resolveBlendDuration: 0.72,
+    // After the pop the extra distance is carried off by the fragments' own travel,
+    // shrinking in step with the travel still to go, so the shards never overshoot
+    // and come back: they share the travel's glide to a stop.
     wired: true,
   },
 
@@ -154,12 +161,18 @@ export const HERO_OVERVIEW_EASING = {
     const x = clamp01(t);
     return x >= 1 ? 1 : clamp01(1 - ((1 - x) ** 3.4));
   },
-  // A push off the mark and a long glide to a stop: the speed goes as t(1−t)³, so it
-  // leaves rest at once and comes in with no speed, acceleration or jerk left (the
-  // last quarter of the time covers under 2% of the distance).
+  // Out fast, then a long glide to a stop: the speed falls as (1−t)⁴, so the last
+  // third of the time covers about 0.4% of the distance.
+  quintOut: (t) => {
+    const x = clamp01(t);
+    return 1 - ((1 - x) ** 5);
+  },
+  // A push off the mark and a long glide to a stop: the speed goes as t(1−t)⁴, so
+  // it leaves rest at once (no jump in speed) and comes in with the same (1−t)⁴
+  // tail as quintOut.
   glideOut: (t) => {
     const x = clamp01(t);
-    return 1 - ((1 - x) ** 4) * (1 + 4 * x);
+    return 1 - ((1 - x) ** 5) * (1 + 5 * x);
   },
   sinePulse: (t) => Math.sin(Math.PI * clamp01(t)),
   smoothSettle: (t) => {
@@ -578,9 +591,6 @@ export const resolveHeroOverviewCinematicConfig = (config = HERO_OVERVIEW_CINEMA
     { key: 'burstDuration', type: 'positive' },
     { key: 'burstDistance' },
     { key: 'burstEase', easing: true },
-    { key: 'slowdownDuration', type: 'positive' },
-    { key: 'slowdownEase', easing: true },
-    { key: 'resolveBlendDuration', type: 'positive' },
   ]);
   const explosionParticles = resolveBurstLayerConfig(config?.explosionParticles, DEFAULT_EXPLOSION_PARTICLES_CONFIG, [
     { key: 'enabled' }, { key: 'triggerAt' }, { key: 'count', type: 'positiveInteger' }, { key: 'duration', type: 'positive' },
