@@ -4621,6 +4621,15 @@ const UnifiedCameraController = ({
             });
           });
           if (found.length > 0) {
+            // Leave the undimmed values on each material too. The facets are clones
+            // of the crystal material made when they are (re)built, and the
+            // facets are not mounted during the intro, so a clone taken mid-intro
+            // would keep the dim for good (restore only reaches the materials
+            // captured here). userData survives clone(), so a clone can take its
+            // true values from it.
+            found.forEach(({ mat, prop, base }) => {
+              mat.userData.introDimBase = { ...mat.userData.introDimBase, [prop]: base };
+            });
             introDimMaterialsRef.current = found;
             introDimCapturedRef.current = true;
           }
@@ -4631,6 +4640,7 @@ const UnifiedCameraController = ({
       } else if (introDimCapturedRef.current) {
         introDimMaterialsRef.current.forEach(({ mat, prop, base }) => {
           mat[prop] = base;
+          delete mat.userData.introDimBase;
         });
         introDimMaterialsRef.current = [];
         introDimCapturedRef.current = false;

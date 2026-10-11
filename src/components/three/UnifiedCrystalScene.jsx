@@ -2394,6 +2394,19 @@ const UnifiedCrystalScene = forwardRef(({
     facetMaterialsRef.current = facetKeys.map((key, idx) => {
       const mat = crystalMaterialRef.current.clone();
       const existingMat = previousFacetMaterials[idx];
+      // A clone taken while the arrival intro has the crystal dimmed would copy the
+      // dim and keep it: the intro restores only the materials it dimmed, and the
+      // facets are not mounted then. That left them dark on the tiers that light
+      // the crystal through its own envMap (medium/low) until a selection rebuilt
+      // them. Take the undimmed reflection the intro leaves on the source instead.
+      // (Emissive is not taken: the facets' own rest/flare logic below owns it.)
+      const introDimBase = mat.userData?.introDimBase;
+      if (introDimBase) {
+        ['envMapIntensity', 'reflectivity'].forEach((prop) => {
+          if (Number.isFinite(introDimBase[prop])) mat[prop] = introDimBase[prop];
+        });
+        delete mat.userData.introDimBase;
+      }
 
       if (existingMat) {
         mat.color.copy(existingMat.color);
@@ -3988,7 +4001,12 @@ const UnifiedCrystalScene = forwardRef(({
 
   useEffect(() => {
     if (!crystalMaterialRef.current) return;
-    wholeCrystalBaseEmissiveIntensityRef.current = crystalMaterialRef.current.emissiveIntensity ?? 0;
+    // Mid-intro the live value is the intro's dimmed one; read the undimmed base it
+    // leaves on the material, or the swap/reform glows restore the crystal to ~0.
+    wholeCrystalBaseEmissiveIntensityRef.current =
+      crystalMaterialRef.current.userData?.introDimBase?.emissiveIntensity
+      ?? crystalMaterialRef.current.emissiveIntensity
+      ?? 0;
     wholeCrystalBaseEmissiveColorRef.current.copy(
       crystalMaterialRef.current.emissive || new THREE.Color('#000000')
     );
