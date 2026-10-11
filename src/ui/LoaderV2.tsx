@@ -28,11 +28,12 @@ const STATUS_COPY: Record<Stage, [string, string]> = {
 // How long an outgoing status label takes to fade (matches .labelOut).
 const LABEL_OUT_MS = 260;
 
-// Outermost first, in the order the stages run.
+// Outermost first, in the order the stages run. Spaced as the comp has them: a
+// ring's gap is about 6.8% of the middle ring's radius.
 const RINGS: { stage: Stage; radius: number }[] = [
-  { stage: 'download', radius: 69.25 },
+  { stage: 'download', radius: 61.7 },
   { stage: 'device', radius: 57.75 },
-  { stage: 'scene', radius: 46.25 },
+  { stage: 'scene', radius: 53.8 },
 ];
 
 // The SVG draws at 1:1 CSS px with the rings' centre at the origin. The diamond
@@ -395,7 +396,7 @@ const LoaderScreen: React.FC<{ exiting: boolean }> = ({ exiting }) => {
             </g>
           </svg>
 
-          <p className={`type-caption-caps ${styles.status}`} aria-live="polite">
+          <p className={`type-caption ${styles.status}`} aria-live="polite">
             {labels.map((label) => {
               const [line1, line2] = STATUS_COPY[label.stage];
               const motion = label.leaving ? styles.labelOut : label.initial ? '' : styles.labelIn;

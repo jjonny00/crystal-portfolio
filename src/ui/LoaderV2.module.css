@@ -1,8 +1,8 @@
 /* The loading screen (LoaderV2.tsx), in the hero's palette so the hand-off reads
    as one scene: the backdrop is the sky as it renders behind the crystal (the
    default gradient in projectBackgrounds.js, after tone mapping), and the rings
-   run through the crystal's cool blues to teal under the cream ink every
-   headline uses. */
+   run from the crystal's indigo through sky blue to a warm sand, under the cream
+   ink every headline uses. */
 
 .overlay {
   /* The sky (index.css): the same two colours the page takes on phones. */
@@ -11,9 +11,9 @@
   --loader-ink: #fffcee;
   --loader-ink-muted: rgb(255 252 238 / 0.7);
   --loader-ink-faint: rgb(255 252 238 / 0.55); /* the case study's caption */
-  --ring-download: #384ce6;
-  --ring-device: #3c83e5;
-  --ring-scene: #3abebe;
+  --ring-download: #3954ea;
+  --ring-device: #38a8fc;
+  --ring-scene: #d1ae9e;
 
   position: fixed;
   inset: 0;
@@ -243,16 +243,15 @@
 
 /* --- status ---------------------------------------------------------------- */
 
-/* In the rings' centre, sitting just above the diamond's tip. Room for two
-   lines; the labels stack in it so one can fade out while the next rises in. */
+/* In the rings' centre, its foot on the diamond's tip. Room for two lines; the
+   labels stack in it so one can fade out while the next rises in. */
 .status {
   position: absolute;
-  top: 72px; /* the rings' centre: -VIEW_TOP */
+  bottom: 80px; /* the diamond's tip: VIEW_HEIGHT - (-VIEW_TOP + DIAMOND_TOP) */
   left: 0;
   right: 0;
-  height: calc(2em * 1.45); /* two lines of type-caption-caps */
+  height: calc(2em * 1.45); /* two lines of type-caption */
   margin: 0;
-  transform: translateY(-58%);
   text-align: center;
   color: var(--loader-ink-faint);
 }
