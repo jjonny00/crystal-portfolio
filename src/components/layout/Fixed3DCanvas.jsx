@@ -1059,6 +1059,8 @@ const Fixed3DCanvas = forwardRef(({
             <SuspendedDust
               count={performanceProfile?.dustMoteCount ?? 400}
               introRevealRef={introRevealRef}
+              expanded={animationData?.crystalForm === 'exploded'}
+              explosionRuntime={fractureEffectsRuntime}
             />
           )}
           {dustEnabled && dustStyle !== 'suspended' && (

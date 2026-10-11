@@ -659,13 +659,25 @@ export const dustMotes = {
     radii: [7, 5, 7],
     concentration: 0.55     // < 1 packs more motes towards the centre
   },
-  // Around the crystal (lightPosition): no motes inside `radius`, a thin
-  // scattering (`sparse` of the usual density) from there, rising to the usual
-  // density by `fadeTo`.
+  // Around the crystal (lightPosition): none inside `core`, just a handful
+  // (`inner` of the usual density) out to `radius`, a thin scattering
+  // (`sparse`) from there, rising to the usual density by `fadeTo`.
   clearing: {
+    core: 1.0,
+    inner: 0.15,
     radius: 1.6,
     fadeTo: 3.2,
     sparse: 0.12
+  },
+  // Pushed out from the crystal as it explodes, drawn back in the moment it
+  // re-forms (see SuspendedDust.jsx).
+  expand: {
+    push: 3.0,     // how far the nearest motes move
+    near: 1.6,     // motes this close to the crystal move the full `push`…
+    far: 10,       // …easing to not at all by here
+    falloff: 1.5,  // > 1 drops the push off faster with distance
+    outTime: 1.4,  // seconds to push out, only when the explosion's clock isn't running
+    inTime: 3.5    // seconds to draw back in (fast, then settling; the camera can only hurry it)
   }
 };
 

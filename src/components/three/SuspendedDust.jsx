@@ -15,8 +15,14 @@
 //     the camera blurs as fast as it grows, into a large soft disc, while the far
 //     ones blur only a little (`backBlur`) and stay specks. Those right at the
 //     lens fade out (`nearFade`);
-//   • the air right around the crystal is clear, then thinly scattered, then as
-//     full as elsewhere (`clearing`).
+//   • the air right around the crystal holds only a handful, then a thin
+//     scattering, then as many as elsewhere (`clearing`).
+//
+// When the crystal explodes the dust is pushed out from it, and when it re-forms
+// the dust draws back in (`expand`): out from the instant the explosion proper
+// begins (after the fracture's charge), on the explosion's own clock; in from
+// the instant the crystal re-forms, never behind the camera on its way back. The push fades with distance: the motes nearest the crystal move the
+// most, the ones out past `expand.far` not at all.
 //
 // The out-of-focus discs carry a little lens character: the slightly polygonal
 // shape of an aperture's blades, the same way up across the frame (`blades`,
@@ -35,7 +41,7 @@
 // All of it runs in the vertex shader from a static buffer, so a frame costs a
 // few uniform writes on the CPU however many motes there are.
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { dustMotes as defaults } from '../../crystalConfig';
@@ -60,6 +66,11 @@ uniform float uShimmerSpeed;
 uniform float uMaxBrightness;
 uniform float uNearFade;
 uniform float uReveal;
+uniform float uExpand;
+uniform float uPush;
+uniform float uPushNear;
+uniform float uPushFar;
+uniform float uPushFalloff;
 
 // x, y, z: drift phases; w: a 0–1 roll (this mote's grain pattern)
 attribute vec4 aSeed;
@@ -85,7 +96,13 @@ void main() {
     sin(t * 0.29 + aSeed.y) + 0.5 * sin(t * 0.71 + aSeed.z * 1.3),
     sin(t * 0.33 + aSeed.z) + 0.5 * sin(t * 0.67 + aSeed.x * 1.9)
   );
-  vec3 p = position + drift * uDrift;
+  // Pushed out from the crystal as it explodes, by less the further out.
+  vec3 fromCrystal = position - uLightPos;
+  float crystalDist = max(length(fromCrystal), 1e-3);
+  float reach = pow(1.0 - smoothstep(uPushNear, uPushFar, crystalDist), uPushFalloff);
+  vec3 push = fromCrystal / crystalDist * uPush * uExpand * reach;
+
+  vec3 p = position + push + drift * uDrift;
 
   vec4 world = modelMatrix * vec4(p, 1.0);
   vec4 mv = viewMatrix * world;
@@ -229,10 +246,12 @@ const pickStarColour = () => {
   return _star.set(STAR_COLOURS[STAR_COLOURS.length - 1][0]);
 };
 
-// How likely a mote is to be kept at `dist` from the crystal: never inside the
-// clearing, `sparse` at its edge, rising to every one by `fadeTo`.
-const keepChance = (dist, { radius, fadeTo, sparse }) => {
-  if (dist < radius) return 0;
+// How likely a mote is to be kept at `dist` from the crystal: never inside
+// `core`, rarely (`inner`) in the rest of the clearing, `sparse` at its edge,
+// rising to every one by `fadeTo`.
+const keepChance = (dist, { core = 0, inner = 0, radius, fadeTo, sparse }) => {
+  if (dist < core) return 0;
+  if (dist < radius) return inner;
   if (dist >= fadeTo) return 1;
   const t = (dist - radius) / Math.max(fadeTo - radius, 1e-3);
   const eased = t * t * (3 - 2 * t);
@@ -298,7 +317,20 @@ const buildGeometry = (count, { center, radii, concentration }, clearing, lightP
   return geometry;
 };
 
-const SuspendedDust = ({ count = 400, introRevealRef = null, settings = defaults }) => {
+// Quick off the mark, then a long, smooth settle.
+const easeOutQuart = (t) => 1 - Math.pow(1 - t, 4);
+// How long to wait for the explosion's clock before going on a timer instead.
+const RUNTIME_WAIT = 0.25;
+
+const SuspendedDust = ({
+  count = 400,
+  introRevealRef = null,
+  /** True while the crystal is exploded (the overview, projects, About). */
+  expanded = false,
+  /** The explosion's clock (useHeroOverviewRuntime), which runs on every one. */
+  explosionRuntime = null,
+  settings = defaults
+}) => {
   const { volume, clearing, lightPosition } = settings;
   const geometry = useMemo(
     () => buildGeometry(count, volume, clearing, lightPosition),
@@ -330,6 +362,11 @@ const SuspendedDust = ({ count = 400, introRevealRef = null, settings = defaults
           uMaxBrightness: { value: 1.6 },
           uNearFade: { value: 0.3 },
           uReveal: { value: 1 },
+          uExpand: { value: 0 },
+          uPush: { value: 0 },
+          uPushNear: { value: 0 },
+          uPushFar: { value: 1 },
+          uPushFalloff: { value: 1 },
           uColor: { value: new THREE.Color() },
           uStarColor: { value: 1 },
           uBlades: { value: 0 },
@@ -375,7 +412,35 @@ const SuspendedDust = ({ count = 400, introRevealRef = null, settings = defaults
     u.uNearFade.value = settings.nearFade;
     u.uColor.value.set(settings.color);
     u.uStarColor.value = settings.starColor;
+    u.uPush.value = settings.expand.push;
+    u.uPushNear.value = settings.expand.near;
+    u.uPushFar.value = settings.expand.far;
+    u.uPushFalloff.value = settings.expand.falloff;
   }, [material, settings]);
+
+  // The expansion's timing:
+  //   • out (the crystal explodes): held through the fracture's charge, then
+  //     eased out over the rest of the explosion's clock, so the dust leaves with
+  //     the blast. Without the clock (it never started), a timer (`outTime`).
+  //   • in (the crystal re-forms): from that instant, on its own ease (`inTime`),
+  //     and never behind the camera on its way back: whichever of the two is
+  //     further along, the camera's share being how much of the way it has come
+  //     from where it turned to where it stood in the hero.
+  // Each only ever moves one way, so a project's close-up camera can't draw the
+  // dust back in. Starts settled on whatever the scene opens on.
+  const motionRef = useRef(null);
+  if (motionRef.current === null) {
+    motionRef.current = {
+      value: expanded ? 1 : 0,
+      expanded,
+      from: 0,
+      k: 1,
+      elapsed: 0,
+      clockSeen: false,
+      heroDistance: null,
+      turnDistance: null
+    };
+  }
 
   useFrame((state, delta) => {
     const u = material.uniforms;
@@ -387,6 +452,43 @@ const SuspendedDust = ({ count = 400, introRevealRef = null, settings = defaults
     // In focus at the crystal, wherever the camera is.
     u.uFocus.value = Math.max(camera.position.distanceTo(u.uLightPos.value), 0.5);
     u.uReveal.value = introRevealRef?.current ?? 1;
+
+    const motion = motionRef.current;
+    const { outTime, inTime } = settings.expand;
+    const distance = camera.position.distanceTo(u.uLightPos.value);
+    const dt = Math.min(delta, 1);
+    if (motion.expanded !== expanded) {
+      motion.expanded = expanded;
+      motion.from = motion.value;
+      motion.k = 0;
+      motion.elapsed = 0;
+      motion.clockSeen = false;
+      // Out: the camera is still where the hero holds it. In: where it turns.
+      if (expanded) motion.heroDistance = distance;
+      else motion.turnDistance = distance;
+    }
+    motion.elapsed += dt;
+
+    if (motion.expanded) {
+      const clock = explosionRuntime?.getSnapshot?.();
+      if (clock && (clock.active || clock.phase === 'complete')) motion.clockSeen = true;
+      let target;
+      if (motion.clockSeen) {
+        const blastStart = clock.timing.fractureChargeEnd;
+        target = clock.active ? (clock.progress - blastStart) / Math.max(1 - blastStart, 1e-3) : 1;
+      } else {
+        target = (motion.elapsed - RUNTIME_WAIT) / Math.max(outTime, 1e-3);
+      }
+      motion.k = Math.min(Math.max(motion.k, target), 1);
+      motion.value = motion.from + (1 - motion.from) * easeOutQuart(motion.k);
+    } else {
+      const timed = easeOutQuart(Math.min(motion.elapsed / Math.max(inTime, 1e-3), 1));
+      const span = (motion.turnDistance ?? 0) - (motion.heroDistance ?? Infinity);
+      const camera = span > 0.25 ? (motion.turnDistance - distance) / span : 0;
+      motion.k = Math.min(Math.max(motion.k, timed, camera), 1);
+      motion.value = motion.from * (1 - motion.k);
+    }
+    u.uExpand.value = motion.value;
   });
 
   return <points geometry={geometry} material={material} renderOrder={5} />;
