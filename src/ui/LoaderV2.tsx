@@ -396,7 +396,7 @@ const LoaderScreen: React.FC<{ exiting: boolean }> = ({ exiting }) => {
             </g>
           </svg>
 
-          <p className={`type-caption ${styles.status}`} aria-live="polite">
+          <p className={`type-caption-caps ${styles.status}`} aria-live="polite">
             {labels.map((label) => {
               const [line1, line2] = STATUS_COPY[label.stage];
               const motion = label.leaving ? styles.labelOut : label.initial ? '' : styles.labelIn;
