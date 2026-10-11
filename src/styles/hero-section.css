@@ -87,17 +87,6 @@
   max-inline-size: min(100%, 44.5rem);
 }
 
-/* Type is .type-subhead-lg (type.css). */
-.hero-section__role {
-  color: #FFFCEE;
-  margin: 0 0 clamp(0.75rem, 1.6svh, 1.25rem);
-}
-
-/* Two lines rather than one line split by a bullet. */
-.hero-section__role-line {
-  display: block;
-}
-
 /* Type is .type-body-lg (type.css). */
 .hero-section__body-copy {
   color: rgba(252, 245, 235, 0.86);

@@ -5,6 +5,7 @@ import { inPageLinkHandler } from '../../navigation/linkClick';
 import { NAVIGATION_DESTINATIONS } from '../../navigation/navigationIntent';
 import { pathFor } from '../../navigation/routes';
 import { CONTACT_EMAIL } from '../../seo/site';
+import { NAV_DESCRIPTOR_LINES } from '../../data/siteCopy';
 
 // Absolute, not fixed, because of iOS 26 Safari. It colours its status bar from
 // a position:fixed bar at the top edge of the page, and a transparent one (this
@@ -174,23 +175,33 @@ const Navigation = ({ activeLabel = null, onHomeClick, onWorkClick, onAboutClick
       }}
     >
       <div style={NAV_INNER_STYLE}>
-        <a
-          href={pathFor(NAVIGATION_DESTINATIONS.HERO)}
-          onClick={inPageLinkHandler(onHomeClick)}
-          style={{
-            ...NAME_BUTTON_STYLE,
-            ...LINK_RESET_STYLE,
-            ...(isTransitioning ? { pointerEvents: 'none' } : null),
-            ...(color ? { color } : null),
-            // Phone sizes carry the type scale's phone step (type.css).
-            fontSize: isDesktop ? '36px' : '29px',
-            opacity: isTransitioning ? 0.6 : 1
-          }}
-          aria-disabled={isTransitioning || undefined}
-          aria-label="Jon Shaw, home"
-        >
-          J.JONSHAW
-        </a>
+        {/* The wordmark's size is set here, on the pair, and the descriptor beside
+            it is sized and placed in ems of it (index.css), so the two always
+            stand the same height. Phone sizes carry the type scale's phone step
+            (type.css). */}
+        <div className="site-nav__brand" style={{ fontSize: isDesktop ? '36px' : '29px' }}>
+          <a
+            href={pathFor(NAVIGATION_DESTINATIONS.HERO)}
+            onClick={inPageLinkHandler(onHomeClick)}
+            style={{
+              ...NAME_BUTTON_STYLE,
+              ...LINK_RESET_STYLE,
+              ...(isTransitioning ? { pointerEvents: 'none' } : null),
+              ...(color ? { color } : null),
+              fontSize: '1em',
+              opacity: isTransitioning ? 0.6 : 1
+            }}
+            aria-disabled={isTransitioning || undefined}
+            aria-label="Jon Shaw, home"
+          >
+            J.JONSHAW
+          </a>
+          <p className="site-nav__descriptor" style={color ? { color } : undefined}>
+            {NAV_DESCRIPTOR_LINES.map((line) => (
+              <span key={line}>{line}</span>
+            ))}
+          </p>
+        </div>
 
         {/* Steps back while a media viewer is open — see index.css. The
             wordmark stays: it is the way back out of a case study, and it sits

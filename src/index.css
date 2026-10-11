@@ -285,6 +285,48 @@ a:focus:not(:focus-visible) {
 }
 
 /* REMOVED: Static loading screen styles - let React handle all loading */
+
+/* The wordmark and the two lines beside it (Navigation.jsx). The pair takes the
+   wordmark's size, and everything here is in ems of it, so the lines stand
+   exactly the wordmark's height at every size: from the top of the first line's
+   capitals to the foot of the second line's descenders is the wordmark's cap
+   height.
+
+   Measured from the faces themselves: IvyPresto Display's capitals are 0.73em
+   tall; Acumin's 0.70em, with 0.21em descenders. At 0.37em, with 1.06 leading,
+   0.70 × 0.37 + 1.06 × 0.37 + 0.21 × 0.37 = 0.73. The top offset lines the
+   first line's capitals up with the wordmark's, so the second line's
+   descenders land on the wordmark's baseline; 0.81em was measured on the
+   rendered faces (the wordmark's normal line height sets its capitals a little
+   higher than its ascent alone predicts). */
+.site-nav__brand {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.35em;
+}
+
+.site-nav__descriptor {
+  margin: 0.81em 0 0;
+  font-family: "acumin-variable", "Acumin VF", sans-serif;
+  font-size: 0.37em;
+  font-weight: 400;
+  line-height: 1.06;
+  color: #ffebe3;
+  opacity: 0.85;
+  white-space: nowrap;
+  transition: color 0.3s ease;
+}
+
+.site-nav__descriptor > span {
+  display: block;
+}
+
+/* No room for it beside the links on a phone. */
+@media (max-width: 767.98px) {
+  .site-nav__descriptor {
+    display: none;
+  }
+}
 /* While a media viewer (the case-study lightbox) is open, the nav steps back to
    just the wordmark: WORK / ABOUT / CONTACT would otherwise sit over the
    viewer's own controls, and the nav is drawn above it. MediaViewer.jsx sets the

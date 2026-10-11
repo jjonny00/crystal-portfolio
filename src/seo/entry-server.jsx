@@ -22,7 +22,6 @@ import {
   ABOUT_TITLE,
   HERO_BODY_COPY,
   HERO_HEADLINE_LINES,
-  HERO_ROLE_LINES,
 } from '../data/siteCopy';
 import CaseStudyOverlay, { preloadCaseStudy } from '../caseStudies/CaseStudyOverlay';
 import { ARRIVAL_EXIT_LABEL } from '../caseStudies/system/caseStudyExit';
@@ -76,7 +75,6 @@ const HomeContent = () => (
     <h1>
       {PERSON.name}: {sentenceCase(HERO_HEADLINE_LINES)}
     </h1>
-    <p>{HERO_ROLE_LINES.join(', ')}</p>
     <p>{HERO_BODY_COPY}</p>
     <section aria-label="Work">
       {projects.map((project) => (

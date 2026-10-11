@@ -103,10 +103,6 @@ const HeroSection = ({
         </animated.div>
 
         <animated.div style={subtitleSpring} className="hero-section__body-block">
-          <p className="type-subhead-lg hero-section__role">
-            <span className="hero-section__role-line">PRINCIPAL PRODUCT DESIGNER</span>
-            <span className="hero-section__role-line">SYSTEMS AND INTERACTION</span>
-          </p>
           <p className="type-body-lg hero-section__body-copy">
             {isMobile ? BODY_COPY_MOBILE : BODY_COPY}
           </p>
