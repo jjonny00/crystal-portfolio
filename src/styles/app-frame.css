@@ -66,9 +66,23 @@
 }
 
 @media (max-width: 767px) {
-  /* On the root so the mobile project card (project-card.css) can match it. */
-  :root {
+  .app-frame,
+  .app-rim {
     --app-corner-radius: clamp(24px, 8.2vw, 56px);
+  }
+
+  /* The page's content stops where the frame does. The scroll container is
+     100vh, which on iOS is the large viewport, but the frame ends at 100svh, so
+     content ran on below it, under Safari's toolbar: a project's solid card
+     showed there, rising out of the bottom as its section scrolled in. Clipped
+     to the small viewport, nothing shows below the frame's line but the scene.
+
+     A clip-path makes the container an isolated group, so copy inside it can't
+     blend with the scene. That only matters in the difference/exclusion
+     legibility modes (cycled with L), which phones don't otherwise use. Where
+     lvh/svh are unknown the declaration is dropped and nothing is clipped. */
+  .scroll-container {
+    clip-path: inset(0 0 calc(100lvh - 100svh) 0);
   }
 
   /* The corners follow the page's ground as it changes section by

@@ -199,7 +199,7 @@ const ProjectFocusSection = ({
             maxWidth: '100%',
             display: 'grid',
             gridTemplateColumns: '1fr',
-            gap: isMobile ? '0.9rem' : '0',
+            gap: isMobile ? 'calc(0.9rem * var(--project-card-v))' : '0',
             textAlign: 'left',
             ...(isMobile && {
               '--project-card-bg': cardBg,
@@ -235,7 +235,9 @@ const ProjectFocusSection = ({
             className={`type-subhead-sm ${copyClass}`}
             style={{
               ...contentSpring,
-              margin: isMobile ? '0 0 0.2rem' : '8px 0 18px',
+              // On mobile the card's 0.9rem gap is pulled in to sit the
+              // descriptor close under the title.
+              margin: isMobile ? 'calc(-0.55rem * var(--project-card-v)) 0 calc(0.2rem * var(--project-card-v))' : '8px 0 18px',
               color: isMobile ? COPY_INK(cardFg, 0.7) : COPY_INK(copyInk, 0.6)
             }}
           >
@@ -255,7 +257,7 @@ const ProjectFocusSection = ({
               style={{
                 ...contentSpring,
                 ...bodyStyle,
-                margin: isMobile ? '0.2rem 0 0' : '30px 0 0'
+                margin: isMobile ? 'calc(0.2rem * var(--project-card-v)) 0 0' : '30px 0 0'
               }}
             >
               {displayProject.secondaryCopy}
@@ -268,7 +270,7 @@ const ProjectFocusSection = ({
               style={{
                 ...contentSpring,
                 ...bodyStyle,
-                margin: isMobile ? '0.2rem 0 0' : '30px 0 0'
+                margin: isMobile ? 'calc(0.2rem * var(--project-card-v)) 0 0' : '30px 0 0'
               }}
             >
               {displayProject.metrics}
