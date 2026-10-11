@@ -244,14 +244,19 @@
 /* --- status ---------------------------------------------------------------- */
 
 /* In the rings' centre, its foot on the diamond's tip. Room for two lines; the
-   labels stack in it so one can fade out while the next rises in. */
+   labels stack in it so one can fade out while the next rises in. type-caption,
+   set in capitals and tighter than its 1.45: two short stacked lines of caps
+   read as one block. */
 .status {
+  --status-leading: 1.15;
   position: absolute;
   bottom: 80px; /* the diamond's tip: VIEW_HEIGHT - (-VIEW_TOP + DIAMOND_TOP) */
   left: 0;
   right: 0;
-  height: calc(2em * 1.45); /* two lines of type-caption */
+  height: calc(2em * var(--status-leading)); /* two lines */
   margin: 0;
+  line-height: var(--status-leading);
+  text-transform: uppercase;
   text-align: center;
   color: var(--loader-ink-faint);
 }
