@@ -14,6 +14,7 @@ import { HalfFloatType, UnsignedByteType, ShaderMaterial } from 'three';
 import UnifiedCameraController from '../three/UnifiedCameraController';
 import UnifiedCrystalScene from '../three/UnifiedCrystalScene';
 import PersistentDustSystem from '../three/PersistentDustSystem';
+import SuspendedDust from '../three/SuspendedDust';
 import { FPSCounter } from '../ui/FpsDisplay';
 
 // ADDED: Import the debug panels component
@@ -22,7 +23,7 @@ import GradientBackground from '../three/GradientBackground';
 import EdgeVignette from '../three/EdgeVignette';
 import LensDirt from '../three/LensDirt';
 import { projectBackgrounds } from '../../data/projectBackgrounds';
-import { fracture as fractureConfig, hdriPathForTier } from '../../crystalConfig';
+import { fracture as fractureConfig, hdriPathForTier, dustStyle } from '../../crystalConfig';
 import MistyLayerStack from '../MistyLayerStack';
 import { isIOS26 } from '../../utils/isIOS26';
 import { facetKeys as canonicalFacetKeys, getProjectIdBySceneFacetKey } from '../../data/projects';
@@ -1053,8 +1054,14 @@ const Fixed3DCanvas = forwardRef(({
             initialKey="default"
           />
 
-          {/* Persistent Dust System */}
-          {dustEnabled && (
+          {/* Dust: suspended motes, or the rising vortex (crystalConfig.dustStyle). */}
+          {dustEnabled && dustStyle === 'suspended' && (
+            <SuspendedDust
+              count={performanceProfile?.dustMoteCount ?? 400}
+              introRevealRef={introRevealRef}
+            />
+          )}
+          {dustEnabled && dustStyle !== 'suspended' && (
             <PersistentDustSystem count={particleCount} enabled={dustEnabled} />
           )}
           

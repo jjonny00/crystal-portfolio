@@ -28,6 +28,9 @@ export const PERFORMANCE_PROFILES = {
     
     // Particles
     particleCount: 60,
+    // Suspended dust motes (SuspendedDust.jsx); drawn from a static buffer, so
+    // the count costs GPU fill, not CPU.
+    dustMoteCount: 700,
     reducedParticles: false,
     
     // Animations
@@ -111,6 +114,9 @@ export const PERFORMANCE_PROFILES = {
     
     // Particles
     particleCount: 60,
+    // Suspended dust motes (SuspendedDust.jsx); drawn from a static buffer, so
+    // the count costs GPU fill, not CPU.
+    dustMoteCount: 450,
     reducedParticles: false,
 
     // Animations
@@ -181,6 +187,9 @@ export const PERFORMANCE_PROFILES = {
     
     // Particles
     particleCount: 32,
+    // Suspended dust motes (SuspendedDust.jsx); drawn from a static buffer, so
+    // the count costs GPU fill, not CPU.
+    dustMoteCount: 220,
     reducedParticles: false,
 
     // Animations
@@ -241,6 +250,9 @@ export const PERFORMANCE_PROFILES = {
     maxLights: 12,
     
     particleCount: 32,
+    // Suspended dust motes (SuspendedDust.jsx); drawn from a static buffer, so
+    // the count costs GPU fill, not CPU.
+    dustMoteCount: 700,
     reducedParticles: false,
     simplifiedAnimations: false,
     

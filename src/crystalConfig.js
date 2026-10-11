@@ -624,6 +624,51 @@ export const camera = {
   }
 }
 
+// === DUST ===
+// Which dust the scene floats: 'suspended' (SuspendedDust.jsx, motes hanging in
+// the air, lit by the crystal) or 'vortex' (PersistentDustSystem.jsx, the rising
+// ember spiral it replaces on this branch).
+export const dustStyle = 'suspended';
+
+// SuspendedDust. Distances are world units (the crystal is about 2 across).
+export const dustMotes = {
+  size: 0.011,              // a mote's diameter
+  drift: 0.06,              // how far each mote wanders from its spot
+  driftSpeed: 0.6,          // how fast it wanders (1 = waves of roughly 10–20 s)
+  aperture: 0.04,           // the lens's aperture: how strongly motes off the focus blur
+  backBlur: 0.25,           // blur behind the focus, as a share of in front (keeps far motes specks)
+  maxSize: 90,              // the widest a blurred mote gets, in px
+  blades: 7,                // aperture blades shaping the out-of-focus discs (0 = round)
+  bladeRoundness: 0.45,     // 0 straight-sided, 1 round
+  rim: 0.35,                // how much brighter a disc's rim is than its middle
+  fringe: 0.012,            // colour fringe width at a disc's edge (warm outside, cool inside)
+  grain: 0.12,              // grain across a disc
+  nearFade: 0.25,           // motes closer to the camera than this fade out
+  color: '#ffe6c7',         // warm white, the colour every mote takes at starColor 0
+  starColor: 1,             // 0 all `color`; 1 each mote its own star colour (blue-white to orange)
+  ambient: 0.18,            // brightness away from any light
+  lightPosition: [0, 0, 0], // the light the dust catches: the crystal
+  lightRadius: 3.0,         // how far that light reaches
+  lightGain: 2.5,           // how bright it makes a mote right beside it
+  scatter: 4,               // extra brightness when backlit (between camera and light)
+  maxBrightness: 1.6,       // the brightest the light can make a mote (the hover particles' level)
+  shimmer: 0.25,            // twinkle depth (0 = steady; the overview's hover particles use 0.4)
+  shimmerSpeed: 3,          // twinkle speed (the hover particles use 9)
+  volume: {
+    center: [0, 0.5, 0],
+    radii: [7, 5, 7],
+    concentration: 0.55     // < 1 packs more motes towards the centre
+  },
+  // Around the crystal (lightPosition): no motes inside `radius`, a thin
+  // scattering (`sparse` of the usual density) from there, rising to the usual
+  // density by `fadeTo`.
+  clearing: {
+    radius: 1.6,
+    fadeTo: 3.2,
+    sparse: 0.12
+  }
+};
+
 // === POST PROCESSING ===
 export const postProcessing = {
   bloom: {
