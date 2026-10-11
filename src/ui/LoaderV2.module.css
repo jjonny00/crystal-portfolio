@@ -1,7 +1,7 @@
 /* The loading screen (LoaderV2.tsx), in the hero's palette so the hand-off reads
    as one scene: the backdrop is the sky as it renders behind the crystal (the
    default gradient in projectBackgrounds.js, after tone mapping), and the rings
-   run from the crystal's indigo through sky blue to a warm sand, under the cream
+   run from the crystal's indigo through sky blue to a pale ice, under the cream
    ink every headline uses. */
 
 .overlay {
@@ -13,7 +13,7 @@
   --loader-ink-faint: rgb(255 252 238 / 0.55); /* the case study's caption */
   --ring-download: #3954ea;
   --ring-device: #38a8fc;
-  --ring-scene: #d1ae9e;
+  --ring-scene: #e7f8ff;
 
   position: fixed;
   inset: 0;
