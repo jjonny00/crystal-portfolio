@@ -40,10 +40,10 @@ export const fracture = {
   distance: 0.03,          // Percentage of explode distance applied during fracture
   particles: {
     delay: 0.0,          // Trigger exactly at fracture swap (seconds)
-    count: 360,           // Number of burst particles
+    count: 3600,           // Number of burst particles
     color: '#6fd4ff',     // Particle color
-    duration: 1.2,        // Longer-lived glitter fade duration (seconds)
-    spread: 0.5            // Half-width emitter radius
+    duration: 1.0,        // Longer-lived glitter fade duration (seconds)
+    spread: 10.5            // Half-width emitter radius
   },
   image: {
     imagePath: FRACTURE_RING_TEXTURE,
@@ -65,11 +65,11 @@ export const fracture = {
     size: 1.5,            // base sprite world size at spawn (large, billowy)
     expand: 14.0,          // end-of-life scale multiplier (aggressive growth as it rises)
     spread: 1.5,         // spawn radius — spread around the core, not on the bright center
-    outwardSpeed: 6.25,   // gentle radial drift (kept slow/contained)
+    outwardSpeed: 4.25,   // gentle radial drift (kept slow/contained)
     upwardLift: 3.7,      // strong upward rise so it reads as mist lifting off the fracture
     drag: 0.94,            // per-frame damping of radial drift (0-1, higher = floatier)
     lifetimeMin: 0.08,     // seconds
-    lifetimeMax: 3.0,     // seconds
+    lifetimeMax: 3.5,     // seconds
     opacity: 0.15          // peak per-sprite opacity (color comes from the texture itself)
   },
   emissive: {
