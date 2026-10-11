@@ -798,23 +798,6 @@ export const debug = {
   }
 }
 
-// === INTRO MOTION ===
-// Control the camera's ORBIT around the crystal during the intro, independently of the
-// dolly (moving in) and WITHOUT changing where it lands (hero is fixed).
-//   amount     – 0..1 fraction of the orbit implied by the authored intro position.
-//                1 = the full swing from the authored start angle to hero; 0.5 = orbit
-//                half as much (the start angle moves closer to hero, hero unchanged).
-//   delayMs    – wait this long into the intro before the orbit starts turning.
-//   durationMs – how long the orbit sweep takes (it always finishes at the hero angle).
-// The dolly (distance/height) still spans the full intro so the camera lands on hero.
-export const introMotion = {
-  orbit: {
-    amount: 0.75,
-    delayMs: 500,
-    durationMs: 4400
-  }
-}
-
 // === ENVIRONMENT ===
 // The HDRI path per tier lives in config/assetPaths.js (three-free, so the boot
 // code can download it early); re-exported here for existing callers.

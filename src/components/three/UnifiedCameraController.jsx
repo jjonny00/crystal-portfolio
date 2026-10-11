@@ -319,46 +319,24 @@ const UnifiedCameraController = ({
   // instead and is intentionally excluded here to avoid double-dimming.
   const introDimMaterialsRef = useRef([]);
   const introDimCapturedRef = useRef(false);
-  // Intro ORBIT: swing the camera around the crystal's vertical axis (through the
-  // orbit center) from the authored start toward hero, controlled independently of
-  // the dolly and WITHOUT changing the hero landing. Config: config.introMotion.orbit
-  //   amount     – 0..1 fraction of the authored orbit (start→hero azimuth). 1 = the
-  //                full sweep the authored intro position implies; 0.5 = half as much.
-  //   delayMs    – wait this long before the orbit begins (camera holds its angle).
-  //   durationMs – how long the orbit sweep takes. It always finishes at the hero
-  //                azimuth, so radius/height (the dolly, on `dollyProgress`) land the
-  //                camera exactly on hero at the end.
-  // The dolly (radius + height) rides `dollyProgress`; only the azimuth is governed by
-  // delay/duration/amount, so `amount` scales how far around it travels — the start
-  // angle moves closer to hero as amount shrinks, the hero end never moves.
-  const computeIntroOrbitPosition = (out, startPos, heroPos, orbitCenter, elapsedMs, dollyProgress) => {
-    const orbit = config?.introMotion?.orbit;
-    const amount = Number.isFinite(orbit?.amount) ? THREE.MathUtils.clamp(orbit.amount, 0, 1) : 1;
-    const delayMs = Number.isFinite(orbit?.delayMs) ? Math.max(0, orbit.delayMs) : 0;
-    let durationMs = Number.isFinite(orbit?.durationMs) ? orbit.durationMs : INTRO_DURATION_MS;
-    durationMs = Math.max(1, durationMs);
-
+  // Intro ORBIT: the hero's continuous auto-orbit, already running from the first
+  // frame of the intro. The azimuth turns at the hero's own `orbitSpeed` (rad/sec) and
+  // is phased to reach the hero azimuth exactly as the intro completes — which is
+  // where the hero branch picks the orbit up (its clock is seeded on completion), so
+  // the rotation carries straight through the landing at a constant rate. Only the
+  // authored start's distance from the axis and height are used (the dolly, on
+  // `dollyProgress`); its angle is ignored.
+  const computeIntroOrbitPosition = (out, startPos, heroPos, orbitCenter, elapsedMs, dollyProgress, orbitSpeed) => {
     const sdx = startPos.x - orbitCenter.x, sdz = startPos.z - orbitCenter.z;
     const hdx = heroPos.x - orbitCenter.x, hdz = heroPos.z - orbitCenter.z;
     const startRadius = Math.hypot(sdx, sdz);
     const heroRadius = Math.hypot(hdx, hdz);
     const startHeight = startPos.y - orbitCenter.y;
     const heroHeight = heroPos.y - orbitCenter.y;
-    const startAzAuthored = Math.atan2(sdx, sdz);
     const heroAz = Math.atan2(hdx, hdz);
-    // Shortest signed authored sweep (hero − authored start), normalized to [-π, π].
-    let authoredOrbit = heroAz - startAzAuthored;
-    while (authoredOrbit > Math.PI) authoredOrbit -= 2 * Math.PI;
-    while (authoredOrbit < -Math.PI) authoredOrbit += 2 * Math.PI;
-    const startAz = heroAz - authoredOrbit * amount;
-
-    // Keep the sweep inside the intro so it always finishes at the hero angle.
-    const effectiveDuration = Math.max(1, Math.min(durationMs, INTRO_DURATION_MS - delayMs));
-    const x = THREE.MathUtils.clamp((elapsedMs - delayMs) / effectiveDuration, 0, 1);
-    // smoothstep: zero angular velocity at both ends, so the orbit eases in silky-
-    // smooth after any delay (no snap into motion) and eases out into hero.
-    const orbitProgress = x * x * (3 - 2 * x);
-    const az = startAz + (heroAz - startAz) * orbitProgress;
+    const remainingSec = (INTRO_DURATION_MS - THREE.MathUtils.clamp(elapsedMs, 0, INTRO_DURATION_MS)) / 1000;
+    const speed = Number.isFinite(orbitSpeed) ? orbitSpeed : DEFAULT_HERO_TUNING.orbitSpeed;
+    const az = heroAz - remainingSec * speed;
 
     const radius = startRadius + (heroRadius - startRadius) * dollyProgress;
     const height = startHeight + (heroHeight - startHeight) * dollyProgress;
@@ -7362,9 +7340,8 @@ const UnifiedCameraController = ({
         destination.lookAtTarget,
         easedProgress,
       );
-      // Orbit the camera around the crystal from the authored start toward hero,
-      // with its own delay/duration/amount (see computeIntroOrbitPosition). The dolly
-      // (radius/height) rides positionProgress; the orbit always lands at hero.
+      // The hero auto-orbit runs through the intro (see computeIntroOrbitPosition) and
+      // lands on the hero angle; the dolly (radius/height) rides positionProgress.
       computeIntroOrbitPosition(
         camera.position,
         introFromRef.current.position,
@@ -7372,6 +7349,7 @@ const UnifiedCameraController = ({
         center,
         elapsedMs,
         positionProgress,
+        tuning.orbitSpeed,
       );
       camera.lookAt(introLookAt);
       camera.filmOffset = destination.filmOffsetX;
@@ -8435,15 +8413,16 @@ const UnifiedCameraController = ({
         easedProgress
       );
 
-      // Orbit around the crystal from the authored start toward hero (delay/duration/
-      // amount); dolly rides positionProgress. Always lands at hero.
+      // The hero auto-orbit runs through the intro; dolly rides positionProgress.
+      // Always lands at hero.
       computeIntroOrbitPosition(
         camera.position,
         introFromRef.current.position,
         introToRef.current.position,
         getHeroOrbitCenter(),
         elapsed,
-        positionProgress
+        positionProgress,
+        resolveHeroTuning(config).tuning.orbitSpeed
       );
       camera.lookAt(introLookAt);
       applyHeroFilmOffset(introToRef.current.lookAt, "INTRO");

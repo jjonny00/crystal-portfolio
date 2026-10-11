@@ -332,11 +332,6 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
       debug: {
         ...base.debug,
         lights: { ...base.debug?.lights }
-      },
-      // Deep-clone intro-motion so editing orbit never mutates the shared default.
-      introMotion: {
-        ...base.introMotion,
-        orbit: { ...base.introMotion?.orbit }
       }
     };
   };
@@ -1147,15 +1142,6 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
     if (!updatedConfig.materials.crystal.glow) updatedConfig.materials.crystal.glow = {};
     // Store as a plain hex string; UnifiedCrystalScene reads it via THREE.Color.set().
     updatedConfig.materials.crystal.glow.color = hex;
-    onUpdate(updatedConfig);
-  };
-
-  const handleIntroOrbitChange = (field, value) => {
-    const num = parseFloat(value);
-    const updatedConfig = cloneConfig();
-    if (!updatedConfig.introMotion) updatedConfig.introMotion = {};
-    if (!updatedConfig.introMotion.orbit) updatedConfig.introMotion.orbit = {};
-    updatedConfig.introMotion.orbit[field] = num;
     onUpdate(updatedConfig);
   };
 
@@ -2447,15 +2433,6 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
     const debug = config?.debug ?? {};
     const lights = debug.lights ?? {};
     const glowColorHex = toHexColorString(config?.materials?.crystal?.glow?.color, '#0015ff');
-    const introOrbitAmount = Number.isFinite(config?.introMotion?.orbit?.amount)
-      ? config.introMotion.orbit.amount
-      : 1;
-    const introOrbitDelayMs = Number.isFinite(config?.introMotion?.orbit?.delayMs)
-      ? config.introMotion.orbit.delayMs
-      : 0;
-    const introOrbitDurationMs = Number.isFinite(config?.introMotion?.orbit?.durationMs)
-      ? config.introMotion.orbit.durationMs
-      : 4400;
     const checkboxStyle = { accentColor: '#64ffda', width: '16px', height: '16px', cursor: 'pointer' };
     const hintStyle = { fontSize: '10px', opacity: 0.6, marginTop: '4px' };
     return (
@@ -2507,56 +2484,6 @@ const CrystalControls = ({ config, onUpdate, onRestartScene = null }) => {
             />
           </label>
           <div style={hintStyle}>Default internal (Fresnel) glow color — {glowColorHex}</div>
-        </div>
-
-        <div style={{ fontSize: '12px', marginBottom: '10px', opacity: 0.85 }}>Intro orbit</div>
-        <div style={sliderGroupStyle}>
-          <div style={sliderLabelStyle}>
-            <span>Orbit amount</span>
-            <span>{introOrbitAmount.toFixed(2)}</span>
-          </div>
-          <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.05"
-            value={introOrbitAmount}
-            onChange={(e) => handleIntroOrbitChange('amount', e.target.value)}
-            style={sliderStyle}
-          />
-          <div style={hintStyle}>Fraction of the authored orbit. 1 = full swing to hero; 0.5 = orbit half as much (hero landing unchanged).</div>
-        </div>
-        <div style={sliderGroupStyle}>
-          <div style={sliderLabelStyle}>
-            <span>Orbit delay</span>
-            <span>{introOrbitDelayMs} ms</span>
-          </div>
-          <input
-            type="range"
-            min="0"
-            max="3000"
-            step="100"
-            value={introOrbitDelayMs}
-            onChange={(e) => handleIntroOrbitChange('delayMs', e.target.value)}
-            style={sliderStyle}
-          />
-          <div style={hintStyle}>Wait this long into the intro before the orbit starts turning.</div>
-        </div>
-        <div style={sliderGroupStyle}>
-          <div style={sliderLabelStyle}>
-            <span>Orbit duration</span>
-            <span>{introOrbitDurationMs} ms</span>
-          </div>
-          <input
-            type="range"
-            min="200"
-            max="4400"
-            step="100"
-            value={introOrbitDurationMs}
-            onChange={(e) => handleIntroOrbitChange('durationMs', e.target.value)}
-            style={sliderStyle}
-          />
-          <div style={hintStyle}>How long the orbit sweep takes (dolly still spans the full intro; always lands at hero).</div>
         </div>
       </div>
     );
