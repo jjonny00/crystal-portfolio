@@ -6278,14 +6278,15 @@ const UnifiedCameraController = ({
           ? 0
           : (isFinalPoseLocked ? 1 : cinematicProgress.cameraTravelEasedProgress);
         // The turn around the crystal (hero orbit angle → overview angle, shortest way
-        // round) is taken out of the travel lerp and run on its own ease across the
-        // whole transition up to the settle, so it carries through the fracture and
-        // explosion and eases to a stop instead of whipping round in overviewTravel.
-        // The travel (dolly, lookAt, punch) is computed from the hold pose turned onto
-        // the overview angle; the whole pose is then turned back by the part of the
-        // turn still to come. Both turns are rigid about the vertical axis through the
-        // orbit center, so the first write is still exactly the hold pose and the
-        // final lock exactly the overview pose.
+        // round) is taken out of the travel lerp and run on its own ease, from the
+        // explosion (the fragments' release, fracture.holdDuration in) to the very
+        // end of the move — through the settle — so it glides to a stop instead of
+        // whipping round in overviewTravel. The travel (dolly, lookAt, punch) is
+        // computed from the hold pose turned onto the overview angle; the whole pose
+        // is then turned back by the part of the turn still to come. Both turns are
+        // rigid about the vertical axis through the orbit center, so the first write
+        // is still exactly the hold pose and the completing write exactly the
+        // overview pose.
         const orbitCenter = getHeroOrbitCenter();
         const orbitAxis = new THREE.Vector3(0, 1, 0);
         const turnAboutOrbitCenter = (v, angle) => v.sub(orbitCenter).applyAxisAngle(orbitAxis, angle).add(orbitCenter);
@@ -6297,12 +6298,17 @@ const UnifiedCameraController = ({
             - Math.atan2(fromPose.position.x - orbitCenter.x, fromPose.position.z - orbitCenter.z);
           orbitTurn = Math.atan2(Math.sin(orbitTurn), Math.cos(orbitTurn));
         }
+        const orbitStartProgress = THREE.MathUtils.clamp(
+          (HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.fracture?.holdDuration ?? 0) / resolvedCameraDurationSeconds,
+          0,
+          0.95,
+        );
         const orbitTurnProgress = holdPoseLockedThisFrame
           ? 0
-          : (isFinalPoseLocked
+          : (globalProgress >= 1
             ? 1
             : easeHeroOverviewPilotProgress(
-              globalProgress / Math.max(0.0001, cinematicProgress.settleStartProgress),
+              (globalProgress - orbitStartProgress) / (1 - orbitStartProgress),
               HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.camera.orbitEase,
             ));
         const turnedFromPosition = turnAboutOrbitCenter(fromPose.position.clone(), orbitTurn);
@@ -6340,7 +6346,7 @@ const UnifiedCameraController = ({
           }
         }
         const remainingOrbitTurn = -orbitTurn * (1 - orbitTurnProgress);
-        if (!isFinalPoseLocked && Math.abs(remainingOrbitTurn) > 0.0000001) {
+        if (Math.abs(remainingOrbitTurn) > 0.0000001) {
           turnAboutOrbitCenter(nextPosition, remainingOrbitTurn);
           turnAboutOrbitCenter(nextLookAt, remainingOrbitTurn);
         }

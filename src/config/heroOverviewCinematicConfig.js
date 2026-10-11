@@ -18,9 +18,10 @@ export const HERO_OVERVIEW_CINEMATIC_CONFIG = {
     punchEase: 'easeOutExpo',
     driftEase: 'smoothSettle',
     // The turn around the crystal from the hero orbit's angle to the overview's.
-    // It runs on its own across the whole fracture and explosion (start → settle),
-    // eased in and out, rather than inside overviewTravel's fast-start ease.
-    orbitEase: 'smoothstep',
+    // It runs on its own, from the explosion (the fragments' release, at
+    // fracture.holdDuration) to the very end of the move, rather than inside
+    // overviewTravel's fast-start ease.
+    orbitEase: 'glideOut',
   },
 
   fracture: {
@@ -152,6 +153,13 @@ export const HERO_OVERVIEW_EASING = {
   cinematicRevealOut: (t) => {
     const x = clamp01(t);
     return x >= 1 ? 1 : clamp01(1 - ((1 - x) ** 3.4));
+  },
+  // A push off the mark and a long glide to a stop: the speed goes as t(1−t)³, so it
+  // leaves rest at once and comes in with no speed, acceleration or jerk left (the
+  // last quarter of the time covers under 2% of the distance).
+  glideOut: (t) => {
+    const x = clamp01(t);
+    return 1 - ((1 - x) ** 4) * (1 + 4 * x);
   },
   sinePulse: (t) => Math.sin(Math.PI * clamp01(t)),
   smoothSettle: (t) => {
