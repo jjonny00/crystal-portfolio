@@ -5,7 +5,7 @@ import { inPageLinkHandler } from '../../navigation/linkClick';
 import { NAVIGATION_DESTINATIONS } from '../../navigation/navigationIntent';
 import { pathFor } from '../../navigation/routes';
 import { CONTACT_EMAIL } from '../../seo/site';
-import { NAV_DESCRIPTOR_LINES } from '../../data/siteCopy';
+import { NAV_DESCRIPTOR } from '../../data/siteCopy';
 
 // Absolute, not fixed, because of iOS 26 Safari. It colours its status bar from
 // a position:fixed bar at the top edge of the page, and a transparent one (this
@@ -69,7 +69,7 @@ const NAME_BUTTON_STYLE = {
   // the 36px desktop size), tuned by eye against IvyPresto Text.
   //
   // The two cuts carry the same letterforms and differ almost entirely in side
-  // bearing: across J.JONSHAW, Text sets 5.272em and Display 4.780em, and the whole
+  // bearing: across J.JONSHAW (before its spaces), Text sets 5.272em and Display 4.780em, and the whole
   // 0.492em gap is accounted for by side bearings alone (mean lsb 35.7/1000em in
   // Text against 8.3 in Display, several of them negative). Display is Text with
   // ~0.055em/glyph of tracking already taken out for headline sizes — so -0.08em on
@@ -175,10 +175,10 @@ const Navigation = ({ activeLabel = null, onHomeClick, onWorkClick, onAboutClick
       }}
     >
       <div style={NAV_INNER_STYLE}>
-        {/* The wordmark's size is set here, on the pair, and the descriptor beside
-            it is sized and placed in ems of it (index.css), so the two always
-            stand the same height. Phone sizes carry the type scale's phone step
-            (type.css). */}
+        {/* The wordmark's size is set here, on the pair, and the descriptor under
+            it is sized and placed in ems of it (index.css), so it always spans
+            the same stretch of the name. Phone sizes carry the type scale's
+            phone step (type.css). */}
         <div className="site-nav__brand" style={{ fontSize: isDesktop ? '36px' : '29px' }}>
           <a
             href={pathFor(NAVIGATION_DESTINATIONS.HERO)}
@@ -194,12 +194,10 @@ const Navigation = ({ activeLabel = null, onHomeClick, onWorkClick, onAboutClick
             aria-disabled={isTransitioning || undefined}
             aria-label="Jon Shaw, home"
           >
-            J.JONSHAW
+            J. JON SHAW
           </a>
           <p className="site-nav__descriptor" style={color ? { color } : undefined}>
-            {NAV_DESCRIPTOR_LINES.map((line) => (
-              <span key={line}>{line}</span>
-            ))}
+            {NAV_DESCRIPTOR}
           </p>
         </div>
 

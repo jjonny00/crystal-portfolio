@@ -48,9 +48,10 @@
   --page-content-max: 1568px;
   --page-gutter: clamp(16px, calc(4.83vw - 3.4px), 80px);
   --page-edge: max(var(--page-gutter), calc((100vw - var(--page-content-max)) / 2));
-  /* Where the fixed nav ends: 16px above the wordmark's ink (Navigation.jsx,
-     28px on phones and 36px from 1024px up, so this tracks its own breakpoint).
-     Anything that must not slide under the nav measures down from here. */
+  /* Where the fixed nav's ink ends (Navigation.jsx): the wordmark's J on a
+     phone, the descriptor under it from 768px, which is 29px below 1024px and
+     36px from there up, so this tracks the nav's own breakpoints. Anything that
+     must not slide under the nav measures down from here. */
   --page-nav-bottom: 52px;
 
   /* How far the mobile hero composition sits off the bottom of the viewport. */
@@ -286,42 +287,44 @@ a:focus:not(:focus-visible) {
 
 /* REMOVED: Static loading screen styles - let React handle all loading */
 
-/* The wordmark and the two lines beside it (Navigation.jsx). The pair takes the
-   wordmark's size, and everything here is in ems of it, so the lines stand
-   exactly the wordmark's height at every size: from the top of the first line's
-   capitals to the foot of the second line's descenders is the wordmark's cap
-   height.
+/* The wordmark and the line under it (Navigation.jsx). The pair takes the
+   wordmark's size and the line is sized in ems of it, so it spans the same
+   stretch of the name at every size: from the J's ink on the left to the foot
+   of the W on the right (the W's lower-right vertex, not its serif).
 
-   Measured from the faces themselves: IvyPresto Display's capitals are 0.73em
-   tall; Acumin's 0.70em, with 0.21em descenders. At 0.37em, with 1.06 leading,
-   0.70 × 0.37 + 1.06 × 0.37 + 0.21 × 0.37 = 0.73. The top offset lines the
-   first line's capitals up with the wordmark's, so the second line's
-   descenders land on the wordmark's baseline; 0.81em was measured on the
-   rendered faces (the wordmark's normal line height sets its capitals a little
-   higher than its ascent alone predicts). */
+   Measured on the rendered kit faces: untracked semicondensed medium fills that
+   stretch at 0.2863em of the wordmark, ink for ink. That read as stopping just
+   shy of the W's foot, which is a point and looks further out than its ink, so
+   a touch of tracking (0.006em, about 1.8px across the line at 36px) carries
+   it the rest of the way. The left offset trades the J's side bearing for the S's so the two inks line up.
+
+   The line hangs below the name out of flow, so the brand is still just the
+   name's box and the nav's links stay centred on the name. Its capitals start
+   0.29em of the wordmark under the name's baseline, which works out to
+   `top: 4.61em` in the line's own ems. */
 .site-nav__brand {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.35em;
+  position: relative;
 }
 
 .site-nav__descriptor {
-  margin: 0.81em 0 0;
+  position: absolute;
+  top: 4.61em;
+  left: -0.043em;
   font-family: "acumin-variable", "Acumin VF", sans-serif;
-  font-size: 0.37em;
-  font-weight: 400;
-  line-height: 1.06;
+  font-size: 0.2863em;
+  font-weight: 500;
+  font-stretch: 87.5%;
+  --wdth: 87.5;
+  line-height: 1;
+  letter-spacing: 0.006em;
+  text-transform: uppercase;
   color: #ffebe3;
   opacity: 0.85;
   white-space: nowrap;
   transition: color 0.3s ease;
 }
 
-.site-nav__descriptor > span {
-  display: block;
-}
-
-/* No room for it beside the links on a phone. */
+/* Hidden on a phone, where the nav stays a single line. */
 @media (max-width: 767.98px) {
   .site-nav__descriptor {
     display: none;
@@ -344,9 +347,15 @@ html[data-media-viewer='open'] .site-nav__items {
   transition: opacity 0.3s ease, visibility 0s linear 0.3s;
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   :root {
     --page-nav-bottom: 62px;
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --page-nav-bottom: 73px;
   }
 }
 

@@ -24,9 +24,11 @@ import { useMediaQuery } from '../../hooks/useMediaQuery';
 /**
  * One tuning per side of the nav's own breakpoint, because the thing this covers
  * is a different size on each: the wordmark is 36px from 1024px up and 28px
- * below it, so its ink ends around 60px and 48px respectively (16px of padding
- * plus the line box). The band has to clear that, and a desktop band on a phone
- * is a blurred stripe hanging well below the bar it belongs to.
+ * below it, so its ink ends around 73px (the descriptor under it) and 48px
+ * respectively (16px of padding plus the line box; from 768px the descriptor
+ * takes the smaller one to about 61px). The band has to clear that, and a
+ * desktop band on a phone is a blurred stripe hanging well below the bar it
+ * belongs to.
  *
  * It turns over at the nav's breakpoint rather than the site's mobile one — this
  * is sized to the bar, not to the layout. See MQ_NAV_DESKTOP.
@@ -34,9 +36,9 @@ import { useMediaQuery } from '../../hooks/useMediaQuery';
 const SCRIM = {
   desktop: {
     /** Full height of the band, including the part that has faded to nothing. */
-    heightPx: 120,
+    heightPx: 133,
     /** Held at full strength to here — just past the nav's ink. */
-    solidPx: 60,
+    solidPx: 73,
     blurPx: 4,
   },
   mobile: {

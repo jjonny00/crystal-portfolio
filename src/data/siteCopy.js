@@ -7,8 +7,8 @@
 
 export const HERO_HEADLINE_LINES = ['SYSTEMS', 'BENEATH', 'THE SURFACE'];
 
-// Beside the wordmark in the nav (Navigation.jsx), two lines as set.
-export const NAV_DESCRIPTOR_LINES = ['Systems and', 'Interaction Designer'];
+// Under the wordmark in the nav (Navigation.jsx), one line.
+export const NAV_DESCRIPTOR = 'Systems & Interaction Designer';
 
 export const HERO_BODY_COPY =
   'I design systems that shape how people decide, compete, and engage. My work focuses on the mechanics underneath the experience: the rules, feedback, and tradeoffs that turn interaction into something worth mastering. Across products and games, I build systems that reward intent.';

@@ -73,14 +73,14 @@
 /* Nothing shows until the loader's fonts are in (useSettledPromise in
    LoaderV2.tsx), then the wordmark, role, meter and status fade up in turn. */
 .wordmark,
-.subtitle,
+.descriptor,
 .meter,
 .status {
   opacity: 0;
 }
 
 .entered .wordmark { animation: loaderEnter 0.7s ease-out 0s both; }
-.entered .subtitle { animation: loaderEnter 0.7s ease-out 0.15s both; }
+.entered .descriptor { animation: loaderEnter 0.7s ease-out 0.15s both; }
 .entered .meter { animation: loaderEnter 0.8s ease-out 0.3s both; }
 .entered .status { animation: loaderEnter 0.7s ease-out 0.45s both; }
 
@@ -89,13 +89,28 @@
   to { opacity: 1; }
 }
 
-/* The wordmark is the nav's (Navigation.jsx): IvyPresto Display with the same
-   tracking, which belongs to that cut. Like the nav, it sits outside the type
-   scale, which is for copy. */
+/* The wordmark and the line under it are the nav's (Navigation.jsx, index.css):
+   IvyPresto Display with the same tracking, which belongs to that cut, over
+   semicondensed medium sized in ems of it, so the line runs from the J's ink to
+   the foot of the W. Like the nav, they sit outside the type scale, which is for
+   copy. The pair is sized on the lockup and centred as one piece, so the line
+   hangs from the J rather than centring under the name on its own.
+
+   The size, tracking and left offset are the nav's; only the gap is restated,
+   since the line sits in flow here under a wordmark with a line height of 1
+   rather than hanging under the nav's normal one. 0.63em puts its capitals
+   0.3em of the wordmark under the name's baseline, as there. */
+.lockup {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  font-size: 33px;
+}
+
 .wordmark {
   margin: 0;
   font-family: 'ivypresto-display', Georgia, serif;
-  font-size: 33px;
+  font-size: 1em;
   font-weight: 400;
   line-height: 1;
   letter-spacing: -0.025em;
@@ -104,16 +119,29 @@
   color: var(--loader-ink);
 }
 
-.subtitle {
-  margin: 3px 0 0;
-  color: var(--loader-ink-muted);
+/* The nav's 85% of its ink, as a colour rather than an opacity: the entrance
+   animates opacity. */
+.descriptor {
+  margin: 0.63em 0 0 -0.043em;
+  font-family: var(--type-font-sans);
+  font-size: 0.2863em;
+  font-weight: 500;
+  font-stretch: 87.5%;
+  --wdth: 87.5;
+  line-height: 1;
+  letter-spacing: 0.006em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: rgb(255 252 238 / 0.85);
 }
 
+/* The same 18.7px from the line's baseline to the meter as under the
+   subtitle this replaced. */
 .meter {
   position: relative;
   width: 144px;
   height: 168px;
-  margin-top: 14px;
+  margin-top: 16.5px;
 }
 
 .svg {
@@ -289,7 +317,7 @@
 }
 
 @media (max-width: 480px) {
-  .wordmark { font-size: 30px; }
+  .lockup { font-size: 30px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

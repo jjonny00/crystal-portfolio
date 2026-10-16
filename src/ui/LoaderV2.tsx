@@ -7,6 +7,7 @@
 import React, { useEffect, useId, useState, useSyncExternalStore } from 'react';
 import styles from './LoaderV2.module.css';
 import { getLoadProgress, subscribeLoadProgress } from '../loader/loadProgress';
+import { NAV_DESCRIPTOR } from '../data/siteCopy';
 
 export const LOADER_CONTENT_FADE_MS = 420;
 export const LOADER_SCENE_REVEAL_DELAY_MS = 520;
@@ -207,8 +208,10 @@ const LoaderScreen: React.FC<{ exiting: boolean }> = ({ exiting }) => {
       ].join(' ')}
     >
       <div className={`${styles.content} ${exiting ? styles.contentExiting : ''}`}>
-        <p className={styles.wordmark}>J. Jon Shaw</p>
-        <p className={`type-subhead-sm ${styles.subtitle}`}>Product designer</p>
+        <div className={styles.lockup}>
+          <p className={styles.wordmark}>J. Jon Shaw</p>
+          <p className={styles.descriptor}>{NAV_DESCRIPTOR}</p>
+        </div>
 
         <div
           className={styles.meter}
