@@ -4,11 +4,36 @@
 // (metadata, outcomes, media) and left as prose arrays everywhere else — the
 // page itself is composed in FundSeederCaseStudy.jsx, not described here.
 //
-// `**bold**` is supported inline. Every media entry here is a placeholder: no
-// `src`, a `placeholder` describing the asset still to be made, and the `alt`
-// the real image will carry. Adding `src` (and `fullSrc` where the enlarged
-// view wants more resolution) is the only change needed to drop an asset in —
-// the box it will occupy is already reserved, so nothing reflows.
+// `**bold**` is supported inline. Media with a `src` is shipped (see
+// assets/README.md for what each file was made from); the entries still
+// carrying a `placeholder` describe an asset not yet made, and keep the box it
+// will occupy reserved. Adding `src` (and `fullSrc` where the enlarged view
+// wants more resolution) is the only change needed to drop one in.
+//
+// The two diagrams (`tiers.ladder`, `destination.flow`) are drawn by
+// TierLadder.jsx and SelectionFlow.jsx from the data here.
+
+import heroImage from './assets/hero.webp';
+import dashboard from './assets/dashboard.webp';
+import dashboardFull from './assets/dashboard-full.webp';
+import leaderboard from './assets/leaderboard.webp';
+import leaderboardFull from './assets/leaderboard-full.webp';
+import leaderboardTable from './assets/leaderboard-table.webp';
+import leaderboardTableFull from './assets/leaderboard-table-full.webp';
+import leaderboardFilters from './assets/leaderboard-filters.webp';
+import leaderboardFiltersFull from './assets/leaderboard-filters-full.webp';
+import rankingNeighbourhood from './assets/ranking-neighbourhood.webp';
+import pinnedEntry from './assets/pinned-entry.webp';
+import namesAndFlags from './assets/names-and-flags.webp';
+import tierS from './assets/tiers/tier-s.webp';
+import tierA from './assets/tiers/tier-a.webp';
+import tierB from './assets/tiers/tier-b.webp';
+import tierC from './assets/tiers/tier-c.webp';
+import tierD from './assets/tiers/tier-d.webp';
+
+// The overview's three screens share the dashboard's own ratio, so the set reads
+// as one row whether or not Signal's screen has arrived.
+const OVERVIEW_RATIO = '1600 / 940';
 
 export const fundseederContent = {
   projectName: 'FUNDSEEDER',
@@ -18,10 +43,12 @@ export const fundseederContent = {
     intro: [
       'More than 1,000 strategies compete for attention on FundSeeder. I designed the progression and comparison systems that make that competition understandable, motivating, and consequential.',
     ],
+    // Transparent, so the cards sit directly on the crystal like the hero copy.
+    // Made at the hero's 3:2, so cover never crops it.
     media: {
-      placeholder:
-        'Hero — a focused composition showing the user’s tier and nearby leaderboard position. Progression and competition read immediately, without parsing the whole product interface.',
-      alt: 'A FundSeeder participant’s tier shown beside their position on the leaderboard.',
+      src: heroImage,
+      alt: 'A FundSeeder strategy card at A tier, ranked 102nd, with the leaderboard rows either side of it (101 above, 103 below) floating over it and the participant’s own row highlighted.',
+      priority: true,
     },
   },
 
@@ -52,17 +79,21 @@ export const fundseederContent = {
     gallery: [
       {
         key: 'dashboard',
-        placeholder:
-          'Dashboard — the participant’s own standing: tier, rank, and nearby competitors.',
-        alt: 'The FundSeeder dashboard, showing a participant’s tier, rank, and the competitors immediately around them.',
+        src: dashboard,
+        fullSrc: dashboardFull,
+        aspectRatio: OVERVIEW_RATIO,
+        alt: 'The FundSeeder dashboard: the strategy’s FS Score and performance chart, its track record, and a ranking panel with its tier, rank, and the competitors immediately around it.',
       },
       {
         key: 'leaderboard',
-        placeholder: 'Leaderboard — the single shared ranking every strategy appears in.',
-        alt: 'The FundSeeder leaderboard, listing ranked strategies in one shared competition.',
+        src: leaderboard,
+        fullSrc: leaderboardFull,
+        aspectRatio: OVERVIEW_RATIO,
+        alt: 'The FundSeeder leaderboard page: the participant’s strategy card beside the podium and the single shared ranking, with a global trader map below.',
       },
       {
         key: 'signal',
+        aspectRatio: OVERVIEW_RATIO,
         placeholder:
           'Signal — the internal application the team reviews and advances participants in.',
         alt: 'Signal, FundSeeder’s internal review application, showing a participant moving through the selection process.',
@@ -80,10 +111,18 @@ export const fundseederContent = {
       'The final S tier works differently. It cannot be reached through performance alone. It is reserved for participants who complete FundSeeder’s review process and are selected for funding.',
       'This distinction gave the system both short-term and long-term goals. Participants could work toward the next tier while understanding that the highest status represented a real outcome beyond the leaderboard.',
     ],
-    media: {
-      placeholder:
-        'Tier progression diagram — D → C → B → A → Review → S. D through A are performance-based progression; S is selection.',
-      alt: 'Tier progression diagram: D, C, B and A are reached through performance, then a review stage leads to S, which is reached through selection.',
+    // Drawn by TierLadder.jsx; the badges are the product's own.
+    ladder: {
+      alt: 'Tier progression diagram: D, C, B and A climb a staircase under “Performance”, then a review gate leads to S on the top step, under “Selection”.',
+      phases: { performance: 'Performance', selection: 'Selection' },
+      gate: 'Review',
+      steps: [
+        { key: 'd', phase: 'performance', src: tierD },
+        { key: 'c', phase: 'performance', src: tierC },
+        { key: 'b', phase: 'performance', src: tierB },
+        { key: 'a', phase: 'performance', src: tierA },
+        { key: 's', phase: 'selection', src: tierS },
+      ],
     },
     caption:
       'Performance moves participants through D–A. S represents selection, not simply a higher score.',
@@ -99,15 +138,20 @@ export const fundseederContent = {
       'The interface also reveals information progressively. Each row contains enough information to compare strategies quickly, then expands when someone wants to investigate further.',
     ],
     gallery: [
+      // Both crops are cut to one ratio so the pair sits level.
       {
         key: 'expanded-row',
-        placeholder: 'Full leaderboard with an expanded entry.',
-        alt: 'The full FundSeeder leaderboard with one entry expanded to show a strategy’s detail.',
+        src: leaderboardTable,
+        fullSrc: leaderboardTableFull,
+        aspectRatio: '1800 / 1556',
+        alt: 'The full FundSeeder leaderboard: sixteen ranked strategies, each row with a performance sparkline, previous rank, returns, FS Score and a chevron to expand it, and the participant’s own entry pinned at the bottom.',
       },
       {
         key: 'filters',
-        placeholder: 'Leaderboard filter interface.',
-        alt: 'The leaderboard’s filter interface, narrowing the ranking by experience, approach, account size, and specialization.',
+        src: leaderboardFilters,
+        fullSrc: leaderboardFiltersFull,
+        aspectRatio: '1800 / 1556',
+        alt: 'The leaderboard’s podium above the ranking, with the active filters (FS Score, account size, trading experience, and strategy type) summarised over the list.',
       },
     ],
     caption:
@@ -130,16 +174,18 @@ export const fundseederContent = {
       'What could I realistically achieve next?',
     ],
     gallery: [
+      // Each at its own ratio: stacked, the two never have to match.
       {
         key: 'dashboard-comparison',
-        placeholder:
-          'Dashboard comparison — the participant centred among the three positions above and below.',
-        alt: 'The dashboard’s comparison view, with the participant centred between the three positions above and below them.',
+        src: rankingNeighbourhood,
+        aspectRatio: '1216 / 1238',
+        alt: 'The dashboard’s ranking panel: the participant at A tier and rank 102, centred between ranks 99–101 above and 103–105 below.',
       },
       {
         key: 'pinned-entry',
-        placeholder: 'Crop of the pinned leaderboard entry, anchored to the bottom of the list.',
-        alt: 'A crop of the leaderboard showing the participant’s own entry pinned to the bottom of the list.',
+        src: pinnedEntry,
+        aspectRatio: '2000 / 536',
+        alt: 'A crop of the leaderboard’s last rows, with the participant’s own entry at rank 102 pinned beneath rank 16.',
       },
     ],
     caption:
@@ -158,8 +204,9 @@ export const fundseederContent = {
     gallery: [
       {
         key: 'names-and-flags',
-        placeholder: 'Leaderboard crop showing generated names and country flags.',
-        alt: 'A crop of the leaderboard showing participants identified by generated names and country flags.',
+        src: namesAndFlags,
+        aspectRatio: '2000 / 806',
+        alt: 'The leaderboard podium: DividendDragon, HedgehogHedger and YieldYak, each identified by a generated name and a country flag above their strategy.',
       },
       {
         key: 'name-approval',
@@ -179,10 +226,23 @@ export const fundseederContent = {
       'Promising participants move through data validation, quantitative review, qualitative review, and finally selection. The public ranking can draw attention to strong performance, but it never makes the funding decision automatically.',
       'This human review process is what separates A from S. The competitive system creates aspiration. Signal turns exceptional performance into a real opportunity.',
     ],
-    media: {
-      placeholder:
-        'System diagram — Join → Compete → Progress → Review → Selection, with the public experience running above the sequence and Signal below it.',
-      alt: 'System diagram of the FundSeeder pipeline: join, compete, progress, review, selection — the public experience above the sequence, Signal below it.',
+    // Drawn by SelectionFlow.jsx. Stages are numbered from 1; a cell's `span`
+    // runs it across the stages after it.
+    flow: {
+      stages: ['Join', 'Compete', 'Progress', 'Review', 'Selection'],
+      lanes: { public: 'Public — FundSeeder', signal: 'Internal — Signal' },
+      publicCells: [
+        { stage: 1, text: 'Add a strategy and build a verified record' },
+        { stage: 2, text: 'One shared ranking, read through filters' },
+        { stage: 3, text: 'Climb the tiers, D to A' },
+        { stage: 5, text: 'S tier' },
+      ],
+      signalCells: [
+        { stage: 1, text: 'Every strategy enters Signal' },
+        { stage: 2, span: 2, text: 'Performance tracked in context' },
+        { stage: 4, text: 'Data validation, quantitative review, qualitative review' },
+        { stage: 5, text: 'Selected for funding' },
+      ],
     },
     caption:
       'The public system creates progression. The internal system determines when performance merits a real-world opportunity.',

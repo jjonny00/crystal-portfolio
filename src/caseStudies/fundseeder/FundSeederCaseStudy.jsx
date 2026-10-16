@@ -28,6 +28,8 @@ import {
   ConclusionSection,
   MediaGallery,
 } from '../system';
+import TierLadder from './TierLadder';
+import SelectionFlow from './SelectionFlow';
 import { fundseederContent } from './fundseederContent';
 
 const FundSeederCaseStudy = ({ project, onClose }) => {
@@ -69,10 +71,11 @@ const FundSeederCaseStudy = ({ project, onClose }) => {
         background="none"
         title={c.tiers.title}
         intro={c.tiers.intro}
-        media={c.tiers.media}
         caption={c.tiers.caption}
         takeaway={c.tiers.takeaway}
-      />
+      >
+        <TierLadder {...c.tiers.ladder} />
+      </FeatureSection>
 
       {/* Two views of the same ranking — the list and the filters that narrow it
           — so they read as one pair rather than two separate screens. Left
@@ -136,10 +139,11 @@ const FundSeederCaseStudy = ({ project, onClose }) => {
         tone="b"
         title={c.destination.title}
         intro={c.destination.intro}
-        media={c.destination.media}
         caption={c.destination.caption}
         takeaway={c.destination.takeaway}
-      />
+      >
+        <SelectionFlow {...c.destination.flow} />
+      </SequenceSection>
 
       <ConclusionSection
         tone="b"

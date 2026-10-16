@@ -1,0 +1,342 @@
+/* FundSeeder-specific visuals. Only custom diagram styling belongs here —
+   layout, gutters, and typography come from the case-study system.
+
+   Both diagrams sit in stages that run to within --cs-bleed-inset of the
+   viewport edge, so each pads itself back in to the page gutter. */
+
+/* --------------------------------------------------------------------------
+   Tier ladder (tiers FeatureSection)
+   -------------------------------------------------------------------------- */
+
+.fs-ladder {
+  /* Badge diameter, and the height one step of the staircase climbs. Both
+     scale with the viewport, which is what lets all six columns fit a phone. */
+  --fs-badge: clamp(44px, 7.4vw, 128px);
+  --fs-step: clamp(12px, 1.7vw, 30px);
+
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(0, 0.7fr) minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-items: end;
+  column-gap: clamp(4px, 1vw, 18px);
+  row-gap: clamp(14px, 2vw, 32px);
+  max-width: 1280px;
+  margin-inline: auto;
+  padding-inline: calc(var(--cs-edge) - var(--cs-bleed-inset));
+  color: var(--cs-fg);
+}
+
+/* A bracket over each phase: a rule with a short tick at either end, its name
+   centred above. */
+.fs-ladder__phase {
+  grid-row: 1;
+  align-self: end;
+  margin: 0;
+  padding-bottom: clamp(6px, 0.8vw, 12px);
+  border-bottom: 1.5px solid currentColor;
+  text-align: center;
+  position: relative;
+}
+
+.fs-ladder__phase::before,
+.fs-ladder__phase::after {
+  content: '';
+  position: absolute;
+  bottom: -1.5px;
+  width: 1.5px;
+  height: clamp(6px, 0.7vw, 10px);
+  background-color: currentColor;
+}
+
+.fs-ladder__phase::before {
+  left: 0;
+}
+
+.fs-ladder__phase::after {
+  right: 0;
+}
+
+.fs-ladder__step {
+  grid-row: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(6px, 0.9vw, 14px);
+}
+
+.fs-ladder__badge {
+  display: block;
+  width: var(--fs-badge);
+  height: var(--fs-badge);
+  border-radius: 50%;
+  box-shadow: 0 clamp(4px, 0.6vw, 10px) clamp(10px, 1.6vw, 26px)
+    color-mix(in srgb, var(--cs-color-b) 30%, transparent);
+}
+
+/* The staircase: each riser is one step taller than the last. S stands on the
+   top step in solid ink, where D–A are tinted — reached, not climbed. */
+.fs-ladder__riser {
+  width: 100%;
+  height: calc(var(--fs-rise) * var(--fs-step));
+  border-radius: clamp(3px, 0.4vw, 6px) clamp(3px, 0.4vw, 6px) 0 0;
+  background-color: color-mix(in srgb, var(--cs-fg) 14%, transparent);
+}
+
+.fs-ladder__step[data-phase='selection'] .fs-ladder__riser {
+  background-color: var(--cs-fg);
+}
+
+/* The review gate: a dashed post as tall as the top step plus its badge, with
+   its name set across it. */
+.fs-ladder__gate {
+  grid-row: 2;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.fs-ladder__gate::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  border-left: 1.5px dashed currentColor;
+}
+
+.fs-ladder__gate-label {
+  position: relative;
+  padding: 0.35em 0.6em;
+  border: 1.5px solid currentColor;
+  border-radius: 999px;
+  /* The gate stands on the scene, not on a painted background, so the label
+     gets its own fill to cut the dashed line behind it. */
+  background-color: var(--cs-color-a);
+  white-space: nowrap;
+}
+
+@media (max-width: 767.98px) {
+  /* The feature stage runs edge to edge on phones. */
+  .fs-ladder {
+    padding-inline: var(--cs-edge);
+  }
+
+  .fs-ladder__gate-label {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    padding: 0.6em 0.3em;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Selection flow (destination SequenceSection)
+   -------------------------------------------------------------------------- */
+
+.fs-flow {
+  --fs-dot: clamp(12px, 1vw, 16px);
+  --fs-band: color-mix(in srgb, var(--cs-fg) 9%, transparent);
+  --fs-radius: clamp(8px, 0.8vw, 14px);
+
+  display: grid;
+  padding-inline: calc(var(--cs-edge) - var(--cs-bleed-inset));
+  color: var(--cs-fg);
+}
+
+.fs-flow__lane-label,
+.fs-flow__cell,
+.fs-flow__stages {
+  margin: 0;
+}
+
+.fs-flow__lane-label {
+  color: color-mix(in srgb, var(--cs-fg) 70%, transparent);
+}
+
+/* The list keeps its semantics for screen readers; its items take their
+   places in the outer grid. */
+.fs-flow__stages {
+  display: contents;
+  list-style: none;
+  padding: 0;
+}
+
+.fs-flow__cell {
+  padding: clamp(10px, 1.1vw, 20px) clamp(12px, 1.2vw, 22px);
+  background-color: var(--fs-band);
+  color: color-mix(in srgb, var(--cs-fg) 88%, transparent);
+}
+
+.fs-flow__stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.fs-flow__dot {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  width: var(--fs-dot);
+  height: var(--fs-dot);
+  border-radius: 50%;
+  background-color: var(--cs-fg);
+}
+
+/* The line through the stages, broken nowhere: each stage draws its share, and
+   the first and last stop at their dot. */
+.fs-flow__stage::before {
+  content: '';
+  position: absolute;
+  background-color: color-mix(in srgb, var(--cs-fg) 45%, transparent);
+}
+
+.fs-flow__stage-label {
+  position: relative;
+  z-index: 1;
+}
+
+/* Desktop: stages are columns, lanes are rows. */
+@media (min-width: 768px) {
+  .fs-flow {
+    grid-template-columns: repeat(var(--fs-stages), minmax(0, 1fr));
+    row-gap: clamp(10px, 1.1vw, 18px);
+  }
+
+  .fs-flow__lane-label[data-lane='public'] {
+    grid-row: 1;
+    grid-column: 1 / -1;
+  }
+
+  .fs-flow__lane-label[data-lane='signal'] {
+    grid-row: 5;
+    grid-column: 1 / -1;
+  }
+
+  .fs-flow__cell {
+    grid-column: var(--fs-col) / span var(--fs-span);
+  }
+
+  .fs-flow__cell[data-lane='public'] {
+    grid-row: 2;
+  }
+
+  .fs-flow__cell[data-lane='signal'] {
+    grid-row: 4;
+  }
+
+  .fs-flow__cell[data-band-start] {
+    border-start-start-radius: var(--fs-radius);
+    border-end-start-radius: var(--fs-radius);
+  }
+
+  .fs-flow__cell[data-band-end] {
+    border-start-end-radius: var(--fs-radius);
+    border-end-end-radius: var(--fs-radius);
+  }
+
+  .fs-flow__stage {
+    grid-row: 3;
+    grid-column: var(--fs-col);
+    flex-direction: column;
+    align-items: flex-start;
+    gap: clamp(8px, 0.8vw, 14px);
+    padding: clamp(14px, 1.6vw, 28px) clamp(12px, 1.2vw, 22px);
+  }
+
+  .fs-flow__stage::before {
+    top: calc(clamp(14px, 1.6vw, 28px) + var(--fs-dot) / 2 - 1px);
+    left: 0;
+    right: 0;
+    height: 2px;
+  }
+
+  .fs-flow__stage[data-first]::before {
+    left: clamp(12px, 1.2vw, 22px);
+  }
+
+  .fs-flow__stage[data-last]::before {
+    right: auto;
+    width: clamp(12px, 1.2vw, 22px);
+  }
+}
+
+/* Phones: the same grid transposed — stages run down the page, the public
+   lane to their left and Signal to their right. */
+@media (max-width: 767.98px) {
+  .fs-flow {
+    /* The sequence stage keeps the left gutter on phones and bleeds right. */
+    padding-inline: 0 var(--cs-edge);
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1.15fr);
+    grid-template-rows: auto repeat(var(--fs-stages), auto);
+    column-gap: 10px;
+  }
+
+  .fs-flow__lane-label {
+    grid-row: 1;
+    padding-bottom: 10px;
+  }
+
+  .fs-flow__lane-label[data-lane='public'] {
+    grid-column: 1;
+  }
+
+  .fs-flow__lane-label[data-lane='signal'] {
+    grid-column: 3;
+  }
+
+  .fs-flow__cell {
+    grid-row: var(--fs-row) / span var(--fs-span);
+    padding: 12px;
+  }
+
+  .fs-flow__cell[data-lane='public'] {
+    grid-column: 1;
+  }
+
+  .fs-flow__cell[data-lane='signal'] {
+    grid-column: 3;
+  }
+
+  .fs-flow__cell[data-band-start] {
+    border-start-start-radius: var(--fs-radius);
+    border-start-end-radius: var(--fs-radius);
+  }
+
+  .fs-flow__cell[data-band-end] {
+    border-end-start-radius: var(--fs-radius);
+    border-end-end-radius: var(--fs-radius);
+  }
+
+  .fs-flow__stage {
+    grid-row: var(--fs-row);
+    grid-column: 2;
+    flex-direction: column;
+    justify-content: center;
+    gap: 6px;
+    min-height: 92px;
+    padding-block: 12px;
+  }
+
+  .fs-flow__stage::before {
+    left: calc(50% - 1px);
+    width: 2px;
+    top: 0;
+    bottom: 0;
+  }
+
+  .fs-flow__stage[data-first]::before {
+    top: 50%;
+  }
+
+  .fs-flow__stage[data-last]::before {
+    bottom: 50%;
+  }
+
+  /* The line runs behind the label here, so the label cuts it. */
+  .fs-flow__stage-label {
+    padding: 2px 4px;
+    background-color: var(--cs-bg);
+  }
+}
