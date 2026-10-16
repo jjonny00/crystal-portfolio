@@ -246,6 +246,11 @@ const Fixed3DCanvas = forwardRef(({
   // A click on the scene's background: 'project' or 'overview', the level it
   // goes back up from. See SceneBackgroundClick.
   onBackgroundClick = null,
+  // A click or tap on the hero's whole crystal. See HeroCrystalTap.
+  onHeroCrystalTap = null,
+  // A click or tap on the focused project's fragment, with its scene facet key.
+  // See SceneBackgroundClick.
+  onFocusedFacetClick = null,
   cameraRuntimeOverrides = null,
   projectRuntimeOverrides = null,
   // Stops the render loop entirely while the scene is hidden behind a
@@ -788,6 +793,10 @@ const Fixed3DCanvas = forwardRef(({
       heroOverviewRuntime.resetToIdle({ reason: 'crystal-reformed' });
       fractureEffectsRuntime.resetToIdle({ reason: 'crystal-reformed' });
       lastHeroOverviewStartRef.current = '';
+    } else if (prevForm === 'whole' && form === 'exploded' && animationData?.formReversal) {
+      // A reform reversed back out (see applyZoneTransition) is not an explosion:
+      // no fracture effects, no camera cinematic.
+      lastHeroOverviewStartRef.current = 'exploded';
     } else if (prevForm === 'whole' && form === 'exploded') {
       if (lastHeroOverviewStartRef.current !== 'exploded') {
         lastHeroOverviewStartRef.current = 'exploded';
@@ -1159,6 +1168,8 @@ const Fixed3DCanvas = forwardRef(({
             onDirectProjectSelect={onDirectProjectSelect}
             onFractureStart={handleFractureStart}
             onBackgroundClick={onBackgroundClick}
+            onHeroCrystalTap={onHeroCrystalTap}
+            onFocusedFacetClick={onFocusedFacetClick}
             heroOverviewRuntime={fractureEffectsRuntime}
             heroOverviewExplosionClockRef={heroOverviewExplosionClockRef}
           />

@@ -53,6 +53,11 @@ export const PERFORMANCE_PROFILES = {
     // emissiveIntensity far more weakly, so the flare/hover pop reads flat.
     emissiveGlowBoost: 1.0,
 
+    // Multiplies the hero → overview explosion sparkles' count
+    // (HERO_OVERVIEW_CINEMATIC_CONFIG.particles.count). They are updated on the
+    // CPU every frame, so medium runs half of them and low a quarter.
+    explosionParticleScale: 1.0,
+
     // All tiers now target a 60 FPS baseline
     targetFPS: 60,
     minAcceptableFPS: 55,
@@ -138,6 +143,9 @@ export const PERFORMANCE_PROFILES = {
     // material, so the event glows read close to high — no boost needed.
     emissiveGlowBoost: 1.0,
 
+    // See `explosionParticleScale` on the `high` profile.
+    explosionParticleScale: 0.25,
+
     // All tiers now target a 60 FPS baseline
     targetFPS: 60,
     minAcceptableFPS: 55,
@@ -214,6 +222,9 @@ export const PERFORMANCE_PROFILES = {
     // owns the RESTING glow) back down if 10.45 is over-lifting the crystal at rest.
     emissiveGlowBoost: 5.75,
 
+    // See `explosionParticleScale` on the `high` profile.
+    explosionParticleScale: 0.25,
+
     // Lens dirt overrides (over crystalConfig.postProcessing.lensDirt). The
     // non-PBR material's highlights are dimmer, so the dirt needs less light to
     // flare; and it stays sharp here, unlike medium/high.
@@ -265,6 +276,7 @@ export const PERFORMANCE_PROFILES = {
 
     glowIntensityScale: 1.0,
     emissiveGlowBoost: 1.0,
+    explosionParticleScale: 1.0,
 
     targetFPS: 60,
     minAcceptableFPS: 45,

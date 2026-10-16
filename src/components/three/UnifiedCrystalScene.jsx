@@ -34,6 +34,7 @@ import FacetLabels from './FacetLabels'
 import FacetHoverParticles from './FacetHoverParticles'
 import OverviewTouchPicker from './OverviewTouchPicker'
 import SceneBackgroundClick from './SceneBackgroundClick'
+import HeroCrystalTap from './HeroCrystalTap'
 import { effects, materials as defaultCrystalMaterials, crystalWholePathForTier, projectModelPathForTier } from '../../crystalConfig'
 import { useFacetOverlayGeometry, resetOverlaySlot, reassertOverlayFace } from '../../hooks/useFacetOverlayGeometry'
 import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController'
@@ -73,9 +74,12 @@ const FORWARD_MASK_GLOW_PEAK_INTENSITY = 2.0
 // flare-blue to the project color ("very quickly" / front-loaded).
 const FRACTURE_GLOW_COLOR_FADE_PORTION = 0.2
 const REFORM_PRE_SWAP_WINDOW_MS = 110
+// After a reform is reversed back out, the overview labels come up once the facets
+// are most of the way back (there is no explosion clock to time them by).
+const REVERSAL_LABEL_REVEAL_DELAY_MS = 700
 const REFORM_MASK_GLOW_DURATION_S = 0.2
-const REFORM_MASK_GLOW_PEAK_INTENSITY = 6.75
-const REFORM_FACET_MASK_GLOW_PEAK_INTENSITY = 6.75
+const REFORM_MASK_GLOW_PEAK_INTENSITY = 3.5
+const REFORM_FACET_MASK_GLOW_PEAK_INTENSITY = 3.5
 const REFORM_SWAP_OVERLAP_MS = 100
 
 // Facet hover/focus color-transition rates (progress units per second; duration ≈ 1/rate).
@@ -470,6 +474,8 @@ const UnifiedCrystalScene = forwardRef(({
   onDirectProjectSelect,
   onFractureStart,
   onBackgroundClick = null,
+  onHeroCrystalTap = null,
+  onFocusedFacetClick = null,
   sharedCameraMoveProgressRef = null,
   introRevealRef = null,
   heroOverviewRuntime = null,
@@ -506,7 +512,7 @@ const UnifiedCrystalScene = forwardRef(({
   const fractureStartQuatRef = useRef(new THREE.Quaternion());
   const neutralQuat = useMemo(() => new THREE.Quaternion(), []);
   const origin = useMemo(() => new THREE.Vector3(0, 0, 0), []);
-  const swapMaskGlowColor = useMemo(() => new THREE.Color('#2146ff'), []);
+  const swapMaskGlowColor = useMemo(() => new THREE.Color('#6375ae'), []);
   
   // Debug panel state
   const [showCrystalDebug, setShowCrystalDebug] = useState(false);
@@ -725,6 +731,8 @@ const UnifiedCrystalScene = forwardRef(({
 
   const crystalConfig = animationData?.crystalConfig;
   const heroOverviewParticlesConfig = HERO_OVERVIEW_CINEMATIC_RESOLVED.particles;
+  // Per-tier share of the explosion sparkles (deviceProfiles explosionParticleScale).
+  const explosionParticleScale = performanceProfile?.explosionParticleScale ?? 1;
   const heroOverviewRingConfig = HERO_OVERVIEW_CINEMATIC_RESOLVED.ring;
   const heroOverviewShardBurstConfig = HERO_OVERVIEW_CINEMATIC_RESOLVED.shardBurst;
   const heroOverviewExplosionParticlesConfig = HERO_OVERVIEW_CINEMATIC_RESOLVED.explosionParticles;
@@ -1284,6 +1292,10 @@ const UnifiedCrystalScene = forwardRef(({
   const swapMaskGlowStartRef = useRef(null);
   const swapMaskGlowModeRef = useRef(null);
   const reformProgressGlowRef = useRef(0);
+  // A reform reversed back out (animationData.formReversal): ease the reform glow
+  // off the facets, and bring the labels up once the facets are most of the way out.
+  const reformGlowReleaseRef = useRef(false);
+  const reversalLabelRevealAtRef = useRef(null);
   const wholeCrystalBaseEmissiveIntensityRef = useRef(0);
   const wholeCrystalBaseEmissiveColorRef = useRef(new THREE.Color('#000000'));
 
@@ -2849,7 +2861,28 @@ const UnifiedCrystalScene = forwardRef(({
         if (import.meta.env.DEV) {
           logger.debug('💎 Crystal: Explosion - charging whole crystal before swap');
         }
-        if (!simplifiedAnimations && !explosionCycleCompleteRef.current) {
+        if (!simplifiedAnimations && animationData?.formReversal) {
+          // An overview→hero reform interrupted back to the overview: no explosion.
+          // Keep (or bring back) the facets where the reform has them and let the
+          // overview's per-frame ease carry them back out; cancel the pending swap to
+          // the whole crystal and ease the reform glow back off.
+          pendingExplodeSwapAtRef.current = null;
+          pendingReformSwapAtRef.current = null;
+          pendingFacetHideAtRef.current = null;
+          if (swapMaskGlowModeRef.current === 'reform') {
+            swapMaskGlowStartRef.current = null;
+            swapMaskGlowModeRef.current = null;
+          }
+          resetWholeCrystalMaskGlow();
+          reformGlowReleaseRef.current = true;
+          explosionStartRef.current = null;
+          explosionCycleCompleteRef.current = true;
+          setShowWholeCrystal(false);
+          setShowFacets(true);
+          setSphereVisible(false);
+          setRingVisible(false);
+          reversalLabelRevealAtRef.current = performance.now() + REVERSAL_LABEL_REVEAL_DELAY_MS;
+        } else if (!simplifiedAnimations && !explosionCycleCompleteRef.current) {
           pendingReformSwapAtRef.current = null;
           pendingFacetHideAtRef.current = null;
           setShowWholeCrystal(true);
@@ -2895,6 +2928,8 @@ const UnifiedCrystalScene = forwardRef(({
         if (heroOverviewExplosionClockRef) heroOverviewExplosionClockRef.current = null;
         explosionCycleCompleteRef.current = false;
         labelRevealFiredRef.current = false;
+        reversalLabelRevealAtRef.current = null;
+        reformGlowReleaseRef.current = false;
         setLabelRevealReady(false);
         resetWholeCrystalMaskGlow();
         if (facetsGroupRef.current) {
@@ -2905,7 +2940,7 @@ const UnifiedCrystalScene = forwardRef(({
     }
 
     lastCrystalForm.current = currentForm;
-  }, [animationData?.crystalForm, resetWholeCrystalMaskGlow, triggerSwapMaskGlow, simplifiedAnimations, neutralQuat]);
+  }, [animationData?.crystalForm, resetWholeCrystalMaskGlow, triggerSwapMaskGlow, simplifiedAnimations, neutralQuat]); // eslint-disable-line react-hooks/exhaustive-deps -- formReversal is read with crystalForm, never on its own
 
   // Main animation loop
   useFrame((state, deltaTime) => {
@@ -2913,6 +2948,13 @@ const UnifiedCrystalScene = forwardRef(({
     maybeTriggerHeroOverviewEffects('frame');
     if (!animationData || !facetRefs.current.length || simplifiedAnimations) return;
     const now = performance.now();
+    if (reversalLabelRevealAtRef.current != null && now >= reversalLabelRevealAtRef.current) {
+      reversalLabelRevealAtRef.current = null;
+      if (!labelRevealFiredRef.current) {
+        labelRevealFiredRef.current = true;
+        setLabelRevealReady(true);
+      }
+    }
     if (import.meta.env.DEV && typeof globalThis !== 'undefined') {
       globalThis.__crystalSceneVisibleCompositionSnapshot = {
         frame: state.clock?.frame ?? null,
@@ -3126,7 +3168,11 @@ const UnifiedCrystalScene = forwardRef(({
 
         wholeCrystalRef.current.position.set(floatX, floatY, floatZ);
       } else {
-        wholeCrystalRef.current.position.set(0, 0, 0);
+        // Out of the hero (the explosion starts here) glide off the float to the
+        // centre instead of snapping there in one frame, a visible tick at the start
+        // of the fracture. At this rate it is within a tenth of a millimetre well
+        // before the fragments take the crystal's place at the centre (~120ms).
+        wholeCrystalRef.current.position.multiplyScalar(Math.exp(-40 * deltaTime));
       }
     }
 
@@ -3913,6 +3959,12 @@ const UnifiedCrystalScene = forwardRef(({
         const targetReformGlow = shouldHoldMaxReformGlow ? 1 : easedReformGlow;
         reformProgressGlowRef.current = targetReformGlow;
         applyReformFacetMaskGlow(targetReformGlow);
+      } else if (reformGlowReleaseRef.current) {
+        // A reversed reform: ease the facets' reform glow back off to rest.
+        const released = reformProgressGlowRef.current * Math.exp(-6 * deltaTime);
+        reformProgressGlowRef.current = released < 0.01 ? 0 : released;
+        applyReformFacetMaskGlow(reformProgressGlowRef.current);
+        if (reformProgressGlowRef.current === 0) reformGlowReleaseRef.current = false;
       } else if (reformProgressGlowRef.current > 0 && swapMaskGlowModeRef.current !== 'reform') {
         reformProgressGlowRef.current = 0;
       }
@@ -4592,10 +4644,13 @@ const UnifiedCrystalScene = forwardRef(({
       {/* Magical smoke — instanced camera-facing billboards fired at the same
           beat as the shimmering explosion burst (burstId). Slower/contained,
           untinted (color comes from the texture); disabled entirely under
-          reduced motion (simplifiedAnimations). Normal-blended. */}
+          reduced motion (simplifiedAnimations). Normal-blended. It and both
+          sparkle bursts clear (`active`) once the crystal reforms, so an
+          interrupted explosion's debris can't drift in front of the next one. */}
       {!simplifiedAnimations && mergedConfig.fracture?.smoke?.enabled && (
         <FractureSmokePuff
           trigger={burstId}
+          active={animationData?.crystalForm === 'exploded'}
           reducedMotion={simplifiedAnimations}
           position={[0, 0, 0]}
           {...mergedConfig.fracture.smoke}
@@ -4607,6 +4662,7 @@ const UnifiedCrystalScene = forwardRef(({
           trigger={heroOverviewExplosionBurstId}
           emitterPosition={[0, 0, 0]}
           {...heroOverviewExplosionParticlesConfig}
+          active={animationData?.crystalForm === 'exploded'}
           delay={0}
           onBurstGenerated={(details) => {
             heroOverviewEffectsDiagnosticsRef.current = {
@@ -4631,8 +4687,13 @@ const UnifiedCrystalScene = forwardRef(({
         <FractureBurstParticles
           trigger={burstId}
           emitterPosition={[0, 0, 0]}
+          active={animationData?.crystalForm === 'exploded'}
           {...mergedConfig.fracture.particles}
           {...(heroOverviewEffectsManualMode ? heroOverviewParticlesConfig.finalProps : {})}
+          count={Math.max(1, Math.round(
+            (heroOverviewEffectsManualMode ? heroOverviewParticlesConfig.finalProps.count : mergedConfig.fracture.particles.count)
+            * explosionParticleScale
+          ))}
           spread={heroOverviewEffectsManualMode ? heroOverviewParticlesConfig.finalProps.spread : 0.5}
           onBurstGenerated={heroOverviewEffectsManualMode ? ((details) => {
             heroOverviewEffectsDiagnosticsRef.current = {
@@ -4801,7 +4862,8 @@ const UnifiedCrystalScene = forwardRef(({
       />
 
       {/* Clicking the background goes back a level: project → overview →
-          hero. Off everywhere else (hero, About, an open case study). */}
+          hero. Off everywhere else (hero, About, an open case study). In a
+          project, clicking its own fragment opens the case study instead. */}
       <SceneBackgroundClick
         level={
           inActiveOverview
@@ -4816,6 +4878,20 @@ const UnifiedCrystalScene = forwardRef(({
         facetRefs={facetRefs}
         facetKeys={facetKeys}
         onBackgroundClick={onBackgroundClick}
+        onFocusedFacetClick={onFocusedFacetClick}
+      />
+
+      {/* Clicking or tapping the whole crystal in the hero goes on to Work. Only
+          a press the hero drag orbit never took as a drag counts. */}
+      <HeroCrystalTap
+        enabled={
+          showWholeCrystal &&
+          animationData?.cameraState === 'hero' &&
+          animationData?.currentZone === 'hero' &&
+          animationData?.crystalForm === 'whole'
+        }
+        crystalRef={wholeCrystalRef}
+        onTap={onHeroCrystalTap}
       />
 
       <FacetLabels

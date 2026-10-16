@@ -1,9 +1,12 @@
 // src/components/sections/HeroSection.jsx
 
-import React from 'react';
-import { animated, useSpring } from '@react-spring/web';
+import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { animated, easings, useSprings } from '@react-spring/web';
 
 import useProjectHeadlineColor from '../../hooks/useProjectHeadlineColor';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
+import { MQ_REDUCED_MOTION } from '../../config/breakpoints';
+import { getIntroTimeline, subscribeIntroTimeline } from '../../lib/introTimeline';
 import Headline from '../ui/Headline';
 import '../../styles/hero-section.css';
 // The intro, long and short. Same shape as a project's `mobile` block in
@@ -15,6 +18,23 @@ import {
 } from '../../data/siteCopy';
 
 const ARROW_DOWN_SRC = '/assets/ui/SVG/arrow-down.svg';
+
+// The copy comes in a piece at a time: the headline's three lines, then the
+// paragraph, then the CTA. Each entry is [starts at (ms), rise length (ms), fade
+// length (ms)]: the headline lines rise into place on the rise length but keep
+// fading in for longer; the paragraph and CTA only fade, slowly (rise 0).
+//
+// On the first load the schedule is timed against the camera intro
+// (lib/introTimeline, from the moment the camera starts moving): the first line a
+// second in, the last one in place as the camera settles on the hero (the intro
+// is 4.4s and its last stretch is imperceptibly slow), the paragraph and CTA after.
+const INTRO_SCHEDULE = [[1000, 800, 1600], [2200, 800, 1600], [3400, 800, 1600], [4300, 0, 1600], [4900, 0, 1600]];
+// Coming back to the hero, or arriving with no intro: the same order, close together.
+const QUICK_SCHEDULE = [[150, 600, 1000], [270, 600, 1000], [390, 600, 1000], [600, 0, 1000], [900, 0, 1000]];
+// Shown without waiting if the intro was expected but never starts.
+const INTRO_START_FALLBACK_MS = 2000;
+const HIDE_MS = 300;
+const RISE_PX = 24;
 
 /**
  * Hero Section Component
@@ -31,44 +51,74 @@ const HeroSection = ({
   onScrollHint = null
 }) => {
   useProjectHeadlineColor();
+  const reducedMotion = useMediaQuery(MQ_REDUCED_MOTION);
+  const introTimeline = useSyncExternalStore(subscribeIntroTimeline, getIntroTimeline, getIntroTimeline);
 
-  const contentSpring = useSpring({
-    from: {
-      opacity: 0,
-      transform: 'translateY(40px)'
-    },
-    to: {
-      opacity: visible ? 1 : 0,
-      transform: visible ? 'translateY(0px)' : 'translateY(40px)'
-    },
-    config: { tension: 280, friction: 24 },
-    delay: visible ? 200 : 0
-  });
+  // How many pieces are in (0-5), and the schedule bringing them in. A schedule is
+  // fixed when the hero becomes visible and runs to the end, so the intro landing
+  // part-way through never reshuffles it; hiding the hero resets it.
+  const [shownCount, setShownCount] = useState(0);
+  const [schedule, setSchedule] = useState(QUICK_SCHEDULE);
+  const sessionRef = useRef({ scheduled: false, timers: [] });
 
-  const subtitleSpring = useSpring({
-    from: {
-      opacity: 0,
-      transform: 'translateY(20px)'
-    },
-    to: {
-      opacity: visible ? 1 : 0,
-      transform: visible ? 'translateY(0px)' : 'translateY(20px)'
-    },
-    config: { tension: 300, friction: 26 },
-    delay: visible ? 600 : 0
-  });
+  useEffect(() => {
+    const session = sessionRef.current;
+    const clearTimers = () => {
+      session.timers.forEach(clearTimeout);
+      session.timers = [];
+    };
+    if (!visible) {
+      clearTimers();
+      session.scheduled = false;
+      setShownCount(0);
+      return;
+    }
+    if (session.scheduled) return;
 
-  const ctaSpring = useSpring({
-    from: {
-      opacity: 0,
-      transform: 'translateY(20px)'
-    },
-    to: {
-      opacity: visible ? 1 : 0,
-      transform: visible ? 'translateY(0px)' : 'translateY(20px)'
-    },
-    config: { tension: 200, friction: 20 },
-    delay: visible ? 1000 : 0
+    const run = (steps, startedAt) => {
+      clearTimers();
+      session.scheduled = true;
+      setSchedule(steps);
+      steps.forEach(([at], index) => {
+        session.timers.push(setTimeout(
+          () => setShownCount((count) => Math.max(count, index + 1)),
+          Math.max(0, startedAt + at - performance.now()),
+        ));
+      });
+    };
+
+    if (introTimeline.phase === 'running') {
+      run(INTRO_SCHEDULE, introTimeline.startedAt);
+    } else if (introTimeline.phase === 'pending') {
+      // Behind the loader the camera has not started yet: wait for it (this effect
+      // runs again when it does), but not forever.
+      if (!session.timers.length) {
+        session.timers.push(setTimeout(() => run(QUICK_SCHEDULE, performance.now()), INTRO_START_FALLBACK_MS));
+      }
+    } else {
+      run(QUICK_SCHEDULE, performance.now());
+    }
+  }, [visible, introTimeline]);
+
+  useEffect(() => () => sessionRef.current.timers.forEach(clearTimeout), []);
+
+  const [springs] = useSprings(5, (index) => {
+    const shown = index < shownCount;
+    const [, riseMs, fadeMs] = schedule[index];
+    return {
+      opacity: shown ? 1 : 0,
+      y: shown || reducedMotion || !riseMs ? 0 : RISE_PX,
+      // The fade on a gentler curve than the rise, so the longer fade reads as a
+      // fade rather than a quick pop with a long, invisible tail.
+      config: (key) => ({
+        duration: shown ? (key === 'opacity' ? fadeMs : riseMs) : HIDE_MS,
+        easing: key === 'opacity' ? easings.easeOutSine : easings.easeOutCubic,
+      }),
+    };
+  }, [shownCount, schedule, reducedMotion]);
+  const pieceStyle = (index) => ({
+    opacity: springs[index].opacity,
+    transform: springs[index].y.to((y) => `translateY(${y}px)`),
   });
 
   const handleScrollHint = () => {
@@ -93,22 +143,22 @@ const HeroSection = ({
   return (
     <div className="hero-section">
       <div className="hero-section__content">
-        <animated.div style={contentSpring} className="hero-section__headline-block">
+        <div className="hero-section__headline-block">
           <Headline as="h1" className="type-headline-lg hero-section__title">
             <span className="visually-hidden">Jon Shaw: </span>
-            <span className="hero-section__title-line">SYSTEMS</span>
-            <span className="hero-section__title-line">BENEATH</span>
-            <span className="hero-section__title-line">THE SURFACE</span>
+            <animated.span style={pieceStyle(0)} className="hero-section__title-line">SYSTEMS</animated.span>
+            <animated.span style={pieceStyle(1)} className="hero-section__title-line">BENEATH</animated.span>
+            <animated.span style={pieceStyle(2)} className="hero-section__title-line">THE SURFACE</animated.span>
           </Headline>
-        </animated.div>
+        </div>
 
-        <animated.div style={subtitleSpring} className="hero-section__body-block">
+        <animated.div style={pieceStyle(3)} className="hero-section__body-block">
           <p className="type-body-lg hero-section__body-copy">
             {isMobile ? BODY_COPY_MOBILE : BODY_COPY}
           </p>
         </animated.div>
 
-        <animated.div style={ctaSpring} className="hero-section__cta-block">
+        <animated.div style={pieceStyle(4)} className="hero-section__cta-block">
           <button
             type="button"
             className="hero-section__cta"

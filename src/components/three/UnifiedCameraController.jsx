@@ -11,6 +11,8 @@ import { createCameraDirectorPilotTransition, updateCameraDirectorPilotTransitio
 import { resolveCameraDestination } from '../../camera/destinationResolver';
 import { HERO_OVERVIEW_CINEMATIC_RESOLVED, HERO_OVERVIEW_EASING } from '../../config/heroOverviewCinematicConfig';
 import { MQ_HOVER_CAPABLE } from '../../config/breakpoints';
+import { HERO_ORBIT_COASTING_RAD_PER_S, heroOrbitPress } from './heroOrbitPress';
+import { INTRO_DURATION_MS as INTRO_TIMELINE_DURATION_MS, getIntroTimeline, setIntroTimeline } from '../../lib/introTimeline';
 
 const logger = createLogger('unified-camera-controller');
 
@@ -59,6 +61,29 @@ const heroDragTiltLimit = (tilt) =>
 const softHeroDragTilt = (tilt) => {
   const limit = heroDragTiltLimit(tilt);
   return limit * Math.tanh(tilt / limit);
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INTRO REVEAL — the camera's opening move (see computeIntroPose). It starts close
+// beside the crystal and just below it, out of shot (the layout's
+// camera.positions.intro: only its distance from the crystal's axis and its height
+// are used), climbs up the crystal while turning round it, so the crystal drops
+// into frame in close-up, then pulls back to the hero framing. It faces the
+// crystal's axis throughout (the layout's camera.targets.intro gives only the
+// start look's height), so the view never pans sideways; it only rises, turns and
+// pulls back. Phases are shares of the intro's time, each a smootherstep.
+//   orbitSweep : extra turn (rad) round the crystal on top of the hero auto-orbit,
+//                spent by the landing so the hero orbit carries on seamlessly
+//   rise       : [start, end] of the climb (and the look rising with it)
+//   dolly      : [start, end] of the pull back to the hero distance
+const INTRO_REVEAL = {
+  orbitSweep: 1.6,
+  rise: [0, 0.75],
+  dolly: [0.3, 1],
+};
+const introSmootherstep = ([start, end], x) => {
+  const t = THREE.MathUtils.clamp((x - start) / Math.max(end - start, 1e-6), 0, 1);
+  return t * t * t * (t * (t * 6 - 15) + 10);
 };
 const HERO_OVERVIEW_DIRECTOR_ENV_FORCE_PILOT =
   typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_CAMERA_DIRECTOR_HERO_OVERVIEW_PILOT != null
@@ -276,6 +301,11 @@ const UnifiedCameraController = ({
   const introPlayedRef = useRef(introAlreadyPlayed);
   const introActiveRef = useRef(false);
   const introStartTimeRef = useRef(0);
+  // Publish the intro's clock for the DOM (lib/introTimeline): a fresh mount (the
+  // first load, or a Restart) waits for its intro; a deep-link arrival has none.
+  useEffect(() => {
+    setIntroTimeline(introAlreadyPlayed ? 'done' : 'pending');
+  }, [introAlreadyPlayed]);
   const introFromRef = useRef({
     position: new THREE.Vector3(),
     lookAt: new THREE.Vector3(),
@@ -307,7 +337,8 @@ const UnifiedCameraController = ({
   const HERO_DRAG_ORBIT_FLING_DAMPING = MOUSE_INTERACTION.heroDragOrbit.flingDamping;
   const HERO_DRAG_ORBIT_MAX_FLING = MOUSE_INTERACTION.heroDragOrbit.maxFlingTurnsPerSec * Math.PI * 2;
   const HERO_DRAG_TILT_RETURN_RATE = MOUSE_INTERACTION.heroDragOrbit.tiltReturnRate;
-  const INTRO_DURATION_MS = 4400;
+  // Shared with the DOM (lib/introTimeline), which times the hero copy against it.
+  const INTRO_DURATION_MS = INTRO_TIMELINE_DURATION_MS;
   // Reveal easing exponent. The reveal = smoothstep(progress) ** this. >1 biases the
   // curve toward dark values — the crystal crawls through the low/dark range for
   // longer before blooming. smoothstep keeps both ends' slope at 0, so raising the
@@ -319,14 +350,16 @@ const UnifiedCameraController = ({
   // instead and is intentionally excluded here to avoid double-dimming.
   const introDimMaterialsRef = useRef([]);
   const introDimCapturedRef = useRef(false);
-  // Intro ORBIT: the hero's continuous auto-orbit, already running from the first
-  // frame of the intro. The azimuth turns at the hero's own `orbitSpeed` (rad/sec) and
-  // is phased to reach the hero azimuth exactly as the intro completes — which is
-  // where the hero branch picks the orbit up (its clock is seeded on completion), so
-  // the rotation carries straight through the landing at a constant rate. Only the
-  // authored start's distance from the axis and height are used (the dolly, on
-  // `dollyProgress`); its angle is ignored.
-  const computeIntroOrbitPosition = (out, startPos, heroPos, orbitCenter, elapsedMs, dollyProgress, orbitSpeed) => {
+  // The intro's pose at `elapsedMs` (see INTRO_REVEAL). Position: the hero's
+  // continuous auto-orbit, running from the first frame at the hero's own
+  // `orbitSpeed` (rad/sec) and phased to reach the hero azimuth exactly as the intro
+  // completes, where the hero branch picks the orbit up (its clock is seeded on
+  // completion), plus the extra sweep, which eases out to nothing by then; so the
+  // rotation carries straight through the landing. The climb (height) and the pull
+  // back (distance from the axis) run on their own phases from the authored start's
+  // height and distance; its angle is ignored. Look: a point on the crystal's axis,
+  // rising with the climb from the authored start look's height to the hero's.
+  const computeIntroPose = (outPosition, outLookAt, startPos, startLook, heroPos, heroLook, orbitCenter, elapsedMs, orbitSpeed) => {
     const sdx = startPos.x - orbitCenter.x, sdz = startPos.z - orbitCenter.z;
     const hdx = heroPos.x - orbitCenter.x, hdz = heroPos.z - orbitCenter.z;
     const startRadius = Math.hypot(sdx, sdz);
@@ -334,19 +367,29 @@ const UnifiedCameraController = ({
     const startHeight = startPos.y - orbitCenter.y;
     const heroHeight = heroPos.y - orbitCenter.y;
     const heroAz = Math.atan2(hdx, hdz);
-    const remainingSec = (INTRO_DURATION_MS - THREE.MathUtils.clamp(elapsedMs, 0, INTRO_DURATION_MS)) / 1000;
+    const clampedMs = THREE.MathUtils.clamp(elapsedMs, 0, INTRO_DURATION_MS);
+    const progress = clampedMs / INTRO_DURATION_MS;
+    const remainingSec = (INTRO_DURATION_MS - clampedMs) / 1000;
     const speed = Number.isFinite(orbitSpeed) ? orbitSpeed : DEFAULT_HERO_TUNING.orbitSpeed;
-    const az = heroAz - remainingSec * speed;
+    const sweepLeft = INTRO_REVEAL.orbitSweep * (1 - introSmootherstep([0, 1], progress));
+    const az = heroAz - remainingSec * speed - sweepLeft;
+    const rise = introSmootherstep(INTRO_REVEAL.rise, progress);
+    const dolly = introSmootherstep(INTRO_REVEAL.dolly, progress);
 
-    const radius = startRadius + (heroRadius - startRadius) * dollyProgress;
-    const height = startHeight + (heroHeight - startHeight) * dollyProgress;
+    const radius = startRadius + (heroRadius - startRadius) * dolly;
+    const height = startHeight + (heroHeight - startHeight) * rise;
 
-    out.set(
+    outPosition.set(
       orbitCenter.x + Math.sin(az) * radius,
       orbitCenter.y + height,
       orbitCenter.z + Math.cos(az) * radius,
     );
-    return out;
+    outLookAt.set(
+      heroLook.x,
+      startLook.y + (heroLook.y - startLook.y) * rise,
+      heroLook.z,
+    );
+    return outPosition;
   };
   const HERO_VERTICAL_FRAMING_SCALE = 0; // Temporary isolate: disable authored Y framing
   const HERO_VERTICAL_FRAMING_SIGN = 1;
@@ -1513,6 +1556,8 @@ const UnifiedCameraController = ({
 
     const endGesture = (event) => {
       if (!gesture) return;
+      // Only a press released where it began can be a tap (see heroOrbitPress).
+      if (event?.type !== 'pointerup' && heroOrbitPress.current) heroOrbitPress.current.moved = true;
       if (
         spin.dragging &&
         event?.type === 'pointerup' &&
@@ -1526,11 +1571,21 @@ const UnifiedCameraController = ({
     };
 
     const handleDown = (event) => {
+      // Any new press (a second finger included) clears the last one's record, so
+      // only a press this drag would have taken can count as a tap.
+      heroOrbitPress.current = null;
       if (gesture) return;
       const isMouse = event.pointerType === 'mouse';
       if (isMouse && event.button !== 0) return;
       if (event.target?.closest?.(INTERACTIVE_SELECTOR)) return;
       if (isMouse && event.target?.closest?.(TEXT_SELECTOR)) return;
+      heroOrbitPress.current = {
+        time: event.timeStamp,
+        mouse: isMouse,
+        moved: false,
+        coasting: Math.abs(spin.velocity) > HERO_ORBIT_COASTING_RAD_PER_S,
+        intro: Boolean(introActiveRef.current || introHoldRef.current),
+      };
       gesture = {
         id: event.pointerId,
         mouse: isMouse,
@@ -1555,13 +1610,14 @@ const UnifiedCameraController = ({
         const travelX = event.clientX - gesture.startX;
         const travelY = event.clientY - gesture.startY;
         const travel = Math.hypot(travelX, travelY);
+        if (gesture.mouse ? travel < MOUSE_DRAG_SLOP_PX : travel < AXIS_LOCK_TRAVEL_PX) return;
+        // Past the slop it is a drag or a scroll, never a tap.
+        if (heroOrbitPress.current) heroOrbitPress.current.moved = true;
         if (gesture.mouse) {
-          if (travel < MOUSE_DRAG_SLOP_PX) return;
           gesture.axis = 'xy';
           root.classList.add('hero-orbit-dragging');
           window.getSelection?.()?.removeAllRanges();
         } else {
-          if (travel < AXIS_LOCK_TRAVEL_PX) return;
           gesture.axis = Math.abs(travelX) > Math.abs(travelY) ? 'x' : 'y';
           if (gesture.axis === 'y') {
             // The scroll owns this one.
@@ -1894,14 +1950,13 @@ const UnifiedCameraController = ({
         // if InitialCameraLookAt hasn't oriented the camera yet, it's straight-on,
         // giving the "moves up, no orbit" bug. The authoritative branch reseeds
         // this deterministically too (see the :6809 capture).
+        // (Only its height is used: the intro faces the crystal's axis throughout,
+        // see computeIntroPose.)
         if (config?.cameraTargets?.intro) {
           introFromRef.current.lookAt.copy(toVector3(config.cameraTargets.intro));
         } else {
           introFromRef.current.lookAt.copy(camera.position).add(currentDirection);
         }
-        // Match the start target's z to the camera's z so the intro opens looking
-        // straight ahead rather than angled into the scene.
-        introFromRef.current.lookAt.z = introFromRef.current.position.z;
         introFromRef.current.fov = camera.fov;
         const heroOrbitCenter = getHeroOrbitCenter();
         introToRef.current.position.copy(finalPosition);
@@ -4530,6 +4585,16 @@ const UnifiedCameraController = ({
     if (introHoldRef.current && introActiveRef.current) {
       introStartTimeRef.current = performance.now();
     }
+    // The intro's clock, for the DOM: running from its first unheld frame, done once
+    // it lands or is cut short (lib/introTimeline).
+    {
+      const { phase } = getIntroTimeline();
+      if (introActiveRef.current && !introHoldRef.current) {
+        if (phase !== 'running') setIntroTimeline('running', introStartTimeRef.current);
+      } else if (phase === 'running') {
+        setIntroTimeline('done');
+      }
+    }
 
     cameraFrameIndexRef.current += 1;
     const cameraFrameId = cameraFrameIndexRef.current;
@@ -4738,6 +4803,11 @@ const UnifiedCameraController = ({
           authoritativeHeroToOverviewTransitionRef.current.active = false;
           heroToOverviewTransitionStartedForExitRef.current = false;
         }
+        // The forward move returned early every frame, so the plain-hero flag still
+        // reads true from the frame the hero was left. Left stale, the hero-exit check
+        // below would take this reversal for a fresh hero exit and start the legacy
+        // hero→overview writer, which snapped the camera to the old hero exit pose.
+        previousWasPlainHeroRef.current = false;
         heroOverviewReversalToHeroDetected = true;
       }
     }
@@ -7393,37 +7463,29 @@ const UnifiedCameraController = ({
         // it here made start-look == landing-look — the camera stayed straight-on
         // and only rose (no orbit/rotate-in), and the look-lerp had from == to.
         // Reading the authored intro target makes the reveal deterministic.
+        // (Only its height is used: the intro faces the crystal's axis throughout,
+        // see computeIntroPose.)
         if (config?.cameraTargets?.intro) {
           introFromRef.current.lookAt.copy(toVector3(config.cameraTargets.intro));
         } else {
           introFromRef.current.lookAt.copy(currentTarget.current?.lookAt || center);
         }
-        // Match the start target's z to the camera's z so the intro opens looking
-        // straight ahead rather than angled into the scene.
-        introFromRef.current.lookAt.z = introFromRef.current.position.z;
       }
 
       const destination = authoritativeHeroIntroToRef.current;
       const elapsedMs = performance.now() - introStartTimeRef.current;
       const progress = THREE.MathUtils.clamp(elapsedMs / INTRO_DURATION_MS, 0, 1);
-      const easedProgress = 1 - Math.pow(1 - progress, 3);
-      const positionProgress = progress < 0.5
-        ? 4 * Math.pow(progress, 3)
-        : 1 - Math.pow(-2 * progress + 2, 3) / 2;
-      const introLookAt = introLookAtTempRef.current.lerpVectors(
-        introFromRef.current.lookAt,
-        destination.lookAtTarget,
-        easedProgress,
-      );
-      // The hero auto-orbit runs through the intro (see computeIntroOrbitPosition) and
-      // lands on the hero angle; the dolly (radius/height) rides positionProgress.
-      computeIntroOrbitPosition(
+      // Climb, turn and pull back onto the hero pose (see computeIntroPose).
+      const introLookAt = introLookAtTempRef.current;
+      computeIntroPose(
         camera.position,
+        introLookAt,
         introFromRef.current.position,
+        introFromRef.current.lookAt,
         destination.position,
+        destination.lookAtTarget,
         center,
         elapsedMs,
-        positionProgress,
         tuning.orbitSpeed,
       );
       camera.lookAt(introLookAt);
@@ -8482,24 +8544,18 @@ const UnifiedCameraController = ({
         });
       }
       const easedProgress = 1 - Math.pow(1 - progress, 3);
-      const positionProgress = progress < 0.5
-        ? 4 * Math.pow(progress, 3)
-        : 1 - Math.pow(-2 * progress + 2, 3) / 2;
-      const introLookAt = introLookAtTempRef.current.lerpVectors(
-        introFromRef.current.lookAt,
-        introToRef.current.lookAt,
-        easedProgress
-      );
-
-      // The hero auto-orbit runs through the intro; dolly rides positionProgress.
-      // Always lands at hero.
-      computeIntroOrbitPosition(
+      // The same climb, turn and pull back as the plain-hero intro branch (see
+      // computeIntroPose). Always lands at hero.
+      const introLookAt = introLookAtTempRef.current;
+      computeIntroPose(
         camera.position,
+        introLookAt,
         introFromRef.current.position,
+        introFromRef.current.lookAt,
         introToRef.current.position,
+        introToRef.current.lookAt,
         getHeroOrbitCenter(),
         elapsed,
-        positionProgress,
         resolveHeroTuning(config).tuning.orbitSpeed
       );
       camera.lookAt(introLookAt);

@@ -18,7 +18,8 @@
 //   • The overview labels are hit-tested by rect, since on touch they are never
 //     the event target (see OverviewTouchPicker).
 //   • The facets are raycast. In the overview any fragment is a hit; in a project
-//     only the focused one is, so the other fragments count as background.
+//     only the focused one is, so the other fragments count as background. A hit
+//     on the focused one goes to onFocusedFacetClick (it opens the case study).
 
 import { useEffect } from 'react';
 import { useThree } from '@react-three/fiber';
@@ -38,6 +39,7 @@ const SceneBackgroundClick = ({
   facetRefs,
   facetKeys,
   onBackgroundClick,
+  onFocusedFacetClick = null,
 }) => {
   const camera = useThree((state) => state.camera);
   const glDomElement = useThree((state) => state.gl.domElement);
@@ -84,7 +86,11 @@ const SceneBackgroundClick = ({
         raycaster,
         ndc,
       });
-      if (facetKey && (level === 'overview' || facetKey === focusedFacetKey)) return;
+      if (level === 'project' && facetKey && facetKey === focusedFacetKey) {
+        onFocusedFacetClick?.(facetKey);
+        return;
+      }
+      if (facetKey && level === 'overview') return;
 
       onBackgroundClick(level);
     };
@@ -102,7 +108,7 @@ const SceneBackgroundClick = ({
       window.removeEventListener('pointercancel', handlePointerCancel, true);
       window.removeEventListener('click', handleClick);
     };
-  }, [camera, facetKeys, facetRefs, focusedFacetKey, glDomElement, level, onBackgroundClick]);
+  }, [camera, facetKeys, facetRefs, focusedFacetKey, glDomElement, level, onBackgroundClick, onFocusedFacetClick]);
 
   return null;
 };

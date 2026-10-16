@@ -57,7 +57,7 @@ import CaseStudyOverlay, { OVERLAY_Z_INDEX } from './caseStudies/CaseStudyOverla
 import { foregroundColorForTone } from './caseStudies/system/caseStudyTheme';
 import { caseStudyOpaqueAtMs } from './caseStudies/transitionTiming';
 import { CATALOG_PROJECT } from './caseStudies/catalog/catalogProject';
-import { getProjectByAnyKey } from './data/projects';
+import { getProjectByAnyKey, getProjectIdBySceneFacetKey } from './data/projects';
 
 import { isMobileDevice } from './utils/isMobileDevice.js';
 import {
@@ -928,6 +928,18 @@ function App() {
     else if (level === 'overview') handleHomeClick();
   }, [handleHomeClick, handleWorkClick]);
 
+  // A click or tap on the hero's crystal goes on to Work, exactly as the nav's
+  // WORK link would. See HeroCrystalTap.
+  const handleHeroCrystalTap = useCallback(() => {
+    if (viewModeRef.current === 'caseStudy') return;
+    requestNavigationIntent({
+      destination: NAVIGATION_DESTINATIONS.OVERVIEW,
+      source: 'hero-crystal-tap',
+      behavior: 'auto',
+      legacyAction: 'directSelectZone+scrollToSection',
+    });
+  }, [requestNavigationIntent]);
+
   const handleActiveProjectChange = useCallback((nextProjectId) => {
     // An open case study keeps its project. On a deep link the content layer
     // mounts underneath the open case study and reports its passing sections as
@@ -948,6 +960,14 @@ function App() {
     setActiveProjectId(projectId);
     setViewMode('caseStudy');
   }, []);
+
+  // A click or tap on the selected project's own fragment opens its case study,
+  // as the project's case-study link does. See SceneBackgroundClick.
+  const handleFocusedFacetClick = useCallback((sceneFacetKey) => {
+    if (viewModeRef.current !== 'project') return;
+    const projectId = getProjectIdBySceneFacetKey(sceneFacetKey);
+    if (projectId) handleOpenCaseStudy(projectId);
+  }, [handleOpenCaseStudy]);
 
   const handleBackToProject = closeCaseStudy;
 
@@ -1454,6 +1474,8 @@ function App() {
           environmentProps={getOptimalEnvironmentProps()}
           isMobile={isMobile}
           onBackgroundClick={handleSceneBackgroundClick}
+          onHeroCrystalTap={handleHeroCrystalTap}
+          onFocusedFacetClick={handleFocusedFacetClick}
           paused={sceneFrozen}
           // Arrived somewhere other than the hero: no intro now, and none later
           // either. Not after a Restart, which replays it on purpose.

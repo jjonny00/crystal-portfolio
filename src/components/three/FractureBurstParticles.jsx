@@ -12,6 +12,8 @@ const DEFAULT_LIFETIME_MAX = 1.6;
 const DEFAULT_SPEED_MIN = 4.4;
 const DEFAULT_SPEED_MAX = 6.6;
 const DEFAULT_PARTICLE_BLENDING = 'additive';
+// How long the burst takes to clear once `active` goes false.
+const CLEAR_FADE_S = 0.35;
 const PARTICLE_BLENDING_BY_NAME = {
   additive: THREE.AdditiveBlending,
   normal: THREE.NormalBlending,
@@ -73,6 +75,13 @@ const FractureBurstParticles = ({
   shimmer = true,
   shimmerStrength = 0.55,
   shimmerSpeed = 9.0,
+  // Keep the sideways drift (turbulence + swirl) at full strength for the whole
+  // life. By default it fades out and the sideways drag stiffens past mid-life,
+  // so late particles only rise, straight up.
+  sustainDrift = false,
+  // false (the crystal has reformed): fade out whatever is still alive and stop
+  // it, so a burst never outlives its explosion and drifts on into the next one.
+  active = true,
   onBurstGenerated = null,
 }) => {
   const resolvedCount = Math.max(0, Math.floor(Number.isFinite(count) ? count : 0));
@@ -99,6 +108,7 @@ const FractureBurstParticles = ({
     onBurstGenerated,
   });
   const generatedOpacityRef = useRef(1);
+  const clearFadeRef = useRef(1);
   const generationRef = useRef({ trigger: null, countForTrigger: 0 });
 
   const velocitiesRef = useRef(new Float32Array(resolvedCount * 3));
@@ -613,6 +623,7 @@ const FractureBurstParticles = ({
       geometry.attributes.aShimmerRate.needsUpdate = true;
 
       startTimeRef.current = performance.now() - EMITTER_START_LEAD_S * 1000;
+      clearFadeRef.current = 1;
     };
 
     const effectiveDelay = Math.max((latestPropsRef.current.delay ?? 0) - EMITTER_START_LEAD_S, 0);
@@ -646,6 +657,18 @@ const FractureBurstParticles = ({
     material.uniforms.uTime.value = state.clock.elapsedTime;
     material.uniforms.uPixelRatio.value = state.gl.getPixelRatio();
     if (!startTimeRef.current) return;
+
+    // Clearing (see `active`): fade the burst out, then stop it.
+    if (!active) {
+      clearFadeRef.current = Math.max(0, clearFadeRef.current - dt / CLEAR_FADE_S);
+      if (clearFadeRef.current <= 0) {
+        activeCountRef.current = 0;
+        startTimeRef.current = 0;
+        geometry.setDrawRange(0, 0);
+        return;
+      }
+    }
+    const clearFade = clearFadeRef.current;
 
     const positions = geometry.attributes.position.array;
     const alphas = geometry.attributes.aAlpha.array;
@@ -727,11 +750,13 @@ const FractureBurstParticles = ({
         const flowZ = Math.cos(flowT * 1.17) * flowAmp;
         const flowY = Math.sin(flowT * 0.72) * flowAmp * 0.28;
         const riseRamp = smoothstep(0.14, 0.48, lifeT);
-        const turbulenceFade = 1.0 - smoothstep(0.24, 0.64, lifeT);
+        const turbulenceFade = sustainDrift ? 1.0 : 1.0 - smoothstep(0.24, 0.64, lifeT);
         const verticalTurbulenceFade = 1.0 - smoothstep(0.18, 0.45, lifeT);
-        const lateralDrag = THREE.MathUtils.lerp(drags[i], drags[i] * 0.82, smoothstep(0.35, 0.85, lifeT));
+        const lateralDrag = sustainDrift
+          ? drags[i]
+          : THREE.MathUtils.lerp(drags[i], drags[i] * 0.82, smoothstep(0.35, 0.85, lifeT));
         const minRise = THREE.MathUtils.lerp(0.003, 0.038, riseRamp);
-        const phaseTurbulenceScale = lifeT >= 0.5 ? 0.7 : 1.0;
+        const phaseTurbulenceScale = !sustainDrift && lifeT >= 0.5 ? 0.7 : 1.0;
 
         const swirlStrength = swirls[i] * 2.1;
         const swirlX = -positions[i3 + 2] * swirlStrength;
@@ -759,7 +784,7 @@ const FractureBurstParticles = ({
       positions[i3 + 2] += velocities[i3 + 2] * dt;
 
       sizes[i] = baseSizes[i];
-      alphas[i] = generatedOpacityRef.current * smoothstep(0.0, PARTICLE_FADE_IN_END, lifeT) * (1.0 - smoothstep(PARTICLE_FADE_OUT_START, PARTICLE_FADE_OUT_END, lifeT));
+      alphas[i] = generatedOpacityRef.current * clearFade * smoothstep(0.0, PARTICLE_FADE_IN_END, lifeT) * (1.0 - smoothstep(PARTICLE_FADE_OUT_START, PARTICLE_FADE_OUT_END, lifeT));
 
       if (i < 3) {
         logger.debug('[fade timing]', i, {

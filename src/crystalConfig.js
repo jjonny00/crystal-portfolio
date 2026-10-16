@@ -65,12 +65,12 @@ export const fracture = {
     size: 1.5,            // base sprite world size at spawn (large, billowy)
     expand: 14.0,          // end-of-life scale multiplier (aggressive growth as it rises)
     spread: 1.5,         // spawn radius — spread around the core, not on the bright center
-    outwardSpeed: 4.25,   // gentle radial drift (kept slow/contained)
-    upwardLift: 3.7,      // strong upward rise so it reads as mist lifting off the fracture
+    outwardSpeed: 5.25,   // gentle radial drift (kept slow/contained)
+    upwardLift: 2.0,      // strong upward rise so it reads as mist lifting off the fracture
     drag: 0.94,            // per-frame damping of radial drift (0-1, higher = floatier)
     lifetimeMin: 0.08,     // seconds
-    lifetimeMax: 3.5,     // seconds
-    opacity: 0.15          // peak per-sprite opacity (color comes from the texture itself)
+    lifetimeMax: 4.0,     // seconds
+    opacity: 0.25          // peak per-sprite opacity (color comes from the texture itself)
   },
   emissive: {
     intensity: 2.3,       // Bright glow intensity at fracture
@@ -87,27 +87,27 @@ export const fracture = {
     gradient: {
       mode: 'uvX',        // 'uvY' | 'uvX' | 'dist' (which axis is the ray length)
       invert: false,      // flip which end is the bright base
-      power: 1.5            // falloff shape (1 = linear, >1 = tighter to the base)
+      power: 2            // falloff shape (1 = linear, >1 = tighter to the base)
     },
     // Split each plane into thin sub-rays across its width.
     subRays: {
       enabled: true,
-      count: 6,           // number of sub-rays per plane
-      thickness: 0.075,    // half-width of each sub-ray
+      count: 8,           // number of sub-rays per plane
+      thickness: 0.1,    // half-width of each sub-ray
       softness: 0.025,     // edge blur
       jitter: 0.75,        // 0 = even/uniform, 1 = fully organic
       seed: 0,            // reshuffle the random arrangement
-      fan: 1              // 0 = parallel, 1 = fan out from the base
+      fan: 0              // 0 = parallel, 1 = fan out from the base
     },
     // Base→tip reveal. Its own timer — NOT tied to how long the rays are visible.
     growth: {
-      duration: 0.1,      // seconds for the front to travel base → tip
+      duration: 0.15,      // seconds for the front to travel base → tip
       edge: 0.12,         // soft leading-edge width
-      edgeBoost: 0      // brightness spike at the growth front
+      edgeBoost: 2      // brightness spike at the growth front
     },
     // Flicker that builds toward the tip/front as if energy is charging up.
     shimmer: {
-      amount: 0,        // 0 = steady, 1 = heavy flicker
+      amount: 1,        // 0 = steady, 1 = heavy flicker
       speed: 1           // flicker rate
     },
     // Visibility window as progress (0-1) of the hero→overview sequence.
@@ -151,7 +151,10 @@ export const explodedRotations = {
 
 // === CAMERA POSITIONS ===
 export const cameraPositions = {
-  intro: [-0.18, -0.98, 0.83],
+  // Intro start: close beside the crystal and just below it, out of shot. Only its
+  // distance from the axis and its height are used (see INTRO_REVEAL in
+  // UnifiedCameraController); the layouts set it per device.
+  intro: [-1.184, -2.8, -0.193],
   hero: [0.55, 0.92, 3.94],
   overview: [0.23, 0.53, 6.57],
   about: [1.74, 1.34, 1.87],
@@ -166,7 +169,7 @@ export const cameraPositions = {
 }
 
 export const cameraTargets = {
-  intro: [0.3, 0.0, 0],
+  intro: [0, -2.8, 0],     // only its height is used: the intro faces the crystal's axis
   hero: [0, 0.5, 0],
   overview: [0, 0.3, 0],
   about: [0, 0.2, 0],

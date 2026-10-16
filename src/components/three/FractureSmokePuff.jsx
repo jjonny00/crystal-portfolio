@@ -13,6 +13,9 @@ const smoothstep = (edge0, edge1, x) => {
 
 const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
 
+// How long the puff takes to clear once `active` goes false.
+const CLEAR_FADE_S = 0.35;
+
 // Fold instance-facing state so we always reuse the same typed arrays across
 // explosions rather than allocating fresh objects each trigger.
 const makeState = (count) => ({
@@ -36,9 +39,14 @@ const makeState = (count) => ({
  * All tunables come from crystalConfig `fracture.smoke` (count, size, spread,
  * outwardSpeed, upwardLift, lifetime, color, opacity). Respects reduced motion:
  * with `reducedMotion` the effect renders nothing.
+ *
+ * `active` false (the crystal has reformed) fades out whatever is still alive and
+ * stops it, so a puff never outlives its explosion: left running, an interrupted
+ * explosion's smoke drifted on in front of the next one's rays.
  */
 const FractureSmokePuff = ({
   trigger,
+  active = true,
   enabled = true,
   reducedMotion = false,
   position = [0, 0, 0],
@@ -56,6 +64,7 @@ const FractureSmokePuff = ({
   const resolvedCount = Math.max(0, Math.floor(Number.isFinite(count) ? count : 0));
   const meshRef = useRef();
   const activeRef = useRef(false);
+  const clearFadeRef = useRef(1);
   const stateRef = useRef(makeState(resolvedCount));
 
   const texture = getWizardSmokeTexture();
@@ -210,6 +219,7 @@ const FractureSmokePuff = ({
     geometry.attributes.aOpacity.needsUpdate = true;
     geometry.attributes.aDissolve.needsUpdate = true;
     activeRef.current = true;
+    clearFadeRef.current = 1;
     logger.debug('[smoke] spawned', resolvedCount, 'sprites');
   }, [trigger]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -228,11 +238,21 @@ const FractureSmokePuff = ({
     const opacities = geometry.attributes.aOpacity.array;
     const dissolves = geometry.attributes.aDissolve.array;
 
+    // Clearing (see `active`): fade everything still alive, then stop it.
+    if (!active) clearFadeRef.current = Math.max(0, clearFadeRef.current - dt / CLEAR_FADE_S);
+    const clearFade = clearFadeRef.current;
+
     let anyAlive = false;
 
     for (let i = 0; i < resolvedCount; i += 1) {
       const life = st.lifetimes[i];
       if (life <= 0) continue;
+      if (clearFade <= 0) {
+        st.lifetimes[i] = 0;
+        opacities[i] = 0;
+        scales[i] = 0;
+        continue;
+      }
 
       st.ages[i] += dt;
       const t = st.ages[i] / life;
@@ -265,7 +285,7 @@ const FractureSmokePuff = ({
       // Quick fade-in, then dissolve out over the back ~45% of life.
       const fadeIn = smoothstep(0, 0.12, t);
       const fadeOut = 1 - smoothstep(0.55, 1, t);
-      opacities[i] = st.maxOpacity[i] * fadeIn * fadeOut;
+      opacities[i] = st.maxOpacity[i] * fadeIn * fadeOut * clearFade;
       dissolves[i] = t; // drives the uneven shader erosion
     }
 

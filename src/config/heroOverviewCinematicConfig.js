@@ -17,8 +17,12 @@ export const HERO_OVERVIEW_CINEMATIC_CONFIG = {
   },
 
   camera: {
-    explosionPunchDistance: 0.05,
-    bulletTimeDriftDistance: 0.01,
+    // Both 0: the camera holds still from the split until the fragments release.
+    // The punch (a 5cm jab forward and back in ~70ms, right after the split) and
+    // the drift after it moved the camera while the fragments and the rays held
+    // still, so they read as jitter.
+    explosionPunchDistance: 0,
+    bulletTimeDriftDistance: 0,
     travelEase: 'quintOut',
     settleEase: 'smoothSettle',
     punchEase: 'easeOutExpo',
@@ -26,8 +30,9 @@ export const HERO_OVERVIEW_CINEMATIC_CONFIG = {
     // The turn around the crystal from the hero orbit's angle to the overview's.
     // It runs on its own, from the explosion (the fragments' release, at
     // fracture.holdDuration) to the very end of the move, rather than inside
-    // overviewTravel's fast-start ease.
-    orbitEase: 'glideOut',
+    // overviewTravel's fast-start ease. longLanding: most of the turn quickly,
+    // then a long, slow landing on the overview angle.
+    orbitEase: 'longLanding',
   },
 
   fracture: {
@@ -45,24 +50,26 @@ export const HERO_OVERVIEW_CINEMATIC_CONFIG = {
     enabled: true,
     triggerAt: 0.5,
     delay: 0,
-    count: 125,
+    count: 12500,
     color: '#aeecff',
     emitterPosition: [0, 1.5, 0],
     spawnRadius: 0.075,
     emitterScale: [0.07, 25.5, 0.07],
-    duration: 3.5,
-    spread: 1.35,
+    duration: null,
+    spread: 2.0,
     lifetime: null,
-    lifetimeMin: 0.5,
-    lifetimeMax: 2.25,
+    lifetimeMin: 0.05,
+    lifetimeMax: 4.25,
     speed: null,
-    speedMin: 0.8,
+    speedMin: 2.8,
     speedMax: 7.25,
     size: .07,
     opacity: 0.72,
     blending: 'additive',
     shimmerStrength: 0.75,
     shimmerSpeed: 40.0,
+    // Keep drifting sideways until they die, instead of rising straight up late.
+    sustainDrift: true,
     wired: true,
   },
 
@@ -81,18 +88,18 @@ export const HERO_OVERVIEW_CINEMATIC_CONFIG = {
   explosionParticles: {
     enabled: true,
     triggerAt: 0.56,
-    count: 220,
+    count: 500,
     color: '#b2fcff',
     duration: 1.9,
     speedMin: 0.01,
     speedMax: 0.05,
     lifetimeMin: 0.08,
     lifetimeMax: 0.12,
-    opacity: 0.95,
+    opacity: 0.65,
     spawnRadius: 0.85,
     emitterScale: [0.75, 2.2, 0.75],
     spread: 36.8,
-    size: 0.025,
+    size: 0.05,
     blending: 'additive',
     shimmerStrength: 0.75,
     shimmerSpeed: 60.0,
@@ -100,7 +107,7 @@ export const HERO_OVERVIEW_CINEMATIC_CONFIG = {
   },
 
   cameraForce: {
-    enabled: true,
+    enabled: false,
     triggerAt: 0.56,
     pushbackDistance: 0.42,
     pushbackDuration: 0.075,
@@ -134,6 +141,32 @@ export const HERO_OVERVIEW_CINEMATIC_CONFIG = {
 
 const clamp01 = (value) => Math.min(Math.max(value, 0), 1);
 const roundPhaseBoundary = (value) => Number(clamp01(value).toFixed(10));
+
+// Most of the way quickly, then a long landing. Up to `knee` (a share of the
+// time) a quartic leaves rest and covers `share` of the distance; after it the
+// speed falls as (1−u)^tailPower to rest at the end, so the rest of the
+// distance is spread over the rest of the time instead of stalling. The quartic
+// meets the tail with the same speed and acceleration, so there is no seam, and
+// the speed only falls once past its peak.
+const quickLanding = ({ knee, share, tailPower }) => {
+  const tail = 1 - knee;
+  const joinSpeed = ((tailPower + 1) * (1 - share)) / tail;
+  // The quartic a·s² + b·s³ + c·s⁴ in s = x / knee, solved for its value, slope
+  // and curvature at the join.
+  const slope = joinSpeed * knee;
+  const curvature = ((-tailPower * joinSpeed) / tail) * knee * knee;
+  const c = (curvature - 4 * slope + 6 * share) / 2;
+  const b = 5 * slope - 8 * share - curvature;
+  const a = share - b - c;
+  return (t) => {
+    const x = clamp01(t);
+    if (x < knee) {
+      const s = x / knee;
+      return s * s * (a + s * (b + s * c));
+    }
+    return 1 - (1 - share) * ((1 - (x - knee) / tail) ** (tailPower + 1));
+  };
+};
 
 export const HERO_OVERVIEW_EASING = {
   linear: (t) => clamp01(t),
@@ -174,6 +207,12 @@ export const HERO_OVERVIEW_EASING = {
     const x = clamp01(t);
     return 1 - ((1 - x) ** 5) * (1 + 5 * x);
   },
+  // 90% of the way in the first 30% of the time, then the last 10% easing to rest
+  // over the rest, the braking itself fading out so it lands with no final check
+  // (a tailPower of 1 braked at a constant rate right up to the stop). Over the
+  // turn's 2.5s: 50% by ~0.33s, 90% by ~0.75s, 95% by ~1.1s, 99% by ~1.7s. A
+  // knee of 0.25 whipped harder but braked out of it too abruptly.
+  longLanding: quickLanding({ knee: 0.3, share: 0.9, tailPower: 2 }),
   sinePulse: (t) => Math.sin(Math.PI * clamp01(t)),
   smoothSettle: (t) => {
     const x = clamp01(t);
@@ -460,6 +499,8 @@ export const resolveHeroOverviewCinematicConfig = (config = HERO_OVERVIEW_CINEMA
   if (!(typeof rawParticles.shimmerStrength === 'number' && Number.isFinite(rawParticles.shimmerStrength))) pushInvalidParticleKey('shimmerStrength');
   const particleShimmerSpeed = readNonNegativeNumber(rawParticles.shimmerSpeed, DEFAULT_PARTICLES_CONFIG.shimmerSpeed);
   if (!(typeof rawParticles.shimmerSpeed === 'number' && Number.isFinite(rawParticles.shimmerSpeed) && rawParticles.shimmerSpeed >= 0)) pushInvalidParticleKey('shimmerSpeed');
+  const particleSustainDrift = typeof rawParticles.sustainDrift === 'boolean' ? rawParticles.sustainDrift : DEFAULT_PARTICLES_CONFIG.sustainDrift;
+  if (typeof rawParticles.sustainDrift !== 'boolean') pushInvalidParticleKey('sustainDrift');
 
   const particleFieldsWired = [
     'enabled',
@@ -483,6 +524,7 @@ export const resolveHeroOverviewCinematicConfig = (config = HERO_OVERVIEW_CINEMA
     'blending',
     'shimmerStrength',
     'shimmerSpeed',
+    'sustainDrift',
   ];
   const particleFieldsPlaceholders = {};
   const particles = {
@@ -509,6 +551,7 @@ export const resolveHeroOverviewCinematicConfig = (config = HERO_OVERVIEW_CINEMA
     blending: particleBlending,
     shimmerStrength: particleShimmerStrength,
     shimmerSpeed: particleShimmerSpeed,
+    sustainDrift: particleSustainDrift,
     wired: true,
     routeTimelineWired: true,
     triggerAtUnits: 'seconds-from-hero-overview-start',
@@ -535,6 +578,7 @@ export const resolveHeroOverviewCinematicConfig = (config = HERO_OVERVIEW_CINEMA
       blending: particleBlending,
       shimmerStrength: particleShimmerStrength,
       shimmerSpeed: particleShimmerSpeed,
+      sustainDrift: particleSustainDrift,
     },
     invalidKeys: invalidParticleKeys,
     fallbackUsed: invalidParticleKeys.length > 0,

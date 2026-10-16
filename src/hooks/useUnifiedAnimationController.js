@@ -524,7 +524,8 @@ export const useUnifiedAnimationController = (options = {}) => {
           crystalForm: 'whole',
           cameraState: 'hero',
           focusedFacet: null,
-          isTransitioning: false
+          isTransitioning: false,
+          formReversal: false
         };
       }
 
@@ -535,7 +536,8 @@ export const useUnifiedAnimationController = (options = {}) => {
           crystalForm: 'exploded',
           cameraState: 'overview',
           focusedFacet: null,
-          isTransitioning: false
+          isTransitioning: false,
+          formReversal: false
         };
       }
 
@@ -546,7 +548,8 @@ export const useUnifiedAnimationController = (options = {}) => {
           crystalForm: 'exploded', // About keeps the crystal exploded; reforming to whole only happens going to hero
           cameraState: 'about',
           focusedFacet: null,
-          isTransitioning: false
+          isTransitioning: false,
+          formReversal: false
         };
       }
 
@@ -636,7 +639,7 @@ export const useUnifiedAnimationController = (options = {}) => {
   /**
    * FIXED: Handle zone transitions with immediate state changes
    */
-  const applyZoneTransition = useCallback((fromZone, toZone, initialProject = null) => {
+  const applyZoneTransition = useCallback((fromZone, toZone, initialProject = null, { reverseReform = false } = {}) => {
     if (debugMode) {
       if (import.meta.env.DEV) console.log(`🗺️ IMMEDIATE Zone transition: ${fromZone} → ${toZone}`);
     }
@@ -648,7 +651,22 @@ export const useUnifiedAnimationController = (options = {}) => {
     }
 
     // IMMEDIATE state changes - no complex sequences
-    if (toZone === 'hero') {
+    if (toZone === 'hero' && fromZone === 'about') {
+      // about → hero (the logo from About): go straight to the hero camera while the
+      // crystal reforms, in one move from the About pose. The overview hold below
+      // detoured it out to the overview pose (a zoom out and turn) and then moved it
+      // again once the pause ran out. The logo's direct override has already set
+      // cameraState 'hero' by the time the scroll lands here; this keeps it there.
+      setAnimationState(prev => ({
+        ...prev,
+        state: ANIMATION_STATES.HERO,
+        crystalForm: 'whole',
+        cameraState: 'hero',
+        focusedFacet: null,
+        isTransitioning: false
+      }));
+    }
+    else if (toZone === 'hero') {
       // Reform crystal immediately but keep camera at overview until fracture pause completes
       setAnimationState(prev => ({
         ...prev,
@@ -665,6 +683,22 @@ export const useUnifiedAnimationController = (options = {}) => {
           cameraState: 'hero'
         }));
       }, (config.crystal.fracturePause || 0.5) * 1000);
+    }
+    else if (toZone === 'overview' && reverseReform) {
+      // An overview→hero reform interrupted back to the overview: reverse it rather
+      // than replay the explosion. The fragments go straight back out from wherever
+      // the reform had got them (formReversal tells the scene to skip the whole-
+      // crystal swap and the fracture effects), and the camera heads straight back to
+      // the overview from its live pose, with no fracture hold.
+      setAnimationState(prev => ({
+        ...prev,
+        state: ANIMATION_STATES.OVERVIEW,
+        crystalForm: 'exploded',
+        cameraState: 'overview',
+        focusedFacet: null,
+        isTransitioning: false,
+        formReversal: true
+      }));
     }
     else if (toZone === 'overview') {
       if (fromZone === 'hero') {
@@ -755,14 +789,18 @@ export const useUnifiedAnimationController = (options = {}) => {
   // Apply a zone transition and, if it changes the crystal form, mark the crystal
   // busy for the length of the explode/reform animation so a reversing transition
   // that arrives mid-flight gets queued rather than restarting the animation.
-  const commitZoneTransition = useCallback((fromZone, toZone, initialProject = null) => {
+  const commitZoneTransition = useCallback((fromZone, toZone, initialProject = null, { reverseReform = false } = {}) => {
     const targetForm = crystalFormForZone(toZone);
     if (targetForm !== crystalFormRef.current) {
       const settleMs = (config?.crystal?.explodeDuration ?? 1.6) * 1000;
       crystalBusyUntilRef.current = performance.now() + settleMs;
     }
     crystalFormRef.current = targetForm;
-    applyZoneTransition(fromZone, toZone, initialProject);
+    applyZoneTransition(fromZone, toZone, initialProject, { reverseReform });
+    // Only a reversal carries the flag; any other transition clears it.
+    if (!reverseReform) {
+      setAnimationState(prev => (prev.formReversal ? { ...prev, formReversal: false } : prev));
+    }
   }, [applyZoneTransition, config]);
 
   const handleZoneTransition = useCallback((fromZone, toZone, initialProject = null) => {
@@ -779,6 +817,19 @@ export const useUnifiedAnimationController = (options = {}) => {
       changesForm &&
       targetForm === 'exploded' &&
       now < crystalBusyUntilRef.current;
+
+    // An overview→hero reform interrupted back to the overview reverses in place
+    // (see applyZoneTransition) instead of waiting out the reform and replaying the
+    // whole hero→overview explosion.
+    if (shouldQueueReversal && fromZone === 'hero' && toZone === 'overview') {
+      if (queuedZoneTimeoutRef.current) {
+        clearTimeout(queuedZoneTimeoutRef.current);
+        queuedZoneTimeoutRef.current = null;
+      }
+      queuedZoneTransitionRef.current = null;
+      commitZoneTransition(fromZone, toZone, initialProject, { reverseReform: true });
+      return;
+    }
 
     // Mid-transition reversal: the crystal is still reforming and this change would
     // re-explode it. Queue the latest requested transition and let it fire once the

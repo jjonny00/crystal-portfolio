@@ -138,6 +138,9 @@ const MasterAnimationCoordinator = ({
     return {
       state: animationController.animationState.state,
       crystalForm: animationController.animationState.crystalForm,
+      // true when the last crystal-form change reversed an interrupted reform back
+      // out (see applyZoneTransition): no swap, no fracture effects, no cinematic.
+      formReversal: Boolean(animationController.animationState.formReversal),
       cameraState: effectiveCameraState,
       viewMode,
       // Normalize undefined to null so consumers can rely on explicit null check
