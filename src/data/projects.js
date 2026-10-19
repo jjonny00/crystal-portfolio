@@ -246,7 +246,7 @@ export const projects = [
     seo: {
       title: 'Forest Giant: Building the Practice',
       description:
-        'How I helped Forest Giant hold its quality bar past 30 people: the process, structure, and design culture behind ambitious interactive work.',
+        'Case study: helping Forest Giant’s leadership build a shared creative practice that gave teams clearer ownership and more room to create.',
       image: '/og/forest-giant.jpg'
     },
     facetKey: 'project05',
@@ -260,13 +260,21 @@ export const projects = [
     tagline: 'Creative Practice · Leadership + Delivery',
     shortTagline: 'Leadership + Systems',
     description:
-      'Forest Giant earned its name on bold, technically ambitious interactive work. As the team grew past 30, holding the quality bar got harder than setting it. I helped shape the process, structure, and design culture that gave every team the same foundation and freed them to do their best work.',
-    metrics: 'Selected by GE over ~500 global agencies · 30+ team at pea',
-    roles: 'Co-Founder · Creative Direction · Process + Systems',
+      'As Forest Giant grew, I helped our leadership team build a shared practice that gave people clearer ownership and more room to create. It changed how I supported teams and what I understood creative leadership to involve.',
+    roles: 'Co-Founder · Creative Direction · Team Leadership',
     cta: 'Building the Practice',
+    // Case-study level only: where to find the case study and how to theme it.
+    // The case study's own content lives in src/caseStudies/forest-giant/.
+    // Colour A is a coral off the facet orange; B a deep indigo, which holds the
+    // coral at ~5.8:1 as ink where a cream ground could not.
+    caseStudySlug: 'forest-giant',
+    caseStudyColors: {
+      a: '#fa593d',
+      b: '#150F24'
+    },
     mobile: {
       description:
-        'As Forest Giant grew beyond 30 people, I helped shape the process, structure, and culture that kept ambitious work consistently strong.',
+        'As Forest Giant grew, I helped our leadership team build a shared practice that gave people clearer ownership and more room to create.',
       secondaryCopy: null,
       metrics: null,
       roles: null
@@ -278,8 +286,8 @@ export const projects = [
       color: '#4f3c6b'
     },
     technologies: ['TBD', 'TBD', 'TBD'],
-    color: '#ff4d00',
-    headlineColor: '#eb5321',
+    color: '#eb5928',
+    headlineColor: '#f64733',
     imageUrl: '/assets/projects/preview-fg.webp',
     overlayImage: '/assets/projects/preview-fg.webp'
   },
