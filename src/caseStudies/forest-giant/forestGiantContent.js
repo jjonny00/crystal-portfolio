@@ -8,14 +8,14 @@
 // system placeholder at the correct size; supplying `src`/`fullSrc` later is the
 // only change needed to drop the real asset in.
 //
-// Two slots are still placeholders naming the asset they expect: the early
-// interactive project in the overview, and the worksheet in "Giving People the
-// Means to Lead" (see assets/README.md). Captions that would identify a
-// session, place, date or Jon's part in a project are left out until those
-// facts are confirmed.
+// One slot is still a placeholder naming the asset it expects: the worksheet in
+// "Giving People the Means to Lead" (see assets/README.md). Captions that would
+// identify a session, place, date or Jon's part in a project are left out until
+// those facts are confirmed.
 import heroImage from './assets/hero.webp';
-import rally78 from './assets/rally78.webp';
-import magbooth from './assets/magbooth.webp';
+import quantified from './assets/quantified.webp';
+import rothRiver from './assets/roth-river.webp';
+import gross from './assets/gross.webp';
 import studio from './assets/studio.webp';
 import guidePage09 from './assets/guide/page-09.webp';
 import guidePage09Full from './assets/guide/page-09-full.webp';
@@ -57,23 +57,25 @@ export const forestGiantContent = {
     // should imply the project followed the later process.
     gallery: [
       {
-        key: 'early-interactive',
-        placeholder: 'Early interactive experience',
+        key: 'quantified',
+        src: quantified,
+        alt: 'Quantified on an iPhone and an Apple Watch lying on a concrete ledge: the phone shows a grid of coloured counters — meditate, angry, call Mom, drink 8oz of water, try something new, used Facebook — and the watch shows the water counter at 6.',
         aspectRatio: '3 / 2',
+        caption: 'Quantified, an iPhone and Apple Watch app for counting the habits you want to track.',
       },
       {
-        key: 'rally78',
-        src: rally78,
-        alt: 'Rally78 app screens fanned out over a green ground: court booking, a club’s court calendar, match scheduling, and a map of nearby courts.',
+        key: 'roth-river',
+        src: rothRiver,
+        alt: 'A person gestures at a large screen showing a Woodford Reserve barrel’s environment data — internal temperature, volume and pressure, the angel’s share, and external humidity — laid over a photograph of the barrel.',
         aspectRatio: '3 / 2',
-        caption: 'Rally78, an app for tennis players to find opponents and book courts.',
+        caption: 'A barrel-monitoring display for Roth River, reading the conditions inside a Woodford Reserve barrel.',
       },
       {
-        key: 'magbooth',
-        src: magbooth,
-        alt: 'Two people throwing their arms up inside a Magbooth photo booth at a crowded, blue-lit party, the booth’s side panel printed “Take your own photographs, 4 unique poses.”',
+        key: 'gross',
+        src: gross,
+        alt: 'Gross on an iPhone beside a pair of earbuds: one day’s step count, with walking, running, other, and gross time totalled beside a colour-coded timeline of the day.',
         aspectRatio: '3 / 2',
-        caption: 'Magbooth, a connected photo booth for the Magnolia Photo Booth Co.',
+        caption: 'Gross, an activity tracker that totals a day’s walking, running, and other movement.',
       },
     ],
     metadata: [

@@ -18,9 +18,9 @@ page order, starting at 1.
 | Slot | Asset | Made from |
 | --- | --- | --- |
 | `hero.media` | `hero.webp` | `7R3A4885.jpg`, native size; already 3:2, the hero's frame |
-| `overview.gallery[0]` | **Outstanding** | Early interactive project (Flash era). Nothing in the folder predates the move to mobile — `Website Reel III.m4v` is studio life, not project work. |
-| `overview.gallery[1]` | `rally78.webp` | `FGCaseStudies.pdf` page 23, embedded image 1 (2000×1339), unchanged |
-| `overview.gallery[2]` | `magbooth.webp` | `FGCaseStudies.pdf` page 31, embedded image 2, cropped to 3:2 (x 0–1150, y 160–927) to drop the slide's black fade on the right |
+| `overview.gallery[0]` | `quantified.webp` | `Downloads/quantified/Quantified Header.jpg` (1090×614), cropped to 3:2 (x 90–1011) around the phone and watch |
+| `overview.gallery[1]` | `roth-river.webp` | `Downloads/roth-river.jpg` (540×374), trimmed to 3:2 (y 7–367). **Low resolution** — soft where the 3-up stacks full-width on phones; replace with a larger original if one exists. |
+| `overview.gallery[2]` | `gross.webp` | `Downloads/gross/Gross 1.jpg` (1010×674), trimmed to an exact 3:2 |
 | `responsibility.media` | `studio.webp` | `new_office_bog-12.jpg`, resized |
 | `practice.gallery` | `guide/page-09` · `-11` · `-12` · `-23` (`.webp` and `-full.webp`) | `FG-Process-FlowChart-V0-0-1.pdf`, those pages rendered flat at 1600px and 3200px wide |
 | `means.gallery[0]` | **Outstanding** | The critique worksheet if it survives. Fallback: `FG-WordDoc-Stakeholders.pdf` (keep the LUMA Institute attribution) or an excerpt of `FG-WordDoc-PreMeetingWorksheet.pdf` — neither is in the folder. Never labelled a critique worksheet. |
@@ -29,7 +29,10 @@ page order, starting at 1.
 
 ## Still to confirm
 
-- **Overview captions:** Jon's involvement in Rally78 and Magbooth, and their dates.
+- **Overview captions:** Jon's involvement in Quantified, Gross and the Roth River
+  display, and their dates. The Roth River caption names the client from the
+  file name; confirm it, and that the Woodford Reserve barrel was the real
+  deployment rather than a demo.
 - **`responsibility.media`:** studio location and approximate date for a caption.
 - **`means.gallery[1]`:** the actual activity and occasion for a caption, and
   whether it is the same session as the worksheet.
@@ -57,3 +60,38 @@ page order, starting at 1.
 - `designDiscovery01.pdf` — a discovery explainer; possibly a guidance resource
   for the worksheet slot, if it was used internally.
 - `jon.png` — portrait; not used here.
+- `rally78.webp` · `magbooth.webp` — the overview's earlier Rally78 and Magbooth
+  images, dropped because Jon had little part in either. No longer imported;
+  delete them.
+- The early interactive (Flash-era) slot was dropped for a third project: nothing
+  supplied predates the move to mobile.
+
+### From `Downloads` (October 2026), not used
+
+- `quantified/*` — the rest of the Quantified set: device mockups on flat colour
+  (`Quantified-iphone-a.jpg`, `quantified-watch-screen.jpg`, 2000–2200px), the
+  icon set, the watch on a wrist, a watch-and-logo lockup. The header photo
+  matches the other photographs in the 3-up better than a flat mockup.
+- `gross/Gross Header.jpg` — a hand holding the week view; the chosen photo shows
+  the day view clearly.
+- `A82A7224.jpg` — the studio floor without people (colourful chairs, the
+  mezzanine, sticky-note walls). A candidate for `responsibility.media` if an
+  empty studio reads better than the current one with teams at work.
+- `IMG_5130.JPG` · `IMG_5212.JPG` · `IMG_0070 2.JPG` — GE installation testing in
+  a factory (LED walls, server racks). Possible support for the GE paragraph in
+  "Responsibility Grew with the Studio", but GE has its own case study.
+- `7a.jpg` · `7d.jpg` — Forest Giant social graphics (whiteboard sessions under
+  illustrated shapes) with the logo baked in; not usable as photographs.
+- `final/production-shaded.png` · `structure-shaded.png` · `support-shaded.png` —
+  illustrations (3300px). Not from the process guide, whose pages are
+  photographic; don't present them as process material without knowing what they
+  were made for.
+- `7R3A3908.jpg` — a panel discussion in the studio; an event, not a working session.
+- `IMG_2256.jpg` · `IMG_3855.JPG` · `FG_1.png` — studio life, the branded glass
+  wall, the logo.
+- `Shaw-OldKYHome-*.jpg` — a My Old Kentucky Home poster for the Kentucky State
+  Parks Foundation, credited to Jon; reads as his own illustration, not studio work.
+- `svg/*.svg` — client logos (Atria, Big Ass Solutions, Brown-Forman, Flying
+  Axes, GE, iRobot, LG&E, Realtree, UPS). The system has no logo row yet.
+- `reel.mp4` (90s, black and white, studio and project work) · `website_reel_3.mp4`
+  (36s, studio life).
