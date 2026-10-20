@@ -667,22 +667,17 @@ export const useUnifiedAnimationController = (options = {}) => {
       }));
     }
     else if (toZone === 'hero') {
-      // Reform crystal immediately but keep camera at overview until fracture pause completes
+      // Reform the crystal and start the camera's return together: the return
+      // orbits round the crystal as it gathers (HERO_RETURN_CINEMATIC), so there
+      // is no camera hold while the reform gets going.
       setAnimationState(prev => ({
         ...prev,
         state: ANIMATION_STATES.HERO,
         crystalForm: 'whole',
-        cameraState: 'overview', // Hold camera during reform pause
+        cameraState: 'hero',
         focusedFacet: null,
         isTransitioning: false
       }));
-
-      cameraDelayTimeout.current = setTimeout(() => {
-        setAnimationState(prev => ({
-          ...prev,
-          cameraState: 'hero'
-        }));
-      }, (config.crystal.fracturePause || 0.5) * 1000);
     }
     else if (toZone === 'overview' && reverseReform) {
       // An overview→hero reform interrupted back to the overview: reverse it rather

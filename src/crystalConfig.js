@@ -62,13 +62,21 @@ export const fracture = {
   smoke: {
     enabled: true,
     count: 18,            // sprites spawned per explosion (~12-18)
-    size: 1.5,            // base sprite world size at spawn (large, billowy)
-    expand: 14.0,          // end-of-life scale multiplier (aggressive growth as it rises)
-    spread: 1.5,         // spawn radius — spread around the core, not on the bright center
+    // Compact at the split and growing to the same full size (size × expand ≈
+    // 21) through the bullet-time orbit, so the cloud is seen expanding round
+    // the fragments rather than arriving already spread (it was 1.5 / 14 / 1.5).
+    size: 0.9,            // base sprite world size at spawn
+    // 14 (was 23): grows to ~60% of the old full size, so the cloud stays
+    // round the fracture instead of washing over the whole frame at the release.
+    expand: 14.0,          // end-of-life scale multiplier
+    spread: 0.9,         // spawn radius — spread around the core, not on the bright center
     outwardSpeed: 5.25,   // gentle radial drift (kept slow/contained)
     upwardLift: 2.0,      // strong upward rise so it reads as mist lifting off the fracture
     drag: 0.94,            // per-frame damping of radial drift (0-1, higher = floatier)
-    lifetimeMin: 0.08,     // seconds
+    // seconds. Was 0.08: sprites that short lived out their whole growth in the
+    // 40ms before time slows and showed up already full size, so the cloud read
+    // as expanded at once instead of growing through the bullet-time orbit.
+    lifetimeMin: 0.9,
     lifetimeMax: 4.0,     // seconds
     opacity: 0.25          // peak per-sprite opacity (color comes from the texture itself)
   },
@@ -97,7 +105,11 @@ export const fracture = {
       softness: 0.025,     // edge blur
       jitter: 0.75,        // 0 = even/uniform, 1 = fully organic
       seed: 0,            // reshuffle the random arrangement
-      fan: 0              // 0 = parallel, 1 = fan out from the base
+      fan: 0,             // 0 = parallel, 1 = fan out from the base
+      // Most a band edge softens to keep a pixel wide (in width units). Without
+      // a cap, a plane stretched across the screen near the camera smeared its
+      // bands into one solid sheet that flickered on and off as the camera moved.
+      maxBlur: 0.05
     },
     // Base→tip reveal. Its own timer — NOT tied to how long the rays are visible.
     growth: {
@@ -110,10 +122,31 @@ export const fracture = {
       amount: 1,        // 0 = steady, 1 = heavy flicker
       speed: 1           // flicker rate
     },
+    // Each ray is a flat plane, and the camera now orbits while they show: as it
+    // passes edge-on to a plane, the plane narrows to a sliver and vanishes, then
+    // opens up again on the other side, so rays popped in and out between frames.
+    // Each plane fades out as it turns edge-on instead, by how squarely it faces
+    // the camera (0 = edge-on, 1 = face-on): gone below `start`, full from `end`.
+    edgeOnFade: {
+      start: 0.08,
+      end: 0.4
+    },
+    // The camera sits close enough in the hero that some rays run right up to
+    // it (a corner or two at or behind its near plane). That end of the plane,
+    // magnified across a wedge of the screen, was clipped or not from one frame
+    // to the next, so whole wedges of ray popped in and out. Each ray fades out
+    // towards the camera instead: gone within `start` (world units, view
+    // depth), full beyond `end`.
+    nearFade: {
+      start: 0.9,
+      end: 2.0
+    },
     // Visibility window as progress (0-1) of the hero→overview sequence.
     timing: {
       appearAt: 0.06,     // pop in
-      disappearAt: 0.37   // cut out
+      // cut out on the split itself (0.5s of 1.5s is the split): until then
+      // they burned on ~55ms past it and hid the crystal at the moment it broke
+      disappearAt: 0.333
     },
     // Depth behavior. The exploding facets start near-coplanar with the rays and
     // sweep outward, which makes depthTest flip frame-to-frame → flicker.
@@ -122,12 +155,16 @@ export const fracture = {
       bias: -16            // polygonOffset toward camera to stop z-fighting with the near-coplanar facets (more negative = stronger)
     }
   },
-  // White flash of the gradient background at the fracture.
+  // White flash of the gradient background, on the split. It was 0.45 for 1.25s
+  // on a sine, fired as the charge began (0.05): the whole frame was still ~30%
+  // white when the crystal split and ~20% at +0.3s, so the release happened in
+  // a pale haze. Now a short, sharp flash on the split itself that is gone
+  // before time has finished collapsing (look.backgroundFlash scales it).
   backgroundFlash: {
-    intensity: 0.45,       // 0 = off → 1 = full white
-    duration: 1.25,        // decay seconds
-    delay: 0.05,           // seconds after fracture before it flashes (moves it to the explosion)
-    ease: 'sine'          // 'sine' | 'smooth' | 'cubic' | 'quad' | 'expo' | 'linear'
+    intensity: 0.3,        // 0 = off → 1 = full white
+    duration: 0.3,         // decay seconds
+    delay: 0.38,           // seconds after the fracture glow: the split (the charge, less the pre-swap window)
+    ease: 'expo'          // 'sine' | 'smooth' | 'cubic' | 'quad' | 'expo' | 'linear'
   }
 };
 
@@ -473,7 +510,7 @@ export const effects = {
 export const materials = {
   // Base crystal material configuration
   crystal: {
-    color: new THREE.Color('#989898'),
+    color: new THREE.Color('#939393'),
     transparent: true,
     transmission: 0.91,
     // NOTE: On MeshPhysicalMaterial, `reflectivity` is a getter/setter linked to
@@ -481,7 +518,7 @@ export const materials = {
     // `reflectivity` here or it will clobber `ior` and the IOR control will do
     // nothing. `ior: 1.78` reproduces the previous look (reflectivity ≈ 0.70).
     ior: 1.8,
-    thickness: 0.9,
+    thickness: 1.0,
     iridescence: 1.4,
     iridescenceIOR: 1.3,
     metalness: 0.0,
@@ -495,19 +532,19 @@ export const materials = {
     // MeshPhysicalMaterial (see ior note above). Setting it breaks the IOR control.
     specularIntensity: 2.0,
     specularColor: new THREE.Color('#ffffff'),
-    emissive: new THREE.Color('#02062b'),
+    emissive: new THREE.Color('#000e8c'),
     emissiveIntensity: 0, // Default, will be changed dynamically
-    opacity: 0.98,
+    opacity: 0.9,
 
     // Fresnel-driven internal core glow (additive emissive injected via shader).
     // Independent of the built-in emissive above; see components/materials/internalGlow.js
     glow: {
       color: '#090084',         // non-project (default) internal glow color
       emissiveIntensity: 0.30,  // 'high' reference; device tiers scale this
-      activeIntensity: 1.0,    // glow brightness when a facet is hovered or is the selected project (device tiers scale this too)
-      fresnelPower: 0.75,        // higher = tighter, more centered core
+      activeIntensity: 1.25,    // glow brightness when a facet is hovered or is the selected project (device tiers scale this too)
+      fresnelPower: 0.95,        // higher = tighter, more centered core
       glowBias: 0.16,            // 0 = tight center core; higher reaches toward edges
-      pulseSpeed: 1.25,          // Hero pulse frequency (rad/sec); 0 = no pulse
+      pulseSpeed: 2.25,          // Hero pulse frequency (rad/sec); 0 = no pulse
       pulseAmount: 0.84          // Hero pulse depth (0..1): intensity swings ±(amount·base)
     },
 
@@ -571,7 +608,7 @@ export const materials = {
       // Frequency in object-space units. The crystal is ~4 units tall and the bevel
       // strip ~0.005 wide, so 45 puts noise features around 0.022 units — a handful
       // across the current 0.1 falloff band. Higher = finer, busier scratches.
-      noiseScale: 400
+      noiseScale: 500
     }
   },
 

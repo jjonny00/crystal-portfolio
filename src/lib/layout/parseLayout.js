@@ -7,6 +7,7 @@ const DEFAULT_HERO_TUNING = {
   orbitSpeed: 0.08,
   baseAngle: 0,
   lookAtYOffset: 0,
+  introIndexOffsetDegrees: null,
 };
 
 const FORMAT_HELP =

@@ -2,9 +2,12 @@ import React, { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { createLogger } from '../../utils/logger';
+import { advanceExplosionClock } from '../../lib/explosionTime';
+import { getExplosionLookScale } from '../../lib/explosionLook';
 
 const EMITTER_START_LEAD_S = 0.08;
 const PARTICLE_FADE_IN_END = 0.03;
+const PARTICLE_FADE_IN_SECONDS = 0.02;
 const PARTICLE_FADE_OUT_START = 0.42;
 const PARTICLE_FADE_OUT_END = 0.76;
 const DEFAULT_LIFETIME_MIN = 0.9;
@@ -82,11 +85,25 @@ const FractureBurstParticles = ({
   // false (the crystal has reformed): fade out whatever is still alive and stop
   // it, so a burst never outlives its explosion and drifts on into the next one.
   active = true,
+  // Which explosion look control scales this burst's brightness (lib/explosionLook).
+  lookName = null,
+  // Hierarchy: this share of the burst are prominent sparks, prominentSizeScale×
+  // the size at full brightness; the rest are secondary, at secondaryOpacity×.
+  // (0 / 1 / 1: every particle alike.)
+  prominentShare = 0,
+  prominentSizeScale = 1,
+  secondaryOpacity = 1,
+  // The energy burst (look.energyBurst scales it): prominent sparks start this
+  // close to the emitter (× the spawn spread) and leave this much faster.
+  prominentSpawnScale = 1,
+  prominentSpeedScale = 1,
   onBurstGenerated = null,
 }) => {
   const resolvedCount = Math.max(0, Math.floor(Number.isFinite(count) ? count : 0));
   const pointsRef = useRef();
   const startTimeRef = useRef(0);
+  const shimmerTimeRef = useRef(0);
+  const lastFrameMsRef = useRef(null);
   const delayRef = useRef(null);
   const activeCountRef = useRef(0);
   const latestPropsRef = useRef({
@@ -108,6 +125,8 @@ const FractureBurstParticles = ({
     onBurstGenerated,
   });
   const generatedOpacityRef = useRef(1);
+  const hierarchyRef = useRef(null);
+  hierarchyRef.current = { prominentShare, prominentSizeScale, secondaryOpacity, prominentSpawnScale, prominentSpeedScale };
   const clearFadeRef = useRef(1);
   const generationRef = useRef({ trigger: null, countForTrigger: 0 });
 
@@ -115,6 +134,7 @@ const FractureBurstParticles = ({
   const lifetimesRef = useRef(new Float32Array(resolvedCount));
   const agesRef = useRef(new Float32Array(resolvedCount));
   const baseSizesRef = useRef(new Float32Array(resolvedCount));
+  const weightsRef = useRef(new Float32Array(resolvedCount));
   const dragsRef = useRef(new Float32Array(resolvedCount));
   const buoyanciesRef = useRef(new Float32Array(resolvedCount));
   const turbulencesRef = useRef(new Float32Array(resolvedCount));
@@ -232,6 +252,7 @@ const FractureBurstParticles = ({
     lifetimesRef.current = new Float32Array(resolvedCount);
     agesRef.current = new Float32Array(resolvedCount);
     baseSizesRef.current = new Float32Array(resolvedCount);
+    weightsRef.current = new Float32Array(resolvedCount);
     dragsRef.current = new Float32Array(resolvedCount);
     buoyanciesRef.current = new Float32Array(resolvedCount);
     turbulencesRef.current = new Float32Array(resolvedCount);
@@ -377,8 +398,13 @@ const FractureBurstParticles = ({
       logger.debug('[particles] before spawn activeCount=', activeCountRef.current);
       logger.debug('[particles] spawning count=', spawnCount, 'spawnRadius=', resolvedSpawnRadius, 'emitterScale=', resolvedEmitterScale, 'spread=', resolvedSpread);
 
+      const hierarchy = hierarchyRef.current;
+      const energyBurst = getExplosionLookScale('energyBurst');
       for (let i = 0; i < spawnCount; i += 1) {
         const i3 = i * 3;
+        const prominent = Math.random() < hierarchy.prominentShare;
+        const spawnShrink = prominent ? 1 + (hierarchy.prominentSpawnScale - 1) * energyBurst : 1;
+        const launchBoost = prominent ? 1 + (hierarchy.prominentSpeedScale - 1) * energyBurst : 1;
 
         const angle = Math.random() * Math.PI * 2 + (Math.random() - 0.5) * 0.35;
         const ringRadius = (0.38 + Math.random() * 0.44) * spawnRadiusScale;
@@ -391,9 +417,9 @@ const FractureBurstParticles = ({
         const emitterHeight = 1.15;
         const emitterDepth = 1.0;
 
-        positions[i3] = Math.cos(angle) * emitterWidth * radial * emitterScaleX;
-        positions[i3 + 1] = (yOffset * emitterHeight + ringYOffset) * emitterScaleY;
-        positions[i3 + 2] = Math.sin(angle) * emitterDepth * radial * emitterScaleZ;
+        positions[i3] = Math.cos(angle) * emitterWidth * radial * emitterScaleX * spawnShrink;
+        positions[i3 + 1] = (yOffset * emitterHeight + ringYOffset) * emitterScaleY * spawnShrink;
+        positions[i3 + 2] = Math.sin(angle) * emitterDepth * radial * emitterScaleZ * spawnShrink;
         initialBoundsXMin = Math.min(initialBoundsXMin, positions[i3]);
         initialBoundsXMax = Math.max(initialBoundsXMax, positions[i3]);
         initialBoundsYMin = Math.min(initialBoundsYMin, positions[i3 + 1]);
@@ -430,7 +456,7 @@ const FractureBurstParticles = ({
             : DEFAULT_SPEED_MIN + Math.random() * (DEFAULT_SPEED_MAX - DEFAULT_SPEED_MIN));
         baseSpeedMin = Math.min(baseSpeedMin, baseSpeed);
         baseSpeedMax = Math.max(baseSpeedMax, baseSpeed);
-        const velocity = burstDir.multiplyScalar(baseSpeed * spreadScale);
+        const velocity = burstDir.multiplyScalar(baseSpeed * spreadScale * launchBoost);
         const verticalKickScale = speedSource === 'internal-default' ? 1 : (baseSpeed / ((DEFAULT_SPEED_MIN + DEFAULT_SPEED_MAX) / 2));
         velocity.y += (-0.7 + Math.random() * 0.54) * spreadScale * verticalKickScale;
         const velocityMagnitude = velocity.length();
@@ -479,6 +505,12 @@ const FractureBurstParticles = ({
           baseSize = 0.028 + Math.random() * 0.022;
         }
         baseSize = fixedSize ?? (baseSize * 2.0);
+        if (prominent) {
+          baseSize *= hierarchy.prominentSizeScale;
+          weightsRef.current[i] = 1;
+        } else {
+          weightsRef.current[i] = hierarchy.secondaryOpacity;
+        }
         baseSizes[i] = baseSize;
         sizes[i] = baseSize;
         if (Number.isFinite(baseSize) && baseSize > 0) {
@@ -652,9 +684,23 @@ const FractureBurstParticles = ({
   });
 
   useFrame((state, dt) => {
+    // The burst lives on the explosion's bullet-time clock (lib/explosionTime):
+    // motion and twinkle advance on simulated time, ages (and so fading) on the
+    // explosion's age. The drag, flow and lift below are per-frame steps, so
+    // each is scaled to the same fraction of a frame (k → k^s, +a → +a·s, s the
+    // time scale over this frame): at full speed nothing changes. The clearing
+    // fade stays on real time.
+    const now = performance.now();
+    const step = advanceExplosionClock(lastFrameMsRef.current ?? now - dt * 1000, now, 'sparkles');
+    lastFrameMsRef.current = now;
+    const simDt = step.motion;
+    const ageDt = step.age;
+    const timeScale = step.real > 0 ? Math.min(1, step.motion / step.real) : 1;
+    const lookScale = lookName ? getExplosionLookScale(lookName) : 1;
     // Keep the shimmer clock advancing even before/after a burst so the twinkle
     // never jumps when particles (re)appear.
-    material.uniforms.uTime.value = state.clock.elapsedTime;
+    shimmerTimeRef.current += simDt;
+    material.uniforms.uTime.value = shimmerTimeRef.current;
     material.uniforms.uPixelRatio.value = state.gl.getPixelRatio();
     if (!startTimeRef.current) return;
 
@@ -695,7 +741,7 @@ const FractureBurstParticles = ({
       const life = lifetimes[i];
       if (!life) continue;
 
-      ages[i] += dt;
+      ages[i] += ageDt;
       const lifeT = THREE.MathUtils.clamp(ages[i] / life, 0, 1);
 
       if (i < 3) {
@@ -728,6 +774,7 @@ const FractureBurstParticles = ({
           swapScalar(shimmerRates, i, last);
           swapScalar(alphas, i, last);
           swapScalar(sizes, i, last);
+          swapScalar(weightsRef.current, i, last);
         }
 
         activeCount -= 1;
@@ -738,10 +785,11 @@ const FractureBurstParticles = ({
 
       const i3 = i * 3;
       if (ages[i] < 0.1) {
-        velocities[i3] *= 0.982;
-        velocities[i3 + 1] *= 0.982;
-        velocities[i3 + 2] *= 0.982;
-        velocities[i3 + 1] -= 0.01;
+        const earlyDrag = 0.982 ** timeScale;
+        velocities[i3] *= earlyDrag;
+        velocities[i3 + 1] *= earlyDrag;
+        velocities[i3 + 2] *= earlyDrag;
+        velocities[i3 + 1] -= 0.01 * timeScale;
       } else {
         const time = ages[i];
         const flowT = time * flowFreqs[i] + phases[i];
@@ -762,16 +810,17 @@ const FractureBurstParticles = ({
         const swirlX = -positions[i3 + 2] * swirlStrength;
         const swirlZ = positions[i3] * swirlStrength;
 
-        velocities[i3] *= lateralDrag;
-        velocities[i3 + 2] *= lateralDrag;
-        velocities[i3 + 1] *= 0.985;
+        const lateralDragStep = lateralDrag ** timeScale;
+        velocities[i3] *= lateralDragStep;
+        velocities[i3 + 2] *= lateralDragStep;
+        velocities[i3 + 1] *= 0.985 ** timeScale;
 
-        velocities[i3] += (flowX + swirlX) * turbulenceFade * phaseTurbulenceScale;
-        velocities[i3 + 1] += Math.max(flowY, -0.001) * verticalTurbulenceFade;
-        velocities[i3 + 2] += (flowZ + swirlZ) * turbulenceFade * phaseTurbulenceScale;
-        velocities[i3 + 1] += buoyancies[i] * riseRamp * 1.12;
+        velocities[i3] += (flowX + swirlX) * turbulenceFade * phaseTurbulenceScale * timeScale;
+        velocities[i3 + 1] += Math.max(flowY, -0.001) * verticalTurbulenceFade * timeScale;
+        velocities[i3 + 2] += (flowZ + swirlZ) * turbulenceFade * phaseTurbulenceScale * timeScale;
+        velocities[i3 + 1] += buoyancies[i] * riseRamp * 1.12 * timeScale;
         if (velocities[i3 + 1] < 0) {
-          velocities[i3 + 1] += buoyancies[i] * 1.6;
+          velocities[i3 + 1] += buoyancies[i] * 1.6 * timeScale;
         }
         velocities[i3 + 1] = Math.max(velocities[i3 + 1], minRise);
         if (lifeT > 0.45) {
@@ -779,12 +828,15 @@ const FractureBurstParticles = ({
         }
       }
 
-      positions[i3] += velocities[i3] * dt;
-      positions[i3 + 1] += velocities[i3 + 1] * dt;
-      positions[i3 + 2] += velocities[i3 + 2] * dt;
+      positions[i3] += velocities[i3] * simDt;
+      positions[i3 + 1] += velocities[i3 + 1] * simDt;
+      positions[i3 + 2] += velocities[i3 + 2] * simDt;
 
       sizes[i] = baseSizes[i];
-      alphas[i] = generatedOpacityRef.current * clearFade * smoothstep(0.0, PARTICLE_FADE_IN_END, lifeT) * (1.0 - smoothstep(PARTICLE_FADE_OUT_START, PARTICLE_FADE_OUT_END, lifeT));
+      // Fading in over a fixed few hundredths of a second (or the first 3% of
+      // life, if shorter), so the burst shows as it fires rather than only once
+      // its slowed-down age has crept through a share of its life.
+      alphas[i] = generatedOpacityRef.current * weightsRef.current[i] * lookScale * clearFade * smoothstep(0.0, Math.min(PARTICLE_FADE_IN_END * life, PARTICLE_FADE_IN_SECONDS), ages[i]) * (1.0 - smoothstep(PARTICLE_FADE_OUT_START, PARTICLE_FADE_OUT_END, lifeT));
 
       if (i < 3) {
         logger.debug('[fade timing]', i, {

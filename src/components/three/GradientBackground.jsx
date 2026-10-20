@@ -115,9 +115,12 @@ const GradientBackground = forwardRef(({ backgrounds, initialKey = 'default', ra
     let flashValue = 0;
     if (flashElapsedRef.current < flashDurationRef.current) {
       flashElapsedRef.current += deltaTime;
-      const p = Math.min(flashElapsedRef.current / flashDurationRef.current, 1);
-      const easeFn = flashEasings[flashEaseRef.current] || flashEasings.sine;
-      flashValue = flashPeakRef.current * Math.max(0, easeFn(p));
+      // Negative while a delayed flash is still waiting (see flash()).
+      if (flashElapsedRef.current >= 0) {
+        const p = Math.min(flashElapsedRef.current / flashDurationRef.current, 1);
+        const easeFn = flashEasings[flashEaseRef.current] || flashEasings.sine;
+        flashValue = flashPeakRef.current * Math.max(0, easeFn(p));
+      }
     }
 
     uniforms.colorA.value.copy(currentA.current);
@@ -152,11 +155,13 @@ const GradientBackground = forwardRef(({ backgrounds, initialKey = 'default', ra
       }
     },
 
-    flash: (intensity = 1, duration = 0.5, ease = 'sine') => {
+    // `delay` (seconds) is counted on the frame clock, like the flash itself, so
+    // the flash stays on its beat through a stalled frame (a timer would not).
+    flash: (intensity = 1, duration = 0.5, ease = 'sine', delay = 0) => {
       flashPeakRef.current = intensity;
       flashDurationRef.current = Math.max(duration, 0.001);
       flashEaseRef.current = ease;
-      flashElapsedRef.current = 0;
+      flashElapsedRef.current = -Math.max(0, delay);
     },
 
     getCurrentKey: () => currentKey.current,

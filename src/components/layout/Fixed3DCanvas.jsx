@@ -33,6 +33,7 @@ import { resolveCameraDestination } from '../../camera/destinationResolver';
 import { compareCameraPoses } from '../../camera/cameraPoseCompare';
 import BackdropInkProbe from '../../legibility/BackdropInkProbe';
 import { markScenePrep } from '../../loader/loadProgress';
+import { getExplosionLookBlend, getExplosionLookScale } from '../../lib/explosionLook';
 
 const DEFAULT_ENV_ROTATION = [0, Math.PI * 0.7, 0];
 
@@ -98,6 +99,22 @@ function createSanitizePass() {
   pass.enabled = true;
   return pass;
 }
+
+// Holds the bloom back while the explosion plays (the look's bloom intensity,
+// HERO_OVERVIEW_CINEMATIC_CONFIG.look.bloom): full for the impact, the look's
+// share through the slowed-down orbit, back to full once the camera has landed.
+// Everything additive in the explosion feeds the bloom, and at full strength
+// (threshold 0.05, radius 1.9) it ran together into one luminous cloud.
+const ExplosionBloomDriver = ({ bloomRef, intensity }) => {
+  useFrame(() => {
+    const bloom = bloomRef.current;
+    if (!bloom) return;
+    // From the split itself: the bloom is what spreads the impact's light over
+    // the whole frame, so it is held back while the flash stays concentrated.
+    bloom.intensity = intensity * getExplosionLookBlend('bloom', { fromSplit: true });
+  });
+  return null;
+};
 
 const PulsingOmniLight = ({ simplified = false }) => {
   const lightRef = useRef();
@@ -256,6 +273,9 @@ const Fixed3DCanvas = forwardRef(({
   // Stops the render loop entirely while the scene is hidden behind a
   // full-screen layer (the case study). See SceneFreezeGuard below.
   paused = false,
+  // Hold the overview labels back (a case study on its way to the hero passes
+  // through the index; see App's handleHomeClick).
+  holdOverviewLabels = false,
   // A deep-link arrival landed in place; the camera's arrival intro is done.
   // See UnifiedCameraController.
   introAlreadyPlayed = false,
@@ -264,6 +284,7 @@ const Fixed3DCanvas = forwardRef(({
 }, ref) => {
   // NEW: Ref to access crystal scene for debug panels
   const crystalSceneRef = useRef();
+  const explosionBloomRef = useRef(null);
   const backgroundRef = useRef();
   const r3fGetRef = useRef(null);
   const lastZoneRef = useRef(null);
@@ -295,16 +316,14 @@ const Fixed3DCanvas = forwardRef(({
     // object (same shape) overrides them at runtime for live tuning.
     const cfg = fractureConfig.backgroundFlash || {};
     const t = (typeof globalThis !== 'undefined' && globalThis.__BG_FLASH__) || {};
-    const intensity = t.intensity ?? cfg.intensity ?? 0.5;
+    const intensity = (t.intensity ?? cfg.intensity ?? 0.5) * getExplosionLookScale('backgroundFlash');
     const duration = t.duration ?? cfg.duration ?? 0.8;
     const delay = t.delay ?? cfg.delay ?? 0.4;
     const ease = t.ease ?? cfg.ease ?? 'sine'; // 'sine' | 'smooth' | 'cubic' | 'quad' | 'expo' | 'linear'
     if (intensity <= 0) return;
-    if (delay > 0) {
-      window.setTimeout(() => backgroundRef.current?.flash(intensity, duration, ease), delay * 1000);
-    } else {
-      backgroundRef.current?.flash(intensity, duration, ease);
-    }
+    // The delay runs on the background's frame clock, so the flash lands on the
+    // split even through a stalled frame.
+    backgroundRef.current?.flash(intensity, duration, ease, Math.max(0, delay));
   }, []);
 
   // Expose internal state to parent components
@@ -1154,6 +1173,7 @@ const Fixed3DCanvas = forwardRef(({
           
           {/* UPDATED: Crystal Scene with ref for accessing debug state */}
           <UnifiedCrystalScene
+            holdOverviewLabels={holdOverviewLabels}
             sharedCameraMoveProgressRef={cameraMoveProgressRef}
             introRevealRef={introRevealRef}
             ref={crystalSceneRef} // NEW: Ref to access debug state and methods
@@ -1230,6 +1250,9 @@ const Fixed3DCanvas = forwardRef(({
             intensity={config?.debug?.envMapEnabled === false ? 0 : (config?.environment?.intensity ?? 7.0)}
           />
           
+          {effectsEnabled?.bloom && (
+            <ExplosionBloomDriver bloomRef={explosionBloomRef} intensity={postProcessingConfig?.bloom?.intensity || 1.0} />
+          )}
           {/* Post-processing effects (unchanged) */}
           <EffectComposer
             key={ios26 ? 'ios26-no-msaa' : `msaa-${msaaSamples}`}
@@ -1247,8 +1270,9 @@ const Fixed3DCanvas = forwardRef(({
             />
             
             {effectsEnabled?.bloom && (
-              <Bloom 
-                luminanceThreshold={postProcessingConfig?.bloom?.luminanceThreshold || 0.05} 
+              <Bloom
+                ref={explosionBloomRef}
+                luminanceThreshold={postProcessingConfig?.bloom?.luminanceThreshold || 0.05}
                 luminanceSmoothing={postProcessingConfig?.bloom?.luminanceSmoothing || 0.9} 
                 intensity={postProcessingConfig?.bloom?.intensity || 1.0} 
                 radius={postProcessingConfig?.bloom?.radius || 1.9} 

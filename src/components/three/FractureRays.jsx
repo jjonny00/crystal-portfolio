@@ -17,8 +17,12 @@ import React, { useMemo, useRef, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import { createFractureRayMaterial } from '../materials/fractureRayMaterial';
+import { getExplosionLookScale } from '../../lib/explosionLook';
 
 const clamp01 = (x) => Math.min(1, Math.max(0, x));
+
+// After the crystal's transparent cells (renderOrder 0), see the clone below.
+const RAYS_RENDER_ORDER = 1;
 
 const FractureRays = ({
   modelUrl,
@@ -47,6 +51,12 @@ const FractureRays = ({
         child.castShadow = false;
         child.receiveShadow = false;
         child.frustumCulled = false;
+        // Always drawn after the crystal. Left to three's per-frame transparent
+        // sort, each ray plane fell in between the crystal's own transparent,
+        // depth-writing cells, and as the camera moved a ray could swap from
+        // drawing before a cell to after it, so the depth test hid it behind
+        // that cell from one frame to the next.
+        child.renderOrder = RAYS_RENDER_ORDER;
         // Track the furthest vertex from the model origin so distance-mode
         // gradients auto-normalize to the ray length.
         const geom = child.geometry;
@@ -101,7 +111,7 @@ const FractureRays = ({
       }
     }
 
-    material.uniforms.uOpacity.value = opacity;
+    material.uniforms.uOpacity.value = opacity * getExplosionLookScale('rays');
     material.uniforms.uGrowth.value = growth;
     group.visible = opacity > 0.001;
   });

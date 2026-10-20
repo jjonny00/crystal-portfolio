@@ -7,6 +7,7 @@ import React, { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { usePxToWorld } from '../../hooks/usePxToWorld';
+import { getExplosionLookScale } from '../../lib/explosionLook';
 
 /**
  * A small cloud of fine sparks orbiting the orb. Each spark drifts on a gentle
@@ -148,6 +149,7 @@ const OrbEnergyParticles = ({
     const t = timeRef.current;
 
     material.uniforms.uTime.value = t;
+    material.uniforms.uOpacity.value = opacity * getExplosionLookScale('motes');
     material.uniforms.uPx.value = px(1);
     material.uniforms.uScale.value = (state.size.height * state.gl.getPixelRatio()) / 2;
 

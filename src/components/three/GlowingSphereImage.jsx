@@ -4,6 +4,7 @@
 import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { getExplosionLookBlend } from '../../lib/explosionLook';
 import { getGlowingSphereTexture } from '../../loader/preloadFractureAssets';
 import { usePxToWorld } from '../../hooks/usePxToWorld';
 
@@ -67,6 +68,13 @@ const GlowingSphereImage = ({
   pulseSpeed = 1.0,            // radians/sec of the primary pulse
   pulseScaleAmount = 0.1,     // ±6% scale breathing
   pulseOpacityAmount = 0.07,   // ±14% brightness flicker
+  // Which explosion look control scales this sprite's brightness (lib/explosionLook).
+  lookName = null,
+  // Held back from the split itself rather than from the slowdown (broad light).
+  lookFromSplit = false,
+  // Seconds to fade out once hidden (visible false, or the crystal reforming),
+  // eased from wherever it was; null keeps the quick ~0.1s drop.
+  fadeOutSeconds = null,
 
   // Position and visibility
   position = [0, 0, 0],
@@ -115,6 +123,7 @@ const GlowingSphereImage = ({
 
   // Simple state
   const [isExploding, setIsExploding] = useState(false);
+  const fadeOutRef = useRef(null);
   const [startTime, setStartTime] = useState(0);
   const lastCrystalForm = useRef('whole');
 
@@ -270,7 +279,16 @@ const GlowingSphereImage = ({
   }, [baseWorldSize]);
 
   useFrame((state, deltaTime) => {
-    if (!meshRef.current || !visible) return;
+    if (!meshRef.current) return;
+    // Hidden: hold the mesh up while it fades out (see fadeOutSeconds) rather
+    // than vanishing on the spot.
+    if (!visible) {
+      if (fadeOutSeconds == null || material.opacity <= 0) {
+        meshRef.current.visible = false;
+        return;
+      }
+      meshRef.current.visible = true;
+    }
 
     // Optionally push the plane back behind the cluster (see `depthPush` above),
     // keeping on-screen size constant by scaling up in proportion to the added
@@ -293,7 +311,8 @@ const GlowingSphereImage = ({
     // Face camera
     meshRef.current.lookAt(state.camera.position);
 
-    if (isExploding) {
+    if (isExploding && visible) {
+      fadeOutRef.current = null;
       // Optional live overrides (only when a tuningKey is provided).
       const tune = (tuningKey && typeof globalThis !== 'undefined' && globalThis[tuningKey]) || null;
       const effMaxOpacity = tune?.maxOpacity ?? maxOpacity;
@@ -323,11 +342,17 @@ const GlowingSphereImage = ({
       const opacityPulse = 0.65 + pulse * pulseOpacityAmount * fadeProgress;
 
       meshRef.current.scale.setScalar(scale * scalePulse * depthScaleComp);
-      material.opacity = Math.min(1, opacity * opacityPulse);
+      material.opacity = Math.min(1, opacity * opacityPulse) * (lookName ? getExplosionLookBlend(lookName, { fromSplit: lookFromSplit }) : 1);
 
     } else {
       const currentOpacity = material.opacity;
-      if (currentOpacity > 0) {
+      if (currentOpacity > 0 && fadeOutSeconds != null) {
+        if (!fadeOutRef.current) fadeOutRef.current = { from: currentOpacity, elapsed: 0 };
+        fadeOutRef.current.elapsed += deltaTime;
+        const x = Math.min(fadeOutRef.current.elapsed / Math.max(fadeOutSeconds, 1e-3), 1);
+        material.opacity = fadeOutRef.current.from * (1 - x * x * (3 - 2 * x));
+        if (material.opacity <= 0) meshRef.current.scale.setScalar(baseWorldSize * depthScaleComp);
+      } else if (currentOpacity > 0) {
         material.opacity = Math.max(0, currentOpacity - 0.05 * deltaTime * 60);
         if (material.opacity <= 0) {
           meshRef.current.scale.setScalar(baseWorldSize * depthScaleComp);

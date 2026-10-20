@@ -46,7 +46,9 @@ import { createLogger } from '../../utils/logger'
 import { frameEase } from '../../utils/frameEase'
 // TEMPORARY DIAGNOSTIC — remove together with src/debug/edgeWearMaskDebug.js
 import { inspectEdgeWearAttributes, applyEdgeWearMaskDebug, getEdgeWearDebugMode, getEdgeWearDebugOverride, installEdgeWearMaskDebug, setEdgeWearDebugParams } from '../../debug/edgeWearMaskDebug'
-import { HERO_OVERVIEW_CINEMATIC_RESOLVED, HERO_OVERVIEW_EASING } from '../../config/heroOverviewCinematicConfig'
+import { HERO_OVERVIEW_CINEMATIC_RESOLVED, HERO_OVERVIEW_EASING, HERO_RETURN_CINEMATIC } from '../../config/heroOverviewCinematicConfig'
+import { easeFragmentTravel, getFragmentTravelSeconds, startExplosionTime, stopExplosionTime } from '../../lib/explosionTime'
+import { getExplosionLookScale } from '../../lib/explosionLook'
 import { markScenePrep } from '../../loader/loadProgress'
 
 const PROJECT_DISPLAY_SLOT = 'ProjectDisplay'
@@ -63,13 +65,21 @@ const FORWARD_PRE_SWAP_WINDOW_MS = 120
 // begin their fade, as a fraction of the whole run (fracture hold + facet travel).
 // 1 = the frame the facets land; 0.5 halves that wait.
 //
-// Halving the wall clock does NOT mean catching the facets half-travelled: the
-// travel is expo-eased, so at 0.5 of the run they are already ~92% of the way to
-// their anchors. The labels still come up over facets that read as arrived, just
-// without the dead beat at the end of the settle.
-const LABEL_REVEAL_EXPLOSION_FRACTION = 0.5
-const FORWARD_MASK_GLOW_DURATION_S = 0.22
-const FORWARD_MASK_GLOW_PEAK_INTENSITY = 2.0
+// The travel is the bullet-time ease (bulletTimeBurst): the facets keep moving
+// out, slowly, right through the camera's orbit, and only ease into their
+// anchors at the end. At 0.9 of the run (~2.7s) they are ~98% of the way there,
+// so the labels come up over a composition that reads as settled.
+const LABEL_REVEAL_EXPLOSION_FRACTION = 0.9
+// ...and no earlier than this far into the camera's move (its orbit takes longer
+// the further round it goes, up to a full turn, so it can outlast the
+// explosion). A camera that never reports its progress gets this long.
+const LABEL_REVEAL_CAMERA_PROGRESS = 0.9
+const LABEL_REVEAL_CAMERA_WAIT_LIMIT_MS = 2000
+// 0.14 (was 0.22): a sharper pulse from inside the crystal, gone before time
+// has finished collapsing, so the split and the burst are seen (look.flash
+// raises its peak).
+const FORWARD_MASK_GLOW_DURATION_S = 0.14
+const FORWARD_MASK_GLOW_PEAK_INTENSITY = 4.5
 // Fraction of the facet travel over which the fracture glow shifts from
 // flare-blue to the project color ("very quickly" / front-loaded).
 const FRACTURE_GLOW_COLOR_FADE_PORTION = 0.2
@@ -81,6 +91,9 @@ const REFORM_MASK_GLOW_DURATION_S = 0.2
 const REFORM_MASK_GLOW_PEAK_INTENSITY = 3.5
 const REFORM_FACET_MASK_GLOW_PEAK_INTENSITY = 3.5
 const REFORM_SWAP_OVERLAP_MS = 100
+// The orb behind the fragments (the two glow sprites) fades out over this long
+// as the crystal reforms, rather than going out the moment it starts.
+const ORB_FADE_OUT_SECONDS = 1.2
 
 // Facet hover/focus color-transition rates (progress units per second; duration ≈ 1/rate).
 // The hover-out fade runs at half rate so exiting a hover fades back twice as slowly.
@@ -321,6 +334,37 @@ const _facetBaseEulerScratch = new THREE.Euler();
 const _facetFinalEulerScratch = new THREE.Euler();
 const _facetFinalQuatScratch = new THREE.Quaternion();
 const _facetMagnetTargetScratch = new THREE.Vector3();
+
+// A fragment's slight tumble as it flies out: `radians` about its own axis
+// (fixed per fragment, from its index), pivoting on the fragment's centre
+// rather than its origin so it turns in place instead of swinging.
+const _fragmentCentres = new WeakMap();
+const _tumbleBoxScratch = new THREE.Box3();
+const _tumbleAxisScratch = new THREE.Vector3();
+const _tumbleQuatScratch = new THREE.Quaternion();
+const _tumbleBeforeScratch = new THREE.Vector3();
+const _tumbleAfterScratch = new THREE.Vector3();
+const applyFragmentTumble = (object, index, radians) => {
+  let centre = _fragmentCentres.get(object);
+  if (!centre) {
+    object.updateWorldMatrix(true, true);
+    _tumbleBoxScratch.setFromObject(object);
+    if (_tumbleBoxScratch.isEmpty()) return;
+    centre = object.worldToLocal(_tumbleBoxScratch.getCenter(new THREE.Vector3()));
+    _fragmentCentres.set(object, centre);
+  }
+  const axis = _tumbleAxisScratch.set(
+    Math.sin(index * 2.399 + 0.7),
+    Math.cos(index * 1.713 + 0.3),
+    Math.sin(index * 3.137 + 1.1),
+  ).normalize();
+  // 0.65–1× the full tumble, alternating direction fragment to fragment.
+  const share = (0.65 + 0.35 * Math.abs(Math.sin(index * 12.9898 + 4.1))) * (index % 2 ? -1 : 1);
+  _tumbleBeforeScratch.copy(centre).multiply(object.scale).applyQuaternion(object.quaternion);
+  object.quaternion.multiply(_tumbleQuatScratch.setFromAxisAngle(axis, radians * share));
+  _tumbleAfterScratch.copy(centre).multiply(object.scale).applyQuaternion(object.quaternion);
+  object.position.add(_tumbleBeforeScratch).sub(_tumbleAfterScratch);
+};
 const vectorToPlain = (v) => v ? ({ x: Number(v.x?.toFixed?.(4) ?? v.x), y: Number(v.y?.toFixed?.(4) ?? v.y), z: Number(v.z?.toFixed?.(4) ?? v.z) }) : null;
 const quaternionToPlain = (q) => q ? ({ x: Number(q.x?.toFixed?.(4) ?? q.x), y: Number(q.y?.toFixed?.(4) ?? q.y), z: Number(q.z?.toFixed?.(4) ?? q.z), w: Number(q.w?.toFixed?.(4) ?? q.w) }) : null;
 const objectTransformSnapshot = (object) => {
@@ -479,6 +523,7 @@ const UnifiedCrystalScene = forwardRef(({
   sharedCameraMoveProgressRef = null,
   introRevealRef = null,
   heroOverviewRuntime = null,
+  holdOverviewLabels = false,
   heroOverviewExplosionClockRef = null,
 }, ref) => {
   // Component refs for crystal animation
@@ -512,7 +557,7 @@ const UnifiedCrystalScene = forwardRef(({
   const fractureStartQuatRef = useRef(new THREE.Quaternion());
   const neutralQuat = useMemo(() => new THREE.Quaternion(), []);
   const origin = useMemo(() => new THREE.Vector3(0, 0, 0), []);
-  const swapMaskGlowColor = useMemo(() => new THREE.Color('#6375ae'), []);
+  const swapMaskGlowColor = useMemo(() => new THREE.Color('#2e3fff'), []);
   
   // Debug panel state
   const [showCrystalDebug, setShowCrystalDebug] = useState(false);
@@ -823,14 +868,14 @@ const UnifiedCrystalScene = forwardRef(({
       heroOverviewFractureTimingRouteActiveRef.current
     );
     const effectiveCrystalFracturePause = routeLocal ? fractureConfig.holdDuration : originalCrystalFracturePause;
-    const effectiveFacetTravelDuration = routeLocal ? fractureConfig.travelDuration : originalFacetTravelDuration;
+    // The fragments travel on the explosion's bullet-time clock (lib/explosionTime):
+    // for as long as the camera's move takes, so they land together.
+    const effectiveFacetTravelDuration = routeLocal ? getFragmentTravelSeconds() : originalFacetTravelDuration;
     const effectiveCrystalExplodeDuration = routeLocal
       ? effectiveCrystalFracturePause + effectiveFacetTravelDuration
       : originalCrystalExplodeDuration;
-    const fractureTravelEase = routeLocal ? fractureConfig.travelEase : 'legacy-crystalConfig.explosionEase/shared-expoOut';
-    const travelEaseFunction = routeLocal
-      ? (HERO_OVERVIEW_EASING[fractureConfig.travelEase] || HERO_OVERVIEW_EASING.easeOutCubic)
-      : null;
+    const fractureTravelEase = routeLocal ? 'explosionTime' : 'legacy-crystalConfig.explosionEase/shared-expoOut';
+    const travelEaseFunction = routeLocal ? easeFragmentTravel : null;
     return {
       routeLocal,
       fractureConfig,
@@ -1287,6 +1332,13 @@ const UnifiedCrystalScene = forwardRef(({
   // once the threshold is passed.
   const [labelRevealReady, setLabelRevealReady] = useState(false);
   const labelRevealFiredRef = useRef(false);
+  // The reform's clock: when it began and where each facet started from (its
+  // position and rotation), so the facets gather on HERO_RETURN_CINEMATIC's
+  // timing, in step with the camera's return, along the same straight paths in.
+  const reformClockRef = useRef(null);
+  // The explosion's share of the wait is over but the camera's orbit is not (a
+  // longer orbit runs past the explosion): the time to give up waiting on it.
+  const labelRevealAwaitingCameraUntilRef = useRef(null);
   const pendingReformSwapAtRef = useRef(null);
   const pendingFacetHideAtRef = useRef(null);
   const swapMaskGlowStartRef = useRef(null);
@@ -1304,11 +1356,28 @@ const UnifiedCrystalScene = forwardRef(({
     swapMaskGlowStartRef.current = performance.now();
   }, []);
 
+  // The whole crystal's resting glow is kept on the material while a swap flare
+  // lights it (userData.__wholeCrystalRest), so the materials effect, which can
+  // run mid-flare (a tier switch, a deep link), never takes the flare's blue for
+  // the rest. It did, and every reset after "restored" the crystal to it: the
+  // hero came back glowing blue after a deep link or About.
+  const stashWholeCrystalRest = (mat) => {
+    if (!mat || mat.userData?.__wholeCrystalRest) return;
+    mat.userData = {
+      ...(mat.userData || {}),
+      __wholeCrystalRest: {
+        color: mat.emissive.clone(),
+        intensity: mat.userData?.introDimBase?.emissiveIntensity ?? mat.emissiveIntensity ?? 0,
+      },
+    };
+  };
+
   const resetWholeCrystalMaskGlow = useCallback(() => {
     const mat = crystalMaterialRef.current;
     if (!mat) return;
     mat.emissive.copy(wholeCrystalBaseEmissiveColorRef.current);
     mat.emissiveIntensity = wholeCrystalBaseEmissiveIntensityRef.current;
+    if (mat.userData) delete mat.userData.__wholeCrystalRest;
     mat.needsUpdate = true;
   }, []);
 
@@ -1361,6 +1430,7 @@ const UnifiedCrystalScene = forwardRef(({
     setRingVisible(false);
     maybeTriggerHeroOverviewEffects('runExplodeSwap');
     explosionStartRef.current = performance.now() - FORWARD_PRE_SWAP_WINDOW_MS;
+    startExplosionTime(explosionStartRef.current);
 
     // Capture hero rotation so facets start from same orientation
     if (wholeCrystalRef.current && facetsGroupRef.current) {
@@ -2876,6 +2946,7 @@ const UnifiedCrystalScene = forwardRef(({
           resetWholeCrystalMaskGlow();
           reformGlowReleaseRef.current = true;
           explosionStartRef.current = null;
+          stopExplosionTime();
           explosionCycleCompleteRef.current = true;
           setShowWholeCrystal(false);
           setShowFacets(true);
@@ -2925,9 +2996,11 @@ const UnifiedCrystalScene = forwardRef(({
           setShowFacets(false);
         }
         explosionStartRef.current = null;
+        stopExplosionTime();
         if (heroOverviewExplosionClockRef) heroOverviewExplosionClockRef.current = null;
         explosionCycleCompleteRef.current = false;
         labelRevealFiredRef.current = false;
+        labelRevealAwaitingCameraUntilRef.current = null;
         reversalLabelRevealAtRef.current = null;
         reformGlowReleaseRef.current = false;
         setLabelRevealReady(false);
@@ -2953,6 +3026,16 @@ const UnifiedCrystalScene = forwardRef(({
       if (!labelRevealFiredRef.current) {
         labelRevealFiredRef.current = true;
         setLabelRevealReady(true);
+      }
+    }
+    if (labelRevealAwaitingCameraUntilRef.current != null) {
+      const revealCameraProgress = sharedCameraMoveProgressRef?.current ?? animationData?.cameraMoveProgress ?? 1;
+      if (revealCameraProgress >= LABEL_REVEAL_CAMERA_PROGRESS || now >= labelRevealAwaitingCameraUntilRef.current) {
+        labelRevealAwaitingCameraUntilRef.current = null;
+        if (!labelRevealFiredRef.current) {
+          labelRevealFiredRef.current = true;
+          setLabelRevealReady(true);
+        }
       }
     }
     if (import.meta.env.DEV && typeof globalThis !== 'undefined') {
@@ -3003,7 +3086,7 @@ const UnifiedCrystalScene = forwardRef(({
       const glowMode = swapMaskGlowModeRef.current || 'forward';
       const elapsed = (now - swapMaskGlowStartRef.current) / 1000;
       const glowDuration = glowMode === 'reform' ? REFORM_MASK_GLOW_DURATION_S : FORWARD_MASK_GLOW_DURATION_S;
-      const peakIntensity = (glowMode === 'reform' ? REFORM_MASK_GLOW_PEAK_INTENSITY : FORWARD_MASK_GLOW_PEAK_INTENSITY) * emissiveGlowBoostRef.current;
+      const peakIntensity = (glowMode === 'reform' ? REFORM_MASK_GLOW_PEAK_INTENSITY : FORWARD_MASK_GLOW_PEAK_INTENSITY * getExplosionLookScale('flash')) * emissiveGlowBoostRef.current;
       const glowProgress = Math.min(elapsed / glowDuration, 1);
       const attack = 0.55;
       const envelope = glowProgress < attack
@@ -3012,6 +3095,7 @@ const UnifiedCrystalScene = forwardRef(({
       const strength = Math.max(0, envelope);
       const mat = crystalMaterialRef.current;
       if (mat) {
+        stashWholeCrystalRest(mat);
         mat.emissive.copy(wholeCrystalBaseEmissiveColorRef.current).lerp(swapMaskGlowColor, strength * 0.85);
         mat.emissiveIntensity = THREE.MathUtils.lerp(
           wholeCrystalBaseEmissiveIntensityRef.current,
@@ -3245,10 +3329,10 @@ const UnifiedCrystalScene = forwardRef(({
         // travel — the hold is part of the wait being tuned.
         if (
           !labelRevealFiredRef.current &&
+          labelRevealAwaitingCameraUntilRef.current == null &&
           elapsedExplosion >= (fracturePause + travelDuration) * LABEL_REVEAL_EXPLOSION_FRACTION
         ) {
-          labelRevealFiredRef.current = true;
-          setLabelRevealReady(true);
+          labelRevealAwaitingCameraUntilRef.current = performance.now() + LABEL_REVEAL_CAMERA_WAIT_LIMIT_MS;
         }
         const sharedProgressRaw = THREE.MathUtils.clamp(progress, 0, 1);
         const easeType = fractureTiming.routeLocal
@@ -3370,6 +3454,10 @@ const UnifiedCrystalScene = forwardRef(({
 
             facetRef.current.position.copy(finalPosition);
             facetRef.current.quaternion.slerpQuaternions(neutralQuat, finalQuat, eased);
+            // A slight tumble on the way out (fracture.tumbleDegrees), peaking
+            // mid-flight and gone as the fragment lands, so it arrives at rest.
+            const tumbleRadians = THREE.MathUtils.degToRad(fractureTiming.fractureConfig?.tumbleDegrees ?? 0) * Math.sin(Math.PI * eased);
+            if (tumbleRadians !== 0) applyFragmentTumble(facetRef.current, index, tumbleRadians);
 
             if (typeof globalThis !== 'undefined' && globalThis.__HERO_OVERVIEW_RUNTIME_DEBUG__) {
               if (!heroOverviewFragmentWriterLoggedRef.current) {
@@ -3749,6 +3837,25 @@ const UnifiedCrystalScene = forwardRef(({
       let allFacetsAtCenter = true;
       let reformConvergenceProgress = 1;
 
+      if (!isReforming) {
+        reformClockRef.current = null;
+      } else if (!reformClockRef.current) {
+        reformClockRef.current = {
+          start: now,
+          positions: facetRefs.current.map((ref) => ref?.current?.position.clone() ?? null),
+          quaternions: facetRefs.current.map((ref) => ref?.current?.quaternion.clone() ?? null),
+        };
+      }
+      const reformEased = isReforming
+        ? THREE.MathUtils.clamp(
+            HERO_OVERVIEW_EASING[HERO_RETURN_CINEMATIC.reformEase](
+              (now - reformClockRef.current.start) / (HERO_RETURN_CINEMATIC.reformSeconds * 1000),
+            ),
+            0,
+            1,
+          )
+        : 0;
+
       const facetMagnet = facetMagnetRef.current;
       if (isReforming) facetMagnet.offsets.length = 0;
       beginFacetMagnetFrame(
@@ -3788,8 +3895,13 @@ const UnifiedCrystalScene = forwardRef(({
             const clampedProgress = Math.max(0, progress);
             reformConvergenceProgress = Math.min(reformConvergenceProgress, clampedProgress);
 
-            const facetSpeed = 0.02 + (clampedProgress * clampedProgress * 0.16);
-            facetRef.current.position.lerp(targetPos, frameEase(facetSpeed, deltaTime));
+            const reformFrom = reformClockRef.current?.positions[index];
+            if (reformFrom) {
+              facetRef.current.position.lerpVectors(reformFrom, targetPos, reformEased);
+            } else {
+              const facetSpeed = 0.02 + (clampedProgress * clampedProgress * 0.16);
+              facetRef.current.position.lerp(targetPos, frameEase(facetSpeed, deltaTime));
+            }
 
             if (distanceToCenter > 0.05) {
               allFacetsAtCenter = false;
@@ -3903,7 +4015,10 @@ const UnifiedCrystalScene = forwardRef(({
           }
         }
 
-        if (isProjectFocusedFacet || isCaseStudyActiveProject) {
+        const reformFromQuat = isReforming ? reformClockRef.current?.quaternions[index] : null;
+        if (reformFromQuat) {
+          facetRef.current.quaternion.slerpQuaternions(reformFromQuat, targetQuat, reformEased);
+        } else if (isProjectFocusedFacet || isCaseStudyActiveProject) {
           facetRef.current.quaternion.slerp(targetQuat, focusedRotationLerp);
         } else {
           facetRef.current.quaternion.slerp(targetQuat, rotationLerp);
@@ -3953,7 +4068,13 @@ const UnifiedCrystalScene = forwardRef(({
       });
 
       if (isReforming) {
-        const easedReformGlow = Math.pow(THREE.MathUtils.clamp(reformConvergenceProgress, 0, 1), 1.8);
+        // On the reform's own clock: the glow builds into the final snap. (By
+        // distance, it began at ~a sixth of the flare's peak, since the facets
+        // start only ~2 units out, and held it through the slow gather, so the
+        // fragments came back looking washed out.)
+        const easedReformGlow = reformClockRef.current
+          ? reformEased ** 2.5
+          : Math.pow(THREE.MathUtils.clamp(reformConvergenceProgress, 0, 1), 1.8);
         const shouldHoldMaxReformGlow =
           allFacetsAtCenter || pendingReformSwapAtRef.current != null;
         const targetReformGlow = shouldHoldMaxReformGlow ? 1 : easedReformGlow;
@@ -4072,12 +4193,15 @@ const UnifiedCrystalScene = forwardRef(({
     if (!crystalMaterialRef.current) return;
     // Mid-intro the live value is the intro's dimmed one; read the undimmed base it
     // leaves on the material, or the swap/reform glows restore the crystal to ~0.
+    // Mid-flare the live value is the flare's; read the rest it stashed.
+    const rest = crystalMaterialRef.current.userData?.__wholeCrystalRest;
     wholeCrystalBaseEmissiveIntensityRef.current =
-      crystalMaterialRef.current.userData?.introDimBase?.emissiveIntensity
+      rest?.intensity
+      ?? crystalMaterialRef.current.userData?.introDimBase?.emissiveIntensity
       ?? crystalMaterialRef.current.emissiveIntensity
       ?? 0;
     wholeCrystalBaseEmissiveColorRef.current.copy(
-      crystalMaterialRef.current.emissive || new THREE.Color('#000000')
+      rest?.color || crystalMaterialRef.current.emissive || new THREE.Color('#000000')
     );
   }, [materialVersion]);
 
@@ -4606,6 +4730,9 @@ const UnifiedCrystalScene = forwardRef(({
         position={[0, 0, 0]}
         visible={sphereVisible}
         tuningKey="__BG_HALO__"
+        lookName="halo"
+        fadeOutSeconds={ORB_FADE_OUT_SECONDS}
+        lookFromSplit
         renderOrder={-10}
         depthPush={8}
         animationData={animationData}
@@ -4623,6 +4750,8 @@ const UnifiedCrystalScene = forwardRef(({
         baseSize={256}
         maxScale={3500}
         maxOpacity={0.45}
+        lookName="glow"
+        fadeOutSeconds={ORB_FADE_OUT_SECONDS}
         explosionDuration={0.05}
         fadeInDuration={0.02}
         position={[0, 0, 0]}
@@ -4660,6 +4789,7 @@ const UnifiedCrystalScene = forwardRef(({
       {!simplifiedAnimations && heroOverviewEffectsManualMode && heroOverviewExplosionParticlesConfig.enabled && (
         <FractureBurstParticles
           trigger={heroOverviewExplosionBurstId}
+          lookName="explosionSparkles"
           emitterPosition={[0, 0, 0]}
           {...heroOverviewExplosionParticlesConfig}
           active={animationData?.crystalForm === 'exploded'}
@@ -4686,6 +4816,12 @@ const UnifiedCrystalScene = forwardRef(({
       {!simplifiedAnimations && (
         <FractureBurstParticles
           trigger={burstId}
+          lookName="sparkles"
+          prominentShare={heroOverviewEffectsManualMode ? heroOverviewParticlesConfig.prominentShare : 0}
+          prominentSizeScale={heroOverviewParticlesConfig.prominentSizeScale ?? 1}
+          secondaryOpacity={heroOverviewEffectsManualMode ? heroOverviewParticlesConfig.secondaryOpacity : 1}
+          prominentSpawnScale={heroOverviewEffectsManualMode ? heroOverviewParticlesConfig.prominentSpawnScale ?? 1 : 1}
+          prominentSpeedScale={heroOverviewEffectsManualMode ? heroOverviewParticlesConfig.prominentSpeedScale ?? 1 : 1}
           emitterPosition={[0, 0, 0]}
           active={animationData?.crystalForm === 'exploded'}
           {...mergedConfig.fracture.particles}
@@ -4902,7 +5038,7 @@ const UnifiedCrystalScene = forwardRef(({
         animationData={animationData}
         performanceProfile={performanceProfile}
         anchorOffsets={anchorOffsets}
-        labelRevealReady={labelRevealReady}
+        labelRevealReady={labelRevealReady && !holdOverviewLabels}
         facetRefs={facetRefs}
         facetKeys={facetKeys}
       />

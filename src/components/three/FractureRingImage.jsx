@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { BLENDING_MODES } from './GlowingSphereImage';
 import { getFractureRingTexture } from '../../loader/preloadFractureAssets';
+import { getExplosionLookScale } from '../../lib/explosionLook';
 
 /**
  * Enhanced Fracture Ring Image with tweakable parameters
@@ -181,7 +182,7 @@ const FractureRingImage = ({
         currentOpacity = opacity * (1 - fadeOutProgress);
       }
       
-      material.opacity = Math.max(0, currentOpacity);
+      material.opacity = Math.max(0, currentOpacity) * getExplosionLookScale('ring');
       
       // Animation complete
       if (progress >= 1) {

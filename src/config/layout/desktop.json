@@ -445,7 +445,8 @@
       "height": 0.4,
       "orbitSpeed": 0.03,
       "baseAngle": 0,
-      "lookAtYOffset": 0.55
+      "lookAtYOffset": 0.55,
+      "introIndexOffsetDegrees": 160
     }
   },
   "projects": {

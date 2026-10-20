@@ -2,17 +2,26 @@ export const HERO_OVERVIEW_CINEMATIC_CONFIG_SOURCE = 'src/config/heroOverviewCin
 
 export const HERO_OVERVIEW_CINEMATIC_CONFIG = {
   // The phase values are weights, normalized over the total; they are written in
-  // seconds here so they read directly. The three hold phases keep the times they
-  // had in the 2s cut, so the camera's impact punch still lands on the explosion;
-  // the extra second all goes to overviewTravel, so the camera has time to glide
-  // to a stop. The fragments (fracture.travelDuration) and the turn round the
-  // crystal (camera.orbitEase) come to rest at the same end.
+  // seconds here so they read directly. The camera does not hold through the
+  // charge (it carries the hero orbit straight into the bullet-time orbit), so
+  // the three hold phases are only nominal and overviewTravel spans nearly the
+  // whole move.
+  //
+  // Bullet time: the camera and the fragments work against each other. From the
+  // split (0.5s): the fragments burst out (to ~0.8s) and hang almost still,
+  // mid-explosion (~0.9–1.9s), while the camera sweeps round them at full speed
+  // (the parallax is what sells the frozen moment). Then it brakes and pulls in
+  // to the index as the fragments drift on to their places (~1.9–2.9s).
+  //
+  // totalDurationSeconds is the camera's time for its shortest orbit (180°);
+  // longer orbits take longer (camera.orbitSecondsPerExtraHalfTurn). The phase
+  // windows below are fractions of whichever it is.
   timeline: {
     totalDurationSeconds: 3,
-    fractureHold: 0.396,
-    explosionImpulse: 0.07,
-    bulletTime: 0.192,
-    overviewTravel: 2.192,
+    fractureHold: 0.03,
+    explosionImpulse: 0.01,
+    bulletTime: 0.01,
+    overviewTravel: 2.8,
     overviewSettle: 0.15,
   },
 
@@ -23,26 +32,203 @@ export const HERO_OVERVIEW_CINEMATIC_CONFIG = {
     // still, so they read as jitter.
     explosionPunchDistance: 0,
     bulletTimeDriftDistance: 0,
-    travelEase: 'quintOut',
+    // The camera's distance out to the index: out to an orbiting distance while
+    // it gets up to speed, held there through the sweep, then in to the index
+    // as it brakes (bulletTimeOrbitDolly).
+    travelEase: 'bulletTimeOrbitDolly',
+    // Where it looks, its FOV and film offset: the hero's framing, centred on
+    // the explosion, until the sweep is braking, then the index's.
+    framingEase: 'bulletTimeFraming',
     settleEase: 'smoothSettle',
     punchEase: 'easeOutExpo',
     driftEase: 'smoothSettle',
-    // The turn around the crystal from the hero orbit's angle to the overview's.
-    // It runs on its own, from the explosion (the fragments' release, at
-    // fracture.holdDuration) to the very end of the move, rather than inside
-    // overviewTravel's fast-start ease. longLanding: most of the turn quickly,
-    // then a long, slow landing on the overview angle.
-    orbitEase: 'longLanding',
+    // The orbit round the crystal from the hero camera's angle to the index's,
+    // over the whole move. It always goes at least orbitMinArcDegrees round,
+    // the shortest way that does (180–360°: a full turn when the hero camera is
+    // already at the index angle), and never reverses. The intro lands the
+    // hero camera well round from the index (camera.heroTuning
+    // .introIndexOffsetDegrees in the layouts) so the default is ~200°.
+    orbitEase: 'bulletTimeOrbit',
+    orbitMinArcDegrees: 180,
+    // A full turn gets this much longer than a half turn (pro rata between), so
+    // 360° does not run at twice the speed of 180°. 0 turns it off.
+    orbitSecondsPerExtraHalfTurn: 1,
+    // The hero orbit's own speed (auto-orbit plus any drag fling still coasting,
+    // rad/s) is carried into the start of the orbit when it turns the same way,
+    // up to this.
+    orbitEntrySpeedCap: 2,
+    // The shockwave hitting the camera as the crystal splits: one recoil
+    // straight back along its view (a share of its distance to what it looks
+    // at, so it reads the same near or far) and a slight roll, peaking
+    // peakSeconds after the split and easing back to nothing over
+    // recoverySeconds. No shake or spring: one push, one return. Added on top
+    // of the orbit, so the path and the index pose are untouched. Off under
+    // reduced motion. look.cameraRecoil / cameraRoll scale each part.
+    // A sharp push (peak 35ms after the split, inside the 40ms impulse) and a
+    // slower, softer return that settles as time finishes collapsing, so the
+    // recoil reads as the force of the release rather than a wobble alongside it
+    // (was 50ms / 200ms). The roll is kept, halved (was 0.9°): it adds to the
+    // hit, but at 0.9° it read as the frame tipping.
+    impact: {
+      // A jolt, not a push: ~125ms in all, 2.5% of the distance to the look
+      // target (~0.07 close in), so the camera is struck and carries straight
+      // on (was 3.5%, 35ms + 280ms, which read as the camera backing away).
+      recoil: 0.025,
+      rollDegrees: 0.5,
+      peakSeconds: 0.025,
+      recoverySeconds: 0.1,
+    },
+    // The distance through the move, by share of the orbit's angular travel
+    // (so it stretches with longer orbits): close in round the explosion, at
+    // the hero's distance plus closeGrowth (world units) taken on as the
+    // fragments spread, so it keeps clear of them; then from `start` one
+    // expanding spiral out to the index, gentle at first, arriving with the
+    // turn (it starts by the turn, then runs evenly in time to the end, so it
+    // never outruns the slowing turn). framingStart: when the look target and
+    // FOV begin moving from the hero's to the index's. centerBy: the share of
+    // the turn by which the film offset reaches the index's (centred), so the
+    // explosion sits in the middle of the frame through the close orbit.
+    spiral: {
+      start: 0.75,
+      framingStart: 0.7,
+      closeGrowth: 0.6,
+      centerBy: 0.3,
+    },
+  },
+
+  // Bullet time for the explosion: one clock (lib/explosionTime) that the
+  // fragments, the smoke and both sparkle bursts all run on; the camera stays
+  // on real time. From the split (fracture.holdDuration in): full speed for
+  // impulseSeconds, then braking over slowdownSeconds to minTimeScale (in log
+  // terms, braking hardest at once and easing onto the crawl, so the moment
+  // time is caught is sudden), held there through the orbit, then from
+  // releaseStart (a fraction of the camera's move, so it lands with the camera
+  // whatever the orbit's length) back up to full speed over releaseSeconds.
+  // The particles' positions, ages and fading advance on the simulated time,
+  // the smoke's and the sparkles' bottoming out at their own smokeTimeScale /
+  // sparkleTimeScale rather than minTimeScale.
+  // The fragments, which have to land exactly with the camera, take the same
+  // curve less deeply (its time scale to the fragmentTimeScaleExponent, ~0.35×
+  // at the bottom instead of 3%) and only fragmentReleaseLift× of the release
+  // before they ease into their places, so the release never rushes them in.
+  timeDilation: {
+    // A 40ms kick (~2.5 frames at 60fps: long enough to see the burst move;
+    // 20ms was barely one frame), then 80ms of braking: everything is caught
+    // within ~120ms of the split.
+    // 25ms (was 40): the fragments are caught closer together, with more of
+    // their way still to go; the smoke and sparks still burst out first, on
+    // effectsImpulseBoost.
+    impulseSeconds: 0.025,
+    slowdownSeconds: 0.08,
+    minTimeScale: 0.03,
+    // How fast the smoke and the sparkles run at the bottom of the curve. Every
+    // system slows and speeds up at the same moments on the same curve, but
+    // the effects keep a little more motion than minTimeScale, so the cloud and
+    // the spark field keep growing through the orbit. Low enough that the fall
+    // from the burst is unmistakable: 10× for the sparks, 12× for the smoke
+    // (at 0.25 / 0.16 it was only 4× / 6×, which read as easing, not as time
+    // being caught). With the longer kick, they still clear the fragments by
+    // only about as much as before when time is caught.
+    smokeTimeScale: 0.08,
+    sparkleTimeScale: 0.1,
+    // The smoke's and the sparkles' first instant runs this much faster (fading
+    // out over the impulse and the slowdown), so they visibly burst out of the
+    // crystal before time is caught.
+    effectsImpulseBoost: 2,
+    releaseStart: 0.72,
+    releaseSeconds: 0.45,
+    // Once time has resumed, the smoke and sparkles keep moving at normal
+    // speed and age at this rate (× real time), so they go on rising and fade
+    // out as the index settles; nothing new is emitted. Replaces the catch-up
+    // to real time over dissipateSeconds (0.6, then 1.8), which aged them
+    // through the whole slowed stretch at once, so most expired within a
+    // second of the release. Higher clears sooner.
+    smokeTailAgeRate: 1.1,
+    sparkleTailAgeRate: 0.4,
+    // After the camera lands, the held-back bloom and glows (look.bloom, halo,
+    // glow) ease back to the index's own level over this long, so the index is
+    // crisp as it arrives and its glow settles in after (was 1s).
+    glowReturnSeconds: 1.8,
+    fragmentTimeScaleExponent: 0.3,
+    fragmentReleaseLift: 1.4,
+    // The fragments' first instant: this much faster than the curve alone
+    // (fading out over the impulse and the slowdown), so they snap apart
+    // violently before the crawl, for only a few hundredths of their travel.
+    // 1.5 (was 2.5) with the longer kick: still ~15% of the way by 0.1s.
+    // 0.6 (was 1.5): with the shorter impulse, the fragments are caught while
+    // still close together.
+    fragmentImpulseBoost: 0.6,
+  },
+
+  // The explosion's look: one { enabled, intensity } per effect it lights up,
+  // `intensity` multiplying that effect's own brightness (1 = as it was before
+  // the clarity pass, so these read as the change).
+  //
+  // Measured with each effect switched off in turn (mid-orbit and at the
+  // release): the smoke made most of the luminous cyan cloud over the fragments
+  // (the frame's mean brightness 0.60 → 0.35 without it at the release), the
+  // bloom spread every additive effect into it, and bloom + halo + smoke
+  // together whited out the impact (82% of the frame's centre near white). The
+  // ring, rays and flash only touch the impact; the motes and the lens dirt add
+  // a broad haze through the orbit; the sparkles barely change the brightness.
+  // So: the smoke, the bloom and the backdrop glows come down hardest, the
+  // impact beat (rays, flash) stays, and the sparkles are thinned out into a
+  // hierarchy instead (particles.prominent*). In DEV,
+  // globalThis.__EXPLOSION_LOOK__ overrides any of them live, e.g.
+  // { smoke: { enabled: false }, bloom: { intensity: 0.5 } }, or 'previous'
+  // for the look before the pass (lib/explosionLook).
+  look: {
+    // Post bloom (crystalConfig.postProcessing.bloom) while the explosion runs,
+    // easing back to full once it is over.
+    bloom: { enabled: true, intensity: 0.55 },
+    // The two glow sprites behind the crystal (GlowingSphereImage): the wide
+    // backdrop halo and the tighter glow.
+    // Like the bloom, only while the explosion plays: the index keeps its glow.
+    halo: { enabled: true, intensity: 0.6 },
+    glow: { enabled: true, intensity: 0.6 },
+    // The energy motes swarming the orb (OrbEnergyParticles).
+    motes: { enabled: true, intensity: 0.45 },
+    // The shockwave ring (FractureRingImage) and the crack rays (FractureRays).
+    ring: { enabled: true, intensity: 0.85 },
+    rays: { enabled: true, intensity: 1 },
+    // The crystal's own flash as it splits (the swap mask glow).
+    // Sharper and brighter than before, but shorter (see the scene's
+    // FORWARD_MASK_GLOW_DURATION_S): the light comes from inside the crystal.
+    flash: { enabled: true, intensity: 1.3 },
+    // Smoke (FractureSmokePuff) and the two sparkle bursts (FractureBurstParticles).
+    smoke: { enabled: true, intensity: 0.45 },
+    sparkles: { enabled: true, intensity: 1 },
+    explosionSparkles: { enabled: true, intensity: 0.6 },
+    // The background's white flash on the split (crystalConfig fracture.backgroundFlash).
+    // Found in the impact pass: until then it was the main cause of the pale,
+    // overexposed first second, not any of the effects above.
+    backgroundFlash: { enabled: true, intensity: 1 },
+    // The lens dirt's extra flare during the explosion (LensDirt transitionBoost).
+    lensDirt: { enabled: true, intensity: 0.4 },
+    // The impact (camera.impact below, and the prominent sparks' launch):
+    // separately switchable to judge each one.
+    cameraRecoil: { enabled: true, intensity: 1 },
+    cameraRoll: { enabled: true, intensity: 1 },
+    // The prominent sparks fired from the crystal's core, faster than the rest
+    // (particles.prominentSpawnScale / prominentSpeedScale); 0 launches them
+    // like the others.
+    energyBurst: { enabled: true, intensity: 1 },
   },
 
   fracture: {
     holdDuration: 0.5,
-    // Release (holdDuration) + travel = 3s, the end of the camera move.
+    // On the hero → overview route the fragments' travel is timed by
+    // timeDilation (lib/explosionTime): it lasts as long as the camera's move
+    // and follows the bullet-time clock. These two are what it would be at the
+    // shortest move, for the diagnostics and any other caller.
     travelDuration: 2.5,
-    travelEase: 'quintOut',
+    travelEase: 'bulletTimeBurst',
     fractureDistanceMultiplier: 1.0,
     spreadMultiplier: 1.0,
     depthMultiplier: 1.0,
+    // Each fragment turns this many degrees (65–100% of it, on its own axis)
+    // as it flies out, peaking mid-flight and back to rest as it lands.
+    tumbleDegrees: 6,
     wired: true,
   },
 
@@ -50,13 +236,29 @@ export const HERO_OVERVIEW_CINEMATIC_CONFIG = {
     enabled: true,
     triggerAt: 0.5,
     delay: 0,
-    count: 12500,
+    // Fewer, with a hierarchy: a few prominent sparks you can follow as the
+    // camera goes round them, over a dimmer field (was 12500, all alike).
+    count: 200,
+    prominentShare: 0.05,
+    prominentSizeScale: 2.6,
+    secondaryOpacity: 0.5,
+    // The energy burst: the prominent sparks start this close to the core (×
+    // the spawn column) and leave this much faster, so a few bright shards are
+    // seen shooting out of the crystal before time slows (look.energyBurst).
+    prominentSpawnScale: 0.2,
+    prominentSpeedScale: 2.0,
     color: '#aeecff',
     emitterPosition: [0, 1.5, 0],
     spawnRadius: 0.075,
-    emitterScale: [0.07, 25.5, 0.07],
+    // A column ±1.05 tall (was 25.5 → ±1.9), so the sparks start within the
+    // crystal rather than strung out past it.
+    emitterScale: [0.07, 14, 0.07],
     duration: null,
-    spread: 2.0,
+    // spread also scales the launch speed (× spread / 0.5): 1.0 sends them off
+    // at 5.6–14.5 units/s (2.0 was 11–29), so in the moment before time slows
+    // they only just clear the fragments; sparkleTimeScale keeps them
+    // travelling through the orbit.
+    spread: 1.0,
     lifetime: null,
     lifetimeMin: 0.05,
     lifetimeMax: 4.25,
@@ -77,7 +279,11 @@ export const HERO_OVERVIEW_CINEMATIC_CONFIG = {
     enabled: true,
     triggerAt: 0.56,
     burstDuration: 0.07,
-    burstDistance: 0.58,
+    // A crack opening between the pieces, not a throw: at 0.58 the pop alone
+    // was over half of a fragment's whole journey, put on in 70ms, and paying it
+    // back cancelled most of their outward speed afterwards, so they read as
+    // thrown out and then frozen.
+    burstDistance: 0.05,
     burstEase: 'easeOutExpo',
     // After the pop the extra distance is carried off by the fragments' own travel,
     // shrinking in step with the travel still to go, so the shards never overshoot
@@ -92,12 +298,12 @@ export const HERO_OVERVIEW_CINEMATIC_CONFIG = {
     color: '#b2fcff',
     duration: 1.9,
     speedMin: 0.01,
-    speedMax: 0.05,
+    speedMax: 0.5,
     lifetimeMin: 0.08,
     lifetimeMax: 0.12,
     opacity: 0.65,
     spawnRadius: 0.85,
-    emitterScale: [0.75, 2.2, 0.75],
+    emitterScale: [0.75, 1, 0.75],
     spread: 36.8,
     size: 0.05,
     blending: 'additive',
@@ -168,6 +374,63 @@ const quickLanding = ({ knee, share, tailPower }) => {
   };
 };
 
+// Leaves rest and comes to rest with the speed going as t^startPower ·
+// (1−t)^endPower (integer powers), normalized to cover the distance: a
+// regularized incomplete beta, summed in its binomial form. Powers of 2 or more
+// leave and land with zero acceleration too; a larger endPower stretches the
+// braking out (the peak comes at startPower / (startPower + endPower)).
+const smoothGlide = ({ startPower, endPower }) => {
+  const m = startPower + 1;
+  const n = m + endPower;
+  const terms = [];
+  for (let j = m, coeff = binomial(n, m); j <= n; j += 1) {
+    terms.push([j, coeff]);
+    coeff = (coeff * (n - j)) / (j + 1);
+  }
+  return (t) => {
+    const x = clamp01(t);
+    return terms.reduce((sum, [j, coeff]) => sum + coeff * (x ** j) * ((1 - x) ** (n - j)), 0);
+  };
+};
+
+function binomial(n, k) {
+  let result = 1;
+  for (let i = 1; i <= k; i += 1) result = (result * (n - k + i)) / i;
+  return result;
+}
+
+const smoothstep = (t) => {
+  const x = clamp01(t);
+  return x * x * (3 - 2 * x);
+};
+const smootherstep = (t) => {
+  const x = clamp01(t);
+  return x * x * x * (x * (x * 6 - 15) + 10);
+};
+
+// A sum of eases, each over its own window of the time and covering its share
+// of the distance (the shares add to 1). Windows may overlap, so one motion can
+// hand over to the next without stopping.
+const stagedEase = (parts) => (t) => parts.reduce(
+  (sum, { from, to, share, ease }) => sum + share * ease((t - from) / (to - from)),
+  0,
+);
+
+// An ease drawn as its speed over time: the speed is integrated once, here, into
+// a table normalized to end at 1, and read back with linear interpolation.
+const easeFromSpeed = (speed, samples = 1024) => {
+  const table = new Float64Array(samples + 1);
+  for (let i = 1; i <= samples; i += 1) {
+    table[i] = table[i - 1] + Math.max(0, speed((i - 0.5) / samples)) / samples;
+  }
+  const total = table[samples] || 1;
+  return (t) => {
+    const x = clamp01(t) * samples;
+    const i = Math.min(Math.floor(x), samples - 1);
+    return (table[i] + (table[i + 1] - table[i]) * (x - i)) / total;
+  };
+};
+
 export const HERO_OVERVIEW_EASING = {
   linear: (t) => clamp01(t),
   smoothstep: (t) => {
@@ -213,6 +476,63 @@ export const HERO_OVERVIEW_EASING = {
   // turn's 2.5s: 50% by ~0.33s, 90% by ~0.75s, 95% by ~1.1s, 99% by ~1.7s. A
   // knee of 0.25 whipped harder but braked out of it too abruptly.
   longLanding: quickLanding({ knee: 0.3, share: 0.9, tailPower: 2 }),
+  // Off rest gently, peaking a third of the way in, then twice as long braking
+  // on a (1−t)⁴ tail. Over the turn's 2.5s: 10% by ~0.42s, 50% by ~0.91s, 90% by
+  // ~1.5s, 99% by ~1.9s; the last 0.5s covers under 0.5% of the turn.
+  gentleLanding: smoothGlide({ startPower: 2, endPower: 4 }),
+  // Bullet time, over the fragments' 2.5s travel from the split (0.5s in): the
+  // explosion itself in extreme slow motion. The split kicks them out (a short
+  // impulse, dying away in ~0.1s: ~12% of the way by 0.15s, with the shard
+  // pop), then they carry on outward at one slow, steady speed right through the
+  // camera's orbit (~0.4 of the way per second, against the camera's ~90°/s),
+  // and from ~1.9s after the split ease off into their index places (the last
+  // ~11%), with no rush at the end. Drawn as its speed: the impulse decays into
+  // the cruise, which fades out to rest.
+  bulletTimeBurst: easeFromSpeed(
+    (t) => 2.5 * Math.exp(-t / 0.025) + smoothstep(t / 0.01) * (1 - smoothstep((t - 0.75) / 0.25)),
+    4096,
+  ),
+  // The camera's distance, over overviewTravel (nearly the whole move): a third
+  // of the way out by 30% (hero 2.75 → ~4.6 on desktop, 3 → ~5.6 on mobile),
+  // where it orbits clear of the fragments without losing them, creeping a
+  // little further through the sweep, then the rest from 55% as it brakes.
+  bulletTimeOrbitDolly: stagedEase([
+    { from: 0, to: 0.3, share: 0.32, ease: smootherstep },
+    { from: 0.2, to: 0.75, share: 0.08, ease: smootherstep },
+    { from: 0.55, to: 1, share: 0.6, ease: smoothGlide({ startPower: 2, endPower: 3 }) },
+  ]),
+  // Look target, FOV, film offset: 12% of the way while the camera sweeps, so
+  // it keeps looking into the explosion, the rest from 50%, landing with the
+  // dolly.
+  bulletTimeFraming: stagedEase([
+    { from: 0, to: 0.75, share: 0.12, ease: smootherstep },
+    { from: 0.5, to: 1, share: 0.88, ease: smoothGlide({ startPower: 2, endPower: 3 }) },
+  ]),
+  // The orbit, over the whole move: up to speed by 22% (smoothly, from the hero
+  // orbit's own slow turn), a steady sweep to 60% (through the fragments'
+  // hang), then braking to a stop with no final check. The peak speed is 1.45×
+  // the average.
+  bulletTimeOrbit: easeFromSpeed((t) => smoothstep(t / 0.22) * (1 - smoothstep((t - 0.6) / 0.4))),
+  // Index → hero (HERO_RETURN_CINEMATIC). The reform: the fragments gather
+  // slowly, then close in faster and faster, snapping together at the end
+  // (19% of the way in by half time, 56% by 80%).
+  returnReform: (t) => clamp01(t) ** 2.4,
+  // The return orbit: up to speed by 25%, a steady sweep to 55%, then slowing
+  // to the hero orbit's own pace at the end (its speed is blended in there).
+  returnOrbit: easeFromSpeed((t) => smoothstep(t / 0.25) * (1 - smoothstep((t - 0.55) / 0.45))),
+  // The return's distance: 60% of the way in from the index by 40% (index 8.5
+  // → ~5 on desktop, 11.3 → ~6.3 on mobile), where it orbits the gathering
+  // fragments, creeping a little closer, then in to the hero distance from 55%,
+  // landing softly as the crystal closes up.
+  returnDolly: stagedEase([
+    { from: 0, to: 0.4, share: 0.6, ease: smootherstep },
+    { from: 0.3, to: 0.7, share: 0.05, ease: smootherstep },
+    { from: 0.55, to: 1, share: 0.35, ease: smoothGlide({ startPower: 2, endPower: 3 }) },
+  ]),
+  // Look target and film offset: off the index's framing and on to the hero's
+  // (centred on the crystal) over the first 60%, so the orbit is framed on the
+  // gathering fragments.
+  returnFraming: stagedEase([{ from: 0, to: 0.6, share: 1, ease: smootherstep }]),
   sinePulse: (t) => Math.sin(Math.PI * clamp01(t)),
   smoothSettle: (t) => {
     const x = clamp01(t);
@@ -385,6 +705,12 @@ export const resolveHeroOverviewCinematicConfig = (config = HERO_OVERVIEW_CINEMA
     punchEase: readEasingName(config?.camera?.punchEase, HERO_OVERVIEW_CINEMATIC_CONFIG.camera.punchEase),
     driftEase: readEasingName(config?.camera?.driftEase, HERO_OVERVIEW_CINEMATIC_CONFIG.camera.driftEase),
     orbitEase: readEasingName(config?.camera?.orbitEase, HERO_OVERVIEW_CINEMATIC_CONFIG.camera.orbitEase),
+    framingEase: readEasingName(config?.camera?.framingEase, HERO_OVERVIEW_CINEMATIC_CONFIG.camera.framingEase),
+    orbitMinArcDegrees: Math.min(360, readNonNegativeNumber(config?.camera?.orbitMinArcDegrees, HERO_OVERVIEW_CINEMATIC_CONFIG.camera.orbitMinArcDegrees)),
+    orbitSecondsPerExtraHalfTurn: readNonNegativeNumber(config?.camera?.orbitSecondsPerExtraHalfTurn, HERO_OVERVIEW_CINEMATIC_CONFIG.camera.orbitSecondsPerExtraHalfTurn),
+    orbitEntrySpeedCap: readNonNegativeNumber(config?.camera?.orbitEntrySpeedCap, HERO_OVERVIEW_CINEMATIC_CONFIG.camera.orbitEntrySpeedCap),
+    impact: { ...HERO_OVERVIEW_CINEMATIC_CONFIG.camera.impact, ...(config?.camera?.impact || {}) },
+    spiral: { ...HERO_OVERVIEW_CINEMATIC_CONFIG.camera.spiral, ...(config?.camera?.spiral || {}) },
   };
 
   const invalidFractureKeys = [];
@@ -663,6 +989,12 @@ export const resolveHeroOverviewCinematicConfig = (config = HERO_OVERVIEW_CINEMA
       Object.entries(timeline).map(([phaseName, phase]) => [phaseName, phase.durationSeconds]),
     ),
     camera,
+    timeDilation: Object.fromEntries(
+      Object.entries(HERO_OVERVIEW_CINEMATIC_CONFIG.timeDilation).map(([key, fallback]) => {
+        const value = config?.timeDilation?.[key];
+        return [key, typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : fallback];
+      }),
+    ),
     fracture,
     rawFracture,
     invalidFractureKeys,
@@ -699,3 +1031,30 @@ export const resolveHeroOverviewCinematicConfig = (config = HERO_OVERVIEW_CINEMA
 };
 
 export const HERO_OVERVIEW_CINEMATIC_RESOLVED = resolveHeroOverviewCinematicConfig();
+
+// Index → hero: the counterpart of the bullet-time move. The camera orbits round
+// the crystal from the index back to the hero angle it left from (the shortest
+// way, unless it is already moving the other way fast: see
+// directionPenaltySeconds), closing in to an orbiting distance and then to the
+// hero's, while the fragments gather and snap together just before it lands.
+// It arrives turning at the hero auto-orbit's own speed, so the orbit simply
+// carries on. A camera that is already moving (an interrupted hero → overview)
+// carries that motion into the return and is turned round smoothly.
+export const HERO_RETURN_CINEMATIC = {
+  durationSeconds: 2.4,
+  // The fragments reach the centre here, ~0.35s before the camera lands; the
+  // masked swap to the whole crystal (~0.3s) completes as it does.
+  reformSeconds: 2.05,
+  reformEase: 'returnReform',
+  orbitEase: 'returnOrbit',
+  dollyEase: 'returnDolly',
+  framingEase: 'returnFraming',
+  // Turning against the camera's current spin costs this many seconds of that
+  // spin when choosing the way round, so a camera already sweeping one way keeps
+  // going that way unless the other way is much shorter.
+  directionPenaltySeconds: 0.6,
+  // Limits on the motion carried in (rad/s, units/s), against stalled frames.
+  carryAngularSpeedCap: 2.5,
+  carryLinearSpeedCap: 10,
+};
+

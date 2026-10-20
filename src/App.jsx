@@ -80,6 +80,10 @@ const zoneKeys = ['intro', 'hero', 'overview', 'about'];
 // that is fully opaque, so freezing (and hiding) the canvas any earlier would
 // blink it out mid-transition. Derived, not a second copy of the timing.
 const SCENE_FREEZE_DELAY_MS = caseStudyOpaqueAtMs + 260;
+// Home from a case study leaves the way Work does first, then carries on to the
+// hero this long after: past the layer's fade, with the camera most of the way
+// back out of the close-up (handleHomeClick).
+const CASE_STUDY_HOME_HANDOFF_MS = 150;
 
 
 // How the copy is kept legible over a scene that swings from near-black to
@@ -886,9 +890,53 @@ function App() {
     },
   }), [scrollToSection, queueLanding]);
 
+  // Home from a case study, after its exit to Work (see handleHomeClick). While
+  // it's pending the index's labels are held back, so the pass through the
+  // index doesn't read as a stop at Work.
+  const pendingCaseStudyHomeRef = useRef(null);
+  const [caseStudyHomePending, setCaseStudyHomePending] = useState(false);
+  const cancelPendingCaseStudyHome = useCallback(() => {
+    if (pendingCaseStudyHomeRef.current) {
+      clearTimeout(pendingCaseStudyHomeRef.current);
+      pendingCaseStudyHomeRef.current = null;
+    }
+    setCaseStudyHomePending(false);
+  }, []);
+  useEffect(() => cancelPendingCaseStudyHome, [cancelPendingCaseStudyHome]);
+
   // Top-nav destinations live in the portfolio underneath, so any nav click
   // dismisses an open case study before the usual intent runs.
   const handleHomeClick = useCallback(() => {
+    cancelPendingCaseStudyHome();
+    if (viewModeRef.current === 'caseStudy') {
+      // Out of a case study, leave exactly as Work does (the layer fades over
+      // the fragment it was the background of while the camera draws back out
+      // of the close-up to the index), then carry on to the hero once the
+      // camera is clear of the fragments. The return picks up the camera's
+      // remaining motion, so the two read as one move. Going straight to the
+      // hero cut the case study away at once and dropped the fragment's colour
+      // with the camera still inside the crystal.
+      closeCaseStudy();
+      requestNavigationIntent({
+        destination: NAVIGATION_DESTINATIONS.OVERVIEW,
+        source: 'top-nav-logo(case-study-exit)',
+        behavior: 'auto',
+        legacyAction: 'directSelectZone+scrollToSection',
+      });
+      setCaseStudyHomePending(true);
+      pendingCaseStudyHomeRef.current = setTimeout(() => {
+        pendingCaseStudyHomeRef.current = null;
+        requestNavigationIntent({
+          destination: NAVIGATION_DESTINATIONS.HERO,
+          source: 'top-nav-logo',
+          behavior: 'auto',
+          legacyAction: 'directSelectZone+scrollToSection',
+        });
+        // Released once the hero has the zone, so the labels never get a frame.
+        setTimeout(() => setCaseStudyHomePending(false), 300);
+      }, CASE_STUDY_HOME_HANDOFF_MS);
+      return;
+    }
     closeCaseStudy();
     requestNavigationIntent({
       destination: NAVIGATION_DESTINATIONS.HERO,
@@ -896,9 +944,10 @@ function App() {
       behavior: 'auto',
       legacyAction: 'directSelectZone+scrollToSection',
     });
-  }, [closeCaseStudy, requestNavigationIntent]);
+  }, [cancelPendingCaseStudyHome, closeCaseStudy, requestNavigationIntent]);
 
   const handleWorkClick = useCallback(() => {
+    cancelPendingCaseStudyHome();
     closeCaseStudy();
     requestNavigationIntent({
       destination: NAVIGATION_DESTINATIONS.OVERVIEW,
@@ -906,9 +955,10 @@ function App() {
       behavior: 'auto',
       legacyAction: 'directSelectZone+scrollToSection',
     });
-  }, [closeCaseStudy, requestNavigationIntent]);
+  }, [cancelPendingCaseStudyHome, closeCaseStudy, requestNavigationIntent]);
 
   const handleAboutClick = useCallback(() => {
+    cancelPendingCaseStudyHome();
     closeCaseStudy();
     requestNavigationIntent({
       destination: NAVIGATION_DESTINATIONS.ABOUT,
@@ -916,7 +966,7 @@ function App() {
       behavior: 'auto',
       legacyAction: 'directSelectZone+scrollToSection',
     });
-  }, [closeCaseStudy, requestNavigationIntent]);
+  }, [cancelPendingCaseStudyHome, closeCaseStudy, requestNavigationIntent]);
 
   const handleContactClick = useCallback(() => {}, []);
 
@@ -1460,6 +1510,7 @@ function App() {
             cycle through a separate 'intro' cameraState, or that becomes a SECOND
             intro trigger racing the remount — the old "plays twice" bug). */}
         <Fixed3DCanvas
+          holdOverviewLabels={caseStudyHomePending}
           key={`${performanceProfile?.renderScale ?? 'default'}-${sceneRestartToken}`}
           ref={fixedCanvasRef}
           restartToken={sceneRestartToken}

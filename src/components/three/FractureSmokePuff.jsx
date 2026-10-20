@@ -3,6 +3,8 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { getWizardSmokeTexture } from '../../loader/preloadFractureAssets';
 import { createLogger } from '../../utils/logger';
+import { advanceExplosionClock } from '../../lib/explosionTime';
+import { getExplosionLookScale } from '../../lib/explosionLook';
 
 const logger = createLogger('fracture-smoke-puff');
 
@@ -65,6 +67,7 @@ const FractureSmokePuff = ({
   const meshRef = useRef();
   const activeRef = useRef(false);
   const clearFadeRef = useRef(1);
+  const lastFrameMsRef = useRef(null);
   const stateRef = useRef(makeState(resolvedCount));
 
   const texture = getWizardSmokeTexture();
@@ -228,8 +231,21 @@ const FractureSmokePuff = ({
   });
 
   useFrame((_, dtRaw) => {
-    if (!activeRef.current) return;
-    const dt = Math.min(dtRaw, 1 / 30); // clamp so a stutter can't teleport sprites
+    if (!activeRef.current) {
+      lastFrameMsRef.current = null;
+      return;
+    }
+    const realDt = Math.min(dtRaw, 1 / 30); // clamp so a stutter can't teleport sprites
+    // The puff lives on the explosion's bullet-time clock: its drift, rise and
+    // roll advance on simulated time, its age (growth, fading, dissolve) on the
+    // explosion's age (lib/explosionTime). The clearing fade stays on real time.
+    const now = performance.now();
+    const step = advanceExplosionClock(lastFrameMsRef.current ?? now - dtRaw * 1000, now, 'smoke');
+    lastFrameMsRef.current = now;
+    const stutterClamp = step.real > 0 ? Math.min(1, realDt / step.real) : 1;
+    const dt = step.motion * stutterClamp;
+    const ageDt = step.age * stutterClamp;
+    const lookScale = getExplosionLookScale('smoke');
 
     const st = stateRef.current;
     const offsets = geometry.attributes.aOffset.array;
@@ -239,7 +255,7 @@ const FractureSmokePuff = ({
     const dissolves = geometry.attributes.aDissolve.array;
 
     // Clearing (see `active`): fade everything still alive, then stop it.
-    if (!active) clearFadeRef.current = Math.max(0, clearFadeRef.current - dt / CLEAR_FADE_S);
+    if (!active) clearFadeRef.current = Math.max(0, clearFadeRef.current - realDt / CLEAR_FADE_S);
     const clearFade = clearFadeRef.current;
 
     let anyAlive = false;
@@ -254,7 +270,7 @@ const FractureSmokePuff = ({
         continue;
       }
 
-      st.ages[i] += dt;
+      st.ages[i] += ageDt;
       const t = st.ages[i] / life;
 
       if (t >= 1) {
@@ -283,9 +299,12 @@ const FractureSmokePuff = ({
       rotations[i] += st.rollSpeed[i] * dt;
 
       // Quick fade-in, then dissolve out over the back ~45% of life.
-      const fadeIn = smoothstep(0, 0.12, t);
+      // Up within a few hundredths of a second (or 12% of life, if shorter), so
+      // the puff is seen bursting out rather than only once its slowed-down age
+      // has crept through a share of its life.
+      const fadeIn = smoothstep(0, Math.min(0.12 * life, 0.04), st.ages[i]);
       const fadeOut = 1 - smoothstep(0.55, 1, t);
-      opacities[i] = st.maxOpacity[i] * fadeIn * fadeOut * clearFade;
+      opacities[i] = st.maxOpacity[i] * fadeIn * fadeOut * clearFade * lookScale;
       dissolves[i] = t; // drives the uneven shader erosion
     }
 

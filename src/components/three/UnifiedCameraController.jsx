@@ -9,7 +9,10 @@ import { createLogger } from '../../utils/logger';
 import { beginCameraFrame, recordCameraWrite } from '../../camera/cameraWriteGuard';
 import { createCameraDirectorPilotTransition, updateCameraDirectorPilotTransition } from '../../camera/CameraDirector';
 import { resolveCameraDestination } from '../../camera/destinationResolver';
-import { HERO_OVERVIEW_CINEMATIC_RESOLVED, HERO_OVERVIEW_EASING } from '../../config/heroOverviewCinematicConfig';
+import { HERO_OVERVIEW_CINEMATIC_RESOLVED, HERO_OVERVIEW_EASING, HERO_RETURN_CINEMATIC } from '../../config/heroOverviewCinematicConfig';
+import { easeFragmentTravel, getExplosionSplitSeconds, getFragmentTravelSeconds, setExplosionMoveDuration } from '../../lib/explosionTime';
+import { getExplosionLookScale } from '../../lib/explosionLook';
+import { MQ_REDUCED_MOTION } from '../../config/breakpoints';
 import { MQ_HOVER_CAPABLE } from '../../config/breakpoints';
 import { HERO_ORBIT_COASTING_RAD_PER_S, heroOrbitPress } from './heroOrbitPress';
 import { INTRO_DURATION_MS as INTRO_TIMELINE_DURATION_MS, getIntroTimeline, setIntroTimeline } from '../../lib/introTimeline';
@@ -98,6 +101,17 @@ const HERO_OVERVIEW_PILOT_PHASES = ['fractureCharge', 'explosionImpulse', 'bulle
 const HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG = HERO_OVERVIEW_CINEMATIC_RESOLVED;
 const HERO_OVERVIEW_PILOT_CAMERA_TIMELINE = HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.derivedTimeline;
 const HERO_OVERVIEW_CAMERA_FORCE = HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.cameraForce;
+// When (as a share of the hero → overview move's time) the orbit has done a
+// given share of its turn: the inverse of its ease, for starting the spiral out
+// (camera.spiral) by the turn while running it evenly in time.
+const heroOverviewProgressAtTurnShare = (share) => {
+  const ease = HERO_OVERVIEW_EASING[HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.camera.orbitEase] || HERO_OVERVIEW_EASING.linear;
+  let lo = 0; let hi = 1;
+  for (let i = 0; i < 40; i += 1) { const mid = (lo + hi) / 2; if (ease(mid) < share) lo = mid; else hi = mid; }
+  return (lo + hi) / 2;
+};
+const HERO_OVERVIEW_SPIRAL_START_PROGRESS = heroOverviewProgressAtTurnShare(HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.camera.spiral?.start ?? 0.55);
+const HERO_OVERVIEW_FRAMING_START_PROGRESS = heroOverviewProgressAtTurnShare(HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.camera.spiral?.framingStart ?? 0.5);
 const resolveHeroOverviewCameraForceState = (elapsedSeconds) => {
   const cfg = HERO_OVERVIEW_CAMERA_FORCE;
   if (!cfg?.enabled || elapsedSeconds == null || elapsedSeconds < cfg.triggerAt) {
@@ -218,6 +232,16 @@ const UnifiedCameraController = ({
 
   // Track orbital rotation around the crystal during hero state
   const heroOrbitAngle = useRef(0);
+  // Added to the hero orbit's angle (rad): where the intro lands it, relative
+  // to tuning.baseAngle (see introIndexOffsetDegrees). Every return to the
+  // hero lands there too.
+  const heroOrbitAzimuthOffsetRef = useRef(0);
+  // The camera's position at the start of the last two frames, so a move can
+  // pick up the motion the camera already has.
+  const cameraMotionSampleRef = useRef({ prev: null, last: null });
+  const impactBackTempRef = useRef(new THREE.Vector3());
+  // Reduced motion turns the camera's impact reaction off.
+  const reducedMotionRef = useRef(typeof window !== 'undefined' && Boolean(window.matchMedia?.(MQ_REDUCED_MOTION).matches));
   const isOrbitingRef = useRef(false);
   const orbitRadiusRef = useRef(0);
   const orbitHeightRef = useRef(0);
@@ -293,6 +317,10 @@ const UnifiedCameraController = ({
     orbitSpeed: 0.08,
     baseAngle: 0,
     lookAtYOffset: 0,
+    // Where the intro lands the hero camera: this many degrees round from the
+    // index camera's azimuth, + the way the auto-orbit turns. null lands it on
+    // baseAngle.
+    introIndexOffsetDegrees: null,
   };
   const FORCE_STABLE_HERO_CAMERA = false;
   const lastCameraStateRef = useRef(null);
@@ -430,6 +458,9 @@ const UnifiedCameraController = ({
   const latestAuthoritativeHeroSnapshotRef = useRef(null);
   const heroExitSnapshotRef = useRef(null);
   const previousWasPlainHeroRef = useRef(false);
+  // The hero has been left since the last return to it began (see the forced
+  // overview → hero transition).
+  const heroLeftSinceReturnRef = useRef(false);
   const fractureTiltLockSeededRef = useRef(false);
   const fractureTiltAnchorSeededFromLiveHeroRef = useRef(false);
   const heroExplosionTransitionRef = useRef({
@@ -1132,7 +1163,7 @@ const UnifiedCameraController = ({
     // the exit-continuity / diagnostic callers get the un-swayed pose.
     const baseAngle = Number.isFinite(angleOverride)
       ? angleOverride
-      : tuning.baseAngle + elapsed * tuning.orbitSpeed;
+      : tuning.baseAngle + heroOrbitAzimuthOffsetRef.current + elapsed * tuning.orbitSpeed;
     const angle = baseAngle + azimuthOffset;
     const lookAtTarget = new THREE.Vector3(center.x, center.y + tuning.lookAtYOffset, center.z);
     const position = new THREE.Vector3(
@@ -1154,6 +1185,43 @@ const UnifiedCameraController = ({
       angle,
       elapsed,
     };
+  };
+
+  // Where the intro lands the hero orbit, relative to tuning.baseAngle (rad):
+  // tuning.introIndexOffsetDegrees round from the index camera's azimuth, or
+  // baseAngle itself when that is not set.
+  const resolveIntroLandingOffset = (center, tuning) => {
+    if (!Number.isFinite(tuning.introIndexOffsetDegrees)) return 0;
+    const indexPosition = toVector3(config?.cameraPositions?.overview)
+      .add(toVector3(config?.cameraOffsets?.global?.position))
+      .add(toVector3(config?.cameraOffsets?.zones?.overview?.position));
+    const indexAzimuth = Math.atan2(indexPosition.x - center.x, indexPosition.z - center.z);
+    return indexAzimuth + THREE.MathUtils.degToRad(tuning.introIndexOffsetDegrees) - tuning.baseAngle;
+  };
+
+  // The intro's first pose (computeIntroPose at 0, onto the landing angle), so a
+  // camera held there before the intro arms is already where it begins; the
+  // authored intro position gives only its distance and height.
+  const getIntroFirstPose = (outPosition, outLookAt) => {
+    const center = getHeroOrbitCenter();
+    const { tuning } = resolveHeroTuning(config);
+    const landing = getAuthoritativeHeroCameraSnapshot({
+      center,
+      tuning,
+      filmOffsetX: 0,
+      angleOverride: tuning.baseAngle + resolveIntroLandingOffset(center, tuning),
+    });
+    return computeIntroPose(
+      outPosition,
+      outLookAt,
+      toVector3(config.cameraPositions.intro),
+      toVector3(config.cameraTargets.intro),
+      landing.position,
+      landing.lookAtTarget,
+      center,
+      0,
+      tuning.orbitSpeed,
+    );
   };
 
   const getCurrentAuthoritativeHeroSnapshot = ({ elapsed, center, tuning, filmOffsetX, orbitStartTime }) => {
@@ -1727,11 +1795,10 @@ const UnifiedCameraController = ({
       }
 
       if (animationData?.cameraState === 'intro' && config?.cameraPositions?.intro && config?.cameraTargets?.intro) {
-        const introPosition = toVector3(config.cameraPositions.intro);
-        const introTarget = toVector3(config.cameraTargets.intro);
-        // Match the start target's z to the camera's z so the held intro pose looks
-        // straight ahead — and matches the fly-in's start look (see shouldRunIntro).
-        introTarget.z = introPosition.z;
+        // Hold on the intro's first pose, so arming it does not move the camera.
+        const introPosition = new THREE.Vector3();
+        const introTarget = new THREE.Vector3();
+        getIntroFirstPose(introPosition, introTarget);
         const introFov = animationData?.cameraConfig?.fov ?? currentTarget.current.fov ?? camera.fov;
 
         introStartedRef.current = false;
@@ -2420,6 +2487,164 @@ const UnifiedCameraController = ({
     const t = THREE.MathUtils.clamp(Number.isFinite(progress) ? progress : 0, 0, 1);
     const easingFn = HERO_OVERVIEW_EASING[easing] || HERO_OVERVIEW_EASING.linear;
     return THREE.MathUtils.clamp(easingFn(t), 0, 1);
+  };
+  // The hero → overview orbit, fixed when the move starts. `turn` is the
+  // shortest signed angle from the hero camera's angle to the index's. The
+  // path is the shortest way round that is at least camera.orbitMinArcDegrees
+  // (180–360° at 180: a full turn when the camera is already at the index
+  // angle); a tie (that full turn, or exactly opposite) goes the way the hero
+  // orbit is turning. That turning speed (auto-orbit plus a coasting drag
+  // fling) carries into the start when it is the same way round. Longer paths
+  // get proportionally more time, so a full turn is not twice as fast.
+  const planHeroOverviewOrbit = (turn) => {
+    const cameraConfig = HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.camera;
+    const spin = heroDragOrbitRef.current;
+    const heroSpeed = (latestAuthoritativeHeroSnapshotRef.current?.tuning?.orbitSpeed ?? 0)
+      + (spin.dragging ? 0 : spin.velocity);
+    const heroDirection = heroSpeed < 0 ? -1 : 1;
+    const minArc = THREE.MathUtils.degToRad(cameraConfig.orbitMinArcDegrees ?? 0) - 1e-4;
+    let path = null;
+    for (let k = -2; k <= 2; k += 1) {
+      const candidate = turn + k * Math.PI * 2;
+      if (Math.abs(candidate) < minArc) continue;
+      const shorter = path == null || Math.abs(candidate) < Math.abs(path) - 1e-3;
+      const tiedHeroWay = path != null && Math.abs(Math.abs(candidate) - Math.abs(path)) <= 1e-3 && Math.sign(candidate) === heroDirection;
+      if (shorter || tiedHeroWay) path = candidate;
+    }
+    const direction = path < 0 ? -1 : 1;
+    const entrySpeed = Math.sign(heroSpeed) === direction
+      ? direction * Math.min(Math.abs(heroSpeed), cameraConfig.orbitEntrySpeedCap ?? 0)
+      : 0;
+    const extraHalfTurns = Math.max(0, Math.abs(path) - Math.PI) / Math.PI;
+    const duration = HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.totalDurationSeconds
+      + (cameraConfig.orbitSecondsPerExtraHalfTurn ?? 0) * extraHalfTurns;
+    // How much of the orbit ease to give over to one that leaves at the hero
+    // orbit's speed (1 − (1 − u)³ leaves at 3 per unit of the move).
+    const entryShare = Math.abs(path) > 1e-4
+      ? THREE.MathUtils.clamp((entrySpeed * duration) / (3 * path), 0, 0.5)
+      : 0;
+    return { direction, plannedPath: path, entrySpeed, entryShare, duration };
+  };
+  // The plan's path for this frame's turn (which can drift by a hair if the
+  // index pose is re-resolved mid-move): always the plan's way round, taken a
+  // full turn further only when it is clearly short of the minimum, so a drift
+  // across the tie never flips the orbit to the other way or a turn over.
+  const resolveHeroOverviewOrbitPath = (turn, plan) => {
+    const minArc = THREE.MathUtils.degToRad(HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.camera.orbitMinArcDegrees ?? 0);
+    let path = turn;
+    if (path * plan.direction < 0) path += plan.direction * Math.PI * 2;
+    while (Math.abs(path) < minArc - Math.PI / 2) path += plan.direction * Math.PI * 2;
+    return path;
+  };
+  // The camera's reaction to the crystal splitting (camera.impact): the recoil
+  // (world units, straight back along the view: a share of the distance to the
+  // look target) and the roll (rad, the orbit's way round) for this frame. It
+  // jumps into motion at the split (easing out to its peak) and eases back to
+  // nothing, with no overshoot; nothing outside that quarter second, before
+  // the split, or under reduced motion.
+  const NO_IMPACT = { recoil: 0, roll: 0 };
+  const getCameraImpact = (position, lookAt, direction) => {
+    const cfg = HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.camera.impact;
+    const t = getExplosionSplitSeconds();
+    if (!cfg || t == null || t < 0 || simplifiedAnimations || reducedMotionRef.current) return NO_IMPACT;
+    const peak = Math.max(cfg.peakSeconds, 1e-3);
+    const recovery = Math.max(cfg.recoverySeconds, 1e-3);
+    if (t >= peak + recovery) return NO_IMPACT;
+    const envelope = t < peak
+      ? 1 - (1 - t / peak) ** 3
+      : 1 - THREE.MathUtils.smootherstep(t - peak, 0, recovery);
+    return {
+      recoil: cfg.recoil * position.distanceTo(lookAt) * envelope * getExplosionLookScale('cameraRecoil'),
+      roll: THREE.MathUtils.degToRad(cfg.rollDegrees) * envelope * getExplosionLookScale('cameraRoll') * direction,
+    };
+  };
+  // Index → hero (and back out again if that is interrupted): an orbit round the
+  // crystal from the live camera to `to` (at `toAzimuth` round the orbit
+  // center), on HERO_RETURN_CINEMATIC's eases. As in the forward orbit, the move
+  // in and the reframing are worked out with the start pose turned onto the
+  // destination's angle, and the whole pose is then turned back by the part of
+  // the orbit still to come. The camera's current motion (its spin round the
+  // axis, in and out, up and down) is carried into the start and handed back by
+  // the end (u(1−u)²), so a moving camera is turned round, not stopped dead; it
+  // arrives turning at `endSpin` (rad/s; u²(u−1) leaves only that end speed).
+  const planCameraReturn = ({ to, toAzimuth, endSpin, startTime }) => {
+    const cfg = HERO_RETURN_CINEMATIC;
+    const center = getHeroOrbitCenter();
+    const azimuthOf = (v) => Math.atan2(v.x - center.x, v.z - center.z);
+    const radiusOf = (v) => Math.hypot(v.x - center.x, v.z - center.z);
+    const from = {
+      position: camera.position.clone(),
+      lookAtTarget: getCameraLookAtFromTransform(),
+      filmOffsetX: Number.isFinite(camera.filmOffset) ? camera.filmOffset : 0,
+      fov: camera.fov,
+      source: 'live-camera',
+    };
+    let spin = 0;
+    let radial = 0;
+    let vertical = 0;
+    const { prev, last } = cameraMotionSampleRef.current;
+    const sampleDt = prev && last ? last.time - prev.time : 0;
+    if (sampleDt > 1e-4) {
+      const turned = azimuthOf(last.position) - azimuthOf(prev.position);
+      spin = THREE.MathUtils.clamp(Math.atan2(Math.sin(turned), Math.cos(turned)) / sampleDt, -cfg.carryAngularSpeedCap, cfg.carryAngularSpeedCap);
+      radial = THREE.MathUtils.clamp((radiusOf(last.position) - radiusOf(prev.position)) / sampleDt, -cfg.carryLinearSpeedCap, cfg.carryLinearSpeedCap);
+      vertical = THREE.MathUtils.clamp((last.position.y - prev.position.y) / sampleDt, -cfg.carryLinearSpeedCap, cfg.carryLinearSpeedCap);
+    }
+    // The shortest way round, unless that turns against a camera already
+    // spinning the other way and the other way is not much longer.
+    let turn = toAzimuth - azimuthOf(from.position);
+    turn = Math.atan2(Math.sin(turn), Math.cos(turn));
+    const otherWay = Math.abs(turn) > 1e-4 ? turn - Math.sign(turn) * Math.PI * 2 : turn;
+    const cost = (path) => Math.abs(path) + (path * spin < 0 ? Math.abs(spin) * cfg.directionPenaltySeconds : 0);
+    const path = cost(otherWay) < cost(turn) ? otherWay : turn;
+    return {
+      from,
+      to,
+      path,
+      spin,
+      radial,
+      vertical,
+      endSpin,
+      startTime,
+      duration: cfg.durationSeconds,
+    };
+  };
+  // Writes the return's pose `elapsed` seconds in; returns its progress (0–1).
+  const writeCameraReturn = (t, elapsed) => {
+    const cfg = HERO_RETURN_CINEMATIC;
+    const center = getHeroOrbitCenter();
+    const axis = new THREE.Vector3(0, 1, 0);
+    const turnAboutCenter = (v, angle) => v.sub(center).applyAxisAngle(axis, angle).add(center);
+    const u = THREE.MathUtils.clamp(elapsed / t.duration, 0, 1);
+    const dolly = easeHeroOverviewPilotProgress(u, cfg.dollyEase);
+    const framing = easeHeroOverviewPilotProgress(u, cfg.framingEase);
+    const orbit = easeHeroOverviewPilotProgress(u, cfg.orbitEase);
+    const carry = t.duration * u * (1 - u) ** 2;
+    const travelled = u >= 1 ? t.path : t.path * orbit + t.spin * carry + t.endSpin * t.duration * u * u * (u - 1);
+    const position = new THREE.Vector3().lerpVectors(turnAboutCenter(t.from.position.clone(), t.path), t.to.position, dolly);
+    const lookAt = introLookAtTempRef.current.lerpVectors(turnAboutCenter(t.from.lookAtTarget.clone(), t.path), t.to.lookAtTarget, framing);
+    turnAboutCenter(position, travelled - t.path);
+    turnAboutCenter(lookAt, travelled - t.path);
+    if (u < 1) {
+      const horizontal = new THREE.Vector3(position.x - center.x, 0, position.z - center.z);
+      const radius = horizontal.length();
+      if (radius > 1e-4 && t.radial) {
+        horizontal.multiplyScalar(Math.max(0.5, radius + t.radial * carry) / radius);
+        position.x = center.x + horizontal.x;
+        position.z = center.z + horizontal.z;
+      }
+      position.y += t.vertical * carry;
+    }
+    camera.position.copy(position);
+    camera.lookAt(lookAt);
+    camera.filmOffset = THREE.MathUtils.lerp(t.from.filmOffsetX, t.to.filmOffsetX, framing);
+    // The lens too (the hero's ~45 from wherever the camera came from), or a
+    // return kept the project's or the index's field of view.
+    if (Number.isFinite(t.to.fov) && Number.isFinite(t.from.fov)) {
+      camera.fov = THREE.MathUtils.lerp(t.from.fov, t.to.fov, framing);
+    }
+    camera.updateProjectionMatrix();
+    return u;
   };
   const getHeroOverviewPilotCameraProgress = (globalProgress) => {
     const { phaseName, phase, phaseLocalProgress } = getHeroOverviewPilotTimelinePhase(globalProgress);
@@ -4598,6 +4823,14 @@ const UnifiedCameraController = ({
 
     cameraFrameIndexRef.current += 1;
     const cameraFrameId = cameraFrameIndexRef.current;
+    {
+      const sample = cameraMotionSampleRef.current;
+      const recycled = sample.prev ?? { position: new THREE.Vector3(), time: 0 };
+      sample.prev = sample.last;
+      sample.last = recycled;
+      sample.last.position.copy(camera.position);
+      sample.last.time = state.clock.elapsedTime;
+    }
     syncFractureTiltState(state.clock.elapsedTime);
     beginCameraFrame(cameraFrameId, { elapsed: state.clock.elapsedTime, phase: animationData?.cameraState ?? null });
 
@@ -4746,7 +4979,15 @@ const UnifiedCameraController = ({
       blockedProjectToProjectKeyRef.current = null;
       blockedProjectToProjectStartKeyRef.current = null;
     }
-    if (nextState === 'hero' && nextCameraState === 'hero' && (prevState !== 'hero' || prevCameraState !== 'hero')) {
+    // A pilot still running here is a hero → overview interrupted back to the
+    // hero: left for the reversal check below, which hands it to the return move
+    // (cleared here, the return was never started and the hero orbit snapped in).
+    if (
+      nextState === 'hero' &&
+      nextCameraState === 'hero' &&
+      (prevState !== 'hero' || prevCameraState !== 'hero') &&
+      !heroOverviewPilotRef.current.active
+    ) {
       heroOverviewPilotRef.current = {
         active: false,
         key: null,
@@ -5851,7 +6092,14 @@ const UnifiedCameraController = ({
       nextState === 'hero' &&
       nextCameraState === 'hero' &&
       (prevState !== 'hero' || prevCameraState !== 'hero');
-
+    // Held from the moment the hero is left until a return to it starts, so the
+    // return can't be missed when the plain hero arrives a frame after the
+    // state does: out of a case study the state reads 'hero' a frame before the
+    // focused project clears, and by then the previous frame was 'hero' too, so
+    // the camera just picked up the hero orbit from its base angle.
+    if (nextState !== 'hero' || nextCameraState !== 'hero') {
+      heroLeftSinceReturnRef.current = true;
+    }
     if (isReturnToHero) {
       console.log('[UCC HERO RETURN TRANSITION]', {
         prevState,
@@ -6313,6 +6561,32 @@ const UnifiedCameraController = ({
           pilot.active = false;
           return;
         }
+        // The orbit round the crystal (hero camera angle → index angle) is taken out
+        // of the travel lerp and run on its own ease over the whole move. The travel
+        // (dolly, lookAt) is computed from the hold pose turned onto the index angle;
+        // the whole pose is then turned back by the part of the orbit still to
+        // come. Both turns are rigid about the vertical axis through the orbit
+        // center, so the first write is still exactly the hold pose and the
+        // completing write exactly the overview pose.
+        const orbitCenter = getHeroOrbitCenter();
+        const orbitAxis = new THREE.Vector3(0, 1, 0);
+        const turnAboutOrbitCenter = (v, angle) => v.sub(orbitCenter).applyAxisAngle(orbitAxis, angle).add(orbitCenter);
+        const fromRadial = Math.hypot(fromPose.position.x - orbitCenter.x, fromPose.position.z - orbitCenter.z);
+        const toRadial = Math.hypot(toPose.position.x - orbitCenter.x, toPose.position.z - orbitCenter.z);
+        let orbitTurn = 0;
+        if (fromRadial > 0.001 && toRadial > 0.001) {
+          orbitTurn = Math.atan2(toPose.position.x - orbitCenter.x, toPose.position.z - orbitCenter.z)
+            - Math.atan2(fromPose.position.x - orbitCenter.x, fromPose.position.z - orbitCenter.z);
+          orbitTurn = Math.atan2(Math.sin(orbitTurn), Math.cos(orbitTurn));
+        }
+        if (!transition.orbitPlan) {
+          transition.orbitPlan = planHeroOverviewOrbit(orbitTurn);
+          transition.duration = transition.orbitPlan.duration;
+          // The explosion's bullet time is laid out over the camera's move, so a
+          // longer orbit holds the slow motion longer and everything lands together.
+          setExplosionMoveDuration(transition.duration);
+        }
+        const orbitPath = resolveHeroOverviewOrbitPath(orbitTurn, transition.orbitPlan);
         const runtimeSnapshot = heroOverviewRuntime?.getSnapshot?.() ?? null;
         const explosionClock = heroOverviewExplosionClockRef?.current ?? null;
         const cameraRunElapsedSeconds = Math.max(0, state.clock.elapsedTime - (transition.startedAt ?? state.clock.elapsedTime));
@@ -6354,53 +6628,58 @@ const UnifiedCameraController = ({
         const fromFilmOffset = Number.isFinite(fromPose.filmOffset) ? fromPose.filmOffset : 0;
         const toFilmOffset = Number.isFinite(toPose.filmOffset) ? toPose.filmOffset : 0;
         const isFinalPoseLocked = !holdPoseLockedThisFrame && (globalProgress >= 1 || pilotPhase === 'overviewSettle' || pilotPhase === 'complete');
-        const cameraTravelEasedProgress = holdPoseLockedThisFrame
+        // The orbit. The hero orbit's own speed is carried into its start by
+        // blending in an ease that leaves at that speed; both only ever go
+        // forward, so the blend never turns back.
+        const orbitEased = easeHeroOverviewPilotProgress(globalProgress, HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.camera.orbitEase);
+        const orbitEntryEased = 1 - (1 - globalProgress) ** 3;
+        const orbitTurnTravelled = holdPoseLockedThisFrame
           ? 0
-          : (isFinalPoseLocked ? 1 : cinematicProgress.cameraTravelEasedProgress);
-        // The turn around the crystal (hero orbit angle → overview angle, shortest way
-        // round) is taken out of the travel lerp and run on its own ease, from the
-        // explosion (the fragments' release, fracture.holdDuration in) to the very
-        // end of the move — through the settle — so it glides to a stop instead of
-        // whipping round in overviewTravel. The travel (dolly, lookAt, punch) is
-        // computed from the hold pose turned onto the overview angle; the whole pose
-        // is then turned back by the part of the turn still to come. Both turns are
-        // rigid about the vertical axis through the orbit center, so the first write
-        // is still exactly the hold pose and the completing write exactly the
-        // overview pose.
-        const orbitCenter = getHeroOrbitCenter();
-        const orbitAxis = new THREE.Vector3(0, 1, 0);
-        const turnAboutOrbitCenter = (v, angle) => v.sub(orbitCenter).applyAxisAngle(orbitAxis, angle).add(orbitCenter);
-        const fromRadial = Math.hypot(fromPose.position.x - orbitCenter.x, fromPose.position.z - orbitCenter.z);
-        const toRadial = Math.hypot(toPose.position.x - orbitCenter.x, toPose.position.z - orbitCenter.z);
-        let orbitTurn = 0;
-        if (fromRadial > 0.001 && toRadial > 0.001) {
-          orbitTurn = Math.atan2(toPose.position.x - orbitCenter.x, toPose.position.z - orbitCenter.z)
-            - Math.atan2(fromPose.position.x - orbitCenter.x, fromPose.position.z - orbitCenter.z);
-          orbitTurn = Math.atan2(Math.sin(orbitTurn), Math.cos(orbitTurn));
-        }
-        const orbitStartProgress = THREE.MathUtils.clamp(
-          (HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.fracture?.holdDuration ?? 0) / resolvedCameraDurationSeconds,
-          0,
-          0.95,
-        );
-        const orbitTurnProgress = holdPoseLockedThisFrame
+          : (globalProgress >= 1
+            ? orbitPath
+            : orbitPath * (orbitEased + transition.orbitPlan.entryShare * (orbitEntryEased - orbitEased)));
+        // Distance and framing follow the turn (camera.spiral), not the clock:
+        // close in round the explosion for the first part of the turn, then one
+        // expanding spiral out to the index over the rest, arriving with the turn
+        // whatever its length. Close in, the distance grows only with the
+        // fragments' own spread (from the explosion clock), keeping clear of them.
+        const spiral = HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.camera.spiral;
+        const orbitShare = Math.abs(orbitPath) > 1e-6 ? THREE.MathUtils.clamp(orbitTurnTravelled / orbitPath, 0, 1) : globalProgress;
+        const splitSeconds = getExplosionSplitSeconds();
+        const fragmentSpread = splitSeconds == null || splitSeconds <= 0
+          ? 0
+          : easeFragmentTravel(splitSeconds / getFragmentTravelSeconds());
+        const closeShare = THREE.MathUtils.clamp((spiral?.closeGrowth ?? 0) / Math.max(toRadial - fromRadial, 1e-3), 0, 0.5);
+        // The spiral starts once `spiral.start` of the turn is done and then runs
+        // evenly over the rest of the move's time to its end, gentle at first,
+        // so the distance and the (slowing) turn arrive together. (Eased over the
+        // share of the turn itself, it all happened in the fast middle and was
+        // done well before the turn.)
+        const cameraTravelEasedProgress = holdPoseLockedThisFrame
           ? 0
           : (globalProgress >= 1
             ? 1
-            : easeHeroOverviewPilotProgress(
-              (globalProgress - orbitStartProgress) / (1 - orbitStartProgress),
-              HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.camera.orbitEase,
-            ));
+            : closeShare * fragmentSpread
+              + (1 - closeShare) * THREE.MathUtils.smootherstep(globalProgress, HERO_OVERVIEW_SPIRAL_START_PROGRESS, 1));
+        // Look target and FOV keep the hero's (into the explosion) through the
+        // close orbit, then ease to the index's alongside the spiral.
+        const framingEasedProgress = holdPoseLockedThisFrame
+          ? 0
+          : (globalProgress >= 1 ? 1 : THREE.MathUtils.smootherstep(globalProgress, HERO_OVERVIEW_FRAMING_START_PROGRESS, 1));
+        // The film offset goes to the index's (centred) early in the turn, so the
+        // explosion is the centre of the frame through the close orbit rather
+        // than pushed aside by the hero's offset.
+        const filmOffsetEasedProgress = holdPoseLockedThisFrame
+          ? 0
+          : (globalProgress >= 1 ? 1 : THREE.MathUtils.smootherstep(orbitShare, 0, spiral?.centerBy ?? 0.3));
         const turnedFromPosition = turnAboutOrbitCenter(fromPose.position.clone(), orbitTurn);
         const turnedFromLookAt = turnAboutOrbitCenter(fromPose.lookAt.clone(), orbitTurn);
-        let nextPosition = isFinalPoseLocked
-          ? toPose.position.clone()
-          : new THREE.Vector3().lerpVectors(turnedFromPosition, toPose.position, cameraTravelEasedProgress);
-        const nextLookAt = isFinalPoseLocked
-          ? toPose.lookAt.clone()
-          : introLookAtTempRef.current.lerpVectors(turnedFromLookAt, toPose.lookAt, cameraTravelEasedProgress);
-        const nextFov = isFinalPoseLocked ? toFov : THREE.MathUtils.lerp(fromFov, toFov, cameraTravelEasedProgress);
-        const nextFilmOffset = isFinalPoseLocked ? toFilmOffset : THREE.MathUtils.lerp(fromFilmOffset, toFilmOffset, cameraTravelEasedProgress);
+        // Both progresses reach exactly 1 as the move completes, so the pose
+        // runs on into the index's with no lock-in step at the settle.
+        let nextPosition = new THREE.Vector3().lerpVectors(turnedFromPosition, toPose.position, cameraTravelEasedProgress);
+        const nextLookAt = introLookAtTempRef.current.lerpVectors(turnedFromLookAt, toPose.lookAt, framingEasedProgress);
+        const nextFov = THREE.MathUtils.lerp(fromFov, toFov, framingEasedProgress);
+        const nextFilmOffset = THREE.MathUtils.lerp(fromFilmOffset, toFilmOffset, filmOffsetEasedProgress);
         const holdForwardAxis = new THREE.Vector3().subVectors(turnedFromLookAt, turnedFromPosition);
         if (holdForwardAxis.lengthSq() > 0.000001) holdForwardAxis.normalize();
         else camera.getWorldDirection(holdForwardAxis).normalize();
@@ -6425,7 +6704,7 @@ const UnifiedCameraController = ({
             nextPosition = nextPosition.clone().addScaledVector(holdForwardAxis, -bulletTimeCameraOffset);
           }
         }
-        const remainingOrbitTurn = -orbitTurn * (1 - orbitTurnProgress);
+        const remainingOrbitTurn = orbitTurnTravelled - orbitPath;
         if (Math.abs(remainingOrbitTurn) > 0.0000001) {
           turnAboutOrbitCenter(nextPosition, remainingOrbitTurn);
           turnAboutOrbitCenter(nextLookAt, remainingOrbitTurn);
@@ -6450,7 +6729,7 @@ const UnifiedCameraController = ({
           parallaxAzimuthRef.current += (parallaxPointerRef.current.x * PARALLAX_MAX_AZIMUTH - parallaxAzimuthRef.current) * parallaxEase;
           parallaxPolarRef.current += (parallaxPointerRef.current.y * PARALLAX_MAX_POLAR - parallaxPolarRef.current) * parallaxEase;
         }
-        applyOverviewParallax(nextPosition, nextLookAt, cameraTravelEasedProgress);
+        applyOverviewParallax(nextPosition, nextLookAt, framingEasedProgress);
         const totalHoldCameraOffset = Math.abs(impulseCameraOffset) + Math.abs(bulletTimeCameraOffset);
         transition.punchDistanceApplied = HERO_OVERVIEW_PILOT_CAMERA_MOTION.explosionImpulse.punchDistance;
         transition.maxImpulseCameraOffset = Math.max(transition.maxImpulseCameraOffset ?? 0, Math.abs(impulseCameraOffset));
@@ -6483,8 +6762,20 @@ const UnifiedCameraController = ({
         }
         transition.previousCinematicCameraPosition = nextPosition.clone();
         const upCorrection = applyCanonicalCameraUp();
+        // The shockwave as the crystal splits (camera.impact): a recoil straight
+        // back along the view and a slight roll, added to the orbit's pose for a
+        // quarter of a second; the orbit itself (and everything that reads the
+        // pose back) is untouched.
+        const impact = getCameraImpact(nextPosition, nextLookAt, transition.orbitPlan?.direction ?? 1);
         camera.position.copy(nextPosition);
+        if (impact.recoil > 0) {
+          camera.position.addScaledVector(
+            impactBackTempRef.current.subVectors(nextPosition, nextLookAt).normalize(),
+            impact.recoil,
+          );
+        }
         camera.lookAt(nextLookAt);
+        if (impact.roll !== 0) camera.rotateZ(impact.roll);
         camera.fov = nextFov;
         camera.filmOffset = nextFilmOffset;
         camera.updateProjectionMatrix();
@@ -7247,40 +7538,48 @@ const UnifiedCameraController = ({
     const shouldForceOverviewToHeroTransition =
       FORCE_AUTHORITATIVE_OVERVIEW_TO_HERO_TRANSITION &&
       (
+        (isAuthoritativePlainHero && heroLeftSinceReturnRef.current) ||
         (!wasPlainHero && isAuthoritativePlainHero && cameFromNonHeroState) ||
         // Interrupted hero→overview reversed back to hero: start immediately from
         // the live pose instead of waiting for the reform-pause cameraState flip.
         heroOverviewReversalToHeroDetected
       );
+    if (isAuthoritativePlainHero && authoritativeOverviewToHeroTransitionRef.current.active) {
+      heroLeftSinceReturnRef.current = false;
+    }
     if (shouldForceOverviewToHeroTransition && !authoritativeOverviewToHeroTransitionRef.current.active) {
+      heroLeftSinceReturnRef.current = false;
       const center = getHeroOrbitCenter();
       const { tuning } = resolveHeroTuning(config);
       const resolvedHeroFilmOffsetX = resolveHeroFilmOffsetX(center).value;
+      // Always back to the hero's own angle, where the intro lands it
+      // (introIndexOffsetDegrees round from the index), from wherever the
+      // camera comes from: the index, a project, About, an interrupted hero →
+      // overview or a deep link. The hero orbit carries on from there.
+      const heroArrivalAngle = tuning.baseAngle + resolveIntroLandingOffset(center, tuning);
       const heroDestination = getAuthoritativeHeroCameraSnapshot({
         center,
         tuning,
         filmOffsetX: resolvedHeroFilmOffsetX,
-        angleOverride: tuning.baseAngle,
+        angleOverride: heroArrivalAngle,
       });
-      const fromLookAt = getCameraLookAtFromTransform();
+      const heroReturnTo = {
+        position: heroDestination.position.clone(),
+        lookAtTarget: heroDestination.lookAtTarget.clone(),
+        filmOffsetX: Number.isFinite(heroDestination.filmOffsetX) ? heroDestination.filmOffsetX : 0,
+        fov: Number.isFinite(animationData?.cameraConfig?.fov) ? animationData.cameraConfig.fov : camera.fov,
+        source: 'authoritativeHeroSnapshot(return azimuth)',
+      };
       authoritativeOverviewToHeroTransitionRef.current = {
+        heroOrbitAzimuthOffset: heroArrivalAngle - tuning.baseAngle,
         active: true,
-        progress: 0,
         divergenceWarned: false,
-        startTime: state.clock.elapsedTime,
-        duration: 1.0,
-        from: {
-          position: camera.position.clone(),
-          lookAtTarget: fromLookAt,
-          filmOffsetX: Number.isFinite(camera.filmOffset) ? camera.filmOffset : 0,
-          source: currentTarget.current?.lookAt ? 'currentTarget.lookAt' : 'overviewDestinationFallback',
-        },
-        to: {
-          position: heroDestination.position.clone(),
-          lookAtTarget: heroDestination.lookAtTarget.clone(),
-          filmOffsetX: Number.isFinite(heroDestination.filmOffsetX) ? heroDestination.filmOffsetX : 0,
-          source: 'authoritativeHeroSnapshot(baseAngle)',
-        },
+        ...planCameraReturn({
+          to: heroReturnTo,
+          toAzimuth: heroArrivalAngle,
+          endSpin: tuning.orbitSpeed,
+          startTime: state.clock.elapsedTime,
+        }),
       };
       console.log('[UCC FORCE OVERVIEW TO HERO START]', {
         fromPosition: authoritativeOverviewToHeroTransitionRef.current.from.position.toArray(),
@@ -7296,9 +7595,9 @@ const UnifiedCameraController = ({
 
     // Preemptible reversal (overview→hero): this forced transition is monotonic and
     // non-preemptible (it returns early every frame until it reaches hero). If the
-    // user scrolls forward again mid-transition, reverse it in place into a SIMPLE
-    // move from the LIVE pose back to the overview resting pose — reusing the same
-    // smoothstep lerp machinery — instead of flying all the way to hero and snapping
+    // user scrolls forward again mid-transition, reverse it in place into a move
+    // from the LIVE pose (and its motion) back to the overview resting pose — the
+    // same return machinery — instead of flying all the way to hero and snapping
     // back, or handing off to the hero→overview fracture cinematic. Retarget once
     // (guarded by reversedToOverview) so progress isn't reset every frame. About is
     // excluded so the known-buggy About paths keep their existing behavior.
@@ -7316,20 +7615,19 @@ const UnifiedCameraController = ({
       const overviewLookAt = toVector3(config?.cameraTargets?.overview)
         .add(toVector3(config?.cameraOffsets?.global?.target))
         .add(toVector3(config?.cameraOffsets?.zones?.overview?.target));
-      t.from = {
-        position: camera.position.clone(),
-        lookAtTarget: getCameraLookAtFromTransform(),
-        filmOffsetX: Number.isFinite(camera.filmOffset) ? camera.filmOffset : 0,
-        source: 'reversal-live-camera',
-      };
-      t.to = {
-        position: overviewPosition,
-        lookAtTarget: overviewLookAt,
-        filmOffsetX: 0,
-        source: 'reversal-overview-destination',
-      };
-      t.progress = 0;
-      t.startTime = state.clock.elapsedTime;
+      const center = getHeroOrbitCenter();
+      Object.assign(t, planCameraReturn({
+        to: {
+          position: overviewPosition,
+          lookAtTarget: overviewLookAt,
+          filmOffsetX: 0,
+          fov: Number.isFinite(animationData?.cameraConfig?.fov) ? animationData.cameraConfig.fov : camera.fov,
+          source: 'reversal-overview-destination',
+        },
+        toAzimuth: Math.atan2(overviewPosition.x - center.x, overviewPosition.z - center.z),
+        endSpin: 0,
+        startTime: state.clock.elapsedTime,
+      }));
       t.divergenceWarned = false;
       t.reversedToOverview = true;
       console.log('[UCC FORCE OVERVIEW TO HERO REVERSED TO OVERVIEW]', {
@@ -7341,50 +7639,14 @@ const UnifiedCameraController = ({
     }
     if (authoritativeOverviewToHeroTransitionRef.current.active) {
       const transition = authoritativeOverviewToHeroTransitionRef.current;
-      const frameDelta = Number.isFinite(delta) ? delta : 0;
-      const safeDelta = Math.min(frameDelta, MAX_FORCED_TRANSITION_DELTA);
-      transition.progress = Math.min(1, transition.progress + (safeDelta / transition.duration));
-      const accumulatedProgress = THREE.MathUtils.clamp(transition.progress, 0, 1);
-      const elapsedProgress = THREE.MathUtils.clamp((state.clock.elapsedTime - transition.startTime) / transition.duration, 0, 1);
-      const p = THREE.MathUtils.clamp(accumulatedProgress, 0, 1);
-      const easedProgress = p * p * p * (p * (p * 6 - 15) + 10);
-      const positionProgress = easedProgress;
-      const lookAtProgress = easedProgress;
-      const filmOffsetProgress = easedProgress;
-      camera.position.lerpVectors(transition.from.position, transition.to.position, positionProgress);
-      const forcedLookAt = introLookAtTempRef.current.lerpVectors(
-        transition.from.lookAtTarget,
-        transition.to.lookAtTarget,
-        lookAtProgress,
-      );
-      camera.lookAt(forcedLookAt);
-      camera.filmOffset = THREE.MathUtils.lerp(transition.from.filmOffsetX, transition.to.filmOffsetX, filmOffsetProgress);
-      camera.updateProjectionMatrix();
+      // On the scene clock, like the fragments' reform it is timed against.
+      const returnProgress = writeCameraReturn(transition, state.clock.elapsedTime - transition.startTime);
       guardRecord("authoritativeOverviewToHero", ["position", "lookAt", "filmOffset", "currentTarget"], "overview->hero", "forced-overview-to-hero-frame");
-      logCameraWrite(state, "FORCED_OVERVIEW_TO_HERO", "forced-overview-to-hero-frame", forcedLookAt, true, true);
-      if (!transition.divergenceWarned && Math.abs(accumulatedProgress - elapsedProgress) > 0.05) {
-        transition.divergenceWarned = true;
-        console.warn('[UCC FORCED TRANSITION ELAPSED VS ACCUMULATED DIVERGENCE]', {
-          direction: 'overview_to_hero',
-          elapsedProgress: round4(elapsedProgress),
-          accumulatedProgress: round4(accumulatedProgress),
-          frameDelta: round4(frameDelta),
-          safeDelta: round4(safeDelta),
-          maxDelta: round4(MAX_FORCED_TRANSITION_DELTA),
-          easedProgress: round4(easedProgress),
-        });
-      }
+      logCameraWrite(state, "FORCED_OVERVIEW_TO_HERO", "forced-overview-to-hero-frame", introLookAtTempRef.current, true, true);
       if (shouldLogBranch) {
-        console.log('[UCC FORCED OVERVIEW TO HERO PROGRESS]', {
-          elapsedProgress: round4(elapsedProgress),
-          accumulatedProgress: round4(accumulatedProgress),
-          frameDelta: round4(frameDelta),
-          safeDelta: round4(safeDelta),
-          maxDelta: round4(MAX_FORCED_TRANSITION_DELTA),
-          easedProgress: round4(easedProgress),
-        });
+        console.log('[UCC FORCED OVERVIEW TO HERO PROGRESS]', { returnProgress: round4(returnProgress) });
       }
-      if (accumulatedProgress >= 1) {
+      if (returnProgress >= 1) {
         camera.position.copy(transition.to.position);
         camera.lookAt(transition.to.lookAtTarget);
         camera.filmOffset = transition.to.filmOffsetX;
@@ -7412,8 +7674,10 @@ const UnifiedCameraController = ({
           animationData?.setCameraMoveProgress?.(1);
           animationData?.setCameraSettled?.(true);
         } else {
-          // Arrived at hero: seed the hero orbit clock so the orbit picks up cleanly.
+          // Arrived at hero: seed the hero orbit clock so the orbit picks up cleanly,
+          // from the angle it arrived at.
           heroOrbitStartTimeRef.current = state.clock.elapsedTime;
+          heroOrbitAzimuthOffsetRef.current = transition.heroOrbitAzimuthOffset ?? 0;
         }
         authoritativeOverviewToHeroTransitionRef.current.active = false;
         console.log('[UCC FORCE OVERVIEW TO HERO COMPLETE]', {
@@ -7438,11 +7702,17 @@ const UnifiedCameraController = ({
 
       if (!authoritativeHeroIntroCapturedRef.current) {
         authoritativeHeroIntroCapturedRef.current = true;
+        // Land the intro introIndexOffsetDegrees round from the index camera's
+        // azimuth, so the hero → overview orbit from there is a long one. The
+        // intro's turn is phased to land exactly on this angle (it accounts for
+        // the auto-orbit during the intro), and the hero orbit carries on from
+        // it, so nothing moves the camera but the intro and the orbit.
+        heroOrbitAzimuthOffsetRef.current = resolveIntroLandingOffset(center, tuning);
         const introDestination = getAuthoritativeHeroCameraSnapshot({
           center,
           tuning,
           filmOffsetX: resolvedFilmOffsetX,
-          angleOverride: tuning.baseAngle,
+          angleOverride: tuning.baseAngle + heroOrbitAzimuthOffsetRef.current,
         });
         authoritativeHeroIntroToRef.current.position.copy(introDestination.position);
         authoritativeHeroIntroToRef.current.lookAtTarget.copy(introDestination.lookAtTarget);
@@ -7522,6 +7792,10 @@ const UnifiedCameraController = ({
         config?.cameraPositions?.intro &&
         config?.cameraTargets?.intro
       ) {
+        // Held on the intro's first pose (not the mounted one, which is on the
+        // authored azimuth), so arming the intro does not move the camera.
+        getIntroFirstPose(camera.position, introLookAtTempRef.current);
+        camera.lookAt(introLookAtTempRef.current);
         return;
       }
 

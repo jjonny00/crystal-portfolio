@@ -1,4 +1,5 @@
 import { forwardRef, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { getExplosionLookScale } from '../../lib/explosionLook';
 import { useFrame } from '@react-three/fiber';
 import {
   ShaderMaterial,
@@ -460,7 +461,7 @@ const LensDirt = forwardRef(function LensDirt(
     const b = boostRef.current;
     const { uniforms } = effect;
     uniforms.get('rest').value = restRef.current;
-    uniforms.get('intensity').value = intensity * (1 + transitionBoost * b);
+    uniforms.get('intensity').value = intensity * (1 + transitionBoost * getExplosionLookScale('lensDirt') * b);
     uniforms.get('sensitivity').value = sensitivity * (1 + b);
     uniforms.get('adaptation').value = adaptation * (1 - b);
     // Wrapped long before float precision suffers; the jump lands on a fresh
