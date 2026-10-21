@@ -49,6 +49,7 @@ import { inspectEdgeWearAttributes, applyEdgeWearMaskDebug, getEdgeWearDebugMode
 import { HERO_OVERVIEW_CINEMATIC_RESOLVED, HERO_OVERVIEW_EASING, HERO_RETURN_CINEMATIC } from '../../config/heroOverviewCinematicConfig'
 import { easeFragmentTravel, getFragmentTravelSeconds, startExplosionTime, stopExplosionTime } from '../../lib/explosionTime'
 import { getExplosionLookScale } from '../../lib/explosionLook'
+import { markHeroReformStart } from '../../lib/heroReformClock'
 import { markScenePrep } from '../../loader/loadProgress'
 
 const PROJECT_DISPLAY_SLOT = 'ProjectDisplay'
@@ -383,6 +384,16 @@ const objectTransformSnapshot = (object) => {
     worldQuaternion: quaternionToPlain(worldQuaternion),
     worldScale: vectorToPlain(worldScale),
   };
+};
+const _facetCentroidScratch = new THREE.Vector3();
+const facetCentroidSnapshot = (refs) => {
+  let x = 0; let y = 0; let z = 0; let count = 0;
+  refs.forEach((ref) => {
+    if (!ref?.current) return;
+    ref.current.getWorldPosition(_facetCentroidScratch);
+    x += _facetCentroidScratch.x; y += _facetCentroidScratch.y; z += _facetCentroidScratch.z; count += 1;
+  });
+  return count ? vectorToPlain({ x: x / count, y: y / count, z: z / count }) : null;
 };
 
 // One-shot GPU warmup. The hero→overview effects (fracture ring, orb + backdrop
@@ -3051,6 +3062,9 @@ const UnifiedCrystalScene = forwardRef(({
         crystalGroup: objectTransformSnapshot(crystalGroupRef.current),
         wholeCrystal: objectTransformSnapshot(wholeCrystalRef.current),
         facetsGroup: objectTransformSnapshot(facetsGroupRef.current),
+        // The fragments' mean world position, for the camera's screen-space
+        // trace of the hero → index framing (pilot samples' fragmentClusterNdc).
+        facetCentroid: showFacets ? facetCentroidSnapshot(facetRefs.current) : null,
       };
     }
 
@@ -3845,6 +3859,7 @@ const UnifiedCrystalScene = forwardRef(({
           positions: facetRefs.current.map((ref) => ref?.current?.position.clone() ?? null),
           quaternions: facetRefs.current.map((ref) => ref?.current?.quaternion.clone() ?? null),
         };
+        markHeroReformStart(now);
       }
       const reformEased = isReforming
         ? THREE.MathUtils.clamp(

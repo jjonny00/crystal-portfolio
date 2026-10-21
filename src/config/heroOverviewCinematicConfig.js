@@ -78,20 +78,39 @@ export const HERO_OVERVIEW_CINEMATIC_CONFIG = {
       peakSeconds: 0.025,
       recoverySeconds: 0.1,
     },
-    // The distance through the move, by share of the orbit's angular travel
-    // (so it stretches with longer orbits): close in round the explosion, at
-    // the hero's distance plus closeGrowth (world units) taken on as the
-    // fragments spread, so it keeps clear of them; then from `start` one
-    // expanding spiral out to the index, gentle at first, arriving with the
-    // turn (it starts by the turn, then runs evenly in time to the end, so it
-    // never outruns the slowing turn). framingStart: when the look target and
-    // FOV begin moving from the hero's to the index's. centerBy: the share of
-    // the turn by which the film offset reaches the index's (centred), so the
-    // explosion sits in the middle of the frame through the close orbit.
+    // The distance through the move: one expanding spiral from the hero's
+    // distance to the index's, set by the share of the orbit's turn done (so it
+    // stretches with longer orbits, and the distance and the turn arrive
+    // together: it slows as the turn brakes). It is logarithmic: each degree
+    // takes the camera out by a share of its distance (the pitch), so the
+    // explosion shrinks in the frame at a steady rate rather than all at the
+    // end. The pitch builds from nothing over the first `rampIn` of the turn
+    // (the hero orbit runs at a fixed distance), then climbs to `endPitch`×
+    // its starting value by the end, on a power of `pitchCurve`: a gentle
+    // outward drift through the slow motion, widening as the turn goes on.
+    // (heroOverviewSpiralShare draws it.) Higher endPitch keeps the camera
+    // closer for longer and expands later; rampIn later delays the first
+    // drift.
+    // Was a fixed close orbit (the hero's distance plus 0.6, taken on as the
+    // fragments spread) until 75% of the turn, then a pull back to the index
+    // over the last quarter: 2.75 → 3.16 → 8.49 on desktop, read as a flyby
+    // and then a zoom out.
+    // framingStart → framingEnd: the share of the turn over which the camera's
+    // aim eases (smootherstep) from the explosion round to the index's (and the
+    // FOV to the index's), so the index composition builds as the camera
+    // spirals out: the fragments drift across the frame to their index places
+    // from mid-orbit (~85% of the way by 83% of the turn) and settle as the
+    // turn does. Was framingStart 0.7 on the clock, which put most of the
+    // reframing after the turn had slowed and read as a pan left at the end.
+    // centerBy: the share of the turn by which the film offset reaches the
+    // index's (centred), so the explosion sits in the middle of the frame
+    // through the orbit.
     spiral: {
-      start: 0.75,
-      framingStart: 0.7,
-      closeGrowth: 0.6,
+      rampIn: 0.12,
+      endPitch: 1.6,
+      pitchCurve: 2,
+      framingStart: 0.4,
+      framingEnd: 1,
       centerBy: 0.3,
     },
   },
@@ -538,6 +557,24 @@ export const HERO_OVERVIEW_EASING = {
     const x = clamp01(t);
     return x * x * (3 - 2 * x);
   },
+};
+
+// The hero → index spiral (camera.spiral): how far along its distance ratio
+// the camera is (0 at the hero's distance, 1 at the index's, in log terms) at
+// `share` of the orbit's turn. The integral of the pitch, normalized to end at
+// 1; built once per set of parameters.
+const spiralShareTables = new Map();
+export const heroOverviewSpiralShare = (share, spiral = {}) => {
+  const rampIn = Math.max(Number(spiral.rampIn) || 0, 1e-4);
+  const endPitch = Math.max(Number.isFinite(spiral.endPitch) ? spiral.endPitch : 1, 0);
+  const pitchCurve = Math.max(Number.isFinite(spiral.pitchCurve) ? spiral.pitchCurve : 1, 0);
+  const key = `${rampIn}|${endPitch}|${pitchCurve}`;
+  let ease = spiralShareTables.get(key);
+  if (!ease) {
+    ease = easeFromSpeed((s) => smoothstep(s / rampIn) * (1 + (endPitch - 1) * s ** pitchCurve));
+    spiralShareTables.set(key, ease);
+  }
+  return ease(share);
 };
 
 const DURATION_TO_PHASE = [
@@ -1046,6 +1083,13 @@ export const HERO_RETURN_CINEMATIC = {
   // masked swap to the whole crystal (~0.3s) completes as it does.
   reformSeconds: 2.05,
   reformEase: 'returnReform',
+  // The hero copy comes back (HeroSection's schedule, unchanged) once the
+  // reform is this share of the way through its time, so the headline is not
+  // over the big fragments as they gather. At 0.7 they are ~40% of the way in;
+  // they close up as the headline fades in, and its last line is in as the
+  // camera lands. It used to start as soon as the scroll settled, ~1s in,
+  // and was fully in at ~2s with the fragments only ~45% of the way in.
+  headlineAt: 0.7,
   orbitEase: 'returnOrbit',
   dollyEase: 'returnDolly',
   framingEase: 'returnFraming',

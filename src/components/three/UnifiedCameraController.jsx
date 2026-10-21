@@ -9,8 +9,8 @@ import { createLogger } from '../../utils/logger';
 import { beginCameraFrame, recordCameraWrite } from '../../camera/cameraWriteGuard';
 import { createCameraDirectorPilotTransition, updateCameraDirectorPilotTransition } from '../../camera/CameraDirector';
 import { resolveCameraDestination } from '../../camera/destinationResolver';
-import { HERO_OVERVIEW_CINEMATIC_RESOLVED, HERO_OVERVIEW_EASING, HERO_RETURN_CINEMATIC } from '../../config/heroOverviewCinematicConfig';
-import { easeFragmentTravel, getExplosionSplitSeconds, getFragmentTravelSeconds, setExplosionMoveDuration } from '../../lib/explosionTime';
+import { HERO_OVERVIEW_CINEMATIC_RESOLVED, HERO_OVERVIEW_EASING, HERO_RETURN_CINEMATIC, heroOverviewSpiralShare } from '../../config/heroOverviewCinematicConfig';
+import { getExplosionSplitSeconds, setExplosionMoveDuration } from '../../lib/explosionTime';
 import { getExplosionLookScale } from '../../lib/explosionLook';
 import { MQ_REDUCED_MOTION } from '../../config/breakpoints';
 import { MQ_HOVER_CAPABLE } from '../../config/breakpoints';
@@ -101,17 +101,46 @@ const HERO_OVERVIEW_PILOT_PHASES = ['fractureCharge', 'explosionImpulse', 'bulle
 const HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG = HERO_OVERVIEW_CINEMATIC_RESOLVED;
 const HERO_OVERVIEW_PILOT_CAMERA_TIMELINE = HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.derivedTimeline;
 const HERO_OVERVIEW_CAMERA_FORCE = HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.cameraForce;
-// When (as a share of the hero → overview move's time) the orbit has done a
-// given share of its turn: the inverse of its ease, for starting the spiral out
-// (camera.spiral) by the turn while running it evenly in time.
-const heroOverviewProgressAtTurnShare = (share) => {
-  const ease = HERO_OVERVIEW_EASING[HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.camera.orbitEase] || HERO_OVERVIEW_EASING.linear;
-  let lo = 0; let hi = 1;
-  for (let i = 0; i < 40; i += 1) { const mid = (lo + hi) / 2; if (ease(mid) < share) lo = mid; else hi = mid; }
-  return (lo + hi) / 2;
+// The hero → index look target. The camera aims at the explosion (`focus`),
+// turned by `share` of the index pose's own aim off it: the yaw and pitch
+// between the explosion and the index's look target, as seen from the index
+// camera. Interpolating that angle, rather than the look target's world
+// position, moves the fragments steadily across the frame whatever the
+// camera's distance; a world-space lerp swings the view further when the
+// camera is close than when it is far. At share 1 at the index position it is
+// exactly the index's look target.
+// DEV: where the fragments' mean position (the scene's composition snapshot)
+// lands on screen, in NDC (−1…1, film offset included), for the hero → index
+// framing trace in the pilot samples.
+const fragmentClusterNdcTemp = new THREE.Vector3();
+const projectFragmentClusterForDiagnostics = (camera) => {
+  if (!import.meta.env.DEV) return null;
+  const centroid = globalThis.__crystalSceneVisibleCompositionSnapshot?.facetCentroid;
+  if (!centroid) return null;
+  camera.updateMatrixWorld();
+  fragmentClusterNdcTemp.set(centroid.x, centroid.y, centroid.z).project(camera);
+  return { x: Number(fragmentClusterNdcTemp.x.toFixed(4)), y: Number(fragmentClusterNdcTemp.y.toFixed(4)) };
 };
-const HERO_OVERVIEW_SPIRAL_START_PROGRESS = heroOverviewProgressAtTurnShare(HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.camera.spiral?.start ?? 0.55);
-const HERO_OVERVIEW_FRAMING_START_PROGRESS = heroOverviewProgressAtTurnShare(HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.camera.spiral?.framingStart ?? 0.5);
+const yawPitchDistance = (from, to) => {
+  const dx = to.x - from.x; const dy = to.y - from.y; const dz = to.z - from.z;
+  const flat = Math.hypot(dx, dz);
+  return [Math.atan2(dx, dz), Math.atan2(dy, flat), Math.hypot(flat, dy)];
+};
+const composeHeroOverviewLookAt = (out, position, focus, toPose, share) => {
+  if (share <= 0) return out.copy(focus);
+  const [yawFocusEnd, pitchFocusEnd] = yawPitchDistance(toPose.position, focus);
+  const [yawTargetEnd, pitchTargetEnd, distanceTargetEnd] = yawPitchDistance(toPose.position, toPose.lookAt);
+  const [yawFocus, pitchFocus, distanceFocus] = yawPitchDistance(position, focus);
+  const yawOffset = Math.atan2(Math.sin(yawTargetEnd - yawFocusEnd), Math.cos(yawTargetEnd - yawFocusEnd));
+  const yaw = yawFocus + yawOffset * share;
+  const pitch = pitchFocus + (pitchTargetEnd - pitchFocusEnd) * share;
+  const distance = THREE.MathUtils.lerp(distanceFocus, distanceTargetEnd, share);
+  return out.set(
+    position.x + Math.sin(yaw) * Math.cos(pitch) * distance,
+    position.y + Math.sin(pitch) * distance,
+    position.z + Math.cos(yaw) * Math.cos(pitch) * distance,
+  );
+};
 const resolveHeroOverviewCameraForceState = (elapsedSeconds) => {
   const cfg = HERO_OVERVIEW_CAMERA_FORCE;
   if (!cfg?.enabled || elapsedSeconds == null || elapsedSeconds < cfg.triggerAt) {
@@ -6638,34 +6667,34 @@ const UnifiedCameraController = ({
           : (globalProgress >= 1
             ? orbitPath
             : orbitPath * (orbitEased + transition.orbitPlan.entryShare * (orbitEntryEased - orbitEased)));
-        // Distance and framing follow the turn (camera.spiral), not the clock:
-        // close in round the explosion for the first part of the turn, then one
-        // expanding spiral out to the index over the rest, arriving with the turn
-        // whatever its length. Close in, the distance grows only with the
-        // fragments' own spread (from the explosion clock), keeping clear of them.
+        // Distance and framing follow the turn (camera.spiral), not the clock.
+        // The distance is one expanding spiral from the hero's out to the
+        // index's, logarithmic in the turn (heroOverviewSpiralShare), so the
+        // radius and the angle are one curve: it widens through the whole orbit
+        // and slows with the turn, arriving with it whatever its length. The
+        // position is lerped along the index's radial line (the start pose is
+        // turned onto it below), so the share of that lerp is the share of the
+        // radial distance.
         const spiral = HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.camera.spiral;
         const orbitShare = Math.abs(orbitPath) > 1e-6 ? THREE.MathUtils.clamp(orbitTurnTravelled / orbitPath, 0, 1) : globalProgress;
-        const splitSeconds = getExplosionSplitSeconds();
-        const fragmentSpread = splitSeconds == null || splitSeconds <= 0
-          ? 0
-          : easeFragmentTravel(splitSeconds / getFragmentTravelSeconds());
-        const closeShare = THREE.MathUtils.clamp((spiral?.closeGrowth ?? 0) / Math.max(toRadial - fromRadial, 1e-3), 0, 0.5);
-        // The spiral starts once `spiral.start` of the turn is done and then runs
-        // evenly over the rest of the move's time to its end, gentle at first,
-        // so the distance and the (slowing) turn arrive together. (Eased over the
-        // share of the turn itself, it all happened in the fast middle and was
-        // done well before the turn.)
+        const spiralShare = heroOverviewSpiralShare(orbitShare, spiral);
+        const spiralTravel = fromRadial > 0.001 && toRadial > 0.001 && Math.abs(toRadial - fromRadial) > 0.001
+          ? (fromRadial * (toRadial / fromRadial) ** spiralShare - fromRadial) / (toRadial - fromRadial)
+          : spiralShare;
         const cameraTravelEasedProgress = holdPoseLockedThisFrame
+          ? 0
+          : (globalProgress >= 1 ? 1 : spiralTravel);
+        // Look target and FOV: on the explosion through the first part of the
+        // turn, then easing round to the index's aim by the turn too
+        // (spiral.framingStart → framingEnd), so the index composition builds
+        // as the camera spirals out and settles as the turn does. (On the
+        // clock from 70% of the turn, most of it came after the turn had
+        // slowed: a separate pan left at the end.)
+        const framingEasedProgress = holdPoseLockedThisFrame
           ? 0
           : (globalProgress >= 1
             ? 1
-            : closeShare * fragmentSpread
-              + (1 - closeShare) * THREE.MathUtils.smootherstep(globalProgress, HERO_OVERVIEW_SPIRAL_START_PROGRESS, 1));
-        // Look target and FOV keep the hero's (into the explosion) through the
-        // close orbit, then ease to the index's alongside the spiral.
-        const framingEasedProgress = holdPoseLockedThisFrame
-          ? 0
-          : (globalProgress >= 1 ? 1 : THREE.MathUtils.smootherstep(globalProgress, HERO_OVERVIEW_FRAMING_START_PROGRESS, 1));
+            : THREE.MathUtils.smootherstep(orbitShare, spiral?.framingStart ?? 0.4, spiral?.framingEnd ?? 1));
         // The film offset goes to the index's (centred) early in the turn, so the
         // explosion is the centre of the frame through the close orbit rather
         // than pushed aside by the hero's offset.
@@ -6677,7 +6706,9 @@ const UnifiedCameraController = ({
         // Both progresses reach exactly 1 as the move completes, so the pose
         // runs on into the index's with no lock-in step at the settle.
         let nextPosition = new THREE.Vector3().lerpVectors(turnedFromPosition, toPose.position, cameraTravelEasedProgress);
-        const nextLookAt = introLookAtTempRef.current.lerpVectors(turnedFromLookAt, toPose.lookAt, framingEasedProgress);
+        const nextLookAt = globalProgress >= 1 && !holdPoseLockedThisFrame
+          ? introLookAtTempRef.current.copy(toPose.lookAt)
+          : composeHeroOverviewLookAt(introLookAtTempRef.current, nextPosition, turnedFromLookAt, toPose, framingEasedProgress);
         const nextFov = THREE.MathUtils.lerp(fromFov, toFov, framingEasedProgress);
         const nextFilmOffset = THREE.MathUtils.lerp(fromFilmOffset, toFilmOffset, filmOffsetEasedProgress);
         const holdForwardAxis = new THREE.Vector3().subVectors(turnedFromLookAt, turnedFromPosition);
@@ -6929,6 +6960,11 @@ const UnifiedCameraController = ({
           fovChangedDuringHold: Boolean(transition.fovChangedDuringHold),
           filmOffsetChangedDuringHold: Boolean(transition.filmOffsetChangedDuringHold),
           globalProgress: round4(globalProgress),
+          orbitShare: round4(orbitShare),
+          spiralShare: round4(spiralShare),
+          framingShare: round4(framingEasedProgress),
+          orbitRadius: round4(Math.hypot(camera.position.x - orbitCenter.x, camera.position.z - orbitCenter.z)),
+          fragmentClusterNdc: projectFragmentClusterForDiagnostics(camera),
           monotonicGlobalProgress: round4(monotonicGlobalProgress),
           rawSharedProgress: round4(rawSharedProgress),
           runtimeProgress: round4(runtimeProgress),

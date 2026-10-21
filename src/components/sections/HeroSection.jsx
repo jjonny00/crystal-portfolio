@@ -7,6 +7,8 @@ import useProjectHeadlineColor from '../../hooks/useProjectHeadlineColor';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { MQ_REDUCED_MOTION } from '../../config/breakpoints';
 import { getIntroTimeline, subscribeIntroTimeline } from '../../lib/introTimeline';
+import { getHeroReformStart } from '../../lib/heroReformClock';
+import { HERO_RETURN_CINEMATIC } from '../../config/heroOverviewCinematicConfig';
 import Headline from '../ui/Headline';
 import '../../styles/hero-section.css';
 // The intro, long and short. Same shape as a project's `mobile` block in
@@ -30,7 +32,16 @@ const ARROW_DOWN_SRC = '/assets/ui/SVG/arrow-down.svg';
 // is 4.4s and its last stretch is imperceptibly slow), the paragraph and CTA after.
 const INTRO_SCHEDULE = [[1000, 800, 1600], [2200, 800, 1600], [3400, 800, 1600], [4300, 0, 1600], [4900, 0, 1600]];
 // Coming back to the hero, or arriving with no intro: the same order, close together.
+// While the crystal is reforming (back from the index), it starts once the reform
+// is HERO_RETURN_CINEMATIC.headlineAt of the way through its time, not as the
+// scroll settles, so the headline comes in as the fragments close up.
 const QUICK_SCHEDULE = [[150, 600, 1000], [270, 600, 1000], [390, 600, 1000], [600, 0, 1000], [900, 0, 1000]];
+const quickScheduleStart = () => {
+  const now = performance.now();
+  const reformStart = getHeroReformStart();
+  if (reformStart == null) return now;
+  return Math.max(now, reformStart + HERO_RETURN_CINEMATIC.reformSeconds * 1000 * HERO_RETURN_CINEMATIC.headlineAt);
+};
 // Shown without waiting if the intro was expected but never starts.
 const INTRO_START_FALLBACK_MS = 2000;
 const HIDE_MS = 300;
@@ -96,7 +107,7 @@ const HeroSection = ({
         session.timers.push(setTimeout(() => run(QUICK_SCHEDULE, performance.now()), INTRO_START_FALLBACK_MS));
       }
     } else {
-      run(QUICK_SCHEDULE, performance.now());
+      run(QUICK_SCHEDULE, quickScheduleStart());
     }
   }, [visible, introTimeline]);
 
