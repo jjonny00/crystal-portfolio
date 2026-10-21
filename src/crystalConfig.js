@@ -70,7 +70,7 @@ export const fracture = {
     // round the fracture instead of washing over the whole frame at the release.
     expand: 14.0,          // end-of-life scale multiplier
     spread: 0.9,         // spawn radius — spread around the core, not on the bright center
-    outwardSpeed: 5.25,   // gentle radial drift (kept slow/contained)
+    outwardSpeed: 8,      // radial drift out of the fracture (was 5.25)
     upwardLift: 2.0,      // strong upward rise so it reads as mist lifting off the fracture
     drag: 0.94,            // per-frame damping of radial drift (0-1, higher = floatier)
     // seconds. Was 0.08: sprites that short lived out their whole growth in the
@@ -141,7 +141,27 @@ export const fracture = {
       start: 0.9,
       end: 2.0
     },
-    // Visibility window as progress (0-1) of the hero→overview sequence.
+    // When the rays show. 'explosion': a short discharge just after the split,
+    // so the crystal is seen to break before the energy escapes (`burst`).
+    // 'charge': the earlier build-up, on through the charge and cut on the
+    // split (`timing`), kept to compare. In DEV,
+    // globalThis.__FRACTURE_RAYS_MODE__ = 'charge' | 'explosion' switches it live.
+    mode: 'explosion',
+    // The discharge, in real time from the split (the explosion clock's 0, the
+    // same moment as the fragments' kick and the camera's recoil): it erupts
+    // `onsetMs` after the split, the front racing out from the crystal over
+    // `growMs`, at full brightness `peak` (× look.rays), then fades on
+    // (1 − t)^`decay` to nothing `durationMs` after the onset. Over by ~210ms,
+    // fading through the collapse of time (~105ms), before the orbit gets going.
+    burst: {
+      onsetMs: 40,
+      durationMs: 170,
+      growMs: 45,
+      peak: 1,
+      decay: 1
+    },
+    // 'charge' mode: the visibility window as progress (0-1) of the
+    // hero→overview sequence.
     timing: {
       appearAt: 0.06,     // pop in
       // cut out on the split itself (0.5s of 1.5s is the split): until then

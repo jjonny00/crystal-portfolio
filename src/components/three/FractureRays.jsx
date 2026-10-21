@@ -7,19 +7,36 @@
 // that config into the material and drives the two time-varying uniforms
 // (uOpacity, uGrowth) off the shared useHeroOverviewRuntime clock.
 //
-// Two independent timelines:
-//   • Visibility — hard on/off between rays.timing.appearAt and disappearAt
-//     (progress of the hero→overview sequence).
-//   • Growth — the base→tip reveal, on its OWN timer (rays.growth.duration in
-//     seconds), starting when the rays appear. Decoupled from how long they show.
+// Two modes (rays.mode):
+//   • 'explosion' — a short discharge after the split, on the explosion clock
+//     (lib/explosionTime, real time from the split): erupts rays.burst.onsetMs
+//     after it, grows base→tip over burst.growMs and fades out over
+//     burst.durationMs. Once per explosion; nothing outside a run.
+//   • 'charge' — the earlier build-up: hard on/off between rays.timing.appearAt
+//     and disappearAt (progress of the hero→overview sequence), growing base→tip
+//     on its own timer (rays.growth.duration) from the appear moment.
 
 import React, { useMemo, useRef, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import { createFractureRayMaterial } from '../materials/fractureRayMaterial';
 import { getExplosionLookScale } from '../../lib/explosionLook';
+import { getExplosionSplitSeconds } from '../../lib/explosionTime';
 
 const clamp01 = (x) => Math.min(1, Math.max(0, x));
+
+// 'explosion' mode: opacity and growth `splitSeconds` after the split.
+const burstAt = (splitSeconds, burst = {}) => {
+  if (splitSeconds == null) return { opacity: 0, growth: 1 };
+  const local = splitSeconds * 1000 - (burst.onsetMs ?? 40);
+  const duration = Math.max(burst.durationMs ?? 130, 1);
+  if (local < 0 || local >= duration) return { opacity: 0, growth: 1 };
+  const growMs = burst.growMs ?? 45;
+  return {
+    opacity: (burst.peak ?? 1) * (1 - local / duration) ** (burst.decay ?? 2),
+    growth: growMs > 0 ? clamp01(local / growMs) : 1,
+  };
+};
 
 // After the crystal's transparent cells (renderOrder 0), see the clone below.
 const RAYS_RENDER_ORDER = 1;
@@ -90,9 +107,16 @@ const FractureRays = ({
     //   globalThis.__FORCE_FRACTURE_RAYS__ = true
     const forced = typeof globalThis !== 'undefined' && globalThis.__FORCE_FRACTURE_RAYS__;
 
+    const mode = (import.meta.env.DEV && globalThis.__FRACTURE_RAYS_MODE__) || rays.mode || 'charge';
+
     if (forced) {
       opacity = 1;
       growth = (state.clock.elapsedTime % 1.5) / 1.5;
+    } else if (mode === 'explosion') {
+      // Only on the hero → index move: a page that lands on the index (/work)
+      // explodes the crystal too, behind the loader, with no runtime running.
+      const snap = heroOverviewRuntime?.getSnapshot?.();
+      if (snap?.active) ({ opacity, growth } = burstAt(getExplosionSplitSeconds(), rays.burst));
     } else {
       const snap = heroOverviewRuntime?.getSnapshot?.();
       if (snap && snap.active && snap.timing) {

@@ -126,10 +126,10 @@ export const HERO_OVERVIEW_CINEMATIC_CONFIG = {
   // The particles' positions, ages and fading advance on the simulated time,
   // the smoke's and the sparkles' bottoming out at their own smokeTimeScale /
   // sparkleTimeScale rather than minTimeScale.
-  // The fragments, which have to land exactly with the camera, take the same
-  // curve less deeply (its time scale to the fragmentTimeScaleExponent, ~0.35×
-  // at the bottom instead of 3%) and only fragmentReleaseLift× of the release
-  // before they ease into their places, so the release never rushes them in.
+  // The fragments, which have to land exactly with the camera, are caught on
+  // the same curve down to their own fragmentTimeScale, then have a release of
+  // their own: from their crawl up to speed and back to rest exactly as the
+  // camera lands, covering fragmentReleaseShare of their travel.
   timeDilation: {
     // A 40ms kick (~2.5 frames at 60fps: long enough to see the burst move;
     // 20ms was barely one frame), then 80ms of braking: everything is caught
@@ -141,20 +141,22 @@ export const HERO_OVERVIEW_CINEMATIC_CONFIG = {
     slowdownSeconds: 0.08,
     minTimeScale: 0.03,
     // How fast the smoke and the sparkles run at the bottom of the curve. Every
-    // system slows and speeds up at the same moments on the same curve, but
-    // the effects keep a little more motion than minTimeScale, so the cloud and
-    // the spark field keep growing through the orbit. Low enough that the fall
-    // from the burst is unmistakable: 10× for the sparks, 12× for the smoke
-    // (at 0.25 / 0.16 it was only 4× / 6×, which read as easing, not as time
-    // being caught). With the longer kick, they still clear the fragments by
-    // only about as much as before when time is caught.
-    smokeTimeScale: 0.08,
-    sparkleTimeScale: 0.1,
+    // system slows and speeds up at the same moments on the same curve (in log
+    // terms), each bottoming out at its own speed, here below minTimeScale:
+    // 1.2% / 1.5%, so the smoke and sparkles hang almost still while the camera
+    // goes round them, and the perspective is what moves. At 8% / 10% the
+    // spray kept flying out through the orbit (its spread grew ~2.6×) and the
+    // smoke kept growing in place (its sprites ~1.7×).
+    smokeTimeScale: 0.012,
+    sparkleTimeScale: 0.015,
     // The smoke's and the sparkles' first instant runs this much faster (fading
     // out over the impulse and the slowdown), so they visibly burst out of the
     // crystal before time is caught.
-    effectsImpulseBoost: 2,
-    releaseStart: 0.72,
+    effectsImpulseBoost: 4.5,
+    // 0.53 (was 0.72): time resumes ~0.55s sooner on the default move, while
+    // the camera is still sweeping, so the release is seen rather than
+    // squeezed into the landing.
+    releaseStart: 0.53,
     releaseSeconds: 0.45,
     // Once time has resumed, the smoke and sparkles keep moving at normal
     // speed and age at this rate (× real time), so they go on rising and fade
@@ -168,15 +170,29 @@ export const HERO_OVERVIEW_CINEMATIC_CONFIG = {
     // glow) ease back to the index's own level over this long, so the index is
     // crisp as it arrives and its glow settles in after (was 1s).
     glowReturnSeconds: 1.8,
-    fragmentTimeScaleExponent: 0.3,
-    fragmentReleaseLift: 1.4,
+    // The fragments: caught early and held nearly still through the pass, with
+    // most of their travel left for the release. Measured on a 3s move: ~12% of
+    // their travel by the time time is caught (~105ms, including the shards'
+    // pop), ~14% over the whole suspended pass, and the last ~75% in the
+    // release, which eases up from the crawl over fragmentReleaseSeconds and
+    // back to rest as the camera lands (one curve: the explosion carries on,
+    // nothing fires again). fragmentReleaseDelay starts it that long after the
+    // smoke's and the sparkles' release, so they are seen to stir ~100ms
+    // first. A longer delay or a bigger share makes the release faster.
+    // Was the shared curve to the power 0.3 (~35% speed through the pass) with
+    // the release capped at 1.4× that crawl: 68% of the travel went in the pass
+    // and 20% in the release, which barely showed.
+    fragmentTimeScale: 0.06,
+    fragmentReleaseShare: 0.75,
+    fragmentReleaseDelay: 0.15,
+    fragmentReleaseSeconds: 0.5,
     // The fragments' first instant: this much faster than the curve alone
     // (fading out over the impulse and the slowdown), so they snap apart
     // violently before the crawl, for only a few hundredths of their travel.
     // 1.5 (was 2.5) with the longer kick: still ~15% of the way by 0.1s.
     // 0.6 (was 1.5): with the shorter impulse, the fragments are caught while
     // still close together.
-    fragmentImpulseBoost: 0.6,
+    fragmentImpulseBoost: 0.3,
   },
 
   // The explosion's look: one { enabled, intensity } per effect it lights up,
@@ -273,11 +289,10 @@ export const HERO_OVERVIEW_CINEMATIC_CONFIG = {
     // crystal rather than strung out past it.
     emitterScale: [0.07, 14, 0.07],
     duration: null,
-    // spread also scales the launch speed (× spread / 0.5): 1.0 sends them off
-    // at 5.6–14.5 units/s (2.0 was 11–29), so in the moment before time slows
-    // they only just clear the fragments; sparkleTimeScale keeps them
-    // travelling through the orbit.
-    spread: 1.0,
+    // spread also scales the launch speed (× spread / 0.5): 1.15 sends them off
+    // at 6.4–16.7 units/s (1.0 was 5.6–14.5, 2.0 11–29), so in the moment
+    // before time slows they just clear the fragments.
+    spread: 1.15,
     lifetime: null,
     lifetimeMin: 0.05,
     lifetimeMax: 4.25,
@@ -318,12 +333,16 @@ export const HERO_OVERVIEW_CINEMATIC_CONFIG = {
     duration: 1.9,
     speedMin: 0.01,
     speedMax: 0.5,
+    // Mostly slow, a few fast (FractureBurstParticles speedSkew): the bulk is
+    // caught just off the fragments, a few further out for depth. Even (1), the
+    // median spark carried ~18 units/s into the slowdown.
+    speedSkew: 1.7,
     lifetimeMin: 0.08,
     lifetimeMax: 0.12,
     opacity: 0.65,
     spawnRadius: 0.85,
     emitterScale: [0.75, 1, 0.75],
-    spread: 36.8,
+    spread: 42,
     size: 0.05,
     blending: 'additive',
     shimmerStrength: 0.75,

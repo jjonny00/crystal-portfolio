@@ -69,6 +69,9 @@ const FractureBurstParticles = ({
   speed = null,
   speedMin = null,
   speedMax = null,
+  // How launch speeds spread over speedMin → speedMax: 1 is even; above 1 most
+  // are slow and a few fast (speedMin + range · u^speedSkew).
+  speedSkew = 1,
   size = null,
   opacity = null,
   blending = DEFAULT_PARTICLE_BLENDING,
@@ -126,7 +129,7 @@ const FractureBurstParticles = ({
   });
   const generatedOpacityRef = useRef(1);
   const hierarchyRef = useRef(null);
-  hierarchyRef.current = { prominentShare, prominentSizeScale, secondaryOpacity, prominentSpawnScale, prominentSpeedScale };
+  hierarchyRef.current = { prominentShare, prominentSizeScale, secondaryOpacity, prominentSpawnScale, prominentSpeedScale, speedSkew };
   const clearFadeRef = useRef(1);
   const generationRef = useRef({ trigger: null, countForTrigger: 0 });
 
@@ -451,7 +454,7 @@ const FractureBurstParticles = ({
             ? THREE.MathUtils.lerp(
               resolvedSpeedMin ?? resolvedSpeedMax,
               resolvedSpeedMax ?? resolvedSpeedMin,
-              Math.random(),
+              Math.random() ** Math.max(hierarchy.speedSkew ?? 1, 0.01),
             )
             : DEFAULT_SPEED_MIN + Math.random() * (DEFAULT_SPEED_MAX - DEFAULT_SPEED_MIN));
         baseSpeedMin = Math.min(baseSpeedMin, baseSpeed);
@@ -695,7 +698,12 @@ const FractureBurstParticles = ({
     lastFrameMsRef.current = now;
     const simDt = step.motion;
     const ageDt = step.age;
-    const timeScale = step.real > 0 ? Math.min(1, step.motion / step.real) : 1;
+    // The per-frame steps below were tuned at 60fps: each is scaled by the time
+    // scale (capped at 1, as through the launch boost) and by this frame's
+    // length in 60ths of a second, so the motion is the same at any frame rate.
+    // (It was the time scale alone, which applied the drag twice as often at
+    // 120fps as at 60.)
+    const timeScale = (step.real > 0 ? Math.min(1, step.motion / step.real) : 1) * Math.min(step.real * 60, 4);
     const lookScale = lookName ? getExplosionLookScale(lookName) : 1;
     // Keep the shimmer clock advancing even before/after a burst so the twinkle
     // never jumps when particles (re)appear.

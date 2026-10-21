@@ -71,10 +71,11 @@ const releaseEndAt = (moveSeconds) => {
 
 // The power that takes the shared curve's floor (minTimeScale) to `floor`: a
 // system running at s^p slows and speeds up at the same moments, on the same
-// shape, but bottoms out at its own speed.
+// shape (in log terms), but bottoms out at its own speed, above the shared
+// floor (p < 1) or below it (p > 1).
 const exponentFor = (floor) => {
   const min = Math.min(Math.max(HERO_OVERVIEW_CINEMATIC_RESOLVED.timeDilation.minTimeScale, 1e-4), 0.9999);
-  return Number.isFinite(floor) && floor > 0 ? Math.min(1, Math.log(Math.min(floor, 1)) / Math.log(min)) : 1;
+  return Number.isFinite(floor) && floor > 0 ? Math.log(Math.min(Math.max(floor, 1e-4), 1)) / Math.log(min) : 1;
 };
 
 // Each system's own clock (see advanceExplosionClock): its time-scale exponent.
@@ -108,25 +109,45 @@ const buildRun = (startMs, moveSeconds) => {
     simTables[system] = simTable;
   });
   const travelSeconds = Math.max(0.3, moveSeconds - HOLD_SECONDS);
-  const releaseStart = Math.min(
-    travelSeconds,
-    Math.max(cfg.impulseSeconds + cfg.slowdownSeconds, cfg.releaseStart * moveSeconds - HOLD_SECONDS),
-  );
-  const gamma = cfg.fragmentTimeScaleExponent;
-  const floor = Math.max(cfg.minTimeScale, 1e-4) ** gamma;
-  // The fragments' speed: the shared time scale to `gamma`; through the release
-  // no more than fragmentReleaseLift× their crawl, tapering to rest exactly as
-  // the camera's move ends.
-  // Their first instant runs fragmentImpulseBoost× faster, fading out over the
-  // impulse and the slowdown, so they snap apart before they crawl.
   const kickEnd = Math.max(cfg.impulseSeconds + cfg.slowdownSeconds, 1e-4);
-  const speed = (t) => {
-    const kick = 1 + (cfg.fragmentImpulseBoost ?? 0) * (1 - smootherstep(t / kickEnd));
-    const scaled = timeScaleAt(t, moveSeconds) ** gamma * kick;
-    if (t <= releaseStart) return scaled;
-    const landing = (1 - smootherstep((t - releaseStart) / Math.max(travelSeconds - releaseStart, 1e-4))) ** 1.5;
-    return Math.min(scaled, floor * cfg.fragmentReleaseLift) * landing;
+  // The fragments' own release starts fragmentReleaseDelay after the shared one,
+  // so the smoke and sparkles are seen to stir first.
+  const releaseStart = Math.min(
+    travelSeconds * 0.95,
+    Math.max(kickEnd, cfg.releaseStart * moveSeconds - HOLD_SECONDS) + (cfg.fragmentReleaseDelay ?? 0),
+  );
+  const floor = Math.min(Math.max(cfg.fragmentTimeScale ?? 0.06, 1e-4), 1);
+  const exponent = exponentFor(floor);
+  // Up to the release: the shared time scale, bottoming out at the fragments'
+  // own floor (fragmentTimeScale), their first instant fragmentImpulseBoost×
+  // faster, fading out over the impulse and the slowdown, so they snap apart
+  // and are caught before they crawl.
+  const caught = (t) => timeScaleAt(t, moveSeconds) ** exponent
+    * (1 + (cfg.fragmentImpulseBoost ?? 0) * (1 - smootherstep(t / kickEnd)));
+  // The release: from the crawl, easing up to `peak` over fragmentReleaseSeconds,
+  // all of it tapering to rest exactly as the camera's move ends. One
+  // continuous curve, so the explosion carries on rather than firing again.
+  const rampSeconds = Math.max(cfg.fragmentReleaseSeconds ?? cfg.releaseSeconds, 1e-3);
+  const landingSeconds = Math.max(travelSeconds - releaseStart, 1e-4);
+  const released = (t, peak) => (floor + (peak - floor) * smootherstep((t - releaseStart) / rampSeconds))
+    * (1 - smootherstep((t - releaseStart) / landingSeconds)) ** 1.5;
+  const integrate = (fn, from, to) => {
+    const n = 1024; const d = (to - from) / n; let sum = 0;
+    for (let i = 0; i < n; i += 1) sum += fn(from + (i + 0.5) * d) * d;
+    return sum;
   };
+  // `peak` is set so the release covers fragmentReleaseShare of the whole
+  // travel, whatever the move's length.
+  const caughtArea = integrate(caught, 0, releaseStart);
+  const share = Math.min(Math.max(cfg.fragmentReleaseShare ?? 0.78, 0), 0.98);
+  let lo = floor; let hi = 1000;
+  for (let i = 0; i < 50; i += 1) {
+    const mid = (lo + hi) / 2;
+    const area = integrate((t) => released(t, mid), releaseStart, travelSeconds);
+    if (area / (area + caughtArea) < share) lo = mid; else hi = mid;
+  }
+  const peak = (lo + hi) / 2;
+  const speed = (t) => (t <= releaseStart ? caught(t) : released(t, peak));
   const table = new Float64Array(TABLE_SAMPLES + 1);
   const step = travelSeconds / TABLE_SAMPLES;
   for (let i = 1; i <= TABLE_SAMPLES; i += 1) table[i] = table[i - 1] + speed((i - 0.5) * step) * step;

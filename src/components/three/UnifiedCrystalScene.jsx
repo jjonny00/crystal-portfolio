@@ -4717,8 +4717,9 @@ const UnifiedCrystalScene = forwardRef(({
         warmup={modelsLoaded}
       />
 
-      {/* Crack-aligned energy rays — flash on at the fracture beat and fade out
-          by the end of the explosion impulse. Gated on config.enabled so the
+      {/* Crack-aligned energy rays — a short discharge just after the split
+          (fracture.rays.mode 'explosion'), or the earlier build-up through the
+          charge ('charge'). Gated on config.enabled so the
           scene never tries to load a missing FractureRays.glb. */}
       {!simplifiedAnimations && mergedConfig.fracture?.rays?.enabled && (
         <FractureRays
