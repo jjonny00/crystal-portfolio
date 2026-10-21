@@ -4799,6 +4799,7 @@ const UnifiedCrystalScene = forwardRef(({
           reducedMotion={simplifiedAnimations}
           position={[0, 0, 0]}
           {...mergedConfig.fracture.smoke}
+          {...HERO_OVERVIEW_CINEMATIC_RESOLVED.smoke}
         />
       )}
 

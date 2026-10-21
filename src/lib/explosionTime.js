@@ -1,26 +1,27 @@
 // src/lib/explosionTime.js
 //
-// The hero → overview explosion's bullet-time clock: one time scale that the
-// fragments (UnifiedCrystalScene), the smoke (FractureSmokePuff) and both
-// sparkle bursts (FractureBurstParticles) all run on, while the camera stays on
-// real time. Its shape is HERO_OVERVIEW_CINEMATIC_CONFIG.timeDilation: full
-// speed for a moment after the split, a fast slowdown to a crawl, held through
-// the camera's orbit, then released back to full speed as the camera comes in to
-// the index.
+// The hero → overview explosion's clock: the fragments' progress to their index
+// places (UnifiedCrystalScene), and the time scale the smoke
+// (FractureSmokePuff) and both sparkle bursts (FractureBurstParticles) run on,
+// while the camera stays on real time. Its settings are
+// HERO_OVERVIEW_CINEMATIC_RESOLVED.timeDilation (with the active
+// explosionMotionProfile laid over them).
 //
-// The scene starts a run when the crystal explodes (the clock of its fragments)
-// and stops it when the crystal reforms; the camera reports how long its move
-// will take, so the release and the fragments' landing scale with the orbit.
-// Outside a run the time scale is 1.
+// The explosive release (the default) leaves time running normally: the smoke
+// and sparkles slow under their own drag, and the fragments follow a blast
+// curve that loses speed continuously and lands with the camera. The brief
+// bullet-time profile adds a time scale: full speed for a moment after the
+// split, a fast slowdown to a crawl, a hold, then back to full speed.
+//
+// The scene starts a run when the crystal explodes and stops it when the
+// crystal reforms; the camera reports how long its move will take, so the
+// fragments' landing (and any release) scales with the orbit. Outside a run
+// the time scale is 1.
 //
 // The particles integrate their motion, ageing and fading over the simulated
-// time, so slowing and resuming never moves anything; the smoke and the sparkles
-// each run on the same curve bottoming out at their own speed
-// (smokeTimeScale / sparkleTimeScale), so they keep visibly expanding through
-// the orbit. The fragments, which must land on
-// their index places with the camera, run on the same curve less deeply (see
-// fragmentTimeScaleExponent / fragmentReleaseLift) through a progress table built
-// per run.
+// time, so slowing and resuming never moves anything; the smoke and the
+// sparkles each bottom out at their own speed (smokeTimeScale /
+// sparkleTimeScale). The fragments run through a progress table built per run.
 
 import { HERO_OVERVIEW_CINEMATIC_RESOLVED } from '../config/heroOverviewCinematicConfig';
 
@@ -40,13 +41,24 @@ let run = null;
 let defaultRun = null;
 let reportedMove = null;
 
+// When time starts to resume (seconds after the split), for a move of
+// `moveSeconds`: suspensionSeconds after it is caught when that is set (a
+// fixed hold, whatever the orbit's length), otherwise at releaseStart of the
+// camera's move.
+const releaseStartAt = (moveSeconds) => {
+  const cfg = HERO_OVERVIEW_CINEMATIC_RESOLVED.timeDilation;
+  const slowEnd = cfg.impulseSeconds + Math.max(cfg.slowdownSeconds, 1e-4);
+  if (Number.isFinite(cfg.suspensionSeconds)) return slowEnd + Math.max(cfg.suspensionSeconds, 0);
+  return Math.max(slowEnd, cfg.releaseStart * moveSeconds - HOLD_SECONDS);
+};
+
 // The time scale `t` seconds after the split, for a move of `moveSeconds`.
 const timeScaleAt = (t, moveSeconds) => {
   const cfg = HERO_OVERVIEW_CINEMATIC_RESOLVED.timeDilation;
   const min = Math.min(Math.max(cfg.minTimeScale, 1e-4), 1);
   const slowStart = cfg.impulseSeconds;
   const slowEnd = slowStart + Math.max(cfg.slowdownSeconds, 1e-4);
-  const releaseStart = Math.max(slowEnd, cfg.releaseStart * moveSeconds - HOLD_SECONDS);
+  const releaseStart = releaseStartAt(moveSeconds);
   const releaseEnd = releaseStart + Math.max(cfg.releaseSeconds, 1e-4);
   // Slowing and releasing work in log terms (min^k). The slowdown brakes hardest
   // the instant the impulse ends and eases onto the crawl (k = 1 − (1 − x)²),
@@ -65,8 +77,7 @@ const timeScaleAt = (t, moveSeconds) => {
 // When the release is over (seconds after the split), for a move of `moveSeconds`.
 const releaseEndAt = (moveSeconds) => {
   const cfg = HERO_OVERVIEW_CINEMATIC_RESOLVED.timeDilation;
-  const slowEnd = cfg.impulseSeconds + Math.max(cfg.slowdownSeconds, 1e-4);
-  return Math.max(slowEnd, cfg.releaseStart * moveSeconds - HOLD_SECONDS) + Math.max(cfg.releaseSeconds, 1e-4);
+  return releaseStartAt(moveSeconds) + Math.max(cfg.releaseSeconds, 1e-4);
 };
 
 // The power that takes the shared curve's floor (minTimeScale) to `floor`: a
@@ -114,7 +125,7 @@ const buildRun = (startMs, moveSeconds) => {
   // so the smoke and sparkles are seen to stir first.
   const releaseStart = Math.min(
     travelSeconds * 0.95,
-    Math.max(kickEnd, cfg.releaseStart * moveSeconds - HOLD_SECONDS) + (cfg.fragmentReleaseDelay ?? 0),
+    Math.max(kickEnd, releaseStartAt(moveSeconds)) + (cfg.fragmentReleaseDelay ?? 0),
   );
   const floor = Math.min(Math.max(cfg.fragmentTimeScale ?? 0.06, 1e-4), 1);
   const exponent = exponentFor(floor);
@@ -136,18 +147,48 @@ const buildRun = (startMs, moveSeconds) => {
     for (let i = 0; i < n; i += 1) sum += fn(from + (i + 0.5) * d) * d;
     return sum;
   };
-  // `peak` is set so the release covers fragmentReleaseShare of the whole
-  // travel, whatever the move's length.
-  const caughtArea = integrate(caught, 0, releaseStart);
-  const share = Math.min(Math.max(cfg.fragmentReleaseShare ?? 0.78, 0), 0.98);
-  let lo = floor; let hi = 1000;
-  for (let i = 0; i < 50; i += 1) {
-    const mid = (lo + hi) / 2;
-    const area = integrate((t) => released(t, mid), releaseStart, travelSeconds);
-    if (area / (area + caughtArea) < share) lo = mid; else hi = mid;
+  let speed;
+  if (!Number.isFinite(cfg.fragmentReleaseShare)) {
+    // No release of their own: one continuous loss of speed from the split to
+    // rest as the camera lands, over the curve above.
+    //   The blast: up to speed over fragmentAttackSeconds (a few frames, so
+    //   it reads as a throw rather than a jump), then a spike
+    //   (fragmentBlastBoost, decaying over fragmentBlastSeconds) and a slower
+    //   decay after it (fragmentAfterBlastBoost / fragmentAfterBlastSeconds),
+    //   both in seconds, so the burst is the same on any orbit.
+    //   The sustain: (1 − u^fragmentSustainPower)^fragmentLandingPower over the
+    //   travel (u = 0–1): above 1, the sustain power holds the speed up
+    //   through the orbit before the landing takes it; above 1, the landing
+    //   power brings it to rest smoothly rather than braking to a stop.
+    // With the blast terms at 0 and both powers at 1 this is the previous
+    // (1 − u)^1 under fragmentImpulseBoost's kick.
+    const attack = Math.max(cfg.fragmentAttackSeconds ?? 0, 0);
+    const blast = Math.max(cfg.fragmentBlastBoost ?? 0, 0);
+    const blastSeconds = Math.max(cfg.fragmentBlastSeconds ?? 0.05, 1e-3);
+    const afterBlast = Math.max(cfg.fragmentAfterBlastBoost ?? 0, 0);
+    const afterBlastSeconds = Math.max(cfg.fragmentAfterBlastSeconds ?? 0.2, 1e-3);
+    const sustainPower = Math.max(cfg.fragmentSustainPower ?? 1, 0.1);
+    const power = Math.max(cfg.fragmentLandingPower ?? 1, 0.1);
+    speed = (t) => {
+      const onset = attack > 0 ? 1 - (1 - Math.min(t / attack, 1)) ** 3 : 1;
+      const burst = 1 + blast * Math.exp(-t / blastSeconds) + afterBlast * Math.exp(-t / afterBlastSeconds);
+      const sustain = Math.max(1 - Math.min(t / travelSeconds, 1) ** sustainPower, 0) ** power;
+      return caught(t) * onset * burst * sustain;
+    };
+  } else {
+    // `peak` is set so the release covers fragmentReleaseShare of the whole
+    // travel, whatever the move's length.
+    const caughtArea = integrate(caught, 0, releaseStart);
+    const share = Math.min(Math.max(cfg.fragmentReleaseShare, 0), 0.98);
+    let lo = floor; let hi = 1000;
+    for (let i = 0; i < 50; i += 1) {
+      const mid = (lo + hi) / 2;
+      const area = integrate((t) => released(t, mid), releaseStart, travelSeconds);
+      if (area / (area + caughtArea) < share) lo = mid; else hi = mid;
+    }
+    const peak = (lo + hi) / 2;
+    speed = (t) => (t <= releaseStart ? caught(t) : released(t, peak));
   }
-  const peak = (lo + hi) / 2;
-  const speed = (t) => (t <= releaseStart ? caught(t) : released(t, peak));
   const table = new Float64Array(TABLE_SAMPLES + 1);
   const step = travelSeconds / TABLE_SAMPLES;
   for (let i = 1; i <= TABLE_SAMPLES; i += 1) table[i] = table[i - 1] + speed((i - 0.5) * step) * step;
@@ -238,8 +279,10 @@ export const getExplosionEnvelope = (nowMs = performance.now(), { fromSplit = fa
   const t = (nowMs - run.startMs) / 1000 - HOLD_SECONDS;
   // fromSplit: up within 30ms of the split itself, for the broad light that
   // would otherwise white out the impact (the wide halo, the bloom).
-  const riseStart = fromSplit ? 0 : cfg.impulseSeconds;
-  const riseEnd = fromSplit ? 0.03 : cfg.impulseSeconds + cfg.slowdownSeconds;
+  // Otherwise from lookRiseSeconds to lookCatchSeconds after the split, so
+  // the burst is never under full bloom, however long the impulse runs.
+  const riseStart = fromSplit ? 0 : (cfg.lookRiseSeconds ?? 0);
+  const riseEnd = fromSplit ? 0.03 : (cfg.lookCatchSeconds ?? 0.105);
   if (t <= riseStart) return 0;
   const rising = smootherstep((t - riseStart) / Math.max(riseEnd - riseStart, 1e-4));
   const moveEnd = run.moveSeconds - HOLD_SECONDS;

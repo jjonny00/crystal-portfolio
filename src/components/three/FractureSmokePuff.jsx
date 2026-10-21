@@ -58,12 +58,27 @@ const FractureSmokePuff = ({
   spread = 0.35,
   outwardSpeed = 0.6,
   upwardLift = 1.05,
+  // The rise over each sprite's life, as a share of upwardLift: from
+  // liftRampStart at birth to liftRampEnd at the end. Growing (0.35 → 1) is a
+  // mist lifting off; falling (1 → 0.25) is a burst whose upward push dies away.
+  liftRampStart = 0.35,
+  liftRampEnd = 1,
   drag = 0.9,
   lifetimeMin = 0.6,
   lifetimeMax = 1.1,
   opacity = 0.4,
+  // A later, smaller wave: lateCount more sprites born lateStart–lateEnd
+  // seconds (on the explosion's age) after the trigger, from close to the core
+  // (lateSpread), drifting out at lateSpeedScale× the burst's speed, so the
+  // smoke is seen to come out of the centre once the fragments have opened.
+  lateCount = 0,
+  lateStart = 0.6,
+  lateEnd = 1.6,
+  lateSpread = 0.25,
+  lateSpeedScale = 0.5,
 }) => {
-  const resolvedCount = Math.max(0, Math.floor(Number.isFinite(count) ? count : 0));
+  const mainCount = Math.max(0, Math.floor(Number.isFinite(count) ? count : 0));
+  const resolvedCount = mainCount + Math.max(0, Math.floor(Number.isFinite(lateCount) ? lateCount : 0));
   const meshRef = useRef();
   const activeRef = useRef(false);
   const clearFadeRef = useRef(1);
@@ -77,9 +92,11 @@ const FractureSmokePuff = ({
   const latestPropsRef = useRef({});
   useEffect(() => {
     latestPropsRef.current = {
-      size, expand, spread, outwardSpeed, upwardLift, drag, lifetimeMin, lifetimeMax, opacity,
+      size, expand, spread, outwardSpeed, upwardLift, drag, lifetimeMin, lifetimeMax, opacity, liftRampStart, liftRampEnd,
+      lateStart, lateEnd, lateSpread, lateSpeedScale,
     };
-  }, [size, expand, spread, outwardSpeed, upwardLift, drag, lifetimeMin, lifetimeMax, opacity]);
+  }, [size, expand, spread, outwardSpeed, upwardLift, drag, lifetimeMin, lifetimeMax, opacity, liftRampStart, liftRampEnd,
+    lateStart, lateEnd, lateSpread, lateSpeedScale]);
 
   const geometry = useMemo(() => {
     const base = new THREE.PlaneGeometry(1, 1);
@@ -186,17 +203,23 @@ const FractureSmokePuff = ({
     const lmax = Math.max(lmin, p.lifetimeMax ?? lifetimeMax);
     const ropacity = THREE.MathUtils.clamp(p.opacity ?? opacity, 0, 1);
 
+    const lateTotal = resolvedCount - mainCount;
+    const lateFrom = Math.max(0, p.lateStart ?? lateStart);
+    const lateTo = Math.max(lateFrom, p.lateEnd ?? lateEnd);
     for (let i = 0; i < resolvedCount; i += 1) {
       const i3 = i * 3;
+      const late = i >= mainCount;
       const angle = Math.random() * Math.PI * 2;
       // Spawn in a ring around the core (inner radius keeps sprites off dead-center)
-      // so the mist frames the explosion instead of getting lost in its brightest part.
-      const r = rspread * (0.45 + Math.random() * 0.55);
+      // so the mist frames the explosion instead of getting lost in its brightest
+      // part; the late wave from close to the core itself.
+      const ringSpread = late ? Math.max(0, p.lateSpread ?? lateSpread) : rspread;
+      const r = ringSpread * (late ? 0.2 + Math.random() * 0.8 : 0.45 + Math.random() * 0.55);
       offsets[i3] = Math.cos(angle) * r;
-      offsets[i3 + 1] = (Math.random() - 0.25) * rspread * 0.8; // slight vertical scatter, biased up
+      offsets[i3 + 1] = (Math.random() - 0.25) * ringSpread * 0.8; // slight vertical scatter, biased up
       offsets[i3 + 2] = Math.sin(angle) * r;
 
-      const speed = rout * (0.55 + Math.random() * 0.6);
+      const speed = rout * (0.55 + Math.random() * 0.6) * (late ? Math.max(0, p.lateSpeedScale ?? lateSpeedScale) : 1);
       st.velocities[i3] = Math.cos(angle) * speed;
       st.velocities[i3 + 1] = 0;
       st.velocities[i3 + 2] = Math.sin(angle) * speed;
@@ -204,7 +227,9 @@ const FractureSmokePuff = ({
       st.drag[i] = rdrag;
 
       st.lifetimes[i] = THREE.MathUtils.lerp(lmin, lmax, Math.random());
-      st.ages[i] = 0;
+      // The late wave is born spread evenly over its window: until then its
+      // age is negative and it neither shows nor moves.
+      st.ages[i] = late ? -THREE.MathUtils.lerp(lateFrom, lateTo, (i - mainCount + Math.random()) / lateTotal) : 0;
       st.baseScale[i] = rsize * (0.6 + Math.random() * 0.6);
       st.endScale[i] = st.baseScale[i] * rexpand * (0.8 + Math.random() * 0.5);
       st.rollSpeed[i] = (Math.random() - 0.5) * 0.7; // slow, contained roll
@@ -271,6 +296,11 @@ const FractureSmokePuff = ({
       }
 
       st.ages[i] += ageDt;
+      if (st.ages[i] < 0) {
+        anyAlive = true;
+        opacities[i] = 0;
+        continue;
+      }
       const t = st.ages[i] / life;
 
       if (t >= 1) {
@@ -282,9 +312,8 @@ const FractureSmokePuff = ({
       anyAlive = true;
 
       const i3 = i * 3;
-      // Rising mist: lift starts immediately and accelerates over life, so the
-      // motion is dominated by upward travel rather than a flat radial burst.
-      const riseRamp = 0.35 + 0.65 * t;
+      // The rise, ramped over life (liftRampStart → liftRampEnd).
+      const riseRamp = THREE.MathUtils.lerp(liftRampStart, liftRampEnd, t);
       offsets[i3 + 1] += st.upLift[i] * riseRamp * dt;
 
       // Radial drift, damped so the cloud stays contained.

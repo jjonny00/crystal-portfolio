@@ -57,27 +57,45 @@ export const fracture = {
     scaleEasing: 'linear'
   },
   // Low-cost magical smoke — instanced camera-facing billboards spawned at the
-  // explosion beat. Slower and more contained than `particles` so it reads as
-  // mist lifting rather than a spark burst. Rendered by FractureSmokePuff.
+  // explosion beat. Rendered by FractureSmokePuff. Tuned for the explosive
+  // release (heroOverviewCinematicConfig explosionMotionProfile): the residue
+  // of the blast, thrown out of the fracture, losing its push and thinning as
+  // it spreads. The brief bullet-time profile overrides expand, drag and the
+  // lift ramp with its own values (explosionMotionProfiles.briefBulletTime.smoke).
   smoke: {
     enabled: true,
     count: 18,            // sprites spawned per explosion (~12-18)
-    // Compact at the split and growing to the same full size (size × expand ≈
-    // 21) through the bullet-time orbit, so the cloud is seen expanding round
-    // the fragments rather than arriving already spread (it was 1.5 / 14 / 1.5).
+    // A later wave from the core: 6 more sprites born 0.6–1.6s after the
+    // burst, close to the centre and at 0.4× its speed, so once the fragments
+    // have opened the smoke is seen coming out of the heart of the explosion
+    // (the burst itself launches while the crystal still hides the core).
+    lateCount: 6,
+    lateStart: 0.6,
+    lateEnd: 1.6,
+    lateSpread: 0.25,
+    lateSpeedScale: 0.4,
     size: 0.9,            // base sprite world size at spawn
-    // 14 (was 23): grows to ~60% of the old full size, so the cloud stays
-    // round the fracture instead of washing over the whole frame at the release.
-    expand: 14.0,          // end-of-life scale multiplier
+    // 8 (was 14 under bullet time, where the sprites only reached a fraction
+    // of their growth before the index): at full speed they grow through
+    // their whole life, and at 14 they swelled to ~9 units and washed the
+    // frame by mid-orbit.
+    expand: 8.0,          // end-of-life scale multiplier
     spread: 0.9,         // spawn radius — spread around the core, not on the bright center
     outwardSpeed: 8,      // radial drift out of the fracture (was 5.25)
-    upwardLift: 2.0,      // strong upward rise so it reads as mist lifting off the fracture
-    drag: 0.94,            // per-frame damping of radial drift (0-1, higher = floatier)
+    upwardLift: 2.0,      // upward push (× the lift ramp below)
+    // The upward push fades over each sprite's life (full at birth, a quarter
+    // at the end) rather than growing, so the smoke slows as it spreads
+    // instead of rising faster and faster.
+    liftRampStart: 1,
+    liftRampEnd: 0.25,
+    // 0.955 (was 0.94): the outward drift carries on a little longer before it
+    // dies away, so the cloud is seen spreading through the first second.
+    drag: 0.955,           // per-frame damping of radial drift (0-1, higher = floatier)
     // seconds. Was 0.08: sprites that short lived out their whole growth in the
     // 40ms before time slows and showed up already full size, so the cloud read
     // as expanded at once instead of growing through the bullet-time orbit.
     lifetimeMin: 0.9,
-    lifetimeMax: 4.0,     // seconds
+    lifetimeMax: 6.5,     // seconds (was 4: the longest-lived now linger past the index's arrival)
     opacity: 0.25          // peak per-sprite opacity (color comes from the texture itself)
   },
   emissive: {
@@ -95,7 +113,11 @@ export const fracture = {
     gradient: {
       mode: 'uvX',        // 'uvY' | 'uvX' | 'dist' (which axis is the ray length)
       invert: false,      // flip which end is the bright base
-      power: 2            // falloff shape (1 = linear, >1 = tighter to the base)
+      // falloff shape (1 = linear, >1 = tighter to the base). 1.2 (was 2): the
+      // rays read much further out before fading (the shader applies the
+      // falloff to both colour and alpha, so 2 was nearly a 4th-power fade).
+      // 1.5 after 1.2 read as too long.
+      power: 1.5
     },
     // Split each plane into thin sub-rays across its width.
     subRays: {
@@ -150,15 +172,34 @@ export const fracture = {
     // The discharge, in real time from the split (the explosion clock's 0, the
     // same moment as the fragments' kick and the camera's recoil): it erupts
     // `onsetMs` after the split, the front racing out from the crystal over
-    // `growMs`, at full brightness `peak` (× look.rays), then fades on
-    // (1 − t)^`decay` to nothing `durationMs` after the onset. Over by ~210ms,
-    // fading through the collapse of time (~105ms), before the orbit gets going.
+    // `growMs`, at full brightness `peak` (× look.rays), then fades to
+    // nothing `durationMs` after the onset. fade 'expo': down fast, then
+    // easing into a long faint tail (steepness `decay`: at 6, two thirds of
+    // the brightness is gone in the first quarter, 97% by three quarters);
+    // otherwise (1 − t)^`decay`.
     burst: {
       onsetMs: 40,
-      durationMs: 170,
+      durationMs: 320,
       growMs: 45,
-      peak: 1,
-      decay: 1
+      peak: 5.5,
+      fade: 'expo',
+      decay: 6
+    },
+    // A glint as the crystal cracks, before the explosion: the same rays,
+    // faint, and only their first `reach` of the way out (over growMs), so
+    // short stubs peek just past the fragments' surface (the crystal hides the
+    // rest). They hold, growing slowly to reachEnd and peakEnd, until the
+    // burst fires; the burst carries the rays on from there to their full
+    // length, and the glint fades out with it. The crack is the swap to the
+    // fragments, 380ms before the split, so onsetMs -370 (milliseconds from
+    // the split) is the frame after it. null turns it off.
+    fractureGlint: {
+      onsetMs: -370,
+      growMs: 50,
+      reach: 0.25,
+      reachEnd: 0.3,
+      peak: 0.12,
+      peakEnd: 0.17
     },
     // 'charge' mode: the visibility window as progress (0-1) of the
     // hero→overview sequence.

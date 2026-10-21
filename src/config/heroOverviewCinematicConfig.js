@@ -115,84 +115,110 @@ export const HERO_OVERVIEW_CINEMATIC_CONFIG = {
     },
   },
 
-  // Bullet time for the explosion: one clock (lib/explosionTime) that the
-  // fragments, the smoke and both sparkle bursts all run on; the camera stays
-  // on real time. From the split (fracture.holdDuration in): full speed for
-  // impulseSeconds, then braking over slowdownSeconds to minTimeScale (in log
-  // terms, braking hardest at once and easing onto the crawl, so the moment
-  // time is caught is sudden), held there through the orbit, then from
-  // releaseStart (a fraction of the camera's move, so it lands with the camera
-  // whatever the orbit's length) back up to full speed over releaseSeconds.
-  // The particles' positions, ages and fading advance on the simulated time,
-  // the smoke's and the sparkles' bottoming out at their own smokeTimeScale /
-  // sparkleTimeScale rather than minTimeScale.
-  // The fragments, which have to land exactly with the camera, are caught on
-  // the same curve down to their own fragmentTimeScale, then have a release of
-  // their own: from their crawl up to speed and back to rest exactly as the
-  // camera lands, covering fragmentReleaseShare of their travel.
+  // The explosion's timing (lib/explosionTime): one clock for the fragments,
+  // the smoke and both sparkle bursts; the camera stays on real time. These
+  // values are the explosive release, the hero → index transition: the
+  // smoke and sparkles run on real time (no time dilation) and slow under
+  // their own drag, and the fragments are thrown out by a blast and lose
+  // speed continuously to rest as the camera lands. The brief bullet-time
+  // profile (explosionMotionProfiles below) lays bullet time over them.
   timeDilation: {
-    // A 40ms kick (~2.5 frames at 60fps: long enough to see the burst move;
-    // 20ms was barely one frame), then 80ms of braking: everything is caught
-    // within ~120ms of the split.
-    // 25ms (was 40): the fragments are caught closer together, with more of
-    // their way still to go; the smoke and sparks still burst out first, on
-    // effectsImpulseBoost.
-    impulseSeconds: 0.025,
-    slowdownSeconds: 0.08,
-    minTimeScale: 0.03,
-    // How fast the smoke and the sparkles run at the bottom of the curve. Every
-    // system slows and speeds up at the same moments on the same curve (in log
-    // terms), each bottoming out at its own speed, here below minTimeScale:
-    // 1.2% / 1.5%, so the smoke and sparkles hang almost still while the camera
-    // goes round them, and the perspective is what moves. At 8% / 10% the
-    // spray kept flying out through the orbit (its spread grew ~2.6×) and the
-    // smoke kept growing in place (its sprites ~1.7×).
-    smokeTimeScale: 0.012,
-    sparkleTimeScale: 0.015,
-    // The smoke's and the sparkles' first instant runs this much faster (fading
-    // out over the impulse and the slowdown), so they visibly burst out of the
-    // crystal before time is caught.
-    effectsImpulseBoost: 4.5,
-    // 0.53 (was 0.72): time resumes ~0.55s sooner on the default move, while
-    // the camera is still sweeping, so the release is seen rather than
-    // squeezed into the landing.
-    releaseStart: 0.53,
-    releaseSeconds: 0.45,
-    // Once time has resumed, the smoke and sparkles keep moving at normal
-    // speed and age at this rate (× real time), so they go on rising and fade
-    // out as the index settles; nothing new is emitted. Replaces the catch-up
-    // to real time over dissipateSeconds (0.6, then 1.8), which aged them
-    // through the whole slowed stretch at once, so most expired within a
-    // second of the release. Higher clears sooner.
-    smokeTailAgeRate: 1.1,
-    sparkleTailAgeRate: 0.4,
+    // The clock: full speed for impulseSeconds, then slowing over
+    // slowdownSeconds to minTimeScale (in log terms, braking hardest at once),
+    // held, then back to full speed over releaseSeconds from releaseStart of
+    // the camera's move (or suspensionSeconds after time is caught, when set).
+    // The smoke and sparkles bottom out at their own smokeTimeScale /
+    // sparkleTimeScale. All at 1 here: time runs normally.
+    impulseSeconds: 0,
+    slowdownSeconds: 0,
+    minTimeScale: 1,
+    smokeTimeScale: 1,
+    sparkleTimeScale: 1,
+    // The smoke's and the sparkles' first instant runs this much faster
+    // (fading out over the impulse and the slowdown).
+    effectsImpulseBoost: 0,
+    releaseStart: 1,
+    suspensionSeconds: null,
+    releaseSeconds: 0,
+    // Once time has resumed, the smoke and sparkles age at this rate
+    // (× real time), so they fade out as the index settles. 1: as they live.
+    smokeTailAgeRate: 1,
+    sparkleTailAgeRate: 1,
     // After the camera lands, the held-back bloom and glows (look.bloom, halo,
     // glow) ease back to the index's own level over this long, so the index is
     // crisp as it arrives and its glow settles in after (was 1s).
     glowReturnSeconds: 1.8,
-    // The fragments: caught early and held nearly still through the pass, with
-    // most of their travel left for the release. Measured on a 3s move: ~12% of
-    // their travel by the time time is caught (~105ms, including the shards'
-    // pop), ~14% over the whole suspended pass, and the last ~75% in the
-    // release, which eases up from the crawl over fragmentReleaseSeconds and
-    // back to rest as the camera lands (one curve: the explosion carries on,
-    // nothing fires again). fragmentReleaseDelay starts it that long after the
-    // smoke's and the sparkles' release, so they are seen to stir ~100ms
-    // first. A longer delay or a bigger share makes the release faster.
-    // Was the shared curve to the power 0.3 (~35% speed through the pass) with
-    // the release capped at 1.4× that crawl: 68% of the travel went in the pass
-    // and 20% in the release, which barely showed.
-    fragmentTimeScale: 0.06,
-    fragmentReleaseShare: 0.75,
-    fragmentReleaseDelay: 0.15,
-    fragmentReleaseSeconds: 0.5,
-    // The fragments' first instant: this much faster than the curve alone
-    // (fading out over the impulse and the slowdown), so they snap apart
-    // violently before the crawl, for only a few hundredths of their travel.
-    // 1.5 (was 2.5) with the longer kick: still ~15% of the way by 0.1s.
-    // 0.6 (was 1.5): with the shorter impulse, the fragments are caught while
-    // still close together.
-    fragmentImpulseBoost: 0.3,
+    // The held-back bloom and glows (look.*) come down from lookRiseSeconds
+    // to lookCatchSeconds after the split, so the burst is never under full
+    // bloom.
+    lookRiseSeconds: 0,
+    lookCatchSeconds: 0.105,
+    // The fragments, which have to land exactly with the camera. With
+    // fragmentReleaseShare null they are thrown out by a blast (lib/
+    // explosionTime) — up to speed in 20ms, a 7× spike that decays over ~40ms
+    // into a slower 200ms decay — then lose speed continuously through the
+    // orbit, (1 − u^fragmentSustainPower)^fragmentLandingPower, and come to
+    // rest as the camera lands. Measured on the default move (~200°, 3.1s):
+    // peak 7× the average speed 13ms after the split, 10% of their travel by
+    // 50ms, 15% by 100ms, 25% by 250ms, ~29% over the first 0.3s, ~50%
+    // through the sweep, ~21% in the settle as the camera brakes.
+    // fragmentTimeScale is their floor on the clock above (1: none).
+    fragmentTimeScale: 1,
+    fragmentReleaseShare: null,
+    fragmentImpulseBoost: 0,
+    fragmentAttackSeconds: 0.02,
+    fragmentBlastBoost: 6,
+    fragmentBlastSeconds: 0.04,
+    fragmentAfterBlastBoost: 0.4,
+    fragmentAfterBlastSeconds: 0.2,
+    fragmentSustainPower: 2.2,
+    fragmentLandingPower: 1.4,
+    // Used only with a fragment release (fragmentReleaseShare set).
+    fragmentReleaseDelay: 0,
+    fragmentReleaseSeconds: 0.35,
+  },
+
+  // Which explosion to play:
+  //   'explosiveRelease' — the values above as they are.
+  //   'briefBulletTime' — the earlier experiment: a 180ms burst, time caught,
+  //     a 0.6s hold, then the explosion carries on into the index.
+  // (The longer bullet-time pass before that is the checkpoint commit.)
+  explosionMotionProfile: 'explosiveRelease',
+  explosionMotionProfiles: {
+    explosiveRelease: {},
+    // Laid over timeDilation, the smoke (crystalConfig fracture.smoke) and
+    // explosionParticles. 180ms of full-speed explosion (the fragments ~25% of
+    // their way), caught over the 80ms slowdown, held suspensionSeconds
+    // (0.6s), then released. Measured (any orbit length): ~25% of the
+    // fragments' travel in the burst (including the shards' pop), ~1.5% as
+    // time collapses, ~4% through the hold, and the last ~70% in the release,
+    // which eases up from the crawl over fragmentReleaseSeconds and back to
+    // rest as the camera lands. fragmentReleaseDelay starts it that long after
+    // the smoke's and the sparkles' release, so they are seen to stir ~100ms
+    // first. The smoke and sparkles hang at 1.2% / 1.5% through the hold.
+    briefBulletTime: {
+      timeDilation: {
+        impulseSeconds: 0.18,
+        slowdownSeconds: 0.08,
+        minTimeScale: 0.03,
+        smokeTimeScale: 0.012,
+        sparkleTimeScale: 0.015,
+        effectsImpulseBoost: 0,
+        releaseStart: 0.53,
+        suspensionSeconds: 0.6,
+        releaseSeconds: 0.45,
+        smokeTailAgeRate: 1.1,
+        sparkleTailAgeRate: 0.4,
+        lookRiseSeconds: 0.025,
+        fragmentTimeScale: 0.06,
+        fragmentReleaseShare: 0.72,
+        fragmentReleaseDelay: 0.08,
+        fragmentReleaseSeconds: 0.35,
+        fragmentImpulseBoost: 0,
+      },
+      smoke: { expand: 14, drag: 0.94, liftRampStart: 0.35, liftRampEnd: 1, lateCount: 0 },
+      explosionParticles: { duration: 1.9, spawnRadius: 0.85 },
+    },
   },
 
   // The explosion's look: one { enabled, intensity } per effect it lights up,
@@ -295,7 +321,7 @@ export const HERO_OVERVIEW_CINEMATIC_CONFIG = {
     spread: 1.15,
     lifetime: null,
     lifetimeMin: 0.05,
-    lifetimeMax: 4.25,
+    lifetimeMax: 6,
     speed: null,
     speedMin: 2.8,
     speedMax: 7.25,
@@ -330,17 +356,26 @@ export const HERO_OVERVIEW_CINEMATIC_CONFIG = {
     triggerAt: 0.56,
     count: 500,
     color: '#b2fcff',
-    duration: 1.9,
+    // Each spark lives lifetimeMin–lifetimeMax seconds, so the spray thins out
+    // through the orbit (some fading while others still fly), leaving a few
+    // drifting round the index as it settles. A `duration` would give them all one life, and they
+    // would all go out together (the brief bullet-time profile uses 1.9s).
+    duration: null,
     speedMin: 0.01,
     speedMax: 0.5,
     // Mostly slow, a few fast (FractureBurstParticles speedSkew): the bulk is
     // caught just off the fragments, a few further out for depth. Even (1), the
     // median spark carried ~18 units/s into the slowdown.
     speedSkew: 1.7,
-    lifetimeMin: 0.08,
-    lifetimeMax: 0.12,
+    // Up to 6.5s (was 4.5), so the longest-lived are still rising round the
+    // fragments as the camera lands in the index (each fades out by ~76% of
+    // its life).
+    lifetimeMin: 1.0,
+    lifetimeMax: 6.5,
     opacity: 0.65,
-    spawnRadius: 0.85,
+    // 1.25 (was 0.85): the sparks start from a shell round the crystal rather
+    // than inside it, where the fragments hid their launch.
+    spawnRadius: 1.25,
     emitterScale: [0.75, 1, 0.75],
     spread: 42,
     size: 0.05,
@@ -708,6 +743,10 @@ const readEasingName = (value, fallback) => (
 );
 
 export const resolveHeroOverviewCinematicConfig = (config = HERO_OVERVIEW_CINEMATIC_CONFIG) => {
+  const motionProfileName = HERO_OVERVIEW_CINEMATIC_CONFIG.explosionMotionProfiles[config?.explosionMotionProfile]
+    ? config.explosionMotionProfile
+    : HERO_OVERVIEW_CINEMATIC_CONFIG.explosionMotionProfile;
+  const motionProfile = HERO_OVERVIEW_CINEMATIC_CONFIG.explosionMotionProfiles[motionProfileName] || {};
   const invalidDurationKeys = [];
   const rawDurations = { ...(config?.timeline || {}) };
   const rawTotalDurationSeconds = config?.timeline?.totalDurationSeconds;
@@ -1018,7 +1057,7 @@ export const resolveHeroOverviewCinematicConfig = (config = HERO_OVERVIEW_CINEMA
     { key: 'burstDistance' },
     { key: 'burstEase', easing: true },
   ]);
-  const explosionParticles = resolveBurstLayerConfig(config?.explosionParticles, DEFAULT_EXPLOSION_PARTICLES_CONFIG, [
+  const explosionParticles = resolveBurstLayerConfig({ ...(config?.explosionParticles || {}), ...(motionProfile.explosionParticles || {}) }, DEFAULT_EXPLOSION_PARTICLES_CONFIG, [
     { key: 'enabled' }, { key: 'triggerAt' }, { key: 'count', type: 'positiveInteger' }, { key: 'duration', type: 'positive' },
     { key: 'speedMin' }, { key: 'speedMax' }, { key: 'lifetimeMin', type: 'positive' }, { key: 'lifetimeMax', type: 'positive' },
     { key: 'opacity', type: 'opacity' }, { key: 'spawnRadius' }, { key: 'spread' },
@@ -1045,12 +1084,20 @@ export const resolveHeroOverviewCinematicConfig = (config = HERO_OVERVIEW_CINEMA
       Object.entries(timeline).map(([phaseName, phase]) => [phaseName, phase.durationSeconds]),
     ),
     camera,
-    timeDilation: Object.fromEntries(
-      Object.entries(HERO_OVERVIEW_CINEMATIC_CONFIG.timeDilation).map(([key, fallback]) => {
-        const value = config?.timeDilation?.[key];
-        return [key, typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : fallback];
-      }),
-    ),
+    explosionMotionProfile: motionProfileName,
+    // The profile's values go over everything else, so switching the profile
+    // is all it takes.
+    timeDilation: {
+      ...Object.fromEntries(
+        Object.entries(HERO_OVERVIEW_CINEMATIC_CONFIG.timeDilation).map(([key, fallback]) => {
+          const value = config?.timeDilation?.[key];
+          return [key, typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : fallback];
+        }),
+      ),
+      ...(motionProfile.timeDilation || {}),
+    },
+    // Laid over crystalConfig fracture.smoke where the smoke is mounted.
+    smoke: { ...(motionProfile.smoke || {}) },
     fracture,
     rawFracture,
     invalidFractureKeys,
