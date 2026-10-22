@@ -6,7 +6,7 @@ Shipped media for the Forest Giant case study, imported by
 replaced (`src`, not `placeholder`).
 
 Every file here was made from the supplied originals in
-`Documents/PortfolioProject/Working/projects/fg`, not re-exported from them:
+`Documents/PortfolioProject/Working/projects/fg` and `Downloads`, not re-exported from them:
 cropped where the page needs a particular frame, converted to WebP, and sized to
 roughly what a retina screen can use (photographs at q72, graphics at q80).
 Images credited to `FGCaseStudies.pdf` were **extracted from it** (the embedded
@@ -21,11 +21,11 @@ page order, starting at 1.
 | `overview.gallery[0]` | `quantified.webp` | `Downloads/quantified/Quantified Header.jpg` (1090×614), cropped to 3:2 (x 90–1011) around the phone and watch |
 | `overview.gallery[1]` | `roth-river.webp` | `Downloads/roth-river.jpg` (540×374), trimmed to 3:2 (y 7–367). **Low resolution** — soft where the 3-up stacks full-width on phones; replace with a larger original if one exists. |
 | `overview.gallery[2]` | `gross.webp` | `Downloads/gross/Gross 1.jpg` (1010×674), trimmed to an exact 3:2 |
-| `responsibility.media` | `studio.webp` | `new_office_bog-12.jpg`, resized |
+| `responsibility.media` | `studio-floor.webp` | `Downloads/A82A7348-hero.jpg` (2550×1076), cropped to 16:9 at full height (x 637–2550): a 3:2 frame can't hold both the pair at the laptop and the whiteboard session |
 | `practice.gallery` | `guide/page-09` · `-11` · `-12` · `-23` (`.webp` and `-full.webp`) | `FG-Process-FlowChart-V0-0-1.pdf`, those pages rendered flat at 1600px and 3200px wide |
 | `means.gallery[0]` | **Outstanding** | The critique worksheet if it survives. Fallback: `FG-WordDoc-Stakeholders.pdf` (keep the LUMA Institute attribution) or an excerpt of `FG-WordDoc-PreMeetingWorksheet.pdf` — neither is in the folder. Never labelled a critique worksheet. |
 | `means.gallery[1]` | `workshop.webp` | `workshop-7930.tif`, resized |
-| `possible.rail` | `magic-forest/development` · `gesture-control` · `exhibit` · `mcn-2016-booth` (`.webp`) | `magic-forest/MagicForest-*.jpg`, at their native size (1090–1200px wide, the largest supplied) |
+| `possible.rail` | `studio-life/dashboard-review` · `shipped-apps` · `talk-night` · `gridlock-2019` · `warmitupfg` (`.webp`) | `Downloads/` `DSCF3006.jpg` · `ForestGiant_161.JPG` · `7R3A3407.jpg` · `Gridlock-2019-9824.jpg` · `warmitupfg-013.jpg`, each resized to 2000px, full 3:2 frame |
 
 ## Still to confirm
 
@@ -36,8 +36,11 @@ page order, starting at 1.
 - **`responsibility.media`:** studio location and approximate date for a caption.
 - **`means.gallery[1]`:** the actual activity and occasion for a caption, and
   whether it is the same session as the worksheet.
-- **Magic Forest:** Jon's contribution, and its timing relative to the process —
-  the section's copy places it among the work the practice made possible.
+- **`possible.rail`:** the dashboard in `DSCF3006` is a "Distillery Projections"
+  screen (brands, barrels, projected yield) — if it is the Roth River project, it
+  could also replace the low-resolution `roth-river.webp` in the overview. The
+  talk night (`7R3A3407`) is unnamed; name the event if it had one. Gridlock 2019
+  is named from the file name.
 
 ## Alternatives not used
 
@@ -60,9 +63,14 @@ page order, starting at 1.
 - `designDiscovery01.pdf` — a discovery explainer; possibly a guidance resource
   for the worksheet slot, if it was used internally.
 - `jon.png` — portrait; not used here.
-- `rally78.webp` · `magbooth.webp` — the overview's earlier Rally78 and Magbooth
-  images, dropped because Jon had little part in either. No longer imported;
-  delete them.
+- Rally78 and Magbooth (`FGCaseStudies.pdf` pages 23 and 31) — the overview's
+  earlier images, dropped because Jon had little part in either.
+- `magic-forest/*` — the rail's first set, dropped: Jon did not work on Magic
+  Forest. `mcn-4.jpg` · `mcn-9.jpg` (Arduino and LED close-ups) are from the same
+  project.
+- `new_office_bog-12.jpg` — the earlier `responsibility.media`: a group by a
+  projected screen and people along a long table. The A82A7348 frame shows more
+  kinds of work at once, and the scale of the studio.
 - The early interactive (Flash-era) slot was dropped for a third project: nothing
   supplied predates the move to mobile.
 
@@ -95,3 +103,31 @@ page order, starting at 1.
   Axes, GE, iRobot, LG&E, Realtree, UPS). The system has no logo row yet.
 - `reel.mp4` (90s, black and white, studio and project work) · `website_reel_3.mp4`
   (36s, studio life).
+
+### From `Downloads` (October 20–21), not used
+
+- `DSCF2732.jpg` · `DSCF2838.jpg` · `DSCF3003.jpg` — the same review sessions as
+  the rail's dashboard photo: a close-up of an Axis Point Alliance projects
+  dashboard on a tablet, a small group around a laptop, and a wider view of the
+  distillery dashboard on the wall screen.
+- `7R3A5042.jpg` — three people writing on sticky notes over a table-sized map,
+  same workshop as the hero. The strongest "written observations" photo for
+  `means.gallery[1]` if the hero changes or the workshop is the better-documented
+  occasion.
+- `7R3A0222.jpg` — people at their desks with someone standing behind them.
+- `7R3A0390.jpg` · `IMG_3851.JPG` — studio life: a game controller on the sofa,
+  a card and video-game night.
+- `ForestGiant_164.JPG` — the device spread at an angle; the overhead
+  `ForestGiant_161` reads more clearly.
+- `ForestGiant_136.jpg` (Mavio fuel-efficiency app) · `ForestGiant_181.jpg`
+  (Michelin Prog rider-review site on laptop, tablet and phone) · `5Slides
+  Presskit/in-hand images/*` (5472px) — early-mobile project shots. Overview
+  candidates if Jon worked on them.
+- `7R3A7479.jpg` · `IMG_0555.jpg` · `GEACC-lowres.pdf` · `myGEA02.pdf` — GE work,
+  covered by the GE case study.
+- `FG-Proposal-Temp-BrownForman.pdf` — a 2016 proposal: org chart, team
+  portraits, a montage of studio work. The process it describes is marketing
+  copy, not the guide.
+- `historyOfConnection-lowres.pdf` — a capabilities booklet (Big Ass Fans,
+  Flying Axes, GE).
+- `Jon2.jpg` · `sinking-feels.gif` — portraits.

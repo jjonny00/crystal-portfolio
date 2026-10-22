@@ -16,7 +16,7 @@ import heroImage from './assets/hero.webp';
 import quantified from './assets/quantified.webp';
 import rothRiver from './assets/roth-river.webp';
 import gross from './assets/gross.webp';
-import studio from './assets/studio.webp';
+import studioFloor from './assets/studio-floor.webp';
 import guidePage09 from './assets/guide/page-09.webp';
 import guidePage09Full from './assets/guide/page-09-full.webp';
 import guidePage11 from './assets/guide/page-11.webp';
@@ -26,10 +26,11 @@ import guidePage12Full from './assets/guide/page-12-full.webp';
 import guidePage23 from './assets/guide/page-23.webp';
 import guidePage23Full from './assets/guide/page-23-full.webp';
 import workshop from './assets/workshop.webp';
-import magicForestDevelopment from './assets/magic-forest/development.webp';
-import magicForestGestureControl from './assets/magic-forest/gesture-control.webp';
-import magicForestExhibit from './assets/magic-forest/exhibit.webp';
-import magicForestBooth from './assets/magic-forest/mcn-2016-booth.webp';
+import dashboardReview from './assets/studio-life/dashboard-review.webp';
+import shippedApps from './assets/studio-life/shipped-apps.webp';
+import talkNight from './assets/studio-life/talk-night.webp';
+import gridlock2019 from './assets/studio-life/gridlock-2019.webp';
+import warmItUp from './assets/studio-life/warmitupfg.webp';
 
 export const forestGiantContent = {
   projectName: 'FOREST GIANT',
@@ -109,12 +110,14 @@ export const forestGiantContent = {
       'As projects grew more complicated, particularly in our work with GE, the gaps became harder to ignore. Project managers did not always know where their responsibilities began and ended. Other leads were unclear about what they owed the rest of the team. The CTO and I repeatedly stepped in to make decisions, correct direction, or work through concerns with a frustrated client.',
       'Each intervention addressed the immediate problem. With more teams, the same pattern became unsustainable. We needed to make essential responsibilities clear from the start, while giving teams room to develop their own ways of working.',
     ],
-    // Context for the scale of the studio, not evidence of dysfunction. Caption
-    // with the studio location and approximate date once chosen.
+    // Context for the scale of the studio, not evidence of dysfunction: several
+    // kinds of work at once. 16:9 rather than the usual 3:2, because a 3:2 frame
+    // can't hold both the pair at the laptop and the whiteboard session. Caption
+    // with the studio location and approximate date once confirmed.
     media: {
-      src: studio,
-      alt: 'The open studio floor: one group gathers by a projected screen at the far end while others work at laptops along a long table, under high ceilings and hanging lamps.',
-      aspectRatio: '3 / 2',
+      src: studioFloor,
+      alt: 'The bright open studio: people at desks along the windows, two talking over a laptop at a round table, two more at a whiteboard of sticky notes under the mezzanine, and someone coming down the stairs from the upper floor.',
+      aspectRatio: '1913 / 1076',
     },
   },
 
@@ -206,38 +209,44 @@ export const forestGiantContent = {
       'As teams became more stable, we saw them maintain the quality and care we valued with greater independence. Knowledge, responsibility, and enthusiasm could be shared across the team. More of the work could move forward without waiting for the CTO or me to intervene.',
       'That gave me room to design again. I could contribute directly to selected projects while continuing to support the wider studio. Helping build that practice with our leadership team remains one of the achievements I value most, because it gave other people more opportunity to take ownership and do work they were proud of.',
     ],
-    // Rendered by MediaRail: one project, Magic Forest, from development to the
-    // finished build to the installation in use. Ratios are the photos' own.
-    // The caption names the project and occasion only: Jon's contribution and
-    // the project's timing relative to the process are still to be confirmed.
+    // Rendered by MediaRail: the people and the work the practice supported —
+    // a team reviewing work in progress, apps the studio shipped, then the
+    // studio as a place people came to: a talk, an art show, a party. All 3:2.
+    // No project or event here is presented as a result of the process.
     rail: [
       {
-        key: 'development',
-        src: magicForestDevelopment,
-        alt: 'Magic Forest in development: hands at a laptop in a dark room, wired to a circuit board and a lit strip of LEDs.',
-        aspectRatio: '1200 / 675',
+        key: 'dashboard-review',
+        src: dashboardReview,
+        alt: 'A designer points to a distillery projections dashboard on a wall-mounted screen while teammates follow along from the table, beside a wall of hand-drawn sticky-note portraits.',
+        aspectRatio: '3 / 2',
       },
       {
-        key: 'gesture-control',
-        src: magicForestGestureControl,
-        alt: 'A hand passing over the motion sensor set into Magic Forest’s base, among speckled blue cut-out trees and tufts of yarn foliage.',
-        aspectRatio: '1200 / 800',
+        key: 'shipped-apps',
+        src: shippedApps,
+        alt: 'Apps the studio made, laid out on iPads and iPhones across a dark table: a Big Ass Fans control panel, the MudBuddy reading app, a NewHope O‘ahu donation kiosk, a Michelin rider-review site, PollCat, and a mobile game.',
+        aspectRatio: '3 / 2',
       },
       {
-        key: 'exhibit',
-        src: magicForestExhibit,
-        alt: 'A visitor gesturing at the Magic Forest exhibit, a long planter of bright cut-out foliage beneath a screen reading “OTIS: Turn a physical place into a digital space.”',
-        aspectRatio: '1090 / 468',
+        key: 'talk-night',
+        src: talkNight,
+        alt: 'An evening talk in the studio: a crowd at the long tables and sofas, drinks in hand, turns toward a speaker with a microphone standing beside the sasquatch costume.',
+        aspectRatio: '3 / 2',
       },
       {
-        key: 'booth',
-        src: magicForestBooth,
-        alt: 'The Magic Forest booth at the MCN 2016 conference: the foliage installation and a screen titled The Magic Forest, with someone in a sasquatch costume and two people posing beside it.',
-        aspectRatio: '1200 / 816',
+        key: 'gridlock-2019',
+        src: gridlock2019,
+        alt: 'The studio packed for the Gridlock art show in 2019: a crowd under coloured party lights, with a wall of small square paintings at the far end.',
+        aspectRatio: '3 / 2',
+      },
+      {
+        key: 'warmitupfg',
+        src: warmItUp,
+        alt: 'A #WARMITUPFG party in the darkened studio, the Forest Giant figure and FG monogram lit in the mezzanine window above the crowd.',
+        aspectRatio: '3 / 2',
       },
     ],
     caption:
-      'Magic Forest, from development to the finished installation and its booth at MCN 2016.',
+      'Work in progress, apps the studio shipped, and the studio as a place people came to: a talk night, the Gridlock art show in 2019, and #WARMITUPFG.',
   },
 
   conclusion: {

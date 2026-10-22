@@ -84,7 +84,7 @@ const ForestGiantCaseStudy = ({ project, onClose }) => {
         media={<MediaGallery layout="stacked" items={c.means.gallery} caption={c.means.caption} />}
       />
 
-      {/* One project from development to the work in use, read left to right. */}
+      {/* The work and the studio life the practice made room for. */}
       <SequenceSection tone="b" title={c.possible.title} intro={c.possible.intro}>
         <MediaRail items={c.possible.rail} caption={c.possible.caption} mobileHeight="68vw" />
       </SequenceSection>
