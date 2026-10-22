@@ -77,6 +77,29 @@ export const HERO_OVERVIEW_CINEMATIC_CONFIG = {
       rollDegrees: 0.5,
       peakSeconds: 0.025,
       recoverySeconds: 0.1,
+      // A shudder on top: the camera knocked sideways off its line at the split
+      // (along its own right/up, so it reads the same from any hero angle) and
+      // twitched round its view, then one smaller kick back, and still. Shaped,
+      // not random: peak ~17ms in, a ~28% rebound at ~54ms, exactly nothing
+      // (and at rest) by durationSeconds. Felt rather than seen, so the sideways
+      // part is in pixels of a 1080-line screen (on its short side, so a
+      // portrait phone isn't pushed further across its width) and the twitch is
+      // a roll: at 0.2° it moves the frame's corners ~3px and its centre not at
+      // all, where a 0.2° turn would shift the whole frame ~6px. The twitch
+      // shares the roll's budget rather than adding to it: while the shudder is
+      // on, the roll above is scaled by rollScale (0.5° → 0.3°, + 0.2° = the
+      // same 0.5° peak, just sharper). The recoil is along the view, so the two
+      // don't stack. mobileScale scales the shudder on phones. Off with the
+      // rest of the impact under reduced motion; in DEV
+      // __EXPLOSION_LOOK__ = { cameraShudder: { enabled: false } } A/Bs it live.
+      shudder: {
+        enabled: true,
+        translationPixels: 10,
+        angularDegrees: 1,
+        durationSeconds: 0.2,
+        rollScale: 0.9,
+        mobileScale: 0.6,
+      },
     },
     // The distance through the move: one expanding spiral from the hero's
     // distance to the index's, set by the share of the orbit's turn done (so it
@@ -804,7 +827,11 @@ export const resolveHeroOverviewCinematicConfig = (config = HERO_OVERVIEW_CINEMA
     orbitMinArcDegrees: Math.min(360, readNonNegativeNumber(config?.camera?.orbitMinArcDegrees, HERO_OVERVIEW_CINEMATIC_CONFIG.camera.orbitMinArcDegrees)),
     orbitSecondsPerExtraHalfTurn: readNonNegativeNumber(config?.camera?.orbitSecondsPerExtraHalfTurn, HERO_OVERVIEW_CINEMATIC_CONFIG.camera.orbitSecondsPerExtraHalfTurn),
     orbitEntrySpeedCap: readNonNegativeNumber(config?.camera?.orbitEntrySpeedCap, HERO_OVERVIEW_CINEMATIC_CONFIG.camera.orbitEntrySpeedCap),
-    impact: { ...HERO_OVERVIEW_CINEMATIC_CONFIG.camera.impact, ...(config?.camera?.impact || {}) },
+    impact: {
+      ...HERO_OVERVIEW_CINEMATIC_CONFIG.camera.impact,
+      ...(config?.camera?.impact || {}),
+      shudder: { ...HERO_OVERVIEW_CINEMATIC_CONFIG.camera.impact.shudder, ...(config?.camera?.impact?.shudder || {}) },
+    },
     spiral: { ...HERO_OVERVIEW_CINEMATIC_CONFIG.camera.spiral, ...(config?.camera?.spiral || {}) },
   };
 

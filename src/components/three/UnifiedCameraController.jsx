@@ -2571,20 +2571,50 @@ const UnifiedCameraController = ({
   // jumps into motion at the split (easing out to its peak) and eases back to
   // nothing, with no overshoot; nothing outside that quarter second, before
   // the split, or under reduced motion.
-  const NO_IMPACT = { recoil: 0, roll: 0 };
-  const getCameraImpact = (position, lookAt, direction) => {
+  // The shudder (camera.impact.shudder) adds a sideways knock in the camera's
+  // own right/up (world units) and a twitch to the roll: one shaped pulse,
+  // (1 − u)²·sin(2.5πu) over its duration, scaled to peak at 1 (u ≈ 0.16), with
+  // a −28% kick back (u ≈ 0.54) and nothing, at rest, at u = 1.
+  const NO_IMPACT = { recoil: 0, roll: 0, shudderX: 0, shudderY: 0 };
+  const SHUDDER_PULSE_PEAK = 0.6712;
+  const SHUDDER_DIRECTION = new THREE.Vector2(0.92, 0.38).normalize();
+  const getCameraImpact = (position, lookAt, direction, fov, aspect) => {
     const cfg = HERO_OVERVIEW_PILOT_CINEMATIC_CONFIG.camera.impact;
     const t = getExplosionSplitSeconds();
     if (!cfg || t == null || t < 0 || simplifiedAnimations || reducedMotionRef.current) return NO_IMPACT;
     const peak = Math.max(cfg.peakSeconds, 1e-3);
     const recovery = Math.max(cfg.recoverySeconds, 1e-3);
-    if (t >= peak + recovery) return NO_IMPACT;
-    const envelope = t < peak
+    const shudderCfg = cfg.shudder;
+    const shudderScale = shudderCfg?.enabled ? getExplosionLookScale('cameraShudder') : 0;
+    const shudderDuration = Math.max(shudderCfg?.durationSeconds ?? 0, 1e-3);
+    if (t >= peak + recovery && (shudderScale <= 0 || t >= shudderDuration)) return NO_IMPACT;
+    const envelope = t >= peak + recovery ? 0 : t < peak
       ? 1 - (1 - t / peak) ** 3
       : 1 - THREE.MathUtils.smootherstep(t - peak, 0, recovery);
+    // While the shudder is on, the roll gives up part of its share to it.
+    const rollScale = 1 + ((shudderCfg?.rollScale ?? 1) - 1) * Math.min(shudderScale, 1);
+    const distance = position.distanceTo(lookAt);
+    let shudderX = 0;
+    let shudderY = 0;
+    let shudderRoll = 0;
+    if (shudderScale > 0 && t < shudderDuration) {
+      const u = t / shudderDuration;
+      const pulse = ((1 - u) ** 2 * Math.sin(2.5 * Math.PI * u)) / SHUDDER_PULSE_PEAK;
+      const strength = pulse * shudderScale * (isMobile ? shudderCfg.mobileScale ?? 1 : 1) * direction;
+      // Pixels on a 1080-line screen, measured on its short side, as world
+      // units at the look target's distance.
+      const shortSide = 2 * distance * Math.tan(THREE.MathUtils.degToRad(fov) / 2) * Math.min(1, aspect || 1);
+      const lateral = ((shudderCfg.translationPixels ?? 0) / 1080) * shortSide * strength;
+      shudderX = lateral * SHUDDER_DIRECTION.x;
+      shudderY = lateral * SHUDDER_DIRECTION.y;
+      shudderRoll = THREE.MathUtils.degToRad(shudderCfg.angularDegrees ?? 0) * strength;
+    }
     return {
-      recoil: cfg.recoil * position.distanceTo(lookAt) * envelope * getExplosionLookScale('cameraRecoil'),
-      roll: THREE.MathUtils.degToRad(cfg.rollDegrees) * envelope * getExplosionLookScale('cameraRoll') * direction,
+      recoil: cfg.recoil * distance * envelope * getExplosionLookScale('cameraRecoil'),
+      roll: THREE.MathUtils.degToRad(cfg.rollDegrees) * envelope * getExplosionLookScale('cameraRoll') * rollScale * direction
+        + shudderRoll,
+      shudderX,
+      shudderY,
     };
   };
   // Index → hero (and back out again if that is interrupted): an orbit round the
@@ -6796,8 +6826,10 @@ const UnifiedCameraController = ({
         // The shockwave as the crystal splits (camera.impact): a recoil straight
         // back along the view and a slight roll, added to the orbit's pose for a
         // quarter of a second; the orbit itself (and everything that reads the
-        // pose back) is untouched.
-        const impact = getCameraImpact(nextPosition, nextLookAt, transition.orbitPlan?.direction ?? 1);
+        // pose back) is untouched. The shudder's sideways knock goes on after
+        // the aim, so the camera is shoved off its line rather than re-aimed at
+        // the crystal.
+        const impact = getCameraImpact(nextPosition, nextLookAt, transition.orbitPlan?.direction ?? 1, nextFov, camera.aspect);
         camera.position.copy(nextPosition);
         if (impact.recoil > 0) {
           camera.position.addScaledVector(
@@ -6806,6 +6838,8 @@ const UnifiedCameraController = ({
           );
         }
         camera.lookAt(nextLookAt);
+        if (impact.shudderX !== 0) camera.translateX(impact.shudderX);
+        if (impact.shudderY !== 0) camera.translateY(impact.shudderY);
         if (impact.roll !== 0) camera.rotateZ(impact.roll);
         camera.fov = nextFov;
         camera.filmOffset = nextFilmOffset;
