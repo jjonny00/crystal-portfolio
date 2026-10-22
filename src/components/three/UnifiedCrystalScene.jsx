@@ -47,7 +47,7 @@ import { frameEase } from '../../utils/frameEase'
 // TEMPORARY DIAGNOSTIC — remove together with src/debug/edgeWearMaskDebug.js
 import { inspectEdgeWearAttributes, applyEdgeWearMaskDebug, getEdgeWearDebugMode, getEdgeWearDebugOverride, installEdgeWearMaskDebug, setEdgeWearDebugParams } from '../../debug/edgeWearMaskDebug'
 import { HERO_OVERVIEW_CINEMATIC_RESOLVED, HERO_OVERVIEW_EASING, HERO_RETURN_CINEMATIC } from '../../config/heroOverviewCinematicConfig'
-import { easeFragmentTravel, getFragmentTravelSeconds, startExplosionTime, stopExplosionTime } from '../../lib/explosionTime'
+import { easeFragmentTravel, getExplosionMoveSeconds, getFragmentTravelSeconds, startExplosionTime, stopExplosionTime } from '../../lib/explosionTime'
 import { getExplosionLookScale } from '../../lib/explosionLook'
 import { markHeroReformStart } from '../../lib/heroReformClock'
 import { markScenePrep } from '../../loader/loadProgress'
@@ -76,6 +76,9 @@ const LABEL_REVEAL_EXPLOSION_FRACTION = 0.9
 // explosion). A camera that never reports its progress gets this long.
 const LABEL_REVEAL_CAMERA_PROGRESS = 0.9
 const LABEL_REVEAL_CAMERA_WAIT_LIMIT_MS = 2000
+// Both of those points brought forward by this long (seconds), so the labels
+// start coming up while the camera is still finishing its move.
+const LABEL_REVEAL_LEAD_SECONDS = 0.3
 // 0.14 (was 0.22): a sharper pulse from inside the crystal, gone before time
 // has finished collapsing, so the split and the burst are seen (look.flash
 // raises its peak).
@@ -3041,7 +3044,9 @@ const UnifiedCrystalScene = forwardRef(({
     }
     if (labelRevealAwaitingCameraUntilRef.current != null) {
       const revealCameraProgress = sharedCameraMoveProgressRef?.current ?? animationData?.cameraMoveProgress ?? 1;
-      if (revealCameraProgress >= LABEL_REVEAL_CAMERA_PROGRESS || now >= labelRevealAwaitingCameraUntilRef.current) {
+      // The camera's progress runs linearly over its move, so the lead is a share of it.
+      const revealCameraThreshold = LABEL_REVEAL_CAMERA_PROGRESS - LABEL_REVEAL_LEAD_SECONDS / Math.max(getExplosionMoveSeconds(), 1e-3)
+      if (revealCameraProgress >= revealCameraThreshold || now >= labelRevealAwaitingCameraUntilRef.current) {
         labelRevealAwaitingCameraUntilRef.current = null;
         if (!labelRevealFiredRef.current) {
           labelRevealFiredRef.current = true;
@@ -3344,7 +3349,7 @@ const UnifiedCrystalScene = forwardRef(({
         if (
           !labelRevealFiredRef.current &&
           labelRevealAwaitingCameraUntilRef.current == null &&
-          elapsedExplosion >= (fracturePause + travelDuration) * LABEL_REVEAL_EXPLOSION_FRACTION
+          elapsedExplosion >= (fracturePause + travelDuration) * LABEL_REVEAL_EXPLOSION_FRACTION - LABEL_REVEAL_LEAD_SECONDS
         ) {
           labelRevealAwaitingCameraUntilRef.current = performance.now() + LABEL_REVEAL_CAMERA_WAIT_LIMIT_MS;
         }

@@ -249,6 +249,9 @@ export const setExplosionMoveDuration = (seconds) => {
   }
 };
 
+/** How long the camera's move that this explosion is laid over takes (seconds). */
+export const getExplosionMoveSeconds = () => (run ? run.moveSeconds : DEFAULT_MOVE_SECONDS);
+
 /** The crystal exploded at `startMs` (performance.now time; it splits HOLD later). */
 export const startExplosionTime = (startMs) => {
   const paired = reportedMove && Math.abs(startMs - reportedMove.at) < PAIRING_WINDOW_MS;
