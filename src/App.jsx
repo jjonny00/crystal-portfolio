@@ -609,7 +609,8 @@ function App() {
     chromaticAberration: true,
     noise: true,
     vignette: true,
-    lensDirt: true
+    lensDirt: true,
+    toneMapping: true
   });
   const [postProcessingConfig, setPostProcessingConfig] = useState(config.postProcessing);
   const [viewMode, setViewMode] = useState(caseStudyDeepLink ? 'caseStudy' : 'overview');
@@ -690,7 +691,8 @@ function App() {
         ...performanceProfile.postProcessing,
         noise: true,        // Always enabled
         vignette: true,     // Always enabled
-        lensDirt: true      // Always enabled
+        lensDirt: true,     // Always enabled
+        toneMapping: true   // Always enabled
       };
 
       setEffectsEnabled(unifiedEffects);
@@ -700,7 +702,8 @@ function App() {
         ...performanceProfile.postProcessing,
         noise: { opacity: 0.15 },      // Unified value
         vignette: { ...defaultConfig.postProcessing.vignette },   // Unified values
-        lensDirt: { ...defaultConfig.postProcessing.lensDirt, ...performanceProfile.lensDirt } // Per-tier overrides
+        lensDirt: { ...defaultConfig.postProcessing.lensDirt, ...performanceProfile.lensDirt }, // Per-tier overrides
+        toneMapping: { ...defaultConfig.postProcessing.toneMapping } // Unified values
       });
     }
   }, [performanceProfile]);

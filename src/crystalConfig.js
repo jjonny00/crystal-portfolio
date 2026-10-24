@@ -855,6 +855,16 @@ export const postProcessing = {
     tint: 0.5,             // 0 white dirt, 1 dirt takes the light's colour
     seamWidth: 0.12,       // fade towards the gap opened when the mask's shape differs from the screen's
     transitionBoost: 0.9   // extra intensity during the explosion into Work
+  },
+  // The ToneMapping effect in Fixed3DCanvas's composer. The renderer's own
+  // tone mapping can't be used: @react-three/postprocessing turns it off while
+  // the composer is mounted, and the composer is always mounted.
+  // mode: 'linear' | 'reinhard' | 'cineon' | 'aces' | 'agx' | 'neutral'.
+  // exposure scales the scene before the curve (it is the renderer's
+  // toneMappingExposure, which three passes to the effect's shader).
+  toneMapping: {
+    mode: 'neutral',
+    exposure: 1.0
   }
 }
 

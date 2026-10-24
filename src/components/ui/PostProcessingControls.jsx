@@ -26,6 +26,16 @@ const lensDirtSliders = [
   { key: 'transitionBoost', label: 'Boost into Work', min: 0, max: 8, step: 0.1 }
 ];
 
+// Keys of TONE_MAPPING_MODES in Fixed3DCanvas.jsx.
+const toneMappingModes = [
+  { value: 'linear', label: 'Linear (exposure only)' },
+  { value: 'reinhard', label: 'Reinhard' },
+  { value: 'cineon', label: 'Cineon' },
+  { value: 'aces', label: 'ACES Filmic' },
+  { value: 'agx', label: 'AgX' },
+  { value: 'neutral', label: 'Neutral (Khronos)' }
+];
+
 /**
  * UI component for toggling post-processing effects
  * Modified to work within a tabbed interface
@@ -52,6 +62,7 @@ const PostProcessingControls = ({
   const vignette = { ...defaultPostProcessing.vignette, ...postProcessingConfig?.vignette };
   const lensDirt = { ...defaultPostProcessing.lensDirt, ...postProcessingConfig?.lensDirt };
   const [lensDirtCopyStatus, setLensDirtCopyStatus] = useState('');
+  const toneMapping = { ...defaultPostProcessing.toneMapping, ...postProcessingConfig?.toneMapping };
 
   // Update slider values when config changes
   useEffect(() => {
@@ -158,6 +169,12 @@ const PostProcessingControls = ({
     window.setTimeout(() => setLensDirtCopyStatus(''), 3000);
   };
 
+  const handleToneMappingChange = (key, value) => {
+    if (onToggleEffect) {
+      onToggleEffect('toneMapping', true, { [key]: value });
+    }
+  };
+
   // Toggle all effects on/off
   const handleToggleAll = (enabled) => {
     if (onToggleEffect) {
@@ -166,6 +183,7 @@ const PostProcessingControls = ({
       onToggleEffect('noise', enabled);
       onToggleEffect('vignette', enabled);
       onToggleEffect('lensDirt', enabled);
+      onToggleEffect('toneMapping', enabled);
     }
   };
   
@@ -546,7 +564,52 @@ const PostProcessingControls = ({
           )}
         </div>
       )}
-      
+
+      {/* Tone Mapping Toggle */}
+      <div
+        style={{
+          ...toggleContainerStyle,
+          backgroundColor: effectsEnabled.toneMapping ? 'rgba(100, 255, 218, 0.1)' : 'rgba(0, 0, 0, 0.2)'
+        }}
+      >
+        <div style={toggleLabelStyle}>Tone Mapping</div>
+        <ToggleSwitch
+          checked={Boolean(effectsEnabled.toneMapping)}
+          onChange={() => onToggleEffect('toneMapping', !effectsEnabled.toneMapping)}
+        />
+      </div>
+
+      {/* Off shows the scene clipped at 1.0, as it was before the effect existed. */}
+      {effectsEnabled.toneMapping && (
+        <div style={sliderGroupStyle}>
+          <div style={{ ...sliderLabelStyle, marginBottom: '10px' }}>
+            <span>Mode</span>
+            <select
+              value={toneMapping.mode}
+              onChange={(e) => handleToneMappingChange('mode', e.target.value)}
+              style={{ background: 'rgba(0, 0, 0, 0.4)', color: 'white', border: '1px solid rgba(255, 255, 255, 0.3)', borderRadius: '4px', padding: '2px 4px' }}
+            >
+              {toneMappingModes.map(({ value, label }) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+          </div>
+          <div style={sliderLabelStyle}>
+            <span>Exposure</span>
+            <span>{Number(toneMapping.exposure).toFixed(2)}</span>
+          </div>
+          <input
+            type="range"
+            min="0.05"
+            max="4"
+            step="0.01"
+            value={toneMapping.exposure}
+            onChange={(e) => handleToneMappingChange('exposure', parseFloat(e.target.value))}
+            style={sliderStyle}
+          />
+        </div>
+      )}
+
       <div style={dividerStyle} />
       
       {/* Toggle All Buttons */}

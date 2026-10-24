@@ -4,8 +4,8 @@
 import React, { useRef, useState, useEffect, useLayoutEffect, forwardRef, useImperativeHandle, useCallback, useMemo } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Environment, OrbitControls } from '@react-three/drei';
-import { EffectComposer, Bloom, ChromaticAberration, Noise } from '@react-three/postprocessing';
-import { BlendFunction } from 'postprocessing';
+import { EffectComposer, Bloom, ChromaticAberration, Noise, ToneMapping } from '@react-three/postprocessing';
+import { BlendFunction, ToneMappingMode } from 'postprocessing';
 import { ShaderPass } from 'postprocessing';
 import * as THREE from 'three';
 import { HalfFloatType, UnsignedByteType, ShaderMaterial } from 'three';
@@ -56,6 +56,16 @@ const StableEnvironment = React.memo(function StableEnvironment({ files, rotatio
     />
   );
 });
+
+// crystalConfig.postProcessing.toneMapping.mode → postprocessing's enum.
+const TONE_MAPPING_MODES = {
+  linear: ToneMappingMode.LINEAR,
+  reinhard: ToneMappingMode.REINHARD,
+  cineon: ToneMappingMode.CINEON,
+  aces: ToneMappingMode.ACES_FILMIC,
+  agx: ToneMappingMode.AGX,
+  neutral: ToneMappingMode.NEUTRAL
+};
 
 function createSanitizePass() {
   const material = new ShaderMaterial({
@@ -1051,8 +1061,11 @@ const Fixed3DCanvas = forwardRef(({
             markScenePrep('canvas');
           }}
           gl={{
-            toneMapping: THREE.ACESFilmicToneMapping,
-            toneMappingExposure: 0.2,
+            // Tone mapping is the composer's ToneMapping effect (below), not the
+            // renderer's: the composer forces the renderer's off anyway. The
+            // exposure still lives here because three feeds it to that effect.
+            toneMapping: THREE.NoToneMapping,
+            toneMappingExposure: postProcessingConfig?.toneMapping?.exposure ?? 1.0,
             outputColorSpace: THREE.SRGBColorSpace,
             // UPDATED: Ensure depth sorting is enabled for proper render order
             sortObjects: true,
@@ -1299,6 +1312,15 @@ const Fixed3DCanvas = forwardRef(({
                 runtime={heroOverviewRuntime}
                 introRevealRef={introRevealRef}
                 inOverview={animationData?.currentZone === 'overview'}
+              />
+            )}
+
+            {/* HDR to display range. After everything that works on scene light
+                (bloom, aberration, lens dirt), before the grain and vignette,
+                which are display-space overlays. */}
+            {effectsEnabled?.toneMapping && (
+              <ToneMapping
+                mode={TONE_MAPPING_MODES[postProcessingConfig?.toneMapping?.mode] ?? ToneMappingMode.CINEON}
               />
             )}
 
