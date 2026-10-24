@@ -571,7 +571,7 @@ export const effects = {
 export const materials = {
   // Base crystal material configuration
   crystal: {
-    color: new THREE.Color('#939393'),
+    color: new THREE.Color('#cccccc'),
     transparent: true,
     transmission: 0.91,
     // NOTE: On MeshPhysicalMaterial, `reflectivity` is a getter/setter linked to
@@ -579,11 +579,11 @@ export const materials = {
     // `reflectivity` here or it will clobber `ior` and the IOR control will do
     // nothing. `ior: 1.78` reproduces the previous look (reflectivity ≈ 0.70).
     ior: 1.8,
-    thickness: 1.0,
+    thickness: 1.5,
     iridescence: 1.4,
     iridescenceIOR: 1.3,
     metalness: 0.0,
-    roughness: 0.00,
+    roughness: 0.02,
     attenuationColor: new THREE.Color('#00ddff'),
     attenuationDistance: 0.5,
     clearcoat: 0.8,
@@ -722,13 +722,13 @@ export const materials = {
       // Largest shift of the photo inside the painted planes, in CSS pixels, so it
       // reads the same on every fragment, photo and screen. 0 samples the photo
       // exactly as before.
-      refractionStrength: 8.5,
+      refractionStrength: 12.5,
       // Red and blue sampled this many CSS pixels either side of green, along the
       // same shift, and never more than half of it. 0 = off.
       dispersionStrength: 10
     }
   },
-  
+
   // Texture settings
   textures: {
     normalMap: {
