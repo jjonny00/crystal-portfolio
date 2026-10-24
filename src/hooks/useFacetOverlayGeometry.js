@@ -2,6 +2,14 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import * as THREE from 'three';
 import { getOverlayImageByFacetKey } from '../data/projects';
 import { loadOverlayImage } from '../loader/preloadOverlayImages';
+import {
+  applyArtworkMask,
+  createArtworkMaskTexture,
+  setArtworkMaskStrength,
+} from '../components/materials/artworkMask';
+import { createLogger } from '../utils/logger';
+
+const logger = createLogger('facet-overlay');
 
 const PROJECT_DISPLAY_SLOT = 'ProjectDisplay';
 const EPSILON = 1e-5;
@@ -27,6 +35,24 @@ const NO_RAYCAST = () => {};
 const FADE_SECONDS = 0.8;
 const CUTOUT_FADE_SECONDS = 0.45;
 const easeFade = (t) => t * t * (3 - 2 * t);
+
+// A masked artwork lets the crystal face through in places, so the case-study
+// cut-out can't hide the face under it as it stands: those places would lose their
+// crystal at a stroke. The mask's transparency eases out first, leaving the photo
+// opaque over the face, and eases back in once the face has returned. Short,
+// because the cut-out waits on it. The refraction stays throughout: it needs no
+// face behind it.
+const MASK_EASE_SECONDS = 0.3;
+
+// slot.maskLevel runs linearly 0..1 (1 = the mask as configured), eased here. It
+// scales the transparency only; the optics take the configured strength as is.
+const syncMaskStrength = (slot) => {
+  setArtworkMaskStrength(
+    slot.overlayMaterial,
+    slot.maskStrength * easeFade(slot.maskLevel),
+    slot.maskStrength
+  );
+};
 
 const faceMaterialOf = (slot) => {
   const materials = Array.isArray(slot.mesh.material) ? slot.mesh.material : [slot.mesh.material];
@@ -96,7 +122,11 @@ export const resetOverlaySlot = (slot) => {
   slot.fadeLevel = 0;
   slot.currentOpacity = 0;
   slot.cutout = false;
-  if (slot.overlayMaterial) slot.overlayMaterial.opacity = 0;
+  slot.maskLevel = 1;
+  if (slot.overlayMaterial) {
+    slot.overlayMaterial.opacity = 0;
+    syncMaskStrength(slot);
+  }
   if (slot.faceHidden) setFaceHidden(slot, false);
   setOverlaySlotShown(slot, false);
 };
@@ -323,11 +353,16 @@ const applyStoredTextureTransform = (texture, transform) => {
   texture.needsUpdate = true;
 };
 
-export const useFacetOverlayGeometry = (facetKeys) => {
+// `maskPathForFacet(facetKey)` names the artwork mask for a facet, or null for none
+// (keep it stable: a new function reloads the masks). `maskStrength` is
+// materials.facet.artworkMask.strength.
+export const useFacetOverlayGeometry = (facetKeys, { maskPathForFacet = null, maskStrength = 1 } = {}) => {
   const [overlayImages, setOverlayImages] = useState(new Map());
   const [isReady, setIsReady] = useState(false);
   const overlaySlotsRef = useRef(new Map());
   const canvasCacheRef = useRef(new Map());
+  const maskTexturesRef = useRef(new Map());
+  const maskStrengthRef = useRef(maskStrength);
 
   useEffect(() => {
     let cancelled = false;
@@ -377,6 +412,57 @@ export const useFacetOverlayGeometry = (facetKeys) => {
       cancelled = true;
     };
   }, [facetKeys]);
+
+  // Masks load apart from the photos, so neither waits on the other. One that
+  // arrives after its slot registered goes straight onto the slot's material;
+  // registerOverlaySlot puts it on any later one.
+  useEffect(() => {
+    let cancelled = false;
+    const textures = maskTexturesRef.current;
+    const slots = overlaySlotsRef.current;
+
+    facetKeys.forEach((facetKey) => {
+      const maskPath = maskPathForFacet?.(facetKey);
+      if (!maskPath) return;
+
+      // The same cached image loader as the artwork; nothing about it is photo-specific.
+      loadOverlayImage(maskPath)
+        .then((image) => {
+          if (cancelled) return;
+          const texture = createArtworkMaskTexture(image);
+          textures.set(facetKey, texture);
+          const slot = slots.get(facetKey);
+          if (slot) {
+            applyArtworkMask(slot.overlayMaterial, texture);
+            syncMaskStrength(slot);
+          }
+        })
+        .catch((error) => {
+          logger.warn(`Failed to load the artwork mask for ${facetKey}:`, error);
+        });
+    });
+
+    return () => {
+      cancelled = true;
+      textures.forEach((texture, facetKey) => {
+        const slot = slots.get(facetKey);
+        if (slot?.overlayMaterial?.alphaMap === texture) {
+          applyArtworkMask(slot.overlayMaterial, null);
+        }
+        texture.dispose();
+      });
+      textures.clear();
+    };
+  }, [facetKeys, maskPathForFacet]);
+
+  // Strength is a uniform: a live change reaches every slot without a recompile.
+  useEffect(() => {
+    maskStrengthRef.current = maskStrength;
+    overlaySlotsRef.current.forEach((slot) => {
+      slot.maskStrength = maskStrength;
+      syncMaskStrength(slot);
+    });
+  }, [maskStrength]);
 
   const getOrCreateCanvas = useCallback((image, slotAspect) => {
     const aspect = Number.isFinite(slotAspect) ? slotAspect : 1;
@@ -571,7 +657,9 @@ export const useFacetOverlayGeometry = (facetKeys) => {
         overlayMaterial.map = overlayTexture;
       }
 
-      overlayMaterial.alphaMap = null;
+      // This fragment's mask, if it has one and it has loaded: its own texture on
+      // the raw UVs, with none of the photo's rotation, crop or transform.
+      applyArtworkMask(overlayMaterial, maskTexturesRef.current.get(facetKey) ?? null);
       overlayMaterial.opacity = wasActive ? previousOpacity : 0;
       overlayMaterial.needsUpdate = true;
 
@@ -603,7 +691,10 @@ export const useFacetOverlayGeometry = (facetKeys) => {
         cutout: existingSlot?.cutout ?? false,
         faceHidden: false,
         keepBaseMapDetached: true,
+        maskStrength: maskStrengthRef.current,
+        maskLevel: existingSlot?.maskLevel ?? 1,
       };
+      syncMaskStrength(slot);
 
       // A fresh overlay mesh each registration: cheap (no GPU resources of its
       // own), and it picks up a changed mesh, slot index or material.
@@ -669,6 +760,8 @@ export const useFacetOverlayGeometry = (facetKeys) => {
           slot.fadeLevel = 0;
           slot.currentOpacity = 0;
           slot.overlayMaterial.opacity = 0;
+          slot.maskLevel = 1;
+          syncMaskStrength(slot);
           if (slot.faceHidden) setFaceHidden(slot, false);
           setOverlaySlotShown(slot, false);
         }
@@ -682,9 +775,23 @@ export const useFacetOverlayGeometry = (facetKeys) => {
       // fully back over it. Leaving the project from its case study (back to the
       // overview, say) brings the face straight back: the case study is still
       // covering the scene then.
+      //
+      // A masked artwork first eases its transparency out (MASK_EASE_SECONDS), so
+      // the face goes under an opaque photo; it comes back once the face has.
+      const masked = Boolean(slot.overlayMaterial.alphaMap);
+      const maskTarget = slot.cutout || slot.faceHidden ? 0 : 1;
+      if (slot.maskLevel !== maskTarget) {
+        const maskStep = deltaTime / MASK_EASE_SECONDS;
+        slot.maskLevel = maskTarget > slot.maskLevel
+          ? Math.min(maskTarget, slot.maskLevel + maskStep)
+          : Math.max(maskTarget, slot.maskLevel - maskStep);
+        syncMaskStrength(slot);
+      }
+
       let target = slot.targetOpacity > 0 ? 1 : 0;
       if (slot.cutout) {
-        if (!slot.faceHidden && slot.fadeLevel >= 1) setFaceHidden(slot, true);
+        const maskOut = !masked || slot.maskLevel === 0;
+        if (!slot.faceHidden && slot.fadeLevel >= 1 && maskOut) setFaceHidden(slot, true);
         target = slot.faceHidden ? 0 : 1;
       } else if (slot.faceHidden && (target === 0 || slot.fadeLevel >= 1)) {
         setFaceHidden(slot, false);

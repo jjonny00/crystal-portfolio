@@ -36,6 +36,8 @@ import OverviewTouchPicker from './OverviewTouchPicker'
 import SceneBackgroundClick from './SceneBackgroundClick'
 import HeroCrystalTap from './HeroCrystalTap'
 import { effects, materials as defaultCrystalMaterials, crystalWholePathForTier, projectModelPathForTier } from '../../crystalConfig'
+import { projectFaceMaskPathForTier } from '../../config/assetPaths'
+import { setArtworkOptics, readArtworkOptics, setArtworkOpticsDebug } from '../materials/artworkMask'
 import { useFacetOverlayGeometry, resetOverlaySlot, reassertOverlayFace } from '../../hooks/useFacetOverlayGeometry'
 import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController'
 import { useHoverCapable } from '../../hooks/useHoverCapable'
@@ -1568,6 +1570,24 @@ const UnifiedCrystalScene = forwardRef(({
     markScenePrep('materials');
   }, []);
 
+  // Artwork masks (materials.facet.artworkMask) belong to the fragment's GLB, so
+  // they are looked up by model key, and only exist for the high/medium exports.
+  // Same tier field the facet GLBs are picked by below.
+  const artworkMaskConfig = config?.materials?.facet?.artworkMask;
+  const artworkMaskEnabled = artworkMaskConfig?.enabled ?? false;
+  const artworkMaskTier = performanceProfile?.pbrQuality ?? 'high';
+  const [artworkMaskStrengthOverride, setArtworkMaskStrengthOverride] = useState(null);
+  const artworkMaskStrength =
+    artworkMaskStrengthOverride ?? artworkMaskConfig?.strength ?? 1;
+  const artworkMaskPathForFacet = useCallback(
+    (facetKey) => {
+      if (!artworkMaskEnabled) return null;
+      const modelKey = getProjectModelKeyByFacetKey(facetKey);
+      return modelKey ? projectFaceMaskPathForTier(modelKey, artworkMaskTier) : null;
+    },
+    [artworkMaskEnabled, artworkMaskTier]
+  );
+
   const {
     isReady: overlaysReady,
     registerOverlaySlot,
@@ -1576,7 +1596,44 @@ const UnifiedCrystalScene = forwardRef(({
     updateOverlays,
     cleanup: cleanupOverlays,
     overlaySlots
-  } = useFacetOverlayGeometry(facetKeys);
+  } = useFacetOverlayGeometry(facetKeys, {
+    maskPathForFacet: artworkMaskPathForFacet,
+    maskStrength: artworkMaskStrength,
+  });
+
+  // The optics settings are shared by every masked overlay, so they go straight to
+  // the material module rather than through the overlay hook.
+  const artworkOpticsConfig = config?.materials?.facet?.artworkOptics;
+  const artworkOpticsKey = JSON.stringify(artworkOpticsConfig ?? null);
+  useEffect(() => {
+    setArtworkOptics(artworkOpticsConfig ?? { enabled: false });
+    // artworkOpticsConfig is read inside, but the key is what says it changed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [artworkOpticsKey]);
+
+  // DEV: __setArtworkMask({ strength: 0.5 }) tunes the mask live (a uniform, no
+  // recompile); __setArtworkMask({ strength: null }) goes back to the config value.
+  // __setArtworkOptics({ refractionStrength: 3, debug: true }) retunes the optics
+  // until the config changes or the page reloads; debug paints the shift instead
+  // of the photo (red = device px).
+  useEffect(() => {
+    if (!import.meta.env.DEV) return undefined;
+    globalThis.__setArtworkMask = ({ strength } = {}) => {
+      setArtworkMaskStrengthOverride(Number.isFinite(strength) ? strength : null);
+    };
+    globalThis.__setArtworkOptics = ({ debug, ...params } = {}) => {
+      const current = readArtworkOptics();
+      setArtworkOptics({ ...current, ...params });
+      if (debug !== undefined) setArtworkOpticsDebug(debug);
+      const next = readArtworkOptics();
+      console.log('[artworkOptics]', next);
+      return next;
+    };
+    return () => {
+      delete globalThis.__setArtworkMask;
+      delete globalThis.__setArtworkOptics;
+    };
+  }, []);
 
   // The facet whose artwork should be showing — the same pick as the focus-change
   // effect's activeSceneFacetKey. Mirrored to a ref for the idle registration

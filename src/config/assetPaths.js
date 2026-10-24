@@ -65,6 +65,39 @@ export const projectModelPathForTier = (key, tier = 'high') => {
   return `${tier === 'low' ? PROJECT_MODEL_DIRS.low : PROJECT_MODEL_DIRS.default}/${file}`;
 };
 
+// Artwork masks for the project faces (components/materials/artworkMask.js), keyed
+// by model like the facets above. Each is painted against one GLB's UV layout (the
+// Blender UV export of its ProjectDisplay face) over the full 0..1 UV square, not
+// cropped to the face, so it belongs to the fragment rather than to the photo and
+// stays put when the photo changes.
+//
+// Only the default exports have them. The low tier's facets are separate exports
+// with their own UVs, where a mask made for the default one would land off the
+// face, so they keep the plain artwork until one is painted for them.
+//
+// Not loader assets: like the artwork itself, they load once the scene is up.
+//
+// Keyed by GLB file, but the masks are named after the Blender object inside it
+// (its node name, which is what the UV export carries), and the two numberings
+// differ: Project05.glb holds the object `project01`, so it takes project01's mask.
+// The object number is the one that matches the project shown on it.
+const PROJECT_FACE_MASK_FILES = {
+  project01: 'project06-artwork-mask.png', // object project06 — GE Experience Centers
+  project02: 'project05-artwork-mask.png', // object project05 — Forest Giant
+  project03: 'project03-artwork-mask.png', // object project03 — FundSeeder
+  project04: 'project04-artwork-mask.png', // object project04 — Flying Axes
+  project05: 'project01-artwork-mask.png', // object project01 — Slipstream
+  project06: 'project02-artwork-mask.png', // object project02 — Mesa
+};
+
+const PROJECT_FACE_MASK_DIR = '/assets/textures/face-masks';
+
+export const projectFaceMaskPathForTier = (key, tier = 'high') => {
+  const file = PROJECT_FACE_MASK_FILES[key];
+  if (!file || tier === 'low') return null;
+  return `${PROJECT_FACE_MASK_DIR}/${file}`;
+};
+
 export const FRACTURE_RAYS_MODEL = '/assets/models/FractureRays.glb';
 
 // === TEXTURES ===

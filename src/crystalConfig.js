@@ -698,6 +698,34 @@ export const materials = {
       brightnessColor: '#0080ff',
       noiseAmount: 1.5,
       noiseScale: 80
+    },
+
+    // Authored grayscale mask over the project artwork: where it darkens, the photo
+    // gives way to the crystal face rendered beneath it. White keeps the photo.
+    // Per-fragment assets, high and medium tiers only (see projectFaceMaskPathForTier
+    // in config/assetPaths.js); see components/materials/artworkMask.js.
+    artworkMask: {
+      enabled: true,
+      // Scales the mask: 0 is the unmasked artwork exactly, 1 the mask as painted.
+      // A uniform, so it tunes live.
+      strength: 1.0
+    },
+
+    // What the mask does to the photo (components/materials/artworkMask.js). All
+    // uniforms, so they tune live. `enabled: false` is the mask as it was before
+    // these: its full transparency, no shift, no split.
+    artworkOptics: {
+      enabled: true,
+      // Share of the mask's transparency kept. 1 shows as much crystal as the mask
+      // is painted for; 0 leaves the photo fully opaque.
+      opacityEffect: 0.55,
+      // Largest shift of the photo inside the painted planes, in CSS pixels, so it
+      // reads the same on every fragment, photo and screen. 0 samples the photo
+      // exactly as before.
+      refractionStrength: 8.5,
+      // Red and blue sampled this many CSS pixels either side of green, along the
+      // same shift, and never more than half of it. 0 = off.
+      dispersionStrength: 10
     }
   },
   
