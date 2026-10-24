@@ -97,9 +97,11 @@ const REFORM_MASK_GLOW_DURATION_S = 0.2
 const REFORM_MASK_GLOW_PEAK_INTENSITY = 3.5
 const REFORM_FACET_MASK_GLOW_PEAK_INTENSITY = 3.5
 const REFORM_SWAP_OVERLAP_MS = 100
-// The orb behind the fragments (the two glow sprites) fades out over this long
-// as the crystal reforms, rather than going out the moment it starts.
-const ORB_FADE_OUT_SECONDS = 1.2
+// The orb behind the fragments (the two glow sprites) stays lit through the
+// reform and fades out over this long once the fragments reach the centre, so
+// it is gone as the masked swap to the whole crystal completes and the camera
+// lands (HERO_RETURN_CINEMATIC: reformSeconds 2.05, durationSeconds 2.4).
+const ORB_FADE_OUT_SECONDS = 0.35
 
 // Facet hover/focus color-transition rates (progress units per second; duration ≈ 1/rate).
 // The hover-out fade runs at half rate so exiting a hover fades back twice as slowly.
@@ -3021,7 +3023,9 @@ const UnifiedCrystalScene = forwardRef(({
           explosionCycleCompleteRef.current = true;
           setShowWholeCrystal(false);
           setShowFacets(true);
-          setSphereVisible(false);
+          // The orb is left as the reform had it: still lit if the fragments
+          // hadn't reached the centre (it carries on into the overview), out
+          // if they had.
           setRingVisible(false);
           reversalLabelRevealAtRef.current = performance.now() + REVERSAL_LABEL_REVEAL_DELAY_MS;
         } else if (!simplifiedAnimations && !explosionCycleCompleteRef.current) {
@@ -3051,7 +3055,7 @@ const UnifiedCrystalScene = forwardRef(({
 
       } else if (currentForm === 'whole') {
         if (import.meta.env.DEV) {
-          logger.debug('💎 Crystal: Reform detected - hiding sphere');
+          logger.debug('💎 Crystal: Reform detected');
         }
         pendingExplodeSwapAtRef.current = null;
         pendingReformSwapAtRef.current = null;
@@ -3060,7 +3064,10 @@ const UnifiedCrystalScene = forwardRef(({
           swapMaskGlowStartRef.current = null;
           swapMaskGlowModeRef.current = null;
         }
-        setSphereVisible(false);
+        // With fragments to gather, the orb stays lit until they reach the
+        // centre (the reform swap below hides it); with none, there is no
+        // reform to wait for.
+        if (simplifiedAnimations || !showFacets) setSphereVisible(false);
         setRingVisible(false);
         if (simplifiedAnimations) {
           setShowWholeCrystal(true);
@@ -4174,6 +4181,9 @@ const UnifiedCrystalScene = forwardRef(({
           }
           triggerSwapMaskGlow('reform');
           pendingReformSwapAtRef.current = performance.now() + REFORM_PRE_SWAP_WINDOW_MS;
+          // The fragments have gathered: the orb goes out over the swap
+          // (ORB_FADE_OUT_SECONDS).
+          setSphereVisible(false);
         }
       }
     }
@@ -4800,8 +4810,8 @@ const UnifiedCrystalScene = forwardRef(({
         enableDithering={true}
         enableAntialiasing={true}
         textureFiltering="enhanced"
-        baseSize={256}
-        maxScale={9000}
+        baseSize={2000}
+        maxScale={15000}
         maxOpacity={0.55}
         explosionDuration={0.05}
         fadeInDuration={0.02}
@@ -4810,6 +4820,7 @@ const UnifiedCrystalScene = forwardRef(({
         tuningKey="__BG_HALO__"
         lookName="halo"
         fadeOutSeconds={ORB_FADE_OUT_SECONDS}
+        holdUntilHidden
         lookFromSplit
         renderOrder={-10}
         depthPush={8}
@@ -4826,10 +4837,11 @@ const UnifiedCrystalScene = forwardRef(({
         enableAntialiasing={true}
         textureFiltering="enhanced"
         baseSize={256}
-        maxScale={3500}
+        maxScale={5000}
         maxOpacity={0.45}
         lookName="glow"
         fadeOutSeconds={ORB_FADE_OUT_SECONDS}
+        holdUntilHidden
         explosionDuration={0.05}
         fadeInDuration={0.02}
         position={[0, 0, 0]}

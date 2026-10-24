@@ -75,6 +75,9 @@ const GlowingSphereImage = ({
   // Seconds to fade out once hidden (visible false, or the crystal reforming),
   // eased from wherever it was; null keeps the quick ~0.1s drop.
   fadeOutSeconds = null,
+  // Stay lit through the reform until `visible` goes false, rather than going
+  // out the moment the crystal starts reforming; the parent decides when.
+  holdUntilHidden = false,
 
   // Position and visibility
   position = [0, 0, 0],
@@ -256,12 +259,15 @@ const GlowingSphereImage = ({
     const currentForm = animationData.crystalForm;
     if (currentForm !== lastCrystalForm.current) {
       
-      if (currentForm === 'exploded' && lastCrystalForm.current === 'whole') {
+      // Still showing from the last explosion: a reform reversed back out
+      // before the orb went out. Carry on rather than re-blooming from nothing.
+      const stillLit = holdUntilHidden && meshRef.current?.visible && meshRef.current.material.opacity > 0;
+      if (currentForm === 'exploded' && lastCrystalForm.current === 'whole' && !stillLit) {
         setIsExploding(true);
         setStartTime(Date.now());
         if (debugMode) if (import.meta.env.DEV) console.log('🌟 Enhanced sphere: Start explosion with anti-banding');
-        
-      } else if (currentForm === 'whole' && lastCrystalForm.current === 'exploded') {
+
+      } else if (currentForm === 'whole' && lastCrystalForm.current === 'exploded' && !holdUntilHidden) {
         setIsExploding(false);
         if (debugMode) if (import.meta.env.DEV) console.log('🌟 Enhanced sphere: Stop explosion');
       }

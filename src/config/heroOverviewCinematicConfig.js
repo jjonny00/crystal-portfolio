@@ -268,8 +268,10 @@ export const HERO_OVERVIEW_CINEMATIC_CONFIG = {
     // The two glow sprites behind the crystal (GlowingSphereImage): the wide
     // backdrop halo and the tighter glow.
     // Like the bloom, only while the explosion plays: the index keeps its glow.
-    halo: { enabled: true, intensity: 0.6 },
-    glow: { enabled: true, intensity: 0.6 },
+    // At 1 so the orb is at full strength from the split, rather than held
+    // back through the move and only coming up after the camera lands (was 0.6).
+    halo: { enabled: true, intensity: 1 },
+    glow: { enabled: true, intensity: 1 },
     // The energy motes swarming the orb (OrbEnergyParticles).
     motes: { enabled: true, intensity: 0.45 },
     // The shockwave ring (FractureRingImage) and the crack rays (FractureRays).
