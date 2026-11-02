@@ -6,6 +6,7 @@
 // download is wasted and the scene fetches its file again.
 
 import {
+  CRYSTAL_DEBRIS_MODELS,
   CRYSTAL_NORMAL_MAP,
   DUST_TEXTURE,
   FRACTURE_RAYS_MODEL,
@@ -29,6 +30,7 @@ export const SHARED_SCENE_ASSETS = [
   GLOW_SPHERE_TEXTURE,
   WIZARD_SMOKE_TEXTURE,
   FRACTURE_RAYS_MODEL,
+  ...Object.values(CRYSTAL_DEBRIS_MODELS),
   MIST_TEXTURE,
   DUST_TEXTURE,
 ];

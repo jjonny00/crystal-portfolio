@@ -100,6 +100,28 @@ export const projectFaceMaskPathForTier = (key, tier = 'high') => {
 
 export const FRACTURE_RAYS_MODEL = '/assets/models/FractureRays.glb';
 
+// The debris that breaks off with the project facets (CrystalDebris): slender
+// shards and fine chips, each a unit long on Y about its centroid, by name (as
+// debris.items refers to them). Every tier: ~2KB apiece.
+export const CRYSTAL_DEBRIS_MODELS = Object.fromEntries([
+  'shard_01_needle',
+  'shard_02_lancet',
+  'shard_03_blade',
+  'shard_04_skew',
+  'shard_05_spall',
+  'shard_06_splinter',
+  'shard_07_keel',
+  'shard_08_wedge',
+  'shard_09_plate',
+  // Thick: for the largest pieces, furthest out and nearest the lens.
+  'shard_10_stout_keel',
+  'shard_11_heavy_wedge',
+  'shard_12_thick_plate',
+  'chip_01_sliver',
+  'chip_02_flake',
+  'chip_03_spike',
+].map((name) => [name, `/assets/models/${name}.glb`]));
+
 // === TEXTURES ===
 export const CRYSTAL_NORMAL_MAP = '/assets/textures/raw-crystal-normal01.png';
 export const MIST_TEXTURE = '/assets/textures/mist05.jpg';

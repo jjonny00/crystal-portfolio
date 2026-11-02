@@ -19,6 +19,7 @@ import OrbEnergyParticles from './OrbEnergyParticles'
 import FractureRingImage from './FractureRingImage'
 import FractureRays from './FractureRays'
 import FractureSmokePuff from './FractureSmokePuff'
+import CrystalDebris, { buildCrystalDebris } from './CrystalDebris'
 import projects, {
   facetKeys as canonicalFacetKeys,
   getProjectColorByFacetKey,
@@ -36,7 +37,7 @@ import OverviewTouchPicker from './OverviewTouchPicker'
 import SceneBackgroundClick from './SceneBackgroundClick'
 import HeroCrystalTap from './HeroCrystalTap'
 import { effects, materials as defaultCrystalMaterials, crystalWholePathForTier, projectModelPathForTier } from '../../crystalConfig'
-import { projectFaceMaskPathForTier } from '../../config/assetPaths'
+import { projectFaceMaskPathForTier, CRYSTAL_DEBRIS_MODELS } from '../../config/assetPaths'
 import { setArtworkOptics, readArtworkOptics, setArtworkOpticsDebug } from '../materials/artworkMask'
 import { useFacetOverlayGeometry, resetOverlaySlot, reassertOverlayFace } from '../../hooks/useFacetOverlayGeometry'
 import { ANIMATION_CONFIG } from '../../hooks/useUnifiedAnimationController'
@@ -55,6 +56,11 @@ import { markHeroReformStart } from '../../lib/heroReformClock'
 import { markScenePrep } from '../../loader/loadProgress'
 
 const PROJECT_DISPLAY_SLOT = 'ProjectDisplay'
+// One glow program for all the debris (CrystalDebris), apart from the facets',
+// which carry edge wear.
+const DEBRIS_GLOW_PROGRAM_KEY = 'internalGlow-debris'
+const DEBRIS_MODEL_NAMES = Object.keys(CRYSTAL_DEBRIS_MODELS)
+const DEBRIS_MODEL_URLS = Object.values(CRYSTAL_DEBRIS_MODELS)
 const FOCUS_ROTATION_PROGRESS_LEAD = 1
 // Exponential rate the focused facet's idle float decays at when a case study
 // opens. Lower is slower; ~2.2 brings it to rest over roughly the camera's move
@@ -1853,6 +1859,24 @@ const UnifiedCrystalScene = forwardRef(({
   // second. The GLTFs themselves are cached and stable, so they are the key.
   const facetModels = useMemo(() => loadedFacetModels, loadedFacetModels); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // The debris that breaks off with the facets (CrystalDebris): shards and chips
+  // laid out by debris.items, one InstancedMesh per model. Built once from the
+  // cached GLTFs, so the meshes outlive the fragments' group unmounting between
+  // explosions.
+  const debrisModels = useGLTF(DEBRIS_MODEL_URLS);
+  // A piece's `mobile` fields replace its own on the phone, whose overview frames
+  // the cluster differently and sets a label beside each facet.
+  const debrisConfig = useMemo(() => {
+    const base = config?.debris;
+    if (!isMobile || !base?.items?.some((item) => item?.mobile)) return base;
+    return { ...base, items: base.items.map((item) => (item?.mobile ? { ...item, ...item.mobile } : item)) };
+  }, [config?.debris, isMobile]);
+  const crystalDebris = useMemo(() => buildCrystalDebris(
+    Object.fromEntries(DEBRIS_MODEL_NAMES.map((name, index) => [name, debrisModels[index]?.scene])),
+    debrisConfig?.enabled === false ? [] : debrisConfig?.items,
+  ), [...debrisModels, debrisConfig?.enabled, debrisConfig?.items]); // eslint-disable-line react-hooks/exhaustive-deps
+  const debrisEnabled = crystalDebris.pieces.length > 0;
+
   // Geometry-only diagnostic: swap the crystal meshes to flat per-face normals so the
   // transmissive material renders as clean hard-faceted glass. See FLATTEN_CRYSTAL_NORMALS.
   // NOTE: this is a useEffect (not useMemo) on purpose — React Fast Refresh preserves
@@ -2693,6 +2717,47 @@ const UnifiedCrystalScene = forwardRef(({
     crystalConfig?.explodeDuration,
     mergedConfig?.effects?.fracture?.initialGlow
   ]);
+
+  // The debris' one material: the facets' (a clone of the crystal material with
+  // the resting internal glow), shared by every piece. CrystalDebris drives its
+  // emissive from the facets' flare and reform glow. Rebuilt with the crystal
+  // material, and compiled ahead by the warmup render (the debris is among its roots).
+  const debrisGlowConfig = config?.materials?.crystal?.glow;
+  const debrisGlowScale = performanceProfile?.glowIntensityScale ?? 1;
+  const debrisMaterialOverrides = config?.debris?.material;
+  const debrisRestEmissive = useMemo(
+    () => new THREE.Color(config?.materials?.crystal?.emissive ?? '#02062b'),
+    [config?.materials?.crystal?.emissive]
+  );
+  useEffect(() => {
+    const source = crystalMaterialRef.current;
+    if (!source || !debrisEnabled) return undefined;
+    const mat = source.clone();
+    // As for the facets: never inherit the arrival intro's dim.
+    const introDimBase = mat.userData?.introDimBase;
+    if (introDimBase) {
+      ['envMapIntensity', 'reflectivity'].forEach((prop) => {
+        if (Number.isFinite(introDimBase[prop])) mat[prop] = introDimBase[prop];
+      });
+      delete mat.userData.introDimBase;
+    }
+    // Their own overrides (debris.material) where a piece's size makes the facets'
+    // values wrong, such as the glass thickness the light passes through.
+    Object.entries(debrisMaterialOverrides ?? {}).forEach(([prop, value]) => {
+      if (prop in mat && typeof mat[prop] === typeof value) mat[prop] = value;
+    });
+    mat.emissive.copy(debrisRestEmissive);
+    mat.emissiveIntensity = config?.materials?.crystal?.emissiveIntensity ?? 0;
+    attachInternalGlow(mat, {
+      color: debrisGlowConfig?.color ?? '#6AFFEE',
+      emissiveIntensity: (debrisGlowConfig?.emissiveIntensity ?? 0) * debrisGlowScale,
+      fresnelPower: debrisGlowConfig?.fresnelPower ?? 2.5,
+      glowBias: debrisGlowConfig?.glowBias ?? 0,
+      programKey: DEBRIS_GLOW_PROGRAM_KEY,
+    });
+    crystalDebris.meshes.forEach((mesh) => { mesh.material = mat; });
+    return () => mat.dispose();
+  }, [crystalDebris, debrisEnabled, materialVersion, debrisRestEmissive, debrisGlowConfig, debrisGlowScale, debrisMaterialOverrides, config?.materials?.crystal?.emissiveIntensity]);
 
   useEffect(() => {
     if (!overlaysReady || !modelsLoaded || !showFacets) return;
@@ -4764,7 +4829,10 @@ const UnifiedCrystalScene = forwardRef(({
           doesn't hitch. See SceneWarmup above. */}
       <SceneWarmup
         active={modelsLoaded && materialVersion > 0}
-        geometryRoots={facetModels.map((m) => m?.scene)}
+        geometryRoots={[
+          ...facetModels.map((m) => m?.scene),
+          ...crystalDebris.meshes,
+        ]}
       />
 
       {/* Fracture expanding ring */}
@@ -5075,6 +5143,26 @@ const UnifiedCrystalScene = forwardRef(({
               />
             );
           })}
+          {debrisEnabled && (
+            <CrystalDebris
+              debris={crystalDebris}
+              debrisConfig={debrisConfig}
+              crystalForm={animationData?.crystalForm}
+              selectedFacetKey={
+                animationData?.cameraState === 'project' || animationData?.cameraState === 'caseStudy'
+                  ? (animationData?.focusedFacet ?? null)
+                  : null
+              }
+              floatConfig={effects.idle.float}
+              facetRefs={facetRefs}
+              facetKeys={facetKeys}
+              magnetRef={facetMagnetRef}
+              crystalScene={wholeCrystal?.scene}
+              emissiveSourceRef={facetMaterialsRef}
+              emissiveRestColor={debrisRestEmissive}
+              emissiveFlareColor={swapMaskGlowColor}
+            />
+          )}
         </group>
       )}
 

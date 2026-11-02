@@ -237,6 +237,133 @@ export const fracturePositions = Object.fromEntries(
   ])
 );
 
+// === CRYSTAL DEBRIS ===
+// The shards and chips that break off with the facets (components/three/CrystalDebris).
+// Each piece belongs to one facet, its parent, and is authored in that facet's own
+// space: `seat` and `seatTurn` where it lies in the whole crystal (on one of the
+// parent's fracture edges, flat in the outer face there, its length along the
+// edge), `rest` and `turn` where it rests in the opening across that edge (the
+// face's turn plus a small tumble). `length` is its size (the models are a unit
+// long on Y). Its pose is worked out from its parent's at the same moment.
+export const debris = {
+  enabled: true,
+  // Seconds a piece trails its place (0: computed from its parent's pose at the
+  // same moment, as authored debris is).
+  lag: [0, 0],
+  // A roll about its length at rest (rad/s, a range), and this many radians more
+  // per unit it travels. None at rest: a piece keeps the turn it inherited from
+  // its parent (and a glint-free one), floating with it.
+  idleSpin: [0, 0],
+  travelSpin: 0.1,
+  // The facet's distance from its place in the crystal over which its debris
+  // comes out to full size and offset (and goes back as it seats on the reform).
+  outReach: 0.35,
+  // Pieces at least this long (all of them, at present) start as part of the
+  // whole crystal: each sits flat on one of its facet's outer faces, sunk just
+  // under it, and rides the facet until the facet has travelled past its
+  // `release` (a distance, spread across the pieces over `at`, taking `span`),
+  // then breaks off it: straight off the face over the first `lift` of the way,
+  // clear of the facet, then for its place. It keeps `restAlign` of the face's
+  // turn there, so it still lies the way the face it broke from does.
+  seatFrom: 0.25,
+  release: { at: [0.05, 0.45], span: 0.35, lift: 0.25 },
+  restAlign: 0,
+  // Kept out of the facets (they are convex, so it is a few dot products a
+  // piece): one that gets inside a facet goes straight back out through the
+  // nearest face; one within `collisionMargin` of its size of one gives way by
+  // `collisionSoftness` of the intrusion, a cushion that grows as a facet drifts
+  // closer (the cursor magnet) rather than a hard stop.
+  collide: true,
+  collisionMargin: 0.3,
+  collisionSoftness: 0.5,
+  // A piece's `select` entries (by facet key) are where it rests instead while
+  // that project is selected, clear of its artwork and copy; `mobile.select`
+  // replaces them on the phone. It eases there and back over about this long
+  // (seconds), ahead of the camera's move, so it never crosses the artwork.
+  selectSeconds: 0.3,
+  // The cursor magnet (effects.idle.magnet) pulls each facet, and the facet
+  // carries its debris. A piece follows only `follow` of that pull (a range,
+  // from the smallest pieces to the largest, by length over `size`), so the
+  // finer debris drifts less than the fragments. A piece's own `magnetFollow`
+  // overrides that: a large shard close to a neighbouring facet follows nearly
+  // all of it. A piece's `magnetShare` (by facet key) instead blends several
+  // facets' pulls: the plate between Mesa and Slipstream rides the gap between
+  // them, so it isn't squeezed when the magnet draws them together.
+  magnet: {
+    follow: [0.2, 0.65],
+    size: [0.05, 0.45],
+  },
+  // The reform brings each piece in with its facet, in step; one turned back to
+  // the overview before the facets are home eases the debris out again over
+  // `returnSeconds`.
+  returnSeconds: 0.6,
+  // The overview drift, against the facets' (effects.idle.float).
+  floatMultiplier: 0.6,
+  // Shrink to nothing between these view depths (from the piece's near end), so
+  // a piece by the lens on a close shot goes rather than filling the frame.
+  nearFade: [0.3, 1.1],
+  // Material properties set apart from the facets' (any the crystal material
+  // has). None for now: at the facets' glass thickness the debris reads as the
+  // dark glass the facets are, as the composition wants.
+  material: {},
+  // Per model: `width` scales its breadth and depth (X, Z) against its length,
+  // and `scale` all of it. The chips as modelled are slivers that vanish at a
+  // few pixels; the composition wants them as chunky specks.
+  models: {
+    chip_01_sliver: { width: 4.5, scale: 1.1 },
+    chip_02_flake: { width: 2, scale: 1.1 },
+    chip_03_spike: { width: 3.2, scale: 1.1 },
+    shard_01_needle: { width: 1.8 },
+    shard_02_lancet: { width: 1.3 },
+    shard_06_splinter: { width: 1.5 },
+  },
+  // Laid out from the facets' own fracture edges (Oct 2026), in a few uneven
+  // groups (a noticeable shard, one or two much smaller companions, then a gap),
+  // each piece clear of every facet's outline on screen at the overview by at
+  // least 16 px.
+  items: [
+    // Mesa | Slipstream: a plate, two slivers and a chip, the strongest group.
+    { facet: 'exploration', model: 'shard_12_thick_plate', length: 0.42, magnetShare: { exploration: 0.5, leadership: 0.5 }, seat: [-0.535, 0.816, 0.412], seatTurn: [-0.2838, -0.3771, 0.0105, 0.8816], rest: [0.331, 1.295, 1.347], turn: [-0.2748, -0.2978, 0.0959, 0.9092], select: { leadership: { rest: [0.444, 1.399, 1.531] } }, mobile: { select: { leadership: { rest: [0.289, 1.262, 1.374] } } } },
+    { facet: 'leadership', model: 'shard_08_wedge', length: 0.2, seat: [-0.298, 1.389, 0.19], seatTurn: [-0.3744, 0.2841, 0.8826, -0.0096], rest: [-0.901, 1.308, -0.36], turn: [-0.4072, 0.3236, 0.8517, -0.0637], select: { leadership: { rest: [-0.747, 1.315, -0.404] } }, mobile: { select: { leadership: { rest: [-0.759, 1.438, -0.13] } } } },
+    { facet: 'exploration', model: 'shard_04_skew', length: 0.16, seat: [-0.386, 1.274, 0.187], seatTurn: [-0.2838, -0.3771, 0.0105, 0.8816], rest: [0.297, 1.64, 1.286], turn: [-0.3945, -0.2684, -0.0066, 0.8788], select: { leadership: { rest: [0.363, 1.66, 1.246] } }, mobile: { select: {} } },
+    { facet: 'leadership', model: 'chip_02_flake', length: 0.07, seat: [-0.304, 1.393, 0.179], seatTurn: [-0.3744, 0.2841, 0.8826, -0.0096], rest: [-1.059, 1.599, -0.211], turn: [-0.3885, 0.353, 0.8508, -0.0248], mobile: { select: {} } },
+    // Fundseeder's upper-left edge: the stout keel, its length rising up-right with
+    // Fundseeder's upper edge, one dark face to the camera (by test render), and
+    // one sliver above.
+    { facet: 'leadership', model: 'shard_10_stout_keel', length: 0.45, magnetFollow: 0.9, seat: [0.193, 0.185, 0.333], seatTurn: [0.3141, 0.723, -0.4252, 0.4447], rest: [0.423, -0.426, 0.179], turn: [0.1687, 0.4217, 0.5102, -0.7303], select: { craft: { rest: [0.823, -0.161, 0.166] } }, mobile: { select: { craft: { rest: [0.552, -0.432, -0.631] } } } },
+    { facet: 'leadership', model: 'chip_01_sliver', length: 0.07, seat: [0.377, 0.241, 0.681], seatTurn: [0.1262, 0.4647, -0.5152, 0.709], rest: [0.563, -0.111, 0.646], turn: [0.2203, 0.3948, -0.5016, 0.7376], mobile: { select: {} } },
+    // The core: an upright keel with two tiny spikes gathered unevenly about it.
+    { facet: 'craft', model: 'shard_07_keel', length: 0.2, seat: [-0.549, -0.526, 0.576], seatTurn: [-0.4613, -0.1637, 0.8486, 0.2007], rest: [-0.958, -0.335, 0.302], turn: [-0.5056, -0.1566, 0.8157, 0.2335], mobile: { select: { craft: { rest: [-0.943, -0.419, 0.413] } } } },
+    { facet: 'craft', model: 'chip_03_spike', length: 0.06, seat: [-0.582, -0.685, 0.494], seatTurn: [-0.4613, -0.1637, 0.8486, 0.2007], rest: [-1.054, -0.167, 0.398], turn: [-0.4763, -0.0612, 0.8349, 0.2691], mobile: { select: { craft: { rest: [-1.044, -0.227, 0.477] } } } },
+    { facet: 'craft', model: 'chip_03_spike', length: 0.05, seat: [-0.611, -0.79, 0.429], seatTurn: [-0.4613, -0.1637, 0.8486, 0.2007], rest: [-0.761, -0.835, 0.018], turn: [-0.3658, -0.22, 0.8843, 0.1894], select: { craft: { rest: [-0.798, -0.923, 0.238] } }, mobile: { select: { craft: { rest: [-0.838, -0.888, -0.058] } } } },
+    // Forest Giant's upper-left break: the heavy wedge along that edge (rolled about
+    // its length off a glint, by test render), a spall by it. On the phone the
+    // wedge sits a touch right and up, off the Flying Axes label's connector.
+    { facet: 'narrative', model: 'shard_11_heavy_wedge', length: 0.4, seat: [-0.531, -0.856, -0.473], seatTurn: [-0.5399, -0.6487, 0.0621, 0.5328], rest: [-0.773, -0.766, -0.364], turn: [-0.5228, -0.3968, -0.1483, 0.7397], select: { narrative: { rest: [-0.781, -0.776, -0.503] } }, mobile: { rest: [-0.593, -0.646, -0.364], select: {} } },
+    { facet: 'system', model: 'shard_05_spall', length: 0.15, seat: [-0.67, -0.886, 0.042], seatTurn: [0.4655, 0.6124, -0.4129, -0.4877], rest: [-0.305, -1.091, -0.225], turn: [0.5135, 0.6175, -0.4278, -0.4148], select: { narrative: { rest: [-0.316, -1.418, -0.317] } }, mobile: { select: {} } },
+    // A single stray chip.
+    { facet: 'system', model: 'chip_02_flake', length: 0.06, seat: [-0.678, -0.902, 0.291], seatTurn: [0.175, -0.5598, -0.2159, 0.7806], rest: [-0.684, -1.267, 0.539], turn: [0.2324, -0.5738, -0.218, 0.7545], select: { narrative: { rest: [-0.78, -1.266, 0.437] } }, mobile: { select: {} } },
+    // Final layer: small additions to three of the groups, none by GE.
+    // Mesa | Slipstream: a chip by the plate, one lower toward the gap, and a sliver
+    // set farther back off Mesa's upper edge.
+    { facet: 'exploration', model: 'chip_03_spike', length: 0.06, seat: [-0.368, 1.388, 0.108], seatTurn: [-0.2838, -0.3771, 0.0105, 0.8816], rest: [0.158, 1.655, 0.179], turn: [-0.3153, -0.2932, 0.0212, 0.9023], select: { leadership: { rest: [0.177, 1.671, 0.148] } }, mobile: { select: {} } },
+    { facet: 'leadership', model: 'chip_02_flake', length: 0.045, seat: [-0.403, 0.259, 0.661], seatTurn: [-0.0053, -0.1315, 0.138, 0.9817], rest: [-0.62, 0.524, 0.433], turn: [-0.1283, -0.1203, 0.2285, 0.9575], select: { leadership: { rest: [-0.746, 0.494, 0.487] } }, mobile: { select: { leadership: { rest: [-0.692, 0.529, 0.468] } } } },
+    { facet: 'exploration', model: 'chip_01_sliver', length: 0.075, seat: [-0.266, 1.55, -0.067], seatTurn: [-0.554, -0.6449, 0.1411, 0.5072], rest: [-0.367, 1.884, -0.415], turn: [-0.548, -0.5806, 0.0596, 0.5993], select: { leadership: { rest: [-0.405, 1.865, -0.548] } }, mobile: { select: {} } },
+    // Fundseeder's keel: two tiny chips together on its inner side, its point clear.
+    { facet: 'leadership', model: 'chip_03_spike', length: 0.05, seat: [0.436, 0.849, -0.382], seatTurn: [-0.3991, 0.7701, 0.0862, 0.4901], rest: [0.315, -0.602, -2.502], turn: [-0.4608, 0.7704, 0.0986, 0.4296], select: { craft: { rest: [0.19, -0.656, -2.648] } }, mobile: { select: {} } },
+    { facet: 'craft', model: 'chip_02_flake', length: 0.04, seat: [-0.595, -0.656, 0.479], seatTurn: [-0.4613, -0.1637, 0.8486, 0.2007], rest: [-0.624, -0.215, 0.355], turn: [-0.3405, -0.1826, 0.9043, 0.1816], select: { craft: { rest: [-0.573, -0.125, 0.502] } }, mobile: { select: { craft: { rest: [-0.641, -0.344, 0.557] } } } },
+    // Flying Axes | Forest Giant: a sliver along the wedge's diagonal; the lower
+    // group stays quiet.
+    { facet: 'system', model: 'shard_04_skew', length: 0.13, seat: [-0.648, -0.861, -0.082], seatTurn: [0.4655, 0.6124, -0.4129, -0.4877], rest: [-0.384, -0.997, -0.161], turn: [0.4654, 0.6315, -0.453, -0.4237], select: { narrative: { rest: [-0.345, -0.824, 0.412] } }, mobile: { select: {} } },
+    // GE: a short splinter off its upper-left shoulder, with its broad upper edge;
+    // a much smaller chip higher in the gap, to the other side; a tiny outlier
+    // beside its lower-right edge.
+    { facet: 'empathy', model: 'shard_06_splinter', length: 0.3, seat: [-0.213, -1.712, -0.116], seatTurn: [0.6918, 0.5521, -0.4625, -0.0523], rest: [-0.468, -1.271, -0.303], turn: [0.6044, 0.5899, -0.5279, -0.0896], select: { empathy: { rest: [-0.464, -1.309, -0.29] } }, mobile: { select: { empathy: { rest: [-0.477, -1.259, -0.316] } } } },
+    { facet: 'narrative', model: 'chip_03_spike', length: 0.045, seat: [0.429, -1.569, -0.133], seatTurn: [0.4666, -0.5061, 0.7037, 0.1759], rest: [0.171, -1.841, -0.078], turn: [0.5438, -0.4263, 0.7083, 0.1446], select: { empathy: { rest: [0.192, -1.801, -0.117] } }, mobile: { select: { empathy: { rest: [0.199, -1.822, -0.193] } } } },
+    { facet: 'empathy', model: 'chip_02_flake', length: 0.04, seat: [0.396, -1.546, 0.113], seatTurn: [0.1472, 0.4395, 0.6647, 0.5859], rest: [0.442, -1.935, 0.096], turn: [0.2766, 0.3435, 0.7004, 0.5613], select: { empathy: { rest: [0.621, -1.729, 0.263] } }, mobile: { select: { empathy: { rest: [0.491, -1.947, 0.064] } } } },
+  ],
+}
+
 // Optional final rotations for exploded facets (quaternions)
 export const explodedRotations = {
   empathy: [0, 0, 0, 1],
