@@ -64,7 +64,7 @@ export const fracture = {
   // lift ramp with its own values (explosionMotionProfiles.briefBulletTime.smoke).
   smoke: {
     enabled: true,
-    count: 18,            // sprites spawned per explosion (~12-18)
+    count: 108,            // sprites spawned per explosion (~12-18)
     // A later wave from the core: 6 more sprites born 0.6–1.6s after the
     // burst, close to the centre and at 0.4× its speed, so once the fragments
     // have opened the smoke is seen coming out of the heart of the explosion
@@ -96,7 +96,7 @@ export const fracture = {
     // as expanded at once instead of growing through the bullet-time orbit.
     lifetimeMin: 0.9,
     lifetimeMax: 6.5,     // seconds (was 4: the longest-lived now linger past the index's arrival)
-    opacity: 0.25          // peak per-sprite opacity (color comes from the texture itself)
+    opacity: 0.5          // peak per-sprite opacity (color comes from the texture itself)
   },
   emissive: {
     intensity: 2.3,       // Bright glow intensity at fracture
