@@ -2775,15 +2775,15 @@ const UnifiedCameraController = ({
     if (progress >= 1) heroToAboutMoveRef.current = null;
     return true;
   };
-  // Index → project, project → project, project ↔ case study and project →
-  // index, as timed moves (config/projectRouteTiming.js) instead of the
-  // open-ended chase that ends useFrame, which left at full speed and crept in
-  // for a second and a half. A new destination mid-move (scrolling on to the
-  // next project, Work part-way in) starts the next move from the live pose and
-  // carries its motion, so the moves stay as interruptible as the chase was.
-  // Anything else (the hero, About) keeps the chase. Runs only where the chase
-  // would have, so every other writer keeps its frames. True when it wrote the
-  // camera.
+  // Index → project, project → project, project ↔ case study, project →
+  // index, project → About and About → index, as timed moves
+  // (config/projectRouteTiming.js) instead of the open-ended chase that ends
+  // useFrame, which left at full speed and crept in for a second and a half. A
+  // new destination mid-move (scrolling on to the next project, Work part-way
+  // in) starts the next move from the live pose and carries its motion, so the
+  // moves stay as interruptible as the chase was. Anything else keeps the
+  // chase. Runs only where the chase would have, so every other writer keeps
+  // its frames. True when it wrote the camera.
   const driveProjectRouteMove = (state) => {
     const target = currentTarget.current;
     const cameraState = animationData?.cameraState ?? null;
@@ -2857,9 +2857,12 @@ const UnifiedCameraController = ({
         projectRouteMoveRef.current = null;
         return false;
       }
-      const projectId = PROJECT_ROUTES[route].to === 'overview'
-        ? (move?.projectId ?? seen.projectId)
-        : (animationData?.focusedProject ?? null);
+      // The project the move is about: the one arrived at, or, leaving for the
+      // index or About, the one left.
+      const arrivesAtProject = PROJECT_ROUTES[route].to === 'project' || PROJECT_ROUTES[route].to === 'caseStudy';
+      const projectId = arrivesAtProject
+        ? (animationData?.focusedProject ?? null)
+        : (move?.projectId ?? seen.projectId ?? null);
       // Project to project: the one being left, which turns home over the move.
       const fromProjectId = route === 'projectToProject'
         ? (move ? move.projectId : seen.projectId) ?? null

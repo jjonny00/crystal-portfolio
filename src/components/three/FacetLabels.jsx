@@ -36,6 +36,10 @@ const OVERVIEW_COLUMN_LEFT_MOBILE = `calc(var(--overview-rail-x, ${OVERVIEW_RAIL
 // rather than introducing a second, independent timer.
 const LABEL_REVEAL_STAGGER_MS = 70;
 
+// The camera's withdrawals to the index (config/projectRouteTiming.js), by the
+// camera state they leave: the labels hold for them (see labelHoldMs).
+const WITHDRAWAL_ROUTES = { project: 'projectToOverview', about: 'aboutToOverview' };
+
 const LABEL_FADE_IN_MS = 800;
 const LABEL_FADE_OUT_MS = 200;
 
@@ -403,30 +407,36 @@ const FacetLabels = React.memo(function FacetLabels({
     return () => observer.disconnect();
   }, [inActiveOverview, projects]);
 
-  // Back from a project, the camera's withdrawal (lib/projectRouteClock) says
-  // when the selected fragment is far enough out of the column for them. The
-  // index can be reached before the camera's next frame has started that
-  // withdrawal, so the labels also note the return themselves, as it happens,
-  // and hold from then; whichever says later wins (a clock left from an
+  // Back from a project or About, the camera's withdrawal
+  // (lib/projectRouteClock) says when it is far enough out of the fragments for
+  // them. The index can be reached before the camera's next frame has started
+  // that withdrawal, so the labels also note the return themselves, as it
+  // happens, and hold from then; whichever says later wins (a clock left from an
   // earlier return says nothing).
   const projectRouteMove = useSyncExternalStore(subscribeProjectRouteMove, getProjectRouteMove);
-  const withdrawal = projectRouteMove?.route === 'projectToOverview' ? projectRouteMove : null;
+  const withdrawal = Object.values(WITHDRAWAL_ROUTES).includes(projectRouteMove?.route) ? projectRouteMove : null;
   const reducedMotion = useMediaQuery(MQ_REDUCED_MOTION);
   const cameraState = animationData?.cameraState ?? null;
   const lastCameraStateRef = useRef(cameraState);
-  const returnedFromProjectAtRef = useRef(null);
+  // { route, at }: the withdrawal the index was reached by, and when.
+  const returnedRef = useRef(null);
   useEffect(() => {
     const previous = lastCameraStateRef.current;
     lastCameraStateRef.current = cameraState;
-    returnedFromProjectAtRef.current = cameraState === 'overview' && previous === 'project' && !reducedMotion
-      ? performance.now()
-      : (cameraState === 'overview' ? returnedFromProjectAtRef.current : null);
+    if (cameraState !== 'overview') {
+      returnedRef.current = null;
+    } else if (WITHDRAWAL_ROUTES[previous] && !reducedMotion) {
+      returnedRef.current = { route: WITHDRAWAL_ROUTES[previous], at: performance.now() };
+    }
   }, [cameraState, reducedMotion]);
   const labelHoldMs = () => {
-    const since = returnedFromProjectAtRef.current;
-    const { durationMs, contentAt } = PROJECT_ROUTES.projectToOverview;
-    const ownWait = since == null ? 0 : since + durationMs * contentAt - performance.now();
-    return Math.max(0, msUntilProjectRouteContent('projectToOverview') ?? 0, ownWait);
+    const returned = returnedRef.current;
+    const ownWait = returned
+      ? returned.at + PROJECT_ROUTES[returned.route].durationMs * PROJECT_ROUTES[returned.route].contentAt - performance.now()
+      : 0;
+    const clockWait = Object.values(WITHDRAWAL_ROUTES)
+      .reduce((wait, route) => Math.max(wait, msUntilProjectRouteContent(route) ?? 0), 0);
+    return Math.max(0, clockWait, ownWait);
   };
 
   // Labels are up only once the overview is clear of the first project section AND

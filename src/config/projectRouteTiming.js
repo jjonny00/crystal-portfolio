@@ -1,7 +1,8 @@
 // src/config/projectRouteTiming.js
 //
-// The four moves between the index, a selected project and its case study, as
-// timed moves rather than the camera's open-ended chase: how long each takes,
+// The moves between the index, the selected projects, their case studies and
+// About (not the hero's: those are cinematics of their own), as timed moves
+// rather than the camera's open-ended chase: how long each takes,
 // how the camera and its look target ease, and when the copy waiting at the
 // other end comes in.
 //
@@ -93,6 +94,29 @@ export const PROJECT_ROUTES = Object.freeze({
     from: 'project',
     to: 'overview',
     durationMs: 1500,
+    dollyEase: glide(2, 3),
+    framingEase: glide(2.4, 2.8),
+    contentAt: 0.6,
+  },
+  // From a project to About: off rest, through the fragments to About's pose
+  // inside the cloud, landing softly (90% by ~1.05s). The project left turns
+  // home over the move. The chase it replaces was 90% there in under half a
+  // second.
+  projectToAbout: {
+    from: 'project',
+    to: 'about',
+    durationMs: 1500,
+    dollyEase: glide(2, 3),
+    framingEase: glide(2, 3),
+    contentAt: 0.6,
+  },
+  // From About out to the index: the same withdrawal as from a project, a
+  // touch longer for the longer way out (About sits inside the fragments).
+  // The labels come in once the camera is mostly clear of the cloud.
+  aboutToOverview: {
+    from: 'about',
+    to: 'overview',
+    durationMs: 1600,
     dollyEase: glide(2, 3),
     framingEase: glide(2.4, 2.8),
     contentAt: 0.6,

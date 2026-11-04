@@ -48,7 +48,7 @@ Every destination has a URL (`/`, `/work`, `/about`, `/work/<slug>`), defined on
 
 | route | default owner |
 |---|---|
-| Overview ↔ Project, Project ↔ Project, Project ↔ Case study | legacy controller, as timed project route moves (`driveProjectRouteMove`; timings in `src/config/projectRouteTiming.js`, clock in `src/lib/projectRouteClock.js`). The pilots for these routes are DEV opt-in only (`__OVERVIEW_PROJECT_CAMERA_MODE__ = 'pilot'` etc.); legacy is the default because it re-aims mid-flight. DEV `__PROJECT_ROUTE_MOVES__ = false` restores the plain chase for A/B. |
+| Overview ↔ Project, Project ↔ Project, Project ↔ Case study, Project → About, About → Overview | legacy controller, as timed project route moves (`driveProjectRouteMove`; timings in `src/config/projectRouteTiming.js`, clock in `src/lib/projectRouteClock.js`). The pilots for these routes are DEV opt-in only (`__OVERVIEW_PROJECT_CAMERA_MODE__ = 'pilot'` etc.); legacy is the default because it re-aims mid-flight. DEV `__PROJECT_ROUTE_MOVES__ = false` restores the plain chase for A/B. |
 | Hero → About | orbit on the hero return's machinery (`driveHeroToAboutMove`, `ABOUT_ENTRY_CINEMATIC`) |
 | Case study → Overview | legacy chase (`1 − e^(−6t)` at the end of `useFrame`) |
 | Hero → Overview | owning `HERO_OVERVIEW_PILOT` (`__HERO_OVERVIEW_CAMERA_MODE__`) |
@@ -61,7 +61,7 @@ Before changing camera behavior:
 
 ### Project route moves
 
-The moves between the index, the selected projects and their case studies (overview → project, project → project, project → case study, case study → project, project → overview) are timed moves from the live camera, not the legacy chase: per-route duration, a dolly ease for position and a framing ease for look target/FOV, and any motion the camera already has carried in (so a new destination mid-flight turns it rather than snapping it). `projectRouteTiming.js` is the one place to retime them, including when the copy waiting at the other end comes in (`contentAt`). The camera publishes each move to `projectRouteClock`; `ProjectFocusSection` (project copy), `FacetLabels` (index labels), `UnifiedCrystalScene` (the fragment's turn) and the case study's entrance (`caseStudies/transitionTiming.js`) all schedule off it, so keep them on that clock rather than adding timers. Reduced motion keeps the chase.
+The moves between the index, the selected projects, their case studies and About (overview → project, project → project, project → case study, case study → project, project → overview, project → About, About → overview) are timed moves from the live camera, not the legacy chase: per-route duration, a dolly ease for position and a framing ease for look target/FOV, and any motion the camera already has carried in (so a new destination mid-flight turns it rather than snapping it). `projectRouteTiming.js` is the one place to retime them, including when the copy waiting at the other end comes in (`contentAt`). The camera publishes each move to `projectRouteClock`; `ProjectFocusSection` (project copy), `FacetLabels` (index labels), `UnifiedCrystalScene` (the fragment's turn) and the case study's entrance (`caseStudies/transitionTiming.js`) all schedule off it, so keep them on that clock rather than adding timers. Reduced motion keeps the chase.
 
 ### Hero → Overview explosion sequence
 
