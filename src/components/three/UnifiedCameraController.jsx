@@ -281,6 +281,9 @@ const UnifiedCameraController = ({
   const projectRouteLookTempRef = useRef(new THREE.Vector3());
   const projectRouteVelocityTempRef = useRef(new THREE.Vector3());
   const projectRouteLookVelocityTempRef = useRef(new THREE.Vector3());
+  // Frames the camera has been held waiting for a return to the hero to start
+  // (see heroReturnPending at the end of useFrame).
+  const heroReturnHoldFramesRef = useRef(0);
   const impactBackTempRef = useRef(new THREE.Vector3());
   // Reduced motion turns the camera's impact reaction off.
   const reducedMotionRef = useRef(typeof window !== 'undefined' && Boolean(window.matchMedia?.(MQ_REDUCED_MOTION).matches));
@@ -349,6 +352,9 @@ const UnifiedCameraController = ({
   const ORBIT_DELAY_FRAMES = 30; // Wait 30 frames after settling before starting orbit
   const FORCE_AUTHORITATIVE_HERO_TO_OVERVIEW_TRANSITION = true;
   const FORCE_AUTHORITATIVE_OVERVIEW_TO_HERO_TRANSITION = true;
+  // Longest the camera holds still waiting for a return to the hero to start
+  // (~0.5s at 60fps); in practice it is a frame or two.
+  const HERO_RETURN_HOLD_MAX_FRAMES = 30;
   const FORCE_LOCK_HERO_TO_OVERVIEW_CAMERA = false;
   const HERO_TO_OVERVIEW_PRE_DELAY = 0;
   const MAX_FORCED_TRANSITION_DELTA = 1 / 60;
@@ -9324,6 +9330,25 @@ const UnifiedCameraController = ({
       animationData?.setCameraMoveProgress?.(1);
       animationData?.setCameraSettled?.(true);
       logCameraWrite(state, "FORCED_HERO_TO_OVERVIEW", "post-forced-overview-noop", currentTarget.current.lookAt, true, true);
+      return;
+    }
+
+    // Back to the hero from a project (or its case study) the state reads 'hero'
+    // a frame or so before the focused project clears, and the return waits for
+    // that (isAuthoritativePlainHero). Hold the camera meanwhile: the chase below
+    // would snap the hero's film offset on and swing the view at the hero's
+    // target, and the return would then start from that snapped pose instead of
+    // the one the reader was looking at. Capped, so a project that never clears
+    // can't freeze the camera.
+    const heroReturnPending =
+      animationData?.state === 'hero' &&
+      animationData?.cameraState === 'hero' &&
+      !isAuthoritativePlainHero &&
+      heroLeftSinceReturnRef.current;
+    if (!heroReturnPending) {
+      heroReturnHoldFramesRef.current = 0;
+    } else if (heroReturnHoldFramesRef.current < HERO_RETURN_HOLD_MAX_FRAMES) {
+      heroReturnHoldFramesRef.current += 1;
       return;
     }
 
