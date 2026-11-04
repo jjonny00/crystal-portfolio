@@ -3373,13 +3373,20 @@ const UnifiedCrystalScene = forwardRef(({
     // push into the case study already do, through cameraMoveProgress). Back from
     // the case study it turns from its case-study angle to its selected one, not
     // via its index angle as a restarted progress would take it; back to the
-    // index, the fragment just left turns home over the withdrawal.
+    // index, or on to the next project, the fragment just left turns home over
+    // the move.
     const routeMove = getProjectRouteMove();
     const routeTurnProgress = routeMove
       ? projectRouteProgress(routeMove.route, routeMove.projectId)
       : null;
     const routeTurnQuat = (projectId, isFocused, baseQuat, selectedQuat, caseStudyQuat) => {
-      if (routeTurnProgress == null || projectId !== routeMove.projectId) return null;
+      if (routeTurnProgress == null) return null;
+      if (routeMove.route === 'projectToProject') {
+        return !isFocused && projectId === routeMove.fromProjectId
+          ? selectedQuat.clone().slerp(baseQuat, routeTurnProgress)
+          : null;
+      }
+      if (projectId !== routeMove.projectId) return null;
       if (routeMove.route === 'caseStudyToProject' && isFocused) {
         return caseStudyQuat.clone().slerp(selectedQuat, routeTurnProgress);
       }

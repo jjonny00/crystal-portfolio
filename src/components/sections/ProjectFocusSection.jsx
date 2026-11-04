@@ -75,16 +75,19 @@ const CONTENT_DELAY_MS = 180;
 // The body copy follows the title in by this much, and the CTA by as much again.
 const CONTENT_STAGGER_MS = 80;
 
-// How long the copy waits once it may show. Arriving from the index it waits
-// for the camera's move in (projectRouteTiming's contentAt), which the section
-// settling usually precedes. Back from the case study the copy hears of it
-// first, a frame before the camera starts, so that point is counted from now.
+// How long the copy waits once it may show. Arriving from the index or the
+// project before, it waits for the camera's move in (projectRouteTiming's
+// contentAt), which the section settling usually precedes. Back from the case
+// study the copy hears of it first, a frame before the camera starts, so that
+// point is counted from now.
 const contentDelayFor = (projectKey, fromCaseStudy) => {
   if (fromCaseStudy) {
     const { durationMs, contentAt } = PROJECT_ROUTES.caseStudyToProject;
     return durationMs * contentAt;
   }
-  return msUntilProjectRouteContent('overviewToProject', projectKey) ?? CONTENT_DELAY_MS;
+  return msUntilProjectRouteContent('overviewToProject', projectKey)
+    ?? msUntilProjectRouteContent('projectToProject', projectKey)
+    ?? CONTENT_DELAY_MS;
 };
 
 const ProjectFocusSection = ({

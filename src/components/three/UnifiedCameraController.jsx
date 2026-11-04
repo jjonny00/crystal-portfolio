@@ -2729,14 +2729,6 @@ const UnifiedCameraController = ({
     camera.updateProjectionMatrix();
     return u;
   };
-  // Index → project, project ↔ case study and project → index, as timed moves
-  // (config/projectRouteTiming.js) instead of the open-ended chase that ends
-  // useFrame, which left at full speed and crept in for a second and a half. A
-  // new destination mid-move (scrolling on to the next project, Work part-way
-  // in) starts the next move from the live pose and carries its motion, so the
-  // moves stay as interruptible as the chase was. Anything else (project to
-  // project, the hero, About) keeps the chase. Runs only where the chase would
-  // have, so every other writer keeps its frames. True when it wrote the camera.
   // Hero → About as an orbit round the crystal from the live camera
   // (ABOUT_ENTRY_CINEMATIC, on the index → hero return's machinery) instead of
   // the chase's straight line to About's pose. Started on the frame About
@@ -2783,6 +2775,15 @@ const UnifiedCameraController = ({
     if (progress >= 1) heroToAboutMoveRef.current = null;
     return true;
   };
+  // Index → project, project → project, project ↔ case study and project →
+  // index, as timed moves (config/projectRouteTiming.js) instead of the
+  // open-ended chase that ends useFrame, which left at full speed and crept in
+  // for a second and a half. A new destination mid-move (scrolling on to the
+  // next project, Work part-way in) starts the next move from the live pose and
+  // carries its motion, so the moves stay as interruptible as the chase was.
+  // Anything else (the hero, About) keeps the chase. Runs only where the chase
+  // would have, so every other writer keeps its frames. True when it wrote the
+  // camera.
   const driveProjectRouteMove = (state) => {
     const target = currentTarget.current;
     const cameraState = animationData?.cameraState ?? null;
@@ -2859,6 +2860,10 @@ const UnifiedCameraController = ({
       const projectId = PROJECT_ROUTES[route].to === 'overview'
         ? (move?.projectId ?? seen.projectId)
         : (animationData?.focusedProject ?? null);
+      // Project to project: the one being left, which turns home over the move.
+      const fromProjectId = route === 'projectToProject'
+        ? (move ? move.projectId : seen.projectId) ?? null
+        : null;
       // Re-aimed right as it began: a correction, not a new move, so it keeps
       // the time it was given and the clock the copy is waiting on.
       const correction = Boolean(move) && move.route === route && now - move.startedAt < 150;
@@ -2876,7 +2881,7 @@ const UnifiedCameraController = ({
       });
       projectRouteMoveRef.current = move;
       if (!correction || getProjectRouteMove()?.projectId !== projectId) {
-        markProjectRouteMove({ route, projectId, startedAt, durationMs });
+        markProjectRouteMove({ route, projectId, fromProjectId, startedAt, durationMs });
       }
     }
     if (!move) return false;

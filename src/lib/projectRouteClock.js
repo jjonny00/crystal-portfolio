@@ -1,7 +1,8 @@
 // src/lib/projectRouteClock.js
 //
 // The project move running now (config/projectRouteTiming.js): which route,
-// for which project, and when it started (performance.now ms). Published by the
+// for which project (and, project to project, from which), and when it started
+// (performance.now ms). Published by the
 // camera the moment the move's target is set; read by the copy and labels that
 // come in during it, and by the scene to turn the fragment in step with it.
 // Null when no such move is running (one cut short is cleared).
@@ -13,7 +14,13 @@ const listeners = new Set();
 
 export const markProjectRouteMove = (move) => {
   current = move
-    ? { route: move.route, projectId: move.projectId ?? null, startedAt: move.startedAt, durationMs: move.durationMs }
+    ? {
+      route: move.route,
+      projectId: move.projectId ?? null,
+      fromProjectId: move.fromProjectId ?? null,
+      startedAt: move.startedAt,
+      durationMs: move.durationMs,
+    }
     : null;
   listeners.forEach((listener) => listener());
 };

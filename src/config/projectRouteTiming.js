@@ -71,6 +71,19 @@ export const PROJECT_ROUTES = Object.freeze({
     framingEase: glide(2, 3),
     contentAt: 0.5,
   },
+  // From one project to the next (scrolling): off rest gently, peaking ~0.45s
+  // in, and a long soft landing: 50% by 0.5s, 90% by ~0.85s. The chase it
+  // replaces was half way there in a third of a second. Scrolling on mid-move re-aims it,
+  // carrying its motion. The project left turns home over the move; the copy
+  // comes in as the dolly settles.
+  projectToProject: {
+    from: 'project',
+    to: 'project',
+    durationMs: 1300,
+    dollyEase: glide(1.6, 3),
+    framingEase: glide(1.6, 3.2),
+    contentAt: 0.6,
+  },
   // Back to the index: a withdrawal that gathers speed, peaking ~0.6s in, and
   // lands over the second half (90% by 1s). The look target hands over a touch
   // later than the dolly, so the fragment is drawn back from before the frame
