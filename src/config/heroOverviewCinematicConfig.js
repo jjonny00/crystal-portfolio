@@ -631,6 +631,16 @@ export const HERO_OVERVIEW_EASING = {
   // (centred on the crystal) over the first 60%, so the orbit is framed on the
   // gathering fragments.
   returnFraming: stagedEase([{ from: 0, to: 0.6, share: 1, ease: smootherstep }]),
+  // Hero → About (ABOUT_ENTRY_CINEMATIC). The orbit: off the hero orbit's own slow
+  // turn up to speed by 25%, a steady sweep to half way, then a long, even brake
+  // to rest; the peak is 1.6× the average, as gentle as the bullet-time orbit.
+  aboutOrbit: easeFromSpeed((t) => smoothstep(t / 0.25) * (1 - smoothstep((t - 0.5) / 0.5))),
+  // In or out to About's distance and height across the whole move.
+  aboutDolly: smootherstep,
+  // Look target, lens and film offset: off the hero's framing (its offset puts
+  // the crystal to one side) and on to About's, centred, by 70%, so the frame
+  // is settled for the last of the orbit's braking.
+  aboutFraming: stagedEase([{ from: 0, to: 0.7, share: 1, ease: smootherstep }]),
   sinePulse: (t) => Math.sin(Math.PI * clamp01(t)),
   smoothSettle: (t) => {
     const x = clamp01(t);
@@ -1193,6 +1203,24 @@ export const HERO_RETURN_CINEMATIC = {
   // going that way unless the other way is much shorter.
   directionPenaltySeconds: 0.6,
   // Limits on the motion carried in (rad/s, units/s), against stalled frames.
+  carryAngularSpeedCap: 2.5,
+  carryLinearSpeedCap: 10,
+};
+
+// Hero → About: the same orbit round the crystal from wherever the hero orbit
+// has the camera, on to About's angle, instead of a straight line to About's
+// pose (which, from the far side of the hero orbit, ran the camera through the
+// crystal and turned the view through ~125° in a third of a second). The way
+// round and the carried-in motion are chosen as for the return; the time grows
+// with the turn, so the orbit never sweeps faster than the bullet-time one:
+// 1.4s for a short turn, 2.5s for a half turn.
+export const ABOUT_ENTRY_CINEMATIC = {
+  durationSeconds: 1.4,
+  secondsPerHalfTurn: 1.1,
+  orbitEase: 'aboutOrbit',
+  dollyEase: 'aboutDolly',
+  framingEase: 'aboutFraming',
+  directionPenaltySeconds: 0.6,
   carryAngularSpeedCap: 2.5,
   carryLinearSpeedCap: 10,
 };

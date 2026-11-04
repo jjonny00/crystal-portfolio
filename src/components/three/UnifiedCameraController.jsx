@@ -12,7 +12,7 @@ import { resolveCameraDestination } from '../../camera/destinationResolver';
 import { createProjectRouteMove, sampleProjectRouteMove } from '../../camera/projectRouteMove';
 import { PROJECT_ROUTES, projectRouteBetween } from '../../config/projectRouteTiming';
 import { getProjectRouteMove, markProjectRouteMove } from '../../lib/projectRouteClock';
-import { HERO_OVERVIEW_CINEMATIC_RESOLVED, HERO_OVERVIEW_EASING, HERO_RETURN_CINEMATIC, heroOverviewSpiralShare } from '../../config/heroOverviewCinematicConfig';
+import { ABOUT_ENTRY_CINEMATIC, HERO_OVERVIEW_CINEMATIC_RESOLVED, HERO_OVERVIEW_EASING, HERO_RETURN_CINEMATIC, heroOverviewSpiralShare } from '../../config/heroOverviewCinematicConfig';
 import { getExplosionSplitSeconds, setExplosionMoveDuration } from '../../lib/explosionTime';
 import { getExplosionLookScale } from '../../lib/explosionLook';
 import { MQ_REDUCED_MOTION } from '../../config/breakpoints';
@@ -284,6 +284,8 @@ const UnifiedCameraController = ({
   // Frames the camera has been held waiting for a return to the hero to start
   // (see heroReturnPending at the end of useFrame).
   const heroReturnHoldFramesRef = useRef(0);
+  // The hero → About orbit running, if any (driveHeroToAboutMove).
+  const heroToAboutMoveRef = useRef(null);
   const impactBackTempRef = useRef(new THREE.Vector3());
   // Reduced motion turns the camera's impact reaction off.
   const reducedMotionRef = useRef(typeof window !== 'undefined' && Boolean(window.matchMedia?.(MQ_REDUCED_MOTION).matches));
@@ -2645,8 +2647,10 @@ const UnifiedCameraController = ({
   // axis, in and out, up and down) is carried into the start and handed back by
   // the end (u(1−u)²), so a moving camera is turned round, not stopped dead; it
   // arrives turning at `endSpin` (rad/s; u²(u−1) leaves only that end speed).
-  const planCameraReturn = ({ to, toAzimuth, endSpin, startTime }) => {
-    const cfg = HERO_RETURN_CINEMATIC;
+  // `cinematic` is HERO_RETURN_CINEMATIC unless given (hero → About passes its
+  // own); one with secondsPerHalfTurn takes longer the further it turns.
+  const planCameraReturn = ({ to, toAzimuth, endSpin, startTime, cinematic = HERO_RETURN_CINEMATIC }) => {
+    const cfg = cinematic;
     const center = getHeroOrbitCenter();
     const azimuthOf = (v) => Math.atan2(v.x - center.x, v.z - center.z);
     const radiusOf = (v) => Math.hypot(v.x - center.x, v.z - center.z);
@@ -2684,12 +2688,13 @@ const UnifiedCameraController = ({
       vertical,
       endSpin,
       startTime,
-      duration: cfg.durationSeconds,
+      cinematic: cfg,
+      duration: cfg.durationSeconds + (cfg.secondsPerHalfTurn ?? 0) * (Math.abs(path) / Math.PI),
     };
   };
   // Writes the return's pose `elapsed` seconds in; returns its progress (0–1).
   const writeCameraReturn = (t, elapsed) => {
-    const cfg = HERO_RETURN_CINEMATIC;
+    const cfg = t.cinematic ?? HERO_RETURN_CINEMATIC;
     const center = getHeroOrbitCenter();
     const axis = new THREE.Vector3(0, 1, 0);
     const turnAboutCenter = (v, angle) => v.sub(center).applyAxisAngle(axis, angle).add(center);
@@ -2732,6 +2737,52 @@ const UnifiedCameraController = ({
   // moves stay as interruptible as the chase was. Anything else (project to
   // project, the hero, About) keeps the chase. Runs only where the chase would
   // have, so every other writer keeps its frames. True when it wrote the camera.
+  // Hero → About as an orbit round the crystal from the live camera
+  // (ABOUT_ENTRY_CINEMATIC, on the index → hero return's machinery) instead of
+  // the chase's straight line to About's pose. Started on the frame About
+  // arrives from the hero; given up if anywhere else is picked before it lands,
+  // whose own move then starts from the live pose. Reduced motion keeps the
+  // chase. True when it wrote the camera.
+  const driveHeroToAboutMove = (state, prevCameraState) => {
+    if (animationData?.cameraState !== 'about' || reducedMotionRef.current) {
+      heroToAboutMoveRef.current = null;
+      return false;
+    }
+    if (!heroToAboutMoveRef.current) {
+      if (prevCameraState !== 'hero') return false;
+      const center = getHeroOrbitCenter();
+      const position = toVector3(config?.cameraPositions?.about)
+        .add(toVector3(config?.cameraOffsets?.global?.position))
+        .add(toVector3(config?.cameraOffsets?.zones?.about?.position));
+      const lookAtTarget = toVector3(config?.cameraTargets?.about)
+        .add(toVector3(config?.cameraOffsets?.global?.target))
+        .add(toVector3(config?.cameraOffsets?.zones?.about?.target));
+      heroToAboutMoveRef.current = planCameraReturn({
+        to: {
+          position,
+          lookAtTarget,
+          filmOffsetX: 0,
+          fov: Number.isFinite(animationData?.cameraConfig?.fov) ? animationData.cameraConfig.fov : camera.fov,
+          source: 'about (layout/config)',
+        },
+        toAzimuth: Math.atan2(position.x - center.x, position.z - center.z),
+        endSpin: 0,
+        startTime: state.clock.elapsedTime,
+        cinematic: ABOUT_ENTRY_CINEMATIC,
+      });
+    }
+    const move = heroToAboutMoveRef.current;
+    const progress = writeCameraReturn(move, state.clock.elapsedTime - move.startTime);
+    if (cameraSettledRef.current) {
+      cameraSettledRef.current = false;
+      animationData?.setCameraSettled?.(false);
+    }
+    settleFrameCount.current = 0;
+    logCameraWrite(state, 'ABOUT', 'hero-to-about-orbit', introLookAtTempRef.current, true, true);
+    // Landed on About's pose: the chase takes over from exactly its target.
+    if (progress >= 1) heroToAboutMoveRef.current = null;
+    return true;
+  };
   const driveProjectRouteMove = (state) => {
     const target = currentTarget.current;
     const cameraState = animationData?.cameraState ?? null;
@@ -9208,6 +9259,10 @@ const UnifiedCameraController = ({
       if (shouldLogBranch) console.log('[UCC RETURN] reason: hero-orbit-active');
       return;
     }
+
+    // Ahead of the film offset's cleanup below, so the orbit starts from the
+    // hero's framing as it was, not one already eased a step toward centre.
+    if (driveHeroToAboutMove(state, prevCameraState)) return;
 
     const isHeroCameraPath = (animationData?.state === 'hero' && animationData?.cameraState === 'hero') || introActiveRef.current;
     if (!isHeroCameraPath && camera.filmOffset !== 0) {
