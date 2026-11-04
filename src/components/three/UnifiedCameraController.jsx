@@ -2749,9 +2749,13 @@ const UnifiedCameraController = ({
       projectRouteMoveRef.current = null;
       markProjectRouteMove(null);
     }
+    // The target the last frame aimed at, only if this branch had that frame.
+    // Across a gap (the hero, the hero → overview move) it is stale: coming back
+    // to the index that way read as project → index, and turned the fragment
+    // left before the hero as if it were being drawn back out of its project.
+    const seen = continuous ? projectRouteTargetRef.current : null;
     // Where the camera is looking: exactly, mid-move; otherwise along its view
     // at the distance of the target it has been heading for.
-    const seen = projectRouteTargetRef.current;
     const look = move
       ? projectRouteLookTempRef.current.copy(pose.lookAt)
       : camera.getWorldDirection(projectRouteLookTempRef.current)
