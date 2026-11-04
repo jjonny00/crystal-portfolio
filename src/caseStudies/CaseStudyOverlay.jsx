@@ -110,6 +110,8 @@ const CaseStudyOverlay = ({
    * to. See system/caseStudyExit.js.
    */
   arrivalExit = null,
+  /** How long closing fades the layer out (CASE_STUDY_RETURN_EXIT_MS going back to the project). */
+  exitMs = CASE_STUDY_EXIT_MS,
 }) => {
   const scrollRef = useRef(null);
   const slug = project?.caseStudySlug || null;
@@ -145,8 +147,10 @@ const CaseStudyOverlay = ({
 
   useEffect(() => {
     if (phase !== 'exiting') return undefined;
-    const timeoutId = setTimeout(() => setPhase('closed'), CASE_STUDY_EXIT_MS);
+    const timeoutId = setTimeout(() => setPhase('closed'), exitMs);
     return () => clearTimeout(timeoutId);
+    // The length it started with; a later prop change does not restart it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase]);
 
   // Raise the colour wash one frame after mount so the transition has a 0 -> 1
@@ -281,7 +285,7 @@ const CaseStudyOverlay = ({
         // already fixed, so becoming a containing block mid-fade does not move
         // the fixed back button inside it.
         opacity: exiting ? 0 : 1,
-        transition: `opacity ${CASE_STUDY_EXIT_MS}ms ease`,
+        transition: `opacity ${exitMs}ms ease`,
         pointerEvents: exiting ? 'none' : 'auto',
         // The stylesheet composes its stagger from these, so the CSS and the
         // phase machine can never disagree about the timing.

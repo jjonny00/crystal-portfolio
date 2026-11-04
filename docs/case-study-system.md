@@ -188,11 +188,23 @@ All of it comes from `src/caseStudies/transitionTiming.js` — the one place to
 retime the sequence. The overlay publishes those numbers onto itself as CSS
 custom properties, so the stylesheet composes its delays from the same values
 instead of keeping a second copy; `App.jsx` derives the scene-freeze delay from
-them too. Currently the sequence takes ~3.1s end to end.
+them too. The hero's lead is not a number of its own: it is the camera's push
+into the fragment (`projectToCaseStudy` in `src/config/projectRouteTiming.js`),
+so the title arrives as the fragment opens on to the case study's colour. The
+hero is in ~1.9s after the click.
+
+That depends on the page mounting at the click. `App.jsx` fetches the case
+study's chunk once its project has been up for the length of the camera's move
+in (`preloadCaseStudy`), so the overlay renders it directly instead of waiting
+on `React.lazy`; a case study opened sooner than that still loads lazily, and its
+entrance starts whenever the chunk arrives.
 
 Exit is a single fade of the whole layer, revealing the crystal — which has
 already resumed rendering by then, since the scene thaws the moment `viewMode`
-changes.
+changes. The layer's own way out ("Back to <project>") fades a little longer
+(`CASE_STUDY_RETURN_EXIT_MS`, over the first half of the camera's settle back
+on to the fragment, `caseStudyToProject`), and the project's copy returns once it
+has gone; the nav's ways out keep the quick `CASE_STUDY_EXIT_MS` fade.
 
 Two constraints worth keeping if you edit these animations, both noted in the
 stylesheet: never animate opacity on an ancestor of the fixed back button (an

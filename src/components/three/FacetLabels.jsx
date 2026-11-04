@@ -1,9 +1,9 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { createRoot } from 'react-dom/client';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Box3, Vector3 } from 'three';
 import Headline from '../ui/Headline';
-import { MQ_HOVER_CAPABLE } from '../../config/breakpoints';
+import { MQ_HOVER_CAPABLE, MQ_REDUCED_MOTION } from '../../config/breakpoints';
 import {
   OVERVIEW_COLUMN,
   OVERVIEW_COLUMN_RIGHT_MOBILE_PX,
@@ -17,6 +17,9 @@ import { getProjectIdBySceneFacetKey, getSceneFacetKeyByProjectId } from '../../
 import PlacedOverviewLabels from './PlacedOverviewLabels';
 import { OVERVIEW_LABEL_DEFAULTS } from './overviewLabelPlacement';
 import { setRailActiveProject, setRailOverviewVisible } from '../../lib/verticalRailSignal';
+import { getProjectRouteMove, msUntilProjectRouteContent, subscribeProjectRouteMove } from '../../lib/projectRouteClock';
+import { PROJECT_ROUTES } from '../../config/projectRouteTiming';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { inPageLinkHandler } from '../../navigation/linkClick';
 import { projectPath } from '../../navigation/routes';
 import '../../styles/facet-label.css';
@@ -400,25 +403,62 @@ const FacetLabels = React.memo(function FacetLabels({
     return () => observer.disconnect();
   }, [inActiveOverview, projects]);
 
+  // Back from a project, the camera's withdrawal (lib/projectRouteClock) says
+  // when the selected fragment is far enough out of the column for them. The
+  // index can be reached before the camera's next frame has started that
+  // withdrawal, so the labels also note the return themselves, as it happens,
+  // and hold from then; whichever says later wins (a clock left from an
+  // earlier return says nothing).
+  const projectRouteMove = useSyncExternalStore(subscribeProjectRouteMove, getProjectRouteMove);
+  const withdrawal = projectRouteMove?.route === 'projectToOverview' ? projectRouteMove : null;
+  const reducedMotion = useMediaQuery(MQ_REDUCED_MOTION);
+  const cameraState = animationData?.cameraState ?? null;
+  const lastCameraStateRef = useRef(cameraState);
+  const returnedFromProjectAtRef = useRef(null);
+  useEffect(() => {
+    const previous = lastCameraStateRef.current;
+    lastCameraStateRef.current = cameraState;
+    returnedFromProjectAtRef.current = cameraState === 'overview' && previous === 'project' && !reducedMotion
+      ? performance.now()
+      : (cameraState === 'overview' ? returnedFromProjectAtRef.current : null);
+  }, [cameraState, reducedMotion]);
+  const labelHoldMs = () => {
+    const since = returnedFromProjectAtRef.current;
+    const { durationMs, contentAt } = PROJECT_ROUTES.projectToOverview;
+    const ownWait = since == null ? 0 : since + durationMs * contentAt - performance.now();
+    return Math.max(0, msUntilProjectRouteContent('projectToOverview') ?? 0, ownWait);
+  };
+
   // Labels are up only once the overview is clear of the first project section AND
-  // the explosion has released them. Leaving the overview is not handled here — the
+  // the explosion has released them, and not over a fragment still being drawn
+  // back out of a project. Leaving the overview is not handled here — the
   // teardown effect above owns that, including the fade-out it has to paint before
   // unmounting the layer.
   useEffect(() => {
-    if (!inActiveOverview) return;
+    if (!inActiveOverview) return undefined;
 
     if (firstProjectClear && labelRevealReady) {
-      setFadeDurationMs(LABEL_FADE_IN_MS);
-      setVisible(true);
+      const show = () => {
+        setFadeDurationMs(LABEL_FADE_IN_MS);
+        setVisible(true);
+      };
       onLabelsReadyChange?.(false);
-      return;
+      const wait = labelHoldMs();
+      if (!wait) {
+        show();
+        return undefined;
+      }
+      setVisible(false);
+      const timeoutId = setTimeout(show, wait);
+      return () => clearTimeout(timeoutId);
     }
 
     setFadeDurationMs(LABEL_FADE_OUT_MS);
     setVisible(false);
     setLabelHoveredFacetKey(null);
     onLabelsReadyChange?.(false);
-  }, [labelRevealReady, firstProjectClear, inActiveOverview, onLabelsReadyChange]);
+    return undefined;
+  }, [labelRevealReady, firstProjectClear, inActiveOverview, onLabelsReadyChange, withdrawal]);
 
   useEffect(() => {
     if (!inActiveOverview || !visible) return;

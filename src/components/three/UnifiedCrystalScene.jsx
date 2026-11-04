@@ -53,6 +53,7 @@ import { HERO_OVERVIEW_CINEMATIC_RESOLVED, HERO_OVERVIEW_EASING, HERO_RETURN_CIN
 import { easeFragmentTravel, getExplosionMoveSeconds, getFragmentTravelSeconds, startExplosionTime, stopExplosionTime } from '../../lib/explosionTime'
 import { getExplosionLookScale } from '../../lib/explosionLook'
 import { markHeroReformStart } from '../../lib/heroReformClock'
+import { getProjectRouteMove, projectRouteProgress } from '../../lib/projectRouteClock'
 import { markScenePrep } from '../../loader/loadProgress'
 
 const PROJECT_DISPLAY_SLOT = 'ProjectDisplay'
@@ -2291,7 +2292,11 @@ const UnifiedCrystalScene = forwardRef(({
       : null;
 
     if (sectionNode && scrollContainer) {
-      scrollContainer.scrollTop = sectionNode.offsetTop;
+      // Instant, as the nav's jumps are (App's scrollToSection): the container's
+      // smooth scrolling would run the page through every section in between,
+      // and the project's copy waits for the scroll to settle. The camera's move
+      // is the transition.
+      scrollContainer.scrollTo({ top: sectionNode.offsetTop, behavior: 'instant' });
       onDirectProjectSelect?.(projectKey);
       return;
     }
@@ -3364,6 +3369,25 @@ const UnifiedCrystalScene = forwardRef(({
 
     const elapsed = state.clock.elapsedTime;
     const cameraMoveProgress = sharedCameraMoveProgressRef?.current ?? animationData?.cameraMoveProgress ?? 1;
+    // The camera's project moves turn the fragment with them (the move in and the
+    // push into the case study already do, through cameraMoveProgress). Back from
+    // the case study it turns from its case-study angle to its selected one, not
+    // via its index angle as a restarted progress would take it; back to the
+    // index, the fragment just left turns home over the withdrawal.
+    const routeMove = getProjectRouteMove();
+    const routeTurnProgress = routeMove
+      ? projectRouteProgress(routeMove.route, routeMove.projectId)
+      : null;
+    const routeTurnQuat = (projectId, isFocused, baseQuat, selectedQuat, caseStudyQuat) => {
+      if (routeTurnProgress == null || projectId !== routeMove.projectId) return null;
+      if (routeMove.route === 'caseStudyToProject' && isFocused) {
+        return caseStudyQuat.clone().slerp(selectedQuat, routeTurnProgress);
+      }
+      if (routeMove.route === 'projectToOverview' && !isFocused) {
+        return selectedQuat.clone().slerp(baseQuat, routeTurnProgress);
+      }
+      return null;
+    };
     const floatConfig = effects.idle.float;
     const floatAll = animationData.state === 'overview' && !animationData.isTransitioning;
     // Opening a case study leaves `state` at 'project_focused' — only cameraState
@@ -4090,9 +4114,10 @@ const UnifiedCrystalScene = forwardRef(({
             const projectFocusQuat = baseQuat.clone().slerp(selectedQuat, focusRotationProgress);
             const caseStudyFocusQuat = selectedQuat.clone().slerp(caseStudyQuat, focusRotationProgress);
             const targetQuat = animationData?.crystalForm === 'exploded'
-              ? (isCaseStudyActiveProject
-                  ? caseStudyFocusQuat
-                  : (isProjectFocusedFacet ? projectFocusQuat : baseQuat))
+              ? (routeTurnQuat(projectId, isProjectFocusedFacet, baseQuat, selectedQuat, caseStudyQuat)
+                  ?? (isCaseStudyActiveProject
+                    ? caseStudyFocusQuat
+                    : (isProjectFocusedFacet ? projectFocusQuat : baseQuat)))
               : neutralQuat;
             const useIsolatedFocusTransform =
               ISOLATE_FOCUSED_ROTATION_FROM_POSITION &&
@@ -4142,9 +4167,10 @@ const UnifiedCrystalScene = forwardRef(({
         const projectFocusQuat = baseQuat.clone().slerp(selectedQuat, focusRotationProgress);
         const caseStudyFocusQuat = selectedQuat.clone().slerp(caseStudyQuat, focusRotationProgress);
         const targetQuat = animationData?.crystalForm === 'exploded'
-          ? (isCaseStudyActiveProject
-              ? caseStudyFocusQuat
-              : (isProjectFocusedFacet ? projectFocusQuat : baseQuat))
+          ? (routeTurnQuat(projectId, isProjectFocusedFacet, baseQuat, selectedQuat, caseStudyQuat)
+              ?? (isCaseStudyActiveProject
+                ? caseStudyFocusQuat
+                : (isProjectFocusedFacet ? projectFocusQuat : baseQuat)))
           : neutralQuat;
 
         if (import.meta.env.DEV && typeof globalThis !== 'undefined') {

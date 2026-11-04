@@ -9,7 +9,18 @@
 //   - App.jsx               — when the 3D scene is safe to freeze, which cannot
 //                             happen until the overlay is fully opaque
 //
+// The hero's lead is the camera's: it comes in at the push into the fragment's
+// content point (config/projectRouteTiming.js), as the fragment opens on to the
+// case study's colour, rather than on a timer of its own.
+//
 // All values in milliseconds.
+
+import { PROJECT_ROUTES } from '../config/projectRouteTiming';
+
+const OFFSET_MS = 5;
+const HERO_AT_MS = Math.round(
+  PROJECT_ROUTES.projectToCaseStudy.durationMs * PROJECT_ROUTES.projectToCaseStudy.contentAt
+);
 
 export const CASE_STUDY_ENTER = Object.freeze({
   /**
@@ -17,22 +28,30 @@ export const CASE_STUDY_ENTER = Object.freeze({
    * of the project preview copy fading out, so the two hand over rather than
    * leaving a gap.
    */
-  offsetMs: 5,
+  offsetMs: OFFSET_MS,
   /** The project-colour wash fading up. */
   washMs: 840,
   /** How long after the wash starts the hero begins. */
-  leadMs: 760,
+  leadMs: HERO_AT_MS - OFFSET_MS,
   /** Per-element fade + rise. */
-  itemMs: 1120,
+  itemMs: 900,
   /** Gap between consecutive hero elements. */
-  staggerMs: 180,
-  /** Back control, relative to the wash start. */
-  backMs: 1640,
+  staggerMs: 120,
+  /** Back control, relative to the wash start: once the hero is in. */
+  backMs: HERO_AT_MS - OFFSET_MS + 3 * 120 + 380,
   /** Hero elements that stagger: title, subtitle, media, intro copy. */
   itemCount: 4,
 });
 
 export const CASE_STUDY_EXIT_MS = 320;
+
+/**
+ * "Back to <project>": the page fades off the fragment a little longer, over
+ * the first half of the camera's settle back (projectRouteTiming's
+ * caseStudyToProject), and is gone by the time the project's copy returns.
+ * Leaving for anywhere else keeps the quick fade.
+ */
+export const CASE_STUDY_RETURN_EXIT_MS = 420;
 
 /** When the layer first becomes fully opaque. */
 export const caseStudyOpaqueAtMs =

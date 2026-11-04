@@ -48,7 +48,8 @@ Every destination has a URL (`/`, `/work`, `/about`, `/work/<slug>`), defined on
 
 | route | default owner |
 |---|---|
-| Overview ↔ Project, Project ↔ Project | CameraDirector pilot (`__OVERVIEW_PROJECT_CAMERA_MODE__`, `__PROJECT_OVERVIEW_CAMERA_MODE__`, `__PROJECT_PROJECT_CAMERA_MODE__`) |
+| Overview ↔ Project, Project ↔ Case study | legacy controller, as timed project route moves (`driveProjectRouteMove`; timings in `src/config/projectRouteTiming.js`, clock in `src/lib/projectRouteClock.js`). The pilots for these routes are DEV opt-in only (`__OVERVIEW_PROJECT_CAMERA_MODE__ = 'pilot'` etc.); legacy is the default because it re-aims mid-flight. DEV `__PROJECT_ROUTE_MOVES__ = false` restores the plain chase for A/B. |
+| Project ↔ Project, Case study → Overview | legacy chase (`1 − e^(−6t)` at the end of `useFrame`) |
 | Hero → Overview | owning `HERO_OVERVIEW_PILOT` (`__HERO_OVERVIEW_CAMERA_MODE__`) |
 | Anything touching **About** | legacy only — known-buggy and explicitly out of scope for pilot migration |
 
@@ -56,6 +57,10 @@ Before changing camera behavior:
 - Read `docs/camera-owner-map.md` (writer inventory + known conflict zones) and `docs/camera-pilot-selection.md` (why About and Hero↔Overview are excluded from migration).
 - A DEV-only conflict detector exists: `src/camera/cameraWriteGuard.js`, exposed via `globalThis.__printCameraWriteGuardSummary()` / `__printCameraWriteGuardConflictDetails()`. Use it to check whether a change introduces a new dual-writer conflict on `position`/`orientation`/`fov`/`filmOffset`/`currentTarget` in the same frame.
 - `docs/camera-legacy-state-audit.md`, `docs/camera-suppression-matrix.md`, and `docs/camera-director-pilot-*.md` document specific known bugs (About exit corruption, Hero↔Overview "end blip") — check whether your bug is already a documented, intentionally-deferred issue before re-diagnosing it.
+
+### Project route moves
+
+The four moves between the index, a selected project and its case study (overview → project, project → case study, case study → project, project → overview) are timed moves from the live camera, not the legacy chase: per-route duration, a dolly ease for position and a framing ease for look target/FOV, and any motion the camera already has carried in (so a new destination mid-flight turns it rather than snapping it). `projectRouteTiming.js` is the one place to retime them, including when the copy waiting at the other end comes in (`contentAt`). The camera publishes each move to `projectRouteClock`; `ProjectFocusSection` (project copy), `FacetLabels` (index labels), `UnifiedCrystalScene` (the fragment's turn) and the case study's entrance (`caseStudies/transitionTiming.js`) all schedule off it, so keep them on that clock rather than adding timers. Reduced motion keeps the chase.
 
 ### Hero → Overview explosion sequence
 

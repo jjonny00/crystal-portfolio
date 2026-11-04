@@ -9,6 +9,9 @@ import { createLogger } from '../../utils/logger';
 import { beginCameraFrame, recordCameraWrite } from '../../camera/cameraWriteGuard';
 import { createCameraDirectorPilotTransition, updateCameraDirectorPilotTransition } from '../../camera/CameraDirector';
 import { resolveCameraDestination } from '../../camera/destinationResolver';
+import { createProjectRouteMove, sampleProjectRouteMove } from '../../camera/projectRouteMove';
+import { PROJECT_ROUTES, projectRouteBetween } from '../../config/projectRouteTiming';
+import { getProjectRouteMove, markProjectRouteMove } from '../../lib/projectRouteClock';
 import { HERO_OVERVIEW_CINEMATIC_RESOLVED, HERO_OVERVIEW_EASING, HERO_RETURN_CINEMATIC, heroOverviewSpiralShare } from '../../config/heroOverviewCinematicConfig';
 import { getExplosionSplitSeconds, setExplosionMoveDuration } from '../../lib/explosionTime';
 import { getExplosionLookScale } from '../../lib/explosionLook';
@@ -268,6 +271,16 @@ const UnifiedCameraController = ({
   // The camera's position at the start of the last two frames, so a move can
   // pick up the motion the camera already has.
   const cameraMotionSampleRef = useRef({ prev: null, last: null });
+  // The timed project moves (config/projectRouteTiming.js; see
+  // driveProjectRouteMove): the one running, the target the last frame aimed at,
+  // and the pose the camera was at as that frame began.
+  const projectRouteMoveRef = useRef(null);
+  const projectRouteTargetRef = useRef(null);
+  const projectRouteSampleRef = useRef({ position: new THREE.Vector3(), lookAt: new THREE.Vector3(), time: null, frame: -1 });
+  const projectRoutePoseRef = useRef({ position: new THREE.Vector3(), lookAt: new THREE.Vector3(), fov: 0 });
+  const projectRouteLookTempRef = useRef(new THREE.Vector3());
+  const projectRouteVelocityTempRef = useRef(new THREE.Vector3());
+  const projectRouteLookVelocityTempRef = useRef(new THREE.Vector3());
   const impactBackTempRef = useRef(new THREE.Vector3());
   // Reduced motion turns the camera's impact reaction off.
   const reducedMotionRef = useRef(typeof window !== 'undefined' && Boolean(window.matchMedia?.(MQ_REDUCED_MOTION).matches));
@@ -2704,6 +2717,127 @@ const UnifiedCameraController = ({
     }
     camera.updateProjectionMatrix();
     return u;
+  };
+  // Index → project, project ↔ case study and project → index, as timed moves
+  // (config/projectRouteTiming.js) instead of the open-ended chase that ends
+  // useFrame, which left at full speed and crept in for a second and a half. A
+  // new destination mid-move (scrolling on to the next project, Work part-way
+  // in) starts the next move from the live pose and carries its motion, so the
+  // moves stay as interruptible as the chase was. Anything else (project to
+  // project, the hero, About) keeps the chase. Runs only where the chase would
+  // have, so every other writer keeps its frames. True when it wrote the camera.
+  const driveProjectRouteMove = (state) => {
+    const target = currentTarget.current;
+    const cameraState = animationData?.cameraState ?? null;
+    const now = performance.now();
+    const frame = cameraFrameIndexRef.current;
+    const sample = projectRouteSampleRef.current;
+    const pose = projectRoutePoseRef.current;
+    let move = projectRouteMoveRef.current;
+
+    // Only a camera this branch also had last frame has a motion to carry; a gap
+    // means another writer had it (or the scene was frozen), so a move is over.
+    const continuous = sample.frame === frame - 1 && sample.time != null && now > sample.time;
+    if (move && !continuous) {
+      move = null;
+      projectRouteMoveRef.current = null;
+      markProjectRouteMove(null);
+    }
+    // Where the camera is looking: exactly, mid-move; otherwise along its view
+    // at the distance of the target it has been heading for.
+    const seen = projectRouteTargetRef.current;
+    const look = move
+      ? projectRouteLookTempRef.current.copy(pose.lookAt)
+      : camera.getWorldDirection(projectRouteLookTempRef.current)
+        .multiplyScalar(Math.max(0.5, camera.position.distanceTo(seen?.lookAt ?? target.lookAt)))
+        .add(camera.position);
+    const dt = continuous ? (now - sample.time) / 1000 : 0;
+    const velocity = projectRouteVelocityTempRef.current;
+    const lookVelocity = projectRouteLookVelocityTempRef.current;
+    if (continuous) {
+      // Capped, against a stalled frame or a pose set from elsewhere between two.
+      velocity.subVectors(camera.position, sample.position).divideScalar(dt).clampLength(0, 8);
+      lookVelocity.subVectors(look, sample.lookAt).divideScalar(dt).clampLength(0, 12);
+    } else {
+      velocity.set(0, 0, 0);
+      lookVelocity.set(0, 0, 0);
+    }
+    sample.position.copy(camera.position);
+    sample.lookAt.copy(look);
+    sample.time = now;
+    sample.frame = frame;
+
+    const targetChanged = !seen ||
+      seen.position.distanceToSquared(target.position) > 1e-8 ||
+      seen.lookAt.distanceToSquared(target.lookAt) > 1e-8 ||
+      Math.abs(seen.fov - target.fov) > 1e-4;
+    if (targetChanged) {
+      // The state is the one the target was set in, so a state that flips a
+      // frame before its target arrives still reads as the move between them.
+      projectRouteTargetRef.current = {
+        position: target.position.clone(),
+        lookAt: target.lookAt.clone(),
+        fov: target.fov,
+        cameraState,
+        projectId: animationData?.focusedProject ?? null,
+      };
+    }
+
+    const enabled = !reducedMotionRef.current && !(import.meta.env.DEV && globalThis.__PROJECT_ROUTE_MOVES__ === false);
+    if (targetChanged && seen) {
+      // A new target in the state the running move was heading for is the same
+      // route re-aimed (the next project, or the focused project arriving a
+      // frame after the state did); otherwise it is the move between the states.
+      const fromState = move ? PROJECT_ROUTES[move.route].to : seen.cameraState;
+      const route = !enabled ? null : (move && cameraState === fromState ? move.route : projectRouteBetween(fromState, cameraState));
+      if (!route) {
+        if (move || getProjectRouteMove()) markProjectRouteMove(null);
+        projectRouteMoveRef.current = null;
+        return false;
+      }
+      const projectId = PROJECT_ROUTES[route].to === 'overview'
+        ? (move?.projectId ?? seen.projectId)
+        : (animationData?.focusedProject ?? null);
+      // Re-aimed right as it began: a correction, not a new move, so it keeps
+      // the time it was given and the clock the copy is waiting on.
+      const correction = Boolean(move) && move.route === route && now - move.startedAt < 150;
+      const startedAt = correction ? move.startedAt : now;
+      const durationMs = PROJECT_ROUTES[route].durationMs;
+      move = createProjectRouteMove({
+        route,
+        projectId,
+        from: { position: camera.position, lookAt: look, fov: camera.fov },
+        to: target,
+        velocity,
+        lookVelocity,
+        startedAt: now,
+        durationMs: Math.max(1, startedAt + durationMs - now),
+      });
+      projectRouteMoveRef.current = move;
+      if (!correction || getProjectRouteMove()?.projectId !== projectId) {
+        markProjectRouteMove({ route, projectId, startedAt, durationMs });
+      }
+    }
+    if (!move) return false;
+
+    const step = sampleProjectRouteMove(move, now, pose);
+    camera.position.copy(pose.position);
+    camera.lookAt(pose.lookAt);
+    camera.fov = pose.fov;
+    camera.updateProjectionMatrix();
+    cameraMoveProgressRef.current = step.dolly;
+    if (sharedCameraMoveProgressRef) sharedCameraMoveProgressRef.current = step.dolly;
+    animationData?.setCameraMoveProgress?.(step.dolly);
+    if (cameraSettledRef.current) {
+      cameraSettledRef.current = false;
+      animationData?.setCameraSettled?.(false);
+    }
+    settleFrameCount.current = 0;
+    logCameraWrite(state, 'PROJECT', `project-route:${move.route}`, pose.lookAt, true, true);
+    // Landed: the chase takes over from exactly the target, where it has
+    // nothing left to do but settle.
+    if (step.done) projectRouteMoveRef.current = null;
+    return true;
   };
   const getHeroOverviewPilotCameraProgress = (globalProgress) => {
     const { phaseName, phase, phaseLocalProgress } = getHeroOverviewPilotTimelinePhase(globalProgress);
@@ -9192,6 +9326,8 @@ const UnifiedCameraController = ({
       logCameraWrite(state, "FORCED_HERO_TO_OVERVIEW", "post-forced-overview-noop", currentTarget.current.lookAt, true, true);
       return;
     }
+
+    if (driveProjectRouteMove(state)) return;
 
     // FIXED: Use exponential smoothing with clamping
     const smoothingFactor = 1 - Math.exp(-6 * delta);

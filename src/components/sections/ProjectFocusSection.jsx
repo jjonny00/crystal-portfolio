@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { animated, useSpring } from '@react-spring/web';
+import { PROJECT_ROUTES } from '../../config/projectRouteTiming';
+import { msUntilProjectRouteContent } from '../../lib/projectRouteClock';
 import Headline from '../ui/Headline';
 import KnockoutButton from '../ui/KnockoutButton';
 import { ctaTypeStyle } from '../ui/ctaType';
@@ -68,6 +70,23 @@ const ArrowIcon = () => (
   </svg>
 );
 
+// The copy's beat after its section settles, when no camera move says otherwise.
+const CONTENT_DELAY_MS = 180;
+// The body copy follows the title in by this much, and the CTA by as much again.
+const CONTENT_STAGGER_MS = 80;
+
+// How long the copy waits once it may show. Arriving from the index it waits
+// for the camera's move in (projectRouteTiming's contentAt), which the section
+// settling usually precedes. Back from the case study the copy hears of it
+// first, a frame before the camera starts, so that point is counted from now.
+const contentDelayFor = (projectKey, fromCaseStudy) => {
+  if (fromCaseStudy) {
+    const { durationMs, contentAt } = PROJECT_ROUTES.caseStudyToProject;
+    return durationMs * contentAt;
+  }
+  return msUntilProjectRouteContent('overviewToProject', projectKey) ?? CONTENT_DELAY_MS;
+};
+
 const ProjectFocusSection = ({
   project,
   isMobile = false,
@@ -77,6 +96,10 @@ const ProjectFocusSection = ({
   onOpenCaseStudy = null,
   onBackToProject = null
 }) => {
+  // Fixed when the copy is cleared to show, held until it hides again.
+  const revealRef = useRef({ shown: false, delayMs: CONTENT_DELAY_MS });
+  const wasCaseStudyRef = useRef(false);
+
   if (!project) return null;
 
   const headlineColor = project.headlineColor || project.color || '#ffffff';
@@ -96,7 +119,20 @@ const ProjectFocusSection = ({
   const isCaseStudy = caseStudyOpen && !hasFullCaseStudy;
   const isProjectView = visible && !caseStudyOpen;
 
-  const contentSpring = useSpring({
+  if (isProjectView && !revealRef.current.shown) {
+    revealRef.current = {
+      shown: true,
+      delayMs: contentDelayFor(project.facetKey || project.id, wasCaseStudyRef.current)
+    };
+  } else if (!isProjectView && revealRef.current.shown) {
+    revealRef.current = { shown: false, delayMs: CONTENT_DELAY_MS };
+  }
+  wasCaseStudyRef.current = caseStudyOpen;
+  const revealDelayMs = revealRef.current.delayMs;
+
+  // Title and subtitle, then the body, then the CTA: in together, a beat apart;
+  // out at once.
+  const copySpring = (staggerMs) => ({
     from: {
       opacity: 0,
       transform: 'translateY(20px)'
@@ -105,12 +141,15 @@ const ProjectFocusSection = ({
       opacity: isProjectView ? 1 : 0,
       transform: isProjectView ? 'translateY(0px)' : 'translateY(20px)'
     },
-    delay: isProjectView ? 180 : 0,
+    delay: isProjectView ? revealDelayMs + staggerMs : 0,
     config: {
       tension: 270,
       friction: 28
     }
   });
+  const contentSpring = useSpring(copySpring(0));
+  const bodySpring = useSpring(copySpring(CONTENT_STAGGER_MS));
+  const ctaSpring = useSpring(copySpring(2 * CONTENT_STAGGER_MS));
 
   const caseStudySpring = useSpring({
     from: {
@@ -207,7 +246,7 @@ const ProjectFocusSection = ({
               opacity: isProjectView ? 1 : 0,
               visibility: isProjectView ? 'visible' : 'hidden',
               transition: isProjectView
-                ? 'opacity 450ms ease 180ms, visibility 0s linear 0s'
+                ? `opacity 450ms ease ${revealDelayMs}ms, visibility 0s linear 0s`
                 : 'opacity 450ms ease, visibility 0s linear 450ms'
             })
           }}
@@ -246,7 +285,7 @@ const ProjectFocusSection = ({
 
           <animated.p
             className={bodyClass}
-            style={{ ...contentSpring, ...bodyStyle, margin: 0 }}
+            style={{ ...bodySpring, ...bodyStyle, margin: 0 }}
           >
             {displayProject.description}
           </animated.p>
@@ -255,7 +294,7 @@ const ProjectFocusSection = ({
             <animated.p
               className={bodyClass}
               style={{
-                ...contentSpring,
+                ...bodySpring,
                 ...bodyStyle,
                 margin: isMobile ? 'calc(0.2rem * var(--project-card-v)) 0 0' : '30px 0 0'
               }}
@@ -268,7 +307,7 @@ const ProjectFocusSection = ({
             <animated.p
               className={bodyClass}
               style={{
-                ...contentSpring,
+                ...bodySpring,
                 ...bodyStyle,
                 margin: isMobile ? 'calc(0.2rem * var(--project-card-v)) 0 0' : '30px 0 0'
               }}
@@ -280,7 +319,7 @@ const ProjectFocusSection = ({
           {displayProject.roles && (
             <animated.p
               className={bodyClass}
-              style={{ ...contentSpring, ...bodyStyle, margin: 0 }}
+              style={{ ...bodySpring, ...bodyStyle, margin: 0 }}
             >
               {displayProject.roles}
             </animated.p>
@@ -304,7 +343,7 @@ const ProjectFocusSection = ({
               className="project-card__cta"
               href={ctaHref}
               onClick={inPageLinkHandler(openCaseStudy)}
-              style={contentSpring}
+              style={ctaSpring}
             >
               <span style={ctaTypeStyle(true)}>{displayProject.cta}</span>
               <ArrowIcon />
@@ -318,7 +357,7 @@ const ProjectFocusSection = ({
               isMobile={isMobile}
               href={ctaHref}
               onClick={openCaseStudy}
-              springStyle={contentSpring}
+              springStyle={ctaSpring}
               style={{ margin: '46px 0 0' }}
             />
           )}

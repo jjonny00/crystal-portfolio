@@ -53,9 +53,10 @@ import PerformanceDebugPanel from './components/ui/PerformanceDebugPanel';
 import * as defaultConfig from './crystalConfig';
 
 // Case studies (lazy-loaded per project)
-import CaseStudyOverlay, { OVERLAY_Z_INDEX } from './caseStudies/CaseStudyOverlay';
+import CaseStudyOverlay, { OVERLAY_Z_INDEX, preloadCaseStudy } from './caseStudies/CaseStudyOverlay';
 import { foregroundColorForTone } from './caseStudies/system/caseStudyTheme';
-import { caseStudyOpaqueAtMs } from './caseStudies/transitionTiming';
+import { CASE_STUDY_EXIT_MS, CASE_STUDY_RETURN_EXIT_MS, caseStudyOpaqueAtMs } from './caseStudies/transitionTiming';
+import { PROJECT_ROUTES } from './config/projectRouteTiming';
 import { CATALOG_PROJECT } from './caseStudies/catalog/catalogProject';
 import { getProjectByAnyKey, getProjectIdBySceneFacetKey } from './data/projects';
 
@@ -645,9 +646,15 @@ function App() {
     setViewMode((prev) => (prev === 'caseStudy' ? 'project' : prev));
   }, []);
 
+  // How long the layer takes to fade as it closes. Its own way out ("Back to
+  // <project>") hands over to the camera settling back on the fragment and fades
+  // a little longer; the nav's ways out keep the quick fade.
+  const [overlayExitMs, setOverlayExitMs] = useState(CASE_STUDY_EXIT_MS);
+
   // Whichever layer is up. The catalogue is not part of viewMode, so it needs
   // clearing separately.
   const closeOverlay = useCallback(() => {
+    setOverlayExitMs(CASE_STUDY_RETURN_EXIT_MS);
     setCatalogOpen(false);
     closeCaseStudy();
   }, [closeCaseStudy]);
@@ -1010,9 +1017,24 @@ function App() {
 
   const handleOpenCaseStudy = useCallback((projectId) => {
     if (!projectId) return;
+    setOverlayExitMs(CASE_STUDY_EXIT_MS);
     setActiveProjectId(projectId);
     setViewMode('caseStudy');
   }, []);
+
+  // A project's case study is fetched while the project is up, so opening it
+  // mounts the page at once and its entrance keeps time with the camera's push
+  // in, rather than starting whenever the chunk happened to arrive. Not until
+  // the camera has landed on the project, so the fetch stays off its move.
+  const activeCaseStudySlug = viewMode === 'project' ? activeProject?.caseStudySlug : null;
+  useEffect(() => {
+    if (!activeCaseStudySlug) return undefined;
+    const timeoutId = setTimeout(
+      () => preloadCaseStudy(activeCaseStudySlug).catch(() => {}),
+      PROJECT_ROUTES.overviewToProject.durationMs
+    );
+    return () => clearTimeout(timeoutId);
+  }, [activeCaseStudySlug]);
 
   // A click or tap on the selected project's own fragment opens its case study,
   // as the project's case-study link does. See SceneBackgroundClick.
@@ -1609,6 +1631,7 @@ function App() {
         initiallyOpen={caseStudyDeepLink}
         initialScrollTop={caseStudyDeepLink ? getPrerenderedScrollTop() : 0}
         arrivalExit={arrivalExit}
+        exitMs={overlayExitMs}
       />
 
       {/* UI Controls */}
