@@ -2652,17 +2652,20 @@ const UnifiedCrystalScene = forwardRef(({
       // Active (hovered/focused) facet starts at its project color AND lifted glow
       // intensity; others start at the default color and resting base. (Without the
       // intensity lift here, a re-clone mid-hover snapped the lifted glow back to base.)
-      // If a hover/select glow transition is mid-flight on the previous clone, seed the
-      // fresh uniforms with its CURRENT values so the rebuild doesn't snap the ramp.
+      // A rebuild of a facet that already had a clone takes that clone's CURRENT glow
+      // instead, so the rebuild itself never changes what is on screen: the hover and
+      // focus effects own every change, as fades. This effect re-clones on every focus
+      // change, and starting the fresh uniforms at the NEW focus state cut the project
+      // colour out of the fragment being left (and into the next) in a frame, before
+      // the focus effect's fade began from values already at its end.
       const isActiveFacet = hoveredKey === key || (focusedKey === key && !hoveredKey);
       const prevGlow = existingMat?.userData?.glowUniforms;
-      const glowTransitionInFlight = prevGlow && (existingMat.userData.glowProgress ?? 1) < 1;
       attachInternalGlow(mat, {
         ...glowInit,
-        emissiveIntensity: glowTransitionInFlight
+        emissiveIntensity: prevGlow
           ? prevGlow.uGlowIntensity.value
           : (isActiveFacet ? facetGlowLevelsRef.current.active : glowInit.emissiveIntensity),
-        color: glowTransitionInFlight
+        color: prevGlow
           ? prevGlow.uGlowColor.value.clone()
           : (isActiveFacet ? projectColors[idx] : glowInit.color),
         programKey: FACET_GLOW_PROGRAM_KEY,
