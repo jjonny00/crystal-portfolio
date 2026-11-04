@@ -71,7 +71,7 @@ export const fracture = {
     // (the burst itself launches while the crystal still hides the core).
     lateCount: 6,
     lateStart: 0.6,
-    lateEnd: 1.6,
+    lateEnd: 1.0,
     lateSpread: 0.25,
     lateSpeedScale: 0.4,
     size: 0.9,            // base sprite world size at spawn
@@ -96,7 +96,7 @@ export const fracture = {
     // as expanded at once instead of growing through the bullet-time orbit.
     lifetimeMin: 0.9,
     lifetimeMax: 6.5,     // seconds (was 4: the longest-lived now linger past the index's arrival)
-    opacity: 0.5          // peak per-sprite opacity (color comes from the texture itself)
+    opacity: 0.25          // peak per-sprite opacity (color comes from the texture itself)
   },
   emissive: {
     intensity: 2.3,       // Bright glow intensity at fracture
