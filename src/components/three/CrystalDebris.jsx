@@ -160,6 +160,7 @@ const _push = new THREE.Vector3();
 const _roll = new THREE.Quaternion();
 const _scale = new THREE.Vector3();
 const _world = new THREE.Vector3();
+const _shown = new THREE.Vector3();
 const _camForward = new THREE.Vector3();
 const _Y = new THREE.Vector3(0, 1, 0);
 
@@ -341,6 +342,8 @@ const CrystalDebris = ({
       pieces,
       position: pieces.map(() => new THREE.Vector3()),
       velocity: pieces.map(() => new THREE.Vector3()),
+      // How far the facets are pushing it out of them (eased; see collisionEase).
+      push: pieces.map(() => new THREE.Vector3()),
       roll: pieces.map(() => 0),
       // Per piece: its seat in the whole crystal (the larger pieces), in its
       // facet's space.
@@ -516,6 +519,17 @@ const CrystalDebris = ({
     // How much of an intrusion into a facet's margin a piece gives way by: a
     // cushion that grows with the intrusion, rather than a hard stop.
     const collisionSoftness = Math.min(Math.max(cfg.collisionSoftness ?? 0.5, 0), 1);
+    // How long a piece takes to give way to a facet, rather than doing it in the
+    // frame it is found in one. The push sends it out through the facet's
+    // nearest face, and when a facet sweeping past makes another face the
+    // nearest, that push swings round at a stroke: a large piece jumped ~0.45 in
+    // a frame.
+    const collisionEase = Math.max(cfg.collisionEaseSeconds ?? 0.12, 1e-3);
+    // The quickest a piece breaks away from its facet, on the explosion's clock.
+    // Its release follows how far the facet has travelled, and in the burst a
+    // facet crosses the release window in a few frames: the pieces were flung
+    // from their seats to their places in ~0.1s, nearly a unit a frame.
+    const releaseSeconds = Math.max(cfg.release?.seconds ?? 0.45, 1e-3);
 
     pieces.forEach((piece, i) => {
       const mesh = meshByModel[piece.model];
@@ -541,6 +555,8 @@ const CrystalDebris = ({
         out = Math.min(s.out[i], from > 1e-3 ? clamp01(facet.travelled / from) : 0);
       } else if (now < s.reverseUntil && !snap) {
         out = Math.min(released, s.out[i] + realDt / returnSeconds);
+      } else if (!snap) {
+        out = Math.min(released, s.out[i] + dt / releaseSeconds);
       }
       s.out[i] = out;
       // A seated piece lifts straight off its face over the first `lift` of its
@@ -612,7 +628,10 @@ const CrystalDebris = ({
       }
 
       // Kept out of the facets: any it has got into, and its own once it has
-      // mostly broken away from it (until then it is coming out of it).
+      // mostly broken away from it (until then it is coming out of it). The push
+      // is eased in over collisionEase and shown on top of where the piece is.
+      const push = (s.push ??= [])[i] ?? (s.push[i] = new THREE.Vector3());
+      _shown.copy(position);
       if (out > 0.02 && !snap) {
         const margin = size * collisionMargin + 0.01;
         // A few passes, so a piece between two facets settles between them
@@ -621,10 +640,16 @@ const CrystalDebris = ({
           for (let f = 0; f < liveFacets.length; f += 1) {
             const other = liveFacets[f];
             if (other.key === piece.facet && (seat ? out < liftShare : out < 0.5)) continue;
-            pushOutOfFacet(position, velocity, other, margin, collisionSoftness);
+            pushOutOfFacet(_shown, velocity, other, margin, collisionSoftness);
           }
         }
+        push.lerp(_gap.subVectors(_shown, position), 1 - Math.exp(-realDt / collisionEase));
+      } else if (snap) {
+        push.set(0, 0, 0);
+      } else {
+        push.multiplyScalar(Math.exp(-realDt / collisionEase));
       }
+      _shown.copy(position).add(push);
 
       // A very slow roll about its length at rest, quicker while it moves.
       s.roll[i] += piece.spinDirection
@@ -647,12 +672,12 @@ const CrystalDebris = ({
 
       // It shrinks away close to the camera, and is placed by the middle of its
       // length.
-      _world.copy(position).applyMatrix4(mesh.matrixWorld);
+      _world.copy(_shown).applyMatrix4(mesh.matrixWorld);
       const depth = _world.sub(camera.position).dot(_camForward) - size / 2;
       const scale = size * smoothstep(fadeNear, fadeFar, depth);
       const width = scale * (model?.width ?? 1);
       _middle.set(0, piece.middle * scale, 0).applyQuaternion(_q);
-      _place.copy(position).sub(_middle);
+      _place.copy(_shown).sub(_middle);
       mesh.setMatrixAt(piece.instance, _m.compose(_place, _q, _scale.set(width, scale, width)));
     });
     meshes.forEach((mesh) => { mesh.instanceMatrix.needsUpdate = true; });
