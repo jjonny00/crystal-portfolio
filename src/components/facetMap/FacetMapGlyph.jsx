@@ -63,6 +63,8 @@ const FacetMapGlyph = ({
    * whose copy is set dark (scrimTone), that copy's ink.
    */
   restInk = null,
+  /** The current fragment's outline (CURRENT_OUTLINE unless given). */
+  currentOutline = CURRENT_OUTLINE,
   /** Rendered height in px; the width follows the map's own proportions. */
   height = 54,
   /**
@@ -141,7 +143,7 @@ const FacetMapGlyph = ({
 
         let paint = rest;
         if (isCurrent) {
-          paint = { fill: currentFill, fillOpacity: 1, stroke: CURRENT_OUTLINE, strokeOpacity: 1 };
+          paint = { fill: currentFill, fillOpacity: 1, stroke: currentOutline, strokeOpacity: 1 };
         } else if (isHighlight) {
           // Lit, not selected: its own colour as an outline over a light wash.
           // On a case-study page the project colour would fight the page's own,

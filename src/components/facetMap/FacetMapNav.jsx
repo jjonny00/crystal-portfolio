@@ -67,6 +67,9 @@ const PHONE_PANEL_COLUMN_GAP = 12;
 /** The disc's map, which the index's grows out of. */
 const PHONE_DISC_GLYPH_HEIGHT = BUTTON_GLYPH_HEIGHT;
 
+/** The index's fill (facet-map.css), and the disc's before it has a project's. */
+const PANEL_FILL = '#070015';
+
 /** How long the pointer can be off the map and the index before it closes. */
 const LEAVE_CLOSE_MS = 240;
 
@@ -343,6 +346,9 @@ const FacetMapNav = ({
             current fragment in its colour. */}
         <FacetMapGlyph
           className="facet-map__trigger-map"
+          // On a phone the current fragment's outline is the disc's own fill,
+          // so it reads as a gap around the fragment.
+          currentOutline={compact ? (colors?.fg ?? PANEL_FILL) : undefined}
           currentId={projectId}
           variant={compact && colors ? 'ink' : 'button'}
           ink={colors?.bg}
@@ -371,6 +377,8 @@ const FacetMapNav = ({
         {panelBody}
         <FacetMapGlyph
           className="facet-map__panel-map"
+          // On a phone, the index's own dark, as on the disc.
+          currentOutline={compact ? PANEL_FILL : undefined}
           currentId={pressedId ?? projectId}
           highlightId={highlightId}
           height={compact ? phoneMapHeight : PANEL_GLYPH_HEIGHT}
