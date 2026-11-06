@@ -24,7 +24,7 @@
 //
 // In the gutter the index opens on hover, on keyboard focus, or on a click, as a card that
 // grows out of the map into the page: the map again, larger, beside the six
-// projects by number and name, the current one marked "You are here", and a way
+// projects by name, the current one in its own colour (projects.js), and a way
 // to the crystal overview. Pointing at a name or a fragment lights that fragment
 // without selecting anything. Choosing a project goes to its preview (from a case
 // study, closing it first); choosing the current one only closes the index.
@@ -85,11 +85,15 @@ const swallowNextClick = () => {
   timer = setTimeout(done, 800);
 };
 
-const INDEX = FACET_MAP_ORDER.map((projectId, index) => ({
-  projectId,
-  number: String(index + 1).padStart(2, '0'),
-  label: getProjectByAnyKey(projectId)?.label ?? projectId,
-}));
+const INDEX = FACET_MAP_ORDER.map((projectId) => {
+  const project = getProjectByAnyKey(projectId);
+  return {
+    projectId,
+    label: project?.label ?? projectId,
+    // The current project's name takes its colour (projects.js).
+    color: project?.headlineColor || project?.color || null,
+  };
+});
 
 const FacetMapNav = ({
   /** From useFacetMapSelection. */
@@ -259,19 +263,14 @@ const FacetMapNav = ({
                 href={projectPath(item.projectId)}
                 aria-current={current ? 'true' : undefined}
                 data-highlight={item.projectId === highlightId ? '' : undefined}
+                style={item.color ? { '--facet-map-item-color': item.color } : undefined}
                 onClick={inPageLinkHandler(() => choose(item.projectId))}
                 onPointerEnter={() => setHighlightId(item.projectId)}
                 onPointerLeave={() => setHighlightId(null)}
                 onFocus={() => setHighlightId(item.projectId)}
                 onBlur={() => setHighlightId(null)}
               >
-                <span className="facet-map__number type-caption-caps" aria-hidden="true">
-                  {item.number}
-                </span>
                 <span className="facet-map__name type-headline-xs">{item.label}</span>
-                {current && (
-                  <span className="facet-map__here type-caption-caps">You are here</span>
-                )}
               </a>
             </li>
           );

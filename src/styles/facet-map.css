@@ -167,6 +167,9 @@ html[data-media-viewer='open'] .facet-map {
   grid-template-columns: auto auto;
   align-items: start;
   column-gap: 20px;
+  /* As wide as its longest name: positioned against the map's narrow box, it
+     would otherwise shrink to that and let the names run out of it. */
+  inline-size: max-content;
   padding: var(--panel-pad) 12px var(--panel-pad) var(--panel-pad);
   transform-origin: calc(var(--panel-pad) + var(--panel-map-w) / 2) calc(var(--panel-pad) + 50px);
 }
@@ -294,16 +297,13 @@ html[data-media-viewer='open'] .facet-map {
   list-style: none;
 }
 
-/* Each row is the project's link: number, name, and on the current one "You
-   are here", so the current project reads in words, not only in colour. 44px
-   tall at least in the gutter's card, 50px from the button, a full touch
-   target either way. */
+/* Each row is the project's link, its name; the current one's in the
+   project's colour (--facet-map-item-color, from projects.js), as its fragment
+   on the map beside it is. 44px tall at least in the gutter's card, 50px from
+   the button, a full touch target either way. */
 .facet-map__item {
-  display: grid;
-  grid-template-columns: 2em auto;
-  align-items: baseline;
-  align-content: center;
-  column-gap: 6px;
+  display: flex;
+  align-items: center;
   min-block-size: 44px;
   box-sizing: border-box;
   padding: 11px 12px 9px 10px;
@@ -323,10 +323,6 @@ html[data-media-viewer='open'] .facet-map {
   background-color: rgba(255, 252, 238, 0.08);
 }
 
-.facet-map__number {
-  opacity: 0.55;
-}
-
 .facet-map__name {
   white-space: nowrap;
   opacity: 0.82;
@@ -334,12 +330,7 @@ html[data-media-viewer='open'] .facet-map {
 
 .facet-map__item[aria-current] .facet-map__name {
   opacity: 1;
-}
-
-.facet-map__here {
-  grid-column: 2;
-  margin-block-start: 4px;
-  opacity: 0.6;
+  color: var(--facet-map-item-color, inherit);
 }
 
 .facet-map__overview {
