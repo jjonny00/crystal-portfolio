@@ -156,6 +156,10 @@
   color: #ffffff;
 }
 
+.hero-section__cta-arrow > svg {
+  display: block;
+}
+
 /* The shared button box (index.css --button-*), drawn with smoothed corners by
    the SquircleSurface inside it. The small bottom padding centres the capitals
    rather than the line box, which sits them about 1px low.

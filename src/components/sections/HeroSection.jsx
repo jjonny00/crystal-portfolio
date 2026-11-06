@@ -164,24 +164,19 @@ const HeroSection = ({
 
   // Inline rather than an image, so it draws in currentColor: white on the
   // scene beside the pill, the label's ink inside it on a phone
-  // (hero-section.css).
+  // (hero-section.css). In a span, which carries the rail anchor: the line
+  // measures it by offsetLeft/offsetWidth (VerticalEnergyLine), which an SVG
+  // element doesn't have.
   const heroArrow = (
-    <svg
-      className="hero-section__cta-arrow"
-      data-hero-rail-anchor
-      width="19"
-      height="21"
-      viewBox="0 0 19 21"
-      fill="none"
-      aria-hidden="true"
-      focusable="false"
-    >
-      <path
-        d="M1.0625 10.3394L10.5601 19.8388M17.9413 10.3395L8.44279 19.838M9.50194 0V19"
-        stroke="currentColor"
-        strokeWidth="3"
-      />
-    </svg>
+    <span className="hero-section__cta-arrow" data-hero-rail-anchor aria-hidden="true">
+      <svg width="19" height="21" viewBox="0 0 19 21" fill="none" focusable="false">
+        <path
+          d="M1.0625 10.3394L10.5601 19.8388M17.9413 10.3395L8.44279 19.838M9.50194 0V19"
+          stroke="currentColor"
+          strokeWidth="3"
+        />
+      </svg>
+    </span>
   );
 
   return (
