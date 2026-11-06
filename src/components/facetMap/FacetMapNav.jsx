@@ -3,22 +3,23 @@
 // The facet map on a project preview or a case study, and the button that opens
 // the project index. See docs/facet-map.md. It always has the screen's bottom
 // right to itself, on a preview and a case study alike, so it never moves
-// between them, across from the case study's close button at the bottom left
-// and in its colours (the project card's: its ink for the fill, the map drawn
-// in its fill; lib/projectCardColors.js). Two layouts, by width:
+// between them, across from the case study's close button at the bottom left.
+// Two layouts, by width:
 //
 // The dock (MQ_DESKTOP, 768px and up): the map alone, 72px tall, in a 104px
-// filled circle (the project's name is already on screen, large), its bottom
-// level with the close button's. Hover, keyboard focus or a click opens the index, a card that
-// grows up and out of it: the six projects by name, the current one in its own
-// colour (projects.js), and a way to the crystal overview, beside the map, which
-// sits where the dock's was, so the pointer's path from one into the other never
+// circle in the index's dark (the project's name is already on screen, large),
+// its bottom level with the close button's. Hover, keyboard focus or a click
+// opens the index, a card that rises over it: the six projects by name, the
+// current one in its own colour (projects.js), beside the map, which grows out
+// of the dock's to the list's height, and "View All Work" across its foot. The
+// card covers the dock, so the pointer's path from one into the other never
 // crosses a gap. Pointing at a name or a fragment lights that fragment without
 // selecting anything. Leaving waits a moment before closing, so a pointer that
 // strays off an edge and comes back finds it still open.
 //
 // The disc (a phone): the last row of the screen, beside the project card's CTA,
-// the map alone in a circle the CTA's height. A tap opens the index from it,
+// the map alone in a circle the CTA's height and colours (the project card's:
+// its ink for the fill, the map drawn in its fill; lib/projectCardColors.js). A tap opens the index from it,
 // rising, its header at its foot (the map, "Projects", a close button where the
 // disc was), the rows at least 50px tall. Only a tap or the keyboard opens it; it
 // never takes a swipe, so the page scrolls under the reader's thumb as before.
@@ -34,14 +35,21 @@ import { FACET_MAP_ORDER } from './facetMapData';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { MQ_DESKTOP, MQ_REDUCED_MOTION } from '../../config/breakpoints';
 import { getProjectByAnyKey } from '../../data/projects';
+import { VIEW_ALL_WORK_LABEL } from '../../data/siteCopy';
 import { projectCardColors } from '../../lib/projectCardColors';
 import { pathFor, projectPath } from '../../navigation/routes';
 import { NAVIGATION_DESTINATIONS } from '../../navigation/navigationIntent';
 import { inPageLinkHandler } from '../../navigation/linkClick';
 import '../../styles/facet-map.css';
 
-/** The map's height in the dock, and in the index that grows from it. */
+/** The map's height in the dock. */
 const DOCK_GLYPH_HEIGHT = 72;
+/**
+ * The map's height in the index that grows from the dock: about the list's
+ * height beside it. It grows to this from the dock's (facet-map.css), so the
+ * ratio is written there too.
+ */
+const PANEL_GLYPH_HEIGHT = 260;
 /** The map's height in the phone's disc, chosen on device. */
 const BUTTON_GLYPH_HEIGHT = 32;
 /** The map's height in the dropped index's header. */
@@ -88,7 +96,7 @@ const FacetMapNav = ({
   selection,
   /** Go to a project's preview (App closes an open case study first). */
   onSelectProject,
-  /** Go to the crystal overview. */
+  /** Go to the overview: All Work, the nav's Work. */
   onSelectOverview,
 }) => {
   const reducedMotion = useMediaQuery(MQ_REDUCED_MOTION);
@@ -257,7 +265,7 @@ const FacetMapNav = ({
           onSelectOverview?.();
         })}
       >
-        View crystal overview
+        {VIEW_ALL_WORK_LABEL}
         <span aria-hidden="true">&rarr;</span>
       </a>
     </div>
@@ -277,7 +285,7 @@ const FacetMapNav = ({
       data-place={compact ? 'bottom' : undefined}
       data-motion={reducedMotion ? undefined : ''}
       aria-hidden={shown ? undefined : true}
-      style={colors ? { '--facet-map-fill': colors.fg, '--facet-map-ink': colors.bg } : undefined}
+      style={compact && colors ? { '--facet-map-fill': colors.fg, '--facet-map-ink': colors.bg } : undefined}
       onPointerEnter={onPointerEnter}
       onPointerLeave={onPointerLeave}
       onBlur={onBlur}
@@ -293,12 +301,13 @@ const FacetMapNav = ({
         onClick={onTriggerClick}
         onFocus={onTriggerFocus}
       >
-        {/* In the card's fill, as the CTA's label is; before the colours are
-            known, the colour variant's white outlines on the dark default. */}
+        {/* On a phone, in the card's fill, as the CTA's label is. The dock is
+            the index's own dark, whichever project: the white outlines, the
+            current fragment in its colour. */}
         <FacetMapGlyph
           className="facet-map__trigger-map"
           currentId={projectId}
-          variant={colors ? 'ink' : 'button'}
+          variant={compact && colors ? 'ink' : 'button'}
           ink={colors?.bg}
           height={compact ? BUTTON_GLYPH_HEIGHT : DOCK_GLYPH_HEIGHT}
           animate={!reducedMotion}
@@ -338,7 +347,7 @@ const FacetMapNav = ({
             className="facet-map__panel-map"
             currentId={projectId}
             highlightId={highlightId}
-            height={DOCK_GLYPH_HEIGHT}
+            height={PANEL_GLYPH_HEIGHT}
             animate={!reducedMotion}
             onFragmentEnter={setHighlightId}
             onFragmentLeave={() => setHighlightId(null)}

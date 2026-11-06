@@ -17,18 +17,19 @@ at the end of each case study.
 Always the screen's bottom right, on every preview and case study, so it never
 moves as you go between projects or open and close a case study. It mirrors the
 case study's close button (`.cs-back`) at the bottom left: the same distance
-from the screen's edges, bottoms level, and the same colours, the project
-card's (`lib/projectCardColors.js`): the card's ink for the fill, the map and
-drawn in the card's fill. Before any project has been shown it falls
-back to a dark fill with white outlines. Two layouts (`data-layout`), by
+from the screen's edges, bottoms level. Two layouts (`data-layout`), by
 `MQ_DESKTOP` (768px):
 
 - **The dock** (`'dock'`, 768px and up, tablets included): the map alone,
-  44 x 72, in a 104px circle. No name beside it: the project's name is already
-  on screen, large. Inset `clamp(16px, 2vw, 28px)` from the right and bottom,
+  44 x 72, in a 104px circle in the index's dark (rgb(17, 19, 24)), whichever
+  project: white outlines, the current fragment in its colour. No name beside
+  it: the project's name is already on screen, large. Inset `clamp(16px, 2vw, 28px)` from the right and bottom,
   as the close button is from the left and bottom.
 - **The disc** (`'button'`, a phone): the right of the screen's last row, the
-  map alone (20 x 32) in a 49px circle, the card's edge (`--project-card-edge`,
+  map alone (20 x 32) in a 49px circle in the close button's colours, the
+  project card's (`lib/projectCardColors.js`): the card's ink for the fill, the
+  map drawn in the card's fill (a dark fill with white outlines before any
+  project has been shown), the card's edge (`--project-card-edge`,
   21px) from the screen's side and bottom (`--bottom-row-*`, `index.css`). On a
   preview the card's CTA fills the rest of the row, 12px from it; on a case
   study the close button is a circle the disc's size at the row's left. The CTA
@@ -36,14 +37,16 @@ back to a dark fill with white outlines. Two layouts (`data-layout`), by
   doesn't, so the longest still fits (`ProjectFocusSection`). The hero's CTA
   sits in the same row (`--mobile-bottom-inset`).
 
-Held through a move between projects, when no project is marked, the button keeps
+Held through a move between projects, when no project is marked, the disc keeps
 the last project's colours, so it doesn't change colour on the way out; the map lets go of the current fragment as the move starts.
 
 ## The index
 
 The map is a button ("Project index. Current project: Mesa", `aria-expanded`).
 Its index is a dark card with the six projects in the map's order, by name, and
-"View crystal overview" last. The current one's name is in its project's colour
+"View All Work" last (`VIEW_ALL_WORK_LABEL`, `siteCopy.js`: the same words as a
+case study's way out when it was opened from its own URL, since both go where
+the nav's Work does). The current one's name is in its project's colour
 and carries `aria-current` (the brief's "identifiable without colour" now rests
 on its fragment being filled on the map beside it, and on screen readers).
 
@@ -51,15 +54,17 @@ on its fragment being filled on the map beside it, and on screen readers).
   `handleFacetMapProjectSelect`). From a case study, the case study closes first
   and the scene moves on from under it. The current project only closes the
   index: no move, no scroll.
-- "View crystal overview" is the nav's Work.
+- "View All Work" is the nav's Work.
 - Escape (focus goes back to the map), a press outside (which does nothing
   else: the click it ends in is dropped), or the page scrolling closes it.
 - The rows are real links (`/work/<slug>`), so they open in a new tab or copy
   like any other.
 
-**From the dock** it rises over it, as wide as its longest name, with the map in
-its bottom-right corner exactly where the dock's was, so the pointer's way in
-never crosses a gap. Hover, keyboard focus or a click opens it; opened by hover
+**From the dock** it rises over it from its corner: the names, the map beside
+them at the list's height (260px), and "View All Work" across the foot. The map
+grows to that out of the dock's: closed, it is scaled down to the dock map's
+size exactly over it (`facet-map.css`), and opening it scales up and rises into
+place. The card covers the dock, so the pointer's way in never crosses a gap. Hover, keyboard focus or a click opens it; opened by hover
 it closes when the pointer has been off it for 240ms, opened by a click or the
 keyboard it stays until one of the above, or focus leaving. Pointing at a name or
 a fragment lights that fragment (its colour as an outline over a 35% fill) and
@@ -149,8 +154,9 @@ the scene uses, so a change to `projects.js` reaches the map on the next run.
 
 ## Colour
 
-On the dock and the disc the map is drawn in the project card's fill, current
-fragment filled, on the card's ink (see Where it sits). In the index's dark card
+On the disc the map is drawn in the project card's fill, current fragment
+filled, on the card's ink; on the dock, white outlines on the index's dark with
+the current fragment in its colour (see Where it sits). In the index's dark card
 the current fragment and name take the project's `headlineColor` from
 `projects.js`, the colour its preview title and CTA are set in.
 

@@ -12,6 +12,11 @@ export const HERO_BODY_EMPHASIS = ['decide', 'compete', 'engage'];
 
 export const HERO_CTA_LABEL = 'Look Beneath the Surface';
 
+// The way to the overview from a project: the facet map's index, and a case
+// study opened from its own URL (caseStudyExit.js). Both go where the nav's
+// Work goes, so they say so in the same words.
+export const VIEW_ALL_WORK_LABEL = 'View All Work';
+
 // Under the wordmark in the nav (Navigation.jsx), one line.
 export const NAV_DESCRIPTOR = 'Systems & Interaction Designer';
 

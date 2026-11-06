@@ -10,12 +10,13 @@
 // default) leaves each case study's own label and close in place.
 
 import { createContext } from 'react';
+import { VIEW_ALL_WORK_LABEL } from '../../data/siteCopy';
 
 /**
  * The label for a case study's way out when the reader arrived on it from
  * outside. Shown without the close cross: it leads on into the work, not back.
  */
-export const ARRIVAL_EXIT_LABEL = 'View All Work';
+export const ARRIVAL_EXIT_LABEL = VIEW_ALL_WORK_LABEL;
 
 /** @type {import('react').Context<null | { label: string, onExit: () => void }>} */
 export const CaseStudyExitContext = createContext(null);

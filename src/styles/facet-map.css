@@ -141,28 +141,63 @@ html[data-media-viewer='open'] .facet-map {
   transition: opacity 160ms ease, transform 240ms cubic-bezier(0.2, 0.7, 0.2, 1), visibility 0s linear 0s;
 }
 
-/* The dock's: the names, and the map at the bottom right exactly over the
-   dock's (the same size, the same distance from the corner: the circle's 104px
-   less the map's 44 x 72, halved), so the pointer's path from the dock into
-   the card never leaves either. As wide as its longest name; kept clear of the
-   nav above it. */
+/* The dock's: covering the dock from its corner, the names beside the map,
+   and "View All Work" across the foot. The map is drawn at the list's height
+   (260px, PANEL_GLYPH_HEIGHT in FacetMapNav) and grows to it out of the dock's:
+   closed, it is scaled to the dock map's 72px from its bottom-right corner and
+   moved down past the foot row (48px and the 6px gap) onto the dock map, which
+   the card's right and bottom padding (the circle's 104px less the map's
+   44 x 72, halved: 30 and 16) put it exactly over. */
 .facet-map[data-layout='dock'] .facet-map__panel {
+  --panel-foot: 48px;
+  --panel-row-gap: 6px;
   right: 0;
   bottom: 0;
   display: grid;
   grid-template-columns: max-content auto;
+  grid-template-areas:
+    'list map'
+    'foot foot';
   align-items: end;
-  column-gap: 20px;
+  column-gap: 28px;
+  row-gap: var(--panel-row-gap);
   inline-size: max-content;
-  max-block-size: calc(100svh - var(--facet-map-inset) - 88px);
   padding: 16px 30px 16px 16px;
   transform-origin: calc(100% - 52px) calc(100% - 52px);
 }
 
+/* Its list and link take grid areas of the card's own. */
 .facet-map[data-layout='dock'] .facet-map__panel-body {
-  align-self: stretch;
+  display: contents;
+}
+
+.facet-map[data-layout='dock'] .facet-map__list {
+  grid-area: list;
+}
+
+.facet-map[data-layout='dock'] .facet-map__panel-map {
+  grid-area: map;
+  justify-self: end;
+  transform-origin: 100% 100%;
+}
+
+.facet-map[data-layout='dock'][data-motion] .facet-map__panel-map {
+  transform: translateY(calc(var(--panel-foot) + var(--panel-row-gap))) scale(calc(72 / 260));
+  transition: transform 140ms ease;
+}
+
+.facet-map[data-layout='dock'][data-motion][data-open] .facet-map__panel-map {
+  transform: none;
+  transition: transform 360ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+/* Across the card's width, out to its right edge past the padding the map
+   keeps. */
+.facet-map[data-layout='dock'] .facet-map__overview {
+  grid-area: foot;
+  block-size: var(--panel-foot);
   min-block-size: 0;
-  overflow-y: auto;
+  margin: 0 -14px 0 0;
 }
 
 /* The phone's: across the width between the page's edges (up to 400px, held to
