@@ -95,8 +95,13 @@ html[data-media-viewer='open'] .facet-map {
   inline-size: 100%;
   block-size: 100%;
   border-radius: 50%;
-  background-color: var(--facet-map-fill, rgb(17, 19, 24));
+  background-color: var(--facet-map-fill, #070015);
   transition: background-color 0.3s ease, opacity 200ms ease;
+}
+
+/* The dock: the index's dark at 87%, whichever project. */
+.facet-map[data-layout='dock'] .facet-map__trigger {
+  background-color: rgb(7 0 21 / 0.87);
 }
 
 .facet-map[data-layout='dock'] .facet-map__trigger:hover {
@@ -119,7 +124,7 @@ html[data-media-viewer='open'] .facet-map {
   isolation: isolate;
   box-sizing: border-box;
   --squircle-radius: 16px;
-  --squircle-fill: rgb(17, 19, 24);
+  --squircle-fill: #070015;
   color: rgba(255, 252, 238, 0.92);
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
   border-radius: 16px;

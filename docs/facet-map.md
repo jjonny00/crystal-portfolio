@@ -21,7 +21,7 @@ from the screen's edges, bottoms level. Two layouts (`data-layout`), by
 `MQ_DESKTOP` (768px):
 
 - **The dock** (`'dock'`, 768px and up, tablets included): the map alone,
-  44 x 72, in a 104px circle in the index's dark (rgb(17, 19, 24)), whichever
+  44 x 72, in a 104px circle in the index's dark (#070015) at 87%, whichever
   project: white outlines, the current fragment in its colour. No name beside
   it: the project's name is already on screen, large. Inset `clamp(16px, 2vw, 28px)` from the right and bottom,
   as the close button is from the left and bottom.
@@ -43,7 +43,7 @@ the last project's colours, so it doesn't change colour on the way out; the map 
 ## The index
 
 The map is a button ("Project index. Current project: Mesa", `aria-expanded`).
-Its index is a dark card with the six projects in the map's order, by name, and
+Its index is a dark card (#070015) with the six projects in the map's order, by name, and
 "View All Work" last (`VIEW_ALL_WORK_LABEL`, `siteCopy.js`: the same words as a
 case study's way out when it was opened from its own URL, since both go where
 the nav's Work does). The current one's name is in its project's colour
