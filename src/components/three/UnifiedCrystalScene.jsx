@@ -1353,6 +1353,9 @@ const UnifiedCrystalScene = forwardRef(({
   // than from where it is meant to have been can't be pulled back by a move
   // that replaces another.
   const routeStartQuatsRef = useRef({ startedAt: null, quats: {} });
+  // The fragment that last lost the focus, when, and where it was then: held
+  // there until the move that turns it home has started (see routeTurnQuat).
+  const focusLeftRef = useRef({ current: null, left: null, at: 0, quat: null });
   if (animationData?.viewMode === 'caseStudy' && animationData?.focusedProject) {
     caseStudyProjectRef.current = animationData.focusedProject;
   }
@@ -3400,6 +3403,23 @@ const UnifiedCrystalScene = forwardRef(({
     const routeTurnProgress = routeMove
       ? projectRouteProgress(routeMove.route, routeMove.projectId)
       : null;
+    // The focus moves to a new project a frame or more before the camera starts
+    // its move (on a phone or a tablet, several), and with no move running the
+    // fragment just left fell back to a quick turn toward home, then the move
+    // started and turned it from its selected angle again: a ~5 degree flick
+    // before the real turn. So it holds where it was for that gap: until the
+    // move starts, or a second at most (a slow device takes a few hundred
+    // milliseconds to start it). Under reduced motion no move comes, and it
+    // keeps its plain chase.
+    const FOCUS_LEFT_HOLD_MS = reducedMotion ? 0 : 1000;
+    const focusedNow = animationData?.focusedFacet ?? null;
+    const focusLeft = focusLeftRef.current;
+    if (focusLeft.current !== focusedNow) {
+      focusLeft.left = focusLeft.current;
+      focusLeft.at = now;
+      focusLeft.quat = null;
+      focusLeft.current = focusedNow;
+    }
     const routeStartQuat = (facetKey, currentQuat) => {
       const store = routeStartQuatsRef.current;
       if (store.startedAt !== routeMove.startedAt) {
@@ -3410,10 +3430,30 @@ const UnifiedCrystalScene = forwardRef(({
       return store.quats[facetKey];
     };
     const routeTurnQuat = (projectId, isFocused, baseQuat, selectedQuat, caseStudyQuat, facetKey, currentQuat) => {
+      const turned = moveTurnQuat(projectId, isFocused, baseQuat, selectedQuat, caseStudyQuat, facetKey, currentQuat);
+      if (turned) return turned;
+      // No move has picked it up yet: none is running, or the one that is (a
+      // finished one stays registered until the next starts) began before the
+      // focus left it.
+      const moveIsOlder = !routeMove || routeMove.startedAt < focusLeft.at;
+      if (
+        !isFocused &&
+        facetKey === focusLeft.left &&
+        moveIsOlder &&
+        now - focusLeft.at < FOCUS_LEFT_HOLD_MS
+      ) {
+        if (!focusLeft.quat) focusLeft.quat = currentQuat.clone();
+        return focusLeft.quat;
+      }
+      return null;
+    };
+    const moveTurnQuat = (projectId, isFocused, baseQuat, selectedQuat, caseStudyQuat, facetKey, currentQuat) => {
       if (routeTurnProgress == null) return null;
       if (routeMove.route === 'projectToProject') {
+        // From wherever it is when the move starts, which is its selected angle
+        // unless something moved it first.
         return !isFocused && projectId === routeMove.fromProjectId
-          ? selectedQuat.clone().slerp(baseQuat, routeTurnProgress)
+          ? routeStartQuat(facetKey, currentQuat).clone().slerp(baseQuat, routeTurnProgress)
           : null;
       }
       // Out of a case study onto a different project (the facet map's index):
