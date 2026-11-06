@@ -237,17 +237,20 @@ const ProjectFocusSection = ({
             (--project-copy-height, set by useSharedProjectCopyHeight), the copy
             set from its top and the CTA at its bottom. So the titles all sit at
             one height, and the CTAs at another, whichever project is showing,
-            and the facet map, level with the titles, never moves. */}
+            and the facet map, level with the titles, never moves. On a phone
+            the block is the card, as tall as the tallest card, so every card's
+            top edge is in one place and the map's disc sits on it. */}
         <div
           className={isMobile ? 'project-card' : undefined}
           data-scene-click-ignore=""
-          data-project-copy={isMobile ? undefined : ''}
+          data-project-copy=""
+          data-facet-map-card={isMobile ? (project.facetKey || project.id) : undefined}
           style={{
             width: isMobile ? '100%' : contentWidth,
             maxWidth: '100%',
-            ...(isMobile
-              ? { display: 'grid', gridTemplateColumns: '1fr' }
-              : { display: 'flex', flexDirection: 'column', minHeight: 'var(--project-copy-height, 0px)' }),
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: 'var(--project-copy-height, 0px)',
             gap: isMobile ? 'calc(0.9rem * var(--project-card-v))' : '0',
             textAlign: 'left',
             ...(isMobile && {
@@ -350,6 +353,16 @@ const ProjectFocusSection = ({
               See KnockoutButton for why that needs an SVG mask. */}
           {/* Mobile: a row under a rule, the label and an arrow, in the card's
               ink. Same link and click as the button. */}
+          {/* What the card's shared height adds goes here, above the CTA's
+              rule. Its negative margin takes back the gap it adds, so a card at
+              its own height is spaced exactly as before. */}
+          {displayProject.cta && isMobile && (
+            <div
+              data-project-copy-spacer=""
+              style={{ flex: '1 0 0px', marginTop: 'calc(-0.9rem * var(--project-card-v))' }}
+            />
+          )}
+
           {displayProject.cta && isMobile && (
             <animated.a
               className="project-card__cta"

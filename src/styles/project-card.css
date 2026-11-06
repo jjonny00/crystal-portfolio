@@ -20,15 +20,20 @@
  *   --project-card-fg   colour B
  */
 
-.project-card {
+/* On :root rather than the card: the facet map's disc, outside the card, lines
+   its right edge up with the card's copy (facet-map.css). The sides match the
+   bottom, so the copy sits in an even margin along the card's three edges
+   against the screen. */
+:root {
   --project-card-v: 0.7;
+  --project-card-edge: calc(30px * var(--project-card-v));
+}
+
+.project-card {
   box-sizing: border-box;
   width: 100%;
   background: var(--project-card-bg);
   color: var(--project-card-fg);
-  /* The sides match the bottom, so the copy sits in an even margin along the
-     card's three edges against the screen. */
-  --project-card-edge: calc(30px * var(--project-card-v));
   padding: var(--project-card-edge) var(--project-card-edge)
     calc(var(--project-card-edge) + env(safe-area-inset-bottom, 0px));
 }

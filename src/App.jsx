@@ -1557,6 +1557,7 @@ function App() {
       <FacetMapNav
         selection={facetMapSelection}
         ink={facetMapInk}
+        caseStudyOpen={caseStudyOpen}
         onSelectProject={handleFacetMapProjectSelect}
         onSelectOverview={handleWorkClick}
       />

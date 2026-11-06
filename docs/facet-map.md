@@ -71,16 +71,33 @@ resting outlines take that ink rather than white.
 
 Narrower than `MQ_FACET_MAP_GUTTER` (1230px) the gutter can't hold the map,
 and it becomes a 44px dark disc (rgba(17, 19, 24, 0.88)) with the map 32px tall
-inside it, in white with the current fragment in its colour. It sits at the top
-right, 12px under the nav, its right edge on the nav's (`--page-edge`): the same
-place on a preview and a case study. A case study's title keeps 56px clear at
-its right end below 1230px (`caseStudy.css`), so a long one wraps rather than
-running under the disc.
+inside it, in white with the current fragment in its colour. Where it sits
+(`data-place`):
 
-A tap drops the index from it: the map, "Projects", a close button where the
+- **On the card** (`'card'`): on a phone's preview (the portfolio's mobile
+  layout, below `MQ_DESKTOP`), half over the top edge of the project card, its
+  right edge on the card copy's (`--project-card-edge`). Every card is as tall
+  as the tallest (`useSharedProjectCopyHeight`, the same hook that lines up the
+  desktop titles), copy from the top and the CTA's row at the bottom, so the
+  edge is in one place on every project. `useFacetMapHeight` measures it with
+  the `'card'` anchor (`data-facet-map-card`).
+- **At the top** (`'top'`): on a case study, and on every preview from 768px to
+  1229px, the top right, 12px under the nav, its right edge on the nav's
+  (`--page-edge`). A case study's title keeps 56px clear at its right end below
+  1230px (`caseStudy.css`), so a long one wraps rather than running under the
+  disc.
+
+Between the two it fades out, moves and fades in. Opening a case study, it
+comes in at the top as soon as it has faded out; closing one, it comes back
+onto the card with the card's copy (`caseStudyToProject`'s content beat).
+
+A tap opens the index from it: the map, "Projects", a close button where the
 disc was, the six projects in rows at least 50px tall, and "View crystal
-overview". It spans the page between its edges, up to 400px, held to the right;
-taller than the screen (a phone on its side), it scrolls itself.
+overview". It spans the page between its edges, up to 400px, held to the right.
+At the top it drops down; on the card it rises, its header at its foot so the
+close button is still over the disc, and stops short of the nav. Short of room
+(a small phone, one on its side), the list scrolls inside it and the header
+stays put.
 
 - Only a tap, a click or the keyboard opens it. Hover and focus don't: it is a
   tap target, and at a narrow window a mouse clicks it like one.

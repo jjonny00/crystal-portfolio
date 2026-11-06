@@ -2956,8 +2956,12 @@ const UnifiedCrystalScene = forwardRef(({
       return;
     }
 
-    prevFocusedFacetRef.current = currentFacet;
-    prevMaterialVersionRef.current = materialVersion;
+    // The focus is only recorded as applied once the colours below are, inside
+    // the timeout. Recorded here, a re-render inside the 50ms (a dependency such
+    // as focusedProject catching up, which a direct select from the facet map's
+    // index or Back does) cleared the timeout and then skipped as "no change":
+    // the camera reached the new project and its fragment never took its colour,
+    // while the old one kept it.
     prevOverlaysReadyRef.current = overlaysReady;
 
     // Wait until materials have been created
@@ -3033,6 +3037,8 @@ const UnifiedCrystalScene = forwardRef(({
       });
 
       activeFacetRef.current = currentFacet;
+      prevFocusedFacetRef.current = currentFacet;
+      prevMaterialVersionRef.current = materialVersion;
     }, 50);
 
     if (overlaysReady) {

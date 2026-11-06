@@ -1,19 +1,22 @@
 // src/components/facetMap/useFacetMapHeight.js
 //
-// The facet map's height on screen: level with the capitals of a project
-// preview's title, which every preview has at the same height
-// (useSharedProjectCopyHeight). The map keeps it on a case study too, so it never
-// moves as one opens. See docs/facet-map.md.
+// The facet map's height on screen, from one of two anchors that every project
+// preview has in the same place (useSharedProjectCopyHeight). See
+// docs/facet-map.md.
 //
-// Taken from the title's place in its section, not on screen, so it holds
+//   'title'  level with the capitals of the preview's title: the map in the
+//            gutter, which keeps it on a case study too, so it never moves as
+//            one opens.
+//   'card'   the top edge of a phone's project card: the button's disc, which
+//            sits half over it.
+//
+// Taken from the anchor's place in its section, not on screen, so it holds
 // wherever the portfolio is scrolled; a settled preview fills the screen from the
-// top. Measured again whenever the title's copy block or its section changes
-// size (a resize, the face landing, the shared height changing). Null until a
-// title has been found.
+// top. Measured again whenever the anchor's copy block or its section changes
+// size (a resize, the face landing, the shared height changing). Null until an
+// anchor has been found.
 
 import { useLayoutEffect, useState } from 'react';
-
-const TITLE_SELECTOR = '[data-facet-map-title]';
 
 let metricsCanvas = null;
 
@@ -46,24 +49,33 @@ const layoutTop = (element) => {
   return top;
 };
 
-/** The title's capitals, from the top of its section. */
-const heightBeside = (title) => {
-  const section = title.closest('section');
-  const sectionTop = section ? section.getBoundingClientRect().top : 0;
-  return layoutTop(title) - sectionTop + capCentreInLine(getComputedStyle(title));
+const sectionTop = (element) => element.closest('section')?.getBoundingClientRect().top ?? 0;
+
+const ANCHORS = {
+  /** The title's capitals, from the top of its section. */
+  title: {
+    attribute: 'data-facet-map-title',
+    heightOf: (title) => layoutTop(title) - sectionTop(title) + capCentreInLine(getComputedStyle(title)),
+  },
+  /** The card's top edge, from the top of its section. */
+  card: {
+    attribute: 'data-facet-map-card',
+    heightOf: (card) => layoutTop(card) - sectionTop(card),
+  },
 };
 
-const useFacetMapHeight = ({ visible, projectId }) => {
+const useFacetMapHeight = ({ visible, projectId, anchor = 'title' }) => {
   const [mapY, setMapY] = useState(null);
 
   useLayoutEffect(() => {
     if (!visible) return undefined;
+    const { attribute, heightOf } = ANCHORS[anchor];
     let frame = 0;
     let resizeObserver = null;
     let mountObserver = null;
 
     const measure = (title) => {
-      const next = heightBeside(title);
+      const next = heightOf(title);
       setMapY((current) => (current !== null && Math.abs(current - next) < 0.5 ? current : next));
     };
 
@@ -79,12 +91,12 @@ const useFacetMapHeight = ({ visible, projectId }) => {
       if (section) resizeObserver.observe(section);
     };
 
-    // Its own project's title, or any: they all sit at the same height. Arriving
-    // on a case study's URL, the portfolio behind it mounts a few seconds after
-    // the page, and the map waits for it.
+    // Its own project's, or any: they all sit at the same height. Arriving on a
+    // case study's URL, the portfolio behind it mounts a few seconds after the
+    // page, and the map waits for it.
     const find = () => (
-      (projectId && document.querySelector(`[data-facet-map-title="${projectId}"]`))
-      || document.querySelector(TITLE_SELECTOR)
+      (projectId && document.querySelector(`[${attribute}="${projectId}"]`))
+      || document.querySelector(`[${attribute}]`)
     );
     const title = find();
     if (title) {
@@ -109,7 +121,7 @@ const useFacetMapHeight = ({ visible, projectId }) => {
       resizeObserver?.disconnect();
       mountObserver?.disconnect();
     };
-  }, [visible, projectId]);
+  }, [visible, projectId, anchor]);
 
   return mapY;
 };
