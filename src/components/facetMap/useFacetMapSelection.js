@@ -101,6 +101,7 @@ const useFacetMapSelection = ({
       ? 0
       : msUntilProjectRouteContent('overviewToProject', wantedId)
         ?? msUntilProjectRouteContent('projectToProject', wantedId)
+        ?? msUntilProjectRouteContent('caseStudyToProject', wantedId)
         ?? SETTLE_DELAY_MS;
     const next = { visible: true, projectId: wantedId };
     if (waitMs <= 0) {

@@ -54,8 +54,11 @@ const contentDelayFor = (projectKey, fromCaseStudy) => {
     const { durationMs, contentAt } = PROJECT_ROUTES.caseStudyToProject;
     return durationMs * contentAt;
   }
+  // (Out of another project's case study, from the facet map's index, the
+  // camera's move is the case study's way out, at its longer timing.)
   return msUntilProjectRouteContent('overviewToProject', projectKey)
     ?? msUntilProjectRouteContent('projectToProject', projectKey)
+    ?? msUntilProjectRouteContent('caseStudyToProject', projectKey)
     ?? CONTENT_DELAY_MS;
 };
 

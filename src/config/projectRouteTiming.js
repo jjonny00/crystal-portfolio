@@ -64,10 +64,17 @@ export const PROJECT_ROUTES = Object.freeze({
   // Back out of the case study: a short settle back from the close-up while
   // the page fades off it (CASE_STUDY_RETURN_EXIT_MS), the project's copy
   // returning as the framing settles.
+  //
+  // Out of a case study onto another project (the facet map's index) it is the
+  // same move with the whole way from one close-up across to another project
+  // to cover, so it takes otherProjectDurationMs: longer than a scroll between
+  // projects (projectToProject), which starts from a preview. At 850ms it
+  // read as a jolt.
   caseStudyToProject: {
     from: 'caseStudy',
     to: 'project',
     durationMs: 850,
+    otherProjectDurationMs: 1600,
     dollyEase: glide(2, 3),
     framingEase: glide(2, 3),
     contentAt: 0.5,

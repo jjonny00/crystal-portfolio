@@ -2871,7 +2871,16 @@ const UnifiedCameraController = ({
       // the time it was given and the clock the copy is waiting on.
       const correction = Boolean(move) && move.route === route && now - move.startedAt < 150;
       const startedAt = correction ? move.startedAt : now;
-      const durationMs = PROJECT_ROUTES[route].durationMs;
+      // Out of a case study, the project whose case study it was. Closing it
+      // aims the move back at that project; the facet map's index re-aims it a
+      // frame later at another, which is the longer way (projectRouteTiming).
+      const caseStudyProjectId = route === 'caseStudyToProject'
+        ? (move?.route === 'caseStudyToProject' ? move.caseStudyProjectId : seen.projectId) ?? null
+        : null;
+      const toOtherProject = Boolean(caseStudyProjectId && projectId && projectId !== caseStudyProjectId);
+      const durationMs = toOtherProject
+        ? PROJECT_ROUTES[route].otherProjectDurationMs
+        : PROJECT_ROUTES[route].durationMs;
       move = createProjectRouteMove({
         route,
         projectId,
@@ -2882,6 +2891,7 @@ const UnifiedCameraController = ({
         startedAt: now,
         durationMs: Math.max(1, startedAt + durationMs - now),
       });
+      move.caseStudyProjectId = caseStudyProjectId;
       projectRouteMoveRef.current = move;
       if (!correction || getProjectRouteMove()?.projectId !== projectId) {
         markProjectRouteMove({ route, projectId, fromProjectId, startedAt, durationMs });
