@@ -54,7 +54,7 @@ import * as defaultConfig from './crystalConfig';
 
 // Case studies (lazy-loaded per project)
 import CaseStudyOverlay, { OVERLAY_Z_INDEX, preloadCaseStudy } from './caseStudies/CaseStudyOverlay';
-import { foregroundColorForTone } from './caseStudies/system/caseStudyTheme';
+import { backgroundColorForTone, foregroundColorForTone } from './caseStudies/system/caseStudyTheme';
 import { CASE_STUDY_EXIT_MS, CASE_STUDY_RETURN_EXIT_MS, caseStudyOpaqueAtMs } from './caseStudies/transitionTiming';
 import { PROJECT_ROUTES } from './config/projectRouteTiming';
 import { CATALOG_PROJECT } from './caseStudies/catalog/catalogProject';
@@ -638,6 +638,11 @@ function App() {
   const [caseStudyNavTone, setCaseStudyNavTone] = useState(null);
   const navColor = caseStudyNavTone
     ? foregroundColorForTone(caseStudyNavTone, overlayProject?.caseStudyColors)
+    : null;
+  // The active nav item sits on a pill in navColor, so its label takes the
+  // section's own background.
+  const navActiveInk = caseStudyNavTone
+    ? backgroundColorForTone(caseStudyNavTone, overlayProject?.caseStudyColors)
     : null;
 
   // Leaving a case study returns to the project view it was opened from; the
@@ -1491,6 +1496,7 @@ function App() {
           onAboutClick={handleAboutClick}
           onContactClick={handleContactClick}
           color={navColor}
+          activeInk={navActiveInk}
           // Not while a case study is up: that layer paints its own ground and
           // hands the nav a colour picked against it, so there is nothing for a
           // blend to adapt to and it would only fight the palette.

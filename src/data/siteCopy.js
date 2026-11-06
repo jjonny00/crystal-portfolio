@@ -5,7 +5,12 @@
 // reader sees. Project copy lives in projects.js; case-study copy in each case
 // study's *Content.js.
 
-export const HERO_HEADLINE_LINES = ['SYSTEMS', 'BENEATH', 'THE SURFACE'];
+export const HERO_HEADLINE_LINES = ['SYSTEMS', 'BENEATH THE SURFACE'];
+
+// Set in bold wherever they appear in the hero copy, long or short.
+export const HERO_BODY_EMPHASIS = ['decide', 'compete', 'engage'];
+
+export const HERO_CTA_LABEL = 'LOOK BENEATH THE SURFACE';
 
 // Under the wordmark in the nav (Navigation.jsx), one line.
 export const NAV_DESCRIPTOR = 'Systems & Interaction Designer';

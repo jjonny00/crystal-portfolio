@@ -8,6 +8,7 @@ import React, { useContext, useEffect, useRef } from 'react';
 import { MediaViewerProvider, useMediaViewer } from './MediaViewer';
 import { buildCaseStudyThemeStyle } from './caseStudyTheme';
 import { CaseStudyExitContext } from './caseStudyExit';
+import SquircleSurface from '../../components/ui/SquircleSurface';
 import './caseStudy.css';
 
 const MAIN_ID = 'case-study-main';
@@ -67,6 +68,7 @@ const CaseStudyPage = ({
 
         {onExit && (
           <button type="button" className="cs-back" onClick={onExit}>
+            <SquircleSurface />
             {/* The arrow says "back". A host-supplied exit leads somewhere new
                 (caseStudyExit.js), so it goes without. */}
             {!exitOverride && <span aria-hidden="true">&larr;</span>}

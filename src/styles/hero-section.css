@@ -19,8 +19,9 @@
   padding-inline: var(--page-edge);
   /* The block is bottom-anchored so the CTA — and the vertical line running out
      of it — always sit the same distance off the fold. The block-start padding is
-     a floor that keeps the headline clear of the fixed 88px nav. */
-  padding-block: clamp(4.5rem, 9svh, 6.5rem) clamp(2.5rem, 10.2svh, 7.5rem);
+     a floor that keeps the headline clear of the fixed 88px nav. The block-end
+     padding is the comp's 164px at its 1117px height. */
+  padding-block: clamp(4.5rem, 9svh, 6.5rem) clamp(2.5rem, 14.7svh, 10.25rem);
   color: #fff;
   z-index: 10;
   position: relative;
@@ -52,27 +53,28 @@
   container-type: inline-size;
 }
 
-/* Type is .type-headline-lg (type.css); only the size lives here, because it is
-   derived from this layout. */
-.hero-section__title {
-  --headline-ink: #FFFCEE;
-  /* Set from the column's own width so the longest line ("THE SYSTEMS") fills the
-     measure. The multiplier is a property of the face at these settings, not of
-     any particular layout: at wdth 50 / weight 800 / -0.02em, that line renders
-     3.675em wide, so 100 / 3.675 = 27.2cqw fills the column exactly. Trimmed
-     slightly below that for sub-pixel slack, since the lines are nowrap.
+/* Type is .type-headline-lg (type.css), on each line; only the sizes live here,
+   because they are derived from this layout.
 
-     The height term is a guard, not the intent: on a short, wide viewport three
-     lines at full column width would crowd out everything below them, so height
-     wins there and the headline stops short of the measure. It is offset rather
-     than a flat svh because what sits below — role, body, CTA — is roughly fixed
-     in height, so the allowance is (viewport - that block) over three lines of
-     0.8 leading, which grows faster than the viewport does. A flat svh tuned for
-     short viewports goes on clamping tall ones that have room to spare. */
-  font-size: clamp(2.5rem, min(26.9cqw, calc(40svh - 167px)), 20rem);
+   Two lines, each sized so its ink spans the same width: SYSTEMS large, BENEATH
+   THE SURFACE under it at whatever size makes it as wide. The multipliers are
+   properties of the face at these settings (wdth 50 / weight 800 / -0.02em), not
+   of any layout. Measured on the kit font, from the line's left edge to the
+   right edge of its ink: SYSTEMS 2.5325em, BENEATH THE SURFACE 6.215em. So a
+   width W is filled at W / 2.5325 and W / 6.215.
+
+   --hero-fill is the width the lines fill: the column, unless the viewport is
+   too short for it. Both lines come to 0.439 of it in height (0.8 leading each,
+   less the overlap on the second), and what sits below them (body, CTA and
+   the gaps) is about 30svh + 250px, so the allowance is what is left of the
+   viewport over 0.439. On a short, wide viewport the headline stops short of
+   the measure rather than crowd the copy. */
+.hero-section__title {
+  --headline-ink: rgba(255, 252, 238, 0.87);
+  --hero-fill: min(100cqw, calc((70svh - 250px) / 0.439));
   margin: 0;
   display: block;
-  color: #FFFCEE;
+  color: var(--headline-ink);
 }
 
 /* Explicit lines: the break pattern is part of the composition, so it must not
@@ -82,35 +84,63 @@
   white-space: nowrap;
 }
 
+.hero-section__title-line--1 {
+  font-size: calc(var(--hero-fill) / 2.5325);
+}
+
+/* The comp puts 16.6px between the two lines' ink at a 704.6px measure. At 0.8
+   leading the boxes alone leave 20.6px (SYSTEMS' descent area plus this line's
+   space over its capitals), so the box tucks up 0.035em to close it. */
+.hero-section__title-line--2 {
+  font-size: calc(var(--hero-fill) / 6.215);
+  margin-top: -0.035em;
+}
+
+/* The gaps here and above the CTA are the comp's at its 1117px height. */
 .hero-section__body-block {
-  margin-top: clamp(1.75rem, 5svh, 3.5rem);
+  margin-top: clamp(1.75rem, 3.8svh, 3.5rem);
   max-inline-size: min(100%, 44.5rem);
 }
 
 /* Type is .type-body-lg (type.css). */
 .hero-section__body-copy {
-  color: rgba(252, 245, 235, 0.86);
+  color: rgba(255, 250, 230, 0.87);
   margin: 0;
+  /* The column is a little narrower than the comp's, which left "intent." on a
+     line of its own. */
+  text-wrap: pretty;
+}
+
+.hero-section__body-copy strong {
+  font-weight: 600;
 }
 
 .hero-section__body-copy + .hero-section__body-copy {
   margin-top: clamp(1.1rem, 2.8svh, 2rem);
 }
 
+/* A container so the CTA's type can size off the column (below). Flex, not
+   block, so the button sits on no line box and the block is exactly its height. */
 .hero-section__cta-block {
-  margin-top: clamp(2rem, 6svh, 4.5rem);
+  margin-top: clamp(2rem, 3.7svh, 4.5rem);
+  display: flex;
+  justify-content: flex-start;
+  container-type: inline-size;
 }
 
+/* The arrow, then the filled pill. The arrow stays outside the pill: the
+   vertical line runs down out of it (VerticalEnergyLine.jsx). */
 .hero-section__cta {
   display: inline-flex;
   align-items: center;
   gap: 1rem;
   padding: 0;
   border: 0;
+  border-radius: var(--button-radius);
   background: transparent;
   cursor: pointer;
-  color: #35e6ae;
-  transition: color 0.3s ease, opacity 0.3s ease;
+  color: #12101C;
+  transition: opacity 0.3s ease;
 }
 
 .hero-section__cta:hover {
@@ -125,20 +155,41 @@
   flex: 0 0 auto;
 }
 
-/* Semi-condensed semibold. 20px / 22px leading / -0.4px at the reference size.
-   `font-stretch` and `--wdth` must always be set together and agree: iOS Safari
-   ignores a percentage font-stretch on this face, so --wdth is what actually
-   drives the axis there (see the note in index.css). Setting one alone renders
-   differently on iOS than everywhere else. */
+/* The shared button box (index.css --button-*), drawn with smoothed corners by
+   the SquircleSurface inside it. The small bottom padding centres the capitals
+   rather than the line box, which sits them about 1px low.
+
+   The label is 24px, as in the comp, wherever the column has room for the whole
+   CTA at that size. Below that it shrinks to fit: arrow and gap (35px), padding
+   (48px) and the label's 12.994em advance have to fit the column, so
+   (100cqw - 83px) / 12.994. On a phone that fills the width. */
+.hero-section__cta-pill {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  height: var(--button-height);
+  padding: 0 var(--button-padding-inline) 0.09em;
+  --squircle-radius: var(--button-radius);
+  --squircle-fill: #00F1E9;
+  font-size: clamp(14px, calc(7.69cqw - 6.4px), 24px);
+}
+
+/* Semi-condensed semibold, untracked. `font-stretch` and `--wdth` must always be
+   set together and agree: iOS Safari ignores a percentage font-stretch on this
+   face, so --wdth is what actually drives the axis there (see the note in
+   index.css). Setting one alone renders differently on iOS than everywhere else. */
 .hero-section__cta-label {
   font-family: 'acumin-variable', 'Acumin VF', sans-serif;
-  font-size: clamp(0.9rem, 1.157vw, 1.35rem);
+  font-size: 1em;
   font-weight: 600;
   font-stretch: 87.5%;
   --wdth: 87.5;
-  line-height: 1.1;
-  letter-spacing: -0.02em;
+  line-height: 1;
+  letter-spacing: 0;
   text-transform: uppercase;
+  white-space: nowrap;
   color: inherit;
 }
 
@@ -148,7 +199,7 @@
   }
 
   /* No font-size override: the grid is the same two columns here, so the base
-     cqw rule already fills the (narrower) measure. */
+     cqw rules already fill the (narrower) measure. */
 
   .hero-section__body-block {
     max-inline-size: min(100%, 38rem);
@@ -176,27 +227,12 @@
     padding-block: 0;
   }
 
-  /* Fills the column, as on desktop: 26.9cqw is the fill constant (see the
-     desktop rule), measured inside the page padding. (It used to stop at ~83%
-     of the column, after the original comp.)
-
-     The height term is what actually binds on a phone, so it is sized to the
-     real room rather than as a rough guard: the section's height, less its top
-     padding (~10svh), its bottom inset (2.75rem plus the home-bar safe area),
-     and a ~300px budget for what sits below the headline (role, body copy, CTA
-     and the gaps between them), over the headline's height of 2.4em (three
-     lines at 0.8). That is 37.5svh - 145px - safe-area/2.4. Measured: the block
-     below runs 236-290px across phone widths, so the budget leaves slack, and
-     the content is bottom-anchored, so any spare room sits above the headline.
-     Most phones now reach the full width; short ones (an SE, or Safari with its
-     toolbars expanded on a small phone) still stop short rather than crowd the
-     copy below. */
+  /* The headline fills the full content width on a phone, both lines, edge to
+     edge inside the page gutter: no height guard here. Two lines come to 0.439
+     of the width in height (about 150px on a 343px column), which leaves the
+     copy below room even on a short phone. */
   .hero-section__title {
-    font-size: clamp(
-      2rem,
-      min(26.9cqw, calc(37.5svh - 145px - env(safe-area-inset-bottom, 0px) / 2.4)),
-      12rem
-    );
+    --hero-fill: 100cqw;
     max-inline-size: 100%;
   }
 
@@ -208,15 +244,10 @@
 
   /* Flush left even though the copy above it is centred: the CTA's arrow is what
      the vertical line is measured from, and the line needs to run just inside the
-     left margin so the overview's labels can sit beside it. */
+     left margin so the overview's labels can sit beside it. The label sizes to
+     the column (see the desktop rule), so the CTA spans it. */
   .hero-section__cta-block {
     margin-top: clamp(1.5rem, 4svh, 2.5rem);
-    display: flex;
-    justify-content: flex-start;
-  }
-
-  .hero-section__cta-label {
-    font-size: clamp(1rem, 5.1vw, 1.3rem); /* 19.5 -> 20.5, with the type.css phone step */
   }
 }
 

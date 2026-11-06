@@ -56,6 +56,13 @@
 
   /* How far the mobile hero composition sits off the bottom of the viewport. */
   --mobile-bottom-inset: calc(2.75rem + env(safe-area-inset-bottom, 0px));
+
+  /* The filled button: the hero CTA and the case-study back button. From the
+     hero comp (1728px frame), at every width. The corners are smoothed the way
+     iOS draws them (SquircleSurface), not plain border-radius arcs. */
+  --button-height: 49px;
+  --button-padding-inline: 24px;
+  --button-radius: 10px;
 }
 
 /* CRITICAL: Clean document scroll setup */
@@ -345,6 +352,34 @@ html[data-media-viewer='open'] .site-nav__items {
   visibility: hidden;
   pointer-events: none;
   transition: opacity 0.3s ease, visibility 0s linear 0.3s;
+}
+
+/* The active item sits on a filled pill in the nav's own ink, with the label
+   knocked down to the dark (Navigation.jsx swaps the colour). The pill hangs off
+   the label rather than padding it, so the items keep exactly the positions
+   they have without one, and it fades rather than jumping between items.
+
+   Sized to the label's ink, from the nav comp at 24px: 8px over the cap height
+   and under the baseline, 16px either side of the word, a 6px corner. In ems so
+   the phone size follows. The label's line box (line-height normal) runs from
+   0.3175em above the caps to 0.26em below the baseline, hence the uneven top
+   and bottom. Below the nav's desktop size the sides come in, since the items
+   there are only 16px apart. */
+.squircle.site-nav__pill {
+  inset: -0.016em -0.667em -0.083em;
+  --squircle-radius: 0.25em;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.site-nav__item[data-active] .squircle.site-nav__pill {
+  opacity: 1;
+}
+
+@media (max-width: 1023.98px) {
+  .squircle.site-nav__pill {
+    inset-inline: -0.45em;
+  }
 }
 
 @media (min-width: 768px) {

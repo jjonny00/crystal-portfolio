@@ -10,6 +10,7 @@ import { getIntroTimeline, subscribeIntroTimeline } from '../../lib/introTimelin
 import { getHeroReformStart } from '../../lib/heroReformClock';
 import { HERO_RETURN_CINEMATIC } from '../../config/heroOverviewCinematicConfig';
 import Headline from '../ui/Headline';
+import SquircleSurface from '../ui/SquircleSurface';
 import '../../styles/hero-section.css';
 // The intro, long and short. Same shape as a project's `mobile` block in
 // data/projects.js: the phone gets its own tighter cut rather than the desktop
@@ -17,25 +18,37 @@ import '../../styles/hero-section.css';
 import {
   HERO_BODY_COPY as BODY_COPY,
   HERO_BODY_COPY_MOBILE as BODY_COPY_MOBILE,
+  HERO_BODY_EMPHASIS,
+  HERO_CTA_LABEL,
+  HERO_HEADLINE_LINES,
 } from '../../data/siteCopy';
 
 const ARROW_DOWN_SRC = '/assets/ui/SVG/arrow-down.svg';
 
-// The copy comes in a piece at a time: the headline's three lines, then the
+const EMPHASIS_PATTERN = new RegExp(`\\b(${HERO_BODY_EMPHASIS.join('|')})\\b`);
+
+/** The copy with its emphasised words in <strong>. */
+const withEmphasis = (text) => text
+  .split(EMPHASIS_PATTERN)
+  .map((part, index) => (index % 2 ? <strong key={index}>{part}</strong> : part));
+
+// The copy comes in a piece at a time: the headline's two lines, then the
 // paragraph, then the CTA. Each entry is [starts at (ms), rise length (ms), fade
 // length (ms)]: the headline lines rise into place on the rise length but keep
 // fading in for longer; the paragraph and CTA only fade, slowly (rise 0).
 //
 // On the first load the schedule is timed against the camera intro
 // (lib/introTimeline, from the moment the camera starts moving): the first line a
-// second in, the last one in place as the camera settles on the hero (the intro
-// is 4.4s and its last stretch is imperceptibly slow), the paragraph and CTA after.
-const INTRO_SCHEDULE = [[1000, 800, 1600], [2200, 800, 1600], [3400, 800, 1600], [4300, 0, 1600], [4900, 0, 1600]];
+// second in, the second a beat after, and the paragraph and CTA once the camera
+// has settled on the hero (the intro is 4.4s and its last stretch is
+// imperceptibly slow).
+const INTRO_SCHEDULE = [[1000, 800, 1600], [2200, 800, 1600], [4300, 0, 1600], [4900, 0, 1600]];
 // Coming back to the hero, or arriving with no intro: the same order, close together.
 // While the crystal is reforming (back from the index), it starts once the reform
 // is HERO_RETURN_CINEMATIC.headlineAt of the way through its time, not as the
 // scroll settles, so the headline comes in as the fragments close up.
-const QUICK_SCHEDULE = [[150, 600, 1000], [270, 600, 1000], [390, 600, 1000], [600, 0, 1000], [900, 0, 1000]];
+const QUICK_SCHEDULE = [[150, 600, 1000], [270, 600, 1000], [600, 0, 1000], [900, 0, 1000]];
+const PIECE_COUNT = INTRO_SCHEDULE.length;
 const quickScheduleStart = () => {
   const now = performance.now();
   const reformStart = getHeroReformStart();
@@ -65,7 +78,7 @@ const HeroSection = ({
   const reducedMotion = useMediaQuery(MQ_REDUCED_MOTION);
   const introTimeline = useSyncExternalStore(subscribeIntroTimeline, getIntroTimeline, getIntroTimeline);
 
-  // How many pieces are in (0-5), and the schedule bringing them in. A schedule is
+  // How many pieces are in (0-4), and the schedule bringing them in. A schedule is
   // fixed when the hero becomes visible and runs to the end, so the intro landing
   // part-way through never reshuffles it; hiding the hero resets it.
   const [shownCount, setShownCount] = useState(0);
@@ -113,7 +126,7 @@ const HeroSection = ({
 
   useEffect(() => () => sessionRef.current.timers.forEach(clearTimeout), []);
 
-  const [springs] = useSprings(5, (index) => {
+  const [springs] = useSprings(PIECE_COUNT, (index) => {
     const shown = index < shownCount;
     const [, riseMs, fadeMs] = schedule[index];
     return {
@@ -155,21 +168,37 @@ const HeroSection = ({
     <div className="hero-section">
       <div className="hero-section__content">
         <div className="hero-section__headline-block">
-          <Headline as="h1" className="type-headline-lg hero-section__title">
+          {/* Block, not Headline's default inline-block: the lines are sized to
+              the column, so the heading's box should be the column too. */}
+          {/* The type class goes on each line, not the heading: the lines are two
+              sizes, and the style's -0.02em tracking resolves to px where it is
+              declared, so set on the heading it would track both at the heading's
+              own size. */}
+          <Headline as="h1" className="hero-section__title" style={{ display: 'block' }}>
             <span className="visually-hidden">Jon Shaw: </span>
-            <animated.span style={pieceStyle(0)} className="hero-section__title-line">SYSTEMS</animated.span>
-            <animated.span style={pieceStyle(1)} className="hero-section__title-line">BENEATH</animated.span>
-            <animated.span style={pieceStyle(2)} className="hero-section__title-line">THE SURFACE</animated.span>
+            {/* A space between the lines: they are blocks, so it changes nothing
+                on screen, but without it the heading reads "SYSTEMSBENEATH". */}
+            {HERO_HEADLINE_LINES.map((line, index) => (
+              <React.Fragment key={line}>
+                {index > 0 && ' '}
+                <animated.span
+                  style={pieceStyle(index)}
+                  className={`type-headline-lg hero-section__title-line hero-section__title-line--${index + 1}`}
+                >
+                  {line}
+                </animated.span>
+              </React.Fragment>
+            ))}
           </Headline>
         </div>
 
-        <animated.div style={pieceStyle(3)} className="hero-section__body-block">
+        <animated.div style={pieceStyle(2)} className="hero-section__body-block">
           <p className="type-body-lg hero-section__body-copy">
-            {isMobile ? BODY_COPY_MOBILE : BODY_COPY}
+            {withEmphasis(isMobile ? BODY_COPY_MOBILE : BODY_COPY)}
           </p>
         </animated.div>
 
-        <animated.div style={pieceStyle(4)} className="hero-section__cta-block">
+        <animated.div style={pieceStyle(3)} className="hero-section__cta-block">
           <button
             type="button"
             className="hero-section__cta"
@@ -184,7 +213,10 @@ const HeroSection = ({
               width={19}
               height={21}
             />
-            <span className="hero-section__cta-label">LOOK BENEATH THE SURFACE</span>
+            <span className="hero-section__cta-pill">
+              <SquircleSurface />
+              <span className="hero-section__cta-label">{HERO_CTA_LABEL}</span>
+            </span>
           </button>
         </animated.div>
       </div>

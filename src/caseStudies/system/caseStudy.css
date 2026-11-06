@@ -795,23 +795,36 @@
    Page chrome
    -------------------------------------------------------------------------- */
 
+/* The same box as the hero CTA: its height, side padding and smoothed corner
+   (index.css --button-*). The fill and the 1px outline are drawn by the
+   SquircleSurface inside it, so they follow the smoothed corner; the button's
+   own border-radius is only there for the focus ring. The small bottom padding
+   centres the capitals rather than the line box, which sits them a hair low. */
 .cs-back {
   position: fixed;
   inset-block-end: clamp(16px, 2vw, 28px);
   inset-inline-start: clamp(16px, 2vw, 28px);
   z-index: 2;
+  isolation: isolate;
   display: inline-flex;
   align-items: center;
   gap: 0.5em;
-  padding: 0.6em 1.15em;
-  border-radius: 999px;
-  border: 1px solid currentColor;
-  background-color: var(--cs-color-b);
+  box-sizing: border-box;
+  block-size: var(--button-height, 49px);
+  padding: 0 var(--button-padding-inline, 24px) 0.065em;
+  border: 0;
+  border-radius: var(--button-radius, 10px);
+  background: none;
+  --squircle-radius: var(--button-radius, 10px);
+  --squircle-fill: var(--cs-color-b);
+  --squircle-stroke: currentColor;
+  --squircle-stroke-width: 1px;
   color: var(--cs-color-a);
   font-family: var(--cs-font-sans);
   --wdth: 75;
   font-size: clamp(13px, 0.35vw + 11.6px, 17px);
   font-weight: 600;
+  line-height: 1;
   letter-spacing: 0.02em;
   text-transform: uppercase;
   cursor: pointer;

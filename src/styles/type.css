@@ -73,13 +73,15 @@
   text-transform: uppercase;
 }
 
+/* Light, on an open leading: 24px on 40px at the comp's 1728px width (the
+   desktop size is below). Emphasis inside it is set at 600 (hero-section.css). */
 .type-body-lg {
   font-size: clamp(1rem, 5vw, 1.25rem);
-  font-weight: 400;
+  font-weight: 300;
   font-stretch: 87.5%;
   --wdth: 87.5;
-  line-height: 1.2;
-  letter-spacing: -0.02em;
+  line-height: 1.667;
+  letter-spacing: -0.01em;
 }
 
 /* --- shared -------------------------------------------------------------- */
@@ -231,7 +233,7 @@
   }
 
   .type-body-lg {
-    font-size: clamp(0.95rem, 1.157vw, 1.3rem);
+    font-size: clamp(0.95rem, 1.389vw, 1.75rem); /* 24 at 1728 */
   }
 
   .type-headline {

@@ -6,6 +6,7 @@ import { NAVIGATION_DESTINATIONS } from '../../navigation/navigationIntent';
 import { pathFor } from '../../navigation/routes';
 import { CONTACT_EMAIL } from '../../seo/site';
 import { NAV_DESCRIPTOR } from '../../data/siteCopy';
+import SquircleSurface from './SquircleSurface';
 
 // Absolute, not fixed, because of iOS 26 Safari. It colours its status bar from
 // a position:fixed bar at the top edge of the page, and a transparent one (this
@@ -103,28 +104,48 @@ const NAV_ITEM_BASE_STYLE = {
   transition: 'opacity 0.3s ease, color 0.3s ease'
 };
 
-const NavItem = ({ label, href, onClick, disabled, isActive, fontSize, color }) => {
+// The active item's pill and the label on it (index.css, .site-nav__pill): the
+// nav's own cream as the fill, the label in the dark the hero CTA uses.
+const NAV_PILL_FILL = '#FEFFDE';
+const NAV_PILL_INK = '#12101C';
+
+const NavItem = ({ label, href, onClick, disabled, isActive, fontSize, color, activeInk }) => {
   const [isHovered, setIsHovered] = useState(false);
   const active = isActive || isHovered;
 
   const sharedProps = {
+    className: 'site-nav__item',
+    'data-active': isActive || undefined,
     onMouseEnter: () => setIsHovered(true),
     onMouseLeave: () => setIsHovered(false),
     style: {
       ...NAV_ITEM_BASE_STYLE,
       ...(href ? LINK_RESET_STYLE : null),
       ...(color ? { color } : null),
+      ...(isActive ? { color: activeInk || NAV_PILL_INK } : null),
       ...(href && disabled ? { pointerEvents: 'none' } : null),
+      // The pill is the item's ink colour, whichever palette that is.
+      '--squircle-fill': color || NAV_PILL_FILL,
+      // Positioned and isolated so the pill can sit under the label.
+      position: 'relative',
+      isolation: 'isolate',
       fontSize,
       opacity: disabled ? 0.6 : active ? 1 : 0.7
     }
   };
 
+  const content = (
+    <>
+      <SquircleSurface className="site-nav__pill" />
+      {label}
+    </>
+  );
+
   // No href means nothing to link to yet (CONTACT without an address).
   if (!href) {
     return (
       <button type="button" onClick={onClick} disabled={disabled} {...sharedProps}>
-        {label}
+        {content}
       </button>
     );
   }
@@ -137,21 +158,22 @@ const NavItem = ({ label, href, onClick, disabled, isActive, fontSize, color }) 
       aria-current={isActive ? 'location' : undefined}
       {...sharedProps}
     >
-      {label}
+      {content}
     </a>
   );
 };
 
 // `color` lets a full-bleed layer (currently the case-study overlay) keep the
 // nav legible over its own background. Omitted everywhere else, so the default
-// portfolio treatment is unchanged.
+// portfolio treatment is unchanged. `activeInk` goes with it: the active item's
+// pill takes `color`, so its label needs that layer's background colour.
 // `blend` puts the whole bar into the scene-adaptive blend mode (legibility.css).
 // It goes on the <nav> itself rather than on the buttons inside it: the z-index
 // that keeps the bar above everything already makes this element an isolated
 // group, so a blended child would only see the bar's own empty backdrop. Blending
 // the group instead composites the ink against the page — and because the bar is
 // transparent everywhere but the glyphs, only the glyphs are affected.
-const Navigation = ({ activeLabel = null, onHomeClick, onWorkClick, onAboutClick, onContactClick, isTransitioning = false, color = null, blend = false }) => {
+const Navigation = ({ activeLabel = null, onHomeClick, onWorkClick, onAboutClick, onContactClick, isTransitioning = false, color = null, activeInk = null, blend = false }) => {
   // The same query NavScrim sizes itself from — the band under the bar has to
   // turn over exactly where the bar's type does, so both read one token rather
   // than each carrying its own 1024. Also fires only when the answer changes,
@@ -218,6 +240,7 @@ const Navigation = ({ activeLabel = null, onHomeClick, onWorkClick, onAboutClick
               isActive={activeLabel === item.label}
               fontSize={isDesktop ? '24px' : '19px'}
               color={color}
+              activeInk={activeInk}
             />
           ))}
         </div>

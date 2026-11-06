@@ -1,0 +1,40 @@
+/* The shape behind a control, with smoothed corners. See SquircleSurface.jsx
+   for the custom properties a host sets. */
+
+.squircle {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  display: block;
+  pointer-events: none;
+  /* Read back by the component as the corner radius, resolved to px. */
+  border-radius: var(--squircle-radius, 0px);
+  /* The fallback shape, until the path has been measured and drawn: the same
+     fill and stroke as a plain rounded rectangle. */
+  background-color: var(--squircle-fill, currentColor);
+  box-shadow: inset 0 0 0 var(--squircle-stroke-width, 0px) var(--squircle-stroke, transparent);
+  transition: background-color 0.3s ease;
+}
+
+.squircle[data-ready] {
+  background-color: transparent;
+  box-shadow: none;
+}
+
+.squircle > svg {
+  position: absolute;
+  inset: 0;
+  display: block;
+  overflow: visible;
+}
+
+.squircle__fill {
+  fill: var(--squircle-fill, currentColor);
+  transition: fill 0.3s ease;
+}
+
+.squircle__stroke {
+  fill: none;
+  stroke: var(--squircle-stroke, none);
+  transition: stroke 0.3s ease;
+}
