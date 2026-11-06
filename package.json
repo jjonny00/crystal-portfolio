@@ -5,10 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && vite build --ssr src/seo/entry-server.jsx && node scripts/prerender.mjs",
+    "build": "node scripts/generate-facet-map.mjs --check && vite build && vite build --ssr src/seo/entry-server.jsx && node scripts/prerender.mjs",
     "preview": "vite preview",
     "build:client": "vite build",
-    "build:share-images": "node scripts/generate-share-images.mjs"
+    "build:share-images": "node scripts/generate-share-images.mjs",
+    "build:facet-map": "node scripts/generate-facet-map.mjs"
   },
   "dependencies": {
     "@react-spring/three": "^9.7.3",

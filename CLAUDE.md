@@ -9,6 +9,7 @@ npm install      # install dependencies
 npm run dev      # start Vite dev server
 npm run build    # production build + prerender (also the de facto type/compile check)
 npm run build:share-images  # regenerate public/og/*.jpg + favicons (commit the output)
+npm run build:facet-map     # regenerate src/data/facetMap.json from the fragment GLBs (commit the output; `build` fails if it is stale)
 npm run preview  # serve the dist/ build for smoke testing
 ```
 

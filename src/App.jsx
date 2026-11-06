@@ -1,7 +1,27 @@
 // src/App.jsx - UPDATED: Integration with V2 performance and loading system
 
-import React, { useState, useCallback, useEffect, useLayoutEffect, useRef, useMemo, useSyncExternalStore } from 'react';
+import React, { useState, useCallback, useEffect, useLayoutEffect, useRef, useMemo, useSyncExternalStore, lazy, Suspense } from 'react';
 import './styles/scroll-snap.css';
+
+// Review tools: in DEV, and in Netlify deploy previews and branch deploys
+// (VITE_REVIEW_TOOLS, set per context in netlify.toml). Both are build-time
+// constants, so a production build drops this code entirely.
+const REVIEW_TOOLS = import.meta.env.DEV || import.meta.env.VITE_REVIEW_TOOLS === 'true';
+
+// The facet map laid out for review (?facetMapPreview, off again with
+// ?facetMapPreview=0). Lazy, so it costs nothing until asked for. The flag is
+// read here, as the module loads, because route sync rewrites the address
+// (dropping the query) before a lazy chunk would see it, and kept for the tab so
+// it survives moving around the site.
+const FacetMapPreview = REVIEW_TOOLS ? lazy(() => import('./debug/FacetMapPreview')) : null;
+if (REVIEW_TOOLS && typeof window !== 'undefined') {
+  try {
+    const flag = new URLSearchParams(window.location.search).get('facetMapPreview');
+    if (flag !== null) sessionStorage.setItem('facetMapPreview', flag === '0' ? '' : '1');
+  } catch {
+    // Storage blocked: the preview just stays off.
+  }
+}
 
 // UPDATED: Import V2 systems
 import { usePerformanceV2 } from './hooks/usePerformanceV2';
@@ -1639,6 +1659,12 @@ function App() {
         arrivalExit={arrivalExit}
         exitMs={overlayExitMs}
       />
+
+      {FacetMapPreview && (
+        <Suspense fallback={null}>
+          <FacetMapPreview />
+        </Suspense>
+      )}
 
       {/* UI Controls */}
       {devUiRevealed && !hideAllUI && (

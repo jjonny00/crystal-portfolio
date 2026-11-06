@@ -14,6 +14,15 @@
 [build.environment]
   NODE_VERSION = "20"
 
+# Review tools (DEV-only panels such as ?facetMapPreview) in deploy previews and
+# branch deploys, so work in progress can be checked away from the dev server.
+# Production never sets it, and the build drops the tools' code entirely there.
+[context.deploy-preview.environment]
+  VITE_REVIEW_TOOLS = "true"
+
+[context.branch-deploy.environment]
+  VITE_REVIEW_TOOLS = "true"
+
 # Vite's build output (vite.config.js assetsDir), fingerprinted by content hash,
 # so a changed file is a new URL and the old one can be cached forever.
 [[headers]]
