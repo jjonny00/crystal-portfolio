@@ -45,6 +45,15 @@ const panel = {
   font: '12px/1.4 system-ui, sans-serif',
 };
 
+// Candidate sizes for the phone button, compared side by side at actual size:
+// the disc's diameter and the map's height inside it, in px.
+const PHONE_BUTTON_OPTIONS = [
+  { name: 'A', disc: 44, map: 28 },
+  { name: 'B', disc: 44, map: 32 },
+  { name: 'C', disc: 48, map: 32 },
+  { name: 'D', disc: 52, map: 36 },
+];
+
 const tile = (background) => ({
   display: 'grid',
   placeItems: 'center',
@@ -143,21 +152,27 @@ const FacetMapPreview = () => {
               <FacetMapGlyph currentId={currentId} variant="ink" ink={ink} height={54} />
               Ink
             </div>
-            <div style={tile('#3a3d2c')}>
-              <span
-                style={{
-                  display: 'grid',
-                  placeItems: 'center',
-                  width: 44,
-                  height: 44,
-                  borderRadius: '50%',
-                  background: 'rgba(17, 19, 24, 0.88)',
-                }}
-              >
-                <FacetMapGlyph currentId={currentId} variant="button" height={28} />
-              </span>
-              Phone 44px
-            </div>
+          </div>
+
+          {/* The phone button at candidate sizes: disc diameter / map height. */}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {PHONE_BUTTON_OPTIONS.map(({ name, disc, map }) => (
+              <div key={name} style={tile('#3a3d2c')}>
+                <span
+                  style={{
+                    display: 'grid',
+                    placeItems: 'center',
+                    width: disc,
+                    height: disc,
+                    borderRadius: '50%',
+                    background: 'rgba(17, 19, 24, 0.88)',
+                  }}
+                >
+                  <FacetMapGlyph currentId={currentId} variant="button" height={map} />
+                </span>
+                {name}: {disc} / {map}
+              </div>
+            ))}
           </div>
         </div>
       </div>
