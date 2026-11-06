@@ -34,7 +34,8 @@ const CaseStudyHero = ({
       innerClassName="cs-hero__inner"
       aria-labelledby={headingId}
     >
-      <h1 className="type-headline cs-title cs-hero__title" id={headingId}>
+      {/* The facet map lines up with this title (components/facetMap). */}
+      <h1 className="type-headline cs-title cs-hero__title" id={headingId} data-facet-map-title="case-study">
         {projectName}
       </h1>
 

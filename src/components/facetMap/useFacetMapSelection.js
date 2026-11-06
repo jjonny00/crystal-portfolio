@@ -39,7 +39,9 @@ const AWAY_ROUTES = new Set(['projectToOverview', 'projectToAbout']);
 
 const PROJECT_SECTION_PREFIX = 'project-';
 
-const HIDDEN = Object.freeze({ visible: false, projectId: null });
+// `view` is what the map sits beside, 'preview' or 'caseStudy': FacetMapNav lines
+// it up with that view's title.
+const HIDDEN = Object.freeze({ visible: false, projectId: null, view: null });
 
 const useFacetMapSelection = ({
   viewMode,
@@ -57,7 +59,7 @@ const useFacetMapSelection = ({
   // behind the case study for seconds.
   const [shown, setShown] = useState(() => (
     !suppressed && viewMode === 'caseStudy' && activeProjectId
-      ? { visible: true, projectId: activeProjectId }
+      ? { visible: true, projectId: activeProjectId, view: 'caseStudy' }
       : HIDDEN
   ));
   const shownRef = useRef(shown);
@@ -85,17 +87,22 @@ const useFacetMapSelection = ({
       return undefined;
     }
 
+    const view = caseStudy ? 'caseStudy' : 'preview';
     const current = shownRef.current;
-    if (current.visible && current.projectId === wantedId) return undefined;
+    if (current.visible && current.projectId === wantedId && current.view === view) return undefined;
 
     // A case study is already on screen when it says which project it is.
-    // Otherwise wait for the camera to bring the project in, as its copy does.
+    // Otherwise wait for the camera to bring the project in, as its copy does;
+    // closing a case study, that is its own preview's copy coming back.
+    const closing = current.visible && current.projectId === wantedId;
     const waitMs = caseStudy
       ? 0
-      : msUntilProjectRouteContent('overviewToProject', wantedId)
-        ?? msUntilProjectRouteContent('projectToProject', wantedId)
-        ?? SETTLE_DELAY_MS;
-    const next = { visible: true, projectId: wantedId };
+      : closing
+        ? msUntilProjectRouteContent('caseStudyToProject', wantedId) ?? 0
+        : msUntilProjectRouteContent('overviewToProject', wantedId)
+          ?? msUntilProjectRouteContent('projectToProject', wantedId)
+          ?? SETTLE_DELAY_MS;
+    const next = { visible: true, projectId: wantedId, view };
     if (waitMs <= 0) {
       setShown(next);
       return undefined;

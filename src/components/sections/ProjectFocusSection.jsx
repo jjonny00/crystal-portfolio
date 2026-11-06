@@ -260,9 +260,11 @@ const ProjectFocusSection = ({
           <animated.div style={contentSpring}>
             {/* h2: the page's one h1 is the hero headline, and each project
                 is a section under it. */}
+            {/* The facet map lines up with this title (FacetMapNav). */}
             <Headline
               as="h2"
               className="type-headline"
+              data-facet-map-title={project.facetKey || project.id}
               style={{
                 margin: 0,
                 color: isMobile ? cardFg : headlineColor,

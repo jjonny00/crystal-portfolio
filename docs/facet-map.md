@@ -9,18 +9,32 @@ Where it shows: the project previews and the case studies. Not the hero, not the
 overview (the 3D scene is the map there), not About.
 
 Status: stage 2 of 6. Done: the outlines, the glyph, the review panel, and the
-desktop marker in the gutter (no input yet). Next: the index panel, the phone
+desktop marker beside the title (no input yet). Next: the index panel, the phone
 button, the Next Project block.
 
 ## Sizes
 
-- Desktop: the map is 34 x 54, centred in the left gutter (the strip outside
-  `--page-edge`) and in the viewport's height, with a 58 x 68 target that
-  narrows to keep clear of the content edge, never under 44 wide. That needs a
-  gutter of 56px, which the site reaches at 1230px wide; below that the map is
-  the phone's button.
+- Desktop: the map is 42 x 68, about the height of a preview title's capitals,
+  with a 58 x 76 target that narrows to keep clear of the content edge, never
+  under 44 wide. It is shown from 1230px wide, where a case study's gutter (the
+  strip outside `--page-edge`) reaches the 56px that target needs; below that
+  the map is the phone's button.
 - Phone: a 44px disc with a 20 x 32 map, chosen on device from four sizes
   (the brief's 18 x 28 read too small).
+
+## Where it sits
+
+Beside the title of the view it marks, centred on the capitals of the title's
+first line: 24px left of a preview's title, and centred in the gutter left of a
+case study's (which starts at the page edge). `FacetMapNav` measures the title
+when the map comes in, when the project or view changes, and after a resize, and
+glides to the new title as its copy comes in. The titles carry
+`data-facet-map-title` (the project id on a preview, `case-study` on a case
+study) so it can find them.
+
+It stays fixed there: on a case study it keeps the title's height as the title
+scrolls away. A preview's title is always where it was measured, because snap
+scrolling settles every preview at the top of the screen.
 
 ## What it reads
 
