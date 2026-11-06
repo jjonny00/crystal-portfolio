@@ -81,6 +81,16 @@
   --bottom-row-gap: 12px;
 }
 
+/* On a phone the buttons round fully at their ends, matching the round close
+   button and facet map disc beside them in the bottom row and the screen's
+   own rounded corners close by. (At half the height the smoothing gives way to
+   a plain semicircle: lib/squircle.js.) */
+@media (max-width: 767.98px) {
+  :root {
+    --button-radius: calc(var(--button-height) / 2);
+  }
+}
+
 /* CRITICAL: Clean document scroll setup */
 html {
   overflow-x: hidden;

@@ -23,8 +23,6 @@ import {
   HERO_HEADLINE_LINES,
 } from '../../data/siteCopy';
 
-const ARROW_DOWN_SRC = '/assets/ui/SVG/arrow-down.svg';
-
 const EMPHASIS_PATTERN = new RegExp(`\\b(${HERO_BODY_EMPHASIS.join('|')})\\b`);
 
 /** The copy with its emphasised words in <strong>. */
@@ -164,16 +162,26 @@ const HeroSection = ({
     window.scrollTo({ top: window.innerHeight, behavior: 'smooth' });
   };
 
+  // Inline rather than an image, so it draws in currentColor: white on the
+  // scene beside the pill, the label's ink inside it on a phone
+  // (hero-section.css).
   const heroArrow = (
-    <img
+    <svg
       className="hero-section__cta-arrow"
       data-hero-rail-anchor
-      src={ARROW_DOWN_SRC}
-      alt=""
+      width="19"
+      height="21"
+      viewBox="0 0 19 21"
+      fill="none"
       aria-hidden="true"
-      width={19}
-      height={21}
-    />
+      focusable="false"
+    >
+      <path
+        d="M1.0625 10.3394L10.5601 19.8388M17.9413 10.3395L8.44279 19.838M9.50194 0V19"
+        stroke="currentColor"
+        strokeWidth="3"
+      />
+    </svg>
   );
 
   return (

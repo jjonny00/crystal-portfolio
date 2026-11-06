@@ -153,6 +153,7 @@
   width: 19px;
   height: 21px;
   flex: 0 0 auto;
+  color: #ffffff;
 }
 
 /* The shared button box (index.css --button-*), drawn with smoothed corners by
@@ -264,6 +265,11 @@
     flex: 1;
     justify-content: center;
     gap: 0.5em;
+  }
+
+  /* On the pill now, it takes the label's ink. */
+  .hero-section__cta-pill .hero-section__cta-arrow {
+    color: inherit;
   }
 }
 
