@@ -45,9 +45,10 @@ mounts a few seconds after the page, and the map comes in once it has.
 On desktop the map is a button ("Project index. Current project: Mesa",
 `aria-expanded`). Hover, keyboard focus or a click opens the index: a card that
 grows out of the map into the page, with the map again at 101px tall beside the
-six projects, numbered in the map's order. The current one says "You are here"
-and carries `aria-current`, so it reads in words as well as colour. Last comes
-"View crystal overview".
+six projects in the map's order, by name. The current one's name is in its
+project's colour and carries `aria-current` (the brief's "identifiable without
+colour" now rests on its fragment being filled on the map beside it and on
+screen readers). Last comes "View crystal overview".
 
 - Pointing at a name or a fragment lights that fragment (its colour as an
   outline over a 35% fill) and the row together. Nothing is selected by it.
