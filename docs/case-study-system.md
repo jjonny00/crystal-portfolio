@@ -134,7 +134,7 @@ not the projects either side have case studies of their own.
 - It is tone "a" in the next project's colours (its case study's, or its card's
   for a project without one: `lib/projectCardColors.js`), so the page hands
   over to that project; every case study ends on a tone-b section, so it stands
-  apart.
+  apart, and a 4px rule in its own ink along its top marks the seam.
   Its foot keeps clear of the bottom of the screen (the close button and the
   facet map's 104px dock on desktop, the bottom row of buttons on a phone).
 - Project links go to that project's preview, as the facet map's index does: the
