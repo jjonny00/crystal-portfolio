@@ -4,7 +4,7 @@
 // --project-copy-height on the scroll container (ProjectFocusSection reads it).
 // Each block is centred in its section, so with one height they all start at the
 // same place: the titles sit at one height and the CTAs at another, project to
-// project, and the facet map beside the title does not move between them.
+// project.
 //
 // Measured, because the tallest depends on how the copy wraps at this width, and
 // re-measured when that can change: a resize, the webfont landing.

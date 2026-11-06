@@ -9,108 +9,74 @@ Where it shows: the project previews and the case studies. Not the hero, not the
 overview (the 3D scene is the map there), not About.
 
 Status: stage 4 of 6. Done: the outlines, the glyph, the review panel, the
-desktop map in the gutter, the index it opens, and the button below 1230px and
-on phones. Next: the Next Project block at the end of each case study.
-
-## Sizes
-
-- Desktop: the map is 42 x 68, about the height of a preview title's capitals,
-  with a 58 x 76 target that narrows to keep clear of the content edge, never
-  under 44 wide. It is shown from 1230px wide, where a case study's gutter (the
-  strip outside `--page-edge`) reaches the 56px that target needs; below that
-  the map is the phone's button.
-- Phone: a 49px disc (44px on a tablet) with a 20 x 32 map, chosen on device from four sizes
-  (the brief's 18 x 28 read too small).
+dock and the phone's disc, and the index they open. Next: the Next Project block
+at the end of each case study.
 
 ## Where it sits
 
-One place, on every preview and case study, so it never moves as you go
-between projects or open and close a case study:
+Always the screen's bottom right, on every preview and case study, so it never
+moves as you go between projects or open and close a case study. It mirrors the
+case study's close button (`.cs-back`) at the bottom left: the same distance
+from the screen's edges, bottoms level, and the same colours, the project
+card's (`lib/projectCardColors.js`): the card's ink for the fill, the map and
+any text drawn in the card's fill. Before any project has been shown it falls
+back to a dark fill with white outlines. Two layouts (`data-layout`), by
+`MQ_DESKTOP` (768px):
 
-- Across: the middle of the left gutter (the strip outside `--page-edge`). A
-  case study's content starts at the page edge, so anything further in would
-  sit on it below about 1900px wide.
-- Down: level with the capitals of the preview titles. Every preview's title is
-  at the same height, because the copy blocks share the tallest one's height
-  (`useSharedProjectCopyHeight`), copy at the top and CTA at the bottom.
+- **The dock** (`'dock'`, 768px and up, tablets included): the current
+  project's name, in the CTA's face (`ctaType.js`), beside the map 80px tall
+  (49 x 80), on a card the button's shape (`--button-radius`, smoothed), 104px
+  tall. Inset `clamp(16px, 2vw, 28px)` from the right and bottom, as the close
+  button is from the left and bottom.
+- **The disc** (`'button'`, a phone): the right of the screen's last row, the
+  map alone (20 x 32) in a 49px circle, the card's edge (`--project-card-edge`,
+  21px) from the screen's side and bottom (`--bottom-row-*`, `index.css`). On a
+  preview the card's CTA fills the rest of the row, 12px from it; on a case
+  study the close button is a circle the disc's size at the row's left. The CTA
+  labels share one size, 21px where the row has room and less where it
+  doesn't, so the longest still fits (`ProjectFocusSection`). The hero's CTA
+  sits in the same row (`--mobile-bottom-inset`).
 
-`FacetMapNav` takes that height from a preview title (they carry
-`data-facet-map-title`) and its place in its section, so it holds wherever the
-portfolio is scrolled. It measures again when the title's copy block or section
-changes size. Arriving on a case study's own URL, the portfolio behind it
-mounts a few seconds after the page, and the map comes in once it has.
+Held through a move between projects, when no project is marked, the dock keeps
+the last project's name and colours, so it doesn't blink or change colour on the
+way out; the map lets go of the current fragment as the move starts.
 
 ## The index
 
-On desktop the map is a button ("Project index. Current project: Mesa",
-`aria-expanded`). Hover, keyboard focus or a click opens the index: a card that
-grows out of the map into the page, with the map again at 101px tall beside the
-six projects in the map's order, by name. The current one's name is in its
-project's colour and carries `aria-current` (the brief's "identifiable without
-colour" now rests on its fragment being filled on the map beside it and on
-screen readers). Last comes "View crystal overview".
+The map is a button ("Project index. Current project: Mesa", `aria-expanded`).
+Its index is a dark card with the six projects in the map's order, by name, and
+"View crystal overview" last. The current one's name is in its project's colour
+and carries `aria-current` (the brief's "identifiable without colour" now rests
+on its fragment being filled on the map beside it, and on screen readers).
 
-- Pointing at a name or a fragment lights that fragment (its colour as an
-  outline over a 35% fill) and the row together. Nothing is selected by it.
 - A project goes to its preview, the way an overview label does (App's
   `handleFacetMapProjectSelect`). From a case study, the case study closes first
   and the scene moves on from under it. The current project only closes the
   index: no move, no scroll.
 - "View crystal overview" is the nav's Work.
-- Escape (focus goes back to the map), a click outside, focus leaving, or the
-  pointer leaving for 240ms closes it. Opened by hover, it closes on leaving;
-  opened by a click or the keyboard, it stays until one of the others.
-- The card covers the map it grew from, so the pointer's way in never crosses
-  a gap. It keeps 12px from the window's edge and stays below the nav.
+- Escape (focus goes back to the map), a press outside (which does nothing
+  else: the click it ends in is dropped), or the page scrolling closes it.
 - The rows are real links (`/work/<slug>`), so they open in a new tab or copy
   like any other.
 
-Over a preview whose copy is set dark (FundSeeder's light scrim), the map's
-resting outlines take that ink rather than white.
+**From the dock** it rises over it, as wide as its longest name, with the map in
+its bottom-right corner exactly where the dock's was, so the pointer's way in
+never crosses a gap. Hover, keyboard focus or a click opens it; opened by hover
+it closes when the pointer has been off it for 240ms, opened by a click or the
+keyboard it stays until one of the above, or focus leaving. Pointing at a name or
+a fragment lights that fragment (its colour as an outline over a 35% fill) and
+the row together; nothing is selected by it.
 
-## The button (below 1230px, and phones)
-
-Narrower than `MQ_FACET_MAP_GUTTER` (1230px) the gutter can't hold the map,
-and it becomes a dark disc with the map 32px tall inside it, in white with the
-current fragment in its colour. Where it sits (`data-place`):
-
-- **The bottom row** (`'bottom'`): on a phone (the portfolio's mobile layout,
-  below `MQ_DESKTOP`), the right of the screen's last row, on a preview and a
-  case study alike, so it never moves between them: the button's height
-  (49px), the card's edge (`--project-card-edge`, 21px) from the screen's
-  side and bottom (`--bottom-row-*`, `index.css`). On a preview the card's
-  CTA fills the rest of the row, 12px from it, in the card's ink with the
-  label in its fill; on a case study the close button (`.cs-back`) is a
-  circle the disc's size at the row's left, a cross in the same colours. The
-  disc takes them too (`lib/projectCardColors.js`): the card's ink, the map
-  drawn in the card's fill, and solid, as they are, since the case study
-  scrolls under them. The CTA labels share one size, 21px where the row has
-  room and less where it doesn't, so the longest still fits
-  (`ProjectFocusSection`). The hero's CTA sits in the same row
-  (`--mobile-bottom-inset`).
-- **At the top** (`'top'`): from 768px to 1229px, on a preview and a case
-  study, 44px across (rgba(17, 19, 24, 0.88)), the top right, 12px under the
-  nav, its right edge on the nav's (`--page-edge`). A case study's title keeps
-  56px clear at its right end there (`caseStudy.css`), so a long one wraps
-  rather than running under the disc.
-
-A tap opens the index from it: the map, "Projects", a close button where the
-disc was, the six projects in rows at least 50px tall, and "View crystal
-overview". It spans the page between its edges, up to 400px, held to the right.
-At the top it drops down; from the bottom it rises, its header at its foot so
-the close button is over the disc, and stops short of the nav. Short of room (a
-small phone, one on its side), the list scrolls inside it and the header stays
-put.
+**From the disc** it rises across the width between the page's edges, up to
+400px, its header at its foot: the map, "Projects", and a close button over the
+disc. Rows are at least 50px tall. Short of room (a small phone, one on its
+side), the list scrolls inside it and the header stays put.
 
 - Only a tap, a click or the keyboard opens it. Hover and focus don't: it is a
-  tap target, and at a narrow window a mouse clicks it like one.
+  tap target, and a mouse at a phone's width clicks it like one.
 - It takes no swipes. The page scrolls under the reader's thumb as before; a
-  swipe that starts on the disc itself doesn't scroll, as on the nav.
-- A touch outside closes it and does nothing else: the tap that dismisses the
-  index doesn't also open what's under it. A swipe outside closes it and
-  scrolls.
-- The page scrolling by any other means (a wheel, the keyboard) closes it too,
-  in both layouts.
+  swipe that starts on the disc itself doesn't scroll, as on the nav. A swipe
+  outside closes it and scrolls.
 
 ## What it reads
 
@@ -185,9 +151,10 @@ the scene uses, so a change to `projects.js` reaches the map on the next run.
 
 ## Colour
 
-The current fragment takes the project's `headlineColor` from `projects.js`, the
-colour its preview title and CTA are set in. On a case study it takes the page's
-ink instead (the tone under the map), never a project colour.
+On the dock and the disc the map is drawn in the project card's fill, current
+fragment filled, on the card's ink (see Where it sits). In the index's dark card
+the current fragment and name take the project's `headlineColor` from
+`projects.js`, the colour its preview title and CTA are set in.
 
 ## Reviewing it
 

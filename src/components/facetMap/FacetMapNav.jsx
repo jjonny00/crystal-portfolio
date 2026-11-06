@@ -1,60 +1,49 @@
 // src/components/facetMap/FacetMapNav.jsx
 //
-// The facet map beside a project preview or a case study, and the button that
-// opens the project index. See docs/facet-map.md. Two layouts, by width:
+// The facet map on a project preview or a case study, and the button that opens
+// the project index. See docs/facet-map.md. It always has the screen's bottom
+// right to itself, on a preview and a case study alike, so it never moves
+// between them, across from the case study's close button at the bottom left
+// and in its colours (the project card's: its ink for the fill, the map drawn
+// in its fill; lib/projectCardColors.js). Two layouts, by width:
 //
-// In the gutter (MQ_FACET_MAP_GUTTER, 1230px and up): fixed in the middle of the
-// left gutter, level with the preview titles (useFacetMapHeight), the same on a
-// case study.
+// The dock (MQ_DESKTOP, 768px and up): the current project's name beside the
+// map, 80px tall, on a filled card the button's shape, its bottom level with the
+// close button's. Hover, keyboard focus or a click opens the index, a card that
+// grows up and out of it: the six projects by name, the current one in its own
+// colour (projects.js), and a way to the crystal overview, beside the map, which
+// sits where the dock's was, so the pointer's path from one into the other never
+// crosses a gap. Pointing at a name or a fragment lights that fragment without
+// selecting anything. Leaving waits a moment before closing, so a pointer that
+// strays off an edge and comes back finds it still open.
 //
-// The button (narrower, and every phone): a dark disc with the map inside it.
-// On a phone it has the bottom right to itself, on a preview and a case study
-// alike: the last row of the screen, beside the project card's CTA or across
-// from the case study's close button, the same height and the same distance
-// from the edges, so it never moves. It takes the CTA's colours there (the
-// card's ink, the map drawn in the card's fill). On a tablet it sits at the top
-// right under the nav.
+// The disc (a phone): the last row of the screen, beside the project card's CTA,
+// the map alone in a circle the CTA's height. A tap opens the index from it,
+// rising, its header at its foot (the map, "Projects", a close button where the
+// disc was), the rows at least 50px tall. Only a tap or the keyboard opens it; it
+// never takes a swipe, so the page scrolls under the reader's thumb as before.
 //
-// A tap opens the index from it: the map, "Projects", a close button where the
-// disc was, the six projects in rows at least 50px tall, and the way to the
-// overview. At the top it drops down; at the bottom it rises, the header at its
-// foot, so the close button is still where the disc was. Only a tap or the
-// keyboard opens it; it never takes a swipe, so the page scrolls under the
-// reader's thumb as before, and a touch anywhere outside closes it.
-//
-// In the gutter the index opens on hover, on keyboard focus, or on a click, as a card that
-// grows out of the map into the page: the map again, larger, beside the six
-// projects by name, the current one in its own colour (projects.js), and a way
-// to the crystal overview. Pointing at a name or a fragment lights that fragment
-// without selecting anything. Choosing a project goes to its preview (from a case
-// study, closing it first); choosing the current one only closes the index.
-// Escape, a click outside (which does nothing else), the page scrolling, or the
-// pointer leaving closes it.
-//
-// The card covers the map it grew from, so the pointer's path from one to the
-// other never crosses a gap, and leaving waits a moment before closing, so a
-// pointer that strays off an edge and comes back finds it still open.
+// Either way, choosing a project goes to its preview (from a case study, closing
+// it first); choosing the current one only closes the index. Escape, a press
+// outside (which does nothing else), or the page scrolling closes it.
 
 import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import FacetMapGlyph from './FacetMapGlyph';
-import useFacetMapHeight from './useFacetMapHeight';
 import SquircleSurface from '../ui/SquircleSurface';
 import { FACET_MAP_ORDER } from './facetMapData';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
-import { MQ_DESKTOP, MQ_FACET_MAP_GUTTER, MQ_REDUCED_MOTION } from '../../config/breakpoints';
+import { MQ_DESKTOP, MQ_REDUCED_MOTION } from '../../config/breakpoints';
 import { getProjectByAnyKey } from '../../data/projects';
-import { getScrimTone } from '../../legibility/scrimTone';
 import { projectCardColors } from '../../lib/projectCardColors';
 import { pathFor, projectPath } from '../../navigation/routes';
 import { NAVIGATION_DESTINATIONS } from '../../navigation/navigationIntent';
 import { inPageLinkHandler } from '../../navigation/linkClick';
+import { ctaTypeStyle } from '../ui/ctaType';
 import '../../styles/facet-map.css';
 
-/** The map's height in the gutter: about the capital height of a preview title. */
-const GLYPH_HEIGHT = 68;
-/** The map's height in the index. */
-const INDEX_GLYPH_HEIGHT = 101;
-/** The map's height in the button's disc, chosen on device. */
+/** The map's height in the dock, and in the index that grows from it. */
+const DOCK_GLYPH_HEIGHT = 80;
+/** The map's height in the phone's disc, chosen on device. */
 const BUTTON_GLYPH_HEIGHT = 32;
 /** The map's height in the dropped index's header. */
 const DROP_GLYPH_HEIGHT = 40;
@@ -98,41 +87,25 @@ const INDEX = FACET_MAP_ORDER.map((projectId) => {
 const FacetMapNav = ({
   /** From useFacetMapSelection. */
   selection,
-  /**
-   * The case study's ink under the map, or null over the scene. Set, the map
-   * draws in that ink rather than in project colour.
-   */
-  ink = null,
   /** Go to a project's preview (App closes an open case study first). */
   onSelectProject,
   /** Go to the crystal overview. */
   onSelectOverview,
 }) => {
   const reducedMotion = useMediaQuery(MQ_REDUCED_MOTION);
-  const compact = !useMediaQuery(MQ_FACET_MAP_GUTTER);
   // The portfolio's phone layout, the one with the project card.
-  const phone = !useMediaQuery(MQ_DESKTOP);
+  const compact = !useMediaQuery(MQ_DESKTOP);
   const { visible, projectId } = selection;
   const project = projectId ? getProjectByAnyKey(projectId) : null;
+  const shown = visible;
 
-  // Where the button sits: in the bottom row on a phone, at the top on a tablet.
-  const place = compact ? (phone ? 'bottom' : 'top') : null;
-
-  // The gutter's place is level with the titles; the button's is fixed.
-  const mapY = useFacetMapHeight({ visible: visible && !compact, projectId });
-  const shown = visible && (compact || mapY !== null);
-
-  // Over a preview whose copy is set dark (a light scrim), the outlines take
-  // that ink too. Held through a move, when no project is marked, so they don't
-  // flash white on the way out.
-  const toneProjectRef = useRef(null);
-  if (projectId) toneProjectRef.current = projectId;
-  const tone = toneProjectRef.current ? getScrimTone(toneProjectRef.current) : null;
-  const restInk = tone?.inverted ? tone.ink : null;
-  // In the bottom row, the card CTA's colours: the disc in the card's ink, the
-  // map in its fill. Held through a move as the outlines are.
-  const tonedProject = toneProjectRef.current ? getProjectByAnyKey(toneProjectRef.current) : null;
-  const discColors = place === 'bottom' && tonedProject ? projectCardColors(tonedProject) : null;
+  // The project card's colours: the fill in its ink, the map and the name in
+  // its fill. Held through a move, when no project is marked, so the dock
+  // doesn't change colour or lose its name on the way out.
+  const heldProjectRef = useRef(null);
+  if (projectId) heldProjectRef.current = projectId;
+  const heldProject = heldProjectRef.current ? getProjectByAnyKey(heldProjectRef.current) : null;
+  const colors = heldProject ? projectCardColors(heldProject) : null;
 
   const [open, setOpen] = useState(false);
   // 'hover' closes when the pointer leaves; 'pinned' (a click, the keyboard)
@@ -180,7 +153,7 @@ const FacetMapNav = ({
   // Crossing between the layouts (a resize, a rotation), it starts closed.
   useEffect(() => {
     closeIndex();
-  }, [compact, place, closeIndex]);
+  }, [compact, closeIndex]);
 
   // Escape and a click outside, while open.
   useEffect(() => {
@@ -211,8 +184,8 @@ const FacetMapNav = ({
     };
   }, [open, closeIndex]);
 
-  // Hover opens the gutter's index only. The button is a tap target, and a
-  // mouse at a narrow window clicks it like one.
+  // Hover opens the dock's index only. The disc is a tap target, and a mouse
+  // at a phone's width clicks it like one.
   const onPointerEnter = (event) => {
     if (compact || event.pointerType === 'touch') return;
     openIndex('hover');
@@ -301,14 +274,11 @@ const FacetMapNav = ({
       className="facet-map"
       data-shown={shown ? '' : undefined}
       data-open={open ? '' : undefined}
-      data-layout={compact ? 'button' : 'gutter'}
-      data-place={place ?? undefined}
+      data-layout={compact ? 'button' : 'dock'}
+      data-place={compact ? 'bottom' : undefined}
       data-motion={reducedMotion ? undefined : ''}
       aria-hidden={shown ? undefined : true}
-      style={{
-        ...(!compact && mapY !== null && { '--facet-map-y': `${mapY}px` }),
-        ...(discColors && { '--facet-map-disc-fill': discColors.fg }),
-      }}
+      style={colors ? { '--facet-map-fill': colors.fg, '--facet-map-ink': colors.bg } : undefined}
       onPointerEnter={onPointerEnter}
       onPointerLeave={onPointerLeave}
       onBlur={onBlur}
@@ -324,42 +294,31 @@ const FacetMapNav = ({
         onClick={onTriggerClick}
         onFocus={onTriggerFocus}
       >
-        {compact && discColors ? (
-          // On the CTA's fill, in the card's colour, as the CTA's label is.
-          <FacetMapGlyph
-            currentId={projectId}
-            variant="ink"
-            ink={discColors.bg}
-            height={BUTTON_GLYPH_HEIGHT}
-            animate={!reducedMotion}
-          />
-        ) : compact ? (
-          // On its own dark disc: the colour variant's white outlines, whatever
-          // the page under it.
-          <FacetMapGlyph
-            currentId={projectId}
-            variant="button"
-            height={BUTTON_GLYPH_HEIGHT}
-            animate={!reducedMotion}
-          />
-        ) : (
-          <FacetMapGlyph
-            currentId={projectId}
-            variant={ink ? 'ink' : 'color'}
-            ink={ink || undefined}
-            restInk={restInk}
-            height={GLYPH_HEIGHT}
-            animate={!reducedMotion}
-          />
+        {!compact && <SquircleSurface />}
+        {!compact && heldProject && (
+          <span className="facet-map__dock-name" style={ctaTypeStyle(false)}>
+            {heldProject.label}
+          </span>
         )}
+        {/* In the card's fill, as the CTA's label is; before the colours are
+            known, the colour variant's white outlines on the dark default. */}
+        <FacetMapGlyph
+          className="facet-map__trigger-map"
+          currentId={projectId}
+          variant={colors ? 'ink' : 'button'}
+          ink={colors?.bg}
+          height={compact ? BUTTON_GLYPH_HEIGHT : DOCK_GLYPH_HEIGHT}
+          animate={!reducedMotion}
+        />
       </button>
 
       <nav id={panelId} className="facet-map__panel" aria-label="Project index" hidden={!open}>
         <SquircleSurface />
-        {/* Rising from the bottom, the header is at the foot (CSS), its close
-            button where the disc was; the order here follows, so the tab order
-            reads as the eye does. */}
-        {place === 'bottom' && panelBody}
+        {/* Both rise, so what sits over the button comes last: on a phone the
+            header, its close button where the disc was; in the dock the map,
+            where the dock's was (CSS places them). The order here follows, so
+            the tab order reads as the eye does. */}
+        {panelBody}
         {compact ? (
           <div className="facet-map__panel-head">
             <FacetMapGlyph
@@ -386,14 +345,13 @@ const FacetMapNav = ({
             className="facet-map__panel-map"
             currentId={projectId}
             highlightId={highlightId}
-            height={INDEX_GLYPH_HEIGHT}
+            height={DOCK_GLYPH_HEIGHT}
             animate={!reducedMotion}
             onFragmentEnter={setHighlightId}
             onFragmentLeave={() => setHighlightId(null)}
             onFragmentClick={choose}
           />
         )}
-        {place !== 'bottom' && panelBody}
       </nav>
     </div>
   );

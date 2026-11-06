@@ -668,8 +668,7 @@ function App() {
     : null;
 
   // The facet map (components/facetMap): which project it marks, derived from
-  // the state above rather than tracked on its own. Over a case study it takes
-  // the ink of the section it sits on, reported the way the nav's tone is.
+  // the state above rather than tracked on its own.
   const facetMapSelection = useFacetMapSelection({
     viewMode,
     activeProjectId,
@@ -677,14 +676,6 @@ function App() {
     revealed: exitLoader,
     suppressed: hideAllUI || catalogOpen,
   });
-  const [caseStudyMapTone, setCaseStudyMapTone] = useState(null);
-  // Until the overlay has reported, an open case study is showing its hero (or
-  // the wash before it), which is tone 'a': the overlay assumes the same. On a
-  // cold deep link that report can be seconds behind the page.
-  const facetMapTone = caseStudyMapTone ?? (caseStudyOpen ? 'a' : null);
-  const facetMapInk = facetMapTone
-    ? foregroundColorForTone(facetMapTone, overlayProject?.caseStudyColors)
-    : null;
 
   // Leaving a case study returns to the project view it was opened from; the
   // scroll position, crystal state, and camera underneath are untouched.
@@ -1556,7 +1547,6 @@ function App() {
 
       <FacetMapNav
         selection={facetMapSelection}
-        ink={facetMapInk}
         onSelectProject={handleFacetMapProjectSelect}
         onSelectOverview={handleWorkClick}
       />
@@ -1690,7 +1680,6 @@ function App() {
         open={overlayOpen}
         onClose={closeOverlay}
         onToneChange={setCaseStudyNavTone}
-        onMapToneChange={setCaseStudyMapTone}
         onSceneNeededChange={setCaseStudySceneNeeded}
         initiallyOpen={caseStudyDeepLink}
         initialScrollTop={caseStudyDeepLink ? getPrerenderedScrollTop() : 0}

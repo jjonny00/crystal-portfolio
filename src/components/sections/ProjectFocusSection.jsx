@@ -203,10 +203,8 @@ const ProjectFocusSection = ({
         {/* Desktop: every project's copy block is as tall as the tallest one
             (--project-copy-height, set by useSharedProjectCopyHeight), the copy
             set from its top and the CTA at its bottom. So the titles all sit at
-            one height, and the CTAs at another, whichever project is showing,
-            and the facet map, level with the titles, never moves. On a phone
-            the block is the card, as tall as its copy: the map sits in the
-            bottom row there, beside the CTA. */}
+            one height, and the CTAs at another, whichever project is showing.
+            On a phone the block is the card, as tall as its copy. */}
         <div
           className={isMobile ? 'project-card' : undefined}
           data-scene-click-ignore=""
@@ -236,11 +234,9 @@ const ProjectFocusSection = ({
           <animated.div style={contentSpring}>
             {/* h2: the page's one h1 is the hero headline, and each project
                 is a section under it. */}
-            {/* The facet map sits level with this title (FacetMapNav). */}
             <Headline
               as="h2"
               className="type-headline"
-              data-facet-map-title={project.facetKey || project.id}
               style={{
                 margin: 0,
                 color: isMobile ? cardFg : headlineColor,

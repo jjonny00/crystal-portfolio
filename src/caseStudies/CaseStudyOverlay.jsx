@@ -92,12 +92,6 @@ const CaseStudyOverlay = ({
   open = false,
   onClose,
   onToneChange = null,
-  /**
-   * The tone at the viewport's middle, where the facet map sits in the gutter,
-   * so it can take the ink of whatever section it is over. Reported alongside
-   * the nav's tone, from the same scroll handler.
-   */
-  onMapToneChange = null,
   /** Reports whether any on-screen section is showing the 3D scene through it. */
   onSceneNeededChange = null,
   /**
@@ -218,7 +212,6 @@ const CaseStudyOverlay = ({
     const updateTone = () => {
       const sections = node.querySelectorAll('.cs-section[data-tone]');
       onToneChange?.(toneAt(sections, NAV_PROBE_Y));
-      onMapToneChange?.(toneAt(sections, window.innerHeight / 2));
     };
 
     // Sections that paint no background of their own show the crystal through
@@ -264,10 +257,9 @@ const CaseStudyOverlay = ({
       node.removeEventListener('scroll', update);
       observer.disconnect();
       onToneChange?.(null);
-      onMapToneChange?.(null);
       onSceneNeededChange?.(false);
     };
-  }, [mounted, onToneChange, onMapToneChange, onSceneNeededChange, slug, entryMode]);
+  }, [mounted, onToneChange, onSceneNeededChange, slug, entryMode]);
 
   if (!mounted || !supported) return null;
 
