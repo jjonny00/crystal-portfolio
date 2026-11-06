@@ -1,24 +1,26 @@
 // src/components/facetMap/FacetMapNav.jsx
 //
-// The facet map, fixed on desktop beside a project preview's title or a case
-// study's. See docs/facet-map.md.
+// The facet map, fixed in the left gutter on desktop beside a project preview or
+// a case study. See docs/facet-map.md.
 //
 // Stage 2 of the build: the marker only. It names the current project for
 // assistive tech and takes no input yet; the index panel it opens comes next,
 // and the phone's button after that. Below the width where the gutter can hold
 // it (facet-map.css), it is not shown at all for now.
 //
-// Where it sits: centred on the capitals of the title's first line, a short gap
-// to its left, or centred in the space left of the title where that is narrower
-// (a case study's title starts at the page edge). It stays fixed there, so on a
-// case study it keeps that height as the title scrolls away. It is placed when
-// it comes in, when the project or view changes (gliding to the new title), and
-// after a resize. Snap scrolling settles every preview at the top of the screen,
-// so a settled title is always where it was measured.
+// Where it sits: one place, whatever is showing. Across, the middle of the
+// gutter (CSS). Down, level with the capitals of a project preview's title,
+// which every preview has at the same height (useSharedProjectCopyHeight). It
+// keeps that height on a case study too, so it never moves as one opens.
+//
+// The height is taken from the title's place in its section, not on screen, so
+// it holds wherever the portfolio is scrolled; a settled preview fills the
+// screen from the top. It is measured again whenever the title's copy block or
+// its section changes size (a resize, the face landing, the shared height
+// changing).
 
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useLayoutEffect, useState } from 'react';
 import FacetMapGlyph from './FacetMapGlyph';
-import { FACET_MAP_ASPECT } from './facetMapData';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { MQ_REDUCED_MOTION } from '../../config/breakpoints';
 import { getProjectByAnyKey } from '../../data/projects';
@@ -26,13 +28,8 @@ import '../../styles/facet-map.css';
 
 /** The map's height on desktop: about the capital height of a preview title. */
 const GLYPH_HEIGHT = 68;
-const GLYPH_WIDTH = GLYPH_HEIGHT * FACET_MAP_ASPECT;
 
-/** From the map's right edge to the title, where there is room for it. */
-const TITLE_GAP = 24;
-
-/** How long to look for a title that has not mounted yet (a case study's loads in). */
-const ANCHOR_WAIT_MS = 4000;
+const TITLE_SELECTOR = '[data-facet-map-title]';
 
 let metricsCanvas = null;
 
@@ -53,35 +50,23 @@ const capCentreInLine = (style) => {
 };
 
 /**
- * The element's box where layout puts it, without the translation its entrance
+ * The element's top where layout puts it, without the translation its entrance
  * animation (or an ancestor's) adds on the way in.
  */
-const layoutBox = (element) => {
-  const rect = element.getBoundingClientRect();
-  let { left, top } = rect;
+const layoutTop = (element) => {
+  let { top } = element.getBoundingClientRect();
   for (let node = element; node && node !== document.body; node = node.parentElement) {
     const { transform } = getComputedStyle(node);
-    if (transform && transform !== 'none') {
-      const matrix = new DOMMatrixReadOnly(transform);
-      left -= matrix.m41;
-      top -= matrix.m42;
-    }
+    if (transform && transform !== 'none') top -= new DOMMatrixReadOnly(transform).m42;
   }
-  return { left, top };
+  return top;
 };
 
-const findTitle = ({ view, projectId }) => (
-  document.querySelector(`[data-facet-map-title="${view === 'caseStudy' ? 'case-study' : projectId}"]`)
-);
-
-/** The map's centre beside `title`, in viewport px. */
-const placeBeside = (title) => {
-  const box = layoutBox(title);
-  const gap = Math.min(TITLE_GAP, (box.left - GLYPH_WIDTH) / 2);
-  return {
-    x: box.left - gap - GLYPH_WIDTH / 2,
-    y: box.top + capCentreInLine(getComputedStyle(title)),
-  };
+/** The map's centre height: the title's capitals, from the top of its section. */
+const heightBeside = (title) => {
+  const section = title.closest('section');
+  const sectionTop = section ? section.getBoundingClientRect().top : 0;
+  return layoutTop(title) - sectionTop + capCentreInLine(getComputedStyle(title));
 };
 
 const FacetMapNav = ({
@@ -95,71 +80,72 @@ const FacetMapNav = ({
 }) => {
   const reducedMotion = useMediaQuery(MQ_REDUCED_MOTION);
   const project = selection.projectId ? getProjectByAnyKey(selection.projectId) : null;
-  const { visible, projectId, view } = selection;
-
-  // { x, y, glide }: glide is whether to travel there or appear there.
-  const [place, setPlace] = useState(null);
-  const shownRef = useRef(false);
+  const { visible, projectId } = selection;
+  const [mapY, setMapY] = useState(null);
 
   useLayoutEffect(() => {
-    if (!visible) {
-      shownRef.current = false;
-      return undefined;
-    }
-    // Already showing: travel to the new title. Coming in: appear beside it.
-    const glide = shownRef.current;
-    shownRef.current = true;
-
-    let frame = 0;
-    const startedAt = performance.now();
-    const settle = () => {
-      const title = findTitle({ view, projectId });
-      if (title) {
-        setPlace({ ...placeBeside(title), glide });
-      } else if (performance.now() - startedAt < ANCHOR_WAIT_MS) {
-        frame = requestAnimationFrame(settle);
-      }
-    };
-    settle();
-    return () => cancelAnimationFrame(frame);
-  }, [visible, projectId, view]);
-
-  // A resize moves the title; so does the title's face arriving after the map
-  // first measured it with a fallback. Only an actual move replaces the place:
-  // dropping `glide` mid-way would cut a glide that is still running short.
-  useEffect(() => {
     if (!visible) return undefined;
     let frame = 0;
-    const replace = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        const title = findTitle({ view, projectId });
-        if (!title) return;
-        const next = placeBeside(title);
-        setPlace((current) => (
-          current && Math.abs(current.x - next.x) < 0.5 && Math.abs(current.y - next.y) < 0.5
-            ? current
-            : { ...next, glide: false }
-        ));
+    let resizeObserver = null;
+    let mountObserver = null;
+
+    const measure = (title) => {
+      const next = heightBeside(title);
+      setMapY((current) => (current !== null && Math.abs(current - next) < 0.5 ? current : next));
+    };
+
+    const watch = (title) => {
+      measure(title);
+      if (typeof ResizeObserver === 'undefined') return;
+      resizeObserver = new ResizeObserver(() => {
+        cancelAnimationFrame(frame);
+        frame = requestAnimationFrame(() => measure(title));
       });
+      resizeObserver.observe(title.closest('[data-project-copy]') || title);
+      const section = title.closest('section');
+      if (section) resizeObserver.observe(section);
     };
-    window.addEventListener('resize', replace);
-    document.fonts?.ready.then(replace);
+
+    // Its own project's title, or any: they all sit at the same height. Arriving
+    // on a case study's URL, the portfolio behind it mounts a few seconds after
+    // the page, and the map waits for it.
+    const find = () => (
+      document.querySelector(`[data-facet-map-title="${projectId}"]`)
+      || document.querySelector(TITLE_SELECTOR)
+    );
+    const title = find();
+    if (title) {
+      watch(title);
+    } else {
+      mountObserver = new MutationObserver(() => {
+        const found = find();
+        if (!found) return;
+        mountObserver.disconnect();
+        mountObserver = null;
+        watch(found);
+      });
+      mountObserver.observe(document.body, { childList: true, subtree: true });
+    }
+    document.fonts?.ready.then(() => {
+      const current = find();
+      if (current) measure(current);
+    });
+
     return () => {
-      window.removeEventListener('resize', replace);
       cancelAnimationFrame(frame);
+      resizeObserver?.disconnect();
+      mountObserver?.disconnect();
     };
-  }, [visible, projectId, view]);
+  }, [visible, projectId]);
 
   return (
     <div
       className="facet-map"
-      data-shown={visible && place ? '' : undefined}
-      data-glide={(place?.glide && !reducedMotion) || undefined}
+      data-shown={visible && mapY !== null ? '' : undefined}
       role="img"
       aria-label={project ? `Project map. Current project: ${project.label}` : undefined}
       aria-hidden={visible ? undefined : true}
-      style={place ? { '--facet-map-x': `${place.x}px`, '--facet-map-y': `${place.y}px` } : undefined}
+      style={mapY !== null ? { '--facet-map-y': `${mapY}px` } : undefined}
     >
       <FacetMapGlyph
         currentId={projectId}

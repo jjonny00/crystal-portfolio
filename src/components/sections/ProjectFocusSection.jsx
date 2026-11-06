@@ -237,7 +237,7 @@ const ProjectFocusSection = ({
             (--project-copy-height, set by useSharedProjectCopyHeight), the copy
             set from its top and the CTA at its bottom. So the titles all sit at
             one height, and the CTAs at another, whichever project is showing,
-            and the facet map beside the title stays put between them. */}
+            and the facet map, level with the titles, never moves. */}
         <div
           className={isMobile ? 'project-card' : undefined}
           data-scene-click-ignore=""
@@ -267,7 +267,7 @@ const ProjectFocusSection = ({
           <animated.div style={contentSpring}>
             {/* h2: the page's one h1 is the hero headline, and each project
                 is a section under it. */}
-            {/* The facet map lines up with this title (FacetMapNav). */}
+            {/* The facet map sits level with this title (FacetMapNav). */}
             <Headline
               as="h2"
               className="type-headline"

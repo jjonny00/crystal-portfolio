@@ -9,7 +9,7 @@ Where it shows: the project previews and the case studies. Not the hero, not the
 overview (the 3D scene is the map there), not About.
 
 Status: stage 2 of 6. Done: the outlines, the glyph, the review panel, and the
-desktop marker beside the title (no input yet). Next: the index panel, the phone
+desktop marker in the gutter (no input yet). Next: the index panel, the phone
 button, the Next Project block.
 
 ## Sizes
@@ -24,22 +24,21 @@ button, the Next Project block.
 
 ## Where it sits
 
-Beside the title of the view it marks, centred on the capitals of the title's
-first line: 24px left of a preview's title, and centred in the gutter left of a
-case study's (which starts at the page edge). `FacetMapNav` measures the title
-when the map comes in, when the project or view changes, and after a resize, and
-glides to the new title as its copy comes in. The titles carry
-`data-facet-map-title` (the project id on a preview, `case-study` on a case
-study) so it can find them.
+One place, on every preview and case study, so it never moves as you go
+between projects or open and close a case study:
 
-Every preview's title is at the same height: the copy blocks share the tallest
-one's height (`useSharedProjectCopyHeight`), copy at the top, CTA at the bottom.
-So between projects the map holds still, and it only travels between a preview
-and its case study.
+- Across: the middle of the left gutter (the strip outside `--page-edge`). A
+  case study's content starts at the page edge, so anything further in would
+  sit on it below about 1900px wide.
+- Down: level with the capitals of the preview titles. Every preview's title is
+  at the same height, because the copy blocks share the tallest one's height
+  (`useSharedProjectCopyHeight`), copy at the top and CTA at the bottom.
 
-It stays fixed there: on a case study it keeps the title's height as the title
-scrolls away. A preview's title is always where it was measured, because snap
-scrolling settles every preview at the top of the screen.
+`FacetMapNav` takes that height from a preview title (they carry
+`data-facet-map-title`) and its place in its section, so it holds wherever the
+portfolio is scrolled. It measures again when the title's copy block or section
+changes size. Arriving on a case study's own URL, the portfolio behind it
+mounts a few seconds after the page, and the map comes in once it has.
 
 ## What it reads
 
