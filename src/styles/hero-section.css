@@ -162,8 +162,8 @@
 
    The label is 24px, as in the comp, wherever the column has room for the whole
    CTA at that size. Below that it shrinks to fit: arrow and gap (35px), padding
-   (48px) and the label's 12.994em advance have to fit the column, so
-   (100cqw - 83px) / 12.994. On a phone that fills the width. */
+   (48px) and the label's 10.947em advance ("Look Beneath the Surface") have to
+   fit the column, so (100cqw - 83px) / 10.947. */
 .hero-section__cta-pill {
   position: relative;
   isolation: isolate;
@@ -174,7 +174,7 @@
   padding: 0 var(--button-padding-inline) 0.09em;
   --squircle-radius: var(--button-radius);
   --squircle-fill: #00F1E9;
-  font-size: clamp(14px, calc(7.69cqw - 6.4px), 24px);
+  font-size: clamp(14px, calc(9.135cqw - 7.58px), 24px);
 }
 
 /* Semi-condensed semibold, untracked. `font-stretch` and `--wdth` must always be
@@ -189,7 +189,6 @@
   --wdth: 87.5;
   line-height: 1;
   letter-spacing: 0;
-  text-transform: uppercase;
   white-space: nowrap;
   color: inherit;
 }
@@ -261,10 +260,14 @@
     inline-size: 100%;
   }
 
+  /* The other buttons' phone size (ctaType.js), 21px, where the column has
+     room: padding (48px), the arrow and gap (19px + 0.5em) and the label's
+     10.947em; under it, what fits. */
   .hero-section__cta-pill {
     flex: 1;
     justify-content: center;
     gap: 0.5em;
+    font-size: min(21px, calc((100cqw - 67px) / 11.447));
   }
 
   /* On the pill now, it takes the label's ink. */

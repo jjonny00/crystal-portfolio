@@ -10,7 +10,7 @@ export const HERO_HEADLINE_LINES = ['SYSTEMS', 'BENEATH THE SURFACE'];
 // Set in bold wherever they appear in the hero copy, long or short.
 export const HERO_BODY_EMPHASIS = ['decide', 'compete', 'engage'];
 
-export const HERO_CTA_LABEL = 'LOOK BENEATH THE SURFACE';
+export const HERO_CTA_LABEL = 'Look Beneath the Surface';
 
 // Under the wordmark in the nav (Navigation.jsx), one line.
 export const NAV_DESCRIPTOR = 'Systems & Interaction Designer';

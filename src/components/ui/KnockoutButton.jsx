@@ -265,10 +265,9 @@ const KnockoutButton = ({
     })
     : '';
 
-  // SVG text is set in capitals here rather than by text-transform, which not
-  // every engine applies inside SVG. It is aria-hidden; the name comes from the
+  // The copy's own case (ctaType.js). It is aria-hidden; the name comes from the
   // in-flow label below.
-  const shownLabel = label.toUpperCase();
+  const shownLabel = label;
 
   // Both masks have to place the label identically or the veil would sit off the
   // holes, so the placement is written once.

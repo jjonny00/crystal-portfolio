@@ -331,9 +331,9 @@ const ProjectFocusSection = ({
               <SquircleSurface />
               {/* The hero CTA's phone size where the row has room for it;
                   narrower, every project's label comes down together, to what
-                  fits the longest ("Designing Around Essence", 13.4 times its
+                  fits the longest ("Designing Around Essence", 11.5 times its
                   size across) in the pill's width (cqi, project-card.css). */}
-              <span style={{ ...ctaTypeStyle(true), fontSize: 'min(21px, 7.3cqi)' }}>
+              <span style={{ ...ctaTypeStyle(true), fontSize: 'min(21px, 8.6cqi)' }}>
                 {displayProject.cta}
               </span>
             </animated.a>

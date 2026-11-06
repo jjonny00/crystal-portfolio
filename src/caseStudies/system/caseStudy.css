@@ -831,7 +831,7 @@
   --squircle-stroke-width: 1px;
   color: var(--cs-color-a);
   /* The label is the hero CTA's (.hero-section__cta-label): semi-condensed
-     semibold capitals, untracked, at the CTA's size. */
+     semibold, untracked, in the copy's own case, at the CTA's size. */
   font-family: var(--cs-font-sans);
   font-stretch: 87.5%;
   --wdth: 87.5;
@@ -839,7 +839,6 @@
   font-weight: 600;
   line-height: 1;
   letter-spacing: 0;
-  text-transform: uppercase;
   cursor: pointer;
   transition: opacity 200ms ease;
 }

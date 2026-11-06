@@ -15,7 +15,7 @@ import { createContext } from 'react';
  * The label for a case study's way out when the reader arrived on it from
  * outside. Shown without the close cross: it leads on into the work, not back.
  */
-export const ARRIVAL_EXIT_LABEL = 'View all work';
+export const ARRIVAL_EXIT_LABEL = 'View All Work';
 
 /** @type {import('react').Context<null | { label: string, onExit: () => void }>} */
 export const CaseStudyExitContext = createContext(null);
