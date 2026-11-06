@@ -92,6 +92,12 @@ const CaseStudyOverlay = ({
   open = false,
   onClose,
   onToneChange = null,
+  /**
+   * The tone at the viewport's middle, where the facet map sits in the gutter,
+   * so it can take the ink of whatever section it is over. Reported alongside
+   * the nav's tone, from the same scroll handler.
+   */
+  onMapToneChange = null,
   /** Reports whether any on-screen section is showing the 3D scene through it. */
   onSceneNeededChange = null,
   /**
@@ -199,19 +205,20 @@ const CaseStudyOverlay = ({
     const node = scrollRef.current;
     if (!mounted || !node) return undefined;
 
-    const updateTone = () => {
-      let tone = 'a';
-      const sections = node.querySelectorAll('.cs-section[data-tone]');
+    const toneAt = (sections, y) => {
       for (const section of sections) {
         const rect = section.getBoundingClientRect();
-        if (rect.top <= NAV_PROBE_Y && rect.bottom > NAV_PROBE_Y) {
-          tone = section.dataset.tone;
-          break;
-        }
+        if (rect.top <= y && rect.bottom > y) return section.dataset.tone;
       }
       // (Nothing to probe yet means the case study chunk has not mounted, so
-      // what the nav is sitting on is the colour wash: the hero's tone, 'a'.)
-      onToneChange?.(tone);
+      // what is there is the colour wash: the hero's tone, 'a'.)
+      return 'a';
+    };
+
+    const updateTone = () => {
+      const sections = node.querySelectorAll('.cs-section[data-tone]');
+      onToneChange?.(toneAt(sections, NAV_PROBE_Y));
+      onMapToneChange?.(toneAt(sections, window.innerHeight / 2));
     };
 
     // Sections that paint no background of their own show the crystal through
@@ -257,9 +264,10 @@ const CaseStudyOverlay = ({
       node.removeEventListener('scroll', update);
       observer.disconnect();
       onToneChange?.(null);
+      onMapToneChange?.(null);
       onSceneNeededChange?.(false);
     };
-  }, [mounted, onToneChange, onSceneNeededChange, slug, entryMode]);
+  }, [mounted, onToneChange, onMapToneChange, onSceneNeededChange, slug, entryMode]);
 
   if (!mounted || !supported) return null;
 

@@ -25,6 +25,13 @@ const restStyle = (variant, ink) => (
     : { fill: '#ffffff', fillOpacity: 0.06, stroke: '#ffffff', strokeOpacity: 0.5 }
 );
 
+const GLYPH_TRANSITION = [
+  'fill 250ms ease',
+  'fill-opacity 250ms ease',
+  'stroke 250ms ease',
+  'stroke-opacity 250ms ease',
+].join(', ');
+
 const FacetMapGlyph = ({
   /** The project whose fragment is filled. */
   currentId = null,
@@ -36,6 +43,11 @@ const FacetMapGlyph = ({
   ink = '#111318',
   /** Rendered height in px; the width follows the map's own proportions. */
   height = 54,
+  /**
+   * Fade between states (a new current project, a highlight coming and going).
+   * Colour only: the outlines never move. Off for reduced motion.
+   */
+  animate = false,
   className,
   style,
 }) => {
@@ -74,10 +86,14 @@ const FacetMapGlyph = ({
           <path
             key={projectId}
             d={path}
-            fill={paint.fill}
-            fillOpacity={paint.fillOpacity}
-            stroke={paint.stroke}
-            strokeOpacity={paint.strokeOpacity}
+            // As style rather than attributes so a CSS transition can carry them.
+            style={{
+              fill: paint.fill,
+              fillOpacity: paint.fillOpacity,
+              stroke: paint.stroke,
+              strokeOpacity: paint.strokeOpacity,
+              transition: animate ? GLYPH_TRANSITION : undefined,
+            }}
             strokeWidth={1}
             strokeLinejoin="round"
             // 1px on screen at any size, not 1 viewBox unit.

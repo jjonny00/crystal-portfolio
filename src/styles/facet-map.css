@@ -1,0 +1,61 @@
+/* The facet map (components/facetMap). See docs/facet-map.md. */
+
+/* Fixed in the left gutter, centred in it and in the viewport's height: the
+   gutter is the strip outside the site's content edge (--page-edge, index.css),
+   which every case study starts at and every project preview's copy sits well
+   inside. The same place in both, so it never moves as a case study opens.
+
+   The box is the map's target area: 58 x 68 where the gutter has room, narrowing
+   to keep 6px clear of the content edge, never under 44 wide. The glyph is
+   34 x 54 inside it.
+
+   Above the case-study layer (9000), under the nav (10000). */
+.facet-map {
+  position: fixed;
+  z-index: 9500;
+  left: calc(var(--page-edge) / 2);
+  top: 50%;
+  transform: translate(-50%, -50%);
+  inline-size: clamp(44px, calc(var(--page-edge) - 12px), 58px);
+  block-size: 68px;
+  display: none;
+  place-items: center;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0s linear 0.3s;
+}
+
+.facet-map > svg {
+  display: block;
+}
+
+.facet-map[data-shown] {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.3s ease, visibility 0s linear 0s;
+}
+
+/* The gutter holds a 44px-wide target with 6px either side from a --page-edge
+   of 56px, which the fluid gutter (4.83vw - 3.4px) reaches at 1230px. Narrower
+   than that the map moves to the top-right button (the phone layout, next). */
+@media (min-width: 1230px) {
+  .facet-map {
+    display: grid;
+  }
+}
+
+/* The case-study lightbox takes the screen; the map steps back with the nav's
+   items (index.css). */
+html[data-media-viewer='open'] .facet-map {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0s linear 0.3s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .facet-map,
+  .facet-map[data-shown] {
+    transition-duration: 0.12s, 0s;
+  }
+}

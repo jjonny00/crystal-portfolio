@@ -45,13 +45,11 @@ const panel = {
   font: '12px/1.4 system-ui, sans-serif',
 };
 
-// Candidate sizes for the phone button, compared side by side at actual size:
-// the disc's diameter and the map's height inside it, in px.
+// The phone button: the disc's diameter and the map's height inside it, in px.
+// Option B of the four compared on device (Nov 2026): the 44px disc the brief
+// asked for, with the map enlarged from 28 to 32.
 const PHONE_BUTTON_OPTIONS = [
-  { name: 'A', disc: 44, map: 28 },
-  { name: 'B', disc: 44, map: 32 },
-  { name: 'C', disc: 48, map: 32 },
-  { name: 'D', disc: 52, map: 36 },
+  { name: 'Phone', disc: 44, map: 32 },
 ];
 
 const tile = (background) => ({
@@ -154,7 +152,7 @@ const FacetMapPreview = () => {
             </div>
           </div>
 
-          {/* The phone button at candidate sizes: disc diameter / map height. */}
+          {/* The phone button: disc diameter / map height. */}
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {PHONE_BUTTON_OPTIONS.map(({ name, disc, map }) => (
               <div key={name} style={tile('#3a3d2c')}>

@@ -8,8 +8,39 @@ order, colour only confirms.
 Where it shows: the project previews and the case studies. Not the hero, not the
 overview (the 3D scene is the map there), not About.
 
-Status: stage 1 of 6 (outlines, glyph, DEV preview). The trigger, the index panel,
-the phone button and the Next Project block follow; see the plan in the PR.
+Status: stage 2 of 6. Done: the outlines, the glyph, the review panel, and the
+desktop marker in the gutter (no input yet). Next: the index panel, the phone
+button, the Next Project block.
+
+## Sizes
+
+- Desktop: the map is 34 x 54, centred in the left gutter (the strip outside
+  `--page-edge`) and in the viewport's height, with a 58 x 68 target that
+  narrows to keep clear of the content edge, never under 44 wide. That needs a
+  gutter of 56px, which the site reaches at 1230px wide; below that the map is
+  the phone's button.
+- Phone: a 44px disc with a 20 x 32 map, chosen on device from four sizes
+  (the brief's 18 x 28 read too small).
+
+## What it reads
+
+`useFacetMapSelection` derives the map from App's state, the same state the
+router mirrors into the URL: `viewMode`, `activeProjectId` and the settled scroll
+section. It keeps no state of its own beyond what is on screen:
+
+- While a scroll is in flight it holds what it shows, so the map does not blink
+  out between projects.
+- A new project comes in on the camera move's content beat
+  (`projectRouteClock`), the moment the project's copy comes in. A newer
+  selection replaces a pending one.
+- It goes when a move away from the projects starts (to the overview or About),
+  or once the reader settles anywhere that is not a project.
+- A case study's project never changes while it is open, so scrolling one never
+  moves the map.
+
+On a case study the map takes the ink of the section under it: the overlay
+reports the tone at the viewport's middle from the same scroll handler that
+reports the tone under the nav.
 
 ## The outlines are generated
 

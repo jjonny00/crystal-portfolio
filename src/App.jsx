@@ -51,6 +51,8 @@ import Fixed3DCanvas from './components/layout/Fixed3DCanvas';
 
 // UI components
 import Navigation from './components/ui/Navigation';
+import FacetMapNav from './components/facetMap/FacetMapNav';
+import useFacetMapSelection from './components/facetMap/useFacetMapSelection';
 import ControlsToggle from './components/ui/ControlsToggle';
 import TabbedControlPanel from './components/ui/TabbedControlPanel';
 import CrystalControls from './components/ui/CrystalControls';
@@ -663,6 +665,25 @@ function App() {
   // section's own background.
   const navActiveInk = caseStudyNavTone
     ? backgroundColorForTone(caseStudyNavTone, overlayProject?.caseStudyColors)
+    : null;
+
+  // The facet map (components/facetMap): which project it marks, derived from
+  // the state above rather than tracked on its own. Over a case study it takes
+  // the ink of the section it sits on, reported the way the nav's tone is.
+  const facetMapSelection = useFacetMapSelection({
+    viewMode,
+    activeProjectId,
+    settledSection,
+    revealed: exitLoader,
+    suppressed: hideAllUI || catalogOpen,
+  });
+  const [caseStudyMapTone, setCaseStudyMapTone] = useState(null);
+  // Until the overlay has reported, an open case study is showing its hero (or
+  // the wash before it), which is tone 'a': the overlay assumes the same. On a
+  // cold deep link that report can be seconds behind the page.
+  const facetMapTone = caseStudyMapTone ?? (caseStudyOpen ? 'a' : null);
+  const facetMapInk = facetMapTone
+    ? foregroundColorForTone(facetMapTone, overlayProject?.caseStudyColors)
     : null;
 
   // Leaving a case study returns to the project view it was opened from; the
@@ -1524,6 +1545,8 @@ function App() {
         />
       )}
 
+      <FacetMapNav selection={facetMapSelection} ink={facetMapInk} />
+
       {/* UPDATED: FPS Display with V2 performance tier info */}
       {devUiRevealed && !hideAllUI && (
         <FpsDisplay
@@ -1653,6 +1676,7 @@ function App() {
         open={overlayOpen}
         onClose={closeOverlay}
         onToneChange={setCaseStudyNavTone}
+        onMapToneChange={setCaseStudyMapTone}
         onSceneNeededChange={setCaseStudySceneNeeded}
         initiallyOpen={caseStudyDeepLink}
         initialScrollTop={caseStudyDeepLink ? getPrerenderedScrollTop() : 0}
