@@ -78,6 +78,8 @@ const FacetMapGlyph = ({
    */
   onFragmentEnter,
   onFragmentLeave,
+  /** A press going down on a fragment (before its click). */
+  onFragmentPress,
   onFragmentClick,
   className,
   style,
@@ -163,7 +165,8 @@ const FacetMapGlyph = ({
             }}
             filter={isCurrent ? `url(#${glowId})` : undefined}
             onPointerEnter={onFragmentEnter && (() => onFragmentEnter(projectId))}
-            onPointerLeave={onFragmentLeave && (() => onFragmentLeave(projectId))}
+            onPointerLeave={onFragmentLeave && ((event) => onFragmentLeave(projectId, event))}
+            onPointerDown={onFragmentPress && (() => onFragmentPress(projectId))}
             onClick={onFragmentClick && (() => onFragmentClick(projectId))}
             strokeWidth={isCurrent ? 2 : 1}
             paintOrder={isCurrent ? 'stroke' : undefined}

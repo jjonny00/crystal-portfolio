@@ -131,6 +131,10 @@ const FacetMapNav = ({
   // stays until Escape, a click outside, or a choice.
   const openModeRef = useRef(null);
   const [highlightId, setHighlightId] = useState(null);
+  // A fragment pressed (or a project chosen) on the index's map: lit as the
+  // current one from the moment the press goes down, and kept lit while the
+  // index fades out, so the choice reads before the camera moves.
+  const [pressedId, setPressedId] = useState(null);
   const rootRef = useRef(null);
   const triggerRef = useRef(null);
   const closeTimerRef = useRef(0);
@@ -162,6 +166,7 @@ const FacetMapNav = ({
 
   const openIndex = useCallback((mode) => {
     clearCloseTimer();
+    setPressedId(null);
     if (mode === 'pinned' || !openModeRef.current) openModeRef.current = mode;
     setOpen(true);
   }, []);
@@ -254,6 +259,9 @@ const FacetMapNav = ({
   };
 
   const choose = (id) => {
+    // Lit as chosen on the index's map while the index fades out (the press
+    // already lit it, choosing by name lights it here).
+    setPressedId(id);
     closeIndex();
     if (id === projectId) return;
     onSelectProject?.(id);
@@ -363,12 +371,19 @@ const FacetMapNav = ({
         {panelBody}
         <FacetMapGlyph
           className="facet-map__panel-map"
-          currentId={projectId}
+          currentId={pressedId ?? projectId}
           highlightId={highlightId}
           height={compact ? phoneMapHeight : PANEL_GLYPH_HEIGHT}
-          animate={!reducedMotion}
+          // A press lights at once: a tap is over before a fade would be.
+          animate={!reducedMotion && !pressedId}
           onFragmentEnter={setHighlightId}
-          onFragmentLeave={() => setHighlightId(null)}
+          onFragmentLeave={(id, event) => {
+            setHighlightId(null);
+            // A press that slides off before it lifts isn't a choice. (A touch
+            // leaves as it lifts, before its click, and is.)
+            if (open && event?.pointerType !== 'touch') setPressedId(null);
+          }}
+          onFragmentPress={setPressedId}
           onFragmentClick={choose}
         />
         {compact && (
