@@ -201,7 +201,7 @@ entrance starts whenever the chunk arrives.
 
 Exit is a single fade of the whole layer, revealing the crystal — which has
 already resumed rendering by then, since the scene thaws the moment `viewMode`
-changes. The layer's own way out ("Back to <project>") fades a little longer
+changes. The layer's own way out ("Close case study") fades a little longer
 (`CASE_STUDY_RETURN_EXIT_MS`, over the first half of the camera's settle back
 on to the fragment, `caseStudyToProject`), and the project's copy returns once it
 has gone; the nav's ways out keep the quick `CASE_STUDY_EXIT_MS` fade.

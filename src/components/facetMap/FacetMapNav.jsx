@@ -8,15 +8,15 @@
 // case study.
 //
 // The button (narrower, and every phone): a dark disc with the map inside it.
-// On a phone's preview it sits half over the top edge of the project card, at
-// the right of the card's copy (every card is one height, so the edge is in one
-// place: useSharedProjectCopyHeight); everywhere else, a case study and every
-// tablet, it sits at the top right under the nav. Moving between the two it
-// fades out, moves and fades in, coming back onto the card with the card.
+// On a phone it has the bottom right to itself, on a preview and a case study
+// alike: the last row of the screen, beside the button that fills the rest of
+// it (the project card's CTA, the case study's way out), the same height and
+// the same distance from the edges, so it never moves. On a tablet it sits at
+// the top right under the nav.
 //
 // A tap opens the index from it: the map, "Projects", a close button where the
 // disc was, the six projects in rows at least 50px tall, and the way to the
-// overview. At the top it drops down; on the card it rises, the header at its
+// overview. At the top it drops down; at the bottom it rises, the header at its
 // foot, so the close button is still where the disc was. Only a tap or the
 // keyboard opens it; it never takes a swipe, so the page scrolls under the
 // reader's thumb as before, and a touch anywhere outside closes it.
@@ -41,7 +41,6 @@ import SquircleSurface from '../ui/SquircleSurface';
 import { FACET_MAP_ORDER } from './facetMapData';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { MQ_DESKTOP, MQ_FACET_MAP_GUTTER, MQ_REDUCED_MOTION } from '../../config/breakpoints';
-import { PROJECT_ROUTES } from '../../config/projectRouteTiming';
 import { getProjectByAnyKey } from '../../data/projects';
 import { getScrimTone } from '../../legibility/scrimTone';
 import { pathFor, projectPath } from '../../navigation/routes';
@@ -53,16 +52,13 @@ import '../../styles/facet-map.css';
 const GLYPH_HEIGHT = 68;
 /** The map's height in the index. */
 const INDEX_GLYPH_HEIGHT = 101;
-/** The map's height in the button's disc (44px across), chosen on device. */
+/** The map's height in the button's disc, chosen on device. */
 const BUTTON_GLYPH_HEIGHT = 32;
 /** The map's height in the dropped index's header. */
 const DROP_GLYPH_HEIGHT = 40;
 
 /** How long the pointer can be off the map and the index before it closes. */
 const LEAVE_CLOSE_MS = 240;
-
-/** The map's fade (.facet-map's opacity transition, facet-map.css). */
-const FADE_MS = 300;
 
 /**
  * A press outside the open index only closes it: the click it would end in is
@@ -101,8 +97,6 @@ const FacetMapNav = ({
    * draws in that ink rather than in project colour.
    */
   ink = null,
-  /** A case study is open (App's viewMode). */
-  caseStudyOpen = false,
   /** Go to a project's preview (App closes an open case study first). */
   onSelectProject,
   /** Go to the crystal overview. */
@@ -115,49 +109,12 @@ const FacetMapNav = ({
   const { visible, projectId } = selection;
   const project = projectId ? getProjectByAnyKey(projectId) : null;
 
-  // Where the button sits: on the card, or at the top under the nav.
-  const place = compact ? (phone && !caseStudyOpen ? 'card' : 'top') : null;
-  // Where it is showing, which lags `place` while it fades out to move.
-  const [shownPlace, setShownPlace] = useState(place);
-  const shownPlaceRef = useRef(shownPlace);
-  shownPlaceRef.current = shownPlace;
-  const [relocating, setRelocating] = useState(false);
-  const visibleRef = useRef(visible);
-  visibleRef.current = visible;
-  const caseStudyOpenRef = useRef(caseStudyOpen);
+  // Where the button sits: in the bottom row on a phone, at the top on a tablet.
+  const place = compact ? (phone ? 'bottom' : 'top') : null;
 
-  useEffect(() => {
-    const leavingCaseStudy = caseStudyOpenRef.current && !caseStudyOpen;
-    caseStudyOpenRef.current = caseStudyOpen;
-    if (place === shownPlaceRef.current) {
-      setRelocating(false);
-      return undefined;
-    }
-    // Not on screen: nothing to see it move.
-    if (!visibleRef.current) {
-      setShownPlace(place);
-      return undefined;
-    }
-    setRelocating(true);
-    // Back onto the card from a case study, it comes in with the card's copy, on
-    // the camera move's content beat (as ProjectFocusSection counts it).
-    const { durationMs, contentAt } = PROJECT_ROUTES.caseStudyToProject;
-    const inAt = Math.max(FADE_MS, place === 'card' && leavingCaseStudy ? durationMs * contentAt : 0);
-    const moveTimer = setTimeout(() => setShownPlace(place), FADE_MS);
-    const showTimer = setTimeout(() => setRelocating(false), inAt);
-    return () => {
-      clearTimeout(moveTimer);
-      clearTimeout(showTimer);
-    };
-  }, [place, caseStudyOpen]);
-
-  // The gutter's place is level with the titles, the card's on its top edge;
-  // at the top, it is fixed.
+  // The gutter's place is level with the titles; the button's is fixed.
   const mapY = useFacetMapHeight({ visible: visible && !compact, projectId });
-  const cardY = useFacetMapHeight({ visible: visible && shownPlace === 'card', projectId, anchor: 'card' });
-  const placed = compact ? shownPlace !== 'card' || cardY !== null : mapY !== null;
-  const shown = visible && placed && !relocating;
-  const y = compact ? (shownPlace === 'card' ? cardY : null) : mapY;
+  const shown = visible && (compact || mapY !== null);
 
   // Over a preview whose copy is set dark (a light scrim), the outlines take
   // that ink too. Held through a move, when no project is marked, so they don't
@@ -210,8 +167,7 @@ const FacetMapNav = ({
 
   useEffect(() => () => clearTimeout(closeTimerRef.current), []);
 
-  // Crossing between the two layouts (a resize, a rotation), or the button
-  // moving, it starts closed.
+  // Crossing between the layouts (a resize, a rotation), it starts closed.
   useEffect(() => {
     closeIndex();
   }, [compact, place, closeIndex]);
@@ -341,10 +297,10 @@ const FacetMapNav = ({
       data-shown={shown ? '' : undefined}
       data-open={open ? '' : undefined}
       data-layout={compact ? 'button' : 'gutter'}
-      data-place={shownPlace ?? undefined}
+      data-place={place ?? undefined}
       data-motion={reducedMotion ? undefined : ''}
       aria-hidden={shown ? undefined : true}
-      style={y !== null ? { '--facet-map-y': `${y}px` } : undefined}
+      style={!compact && mapY !== null ? { '--facet-map-y': `${mapY}px` } : undefined}
       onPointerEnter={onPointerEnter}
       onPointerLeave={onPointerLeave}
       onBlur={onBlur}
@@ -383,10 +339,10 @@ const FacetMapNav = ({
 
       <nav id={panelId} className="facet-map__panel" aria-label="Project index" hidden={!open}>
         <SquircleSurface />
-        {/* Rising from the card, the header is at the foot (CSS), its close
+        {/* Rising from the bottom, the header is at the foot (CSS), its close
             button where the disc was; the order here follows, so the tab order
             reads as the eye does. */}
-        {shownPlace === 'card' && panelBody}
+        {place === 'bottom' && panelBody}
         {compact ? (
           <div className="facet-map__panel-head">
             <FacetMapGlyph
@@ -420,7 +376,7 @@ const FacetMapNav = ({
             onFragmentClick={choose}
           />
         )}
-        {shownPlace !== 'card' && panelBody}
+        {place !== 'bottom' && panelBody}
       </nav>
     </div>
   );

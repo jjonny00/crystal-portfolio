@@ -692,8 +692,8 @@ function App() {
     setViewMode((prev) => (prev === 'caseStudy' ? 'project' : prev));
   }, []);
 
-  // How long the layer takes to fade as it closes. Its own way out ("Back to
-  // <project>") hands over to the camera settling back on the fragment and fades
+  // How long the layer takes to fade as it closes. Its own way out ("Close case
+  // study") hands over to the camera settling back on the fragment and fades
   // a little longer; the nav's ways out keep the quick fade.
   const [overlayExitMs, setOverlayExitMs] = useState(CASE_STUDY_EXIT_MS);
 
@@ -1557,7 +1557,6 @@ function App() {
       <FacetMapNav
         selection={facetMapSelection}
         ink={facetMapInk}
-        caseStudyOpen={caseStudyOpen}
         onSelectProject={handleFacetMapProjectSelect}
         onSelectOverview={handleWorkClick}
       />

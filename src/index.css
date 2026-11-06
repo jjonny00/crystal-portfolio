@@ -63,6 +63,14 @@
   --button-height: 49px;
   --button-padding-inline: 24px;
   --button-radius: 10px;
+
+  /* A phone's last row (below 768px), on a project's card and a case study
+     alike: a filled button across it (the card's CTA, the case study's way
+     out) and the facet map's disc at its right, the button's height, so the
+     disc never moves between them. Inset by the card's edge
+     (--project-card-edge, project-card.css). */
+  --bottom-row-disc: var(--button-height);
+  --bottom-row-gap: 12px;
 }
 
 /* CRITICAL: Clean document scroll setup */

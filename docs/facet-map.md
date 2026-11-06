@@ -19,7 +19,7 @@ on phones. Next: the Next Project block at the end of each case study.
   under 44 wide. It is shown from 1230px wide, where a case study's gutter (the
   strip outside `--page-edge`) reaches the 56px that target needs; below that
   the map is the phone's button.
-- Phone: a 44px disc with a 20 x 32 map, chosen on device from four sizes
+- Phone: a 49px disc (44px on a tablet) with a 20 x 32 map, chosen on device from four sizes
   (the brief's 18 x 28 read too small).
 
 ## Where it sits
@@ -70,39 +70,43 @@ resting outlines take that ink rather than white.
 ## The button (below 1230px, and phones)
 
 Narrower than `MQ_FACET_MAP_GUTTER` (1230px) the gutter can't hold the map,
-and it becomes a 44px dark disc (rgba(17, 19, 24, 0.88)) with the map 32px tall
-inside it, in white with the current fragment in its colour. Where it sits
-(`data-place`):
+and it becomes a dark disc with the map 32px tall inside it, in white with the
+current fragment in its colour. Where it sits (`data-place`):
 
-- **On the card** (`'card'`): on a phone's preview (the portfolio's mobile
-  layout, below `MQ_DESKTOP`), half over the top edge of the project card, its
-  right edge on the card copy's (`--project-card-edge`). Every card is as tall
-  as the tallest (`useSharedProjectCopyHeight`, the same hook that lines up the
-  desktop titles), copy from the top and the CTA's row at the bottom, so the
-  edge is in one place on every project. `useFacetMapHeight` measures it with
-  the `'card'` anchor (`data-facet-map-card`).
-- **At the top** (`'top'`): on a case study, and on every preview from 768px to
-  1229px, the top right, 12px under the nav, its right edge on the nav's
-  (`--page-edge`). A case study's title keeps 56px clear at its right end below
-  1230px (`caseStudy.css`), so a long one wraps rather than running under the
-  disc.
+- **The bottom row** (`'bottom'`): on a phone (the portfolio's mobile layout,
+  below `MQ_DESKTOP`), the right of the screen's last row, on a preview and a
+  case study alike, so it never moves between them. The row is a filled button
+  (the hero CTA's shape) and the disc, both the button's height (49px), the
+  card's edge (`--project-card-edge`, 21px) from the screen's sides and
+  bottom, 12px apart (`--bottom-row-*`, `index.css`). On a preview the
+  button is the card's CTA, in the card's ink with the label in its fill; on a
+  case study it is the way out (`.cs-back`), "Close case study", in the same
+  colours, since the card takes the case study hero's. The disc is solid
+  there, as the button is: the case study scrolls under both. The CTA labels
+  share one size, 21px where the row has room and less where it doesn't, so
+  the longest still fits (`ProjectFocusSection`).
+- **At the top** (`'top'`): from 768px to 1229px, on a preview and a case
+  study, 44px across (rgba(17, 19, 24, 0.88)), the top right, 12px under the
+  nav, its right edge on the nav's (`--page-edge`). A case study's title keeps
+  56px clear at its right end there (`caseStudy.css`), so a long one wraps
+  rather than running under the disc.
 
-Between the two it fades out, moves and fades in. Opening a case study, it
-comes in at the top as soon as it has faded out; closing one, it comes back
-onto the card with the card's copy (`caseStudyToProject`'s content beat).
+Every phone card is as tall as the tallest (`useSharedProjectCopyHeight`, the
+hook that lines up the desktop titles), copy from the top and the CTA at the
+bottom, so the cards' top edges line up from project to project too.
 
 A tap opens the index from it: the map, "Projects", a close button where the
 disc was, the six projects in rows at least 50px tall, and "View crystal
 overview". It spans the page between its edges, up to 400px, held to the right.
-At the top it drops down; on the card it rises, its header at its foot so the
-close button is still over the disc, and stops short of the nav. Short of room
-(a small phone, one on its side), the list scrolls inside it and the header
-stays put.
+At the top it drops down; from the bottom it rises, its header at its foot so
+the close button is over the disc, and stops short of the nav. Short of room (a
+small phone, one on its side), the list scrolls inside it and the header stays
+put.
 
 - Only a tap, a click or the keyboard opens it. Hover and focus don't: it is a
   tap target, and at a narrow window a mouse clicks it like one.
 - It takes no swipes. The page scrolls under the reader's thumb as before; a
-  swipe that starts on the 44px disc itself doesn't scroll, as on the nav.
+  swipe that starts on the disc itself doesn't scroll, as on the nav.
 - A touch outside closes it and does nothing else: the tap that dismisses the
   index doesn't also open what's under it. A swipe outside closes it and
   scrolls.

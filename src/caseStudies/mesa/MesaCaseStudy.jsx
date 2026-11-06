@@ -28,7 +28,6 @@ const MesaCaseStudy = ({ project, onClose }) => {
     <CaseStudyPage
       colors={project?.caseStudyColors}
       label={`${c.projectName} case study: ${c.title}`}
-      backLabel={`Back to ${project?.label || c.projectName}`}
       onClose={onClose}
     >
       {/* No background of its own — the hero sits on the crystal facet, which is

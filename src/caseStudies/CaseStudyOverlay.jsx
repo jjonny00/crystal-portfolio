@@ -111,7 +111,7 @@ const CaseStudyOverlay = ({
   initialScrollTop = 0,
   /**
    * With `initiallyOpen`: `{ label, onExit }` to use in place of the case study's
-   * own "Back to <project>" for as long as the reader stays on the case study they
+   * own "Close case study" for as long as the reader stays on the case study they
    * arrived on. They came from outside the site and have no project to go back
    * to. See system/caseStudyExit.js.
    */

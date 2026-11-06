@@ -37,7 +37,13 @@ const CaseStudyPage = ({
   /** Accessible name for the document region, e.g. "Mesa case study". */
   label,
   onClose = null,
-  backLabel = 'Back',
+  /**
+   * The way out's label. "Close case study" says what it does: the case study
+   * is a layer over the portfolio, and closing it leaves the reader on the
+   * project's preview it opened from. ("Back to <project>" read as going
+   * somewhere new from a page already about that project.)
+   */
+  backLabel = 'Close case study',
   children,
 }) => {
   const rootRef = useRef(null);
@@ -69,9 +75,14 @@ const CaseStudyPage = ({
         {onExit && (
           <button type="button" className="cs-back" onClick={onExit}>
             <SquircleSurface />
-            {/* The arrow says "back". A host-supplied exit leads somewhere new
-                (caseStudyExit.js), so it goes without. */}
-            {!exitOverride && <span aria-hidden="true">&larr;</span>}
+            {/* The cross says "close", as the project index's does. A
+                host-supplied exit leads somewhere new (caseStudyExit.js), so
+                it goes without. */}
+            {!exitOverride && (
+              <svg className="cs-back__icon" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                <path d="M3 3l10 10M13 3L3 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            )}
             {exitLabel}
           </button>
         )}

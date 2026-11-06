@@ -3,7 +3,7 @@
    Two layouts, set by FacetMapNav as data-layout from MQ_FACET_MAP_GUTTER
    (config/breakpoints.js, 1230px): 'gutter', in the left gutter beside the
    titles, and 'button', a disc at the top right under the nav ('top') or, on a
-   phone's preview, on the project card's top edge ('card'), as data-place.
+   phone, at the right of the screen's last row ('bottom'), as data-place.
 
    Above the case-study layer (9000), under the nav (10000). */
 .facet-map {
@@ -75,12 +75,17 @@ html[data-media-viewer='open'] .facet-map {
   }
 }
 
-/* On a phone's preview: half over the top edge of the project card
-   (--facet-map-y, which FacetMapNav measures, every card being one height), its
-   right edge on the card copy's (project-card.css). */
-.facet-map[data-layout='button'][data-place='card'] {
-  top: calc(var(--facet-map-y, 100svh) - 22px);
+/* On a phone: the right of the screen's last row (--bottom-row-*, index.css),
+   on a project's card and a case study alike, the button beside it filling the
+   rest. The card's edge from the screen's right and bottom, as the card's
+   copy is (project-card.css), and the button's height. */
+.facet-map[data-layout='button'][data-place='bottom'] {
+  --facet-map-bottom: calc(var(--project-card-edge) + env(safe-area-inset-bottom, 0px));
+  top: auto;
+  bottom: var(--facet-map-bottom);
   right: var(--project-card-edge);
+  inline-size: var(--bottom-row-disc);
+  block-size: var(--bottom-row-disc);
 }
 
 /* --- the trigger ------------------------------------------------------------ */
@@ -194,18 +199,29 @@ html[data-media-viewer='open'] .facet-map {
   overscroll-behavior: contain;
 }
 
-/* On the card it rises instead, its header at its foot (FacetMapNav puts it
+/* At the bottom it rises instead, its header at its foot (FacetMapNav puts it
    last) with the close button where the disc was, and keeps clear of the nav
    above it as it would below. */
-.facet-map[data-layout='button'][data-place='card'] .facet-map__panel {
+.facet-map[data-layout='button'][data-place='bottom'] .facet-map__panel {
   top: auto;
   bottom: calc(-1 * var(--panel-inset));
-  max-block-size: calc(var(--facet-map-y, 100svh) + 22px + var(--panel-inset) - var(--facet-map-top));
+  max-block-size: calc(100svh - var(--facet-map-bottom) + var(--panel-inset) - var(--facet-map-top));
   padding: 10px var(--panel-inset) var(--panel-inset);
   transform-origin: calc(100% - 28px) calc(100% - 28px);
 }
 
-.facet-map[data-place='card'] .facet-map__panel-head {
+/* Solid, as the button beside it is: a case study's copy scrolls under both. */
+.facet-map[data-place='bottom'] .facet-map__trigger {
+  background-color: rgb(17, 19, 24);
+}
+
+/* Its close button the disc's size, over the disc. */
+.facet-map[data-place='bottom'] .facet-map__close {
+  inline-size: var(--bottom-row-disc);
+  block-size: var(--bottom-row-disc);
+}
+
+.facet-map[data-place='bottom'] .facet-map__panel-head {
   margin-block: 6px 0;
 }
 

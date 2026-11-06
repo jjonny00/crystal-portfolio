@@ -47,7 +47,6 @@ const GeExperienceCentersCaseStudy = ({ project, onClose }) => {
     <CaseStudyPage
       colors={project?.caseStudyColors}
       label={`${c.projectName} case study: ${c.title}`}
-      backLabel={`Back to ${project?.label || c.projectName}`}
       onClose={onClose}
     >
       <CaseStudyHero

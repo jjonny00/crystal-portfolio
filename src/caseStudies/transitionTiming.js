@@ -46,7 +46,7 @@ export const CASE_STUDY_ENTER = Object.freeze({
 export const CASE_STUDY_EXIT_MS = 320;
 
 /**
- * "Back to <project>": the page fades off the fragment a little longer, over
+ * "Close case study": the page fades off the fragment a little longer, over
  * the first half of the camera's settle back (projectRouteTiming's
  * caseStudyToProject), and is gone by the time the project's copy returns.
  * Leaving for anywhere else keeps the quick fade.

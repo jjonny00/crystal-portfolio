@@ -4,6 +4,7 @@ import { PROJECT_ROUTES } from '../../config/projectRouteTiming';
 import { msUntilProjectRouteContent } from '../../lib/projectRouteClock';
 import Headline from '../ui/Headline';
 import KnockoutButton from '../ui/KnockoutButton';
+import SquircleSurface from '../ui/SquircleSurface';
 import { ctaTypeStyle } from '../ui/ctaType';
 import { getScrimTone } from '../../legibility/scrimTone';
 import { projectPath } from '../../navigation/routes';
@@ -63,12 +64,6 @@ const inkFor = (fill) => {
 };
 const cardColorsFor = (project, accent) =>
   project.caseStudyColors ?? { a: accent, b: inkFor(accent) };
-
-const ArrowIcon = () => (
-  <svg className="project-card__arrow" viewBox="0 0 14 14" aria-hidden="true" focusable="false">
-    <path d="M3 11 11 3M4.5 3H11v6.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
 
 // The copy's beat after its section settles, when no camera move says otherwise.
 const CONTENT_DELAY_MS = 180;
@@ -239,12 +234,11 @@ const ProjectFocusSection = ({
             one height, and the CTAs at another, whichever project is showing,
             and the facet map, level with the titles, never moves. On a phone
             the block is the card, as tall as the tallest card, so every card's
-            top edge is in one place and the map's disc sits on it. */}
+            top edge is in one place too. */}
         <div
           className={isMobile ? 'project-card' : undefined}
           data-scene-click-ignore=""
           data-project-copy=""
-          data-facet-map-card={isMobile ? (project.facetKey || project.id) : undefined}
           style={{
             width: isMobile ? '100%' : contentWidth,
             maxWidth: '100%',
@@ -351,10 +345,11 @@ const ProjectFocusSection = ({
               Now the fill rather than the ink: the pill is the accent and the
               label is cut out of it, so the scene reads through the letterforms.
               See KnockoutButton for why that needs an SVG mask. */}
-          {/* Mobile: a row under a rule, the label and an arrow, in the card's
-              ink. Same link and click as the button. */}
-          {/* What the card's shared height adds goes here, above the CTA's
-              rule. Its negative margin takes back the gap it adds, so a card at
+          {/* Mobile: the case study's way back in reverse, a pill in the card's
+              ink with the label in its fill, across the card's last row but
+              for the facet map's disc at its right (project-card.css). Same
+              link and click as the button. */}
+          {/* What the card's shared height adds goes here, above the CTA. Its negative margin takes back the gap it adds, so a card at
               its own height is spaced exactly as before. */}
           {displayProject.cta && isMobile && (
             <div
@@ -370,8 +365,14 @@ const ProjectFocusSection = ({
               onClick={inPageLinkHandler(openCaseStudy)}
               style={ctaSpring}
             >
-              <span style={ctaTypeStyle(true)}>{displayProject.cta}</span>
-              <ArrowIcon />
+              <SquircleSurface />
+              {/* The hero CTA's phone size where the row has room for it;
+                  narrower, every project's label comes down together, to what
+                  fits the longest ("Designing Around Essence", 13.4 times its
+                  size across) in the pill's width (cqi, project-card.css). */}
+              <span style={{ ...ctaTypeStyle(true), fontSize: 'min(21px, 7.3cqi)' }}>
+                {displayProject.cta}
+              </span>
             </animated.a>
           )}
 

@@ -38,16 +38,29 @@
     calc(var(--project-card-edge) + env(safe-area-inset-bottom, 0px));
 }
 
-/* The row the case study opens from: a rule across, the label, an arrow. */
+/* The button the case study opens from: the site's filled button (the hero CTA
+   is the template, index.css), in the card's ink with the label in its fill,
+   the case study's way back (caseStudy.css) in reverse. It runs across the
+   card's last row but for the facet map's disc at its right (--bottom-row-*,
+   index.css); the card's padding puts the row where the case study's is. */
 .project-card__cta {
+  position: relative;
+  isolation: isolate;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  justify-content: center;
+  box-sizing: border-box;
+  /* The label sizes against the pill's width (ProjectFocusSection). */
+  container-type: inline-size;
+  min-block-size: var(--button-height);
   margin-top: calc(0.9rem * var(--project-card-v));
-  padding-top: calc(24px * var(--project-card-v));
-  border-top: 1px solid rgb(from var(--project-card-fg) r g b / 0.35);
-  color: inherit;
+  margin-inline-end: calc(var(--bottom-row-disc) + var(--bottom-row-gap));
+  padding: 0 16px 0.09em;
+  border-radius: var(--button-radius);
+  --squircle-radius: var(--button-radius);
+  --squircle-fill: var(--project-card-fg);
+  color: var(--project-card-bg);
+  text-align: center;
   text-decoration: none;
   -webkit-tap-highlight-color: transparent;
 }
@@ -57,13 +70,6 @@
 }
 
 .project-card__cta:focus-visible {
-  outline: 2px solid currentColor;
-  outline-offset: 6px;
-  border-radius: 4px;
-}
-
-.project-card__arrow {
-  flex: none;
-  width: 14px;
-  height: 14px;
+  outline: 2px solid var(--project-card-fg);
+  outline-offset: 3px;
 }
