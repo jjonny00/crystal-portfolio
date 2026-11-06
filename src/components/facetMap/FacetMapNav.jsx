@@ -1,21 +1,28 @@
 // src/components/facetMap/FacetMapNav.jsx
 //
-// The facet map on desktop: fixed in the left gutter beside a project preview or
-// a case study, and the button that opens the project index. See
-// docs/facet-map.md.
+// The facet map beside a project preview or a case study, and the button that
+// opens the project index. See docs/facet-map.md. Two layouts, by width:
 //
-// Where it sits is useFacetMapHeight's (level with the preview titles, in the
-// middle of the gutter, the same on a case study). Below the width where the
-// gutter can hold it (facet-map.css) it is not shown; the phone's button is the
-// next stage.
+// In the gutter (MQ_FACET_MAP_GUTTER, 1230px and up): fixed in the middle of the
+// left gutter, level with the preview titles (useFacetMapHeight), the same on a
+// case study.
 //
-// The index opens on hover, on keyboard focus, or on a click, as a card that
+// The button (narrower, and every phone): a dark disc at the top right under the
+// nav, in the same place on a preview and a case study, with the map inside it.
+// A tap drops the index from it: the map, "Projects", a close button where the
+// disc was, the six projects in rows at least 50px tall, and the way to the
+// overview. Only a tap or the keyboard opens it; it never takes a swipe, so the
+// page scrolls under the reader's thumb as before, and a touch anywhere outside
+// closes it.
+//
+// In the gutter the index opens on hover, on keyboard focus, or on a click, as a card that
 // grows out of the map into the page: the map again, larger, beside the six
 // projects by number and name, the current one marked "You are here", and a way
 // to the crystal overview. Pointing at a name or a fragment lights that fragment
 // without selecting anything. Choosing a project goes to its preview (from a case
 // study, closing it first); choosing the current one only closes the index.
-// Escape, a click outside, or the pointer leaving closes it.
+// Escape, a click outside (which does nothing else), the page scrolling, or the
+// pointer leaving closes it.
 //
 // The card covers the map it grew from, so the pointer's path from one to the
 // other never crosses a gap, and leaving waits a moment before closing, so a
@@ -27,7 +34,7 @@ import useFacetMapHeight from './useFacetMapHeight';
 import SquircleSurface from '../ui/SquircleSurface';
 import { FACET_MAP_ORDER } from './facetMapData';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
-import { MQ_REDUCED_MOTION } from '../../config/breakpoints';
+import { MQ_FACET_MAP_GUTTER, MQ_REDUCED_MOTION } from '../../config/breakpoints';
 import { getProjectByAnyKey } from '../../data/projects';
 import { getScrimTone } from '../../legibility/scrimTone';
 import { pathFor, projectPath } from '../../navigation/routes';
@@ -39,9 +46,36 @@ import '../../styles/facet-map.css';
 const GLYPH_HEIGHT = 68;
 /** The map's height in the index. */
 const INDEX_GLYPH_HEIGHT = 101;
+/** The map's height in the button's disc (44px across), chosen on device. */
+const BUTTON_GLYPH_HEIGHT = 32;
+/** The map's height in the dropped index's header. */
+const DROP_GLYPH_HEIGHT = 40;
 
 /** How long the pointer can be off the map and the index before it closes. */
 const LEAVE_CLOSE_MS = 240;
+
+/**
+ * A press outside the open index only closes it: the click it would end in is
+ * dropped, so the tap that dismisses the index doesn't also follow the link or
+ * fragment under it. A press that turns into a scroll ends without a click (or
+ * with pointercancel), and the page scrolls as usual.
+ */
+const swallowNextClick = () => {
+  let timer = 0;
+  const done = () => {
+    clearTimeout(timer);
+    document.removeEventListener('click', onClick, true);
+    document.removeEventListener('pointercancel', done, true);
+  };
+  function onClick(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    done();
+  }
+  document.addEventListener('click', onClick, true);
+  document.addEventListener('pointercancel', done, true);
+  timer = setTimeout(done, 800);
+};
 
 const INDEX = FACET_MAP_ORDER.map((projectId, index) => ({
   projectId,
@@ -63,10 +97,12 @@ const FacetMapNav = ({
   onSelectOverview,
 }) => {
   const reducedMotion = useMediaQuery(MQ_REDUCED_MOTION);
+  const compact = !useMediaQuery(MQ_FACET_MAP_GUTTER);
   const { visible, projectId } = selection;
   const project = projectId ? getProjectByAnyKey(projectId) : null;
-  const mapY = useFacetMapHeight(selection);
-  const shown = visible && mapY !== null;
+  // Only the gutter's place depends on the titles; the button's is fixed.
+  const mapY = useFacetMapHeight({ visible: visible && !compact, projectId });
+  const shown = visible && (compact || mapY !== null);
 
   // Over a preview whose copy is set dark (a light scrim), the outlines take
   // that ink too. Held through a move, when no project is marked, so they don't
@@ -119,6 +155,11 @@ const FacetMapNav = ({
 
   useEffect(() => () => clearTimeout(closeTimerRef.current), []);
 
+  // Crossing between the two layouts (a resize, a rotation), it starts closed.
+  useEffect(() => {
+    closeIndex();
+  }, [compact, closeIndex]);
+
   // Escape and a click outside, while open.
   useEffect(() => {
     if (!open) return undefined;
@@ -128,18 +169,30 @@ const FacetMapNav = ({
       closeIndex({ returnFocus: rootRef.current?.contains(document.activeElement) });
     };
     const onPointerDown = (event) => {
+      if (rootRef.current?.contains(event.target)) return;
+      closeIndex();
+      swallowNextClick();
+    };
+    // The page moving under it (a wheel, a trackpad, the keyboard) takes the
+    // reader somewhere else; the index goes. Its own scrolling (a phone on its
+    // side) doesn't count.
+    const onScroll = (event) => {
       if (!rootRef.current?.contains(event.target)) closeIndex();
     };
     document.addEventListener('keydown', onKeyDown, true);
     document.addEventListener('pointerdown', onPointerDown, true);
+    document.addEventListener('scroll', onScroll, true);
     return () => {
       document.removeEventListener('keydown', onKeyDown, true);
       document.removeEventListener('pointerdown', onPointerDown, true);
+      document.removeEventListener('scroll', onScroll, true);
     };
   }, [open, closeIndex]);
 
+  // Hover opens the gutter's index only. The button is a tap target, and a
+  // mouse at a narrow window clicks it like one.
   const onPointerEnter = (event) => {
-    if (event.pointerType === 'touch') return;
+    if (compact || event.pointerType === 'touch') return;
     openIndex('hover');
   };
 
@@ -158,7 +211,8 @@ const FacetMapNav = ({
   // Keyboard focus opens it, so tabbing onto the map walks straight on into the
   // index. A pointer's focus (the click itself) is left to the click.
   const onTriggerFocus = (event) => {
-    if (!refocusingRef.current && event.target.matches?.(':focus-visible')) openIndex('pinned');
+    if (compact || refocusingRef.current) return;
+    if (event.target.matches?.(':focus-visible')) openIndex('pinned');
   };
 
   // Focus moving out of the map and the index altogether closes it.
@@ -184,9 +238,10 @@ const FacetMapNav = ({
       className="facet-map"
       data-shown={shown ? '' : undefined}
       data-open={open ? '' : undefined}
+      data-layout={compact ? 'button' : 'gutter'}
       data-motion={reducedMotion ? undefined : ''}
       aria-hidden={shown ? undefined : true}
-      style={mapY !== null ? { '--facet-map-y': `${mapY}px` } : undefined}
+      style={!compact && mapY !== null ? { '--facet-map-y': `${mapY}px` } : undefined}
       onPointerEnter={onPointerEnter}
       onPointerLeave={onPointerLeave}
       onBlur={onBlur}
@@ -202,28 +257,62 @@ const FacetMapNav = ({
         onClick={onTriggerClick}
         onFocus={onTriggerFocus}
       >
-        <FacetMapGlyph
-          currentId={projectId}
-          variant={ink ? 'ink' : 'color'}
-          ink={ink || undefined}
-          restInk={restInk}
-          height={GLYPH_HEIGHT}
-          animate={!reducedMotion}
-        />
+        {compact ? (
+          // On its own dark disc: the colour variant's white outlines, whatever
+          // the page under it.
+          <FacetMapGlyph
+            currentId={projectId}
+            variant="button"
+            height={BUTTON_GLYPH_HEIGHT}
+            animate={!reducedMotion}
+          />
+        ) : (
+          <FacetMapGlyph
+            currentId={projectId}
+            variant={ink ? 'ink' : 'color'}
+            ink={ink || undefined}
+            restInk={restInk}
+            height={GLYPH_HEIGHT}
+            animate={!reducedMotion}
+          />
+        )}
       </button>
 
       <nav id={panelId} className="facet-map__panel" aria-label="Project index" hidden={!open}>
         <SquircleSurface />
-        <FacetMapGlyph
-          className="facet-map__panel-map"
-          currentId={projectId}
-          highlightId={highlightId}
-          height={INDEX_GLYPH_HEIGHT}
-          animate={!reducedMotion}
-          onFragmentEnter={setHighlightId}
-          onFragmentLeave={() => setHighlightId(null)}
-          onFragmentClick={choose}
-        />
+        {compact ? (
+          <div className="facet-map__panel-head">
+            <FacetMapGlyph
+              currentId={projectId}
+              highlightId={highlightId}
+              variant="button"
+              height={DROP_GLYPH_HEIGHT}
+              animate={!reducedMotion}
+            />
+            <span className="facet-map__panel-title type-caption-caps">Projects</span>
+            <button
+              type="button"
+              className="facet-map__close"
+              aria-label="Close project index"
+              onClick={() => closeIndex({ returnFocus: true })}
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                <path d="M3 3l10 10M13 3L3 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+            </button>
+          </div>
+        ) : (
+          <FacetMapGlyph
+            className="facet-map__panel-map"
+            currentId={projectId}
+            highlightId={highlightId}
+            height={INDEX_GLYPH_HEIGHT}
+            animate={!reducedMotion}
+            onFragmentEnter={setHighlightId}
+            onFragmentLeave={() => setHighlightId(null)}
+            onFragmentClick={choose}
+          />
+        )}
 
         <div className="facet-map__panel-body">
           <ol className="facet-map__list">

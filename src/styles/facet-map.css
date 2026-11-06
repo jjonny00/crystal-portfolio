@@ -1,30 +1,14 @@
-/* The facet map (components/facetMap). See docs/facet-map.md. */
+/* The facet map (components/facetMap). See docs/facet-map.md.
 
-/* Fixed in one place on previews and case studies alike: across, the middle of
-   the left gutter (the strip outside --page-edge, index.css), which every case
-   study starts at and every preview's copy sits inside; down, --facet-map-y,
-   which FacetMapNav sets level with the capitals of the preview titles.
-
-   The box is the map's button: 58 x 76 where the gutter has room, narrowing to
-   keep 6px clear of the content edge, never under 44 wide. The glyph is 42 x 68
-   inside it.
-
-   Placed with left/top rather than a transform: the index card is positioned
-   against the viewport through this box (see .facet-map__panel), and a
-   transform would make it the card's frame for anything fixed.
+   Two layouts, set by FacetMapNav as data-layout from MQ_FACET_MAP_GUTTER
+   (config/breakpoints.js, 1230px): 'gutter', in the left gutter beside the
+   titles, and 'button', a disc at the top right under the nav.
 
    Above the case-study layer (9000), under the nav (10000). */
 .facet-map {
-  --facet-map-w: clamp(44px, calc(var(--page-edge) - 12px), 58px);
-  --facet-map-h: 76px;
-  --facet-map-cy: var(--facet-map-y, 50vh);
   position: fixed;
   z-index: 9500;
-  left: calc(var(--page-edge) / 2 - var(--facet-map-w) / 2);
-  top: calc(var(--facet-map-cy) - var(--facet-map-h) / 2);
-  inline-size: var(--facet-map-w);
-  block-size: var(--facet-map-h);
-  display: none;
+  display: block;
   pointer-events: none;
   opacity: 0;
   visibility: hidden;
@@ -37,15 +21,6 @@
   transition: opacity 0.3s ease, visibility 0s linear 0s;
 }
 
-/* The gutter holds a 44px-wide target with 6px either side from a --page-edge
-   of 56px, which the fluid gutter (4.83vw - 3.4px) reaches at 1230px. Narrower
-   than that the map moves to the top-right button (the phone layout, next). */
-@media (min-width: 1230px) {
-  .facet-map {
-    display: block;
-  }
-}
-
 /* The case-study lightbox takes the screen; the map steps back with the nav's
    items (index.css). */
 html[data-media-viewer='open'] .facet-map {
@@ -54,7 +29,52 @@ html[data-media-viewer='open'] .facet-map {
   transition: opacity 0.3s ease, visibility 0s linear 0.3s;
 }
 
-/* --- the button ----------------------------------------------------------- */
+/* --- the map: in the gutter ------------------------------------------------ */
+
+/* Fixed in one place on previews and case studies alike: across, the middle of
+   the left gutter (the strip outside --page-edge, index.css), which every case
+   study starts at and every preview's copy sits inside; down, --facet-map-y,
+   which FacetMapNav sets level with the capitals of the preview titles.
+
+   The box is the map's button: 58 x 76 where the gutter has room, narrowing to
+   keep 6px clear of the content edge, never under 44 wide (which the gutter
+   allows from 1230px). The glyph is 42 x 68 inside it.
+
+   Placed with left/top rather than a transform: the index card is positioned
+   against the viewport through this box (see the panel below), and a
+   transform would make it the card's frame for anything fixed. */
+.facet-map[data-layout='gutter'] {
+  --facet-map-w: clamp(44px, calc(var(--page-edge) - 12px), 58px);
+  --facet-map-h: 76px;
+  --facet-map-cy: var(--facet-map-y, 50vh);
+  left: calc(var(--page-edge) / 2 - var(--facet-map-w) / 2);
+  top: calc(var(--facet-map-cy) - var(--facet-map-h) / 2);
+  inline-size: var(--facet-map-w);
+  block-size: var(--facet-map-h);
+}
+
+/* --- the map: the button --------------------------------------------------- */
+
+/* A 44px dark disc with the map inside it, at the top right just under the
+   nav: its right edge on the nav's (--page-edge), 12px under the bar, which
+   is 55px tall below the nav's desktop breakpoint and 65px from it
+   (Navigation.jsx, MQ_NAV_DESKTOP). The same place on a preview and a case
+   study; a case study's title keeps clear of it (caseStudy.css). */
+.facet-map[data-layout='button'] {
+  --facet-map-top: calc(55px + 12px);
+  top: var(--facet-map-top);
+  right: var(--page-edge);
+  inline-size: 44px;
+  block-size: 44px;
+}
+
+@media (min-width: 1024px) {
+  .facet-map[data-layout='button'] {
+    --facet-map-top: calc(65px + 12px);
+  }
+}
+
+/* --- the trigger ------------------------------------------------------------ */
 
 .facet-map__trigger {
   display: grid;
@@ -67,6 +87,12 @@ html[data-media-viewer='open'] .facet-map {
   background: none;
   color: inherit;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.facet-map[data-layout='button'] .facet-map__trigger {
+  border-radius: 50%;
+  background-color: rgba(17, 19, 24, 0.88);
 }
 
 .facet-map[data-shown] .facet-map__trigger {
@@ -79,44 +105,21 @@ html[data-media-viewer='open'] .facet-map {
 
 /* --- the index ------------------------------------------------------------ */
 
-/* A card that grows out of the map into the page. Its map sits over the button
-   (centred on it across, where the gutter leaves room, and level with it),
-   so the pointer's path from the button into the card never leaves either; it
-   keeps 12px from the window's edge and clear of the nav below it.
-
-   Positioned from this box's corner, so each edge is "where it should be on
-   screen" minus "where the box is". */
+/* Shared by both layouts: a dark card with smoothed corners. */
 .facet-map__panel {
-  --panel-pad: 16px;
-  --panel-map-w: calc(101px * 63.55 / 104);
-  --panel-left: max(12px, calc(var(--page-edge) / 2 - var(--panel-map-w) / 2 - var(--panel-pad)));
-  --panel-top: max(88px, calc(var(--facet-map-cy) - 101px / 2 - var(--panel-pad)));
   position: absolute;
   z-index: 1;
-  left: calc(var(--panel-left) - (var(--page-edge) / 2 - var(--facet-map-w) / 2));
-  top: calc(var(--panel-top) - (var(--facet-map-cy) - var(--facet-map-h) / 2));
   isolation: isolate;
-  display: grid;
-  grid-template-columns: auto auto;
-  align-items: start;
-  column-gap: 20px;
-  padding: var(--panel-pad) 12px var(--panel-pad) var(--panel-pad);
+  box-sizing: border-box;
   --squircle-radius: 16px;
-  --squircle-fill: rgba(17, 19, 24, 0.94);
+  --squircle-fill: rgb(17, 19, 24);
   color: rgba(255, 252, 238, 0.92);
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
   border-radius: 16px;
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  transform-origin: calc(var(--panel-pad) + var(--panel-map-w) / 2) calc(var(--panel-pad) + 50px);
   transition: opacity 140ms ease, transform 140ms ease, visibility 0s linear 140ms;
-}
-
-/* `hidden` keeps the closed index out of the tab order and the accessibility
-   tree; visibility does that here, and lets it fade. */
-.facet-map__panel[hidden] {
-  display: grid;
 }
 
 .facet-map[data-motion] .facet-map__panel {
@@ -131,14 +134,102 @@ html[data-media-viewer='open'] .facet-map {
   transition: opacity 160ms ease, transform 240ms cubic-bezier(0.2, 0.7, 0.2, 1), visibility 0s linear 0s;
 }
 
+/* In the gutter: a card that grows out of the map into the page. Its map sits
+   over the button (centred on it across, where the gutter leaves room, and
+   level with it), so the pointer's path from the button into the card never
+   leaves either; it keeps 12px from the window's edge and clear of the nav
+   below it.
+
+   Positioned from the box's corner, so each edge is "where it should be on
+   screen" minus "where the box is". */
+.facet-map[data-layout='gutter'] .facet-map__panel {
+  --panel-pad: 16px;
+  --panel-map-w: calc(101px * 63.55 / 104);
+  --panel-left: max(12px, calc(var(--page-edge) / 2 - var(--panel-map-w) / 2 - var(--panel-pad)));
+  --panel-top: max(88px, calc(var(--facet-map-cy) - 101px / 2 - var(--panel-pad)));
+  left: calc(var(--panel-left) - (var(--page-edge) / 2 - var(--facet-map-w) / 2));
+  top: calc(var(--panel-top) - (var(--facet-map-cy) - var(--facet-map-h) / 2));
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: start;
+  column-gap: 20px;
+  padding: var(--panel-pad) 12px var(--panel-pad) var(--panel-pad);
+  transform-origin: calc(var(--panel-pad) + var(--panel-map-w) / 2) calc(var(--panel-pad) + 50px);
+}
+
+/* The button: the index drops from the disc, across the width between the
+   page's edges (up to 400px, held to the right), with its close button where
+   the disc was. Taller than the screen (a phone on its side), it scrolls
+   itself rather than the page. */
+.facet-map[data-layout='button'] .facet-map__panel {
+  --panel-inset: 6px;
+  top: calc(-1 * var(--panel-inset));
+  right: calc(-1 * var(--panel-inset));
+  display: block;
+  inline-size: min(calc(100vw - 2 * var(--page-edge) + 2 * var(--panel-inset)), 400px);
+  max-block-size: calc(100svh - var(--facet-map-top) - 12px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--panel-inset) var(--panel-inset) 10px;
+  transform-origin: calc(100% - 28px) 28px;
+}
+
+/* `hidden` keeps the closed index out of the tab order and the accessibility
+   tree; visibility does that here, and lets it fade. */
+.facet-map[data-layout='gutter'] .facet-map__panel[hidden] {
+  display: grid;
+}
+
+.facet-map[data-layout='button'] .facet-map__panel[hidden] {
+  display: block;
+}
+
 .facet-map__panel-map {
   display: block;
+}
+
+.facet-map__panel-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-block-size: 44px;
+  margin-block-end: 6px;
+  padding-inline-start: 10px;
+}
+
+.facet-map__panel-head > svg {
+  flex: none;
+  display: block;
+}
+
+.facet-map__panel-title {
+  flex: 1;
+  opacity: 0.7;
+}
+
+.facet-map__close {
+  flex: none;
+  display: grid;
+  place-items: center;
+  inline-size: 44px;
+  block-size: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background-color: rgba(255, 252, 238, 0.08);
+  color: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .facet-map__panel-body {
   display: grid;
   gap: 6px;
   min-inline-size: 13.5em;
+}
+
+.facet-map[data-layout='button'] .facet-map__panel-body {
+  min-inline-size: 0;
 }
 
 .facet-map__list {
@@ -151,11 +242,13 @@ html[data-media-viewer='open'] .facet-map {
 
 /* Each row is the project's link: number, name, and on the current one "You
    are here", so the current project reads in words, not only in colour. 44px
-   tall at least, a full touch target. */
+   tall at least in the gutter's card, 50px from the button, a full touch
+   target either way. */
 .facet-map__item {
   display: grid;
   grid-template-columns: 2em auto;
   align-items: baseline;
+  align-content: center;
   column-gap: 6px;
   min-block-size: 44px;
   box-sizing: border-box;
@@ -164,6 +257,11 @@ html[data-media-viewer='open'] .facet-map {
   color: inherit;
   text-decoration: none;
   transition: background-color 150ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.facet-map[data-layout='button'] .facet-map__item {
+  min-block-size: 50px;
 }
 
 .facet-map__item:hover,
@@ -202,6 +300,10 @@ html[data-media-viewer='open'] .facet-map {
   color: inherit;
   text-decoration: none;
   transition: opacity 150ms ease;
+}
+
+.facet-map[data-layout='button'] .facet-map__overview {
+  min-block-size: 50px;
 }
 
 .facet-map__overview:hover {

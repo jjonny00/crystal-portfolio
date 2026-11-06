@@ -528,6 +528,15 @@
   margin-bottom: clamp(14px, 2.9vw, 50px);
 }
 
+/* Below 1230px the facet map is a 44px disc at the top right, under the nav and
+   level with the title's first line (facet-map.css). The title keeps out from
+   under it: a long one wraps a line sooner rather than running beneath it. */
+@media (max-width: 1229.98px) {
+  .cs-hero__title {
+    padding-inline-end: calc(44px + 12px);
+  }
+}
+
 .cs-hero__subtitle {
   grid-area: subtitle;
   margin-bottom: clamp(8px, 0.9vw, 16px);

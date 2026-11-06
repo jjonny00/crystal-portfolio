@@ -8,9 +8,9 @@ order, colour only confirms.
 Where it shows: the project previews and the case studies. Not the hero, not the
 overview (the 3D scene is the map there), not About.
 
-Status: stage 3 of 6. Done: the outlines, the glyph, the review panel, the
-desktop map in the gutter and the index it opens. Next: the phone button, the
-Next Project block.
+Status: stage 4 of 6. Done: the outlines, the glyph, the review panel, the
+desktop map in the gutter, the index it opens, and the button below 1230px and
+on phones. Next: the Next Project block at the end of each case study.
 
 ## Sizes
 
@@ -66,6 +66,31 @@ and carries `aria-current`, so it reads in words as well as colour. Last comes
 
 Over a preview whose copy is set dark (FundSeeder's light scrim), the map's
 resting outlines take that ink rather than white.
+
+## The button (below 1230px, and phones)
+
+Narrower than `MQ_FACET_MAP_GUTTER` (1230px) the gutter can't hold the map,
+and it becomes a 44px dark disc (rgba(17, 19, 24, 0.88)) with the map 32px tall
+inside it, in white with the current fragment in its colour. It sits at the top
+right, 12px under the nav, its right edge on the nav's (`--page-edge`): the same
+place on a preview and a case study. A case study's title keeps 56px clear at
+its right end below 1230px (`caseStudy.css`), so a long one wraps rather than
+running under the disc.
+
+A tap drops the index from it: the map, "Projects", a close button where the
+disc was, the six projects in rows at least 50px tall, and "View crystal
+overview". It spans the page between its edges, up to 400px, held to the right;
+taller than the screen (a phone on its side), it scrolls itself.
+
+- Only a tap, a click or the keyboard opens it. Hover and focus don't: it is a
+  tap target, and at a narrow window a mouse clicks it like one.
+- It takes no swipes. The page scrolls under the reader's thumb as before; a
+  swipe that starts on the 44px disc itself doesn't scroll, as on the nav.
+- A touch outside closes it and does nothing else: the tap that dismisses the
+  index doesn't also open what's under it. A swipe outside closes it and
+  scrolls.
+- The page scrolling by any other means (a wheel, the keyboard) closes it too,
+  in both layouts.
 
 ## What it reads
 
