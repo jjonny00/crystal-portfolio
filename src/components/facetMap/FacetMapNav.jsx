@@ -143,7 +143,7 @@ const FacetMapNav = ({
       className="facet-map"
       data-shown={visible && mapY !== null ? '' : undefined}
       role="img"
-      aria-label={project ? `Project map. Current project: ${project.label}` : undefined}
+      aria-label={project ? `Project map. Current project: ${project.label}` : 'Project map'}
       aria-hidden={visible ? undefined : true}
       style={mapY !== null ? { '--facet-map-y': `${mapY}px` } : undefined}
     >

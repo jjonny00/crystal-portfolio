@@ -14,9 +14,10 @@
 //
 // and only decides when to act on them:
 //
-//   - In flight (settledSection null) it holds what it shows, so the map does not
-//     blink out between two projects. App reports no project then; that is the
-//     gap between settles, not a destination.
+//   - In flight (settledSection null) the map stays up, so it does not blink out
+//     between two projects, but marks no project: the reader has left the one
+//     they were on, and the next is not there yet. App reports no project then;
+//     that is the gap between settles, not a destination.
 //   - A new project comes in on the camera move's content beat (projectRouteClock,
 //     projectRouteTiming's contentAt), the moment the project's copy comes in. A
 //     newer selection arriving first replaces the pending one: latest wins.
@@ -64,7 +65,8 @@ const useFacetMapSelection = ({
   shownRef.current = shown;
 
   // What the settled state asks for, as primitives so the effect below runs only
-  // when the answer changes. `hold` keeps whatever is showing.
+  // when the answer changes. `hold` is in flight: the map stays as it is, shown
+  // or not, but lets go of the project it marked.
   let hold = false;
   let wantedId = null;
   const caseStudy = viewMode === 'caseStudy';
@@ -79,7 +81,12 @@ const useFacetMapSelection = ({
   }
 
   useEffect(() => {
-    if (hold) return undefined;
+    if (hold) {
+      // Leaving the project: its fragment goes back to rest as the move starts,
+      // not when the next one arrives.
+      if (shownRef.current.projectId) setShown((current) => ({ ...current, projectId: null }));
+      return undefined;
+    }
     if (!wantedId) {
       setShown(HIDDEN);
       return undefined;

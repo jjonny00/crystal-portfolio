@@ -46,8 +46,9 @@ mounts a few seconds after the page, and the map comes in once it has.
 router mirrors into the URL: `viewMode`, `activeProjectId` and the settled scroll
 section. It keeps no state of its own beyond what is on screen:
 
-- While a scroll is in flight it holds what it shows, so the map does not blink
-  out between projects.
+- While a scroll is in flight the map stays up, so it does not blink out
+  between projects, but the project being left goes back to rest as soon as
+  the scroll starts: no fragment is filled until the next one arrives.
 - A new project comes in on the camera move's content beat
   (`projectRouteClock`), the moment the project's copy comes in. A newer
   selection replaces a pending one.
