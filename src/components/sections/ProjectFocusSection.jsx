@@ -200,21 +200,16 @@ const ProjectFocusSection = ({
             out of compositing entirely. */}
         {/* The copy is content, not background: a click on it (or a drag to
             select it) never goes back to Work. See SceneBackgroundClick. */}
-        {/* Desktop: every project's copy block is as tall as the tallest one
-            (--project-copy-height, set by useSharedProjectCopyHeight), the copy
-            set from its top and the CTA at its bottom. So the titles all sit at
-            one height, and the CTAs at another, whichever project is showing.
-            On a phone the block is the card, as tall as its copy. */}
+        {/* As tall as its own copy: centred in the section on desktop, the
+            card along the bottom on a phone. */}
         <div
           className={isMobile ? 'project-card' : undefined}
           data-scene-click-ignore=""
-          data-project-copy={isMobile ? undefined : ''}
           style={{
             width: isMobile ? '100%' : contentWidth,
             maxWidth: '100%',
             display: 'flex',
             flexDirection: 'column',
-            ...(!isMobile && { minHeight: 'var(--project-copy-height, 0px)' }),
             gap: isMobile ? 'calc(0.9rem * var(--project-card-v))' : '0',
             textAlign: 'left',
             ...(isMobile && {
@@ -335,10 +330,9 @@ const ProjectFocusSection = ({
             </animated.a>
           )}
 
-          {/* The space above the CTA: 46px at least, and whatever the block's
-              shared height adds. */}
+          {/* The space above the CTA. */}
           {displayProject.cta && !isMobile && (
-            <div data-project-copy-spacer="" style={{ flex: '1 0 46px' }} />
+            <div style={{ flex: '0 0 46px' }} />
           )}
 
           {displayProject.cta && !isMobile && (
