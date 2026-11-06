@@ -27,7 +27,8 @@ const restStyle = (variant, ink, restInk) => {
 };
 
 /**
- * The current fragment: its colour, a dark 1px outline, and a glow in its own
+ * The current fragment: its colour, a dark 1px outline outside its edge (a 2px
+ * stroke painted under the fill, which covers the inner half), and a glow in its own
  * colour, two soft halos (8px at 25%, 25px at 50%, as a box-shadow's blur). Built
  * as an SVG filter: CSS box-shadow doesn't reach SVG shapes, and Safari ignores
  * CSS filters on them. The halos are full size from the dock's 72px map up;
@@ -164,7 +165,8 @@ const FacetMapGlyph = ({
             onPointerEnter={onFragmentEnter && (() => onFragmentEnter(projectId))}
             onPointerLeave={onFragmentLeave && (() => onFragmentLeave(projectId))}
             onClick={onFragmentClick && (() => onFragmentClick(projectId))}
-            strokeWidth={1}
+            strokeWidth={isCurrent ? 2 : 1}
+            paintOrder={isCurrent ? 'stroke' : undefined}
             strokeLinejoin="round"
             // 1px on screen at any size, not 1 viewBox unit.
             vectorEffect="non-scaling-stroke"

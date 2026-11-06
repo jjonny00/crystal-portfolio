@@ -146,16 +146,52 @@ html[data-media-viewer='open'] .facet-map {
   transition: opacity 160ms ease, transform 240ms cubic-bezier(0.2, 0.7, 0.2, 1), visibility 0s linear 0s;
 }
 
-/* The dock's: covering the dock from its corner, the names beside the map,
-   and "View All Work" across the foot. The map is drawn at the list's height
-   (260px, PANEL_GLYPH_HEIGHT in FacetMapNav) and grows to it out of the dock's:
-   closed, it is scaled to the dock map's 72px from its bottom-right corner and
-   moved down past the foot row (48px and the 6px gap) onto the dock map, which
-   the card's right and bottom padding (the circle's 104px less the map's
-   44 x 72, halved: 30 and 16) put it exactly over. */
+/* Both: the names beside the map, and "View All Work" along the foot. The
+   list and the link take the card's own grid areas. The map is drawn large
+   (FacetMapNav's PANEL_GLYPH_HEIGHT, PHONE_PANEL_GLYPH_HEIGHT) and grows to it
+   out of the button's: closed, it is scaled down to the button map's size and
+   moved from its own bottom-right corner (right-aligned in its column, above
+   the foot row) onto the button map, by --map-from-*; opening, it scales up
+   and rises into place. */
+.facet-map__panel-body {
+  display: contents;
+}
+
+.facet-map__list {
+  grid-area: list;
+}
+
+.facet-map__overview {
+  grid-area: foot;
+}
+
+.facet-map__panel-map {
+  grid-area: map;
+  justify-self: end;
+  display: block;
+  transform-origin: 100% 100%;
+}
+
+.facet-map[data-motion] .facet-map__panel-map {
+  transform: translate(var(--map-from-x), var(--map-from-y)) scale(var(--map-from-scale));
+  transition: transform 140ms ease;
+}
+
+.facet-map[data-motion][data-open] .facet-map__panel-map {
+  transform: none;
+  transition: transform 360ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+/* The dock's: covering the dock from its corner, as wide as its longest name.
+   Its right and bottom padding (the circle's 104px less the map's 44 x 72,
+   halved: 30 and 16) put the closed map exactly over the dock's; the foot row
+   (48px and the 6px gap) is what it rises past. */
 .facet-map[data-layout='dock'] .facet-map__panel {
   --panel-foot: 48px;
   --panel-row-gap: 6px;
+  --map-from-x: 0px;
+  --map-from-y: calc(var(--panel-foot) + var(--panel-row-gap));
+  --map-from-scale: calc(72 / 260);
   right: 0;
   bottom: 0;
   display: grid;
@@ -171,50 +207,39 @@ html[data-media-viewer='open'] .facet-map {
   transform-origin: calc(100% - 52px) calc(100% - 52px);
 }
 
-/* Its list and link take grid areas of the card's own. */
-.facet-map[data-layout='dock'] .facet-map__panel-body {
-  display: contents;
-}
-
-.facet-map[data-layout='dock'] .facet-map__list {
-  grid-area: list;
-}
-
-.facet-map[data-layout='dock'] .facet-map__panel-map {
-  grid-area: map;
-  justify-self: end;
-  transform-origin: 100% 100%;
-}
-
-.facet-map[data-layout='dock'][data-motion] .facet-map__panel-map {
-  transform: translateY(calc(var(--panel-foot) + var(--panel-row-gap))) scale(calc(72 / 260));
-  transition: transform 140ms ease;
-}
-
-.facet-map[data-layout='dock'][data-motion][data-open] .facet-map__panel-map {
-  transform: none;
-  transition: transform 360ms cubic-bezier(0.2, 0.7, 0.2, 1);
-}
-
 /* Across the card's width, out to its right edge past the padding the map
    keeps. */
 .facet-map[data-layout='dock'] .facet-map__overview {
-  grid-area: foot;
   block-size: var(--panel-foot);
   min-block-size: 0;
   margin: 0 -14px 0 0;
 }
 
 /* The phone's: across the width between the page's edges (up to 400px, held to
-   the right), its header at its foot with the close button where the disc was.
-   With less room than it needs (a short phone, one on its side), the list
-   scrolls itself rather than the page, and the header stays put. */
+   the right), covering the disc from 6px outside it. The foot row is the
+   disc's height, "View All Work" beside the close button, which sits exactly
+   where the disc was. The disc's map (20 x 32) sits 8.5px up and 14.7px in from
+   the disc's bottom-right; the large map, right-aligned on the same edge and
+   above the foot row, starts there. With less room than it needs (a short
+   phone, one on its side), the list scrolls itself rather than the page, and
+   the foot stays put. */
 .facet-map[data-layout='button'] .facet-map__panel {
   --panel-inset: 6px;
+  --panel-row-gap: 6px;
+  --map-from-x: calc((var(--bottom-row-disc) - 32px * 63.55 / 104) / -2);
+  --map-from-y: calc(var(--bottom-row-disc) + var(--panel-row-gap) - (var(--bottom-row-disc) - 32px) / 2);
+  --map-from-scale: calc(32 / 200);
   bottom: calc(-1 * var(--panel-inset));
   right: calc(-1 * var(--panel-inset));
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'list map'
+    'foot close';
+  align-items: end;
+  column-gap: 12px;
+  row-gap: var(--panel-row-gap);
   inline-size: min(calc(100vw - 2 * var(--page-edge) + 2 * var(--panel-inset)), 400px);
   max-block-size: calc(100svh - var(--facet-map-bottom) + var(--panel-inset) - var(--facet-map-top));
   overflow: hidden;
@@ -222,48 +247,34 @@ html[data-media-viewer='open'] .facet-map {
   transform-origin: calc(100% - 28px) calc(100% - 28px);
 }
 
-.facet-map[data-layout='button'] .facet-map__panel-head {
-  flex: none;
-  margin-block: 6px 0;
-}
-
-.facet-map[data-layout='button'] .facet-map__panel-body {
+.facet-map[data-layout='button'] .facet-map__list {
+  align-self: stretch;
   min-block-size: 0;
-  min-inline-size: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
 
+/* Narrower than the longest name leaves it, the map takes what is left. */
+.facet-map[data-layout='button'] .facet-map__panel-map {
+  max-inline-size: 100%;
+  block-size: auto;
+}
+
+.facet-map[data-layout='button'] .facet-map__overview {
+  block-size: var(--bottom-row-disc);
+  min-block-size: 0;
+  margin: 0;
+}
+
+.facet-map__close {
+  grid-area: close;
+  justify-self: end;
+}
+
 /* `hidden` keeps the closed index out of the tab order and the accessibility
    tree; visibility does that here, and lets it fade. */
-.facet-map[data-layout='dock'] .facet-map__panel[hidden] {
+.facet-map__panel[hidden] {
   display: grid;
-}
-
-.facet-map[data-layout='button'] .facet-map__panel[hidden] {
-  display: flex;
-}
-
-.facet-map__panel-map {
-  display: block;
-}
-
-.facet-map__panel-head {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-block-size: 44px;
-  padding-inline-start: 10px;
-}
-
-.facet-map__panel-head > svg {
-  flex: none;
-  display: block;
-}
-
-.facet-map__panel-title {
-  flex: 1;
-  opacity: 0.7;
 }
 
 /* The disc's size, over the disc. */
@@ -282,12 +293,7 @@ html[data-media-viewer='open'] .facet-map {
   -webkit-tap-highlight-color: transparent;
 }
 
-.facet-map__panel-body {
-  display: grid;
-  align-content: start;
-  gap: 6px;
-  min-inline-size: 13.5em;
-}
+
 
 .facet-map__list {
   display: grid;
@@ -345,10 +351,6 @@ html[data-media-viewer='open'] .facet-map {
   color: inherit;
   text-decoration: none;
   transition: opacity 150ms ease;
-}
-
-.facet-map[data-layout='button'] .facet-map__overview {
-  min-block-size: 50px;
 }
 
 .facet-map__overview:hover {

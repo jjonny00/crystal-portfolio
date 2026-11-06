@@ -19,10 +19,12 @@
 //
 // The disc (a phone): the last row of the screen, beside the project card's CTA,
 // the map alone in a circle the CTA's height and colours (the project card's:
-// its ink for the fill, the map drawn in its fill; lib/projectCardColors.js). A tap opens the index from it,
-// rising, its header at its foot (the map, "Projects", a close button where the
-// disc was), the rows at least 50px tall. Only a tap or the keyboard opens it; it
-// never takes a swipe, so the page scrolls under the reader's thumb as before.
+// its ink for the fill, the map drawn in its fill; lib/projectCardColors.js). A
+// tap opens the index from it, rising as the dock's does, the map growing out of
+// the disc's beside the names, the rows at least 50px tall, and "View All Work"
+// along the foot with a close button where the disc was. Only a tap or the
+// keyboard opens it; it never takes a swipe, so the page scrolls under the
+// reader's thumb as before.
 //
 // Either way, choosing a project goes to its preview (from a case study, closing
 // it first); choosing the current one only closes the index. Escape, a press
@@ -52,8 +54,12 @@ const DOCK_GLYPH_HEIGHT = 72;
 const PANEL_GLYPH_HEIGHT = 260;
 /** The map's height in the phone's disc, chosen on device. */
 const BUTTON_GLYPH_HEIGHT = 32;
-/** The map's height in the dropped index's header. */
-const DROP_GLYPH_HEIGHT = 40;
+/**
+ * The map's height in the index that rises from the disc: what fits beside the
+ * longest name across a phone's index (it shrinks to its column where that is
+ * narrower). Written in facet-map.css too, for the grow.
+ */
+const PHONE_PANEL_GLYPH_HEIGHT = 200;
 
 /** How long the pointer can be off the map and the index before it closes. */
 const LEAVE_CLOSE_MS = 240;
@@ -316,43 +322,31 @@ const FacetMapNav = ({
 
       <nav id={panelId} className="facet-map__panel" aria-label="Project index" hidden={!open}>
         <SquircleSurface />
-        {/* Both rise, so what sits over the button comes last: on a phone the
-            header, its close button where the disc was; in the dock the map,
-            where the dock's was (CSS places them). The order here follows, so
-            the tab order reads as the eye does. */}
+        {/* The names and the way to All Work, then the map beside them, which
+            grows out of the button's (facet-map.css), and on a phone the close
+            button, in the foot row where the disc was. */}
         {panelBody}
-        {compact ? (
-          <div className="facet-map__panel-head">
-            <FacetMapGlyph
-              currentId={projectId}
-              highlightId={highlightId}
-              variant="button"
-              height={DROP_GLYPH_HEIGHT}
-              animate={!reducedMotion}
-            />
-            <span className="facet-map__panel-title type-caption-caps">Projects</span>
-            <button
-              type="button"
-              className="facet-map__close"
-              aria-label="Close project index"
-              onClick={() => closeIndex({ returnFocus: true })}
-            >
-              <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-                <path d="M3 3l10 10M13 3L3 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-              </svg>
-            </button>
-          </div>
-        ) : (
-          <FacetMapGlyph
-            className="facet-map__panel-map"
-            currentId={projectId}
-            highlightId={highlightId}
-            height={PANEL_GLYPH_HEIGHT}
-            animate={!reducedMotion}
-            onFragmentEnter={setHighlightId}
-            onFragmentLeave={() => setHighlightId(null)}
-            onFragmentClick={choose}
-          />
+        <FacetMapGlyph
+          className="facet-map__panel-map"
+          currentId={projectId}
+          highlightId={highlightId}
+          height={compact ? PHONE_PANEL_GLYPH_HEIGHT : PANEL_GLYPH_HEIGHT}
+          animate={!reducedMotion}
+          onFragmentEnter={compact ? undefined : setHighlightId}
+          onFragmentLeave={compact ? undefined : () => setHighlightId(null)}
+          onFragmentClick={compact ? undefined : choose}
+        />
+        {compact && (
+          <button
+            type="button"
+            className="facet-map__close"
+            aria-label="Close project index"
+            onClick={() => closeIndex({ returnFocus: true })}
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+              <path d="M3 3l10 10M13 3L3 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </button>
         )}
       </nav>
     </div>

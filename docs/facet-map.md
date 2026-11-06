@@ -71,9 +71,11 @@ a fragment lights that fragment (its colour as an outline over a 35% fill) and
 the row together; nothing is selected by it.
 
 **From the disc** it rises across the width between the page's edges, up to
-400px, its header at its foot: the map, "Projects", and a close button over the
-disc. Rows are at least 50px tall. Short of room (a small phone, one on its
-side), the list scrolls inside it and the header stays put.
+400px, the same way: the names, the map beside them (200px tall, less where
+the longest name leaves it less room) growing out of the disc's, and a foot row
+the disc's height with "View All Work" and a close button exactly where the disc
+was. Rows are at least 50px tall. Short of room (a small phone, one on its
+side), the list scrolls inside it and the foot stays put.
 
 - Only a tap, a click or the keyboard opens it. Hover and focus don't: it is a
   tap target, and a mouse at a phone's width clicks it like one.
@@ -155,7 +157,7 @@ the scene uses, so a change to `projects.js` reaches the map on the next run.
 ## Colour
 
 The current fragment is filled in its colour with a dark 1px outline
-(#161A32) and glows in its own colour: two halos, 8px at 25% and 25px at 50%
+(#161A32) outside its edge (a 2px stroke painted under the fill) and glows in its own colour: two halos, 8px at 25% and 25px at 50%
 (as a box-shadow's blur), drawn as an SVG filter in `FacetMapGlyph` since
 box-shadow doesn't reach SVG shapes and Safari ignores CSS filters on them. The
 halos are full size from the dock's 72px map up and shrink in proportion on
