@@ -887,12 +887,12 @@
    screen: the close button and the facet map's dock (104px) on desktop, the
    bottom row of buttons on a phone. */
 
-/* A 4px rule in the block's own ink along its top: the seam between this
+/* A 15px rule in the block's own ink along its top: the seam between this
    project's colours and the next one's. */
 .cs-next {
   --cs-next-clearance: calc(104px + clamp(16px, 2vw, 28px));
   padding-block-end: calc(var(--cs-section-padding-block) + var(--cs-next-clearance));
-  border-block-start: 4px solid var(--cs-fg);
+  border-block-start: 15px solid var(--cs-fg);
 }
 
 .cs-next__nav {
