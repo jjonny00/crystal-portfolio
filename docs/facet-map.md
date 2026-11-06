@@ -8,11 +8,9 @@ order, colour only confirms.
 Where it shows: the project previews and the case studies. Not the hero, not the
 overview (the 3D scene is the map there), not About.
 
-Status: stage 5 of 6. Done: the outlines, the glyph, the review panel, the
-dock and the phone's disc, the index they open, and the Next Project block at
-the end of each case study (docs/case-study-system.md, "The end of a case
-study"). Next: the reduced-motion and accessibility pass, and retiring the
-review panel.
+Pieces: the outlines (generated from the GLBs), the glyph, the dock and the
+phone's disc, the index they open, and the Next Project block at the end of
+each case study (docs/case-study-system.md, "The end of a case study").
 
 ## Where it sits
 
@@ -177,12 +175,28 @@ the current fragment in its colour (see Where it sits). In the index's dark card
 the current fragment and name take the project's `headlineColor` from
 `projects.js`, the colour its preview title and CTA are set in.
 
-## Reviewing it
+## Accessibility and motion
 
-In DEV or on a Netlify deploy preview, open any page with `?facetMapPreview`
-(for example `/work?facetMapPreview`, to compare it with the overview it is
-traced from). It shows the map large with each fragment numbered, and the states
-at actual size: rest, hover, the case-study ink variant and the phone button. It
-stays on for the tab; `?facetMapPreview=0` turns it off. It is never in a
-production build: deploy previews get it from `VITE_REVIEW_TOOLS` in
-`netlify.toml`, which production does not set.
+- The map is a `<button>` named "Project index. Current project: <name>" with
+  `aria-expanded` and `aria-controls`; the index is a `<nav>` named "Project
+  index", `hidden` (out of the tab order and the accessibility tree) while
+  closed. Its rows and "View All Work" are real links; the current row carries
+  `aria-current`. Every glyph is `aria-hidden`: the button and the rows carry
+  the words.
+- The current project's name is marked by its colour, its fragment by its fill
+  and glow, so the shape on the map is what tells the current one apart without
+  colour; screen readers get `aria-current` and the button's name.
+- Keyboard: Tab onto the dock opens the index, Escape closes it and hands focus
+  back to the button (without reopening it, `refocusingRef`), and focus leaving
+  the index closes it. The index is `tabIndex=-1` so a press on a fragment
+  (which can't take focus) keeps focus inside it.
+- Targets: the dock is 104px, the disc and the phone's close button 49px, rows
+  at least 44px (50px on a phone), "View All Work" 48px.
+- Reduced motion (`MQ_REDUCED_MOTION`): no `data-motion`, so the index neither
+  scales in nor grows its map out of the button, and the glyph doesn't fade
+  between states; the map and the index appear and go at once. The fragment just
+  left isn't held for the camera's move either, since no move runs.
+
+The map's outlines can be checked against the overview they are traced from by
+regenerating them (`npm run build:facet-map`, above); there is no in-app review
+panel any more.

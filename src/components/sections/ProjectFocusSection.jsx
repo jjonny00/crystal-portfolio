@@ -351,7 +351,10 @@ const ProjectFocusSection = ({
         </div>
       </div>
 
+      {/* Faded out, not removed, so it can fade: out of the tab order and the
+          accessibility tree until it shows. */}
       <animated.div
+        aria-hidden={isCaseStudy ? undefined : true}
         style={{
           ...caseStudySpring,
           position: 'absolute',
@@ -375,6 +378,7 @@ const ProjectFocusSection = ({
         >
           <button
             type="button"
+            tabIndex={isCaseStudy ? undefined : -1}
             onClick={() => onBackToProject?.()}
             style={{
               position: 'sticky',

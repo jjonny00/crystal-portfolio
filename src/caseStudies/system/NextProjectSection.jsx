@@ -64,8 +64,9 @@ const NextProjectSection = () => {
       tone="a"
       className="cs-next"
       innerClassName="cs-next__inner"
-      aria-labelledby={headingId}
     >
+      {/* One landmark, the navigation, named by the heading (not the section
+          too, which would announce "Next Project" twice). */}
       <nav className="cs-next__nav" aria-labelledby={headingId}>
         <div className="cs-next__main">
           <h2 className="type-caption-caps cs-next__eyebrow" id={headingId}>
