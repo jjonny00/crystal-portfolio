@@ -1348,6 +1348,11 @@ const UnifiedCrystalScene = forwardRef(({
   // case-study angle, and so the one a move back from a case study turns back
   // from it (see routeTurnQuat in the frame loop).
   const caseStudyProjectRef = useRef(null);
+  // Where each fragment was when the running project move started, keyed by the
+  // move's start (see routeTurnQuat): a fragment turned from where it is rather
+  // than from where it is meant to have been can't be pulled back by a move
+  // that replaces another.
+  const routeStartQuatsRef = useRef({ startedAt: null, quats: {} });
   if (animationData?.viewMode === 'caseStudy' && animationData?.focusedProject) {
     caseStudyProjectRef.current = animationData.focusedProject;
   }
@@ -3395,7 +3400,16 @@ const UnifiedCrystalScene = forwardRef(({
     const routeTurnProgress = routeMove
       ? projectRouteProgress(routeMove.route, routeMove.projectId)
       : null;
-    const routeTurnQuat = (projectId, isFocused, baseQuat, selectedQuat, caseStudyQuat) => {
+    const routeStartQuat = (facetKey, currentQuat) => {
+      const store = routeStartQuatsRef.current;
+      if (store.startedAt !== routeMove.startedAt) {
+        store.startedAt = routeMove.startedAt;
+        store.quats = {};
+      }
+      if (!store.quats[facetKey]) store.quats[facetKey] = currentQuat.clone();
+      return store.quats[facetKey];
+    };
+    const routeTurnQuat = (projectId, isFocused, baseQuat, selectedQuat, caseStudyQuat, facetKey, currentQuat) => {
       if (routeTurnProgress == null) return null;
       if (routeMove.route === 'projectToProject') {
         return !isFocused && projectId === routeMove.fromProjectId
@@ -3404,19 +3418,31 @@ const UnifiedCrystalScene = forwardRef(({
       }
       // Out of a case study onto a different project (the facet map's index):
       // only the case study's fragment was ever turned to a case-study angle,
-      // so it turns home from there over the move, and the new project's
-      // turns in as from any other (null: the camera's progress). Taking the
-      // move's own project as the one to turn back gave the new fragment a
-      // turn from an angle it never had.
+      // so it turns home over the move, and the new project's turns in as
+      // from any other (null: the camera's progress). Taking the move's own
+      // project as the one to turn back gave the new fragment a turn from an
+      // angle it never had.
+      //
+      // It turns home from wherever it is when the move starts, not from its
+      // case-study angle: closing the case study starts a move back to its
+      // own project, which the move to the chosen one replaces a frame later,
+      // and turning each from the case-study angle swung the fragment back
+      // the way it had just come.
       const caseStudyProjectId = caseStudyProjectRef.current;
+      if (
+        routeMove.route === 'caseStudyToProject' &&
+        caseStudyProjectId &&
+        projectId === caseStudyProjectId &&
+        !isFocused
+      ) {
+        return routeStartQuat(facetKey, currentQuat).clone().slerp(baseQuat, routeTurnProgress);
+      }
       if (
         routeMove.route === 'caseStudyToProject' &&
         caseStudyProjectId &&
         caseStudyProjectId !== routeMove.projectId
       ) {
-        return !isFocused && projectId === caseStudyProjectId
-          ? caseStudyQuat.clone().slerp(baseQuat, routeTurnProgress)
-          : null;
+        return null;
       }
       if (projectId !== routeMove.projectId) return null;
       if (routeMove.route === 'caseStudyToProject' && isFocused) {
@@ -4153,7 +4179,7 @@ const UnifiedCrystalScene = forwardRef(({
             const projectFocusQuat = baseQuat.clone().slerp(selectedQuat, focusRotationProgress);
             const caseStudyFocusQuat = selectedQuat.clone().slerp(caseStudyQuat, focusRotationProgress);
             const targetQuat = animationData?.crystalForm === 'exploded'
-              ? (routeTurnQuat(projectId, isProjectFocusedFacet, baseQuat, selectedQuat, caseStudyQuat)
+              ? (routeTurnQuat(projectId, isProjectFocusedFacet, baseQuat, selectedQuat, caseStudyQuat, facetKey, facetRef.current.quaternion)
                   ?? (isCaseStudyActiveProject
                     ? caseStudyFocusQuat
                     : (isProjectFocusedFacet ? projectFocusQuat : baseQuat)))
@@ -4206,7 +4232,7 @@ const UnifiedCrystalScene = forwardRef(({
         const projectFocusQuat = baseQuat.clone().slerp(selectedQuat, focusRotationProgress);
         const caseStudyFocusQuat = selectedQuat.clone().slerp(caseStudyQuat, focusRotationProgress);
         const targetQuat = animationData?.crystalForm === 'exploded'
-          ? (routeTurnQuat(projectId, isProjectFocusedFacet, baseQuat, selectedQuat, caseStudyQuat)
+          ? (routeTurnQuat(projectId, isProjectFocusedFacet, baseQuat, selectedQuat, caseStudyQuat, facetKey, facetRef.current.quaternion)
               ?? (isCaseStudyActiveProject
                 ? caseStudyFocusQuat
                 : (isProjectFocusedFacet ? projectFocusQuat : baseQuat)))
