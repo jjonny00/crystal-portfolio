@@ -123,13 +123,18 @@ the standard image/placeholder treatment.
 `CaseStudyPage` closes every case study with `NextProjectSection`, after the case
 study's own sections, so no case study composes it: "Next Project", the next
 project's name as a large link with an arrow, its subtitle, the facet map in the
-section's ink with that project's fragment lit, and along a rule
-"Previous · <name>" and "View All Work". The order is the facet map's
+section's ink with that project's fragment filled (no glow), and along a rule
+"Previous · <name>" and "View All Work" (its arrow points up: All Work is the
+level above a project). The arrows are the site's (`components/ui/Arrow`, the
+hero CTA's shape). The order is the facet map's
 (`FACET_MAP_ORDER`: Slipstream, Mesa, FundSeeder, Flying Axes, Forest Giant, GE),
 wrapping round at both ends, and every case study has the same block whether or
 not the projects either side have case studies of their own.
 
-- It is tone "a": every case study ends on a tone-b section, so it stands apart.
+- It is tone "a" in the next project's colours (its case study's, or its card's
+  for a project without one: `lib/projectCardColors.js`), so the page hands
+  over to that project; every case study ends on a tone-b section, so it stands
+  apart.
   Its foot keeps clear of the bottom of the screen (the close button and the
   facet map's 104px dock on desktop, the bottom row of buttons on a phone).
 - Project links go to that project's preview, as the facet map's index does: the

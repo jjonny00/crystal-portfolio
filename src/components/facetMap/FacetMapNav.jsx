@@ -34,6 +34,7 @@
 import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import FacetMapGlyph from './FacetMapGlyph';
 import SquircleSurface from '../ui/SquircleSurface';
+import Arrow from '../ui/Arrow';
 import { FACET_MAP_ASPECT, FACET_MAP_ORDER } from './facetMapData';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { MQ_DESKTOP, MQ_REDUCED_MOTION } from '../../config/breakpoints';
@@ -306,7 +307,8 @@ const FacetMapNav = ({
         })}
       >
         {VIEW_ALL_WORK_LABEL}
-        <span aria-hidden="true">&rarr;</span>
+        {/* Up: All Work is the level above a project. */}
+        <Arrow direction="up" className="facet-map__overview-arrow" />
       </a>
     </div>
   );

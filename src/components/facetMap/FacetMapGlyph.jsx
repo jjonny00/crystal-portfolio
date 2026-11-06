@@ -65,6 +65,8 @@ const FacetMapGlyph = ({
   restInk = null,
   /** The current fragment's outline (CURRENT_OUTLINE unless given). */
   currentOutline = CURRENT_OUTLINE,
+  /** The current fragment's glow (off for a map that only points, not marks). */
+  glow = true,
   /** Rendered height in px; the width follows the map's own proportions. */
   height = 54,
   /**
@@ -111,7 +113,7 @@ const FacetMapGlyph = ({
       focusable="false"
       overflow="visible"
     >
-      {currentFill && (
+      {currentFill && glow && (
         <defs>
           <filter
             id={glowId}
@@ -165,7 +167,7 @@ const FacetMapGlyph = ({
               transition: animate ? GLYPH_TRANSITION : undefined,
               cursor: interactive ? 'pointer' : undefined,
             }}
-            filter={isCurrent ? `url(#${glowId})` : undefined}
+            filter={isCurrent && glow ? `url(#${glowId})` : undefined}
             onPointerEnter={onFragmentEnter && (() => onFragmentEnter(projectId))}
             onPointerLeave={onFragmentLeave && ((event) => onFragmentLeave(projectId, event))}
             onPointerDown={onFragmentPress && (() => onFragmentPress(projectId))}

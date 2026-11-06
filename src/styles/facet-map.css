@@ -364,6 +364,12 @@ html[data-media-viewer='open'] .facet-map {
   opacity: 0.75;
 }
 
+.facet-map__overview-arrow {
+  flex: none;
+  inline-size: 0.85em;
+  block-size: 0.85em;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .facet-map,
   .facet-map[data-shown] {

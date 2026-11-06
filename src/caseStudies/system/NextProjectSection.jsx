@@ -15,13 +15,17 @@
 // study and moves the scene on); View All Work goes where the nav's Work does.
 // See docs/case-study-system.md.
 //
-// Tone "a", the project's colour: every case study ends on a tone-b section, so
-// this one stands apart from it. The map is drawn in the section's ink.
+// Tone "a" in the next project's colours (its case study hero's), so the page
+// hands over to that project before the reader has left this one; every case
+// study ends on a tone-b section, so it stands apart. The map is drawn in the
+// section's ink, without the glow the current fragment has elsewhere.
 
 import React, { useContext, useId } from 'react';
 import CaseStudySection from './CaseStudySection';
 import { CaseStudyNavContext } from './caseStudyNav';
 import FacetMapGlyph from '../../components/facetMap/FacetMapGlyph';
+import Arrow from '../../components/ui/Arrow';
+import { projectCardColors } from '../../lib/projectCardColors';
 import { FACET_MAP_ORDER } from '../../components/facetMap/facetMapData';
 import { getProjectByAnyKey } from '../../data/projects';
 import { VIEW_ALL_WORK_LABEL } from '../../data/siteCopy';
@@ -30,19 +34,6 @@ import { NAVIGATION_DESTINATIONS } from '../../navigation/navigationIntent';
 import { inPageLinkHandler } from '../../navigation/linkClick';
 
 const MAP_HEIGHT = 168;
-
-const Arrow = ({ direction = 'right', className }) => (
-  <svg className={className} viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-    <path
-      d={direction === 'right' ? 'M2 8h11M9 4l4 4-4 4' : 'M14 8H3M7 4 3 8l4 4'}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </svg>
-);
 
 const NextProjectSection = () => {
   const nav = useContext(CaseStudyNavContext);
@@ -59,11 +50,16 @@ const NextProjectSection = () => {
 
   const goTo = (projectId) => inPageLinkHandler(() => nav.onSelectProject?.(projectId));
 
+  // In the next project's colours, not this one's: its case study's two (as its
+  // hero, tone "a"), or for a project without one its card's.
+  const { bg, fg } = projectCardColors(next);
+
   return (
     <CaseStudySection
       tone="a"
       className="cs-next"
       innerClassName="cs-next__inner"
+      style={{ '--cs-color-a': bg, '--cs-color-b': fg }}
     >
       {/* One landmark, the navigation, named by the heading (not the section
           too, which would announce "Next Project" twice). */}
@@ -95,6 +91,7 @@ const NextProjectSection = () => {
           variant="ink"
           ink="currentColor"
           currentOutline="var(--cs-bg)"
+          glow={false}
           height={MAP_HEIGHT}
         />
 
@@ -115,7 +112,8 @@ const NextProjectSection = () => {
             onClick={nav.onViewAllWork ? inPageLinkHandler(nav.onViewAllWork) : undefined}
           >
             <span>{VIEW_ALL_WORK_LABEL}</span>
-            <Arrow className="cs-next__minor-arrow" />
+            {/* Up: All Work is the level above a project, not the next thing. */}
+            <Arrow direction="up" className="cs-next__minor-arrow" />
           </a>
         </div>
       </nav>

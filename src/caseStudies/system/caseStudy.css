@@ -926,12 +926,13 @@
   color: var(--cs-fg);
 }
 
+/* The site's arrow (components/ui/Arrow), about the capitals' height. */
 .cs-next__arrow {
   display: inline-block;
-  inline-size: 0.55em;
-  block-size: 0.55em;
-  margin-inline-start: 0.18em;
-  vertical-align: 0.08em;
+  inline-size: 0.62em;
+  block-size: 0.62em;
+  margin-inline-start: 0.22em;
+  vertical-align: 0.02em;
   transition: transform 200ms ease;
 }
 
@@ -971,8 +972,8 @@
 
 .cs-next__minor-arrow {
   flex: none;
-  inline-size: 1em;
-  block-size: 1em;
+  inline-size: 0.85em;
+  block-size: 0.85em;
 }
 
 @media (prefers-reduced-motion: reduce) {
