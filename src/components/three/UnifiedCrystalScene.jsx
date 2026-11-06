@@ -1344,6 +1344,13 @@ const UnifiedCrystalScene = forwardRef(({
     }))
   );
   const focusedFloatBlendRef = useRef(0);
+  // The project whose case study was last open: the one fragment turned to its
+  // case-study angle, and so the one a move back from a case study turns back
+  // from it (see routeTurnQuat in the frame loop).
+  const caseStudyProjectRef = useRef(null);
+  if (animationData?.viewMode === 'caseStudy' && animationData?.focusedProject) {
+    caseStudyProjectRef.current = animationData.focusedProject;
+  }
 
   // Track explosion timing so we can implement fracture pause
   const explosionStartRef = useRef(null);
@@ -3393,6 +3400,22 @@ const UnifiedCrystalScene = forwardRef(({
       if (routeMove.route === 'projectToProject') {
         return !isFocused && projectId === routeMove.fromProjectId
           ? selectedQuat.clone().slerp(baseQuat, routeTurnProgress)
+          : null;
+      }
+      // Out of a case study onto a different project (the facet map's index):
+      // only the case study's fragment was ever turned to a case-study angle,
+      // so it turns home from there over the move, and the new project's
+      // turns in as from any other (null: the camera's progress). Taking the
+      // move's own project as the one to turn back gave the new fragment a
+      // turn from an angle it never had.
+      const caseStudyProjectId = caseStudyProjectRef.current;
+      if (
+        routeMove.route === 'caseStudyToProject' &&
+        caseStudyProjectId &&
+        caseStudyProjectId !== routeMove.projectId
+      ) {
+        return !isFocused && projectId === caseStudyProjectId
+          ? caseStudyQuat.clone().slerp(baseQuat, routeTurnProgress)
           : null;
       }
       if (projectId !== routeMove.projectId) return null;
