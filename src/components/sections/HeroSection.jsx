@@ -164,6 +164,18 @@ const HeroSection = ({
     window.scrollTo({ top: window.innerHeight, behavior: 'smooth' });
   };
 
+  const heroArrow = (
+    <img
+      className="hero-section__cta-arrow"
+      data-hero-rail-anchor
+      src={ARROW_DOWN_SRC}
+      alt=""
+      aria-hidden="true"
+      width={19}
+      height={21}
+    />
+  );
+
   return (
     <div className="hero-section">
       <div className="hero-section__content">
@@ -204,17 +216,13 @@ const HeroSection = ({
             className="hero-section__cta"
             onClick={handleScrollHint}
           >
-            <img
-              className="hero-section__cta-arrow"
-              data-hero-rail-anchor
-              src={ARROW_DOWN_SRC}
-              alt=""
-              aria-hidden="true"
-              width={19}
-              height={21}
-            />
+            {/* Beside the pill, where the vertical line runs down out of it;
+                on a phone (no line there) inside it, and the pill spans the
+                column (hero-section.css). */}
+            {!isMobile && heroArrow}
             <span className="hero-section__cta-pill">
               <SquircleSurface />
+              {isMobile && heroArrow}
               <span className="hero-section__cta-label">{HERO_CTA_LABEL}</span>
             </span>
           </button>

@@ -75,25 +75,23 @@ current fragment in its colour. Where it sits (`data-place`):
 
 - **The bottom row** (`'bottom'`): on a phone (the portfolio's mobile layout,
   below `MQ_DESKTOP`), the right of the screen's last row, on a preview and a
-  case study alike, so it never moves between them. The row is a filled button
-  (the hero CTA's shape) and the disc, both the button's height (49px), the
-  card's edge (`--project-card-edge`, 21px) from the screen's sides and
-  bottom, 12px apart (`--bottom-row-*`, `index.css`). On a preview the
-  button is the card's CTA, in the card's ink with the label in its fill; on a
-  case study it is the way out (`.cs-back`), "Close case study", in the same
-  colours, since the card takes the case study hero's. The disc is solid
-  there, as the button is: the case study scrolls under both. The CTA labels
-  share one size, 21px where the row has room and less where it doesn't, so
-  the longest still fits (`ProjectFocusSection`).
+  case study alike, so it never moves between them: the button's height
+  (49px), the card's edge (`--project-card-edge`, 21px) from the screen's
+  side and bottom (`--bottom-row-*`, `index.css`). On a preview the card's
+  CTA fills the rest of the row, 12px from it, in the card's ink with the
+  label in its fill; on a case study the close button (`.cs-back`) is a
+  circle the disc's size at the row's left, a cross in the same colours. The
+  disc takes them too (`lib/projectCardColors.js`): the card's ink, the map
+  drawn in the card's fill, and solid, as they are, since the case study
+  scrolls under them. The CTA labels share one size, 21px where the row has
+  room and less where it doesn't, so the longest still fits
+  (`ProjectFocusSection`). The hero's CTA sits in the same row
+  (`--mobile-bottom-inset`).
 - **At the top** (`'top'`): from 768px to 1229px, on a preview and a case
   study, 44px across (rgba(17, 19, 24, 0.88)), the top right, 12px under the
   nav, its right edge on the nav's (`--page-edge`). A case study's title keeps
   56px clear at its right end there (`caseStudy.css`), so a long one wraps
   rather than running under the disc.
-
-Every phone card is as tall as the tallest (`useSharedProjectCopyHeight`, the
-hook that lines up the desktop titles), copy from the top and the CTA at the
-bottom, so the cards' top edges line up from project to project too.
 
 A tap opens the index from it: the map, "Projects", a close button where the
 disc was, the six projects in rows at least 50px tall, and "View crystal

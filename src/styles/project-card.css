@@ -20,14 +20,8 @@
  *   --project-card-fg   colour B
  */
 
-/* On :root rather than the card: the facet map's disc, outside the card, lines
-   its right edge up with the card's copy (facet-map.css). The sides match the
-   bottom, so the copy sits in an even margin along the card's three edges
-   against the screen. */
-:root {
-  --project-card-v: 0.7;
-  --project-card-edge: calc(30px * var(--project-card-v));
-}
+/* --project-card-v and --project-card-edge are on :root (index.css): the phone's
+   bottom row, the hero's CTA and the facet map's disc keep the card's edge. */
 
 .project-card {
   box-sizing: border-box;

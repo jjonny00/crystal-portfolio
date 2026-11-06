@@ -34,7 +34,7 @@ const CatalogCaseStudy = ({ project, onClose }) => {
     <CaseStudyPage
       colors={project?.caseStudyColors}
       label={`${c.projectName}: ${c.title}`}
-      backLabel="Close catalog"
+      backName="Close catalog"
       onClose={onClose}
     >
       {/* --- CaseStudyHero ------------------------------------------------ */}

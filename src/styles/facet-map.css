@@ -210,9 +210,12 @@ html[data-media-viewer='open'] .facet-map {
   transform-origin: calc(100% - 28px) calc(100% - 28px);
 }
 
-/* Solid, as the button beside it is: a case study's copy scrolls under both. */
+/* The card CTA's fill (the card's ink, --facet-map-disc-fill from FacetMapNav),
+   the case study's close button's too; solid, as they are, since a case
+   study's copy scrolls under them all. */
 .facet-map[data-place='bottom'] .facet-map__trigger {
-  background-color: rgb(17, 19, 24);
+  background-color: var(--facet-map-disc-fill, rgb(17, 19, 24));
+  transition: background-color 0.3s ease;
 }
 
 /* Its close button the disc's size, over the disc. */

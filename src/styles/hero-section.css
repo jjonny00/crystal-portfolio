@@ -249,6 +249,22 @@
   .hero-section__cta-block {
     margin-top: clamp(1.5rem, 4svh, 2.5rem);
   }
+
+  /* The vertical line isn't drawn on a phone, so the arrow needn't stand
+     beside the pill for it: it goes inside (HeroSection), and the pill spans
+     the column, its arrow and label centred together. It sits in the phone's
+     bottom row (--mobile-bottom-inset), where a project card's CTA and the
+     facet map do. */
+  .hero-section__cta {
+    display: flex;
+    inline-size: 100%;
+  }
+
+  .hero-section__cta-pill {
+    flex: 1;
+    justify-content: center;
+    gap: 0.5em;
+  }
 }
 
 /* Hero drag orbit (mouse). UnifiedCameraController sets these on <html> while the

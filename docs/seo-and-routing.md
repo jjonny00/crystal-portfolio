@@ -79,7 +79,7 @@ Copy shown on the live page and in the prerender comes from one place:
    loading behind is never seen. The flag clears when the case study first
    closes; any case study opened after that sees through as usual.
 4. The case study's way out reads "View all work" (no close cross) and goes to the overview, not
-   "Close case study" (`CaseStudyExitContext`, `system/caseStudyExit.js`):
+   "Close" (`CaseStudyExitContext`, `system/caseStudyExit.js`):
    the reader came from outside and has no project to go back to. It lapses
    when the case study first closes.
 5. When the scene mounts, it lands where the reader is by then: the project,

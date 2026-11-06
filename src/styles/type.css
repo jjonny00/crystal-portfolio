@@ -80,7 +80,8 @@
   font-weight: 300;
   font-stretch: 87.5%;
   --wdth: 87.5;
-  line-height: 1.667;
+  /* Body copy's leading (.type-body), down from 1.667. */
+  line-height: 1.45;
   letter-spacing: -0.01em;
 }
 

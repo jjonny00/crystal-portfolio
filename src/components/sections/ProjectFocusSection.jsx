@@ -9,11 +9,7 @@ import { ctaTypeStyle } from '../ui/ctaType';
 import { getScrimTone } from '../../legibility/scrimTone';
 import { projectPath } from '../../navigation/routes';
 import { inPageLinkHandler } from '../../navigation/linkClick';
-import {
-  DEFAULT_CASE_STUDY_COLORS,
-  backgroundColorForTone,
-  foregroundColorForTone
-} from '../../caseStudies/system/caseStudyTheme';
+import { projectCardColors } from '../../lib/projectCardColors';
 
 // The body copy's ink is authored, not measured: every project names it in
 // projects.js under `scrim.darkText`, and that answer holds at every screen size.
@@ -42,28 +38,6 @@ const COPY_CLASS = 'legible-blend legible-ink';
 // to read `var(--ink-copy, …)` so backdropInk.js could override it per frame on
 // desktop, and that override is what stopped `darkText` reaching a laptop.
 const COPY_INK = (ink, alpha) => `rgb(from ${ink} r g b / ${alpha})`;
-
-// The mobile card takes the case study hero's colours (project-card.css).
-const HERO_TONE = 'a';
-// A project without case study colours fills with its own accent, inked in
-// whichever of the default dark or a light cream reads better on it.
-const LIGHT_INK = '#f4f3ef';
-const luminance = (hex) => {
-  const [r, g, b] = [1, 3, 5].map((i) => {
-    const c = parseInt(hex.slice(i, i + 2), 16) / 255;
-    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-  });
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-};
-const inkFor = (fill) => {
-  if (!/^#[0-9a-f]{6}$/i.test(fill)) return DEFAULT_CASE_STUDY_COLORS.b;
-  const l = luminance(fill);
-  const onDark = (l + 0.05) / (luminance(DEFAULT_CASE_STUDY_COLORS.b) + 0.05);
-  const onLight = (luminance(LIGHT_INK) + 0.05) / (l + 0.05);
-  return onDark >= onLight ? DEFAULT_CASE_STUDY_COLORS.b : LIGHT_INK;
-};
-const cardColorsFor = (project, accent) =>
-  project.caseStudyColors ?? { a: accent, b: inkFor(accent) };
 
 // The copy's beat after its section settles, when no camera move says otherwise.
 const CONTENT_DELAY_MS = 180;
@@ -167,9 +141,7 @@ const ProjectFocusSection = ({
 
   // On mobile the copy sits on a solid card in the case study hero's colours,
   // so its ink is the card's and the legibility blends stay off.
-  const cardColors = cardColorsFor(project, headlineColor);
-  const cardBg = backgroundColorForTone(HERO_TONE, cardColors);
-  const cardFg = foregroundColorForTone(HERO_TONE, cardColors);
+  const { bg: cardBg, fg: cardFg } = projectCardColors(project);
   const copyClass = isMobile ? '' : COPY_CLASS;
 
   // Shared by every line of body copy, which is .type-body (type.css).
@@ -233,18 +205,18 @@ const ProjectFocusSection = ({
             set from its top and the CTA at its bottom. So the titles all sit at
             one height, and the CTAs at another, whichever project is showing,
             and the facet map, level with the titles, never moves. On a phone
-            the block is the card, as tall as the tallest card, so every card's
-            top edge is in one place too. */}
+            the block is the card, as tall as its copy: the map sits in the
+            bottom row there, beside the CTA. */}
         <div
           className={isMobile ? 'project-card' : undefined}
           data-scene-click-ignore=""
-          data-project-copy=""
+          data-project-copy={isMobile ? undefined : ''}
           style={{
             width: isMobile ? '100%' : contentWidth,
             maxWidth: '100%',
             display: 'flex',
             flexDirection: 'column',
-            minHeight: 'var(--project-copy-height, 0px)',
+            ...(!isMobile && { minHeight: 'var(--project-copy-height, 0px)' }),
             gap: isMobile ? 'calc(0.9rem * var(--project-card-v))' : '0',
             textAlign: 'left',
             ...(isMobile && {
@@ -349,15 +321,6 @@ const ProjectFocusSection = ({
               ink with the label in its fill, across the card's last row but
               for the facet map's disc at its right (project-card.css). Same
               link and click as the button. */}
-          {/* What the card's shared height adds goes here, above the CTA. Its negative margin takes back the gap it adds, so a card at
-              its own height is spaced exactly as before. */}
-          {displayProject.cta && isMobile && (
-            <div
-              data-project-copy-spacer=""
-              style={{ flex: '1 0 0px', marginTop: 'calc(-0.9rem * var(--project-card-v))' }}
-            />
-          )}
-
           {displayProject.cta && isMobile && (
             <animated.a
               className="project-card__cta"

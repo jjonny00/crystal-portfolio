@@ -9,10 +9,11 @@
 //
 // The button (narrower, and every phone): a dark disc with the map inside it.
 // On a phone it has the bottom right to itself, on a preview and a case study
-// alike: the last row of the screen, beside the button that fills the rest of
-// it (the project card's CTA, the case study's way out), the same height and
-// the same distance from the edges, so it never moves. On a tablet it sits at
-// the top right under the nav.
+// alike: the last row of the screen, beside the project card's CTA or across
+// from the case study's close button, the same height and the same distance
+// from the edges, so it never moves. It takes the CTA's colours there (the
+// card's ink, the map drawn in the card's fill). On a tablet it sits at the top
+// right under the nav.
 //
 // A tap opens the index from it: the map, "Projects", a close button where the
 // disc was, the six projects in rows at least 50px tall, and the way to the
@@ -43,6 +44,7 @@ import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { MQ_DESKTOP, MQ_FACET_MAP_GUTTER, MQ_REDUCED_MOTION } from '../../config/breakpoints';
 import { getProjectByAnyKey } from '../../data/projects';
 import { getScrimTone } from '../../legibility/scrimTone';
+import { projectCardColors } from '../../lib/projectCardColors';
 import { pathFor, projectPath } from '../../navigation/routes';
 import { NAVIGATION_DESTINATIONS } from '../../navigation/navigationIntent';
 import { inPageLinkHandler } from '../../navigation/linkClick';
@@ -123,6 +125,10 @@ const FacetMapNav = ({
   if (projectId) toneProjectRef.current = projectId;
   const tone = toneProjectRef.current ? getScrimTone(toneProjectRef.current) : null;
   const restInk = tone?.inverted ? tone.ink : null;
+  // In the bottom row, the card CTA's colours: the disc in the card's ink, the
+  // map in its fill. Held through a move as the outlines are.
+  const tonedProject = toneProjectRef.current ? getProjectByAnyKey(toneProjectRef.current) : null;
+  const discColors = place === 'bottom' && tonedProject ? projectCardColors(tonedProject) : null;
 
   const [open, setOpen] = useState(false);
   // 'hover' closes when the pointer leaves; 'pinned' (a click, the keyboard)
@@ -300,7 +306,10 @@ const FacetMapNav = ({
       data-place={place ?? undefined}
       data-motion={reducedMotion ? undefined : ''}
       aria-hidden={shown ? undefined : true}
-      style={!compact && mapY !== null ? { '--facet-map-y': `${mapY}px` } : undefined}
+      style={{
+        ...(!compact && mapY !== null && { '--facet-map-y': `${mapY}px` }),
+        ...(discColors && { '--facet-map-disc-fill': discColors.fg }),
+      }}
       onPointerEnter={onPointerEnter}
       onPointerLeave={onPointerLeave}
       onBlur={onBlur}
@@ -316,7 +325,16 @@ const FacetMapNav = ({
         onClick={onTriggerClick}
         onFocus={onTriggerFocus}
       >
-        {compact ? (
+        {compact && discColors ? (
+          // On the CTA's fill, in the card's colour, as the CTA's label is.
+          <FacetMapGlyph
+            currentId={projectId}
+            variant="ink"
+            ink={discColors.bg}
+            height={BUTTON_GLYPH_HEIGHT}
+            animate={!reducedMotion}
+          />
+        ) : compact ? (
           // On its own dark disc: the colour variant's white outlines, whatever
           // the page under it.
           <FacetMapGlyph

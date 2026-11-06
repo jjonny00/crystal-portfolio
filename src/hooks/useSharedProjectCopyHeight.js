@@ -1,15 +1,10 @@
 // src/hooks/useSharedProjectCopyHeight.js
 //
-// Gives every project preview's copy block the height of the tallest, as
-// --project-copy-height on the scroll container (ProjectFocusSection reads it),
-// so the facet map can keep one place from project to project:
-//
-//   desktop  each block is centred in its section, so with one height they all
-//            start at the same place: the titles sit at one height and the CTAs
-//            at another, and the map beside the titles does not move.
-//   phone    each block is the card along the bottom of the screen, so with one
-//            height every card's top edge is in the same place, and the map's
-//            disc sits on it.
+// Gives every desktop project preview's copy block the height of the tallest, as
+// --project-copy-height on the scroll container (ProjectFocusSection reads it).
+// Each block is centred in its section, so with one height they all start at the
+// same place: the titles sit at one height and the CTAs at another, project to
+// project, and the facet map beside the title does not move between them.
 //
 // Measured, because the tallest depends on how the copy wraps at this width, and
 // re-measured when that can change: a resize, the webfont landing.
@@ -29,14 +24,14 @@ const naturalHeight = (block) => {
   return block.offsetHeight - (spacer.offsetHeight - basis);
 };
 
-/**
- * `layout` is the portfolio's variant ('desktop' or 'mobile'): the blocks are
- * laid out again when it changes, so they are measured again.
- */
-const useSharedProjectCopyHeight = (containerRef, layout) => {
+const useSharedProjectCopyHeight = (containerRef, enabled) => {
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return undefined;
+    if (!enabled) {
+      container.style.removeProperty(VAR);
+      return undefined;
+    }
 
     let frame = 0;
     const measure = () => {
@@ -64,7 +59,7 @@ const useSharedProjectCopyHeight = (containerRef, layout) => {
       observer?.disconnect();
       window.removeEventListener('resize', measure);
     };
-  }, [containerRef, layout]);
+  }, [containerRef, enabled]);
 };
 
 export default useSharedProjectCopyHeight;

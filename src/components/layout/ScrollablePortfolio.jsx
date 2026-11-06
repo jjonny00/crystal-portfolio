@@ -32,7 +32,7 @@ const ScrollablePortfolio = ({
   const isMobileViewport = variant === 'mobile';
   const containerRef = useRef(null);
   const settleTimeoutRef = useRef(null);
-  useSharedProjectCopyHeight(containerRef, variant);
+  useSharedProjectCopyHeight(containerRef, !isMobileViewport);
 
   const [settledSectionId, setSettledSectionId] = useState(initialSettledSectionId);
   const overviewInteractionMode = settledSectionId === 'overview';

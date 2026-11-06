@@ -850,6 +850,8 @@
 
 .cs-back__icon {
   flex: none;
+  inline-size: 14px;
+  block-size: 14px;
 }
 
 .cs-skip-link {
@@ -1058,17 +1060,34 @@
     --cs-type-meta-value: clamp(13.5px, 3.6vw, 15.5px); /* 13.5 -> 14.5 */
   }
 
-  /* Across the screen's last row but for the facet map's disc at its right,
-     where a project card's CTA sits (--bottom-row-*, index.css; the card's
-     edge, project-card.css), so the row holds still as a case study opens
-     and closes. */
+  /* In the screen's last row, at its left, across from the facet map's disc
+     (--bottom-row-*, index.css), the card's edge in from the screen. */
   .cs-back {
-    inset-inline: var(--project-card-edge)
-      calc(var(--project-card-edge) + var(--bottom-row-disc) + var(--bottom-row-gap));
+    inset-inline-start: var(--project-card-edge);
     inset-block-end: calc(var(--project-card-edge) + env(safe-area-inset-bottom, 0px));
-    justify-content: center;
     padding-inline: 16px;
     font-size: 21px; /* the CTA's phone step (ctaType.js) */
+  }
+
+  /* Closing, it is the cross alone in a circle the disc's size: the way out
+     needn't take the row. (Its name is on the button, aria-label.) */
+  .cs-back--close {
+    justify-content: center;
+    inline-size: var(--bottom-row-disc);
+    padding: 0;
+    border-radius: 50%;
+    --squircle-radius: calc(var(--bottom-row-disc) / 2);
+    --squircle-smoothing: 0;
+    --squircle-stroke-width: 0px;
+  }
+
+  .cs-back--close .cs-back__icon {
+    inline-size: 18px;
+    block-size: 18px;
+  }
+
+  .cs-back--close .cs-back__label {
+    display: none;
   }
 
   /* Hero: project name, case study title, media, then intro copy. */

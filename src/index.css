@@ -54,8 +54,17 @@
      must not slide under the nav measures down from here. */
   --page-nav-bottom: 52px;
 
-  /* How far the mobile hero composition sits off the bottom of the viewport. */
-  --mobile-bottom-inset: calc(2.75rem + env(safe-area-inset-bottom, 0px));
+  /* The phone's project card (project-card.css): every vertical space on it
+     is scaled by --project-card-v, and its copy sits --project-card-edge in
+     from the screen's sides and bottom. */
+  --project-card-v: 0.7;
+  --project-card-edge: calc(30px * var(--project-card-v));
+
+  /* How far the mobile hero composition sits off the bottom of the viewport:
+     the card's edge, so the hero's CTA lands in the phone's bottom row, where
+     the card's CTA, the case study's close button and the facet map sit
+     (--bottom-row-*, below). */
+  --mobile-bottom-inset: calc(var(--project-card-edge) + env(safe-area-inset-bottom, 0px));
 
   /* The filled button: the hero CTA and the case-study back button. From the
      hero comp (1728px frame), at every width. The corners are smoothed the way
@@ -65,10 +74,9 @@
   --button-radius: 10px;
 
   /* A phone's last row (below 768px), on a project's card and a case study
-     alike: a filled button across it (the card's CTA, the case study's way
-     out) and the facet map's disc at its right, the button's height, so the
-     disc never moves between them. Inset by the card's edge
-     (--project-card-edge, project-card.css). */
+     alike: the facet map's disc at its right, the button's height, so it
+     never moves between them, beside the card's CTA or the case study's close
+     button. Inset by the card's edge (--project-card-edge, above). */
   --bottom-row-disc: var(--button-height);
   --bottom-row-gap: 12px;
 }

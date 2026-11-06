@@ -38,12 +38,15 @@ const CaseStudyPage = ({
   label,
   onClose = null,
   /**
-   * The way out's label. "Close case study" says what it does: the case study
-   * is a layer over the portfolio, and closing it leaves the reader on the
-   * project's preview it opened from. ("Back to <project>" read as going
-   * somewhere new from a page already about that project.)
+   * The way out's label, beside a cross. "Close" says what it does: the case
+   * study is a layer over the portfolio, and closing it leaves the reader on
+   * the project's preview it opened from. ("Back to <project>" read as going
+   * somewhere new from a page already about that project.) On a phone the
+   * button is the cross alone, in a circle (caseStudy.css).
    */
-  backLabel = 'Close case study',
+  backLabel = 'Close',
+  /** Its accessible name, which a phone's cross alone has to carry. */
+  backName = 'Close case study',
   children,
 }) => {
   const rootRef = useRef(null);
@@ -73,17 +76,22 @@ const CaseStudyPage = ({
         </main>
 
         {onExit && (
-          <button type="button" className="cs-back" onClick={onExit}>
+          <button
+            type="button"
+            className={exitOverride ? 'cs-back' : 'cs-back cs-back--close'}
+            aria-label={exitOverride ? undefined : backName}
+            onClick={onExit}
+          >
             <SquircleSurface />
             {/* The cross says "close", as the project index's does. A
                 host-supplied exit leads somewhere new (caseStudyExit.js), so
-                it goes without. */}
+                it keeps its words and goes without. */}
             {!exitOverride && (
-              <svg className="cs-back__icon" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+              <svg className="cs-back__icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
                 <path d="M3 3l10 10M13 3L3 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
               </svg>
             )}
-            {exitLabel}
+            <span className="cs-back__label">{exitLabel}</span>
           </button>
         )}
       </MediaViewerProvider>
