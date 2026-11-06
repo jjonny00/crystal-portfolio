@@ -6,7 +6,7 @@
    (its fill), set by FacetMapNav from lib/projectCardColors.js. Two layouts,
    set as data-layout from MQ_DESKTOP (config/breakpoints.js, 768px):
 
-     'dock'    the project's name beside the map, on a filled card
+     'dock'    the map in a 104px circle
      'button'  a phone: the map alone in a disc, in the bottom row
                (data-place='bottom')
 
@@ -80,41 +80,27 @@ html[data-media-viewer='open'] .facet-map {
   display: block;
 }
 
-/* The dock: the button's shape and corners (index.css --button-*, smoothed by
-   the SquircleSurface inside), the project's name in the CTA's face beside the
-   map. */
-.facet-map[data-layout='dock'] .facet-map__trigger {
-  position: relative;
-  isolation: isolate;
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  padding: 12px 14px 12px 22px;
-  border-radius: var(--button-radius);
-  --squircle-radius: var(--button-radius);
-  --squircle-fill: var(--facet-map-fill, rgb(17, 19, 24));
-  transition: opacity 200ms ease;
+/* Both: the map centred in a solid circle in the close button's fill, solid,
+   as the buttons are, since a case study's copy scrolls under them all. The
+   dock's is 104px across (the map 72px tall in it), the phone's the bottom
+   row's 49px (above). */
+.facet-map[data-layout='dock'] {
+  inline-size: 104px;
+  block-size: 104px;
 }
 
-.facet-map[data-layout='dock'] .facet-map__trigger:hover {
-  opacity: 0.9;
-}
-
-.facet-map__dock-name {
-  white-space: nowrap;
-  padding-block-end: 0.09em;
-}
-
-/* The disc: the CTA's fill, solid, as the buttons beside it are, since a case
-   study's copy scrolls under them all. */
-.facet-map[data-layout='button'] .facet-map__trigger {
+.facet-map__trigger {
   display: grid;
   place-items: center;
   inline-size: 100%;
   block-size: 100%;
   border-radius: 50%;
   background-color: var(--facet-map-fill, rgb(17, 19, 24));
-  transition: background-color 0.3s ease;
+  transition: background-color 0.3s ease, opacity 200ms ease;
+}
+
+.facet-map[data-layout='dock'] .facet-map__trigger:hover {
+  opacity: 0.9;
 }
 
 .facet-map__trigger:focus-visible {
@@ -156,9 +142,10 @@ html[data-media-viewer='open'] .facet-map {
 }
 
 /* The dock's: the names, and the map at the bottom right exactly over the
-   dock's (the same size, the same padding from the corner), so the pointer's
-   path from the dock into the card never leaves either. As wide as its longest
-   name; kept clear of the nav above it. */
+   dock's (the same size, the same distance from the corner: the circle's 104px
+   less the map's 44 x 72, halved), so the pointer's path from the dock into
+   the card never leaves either. As wide as its longest name; kept clear of the
+   nav above it. */
 .facet-map[data-layout='dock'] .facet-map__panel {
   right: 0;
   bottom: 0;
@@ -168,8 +155,8 @@ html[data-media-viewer='open'] .facet-map {
   column-gap: 20px;
   inline-size: max-content;
   max-block-size: calc(100svh - var(--facet-map-inset) - 88px);
-  padding: 16px 14px 12px 16px;
-  transform-origin: calc(100% - 40px) calc(100% - 52px);
+  padding: 16px 30px 16px 16px;
+  transform-origin: calc(100% - 52px) calc(100% - 52px);
 }
 
 .facet-map[data-layout='dock'] .facet-map__panel-body {

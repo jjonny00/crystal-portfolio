@@ -7,9 +7,9 @@
 // and in its colours (the project card's: its ink for the fill, the map drawn
 // in its fill; lib/projectCardColors.js). Two layouts, by width:
 //
-// The dock (MQ_DESKTOP, 768px and up): the current project's name beside the
-// map, 80px tall, on a filled card the button's shape, its bottom level with the
-// close button's. Hover, keyboard focus or a click opens the index, a card that
+// The dock (MQ_DESKTOP, 768px and up): the map alone, 72px tall, in a 104px
+// filled circle (the project's name is already on screen, large), its bottom
+// level with the close button's. Hover, keyboard focus or a click opens the index, a card that
 // grows up and out of it: the six projects by name, the current one in its own
 // colour (projects.js), and a way to the crystal overview, beside the map, which
 // sits where the dock's was, so the pointer's path from one into the other never
@@ -38,11 +38,10 @@ import { projectCardColors } from '../../lib/projectCardColors';
 import { pathFor, projectPath } from '../../navigation/routes';
 import { NAVIGATION_DESTINATIONS } from '../../navigation/navigationIntent';
 import { inPageLinkHandler } from '../../navigation/linkClick';
-import { ctaTypeStyle } from '../ui/ctaType';
 import '../../styles/facet-map.css';
 
 /** The map's height in the dock, and in the index that grows from it. */
-const DOCK_GLYPH_HEIGHT = 80;
+const DOCK_GLYPH_HEIGHT = 72;
 /** The map's height in the phone's disc, chosen on device. */
 const BUTTON_GLYPH_HEIGHT = 32;
 /** The map's height in the dropped index's header. */
@@ -99,9 +98,9 @@ const FacetMapNav = ({
   const project = projectId ? getProjectByAnyKey(projectId) : null;
   const shown = visible;
 
-  // The project card's colours: the fill in its ink, the map and the name in
-  // its fill. Held through a move, when no project is marked, so the dock
-  // doesn't change colour or lose its name on the way out.
+  // The project card's colours: the fill in its ink, the map in its fill. Held
+  // through a move, when no project is marked, so the button doesn't change
+  // colour on the way out.
   const heldProjectRef = useRef(null);
   if (projectId) heldProjectRef.current = projectId;
   const heldProject = heldProjectRef.current ? getProjectByAnyKey(heldProjectRef.current) : null;
@@ -294,12 +293,6 @@ const FacetMapNav = ({
         onClick={onTriggerClick}
         onFocus={onTriggerFocus}
       >
-        {!compact && <SquircleSurface />}
-        {!compact && heldProject && (
-          <span className="facet-map__dock-name" style={ctaTypeStyle(false)}>
-            {heldProject.label}
-          </span>
-        )}
         {/* In the card's fill, as the CTA's label is; before the colours are
             known, the colour variant's white outlines on the dark default. */}
         <FacetMapGlyph

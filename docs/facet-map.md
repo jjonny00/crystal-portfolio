@@ -19,15 +19,14 @@ moves as you go between projects or open and close a case study. It mirrors the
 case study's close button (`.cs-back`) at the bottom left: the same distance
 from the screen's edges, bottoms level, and the same colours, the project
 card's (`lib/projectCardColors.js`): the card's ink for the fill, the map and
-any text drawn in the card's fill. Before any project has been shown it falls
+drawn in the card's fill. Before any project has been shown it falls
 back to a dark fill with white outlines. Two layouts (`data-layout`), by
 `MQ_DESKTOP` (768px):
 
-- **The dock** (`'dock'`, 768px and up, tablets included): the current
-  project's name, in the CTA's face (`ctaType.js`), beside the map 80px tall
-  (49 x 80), on a card the button's shape (`--button-radius`, smoothed), 104px
-  tall. Inset `clamp(16px, 2vw, 28px)` from the right and bottom, as the close
-  button is from the left and bottom.
+- **The dock** (`'dock'`, 768px and up, tablets included): the map alone,
+  44 x 72, in a 104px circle. No name beside it: the project's name is already
+  on screen, large. Inset `clamp(16px, 2vw, 28px)` from the right and bottom,
+  as the close button is from the left and bottom.
 - **The disc** (`'button'`, a phone): the right of the screen's last row, the
   map alone (20 x 32) in a 49px circle, the card's edge (`--project-card-edge`,
   21px) from the screen's side and bottom (`--bottom-row-*`, `index.css`). On a
@@ -37,9 +36,8 @@ back to a dark fill with white outlines. Two layouts (`data-layout`), by
   doesn't, so the longest still fits (`ProjectFocusSection`). The hero's CTA
   sits in the same row (`--mobile-bottom-inset`).
 
-Held through a move between projects, when no project is marked, the dock keeps
-the last project's name and colours, so it doesn't blink or change colour on the
-way out; the map lets go of the current fragment as the move starts.
+Held through a move between projects, when no project is marked, the button keeps
+the last project's colours, so it doesn't change colour on the way out; the map lets go of the current fragment as the move starts.
 
 ## The index
 
