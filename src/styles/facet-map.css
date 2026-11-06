@@ -138,6 +138,11 @@ html[data-media-viewer='open'] .facet-map {
   transform: scale(0.96);
 }
 
+/* Focusable only to keep a press on the map inside the index (FacetMapNav). */
+.facet-map__panel:focus {
+  outline: none;
+}
+
 .facet-map[data-open] .facet-map__panel {
   opacity: 1;
   visibility: visible;
@@ -228,7 +233,8 @@ html[data-media-viewer='open'] .facet-map {
   --panel-row-gap: 6px;
   --map-from-x: calc((var(--bottom-row-disc) - 32px * 63.55 / 104) / -2);
   --map-from-y: calc(var(--bottom-row-disc) + var(--panel-row-gap) - (var(--bottom-row-disc) - 32px) / 2);
-  --map-from-scale: calc(32 / 200);
+  /* --map-from-scale: set by FacetMapNav, the disc's map over this one's
+     measured height. */
   bottom: calc(-1 * var(--panel-inset));
   right: calc(-1 * var(--panel-inset));
   display: grid;
@@ -254,10 +260,11 @@ html[data-media-viewer='open'] .facet-map {
   overscroll-behavior: contain;
 }
 
-/* Narrower than the longest name leaves it, the map takes what is left. */
-.facet-map[data-layout='button'] .facet-map__panel-map {
-  max-inline-size: 100%;
-  block-size: auto;
+/* The map takes half the index's width (FacetMapNav sizes it), as on the
+   dock's, and the names wrap in what is left: "GE Experience Centers" over two
+   lines. */
+.facet-map[data-layout='button'] .facet-map__name {
+  white-space: normal;
 }
 
 .facet-map[data-layout='button'] .facet-map__overview {

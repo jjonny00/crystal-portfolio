@@ -68,11 +68,15 @@ place. The card covers the dock, so the pointer's way in never crosses a gap. Ho
 it closes when the pointer has been off it for 240ms, opened by a click or the
 keyboard it stays until one of the above, or focus leaving. Pointing at a name or
 a fragment lights that fragment (its colour as an outline over a 35% fill) and
-the row together; nothing is selected by it.
+the row together; nothing is selected by it. A click or tap on a fragment
+chooses its project, as its name does, from either index. (The index is
+focusable, `tabIndex=-1`, so a press on a fragment keeps focus inside it; it
+closes when focus leaves.)
 
 **From the disc** it rises across the width between the page's edges, up to
-400px, the same way: the names, the map beside them (200px tall, less where
-the longest name leaves it less room) growing out of the disc's, and a foot row
+400px, the same way: the names, the map beside them (half the index's width, up
+to 300px tall, about the list's height; measured in `FacetMapNav`, the names
+wrapping beside it) growing out of the disc's, and a foot row
 the disc's height with "View All Work" and a close button exactly where the disc
 was. Rows are at least 50px tall. Short of room (a small phone, one on its
 side), the list scrolls inside it and the foot stays put.

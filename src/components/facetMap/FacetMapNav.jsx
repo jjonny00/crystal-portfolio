@@ -21,7 +21,8 @@
 // the map alone in a circle the CTA's height and colours (the project card's:
 // its ink for the fill, the map drawn in its fill; lib/projectCardColors.js). A
 // tap opens the index from it, rising as the dock's does, the map growing out of
-// the disc's beside the names, the rows at least 50px tall, and "View All Work"
+// the disc's beside the names (half the index's width; a fragment, like a name,
+// chooses its project), the rows at least 50px tall, and "View All Work"
 // along the foot with a close button where the disc was. Only a tap or the
 // keyboard opens it; it never takes a swipe, so the page scrolls under the
 // reader's thumb as before.
@@ -33,7 +34,7 @@
 import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import FacetMapGlyph from './FacetMapGlyph';
 import SquircleSurface from '../ui/SquircleSurface';
-import { FACET_MAP_ORDER } from './facetMapData';
+import { FACET_MAP_ASPECT, FACET_MAP_ORDER } from './facetMapData';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { MQ_DESKTOP, MQ_REDUCED_MOTION } from '../../config/breakpoints';
 import { getProjectByAnyKey } from '../../data/projects';
@@ -55,11 +56,16 @@ const PANEL_GLYPH_HEIGHT = 260;
 /** The map's height in the phone's disc, chosen on device. */
 const BUTTON_GLYPH_HEIGHT = 32;
 /**
- * The map's height in the index that rises from the disc: what fits beside the
- * longest name across a phone's index (it shrinks to its column where that is
- * narrower). Written in facet-map.css too, for the grow.
+ * The map in the index that rises from the disc takes half the index's width,
+ * as on the dock's, up to this tall: about the list's height beside it.
+ * Measured from the index (in the component), since a phone's width sets it.
  */
-const PHONE_PANEL_GLYPH_HEIGHT = 200;
+const PHONE_PANEL_GLYPH_MAX_HEIGHT = 300;
+/** The phone index's inline padding and column gap (facet-map.css). */
+const PHONE_PANEL_PADDING_INLINE = 12;
+const PHONE_PANEL_COLUMN_GAP = 12;
+/** The disc's map, which the index's grows out of. */
+const PHONE_DISC_GLYPH_HEIGHT = BUTTON_GLYPH_HEIGHT;
 
 /** How long the pointer can be off the map and the index before it closes. */
 const LEAVE_CLOSE_MS = 240;
@@ -131,6 +137,23 @@ const FacetMapNav = ({
   // Focus handed back to the button on Escape is not the reader arriving there.
   const refocusingRef = useRef(false);
   const panelId = useId();
+  const panelRef = useRef(null);
+
+  // On a phone, the index's map: half its width, up to the list's height.
+  const [phoneMapHeight, setPhoneMapHeight] = useState(PHONE_PANEL_GLYPH_MAX_HEIGHT);
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (!compact || !panel || typeof ResizeObserver === 'undefined') return undefined;
+    const measure = () => {
+      const content = panel.clientWidth - PHONE_PANEL_PADDING_INLINE - PHONE_PANEL_COLUMN_GAP;
+      const height = Math.floor(Math.min(PHONE_PANEL_GLYPH_MAX_HEIGHT, (content / 2) / FACET_MAP_ASPECT));
+      if (height > 0) setPhoneMapHeight(height);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(panel);
+    return () => observer.disconnect();
+  }, [compact]);
 
   const clearCloseTimer = () => {
     clearTimeout(closeTimerRef.current);
@@ -320,7 +343,19 @@ const FacetMapNav = ({
         />
       </button>
 
-      <nav id={panelId} className="facet-map__panel" aria-label="Project index" hidden={!open}>
+      <nav
+        ref={panelRef}
+        id={panelId}
+        className="facet-map__panel"
+        aria-label="Project index"
+        hidden={!open}
+        // Focusable (not in the tab order), so a press on the map's fragments,
+        // which can't take focus, hands it to the panel rather than to the
+        // page: focus leaving the index closes it (onBlur), and on a phone it
+        // did, between the tap and its click.
+        tabIndex={-1}
+        style={compact ? { '--map-from-scale': PHONE_DISC_GLYPH_HEIGHT / phoneMapHeight } : undefined}
+      >
         <SquircleSurface />
         {/* The names and the way to All Work, then the map beside them, which
             grows out of the button's (facet-map.css), and on a phone the close
@@ -330,11 +365,11 @@ const FacetMapNav = ({
           className="facet-map__panel-map"
           currentId={projectId}
           highlightId={highlightId}
-          height={compact ? PHONE_PANEL_GLYPH_HEIGHT : PANEL_GLYPH_HEIGHT}
+          height={compact ? phoneMapHeight : PANEL_GLYPH_HEIGHT}
           animate={!reducedMotion}
-          onFragmentEnter={compact ? undefined : setHighlightId}
-          onFragmentLeave={compact ? undefined : () => setHighlightId(null)}
-          onFragmentClick={compact ? undefined : choose}
+          onFragmentEnter={setHighlightId}
+          onFragmentLeave={() => setHighlightId(null)}
+          onFragmentClick={choose}
         />
         {compact && (
           <button
