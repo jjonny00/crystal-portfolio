@@ -5,29 +5,30 @@
    study starts at and every preview's copy sits inside; down, --facet-map-y,
    which FacetMapNav sets level with the capitals of the preview titles.
 
-   The box is the map's target area: 58 x 76 where the gutter has room, narrowing
-   to keep 6px clear of the content edge, never under 44 wide. The glyph is
-   42 x 68 inside it.
+   The box is the map's button: 58 x 76 where the gutter has room, narrowing to
+   keep 6px clear of the content edge, never under 44 wide. The glyph is 42 x 68
+   inside it.
+
+   Placed with left/top rather than a transform: the index card is positioned
+   against the viewport through this box (see .facet-map__panel), and a
+   transform would make it the card's frame for anything fixed.
 
    Above the case-study layer (9000), under the nav (10000). */
 .facet-map {
+  --facet-map-w: clamp(44px, calc(var(--page-edge) - 12px), 58px);
+  --facet-map-h: 76px;
+  --facet-map-cy: var(--facet-map-y, 50vh);
   position: fixed;
   z-index: 9500;
-  left: calc(var(--page-edge) / 2);
-  top: var(--facet-map-y, 50vh);
-  transform: translate(-50%, -50%);
-  inline-size: clamp(44px, calc(var(--page-edge) - 12px), 58px);
-  block-size: 76px;
+  left: calc(var(--page-edge) / 2 - var(--facet-map-w) / 2);
+  top: calc(var(--facet-map-cy) - var(--facet-map-h) / 2);
+  inline-size: var(--facet-map-w);
+  block-size: var(--facet-map-h);
   display: none;
-  place-items: center;
   pointer-events: none;
   opacity: 0;
   visibility: hidden;
   transition: opacity 0.3s ease, visibility 0s linear 0.3s;
-}
-
-.facet-map > svg {
-  display: block;
 }
 
 .facet-map[data-shown] {
@@ -41,7 +42,7 @@
    than that the map moves to the top-right button (the phone layout, next). */
 @media (min-width: 1230px) {
   .facet-map {
-    display: grid;
+    display: block;
   }
 }
 
@@ -51,6 +52,160 @@ html[data-media-viewer='open'] .facet-map {
   opacity: 0;
   visibility: hidden;
   transition: opacity 0.3s ease, visibility 0s linear 0.3s;
+}
+
+/* --- the button ----------------------------------------------------------- */
+
+.facet-map__trigger {
+  display: grid;
+  place-items: center;
+  inline-size: 100%;
+  block-size: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.facet-map[data-shown] .facet-map__trigger {
+  pointer-events: auto;
+}
+
+.facet-map__trigger > svg {
+  display: block;
+}
+
+/* --- the index ------------------------------------------------------------ */
+
+/* A card that grows out of the map into the page. Its map sits over the button
+   (centred on it across, where the gutter leaves room, and level with it),
+   so the pointer's path from the button into the card never leaves either; it
+   keeps 12px from the window's edge and clear of the nav below it.
+
+   Positioned from this box's corner, so each edge is "where it should be on
+   screen" minus "where the box is". */
+.facet-map__panel {
+  --panel-pad: 16px;
+  --panel-map-w: calc(101px * 63.55 / 104);
+  --panel-left: max(12px, calc(var(--page-edge) / 2 - var(--panel-map-w) / 2 - var(--panel-pad)));
+  --panel-top: max(88px, calc(var(--facet-map-cy) - 101px / 2 - var(--panel-pad)));
+  position: absolute;
+  z-index: 1;
+  left: calc(var(--panel-left) - (var(--page-edge) / 2 - var(--facet-map-w) / 2));
+  top: calc(var(--panel-top) - (var(--facet-map-cy) - var(--facet-map-h) / 2));
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: start;
+  column-gap: 20px;
+  padding: var(--panel-pad) 12px var(--panel-pad) var(--panel-pad);
+  --squircle-radius: 16px;
+  --squircle-fill: rgba(17, 19, 24, 0.94);
+  color: rgba(255, 252, 238, 0.92);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
+  border-radius: 16px;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform-origin: calc(var(--panel-pad) + var(--panel-map-w) / 2) calc(var(--panel-pad) + 50px);
+  transition: opacity 140ms ease, transform 140ms ease, visibility 0s linear 140ms;
+}
+
+/* `hidden` keeps the closed index out of the tab order and the accessibility
+   tree; visibility does that here, and lets it fade. */
+.facet-map__panel[hidden] {
+  display: grid;
+}
+
+.facet-map[data-motion] .facet-map__panel {
+  transform: scale(0.96);
+}
+
+.facet-map[data-open] .facet-map__panel {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: none;
+  transition: opacity 160ms ease, transform 240ms cubic-bezier(0.2, 0.7, 0.2, 1), visibility 0s linear 0s;
+}
+
+.facet-map__panel-map {
+  display: block;
+}
+
+.facet-map__panel-body {
+  display: grid;
+  gap: 6px;
+  min-inline-size: 13.5em;
+}
+
+.facet-map__list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Each row is the project's link: number, name, and on the current one "You
+   are here", so the current project reads in words, not only in colour. 44px
+   tall at least, a full touch target. */
+.facet-map__item {
+  display: grid;
+  grid-template-columns: 2em auto;
+  align-items: baseline;
+  column-gap: 6px;
+  min-block-size: 44px;
+  box-sizing: border-box;
+  padding: 11px 12px 9px 10px;
+  border-radius: 8px;
+  color: inherit;
+  text-decoration: none;
+  transition: background-color 150ms ease;
+}
+
+.facet-map__item:hover,
+.facet-map__item[data-highlight] {
+  background-color: rgba(255, 252, 238, 0.08);
+}
+
+.facet-map__number {
+  opacity: 0.55;
+}
+
+.facet-map__name {
+  white-space: nowrap;
+  opacity: 0.82;
+}
+
+.facet-map__item[aria-current] .facet-map__name {
+  opacity: 1;
+}
+
+.facet-map__here {
+  grid-column: 2;
+  margin-block-start: 4px;
+  opacity: 0.6;
+}
+
+.facet-map__overview {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  min-block-size: 44px;
+  box-sizing: border-box;
+  margin-block-start: 4px;
+  padding: 10px 10px 8px;
+  border-block-start: 1px solid rgba(255, 252, 238, 0.14);
+  color: inherit;
+  text-decoration: none;
+  transition: opacity 150ms ease;
+}
+
+.facet-map__overview:hover {
+  opacity: 0.75;
 }
 
 @media (prefers-reduced-motion: reduce) {

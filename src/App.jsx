@@ -1176,6 +1176,15 @@ function App() {
     });
   }, [sceneMounted, queueLanding, landProjectInScene, requestNavigationIntent]);
 
+  // The facet map's index: a project goes to its preview, the way an overview
+  // label does. From a case study, the case study closes first and the scene
+  // moves on from under it. (Before the scene exists, the landing is queued.)
+  const handleFacetMapProjectSelect = useCallback((projectId) => {
+    cancelPendingCaseStudyHome();
+    closeCaseStudy();
+    navigateFromHistory({ destination: NAVIGATION_DESTINATIONS.PROJECT, projectId });
+  }, [cancelPendingCaseStudyHome, closeCaseStudy, navigateFromHistory]);
+
   const routePath = useRouteSync({
     initialRoute,
     preSceneRoute,
@@ -1545,7 +1554,12 @@ function App() {
         />
       )}
 
-      <FacetMapNav selection={facetMapSelection} ink={facetMapInk} />
+      <FacetMapNav
+        selection={facetMapSelection}
+        ink={facetMapInk}
+        onSelectProject={handleFacetMapProjectSelect}
+        onSelectOverview={handleWorkClick}
+      />
 
       {/* UPDATED: FPS Display with V2 performance tier info */}
       {devUiRevealed && !hideAllUI && (

@@ -16,14 +16,15 @@ import { FACET_MAP_ASPECT, FACET_MAP_COLORS, FACET_MAP_ORDER, facetMap } from '.
 
 /**
  * How each variant draws the fragments that are not current. `color` and
- * `button` sit on the scene (the button on its own dark disc); `ink` sits on a
- * case-study page and takes the page's ink, never a project colour.
+ * `button` sit on the scene (the button on its own dark disc), in white unless
+ * given the ink the preview's copy is set in; `ink` sits on a case-study page
+ * and takes the page's ink, never a project colour.
  */
-const restStyle = (variant, ink) => (
-  variant === 'ink'
-    ? { fill: ink, fillOpacity: 0, stroke: ink, strokeOpacity: 0.55 }
-    : { fill: '#ffffff', fillOpacity: 0.06, stroke: '#ffffff', strokeOpacity: 0.5 }
-);
+const restStyle = (variant, ink, restInk) => {
+  if (variant === 'ink') return { fill: ink, fillOpacity: 0, stroke: ink, strokeOpacity: 0.55 };
+  const line = restInk || '#ffffff';
+  return { fill: line, fillOpacity: 0.06, stroke: line, strokeOpacity: 0.5 };
+};
 
 const GLYPH_TRANSITION = [
   'fill 250ms ease',
@@ -41,6 +42,11 @@ const FacetMapGlyph = ({
   variant = 'color',
   /** The page's ink, for the ink variant. */
   ink = '#111318',
+  /**
+   * The colour variant's outlines, where white would not read: over a preview
+   * whose copy is set dark (scrimTone), that copy's ink.
+   */
+  restInk = null,
   /** Rendered height in px; the width follows the map's own proportions. */
   height = 54,
   /**
@@ -48,11 +54,21 @@ const FacetMapGlyph = ({
    * Colour only: the outlines never move. Off for reduced motion.
    */
   animate = false,
+  /**
+   * Pointer handlers per fragment, given the project id. Set, the fragments take
+   * the pointer (the index panel's map); unset, the glyph is only a picture.
+   * Pointer only: the panel's rows are the controls keyboards and assistive tech
+   * use.
+   */
+  onFragmentEnter,
+  onFragmentLeave,
+  onFragmentClick,
   className,
   style,
 }) => {
+  const interactive = Boolean(onFragmentEnter || onFragmentClick);
   const width = height * FACET_MAP_ASPECT;
-  const rest = restStyle(variant, ink);
+  const rest = restStyle(variant, ink, restInk);
 
   return (
     <svg
@@ -93,7 +109,11 @@ const FacetMapGlyph = ({
               stroke: paint.stroke,
               strokeOpacity: paint.strokeOpacity,
               transition: animate ? GLYPH_TRANSITION : undefined,
+              cursor: interactive ? 'pointer' : undefined,
             }}
+            onPointerEnter={onFragmentEnter && (() => onFragmentEnter(projectId))}
+            onPointerLeave={onFragmentLeave && (() => onFragmentLeave(projectId))}
+            onClick={onFragmentClick && (() => onFragmentClick(projectId))}
             strokeWidth={1}
             strokeLinejoin="round"
             // 1px on screen at any size, not 1 viewBox unit.

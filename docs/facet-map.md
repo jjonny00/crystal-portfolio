@@ -8,9 +8,9 @@ order, colour only confirms.
 Where it shows: the project previews and the case studies. Not the hero, not the
 overview (the 3D scene is the map there), not About.
 
-Status: stage 2 of 6. Done: the outlines, the glyph, the review panel, and the
-desktop marker in the gutter (no input yet). Next: the index panel, the phone
-button, the Next Project block.
+Status: stage 3 of 6. Done: the outlines, the glyph, the review panel, the
+desktop map in the gutter and the index it opens. Next: the phone button, the
+Next Project block.
 
 ## Sizes
 
@@ -39,6 +39,33 @@ between projects or open and close a case study:
 portfolio is scrolled. It measures again when the title's copy block or section
 changes size. Arriving on a case study's own URL, the portfolio behind it
 mounts a few seconds after the page, and the map comes in once it has.
+
+## The index
+
+On desktop the map is a button ("Project index. Current project: Mesa",
+`aria-expanded`). Hover, keyboard focus or a click opens the index: a card that
+grows out of the map into the page, with the map again at 101px tall beside the
+six projects, numbered in the map's order. The current one says "You are here"
+and carries `aria-current`, so it reads in words as well as colour. Last comes
+"View crystal overview".
+
+- Pointing at a name or a fragment lights that fragment (its colour as an
+  outline over a 35% fill) and the row together. Nothing is selected by it.
+- A project goes to its preview, the way an overview label does (App's
+  `handleFacetMapProjectSelect`). From a case study, the case study closes first
+  and the scene moves on from under it. The current project only closes the
+  index: no move, no scroll.
+- "View crystal overview" is the nav's Work.
+- Escape (focus goes back to the map), a click outside, focus leaving, or the
+  pointer leaving for 240ms closes it. Opened by hover, it closes on leaving;
+  opened by a click or the keyboard, it stays until one of the others.
+- The card covers the map it grew from, so the pointer's way in never crosses
+  a gap. It keeps 12px from the window's edge and stays below the nav.
+- The rows are real links (`/work/<slug>`), so they open in a new tab or copy
+  like any other.
+
+Over a preview whose copy is set dark (FundSeeder's light scrim), the map's
+resting outlines take that ink rather than white.
 
 ## What it reads
 
