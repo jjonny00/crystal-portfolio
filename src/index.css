@@ -398,10 +398,10 @@ html[data-media-viewer='open'] .site-nav__items {
   transition: opacity 0.3s ease;
 }
 
-/* The pill at 75%: the label on it stays at full strength (it is not the
+/* The pill at 87%: the label on it stays at full strength (it is not the
    pill's child). */
 .site-nav__item[data-active] .squircle.site-nav__pill {
-  opacity: 0.75;
+  opacity: 0.87;
 }
 
 @media (max-width: 1023.98px) {

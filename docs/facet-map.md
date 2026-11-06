@@ -154,6 +154,13 @@ the scene uses, so a change to `projects.js` reaches the map on the next run.
 
 ## Colour
 
+The current fragment is filled in its colour with a dark 1px outline
+(#161A32) and glows in its own colour: two halos, 8px at 25% and 25px at 50%
+(as a box-shadow's blur), drawn as an SVG filter in `FacetMapGlyph` since
+box-shadow doesn't reach SVG shapes and Safari ignores CSS filters on them. The
+halos are full size from the dock's 72px map up and shrink in proportion on
+smaller maps (the phone's disc).
+
 On the disc the map is drawn in the project card's fill, current fragment
 filled, on the card's ink; on the dock, white outlines on the index's dark with
 the current fragment in its colour (see Where it sits). In the index's dark card

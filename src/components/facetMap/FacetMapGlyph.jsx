@@ -11,7 +11,7 @@
 // Purely presentational and hidden from assistive tech: whatever wraps it (the
 // trigger, a panel row) carries the name and the current project in words.
 
-import React from 'react';
+import React, { useId } from 'react';
 import { FACET_MAP_ASPECT, FACET_MAP_COLORS, FACET_MAP_ORDER, facetMap } from './facetMapData';
 
 /**
@@ -25,6 +25,21 @@ const restStyle = (variant, ink, restInk) => {
   const line = restInk || '#ffffff';
   return { fill: line, fillOpacity: 0.06, stroke: line, strokeOpacity: 0.5 };
 };
+
+/**
+ * The current fragment: its colour, a dark 1px outline, and a glow in its own
+ * colour, two soft halos (8px at 25%, 25px at 50%, as a box-shadow's blur). Built
+ * as an SVG filter: CSS box-shadow doesn't reach SVG shapes, and Safari ignores
+ * CSS filters on them. The halos are full size from the dock's 72px map up;
+ * smaller maps (the phone's disc) take them in proportion, so the glow doesn't
+ * swamp the button.
+ */
+const CURRENT_OUTLINE = '#161A32';
+const GLOW = [
+  { blurPx: 8, opacity: 0.25 },
+  { blurPx: 25, opacity: 0.5 },
+];
+const GLOW_FULL_AT_HEIGHT = 72;
 
 const GLYPH_TRANSITION = [
   'fill 250ms ease',
@@ -70,6 +85,16 @@ const FacetMapGlyph = ({
   const width = height * FACET_MAP_ASPECT;
   const rest = restStyle(variant, ink, restInk);
 
+  const glowId = `facet-map-glow-${useId().replace(/:/g, '')}`;
+  const currentFill = currentId
+    ? (variant === 'ink' ? ink : FACET_MAP_COLORS[currentId])
+    : null;
+  // Blur in the viewBox's units, which the map is scaled from. A box-shadow's
+  // blur is about two standard deviations.
+  const viewBoxHeight = facetMap.viewBox[3];
+  const glowScale = Math.min(1, height / GLOW_FULL_AT_HEIGHT);
+  const toViewBox = (px) => (px * glowScale * viewBoxHeight) / height;
+
   return (
     <svg
       className={className}
@@ -79,7 +104,32 @@ const FacetMapGlyph = ({
       viewBox={facetMap.viewBox.join(' ')}
       aria-hidden="true"
       focusable="false"
+      overflow="visible"
     >
+      {currentFill && (
+        <defs>
+          <filter
+            id={glowId}
+            x="-150%"
+            y="-150%"
+            width="400%"
+            height="400%"
+            colorInterpolationFilters="sRGB"
+          >
+            {GLOW.map(({ blurPx, opacity }, index) => (
+              <React.Fragment key={blurPx}>
+                <feFlood floodColor={currentFill} floodOpacity={opacity} result={`flood${index}`} />
+                <feComposite in={`flood${index}`} in2="SourceAlpha" operator="in" result={`shape${index}`} />
+                <feGaussianBlur in={`shape${index}`} stdDeviation={toViewBox(blurPx / 2)} result={`glow${index}`} />
+              </React.Fragment>
+            ))}
+            <feMerge>
+              {[...GLOW.keys()].reverse().map((index) => <feMergeNode key={index} in={`glow${index}`} />)}
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+      )}
       {FACET_MAP_ORDER.map((projectId) => {
         const { path } = facetMap.fragments[projectId];
         const color = FACET_MAP_COLORS[projectId];
@@ -88,8 +138,7 @@ const FacetMapGlyph = ({
 
         let paint = rest;
         if (isCurrent) {
-          const fill = variant === 'ink' ? ink : color;
-          paint = { fill, fillOpacity: 1, stroke: fill, strokeOpacity: 1 };
+          paint = { fill: currentFill, fillOpacity: 1, stroke: CURRENT_OUTLINE, strokeOpacity: 1 };
         } else if (isHighlight) {
           // Lit, not selected: its own colour as an outline over a light wash.
           // On a case-study page the project colour would fight the page's own,
@@ -111,6 +160,7 @@ const FacetMapGlyph = ({
               transition: animate ? GLYPH_TRANSITION : undefined,
               cursor: interactive ? 'pointer' : undefined,
             }}
+            filter={isCurrent ? `url(#${glowId})` : undefined}
             onPointerEnter={onFragmentEnter && (() => onFragmentEnter(projectId))}
             onPointerLeave={onFragmentLeave && (() => onFragmentLeave(projectId))}
             onClick={onFragmentClick && (() => onFragmentClick(projectId))}
