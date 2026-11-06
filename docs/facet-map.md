@@ -32,6 +32,11 @@ glides to the new title as its copy comes in. The titles carry
 `data-facet-map-title` (the project id on a preview, `case-study` on a case
 study) so it can find them.
 
+Every preview's title is at the same height: the copy blocks share the tallest
+one's height (`useSharedProjectCopyHeight`), copy at the top, CTA at the bottom.
+So between projects the map holds still, and it only travels between a preview
+and its case study.
+
 It stays fixed there: on a case study it keeps the title's height as the title
 scrolls away. A preview's title is always where it was measured, because snap
 scrolling settles every preview at the top of the screen.

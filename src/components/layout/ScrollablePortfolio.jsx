@@ -7,6 +7,7 @@ import AboutSection from '../sections/AboutSection';
 import { projects } from '../../data/projects';
 import { useLayoutConfig } from '../../hooks/useLayoutConfig';
 import { useHoverCapable } from '../../hooks/useHoverCapable';
+import useSharedProjectCopyHeight from '../../hooks/useSharedProjectCopyHeight';
 
 const SECTION_SETTLE_DELAY_MS = 220;
 
@@ -31,6 +32,7 @@ const ScrollablePortfolio = ({
   const isMobileViewport = variant === 'mobile';
   const containerRef = useRef(null);
   const settleTimeoutRef = useRef(null);
+  useSharedProjectCopyHeight(containerRef, !isMobileViewport);
 
   const [settledSectionId, setSettledSectionId] = useState(initialSettledSectionId);
   const overviewInteractionMode = settledSectionId === 'overview';

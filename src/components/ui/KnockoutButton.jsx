@@ -1,6 +1,6 @@
 // src/components/ui/KnockoutButton.jsx
 //
-// A filled pill whose label is cut OUT of the fill rather than drawn on top, so
+// A filled button whose label is cut OUT of the fill rather than drawn on top, so
 // the letterforms are windows onto the scene behind the button — the crystal on
 // desktop, the project scrim on a phone.
 //
@@ -29,14 +29,19 @@
 // fill, black removes it — and inline SVG text uses the document's fonts, so the
 // label renders in the same face as the rest of the block.
 //
-// The pill is drawn in the SVG rather than as a CSS background because the mask
+// The shape is drawn in the SVG rather than as a CSS background because the mask
 // has to apply to the FILL: a CSS background would sit behind the masked shape
 // and fill the holes straight back in.
+//
+// The shape and label are the site's button (the hero CTA is the template):
+// --button-height, --button-padding-inline and --button-radius from index.css,
+// corners smoothed as iOS does them (lib/squircle), the label in ctaTypeStyle.
 
 import React, { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { animated } from '@react-spring/web';
 import { inPageLinkHandler } from '../../navigation/linkClick';
 import { ctaTypeStyle } from './ctaType';
+import { IOS_CORNER_SMOOTHING, squirclePath } from '../../lib/squircle';
 
 const toRgb = (hex) => {
   const n = parseInt(hex.replace('#', ''), 16);
@@ -181,25 +186,25 @@ const KnockoutButton = ({
   const [pressed, setPressed] = useState(false);
   const [keyboardFocus, setKeyboardFocus] = useState(false);
 
-  // Measured rather than derived from the type metrics: the pill's corner radius
-  // has to be exactly half the height, and SVG clamps a too-large `rx` to half the
-  // WIDTH, which on a full-bleed mobile button is an ellipse rather than a pill.
-  // A ResizeObserver also catches the reflow when the webfont lands after first
+  // The SVG is drawn to the button's measured box, with the corner radius the
+  // stylesheet resolves (--button-radius, through borderRadius below). A
+  // ResizeObserver also catches the reflow when the webfont lands after first
   // paint, which a one-time measure would miss.
   const buttonRef = useRef(null);
-  const [box, setBox] = useState({ width: 0, height: 0 });
+  const [box, setBox] = useState({ width: 0, height: 0, radius: 0 });
   useLayoutEffect(() => {
     const node = buttonRef.current;
     if (!node) return undefined;
     const measure = () => {
       const rect = node.getBoundingClientRect();
+      const radius = parseFloat(getComputedStyle(node).borderTopLeftRadius) || 0;
       // Compared before storing: the observer fires once on observe() as well as
       // on change, and a fresh object every time would re-render for a size that
       // has not moved.
       setBox((held) => (
-        held.width === rect.width && held.height === rect.height
+        held.width === rect.width && held.height === rect.height && held.radius === radius
           ? held
-          : { width: rect.width, height: rect.height }
+          : { width: rect.width, height: rect.height, radius }
       ));
     };
     measure();
@@ -249,13 +254,30 @@ const KnockoutButton = ({
 
   const typeStyle = ctaTypeStyle(isMobile);
 
-  const radius = box.height ? box.height / 2 : 0;
+  const shapePath = box.width && box.height
+    ? squirclePath({
+      x: 0,
+      y: 0,
+      width: box.width,
+      height: box.height,
+      radius: box.radius,
+      smoothing: IOS_CORNER_SMOOTHING,
+    })
+    : '';
+
+  // SVG text is set in capitals here rather than by text-transform, which not
+  // every engine applies inside SVG. It is aria-hidden; the name comes from the
+  // in-flow label below.
+  const shownLabel = label.toUpperCase();
 
   // Both masks have to place the label identically or the veil would sit off the
   // holes, so the placement is written once.
+  // Where the in-flow label sits: its 1em line box is centred in the box above
+  // the 0.09em bottom padding, and SVG's 'central' baseline is that line box's
+  // middle.
   const labelPos = {
     x: box.width / 2,
-    y: box.height / 2,
+    y: box.height / 2 - 0.045 * parseFloat(typeStyle.fontSize),
     textAnchor: 'middle',
     dominantBaseline: 'central',
   };
@@ -286,17 +308,24 @@ const KnockoutButton = ({
         // it reach all the way through to the scene.
         background: 'transparent',
         border: 'none',
-        // Only so the focus ring follows the pill rather than boxing it.
-        borderRadius: '999px',
-        padding: isMobile ? '10px 16px' : '12px 22px',
+        // The corner radius the shape is drawn with (read back when measuring),
+        // and what the focus ring follows.
+        borderRadius: 'var(--button-radius)',
+        boxSizing: 'border-box',
+        height: 'var(--button-height)',
+        // As the hero CTA's: the small bottom padding centres the capitals
+        // rather than the line box.
+        padding: '0 var(--button-padding-inline) 0.09em',
         // Centred on both, which is what the label wants now that the button is a
         // filled shape: on mobile it stretches the column and a left-set label sat
         // off in one end of it.
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
         textAlign: 'center',
         cursor: 'pointer',
-        display: 'block',
         width: isMobile ? '100%' : 'auto',
-        lineHeight: isMobile ? '1.35' : '30px',
+        lineHeight: 1,
         WebkitTapHighlightColor: 'transparent',
         textDecoration: 'none',
         outline: 'none',
@@ -324,22 +353,14 @@ const KnockoutButton = ({
           <defs>
             {/* White keeps, black removes: the label is cut out of the pill. */}
             <mask id={pillMaskId}>
-              <rect
-                x="0"
-                y="0"
-                width={box.width}
-                height={box.height}
-                rx={radius}
-                ry={radius}
-                fill="#fff"
-              />
-              <text {...labelPos} fill="#000" style={typeStyle}>{label}</text>
+              <path d={shapePath} fill="#fff" />
+              <text {...labelPos} fill="#000" style={typeStyle}>{shownLabel}</text>
             </mask>
             {/* The same shape the other way up, so the veil lands in the holes and
                 nowhere else. */}
             <mask id={labelMaskId}>
               <rect x="0" y="0" width={box.width} height={box.height} fill="#000" />
-              <text {...labelPos} fill="#fff" style={typeStyle}>{label}</text>
+              <text {...labelPos} fill="#fff" style={typeStyle}>{shownLabel}</text>
             </mask>
           </defs>
 
@@ -354,13 +375,8 @@ const KnockoutButton = ({
             mask={`url(#${labelMaskId})`}
             style={{ transition: 'fill-opacity 160ms ease' }}
           />
-          <rect
-            x="0"
-            y="0"
-            width={box.width}
-            height={box.height}
-            rx={radius}
-            ry={radius}
+          <path
+            d={shapePath}
             fill={fill}
             mask={`url(#${pillMaskId})`}
             style={{ transition: 'fill 160ms ease' }}
