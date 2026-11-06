@@ -1176,6 +1176,13 @@ function App() {
     navigateFromHistory({ destination: NAVIGATION_DESTINATIONS.PROJECT, projectId });
   }, [cancelPendingCaseStudyHome, closeCaseStudy, navigateFromHistory]);
 
+  // The way on from the end of a case study (NextProjectSection): a project's
+  // preview, as the facet map's index goes, or All Work, as the nav's Work.
+  const caseStudyNavigation = useMemo(
+    () => ({ onSelectProject: handleFacetMapProjectSelect, onViewAllWork: handleWorkClick }),
+    [handleFacetMapProjectSelect, handleWorkClick]
+  );
+
   const routePath = useRouteSync({
     initialRoute,
     preSceneRoute,
@@ -1685,6 +1692,7 @@ function App() {
         initialScrollTop={caseStudyDeepLink ? getPrerenderedScrollTop() : 0}
         arrivalExit={arrivalExit}
         exitMs={overlayExitMs}
+        navigation={caseStudyNavigation}
       />
 
       {FacetMapPreview && (

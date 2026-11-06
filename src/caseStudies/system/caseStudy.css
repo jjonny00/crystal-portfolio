@@ -879,6 +879,122 @@
 }
 
 /* --------------------------------------------------------------------------
+   Next project (NextProjectSection, rendered by CaseStudyPage)
+   --------------------------------------------------------------------------
+   The way on, closing every case study: the next project's name as a large
+   link beside the facet map, then the previous project and All Work along a
+   rule. Tone "a". Its foot keeps clear of what sits along the bottom of the
+   screen: the close button and the facet map's dock (104px) on desktop, the
+   bottom row of buttons on a phone. */
+
+.cs-next {
+  --cs-next-clearance: calc(104px + clamp(16px, 2vw, 28px));
+  padding-block-end: calc(var(--cs-section-padding-block) + var(--cs-next-clearance));
+}
+
+.cs-next__nav {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'main map'
+    'foot foot';
+  align-items: end;
+  column-gap: clamp(24px, 4vw, 64px);
+  row-gap: clamp(32px, 4vw, 56px);
+}
+
+.cs-next__main {
+  grid-area: main;
+  display: grid;
+  justify-items: start;
+  gap: clamp(10px, 1.2vw, 18px);
+}
+
+.cs-next__eyebrow,
+.cs-next__subtitle {
+  color: color-mix(in srgb, var(--cs-fg) 72%, transparent);
+}
+
+.cs-next__link {
+  display: grid;
+  gap: clamp(6px, 0.8vw, 12px);
+  color: var(--cs-fg);
+  text-decoration: none;
+}
+
+.cs-next__title {
+  color: var(--cs-fg);
+}
+
+.cs-next__arrow {
+  display: inline-block;
+  inline-size: 0.55em;
+  block-size: 0.55em;
+  margin-inline-start: 0.18em;
+  vertical-align: 0.08em;
+  transition: transform 200ms ease;
+}
+
+.cs-next__link:hover .cs-next__arrow {
+  transform: translateX(0.12em);
+}
+
+.cs-next__map {
+  grid-area: map;
+  display: block;
+  color: var(--cs-fg);
+}
+
+.cs-next__foot {
+  grid-area: foot;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px 24px;
+  padding-block-start: clamp(12px, 1.4vw, 20px);
+  border-block-start: 1px solid color-mix(in srgb, var(--cs-fg) 25%, transparent);
+}
+
+.cs-next__minor {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  min-block-size: 44px;
+  color: var(--cs-fg);
+  text-decoration: none;
+  transition: opacity 150ms ease;
+}
+
+.cs-next__minor:hover {
+  opacity: 0.72;
+}
+
+.cs-next__minor-arrow {
+  flex: none;
+  inline-size: 1em;
+  block-size: 1em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cs-next__arrow {
+    transition: none;
+  }
+}
+
+@media (max-width: 767.98px) {
+  .cs-next {
+    --cs-next-clearance: calc(
+      var(--bottom-row-disc) + var(--project-card-edge) + env(safe-area-inset-bottom, 0px)
+    );
+  }
+
+  .cs-next__map {
+    inline-size: auto;
+    block-size: 104px;
+  }
+}
+
+/* --------------------------------------------------------------------------
    Entrance
    ----------------------------------------------------------------------------
    Two beats. The overlay's colour wash rises first (inline-styled in

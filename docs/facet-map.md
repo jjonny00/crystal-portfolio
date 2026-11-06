@@ -8,9 +8,11 @@ order, colour only confirms.
 Where it shows: the project previews and the case studies. Not the hero, not the
 overview (the 3D scene is the map there), not About.
 
-Status: stage 4 of 6. Done: the outlines, the glyph, the review panel, the
-dock and the phone's disc, and the index they open. Next: the Next Project block
-at the end of each case study.
+Status: stage 5 of 6. Done: the outlines, the glyph, the review panel, the
+dock and the phone's disc, the index they open, and the Next Project block at
+the end of each case study (docs/case-study-system.md, "The end of a case
+study"). Next: the reduced-motion and accessibility pass, and retiring the
+review panel.
 
 ## Where it sits
 

@@ -2,13 +2,15 @@
 //
 // Page shell every case study wraps itself in: publishes the project's two
 // colours as CSS custom properties, mounts the media viewer, and provides the
-// shared chrome (skip link, back control, Escape to leave).
+// shared chrome (skip link, back control, Escape to leave), and ends every case
+// study with the way on to the next project (NextProjectSection).
 
 import React, { useContext, useEffect, useRef } from 'react';
 import { MediaViewerProvider, useMediaViewer } from './MediaViewer';
 import { buildCaseStudyThemeStyle } from './caseStudyTheme';
 import { CaseStudyExitContext } from './caseStudyExit';
 import SquircleSurface from '../../components/ui/SquircleSurface';
+import NextProjectSection from './NextProjectSection';
 import './caseStudy.css';
 
 const MAIN_ID = 'case-study-main';
@@ -73,6 +75,7 @@ const CaseStudyPage = ({
 
         <main id={MAIN_ID} aria-label={label}>
           {children}
+          <NextProjectSection />
         </main>
 
         {onExit && (

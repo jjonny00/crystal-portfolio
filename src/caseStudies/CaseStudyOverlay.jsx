@@ -21,6 +21,7 @@ import {
   normalizeCaseStudyColors,
 } from './system/caseStudyTheme';
 import { CaseStudyExitContext } from './system/caseStudyExit';
+import { CaseStudyNavContext } from './system/caseStudyNav';
 import {
   CASE_STUDY_ENTER,
   CASE_STUDY_EXIT_MS,
@@ -112,9 +113,19 @@ const CaseStudyOverlay = ({
   arrivalExit = null,
   /** How long closing fades the layer out (CASE_STUDY_RETURN_EXIT_MS going back to the project). */
   exitMs = CASE_STUDY_EXIT_MS,
+  /**
+   * `{ onSelectProject, onViewAllWork }`: the host's ways on from the end of the
+   * case study (NextProjectSection). Without them its links are plain links.
+   */
+  navigation = null,
 }) => {
   const scrollRef = useRef(null);
   const slug = project?.caseStudySlug || null;
+  const navProjectId = project?.facetKey || project?.id || null;
+  const navContext = useMemo(
+    () => ({ projectId: navProjectId, ...navigation }),
+    [navProjectId, navigation]
+  );
   const supported = hasCaseStudy(slug);
   const entryMode = getCaseStudyEntry(slug);
 
@@ -313,9 +324,11 @@ const CaseStudyOverlay = ({
       )}
 
       <CaseStudyExitContext.Provider value={instant ? arrivalExit : null}>
-        <Suspense fallback={null}>
-          <CaseStudy project={project} onClose={onClose} />
-        </Suspense>
+        <CaseStudyNavContext.Provider value={navContext}>
+          <Suspense fallback={null}>
+            <CaseStudy project={project} onClose={onClose} />
+          </Suspense>
+        </CaseStudyNavContext.Provider>
       </CaseStudyExitContext.Provider>
     </div>
   );

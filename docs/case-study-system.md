@@ -118,6 +118,31 @@ Neither imposes a height — the stage is sized by whatever it contains, and tha
 child owns its own responsive behaviour. Supply `media` instead of children for
 the standard image/placeholder treatment.
 
+## The end of a case study
+
+`CaseStudyPage` closes every case study with `NextProjectSection`, after the case
+study's own sections, so no case study composes it: "Next Project", the next
+project's name as a large link with an arrow, its subtitle, the facet map in the
+section's ink with that project's fragment lit, and along a rule
+"Previous · <name>" and "View All Work". The order is the facet map's
+(`FACET_MAP_ORDER`: Slipstream, Mesa, FundSeeder, Flying Axes, Forest Giant, GE),
+wrapping round at both ends, and every case study has the same block whether or
+not the projects either side have case studies of their own.
+
+- It is tone "a": every case study ends on a tone-b section, so it stands apart.
+  Its foot keeps clear of the bottom of the screen (the close button and the
+  facet map's 104px dock on desktop, the bottom row of buttons on a phone).
+- Project links go to that project's preview, as the facet map's index does: the
+  host closes the case study and moves the scene on (App's
+  `handleFacetMapProjectSelect`). "View All Work" goes where the nav's Work does.
+- It learns the project and the host's handlers from `CaseStudyNavContext`
+  (`system/caseStudyNav.js`), which `CaseStudyOverlay` provides from its
+  `project` and `navigation` props. The prerendered page has no handlers, so
+  there the links are plain links to the routes' URLs.
+- The one place the case study system reaches into the facet map: it draws
+  `FacetMapGlyph`. A project missing from the map's order (the catalogue) gets
+  no block.
+
 ## Media
 
 `CaseStudyMedia` is the single media primitive: responsive sources, `contain` /
