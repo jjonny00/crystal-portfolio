@@ -4,6 +4,7 @@ import React, { useEffect, useRef } from 'react';
 
 import { MQ_MOBILE, MQ_REDUCED_MOTION } from '../../config/breakpoints';
 import { setRailX, subscribeToRailState } from '../../lib/verticalRailSignal';
+import { isSectionInFlow } from '../../navigation/projectSectionsFlow';
 import '../../styles/vertical-energy-line.css';
 
 /**
@@ -138,7 +139,10 @@ const VerticalEnergyLine = () => {
       const overview = document.getElementById('overview');
       if (!container || !hero || !overview) return;
 
-      const firstProject = document.querySelector('.scroll-section.project');
+      // Out of the scroll (no project up), the section after the overview is
+      // About, a screen down just the same: the fallback below.
+      const firstProjectNode = document.querySelector('.scroll-section.project');
+      const firstProject = isSectionInFlow(firstProjectNode) ? firstProjectNode : null;
       const arrow = document.querySelector('[data-hero-rail-anchor]');
       const viewportHeight = container.clientHeight || window.innerHeight;
 

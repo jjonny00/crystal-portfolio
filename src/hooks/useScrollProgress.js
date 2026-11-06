@@ -2,6 +2,7 @@
 // FIXED: Scroll progress calculation that works with .scroll-container
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { isSectionInFlow } from '../navigation/projectSectionsFlow';
 
 /**
  * FIXED: Enhanced scroll progress hook that works with scroll container
@@ -113,7 +114,7 @@ export const useScrollProgress = (options = {}) => {
     
     if (isLikelySnapped && !isSnapping) {
       // Quantize progress to clean values when snapped
-      const sections = container.querySelectorAll('.scroll-section');
+      const sections = Array.from(container.querySelectorAll('.scroll-section')).filter(isSectionInFlow);
       if (sections.length > 0) {
         let closestSectionIndex = 0;
         let minDistance = Infinity;
@@ -183,7 +184,7 @@ export const useScrollProgress = (options = {}) => {
     const container = scrollContainerRef.current;
     if (!container) return null;
     
-    const sections = container.querySelectorAll('.scroll-section');
+    const sections = Array.from(container.querySelectorAll('.scroll-section')).filter(isSectionInFlow);
     const scrollTop = container.scrollTop;
     
     let currentSectionId = null;

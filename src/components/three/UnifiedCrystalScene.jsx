@@ -55,6 +55,7 @@ import { getExplosionLookScale } from '../../lib/explosionLook'
 import { markHeroReformStart } from '../../lib/heroReformClock'
 import { getProjectRouteMove, projectRouteProgress } from '../../lib/projectRouteClock'
 import { markScenePrep } from '../../loader/loadProgress'
+import { setProjectSectionsInFlow } from '../../navigation/projectSectionsFlow'
 
 const PROJECT_DISPLAY_SLOT = 'ProjectDisplay'
 // One glow program for all the debris (CrystalDebris), apart from the facets',
@@ -2299,6 +2300,9 @@ const UnifiedCrystalScene = forwardRef(({
       }
     }
 
+    // Choosing a project puts the project sections back into the scroll, so
+    // from here the reader can scroll on through the others.
+    setProjectSectionsInFlow(true);
     const sectionNode = typeof document !== 'undefined'
       ? document.getElementById(`project-${projectKey}`)
       : null;

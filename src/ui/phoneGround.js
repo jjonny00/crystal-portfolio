@@ -24,6 +24,7 @@
 // renders the low tier, so expect to adjust them by eye.
 
 import { useEffect, useRef } from 'react';
+import { isSectionInFlow } from '../navigation/projectSectionsFlow';
 
 const PHONE_GROUNDS = {
   // Hand-picked: the loader's colour, the sky's bottom as it renders under the
@@ -82,7 +83,8 @@ const setGroundTransition = (value) => {
 // section whose top is at the viewport's top has been arrived at — without that,
 // the last scroll event of a move down would already point at the one after.
 function headingFor(container, direction) {
-  const sections = [...container.querySelectorAll(':scope > div > section.scroll-section[id]')];
+  const sections = [...container.querySelectorAll(':scope > div > section.scroll-section[id]')]
+    .filter(isSectionInFlow);
   if (!sections.length) return null;
   const top = container.scrollTop;
   const arrived = sections.find((section) => Math.abs(section.offsetTop - top) <= 2);

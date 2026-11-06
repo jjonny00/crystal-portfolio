@@ -74,6 +74,7 @@ import { getPrerenderedScrollTop, removePrerenderedContent } from './seo/prerend
 import { ARRIVAL_EXIT_LABEL } from './caseStudies/system/caseStudyExit';
 import { preloadFractureAssets } from './loader/preloadFractureAssets';
 import { preloadOverlayImages } from './loader/preloadOverlayImages';
+import { setProjectSectionsInFlow } from './navigation/projectSectionsFlow';
 
 const projectKeys = ['empathy', 'narrative', 'craft', 'system', 'leadership', 'exploration'];
 const zoneKeys = ['intro', 'hero', 'overview', 'about'];
@@ -868,9 +869,11 @@ function App() {
       // of the transition, so effects can't double-fire or drift.
       if (intent.destination === NAVIGATION_DESTINATIONS.HERO) {
         const scrollContainer = document.querySelector('.scroll-container');
-        const firstProjectEl = document.querySelector('.scroll-section[id^="project-"]');
+        // Anywhere past the overview: a project or About (the sections after
+        // the overview depend on whether the project sections are in the scroll).
+        const overviewEl = document.getElementById('overview');
         const comingUpFromFar = Boolean(
-          scrollContainer && firstProjectEl && scrollContainer.scrollTop >= firstProjectEl.offsetTop - 1
+          scrollContainer && overviewEl && scrollContainer.scrollTop >= overviewEl.offsetTop + overviewEl.offsetHeight - 1
         );
         if (comingUpFromFar) {
           // From projects/about: clear overrides and set the hero state directly,
@@ -1085,6 +1088,8 @@ function App() {
   // Puts the scene on a project the way a facet click does: jump the content
   // layer to the project's section, then hold the camera on its facet.
   const landProjectInScene = useCallback((projectId) => {
+    // The project sections are in the scroll only while a project is up.
+    setProjectSectionsInFlow(true);
     const section = document.getElementById(`project-${projectId}`);
     const scrollContainer = document.querySelector('.scroll-container');
     if (section && scrollContainer) {

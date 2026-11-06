@@ -7,6 +7,12 @@ import AboutSection from '../sections/AboutSection';
 import { projects } from '../../data/projects';
 import { useLayoutConfig } from '../../hooks/useLayoutConfig';
 import { useHoverCapable } from '../../hooks/useHoverCapable';
+import {
+  PROJECT_SECTIONS_FLOW_ATTR,
+  consumeLayoutShiftScroll,
+  isSectionInFlow,
+  setProjectSectionsInFlow
+} from '../../navigation/projectSectionsFlow';
 
 const SECTION_SETTLE_DELAY_MS = 220;
 
@@ -33,6 +39,9 @@ const ScrollablePortfolio = ({
   const settleTimeoutRef = useRef(null);
 
   const [settledSectionId, setSettledSectionId] = useState(initialSettledSectionId);
+  // The project sections are in the scroll only while a project is up (see
+  // navigation/projectSectionsFlow). Rendered once; switched on the DOM after.
+  const [initialProjectsInFlow] = useState(() => Boolean(initialSettledSectionId?.startsWith('project-')));
   const overviewInteractionMode = settledSectionId === 'overview';
 
   useEffect(() => {
@@ -68,6 +77,7 @@ const ScrollablePortfolio = ({
       let closestDistance = Number.POSITIVE_INFINITY;
 
       sections.forEach((section) => {
+        if (!isSectionInFlow(section)) return;
         const rect = section.getBoundingClientRect();
         const sectionMidpoint = rect.top + rect.height / 2;
         const distance = Math.abs(sectionMidpoint - viewportMidpoint);
@@ -82,6 +92,9 @@ const ScrollablePortfolio = ({
     };
 
     const scheduleSettle = () => {
+      // The project sections coming or going, with the page held still around
+      // the reader: nothing has moved on screen, so nothing unsettles.
+      if (consumeLayoutShiftScroll(container.scrollTop)) return;
       const candidateId = getClosestSectionId();
 
       setSettledSectionId(null);
@@ -106,6 +119,15 @@ const ScrollablePortfolio = ({
       }
     };
   }, []);
+
+  // Settled on the hero, the overview or About: the project sections leave the
+  // scroll, so from the overview the next section down is About. Choosing a
+  // project puts them back (UnifiedCrystalScene, App's landProjectInScene).
+  useEffect(() => {
+    if (settledSectionId === 'hero' || settledSectionId === 'overview' || settledSectionId === 'about') {
+      setProjectSectionsInFlow(false);
+    }
+  }, [settledSectionId]);
 
   // Relay the settled section up so App-level UI (e.g. the About scrim) can stay
   // perfectly in sync with the section the content layer has settled on — this is
@@ -181,9 +203,9 @@ const ScrollablePortfolio = ({
       }}
     >
       <div
+        {...{ [PROJECT_SECTIONS_FLOW_ATTR]: initialProjectsInFlow ? 'true' : 'false' }}
         style={{
           width: '100%',
-          minHeight: '800vh',
           position: 'relative',
           opacity: hideContent ? 0 : 1
         }}

@@ -26,6 +26,7 @@ This is a single-page 3D portfolio built with React + react-three-fiber/drei/pos
 - **`ScrollablePortfolio`** (`src/components/layout/`) is the real scrollable DOM content (text sections, project cards).
 - **`Fixed3DCanvas`** (`src/components/layout/Fixed3DCanvas.jsx`) is a fixed-position `<Canvas>` that renders the crystal scene on top/behind the DOM layer; it is *not* itself scrolled. It reads the same scroll-derived state instead.
 - Both are driven by one state machine, so changes to zone boundaries or project ordering need to stay consistent across both layers.
+- The six project sections are in the scroll only while a project is up (`src/navigation/projectSectionsFlow.js`): from the overview, scrolling down reaches About. Choosing a project (`selectProjectAndNavigate`, App's `landProjectInScene`) puts them back; settling on hero/overview/About takes them out, holding the on-screen section still. Code that walks `.scroll-section`s must skip hidden ones with `isSectionInFlow`.
 
 ### Animation/state pipeline (read in this order to understand a bug)
 

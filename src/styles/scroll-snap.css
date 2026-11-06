@@ -377,3 +377,9 @@ html:not(:has(.scroll-container)) .scroll-section {
     page-break-inside: avoid;
   }
 }
+
+/* The project sections are in the scroll only while a project is up: from the
+   overview, the next section down is About. See navigation/projectSectionsFlow. */
+.scroll-container > [data-projects-in-flow="false"] > .scroll-section.project {
+  display: none !important;
+}

@@ -5,6 +5,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Vector3, Quaternion, Euler } from 'three';
 import { fracture as fractureConfig } from '../crystalConfig';
 import { orderedProjectKeys, getSceneFacetKeyByProjectId } from '../data/projects';
+import { isSectionInFlow } from '../navigation/projectSectionsFlow';
 
 // Percentage of explode distance facets travel during fracture
 const FRACTURE_DISTANCE = fractureConfig.distance;
@@ -332,6 +333,11 @@ export const useUnifiedAnimationController = (options = {}) => {
   const directProjectReleaseTimeoutRef = useRef(null);
   const directOverrideReachedTargetRef = useRef(false);
   const runtimeProjectSectionsRef = useRef([]);
+  // The project sections are out of the scroll except while a project is up
+  // (navigation/projectSectionsFlow). Out of it, no scroll position is a
+  // project's, and the static progress bands below mean nothing.
+  const projectSectionsOutOfFlowRef = useRef(false);
+  const measuredScrollHeightRef = useRef(null);
   const aboutToProjectsLockUntilRef = useRef(0);
   const lastNearestSectionIdRef = useRef(null);
   // Crystal-transition interruption queue: while the crystal is mid explode/reform,
@@ -364,12 +370,19 @@ export const useUnifiedAnimationController = (options = {}) => {
     const container = document.querySelector('.scroll-container');
     if (!container) return;
 
+    measuredScrollHeightRef.current = container.scrollHeight;
     const maxScroll = Math.max(container.scrollHeight - container.clientHeight, 1);
-    const projectNodes = Array.from(
+    const allProjectNodes = Array.from(
       container.querySelectorAll(':scope > div > section.scroll-section.project[id^="project-"]')
     );
+    const projectNodes = allProjectNodes.filter(isSectionInFlow);
     const aboutNode = container.querySelector(':scope > div > section#about.scroll-section');
 
+    projectSectionsOutOfFlowRef.current = allProjectNodes.length > 0 && projectNodes.length === 0;
+    if (projectSectionsOutOfFlowRef.current) {
+      runtimeProjectSectionsRef.current = [];
+      return;
+    }
     if (projectNodes.length === 0) return;
 
     const projectStarts = projectNodes
@@ -885,13 +898,18 @@ export const useUnifiedAnimationController = (options = {}) => {
    * FIXED: Main scroll update with hysteresis to prevent boundary flickering + enhanced debugging
    */
   const updateFromScrollProgress = useCallback((scrollProgress) => {
-    if (runtimeProjectSectionsRef.current.length === 0) {
-      measureProjectSectionsFromDom();
-    }
-
     const container = typeof document !== 'undefined'
       ? document.querySelector('.scroll-container')
       : null;
+
+    // Re-measure whenever the page's length changes: the project sections
+    // coming into or going out of the scroll moves every boundary after them.
+    if (
+      runtimeProjectSectionsRef.current.length === 0 ||
+      (container && container.scrollHeight !== measuredScrollHeightRef.current)
+    ) {
+      measureProjectSectionsFromDom();
+    }
     const triggerPx = container
       // Use top-of-viewport anchoring for section/project detection so
       // about/projects boundary logic matches snap alignment exactly.
@@ -904,7 +922,9 @@ export const useUnifiedAnimationController = (options = {}) => {
     let currentZone = calculateCurrentZone(scrollProgress, config);
     let activeProject = activeProjectFromDom.project
       ? activeProjectFromDom
-      : calculateActiveProject(scrollProgress, config);
+      : projectSectionsOutOfFlowRef.current
+        ? { project: null, progress: 0 }
+        : calculateActiveProject(scrollProgress, config);
     let nearestSectionId = null;
     let nearestSectionTop = null;
 
@@ -930,7 +950,7 @@ export const useUnifiedAnimationController = (options = {}) => {
     // Resolve zone from the actual nearest DOM section first so camera and
     // focus logic don't fight static progress thresholds at section boundaries.
     if (container) {
-      const sections = Array.from(container.querySelectorAll('.scroll-section[id]'));
+      const sections = Array.from(container.querySelectorAll('.scroll-section[id]')).filter(isSectionInFlow);
       let nearestSection = null;
       let minDistance = Number.POSITIVE_INFINITY;
 
@@ -987,7 +1007,7 @@ export const useUnifiedAnimationController = (options = {}) => {
       const lastProjectSection = document.getElementById(`project-${lastProjectKey}`);
       const aboutSection = document.getElementById('about');
       const withinLastProjectScrollBand =
-        lastProjectSection &&
+        isSectionInFlow(lastProjectSection) &&
         aboutSection &&
         container.scrollTop >= (lastProjectSection.offsetTop - 1) &&
         container.scrollTop < (aboutSection.offsetTop - 1);
