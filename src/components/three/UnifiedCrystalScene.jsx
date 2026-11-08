@@ -5007,14 +5007,15 @@ const UnifiedCrystalScene = forwardRef(({
 
       {/* Backdrop halo glow — twice the spread, half the opacity, rendered
           behind the project facets (negative renderOrder) so the facets read as
-          dramatic silhouettes against it. */}
+          dramatic silhouettes against it. On a phone it spreads half as far, so
+          it lights the cluster without washing out the whole background. */}
       <GlowingSphereImage
         blendStyle={BLEND_STYLES.ADDITIVE}
         enableDithering={true}
         enableAntialiasing={true}
         textureFiltering="enhanced"
-        baseSize={2000}
-        maxScale={15000}
+        baseSize={isMobile ? 1000 : 2000}
+        maxScale={isMobile ? 7500 : 15000}
         maxOpacity={0.55}
         explosionDuration={0.05}
         fadeInDuration={0.02}

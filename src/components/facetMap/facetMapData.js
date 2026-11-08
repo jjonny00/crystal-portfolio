@@ -20,3 +20,14 @@ export const FACET_MAP_ORDER = facetMap.order;
 export const FACET_MAP_COLORS = Object.fromEntries(
   projects.map((project) => [project.facetKey || project.id, project.headlineColor || project.color]),
 );
+
+/**
+ * How the map marks the current fragment, also used for the dots on the mobile
+ * overview's label connectors: a dark 1px outline outside the shape, and a glow
+ * in the shape's own colour, two soft halos given as a box-shadow's blur.
+ */
+export const MARK_OUTLINE = '#161A32';
+export const MARK_GLOW = [
+  { blurPx: 8, opacity: 0.25 },
+  { blurPx: 25, opacity: 0.5 },
+];

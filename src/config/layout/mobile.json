@@ -9,7 +9,7 @@
       ],
       "overview": [
         0.1197,
-        1.0172,
+        1.5172,
         11.255
       ],
       "about": [
@@ -63,7 +63,7 @@
       ],
       "overview": [
         0.3,
-        0.05,
+        0.55,
         0
       ],
       "about": [
@@ -628,7 +628,7 @@
     "connectorGap": 5,
     "connectorRadius": 32,
     "connectorWidth": 1,
-    "connectorLift": 0.5,
+    "connectorLift": 0.15,
     "rightAlign": true,
     "items": {
       "project01": {

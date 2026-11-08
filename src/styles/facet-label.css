@@ -65,9 +65,13 @@
   text-decoration: none;
 }
 
+/* The descriptor is light, thin and small over a scene that can be light
+   anywhere, so it sits in a faint, wide darkening in the scene's deepest ink:
+   blurred far enough to read as the background, not as a shadow. */
 .placed-label .label-description {
   margin-top: 2px;
-  color: #b4b3be;
+  color: rgba(255, 252, 238, 0.87);
+  text-shadow: 0 0 16px rgba(7, 0, 21, 0.4);
 }
 
 /* The connector: drawn out from the label once it is up, then its dot lights. */

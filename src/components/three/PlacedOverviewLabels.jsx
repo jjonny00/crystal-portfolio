@@ -19,10 +19,15 @@ import Headline from '../ui/Headline';
 import { inPageLinkHandler } from '../../navigation/linkClick';
 import { projectPath } from '../../navigation/routes';
 import { OVERVIEW_TITLE_INK, connectorColor, connectorRoute } from './overviewLabelPlacement';
+import { MARK_GLOW, MARK_OUTLINE } from '../facetMap/facetMapData';
 
 // The least room kept between a label and the screen's right edge: where the
 // nav's last link ends.
 const EDGE_CLEARANCE_PX = 16;
+
+// How far round a connector's dot its glow is drawn: past where the widest
+// halo (25px blur) fades out.
+const DOT_GLOW_REACH_PX = 48;
 
 const PlacedLabel = ({
   project,
@@ -103,7 +108,7 @@ const PlacedLabel = ({
 
   const color = connectorColor(project, config);
   const gradientId = `overview-connector-${runtimeKey}`;
-  const haloId = `overview-connector-halo-${runtimeKey}`;
+  const glowId = `overview-connector-glow-${runtimeKey}`;
 
   return (
     <li
@@ -134,7 +139,7 @@ const PlacedLabel = ({
       {connector && (
         <svg className="placed-connector" aria-hidden="true" width="1" height="1">
           <defs>
-            {/* Faint at the label, full at the fragment. */}
+            {/* A little lighter at the label, full at the fragment. */}
             <linearGradient
               id={gradientId}
               gradientUnits="userSpaceOnUse"
@@ -143,13 +148,34 @@ const PlacedLabel = ({
               x2={connector.end.x}
               y2={connector.end.y}
             >
-              <stop offset="0" stopColor={color} stopOpacity="0.55" />
-              <stop offset="1" stopColor={color} stopOpacity="0.95" />
+              <stop offset="0" stopColor={color} stopOpacity="0.8" />
+              <stop offset="1" stopColor={color} stopOpacity="1" />
             </linearGradient>
-            <radialGradient id={haloId}>
-              <stop offset="0" stopColor={color} stopOpacity="0.55" />
-              <stop offset="1" stopColor={color} stopOpacity="0" />
-            </radialGradient>
+            {/* The facet map's mark: two soft halos in the dot's own colour
+                under it. In user space, around the dot, so the wide halo has
+                room on a 1px svg. */}
+            <filter
+              id={glowId}
+              filterUnits="userSpaceOnUse"
+              x={connector.end.x - DOT_GLOW_REACH_PX}
+              y={connector.end.y - DOT_GLOW_REACH_PX}
+              width={DOT_GLOW_REACH_PX * 2}
+              height={DOT_GLOW_REACH_PX * 2}
+              colorInterpolationFilters="sRGB"
+            >
+              {MARK_GLOW.map(({ blurPx, opacity }, index) => (
+                <React.Fragment key={blurPx}>
+                  <feFlood floodColor={color} floodOpacity={opacity} result={`flood${index}`} />
+                  <feComposite in={`flood${index}`} in2="SourceAlpha" operator="in" result={`shape${index}`} />
+                  {/* A box-shadow's blur is about two standard deviations. */}
+                  <feGaussianBlur in={`shape${index}`} stdDeviation={blurPx / 2} result={`glow${index}`} />
+                </React.Fragment>
+              ))}
+              <feMerge>
+                {[...MARK_GLOW.keys()].reverse().map((index) => <feMergeNode key={index} in={`glow${index}`} />)}
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
           </defs>
           <path
             ref={pathRef}
@@ -159,8 +185,18 @@ const PlacedLabel = ({
             strokeWidth={config.connectorWidth}
             style={{ '--connector-length': `${pathLength}px` }}
           />
-          <circle className="placed-connector-dot" cx={connector.end.x} cy={connector.end.y} r="7" fill={`url(#${haloId})`} />
-          <circle className="placed-connector-dot" cx={connector.end.x} cy={connector.end.y} r="2.5" fill={color} />
+          {/* A 2px stroke painted under the fill, so 1px of dark shows outside. */}
+          <circle
+            className="placed-connector-dot"
+            cx={connector.end.x}
+            cy={connector.end.y}
+            r="2.5"
+            fill={color}
+            stroke={MARK_OUTLINE}
+            strokeWidth="2"
+            paintOrder="stroke"
+            filter={`url(#${glowId})`}
+          />
         </svg>
       )}
 

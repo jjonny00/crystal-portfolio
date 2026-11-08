@@ -12,7 +12,14 @@
 // trigger, a panel row) carries the name and the current project in words.
 
 import React, { useId } from 'react';
-import { FACET_MAP_ASPECT, FACET_MAP_COLORS, FACET_MAP_ORDER, facetMap } from './facetMapData';
+import {
+  FACET_MAP_ASPECT,
+  FACET_MAP_COLORS,
+  FACET_MAP_ORDER,
+  MARK_GLOW,
+  MARK_OUTLINE,
+  facetMap,
+} from './facetMapData';
 
 /**
  * How each variant draws the fragments that are not current. `color` and
@@ -35,11 +42,8 @@ const restStyle = (variant, ink, restInk) => {
  * smaller maps (the phone's disc) take them in proportion, so the glow doesn't
  * swamp the button.
  */
-const CURRENT_OUTLINE = '#161A32';
-const GLOW = [
-  { blurPx: 8, opacity: 0.25 },
-  { blurPx: 25, opacity: 0.5 },
-];
+const CURRENT_OUTLINE = MARK_OUTLINE;
+const GLOW = MARK_GLOW;
 const GLOW_FULL_AT_HEIGHT = 72;
 
 const GLYPH_TRANSITION = [
